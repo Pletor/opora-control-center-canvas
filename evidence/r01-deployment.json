@@ -1,0 +1,17 @@
+{
+  "status": "pass",
+  "live_ui_read_only_smoke": "pass",
+  "live_ui_page_errors": [],
+  "url": "http://127.0.0.1:8740",
+  "observed_at": "2026-09-09T11:29:55.917088+00:00",
+  "git_head": "7cd062889bf6f0676cab6029e19190655c36708d",
+  "implementation_commit": "babb50c0b14809833320110dbc7f4bd1504a6d91",
+  "node_spec_routes_present": true,
+  "served_js_matches_build": true,
+  "served_js_sha256": "1e4891306d93f2237cb8b66d09da0ed51dae0227ef77f98d8058e16499337ce2",
+  "review_hashes_match": true,
+  "production_graph_unchanged": true,
+  "production_nodes": 0,
+  "execution_disabled": true,
+  "backup": ".data/backups/pre-r01-20260909T112718Z.sqlite"
+}
