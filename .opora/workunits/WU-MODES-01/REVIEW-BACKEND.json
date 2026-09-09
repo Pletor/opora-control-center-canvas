@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "security_concerns": [],
+  "logic_errors": [],
+  "suggestions": [],
+  "reviewed_hashes": {
+    "backend/app.py": {
+      "sha256": "6e996679fdd418c39349d97d756cc7780f62408c9c3b3b7dd8bf9f94112e0ec8",
+      "git_blob_sha1": "ae85dff8b701fd86fdc34486e8276881937477e5"
+    },
+    "backend/service.py": {
+      "sha256": "925e8a714107c08b39de6751b1118a1bb878dc52ebfe222ca5690691828c589c",
+      "git_blob_sha1": "4752e562ed573886c63cdffeb626860e4fd0b6c5"
+    },
+    "backend/graph.py": {
+      "sha256": "7253138b75bac3f5f6f800ffbb57c879c91e6cbe889f1d881559bbd1f17997bc",
+      "git_blob_sha1": "2411c97c4ff1385aa70ec6e361c6b8cfda97dcaa"
+    },
+    "backend/drawings.py": {
+      "sha256": "bb53dbd451d8ee7a39085be4b66d737a59be6fdf855da07f7b280cd6f2868a0d",
+      "git_blob_sha1": "d00b3a52dec2e27d9559662c3165351b910e62ce"
+    },
+    "tests/test_drawings.py": {
+      "sha256": "953a83dec38f537e9f64445ea8be7a035e5193698e4c59cc6cbdc320b624571e",
+      "git_blob_sha1": "b5f1eb7e7fe1e465d7b2a052b2943705372c8406"
+    },
+    "tests/test_map_links.py": {
+      "sha256": "c19d72c8a9b51537231decc3179281de4ebeaafbaae672eed8ae1e450a90e428",
+      "git_blob_sha1": "020521a5a215611ffe606697bb14ef918ba4ee4e"
+    }
+  },
+  "summary": "Independent staged-only review passed. Verified explicit root/node layer validation, project/workspace/archive guards through view/location, main GET readonly/unavailable behavior, SQLite BEGIN IMMEDIATE revision CAS with rollback, strict scene type/size/number/link checks, and retained parent containment/cycle checks while allowing valid cross-layer edges. Offline pytest tests/test_drawings.py tests/test_map_links.py: 19 passed (1 external TestClient deprecation warning). Staged diff --check passed. No reproducible blocker found."
+}

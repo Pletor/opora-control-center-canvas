@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .drawings import DrawingStore
 from .gitio import git, github_url
 from .graph import EMPTY, digest, encode, valid_id, validate_graph
 from .node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
@@ -30,6 +31,7 @@ class CanvasService:
         self.pool = ThreadPoolExecutor(max_workers=2)
         self.db = sqlite3.connect(self.root / "canvas.sqlite", check_same_thread=False)
         self.db.row_factory = sqlite3.Row
+        self.drawings = DrawingStore(self.db)
         self.specs = NodeSpecStore(self.db)
         self.removals = RemovalService(self)
         self.db.executescript("""CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT,repo TEXT,url TEXT,branch TEXT);
@@ -42,6 +44,48 @@ class CanvasService:
             "UPDATE jobs SET status='interrupted',message='Proces skončil před dokončením.' WHERE status IN ('queued','running')"
         )
         self.db.commit()
+
+    def drawing(self, pid, wid, layer, payload=None):
+        if not isinstance(layer, str) or len(layer) > 80 or (layer and not valid_id(layer)):
+            raise ValueError("Neplatná vrstva kresby.")
+        if payload is not None and set(payload) != {
+            "project",
+            "workspace",
+            "layer",
+            "expected_revision",
+            "scene",
+        }:
+            raise ValueError("Neplatný formát uložení kresby.")
+        with self.graph_lock:
+            view = self.view(pid, wid)
+            if layer and not any(node["id"] == layer for node in view["graph"]["nodes"]):
+                raise ValueError("Vrstva kresby v tomto pracovním prostoru neexistuje.")
+            if view["readOnly"]:
+                if payload is not None:
+                    raise ValueError("Main je pouze pro čtení.")
+                return {
+                    "scene": {"elements": []},
+                    "revision": 0,
+                    "readOnly": True,
+                    "available": False,
+                    "source": "Import kresby z Git mainu zatím není podporovaný.",
+                    "saved_at": None,
+                }
+            scope = (pid, wid, layer)
+            with self.lock:
+                result = (
+                    self.drawings.read(scope)
+                    if payload is None
+                    else self.drawings.save(
+                        scope, payload["expected_revision"], payload["scene"], now()
+                    )
+                )
+            return {
+                **result,
+                "readOnly": False,
+                "available": True,
+                "source": "Lokální kresba v SQLite; není součástí Git commitů.",
+            }
 
     def node_spec(self, pid, wid, node_id, payload=None, history=False):
         if payload is not None:

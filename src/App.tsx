@@ -1,5 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import Board from "./Board";
+import DrawingTools from "./DrawingTools";
+import { discardDrawingDrafts, type DrawingTool } from "./drawing-state";
+const DrawingWorkspace = lazy(() => import("./DrawingWorkspace"));
+import ProjectMap from "./ProjectMap";
+import WorkspaceSettings from "./WorkspaceSettings";
+import WorkspaceBoundary from "./WorkspaceBoundary";
+import {
+  readMode,
+  readSettings,
+  SETTINGS_KEY,
+  type WorkspaceMode,
+  type SurfaceSettings,
+} from "./workspace-settings";
+import { downloadArchify } from "./project-map";
+import "./workspace-modes.css";
 import NodePanel from "./NodePanel";
 import RemovalDialog from "./RemovalDialog";
 import { discardSpecDrafts } from "./NodeSpecEditor";
@@ -19,6 +34,19 @@ export default function App() {
   const [workspace, setWorkspace] = useState(
     initial.get("workspace") ?? "draft",
   );
+  const [drawingTool, setDrawingTool] = useState<DrawingTool>("selection");
+  const [drawingCommand, setDrawingCommand] = useState<{
+    type: DrawingTool;
+    sequence: number;
+  }>({ type: "selection", sequence: 0 });
+  const [drawingReady, setDrawingReady] = useState(false);
+  const [mode, setMode] = useState<WorkspaceMode>(() =>
+    readMode(initial.get("mode")),
+  );
+  const [settings, setSettings] = useState(readSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [linkSource, setLinkSource] = useState("");
+  const [linkTarget, setLinkTarget] = useState("");
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
@@ -26,7 +54,13 @@ export default function App() {
   const activeScope = useRef({ project, workspace });
   activeScope.current = { project, workspace };
   const activeContext = useRef("");
-  activeContext.current = JSON.stringify([project, workspace, parent, selected, selectedEdge]);
+  activeContext.current = JSON.stringify([
+    project,
+    workspace,
+    parent,
+    selected,
+    selectedEdge,
+  ]);
   const bootstrapGeneration = useRef(0);
   const [projects, setProjects] = useState<Project[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -73,10 +107,10 @@ export default function App() {
     refresh();
   }, [project, workspace]);
   useEffect(() => {
-    const q = new URLSearchParams({ project, workspace });
+    const q = new URLSearchParams({ project, workspace, mode });
     if (parent) q.set("layer", parent);
     history.replaceState(null, "", "/?" + q);
-  }, [project, workspace, parent]);
+  }, [project, workspace, parent, mode]);
   const completed = jobs
     .filter((j) => j.status === "complete" && j.project_id === project)
     .map((j) => j.id)
@@ -112,6 +146,12 @@ export default function App() {
   const layer = graph.nodes.find((n) => n.id === parent);
   const editable = !!view && !view.readOnly && !busy;
   const visible = graph.nodes.filter((n) => n.parentId === parent);
+  const visibleIds = new Set(visible.map((n) => n.id));
+  const outsideLinks = graph.edges.filter(
+    (e) =>
+      (visibleIds.has(e.source) || visibleIds.has(e.target)) &&
+      !(visibleIds.has(e.source) && visibleIds.has(e.target)),
+  ).length;
   const ancestors: CanvasNode[] = [];
   let cursor = layer;
   while (cursor) {
@@ -137,33 +177,90 @@ export default function App() {
     setWorkspace(id === "draft" ? "draft" : "main");
     enter(null);
   }
+  function updateSettings(value: SurfaceSettings) {
+    setSettings(value);
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(value));
+    } catch {
+      setError("Nastavení nyní platí, ale prohlížeč je nemohl uložit.");
+    }
+  }
+  function connectGraph(source: string, target: string) {
+    if (!editable || source === target) return;
+    if (graph.edges.some((e) => e.source === source && e.target === target)) {
+      setError("Toto propojení už existuje.");
+      return;
+    }
+    run(() =>
+      save({
+        ...graph,
+        edges: [...graph.edges, { id: crypto.randomUUID(), source, target }],
+      }),
+    );
+  }
   async function requestRemoval(kind: RemovalPreview["kind"], target: string) {
     const context = activeContext.current;
     await run(async () => {
-      const preview = await api<RemovalPreview>("/api/removal-preview?" + new URLSearchParams({ project, workspace: kind === "project" ? "main" : workspace, kind, target }));
+      const preview = await api<RemovalPreview>(
+        "/api/removal-preview?" +
+          new URLSearchParams({
+            project,
+            workspace: kind === "project" ? "main" : workspace,
+            kind,
+            target,
+          }),
+      );
       if (context === activeContext.current) setRemoval(preview);
     });
   }
   async function confirmRemoval(preview: RemovalPreview) {
-    const result = await api<{ view?: View; nodeIds?: string[]; removedProject?: string }>("/api/remove", {
-      project: preview.project, workspace: preview.workspace, kind: preview.kind,
-      target: preview.target, digest: preview.digest, confirmed: true,
+    const result = await api<{
+      view?: View;
+      nodeIds?: string[];
+      removedProject?: string;
+    }>("/api/remove", {
+      project: preview.project,
+      workspace: preview.workspace,
+      kind: preview.kind,
+      target: preview.target,
+      digest: preview.digest,
+      confirmed: true,
     });
     generation.current++;
     if (preview.kind === "project") {
       bootstrapGeneration.current++;
       discardSpecDrafts(preview.project);
+      discardDrawingDrafts(preview.project);
       setProjects((items) => items.filter((p) => p.id !== preview.project));
       setJobs((items) => items.filter((j) => j.project_id !== preview.project));
-      if (activeScope.current.project === preview.project) selectProject("draft");
+      if (activeScope.current.project === preview.project)
+        selectProject("draft");
       bootstrap().catch((e) => setError(String(e)));
     } else {
-      discardSpecDrafts(preview.project, preview.workspace, result.nodeIds ?? []);
-      if (activeScope.current.project === preview.project && activeScope.current.workspace === preview.workspace && result.view) {
-        setView(result.view); setSelected(null); setSelectedEdge(null);
+      discardSpecDrafts(
+        preview.project,
+        preview.workspace,
+        result.nodeIds ?? [],
+      );
+      discardDrawingDrafts(
+        preview.project,
+        preview.workspace,
+        result.nodeIds ?? [],
+      );
+      if (
+        activeScope.current.project === preview.project &&
+        activeScope.current.workspace === preview.workspace &&
+        result.view
+      ) {
+        setView(result.view);
+        setSelected(null);
+        setSelectedEdge(null);
+        if (parent && result.nodeIds?.includes(parent)) setParent(null);
       }
     }
-    setRemoval((current) => current?.digest === preview.digest ? null : current);
+    setRemoval((current) =>
+      current?.digest === preview.digest ? null : current,
+    );
   }
   return (
     <div className="app">
@@ -193,7 +290,16 @@ export default function App() {
           </label>
         </div>
         <button onClick={() => open("github")}>Připojit GitHub</button>
-        {project !== "draft" && <button className="danger" disabled={busy} onClick={() => requestRemoval("project", project)}>Odebrat repozitář</button>}
+        {project !== "draft" && (
+          <button
+            className="danger"
+            disabled={busy}
+            onClick={() => requestRemoval("project", project)}
+          >
+            Odebrat repozitář
+          </button>
+        )}
+        <button onClick={() => setSettingsOpen(true)}>Nastavení plochy</button>
         <span className="local-status">LOKÁLNĚ · {location.port}</span>
       </header>
       <div className="modebar">
@@ -283,68 +389,178 @@ export default function App() {
           </button>
         </div>
       )}
-      <div className="workspace-shell">
-        <aside className="tree">
-          <div className="eyebrow">STRUKTURA PROJEKTU</div>
-          <button
-            className={!parent ? "tree-row current" : "tree-row"}
-            onClick={() => enter(null)}
-          >
-            ◇ {activeProject?.name ?? "Nové plátno"}
-          </button>
-          {graph.nodes
-            .filter((n) => n.parentId === null)
-            .map((n) => (
-              <button
-                key={n.id}
-                className={
-                  "tree-row child " + (parent === n.id ? "current" : "")
-                }
-                onClick={() => enter(n.id)}
-              >
-                {n.kind === "sector" ? "▧" : "◈"} {n.name}
-              </button>
-            ))}
-          <div className="tree-help">
-            Sektor → uzel → poduzel.
-            <br />
-            Každý uzel má vlastní plátno.
-          </div>
-          <div className="source-block">
-            <div className="eyebrow">ZDROJ POHLEDU</div>
-            <p>{view?.source ?? "Načítám pouze vybraný pohled…"}</p>
-            {view && (
-              <small>
-                Pozorováno{" "}
-                {new Date(view.observedAt).toLocaleTimeString("cs-CZ")}
-              </small>
-            )}
-            {activeWorkspace && (
-              <>
-                <h4>Oddělený adresář</h4>
-                <code>{activeWorkspace.directory}</code>
-                <p>
-                  Vlastník: {activeWorkspace.actor}. Tím není potvrzena aktivita
-                  agenta.
+      <div className={"workspace-shell " + mode + "-mode"}>
+        <nav className="mode-rail" aria-label="Pracovní módy">
+          {(
+            [
+              ["structure", "Struktura", "◇"],
+              ["drawing", "Kreslení", "✎"],
+              ["map", "Mapa", "⌘"],
+            ] as const
+          ).map(([key, label, icon]) => (
+            <button
+              key={key}
+              aria-label={"Mód: " + label}
+              aria-pressed={mode === key}
+              onClick={() => setMode(key)}
+            >
+              <span>{icon}</span>
+              {label}
+            </button>
+          ))}
+        </nav>
+        <aside className="tree workspace-tools">
+          {mode === "drawing" ? (
+            <DrawingTools
+              tool={drawingTool}
+              ready={drawingReady && editable}
+              onTool={(type) =>
+                setDrawingCommand((old) => ({
+                  type,
+                  sequence: old.sequence + 1,
+                }))
+              }
+            />
+          ) : mode === "map" ? (
+            <>
+              <div className="eyebrow">MAPA CELÉHO PROJEKTU</div>
+              <h3>{activeProject?.name ?? "Lokální návrh"}</h3>
+              <p className="muted">{view?.source}</p>
+              {view?.graphStatus === "missing" && (
+                <p role="status">
+                  Repozitář nemá uložený graf. Tato mapa není automatická
+                  analýza jeho souborů.
                 </p>
-              </>
-            )}
-          </div>
-          <div className="jobs">
-            <div className="eyebrow">OPERACE</div>
-            {jobs.length ? (
-              jobs.slice(0, 4).map((j) => (
-                <div className="job" key={j.id}>
-                  <strong>
-                    {j.kind} · {j.status}
-                  </strong>
-                  <p>{j.message}</p>
-                </div>
-              ))
-            ) : (
-              <p>Žádná spuštěná Git operace.</p>
-            )}
-          </div>
+              )}
+              <p>
+                Uzly:{" "}
+                <strong data-testid="map-node-count">
+                  {graph.nodes.length}
+                </strong>
+                <br />
+                Propojení: {graph.edges.length}
+              </p>
+              <p className="muted">
+                Přerušované čáry: struktura. Plné čáry: explicitní propojení.
+                Dvojklik otevře uzel ve Struktuře.
+              </p>
+              <label className="field">
+                Propojit z
+                <select
+                  aria-label="Propojit z"
+                  value={linkSource}
+                  onChange={(e) => setLinkSource(e.target.value)}
+                >
+                  <option value="">Vyber uzel</option>
+                  {graph.nodes.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                Propojit do
+                <select
+                  aria-label="Propojit do"
+                  value={linkTarget}
+                  onChange={(e) => setLinkTarget(e.target.value)}
+                >
+                  <option value="">Vyber uzel</option>
+                  {graph.nodes.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                disabled={
+                  !editable ||
+                  !linkSource ||
+                  !linkTarget ||
+                  linkSource === linkTarget
+                }
+                onClick={() => connectGraph(linkSource, linkTarget)}
+              >
+                Propojit uzly
+              </button>
+              <button
+                onClick={() =>
+                  downloadArchify(graph, activeProject?.name ?? "Lokální návrh")
+                }
+              >
+                Export pro Archify
+              </button>
+              <p className="muted">
+                Export odráží tato data, nikoli odhad technologií ze zdrojového
+                kódu.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="eyebrow">STRUKTURA PROJEKTU</div>
+              <button
+                className={!parent ? "tree-row current" : "tree-row"}
+                onClick={() => enter(null)}
+              >
+                ◇ {activeProject?.name ?? "Nové plátno"}
+              </button>
+              {graph.nodes
+                .filter((n) => n.parentId === null)
+                .map((n) => (
+                  <button
+                    key={n.id}
+                    className={
+                      "tree-row child " + (parent === n.id ? "current" : "")
+                    }
+                    onClick={() => enter(n.id)}
+                  >
+                    {n.kind === "sector" ? "▧" : "◈"} {n.name}
+                  </button>
+                ))}
+              <div className="tree-help">
+                Sektor → uzel → poduzel.
+                <br />
+                Každý uzel má vlastní plátno.
+              </div>
+              <div className="source-block">
+                <div className="eyebrow">ZDROJ POHLEDU</div>
+                <p>{view?.source ?? "Načítám pouze vybraný pohled…"}</p>
+                {view && (
+                  <small>
+                    Pozorováno{" "}
+                    {new Date(view.observedAt).toLocaleTimeString("cs-CZ")}
+                  </small>
+                )}
+                {activeWorkspace && (
+                  <>
+                    <h4>Oddělený adresář</h4>
+                    <code>{activeWorkspace.directory}</code>
+                    <p>
+                      Vlastník: {activeWorkspace.actor}. Tím není potvrzena
+                      aktivita agenta.
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className="jobs">
+                <div className="eyebrow">OPERACE</div>
+                {jobs.length ? (
+                  jobs.slice(0, 4).map((j) => (
+                    <div className="job" key={j.id}>
+                      <strong>
+                        {j.kind} · {j.status}
+                      </strong>
+                      <p>{j.message}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p>Žádná spuštěná Git operace.</p>
+                )}
+              </div>
+            </>
+          )}
         </aside>
         <main className="canvas-area">
           <div className="canvas-toolbar">
@@ -357,13 +573,21 @@ export default function App() {
                 </span>
               ))}
             </nav>
+            {mode === "structure" && outsideLinks > 0 && (
+              <button onClick={() => setMode("map")}>
+                Vazby mimo vrstvu: {outsideLinks}
+              </button>
+            )}
             <div>
-              <button disabled={!editable} onClick={() => open("sector")}>
+              <button
+                disabled={!editable || mode !== "structure"}
+                onClick={() => open("sector")}
+              >
                 + Sektor
               </button>
               <button
                 className="primary"
-                disabled={!editable}
+                disabled={!editable || mode !== "structure"}
                 onClick={() => open("node")}
               >
                 + Uzel
@@ -372,50 +596,106 @@ export default function App() {
           </div>
           <div className="canvas-surface">
             {view ? (
-              <Board
-                key={project + workspace + parent}
-                scope={project + workspace + parent}
-                graph={graph}
-                parent={parent}
-                selected={selected}
-                disabled={!editable}
-                selectedEdge={selectedEdge}
-                onSelect={(id) => { setSelected(id); setSelectedEdge(null); }}
-                onSelectEdge={(id) => { setSelectedEdge(id); setSelected(null); }}
-                onEnter={enter}
-                onPosition={(id, x, y) =>
-                  run(() =>
-                    save({
-                      ...graph,
-                      nodes: graph.nodes.map((n) =>
-                        n.id === id ? { ...n, x, y } : n,
-                      ),
-                    }),
-                  )
-                }
-                onConnect={(c) => {
-                  if (c.source && c.target)
+              mode === "map" ? (
+                <ProjectMap
+                  graph={graph}
+                  projectName={activeProject?.name ?? "Lokální návrh"}
+                  selected={selected}
+                  selectedEdge={selectedEdge}
+                  settings={settings}
+                  readOnly={!editable}
+                  onSelect={(id) => {
+                    setSelected(id);
+                    setSelectedEdge(null);
+                  }}
+                  onSelectEdge={(id) => {
+                    setSelectedEdge(id);
+                    setSelected(null);
+                  }}
+                  onEnter={(id) => {
+                    enter(id);
+                    setMode("structure");
+                  }}
+                  onConnect={(c) => {
+                    if (c.source && c.target) connectGraph(c.source, c.target);
+                  }}
+                />
+              ) : mode === "drawing" ? (
+                <WorkspaceBoundary
+                  key={JSON.stringify([project, workspace, parent, mode])}
+                  onExit={() => setMode("structure")}
+                >
+                  <Suspense
+                    fallback={
+                      <div className="loading">Načítám kreslicí nástroje…</div>
+                    }
+                  >
+                    <DrawingWorkspace
+                      key={JSON.stringify([project, workspace, parent])}
+                      project={project}
+                      workspace={workspace}
+                      layer={parent ?? ""}
+                      tool={drawingCommand.type}
+                      toolSequence={drawingCommand.sequence}
+                      settings={settings}
+                      onTool={setDrawingTool}
+                      onReady={setDrawingReady}
+                    />
+                  </Suspense>
+                </WorkspaceBoundary>
+              ) : (
+                <Board
+                  key={project + workspace + parent}
+                  scope={project + workspace + parent}
+                  graph={graph}
+                  settings={settings}
+                  parent={parent}
+                  selected={selected}
+                  disabled={!editable}
+                  selectedEdge={selectedEdge}
+                  onSelect={(id) => {
+                    setSelected(id);
+                    setSelectedEdge(null);
+                  }}
+                  onSelectEdge={(id) => {
+                    setSelectedEdge(id);
+                    setSelected(null);
+                  }}
+                  onEnter={enter}
+                  onPosition={(id, x, y) =>
                     run(() =>
                       save({
                         ...graph,
-                        edges: [
-                          ...graph.edges,
-                          {
-                            id: crypto.randomUUID(),
-                            source: c.source!,
-                            target: c.target!,
-                          },
-                        ],
+                        nodes: graph.nodes.map((n) =>
+                          n.id === id ? { ...n, x, y } : n,
+                        ),
                       }),
-                    );
-                }}
-              />
+                    )
+                  }
+                  onConnect={(c) => {
+                    if (c.source && c.target)
+                      run(() =>
+                        save({
+                          ...graph,
+                          edges: [
+                            ...graph.edges,
+                            {
+                              id: crypto.randomUUID(),
+                              source: c.source!,
+                              target: c.target!,
+                            },
+                          ],
+                        }),
+                      );
+                  }}
+                />
+              )
             ) : (
               <div className="loading" role="status">
                 Načítám plátno…
               </div>
             )}
-            {view && !visible.length && (
+            {mode === "structure" && view && !visible.length && (
               <div className="empty-canvas">
                 <div className="empty-symbol">＋</div>
                 <h1>
@@ -455,7 +735,7 @@ export default function App() {
             </span>
           </footer>
         </main>
-        {node ? (
+        {mode === "drawing" ? null : node ? (
           <NodePanel
             key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
             node={node}
@@ -464,7 +744,10 @@ export default function App() {
             readOnly={!!view?.readOnly}
             busy={busy}
             workspaces={view?.workspaces ?? []}
-            onEnter={() => enter(node.id)}
+            onEnter={() => {
+              enter(node.id);
+              if (mode === "map") setMode("structure");
+            }}
             onDelete={() => requestRemoval("node", node.id)}
             onSave={(n) =>
               run(() =>
@@ -479,8 +762,22 @@ export default function App() {
         ) : edge ? (
           <aside className="detail">
             <div className="eyebrow">VAZBA · DETAIL</div>
-            <h2>{graph.nodes.find((n) => n.id === edge.source)?.name} → {graph.nodes.find((n) => n.id === edge.target)?.name}</h2>
-            <button className="danger wide" disabled={!editable} title={view?.readOnly ? "Main je pouze pro čtení." : "Zobrazit dopad před smazáním"} onClick={() => requestRemoval("edge", edge.id)}>Smazat vazbu</button>
+            <h2>
+              {graph.nodes.find((n) => n.id === edge.source)?.name} →{" "}
+              {graph.nodes.find((n) => n.id === edge.target)?.name}
+            </h2>
+            <button
+              className="danger wide"
+              disabled={!editable}
+              title={
+                view?.readOnly
+                  ? "Main je pouze pro čtení."
+                  : "Zobrazit dopad před smazáním"
+              }
+              onClick={() => requestRemoval("edge", edge.id)}
+            >
+              Smazat vazbu
+            </button>
           </aside>
         ) : (
           <aside className="detail idle">
@@ -515,7 +812,21 @@ export default function App() {
           </aside>
         )}
       </div>
-      {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
+      {settingsOpen && (
+        <WorkspaceSettings
+          value={settings}
+          onChange={updateSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+      {removal && (
+        <RemovalDialog
+          key={removal.digest}
+          preview={removal}
+          onClose={() => setRemoval(null)}
+          onConfirm={confirmRemoval}
+        />
+      )}
       {modal && (
         <div className="modal-backdrop">
           <section

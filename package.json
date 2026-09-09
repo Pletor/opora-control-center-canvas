@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/copy-drawing-assets.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
     "@xyflow/react": "12.11.6",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -22,5 +23,14 @@
     "prettier": "3.9.6",
     "typescript": "7.0.2",
     "vite": "6.4.3"
+  },
+  "overrides": {
+    "@excalidraw/excalidraw": {
+      "nanoid": "3.3.18"
+    },
+    "@excalidraw/mermaid-to-excalidraw": {
+      "nanoid": "5.1.16"
+    },
+    "lodash-es": "4.18.1"
   }
 }

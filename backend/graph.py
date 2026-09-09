@@ -70,8 +70,6 @@ def validate_graph(value):
             or edge["source"] == edge["target"]
         ):
             raise ValueError("Neplatná vazba.")
-        if parents[edge["source"]] != parents[edge["target"]]:
-            raise ValueError("Vazba musí spojovat uzly stejné vrstvy.")
         edge_ids.add(edge["id"])
     return value
 

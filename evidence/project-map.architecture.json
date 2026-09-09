@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "E2E fixture — mapa projektu",
+    "quality_profile": "standard"
+  },
+  "components": [
+    {
+      "id": "project",
+      "type": "external",
+      "label": "E2E fixture",
+      "sublabel": "Projekt",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        250,
+        90
+      ]
+    },
+    {
+      "id": "node_sector1",
+      "type": "backend",
+      "label": "Fixture sector",
+      "sublabel": "Sektor",
+      "pos": [
+        440,
+        40
+      ],
+      "size": [
+        250,
+        90
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "contains_sector1",
+      "from": "project",
+      "to": "node_sector1",
+      "label": "obsahuje",
+      "variant": "dashed"
+    }
+  ]
+}

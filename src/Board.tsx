@@ -12,6 +12,7 @@ import {
   type Connection,
   type Viewport,
 } from "@xyflow/react";
+import type { SurfaceSettings } from "./workspace-settings";
 import type { Graph } from "./types";
 const Card = memo(function Card({ data, selected }: NodeProps) {
   return (
@@ -37,6 +38,7 @@ const Card = memo(function Card({ data, selected }: NodeProps) {
 const nodeTypes = { canvas: Card };
 export default function Board({
   graph,
+  settings,
   parent,
   selected,
   scope,
@@ -49,6 +51,7 @@ export default function Board({
   onConnect,
 }: {
   graph: Graph;
+  settings: SurfaceSettings;
   parent: string | null;
   selected: string | null;
   scope: string;
@@ -104,6 +107,8 @@ export default function Board({
       minZoom={0.15}
       maxZoom={2}
       nodesDraggable={!disabled}
+      snapToGrid={settings.snap}
+      snapGrid={[settings.gridSize, settings.gridSize]}
       nodesConnectable={!disabled}
       deleteKeyCode={null}
       onNodesChange={(changes) => setNodes((n) => applyNodeChanges(changes, n))}
@@ -117,7 +122,9 @@ export default function Board({
         localStorage.setItem("viewport:" + scope, JSON.stringify(v))
       }
     >
-      <Background color="#303a43" gap={24} />
+      {settings.showGrid && (
+        <Background color="#303a43" gap={settings.gridSize} />
+      )}
       <Controls showInteractive={false} />
       <MiniMap
         nodeColor={(n) => (n.data.kind === "sector" ? "#5f947f" : "#526b89")}

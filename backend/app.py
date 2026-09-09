@@ -85,6 +85,16 @@ def create_app(data_root=None):
     def view(project: str = "draft", workspace: str = "draft"):
         return service.view(project, workspace)
 
+    @app.get("/api/drawing")
+    def drawing(project: str, workspace: str, layer: str = ""):
+        return service.drawing(project, workspace, layer)
+
+    @app.post("/api/drawing")
+    def save_drawing(payload: dict):
+        return service.drawing(
+            payload.get("project"), payload.get("workspace"), payload.get("layer"), payload
+        )
+
     @app.post("/api/graph")
     def graph(payload: dict):
         return service.save_graph(
