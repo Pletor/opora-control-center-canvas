@@ -2,6 +2,14 @@
 
 Samostatný nový Canvas. Není závislý na starém OporaCC, Bridge ani na předchozím pokusu OporaCC-v3.
 
+## Pracovní módy — 2026-09-09
+
+Vlevo přepínej **Struktura / Kreslení / Mapa**, nahoře otevři **Nastavení plochy**. Kreslení používá lokálně dodaný Excalidraw a ukládá kresbu podle projektu/pracovního prostoru/vrstvy tlačítkem **Uložit kresbu**. Mapa vychází ze skutečných uzlů a propojení; podporuje i vazby napříč vrstvami a export JSON pro Archify. Nakreslená šipka není automaticky strukturální vazba.
+
+Neuložené kresby zůstávají při přepínání módů v otevřené aplikaci; před reloadem je ulož. Main je read-only. Import obrázků/souborů a automatické mapování codebase zatím nejsou součástí tohoto řezu. Podrobnosti a důkazy: [.opora/workunits/WU-MODES-01/RESULT.md](.opora/workunits/WU-MODES-01/RESULT.md).
+
+`npm ci` instaluje i Excalidraw, `npm run build` zkopíruje fonty do lokálního dist. Runtime nevyžaduje CDN. Licenční notices jsou v `public/third-party-notices.txt` a ve výsledném buildu.
+
 ## Mazání položek — 2026-09-09
 
 Vyber uzel/sektor a použij **Smazat uzel / Smazat sektor** v detailu. Klikni na vazbu a zvol **Smazat vazbu**. Vybraný repozitář lze **Odebrat** tlačítkem v horní liště. Vše má potvrzovací náhled; sektor zahrnuje potomky a související vazby. Zrušit/Escape nic nemaže; změněná revize vyžaduje nový náhled.

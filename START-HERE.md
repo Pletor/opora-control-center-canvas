@@ -10,6 +10,10 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 - Zpracované podklady a mapa: [přehled syntézy](docs/source-synthesis/2026-09-09/README.md).
 - První rozpracovaný řez: **R01 — editor zadání uzlu**, podklady a výsledek v [.opora/workunits/WU-R01/RESULT.md](.opora/workunits/WU-R01/RESULT.md). Editor je implementovaný a testovaný; další moduly přibývají po ověřených řezech.
 
+## Nově: pracovní módy
+
+**Struktura / Kreslení / Mapa** vlevo, **Nastavení plochy** nahoře. Kresby jsou samostatné pro každou vrstvu a mají ruční ukládání; Mapa používá skutečný graph a exportuje pro Archify. [Ovládání a důkazy](.opora/workunits/WU-MODES-01/RESULT.md).
+
 ## Nově: odstranění vložených položek
 
 Uzel/sektor/vazbu smažeš z detailu s potvrzením dopadu; repozitář odebereš horním tlačítkem. GitHub a lokální soubory se nemažou. [Ovládání a důkazy](.opora/workunits/WU-DELETE-01/RESULT.md).
