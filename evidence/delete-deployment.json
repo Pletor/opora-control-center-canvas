@@ -1,0 +1,17 @@
+{
+  "status": "pass",
+  "observed_at": "2026-09-09T12:45:46.499436+00:00",
+  "url": "http://127.0.0.1:8740",
+  "implementation_commit": "08a87b9202fbd0e0c247036235b366e596c9cf42",
+  "source_head": "8d1182a6595e957396bea20f9fd0147c137ff4eb",
+  "project_count": 2,
+  "draft_node_count": 3,
+  "project_registry_unchanged": true,
+  "draft_unchanged": true,
+  "backup": ".data\\backups\\pre-delete-20260909T124124Z.sqlite",
+  "review_hashes_match": true,
+  "served_build_matches": true,
+  "live_ui_preview_cancel": "pass",
+  "live_ui_mutation_requests": [],
+  "live_ui_errors": []
+}
