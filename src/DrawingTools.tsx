@@ -1,12 +1,21 @@
 import { DRAWING_TOOLS, type DrawingTool } from "./drawing-state";
+import WireframeTools from "./WireframeTools";
+import type { WireframeKind } from "./wireframe-model";
+
 export default function DrawingTools({
   tool,
   ready,
   onTool,
+  wireframeMode = false,
+  onWireframeMode,
+  onInsertWireframe,
 }: {
   tool: DrawingTool;
   ready: boolean;
   onTool: (tool: DrawingTool) => void;
+  wireframeMode?: boolean;
+  onWireframeMode?: (enabled: boolean) => void;
+  onInsertWireframe?: (kind: WireframeKind) => void;
 }) {
   return (
     <>
@@ -24,6 +33,14 @@ export default function DrawingTools({
           </button>
         ))}
       </div>
+      {onWireframeMode && onInsertWireframe && (
+        <WireframeTools
+          enabled={wireframeMode}
+          ready={ready}
+          onEnabled={onWireframeMode}
+          onInsert={onInsertWireframe}
+        />
+      )}
       <p className="muted">
         Kresba patří aktuální vrstvě. Tvary nejsou uzly projektu. Kresbu ukládej
         tlačítkem nad plochou.

@@ -1,0 +1,37 @@
+import { test, expect } from "@playwright/test";
+
+test("fractal text shares nodes, nests and persists safely", async ({ page, context }) => {
+  await page.goto("/?screen=canvas");
+  await page.getByRole("button", { name: "+ Sektor", exact: true }).click();
+  await page.getByLabel("Název uzlu").fill("Textový sektor");
+  await page.getByRole("button", { name: "Vytvořit", exact: true }).click();
+  await page.getByLabel("Text uzlu").fill("Sektor\n<script>window.injected=true</script>");
+  await page.getByRole("button", { name: "Uložit text", exact: true }).click();
+  await expect(page.getByTestId("text-status")).toContainText("Uloženo · verze 1");
+  await page.getByRole("button", { name: "Otevřít vnitřní plátno", exact: true }).click();
+  await page.getByRole("button", { name: "Mód: Text", exact: true }).click();
+  await page.getByRole("button", { name: "+ Uzel", exact: true }).click();
+  await page.getByLabel("Název uzlu").fill("Odstavec jako uzel");
+  await page.getByRole("button", { name: "Vytvořit", exact: true }).click();
+  const child = page.getByTestId("text-block").filter({ hasText: "Odstavec jako uzel" });
+  await child.getByLabel("Text uzlu").fill("Dítě se stejnou identitou jako Canvas");
+  await child.getByRole("button", { name: "Uložit text", exact: true }).click();
+  await expect(child.getByTestId("text-status")).toContainText("Uloženo · verze 1");
+  const second = await context.newPage(); await second.goto(page.url());
+  await second.getByTestId("text-block").filter({ hasText: "Odstavec jako uzel" }).getByLabel("Text uzlu").fill("Konfliktní text");
+  await child.getByLabel("Text uzlu").fill("Novější text");
+  await child.getByRole("button", { name: "Uložit text", exact: true }).click();
+  await expect(child.getByTestId("text-status")).toContainText("verze 2");
+  await second.getByTestId("text-block").filter({ hasText: "Odstavec jako uzel" }).getByRole("button", { name: "Uložit text", exact: true }).click();
+  await expect(second.getByRole("alert")).toContainText("Konflikt");
+  await second.close();
+  await page.reload();
+  await expect(child.getByLabel("Text uzlu")).toHaveValue("Novější text");
+  await expect(page.getByLabel("Text uzlu").first()).toHaveValue("Sektor\n<script>window.injected=true</script>");
+  expect(await page.evaluate(() => (window as any).injected)).toBeUndefined();
+  await child.getByRole("button", { name: "Zanořit", exact: true }).click();
+  await expect(page.getByLabel("Text uzlu")).toHaveValue("Novější text");
+  await page.reload();
+  await expect(page.getByLabel("Text uzlu")).toHaveValue("Novější text");
+  await page.screenshot({ path: "evidence/fractal-text.png", fullPage: true });
+});

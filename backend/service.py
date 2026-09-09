@@ -12,6 +12,8 @@ from .drawings import DrawingStore
 from .gitio import git, github_url
 from .graph import EMPTY, digest, encode, valid_id, validate_graph
 from .node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
+from .node_text import NodeTextStore
+from .project_hub import ProjectHub
 from .removals import RemovalService
 
 GRAPH_FILE = "opora-canvas.json"
@@ -44,6 +46,8 @@ class CanvasService:
             "UPDATE jobs SET status='interrupted',message='Proces skončil před dokončením.' WHERE status IN ('queued','running')"
         )
         self.db.commit()
+        self.project_hub = ProjectHub(self)
+        self.texts = NodeTextStore(self)
 
     def drawing(self, pid, wid, layer, payload=None):
         if not isinstance(layer, str) or len(layer) > 80 or (layer and not valid_id(layer)):
@@ -140,10 +144,12 @@ class CanvasService:
     def bootstrap(self):
         with self.lock:
             return {
+                "draft": self.project_hub.settings("draft")["project"],
                 "projects": [
-                    dict(r)
+                    {key: r[key] for key in ("id", "name", "url", "branch")}
+                    | self.project_hub.source_info(dict(r))
                     for r in self.db.execute(
-                        "SELECT id,name,url,branch FROM projects WHERE id NOT IN (SELECT project_id FROM archived_projects) ORDER BY name"
+                        "SELECT id,name,repo,url,branch FROM projects WHERE id NOT IN (SELECT project_id FROM archived_projects) ORDER BY name"
                     )
                 ],
                 "jobs": [
@@ -175,6 +181,8 @@ class CanvasService:
 
     def location(self, pid, wid):
         project = self.row("projects", pid)
+        if self.project_hub.source_info(project)["sourceKind"] != "git":
+            raise ValueError("Lokální a prázdné projekty používají pouze pracovní prostor draft.")
         if wid == "main":
             return Path(project["repo"]), project
         workspace = self.row("workspaces", wid)
@@ -193,6 +201,27 @@ class CanvasService:
                     "digest": digest(graph),
                     "readOnly": False,
                     "source": "Lokální návrh, není schválený main",
+                    "sha": None,
+                    "branch": None,
+                    "dirty": False,
+                    "graphStatus": "present",
+                    "workspaces": [],
+                    "observedAt": now(),
+                }
+            project = self.row("projects", pid)
+            source = self.project_hub.source_info(project)
+            if source["sourceKind"] != "git":
+                if wid != "draft":
+                    raise ValueError("Lokální a prázdné projekty používají pouze pracovní prostor draft.")
+                row = self.db.execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()
+                if row is None:
+                    raise ValueError("Projektový draft nebyl nalezen.")
+                graph = json.loads(row[0])
+                return {
+                    "graph": graph,
+                    "digest": digest(graph),
+                    "readOnly": False,
+                    "source": "Lokální graf projektu v SQLite; zdrojová složka nebyla načtena.",
                     "sha": None,
                     "branch": None,
                     "dirty": False,
@@ -244,9 +273,9 @@ class CanvasService:
                     new_ids = {item["id"] for item in graph[collection]}
                     if old_ids - new_ids:
                         raise ValueError("Mazání vyžaduje náhled a potvrzení odstranění.")
-            if pid == "draft":
+            if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
                 with self.lock:
-                    self.db.execute("UPDATE drafts SET graph=? WHERE id='draft'", (encode(graph),))
+                    self.db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(graph), pid))
                     self.db.commit()
             else:
                 location, _ = self.location(pid, wid)
@@ -267,6 +296,8 @@ class CanvasService:
         with self.git_lock:
             with self.lock:
                 project = self.row("projects", pid)
+                if self.project_hub.source_info(project)["sourceKind"] != "git":
+                    raise ValueError("Lokální a prázdné projekty nevytvářejí Git pracovní prostory.")
             base = git(project["repo"], "rev-parse", "HEAD")
             wid = uuid.uuid4().hex
             branch = "work/" + wid
@@ -338,6 +369,8 @@ class CanvasService:
     def sync(self, pid):
         with self.lock:
             project = self.row("projects", pid)
+            if self.project_hub.source_info(project)["sourceKind"] != "git":
+                raise ValueError("Lokální a prázdné projekty nelze synchronizovat přes Git.")
 
         def synchronize():
             repo = project["repo"]

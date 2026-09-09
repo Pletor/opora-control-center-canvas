@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 test("main and two real worktrees never mix their graph content", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await page.getByLabel("Projekt", { exact: true }).selectOption("fixture");
   await expect(
     page.getByRole("button", { name: "+ Sektor", exact: true }),

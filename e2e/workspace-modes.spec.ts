@@ -12,7 +12,7 @@ test("workspace modes and actual grid settings survive reload", async ({
   expect(drawingEntry.isDynamicEntry).toBe(true);
   const resources: string[] = [];
   page.on("request", (r) => resources.push(r.url()));
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await expect(
     page.getByRole("button", { name: "Mód: Struktura", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -80,7 +80,7 @@ test("map shows actual hierarchy and exports source-backed Archify JSON", async 
 });
 
 test("map creates a real cross-layer connection", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
   expect(new URL(origin).port).toBe("8741");
   const current = await (await page.request.get("/api/view")).json();
@@ -175,7 +175,7 @@ test("map creates a real cross-layer connection", async ({ page }) => {
 test("grid snapping changes actual saved node coordinates", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
   const view = await (await page.request.get("/api/view")).json();
   const id = "grid-" + Date.now();
@@ -233,7 +233,7 @@ test("grid snapping changes actual saved node coordinates", async ({
 test("deleting an ancestor from global map repairs active layer", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
   const view = await (await page.request.get("/api/view")).json();
   const parent = "ancestor-" + Date.now(),
@@ -302,7 +302,7 @@ test("drawing module load failure does not take down the editor shell", async ({
   );
   const entry = manifest[manifest["index.html"].dynamicImports[0]];
   await page.route("**/" + entry.file, (route) => route.abort());
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await page
     .getByRole("button", { name: "Mód: Kreslení", exact: true })
     .click();

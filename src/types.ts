@@ -34,7 +34,7 @@ export type View = {
   workspaces: Workspace[];
   observedAt: string;
 };
-export type Project = { id: string; name: string; url: string; branch: string };
+export type Project = { id: string; name: string; url: string | null; branch: string | null; sourceKind?: string; sourcePath?: string | null };
 export type Job = {
   id: string;
   kind: string;

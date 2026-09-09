@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 const n = (id: string, parentId: string | null = null, kind = "node", x = 0) => ({ id, parentId, kind, name: id, purpose: "", x, y: 0 });
 async function seed(page: Page, graph: object) {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
   expect(new URL(origin).port).toBe("8741");
   const prior = await (await page.request.get(origin + "/api/view")).json();

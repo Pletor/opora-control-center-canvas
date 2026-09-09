@@ -1,4 +1,4 @@
-export type WorkspaceMode = "structure" | "drawing" | "map";
+export type WorkspaceMode = "structure" | "drawing" | "map" | "text";
 export type SurfaceSettings = {
   showGrid: boolean;
   snap: boolean;
@@ -29,5 +29,5 @@ export function readSettings(): SurfaceSettings {
   return { ...DEFAULT_SETTINGS };
 }
 export function readMode(value: string | null): WorkspaceMode {
-  return value === "drawing" || value === "map" ? value : "structure";
+  return value === "drawing" || value === "map" || value === "text" ? value : "structure";
 }

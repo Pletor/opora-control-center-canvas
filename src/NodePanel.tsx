@@ -1,5 +1,6 @@
 import { useState } from "react";
 import NodeSpecEditor from "./NodeSpecEditor";
+import NodeTextEditor from "./NodeTextEditor";
 import type { CanvasNode, Workspace } from "./types";
 export default function NodePanel({
   node,
@@ -42,6 +43,7 @@ export default function NodePanel({
       </button>
       <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
       <h3>Podstata</h3>
+      <NodeTextEditor key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} node={node.id} />
       <label className="field">
         Proč tento uzel existuje
         <textarea

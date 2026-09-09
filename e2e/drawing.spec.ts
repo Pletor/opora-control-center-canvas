@@ -68,7 +68,7 @@ async function newDrawingLayer(
   page: import("@playwright/test").Page,
   name: string,
 ) {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
   expect(new URL(origin).port).toBe("8741");
   const current = await (await page.request.get("/api/view")).json();

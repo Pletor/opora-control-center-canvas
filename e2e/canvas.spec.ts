@@ -5,7 +5,7 @@ test("empty Canvas is interactive, creates nested nodes and restores layer", asy
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   const start = Date.now();
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await expect(
     page.getByRole("button", { name: "+ Sektor", exact: true }),
   ).toBeEnabled();

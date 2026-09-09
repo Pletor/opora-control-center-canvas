@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import Board from "./Board";
+import ProjectHome from "./ProjectHome";
+import TextWorkspace from "./TextWorkspace";
+import PlanPanel from "./PlanPanel";
+import CodingPanel from "./CodingPanel";
+import type { WireframeKind } from "./wireframe-model";
 import DrawingTools from "./DrawingTools";
 import { discardDrawingDrafts, type DrawingTool } from "./drawing-state";
 const DrawingWorkspace = lazy(() => import("./DrawingWorkspace"));
@@ -30,6 +35,11 @@ import {
 } from "./types";
 const initial = new URLSearchParams(location.search);
 export default function App() {
+  const [screen, setScreen] = useState<"home" | "canvas">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
+  const [draftProject, setDraftProject] = useState<Project | undefined>();
+  const [wireframeMode, setWireframeMode] = useState(initial.get("wireframe") === "1");
+  const [wireframeInsert, setWireframeInsert] = useState<{ kind: WireframeKind; sequence: number }>();
+  const lastLoadedScope = useRef("");
   const [project, setProject] = useState(initial.get("project") ?? "draft");
   const [workspace, setWorkspace] = useState(
     initial.get("workspace") ?? "draft",
@@ -77,9 +87,10 @@ export default function App() {
   const generation = useRef(0);
   async function bootstrap() {
     const ticket = ++bootstrapGeneration.current;
-    const b = await api<{ projects: Project[]; jobs: Job[] }>("/api/bootstrap");
+    const b = await api<{ projects: Project[]; jobs: Job[]; draft?: Project }>("/api/bootstrap");
     if (ticket !== bootstrapGeneration.current) return;
     setProjects(b.projects);
+    setDraftProject(b.draft);
     setJobs(b.jobs);
   }
   async function refresh() {
@@ -100,23 +111,25 @@ export default function App() {
     return () => clearInterval(t);
   }, []);
   useEffect(() => {
-    setSelected(null);
-    setSelectedEdge(null);
-    setRemoval(null);
+    const nextScope = JSON.stringify([project, workspace]);
+    if (lastLoadedScope.current !== nextScope) {
+      setSelected(null); setSelectedEdge(null); setRemoval(null); lastLoadedScope.current = nextScope;
+    }
     setError("");
-    refresh();
-  }, [project, workspace]);
+    if (screen === "canvas") refresh(); else generation.current++;
+  }, [project, workspace, screen]);
   useEffect(() => {
-    const q = new URLSearchParams({ project, workspace, mode });
+    const q = new URLSearchParams({ project, workspace, mode, screen });
     if (parent) q.set("layer", parent);
+    if (wireframeMode) q.set("wireframe", "1");
     history.replaceState(null, "", "/?" + q);
-  }, [project, workspace, parent, mode]);
+  }, [project, workspace, parent, mode, screen, wireframeMode]);
   const completed = jobs
     .filter((j) => j.status === "complete" && j.project_id === project)
     .map((j) => j.id)
     .join(",");
   useEffect(() => {
-    if (completed) refresh();
+    if (completed && screen === "canvas") refresh();
   }, [completed]);
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -159,7 +172,8 @@ export default function App() {
     cursor = graph.nodes.find((n) => n.id === cursor!.parentId);
   }
   const activeWorkspace = view?.workspaces.find((w) => w.id === workspace);
-  const activeProject = projects.find((p) => p.id === project);
+  const activeProject = project === "draft" ? draftProject : projects.find((p) => p.id === project);
+  const localProject = project === "draft" || ["local", "empty", "builtin"].includes(activeProject?.sourceKind ?? "");
   function open(kind: typeof modal) {
     setModal(kind);
     setName("");
@@ -170,11 +184,12 @@ export default function App() {
     setSelected(null);
     setSelectedEdge(null);
   }
-  function selectProject(id: string) {
+  function selectProject(id: string, sourceKind?: string) {
     generation.current++;
     setView(null);
     setProject(id);
-    setWorkspace(id === "draft" ? "draft" : "main");
+    const kind = sourceKind ?? projects.find((p) => p.id === id)?.sourceKind;
+    setWorkspace(id === "draft" || ["local", "empty", "builtin"].includes(kind ?? "") ? "draft" : "main");
     enter(null);
   }
   function updateSettings(value: SurfaceSettings) {
@@ -262,6 +277,10 @@ export default function App() {
       current?.digest === preview.digest ? null : current,
     );
   }
+  if (screen === "home") return <>
+    <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => setScreen("canvas")} onRemove={() => requestRemoval("project", project)} renderLLM={(_snapshot, dirty) => <><PlanPanel key={project + ":plan"} project={project} dirty={dirty} /><CodingPanel key={project + ":coding"} project={project} dirty={dirty} /></>} />
+    {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
+  </>;
   return (
     <div className="app">
       <header className="header">
@@ -280,7 +299,7 @@ export default function App() {
               value={project}
               onChange={(e) => selectProject(e.target.value)}
             >
-              <option value="draft">Lokální návrh · bez repozitáře</option>
+              <option value="draft">{draftProject?.name ?? "Lokální návrh"} · bez repozitáře</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -289,8 +308,8 @@ export default function App() {
             </select>
           </label>
         </div>
-        <button onClick={() => open("github")}>Připojit GitHub</button>
-        {project !== "draft" && (
+        <button onClick={() => setScreen("home")}>Nastavení projektu</button>
+        {!localProject && (
           <button
             className="danger"
             disabled={busy}
@@ -306,7 +325,7 @@ export default function App() {
         <div className="modes">
           <button
             className={workspace === "main" ? "active" : ""}
-            disabled={busy || project === "draft"}
+            disabled={busy || localProject}
             onClick={() => {
               setWorkspace("main");
               enter(null);
@@ -318,7 +337,7 @@ export default function App() {
             className={workspace !== "main" ? "active" : ""}
             disabled={busy}
             onClick={() => {
-              if (project === "draft") setWorkspace("draft");
+              if (localProject) setWorkspace("draft");
               else if (view?.workspaces.length) {
                 setWorkspace(view.workspaces[0].id);
                 enter(null);
@@ -346,7 +365,7 @@ export default function App() {
           </select>
         )}
         <div className="revision">
-          {project === "draft" ? (
+          {localProject ? (
             "Návrh není schválený main"
           ) : (
             <>
@@ -362,7 +381,7 @@ export default function App() {
         <button disabled={busy} onClick={() => run(refresh)}>
           Obnovit pohled
         </button>
-        {project !== "draft" && (
+        {!localProject && (
           <button
             disabled={busy}
             onClick={() => {
@@ -394,6 +413,7 @@ export default function App() {
           {(
             [
               ["structure", "Struktura", "◇"],
+              ["text", "Text", "¶"],
               ["drawing", "Kreslení", "✎"],
               ["map", "Mapa", "⌘"],
             ] as const
@@ -412,6 +432,9 @@ export default function App() {
         <aside className="tree workspace-tools">
           {mode === "drawing" ? (
             <DrawingTools
+              wireframeMode={wireframeMode}
+              onWireframeMode={setWireframeMode}
+              onInsertWireframe={(kind) => setWireframeInsert((old) => ({ kind, sequence: (old?.sequence ?? 0) + 1 }))}
               tool={drawingTool}
               ready={drawingReady && editable}
               onTool={(type) =>
@@ -580,14 +603,14 @@ export default function App() {
             )}
             <div>
               <button
-                disabled={!editable || mode !== "structure"}
+                disabled={!editable || (mode !== "structure" && mode !== "text")}
                 onClick={() => open("sector")}
               >
                 + Sektor
               </button>
               <button
                 className="primary"
-                disabled={!editable || mode !== "structure"}
+                disabled={!editable || (mode !== "structure" && mode !== "text")}
                 onClick={() => open("node")}
               >
                 + Uzel
@@ -596,7 +619,9 @@ export default function App() {
           </div>
           <div className="canvas-surface">
             {view ? (
-              mode === "map" ? (
+              mode === "text" ? (
+                <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} onEnter={enter} />
+              ) : mode === "map" ? (
                 <ProjectMap
                   graph={graph}
                   projectName={activeProject?.name ?? "Lokální návrh"}
@@ -631,6 +656,8 @@ export default function App() {
                     }
                   >
                     <DrawingWorkspace
+                      wireframeMode={wireframeMode}
+                      wireframeInsert={wireframeInsert}
                       key={JSON.stringify([project, workspace, parent])}
                       project={project}
                       workspace={workspace}
@@ -735,7 +762,7 @@ export default function App() {
             </span>
           </footer>
         </main>
-        {mode === "drawing" ? null : node ? (
+        {mode === "drawing" || mode === "text" ? null : node ? (
           <NodePanel
             key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
             node={node}
@@ -804,7 +831,7 @@ export default function App() {
               Merge se řídí schválenými pravidly repozitáře. Toto plátno samo
               nepovoluje push ani spuštění agenta.
             </p>
-            {project !== "draft" && (
+            {!localProject && (
               <button onClick={() => open("workspace")}>
                 Nový pracovní prostor
               </button>
@@ -893,7 +920,7 @@ export default function App() {
             ) : modal === "workspace" ? (
               <>
                 <h2>Oddělený pracovní prostor</h2>
-                {project === "draft" ? (
+                {localProject ? (
                   <p>
                     Nejdřív připojte schválený GitHub repozitář. Lokální návrh
                     se tím nesmaže.

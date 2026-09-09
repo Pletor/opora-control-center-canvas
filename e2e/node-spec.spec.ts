@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test("node assignment saves and survives reload", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await expect(page.locator(".local-status")).toHaveText("LOKÁLNĚ · " + new URL(page.url()).port);
   await page.getByRole("button", { name: "+ Uzel", exact: true }).click();
   await page.getByLabel("Název uzlu").fill("Zadání R01");
@@ -27,7 +27,7 @@ async function newNode(page: import("@playwright/test").Page, name: string) {
 }
 
 test("unsaved assignment survives switching nodes", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await newNode(page, "Rozepsané A");
   await page.getByLabel("Cíl práce").fill("Neztratit při přepnutí");
   await newNode(page, "Rozepsané B");
@@ -38,10 +38,10 @@ test("unsaved assignment survives switching nodes", async ({ page }) => {
 });
 
 test("two editor windows show conflict without losing local text", async ({ page, context }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await newNode(page, "Souběh R01");
   const second = await context.newPage();
-  await second.goto("/");
+  await second.goto("/?screen=canvas");
   await second.locator(".react-flow__node").filter({ hasText: "Souběh R01" }).click();
   await second.getByLabel("Cíl práce").fill("Text druhého okna");
   await page.getByLabel("Cíl práce").fill("První schválený text");
@@ -62,7 +62,7 @@ test("main assignment is visibly read-only and unavailable", async ({ page }) =>
 });
 
 test("failed save preserves text and retry succeeds", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await newNode(page, "Chyba uložení R01");
   await page.getByLabel("Cíl práce").fill("Tento text nesmí zmizet");
   await page.route("**/api/node-spec", (route) => route.fulfill({ status: 503, json: { error: "Úložiště dočasně nedostupné" } }));
@@ -79,7 +79,7 @@ test("failed save preserves text and retry succeeds", async ({ page }) => {
 });
 
 test("late response cannot overwrite another selected node", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?screen=canvas");
   await newNode(page, "Pozdní A");
   const a = await page.locator(".react-flow__node").filter({ hasText: "Pozdní A" }).getAttribute("data-id");
   await newNode(page, "Pozdní B");

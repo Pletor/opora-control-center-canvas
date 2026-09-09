@@ -1,0 +1,24 @@
+.project-home { min-height: 100dvh; display: grid; grid-template-columns: 270px minmax(0, 1fr); background: #11171e; }
+.hub-sidebar { background: #171f29; border-right: 1px solid #2c3947; padding: 24px 18px; }
+.hub-brand { display: flex; gap: 12px; align-items: center; margin-bottom: 36px; }
+.hub-brand strong { display: block; letter-spacing: 3px; font-size: 20px; }
+.hub-brand small { display: block; letter-spacing: 2px; font-size: 10px; margin-top: 4px; }
+.hub-project { display: block; text-align: left; width: 100%; margin: 7px 0; padding: 12px; border-color: transparent; background: transparent; }
+.hub-project strong,.hub-project small { display: block; overflow-wrap: anywhere; }
+.hub-project small { color: #9baab4; font-size: 11px; margin-top: 6px; }
+.hub-project.active { border-color: #4e725d; background: #25392e; }
+.hub-connect { margin-top: 30px; border-top: 1px solid #344252; padding-top: 4px; }
+.hub-connect .muted { font-size: 11px; line-height: 1.6; margin-top: 14px; }
+.hub-main { padding: 28px clamp(20px,4vw,60px); max-width: 1280px; width: 100%; }
+.hub-top { display: flex; justify-content: space-between; align-items: center; gap: 20px; border-bottom: 1px solid #2c3947; padding-bottom: 22px; }
+.hub-top h1 { font-weight: 500; font-size: 25px; margin-bottom: 0; }
+.hub-top .eyebrow { margin-bottom: 10px; }
+.hub-heading { padding: 28px 0 18px; }
+.hub-heading p { color: #9baab4; overflow-wrap: anywhere; }
+.hub-card { background: #1a2430; border: 1px solid #344252; border-radius: 10px; padding: 24px; margin: 18px 0; }
+.hub-card h2 { font-size: 19px; }
+.hub-fields { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 16px; }
+.hub-fields .field { margin-top: 0; }
+.hub-actions { display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-top: 20px; }
+.hub-error { background: #492b32; border: 1px solid #92535c; padding: 16px; margin-top: 18px; border-radius: 6px; }
+@media(max-width:800px) { .project-home { display:block; } .hub-sidebar { padding: 16px; } .hub-brand { margin-bottom: 16px; } .hub-main { padding:16px; } .hub-top { flex-wrap:wrap; } .hub-card { padding:16px; } }
