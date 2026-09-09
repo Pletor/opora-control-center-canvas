@@ -147,7 +147,7 @@ export default function App() {
           </label>
         </div>
         <button onClick={() => open("github")}>Připojit GitHub</button>
-        <span className="local-status">LOKÁLNĚ · 8740</span>
+        <span className="local-status">LOKÁLNĚ · {location.port}</span>
       </header>
       <div className="modebar">
         <div className="modes">
@@ -408,8 +408,10 @@ export default function App() {
         </main>
         {node ? (
           <NodePanel
-            key={node.id + view?.digest}
+            key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
             node={node}
+            project={project}
+            workspace={workspace}
             readOnly={!!view?.readOnly}
             busy={busy}
             workspaces={view?.workspaces ?? []}

@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -19,11 +20,14 @@ def create_app(data_root=None):
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.service = service
+    port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
+    if not 1 <= port <= 65535:
+        raise ValueError("Neplatný lokální port.")
 
     @app.middleware("http")
     async def boundary(request: Request, call_next):
         host = request.headers.get("host", "")
-        if host not in ("127.0.0.1:8740", "localhost:8740"):
+        if host not in (f"127.0.0.1:{port}", f"localhost:{port}"):
             return JSONResponse({"error": "Nepovolený Host."}, status_code=403)
         origin = request.headers.get("origin")
         if origin and origin != "http://" + host:
@@ -54,6 +58,15 @@ def create_app(data_root=None):
     async def invalid(request, exc):
         return JSONResponse({"error": str(exc)}, status_code=409)
 
+    @app.exception_handler(sqlite3.Error)
+    async def storage_error(request, exc):
+        return JSONResponse(
+            {
+                "error": "Úložiště není dostupné; uložení nebylo potvrzeno. Rozepsaný text zachovejte."
+            },
+            status_code=503,
+        )
+
     @app.exception_handler(OSError)
     async def unavailable(request, exc):
         return JSONResponse(
@@ -79,6 +92,20 @@ def create_app(data_root=None):
             payload.get("workspace"),
             payload.get("graph"),
             payload.get("digest"),
+        )
+
+    @app.get("/api/node-spec")
+    def node_spec(project: str, workspace: str, node: str):
+        return service.node_spec(project, workspace, node)
+
+    @app.get("/api/node-spec/history")
+    def node_spec_history(project: str, workspace: str, node: str):
+        return service.node_spec(project, workspace, node, history=True)
+
+    @app.post("/api/node-spec")
+    def save_node_spec(payload: dict):
+        return service.node_spec(
+            payload.get("project"), payload.get("workspace"), payload.get("node"), payload
         )
 
     @app.post("/api/connect")

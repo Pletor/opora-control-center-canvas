@@ -1,7 +1,10 @@
 import { useState } from "react";
+import NodeSpecEditor from "./NodeSpecEditor";
 import type { CanvasNode, Workspace } from "./types";
 export default function NodePanel({
   node,
+  project,
+  workspace,
   readOnly,
   busy,
   workspaces,
@@ -10,6 +13,8 @@ export default function NodePanel({
   onWorkspace,
 }: {
   node: CanvasNode;
+  project: string;
+  workspace: string;
   readOnly: boolean;
   busy: boolean;
   workspaces: Workspace[];
@@ -30,6 +35,7 @@ export default function NodePanel({
       <button className="wide" onClick={onEnter}>
         Otevřít vnitřní plátno
       </button>
+      <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
       <h3>Podstata</h3>
       <label className="field">
         Proč tento uzel existuje

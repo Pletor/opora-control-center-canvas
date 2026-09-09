@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "security_concerns": [],
+  "logic_errors": [],
+  "suggestions": [],
+  "summary": "Prošel jsem pouze staged R01 diff a nezbytný kontext. Validace POSTu je striktní, SQL používá parametrizované dotazy, scope je ověřen proti aktuálnímu grafu a main je pro zápis i GET explicitně read-only/nedostupný. SQLite save používá BEGIN IMMEDIATE a revizní CAS; historie je omezená na 20 položek s has_more. React draft je klíčovaný projektem/pracovním prostorem/uzlem, chybové větve text nemažou a generation guard brání přepsání stavem ze zastaralého GET/save. Přečtené e2e aserce pokrývají persistence po reloadu, draft při přepnutí, konflikt se zachováním textu a read-only main. Spuštěno bez serveru: tests/test_node_specs.py, 17 passed (1 warning FastAPI/Starlette deprecation).",
+  "reviewed_hashes": {
+    "backend/app.py": "b38d8baa92a3f7fbe37a660bde19bf84a6e074057f13226420f8667a6de3e8f4",
+    "backend/node_specs.py": "774c31b5560e69c7a8f9b40f8fa3e8170dc2e2acdf9b518b3b99b70a916a9147",
+    "backend/service.py": "0a27a13c2b7c975b5472aee06d1e1075c36eb90fbdf7818f837da71c0013c22e",
+    "e2e/node-spec.spec.ts": "ce6799173319e9c80296ed0fb84689174e4e09a0d476a539789212eb1ef7da9e",
+    "playwright.config.ts": "0fda5324e748edab585443908020f7b7a1e4b874a93c55902a7abf86139af7f7",
+    "src/App.tsx": "4801238bd0023fe6593052846db9f4193437c83541c9b5ad42e26775a3e6766a",
+    "src/NodePanel.tsx": "6f7ef55ef4cb0cf4cdb93819c4579f8b43ba9cc8343ef5f66778f0b60e161163",
+    "src/NodeSpecEditor.tsx": "9c8cf397d3a2dc2d21150550b2e9a4c8f3c6893094198639b24bd4a7306aee07",
+    "src/types.ts": "633bb7bb536481a311bdcc0092a18afc488952759d81d0851f8665aa040c4982",
+    "tests/test_node_specs.py": "e037e259e80d943633cd86d1ba5ef09782a44637c1f6e2d1a660e45abbfae0d0"
+  }
+}

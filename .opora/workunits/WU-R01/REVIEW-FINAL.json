@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "security_concerns": [],
+  "logic_errors": [],
+  "summary": "Bounded final review passed. SHA-256 verification shows that all eight unchanged reviewed source paths still exactly match REVIEW.json; only the explicitly allowed working-tree changes are src/App.tsx and e2e/node-spec.spec.ts. App now renders the header port from location.port, and the regression assertion derives the expected port from page.url(). The new tests make meaningful assertions for failed-save text preservation and successful retry, stale node-A response isolation after switching to B, and mobile document-width overflow. Playwright page fixtures are per-test; route interception is scoped to its test page and removed before retry, the extra context is closed, and distinct node labels avoid in-spec selector collisions. No server or test suite was run, per instruction. REVIEW.json was preserved.",
+  "reviewed_hashes": {
+    "backend/app.py": "b38d8baa92a3f7fbe37a660bde19bf84a6e074057f13226420f8667a6de3e8f4",
+    "backend/node_specs.py": "774c31b5560e69c7a8f9b40f8fa3e8170dc2e2acdf9b518b3b99b70a916a9147",
+    "backend/service.py": "0a27a13c2b7c975b5472aee06d1e1075c36eb90fbdf7818f837da71c0013c22e",
+    "e2e/node-spec.spec.ts": "1ac562e473cbfa907917db17142a589ed6d8ce31c12460ca8492adf6e9815ca5",
+    "playwright.config.ts": "0fda5324e748edab585443908020f7b7a1e4b874a93c55902a7abf86139af7f7",
+    "src/App.tsx": "9f206c289b18f6090bf234ee38a1f1b72e46544ea56aeb96c07b21d76c7635de",
+    "src/NodePanel.tsx": "6f7ef55ef4cb0cf4cdb93819c4579f8b43ba9cc8343ef5f66778f0b60e161163",
+    "src/NodeSpecEditor.tsx": "9c8cf397d3a2dc2d21150550b2e9a4c8f3c6893094198639b24bd4a7306aee07",
+    "src/types.ts": "633bb7bb536481a311bdcc0092a18afc488952759d81d0851f8665aa040c4982",
+    "tests/test_node_specs.py": "e037e259e80d943633cd86d1ba5ef09782a44637c1f6e2d1a660e45abbfae0d0"
+  }
+}

@@ -1,3 +1,5 @@
+export type SpecFields = { goal: string; non_goals: string; acceptance: string };
+export type NodeSpec = { fields: SpecFields; revision: number; saved_at: string | null; readOnly: boolean; available: boolean; source: string };
 export type CanvasNode = {
   id: string;
   parentId: string | null;

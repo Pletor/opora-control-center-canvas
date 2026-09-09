@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .gitio import git, github_url
 from .graph import EMPTY, digest, encode, valid_id, validate_graph
+from .node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
 
 GRAPH_FILE = "opora-canvas.json"
 
@@ -28,6 +29,7 @@ class CanvasService:
         self.pool = ThreadPoolExecutor(max_workers=2)
         self.db = sqlite3.connect(self.root / "canvas.sqlite", check_same_thread=False)
         self.db.row_factory = sqlite3.Row
+        self.specs = NodeSpecStore(self.db)
         self.db.executescript("""CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT,repo TEXT,url TEXT,branch TEXT);
         CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY,project_id TEXT,directory TEXT,branch TEXT,node_id TEXT,actor TEXT,base_sha TEXT);
         CREATE TABLE IF NOT EXISTS drafts(id TEXT PRIMARY KEY,graph TEXT);
@@ -38,6 +40,42 @@ class CanvasService:
             "UPDATE jobs SET status='interrupted',message='Proces skončil před dokončením.' WHERE status IN ('queued','running')"
         )
         self.db.commit()
+
+    def node_spec(self, pid, wid, node_id, payload=None, history=False):
+        if payload is not None:
+            validate_payload(payload)
+        with self.graph_lock:
+            view = self.view(pid, wid)
+            if not valid_id(node_id) or not any(n["id"] == node_id for n in view["graph"]["nodes"]):
+                raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
+            if view["readOnly"]:
+                if payload is not None:
+                    raise ValueError("Main je pouze pro čtení.")
+                return {
+                    **(
+                        {"items": [], "has_more": False}
+                        if history
+                        else {"revision": 0, "fields": dict(EMPTY_FIELDS), "saved_at": None}
+                    ),
+                    "readOnly": True,
+                    "available": False,
+                    "source": "Import zadání z Git mainu zatím není podporovaný.",
+                }
+            with self.lock:
+                scope = (pid, wid, node_id)
+                result = (
+                    self.specs.history(scope)
+                    if history
+                    else self.specs.read(scope)
+                    if payload is None
+                    else self.specs.save(scope, payload["expected_revision"], payload["fields"])
+                )
+            return {
+                **result,
+                "readOnly": False,
+                "available": True,
+                "source": "Lokální editorové zadání v SQLite; není součástí Git commitů.",
+            }
 
     def close(self):
         self.pool.shutdown(wait=True)
