@@ -2,6 +2,12 @@
 
 Samostatný nový Canvas. Není závislý na starém OporaCC, Bridge ani na předchozím pokusu OporaCC-v3.
 
+## Mazání položek — 2026-09-09
+
+Vyber uzel/sektor a použij **Smazat uzel / Smazat sektor** v detailu. Klikni na vazbu a zvol **Smazat vazbu**. Vybraný repozitář lze **Odebrat** tlačítkem v horní liště. Vše má potvrzovací náhled; sektor zahrnuje potomky a související vazby. Zrušit/Escape nic nemaže; změněná revize vyžaduje nový náhled.
+
+Odebrání repozitáře znamená odpojení z OporaCC, **ne smazání GitHubu nebo lokálních kopií**. Main je nadále pouze pro čtení. Předchozí graf a uložená zadání zachovává lokální DB; UI obnovení není součástí této verze. Viz [.opora/workunits/WU-DELETE-01/RESULT.md](.opora/workunits/WU-DELETE-01/RESULT.md).
+
 ## Aktuální stav — R01, 2026-09-09
 
 **Toto je jediný primární projekt. Začni v [START-HERE.md](START-HERE.md).**
