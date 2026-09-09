@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": 1,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/prompt-opora-control-center.md",
+      "title": "Prompty",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 2,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/archify/PRODUCT.md",
+      "title": "archify/PRODUCT.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 3,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/archify/LICENSE",
+      "title": "archify/LICENSE",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 4,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/excalidraw/README.md",
+      "title": "excalidraw/README.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 5,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/excalidraw/packages/excalidraw/package.json",
+      "title": "excalidraw/packages/excalidraw/package.json",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 6,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/excalidraw/LICENSE",
+      "title": "excalidraw/LICENSE",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 7,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/logseq/CODEBASE_OVERVIEW.md",
+      "title": "logseq/CODEBASE_OVERVIEW.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 8,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/logseq/docs/agent-guide/implemented/architecture/2026-08-24-logseq-runtime-and-engineering-guide.md",
+      "title": "logseq/docs/agent-guide/implemented/architecture/2026-08-24-logseq-runtime-and-engineering-guide.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 9,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/logseq/LICENSE.md",
+      "title": "logseq/LICENSE.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 10,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/open-note/README.md",
+      "title": "open-note/README.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 11,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/open-note/docs/architecture.md",
+      "title": "open-note/docs/architecture.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 12,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/open-note/LICENSE.md",
+      "title": "open-note/LICENSE.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 13,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/tuval/README.md",
+      "title": "tuval/README.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 14,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/tuval/docs/agents.md",
+      "title": "tuval/docs/agents.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 15,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/tuval/docs/mcp.md",
+      "title": "tuval/docs/mcp.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 16,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/tuval/LICENSE",
+      "title": "tuval/LICENSE",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 17,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/03.Agents-tools/OpenViking/README.md",
+      "title": "OpenViking/README.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 18,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/03.Agents-tools/OpenViking/docs/en/concepts/03-context-layers.md",
+      "title": "OpenViking/docs/en/concepts/03-context-layers.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 19,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/03.Agents-tools/OpenViking/docs/en/concepts/08-session.md",
+      "title": "OpenViking/docs/en/concepts/08-session.md",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 20,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/03.Agents-tools/OpenViking/LICENSE",
+      "title": "OpenViking/LICENSE",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 21,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/Opora-control-center-canvas/backend/graph.py",
+      "title": "backend/graph.py",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 22,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/Opora-control-center-canvas/src/types.ts",
+      "title": "src/types.ts",
+      "accessed": "2026-09-09"
+    },
+    {
+      "id": 23,
+      "url": "file:///P:/0.%20OSVC/8.%20Code/07.%20Aplikace/02.Opora-control-center/Opora-control-center-canvas/backend/service.py",
+      "title": "backend/service.py",
+      "accessed": "2026-09-09"
+    }
+  ]
+}

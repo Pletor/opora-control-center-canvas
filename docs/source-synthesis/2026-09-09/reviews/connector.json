@@ -1,0 +1,263 @@
+{
+  "section": "connector",
+  "coverage": [
+    {
+      "start": 3255,
+      "end": 6115
+    }
+  ],
+  "prompt_dispositions": [
+    {
+      "id": "P023",
+      "source_start": 3259,
+      "source_end": 3810,
+      "disposition": "adapt",
+      "summary": "Zachovat Bridge jako jedinou autoritu pro běh a přidat pouze úzký konverzační adaptér s pěti typovanými operacemi.",
+      "reason": "Historický cíl ChatGPT jako jediného Supervisora nahrazuje aktuální požadavek Supervisora svázaného s uzlem Canvasu a tunelem do LLM v terminálu VS Code; hranice Bridge, absence obecného HTTP/shellu a minimální konverzační stav zůstávají použitelné (3366–3384, 3444–3524, 3606–3630)."
+    },
+    {
+      "id": "P024",
+      "source_start": 3811,
+      "source_end": 4284,
+      "disposition": "adapt",
+      "summary": "Převzít loopback-only BridgeClient, pět pevných operací, ochranu tokenu a zákaz importu internals Bridge.",
+      "reason": "Surface probe a konkrétní Secure MCP Tunnel jsou historická providerová rozhodnutí, proto nejsou implementační frontou. Typovaný klient bez generic request/proxy však chrání nezávislou architekturu (3977–3995, 4048–4163)."
+    },
+    {
+      "id": "P025",
+      "source_start": 4285,
+      "source_end": 4819,
+      "disposition": "adapt",
+      "summary": "Převzít oddělení contract/state/operations, kurzory checkpointů a událostí a Bridge jako zdroj pravdy; stav rozšířit o vazbu na uzel a revizi Canvasu.",
+      "reason": "Původní omezení na jeden aktivní run a žádný conversation_id nevyhovuje fraktálnímu Canvasu. Stav má být obnovitelný index vazeb, nikoli autorita ani důkaz výsledku (4445–4495, 4530–4638)."
+    },
+    {
+      "id": "P026",
+      "source_start": 4820,
+      "source_end": 5386,
+      "disposition": "adapt",
+      "summary": "Použít stdio MCP jako lokální typovaný control-plane adaptér s přesným allowlistem nástrojů; běh LLM v terminálu VS Code držet jako oddělený, scope-guarded execution tunnel.",
+      "reason": "Stdio, stderr logging, absence listeneru a zákaz shell/http toolů jsou přenositelné kontrakty (5055–5100). Fixní závislost mcp==2.1.1, Codex/Claude registrace a jejich údajné fyzické testy jsou historické a musí být znovu ověřeny."
+    },
+    {
+      "id": "P027",
+      "source_start": 5387,
+      "source_end": 5679,
+      "disposition": "keep",
+      "summary": "Zachovat požadavek na fyzické E2E přes skutečný stdio transport, skutečný Bridge a skutečného workera, včetně korelace, auditního pořadí, limitů a opakovatelnosti.",
+      "reason": "Rozlišení FakeWorkerAdapteru od reálného Hermese, session continuity, kontrola tajemství a pevné časové/checkpoint limity jsou přímo použitelné jako evidence contract (5426–5463, 5493–5573, 5639–5649)."
+    },
+    {
+      "id": "P028",
+      "source_start": 5680,
+      "source_end": 6115,
+      "disposition": "defer",
+      "summary": "Odložit ChatGPT-web hookup a Secure MCP Tunnel; ponechat pouze hard capability gate a bezpečný fallback na lokální VS Code terminal surface.",
+      "reason": "Text je vázán na dobovou dostupnost ChatGPT plánů, webu a write MCP, kterou nelze považovat za aktuální fakt. Aktuální záměr výslovně nepodmiňuje rychlý editor jedním providerem/UI; zákaz veřejného listeneru a princip nezměnit connector při změně surface zůstávají relevantní (5722–5779, 5783–5812, 6014–6033)."
+    }
+  ],
+  "contracts": [
+    {
+      "id": "CON-01",
+      "title": "Bridge je autorita běhu",
+      "source_lines": [3366, 3384],
+      "statement": "Connector a Supervisor jsou klienti existujícího Bridge API; Bridge vlastní run_id, identitu workera, stav, audit, normalizaci checkpointu a doručení rozhodnutí.",
+      "authority": "Opora Supervisor Bridge",
+      "inputs": "Typovaný WorkUnit a rozhodnutí nad existujícím run_id.",
+      "outputs": "Normalizovaný stav runu, checkpoint a auditní události.",
+      "invariants": [
+        "Nevznikne druhý orchestrátor, state machine ani audit.",
+        "Supervisor nikdy nevymýšlí systémová metadata.",
+        "Canvas může vlastnit význam cíle, scope a DoD, ale ne runtime stav Bridge."
+      ],
+      "acceptance": [
+        "Každý zobrazený runtime stav je čten z Bridge.",
+        "Každé rozhodnutí je doručeno přes Bridge a dohledatelné v jeho auditu."
+      ]
+    },
+    {
+      "id": "CON-02",
+      "title": "Pět typovaných operací bez obecného přístupu",
+      "source_lines": [3444, 3495],
+      "statement": "Control-plane nabízí pouze health, create_run, get_run, get_events a decide; neobsahuje request, fetch, execute ani ekvivalent obecného shellu či HTTP proxy.",
+      "authority": "Connector contract schválený Control Centerem",
+      "inputs": "Validované vstupy jednotlivých pěti operací.",
+      "outputs": "Kompaktní normalizované modely a bezpečné chybové kódy.",
+      "invariants": [
+        "Model nemůže volit URL, HTTP metodu, cestu, actor ani příkaz shellu.",
+        "Rozhodnutí jsou pouze CONTINUE, CORRECT, STOP nebo ESCALATE.",
+        "Seznam nástrojů je allowlist, nikoli rozšiřitelná proxy plocha."
+      ],
+      "acceptance": [
+        "Discovery MCP vrátí přesně povolený seznam.",
+        "Test odmítne neznámý tool, pole i pokus o libovolný endpoint."
+      ]
+    },
+    {
+      "id": "CON-03",
+      "title": "Lokální bezpečnostní hranice a tajemství",
+      "source_lines": [4048, 4086],
+      "statement": "BridgeClient komunikuje pouze s loopback adresou; BRIDGE_TOKEN zná jen connector a nesmí se serializovat, logovat ani vracet modelu či workeru.",
+      "authority": "Lokální connector runtime",
+      "inputs": "Loopback BRIDGE_URL a runtime token mimo repozitář.",
+      "outputs": "Autorizované Bridge volání nebo bezpečná chyba bez tajemství.",
+      "invariants": [
+        "Non-loopback URL selže před síťovým voláním.",
+        "Token není v repr, výjimce, stderr, stdout, URL ani auditu.",
+        "Connector neimportuje internals Bridge."
+      ],
+      "acceptance": [
+        "Guard test odmítne LAN, 0.0.0.0 a veřejnou doménu.",
+        "Redakční test prohledá všechny tool outputy a diagnostiku na testovací token."
+      ]
+    },
+    {
+      "id": "CON-04",
+      "title": "Scope/version binding Work Node → WorkUnit → run",
+      "source_lines": [3528, 3556],
+      "statement": "Canvas vytvoří Work Node a připravený WorkUnit; před create_run vznikne neměnná vazba scope_grant s work_node_id, tree_revision, work_unit_id/version, povoleným scope, DoD, závislostmi a correlation_id.",
+      "authority": "Opora Control Center pro obsah a scope; Bridge pro runtime run.",
+      "inputs": "Vybraný uzel Canvasu, jeho aktuální revize a explicitně schválený WorkUnit.",
+      "outputs": "Scope grant a Bridge run asociovaný přes correlation_id.",
+      "invariants": [
+        "Strukturální rodič uzlu není automaticky oprávnění ani závislost.",
+        "Změna revize, scope nebo DoD po startu nevymění potichu význam existujícího runu.",
+        "Jeden uzel neznamená jednu stále běžící placenou session; session vzniká jen pro konkrétní grant."
+      ],
+      "acceptance": [
+        "Každý run lze dohledat na node, revizi, WorkUnit a correlation_id.",
+        "Neshoda při resume blokuje automatické rozhodnutí a vyžádá explicitní rebind nebo nový superseding WorkUnit."
+      ]
+    },
+    {
+      "id": "CON-05",
+      "title": "Obnovitelný stav je pointer, ne zdroj pravdy",
+      "source_lines": [4445, 4495],
+      "statement": "Lokální state store drží aktivní vazbu a cursory, atomicky a restart-safe; po obnově musí znovu načíst Bridge a validovat scope/version binding.",
+      "authority": "Bridge pro stav runu; Canvas pro platnost scope/version; connector pouze pro lokální pointer.",
+      "inputs": "Persistovaný active_run_id, work_node_id, correlation_id, tree_revision, last_event_seq a last_checkpoint_seq.",
+      "outputs": "Obnovený kontext nebo bezpečný restore-conflict.",
+      "invariants": [
+        "Poškozený lokální JSON nevytváří ani nemění run.",
+        "Cursor se posune jen po úspěšném předání příslušných dat.",
+        "Obnovení nesmí rozhodnout CONTINUE/CORRECT bez čerstvě potvrzeného Bridge stavu."
+      ],
+      "acceptance": [
+        "Restart vrátí stejnou vazbu nebo diagnostikovaný konflikt.",
+        "Replay checkpointu je deterministicky označen jako již viděný."
+      ]
+    },
+    {
+      "id": "CON-06",
+      "title": "Stdio MCP je pouze control plane",
+      "source_lines": [5064, 5100],
+      "statement": "MCP server komunikuje výhradně přes stdin/stdout JSON-RPC, loguje jen na stderr a neotevírá HTTP, WebSocket ani TCP listener.",
+      "authority": "Lokální connector process",
+      "inputs": "MCP tool call na povolenou operaci.",
+      "outputs": "structuredContent z existujících contract modelů a krátký bezpečný text.",
+      "invariants": [
+        "stdout neobsahuje debug ani lidský log mimo MCP protokol.",
+        "MCP není vzdálený shell, terminal, command, request, fetch ani http tool.",
+        "Execution tunnel do VS Code terminalu není MCP tool; je lokálně spuštěná a scope-grantem omezená relace."
+      ],
+      "acceptance": [
+        "Subprocess test ověří čistý stdio protokol a nulový listening socket.",
+        "Tool inventory je přesně allowlist a neobsahuje generic execution."
+      ]
+    },
+    {
+      "id": "CON-07",
+      "title": "Rozhodnutí mají svázanou korelaci a člověka v hraně",
+      "source_lines": [4616, 4638],
+      "statement": "decide používá aktivní nebo explicitně vybraný run, actor doplněný z lokálního nastavení a po odeslání pouze hlásí stav doručení; neinterpretuje ani nesimuluje další tah workera.",
+      "authority": "Člověk/Canvas Supervisor pro význam rozhodnutí; Bridge pro jeho validaci a doručení.",
+      "inputs": "Rozhodnutí enum, zpráva, correlation_id a potvrzená vazba runu na scope grant.",
+      "outputs": "Dohledatelný decision-issued/delivery stav.",
+      "invariants": [
+        "Actor není modelový vstup.",
+        "STOP, destruktivní akce, změna podstaty nebo významná změna scope vyžadují lidské potvrzení.",
+        "Rozhodnutí pro jinou revizi nebo correlation_id je odmítnuto jako stale-scope."
+      ],
+      "acceptance": [
+        "Audit obsahuje correlation_id, actor, rozhodnutí a pořadí doručení.",
+        "Test prokáže, že model nemůže podvrhnout actor ani rozhodnout nad cizím runem."
+      ]
+    },
+    {
+      "id": "CON-08",
+      "title": "Důkaz rozlišuje fake, transport a reálnou práci",
+      "source_lines": [5426, 5463],
+      "statement": "Tvrzení o E2E vyžaduje skutečný stdio connector, Bridge, HermesApiServerAdapter a Hermes API server; FakeWorkerAdapter je pouze test kontraktu transportu.",
+      "authority": "Evidence ledger v Canvasu svázaný s correlation_id.",
+      "inputs": "Výsledek testu, tool discovery, Bridge audit, worker_session_id, stdout/stderr redakční kontrola a časové meze.",
+      "outputs": "Klasifikovaný evidence record: SPEC, MOCKED, STDIO_INTEGRATION, REAL_WORKER nebo HUMAN_OBSERVED.",
+      "invariants": [
+        "Historické tvrzení o fyzickém testu není současný důkaz.",
+        "MOCKED/FakeWorker nikdy neprohlašuje session continuity skutečného LLM.",
+        "REAL_WORKER obsahuje identitu session, auditní pořadí, checkpoint seq a konečný Bridge stav."
+      ],
+      "acceptance": [
+        "E2E uloží strojově čitelné odkazy na audit a correlation_id.",
+        "Report výslovně označí druh workera a neprohlásí reálný výsledek bez REAL_WORKER evidence."
+      ]
+    },
+    {
+      "id": "CON-09",
+      "title": "Omezená a opakovatelná supervisor smyčka",
+      "source_lines": [5564, 5583],
+      "statement": "Každá execution relace má pevný timeout, maximální počet checkpointů a čitelnou diagnostiku; úspěch E2E se ověřuje opakovaným během.",
+      "authority": "Test harness a session policy Control Centeru",
+      "inputs": "Časový rozpočet, checkpoint budget a WorkUnit DoD.",
+      "outputs": "COMPLETED, BLOCKED, FAILED nebo timeout s diagnostikou.",
+      "invariants": [
+        "Nevznikne nekonečná polling/continue smyčka.",
+        "Uzel nedrží placenou session po vyčerpání rozpočtu.",
+        "Po dosažení terminálního stavu se neposílá další tah bez nového grant."
+      ],
+      "acceptance": [
+        "Timeout test skončí v daném rozpočtu a zachová audit.",
+        "Dva po sobě jdoucí REAL_WORKER běhy se vykáží odděleně."
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "topic": "ChatGPT jako primární a nutná supervisor surface",
+      "source_lines": [3286, 3322],
+      "resolution_or_question": "Nahradit providerově neutrálním Supervisorem na Work Node. První podporovaná surface je rychlý lokální VS Code terminal tunnel; ChatGPT MCP je volitelný budoucí adaptér po aktuálním capability gate."
+    },
+    {
+      "topic": "Jeden aktivní run bez conversation_id versus fraktální Canvas",
+      "source_lines": [4445, 4462],
+      "resolution_or_question": "Nesdílet jeden globální pointer. Ukládat bindingy podle supervisor_session_id a work_node_id, ale současně vynutit nejvýše jeden aktivní run na konkrétní scope grant, ne na celý produkt."
+    },
+    {
+      "topic": "Historický Secure MCP Tunnel a verze SDK",
+      "source_lines": [3834, 3959],
+      "resolution_or_question": "Neprovádět ani nepovažovat za fakt. Před volitelným providerovým adaptérem znovu ověřit dostupnost, podporu stdio, oprávnění write tools a aktuální SDK; bez průchodu zůstat na lokální surface."
+    },
+    {
+      "topic": "Tvrzení, že Slice 9E byl fyzicky prokázán",
+      "source_lines": [5680, 5703],
+      "resolution_or_question": "Jde o historické tvrzení bez zde dostupných artefaktů. Zachovat jako kandidát na regresní scénář, ale status dnes označit UNVERIFIED, dokud evidence ledger neobsahuje současný REAL_WORKER důkaz."
+    }
+  ],
+  "architecture_recommendations": [
+    "Zaveďte tři zřetelné roviny: Canvas semantic plane (Work Node, cíle, kontext, paměť, závislosti a scope grant), Bridge runtime plane (run/state/audit/worker) a Connector control plane (pět typovaných MCP operací).",
+    "Při spuštění vytvořte immutable ScopeBinding: work_node_id, tree_revision/hash, work_unit_id, work_unit_version, dependency snapshot, DoD hash, supervisor_session_id a correlation_id. Bridge run_id doplňte až po create_run a veškeré eventy indexujte oběma identitami.",
+    "Tunnel do LLM v terminálu VS Code realizujte jako lokální process/session launcher s explicitním scope grantem, working directory a časovým rozpočtem. Není to MCP shell tool a nesmí přijímat libovolné příkazy ani URL od modelu.",
+    "MCP stdio ponechte pro čtení stavu a explicitní supervisor rozhodnutí. Vstup create_run smí vzniknout jen z validovaného WorkUnit vybraného Canvasem; Connector nad ním pouze aplikuje bezpečné defaulty a lokální actor.",
+    "Obnova session nejprve načte Bridge, pak validuje ScopeBinding proti aktuálnímu Canvasu. Pokud se revize, scope, DoD nebo dependency snapshot liší, zobrazí restore conflict; automatické CONTINUE je zakázáno.",
+    "Založte evidence ledger s úrovněmi SPEC, MOCKED, STDIO_INTEGRATION, REAL_WORKER a HUMAN_OBSERVED. Pro produkční tvrzení vyžadujte audit Bridge, worker_session_id, correlation_id, stav COMPLETE/terminal, checkpointy a redakční kontrolu tajemství.",
+    "Pro Work Node používejte short-lived relace: uzel může mít historii a více uzavřených runů, ale aktivní placený worker existuje jen během schváleného ScopeBindingu a vždy s limity času/checkpointů."
+  ],
+  "risks": [
+    "Globální active_run_id by propojil nesouvisející uzly Canvasu a dovolil rozhodnutí nad chybným během; mitigace je klíč bindingu supervisor_session_id + work_node_id + correlation_id.",
+    "Změna stromu, DoD nebo závislostí během běhu může udělat starý checkpoint sémanticky neplatným; mitigace je immutable snapshot a restore conflict.",
+    "Generic terminal nebo HTTP MCP tool by obešel scope, loopback a lidská rozhodnutí; zůstává zakázán i pro lokální use-case.",
+    "Stdio stdout znečištěný logy rozbije MCP protokol; stdout musí být pouze JSON-RPC a všechny diagnózy redigovaně na stderr.",
+    "Historické claims o ChatGPT capability, tunnelu, MCP SDK a fyzických testech jsou stárnoucí a bez artefaktů neověřené; nesmějí řídit implementaci bez nového capability/evidence gate.",
+    "Fake transport test může skrýt chyby process boundary, session restore a reálného LLM workera; evidence musí viditelně rozlišit fake od REAL_WORKER.",
+    "Přetrvávající token v state, logu, chybě či přepisu command-line je riziko úniku; token zůstává jen v runtime secret store a testy musí kontrolovat všechny výstupy."
+  ]
+}

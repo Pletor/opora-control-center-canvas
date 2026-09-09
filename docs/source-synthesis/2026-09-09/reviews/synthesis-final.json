@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "verdict": "READY_FOR_USER_APPROVAL",
+  "checks": [
+    {
+      "id": "CONTEXT_AUGMENTATION_GRANT_AND_BINDING",
+      "passed": true,
+      "evidence": "PASS: TUNNEL-AND-CONTEXT.md §4, ř. 73–75 dovoluje pouze manifestované immutable resource reads ve stávajícím grantu; nový resource nebo změněný obsah vyžaduje nový ContextBundle, nový ApprovalGrant, nový immutable RunBinding, bundle_digest a execution_epoch. Rebind je omezen na ověřený čekající checkpoint, jinak je nutný prokázaný stop a nový samostatný run. reviews/RECONCILIATION.md ř. 5 shodu potvrzuje."
+    },
+    {
+      "id": "SOURCE_AUTHORITATIVE_READ_ONLY_CODEBASE_ONBOARDING",
+      "passed": true,
+      "evidence": "PASS: EDITOR-SPEC.md ř. 34–40 stanoví povinný onboarding existující codebase od explicitního repo/SHA přes bezpečný inventář a citované SourceRef/AssetRef po diff a lidské přijetí; import nespouští kód ani nemění originální repo. DELIVERY-GATES.md R00 (ř. 17, 29–33) přidává source-authoritative read-only gate, provenance/coverage, reconcile při novém SHA a negativní případy včetně link escape, citlivých souborů a zákazu zápisu či spuštění příkazů."
+    },
+    {
+      "id": "DESIGN_ONLY_NO_EXECUTION_OR_PRODUCTION_CLAIM",
+      "passed": true,
+      "evidence": "PASS: EDITOR-SPEC.md ř. 3 a 192 výslovně uvádí návrh bez oprávnění spustit agenty, placené session, změny cizích repozitářů či merge; TUNNEL-AND-CONTEXT.md ř. 3 uvádí neimplementovaný návrh; DELIVERY-GATES.md ř. 3, 37 a 73 uvádí candidate/not ready a neprokázanou produkční připravenost; reviews/RECONCILIATION.md ř. 8 potvrzuje pouze návrhové dokumenty."
+    }
+  ],
+  "remaining_blockers": [],
+  "reviewed_file_hashes": {
+    "EDITOR-SPEC.md": "eed55ff6356ad39af80186303d5ace47c454b8e91836517c9d439e91a8e96d57",
+    "TUNNEL-AND-CONTEXT.md": "efdac5e5767268c41d0f4030430ad26afa0447403391d0c948ff241b052c70ff",
+    "DELIVERY-GATES.md": "a9786c680f0c3e0475e38009465543515a637cf765700a3f75fddceed316f8bf",
+    "reviews/RECONCILIATION.md": "9344c24b43049ca036cf4051bfa52988733c57601c9424029b659a687ca5a4f8"
+  }
+}

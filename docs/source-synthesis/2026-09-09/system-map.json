@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "OporaCC — návrh hlavního toku",
+    "quality_profile": "showcase",
+    "viewBox": [1040, 650]
+  },
+  "components": [
+    {"id":"editor","type":"frontend","label":"Tvůj editor","sublabel":"Canvas · strom · dokument","pos":[60,70],"size":[200,80]},
+    {"id":"project-model","type":"database","label":"Model projektu","sublabel":"Goaly · vazby · podklady","pos":[410,70],"size":[200,80]},
+    {"id":"context-compiler","type":"backend","label":"Context compiler","sublabel":"Zmrazené přesné zadání","pos":[760,70],"size":[200,80]},
+    {"id":"supervisor","type":"security","label":"Supervizor uzlu","sublabel":"Schválení · scope · budget","pos":[760,265],"size":[200,80]},
+    {"id":"terminal-agent","type":"external","label":"Terminálový agent","sublabel":"LLM CLI ve VS Code","pos":[760,460],"size":[200,80]},
+    {"id":"workspace","type":"database","label":"Pracovní kopie","sublabel":"Vlastní worktree · Git SHA","pos":[410,460],"size":[200,80]},
+    {"id":"verification","type":"backend","label":"Ověření výsledku","sublabel":"Testy · review · důkazy","pos":[60,460],"size":[200,80]},
+    {"id":"memory","type":"database","label":"Paměť a komponenty","sublabel":"Zkušenosti · přijaté revize","pos":[60,265],"size":[200,80]}
+  ],
+  "connections": [
+    {"id":"edit-model","from":"editor","to":"project-model","label":"editace","variant":"emphasis"},
+    {"id":"freeze-context","from":"project-model","to":"context-compiler","label":"snapshot","variant":"emphasis"},
+    {"id":"review-bundle","from":"context-compiler","to":"supervisor","label":"bundle","labelDy":24,"variant":"emphasis"},
+    {"id":"grant-execution","from":"supervisor","to":"terminal-agent","label":"grant","labelDy":24,"variant":"security"},
+    {"id":"write-scope","from":"terminal-agent","to":"workspace","label":"kód","variant":"emphasis"},
+    {"id":"inspect-result","from":"workspace","to":"verification","label":"diff a artefakt","variant":"emphasis"},
+    {"id":"propose-learning","from":"verification","to":"memory","label":"ověřený návrh"},
+    {"id":"reuse-knowledge","from":"memory","to":"project-model","label":"přijatá reference"}
+  ]
+}

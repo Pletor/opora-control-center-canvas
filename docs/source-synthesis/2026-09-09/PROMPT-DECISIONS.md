@@ -1,0 +1,69 @@
+# Rozhodnutí nad všemi původními prompty
+
+Zdroj: `prompt-opora-control-center.md`. Rozhodnutí jsou kurátorská, nikoli příkazy k vykonání. „Reject“ znamená nepřebírat do nynějšího produktu; originál se nemaže.
+
+| Prompt | Řádky | Výběr | Obsah | Důvod |
+|---|---:|---|---|---|
+| P001 | 34–39 | reject | Historický příkaz spustit tři projekty. | Je to jednorázový provozní příkaz; aktuální autorita zakazuje vykonávat historické run příkazy (CURRENT-INTENT.md, ř. 5). |
+| P002 | 40–45 | defer | Historický dotaz na spuštění dalších projektů a problém s registrací Tuvalu. | Zachovat jako provozní incident a budoucí podklad pro onboarding, ne jako současný úkol; zdroj neobsahuje ověřenou opravu. |
+| P003 | 46–52 | defer | Historická chyba nepovoleného provideru při GitHub přihlášení. | Je to diagnostický artefakt konkrétní integrace, nikoli trvalý produktový kontrakt; nesmí vyvolat změnu provideru nebo přihlášení. |
+| P004 | 53–58 | reject | Historický příkaz spustit Rete. | Jednorázové spuštění nemá návrhovou hodnotu a nesmí se vykonat (CURRENT-INTENT.md, ř. 5). |
+| P005 | 59–64 | reject | Historický příkaz spustit zbylé repozitáře. | Jednorázová provozní instrukce bez určení cíle nebo bezpečného rozsahu. |
+| P006 | 65–70 | reject | Historický příkaz k trvalému smazání adresáře matryca-plumber. | Destruktivní historický příkaz; aktuální zadání výslovně zakazuje mazání (CURRENT-INTENT.md, ř. 5). |
+| P007 | 71–76 | reject | Historický příkaz spustit OporaCC. | Není to specifikace editoru ani povolení současného agentního běhu. |
+| P008 | 77–82 | adapt | Požadavek na návod k instalaci a ovládání Archify. | Lze převést na kurátorovaný onboarding a nápovědu editoru; nesmí však spouštět nebo instalovat historický program. |
+| P009 | 83–88 | defer | Poznámka o globální instalaci .agents a nenalezení v jiném projektu. | Je to neověřený environmentální stav; uchovat jako riziko portability, nikoli jako konfiguraci k aplikaci. |
+| P010 | 89–98 | reject | Historický příkaz spustit aplikaci. | Jednorázový run příkaz, který aktuální autorita výslovně neaktivuje (CURRENT-INTENT.md, ř. 5–7). |
+| P011 | 99–296 | adapt | Původní cíl tenkého Supervisor Bridge: supervisor drží význam, Hermes orchestrace a workers realizují práci s checkpointy. | Zachovat rozdělení odpovědností a strukturovaný checkpoint, ale převést z autonomního Bridge do člověkem řízeného editoru a tunelu do LLM. |
+| P012 | 297–770 | adapt | Revize zavádí worker-agnostic hranici, explicitní router, normalizovaný checkpoint, audit a repozitářový scope. | Jde o použitelný evoluční kontrakt; budoucí adaptery a auto-routing zůstávají odloženy, jak zdroj sám vyžaduje. |
+| P013 | 771–899 | adapt | Korekce plánu: promptový scope není izolace, technickou identitu runu vlastní bridge a práce se dělí na malé ověřitelné slices. | Tyto bezpečnostní a autoritativní hranice přímo podporují současný editor; konkrétní implementační plán je pouze historický příklad. |
+| P014 | 900–967 | adapt | Před implementací vyžaduje reality check API, nefilesystemový E2E důkaz a odklad concurrency. | Použitelné principy minimalizace předpokladů a ověřování reality; konkrétní Slice 0 a příkazy nejsou aktivní. |
+| P015 | 968–1170 | adapt | Slice 1 definuje čisté worker-agnostic modely, deterministický state machine, TDD a schvalovací stopku. | Ponechat jako návrhový vzor pro editorové Work Units a jejich ověření, nikoli jako požadavek na vytvoření historických souborů nebo commitů. |
+| P016 | 1171–1498 | adapt | Slice 2 vymezuje restart-safe store, append-only audit, atomické změny stavu a canonicalizaci systémových metadat. | Trvalá auditní a stavová semantika je znovupoužitelná pro paměť a historii editoru; konkrétní SQLite řešení je volba k pozdějšímu ověření. |
+| P017 | 1499–1831 | adapt | Slice 3 odděluje WorkerAdapter, rozhodovací obálku, deterministický router a budoucí Claude Code kontrakt bez fake implementace. | Přímý základ pro supervisorův tunel do VS Code terminálu; zákaz auto-routing, obecného shell endpointu a předčasné implementace zůstává platný. |
+| P018 | 1832–1837 | defer | Jednoslovné historické schválení „Pokračuj“. | Dokládá časovou návaznost schvalování, ale bez identifikace slice, stavu a důkazu není samostatně přenositelným povolením. |
+| P019 | 1838–1843 | defer | Jednoslovné historické schválení „Pokračuj další krok“. | Dokládá revizi toku, ale neobsahuje scope, acceptance ani autoritu; nelze je vyložit jako aktuální souhlas. |
+| P020 | 1844–2361 | adapt | Slice 6 popisuje synchronní runner, checkpoint loop, korekce, recovery a audit rozhodnutí přes state machine. | Ponechat jako kontrolní kontrakt pro řízený pracovní tok; historical shell activation na ř. 1826 je pouze data a nesmí se spouštět. |
+| P021 | 2362–2853 | adapt | Slice 7 zavádí úzké supervisor-facing API, explicitní autorizaci, loopback omezení a opožděné background execution. | Bezpečnostní hranice lze převzít pro lokální editorový tunel; konkrétní FastAPI endpointy ani bridge server se tím neschvalují. |
+| P022 | 2854–3254 | adapt | Slice 8 požaduje omezený, auditovatelný E2E supervisor loop s reálným workerem, explicitními limity a bez modifikace produkčního repozitáře. | Převést na budoucí schvalovaný validační protokol; skutečný Hermes run, CLI export a test se nyní nespouští (CURRENT-INTENT.md, ř. 5–7). |
+| P023 | 3259–3810 | adapt | Zachovat Bridge jako jedinou autoritu pro běh a přidat pouze úzký konverzační adaptér s pěti typovanými operacemi. | Historický cíl ChatGPT jako jediného Supervisora nahrazuje aktuální požadavek Supervisora svázaného s uzlem Canvasu a tunelem do LLM v terminálu VS Code; hranice Bridge, absence obecného HTTP/shellu a minimální konverzační stav zůstávají použitelné (3366–3384, 3444–3524, 3606–3630). |
+| P024 | 3811–4284 | adapt | Převzít loopback-only BridgeClient, pět pevných operací, ochranu tokenu a zákaz importu internals Bridge. | Surface probe a konkrétní Secure MCP Tunnel jsou historická providerová rozhodnutí, proto nejsou implementační frontou. Typovaný klient bez generic request/proxy však chrání nezávislou architekturu (3977–3995, 4048–4163). |
+| P025 | 4285–4819 | adapt | Převzít oddělení contract/state/operations, kurzory checkpointů a událostí a Bridge jako zdroj pravdy; stav rozšířit o vazbu na uzel a revizi Canvasu. | Původní omezení na jeden aktivní run a žádný conversation_id nevyhovuje fraktálnímu Canvasu. Stav má být obnovitelný index vazeb, nikoli autorita ani důkaz výsledku (4445–4495, 4530–4638). |
+| P026 | 4820–5386 | adapt | Použít stdio MCP jako lokální typovaný control-plane adaptér s přesným allowlistem nástrojů; běh LLM v terminálu VS Code držet jako oddělený, scope-guarded execution tunnel. | Stdio, stderr logging, absence listeneru a zákaz shell/http toolů jsou přenositelné kontrakty (5055–5100). Fixní závislost mcp==2.1.1, Codex/Claude registrace a jejich údajné fyzické testy jsou historické a musí být znovu ověřeny. |
+| P027 | 5387–5679 | keep | Zachovat požadavek na fyzické E2E přes skutečný stdio transport, skutečný Bridge a skutečného workera, včetně korelace, auditního pořadí, limitů a opakovatelnosti. | Rozlišení FakeWorkerAdapteru od reálného Hermese, session continuity, kontrola tajemství a pevné časové/checkpoint limity jsou přímo použitelné jako evidence contract (5426–5463, 5493–5573, 5639–5649). |
+| P028 | 5680–6115 | defer | Odložit ChatGPT-web hookup a Secure MCP Tunnel; ponechat pouze hard capability gate a bezpečný fallback na lokální VS Code terminal surface. | Text je vázán na dobovou dostupnost ChatGPT plánů, webu a write MCP, kterou nelze považovat za aktuální fakt. Aktuální záměr výslovně nepodmiňuje rychlý editor jedním providerem/UI; zákaz veřejného listeneru a princip nezměnit connector při změně surface zůstávají relevantní (5722–5779, 5783–5812, 6014–6033). |
+| P029 | 6120–6613 | adapt | Převzít bránovaný preflight, nejmenší oprávnění a důkazy z reálného průchodu. | Jsou použitelné pro bezpečné supervisor tunely; historický realtime mikrofonový produkt se neimplementuje. |
+| P030 | 6614–7225 | adapt | Převzít srovnávání alternativ podle měřené kvality, ceny, omezení a provozní jednoduchosti. | Rozhodovací metoda chrání editor před neověřenou externí závislostí; hlasová/providerová matice je odložena. |
+| P031 | 7226–7231 | reject | Historický dotaz na vložení API klíče nepřenášet. | Syntéza nesmí pracovat s credentials ani vykonávat jejich historické nastavení. |
+| P032 | 7232–7237 | reject | Historické tvrzení o vloženém klíči nepřenášet. | Je to dobový credential stav, nikoli současný požadavek nebo ověřený fakt. |
+| P033 | 7238–7243 | reject | Historickou navigaci pro vložení klíče nepřenášet. | Týká se citlivých údajů a konkrétního voice spike mimo scope editoru. |
+| P034 | 7244–7249 | reject | Historické potvrzení dokončení nepřenášet. | Nemá samostatný znovupoužitelný princip ani současnou autoritu. |
+| P035 | 7250–8237 | adapt | Převzít hranici diskuse–rozhodnutí–provedení, ResourceGate, explicitní stav, Reality Critic a schvalovaný Decision Packet. | Přímo podporují human editor, kurátorovaný kontext a bezpečné terminálové tunely; voice core a placený provider se odkládají. |
+| P036 | 8238–8243 | defer | Živý mikrofonní scénář ponechat jako budoucí produktový test. | Aktuální cíl je produkční human editor, ne voice surface. |
+| P037 | 8244–8288 | adapt | Převzít disciplínu přesné chybové evidence a zastavení neověřeného předpokladu. | Traceback je historický důkaz, nikoli současný incident; použitelný je postup fakt–příčina–minimální probe. |
+| P038 | 8289–8904 | adapt | Převzít read-only pozorování, prioritní neinvazivní notifikace, restart-safe store a rozlišení faktu od interpretace. | Editor musí sledovat scoped tunely a chyby bez skrytého spuštění práce; voice watcher se neimplementuje. |
+| P039 | 8905–9608 | adapt | Převzít Reality Critic jako fail-closed feasibility gate, konkrétní probes, oddělené náklady, sanitizaci a blokování execution-ready stavu. | Chrání návrhy CX/UX/UI a tunely před slepými uličkami; voice integrace a budoucí write slice se odkládají. |
+| P040 | 9613–10146 | adapt | Konverzační surface nad existujícím core | Ponechat oddělení UI/read/write a zákaz duplikace orchestrátoru; hlas není nynější priorita. |
+| P041 | 10147–10152 | keep | Univerzální připojitelný projekt | Editor nesmí být napevno navázán na jedinou Oporu. |
+| P042 | 10153–10158 | keep | Užitečnost pro člověka musí být zjevná | První uživatelský průchod vede od cíle k přesnému zadání a ověřenému výsledku, ne ke statistice dashboardu. |
+| P043 | 10159–10164 | adapt | Měřit dokončení proti schválenému rozsahu | Nepřenášet staré procento; vždy definovat jmenovatel a důkaz. |
+| P044 | 10165–10174 | adapt | Tabulka hotových a čekajících úkolů | Deduplikovat s P043; procenta jen nad identifikovanou baseline. |
+| P045 | 10175–10180 | adapt | Aktualizovat podstatu v2 | Aktuální zadání je nadřazené; další rozhovor jen pro skutečné nevratné nejasnosti. |
+| P046 | 10181–10188 | keep | Fraktální vizuální pracovní editor a dokumentové kontrakty | Projekt → sektor → uzel; CX/UX/UI, podstata, plán, strukturovaná mapa pro člověka i LLM. |
+| P047 | 10189–10194 | keep | Deterministický kontext bez zahlcení Markdownem | Strukturovaný model, dohledatelné souvislosti a scoped supervisor; ne jeden drahý proces na každý uzel. |
+| P048 | 10195–10347 | adapt | Nastavení, model routing a kontextové pomůcky | Převzít princip měřeného výběru nástroje/modelu; článek a 90% úspora nejsou výsledkem OporaCC, slepé přímé zápisy generátoru nepřebírat. |
+| P049 | 10348–10355 | keep | Goal-loop, viditelná pipeline, persistence a eskalace | Politiky i data flow musí být vidět; levnější model nezkoušet opakovaně bez rozpočtu a evidence. |
+| P050 | 10356–10365 | reject | Historické Realizuj | Archivní souhlas není dnešní povolení spouštět celé staré zadání. |
+| P051 | 10366–10371 | adapt | Subagenti kvůli čistému kontextu | Nezávislé bounded úlohy, návrat citované evidence místo zaplavení hlavního kontextu. |
+| P052 | 10372–10382 | adapt | Autonomní dokončení schváleného řezu | Přenosný princip bounded autonomie; stará F4 není dnešní aktivní úkol. |
+| P053 | 10383–10388 | reject | Historický reset session limitu | Provozní poznámka bez nového produktového požadavku. |
+| P054 | 10389–10394 | reject | Historické Pokračuj | Bez původního živého kontextu nevykonávat. |
+| P055 | 10395–10400 | adapt | Navázat na práci subagenta | Resume nejprve ověří scope, revizi, checkpoint a důkazy; shrnutí není autorita. |
+| P056 | 10401–10407 | adapt | Produkční editor, kontext a izolovaní specialisté | Ponechat hlavní produktový cíl, modely zaměnitelné; noční neomezená autonomie se mění na rozpočtovaný schválený scope. |
+| P057 | 10408–10413 | adapt | Samostatnost bez experimentálního balastu | Nezavádět automatické ablation kampaně; neodstraňovat funkční testy, bezpečnostní gates a měření skutečného výsledku. |
+| P058 | 10414–10419 | adapt | Historie sessions | Dohledatelné session/run/checkpoint vazby; ne otázka k vykonání z archivu. |
+| P059 | 10420–10429 | adapt | Ověřit větev před pokračováním | Převzít Git preflight, nikoli historický úkol 33. |
+| P060 | 10430–10435 | keep | Obrázek nebo screenshot vložený Ctrl+V k uzlu | Asset reference, zdroj, preview a bezpečné přílohy; multimodální context dle capability a explicitního scope. |
+| P061 | 10436–10441 | adapt | Nový projekt nebo import s vlastními materiály | Generický registry a spravovaný repo/worktree; neduplikovat cizí projekty bez schválení, nekopírovat konkrétní AmpleLab data. |
+| P062 | 10442–10451 | adapt | Funkční MVP před dalším laděním | Syntéza musí vést k malým ověřitelným řezům, ne k dalšímu slepému rewrite. |
+| P063 | 10452–10457 | keep | Neměnit zdrojová zadání a členit podle významu | Původní soubor immutable; rozhodnutí a pozdější vývoj append-only vedle něj. |

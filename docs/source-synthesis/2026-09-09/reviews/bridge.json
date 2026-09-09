@@ -1,0 +1,374 @@
+{
+  "section": "bridge",
+  "coverage": [
+    {
+      "start": 1,
+      "end": 3254
+    }
+  ],
+  "prompt_dispositions": [
+    {
+      "id": "P001",
+      "source_start": 34,
+      "source_end": 39,
+      "disposition": "reject",
+      "summary": "Historický příkaz spustit tři projekty.",
+      "reason": "Je to jednorázový provozní příkaz; aktuální autorita zakazuje vykonávat historické run příkazy (CURRENT-INTENT.md, ř. 5)."
+    },
+    {
+      "id": "P002",
+      "source_start": 40,
+      "source_end": 45,
+      "disposition": "defer",
+      "summary": "Historický dotaz na spuštění dalších projektů a problém s registrací Tuvalu.",
+      "reason": "Zachovat jako provozní incident a budoucí podklad pro onboarding, ne jako současný úkol; zdroj neobsahuje ověřenou opravu."
+    },
+    {
+      "id": "P003",
+      "source_start": 46,
+      "source_end": 52,
+      "disposition": "defer",
+      "summary": "Historická chyba nepovoleného provideru při GitHub přihlášení.",
+      "reason": "Je to diagnostický artefakt konkrétní integrace, nikoli trvalý produktový kontrakt; nesmí vyvolat změnu provideru nebo přihlášení."
+    },
+    {
+      "id": "P004",
+      "source_start": 53,
+      "source_end": 58,
+      "disposition": "reject",
+      "summary": "Historický příkaz spustit Rete.",
+      "reason": "Jednorázové spuštění nemá návrhovou hodnotu a nesmí se vykonat (CURRENT-INTENT.md, ř. 5)."
+    },
+    {
+      "id": "P005",
+      "source_start": 59,
+      "source_end": 64,
+      "disposition": "reject",
+      "summary": "Historický příkaz spustit zbylé repozitáře.",
+      "reason": "Jednorázová provozní instrukce bez určení cíle nebo bezpečného rozsahu."
+    },
+    {
+      "id": "P006",
+      "source_start": 65,
+      "source_end": 70,
+      "disposition": "reject",
+      "summary": "Historický příkaz k trvalému smazání adresáře matryca-plumber.",
+      "reason": "Destruktivní historický příkaz; aktuální zadání výslovně zakazuje mazání (CURRENT-INTENT.md, ř. 5)."
+    },
+    {
+      "id": "P007",
+      "source_start": 71,
+      "source_end": 76,
+      "disposition": "reject",
+      "summary": "Historický příkaz spustit OporaCC.",
+      "reason": "Není to specifikace editoru ani povolení současného agentního běhu."
+    },
+    {
+      "id": "P008",
+      "source_start": 77,
+      "source_end": 82,
+      "disposition": "adapt",
+      "summary": "Požadavek na návod k instalaci a ovládání Archify.",
+      "reason": "Lze převést na kurátorovaný onboarding a nápovědu editoru; nesmí však spouštět nebo instalovat historický program."
+    },
+    {
+      "id": "P009",
+      "source_start": 83,
+      "source_end": 88,
+      "disposition": "defer",
+      "summary": "Poznámka o globální instalaci .agents a nenalezení v jiném projektu.",
+      "reason": "Je to neověřený environmentální stav; uchovat jako riziko portability, nikoli jako konfiguraci k aplikaci."
+    },
+    {
+      "id": "P010",
+      "source_start": 89,
+      "source_end": 98,
+      "disposition": "reject",
+      "summary": "Historický příkaz spustit aplikaci.",
+      "reason": "Jednorázový run příkaz, který aktuální autorita výslovně neaktivuje (CURRENT-INTENT.md, ř. 5–7)."
+    },
+    {
+      "id": "P011",
+      "source_start": 99,
+      "source_end": 296,
+      "disposition": "adapt",
+      "summary": "Původní cíl tenkého Supervisor Bridge: supervisor drží význam, Hermes orchestrace a workers realizují práci s checkpointy.",
+      "reason": "Zachovat rozdělení odpovědností a strukturovaný checkpoint, ale převést z autonomního Bridge do člověkem řízeného editoru a tunelu do LLM."
+    },
+    {
+      "id": "P012",
+      "source_start": 297,
+      "source_end": 770,
+      "disposition": "adapt",
+      "summary": "Revize zavádí worker-agnostic hranici, explicitní router, normalizovaný checkpoint, audit a repozitářový scope.",
+      "reason": "Jde o použitelný evoluční kontrakt; budoucí adaptery a auto-routing zůstávají odloženy, jak zdroj sám vyžaduje."
+    },
+    {
+      "id": "P013",
+      "source_start": 771,
+      "source_end": 899,
+      "disposition": "adapt",
+      "summary": "Korekce plánu: promptový scope není izolace, technickou identitu runu vlastní bridge a práce se dělí na malé ověřitelné slices.",
+      "reason": "Tyto bezpečnostní a autoritativní hranice přímo podporují současný editor; konkrétní implementační plán je pouze historický příklad."
+    },
+    {
+      "id": "P014",
+      "source_start": 900,
+      "source_end": 967,
+      "disposition": "adapt",
+      "summary": "Před implementací vyžaduje reality check API, nefilesystemový E2E důkaz a odklad concurrency.",
+      "reason": "Použitelné principy minimalizace předpokladů a ověřování reality; konkrétní Slice 0 a příkazy nejsou aktivní."
+    },
+    {
+      "id": "P015",
+      "source_start": 968,
+      "source_end": 1170,
+      "disposition": "adapt",
+      "summary": "Slice 1 definuje čisté worker-agnostic modely, deterministický state machine, TDD a schvalovací stopku.",
+      "reason": "Ponechat jako návrhový vzor pro editorové Work Units a jejich ověření, nikoli jako požadavek na vytvoření historických souborů nebo commitů."
+    },
+    {
+      "id": "P016",
+      "source_start": 1171,
+      "source_end": 1498,
+      "disposition": "adapt",
+      "summary": "Slice 2 vymezuje restart-safe store, append-only audit, atomické změny stavu a canonicalizaci systémových metadat.",
+      "reason": "Trvalá auditní a stavová semantika je znovupoužitelná pro paměť a historii editoru; konkrétní SQLite řešení je volba k pozdějšímu ověření."
+    },
+    {
+      "id": "P017",
+      "source_start": 1499,
+      "source_end": 1831,
+      "disposition": "adapt",
+      "summary": "Slice 3 odděluje WorkerAdapter, rozhodovací obálku, deterministický router a budoucí Claude Code kontrakt bez fake implementace.",
+      "reason": "Přímý základ pro supervisorův tunel do VS Code terminálu; zákaz auto-routing, obecného shell endpointu a předčasné implementace zůstává platný."
+    },
+    {
+      "id": "P018",
+      "source_start": 1832,
+      "source_end": 1837,
+      "disposition": "defer",
+      "summary": "Jednoslovné historické schválení „Pokračuj“.",
+      "reason": "Dokládá časovou návaznost schvalování, ale bez identifikace slice, stavu a důkazu není samostatně přenositelným povolením."
+    },
+    {
+      "id": "P019",
+      "source_start": 1838,
+      "source_end": 1843,
+      "disposition": "defer",
+      "summary": "Jednoslovné historické schválení „Pokračuj další krok“.",
+      "reason": "Dokládá revizi toku, ale neobsahuje scope, acceptance ani autoritu; nelze je vyložit jako aktuální souhlas."
+    },
+    {
+      "id": "P020",
+      "source_start": 1844,
+      "source_end": 2361,
+      "disposition": "adapt",
+      "summary": "Slice 6 popisuje synchronní runner, checkpoint loop, korekce, recovery a audit rozhodnutí přes state machine.",
+      "reason": "Ponechat jako kontrolní kontrakt pro řízený pracovní tok; historical shell activation na ř. 1826 je pouze data a nesmí se spouštět."
+    },
+    {
+      "id": "P021",
+      "source_start": 2362,
+      "source_end": 2853,
+      "disposition": "adapt",
+      "summary": "Slice 7 zavádí úzké supervisor-facing API, explicitní autorizaci, loopback omezení a opožděné background execution.",
+      "reason": "Bezpečnostní hranice lze převzít pro lokální editorový tunel; konkrétní FastAPI endpointy ani bridge server se tím neschvalují."
+    },
+    {
+      "id": "P022",
+      "source_start": 2854,
+      "source_end": 3254,
+      "disposition": "adapt",
+      "summary": "Slice 8 požaduje omezený, auditovatelný E2E supervisor loop s reálným workerem, explicitními limity a bez modifikace produkčního repozitáře.",
+      "reason": "Převést na budoucí schvalovaný validační protokol; skutečný Hermes run, CLI export a test se nyní nespouští (CURRENT-INTENT.md, ř. 5–7)."
+    }
+  ],
+  "contracts": [
+    {
+      "id": "C01-human-supervisor-authority",
+      "title": "Člověk/supervisor je autoritou významu a povolení",
+      "source_lines": [178, 247],
+      "statement": "Supervisor drží původní záměr, pracovní uzel, scope, Definition of Done, non-goals a dřívější rozhodnutí; workeři neproměňují produktový cíl. V editoru je konečnou autoritou člověk, který supervisorovi uděluje rozhodnutí.",
+      "authority": "Člověk vlastní cíle a materiály; supervisor interpretuje a porovnává checkpoint proti schválenému Work Unitu; worker je vykonavatel.",
+      "inputs": ["Goal", "Work Unit / uzel Canvasu", "scope", "Definition of Done", "non-goals", "historie rozhodnutí", "checkpoint"],
+      "outputs": ["CONTINUE", "CORRECT", "STOP", "ESCALATE", "auditované zdůvodnění"],
+      "invariants": ["Supervisor neprogramuje místo workerů.", "Worker nesmí sám změnit produktový cíl.", "Rozhodnutí musí být navázané na konkrétní run a checkpoint."],
+      "acceptance": ["Editor u každého aktivního uzlu zobrazuje cíl, scope, DoD, non-goals a poslední rozhodnutí.", "Worker může pokračovat mimo terminální stav pouze po explicitním rozhodnutí autorizovaného člověka/supervisora."]
+    },
+    {
+      "id": "C02-worker-boundary-and-router",
+      "title": "Worker-agnostic adapter a explicitní router",
+      "source_lines": [352, 379],
+      "statement": "Doména editoru mluví s WorkerAdapterem, nikoli s Hermesem nebo Claude Code; router deterministicky vybere předem uvedený worker podle Work Unitu.",
+      "authority": "Kompozice registruje podporované workery; router pouze resolveuje explicitní volbu, nevykonává AI reasoning.",
+      "inputs": ["worker z Work Unitu", "registrované adaptéry", "workdir/repository", "allowed_scope"],
+      "outputs": ["vybraný WorkerAdapter", "známé workery", "chyba unknown_worker nebo auto_routing_not_implemented"],
+      "invariants": ["Supervisor, state machine a společné API neznají provider-specific implementaci.", "Auto-routing není implicitní fallback.", "Budoucí worker se přidává adapterem, ne rozvětvením domény."],
+      "acceptance": ["Stejný Work Unit model funguje pro každý registrovaný adapter.", "Neznámý nebo auto worker nemůže zahájit běh bez explicitního rozhodnutí a evidence."]
+    },
+    {
+      "id": "C03-normalized-checkpoint-and-metadata-authority",
+      "title": "Normalizovaný checkpoint; technická metadata vlastní systém",
+      "source_lines": [485, 519],
+      "statement": "Adapter překládá nativní výstup workera do společného checkpointu. LLM poskytuje sémantický obsah, zatímco run_id, worker_type, sequence a časové údaje canonicalizuje a ověřuje editor/bridge.",
+      "authority": "Systém runu je autoritou technické identity; model není autoritou nad workerem, runem ani timestampy.",
+      "inputs": ["nativní status/výstup workera", "kanonický Run", "kontrakt checkpointu"],
+      "outputs": ["validní checkpoint", "checkpoint_malformed s omezeným diagnostickým tailem", "normalizovaná auditní událost"],
+      "invariants": ["Provider nesmí měnit doménovou identitu návratem modelu.", "Checkpoint obsahuje stav, aktuální krok, dokončené položky, ověření, zjištění, žádost o scope změnu a další akci.", "Velký nebo nevalidní výstup se neukládá bez omezení jako auditní payload."],
+      "acceptance": ["Checkpoint s jiným workerem nebo run_id je odmítnut či přepsán kanonickou hodnotou a auditován.", "Supervisor umí checkpoint posoudit bez znalosti interního protokolu providera."]
+    },
+    {
+      "id": "C04-deterministic-state-and-terminal-safety",
+      "title": "Čistý deterministický stavový automat",
+      "source_lines": [1029, 1119],
+      "statement": "Přechod stavu je čistá funkce nad stavem a událostí. Checkpoint vede z WORKING do WAITING_FOR_SUPERVISOR; rozhodnutí určuje další přechod; terminální stavy další přechody nepřijímají.",
+      "authority": "Pouze state machine určuje validitu přechodu; runner/API ji nesmí obcházet ručním nastavením stavu.",
+      "inputs": ["současný RunState", "TransitionEvent", "status checkpointu", "SupervisorDecision"],
+      "outputs": ["nový RunState", "TransitionEvent pro audit", "InvalidTransition"],
+      "invariants": ["COMPLETED, STOPPED a FAILED jsou terminální.", "Rozhodnutí na nečekajícím či terminálním runu nemění workera.", "Pozdní výsledek nesmí oživit STOPPED run."],
+      "acceptance": ["Každý podporovaný přechod i nepovolený přechod má deterministický test/ověření.", "UI zobrazuje WAITING_FOR_SUPERVISOR jako skutečnou bránu, ne jako průběžný text." ]
+    },
+    {
+      "id": "C05-durable-append-only-audit",
+      "title": "Restart-safe stav a append-only audit",
+      "source_lines": [1181, 1193],
+      "statement": "Stav runu, poslední checkpoint a pending decision jsou trvalé; události jsou append-only, sekvenční a nesou worker_type. Zápis stavové změny a odpovídající auditní události je atomický.",
+      "authority": "Store vlastní generování seq, ts a systémových metadat události; workflow logika patří mimo store.",
+      "inputs": ["Run", "WorkerRun identita", "checkpoint", "SupervisorDecision", "stavová změna"],
+      "outputs": ["rekonstruovatelný Run", "řazený audit", "restartovatelný stav", "pending/delivered evidence"],
+      "invariants": ["Žádná provider-specific doménová kolonka.", "Není možná změna stavu bez odpovídající auditní stopy.", "Audit payload nesmí přepsat seq, ts, worker_type ani run_id."],
+      "acceptance": ["Po restartu lze načíst run i jeho události ve vzrůstajícím pořadí.", "Zápis create_run/goal_submitted i set_state/state_changed se ověří jako atomický." ]
+    },
+    {
+      "id": "C06-approval-gated-work-units",
+      "title": "Malé Work Units s explicitní schvalovací bránou",
+      "source_lines": [864, 894],
+      "statement": "Implementační či editorový plán se dělí na malé samostatně ověřitelné řezy s PURPOSE, FILES, IMPLEMENT, TEST, DONE WHEN a NON-GOALS. Po každém řezu následuje STOP do dalšího schválení.",
+      "authority": "Člověk/supervisor schvaluje uzavření řezu a povolení dalšího; worker smí realizovat pouze aktivní schválený rozsah.",
+      "inputs": ["schválený Work Unit", "acceptance", "evidence", "risks", "next slice"],
+      "outputs": ["uzavřený/vrácený Work Unit", "evidence checkpoint", "explicitní žádost o další schválení"],
+      "invariants": ["Žádný další slice nezačíná z implicitního „pokračuj“ bez scope a stavu.", "Neověřený nebo příliš široký slice se rozdělí.", "TDD a reality check předcházejí tvrzení DONE."],
+      "acceptance": ["Každý uzel Canvasu umí nést DoD, non-goals, ověření a stav schválení.", "Schválení odkazuje na konkrétní verzi Work Unitu a checkpoint, nikoli jen na konverzační text." ]
+    },
+    {
+      "id": "C07-runner-decision-and-recovery",
+      "title": "Řízený loop, doručení rozhodnutí a omezená recovery",
+      "source_lines": [1850, 1909],
+      "statement": "Runner propojuje store, router, adapter, checkpoint, state machine a rozhodnutí bez znalosti konkrétního providera. Validní checkpoint zastaví postup na WAITING_FOR_SUPERVISOR; rozhodnutí se nejprve vydá do auditu a teprve potom doručí.",
+      "authority": "State machine rozhoduje o přechodu, adapter potvrzuje skutečnou doručitelnost korekce, supervisor rozhoduje o dalším kroku.",
+      "inputs": ["run_id", "WorkerAdapter", "checkpoint", "SupervisorDecision", "malformed_limit"],
+      "outputs": ["stav runu", "decision_issued/delivered evidence", "BLOCKED/STOPPED/FAILED/COMPLETED", "omezený recovery report"],
+      "invariants": ["Neúspěšná live correction nemá tichý fallback na nový tah.", "ESCALATE neposílá workerovi skrytý příkaz.", "Při restartu je poznatelné, zda rozhodnutí vzniklo a zda bylo doručeno.", "Synchronous core nevytváří background recovery loop."],
+      "acceptance": ["První validní checkpoint vytvoří čekající stav a audit.", "Malformed limit přesně omezuje automatickou korekci; po limitu je run FAILED.", "Recovery pouze popíše/provede stavově platné kroky a nikdy nereinterpretuje provider-specifické chování jako jistotu." ]
+    },
+    {
+      "id": "C08-scope-is-not-isolation",
+      "title": "Promptový scope není technická izolace repozitáře",
+      "source_lines": [773, 812],
+      "statement": "workdir a allowed_scope vložené do promptu jsou instrukce pro model, nikoli bezpečnostní hranice. Produkční izolace vyžaduje samostatně vynucovaný mechanismus a samostatný schválený slice.",
+      "authority": "Technické vynucení určuje lokální integrační/runtime vrstva; supervisor nesmí prezentovat prompt jako sandbox.",
+      "inputs": ["repository/workdir", "allowed_scope", "technické capability workera", "policy izolace"],
+      "outputs": ["označení prompt-level/enforcement-level scope", "bezpečnostní status", "blokace nebo eskalace neprokázané izolace"],
+      "invariants": ["Absolutní cesta v promptu sama o sobě není guardrail.", "MVP supervisor loop není důkaz sandboxingu.", "Práce s produkčním repozitářem vyžaduje prokázané hranice před povolením mutací."],
+      "acceptance": ["Editor viditelně odliší instrukční scope od technicky vynuceného scope.", "Nelze označit Work Unit za bezpečně izolovaný bez evidence capability/enforcement." ]
+    },
+    {
+      "id": "C09-narrow-local-control-surface",
+      "title": "Úzký lokální řídicí povrch bez remote shellu",
+      "source_lines": [2401, 2419],
+      "statement": "Řídicí rozhraní přijímá Work Unit, vrací stav a audit a přijímá supervisorovo rozhodnutí; není to obecný shell, terminal ani execute endpoint. Pro MVP je vázané na loopback a chráněné tokenem mimo health check.",
+      "authority": "Supervisor pracuje s Work Unitem a rozhodnutími; interní adapter jediný smí použít podporované provider/terminálové rozhraní.",
+      "inputs": ["autorizovaný Work Unit", "run_id", "SupervisorDecision", "cursor auditu"],
+      "outputs": ["vytvořený run", "stav", "řazené události", "výsledek rozhodnutí"],
+      "invariants": ["Žádný /bash, /shell, /terminal, /execute ani provider-specific veřejný endpoint.", "Neplatná autorizace nic nemění.", "Health check nespouští LLM a nevyžaduje provider ping."],
+      "acceptance": ["Povolený řídicí povrch je explicitně inventarizovaný a testovatelný.", "Non-loopback bind a únik tokenů jsou odmítnuty/odhaleny před provozem." ]
+    },
+    {
+      "id": "C10-approval-gated-real-worker-validation",
+      "title": "Omezená validační smyčka se skutečným workerem",
+      "source_lines": [2860, 2877],
+      "statement": "Budoucí reálné ověření má dokazovat pouze auditovatelný tok GOAL → checkpoint → CORRECT → nový checkpoint → CONTINUE → COMPLETED, s pevnými časovými a krokovými limity; není to povolení měnit repozitář nebo rozšiřovat architekturu.",
+      "authority": "Člověk explicitně povoluje test i jeho environmentální preconditions; Bridge audit je primární důkaz, provider CLI export je pouze doplňková evidence.",
+      "inputs": ["schválený neinvazivní Work Unit", "dostupnost workeru", "max checkpointů", "timeouty", "audit"],
+      "outputs": ["PASS/FAIL s diagnostikou", "auditní důkaz pořadí událostí", "případná minimální regresní oprava"],
+      "invariants": ["Žádná nekonečná smyčka.", "Žádné automatické změny .env, gateway nebo konfigurace.", "E2E neprokazuje filesystem sandboxing ani neopravňuje modifikaci produkčního repozitáře."],
+      "acceptance": ["Test ověří kontinuitu session, vzrůstající checkpoint sequence a pořadí checkpoint/decision událostí.", "Při nedostupné precondition skončí čitelně bez vedlejšího zásahu.", "Úspěch vyžaduje opakovatelnost, ne jeden náhodný průchod." ]
+    }
+  ],
+  "conflicts": [
+    {
+      "topic": "Historický autonomní Bridge versus současný člověkem řízený editor",
+      "source_lines": [103, 136],
+      "resolution_or_question": "Převzít supervisor-loop jako interní editorový kontrakt, ale člověk zůstává poslední autoritou. Historický model nesmí sám spouštět autonomní agenty; současná autorita to zakazuje (CURRENT-INTENT.md, ř. 3–7)."
+    },
+    {
+      "topic": "Připravenost pro více workerů versus malé MVP",
+      "source_lines": [334, 348],
+      "resolution_or_question": "Zachovat stabilní WorkerAdapter a explicitní router, ale registrovat/realizovat jen skutečně schválený tunel do LLM. Claude Code adapter, auto-routing a orchestrace více workerů jsou samostatné dveře."
+    },
+    {
+      "topic": "Promptový workdir versus bezpečná izolace",
+      "source_lines": [789, 812],
+      "resolution_or_question": "V UX vždy zobrazit dvě odlišné úrovně: deklarovaný scope a vynucený scope. Dokud druhá nemá evidence, Work Unit nesmí získat bezpečnostní ani produkční-mutační status."
+    },
+    {
+      "topic": "Historické příkazy, aktivace prostředí a mazání",
+      "source_lines": [65, 70],
+      "resolution_or_question": "Uchovat výhradně jako citovaná historická data. Nevykonávat spuštění, source activation, instalace, konfigurace ani mazání (CURRENT-INTENT.md, ř. 5–7)."
+    },
+    {
+      "topic": "API Bridge versus tunel do VS Code terminálu",
+      "source_lines": [558, 570],
+      "resolution_or_question": "Aktuální editor může poskytovat lokální, úzký command model pro Work Units a rozhodnutí; nesmí degradovat na obecný remote shell. Je potřeba později schválit konkrétní technický transport tunelu i enforcement pracovního prostoru."
+    }
+  ],
+  "architecture_recommendations": [
+    "Zaveď Canvas uzel jako verzovaný Work Unit: cíl, materiály/paměť, závislosti, scope, non-goals, DoD, vybraný worker, stav, checkpointy, rozhodnutí a audit; zdrojová opora: ř. 178–247, 574–600 a 864–894.",
+    "Odděl čtyři vrstvy: editor a člověk (autorita), supervisor policy, worker-agnostic orchestration/state/audit a provider/VS Code-terminal adapter. Provider-specific data zůstávají za adapterem; opora: ř. 352–379, 485–519 a 1509–1517.",
+    "Použij fraktální strom Canvasu pro scope a závislosti, ale každý běh kotvi v neměnném snapshotu Work Unitu; zabrání to tomu, aby pozdější editace přepsala auditovaný záměr. Odvozeno z požadavku na historii běhu a trvalý audit na ř. 523–533 a 1181–1193.",
+    "Navrhni checkpoint jako editovatelný, strukturovaný artefakt s technickým obalem od systému a sémantickým obsahem od workera; UI má zvýraznit scope_change_requested, ověření, zjištění a next_action; opora: ř. 493–519 a 1965–2011.",
+    "Povoluj práci přes explicitní approval gate na úrovni uzlu a checkpointu. Nejasné historické „Pokračuj“ není v editoru platný souhlas; gate musí nést scope, verzi, akceptaci a identitu schvalujícího; opora: ř. 944–962, 1141–1167 a 1832–1841.",
+    "Vytvoř samostatný stav capability izolace: unproven / prompt-only / enforced / verified. Teprve enforced+verified může odemknout mutace produkčního repozitáře; opora: ř. 773–812 a 3162–3172.",
+    "Učící paměť ukládej jako odvozené, citované lessons z evidence chyb, malformed checkpointů, rozhodnutí a výsledků—not jako neověřený modelový fakt; opora: ř. 1992–2038, 2131–2144 a 3174–3187.",
+    "Pro lokální VS Code tunel zachovej úzké operace start/follow/decision/stop/status/events, explicitně bez shell-like veřejné plochy a s lokálním bindem; opora: ř. 1548–1598, 2401–2419 a 2674–2699."
+  ],
+  "risks": [
+    {
+      "topic": "Historické zdroje jsou neaktivní instrukce",
+      "source_lines": [34, 92],
+      "risk": "Příkazy ke spuštění, instalaci, mazání a aktivaci prostředí mohou být omylem interpretovány jako současné akce.",
+      "mitigation": "V importu je označit historical_command_data a vyžadovat nové explicitní schválení; aktuální autorita je CURRENT-INTENT.md, ř. 5–7."
+    },
+    {
+      "topic": "Falešný bezpečnostní pocit z promptového scope",
+      "source_lines": [773, 812],
+      "risk": "Model může pracovat mimo deklarovaný workdir nebo allowed_scope.",
+      "mitigation": "Oddělit deklaraci od enforcementu, mutace blokovat bez ověřené izolace a auditovat capability."
+    },
+    {
+      "topic": "Nedůvěryhodná technická metadata z modelu",
+      "source_lines": [841, 860],
+      "risk": "Modelový checkpoint může zaměnit worker/run/timestamp a poškodit audit či routing.",
+      "mitigation": "Canonicalizovat metadata z Runu a rozdíly validovat jako malformed checkpoint."
+    },
+    {
+      "topic": "Předčasná concurrency a blokující continuation",
+      "source_lines": [901, 942],
+      "risk": "Threading nebo otevřené stream cache mohou zakrýt lifecycle chyby a zhoršit recovery.",
+      "mitigation": "Nechat doménový loop synchronní a concurrency přidat pouze v explicitní integrační vrstvě se stop-race testy."
+    },
+    {
+      "topic": "Příliš široké API/terminálové oprávnění",
+      "source_lines": [558, 570],
+      "risk": "Obecný shell endpoint by obešel Work Unit, approval i scope model.",
+      "mitigation": "Povolit jen úzké operace Work Unit/run/decision/audit, lokální bind a explicitní autorizaci."
+    },
+    {
+      "topic": "Nekonečný nebo nákladný reálný worker loop",
+      "source_lines": [2974, 2990],
+      "risk": "Continuation může generovat neomezené tahy, čas i náklady.",
+      "mitigation": "U každého budoucího reálného runu vynutit max kroků, timeout, budget/policy a čitelný FAIL stav před spuštěním."
+    }
+  ]
+}

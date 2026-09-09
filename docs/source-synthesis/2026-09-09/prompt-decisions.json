@@ -1,0 +1,506 @@
+[
+  {
+    "id": "P001",
+    "source_start": 34,
+    "source_end": 39,
+    "disposition": "reject",
+    "summary": "Historický příkaz spustit tři projekty.",
+    "reason": "Je to jednorázový provozní příkaz; aktuální autorita zakazuje vykonávat historické run příkazy (CURRENT-INTENT.md, ř. 5)."
+  },
+  {
+    "id": "P002",
+    "source_start": 40,
+    "source_end": 45,
+    "disposition": "defer",
+    "summary": "Historický dotaz na spuštění dalších projektů a problém s registrací Tuvalu.",
+    "reason": "Zachovat jako provozní incident a budoucí podklad pro onboarding, ne jako současný úkol; zdroj neobsahuje ověřenou opravu."
+  },
+  {
+    "id": "P003",
+    "source_start": 46,
+    "source_end": 52,
+    "disposition": "defer",
+    "summary": "Historická chyba nepovoleného provideru při GitHub přihlášení.",
+    "reason": "Je to diagnostický artefakt konkrétní integrace, nikoli trvalý produktový kontrakt; nesmí vyvolat změnu provideru nebo přihlášení."
+  },
+  {
+    "id": "P004",
+    "source_start": 53,
+    "source_end": 58,
+    "disposition": "reject",
+    "summary": "Historický příkaz spustit Rete.",
+    "reason": "Jednorázové spuštění nemá návrhovou hodnotu a nesmí se vykonat (CURRENT-INTENT.md, ř. 5)."
+  },
+  {
+    "id": "P005",
+    "source_start": 59,
+    "source_end": 64,
+    "disposition": "reject",
+    "summary": "Historický příkaz spustit zbylé repozitáře.",
+    "reason": "Jednorázová provozní instrukce bez určení cíle nebo bezpečného rozsahu."
+  },
+  {
+    "id": "P006",
+    "source_start": 65,
+    "source_end": 70,
+    "disposition": "reject",
+    "summary": "Historický příkaz k trvalému smazání adresáře matryca-plumber.",
+    "reason": "Destruktivní historický příkaz; aktuální zadání výslovně zakazuje mazání (CURRENT-INTENT.md, ř. 5)."
+  },
+  {
+    "id": "P007",
+    "source_start": 71,
+    "source_end": 76,
+    "disposition": "reject",
+    "summary": "Historický příkaz spustit OporaCC.",
+    "reason": "Není to specifikace editoru ani povolení současného agentního běhu."
+  },
+  {
+    "id": "P008",
+    "source_start": 77,
+    "source_end": 82,
+    "disposition": "adapt",
+    "summary": "Požadavek na návod k instalaci a ovládání Archify.",
+    "reason": "Lze převést na kurátorovaný onboarding a nápovědu editoru; nesmí však spouštět nebo instalovat historický program."
+  },
+  {
+    "id": "P009",
+    "source_start": 83,
+    "source_end": 88,
+    "disposition": "defer",
+    "summary": "Poznámka o globální instalaci .agents a nenalezení v jiném projektu.",
+    "reason": "Je to neověřený environmentální stav; uchovat jako riziko portability, nikoli jako konfiguraci k aplikaci."
+  },
+  {
+    "id": "P010",
+    "source_start": 89,
+    "source_end": 98,
+    "disposition": "reject",
+    "summary": "Historický příkaz spustit aplikaci.",
+    "reason": "Jednorázový run příkaz, který aktuální autorita výslovně neaktivuje (CURRENT-INTENT.md, ř. 5–7)."
+  },
+  {
+    "id": "P011",
+    "source_start": 99,
+    "source_end": 296,
+    "disposition": "adapt",
+    "summary": "Původní cíl tenkého Supervisor Bridge: supervisor drží význam, Hermes orchestrace a workers realizují práci s checkpointy.",
+    "reason": "Zachovat rozdělení odpovědností a strukturovaný checkpoint, ale převést z autonomního Bridge do člověkem řízeného editoru a tunelu do LLM."
+  },
+  {
+    "id": "P012",
+    "source_start": 297,
+    "source_end": 770,
+    "disposition": "adapt",
+    "summary": "Revize zavádí worker-agnostic hranici, explicitní router, normalizovaný checkpoint, audit a repozitářový scope.",
+    "reason": "Jde o použitelný evoluční kontrakt; budoucí adaptery a auto-routing zůstávají odloženy, jak zdroj sám vyžaduje."
+  },
+  {
+    "id": "P013",
+    "source_start": 771,
+    "source_end": 899,
+    "disposition": "adapt",
+    "summary": "Korekce plánu: promptový scope není izolace, technickou identitu runu vlastní bridge a práce se dělí na malé ověřitelné slices.",
+    "reason": "Tyto bezpečnostní a autoritativní hranice přímo podporují současný editor; konkrétní implementační plán je pouze historický příklad."
+  },
+  {
+    "id": "P014",
+    "source_start": 900,
+    "source_end": 967,
+    "disposition": "adapt",
+    "summary": "Před implementací vyžaduje reality check API, nefilesystemový E2E důkaz a odklad concurrency.",
+    "reason": "Použitelné principy minimalizace předpokladů a ověřování reality; konkrétní Slice 0 a příkazy nejsou aktivní."
+  },
+  {
+    "id": "P015",
+    "source_start": 968,
+    "source_end": 1170,
+    "disposition": "adapt",
+    "summary": "Slice 1 definuje čisté worker-agnostic modely, deterministický state machine, TDD a schvalovací stopku.",
+    "reason": "Ponechat jako návrhový vzor pro editorové Work Units a jejich ověření, nikoli jako požadavek na vytvoření historických souborů nebo commitů."
+  },
+  {
+    "id": "P016",
+    "source_start": 1171,
+    "source_end": 1498,
+    "disposition": "adapt",
+    "summary": "Slice 2 vymezuje restart-safe store, append-only audit, atomické změny stavu a canonicalizaci systémových metadat.",
+    "reason": "Trvalá auditní a stavová semantika je znovupoužitelná pro paměť a historii editoru; konkrétní SQLite řešení je volba k pozdějšímu ověření."
+  },
+  {
+    "id": "P017",
+    "source_start": 1499,
+    "source_end": 1831,
+    "disposition": "adapt",
+    "summary": "Slice 3 odděluje WorkerAdapter, rozhodovací obálku, deterministický router a budoucí Claude Code kontrakt bez fake implementace.",
+    "reason": "Přímý základ pro supervisorův tunel do VS Code terminálu; zákaz auto-routing, obecného shell endpointu a předčasné implementace zůstává platný."
+  },
+  {
+    "id": "P018",
+    "source_start": 1832,
+    "source_end": 1837,
+    "disposition": "defer",
+    "summary": "Jednoslovné historické schválení „Pokračuj“.",
+    "reason": "Dokládá časovou návaznost schvalování, ale bez identifikace slice, stavu a důkazu není samostatně přenositelným povolením."
+  },
+  {
+    "id": "P019",
+    "source_start": 1838,
+    "source_end": 1843,
+    "disposition": "defer",
+    "summary": "Jednoslovné historické schválení „Pokračuj další krok“.",
+    "reason": "Dokládá revizi toku, ale neobsahuje scope, acceptance ani autoritu; nelze je vyložit jako aktuální souhlas."
+  },
+  {
+    "id": "P020",
+    "source_start": 1844,
+    "source_end": 2361,
+    "disposition": "adapt",
+    "summary": "Slice 6 popisuje synchronní runner, checkpoint loop, korekce, recovery a audit rozhodnutí přes state machine.",
+    "reason": "Ponechat jako kontrolní kontrakt pro řízený pracovní tok; historical shell activation na ř. 1826 je pouze data a nesmí se spouštět."
+  },
+  {
+    "id": "P021",
+    "source_start": 2362,
+    "source_end": 2853,
+    "disposition": "adapt",
+    "summary": "Slice 7 zavádí úzké supervisor-facing API, explicitní autorizaci, loopback omezení a opožděné background execution.",
+    "reason": "Bezpečnostní hranice lze převzít pro lokální editorový tunel; konkrétní FastAPI endpointy ani bridge server se tím neschvalují."
+  },
+  {
+    "id": "P022",
+    "source_start": 2854,
+    "source_end": 3254,
+    "disposition": "adapt",
+    "summary": "Slice 8 požaduje omezený, auditovatelný E2E supervisor loop s reálným workerem, explicitními limity a bez modifikace produkčního repozitáře.",
+    "reason": "Převést na budoucí schvalovaný validační protokol; skutečný Hermes run, CLI export a test se nyní nespouští (CURRENT-INTENT.md, ř. 5–7)."
+  },
+  {
+    "id": "P023",
+    "source_start": 3259,
+    "source_end": 3810,
+    "disposition": "adapt",
+    "summary": "Zachovat Bridge jako jedinou autoritu pro běh a přidat pouze úzký konverzační adaptér s pěti typovanými operacemi.",
+    "reason": "Historický cíl ChatGPT jako jediného Supervisora nahrazuje aktuální požadavek Supervisora svázaného s uzlem Canvasu a tunelem do LLM v terminálu VS Code; hranice Bridge, absence obecného HTTP/shellu a minimální konverzační stav zůstávají použitelné (3366–3384, 3444–3524, 3606–3630)."
+  },
+  {
+    "id": "P024",
+    "source_start": 3811,
+    "source_end": 4284,
+    "disposition": "adapt",
+    "summary": "Převzít loopback-only BridgeClient, pět pevných operací, ochranu tokenu a zákaz importu internals Bridge.",
+    "reason": "Surface probe a konkrétní Secure MCP Tunnel jsou historická providerová rozhodnutí, proto nejsou implementační frontou. Typovaný klient bez generic request/proxy však chrání nezávislou architekturu (3977–3995, 4048–4163)."
+  },
+  {
+    "id": "P025",
+    "source_start": 4285,
+    "source_end": 4819,
+    "disposition": "adapt",
+    "summary": "Převzít oddělení contract/state/operations, kurzory checkpointů a událostí a Bridge jako zdroj pravdy; stav rozšířit o vazbu na uzel a revizi Canvasu.",
+    "reason": "Původní omezení na jeden aktivní run a žádný conversation_id nevyhovuje fraktálnímu Canvasu. Stav má být obnovitelný index vazeb, nikoli autorita ani důkaz výsledku (4445–4495, 4530–4638)."
+  },
+  {
+    "id": "P026",
+    "source_start": 4820,
+    "source_end": 5386,
+    "disposition": "adapt",
+    "summary": "Použít stdio MCP jako lokální typovaný control-plane adaptér s přesným allowlistem nástrojů; běh LLM v terminálu VS Code držet jako oddělený, scope-guarded execution tunnel.",
+    "reason": "Stdio, stderr logging, absence listeneru a zákaz shell/http toolů jsou přenositelné kontrakty (5055–5100). Fixní závislost mcp==2.1.1, Codex/Claude registrace a jejich údajné fyzické testy jsou historické a musí být znovu ověřeny."
+  },
+  {
+    "id": "P027",
+    "source_start": 5387,
+    "source_end": 5679,
+    "disposition": "keep",
+    "summary": "Zachovat požadavek na fyzické E2E přes skutečný stdio transport, skutečný Bridge a skutečného workera, včetně korelace, auditního pořadí, limitů a opakovatelnosti.",
+    "reason": "Rozlišení FakeWorkerAdapteru od reálného Hermese, session continuity, kontrola tajemství a pevné časové/checkpoint limity jsou přímo použitelné jako evidence contract (5426–5463, 5493–5573, 5639–5649)."
+  },
+  {
+    "id": "P028",
+    "source_start": 5680,
+    "source_end": 6115,
+    "disposition": "defer",
+    "summary": "Odložit ChatGPT-web hookup a Secure MCP Tunnel; ponechat pouze hard capability gate a bezpečný fallback na lokální VS Code terminal surface.",
+    "reason": "Text je vázán na dobovou dostupnost ChatGPT plánů, webu a write MCP, kterou nelze považovat za aktuální fakt. Aktuální záměr výslovně nepodmiňuje rychlý editor jedním providerem/UI; zákaz veřejného listeneru a princip nezměnit connector při změně surface zůstávají relevantní (5722–5779, 5783–5812, 6014–6033)."
+  },
+  {
+    "id": "P029",
+    "source_start": 6120,
+    "source_end": 6613,
+    "disposition": "adapt",
+    "summary": "Převzít bránovaný preflight, nejmenší oprávnění a důkazy z reálného průchodu.",
+    "reason": "Jsou použitelné pro bezpečné supervisor tunely; historický realtime mikrofonový produkt se neimplementuje."
+  },
+  {
+    "id": "P030",
+    "source_start": 6614,
+    "source_end": 7225,
+    "disposition": "adapt",
+    "summary": "Převzít srovnávání alternativ podle měřené kvality, ceny, omezení a provozní jednoduchosti.",
+    "reason": "Rozhodovací metoda chrání editor před neověřenou externí závislostí; hlasová/providerová matice je odložena."
+  },
+  {
+    "id": "P031",
+    "source_start": 7226,
+    "source_end": 7231,
+    "disposition": "reject",
+    "summary": "Historický dotaz na vložení API klíče nepřenášet.",
+    "reason": "Syntéza nesmí pracovat s credentials ani vykonávat jejich historické nastavení."
+  },
+  {
+    "id": "P032",
+    "source_start": 7232,
+    "source_end": 7237,
+    "disposition": "reject",
+    "summary": "Historické tvrzení o vloženém klíči nepřenášet.",
+    "reason": "Je to dobový credential stav, nikoli současný požadavek nebo ověřený fakt."
+  },
+  {
+    "id": "P033",
+    "source_start": 7238,
+    "source_end": 7243,
+    "disposition": "reject",
+    "summary": "Historickou navigaci pro vložení klíče nepřenášet.",
+    "reason": "Týká se citlivých údajů a konkrétního voice spike mimo scope editoru."
+  },
+  {
+    "id": "P034",
+    "source_start": 7244,
+    "source_end": 7249,
+    "disposition": "reject",
+    "summary": "Historické potvrzení dokončení nepřenášet.",
+    "reason": "Nemá samostatný znovupoužitelný princip ani současnou autoritu."
+  },
+  {
+    "id": "P035",
+    "source_start": 7250,
+    "source_end": 8237,
+    "disposition": "adapt",
+    "summary": "Převzít hranici diskuse–rozhodnutí–provedení, ResourceGate, explicitní stav, Reality Critic a schvalovaný Decision Packet.",
+    "reason": "Přímo podporují human editor, kurátorovaný kontext a bezpečné terminálové tunely; voice core a placený provider se odkládají."
+  },
+  {
+    "id": "P036",
+    "source_start": 8238,
+    "source_end": 8243,
+    "disposition": "defer",
+    "summary": "Živý mikrofonní scénář ponechat jako budoucí produktový test.",
+    "reason": "Aktuální cíl je produkční human editor, ne voice surface."
+  },
+  {
+    "id": "P037",
+    "source_start": 8244,
+    "source_end": 8288,
+    "disposition": "adapt",
+    "summary": "Převzít disciplínu přesné chybové evidence a zastavení neověřeného předpokladu.",
+    "reason": "Traceback je historický důkaz, nikoli současný incident; použitelný je postup fakt–příčina–minimální probe."
+  },
+  {
+    "id": "P038",
+    "source_start": 8289,
+    "source_end": 8904,
+    "disposition": "adapt",
+    "summary": "Převzít read-only pozorování, prioritní neinvazivní notifikace, restart-safe store a rozlišení faktu od interpretace.",
+    "reason": "Editor musí sledovat scoped tunely a chyby bez skrytého spuštění práce; voice watcher se neimplementuje."
+  },
+  {
+    "id": "P039",
+    "source_start": 8905,
+    "source_end": 9608,
+    "disposition": "adapt",
+    "summary": "Převzít Reality Critic jako fail-closed feasibility gate, konkrétní probes, oddělené náklady, sanitizaci a blokování execution-ready stavu.",
+    "reason": "Chrání návrhy CX/UX/UI a tunely před slepými uličkami; voice integrace a budoucí write slice se odkládají."
+  },
+  {
+    "id": "P040",
+    "source_start": 9613,
+    "source_end": 10146,
+    "disposition": "adapt",
+    "summary": "Konverzační surface nad existujícím core",
+    "reason": "Ponechat oddělení UI/read/write a zákaz duplikace orchestrátoru; hlas není nynější priorita."
+  },
+  {
+    "id": "P041",
+    "source_start": 10147,
+    "source_end": 10152,
+    "disposition": "keep",
+    "summary": "Univerzální připojitelný projekt",
+    "reason": "Editor nesmí být napevno navázán na jedinou Oporu."
+  },
+  {
+    "id": "P042",
+    "source_start": 10153,
+    "source_end": 10158,
+    "disposition": "keep",
+    "summary": "Užitečnost pro člověka musí být zjevná",
+    "reason": "První uživatelský průchod vede od cíle k přesnému zadání a ověřenému výsledku, ne ke statistice dashboardu."
+  },
+  {
+    "id": "P043",
+    "source_start": 10159,
+    "source_end": 10164,
+    "disposition": "adapt",
+    "summary": "Měřit dokončení proti schválenému rozsahu",
+    "reason": "Nepřenášet staré procento; vždy definovat jmenovatel a důkaz."
+  },
+  {
+    "id": "P044",
+    "source_start": 10165,
+    "source_end": 10174,
+    "disposition": "adapt",
+    "summary": "Tabulka hotových a čekajících úkolů",
+    "reason": "Deduplikovat s P043; procenta jen nad identifikovanou baseline."
+  },
+  {
+    "id": "P045",
+    "source_start": 10175,
+    "source_end": 10180,
+    "disposition": "adapt",
+    "summary": "Aktualizovat podstatu v2",
+    "reason": "Aktuální zadání je nadřazené; další rozhovor jen pro skutečné nevratné nejasnosti."
+  },
+  {
+    "id": "P046",
+    "source_start": 10181,
+    "source_end": 10188,
+    "disposition": "keep",
+    "summary": "Fraktální vizuální pracovní editor a dokumentové kontrakty",
+    "reason": "Projekt → sektor → uzel; CX/UX/UI, podstata, plán, strukturovaná mapa pro člověka i LLM."
+  },
+  {
+    "id": "P047",
+    "source_start": 10189,
+    "source_end": 10194,
+    "disposition": "keep",
+    "summary": "Deterministický kontext bez zahlcení Markdownem",
+    "reason": "Strukturovaný model, dohledatelné souvislosti a scoped supervisor; ne jeden drahý proces na každý uzel."
+  },
+  {
+    "id": "P048",
+    "source_start": 10195,
+    "source_end": 10347,
+    "disposition": "adapt",
+    "summary": "Nastavení, model routing a kontextové pomůcky",
+    "reason": "Převzít princip měřeného výběru nástroje/modelu; článek a 90% úspora nejsou výsledkem OporaCC, slepé přímé zápisy generátoru nepřebírat."
+  },
+  {
+    "id": "P049",
+    "source_start": 10348,
+    "source_end": 10355,
+    "disposition": "keep",
+    "summary": "Goal-loop, viditelná pipeline, persistence a eskalace",
+    "reason": "Politiky i data flow musí být vidět; levnější model nezkoušet opakovaně bez rozpočtu a evidence."
+  },
+  {
+    "id": "P050",
+    "source_start": 10356,
+    "source_end": 10365,
+    "disposition": "reject",
+    "summary": "Historické Realizuj",
+    "reason": "Archivní souhlas není dnešní povolení spouštět celé staré zadání."
+  },
+  {
+    "id": "P051",
+    "source_start": 10366,
+    "source_end": 10371,
+    "disposition": "adapt",
+    "summary": "Subagenti kvůli čistému kontextu",
+    "reason": "Nezávislé bounded úlohy, návrat citované evidence místo zaplavení hlavního kontextu."
+  },
+  {
+    "id": "P052",
+    "source_start": 10372,
+    "source_end": 10382,
+    "disposition": "adapt",
+    "summary": "Autonomní dokončení schváleného řezu",
+    "reason": "Přenosný princip bounded autonomie; stará F4 není dnešní aktivní úkol."
+  },
+  {
+    "id": "P053",
+    "source_start": 10383,
+    "source_end": 10388,
+    "disposition": "reject",
+    "summary": "Historický reset session limitu",
+    "reason": "Provozní poznámka bez nového produktového požadavku."
+  },
+  {
+    "id": "P054",
+    "source_start": 10389,
+    "source_end": 10394,
+    "disposition": "reject",
+    "summary": "Historické Pokračuj",
+    "reason": "Bez původního živého kontextu nevykonávat."
+  },
+  {
+    "id": "P055",
+    "source_start": 10395,
+    "source_end": 10400,
+    "disposition": "adapt",
+    "summary": "Navázat na práci subagenta",
+    "reason": "Resume nejprve ověří scope, revizi, checkpoint a důkazy; shrnutí není autorita."
+  },
+  {
+    "id": "P056",
+    "source_start": 10401,
+    "source_end": 10407,
+    "disposition": "adapt",
+    "summary": "Produkční editor, kontext a izolovaní specialisté",
+    "reason": "Ponechat hlavní produktový cíl, modely zaměnitelné; noční neomezená autonomie se mění na rozpočtovaný schválený scope."
+  },
+  {
+    "id": "P057",
+    "source_start": 10408,
+    "source_end": 10413,
+    "disposition": "adapt",
+    "summary": "Samostatnost bez experimentálního balastu",
+    "reason": "Nezavádět automatické ablation kampaně; neodstraňovat funkční testy, bezpečnostní gates a měření skutečného výsledku."
+  },
+  {
+    "id": "P058",
+    "source_start": 10414,
+    "source_end": 10419,
+    "disposition": "adapt",
+    "summary": "Historie sessions",
+    "reason": "Dohledatelné session/run/checkpoint vazby; ne otázka k vykonání z archivu."
+  },
+  {
+    "id": "P059",
+    "source_start": 10420,
+    "source_end": 10429,
+    "disposition": "adapt",
+    "summary": "Ověřit větev před pokračováním",
+    "reason": "Převzít Git preflight, nikoli historický úkol 33."
+  },
+  {
+    "id": "P060",
+    "source_start": 10430,
+    "source_end": 10435,
+    "disposition": "keep",
+    "summary": "Obrázek nebo screenshot vložený Ctrl+V k uzlu",
+    "reason": "Asset reference, zdroj, preview a bezpečné přílohy; multimodální context dle capability a explicitního scope."
+  },
+  {
+    "id": "P061",
+    "source_start": 10436,
+    "source_end": 10441,
+    "disposition": "adapt",
+    "summary": "Nový projekt nebo import s vlastními materiály",
+    "reason": "Generický registry a spravovaný repo/worktree; neduplikovat cizí projekty bez schválení, nekopírovat konkrétní AmpleLab data."
+  },
+  {
+    "id": "P062",
+    "source_start": 10442,
+    "source_end": 10451,
+    "disposition": "adapt",
+    "summary": "Funkční MVP před dalším laděním",
+    "reason": "Syntéza musí vést k malým ověřitelným řezům, ne k dalšímu slepému rewrite."
+  },
+  {
+    "id": "P063",
+    "source_start": 10452,
+    "source_end": 10457,
+    "disposition": "keep",
+    "summary": "Neměnit zdrojová zadání a členit podle významu",
+    "reason": "Původní soubor immutable; rozhodnutí a pozdější vývoj append-only vedle něj."
+  }
+]

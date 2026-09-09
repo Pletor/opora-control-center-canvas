@@ -1,0 +1,25 @@
+{
+  "original_sha256": "6f5c14a6976e88423e7690b9fd1dde09dada9c5188929a2923cbda912b88b266",
+  "original_unchanged": true,
+  "line_count": 10524,
+  "lines_assigned_and_accounted_for": 10524,
+  "missing_lines": [],
+  "duplicate_lines": [],
+  "expected_prompts": 63,
+  "processed_prompts": 63,
+  "unique_prompt_ids": 63,
+  "dispositions": {
+    "reject": 13,
+    "defer": 7,
+    "adapt": 35,
+    "keep": 8
+  },
+  "section_contracts": {
+    "bridge": 10,
+    "connector": 9,
+    "voice": 9,
+    "vision": 3
+  },
+  "reference_projects": 6,
+  "method": "Three bounded full-section reads plus parent full section 5–9 and chronology read; machine verifies coverage intervals, unique prompt IDs, citation bounds and source hash. Secondary repositories reviewed only in selected documented ranges."
+}
