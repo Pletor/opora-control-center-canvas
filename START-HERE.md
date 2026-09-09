@@ -8,7 +8,7 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 - Instalace a spuštění: [README.md](README.md).
 - Schválený směr vývoje: [EDITOR-SPEC.md](docs/source-synthesis/2026-09-09/EDITOR-SPEC.md).
 - Zpracované podklady a mapa: [přehled syntézy](docs/source-synthesis/2026-09-09/README.md).
-- První rozpracovaný řez: **R01 — editor zadání uzlu**, podklady v `.opora/workunits/WU-R01/`. Zatím není implementován.
+- První rozpracovaný řez: **R01 — editor zadání uzlu**, podklady a výsledek v [.opora/workunits/WU-R01/RESULT.md](.opora/workunits/WU-R01/RESULT.md). Editor je implementovaný a testovaný; další moduly přibývají po ověřených řezech.
 
 ## Co patří kam
 

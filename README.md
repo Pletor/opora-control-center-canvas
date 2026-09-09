@@ -2,6 +2,15 @@
 
 Samostatný nový Canvas. Není závislý na starém OporaCC, Bridge ani na předchozím pokusu OporaCC-v3.
 
+## Aktuální stav — R01, 2026-09-09
+
+**Toto je jediný primární projekt. Začni v [START-HERE.md](START-HERE.md).**
+V detailu uzlu je editor cíle práce, omezení a podmínek dokončení: explicitní uložení, revize, konflikt dvou oken, zachování rozepsaného textu při přepínání a bezpečné chybové stavy. Zadání je lokální SQLite záznam, nikoli dosud Git-verzovaná specifikace. Před úplným reloadem je nutné rozpracovaný text uložit.
+
+Od R01 běží Playwright na **8741** s vlastními daty; produkční **8740 se kvůli testům nezastavuje**. `OPORA_CANVAS_PORT` je explicitní serverová konfigurace host/origin gate (default 8740); při změně musí souhlasit s uvicorn `--port`.
+
+Důkazy a zbývající scope: [.opora/workunits/WU-R01/RESULT.md](.opora/workunits/WU-R01/RESULT.md). Historický rozsah první verze níže zůstává zachovaný.
+
 ## Spuštění
 
 ```sh
@@ -58,6 +67,6 @@ npx playwright install chromium
 npx playwright test
 ```
 
-Playwright spouští vlastní server na 8740, proto před ním zastavte produkční server. Má vlastní `.data/e2e-<čas>/` a skutečné dočasné Git fixture repozitáře; **nikdy nepoužívá `.data/production`**. Testuje prázdný draft, zanoření/reload, main proti dvěma izolovaným worktrees. Python testy navíc ověřují zablokování cizího Origin/Host, stale graf, cykly, pomalý Git proti bootstrapu, externě mergnutou revizi a ochranu dirty mainu.
+Historický testovací popis před R01 (aktuální port je 8741, viz výše): Playwright spouští vlastní server na 8740, proto před ním zastavte produkční server. Má vlastní `.data/e2e-<čas>/` a skutečné dočasné Git fixture repozitáře; **nikdy nepoužívá `.data/production`**. Testuje prázdný draft, zanoření/reload, main proti dvěma izolovaným worktrees. Python testy navíc ověřují zablokování cizího Origin/Host, stale graf, cykly, pomalý Git proti bootstrapu, externě mergnutou revizi a ochranu dirty mainu.
 
 `evidence/empty-canvas.png` je skutečný prázdný Canvas; screenshoty s názvem fixture jsou pouze důkazy testovacího průchodu a nejsou produkční data.
