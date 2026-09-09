@@ -41,4 +41,11 @@ subprocess.run(["git", "clone", str(upstream), str(repo)], check=True, capture_o
 service.register_repository("fixture", "E2E fixture", str(repo), str(upstream), "main")
 service.create_workspace("fixture", "sector1", "Agent A")
 service.create_workspace("fixture", "sector1", "Agent B")
+removal_repo = root / "projects" / "removal-fixture" / "main"
+removal_repo.parent.mkdir(parents=True)
+subprocess.run(["git", "clone", str(upstream), str(removal_repo)], check=True, capture_output=True)
+service.register_repository(
+    "removal-fixture", "Disposable removal fixture", str(removal_repo), str(upstream), "main"
+)
+service.create_workspace("removal-fixture", "sector1", "Removal fixture owner")
 service.close()

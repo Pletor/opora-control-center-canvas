@@ -11,6 +11,7 @@ export default function NodePanel({
   onEnter,
   onSave,
   onWorkspace,
+  onDelete,
 }: {
   node: CanvasNode;
   project: string;
@@ -21,6 +22,7 @@ export default function NodePanel({
   onEnter: () => void;
   onSave: (n: CanvasNode) => void;
   onWorkspace: () => void;
+  onDelete: () => void;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
@@ -34,6 +36,9 @@ export default function NodePanel({
       <code className="identity">{node.id}</code>
       <button className="wide" onClick={onEnter}>
         Otevřít vnitřní plátno
+      </button>
+      <button className="danger wide" disabled={readOnly || busy} title={readOnly ? "Main je pouze pro čtení. Přepněte do pracovního prostoru." : "Zobrazit dopad před smazáním"} onClick={onDelete}>
+        {node.kind === "sector" ? "Smazat sektor" : "Smazat uzel"}
       </button>
       <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
       <h3>Podstata</h3>

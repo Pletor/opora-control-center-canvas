@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Board from "./Board";
 import NodePanel from "./NodePanel";
+import RemovalDialog from "./RemovalDialog";
+import { discardSpecDrafts } from "./NodeSpecEditor";
 import {
   api,
   type Graph,
@@ -9,6 +11,7 @@ import {
   type Job,
   type CanvasNode,
   type Workspace,
+  type RemovalPreview,
 } from "./types";
 const initial = new URLSearchParams(location.search);
 export default function App() {
@@ -18,6 +21,13 @@ export default function App() {
   );
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
+  const [removal, setRemoval] = useState<RemovalPreview | null>(null);
+  const activeScope = useRef({ project, workspace });
+  activeScope.current = { project, workspace };
+  const activeContext = useRef("");
+  activeContext.current = JSON.stringify([project, workspace, parent, selected, selectedEdge]);
+  const bootstrapGeneration = useRef(0);
   const [projects, setProjects] = useState<Project[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [view, setView] = useState<View | null>(null);
@@ -32,7 +42,9 @@ export default function App() {
   const [actor, setActor] = useState("");
   const generation = useRef(0);
   async function bootstrap() {
+    const ticket = ++bootstrapGeneration.current;
     const b = await api<{ projects: Project[]; jobs: Job[] }>("/api/bootstrap");
+    if (ticket !== bootstrapGeneration.current) return;
     setProjects(b.projects);
     setJobs(b.jobs);
   }
@@ -55,6 +67,8 @@ export default function App() {
   }, []);
   useEffect(() => {
     setSelected(null);
+    setSelectedEdge(null);
+    setRemoval(null);
     setError("");
     refresh();
   }, [project, workspace]);
@@ -94,6 +108,7 @@ export default function App() {
   }
   const graph = view?.graph ?? { nodes: [], edges: [] };
   const node = graph.nodes.find((n) => n.id === selected);
+  const edge = graph.edges.find((e) => e.id === selectedEdge);
   const layer = graph.nodes.find((n) => n.id === parent);
   const editable = !!view && !view.readOnly && !busy;
   const visible = graph.nodes.filter((n) => n.parentId === parent);
@@ -113,11 +128,42 @@ export default function App() {
   function enter(id: string | null) {
     setParent(id);
     setSelected(null);
+    setSelectedEdge(null);
   }
   function selectProject(id: string) {
+    generation.current++;
+    setView(null);
     setProject(id);
     setWorkspace(id === "draft" ? "draft" : "main");
     enter(null);
+  }
+  async function requestRemoval(kind: RemovalPreview["kind"], target: string) {
+    const context = activeContext.current;
+    await run(async () => {
+      const preview = await api<RemovalPreview>("/api/removal-preview?" + new URLSearchParams({ project, workspace: kind === "project" ? "main" : workspace, kind, target }));
+      if (context === activeContext.current) setRemoval(preview);
+    });
+  }
+  async function confirmRemoval(preview: RemovalPreview) {
+    const result = await api<{ view?: View; nodeIds?: string[]; removedProject?: string }>("/api/remove", {
+      project: preview.project, workspace: preview.workspace, kind: preview.kind,
+      target: preview.target, digest: preview.digest, confirmed: true,
+    });
+    generation.current++;
+    if (preview.kind === "project") {
+      bootstrapGeneration.current++;
+      discardSpecDrafts(preview.project);
+      setProjects((items) => items.filter((p) => p.id !== preview.project));
+      setJobs((items) => items.filter((j) => j.project_id !== preview.project));
+      if (activeScope.current.project === preview.project) selectProject("draft");
+      bootstrap().catch((e) => setError(String(e)));
+    } else {
+      discardSpecDrafts(preview.project, preview.workspace, result.nodeIds ?? []);
+      if (activeScope.current.project === preview.project && activeScope.current.workspace === preview.workspace && result.view) {
+        setView(result.view); setSelected(null); setSelectedEdge(null);
+      }
+    }
+    setRemoval((current) => current?.digest === preview.digest ? null : current);
   }
   return (
     <div className="app">
@@ -147,6 +193,7 @@ export default function App() {
           </label>
         </div>
         <button onClick={() => open("github")}>Připojit GitHub</button>
+        {project !== "draft" && <button className="danger" disabled={busy} onClick={() => requestRemoval("project", project)}>Odebrat repozitář</button>}
         <span className="local-status">LOKÁLNĚ · {location.port}</span>
       </header>
       <div className="modebar">
@@ -332,7 +379,9 @@ export default function App() {
                 parent={parent}
                 selected={selected}
                 disabled={!editable}
-                onSelect={setSelected}
+                selectedEdge={selectedEdge}
+                onSelect={(id) => { setSelected(id); setSelectedEdge(null); }}
+                onSelectEdge={(id) => { setSelectedEdge(id); setSelected(null); }}
                 onEnter={enter}
                 onPosition={(id, x, y) =>
                   run(() =>
@@ -416,6 +465,7 @@ export default function App() {
             busy={busy}
             workspaces={view?.workspaces ?? []}
             onEnter={() => enter(node.id)}
+            onDelete={() => requestRemoval("node", node.id)}
             onSave={(n) =>
               run(() =>
                 save({
@@ -426,6 +476,12 @@ export default function App() {
             }
             onWorkspace={() => open("workspace")}
           />
+        ) : edge ? (
+          <aside className="detail">
+            <div className="eyebrow">VAZBA · DETAIL</div>
+            <h2>{graph.nodes.find((n) => n.id === edge.source)?.name} → {graph.nodes.find((n) => n.id === edge.target)?.name}</h2>
+            <button className="danger wide" disabled={!editable} title={view?.readOnly ? "Main je pouze pro čtení." : "Zobrazit dopad před smazáním"} onClick={() => requestRemoval("edge", edge.id)}>Smazat vazbu</button>
+          </aside>
         ) : (
           <aside className="detail idle">
             <div className="eyebrow">INSPEKTOR UZLU</div>
@@ -459,6 +515,7 @@ export default function App() {
           </aside>
         )}
       </div>
+      {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
       {modal && (
         <div className="modal-backdrop">
           <section

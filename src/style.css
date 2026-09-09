@@ -1,6 +1,12 @@
 * {
   box-sizing: border-box;
 }
+.removal-dialog { color: #e3e9ef; background: #19212a; border: 1px solid #445361; border-radius: 10px; width: min(540px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 24px; overflow: auto; }
+.removal-dialog::backdrop { background: rgba(0, 0, 0, .65); }
+.removal-dialog p { line-height: 1.5; overflow-wrap: anywhere; }
+.removal-actions { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; margin-top: 24px; }
+button.danger { color: #ffc1c1; border-color: #99565b; }
+button.danger:hover { background: #4a272c; }
 :root {
   font-family: "Segoe UI", Arial, sans-serif;
   color: #e5e9ec;

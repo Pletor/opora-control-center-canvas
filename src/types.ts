@@ -1,3 +1,4 @@
+export type RemovalPreview = { project: string; workspace: string; kind: "node" | "edge" | "project"; target: string; label: string; nodeIds: string[]; nodeCount: number; edgeCount: number; workspaceCount?: number; digest: string };
 export type SpecFields = { goal: string; non_goals: string; acceptance: string };
 export type NodeSpec = { fields: SpecFields; revision: number; saved_at: string | null; readOnly: boolean; available: boolean; source: string };
 export type CanvasNode = {

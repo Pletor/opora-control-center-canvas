@@ -11,6 +11,7 @@ from pathlib import Path
 from .gitio import git, github_url
 from .graph import EMPTY, digest, encode, valid_id, validate_graph
 from .node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
+from .removals import RemovalService
 
 GRAPH_FILE = "opora-canvas.json"
 
@@ -30,6 +31,7 @@ class CanvasService:
         self.db = sqlite3.connect(self.root / "canvas.sqlite", check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.specs = NodeSpecStore(self.db)
+        self.removals = RemovalService(self)
         self.db.executescript("""CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT,repo TEXT,url TEXT,branch TEXT);
         CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY,project_id TEXT,directory TEXT,branch TEXT,node_id TEXT,actor TEXT,base_sha TEXT);
         CREATE TABLE IF NOT EXISTS drafts(id TEXT PRIMARY KEY,graph TEXT);
@@ -84,6 +86,8 @@ class CanvasService:
     def row(self, table, key):
         if table not in ("projects", "workspaces") or not valid_id(key):
             raise ValueError("Neplatný identifikátor.")
+        if table == "projects" and self.removals.archived(key):
+            raise ValueError("Projekt byl odpojen z aplikace.")
         row = self.db.execute(f"SELECT * FROM {table} WHERE id=?", (key,)).fetchone()
         if row is None:
             raise ValueError("Položka nebyla nalezena.")
@@ -95,12 +99,14 @@ class CanvasService:
                 "projects": [
                     dict(r)
                     for r in self.db.execute(
-                        "SELECT id,name,url,branch FROM projects ORDER BY name"
+                        "SELECT id,name,url,branch FROM projects WHERE id NOT IN (SELECT project_id FROM archived_projects) ORDER BY name"
                     )
                 ],
                 "jobs": [
                     dict(r)
-                    for r in self.db.execute("SELECT * FROM jobs ORDER BY updated_at DESC LIMIT 20")
+                    for r in self.db.execute(
+                        "SELECT * FROM jobs WHERE project_id IS NULL OR project_id NOT IN (SELECT project_id FROM archived_projects) ORDER BY updated_at DESC LIMIT 20"
+                    )
                 ],
             }
 
@@ -180,7 +186,7 @@ class CanvasService:
             "observedAt": now(),
         }
 
-    def save_graph(self, pid, wid, graph, expected_digest):
+    def save_graph(self, pid, wid, graph, expected_digest, *, allow_removal=False):
         validate_graph(graph)
         with self.graph_lock:
             current = self.view(pid, wid)
@@ -188,6 +194,12 @@ class CanvasService:
                 raise ValueError("Čistý main je pouze pro čtení. Vytvořte pracovní prostor.")
             if current["digest"] != expected_digest:
                 raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
+            if not allow_removal:
+                for collection in ("nodes", "edges"):
+                    old_ids = {item["id"] for item in current["graph"][collection]}
+                    new_ids = {item["id"] for item in graph[collection]}
+                    if old_ids - new_ids:
+                        raise ValueError("Mazání vyžaduje náhled a potvrzení odstranění.")
             if pid == "draft":
                 with self.lock:
                     self.db.execute("UPDATE drafts SET graph=? WHERE id='draft'", (encode(graph),))
@@ -218,6 +230,7 @@ class CanvasService:
             directory.parent.mkdir(parents=True, exist_ok=True)
             git(project["repo"], "worktree", "add", "-b", branch, str(directory), base, timeout=60)
             with self.lock:
+                self.row("projects", pid)
                 self.db.execute(
                     "INSERT INTO workspaces VALUES(?,?,?,?,?,?,?)",
                     (wid, pid, str(directory), branch, node_id, actor, base),
@@ -226,7 +239,10 @@ class CanvasService:
                 return self.row("workspaces", wid)
 
     def job(self, kind, action, pid=None):
-        with self.lock:
+        with self.lock, self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            if pid is not None and self.removals.archived(pid):
+                raise ValueError("Projekt byl odpojen z aplikace.")
             jid = uuid.uuid4().hex
             self.db.execute(
                 "INSERT INTO jobs VALUES(?,?,?,?,?,?)",

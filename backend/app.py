@@ -108,6 +108,14 @@ def create_app(data_root=None):
             payload.get("project"), payload.get("workspace"), payload.get("node"), payload
         )
 
+    @app.get("/api/removal-preview")
+    def removal_preview(project: str, workspace: str, kind: str, target: str):
+        return service.removals.preview(project, workspace, kind, target)
+
+    @app.post("/api/remove")
+    def remove_item(payload: dict):
+        return service.removals.remove(payload)
+
     @app.post("/api/connect")
     def connect(payload: dict):
         return service.connect(payload.get("url"), payload.get("approved"))

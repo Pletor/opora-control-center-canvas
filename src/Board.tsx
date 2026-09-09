@@ -42,6 +42,8 @@ export default function Board({
   scope,
   disabled,
   onSelect,
+  selectedEdge,
+  onSelectEdge,
   onEnter,
   onPosition,
   onConnect,
@@ -52,6 +54,8 @@ export default function Board({
   scope: string;
   disabled: boolean;
   onSelect: (id: string) => void;
+  selectedEdge: string | null;
+  onSelectEdge: (id: string | null) => void;
   onEnter: (id: string) => void;
   onPosition: (id: string, x: number, y: number) => void;
   onConnect: (c: Connection) => void;
@@ -94,7 +98,7 @@ export default function Board({
     <ReactFlow
       colorMode="dark"
       nodes={nodes}
-      edges={edges}
+      edges={edges.map((e) => ({ ...e, selected: e.id === selectedEdge }))}
       nodeTypes={nodeTypes}
       defaultViewport={viewport}
       minZoom={0.15}
@@ -104,6 +108,8 @@ export default function Board({
       deleteKeyCode={null}
       onNodesChange={(changes) => setNodes((n) => applyNodeChanges(changes, n))}
       onNodeClick={(_, n) => onSelect(n.id)}
+      onEdgeClick={(_, edge) => onSelectEdge(edge.id)}
+      onPaneClick={() => onSelectEdge(null)}
       onNodeDoubleClick={(_, n) => onEnter(n.id)}
       onNodeDragStop={(_, n) => onPosition(n.id, n.position.x, n.position.y)}
       onConnect={onConnect}

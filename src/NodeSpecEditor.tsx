@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { api, type NodeSpec, type SpecFields } from "./types";
 
 const drafts = new Map<string, { fields: SpecFields; revision: number }>();
+export function discardSpecDrafts(project: string, workspace?: string, nodeIds?: string[]) {
+  for (const key of drafts.keys()) {
+    const [p, w, n] = JSON.parse(key) as string[];
+    if (p === project && (workspace === undefined || w === workspace) && (nodeIds === undefined || nodeIds.includes(n))) drafts.delete(key);
+  }
+}
 const EMPTY: SpecFields = { goal: "", non_goals: "", acceptance: "" };
 const FIELDS: { key: keyof SpecFields; label: string; limit: number }[] = [
   { key: "goal", label: "Cíl práce", limit: 4000 },
