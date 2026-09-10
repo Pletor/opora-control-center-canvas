@@ -103,6 +103,10 @@ export function AgentPacketPanel({
     setApproved(false);
     setStopRequested(false);
     setError("");
+    // Bumping generation.current makes the stale request's own finally() a no-op (its ticket
+    // no longer matches), so busy would otherwise stay true forever with no request left to
+    // ever clear it. Reset it here instead — the new scope starts idle, not stuck mid-build.
+    setBusy(false);
   }, [scopeSignature]);
 
   const scopeStale = Boolean(preview) && previewScope !== scopeSignature;
@@ -407,12 +411,20 @@ export function AgentPacketPanel({
               type="button"
               disabled={busy}
               onClick={async () => {
+                // Capture the ticket and the exact run this click targets: if scope changes
+                // (generation bumps) while the export is in flight, the old run's response must
+                // neither download nor surface an error into the new scope.
+                const ticket = generation.current;
+                const exportedRun = run;
                 try {
-                  const value = await exportHandoff(run.id);
-                  if (value.id !== run.id) throw new Error("Export neodpovídá běhu.");
-                  download(`opora-run-${run.id}.json`, JSON.stringify(value, null, 2), "application/json");
+                  const value = await exportHandoff(exportedRun.id);
+                  if (!mounted.current || ticket !== generation.current) return;
+                  if (value.id !== exportedRun.id || value.digest !== exportedRun.digest) {
+                    throw new Error("Export neodpovídá běhu.");
+                  }
+                  download(`opora-run-${exportedRun.id}.json`, JSON.stringify(value, null, 2), "application/json");
                 } catch (e) {
-                  setError(errorMessage(e));
+                  if (mounted.current && ticket === generation.current) setError(errorMessage(e));
                 }
               }}
             >
