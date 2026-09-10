@@ -273,7 +273,7 @@ class TaskHandoffs:
         """Kontext worker nástrojů = PŘESNÝ neměnný snapshot; documents nese celý balíček."""
         packet = snapshot["packet"]
         scope = packet["scope"]
-        lineage = [packet["task"], *packet["context"]["ancestors"]]
+        lineage = [packet["task"], *packet["context"]["ancestors"]] if scope["nodeId"] else []
         nodes = [
             {key: item[key] for key in ("nodeId", "parentId", "kind", "name", "purpose")}
             for item in lineage
@@ -309,7 +309,7 @@ class TaskHandoffs:
         if scope["workspace"] == "main":
             raise ValueError("Dokumentační úkol nelze připravit z pouze-pro-čtení mainu.")
         settings, revision = self._settings(scope["project"])
-        readable = list(dict.fromkeys([scope["node"], *(item["nodeId"] for item in packet["context"]["ancestors"])]))
+        readable = list(dict.fromkeys(item for item in [scope["node"], *(item["nodeId"] for item in packet["context"]["ancestors"])] if item))
         context = self._snapshot_context(snapshot)
         from .desktop_v3_packets import MAX_PACKET_BYTES
 

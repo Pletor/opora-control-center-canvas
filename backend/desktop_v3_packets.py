@@ -162,7 +162,7 @@ def validate_request(payload):
     project, workspace, node = payload["project"], payload["workspace"], payload["nodeId"]
     if not isinstance(project, str) or (project != "draft" and not valid_id(project)) or not valid_id(workspace):
         raise ValueError("Neplatný identifikátor projektu nebo pracovního prostoru.")
-    if not valid_id(node):
+    if node != "" and not valid_id(node):
         raise ValueError("Neplatný identifikátor uzlu.")
     try:
         relative_path(payload["path"])
@@ -243,14 +243,19 @@ class DesktopV3Packets:
             raise ValueError("Podklady se sestavují z pracovního prostoru; main je pouze pro čtení.")
         graph = view["graph"]
         by_id = {item["id"]: item for item in graph["nodes"]}
-        if node not in by_id:
+        if node and node not in by_id:
             raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
         config = self.canvas.project_hub.settings(project)
         ancestors = ancestor_ids(by_id, node)
-        lineage = [node, *ancestors]
+        lineage = [node, *ancestors] if node else []
         lineage_set = set(lineage)
 
         def summary(nid):
+            if nid == "":
+                # Projekt/cesta je rozsah zadání, nikoli vymyšlený uzel grafu.
+                return {"nodeId": "", "name": path or config["project"]["name"],
+                        "kind": "path" if path else "project", "purpose": config["settings"]["goal"],
+                        "parentId": None, "sourceRef": None}
             item = by_id[nid]
             return {
                 "nodeId": nid, "name": item["name"], "kind": item["kind"],
@@ -258,7 +263,7 @@ class DesktopV3Packets:
                 "sourceRef": item.get("sourceRef"),
             }
 
-        focus = by_id[node]
+        focus = by_id[node] if node else {}
         focus_path = (focus.get("sourceRef") or {}).get("path", "")
         lineage_paths = [(by_id[nid].get("sourceRef") or {}).get("path", "") for nid in lineage]
         rule_paths = list(dict.fromkeys(item for item in [path, focus_path] if item))
@@ -300,7 +305,7 @@ class DesktopV3Packets:
                 "memory": memory,
                 "graph": {"digest": view["digest"], "source": view["source"], "totalNodes": len(graph["nodes"])},
                 "ancestors": [summary(nid) for nid in ancestors],
-                "children": [summary(item["id"]) for item in graph["nodes"] if item["parentId"] == node],
+                "children": [summary(item["id"]) for item in graph["nodes"] if item["parentId"] == (node or None)],
                 "relations": [edge for edge in graph["edges"] if edge["source"] in lineage_set or edge["target"] in lineage_set],
                 "texts": [],
                 "specs": [],
