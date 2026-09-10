@@ -17,8 +17,9 @@ test("agent context map explains selected ancestry and exports only the built pa
   await page.getByLabel("Podmínky dokončení", { exact: true }).fill("Evidence is explicit");
   await page.getByRole("button", { name: "Uložit zadání", exact: true }).click();
 
-  await page.getByRole("button", { name: "Kontextový paket", exact: true }).click();
+  await page.getByRole("button", { name: "AI nástroje", exact: true }).click();
   const dock = page.getByRole("region", { name: "Nástroje práce s AI" });
+  await dock.getByRole("button", { name: "Kontext", exact: true }).click();
   await expect(dock.getByRole("heading", { name: "Mapa kontextu pro agenta" })).toBeVisible();
   await expect(dock.getByTestId("agent-context-ancestry")).toContainText("Fixture sector");
   await expect(dock.getByText("Zadání → Vybraný kontext → Návrh modelu → Nástroj / akce → Důkaz výsledku")).toBeVisible();

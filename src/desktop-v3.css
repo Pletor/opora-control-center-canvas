@@ -99,6 +99,11 @@
 .editor-workbench .v3-bench-primary { font-weight: 600; }
 .editor-workbench .v3-packet-head { padding-bottom: 0; }
 .v3-slot { min-width: 0; }
+/* .node-panel má min-height:100% pro krátký obsah; s přidaným sourozencem (Životní cyklus uzlu)
+   by jej flex-shrink jinak stlačil pod výšku obsahu a ten by se (overflow:visible) vizuálně
+   přelil přes sourozence, čímž by zakrýval a blokoval kliky na tlačítka uvnitř Inspektoru. */
+.desktop-v3 .inspector .node-panel { flex-shrink: 0; }
+.desktop-v3 .inspector .v3-slot.v3-node-workflow { flex-shrink: 0; }
 .v3-node-workflow { border-top: 1px solid var(--line); margin-top: var(--sp-4); padding-top: var(--sp-3); }
 .v3-live { display: flex; flex-direction: column; min-height: 0; height: 100%; }
 .v3-live-tabs { display: flex; gap: 4px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); }

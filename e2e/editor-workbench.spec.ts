@@ -8,8 +8,9 @@ test("Editor keeps the existing Hermes tools and builds a real context packet", 
   await page.getByLabel("Název uzlu", { exact: true }).fill("Context tracer node");
   await page.getByRole("button", { name: "Vytvořit", exact: true }).click();
   await page.locator(".canvas-card").filter({ hasText: "Context tracer node" }).click();
-  await page.getByRole("button", { name: "Kontextový paket", exact: true }).click();
+  await page.getByRole("button", { name: "AI nástroje", exact: true }).click();
   const dock = page.getByRole("region", { name: "Nástroje práce s AI" });
+  await dock.getByRole("button", { name: "Kontext", exact: true }).click();
   await dock.getByRole("button", { name: "Sestavit paket", exact: true }).click();
   await expect(dock.getByTestId("context-packet-preview")).toContainText("Context tracer node");
   await dock.getByRole("button", { name: "Ověřit aktuálnost", exact: true }).click();
