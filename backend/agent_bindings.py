@@ -57,6 +57,8 @@ class AgentBindings:
 
     def _node_exists(self, pid, wid, node_id):
         view = self.canvas.view(pid, wid)
+        if view["readOnly"]:
+            raise ValueError("Main je pouze pro čtení. Vazbu na agenta nelze uložit.")
         return view["graph"], any(n["id"] == node_id for n in view["graph"]["nodes"])
 
     def bind(self, payload):
@@ -159,6 +161,30 @@ class AgentBindings:
                 (pid, wid, *node_ids),
             ).fetchall()
         return {"items": [{"sourceId": r["source_id"], "runId": r["run_id"]} for r in rows]}
+
+    def _ancestors(self, graph, node_id):
+        parents = {n["id"]: n["parentId"] for n in graph["nodes"]}
+        out, current, seen = [], node_id, set()
+        while current is not None and current not in seen:
+            seen.add(current)
+            out.append(current)
+            current = parents.get(current)
+        return out
+
+    def is_bound(self, pid, wid, node_id, source_id, run_id, graph):
+        """Je `run_id` z `source_id` vázán přímo na `node_id`, nebo na některý jeho
+        sektor (předka)? Používá `AgentActivityJournal`, aby zápis aktivity vyžadoval
+        skutečnou existující vazbu běhu na uzel/sektor, ne jen libovolné ID od klienta."""
+        ancestors = self._ancestors(graph, node_id)
+        placeholders = ",".join("?" * len(ancestors))
+        with self.canvas.lock:
+            row = self.canvas.db.execute(
+                f"""SELECT 1 FROM agent_bindings
+                    WHERE project_id=? AND workspace_id=? AND source_id=? AND run_id=?
+                    AND node_id IN ({placeholders}) LIMIT 1""",
+                (pid, wid, source_id, run_id, *ancestors),
+            ).fetchone()
+        return row is not None
 
     def bound_run_keys(self, source_id):
         with self.canvas.lock:

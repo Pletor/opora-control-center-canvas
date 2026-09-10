@@ -33,7 +33,7 @@ def create_agent_router(service, *, platno_base_url=None, orchestrator_root=None
     catalog = AgentCatalog(platno=platno, orchestrator=orchestrator)
     known_sources = [platno.source_id] + ([orchestrator.source_id] if orchestrator else [])
     bindings = AgentBindings(service, known_sources=known_sources)
-    activity = AgentActivityJournal(service)
+    activity = AgentActivityJournal(service, known_sources=known_sources, bindings=bindings)
 
     router = APIRouter(prefix="/api/agents", tags=["agents"])
 

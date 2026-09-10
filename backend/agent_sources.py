@@ -14,35 +14,50 @@ import urllib.request
 from collections import Counter, deque
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 MAX_FILE_BYTES = 5_000_000
-MAX_EVENTS_PARSED = 500
+MAX_HTTP_BYTES = 2_000_000
 PREVIEW_EVENTS = 8
 TEXT_LIMIT = 400
 TOOL_INPUT_LIMIT = 200
 ALLOWED_LANE_FILES = ("state.json", "events.jsonl", "result.json")
 _LANE_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
-# Princip a klíčová slova převzaty z OporaCC src/oporacc/security.py (jen ke čtení, bez importu).
-_SECRET_KEYS = ("secret", "password", "authorization", "api_key", "apikey", "token", "bearer")
+# Princip a klíčová slova převzaty z OporaCC src/oporacc/security.py (jen ke čtení, bez
+# importu cizího repozitáře za běhu; funkční reimplementace, ne byte-for-byte kopie).
+# Výjimka z maskování tokenů platí pouze pro známé číselné metriky, ne pro řetězce
+# ani ostatní klíče. CamelCase, prefixy i množné číslo mohou obsahovat credentials.
+_TOKEN_COUNT_KEYS = {
+    "inputtokens", "outputtokens", "totaltokens", "cachereadinputtokens",
+    "cachecreationinputtokens", "prompttokens", "completiontokens",
+}
+_SECRET_KEY_EXACT = {"token", "access_token", "refresh_token", "bearer"}
+_SECRET_KEY_SUBSTR = ("secret", "password", "authorization", "api_key", "apikey")
 _SECRET_TEXT = re.compile(
-    r"sk-[A-Za-z0-9]{10,}"
-    r"|ghp_[A-Za-z0-9]{10,}"
-    r"|Bearer\s+[A-Za-z0-9._-]{10,}"
+    r"Bearer\s+[A-Za-z0-9._~+/=-]{8,}"
+    r"|(?:ghp_|github_pat_)[A-Za-z0-9_-]{16,}"
+    r"|sk-[A-Za-z0-9_-]{16,}"
     r"|(?:token|api_key|secret|password)\s*[:=]\s*[^\s,;]{4,}",
     re.IGNORECASE,
 )
 _MASK = "[REDACTED]"
 
 
+def _secret_key(key, value=None):
+    lowered = str(key).lower()
+    canonical = re.sub(r"[^a-z0-9]", "", lowered)
+    if canonical in _TOKEN_COUNT_KEYS and type(value) in (int, float):
+        return False
+    return "token" in lowered or lowered in _SECRET_KEY_EXACT or any(part in lowered for part in _SECRET_KEY_SUBSTR)
+
+
 def redact(value):
     if isinstance(value, dict):
         out = {}
         for key, item in value.items():
-            if any(part in str(key).lower() for part in _SECRET_KEYS):
-                out[key] = _MASK
-            else:
-                out[key] = redact(item)
+            out[key] = _MASK if _secret_key(key, item) else redact(item)
         return out
     if isinstance(value, list):
         return [redact(item) for item in value]
@@ -60,19 +75,47 @@ def now_iso():
     return datetime.now(UTC).isoformat()
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Server-side loopback zdroj se nesmí nechat přesměrovat mimo svůj origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 class PlatnoSource:
-    """Klient na existující status API vt-cc-platno (aktuálně 127.0.0.1:8738)."""
+    """Klient na existující status API vt-cc-platno (aktuálně 127.0.0.1:8738).
+
+    Přestože jde o server-side konfigurovaný zdroj (ne uživatelský vstup), hranice
+    zůstává loopback jen s HTTP/host validací, bez přihlašovacích údajů v URL, bez
+    následování přesměrování a s omezenou velikostí odpovědi.
+    """
 
     def __init__(self, base_url="http://127.0.0.1:8738", *, fetch=None, timeout=3.0):
         self.source_id = "oporacc-platno"
-        self.base_url = base_url.rstrip("/")
+        self.base_url = self._validated_base_url(base_url)
         self._timeout = timeout
+        self._opener = urllib.request.build_opener(_NoRedirectHandler)
         self._fetch = fetch or self._http_fetch
+
+    @staticmethod
+    def _validated_base_url(base_url):
+        parts = urlsplit(base_url)
+        if parts.scheme != "http":
+            raise ValueError("platno_source_url_must_be_http")
+        if (parts.hostname or "").lower() not in _LOOPBACK_HOSTS:
+            raise ValueError("platno_source_url_must_be_loopback")
+        if parts.username or parts.password:
+            raise ValueError("platno_source_url_must_not_embed_credentials")
+        return base_url.rstrip("/")
 
     def _http_fetch(self, path):
         try:
-            with urllib.request.urlopen(self.base_url + path, timeout=self._timeout) as resp:
-                return resp.status, json.loads(resp.read())
+            request = urllib.request.Request(self.base_url + path, method="GET")
+            with self._opener.open(request, timeout=self._timeout) as resp:
+                raw = resp.read(MAX_HTTP_BYTES + 1)
+                if len(raw) > MAX_HTTP_BYTES:
+                    return None, None
+                return resp.status, json.loads(raw)
         except (urllib.error.URLError, TimeoutError, OSError, ValueError):
             return None, None
 
@@ -98,12 +141,16 @@ class PlatnoSource:
         bridge = body.get("bridge") if isinstance(body.get("bridge"), dict) else {}
         bridge_ok = bridge.get("ok") is True
         cost = body.get("cost") if isinstance(body.get("cost"), dict) else None
+        # "running"/"waiting" mohou v reálné odpovědi chybět nebo být null (ne jen []);
+        # nedůvěřovat tvaru, jinak by iterace nad None shodila celý zdroj.
+        raw_running = body.get("running")
+        raw_waiting = body.get("waiting")
         return {
             "available": True,
             "bridgeOk": bridge_ok,
             "bridgeError": None if bridge_ok else str(bridge.get("error") or "bridge_unavailable"),
-            "running": [redact(r) for r in body.get("running", []) if isinstance(r, dict)],
-            "waiting": [redact(r) for r in body.get("waiting", []) if isinstance(r, dict)],
+            "running": [redact(r) for r in raw_running if isinstance(r, dict)] if isinstance(raw_running, list) else [],
+            "waiting": [redact(r) for r in raw_waiting if isinstance(r, dict)] if isinstance(raw_waiting, list) else [],
             "cost": (
                 {
                     "todayUsd": cost.get("today_usd") if bridge_ok else None,
@@ -160,15 +207,21 @@ def _strip_content_block(block):
     if kind == "text":
         return {"type": "text", "text": clip(redact(block.get("text", "")))}
     if kind == "tool_use":
+        name = block.get("name")
         return {
             "type": "tool_use",
-            "name": block.get("name"),
+            "name": clip(redact(name), 120) if name is not None else None,
             "input": clip(redact(block.get("input")), TOOL_INPUT_LIMIT),
         }
     if kind == "tool_result":
         content = block.get("content")
         return {"type": "tool_result", "content": clip(redact(content))}
     return {"type": kind}
+
+
+def _clipped_subtype(raw):
+    subtype = raw.get("subtype")
+    return clip(redact(subtype), 80) if subtype is not None else None
 
 
 def _summarize_event(raw):
@@ -186,9 +239,9 @@ def _summarize_event(raw):
             return None
         return {"kind": "user", "content": content}
     if kind == "result":
-        return {"kind": "result", "subtype": raw.get("subtype"), "summary": clip(redact(raw.get("result")))}
+        return {"kind": "result", "subtype": _clipped_subtype(raw), "summary": clip(redact(raw.get("result")))}
     if kind == "system":
-        return {"kind": "system", "subtype": raw.get("subtype")}
+        return {"kind": "system", "subtype": _clipped_subtype(raw)}
     return None
 
 
@@ -199,6 +252,9 @@ class LocalOrchestratorSource:
         self.source_id = "hermes-orchestrator"
         self.root = Path(root).resolve()
         self._pid_probe = pid_probe or _default_pid_probe
+
+    def is_available(self):
+        return self.root.is_dir()
 
     def list_lanes(self):
         if not self.root.is_dir():
@@ -213,13 +269,31 @@ class LocalOrchestratorSource:
             raise ValueError("path_escape")
         return candidate
 
+    def _safe_file(self, directory, filename):
+        """Ověří obsažení AŽ výsledné (symlink/junction rozřešené) cesty konkrétního
+        souboru pod kořenem, ne jen adresářového řetězce. Čtení pak jde přes tuto už
+        rozřešenou cestu (ne znovu přes `directory / filename`), což zužuje TOCTOU
+        okno na výměnu cíle přímo pod rozřešenou cestou — úplnou ochranu bez OS
+        primitiv (O_NOFOLLOW na Windows chybí) nelze v čistém Pythonu zaručit.
+        """
+        candidate = directory / filename
+        try:
+            resolved = candidate.resolve(strict=False)
+        except OSError:
+            return None
+        try:
+            resolved.relative_to(self.root)
+        except ValueError:
+            return None
+        return resolved
+
     def read_lane(self, lane):
         directory = self._lane_dir(lane)
         if not directory.is_dir():
             return {"available": False, "lane": lane, "status": "unknown", "error": "source_missing"}
         state = self._read_state(directory)
         events = self._read_events(directory)
-        result = self._read_json(directory / "result.json")
+        result = self._read_json(directory, "result.json")
         return {
             "available": True,
             "lane": lane,
@@ -233,8 +307,9 @@ class LocalOrchestratorSource:
             "result": redact(result) if result is not None else None,
         }
 
-    def _read_json(self, path):
-        if not path.is_file() or path.stat().st_size > MAX_FILE_BYTES:
+    def _read_json(self, directory, filename):
+        path = self._safe_file(directory, filename)
+        if path is None or not path.is_file() or path.stat().st_size > MAX_FILE_BYTES:
             return None
         try:
             return json.loads(path.read_text(encoding="utf-8"))
@@ -242,24 +317,28 @@ class LocalOrchestratorSource:
             return None
 
     def _read_state(self, directory):
-        data = self._read_json(directory / "state.json")
+        data = self._read_json(directory, "state.json")
         if data is None:
             return {"available": False}
         return {"available": True, "data": redact(data)}
 
     def _read_events(self, directory):
-        path = directory / "events.jsonl"
+        path = self._safe_file(directory, "events.jsonl")
+        if path is None:
+            return {"count": 0, "counts": {}, "truncated": False, "preview": []}
         if not path.is_file() or path.stat().st_size > MAX_FILE_BYTES:
             return {"count": 0, "counts": {}, "truncated": path.is_file(), "preview": []}
+        # Skutečná hranice je velikost souboru (MAX_FILE_BYTES výše), ne umělý počet
+        # řádků: dřívější tvrdý strop na 500 řádků způsoboval, že náhled i čítač
+        # ukazovaly vždy jen prvních 500 událostí a nikdy se nedostaly k novějším —
+        # v reálně běžícím logu tak "realtime" pohled zůstal navždy zaseknutý na
+        # stejném místě. Paměť zůstává ohraničená (Counter + deque s pevnou délkou),
+        # čas čtení je ohraničený velikostí souboru, ne libovolně zvětšenou konstantou.
         counts = Counter()
         window = deque(maxlen=PREVIEW_EVENTS)
         total = 0
-        truncated = False
         with path.open(encoding="utf-8") as handle:
             for line in handle:
-                if total >= MAX_EVENTS_PARSED:
-                    truncated = True
-                    break
                 line = line.strip()
                 if not line:
                     continue
@@ -274,7 +353,7 @@ class LocalOrchestratorSource:
                 summary = _summarize_event(raw)
                 if summary is not None:
                     window.append(summary)
-        return {"count": total, "counts": dict(counts), "truncated": truncated, "preview": list(window)}
+        return {"count": total, "counts": dict(counts), "truncated": False, "preview": list(window)}
 
     def _liveness(self, state):
         if not state.get("available"):

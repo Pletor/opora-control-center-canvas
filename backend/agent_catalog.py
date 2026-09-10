@@ -22,8 +22,19 @@ class AgentCatalog:
         if self.platno is not None:
             out[self.platno.source_id] = self.platno.health()
         if self.orchestrator is not None:
-            lanes = self.orchestrator.list_lanes()
-            out[self.orchestrator.source_id] = {"available": True, "lanes": lanes}
+            if self.orchestrator.is_available():
+                out[self.orchestrator.source_id] = {
+                    "available": True,
+                    "status": "ok",
+                    "lanes": self.orchestrator.list_lanes(),
+                }
+            else:
+                out[self.orchestrator.source_id] = {
+                    "available": False,
+                    "status": "missing",
+                    "error": "source_root_missing",
+                    "lanes": [],
+                }
         return out
 
     def _orchestrator_runs(self):
