@@ -21,6 +21,7 @@ export default function EnvironmentSwitch({ value, onChange, disabled }: {
   }, [onChange, disabled]);
   return <nav className="environment-switch" aria-label="Pracovní prostředí">
     {environments.map((item) => <button type="button" key={item.id} aria-pressed={value === item.id}
-      disabled={disabled} title={item.hint} onClick={() => onChange(item.id)}>{item.label}</button>)}
+      disabled={disabled} title={item.hint} onClick={() => onChange(item.id)}>{item.label}
+      {item.id !== "live" && <small aria-hidden="true">{item.id === "project" ? "Kód 1:1" : "Stavba aplikace"}</small>}</button>)}
   </nav>;
 }

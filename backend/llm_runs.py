@@ -1,4 +1,5 @@
 """Bounded, proposal-only Hermes planning runs with local process containment."""
+
 import ctypes
 import hashlib
 import json
@@ -197,9 +198,7 @@ class PlanRuns:
                 CREATE INDEX IF NOT EXISTS llm_runs_recent ON llm_runs(updated_at DESC);
                 """
             )
-            columns = {
-                row[1] for row in self.canvas.db.execute("PRAGMA table_info(llm_runs)")
-            }
+            columns = {row[1] for row in self.canvas.db.execute("PRAGMA table_info(llm_runs)")}
             if "output" not in columns:
                 self.canvas.db.execute(
                     "ALTER TABLE llm_runs ADD COLUMN output TEXT NOT NULL DEFAULT ''"
@@ -233,7 +232,9 @@ class PlanRuns:
         }
 
     def _context(self, project, workspace, layer):
-        if not all(isinstance(x, str) and x for x in (project, workspace)) or not isinstance(layer, str):
+        if not all(isinstance(x, str) and x for x in (project, workspace)) or not isinstance(
+            layer, str
+        ):
             raise ValueError("Neplatný rozsah plánování.")
         if not project or not workspace:
             raise ValueError("Neplatný rozsah plánování.")
@@ -267,7 +268,11 @@ class PlanRuns:
         )
         if not isinstance(goal, str) or not goal.strip():
             raise ValueError("Cíl plánu nesmí být prázdný.")
-        if provider not in ALLOWED_PROVIDERS or not isinstance(model, str) or not IDENTIFIER.fullmatch(model):
+        if (
+            provider not in ALLOWED_PROVIDERS
+            or not isinstance(model, str)
+            or not IDENTIFIER.fullmatch(model)
+        ):
             raise ValueError("Provider nebo model plánu není povolen.")
         if isinstance(budget, bool) or not isinstance(budget, int) or not 10 <= budget <= 180:
             raise ValueError("Rozpočet plánu musí být 10 až 180 sekund.")
@@ -290,16 +295,18 @@ class PlanRuns:
         return {key: row[key] for key in keys}
 
     def _row(self, run_id):
-        row = self.canvas.db.execute(
-            "SELECT * FROM llm_runs WHERE id=?", (run_id,)
-        ).fetchone()
+        row = self.canvas.db.execute("SELECT * FROM llm_runs WHERE id=?", (run_id,)).fetchone()
         if row is None:
             raise ValueError("Plánovací běh nebyl nalezen.")
         return row
 
     def start(self, payload):
         exact = {"project", "workspace", "layer", "digest", "confirmed"}
-        if not isinstance(payload, dict) or set(payload) != exact or payload.get("confirmed") is not True:
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != exact
+            or payload.get("confirmed") is not True
+        ):
             raise ValueError("Neplatné potvrzení spuštění plánu.")
         project, workspace, layer, supplied = (
             payload[k] for k in ("project", "workspace", "layer", "digest")
@@ -315,8 +322,14 @@ class PlanRuns:
                 if self._closed:
                     raise ValueError("Plánovací služba je zavřená.")
                 coding = getattr(self.canvas, "coding_runs", None)
+                handoffs = getattr(self.canvas, "task_handoffs", None)
                 if coding is not None and coding.list()["active"]:
                     raise ValueError("Jiný coding běh již probíhá.")
+                if handoffs is not None and any(
+                    item["status"] in {"starting", "running", "stopping", "verifying"}
+                    for item in handoffs.list_all()
+                ):
+                    raise ValueError("Izolovaný dokumentační běh již probíhá.")
                 active = self.canvas.db.execute(
                     "SELECT id FROM llm_runs WHERE status IN ('starting','running','stopping') LIMIT 1"
                 ).fetchone()
@@ -344,7 +357,9 @@ class PlanRuns:
                 )
                 self.canvas.db.commit()
                 record = self._record(self._row(run_id))
-        worker = threading.Thread(target=self._worker, args=(run_id, context, settings), daemon=True)
+        worker = threading.Thread(
+            target=self._worker, args=(run_id, context, settings), daemon=True
+        )
         with self.canvas.lock:
             self._threads[run_id] = worker
         worker.start()
@@ -663,7 +678,11 @@ class PlanRuns:
                     return
                 time.sleep(0.02)
         except Exception:  # noqa: BLE001 - finální hranice containmentu musí vždy uklidit child strom.
-            if process is not None and not self._tree_inactive(process, job) and not self._terminate(run_id, process, job):
+            if (
+                process is not None
+                and not self._tree_inactive(process, job)
+                and not self._terminate(run_id, process, job)
+            ):
                 keep_handle = True
                 self._set(
                     run_id,

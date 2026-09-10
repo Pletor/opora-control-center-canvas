@@ -1,4 +1,7 @@
 /* OPORA desktop v2: Command / Inspect, původní brand a editory. */
+.environment-switch button small { display: block; font-size: 10px; color: var(--ink-muted); margin-top: 2px; }
+.tree-visibility { display: flex; align-items: flex-start; gap: 8px; margin: 12px; font-size: 12px; color: var(--ink-muted); }
+.tree-visibility input { width: auto; flex-shrink: 0; margin-top: 2px; }
 .editor-workbench { position: fixed; z-index: 40; right: 18px; top: 112px; bottom: 20px; width: min(760px, calc(100vw - 36px)); overflow: auto; background: var(--bg); border: 1px solid var(--accent-line); border-radius: 10px; box-shadow: 0 16px 70px #0008; }
 .editor-workbench[hidden], .editor-workbench > [hidden] { display: none; }
 .editor-workbench > header { position: sticky; top: 0; z-index: 1; display: flex; gap: 12px; justify-content: space-between; align-items: center; padding: 14px 18px; background: var(--surface); border-bottom: 1px solid var(--line); }

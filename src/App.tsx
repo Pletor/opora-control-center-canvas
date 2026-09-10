@@ -137,7 +137,7 @@ export default function App() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [approved, setApproved] = useState(false);
-  const [createOrigin, setCreateOrigin] = useState<"existing" | "planned" | null>(null);
+  const [createOrigin, setCreateOrigin] = useState<"existing" | "planned" | "concept" | null>(null);
   const [createPath, setCreatePath] = useState<string | null>(null);
   const [createKind, setCreateKind] = useState<"directory" | "file">("directory");
   const [createPlannedPath, setCreatePlannedPath] = useState("");
@@ -258,10 +258,11 @@ export default function App() {
   // musí nejdřív dostat sektor, aby nevznikl zdroj bez vlastního kontextu.
   const legacyFreeNode = project === "draft" && (activeProject?.sourceKind ?? "builtin") === "builtin";
   const legacyFreeSector = modal === "sector" && project === "draft" && (activeProject?.sourceKind ?? "builtin") === "builtin";
-  const requiresTargetSector = modal === "node" && !effectiveSector && !legacyFreeNode;
-  const requiresModeChoice = !legacyFreeSector && !(modal === "node" && legacyFreeNode && !effectiveSector?.sourceRef) && (modal === "sector" || (modal === "node" && !!effectiveSector));
+  const conceptCreate = createOrigin === "concept";
+  const requiresTargetSector = modal === "node" && !effectiveSector && !legacyFreeNode && !conceptCreate;
+  const requiresModeChoice = !legacyFreeSector && !(modal === "node" && legacyFreeNode && !effectiveSector?.sourceRef) && (modal === "sector" || modal === "node");
   const existingAllowedForNode = modal !== "node" || effectiveSector?.sourceRef?.origin === "existing";
-  const purposeReady = createOrigin !== "planned" || (modal === "sector" ? createPurpose.trim().length >= 12 : createPurpose.trim().length > 0);
+  const purposeReady = conceptCreate ? createPurpose.trim().length > 0 : createOrigin !== "planned" || (modal === "sector" ? createPurpose.trim().length >= 12 : createPurpose.trim().length > 0);
   const pathReady = createOrigin !== "existing" || (existingAllowedForNode && createPath !== null);
   const plannedNodePathReady = createOrigin !== "planned" || modal !== "node" || !createPlannedPath.trim() || effectiveSector?.sourceRef?.origin === "existing" || !!effectiveSector?.sourceRef?.path;
   const createReady = !requiresTargetSector && plannedNodePathReady && (!requiresModeChoice || (createOrigin !== null && purposeReady && pathReady));
@@ -905,7 +906,7 @@ export default function App() {
                       parentId,
                       kind: modal as "sector" | "node",
                       name,
-                      purpose: createOrigin === "planned" ? createPurpose.trim() : "",
+                      purpose: createOrigin === "planned" || conceptCreate ? createPurpose.trim() : "",
                       x: (siblings % 3) * 310,
                       y: Math.floor(siblings / 3) * 210,
                       ...(sourceRef ? { sourceRef } : {}),
@@ -936,7 +937,7 @@ export default function App() {
                     autoFocus
                   />
                 </label>
-                {modal === "node" && !ancestorSector && (
+                {modal === "node" && !ancestorSector && !conceptCreate && (
                   <label className="field">
                     Cílový sektor
                     <select
@@ -962,6 +963,10 @@ export default function App() {
                 {requiresModeChoice && (
                   <>
                     <div className="create-mode-toggle" role="group" aria-label="Původ zdroje">
+                      <button type="button" aria-pressed={conceptCreate}
+                        onClick={() => { setCreateOrigin("concept"); setCreatePath(null); setCreateTargetSector(""); }}>
+                        Jen funkce / myšlenka, bez souboru
+                      </button>
                       <button
                         type="button"
                         aria-pressed={createOrigin === "existing"}
@@ -979,6 +984,12 @@ export default function App() {
                         Navrhnout nové
                       </button>
                     </div>
+                    {conceptCreate && <label className="field">
+                      Co má tato část umět?
+                      <textarea aria-label="Co má tato část umět?" rows={3} required maxLength={2000}
+                        value={createPurpose} onChange={(e) => setCreatePurpose(e.target.value)} />
+                      <span className="create-source-note">Popište chování vlastními slovy. Nevybíráte soubor ani cestu; vznikne pouze návrh v Editoru.</span>
+                    </label>}
                     {createOrigin === "existing" && (
                       existingAllowedForNode ? (
                         <>

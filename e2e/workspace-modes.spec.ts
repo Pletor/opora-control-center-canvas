@@ -11,7 +11,7 @@ test("workspace modes and actual grid settings survive reload", async ({
 }) => {
   const fs = await import("node:fs/promises");
   const manifest = JSON.parse(
-    await fs.readFile("dist/.vite/manifest.json", "utf8"),
+    await fs.readFile((process.env.OPORA_TEST_DIST || "dist") + "/.vite/manifest.json", "utf8"),
   );
   expect(manifest["index.html"].dynamicImports).toHaveLength(1);
   const drawingEntry = manifest[manifest["index.html"].dynamicImports[0]];
@@ -298,7 +298,7 @@ test("drawing module load failure does not take down the editor shell", async ({
 }) => {
   const fs = await import("node:fs/promises");
   const manifest = JSON.parse(
-    await fs.readFile("dist/.vite/manifest.json", "utf8"),
+    await fs.readFile((process.env.OPORA_TEST_DIST || "dist") + "/.vite/manifest.json", "utf8"),
   );
   const entry = manifest[manifest["index.html"].dynamicImports[0]];
   await page.route("**/" + entry.file, (route) => route.abort());

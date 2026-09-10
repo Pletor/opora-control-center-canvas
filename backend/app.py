@@ -16,6 +16,8 @@ from .node_journal import NodeJournal
 from .node_links import NodeLinks
 from .planning_context import build_planning_context
 from .service import CanvasService
+from .task_handoff_routes import create_task_handoff_router
+from .task_handoffs import TaskHandoffs
 from .wireframe_context import wireframe_context
 from .workspace_sources import create_workspace_router
 
@@ -27,6 +29,8 @@ def create_app(data_root=None):
     service.plan_runs = plans
     coding = CodingRuns(service, plans)
     service.coding_runs = coding
+    handoffs = TaskHandoffs(service, plans)
+    service.task_handoffs = handoffs
     links = NodeLinks(service)
     journal = NodeJournal(service)
     identity = build_identity(service.root)
@@ -34,6 +38,7 @@ def create_app(data_root=None):
     @asynccontextmanager
     async def lifespan(app):
         yield
+        handoffs.close()
         coding.close()
         plans.close()
         service.close()
@@ -42,6 +47,7 @@ def create_app(data_root=None):
     app.state.service = service
     app.state.plan_runs = plans
     app.state.coding_runs = coding
+    app.state.task_handoffs = handoffs
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -267,6 +273,7 @@ def create_app(data_root=None):
         return service.sync(payload.get("project"))
 
     app.include_router(create_agent_router(service))
+    app.include_router(create_task_handoff_router(handoffs))
     app.include_router(create_workspace_router(service))
     app.include_router(create_context_router(service))
     dist = Path(__file__).resolve().parent.parent / "dist"

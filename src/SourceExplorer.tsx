@@ -3,7 +3,7 @@ import { api } from "./types";
 import { SOURCE_DRAG_TYPE } from "./workspace-selection";
 
 type Entry = { name: string; path: string; kind: "directory" | "file" | "link"; blocked: boolean };
-type TreePage = { root: string | null; entries: Entry[]; total: number; hasMore: boolean; nextOffset: number | null; available: boolean; observedAt: string | null };
+type TreePage = { root: string | null; entries: Entry[]; total: number; hasMore: boolean; nextOffset: number | null; available: boolean; observedAt: string | null; hiddenCount?: number };
 
 export default function SourceExplorer({ project, workspace, selected, onSelect, search, refresh, basePath = "", rootLabel = "Podstata a architektura", directoriesOnly = false, rootOnly = false }: {
   project: string; workspace: string; selected: string; onSelect: (path: string, kind: "directory" | "file" | "root") => void; search: string; refresh: number;
@@ -19,12 +19,13 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const generation = useRef(0);
   async function load(path: string, offset = 0) {
     const ticket = generation.current;
     setPending((old) => new Set(old).add(path)); setError("");
     try {
-      const page = await api<TreePage>("/api/workspace/tree?" + new URLSearchParams({ project, workspace, path, offset: String(offset) }));
+      const page = await api<TreePage>("/api/workspace/tree?" + new URLSearchParams({ project, workspace, path, offset: String(offset), visibility: showAll ? "all" : "working" }));
       if (ticket !== generation.current) return;
       setPages((old) => ({ ...old, [path]: { ...page, entries: offset ? [...new Map([...(old[path]?.entries ?? []), ...page.entries].map((entry) => [entry.path, entry])).values()] : page.entries } }));
     } catch (e) { if (ticket === generation.current) setError(String(e)); }
@@ -33,7 +34,7 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   useEffect(() => {
     generation.current++; setPages({}); setExpanded(new Set()); setPending(new Set()); load(basePath);
     return () => { generation.current++; };
-  }, [project, workspace, refresh, basePath]);
+  }, [project, workspace, refresh, basePath, showAll]);
   function toggle(entry: Entry) {
     const opening = !expanded.has(entry.path);
     setExpanded((old) => { const next = new Set(old); if (opening) next.add(entry.path); else next.delete(entry.path); return next; });
@@ -61,10 +62,15 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   return <aside className="source-explorer" aria-label="Zdrojový strom">
     <div className="source-heading"><div className="eyebrow">WORKSPACE / SOUBORY 1:1</div><h2>Strom projektu</h2>
       <code>{pages[basePath]?.root || "Bez připojeného adresáře"}</code></div>
+    <label className="tree-visibility"><input type="checkbox" checked={showAll}
+      onChange={(e) => { generation.current++; setShowAll(e.target.checked); }} />
+      Zobrazit i ignorované a technické soubory</label>
     {rootLabel && <button type="button" className="project-overview-link" aria-pressed={selected === basePath} onClick={() => onSelect(basePath, "root")}>{rootLabel}</button>}
     <div className="source-tree" role="tree" aria-label="Soubory pracovního prostoru">{rows(basePath, 0)}</div>
     {pages[basePath]?.available === false && <p className="tree-note">Projekt zatím nemá zdrojovou složku. Dokumentaci i Editor lze používat samostatně.</p>}
     {error && <p className="error" role="alert">{error}<button type="button" onClick={() => load(basePath)}>Zkusit znovu</button></p>}
-    <footer className="tree-note">Složky se načítají až při rozbalení. Hledání filtruje načtené položky. Interní .git se nezobrazuje.</footer>
+    <footer className="tree-note">{showAll ? "Úplný přehled mimo interní .git." : "Pracovní přehled: .gitignore, závislosti a cache jsou skryté, src je první."}
+      {!showAll && !!pages[basePath]?.hiddenCount && ` Skryto v této složce: ${pages[basePath].hiddenCount}.`}
+      {" "}Nic se nemaže z disku. Složky se načítají až při rozbalení; hledání prochází načtené položky.</footer>
   </aside>;
 }

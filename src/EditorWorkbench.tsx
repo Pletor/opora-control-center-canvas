@@ -3,9 +3,10 @@ import { api, type Graph } from "./types";
 import AgentContextMap, { packetMarkdown, snapshotDesignContext, type ContextPacket, type DesignContext } from "./AgentContextMap";
 import PlanPanel from "./PlanPanel";
 import CodingPanel from "./CodingPanel";
+import TaskHandoffPanel from "./TaskHandoffPanel";
 import type { WorkspaceSelection } from "./workspace-selection";
 
-export type WorkbenchPane = "context" | "plan" | "coding";
+export type WorkbenchPane = "context" | "plan" | "coding" | "task";
 
 function downloadText(name: string, value: string, type: string) {
   const url = URL.createObjectURL(new Blob([value], { type }));
@@ -67,7 +68,7 @@ export default function EditorWorkbench({ project, workspace, nodeId, graph, sel
   }
   return <section className="editor-workbench" hidden={!open} aria-label="Nástroje práce s AI">
     <header><strong>Práce s AI · {project}/{workspace}</strong><button onClick={onClose}>Skrýt nástroje</button></header>
-    <nav aria-label="AI nástroje">{([["context", "Kontext"], ["plan", "LLM návrh"], ["coding", "Coding"]] as const).map(([id, label]) =>
+    <nav aria-label="AI nástroje">{([["context", "Kontext"], ["plan", "LLM návrh"], ["coding", "Coding"], ["task", "Dokumentační úkol"]] as const).map(([id, label]) =>
       <button key={id} aria-pressed={pane === id} onClick={() => onPane(id)}>{label}</button>)}</nav>
     <div hidden={pane !== "context"} className="workbench-body"><h2>Kontextový paket</h2>
       <p>Skutečný snímek uložených bloků, zadání a vybraných deníků. Reference ze shelfu zůstávají pouze lokálními exportními odkazy; jejich obsahy se automaticky nečtou.</p>
@@ -87,5 +88,6 @@ export default function EditorWorkbench({ project, workspace, nodeId, graph, sel
     </div>
     {visited.has("plan") && <div hidden={pane !== "plan"}><PlanPanel project={project} dirty={false} enabled={open && pane === "plan"} initialWorkspace={workspace} initialLayer={nodeId} /></div>}
     {visited.has("coding") && <div hidden={pane !== "coding"}><CodingPanel project={project} dirty={false} enabled={open && pane === "coding"} initialWorkspace={workspace} initialLayer={nodeId} /></div>}
+    {visited.has("task") && <div hidden={pane !== "task"}><TaskHandoffPanel key={JSON.stringify([project, workspace, focus, packet?.id])} project={project} workspace={workspace} nodeId={focus} packetId={packet?.id} enabled={open && pane === "task"} /></div>}
   </section>;
 }
