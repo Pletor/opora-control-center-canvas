@@ -1,0 +1,13 @@
+{
+  "tree": "f223a2ea162023bd51161bd80c25b2fd172e2632",
+  "verdict": {
+    "passed": true,
+    "security_concerns": [],
+    "logic_errors": [],
+    "suggestions": [
+      "Cosmetic: verify() raises the same message (\"Original production tables changed\") whether it's the table-hash mismatch or the full-projects-id mismatch that fails; splitting the assertion or message would make future debugging slightly easier, but this is non-blocking.",
+      "The visible_project_ids() filter reproduces the bootstrap's `NOT IN (SELECT project_id FROM archived_projects)` pattern, which would silently return zero rows if archived_projects.project_id ever contained NULL. This is inherited from the existing production bootstrap query (not introduced by this diff) so it's consistent, but worth a shared helper/constraint if it's ever a concern."
+    ],
+    "summary": "The change adds a visible_project_ids() helper that mirrors the exact bootstrap SQL filter (WHERE id NOT IN (SELECT project_id FROM archived_projects)) and uses it to reconcile the live API's project list (which only shows non-archived projects) against the full production DB. Critically, the full snapshot()/backup/table-hash-comparison logic still operates over the entire unfiltered DB, so archived project rows are preserved in the SQLite backup and covered by integrity checks — correctly resolving the described bug where the API returns 1 visible project while the DB retains 2 (including an archive). verify() now checks both the full project-id set and the visible-project-id set for drift, with a backward-compatible .get() fallback for older before.json snapshots lacking the visibleProjects key. The new tests exercise both the archived-mismatch scenario and a no-archives sorting case, and assert the snapshot itself is non-mutating. No SQL injection risk (table names still allowlisted via regex, filter query is a static string), no destructive operations, and the diff/test content contains no actionable embedded instructions — treated purely as data per the task framing.\""
+  }
+}

@@ -14,6 +14,13 @@ DB = PRIMARY / ".data/production/canvas.sqlite"
 EVIDENCE = ROOT / ".opora/workunits/WU-CANVAS-COMPLETION"
 
 
+def visible_project_ids(db):
+    """Stejný filtr jako bootstrap; archivované řádky zůstávají v plné záloze."""
+    return sorted(row[0] for row in db.execute(
+        "SELECT id FROM projects WHERE id NOT IN (SELECT project_id FROM archived_projects)"
+    ))
+
+
 def snapshot(db):
     result = {}
     for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"):
@@ -32,7 +39,8 @@ if __name__ == "__main__":
         projects = sorted(p["id"] for p in json.load(response)["projects"])
     with sqlite3.connect(DB.as_uri() + "?mode=ro", uri=True) as source:
         ids = sorted(row[0] for row in source.execute("SELECT id FROM projects"))
-        assert ids == projects, "Live projects do not match the production DB"
+        visible_ids = visible_project_ids(source)
+        assert visible_ids == projects, "Live projects do not match visible production projects"
         tables = snapshot(source)
         if sys.argv[1] == "backup":
             backup = DB.parent.parent / "backups" / ("canvas-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + ".sqlite")
@@ -40,13 +48,14 @@ if __name__ == "__main__":
             with sqlite3.connect(backup) as destination:
                 source.backup(destination)
                 assert destination.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
-            record = {"database": str(DB), "backup": str(backup), "projects": ids, "tables": tables}
+            record = {"database": str(DB), "backup": str(backup), "projects": ids, "visibleProjects": visible_ids, "tables": tables}
             (EVIDENCE / "production-before.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
         elif sys.argv[1] == "verify":
             before = json.loads((EVIDENCE / "production-before.json").read_text(encoding="utf-8"))
             unchanged = all(tables.get(name) == value for name, value in before["tables"].items())
             assert unchanged and before["projects"] == ids, "Original production tables changed"
-            record = {"database": str(DB), "projects": ids, "originalTablesUnchanged": unchanged, "tables": tables}
+            assert before.get("visibleProjects", before["projects"]) == visible_ids, "Visible production projects changed"
+            record = {"database": str(DB), "projects": ids, "visibleProjects": visible_ids, "originalTablesUnchanged": unchanged, "tables": tables}
             (EVIDENCE / "production-after.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
         else:
             raise ValueError("Use backup or verify")
