@@ -1,0 +1,49 @@
+[WebServer] INFO:     Started server process [44028]
+[WebServer] INFO:     Waiting for application startup.
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8741 (Press CTRL+C to quit)
+
+Running 38 tests using 1 worker
+
+interactive_canvas_ms 145
+  ok  1 e2e\canvas.spec.ts:2:1 › empty Canvas is interactive, creates nested nodes and restores layer (609ms)
+  ok  2 e2e\coding.spec.ts:4:1 › coding workspace selection and preview do not run a provider (501ms)
+  -   3 e2e\coding.spec.ts:15:1 › LIVE: UI to Hermes to isolated repo to independent Docker tests
+  ok  4 e2e\drawing.spec.ts:3:1 › draw a real rectangle, save and restore without changing project graph (1.3s)
+  ok  5 e2e\drawing.spec.ts:125:1 › pencil and shapes remain as an unsaved draft across modes and stay layer-scoped (1.9s)
+  ok  6 e2e\drawing.spec.ts:168:1 › main drawing is honestly unavailable and read-only (946ms)
+  ok  7 e2e\drawing.spec.ts:181:1 › text can be entered and drawn elements can be deleted and saved (1.3s)
+  ok  8 e2e\drawing.spec.ts:237:1 › drawing conflict preserves local work until explicit discard (1.7s)
+  ok  9 e2e\drawing.spec.ts:286:1 › in-flight drawing save survives a mode round trip (1.3s)
+  ok 10 e2e\drawing.spec.ts:321:1 › drawing and settings remain contained on mobile (1.1s)
+  ok 11 e2e\fractal-text.spec.ts:3:1 › fractal text shares nodes, nests and persists safely (997ms)
+  ok 12 e2e\llm-panel.spec.ts:3:1 › saved planning preview is connected to project home without automatic paid start (196ms)
+  ok 13 e2e\natural-canvas.spec.ts:19:1 › přirozené plátno: přímá tvorba, bloky, odkazy, deník a scope úkolu (4.6s)
+  ok 14 e2e\node-spec.spec.ts:3:1 › node assignment saves and survives reload (500ms)
+  ok 15 e2e\node-spec.spec.ts:29:1 › unsaved assignment survives switching nodes (486ms)
+  ok 16 e2e\node-spec.spec.ts:40:1 › two editor windows show conflict without losing local text (603ms)
+  ok 17 e2e\node-spec.spec.ts:56:1 › main assignment is visibly read-only and unavailable (463ms)
+  ok 18 e2e\node-spec.spec.ts:64:1 › failed save preserves text and retry succeeds (456ms)
+  ok 19 e2e\node-spec.spec.ts:81:1 › late response cannot overwrite another selected node (503ms)
+  ok 20 e2e\project-home.spec.ts:3:1 › root opens project setup without canvas and opens the same workspace explicitly (424ms)
+  ok 21 e2e\removals.spec.ts:19:1 › node deletion can be cancelled and confirmed deletion survives reload (637ms)
+  ok 22 e2e\removals.spec.ts:35:1 › sector confirmation counts nested children and removes incident edges (360ms)
+  ok 23 e2e\removals.spec.ts:50:1 › selected edge can be removed without deleting its nodes (315ms)
+  ok 24 e2e\removals.spec.ts:59:1 › repository can be removed from application with explicit preservation notice (430ms)
+  ok 25 e2e\removals.spec.ts:75:1 › stale removal preview stays open and cannot remove changed graph (455ms)
+  ok 26 e2e\removals.spec.ts:93:1 › removal dialog is contained on mobile and Escape cancels (364ms)
+  ok 27 e2e\wireframe.spec.ts:10:1 › wireframe templates distinguish blocks and elements (1ms)
+  ok 28 e2e\wireframe.spec.ts:25:1 › wireframe metadata uses only the semantic namespace and bounded values (1ms)
+  ok 29 e2e\wireframe.spec.ts:51:1 › metadata repair and preview CSS never execute arbitrary action text (0ms)
+  ok 30 e2e\wireframe.spec.ts:86:1 › parallax preserves fractional speed (0ms)
+  ok 31 e2e\wireframe.spec.ts:90:1 › wireframe insertion selects editable semantics and does not duplicate across modes (1.0s)
+  ok 32 e2e\workspace-modes.spec.ts:3:1 › workspace modes and actual grid settings survive reload (386ms)
+  ok 33 e2e\workspace-modes.spec.ts:43:1 › map shows actual hierarchy and exports source-backed Archify JSON (376ms)
+  ok 34 e2e\workspace-modes.spec.ts:82:1 › map creates a real cross-layer connection (320ms)
+  ok 35 e2e\workspace-modes.spec.ts:175:1 › grid snapping changes actual saved node coordinates (418ms)
+  ok 36 e2e\workspace-modes.spec.ts:233:1 › deleting an ancestor from global map repairs active layer (450ms)
+  ok 37 e2e\workspace-modes.spec.ts:296:1 › drawing module load failure does not take down the editor shell (522ms)
+  ok 38 e2e\workspaces.spec.ts:2:1 › main and two real worktrees never mix their graph content (1.5s)
+
+  1 skipped
+  37 passed (31.0s)
