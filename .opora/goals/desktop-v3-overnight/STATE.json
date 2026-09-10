@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "revision": 1,
+  "status": "running",
+  "phase": 1,
+  "integrationBranch": "integration/desktop-v3",
+  "integrationWorktree": "C:/Users/Admin/opora-v3",
+  "activeLane": {
+    "name": "inspector-style",
+    "worktree": "C:/Users/Admin/opora-v3-inspector",
+    "branch": "fix/v3-inspector-css-boundary",
+    "spec": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/inspector-style-spec.json",
+    "processHandle": "proc_fe3f7116aa20",
+    "ownedPaths": ["src/style.css", "src/drawing.css", "e2e/inspector-style-boundary.spec.ts", ".opora/workunits/WU-DESKTOP-V3/inspector-style-HANDOFF.md"],
+    "reservedTestPorts": [8742, 8769, 8771]
+  },
+  "userReportedClaudeQuota": {"usedPercent": 75, "observedAt": "2026-09-11T01:50:22.523168+02:00", "estimatedResetAt": "2026-09-11T02:43:22.523168+02:00", "independentlyVerified": false},
+  "quotaResumeAt": null,
+  "phase2": {"status": "missing_source", "photos": [], "originalRequest": null},
+  "lastVerified": {"backendPassed": 314, "backendSkipped": 4, "ruff": "pass", "typecheck": "pass", "build": "pass", "v3PanelTestsPassed": 28, "fullUi": "RED: 81 passed, 1 skipped; legacy Live Run navigation assertions need new explicit Dohled behu path", "preview": "8780: exact snapshot/export and two real proposal outputs verified; zero model starts"},
+  "nextActions": [
+    "Collect inspector-style Claude lane result; verify inactivity before adopting work; require RED/GREEN and screenshot native palette/slider fix.",
+    "Review and test all updated legacy Live Run navigation tests, including uncommitted e2e/v2-ui-review.spec.ts in integration. Agent commit5624187 is already merged as a3832dc.",
+    "Merge verified inspector repair into integration, publish preview, exact browser verification.",
+    "Build complete original Desktop v3 component/interactions inventory and implement missing real functionality in bounded parallel Claude lanes.",
+    "Full acceptance and independent review; only then discover and execute photo-backed phase2."
+  ]
+}
