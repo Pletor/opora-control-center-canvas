@@ -4,6 +4,13 @@ import ProjectHome from "./ProjectHome";
 import TextWorkspace from "./TextWorkspace";
 import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "./context-actions";
 import PlanPanel from "./PlanPanel";
+import TopBar from "./TopBar";
+import ModeRail from "./ModeRail";
+import MapTools from "./MapTools";
+import ScopeContext from "./ScopeContext";
+import LayerContext from "./LayerContext";
+import AgentsWorkspace from "./AgentsWorkspace";
+import "./agents.css";
 import CodingPanel from "./CodingPanel";
 import type { WireframeKind } from "./wireframe-model";
 import DrawingTools from "./DrawingTools";
@@ -19,9 +26,8 @@ import {
   type WorkspaceMode,
   type SurfaceSettings,
 } from "./workspace-settings";
-import { downloadArchify } from "./project-map";
 import "./workspace-modes.css";
-import NodePanel from "./NodePanel";
+import NodePanel, { type NodeTab } from "./NodePanel";
 import RemovalDialog from "./RemovalDialog";
 import { discardSpecDrafts } from "./NodeSpecEditor";
 import {
@@ -58,8 +64,9 @@ export default function App() {
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
   const [settings, setSettings] = useState(readSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [linkSource, setLinkSource] = useState("");
-  const [linkTarget, setLinkTarget] = useState("");
+  const [nodeTab, setNodeTab] = useState<NodeTab>("content");
+  const [textRevision, setTextRevision] = useState(0);
+  const [focusRun, setFocusRun] = useState<{ sourceId: string; runId: string } | null>(null);
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
@@ -309,125 +316,60 @@ export default function App() {
     <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => setScreen("canvas")} onRemove={() => requestRemoval("project", project)} renderLLM={(_snapshot, dirty) => <><PlanPanel key={project + ":plan"} project={project} dirty={dirty} /><CodingPanel key={project + ":coding"} project={project} dirty={dirty} /></>} />
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
   </>;
+  const inspectorTools =
+    mode === "map" ? (
+      <MapTools graph={graph} view={view} activeProject={activeProject} editable={editable} onConnect={connectGraph} />
+    ) : mode === "drawing" ? (
+      <DrawingTools
+        wireframeMode={wireframeMode}
+        onWireframeMode={setWireframeMode}
+        onInsertWireframe={(kind) => setWireframeInsert((old) => ({ kind, sequence: (old?.sequence ?? 0) + 1 }))}
+        tool={drawingTool}
+        ready={drawingReady && editable}
+        onTool={(type) => setDrawingCommand((old) => ({ type, sequence: old.sequence + 1 }))}
+      />
+    ) : undefined;
+  const showNode = !!node && (mode === "structure" || mode === "map");
+  const showEdge = !showNode && !!edge && (mode === "structure" || mode === "map");
   return (
     <div className="app">
-      <header className="header">
-        <div className="brand">
-          <span className="symbol">O</span>
-          <strong>
-            OPORA<span>CONTROL CENTER</span>
-          </strong>
-        </div>
-        <div className="project-selector">
-          <label>
-            Projekt
-            <select
-              aria-label="Projekt"
-              disabled={busy}
-              value={project}
-              onChange={(e) => selectProject(e.target.value)}
-            >
-              <option value="draft">{draftProject?.name ?? "Lokální návrh"} · bez repozitáře</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <button onClick={() => setScreen("home")}>Nastavení projektu</button>
-        {!localProject && (
-          <button
-            className="danger"
-            disabled={busy}
-            onClick={() => requestRemoval("project", project)}
-          >
-            Odebrat repozitář
-          </button>
-        )}
-        <button onClick={() => setSettingsOpen(true)}>Nastavení plochy</button>
-        <span className="local-status">LOKÁLNĚ · {location.port}</span>
-      </header>
-      <div className="modebar">
-        <div className="modes">
-          <button
-            className={workspace === "main" ? "active" : ""}
-            disabled={busy || localProject}
-            onClick={() => {
-              setWorkspace("main");
-              enter(null);
-            }}
-          >
-            Čistý main
-          </button>
-          <button
-            className={workspace !== "main" ? "active" : ""}
-            disabled={busy}
-            onClick={() => {
-              if (localProject) setWorkspace("draft");
-              else if (view?.workspaces.length) {
-                setWorkspace(view.workspaces[0].id);
-                enter(null);
-              } else open("workspace");
-            }}
-          >
-            Pracovní prostor
-          </button>
-        </div>
-        {activeWorkspace && (
-          <select
-            aria-label="Pracovní strom"
-            value={workspace}
-            disabled={busy}
-            onChange={(e) => {
-              setWorkspace(e.target.value);
-              enter(null);
-            }}
-          >
-            {view?.workspaces.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.actor} · {w.node_id}
-              </option>
-            ))}
-          </select>
-        )}
-        <div className="revision">
-          {localProject ? (
-            "Návrh není schválený main"
-          ) : (
-            <>
-              <code>
-                {view?.branch ?? "načítání"} · {view?.sha?.slice(0, 12)}
-              </code>
-              {view?.dirty && (
-                <span className="warn-text">Pracovní soubory změněny</span>
-              )}
-            </>
-          )}
-        </div>
-        <button disabled={busy} onClick={() => run(refresh)}>
-          Obnovit pohled
-        </button>
-        {!localProject && (
-          <button
-            disabled={busy}
-            onClick={() => {
-              if (
-                window.confirm(
-                  "Aktualizovat pouze čistou spravovanou kopii ze schváleného upstreamu? Žádný push.",
-                )
-              )
-                run(async () => {
-                  await api("/api/sync", { project, confirmed: true });
-                  await bootstrap();
-                });
-            }}
-          >
-            Synchronizovat main
-          </button>
-        )}
-      </div>
+      <TopBar
+        projects={projects}
+        draftProject={draftProject}
+        project={project}
+        busy={busy}
+        localProject={localProject}
+        workspace={workspace}
+        view={view}
+        activeWorkspace={activeWorkspace}
+        onSelectProject={(id) => selectProject(id)}
+        onMain={() => {
+          setWorkspace("main");
+          enter(null);
+        }}
+        onWorkspace={() => {
+          if (localProject) setWorkspace("draft");
+          else if (view?.workspaces.length) {
+            setWorkspace(view.workspaces[0].id);
+            enter(null);
+          } else open("workspace");
+        }}
+        onSelectWorkspace={(id) => {
+          setWorkspace(id);
+          enter(null);
+        }}
+        onSurfaceSettings={() => setSettingsOpen(true)}
+        onProjectSettings={() => setScreen("home")}
+        onRefresh={() => run(refresh)}
+        onSync={() => {
+          if (window.confirm("Aktualizovat pouze čistou spravovanou kopii ze schváleného upstreamu? Žádný push."))
+            run(async () => {
+              await api("/api/sync", { project, confirmed: true });
+              await bootstrap();
+            });
+        }}
+        onRemoveProject={() => requestRemoval("project", project)}
+      />
       {error && (
         <div className="error" role="alert">
           {error}
@@ -436,211 +378,29 @@ export default function App() {
           </button>
         </div>
       )}
-      <div className={"workspace-shell " + mode + "-mode"}>
-        <nav className="mode-rail" aria-label="Pracovní módy">
-          {(
-            [
-              ["structure", "Struktura", "◇"],
-              ["text", "Text", "¶"],
-              ["drawing", "Kreslení", "✎"],
-              ["map", "Mapa", "⌘"],
-            ] as const
-          ).map(([key, label, icon]) => (
-            <button
-              key={key}
-              aria-label={"Mód: " + label}
-              aria-pressed={mode === key}
-              onClick={() => setMode(key)}
-            >
-              <span>{icon}</span>
-              {label}
-            </button>
-          ))}
-        </nav>
-        <aside className="tree workspace-tools">
-          {mode === "drawing" ? (
-            <DrawingTools
-              wireframeMode={wireframeMode}
-              onWireframeMode={setWireframeMode}
-              onInsertWireframe={(kind) => setWireframeInsert((old) => ({ kind, sequence: (old?.sequence ?? 0) + 1 }))}
-              tool={drawingTool}
-              ready={drawingReady && editable}
-              onTool={(type) =>
-                setDrawingCommand((old) => ({
-                  type,
-                  sequence: old.sequence + 1,
-                }))
-              }
-            />
-          ) : mode === "map" ? (
-            <>
-              <div className="eyebrow">MAPA CELÉHO PROJEKTU</div>
-              <h3>{activeProject?.name ?? "Lokální návrh"}</h3>
-              <p className="muted">{view?.source}</p>
-              {view?.graphStatus === "missing" && (
-                <p role="status">
-                  Repozitář nemá uložený graf. Tato mapa není automatická
-                  analýza jeho souborů.
-                </p>
-              )}
-              <p>
-                Uzly:{" "}
-                <strong data-testid="map-node-count">
-                  {graph.nodes.length}
-                </strong>
-                <br />
-                Propojení: {graph.edges.length}
-              </p>
-              <p className="muted">
-                Přerušované čáry: struktura. Plné čáry: explicitní propojení.
-                Dvojklik otevře uzel ve Struktuře.
-              </p>
-              <label className="field">
-                Propojit z
-                <select
-                  aria-label="Propojit z"
-                  value={linkSource}
-                  onChange={(e) => setLinkSource(e.target.value)}
-                >
-                  <option value="">Vyber uzel</option>
-                  {graph.nodes.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                Propojit do
-                <select
-                  aria-label="Propojit do"
-                  value={linkTarget}
-                  onChange={(e) => setLinkTarget(e.target.value)}
-                >
-                  <option value="">Vyber uzel</option>
-                  {graph.nodes.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                disabled={
-                  !editable ||
-                  !linkSource ||
-                  !linkTarget ||
-                  linkSource === linkTarget
-                }
-                onClick={() => connectGraph(linkSource, linkTarget)}
-              >
-                Propojit uzly
-              </button>
-              <button
-                onClick={() =>
-                  downloadArchify(graph, activeProject?.name ?? "Lokální návrh")
-                }
-              >
-                Export pro Archify
-              </button>
-              <p className="muted">
-                Export odráží tato data, nikoli odhad technologií ze zdrojového
-                kódu.
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="eyebrow">STRUKTURA PROJEKTU</div>
-              <button
-                className={!parent ? "tree-row current" : "tree-row"}
-                onClick={() => enter(null)}
-              >
-                ◇ {activeProject?.name ?? "Nové plátno"}
-              </button>
-              {graph.nodes
-                .filter((n) => n.parentId === null)
-                .map((n) => (
-                  <button
-                    key={n.id}
-                    className={
-                      "tree-row child " + (parent === n.id ? "current" : "")
-                    }
-                    onClick={() => enter(n.id)}
-                  >
-                    {n.kind === "sector" ? "▧" : "◈"} {n.name}
-                  </button>
-                ))}
-              <div className="tree-help">
-                Sektor → uzel → poduzel.
-                <br />
-                Každý uzel má vlastní plátno.
-              </div>
-              <div className="source-block">
-                <div className="eyebrow">ZDROJ POHLEDU</div>
-                <p>{view?.source ?? "Načítám pouze vybraný pohled…"}</p>
-                {view && (
-                  <small>
-                    Pozorováno{" "}
-                    {new Date(view.observedAt).toLocaleTimeString("cs-CZ")}
-                  </small>
-                )}
-                {activeWorkspace && (
-                  <>
-                    <h4>Oddělený adresář</h4>
-                    <code>{activeWorkspace.directory}</code>
-                    <p>
-                      Vlastník: {activeWorkspace.actor}. Tím není potvrzena
-                      aktivita agenta.
-                    </p>
-                  </>
-                )}
-              </div>
-              <div className="jobs">
-                <div className="eyebrow">OPERACE</div>
-                {jobs.length ? (
-                  jobs.slice(0, 4).map((j) => (
-                    <div className="job" key={j.id}>
-                      <strong>
-                        {j.kind} · {j.status}
-                      </strong>
-                      <p>{j.message}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p>Žádná spuštěná Git operace.</p>
-                )}
-              </div>
-            </>
-          )}
-        </aside>
+      <div className={"workspace-shell " + mode + "-mode" + (mode === "agents" ? " no-inspector" : "")}>
+        <ModeRail mode={mode} onMode={setMode} />
         <main className="canvas-area">
-          <div className="canvas-toolbar">
-            <nav aria-label="Cesta plátnem">
-              <button onClick={() => enter(null)}>Projekt</button>
+          <div className="content-head">
+            <nav aria-label="Cesta plátnem" className="crumbs">
+              <button type="button" onClick={() => enter(null)}>Projekt</button>
               {ancestors.map((n) => (
                 <span key={n.id}>
-                  {" "}
-                  / <button onClick={() => enter(n.id)}>{n.name}</button>
+                  <i aria-hidden="true">/</i>
+                  <button type="button" onClick={() => enter(n.id)}>{n.name}</button>
                 </span>
               ))}
             </nav>
             {mode === "structure" && outsideLinks > 0 && (
-              <button onClick={() => setMode("map")}>
+              <button type="button" className="quiet" onClick={() => setMode("map")}>
                 Vazby mimo vrstvu: {outsideLinks}
               </button>
             )}
-            <div>
-              <button
-                disabled={!editable || (mode !== "structure" && mode !== "text")}
-                onClick={() => open("sector")}
-              >
+            <div className="content-actions">
+              <button type="button" disabled={!editable || (mode !== "structure" && mode !== "text")} onClick={() => open("sector")}>
                 + Sektor
               </button>
-              <button
-                className="primary"
-                disabled={!editable || (mode !== "structure" && mode !== "text")}
-                onClick={() => open("node")}
-              >
+              <button type="button" className="primary" disabled={!editable || (mode !== "structure" && mode !== "text")} onClick={() => open("node")}>
                 + Uzel
               </button>
             </div>
@@ -648,7 +408,9 @@ export default function App() {
           <div className="canvas-surface">
             {view ? (
               mode === "text" ? (
-                <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} readOnly={!!view?.readOnly} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} />
+                <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} />
+              ) : mode === "agents" ? (
+                <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />
               ) : mode === "map" ? (
                 <ProjectMap
                   graph={graph}
@@ -781,23 +543,16 @@ export default function App() {
             )}
             {mode === "structure" && view && !visible.length && (
               <div className="empty-canvas">
-                <div className="empty-symbol">＋</div>
-                <h1>
-                  {view.readOnly
-                    ? "V mainu zatím není graf"
-                    : "Prostor pro váš systém"}
-                </h1>
-                <p>
+                <p className="empty-title">{view.readOnly ? "V mainu zatím není graf." : "Prázdná vrstva."}</p>
+                <p className="muted">
                   {view.readOnly
                     ? "Repozitář nemá verzovaný opora-canvas.json. Vytvořte pracovní prostor a připravte graf tam."
-                    : "Začněte sektorem. Uvnitř vytvořte uzly, propojte je a popište jejich podstatu."}
+                    : "Dvojklik na plátno vytvoří uzel na místě. Sektor přidáte tlačítkem + Sektor."}
                 </p>
-                {view.readOnly ? (
-                  <button onClick={() => open("workspace")}>
+                {view.readOnly && (
+                  <button type="button" onClick={() => open("workspace")}>
                     Vytvořit pracovní prostor
                   </button>
-                ) : (
-                  <span>Prázdné plátno. Žádná ukázková data.</span>
                 )}
               </div>
             )}
@@ -807,93 +562,93 @@ export default function App() {
               </div>
             )}
           </div>
-          <footer>
+          <footer className="statusline">
             <span>
               {visible.length} uzlů v této vrstvě · {graph.nodes.length} v grafu
             </span>
             <span>
-              {view?.readOnly
-                ? "SCHVÁLENÁ VĚTEV · POUZE ČTENÍ"
-                : "NÁVRH / PRACOVNÍ ZMĚNY"}{" "}
-              · Agent se automaticky nespouští
+              {view?.readOnly ? "SCHVÁLENÁ VĚTEV · POUZE ČTENÍ" : "NÁVRH / PRACOVNÍ ZMĚNY"} · Agent se automaticky nespouští
             </span>
           </footer>
         </main>
-        {mode === "drawing" || mode === "text" ? null : node ? (
-          <NodePanel
-            key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
-            node={node}
-            project={project}
-            workspace={workspace}
-            readOnly={!!view?.readOnly}
-            busy={busy}
-            workspaces={view?.workspaces ?? []}
-            onEnter={() => {
-              enter(node.id);
-              if (mode === "map") setMode("structure");
-            }}
-            onDelete={() => requestRemoval("node", node.id)}
-            onSave={(n) =>
-              run(() =>
-                save({
-                  ...graph,
-                  nodes: graph.nodes.map((old) => (old.id === n.id ? n : old)),
-                }),
-              )
-            }
-            onWorkspace={() => open("workspace")}
-            onOpenNode={openNode}
-            onAgentTask={() => requestAgentTask(node.id, node.purpose || node.name, "canvas")}
-          />
-        ) : edge ? (
-          <aside className="detail">
-            <div className="eyebrow">VAZBA · DETAIL</div>
-            <h2>
-              {graph.nodes.find((n) => n.id === edge.source)?.name} →{" "}
-              {graph.nodes.find((n) => n.id === edge.target)?.name}
-            </h2>
-            <button
-              className="danger wide"
-              disabled={!editable}
-              title={
-                view?.readOnly
-                  ? "Main je pouze pro čtení."
-                  : "Zobrazit dopad před smazáním"
-              }
-              onClick={() => requestRemoval("edge", edge.id)}
-            >
-              Smazat vazbu
-            </button>
-          </aside>
-        ) : (
-          <aside className="detail idle">
-            <div className="eyebrow">INSPEKTOR UZLU</div>
-            <h2>
-              Celý systém.
-              <br />
-              Jeden přesný uzel.
-            </h2>
-            <p>
-              Vyberte uzel na plátně. Tady najdete jeho podstatu a přiřazené
-              pracovní prostory.
-            </p>
-            <div className="flow-rule">
-              <span>Schválený main</span>
-              <i>↓</i>
-              <span>Oddělený worktree</span>
-              <i>↓</i>
-              <span>Testy · review · PR</span>
-              <i>↓</i>
-              <span>Merge → synchronizace</span>
-            </div>
-            <p className="muted">
-              Merge se řídí schválenými pravidly repozitáře. Toto plátno samo
-              nepovoluje push ani spuštění agenta.
-            </p>
-            {!localProject && (
-              <button onClick={() => open("workspace")}>
-                Nový pracovní prostor
-              </button>
+        {mode !== "agents" && (
+          <aside className="inspector" aria-label="Inspektor">
+            {showNode && node ? (
+              <NodePanel
+                key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
+                node={node}
+                project={project}
+                workspace={workspace}
+                readOnly={!!view?.readOnly}
+                busy={busy}
+                workspaces={view?.workspaces ?? []}
+                tab={nodeTab}
+                onTab={setNodeTab}
+                onEnter={() => {
+                  enter(node.id);
+                  if (mode === "map") setMode("structure");
+                }}
+                onDelete={() => requestRemoval("node", node.id)}
+                onSave={(n) =>
+                  run(() =>
+                    save({
+                      ...graph,
+                      nodes: graph.nodes.map((old) => (old.id === n.id ? n : old)),
+                    }),
+                  )
+                }
+                onWorkspace={() => open("workspace")}
+                onOpenNode={openNode}
+                onAgentTask={() => requestAgentTask(node.id, node.purpose || node.name, "canvas")}
+                onOpenRun={(sourceId, runId) => {
+                  setFocusRun({ sourceId, runId });
+                  setMode("agents");
+                }}
+              />
+            ) : showEdge && edge ? (
+              <div className="edge-panel">
+                <div className="eyebrow">VAZBA · DETAIL</div>
+                <h2>
+                  {graph.nodes.find((n) => n.id === edge.source)?.name} → {graph.nodes.find((n) => n.id === edge.target)?.name}
+                </h2>
+                <p className="muted">Explicitní propojení mezi uzly. Smazání odstraní jen vazbu, uzly zůstávají.</p>
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={!editable}
+                  title={view?.readOnly ? "Main je pouze pro čtení." : "Zobrazit dopad před smazáním"}
+                  onClick={() => requestRemoval("edge", edge.id)}
+                >
+                  Smazat vazbu
+                </button>
+              </div>
+            ) : mode === "text" && layer ? (
+              <LayerContext
+                key={project + ":" + workspace + ":" + layer.id}
+                project={project}
+                workspace={workspace}
+                layer={layer}
+                targets={linkTargets}
+                readOnly={!!view?.readOnly}
+                revision={textRevision}
+                onOpenNode={(id) => {
+                  openNode(id);
+                  setMode("structure");
+                }}
+                onAgentTask={(text) => requestAgentTask(layer.id, text, "journal")}
+              />
+            ) : (
+              <ScopeContext
+                mode={mode}
+                layer={layer}
+                activeProject={activeProject}
+                view={view}
+                activeWorkspace={activeWorkspace}
+                jobs={jobs}
+                localProject={localProject}
+                tools={inspectorTools}
+                onWorkspace={() => open("workspace")}
+              />
             )}
           </aside>
         )}
@@ -1043,10 +798,8 @@ export default function App() {
                   });
                 }}
               >
-                <div className="eyebrow">
-                  {modal === "sector" ? "NOVÝ SEKTOR" : "NOVÝ UZEL"}
-                </div>
-                <h2>Jedno místo. Jasný účel.</h2>
+                <div className="eyebrow">{modal === "sector" ? "SEKTOR V TÉTO VRSTVĚ" : "UZEL V TÉTO VRSTVĚ"}</div>
+                <h2>{modal === "sector" ? "Nový sektor" : "Nový uzel"}</h2>
                 <label className="field">
                   Název uzlu
                   <input

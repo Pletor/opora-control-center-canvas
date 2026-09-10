@@ -91,7 +91,7 @@ test("wireframe insertion selects editable semantics and does not duplicate acro
   await page.setViewportSize({ width: 1440, height: 1050 });
   await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
-  expect(new URL(origin).port).toBe("8741");
+  expect(new URL(origin).port).toBe("8742");
   const created = await page.request.post("/api/empty-project", { headers: { origin }, data: { name: "Wireframe fixture", confirmed: true } });
   expect(created.ok()).toBe(true);
   const project = await created.json();

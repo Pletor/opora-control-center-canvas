@@ -54,7 +54,14 @@ export async function api<T>(url: string, body?: object): Promise<T> {
         }
       : undefined,
   );
-  const value = await response.json();
-  if (!response.ok) throw new Error(value.error ?? "Požadavek se nezdařil.");
-  return value;
+  // Chybějící endpoint (statický 404) nesmí vypadat jako JSON chyba parseru: říká se HTTP stav.
+  const raw = await response.text();
+  let value: { error?: string } & Record<string, unknown>;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new Error(`${url.split("?")[0]} není dostupné (HTTP ${response.status}).`);
+  }
+  if (!response.ok) throw new Error(value.error ?? `Požadavek se nezdařil (HTTP ${response.status}).`);
+  return value as T;
 }

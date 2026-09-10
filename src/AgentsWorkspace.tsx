@@ -55,10 +55,13 @@ export default function AgentsWorkspace({
   project,
   workspace,
   onOpenNode,
+  focusRun,
 }: {
   project: string;
   workspace: string;
   onOpenNode?: (nodeId: string) => void;
+  /** Běh vyžádaný z detailu uzlu: po načtení seznamu se vybere, žádný další fetch navíc. */
+  focusRun?: { sourceId: string; runId: string } | null;
 }) {
   const [sources, setSources] = useState<Record<string, AgentSourceHealth>>({});
   const [page, setPage] = useState<AgentRunsPage>({ items: [], nextCursor: null, total: 0 });
@@ -72,6 +75,10 @@ export default function AgentsWorkspace({
   const [busy, setBusy] = useState(false);
   const selectedRef = useRef<AgentRunSummary | null>(null);
   selectedRef.current = selected;
+  const pendingFocus = useRef(focusRun ?? null);
+  useEffect(() => {
+    pendingFocus.current = focusRun ?? null;
+  }, [focusRun]);
 
   useVisiblePolling(() => {
     api<Record<string, AgentSourceHealth>>("/api/agents/sources")
@@ -80,6 +87,15 @@ export default function AgentsWorkspace({
     api<AgentRunsPage>("/api/agents/runs?limit=30")
       .then((body) => {
         setPage(body);
+        const wanted = pendingFocus.current;
+        if (wanted) {
+          const match = body.items.find((r) => r.sourceId === wanted.sourceId && r.runId === wanted.runId);
+          if (match) {
+            pendingFocus.current = null;
+            setSelected(match);
+            return;
+          }
+        }
         const current = selectedRef.current;
         if (current) {
           const fresh = body.items.find((r) => r.sourceId === current.sourceId && r.runId === current.runId);

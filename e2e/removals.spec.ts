@@ -1,9 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
+
+/** Nastavení i operace projektu žijí v jednom menu horní lišty (WU-CLEAN-DESIGN). */
+async function openSettings(page: import("@playwright/test").Page, item: string) {
+  await page.getByRole("button", { name: "Nastavení", exact: true }).click();
+  await page.getByRole("group", { name: "Nastavení a operace" }).getByRole("button", { name: item, exact: true }).click();
+}
 const n = (id: string, parentId: string | null = null, kind = "node", x = 0) => ({ id, parentId, kind, name: id, purpose: "", x, y: 0 });
 async function seed(page: Page, graph: object) {
   await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
-  expect(new URL(origin).port).toBe("8741");
+  expect(new URL(origin).port).toBe("8742");
   const prior = await (await page.request.get(origin + "/api/view")).json();
   for (const item of prior.graph.nodes.filter((n: { parentId: string | null }) => n.parentId === null)) {
     const scope = { project: "draft", workspace: "draft", kind: "node", target: item.id };
@@ -58,13 +64,13 @@ test("selected edge can be removed without deleting its nodes", async ({ page })
 
 test("repository can be removed from application with explicit preservation notice", async ({ page }) => {
   await page.goto("/?project=removal-fixture&workspace=main");
-  await page.getByRole("button", { name: "Odebrat repozitář", exact: true }).click();
+  await openSettings(page, "Odebrat repozitář");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("GitHub ani lokální soubory se nesmažou");
   await expect(dialog.getByTestId("removal-workspace-count")).toHaveText("1");
   await dialog.getByRole("button", { name: "Zrušit", exact: true }).click();
   await expect(page.getByLabel("Projekt")).toHaveValue("removal-fixture");
-  await page.getByRole("button", { name: "Odebrat repozitář", exact: true }).click();
+  await openSettings(page, "Odebrat repozitář");
   await page.getByRole("dialog").getByRole("button", { name: "Potvrdit odebrání", exact: true }).click();
   await expect(page.getByLabel("Projekt")).toHaveValue("draft");
   await page.reload();

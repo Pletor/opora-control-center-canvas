@@ -1,1 +1,93 @@
-.text-workspace{position:absolute;inset:0;overflow:auto;padding:24px 32px;background:#111722;color:#e9edf3}.text-workspace>header{max-width:850px}.text-workspace p{color:#aab5c7;line-height:1.6}.text-children{border-left:1px solid #40506a;margin:24px 0;padding-left:22px}.text-block{max-width:900px;margin:0 0 24px;padding:18px;border:1px solid #354158;border-radius:10px;background:#192230}.text-block>header,.text-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.node-text-editor textarea{width:100%;resize:vertical;min-height:130px;line-height:1.7;white-space:pre-wrap}.text-actions{font-size:12px;flex-wrap:wrap}.text-workspace .node-text-editor{max-width:900px}.node-text-editor [role=alert]{color:#ffb3ae;padding:8px}.text-mode .canvas-surface{min-height:500px}@media(max-width:700px){.text-workspace{padding:14px}.text-children{padding-left:10px}.text-block{padding:10px}.text-block>header{align-items:start;flex-wrap:wrap}}
+/* Mód Text: jeden sloupec dokumentu, obsah před ovládáním. */
+.text-workspace {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: var(--sp-5) clamp(16px, 4vw, 48px) var(--sp-6);
+  background: var(--bg);
+  color: var(--ink);
+}
+.text-workspace > * {
+  max-width: 860px;
+}
+.text-head h2 {
+  font-size: 24px;
+  margin-bottom: var(--sp-1);
+}
+.text-head p {
+  margin-bottom: var(--sp-4);
+}
+.text-children {
+  border-left: 1px solid var(--line-strong);
+  margin: var(--sp-5) 0;
+  padding-left: var(--sp-4);
+}
+.text-block {
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.text-block > header,
+.text-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.text-block > header h3 {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--fs-3);
+  color: var(--ink);
+}
+.kind-mark {
+  font: 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-right: 4px;
+}
+.node-text-editor textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 110px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.text-actions {
+  font-size: var(--fs-1);
+  flex-wrap: wrap;
+  color: var(--ink-muted);
+  margin-top: var(--sp-2);
+}
+.node-text-editor [role="alert"],
+.node-journal [role="alert"] {
+  color: #ffb3ae;
+  padding: var(--sp-2) 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+  font-size: var(--fs-1);
+}
+.text-mode .canvas-surface {
+  min-height: 500px;
+}
+@media (max-width: 700px) {
+  .text-workspace {
+    padding: var(--sp-3);
+  }
+  .text-children {
+    padding-left: var(--sp-2);
+  }
+  .text-block {
+    padding: var(--sp-2) var(--sp-3);
+  }
+  .text-block > header {
+    align-items: start;
+    flex-wrap: wrap;
+  }
+}

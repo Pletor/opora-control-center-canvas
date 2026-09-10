@@ -1,0 +1,41 @@
+{
+  "passed": false,
+  "review_target": {
+    "base": "5e3fd68",
+    "candidate_tree": "35b109dec264f468e9513cc1c2cb946953055c76",
+    "scope": [
+      "src/",
+      "e2e/",
+      "playwright.config.ts"
+    ],
+    "method": "read-only inspection of immutable Git objects"
+  },
+  "security_concerns": [],
+  "logic_errors": [
+    {
+      "id": "P1-keyboard-tabs",
+      "severity": "P1",
+      "file": "src/NodePanel.tsx",
+      "function": "NodePanel",
+      "title": "New node-inspector tablist has no keyboard tab navigation",
+      "evidence": "The controls are exposed as role=tab inside role=tablist, but have neither an onKeyDown handler for ArrowLeft/ArrowRight/Home/End nor roving tabIndex. The newly added sections therefore present tab semantics without the corresponding keyboard interaction.",
+      "reproduction": [
+        "Open Canvas and select a node.",
+        "Focus the 'Obsah' tab with Tab.",
+        "Press ArrowRight (or Home/End).",
+        "Expected: focus and selected panel move among Obsah, Zadání and Práce.",
+        "Actual: no tab selection/focus change; only pointer activation or repeated Tab can switch panels."
+      ],
+      "impact": "Keyboard and assistive-technology users cannot operate the newly redesigned inspector as the announced tab control. The added clean-workspace E2E coverage exercises clicks only, so it does not detect this regression."
+    }
+  ],
+  "suggestions": [],
+  "scope_evidence": {
+    "candidate_object_type": "tree",
+    "base_object_type": "commit",
+    "protected_paths_diff_exit": 0,
+    "whitespace_check": "clean",
+    "tests_not_run_by_reviewer": true
+  },
+  "summary": "Fail: one concrete P1 keyboard-accessibility regression in the newly introduced NodePanel tab control; no security concern found in the reviewed frontend scope."
+}
