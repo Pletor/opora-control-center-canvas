@@ -9,6 +9,13 @@ for (const width of [1280, 1440, 1920]) {
     const nav = page.getByRole("navigation", { name: "Pracovní prostředí" });
     for (const [label, tools, slug] of [["Projekt", "Nástroje Projektu", "project"], ["Editor", "Nástroje Editoru", "editor"], ["Live Run", "Nástroje Live Run", "live"]]) {
       await nav.getByRole("button", { name: label, exact: true }).click();
+      if (slug === "live") {
+        // Nový výchozí region Live workspace, teprve klik na Dohled běhů odkryje starý panel s nástroji.
+        await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({ path: `evidence/desktop-v3-live-${width}.png`, fullPage: true });
+        await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
+      }
       await expect(page.getByRole("toolbar", { name: tools, exact: true })).toBeVisible();
       if (slug === "project") await expect(page.getByLabel("Podstata", { exact: true })).toBeVisible();
       if (slug === "editor") await expect(page.locator(".react-flow")).toBeVisible();

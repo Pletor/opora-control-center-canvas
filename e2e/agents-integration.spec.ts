@@ -19,6 +19,9 @@ test("panel Agenti je dostupný z plátna a jeho otevření nic nespouští", as
   });
   await page.goto("/?screen=canvas");
   await page.getByRole("button", { name: "Live Run", exact: true }).click();
+  // Nový výchozí region Live workspace, starý panel Agenti je za tlačítkem Dohled běhů.
+  await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
   await expect(page.getByRole("region", { name: "Agenti", exact: true })).toBeVisible();
   await expect(page.getByText("hermes-orchestrator: fixture_missing_source", { exact: true })).toBeVisible();
   await expect(page.getByText("Žádné běhy z nakonfigurovaných zdrojů.", { exact: true })).toBeVisible();

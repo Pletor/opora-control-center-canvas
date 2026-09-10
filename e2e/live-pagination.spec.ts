@@ -12,6 +12,9 @@ test("Live Run exposes later pages instead of hiding runs after the first thirty
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
   await page.goto("/?screen=canvas&mode=agents");
+  // Nový výchozí region Live workspace, starý panel běhů je za tlačítkem Dohled běhů.
+  await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
   await expect(page.locator(".agent-run-item")).toHaveCount(30);
   await page.getByRole("button", { name: "Další relace", exact: true }).click();
   await expect(page.locator(".agent-run-item")).toHaveCount(1);

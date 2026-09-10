@@ -116,6 +116,9 @@ test("běhy bez backendu /api/agents: pravdivá chyba, nic se nespouští", asyn
   const probe = await page.request.get("/api/agents/sources");
   await page.goto("/?screen=canvas&mode=agents");
   await expect(page.getByRole("button", { name: "Live Run", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // Nový výchozí region Live workspace, starý panel Agenti je za tlačítkem Dohled běhů.
+  await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
   await expect(page.getByRole("region", { name: "Agenti" })).toBeVisible();
   if (probe.status() === 404) {
     await expect(page.getByRole("alert").first()).toContainText("HTTP 404");

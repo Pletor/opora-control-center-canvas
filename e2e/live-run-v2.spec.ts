@@ -21,6 +21,9 @@ test("Live Run offers source-cited costs and memory without launching a run", as
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
   await page.goto("/?screen=canvas&environment=live&mode=agents");
+  // Nový výchozí region Live workspace, starý panel s nástroji je za tlačítkem Dohled běhů.
+  await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
   const tools = page.getByRole("toolbar", { name: "Nástroje Live Run" });
   await expect(tools).toBeVisible();
   await page.locator(".agent-run-item").filter({ hasText: "wu-live-fixture" }).click();
