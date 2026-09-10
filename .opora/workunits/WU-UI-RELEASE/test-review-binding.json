@@ -1,0 +1,13 @@
+{
+  "tree": "edac58b3e0b496538e4100202d97c40eed8b1d67",
+  "staticScan": [],
+  "verdict": {
+    "passed": true,
+    "security_concerns": [],
+    "logic_errors": [],
+    "suggestions": [
+      "Consider asserting reads.length reflects exactly one call each to /sources and /runs, to catch accidental duplicate fetches, though not required for this test's purpose."
+    ],
+    "summary": "Test-only diff adding an e2e spec that verifies opening the Agenti panel triggers only GET reads (/api/agents/sources, /runs) and zero writes, using a mocked route fixture rather than a live backend. Selectors correctly target current 'Mód: Běhy' / 'Mód: Struktura' rail buttons matching ModeRail.tsx. No production code changed, no assertions weakened, no security or logic issues found.</summary>\n</invoke>\n"
+  }
+}
