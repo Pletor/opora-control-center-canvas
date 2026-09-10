@@ -1,0 +1,20 @@
+[WebServer] INFO:     Started server process [65632]
+[WebServer] INFO:     Waiting for application startup.
+
+[WebServer] INFO:     Application startup complete.
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8783 (Press CTRL+C to quit)
+
+
+Running 10 tests using 1 worker
+
+[1/10] [v3-shell] › e2e-v3-shell\shell.spec.ts:22:1 › light/dark theme persists without first flash and themes shell, canvas and drawing
+[2/10] [v3-shell] › e2e-v3-shell\shell.spec.ts:51:1 › density is an optional persisted tweak
+[3/10] [v3-shell] › e2e-v3-shell\shell.spec.ts:66:3 › canvas dominates at 1280px and the inspector is hideable and persistent
+[4/10] [v3-shell] › e2e-v3-shell\shell.spec.ts:66:3 › canvas dominates at 1440px and the inspector is hideable and persistent
+[5/10] [v3-shell] › e2e-v3-shell\shell.spec.ts:66:3 › canvas dominates at 1920px and the inspector is hideable and persistent
+[6/10] [v3-shell] › e2e-v3-shell\shell.spec.ts:92:1 › one primary agent-materials entry; advanced Plan/Coding/Task stay reachable
+[7/10] [v3-shell] › e2e-v3-shell\shell.spec.ts:114:1 › three workspaces keep their own selection and mode
+[8/10] [clean-regression] › e2e-clean-editor\clean-editor.spec.ts:16:1 › clean project tree defaults to working files and explicitly reveals ignored files
+[9/10] [clean-regression] › e2e-clean-editor\clean-editor.spec.ts:34:1 › greenfield sector and child stay design-only and cannot bind an existing file without a source sector
+[10/10] [clean-regression] › e2e-clean-editor\clean-editor.spec.ts:62:1 › greenfield function persists without choosing sector path or creating source files
+  10 passed (8.6s)

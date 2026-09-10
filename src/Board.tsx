@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, memo } from "react";
+import { useDesktopAppearance } from "./DesktopThemeControls";
 import {
   ReactFlow,
   Background,
@@ -182,7 +183,7 @@ export default function Board({
       }}
     >
     <ReactFlow
-      colorMode="dark"
+      colorMode={useDesktopAppearance().theme}
       nodes={nodes}
       edges={edges.map((e) => ({ ...e, selected: e.id === selectedEdge }))}
       nodeTypes={nodeTypes}
@@ -208,7 +209,7 @@ export default function Board({
       }}
     >
       {settings.showGrid && (
-        <Background color="#303a43" gap={settings.gridSize} />
+        <Background color="var(--canvas-dot)" gap={settings.gridSize} />
       )}
       <Controls showInteractive={false} />
       <MiniMap

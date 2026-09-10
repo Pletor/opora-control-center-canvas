@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Opora Canvas</title>
+    <script>
+      // Vzhled před prvním vykreslením (bez bliknutí); stejný klíč a pravidla jako DesktopThemeControls.tsx.
+      (function () {
+        var stored = {};
+        try { stored = JSON.parse(localStorage.getItem("opora:desktop-theme:v1") || "null") || {}; } catch (e) { stored = {}; }
+        var light = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+        var theme = stored.theme === "light" || stored.theme === "dark" ? stored.theme : light ? "light" : "dark";
+        var density = stored.density === "compact" || stored.density === "airy" ? stored.density : "normal";
+        var root = document.documentElement;
+        root.dataset.theme = theme;
+        root.dataset.density = density;
+        root.style.colorScheme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

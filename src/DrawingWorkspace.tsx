@@ -10,6 +10,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import { api } from "./types";
+import { useDesktopAppearance } from "./DesktopThemeControls";
 import {
   drawingDrafts,
   drawingSaves,
@@ -129,6 +130,7 @@ export default function DrawingWorkspace({
   wireframeMode?: boolean;
   wireframeInsert?: WireframeInsert;
 }) {
+  const { theme } = useDesktopAppearance();
   const key = JSON.stringify([project, workspace, layer]);
   const [snapshot, setSnapshot] = useState<DrawingSnapshot | null>(null);
   const [initialScene, setInitialScene] = useState<DrawingScene | null>(null);
@@ -299,7 +301,7 @@ export default function DrawingWorkspace({
       {exportStatus && <div className="wireframe-export-status" role="status">{exportStatus}</div>}
       {error && <div className="drawing-error" role="alert">{error}<button disabled={saving} onClick={() => { generation.current++; drawingDrafts.delete(key); onReady(false); setInitialScene(null); setSnapshot(null); setEditor(null); setReload(reload + 1); }}>Zahodit místní a načíst uložené</button></div>}
       {snapshot?.readOnly ? <div className="drawing-unavailable"><h2>Kreslení v pracovním prostoru</h2><p>{snapshot.source}</p><p>Pro úpravy přepni do pracovního prostoru nebo lokálního návrhu.</p></div> : initialScene && <div className="drawing-main"><div className="drawing-editor" data-testid="drawing-surface" onDropCapture={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); e.stopPropagation(); setError("Import souborů do kresby zatím není podporovaný."); } }}>
-        <Excalidraw initialData={{ elements: initialScene.elements, scrollToContent: true }} excalidrawAPI={captureAPI} theme="dark" langCode="cs-CZ" name="Opora kresba" viewModeEnabled={saving} gridModeEnabled={settings.drawingGrid} handleKeyboardGlobally={false} aiEnabled={false} validateEmbeddable={false} UIOptions={{ tools: { image: false }, canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false, clearCanvas: false } }} onPaste={(data) => !Object.keys(data.files ?? {}).length && !data.mixedContent?.some((item) => item.type === "imageUrl") && !data.elements?.some((e) => ["image", "embeddable", "iframe", "magicframe"].includes(e.type))} onLinkOpen={(_, event) => event.preventDefault()} onChange={(elements, state) => {
+        <Excalidraw initialData={{ elements: initialScene.elements, scrollToContent: true }} excalidrawAPI={captureAPI} theme={theme} langCode="cs-CZ" name="Opora kresba" viewModeEnabled={saving} gridModeEnabled={settings.drawingGrid} handleKeyboardGlobally={false} aiEnabled={false} validateEmbeddable={false} UIOptions={{ tools: { image: false }, canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false, clearCanvas: false } }} onPaste={(data) => !Object.keys(data.files ?? {}).length && !data.mixedContent?.some((item) => item.type === "imageUrl") && !data.elements?.some((e) => ["image", "embeddable", "iframe", "magicframe"].includes(e.type))} onLinkOpen={(_, event) => event.preventDefault()} onChange={(elements, state) => {
           if (renderedGeneration !== generation.current) return;
           const next = { elements: elements.filter((e) => !e.isDeleted) };
           if (sceneSignature(next) !== sceneSignature(scene)) setScene(next);

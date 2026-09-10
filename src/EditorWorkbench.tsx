@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type Graph } from "./types";
 import AgentContextMap, { packetMarkdown, snapshotDesignContext, type ContextPacket, type DesignContext } from "./AgentContextMap";
 import PlanPanel from "./PlanPanel";
@@ -6,7 +6,8 @@ import CodingPanel from "./CodingPanel";
 import TaskHandoffPanel from "./TaskHandoffPanel";
 import type { WorkspaceSelection } from "./workspace-selection";
 
-export type WorkbenchPane = "context" | "plan" | "coding" | "task";
+/** packet = jediný hlavní vstup Podklady pro agenta; ostatní panely jsou pokročilé nástroje. */
+export type WorkbenchPane = "packet" | "context" | "plan" | "coding" | "task";
 
 function downloadText(name: string, value: string, type: string) {
   const url = URL.createObjectURL(new Blob([value], { type }));
@@ -14,9 +15,10 @@ function downloadText(name: string, value: string, type: string) {
   link.href = url; link.download = name; link.click(); URL.revokeObjectURL(url);
 }
 
-export default function EditorWorkbench({ project, workspace, nodeId, graph, selection, open, pane, onPane, onClose }: {
+/** packet = napojený AgentPacketPanel (Sonnet); bez něj slouží hlavnímu vstupu skutečný stávající builder paketu. */
+export default function EditorWorkbench({ project, workspace, nodeId, graph, selection, open, pane, onPane, onClose, packet: packetPanel = null }: {
   project: string; workspace: string; nodeId: string; graph: Graph; selection: WorkspaceSelection;
-  open: boolean; pane: WorkbenchPane; onPane: (pane: WorkbenchPane) => void; onClose: () => void;
+  open: boolean; pane: WorkbenchPane; onPane: (pane: WorkbenchPane) => void; onClose: () => void; packet?: ReactNode;
 }) {
   const [visited, setVisited] = useState(new Set<WorkbenchPane>());
   const [focus, setFocus] = useState(nodeId);
@@ -68,9 +70,14 @@ export default function EditorWorkbench({ project, workspace, nodeId, graph, sel
   }
   return <section className="editor-workbench" hidden={!open} aria-label="Nástroje práce s AI">
     <header><strong>Práce s AI · {project}/{workspace}</strong><button onClick={onClose}>Skrýt nástroje</button></header>
-    <nav aria-label="AI nástroje">{([["context", "Kontext"], ["plan", "LLM návrh"], ["coding", "Coding"], ["task", "Dokumentační úkol"]] as const).map(([id, label]) =>
-      <button key={id} aria-pressed={pane === id} onClick={() => onPane(id)}>{label}</button>)}</nav>
-    <div hidden={pane !== "context"} className="workbench-body"><h2>Kontextový paket</h2>
+    <div className="v3-bench-nav">
+      <nav aria-label="AI nástroje"><button className="v3-bench-primary" aria-pressed={pane === "packet"} onClick={() => onPane("packet")}>Podklady pro agenta</button></nav>
+      <nav aria-label="Pokročilé nástroje"><span className="v3-tool-label">Pokročilé</span>{([["context", "Kontext"], ["plan", "LLM návrh"], ["coding", "Coding"], ["task", "Dokumentační úkol"]] as const).map(([id, label]) =>
+        <button key={id} aria-pressed={pane === id} onClick={() => onPane(id)}>{label}</button>)}</nav>
+    </div>
+    {pane === "packet" && <div className="workbench-body v3-packet-head"><h2>Podklady pro agenta</h2>
+      {packetPanel ? <div className="v3-slot">{packetPanel}</div> : <p>Podklady se sestavují ze skutečně uložených bloků, zadání a vybraných deníků uzlu. Nic se samo neodesílá modelu.</p>}</div>}
+    <div hidden={!(pane === "context" || (pane === "packet" && !packetPanel))} className="workbench-body">{pane === "context" && <h2>Kontextový paket</h2>}
       <p>Skutečný snímek uložených bloků, zadání a vybraných deníků. Reference ze shelfu zůstávají pouze lokálními exportními odkazy; jejich obsahy se automaticky nečtou.</p>
       <AgentContextMap graph={graph} focus={focus} packet={packet} designContext={designContext} />
       <label className="field">Uzel paketu<select aria-label="Uzel paketu" value={focus} onChange={(e) => { setFocus(e.target.value); setNeighbors([]); invalidatePacket(); }}><option value="">Vyberte uzel</option>{graph.nodes.map((node) => <option key={node.id} value={node.id}>{node.name}</option>)}</select></label>

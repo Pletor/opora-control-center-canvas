@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, lazy, Suspense } from "react";
+import { useEffect, useRef, useState, lazy, Suspense, type ReactNode } from "react";
 import Board from "./Board";
 import ProjectHome from "./ProjectHome";
 import TextWorkspace from "./TextWorkspace";
@@ -35,6 +35,8 @@ import {
   type SurfaceSettings,
 } from "./workspace-settings";
 import "./workspace-modes.css";
+import DesktopThemeControls from "./DesktopThemeControls";
+import "./desktop-v3.css";
 import NodePanel, { type NodeTab } from "./NodePanel";
 import RemovalDialog from "./RemovalDialog";
 import { discardSpecDrafts } from "./NodeSpecEditor";
@@ -64,7 +66,21 @@ function resolveInitialModeEnvironment(
   return { mode: modeParam === "agents" ? "structure" : modeParam, environment };
 }
 const initialModeEnvironment = resolveInitialModeEnvironment(initial);
-export default function App() {
+/**
+ * Montážní místa v3 panelů (src/desktop-v3, Sonnet). Koordinátor je předá v main.tsx, např.
+ * <App v3={{ agentPacket: (p) => <AgentPacketPanel {...p} /> }} />. Nenapojený slot nevykreslí nic.
+ */
+export type DesktopV3Slots = {
+  projectMemory?: (scope: { project: string; workspace: string; path: string }) => ReactNode;
+  nodeWorkflow?: (scope: { project: string; workspace: string; nodeId: string }) => ReactNode;
+  agentPacket?: (scope: { project: string; workspace: string; nodeId: string; path: string; references: string[]; note: string }) => ReactNode;
+  liveWorkspace?: (scope: { project: string; workspace: string; nodeId?: string }) => ReactNode;
+};
+const INSPECTOR_KEY = "opora:desktop-inspector:v1";
+function readInspectorOpen() {
+  try { return localStorage.getItem(INSPECTOR_KEY) !== "hidden"; } catch { return true; }
+}
+export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [screen, setScreen] = useState<"home" | "canvas">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
   const [draftProject, setDraftProject] = useState<Project | undefined>();
   const [wireframeMode, setWireframeMode] = useState(initial.get("wireframe") === "1");
@@ -80,6 +96,14 @@ export default function App() {
   const [editorDocumentOpen, setEditorDocumentOpen] = useState(false);
   const [workbenchOpen, setWorkbenchOpen] = useState(false);
   const [workbenchPane, setWorkbenchPane] = useState<WorkbenchPane>("context");
+  const [inspectorOpen, setInspectorOpen] = useState(readInspectorOpen);
+  const [liveView, setLiveView] = useState<"overview" | "runs">("overview");
+  function toggleInspector() {
+    setInspectorOpen((shown) => {
+      try { localStorage.setItem(INSPECTOR_KEY, shown ? "hidden" : "shown"); } catch { /* platí aspoň v této relaci */ }
+      return !shown;
+    });
+  }
   useEffect(() => { setShowContext(selection.value.references.length > 0); }, [project, workspace, selection.value.references.length]);
   const [drawingCommand, setDrawingCommand] = useState<{
     type: DrawingTool;
@@ -422,7 +446,7 @@ export default function App() {
   const showNode = !!node && (mode === "structure" || mode === "map");
   const showEdge = !showNode && !!edge && (mode === "structure" || mode === "map");
   return (
-    <div className="app desktop-v2">
+    <div className="app desktop-v2 desktop-v3">
       <TopBar
         projects={projects}
         draftProject={draftProject}
@@ -461,6 +485,7 @@ export default function App() {
         onRemoveProject={() => requestRemoval("project", project)}
       >
         <EnvironmentSwitch value={environment} onChange={changeEnvironment} disabled={busy} />
+        <DesktopThemeControls />
       </TopBar>
       {error && (
         <div className="error" role="alert">
@@ -470,19 +495,28 @@ export default function App() {
           </button>
         </div>
       )}
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={selection.value} onChange={selection.change} onAdd={selection.add} onSettings={() => setScreen("home")} /> : <>
-      {environment === "editor" && <div className="environment-toolbar" role="toolbar" aria-label="Nástroje Editoru">
-        <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
-        <button aria-pressed={editorDocumentOpen} onClick={() => setEditorDocumentOpen((open) => !open)}>Dokumentace</button>
-        {(mode === "structure" || mode === "text") && <>
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={selection.value} onChange={selection.change} onAdd={selection.add} onSettings={() => setScreen("home")}
+        memory={v3.projectMemory?.({ project, workspace, path: selection.value.sourcePath }) ?? null} /> : <>
+      {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru">
+        <div className="v3-tool-group" role="group" aria-label="Pohled">
+          <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
+          <button aria-pressed={editorDocumentOpen} onClick={() => setEditorDocumentOpen((open) => !open)}>Dokumentace</button>
+        </div>
+        {(mode === "structure" || mode === "text") && <div className="v3-tool-group" role="group" aria-label="Tvorba">
           <button type="button" disabled={!editable} onClick={() => open("sector")}>+ Sektor</button>
           <button type="button" className="primary" disabled={!editable} onClick={() => open("node")}>+ Uzel</button>
-        </>}
-        <button aria-pressed={showContext} onClick={() => setShowContext((shown) => !shown)}>Kontext</button>
-        <button onClick={() => { setWorkbenchPane("context"); setWorkbenchOpen(true); }}>Kontextový paket</button>
-        <button onClick={() => setWorkbenchOpen(true)}>AI nástroje</button>
+        </div>}
+        {/* Se skrytým inspektorem zůstávají nástroje kreslení a mapy dosažitelné v liště. */}
+        {!inspectorOpen && !editorDocumentOpen && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
+        <span className="v3-grow" />
+        <div className="v3-tool-group" role="group" aria-label="Panely">
+          <button aria-pressed={showContext} onClick={() => setShowContext((shown) => !shown)}>Kontext</button>
+          <button aria-pressed={inspectorOpen} title="Skrýt nebo zobrazit pravý inspektor" onClick={toggleInspector}>Inspektor</button>
+        </div>
+        <button className="primary v3-materials" onClick={() => { setWorkbenchPane("packet"); setWorkbenchOpen(true); }}>Podklady pro agenta</button>
+        <button className="v3-quiet" title="Pokročilé: kontextový paket, LLM návrh, Coding, dokumentační úkol" onClick={() => setWorkbenchOpen(true)}>AI nástroje</button>
       </div>}
-      <div className={"workspace-shell " + mode + "-mode" + (mode === "agents" ? " no-inspector" : "") + (!showContext ? " no-context" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
+      <div className={"workspace-shell " + mode + "-mode" + (mode === "agents" ? " no-inspector" : "") + (!showContext ? " no-context" : "") + (!inspectorOpen ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
         {environment === "editor" && showContext && <ContextShelf project={project} workspace={workspace} value={selection.value} onChange={selection.change} onAdd={selection.add}
           onOpen={(path) => { selection.change({ sourcePath: path }); setEditorDocumentOpen(true); }} />}
         <main className="canvas-area">
@@ -508,7 +542,14 @@ export default function App() {
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} />
               ) : mode === "agents" ? (
-                <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />
+                v3.liveWorkspace ? <div className="v3-live">
+                  <nav className="v3-live-tabs" aria-label="Pohled Live Run">
+                    <button aria-pressed={liveView === "overview"} onClick={() => setLiveView("overview")}>Přehled a tickety</button>
+                    <button aria-pressed={liveView === "runs"} onClick={() => setLiveView("runs")}>Dohled běhů</button>
+                  </nav>
+                  {liveView === "overview" ? <div className="v3-slot">{v3.liveWorkspace({ project, workspace, nodeId: selected ?? undefined })}</div>
+                    : <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />}
+                </div> : <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />
               ) : mode === "map" ? (
                 <ProjectMap
                   graph={graph}
@@ -669,9 +710,9 @@ export default function App() {
             </span>
           </footer>
         </main>
-        {mode !== "agents" && !editorDocumentOpen && (
+        {mode !== "agents" && !editorDocumentOpen && inspectorOpen && (
           <aside className="inspector" aria-label="Inspektor">
-            {showNode && node ? (
+            {showNode && node ? (<>
               <NodePanel
                 key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
                 node={node}
@@ -700,10 +741,12 @@ export default function App() {
                 onAgentTask={() => requestAgentTask(node.id, node.purpose || node.name, "canvas")}
                 onOpenRun={(sourceId, runId) => {
                   setFocusRun({ sourceId, runId });
+                  setLiveView("runs");
                   setMode("agents");
                 }}
               />
-            ) : showEdge && edge ? (
+              {v3.nodeWorkflow && <div className="v3-slot v3-node-workflow">{v3.nodeWorkflow({ project, workspace, nodeId: node.id })}</div>}
+            </>) : showEdge && edge ? (
               <div className="edge-panel">
                 <div className="eyebrow">VAZBA · DETAIL</div>
                 <h2>
@@ -754,7 +797,8 @@ export default function App() {
       </>}
       <EditorWorkbench key={JSON.stringify([project, workspace])} project={project} workspace={workspace} nodeId={selected ?? ""}
         graph={graph} selection={selection.value} open={environment === "editor" && workbenchOpen} pane={workbenchPane}
-        onPane={setWorkbenchPane} onClose={() => setWorkbenchOpen(false)} />
+        onPane={setWorkbenchPane} onClose={() => setWorkbenchOpen(false)}
+        packet={v3.agentPacket?.({ project, workspace, nodeId: selected ?? "", path: selection.value.sourcePath, references: selection.value.references, note: selection.value.note }) ?? null} />
       {settingsOpen && (
         <WorkspaceSettings
           value={settings}

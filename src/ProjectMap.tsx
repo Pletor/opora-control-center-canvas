@@ -14,6 +14,7 @@ import {
 import type { Graph } from "./types";
 import type { SurfaceSettings } from "./workspace-settings";
 import { projectMapModel } from "./project-map";
+import { useDesktopAppearance } from "./DesktopThemeControls";
 function MapCard({ data, selected }: NodeProps) {
   return (
     <div className={"map-card " + (selected ? "selected " : "") + data.kind}>
@@ -64,6 +65,7 @@ export default function ProjectMap({
     () => projectMapModel(graph, projectName),
     [graph, projectName],
   );
+  const { theme } = useDesktopAppearance();
   type MapNode = Node<(typeof model.nodes)[number], "mapCard">;
   const makeNodes = (previous: MapNode[] = []): MapNode[] =>
     model.nodes.map((n) => ({
@@ -86,7 +88,7 @@ export default function ProjectMap({
     selected: e.kind === "link" && e.entityId === selectedEdge,
     selectable: e.kind === "link",
     style: {
-      stroke: e.kind === "contains" ? "#687b8d" : "#a5d7b7",
+      stroke: e.kind === "contains" ? "var(--map-contains)" : "var(--accent)",
       strokeDasharray: e.kind === "contains" ? "6 5" : undefined,
       strokeWidth: 2,
     },
@@ -100,7 +102,7 @@ export default function ProjectMap({
         }
         edges={edges}
         nodeTypes={nodeTypes}
-        colorMode="dark"
+        colorMode={theme}
         fitView
         autoPanOnNodeFocus={false}
         zoomOnDoubleClick={false}
@@ -124,10 +126,10 @@ export default function ProjectMap({
         }}
       >
         {settings.showGrid && (
-          <Background gap={settings.gridSize} color="#303a43" />
+          <Background gap={settings.gridSize} color="var(--canvas-dot)" />
         )}
         <Controls showInteractive={false} />
-        <MiniMap nodeColor="#526b89" maskColor="rgba(15,19,24,.7)" />
+        <MiniMap nodeColor={theme === "light" ? "#b9c9c8" : "#526b89"} maskColor={theme === "light" ? "rgba(245,243,238,.7)" : "rgba(15,19,24,.7)"} />
       </ReactFlow>
     </div>
   );
