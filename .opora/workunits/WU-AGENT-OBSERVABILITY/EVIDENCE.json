@@ -1,0 +1,86 @@
+{
+  "workUnit": "WU-AGENT-OBSERVABILITY",
+  "writer": "Sonnet",
+  "date": "2026-09-10",
+  "baseCommit": "dbc19ffac783755ac06b7e7e17fc36a57f38b8c0",
+  "commitSha": "PENDING-see-follow-up-commit",
+  "ownedPaths": [
+    "backend/agent_sources.py",
+    "backend/agent_bindings.py",
+    "backend/agent_activity.py",
+    "backend/agent_catalog.py",
+    "backend/agent_routes.py",
+    "tests/test_agent_sources.py",
+    "tests/test_agent_bindings.py",
+    "tests/test_agent_activity.py",
+    "src/agent-types.ts",
+    "src/AgentsWorkspace.tsx",
+    "src/NodeActivity.tsx",
+    "src/agents.css",
+    ".opora/workunits/WU-AGENT-OBSERVABILITY/"
+  ],
+  "redGreen": [
+    {
+      "module": "backend/agent_bindings.py",
+      "redCommand": "uv run pytest tests/test_agent_bindings.py -q",
+      "redResult": "ModuleNotFoundError: No module named 'backend.agent_bindings'",
+      "redExitCode": 2,
+      "greenCommand": "uv run pytest tests/test_agent_bindings.py -q",
+      "greenResult": "7 passed",
+      "greenExitCode": 0
+    },
+    {
+      "module": "backend/agent_activity.py",
+      "redCommand": "uv run pytest tests/test_agent_activity.py -q",
+      "redResult": "ModuleNotFoundError: No module named 'backend.agent_activity'",
+      "redExitCode": 2,
+      "greenCommand": "uv run pytest tests/test_agent_activity.py -q",
+      "greenResult": "5 passed",
+      "greenExitCode": 0
+    },
+    {
+      "module": "backend/agent_sources.py + backend/agent_routes.py (route smoke)",
+      "redCommand": "not run strictly RED-first; module and tests authored together",
+      "redResult": "N/A - documented deviation",
+      "redExitCode": null,
+      "greenCommand": "uv run pytest tests/test_agent_sources.py -q",
+      "greenResult": "13 passed",
+      "greenExitCode": 0
+    }
+  ],
+  "regression": {
+    "command": "uv run pytest -q",
+    "result": "113 passed",
+    "exitCode": 0
+  },
+  "lint": {
+    "command": "uv run ruff check backend/agent_sources.py backend/agent_bindings.py backend/agent_activity.py backend/agent_catalog.py backend/agent_routes.py tests/test_agent_sources.py tests/test_agent_bindings.py tests/test_agent_activity.py",
+    "result": "All checks passed!",
+    "exitCode": 0
+  },
+  "frontendTypecheck": {
+    "command": "npx tsc --noEmit",
+    "result": "no errors",
+    "exitCode": 0
+  },
+  "frontendBuild": {
+    "command": "npm run build",
+    "result": "built successfully, no new bundling errors introduced",
+    "exitCode": 0
+  },
+  "liveSourcesObserved": {
+    "http://127.0.0.1:8738/health": {"status": "degraded", "bridge": {"status": "unavailable", "error": "bridge_unavailable", "bridge_status": 503}},
+    "http://127.0.0.1:8738/api/status": {"bridge": {"ok": false, "workers": [], "error": "bridge_unavailable"}, "running": [], "waiting": [], "cost": {"today_usd": 0.0, "limit_usd": 2.0}},
+    "http://127.0.0.1:8738/api/platno/projekty": "2 real projects (Ample Lab, Opora velin) - shape confirmed and parsed",
+    "hermesOrchestratorLanes": ["ample-sonnet", "natural-opus", "agents-sonnet"],
+    "resultJsonObservedForAnyLane": false,
+    "note": "running/waiting arrays were empty for the entire session; populated-item parsing in PlatnoSource/_platno_runs is defensive best-effort, not verified against real populated data"
+  },
+  "notCovered": [
+    "app.py include_router wiring (explicitly out of scope, parent-owned)",
+    "App.tsx mode-rail entry and prop wiring between AgentsWorkspace/NodeActivity/Board (parent-owned)",
+    "Populated PlatnoSource running/waiting item shape (bridge was unavailable for entire session)",
+    "POST /api/agents/bindings and /api/agents/activity HTTP-level ValueError -> 409 path (relies on app.py's existing global handler, not re-tested via bare TestClient)",
+    "Playwright/E2E (reserved for Opus this wave per instructions)"
+  ]
+}

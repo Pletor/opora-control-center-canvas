@@ -1,0 +1,130 @@
+.agents-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  overflow: auto;
+}
+.agent-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.agent-badge {
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  border: 1px solid var(--line);
+}
+.agent-badge-ok {
+  background: #1e3324;
+  color: #b6e6c2;
+  border-color: #4c8a5d;
+}
+.agent-badge-warn {
+  background: #3a2f14;
+  color: #f0d698;
+  border-color: #9c7c2c;
+}
+.agent-badge-bad {
+  background: #3a1717;
+  color: #f0a9a9;
+  border-color: #9c3c3c;
+}
+.agent-badge-unknown {
+  background: #23272c;
+  color: #b9c2cb;
+  border-color: #4a545e;
+}
+.agent-error {
+  color: #f0a9a9;
+}
+.agents-columns {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+.agent-run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+}
+.agent-run-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 6px 8px;
+}
+.agent-run-item.selected {
+  outline: 2px solid #a5d7b7;
+}
+.agent-unbound {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.agent-unbound-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.agent-detail {
+  overflow: auto;
+  min-height: 0;
+}
+.agent-missing {
+  font-size: 11px;
+  color: #b9c2cb;
+}
+.agent-brain {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+.agent-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 16px;
+}
+.agent-block {
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.agent-bind-dialog {
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
+}
+.node-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.agent-binding-list,
+.agent-journal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.agent-run-link {
+  background: none;
+  border: none;
+  color: #9fd0ff;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
