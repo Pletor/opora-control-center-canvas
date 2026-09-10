@@ -1,6 +1,7 @@
 import { useState } from "react";
 import NodeSpecEditor from "./NodeSpecEditor";
 import NodeTextEditor from "./NodeTextEditor";
+import NodeLinksPanel from "./NodeLinksPanel";
 import type { CanvasNode, Workspace } from "./types";
 export default function NodePanel({
   node,
@@ -13,6 +14,8 @@ export default function NodePanel({
   onSave,
   onWorkspace,
   onDelete,
+  onOpenNode,
+  onAgentTask,
 }: {
   node: CanvasNode;
   project: string;
@@ -24,6 +27,10 @@ export default function NodePanel({
   onSave: (n: CanvasNode) => void;
   onWorkspace: () => void;
   onDelete: () => void;
+  /** Souvislost vede na tentýž uzel v plátně. */
+  onOpenNode: (id: string) => void;
+  /** Připraví scope úkolu pro panel agenta; žádný běh nespouští. */
+  onAgentTask: () => void;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
@@ -41,6 +48,10 @@ export default function NodePanel({
       <button className="danger wide" disabled={readOnly || busy} title={readOnly ? "Main je pouze pro čtení. Přepněte do pracovního prostoru." : "Zobrazit dopad před smazáním"} onClick={onDelete}>
         {node.kind === "sector" ? "Smazat sektor" : "Smazat uzel"}
       </button>
+      <button className="wide" data-testid="agent-task-action" disabled={busy} onClick={onAgentTask}>
+        Připravit úkol pro agenta z tohoto uzlu
+      </button>
+      <NodeLinksPanel project={project} workspace={workspace} node={node.id} revision={0} readOnly={readOnly} onOpenNode={onOpenNode} />
       <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
       <h3>Podstata</h3>
       <NodeTextEditor key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} node={node.id} />

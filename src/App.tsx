@@ -3,7 +3,6 @@ import Board from "./Board";
 import ProjectHome from "./ProjectHome";
 import TextWorkspace from "./TextWorkspace";
 import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "./context-actions";
-import NodeLinksPanel from "./NodeLinksPanel";
 import PlanPanel from "./PlanPanel";
 import CodingPanel from "./CodingPanel";
 import type { WireframeKind } from "./wireframe-model";
@@ -821,7 +820,6 @@ export default function App() {
           </footer>
         </main>
         {mode === "drawing" || mode === "text" ? null : node ? (
-          <>
           <NodePanel
             key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
             node={node}
@@ -844,27 +842,9 @@ export default function App() {
               )
             }
             onWorkspace={() => open("workspace")}
+            onOpenNode={openNode}
+            onAgentTask={() => requestAgentTask(node.id, node.purpose || node.name, "canvas")}
           />
-          <aside className="detail detail-extras" aria-label="Souvislosti a předání uzlu">
-            <button
-              type="button"
-              className="wide"
-              data-testid="agent-task-action"
-              onClick={() => requestAgentTask(node.id, node.purpose || node.name, "canvas")}
-            >
-              Připravit úkol pro agenta z tohoto uzlu
-            </button>
-            <NodeLinksPanel
-              key={node.id + ":" + (view?.digest ?? "")}
-              project={project}
-              workspace={workspace}
-              node={node.id}
-              revision={0}
-              readOnly={!!view?.readOnly}
-              onOpenNode={openNode}
-            />
-          </aside>
-          </>
         ) : edge ? (
           <aside className="detail">
             <div className="eyebrow">VAZBA · DETAIL</div>
