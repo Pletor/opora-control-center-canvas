@@ -22,6 +22,8 @@ class TaskHandoffs:
     def __init__(self, canvas, plans):
         self.canvas, self.plans = canvas, plans
         self.packets = ContextPackets(canvas)
+        # Desktop v3 snapshoty (opora.packet/1); přiřazuje aplikace, start je bez nich odmítne.
+        self.desktop_v3 = None
         self.root = Path(canvas.root) / "task-handoff-workspaces"
         self.run_root = Path(canvas.root) / "task-handoff-runs"
         self.root.mkdir(exist_ok=True)
@@ -267,6 +269,131 @@ class TaskHandoffs:
             )
         return self._public(record)
 
+    def _snapshot_context(self, snapshot):
+        """Kontext worker nástrojů = PŘESNÝ neměnný snapshot; documents nese celý balíček."""
+        packet = snapshot["packet"]
+        scope = packet["scope"]
+        lineage = [packet["task"], *packet["context"]["ancestors"]]
+        nodes = [
+            {key: item[key] for key in ("nodeId", "parentId", "kind", "name", "purpose")}
+            for item in lineage
+        ]
+        return {
+            "map": {
+                "scope": {"project": scope["project"], "workspace": scope["workspace"], "node": scope["nodeId"]},
+                "snapshotId": snapshot["id"],
+                "digest": snapshot["digest"],
+                "schema": packet["schema"],
+                "sourceManifest": packet["sourceManifest"],
+                "warnings": packet["warnings"],
+                "nodes": nodes,
+                "edges": packet["context"]["relations"],
+            },
+            "documents": packet,
+            "workspaceDocuments": {
+                "items": {("root" if item["path"] == "" else item["path"]): item for item in packet["context"]["documents"]},
+                "truncated": False,
+            },
+        }
+
+    def prepare_from_snapshot(self, snapshot, task):
+        """Připraví dokumentační běh nad neměnným Desktop v3 snapshotem; nikdy nespouští."""
+        if not isinstance(task, str) or not task.strip() or len(task) > 4000:
+            raise ValueError("Zadejte neprázdný úkol, nejvýše 4000 znaků.")
+        task = task.strip()
+        packet = snapshot["packet"]
+        if packet.get("schema") != "opora.packet/1":
+            raise ValueError("Snapshot nemá podporované schéma balíčku.")
+        packet_scope = packet["scope"]
+        scope = {"project": packet_scope["project"], "workspace": packet_scope["workspace"], "node": packet_scope["nodeId"]}
+        if scope["workspace"] == "main":
+            raise ValueError("Dokumentační úkol nelze připravit z pouze-pro-čtení mainu.")
+        settings, revision = self._settings(scope["project"])
+        readable = list(dict.fromkeys([scope["node"], *(item["nodeId"] for item in packet["context"]["ancestors"])]))
+        context = self._snapshot_context(snapshot)
+        from .desktop_v3_packets import MAX_PACKET_BYTES
+
+        if len(_canonical(context).encode("utf-8")) > MAX_CONTEXT_BYTES + MAX_PACKET_BYTES:
+            raise ValueError("Úplný kontext dokumentačního úkolu překročil bezpečný limit.")
+        identity = {
+            "snapshotId": snapshot["id"],
+            "packetDigest": snapshot["digest"],
+            "scope": scope,
+            "task": task,
+            "settings": settings,
+            "configRevision": revision,
+            "context": context,
+        }
+        handoff_id = uuid.uuid4().hex
+        digest = hashlib.sha256(_canonical(identity).encode("utf-8")).hexdigest()
+        record = {
+            "id": handoff_id,
+            "digest": digest,
+            "scope": scope,
+            "task": task,
+            "allowedFiles": ["result.md"],
+            "readableNodeIds": readable,
+            "contextSummary": {
+                "snapshotId": snapshot["id"],
+                "packetDigest": snapshot["digest"],
+                "schema": packet["schema"],
+                "sizeBytes": len(_canonical(packet).encode("utf-8")),
+                "sourceManifest": packet["sourceManifest"],
+                "warnings": packet["warnings"],
+            },
+            "provider": settings["provider"],
+            "model": settings["model"],
+            "budgetSeconds": settings["budgetSeconds"],
+            "settingsRevision": revision,
+            "packetKind": "desktop-v3",
+            "packet": {"id": snapshot["id"], "digest": snapshot["digest"], "kind": "desktop-v3"},
+            "context": context,
+            "contextDigest": hashlib.sha256(_canonical(context).encode("utf-8")).hexdigest(),
+            "status": "prepared",
+            "events": [],
+            "verification": {"passed": None},
+            "result": None,
+            "error": None,
+            "pid": None,
+            "localTreeInactive": False,
+            "createdAt": _now(),
+            "updatedAt": _now(),
+        }
+        with self.canvas.lock, self.canvas.db:
+            self.canvas.db.execute(
+                "INSERT INTO task_handoffs VALUES(?,?)", (handoff_id, _canonical(record))
+            )
+        return self._public(record)
+
+    def _check_sources(self, record):
+        """Stejná záruka pro oba druhy paketů: zdroje se od přípravy nesměly změnit."""
+        if record.get("packetKind") == "desktop-v3":
+            if self.desktop_v3 is None:
+                raise ValueError("Desktop v3 snapshoty nejsou v tomto runtime dostupné.")
+            snapshot = self.desktop_v3.load(
+                record["packet"]["id"], record["scope"]["project"], record["scope"]["workspace"]
+            )
+            if self.desktop_v3.current_digest(snapshot) != record["packet"]["digest"]:
+                raise ValueError("Podklady snapshotu se změnily; připravte nový náhled a snapshot.")
+            expected = hashlib.sha256(_canonical(self._snapshot_context(snapshot)).encode("utf-8")).hexdigest()
+            if expected != record["contextDigest"]:
+                raise ValueError("Snapshot neodpovídá připravenému kontextu; připravte nový náhled.")
+            return
+        validation = self.packets.validate(record["packet"]["id"])
+        if validation["stale"]:
+            raise ValueError("Paket, mapa nebo dokumentace se změnily; připravte nový náhled.")
+
+    def _check_context(self, record):
+        if record.get("packetKind") == "desktop-v3":
+            self._check_sources(record)
+            return
+        current_context = self._full_context(record["packet"], record["readableNodeIds"])
+        if (
+            hashlib.sha256(_canonical(current_context).encode("utf-8")).hexdigest()
+            != record["contextDigest"]
+        ):
+            raise ValueError("Mapa nebo uložená dokumentace se změnily; připravte nový náhled.")
+
     @staticmethod
     def _public(record):
         fields = (
@@ -383,9 +510,7 @@ class TaskHandoffs:
                 coding = getattr(self.canvas, "coding_runs", None)
                 if self.plans.list()["active"] or (coding is not None and coding.list()["active"]):
                     raise ValueError("Jiný omezený běh již probíhá.")
-            validation = self.packets.validate(record["packet"]["id"])
-            if validation["stale"]:
-                raise ValueError("Paket, mapa nebo dokumentace se změnily; připravte nový náhled.")
+            self._check_sources(record)
             settings, revision = self._settings(record["scope"]["project"])
             if revision != record["settingsRevision"]:
                 raise ValueError("Nastavení se změnilo; připravte nový náhled.")
@@ -405,14 +530,7 @@ class TaskHandoffs:
                 ).fetchone()
                 if active or self.closed:
                     raise ValueError("Jiný dokumentační běh již probíhá nebo je runtime zavřený.")
-                current_context = self._full_context(record["packet"], record["readableNodeIds"])
-                if (
-                    hashlib.sha256(_canonical(current_context).encode("utf-8")).hexdigest()
-                    != record["contextDigest"]
-                ):
-                    raise ValueError(
-                        "Mapa nebo uložená dokumentace se změnily; připravte nový náhled."
-                    )
+                self._check_context(record)
                 settings, revision = self._settings(record["scope"]["project"])
                 if revision != record["settingsRevision"]:
                     raise ValueError("Nastavení se změnilo; připravte nový náhled.")

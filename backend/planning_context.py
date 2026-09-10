@@ -1,8 +1,14 @@
+from .desktop_v3_packets import ancestor_ids, drawing_chain, memory_for
+from .desktop_v3_state import DesktopV3State, default_state
 from .wireframe_context import wireframe_context
 
 
 def build_planning_context(canvas, project, workspace, layer):
-    """Sestaví jen uložené aplikační podklady, nikoli obsah připojené složky."""
+    """Sestaví jen uložené aplikační podklady, nikoli obsah připojené složky.
+
+    Kresby předků a paměť projektu přicházejí ze stejného sdíleného sestavení jako
+    balíček pro agenta (desktop_v3_packets), aby neexistovala druhá odlišná pravda.
+    """
     with canvas.graph_lock:
         config = canvas.project_hub.settings(project)
         view = canvas.view(project, workspace)
@@ -29,6 +35,17 @@ def build_planning_context(canvas, project, workspace, layer):
         drawing = canvas.drawing(project, workspace, layer)
         wireframe = wireframe_context(project, workspace, layer, drawing)
         wireframe["available"] = drawing["available"]
+        drawings = drawing_chain(canvas, project, workspace, layer, by_id)
+        state_store = getattr(canvas, "desktop_v3_state", None) or DesktopV3State(canvas)
+        with canvas.lock:
+            stored = (
+                state_store.current(project, workspace)
+                if not view["readOnly"]
+                else {"revision": 0, "state": default_state()}
+            )
+        lineage = [layer, *ancestor_ids(by_id, layer)] if layer else []
+        layer_path = (by_id[layer].get("sourceRef") or {}).get("path", "") if layer else ""
+        memory = memory_for(stored, lineage, [layer_path], "")
         source = config["project"]
         return {
             "project": {key: source.get(key) for key in ("id", "name", "sourceKind")},
@@ -45,6 +62,8 @@ def build_planning_context(canvas, project, workspace, layer):
             "nodeSpecs": specs,
             "nodeTexts": [] if view["readOnly"] else [{"nodeId": node_id, **canvas.texts.access(project, workspace, node_id)} for node_id in sorted(core)],
             "wireframe": wireframe,
+            "drawings": drawings,
+            "memory": memory,
             "policy": {"purpose": "proposal_only", "tools": 0, "sourceFilesRead": False, "automaticWrites": False},
-            "notes": ["Pouze uložené podklady. Neuložené změny editoru nejsou zahrnuté.", "Souřadnice wireframu jsou autoritativní; bloky jsou kontejnery a akce popis požadovaného chování, nikoli příkazy k vykonání.", "Výstup modelu je návrh k posouzení, nikoli dokončená implementace."],
+            "notes": ["Pouze uložené podklady. Neuložené změny editoru nejsou zahrnuté.", "Souřadnice wireframu jsou autoritativní; bloky jsou kontejnery a akce popis požadovaného chování, nikoli příkazy k vykonání.", "Kresby předků (drawings) a paměť projektu (memory) pocházejí ze stejného sestavení jako balíček pro agenta.", "Výstup modelu je návrh k posouzení, nikoli dokončená implementace."],
         }

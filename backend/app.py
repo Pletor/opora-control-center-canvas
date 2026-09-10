@@ -11,6 +11,9 @@ from .agent_routes import create_agent_router
 from .build_identity import build_identity
 from .coding_runs import CodingRuns
 from .context_routes import create_context_router
+from .desktop_v3_packets import DesktopV3Packets
+from .desktop_v3_routes import create_desktop_v3_router
+from .desktop_v3_state import DesktopV3State
 from .llm_runs import PlanRuns
 from .node_journal import NodeJournal
 from .node_links import NodeLinks
@@ -31,6 +34,10 @@ def create_app(data_root=None):
     service.coding_runs = coding
     handoffs = TaskHandoffs(service, plans)
     service.task_handoffs = handoffs
+    desktop_state = DesktopV3State(service)
+    service.desktop_v3_state = desktop_state
+    desktop_packets = DesktopV3Packets(service, desktop_state)
+    handoffs.desktop_v3 = desktop_packets
     links = NodeLinks(service)
     journal = NodeJournal(service)
     identity = build_identity(service.root)
@@ -276,7 +283,8 @@ def create_app(data_root=None):
     app.include_router(create_task_handoff_router(handoffs))
     app.include_router(create_workspace_router(service))
     app.include_router(create_context_router(service))
-    dist = Path(__file__).resolve().parent.parent / "dist"
+    app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, handoffs))
+    dist =Path(__file__).resolve().parent.parent / "dist"
     if dist.exists():
         app.mount("/", StaticFiles(directory=dist, html=True), name="canvas")
     return app
