@@ -19,6 +19,14 @@ class NodeTextStore:
         ).fetchone()
         return dict(row) if row else {"revision": 0, "text": "", "saved_at": None}
 
+    def read_all(self, project, workspace):
+        """Poslední uložený text každého uzlu prostoru; podklad pro odkazy a zpětné odkazy."""
+        rows = self.canvas.db.execute(
+            "SELECT node_id,text FROM node_text_revisions AS t WHERE project_id=? AND workspace_id=? AND revision=(SELECT MAX(revision) FROM node_text_revisions WHERE project_id=t.project_id AND workspace_id=t.workspace_id AND node_id=t.node_id)",
+            (project, workspace),
+        ).fetchall()
+        return {row["node_id"]: row["text"] for row in rows}
+
     def access(self, project, workspace, node, payload=None):
         if payload is not None:
             if set(payload) != {"project", "workspace", "node", "expected_revision", "text"}:

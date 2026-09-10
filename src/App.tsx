@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import Board from "./Board";
 import ProjectHome from "./ProjectHome";
 import TextWorkspace from "./TextWorkspace";
+import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "./context-actions";
+import NodeLinksPanel from "./NodeLinksPanel";
 import PlanPanel from "./PlanPanel";
 import CodingPanel from "./CodingPanel";
 import type { WireframeKind } from "./wireframe-model";
@@ -53,6 +55,8 @@ export default function App() {
   const [mode, setMode] = useState<WorkspaceMode>(() =>
     readMode(initial.get("mode")),
   );
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
   const [settings, setSettings] = useState(readSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [linkSource, setLinkSource] = useState("");
@@ -174,6 +178,31 @@ export default function App() {
   const activeWorkspace = view?.workspaces.find((w) => w.id === workspace);
   const activeProject = project === "draft" ? draftProject : projects.find((p) => p.id === project);
   const localProject = project === "draft" || ["local", "empty", "builtin"].includes(activeProject?.sourceKind ?? "");
+  const linkTargets = graph.nodes.map((n) => ({ id: n.id, name: n.name, kind: n.kind }));
+  /** Odkaz i souvislost vedou na tentýž uzel: otevře se jeho vrstva a označí se. */
+  function openNode(id: string) {
+    const target = graph.nodes.find((n) => n.id === id);
+    if (!target) return;
+    setParent(target.parentId);
+    setSelected(target.id);
+    setSelectedEdge(null);
+  }
+  /** Kontextová akce: rodičovská integrace dostane přesný scope, běh nevzniká zde. */
+  function requestAgentTask(nodeId: string, text: string, source: AgentTaskRequest["source"]) {
+    const target = graph.nodes.find((n) => n.id === nodeId);
+    setAgentTask(
+      emitAgentTask({
+        project,
+        workspace,
+        layer: parent,
+        nodeId,
+        nodeName: target?.name ?? nodeId,
+        source,
+        text,
+        requestedAt: new Date().toISOString(),
+      }),
+    );
+  }
   function open(kind: typeof modal) {
     setModal(kind);
     setName("");
@@ -620,7 +649,7 @@ export default function App() {
           <div className="canvas-surface">
             {view ? (
               mode === "text" ? (
-                <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} onEnter={enter} />
+                <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} readOnly={!!view?.readOnly} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} />
               ) : mode === "map" ? (
                 <ProjectMap
                   graph={graph}
@@ -689,6 +718,35 @@ export default function App() {
                     setSelected(null);
                   }}
                   onEnter={enter}
+                  editing={editingName}
+                  onEditing={setEditingName}
+                  onRename={(id, name) =>
+                    run(() =>
+                      save({
+                        ...graph,
+                        nodes: graph.nodes.map((n) =>
+                          n.id === id ? { ...n, name } : n,
+                        ),
+                      }),
+                    )
+                  }
+                  onCreateAt={(x, y) => {
+                    if (!editable) return;
+                    const created: CanvasNode = {
+                      id: crypto.randomUUID(),
+                      parentId: parent,
+                      kind: "node",
+                      name: "Nový uzel",
+                      purpose: "",
+                      x,
+                      y,
+                    };
+                    run(async () => {
+                      await save({ ...graph, nodes: [...graph.nodes, created] });
+                      setSelected(created.id);
+                      setEditingName(created.id);
+                    });
+                  }}
                   onPosition={(id, x, y) =>
                     run(() =>
                       save({
@@ -763,6 +821,7 @@ export default function App() {
           </footer>
         </main>
         {mode === "drawing" || mode === "text" ? null : node ? (
+          <>
           <NodePanel
             key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
             node={node}
@@ -786,6 +845,26 @@ export default function App() {
             }
             onWorkspace={() => open("workspace")}
           />
+          <aside className="detail detail-extras" aria-label="Souvislosti a předání uzlu">
+            <button
+              type="button"
+              className="wide"
+              data-testid="agent-task-action"
+              onClick={() => requestAgentTask(node.id, node.purpose || node.name, "canvas")}
+            >
+              Připravit úkol pro agenta z tohoto uzlu
+            </button>
+            <NodeLinksPanel
+              key={node.id + ":" + (view?.digest ?? "")}
+              project={project}
+              workspace={workspace}
+              node={node.id}
+              revision={0}
+              readOnly={!!view?.readOnly}
+              onOpenNode={openNode}
+            />
+          </aside>
+          </>
         ) : edge ? (
           <aside className="detail">
             <div className="eyebrow">VAZBA · DETAIL</div>
@@ -854,6 +933,7 @@ export default function App() {
           onConfirm={confirmRemoval}
         />
       )}
+      {agentTask && <AgentTaskNotice request={agentTask} onDismiss={() => setAgentTask(null)} />}
       {modal && (
         <div className="modal-backdrop">
           <section

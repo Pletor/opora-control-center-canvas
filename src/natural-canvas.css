@@ -1,0 +1,235 @@
+/* Přirozená práce s bloky: hustý pracovní povrch, žádné velké dekorativní plochy. */
+.block-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 1px solid #26313b;
+  border-radius: 8px;
+  background: #131920;
+}
+.block-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 1px 2px;
+  border-radius: 6px;
+}
+.block-row:focus-within {
+  background: #182230;
+}
+.block-bullet {
+  color: #6f8598;
+  line-height: 1.7;
+  font-size: 14px;
+  user-select: none;
+}
+.block-input {
+  flex: 1;
+  min-height: 24px;
+  resize: none;
+  overflow: hidden;
+  border: 0;
+  outline: 0;
+  padding: 2px 4px;
+  color: #e7eef5;
+  background: transparent;
+  font: inherit;
+  line-height: 1.6;
+  field-sizing: content;
+}
+.block-input::placeholder {
+  color: #63788a;
+}
+.block-links {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.block-link {
+  border: 1px solid #2f4a3f;
+  background: #16241d;
+  color: #9fd8bc;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.block-link.unresolved {
+  border-color: #4a4030;
+  background: #241f16;
+  color: #d8c49f;
+  cursor: default;
+}
+.block-menu {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 24px;
+  min-width: 260px;
+  margin: 2px 0 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid #2c3a46;
+  border-radius: 8px;
+  background: #101821;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+.block-menu-head,
+.block-menu-empty {
+  padding: 4px 8px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #7f93a5;
+}
+.block-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #dbe6ef;
+  text-align: left;
+  cursor: pointer;
+}
+.block-menu button.active,
+.block-menu button:hover {
+  background: #1d2a38;
+}
+.block-menu kbd {
+  color: #8fb0c9;
+  font-size: 11px;
+  border: 1px solid #2f414f;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.source-text > summary {
+  cursor: pointer;
+  color: #8698a8;
+  font-size: 12px;
+  padding: 4px 0;
+}
+.text-layer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 14px;
+  align-items: start;
+}
+.text-side {
+  border: 1px solid #26313b;
+  border-radius: 8px;
+  padding: 8px;
+  background: #111820;
+}
+.side-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.side-tabs button[aria-selected="true"] {
+  background: #1d2a38;
+  color: #e7eef5;
+}
+.node-links h4 {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: #8fa4b6;
+}
+.node-links ul,
+.journal-days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.node-links li button,
+.journal-days li button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font-size: 12px;
+}
+.node-links em {
+  color: #7c92a5;
+  font-style: normal;
+  font-size: 11px;
+}
+.journal-days {
+  margin-top: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.node-journal .field.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.board-surface {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.board-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  margin: 0;
+  z-index: 5;
+  color: #7f93a5;
+  font-size: 11px;
+  pointer-events: none;
+}
+.card-rename {
+  width: 100%;
+  font: inherit;
+  font-weight: 600;
+  color: #e7eef5;
+  background: #0e161e;
+  border: 1px solid #3d6f8f;
+  border-radius: 5px;
+  padding: 2px 5px;
+}
+.agent-task-notice {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  max-width: 380px;
+  padding: 12px 14px;
+  border: 1px solid #33505f;
+  border-radius: 10px;
+  background: #101a22;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+}
+.agent-task-notice dl {
+  margin: 8px 0;
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+}
+.agent-task-notice dl div {
+  display: flex;
+  gap: 8px;
+}
+.agent-task-notice dt {
+  color: #8298aa;
+  min-width: 62px;
+}
+.agent-task-notice dd {
+  margin: 0;
+  color: #dbe6ef;
+  word-break: break-word;
+}
+.detail-extras {
+  gap: 8px;
+}

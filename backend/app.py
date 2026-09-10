@@ -10,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from .build_identity import build_identity
 from .coding_runs import CodingRuns
 from .llm_runs import PlanRuns
+from .node_journal import NodeJournal
+from .node_links import NodeLinks
 from .planning_context import build_planning_context
 from .service import CanvasService
 from .wireframe_context import wireframe_context
@@ -22,6 +24,8 @@ def create_app(data_root=None):
     service.plan_runs = plans
     coding = CodingRuns(service, plans)
     service.coding_runs = coding
+    links = NodeLinks(service)
+    journal = NodeJournal(service)
     identity = build_identity(service.root)
 
     @asynccontextmanager
@@ -151,6 +155,24 @@ def create_app(data_root=None):
     @app.post("/api/node-text")
     def save_node_text(payload: dict):
         return service.texts.access(payload.get("project"), payload.get("workspace"), payload.get("node"), payload)
+
+    @app.get("/api/node-links/targets")
+    def node_link_targets(project: str, workspace: str):
+        return links.targets(project, workspace)
+
+    @app.get("/api/node-links")
+    def node_links(project: str, workspace: str, node: str):
+        return links.links(project, workspace, node)
+
+    @app.get("/api/node-journal")
+    def node_journal(project: str, workspace: str, node: str, day: str):
+        return journal.access(project, workspace, node, day)
+
+    @app.post("/api/node-journal")
+    def save_node_journal(payload: dict):
+        return journal.access(
+            payload.get("project"), payload.get("workspace"), payload.get("node"), payload.get("day"), payload
+        )
 
     @app.get("/api/node-spec")
     def node_spec(project: str, workspace: str, node: str):
