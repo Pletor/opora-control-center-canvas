@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 
+/** Nastavení i operace projektu žijí v jednom menu horní lišty (WU-CLEAN-DESIGN). */
+async function openSettings(page: import("@playwright/test").Page, item: string) {
+  await page.getByRole("button", { name: "Nastavení", exact: true }).click();
+  await page.getByRole("group", { name: "Nastavení a operace" }).getByRole("button", { name: item, exact: true }).click();
+}
+
 test("draw a real rectangle, save and restore without changing project graph", async ({
   page,
 }) => {
@@ -10,7 +16,7 @@ test("draw a real rectangle, save and restore without changing project graph", a
     const url = new URL(route.request().url());
     if (
       url.protocol.startsWith("http") &&
-      url.origin !== "http://127.0.0.1:8741"
+      url.origin !== "http://127.0.0.1:8742"
     ) {
       external.push(url.href);
       return route.abort();
@@ -70,7 +76,7 @@ async function newDrawingLayer(
 ) {
   await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
-  expect(new URL(origin).port).toBe("8741");
+  expect(new URL(origin).port).toBe("8742");
   const current = await (await page.request.get("/api/view")).json();
   const id = "draw-" + Date.now().toString();
   const graph = {
@@ -327,9 +333,7 @@ test("drawing and settings remain contained on mobile", async ({ page }) => {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page
-    .getByRole("button", { name: "Nastavení plochy", exact: true })
-    .click();
+  await openSettings(page, "Nastavení plochy");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page
     .getByRole("dialog")

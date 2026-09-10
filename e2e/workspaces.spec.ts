@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+/** Podstata a zadání uzlu jsou v inspektoru na kartě Zadání (WU-CLEAN-DESIGN). */
+async function openSpec(page: import("@playwright/test").Page) {
+  await page.getByRole("tab", { name: "Zadání", exact: true }).click();
+}
 test("main and two real worktrees never mix their graph content", async ({
   page,
 }) => {
@@ -8,6 +12,7 @@ test("main and two real worktrees never mix their graph content", async ({
     page.getByRole("button", { name: "+ Sektor", exact: true }),
   ).toBeDisabled();
   await page.locator(".react-flow__node").click();
+  await openSpec(page);
   await expect(page.getByLabel("Podstata uzlu")).toHaveValue(
     "Original main purpose",
   );
@@ -18,6 +23,7 @@ test("main and two real worktrees never mix their graph content", async ({
     .getByLabel("Pracovní strom")
     .selectOption({ label: "Agent A · sector1" });
   await page.locator(".react-flow__node").click();
+  await openSpec(page);
   await page.getByLabel("Podstata uzlu").fill("Agent A isolated change");
   await page.getByLabel("Potvrzuji změnu podstaty.").check();
   await page
@@ -30,11 +36,13 @@ test("main and two real worktrees never mix their graph content", async ({
     .getByLabel("Pracovní strom")
     .selectOption({ label: "Agent B · sector1" });
   await page.locator(".react-flow__node").click();
+  await openSpec(page);
   await expect(page.getByLabel("Podstata uzlu")).toHaveValue(
     "Original main purpose",
   );
   await page.getByRole("button", { name: "Čistý main", exact: true }).click();
   await page.locator(".react-flow__node").click();
+  await openSpec(page);
   await expect(page.getByLabel("Podstata uzlu")).toHaveValue(
     "Original main purpose",
   );

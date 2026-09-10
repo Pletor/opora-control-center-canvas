@@ -46,7 +46,7 @@ test("LIVE: UI to Hermes to isolated repo to independent Docker tests", async ({
     await expect(page.getByTestId("coding-run").filter({ hasText: initial.id })).toContainText("completed");
     await page.screenshot({ path: "evidence/coding-live.png", fullPage: true });
   } finally {
-    const result = await page.request.post("/api/coding/stop", { headers: { origin: "http://127.0.0.1:8741" }, data: { project: initial.project, runId: initial.id, confirmed: true } });
+    const result = await page.request.post("/api/coding/stop", { headers: { origin: "http://127.0.0.1:8742" }, data: { project: initial.project, runId: initial.id, confirmed: true } });
     writeFileSync(".opora/workunits/WU-CANVAS-COMPLETION/live-stop.json", JSON.stringify(await result.json(), null, 2));
   }
 });

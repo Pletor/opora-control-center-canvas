@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 
+/** Nastavení i operace projektu žijí v jednom menu horní lišty (WU-CLEAN-DESIGN). */
+async function openSettings(page: import("@playwright/test").Page, item: string) {
+  await page.getByRole("button", { name: "Nastavení", exact: true }).click();
+  await page.getByRole("group", { name: "Nastavení a operace" }).getByRole("button", { name: item, exact: true }).click();
+}
+
 test("workspace modes and actual grid settings survive reload", async ({
   page,
 }) => {
@@ -19,9 +25,7 @@ test("workspace modes and actual grid settings survive reload", async ({
   expect(
     resources.some((r) => new URL(r).pathname === "/" + drawingEntry.file),
   ).toBe(false);
-  await page
-    .getByRole("button", { name: "Nastavení plochy", exact: true })
-    .click();
+  await openSettings(page, "Nastavení plochy");
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Zobrazit mřížku").uncheck();
   await dialog.getByLabel("Přichytávat k mřížce").check();
@@ -33,9 +37,7 @@ test("workspace modes and actual grid settings survive reload", async ({
   await expect(
     page.getByRole("button", { name: "Mód: Mapa", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page
-    .getByRole("button", { name: "Nastavení plochy", exact: true })
-    .click();
+  await openSettings(page, "Nastavení plochy");
   await expect(page.getByLabel("Zobrazit mřížku")).not.toBeChecked();
   await expect(page.getByLabel("Přichytávat k mřížce")).toBeChecked();
 });
@@ -82,7 +84,7 @@ test("map shows actual hierarchy and exports source-backed Archify JSON", async 
 test("map creates a real cross-layer connection", async ({ page }) => {
   await page.goto("/?screen=canvas");
   const origin = new URL(page.url()).origin;
-  expect(new URL(origin).port).toBe("8741");
+  expect(new URL(origin).port).toBe("8742");
   const current = await (await page.request.get("/api/view")).json();
   const nodes = [
     {
@@ -208,9 +210,7 @@ test("grid snapping changes actual saved node coordinates", async ({
     ).ok(),
   ).toBe(true);
   await page.reload();
-  await page
-    .getByRole("button", { name: "Nastavení plochy", exact: true })
-    .click();
+  await openSettings(page, "Nastavení plochy");
   await page.getByLabel("Přichytávat k mřížce").check();
   await page.getByLabel("Rozteč mřížky").selectOption("40");
   await page.getByRole("button", { name: "Hotovo", exact: true }).click();

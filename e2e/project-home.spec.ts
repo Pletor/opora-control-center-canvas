@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
 
+/** Nastavení i operace projektu žijí v jednom menu horní lišty (WU-CLEAN-DESIGN). */
+async function openSettings(page: import("@playwright/test").Page, item: string) {
+  await page.getByRole("button", { name: "Nastavení", exact: true }).click();
+  await page.getByRole("group", { name: "Nastavení a operace" }).getByRole("button", { name: item, exact: true }).click();
+}
+
 test("root opens project setup without canvas and opens the same workspace explicitly", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1050 });
   await page.goto("/");
@@ -14,6 +20,6 @@ test("root opens project setup without canvas and opens the same workspace expli
   await page.screenshot({ path: "evidence/project-home-preview.png", fullPage: true });
   await page.getByRole("button", { name: "Otevřít Canvas", exact: true }).click();
   await expect(page.getByRole("button", { name: "Mód: Struktura", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Nastavení projektu", exact: true }).click();
+  await openSettings(page, "Nastavení projektu");
   await expect(page.getByRole("heading", { name: "Nastavení projektu", exact: true })).toBeVisible();
 });

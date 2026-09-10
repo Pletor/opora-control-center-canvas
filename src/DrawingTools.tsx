@@ -42,11 +42,8 @@ export default function DrawingTools({
         />
       )}
       <p className="muted">
-        Kresba patří aktuální vrstvě. Tvary nejsou uzly projektu. Kresbu ukládej
-        tlačítkem nad plochou.
-      </p>
-      <p className="muted">
-        Obrázky, import souborů a webové vložky nejsou součástí tohoto řezu.
+        Kresba patří aktuální vrstvě; tvary nejsou uzly projektu. Ukládá se tlačítkem nad plochou. Obrázky, import souborů a webové
+        vložky nejsou součástí tohoto řezu.
       </p>
     </>
   );

@@ -1,11 +1,17 @@
 import { test, expect } from "@playwright/test";
 
+/** Zadání uzlu je v inspektoru na kartě Zadání (WU-CLEAN-DESIGN). */
+async function openSpec(page: import("@playwright/test").Page) {
+  await page.getByRole("tab", { name: "Zadání", exact: true }).click();
+}
+
 test("node assignment saves and survives reload", async ({ page }) => {
   await page.goto("/?screen=canvas");
   await expect(page.locator(".local-status")).toHaveText("LOKÁLNĚ · " + new URL(page.url()).port);
   await page.getByRole("button", { name: "+ Uzel", exact: true }).click();
   await page.getByLabel("Název uzlu").fill("Zadání R01");
   await page.getByRole("button", { name: "Vytvořit", exact: true }).click();
+  await openSpec(page);
   await page.getByLabel("Cíl práce").fill("Přesné zadání z editoru");
   await page.getByLabel("Co není součástí").fill("Žádné spouštění agenta");
   await page.getByLabel("Podmínky dokončení").fill("Text přežije reload");
@@ -13,6 +19,7 @@ test("node assignment saves and survives reload", async ({ page }) => {
   await expect(page.getByTestId("spec-status")).toContainText("Uloženo · verze 1");
   await page.reload();
   await page.locator(".react-flow__node").filter({ hasText: "Zadání R01" }).click();
+  await openSpec(page);
   await expect(page.getByLabel("Cíl práce")).toHaveValue("Přesné zadání z editoru");
   await expect(page.getByLabel("Co není součástí")).toHaveValue("Žádné spouštění agenta");
   await expect(page.getByLabel("Podmínky dokončení")).toHaveValue("Text přežije reload");
@@ -23,6 +30,7 @@ async function newNode(page: import("@playwright/test").Page, name: string) {
   await page.getByRole("button", { name: "+ Uzel", exact: true }).click();
   await page.getByLabel("Název uzlu").fill(name);
   await page.getByRole("button", { name: "Vytvořit", exact: true }).click();
+  await openSpec(page);
   await expect(page.getByLabel("Cíl práce")).toBeEnabled();
 }
 
@@ -43,6 +51,7 @@ test("two editor windows show conflict without losing local text", async ({ page
   const second = await context.newPage();
   await second.goto("/?screen=canvas");
   await second.locator(".react-flow__node").filter({ hasText: "Souběh R01" }).click();
+  await openSpec(second);
   await second.getByLabel("Cíl práce").fill("Text druhého okna");
   await page.getByLabel("Cíl práce").fill("První schválený text");
   await page.getByRole("button", { name: "Uložit zadání", exact: true }).click();
@@ -56,6 +65,7 @@ test("two editor windows show conflict without losing local text", async ({ page
 test("main assignment is visibly read-only and unavailable", async ({ page }) => {
   await page.goto("/?project=fixture&workspace=main");
   await page.locator(".react-flow__node").first().click();
+  await openSpec(page);
   await expect(page.getByText("Import zadání z Git mainu zatím není podporovaný.")).toBeVisible();
   await expect(page.getByLabel("Cíl práce")).not.toBeEditable();
   await expect(page.getByRole("button", { name: "Uložit zadání", exact: true })).toHaveCount(0);
