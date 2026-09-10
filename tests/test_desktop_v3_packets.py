@@ -85,7 +85,21 @@ def seed(client, tmp_path, focus_source=True):
         ],
     }
     assert client.post("/api/desktop-v3/state", headers=HEADERS, json={**scope, "expectedRevision": 0, "state": state}).status_code == 200
+    # Ticket t2 odkazuje na sess1: ta musí existovat jako skutečný uložený plánovací běh, ne jen ID v paměti.
+    store_planning_run(client, project, "sess1", output="Návrh sess1: api_key = " + FAKE_KEY)
     return scope
+
+
+def store_planning_run(client, project, run_id, workspace="draft", layer="focus", output="Uložený návrh."):
+    """Dokončený lokální plánovací běh v jeho skutečné tabulce (bez spuštění modelu)."""
+    db = client.app.state.service.db
+    with db:
+        db.execute(
+            "INSERT INTO llm_runs(id,project_id,workspace,layer,digest,context,status,message,output,provider_billing,created_at,updated_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            (run_id, project, workspace, layer, "fixture-digest", "{}", "completed", "Návrh dokončen.", output,
+             "unknown", "2026-09-10T00:00:00Z", "2026-09-10T00:00:01Z"),
+        )
 
 
 def request(scope, **overrides):
@@ -273,3 +287,102 @@ def test_planning_context_shares_the_same_ancestor_drawing_assembly(tmp_path):
         assert FAKE_KEY not in planning.text
         packet = preview(client, scope).json()["packet"]
         assert chain["parent"]["elements"] == next(item for item in packet["context"]["drawings"] if item["layer"] == "parent")["elements"]
+
+
+def test_session_scope_includes_the_real_stored_planning_run_redacted_with_manifest(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        scope = seed(client, tmp_path)
+        response = preview(client, scope)
+        assert response.status_code == 200, response.text
+        packet = response.json()["packet"]
+        session = packet["context"]["session"]
+        assert session["id"] == "sess1" and session["kind"] == "planning_run"
+        assert session["nodeId"] == "focus" and session["status"] == "completed"
+        assert session["output"].startswith("Návrh sess1: ") and "[REDACTED]" in session["output"]
+        assert session["proposalOnly"] is True
+        entry = manifest_index(packet)[("session", "sess1")]
+        assert entry["included"] is True and entry["reason"] == "saved_planning_run"
+        assert FAKE_KEY not in response.text
+        no_session = preview(client, scope, sessionId="").json()["packet"]
+        assert "session" not in no_session["context"]
+        assert all(item["kind"] != "session" for item in no_session["sourceManifest"])
+        assert [item["id"] for item in no_session["context"]["memory"]["tickets"]] == ["t1"]
+
+
+def test_session_scope_rejects_memory_only_unknown_cross_project_and_cross_workspace_ids(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        scope = seed(client, tmp_path)
+        # "other" existuje jen jako sessionId ticketu t3 v paměti; to není skutečná session.
+        assert preview(client, scope, sessionId="other").status_code == 409
+        assert preview(client, scope, sessionId="missing-session").status_code == 409
+        store_planning_run(client, scope["project"], "foreign-ws", workspace="otherws", output="CIZI_WORKSPACE_VYSTUP")
+        foreign_ws = preview(client, scope, sessionId="foreign-ws")
+        assert foreign_ws.status_code == 409 and "CIZI_WORKSPACE_VYSTUP" not in foreign_ws.text
+        other = client.post("/api/empty-project", headers=HEADERS, json={"name": "Other", "confirmed": True}).json()["id"]
+        store_planning_run(client, other, "foreign-project", output="CIZI_PROJEKT_VYSTUP")
+        foreign_project = preview(client, scope, sessionId="foreign-project")
+        assert foreign_project.status_code == 409 and "CIZI_PROJEKT_VYSTUP" not in foreign_project.text
+        stale = client.post("/api/desktop-v3/packet/snapshot", headers=HEADERS, json={**request(scope, sessionId="foreign-project"), "digest": "0" * 64})
+        assert stale.status_code == 409 and "CIZI_PROJEKT_VYSTUP" not in stale.text
+
+
+def test_session_output_change_changes_digest_and_blocks_stale_snapshot_start(tmp_path):
+    app = create_app(tmp_path / "data")
+    with TestClient(app, base_url=ORIGIN) as client:
+        scope = seed(client, tmp_path)
+        seen = preview(client, scope).json()
+        assert preview(client, scope).json()["digest"] == seen["digest"]
+        frozen = client.post("/api/desktop-v3/packet/snapshot", headers=HEADERS, json={**request(scope), "digest": seen["digest"]})
+        assert frozen.status_code == 200, frozen.text
+        snapshot = frozen.json()
+        prepared = client.post(f"/api/desktop-v3/packet/snapshots/{snapshot['id']}/prepare", headers=HEADERS, json={**scope, "task": "Dokumentuj podle návrhu session."})
+        assert prepared.status_code == 200, prepared.text
+        record = prepared.json()
+        exported = client.get(f"/api/task-handoffs/{record['id']}/export").json()
+        assert exported["context"]["documents"]["context"]["session"] == snapshot["packet"]["context"]["session"]
+        db = app.state.service.db
+        with db:
+            db.execute("UPDATE llm_runs SET output=? WHERE id=?", ("Přepsaný návrh.", "sess1"))
+        changed = preview(client, scope).json()
+        assert changed["digest"] != seen["digest"]
+        assert changed["packet"]["context"]["session"]["output"] == "Přepsaný návrh."
+        refused = client.post("/api/desktop-v3/packet/snapshot", headers=HEADERS, json={**request(scope), "digest": seen["digest"]})
+        assert refused.status_code == 409
+        started = client.post(f"/api/task-handoffs/{record['id']}/start", headers=HEADERS, json={"digest": record["digest"], "confirmed": True})
+        assert started.status_code == 409, started.text
+        assert client.get(f"/api/task-handoffs/{record['id']}").json()["status"] == "prepared"
+        again = client.get(f"/api/desktop-v3/packet/snapshots/{snapshot['id']}", params=scope).json()
+        assert again["packet"]["context"]["session"]["output"] == snapshot["packet"]["context"]["session"]["output"]
+
+
+def test_prepared_documentation_handoff_is_a_real_session_and_its_result_changes_digest(tmp_path):
+    app = create_app(tmp_path / "data")
+    started = []
+    app.state.task_handoffs._run = lambda run: started.append(run)
+    with TestClient(app, base_url=ORIGIN) as client:
+        scope = seed(client, tmp_path)
+        base = request(scope, sessionId="")
+        seen = preview(client, scope, sessionId="").json()
+        frozen = client.post("/api/desktop-v3/packet/snapshot", headers=HEADERS, json={**base, "digest": seen["digest"]}).json()
+        handoff = client.post(f"/api/desktop-v3/packet/snapshots/{frozen['id']}/prepare", headers=HEADERS, json={**scope, "task": "Sepiš dokumentaci."}).json()
+        response = preview(client, scope, sessionId=handoff["id"])
+        assert response.status_code == 200, response.text
+        packet = response.json()["packet"]
+        session = packet["context"]["session"]
+        assert session["kind"] == "documentation_handoff" and session["id"] == handoff["id"]
+        assert session["status"] == "prepared" and session["task"] == "Sepiš dokumentaci." and session["output"] is None
+        assert session["nodeId"] == "focus"
+        assert "context" not in session and "packet" not in session
+        entry = manifest_index(packet)[("session", handoff["id"])]
+        assert entry["included"] is True and entry["reason"] == "saved_documentation_handoff"
+        handoffs = app.state.task_handoffs
+        handoffs._save(handoff["id"], status="completed", result={"content": "Výsledek token = " + FAKE_KEY, "sha256": "x" * 64})
+        completed = preview(client, scope, sessionId=handoff["id"])
+        assert completed.json()["digest"] != response.json()["digest"]
+        assert completed.json()["packet"]["context"]["session"]["output"].startswith("Výsledek token = [REDACTED]")
+        assert FAKE_KEY not in completed.text
+        other = client.post("/api/empty-project", headers=HEADERS, json={"name": "Other", "confirmed": True}).json()["id"]
+        cross = client.post("/api/desktop-v3/packet/preview", headers=HEADERS,
+                            json={"project": other, "workspace": "draft", "nodeId": "", "path": "", "sessionId": handoff["id"], "references": [], "note": ""})
+        assert cross.status_code == 409 and "Výsledek" not in cross.text
+        assert not started

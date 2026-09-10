@@ -2,7 +2,8 @@
 
 Jedna pravda pro Desktop v3 balíček, plánovací kontext i dokumentační handoff:
 uložené kresby uzlu a všech předků s revizí, texty a zadání, návrhové vztahy,
-pravidla/rozhodnutí/tickety z paměti projektu a uložená dokumentace cest.
+pravidla/rozhodnutí/tickety z paměti projektu, uložená dokumentace cest a výslovně
+zvolená skutečná session (plánovací běh nebo dokumentační handoff téhož rozsahu).
 Reference zůstávají referencemi (obsah souborů se nečte); limit nikdy nevynechá
 obsah potichu, každý zdroj má položku v sourceManifest.
 """
@@ -235,6 +236,42 @@ class DesktopV3Packets:
             "savedAt": item["savedAt"], "status": item["status"], "fields": item["fields"],
         }, "saved_document"
 
+    def _session(self, project, workspace, session_id):
+        """Skutečná uložená session: lokální plánovací běh nebo dokumentační handoff téhož projektu a prostoru.
+
+        ID jen z paměti (ticket) session není; neznámé i cizí ID mají stejnou chybu bez obsahu.
+        """
+        missing = ValueError("Session v tomto projektu a pracovním prostoru neexistuje.")
+        db = self.canvas.db
+        if db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='llm_runs'").fetchone():
+            row = db.execute(
+                "SELECT id,project_id,workspace,layer,status,message,output,created_at,updated_at FROM llm_runs WHERE id=?",
+                (session_id,),
+            ).fetchone()
+            if row is not None:
+                if row["project_id"] != project or row["workspace"] != workspace:
+                    raise missing
+                return {
+                    "id": row["id"], "kind": "planning_run", "nodeId": row["layer"], "status": row["status"],
+                    "message": row["message"], "task": None, "output": row["output"] or None, "error": None,
+                    "createdAt": row["created_at"], "updatedAt": row["updated_at"], "proposalOnly": True,
+                }, "saved_planning_run"
+        if db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_handoffs'").fetchone():
+            row = db.execute("SELECT record FROM task_handoffs WHERE id=?", (session_id,)).fetchone()
+            if row is not None:
+                record = json.loads(row["record"])
+                scope = record["scope"]
+                if scope["project"] != project or scope["workspace"] != workspace:
+                    raise missing
+                result = record.get("result")
+                return {
+                    "id": record["id"], "kind": "documentation_handoff", "nodeId": scope["node"],
+                    "status": record["status"], "message": None, "task": record["task"],
+                    "output": result["content"] if isinstance(result, dict) else None, "error": record.get("error"),
+                    "createdAt": record.get("createdAt"), "updatedAt": record.get("updatedAt"), "proposalOnly": True,
+                }, "saved_documentation_handoff"
+        raise missing
+
     def _assemble(self, payload):
         project, workspace, node = payload["project"], payload["workspace"], payload["nodeId"]
         path, session, references, note = payload["path"], payload["sessionId"], payload["references"], payload["note"]
@@ -268,6 +305,8 @@ class DesktopV3Packets:
         lineage_paths = [(by_id[nid].get("sourceRef") or {}).get("path", "") for nid in lineage]
         rule_paths = list(dict.fromkeys(item for item in [path, focus_path] if item))
         manifest, warnings = [], []
+        # Session se ověří dřív, než se cokoli sestaví: neznámé/cizí ID je 409 bez úniku obsahu.
+        stored_session = self._session(project, workspace, session) if session else None
         manifest.append(_manifest("graph", "", None, True, "saved_graph"))
         stored = self.state.current(project, workspace)
         memory = memory_for(stored, lineage, rule_paths, session)
@@ -284,6 +323,8 @@ class DesktopV3Packets:
                 warnings.append(f"Cesta {path} není ve zdroji dostupná ({reason}); podklady ji vedou jen jako referenci.")
         for reference in list(dict.fromkeys(references)):
             manifest.append(_manifest("reference", reference, None, False, "reference_only"))
+        if stored_session is not None:
+            manifest.append(_manifest("session", session, None, True, stored_session[1]))
 
         packet = {
             "schema": SCHEMA,
@@ -322,6 +363,10 @@ class DesktopV3Packets:
                 "note": "Věta agenta není důkaz. Neznámá hodnota je null, nikdy 0.",
             },
         }
+        if stored_session is not None:
+            # Výslovně zvolená session je povinný zdroj (výstup je omezen 64 KB); bez session klíč chybí,
+            # takže digest dřívějších snapshotů bez session zůstává stejný.
+            packet["context"]["session"] = stored_session[0]
         packet = redact_deep(packet)
         if _byte_len(packet) > MAX_PACKET_BYTES:
             raise ValueError(
