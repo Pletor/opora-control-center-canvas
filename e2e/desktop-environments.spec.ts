@@ -58,6 +58,9 @@ test("three environments preserve the editor while project gets its own tools", 
   await expect(page.getByRole("button", { name: "Mód: Text", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Mód: Kreslení", exact: true })).toBeVisible();
   await environments.getByRole("button", { name: "Live Run", exact: true }).click();
+  // Nový výchozí region Live workspace, starý panel Agenti je za tlačítkem Dohled běhů.
+  await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
   await expect(page.getByRole("region", { name: "Agenti", exact: true })).toBeVisible();
   await environments.getByRole("button", { name: "Projekt", exact: true }).click();
   await expect(page.getByLabel("Podstata", { exact: true })).toHaveValue("Rozepsaná podstata bez ztráty");
