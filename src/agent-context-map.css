@@ -1,0 +1,17 @@
+.agent-context-map { margin: 18px 0; border: 1px solid var(--accent-line); border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--surface), var(--surface-2)); }
+.agent-context-map > summary { cursor: pointer; padding: 12px 14px; font-weight: 650; color: var(--accent); }
+.agent-context-map-body { padding: 0 14px 14px; min-width: 0; }
+.agent-context-flow { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: var(--field); font-size: var(--fs-1); }
+.agent-context-flow span { padding: 3px 6px; border-radius: 999px; background: var(--surface-3); white-space: nowrap; }
+.agent-context-flow b { color: var(--accent); }
+.agent-context-limits { font-size: var(--fs-1); color: var(--ink-muted); }
+.agent-context-ancestry, .agent-context-edges { display: grid; gap: 7px; padding-left: 20px; }
+.agent-context-ancestry li, .agent-context-edges li { min-width: 0; overflow-wrap: anywhere; }
+.agent-context-ancestry small, .agent-context-edges small { display: block; color: var(--ink-muted); }
+.agent-context-packet-summary { padding: 12px; border-left: 3px solid var(--accent-line); background: var(--field); }
+.agent-context-packet-summary dl { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 3fr); gap: 6px 12px; margin: 0; }
+.agent-context-packet-summary dt { color: var(--ink-muted); }
+.agent-context-packet-summary dd { margin: 0; overflow-wrap: anywhere; }
+.agent-context-edge-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.agent-context-edge-columns h4 { margin-top: 0; }
+@media (max-width: 560px) { .agent-context-packet-summary dl, .agent-context-edge-columns { grid-template-columns: 1fr; gap: 2px; } }

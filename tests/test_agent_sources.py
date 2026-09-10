@@ -158,7 +158,9 @@ def test_local_orchestrator_caps_oversized_events_file(tmp_path):
     source = LocalOrchestratorSource(tmp_path)
     lane = source.read_lane("big-lane")
     assert lane["truncated"] is True
-    assert lane["lastEventSeq"] == 0
+    # Nepřečtený soubor má neznámý počet událostí; nula by lhala, že je log prázdný.
+    assert lane["lastEventSeq"] is None
+    assert lane["eventsStatus"] == "too_large"
 
 
 @pytest.fixture

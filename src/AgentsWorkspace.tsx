@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "./types";
+import { api, type View } from "./types";
+import LiveRunDetail, { type LivePane } from "./LiveRunDetail";
 import type {
   AgentBindingCandidate,
   AgentRunDetail,
@@ -10,16 +11,25 @@ import type {
 
 const POLL_MS = 4000;
 
-function useVisiblePolling(fn: () => void, deps: unknown[]) {
+/** `fn` dostane `isCurrent()`, aby libovolný `.then` mohl ověřit, že tento
+ * polling cyklus ještě patří k aktuálnímu scope/stránce (generace/disposal
+ * guard) — chrání proti pozdní odpovědi ze staré stránky/scope přepsání
+ * novějšího stavu. `inFlight` navíc brání překryvu dvou cyklů nad sebou. */
+function useVisiblePolling(fn: (isCurrent: () => boolean) => unknown, deps: unknown[]) {
   useEffect(() => {
     let alive = true;
+    let inFlight = false;
     const tick = () => {
-      if (alive && !document.hidden) fn();
+      if (!alive || document.hidden || inFlight) return;
+      inFlight = true;
+      Promise.resolve(fn(() => alive)).finally(() => {
+        inFlight = false;
+      });
     };
     tick();
     const timer = setInterval(tick, POLL_MS);
     const onVisible = () => {
-      if (!document.hidden) fn();
+      if (!document.hidden) tick();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -73,6 +83,9 @@ export default function AgentsWorkspace({
   const [bindNodeId, setBindNodeId] = useState("");
   const [bindConfirmed, setBindConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pane, setPane] = useState<LivePane>("sessions");
+  const [refresh, setRefresh] = useState(0);
+  const [cursor, setCursor] = useState(0);
   const selectedRef = useRef<AgentRunSummary | null>(null);
   selectedRef.current = selected;
   const pendingFocus = useRef(focusRun ?? null);
@@ -80,12 +93,13 @@ export default function AgentsWorkspace({
     pendingFocus.current = focusRun ?? null;
   }, [focusRun]);
 
-  useVisiblePolling(() => {
-    api<Record<string, AgentSourceHealth>>("/api/agents/sources")
-      .then(setSources)
-      .catch((e) => setError(String(e)));
-    api<AgentRunsPage>("/api/agents/runs?limit=30")
+  useVisiblePolling((isCurrent) => {
+    const sourcesRequest = api<Record<string, AgentSourceHealth>>("/api/agents/sources")
+      .then((body) => { if (isCurrent()) setSources(body); })
+      .catch((e) => { if (isCurrent()) setError(String(e)); });
+    const runsRequest = api<AgentRunsPage>("/api/agents/runs?" + new URLSearchParams({ limit: "30", cursor: String(cursor) }))
       .then((body) => {
+        if (!isCurrent()) return;
         setPage(body);
         const wanted = pendingFocus.current;
         if (wanted) {
@@ -102,11 +116,12 @@ export default function AgentsWorkspace({
           if (fresh) setSelected(fresh);
         }
       })
-      .catch((e) => setError(String(e)));
-    api<{ items: AgentBindingCandidate[] }>("/api/agents/unbound?limit=30")
-      .then((body) => setUnbound(body.items))
-      .catch((e) => setError(String(e)));
-  }, []);
+      .catch((e) => { if (isCurrent()) setError(String(e)); });
+    const unboundRequest = api<{ items: AgentBindingCandidate[] }>("/api/agents/unbound?limit=30")
+      .then((body) => { if (isCurrent()) setUnbound(body.items); })
+      .catch((e) => { if (isCurrent()) setError(String(e)); });
+    return Promise.all([sourcesRequest, runsRequest, unboundRequest]);
+  }, [refresh, cursor]);
 
   useEffect(() => {
     if (!selected) {
@@ -129,15 +144,28 @@ export default function AgentsWorkspace({
     setBusy(true);
     setError("");
     try {
+      // Scope pro revizi i vrstvu se čte přímo z aktuálního project/workspace,
+      // aby vazba nemohla nikdy tiše zamířit do jiného scope.
+      const [nodeBindings, view] = await Promise.all([
+        api<{ revision: number }>(
+          "/api/agents/bindings?" +
+            new URLSearchParams({ project, workspace, nodeId: bindNodeId }),
+        ),
+        api<View>(
+          `/api/view?project=${encodeURIComponent(project)}&workspace=${encodeURIComponent(workspace)}`,
+        ),
+      ]);
+      const node = view.graph.nodes.find((n) => n.id === bindNodeId);
+      if (!node) throw new Error("Uzel v tomto pracovním prostoru neexistuje.");
       await api("/api/agents/bindings", {
         project,
         workspace,
-        layer: "",
+        layer: node.parentId ?? "",
         nodeId: bindNodeId,
         sourceId: bindTarget.sourceId,
         runId: bindTarget.runId,
         sessionId: null,
-        expectedRevision: 0,
+        expectedRevision: nodeBindings.revision,
         confirmed: bindConfirmed,
       });
       setBindTarget(null);
@@ -153,7 +181,14 @@ export default function AgentsWorkspace({
 
   return (
     <section className="agents-workspace" aria-label="Agenti">
+      <div className="environment-toolbar live-toolbar" role="toolbar" aria-label="Nástroje Live Run">
+        <strong>Live Run</strong>
+        {([["sessions", "Relace"], ["cost", "Náklady"], ["memory", "Paměť"], ["sources", "Zdroje"]] as const).map(([id, label]) =>
+          <button key={id} aria-pressed={pane === id} onClick={() => setPane(id)}>{label}</button>)}
+        <button onClick={() => setRefresh((value) => value + 1)}>Obnovit zdroje</button>
+      </div>
       <h2>Agenti · skutečné zdroje</h2>
+      <p className="muted">Globální katalog zdrojů. Příslušnost k {project}/{workspace} vzniká pouze explicitní vazbou k uzlu; samotný výběr projektu běhy nefiltruje.</p>
       <div className="agent-sources">
         {Object.entries(sources).map(([id, health]) => (
           <span key={id} className={"agent-badge " + (health.available ? "agent-badge-ok" : "agent-badge-bad")}>
@@ -166,9 +201,18 @@ export default function AgentsWorkspace({
           {error}
         </p>
       )}
-      <div className="agents-columns">
+      {pane === "sources" && <section className="live-source-info"><h3>Autoritativní zdroje</h3>
+        <p>OporaCC API poskytuje procesní osu, větve a worktrees; Bridge telemetrie se čte přes OporaCC. Hermes orchestrátor poskytuje lokální bezpečné náhledy běhů.</p>
+        <p>Bez přímého čtení provozních databází. Nedostupné není prázdné ani úspěšné. Obnova probíhá jen při viditelném panelu.</p>
+      </section>}
+      <div className="agents-columns" hidden={pane === "sources"}>
         <div className="agent-run-list">
           <h3>Běhy ({page.total})</h3>
+          <div className="live-page-controls">
+            <button disabled={cursor === 0} onClick={() => { setCursor(Math.max(0, cursor - 30)); setSelected(null); }}>Předchozí relace</button>
+            <button disabled={page.nextCursor === null} onClick={() => { if (page.nextCursor !== null) { setCursor(page.nextCursor); setSelected(null); } }}>Další relace</button>
+          </div>
+          <small>Načteno {page.items.length} z {page.total} · od pozice {page.total ? cursor + 1 : 0}</small>
           {page.items.length === 0 && <p>Žádné běhy z nakonfigurovaných zdrojů.</p>}
           {page.items.map((run) => (
             <button
@@ -209,7 +253,8 @@ export default function AgentsWorkspace({
               {detail.missing.length > 0 && (
                 <p className="agent-missing">Harness neposkytuje: {detail.missing.join(", ")}</p>
               )}
-              {detail.brain && (
+              <LiveRunDetail run={detail} pane={pane} />
+              {pane === "sessions" && detail.brain && (
                 <dl className="agent-brain">
                   <dt>Zadání/prompt</dt>
                   <dd>{detail.brain.promptSpec}</dd>
@@ -225,7 +270,7 @@ export default function AgentsWorkspace({
                   <dd>{detail.brain.doneReason ?? "neznámý"}</dd>
                 </dl>
               )}
-              <h4>Bezpečný náhled akcí (bez interního uvažování)</h4>
+              {pane === "sessions" && <><h4>Bezpečný náhled akcí (bez interního uvažování)</h4>
               <ol className="agent-timeline">
                 {detail.preview.map((event, index) => (
                   <li key={index}>
@@ -239,7 +284,7 @@ export default function AgentsWorkspace({
                     ))}
                   </li>
                 ))}
-              </ol>
+              </ol></>}
             </>
           )}
         </div>

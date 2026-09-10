@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from .agent_activity import AgentActivityJournal
 from .agent_bindings import AgentBindings
 from .agent_catalog import AgentCatalog, UnknownSource
-from .agent_sources import LocalOrchestratorSource, PlatnoSource
+from .agent_sources import LocalOrchestratorSource, OporaProcessSource, PlatnoSource
 
 DEFAULT_ORCHESTRATOR_ROOT = (
     r"C:\Users\Admin\AppData\Local\hermes\handoffs\canvas-orchestration"
@@ -30,8 +30,12 @@ def create_agent_router(service, *, platno_base_url=None, orchestrator_root=None
     platno = PlatnoSource(platno_base_url or os.environ.get("OPORA_AGENT_PLATNO_URL", "http://127.0.0.1:8738"))
     orchestrator_root = orchestrator_root or os.environ.get("OPORA_AGENT_ORCHESTRATOR_ROOT", DEFAULT_ORCHESTRATOR_ROOT)
     orchestrator = LocalOrchestratorSource(orchestrator_root) if orchestrator_root else None
-    catalog = AgentCatalog(platno=platno, orchestrator=orchestrator)
-    known_sources = [platno.source_id] + ([orchestrator.source_id] if orchestrator else [])
+    # Procesní osa mluví se stejným OporaCC jako `platno`, proto sdílí i jeho už
+    # ověřený a ohraničený GET transport. Vlastní výchozí transport by obcházel
+    # registrovaný zdroj (v testech únik na skutečné OporaCC), aniž by cokoli přidal.
+    process = OporaProcessSource(platno.base_url, fetch=platno._fetch)
+    catalog = AgentCatalog(platno=platno, orchestrator=orchestrator, process=process)
+    known_sources = [platno.source_id, process.source_id] + ([orchestrator.source_id] if orchestrator else [])
     bindings = AgentBindings(service, known_sources=known_sources)
     activity = AgentActivityJournal(service, known_sources=known_sources, bindings=bindings)
 

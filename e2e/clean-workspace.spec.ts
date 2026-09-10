@@ -115,7 +115,7 @@ test("běhy bez backendu /api/agents: pravdivá chyba, nic se nespouští", asyn
   });
   const probe = await page.request.get("/api/agents/sources");
   await page.goto("/?screen=canvas&mode=agents");
-  await expect(page.getByRole("button", { name: "Mód: Běhy", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Live Run", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("region", { name: "Agenti" })).toBeVisible();
   if (probe.status() === 404) {
     await expect(page.getByRole("alert").first()).toContainText("HTTP 404");
@@ -148,7 +148,7 @@ test("běh → detail zdroje: aktivita uzlu otevře běh v módu Běhy (FIXTURE 
   await panel.getByRole("tab", { name: "Práce", exact: true }).click();
   await expect(panel.getByRole("button", { name: "hermes/run-fixture-1", exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "hermes/run-fixture-1", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Mód: Běhy", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Live Run", exact: true })).toHaveAttribute("aria-pressed", "true");
   const agents = page.getByRole("region", { name: "Agenti" });
   await expect(agents.getByRole("heading", { name: "hermes / run-fixture-1" })).toBeVisible();
   await expect(agents.getByText("FIXTURE prompt", { exact: true })).toBeVisible();

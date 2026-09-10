@@ -13,12 +13,15 @@ class UnknownSource(LookupError):
 
 
 class AgentCatalog:
-    def __init__(self, *, platno=None, orchestrator=None):
+    def __init__(self, *, platno=None, orchestrator=None, process=None):
         self.platno = platno
         self.orchestrator = orchestrator
+        self.process = process
 
     def source_health(self):
         out = {}
+        if self.process is not None:
+            out[self.process.source_id] = self.process.health()
         if self.platno is not None:
             out[self.platno.source_id] = self.platno.health()
         if self.orchestrator is not None:
@@ -42,26 +45,27 @@ class AgentCatalog:
             return []
         runs = []
         for lane in self.orchestrator.list_lanes():
-            runs.append(self._normalize_orchestrator_run(lane))
+            # Jedna nečitelná nebo mezitím zmizelá lane nesmí zlikvidovat výpis
+            # ostatních zdravých zdrojů; vynechá se, místo aby se předstíral běh.
+            try:
+                run = self._normalize_orchestrator_run(lane)
+            except (ValueError, OSError):
+                continue
+            if run is not None:
+                runs.append(run)
         return runs
 
     def _normalize_orchestrator_run(self, lane):
         detail = self.orchestrator.read_lane(lane)
         if not detail.get("available"):
-            return {
-                "sourceId": "hermes-orchestrator",
-                "runId": lane,
-                "sessionId": None,
-                "stateOrigin": "unknown",
-                "sourceTimestamp": None,
-                "lastEventSeq": None,
-                "status": {"reported": "unknown", "liveness": "unknown"},
-                "preview": [],
-                "cost": None,
-                "missing": ["state", "events"],
-            }
+            return None
         state = detail["state"]
         state_data = state.get("data") if isinstance(state, dict) else None
+        events_status = detail.get("eventsStatus", "ok")
+        # Nedostupný log událostí se hlásí jako chybějící vstup, ne jako nula událostí.
+        missing = ["cost", "contextSnapshot", "verifierArtifact", "iterations", "budget", "doneReasonStructured"]
+        if events_status not in ("ok", "missing"):
+            missing = ["events", *missing]
         return {
             "sourceId": "hermes-orchestrator",
             "runId": lane,
@@ -72,6 +76,8 @@ class AgentCatalog:
             "sourceTimestamp": None,
             "lastEventSeq": detail["lastEventSeq"],
             "eventCounts": detail["eventCounts"],
+            "eventsStatus": events_status,
+            "eventsReason": detail.get("eventsReason"),
             "truncated": detail["truncated"],
             "status": {
                 "reported": "running" if (state_data or {}).get("running") else "stopped",
@@ -81,7 +87,7 @@ class AgentCatalog:
             "preview": detail["preview"],
             "result": detail["result"],
             "cost": None,
-            "missing": ["cost", "contextSnapshot", "verifierArtifact", "iterations", "budget", "doneReasonStructured"],
+            "missing": missing,
         }
 
     def _platno_runs(self):
@@ -112,6 +118,8 @@ class AgentCatalog:
 
     def list_runs(self, *, source_id=None, limit=20, cursor=0):
         all_runs = []
+        if self.process is not None and source_id in (None, self.process.source_id):
+            all_runs.extend(self.process.list_runs())
         if source_id is None or (self.orchestrator and source_id == self.orchestrator.source_id):
             all_runs.extend(self._orchestrator_runs())
         if source_id is None or (self.platno and source_id == self.platno.source_id):
@@ -131,9 +139,14 @@ class AgentCatalog:
         return {"items": page, "nextCursor": next_cursor, "total": len(deduped)}
 
     def run_detail(self, source_id, run_id):
+        if self.process is not None and source_id == self.process.source_id:
+            return self.process.run_detail(run_id)
         if self.orchestrator is not None and source_id == self.orchestrator.source_id:
             detail = self.orchestrator.read_lane(run_id)
             run = self._normalize_orchestrator_run(run_id)
+            if run is None:
+                return {"sourceId": source_id, "runId": run_id, "available": False,
+                        "error": detail.get("error") or "run_not_found"}
             run["brain"] = {
                 "promptSpec": "unavailable",
                 "contextSnapshot": "unavailable",

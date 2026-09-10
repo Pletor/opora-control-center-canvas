@@ -58,7 +58,22 @@ export type AgentBrainLevels = {
   doneReason: string | null;
 };
 
+export type AgentTelemetry = {
+  runId: string; available: boolean; source?: string; error?: string; sessionId?: string | null; parentSessionId?: string | null;
+  context?: Record<string, string | number | boolean | null>;
+  costs?: Record<string, string | number | boolean | null>;
+  model?: Record<string, string | number | boolean | null>;
+  state?: Record<string, string | number | boolean | null>;
+  time?: Record<string, string | number | boolean | null>;
+  tools?: { name?: string; args_preview?: string; source?: string; at?: string }[];
+};
+
 export type AgentRunDetail = AgentRunSummary & {
+  parentSessionId?: string | null;
+  worktrees?: string[]; branches?: string[]; sourcePaths?: string[]; bridgeRunIds?: string[];
+  axis?: Record<string, unknown>[];
+  capabilities?: Record<string, { supported: boolean; reason: string }>;
+  telemetry?: AgentTelemetry[]; telemetryRemaining?: number;
   brain?: AgentBrainLevels;
   available?: boolean;
   error?: string;

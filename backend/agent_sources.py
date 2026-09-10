@@ -32,6 +32,9 @@ _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 _TOKEN_COUNT_KEYS = {
     "inputtokens", "outputtokens", "totaltokens", "cachereadinputtokens",
     "cachecreationinputtokens", "prompttokens", "completiontokens",
+    # Kanonický tvar čítačů, které publikuje agent_telemetry (cache_read_tokens,
+    # cache_write_tokens); jsou to metriky, ne credentials.
+    "cachereadtokens", "cachewritetokens",
 }
 _SECRET_KEY_EXACT = {"token", "access_token", "refresh_token", "bearer"}
 _SECRET_KEY_SUBSTR = ("secret", "password", "authorization", "api_key", "apikey")
@@ -175,6 +178,69 @@ class PlatnoSource:
         return out
 
 
+class OporaProcessSource(PlatnoSource):
+    """Procesní osa OporaCC přes její API; nikdy přímo přes provozní DB."""
+
+    def __init__(self, base_url="http://127.0.0.1:8738", *, fetch=None, timeout=3.0):
+        super().__init__(base_url, fetch=fetch, timeout=timeout)
+        self.source_id = "oporacc-process"
+
+    def health(self):
+        status, body = self._fetch("/api/process")
+        available = status == 200 and isinstance(body, dict) and isinstance(body.get("runs"), list)
+        return {"available": available, "status": "ok" if available else "unavailable",
+                "error": None if available else "process_api_unavailable"}
+
+    def list_runs(self):
+        status, body = self._fetch("/api/process")
+        if status != 200 or not isinstance(body, dict) or not isinstance(body.get("runs"), list):
+            return []
+        out = []
+        for raw in body["runs"]:
+            if not isinstance(raw, dict):
+                continue
+            item = redact(raw)
+            if not isinstance(item, dict):
+                continue
+            run = item.get("run")
+            if not isinstance(run, str) or not re.fullmatch(r"[A-Za-z0-9_-][A-Za-z0-9_.-]{0,127}", run):
+                continue
+            def strings(key, item=item):
+                value = item.get(key)
+                return [text for text in value if isinstance(text, str)] if isinstance(value, list) else []
+            state = item.get("state") if isinstance(item.get("state"), str) else "UNKNOWN"
+            axis = item.get("axis")
+            axis = axis if isinstance(axis, list) else []
+            out.append({
+                "sourceId": self.source_id, "runId": run, "sessionId": None,
+                "parentSessionId": None, "modelAlias": None,
+                "sourceRef": self.base_url + "/api/process", "stateOrigin": "OporaCC /api/process",
+                "sourceTimestamp": item.get("updated_at") if isinstance(item.get("updated_at"), str) else None,
+                "lastEventSeq": None,
+                "status": {"reported": state, "liveness": "source_unavailable" if item.get("bridge_error") else "reported_by_oporacc_process"},
+                "sourcePaths": strings("node_paths"), "branches": strings("branches"),
+                "worktrees": strings("worktrees"), "bridgeRunIds": strings("bridge_run_ids"),
+                "axis": [entry for entry in axis if isinstance(entry, dict)],
+                "preview": [], "cost": None,
+                "missing": ["sessionId", "parentSessionId", "cost", "runtimeMemory", "btwTransport"],
+                "capabilities": {action: {"supported": False, "reason": "Tento adaptér zatím pouze čte; použijte existující OporaCC."}
+                                 for action in ("continue", "stop", "correct", "fork", "btw")},
+            })
+        return out
+
+    def run_detail(self, run_id):
+        from .agent_telemetry import read_telemetry
+        for run in self.list_runs():
+            if run["runId"] == run_id:
+                run["telemetry"] = [read_telemetry(self._fetch, self.base_url, bridge) for bridge in run["bridgeRunIds"][:4]]
+                run["telemetryRemaining"] = max(0, len(run["bridgeRunIds"]) - 4)
+                if len(run["telemetry"]) == 1:
+                    run["sessionId"] = run["telemetry"][0].get("sessionId")
+                    run["parentSessionId"] = run["telemetry"][0].get("parentSessionId")
+                return run
+        return {"sourceId": self.source_id, "runId": run_id, "available": False, "error": "run_not_found"}
+
+
 def _default_pid_probe(pid):
     if not isinstance(pid, int):
         return "unknown"
@@ -257,9 +323,18 @@ class LocalOrchestratorSource:
         return self.root.is_dir()
 
     def list_lanes(self):
+        """Vrací jen názvy, které projdou stejným pravidlem jako `_lane_dir`.
+
+        Cizí adresář v kořeni (např. ".tmp" nebo "lane with space") není běh agenta;
+        dřív se dostal do výpisu a následné čtení pak shodilo ValueError celý katalog.
+        """
         if not self.root.is_dir():
             return []
-        return sorted(p.name for p in self.root.iterdir() if p.is_dir())
+        try:
+            names = [p.name for p in self.root.iterdir() if p.is_dir()]
+        except OSError:
+            return []
+        return sorted(name for name in names if _LANE_RE.fullmatch(name))
 
     def _lane_dir(self, lane):
         if not isinstance(lane, str) or not _LANE_RE.fullmatch(lane):
@@ -302,6 +377,8 @@ class LocalOrchestratorSource:
             "liveness": self._liveness(state),
             "lastEventSeq": events["count"],
             "eventCounts": events["counts"],
+            "eventsStatus": events["status"],
+            "eventsReason": events["reason"],
             "truncated": events["truncated"],
             "preview": events["preview"],
             "result": redact(result) if result is not None else None,
@@ -325,9 +402,16 @@ class LocalOrchestratorSource:
     def _read_events(self, directory):
         path = self._safe_file(directory, "events.jsonl")
         if path is None:
-            return {"count": 0, "counts": {}, "truncated": False, "preview": []}
-        if not path.is_file() or path.stat().st_size > MAX_FILE_BYTES:
-            return {"count": 0, "counts": {}, "truncated": path.is_file(), "preview": []}
+            return {"count": 0, "counts": {}, "truncated": False, "preview": [],
+                    "status": "unavailable", "reason": "events_path_outside_source_root"}
+        if not path.is_file():
+            return {"count": 0, "counts": {}, "truncated": False, "preview": [],
+                    "status": "missing", "reason": "events_file_missing"}
+        if path.stat().st_size > MAX_FILE_BYTES:
+            # Počet událostí NENÍ nula: soubor se nečte, takže je neznámý. Vrátit 0 by
+            # vypadalo jako prázdný log a schovalo by to skutečný, jen nedostupný stav.
+            return {"count": None, "counts": None, "truncated": True, "preview": [],
+                    "status": "too_large", "reason": "events_file_exceeds_max_file_bytes"}
         # Skutečná hranice je velikost souboru (MAX_FILE_BYTES výše), ne umělý počet
         # řádků: dřívější tvrdý strop na 500 řádků způsoboval, že náhled i čítač
         # ukazovaly vždy jen prvních 500 událostí a nikdy se nedostaly k novějším —
@@ -353,7 +437,8 @@ class LocalOrchestratorSource:
                 summary = _summarize_event(raw)
                 if summary is not None:
                     window.append(summary)
-        return {"count": total, "counts": dict(counts), "truncated": False, "preview": list(window)}
+        return {"count": total, "counts": dict(counts), "truncated": False, "preview": list(window),
+                "status": "ok", "reason": None}
 
     def _liveness(self, state):
         if not state.get("available"):

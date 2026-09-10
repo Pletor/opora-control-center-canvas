@@ -15,6 +15,7 @@ from .node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
 from .node_text import NodeTextStore
 from .project_hub import ProjectHub
 from .removals import RemovalService
+from .workspace_sources import WorkspaceSources
 
 GRAPH_FILE = "opora-canvas.json"
 
@@ -48,6 +49,7 @@ class CanvasService:
         self.db.commit()
         self.project_hub = ProjectHub(self)
         self.texts = NodeTextStore(self)
+        self.workspace_sources = WorkspaceSources(self)
 
     def drawing(self, pid, wid, layer, payload=None):
         if not isinstance(layer, str) or len(layer) > 80 or (layer and not valid_id(layer)):
@@ -259,6 +261,70 @@ class CanvasService:
             "observedAt": now(),
         }
 
+    def _nearest_sector(self, by_id, node):
+        cursor = node.get("parentId")
+        while cursor is not None:
+            candidate = by_id.get(cursor)
+            if candidate is None:
+                return None
+            if candidate["kind"] == "sector":
+                return candidate
+            cursor = candidate["parentId"]
+        return None
+
+    def _verify_source_refs(self, pid, wid, old_graph, new_graph):
+        """Ověří rozsah všech existujících vazeb a disk jen pro změněné cesty."""
+        old_by_id = {n["id"]: n for n in old_graph["nodes"]}
+        new_by_id = {n["id"]: n for n in new_graph["nodes"]}
+        root = None
+        root_loaded = False
+
+        def get_root():
+            nonlocal root, root_loaded
+            if not root_loaded:
+                root = self.workspace_sources.root(pid, wid)
+                root_loaded = True
+            if root is None:
+                raise ValueError("Projekt nemá připojenou zdrojovou složku.")
+            return root
+
+        for node in new_graph["nodes"]:
+            ref = node.get("sourceRef")
+            if not ref:
+                continue
+
+            if ref["origin"] == "existing":
+                # Staré odkazy nesmí blokovat nesouvisející přesun po pozdějším
+                # smazání souboru, jejich logický rozsah ale kontrolujeme vždy.
+                old = old_by_id.get(node["id"])
+                if old is None or old.get("sourceRef") != ref:
+                    source_root = get_root()
+                    try:
+                        target = self.workspace_sources.target(source_root, ref["path"])
+                    except (ValueError, OSError):
+                        raise ValueError("Zdroj neodpovídá skutečnému souboru nebo složce.")
+                    valid_kind = target.is_dir() if ref["kind"] == "directory" else target.is_file()
+                    if not valid_kind:
+                        raise ValueError("Zdroj neodpovídá skutečnému souboru nebo složce.")
+
+            if node["kind"] != "node":
+                continue
+            sector = self._nearest_sector(new_by_id, node)
+            sector_ref = sector.get("sourceRef") if sector else None
+            if ref["origin"] == "existing" and (not sector_ref or sector_ref["origin"] != "existing"):
+                raise ValueError("Uzel s existujícím zdrojem vyžaduje existující zdroj sektoru.")
+            if ref["origin"] == "planned" and not ref["path"]:
+                continue
+            if not sector_ref:
+                raise ValueError("Navržený zdroj uzlu vyžaduje určenou cestu sektoru.")
+            sector_path = sector_ref["path"]
+            if ref["origin"] == "planned" and sector_ref["origin"] == "planned" and not sector_path:
+                raise ValueError("Navržený zdroj uzlu nemůže vycházet z neurčené cesty sektoru.")
+            own_path = ref["path"]
+            within = own_path.startswith(sector_path + "/") if sector_path else bool(own_path)
+            if not within:
+                raise ValueError("Uzel odkazuje mimo svůj sektor.")
+
     def save_graph(self, pid, wid, graph, expected_digest, *, allow_removal=False):
         validate_graph(graph)
         with self.graph_lock:
@@ -273,6 +339,7 @@ class CanvasService:
                     new_ids = {item["id"] for item in graph[collection]}
                     if old_ids - new_ids:
                         raise ValueError("Mazání vyžaduje náhled a potvrzení odstranění.")
+            self._verify_source_refs(pid, wid, current["graph"], graph)
             if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
                 with self.lock:
                     self.db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(graph), pid))

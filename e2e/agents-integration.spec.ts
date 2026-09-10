@@ -18,13 +18,14 @@ test("panel Agenti je dostupný z plátna a jeho otevření nic nespouští", as
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
   });
   await page.goto("/?screen=canvas");
-  await page.getByRole("button", { name: "Mód: Běhy", exact: true }).click();
+  await page.getByRole("button", { name: "Live Run", exact: true }).click();
   await expect(page.getByRole("region", { name: "Agenti", exact: true })).toBeVisible();
   await expect(page.getByText("hermes-orchestrator: fixture_missing_source", { exact: true })).toBeVisible();
   await expect(page.getByText("Žádné běhy z nakonfigurovaných zdrojů.", { exact: true })).toBeVisible();
   expect(reads).toContain("/api/agents/sources");
   expect(reads).toContain("/api/agents/runs");
   expect(writes).toEqual([]);
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
   await page.getByRole("button", { name: "Mód: Struktura", exact: true }).click();
   await expect(page.getByTestId("board-surface")).toBeVisible();
   await expect(page.getByRole("region", { name: "Agenti", exact: true })).toHaveCount(0);

@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "./types";
 type Target = { id: string; path: string; branch: string; workspace: string; layer: string };
 type Run = { id: string; project: string; status: string; message: string; targetPath: string; events: unknown[]; result: unknown; localTreeInactive: boolean; pid: number | null };
-export default function CodingPanel({ project, dirty }: { project: string; dirty: boolean }) {
+export default function CodingPanel({ project, dirty, enabled = true, initialWorkspace = "draft", initialLayer = "" }: { project: string; dirty: boolean; enabled?: boolean; initialWorkspace?: string; initialLayer?: string }) {
   const [targets, setTargets] = useState<Target[]>([]);
   const [targetId, setTargetId] = useState("");
-  const [workspace, setWorkspace] = useState("draft");
+  const [workspace, setWorkspace] = useState(initialWorkspace);
   const [options, setOptions] = useState<{ id: string; label: string }[]>([]);
-  const [layer, setLayer] = useState("");
+  const [layer, setLayer] = useState(initialLayer);
   const [approved, setApproved] = useState(false);
   const [task, setTask] = useState("Implement add(a, b) in calculator.py as addition. Read the saved context, run tests before and after your edit. Complete the task with real tool calls.");
   const [preview, setPreview] = useState<{ digest: string } | null>(null);
@@ -17,12 +17,13 @@ export default function CodingPanel({ project, dirty }: { project: string; dirty
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     const refresh = () => api<{ targets: Target[]; runs: Run[]; active: Run | null }>("/api/coding/runs?" + new URLSearchParams({ project })).then(x => { if (alive) { setTargets(x.targets); setRuns(x.runs); setActive(x.active); } }).catch(e => { if (alive) setError(String(e)); });
     refresh(); const timer = setInterval(refresh, 1000);
-    api<{ workspaces: typeof options }>("/api/project-workspaces?" + new URLSearchParams({ project })).then(x => { if (alive) { setOptions(x.workspaces); setWorkspace(x.workspaces[0]?.id ?? "draft"); } }).catch(e => { if (alive) setError(String(e)); });
+    api<{ workspaces: typeof options }>("/api/project-workspaces?" + new URLSearchParams({ project })).then(x => { if (alive) { setOptions(x.workspaces); setWorkspace((old) => x.workspaces.some((option) => option.id === old) ? old : x.workspaces[0]?.id ?? "draft"); } }).catch(e => { if (alive) setError(String(e)); });
     return () => { alive = false; clearInterval(timer); };
-  }, [project]);
+  }, [project, enabled]);
   useEffect(() => { setPreview(null); }, [targetId, task]);
   async function action(fn: () => Promise<void>) { setBusy(true); setError(""); try { await fn(); } catch (e) { setError(String(e)); } finally { setBusy(false); } }
   const target = targets.find(x => x.id === targetId);

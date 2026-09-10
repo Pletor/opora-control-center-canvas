@@ -8,10 +8,11 @@ type Draft = SettingsSnapshot & { dirty: boolean };
 const drafts = new Map<string, Draft>();
 export function isLocalProject(project?: Project) { return !project || project.id === "draft" || ["local", "empty", "builtin"].includes(project.sourceKind ?? ""); }
 
-export default function ProjectHome({ projects, draftProject, projectId, jobs, onChoose, onRefresh, onOpen, onRemove, renderLLM }: {
+export default function ProjectHome({ projects, draftProject, projectId, jobs, onChoose, onRefresh, onOpen, onRemove, renderLLM, onConnected }: {
   projects: Project[]; draftProject?: Project; projectId: string; jobs: Job[];
   onChoose: (id: string, kind?: string) => void; onRefresh: () => Promise<void>; onOpen: () => void; onRemove: () => void;
   renderLLM?: (snapshot: SettingsSnapshot, dirty: boolean) => ReactNode;
+  onConnected?: () => void;
 }) {
   const [form, setForm] = useState<Draft | null>(null);
   const [error, setError] = useState("");
@@ -41,7 +42,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, o
   useEffect(() => {
     if (!pendingJob) return;
     const job = jobs.find((j) => j.id === pendingJob);
-    if (job?.status === "complete") { setPendingJob(null); setLocator(""); setConfirmed(false); onChoose(job.project_id, "git"); }
+    if (job?.status === "complete") { setPendingJob(null); setLocator(""); setConfirmed(false); onChoose(job.project_id, "git"); onConnected?.(); }
     else if (job && ["failed", "interrupted"].includes(job.status)) { setPendingJob(null); setError(job.message); }
   }, [jobs, pendingJob]);
   function change(update: Partial<ProjectSettings>, name?: string) {
@@ -72,7 +73,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, o
         const inferred = locator.split(/[\\/]/).filter(Boolean).pop() ?? "Nový projekt";
         const name = sourceName.trim() || inferred;
         const project = await api<Project>(kind === "local" ? "/api/local-project" : "/api/empty-project", kind === "local" ? { name, path: locator, confirmed: true } : { name, confirmed: true });
-        await onRefresh(); onChoose(project.id, project.sourceKind); setLocator(""); setSourceName(""); setConfirmed(false);
+        await onRefresh(); onChoose(project.id, project.sourceKind); setLocator(""); setSourceName(""); setConfirmed(false); onConnected?.();
       }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
@@ -92,7 +93,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, o
         {kind !== "empty" && <label className="field">Cesta nebo GitHub URL<input aria-label="Cesta nebo GitHub URL" required value={locator} disabled={busy || !!pendingJob} onChange={(e) => { setLocator(e.target.value); setConfirmed(false); }} placeholder={kind === "local" ? "P:/projekty/muj-projekt" : "https://github.com/owner/repo"} /></label>}
         <label className="check"><input type="checkbox" checked={confirmed} disabled={busy || !!pendingJob} onChange={(e) => setConfirmed(e.target.checked)} />Potvrzuji připojení vybraného zdroje.</label>
         <button className="primary wide" disabled={busy || !!pendingJob || !confirmed}>Připojit projekt</button>
-        <p className="muted">{kind === "local" ? "Pouze odkaz na složku. Její soubory se automaticky nečtou, nekopírují ani nemění." : kind === "github" ? "Schválená spravovaná kopie Git. Hesla a tokeny do URL nepatří; přístup spravuje Git na serveru." : "Projekt a návrh zůstanou v datech OporaCC."}</p>
+        <p className="muted">{kind === "local" ? "Odkaz na složku a čtení názvů ve stromu. Obsahy souborů se automaticky nečtou, nekopírují ani nemění." : kind === "github" ? "Schválená spravovaná kopie Git. Hesla a tokeny do URL nepatří; přístup spravuje Git na serveru." : "Projekt a návrh zůstanou v datech OporaCC."}</p>
         {pendingJob && <p role="status">Připojuji repozitář na pozadí…</p>}
       </form>
     </aside>

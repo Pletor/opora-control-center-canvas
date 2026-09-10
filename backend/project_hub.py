@@ -115,10 +115,19 @@ class ProjectHub:
 
     def _new(self, name, kind, path=None):
         pid = uuid.uuid4().hex
-        with self.canvas.lock, self.canvas.db:
-            self.canvas.db.execute("INSERT INTO projects VALUES(?,?,?,?,?)", (pid, name, "", "", ""))
-            self.canvas.db.execute("INSERT INTO project_sources VALUES(?,?,?)", (pid, kind, path))
-            self.canvas.db.execute("INSERT INTO drafts VALUES(?,?)", (pid, encode(EMPTY)))
+        managed = self.canvas.root / "sources" / pid if kind == "empty" else None
+        if managed is not None:
+            managed.mkdir(parents=True, exist_ok=False)
+            path = str(managed.resolve())
+        try:
+            with self.canvas.lock, self.canvas.db:
+                self.canvas.db.execute("INSERT INTO projects VALUES(?,?,?,?,?)", (pid, name, "", "", ""))
+                self.canvas.db.execute("INSERT INTO project_sources VALUES(?,?,?)", (pid, kind, path))
+                self.canvas.db.execute("INSERT INTO drafts VALUES(?,?)", (pid, encode(EMPTY)))
+        except Exception:
+            if managed is not None:
+                managed.rmdir()  # Pouze právě vytvořená prázdná složka; žádné mazání zdroje uživatele.
+            raise
         return self._project(pid)
 
     def local_project(self, payload):

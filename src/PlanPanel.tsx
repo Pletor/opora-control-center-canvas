@@ -2,18 +2,18 @@ import { useEffect, useState } from "react";
 import { api } from "./types";
 
 type Run = { id: string; project_id: string; workspace: string; layer: string; status: string; message: string; output: string };
-export default function PlanPanel({ project, dirty }: { project: string; dirty: boolean }) {
-  const [workspace, setWorkspace] = useState("draft");
+export default function PlanPanel({ project, dirty, enabled = true, initialWorkspace = "draft", initialLayer = "" }: { project: string; dirty: boolean; enabled?: boolean; initialWorkspace?: string; initialLayer?: string }) {
+  const [workspace, setWorkspace] = useState(initialWorkspace);
   const [options, setOptions] = useState<{ id: string; label: string }[]>([]);
-  const [layer, setLayer] = useState("");
+  const [layer, setLayer] = useState(initialLayer);
   const [preview, setPreview] = useState<{ digest: string; context: unknown } | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
   const [active, setActive] = useState<Run | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [stop, setStop] = useState<Run | null>(null);
-  useEffect(() => { let alive = true; api<{ workspaces: typeof options }>("/api/project-workspaces?" + new URLSearchParams({ project })).then(x => { if (alive) { setOptions(x.workspaces); setWorkspace(x.workspaces[0]?.id ?? "draft"); } }).catch(e => setError(String(e))); return () => { alive = false; }; }, [project]);
-  useEffect(() => { let alive = true; const refresh = () => api<{ runs: Run[]; active: Run | null }>("/api/llm/runs?" + new URLSearchParams({ project })).then(x => { if (alive) { setRuns(x.runs); setActive(x.active); } }).catch(e => { if (alive) setError(String(e)); }); refresh(); const timer = setInterval(refresh, 1000); return () => { alive = false; clearInterval(timer); }; }, [project]);
+  useEffect(() => { if (!enabled) return; let alive = true; api<{ workspaces: typeof options }>("/api/project-workspaces?" + new URLSearchParams({ project })).then(x => { if (alive) { setOptions(x.workspaces); setWorkspace((old) => x.workspaces.some((option) => option.id === old) ? old : x.workspaces[0]?.id ?? "draft"); } }).catch(e => setError(String(e))); return () => { alive = false; }; }, [project, enabled]);
+  useEffect(() => { if (!enabled) return; let alive = true; const refresh = () => api<{ runs: Run[]; active: Run | null }>("/api/llm/runs?" + new URLSearchParams({ project })).then(x => { if (alive) { setRuns(x.runs); setActive(x.active); } }).catch(e => { if (alive) setError(String(e)); }); refresh(); const timer = setInterval(refresh, 1000); return () => { alive = false; clearInterval(timer); }; }, [project, enabled]);
   useEffect(() => { setPreview(null); }, [workspace, layer]);
   async function action(fn: () => Promise<void>) { setBusy(true); setError(""); try { await fn(); } catch (e) { setError(String(e)); } finally { setBusy(false); } }
   return <section className="hub-card"><h2>Návrh přes Hermes · bez zápisu kódu</h2>

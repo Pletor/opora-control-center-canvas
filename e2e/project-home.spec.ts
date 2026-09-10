@@ -19,6 +19,8 @@ test("root opens project setup without canvas and opens the same workspace expli
   await expect(page.getByLabel("Cíl projektu", { exact: true })).toHaveValue("Srozumitelný editor a podklady pro LLM");
   await page.screenshot({ path: "evidence/project-home-preview.png", fullPage: true });
   await page.getByRole("button", { name: "Otevřít Canvas", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Projekt", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
   await expect(page.getByRole("button", { name: "Mód: Struktura", exact: true })).toBeVisible();
   await openSettings(page, "Nastavení projektu");
   await expect(page.getByRole("heading", { name: "Nastavení projektu", exact: true })).toBeVisible();

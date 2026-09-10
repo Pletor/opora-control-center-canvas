@@ -77,6 +77,11 @@ export default function NodePanel({
         <div className="eyebrow">{kind.toLocaleUpperCase("cs")} · DETAIL</div>
         <h2>{node.name}</h2>
         <code className="identity">{node.id}</code>
+        {node.sourceRef && (
+          <p className={"source-badge " + (node.sourceRef.origin === "existing" ? "source-badge-existing" : "source-badge-planned")}>
+            {node.sourceRef.origin === "existing" ? "Existující zdroj" : "Návrh zdroje"}: <code>{node.sourceRef.path || (node.sourceRef.origin === "planned" ? "cesta neurčena" : "/")}</code> ({node.sourceRef.kind === "directory" ? "složka" : "soubor"})
+          </p>
+        )}
         <div className="action-row">
           <button type="button" className="primary" onClick={onEnter}>
             Otevřít vnitřní plátno

@@ -1,0 +1,29 @@
+import { test, expect } from "@playwright/test";
+
+test("Editor keeps the existing Hermes tools and builds a real context packet", async ({ page }) => {
+  const paid: string[] = [];
+  page.on("request", (r) => { if (r.method() === "POST" && /\/api\/(coding|llm)\/start/.test(r.url())) paid.push(r.url()); });
+  await page.goto("/?screen=canvas&project=draft&workspace=draft&mode=structure");
+  await page.getByRole("button", { name: "+ Uzel", exact: true }).click();
+  await page.getByLabel("Název uzlu", { exact: true }).fill("Context tracer node");
+  await page.getByRole("button", { name: "Vytvořit", exact: true }).click();
+  await page.locator(".canvas-card").filter({ hasText: "Context tracer node" }).click();
+  await page.getByRole("button", { name: "Kontextový paket", exact: true }).click();
+  const dock = page.getByRole("region", { name: "Nástroje práce s AI" });
+  await dock.getByRole("button", { name: "Sestavit paket", exact: true }).click();
+  await expect(dock.getByTestId("context-packet-preview")).toContainText("Context tracer node");
+  await dock.getByRole("button", { name: "Ověřit aktuálnost", exact: true }).click();
+  await expect(dock.getByTestId("context-packet-validation")).toContainText("beze změny");
+  await dock.getByRole("button", { name: "LLM návrh", exact: true }).click();
+  await expect(dock.getByRole("heading", { name: "Návrh přes Hermes · bez zápisu kódu" })).toBeVisible();
+  await dock.getByRole("button", { name: "Coding", exact: true }).click();
+  await expect(dock.getByRole("heading", { name: "Skutečný coding agent · bezpečný testovací repo" })).toBeVisible();
+  await dock.getByLabel("Úkol pro coding agenta", { exact: true }).fill("Zachovat můj rozepsaný úkol");
+  await dock.getByRole("button", { name: "Skrýt nástroje", exact: true }).click();
+  await page.getByRole("navigation", { name: "Pracovní prostředí" }).getByRole("button", { name: "Projekt", exact: true }).click();
+  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByRole("button", { name: "AI nástroje", exact: true }).click();
+  await dock.getByRole("button", { name: "Coding", exact: true }).click();
+  await expect(dock.getByLabel("Úkol pro coding agenta", { exact: true })).toHaveValue("Zachovat můj rozepsaný úkol");
+  expect(paid).toEqual([]);
+});

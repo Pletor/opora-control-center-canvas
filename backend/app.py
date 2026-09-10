@@ -10,12 +10,14 @@ from fastapi.staticfiles import StaticFiles
 from .agent_routes import create_agent_router
 from .build_identity import build_identity
 from .coding_runs import CodingRuns
+from .context_routes import create_context_router
 from .llm_runs import PlanRuns
 from .node_journal import NodeJournal
 from .node_links import NodeLinks
 from .planning_context import build_planning_context
 from .service import CanvasService
 from .wireframe_context import wireframe_context
+from .workspace_sources import create_workspace_router
 
 
 def create_app(data_root=None):
@@ -265,6 +267,8 @@ def create_app(data_root=None):
         return service.sync(payload.get("project"))
 
     app.include_router(create_agent_router(service))
+    app.include_router(create_workspace_router(service))
+    app.include_router(create_context_router(service))
     dist = Path(__file__).resolve().parent.parent / "dist"
     if dist.exists():
         app.mount("/", StaticFiles(directory=dist, html=True), name="canvas")

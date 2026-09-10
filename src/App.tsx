@@ -6,6 +6,14 @@ import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "./context
 import PlanPanel from "./PlanPanel";
 import TopBar from "./TopBar";
 import ModeRail from "./ModeRail";
+import EnvironmentSwitch, { type Environment } from "./EnvironmentSwitch";
+import ProjectWorkspace from "./ProjectWorkspace";
+import WorkspaceDocumentEditor from "./WorkspaceDocumentEditor";
+import EditorWorkbench, { type WorkbenchPane } from "./EditorWorkbench";
+import ContextShelf from "./ContextShelf";
+import SourceExplorer from "./SourceExplorer";
+import { useWorkspaceSelection } from "./workspace-selection";
+import "./desktop-workspaces.css";
 import MapTools from "./MapTools";
 import ScopeContext from "./ScopeContext";
 import LayerContext from "./LayerContext";
@@ -41,6 +49,21 @@ import {
   type RemovalPreview,
 } from "./types";
 const initial = new URLSearchParams(location.search);
+/** Sjednotí URL parametry mode a environment do jednoho konzistentního páru. */
+function resolveInitialModeEnvironment(
+  params: URLSearchParams,
+): { mode: WorkspaceMode; environment: Environment } {
+  const modeParam = readMode(params.get("mode"));
+  const envParam = params.get("environment");
+  const hasEnv = envParam === "project" || envParam === "editor" || envParam === "live";
+  if (!hasEnv) {
+    return { mode: modeParam, environment: modeParam === "agents" ? "live" : "editor" };
+  }
+  const environment = envParam as Environment;
+  if (environment === "live") return { mode: "agents", environment };
+  return { mode: modeParam === "agents" ? "structure" : modeParam, environment };
+}
+const initialModeEnvironment = resolveInitialModeEnvironment(initial);
 export default function App() {
   const [screen, setScreen] = useState<"home" | "canvas">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
   const [draftProject, setDraftProject] = useState<Project | undefined>();
@@ -52,14 +75,35 @@ export default function App() {
     initial.get("workspace") ?? "draft",
   );
   const [drawingTool, setDrawingTool] = useState<DrawingTool>("selection");
+  const selection = useWorkspaceSelection(project, workspace);
+  const [showContext, setShowContext] = useState(false);
+  const [editorDocumentOpen, setEditorDocumentOpen] = useState(false);
+  const [workbenchOpen, setWorkbenchOpen] = useState(false);
+  const [workbenchPane, setWorkbenchPane] = useState<WorkbenchPane>("context");
+  useEffect(() => { setShowContext(selection.value.references.length > 0); }, [project, workspace, selection.value.references.length]);
   const [drawingCommand, setDrawingCommand] = useState<{
     type: DrawingTool;
     sequence: number;
   }>({ type: "selection", sequence: 0 });
   const [drawingReady, setDrawingReady] = useState(false);
-  const [mode, setMode] = useState<WorkspaceMode>(() =>
-    readMode(initial.get("mode")),
+  const [mode, setEditorMode] = useState<WorkspaceMode>(
+    () => initialModeEnvironment.mode,
   );
+  const [environment, setEnvironment] = useState<Environment>(
+    () => initialModeEnvironment.environment,
+  );
+  const lastEditorMode = useRef<WorkspaceMode>(mode === "agents" ? "structure" : mode);
+  function setMode(next: WorkspaceMode) {
+    setEditorDocumentOpen(false);
+    setEditorMode(next);
+    if (next !== "agents") lastEditorMode.current = next;
+    setEnvironment(next === "agents" ? "live" : "editor");
+  }
+  function changeEnvironment(next: Environment) {
+    setEnvironment(next);
+    if (next === "live") setEditorMode("agents");
+    else if (next === "editor") setEditorMode(lastEditorMode.current);
+  }
   const [editingName, setEditingName] = useState<string | null>(null);
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
   const [settings, setSettings] = useState(readSettings);
@@ -93,7 +137,14 @@ export default function App() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [approved, setApproved] = useState(false);
+  const [createOrigin, setCreateOrigin] = useState<"existing" | "planned" | null>(null);
+  const [createPath, setCreatePath] = useState<string | null>(null);
+  const [createKind, setCreateKind] = useState<"directory" | "file">("directory");
+  const [createPlannedPath, setCreatePlannedPath] = useState("");
+  const [createPurpose, setCreatePurpose] = useState("");
+  const [createTargetSector, setCreateTargetSector] = useState("");
   const [actor, setActor] = useState("");
+  const operationGeneration = useRef(0);
   const generation = useRef(0);
   async function bootstrap() {
     const ticket = ++bootstrapGeneration.current;
@@ -123,17 +174,22 @@ export default function App() {
   useEffect(() => {
     const nextScope = JSON.stringify([project, workspace]);
     if (lastLoadedScope.current !== nextScope) {
+      operationGeneration.current++;
+      setBusy(false); setModal(null);
       setSelected(null); setSelectedEdge(null); setRemoval(null); lastLoadedScope.current = nextScope;
+      // Výběr v asynchronním stromu platí jen pro původní projekt/workspace.
+      setCreateOrigin(null); setCreatePath(null); setCreateKind("directory");
+      setCreatePlannedPath(""); setCreatePurpose(""); setCreateTargetSector("");
     }
     setError("");
     if (screen === "canvas") refresh(); else generation.current++;
   }, [project, workspace, screen]);
   useEffect(() => {
-    const q = new URLSearchParams({ project, workspace, mode, screen });
+    const q = new URLSearchParams({ project, workspace, mode, screen, environment });
     if (parent) q.set("layer", parent);
     if (wireframeMode) q.set("wireframe", "1");
     history.replaceState(null, "", "/?" + q);
-  }, [project, workspace, parent, mode, screen, wireframeMode]);
+  }, [project, workspace, parent, mode, screen, wireframeMode, environment]);
   const completed = jobs
     .filter((j) => j.status === "complete" && j.project_id === project)
     .map((j) => j.id)
@@ -142,26 +198,38 @@ export default function App() {
     if (completed && screen === "canvas") refresh();
   }, [completed]);
   async function run(action: () => Promise<void>) {
+    const ticket = ++operationGeneration.current;
+    const scope = { ...activeScope.current };
+    const isCurrent = () => ticket === operationGeneration.current &&
+      scope.project === activeScope.current.project && scope.workspace === activeScope.current.workspace;
     setBusy(true);
     setError("");
     try {
       await action();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (isCurrent()) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
-  async function save(graph: Graph) {
+  async function save(graph: Graph, onApplied?: () => void) {
     if (!view) return;
-    setView(
-      await api<View>("/api/graph", {
-        project,
-        workspace,
-        graph,
-        digest: view.digest,
-      }),
-    );
+    const ticket = ++generation.current;
+    const scope = { project, workspace };
+    const saved = await api<View>("/api/graph", {
+      project,
+      workspace,
+      graph,
+      digest: view.digest,
+    });
+    if (
+      ticket === generation.current &&
+      activeScope.current.project === scope.project &&
+      activeScope.current.workspace === scope.workspace
+    ) {
+      setView(saved);
+      onApplied?.();
+    }
   }
   const graph = view?.graph ?? { nodes: [], edges: [] };
   const node = graph.nodes.find((n) => n.id === selected);
@@ -181,8 +249,23 @@ export default function App() {
     ancestors.unshift(cursor);
     cursor = graph.nodes.find((n) => n.id === cursor!.parentId);
   }
-  const activeWorkspace = view?.workspaces.find((w) => w.id === workspace);
+  const ancestorSector = [...ancestors].reverse().find((n) => n.kind === "sector") ?? null;
+  const availableSectors = graph.nodes.filter((n) => n.kind === "sector");
+  const targetSector = graph.nodes.find((n) => n.id === createTargetSector) ?? null;
+  const effectiveSector = modal === "node" ? (ancestorSector ?? targetSector) : null;
   const activeProject = project === "draft" ? draftProject : projects.find((p) => p.id === project);
+  // Volné uzly patří jen historickému vestavěnému draftu; připojený projekt
+  // musí nejdřív dostat sektor, aby nevznikl zdroj bez vlastního kontextu.
+  const legacyFreeNode = project === "draft" && (activeProject?.sourceKind ?? "builtin") === "builtin";
+  const legacyFreeSector = modal === "sector" && project === "draft" && (activeProject?.sourceKind ?? "builtin") === "builtin";
+  const requiresTargetSector = modal === "node" && !effectiveSector && !legacyFreeNode;
+  const requiresModeChoice = !legacyFreeSector && !(modal === "node" && legacyFreeNode && !effectiveSector?.sourceRef) && (modal === "sector" || (modal === "node" && !!effectiveSector));
+  const existingAllowedForNode = modal !== "node" || effectiveSector?.sourceRef?.origin === "existing";
+  const purposeReady = createOrigin !== "planned" || (modal === "sector" ? createPurpose.trim().length >= 12 : createPurpose.trim().length > 0);
+  const pathReady = createOrigin !== "existing" || (existingAllowedForNode && createPath !== null);
+  const plannedNodePathReady = createOrigin !== "planned" || modal !== "node" || !createPlannedPath.trim() || effectiveSector?.sourceRef?.origin === "existing" || !!effectiveSector?.sourceRef?.path;
+  const createReady = !requiresTargetSector && plannedNodePathReady && (!requiresModeChoice || (createOrigin !== null && purposeReady && pathReady));
+  const activeWorkspace = view?.workspaces.find((w) => w.id === workspace);
   const localProject = project === "draft" || ["local", "empty", "builtin"].includes(activeProject?.sourceKind ?? "");
   const linkTargets = graph.nodes.map((n) => ({ id: n.id, name: n.name, kind: n.kind }));
   /** Odkaz i souvislost vedou na tentýž uzel: otevře se jeho vrstva a označí se. */
@@ -213,6 +296,12 @@ export default function App() {
     setModal(kind);
     setName("");
     setApproved(false);
+    setCreateOrigin(null);
+    setCreatePath(null);
+    setCreateKind("directory");
+    setCreatePlannedPath("");
+    setCreatePurpose("");
+    setCreateTargetSector("");
   }
   function enter(id: string | null) {
     setParent(id);
@@ -313,7 +402,7 @@ export default function App() {
     );
   }
   if (screen === "home") return <>
-    <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => setScreen("canvas")} onRemove={() => requestRemoval("project", project)} renderLLM={(_snapshot, dirty) => <><PlanPanel key={project + ":plan"} project={project} dirty={dirty} /><CodingPanel key={project + ":coding"} project={project} dirty={dirty} /></>} />
+    <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} renderLLM={(_snapshot, dirty) => <><PlanPanel key={project + ":plan"} project={project} dirty={dirty} /><CodingPanel key={project + ":coding"} project={project} dirty={dirty} /></>} />
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
   </>;
   const inspectorTools =
@@ -332,7 +421,7 @@ export default function App() {
   const showNode = !!node && (mode === "structure" || mode === "map");
   const showEdge = !showNode && !!edge && (mode === "structure" || mode === "map");
   return (
-    <div className="app">
+    <div className="app desktop-v2">
       <TopBar
         projects={projects}
         draftProject={draftProject}
@@ -369,7 +458,9 @@ export default function App() {
             });
         }}
         onRemoveProject={() => requestRemoval("project", project)}
-      />
+      >
+        <EnvironmentSwitch value={environment} onChange={changeEnvironment} disabled={busy} />
+      </TopBar>
       {error && (
         <div className="error" role="alert">
           {error}
@@ -378,8 +469,21 @@ export default function App() {
           </button>
         </div>
       )}
-      <div className={"workspace-shell " + mode + "-mode" + (mode === "agents" ? " no-inspector" : "")}>
-        <ModeRail mode={mode} onMode={setMode} />
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={selection.value} onChange={selection.change} onAdd={selection.add} onSettings={() => setScreen("home")} /> : <>
+      {environment === "editor" && <div className="environment-toolbar" role="toolbar" aria-label="Nástroje Editoru">
+        <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
+        <button aria-pressed={editorDocumentOpen} onClick={() => setEditorDocumentOpen((open) => !open)}>Dokumentace</button>
+        {(mode === "structure" || mode === "text") && <>
+          <button type="button" disabled={!editable} onClick={() => open("sector")}>+ Sektor</button>
+          <button type="button" className="primary" disabled={!editable} onClick={() => open("node")}>+ Uzel</button>
+        </>}
+        <button aria-pressed={showContext} onClick={() => setShowContext((shown) => !shown)}>Kontext</button>
+        <button onClick={() => { setWorkbenchPane("context"); setWorkbenchOpen(true); }}>Kontextový paket</button>
+        <button onClick={() => setWorkbenchOpen(true)}>AI nástroje</button>
+      </div>}
+      <div className={"workspace-shell " + mode + "-mode" + (mode === "agents" ? " no-inspector" : "") + (!showContext ? " no-context" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
+        {environment === "editor" && showContext && <ContextShelf project={project} workspace={workspace} value={selection.value} onChange={selection.change} onAdd={selection.add}
+          onOpen={(path) => { selection.change({ sourcePath: path }); setEditorDocumentOpen(true); }} />}
         <main className="canvas-area">
           <div className="content-head">
             <nav aria-label="Cesta plátnem" className="crumbs">
@@ -396,17 +500,10 @@ export default function App() {
                 Vazby mimo vrstvu: {outsideLinks}
               </button>
             )}
-            <div className="content-actions">
-              <button type="button" disabled={!editable || (mode !== "structure" && mode !== "text")} onClick={() => open("sector")}>
-                + Sektor
-              </button>
-              <button type="button" className="primary" disabled={!editable || (mode !== "structure" && mode !== "text")} onClick={() => open("node")}>
-                + Uzel
-              </button>
-            </div>
+
           </div>
           <div className="canvas-surface">
-            {view ? (
+            {environment === "editor" && editorDocumentOpen ? <WorkspaceDocumentEditor key={JSON.stringify([project, workspace, selection.value.sourcePath])} project={project} workspace={workspace} path={selection.value.sourcePath} /> : view ? (
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} />
               ) : mode === "agents" ? (
@@ -571,7 +668,7 @@ export default function App() {
             </span>
           </footer>
         </main>
-        {mode !== "agents" && (
+        {mode !== "agents" && !editorDocumentOpen && (
           <aside className="inspector" aria-label="Inspektor">
             {showNode && node ? (
               <NodePanel
@@ -653,6 +750,10 @@ export default function App() {
           </aside>
         )}
       </div>
+      </>}
+      <EditorWorkbench key={JSON.stringify([project, workspace])} project={project} workspace={workspace} nodeId={selected ?? ""}
+        graph={graph} selection={selection.value} open={environment === "editor" && workbenchOpen} pane={workbenchPane}
+        onPane={setWorkbenchPane} onClose={() => setWorkbenchOpen(false)} />
       {settingsOpen && (
         <WorkspaceSettings
           value={settings}
@@ -781,20 +882,44 @@ export default function App() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+                  if (busy || !name.trim() || !createReady) return;
+                  const submitScope = { ...activeScope.current };
                   run(async () => {
-                    const siblings = visible.length;
+                    const parentId = modal === "node" && !ancestorSector && targetSector ? targetSector.id : parent;
+                    const siblings = graph.nodes.filter((n) => n.parentId === parentId).length;
+                    const plannedNodePath = modal === "node" && effectiveSector?.sourceRef?.path && createPlannedPath.trim()
+                      ? `${effectiveSector.sourceRef.path}/${createPlannedPath.trim()}`
+                      : createPlannedPath.trim();
+                    let sourceRef: CanvasNode["sourceRef"] = null;
+                    if (modal === "sector" && createOrigin === "existing") {
+                      sourceRef = { origin: "existing", path: createPath ?? "", kind: "directory" };
+                    } else if (modal === "sector" && createOrigin === "planned") {
+                      sourceRef = { origin: "planned", path: createPlannedPath.trim(), kind: "directory" };
+                    } else if (modal === "node" && effectiveSector && createOrigin === "existing") {
+                      sourceRef = { origin: "existing", path: createPath ?? "", kind: createKind };
+                    } else if (modal === "node" && effectiveSector && createOrigin === "planned") {
+                      sourceRef = { origin: "planned", path: plannedNodePath, kind: createKind };
+                    }
                     const n: CanvasNode = {
                       id: crypto.randomUUID(),
-                      parentId: parent,
-                      kind: modal,
+                      parentId,
+                      kind: modal as "sector" | "node",
                       name,
-                      purpose: "",
+                      purpose: createOrigin === "planned" ? createPurpose.trim() : "",
                       x: (siblings % 3) * 310,
                       y: Math.floor(siblings / 3) * 210,
+                      ...(sourceRef ? { sourceRef } : {}),
                     };
-                    await save({ ...graph, nodes: [...graph.nodes, n] });
-                    setSelected(n.id);
-                    setModal(null);
+                    await save({ ...graph, nodes: [...graph.nodes, n] }, () => {
+                      if (
+                        activeScope.current.project !== submitScope.project ||
+                        activeScope.current.workspace !== submitScope.workspace
+                      ) return;
+                      setParent(parentId);
+                      setSelected(n.id);
+                      setSelectedEdge(null);
+                      setModal(null);
+                    });
                   });
                 }}
               >
@@ -811,7 +936,112 @@ export default function App() {
                     autoFocus
                   />
                 </label>
-                <button className="primary" disabled={busy || !name.trim()}>
+                {modal === "node" && !ancestorSector && (
+                  <label className="field">
+                    Cílový sektor
+                    <select
+                      aria-label="Cílový sektor"
+                      value={createTargetSector}
+                      onChange={(e) => {
+                        setCreateTargetSector(e.target.value);
+                        setCreateOrigin(null);
+                        setCreatePath(null);
+                        setCreateKind("directory");
+                        setCreatePlannedPath("");
+                        setCreatePurpose("");
+                      }}
+                    >
+                      <option value="">{legacyFreeNode ? "Bez zdroje (volný uzel jako dosud)" : "Vyberte sektor"}</option>
+                      {availableSectors.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                    {requiresTargetSector && !targetSector && <p className="create-source-note">Tento projekt vyžaduje sektor. Vyberte cílový sektor, aby se uzel vytvořil v jeho vrstvě se zdrojovým kontextem.</p>}
+                  </label>
+                )}
+                {requiresModeChoice && (
+                  <>
+                    <div className="create-mode-toggle" role="group" aria-label="Původ zdroje">
+                      <button
+                        type="button"
+                        aria-pressed={createOrigin === "existing"}
+                        disabled={!existingAllowedForNode}
+                        title={!existingAllowedForNode ? "Sektor zatím nemá napojený existující zdroj." : undefined}
+                        onClick={() => { setCreateOrigin("existing"); setCreatePath(null); }}
+                      >
+                        Navázat na existující zdroj
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={createOrigin === "planned"}
+                        onClick={() => { setCreateOrigin("planned"); setCreatePath(null); }}
+                      >
+                        Navrhnout nové
+                      </button>
+                    </div>
+                    {createOrigin === "existing" && (
+                      existingAllowedForNode ? (
+                        <>
+                          <div className="create-source-picker">
+                            <SourceExplorer
+                              project={project}
+                              workspace={workspace}
+                              selected={createPath ?? ""}
+                              onSelect={(path, kind) => { setCreatePath(path); if (modal === "node") setCreateKind(kind === "root" ? "directory" : kind); }}
+                              search=""
+                              refresh={0}
+                              basePath={modal === "node" ? (effectiveSector?.sourceRef?.path ?? "") : ""}
+                              rootLabel=""
+                              directoriesOnly={modal === "sector"}
+                              rootOnly={modal === "sector"}
+                            />
+                          </div>
+                          {createPath !== null ? (
+                            <p className="create-source-picked">Vybráno: <code>{createPath || "/"}</code></p>
+                          ) : (
+                            <p className="create-source-note">Vyberte {modal === "sector" ? "složku" : "složku nebo soubor"} ve stromu, nebo zrušte dialog.</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="create-source-note">Tento sektor nemá napojený existující zdroj; nejdřív mu jej přiřaďte, nebo uzel jen navrhněte.</p>
+                      )
+                    )}
+                    {createOrigin === "planned" && (
+                      <>
+                        <label className="field">
+                          {modal === "node" ? "Zamýšlená cesta v sektoru (nepovinné, nic se nevytváří na disku)" : "Zamýšlená cesta (nepovinné, nic se nevytváří na disku)"}
+                          <input
+                            aria-label="Zamýšlená cesta"
+                            value={createPlannedPath}
+                            onChange={(e) => setCreatePlannedPath(e.target.value)}
+                            maxLength={400}
+                          />
+                        </label>
+                        {modal === "node" && (
+                          <label className="field">
+                            Druh navrhovaného zdroje
+                            <select aria-label="Druh navrhovaného zdroje" value={createKind} onChange={(e) => setCreateKind(e.target.value as "directory" | "file")}>
+                              <option value="directory">Složka</option>
+                              <option value="file">Soubor</option>
+                            </select>
+                          </label>
+                        )}
+                        <label className="field">
+                          {modal === "sector" ? "Podstata návrhu sektoru (nejméně 12 znaků)" : "Podstata návrhu uzlu"}
+                          <textarea
+                            aria-label={modal === "sector" ? "Podstata návrhu sektoru" : "Podstata návrhu uzlu"}
+                            rows={3}
+                            required
+                            value={createPurpose}
+                            onChange={(e) => setCreatePurpose(e.target.value)}
+                            maxLength={2000}
+                          />
+                        </label>
+                      </>
+                    )}
+                  </>
+                )}
+                <button className="primary" disabled={busy || !name.trim() || !createReady}>
                   Vytvořit
                 </button>
               </form>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Project, View, Workspace } from "./types";
 
 /**
@@ -23,6 +23,7 @@ export default function TopBar({
   onRefresh,
   onSync,
   onRemoveProject,
+  children,
 }: {
   projects: Project[];
   draftProject?: Project;
@@ -41,6 +42,7 @@ export default function TopBar({
   onRefresh: () => void;
   onSync: () => void;
   onRemoveProject: () => void;
+  children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
@@ -115,6 +117,7 @@ export default function TopBar({
           ))}
         </select>
       )}
+      {children}
       <div className="topbar-spacer" />
       {!localProject && (
         <div className="revision" title="Sledovaná větev a revize spravované kopie">
