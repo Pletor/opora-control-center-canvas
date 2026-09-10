@@ -75,4 +75,4 @@ curl -s http://127.0.0.1:8740/api/agents/runs/hermes-orchestrator/agents-sonnet
 - `POST /api/agents/bindings` a `POST /api/agents/activity` samy o sobě neregistrují `ValueError` handler — spoléhají na existující globální handler v `app.py` (409). V izolovaných testech přes `TestClient` (bez `app.py`) proto testuji jen přes přímé volání tříd, ne přes HTTP POST chybové větve — to je zdokumentovaná mezera v pokrytí route vrstvy pro chybové stavy zápisu.
 
 ## Commit
-Viz `EVIDENCE.json` pro přesné SHA a seznam commitnutých souborů.
+`2cecf5e44bc31bbad87307d593ce8ff4d5d2ad21` na větvi `feat/agent-observability`, base `dbc19ffac783755ac06b7e7e17fc36a57f38b8c0`. Seznam souborů viz `EVIDENCE.json`.

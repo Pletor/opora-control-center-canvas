@@ -3,7 +3,7 @@
   "writer": "Sonnet",
   "date": "2026-09-10",
   "baseCommit": "dbc19ffac783755ac06b7e7e17fc36a57f38b8c0",
-  "commitSha": "PENDING-see-follow-up-commit",
+  "commitSha": "2cecf5e44bc31bbad87307d593ce8ff4d5d2ad21",
   "ownedPaths": [
     "backend/agent_sources.py",
     "backend/agent_bindings.py",
