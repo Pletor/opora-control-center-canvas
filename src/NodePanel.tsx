@@ -34,6 +34,7 @@ export default function NodePanel({
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
+  const [textRevision, setTextRevision] = useState(0);
   const assigned = workspaces.filter((w) => w.node_id === node.id);
   return (
     <aside className="detail">
@@ -51,10 +52,10 @@ export default function NodePanel({
       <button className="wide" data-testid="agent-task-action" disabled={busy} onClick={onAgentTask}>
         Připravit úkol pro agenta z tohoto uzlu
       </button>
-      <NodeLinksPanel project={project} workspace={workspace} node={node.id} revision={0} readOnly={readOnly} onOpenNode={onOpenNode} />
+      <NodeLinksPanel project={project} workspace={workspace} node={node.id} revision={textRevision} readOnly={readOnly} onOpenNode={onOpenNode} />
       <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
       <h3>Podstata</h3>
-      <NodeTextEditor key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} node={node.id} />
+      <NodeTextEditor key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} node={node.id} onSaved={() => setTextRevision(value => value + 1)} />
       <label className="field">
         Proč tento uzel existuje
         <textarea

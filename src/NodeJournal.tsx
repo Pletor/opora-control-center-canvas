@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./types";
 import BlockOutline, { type LinkTarget } from "./BlockOutline";
+import { clearPendingEdit, editScope, readPendingEdit, usePendingFlush, writePendingEdit } from "./use-pending-edits";
 import "./natural-canvas.css";
 
 type Entry = {
@@ -38,26 +39,50 @@ export default function NodeJournal({
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reload, setReload] = useState(0);
   const timer = useRef<number | null>(null);
-  const key = JSON.stringify([project, workspace, node, day]);
+  const key = editScope("node-journal", [project, workspace, node, day]);
   const pending = useRef<{ text: string; revision: number } | null>(null);
+  const liveKey = useRef(key);
+  liveKey.current = key;
 
   useEffect(() => {
     let alive = true;
     setEntry(null);
     setError("");
+    setDraft(null);
+    setBusy(false);
+    pending.current = null;
     api<Entry>("/api/node-journal?" + new URLSearchParams({ project, workspace, node, day }))
       .then((value) => {
         if (!alive) return;
         setEntry(value);
-        setDraft(null);
+        // Rozepsaný zápis z dřívějška patří uživateli, dokud ho server nepřevzal.
+        const cached = readPendingEdit(key);
+        if (cached && cached.text !== value.text) {
+          pending.current = cached;
+          setDraft(cached.text);
+          if (cached.revision !== value.revision)
+            setError("Konflikt: uložená revize se změnila. Rozepsaný zápis je zachovaný.");
+        } else {
+          clearPendingEdit(key);
+          pending.current = null;
+          setDraft(null);
+        }
       })
       .catch((e) => alive && setError(e instanceof Error ? e.message : String(e)));
     return () => {
       alive = false;
-      if (timer.current) window.clearTimeout(timer.current);
     };
-  }, [key]);
+  }, [key, reload]);
+
+  // Odchod z deníku (jiný uzel, den, panel či zavření karty) čekající zápis dopíše.
+  usePendingFlush(key, () => {
+    if (!timer.current) return;
+    window.clearTimeout(timer.current);
+    timer.current = null;
+    void save();
+  });
 
   async function save() {
     const change = pending.current;
@@ -73,30 +98,37 @@ export default function NodeJournal({
         expected_revision: change.revision,
         text: change.text,
       });
+      if (liveKey.current !== key) {
+        clearPendingEdit(key, change);
+        return;
+      }
       setEntry(value);
       // Text dopsaný během ukládání zůstává rozepsaný a uloží se další revizí.
       if (pending.current && pending.current.text !== change.text) {
         pending.current = { text: pending.current.text, revision: value.revision };
+        writePendingEdit(key, pending.current);
         timer.current = window.setTimeout(() => {
           timer.current = null;
           void save();
         }, 700);
       } else {
+        clearPendingEdit(key, change);
         pending.current = null;
         setDraft(null);
       }
     } catch (e) {
       // Konflikt nesmí zahodit rozepsaný zápis.
-      setError(e instanceof Error ? e.message : String(e));
+      if (liveKey.current === key) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      if (liveKey.current === key) setBusy(false);
     }
   }
 
   function edit(text: string) {
     if (!entry) return;
     setDraft(text);
-    pending.current = { text, revision: entry.revision };
+    pending.current = { text, revision: pending.current?.revision ?? entry.revision };
+    writePendingEdit(key, pending.current);
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       timer.current = null;
@@ -141,10 +173,11 @@ export default function NodeJournal({
           <button
             type="button"
             onClick={() => {
+              clearPendingEdit(key);
               pending.current = null;
               setDraft(null);
               setError("");
-              setDay((d) => d);
+              setReload((r) => r + 1);
             }}
           >
             Zahodit rozepsaný zápis
@@ -153,7 +186,7 @@ export default function NodeJournal({
       )}
       {entry && (
         <BlockOutline
-          key={key}
+          key={key + reload}
           value={value}
           readOnly={false}
           targets={targets}
