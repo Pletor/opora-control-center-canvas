@@ -93,6 +93,11 @@ export type HandoffRunStatus =
   | "interrupted";
 
 export type HandoffRun = {
+  createdAt?: string;
+  updatedAt?: string;
+  allowedFiles?: string[];
+  worktree?: string;
+  branch?: string;
   id: string;
   digest: string;
   scope: { project: string; workspace: string; node: string };
@@ -117,7 +122,7 @@ export type PlanningRun = {
   status: string;
   message: string;
   output: string;
-  provider_billing: number | null;
+  provider_billing: number | string | null;
   created_at: string;
   updated_at: string;
 };
