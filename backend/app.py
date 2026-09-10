@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from .agent_routes import create_agent_router
 from .build_identity import build_identity
 from .coding_runs import CodingRuns
 from .llm_runs import PlanRuns
@@ -263,6 +264,7 @@ def create_app(data_root=None):
             raise ValueError("Potvrďte aktualizaci spravovaného mainu.")
         return service.sync(payload.get("project"))
 
+    app.include_router(create_agent_router(service))
     dist = Path(__file__).resolve().parent.parent / "dist"
     if dist.exists():
         app.mount("/", StaticFiles(directory=dist, html=True), name="canvas")
