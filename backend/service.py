@@ -340,6 +340,9 @@ class CanvasService:
                     if old_ids - new_ids:
                         raise ValueError("Mazání vyžaduje náhled a potvrzení odstranění.")
             self._verify_source_refs(pid, wid, current["graph"], graph)
+            # Zaokrouhlujeme až při zápisu; čtení starého grafu nesmí změnit jeho digest.
+            graph = {"nodes": [{**node, "x": round(node["x"]), "y": round(node["y"])}
+                               for node in graph["nodes"]], "edges": graph["edges"]}
             if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
                 with self.lock:
                     self.db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(graph), pid))

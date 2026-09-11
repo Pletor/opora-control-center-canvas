@@ -27,7 +27,7 @@ export function LiveTickets({state,readOnly,nodeId,sessionId,mutate}:Props) {
     {readOnly&&<p role="status">Main je pouze pro čtení.</p>}
     {error&&<p role="alert">{error}</p>}
     <ul className="v3-ticket-list">{tickets.map(t=><li className="v3-ticket" key={t.id}>
-      <strong>{t.title}</strong><span className="v3-chip">{t.priority}</span><span>{t.createdBy==='agent'?'agent':'člověk'}</span><code>{t.sessionId}</code>
+      <strong>{t.title}</strong><span className="v3-chip">{t.priority}</span><span>{t.createdBy==='agent'?(t.sessionId?'agent':'externí agent · neověřený výsledek'):'člověk'}</span><code>{t.sessionId}</code>
       <select aria-label={`Stav ticketu ${t.title}`} value={t.status} disabled={readOnly||busy} onChange={e=>{const status=e.target.value as TicketStatus;void save(s=>({...s,tickets:s.tickets.map(x=>x.id===t.id?{...x,status}:x)}));}}>
         <option value="open">otevřeno</option><option value="doing">probíhá</option><option value="done">hotovo</option>
       </select></li>)}</ul>

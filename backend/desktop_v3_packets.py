@@ -337,6 +337,13 @@ class DesktopV3Packets:
                 "spec": {"revision": spec["revision"], "fields": spec["fields"]},
                 "text": {"revision": text["revision"], "text": text["text"]},
                 "phase": memory["phase"],
+                # Příchozí hrana source → target znamená předchůdce cílového uzlu.
+                # Neuložená fáze není důkaz discover ani dokončení: zůstává null.
+                "depends_on": [
+                    {**summary(nid), "status": stored["state"]["nodes"].get(nid, {}).get("phase"),
+                     "statusSource": "desktop-v3/state", "stateRevision": stored["revision"]}
+                    for nid in sorted({edge["source"] for edge in graph["edges"] if edge["target"] == node})
+                ],
                 "criteria": memory["criteria"],
                 "steps": memory["steps"],
             },

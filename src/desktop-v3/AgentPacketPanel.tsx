@@ -3,6 +3,7 @@ import {
   ACTIVE_HANDOFF_STATUSES,
   errorMessage,
   exportHandoff,
+  exportExternalTask,
   fetchHandoff,
   fetchSnapshot,
   prepareSnapshotRun,
@@ -73,6 +74,7 @@ export function AgentPacketPanel({
   const [stopRequested, setStopRequested] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [externalExport, setExternalExport] = useState("");
   const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
@@ -103,6 +105,7 @@ export function AgentPacketPanel({
     setApproved(false);
     setStopRequested(false);
     setError("");
+    setExternalExport("");
     // Bumping generation.current makes the stale request's own finally() a no-op (its ticket
     // no longer matches), so busy would otherwise stay true forever with no request left to
     // ever clear it. Reset it here instead — the new scope starts idle, not stuck mid-build.
@@ -120,6 +123,7 @@ export function AgentPacketPanel({
       if (!mounted.current || ticket !== generation.current) return;
       setPreview(value);
       setPreviewScope(scopeSignature);
+      setExternalExport("");
       setSnapshot(null);
       setReloadedSnapshot(null);
       // A fresh preview within the SAME scope must not hide an active run's stop control —
@@ -151,6 +155,7 @@ export function AgentPacketPanel({
       if (!mounted.current || ticket !== generation.current) return;
       setSnapshot(value);
       setReloadedSnapshot(null);
+      setExternalExport("");
     } catch (e) {
       if (mounted.current && ticket === generation.current) {
         setError(`${errorMessage(e)} — zdroje se mohly změnit od náhledu; vytvořte nový náhled.`);
@@ -185,6 +190,24 @@ export function AgentPacketPanel({
   }
 
   const validTask = task.trim().length >= 10 && task.length <= 4000;
+
+  async function exportForExternalAgent() {
+    if (busy || !reloadedSnapshot || !nodeId || scopeStale) return;
+    const ticket = ++generation.current;
+    setBusy(true);
+    setError("");
+    setExternalExport("");
+    try {
+      const value = await exportExternalTask({ id: reloadedSnapshot.id, digest: reloadedSnapshot.digest,
+        project, workspace, nodeId });
+      if (!mounted.current || ticket !== generation.current) return;
+      setExternalExport(value.path);
+    } catch (e) {
+      if (mounted.current && ticket === generation.current) setError(errorMessage(e));
+    } finally {
+      if (mounted.current && ticket === generation.current) setBusy(false);
+    }
+  }
 
   async function perform(action: () => Promise<HandoffRun>) {
     if (busy) return;
@@ -343,12 +366,22 @@ export function AgentPacketPanel({
             {reloadedSnapshot && (
               <p role="status">Snímek načten neměnný: digest odpovídá ({reloadedSnapshot.digest}).</p>
             )}
+            <p className="v3-note">Externí agent: zapíše Markdown do Git workspace vybraného projektu,
+              nikoli do jeho mainu. Nevytváří běh ani souhlas s implementací; chybějící zadání zůstane blocked.
+              Existující odlišný soubor se nepřepíše.</p>
+            <button type="button" disabled={busy || !reloadedSnapshot || !nodeId || scopeStale}
+              onClick={exportForExternalAgent}>Exportovat pro externího agenta</button>
+            {externalExport && <p role="status">Zapsáno a zpětně ověřeno: <code>{externalExport}</code>.
+              Stav a výsledek externího agenta vraťte jako ticket uzlu s autorem agent, bez session ID.
+              Workflow fázi posune člověk po ověření.</p>}
           </>
         )}
       </section>
 
       <section className="v3-section" aria-label="Dokumentační běh">
         <h3>3 · Příprava a spuštění</h3>
+        <p className="v3-note">Dokumentace ≠ implementace. Tento běh zapisuje jen izolovaný result.md, nikoli kód projektu.
+          Časový limit nastavíte v Nastavení projektu (10–180 s); nejde o cenový strop.</p>
         <label className="v3-field">
           Zadání dokumentačního běhu
           <textarea
@@ -382,6 +415,7 @@ export function AgentPacketPanel({
             {run.status === "prepared" && (
               <>
                 <p>Potvrzení spustí běh nad přesně tímto snímkem. Žádný model neběžel při přípravě.</p>
+                <p>Model: {run.provider || "nedostupné"} / {run.model || "nedostupné"} · limit {run.budgetSeconds ?? "nedostupné"} s.</p>
                 <label className="v3-check">
                   <input type="checkbox" checked={approved} onChange={(e) => setApproved(e.target.checked)} />
                   Schvaluji spuštění dokumentačního běhu nad tímto snímkem

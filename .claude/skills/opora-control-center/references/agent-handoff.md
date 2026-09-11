@@ -33,6 +33,11 @@
 - Případná širší rozpracovaná větev není nasazená funkce. Autoritou je konkrétní
   běžící server, jeho capabilities, zdrojový kontrakt a skutečná odpověď.
 
+## Externí implementace
+
+Pro Markdown export do Git workspace a zpětný ticket bez falešného run ID načti
+[external-agent.md](external-agent.md). Export není spuštění ani schválení kódování.
+
 ## Export a převzetí úkolu Claudem
 
 `Exportovat přesné zadání` zachovává ověřený objekt; JSON se může znovu formátovat.

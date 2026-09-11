@@ -82,6 +82,33 @@ export async function fetchSnapshot(expected: SnapshotReadbackExpectation): Prom
   return assertSnapshotReadback(value, expected);
 }
 
+export type ExternalTaskExport = {
+  snapshotId: string; digest: string; project: string; workspace: string; nodeId: string;
+  path: string; sha256: string; content: string;
+};
+
+export async function exportExternalTask(expected: SnapshotReadbackExpectation): Promise<ExternalTaskExport> {
+  const { id, digest, project, workspace, nodeId } = expected;
+  const endpoint = `/api/desktop-v3/packet/snapshots/${encodeURIComponent(id)}/external-export`;
+  const payload = { digest, project, workspace, nodeId };
+  const written = await api<ExternalTaskExport>(endpoint, payload);
+  const read = await api<ExternalTaskExport>(`${endpoint}?${query(payload)}`);
+  for (const value of [written, read]) {
+    if (value.snapshotId !== id || value.digest !== digest || value.project !== project ||
+        value.workspace !== workspace || value.nodeId !== nodeId ||
+        value.path !== `docs/opora-control-center/tasks/${nodeId}.md` ||
+        typeof value.content !== "string" || !/^[a-f0-9]{64}$/.test(value.sha256)) {
+      throw new Error("Export nemá očekávanou identitu, cestu nebo rozsah.");
+    }
+  }
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(read.content));
+  const actual = Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("");
+  if (written.sha256 !== read.sha256 || actual !== read.sha256 || written.content !== read.content) {
+    throw new Error("Zpětné čtení souboru zadání neodpovídá zápisu.");
+  }
+  return read;
+}
+
 export function prepareSnapshotRun(
   id: string,
   project: string,
