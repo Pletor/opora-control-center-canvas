@@ -105,3 +105,8 @@ GOAL/STATE je trvalý. Noční monitor je `C:/Users/Admin/AppData/Local/hermes/s
 - Žádný nový merge ani publikace. HTTP8780 potvrzuje stejný index SHA 7d210787611180aa52889aa669f7e316c7c275c0c907f7df046bb8e4d9c8fa27, přesná shoda s build. Backend/DB/assets/uživatelské změny i původní P:/main/8768/8740 nedotčeny. Obě fáze stále NEHOTOVÉ.
 
 - Pozdější PID reuse: {}. Nejde o návrat původního writera; creation time je novější než jeho ukončení a původní session signatura chybí. Žádný takto znovu přidělený PID se nezastavoval.
+
+### Pozdní dokončený výsledek 2026-09-11T03:23:06.628354+02:00 — aktuální celá UI regrese prošla
+- Překonává předchozí IN_PROGRESS: current-frontend-regression skutečně dokončil94PASS/1skip/0FAIL, všechny3 projekty/workers1,84.7s, exit0 na přesném7bc61e575af116377a1ca4a4acade02ec90b9c6d. Koordinátor programově porovnal počty z raw logu s reportem. Tsc0/diffcheck0. Jediný skip: explicitně nezapnutý LIVE Hermes→repo→Docker test, není splněn obecný coding roundtrip.
+- CLI success/is_error=false, WindowsJob localTreeInactive=true, root59428 absent a ports8742/8769/8771 bez listenerů. Dočasný .verify_run.py agent odstranil, produkční cesty ani dist neměnil. Žádná nová publikace nutná: stejný již publikovaný frontend.
+- STATE.revision12; zbývají2 implementační lanes artifact-completion a live-keyboard. Převzít jejich commit/testy a nezávislé review před merge. Nejde o dokončený Desktop v3.

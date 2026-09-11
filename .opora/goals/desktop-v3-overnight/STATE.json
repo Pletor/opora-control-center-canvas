@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 11,
+  "revision": 12,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -31,30 +31,6 @@
       "descendants": [
         62392
       ]
-    },
-    {
-      "name": "current-frontend-regression",
-      "worktree": "C:/Users/Admin/opora-v3",
-      "branch": "integration/desktop-v3",
-      "role": "verification",
-      "reservedTestPorts": [
-        8742,
-        8769,
-        8771
-      ],
-      "ownedPaths": [
-        "test-generated evidence only; NO source/test/config/dist edits"
-      ],
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\current-frontend-regression-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\current-frontend-regression\\state.json",
-      "processHandle": "proc_ff1fd62f962d",
-      "pid": 59428,
-      "pidExists": false,
-      "running": false,
-      "localTreeInactive": true,
-      "status": "collect_result_before_reuse",
-      "observedAt": "2026-09-11T03:21:58.609813+02:00",
-      "descendants": []
     },
     {
       "name": "live-keyboard",
@@ -197,23 +173,23 @@
     "build": "post-merge Vite exit0; existing >500kB chunk warning remains",
     "v3PanelTestsPassed": 68,
     "fullUi": {
-      "source": "coordinator recovered completed raw log after Claude quota denial",
-      "verifiedAt": "2026-09-11T02:39:28.570643+02:00",
-      "exactSHA": "3588085375dde54b213fbb396f2df29047fe82ec",
+      "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\current-frontend-regression\\clean-editor.log",
+      "verifiedAt": "2026-09-11T03:23:06.628354+02:00",
+      "exactSHA": "7bc61e575af116377a1ca4a4acade02ec90b9c6d",
       "command": "node node_modules/@playwright/test/cli.js test -c playwright.clean-editor.config.ts",
       "exitCode": 0,
       "passed": 94,
       "skipped": 1,
       "failed": 0,
       "total": 95,
-      "skip": "LIVE UI -> Hermes -> isolated repo -> independent Docker tests (not enabled)",
+      "skip": "[legacy] e2e/coding.spec.ts:15:1 LIVE: UI to Hermes to isolated repo to independent Docker tests",
       "scope": "all clean-editor projects legacy/document/clean-source, workers1",
       "inspectorAfterDrawing": true,
       "tsc": "coordinator re-ran node node_modules/typescript/bin/tsc --noEmit exit0 after CLI quota",
       "diffCheck": "coordinator git diff --check exit0",
-      "laneOutcome": "quota denied final synthesis; report produced by coordinator, not Claude",
+      "laneOutcome": "completed CLI success; coordinator reconciled raw log counts/report/registry/process/ports",
       "previewUnaffected": true,
-      "newerFrontendNeedsFullRegression": true
+      "newerFrontendNeedsFullRegression": false
     },
     "preview": {
       "origin": "http://127.0.0.1:8780",
@@ -271,7 +247,7 @@
   },
   "nextActions": [
     "FIRST read GOAL/STATE/CHECKPOINT and E/*/state.json. Three bounded lanes recorded; do not duplicate paths or ports. Max4 total including reviewer/test.",
-    "Collect current-frontend-regression all clean-editor projects on production4b02b9c/metadata7bc61e5, ports8742/8769/8771. IN_PROGRESS is not GREEN. No build/emptyOutDir against preview clean-editor-dist.",
+    "Full CURRENT frontend clean-editor regression completed94PASS/1explicitLIVEskip/0FAIL, tsc0/diffcheck0 at7bc61e5. Ports8742/8769/8771 released; no need repeat until production changes. Artifact completion and live-keyboard remain separate live writers.",
     "Collect claude-artifact-completion narrow Opus recovery. Old900s deadline NOT quota; final approval GREEN was truncated, related suite never started. Require actual complete tests, handoff/commit and quiescence, then independent Claude review before merge.",
     "Artifact reviewer should inspect public entrypoint contract validation and trusted-callback boundary, hooks/config isolation, oracle scope/hash semantics, source preservation, test output handling. Do not assume function names or candidate prose prove security. No general coding/runtime/UI proof yet.",
     "Live-keyboard Sonnet owns LiveWorkspacePanel keyboard-only/new e2e/config/handoff on isolated tree/private8796. Implements inventory V3-KEY-003 digits1..7 with editable/modifier guards and no writes. Review+integration+published browser readback still required.",
@@ -381,6 +357,20 @@
       ],
       "quiescence": "Original PID identities and descendants absent at handover; exact Claude session absent; git status stable twice. Any later numeric PID reuse recorded separately.",
       "pidReuseObserved": {}
+    },
+    "current-frontend-regression": {
+      "status": "completed_verified94PASS_1explicitLIVEskip_0FAIL",
+      "localTreeInactive": true,
+      "pidExists": false,
+      "exitCode": 0,
+      "resultIsError": false,
+      "resultSubtype": "success",
+      "reservedPortsReleased": [
+        8742,
+        8769,
+        8771
+      ],
+      "report": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\current-frontend-regression\\report.json"
     }
   },
   "providerQuotaObservation": {
@@ -404,7 +394,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T03:21:58.609813+02:00",
+  "reconciledAt": "2026-09-11T03:23:06.628354+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
