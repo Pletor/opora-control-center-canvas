@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 21,
+  "revision": 22,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -10,90 +10,82 @@
   "activeLanes": [
     {
       "modelAlias": "opus",
-      "sessionId": "c79fd585-9672-401c-a671-b17f57154526",
+      "sessionId": "052992de-2bf6-4a44-98fc-42272806d674",
       "worktree": "C:\\Users\\Admin\\opora-v3-behavioral-oracle",
       "running": true,
-      "pid": 49840,
-      "name": "oracle-isolated-review",
-      "role": "review",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-isolated-review-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-isolated-review\\state.json",
-      "processHandle": "proc_38943c05ef2d",
-      "ownedPaths": [],
+      "pid": 43712,
+      "name": "oracle-capture-failclosed",
+      "role": "implementation",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-capture-failclosed-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-capture-failclosed\\state.json",
+      "processHandle": "proc_262b9bc28486",
+      "ownedPaths": [
+        "backend/coding_behavioral_oracle.py",
+        "tests/test_coding_behavioral_oracle.py",
+        ".opora/workunits/WU-DESKTOP-V3/behavioral-oracle-HANDOFF.md"
+      ],
       "reservedTestPorts": [],
-      "observedAt": "2026-09-11T09:26:24.888943+02:00",
+      "observedAt": "2026-09-11T09:39:42.549327+02:00",
       "pidExists": true,
-      "createTime": 1789111482.8762176,
+      "createTime": 1789112061.2523441,
       "descendants": [
         {
-          "pid": 62016,
-          "createTime": 1789111482.8819284,
+          "pid": 32544,
+          "createTime": 1789112061.2576585,
           "name": "conhost.exe"
         }
       ]
     },
     {
       "modelAlias": "opus",
-      "sessionId": "3f98a19b-d314-48c2-8605-dbceacb1df87",
+      "sessionId": "8425f811-ba72-4438-9dbb-1cac7994c6db",
       "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
       "running": true,
-      "pid": 43608,
-      "name": "artifact-scan-final",
-      "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-scan-final-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-scan-final\\state.json",
-      "processHandle": "proc_d315878ea9ed",
-      "ownedPaths": [
-        "backend/claude_coding_artifact.py",
-        "tests/test_claude_coding_artifact.py",
-        ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
-      ],
+      "pid": 65508,
+      "name": "artifact-prewire-review",
+      "role": "review",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-review-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-review\\state.json",
+      "processHandle": "proc_b34e40934ca3",
+      "ownedPaths": [],
       "reservedTestPorts": [],
-      "observedAt": "2026-09-11T09:26:24.888943+02:00",
+      "observedAt": "2026-09-11T09:39:42.549327+02:00",
       "pidExists": true,
-      "createTime": 1789111482.8721616,
+      "createTime": 1789112147.4697063,
       "descendants": [
         {
-          "pid": 52740,
-          "createTime": 1789111482.8780537,
+          "pid": 32904,
+          "createTime": 1789112147.476452,
           "name": "conhost.exe"
         }
       ]
     },
     {
       "modelAlias": "opus",
-      "sessionId": "cc773fb7-5bc9-4bc5-9fed-6ac7e9b0f6fd",
+      "sessionId": "b317294e-3c87-44d2-8c37-512ed0488db6",
       "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
-      "running": true,
-      "pid": 2828,
-      "name": "project-tree-vertical",
-      "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-vertical-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-vertical\\state.json",
-      "processHandle": "proc_0ae4ea239a14",
-      "ownedPaths": [
-        "src/SourceExplorer.tsx",
-        "src/ProjectWorkspace.tsx",
-        "src/project-tree-actions.css",
-        "e2e/project-tree-actions.spec.ts",
-        "playwright.project-tree-actions.config.ts",
-        ".opora/workunits/WU-DESKTOP-V3/project-tree-actions-HANDOFF.md"
+      "running": false,
+      "pid": 32984,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 96.05984189998708,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
       ],
-      "reservedTestPorts": [
-        8742,
-        8769,
-        8771
-      ],
-      "observedAt": "2026-09-11T09:26:24.888943+02:00",
-      "pidExists": true,
-      "createTime": 1789111482.902168,
-      "descendants": [
-        {
-          "pid": 63804,
-          "createTime": 1789111482.9076195,
-          "name": "conhost.exe"
-        }
-      ]
+      "name": "project-tree-slices-review",
+      "role": "review",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-slices-review-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-slices-review\\state.json",
+      "processHandle": "proc_0c5fbdc8e4c3",
+      "ownedPaths": [],
+      "reservedTestPorts": [],
+      "observedAt": "2026-09-11T09:39:42.549327+02:00",
+      "pidExists": false,
+      "createTime": null,
+      "descendants": []
     }
   ],
   "inspectorCandidate": {
@@ -266,7 +258,7 @@
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
       "previewData": "Non-destructive static publication only; DB/backend unchanged; no API writes or model starts in browser smoke.",
-      "finalHttpReadbackAt": "2026-09-11T09:26:24.888943+02:00",
+      "finalHttpReadbackAt": "2026-09-11T09:39:42.549327+02:00",
       "workflowReadback": {
         "publishedPreview": true,
         "networkFaultInjected": true,
@@ -373,11 +365,11 @@
     }
   },
   "nextActions": [
-    "FIRST collect oracle-isolated-review exact db5b364, no-tools independent Opus, examine runtime trust/cleanup and first-tracer TDD limitation; no merge without addressed blockers.",
-    "Collect artifact-scan-final; extends4bed80f T1-T3 with individual bounded-scandir RED/GREEN. Needs completed full gates, commit, independent final review before integration.",
-    "Collect project-tree-vertical; fresh reauthor of unaccepted8393b04 with true per-behavior tracer tests, same exclusive ports8742/8769/8771. Do not write its paths or reuse its ports while active.",
-    "Max4 concurrent bounded lanes including reviewers; current3. General coding runtime/approval/UI roundtrip still incomplete. No blanket acceptance from candidate full suites.",
-    "After reviewed merge, run integrated gates/private publication/browser readback; preserve preview data. Phase2 eleven photos received, await actual phase1 acceptance."
+    "FIRST collect oracle-capture-failclosed: review-blocked db5b364 must never merge as passing. Require terminal engine state, matching client exit and complete capture; per-tracer real RED/GREEN and exact cleanup ledger.",
+    "Collect artifact-prewire-review exact433ff69: 161 focused/475full+4skip were verified against commit hashes; no merge without explicit independent verdict and integrated gates.",
+    "Collect project-tree-slices-review exacta96c681: only expand/collapse done, 97PASS/1LIVEskip. If accepted integrate/publish/readback this narrow increment, then remaining4 actions individually RED/GREEN; 1280/1920 fit not yet verified.",
+    "No test ports reserved currently. Max4 lanes total including reviewers; current3. Preserve preview user data and all dirty PNG; no whole coding/GOAL acceptance.",
+    "After reviewed merge run integrated gates, publish private dist, browser readback, append checkpoint. Phase2 eleven sources received, wait for actual phase1 acceptance."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -910,6 +902,63 @@
       "pidExists": false,
       "status": "deadline_no_verdict_NOT_quota",
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-review"
+    },
+    "oracle-isolated-review": {
+      "modelAlias": "opus",
+      "sessionId": "c79fd585-9672-401c-a671-b17f57154526",
+      "worktree": "C:\\Users\\Admin\\opora-v3-behavioral-oracle",
+      "running": false,
+      "pid": 49840,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 175.09346030000597,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "status": "review_blocked",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-isolated-review"
+    },
+    "artifact-scan-final": {
+      "modelAlias": "opus",
+      "sessionId": "3f98a19b-d314-48c2-8605-dbceacb1df87",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "running": false,
+      "pid": 43608,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 473.3575667999976,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "status": "candidate_not_integrated",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-scan-final"
+    },
+    "project-tree-vertical": {
+      "modelAlias": "opus",
+      "sessionId": "cc773fb7-5bc9-4bc5-9fed-6ac7e9b0f6fd",
+      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "running": false,
+      "pid": 2828,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 536.3530613999756,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "status": "candidate_not_integrated",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-vertical"
     }
   },
   "providerQuotaObservation": {
@@ -933,7 +982,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T09:05:58.153816+02:00",
+  "reconciledAt": "2026-09-11T09:39:42.549327+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -1464,6 +1513,40 @@
       "focusedEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-actions\\17-focused-all-final.meta.json",
       "completionLane": "project-tree-completion",
       "tddDisclosure": "Restored original source + pre-existing tests; all5 real baseline failures exit1 then separate incremental GREEN runs, not newly authored RED test per tracer. Reviewer must assess explicitly."
+    },
+    "oracle-isolated-rebuild": {
+      "commit": "db5b3647c9d8b91821d09256f44f8ac43276f1d0",
+      "review": {
+        "passed": false,
+        "blockingFindings": [
+          {
+            "severity": "medium",
+            "path": "backend/coding_behavioral_oracle.py (_attach / _run_case)",
+            "detail": "The pass verdict does not verify that capture and exit actually completed, so it can fail open. (1) After a normal proc.wait(), each pump thread gets thread.join(timeout=5), but is_alive() is never checked. A lagging pump yields a truncated stdout snapshot, and the code still compares and hashes it (a prefix can equal expectedStdout). (2) proc.returncode, the docker start -a client exit code, is never read or cross-checked against State.ExitCode. (3) The inspected State is never checked for Status=='exited', Running==false, or a non-empty Error. A still-running container reports ExitCode 0. Together these mean that if the attach stream is lost or the client exits abnormally while the container keeps running, passed=True is reachable with ExitCode 0 plus partial stdout. Under normal Docker semantics, start -a waits for container exit, so hostile code cannot trigger this directly. It is an infrastructure-anomaly path, but the oracle's only job is a trustworthy verdict. Fix: treat any pump or feed thread that is still alive as a failure; require proc.returncode == State.ExitCode; require Status=='exited', Running false, and an empty Error; otherwise raise OracleError or mark the case failed. Add tests that mock a live pump and a Running state."
+          }
+        ],
+        "followups": [
+          "Control-plane errors escape untyped. subprocess.TimeoutExpired from create/cp/inspect/rm/ps, OSError from Popen, and JSONDecodeError from inspect propagate without OracleError or recovery_name. A timeout in _remove's rm or probe exits the finally block with cleanup unverified and no recovery_name. It still fails closed, and the ledger 'planned' row allows recovery, but it violates the stated OracleError contract. Wrap these errors and add tests for create, start, inspect and rm failures.",
+          "runSha256 binds image, command, entrypoint, timeout, artifact and cases, but not the isolation policy: the create flags (network, read-only, caps, user, memory, pids, tmpfs, volume) and the capture bounds. Weakening _create_args leaves the digest unchanged unless SCHEMA is bumped by hand. Add a canonical policy digest.",
+          "_validate_files checks len(files) and then iterates files.items(). A non-dict Mapping whose __len__ disagrees with items() bypasses MAX_FILES; the byte totals remain bounded. Check len(items), or require type(files) is dict, consistent with how cases are validated.",
+          "Removal of the anonymous /work volume is never verified. _remove probes only for the container's absence. Add a --label to the container and volume, and verify the volume is gone. This also gives a label-based sweep after the parent dies hard.",
+          "Stderr overflow is reported as stdoutOverflow, and stderr is never reported (the handoff discloses both). Subprocess pipes are never explicitly closed, which leaks handles on Windows per case. There is no combined per-case or per-run deadline.",
+          "Missing tests: OOM kill, a stderr flood, stdout exactly at 64 KiB and at 64 KiB+1, a cleanup-failure OracleError from _remove, and create/start/inspect failures.",
+          "Future runtime integration (out of scope for this narrow oracle): production has no ledger default. With on_container=None there is no recovery source after a hard crash. Integration must make a durable ledger mandatory, and must not treat passed as general correctness."
+        ],
+        "limitations": [
+          "Static review only. I did not execute anything, rerun tests, or confirm Docker semantics (read-only rootfs refusing cp, anonymous-volume ownership, start -a exit propagation). I relied on the coordinator's report of verified bytes, full exit and ledger absence.",
+          "Behavioral TDD is only partially proven. The slice 1 RED is an assertion that the caught-ImportError module is None, which proves only that the module was absent, not any behavior. The REDs for s03, s05 and s07 are KeyErrors on missing result keys, i.e. shape rather than behavior. The exception-after-correct-output subcase was never observed RED: the s03 RED stopped at the spoof KeyError, and the fixture was changed afterwards (test hash 40976f -> 77957b). The s04 test file also changed between RED and GREEN (d998de -> a82b7e), so the added real-backslash case has no observed RED. Genuinely behavioral REDs: s02 (empty expectation not rejected), s04 (38 invalid inputs), s06 (tmp not writable), s08 (raw RuntimeError escaped).",
+          "The s08-green hashes match the candidate hashes. The ledger arithmetic is consistent: 5 probes + 121 planned + 121 created + 118 removed = 365, with 3 missing 'removed' rows (s08-red callback, s08-green callback and copy). Full-suite containers were not ledgered, so their absence relies on the handoff's docker ps claim. The claim that the dangling-volume count was unchanged has no raw evidence here. The 4 full-suite skips are not attributed, though the owned 46 ran with 0 skips.",
+          "Candidate 'artifact-prewire-vertical' (commit 4bed80ff…, backend/claude_coding_artifact.py) was listed, but its content was not supplied. It was not reviewed.",
+          "Standard container isolation is trusted per the declared model; I made no claim about kernel or engine escape. This review does not assert that the whole GOAL is done."
+        ],
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-isolated-review\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false
+      },
+      "fixLane": "oracle-capture-failclosed",
+      "status": "not_integrated"
     }
   },
   "pendingLanes": [],
@@ -1610,7 +1693,7 @@
       },
       "focusedPassed": 5,
       "typecheckExitCode": 0,
-      "status": "NOT_INTEGRATED_review_deadline_no_verdict; fresh_vertical_reauthor_in_progress",
+      "status": "historical8393b04_NOT_INTEGRATED_superseded_by_TWO_slice_a96c681",
       "handoff": "C:\\Users\\Admin\\opora-v3-project-tree\\.opora\\workunits\\WU-DESKTOP-V3\\project-tree-actions-HANDOFF.md",
       "nextLane": "project-tree-vertical"
     },
@@ -1620,7 +1703,7 @@
         "backend/claude_coding_artifact.py": "25bd2cbc719e1975749c5e267855e670c97efe2a09b1e658865021b6ca5beb41",
         "tests/test_claude_coding_artifact.py": "da19b50e3fe522fa24384f02d99e40636d2c657a72ab57df0af0f1e110466ccd"
       },
-      "status": "NOT_INTEGRATED_T1_T3_vertical_complete_T4_unbounded_scan_pending",
+      "status": "superseded_by433ff69_T4_T6_complete_pending_review",
       "focusedPassed": 158,
       "fullPassed": 472,
       "fullSkipped": 4,
@@ -1636,7 +1719,7 @@
         "backend/coding_behavioral_oracle.py": "b40767cd8a39d319942da2a8084a4167216ab51bafefce88cec9ab0595a6f708",
         "tests/test_coding_behavioral_oracle.py": "b251f006a03106ecc841b5a906e49678cc6f36e6056bd138efb95f861e390fec"
       },
-      "status": "NOT_INTEGRATED_independent_review_running",
+      "status": "NOT_INTEGRATED_REVIEW_BLOCKED_CAPTURE_ENGINE_TERMINAL_FAILOPEN",
       "focusedPassed": 46,
       "fullPassed": 490,
       "fullSkipped": 4,
@@ -1784,6 +1867,88 @@
         "No runtime/routes/UI wiring",
         "Only supplied black-box cases, not whole correctness",
         "Control commands have separate timeouts; cleanup/engine failure edge coverage missing"
+      ],
+      "review": {
+        "passed": false,
+        "blockingFindings": [
+          {
+            "severity": "medium",
+            "path": "backend/coding_behavioral_oracle.py (_attach / _run_case)",
+            "detail": "The pass verdict does not verify that capture and exit actually completed, so it can fail open. (1) After a normal proc.wait(), each pump thread gets thread.join(timeout=5), but is_alive() is never checked. A lagging pump yields a truncated stdout snapshot, and the code still compares and hashes it (a prefix can equal expectedStdout). (2) proc.returncode, the docker start -a client exit code, is never read or cross-checked against State.ExitCode. (3) The inspected State is never checked for Status=='exited', Running==false, or a non-empty Error. A still-running container reports ExitCode 0. Together these mean that if the attach stream is lost or the client exits abnormally while the container keeps running, passed=True is reachable with ExitCode 0 plus partial stdout. Under normal Docker semantics, start -a waits for container exit, so hostile code cannot trigger this directly. It is an infrastructure-anomaly path, but the oracle's only job is a trustworthy verdict. Fix: treat any pump or feed thread that is still alive as a failure; require proc.returncode == State.ExitCode; require Status=='exited', Running false, and an empty Error; otherwise raise OracleError or mark the case failed. Add tests that mock a live pump and a Running state."
+          }
+        ],
+        "followups": [
+          "Control-plane errors escape untyped. subprocess.TimeoutExpired from create/cp/inspect/rm/ps, OSError from Popen, and JSONDecodeError from inspect propagate without OracleError or recovery_name. A timeout in _remove's rm or probe exits the finally block with cleanup unverified and no recovery_name. It still fails closed, and the ledger 'planned' row allows recovery, but it violates the stated OracleError contract. Wrap these errors and add tests for create, start, inspect and rm failures.",
+          "runSha256 binds image, command, entrypoint, timeout, artifact and cases, but not the isolation policy: the create flags (network, read-only, caps, user, memory, pids, tmpfs, volume) and the capture bounds. Weakening _create_args leaves the digest unchanged unless SCHEMA is bumped by hand. Add a canonical policy digest.",
+          "_validate_files checks len(files) and then iterates files.items(). A non-dict Mapping whose __len__ disagrees with items() bypasses MAX_FILES; the byte totals remain bounded. Check len(items), or require type(files) is dict, consistent with how cases are validated.",
+          "Removal of the anonymous /work volume is never verified. _remove probes only for the container's absence. Add a --label to the container and volume, and verify the volume is gone. This also gives a label-based sweep after the parent dies hard.",
+          "Stderr overflow is reported as stdoutOverflow, and stderr is never reported (the handoff discloses both). Subprocess pipes are never explicitly closed, which leaks handles on Windows per case. There is no combined per-case or per-run deadline.",
+          "Missing tests: OOM kill, a stderr flood, stdout exactly at 64 KiB and at 64 KiB+1, a cleanup-failure OracleError from _remove, and create/start/inspect failures.",
+          "Future runtime integration (out of scope for this narrow oracle): production has no ledger default. With on_container=None there is no recovery source after a hard crash. Integration must make a durable ledger mandatory, and must not treat passed as general correctness."
+        ],
+        "limitations": [
+          "Static review only. I did not execute anything, rerun tests, or confirm Docker semantics (read-only rootfs refusing cp, anonymous-volume ownership, start -a exit propagation). I relied on the coordinator's report of verified bytes, full exit and ledger absence.",
+          "Behavioral TDD is only partially proven. The slice 1 RED is an assertion that the caught-ImportError module is None, which proves only that the module was absent, not any behavior. The REDs for s03, s05 and s07 are KeyErrors on missing result keys, i.e. shape rather than behavior. The exception-after-correct-output subcase was never observed RED: the s03 RED stopped at the spoof KeyError, and the fixture was changed afterwards (test hash 40976f -> 77957b). The s04 test file also changed between RED and GREEN (d998de -> a82b7e), so the added real-backslash case has no observed RED. Genuinely behavioral REDs: s02 (empty expectation not rejected), s04 (38 invalid inputs), s06 (tmp not writable), s08 (raw RuntimeError escaped).",
+          "The s08-green hashes match the candidate hashes. The ledger arithmetic is consistent: 5 probes + 121 planned + 121 created + 118 removed = 365, with 3 missing 'removed' rows (s08-red callback, s08-green callback and copy). Full-suite containers were not ledgered, so their absence relies on the handoff's docker ps claim. The claim that the dangling-volume count was unchanged has no raw evidence here. The 4 full-suite skips are not attributed, though the owned 46 ran with 0 skips.",
+          "Candidate 'artifact-prewire-vertical' (commit 4bed80ff…, backend/claude_coding_artifact.py) was listed, but its content was not supplied. It was not reviewed.",
+          "Standard container isolation is trusted per the declared model; I made no claim about kernel or engine escape. This review does not assert that the whole GOAL is done."
+        ],
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-isolated-review\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false
+      },
+      "nextLane": "oracle-capture-failclosed"
+    },
+    "artifact-scan-final": {
+      "commit": "433ff694c77c65cab097a3a38aca2cd1f1e2fce2",
+      "status": "NOT_INTEGRATED_independent_review_running",
+      "focusedPassed": 161,
+      "fullPassed": 475,
+      "fullSkipped": 4,
+      "warnings": 2,
+      "exitCode": 0,
+      "hashes": {
+        "backend/claude_coding_artifact.py": "41a9abaf902466e69e137d3a27fba46a3fb1e794b744cb8195f81e609ec226d7",
+        "tests/test_claude_coding_artifact.py": "d49ecdd72eeb6513b45169ed6e1b68d4a8e4b0f0e905ee28b215d3c50e11478b"
+      },
+      "committedBytesMatchFullLog": true,
+      "raw": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-scan-final\\tracers.log",
+      "reviewLane": "artifact-prewire-review",
+      "limitations": [
+        "Same-user runner is not a sandbox",
+        "verification always blocked",
+        "No runtime/routes/UI wiring",
+        "Digest helper docstring overclaim remains disclosed"
+      ]
+    },
+    "project-tree-vertical": {
+      "commit": "a96c6813921782fa075456d44685f67ce8e164ee",
+      "status": "TWO_SLICES_NOT_INTEGRATED_independent_review_running",
+      "focusedPassed": 2,
+      "fullUi": {
+        "passed": 97,
+        "skipped": 1,
+        "failed": 0,
+        "total": 98,
+        "exitCode": 0,
+        "raw": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-vertical\\20260911T073035Z-clean-editor-full.log"
+      },
+      "typecheckExitCode": 0,
+      "hashes": {
+        "src/SourceExplorer.tsx": "19c6fe3e47278e03b5d8f2dbc6ed3fcedea48ac0e774ee3c3e7a6fde496e5179",
+        "src/ProjectWorkspace.tsx": "ac250d9a619875b7fdd22038b77ce844f48fd5eb0f94bd18ecf6867132e098e5",
+        "e2e/project-tree-actions.spec.ts": "fededf0a534b1f525c3e46c674473b96f9837366c0b78c14bc6c229a58b569ab",
+        "playwright.project-tree-actions.config.ts": "083a5cf3f412a2f9b139aa5c65fb5d65f2c986f9c48638890a2ebe4be6ff5148"
+      },
+      "committedBytesMatchFullLog": true,
+      "reviewLane": "project-tree-slices-review",
+      "remaining": [
+        "search clear",
+        "row keyboard",
+        "row +Editor",
+        "slash search focus",
+        "1280/1920 toolbar fit",
+        "no-known-folders no-op affordance"
       ]
     }
   },
