@@ -103,16 +103,60 @@ async function expectOporaControls(page: Page, context: string) {
   expect(parseFloat(css.minHeight), context).toBeGreaterThanOrEqual(30);
 }
 
+// Kořenová kresba draft/draft, kterou čte /?mode=drawing; předchozí spec (drawing.spec.ts) do ní ukládá obdélník.
+const DRAWING_SCOPE = { project: "draft", workspace: "draft", layer: "" };
+const DRAWING_URL = "/api/drawing?" + new URLSearchParams(DRAWING_SCOPE);
+// Jen pro reprodukci: OPORA_INSPECTOR_SEED=1 uloží předchůdcův obdélník, OPORA_INSPECTOR_UNISOLATED=1 vypne izolaci (RED).
+const SEED = process.env.OPORA_INSPECTOR_SEED === "1";
+const ISOLATE = process.env.OPORA_INSPECTOR_UNISOLATED !== "1";
+
+async function seedPredecessorRectangle(page: Page, origin: string) {
+  const current = await (await page.request.get(DRAWING_URL)).json();
+  if (current.scene.elements.some((e: { isDeleted?: boolean }) => !e.isDeleted)) return;
+  const rectangle = {
+    id: "inspector-seed-rect", type: "rectangle", x: 40, y: 40, width: 120, height: 80, angle: 0,
+    strokeColor: "#1e1e1e", backgroundColor: "transparent", fillStyle: "solid", strokeWidth: 2, strokeStyle: "solid",
+    roughness: 1, opacity: 100, groupIds: [], frameId: null, roundness: null, seed: 1, version: 1, versionNonce: 1,
+    isDeleted: false, boundElements: null, updated: 1, link: null, locked: false, index: "a0",
+  };
+  const saved = await page.request.post("/api/drawing", {
+    headers: { origin, "content-type": "application/json" },
+    data: { ...DRAWING_SCOPE, expected_revision: current.revision, scene: { elements: [rectangle] } },
+  });
+  expect(saved.ok(), `seed ${saved.status()} ${await saved.text()}`).toBe(true);
+}
+
 for (const width of [1280, 1440]) {
-  test(`native drawing inspector keeps vendor layout without Wireframe at ${width}px`, async ({ page }) => {
+  test(`native drawing inspector keeps vendor layout without Wireframe at ${width}px`, async ({ page, baseURL }) => {
+    const origin = new URL(baseURL!).origin;
     const errors: string[] = [];
     const external: string[] = [];
+    const drawingWrites: string[] = [];
+    let isolatedReads = 0;
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.route("**/*", (route) => {
-      const url = new URL(route.request().url());
-      if (url.protocol.startsWith("http") && url.origin !== "http://127.0.0.1:8742") {
+    if (SEED) await seedPredecessorRectangle(page, origin);
+    // APIRequestContext nejde přes page.route, takže vidí skutečně uloženou kresbu.
+    const stored = await (await page.request.get(DRAWING_URL)).json();
+    await page.route("**/*", async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (url.protocol.startsWith("http") && url.origin !== origin) {
         external.push(url.href);
         return route.abort();
+      }
+      if (ISOLATE && url.pathname === "/api/drawing") {
+        if (request.method() !== "GET") {
+          drawingWrites.push(request.method() + " " + url.href);
+          return route.abort();
+        }
+        const scope = Object.fromEntries(url.searchParams);
+        if (JSON.stringify(scope) === JSON.stringify(DRAWING_SCOPE)) {
+          // Skutečný tvar odpovědi serveru, jen s prázdnou scénou; uložená kresba zůstává beze změny.
+          const response = await route.fetch();
+          const body = await response.json();
+          isolatedReads++;
+          return route.fulfill({ response, json: { ...body, scene: { ...body.scene, elements: [] } } });
+        }
       }
       return route.continue();
     });
@@ -144,5 +188,10 @@ for (const width of [1280, 1440]) {
     expect((await (await page.request.get("/api/view")).json()).digest).toBe(before.digest);
     expect(external).toEqual([]);
     expect(errors).toEqual([]);
+    if (ISOLATE) expect(isolatedReads, "isolated empty-scene read was used").toBeGreaterThan(0);
+    expect(drawingWrites).toEqual([]);
+    const after = await (await page.request.get(DRAWING_URL)).json();
+    expect(after.revision, "stored drawing revision untouched").toBe(stored.revision);
+    expect(after.scene, "stored drawing scene untouched").toEqual(stored.scene);
   });
 }
