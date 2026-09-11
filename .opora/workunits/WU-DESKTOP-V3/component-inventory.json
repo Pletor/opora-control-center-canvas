@@ -1,0 +1,2470 @@
+{
+ "schema": "opora.v3-component-inventory/1",
+ "batch": "complete 2/2 (topbar, Projekt, shelf, keyboard, global, editor, inspector, live, packet, goal); binding coverage reconciled 2026-09-11",
+ "source": {
+  "reference": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/06 OPORA Desktop v3.dc.html",
+  "lines": 684,
+  "contract": "CONTRACT.md (same dir)",
+  "goal": ".opora/goals/desktop-v3-overnight/GOAL.md"
+ },
+ "base": "a0b2c5c",
+ "rowFormat": "refs = [referenceLine, event, binding] tuples; refDef = line of handler definition in the reference script; impl = file:handler; test = test SOURCE file:line (NOT executed in this audit) or 'unverified'",
+ "statusLegend": {
+  "IMPLEMENTED_TESTED_SOURCE": "real implementation found and a test source exercising it exists (tests not run by this audit)",
+  "IMPLEMENTED_UNVERIFIED": "real implementation found, no test source found",
+  "PARTIAL": "some of the reference behavior implemented; 'missing' lists the rest",
+  "MISSING": "no implementation (disabled placeholder counts as missing)",
+  "BLOCKED_NO_TRANSPORT": "no supported transport route in this repo AND no candidate external transport found by this audit; external unavailability NOT proven, runtime investigation required",
+  "BLOCKED_NO_SOURCE_DATA": "source data not provided by any existing backend source (code evidence cited)",
+  "BLOCKED_BY_CONTRACT": "RETIRED: superseded by phase2-user-references/USER-BRIEF.md; no row uses it",
+  "DEMO_EXCLUDED": "reference-only illustrative data/mode; CONTRACT.md forbids copying it",
+  "MISSING_REPO_TRANSPORT": "implementation gap: repo has no route, but the installed provider CLI advertises a candidate capability (help text only); needs runtime investigation + TDD implementation, not an accepted blocker"
+ },
+ "refKindLegend": {
+  "state": "reference changes local prototype state only",
+  "toast-mock": "reference only shows a toast (mock)",
+  "noop": "reference handler is () => {}",
+  "demo-sim": "reference creates a simulated session",
+  "clipboard": "navigator.clipboard",
+  "keyboard": "window keydown / key hint",
+  "display": "non-interactive component",
+  "prop": "DC tweak prop"
+ },
+ "rows": [
+  {
+   "id": "V3-TOP-001",
+   "area": "topbar",
+   "refs": [
+    [
+     241,
+     "onClick",
+     "toProject"
+    ],
+    [
+     242,
+     "onClick",
+     "toEditor"
+    ],
+    [
+     243,
+     "onClick",
+     "toLive"
+    ]
+   ],
+   "refDef": "637",
+   "refKind": "state",
+   "action": "Switch Projekt / Editor / Live run",
+   "impl": "src/EnvironmentSwitch.tsx:onClick->onChange (App.changeEnvironment)",
+   "test": "e2e-v3-shell/shell.spec.ts:114; e2e/desktop-environments.spec.ts:45",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-TOP-002",
+   "area": "topbar",
+   "refs": [
+    [
+     250,
+     "onClick",
+     "wsHint"
+    ]
+   ],
+   "refDef": "640",
+   "refKind": "toast-mock",
+   "action": "Workspace/worktree switch",
+   "impl": "src/TopBar.tsx:onMain/onWorkspace/onSelectWorkspace",
+   "test": "e2e/clean-workspace.spec.ts:51; e2e/workspaces.spec.ts:6",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "reference is toast only; impl is a real main/worktree switch"
+  },
+  {
+   "id": "V3-TOP-003",
+   "area": "topbar",
+   "refs": [
+    [
+     251,
+     "onClick",
+     "settingsHint"
+    ]
+   ],
+   "refDef": "640",
+   "refKind": "toast-mock",
+   "action": "Settings (grid, snapping, agent sources)",
+   "impl": "src/TopBar.tsx:menu onSurfaceSettings/onProjectSettings",
+   "test": "e2e/clean-workspace.spec.ts:21; e2e/workspace-modes.spec.ts:9",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-TOP-004",
+   "area": "topbar",
+   "refs": [
+    [
+     252,
+     "onClick",
+     "packetSel"
+    ]
+   ],
+   "refDef": "632",
+   "refKind": "state",
+   "action": "Global 'Balíček JSON' for current selection (session in Live, node in Editor, path/project in Projekt)",
+   "impl": "src/App.tsx:516 'Podklady pro agenta' (Editor toolbar only) -> AgentPacketPanel",
+   "test": "e2e-v3-shell/shell.spec.ts:92",
+   "status": "PARTIAL",
+   "missing": "No top-bar entry; no packet entry in Projekt or Live run; session/project packet kinds absent"
+  },
+  {
+   "id": "V3-PRJ-001",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     257,
+     "onInput",
+     "searchInput"
+    ]
+   ],
+   "refDef": "642",
+   "refKind": "state",
+   "action": "Search tree paths",
+   "impl": "src/ProjectWorkspace.tsx:search onChange -> SourceExplorer needle",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": "Reference reveals matching children of collapsed folders; impl filters loaded entries only (folders always shown)"
+  },
+  {
+   "id": "V3-PRJ-002",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     257,
+     "onClick",
+     "toggleFilter"
+    ],
+    [
+     293,
+     "onClick",
+     "toggleFilter"
+    ]
+   ],
+   "refDef": "641",
+   "refKind": "state",
+   "action": "Filter generated/heavy folders; hidden-count note with 'Zobrazit'",
+   "impl": "src/SourceExplorer.tsx:showAll checkbox onChange (visibility working|all) + footer hiddenCount",
+   "test": "e2e-clean-editor/clean-editor.spec.ts:16",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "inverse checkbox instead of toggle button; hidden-note button replaced by footer text"
+  },
+  {
+   "id": "V3-PRJ-003",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     257,
+     "onClick",
+     "expandKnown"
+    ]
+   ],
+   "refDef": "643",
+   "refKind": "state",
+   "action": "Expand src · backend · tests",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No bulk expand action"
+  },
+  {
+   "id": "V3-PRJ-004",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     257,
+     "onClick",
+     "collapseAll"
+    ]
+   ],
+   "refDef": "643",
+   "refKind": "state",
+   "action": "Collapse all",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No collapse-all action"
+  },
+  {
+   "id": "V3-PRJ-005",
+   "area": "project.tree",
+   "refs": [
+    [
+     294,
+     "onClick",
+     "clearSearch"
+    ]
+   ],
+   "refDef": "642",
+   "refKind": "state",
+   "action": "Search-active note with 'Zrušit'",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No search-active note / clear button (input can be emptied manually)"
+  },
+  {
+   "id": "V3-PRJ-006",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     258,
+     "onClick",
+     "addSel"
+    ]
+   ],
+   "refDef": "644 (addRef 591)",
+   "refKind": "state",
+   "action": "Add selected path to Editor context (dedupe)",
+   "impl": "src/ProjectWorkspace.tsx:'Přidat do kontextu' onClick -> onAdd (selection.add)",
+   "test": "e2e/desktop-environments.spec.ts:6",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-007",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     258,
+     "onClick",
+     "newDocHint"
+    ]
+   ],
+   "refDef": "644",
+   "refKind": "toast-mock",
+   "action": "Create / edit path documentation",
+   "impl": "src/WorkspaceDocumentEditor.tsx (always rendered for selected path; 'Uložit dokumentaci')",
+   "test": "e2e/desktop-environments.spec.ts:6",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-008",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     258,
+     "onClick",
+     "markEvidence"
+    ]
+   ],
+   "refDef": "644",
+   "refKind": "toast-mock",
+   "action": "Attach evidence (test/commit/review link)",
+   "impl": "src/WorkspaceDocumentEditor.tsx field 'Požadavky a odkazy na důkazy' (free text)",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "No structured evidence attach with status (doloženo/čeká/zastaralé)"
+  },
+  {
+   "id": "V3-PRJ-009",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     258,
+     "onClick",
+     "vscHint"
+    ]
+   ],
+   "refDef": "644",
+   "refKind": "toast-mock",
+   "action": "Open in VS Code (reference labels it 'návrh', says native app is not launched)",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No launcher; no supported OS-launch transport found in src/ or backend/ - do not invent"
+  },
+  {
+   "id": "V3-PRJ-010",
+   "area": "project.toolbar",
+   "refs": [
+    [
+     259,
+     "onClick",
+     "dvDoc"
+    ],
+    [
+     259,
+     "onClick",
+     "dvSet"
+    ],
+    [
+     259,
+     "onClick",
+     "dvRules"
+    ],
+    [
+     259,
+     "onClick",
+     "dvDec"
+    ]
+   ],
+   "refDef": "664",
+   "refKind": "state",
+   "action": "Project memory views: Cesta / Nastavení / Pravidla N / Rozhodnutí N",
+   "impl": "src/ProjectWorkspace.tsx:28-29 'Cesta'/'Paměť projektu' toggle -> ProjectMemoryPanel (one scroll, 3 sections)",
+   "test": "e2e-v3-panels/project-memory.spec.ts:15 (panel harness; in-app toggle unverified)",
+   "status": "PARTIAL",
+   "missing": "Four separate views and counts on buttons"
+  },
+  {
+   "id": "V3-PRJ-011",
+   "area": "project.tree",
+   "refs": [
+    [
+     286,
+     "onClick",
+     "r.select"
+    ]
+   ],
+   "refDef": "604",
+   "refKind": "state",
+   "action": "Select tree row",
+   "impl": "src/SourceExplorer.tsx:source-name onClick -> onSelect",
+   "test": "e2e/desktop-environments.spec.ts:6",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-012",
+   "area": "project.tree",
+   "refs": [
+    [
+     287,
+     "onClick",
+     "r.toggle"
+    ]
+   ],
+   "refDef": "604",
+   "refKind": "state",
+   "action": "Expand/collapse folder",
+   "impl": "src/SourceExplorer.tsx:toggle()",
+   "test": "e2e/desktop-environments.spec.ts:6",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-013",
+   "area": "project.tree",
+   "refs": [
+    [
+     286,
+     "onDragStart",
+     "r.drag"
+    ]
+   ],
+   "refDef": "604",
+   "refKind": "state",
+   "action": "Drag path to context shelf",
+   "impl": "src/SourceExplorer.tsx:onDragStart (SOURCE_DRAG_TYPE, project/workspace scoped)",
+   "test": "unverified (no dataTransfer/drop in any e2e source)",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-014",
+   "area": "project.tree",
+   "refs": [
+    [
+     286,
+     "onKeyDown",
+     "r.key"
+    ]
+   ],
+   "refDef": "604",
+   "refKind": "keyboard",
+   "action": "Row keys: Enter select, ArrowRight/Left expand/collapse, Ctrl+A add to Editor",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No onKeyDown on tree rows (Enter works only via native button activation); arrows and Ctrl+A absent"
+  },
+  {
+   "id": "V3-PRJ-015",
+   "area": "project.tree",
+   "refs": [
+    [
+     289,
+     "onClick",
+     "r.add"
+    ]
+   ],
+   "refDef": "604",
+   "refKind": "state",
+   "action": "Per-row '+ Editor'",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "Only toolbar button acting on the selected path"
+  },
+  {
+   "id": "V3-PRJ-016",
+   "area": "project.tree",
+   "refs": [],
+   "refDef": "600-601, 298",
+   "refKind": "display",
+   "action": "Per-path documentation state dot + legend (doloženo / čeká / zastaralé / bez dokumentace)",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No documentation state per path in tree or doc header"
+  },
+  {
+   "id": "V3-PRJ-017",
+   "area": "project.doc",
+   "refs": [
+    [
+     303,
+     "onClick",
+     "doc.openRun"
+    ]
+   ],
+   "refDef": "609",
+   "refKind": "state",
+   "action": "'↗ run v Live run' from path documentation",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No path->run link (bindings exist only for nodes: src/NodeActivity.tsx)"
+  },
+  {
+   "id": "V3-PRJ-018",
+   "area": "project.doc",
+   "refs": [
+    [
+     306,
+     "onInput",
+     "onType"
+    ]
+   ],
+   "refDef": "651",
+   "refKind": "state",
+   "action": "Edit documentation blocks (same outliner as Editor: Enter, Tab, /, [[)",
+   "impl": "src/WorkspaceDocumentEditor.tsx labelled textareas + explicit save",
+   "test": "e2e/desktop-environments.spec.ts:6",
+   "status": "PARTIAL",
+   "missing": "Not a block outliner (no Enter/Tab/slash/[[ in path documentation)"
+  },
+  {
+   "id": "V3-PRJ-019",
+   "area": "project.doc",
+   "refs": [],
+   "refDef": "304, 309, 310",
+   "refKind": "display",
+   "action": "Fulfilment flow chips, requirements+evidence list with status, unmapped proposals bound to path",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No structured requirement/evidence model or flow indicator"
+  },
+  {
+   "id": "V3-PRJ-020",
+   "area": "project.settings",
+   "refs": [
+    [
+     316,
+     "onClick",
+     "packetProject"
+    ]
+   ],
+   "refDef": "660",
+   "refKind": "state",
+   "action": "Project-scope 'Balíček JSON'",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "AgentPacketPanel is mounted only in Editor workbench (App.tsx:801)"
+  },
+  {
+   "id": "V3-PRJ-021",
+   "area": "project.settings",
+   "refs": [
+    [
+     319,
+     "onInput",
+     "it.edit"
+    ]
+   ],
+   "refDef": "628",
+   "refKind": "state",
+   "action": "Inline edit setting value",
+   "impl": "src/desktop-v3/ProjectMemoryPanel.tsx:editSetting (onChange -> mutate)",
+   "test": "unverified (project-memory.spec covers rules/decisions only)",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": "",
+   "diff": "reference: 6 demo sections saved to .opora/project.json; impl: flat key/value with add/remove via /api/desktop-v3/state (contract)"
+  },
+  {
+   "id": "V3-PRJ-022",
+   "area": "project.rules",
+   "refs": [
+    [
+     328,
+     "onClick",
+     "r.remove"
+    ]
+   ],
+   "refDef": "557",
+   "refKind": "state",
+   "action": "Remove rule",
+   "impl": "src/desktop-v3/ProjectMemoryPanel.tsx:removeRule",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-023",
+   "area": "project.rules",
+   "refs": [
+    [
+     329,
+     "onInput",
+     "newRuleInput"
+    ],
+    [
+     329,
+     "onClick",
+     "addRuleProject"
+    ],
+    [
+     329,
+     "onClick",
+     "addRulePath"
+    ]
+   ],
+   "refDef": "666 (addRule 558)",
+   "refKind": "state",
+   "action": "New rule, 'NE:' prefix = must_not, scope project or path",
+   "impl": "src/desktop-v3/ProjectMemoryPanel.tsx:addRule + scope select",
+   "test": "e2e-v3-panels/project-memory.spec.ts:15",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "two scope buttons -> select + one button; contract scope 'node' not creatable anywhere in UI"
+  },
+  {
+   "id": "V3-PRJ-024",
+   "area": "project.rules",
+   "refs": [
+    [
+     329,
+     "onKeyDown",
+     "newRuleKey"
+    ]
+   ],
+   "refDef": "666",
+   "refKind": "keyboard",
+   "action": "Enter adds rule with project scope",
+   "impl": "src/desktop-v3/ProjectMemoryPanel.tsx:onKeyDown Enter -> addRule (selected scope)",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-025",
+   "area": "project.decisions",
+   "refs": [
+    [
+     337,
+     "onInput",
+     "newDecInput"
+    ],
+    [
+     337,
+     "onClick",
+     "addDec"
+    ]
+   ],
+   "refDef": "667 (addDecision 559)",
+   "refKind": "state",
+   "action": "Record pinned decision bound to selected path",
+   "impl": "src/desktop-v3/ProjectMemoryPanel.tsx:addDecision",
+   "test": "e2e-v3-panels/project-memory.spec.ts:15",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-026",
+   "area": "project.decisions",
+   "refs": [
+    [
+     337,
+     "onKeyDown",
+     "newDecKey"
+    ]
+   ],
+   "refDef": "667",
+   "refKind": "keyboard",
+   "action": "Enter records decision",
+   "impl": "src/desktop-v3/ProjectMemoryPanel.tsx:onKeyDown Enter",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-PRJ-027",
+   "area": "project.decisions",
+   "refs": [
+    [
+     338,
+     "onClick",
+     "d.open"
+    ]
+   ],
+   "refDef": "629",
+   "refKind": "state",
+   "action": "Decision path chip opens path documentation",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "Path shown as non-interactive chip"
+  },
+  {
+   "id": "V3-PRJ-028",
+   "area": "project.decisions",
+   "refs": [
+    [
+     338,
+     "onClick",
+     "d.togglePin"
+    ]
+   ],
+   "refDef": "629",
+   "refKind": "state",
+   "action": "Pin / unpin decision",
+   "impl": "src/desktop-v3/ProjectMemoryPanel.tsx:togglePin",
+   "test": "e2e-v3-panels/project-memory.spec.ts:45",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-SHELF-001",
+   "area": "shelf",
+   "refs": [
+    [
+     345,
+     "onDragOver",
+     "dragOver"
+    ],
+    [
+     345,
+     "onDragLeave",
+     "dragLeave"
+    ],
+    [
+     345,
+     "onDrop",
+     "drop"
+    ],
+    [
+     356,
+     "onDragOver",
+     "dragOver"
+    ],
+    [
+     356,
+     "onDragLeave",
+     "dragLeave"
+    ],
+    [
+     356,
+     "onDrop",
+     "drop"
+    ]
+   ],
+   "refDef": "645",
+   "refKind": "state",
+   "action": "Drop zone (Projekt right shelf, Editor left shelf) with over-highlight",
+   "impl": "src/ContextShelf.tsx:onDragOver/onDrop (scope-checked)",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "No dragLeave/over highlight state; drop untested"
+  },
+  {
+   "id": "V3-SHELF-002",
+   "area": "shelf",
+   "refs": [
+    [
+     346,
+     "onClick",
+     "s.remove"
+    ],
+    [
+     357,
+     "onClick",
+     "s.remove"
+    ]
+   ],
+   "refDef": "610",
+   "refKind": "state",
+   "action": "Remove reference",
+   "impl": "src/ContextShelf.tsx:× onClick",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-SHELF-003",
+   "area": "shelf",
+   "refs": [
+    [
+     346,
+     "onClick",
+     "s.open"
+    ],
+    [
+     357,
+     "onClick",
+     "s.open"
+    ]
+   ],
+   "refDef": "610 (goPath 592)",
+   "refKind": "state",
+   "action": "Open reference path in Projekt",
+   "impl": "src/ContextShelf.tsx:onOpen (Projekt: document view; Editor: App.tsx:521 opens WorkspaceDocumentEditor inside Editor)",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": "",
+   "diff": "from Editor the path opens in Editor document view, not by switching to Projekt"
+  },
+  {
+   "id": "V3-SHELF-004",
+   "area": "shelf",
+   "refs": [
+    [
+     347,
+     "onClick",
+     "toEditor"
+    ]
+   ],
+   "refDef": "637",
+   "refKind": "state",
+   "action": "'Přejít do Editoru s tímto kontextem'",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No inline CTA (top-bar switch only)"
+  },
+  {
+   "id": "V3-SHELF-005",
+   "area": "shelf",
+   "refs": [
+    [
+     361,
+     "onClick",
+     "toProject"
+    ]
+   ],
+   "refDef": "637",
+   "refKind": "state",
+   "action": "'Vybrat další cesty v Projektu'",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No inline CTA (top-bar switch only)"
+  },
+  {
+   "id": "V3-SHELF-006",
+   "area": "shelf",
+   "refs": [
+    [
+     358,
+     "onInput",
+     "onType"
+    ]
+   ],
+   "refDef": "651",
+   "refKind": "state",
+   "action": "'Přidat poznámku / teorii / zadání' creates block in current layer",
+   "impl": "src/ContextShelf.tsx:'Poznámka ke kontextu' -> selection.note (packet note)",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "Does not create a block in the current layer"
+  },
+  {
+   "id": "V3-KEY-001",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "543",
+   "refKind": "keyboard",
+   "action": "Esc closes slash menu / launch modal",
+   "impl": "src/BlockOutline.tsx:161; src/TopBar.tsx:54; src/DesktopThemeControls.tsx:73",
+   "test": "e2e/natural-canvas.spec.ts:19; e2e/removals.spec.ts:99",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-KEY-002",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "544-546 (hint 236)",
+   "refKind": "keyboard",
+   "action": "Alt+1/2/3 switch mode",
+   "impl": "src/EnvironmentSwitch.tsx:13-21",
+   "test": "unverified (no Alt+ press in any e2e source)",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-KEY-003",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "547 (hint 274)",
+   "refKind": "keyboard",
+   "action": "Live: digits 1-7 select detail tab",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No digit shortcuts; tablist has no arrow-key navigation either"
+  },
+  {
+   "id": "V3-KEY-004",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "hint 260",
+   "refKind": "keyboard",
+   "action": "Projekt: '/' focuses tree search",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No '/' shortcut"
+  },
+  {
+   "id": "V3-KEY-005",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "hint 264",
+   "refKind": "keyboard",
+   "action": "Canvas: double-click new node / rename, Enter enters node, Del deletes with preview",
+   "impl": "src/Board.tsx:174 onDoubleClickCapture, :74 rename, :203 onNodeDoubleClick->onEnter; src/RemovalDialog.tsx",
+   "test": "e2e/clean-workspace.spec.ts:21 (dblclick create); e2e/natural-canvas.spec.ts:19; e2e/removals.spec.ts:25",
+   "status": "PARTIAL",
+   "missing": "Enter-key to enter node not found (Enter only commits rename, Board.tsx:66); Del key on canvas unverified"
+  },
+  {
+   "id": "V3-KEY-006",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "hint 265",
+   "refKind": "keyboard",
+   "action": "Text: Enter block, Tab/Shift+Tab, '/', '[[', Ctrl+Enter task, Ctrl+S save",
+   "impl": "src/BlockOutline.tsx:161-197; src/NodeTextEditor.tsx:89 (Ctrl+S)",
+   "test": "e2e/natural-canvas.spec.ts:19; e2e/natural-edit-safety.spec.ts:111",
+   "status": "PARTIAL",
+   "missing": "Ctrl+S has no test source; Ctrl+S not in BlockOutline (blocks autosave)"
+  },
+  {
+   "id": "V3-KEY-007",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "hint 266",
+   "refKind": "keyboard",
+   "action": "Draw: V select, R rectangle, Esc back to canvas",
+   "impl": "src/DrawingWorkspace.tsx (Excalidraw native shortcuts)",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "'Esc back to canvas' mode switch not found; V/R rely on Excalidraw, unverified"
+  },
+  {
+   "id": "V3-KEY-008",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "hint 267",
+   "refKind": "keyboard",
+   "action": "Graph: double-click opens node in canvas",
+   "impl": "src/ProjectMap.tsx:115 onNodeDoubleClick",
+   "test": "e2e/workspace-modes.spec.ts:45",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-KEY-009",
+   "area": "keyboard",
+   "refs": [],
+   "refDef": "hint 274",
+   "refKind": "keyboard",
+   "action": "Live: ArrowUp/Down select session",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No session list keyboard navigation"
+  },
+  {
+   "id": "V3-GLB-001",
+   "area": "global",
+   "refs": [],
+   "refDef": "502 startMode, 551 componentDidUpdate",
+   "refKind": "prop",
+   "action": "Start mode",
+   "impl": "src/App.tsx:60-66 resolveInitialModeEnvironment (?environment=)",
+   "test": "e2e/v2-ui-review.spec.ts:11",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-GLB-002",
+   "area": "global",
+   "refs": [],
+   "refDef": "502 density, 598",
+   "refKind": "prop",
+   "action": "Density compact/normal/airy",
+   "impl": "src/DesktopThemeControls.tsx:setAppearance({density})",
+   "test": "e2e-v3-shell/shell.spec.ts:51",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-GLB-003",
+   "area": "global",
+   "refs": [],
+   "refDef": "502 accent, 599",
+   "refKind": "prop",
+   "action": "Accent colour (4 options)",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No accent chooser",
+   "diff": "CONTRACT.md requires OPORA gold/teal tokens and mentions only density as tweak; coordinator decision needed, not silently dropped"
+  },
+  {
+   "id": "V3-GLB-004",
+   "area": "global",
+   "refs": [],
+   "refDef": "502 agentMode, 597",
+   "refKind": "prop",
+   "action": "agentMode simulace / demo-offline (hide demo labels)",
+   "impl": null,
+   "test": "n/a",
+   "status": "DEMO_EXCLUDED",
+   "missing": "",
+   "diff": "CONTRACT.md: no demo sessions, no hiding demo labels"
+  },
+  {
+   "id": "V3-GLB-005",
+   "area": "global",
+   "refs": [],
+   "refDef": "(not in reference; CONTRACT.md UX)",
+   "refKind": "prop",
+   "action": "Light/dark theme without first flash",
+   "impl": "src/DesktopThemeControls.tsx:setAppearance({theme}) + index.html bootstrap",
+   "test": "e2e-v3-shell/shell.spec.ts:22",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "contract addition"
+  },
+  {
+   "id": "V3-GLB-006",
+   "area": "global",
+   "refs": [],
+   "refDef": "553 toast, 498",
+   "refKind": "display",
+   "action": "Toast feedback",
+   "impl": "per-component role=status messages (ProjectWorkspace.tsx:34, ContextShelf.tsx:29)",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-GLB-007",
+   "area": "global",
+   "refs": [],
+   "refDef": "236 pbar; 506-539 seeded state/sessions/docs/nodes; 514 settings",
+   "refKind": "display",
+   "action": "Illustrative demo data and prototype banner",
+   "impl": null,
+   "test": "n/a",
+   "status": "DEMO_EXCLUDED",
+   "missing": "",
+   "diff": "CONTRACT.md: empty defaults, no demo data"
+  },
+  {
+   "id": "V3-TOP-005",
+   "area": "topbar",
+   "refs": [],
+   "refDef": "247-249",
+   "refKind": "display",
+   "action": "Top-bar shared context count chip, shared selection chip, draft/saving status pill",
+   "impl": "count only inside src/ContextShelf.tsx:28 (not in top bar)",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "No top-bar context count, shared selection label or draft/saving pill"
+  },
+  {
+   "id": "V3-ED-001",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     263,
+     "onClick",
+     "vCanvas"
+    ],
+    [
+     263,
+     "onClick",
+     "vText"
+    ],
+    [
+     263,
+     "onClick",
+     "vDraw"
+    ],
+    [
+     263,
+     "onClick",
+     "vGraph"
+    ]
+   ],
+   "refDef": "646",
+   "refKind": "state",
+   "action": "Views Plátno / Text / Kreslení / Graf",
+   "impl": "src/ModeRail.tsx (editorOnly) onMode; src/App.tsx:502",
+   "test": "e2e/workspace-modes.spec.ts:9",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "impl adds 'Dokumentace' view (App.tsx:503)"
+  },
+  {
+   "id": "V3-ED-002",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     264,
+     "onClick",
+     "newNode"
+    ]
+   ],
+   "refDef": "648",
+   "refKind": "toast-mock",
+   "action": "+ Uzel",
+   "impl": "src/App.tsx:507 open('node') creation dialog",
+   "test": "e2e/canvas.spec.ts:2; e2e-source-creation/source-creation.spec.ts:21",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-003",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     264,
+     "onClick",
+     "newSector"
+    ]
+   ],
+   "refDef": "648",
+   "refKind": "toast-mock",
+   "action": "+ Sektor",
+   "impl": "src/App.tsx:506 open('sector')",
+   "test": "e2e-source-creation/source-creation.spec.ts:21; :123",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-004",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     264,
+     "onClick",
+     "enterHint"
+    ]
+   ],
+   "refDef": "648",
+   "refKind": "toast-mock",
+   "action": "Zanořit (enter node's inner canvas)",
+   "impl": "src/NodePanel.tsx:86 onEnter; src/Board.tsx:203 dblclick",
+   "test": "e2e/canvas.spec.ts:2",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "in inspector, not canvas toolbar"
+  },
+  {
+   "id": "V3-ED-005",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     264,
+     "onClick",
+     "connectHint"
+    ],
+    [
+     267,
+     "onClick",
+     "connectHint"
+    ]
+   ],
+   "refDef": "648",
+   "refKind": "toast-mock",
+   "action": "Propojit / Propojit výběrem",
+   "impl": "src/Board.tsx:205 onConnect; src/MapTools.tsx:58 'Propojit uzly'",
+   "test": "e2e/workspace-modes.spec.ts:84",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-006",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     264,
+     "onClick",
+     "agentPrep"
+    ]
+   ],
+   "refDef": "650",
+   "refKind": "state",
+   "action": "Canvas 'Úkol pro agenta' (prepare scope, open Práce tab, nothing starts)",
+   "impl": "src/App.tsx:516 'Podklady pro agenta' -> EditorWorkbench packet pane",
+   "test": "e2e-v3-shell/shell.spec.ts:92",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "opens workbench instead of inspector Práce tab"
+  },
+  {
+   "id": "V3-ED-007",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     265,
+     "onClick",
+     "openSlash"
+    ]
+   ],
+   "refDef": "650",
+   "refKind": "state",
+   "action": "'/ Příkazy' toolbar button",
+   "impl": "src/BlockOutline.tsx slash palette (typing '/')",
+   "test": "e2e/natural-canvas.spec.ts:19",
+   "status": "PARTIAL",
+   "missing": "No toolbar button; keyboard entry only"
+  },
+  {
+   "id": "V3-ED-008",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     265,
+     "onClick",
+     "linkHint"
+    ]
+   ],
+   "refDef": "648",
+   "refKind": "toast-mock",
+   "action": "'[[ Odkaz' toolbar button",
+   "impl": "src/block-commands.ts:linkQuery/completeLink via BlockOutline",
+   "test": "e2e/natural-canvas.spec.ts:19",
+   "status": "PARTIAL",
+   "missing": "No toolbar button; typing '[[' only"
+  },
+  {
+   "id": "V3-ED-009",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     265,
+     "onClick",
+     "journalHint"
+    ]
+   ],
+   "refDef": "648",
+   "refKind": "toast-mock",
+   "action": "'Deník dnes'",
+   "impl": "src/NodeJournal.tsx:166 'Dnes'",
+   "test": "e2e/natural-canvas.spec.ts:19; e2e/journal-scope-regression.spec.ts:3",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "inside inspector Deník tab"
+  },
+  {
+   "id": "V3-ED-010",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     265,
+     "onClick",
+     "agentPrep"
+    ]
+   ],
+   "refDef": "650",
+   "refKind": "state",
+   "action": "'Úkol z bloku'",
+   "impl": "src/BlockOutline.tsx:178 Ctrl+Enter -> src/App.tsx:305 requestAgentTask",
+   "test": "e2e/natural-canvas.spec.ts:19",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "keyboard/slash entry, no toolbar button"
+  },
+  {
+   "id": "V3-ED-011",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     265,
+     "onClick",
+     "saveNow"
+    ]
+   ],
+   "refDef": "653",
+   "refKind": "state",
+   "action": "Text 'Uložit' (reference fakes save after 0.9s)",
+   "impl": "autosave in BlockOutline/NodeJournal; src/NodeTextEditor.tsx:89 Ctrl+S",
+   "test": "e2e/fractal-text.spec.ts:3; e2e/natural-edit-safety.spec.ts:36",
+   "status": "PARTIAL",
+   "missing": "No explicit Save button in text toolbar"
+  },
+  {
+   "id": "V3-ED-012",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     266,
+     "onClick",
+     "drawHint"
+    ]
+   ],
+   "refDef": "648",
+   "refKind": "toast-mock",
+   "action": "Draw tools Výběr / Obdélník / Šipka / Text / Wireframe blok (5 occurrences, one key)",
+   "impl": "src/DrawingTools.tsx; src/WireframeTools.tsx",
+   "test": "e2e/drawing.spec.ts:9; e2e/wireframe.spec.ts:90",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-013",
+   "area": "editor.toolbar",
+   "refs": [
+    [
+     267,
+     "onClick",
+     "exportHint"
+    ]
+   ],
+   "refDef": "648",
+   "refKind": "toast-mock",
+   "action": "Export pro Archify",
+   "impl": "src/MapTools.tsx:61 downloadArchify",
+   "test": "e2e/workspace-modes.spec.ts:45",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-014",
+   "area": "editor.stage",
+   "refs": [
+    [
+     365,
+     "onClick",
+     "noop"
+    ]
+   ],
+   "refDef": "647",
+   "refKind": "noop",
+   "action": "Breadcrumb 'Projekt'",
+   "impl": "src/App.tsx:525 enter(null)",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-015",
+   "area": "editor.canvas",
+   "refs": [
+    [
+     372,
+     "onClick",
+     "n.select"
+    ]
+   ],
+   "refDef": "611",
+   "refKind": "state",
+   "action": "Select node",
+   "impl": "src/Board.tsx:200 onNodeClick",
+   "test": "e2e/canvas.spec.ts:2",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-016",
+   "area": "editor.canvas",
+   "refs": [
+    [
+     373,
+     "onInput",
+     "onType"
+    ]
+   ],
+   "refDef": "651",
+   "refKind": "state",
+   "action": "Inline node name edit",
+   "impl": "src/Board.tsx:66-74 rename",
+   "test": "e2e/natural-canvas.spec.ts:19",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-017",
+   "area": "editor.canvas",
+   "refs": [
+    [
+     375,
+     "onClick",
+     "n.openSrc"
+    ]
+   ],
+   "refDef": "611",
+   "refKind": "state",
+   "action": "Node source chip opens path in Projekt (unmapped -> notice)",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "Board cards have no source chip; NodePanel.tsx:80 badge is non-interactive"
+  },
+  {
+   "id": "V3-ED-018",
+   "area": "editor.text",
+   "refs": [
+    [
+     385,
+     "onInput",
+     "onType"
+    ],
+    [
+     385,
+     "onKeyDown",
+     "onBlockKey"
+    ]
+   ],
+   "refDef": "651-652",
+   "refKind": "state",
+   "action": "Text blocks edit; Ctrl+Enter task, Tab indent",
+   "impl": "src/BlockOutline.tsx:161-197 (TextWorkspace)",
+   "test": "e2e/natural-canvas.spec.ts:19; e2e/fractal-text.spec.ts:3",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-019",
+   "area": "editor.text",
+   "refs": [
+    [
+     385,
+     "onClick",
+     "b.open"
+    ]
+   ],
+   "refDef": "649",
+   "refKind": "state",
+   "action": "Block reference '↗ path' opens Projekt",
+   "impl": "src/block-commands.ts:linkParts ([[node]] -> onOpenNode)",
+   "test": "e2e/live-links-regression.spec.ts:4 (node links)",
+   "status": "PARTIAL",
+   "missing": "Links resolve to nodes only; path citation links absent"
+  },
+  {
+   "id": "V3-ED-020",
+   "area": "editor.text",
+   "refs": [
+    [
+     386,
+     "onClick",
+     "closeSlash"
+    ]
+   ],
+   "refDef": "650",
+   "refKind": "state",
+   "action": "Slash item 'Odkaz na uzel [['",
+   "impl": "src/block-commands.ts SLASH_COMMANDS 'link'",
+   "test": "e2e/natural-canvas.spec.ts:19",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-021",
+   "area": "editor.text",
+   "refs": [
+    [
+     386,
+     "onClick",
+     "closeSlash"
+    ]
+   ],
+   "refDef": "650",
+   "refKind": "state",
+   "action": "Slash item 'Citovat cestu z kontextu /cesta'",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No path-citation command in SLASH_COMMANDS"
+  },
+  {
+   "id": "V3-ED-022",
+   "area": "editor.text",
+   "refs": [
+    [
+     386,
+     "onClick",
+     "closeSlash"
+    ]
+   ],
+   "refDef": "650",
+   "refKind": "state",
+   "action": "Slash item 'Dnešní datum do deníku /dnes'",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No date command in SLASH_COMMANDS"
+  },
+  {
+   "id": "V3-ED-023",
+   "area": "editor.text",
+   "refs": [
+    [
+     386,
+     "onClick",
+     "agentPrep"
+    ]
+   ],
+   "refDef": "650",
+   "refKind": "state",
+   "action": "Slash item 'Připravit úkol pro agenta z bloku'",
+   "impl": "src/block-commands.ts SLASH_COMMANDS 'agent' -> App.requestAgentTask",
+   "test": "e2e/natural-canvas.spec.ts:19",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-ED-024",
+   "area": "editor.text",
+   "refs": [
+    [
+     390,
+     "onInput",
+     "onType"
+    ]
+   ],
+   "refDef": "651",
+   "refKind": "state",
+   "action": "Journal blocks (2 occurrences, one key)",
+   "impl": "src/NodeJournal.tsx (BlockOutline testId journal-blocks)",
+   "test": "e2e/natural-edit-safety.spec.ts:75; e2e/journal-scope-regression.spec.ts:3",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "journal lives in inspector/LayerContext, not below text view"
+  },
+  {
+   "id": "V3-ED-025",
+   "area": "editor.graph",
+   "refs": [
+    [
+     396,
+     "onClick",
+     "g.a"
+    ],
+    [
+     396,
+     "onClick",
+     "g.b"
+    ]
+   ],
+   "refDef": "614",
+   "refKind": "state",
+   "action": "Graph edge endpoints select node and open canvas",
+   "impl": "src/ProjectMap.tsx:114 onNodeClick, :115 onNodeDoubleClick",
+   "test": "e2e/workspace-modes.spec.ts:45",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "ReactFlow map instead of edge list"
+  },
+  {
+   "id": "V3-ED-026",
+   "area": "editor.draw",
+   "refs": [],
+   "refDef": "393",
+   "refKind": "display",
+   "action": "Drawing/wireframe surface",
+   "impl": "src/DrawingWorkspace.tsx",
+   "test": "e2e/drawing.spec.ts:9",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-INS-001",
+   "area": "inspector",
+   "refs": [
+    [
+     401,
+     "onClick",
+     "node.openSrc"
+    ]
+   ],
+   "refDef": "611",
+   "refKind": "state",
+   "action": "Inspector source chip opens path in Projekt",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "src/NodePanel.tsx:80 source badge is text only"
+  },
+  {
+   "id": "V3-INS-002",
+   "area": "inspector",
+   "refs": [
+    [
+     401,
+     "onClick",
+     "node.openRun"
+    ],
+    [
+     437,
+     "onClick",
+     "node.openRun"
+    ]
+   ],
+   "refDef": "611",
+   "refKind": "state",
+   "action": "'↗ run' from node to Live run",
+   "impl": "src/NodeActivity.tsx bindings -> focusRun (advanced Dohled běhů)",
+   "test": "e2e/clean-workspace.spec.ts:131",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "opens advanced runs view, not v3 LiveWorkspacePanel"
+  },
+  {
+   "id": "V3-INS-003",
+   "area": "inspector.lifecycle",
+   "refs": [
+    [
+     402,
+     "onClick",
+     "p.pick"
+    ]
+   ],
+   "refDef": "564 (phases 512)",
+   "refKind": "state",
+   "action": "Lifecycle phase chips (reference: click opens Zadání tab)",
+   "impl": "src/desktop-v3/NodeWorkflowPanel.tsx:goToEarlierPhase",
+   "test": "e2e-v3-panels/node-workflow.spec.ts:39",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "CONTRACT DIFFERENCE: reference 7 phases objev/plan/skeleton/build/test/refaktor/live (line 512) vs CONTRACT.md 5 phases discover/define/build/verify/live; impl follows contract. Click semantics differ (impl moves back a phase). Needs explicit coordinator/user decision."
+  },
+  {
+   "id": "V3-INS-004",
+   "area": "inspector",
+   "refs": [
+    [
+     403,
+     "onClick",
+     "tabContent"
+    ],
+    [
+     403,
+     "onClick",
+     "tabSpec"
+    ],
+    [
+     403,
+     "onClick",
+     "tabWork"
+    ]
+   ],
+   "refDef": "654",
+   "refKind": "state",
+   "action": "Tabs Obsah / Zadání / Práce",
+   "impl": "src/NodePanel.tsx:10-12 tabs",
+   "test": "e2e/inspector-keyboard.spec.ts:3; e2e/clean-workspace.spec.ts:68",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-INS-005",
+   "area": "inspector.content",
+   "refs": [
+    [
+     406,
+     "onInput",
+     "onType"
+    ],
+    [
+     407,
+     "onClick",
+     "saveNow"
+    ]
+   ],
+   "refDef": "651, 653",
+   "refKind": "state",
+   "action": "Node content blocks + Uložit",
+   "impl": "src/NodePanel.tsx content BlockOutline (autosave)",
+   "test": "e2e/natural-edit-safety.spec.ts:36",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "autosave instead of explicit button"
+  },
+  {
+   "id": "V3-INS-006",
+   "area": "inspector.content",
+   "refs": [
+    [
+     408,
+     "onClick",
+     "l.open"
+    ]
+   ],
+   "refDef": "611",
+   "refKind": "state",
+   "action": "Souvislosti link chips select linked node",
+   "impl": "src/NodeLinksPanel.tsx",
+   "test": "e2e/live-links-regression.spec.ts:4; e2e/clean-workspace.spec.ts:93",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-INS-007",
+   "area": "inspector.spec",
+   "refs": [
+    [
+     412,
+     "onInput",
+     "onType"
+    ],
+    [
+     413,
+     "onInput",
+     "onType"
+    ],
+    [
+     414,
+     "onInput",
+     "onType"
+    ],
+    [
+     415,
+     "onClick",
+     "saveNow"
+    ]
+   ],
+   "refDef": "651, 653",
+   "refKind": "state",
+   "action": "Cíl / Co není součástí / Kritéria dokončení + Uložit zadání",
+   "impl": "src/NodeSpecEditor.tsx:12-15 FIELDS, :87 save",
+   "test": "e2e/node-spec.spec.ts:8",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-INS-008",
+   "area": "inspector.lifecycle",
+   "refs": [
+    [
+     417,
+     "onChange",
+     "c.toggle"
+    ]
+   ],
+   "refDef": "565 (critByPhase 513)",
+   "refKind": "state",
+   "action": "Phase criteria checkbox",
+   "impl": "src/desktop-v3/NodeWorkflowPanel.tsx:toggleCriterion",
+   "test": "e2e-v3-panels/node-workflow.spec.ts:16; :74",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "reference fixed per-phase criteria templates; impl user-authored criteria (contract) with add/remove"
+  },
+  {
+   "id": "V3-INS-009",
+   "area": "inspector.lifecycle",
+   "refs": [
+    [
+     418,
+     "onClick",
+     "node.advance"
+    ]
+   ],
+   "refDef": "568",
+   "refKind": "state",
+   "action": "Advance phase when all criteria done; writes phase-handoff decision to timeline",
+   "impl": "src/desktop-v3/NodeWorkflowPanel.tsx:advance",
+   "test": "e2e-v3-panels/node-workflow.spec.ts:16",
+   "status": "PARTIAL",
+   "missing": "No decision written on advance (reference kind 'hand' entry)"
+  },
+  {
+   "id": "V3-INS-010",
+   "area": "inspector.steps",
+   "refs": [
+    [
+     420,
+     "onChange",
+     "st.toggle"
+    ]
+   ],
+   "refDef": "566",
+   "refKind": "state",
+   "action": "Build step done",
+   "impl": "src/desktop-v3/NodeWorkflowPanel.tsx:toggleStep",
+   "test": "e2e-v3-panels/node-workflow.spec.ts:57",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-INS-011",
+   "area": "inspector.steps",
+   "refs": [
+    [
+     420,
+     "onClick",
+     "st.remove"
+    ]
+   ],
+   "refDef": "566",
+   "refKind": "state",
+   "action": "Remove build step",
+   "impl": "src/desktop-v3/NodeWorkflowPanel.tsx:removeStep",
+   "test": "e2e-v3-panels/node-workflow.spec.ts:57",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-INS-012",
+   "area": "inspector.steps",
+   "refs": [
+    [
+     421,
+     "onInput",
+     "newStepInput"
+    ],
+    [
+     421,
+     "onKeyDown",
+     "newStepKey"
+    ]
+   ],
+   "refDef": "668",
+   "refKind": "state",
+   "action": "New step, Enter adds (assignee 'nepřiřazeno')",
+   "impl": "src/desktop-v3/NodeWorkflowPanel.tsx:addStep (Enter only on assignee input, :223)",
+   "test": "e2e-v3-panels/node-workflow.spec.ts:57",
+   "status": "PARTIAL",
+   "missing": "Enter in the step text input does not add"
+  },
+  {
+   "id": "V3-INS-013",
+   "area": "inspector.work",
+   "refs": [
+    [
+     432,
+     "onClick",
+     "packetNode"
+    ]
+   ],
+   "refDef": "660",
+   "refKind": "state",
+   "action": "'Zobrazit JSON balíček' for node",
+   "impl": "src/App.tsx:516 + src/desktop-v3/AgentPacketPanel.tsx:buildPreview",
+   "test": "e2e-v3-panels/agent-packet.spec.ts:8; e2e-v3-shell/shell.spec.ts:92",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "workbench pane with preview->snapshot instead of modal"
+  },
+  {
+   "id": "V3-INS-014",
+   "area": "inspector.work",
+   "refs": [],
+   "refDef": "424-434",
+   "refKind": "display",
+   "action": "Práce tab pipeline (Zadání/Kontext/Nástroje/Iterace) + rules affecting node",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No per-node rule list or pipeline summary in inspector (rules only inside packet manifest)"
+  },
+  {
+   "id": "V3-INS-015",
+   "area": "inspector.work",
+   "refs": [
+    [
+     435,
+     "onClick",
+     "openLaunch"
+    ],
+    [
+     493,
+     "onChange",
+     "toggleLaunchOk"
+    ],
+    [
+     493,
+     "onClick",
+     "closeLaunch"
+    ],
+    [
+     493,
+     "onClick",
+     "confirmLaunch"
+    ]
+   ],
+   "refDef": "655",
+   "refKind": "demo-sim",
+   "action": "Launch agent: modal, explicit consent, simulated session",
+   "impl": "src/desktop-v3/AgentPacketPanel.tsx prepare -> approve checkbox (:380) -> 'Potvrdit a spustit' (:386 startHandoff)",
+   "test": "e2e-document-task/document-task.spec.ts:21; e2e-v3-panels/agent-packet.spec.ts:153",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "real documentation-only run replaces simulation; general coding not extended (CONTRACT.md)"
+  },
+  {
+   "id": "V3-LIVE-001",
+   "area": "live.toolbar",
+   "refs": [
+    [
+     270,
+     "onClick",
+     "f.pick"
+    ]
+   ],
+   "refDef": "620",
+   "refKind": "state",
+   "action": "State filter Vše/Běží/Čeká/Blokováno/Dokončeno",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:stateFilters Vše/Běží/Dokončeno/Problémy",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "Čeká and Blokováno filters; filter has no test source"
+  },
+  {
+   "id": "V3-LIVE-002",
+   "area": "live.toolbar",
+   "refs": [],
+   "refDef": "271",
+   "refKind": "display",
+   "action": "Source chips",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:135 live-source-health",
+   "test": "e2e-v3-panels/live-workspace.spec.ts:8",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-LIVE-003",
+   "area": "live.toolbar",
+   "refs": [
+    [
+     271,
+     "onClick",
+     "refreshHint"
+    ]
+   ],
+   "refDef": "656",
+   "refKind": "toast-mock",
+   "action": "Obnovit (jen čtení)",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:136 setRefresh",
+   "test": "e2e-v3-panels/live-desktop.spec.ts:39",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-LIVE-004",
+   "area": "live.toolbar",
+   "refs": [
+    [
+     272,
+     "onInput",
+     "histInput"
+    ]
+   ],
+   "refDef": "670",
+   "refKind": "state",
+   "action": "History search (id, task, worker, model, events, tickets)",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:141 search onChange",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-LIVE-005",
+   "area": "live.session",
+   "refs": [
+    [
+     273,
+     "onClick",
+     "sesToEditor"
+    ],
+    [
+     457,
+     "onClick",
+     "ses.openNode"
+    ]
+   ],
+   "refDef": "656, 621",
+   "refKind": "state",
+   "action": "Open session's node in Editor",
+   "impl": "only advanced view: src/App.tsx:551 AgentsWorkspace onOpenNode",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "LiveWorkspacePanel has no navigation callback; node id is plain text"
+  },
+  {
+   "id": "V3-LIVE-006",
+   "area": "live.session",
+   "refs": [
+    [
+     273,
+     "onClick",
+     "sesToPath"
+    ],
+    [
+     457,
+     "onClick",
+     "ses.openPath"
+    ]
+   ],
+   "refDef": "656, 621",
+   "refKind": "state",
+   "action": "Open session's path in Projekt",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "No session->path navigation"
+  },
+  {
+   "id": "V3-LIVE-007",
+   "area": "live.session",
+   "refs": [
+    [
+     273,
+     "onClick",
+     "bindHint"
+    ],
+    [
+     450,
+     "onClick",
+     "bindHint"
+    ]
+   ],
+   "refDef": "656",
+   "refKind": "toast-mock",
+   "action": "Bind run to node (explicit)",
+   "impl": "src/AgentsWorkspace.tsx:160 POST /api/agents/bindings; src/NodeActivity.tsx:74",
+   "test": "e2e/v2-ui-review.spec.ts:46",
+   "status": "PARTIAL",
+   "missing": "Not reachable from v3 Live overview; unbound-runs list only in Dohled běhů"
+  },
+  {
+   "id": "V3-LIVE-008",
+   "area": "live.session",
+   "refs": [
+    [
+     273,
+     "onClick",
+     "packetSession"
+    ]
+   ],
+   "refDef": "660 (buildPacket session 587)",
+   "refKind": "state",
+   "action": "Session handoff packet for next agent",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:85 readContext (exact handoff export) + download",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "No next-agent handoff packet (pinned decisions, rules, open tickets); planning runs have none"
+  },
+  {
+   "id": "V3-LIVE-009",
+   "area": "live.sessions",
+   "refs": [
+    [
+     447,
+     "onClick",
+     "s.select"
+    ]
+   ],
+   "refDef": "619",
+   "refKind": "state",
+   "action": "Select session",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:144",
+   "test": "e2e-v3-panels/live-desktop.spec.ts:7",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-LIVE-010",
+   "area": "live.detail",
+   "refs": [
+    [
+     458,
+     "onClick",
+     "dEv"
+    ],
+    [
+     458,
+     "onClick",
+     "dEvid"
+    ],
+    [
+     458,
+     "onClick",
+     "dCost"
+    ],
+    [
+     458,
+     "onClick",
+     "dMem"
+    ],
+    [
+     458,
+     "onClick",
+     "dCtl"
+    ],
+    [
+     458,
+     "onClick",
+     "dTk"
+    ],
+    [
+     458,
+     "onClick",
+     "dCtx"
+    ]
+   ],
+   "refDef": "657, 671",
+   "refKind": "state",
+   "action": "Seven detail tabs",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:156",
+   "test": "e2e-v3-panels/live-desktop.spec.ts:7",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-LIVE-011",
+   "area": "live.controls",
+   "refs": [
+    [
+     463,
+     "onClick",
+     "c.run"
+    ]
+   ],
+   "refDef": "621",
+   "refKind": "toast-mock",
+   "action": "STOP control",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:93 confirmStop (/api/llm/stop, /api/task-handoffs/{id}/stop)",
+   "test": "e2e-v3-panels/live-desktop.spec.ts:84; :54; :72",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-LIVE-012",
+   "area": "live.controls",
+   "refs": [
+    [
+     463,
+     "onClick",
+     "c.run"
+    ]
+   ],
+   "refDef": "621 (ctl 535)",
+   "refKind": "toast-mock",
+   "action": "CONTINUE / CORRECT / ESCALATE / COMPLETE decisions",
+   "impl": "disabled placeholders src/desktop-v3/LiveWorkspacePanel.tsx:129",
+   "test": "n/a",
+   "status": "MISSING_REPO_TRANSPORT",
+   "missing": "Disabled placeholder = missing. CONTINUE/CORRECT: candidate claude --resume <id> -p for Claude CLI sessions (unverified). ESCALATE/COMPLETE are OPORA-local decisions that need no provider transport.",
+   "evidence": "backend/agent_routes.py:44-83 only sources/runs/unbound/bindings/activity; backend/task_handoff_routes.py:9-33 capabilities/prepare/list/export/get/start/stop; backend/agent_sources.py:226-227 continue/stop/correct/fork/btw supported=False. Reference cites external OporaCC POST /api/run/{run_id}/decision - not present or verifiable in this repo. claude 2.1.267 on PATH (C:/Users/Admin/.local/bin/claude); `claude --help` lists -p/--print, --resume <session-id>, -c/--continue, --fork-session, --output-format stream-json, --allowedTools, --add-dir (help text only, no model started)",
+   "supersededStatus": "BLOCKED_NO_TRANSPORT"
+  },
+  {
+   "id": "V3-LIVE-013",
+   "area": "live.tickets",
+   "refs": [
+    [
+     465,
+     "onChange",
+     "k.setStatus"
+    ]
+   ],
+   "refDef": "572",
+   "refKind": "state",
+   "action": "Ticket status",
+   "impl": "src/desktop-v3/LiveTickets.tsx:31 select",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": "",
+   "diff": "reference open/blocked/done (blocked blocks COMPLETE) vs contract open/doing/done"
+  },
+  {
+   "id": "V3-LIVE-014",
+   "area": "live.tickets",
+   "refs": [
+    [
+     465,
+     "onClick",
+     "k.remove"
+    ]
+   ],
+   "refDef": "572",
+   "refKind": "state",
+   "action": "Remove ticket",
+   "impl": null,
+   "test": "unverified",
+   "status": "MISSING",
+   "missing": "LiveTickets has no delete"
+  },
+  {
+   "id": "V3-LIVE-015",
+   "area": "live.tickets",
+   "refs": [
+    [
+     466,
+     "onInput",
+     "newTicketInput"
+    ],
+    [
+     466,
+     "onKeyDown",
+     "newTicketKey"
+    ]
+   ],
+   "refDef": "669 (addTicket 560)",
+   "refKind": "state",
+   "action": "New ticket, Enter adds, '!' = high priority",
+   "impl": "src/desktop-v3/LiveTickets.tsx:35 form submit + priority select",
+   "test": "e2e-v3-panels/live-workspace.spec.ts:19",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "",
+   "diff": "'!' prefix replaced by explicit priority select"
+  },
+  {
+   "id": "V3-LIVE-016",
+   "area": "live.context",
+   "refs": [
+    [
+     472,
+     "onInput",
+     "ctxInput"
+    ]
+   ],
+   "refDef": "672",
+   "refKind": "state",
+   "action": "Compact threshold slider + context window gauge",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:168 'Kontextové okno: nedostupné'",
+   "test": "e2e-v3-panels/live-workspace.spec.ts:45",
+   "status": "BLOCKED_NO_SOURCE_DATA",
+   "missing": "No slider/gauge",
+   "evidence": "src/desktop-v3/live-sessions.ts:8 LiveSession has no context-window fields; planning/handoff sources report none"
+  },
+  {
+   "id": "V3-LIVE-017",
+   "area": "live.context",
+   "refs": [
+    [
+     472,
+     "onClick",
+     "compactHint"
+    ]
+   ],
+   "refDef": "672",
+   "refKind": "toast-mock",
+   "action": "Compact nyní…",
+   "impl": "disabled placeholder src/desktop-v3/LiveWorkspacePanel.tsx:129",
+   "test": "n/a",
+   "status": "BLOCKED_NO_TRANSPORT",
+   "missing": "Disabled placeholder = missing",
+   "evidence": "no compact route in backend/*_routes.py or backend/app.py route list",
+   "externalAvailability": "not investigated; no candidate flag in `claude --help`; missing repo route does not prove the provider lacks it"
+  },
+  {
+   "id": "V3-LIVE-018",
+   "area": "live.btw",
+   "refs": [
+    [
+     485,
+     "onInput",
+     "btwInput"
+    ],
+    [
+     485,
+     "onKeyDown",
+     "btwKey"
+    ],
+    [
+     486,
+     "onClick",
+     "btwSend"
+    ]
+   ],
+   "refDef": "658 (btwSend 675)",
+   "refKind": "state",
+   "action": "/btw side question queue (reference itself: demonstrator, no transport)",
+   "impl": "disabled textarea/button src/desktop-v3/LiveWorkspacePanel.tsx:173",
+   "test": "e2e-v3-panels/live-desktop.spec.ts:7; e2e/live-run-v2.spec.ts:4",
+   "status": "BLOCKED_NO_TRANSPORT",
+   "missing": "Disabled placeholder = missing",
+   "evidence": "backend/agent_sources.py:225 missing 'btwTransport', :227 btw supported=False; no /btw route; CONTRACT.md: '/btw nezavádět falešně'",
+   "externalAvailability": "not investigated; no candidate flag in `claude --help`; missing repo route does not prove the provider lacks it"
+  },
+  {
+   "id": "V3-LIVE-019",
+   "area": "live.detail",
+   "refs": [],
+   "refDef": "459-462, 475",
+   "refKind": "display",
+   "action": "Events, evidence/output, cost, memory, timeline tab contents",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:159-168",
+   "test": "e2e-v3-panels/live-desktop.spec.ts:7; e2e-v3-panels/live-workspace.spec.ts:45; e2e/live-run-v2.spec.ts:4",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": "tokens/API calls shown as nedostupné (no source)"
+  },
+  {
+   "id": "V3-LIVE-020",
+   "area": "live.detail",
+   "refs": [],
+   "refDef": "455-457",
+   "refKind": "display",
+   "action": "Session facts parent/fork, environment, scope, stale chip",
+   "impl": "src/desktop-v3/LiveWorkspacePanel.tsx:154 (provider, node, last state, branch/worktree only)",
+   "test": "unverified",
+   "status": "PARTIAL",
+   "missing": "parent/fork, environment, scope, stale indicator"
+  },
+  {
+   "id": "V3-LIVE-021",
+   "area": "live.sessions",
+   "refs": [],
+   "refDef": "449-450",
+   "refKind": "display",
+   "action": "Unbound runs section",
+   "impl": "src/AgentsWorkspace.tsx (/api/agents/unbound) in Dohled běhů only",
+   "test": "e2e/v2-ui-review.spec.ts:46",
+   "status": "PARTIAL",
+   "missing": "Not in v3 Live overview"
+  },
+  {
+   "id": "V3-PKT-001",
+   "area": "packet",
+   "refs": [
+    [
+     496,
+     "onClick",
+     "packetCopy"
+    ]
+   ],
+   "refDef": "662",
+   "refKind": "clipboard",
+   "action": "Copy packet JSON",
+   "impl": "src/desktop-v3/AgentPacketPanel.tsx:303",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-PKT-002",
+   "area": "packet",
+   "refs": [],
+   "refDef": "496 <a download> (661 packetHref)",
+   "refKind": "state",
+   "action": "Download packet JSON",
+   "impl": "src/desktop-v3/AgentPacketPanel.tsx:313",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-PKT-003",
+   "area": "packet",
+   "refs": [
+    [
+     496,
+     "onClick",
+     "closePacket"
+    ]
+   ],
+   "refDef": "660",
+   "refKind": "state",
+   "action": "Close packet modal",
+   "impl": "src/EditorWorkbench.tsx:72 'Skrýt nástroje' onClose",
+   "test": "unverified",
+   "status": "IMPLEMENTED_UNVERIFIED",
+   "missing": ""
+  },
+  {
+   "id": "V3-PKT-004",
+   "area": "packet",
+   "refs": [],
+   "refDef": "496, buildPacket 580-590",
+   "refKind": "display",
+   "action": "Packet view: schema opora.packet/1, size, exact JSON",
+   "impl": "src/desktop-v3/AgentPacketPanel.tsx:243-322 digest, manifest, warnings, JSON; snapshot (contract addition)",
+   "test": "e2e-v3-panels/agent-packet.spec.ts:8",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  },
+  {
+   "id": "V3-GOAL-001",
+   "area": "goal.transport",
+   "refs": [],
+   "refDef": "GOAL.md acceptance; reference 457/536 parent/fork field",
+   "refKind": "display",
+   "action": "Fork session",
+   "impl": null,
+   "test": "n/a",
+   "status": "MISSING_REPO_TRANSPORT",
+   "missing": "Repo route absent (agent_sources.py:227 fork supported=False). Candidate for Claude CLI sessions: --resume <id> --fork-session (unverified). OporaCC adapter sessions stay read-only.",
+   "evidence": "backend/agent_sources.py:227 fork supported=False; no fork route; claude 2.1.267 on PATH (C:/Users/Admin/.local/bin/claude); `claude --help` lists -p/--print, --resume <session-id>, -c/--continue, --fork-session, --output-format stream-json, --allowedTools, --add-dir (help text only, no model started)",
+   "supersededStatus": "BLOCKED_NO_TRANSPORT"
+  },
+  {
+   "id": "V3-GOAL-002",
+   "area": "goal.transport",
+   "refs": [],
+   "refDef": "GOAL.md acceptance",
+   "refKind": "display",
+   "action": "Resume session",
+   "impl": "disabled 'Pokračovat' src/desktop-v3/LiveWorkspacePanel.tsx:129",
+   "test": "n/a",
+   "status": "MISSING_REPO_TRANSPORT",
+   "missing": "Disabled placeholder = missing. Candidate for Claude CLI sessions: --resume <id> / --continue (unverified).",
+   "evidence": "no resume/continue route in backend route list; agent_sources.py:227 continue supported=False; claude 2.1.267 on PATH (C:/Users/Admin/.local/bin/claude); `claude --help` lists -p/--print, --resume <session-id>, -c/--continue, --fork-session, --output-format stream-json, --allowedTools, --add-dir (help text only, no model started)",
+   "supersededStatus": "BLOCKED_NO_TRANSPORT"
+  },
+  {
+   "id": "V3-GOAL-003",
+   "area": "goal.transport",
+   "refs": [],
+   "refDef": "GOAL.md; reference 435-436 simulation only",
+   "refKind": "demo-sim",
+   "action": "General coding dispatch",
+   "impl": "backend/task_handoff_worker.py:70-122 real Hermes run, toolset opora_documentation, writes result.md only; backend/coding_worker.py:30-72 + coding_tools.py:10 calculator.py-only coding; backend/llm_runs.py:229 mode proposal_only",
+   "test": "n/a",
+   "status": "MISSING_REPO_TRANSPORT",
+   "missing": "No path from the approved immutable snapshot (task_handoffs.py:449) to a scoped real coding agent that writes artifacts inside allowed paths, runs tests and returns artifact + test result to Live Run and the origin node. Calculator-only coding and proposals do not satisfy phase 1 (USER-BRIEF.md, Nutna akceptace bodu 1).",
+   "evidence": "CONTRACT.md restriction superseded by USER-BRIEF.md sha256 1c3319f7...2b00. Repo limitation, not a proven provider limitation: claude 2.1.267 on PATH (C:/Users/Admin/.local/bin/claude); `claude --help` lists -p/--print, --resume <session-id>, -c/--continue, --fork-session, --output-format stream-json, --allowedTools, --add-dir (help text only, no model started). Hermes CLI also on PATH (llm_runs.py:215).",
+   "supersededStatus": "BLOCKED_BY_CONTRACT"
+  },
+  {
+   "id": "V3-GOAL-004",
+   "area": "goal.retained",
+   "refs": [],
+   "refDef": "GOAL.md retained advanced viewer",
+   "refKind": "display",
+   "action": "Dohled běhů: paging, source health, costs, node links",
+   "impl": "src/App.tsx:548 AgentsWorkspace",
+   "test": "e2e/live-pagination.spec.ts:3; e2e/v2-ui-review.spec.ts:111; e2e/live-run-v2.spec.ts:4",
+   "status": "IMPLEMENTED_TESTED_SOURCE",
+   "missing": ""
+  }
+ ],
+ "sourceHashes": {
+  "referenceHtml": {
+   "path": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/06 OPORA Desktop v3.dc.html",
+   "lines": 684,
+   "sha256": "541cb172c681e2e9745ad4da2259a8db10bbab144c46271fb61b83c186428bce"
+  },
+  "userBrief": {
+   "path": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/phase2-user-references/USER-BRIEF.md",
+   "sha256": "1c3319f796cabdbb69e482060935781dfda079bb9fc79992f7bcd769de3f2b00",
+   "phase2Images": 11,
+   "phase2": "sources_received_awaiting_phase1"
+  },
+  "goal": {
+   "path": "C:/Users/Admin/opora-v3/.opora/goals/desktop-v3-overnight/GOAL.md",
+   "sha256": "19723aeaaa75e466703e7640ac13d642d311966d36795df4ef3e9089428c76f7"
+  }
+ },
+ "coverage": {
+  "script": "inventory-HANDOFF.md block \"v3cov.cjs\"",
+  "command": "node v3cov.cjs \"<E>/06 OPORA Desktop v3.dc.html\" .opora/workunits/WU-DESKTOP-V3/component-inventory.json",
+  "events": "onClick|onInput|onChange|onKeyDown|onDragStart|onDragOver|onDragLeave|onDrop",
+  "looseEventTokens": 143,
+  "bindingOccurrences": 143,
+  "uniqueLineEventBinding": 136,
+  "sameLineRepeats": 7,
+  "byEvent": {
+   "onClick": 106,
+   "onInput": 19,
+   "onKeyDown": 7,
+   "onChange": 4,
+   "onDragOver": 2,
+   "onDragLeave": 2,
+   "onDrop": 2,
+   "onDragStart": 1
+  },
+  "uniqueBindingNames": 113,
+  "covered": 143,
+  "missing": 0,
+  "staleRefs": 0,
+  "duplicateIds": 0,
+  "rows": 125,
+  "rowsWithRefs": 94,
+  "multiMapped": [
+   "386|onClick|closeSlash -> V3-ED-020,V3-ED-021,V3-ED-022",
+   "463|onClick|c.run -> V3-LIVE-011,V3-LIVE-012"
+  ],
+  "exit": 0
+ },
+ "testExecution": "none: the test column cites test SOURCE only; executed PASS in this audit = 0",
+ "phase1Chain": [
+  {
+   "p": 1,
+   "step": "hand approved snapshot to a real scoped coding agent",
+   "status": "MISSING_REPO_TRANSPORT",
+   "rows": [
+    "V3-GOAL-003"
+   ]
+  },
+  {
+   "p": 2,
+   "step": "real artifact + test result verification",
+   "status": "MISSING",
+   "evidence": "only calculator oracle (coding_oracle.py) and documentation result.md sha (task_handoffs.py:659)"
+  },
+  {
+   "p": 3,
+   "step": "evidence back to Live Run and the origin node",
+   "status": "PARTIAL",
+   "rows": [
+    "V3-INS-002",
+    "V3-LIVE-005",
+    "V3-LIVE-007",
+    "V3-LIVE-012",
+    "V3-GOAL-002"
+   ]
+  },
+  {
+   "p": 4,
+   "step": "reviewed immutable snapshot",
+   "status": "SOURCE_PRESENT_NOT_EXECUTED",
+   "evidence": "task_handoffs.py:234-392 digest + approval check, :449 immutable snapshot"
+  },
+  {
+   "p": 5,
+   "step": "documentation + included-source preview",
+   "status": "IMPLEMENTED_TESTED_SOURCE/PARTIAL",
+   "rows": [
+    "V3-INS-005",
+    "V3-INS-007",
+    "V3-PKT-004",
+    "V3-TOP-004",
+    "V3-PRJ-018"
+   ]
+  }
+ ],
+ "nextTasks": [
+  "T1 claude-cli-transport (see inventory-HANDOFF.md)",
+  "T2 agent-result-evidence (see inventory-HANDOFF.md)"
+ ],
+ "statusCounts": {
+  "IMPLEMENTED_TESTED_SOURCE": 54,
+  "PARTIAL": 22,
+  "IMPLEMENTED_UNVERIFIED": 16,
+  "MISSING": 24,
+  "DEMO_EXCLUDED": 2,
+  "MISSING_REPO_TRANSPORT": 4,
+  "BLOCKED_NO_SOURCE_DATA": 1,
+  "BLOCKED_NO_TRANSPORT": 2
+ }
+}
