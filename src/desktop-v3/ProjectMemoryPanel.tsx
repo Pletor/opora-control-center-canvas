@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useDesktopState } from "./state-store";
 import type { Rule, RuleScope, Decision, Setting } from "./types";
 
@@ -30,10 +30,18 @@ export function ProjectMemoryPanel({
   const [newDecisionText, setNewDecisionText] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function run(fn: (current: typeof state) => typeof state) {
+  // Identifies which project/workspace a pending write belongs to, so a late-arriving response
+  // for a scope the user has since navigated away from can never clear a draft newly typed
+  // elsewhere.
+  const scope = `${project}::${workspace}`;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+
+  async function run(fn: (current: typeof state) => typeof state): Promise<boolean> {
     setBusy(true);
-    await mutate(fn);
+    const ok = await mutate(fn);
     setBusy(false);
+    return ok;
   }
 
   function editSetting(id: string, value: string) {
@@ -48,17 +56,22 @@ export function ProjectMemoryPanel({
   }
 
   function addSetting() {
+    if (busy) return;
     const key = newSettingKey.trim();
     if (!key) return;
     const value = newSettingValue.trim();
     const setting: Setting = { id: newId(), key, value };
-    run((current) => ({ ...current, settings: current.settings.concat([setting]) })).then(() => {
-      setNewSettingKey("");
-      setNewSettingValue("");
+    const requestScope = scopeRef.current;
+    run((current) => ({ ...current, settings: current.settings.concat([setting]) })).then((ok) => {
+      if (ok && scopeRef.current === requestScope) {
+        setNewSettingKey("");
+        setNewSettingValue("");
+      }
     });
   }
 
   function addRule() {
+    if (busy) return;
     const raw = newRuleText.trim();
     if (!raw) return;
     const negative = /^ne\s*:/i.test(raw);
@@ -66,7 +79,10 @@ export function ProjectMemoryPanel({
     const target = newRuleScope === "path" ? path : "";
     if (newRuleScope === "path" && !path) return;
     const rule: Rule = { id: newId(), text, kind: negative ? "must_not" : "must", scope: newRuleScope, target };
-    run((current) => ({ ...current, rules: current.rules.concat([rule]) })).then(() => setNewRuleText(""));
+    const requestScope = scopeRef.current;
+    run((current) => ({ ...current, rules: current.rules.concat([rule]) })).then((ok) => {
+      if (ok && scopeRef.current === requestScope) setNewRuleText("");
+    });
   }
 
   function removeRule(id: string) {
@@ -74,6 +90,7 @@ export function ProjectMemoryPanel({
   }
 
   function addDecision() {
+    if (busy) return;
     const text = newDecisionText.trim();
     if (!text) return;
     const decision: Decision = {
@@ -85,9 +102,10 @@ export function ProjectMemoryPanel({
       createdAt: new Date().toISOString(),
       by: "human",
     };
-    run((current) => ({ ...current, decisions: [decision].concat(current.decisions) })).then(() =>
-      setNewDecisionText(""),
-    );
+    const requestScope = scopeRef.current;
+    run((current) => ({ ...current, decisions: [decision].concat(current.decisions) })).then((ok) => {
+      if (ok && scopeRef.current === requestScope) setNewDecisionText("");
+    });
   }
 
   function togglePin(id: string) {

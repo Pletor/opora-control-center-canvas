@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useDesktopState } from "./state-store";
 import { NODE_PHASES } from "./types";
 import type { DesktopState, NodePhase } from "./types";
@@ -35,21 +35,36 @@ export function NodeWorkflowPanel({
   const [newCriterionText, setNewCriterionText] = useState("");
   const [newStepText, setNewStepText] = useState("");
   const [newStepAssignee, setNewStepAssignee] = useState("");
-  const [busy, setBusy] = useState(false);
+  // Pending writes are tracked per node scope (not one global flag) so that switching to a
+  // different node while a write for the previous one is still in flight leaves the new node's
+  // own controls interactive, and a late-arriving response can be matched back to (and can only
+  // clear the draft of) the exact scope that started it.
+  const scope = `${project}::${workspace}::${nodeId}`;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const [busyScopes, setBusyScopes] = useState<ReadonlySet<string>>(() => new Set());
+  const busy = busyScopes.has(scope);
 
   const node = state.nodes[nodeId] ?? emptyNodeWorkflow();
   const phaseIndex = NODE_PHASES.indexOf(node.phase);
   const nextPhase = NODE_PHASES[phaseIndex + 1];
   const criteriaSatisfied = node.criteria.length > 0 && node.criteria.every((c) => c.checked);
 
-  async function run(fn: (current: DesktopState) => DesktopState) {
-    setBusy(true);
-    await mutate(fn);
-    setBusy(false);
+  async function run(requestScope: string, fn: (current: DesktopState) => DesktopState): Promise<boolean> {
+    setBusyScopes((prev) => new Set(prev).add(requestScope));
+    const ok = await mutate(fn);
+    setBusyScopes((prev) => {
+      if (!prev.has(requestScope)) return prev;
+      const next = new Set(prev);
+      next.delete(requestScope);
+      return next;
+    });
+    return ok;
   }
 
   function toggleCriterion(id: string) {
-    return run((current) =>
+    if (busy) return;
+    return run(scope, (current) =>
       withNode(current, nodeId, (n) => ({
         ...n,
         criteria: n.criteria.map((c) => (c.id === id ? { ...c, checked: !c.checked } : c)),
@@ -58,48 +73,60 @@ export function NodeWorkflowPanel({
   }
 
   function removeCriterion(id: string) {
-    return run((current) => withNode(current, nodeId, (n) => ({ ...n, criteria: n.criteria.filter((c) => c.id !== id) })));
+    if (busy) return;
+    return run(scope, (current) => withNode(current, nodeId, (n) => ({ ...n, criteria: n.criteria.filter((c) => c.id !== id) })));
   }
 
   function addCriterion() {
+    if (busy) return;
     const text = newCriterionText.trim();
     if (!text) return;
-    run((current) =>
+    const requestScope = scope;
+    run(requestScope, (current) =>
       withNode(current, nodeId, (n) => ({ ...n, criteria: n.criteria.concat([{ id: newId(), text, checked: false }]) })),
-    ).then(() => setNewCriterionText(""));
+    ).then((ok) => {
+      if (ok && scopeRef.current === requestScope) setNewCriterionText("");
+    });
   }
 
   function toggleStep(id: string) {
-    return run((current) =>
+    if (busy) return;
+    return run(scope, (current) =>
       withNode(current, nodeId, (n) => ({ ...n, steps: n.steps.map((s) => (s.id === id ? { ...s, done: !s.done } : s)) })),
     );
   }
 
   function removeStep(id: string) {
-    return run((current) => withNode(current, nodeId, (n) => ({ ...n, steps: n.steps.filter((s) => s.id !== id) })));
+    if (busy) return;
+    return run(scope, (current) => withNode(current, nodeId, (n) => ({ ...n, steps: n.steps.filter((s) => s.id !== id) })));
   }
 
   function addStep() {
+    if (busy) return;
     const text = newStepText.trim();
     if (!text) return;
     const assignee = newStepAssignee.trim() || "nepřiřazeno";
-    run((current) =>
+    const requestScope = scope;
+    run(requestScope, (current) =>
       withNode(current, nodeId, (n) => ({ ...n, steps: n.steps.concat([{ id: newId(), text, assignee, done: false }]) })),
-    ).then(() => {
-      setNewStepText("");
-      setNewStepAssignee("");
+    ).then((ok) => {
+      if (ok && scopeRef.current === requestScope) {
+        setNewStepText("");
+        setNewStepAssignee("");
+      }
     });
   }
 
   function advance() {
-    if (!nextPhase || !criteriaSatisfied) return;
-    run((current) => withNode(current, nodeId, (n) => ({ ...n, phase: nextPhase })));
+    if (busy || !nextPhase || !criteriaSatisfied) return;
+    run(scope, (current) => withNode(current, nodeId, (n) => ({ ...n, phase: nextPhase })));
   }
 
   function goToEarlierPhase(phase: NodePhase) {
+    if (busy) return;
     const targetIndex = NODE_PHASES.indexOf(phase);
     if (targetIndex >= phaseIndex) return;
-    run((current) => withNode(current, nodeId, (n) => ({ ...n, phase })));
+    run(scope, (current) => withNode(current, nodeId, (n) => ({ ...n, phase })));
   }
 
   const stepsDone = node.steps.filter((s) => s.done).length;
