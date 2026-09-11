@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useDesktopState } from "./state-store";
 import type { Rule, RuleScope, Decision, Setting } from "./types";
 
@@ -30,18 +30,31 @@ export function ProjectMemoryPanel({
   const [newDecisionText, setNewDecisionText] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Identifies which project/workspace a pending write belongs to, so a late-arriving response
-  // for a scope the user has since navigated away from can never clear a draft newly typed
-  // elsewhere.
-  const scope = `${project}::${workspace}`;
-  const scopeRef = useRef(scope);
-  scopeRef.current = scope;
+  // Verze konceptů: úspěšný zápis smaže koncept jen tehdy, když se od odeslání nezměnil (klíč a
+  // hodnota nastavení tvoří jednu dvojici s jednou verzí), takže nikdy nesmaže novější text.
+  const settingDraftVersion = useRef(0);
+  const ruleDraftVersion = useRef(0);
+  const decisionDraftVersion = useRef(0);
+
+  // Jeden synchronní zámek pro celý whole-state dokument (viz NodeWorkflowPanel): druhá mutace se
+  // neodešle, dokud předchozí není usazená. Uvolnění až v layout efektu po commitu, aby další
+  // obsluha pracovala s čerstvým stavem a revizí.
+  const saveLockRef = useRef(false);
+  const [settledCount, setSettledCount] = useState(0);
+  useLayoutEffect(() => {
+    saveLockRef.current = false;
+  }, [settledCount]);
 
   async function run(fn: (current: typeof state) => typeof state): Promise<boolean> {
+    if (saveLockRef.current) return false;
+    saveLockRef.current = true;
     setBusy(true);
-    const ok = await mutate(fn);
-    setBusy(false);
-    return ok;
+    try {
+      return await mutate(fn);
+    } finally {
+      setBusy(false);
+      setSettledCount((n) => n + 1);
+    }
   }
 
   function editSetting(id: string, value: string) {
@@ -56,14 +69,13 @@ export function ProjectMemoryPanel({
   }
 
   function addSetting() {
-    if (busy) return;
     const key = newSettingKey.trim();
     if (!key) return;
     const value = newSettingValue.trim();
     const setting: Setting = { id: newId(), key, value };
-    const requestScope = scopeRef.current;
+    const submittedVersion = settingDraftVersion.current;
     run((current) => ({ ...current, settings: current.settings.concat([setting]) })).then((ok) => {
-      if (ok && scopeRef.current === requestScope) {
+      if (ok && settingDraftVersion.current === submittedVersion) {
         setNewSettingKey("");
         setNewSettingValue("");
       }
@@ -71,7 +83,6 @@ export function ProjectMemoryPanel({
   }
 
   function addRule() {
-    if (busy) return;
     const raw = newRuleText.trim();
     if (!raw) return;
     const negative = /^ne\s*:/i.test(raw);
@@ -79,9 +90,9 @@ export function ProjectMemoryPanel({
     const target = newRuleScope === "path" ? path : "";
     if (newRuleScope === "path" && !path) return;
     const rule: Rule = { id: newId(), text, kind: negative ? "must_not" : "must", scope: newRuleScope, target };
-    const requestScope = scopeRef.current;
+    const submittedVersion = ruleDraftVersion.current;
     run((current) => ({ ...current, rules: current.rules.concat([rule]) })).then((ok) => {
-      if (ok && scopeRef.current === requestScope) setNewRuleText("");
+      if (ok && ruleDraftVersion.current === submittedVersion) setNewRuleText("");
     });
   }
 
@@ -90,7 +101,6 @@ export function ProjectMemoryPanel({
   }
 
   function addDecision() {
-    if (busy) return;
     const text = newDecisionText.trim();
     if (!text) return;
     const decision: Decision = {
@@ -102,9 +112,9 @@ export function ProjectMemoryPanel({
       createdAt: new Date().toISOString(),
       by: "human",
     };
-    const requestScope = scopeRef.current;
+    const submittedVersion = decisionDraftVersion.current;
     run((current) => ({ ...current, decisions: [decision].concat(current.decisions) })).then((ok) => {
-      if (ok && scopeRef.current === requestScope) setNewDecisionText("");
+      if (ok && decisionDraftVersion.current === submittedVersion) setNewDecisionText("");
     });
   }
 
@@ -166,14 +176,20 @@ export function ProjectMemoryPanel({
                 placeholder="klíč"
                 value={newSettingKey}
                 disabled={readOnly || busy}
-                onChange={(e) => setNewSettingKey(e.target.value)}
+                onChange={(e) => {
+                  settingDraftVersion.current += 1;
+                  setNewSettingKey(e.target.value);
+                }}
               />
               <input
                 aria-label="Hodnota nového nastavení"
                 placeholder="hodnota"
                 value={newSettingValue}
                 disabled={readOnly || busy}
-                onChange={(e) => setNewSettingValue(e.target.value)}
+                onChange={(e) => {
+                  settingDraftVersion.current += 1;
+                  setNewSettingValue(e.target.value);
+                }}
               />
               <button type="button" disabled={readOnly || busy || !newSettingKey.trim()} onClick={addSetting}>
                 Přidat nastavení
@@ -202,7 +218,10 @@ export function ProjectMemoryPanel({
                 placeholder="např. NE: číst .env"
                 value={newRuleText}
                 disabled={readOnly || busy}
-                onChange={(e) => setNewRuleText(e.target.value)}
+                onChange={(e) => {
+                  ruleDraftVersion.current += 1;
+                  setNewRuleText(e.target.value);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") addRule();
                 }}
@@ -246,7 +265,10 @@ export function ProjectMemoryPanel({
                 placeholder={`Rozhodnuto: … ${path ? `(naváže se na ${path})` : ""}`}
                 value={newDecisionText}
                 disabled={readOnly || busy}
-                onChange={(e) => setNewDecisionText(e.target.value)}
+                onChange={(e) => {
+                  decisionDraftVersion.current += 1;
+                  setNewDecisionText(e.target.value);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") addDecision();
                 }}

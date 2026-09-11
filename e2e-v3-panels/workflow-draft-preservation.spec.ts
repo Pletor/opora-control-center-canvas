@@ -22,6 +22,152 @@ function interceptOneSave(page: Page, respond: (route: Route) => Promise<void>) 
   });
 }
 
+// Počítá POST na whole-state endpoint přímo ve stránce (synchronně při volání fetch), takže
+// negativní tvrzení „žádný souběžný POST“ nezávisí na časování sítě ani na pevném čekání.
+async function countStatePosts(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __statePosts: number };
+    w.__statePosts = 0;
+    const original = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
+      if (url.includes("/api/desktop-v3/state") && method === "POST") w.__statePosts += 1;
+      return original(input, init);
+    };
+  });
+}
+
+function statePosts(page: Page) {
+  return page.evaluate(() => (window as unknown as { __statePosts: number }).__statePosts);
+}
+
+function isStatePost(response: { url(): string; request(): { method(): string } }) {
+  return response.url().includes("/api/desktop-v3/state") && response.request().method() === "POST";
+}
+
+async function switchNode(page: Page, nodeId: string) {
+  await page.evaluate((id) => {
+    window.location.hash = `nodeId=${id}`;
+  }, nodeId);
+}
+
+test.describe("NodeWorkflowPanel: whole-state saves are globally serialized", () => {
+  test("held save for n1 blocks a concurrent save for n2; both persist across reload and a further mutation", async ({ page }) => {
+    const project = "proj-wf-race-ok";
+    const workspace = "race-a";
+    await countStatePosts(page);
+    await page.goto(workflowUrl({ project, workspace, nodeId: "n1" }));
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await interceptOneSave(page, async (route) => {
+      await gate;
+      await route.continue();
+    });
+
+    await page.getByLabel("Nové kritérium").fill("A na n1");
+    await page.getByRole("button", { name: "Přidat kritérium", exact: true }).click();
+    await expect.poll(() => statePosts(page)).toBe(1);
+
+    await switchNode(page, "n2");
+    await expect(page.getByText("Zatím žádná kritéria.")).toBeVisible();
+    const input = page.getByLabel("Nové kritérium");
+    // Psaní konceptu pro jiný uzel musí jít i během rozpracovaného zápisu.
+    await input.fill("B na n2");
+    // Pokus o druhý whole-state zápis, zatímco A ještě visí. Obsluha keydown běží synchronně a
+    // evaluate se vyhodnotí až po ní, takže počet je deterministický.
+    await input.press("Enter");
+    expect(await statePosts(page)).toBe(1);
+    await expect(input).toHaveValue("B na n2");
+
+    const aResponse = page.waitForResponse(isStatePost);
+    release();
+    expect((await aResponse).status()).toBe(200);
+    const addButton = page.getByRole("button", { name: "Přidat kritérium", exact: true });
+    // Tlačítko je během globálního zápisu zamčené; odemčení = A je usazené v UI.
+    await expect(addButton).toBeEnabled();
+    await expect(input).toHaveValue("B na n2");
+
+    const bResponse = page.waitForResponse(isStatePost);
+    await addButton.click();
+    expect((await bResponse).status()).toBe(200);
+    expect(await statePosts(page)).toBe(2);
+    await expect(page.locator("li.v3-criterion")).toHaveCount(1);
+    await expect(page.locator("li.v3-criterion")).toContainText("B na n2");
+    await expect(input).toHaveValue("");
+
+    // Server musí držet A i B (reload čte uložený stav, ne optimistický).
+    await page.reload();
+    await expect(page.locator("li.v3-criterion")).toHaveCount(1);
+    await expect(page.locator("li.v3-criterion")).toContainText("B na n2");
+    await switchNode(page, "n1");
+    await expect(page.locator("li.v3-criterion")).toHaveCount(1);
+    await expect(page.locator("li.v3-criterion")).toContainText("A na n1");
+
+    // Další mutace nesmí tichou shodou revizí smazat A ani B.
+    const toggleResponse = page.waitForResponse(isStatePost);
+    await page.locator("li.v3-criterion input[type=checkbox]").check();
+    expect((await toggleResponse).status()).toBe(200);
+    await page.reload();
+    await expect(page.locator("li.v3-criterion")).toHaveCount(1);
+    await expect(page.locator("li.v3-criterion input[type=checkbox]")).toBeChecked();
+    await switchNode(page, "n2");
+    await expect(page.locator("li.v3-criterion")).toHaveCount(1);
+    await expect(page.locator("li.v3-criterion")).toContainText("B na n2");
+  });
+
+  test("failed held save for n1 is not persisted piggyback via the next successful save for n2", async ({ page }) => {
+    const project = "proj-wf-race-fail";
+    const workspace = "race-b";
+    await countStatePosts(page);
+    await page.goto(workflowUrl({ project, workspace, nodeId: "n1" }));
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await interceptOneSave(page, async (route) => {
+      await gate;
+      await route.fulfill({ status: 500, json: { error: "Interní chyba serveru." } });
+    });
+
+    await page.getByLabel("Nové kritérium").fill("A selže");
+    await page.getByRole("button", { name: "Přidat kritérium", exact: true }).click();
+    await expect.poll(() => statePosts(page)).toBe(1);
+
+    await switchNode(page, "n2");
+    await expect(page.getByText("Zatím žádná kritéria.")).toBeVisible();
+    const input = page.getByLabel("Nové kritérium");
+    await input.fill("B projde");
+    await input.press("Enter");
+    expect(await statePosts(page)).toBe(1);
+
+    const aResponse = page.waitForResponse(isStatePost);
+    release();
+    expect((await aResponse).status()).toBe(500);
+    await expect(page.getByRole("alert")).toContainText("Interní chyba serveru.");
+    const addButton = page.getByRole("button", { name: "Přidat kritérium", exact: true });
+    await expect(addButton).toBeEnabled();
+    await expect(input).toHaveValue("B projde");
+
+    const bResponse = page.waitForResponse(isStatePost);
+    await addButton.click();
+    expect((await bResponse).status()).toBe(200);
+    expect(await statePosts(page)).toBe(2);
+
+    await page.reload();
+    await expect(page.locator("li.v3-criterion")).toHaveCount(1);
+    await expect(page.locator("li.v3-criterion")).toContainText("B projde");
+    await switchNode(page, "n1");
+    // Neúspěšné A nesmí být na serveru uložené přes úspěšné B.
+    await expect(page.getByText("Zatím žádná kritéria.")).toBeVisible();
+    await expect(page.locator("li.v3-criterion")).toHaveCount(0);
+  });
+});
+
 test.describe("NodeWorkflowPanel: failed criterion save preserves draft", () => {
   test("409 conflict preserves the typed criterion text; retry then clears it", async ({ page }) => {
     const project = "proj-wf-draft-conflict";
@@ -99,9 +245,12 @@ test.describe("NodeWorkflowPanel: failed criterion save preserves draft", () => 
     await expect(page.getByText("Zatím žádná kritéria.")).toBeVisible();
     await page.getByLabel("Nové kritérium").fill("Patří uzlu n2");
 
+    const aResponse = page.waitForResponse(isStatePost);
     release();
-    // Give the n1 response time to resolve and (incorrectly, if buggy) clear the shared input.
-    await page.waitForTimeout(300);
+    expect((await aResponse).status()).toBe(200);
+    // Místo pevného čekání: přidávací tlačítko je během globálního zápisu zamčené a odemkne se až
+    // v renderu, který usadil odpověď n1 (včetně případného mazání konceptu).
+    await expect(page.getByRole("button", { name: "Přidat kritérium", exact: true })).toBeEnabled();
     await expect(page.getByLabel("Nové kritérium")).toHaveValue("Patří uzlu n2");
 
     // Switching back confirms n1's criterion was in fact saved (not silently dropped either).
@@ -109,6 +258,39 @@ test.describe("NodeWorkflowPanel: failed criterion save preserves draft", () => 
       window.location.hash = "nodeId=n1";
     });
     await expect(page.locator("li.v3-criterion")).toContainText("Patří uzlu n1");
+  });
+
+  test("A→B→A: late success for n1 keeps a draft newly typed on n2 and still shown on n1", async ({ page }) => {
+    const project = "proj-wf-draft-aba";
+    const workspace = "draft-e";
+    await page.goto(workflowUrl({ project, workspace, nodeId: "n1" }));
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await interceptOneSave(page, async (route) => {
+      await gate;
+      await route.continue();
+    });
+
+    await page.getByLabel("Nové kritérium").fill("Odesláno z n1");
+    await page.getByRole("button", { name: "Přidat kritérium", exact: true }).click();
+
+    await switchNode(page, "n2");
+    await expect(page.getByText("Zatím žádná kritéria.")).toBeVisible();
+    await page.getByLabel("Nové kritérium").fill("Novější koncept");
+    await switchNode(page, "n1");
+    await expect(page.locator("li.v3-criterion")).toContainText("Odesláno z n1");
+
+    const aResponse = page.waitForResponse(isStatePost);
+    release();
+    expect((await aResponse).status()).toBe(200);
+    // Zaškrtávátko je během zápisu zamčené; odemčení = render, který usadil odpověď n1.
+    await expect(page.locator("li.v3-criterion input[type=checkbox]")).toBeEnabled();
+    // Scope je opět n1, ale koncept je novější než odeslaný – nesmí být smazán.
+    await expect(page.getByLabel("Nové kritérium")).toHaveValue("Novější koncept");
+    await expect(page.locator("li.v3-criterion")).toHaveCount(1);
   });
 
   test("rapid double Enter on the criterion input does not send two save requests", async ({ page }) => {

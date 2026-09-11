@@ -1,122 +1,109 @@
-# WU-DESKTOP-V3 — v3 failed-save draft preservation (Sonnet)
+# WU-DESKTOP-V3 — v3 failed-save draft preservation
 
 Branch: `fix/v3-workflow-draft-preservation`
 Worktree: `C:/Users/Admin/opora-v3-workflow-drafts`
-Base: `2ab5fa97dc926af2239dc4be08ccaa7360657b4b`
+Base of lane: `2ab5fa97dc926af2239dc4be08ccaa7360657b4b`; first candidate `2de3c4e` (failed independent
+review); this correction is committed on top of `2de3c4e`.
+External evidence: `C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/workflow-drafts-post-reset/`
 
-## Defect reproduced
+## Original defect (fixed in 2de3c4e, kept)
 
-`NodeWorkflowPanel.addCriterion`/`addStep` and `ProjectMemoryPanel.addSetting`/`addRule`/`addDecision`
-all called `run(fn).then(() => clearFields())` unconditionally. `run()` discarded the `boolean`
-returned by `state-store.mutate()`, so a failed write (409 revision conflict, 500, network error)
-still cleared the just-typed draft even though nothing was saved.
+`addCriterion`/`addStep` (NodeWorkflowPanel) and `addSetting`/`addRule`/`addDecision`
+(ProjectMemoryPanel) cleared the draft unconditionally, even when `mutate()` returned `false`
+(409/500/network). `run()` now returns the `mutate()` boolean and drafts are cleared only on success.
 
-Additionally, `NodeWorkflowPanel` tracked a single global `busy` boolean shared by every node.
-Since the harness (and, structurally, the app) can change the `nodeId` prop on an already-mounted
-panel (no remount), a pending write for node A left node B's controls disabled/tied to the same
-flag, and a late-arriving response for A had no way to know the panel had since moved on to B.
+## Review blockers on 2de3c4e and their correction
 
-## Fix (owned files only)
+1. **HIGH, silent data loss.** 2de3c4e replaced the single busy flag with per-node busy scopes. But
+   all nodes share one `useDesktopState` snapshot with one revision and no mutation fencing. So B
+   (n2) could be POSTed while A (n1) was still in flight. B succeeded as R1 (carrying A's
+   optimistic state). A then failed with 409/500 and rolled the screen back to S0 while the
+   revision stayed R1. The next save then passed CAS and erased A and B on the server.
+   **Correction:** one synchronous, panel-wide save lock (`saveLockRef`) in both panels. `run()`
+   returns `false` immediately while a save is pending: nothing is sent, nothing is queued, and
+   failed optimistic state is never piggybacked on a later save. The lock is released only in a
+   `useLayoutEffect` keyed on a settle counter. That effect runs after the render that commits the
+   settled result (success or rollback), so the next handler's `mutate` closure has fresh
+   state/revision. Cleanup runs in `finally`. The per-node `busyScopes` set and the per-handler
+   `if (busy) return` render-closure guards were removed; the ref lock replaces them.
+2. **LOW, A→B→A cleared a newer draft.** 2de3c4e used a scope equality check, but drafts are shared
+   across nodes. **Correction:** per-draft version refs (`criterionDraftVersion`, `stepDraftVersion`
+   for the step text+assignee tuple, `settingDraftVersion` for the key+value tuple,
+   `ruleDraftVersion`, `decisionDraftVersion`). Every `onChange` increments the version. A
+   successful save clears the draft only if the version is the same one captured at submit. The
+   scope check (`scopeRef`) was removed.
 
-- `src/desktop-v3/NodeWorkflowPanel.tsx`:
-  - `run()` now returns the `mutate()` boolean.
-  - Busy state is now a `Set<string>` of in-flight scope keys (`project::workspace::nodeId`)
-    instead of one global flag. Controls for the *currently displayed* node are disabled only
-    while a write for **that same scope** is pending; switching to a different node while a
-    write is in flight leaves the new node's controls interactive immediately.
-  - `addCriterion`/`addStep` capture `requestScope` at submit time and only clear their draft
-    fields when the write succeeded **and** the panel is still showing that same scope
-    (`scopeRef.current === requestScope`) when the response arrives. Failure or a scope switch
-    in the meantime preserves the draft untouched.
-  - Added `if (busy) return;` guards at the top of every mutating handler (add/toggle/remove/
-    advance/goToEarlierPhase) to prevent duplicate submits from rapid Enter/click while a request
-    for that scope is already pending.
-- `src/desktop-v3/ProjectMemoryPanel.tsx`: same pattern — `run()` returns the boolean,
-  `addSetting`/`addRule`/`addDecision` only clear their draft on a successful write in the same
-  `project::workspace` scope, and gained `if (busy) return;` double-submit guards. (Project/
-  workspace cannot change on an already-mounted `ProjectMemoryPanel` in the current harness/app —
-  they come from fixed props — so a single global `busy` flag remains correct there; no per-scope
-  `Set` was needed.)
-- No changes to `state-store.ts`, `api.ts`, `types.ts`, or `AgentPacketPanel.tsx` (other lanes own
-  those). Visual output/markup unchanged; only handler logic and the busy-tracking shape changed.
+## Semantics / UX
 
-## New test assets (own paths)
+- NodeWorkflowPanel: while any save is pending, every mutating control (add buttons, checkboxes,
+  remove, advance, earlier-phase tabs) is disabled on **every** node. This is a panel-wide lock,
+  intentionally not per-node. Draft text inputs (criterion, step, assignee) stay editable during a
+  save (only `readOnly` disables them), so typing for another node is still possible, as the
+  per-node typing test requires. Enter while saving does nothing, sends no POST and keeps the draft.
+- ProjectMemoryPanel: controls keep their previous `disabled={readOnly || busy}` shape (no visual
+  change). The sync lock also covers `editSetting`/`removeSetting`/`removeRule`/`togglePin`, which
+  previously had no synchronous guard.
+- Read-only `main` still disables all inputs and controls; `mutate` still refuses to write.
+- Markup/layout unchanged apart from the `disabled` attribute on NodeWorkflowPanel draft inputs
+  during a save.
 
-- `e2e-v3-panels/workflow-draft-preservation.spec.ts` — 6 new cases:
-  1. 409 conflict preserves typed criterion text; retry with the still-present draft then persists
-     and clears it.
-  2. 500 failure preserves step text **and** assignee together; nothing was added to the list.
-  3. A pending criterion save for node `n1` does not clear a criterion draft freshly typed for
-     node `n2` after switching (via the harness's hash-based scope override, i.e. same mounted
-     component, no navigation) while `n1`'s response is still in flight; switching back confirms
-     `n1`'s criterion was in fact saved (not silently dropped).
-  4. Rapid double `Enter` on the criterion input sends exactly one POST and adds exactly one
-     criterion.
-  5. ProjectMemoryPanel: 409 conflict preserves the new setting's key **and** value; retry then
-     persists and clears both.
-  6. ProjectMemoryPanel: rapid double `Enter` on the decision input sends exactly one POST and
-     adds exactly one decision.
-  - Reused the existing `**/api/desktop-v3/state` route-interception pattern from
-    `node-workflow.spec.ts`/`project-memory.spec.ts`; did not modify those files or
-    `fixture-plugin.ts`/`harness.tsx`.
-- `vite.workflow-drafts.config.ts` — new Vite config, reuses the shared `fixturePlugin()` and the
-  shared `e2e-v3-panels` harness root unmodified, own port **8794** (`strictPort: true`).
-- `playwright.workflow-drafts.config.ts` — new Playwright config, `testMatch` scoped to
-  `workflow-draft-preservation.spec.ts` only, `baseURL` `http://127.0.0.1:8794`, spawns the vite
-  config above. Does not touch `playwright.desktop-v3.config.ts` (port 8782, another lane's
-  regression suite) or any of 8742/8769/8771/8782/8793/8780.
+## Tests (`e2e-v3-panels/workflow-draft-preservation.spec.ts`, 9 cases)
 
-### Not attempted: a same-project-switch leak test for `ProjectMemoryPanel`
+New:
+1. `held save for n1 blocks a concurrent save for n2; both persist across reload and a further mutation`:
+   holds A's POST, switches to n2 via the hash, types B, presses Enter, and asserts the in-page POST
+   counter is still 1 (the counter wraps `fetch` synchronously, so this is deterministic without
+   sleeps). Releases A (200), waits for the add button to be enabled, saves B (200), reloads, and
+   checks A on n1 and B on n2. It then checks the A checkbox (200), reloads, and asserts A (checked)
+   and B are both still present.
+2. `failed held save for n1 is not persisted piggyback via the next successful save for n2`: same
+   flow, but A gets a 500. After B is saved and the page reloads, n1 has no criterion and n2 has B.
+3. `A→B→A: late success for n1 keeps a draft newly typed on n2 and still shown on n1`.
 
-The harness (`e2e-v3-panels/harness.tsx`, not owned) reads `project`/`workspace` only from the
-initial URL query string, with no hash override (unlike `nodeId`/`path`/etc.). So on this harness
-a project/workspace change is always a full `page.goto` (fresh mount, fresh local state) — no code
-path exists to reproduce a same-mount project-scope leak for this panel without editing the shared
-harness, which is out of scope. The scope-guard code was still added to `ProjectMemoryPanel` for
-symmetry/robustness; only the two harness-testable behaviors (failed-save draft preservation,
-double-submit) are covered by an automated test here.
+Changed: the scope-switch test's `waitForTimeout(300)` was replaced with `waitForResponse` on the
+released POST plus a wait until the add button is enabled (it unlocks only in the render that
+settled A).
+Unchanged: 409/500 failure recovery (criterion, step+assignee, setting key+value) and both
+double-Enter tests.
 
-## Commands run (this worktree)
+## RED / GREEN (raw logs with exit codes in the external dir)
 
-```
-npm ci --ignore-scripts                                             # fresh tree, no node_modules
-npx tsc --noEmit -p .                                                # clean except pre-existing
-                                                                      # e2e/*.spec.ts errors (missing
-                                                                      # @types/node / playwright types
-                                                                      # in tsconfig scope — pre-existing,
-                                                                      # unrelated to this change, not in
-                                                                      # owned paths)
-```
+- `partial-NodeWorkflowPanel.patch`: the uncommitted partial patch left by the interrupted
+  pre-reset session (async queue + `setTimeout(0)`). It was preserved and then discarded (the file
+  was restored from HEAD by an explicit write). It is not the basis of this fix.
+- `01-red-race-on-HEAD.log` (exit=1): the new race tests failed on unmodified `2de3c4e` source at the
+  POST-count assertion, `Expected: 1, Received: 2`. The n2 save was really sent while n1's save was
+  held. The other 6 passed.
+- `02-green-race-lock.log` (exit=0): 8 passed after the panel-wide lock. `02-tsc-after-lock.log` exit=0.
+- `03-red-aba-on-lock.log` (exit=1): the new A→B→A test failed on the lock-only code with
+  `Expected: "Novější koncept", Received: ""`, because the scope check cleared the newer draft.
+  The other 8 passed.
+- `04-green-final-playwright.log` (exit=0): 9 passed after the draft versions.
+  `04-tsc-final.log` exit=0; `04-diff-check.log` exit=0.
 
-RED (source reverted to base commit `2ab5fa9` via `git checkout HEAD -- src/desktop-v3/NodeWorkflowPanel.tsx src/desktop-v3/ProjectMemoryPanel.tsx`, new test file kept):
-```
-npx playwright test --config playwright.workflow-drafts.config.ts
-# 4 failed / 2 passed — exactly the 4 draft-loss cases (409/500/scope-switch/setting-conflict)
-# failed as expected; the two double-submit guard cases already passed on the unfixed code.
-```
+Commands: `node node_modules/@playwright/test/cli.js test -c playwright.workflow-drafts.config.ts`
+(private port 8794), `node node_modules/typescript/bin/tsc --noEmit`, `git diff --check`.
 
-GREEN (fix restored):
-```
-npx playwright test --config playwright.workflow-drafts.config.ts
-# 6 passed (4.8s)
+Correction of the earlier note: the previous handoff said `tsc` had "pre-existing e2e/*.spec.ts
+errors". That was inaccurate. In this tree, `tsc --noEmit` exits 0 with no errors.
 
-npx playwright test --config playwright.desktop-v3.config.ts node-workflow.spec.ts project-memory.spec.ts smoke.spec.ts
-# 13 passed (6.4s) — no regressions in the pre-existing suite for these two panels
-```
+## Limitations
 
-Final typecheck: `npx tsc --noEmit -p .` — clean for all `src/desktop-v3/*` and the new spec/config
-files (remaining errors are pre-existing, in unrelated `e2e/*.spec.ts` files not touched by this
-change, unaffected by `node_modules` install).
-
-## Limitations / follow-ups for other lanes
-
-- `AgentPacketPanel.tsx` was not inspected/touched (owned by another lane per the assignment).
-- Did not run the full repository-wide Playwright suite (would collide with concurrently running
-  lanes on shared ports); only ran the isolated new config plus the specific pre-existing
-  `e2e-v3-panels` files relevant to the two owned panels, on their own existing port (8782, not
-  reserved by this lane, already free between runs here).
-
-## Result
-
-Small, verified change on owned paths only. Exact SHA of the commit containing this fix + tests +
-handoff is recorded in the commit that follows this file (see `git log -1`).
+- A mutation attempted while a save is pending is dropped, not queued. The user retries manually
+  and the draft is kept. For ProjectMemoryPanel's per-keystroke `editSetting`, a keystroke that
+  arrives between submit and the disabled render is dropped instead of racing.
+- The lock is per mounted panel instance. Two separate panels on the same project/workspace each
+  hold their own `useDesktopState`; conflicts between them still surface as a visible CAS 409
+  (no silent overwrite), not as serialization. Fixing that needs a shared store contract (not
+  owned here).
+- Clicking "Znovu načíst" mid-flight makes `mutate` return `false` even if the server later
+  commits; the draft stays and a retry gets a 409 or a duplicate. This is pre-existing, reported by
+  the reviewer, and not changed.
+- Drafts are still shared across nodes. A draft typed on n2 remains visible after switching to n1.
+  If it is submitted unchanged and succeeds, it is cleared even after a node switch, because
+  exactly that text was persisted.
+- The shared `playwright.desktop-v3.config.ts` suite (port 8782) was not run in this pass (private
+  port 8794 only). A grep of `node-workflow.spec.ts`/`project-memory.spec.ts` shows disabled-state
+  assertions only for Postoupit/phase tabs and read-only `main`; both are preserved.
+- Independent re-review and integration are coordinator responsibilities; this is not
+  self-approval.

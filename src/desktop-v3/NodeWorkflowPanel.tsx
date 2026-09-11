@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useDesktopState } from "./state-store";
 import { NODE_PHASES } from "./types";
 import type { DesktopState, NodePhase } from "./types";
@@ -35,36 +35,46 @@ export function NodeWorkflowPanel({
   const [newCriterionText, setNewCriterionText] = useState("");
   const [newStepText, setNewStepText] = useState("");
   const [newStepAssignee, setNewStepAssignee] = useState("");
-  // Pending writes are tracked per node scope (not one global flag) so that switching to a
-  // different node while a write for the previous one is still in flight leaves the new node's
-  // own controls interactive, and a late-arriving response can be matched back to (and can only
-  // clear the draft of) the exact scope that started it.
-  const scope = `${project}::${workspace}::${nodeId}`;
-  const scopeRef = useRef(scope);
-  scopeRef.current = scope;
-  const [busyScopes, setBusyScopes] = useState<ReadonlySet<string>>(() => new Set());
-  const busy = busyScopes.has(scope);
+  // Verze konceptů: každá změna textu zvýší verzi. Úspěšný zápis smaže koncept jen tehdy, když
+  // verze od odeslání nezměnila – ani návrat A→B→A tak nesmaže novější text (samotná shoda scope
+  // nestačí, koncepty jsou sdílené napříč uzly). Krok a přiřazení tvoří jednu dvojici s jednou verzí.
+  const criterionDraftVersion = useRef(0);
+  const stepDraftVersion = useRef(0);
+
+  // Celý stav projektu/workspace se ukládá jako jeden dokument s jedinou revizí a useDesktopState
+  // nemá frontu ani fencing zápisů. Proto smí běžet nejvýš jeden zápis za celý panel (ne po uzlu):
+  // souběžné B by jinak mohlo uspět a pozdní rollback A by vrátil obrazovku na starý stav s novou
+  // revizí – další uložení by pak na serveru tiše smazalo A i B. Zámek je synchronní ref (dvojí
+  // Enter ve stejném ticku neprojde) a uvolní se až v layout efektu po commitu usazeného renderu,
+  // aby další obsluha volala `mutate` s čerstvým stavem/revizí, nikoli se zastaralou uzávěrou.
+  // Psaní konceptů zůstává během zápisu povolené; blokuje se jen odeslání další mutace.
+  const saveLockRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [settledCount, setSettledCount] = useState(0);
+  useLayoutEffect(() => {
+    saveLockRef.current = false;
+  }, [settledCount]);
 
   const node = state.nodes[nodeId] ?? emptyNodeWorkflow();
   const phaseIndex = NODE_PHASES.indexOf(node.phase);
   const nextPhase = NODE_PHASES[phaseIndex + 1];
   const criteriaSatisfied = node.criteria.length > 0 && node.criteria.every((c) => c.checked);
 
-  async function run(requestScope: string, fn: (current: DesktopState) => DesktopState): Promise<boolean> {
-    setBusyScopes((prev) => new Set(prev).add(requestScope));
-    const ok = await mutate(fn);
-    setBusyScopes((prev) => {
-      if (!prev.has(requestScope)) return prev;
-      const next = new Set(prev);
-      next.delete(requestScope);
-      return next;
-    });
-    return ok;
+  async function run(fn: (current: DesktopState) => DesktopState): Promise<boolean> {
+    // Probíhající zápis: nic neodesílat ani neřadit do fronty; koncept zůstává k ručnímu opakování.
+    if (saveLockRef.current) return false;
+    saveLockRef.current = true;
+    setBusy(true);
+    try {
+      return await mutate(fn);
+    } finally {
+      setBusy(false);
+      setSettledCount((n) => n + 1);
+    }
   }
 
   function toggleCriterion(id: string) {
-    if (busy) return;
-    return run(scope, (current) =>
+    return run((current) =>
       withNode(current, nodeId, (n) => ({
         ...n,
         criteria: n.criteria.map((c) => (c.id === id ? { ...c, checked: !c.checked } : c)),
@@ -73,44 +83,39 @@ export function NodeWorkflowPanel({
   }
 
   function removeCriterion(id: string) {
-    if (busy) return;
-    return run(scope, (current) => withNode(current, nodeId, (n) => ({ ...n, criteria: n.criteria.filter((c) => c.id !== id) })));
+    return run((current) => withNode(current, nodeId, (n) => ({ ...n, criteria: n.criteria.filter((c) => c.id !== id) })));
   }
 
   function addCriterion() {
-    if (busy) return;
     const text = newCriterionText.trim();
     if (!text) return;
-    const requestScope = scope;
-    run(requestScope, (current) =>
+    const submittedVersion = criterionDraftVersion.current;
+    run((current) =>
       withNode(current, nodeId, (n) => ({ ...n, criteria: n.criteria.concat([{ id: newId(), text, checked: false }]) })),
     ).then((ok) => {
-      if (ok && scopeRef.current === requestScope) setNewCriterionText("");
+      if (ok && criterionDraftVersion.current === submittedVersion) setNewCriterionText("");
     });
   }
 
   function toggleStep(id: string) {
-    if (busy) return;
-    return run(scope, (current) =>
+    return run((current) =>
       withNode(current, nodeId, (n) => ({ ...n, steps: n.steps.map((s) => (s.id === id ? { ...s, done: !s.done } : s)) })),
     );
   }
 
   function removeStep(id: string) {
-    if (busy) return;
-    return run(scope, (current) => withNode(current, nodeId, (n) => ({ ...n, steps: n.steps.filter((s) => s.id !== id) })));
+    return run((current) => withNode(current, nodeId, (n) => ({ ...n, steps: n.steps.filter((s) => s.id !== id) })));
   }
 
   function addStep() {
-    if (busy) return;
     const text = newStepText.trim();
     if (!text) return;
     const assignee = newStepAssignee.trim() || "nepřiřazeno";
-    const requestScope = scope;
-    run(requestScope, (current) =>
+    const submittedVersion = stepDraftVersion.current;
+    run((current) =>
       withNode(current, nodeId, (n) => ({ ...n, steps: n.steps.concat([{ id: newId(), text, assignee, done: false }]) })),
     ).then((ok) => {
-      if (ok && scopeRef.current === requestScope) {
+      if (ok && stepDraftVersion.current === submittedVersion) {
         setNewStepText("");
         setNewStepAssignee("");
       }
@@ -118,15 +123,14 @@ export function NodeWorkflowPanel({
   }
 
   function advance() {
-    if (busy || !nextPhase || !criteriaSatisfied) return;
-    run(scope, (current) => withNode(current, nodeId, (n) => ({ ...n, phase: nextPhase })));
+    if (!nextPhase || !criteriaSatisfied) return;
+    run((current) => withNode(current, nodeId, (n) => ({ ...n, phase: nextPhase })));
   }
 
   function goToEarlierPhase(phase: NodePhase) {
-    if (busy) return;
     const targetIndex = NODE_PHASES.indexOf(phase);
     if (targetIndex >= phaseIndex) return;
-    run(scope, (current) => withNode(current, nodeId, (n) => ({ ...n, phase })));
+    run((current) => withNode(current, nodeId, (n) => ({ ...n, phase })));
   }
 
   const stepsDone = node.steps.filter((s) => s.done).length;
@@ -193,8 +197,11 @@ export function NodeWorkflowPanel({
               <input
                 aria-label="Nové kritérium"
                 value={newCriterionText}
-                disabled={readOnly || busy}
-                onChange={(e) => setNewCriterionText(e.target.value)}
+                disabled={readOnly}
+                onChange={(e) => {
+                  criterionDraftVersion.current += 1;
+                  setNewCriterionText(e.target.value);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") addCriterion();
                 }}
@@ -238,15 +245,21 @@ export function NodeWorkflowPanel({
               <input
                 aria-label="Nový krok"
                 value={newStepText}
-                disabled={readOnly || busy}
-                onChange={(e) => setNewStepText(e.target.value)}
+                disabled={readOnly}
+                onChange={(e) => {
+                  stepDraftVersion.current += 1;
+                  setNewStepText(e.target.value);
+                }}
               />
               <input
                 aria-label="Přiřazení kroku"
                 placeholder="nepřiřazeno"
                 value={newStepAssignee}
-                disabled={readOnly || busy}
-                onChange={(e) => setNewStepAssignee(e.target.value)}
+                disabled={readOnly}
+                onChange={(e) => {
+                  stepDraftVersion.current += 1;
+                  setNewStepAssignee(e.target.value);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") addStep();
                 }}
