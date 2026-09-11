@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 14,
+  "revision": 15,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -9,17 +9,17 @@
   "activeLane": null,
   "activeLanes": [
     {
-      "name": "live-return",
-      "branch": "fix/v3-live-view-return",
+      "name": "live-return-recovery",
       "role": "implementation",
+      "branch": "fix/v3-live-view-return",
       "worktree": "C:\\Users\\Admin\\opora-v3-live-return",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return\\state.json",
-      "processHandle": "proc_5e768f3c7787",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-recovery-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-recovery\\state.json",
+      "processHandle": "proc_c508c8762a18",
       "ownedPaths": [
         "src/desktop-v3.css",
         "e2e/live-view-return.spec.ts",
-        "playwright.live-return.config.ts (optional)",
+        "playwright.live-return.config.ts",
         ".opora/workunits/WU-DESKTOP-V3/live-return-HANDOFF.md"
       ],
       "reservedTestPorts": [
@@ -27,58 +27,143 @@
         8769,
         8771
       ],
-      "pid": 32376,
-      "pidExists": false,
-      "running": false,
-      "localTreeInactive": true,
-      "status": "error_max_turns_partial_tests_no_commit",
-      "observedAt": "2026-09-11T08:00:39.890717+02:00",
-      "createTime": 1789106068.674821,
-      "sessionId": "d4126547-8c7a-40a3-9796-12ce7355445c",
+      "modelAlias": "opus",
+      "sessionId": "f6b0f7ad-1c2b-4a61-9b14-2c2609110810",
+      "running": true,
+      "pid": 66072,
+      "observedAt": "2026-09-11T08:13:04.261310+02:00",
+      "pidExists": true,
+      "createTime": 1789107019.1251087,
+      "status": "running",
       "descendants": [
         {
-          "pid": 66020,
-          "createTime": 1789106068.6820333,
+          "pid": 64524,
+          "createTime": 1789107019.1372762,
           "name": "conhost.exe"
+        },
+        {
+          "pid": 56184,
+          "createTime": 1789107179.4000187,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 51248,
+          "createTime": 1789107183.2101119,
+          "name": "git.exe"
+        },
+        {
+          "pid": 54592,
+          "createTime": 1789107183.2146084,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 38416,
+          "createTime": 1789107183.8832333,
+          "name": "git.exe"
+        },
+        {
+          "pid": 4304,
+          "createTime": 1789107183.8986728,
+          "name": "git.exe"
+        },
+        {
+          "pid": 56052,
+          "createTime": 1789107183.912786,
+          "name": "git-remote-https.exe"
+        },
+        {
+          "pid": 15848,
+          "createTime": 1789107179.420418,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 61664,
+          "createTime": 1789107179.4265113,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 59056,
+          "createTime": 1789107179.5456426,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 60828,
+          "createTime": 1789107179.5545228,
+          "name": "node.exe"
+        },
+        {
+          "pid": 59544,
+          "createTime": 1789107179.5618904,
+          "name": "mise.exe"
+        },
+        {
+          "pid": 33120,
+          "createTime": 1789107179.5886564,
+          "name": "node.exe"
+        },
+        {
+          "pid": 59380,
+          "createTime": 1789107180.1955724,
+          "name": "cmd.exe"
+        },
+        {
+          "pid": 64904,
+          "createTime": 1789107183.136063,
+          "name": "cmd.exe"
+        },
+        {
+          "pid": 32636,
+          "createTime": 1789107184.2928116,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 57448,
+          "createTime": 1789107181.3565323,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 60128,
+          "createTime": 1789107181.3780818,
+          "name": "uvicorn.exe"
+        },
+        {
+          "pid": 59400,
+          "createTime": 1789107181.3859572,
+          "name": "python.exe"
+        },
+        {
+          "pid": 46592,
+          "createTime": 1789107181.3957517,
+          "name": "python.exe"
         }
-      ],
-      "modelAlias": "sonnet",
-      "exitCode": 1,
-      "finishReason": "completed",
-      "seconds": 243.23894029998337,
-      "subtype": "error_max_turns",
-      "models": [
-        "claude-haiku-4-5-20251001",
-        "claude-sonnet-5"
-      ],
-      "permissionDenials": []
+      ]
     },
     {
-      "name": "artifact-boundary-fix",
-      "branch": "feat/v3-claude-coding-artifact",
+      "name": "artifact-source-integrity",
       "role": "implementation",
-      "worktree": "C:/Users/Admin/opora-v3-coding-artifact",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-boundary-fix-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-boundary-fix\\state.json",
-      "processHandle": "proc_d2a6eda4c65d",
+      "branch": "feat/v3-claude-coding-artifact",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-source-integrity-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-source-integrity\\state.json",
+      "processHandle": "proc_99ab569e93fe",
       "ownedPaths": [
         "backend/claude_coding_artifact.py",
         "tests/test_claude_coding_artifact.py",
         ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
       ],
       "reservedTestPorts": [],
-      "pid": 54444,
-      "pidExists": true,
+      "modelAlias": "opus",
+      "sessionId": "4f8a236e-b2f6-43ad-a712-2c2609110810",
       "running": true,
-      "localTreeInactive": null,
+      "pid": 53944,
+      "observedAt": "2026-09-11T08:13:04.261310+02:00",
+      "pidExists": true,
+      "createTime": 1789107019.137364,
       "status": "running",
-      "observedAt": "2026-09-11T07:57:59.672687+02:00",
-      "createTime": 1789106143.5659308,
-      "sessionId": "f3cd0f88-ac10-466b-bdad-0cd2c8603f63",
       "descendants": [
         {
-          "pid": 66444,
-          "createTime": 1789106143.5720916,
+          "pid": 59536,
+          "createTime": 1789107019.1427424,
           "name": "conhost.exe"
         }
       ]
@@ -244,7 +329,7 @@
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
       "previewData": "Static assets published without deletion; no API writes in smoke, no DB restoration/restart. Known return-navigation overlap recorded.",
-      "finalHttpReadbackAt": "2026-09-11T07:57:59.672687+02:00",
+      "finalHttpReadbackAt": "2026-09-11T08:13:04.261310+02:00",
       "workflowReadback": {
         "publishedPreview": true,
         "networkFaultInjected": true,
@@ -317,14 +402,12 @@
     }
   },
   "nextActions": [
-    "live-return ended after243s/max35turns,36reported turns, no permission denials, PID absent. Only untracked e2e/live-view-return.spec.ts and playwright.live-return.config.ts, no production fix or commit. Inspect raw logs and process quiescence first, then one narrowed recovery; do not repeat broad prompt or call tests PASS. Artifact fix still active.",
-    "FIRST read GOAL/STATE/CHECKPOINT and all E/*/state.json; two current exclusive lanes. No duplicate paths or ports. Max4 total.",
-    "Collect live-return Sonnet isolated worktree/ports8742,8769,8771: normal click back from advanced viewer is genuinely blocked in preview. Needs RED->GREEN/full regression/independent review/merge/publish then rerun verify-keyboard-published.cjs with returnNavigationBlocked=false, no force clicking.",
-    "Collect artifact-boundary-fix Opus in existing artifact worktree. d47550a DO_NOT_MERGE: raw contract path escape and exit0 fake verification. Fix must enforce contract at public entry and keep current runner evidence honestly UNVERIFIED, not invent trusted report. Independent re-review required.",
-    "Full agent path remains incomplete: no production isolated external oracle/runtime/routes/UI roundtrip. Continue toward real technical docs->snapshot->agent->artifact->independent verification->same node/Live Run after safe foundation accepted.",
-    "Keyboard ea4b204 merged as 2756eeeb4445ceda9f0173014aabf92871cae585;75panelPASS/tsc0/build0, all7digit tabs and editable guard verified on8780; live-return overlap is separate open blocker, not hidden by reload used only to finish remaining readback.",
-    "Full684-line reference reread;125-row inventory remains roadmap, not all implemented. Phase2 eleven provided images remain awaiting accepted phase1.",
-    "Preview8780 data and old assets preserved. Do not touch P:/main/8768/8740 or dirty evidence PNGs. No hot retries/provider switches."
+    "FIRST collect live-return-recovery and artifact-source-integrity from their state/result/logs; verify exact process identity, descendants, stable worktree before handover. Exclusive ownership, no duplicates. Max4 total.",
+    "live-return-recovery Opus owns desktop-v3.css/test/config/handoff and8742/8769/8771. Narrow recovery fixes harness endpoint then genuine normal-click RED->GREEN/full suite. Needs independent Claude review, merge and published preview no-force return readback.",
+    "artifact-boundary-fix19b998c completed114focusedPASS/428fullPASS+4skip+2warnings; committed bytes match raw logs. NOT accepted: Fable third finding confirmed on current source. artifact-source-integrity Opus enforces external destination and bounded byte-level source observations with adversarial tests. Re-review final candidate, not just old d47550a.",
+    "Full agent acceptance remains BLOCKED: no isolated out-of-process behavioral oracle, actual CLI/runtime/routes/UI roundtrip. exit_evidence_only and passed:false are intentionally not verified behavior.",
+    "No new merge/publication this iteration. Preview8780 HTTP still matches published build; DB/assets/user changes preserved. Full inventory and phase1 remain incomplete. Phase2 eleven photographs received; start only after phase1 acceptance.",
+    "No new quota denial observed. OAuth Max unchanged, no billing/provider switch, no hot retries. Original main/P:/8768/8740 and dirty evidence must remain untouched."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -536,6 +619,46 @@
         "localTreeInactive": true,
         "pidExists": false
       }
+    },
+    "live-return": {
+      "modelAlias": "sonnet",
+      "sessionId": "d4126547-8c7a-40a3-9796-12ce7355445c",
+      "worktree": "C:\\Users\\Admin\\opora-v3-live-return",
+      "running": false,
+      "pid": 32376,
+      "localTreeInactive": true,
+      "exitCode": 1,
+      "finishReason": "completed",
+      "seconds": 243.23894029998337,
+      "subtype": "error_max_turns",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "pidExists": false,
+      "resultIsError": true,
+      "permissionDenials": [],
+      "status": "superseded_by_narrow_recovery"
+    },
+    "artifact-boundary-fix": {
+      "modelAlias": "opus",
+      "sessionId": "f3cd0f88-ac10-466b-bdad-0cd2c8603f63",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "running": false,
+      "pid": 54444,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 562.2452081000083,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "resultIsError": false,
+      "permissionDenials": [],
+      "status": "candidate19b998c_complete_but_source_integrity_open_not_accepted"
     }
   },
   "providerQuotaObservation": {
@@ -559,7 +682,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T07:57:59.672687+02:00",
+  "reconciledAt": "2026-09-11T08:13:04.261310+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -856,7 +979,7 @@
     },
     "claude-coding-artifact": {
       "commit": "d47550a2e17f51c133bfc447955c35b6f6836722",
-      "status": "DO_NOT_MERGE_TWO_HIGH_REVIEW_FINDINGS",
+      "status": "DO_NOT_MERGE_PENDING_SOURCE_INTEGRITY_FIX_AND_INDEPENDENT_REREVIEW",
       "review": {
         "passed": false,
         "blockingFindings": [
@@ -893,7 +1016,7 @@
         "localTreeInactive": true,
         "pidExists": false
       },
-      "fixLane": "artifact-boundary-fix",
+      "fixLane": "artifact-source-integrity",
       "historicalTests": {
         "focusedPassed": 88,
         "relatedPassed": 34,
@@ -902,15 +1025,29 @@
         "fullSkipped": 4,
         "warnings": 2,
         "scope": "old candidate only; does not prove security or new fixes"
+      },
+      "latestCandidate": "19b998cc4d0913bedfa7e528450afd8faf64c1dd",
+      "secondOpinion": {
+        "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\P--0--OSVC-8--Code-07--Aplikace-02-Opora-control-center\\3bb8d374-c88e-42b4-b658-07d96c61c6c3\\scratchpad\\artifact-review-result.json",
+        "reviewedCommit": "d47550a2e17f51c133bfc447955c35b6f6836722",
+        "passed": false,
+        "findingCount": 3,
+        "thirdFinding": {
+          "severity": "medium",
+          "path": "backend/claude_coding_artifact.py",
+          "detail": "verification.sourceUnchanged tvrdi vic, nez _source_state() overuje. _source_state() ulozi HEAD a sha256 z 'git status --porcelain=v1 -z --untracked-files=all' BEZ --ignored, zatimco _worktree_clean() pro kopii vedome pouziva '--ignored=matching' s komentarem, ze ignorovane zapisy je potreba videt. Tato asymetrie znamena: (a) jakykoli zapis do ignorovanych cest zdrojoveho repa (.venv/, __pycache__/, .ruff_cache/, node_modules/, .env, build vystupy) je neviditelny - v tomto worktree jde o realne existujici cesty, overeno 'git status --short --ignored=matching'; (b) porovnavaji se radky statusu, ne bajty souboru, takze dalsi prepis souboru, ktery uz je 'dirty', nechava status identicky - fixture v tests/test_claude_coding_artifact.py zamerne zaspini src/slugkit/slug.py, takze presne tento tvar repa je v testech normou a zmena jeho bajtu by projela jako sourceUnchanged=True; (c) execute_approved() nijak nevaliduje, ze 'dest' lezi mimo contract['sourceRepo'] - create_task_copy() dela jen Path(dest).absolute() a os.mkdir(), takze kopie (a tedy i beh runneru) muze skoncit uvnitr ignorovaneho adresare zdrojoveho repa, aniz by to status zachytil. Handoff formuluje kontrolu korektne jako 'HEAD/status unchanged', ale klic vysledku se jmenuje sourceUnchanged a commit message rika 'source unchanged'; budouci routes/UI to budou konzumovat jako dukaz nedotcenosti zdroje. Naprava: pridat --ignored do _source_state(), vyzadovat, aby dest nelezel pod sourceRepo, a pripadne porovnavat i hash pinovanych bajtu, ne jen radky statusu."
+        },
+        "confirmedOnCurrentCandidate": "_source_state hashes HEAD/status without ignored or bytes; destination relationship not guarded"
       }
     },
     "live-return": {
-      "status": "PARTIAL_TESTS_NO_FIX_NO_COMMIT_MAX_TURNS_NOT_QUOTA",
+      "status": "RECOVERY_RUNNING_NO_ACCEPTED_PRODUCTION_FIX",
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-preview-failure.json",
       "screenshot": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-blocked.png",
       "symptom": "Dohled běhů viewer overlaps and intercepts normal click back to Přehled a tickety",
       "hypothesis": "legacy absolute inset0 .agents-workspace covers v3 navigation; lane must prove with RED geometry",
-      "fixLane": "live-return"
+      "fixLane": "live-return-recovery",
+      "setupCause": "Prior owned config served backend.app dist rather than existing scripts.serve_clean_editor_fixture .data/clean-editor-dist; max-turn was exploration/setup, not quota or expected product RED"
     }
   },
   "pendingLanes": [],
@@ -920,6 +1057,25 @@
       "status": "read_by_coordinator_proposal_not_implemented_or_independently_reviewed",
       "selectedFirstSlice": "bounded host-validated artifact materialization into isolated git copy; no model, no shared routes, no Docker adapter yet",
       "audit": "C:\\Users\\Admin\\opora-v3-transport-audit\\.opora\\workunits\\WU-DESKTOP-V3\\CODING-TRANSPORT-AUDIT.md"
+    },
+    "artifact-boundary-fix": {
+      "commit": "19b998cc4d0913bedfa7e528450afd8faf64c1dd",
+      "status": "completed_not_accepted_source_integrity_third_finding_open",
+      "historicalTestEvidence": {
+        "focusedPassed": 114,
+        "fullPassed": 428,
+        "fullSkipped": 4,
+        "warnings": 2,
+        "exitCode": 0,
+        "commitBytesMatchRawLogs": true,
+        "sourceHashes": {
+          "backend/claude_coding_artifact.py": "70a3d1053b20f0daba302281ed9671fb06d0878f9d4e255136b1902a239323d3",
+          "tests/test_claude_coding_artifact.py": "adeb6405ed8cfb9cedb8d2972e1ffcaf99ec09010abb6229638cf65c2613d021"
+        },
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-boundary-fix\\full-01.log"
+      },
+      "acceptance": "always blocked; exit_evidence_only is not verified behavior",
+      "nextLane": "artifact-source-integrity"
     }
   },
   "codingReadiness": {
