@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 22,
+  "revision": 23,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -59,33 +59,6 @@
           "name": "conhost.exe"
         }
       ]
-    },
-    {
-      "modelAlias": "opus",
-      "sessionId": "b317294e-3c87-44d2-8c37-512ed0488db6",
-      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
-      "running": false,
-      "pid": 32984,
-      "localTreeInactive": true,
-      "exitCode": 0,
-      "finishReason": "completed",
-      "seconds": 96.05984189998708,
-      "subtype": "success",
-      "models": [
-        "claude-haiku-4-5-20251001",
-        "claude-opus-5"
-      ],
-      "name": "project-tree-slices-review",
-      "role": "review",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-slices-review-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-slices-review\\state.json",
-      "processHandle": "proc_0c5fbdc8e4c3",
-      "ownedPaths": [],
-      "reservedTestPorts": [],
-      "observedAt": "2026-09-11T09:39:42.549327+02:00",
-      "pidExists": false,
-      "createTime": null,
-      "descendants": []
     }
   ],
   "inspectorCandidate": {
@@ -367,7 +340,7 @@
   "nextActions": [
     "FIRST collect oracle-capture-failclosed: review-blocked db5b364 must never merge as passing. Require terminal engine state, matching client exit and complete capture; per-tracer real RED/GREEN and exact cleanup ledger.",
     "Collect artifact-prewire-review exact433ff69: 161 focused/475full+4skip were verified against commit hashes; no merge without explicit independent verdict and integrated gates.",
-    "Collect project-tree-slices-review exacta96c681: only expand/collapse done, 97PASS/1LIVEskip. If accepted integrate/publish/readback this narrow increment, then remaining4 actions individually RED/GREEN; 1280/1920 fit not yet verified.",
+    "Project-tree-slices-review passed:true exacta96c681 for TWO actions only. Next coordinator verify build bytes+toolbar1280/1920, merge net reviewed candidate, integrated regression/publication/browser readback; then remaining4 actions individually. Preserve reviewer TDD limitation (missing-button RED, not mutation-negative proofs), no retrospective claim.",
     "No test ports reserved currently. Max4 lanes total including reviewers; current3. Preserve preview user data and all dirty PNG; no whole coding/GOAL acceptance.",
     "After reviewed merge run integrated gates, publish private dist, browser readback, append checkpoint. Phase2 eleven sources received, wait for actual phase1 acceptance."
   ],
@@ -959,6 +932,24 @@
       "pidExists": false,
       "status": "candidate_not_integrated",
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-vertical"
+    },
+    "project-tree-slices-review": {
+      "modelAlias": "opus",
+      "sessionId": "b317294e-3c87-44d2-8c37-512ed0488db6",
+      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "running": false,
+      "pid": 32984,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 96.05984189998708,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "status": "independent_review_passed_narrow_two_slices"
     }
   },
   "providerQuotaObservation": {
@@ -982,7 +973,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T09:39:42.549327+02:00",
+  "reconciledAt": "2026-09-11T09:40:49.657816+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -1923,7 +1914,7 @@
     },
     "project-tree-vertical": {
       "commit": "a96c6813921782fa075456d44685f67ce8e164ee",
-      "status": "TWO_SLICES_NOT_INTEGRATED_independent_review_running",
+      "status": "INDEPENDENT_REVIEW_PASS_NARROW_TWO_SLICES_NOT_INTEGRATED",
       "focusedPassed": 2,
       "fullUi": {
         "passed": 97,
@@ -1949,7 +1940,34 @@
         "slash search focus",
         "1280/1920 toolbar fit",
         "no-known-folders no-op affordance"
-      ]
+      ],
+      "review": {
+        "passed": true,
+        "blockingFindings": [],
+        "followups": [
+          "Expand is a silent no-op when none of src/backend/tests is present. It is also a no-op when clicked before the root page has loaded, for example right after 'Obnovit strom' or toggling showAll. I classify this as a non-blocking UX gap for this narrow increment: no wrong state, no mutation, no request. Safe path: add an optional callback prop such as onExpandKnownResult?: (count: number, rootLoaded: boolean) => void. SourceExplorer calls it from the existing expandKnown effect. ProjectWorkspace then shows the result in its existing role=status message span, e.g. 'V kořeni nejsou načtené složky src, backend ani tests.' or 'Strom se ještě načítá.'. Do not disable the button based on state lifted out of SourceExplorer: it is keyed per project/workspace, and lifting pages up widens the change. Add one RED/GREEN test using a temp source with only docs.",
+          "Collapse test weakness: after `await late`, the toHaveCount(0) and 'Rozbalit src' visibility checks pass on the first poll, before React has applied the late setPages. On their own they would not catch a regression where load() re-adds the path to expanded after completion. The later click on 'Rozbalit src' (exact name) would likely time out in that case, so detection is probably present but timing-dependent. Suggest waiting for a deterministic signal that the late load was applied before asserting collapsed state, e.g. the pending status count reaching 0. Alternatively, re-assert collapsed state after an observable settle point.",
+          "TDD assessment: both REDs are genuine functional REDs at the correct first missing affordance. Spec hashes are identical between each RED and its GREEN (72cfe1ed… for s1, fededf0a… for s2), and source hashes change between them. However, the REDs only prove the buttons were absent. The substantive behavioural assertions were never shown failing against a plausibly wrong implementation: docs stays collapsed, GET-only, exactly 3 tree GETs, no re-open after a late response, 1 GET per folder on re-expand. They are effectively characterization assertions written with the code. Report this as nominal TDD, not proven behavioural RED.",
+          "Stale-counter safety on project/workspace change or remount holds, but incidentally rather than by design. The remounted SourceExplorer receives a nonzero expandKnown/collapseAll from ProjectWorkspace, and both effects fire on mount. Expand is harmless only because pages is {} in the initial render. Collapse only clears an already-empty set. Suggest a short comment, or tracking the last-handled counter in a ref, so a future change that seeds pages (cache, initial props) cannot trigger an unrequested expand on mount. A regression test that switches project after clicking expand would lock this in.",
+          "The expandKnown effect deliberately omits pages, pending, basePath and rootOnly from its deps; it reads them from the render in which the counter changed. This is correct here and matches the existing effect style in the file. If the repo ever enables react-hooks/exhaustive-deps, this line needs an explicit disable comment with the reason.",
+          "Only entries on the already-loaded root page(s) are considered. With showAll=true or a root with more than one page, src/backend/tests could sit on an unloaded page, and the action would silently skip them. The button title says 'jen načtené složky', so behaviour matches the label, but the status-message follow-up above should also cover this case.",
+          "Toolbar fit: the full suite's desktop-layout tests at 1280/1440/1920 pass, which is partial evidence. It is unknown whether they measure overflow of the Project toolbar specifically with the two new long labels. Capture 1280 and 1920 screenshots of the Project environment before publication, and confirm mobile/narrow behaviour if the Project environment is reachable there.",
+          "playwright.project-tree-actions.config.ts, which came from the rejected commit, has a comment claiming scope 'V3-PRJ-003..015 / V3-KEY-004'. The net candidate covers only V3-PRJ-003/004; update the comment to avoid overstating scope. The hardcoded fallback 'C:/Users/Admin/AppData/Local' is machine-specific; this is non-blocking because LOCALAPPDATA is normally set.",
+          "The new buttons omit type=\"button\", consistent with the neighbouring toolbar buttons, which are not inside a form. No action needed, noted only for style-fit completeness."
+        ],
+        "limitations": [
+          "Static review only; nothing was executed. Claims about build/test/tsc results, the WindowsJob/process-absence check, and hash equality between committed bytes, worktree and built dist are taken from the untrusted evidence and coordinator statements, not independently verified.",
+          "The s2-green-build log and the actual .data/clean-editor-dist contents were not provided. It cannot be confirmed statically that the tests ran against a bundle built from the reviewed source hashes.",
+          "It cannot be verified that the s1-red SourceExplorer/ProjectWorkspace hashes (5104a0e2…, 5b32272e…) equal the 959f879 baseline bytes, or that the rejected 8393b04 implementation was not consulted.",
+          "Only SourceExplorer.tsx and ProjectWorkspace.tsx were shown in full. Other SourceExplorer consumers (e.g. sector/directory pickers using directoriesOnly/rootOnly) were not visible. The conclusion that they are unaffected rests on the new props being optional with defaults of 0, plus the full suite passing.",
+          "Backend /api/workspace/tree semantics were not reviewed: ordering, blocked flag, pagination, visibility. The review assumes the server returns direct children with a correct kind/blocked classification.",
+          "Scope reviewed is only the net diff a96c681 vs 959f879 for the two actions: expand known folders and collapse all. No assessment is made of the four explicitly unimplemented actions, the overall GOAL, or live coding.",
+          "No visual verification of toolbar fit at 1280/1920 or on mobile was possible."
+        ],
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-slices-review\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false
+      }
     }
   },
   "codingReadiness": {
