@@ -19,6 +19,9 @@ test.describe("Issue 1: environment a mode se čtou z URL nezávisle", () => {
     await page.goto("/?screen=canvas&project=draft&workspace=draft&environment=live&mode=structure");
     const environments = page.getByRole("navigation", { name: "Pracovní prostředí" });
     await expect(environments.getByRole("button", { name: "Live Run", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+    await expect(page.getByTestId("board-surface")).toHaveCount(0);
+    await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
     await expect(page.getByRole("region", { name: "Agenti", exact: true })).toBeVisible();
     await expect(page.getByRole("toolbar", { name: "Nástroje Editoru" })).toHaveCount(0);
     await expect(page.getByTestId("board-surface")).toHaveCount(0);
@@ -90,6 +93,8 @@ test.describe("Issue 2: přiřazení běhu k uzlu posílá pravdivý scope", () 
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ revision: 4, items: [] }) });
     });
     await page.goto("/?screen=canvas&project=draft&workspace=draft&mode=agents");
+    await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
     await page.getByRole("button", { name: "Přiřadit k uzlu", exact: true }).click();
     await page.getByLabel("ID uzlu", { exact: true }).fill("child-1");
     await page.getByRole("checkbox", { name: "Potvrzuji přiřazení k tomuto uzlu", exact: true }).check();
@@ -131,6 +136,8 @@ test.describe("Issue 3: stránkování Live Run přežije zpožděnou starou odp
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
     });
     await page.goto("/?screen=canvas&project=draft&workspace=draft&mode=agents");
+    await expect(page.getByRole("region", { name: "Live workspace", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Dohled běhů", exact: true }).click();
     await expect(page.locator(".agent-run-item")).toHaveCount(30);
     await page.getByRole("button", { name: "Obnovit zdroje", exact: true }).click();
     await page.getByRole("button", { name: "Další relace", exact: true }).click();
