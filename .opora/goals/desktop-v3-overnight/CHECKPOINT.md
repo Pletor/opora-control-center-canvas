@@ -122,3 +122,7 @@ GOAL/STATE je trvalý. Noční monitor je `C:/Users/Admin/AppData/Local/hermes/s
 - Reviewer WindowsJob inactive/PID31900 absent před předáním. Opus artifact-boundary-fix600s/40turn pokračuje výlučně v původním artifact tree: boundary validation + poctivé UNVERIFIED označení pouze exit-code evidence a příslušné adversarial TDD. Žádná nonce/report fikce ani předstírání hotového Docker oracle. Runtime/routes/UI/real agent roundtrip stále chybí.
 - STATE.revision13 ukládá2 skutečné writer lanes/specs/handles/PID identity/potomky/ownership. Notifikace cron nepodporuje; další iterace převezme registry, nyní nečekat do dlouhého deadline. OAuth/Max auth ověřen, žádný provider/billing switch; nebyla nová quota chyba.
 - Preview DB/backend nebyly restartované ani obnovené, původní data/assets/dirty PNG/main/P:/8768/8740 zachovány. Bod1 stále INCOMPLETE, fotografie bod2 jsou dodané a fáze2 nezačala.
+
+
+### Dodatek rev14 — změna při závěrečném readback
+Sonnet live-return skončil243s/error_max_turns (36reportovaných kroků), permission_denials=[]; NE quota. Registry localTreeInactive=true a rootPID32376 absent. Worktree má pouze dva untracked test/config soubory; žádná produkční oprava, handoff ani commit. Zachováno pro úzké navázání další iterace; nesmí se vykázat jako dokončená oprava. Opus artifact-boundary-fix nadále běží.

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 13,
+  "revision": 14,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -28,11 +28,11 @@
         8771
       ],
       "pid": 32376,
-      "pidExists": true,
-      "running": true,
-      "localTreeInactive": null,
-      "status": "running",
-      "observedAt": "2026-09-11T07:57:59.672687+02:00",
+      "pidExists": false,
+      "running": false,
+      "localTreeInactive": true,
+      "status": "error_max_turns_partial_tests_no_commit",
+      "observedAt": "2026-09-11T08:00:39.890717+02:00",
       "createTime": 1789106068.674821,
       "sessionId": "d4126547-8c7a-40a3-9796-12ce7355445c",
       "descendants": [
@@ -41,7 +41,17 @@
           "createTime": 1789106068.6820333,
           "name": "conhost.exe"
         }
-      ]
+      ],
+      "modelAlias": "sonnet",
+      "exitCode": 1,
+      "finishReason": "completed",
+      "seconds": 243.23894029998337,
+      "subtype": "error_max_turns",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "permissionDenials": []
     },
     {
       "name": "artifact-boundary-fix",
@@ -307,6 +317,7 @@
     }
   },
   "nextActions": [
+    "live-return ended after243s/max35turns,36reported turns, no permission denials, PID absent. Only untracked e2e/live-view-return.spec.ts and playwright.live-return.config.ts, no production fix or commit. Inspect raw logs and process quiescence first, then one narrowed recovery; do not repeat broad prompt or call tests PASS. Artifact fix still active.",
     "FIRST read GOAL/STATE/CHECKPOINT and all E/*/state.json; two current exclusive lanes. No duplicate paths or ports. Max4 total.",
     "Collect live-return Sonnet isolated worktree/ports8742,8769,8771: normal click back from advanced viewer is genuinely blocked in preview. Needs RED->GREEN/full regression/independent review/merge/publish then rerun verify-keyboard-published.cjs with returnNavigationBlocked=false, no force clicking.",
     "Collect artifact-boundary-fix Opus in existing artifact worktree. d47550a DO_NOT_MERGE: raw contract path escape and exit0 fake verification. Fix must enforce contract at public entry and keep current runner evidence honestly UNVERIFIED, not invent trusted report. Independent re-review required.",
@@ -894,7 +905,7 @@
       }
     },
     "live-return": {
-      "status": "REPRODUCED_UI_BLOCKER_FIX_RUNNING",
+      "status": "PARTIAL_TESTS_NO_FIX_NO_COMMIT_MAX_TURNS_NOT_QUOTA",
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-preview-failure.json",
       "screenshot": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-blocked.png",
       "symptom": "Dohled běhů viewer overlaps and intercepts normal click back to Přehled a tickety",
