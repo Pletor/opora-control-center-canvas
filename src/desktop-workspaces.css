@@ -50,8 +50,12 @@
 .source-row button { border: 0; background: none; color: inherit; padding: 4px; text-align: left; }
 .source-name { flex: 1; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; }
 .source-toggle, .source-file-mark { width: 24px; flex: 0 0 24px; text-align: center; }
-.source-file-actions { display: grid; gap: 4px; margin: 4px 10px 8px 32px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
-.source-file-actions button { min-width: 0; padding: 7px 9px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.source-file-actions { position: fixed; z-index: 10000; display: grid; gap: 4px; width: 268px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; box-sizing: border-box; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); box-shadow: 0 8px 24px #0003; }
+.source-file-actions button { min-width: 0; padding: 8px 9px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.source-file-actions button:hover, .source-file-actions button:focus-visible { background: var(--accent-soft); color: var(--accent); }
+.worktree-open-row { display: flex; align-items: start; gap: 6px; }
+.worktree-open-row code { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.worktree-open-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 30px; height: 30px; padding: 5px; }
 .project-overview-link { margin: 0 10px 12px; }
 .tree-note, .tree-more { margin: 12px; font-size: 11px; color: var(--ink-muted); }
 .context-references { list-style: none; padding: 0; margin: 18px 0; }

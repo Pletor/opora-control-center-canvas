@@ -3,6 +3,7 @@
 import os
 import re
 import stat
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -137,13 +138,19 @@ class WorkspaceSources:
         return target
 
     def open_file(self, payload):
-        """Otevře pouze ověřený soubor nebo jeho rodiče; nikdy nespouští obsah souboru."""
+        """Otevře ověřenou položku či složku, nikdy ne její obsah jako program."""
         if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "path", "action"}:
             raise ValueError("Otevření vyžaduje project, workspace, path a action.")
         path = relative_path(payload["path"])
         action = payload["action"]
-        if not path or not isinstance(action, str) or action not in {"vscode", "folder"}:
-            raise ValueError("Vyberte soubor a akci vscode nebo folder.")
+        if not isinstance(action, str) or action not in {"vscode", "folder", "folder-vscode", "workspace-vscode"}:
+            raise ValueError("Neplatná akce otevření.")
+        if not all(isinstance(payload[key], str) and payload[key] for key in ("project", "workspace")):
+            raise ValueError("Vyberte projekt a pracovní prostor.")
+        if action == "workspace-vscode" and (path or payload["workspace"] in {"draft", "main"}):
+            raise ValueError("Nové okno vyžaduje kořen konkrétního worktree.")
+        if not path and action != "workspace-vscode":
+            raise ValueError("Vyberte soubor nebo složku.")
         if os.name != "nt":
             raise ValueError("Otevírání souborů je dostupné pouze v lokální aplikaci na Windows.")
         try:
@@ -152,11 +159,28 @@ class WorkspaceSources:
                 if root is None:
                     raise ValueError("Projekt nemá připojený zdrojový adresář.")
                 target = self.target(root, path)
-                if not target.is_file():
-                    raise ValueError("Vybraná položka není soubor.")
-                # Pevný protokol VS Code, nikoli shell ani asociace samotného souboru.
-                destination = "vscode://file/" + quote(target.as_posix(), safe="/:") if action == "vscode" else str(target.parent)
-                os.startfile(destination)
+                if not target.is_file() and not target.is_dir():
+                    raise ValueError("Vybraná položka není soubor ani složka.")
+                folder = target if target.is_dir() else target.parent
+                if action == "workspace-vscode":
+                    # Jen instalovaný editor, nikoli code.cmd nalezený v pracovním stromu/PATH.
+                    candidates = [Path(os.environ[key]) / suffix for key, suffix in (
+                        ("LOCALAPPDATA", "Programs/Microsoft VS Code/Code.exe"),
+                        ("PROGRAMFILES", "Microsoft VS Code/Code.exe"),
+                        ("PROGRAMFILES(X86)", "Microsoft VS Code/Code.exe"),
+                    ) if os.environ.get(key)]
+                    editor = next((candidate for candidate in candidates if candidate.is_file()), None)
+                    if editor is None:
+                        raise ValueError("Instalace VS Code nebyla nalezena ve standardním umístění.")
+                    environment = dict(os.environ)
+                    environment.pop("ELECTRON_RUN_AS_NODE", None)
+                    subprocess.Popen([str(editor), "--new-window", str(folder)], shell=False,
+                                     cwd=str(editor.parent), env=environment,
+                                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    destination = str(folder) if action == "folder" else "vscode://file/" + quote(
+                        (folder if action == "folder-vscode" else target).as_posix(), safe="/:")
+                    os.startfile(destination)
         except OSError as exc:
             raise ValueError("Soubor nelze otevřít. Ověřte jeho dostupnost a instalaci VS Code pro akci vscode.") from exc
         return {"project": payload["project"], "workspace": payload["workspace"],

@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import type { CanvasNode, Job, Project, View, Workspace } from "./types";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { api, type CanvasNode, type Job, type Project, type View, type Workspace } from "./types";
 import { WORKSPACE_MODES, type WorkspaceMode } from "./workspace-settings";
 
 /**
@@ -29,6 +29,29 @@ export default function ScopeContext({
   onWorkspace: () => void;
 }) {
   const modeInfo = WORKSPACE_MODES.find((m) => m.key === mode);
+  const [opening, setOpening] = useState(false);
+  const [openResult, setOpenResult] = useState<{ error: boolean; text: string } | null>(null);
+  const openingLock = useRef(false);
+  const generation = useRef(0);
+  useEffect(() => {
+    generation.current++; setOpenResult(null);
+    return () => { generation.current++; };
+  }, [activeProject?.id, activeWorkspace?.id]);
+  async function openWorktree() {
+    if (!activeProject || !activeWorkspace || openingLock.current) return;
+    openingLock.current = true; setOpening(true); setOpenResult(null);
+    const ticket = generation.current;
+    try {
+      const result = await api<{ project: string; workspace: string; path: string; action: string; status: string }>("/api/workspace/open-file", {
+        project: activeProject.id, workspace: activeWorkspace.id, path: "", action: "workspace-vscode",
+      });
+      if (ticket !== generation.current) return;
+      if (result.project !== activeProject.id || result.workspace !== activeWorkspace.id || result.path !== "" || result.action !== "workspace-vscode" || result.status !== "requested") throw new Error("Odpověď neodpovídá vybranému worktree.");
+      setOpenResult({ error: false, text: "Požadavek na nové okno VS Code předán systému." });
+    } catch (error) {
+      if (ticket === generation.current) setOpenResult({ error: true, text: String(error) });
+    } finally { openingLock.current = false; setOpening(false); }
+  }
   const hint =
     mode === "structure"
       ? "Vyberte kartu na plátně. Dvojklik na prázdné místo vytvoří uzel."
@@ -56,7 +79,13 @@ export default function ScopeContext({
           <>
             <dt>Worktree</dt>
             <dd>
-              <code>{activeWorkspace.directory}</code>
+              <div className="worktree-open-row"><code>{activeWorkspace.directory}</code>
+                <button type="button" className="worktree-open-button" disabled={opening || !activeProject}
+                  aria-label="Otevřít worktree v novém okně VS Code" title="Otevřít tento pracovní prostor v novém okně VS Code" onClick={() => void openWorktree()}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M14 3h7v7M21 3 10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" /></svg>
+                </button>
+              </div>
+              {openResult && <span role={openResult.error ? "alert" : "status"} className={openResult.error ? "error" : "muted"}>{openResult.text}</span>}
               <span className="muted">Vlastník {activeWorkspace.actor}. Tím není potvrzena aktivita agenta.</span>
             </dd>
           </>

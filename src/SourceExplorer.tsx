@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "./types";
 import { SOURCE_DRAG_TYPE } from "./workspace-selection";
 
@@ -29,7 +30,9 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   const [actionFile, setActionFile] = useState<Entry | null>(null);
   const [opening, setOpening] = useState(false);
   const [openNotice, setOpenNotice] = useState("");
-  const actionRow = useRef<HTMLDivElement>(null);
+  const actionMenu = useRef<HTMLDivElement>(null);
+  const actionTrigger = useRef<HTMLButtonElement | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
   const openLock = useRef(false);
   const generation = useRef(0);
   async function load(path: string, offset = 0) {
@@ -49,25 +52,31 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   }, [project, workspace, refresh, basePath, showAll]);
   useEffect(() => {
     if (!actionFile) return;
-    actionRow.current?.querySelector<HTMLButtonElement>(".source-file-actions button")?.focus();
+    actionMenu.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
     const outside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !actionRow.current?.contains(event.target)) setActionFile(null);
+      if (event.target instanceof Node && !actionMenu.current?.contains(event.target) && !actionTrigger.current?.contains(event.target)) setActionFile(null);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      actionRow.current?.querySelector<HTMLButtonElement>(".source-name")?.focus();
+      actionTrigger.current?.focus({ preventScroll: true });
       setActionFile(null);
     };
+    const reposition = () => setActionFile(null);
+    const scroll = (event: Event) => { if (!(event.target instanceof Node) || !actionMenu.current?.contains(event.target)) reposition(); };
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", escape);
+    document.addEventListener("scroll", scroll, true);
+    window.addEventListener("resize", reposition);
     return () => {
       document.removeEventListener("pointerdown", outside);
       document.removeEventListener("keydown", escape);
+      document.removeEventListener("scroll", scroll, true);
+      window.removeEventListener("resize", reposition);
     };
   }, [actionFile]);
   useEffect(() => { setActionFile(null); }, [search, collapseAll]);
-  async function openFile(entry: Entry, action: "vscode" | "folder") {
-    if (openLock.current || entry.blocked || entry.kind !== "file") return;
+  async function openFile(entry: Entry, action: "vscode" | "folder" | "folder-vscode") {
+    if (openLock.current || entry.blocked || entry.kind === "link") return;
     openLock.current = true; setOpening(true); setError(""); setOpenNotice("");
     const ticket = generation.current;
     try {
@@ -77,7 +86,8 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
       if (result.project !== project || result.workspace !== workspace || result.path !== entry.path || result.action !== action || result.status !== "requested") {
         throw new Error("Odpověď neodpovídá vybranému souboru.");
       }
-      setOpenNotice(`Požadavek na otevření ${action === "vscode" ? "ve VS Code" : "složky souboru"} předán systému: ${entry.path}`);
+      setOpenNotice(`Požadavek na otevření ${action === "folder" ? "složky umístění" : action === "folder-vscode" ? "složky ve VS Code" : "ve VS Code"} předán systému: ${entry.path}`);
+      actionTrigger.current?.focus({ preventScroll: true });
       setActionFile(null);
     } catch (e) { if (ticket === generation.current) setError(String(e)); }
     finally { openLock.current = false; setOpening(false); }
@@ -100,26 +110,26 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   const needle = search.toLocaleLowerCase();
   function rows(path: string, depth: number): React.ReactNode {
     const page = Object.hasOwn(pages, path) ? pages[path] : undefined;
-    return <>{page?.entries.filter((entry) => directoriesOnly ? entry.kind === "directory" : true).filter((entry) => !needle || entry.kind === "directory" || entry.path.toLocaleLowerCase().includes(needle)).map((entry) => <div key={entry.path} ref={actionFile?.path === entry.path ? actionRow : undefined}>
+    return <>{page?.entries.filter((entry) => directoriesOnly ? entry.kind === "directory" : true).filter((entry) => !needle || entry.kind === "directory" || entry.path.toLocaleLowerCase().includes(needle)).map((entry) => <div key={entry.path}>
       <div role="treeitem" aria-selected={selected === entry.path} aria-expanded={entry.kind === "directory" && !rootOnly ? expanded.has(entry.path) : undefined}
         className={"source-row" + (selected === entry.path ? " selected" : "")} style={{ paddingLeft: 8 + depth * 14 }}
         draggable={!entry.blocked} onDragStart={(e) => {
           e.dataTransfer.setData(SOURCE_DRAG_TYPE, JSON.stringify({ project, workspace, path: entry.path })); e.dataTransfer.effectAllowed = "copy";
         }}>
         {entry.kind === "directory" && !rootOnly ? <button type="button" className="source-toggle" aria-label={(expanded.has(entry.path) ? "Sbalit " : "Rozbalit ") + entry.name}
-          onClick={() => toggle(entry)}>{expanded.has(entry.path) ? "⌄" : "›"}</button> : <span className="source-file-mark" aria-hidden="true">{entry.blocked ? "↗" : "·"}</span>}
+          onClick={() => { setActionFile(null); toggle(entry); }}>{expanded.has(entry.path) ? "⌄" : "›"}</button> : <span className="source-file-mark" aria-hidden="true">{entry.blocked ? "↗" : "·"}</span>}
         <button type="button" className="source-name" disabled={entry.blocked} title={entry.blocked ? "Odkaz nelze otevřít" : entry.path}
-          aria-expanded={entry.kind === "file" ? actionFile?.path === entry.path : undefined}
-          onClick={() => {
+          aria-haspopup="menu" aria-expanded={actionFile?.path === entry.path}
+          onClick={(event) => {
             onSelect(entry.path, entry.kind === "directory" ? "directory" : "file");
             setOpenNotice("");
-            setActionFile(entry.kind === "file" && actionFile?.path !== entry.path ? entry : null);
+            actionTrigger.current = event.currentTarget;
+            const rect = event.currentTarget.getBoundingClientRect();
+            setMenuPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - 276)), top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 158)) });
+            setActionFile(actionFile?.path !== entry.path ? entry : null);
           }}>{entry.name}</button>
       </div>
-      {actionFile?.path === entry.path && <div className="source-file-actions" role="group" aria-label={`Otevřít soubor ${entry.name}`}>
-        <button type="button" disabled={opening} onClick={() => void openFile(entry, "vscode")}>Otevřít ve VS Code</button>
-        <button type="button" disabled={opening} onClick={() => void openFile(entry, "folder")}>Otevřít složku souboru</button>
-      </div>}
+
       {!rootOnly && expanded.has(entry.path) && <div role="group">{rows(entry.path, depth + 1)}</div>}
     </div>)}
     {pending.has(path) && <p role="status" className="tree-note">Načítám složku…</p>}
@@ -137,6 +147,21 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
     {pages[basePath]?.available === false && <p className="tree-note">Projekt zatím nemá zdrojovou složku. Dokumentaci i Editor lze používat samostatně.</p>}
     {error && <p className="error" role="alert">{error}<button type="button" onClick={() => load(basePath)}>Zkusit znovu</button></p>}
     {openNotice && <p className="tree-note" role="status">{openNotice}</p>}
+    {actionFile && createPortal(<div ref={actionMenu} className="source-file-actions" role="menu" aria-label={`Otevřít ${actionFile.name}`} style={menuPosition}
+      onKeyDown={(event) => {
+        const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[next]?.focus();
+        }
+        if (event.key === "Tab") setActionFile(null);
+      }}>
+      <button type="button" role="menuitem" disabled={opening} onClick={() => void openFile(actionFile, "vscode")}>Otevřít ve VS Code</button>
+      <button type="button" role="menuitem" disabled={opening} title={actionFile.kind === "directory" ? "Otevře vybranou složku v Průzkumníku" : "Otevře složku obsahující soubor v Průzkumníku"} onClick={() => void openFile(actionFile, "folder")}>Otevřít složku umístění</button>
+      <button type="button" role="menuitem" disabled={opening} onClick={() => void openFile(actionFile, "folder-vscode")}>Otevřít složku ve VS Code</button>
+    </div>, document.body)}
     <footer className="tree-note">{showAll ? "Úplný přehled mimo interní .git." : "Pracovní přehled: .gitignore, závislosti a cache jsou skryté, src je první."}
       {!showAll && !!pages[basePath]?.hiddenCount && ` Skryto v této složce: ${pages[basePath].hiddenCount}.`}
       {" "}Nic se nemaže z disku. Složky se načítají až při rozbalení; hledání prochází načtené položky.</footer>
