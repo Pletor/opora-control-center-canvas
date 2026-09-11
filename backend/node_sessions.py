@@ -10,6 +10,7 @@ vazbu po ověření existence session ve zdroji. Síťové a souborové čtení 
 nikdy neprobíhá pod `service.lock`; zápis drží pořadí `graph_lock` -> `lock`.
 """
 
+import json
 import os
 import uuid
 from datetime import UTC, datetime
@@ -67,8 +68,10 @@ class NodeSessions:
                     node_id TEXT NOT NULL, source TEXT NOT NULL, session_id TEXT NOT NULL,
                     run_id TEXT, role TEXT NOT NULL, title TEXT NOT NULL, parent_session_id TEXT,
                     bound_at TEXT NOT NULL, baseline_at TEXT NOT NULL, baseline_cursor INTEGER NOT NULL,
-                    UNIQUE(project_id, workspace_id, source, session_id)
+                    closed_at TEXT, closed_snapshot TEXT
                 );
+                CREATE UNIQUE INDEX IF NOT EXISTS node_sessions_active
+                    ON node_sessions(project_id, workspace_id, source, session_id) WHERE closed_at IS NULL;
                 CREATE INDEX IF NOT EXISTS node_sessions_scope
                     ON node_sessions(project_id, workspace_id, node_id);
                 """
@@ -137,28 +140,29 @@ class NodeSessions:
         except SourceError as exc:
             raise ValueError(f"Session nelze ověřit ve zdroji: {exc}") from None
         bound_at = self.clock().isoformat()
+        row_id = uuid.uuid4().hex
         with self.service.graph_lock:
             self._live_node(pid, wid, node_id, for_write=True)
             with self.service.lock, self.service.db:
                 self.service.db.execute("BEGIN IMMEDIATE")
                 existing = self._find(pid, wid, source, session_id)
                 if existing is None:
-                    row_id = uuid.uuid4().hex
                     self.service.db.execute(
-                        "INSERT INTO node_sessions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT INTO node_sessions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL)",
                         (row_id, pid, wid, node_id, source, session_id, run_id, payload["role"], title,
                          payload["parentSessionId"], bound_at, bound_at, int(evidence["baselineCursor"])),
                     )
         if existing is not None:
             self._check_same(existing, payload, title)
             return self._session(existing, self._node_names(pid, wid))
-        row = self._find(pid, wid, source, session_id)
+        with self.service.lock:
+            row = dict(self.service.db.execute("SELECT * FROM node_sessions WHERE id=?", (row_id,)).fetchone())
         return self._session(row, self._node_names(pid, wid))
 
     def _find(self, pid, wid, source, session_id):
         with self.service.lock:
             row = self.service.db.execute(
-                "SELECT * FROM node_sessions WHERE project_id=? AND workspace_id=? AND source=? AND session_id=?",
+                "SELECT * FROM node_sessions WHERE project_id=? AND workspace_id=? AND source=? AND session_id=? AND closed_at IS NULL",
                 (pid, wid, source, session_id),
             ).fetchone()
         return dict(row) if row is not None else None
@@ -174,6 +178,41 @@ class NodeSessions:
         )
         if not same:
             raise ValueError("Session už je v tomto pracovním prostoru navázaná s jinými údaji; vazbu nelze přepsat.")
+
+    def close(self, binding_id, payload):
+        """Uzavře přiřazení úkolu, nikoli proces modelu či Telegram konverzaci."""
+        if (not valid_id(binding_id) or not isinstance(payload, dict)
+                or set(payload) != {"project", "workspace", "nodeId", "confirmed"}
+                or payload["confirmed"] is not True):
+            raise ValueError("Ukončení vazby vyžaduje přesný scope a explicitní potvrzení.")
+        pid, wid, node_id = payload["project"], payload["workspace"], payload["nodeId"]
+        self._validate_scope(pid, wid, node_id, node_required=True)
+        names = self._node_names(pid, wid)
+        def find():
+            with self.service.lock:
+                row = self.service.db.execute(
+                    "SELECT * FROM node_sessions WHERE id=? AND project_id=? AND workspace_id=? AND node_id=?",
+                    (binding_id, pid, wid, node_id),
+                ).fetchone()
+            if row is None:
+                raise ValueError("Vazba v tomto scope neexistuje.")
+            return dict(row)
+        row = find()
+        if row["closed_at"]:
+            return self._session(row, names)
+        snapshot = self._session(row, names)  # čtení zdroje mimo DB zámky
+        closed_at = self.clock().isoformat()
+        snapshot["closedAt"] = closed_at
+        if snapshot["status"] in ("running", "recent_activity"):
+            snapshot["status"] = "idle"
+        snapshot["statusReason"] = "Sledování tohoto úkolu ukončeno; session může pokračovat jinde. " + snapshot["statusReason"]
+        snapshot["sourceLabel"] += " · uložený snímek při ukončení vazby"
+        with self.service.lock, self.service.db:
+            self.service.db.execute(
+                "UPDATE node_sessions SET closed_at=?,closed_snapshot=? WHERE id=? AND closed_at IS NULL",
+                (closed_at, json.dumps(snapshot, ensure_ascii=False), binding_id),
+            )
+        return self._session(find(), names)
 
     # --- čtení ------------------------------------------------------------
 
@@ -226,7 +265,18 @@ class NodeSessions:
                 "events": [], "lastActivityAt": None, "metrics": dict(EMPTY_METRICS)}
 
     def _session(self, row, names):
+        if row.get("closed_at"):
+            return json.loads(row["closed_snapshot"])
         observed = self._observe(row)
+        # Uzavření může doběhnout během síťového čtení: nevracet novou aktivitu
+        # do již uzavřeného přiřazení ani z dříve zahájeného GET.
+        with self.service.lock:
+            closed = self.service.db.execute(
+                "SELECT closed_snapshot FROM node_sessions WHERE id=? AND closed_at IS NOT NULL",
+                (row["id"],),
+            ).fetchone()
+        if closed is not None:
+            return json.loads(closed["closed_snapshot"])
         return {
             "id": row["id"],
             "source": row["source"],
@@ -244,6 +294,7 @@ class NodeSessions:
             "sourceAvailable": observed["sourceAvailable"],
             "lastActivityAt": observed["lastActivityAt"],
             "boundAt": row["bound_at"],
+            "closedAt": None,
             "events": observed["events"],
             "metrics": observed["metrics"],
             "sourceLabel": SOURCE_LABELS[row["source"]],
@@ -272,6 +323,13 @@ def create_node_sessions_router(service, *, hermes_source=None, claude_source=No
     def bind(payload: dict):
         try:
             return sessions.bind(payload)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=409)
+
+    @router.post("/{binding_id}/close")
+    def close_binding(binding_id: str, payload: dict):
+        try:
+            return sessions.close(binding_id, payload)
         except ValueError as exc:
             return JSONResponse({"error": str(exc)}, status_code=409)
 

@@ -104,14 +104,18 @@ export function NodeSessionsPanel({ project, workspace, nodeId }: { project: str
     };
   }, [project, workspace, effectiveNodeId, refresh]);
 
-  const orchestrators = useMemo(() => sessions.filter((s) => s.role === "orchestrator").sort(sortByActivity), [sessions]);
-  const workers = useMemo(() => sessions.filter((s) => s.role === "worker").sort(sortByActivity), [sessions]);
+  const displaySessions = useMemo(() => error ? sessions.map((s): NodeSession => s.closedAt ? s : ({
+    ...s, status: "unknown", sourceAvailable: false,
+    statusReason: "Spojení přerušeno; poslední uložený stav nelze považovat za živý.",
+  })) : sessions, [sessions, error]);
+  const orchestrators = useMemo(() => displaySessions.filter((s) => s.role === "orchestrator").sort(sortByActivity), [displaySessions]);
+  const workers = useMemo(() => displaySessions.filter((s) => s.role === "worker").sort(sortByActivity), [displaySessions]);
   const ordered = useMemo(() => [...orchestrators, ...workers], [orchestrators, workers]);
   const selected = ordered.find((s) => s.id === selectedId) || (!selectedId ? ordered[0] : undefined);
   const parentTitle = selected?.parentSessionId ? sessions.find((s) => s.sessionId === selected.parentSessionId)?.title : undefined;
 
-  const hermesSessions = sessions.filter((s) => s.source === "hermes");
-  const claudeSessions = sessions.filter((s) => s.source === "claude");
+  const hermesSessions = displaySessions.filter((s) => s.source === "hermes");
+  const claudeSessions = displaySessions.filter((s) => s.source === "claude");
   const sourceSummary = (label: string, rows: NodeSession[]) => {
     if (!rows.length) return { label, state: "none" as const, text: "žádné vázané sessions" };
     const unavailable = rows.filter((r) => !r.sourceAvailable);
@@ -154,6 +158,7 @@ export function NodeSessionsPanel({ project, workspace, nodeId }: { project: str
         <span className={`ns-status ns-status-${s.status}`}>{STATUS_LABEL[s.status]}</span>
       </span>
       <strong>{s.title}</strong>
+      {s.closedAt && <span className="ns-note">Sledování úkolu uzavřeno</span>}
       <code>{s.sessionId}</code>
       <span className="ns-card-meta">{!s.sourceAvailable && <span className="ns-card-warn">Zdroj nedostupný · </span>}{fmtTime(s.lastActivityAt)}{s.model ? ` · ${s.model}` : ""}</span>
     </button>
@@ -193,7 +198,7 @@ export function NodeSessionsPanel({ project, workspace, nodeId }: { project: str
       )}
       {truncated && <p className="ns-note ns-truncated">Zdroj vrátil více sessions než limit (100); seznam je oříznutý.</p>}
       <div className="ns-columns">
-        <aside className="ns-shelf" aria-label="Vázané sessions" role="listbox" aria-activedescendant={selected?.id} onKeyDown={onListKeyDown}>
+        <aside className="ns-shelf" aria-label="Vázané sessions" onKeyDown={onListKeyDown}>
           {loading && !sessions.length && <p role="status" className="ns-note">Načítám vázané sessions…</p>}
           <div className="ns-group">
             <h3>Orchestrátor <span>{orchestrators.length}</span></h3>
@@ -245,12 +250,13 @@ export function NodeSessionsPanel({ project, workspace, nodeId }: { project: str
                 <dt>Uzel</dt><dd>{selected.nodeName || selected.nodeId}</dd>
                 <dt>Model</dt><dd>{selected.model || "nedostupné"}</dd>
                 <dt>Svázáno</dt><dd>{fmtTime(selected.boundAt)}</dd>
-                <dt>Zdroj dostupný</dt><dd>{selected.sourceAvailable ? "Ano" : "Ne"}</dd>
+                {selected.closedAt && <><dt>Sledování ukončeno</dt><dd>{fmtTime(selected.closedAt)}</dd></>}
+                <dt>Zdroj při posledním čtení</dt><dd>{selected.sourceAvailable ? "Dostupný" : "Nedostupný"}</dd>
               </dl>
               <div className="ns-metrics">
                 <div><strong>{fmtNum(selected.metrics.inputTokens)}</strong><span>Vstupní tokeny</span></div>
                 <div><strong>{fmtNum(selected.metrics.outputTokens)}</strong><span>Výstupní tokeny</span></div>
-                <div><strong>{fmtCost(selected.metrics.costUsd)}</strong><span>Náklady (skutečné)</span></div>
+                <div><strong>{fmtCost(selected.metrics.costUsd)}</strong><span>Náklady hlášené zdrojem</span></div>
               </div>
               {selected.source === "hermes" && <p className="ns-note">Metriky Hermes jsou za celou session, nikoli jen za tento uzel.</p>}
               {selected.role === "worker" && selected.status === "completed" && (

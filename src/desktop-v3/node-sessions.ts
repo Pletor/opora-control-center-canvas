@@ -27,6 +27,7 @@ export type NodeSession = {
   sourceAvailable: boolean;
   lastActivityAt: string | null;
   boundAt: string;
+  closedAt: string | null;
   events: SessionEvent[];
   metrics: NodeSessionMetrics;
   sourceLabel: string;
@@ -73,10 +74,28 @@ export async function fetchNodeSessions(
   } catch {
     throw new Error(`Zdroj sessions není dostupný (HTTP ${response.status}).`);
   }
+  if (!value || typeof value !== "object") throw new Error("Zdroj vrátil neplatnou odpověď.");
   if (!response.ok) {
     throw new Error(typeof value.error === "string" ? value.error : `Požadavek na sessions se nezdařil (HTTP ${response.status}).`);
   }
-  if (!Array.isArray(value.sessions)) throw new Error("Zdroj nevrátil seznam sessions.");
+  if (!Array.isArray(value.sessions) || value.sessions.length > 100) throw new Error("Zdroj nevrátil platný seznam sessions.");
+  if (value.project !== project || value.workspace !== workspace || value.nodeId !== (nodeId ?? null)) {
+    throw new Error("Odpověď neodpovídá zvolenému rozsahu.");
+  }
+  const isText = (v: unknown) => typeof v === "string";
+  const nullableText = (v: unknown) => v === null || isText(v);
+  const numeric = (v: unknown) => v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0);
+  const valid = value.sessions.every((s: NodeSession) => s && typeof s === "object"
+    && [s.id,s.sessionId,s.title,s.nodeId,s.nodeName,s.statusReason,s.sourceLabel,s.boundAt].every(isText)
+    && s.project === project && s.workspace === workspace && (!nodeId || s.nodeId === nodeId)
+    && ["hermes","claude"].includes(s.source) && ["worker","orchestrator"].includes(s.role)
+    && ["running","recent_activity","idle","completed","failed","unknown"].includes(s.status)
+    && [s.model,s.parentSessionId,s.lastActivityAt,s.closedAt].every(nullableText)
+    && typeof s.sourceAvailable === "boolean" && s.metrics && typeof s.metrics === "object"
+    && [s.metrics.inputTokens,s.metrics.outputTokens,s.metrics.costUsd].every(numeric)
+    && Array.isArray(s.events) && s.events.length <= 50
+    && s.events.every(e => e && [e.id,e.kind,e.summary].every(isText) && nullableText(e.at)));
+  if (!valid) throw new Error("Zdroj vrátil neplatná metadata sessions.");
   return value as unknown as NodeSessionsResponse;
 }
 

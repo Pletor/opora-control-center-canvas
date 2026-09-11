@@ -32,6 +32,7 @@ export default function NodePanel({
   onOpenNode,
   onAgentTask,
   onOpenRun,
+  onLiveRun,
 }: {
   node: CanvasNode;
   project: string;
@@ -51,6 +52,8 @@ export default function NodePanel({
   onAgentTask: () => void;
   /** Běh → detail zdroje v módu Běhy; jen čtení. */
   onOpenRun: (sourceId: string, runId: string) => void;
+  /** Přepne na skutečné sessions tohoto uzlu; nic nespouští. */
+  onLiveRun?: () => void;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
@@ -89,6 +92,10 @@ export default function NodePanel({
           <button type="button" data-testid="agent-task-action" disabled={busy} onClick={onAgentTask} title="Vydá přesný scope pro panel agenta. Nic se nespouští.">
             Připravit úkol pro agenta
           </button>
+          {onLiveRun && <button type="button" data-testid="node-live-run-action" onClick={onLiveRun}
+            title="Sledovat skutečné sessions a aktivitu na tomto uzlu. Žádný běh se nespustí.">
+            Sledovat v Live Run ↗
+          </button>}
         </div>
       </header>
       <div className="panel-tabs" role="tablist" aria-label="Části uzlu">

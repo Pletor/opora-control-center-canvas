@@ -387,7 +387,7 @@ def test_list_scope_filter_and_truncation(service):
     with service.lock, service.db:
         for index in range(101):
             service.db.execute(
-                "INSERT INTO node_sessions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO node_sessions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL)",
                 (f"r{index}", "draft", "draft", "n2" if index else "n1", "hermes", f"s{index}", None, "worker",
                  "T", None, observed(index), observed(index), 0),
             )
@@ -434,7 +434,7 @@ def test_router_contract_and_env_config(service, lanes, monkeypatch):
     assert set(body["sessions"][0]) == {
         "id", "source", "sessionId", "parentSessionId", "role", "title", "project", "workspace", "nodeId",
         "nodeName", "model", "status", "statusReason", "sourceAvailable", "lastActivityAt", "boundAt",
-        "events", "metrics", "sourceLabel"}
+        "events", "metrics", "sourceLabel", "closedAt"}
     assert set(body["sessions"][0]["events"][0]) == {"id", "at", "kind", "summary"}
     assert client.get("/api/node-sessions", params={"project": "draft", "workspace": "draft",
                                                     "nodeId": "nope"}).status_code == 409
@@ -445,3 +445,33 @@ def test_default_process_probe_reads_own_process_identity():
     created = default_process_create_time(os.getpid())
     assert created is not None and created <= time.time()
     assert default_process_create_time(0) is None and default_process_create_time(True) is None
+
+
+def test_close_freezes_attribution_and_allows_next_node(service):
+    fake = FakeHermes(service)
+    sessions = make(service, hermes_fetch=fake)
+    row = sessions.bind(payload())
+    scope = {"project": "draft", "workspace": "draft", "nodeId": "n1", "confirmed": True}
+    closed = sessions.close(row["id"], scope)
+    assert closed["closedAt"] is not None and closed["status"] == "idle"
+    calls = len(fake.calls)
+    fake.session["message_count"] = 50
+    frozen = sessions.list("draft", "draft", "n1")["sessions"][0]
+    assert frozen == closed
+    assert len(fake.calls) == calls  # pozdější práce se k uzlu nesmí připisovat
+    assert sessions.close(row["id"], scope) == closed
+    next_row = sessions.bind(payload(nodeId="n2"))
+    assert next_row["id"] != row["id"] and next_row["closedAt"] is None
+    assert_safe(frozen)
+
+
+def test_close_rejects_wrong_scope_and_missing_confirmation(service):
+    sessions = make(service)
+    row = sessions.bind(payload())
+    for scope in (
+        {"project": "draft", "workspace": "draft", "nodeId": "n2", "confirmed": True},
+        {"project": "draft", "workspace": "draft", "nodeId": "n1", "confirmed": False},
+    ):
+        with pytest.raises(ValueError):
+            sessions.close(row["id"], scope)
+    assert sessions.list("draft", "draft", "n1")["sessions"][0]["closedAt"] is None

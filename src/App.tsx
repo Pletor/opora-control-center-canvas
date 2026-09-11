@@ -136,7 +136,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [textRevision, setTextRevision] = useState(0);
   const [focusRun, setFocusRun] = useState<{ sourceId: string; runId: string } | null>(null);
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initial.get("node"));
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const [removal, setRemoval] = useState<RemovalPreview | null>(null);
   const activeScope = useRef({ project, workspace });
@@ -200,7 +200,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     if (lastLoadedScope.current !== nextScope) {
       operationGeneration.current++;
       setBusy(false); setModal(null);
-      setSelected(null); setSelectedEdge(null); setRemoval(null); lastLoadedScope.current = nextScope;
+      // První načtení zachová uzel z odkazu; další změna scope jej zahodí.
+      if (lastLoadedScope.current) setSelected(null);
+      setSelectedEdge(null); setRemoval(null); lastLoadedScope.current = nextScope;
       // Výběr v asynchronním stromu platí jen pro původní projekt/workspace.
       setCreateOrigin(null); setCreatePath(null); setCreateKind("directory");
       setCreatePlannedPath(""); setCreatePurpose(""); setCreateTargetSector("");
@@ -211,9 +213,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   useEffect(() => {
     const q = new URLSearchParams({ project, workspace, mode, screen, environment });
     if (parent) q.set("layer", parent);
+    if (selected) q.set("node", selected);
     if (wireframeMode) q.set("wireframe", "1");
     history.replaceState(null, "", "/?" + q);
-  }, [project, workspace, parent, mode, screen, wireframeMode, environment]);
+  }, [project, workspace, parent, selected, mode, screen, wireframeMode, environment]);
   const completed = jobs
     .filter((j) => j.status === "complete" && j.project_id === project)
     .map((j) => j.id)
@@ -739,6 +742,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 onWorkspace={() => open("workspace")}
                 onOpenNode={openNode}
                 onAgentTask={() => requestAgentTask(node.id, node.purpose || node.name, "canvas")}
+                onLiveRun={v3.liveWorkspace ? () => {
+                  setLiveView("overview");
+                  setMode("agents");
+                } : undefined}
                 onOpenRun={(sourceId, runId) => {
                   setFocusRun({ sourceId, runId });
                   setLiveView("runs");

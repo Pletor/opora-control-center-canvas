@@ -1,5 +1,36 @@
 # Live Run a skutečné výsledky
 
+## Skutečné sessions na konkrétním uzlu
+
+- V detailu uzlu zvol **Sledovat v Live Run ↗**. Výchozí samostatný layout
+  **Práce na uzlu** ukazuje orchestrátora, pracovní sessions a bezpečnou aktivitu.
+- Čte `GET /api/node-sessions?project=ID&workspace=ID&nodeId=ID`; pro celý prostor
+  vynech `nodeId`. Výpis má limit 100 a příznak `truncated`.
+- Hermes session se ověřuje přes existující lokální Hermes API, Claude přes
+  konkrétní lane artefakty. `running` je ověřený proces, `recent_activity` jen
+  nedávná uložená událost. Otevřená konverzace není důkaz běžícího modelu.
+- Připojení k uzlu není spuštění modelu. Před prací na výslovně zadaném uzlu
+  ověř skutečné session ID a přesný scope, potom přes `terminal` spusť z kořene aplikace:
+  ```bash
+  python scripts/bind_node_session.py --base-url http://127.0.0.1:8780 --project PROJECT_ID --workspace WORKSPACE_ID --node-id NODE_ID --source hermes --session-id REAL_SESSION_ID --role orchestrator --title "Konkrétní úkol" --confirm
+  ```
+  Pro Claude použij `--source claude --run-id LANE_SLUG --session-id REAL_CLAUDE_ID
+  --role worker --parent-session-id REAL_HERMES_ID`. Skript vždy ověří zápis GETem.
+- Server používá `OPORA_HERMES_API_URL`, server-side `OPORA_HERMES_API_KEY` a
+  `OPORA_NODE_SESSION_LANES_ROOT`. Tajemství nepatří do frontendu ani exportů.
+- Po dokončení nebo před přechodem na jiné zadání uzavři **vazbu**, nikoli model:
+  `POST /api/node-sessions/BINDING_ID/close` s přesným JSON
+  `{ "project": "PROJECT_ID", "workspace": "WORKSPACE_ID", "nodeId": "NODE_ID", "confirmed": true }`.
+  Použij stejný Origin a Content-Type application/json; následný GET musí obsahovat
+  stejné ID a nenulové `closedAt`. Uzavření uchová bezpečný snímek a další činnost
+  session už tomuto uzlu nepřipisuje. Další úkol může získat novou vazbu.
+- Layout je pouze pro sledování; zprávy a zastavení stále ovládej přes původní
+  Telegram/CLI. Nezobrazuje soukromé vstupy/výstupy nástrojů ani uvažování modelu.
+
+## Dokumentační a návrhové běhy
+
+V Live Run přepni na **Dokumentační běhy**; následující ovládání patří tomuto pohledu.
+
 1. Zachovej project/workspace; otevři **Live Run**.
 2. Použij stavový filtr, hledání `Hledat v bězích a ticketech` či `Jen vybraný uzel`.
 3. Vyber session podle ID a typu. Návrhový běh a dokumentační handoff nejsou

@@ -17,6 +17,7 @@ from .desktop_v3_state import DesktopV3State
 from .llm_runs import PlanRuns
 from .node_journal import NodeJournal
 from .node_links import NodeLinks
+from .node_sessions import create_node_sessions_router
 from .planning_context import build_planning_context
 from .service import CanvasService
 from .task_handoff_routes import create_task_handoff_router
@@ -280,6 +281,7 @@ def create_app(data_root=None):
         return service.sync(payload.get("project"))
 
     app.include_router(create_agent_router(service))
+    app.include_router(create_node_sessions_router(service))
     app.include_router(create_task_handoff_router(handoffs))
     app.include_router(create_workspace_router(service))
     app.include_router(create_context_router(service))

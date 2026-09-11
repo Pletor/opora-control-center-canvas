@@ -25,7 +25,7 @@ test("Live Run tabs switch back and forth with a normal click at several widths"
       await expect(overview).toBeVisible();
       await expect(advanced).toHaveCount(0);
     }
-    const columns = page.locator(".live-columns");
+    const columns = page.locator(".ns-columns");
     const sizes = await columns.evaluate((el) => ({ client: el.clientWidth, scroll: el.scrollWidth }));
     expect(sizes.scroll).toBeLessThanOrEqual(sizes.client + 2);
   }
