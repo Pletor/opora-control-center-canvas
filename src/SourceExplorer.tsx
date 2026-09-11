@@ -8,7 +8,7 @@ type TreePage = { root: string | null; entries: Entry[]; total: number; hasMore:
 
 const KNOWN_FOLDERS = ["src", "backend", "tests"];
 
-export default function SourceExplorer({ project, workspace, selected, onSelect, search, refresh, basePath = "", rootLabel = "Podstata a architektura", directoriesOnly = false, rootOnly = false, expandKnown = 0, collapseAll = 0 }: {
+export default function SourceExplorer({ project, workspace, selected, onSelect, search, refresh, basePath = "", rootLabel = "Podstata a architektura", directoriesOnly = false, rootOnly = false, expandKnown = 0, collapseAll = 0, compact = false, visibility, filterPath }: {
   project: string; workspace: string; selected: string; onSelect: (path: string, kind: "directory" | "file" | "root") => void; search: string; refresh: number;
   /** Zúží strom na podadresář (např. adresář sektoru); cesty jsou stále vůči kořeni projektu. */
   basePath?: string;
@@ -21,12 +21,17 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   expandKnown?: number;
   /** Počítadlo požadavků „Sbalit vše“: zavře složky, načtené stránky zůstávají v paměti. */
   collapseAll?: number;
+  /** Kompaktní strom používá lištu a filtry rodičovského layoutu místo vlastních panelů. */
+  compact?: boolean;
+  visibility?: "all" | "working";
+  filterPath?: (path: string) => boolean;
 }) {
   const [pages, setPages] = useState<Record<string, TreePage>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const includeAll = visibility ? visibility === "all" : showAll;
   const [actionFile, setActionFile] = useState<Entry | null>(null);
   const [opening, setOpening] = useState(false);
   const [openNotice, setOpenNotice] = useState("");
@@ -39,7 +44,7 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
     const ticket = generation.current;
     setPending((old) => new Set(old).add(path)); setError("");
     try {
-      const page = await api<TreePage>("/api/workspace/tree?" + new URLSearchParams({ project, workspace, path, offset: String(offset), visibility: showAll ? "all" : "working" }));
+      const page = await api<TreePage>("/api/workspace/tree?" + new URLSearchParams({ project, workspace, path, offset: String(offset), visibility: includeAll ? "all" : "working" }));
       if (ticket !== generation.current) return;
       setPages((old) => ({ ...old, [path]: { ...page, entries: offset ? [...new Map([...(old[path]?.entries ?? []), ...page.entries].map((entry) => [entry.path, entry])).values()] : page.entries } }));
     } catch (e) { if (ticket === generation.current) setError(String(e)); }
@@ -49,7 +54,7 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
     generation.current++; setPages({}); setExpanded(new Set()); setPending(new Set());
     setActionFile(null); setOpenNotice(""); load(basePath);
     return () => { generation.current++; };
-  }, [project, workspace, refresh, basePath, showAll]);
+  }, [project, workspace, refresh, basePath, includeAll]);
   useEffect(() => {
     if (!actionFile) return;
     actionMenu.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
@@ -110,7 +115,7 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   const needle = search.toLocaleLowerCase();
   function rows(path: string, depth: number): React.ReactNode {
     const page = Object.hasOwn(pages, path) ? pages[path] : undefined;
-    return <>{page?.entries.filter((entry) => directoriesOnly ? entry.kind === "directory" : true).filter((entry) => !needle || entry.kind === "directory" || entry.path.toLocaleLowerCase().includes(needle)).map((entry) => <div key={entry.path}>
+    return <>{page?.entries.filter((entry) => !filterPath || filterPath(entry.path)).filter((entry) => directoriesOnly ? entry.kind === "directory" : true).filter((entry) => !needle || entry.kind === "directory" || entry.path.toLocaleLowerCase().includes(needle)).map((entry) => <div key={entry.path}>
       <div role="treeitem" aria-selected={selected === entry.path} aria-expanded={entry.kind === "directory" && !rootOnly ? expanded.has(entry.path) : undefined}
         className={"source-row" + (selected === entry.path ? " selected" : "")} style={{ paddingLeft: 8 + depth * 14 }}
         draggable={!entry.blocked} onDragStart={(e) => {
@@ -137,11 +142,11 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
     </>;
   }
   return <aside className="source-explorer" aria-label="Zdrojový strom">
-    <div className="source-heading"><div className="eyebrow">WORKSPACE / SOUBORY 1:1</div><h2>Strom projektu</h2>
+    {!compact && <><div className="source-heading"><div className="eyebrow">WORKSPACE / SOUBORY 1:1</div><h2>Strom projektu</h2>
       <code>{pages[basePath]?.root || "Bez připojeného adresáře"}</code></div>
     <label className="tree-visibility"><input type="checkbox" checked={showAll}
       onChange={(e) => { generation.current++; setShowAll(e.target.checked); }} />
-      Zobrazit i ignorované a technické soubory</label>
+      Zobrazit i ignorované a technické soubory</label></>}
     {rootLabel && <button type="button" className="project-overview-link" aria-pressed={selected === basePath} onClick={() => onSelect(basePath, "root")}>{rootLabel}</button>}
     <div className="source-tree" role="tree" aria-label="Soubory pracovního prostoru">{rows(basePath, 0)}</div>
     {pages[basePath]?.available === false && <p className="tree-note">Projekt zatím nemá zdrojovou složku. Dokumentaci i Editor lze používat samostatně.</p>}
@@ -162,8 +167,8 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
       <button type="button" role="menuitem" disabled={opening} title={actionFile.kind === "directory" ? "Otevře vybranou složku v Průzkumníku" : "Otevře složku obsahující soubor v Průzkumníku"} onClick={() => void openFile(actionFile, "folder")}>Otevřít složku umístění</button>
       <button type="button" role="menuitem" disabled={opening} onClick={() => void openFile(actionFile, "folder-vscode")}>Otevřít složku ve VS Code</button>
     </div>, document.body)}
-    <footer className="tree-note">{showAll ? "Úplný přehled mimo interní .git." : "Pracovní přehled: .gitignore, závislosti a cache jsou skryté, src je první."}
+    {!compact && <footer className="tree-note">{showAll ? "Úplný přehled mimo interní .git." : "Pracovní přehled: .gitignore, závislosti a cache jsou skryté, src je první."}
       {!showAll && !!pages[basePath]?.hiddenCount && ` Skryto v této složce: ${pages[basePath].hiddenCount}.`}
-      {" "}Nic se nemaže z disku. Složky se načítají až při rozbalení; hledání prochází načtené položky.</footer>
+      {" "}Nic se nemaže z disku. Složky se načítají až při rozbalení; hledání prochází načtené položky.</footer>}
   </aside>;
 }

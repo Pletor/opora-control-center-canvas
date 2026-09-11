@@ -34,11 +34,7 @@
 .environment-toolbar .mode-rail button { min-height: 30px; padding: 4px 10px; width: auto; border-radius: 4px; }
 .environment-toolbar .drawing-tools, .environment-toolbar .map-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .desktop-v2 .workspace-shell { grid-template-columns: 260px minmax(0,1fr) var(--inspector-w); }
-.project-columns { display: grid; grid-template-columns: 280px minmax(0,1fr) 270px; min-height: 0; flex: 1; }
-.desktop-v2 .project-workspace { display: flex; flex-direction: column; overflow: hidden; }
-.document-area, .source-explorer, .context-shelf { overflow: auto; min-height: 0; min-width: 0; }
-.document-area .workspace-document { padding: 24px; }
-.document-area .document-fields { grid-template-columns: minmax(0,1fr); }
+.source-explorer, .context-shelf { overflow: auto; min-height: 0; min-width: 0; }
 .source-explorer, .context-shelf { background: var(--surface); padding: 18px 14px; }
 .source-explorer { border-right: 1px solid var(--line); padding-inline: 0; }
 .context-shelf { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
@@ -64,14 +60,14 @@
 .context-references li { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
 .context-references button { border: 0; background: none; padding: 7px 4px; }
 .reference-path { flex: 1; min-width: 0; overflow-wrap: anywhere; text-align: left; font-family: var(--mono); color: var(--accent); }
-@media (max-width: 1250px) { .desktop-v2 .workspace-shell { grid-template-columns: 220px minmax(0,1fr) 300px; } .project-columns { grid-template-columns: 250px minmax(0,1fr) 240px; } }
+@media (max-width: 1250px) { .desktop-v2 .workspace-shell { grid-template-columns: 220px minmax(0,1fr) 300px; } }
 .desktop-v2 .workspace-shell.no-inspector { grid-template-columns: minmax(0,1fr); }
 .desktop-v2 .workspace-shell.no-context:not(.no-inspector) { grid-template-columns: minmax(0,1fr) var(--inspector-w); }
 .desktop-v2 .workspace-shell.document-open { grid-template-columns: 260px minmax(0,1fr); }
 .desktop-v2 .workspace-shell.document-open.no-context { grid-template-columns: minmax(0,1fr); }
 .document-open .canvas-surface { overflow: auto; }
 .environment-toolbar button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
-.desktop-v2 .project-workspace { flex: 1; min-height: 0; overflow: auto; }
+
 .workspace-document { padding: 28px 32px; max-width: 1120px; margin: 0 auto; }
 .workspace-document h1 { font-size: 24px; margin: 4px 0 12px; overflow-wrap: anywhere; }
 .document-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }

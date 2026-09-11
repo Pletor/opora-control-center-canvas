@@ -81,7 +81,7 @@
 .desktop-v3 .workspace-shell.no-inspector,
 .desktop-v3 .workspace-shell.inspector-hidden.no-context,
 .desktop-v3 .workspace-shell.document-open.no-context { grid-template-columns: minmax(0, 1fr); }
-.desktop-v3 .project-columns { grid-template-columns: 280px minmax(0, 1fr) var(--shelf-w); }
+
 
 /* Vzhled: jedno tiché tlačítko vpravo v topbaru. */
 .v3-appearance { position: relative; order: 10; }

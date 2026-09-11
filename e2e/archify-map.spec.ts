@@ -12,6 +12,26 @@ const artifact={project:'draft',html,specificationJson,artifact:receipt.artifact
   sourceRoot:'Fixture hlavního projektu',sourceRevision:null,freshness:'unknown',validation:receipt.validation,
   browserEvidence:{status:'unavailable',coverage:[]},counts:{components:14,connections:14,boundaries:4},specificationDocument:'Fixture'};
 
+test('hlavní Projekt má jediný layout se stromem a mapou bez starých bloků',async({page})=>{
+  await page.route('**/api/archify/artifact?project=draft',route=>route.fulfill({json:artifact}));
+  await page.route('**/api/workspace/tree?**',route=>route.fulfill({json:{root:'Fixture',available:true,total:2,hasMore:false,nextOffset:null,observedAt:null,entries:[
+    {name:'backend',path:'backend',kind:'directory',blocked:false},{name:'src',path:'src',kind:'directory',blocked:false}]}}));
+  await page.goto('/?screen=canvas&project=draft&workspace=draft&environment=project');
+  const layout=page.getByRole('region',{name:'Hlavní projekt',exact:true});
+  await expect(layout.locator('iframe')).toBeVisible();
+  const removed=['Obnovit strom','Rozbalit src, backend, tests','Sbalit vše','Dokumentace','Přidat do kontextu','Cesta','Paměť projektu','Připojení a nastavení projektu','Kontext Editoru','Poznámka ke kontextu'];
+  for(const text of removed)await expect(layout.getByText(text,{exact:true})).toHaveCount(0);
+  await expect(layout.getByText(/společný pracovní kontext|zatím bez cest|0\/100 referencí/i)).toHaveCount(0);
+  await expect(layout.getByRole('tree')).toBeVisible();
+  await layout.getByRole('button',{name:'Backend',exact:true}).click();
+  await expect(layout.getByRole('button',{name:'backend',exact:true})).toBeVisible();
+  await expect(layout.getByRole('button',{name:'src',exact:true})).toHaveCount(0);
+  await layout.getByRole('button',{name:'Štítky',exact:true}).click();
+  await expect(layout.getByRole('button',{name:'src',exact:true})).toBeVisible();
+  const bounds=await layout.boundingBox();const tree=await layout.getByRole('tree').boundingBox();const map=await layout.locator('iframe').boundingBox();
+  expect(tree!.x).toBeLessThan(map!.x);expect(map!.width).toBeGreaterThan(bounds!.width*.7);
+});
+
 test('Mapa přímo zobrazí hotové HTML, nikoli vlastní renderer nebo graf',async({page})=>{
   const posts:string[]=[];page.on('request',r=>{if(r.method()==='POST')posts.push(r.url())});
   await page.route('**/api/archify/artifact?project=draft',route=>route.fulfill({json:artifact}));

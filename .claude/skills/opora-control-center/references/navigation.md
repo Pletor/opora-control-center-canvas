@@ -17,7 +17,9 @@ nebo spravované workspaces. Není-li ID jasné, nevol náhodný projekt.
 
 - Horní výběr **Projekt** určuje společný scope.
 - **Projekt / Editor / Live Run** jsou prostředí stejné aplikace.
-- Projekt: souborový strom, nastavení a paměť projektu, zdrojové reference.
+- Projekt: vlevo kompaktní strom s hledáním, viditelností a filtry cest; vpravo uložené Archify HTML. Z této stránky jsou odstraněny dokumentový editor, paměť, přidávání referencí i společný kontext. Tyto změny nemažou data projektu.
+- Layout a definice filtrů mají jeden zdroj: `src/ProjectLayout.tsx` a `src/project-layout.css`. `ProjectWorkspace` jen skládá tento layout a sdílený `ArchifyMap`; strom používá existující `SourceExplorer` v kompaktní variantě. Horní lišta zůstává sdílený `TopBar`. Staré třísloupcové projektové styly se nepoužívají.
+- `Graphify-out` je zatím neaktivní položka layoutu, nikoli napojený renderer nebo spuštění skillu. Filtry třídí názvy/cesty, ne obsah souborů.
 - Editor: hlavní canvas, uzly, vrstvy, text, kresby, práce s podklady.
 - Live Run: skutečné dostupné sessions, výstupy, stav a omezené ovládání.
 - U Git projektů: **Čistý main**, **Pracovní prostor**, výběr **Pracovní strom**.

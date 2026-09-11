@@ -24,6 +24,8 @@ export default function TopBar({
   onSync,
   onRemoveProject,
   children,
+  projectNavigation,
+  trailing,
 }: {
   projects: Project[];
   draftProject?: Project;
@@ -43,6 +45,8 @@ export default function TopBar({
   onSync: () => void;
   onRemoveProject: () => void;
   children?: ReactNode;
+  projectNavigation?: ReactNode;
+  trailing?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
@@ -115,6 +119,7 @@ export default function TopBar({
           ))}
         </select>
       </label>
+      {projectNavigation}
       {!localProject && (
         <div className="segment" role="group" aria-label="Pracovní větev">
           <button type="button" aria-pressed={workspace === "main"} disabled={busy} onClick={onMain}>
@@ -183,6 +188,7 @@ export default function TopBar({
           </div>
         )}
       </div>
+      {trailing}
     </header>
   );
 }

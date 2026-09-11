@@ -1,0 +1,24 @@
+/* Jediné místo pro geometrii hlavní stránky. Obsah mapy se zde nepřekresluje. */
+.project-layout{--project-sidebar-width:clamp(190px,11.5vw,250px);display:grid;grid-template-columns:var(--project-sidebar-width) minmax(0,1fr);flex:1;min-height:0;min-width:0;overflow:hidden;background:var(--bg)}
+.project-layout-sidebar{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface);border-right:1px solid var(--line)}
+.project-tree-search{display:flex;align-items:center;gap:5px;min-height:46px;padding:7px 6px;border-bottom:1px solid var(--line)}
+.project-tree-search label{font-size:9px;text-transform:uppercase;color:var(--ink-muted)}
+.project-tree-search input{width:0;min-width:0;flex:1;padding:5px;font-size:10px}
+.project-tree-search select{width:64px;min-width:0;padding:5px 2px;font-size:10px}
+.project-tree-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;gap:5px;padding:14px 8px 20px}
+.project-tree-filters button{padding:5px 3px;font-size:11px;line-height:1.2;border-color:transparent;background:transparent;white-space:nowrap}
+.project-tree-filters button[aria-pressed="true"]{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
+.project-layout .source-explorer{flex:1;min-height:0;padding:0;border:0;overflow:auto;scrollbar-width:thin}
+.project-layout .source-row{min-height:25px}
+.project-layout .source-name{font-size:11px;padding:3px 2px}
+.project-layout .source-toggle,.project-layout .source-file-mark{width:18px;flex-basis:18px}
+.project-layout-content{min-height:0;min-width:0;overflow:hidden}
+.project-map-navigation{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.project-map-navigation>span,.project-map-navigation>button{padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:11px;white-space:nowrap}
+.project-map-navigation>span{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+.project-map-navigation>button:disabled{opacity:.5;cursor:not-allowed}
+/* Hlavička je stále jediná komponenta TopBar, zde jen rozměry tohoto layoutu. */
+.desktop-v2:has(.project-layout) .topbar{min-height:44px;gap:8px;padding:5px 10px}
+.desktop-v2:has(.project-layout) .topbar-field select{max-width:270px;font-size:11px}
+.desktop-v2:has(.project-layout) .environment-switch button{font-size:11px;padding:4px 9px}
+@media(max-width:800px){.project-layout{--project-sidebar-width:170px}.project-tree-search{flex-wrap:wrap}.project-tree-search label{display:none}.project-tree-search input{flex-basis:85px}.project-tree-filters{gap:2px;padding:8px 4px}.project-tree-filters button{font-size:10px;padding:5px}.desktop-v2:has(.project-layout) .topbar-field select{max-width:205px}}

@@ -8,6 +8,7 @@ import TopBar from "./TopBar";
 import ModeRail from "./ModeRail";
 import EnvironmentSwitch, { type Environment } from "./EnvironmentSwitch";
 import ProjectWorkspace from "./ProjectWorkspace";
+import {ProjectMapNavigation} from "./ProjectLayout";
 import WorkspaceDocumentEditor from "./WorkspaceDocumentEditor";
 import EditorWorkbench, { type WorkbenchPane } from "./EditorWorkbench";
 import ContextShelf from "./ContextShelf";
@@ -452,6 +453,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   return (
     <div className="app desktop-v2 desktop-v3">
       <TopBar
+        projectNavigation={environment === "project" ? <ProjectMapNavigation/> : null}
+        trailing={<DesktopThemeControls/>}
         projects={projects}
         draftProject={draftProject}
         project={project}
@@ -489,7 +492,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         onRemoveProject={() => requestRemoval("project", project)}
       >
         <EnvironmentSwitch value={environment} onChange={changeEnvironment} disabled={busy} />
-        <DesktopThemeControls />
+
       </TopBar>
       {error && (
         <div className="error" role="alert">
@@ -499,8 +502,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           </button>
         </div>
       )}
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={selection.value} onChange={selection.change} onAdd={selection.add} onSettings={() => setScreen("home")}
-        memory={v3.projectMemory?.({ project, workspace, path: selection.value.sourcePath }) ?? null} /> : <>
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={selection.value} onChange={selection.change}/> : <>
       {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru">
         <div className="v3-tool-group" role="group" aria-label="Pohled">
           <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
