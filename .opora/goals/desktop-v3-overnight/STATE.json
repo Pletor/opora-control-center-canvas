@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 18,
+  "revision": 19,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -10,15 +10,71 @@
   "activeLanes": [
     {
       "modelAlias": "opus",
-      "sessionId": "7f5df988-d8e8-4d51-9e5e-a257a0b694a7",
+      "sessionId": "1b5c1d25-d49a-4df4-9505-d01dfd3c5c75",
+      "worktree": "C:\\Users\\Admin\\opora-v3-behavioral-oracle",
+      "running": true,
+      "pid": 23952,
+      "name": "oracle-isolated-rebuild",
+      "role": "implementation",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-isolated-rebuild-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-isolated-rebuild\\state.json",
+      "processHandle": "proc_844da67a8a6a",
+      "ownedPaths": [
+        "backend/coding_behavioral_oracle.py",
+        "tests/test_coding_behavioral_oracle.py",
+        ".opora/workunits/WU-DESKTOP-V3/behavioral-oracle-HANDOFF.md"
+      ],
+      "reservedTestPorts": [],
+      "observedAt": "2026-09-11T09:05:58.153816+02:00",
+      "pidExists": true,
+      "createTime": 1789110161.9313524,
+      "descendants": [
+        {
+          "pid": 23788,
+          "createTime": 1789110161.9375477,
+          "name": "conhost.exe"
+        }
+      ]
+    },
+    {
+      "modelAlias": "opus",
+      "sessionId": "069eea30-e2c5-49ae-b975-a5115c1c88d4",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "running": true,
+      "pid": 66416,
+      "name": "artifact-prewire-vertical",
+      "role": "implementation",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-vertical-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-vertical\\state.json",
+      "processHandle": "proc_08c2588e109b",
+      "ownedPaths": [
+        "backend/claude_coding_artifact.py",
+        "tests/test_claude_coding_artifact.py",
+        ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
+      ],
+      "reservedTestPorts": [],
+      "observedAt": "2026-09-11T09:05:58.153816+02:00",
+      "pidExists": true,
+      "createTime": 1789110161.9314747,
+      "descendants": [
+        {
+          "pid": 57252,
+          "createTime": 1789110161.9374385,
+          "name": "conhost.exe"
+        }
+      ]
+    },
+    {
+      "modelAlias": "opus",
+      "sessionId": "8d8c9bfd-9350-4ceb-be2a-74de5c1819ef",
       "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
       "running": true,
-      "pid": 44288,
-      "name": "project-tree-recovery",
-      "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-recovery-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-recovery\\state.json",
-      "processHandle": "proc_701362a8d425",
+      "pid": 41448,
+      "name": "project-tree-completion",
+      "role": "verification_handoff",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-completion-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-completion\\state.json",
+      "processHandle": "proc_3e3876d6c970",
       "ownedPaths": [
         "src/SourceExplorer.tsx",
         "src/ProjectWorkspace.tsx",
@@ -32,81 +88,164 @@
         8769,
         8771
       ],
-      "observedAt": "2026-09-11T08:51:48.796643+02:00",
+      "observedAt": "2026-09-11T09:05:58.153816+02:00",
       "pidExists": true,
-      "createTime": 1789109393.6438603,
+      "createTime": 1789110244.7020512,
       "descendants": [
         {
-          "pid": 64324,
-          "createTime": 1789109393.6741989,
-          "name": "conhost.exe"
-        }
-      ]
-    },
-    {
-      "modelAlias": "opus",
-      "sessionId": "8f9141c5-e7a2-4a69-9a6c-818d52c92b21",
-      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
-      "running": true,
-      "pid": 33324,
-      "name": "artifact-prewire-completion",
-      "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-completion-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-completion\\state.json",
-      "processHandle": "proc_b2ae8a89c58a",
-      "ownedPaths": [
-        "backend/claude_coding_artifact.py",
-        "tests/test_claude_coding_artifact.py",
-        ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
-      ],
-      "reservedTestPorts": [],
-      "observedAt": "2026-09-11T08:51:48.796643+02:00",
-      "pidExists": true,
-      "createTime": 1789109393.6605844,
-      "descendants": [
-        {
-          "pid": 38612,
-          "createTime": 1789109393.674366,
+          "pid": 50444,
+          "createTime": 1789110244.7101529,
           "name": "conhost.exe"
         },
         {
-          "pid": 48384,
-          "createTime": 1789109421.66392,
+          "pid": 66424,
+          "createTime": 1789110282.8862083,
           "name": "bash.exe"
         },
         {
-          "pid": 56420,
-          "createTime": 1789109421.6845248,
+          "pid": 35816,
+          "createTime": 1789110282.8943565,
           "name": "bash.exe"
         },
         {
-          "pid": 29140,
-          "createTime": 1789109421.690628,
+          "pid": 25768,
+          "createTime": 1789110282.8995395,
           "name": "conhost.exe"
-        }
-      ]
-    },
-    {
-      "modelAlias": "opus",
-      "sessionId": "13bf76b4-4152-4ce5-992e-2564570b3b56",
-      "worktree": "C:\\Users\\Admin\\opora-v3-behavioral-oracle",
-      "running": true,
-      "pid": 51336,
-      "name": "behavioral-oracle-review",
-      "role": "review",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle-review-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle-review\\state.json",
-      "processHandle": "proc_025db9a5834f",
-      "ownedPaths": [],
-      "reservedTestPorts": [],
-      "observedAt": "2026-09-11T08:51:48.796643+02:00",
-      "pidExists": true,
-      "createTime": 1789109393.674452,
-      "descendants": [
+        },
         {
-          "pid": 59796,
-          "createTime": 1789109393.6803083,
-          "name": "conhost.exe"
+          "pid": 45704,
+          "createTime": 1789110282.941798,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 61144,
+          "createTime": 1789110282.9504116,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 58056,
+          "createTime": 1789110282.9698713,
+          "name": "python.exe"
+        },
+        {
+          "pid": 45564,
+          "createTime": 1789110282.9788716,
+          "name": "python.exe"
+        },
+        {
+          "pid": 52628,
+          "createTime": 1789110283.0358832,
+          "name": "node.exe"
+        },
+        {
+          "pid": 20220,
+          "createTime": 1789110283.0448885,
+          "name": "mise.exe"
+        },
+        {
+          "pid": 51584,
+          "createTime": 1789110283.0744655,
+          "name": "node.exe"
+        },
+        {
+          "pid": 32104,
+          "createTime": 1789110283.5543184,
+          "name": "cmd.exe"
+        },
+        {
+          "pid": 34824,
+          "createTime": 1789110286.480083,
+          "name": "cmd.exe"
+        },
+        {
+          "pid": 49348,
+          "createTime": 1789110289.412044,
+          "name": "cmd.exe"
+        },
+        {
+          "pid": 55520,
+          "createTime": 1789110354.0717125,
+          "name": "node.exe"
+        },
+        {
+          "pid": 52900,
+          "createTime": 1789110354.5371668,
+          "name": "chrome-headless-shell.exe"
+        },
+        {
+          "pid": 59356,
+          "createTime": 1789110354.5790708,
+          "name": "chrome-headless-shell.exe"
+        },
+        {
+          "pid": 47380,
+          "createTime": 1789110354.589481,
+          "name": "chrome-headless-shell.exe"
+        },
+        {
+          "pid": 54276,
+          "createTime": 1789110357.5373833,
+          "name": "chrome-headless-shell.exe"
+        },
+        {
+          "pid": 45076,
+          "createTime": 1789110289.4248276,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 65620,
+          "createTime": 1789110289.4436278,
+          "name": "uvicorn.exe"
+        },
+        {
+          "pid": 61252,
+          "createTime": 1789110289.4658751,
+          "name": "python.exe"
+        },
+        {
+          "pid": 30032,
+          "createTime": 1789110289.4730408,
+          "name": "python.exe"
+        },
+        {
+          "pid": 60680,
+          "createTime": 1789110287.6130888,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 64668,
+          "createTime": 1789110287.632844,
+          "name": "uvicorn.exe"
+        },
+        {
+          "pid": 27320,
+          "createTime": 1789110287.641844,
+          "name": "python.exe"
+        },
+        {
+          "pid": 60364,
+          "createTime": 1789110287.648792,
+          "name": "python.exe"
+        },
+        {
+          "pid": 32032,
+          "createTime": 1789110284.6005187,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 63416,
+          "createTime": 1789110284.6200247,
+          "name": "uvicorn.exe"
+        },
+        {
+          "pid": 65128,
+          "createTime": 1789110284.6300073,
+          "name": "python.exe"
+        },
+        {
+          "pid": 27208,
+          "createTime": 1789110284.636711,
+          "name": "python.exe"
         }
       ]
     }
@@ -281,7 +420,7 @@
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
       "previewData": "Non-destructive static publication only; DB/backend unchanged; no API writes or model starts in browser smoke.",
-      "finalHttpReadbackAt": "2026-09-11T08:51:48.796643+02:00",
+      "finalHttpReadbackAt": "2026-09-11T09:05:58.153816+02:00",
       "workflowReadback": {
         "publishedPreview": true,
         "networkFaultInjected": true,
@@ -388,13 +527,12 @@
     }
   },
   "nextActions": [
-    "FIRST collect project-tree-recovery, artifact-prewire-completion, behavioral-oracle-review. Max4 lanes; do not duplicate writers/ports8742/8769/8771.",
-    "Oracle6f78aa7 is NOT merged. Read independent security review and procedural TDD limitation. Completed focused38PASS; full482PASS/4skip before test-only Ruff fix. Coordinator proved all33 exact owned container names absent via docker ps-a; no containers killed/pruned.",
-    "Prewire original deadline600:181focusedPASS but full log interrupted/no exit => NOT PASS; no new commit. Completion owns original two Python files/handoff, must finish full tests and candidate commit before separate review.",
-    "Project original max-turn45/denials=[]: five RED test failures but pipeline masks command exit, forwardRef scaffold incomplete/no commit. Recovery archives partial and restarts vertical TDD with exact files/commands instead of recursive dependency scans. All six actions remain unaccepted.",
-    "Combine only reviewed exclusive foundation/oracle diffs. Implement approval-bound actual Claude structured artifact mapping/runtime/routes/UI and actual node->snapshot->agent->artifact->verified result roundtrip. No exit0/fake reports as acceptance.",
-    "Current integrated frontend still555d583 production;95PASS/1LIVEskip and75panelPASS historical same bytes. Preview8780 exact HTTP build readback unchanged; no backend/DB/asset writes this iteration.",
-    "Phase1 incomplete; phase2 eleven reference photos received, not started. Preserve original P:/main/8768/8740 and preview user changes; no billing/global config/new cron jobs."
+    "FIRST collect project-tree-completion. Owns8742/8769/8771. Old recovery full test interrupted at58 (no meta/exit), not full PASS. Completed focused5PASS. Completion must finish full regression, hash-bound handoff/commit then independent review.",
+    "Oracle6f78aa7 static review passed limited scope, but HIGH bind-mount TOCTOU must be fixed BEFORE wiring plus missing full run identity. Also procedural collection-only RED. oracle-isolated-rebuild is sole writer replacing the unaccepted module/tests fresh with vertical TDD and immutable in-memory archive copied into created containers; no mutable host mount. Check E/oracle-isolated-rebuild/containers.jsonl and exact cleanup even at deadline.",
+    "Artifact5fc2e3c genuine181focused/495fullPASS+4skip+2warnings exact committed hashes, NOT accepted because combined horizontal RED. artifact-prewire-vertical starts owned two files from2b22041 and reauthors three fixes sequentially; historical candidate/logs preserved. Do not merge old5fc2e3c or overwrite active writer. Need independent final review.",
+    "Keep max4 total exclusive lanes; current3 WindowsJobs recorded. Notify unsupported in cron, monitor must read registry/PID identity/results. Do not wait for all900sec jobs during this iteration.",
+    "After reviewed candidates only: integrate+full relevant gates+private preview publication/readback, then approval-bound real Claude structured artifact/runtime/routes/UI and actual node->snapshot->agent->artifact->verification roundtrip. Do not accept exit0/reports alone.",
+    "Integration still555d583 production bytes with95PASS/1LIVEskip and75panelPASS from historical same frontend. Preview8780 HTTP/build hash unchanged; no assets/backend/DB writes this iteration. Phase1 incomplete; phase2 eleven photos available, not started."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -818,6 +956,39 @@
       ],
       "status": "max_turns45_partial_no_commit_NOT_quota",
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-actions"
+    },
+    "project-tree-recovery": {
+      "status": "deadline720_partial_full_ui_interrupted_no_commit",
+      "localTreeInactive": true,
+      "pidExists": false,
+      "wrapperExitCode": 1,
+      "finishReason": "deadline",
+      "resultSubtype": null,
+      "resultIsError": null,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-recovery",
+      "quotaError": false
+    },
+    "artifact-prewire-completion": {
+      "status": "candidate_unaccepted",
+      "localTreeInactive": true,
+      "pidExists": false,
+      "wrapperExitCode": 0,
+      "finishReason": "completed",
+      "resultSubtype": "success",
+      "resultIsError": false,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-completion",
+      "quotaError": false
+    },
+    "behavioral-oracle-review": {
+      "status": "candidate_unaccepted",
+      "localTreeInactive": true,
+      "pidExists": false,
+      "wrapperExitCode": 0,
+      "finishReason": "completed",
+      "resultSubtype": "success",
+      "resultIsError": false,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle-review",
+      "quotaError": false
     }
   },
   "providerQuotaObservation": {
@@ -841,7 +1012,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T08:51:48.796643+02:00",
+  "reconciledAt": "2026-09-11T09:05:58.153816+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -1170,7 +1341,7 @@
     },
     "claude-coding-artifact": {
       "commit": "d47550a2e17f51c133bfc447955c35b6f6836722",
-      "status": "FOUNDATION_REVIEW_PASSED_BUT_PRE_WIRING_HIGH_BLOCKS_RUNTIME",
+      "status": "PREWIRE_CANDIDATE_NOT_ACCEPTED_HORIZONTAL_TDD_REBUILD_RUNNING",
       "review": {
         "passed": false,
         "blockingFindings": [
@@ -1207,7 +1378,7 @@
         "localTreeInactive": true,
         "pidExists": false
       },
-      "fixLane": "artifact-prewire",
+      "fixLane": "artifact-prewire-vertical",
       "historicalTests": {
         "focusedPassed": 88,
         "relatedPassed": 34,
@@ -1217,7 +1388,7 @@
         "warnings": 2,
         "scope": "old candidate only; does not prove security or new fixes"
       },
-      "latestCandidate": "2b220417df420d189370eedc05b757fbe240659f",
+      "latestCandidate": "5fc2e3ca6d30c03840ba4957c0ae0d8f9d4b9d25",
       "secondOpinion": {
         "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\P--0--OSVC-8--Code-07--Aplikace-02-Opora-control-center\\3bb8d374-c88e-42b4-b658-07d96c61c6c3\\scratchpad\\artifact-review-result.json",
         "reviewedCommit": "d47550a2e17f51c133bfc447955c35b6f6836722",
@@ -1255,7 +1426,23 @@
         "localTreeInactive": true,
         "pidExists": false
       },
-      "currentBlocker": "Direct materialize raw path boundary; same-process runner not behavioral verification; separate oracle/runtime/UI absent"
+      "currentBlocker": "Direct materialize raw path boundary; same-process runner not behavioral verification; separate oracle/runtime/UI absent",
+      "prewireCandidateEvidence": {
+        "sha": "5fc2e3ca6d30c03840ba4957c0ae0d8f9d4b9d25",
+        "clean": true,
+        "localTreeInactive": true,
+        "pidExists": false,
+        "hashes": {
+          "backend/claude_coding_artifact.py": "ea3b411b098c9e1cbccc70e6b7ae0c08a27598f0b6d534e3d51d68744592deb4",
+          "tests/test_claude_coding_artifact.py": "6dba128bf3a9579e16e58e9813cb78f75af63ff5f7c97d32b065d27d5540e766"
+        },
+        "fullPassed": 495,
+        "fullSkipped": 4,
+        "warnings": 2,
+        "focusedPassed": 181,
+        "accepted": false,
+        "reason": "Horizontal TDD; fresh vertical reconstruction required"
+      }
     },
     "live-return": {
       "status": "RESOLVED_BY_REVIEWED9570ee9_PUBLISHED_NORMAL_CLICK_READBACK",
@@ -1266,6 +1453,96 @@
       "fixLane": "live-return-recovery",
       "setupCause": "Prior owned config served backend.app dist rather than existing scripts.serve_clean_editor_fixture .data/clean-editor-dist; max-turn was exploration/setup, not quota or expected product RED",
       "resolvedMerge": "555d58347f1010ed29b3dada3f035de3f2df3722"
+    },
+    "behavioral-oracle": {
+      "commit": "6f78aa7eff213000707dd4f71397afc9ea4b594c",
+      "status": "STATIC_REVIEW_PASSED_LIMITED_SCOPE_BUT_HIGH_PREWIRING_AND_TDD_GATE",
+      "review": {
+        "passed": true,
+        "blockingFindings": [],
+        "followups": [
+          "HIGH (required before wiring): staging TOCTOU weakens digest binding. The container reads the artifact live from a host bind mount under %TEMP%. _verify_staging runs only after writing and after each case. Any same-user host process, including a concurrently running model-controlled coding agent, could swap files after verification and restore them before the post-case check. The container would then execute bytes that differ from artifactSha256 without detection. Fix options: copy the artifact into the container instead of mounting it (docker create + docker cp/tar + docker start -a), or guarantee no concurrent same-user writer. Until then, the digest claim holds only if no concurrent host writer exists.",
+          "MEDIUM (approval binding): artifactSha256 covers only paths and file bytes. It does not cover entrypoint, command, image, schema, or caseTimeoutSeconds. The same files run with a different entrypoint give a different behavior under the same artifactSha256. The handoff's future-adapter note binds artifact + cases + image but omits entrypoint and timeout. Add a single run digest over schema, image, command/entrypoint, timeout, artifactSha256 and casesSha256, and bind that to the approval record.",
+          "MEDIUM (test gap): no test covers on_container raising at 'inspected' or 'removed', inspect failure, a non-'exited' state, or 'Výstup kontejneru nebyl uzavřen'. Static reading shows these paths are correct: the inner finally always calls _remove_container, and a 'planned' failure happens before any container exists. Add mocked-transport tests so cleanup-on-callback-failure is proven, not just inferred.",
+          "PROCESS (TDD gap, stated honestly): RED is a single collection-time ImportError (red-01, exit 2) from the whole suite written before the module existed. It is not per-behavior RED, so no individual test was shown to fail for the right reason. Partial mitigation: GREEN includes real-Docker negative controls (empty exit 0, unsorted output, os._exit(0) spoof report, raise, timeout, flood) that must and do fail, which shows the oracle can discriminate. Record this as a procedural deviation, not proper RED/GREEN.",
+          "LOW: validate_artifact rejects case-folded duplicate files and file/dir conflicts, but not directory prefixes with inconsistent case (e.g. 'a/x.py' and 'A/y.py'). On NTFS these merge into one directory, so _verify_staging fails with a generic BehavioralOracleError instead of an InputError. This fails closed, but should be rejected during validation.",
+          "LOW: paths, entrypoint and case names use isinstance(str), while contents use type() is bytes. A str subclass with overridden split/__eq__/__format__ from a host caller could desynchronize validation from staging and argv. Use type(x) is str for consistency. The trust boundary is host code, so this is low.",
+          "LOW: add --log-driver=none, or bounded json-file log opts, to docker run. The engine also writes container stdout/stderr to the default json-file log. Growth is bounded by caps, timeout and the kill-to-rm window, and rm -f deletes the logs, but it is untidy.",
+          "LOW: oomKilled is reported but does not affect status. A case with expectedExitCode=137 would pass on an OOM kill. Consider failing when oomKilled is true.",
+          "LOW: stagingRemoved=false does not affect passed and raises nothing. Consider surfacing a failed staging removal as an infrastructure warning or error.",
+          "LOW (test hygiene): the test ledger writes by default to a hard-coded coordinator path under AppData and does a non-atomic read-modify-write. Default to tmp_path and make the env override explicit.",
+          "EVIDENCE: the agent's final claim of 22 containers is wrong. The parent-verified 33 unique ledger names (none remaining) supersede it and match 3 Docker-backed runs × 11 containers per focused suite (green-01, full-pytest-01, green-02). Correct the claim in the final report."
+        ],
+        "limitations": [
+          "Static evidence-synthesis review only. Nothing was executed or inspected outside the supplied bundle. Source and logs were treated as untrusted data.",
+          "Scope is only backend/coding_behavioral_oracle.py, its tests and the handoff at 6f78aa7. This review does not endorse backend/claude_coding_artifact.py, execute_approved, route wiring, coding_oracle.py/source .git safety, whole-GOAL acceptance, or general coding acceptance.",
+          "Hash provenance: the final focused run (green-02, 38 passed, 0 skipped) and ruff-02 used the final hashes (module 64ad0ba6…, tests c29b4ba9…). full-pytest-01 (482 passed, 4 skipped) used the same final module but the pre-Ruff test file b940a1b8…. The full suite was therefore not rerun on the final test file; only that test file changed. All logs record head 2b22041, so they ran on an uncommitted tree. I cannot independently confirm that the committed blobs in 6f78aa7 equal these hashes. That relies on the parent's clean-worktree verification.",
+          "The 4 skips in the full run cannot come from this module's Docker gate. That gate is one module-level skipif covering 8 tests, which would skip together. Their exact identity is not visible in the -q output.",
+          "Isolation is standard container isolation: runc under Docker Desktop/WSL2, shared VM kernel, default seccomp, no custom profile or VM/gVisor. Flags reviewed: network none, read-only rootfs, cap-drop ALL, no-new-privileges, nobody uid, pids/memory/cpu limits, ipc none, noexec /tmp, RO /work, no env/socket/ports/devices. This is not a defense against kernel or engine escape.",
+          "Host trust: the docker binary is resolved via PATH, and the engine is chosen by the user's docker CLI config/currentContext. Only DOCKER_* env vars are stripped. The daemon identity is not pinned, so a hijacked PATH or a remote context is out of scope. The image is pinned by content ID with --pull=never.",
+          "Hard parent death (process kill or power loss) leaves the running container behind. Recovery depends on the caller persisting the 'planned' ledger event. The WindowsJob does not remove containers, as the handoff states.",
+          "Acceptance means only exact stdout bytes plus the engine-reported exit code for the supplied host-held cases on this artifact digest. It is not correctness on other inputs. Sibling-module imports are unsupported under python -I, as documented and probe-tested.",
+          "Verified by reading: all validation finishes before any side effect (no staging, docker calls or callbacks), and no_side_effects tests cover this. Exit code comes from docker inspect, not the CLI or artifact output. Stdout is compared exactly as bytes with streaming caps of 64 KiB/16 KiB, and overflow or timeout gives a non-pass status. Every container path, including transport exceptions, inspect/callback exceptions, timeout and overflow, ends in an exact-name rm -f plus a verified-absence check, and fails closed with BehavioralOracleCleanupError otherwise."
+        ]
+      },
+      "cleanup": {
+        "ledgerCount": 33,
+        "names": [
+          "opora-v3-oracle-02b9a64c44694f82901ad11afe0d5c65",
+          "opora-v3-oracle-05dafcf368664ae4a7baaa197a141f31",
+          "opora-v3-oracle-0a771f7d41ab490ca86f4506d37d3e08",
+          "opora-v3-oracle-0ac077a1ac2348d58a4e0801115d84d0",
+          "opora-v3-oracle-14097a0c8cb64dcc9ca47d3c4f17a8e7",
+          "opora-v3-oracle-15ea93ceec734fc9bb4f89db0271a927",
+          "opora-v3-oracle-177260e8f93b4a928e75e7a3dab67abf",
+          "opora-v3-oracle-1c88cab3132d40b3912cd9cea6a813f0",
+          "opora-v3-oracle-498a31a7b3384b0fb10c70bc87bb4105",
+          "opora-v3-oracle-4dadcaa768f64af898e9cb748ad1e094",
+          "opora-v3-oracle-4e9917b6c6cc4bb288613b538043c22a",
+          "opora-v3-oracle-51d4a5930e0f4636a17584dd19b87b22",
+          "opora-v3-oracle-51fb239e38d749df980a8f43a686a24d",
+          "opora-v3-oracle-555653eaad49472ab15bc1a518d65874",
+          "opora-v3-oracle-57e6f004f1ab433eb283d2284949ca2c",
+          "opora-v3-oracle-60b2fec3f4234378ae882a089509a445",
+          "opora-v3-oracle-6408e523ff1a46309560dfd2371179ce",
+          "opora-v3-oracle-70f66ee112014be98dba779e5d8cc3ad",
+          "opora-v3-oracle-714965bfd9684ea687aba443a7f52f53",
+          "opora-v3-oracle-7fea611785844dd0bae250e2fc8ac0b7",
+          "opora-v3-oracle-890ee163c07b43e292515aa1bcd88c45",
+          "opora-v3-oracle-966ee56415ad416dba5c3290c4183fae",
+          "opora-v3-oracle-98772d3e58a7435eaeb391be41008099",
+          "opora-v3-oracle-a5a05d68659c4802a8a734cbad5860d9",
+          "opora-v3-oracle-ad3d706fd94a44f682b1cb4549cba7b1",
+          "opora-v3-oracle-b558744dd94140a196192da376f5ff19",
+          "opora-v3-oracle-c419e37d778a4cb5b8ce677f5747d47d",
+          "opora-v3-oracle-c83e6b62bf924e93804767c32c115db1",
+          "opora-v3-oracle-dde9302ebc94447697f769748faed2b3",
+          "opora-v3-oracle-e03b3ec9ace54c0d901c94b35099b214",
+          "opora-v3-oracle-e2dc83edd0ff450d9bb5845e5778fe1c",
+          "opora-v3-oracle-e82a90e647f34eb3b5d8d9a5a812f4fc",
+          "opora-v3-oracle-fd47916ab1f44645a03bb72b1f25575d"
+        ],
+        "remaining": [],
+        "command": "docker ps -a --format {{.Names}}",
+        "exitCode": 0
+      },
+      "fixLane": "oracle-isolated-rebuild",
+      "decision": "Unaccepted module/tests replaced fresh by strict vertical tracer implementation. Immutable in-memory archive copied before start, no mutable host bind mount; run digest includes all execution parameters. Not whole coding acceptance."
+    },
+    "project-tree-actions": {
+      "status": "5FOCUSED_PASS_COMPLETE_FULL_UI_INTERRUPTED_AT58_NO_EXIT_NO_COMMIT",
+      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "sourceHashes": {
+        "src/SourceExplorer.tsx": "c944915b59b901a45aae09f39943bbbdd4152e49a0cdf6d0406db7ee5ce1aefb",
+        "src/ProjectWorkspace.tsx": "6c98f4c92be644336fa106ff68071cf90e397d3a0f8fc0df44ee6d30c219c647",
+        "src/project-tree-actions.css": "ce33ca9f10678a0a361fba5fa252f1f954744a9b7fd934064b4fdba1060058f9",
+        "e2e/project-tree-actions.spec.ts": "6332d16d447c4752ad69905cef4364ac19585337c256d478d36f9dc5b67d2bac",
+        "playwright.project-tree-actions.config.ts": "083a5cf3f412a2f9b139aa5c65fb5d65f2c986f9c48638890a2ebe4be6ff5148"
+      },
+      "focusedPassed": 5,
+      "focusedEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-actions\\17-focused-all-final.meta.json",
+      "completionLane": "project-tree-completion",
+      "tddDisclosure": "Restored original source + pre-existing tests; all5 real baseline failures exit1 then separate incremental GREEN runs, not newly authored RED test per tracer. Reviewer must assess explicitly."
     }
   },
   "pendingLanes": [],
