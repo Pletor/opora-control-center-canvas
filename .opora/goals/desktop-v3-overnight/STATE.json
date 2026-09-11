@@ -1,135 +1,86 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 5,
+  "revision": 6,
   "status": "running",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
   "integrationWorktree": "C:/Users/Admin/opora-v3",
   "activeLane": {
-    "name": "inventory-completion",
-    "role": "audit",
-    "worktree": "C:/Users/Admin/opora-v3-inventory",
-    "branch": "audit/v3-component-inventory",
-    "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-completion-spec.json",
-    "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-completion\\state.json",
-    "processHandle": "proc_069cf81fb804",
+    "name": "shared-regression-after-review",
+    "role": "verification-only",
+    "worktree": "C:\\Users\\Admin\\opora-v3",
+    "branch": "integration/desktop-v3",
+    "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review-spec.json",
+    "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review\\state.json",
+    "processHandle": "proc_c4c76019c56b",
     "ownedPaths": [
-      ".opora/workunits/WU-DESKTOP-V3/component-inventory.json",
-      ".opora/workunits/WU-DESKTOP-V3/COMPONENT-INVENTORY.md",
-      ".opora/workunits/WU-DESKTOP-V3/inventory-HANDOFF.md"
+      "generated test evidence only; NO SOURCE OR DIST WRITES",
+      "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review"
     ],
-    "reservedTestPorts": [],
-    "observedAt": "2026-09-11T02:22:21.869779+02:00",
-    "pid": 4216,
-    "pidExists": true,
-    "descendants": [
-      54612
+    "reservedTestPorts": [
+      8742,
+      8769,
+      8771
     ],
-    "running": true,
-    "localTreeInactive": null
+    "observedAt": "2026-09-11T02:37:03.135806+02:00",
+    "running": false,
+    "localTreeInactive": true,
+    "pid": 65276,
+    "pidExists": false,
+    "descendants": [],
+    "subtype": "success"
   },
   "activeLanes": [
     {
-      "name": "export-scope-hardening",
-      "role": "implementation",
-      "worktree": "C:/Users/Admin/opora-v3-export-scope",
-      "branch": "fix/v3-export-scope-hardening",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-scope-hardening-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-scope-hardening\\state.json",
-      "processHandle": null,
+      "name": "shared-regression-after-review",
+      "role": "verification-only",
+      "worktree": "C:\\Users\\Admin\\opora-v3",
+      "branch": "integration/desktop-v3",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review\\state.json",
+      "processHandle": "proc_c4c76019c56b",
       "ownedPaths": [
-        "src/desktop-v3/api.ts",
-        "src/desktop-v3/LiveWorkspacePanel.tsx",
-        "src/desktop-v3/AgentPacketPanel.tsx (export/readback boundary only)",
-        "e2e-v3-panels/export-scope.spec.ts",
-        "own fixture/config and handoff"
+        "generated test evidence only; NO SOURCE OR DIST WRITES",
+        "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review"
       ],
       "reservedTestPorts": [
-        8793
+        8742,
+        8769,
+        8771
       ],
-      "observedAt": "2026-09-11T02:22:21.869779+02:00",
-      "pid": 5872,
-      "pidExists": true,
-      "descendants": [
-        63408
-      ],
-      "running": true,
-      "localTreeInactive": null
+      "observedAt": "2026-09-11T02:37:03.135806+02:00",
+      "running": false,
+      "localTreeInactive": true,
+      "pid": 65276,
+      "pidExists": false,
+      "descendants": [],
+      "subtype": "success"
     },
     {
-      "name": "workflow-draft-preservation",
+      "name": "workflow-drafts-race-fix",
       "role": "implementation",
-      "worktree": "C:/Users/Admin/opora-v3-workflow-drafts",
+      "worktree": "C:\\Users\\Admin\\opora-v3-workflow-drafts",
       "branch": "fix/v3-workflow-draft-preservation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-draft-preservation-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-draft-preservation\\state.json",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-race-fix-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-race-fix\\state.json",
       "processHandle": null,
       "ownedPaths": [
         "src/desktop-v3/NodeWorkflowPanel.tsx",
         "src/desktop-v3/ProjectMemoryPanel.tsx",
         "e2e-v3-panels/workflow-draft-preservation.spec.ts",
-        "own config and handoff"
+        "own handoff"
       ],
       "reservedTestPorts": [
         8794
       ],
-      "observedAt": "2026-09-11T02:22:21.869779+02:00",
-      "pid": 41996,
-      "pidExists": false,
-      "descendants": [],
+      "observedAt": "2026-09-11T02:37:03.135806+02:00",
       "running": false,
       "localTreeInactive": true,
-      "awaiting": "collect commit, completed tests and independent review; not accepted yet"
-    },
-    {
-      "name": "inspector-suite-recovery",
-      "role": "test-repair",
-      "worktree": "C:/Users/Admin/opora-v3-inspector-suite",
-      "branch": "fix/v3-inspector-suite-isolation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-suite-recovery-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-suite-recovery\\state.json",
-      "processHandle": null,
-      "ownedPaths": [
-        "e2e/inspector-style-boundary.spec.ts",
-        "playwright.inspector-suite.config.ts",
-        "scripts/serve_inspector_suite_fixture.py (optional)",
-        "own handoff"
-      ],
-      "reservedTestPorts": [
-        8795
-      ],
-      "observedAt": "2026-09-11T02:22:21.869779+02:00",
-      "pid": 19544,
-      "pidExists": true,
-      "descendants": [
-        59236
-      ],
-      "running": true,
-      "localTreeInactive": null
-    },
-    {
-      "name": "inventory-completion",
-      "role": "audit",
-      "worktree": "C:/Users/Admin/opora-v3-inventory",
-      "branch": "audit/v3-component-inventory",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-completion-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-completion\\state.json",
-      "processHandle": "proc_069cf81fb804",
-      "ownedPaths": [
-        ".opora/workunits/WU-DESKTOP-V3/component-inventory.json",
-        ".opora/workunits/WU-DESKTOP-V3/COMPONENT-INVENTORY.md",
-        ".opora/workunits/WU-DESKTOP-V3/inventory-HANDOFF.md"
-      ],
-      "reservedTestPorts": [],
-      "observedAt": "2026-09-11T02:22:21.869779+02:00",
-      "pid": 4216,
-      "pidExists": true,
-      "descendants": [
-        54612
-      ],
-      "running": true,
-      "localTreeInactive": null
+      "pid": 33312,
+      "pidExists": false,
+      "descendants": [],
+      "subtype": "success"
     }
   ],
   "inspectorCandidate": {
@@ -241,21 +192,50 @@
     "backendSkipped": 4,
     "backendEvidenceAge": "fresh completed full-regression/pytest.log EXIT_CODE=0, 142.41s",
     "ruff": "full-regression/ruff.log PASS EXIT_CODE=0",
-    "typecheck": "full-regression/tsc.log PASS EXIT_CODE=0",
-    "build": "pass; existing >500kB chunk warning remains",
+    "typecheck": "coordinator tsc exit0 at merged export+inspector production baseline3588085",
+    "build": "coordinator Vite exit0; existing >500kB chunk warning remains",
     "v3PanelTestsPassed": 28,
-    "fullUi": "RED: full-regression/clean-editor.log 92 passed / 2 failed / 1 skipped, EXIT_CODE=1; both inspector-style-boundary1280/1440 expected1 received2. Isolation lane in progress; root cause not yet accepted.",
-    "preview": "8780 exact served index matches build sha256893aa30f72af85aba9992fe4adde99bbc5c2444136efd1aecad29508211e5dce; browser native swatches square17.546875px, range4px, light/dark off/on/off, no page errors/API writes/model starts; screenshots visually inspected.",
-    "backendWarnings": 2
+    "fullUi": "IN_PROGRESS E/shared-regression-after-review, all95 tests shared order. Previous92PASS/2FAIL/1skip not yet replaced.",
+    "preview": {
+      "origin": "http://127.0.0.1:8780",
+      "indexSha256": "614ad8fa45c41c39d691f4d41437891d549707b8c3a10b07d5df813e52f2cd83",
+      "servedIndexMatchesBuild": true,
+      "snapshotExportReadback": {
+        "previewEqualsRendered": true,
+        "snapshotEqualsPreview": true,
+        "exportEqualsSnapshot": true,
+        "preparedRunId": "7bbb7be57b8b4830adc498290ed30a50",
+        "snapshotId": "f16c731b4b124a4a8312d9c55ea5da1c",
+        "digest": "28b6f8b572c3616ed8c5522f812bf2a23e12a942f825372f2aa0e3428dad131d",
+        "parentDrawing": {
+          "revision": 1,
+          "elements": 30
+        },
+        "errors": [],
+        "blocked": [],
+        "writes": [
+          "/api/desktop-v3/packet/preview",
+          "/api/desktop-v3/packet/snapshot",
+          "/api/desktop-v3/packet/snapshots/f16c731b4b124a4a8312d9c55ea5da1c/prepare"
+        ],
+        "modelStarts": 0
+      },
+      "inspectorSmoke": "light/dark OFF->ON->OFF passed, square swatches, range4px, no overflow/errors/writes; dark OFF screenshot visually inspected",
+      "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
+      "backendRestart": false,
+      "previewData": "preserved; added one clearly marked prepared QA task and immutable snapshot, no model start"
+    },
+    "backendWarnings": 2,
+    "exportScopeTestsPassed": 38
   },
   "nextActions": [
-    "Read GOAL/STATE/CHECKPOINT plus all lane registries FIRST. Four reserved lanes; never duplicate or write their paths before verified tree/PID inactivity.",
-    "Collect export-scope-hardening, workflow-draft-preservation, inspector-suite-isolation. Require completed RED/GREEN logs, exact commit, independent Claude review; then integrate sequentially. Preserve dirty evidence.",
-    "Collect inventory-completion exact commit and reproduce all-handler coverage; independent review. Existing125 rows are a draft, not full acceptance.",
-    "Implement missing phase1 components, prioritizing documentation -> approved immutable snapshot -> real bounded coding agent -> artifact/tests -> node/Live readback. New user brief overrides old general-coding prohibition; investigate supported runtime before implementation.",
-    "Rerun full UI after inspector isolation acceptance, plus all gates relevant to new changes. Do not count targeted PASS as full GREEN.",
-    "Publish verified changes to8780 with exact readback preserving new preview data. This iteration changed metadata only, preview unchanged.",
-    "Only after phase1 acceptance use the11 archived phase2 reference photos to extend, not replace, v3. Do not report missing photos again."
+    "FIRST read GOAL/STATE/CHECKPOINT, four-claude-authorization and every live registry/spec. Parent continues dispatching; never duplicate ownership. Max4 total.",
+    "Collect shared-regression-after-review completed logs/report. No source edits in integration until finished; NO destructive clean-editor-dist rebuild (also used by preview8780). Require localTreeInactive and PID/descendant proof. Full GREEN not yet claimed.",
+    "Collect workflow-drafts-race-fix exact commit + behavioral RED/GREEN; require independent re-review before merge. Original2de3c4e BLOCKED data-loss race. Preserve all dirty evidence.",
+    "Follow up export fixture parity: real backend shape in e2e-v3-panels/fixture-plugin.ts plus successful unmocked fixture export test. Also assess same-run response order, legacy TaskHandoffPanel scope and overbroad asserted types. Export validation preserves object, not original wire JSON bytes.",
+    "Use accepted125-row inventory to implement actual missing phase1 functions. Priority docs->approved immutable snapshot->bounded real coding agent->artifact/tests->origin node+Live readback. Inspect supported runtime and enforce permissions; --add-dir and tool allowlists are NOT OS sandbox, missing-module import failure is NOT sufficient behavioral RED.",
+    "Inventory review verified reference mapping, not every impl citation. Reproduce relevant current behavior before claiming any row done;24MISSING+4MISSING_REPO_TRANSPORT remain inventory classifications, not full runtime audit.",
+    "Phase2 has11 photos; extend existing v3 only after full phase1 acceptance. Do not report missing source or goal done."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -308,12 +288,119 @@
     "resetLocal": "2026-09-11T02:40:00+02:00",
     "note": "Provider event status allowed; not current exact usage. Overage rejected/disabled is not main quota exhausted; isUsingOverage=false. OAuth/Max retained."
   },
-  "reconciledAt": "2026-09-11T02:22:21.869779+02:00",
+  "reconciledAt": "2026-09-11T02:37:03.135806+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
       "status": "NOT_LAUNCHED",
       "reason": "preflight discovered parent inspector-suite-recovery already owns identical worktree/paths. Keep prompt as unused evidence only."
     }
-  ]
+  ],
+  "acceptedCandidates": {
+    "inspector-suite": {
+      "commit": "6f84a2ceb82ab1608db6f0b27eb3a38e524c5570",
+      "merge": "c4cdd6374f1d878bba68e27a7e07e60a2c4d4449",
+      "review": {
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-evidence-review\\result.json",
+        "passed": true,
+        "localTreeInactive": true,
+        "pidExists": false,
+        "limitations": [],
+        "followups": [
+          "Merge gate: the full shared regression order (drawing.spec.ts then inspector-style-boundary.spec.ts on the 8742 config) has not been rerun. Until it is, the fix is verified only by the private-config reproduction. Do not describe the shared regression as resolved yet; rerun it and record the result in the handoff.",
+          "Confirm from the shared Playwright config that inspector-style-boundary.spec.ts cannot run concurrently with drawing.spec.ts (workers=1, or serial by project). The new assertions that stored revision and scene are unchanged assume no other writer touches draft/draft/root between the `stored` and `after` reads. A concurrent predecessor save would make them flaky.",
+          "The seed path writes to whichever server baseURL points at, including the shared 8742 server if its root drawing is empty. Guard it so it runs only with the private config, for example by having playwright.inspector-suite.config.ts set an env marker that the spec asserts before seeding, or by refusing to seed when the baseURL port is 8742.",
+          "The scope match `JSON.stringify(scope) === JSON.stringify(DRAWING_SCOPE)` depends on query-parameter order and fails on extra params. It fails closed (count 2 plus the isolatedReads assertion), so it hides nothing. Comparing project, workspace and layer explicitly, and checking key count, would avoid false RED if the client reorders params.",
+          "playwright.inspector-suite.config.ts has a hardcoded fallback 'C:/Users/Admin/AppData/Local'. Use os.tmpdir() with path.join so the config is portable. Consider removing the per-run temp data dir after the run, since each run creates a new one.",
+          "evidence/inspector-style-boundary-{1280,1440}.png are untracked test outputs. Either commit them deliberately as evidence or add the path to .gitignore so they don't drift in the worktree."
+        ]
+      },
+      "status": "merged; full shared-order regression running"
+    },
+    "export-scope": {
+      "commit": "9d5f94b2bdc978542211e4f68e94d4b9db8537b5",
+      "merge": "3588085375dde54b213fbb396f2df29047fe82ec",
+      "review": {
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-evidence-review\\result.json",
+        "passed": true,
+        "localTreeInactive": true,
+        "pidExists": false,
+        "limitations": [],
+        "followups": [
+          "LiveWorkspacePanel.readContext: the generation guard only changes when the selected run or scope changes. Two reads on the same run can therefore resolve out of order. A late invalid response can set actionError next to a newer validated exactContext, and a late valid response can set exactContext after a newer error. Add a per-read counter, e.g. `const read=++readSeq.current` checked together with the generation, so only the latest read sets context or error. Only same-run, already validated data is affected, so this does not block the change.",
+          "HandoffExport claims `allowedFiles`, `readableNodeIds`, `provider`, `model` and `budgetSeconds` are typed, but assertHandoffExport never checks them; the final cast asserts more than was validated. Either validate those fields (string[], string, number) or narrow the returned type to the fields actually checked, with the rest as unknown. Otherwise a future consumer might trust unvalidated fields.",
+          "Evidence gap, non-blocking because the failure is fail-closed: LiveWorkspacePanel lists every handoff record for the project/workspace, including legacy non-v3 ones. Only the v3 path (`prepare_from_snapshot`) is shown to always store `scope.node` from `packet_scope[\"nodeId\"]`. If the legacy `prepare()` stores a scope without `node` or with a non-string/non-null node, the exact-context read for legacy runs now always fails in the Live panel. Please confirm the legacy `prepare()` scope construction or add a legacy-row case to export-scope.spec.ts.",
+          "Coordinator follow-up (outside this lane): update `e2e-v3-panels/fixture-plugin.ts` GET `/api/task-handoffs/{id}/export` to return the real backend shape: `scope: run.scope, allowedFiles, readableNodeIds, provider, model, budgetSeconds`. Until then, AgentPacketPanel export against the dev/e2e fixture always fails closed. Afterwards, add a fixture-backed (unmocked) successful export assertion.",
+          "Fix the handoff wording: the output is not \"byte-identical to server JSON\". The client re-serializes the parsed object with `JSON.stringify(value, null, 2)`, while the backend `_canonical` output has different formatting. The accurate claim is that validation returns the same object, so the download matches the pre-change serialization.",
+          "Optional hardening: AgentPacketPanel snapshot readback anchors `nodeId` to the snapshot creation response (`snapshot.packet.scope.nodeId`), not to the panel's `nodeId` prop. So a creation response with a foreign node would still read back as verified. Comparing the created snapshot's scope with the panel props at creation time would close this, once the project-scope normalization (`\"\"` vs null) is confirmed."
+        ]
+      },
+      "status": "merged, integrated targeted38PASS + tsc0 + build0 + real preview snapshot/export readback"
+    },
+    "component-inventory": {
+      "commit": "edb7da94861dfabae0906a7360f45c4222e030eb",
+      "merge": "cbed0d642ad239118078c9041e700d7c26ac17f1",
+      "review": {
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-review\\result.json",
+        "passed": true,
+        "localTreeInactive": true,
+        "pidExists": false,
+        "limitations": [
+          "Did not execute the v3cov.cjs reconciliation script; verification of the 143/143 binding-coverage claim was done by manual line-by-line comparison of the reference HTML against the JSON refs, not by running the cited Node script.",
+          "GOAL.md (outside this worktree) was not read; its sha256 and the goal-derived claims in the JSON were not independently verified.",
+          "Did not read any implementation source files (src/*, backend/*) cited in the JSON's impl/evidence fields; this audit verified inventory-vs-reference-HTML consistency, not inventory-vs-actual-codebase accuracy, beyond the 6-file cap.",
+          "No tests, scripts, or servers were run, per audit constraints; all status claims are taken as reported and cross-checked only against static source text."
+        ],
+        "followups": [
+          "The coverage script counts one literal `onClick=\"{{ binding }}\"` occurrence per template line, not per rendered instance (e.g. line 463 `c.run` appears once in markup inside an `sc-for` loop that renders 5 buttons, and line 266 `drawHint` renders 5 buttons from one attribute occurrence noted explicitly as '5 occurrences, one key'). This is a defensible reading of 'binding occurrence' but should be understood as template-source occurrences, not rendered-control instances, when citing the '143/143 mapped' figure.",
+          "sourceHashes.goal points to C:/Users/Admin/opora-v3/.opora/goals/desktop-v3-overnight/GOAL.md, a path outside this worktree; this audit did not read or verify that file (out of the prioritized/bounded file list), so its sha256 and content claims are unverified here.",
+          "V3-LIVE-011/012 and the closeSlash triplet (V3-ED-020/021/022) rely on splitting one template handler into multiple semantic rows; this is well-justified by the surrounding markup (distinct button labels/positions) but is an interpretive judgment call worth a coordinator sanity-check rather than a purely mechanical mapping."
+        ]
+      },
+      "coverage": {
+        "looseEventTokens": 143,
+        "bindingOccurrences": 143,
+        "uniqueLineEventBinding": 136,
+        "byEvent": {
+          "onClick": 106,
+          "onInput": 19,
+          "onDragStart": 1,
+          "onKeyDown": 7,
+          "onDragOver": 2,
+          "onDragLeave": 2,
+          "onDrop": 2,
+          "onChange": 4
+        },
+        "uniqueBindingNames": 113,
+        "rows": 125,
+        "duplicateIds": [],
+        "coveredOccurrences": 143,
+        "missing": [],
+        "staleRefs": [],
+        "multiMapped": [
+          "386|onClick|closeSlash -> V3-ED-020,V3-ED-021,V3-ED-022",
+          "463|onClick|c.run -> V3-LIVE-011,V3-LIVE-012"
+        ],
+        "statusCounts": {
+          "IMPLEMENTED_TESTED_SOURCE": 54,
+          "PARTIAL": 22,
+          "IMPLEMENTED_UNVERIFIED": 16,
+          "MISSING": 24,
+          "DEMO_EXCLUDED": 2,
+          "MISSING_REPO_TRANSPORT": 4,
+          "BLOCKED_NO_SOURCE_DATA": 1,
+          "BLOCKED_NO_TRANSPORT": 2
+        }
+      },
+      "status": "accepted as complete reference mapping, NOT proof that every implementation classification is independently verified"
+    }
+  },
+  "blockedCandidates": {
+    "workflow-draft-preservation": {
+      "commit": "2de3c4e",
+      "status": "DO_NOT_MERGE; independent review found shared CAS rollback data-loss race and ABA draft loss",
+      "fixLane": "workflow-drafts-race-fix",
+      "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-review\\result.json"
+    }
+  }
 }
