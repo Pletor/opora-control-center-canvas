@@ -50,6 +50,8 @@
 .source-row button { border: 0; background: none; color: inherit; padding: 4px; text-align: left; }
 .source-name { flex: 1; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; }
 .source-toggle, .source-file-mark { width: 24px; flex: 0 0 24px; text-align: center; }
+.source-file-actions { display: grid; gap: 4px; margin: 4px 10px 8px 32px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.source-file-actions button { min-width: 0; padding: 7px 9px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .project-overview-link { margin: 0 10px 12px; }
 .tree-note, .tree-more { margin: 12px; font-size: 11px; color: var(--ink-muted); }
 .context-references { list-style: none; padding: 0; margin: 18px 0; }

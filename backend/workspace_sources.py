@@ -6,6 +6,7 @@ import stat
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Query
 from pathspec import GitIgnoreSpec
@@ -135,6 +136,32 @@ class WorkspaceSources:
             raise ValueError("Cesta opouští připojený projekt.")
         return target
 
+    def open_file(self, payload):
+        """Otevře pouze ověřený soubor nebo jeho rodiče; nikdy nespouští obsah souboru."""
+        if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "path", "action"}:
+            raise ValueError("Otevření vyžaduje project, workspace, path a action.")
+        path = relative_path(payload["path"])
+        action = payload["action"]
+        if not path or not isinstance(action, str) or action not in {"vscode", "folder"}:
+            raise ValueError("Vyberte soubor a akci vscode nebo folder.")
+        if os.name != "nt":
+            raise ValueError("Otevírání souborů je dostupné pouze v lokální aplikaci na Windows.")
+        try:
+            with self.service.graph_lock:
+                root = self.root(payload["project"], payload["workspace"])
+                if root is None:
+                    raise ValueError("Projekt nemá připojený zdrojový adresář.")
+                target = self.target(root, path)
+                if not target.is_file():
+                    raise ValueError("Vybraná položka není soubor.")
+                # Pevný protokol VS Code, nikoli shell ani asociace samotného souboru.
+                destination = "vscode://file/" + quote(target.as_posix(), safe="/:") if action == "vscode" else str(target.parent)
+                os.startfile(destination)
+        except OSError as exc:
+            raise ValueError("Soubor nelze otevřít. Ověřte jeho dostupnost a instalaci VS Code pro akci vscode.") from exc
+        return {"project": payload["project"], "workspace": payload["workspace"],
+                "path": path, "action": action, "status": "requested"}
+
     def tree(self, project, workspace, path="", offset=0, limit=200, visibility="all"):
         path = relative_path(path)
         root = self.root(project, workspace)
@@ -171,6 +198,10 @@ class WorkspaceSources:
 def create_workspace_router(service):
     router = APIRouter(prefix="/api/workspace")
     sources = WorkspaceSources(service)
+
+    @router.post("/open-file")
+    def open_file(payload: dict):
+        return sources.open_file(payload)
 
     @router.get("/tree")
     def tree(project: str, workspace: str, path: str = "", offset: int = Query(0, ge=0), limit: int = Query(200, ge=1, le=500), visibility: Literal['all', 'working'] = 'all'):
