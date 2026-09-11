@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 8,
+  "revision": 9,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -9,80 +9,65 @@
   "activeLane": null,
   "activeLanes": [
     {
-      "name": "workflow-drafts-post-reset",
+      "name": "workflow-drafts-rereview",
       "worktree": "C:/Users/Admin/opora-v3-workflow-drafts",
       "branch": "fix/v3-workflow-draft-preservation",
-      "role": "implementation",
-      "reservedTestPorts": [
-        8794
-      ],
-      "ownedPaths": [
-        "src/desktop-v3/NodeWorkflowPanel.tsx",
-        "src/desktop-v3/ProjectMemoryPanel.tsx",
-        "e2e-v3-panels/workflow-draft-preservation.spec.ts",
-        ".opora/workunits/WU-DESKTOP-V3/workflow-drafts-HANDOFF.md"
-      ],
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-post-reset-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-post-reset\\state.json",
-      "status": "running",
-      "processHandle": "proc_0c2b82674ffb",
-      "pid": 60764,
+      "role": "review",
+      "reservedTestPorts": [],
+      "ownedPaths": [],
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-rereview-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-rereview\\state.json",
+      "processHandle": "proc_5e3d014a5bd2",
+      "pid": 60312,
       "pidExists": true,
       "running": true,
       "localTreeInactive": null,
-      "observedAt": "2026-09-11T02:50:27.970335+02:00",
+      "status": "running",
+      "observedAt": "2026-09-11T03:03:20.297687+02:00",
       "descendants": [
-        56072
+        20932
       ]
     },
     {
-      "name": "export-fixture-parity",
+      "name": "export-fixture-review",
       "worktree": "C:/Users/Admin/opora-v3-export-fixture",
       "branch": "fix/v3-export-fixture-parity",
-      "role": "implementation",
-      "reservedTestPorts": [
-        8793
-      ],
-      "ownedPaths": [
-        "e2e-v3-panels/fixture-plugin.ts",
-        "e2e-v3-panels/export-fixture-parity.spec.ts",
-        "playwright.export-fixture-parity.config.ts",
-        "vite.export-fixture-parity.config.ts",
-        ".opora/workunits/WU-DESKTOP-V3/export-fixture-parity-HANDOFF.md"
-      ],
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-parity-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-parity\\state.json",
-      "status": "running",
-      "processHandle": "proc_1543d863a27f",
-      "pid": 48724,
-      "pidExists": true,
-      "running": true,
-      "localTreeInactive": null,
-      "observedAt": "2026-09-11T02:50:27.970335+02:00",
-      "descendants": [
-        53156
-      ]
+      "role": "review",
+      "reservedTestPorts": [],
+      "ownedPaths": [],
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-review-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-review\\state.json",
+      "processHandle": "proc_c9596204fd58",
+      "pid": 63012,
+      "pidExists": false,
+      "running": false,
+      "localTreeInactive": true,
+      "status": "collect_result",
+      "observedAt": "2026-09-11T03:03:20.297687+02:00",
+      "descendants": []
     },
     {
-      "name": "coding-transport-audit",
-      "worktree": "C:/Users/Admin/opora-v3-transport-audit",
-      "branch": "audit/v3-coding-transport",
-      "role": "audit",
+      "name": "claude-coding-artifact",
+      "worktree": "C:/Users/Admin/opora-v3-coding-artifact",
+      "branch": "feat/v3-claude-coding-artifact",
+      "role": "implementation",
       "reservedTestPorts": [],
       "ownedPaths": [
-        ".opora/workunits/WU-DESKTOP-V3/CODING-TRANSPORT-AUDIT.md"
+        "backend/claude_coding_artifact.py",
+        "tests/test_claude_coding_artifact.py",
+        ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
       ],
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\coding-transport-audit-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\coding-transport-audit\\state.json",
-      "status": "running",
-      "processHandle": "proc_c58234eb0a3d",
-      "pid": 6988,
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\claude-coding-artifact-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\claude-coding-artifact\\state.json",
+      "processHandle": "proc_46c2ee81e871",
+      "pid": 42868,
       "pidExists": true,
       "running": true,
       "localTreeInactive": null,
-      "observedAt": "2026-09-11T02:50:27.970335+02:00",
+      "status": "running",
+      "observedAt": "2026-09-11T03:03:20.297687+02:00",
       "descendants": [
-        64316
+        47684
       ]
     }
   ],
@@ -244,21 +229,20 @@
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
       "previewData": "preserved; added one clearly marked prepared QA task and immutable snapshot, no model start",
-      "finalHttpReadbackAt": "2026-09-11T02:50:27.970335+02:00"
+      "finalHttpReadbackAt": "2026-09-11T03:03:20.297687+02:00"
     },
     "backendWarnings": 2,
     "exportScopeTestsPassed": 38
   },
   "nextActions": [
-    "FIRST read GOAL/STATE/CHECKPOINT, four-claude-authorization and every live registry/spec. Parent continues dispatching; never duplicate ownership. Max4 total.",
-    "Quota reset positively confirmed allowed by workflow-drafts-post-reset. Collect its corrected commit, real completed RED/GREEN and independent re-review; never merge blocked2de3c4e alone.",
-    "Collect export-fixture-parity and coding-transport-audit outcomes. Three exclusive lanes reserved; do not duplicate. Audit first safe actual coding slice, no merely CLI allowlist pseudo-sandbox.",
-    "Full clean-editor regression finished:94PASS/1LIVEskip/0FAIL, raw EXIT_CODE=0 at3588085; coordinator report recovered after quota denied synthesis. No need to rerun identical unchanged suite merely because CLI errored; new source edits require relevant regressions.",
-    "Collect workflow-drafts-race-fix exact commit + behavioral RED/GREEN; require independent re-review before merge. Original2de3c4e BLOCKED data-loss race. Preserve all dirty evidence.",
-    "Follow up export fixture parity: real backend shape in e2e-v3-panels/fixture-plugin.ts plus successful unmocked fixture export test. Also assess same-run response order, legacy TaskHandoffPanel scope and overbroad asserted types. Export validation preserves object, not original wire JSON bytes.",
-    "Use accepted125-row inventory to implement actual missing phase1 functions. Priority docs->approved immutable snapshot->bounded real coding agent->artifact/tests->origin node+Live readback. Inspect supported runtime and enforce permissions; --add-dir and tool allowlists are NOT OS sandbox, missing-module import failure is NOT sufficient behavioral RED.",
-    "Inventory review verified reference mapping, not every impl citation. Reproduce relevant current behavior before claiming any row done;24MISSING+4MISSING_REPO_TRANSPORT remain inventory classifications, not full runtime audit.",
-    "Phase2 has11 photos; extend existing v3 only after full phase1 acceptance. Do not report missing source or goal done."
+    "FIRST read GOAL/STATE/CHECKPOINT and all live registries/reservations. Max4 total; three reserved lanes. Do not duplicate coding-artifact writer or existing reviewers.",
+    "Collect workflow-drafts-rereview and export-fixture-review. Workflow1037a88 has actual behavioral RED plus lane9PASS and coordinator full-panel37PASS; fixturefdc1da5 recovered after max-turn35 has coordinator40PASS. Neither merged/accepted yet. Blocked2de3c4e alone still DO_NOT_MERGE.",
+    "After independent approval: merge exact candidates, rerun integrated panels/tsc/build, publish private v3-live-dist via safe publisher, browser real workflow/export readback; append checkpoint+revision. Data copy8780 must survive.",
+    "claude-coding-artifact Opus owns only new backend/claude_coding_artifact.py, tests/test_claude_coding_artifact.py and handoff; no ports; 900s60turn bounded. Collect real TDD/file+git/test evidence, review before integration. This foundation is NOT complete agent roundtrip.",
+    "Coding audit13f5260 only proposal; recommended no-tools Claude -> host-validated scoped artifact in fresh git copy -> independent pinned Docker tests. First materialization slice launched, runtime lifecycle/approval/global exclusion/routes/UI/live proof remain. CLI flags/init fields not verified by audit; do not infer security from allowlists.",
+    "Docker daemon read-only image inspect succeeded: pinned sha256:7ce4b6dfe35e55397b7cda544f8a13f191b7ae28dc5aad71fe664dbc9bc2623f present. This is NOT a passing Docker oracle; real run still needed later.",
+    "Retain earlier export review followups: same-run response ordering, overbroad runtime type claims, legacy export scope; assign exclusive path lane only after current reservations checked.",
+    "Use125-row accepted reference inventory for remaining phase1 features. Full clean-editor94PASS/1LIVEskip is earlier production3588085 evidence, not total goal acceptance. Phase2 all11 photos received; only extend existing v3 after phase1 accepted."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -303,6 +287,36 @@
       "wrapperExitCode": 1,
       "reason": "provider_session_limit",
       "partialPreserved": true
+    },
+    "workflow-drafts-post-reset": {
+      "localTreeInactive": true,
+      "pidExists": false,
+      "resultIsError": false,
+      "resultSubtype": "success",
+      "wrapperExitCode": 0,
+      "permissionDenials": [],
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-post-reset",
+      "status": "candidate_not_accepted"
+    },
+    "export-fixture-parity": {
+      "localTreeInactive": true,
+      "pidExists": false,
+      "resultIsError": true,
+      "resultSubtype": "error_max_turns",
+      "wrapperExitCode": 1,
+      "permissionDenials": [],
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-parity",
+      "status": "max_turns35_coordinator_recovered_logs_and_commit_NOT_quota"
+    },
+    "coding-transport-audit": {
+      "localTreeInactive": true,
+      "pidExists": false,
+      "resultIsError": false,
+      "resultSubtype": "success",
+      "wrapperExitCode": 0,
+      "permissionDenials": [],
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\coding-transport-audit",
+      "status": "candidate_not_accepted"
     }
   },
   "providerQuotaObservation": {
@@ -326,7 +340,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T02:50:27.970335+02:00",
+  "reconciledAt": "2026-09-11T03:03:20.297687+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -437,7 +451,7 @@
     "workflow-draft-preservation": {
       "commit": "2de3c4e",
       "status": "DO_NOT_MERGE; independent review found shared CAS rollback data-loss race and ABA draft loss",
-      "fixLane": "workflow-drafts-race-fix",
+      "fixLane": "workflow-drafts-post-reset completed1037a88, awaiting workflow-drafts-rereview",
       "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-review\\result.json"
     }
   },
@@ -463,5 +477,45 @@
       ],
       "resumeAfter": "2026-09-11T02:40:00+02:00"
     }
-  ]
+  ],
+  "pendingCandidates": {
+    "workflow-draft-preservation": {
+      "commit": "1037a889a89d1ffa82fc964931b6a29ebcd320dc",
+      "parent": "2de3c4eeea59c1289534f3f446fbd8027059f9bf",
+      "status": "awaiting_independent_rereview_then_merge_gates",
+      "originalBlockingCandidate": "2de3c4e",
+      "laneTestsPassed": 9,
+      "coordinatorFullPanelTestsPassed": 37,
+      "coordinatorCommand": "node node_modules/@playwright/test/cli.js test -c playwright.desktop-v3.config.ts",
+      "coordinatorExitCode": 0,
+      "coordinatorDurationSeconds": 14.0,
+      "testWorktree": "C:/Users/Admin/opora-v3-workflow-drafts",
+      "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-rereview\\result.json"
+    },
+    "export-fixture-parity": {
+      "commit": "fdc1da595274e80a57b7da43b2bd7cb29ca29471",
+      "status": "coordinator_committed_preserved_CLI_candidate_awaiting_review",
+      "originalCli": "error_max_turns35, permission_denials=[], not quota",
+      "coordinatorTestsPassed": 40,
+      "coordinatorCommand": "node node_modules/@playwright/test/cli.js test -c playwright.export-fixture-parity.config.ts",
+      "coordinatorExitCode": 0,
+      "coordinatorDurationSeconds": 19.9,
+      "testWorktree": "C:/Users/Admin/opora-v3-export-fixture",
+      "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-review\\result.json"
+    },
+    "coding-transport-audit": {
+      "commit": "13f526089e9f7463b0ab9f70f38eb12566f8f61f",
+      "status": "read_by_coordinator_proposal_not_implemented_or_independently_reviewed",
+      "selectedFirstSlice": "bounded host-validated artifact materialization into isolated git copy; no model, no shared routes, no Docker adapter yet",
+      "audit": "C:\\Users\\Admin\\opora-v3-transport-audit\\.opora\\workunits\\WU-DESKTOP-V3\\CODING-TRANSPORT-AUDIT.md"
+    }
+  },
+  "codingReadiness": {
+    "checkedAt": "2026-09-11T03:03:20.297687+02:00",
+    "pinnedImagePresent": true,
+    "image": "sha256:7ce4b6dfe35e55397b7cda544f8a13f191b7ae28dc5aad71fe664dbc9bc2623f",
+    "command": "docker image inspect <exact pinned digest> --format {{.Id}}",
+    "exitCode": 0,
+    "realOracleRun": false
+  }
 }
