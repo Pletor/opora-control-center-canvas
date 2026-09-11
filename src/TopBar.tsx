@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Project, View, Workspace } from "./types";
+import { api, type Project, type View, type Workspace } from "./types";
 
 /**
  * Jedna kompaktní lišta: projekt, větev, revize a jedno menu s nastavením i operacemi.
@@ -46,6 +46,29 @@ export default function TopBar({
 }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
+  const [openingWorktree, setOpeningWorktree] = useState(false);
+  const [worktreeResult, setWorktreeResult] = useState<{ error: boolean; text: string } | null>(null);
+  const worktreeLock = useRef(false);
+  const worktreeGeneration = useRef(0);
+  useEffect(() => {
+    worktreeGeneration.current++; setWorktreeResult(null);
+    return () => { worktreeGeneration.current++; };
+  }, [project, workspace]);
+  async function openSelectedWorktree() {
+    if (busy || worktreeLock.current || !activeWorkspace || activeWorkspace.id !== workspace) return;
+    worktreeLock.current = true; setOpeningWorktree(true); setWorktreeResult(null);
+    const ticket = worktreeGeneration.current;
+    try {
+      const result = await api<{ project: string; workspace: string; path: string; action: string; status: string }>("/api/workspace/open-file", {
+        project, workspace, path: "", action: "workspace-vscode",
+      });
+      if (ticket !== worktreeGeneration.current) return;
+      if (result.project !== project || result.workspace !== workspace || result.path !== "" || result.action !== "workspace-vscode" || result.status !== "requested") throw new Error("Odpověď neodpovídá vybranému worktree.");
+      setWorktreeResult({ error: false, text: "Požadavek na nové okno VS Code předán systému." });
+    } catch (error) {
+      if (ticket === worktreeGeneration.current) setWorktreeResult({ error: true, text: String(error) });
+    } finally { worktreeLock.current = false; setOpeningWorktree(false); }
+  }
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent) => {
@@ -103,6 +126,7 @@ export default function TopBar({
         </div>
       )}
       {activeWorkspace && (
+        <div className="topbar-worktree" role="group" aria-label="Vybraný pracovní strom">
         <select
           aria-label="Pracovní strom"
           className="topbar-select"
@@ -116,6 +140,14 @@ export default function TopBar({
             </option>
           ))}
         </select>
+        <button type="button" className="worktree-open-button"
+          disabled={busy || openingWorktree || activeWorkspace.id !== workspace}
+          aria-label="Otevřít vybraný worktree v novém okně VS Code"
+          title="Otevřít vybraný worktree v novém okně VS Code" onClick={() => void openSelectedWorktree()}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M14 3h7v7M21 3 10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" /></svg>
+        </button>
+        {worktreeResult && <span className={"topbar-worktree-result " + (worktreeResult.error ? "error" : "muted")} role={worktreeResult.error ? "alert" : "status"}>{worktreeResult.text}</span>}
+        </div>
       )}
       {children}
       <div className="topbar-spacer" />

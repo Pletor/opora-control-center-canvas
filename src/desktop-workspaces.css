@@ -56,6 +56,8 @@
 .worktree-open-row { display: flex; align-items: start; gap: 6px; }
 .worktree-open-row code { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .worktree-open-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 30px; height: 30px; padding: 5px; }
+.topbar-worktree { display: inline-flex; align-items: center; gap: 6px; position: relative; min-width: 0; }
+.topbar-worktree-result { position: absolute; top: calc(100% + 6px); right: 0; z-index: 100; width: 260px; max-width: calc(100vw - 24px); padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 12px; }
 .project-overview-link { margin: 0 10px 12px; }
 .tree-note, .tree-more { margin: 12px; font-size: 11px; color: var(--ink-muted); }
 .context-references { list-style: none; padding: 0; margin: 18px 0; }
