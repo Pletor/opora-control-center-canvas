@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 15,
+  "revision": 16,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -9,162 +9,207 @@
   "activeLane": null,
   "activeLanes": [
     {
-      "name": "live-return-recovery",
-      "role": "implementation",
-      "branch": "fix/v3-live-view-return",
-      "worktree": "C:\\Users\\Admin\\opora-v3-live-return",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-recovery-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-recovery\\state.json",
-      "processHandle": "proc_c508c8762a18",
-      "ownedPaths": [
-        "src/desktop-v3.css",
-        "e2e/live-view-return.spec.ts",
-        "playwright.live-return.config.ts",
-        ".opora/workunits/WU-DESKTOP-V3/live-return-HANDOFF.md"
-      ],
-      "reservedTestPorts": [
-        8742,
-        8769,
-        8771
-      ],
+      "name": "artifact-final-review",
+      "role": "review",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-final-review-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-final-review\\state.json",
+      "processHandle": "proc_12c28b90eb39",
+      "ownedPaths": [],
+      "reservedTestPorts": [],
       "modelAlias": "opus",
-      "sessionId": "f6b0f7ad-1c2b-4a61-9b14-2c2609110810",
+      "sessionId": "93328a26-1394-4f47-a865-9d2647444f6b",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
       "running": true,
-      "pid": 66072,
-      "observedAt": "2026-09-11T08:13:04.261310+02:00",
+      "pid": 59964,
+      "observedAt": "2026-09-11T08:25:42.636711+02:00",
       "pidExists": true,
-      "createTime": 1789107019.1251087,
-      "status": "running",
+      "createTime": 1789107807.0728984,
       "descendants": [
         {
-          "pid": 64524,
-          "createTime": 1789107019.1372762,
+          "pid": 8860,
+          "createTime": 1789107807.081628,
           "name": "conhost.exe"
-        },
-        {
-          "pid": 56184,
-          "createTime": 1789107179.4000187,
-          "name": "bash.exe"
-        },
-        {
-          "pid": 51248,
-          "createTime": 1789107183.2101119,
-          "name": "git.exe"
-        },
-        {
-          "pid": 54592,
-          "createTime": 1789107183.2146084,
-          "name": "conhost.exe"
-        },
-        {
-          "pid": 38416,
-          "createTime": 1789107183.8832333,
-          "name": "git.exe"
-        },
-        {
-          "pid": 4304,
-          "createTime": 1789107183.8986728,
-          "name": "git.exe"
-        },
-        {
-          "pid": 56052,
-          "createTime": 1789107183.912786,
-          "name": "git-remote-https.exe"
-        },
-        {
-          "pid": 15848,
-          "createTime": 1789107179.420418,
-          "name": "bash.exe"
-        },
-        {
-          "pid": 61664,
-          "createTime": 1789107179.4265113,
-          "name": "conhost.exe"
-        },
-        {
-          "pid": 59056,
-          "createTime": 1789107179.5456426,
-          "name": "bash.exe"
-        },
-        {
-          "pid": 60828,
-          "createTime": 1789107179.5545228,
-          "name": "node.exe"
-        },
-        {
-          "pid": 59544,
-          "createTime": 1789107179.5618904,
-          "name": "mise.exe"
-        },
-        {
-          "pid": 33120,
-          "createTime": 1789107179.5886564,
-          "name": "node.exe"
-        },
-        {
-          "pid": 59380,
-          "createTime": 1789107180.1955724,
-          "name": "cmd.exe"
-        },
-        {
-          "pid": 64904,
-          "createTime": 1789107183.136063,
-          "name": "cmd.exe"
-        },
-        {
-          "pid": 32636,
-          "createTime": 1789107184.2928116,
-          "name": "uv.exe"
-        },
-        {
-          "pid": 57448,
-          "createTime": 1789107181.3565323,
-          "name": "uv.exe"
-        },
-        {
-          "pid": 60128,
-          "createTime": 1789107181.3780818,
-          "name": "uvicorn.exe"
-        },
-        {
-          "pid": 59400,
-          "createTime": 1789107181.3859572,
-          "name": "python.exe"
-        },
-        {
-          "pid": 46592,
-          "createTime": 1789107181.3957517,
-          "name": "python.exe"
         }
       ]
     },
     {
-      "name": "artifact-source-integrity",
-      "role": "implementation",
-      "branch": "feat/v3-claude-coding-artifact",
-      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-source-integrity-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-source-integrity\\state.json",
-      "processHandle": "proc_99ab569e93fe",
+      "name": "return-integration-regression",
+      "role": "verification",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\return-integration-regression-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\return-integration-regression\\state.json",
+      "processHandle": "proc_38d86739c62d",
       "ownedPaths": [
-        "backend/claude_coding_artifact.py",
-        "tests/test_claude_coding_artifact.py",
-        ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
+        "test-generated evidence only"
       ],
-      "reservedTestPorts": [],
-      "modelAlias": "opus",
-      "sessionId": "4f8a236e-b2f6-43ad-a712-2c2609110810",
+      "reservedTestPorts": [
+        8742,
+        8769,
+        8771,
+        8782
+      ],
+      "modelAlias": "sonnet",
+      "sessionId": "4c6fc231-8334-4143-84e6-126091108240",
+      "worktree": "C:\\Users\\Admin\\opora-v3",
       "running": true,
-      "pid": 53944,
-      "observedAt": "2026-09-11T08:13:04.261310+02:00",
+      "pid": 32300,
+      "observedAt": "2026-09-11T08:25:42.636711+02:00",
       "pidExists": true,
-      "createTime": 1789107019.137364,
-      "status": "running",
+      "createTime": 1789107854.580688,
       "descendants": [
         {
-          "pid": 59536,
-          "createTime": 1789107019.1427424,
+          "pid": 63584,
+          "createTime": 1789107854.58651,
           "name": "conhost.exe"
+        },
+        {
+          "pid": 56100,
+          "createTime": 1789107888.1488633,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 57912,
+          "createTime": 1789107888.1575797,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 64136,
+          "createTime": 1789107888.164013,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 43776,
+          "createTime": 1789107888.2133565,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 50604,
+          "createTime": 1789107888.2228804,
+          "name": "python.exe"
+        },
+        {
+          "pid": 39868,
+          "createTime": 1789107888.2324555,
+          "name": "mise.exe"
+        },
+        {
+          "pid": 35040,
+          "createTime": 1789107888.2580967,
+          "name": "python.exe"
+        },
+        {
+          "pid": 57604,
+          "createTime": 1789107888.302065,
+          "name": "node.exe"
+        },
+        {
+          "pid": 58544,
+          "createTime": 1789107888.3108232,
+          "name": "mise.exe"
+        },
+        {
+          "pid": 59172,
+          "createTime": 1789107888.3387232,
+          "name": "node.exe"
+        },
+        {
+          "pid": 65324,
+          "createTime": 1789107888.8716698,
+          "name": "cmd.exe"
+        },
+        {
+          "pid": 32524,
+          "createTime": 1789107891.8202379,
+          "name": "cmd.exe"
+        },
+        {
+          "pid": 60160,
+          "createTime": 1789107894.7507126,
+          "name": "cmd.exe"
+        },
+        {
+          "pid": 61932,
+          "createTime": 1789107897.8098516,
+          "name": "node.exe"
+        },
+        {
+          "pid": 2108,
+          "createTime": 1789107898.2365987,
+          "name": "chrome-headless-shell.exe"
+        },
+        {
+          "pid": 57940,
+          "createTime": 1789107898.279654,
+          "name": "chrome-headless-shell.exe"
+        },
+        {
+          "pid": 57772,
+          "createTime": 1789107898.2895737,
+          "name": "chrome-headless-shell.exe"
+        },
+        {
+          "pid": 57140,
+          "createTime": 1789107942.3541937,
+          "name": "chrome-headless-shell.exe"
+        },
+        {
+          "pid": 55412,
+          "createTime": 1789107894.763365,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 44572,
+          "createTime": 1789107894.7811344,
+          "name": "uvicorn.exe"
+        },
+        {
+          "pid": 57952,
+          "createTime": 1789107894.7882686,
+          "name": "python.exe"
+        },
+        {
+          "pid": 64832,
+          "createTime": 1789107894.7955248,
+          "name": "python.exe"
+        },
+        {
+          "pid": 57608,
+          "createTime": 1789107892.8637428,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 66488,
+          "createTime": 1789107892.8818247,
+          "name": "uvicorn.exe"
+        },
+        {
+          "pid": 65200,
+          "createTime": 1789107892.8894637,
+          "name": "python.exe"
+        },
+        {
+          "pid": 52064,
+          "createTime": 1789107892.8959444,
+          "name": "python.exe"
+        },
+        {
+          "pid": 49948,
+          "createTime": 1789107889.8957236,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 39924,
+          "createTime": 1789107889.9132335,
+          "name": "uvicorn.exe"
+        },
+        {
+          "pid": 39636,
+          "createTime": 1789107889.9340427,
+          "name": "python.exe"
+        },
+        {
+          "pid": 27460,
+          "createTime": 1789107889.9410157,
+          "name": "python.exe"
         }
       ]
     }
@@ -278,8 +323,8 @@
     "backendSkipped": 4,
     "backendEvidenceAge": "fresh completed full-regression/pytest.log EXIT_CODE=0, 142.41s",
     "ruff": "full-regression/ruff.log PASS EXIT_CODE=0",
-    "typecheck": "coordinator post-merge tsc --noEmit exit0",
-    "build": "post-merge Vite exit0; existing >500kB chunk warning remains",
+    "typecheck": "post-merge coordinator tsc --noEmit exit0",
+    "build": "post-merge Vite exit0, existing large-chunk warning",
     "v3PanelTestsPassed": 75,
     "fullUi": {
       "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\current-frontend-regression\\clean-editor.log",
@@ -299,11 +344,11 @@
       "laneOutcome": "completed CLI success; coordinator reconciled raw log counts/report/registry/process/ports",
       "previewUnaffected": true,
       "newerFrontendNeedsFullRegression": true,
-      "currentStatus": "historical94PASS/1LIVEskip; keyboard frontend newer, live-return lane reserves full-suite ports and must rerun final candidate"
+      "currentStatus": "Historical94PASS; final return candidate95PASS/1LIVEskip; fresh integrated full regression IN_PROGRESS, not yet claimed green"
     },
     "preview": {
       "origin": "http://127.0.0.1:8780",
-      "indexSha256": "bfd455fd175792041e8f25e66dee063429520c23297066379e0a708bcb835855",
+      "indexSha256": "7949b014ad4a8b7b3a971ab8e599708abc87738e0f0a436685438324673e064e",
       "servedIndexMatchesBuild": true,
       "snapshotExportReadback": {
         "previewEqualsRendered": true,
@@ -328,8 +373,8 @@
       "inspectorSmoke": "light/dark OFF->ON->OFF passed, square swatches, range4px, no overflow/errors/writes; dark OFF screenshot visually inspected",
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
-      "previewData": "Static assets published without deletion; no API writes in smoke, no DB restoration/restart. Known return-navigation overlap recorded.",
-      "finalHttpReadbackAt": "2026-09-11T08:13:04.261310+02:00",
+      "previewData": "Non-destructive static publication only; DB/backend unchanged; no API writes or model starts in browser smoke.",
+      "finalHttpReadbackAt": "2026-09-11T08:25:42.636711+02:00",
       "workflowReadback": {
         "publishedPreview": true,
         "networkFaultInjected": true,
@@ -355,9 +400,9 @@
           "7 Kontext a osa"
         ],
         "searchGuard": true,
-        "unmountGuard": false,
-        "returnNavigationBlocked": true,
-        "reloadUsedOnlyForRemainingReadback": true,
+        "unmountGuard": true,
+        "returnNavigationBlocked": false,
+        "reloadUsedOnlyForRemainingReadback": false,
         "widths": [
           {
             "width": 1280,
@@ -379,7 +424,36 @@
         "writes": [],
         "modelStarts": 0
       },
-      "keyboardEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\keyboard-published-readback.json"
+      "keyboardEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\keyboard-published-readback.json",
+      "liveReturnReadback": {
+        "publishedPreview": true,
+        "normalClickRoundtrips": 6,
+        "noForce": true,
+        "noReload": true,
+        "advancedToolbarVisible": true,
+        "noTabOverlap": true,
+        "widths": [
+          {
+            "width": 1280,
+            "client": 1280,
+            "scroll": 1280
+          },
+          {
+            "width": 1440,
+            "client": 1440,
+            "scroll": 1440
+          },
+          {
+            "width": 1920,
+            "client": 1920,
+            "scroll": 1920
+          }
+        ],
+        "errors": [],
+        "writes": [],
+        "modelStarts": 0
+      },
+      "liveReturnEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-published-readback.json"
     },
     "backendWarnings": 2,
     "exportScopeTestsPassed": 38,
@@ -402,12 +476,12 @@
     }
   },
   "nextActions": [
-    "FIRST collect live-return-recovery and artifact-source-integrity from their state/result/logs; verify exact process identity, descendants, stable worktree before handover. Exclusive ownership, no duplicates. Max4 total.",
-    "live-return-recovery Opus owns desktop-v3.css/test/config/handoff and8742/8769/8771. Narrow recovery fixes harness endpoint then genuine normal-click RED->GREEN/full suite. Needs independent Claude review, merge and published preview no-force return readback.",
-    "artifact-boundary-fix19b998c completed114focusedPASS/428fullPASS+4skip+2warnings; committed bytes match raw logs. NOT accepted: Fable third finding confirmed on current source. artifact-source-integrity Opus enforces external destination and bounded byte-level source observations with adversarial tests. Re-review final candidate, not just old d47550a.",
-    "Full agent acceptance remains BLOCKED: no isolated out-of-process behavioral oracle, actual CLI/runtime/routes/UI roundtrip. exit_evidence_only and passed:false are intentionally not verified behavior.",
-    "No new merge/publication this iteration. Preview8780 HTTP still matches published build; DB/assets/user changes preserved. Full inventory and phase1 remain incomplete. Phase2 eleven photographs received; start only after phase1 acceptance.",
-    "No new quota denial observed. OAuth Max unchanged, no billing/provider switch, no hot retries. Original main/P:/8768/8740 and dirty evidence must remain untouched."
+    "FIRST collect artifact-final-review and return-integration-regression registry/result/raw logs; verify process identity and localTreeInactive. Do not duplicate; max4 total.",
+    "Live return9570ee9 merged555d583, targeted1PASS and real8780 normal-click6roundtrips at1280/1440/1920, no overlap/writes/models. Keyboard7tabs/search/unmount guard now pass without reload. Integrated full UI+panel regression is running; no source/dist changes until finished.",
+    "Artifact2b22041 candidate fixed destination overlap and byte observations; raw130focused/444fullPASS+4skip+2warnings match commit. Independent final Opus review running. Do NOT merge based on self-report; earlier two HIGH and third medium need re-review.",
+    "After accepted foundation, implement isolated out-of-process behavioral oracle and exact actual CLI/runtime/routes/UI roundtrip. verification.passed=false and exit_evidence_only intentionally are NOT verified behavior or completed phase1.",
+    "Inventory phase1 missing/partial actions remain; phase2 eleven sources received, not started until phase1 accepted. Preserve original P:/main/8768/8740 and all user preview data.",
+    "OAuth Max unchanged; no quota denial in collected runs, no billing switch or hot retries."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -659,6 +733,63 @@
       "resultIsError": false,
       "permissionDenials": [],
       "status": "candidate19b998c_complete_but_source_integrity_open_not_accepted"
+    },
+    "live-return-recovery": {
+      "modelAlias": "opus",
+      "sessionId": "f6b0f7ad-1c2b-4a61-9b14-2c2609110810",
+      "worktree": "C:\\Users\\Admin\\opora-v3-live-return",
+      "running": false,
+      "pid": 66072,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 295.1412161999906,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-recovery",
+      "status": "collected"
+    },
+    "artifact-source-integrity": {
+      "modelAlias": "opus",
+      "sessionId": "4f8a236e-b2f6-43ad-a712-2c2609110810",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "running": false,
+      "pid": 53944,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 557.2539709999983,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-source-integrity",
+      "status": "collected"
+    },
+    "live-return-review": {
+      "modelAlias": "sonnet",
+      "sessionId": "ade0d925-094d-4db4-8eba-af15f851a8b7",
+      "worktree": "C:\\Users\\Admin\\opora-v3-live-return",
+      "running": false,
+      "pid": 57892,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 10.026215499994578,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "pidExists": false,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-review",
+      "status": "collected"
     }
   },
   "providerQuotaObservation": {
@@ -962,10 +1093,42 @@
         "localTreeInactive": true,
         "pidExists": false
       },
-      "status": "keyboard_slice_reviewed_merged_75PASS_published7tab_readback; broader_navigation_BLOCKED",
+      "status": "reviewed_merged_published7tabs_search_and_unmount_guard_verified",
       "integrationEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\keyboard-integration-verification.json",
       "previewEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\keyboard-published-readback.json",
       "mountInspection": "App.tsx 544-551 renders overview conditionally; switching to advanced viewer unmounts LiveWorkspacePanel. EnvironmentSwitch uses Alt digits; new handler ignores Alt."
+    },
+    "live-return": {
+      "commit": "9570ee9891c77335304c8479be27643bc11bf894",
+      "merge": "555d58347f1010ed29b3dada3f035de3f2df3722",
+      "review": {
+        "passed": true,
+        "blockingFindings": [],
+        "followups": [
+          "Consider consolidating the two similar absolute-positioning overrides in workspace-modes.css (.agents-mode .agents-workspace) and desktop-v3.css (.agents-mode .v3-live > .agents-workspace) if a v3-only variant of the base rule causes future confusion."
+        ],
+        "limitations": [
+          "Review is based solely on provided diff and log excerpts; did not independently execute or inspect the repository.",
+          "Preview environment not published, so no live visual confirmation beyond the RED/GREEN/full log evidence."
+        ],
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-review\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false
+      },
+      "status": "reviewed_merged_targeted1PASS_published_normal_click_readback",
+      "candidateFullUi": {
+        "passed": 95,
+        "skipped": 1,
+        "exitCode": 0,
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-recovery\\full-clean-editor.log",
+        "commitBytesMatch": true
+      },
+      "integrationTargeted": {
+        "passed": 1,
+        "exitCode": 0,
+        "command": "node node_modules/@playwright/test/cli.js test -c playwright.live-return.config.ts"
+      },
+      "previewEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-published-readback.json"
     }
   },
   "blockedCandidates": {
@@ -979,7 +1142,7 @@
     },
     "claude-coding-artifact": {
       "commit": "d47550a2e17f51c133bfc447955c35b6f6836722",
-      "status": "DO_NOT_MERGE_PENDING_SOURCE_INTEGRITY_FIX_AND_INDEPENDENT_REREVIEW",
+      "status": "DO_NOT_MERGE_PENDING_FINAL_INDEPENDENT_REVIEW",
       "review": {
         "passed": false,
         "blockingFindings": [
@@ -1016,7 +1179,7 @@
         "localTreeInactive": true,
         "pidExists": false
       },
-      "fixLane": "artifact-source-integrity",
+      "fixLane": "artifact-final-review",
       "historicalTests": {
         "focusedPassed": 88,
         "relatedPassed": 34,
@@ -1026,7 +1189,7 @@
         "warnings": 2,
         "scope": "old candidate only; does not prove security or new fixes"
       },
-      "latestCandidate": "19b998cc4d0913bedfa7e528450afd8faf64c1dd",
+      "latestCandidate": "2b220417df420d189370eedc05b757fbe240659f",
       "secondOpinion": {
         "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\claude\\P--0--OSVC-8--Code-07--Aplikace-02-Opora-control-center\\3bb8d374-c88e-42b4-b658-07d96c61c6c3\\scratchpad\\artifact-review-result.json",
         "reviewedCommit": "d47550a2e17f51c133bfc447955c35b6f6836722",
@@ -1041,13 +1204,14 @@
       }
     },
     "live-return": {
-      "status": "RECOVERY_RUNNING_NO_ACCEPTED_PRODUCTION_FIX",
+      "status": "RESOLVED_BY_REVIEWED9570ee9_PUBLISHED_NORMAL_CLICK_READBACK",
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-preview-failure.json",
       "screenshot": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-blocked.png",
       "symptom": "Dohled běhů viewer overlaps and intercepts normal click back to Přehled a tickety",
       "hypothesis": "legacy absolute inset0 .agents-workspace covers v3 navigation; lane must prove with RED geometry",
       "fixLane": "live-return-recovery",
-      "setupCause": "Prior owned config served backend.app dist rather than existing scripts.serve_clean_editor_fixture .data/clean-editor-dist; max-turn was exploration/setup, not quota or expected product RED"
+      "setupCause": "Prior owned config served backend.app dist rather than existing scripts.serve_clean_editor_fixture .data/clean-editor-dist; max-turn was exploration/setup, not quota or expected product RED",
+      "resolvedMerge": "555d58347f1010ed29b3dada3f035de3f2df3722"
     }
   },
   "pendingLanes": [],
@@ -1076,6 +1240,18 @@
       },
       "acceptance": "always blocked; exit_evidence_only is not verified behavior",
       "nextLane": "artifact-source-integrity"
+    },
+    "artifact-source-integrity": {
+      "commit": "2b220417df420d189370eedc05b757fbe240659f",
+      "status": "completed_candidate_NOT_accepted",
+      "focusedPassed": 130,
+      "fullPassed": 444,
+      "fullSkipped": 4,
+      "warnings": 2,
+      "exitCode": 0,
+      "commitBytesMatchRawLogs": true,
+      "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-source-integrity\\opus-full-01.log",
+      "next": "artifact-final-review; no runtime/oracle/UI acceptance"
     }
   },
   "codingReadiness": {
