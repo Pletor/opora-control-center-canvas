@@ -109,6 +109,8 @@
 .v3-live-tabs { display: flex; gap: 4px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .v3-live-tabs button[aria-pressed="true"], .desktop-v3 .v3-toolbar button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
 .v3-live > :last-child { flex: 1; min-height: 0; overflow: auto; }
+/* Pokročilý Agenti viewer je v v3 flex potomek pod záložkami, ne absolutní vrstva přes ně (jinak kryje návrat na přehled). */
+.agents-mode .v3-live > .agents-workspace { position: relative; inset: auto; }
 
 :root[data-theme="light"] .editor-workbench { box-shadow: var(--shadow-pop); }
 
