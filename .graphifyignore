@@ -1,0 +1,15 @@
+# Graf aplikace, nikoli vložených nástrojů a jejich testů.
+vendor/
+.opora/
+.claude/
+.worktrees/
+.data/
+dist/
+build/
+node_modules/
+.venv*/
+graphify-out/
+evidence/
+test-results/
+playwright-report/
+docs/architecture/

@@ -25,6 +25,7 @@ Načti pouze referenci potřebnou pro aktuální požadavek:
 | Externí VS Code/CLI agent, Markdown export, zpětný ticket | [references/external-agent.md](references/external-agent.md) |
 | Stav běhu, výstup, zastavení, ticket | [references/live-run.md](references/live-run.md) |
 | Mapa, Archify, diagramy a jejich export | [references/archify.md](references/archify.md) |
+| Graphify-out, generování grafu ze zdrojového kódu | [references/graphify.md](references/graphify.md) |
 | API místo UI, revize, payloady, chyby | [references/api.md](references/api.md) |
 | Hlášená chyba aplikace a nasazení opravy | [references/bugfix.md](references/bugfix.md) |
 | Odlišná verze aplikace, ověření tvrzení návodu | [references/source-map.md](references/source-map.md) |

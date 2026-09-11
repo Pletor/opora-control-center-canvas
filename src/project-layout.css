@@ -15,7 +15,7 @@
 .project-layout-content{min-height:0;min-width:0;overflow:hidden}
 .project-map-navigation{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .project-map-navigation>span,.project-map-navigation>button{padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:11px;white-space:nowrap}
-.project-map-navigation>span{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+.project-map-navigation>button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
 .project-map-navigation>button:disabled{opacity:.5;cursor:not-allowed}
 /* Hlavička je stále jediná komponenta TopBar, zde jen rozměry tohoto layoutu. */
 .desktop-v2:has(.project-layout) .topbar{min-height:44px;gap:8px;padding:5px 10px}

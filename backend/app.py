@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .agent_routes import create_agent_router
 from .archify_routes import create_archify_router
+from .graphify_routes import create_graphify_router
 from .build_identity import build_identity
 from .coding_runs import CodingRuns
 from .context_routes import create_context_router
@@ -284,6 +285,7 @@ def create_app(data_root=None):
     app.include_router(create_agent_router(service))
     app.include_router(create_node_sessions_router(service))
     app.include_router(create_archify_router(service))
+    app.include_router(create_graphify_router(service))
     app.include_router(create_task_handoff_router(handoffs))
     app.include_router(create_workspace_router(service))
     app.include_router(create_context_router(service))

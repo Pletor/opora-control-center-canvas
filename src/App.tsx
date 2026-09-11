@@ -8,7 +8,7 @@ import TopBar from "./TopBar";
 import ModeRail from "./ModeRail";
 import EnvironmentSwitch, { type Environment } from "./EnvironmentSwitch";
 import ProjectWorkspace from "./ProjectWorkspace";
-import {ProjectMapNavigation} from "./ProjectLayout";
+import {ProjectMapNavigation, type ProjectMapKind} from "./ProjectLayout";
 import WorkspaceDocumentEditor from "./WorkspaceDocumentEditor";
 import EditorWorkbench, { type WorkbenchPane } from "./EditorWorkbench";
 import ContextShelf from "./ContextShelf";
@@ -117,6 +117,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [environment, setEnvironment] = useState<Environment>(
     () => initialModeEnvironment.environment,
   );
+  const [projectMapKind,setProjectMapKind] = useState<ProjectMapKind>('archify');
   const lastEditorMode = useRef<WorkspaceMode>(mode === "agents" ? "structure" : mode);
   function setMode(next: WorkspaceMode) {
     setEditorDocumentOpen(false);
@@ -453,7 +454,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   return (
     <div className="app desktop-v2 desktop-v3">
       <TopBar
-        projectNavigation={environment === "project" ? <ProjectMapNavigation/> : null}
+        projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={setProjectMapKind}/> : null}
         trailing={<DesktopThemeControls/>}
         projects={projects}
         draftProject={draftProject}
@@ -502,7 +503,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           </button>
         </div>
       )}
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={selection.value} onChange={selection.change}/> : <>
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={selection.value} onChange={selection.change} mapKind={projectMapKind}/> : <>
       {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru">
         <div className="v3-tool-group" role="group" aria-label="Pohled">
           <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />

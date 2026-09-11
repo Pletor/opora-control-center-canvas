@@ -1,4 +1,6 @@
 .venv/
+.venv-graphify/
+graphify-out/
 node_modules/
 dist/
 .data/

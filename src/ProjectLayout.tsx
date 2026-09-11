@@ -13,10 +13,11 @@ const filters = [
 ] as const;
 
 /** Sdílený přepínač mapy v existující hlavičce; žádná další kopie horní lišty. */
-export function ProjectMapNavigation(){
+export type ProjectMapKind = 'archify' | 'graphify';
+export function ProjectMapNavigation({value,onChange}:{value:ProjectMapKind;onChange:(value:ProjectMapKind)=>void}){
   return <div className="project-map-navigation" role="group" aria-label="Výstup mapy">
-    <span aria-current="page">Archify</span>
-    <button type="button" disabled title="Výstup Graphify zatím není napojený.">Graphify-out</button>
+    <button type="button" aria-pressed={value==='archify'} onClick={()=>onChange('archify')}>Archify</button>
+    <button type="button" aria-pressed={value==='graphify'} title="Původní Graphify: načíst nebo vytvořit graf hlavního projektu" onClick={()=>onChange('graphify')}>Graphify-out</button>
   </div>;
 }
 

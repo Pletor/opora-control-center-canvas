@@ -32,6 +32,23 @@ test('hlavní Projekt má jediný layout se stromem a mapou bez starých bloků'
   expect(tree!.x).toBeLessThan(map!.x);expect(map!.width).toBeGreaterThan(bounds!.width*.7);
 });
 
+test('Graphify-out načte projekt, vytvoří chybějící graf a zobrazí původní HTML',async({page})=>{
+  let generated=0;
+  await page.route('**/api/archify/artifact?project=draft',route=>route.fulfill({json:artifact}));
+  await page.route('**/api/graphify/artifact?project=draft',route=>route.fulfill({status:404,json:{error:'Chybí graf'}}));
+  await page.route('**/api/graphify/generate?project=draft',route=>{generated++;return route.fulfill({json:{project:'draft',html:'<!doctype html><html><head></head><body><p>Original Graphify fixture</p></body></html>',graphJson:'{}',counts:{nodes:2,edges:1},hashes:{},sourceRoot:'Fixture',sourcePath:'graphify-out/graph.html',version:'0.9.24',scope:'code-only',generatedAt:null}})});
+  await page.goto('/?screen=canvas&project=draft&workspace=draft&environment=project');
+  await page.getByRole('button',{name:'Graphify-out',exact:true}).click();
+  const frame=page.frameLocator('iframe[title="Graphify — graf projektu"]');
+  await expect(frame.getByText('Original Graphify fixture')).toBeVisible();
+  await expect(page.getByText('2 uzlů · 1 vztahů')).toBeVisible();
+  expect(generated).toBe(1);
+  await page.getByRole('button',{name:'Aktualizovat graf',exact:true}).click();
+  await expect.poll(()=>generated).toBe(2);
+  await page.getByRole('button',{name:'Archify',exact:true}).click();
+  await expect(page.locator('iframe[title="Archify — mapa projektu"]')).toBeVisible();
+});
+
 test('Mapa přímo zobrazí hotové HTML, nikoli vlastní renderer nebo graf',async({page})=>{
   const posts:string[]=[];page.on('request',r=>{if(r.method()==='POST')posts.push(r.url())});
   await page.route('**/api/archify/artifact?project=draft',route=>route.fulfill({json:artifact}));
