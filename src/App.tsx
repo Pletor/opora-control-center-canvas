@@ -981,19 +981,35 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                     autoFocus
                   />
                 </label>
-                {modal === "node" && !ancestorSector && !conceptCreate && (
+                {modal === "node" && !ancestorSector && (!conceptCreate || availableSectors.length > 0) && (
                   <label className="field">
                     Cílový sektor
                     <select
                       aria-label="Cílový sektor"
                       value={createTargetSector}
                       onChange={(e) => {
+                        const nextTargetSector = graph.nodes.find((n) => n.id === e.target.value && n.kind === "sector") ?? null;
                         setCreateTargetSector(e.target.value);
-                        setCreateOrigin(null);
-                        setCreatePath(null);
-                        setCreateKind("directory");
-                        setCreatePlannedPath("");
-                        setCreatePurpose("");
+                        // Legacy volný uzel nemá volbu zdroje: nenechávej skrytý návrh
+                        // blokovat vytvoření ani prosakovat do uzlu bez zdroje.
+                        if (legacyFreeNode && !nextTargetSector?.sourceRef) {
+                          setCreateOrigin(null);
+                          setCreatePath(null);
+                          setCreateKind("directory");
+                          setCreatePlannedPath("");
+                          setCreatePurpose("");
+                          return;
+                        }
+                        // Změna rodiče nemaže rozepsaný návrh. Jen existující cestu
+                        // je nutné znovu vybrat v rozsahu nového sektoru.
+                        if (createOrigin === "existing") {
+                          setCreateOrigin(null);
+                          setCreatePath(null);
+                        } else if (createOrigin === "planned" && createPlannedPath.trim() &&
+                          nextTargetSector?.sourceRef?.origin !== "existing" && !nextTargetSector?.sourceRef?.path) {
+                          // Neurčený sektor nemůže relativní cestu bezpečně ukotvit.
+                          setCreatePlannedPath("");
+                        }
                       }}
                     >
                       <option value="">{legacyFreeNode ? "Bez zdroje (volný uzel jako dosud)" : "Vyberte sektor"}</option>
@@ -1008,7 +1024,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   <>
                     <div className="create-mode-toggle" role="group" aria-label="Původ zdroje">
                       <button type="button" aria-pressed={conceptCreate}
-                        onClick={() => { setCreateOrigin("concept"); setCreatePath(null); setCreateTargetSector(""); }}>
+                        onClick={() => { setCreateOrigin("concept"); setCreatePath(null); }}>
                         Jen funkce / myšlenka, bez souboru
                       </button>
                       <button
