@@ -1,51 +1,13 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 9,
+  "revision": 10,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
   "integrationWorktree": "C:/Users/Admin/opora-v3",
   "activeLane": null,
   "activeLanes": [
-    {
-      "name": "workflow-drafts-rereview",
-      "worktree": "C:/Users/Admin/opora-v3-workflow-drafts",
-      "branch": "fix/v3-workflow-draft-preservation",
-      "role": "review",
-      "reservedTestPorts": [],
-      "ownedPaths": [],
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-rereview-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-rereview\\state.json",
-      "processHandle": "proc_5e3d014a5bd2",
-      "pid": 60312,
-      "pidExists": true,
-      "running": true,
-      "localTreeInactive": null,
-      "status": "running",
-      "observedAt": "2026-09-11T03:03:20.297687+02:00",
-      "descendants": [
-        20932
-      ]
-    },
-    {
-      "name": "export-fixture-review",
-      "worktree": "C:/Users/Admin/opora-v3-export-fixture",
-      "branch": "fix/v3-export-fixture-parity",
-      "role": "review",
-      "reservedTestPorts": [],
-      "ownedPaths": [],
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-review-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-review\\state.json",
-      "processHandle": "proc_c9596204fd58",
-      "pid": 63012,
-      "pidExists": false,
-      "running": false,
-      "localTreeInactive": true,
-      "status": "collect_result",
-      "observedAt": "2026-09-11T03:03:20.297687+02:00",
-      "descendants": []
-    },
     {
       "name": "claude-coding-artifact",
       "worktree": "C:/Users/Admin/opora-v3-coding-artifact",
@@ -65,7 +27,7 @@
       "running": true,
       "localTreeInactive": null,
       "status": "running",
-      "observedAt": "2026-09-11T03:03:20.297687+02:00",
+      "observedAt": "2026-09-11T03:08:19.384424+02:00",
       "descendants": [
         47684
       ]
@@ -180,9 +142,9 @@
     "backendSkipped": 4,
     "backendEvidenceAge": "fresh completed full-regression/pytest.log EXIT_CODE=0, 142.41s",
     "ruff": "full-regression/ruff.log PASS EXIT_CODE=0",
-    "typecheck": "coordinator tsc exit0 after full95 shared UI suite",
-    "build": "coordinator Vite exit0; existing >500kB chunk warning remains",
-    "v3PanelTestsPassed": 28,
+    "typecheck": "coordinator post-merge tsc --noEmit exit0",
+    "build": "post-merge Vite exit0; existing >500kB chunk warning remains",
+    "v3PanelTestsPassed": 68,
     "fullUi": {
       "source": "coordinator recovered completed raw log after Claude quota denial",
       "verifiedAt": "2026-09-11T02:39:28.570643+02:00",
@@ -199,11 +161,12 @@
       "tsc": "coordinator re-ran node node_modules/typescript/bin/tsc --noEmit exit0 after CLI quota",
       "diffCheck": "coordinator git diff --check exit0",
       "laneOutcome": "quota denied final synthesis; report produced by coordinator, not Claude",
-      "previewUnaffected": true
+      "previewUnaffected": true,
+      "newerFrontendNeedsFullRegression": true
     },
     "preview": {
       "origin": "http://127.0.0.1:8780",
-      "indexSha256": "614ad8fa45c41c39d691f4d41437891d549707b8c3a10b07d5df813e52f2cd83",
+      "indexSha256": "7d210787611180aa52889aa669f7e316c7c275c0c907f7df046bb8e4d9c8fa27",
       "servedIndexMatchesBuild": true,
       "snapshotExportReadback": {
         "previewEqualsRendered": true,
@@ -228,16 +191,37 @@
       "inspectorSmoke": "light/dark OFF->ON->OFF passed, square swatches, range4px, no overflow/errors/writes; dark OFF screenshot visually inspected",
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
-      "previewData": "preserved; added one clearly marked prepared QA task and immutable snapshot, no model start",
-      "finalHttpReadbackAt": "2026-09-11T03:03:20.297687+02:00"
+      "previewData": "unchanged this iteration; network failure injected by aborting request before server, no model start",
+      "finalHttpReadbackAt": "2026-09-11T03:08:19.384424+02:00",
+      "workflowReadback": {
+        "publishedPreview": true,
+        "networkFaultInjected": true,
+        "draftPreserved": true,
+        "serverStateUnchanged": true,
+        "blockedRequests": [
+          "/api/desktop-v3/state"
+        ],
+        "modelStarts": 0,
+        "pageErrors": []
+      },
+      "workflowEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-published-readback.json"
     },
     "backendWarnings": 2,
-    "exportScopeTestsPassed": 38
+    "exportScopeTestsPassed": 38,
+    "v3PanelCurrent": {
+      "exactSHA": "4b02b9cc9ef6d17683dead657223e57f3673feb9",
+      "passed": 68,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "durationSeconds": 27.2,
+      "command": "node node_modules/@playwright/test/cli.js test -c playwright.desktop-v3.config.ts"
+    }
   },
   "nextActions": [
-    "FIRST read GOAL/STATE/CHECKPOINT and all live registries/reservations. Max4 total; three reserved lanes. Do not duplicate coding-artifact writer or existing reviewers.",
-    "Collect workflow-drafts-rereview and export-fixture-review. Workflow1037a88 has actual behavioral RED plus lane9PASS and coordinator full-panel37PASS; fixturefdc1da5 recovered after max-turn35 has coordinator40PASS. Neither merged/accepted yet. Blocked2de3c4e alone still DO_NOT_MERGE.",
-    "After independent approval: merge exact candidates, rerun integrated panels/tsc/build, publish private v3-live-dist via safe publisher, browser real workflow/export readback; append checkpoint+revision. Data copy8780 must survive.",
+    "FIRST read GOAL/STATE/CHECKPOINT and live registries. claude-coding-artifact Opus is sole remaining known writer, owns2 new Python files+handoff/no UI ports; max4 total. No duplicate lanes.",
+    "Both workflow1037a88 and export fixturefdc1da5 are independently approved+merged. Integrated v3panel suite68PASS/0skip, tsc0/build0, published8780, real browser network-failure injection preserved criterion draft without server writes. Do not repeat resolved blockers.",
+    "Next full clean-editor regression on current frontend is still required (historic94PASS/1LIVEskip precedes workflow edits). Test ports8742/8769/8771 only one runner; no build emptyOutDir against preview clean-editor-dist.",
     "claude-coding-artifact Opus owns only new backend/claude_coding_artifact.py, tests/test_claude_coding_artifact.py and handoff; no ports; 900s60turn bounded. Collect real TDD/file+git/test evidence, review before integration. This foundation is NOT complete agent roundtrip.",
     "Coding audit13f5260 only proposal; recommended no-tools Claude -> host-validated scoped artifact in fresh git copy -> independent pinned Docker tests. First materialization slice launched, runtime lifecycle/approval/global exclusion/routes/UI/live proof remain. CLI flags/init fields not verified by audit; do not infer security from allowlists.",
     "Docker daemon read-only image inspect succeeded: pinned sha256:7ce4b6dfe35e55397b7cda544f8a13f191b7ae28dc5aad71fe664dbc9bc2623f present. This is NOT a passing Docker oracle; real run still needed later.",
@@ -317,6 +301,20 @@
       "permissionDenials": [],
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\coding-transport-audit",
       "status": "candidate_not_accepted"
+    },
+    "export-fixture-review": {
+      "status": "independent_review_passed",
+      "localTreeInactive": true,
+      "pidExists": false,
+      "resultIsError": false,
+      "resultSubtype": "success"
+    },
+    "workflow-drafts-rereview": {
+      "status": "independent_review_passed",
+      "localTreeInactive": true,
+      "pidExists": false,
+      "resultIsError": false,
+      "resultSubtype": "success"
     }
   },
   "providerQuotaObservation": {
@@ -340,7 +338,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T03:03:20.297687+02:00",
+  "reconciledAt": "2026-09-11T03:08:19.384424+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -445,14 +443,152 @@
         }
       },
       "status": "accepted as complete reference mapping, NOT proof that every implementation classification is independently verified"
+    },
+    "export-fixture-parity": {
+      "commit": "fdc1da595274e80a57b7da43b2bd7cb29ca29471",
+      "status": "merged_reviewed_integrated68PASS_published_and_browser_readback",
+      "originalCli": "error_max_turns35, permission_denials=[], not quota",
+      "coordinatorTestsPassed": 40,
+      "coordinatorCommand": "node node_modules/@playwright/test/cli.js test -c playwright.export-fixture-parity.config.ts",
+      "coordinatorExitCode": 0,
+      "coordinatorDurationSeconds": 19.9,
+      "testWorktree": "C:/Users/Admin/opora-v3-export-fixture",
+      "review": {
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-review\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false,
+        "passed": true,
+        "blockingFindings": [],
+        "followups": [
+          {
+            "severity": "low",
+            "path": "e2e-v3-panels/fixture-plugin.ts",
+            "detail": "The fixture's exported `context` is a flat object (schema/scope/snapshotId/digest/sourceManifest/warnings/task) while the real backend's `_snapshot_context()` returns a nested `{map, documents, workspaceDocuments}` shape (backend/task_handoffs.py). This is disclosed in the handoff as a deliberate simplification, but the inline comment 'Přesný tvar ... export()' ('exact shape') overstates it — only the top-level envelope keys are exact, not the nested context. Consider softening the comment or aligning the nested shape in a follow-up lane if a future consumer needs true context parity."
+          },
+          {
+            "severity": "low",
+            "path": "e2e-v3-panels/fixture-plugin.ts",
+            "detail": "`context.sourceManifest`/`context.warnings` are assigned by reference from `snap.packet`, not deep-cloned. No current code path mutates those arrays in place, so today's immutability guarantee holds, but this is fragile — a future edit that mutates `snap.packet.sourceManifest` in place would silently break the 'export never changes after prepare' invariant the new tests rely on. Consider a defensive deep-clone or `Object.freeze`."
+          },
+          {
+            "severity": "low",
+            "path": "playwright.export-fixture-parity.config.ts",
+            "detail": "Reuses port 8793, the same port as the standalone export-scope config, safe only because the two suites are never intended to run concurrently (documented, workers:1, exclusive worktree). No mechanical guard prevents an accidental concurrent CI invocation of both configs; a distinct port or a port-collision check would remove reliance on convention."
+          },
+          {
+            "severity": "info",
+            "path": "e2e-v3-panels/fixture-plugin.ts",
+            "detail": "`readableNodeIds` fixture simplification is single-node only (no ancestor/neighbor ids the real backend can include). Documented and no current test over-asserts on it, but should be revisited if a future spec needs multi-node readback coverage."
+          }
+        ],
+        "limitations": [
+          "Pre-existing: backend/task_handoffs.py `export()` performs no ownership/authorization check on handoff_id — untouched by this diff, not a regression.",
+          "Pre-existing/disclosed: the fixture is an intentionally synthetic in-memory mock; it does not simulate ancestor lineage, the real nested context shape, or workspaceDocuments truncation logic present in the real backend. This is explicitly scoped out in the handoff and not claimed otherwise by the tests (tests only assert `context.snapshotId`/`context.digest`, not full context parity).\n",
+          "Procedural, not a code defect: this candidate was preserved and committed by a coordinator after the originating agent hit max-turns before its own commit. The diff/logs shown are self-consistent (RED reproduces the pre-fix failure, GREEN and the 40-test full regression pass, tsc and diff --check are clean), but provenance rests on the coordinator's stated verification of an inactive job/PID/port and stable worktree rather than an end-to-end agent-authored commit."
+        ]
+      },
+      "merge": "8cc11c83b0d30bf2fc4794685e4602ccb714c2e2"
+    },
+    "workflow-draft-preservation": {
+      "commit": "1037a889a89d1ffa82fc964931b6a29ebcd320dc",
+      "parent": "2de3c4eeea59c1289534f3f446fbd8027059f9bf",
+      "status": "merged_reviewed_integrated68PASS_published_and_browser_readback",
+      "originalBlockingCandidate": "2de3c4e",
+      "laneTestsPassed": 9,
+      "coordinatorFullPanelTestsPassed": 37,
+      "coordinatorCommand": "node node_modules/@playwright/test/cli.js test -c playwright.desktop-v3.config.ts",
+      "coordinatorExitCode": 0,
+      "coordinatorDurationSeconds": 14.0,
+      "testWorktree": "C:/Users/Admin/opora-v3-workflow-drafts",
+      "review": {
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-rereview\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false,
+        "passed": true,
+        "blockingFindings": [],
+        "followups": [
+          {
+            "severity": "info (prior HIGH resolved)",
+            "path": "src/desktop-v3/NodeWorkflowPanel.tsx, src/desktop-v3/ProjectMemoryPanel.tsx",
+            "detail": "The previous blocker was that two concurrent whole-state saves in one useDesktopState could roll back to an old state while keeping the newer revision, after which the next save passed CAS and erased data. Within one panel instance this is fixed. saveLockRef is checked and set synchronously before mutate() is called. It is released only in a useLayoutEffect keyed on settledCount. setSettledCount is queued after mutate's post-await setState/setRevision calls in the same lane, so the committed render that runs the effect already contains the settled state and revision. Any event that arrives between the settle and the React render hits the held lock and is dropped. No second mutate can capture a stale previous/previousRevision. Every mutating path goes through run(): add/toggle/remove criterion and step, advance, goToEarlierPhase, editSetting, removeSetting, addRule, removeRule, addDecision, togglePin. Because of this, a failure rollback restores the last server-confirmed state, so state and revision stay consistent and a later conflict shows up as a visible 409. Evidence: 01-red on 2de3c4e shows 'Expected: 1, Received: 2' for both race tests. 04-green passes them, including the reload plus further-mutation check and the 500 no-piggyback check."
+          },
+          {
+            "severity": "info (prior LOW resolved)",
+            "path": "src/desktop-v3/NodeWorkflowPanel.tsx, src/desktop-v3/ProjectMemoryPanel.tsx",
+            "detail": "A→B→A draft clearing is fixed by per-draft version refs that every onChange increments. A draft is cleared only when ok === true and the version is unchanged since submit. Step text and assignee share one version. This is conservative: retyping the same text keeps the draft. 03-red, run on the lock-only intermediate, fails with 'Expected: \"Novější koncept\", Received: \"\"'. 04-green passes. scopeRef was removed and nothing depends on it."
+          },
+          {
+            "severity": "medium",
+            "path": "src/desktop-v3/state-store.ts",
+            "detail": "The serialization invariant lives in each panel, not in useDesktopState.mutate. mutate still has no in-flight guard. Any other consumer of the hook, or a future caller, that calls mutate concurrently reintroduces the rollback-to-old-state-with-new-revision data loss. AgentPacketPanel and LiveWorkspacePanel were not supplied, so I cannot say whether they call mutate. Recommendation: add a ref-based in-flight guard inside mutate that returns false while a save is pending, and add a hook-level test. This is not blocking for this diff because both of its callers are now serialized."
+          },
+          {
+            "severity": "medium",
+            "path": "playwright.desktop-v3.config.ts (node-workflow.spec.ts, project-memory.spec.ts)",
+            "detail": "Run the shared desktop-v3 suite (port 8782) before integration. NodeWorkflowPanel draft inputs changed from disabled={readOnly || busy} to disabled={readOnly}, and the handlers lost their busy guards. Only the lane's own 9 tests were run. The claim that the shared suite has no affected assertions rests on an unsupplied grep."
+          },
+          {
+            "severity": "low",
+            "path": "src/desktop-v3/state-store.ts, NodeWorkflowPanel.tsx, ProjectMemoryPanel.tsx",
+            "detail": "Pre-existing, now more visible: saveState has no timeout or abort. A POST that never returns (hung server or network) holds saveLockRef forever. 'Znovu načíst' bumps the generation but does not release the lock, which waits for the fetch to settle. The old busy flag got stuck the same way. Now, though, the NodeWorkflowPanel drafts stay editable and Enter is silently ignored. Consider an AbortController or timeout and releasing the lock on reload."
+          },
+          {
+            "severity": "low",
+            "path": "src/desktop-v3/NodeWorkflowPanel.tsx",
+            "detail": "User simulation: pressing Enter in a draft input while a save is pending does nothing. The only cue is the disabled add button, and there is no status or aria-busy. Consider a visible 'Ukládám…' status, or an explicit message when a submit is dropped."
+          },
+          {
+            "severity": "low",
+            "path": "src/desktop-v3/ProjectMemoryPanel.tsx",
+            "detail": "Pre-existing: editSetting saves the whole document on every keystroke, and busy disables the input, so focus is lost after each character. The lock now drops, rather than races, any keystroke that arrives before the disabled render. In practice this window is near zero because discrete events flush synchronously. Consider committing on blur or debouncing."
+          },
+          {
+            "severity": "low",
+            "path": "src/desktop-v3/NodeWorkflowPanel.tsx, ProjectMemoryPanel.tsx",
+            "detail": "Pre-existing: drafts are not scoped by project, workspace or node. If project or workspace props change while a save is pending, the lock stays held until the old request settles, which blocks saves on the new scope. The old draft (ok=false) carries over into the new scope. The harness cannot test this because project and workspace come from the query string, not the hash."
+          },
+          {
+            "severity": "low",
+            "path": "e2e-v3-panels/workflow-draft-preservation.spec.ts",
+            "detail": "Test gaps: (a) both double-Enter tests still count POSTs through page.route and assert as soon as the list shows one item, so a late second POST would not be caught. Use the synchronous countStatePosts helper instead. (b) ProjectMemoryPanel has no lock or version race test, for example: hold the addSetting POST and attempt removeRule, togglePin or editSetting. (c) There is no test that editing only the assignee during a pending addStep keeps both step fields."
+          },
+          {
+            "severity": "low",
+            "path": "playwright.workflow-drafts.config.ts, vite.workflow-drafts.config.ts",
+            "detail": "Lane-specific configs at the repo root (port 8794, '(Sonnet)' comments). At integration, fold the spec into the shared config or drop these files."
+          },
+          {
+            "severity": "nit",
+            "path": "src/desktop-v3/NodeWorkflowPanel.tsx",
+            "detail": "Comment grammar: 'verze od odeslání nezměnila' should read 'verze se od odeslání nezměnila'."
+          },
+          {
+            "severity": "info",
+            "path": "(all)",
+            "detail": "Attacker and abuser simulation found no new attack surface. User text is still rendered as React text nodes, with no raw HTML. The fetch wrapper is test-only (addInitScript). The dev server binds 127.0.0.1 with strictPort. Read-only enforcement is unchanged in mutate and in the disabled attributes. Rapid submits and clicks are dropped synchronously and cannot be amplified into duplicate POSTs."
+          }
+        ],
+        "limitations": [
+          "Review was done without tools, only from the supplied diff, full source of the two panels, state-store.ts, harness.tsx and four logs. The following were not supplied: api.ts (whether saveState calls fetch synchronously; the RED log suggests it does), e2e-v3-panels/fixture-plugin, backend CAS (desktop_v3_state.py), AgentPacketPanel, LiveWorkspacePanel, index.ts, tsconfig and the React version.",
+          "Of the logs, only 01-red-race-on-HEAD, 03-red-aba-on-lock, 04-green-final-playwright and 04-tsc-final were supplied. 04-tsc-final contains only 'exit=0', with no command echo or file list, so I cannot confirm that tsconfig covers e2e-v3-panels. The handoff cites 02-green-race-lock, 02-tsc-after-lock, 04-diff-check and partial-NodeWorkflowPanel.patch, but they were not supplied and are unverified.",
+          "03-red ran against an uncommitted lock-only intermediate. I cannot verify that source. Only its failure message and its consistency with the described change were checked.",
+          "The lock ordering argument (settle updates committed before the layout-effect release; events in the gap are dropped) is analytical and assumes React's standard batching and lane semantics. It is corroborated by the green e2e run but not independently re-run.",
+          "The shared playwright.desktop-v3.config.ts suite was not run. Full application acceptance is not asserted, and nothing was run outside the Vite harness.",
+          "Pre-existing limitations, not regressions: separate panel instances on the same project/workspace each own a hook, and conflicts surface as a visible 409. Reload mid-flight or a lost response after a server commit leaves the draft in place, and a retry gets a 409 or a duplicate. Drafts are shared across nodes and scopes. There is no request timeout. Per-keystroke setting saves disable the input.",
+          "Behavior changes introduced by this diff, documented and accepted: a mutation attempted while a save is pending is dropped, not queued. NodeWorkflowPanel draft inputs stay editable during a save. No other markup changes."
+        ]
+      },
+      "merge": "4b02b9cc9ef6d17683dead657223e57f3673feb9"
     }
   },
   "blockedCandidates": {
     "workflow-draft-preservation": {
       "commit": "2de3c4e",
-      "status": "DO_NOT_MERGE; independent review found shared CAS rollback data-loss race and ABA draft loss",
+      "status": "RESOLVED_BY_REVIEWED1037a88; old2de3c4e-alone must never be used",
       "fixLane": "workflow-drafts-post-reset completed1037a88, awaiting workflow-drafts-rereview",
-      "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-review\\result.json"
+      "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-review\\result.json",
+      "resolvedCommit": "1037a889a89d1ffa82fc964931b6a29ebcd320dc",
+      "merge": "4b02b9cc9ef6d17683dead657223e57f3673feb9"
     }
   },
   "pendingLanes": [
@@ -479,30 +615,6 @@
     }
   ],
   "pendingCandidates": {
-    "workflow-draft-preservation": {
-      "commit": "1037a889a89d1ffa82fc964931b6a29ebcd320dc",
-      "parent": "2de3c4eeea59c1289534f3f446fbd8027059f9bf",
-      "status": "awaiting_independent_rereview_then_merge_gates",
-      "originalBlockingCandidate": "2de3c4e",
-      "laneTestsPassed": 9,
-      "coordinatorFullPanelTestsPassed": 37,
-      "coordinatorCommand": "node node_modules/@playwright/test/cli.js test -c playwright.desktop-v3.config.ts",
-      "coordinatorExitCode": 0,
-      "coordinatorDurationSeconds": 14.0,
-      "testWorktree": "C:/Users/Admin/opora-v3-workflow-drafts",
-      "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-rereview\\result.json"
-    },
-    "export-fixture-parity": {
-      "commit": "fdc1da595274e80a57b7da43b2bd7cb29ca29471",
-      "status": "coordinator_committed_preserved_CLI_candidate_awaiting_review",
-      "originalCli": "error_max_turns35, permission_denials=[], not quota",
-      "coordinatorTestsPassed": 40,
-      "coordinatorCommand": "node node_modules/@playwright/test/cli.js test -c playwright.export-fixture-parity.config.ts",
-      "coordinatorExitCode": 0,
-      "coordinatorDurationSeconds": 19.9,
-      "testWorktree": "C:/Users/Admin/opora-v3-export-fixture",
-      "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-review\\result.json"
-    },
     "coding-transport-audit": {
       "commit": "13f526089e9f7463b0ab9f70f38eb12566f8f61f",
       "status": "read_by_coordinator_proposal_not_implemented_or_independently_reviewed",
