@@ -195,6 +195,19 @@ export function fixturePlugin(): Plugin {
               return send(res, 400, { error: "Zadání je příliš krátké." });
             const id = randomUUID();
             const scope = snap.packet.scope as { project: string; workspace: string; nodeId: string };
+            // Fixture stand-in for the immutable worker context (see backend/task_handoffs.py
+            // TaskHandoffService._snapshot_context). Captured once here, from the immutable
+            // snapshot's own fields, so later previews/state changes in this scope can never
+            // leak into a run that is already prepared — never recomputed on export.
+            const context = {
+              schema: snap.packet.schema,
+              scope: { project: scope.project, workspace: scope.workspace, node: scope.nodeId },
+              snapshotId: snap.id,
+              digest: snap.digest,
+              sourceManifest: snap.packet.sourceManifest,
+              warnings: snap.packet.warnings,
+              task: snap.packet.task,
+            };
             const run: HandoffEntry = {
               id,
               digest: snap.digest,
@@ -204,6 +217,9 @@ export function fixturePlugin(): Plugin {
               provider: "fixture",
               model: "fixture-model",
               budgetSeconds: 60,
+              allowedFiles: ["result.md"],
+              readableNodeIds: scope.nodeId ? [scope.nodeId] : [],
+              context,
               contextSummary: "fixture kontext · " + snap.id,
               events: [{ kind: "prepared", observedAt: new Date().toISOString() }],
               error: null,
@@ -250,7 +266,21 @@ export function fixturePlugin(): Plugin {
           if (exportMatch && req.method === "GET") {
             const run = handoffs.get(exportMatch[1]);
             if (!run) return send(res, 404, { error: "Běh nenalezen." });
-            return send(res, 200, { id: run.id, digest: run.digest, task: run.task, context: { fixture: true } });
+            // Přesný tvar GET /api/task-handoffs/{id}/export dle backend/task_handoffs.py
+            // TaskHandoffService.export(); fields are read from the run entry stored at
+            // prepare time, never recomputed here, so this stays immutable across later calls.
+            return send(res, 200, {
+              id: run.id,
+              digest: run.digest,
+              scope: run.scope,
+              task: run.task,
+              allowedFiles: run.allowedFiles,
+              readableNodeIds: run.readableNodeIds,
+              context: run.context,
+              provider: run.provider,
+              model: run.model,
+              budgetSeconds: run.budgetSeconds,
+            });
           }
           const getMatch = pathname.match(/^\/api\/task-handoffs\/([^/]+)$/);
           if (getMatch && req.method === "GET") {
