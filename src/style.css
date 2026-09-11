@@ -56,15 +56,17 @@
 body {
   margin: 0;
 }
-h1,
-h2,
-h3,
-h4,
-p,
-dl {
+/* Obecné OPORA styly prvků nesmí prosakovat do nativního stromu Excalidraw (inspektor tvaru,
+   popovery); :where drží specificitu původních tagových selektorů. */
+h1:not(:where(.excalidraw *)),
+h2:not(:where(.excalidraw *)),
+h3:not(:where(.excalidraw *)),
+h4:not(:where(.excalidraw *)),
+p:not(:where(.excalidraw *)),
+dl:not(:where(.excalidraw *)) {
   margin-top: 0;
 }
-h2 {
+h2:not(:where(.excalidraw *)) {
   font-size: var(--fs-5);
   line-height: 1.25;
   font-weight: 600;
@@ -72,7 +74,7 @@ h2 {
   overflow-wrap: anywhere;
   margin-bottom: var(--sp-3);
 }
-h3 {
+h3:not(:where(.excalidraw *)) {
   font-size: var(--fs-1);
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -80,18 +82,18 @@ h3 {
   color: var(--ink-muted);
   margin: var(--sp-5) 0 var(--sp-2);
 }
-h4 {
+h4:not(:where(.excalidraw *)) {
   font-size: var(--fs-1);
   font-weight: 600;
   color: var(--ink-2);
   margin: var(--sp-3) 0 var(--sp-1);
 }
-code,
-kbd {
+code:not(:where(.excalidraw *)),
+kbd:not(:where(.excalidraw *)) {
   font-family: var(--mono);
   font-size: 0.92em;
 }
-kbd {
+kbd:not(:where(.excalidraw *)) {
   border: 1px solid var(--line-strong);
   border-radius: 4px;
   padding: 0 4px;
@@ -120,7 +122,7 @@ select {
   font: inherit;
   color: inherit;
 }
-button {
+button:not(:where(.excalidraw *)) {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: var(--surface-2);
@@ -130,18 +132,18 @@ button {
   cursor: pointer;
   line-height: 1.3;
 }
-button:hover {
+button:hover:not(:where(.excalidraw *)) {
   background: var(--surface-3);
 }
-button:disabled {
+button:disabled:not(:where(.excalidraw *)) {
   opacity: 0.45;
   cursor: not-allowed;
 }
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible,
-[role="tab"]:focus-visible {
+button:focus-visible:not(:where(.excalidraw *)),
+input:focus-visible:not(:where(.excalidraw *)),
+textarea:focus-visible:not(:where(.excalidraw *)),
+select:focus-visible:not(:where(.excalidraw *)),
+[role="tab"]:focus-visible:not(:where(.excalidraw *)) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -175,9 +177,9 @@ button.quiet:hover {
 .wide {
   width: 100%;
 }
-input,
-select,
-textarea {
+input:not(:where(.excalidraw *)),
+select:not(:where(.excalidraw *)),
+textarea:not(:where(.excalidraw *)) {
   background: var(--field);
   color: var(--ink);
   border: 1px solid var(--line-strong);
@@ -186,11 +188,11 @@ textarea {
   min-width: 0;
   min-height: 32px;
 }
-input[type="checkbox"] {
+input[type="checkbox"]:not(:where(.excalidraw *)) {
   accent-color: var(--accent);
   min-height: 0;
 }
-textarea {
+textarea:not(:where(.excalidraw *)) {
   resize: vertical;
   line-height: 1.6;
 }
