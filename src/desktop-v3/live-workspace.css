@@ -1,4 +1,9 @@
 /* Desktop v3: seznam sessions, sedm karet detailu, samostatné boční vlákno. */
+.live-workspace-root{display:flex;flex-direction:column;min-height:100%;height:100%;min-width:0}
+.live-view-switch{display:flex;gap:2px;padding:6px 12px;border-bottom:1px solid var(--line,#dbe0db);background:var(--surface,#fff)}
+.live-view-switch button{border:1px solid transparent;background:transparent;color:var(--ink-muted,#64706a);padding:6px 10px;border-radius:6px;font-size:12px}
+.live-view-switch button[aria-pressed=true]{background:var(--accent-soft,#e6eee5);color:var(--accent,#315d3a);border-color:var(--accent-line,#7c9a81);font-weight:600}
+.live-workspace-root>.node-sessions,.live-workspace-root>.live-desktop{flex:1;min-height:0}
 .live-desktop{--live-muted:var(--muted,#64706a);--live-surface:var(--surface,#fff);--live-line:var(--line,#dbe0db);display:flex;flex-direction:column;min-height:100%;height:100%;min-width:0;background:var(--bg,#f4f5f1);color:var(--ink,#29372e);font-size:13px}
 .live-desktop *{box-sizing:border-box}
 .live-desktop h2,.live-desktop h3,.live-desktop h4,.live-desktop p{margin:0}

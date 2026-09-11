@@ -4,6 +4,7 @@ import {errorMessage, exportHandoff, fetchPlanningRuns, type HandoffExport} from
 import {useDesktopState} from './state-store';
 import {ACTIVE_RUNS, downloadLiveText, fetchLiveRuns, handoffSession, planningSession, type LiveSession} from './live-sessions';
 import {LiveTickets} from './LiveTickets';
+import {NodeSessionsPanel} from './NodeSessionsPanel';
 import './live-workspace.css';
 
 const tabs=['1 Události','2 Důkazy a výstup','3 Náklady a výkon','4 Paměť','5 Ovládání','6 Tickety','7 Kontext a osa'];
@@ -19,6 +20,7 @@ export function LiveWorkspacePanel({project,workspace,nodeId}:{project:string;wo
   const [onlyNode,setOnlyNode]=useState(false);
   const [selectedKey,setSelectedKey]=useState('');
   const [tab,setTab]=useState(1);
+  const [view,setView]=useState<'sessions'|'documentary'>('sessions');
   const [stopFor,setStopFor]=useState('');
   const [busy,setBusy]=useState(false);
   const [actionError,setActionError]=useState('');
@@ -145,7 +147,14 @@ export function LiveWorkspacePanel({project,workspace,nodeId}:{project:string;wo
     <div className="live-controls-disabled"><button disabled title="Zdroj nemá transport pro změnu zadání.">Upravit pokyn</button><button disabled title="Zdroj nemá transport resume.">Pokračovat</button><button disabled title="Zdroj nemá transport compact.">Compact nyní</button></div>
   </div>;
 
-  return <section className="live-desktop" aria-label="Live workspace">
+  return <div className="live-workspace-root">
+    <nav className="live-view-switch" role="tablist" aria-label="Zobrazení Live workspace">
+      <button type="button" role="tab" aria-selected={view==='sessions'} aria-pressed={view==='sessions'} onClick={()=>setView('sessions')}>Práce na uzlu</button>
+      <button type="button" role="tab" aria-selected={view==='documentary'} aria-pressed={view==='documentary'} onClick={()=>setView('documentary')}>Dokumentační běhy</button>
+    </nav>
+    {view==='sessions'
+      ? <NodeSessionsPanel project={project} workspace={workspace} nodeId={nodeId}/>
+      : <section className="live-desktop" aria-label="Dokumentační běhy (Live workspace)">
     <header className="live-toolbar">
       <div className="live-filter-group"><span className="live-eyebrow">Stav</span>{stateFilters.map(([value,label])=><button key={value} aria-pressed={filter===value} onClick={()=>setFilter(value)}>{label}</button>)}</div>
       <div className="live-source-health" aria-label="Dostupnost zdrojů"><span className={sourceErrors.planning?'is-error':''}>Návrhy · {sourceErrors.planning?'nedostupné':sourcePending.planning?'načítání':'připojeno'}</span><span className={sourceErrors.handoff?'is-error':''}>Hermes úkoly · {sourceErrors.handoff?'nedostupné':sourcePending.handoff?'načítání':'připojeno'}</span></div>
@@ -189,5 +198,6 @@ export function LiveWorkspacePanel({project,workspace,nodeId}:{project:string;wo
         <div className="live-side-body"><div className="live-message"><strong>Transport není připojený</strong><p>Canvas API zatím nepodporuje boční dotazy. Žádný dotaz se neodešle a nevytváříme falešnou odpověď agenta.</p></div><label>Boční dotaz<textarea disabled rows={3} placeholder="/btw Proč jsi zvolil tento postup?"/></label><button disabled>Odeslat boční dotaz</button><h3>Rychlé ovládání</h3>{tab!==4?control:<p className="live-note">Potvrzení je na kartě Ovládání.</p>}<div className="live-source-note"><strong>Zdroj dat</strong><code>{selected?.kind==='handoff'?'/api/task-handoffs':'/api/llm/runs'}</code><p>Čtení každé 4 s při viditelném okně. Žádný automatický restart.</p></div></div>
       </aside>
     </div>
-  </section>;
+  </section>}
+  </div>;
 }
