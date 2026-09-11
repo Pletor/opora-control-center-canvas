@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 17,
+  "revision": 18,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -10,73 +10,15 @@
   "activeLanes": [
     {
       "modelAlias": "opus",
-      "sessionId": "5ea3bc73-1d4f-4cdb-943a-a4fa7f6777f1",
-      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
-      "running": true,
-      "pid": 63464,
-      "name": "artifact-prewire",
-      "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire\\state.json",
-      "processHandle": "proc_4d70b1efc11c",
-      "ownedPaths": [
-        "backend/claude_coding_artifact.py",
-        "tests/test_claude_coding_artifact.py",
-        ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
-      ],
-      "reservedTestPorts": [],
-      "pidExists": true,
-      "createTime": 1789108609.3223083,
-      "observedAt": "2026-09-11T08:39:38.600229+02:00",
-      "descendants": [
-        {
-          "pid": 55328,
-          "createTime": 1789108609.3285518,
-          "name": "conhost.exe"
-        }
-      ]
-    },
-    {
-      "modelAlias": "opus",
-      "sessionId": "2a3b561f-5f9b-4f3d-b609-5e6c50eb8f6e",
-      "worktree": "C:\\Users\\Admin\\opora-v3-behavioral-oracle",
-      "running": true,
-      "pid": 59348,
-      "name": "behavioral-oracle",
-      "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle\\state.json",
-      "processHandle": "proc_3ed82e68e18b",
-      "ownedPaths": [
-        "backend/coding_behavioral_oracle.py",
-        "tests/test_coding_behavioral_oracle.py",
-        ".opora/workunits/WU-DESKTOP-V3/behavioral-oracle-HANDOFF.md"
-      ],
-      "reservedTestPorts": [],
-      "pidExists": true,
-      "createTime": 1789108609.3224134,
-      "observedAt": "2026-09-11T08:39:38.600229+02:00",
-      "descendants": [
-        {
-          "pid": 32728,
-          "createTime": 1789108609.3320577,
-          "name": "conhost.exe"
-        }
-      ],
-      "containerLedger": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle\\containers.json",
-      "containerCleanupRequired": true
-    },
-    {
-      "modelAlias": "sonnet",
-      "sessionId": "9e69779c-fc0d-45bf-9258-eff7f63dcd09",
+      "sessionId": "7f5df988-d8e8-4d51-9e5e-a257a0b694a7",
       "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
       "running": true,
-      "pid": 49900,
-      "name": "project-tree-actions",
+      "pid": 44288,
+      "name": "project-tree-recovery",
       "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-actions-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-actions\\state.json",
-      "processHandle": "proc_e298c4b307d8",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-recovery-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-recovery\\state.json",
+      "processHandle": "proc_701362a8d425",
       "ownedPaths": [
         "src/SourceExplorer.tsx",
         "src/ProjectWorkspace.tsx",
@@ -90,13 +32,80 @@
         8769,
         8771
       ],
+      "observedAt": "2026-09-11T08:51:48.796643+02:00",
       "pidExists": true,
-      "createTime": 1789108609.3501377,
-      "observedAt": "2026-09-11T08:39:38.600229+02:00",
+      "createTime": 1789109393.6438603,
       "descendants": [
         {
-          "pid": 19124,
-          "createTime": 1789108609.3557348,
+          "pid": 64324,
+          "createTime": 1789109393.6741989,
+          "name": "conhost.exe"
+        }
+      ]
+    },
+    {
+      "modelAlias": "opus",
+      "sessionId": "8f9141c5-e7a2-4a69-9a6c-818d52c92b21",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "running": true,
+      "pid": 33324,
+      "name": "artifact-prewire-completion",
+      "role": "implementation",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-completion-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-completion\\state.json",
+      "processHandle": "proc_b2ae8a89c58a",
+      "ownedPaths": [
+        "backend/claude_coding_artifact.py",
+        "tests/test_claude_coding_artifact.py",
+        ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
+      ],
+      "reservedTestPorts": [],
+      "observedAt": "2026-09-11T08:51:48.796643+02:00",
+      "pidExists": true,
+      "createTime": 1789109393.6605844,
+      "descendants": [
+        {
+          "pid": 38612,
+          "createTime": 1789109393.674366,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 48384,
+          "createTime": 1789109421.66392,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 56420,
+          "createTime": 1789109421.6845248,
+          "name": "bash.exe"
+        },
+        {
+          "pid": 29140,
+          "createTime": 1789109421.690628,
+          "name": "conhost.exe"
+        }
+      ]
+    },
+    {
+      "modelAlias": "opus",
+      "sessionId": "13bf76b4-4152-4ce5-992e-2564570b3b56",
+      "worktree": "C:\\Users\\Admin\\opora-v3-behavioral-oracle",
+      "running": true,
+      "pid": 51336,
+      "name": "behavioral-oracle-review",
+      "role": "review",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle-review-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle-review\\state.json",
+      "processHandle": "proc_025db9a5834f",
+      "ownedPaths": [],
+      "reservedTestPorts": [],
+      "observedAt": "2026-09-11T08:51:48.796643+02:00",
+      "pidExists": true,
+      "createTime": 1789109393.674452,
+      "descendants": [
+        {
+          "pid": 59796,
+          "createTime": 1789109393.6803083,
           "name": "conhost.exe"
         }
       ]
@@ -272,7 +281,7 @@
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
       "previewData": "Non-destructive static publication only; DB/backend unchanged; no API writes or model starts in browser smoke.",
-      "finalHttpReadbackAt": "2026-09-11T08:39:38.600229+02:00",
+      "finalHttpReadbackAt": "2026-09-11T08:51:48.796643+02:00",
       "workflowReadback": {
         "publishedPreview": true,
         "networkFaultInjected": true,
@@ -379,13 +388,13 @@
     }
   },
   "nextActions": [
-    "FIRST collect artifact-prewire, behavioral-oracle, project-tree-actions state/result/raw logs. Max4 lanes total. No duplicate writers or UI ports8742/8769/8771.",
-    "CRITICAL: behavioral-oracle WindowsJob cannot itself kill Docker containers. Read E/behavioral-oracle/containers.json; verify every owned exact container inactive after completion/deadline before accepting handoff. Never prune/kill unrelated containers.",
-    "Current integrated full UI95PASS/1LIVEskip and panel75PASS verified from row counts plus raw meta exits. CLI max-turn is NOT quota; no source edits missing from regression.",
-    "2b22041 narrow foundation passed Opus review but NOT merged: HIGH direct materialize raw-path validation and isolated oracle prerequisite. Prewire lane owns original two Python paths. Oracle lane owns new module/tests in separate tree on2b22041; combine only reviewed exclusive diffs, never merge around pending review.",
-    "Project tree lane covers six inventory actions (expand known, collapse all, clear search, row keys, per-row +Editor, slash focus). Full original reference read. Existing V3-KEY-003 inventory row is historical and implementation already accepted.",
-    "After safe oracle and foundation gates implement bound actual Claude structured-output mapping, approval/runtime/routes and actual node->snapshot->agent->artifact->verified UI roundtrip. No fake report or exit0 acceptance.",
-    "Preserve preview8780/user data, original P:/main/8768/8740. Phase1 incomplete, phase2 eleven sources received and not started. No billing/provider/config changes or new cron jobs."
+    "FIRST collect project-tree-recovery, artifact-prewire-completion, behavioral-oracle-review. Max4 lanes; do not duplicate writers/ports8742/8769/8771.",
+    "Oracle6f78aa7 is NOT merged. Read independent security review and procedural TDD limitation. Completed focused38PASS; full482PASS/4skip before test-only Ruff fix. Coordinator proved all33 exact owned container names absent via docker ps-a; no containers killed/pruned.",
+    "Prewire original deadline600:181focusedPASS but full log interrupted/no exit => NOT PASS; no new commit. Completion owns original two Python files/handoff, must finish full tests and candidate commit before separate review.",
+    "Project original max-turn45/denials=[]: five RED test failures but pipeline masks command exit, forwardRef scaffold incomplete/no commit. Recovery archives partial and restarts vertical TDD with exact files/commands instead of recursive dependency scans. All six actions remain unaccepted.",
+    "Combine only reviewed exclusive foundation/oracle diffs. Implement approval-bound actual Claude structured artifact mapping/runtime/routes/UI and actual node->snapshot->agent->artifact->verified result roundtrip. No exit0/fake reports as acceptance.",
+    "Current integrated frontend still555d583 production;95PASS/1LIVEskip and75panelPASS historical same bytes. Preview8780 exact HTTP build readback unchanged; no backend/DB/asset writes this iteration.",
+    "Phase1 incomplete; phase2 eleven reference photos received, not started. Preserve original P:/main/8768/8740 and preview user changes; no billing/global config/new cron jobs."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -758,6 +767,57 @@
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\return-integration-regression",
       "report": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\return-integration-regression\\coordinator-report.json",
       "status": "completed_gates_recovered_from_raw_logs_not_CLI_success"
+    },
+    "artifact-prewire": {
+      "modelAlias": "opus",
+      "sessionId": "5ea3bc73-1d4f-4cdb-943a-a4fa7f6777f1",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "running": false,
+      "pid": 63464,
+      "localTreeInactive": true,
+      "exitCode": 1,
+      "finishReason": "deadline",
+      "seconds": 600.2790681999759,
+      "subtype": null,
+      "models": [],
+      "status": "deadline600_partial_full_test_incomplete_NOT_quota",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire"
+    },
+    "behavioral-oracle": {
+      "modelAlias": "opus",
+      "sessionId": "2a3b561f-5f9b-4f3d-b609-5e6c50eb8f6e",
+      "worktree": "C:\\Users\\Admin\\opora-v3-behavioral-oracle",
+      "running": false,
+      "pid": 59348,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 646.3319402000052,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "status": "candidate_pending_independent_review_NOT_integrated",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle"
+    },
+    "project-tree-actions": {
+      "modelAlias": "sonnet",
+      "sessionId": "9e69779c-fc0d-45bf-9258-eff7f63dcd09",
+      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "running": false,
+      "pid": 49900,
+      "localTreeInactive": true,
+      "exitCode": 1,
+      "finishReason": "completed",
+      "seconds": 557.2414456999977,
+      "subtype": "error_max_turns",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "status": "max_turns45_partial_no_commit_NOT_quota",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-actions"
     }
   },
   "providerQuotaObservation": {
@@ -781,7 +841,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T08:39:38.600229+02:00",
+  "reconciledAt": "2026-09-11T08:51:48.796643+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -1270,6 +1330,65 @@
         "localTreeInactive": true,
         "pidExists": false
       }
+    },
+    "behavioral-oracle": {
+      "commit": "6f78aa7eff213000707dd4f71397afc9ea4b594c",
+      "worktree": "C:/Users/Admin/opora-v3-behavioral-oracle",
+      "status": "NOT_MERGED_review_running_TDD_gap_disclosed",
+      "focusedPassed": 38,
+      "focusedExitCode": 0,
+      "fullPassed": 482,
+      "fullSkipped": 4,
+      "fullWarnings": 2,
+      "fullExitCode": 0,
+      "fullScope": "same production bytes; test file subsequently received Ruff check=False fix, final focused38PASS rerun; full suite not rerun after test-only lint edit",
+      "containment": {
+        "ownedCount": 33,
+        "remaining": [],
+        "dockerPsExitCode": 0,
+        "names": [
+          "opora-v3-oracle-02b9a64c44694f82901ad11afe0d5c65",
+          "opora-v3-oracle-05dafcf368664ae4a7baaa197a141f31",
+          "opora-v3-oracle-0a771f7d41ab490ca86f4506d37d3e08",
+          "opora-v3-oracle-0ac077a1ac2348d58a4e0801115d84d0",
+          "opora-v3-oracle-14097a0c8cb64dcc9ca47d3c4f17a8e7",
+          "opora-v3-oracle-15ea93ceec734fc9bb4f89db0271a927",
+          "opora-v3-oracle-177260e8f93b4a928e75e7a3dab67abf",
+          "opora-v3-oracle-1c88cab3132d40b3912cd9cea6a813f0",
+          "opora-v3-oracle-498a31a7b3384b0fb10c70bc87bb4105",
+          "opora-v3-oracle-4dadcaa768f64af898e9cb748ad1e094",
+          "opora-v3-oracle-4e9917b6c6cc4bb288613b538043c22a",
+          "opora-v3-oracle-51d4a5930e0f4636a17584dd19b87b22",
+          "opora-v3-oracle-51fb239e38d749df980a8f43a686a24d",
+          "opora-v3-oracle-555653eaad49472ab15bc1a518d65874",
+          "opora-v3-oracle-57e6f004f1ab433eb283d2284949ca2c",
+          "opora-v3-oracle-60b2fec3f4234378ae882a089509a445",
+          "opora-v3-oracle-6408e523ff1a46309560dfd2371179ce",
+          "opora-v3-oracle-70f66ee112014be98dba779e5d8cc3ad",
+          "opora-v3-oracle-714965bfd9684ea687aba443a7f52f53",
+          "opora-v3-oracle-7fea611785844dd0bae250e2fc8ac0b7",
+          "opora-v3-oracle-890ee163c07b43e292515aa1bcd88c45",
+          "opora-v3-oracle-966ee56415ad416dba5c3290c4183fae",
+          "opora-v3-oracle-98772d3e58a7435eaeb391be41008099",
+          "opora-v3-oracle-a5a05d68659c4802a8a734cbad5860d9",
+          "opora-v3-oracle-ad3d706fd94a44f682b1cb4549cba7b1",
+          "opora-v3-oracle-b558744dd94140a196192da376f5ff19",
+          "opora-v3-oracle-c419e37d778a4cb5b8ce677f5747d47d",
+          "opora-v3-oracle-c83e6b62bf924e93804767c32c115db1",
+          "opora-v3-oracle-dde9302ebc94447697f769748faed2b3",
+          "opora-v3-oracle-e03b3ec9ace54c0d901c94b35099b214",
+          "opora-v3-oracle-e2dc83edd0ff450d9bb5845e5778fe1c",
+          "opora-v3-oracle-e82a90e647f34eb3b5d8d9a5a812f4fc",
+          "opora-v3-oracle-fd47916ab1f44645a03bb72b1f25575d"
+        ]
+      },
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle",
+      "limitations": [
+        "Not wired to execute_approved/runtime/routes/UI",
+        "Only supplied behavioral cases, not arbitrary code correctness",
+        "Module RED was collection ImportError; no verified per-behavior RED->GREEN sequence",
+        "Agent said22 containers; coordinator ledger dedupe proves33 names, all absent"
+      ]
     }
   },
   "codingReadiness": {
