@@ -1,41 +1,183 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 3,
+  "revision": 4,
   "status": "running",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
   "integrationWorktree": "C:/Users/Admin/opora-v3",
   "activeLane": {
-    "name": "full-regression",
-    "role": "verification-only",
-    "worktree": "C:/Users/Admin/opora-v3",
-    "branch": "integration/desktop-v3",
-    "spec": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/full-regression-spec.json",
-    "processHandle": "proc_138f5ffacdbd",
-    "ownedPaths": ["generated test evidence only; no source writes", "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/full-regression/"],
-    "reservedTestPorts": [8742,8769,8771,8782]
+    "name": "inventory-completion",
+    "role": "audit",
+    "worktree": "C:/Users/Admin/opora-v3-inventory",
+    "branch": "audit/v3-component-inventory",
+    "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-completion-spec.json",
+    "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-completion\\state.json",
+    "processHandle": "proc_069cf81fb804",
+    "ownedPaths": [
+      ".opora/workunits/WU-DESKTOP-V3/component-inventory.json",
+      ".opora/workunits/WU-DESKTOP-V3/COMPONENT-INVENTORY.md",
+      ".opora/workunits/WU-DESKTOP-V3/inventory-HANDOFF.md"
+    ],
+    "reservedTestPorts": [],
+    "observedAt": "2026-09-11T02:20:14.065482+02:00",
+    "pid": 4216,
+    "pidExists": true,
+    "descendants": [
+      54612
+    ],
+    "running": true,
+    "localTreeInactive": null
   },
   "activeLanes": [
     {
-      "name": "full-regression",
-      "role": "verification-only",
-      "worktree": "C:/Users/Admin/opora-v3",
-      "branch": "integration/desktop-v3",
-      "spec": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/full-regression-spec.json",
-      "processHandle": "proc_138f5ffacdbd",
-      "ownedPaths": ["generated test evidence only; no source writes", "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/full-regression/"],
-      "reservedTestPorts": [8742,8769,8771,8782]
+      "name": "export-scope-hardening",
+      "role": "implementation",
+      "worktree": "C:/Users/Admin/opora-v3-export-scope",
+      "branch": "fix/v3-export-scope-hardening",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-scope-hardening-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-scope-hardening\\state.json",
+      "processHandle": null,
+      "ownedPaths": [
+        "src/desktop-v3/api.ts",
+        "src/desktop-v3/LiveWorkspacePanel.tsx",
+        "src/desktop-v3/AgentPacketPanel.tsx (export/readback boundary only)",
+        "e2e-v3-panels/export-scope.spec.ts",
+        "own fixture/config and handoff"
+      ],
+      "reservedTestPorts": [
+        8793
+      ],
+      "observedAt": "2026-09-11T02:20:14.065482+02:00",
+      "pid": 5872,
+      "pidExists": true,
+      "descendants": [
+        63408,
+        63376,
+        62252,
+        57484,
+        57248,
+        56472,
+        65200,
+        57492,
+        65240,
+        60400,
+        65772,
+        32652,
+        62012,
+        28036,
+        62112,
+        54436,
+        37828,
+        61008,
+        32340,
+        33916,
+        58640,
+        62656,
+        10912,
+        59376,
+        55048,
+        65528,
+        59656,
+        51776
+      ],
+      "running": true,
+      "localTreeInactive": null
     },
     {
-      "name": "component-inventory",
+      "name": "workflow-draft-preservation",
+      "role": "implementation",
+      "worktree": "C:/Users/Admin/opora-v3-workflow-drafts",
+      "branch": "fix/v3-workflow-draft-preservation",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-draft-preservation-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-draft-preservation\\state.json",
+      "processHandle": null,
+      "ownedPaths": [
+        "src/desktop-v3/NodeWorkflowPanel.tsx",
+        "src/desktop-v3/ProjectMemoryPanel.tsx",
+        "e2e-v3-panels/workflow-draft-preservation.spec.ts",
+        "own config and handoff"
+      ],
+      "reservedTestPorts": [
+        8794
+      ],
+      "observedAt": "2026-09-11T02:20:14.065482+02:00",
+      "pid": 41996,
+      "pidExists": true,
+      "descendants": [
+        36152,
+        63604,
+        63820,
+        15232,
+        43852,
+        33440,
+        1664,
+        8496,
+        65368,
+        22100,
+        59916,
+        32412,
+        54924,
+        26900,
+        45552,
+        60724,
+        64912,
+        64280,
+        59940,
+        54852,
+        61492,
+        46592,
+        56608
+      ],
+      "running": true,
+      "localTreeInactive": null
+    },
+    {
+      "name": "inspector-suite-isolation",
+      "role": "test-repair",
+      "worktree": "C:/Users/Admin/opora-v3-inspector-suite",
+      "branch": "fix/v3-inspector-suite-isolation",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-suite-isolation-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-suite-isolation\\state.json",
+      "processHandle": "proc_a9e00d567f5f",
+      "ownedPaths": [
+        "e2e/inspector-style-boundary.spec.ts",
+        "playwright.inspector-suite.config.ts",
+        "scripts/serve_inspector_suite_fixture.py (optional)",
+        "own handoff"
+      ],
+      "reservedTestPorts": [
+        8795
+      ],
+      "observedAt": "2026-09-11T02:20:14.065482+02:00",
+      "pid": 64652,
+      "pidExists": false,
+      "descendants": [],
+      "running": false,
+      "localTreeInactive": true
+    },
+    {
+      "name": "inventory-completion",
       "role": "audit",
       "worktree": "C:/Users/Admin/opora-v3-inventory",
       "branch": "audit/v3-component-inventory",
-      "spec": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/component-inventory-spec.json",
-      "processHandle": "proc_0a299ddf51f7",
-      "ownedPaths": [".opora/workunits/WU-DESKTOP-V3/component-inventory.json", ".opora/workunits/WU-DESKTOP-V3/COMPONENT-INVENTORY.md", ".opora/workunits/WU-DESKTOP-V3/inventory-HANDOFF.md"],
-      "reservedTestPorts": []
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-completion-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inventory-completion\\state.json",
+      "processHandle": "proc_069cf81fb804",
+      "ownedPaths": [
+        ".opora/workunits/WU-DESKTOP-V3/component-inventory.json",
+        ".opora/workunits/WU-DESKTOP-V3/COMPONENT-INVENTORY.md",
+        ".opora/workunits/WU-DESKTOP-V3/inventory-HANDOFF.md"
+      ],
+      "reservedTestPorts": [],
+      "observedAt": "2026-09-11T02:20:14.065482+02:00",
+      "pid": 4216,
+      "pidExists": true,
+      "descendants": [
+        54612
+      ],
+      "running": true,
+      "localTreeInactive": null
     }
   ],
   "inspectorCandidate": {
@@ -49,25 +191,163 @@
     "previewEvidence": "E/inspector-preview-verification.json"
   },
   "backgroundNotifications": "notify_on_complete requested but unsupported in cron runtime. Bounded jobs persist; next monitor iteration must read E/*/state.json, result.json, report and live PIDs. Do not wait to cron timeout.",
-  "userReportedClaudeQuota": {"usedPercent":75,"observedAt":"2026-09-11T01:50:22.523168+02:00","estimatedResetAt":"2026-09-11T02:43:22.523168+02:00","independentlyVerified":false},
+  "userReportedClaudeQuota": {
+    "usedPercent": 75,
+    "observedAt": "2026-09-11T01:50:22.523168+02:00",
+    "estimatedResetAt": "2026-09-11T02:43:22.523168+02:00",
+    "independentlyVerified": false
+  },
   "quotaResumeAt": null,
-  "phase2": {"status":"BLOCKED_MISSING_SOURCE","photos":[],"originalRequest":null},
+  "phase2": {
+    "status": "sources_received_awaiting_phase1",
+    "originalRequest": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\USER-BRIEF.md",
+    "manifest": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\manifest.json",
+    "photos": [
+      {
+        "index": 1,
+        "topic": "tickets-logs",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_ebb13cb7c647.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\01-tickets-logs.jpg",
+        "sha256": "f599c4cdb04d978b06f903541a83bbbdc1b927d3f88e416f4cc0973da421032a"
+      },
+      {
+        "index": 2,
+        "topic": "workshop",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_41455bbb21c8.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\02-workshop.jpg",
+        "sha256": "6b3a22d150e81535045a94ce0bf72c4f8b65a2aa0e92714461e5a5eca239400b"
+      },
+      {
+        "index": 3,
+        "topic": "canvas-lower-layers",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_000279086fa1.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\03-canvas-lower-layers.jpg",
+        "sha256": "50994f850b3db7a330a5cdcbd18cbd736cc858e1ce5198eccab745572b54311c"
+      },
+      {
+        "index": 4,
+        "topic": "canvas-component-cards",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_df3248ae017e.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\04-canvas-component-cards.jpg",
+        "sha256": "d408ab0b28680c1607614506439c679d1c99dac9987d151344d5fe6e6f1f03e1"
+      },
+      {
+        "index": 5,
+        "topic": "lifecycle",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_9d2034253d2e.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\05-lifecycle.jpg",
+        "sha256": "a63a7f439992545424f60ba88d540c5fb91a66d39ee80e4cd3064e2197072bf9"
+      },
+      {
+        "index": 6,
+        "topic": "agent-document-export",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_cbdc32e1f2a6.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\06-agent-document-export.jpg",
+        "sha256": "e96d52d8605176388420a0f5f3b042185653be51e7cd5ba5a1bf5b08c6f70e19"
+      },
+      {
+        "index": 7,
+        "topic": "component-detail",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_7419215b3cd0.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\07-component-detail.jpg",
+        "sha256": "1aa7f59629254d33a66ae3e9da516f67445c254abdff51d04ac9c16107859187"
+      },
+      {
+        "index": 8,
+        "topic": "project-settings-markdown",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_f90b49ddeab0.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\08-project-settings-markdown.jpg",
+        "sha256": "5579b9c397b0b983f310cd8a4e1e249213a3a673c2eabbef239ea4de1fbd7a62"
+      },
+      {
+        "index": 9,
+        "topic": "project-setup",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_50d4fae2bf77.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\09-project-setup.jpg",
+        "sha256": "4ac3d5bcf35670cc2297820ae0628b522c844e489a790ed095a3bf218bd8a0c9"
+      },
+      {
+        "index": 10,
+        "topic": "context-memory-timeline",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_f4857482cfd6.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\10-context-memory-timeline.jpg",
+        "sha256": "0d999e0a5daa847986cd5bd8cdb13f0b5e712b5e0606111d6f7c7fc2712e49cc"
+      },
+      {
+        "index": 11,
+        "topic": "agent-panel",
+        "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\cache\\images\\img_6fb252774a48.jpg",
+        "preserved": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\11-agent-panel.jpg",
+        "sha256": "13b5d3cc3bdc3c2bcd1f7a53b4fd54a2507f114d05a86cc328dd64eda66c40c3"
+      }
+    ],
+    "verifiedCount": 11,
+    "hashesVerifiedAt": "2026-09-11T02:20:14.065482+02:00"
+  },
   "lastVerified": {
-    "backendPassed":314,
-    "backendSkipped":4,
-    "backendEvidenceAge":"prior baseline; full-regression rerun in progress",
-    "ruff":"prior pass; rerun in progress",
-    "typecheck":"pass at integrated inspector fix",
-    "build":"pass; existing >500kB chunk warning remains",
-    "v3PanelTestsPassed":28,
-    "fullUi":"IN_PROGRESS full-regression; last full set not GREEN. New targeted inspector+v2-ui-review:7PASS.",
-    "preview":"8780 exact served index matches build sha256893aa30f72af85aba9992fe4adde99bbc5c2444136efd1aecad29508211e5dce; browser native swatches square17.546875px, range4px, light/dark off/on/off, no page errors/API writes/model starts; screenshots visually inspected."
+    "backendPassed": 314,
+    "backendSkipped": 4,
+    "backendEvidenceAge": "fresh completed full-regression/pytest.log EXIT_CODE=0, 142.41s",
+    "ruff": "full-regression/ruff.log PASS EXIT_CODE=0",
+    "typecheck": "full-regression/tsc.log PASS EXIT_CODE=0",
+    "build": "pass; existing >500kB chunk warning remains",
+    "v3PanelTestsPassed": 28,
+    "fullUi": "RED: full-regression/clean-editor.log 92 passed / 2 failed / 1 skipped, EXIT_CODE=1; both inspector-style-boundary1280/1440 expected1 received2. Isolation lane in progress; root cause not yet accepted.",
+    "preview": "8780 exact served index matches build sha256893aa30f72af85aba9992fe4adde99bbc5c2444136efd1aecad29508211e5dce; browser native swatches square17.546875px, range4px, light/dark off/on/off, no page errors/API writes/model starts; screenshots visually inspected.",
+    "backendWarnings": 2
   },
   "nextActions": [
-    "Read GOAL/STATE/CHECKPOINT and both active lane registries; verify localTreeInactive and PID descendants before integration/source edits or new test runner.",
-    "Collect full-regression completed raw test logs/report; resolve actual failures through TDD without weakening tests; do not claim full GREEN from targeted7PASS.",
-    "Collect component-inventory commit and reconcile programmatic binding coverage against full original684-line HTML. Independently review inventory; use exact highest priority missing items to launch bounded nonconflicting implementation lanes.",
-    "Preserve all generated PNG evidence and preview data. No app/backend changes were made beyond CSS; original P: worktree/main/ports8768 and8740 untouched.",
-    "Complete phase1 acceptance; only then proceed to source-backed phase2. Missing photos remain BLOCKED_MISSING_SOURCE."
-  ]
+    "Read GOAL/STATE/CHECKPOINT plus all lane registries FIRST. Four reserved lanes; never duplicate or write their paths before verified tree/PID inactivity.",
+    "Collect export-scope-hardening, workflow-draft-preservation, inspector-suite-isolation. Require completed RED/GREEN logs, exact commit, independent Claude review; then integrate sequentially. Preserve dirty evidence.",
+    "Collect inventory-completion exact commit and reproduce all-handler coverage; independent review. Existing125 rows are a draft, not full acceptance.",
+    "Implement missing phase1 components, prioritizing documentation -> approved immutable snapshot -> real bounded coding agent -> artifact/tests -> node/Live readback. New user brief overrides old general-coding prohibition; investigate supported runtime before implementation.",
+    "Rerun full UI after inspector isolation acceptance, plus all gates relevant to new changes. Do not count targeted PASS as full GREEN.",
+    "Publish verified changes to8780 with exact readback preserving new preview data. This iteration changed metadata only, preview unchanged.",
+    "Only after phase1 acceptance use the11 archived phase2 reference photos to extend, not replace, v3. Do not report missing photos again."
+  ],
+  "maxConcurrentClaudeLanes": 4,
+  "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
+  "completedRuns": {
+    "full-regression": {
+      "status": "evidence_collected_not_all_green",
+      "localTreeInactive": true,
+      "pidExists": false,
+      "cli": "error_max_turns18; permission_denials=[]; NOT quota",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\full-regression"
+    },
+    "component-inventory": {
+      "status": "deadline_partial_preserved",
+      "localTreeInactive": true,
+      "pidExists": false,
+      "rows": 125,
+      "uniqueIds": 125,
+      "commit": null,
+      "next": "inventory-completion; coverage/handoff/review not yet done"
+    }
+  },
+  "providerQuotaObservation": {
+    "source": "component-inventory/events.jsonl last rate_limit_event (historical at inventory completion)",
+    "observedAt": "2026-09-11T02:20:14.065482+02:00",
+    "info": {
+      "status": "allowed",
+      "resetsAt": 1789087200,
+      "rateLimitType": "five_hour",
+      "overageStatus": "rejected",
+      "overageDisabledReason": "org_level_disabled",
+      "isUsingOverage": false,
+      "unifiedWindows": {
+        "five_hour": {
+          "utilization": 0.83,
+          "resetsAt": 1789087200
+        },
+        "seven_day": {
+          "utilization": 0.65,
+          "resetsAt": 1789102800
+        }
+      }
+    },
+    "resetLocal": "2026-09-11T02:40:00+02:00",
+    "note": "Provider event status allowed; not current exact usage. Overage rejected/disabled is not main quota exhausted; isUsingOverage=false. OAuth/Max retained."
+  },
+  "reconciledAt": "2026-09-11T02:20:14.065482+02:00"
 }
