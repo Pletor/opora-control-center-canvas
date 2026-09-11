@@ -1,0 +1,6 @@
+/* Jen akce stromu Projektu (V3-PRJ-003..015); žádné globální styly. */
+.project-workspace .source-row .source-add { flex: none; margin-left: auto; padding: 0 6px; font-size: 11px; line-height: 18px; opacity: .6; }
+.project-workspace .source-row:hover .source-add, .project-workspace .source-row .source-add:focus-visible { opacity: 1; }
+.project-workspace .source-row .source-add:disabled { opacity: .35; cursor: not-allowed; }
+.project-workspace .tree-search-note { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.project-workspace .tree-search-note button { padding: 0 6px; }
