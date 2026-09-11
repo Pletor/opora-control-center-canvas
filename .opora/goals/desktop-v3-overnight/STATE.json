@@ -1,13 +1,91 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 7,
-  "status": "waiting_quota",
+  "revision": 8,
+  "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
   "integrationWorktree": "C:/Users/Admin/opora-v3",
   "activeLane": null,
-  "activeLanes": [],
+  "activeLanes": [
+    {
+      "name": "workflow-drafts-post-reset",
+      "worktree": "C:/Users/Admin/opora-v3-workflow-drafts",
+      "branch": "fix/v3-workflow-draft-preservation",
+      "role": "implementation",
+      "reservedTestPorts": [
+        8794
+      ],
+      "ownedPaths": [
+        "src/desktop-v3/NodeWorkflowPanel.tsx",
+        "src/desktop-v3/ProjectMemoryPanel.tsx",
+        "e2e-v3-panels/workflow-draft-preservation.spec.ts",
+        ".opora/workunits/WU-DESKTOP-V3/workflow-drafts-HANDOFF.md"
+      ],
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-post-reset-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-post-reset\\state.json",
+      "status": "running",
+      "processHandle": "proc_0c2b82674ffb",
+      "pid": 60764,
+      "pidExists": true,
+      "running": true,
+      "localTreeInactive": null,
+      "observedAt": "2026-09-11T02:50:27.970335+02:00",
+      "descendants": [
+        56072
+      ]
+    },
+    {
+      "name": "export-fixture-parity",
+      "worktree": "C:/Users/Admin/opora-v3-export-fixture",
+      "branch": "fix/v3-export-fixture-parity",
+      "role": "implementation",
+      "reservedTestPorts": [
+        8793
+      ],
+      "ownedPaths": [
+        "e2e-v3-panels/fixture-plugin.ts",
+        "e2e-v3-panels/export-fixture-parity.spec.ts",
+        "playwright.export-fixture-parity.config.ts",
+        "vite.export-fixture-parity.config.ts",
+        ".opora/workunits/WU-DESKTOP-V3/export-fixture-parity-HANDOFF.md"
+      ],
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-parity-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\export-fixture-parity\\state.json",
+      "status": "running",
+      "processHandle": "proc_1543d863a27f",
+      "pid": 48724,
+      "pidExists": true,
+      "running": true,
+      "localTreeInactive": null,
+      "observedAt": "2026-09-11T02:50:27.970335+02:00",
+      "descendants": [
+        53156
+      ]
+    },
+    {
+      "name": "coding-transport-audit",
+      "worktree": "C:/Users/Admin/opora-v3-transport-audit",
+      "branch": "audit/v3-coding-transport",
+      "role": "audit",
+      "reservedTestPorts": [],
+      "ownedPaths": [
+        ".opora/workunits/WU-DESKTOP-V3/CODING-TRANSPORT-AUDIT.md"
+      ],
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\coding-transport-audit-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\coding-transport-audit\\state.json",
+      "status": "running",
+      "processHandle": "proc_c58234eb0a3d",
+      "pid": 6988,
+      "pidExists": true,
+      "running": true,
+      "localTreeInactive": null,
+      "observedAt": "2026-09-11T02:50:27.970335+02:00",
+      "descendants": [
+        64316
+      ]
+    }
+  ],
   "inspectorCandidate": {
     "commit": "760428a4caab390c0ffd76b534f64dc2e6f23f96",
     "mergeCommit": "f7862a9",
@@ -25,7 +103,7 @@
     "estimatedResetAt": "2026-09-11T02:43:22.523168+02:00",
     "independentlyVerified": false
   },
-  "quotaResumeAt": "2026-09-11T02:40:00+02:00",
+  "quotaResumeAt": null,
   "phase2": {
     "status": "sources_received_awaiting_phase1",
     "originalRequest": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\USER-BRIEF.md",
@@ -166,14 +244,15 @@
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
       "previewData": "preserved; added one clearly marked prepared QA task and immutable snapshot, no model start",
-      "finalHttpReadbackAt": "2026-09-11T02:39:28.570643+02:00"
+      "finalHttpReadbackAt": "2026-09-11T02:50:27.970335+02:00"
     },
     "backendWarnings": 2,
     "exportScopeTestsPassed": 38
   },
   "nextActions": [
     "FIRST read GOAL/STATE/CHECKPOINT, four-claude-authorization and every live registry/spec. Parent continues dispatching; never duplicate ownership. Max4 total.",
-    "Provider explicitly denied quota until2026-09-11T02:40:00+02:00. No new CLI before reset. After reset read parent reservations/current registry and resume preserved workflow-race work once, bounded; no provider/billing fallback.",
+    "Quota reset positively confirmed allowed by workflow-drafts-post-reset. Collect its corrected commit, real completed RED/GREEN and independent re-review; never merge blocked2de3c4e alone.",
+    "Collect export-fixture-parity and coding-transport-audit outcomes. Three exclusive lanes reserved; do not duplicate. Audit first safe actual coding slice, no merely CLI allowlist pseudo-sandbox.",
     "Full clean-editor regression finished:94PASS/1LIVEskip/0FAIL, raw EXIT_CODE=0 at3588085; coordinator report recovered after quota denied synthesis. No need to rerun identical unchanged suite merely because CLI errored; new source edits require relevant regressions.",
     "Collect workflow-drafts-race-fix exact commit + behavioral RED/GREEN; require independent re-review before merge. Original2de3c4e BLOCKED data-loss race. Preserve all dirty evidence.",
     "Follow up export fixture parity: real backend shape in e2e-v3-panels/fixture-plugin.ts plus successful unmocked fixture export test. Also assess same-run response order, legacy TaskHandoffPanel scope and overbroad asserted types. Export validation preserves object, not original wire JSON bytes.",
@@ -227,7 +306,7 @@
     }
   },
   "providerQuotaObservation": {
-    "status": "provider_session_limit_observed",
+    "status": "reset_observed_allowed",
     "source": "workflow-drafts-race-fix/result.json",
     "observedAt": "2026-09-11T02:35:14.680420+02:00",
     "resumeAt": "2026-09-11T02:40:00+02:00",
@@ -243,9 +322,11 @@
     ],
     "lastCommit": "2de3c4e",
     "mergeBlocked": true,
-    "nextAction": "After reset, finish regression tests and race correction on same exclusive worktree, independently re-review, only then integrate. Current partial edit is not tested/accepted."
+    "nextAction": "After reset, finish regression tests and race correction on same exclusive worktree, independently re-review, only then integrate. Current partial edit is not tested/accepted.",
+    "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
+    "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T02:39:28.570643+02:00",
+  "reconciledAt": "2026-09-11T02:50:27.970335+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -375,7 +456,7 @@
         "e2e-v3-panels/workflow-draft-preservation.spec.ts",
         "own handoff"
       ],
-      "status": "quota_partial_preserved_not_accepted",
+      "status": "resumed_as_workflow-drafts-post-reset",
       "lastCommit": "2de3c4e",
       "dirtyPaths": [
         "src/desktop-v3/NodeWorkflowPanel.tsx"
