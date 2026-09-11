@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 19,
+  "revision": 20,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -25,7 +25,7 @@
         ".opora/workunits/WU-DESKTOP-V3/behavioral-oracle-HANDOFF.md"
       ],
       "reservedTestPorts": [],
-      "observedAt": "2026-09-11T09:05:58.153816+02:00",
+      "observedAt": "2026-09-11T09:15:45.225315+02:00",
       "pidExists": true,
       "createTime": 1789110161.9313524,
       "descendants": [
@@ -53,7 +53,7 @@
         ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
       ],
       "reservedTestPorts": [],
-      "observedAt": "2026-09-11T09:05:58.153816+02:00",
+      "observedAt": "2026-09-11T09:15:45.225315+02:00",
       "pidExists": true,
       "createTime": 1789110161.9314747,
       "descendants": [
@@ -65,189 +65,28 @@
       ]
     },
     {
-      "modelAlias": "opus",
-      "sessionId": "8d8c9bfd-9350-4ceb-be2a-74de5c1819ef",
+      "name": "project-tree-review",
+      "role": "review",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-review-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-review\\state.json",
       "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "processHandle": "proc_8e125e0f8ea8",
+      "ownedPaths": [],
+      "reservedTestPorts": [],
+      "modelAlias": "opus",
+      "sessionId": "e6384d53-555b-4344-9639-4984ce8b0f25",
       "running": true,
-      "pid": 41448,
-      "name": "project-tree-completion",
-      "role": "verification_handoff",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-completion-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-completion\\state.json",
-      "processHandle": "proc_3e3876d6c970",
-      "ownedPaths": [
-        "src/SourceExplorer.tsx",
-        "src/ProjectWorkspace.tsx",
-        "src/project-tree-actions.css",
-        "e2e/project-tree-actions.spec.ts",
-        "playwright.project-tree-actions.config.ts",
-        ".opora/workunits/WU-DESKTOP-V3/project-tree-actions-HANDOFF.md"
-      ],
-      "reservedTestPorts": [
-        8742,
-        8769,
-        8771
-      ],
-      "observedAt": "2026-09-11T09:05:58.153816+02:00",
+      "pid": 11240,
+      "observedAt": "2026-09-11T09:15:45.225315+02:00",
       "pidExists": true,
-      "createTime": 1789110244.7020512,
       "descendants": [
         {
-          "pid": 50444,
-          "createTime": 1789110244.7101529,
+          "pid": 58308,
+          "createTime": 1789110810.1307237,
           "name": "conhost.exe"
-        },
-        {
-          "pid": 66424,
-          "createTime": 1789110282.8862083,
-          "name": "bash.exe"
-        },
-        {
-          "pid": 35816,
-          "createTime": 1789110282.8943565,
-          "name": "bash.exe"
-        },
-        {
-          "pid": 25768,
-          "createTime": 1789110282.8995395,
-          "name": "conhost.exe"
-        },
-        {
-          "pid": 45704,
-          "createTime": 1789110282.941798,
-          "name": "bash.exe"
-        },
-        {
-          "pid": 61144,
-          "createTime": 1789110282.9504116,
-          "name": "uv.exe"
-        },
-        {
-          "pid": 58056,
-          "createTime": 1789110282.9698713,
-          "name": "python.exe"
-        },
-        {
-          "pid": 45564,
-          "createTime": 1789110282.9788716,
-          "name": "python.exe"
-        },
-        {
-          "pid": 52628,
-          "createTime": 1789110283.0358832,
-          "name": "node.exe"
-        },
-        {
-          "pid": 20220,
-          "createTime": 1789110283.0448885,
-          "name": "mise.exe"
-        },
-        {
-          "pid": 51584,
-          "createTime": 1789110283.0744655,
-          "name": "node.exe"
-        },
-        {
-          "pid": 32104,
-          "createTime": 1789110283.5543184,
-          "name": "cmd.exe"
-        },
-        {
-          "pid": 34824,
-          "createTime": 1789110286.480083,
-          "name": "cmd.exe"
-        },
-        {
-          "pid": 49348,
-          "createTime": 1789110289.412044,
-          "name": "cmd.exe"
-        },
-        {
-          "pid": 55520,
-          "createTime": 1789110354.0717125,
-          "name": "node.exe"
-        },
-        {
-          "pid": 52900,
-          "createTime": 1789110354.5371668,
-          "name": "chrome-headless-shell.exe"
-        },
-        {
-          "pid": 59356,
-          "createTime": 1789110354.5790708,
-          "name": "chrome-headless-shell.exe"
-        },
-        {
-          "pid": 47380,
-          "createTime": 1789110354.589481,
-          "name": "chrome-headless-shell.exe"
-        },
-        {
-          "pid": 54276,
-          "createTime": 1789110357.5373833,
-          "name": "chrome-headless-shell.exe"
-        },
-        {
-          "pid": 45076,
-          "createTime": 1789110289.4248276,
-          "name": "uv.exe"
-        },
-        {
-          "pid": 65620,
-          "createTime": 1789110289.4436278,
-          "name": "uvicorn.exe"
-        },
-        {
-          "pid": 61252,
-          "createTime": 1789110289.4658751,
-          "name": "python.exe"
-        },
-        {
-          "pid": 30032,
-          "createTime": 1789110289.4730408,
-          "name": "python.exe"
-        },
-        {
-          "pid": 60680,
-          "createTime": 1789110287.6130888,
-          "name": "uv.exe"
-        },
-        {
-          "pid": 64668,
-          "createTime": 1789110287.632844,
-          "name": "uvicorn.exe"
-        },
-        {
-          "pid": 27320,
-          "createTime": 1789110287.641844,
-          "name": "python.exe"
-        },
-        {
-          "pid": 60364,
-          "createTime": 1789110287.648792,
-          "name": "python.exe"
-        },
-        {
-          "pid": 32032,
-          "createTime": 1789110284.6005187,
-          "name": "uv.exe"
-        },
-        {
-          "pid": 63416,
-          "createTime": 1789110284.6200247,
-          "name": "uvicorn.exe"
-        },
-        {
-          "pid": 65128,
-          "createTime": 1789110284.6300073,
-          "name": "python.exe"
-        },
-        {
-          "pid": 27208,
-          "createTime": 1789110284.636711,
-          "name": "python.exe"
         }
-      ]
+      ],
+      "createTime": 1789110810.1245432
     }
   ],
   "inspectorCandidate": {
@@ -420,7 +259,7 @@
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
       "previewData": "Non-destructive static publication only; DB/backend unchanged; no API writes or model starts in browser smoke.",
-      "finalHttpReadbackAt": "2026-09-11T09:05:58.153816+02:00",
+      "finalHttpReadbackAt": "2026-09-11T09:15:45.225315+02:00",
       "workflowReadback": {
         "publishedPreview": true,
         "networkFaultInjected": true,
@@ -527,12 +366,11 @@
     }
   },
   "nextActions": [
-    "FIRST collect project-tree-completion. Owns8742/8769/8771. Old recovery full test interrupted at58 (no meta/exit), not full PASS. Completed focused5PASS. Completion must finish full regression, hash-bound handoff/commit then independent review.",
-    "Oracle6f78aa7 static review passed limited scope, but HIGH bind-mount TOCTOU must be fixed BEFORE wiring plus missing full run identity. Also procedural collection-only RED. oracle-isolated-rebuild is sole writer replacing the unaccepted module/tests fresh with vertical TDD and immutable in-memory archive copied into created containers; no mutable host mount. Check E/oracle-isolated-rebuild/containers.jsonl and exact cleanup even at deadline.",
-    "Artifact5fc2e3c genuine181focused/495fullPASS+4skip+2warnings exact committed hashes, NOT accepted because combined horizontal RED. artifact-prewire-vertical starts owned two files from2b22041 and reauthors three fixes sequentially; historical candidate/logs preserved. Do not merge old5fc2e3c or overwrite active writer. Need independent final review.",
-    "Keep max4 total exclusive lanes; current3 WindowsJobs recorded. Notify unsupported in cron, monitor must read registry/PID identity/results. Do not wait for all900sec jobs during this iteration.",
-    "After reviewed candidates only: integrate+full relevant gates+private preview publication/readback, then approval-bound real Claude structured artifact/runtime/routes/UI and actual node->snapshot->agent->artifact->verification roundtrip. Do not accept exit0/reports alone.",
-    "Integration still555d583 production bytes with95PASS/1LIVEskip and75panelPASS from historical same frontend. Preview8780 HTTP/build hash unchanged; no assets/backend/DB writes this iteration. Phase1 incomplete; phase2 eleven photos available, not started."
+    "FIRST collect project-tree-review no-tools Opus exact8393b04. Candidate full101=100PASS/1LIVEskip source hashes independently matched committed blobs. Do not merge yet: strict TDD handoff only baseline-all5 RED; require fresh sequential single-behavior reauthor if no exception, incorporate reviewer defects. Preserve original candidate/history/evidence. Project ports8742/8769/8771 released after completion tree inactive.",
+    "Collect oracle-isolated-rebuild and artifact-prewire-vertical before dispatching duplicates. At this checkpoint their focused gates exist but full suites are still in progress; never treat truncated logs/placeholders as PASS. Oracle containers ledger E/oracle-isolated-rebuild/containers.jsonl must be reconciled against exact names/IDs after process tree inactive, including deadline.",
+    "Both backend candidates need independent final Claude review after final commits, tests, process quiescence. No runtime/UI general coding acceptance yet; do not accept exit0 report alone.",
+    "Keep max4 exclusive bounded lanes, no shared port runner. Integrate only reviewed/TDD-accepted candidates then full gates/private publication/browser readback.",
+    "Phase1 remains incomplete. Phase2 eleven photos received, not started. Integration/frontend/preview data unchanged this iteration."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -989,6 +827,28 @@
       "resultIsError": false,
       "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\behavioral-oracle-review",
       "quotaError": false
+    },
+    "project-tree-completion": {
+      "modelAlias": "opus",
+      "sessionId": "8d8c9bfd-9350-4ceb-be2a-74de5c1819ef",
+      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "running": false,
+      "pid": 41448,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 285.1358018000028,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "descendantsInactive": true,
+      "pidReuse": [],
+      "commit": "8393b04d76bb83f969ad7f2f9b77e200b5119e4e",
+      "status": "candidate_100PASS_1LIVEskip_needs_independent_review_and_strict_vertical_TDD_acceptance",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-actions\\19-completion-full.meta.json"
     }
   },
   "providerQuotaObservation": {
@@ -1666,6 +1526,31 @@
         "Module RED was collection ImportError; no verified per-behavior RED->GREEN sequence",
         "Agent said22 containers; coordinator ledger dedupe proves33 names, all absent"
       ]
+    },
+    "project-tree-actions": {
+      "commit": "8393b04d76bb83f969ad7f2f9b77e200b5119e4e",
+      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "fullUi": {
+        "passed": 100,
+        "skipped": 1,
+        "failed": 0,
+        "total": 101,
+        "exitCode": 0,
+        "seconds": 87.2,
+        "raw": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-tree-actions\\19-completion-full.raw.log",
+        "rawSha256": "d532af88327b7bf02d1e9a25eac0709a5bcb4842b1bfa066d33da2228e31bf99",
+        "committedHashesVerified": {
+          "src/SourceExplorer.tsx": "c944915b59b901a45aae09f39943bbbdd4152e49a0cdf6d0406db7ee5ce1aefb",
+          "src/ProjectWorkspace.tsx": "6c98f4c92be644336fa106ff68071cf90e397d3a0f8fc0df44ee6d30c219c647",
+          "src/project-tree-actions.css": "ce33ca9f10678a0a361fba5fa252f1f954744a9b7fd934064b4fdba1060058f9",
+          "e2e/project-tree-actions.spec.ts": "6332d16d447c4752ad69905cef4364ac19585337c256d478d36f9dc5b67d2bac",
+          "playwright.project-tree-actions.config.ts": "083a5cf3f412a2f9b139aa5c65fb5d65f2c986f9c48638890a2ebe4be6ff5148"
+        }
+      },
+      "focusedPassed": 5,
+      "typecheckExitCode": 0,
+      "status": "NOT_INTEGRATED; code review running; handoff explicitly discloses baseline-all5 RED rather than newly authored per-slice RED. Do not call strict TDD complete.",
+      "handoff": "C:\\Users\\Admin\\opora-v3-project-tree\\.opora\\workunits\\WU-DESKTOP-V3\\project-tree-actions-HANDOFF.md"
     }
   },
   "codingReadiness": {
