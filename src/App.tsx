@@ -433,6 +433,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} renderLLM={(_snapshot, dirty) => <><PlanPanel key={project + ":plan"} project={project} dirty={dirty} /><CodingPanel key={project + ":coding"} project={project} dirty={dirty} /></>} />
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
   </>;
+  const artifactMapOpen = mode === "map" && !editorDocumentOpen;
   const inspectorTools =
     mode === "map" ? (
       null
@@ -512,18 +513,18 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         {/* Se skrytým inspektorem zůstávají nástroje kreslení a mapy dosažitelné v liště. */}
         {!inspectorOpen && !editorDocumentOpen && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
         <span className="v3-grow" />
-        <div className="v3-tool-group" role="group" aria-label="Panely">
+        {!artifactMapOpen && <><div className="v3-tool-group" role="group" aria-label="Panely">
           <button aria-pressed={showContext} onClick={() => setShowContext((shown) => !shown)}>Kontext</button>
           <button aria-pressed={inspectorOpen} title="Skrýt nebo zobrazit pravý inspektor" onClick={toggleInspector}>Inspektor</button>
         </div>
         <button className="primary v3-materials" onClick={() => { setWorkbenchPane("packet"); setWorkbenchOpen(true); }}>Podklady pro agenta</button>
-        <button className="v3-quiet" title="Pokročilé: kontextový paket, LLM návrh, Coding, dokumentační úkol" onClick={() => setWorkbenchOpen(true)}>AI nástroje</button>
+        <button className="v3-quiet" title="Pokročilé: kontextový paket, LLM návrh, Coding, dokumentační úkol" onClick={() => setWorkbenchOpen(true)}>AI nástroje</button></>}
       </div>}
       <div className={"workspace-shell " + mode + "-mode" + ((mode === "agents" || mode === "map") ? " no-inspector" : "") + (!showContext ? " no-context" : "") + (!inspectorOpen ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
-        {environment === "editor" && showContext && <ContextShelf project={project} workspace={workspace} value={selection.value} onChange={selection.change} onAdd={selection.add}
+        {environment === "editor" && showContext && !artifactMapOpen && <ContextShelf project={project} workspace={workspace} value={selection.value} onChange={selection.change} onAdd={selection.add}
           onOpen={(path) => { selection.change({ sourcePath: path }); setEditorDocumentOpen(true); }} />}
         <main className="canvas-area">
-          <div className="content-head">
+          {!artifactMapOpen && <div className="content-head">
             <nav aria-label="Cesta plátnem" className="crumbs">
               <button type="button" onClick={() => enter(null)}>Projekt</button>
               {ancestors.map((n) => (
@@ -535,11 +536,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
             </nav>
             {mode === "structure" && outsideLinks > 0 && (
               <button type="button" className="quiet" onClick={() => setMode("map")}>
-                Vazby mimo vrstvu: {outsideLinks}
+                Mapa architektury projektu
               </button>
             )}
 
-          </div>
+          </div>}
           <div className="canvas-surface">
             {environment === "editor" && editorDocumentOpen ? <WorkspaceDocumentEditor key={JSON.stringify([project, workspace, selection.value.sourcePath])} project={project} workspace={workspace} path={selection.value.sourcePath} /> : view ? (
               mode === "text" ? (
@@ -682,16 +683,16 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
               </div>
             )}
           </div>
-          <footer className="statusline">
+          {!artifactMapOpen && <footer className="statusline">
             <span>
               {visible.length} uzlů v této vrstvě · {graph.nodes.length} v grafu
             </span>
             <span>
               {view?.readOnly ? "SCHVÁLENÁ VĚTEV · POUZE ČTENÍ" : "NÁVRH / PRACOVNÍ ZMĚNY"} · Agent se automaticky nespouští
             </span>
-          </footer>
+          </footer>}
         </main>
-        {mode !== "agents" && !editorDocumentOpen && inspectorOpen && (
+        {mode !== "agents" && !artifactMapOpen && !editorDocumentOpen && inspectorOpen && (
           <aside className="inspector" aria-label="Inspektor">
             {showNode && node ? (<>
               <NodePanel

@@ -18,6 +18,8 @@ test('Mapa přímo zobrazí hotové HTML, nikoli vlastní renderer nebo graf',as
   await page.goto('/?screen=canvas&project=draft&workspace=draft&mode=map&environment=editor');
   const iframe=page.locator('iframe[title="Archify — mapa projektu"]');
   await expect(iframe).toBeVisible();
+  await expect(page.getByRole('complementary',{name:'Inspektor',exact:true})).toHaveCount(0);
+  await expect(page.locator('.statusline')).toHaveCount(0);
   await expect(iframe).toHaveAttribute('sandbox','allow-scripts allow-downloads');
   await expect(page.getByRole('button',{name:'Vykreslit JSON',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Editovat mapu',exact:true})).toHaveCount(0);
