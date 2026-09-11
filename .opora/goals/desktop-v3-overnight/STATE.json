@@ -1,29 +1,73 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 1,
+  "revision": 3,
   "status": "running",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
   "integrationWorktree": "C:/Users/Admin/opora-v3",
   "activeLane": {
-    "name": "inspector-style",
-    "worktree": "C:/Users/Admin/opora-v3-inspector",
-    "branch": "fix/v3-inspector-css-boundary",
-    "spec": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/inspector-style-spec.json",
-    "processHandle": "proc_fe3f7116aa20",
-    "ownedPaths": ["src/style.css", "src/drawing.css", "e2e/inspector-style-boundary.spec.ts", ".opora/workunits/WU-DESKTOP-V3/inspector-style-HANDOFF.md"],
-    "reservedTestPorts": [8742, 8769, 8771]
+    "name": "full-regression",
+    "role": "verification-only",
+    "worktree": "C:/Users/Admin/opora-v3",
+    "branch": "integration/desktop-v3",
+    "spec": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/full-regression-spec.json",
+    "processHandle": "proc_138f5ffacdbd",
+    "ownedPaths": ["generated test evidence only; no source writes", "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/full-regression/"],
+    "reservedTestPorts": [8742,8769,8771,8782]
   },
-  "userReportedClaudeQuota": {"usedPercent": 75, "observedAt": "2026-09-11T01:50:22.523168+02:00", "estimatedResetAt": "2026-09-11T02:43:22.523168+02:00", "independentlyVerified": false},
+  "activeLanes": [
+    {
+      "name": "full-regression",
+      "role": "verification-only",
+      "worktree": "C:/Users/Admin/opora-v3",
+      "branch": "integration/desktop-v3",
+      "spec": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/full-regression-spec.json",
+      "processHandle": "proc_138f5ffacdbd",
+      "ownedPaths": ["generated test evidence only; no source writes", "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/full-regression/"],
+      "reservedTestPorts": [8742,8769,8771,8782]
+    },
+    {
+      "name": "component-inventory",
+      "role": "audit",
+      "worktree": "C:/Users/Admin/opora-v3-inventory",
+      "branch": "audit/v3-component-inventory",
+      "spec": "C:/Users/Admin/AppData/Local/hermes/handoffs/canvas-orchestration/desktop-v3/component-inventory-spec.json",
+      "processHandle": "proc_0a299ddf51f7",
+      "ownedPaths": [".opora/workunits/WU-DESKTOP-V3/component-inventory.json", ".opora/workunits/WU-DESKTOP-V3/COMPONENT-INVENTORY.md", ".opora/workunits/WU-DESKTOP-V3/inventory-HANDOFF.md"],
+      "reservedTestPorts": []
+    }
+  ],
+  "inspectorCandidate": {
+    "commit": "760428a4caab390c0ffd76b534f64dc2e6f23f96",
+    "mergeCommit": "f7862a9",
+    "navigationCommit": "81a498628ce39ed055a90adb4df231b17008ef60",
+    "pidExists": false,
+    "localTreeInactive": true,
+    "review": "E/inspector-review/result.json: passed=true, no blocking findings; completed and PID57448 absent",
+    "integrationStatus": "merged, targeted7PASS, published8780, browser verified light/dark Wireframe off/on/off",
+    "previewEvidence": "E/inspector-preview-verification.json"
+  },
+  "backgroundNotifications": "notify_on_complete requested but unsupported in cron runtime. Bounded jobs persist; next monitor iteration must read E/*/state.json, result.json, report and live PIDs. Do not wait to cron timeout.",
+  "userReportedClaudeQuota": {"usedPercent":75,"observedAt":"2026-09-11T01:50:22.523168+02:00","estimatedResetAt":"2026-09-11T02:43:22.523168+02:00","independentlyVerified":false},
   "quotaResumeAt": null,
-  "phase2": {"status": "missing_source", "photos": [], "originalRequest": null},
-  "lastVerified": {"backendPassed": 314, "backendSkipped": 4, "ruff": "pass", "typecheck": "pass", "build": "pass", "v3PanelTestsPassed": 28, "fullUi": "RED: 81 passed, 1 skipped; legacy Live Run navigation assertions need new explicit Dohled behu path", "preview": "8780: exact snapshot/export and two real proposal outputs verified; zero model starts"},
+  "phase2": {"status":"BLOCKED_MISSING_SOURCE","photos":[],"originalRequest":null},
+  "lastVerified": {
+    "backendPassed":314,
+    "backendSkipped":4,
+    "backendEvidenceAge":"prior baseline; full-regression rerun in progress",
+    "ruff":"prior pass; rerun in progress",
+    "typecheck":"pass at integrated inspector fix",
+    "build":"pass; existing >500kB chunk warning remains",
+    "v3PanelTestsPassed":28,
+    "fullUi":"IN_PROGRESS full-regression; last full set not GREEN. New targeted inspector+v2-ui-review:7PASS.",
+    "preview":"8780 exact served index matches build sha256893aa30f72af85aba9992fe4adde99bbc5c2444136efd1aecad29508211e5dce; browser native swatches square17.546875px, range4px, light/dark off/on/off, no page errors/API writes/model starts; screenshots visually inspected."
+  },
   "nextActions": [
-    "Collect inspector-style Claude lane result; verify inactivity before adopting work; require RED/GREEN and screenshot native palette/slider fix.",
-    "Review and test all updated legacy Live Run navigation tests, including uncommitted e2e/v2-ui-review.spec.ts in integration. Agent commit5624187 is already merged as a3832dc.",
-    "Merge verified inspector repair into integration, publish preview, exact browser verification.",
-    "Build complete original Desktop v3 component/interactions inventory and implement missing real functionality in bounded parallel Claude lanes.",
-    "Full acceptance and independent review; only then discover and execute photo-backed phase2."
+    "Read GOAL/STATE/CHECKPOINT and both active lane registries; verify localTreeInactive and PID descendants before integration/source edits or new test runner.",
+    "Collect full-regression completed raw test logs/report; resolve actual failures through TDD without weakening tests; do not claim full GREEN from targeted7PASS.",
+    "Collect component-inventory commit and reconcile programmatic binding coverage against full original684-line HTML. Independently review inventory; use exact highest priority missing items to launch bounded nonconflicting implementation lanes.",
+    "Preserve all generated PNG evidence and preview data. No app/backend changes were made beyond CSS; original P: worktree/main/ports8768 and8740 untouched.",
+    "Complete phase1 acceptance; only then proceed to source-backed phase2. Missing photos remain BLOCKED_MISSING_SOURCE."
   ]
 }
