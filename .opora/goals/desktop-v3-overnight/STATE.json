@@ -1,88 +1,13 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 6,
-  "status": "running",
+  "revision": 7,
+  "status": "waiting_quota",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
   "integrationWorktree": "C:/Users/Admin/opora-v3",
-  "activeLane": {
-    "name": "shared-regression-after-review",
-    "role": "verification-only",
-    "worktree": "C:\\Users\\Admin\\opora-v3",
-    "branch": "integration/desktop-v3",
-    "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review-spec.json",
-    "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review\\state.json",
-    "processHandle": "proc_c4c76019c56b",
-    "ownedPaths": [
-      "generated test evidence only; NO SOURCE OR DIST WRITES",
-      "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review"
-    ],
-    "reservedTestPorts": [
-      8742,
-      8769,
-      8771
-    ],
-    "observedAt": "2026-09-11T02:37:03.135806+02:00",
-    "running": false,
-    "localTreeInactive": true,
-    "pid": 65276,
-    "pidExists": false,
-    "descendants": [],
-    "subtype": "success"
-  },
-  "activeLanes": [
-    {
-      "name": "shared-regression-after-review",
-      "role": "verification-only",
-      "worktree": "C:\\Users\\Admin\\opora-v3",
-      "branch": "integration/desktop-v3",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review\\state.json",
-      "processHandle": "proc_c4c76019c56b",
-      "ownedPaths": [
-        "generated test evidence only; NO SOURCE OR DIST WRITES",
-        "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\shared-regression-after-review"
-      ],
-      "reservedTestPorts": [
-        8742,
-        8769,
-        8771
-      ],
-      "observedAt": "2026-09-11T02:37:03.135806+02:00",
-      "running": false,
-      "localTreeInactive": true,
-      "pid": 65276,
-      "pidExists": false,
-      "descendants": [],
-      "subtype": "success"
-    },
-    {
-      "name": "workflow-drafts-race-fix",
-      "role": "implementation",
-      "worktree": "C:\\Users\\Admin\\opora-v3-workflow-drafts",
-      "branch": "fix/v3-workflow-draft-preservation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-race-fix-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-race-fix\\state.json",
-      "processHandle": null,
-      "ownedPaths": [
-        "src/desktop-v3/NodeWorkflowPanel.tsx",
-        "src/desktop-v3/ProjectMemoryPanel.tsx",
-        "e2e-v3-panels/workflow-draft-preservation.spec.ts",
-        "own handoff"
-      ],
-      "reservedTestPorts": [
-        8794
-      ],
-      "observedAt": "2026-09-11T02:37:03.135806+02:00",
-      "running": false,
-      "localTreeInactive": true,
-      "pid": 33312,
-      "pidExists": false,
-      "descendants": [],
-      "subtype": "success"
-    }
-  ],
+  "activeLane": null,
+  "activeLanes": [],
   "inspectorCandidate": {
     "commit": "760428a4caab390c0ffd76b534f64dc2e6f23f96",
     "mergeCommit": "f7862a9",
@@ -100,7 +25,7 @@
     "estimatedResetAt": "2026-09-11T02:43:22.523168+02:00",
     "independentlyVerified": false
   },
-  "quotaResumeAt": null,
+  "quotaResumeAt": "2026-09-11T02:40:00+02:00",
   "phase2": {
     "status": "sources_received_awaiting_phase1",
     "originalRequest": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\phase2-user-references\\USER-BRIEF.md",
@@ -192,10 +117,27 @@
     "backendSkipped": 4,
     "backendEvidenceAge": "fresh completed full-regression/pytest.log EXIT_CODE=0, 142.41s",
     "ruff": "full-regression/ruff.log PASS EXIT_CODE=0",
-    "typecheck": "coordinator tsc exit0 at merged export+inspector production baseline3588085",
+    "typecheck": "coordinator tsc exit0 after full95 shared UI suite",
     "build": "coordinator Vite exit0; existing >500kB chunk warning remains",
     "v3PanelTestsPassed": 28,
-    "fullUi": "IN_PROGRESS E/shared-regression-after-review, all95 tests shared order. Previous92PASS/2FAIL/1skip not yet replaced.",
+    "fullUi": {
+      "source": "coordinator recovered completed raw log after Claude quota denial",
+      "verifiedAt": "2026-09-11T02:39:28.570643+02:00",
+      "exactSHA": "3588085375dde54b213fbb396f2df29047fe82ec",
+      "command": "node node_modules/@playwright/test/cli.js test -c playwright.clean-editor.config.ts",
+      "exitCode": 0,
+      "passed": 94,
+      "skipped": 1,
+      "failed": 0,
+      "total": 95,
+      "skip": "LIVE UI -> Hermes -> isolated repo -> independent Docker tests (not enabled)",
+      "scope": "all clean-editor projects legacy/document/clean-source, workers1",
+      "inspectorAfterDrawing": true,
+      "tsc": "coordinator re-ran node node_modules/typescript/bin/tsc --noEmit exit0 after CLI quota",
+      "diffCheck": "coordinator git diff --check exit0",
+      "laneOutcome": "quota denied final synthesis; report produced by coordinator, not Claude",
+      "previewUnaffected": true
+    },
     "preview": {
       "origin": "http://127.0.0.1:8780",
       "indexSha256": "614ad8fa45c41c39d691f4d41437891d549707b8c3a10b07d5df813e52f2cd83",
@@ -223,14 +165,16 @@
       "inspectorSmoke": "light/dark OFF->ON->OFF passed, square swatches, range4px, no overflow/errors/writes; dark OFF screenshot visually inspected",
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
-      "previewData": "preserved; added one clearly marked prepared QA task and immutable snapshot, no model start"
+      "previewData": "preserved; added one clearly marked prepared QA task and immutable snapshot, no model start",
+      "finalHttpReadbackAt": "2026-09-11T02:39:28.570643+02:00"
     },
     "backendWarnings": 2,
     "exportScopeTestsPassed": 38
   },
   "nextActions": [
     "FIRST read GOAL/STATE/CHECKPOINT, four-claude-authorization and every live registry/spec. Parent continues dispatching; never duplicate ownership. Max4 total.",
-    "Collect shared-regression-after-review completed logs/report. No source edits in integration until finished; NO destructive clean-editor-dist rebuild (also used by preview8780). Require localTreeInactive and PID/descendant proof. Full GREEN not yet claimed.",
+    "Provider explicitly denied quota until2026-09-11T02:40:00+02:00. No new CLI before reset. After reset read parent reservations/current registry and resume preserved workflow-race work once, bounded; no provider/billing fallback.",
+    "Full clean-editor regression finished:94PASS/1LIVEskip/0FAIL, raw EXIT_CODE=0 at3588085; coordinator report recovered after quota denied synthesis. No need to rerun identical unchanged suite merely because CLI errored; new source edits require relevant regressions.",
     "Collect workflow-drafts-race-fix exact commit + behavioral RED/GREEN; require independent re-review before merge. Original2de3c4e BLOCKED data-loss race. Preserve all dirty evidence.",
     "Follow up export fixture parity: real backend shape in e2e-v3-panels/fixture-plugin.ts plus successful unmocked fixture export test. Also assess same-run response order, legacy TaskHandoffPanel scope and overbroad asserted types. Export validation preserves object, not original wire JSON bytes.",
     "Use accepted125-row inventory to implement actual missing phase1 functions. Priority docs->approved immutable snapshot->bounded real coding agent->artifact/tests->origin node+Live readback. Inspect supported runtime and enforce permissions; --add-dir and tool allowlists are NOT OS sandbox, missing-module import failure is NOT sufficient behavioral RED.",
@@ -262,33 +206,46 @@
       "localTreeInactive": true,
       "pidExists": false,
       "next": "parent already dispatched inspector-suite-recovery Opus; do not duplicate"
+    },
+    "shared-regression-after-review": {
+      "localTreeInactive": true,
+      "pidExists": false,
+      "resultIsError": true,
+      "resultSubtype": "success",
+      "wrapperExitCode": 1,
+      "reason": "provider_session_limit",
+      "partialPreserved": true
+    },
+    "workflow-drafts-race-fix": {
+      "localTreeInactive": true,
+      "pidExists": false,
+      "resultIsError": true,
+      "resultSubtype": "success",
+      "wrapperExitCode": 1,
+      "reason": "provider_session_limit",
+      "partialPreserved": true
     }
   },
   "providerQuotaObservation": {
-    "source": "component-inventory/events.jsonl last rate_limit_event (historical at inventory completion)",
-    "observedAt": "2026-09-11T02:20:14.065482+02:00",
-    "info": {
-      "status": "allowed",
-      "resetsAt": 1789087200,
-      "rateLimitType": "five_hour",
-      "overageStatus": "rejected",
-      "overageDisabledReason": "org_level_disabled",
-      "isUsingOverage": false,
-      "unifiedWindows": {
-        "five_hour": {
-          "utilization": 0.83,
-          "resetsAt": 1789087200
-        },
-        "seven_day": {
-          "utilization": 0.65,
-          "resetsAt": 1789102800
-        }
-      }
-    },
-    "resetLocal": "2026-09-11T02:40:00+02:00",
-    "note": "Provider event status allowed; not current exact usage. Overage rejected/disabled is not main quota exhausted; isUsingOverage=false. OAuth/Max retained."
+    "status": "provider_session_limit_observed",
+    "source": "workflow-drafts-race-fix/result.json",
+    "observedAt": "2026-09-11T02:35:14.680420+02:00",
+    "resumeAt": "2026-09-11T02:40:00+02:00",
+    "providerMessage": "You've hit your session limit · resets 2:40am (Europe/Prague)",
+    "cliExitCode": 1,
+    "resultIsError": true,
+    "resultSubtype": "success",
+    "percentUsed": null,
+    "rule": "is_error=true and provider limit message override subtype=success. Do not mark task complete. No retry before resumeAt, no API billing fallback. After reset retry one bounded useful continuation from preserved tree; on repeated provider refusal use actual new reset time.",
+    "worktree": "C:/Users/Admin/opora-v3-workflow-drafts",
+    "partialPaths": [
+      "src/desktop-v3/NodeWorkflowPanel.tsx"
+    ],
+    "lastCommit": "2de3c4e",
+    "mergeBlocked": true,
+    "nextAction": "After reset, finish regression tests and race correction on same exclusive worktree, independently re-review, only then integrate. Current partial edit is not tested/accepted."
   },
-  "reconciledAt": "2026-09-11T02:37:03.135806+02:00",
+  "reconciledAt": "2026-09-11T02:39:28.570643+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -315,7 +272,7 @@
           "evidence/inspector-style-boundary-{1280,1440}.png are untracked test outputs. Either commit them deliberately as evidence or add the path to .gitignore so they don't drift in the worktree."
         ]
       },
-      "status": "merged; full shared-order regression running"
+      "status": "merged and full shared order verified:94PASS/1explicitLIVEskip/0FAIL; inspector both widths after drawing predecessor PASS"
     },
     "export-scope": {
       "commit": "9d5f94b2bdc978542211e4f68e94d4b9db8537b5",
@@ -402,5 +359,28 @@
       "fixLane": "workflow-drafts-race-fix",
       "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-review\\result.json"
     }
-  }
+  },
+  "pendingLanes": [
+    {
+      "name": "workflow-drafts-race-fix",
+      "worktree": "C:/Users/Admin/opora-v3-workflow-drafts",
+      "branch": "fix/v3-workflow-draft-preservation",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-race-fix-spec.json",
+      "reservedTestPorts": [
+        8794
+      ],
+      "ownedPaths": [
+        "src/desktop-v3/NodeWorkflowPanel.tsx",
+        "src/desktop-v3/ProjectMemoryPanel.tsx",
+        "e2e-v3-panels/workflow-draft-preservation.spec.ts",
+        "own handoff"
+      ],
+      "status": "quota_partial_preserved_not_accepted",
+      "lastCommit": "2de3c4e",
+      "dirtyPaths": [
+        "src/desktop-v3/NodeWorkflowPanel.tsx"
+      ],
+      "resumeAfter": "2026-09-11T02:40:00+02:00"
+    }
+  ]
 }
