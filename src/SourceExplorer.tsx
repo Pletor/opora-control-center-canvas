@@ -5,7 +5,9 @@ import { SOURCE_DRAG_TYPE } from "./workspace-selection";
 type Entry = { name: string; path: string; kind: "directory" | "file" | "link"; blocked: boolean };
 type TreePage = { root: string | null; entries: Entry[]; total: number; hasMore: boolean; nextOffset: number | null; available: boolean; observedAt: string | null; hiddenCount?: number };
 
-export default function SourceExplorer({ project, workspace, selected, onSelect, search, refresh, basePath = "", rootLabel = "Podstata a architektura", directoriesOnly = false, rootOnly = false }: {
+const KNOWN_FOLDERS = ["src", "backend", "tests"];
+
+export default function SourceExplorer({ project, workspace, selected, onSelect, search, refresh, basePath = "", rootLabel = "Podstata a architektura", directoriesOnly = false, rootOnly = false, expandKnown = 0, collapseAll = 0 }: {
   project: string; workspace: string; selected: string; onSelect: (path: string, kind: "directory" | "file" | "root") => void; search: string; refresh: number;
   /** Zúží strom na podadresář (např. adresář sektoru); cesty jsou stále vůči kořeni projektu. */
   basePath?: string;
@@ -14,6 +16,10 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
   directoriesOnly?: boolean;
   /** Nabídne jen složky přímo v zadaném kořeni, bez vnořeného výběru. */
   rootOnly?: boolean;
+  /** Počítadlo požadavků z nástrojů Projektu: rozbalí jen skutečně načtené přímé podsložky src/backend/tests. */
+  expandKnown?: number;
+  /** Počítadlo požadavků „Sbalit vše“: zavře složky, načtené stránky zůstávají v paměti. */
+  collapseAll?: number;
 }) {
   const [pages, setPages] = useState<Record<string, TreePage>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -35,6 +41,16 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
     generation.current++; setPages({}); setExpanded(new Set()); setPending(new Set()); load(basePath);
     return () => { generation.current++; };
   }, [project, workspace, refresh, basePath, showAll]);
+  useEffect(() => {
+    // Žádné rekurzivní procházení disku ani vymyšlené složky: jen položky už vrácené serverem pro kořen.
+    if (!expandKnown || rootOnly) return;
+    const known = (pages[basePath]?.entries ?? []).filter((entry) => entry.kind === "directory" && !entry.blocked && KNOWN_FOLDERS.includes(entry.name));
+    if (!known.length) return;
+    setExpanded((old) => new Set([...old, ...known.map((entry) => entry.path)]));
+    for (const entry of known) if (!Object.hasOwn(pages, entry.path) && !pending.has(entry.path)) load(entry.path);
+  }, [expandKnown]);
+  // Pozdní odpověď load() mění jen pages/pending, nikdy expanded, takže sbalenou složku znovu neotevře.
+  useEffect(() => { if (collapseAll) setExpanded(new Set()); }, [collapseAll]);
   function toggle(entry: Entry) {
     const opening = !expanded.has(entry.path);
     setExpanded((old) => { const next = new Set(old); if (opening) next.add(entry.path); else next.delete(entry.path); return next; });

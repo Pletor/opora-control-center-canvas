@@ -11,6 +11,8 @@ export default function ProjectWorkspace({ project, workspace, selection, onChan
 }) {
   const [search, setSearch] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const [expandKnown, setExpandKnown] = useState(0);
+  const [collapseAll, setCollapseAll] = useState(0);
   const [message, setMessage] = useState("");
   const [view, setView] = useState<"document" | "memory">("document");
   const showMemory = !!memory && view === "memory";
@@ -20,6 +22,8 @@ export default function ProjectWorkspace({ project, workspace, selection, onChan
         <span className="v3-tool-label">Strom</span>
         <input aria-label="Hledat v načteném stromu" placeholder="Hledat v načteném stromu…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <button onClick={() => setRefresh((value) => value + 1)}>Obnovit strom</button>
+        <button title="Rozbalí jen načtené složky src, backend a tests v kořeni projektu" onClick={() => setExpandKnown((value) => value + 1)}>Rozbalit src, backend, tests</button>
+        <button title="Sbalí všechny složky; načtený obsah ani soubory na disku se nemažou" onClick={() => setCollapseAll((value) => value + 1)}>Sbalit vše</button>
       </div>
       <div className="v3-tool-group" role="group" aria-label="Dokumentace">
         <span className="v3-tool-label">Dokumentace</span>
@@ -35,7 +39,7 @@ export default function ProjectWorkspace({ project, workspace, selection, onChan
     </div>
     <div className="project-columns">
       <SourceExplorer key={JSON.stringify([project, workspace])} project={project} workspace={workspace} selected={selection.sourcePath}
-        onSelect={(path) => onChange({ sourcePath: path })} search={search} refresh={refresh} />
+        onSelect={(path) => onChange({ sourcePath: path })} search={search} refresh={refresh} expandKnown={expandKnown} collapseAll={collapseAll} />
       <div className="document-area">
         {showMemory ? <div className="v3-slot v3-project-memory">{memory}</div>
           : <WorkspaceDocumentEditor key={JSON.stringify([project, workspace, selection.sourcePath])} project={project} workspace={workspace} path={selection.sourcePath} />}
