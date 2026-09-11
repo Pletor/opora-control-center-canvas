@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 25,
+  "revision": 26,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -10,62 +10,87 @@
   "activeLanes": [
     {
       "modelAlias": "opus",
-      "sessionId": "922fea10-2b84-48a9-969b-f8e413b9333c",
-      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "sessionId": "35776975-3a64-4a72-b088-240a20d08973",
+      "worktree": "C:/Users/Admin/opora-v3-project-tree",
       "running": true,
-      "pid": 51692,
-      "name": "project-search-actions",
-      "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-search-actions-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-search-actions\\state.json",
-      "processHandle": "proc_cc8af5198462",
-      "ownedPaths": [
-        "src/ProjectWorkspace.tsx",
-        "e2e/project-search-actions.spec.ts",
-        "playwright.project-search-actions.config.ts",
-        ".opora/workunits/WU-DESKTOP-V3/project-search-HANDOFF.md"
-      ],
-      "reservedTestPorts": [
-        8742,
-        8769,
-        8771
-      ],
-      "observedAt": "2026-09-11T10:05:25.996093+02:00",
+      "pid": 58612,
+      "name": "project-search-review",
+      "role": "review",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-search-review\\state.json",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-search-review-spec.json",
+      "processHandle": "proc_892b0f63985e",
+      "ownedPaths": [],
+      "reservedTestPorts": [],
+      "observedAt": "2026-09-11T10:15:49.473052+02:00",
       "pidExists": true,
-      "createTime": 1789113300.9188573,
+      "createTime": 1789114459.292566,
       "descendants": [
         {
-          "pid": 40272,
-          "createTime": 1789113300.925578,
+          "pid": 61476,
+          "createTime": 1789114459.2980423,
           "name": "conhost.exe"
         }
       ]
     },
     {
-      "modelAlias": "opus",
-      "sessionId": "9728650c-216e-4c97-b423-eb7461077c37",
-      "worktree": "C:\\Users\\Admin\\opora-v3-behavioral-oracle",
-      "running": true,
-      "pid": 41700,
-      "name": "oracle-positive-completion",
-      "role": "implementation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-positive-completion-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-positive-completion\\state.json",
-      "processHandle": "proc_6f771a3c6931",
-      "ownedPaths": [
-        "backend/coding_behavioral_oracle.py",
-        "tests/test_coding_behavioral_oracle.py",
-        ".opora/workunits/WU-DESKTOP-V3/behavioral-oracle-HANDOFF.md"
+      "worktree": "C:/Users/Admin/opora-v3-behavioral-oracle",
+      "sha": "1ba94628ca3562a731f5b360efe008389628c07f",
+      "hashes": {
+        "backend/coding_behavioral_oracle.py": "f1775571824ea440f1b0694749a8f010be3514508bff849109a166c1af722261",
+        "tests/test_coding_behavioral_oracle.py": "fd969df8d842248af2f2dc89243c4e1ee8a186d073a7ea5bb8db29c23c6128d4"
+      },
+      "gates": [
+        {
+          "name": "full-pytest",
+          "command": [
+            "uv",
+            "run",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider"
+          ],
+          "startedAt": "2026-09-11T08:14:07.031315+00:00",
+          "pid": 63408
+        }
       ],
+      "running": true,
+      "role": "verification",
+      "pid": 61896,
+      "name": "oracle-positive-regression",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-positive-regression\\state.json",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\verify-oracle-positive.py",
+      "processHandle": "proc_dc70c35c0790",
+      "ownedPaths": [],
       "reservedTestPorts": [],
-      "observedAt": "2026-09-11T10:05:25.996093+02:00",
+      "observedAt": "2026-09-11T10:15:49.473052+02:00",
       "pidExists": true,
-      "createTime": 1789113876.1774209,
+      "createTime": 1789114446.685135,
       "descendants": [
         {
-          "pid": 47720,
-          "createTime": 1789113876.1850202,
+          "pid": 63408,
+          "createTime": 1789114447.0335748,
+          "name": "uv.exe"
+        },
+        {
+          "pid": 62000,
+          "createTime": 1789114447.0403247,
           "name": "conhost.exe"
+        },
+        {
+          "pid": 35544,
+          "createTime": 1789114447.0655727,
+          "name": "pytest.exe"
+        },
+        {
+          "pid": 57840,
+          "createTime": 1789114447.07646,
+          "name": "python.exe"
+        },
+        {
+          "pid": 49388,
+          "createTime": 1789114447.0873697,
+          "name": "python.exe"
         }
       ]
     }
@@ -240,7 +265,7 @@
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
       "previewData": "Non-destructive static publication only; DB/backend unchanged; no API writes or model starts in browser smoke.",
-      "finalHttpReadbackAt": "2026-09-11T09:39:42.549327+02:00",
+      "finalHttpReadbackAt": "2026-09-11T10:15:49.473052+02:00",
       "workflowReadback": {
         "publishedPreview": true,
         "networkFaultInjected": true,
@@ -376,10 +401,10 @@
     }
   },
   "nextActions": [
-    "Read project-search-actions and oracle-positive-completion registries, exact PID/session/creation identities, completed raw logs and scoped commits. Never infer old writer active from reused PID.",
-    "oracle-capture-review8440f6c narrow PASS but critical residual unexpected-pump-exception fail-open remains; positive-completion repair running. After candidate, coordinator must run full backend regression before independent review and any acceptance; no Claude waiting-only retry.",
-    "Integrate artifact433ff694 only as narrow reviewed foundation after integration gates; BEFORE runtime eliminate host git over model-writable .git and validate/bind caller handles. Never label exit_evidence_only GREEN/verified.",
-    "Project remaining: clear search and slash focus running; row keyboard,+Editor and empty-expand affordance remain. Phase1 full roundtrip not done; phase2 sources received, wait for phase1."
+    "Read project-search-review result; require genuine verdict and inactive job/exact PID before integration. Candidate df2f8c4 has100PASS/1LIVEskip and matched source hashes; no implementation rewrite needed.",
+    "Read oracle-positive-regression/state.json + completed raw logs; counts/hashes/Docker exact ledger reconciliation, then independent no-tools Claude review of1ba9462. Do not dispatch model just to wait.",
+    "Before wiring oracle resolve partial-input fail-open and typed transport/mandatory ledger gates; artifact433ff694 host-git/model-writable .git and trusted-handle gates remain. No coding runtime acceptance.",
+    "If project approved, integrate into integration/desktop-v3, run integration checks, publish non-destructively and browser readback8780 (clear/slash). Never change preview DB or original P:/8768/8740. Remaining keyboard rows,+Editor,empty-expand affordance still separate. Phase2 waits for phase1."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -1057,6 +1082,18 @@
       "isError": false,
       "resultPath": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-prewire-review\\result.json",
       "reconciledAt": "2026-09-11T10:02:06.194678+02:00"
+    },
+    "project-search-actions": {
+      "status": "deadline660_no_result_coordinator_recovered_completed_logs_and_commit",
+      "localTreeInactive": true,
+      "quotaError": false,
+      "commit": "df2f8c45d59ac66234a9fc9e6578ce7847246757"
+    },
+    "oracle-positive-completion": {
+      "status": "candidate54PASS_full_pending_coordinator",
+      "localTreeInactive": true,
+      "resultIsError": false,
+      "commit": "1ba94628ca3562a731f5b360efe008389628c07f"
     }
   },
   "providerQuotaObservation": {
@@ -1080,7 +1117,7 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T10:05:25.996093+02:00",
+  "reconciledAt": "2026-09-11T10:15:49.473052+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
@@ -2228,6 +2265,39 @@
           "meaning": "different process, not killed"
         }
       }
+    },
+    "project-search-actions": {
+      "commit": "df2f8c45d59ac66234a9fc9e6578ce7847246757",
+      "passed": 100,
+      "skipped": 1,
+      "total": 101,
+      "hashesMatch": true,
+      "coordinatorRecovered": true,
+      "visualCandidateWidths": [
+        1280,
+        1920
+      ],
+      "status": "COORDINATOR_RECOVERED_REVIEW_RUNNING_NOT_INTEGRATED",
+      "worktree": "C:\\Users\\Admin\\opora-v3-project-tree",
+      "reviewLane": "project-search-review",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\project-search-actions"
+    },
+    "oracle-positive-completion": {
+      "commit": "1ba94628ca3562a731f5b360efe008389628c07f",
+      "focusedPassed": 54,
+      "ledgerNames": 52,
+      "remainingOwnedContainers": [],
+      "fullRegression": "running, not PASS",
+      "status": "FULL_REGRESSION_RUNNING_REVIEW_PENDING_NOT_INTEGRATED",
+      "worktree": "C:/Users/Admin/opora-v3-behavioral-oracle",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\oracle-positive-completion",
+      "remainingGates": [
+        "partial stdin delivery fail-open policy",
+        "typed transport errors",
+        "durable runtime ledger/recovery",
+        "isolation policy digest",
+        "runtime and UI roundtrip"
+      ]
     }
   },
   "codingReadiness": {
