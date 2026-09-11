@@ -167,9 +167,15 @@ export function AgentPacketPanel({
     setBusy(true);
     setError("");
     try {
-      const value = await fetchSnapshot(snapshot.id, project, workspace);
+      // Readback is validated (id, digest, project/workspace/node) before it can be reported as verified.
+      const value = await fetchSnapshot({
+        id: snapshot.id,
+        digest: snapshot.digest,
+        project,
+        workspace,
+        nodeId: snapshot.packet.scope.nodeId,
+      });
       if (!mounted.current || ticket !== generation.current) return;
-      if (value.digest !== snapshot.digest) throw new Error("Načtený snímek neodpovídá vytvořenému digestu.");
       setReloadedSnapshot(value);
     } catch (e) {
       if (mounted.current && ticket === generation.current) setError(errorMessage(e));
@@ -417,11 +423,15 @@ export function AgentPacketPanel({
                 const ticket = generation.current;
                 const exportedRun = run;
                 try {
-                  const value = await exportHandoff(exportedRun.id);
+                  // Validated fail-closed against the exact run and this panel's project/workspace.
+                  const value = await exportHandoff({
+                    id: exportedRun.id,
+                    digest: exportedRun.digest,
+                    project,
+                    workspace,
+                    node: exportedRun.scope.node,
+                  });
                   if (!mounted.current || ticket !== generation.current) return;
-                  if (value.id !== exportedRun.id || value.digest !== exportedRun.digest) {
-                    throw new Error("Export neodpovídá běhu.");
-                  }
                   download(`opora-run-${exportedRun.id}.json`, JSON.stringify(value, null, 2), "application/json");
                 } catch (e) {
                   if (mounted.current && ticket === generation.current) setError(errorMessage(e));

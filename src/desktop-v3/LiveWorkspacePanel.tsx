@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react';
 import {api} from '../types';
-import {errorMessage, exportHandoff, fetchPlanningRuns} from './api';
+import {errorMessage, exportHandoff, fetchPlanningRuns, type HandoffExport} from './api';
 import {useDesktopState} from './state-store';
 import {ACTIVE_RUNS, downloadLiveText, fetchLiveRuns, handoffSession, planningSession, type LiveSession} from './live-sessions';
 import {LiveTickets} from './LiveTickets';
@@ -22,7 +22,7 @@ export function LiveWorkspacePanel({project,workspace,nodeId}:{project:string;wo
   const [stopFor,setStopFor]=useState('');
   const [busy,setBusy]=useState(false);
   const [actionError,setActionError]=useState('');
-  const [exactContext,setExactContext]=useState<unknown>(null);
+  const [exactContext,setExactContext]=useState<HandoffExport|null>(null);
   const actionGeneration=useRef(0);
   const readVersion=useRef(0);
   const [sourcePending,setSourcePending]=useState({planning:true,handoff:true});
@@ -84,9 +84,9 @@ export function LiveWorkspacePanel({project,workspace,nodeId}:{project:string;wo
 
   async function readContext(){
     if(!selected?.handoff)return;
-    const run=selected;const generation=actionGeneration.current;setActionError('');
-    try{const value=await exportHandoff(run.id);
-      if(value.id!==run.id||value.digest!==run.digest)throw new Error('Export neodpovídá vybranému běhu.');
+    const run=selected;const handoff=selected.handoff;const generation=actionGeneration.current;setActionError('');setExactContext(null);
+    // Fail-closed: přesný běh i rozsah tohoto panelu; cizí nebo neúplný export se nezobrazí ani nestáhne.
+    try{const value=await exportHandoff({id:run.id,digest:run.digest,project,workspace,node:handoff.scope.node});
       if(generation===actionGeneration.current)setExactContext(value);
     }catch(e){if(generation===actionGeneration.current)setActionError(errorMessage(e));}
   }
