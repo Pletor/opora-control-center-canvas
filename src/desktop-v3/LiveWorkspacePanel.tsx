@@ -75,6 +75,22 @@ export function LiveWorkspacePanel({project,workspace,nodeId}:{project:string;wo
     return text.includes(search.toLocaleLowerCase());
   });
   useEffect(()=>{setStopFor('');setBusy(false);setActionError('');setExactContext(null);actionGeneration.current++;},[selected?.key]);
+  // Klávesy 1–7 přepínají detail běhu (viz hint "1–7 karty detailu"); mimo editovatelná
+  // pole a bez modifikátorů, aby psaní do hledání/ticketů/textarey zůstalo nedotčené.
+  useEffect(()=>{
+    function onKeyDown(e:KeyboardEvent){
+      if(e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||e.isComposing)return;
+      const target=e.target as HTMLElement|null;
+      if(target){
+        const tag=target.tagName;
+        if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||target.isContentEditable)return;
+      }
+      const index=Number(e.key)-1;
+      if(Number.isInteger(index)&&index>=0&&index<tabs.length)setTab(index);
+    }
+    window.addEventListener('keydown',onKeyDown);
+    return()=>window.removeEventListener('keydown',onKeyDown);
+  },[]);
   const decisions=state.decisions.filter(d=>!selected?.nodeId||!d.nodeId||d.nodeId===selected.nodeId);
   const timeline=[...decisions.map(d=>({at:d.createdAt,kind:'Rozhodnutí',text:d.text})),
     ...(selected?.events||[]).filter(e=>e.observedAt).map(e=>({at:e.observedAt!,kind:e.kind,text:'Událost dokumentačního běhu'})),
