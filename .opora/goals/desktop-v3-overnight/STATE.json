@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 4,
+  "revision": 5,
   "status": "running",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -20,7 +20,7 @@
       ".opora/workunits/WU-DESKTOP-V3/inventory-HANDOFF.md"
     ],
     "reservedTestPorts": [],
-    "observedAt": "2026-09-11T02:20:14.065482+02:00",
+    "observedAt": "2026-09-11T02:22:21.869779+02:00",
     "pid": 4216,
     "pidExists": true,
     "descendants": [
@@ -48,38 +48,11 @@
       "reservedTestPorts": [
         8793
       ],
-      "observedAt": "2026-09-11T02:20:14.065482+02:00",
+      "observedAt": "2026-09-11T02:22:21.869779+02:00",
       "pid": 5872,
       "pidExists": true,
       "descendants": [
-        63408,
-        63376,
-        62252,
-        57484,
-        57248,
-        56472,
-        65200,
-        57492,
-        65240,
-        60400,
-        65772,
-        32652,
-        62012,
-        28036,
-        62112,
-        54436,
-        37828,
-        61008,
-        32340,
-        33916,
-        58640,
-        62656,
-        10912,
-        59376,
-        55048,
-        65528,
-        59656,
-        51776
+        63408
       ],
       "running": true,
       "localTreeInactive": null
@@ -101,45 +74,22 @@
       "reservedTestPorts": [
         8794
       ],
-      "observedAt": "2026-09-11T02:20:14.065482+02:00",
+      "observedAt": "2026-09-11T02:22:21.869779+02:00",
       "pid": 41996,
-      "pidExists": true,
-      "descendants": [
-        36152,
-        63604,
-        63820,
-        15232,
-        43852,
-        33440,
-        1664,
-        8496,
-        65368,
-        22100,
-        59916,
-        32412,
-        54924,
-        26900,
-        45552,
-        60724,
-        64912,
-        64280,
-        59940,
-        54852,
-        61492,
-        46592,
-        56608
-      ],
-      "running": true,
-      "localTreeInactive": null
+      "pidExists": false,
+      "descendants": [],
+      "running": false,
+      "localTreeInactive": true,
+      "awaiting": "collect commit, completed tests and independent review; not accepted yet"
     },
     {
-      "name": "inspector-suite-isolation",
+      "name": "inspector-suite-recovery",
       "role": "test-repair",
       "worktree": "C:/Users/Admin/opora-v3-inspector-suite",
       "branch": "fix/v3-inspector-suite-isolation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-suite-isolation-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-suite-isolation\\state.json",
-      "processHandle": "proc_a9e00d567f5f",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-suite-recovery-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-suite-recovery\\state.json",
+      "processHandle": null,
       "ownedPaths": [
         "e2e/inspector-style-boundary.spec.ts",
         "playwright.inspector-suite.config.ts",
@@ -149,12 +99,14 @@
       "reservedTestPorts": [
         8795
       ],
-      "observedAt": "2026-09-11T02:20:14.065482+02:00",
-      "pid": 64652,
-      "pidExists": false,
-      "descendants": [],
-      "running": false,
-      "localTreeInactive": true
+      "observedAt": "2026-09-11T02:22:21.869779+02:00",
+      "pid": 19544,
+      "pidExists": true,
+      "descendants": [
+        59236
+      ],
+      "running": true,
+      "localTreeInactive": null
     },
     {
       "name": "inventory-completion",
@@ -170,7 +122,7 @@
         ".opora/workunits/WU-DESKTOP-V3/inventory-HANDOFF.md"
       ],
       "reservedTestPorts": [],
-      "observedAt": "2026-09-11T02:20:14.065482+02:00",
+      "observedAt": "2026-09-11T02:22:21.869779+02:00",
       "pid": 4216,
       "pidExists": true,
       "descendants": [
@@ -323,6 +275,13 @@
       "uniqueIds": 125,
       "commit": null,
       "next": "inventory-completion; coverage/handoff/review not yet done"
+    },
+    "inspector-suite-isolation": {
+      "status": "error_max_turns40_no_commit_no_test_fix",
+      "permissionDenials": [],
+      "localTreeInactive": true,
+      "pidExists": false,
+      "next": "parent already dispatched inspector-suite-recovery Opus; do not duplicate"
     }
   },
   "providerQuotaObservation": {
@@ -349,5 +308,12 @@
     "resetLocal": "2026-09-11T02:40:00+02:00",
     "note": "Provider event status allowed; not current exact usage. Overage rejected/disabled is not main quota exhausted; isUsingOverage=false. OAuth/Max retained."
   },
-  "reconciledAt": "2026-09-11T02:20:14.065482+02:00"
+  "reconciledAt": "2026-09-11T02:22:21.869779+02:00",
+  "cancelledDispatches": [
+    {
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
+      "status": "NOT_LAUNCHED",
+      "reason": "preflight discovered parent inspector-suite-recovery already owns identical worktree/paths. Keep prompt as unused evidence only."
+    }
+  ]
 }
