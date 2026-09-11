@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cronJobId": "25c748c818aa",
-  "revision": 12,
+  "revision": 13,
   "status": "in_progress",
   "phase": 1,
   "integrationBranch": "integration/desktop-v3",
@@ -9,54 +9,68 @@
   "activeLane": null,
   "activeLanes": [
     {
-      "name": "claude-artifact-completion",
-      "worktree": "C:/Users/Admin/opora-v3-coding-artifact",
+      "name": "live-return",
+      "branch": "fix/v3-live-view-return",
+      "role": "implementation",
+      "worktree": "C:\\Users\\Admin\\opora-v3-live-return",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return\\state.json",
+      "processHandle": "proc_5e768f3c7787",
+      "ownedPaths": [
+        "src/desktop-v3.css",
+        "e2e/live-view-return.spec.ts",
+        "playwright.live-return.config.ts (optional)",
+        ".opora/workunits/WU-DESKTOP-V3/live-return-HANDOFF.md"
+      ],
+      "reservedTestPorts": [
+        8742,
+        8769,
+        8771
+      ],
+      "pid": 32376,
+      "pidExists": true,
+      "running": true,
+      "localTreeInactive": null,
+      "status": "running",
+      "observedAt": "2026-09-11T07:57:59.672687+02:00",
+      "createTime": 1789106068.674821,
+      "sessionId": "d4126547-8c7a-40a3-9796-12ce7355445c",
+      "descendants": [
+        {
+          "pid": 66020,
+          "createTime": 1789106068.6820333,
+          "name": "conhost.exe"
+        }
+      ]
+    },
+    {
+      "name": "artifact-boundary-fix",
       "branch": "feat/v3-claude-coding-artifact",
       "role": "implementation",
-      "reservedTestPorts": [],
+      "worktree": "C:/Users/Admin/opora-v3-coding-artifact",
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-boundary-fix-spec.json",
+      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-boundary-fix\\state.json",
+      "processHandle": "proc_d2a6eda4c65d",
       "ownedPaths": [
         "backend/claude_coding_artifact.py",
         "tests/test_claude_coding_artifact.py",
         ".opora/workunits/WU-DESKTOP-V3/claude-coding-artifact-HANDOFF.md"
       ],
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\claude-artifact-completion-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\claude-artifact-completion\\state.json",
-      "processHandle": "proc_5d84369cb13d",
-      "pid": 56348,
+      "reservedTestPorts": [],
+      "pid": 54444,
       "pidExists": true,
       "running": true,
       "localTreeInactive": null,
       "status": "running",
-      "observedAt": "2026-09-11T03:21:58.609813+02:00",
+      "observedAt": "2026-09-11T07:57:59.672687+02:00",
+      "createTime": 1789106143.5659308,
+      "sessionId": "f3cd0f88-ac10-466b-bdad-0cd2c8603f63",
       "descendants": [
-        62392
-      ]
-    },
-    {
-      "name": "live-keyboard",
-      "worktree": "C:/Users/Admin/opora-v3-live-keyboard",
-      "branch": "feat/v3-live-keyboard",
-      "role": "implementation",
-      "reservedTestPorts": [
-        8796
-      ],
-      "ownedPaths": [
-        "src/desktop-v3/LiveWorkspacePanel.tsx (keyboard only)",
-        "e2e-v3-panels/live-keyboard.spec.ts",
-        "playwright.live-keyboard.config.ts",
-        ".opora/workunits/WU-DESKTOP-V3/live-keyboard-HANDOFF.md"
-      ],
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-keyboard-spec.json",
-      "registry": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-keyboard\\state.json",
-      "processHandle": "proc_72e622a55437",
-      "pid": 57132,
-      "pidExists": true,
-      "running": true,
-      "localTreeInactive": null,
-      "status": "running",
-      "observedAt": "2026-09-11T03:21:58.609813+02:00",
-      "descendants": [
-        62716
+        {
+          "pid": 66444,
+          "createTime": 1789106143.5720916,
+          "name": "conhost.exe"
+        }
       ]
     }
   ],
@@ -171,7 +185,7 @@
     "ruff": "full-regression/ruff.log PASS EXIT_CODE=0",
     "typecheck": "coordinator post-merge tsc --noEmit exit0",
     "build": "post-merge Vite exit0; existing >500kB chunk warning remains",
-    "v3PanelTestsPassed": 68,
+    "v3PanelTestsPassed": 75,
     "fullUi": {
       "source": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\current-frontend-regression\\clean-editor.log",
       "verifiedAt": "2026-09-11T03:23:06.628354+02:00",
@@ -189,11 +203,12 @@
       "diffCheck": "coordinator git diff --check exit0",
       "laneOutcome": "completed CLI success; coordinator reconciled raw log counts/report/registry/process/ports",
       "previewUnaffected": true,
-      "newerFrontendNeedsFullRegression": false
+      "newerFrontendNeedsFullRegression": true,
+      "currentStatus": "historical94PASS/1LIVEskip; keyboard frontend newer, live-return lane reserves full-suite ports and must rerun final candidate"
     },
     "preview": {
       "origin": "http://127.0.0.1:8780",
-      "indexSha256": "7d210787611180aa52889aa669f7e316c7c275c0c907f7df046bb8e4d9c8fa27",
+      "indexSha256": "bfd455fd175792041e8f25e66dee063429520c23297066379e0a708bcb835855",
       "servedIndexMatchesBuild": true,
       "snapshotExportReadback": {
         "previewEqualsRendered": true,
@@ -218,8 +233,8 @@
       "inspectorSmoke": "light/dark OFF->ON->OFF passed, square swatches, range4px, no overflow/errors/writes; dark OFF screenshot visually inspected",
       "visualPacket": "manifest visible; focus no saved drawing and parent revision1 included; no visible error",
       "backendRestart": false,
-      "previewData": "No preview writes/restart/publication this iteration; HTTP readback only.",
-      "finalHttpReadbackAt": "2026-09-11T03:21:58.609813+02:00",
+      "previewData": "Static assets published without deletion; no API writes in smoke, no DB restoration/restart. Known return-navigation overlap recorded.",
+      "finalHttpReadbackAt": "2026-09-11T07:57:59.672687+02:00",
       "workflowReadback": {
         "publishedPreview": true,
         "networkFaultInjected": true,
@@ -231,28 +246,74 @@
         "modelStarts": 0,
         "pageErrors": []
       },
-      "workflowEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-published-readback.json"
+      "workflowEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-published-readback.json",
+      "keyboardReadback": {
+        "publishedPreview": true,
+        "origin": "http://127.0.0.1:8780",
+        "tabsVerified": [
+          "1 Události",
+          "2 Důkazy a výstup",
+          "3 Náklady a výkon",
+          "4 Paměť",
+          "5 Ovládání",
+          "6 Tickety",
+          "7 Kontext a osa"
+        ],
+        "searchGuard": true,
+        "unmountGuard": false,
+        "returnNavigationBlocked": true,
+        "reloadUsedOnlyForRemainingReadback": true,
+        "widths": [
+          {
+            "width": 1280,
+            "client": 1280,
+            "scroll": 1280
+          },
+          {
+            "width": 1440,
+            "client": 1440,
+            "scroll": 1440
+          },
+          {
+            "width": 1920,
+            "client": 1920,
+            "scroll": 1920
+          }
+        ],
+        "errors": [],
+        "writes": [],
+        "modelStarts": 0
+      },
+      "keyboardEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\keyboard-published-readback.json"
     },
     "backendWarnings": 2,
     "exportScopeTestsPassed": 38,
     "v3PanelCurrent": {
-      "exactSHA": "4b02b9cc9ef6d17683dead657223e57f3673feb9",
-      "passed": 68,
+      "observedAt": "2026-09-11T07:57:59.672687+02:00",
+      "exactSHA": "2756eeeb4445ceda9f0173014aabf92871cae585",
+      "command": "node node_modules/@playwright/test/cli.js test -c playwright.desktop-v3.config.ts && node node_modules/typescript/bin/tsc --noEmit && git diff --check && node node_modules/vite/bin/vite.js build --outDir .data/v3-live-dist --emptyOutDir",
+      "exitCode": 0,
+      "passed": 75,
       "failed": 0,
       "skipped": 0,
-      "exitCode": 0,
-      "durationSeconds": 27.2,
-      "command": "node node_modules/@playwright/test/cli.js test -c playwright.desktop-v3.config.ts"
+      "durationSeconds": 40.5,
+      "tscExitCode": 0,
+      "diffCheckExitCode": 0,
+      "buildExitCode": 0,
+      "buildWarnings": [
+        "existing >500kB chunks"
+      ],
+      "evidenceKind": "coordinator summary of actual terminal tool output; not a reconstructed raw log"
     }
   },
   "nextActions": [
-    "FIRST read GOAL/STATE/CHECKPOINT and E/*/state.json. Three bounded lanes recorded; do not duplicate paths or ports. Max4 total including reviewer/test.",
-    "Full CURRENT frontend clean-editor regression completed94PASS/1explicitLIVEskip/0FAIL, tsc0/diffcheck0 at7bc61e5. Ports8742/8769/8771 released; no need repeat until production changes. Artifact completion and live-keyboard remain separate live writers.",
-    "Collect claude-artifact-completion narrow Opus recovery. Old900s deadline NOT quota; final approval GREEN was truncated, related suite never started. Require actual complete tests, handoff/commit and quiescence, then independent Claude review before merge.",
-    "Artifact reviewer should inspect public entrypoint contract validation and trusted-callback boundary, hooks/config isolation, oracle scope/hash semantics, source preservation, test output handling. Do not assume function names or candidate prose prove security. No general coding/runtime/UI proof yet.",
-    "Live-keyboard Sonnet owns LiveWorkspacePanel keyboard-only/new e2e/config/handoff on isolated tree/private8796. Implements inventory V3-KEY-003 digits1..7 with editable/modifier guards and no writes. Review+integration+published browser readback still required.",
-    "No candidate merged this iteration. Published8780 remains reviewed4b02b9c frontend; HTTP index equals build. Preserve user preview DB/assets and all dirty PNGs.",
-    "After candidates accepted continue125-row reference inventory and real technical-doc->snapshot->agent->artifact+independent Docker oracle->same node/Live Run. Phase2 all11 photos received; do not start until phase1 accepted."
+    "FIRST read GOAL/STATE/CHECKPOINT and all E/*/state.json; two current exclusive lanes. No duplicate paths or ports. Max4 total.",
+    "Collect live-return Sonnet isolated worktree/ports8742,8769,8771: normal click back from advanced viewer is genuinely blocked in preview. Needs RED->GREEN/full regression/independent review/merge/publish then rerun verify-keyboard-published.cjs with returnNavigationBlocked=false, no force clicking.",
+    "Collect artifact-boundary-fix Opus in existing artifact worktree. d47550a DO_NOT_MERGE: raw contract path escape and exit0 fake verification. Fix must enforce contract at public entry and keep current runner evidence honestly UNVERIFIED, not invent trusted report. Independent re-review required.",
+    "Full agent path remains incomplete: no production isolated external oracle/runtime/routes/UI roundtrip. Continue toward real technical docs->snapshot->agent->artifact->independent verification->same node/Live Run after safe foundation accepted.",
+    "Keyboard ea4b204 merged as 2756eeeb4445ceda9f0173014aabf92871cae585;75panelPASS/tsc0/build0, all7digit tabs and editable guard verified on8780; live-return overlap is separate open blocker, not hidden by reload used only to finish remaining readback.",
+    "Full684-line reference reread;125-row inventory remains roadmap, not all implemented. Phase2 eleven provided images remain awaiting accepted phase1.",
+    "Preview8780 data and old assets preserved. Do not touch P:/main/8768/8740 or dirty evidence PNGs. No hot retries/provider switches."
   ],
   "maxConcurrentClaudeLanes": 4,
   "phase1AgentAcceptance": "technical docs/context -> reviewed immutable snapshot -> real agent with bounded paths/tests -> real artifact and verification -> exact original node and Live Run readback. Calculator-only or proposal/export alone is not acceptance. New USER-BRIEF supersedes old CONTRACT restriction.",
@@ -371,6 +432,99 @@
         8771
       ],
       "report": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\current-frontend-regression\\report.json"
+    },
+    "claude-artifact-completion": {
+      "modelAlias": "opus",
+      "sessionId": "29e95540-c7e3-4ba9-a9d1-2c2609110318",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "running": false,
+      "pid": 56348,
+      "localTreeInactive": true,
+      "exitCode": 0,
+      "finishReason": "completed",
+      "seconds": 314.1407339000143,
+      "subtype": "success",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5"
+      ],
+      "pidExists": false,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\claude-artifact-completion",
+      "status": "candidate_or_review_result_collected_not_goal_done"
+    },
+    "live-keyboard": {
+      "modelAlias": "sonnet",
+      "sessionId": "f495a007-e1e9-482f-aa73-2c2609110322",
+      "worktree": "C:\\Users\\Admin\\opora-v3-live-keyboard",
+      "running": false,
+      "pid": 57132,
+      "localTreeInactive": true,
+      "exitCode": 1,
+      "finishReason": "completed",
+      "seconds": 271.1291111000173,
+      "subtype": "error_max_turns",
+      "models": [
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-5"
+      ],
+      "pidExists": false,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-keyboard",
+      "status": "candidate_or_review_result_collected_not_goal_done"
+    },
+    "artifact-foundation-review": {
+      "modelAlias": "opus",
+      "sessionId": "ad43d7b2-7d80-444c-bb32-7a959e52c548",
+      "worktree": "C:\\Users\\Admin\\opora-v3-coding-artifact",
+      "running": false,
+      "pid": 12376,
+      "localTreeInactive": true,
+      "exitCode": 1,
+      "finishReason": "deadline",
+      "seconds": 240.14367479999783,
+      "subtype": null,
+      "models": [],
+      "pidExists": false,
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-foundation-review",
+      "status": "deadline240_no_verdict_NOT_quota_superseded_by_narrow_rereview"
+    },
+    "artifact-boundary-rereview": {
+      "status": "completed_independent_review_TWO_HIGH_BLOCKERS",
+      "review": {
+        "passed": false,
+        "blockingFindings": [
+          {
+            "severity": "high",
+            "path": "backend/claude_coding_artifact.py (verify / run_oracle / load_contract allowedFiles segregation)",
+            "detail": "GREEN evidence can be forged by normal malicious artifact input, with no race needed. The verdict rests only on the runner's process exit code. That process executes model-authored code. An allowed source file containing top-level `import os; os._exit(0)` makes the oracle process exit 0 as soon as the test imports the module. The result is red!=0 at base, green==0 at the result commit, scope clean and oracle bytes intact, so status becomes 'verified' even though no oracle assertion ran. The same class of forgery works if the code patches unittest/pytest reporting in-process, or edits an oracle or tracked file during GREEN and restores it before exit (post-run hash and clean checks only see the final state). `_is_test_path` segregation is also a name heuristic. allowedFiles may include `pyproject.toml`, `pytest.ini`, `setup.cfg`, `tox.ini`, `sitecustomize.py`/`usercustomize.py`, or package `__init__.py` files outside tests/. Through these the model can reconfigure or neutralize the oracle, e.g. `addopts = --collect-only` exits 0. This contradicts the module and handoff claim that a completed result requires host-observed evidence. Minimum fix before merge: (a) do not label exit==0 as 'verified'. Require a trusted, out-of-band report from the runner (expected oracle test IDs/count all executed and passed, written outside the model-writable tree, bound to a per-run nonce) and extend the runner contract to return it. Or rename the status to make clear it is untrusted-exit-code evidence. (b) Reject interpreter/test-framework config and import-hook files from allowedFiles, or require explicit reviewed opt-in. (c) Add a regression test showing that an `os._exit(0)` artifact is not 'verified'."
+          },
+          {
+            "severity": "high",
+            "path": "backend/claude_coding_artifact.py (execute_approved / parse_result_envelope)",
+            "detail": "The public entry does not validate its contract. `execute_approved` never calls `load_contract`, and `parse_result_envelope` applies only exact membership in `contract['allowedFiles']`, never `check_path`, to model paths. Every path, test-segregation, oracle-disjointness, limits and baseSha guarantee therefore depends on each caller having pre-validated the dict. The approval digest does not help: it is computed by the same code over whatever dict is passed. Concrete consequences with an unvalidated contract such as `allowedFiles: ['../escape.py']`: `_checked_path` walks `root/..` (a real directory, so lstat passes) and `materialize` writes and `os.replace`s `dest/../escape.py` outside the copy. The post-write re-check passes. Only the later `git add` fails, after the out-of-copy write has persisted. The same gap allows `.git/config` or `.git/...` targets (the fresh repo's local config then controls later git invocations beyond the -c overrides) and test paths in allowedFiles. Fix: `execute_approved` must run `load_contract` itself and use its returned canonical copy for the digest and all later steps. `parse_result_envelope` should also run `check_path` on each model path as defense in depth. Add a test that passes a raw, unvalidated contract dict to `execute_approved`."
+          }
+        ],
+        "followups": [
+          "Hooks boundary: `core.hooksPath` points at `backend/disabled-hooks`. If that directory is ever created in the deployed tree, hooks silently re-enable for every git call. Point it at a path that can never be a directory (e.g. `os.devnull`/`NUL`), or assert it is absent at import.",
+          "`check_path` rejects `git~` only. Other Windows 8.3 short-name segments (e.g. `VERIFI~1`) can alias long directory names, including an oracle directory. The current post-checks fail closed (dirty worktree, oracle hash), but reject `~<digit>` segments outright for clarity.",
+          "`sourceUnchanged` covers only HEAD and porcelain status. It does not cover source `.git/config`, `.git/hooks`, refs or stash. It is not integrity evidence against a host-side runner executing model code; that isolation must come from the future network-off Docker runner.",
+          "`_source_state` runs `git status` inside the user's source repo under that repo's local config. Configured clean/process filter drivers can execute there. This is acceptable only if the source repo's local config is treated as trusted; document or constrain it.",
+          "The envelope is not bound to the approval or run (no nonce or run id), and `snapshot_digest` is caller-asserted and never recomputed from source state. Bind both when runtime and routes land.",
+          "Failed runs leave `dest` partially populated with no cleanup or quarantine marker. Callers must never treat a leftover copy or its commits as results.",
+          "The envelope size cap allows about 98 MB of in-memory JSON at maximum limits. Consider a tighter transport cap.",
+          "The runner contract implicitly requires no writes into the tree during RED or GREEN (e.g. `__pycache__`, pytest caches); otherwise results are spuriously refused. Document this in the injected runner interface.",
+          "Repository convention leaves `ruff format --check` at exit 1 on the owned files. This is not a security issue."
+        ],
+        "limitations": [
+          "Single-source review without tools. `tests/test_claude_coding_artifact.py` was seen only through the ruff diff excerpts, and no code or tests were executed.",
+          "Test logs are untrusted raw evidence. They show HEAD 9913b85 with the owned files uncommitted; the claimed byte-identity to candidate d47550a was not independently verified.",
+          "Runtime, CLI invocation, production runner, routes, UI and store are absent. This verdict does not assess full goal acceptance.",
+          "Disclosed same-user filesystem TOCTOU races are out of scope. Both blocking findings are reachable without any race: finding 1 via ordinary malicious artifact content, finding 2 via an unvalidated caller-supplied contract.",
+          "Windows 8.3 alias and `.gitattributes` behaviours (e.g. `working-tree-encoding`, `text` normalization) were reasoned about, not tested. The analysis indicates they fail closed."
+        ],
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-boundary-rereview\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false
+      }
     }
   },
   "providerQuotaObservation": {
@@ -394,12 +548,18 @@
     "reopenedAt": "2026-09-11T02:49:24.151150+02:00",
     "newEvidence": "workflow-drafts-post-reset/events.jsonl: rate_limit_event status=allowed, five_hour utilization0, isUsingOverage=false"
   },
-  "reconciledAt": "2026-09-11T03:23:06.628354+02:00",
+  "reconciledAt": "2026-09-11T07:57:59.672687+02:00",
   "cancelledDispatches": [
     {
       "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\inspector-isolation-completion-spec.json",
       "status": "NOT_LAUNCHED",
       "reason": "preflight discovered parent inspector-suite-recovery already owns identical worktree/paths. Keep prompt as unused evidence only."
+    },
+    {
+      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-spec.json",
+      "processHandle": "proc_5e746410446f",
+      "status": "PRELAUNCH_FAILED_NOT_A_CLAUDE_RUN",
+      "reason": "Python literal backslash Unicode escape in junction setup; no Claude launched. Fixed path construction and relaunched once as proc_5e768f3c7787."
     }
   ],
   "acceptedCandidates": {
@@ -635,6 +795,43 @@
         ]
       },
       "merge": "4b02b9cc9ef6d17683dead657223e57f3673feb9"
+    },
+    "live-keyboard": {
+      "commit": "ea4b2047fd791e1a7221056e36c723a40cfa8216",
+      "merge": "2756eeeb4445ceda9f0173014aabf92871cae585",
+      "review": {
+        "passed": true,
+        "blockingFindings": [],
+        "followups": [
+          {
+            "severity": "low",
+            "path": "src/desktop-v3/LiveWorkspacePanel.tsx",
+            "detail": "Digit-key handler is attached to `window` for the component's entire mount lifetime with no check for document visibility or whether this panel is the foreground view. If the app's routing ever keeps LiveWorkspacePanel mounted while another panel is shown (not evidenced in the diff, and the test URLs suggest single query-param-driven mounting), digit presses elsewhere in the app on non-editable targets would silently change the hidden panel's internal tab. Recommend confirming LiveWorkspacePanel fully unmounts when panel!=='live', or scope the listener to a container-level keydown/ref instead of window."
+          },
+          {
+            "severity": "low",
+            "path": "src/desktop-v3/LiveWorkspacePanel.tsx",
+            "detail": "Guard returns early whenever shiftKey is held, which also blocks digit entry on layouts (e.g., AZERTY) where digits require Shift. Not a correctness bug but a usability gap for that keyboard layout; worth a follow-up if internationalization matters."
+          },
+          {
+            "severity": "low",
+            "path": "src/desktop-v3/LiveWorkspacePanel.tsx",
+            "detail": "Pending stop-confirmation state (`stopFor`) is not reset or blocked by tab navigation, so a digit press during an open 'Zastavit tento běh' confirmation can move which pane (main tab vs. side aside) renders the confirm UI. It remains visible either way and cannot be silently auto-confirmed by digit navigation, so this is not blocking, but was not exercised by the new tests."
+          }
+        ],
+        "limitations": [
+          "No tool access: could not grep the broader app for other global keydown listeners to rule out shortcut conflicts outside this file, or confirm LiveWorkspacePanel's actual mount/unmount behavior when the user navigates to non-'live' panels.",
+          "Reviewed only the provided diff, source file, logs, and handoff note; did not independently execute tests or tsc.",
+          "Contenteditable and IME composition guards are present in code but, per the handoff, not directly covered by dedicated tests — accepted on code inspection alone."
+        ],
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-keyboard-review\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false
+      },
+      "status": "keyboard_slice_reviewed_merged_75PASS_published7tab_readback; broader_navigation_BLOCKED",
+      "integrationEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\keyboard-integration-verification.json",
+      "previewEvidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\keyboard-published-readback.json",
+      "mountInspection": "App.tsx 544-551 renders overview conditionally; switching to advanced viewer unmounts LiveWorkspacePanel. EnvironmentSwitch uses Alt digits; new handler ignores Alt."
     }
   },
   "blockedCandidates": {
@@ -645,31 +842,67 @@
       "review": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-review\\result.json",
       "resolvedCommit": "1037a889a89d1ffa82fc964931b6a29ebcd320dc",
       "merge": "4b02b9cc9ef6d17683dead657223e57f3673feb9"
+    },
+    "claude-coding-artifact": {
+      "commit": "d47550a2e17f51c133bfc447955c35b6f6836722",
+      "status": "DO_NOT_MERGE_TWO_HIGH_REVIEW_FINDINGS",
+      "review": {
+        "passed": false,
+        "blockingFindings": [
+          {
+            "severity": "high",
+            "path": "backend/claude_coding_artifact.py (verify / run_oracle / load_contract allowedFiles segregation)",
+            "detail": "GREEN evidence can be forged by normal malicious artifact input, with no race needed. The verdict rests only on the runner's process exit code. That process executes model-authored code. An allowed source file containing top-level `import os; os._exit(0)` makes the oracle process exit 0 as soon as the test imports the module. The result is red!=0 at base, green==0 at the result commit, scope clean and oracle bytes intact, so status becomes 'verified' even though no oracle assertion ran. The same class of forgery works if the code patches unittest/pytest reporting in-process, or edits an oracle or tracked file during GREEN and restores it before exit (post-run hash and clean checks only see the final state). `_is_test_path` segregation is also a name heuristic. allowedFiles may include `pyproject.toml`, `pytest.ini`, `setup.cfg`, `tox.ini`, `sitecustomize.py`/`usercustomize.py`, or package `__init__.py` files outside tests/. Through these the model can reconfigure or neutralize the oracle, e.g. `addopts = --collect-only` exits 0. This contradicts the module and handoff claim that a completed result requires host-observed evidence. Minimum fix before merge: (a) do not label exit==0 as 'verified'. Require a trusted, out-of-band report from the runner (expected oracle test IDs/count all executed and passed, written outside the model-writable tree, bound to a per-run nonce) and extend the runner contract to return it. Or rename the status to make clear it is untrusted-exit-code evidence. (b) Reject interpreter/test-framework config and import-hook files from allowedFiles, or require explicit reviewed opt-in. (c) Add a regression test showing that an `os._exit(0)` artifact is not 'verified'."
+          },
+          {
+            "severity": "high",
+            "path": "backend/claude_coding_artifact.py (execute_approved / parse_result_envelope)",
+            "detail": "The public entry does not validate its contract. `execute_approved` never calls `load_contract`, and `parse_result_envelope` applies only exact membership in `contract['allowedFiles']`, never `check_path`, to model paths. Every path, test-segregation, oracle-disjointness, limits and baseSha guarantee therefore depends on each caller having pre-validated the dict. The approval digest does not help: it is computed by the same code over whatever dict is passed. Concrete consequences with an unvalidated contract such as `allowedFiles: ['../escape.py']`: `_checked_path` walks `root/..` (a real directory, so lstat passes) and `materialize` writes and `os.replace`s `dest/../escape.py` outside the copy. The post-write re-check passes. Only the later `git add` fails, after the out-of-copy write has persisted. The same gap allows `.git/config` or `.git/...` targets (the fresh repo's local config then controls later git invocations beyond the -c overrides) and test paths in allowedFiles. Fix: `execute_approved` must run `load_contract` itself and use its returned canonical copy for the digest and all later steps. `parse_result_envelope` should also run `check_path` on each model path as defense in depth. Add a test that passes a raw, unvalidated contract dict to `execute_approved`."
+          }
+        ],
+        "followups": [
+          "Hooks boundary: `core.hooksPath` points at `backend/disabled-hooks`. If that directory is ever created in the deployed tree, hooks silently re-enable for every git call. Point it at a path that can never be a directory (e.g. `os.devnull`/`NUL`), or assert it is absent at import.",
+          "`check_path` rejects `git~` only. Other Windows 8.3 short-name segments (e.g. `VERIFI~1`) can alias long directory names, including an oracle directory. The current post-checks fail closed (dirty worktree, oracle hash), but reject `~<digit>` segments outright for clarity.",
+          "`sourceUnchanged` covers only HEAD and porcelain status. It does not cover source `.git/config`, `.git/hooks`, refs or stash. It is not integrity evidence against a host-side runner executing model code; that isolation must come from the future network-off Docker runner.",
+          "`_source_state` runs `git status` inside the user's source repo under that repo's local config. Configured clean/process filter drivers can execute there. This is acceptable only if the source repo's local config is treated as trusted; document or constrain it.",
+          "The envelope is not bound to the approval or run (no nonce or run id), and `snapshot_digest` is caller-asserted and never recomputed from source state. Bind both when runtime and routes land.",
+          "Failed runs leave `dest` partially populated with no cleanup or quarantine marker. Callers must never treat a leftover copy or its commits as results.",
+          "The envelope size cap allows about 98 MB of in-memory JSON at maximum limits. Consider a tighter transport cap.",
+          "The runner contract implicitly requires no writes into the tree during RED or GREEN (e.g. `__pycache__`, pytest caches); otherwise results are spuriously refused. Document this in the injected runner interface.",
+          "Repository convention leaves `ruff format --check` at exit 1 on the owned files. This is not a security issue."
+        ],
+        "limitations": [
+          "Single-source review without tools. `tests/test_claude_coding_artifact.py` was seen only through the ruff diff excerpts, and no code or tests were executed.",
+          "Test logs are untrusted raw evidence. They show HEAD 9913b85 with the owned files uncommitted; the claimed byte-identity to candidate d47550a was not independently verified.",
+          "Runtime, CLI invocation, production runner, routes, UI and store are absent. This verdict does not assess full goal acceptance.",
+          "Disclosed same-user filesystem TOCTOU races are out of scope. Both blocking findings are reachable without any race: finding 1 via ordinary malicious artifact content, finding 2 via an unvalidated caller-supplied contract.",
+          "Windows 8.3 alias and `.gitattributes` behaviours (e.g. `working-tree-encoding`, `text` normalization) were reasoned about, not tested. The analysis indicates they fail closed."
+        ],
+        "result": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\artifact-boundary-rereview\\result.json",
+        "localTreeInactive": true,
+        "pidExists": false
+      },
+      "fixLane": "artifact-boundary-fix",
+      "historicalTests": {
+        "focusedPassed": 88,
+        "relatedPassed": 34,
+        "relatedSkipped": 1,
+        "fullPassed": 402,
+        "fullSkipped": 4,
+        "warnings": 2,
+        "scope": "old candidate only; does not prove security or new fixes"
+      }
+    },
+    "live-return": {
+      "status": "REPRODUCED_UI_BLOCKER_FIX_RUNNING",
+      "evidence": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-preview-failure.json",
+      "screenshot": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\live-return-blocked.png",
+      "symptom": "Dohled běhů viewer overlaps and intercepts normal click back to Přehled a tickety",
+      "hypothesis": "legacy absolute inset0 .agents-workspace covers v3 navigation; lane must prove with RED geometry",
+      "fixLane": "live-return"
     }
   },
-  "pendingLanes": [
-    {
-      "name": "workflow-drafts-race-fix",
-      "worktree": "C:/Users/Admin/opora-v3-workflow-drafts",
-      "branch": "fix/v3-workflow-draft-preservation",
-      "spec": "C:\\Users\\Admin\\AppData\\Local\\hermes\\handoffs\\canvas-orchestration\\desktop-v3\\workflow-drafts-race-fix-spec.json",
-      "reservedTestPorts": [
-        8794
-      ],
-      "ownedPaths": [
-        "src/desktop-v3/NodeWorkflowPanel.tsx",
-        "src/desktop-v3/ProjectMemoryPanel.tsx",
-        "e2e-v3-panels/workflow-draft-preservation.spec.ts",
-        "own handoff"
-      ],
-      "status": "resumed_as_workflow-drafts-post-reset",
-      "lastCommit": "2de3c4e",
-      "dirtyPaths": [
-        "src/desktop-v3/NodeWorkflowPanel.tsx"
-      ],
-      "resumeAfter": "2026-09-11T02:40:00+02:00"
-    }
-  ],
+  "pendingLanes": [],
   "pendingCandidates": {
     "coding-transport-audit": {
       "commit": "13f526089e9f7463b0ab9f70f38eb12566f8f61f",
