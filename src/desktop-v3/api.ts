@@ -47,14 +47,39 @@ export function snapshotPacket(input: PacketSnapshotInput): Promise<PacketSnapsh
   return api<PacketSnapshotResponse>("/api/desktop-v3/packet/snapshot", { ...input });
 }
 
-export function fetchSnapshot(
-  id: string,
-  project: string,
-  workspace: string,
-): Promise<PacketSnapshotResponse> {
-  return api<PacketSnapshotResponse>(
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+export type SnapshotReadbackExpectation = {
+  id: string;
+  digest: string;
+  project: string;
+  workspace: string;
+  nodeId: string;
+};
+
+/** Fail-closed kontrola readbacku snímku: vrací stejný objekt, jinak vyhodí chybu. */
+export function assertSnapshotReadback(value: unknown, expected: SnapshotReadbackExpectation): PacketSnapshotResponse {
+  if (!isRecord(value) || !isRecord(value.packet)) throw new Error("Načtený snímek má neplatný tvar.");
+  if (value.id !== expected.id || value.digest !== expected.digest)
+    throw new Error("Načtený snímek neodpovídá vytvořenému snímku a digestu.");
+  const scope = value.packet.scope;
+  if (
+    !isRecord(scope) ||
+    scope.project !== expected.project ||
+    scope.workspace !== expected.workspace ||
+    scope.nodeId !== expected.nodeId
+  )
+    throw new Error("Načtený snímek nemá rozsah vybraného projektu, prostředí a uzlu.");
+  return value as PacketSnapshotResponse;
+}
+
+export async function fetchSnapshot(expected: SnapshotReadbackExpectation): Promise<PacketSnapshotResponse> {
+  const { id, project, workspace } = expected;
+  const value = await api<unknown>(
     `/api/desktop-v3/packet/snapshots/${encodeURIComponent(id)}?${query({ project, workspace })}`,
   );
+  return assertSnapshotReadback(value, expected);
 }
 
 export function prepareSnapshotRun(
@@ -82,10 +107,51 @@ export function stopHandoff(id: string): Promise<HandoffRun> {
   return api<HandoffRun>(`/api/task-handoffs/${encodeURIComponent(id)}/stop`, { confirmed: true });
 }
 
-export function exportHandoff(id: string): Promise<{ id: string; digest: string; task: string; context: unknown }> {
-  return api<{ id: string; digest: string; task: string; context: unknown }>(
-    `/api/task-handoffs/${encodeURIComponent(id)}/export`,
-  );
+/** Přesný tvar GET /api/task-handoffs/{id}/export (backend/task_handoffs.py export()). */
+export type HandoffExport = {
+  id: string;
+  digest: string;
+  scope: { project: string; workspace: string; node: string | null };
+  task: string;
+  allowedFiles: string[];
+  readableNodeIds: string[];
+  context: unknown;
+  provider: string;
+  model: string;
+  budgetSeconds: number;
+};
+
+export type HandoffExportExpectation = {
+  id: string;
+  digest: string;
+  project: string;
+  workspace: string;
+  node: string | null;
+};
+
+/** Fail-closed kontrola exportu: přesný běh (id + digest) a jeho rozsah. Vrací stejný objekt beze
+ * změny; cokoli jiného (chybějící/poškozený scope, cizí projekt/prostředí/uzel) vyhodí chybu. */
+export function assertHandoffExport(value: unknown, expected: HandoffExportExpectation): HandoffExport {
+  if (!isRecord(value) || typeof value.task !== "string" || !("context" in value))
+    throw new Error("Export běhu má neplatný tvar.");
+  if (value.id !== expected.id || value.digest !== expected.digest)
+    throw new Error("Export neodpovídá vybranému běhu.");
+  const scope = value.scope;
+  if (
+    !isRecord(scope) ||
+    typeof scope.project !== "string" ||
+    typeof scope.workspace !== "string" ||
+    !(typeof scope.node === "string" || scope.node === null)
+  )
+    throw new Error("Export nemá platný rozsah projektu, prostředí a uzlu.");
+  if (scope.project !== expected.project || scope.workspace !== expected.workspace || scope.node !== expected.node)
+    throw new Error("Export patří jinému projektu, prostředí nebo uzlu.");
+  return value as HandoffExport;
+}
+
+export async function exportHandoff(expected: HandoffExportExpectation): Promise<HandoffExport> {
+  const value = await api<unknown>(`/api/task-handoffs/${encodeURIComponent(expected.id)}/export`);
+  return assertHandoffExport(value, expected);
 }
 
 export function fetchHandoffRuns(project: string, workspace: string): Promise<{ runs: HandoffRun[] }> {
