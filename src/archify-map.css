@@ -1,0 +1,14 @@
+.archify-workspace{height:100%;display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface,#151b24);color:var(--ink,#e5e7eb)}
+.archify-workspace:fullscreen{height:100vh;padding:12px}
+.archify-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 12px;flex-shrink:0}
+.archify-toolbar strong{margin-right:10px}
+.archify-caption{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:4px 12px 8px;font-size:12px;color:var(--muted,#94a3b8);flex-shrink:0}
+.archify-body{display:flex;flex:1;min-height:200px;min-width:0}
+.archify-body>iframe{flex:1;width:100%;min-width:0;border:0;background:#f5f7fb}
+.archify-status,.archify-error{padding:8px 12px;margin:0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.archify-error{color:#fb7185;background:#3a1825}
+.archify-empty{flex:1;display:grid;place-content:center;gap:10px;padding:24px;color:var(--muted,#94a3b8);text-align:center}
+.archify-receipt{max-height:35%;overflow:auto;border-top:1px solid var(--line,#374151);padding:7px 12px;font-size:12px;flex-shrink:0}
+.archify-receipt summary{cursor:pointer}
+.archify-receipt pre,.archify-receipt code{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:800px){.archify-toolbar{gap:4px}.archify-toolbar button{font-size:12px}.archify-caption{font-size:11px}}

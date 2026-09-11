@@ -24,6 +24,7 @@ Načti pouze referenci potřebnou pro aktuální požadavek:
 | Zadání, pravidla, snapshot, spuštění agenta | [references/agent-handoff.md](references/agent-handoff.md) |
 | Externí VS Code/CLI agent, Markdown export, zpětný ticket | [references/external-agent.md](references/external-agent.md) |
 | Stav běhu, výstup, zastavení, ticket | [references/live-run.md](references/live-run.md) |
+| Mapa, Archify, diagramy a jejich export | [references/archify.md](references/archify.md) |
 | API místo UI, revize, payloady, chyby | [references/api.md](references/api.md) |
 | Hlášená chyba aplikace a nasazení opravy | [references/bugfix.md](references/bugfix.md) |
 | Odlišná verze aplikace, ověření tvrzení návodu | [references/source-map.md](references/source-map.md) |

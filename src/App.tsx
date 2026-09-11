@@ -14,7 +14,7 @@ import ContextShelf from "./ContextShelf";
 import SourceExplorer from "./SourceExplorer";
 import { useWorkspaceSelection } from "./workspace-selection";
 import "./desktop-workspaces.css";
-import MapTools from "./MapTools";
+
 import ScopeContext from "./ScopeContext";
 import LayerContext from "./LayerContext";
 import AgentsWorkspace from "./AgentsWorkspace";
@@ -24,7 +24,7 @@ import type { WireframeKind } from "./wireframe-model";
 import DrawingTools from "./DrawingTools";
 import { discardDrawingDrafts, type DrawingTool } from "./drawing-state";
 const DrawingWorkspace = lazy(() => import("./DrawingWorkspace"));
-import ProjectMap from "./ProjectMap";
+import ArchifyMap from "./ArchifyMap";
 import WorkspaceSettings from "./WorkspaceSettings";
 import WorkspaceBoundary from "./WorkspaceBoundary";
 import {
@@ -435,7 +435,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   </>;
   const inspectorTools =
     mode === "map" ? (
-      <MapTools graph={graph} view={view} activeProject={activeProject} editable={editable} onConnect={connectGraph} />
+      null
     ) : mode === "drawing" ? (
       <DrawingTools
         wireframeMode={wireframeMode}
@@ -519,7 +519,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         <button className="primary v3-materials" onClick={() => { setWorkbenchPane("packet"); setWorkbenchOpen(true); }}>Podklady pro agenta</button>
         <button className="v3-quiet" title="Pokročilé: kontextový paket, LLM návrh, Coding, dokumentační úkol" onClick={() => setWorkbenchOpen(true)}>AI nástroje</button>
       </div>}
-      <div className={"workspace-shell " + mode + "-mode" + (mode === "agents" ? " no-inspector" : "") + (!showContext ? " no-context" : "") + (!inspectorOpen ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
+      <div className={"workspace-shell " + mode + "-mode" + ((mode === "agents" || mode === "map") ? " no-inspector" : "") + (!showContext ? " no-context" : "") + (!inspectorOpen ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
         {environment === "editor" && showContext && <ContextShelf project={project} workspace={workspace} value={selection.value} onChange={selection.change} onAdd={selection.add}
           onOpen={(path) => { selection.change({ sourcePath: path }); setEditorDocumentOpen(true); }} />}
         <main className="canvas-area">
@@ -554,29 +554,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                     : <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />}
                 </div> : <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />
               ) : mode === "map" ? (
-                <ProjectMap
-                  graph={graph}
-                  projectName={activeProject?.name ?? "Lokální návrh"}
-                  selected={selected}
-                  selectedEdge={selectedEdge}
-                  settings={settings}
-                  readOnly={!editable}
-                  onSelect={(id) => {
-                    setSelected(id);
-                    setSelectedEdge(null);
-                  }}
-                  onSelectEdge={(id) => {
-                    setSelectedEdge(id);
-                    setSelected(null);
-                  }}
-                  onEnter={(id) => {
-                    enter(id);
-                    setMode("structure");
-                  }}
-                  onConnect={(c) => {
-                    if (c.source && c.target) connectGraph(c.source, c.target);
-                  }}
-                />
+                <ArchifyMap key={project} project={project}/>
               ) : mode === "drawing" ? (
                 <WorkspaceBoundary
                   key={JSON.stringify([project, workspace, parent, mode])}

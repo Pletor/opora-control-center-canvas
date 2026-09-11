@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "P:\\0. OSVC\\8. Code\\07. Aplikace\\02.Opora-control-center\\Opora-control-center-canvas\\docs\\architecture\\archify\\opora-canvas.architecture.json",
+  "output": "P:\\0. OSVC\\8. Code\\07. Aplikace\\02.Opora-control-center\\Opora-control-center-canvas\\docs\\architecture\\archify\\opora-canvas.architecture.html",
+  "specification": {
+    "sha256": "93efd05c6cbc6d6b445e2bbaff70fc26c9243e68c950959a1eab9f49b05d3d9c",
+    "bytes": 9460
+  },
+  "artifact": {
+    "sha256": "0f751326541046b34242602a8378e8663758256a3a4058b2b1ba58c0101b9302",
+    "bytes": 726388
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}
