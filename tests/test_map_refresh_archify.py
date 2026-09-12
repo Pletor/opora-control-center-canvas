@@ -157,6 +157,23 @@ def test_build_archify_rejects_bad_evidence_without_publishing(tmp_path, monkeyp
     assert not output.exists()
 
 
+def test_author_reserves_a_tool_free_final_turn(tmp_path, monkeypatch):
+    from backend import map_refresh_archify as subject
+    calls = []
+    session = '1538a182-cee7-44e8-bdfc-36f60e3b1fdf'
+    def fake(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            return json.dumps({'subtype':'error_max_turns','session_id':session,'num_turns':6})
+        assert command[command.index('--tools') + 1] == ''
+        assert command[command.index('--resume') + 1] == session
+        return _agent_output('a' * 40)
+    monkeypatch.setattr(subject, '_run_process', fake)
+    result = subject._author(tmp_path, 'a' * 40, deadline=9999999999, cancel=None)
+    assert json.loads(result)['candidate'] == _candidate()
+    assert sum(int(c[c.index('--max-turns') + 1]) for c in calls) <= subject.MAX_TURNS
+
+
 def test_build_archify_refuses_nonempty_private_output(tmp_path):
     from backend import map_refresh_archify as subject
 

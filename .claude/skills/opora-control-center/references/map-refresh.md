@@ -35,8 +35,9 @@ nepřepisuje. Když je aplikace zavřená, změna main se zachytí po jejím spu
   Limit snapshotu je 800 souborů / 8 MiB, soubor 1 MiB. Graphify navíc uplatní
   svůj limit 500 zdrojových souborů a `.graphifyignore`.
 - Graphify používá původní `extract --code-only` + `cluster-only --no-label`.
-- Archify: jeden Claude Code Sonnet, nejvýše 10 tahů, společný limit 600 sekund
-  pro model a nativní kontroly. Model má Read/Glob/Grep, nikoli zápis nebo shell.
+- Archify: jedna session Claude Code Sonnet, nejvýše 10 tahů; průzkum má 6 tahů
+  a při jejich vyčerpání následuje jeden rezervovaný dokončovací tah bez nástrojů.
+  Společný limit je 600 sekund pro model a nativní kontroly. Model má Read/Glob/Grep, nikoli zápis nebo shell.
   Důkazy se kontrolují proti konkrétním řádkům snapshotu. Následují původní
   `validate`, `deliver`, `visual-check`, 9/9 showcase bez chyb/varování a browser pass.
 - Agent ani renderer nepíše přímo do projektu. Před publikací se ověřuje projekt,

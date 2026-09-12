@@ -114,7 +114,18 @@ def _run_process(command, *, cwd, env, deadline, cancel, stdin=None):
         if len(stdout) + len(stderr) > MAX_AGENT_BYTES:
             raise ArchifyBuildError("Výstup Archify procesu překročil bezpečný limit.")
         if process.returncode != 0:
-            raise ArchifyBuildError("Původní nástroj Archify nebo Claude nedokončil bezpečný běh.")
+            try:
+                envelope = json.loads(stdout)
+            except (ValueError, UnicodeError):
+                envelope = {}
+            if not isinstance(envelope, dict):
+                envelope = {}
+            # Dosažení průzkumného limitu není hotový artefakt; dovolí pouze dokončovací fázi.
+            if Path(command[0]).name.lower().startswith('claude') and envelope.get('subtype') == 'error_max_turns':
+                return stdout.decode('utf-8')
+            stage = 'Claude' if Path(command[0]).name.lower().startswith('claude') else 'Archify ' + str(command[2])
+            reason = envelope.get('subtype', 'nonzero_exit')
+            raise ArchifyBuildError(f'{stage} nedokončil běh (exit {process.returncode}, {reason}).')
         return stdout.decode("utf-8", errors="strict")
     except UnicodeError as exc:
         raise ArchifyBuildError("Proces Archify vrátil neplatný textový výstup.") from exc
@@ -141,6 +152,9 @@ def _prompt(source_revision):
     example = _package_file("examples/web-app.architecture.json")
     return f"""You are the single bounded author for an original Archify architecture map.
 Analyze ONLY the sanitized snapshot in your current directory. Use only Read, Glob, and Grep.
+You have at most SIX exploration rounds. Batch reads, avoid exhaustive browsing and repeated line-number searches.
+Read graphify-out/GRAPH_REPORT.md first when present, then only the key source files needed for a small evidence-backed architecture.
+Reserve your final response for the required JSON, not a plan. If exploration is cut short, a tools-disabled finalization follows in the same session.
 Do not use Bash, Write, Edit, network access, MCP, project instructions, credentials, or any source outside this snapshot.
 
 Return exactly one JSON object and no Markdown fences. Its keys must be exactly candidate, specification, evidence.
@@ -209,6 +223,8 @@ def _agent_payload(raw):
     content = envelope.get("result", raw)
     if not isinstance(content, str) or len(content.encode("utf-8")) > MAX_AGENT_BYTES:
         raise ArchifyBuildError("Claude neposkytl bezpečný návrh Archify.")
+    if content.strip().startswith('```json\n') and content.strip().endswith('\n```'):
+        content = content.strip()[8:-4]
     payload = _json_object(content, "Claude")
     if set(payload) != {"candidate", "specification", "evidence"}:
         raise ArchifyBuildError("Claude neposkytl očekávanou strukturu návrhu Archify.")
@@ -350,6 +366,26 @@ def _copy_staged(stage, output_root):
     stage.replace(output_root)
 
 
+def _author(source_root, source_revision, *, deadline, cancel):
+    command = _claude_command()
+    command[command.index('--max-turns') + 1] = '6'
+    raw = _run_process(command, cwd=source_root, env=os.environ.copy(), deadline=deadline,
+                       cancel=cancel, stdin=_prompt(source_revision))
+    envelope = _json_object(raw, 'Claude')
+    if envelope.get('subtype') != 'error_max_turns':
+        return raw
+    session = envelope.get('session_id')
+    if not isinstance(session, str) or not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', session):
+        raise ArchifyBuildError('Claude neposkytl bezpečný identifikátor pokračování.')
+    final = _claude_command()
+    final[final.index('--max-turns') + 1] = '1'
+    final[final.index('--tools') + 1] = ''
+    final[final.index('--allowedTools') + 1] = ''
+    final += ['--resume', session, '--disable-slash-commands']
+    return _run_process(final, cwd=source_root, env=os.environ.copy(), deadline=deadline,
+                        cancel=cancel, stdin='Exploration is complete. No tools are available now. Emit the final JSON object with candidate, specification, evidence immediately. Use only the source evidence already read. Prefer fewer components over unsupported claims. No Markdown fences, no further plan, no requests for tools.')
+
+
 def build_archify(
     source_root: Path, output_root: Path, source_revision: str, *, cancel=None
 ) -> dict:
@@ -365,14 +401,7 @@ def build_archify(
     deadline = time.monotonic() + TOTAL_SECONDS
     stage = Path(tempfile.mkdtemp(prefix="archify-private-", dir=output_root.parent))
     try:
-        agent_raw = _run_process(
-            _claude_command(),
-            cwd=source_root,
-            env=os.environ.copy(),
-            deadline=deadline,
-            cancel=cancel,
-            stdin=_prompt(source_revision),
-        )
+        agent_raw = _author(source_root, source_revision, deadline=deadline, cancel=cancel)
         payload = _agent_payload(agent_raw)
         _validate_evidence(source_root, payload["candidate"], payload["evidence"])
         candidate_text = json.dumps(payload["candidate"], ensure_ascii=False, indent=2) + "\n"
