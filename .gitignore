@@ -1,6 +1,7 @@
 .venv/
 .venv-graphify/
 graphify-out/
+.opora-map-refresh/
 node_modules/
 dist/
 .data/

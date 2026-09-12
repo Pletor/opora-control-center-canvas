@@ -15,11 +15,12 @@ from pathlib import Path
 
 from .archify_routes import ArtifactUnavailable, main_project_root
 from .llm_runs import _WindowsJob
+from .map_artifacts import LOCK as PUBLISH_LOCK
 from .workspace_sources import reparse
 
 # Nejvýše jeden dražší parser na proces serveru; žádný placený model.
 GATE = threading.Lock()
-PUBLISH_LOCK = threading.RLock()
+
 PUBLIC_FILES = ('graph.json', 'graph.html', 'GRAPH_REPORT.md')
 
 

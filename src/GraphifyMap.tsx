@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import './archify-map.css';
+import MapUpdateMenu from './MapUpdateMenu';
 
 type Artifact={project:string;html:string;graphJson:string;sourceRoot:string;sourcePath:string;counts:{nodes:number;edges:number};version:string|null;scope:string;generatedAt:string|null;warnings?:string[];corpus?:{codeFiles:number}};
 // Sdílení probíhajícího požadavku zabrání dvojímu startu při React StrictMode/remountu.
@@ -40,7 +41,7 @@ export default function GraphifyMap({project}:{project:string}){
   const preview=useMemo(()=>value?'<meta http-equiv="Content-Security-Policy" content="'+policy+'">'+value.html:'',[value]);
   return <section className="archify-workspace" ref={root} aria-label="Graphify hlavního projektu">
     <div className="archify-toolbar"><strong>Graphify · graf projektu</strong>
-      <button type="button" disabled={busy} onClick={()=>void load(true)}>Aktualizovat graf</button>
+      <MapUpdateMenu key={project} project={project} tool="graphify" busy={busy} onUpdate={()=>load(true)} onReload={()=>load()}/>
       <button type="button" disabled={!value} onClick={()=>value&&download(value.html,'graph.html')}>Stáhnout HTML</button>
       <button type="button" disabled={!value} onClick={()=>value&&download(value.graphJson,'graph.json')}>Stáhnout JSON</button>
       <button type="button" onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen().catch(()=>{});else void root.current?.requestFullscreen().catch(()=>setError('Prohlížeč nepovolil celou obrazovku.'))}}>Celá obrazovka</button>
@@ -51,7 +52,7 @@ export default function GraphifyMap({project}:{project:string}){
     {value&&<><div className="archify-body"><iframe title="Graphify — graf projektu" sandbox="allow-scripts allow-downloads" srcDoc={preview} referrerPolicy="no-referrer"/></div>
       <details className="archify-receipt"><summary>Původní Graphify · {value.version??'externí výstup'} · zdroj a rozsah</summary>
         <p>Hlavní projekt: <code>{value.sourceRoot}</code></p><p>Výstup: <code>{value.sourcePath}</code></p>
-        <p>{value.scope} Dokumenty a média se v tomto režimu neanalyzují. Přegenerování je ruční; graf není živé sledování změn.</p>
+        <p>{value.scope} Dokumenty a média se v tomto režimu neanalyzují. Automatická aktualizace po mergi do main se nastavuje v menu; rozepsané změny ve worktrees ji nespouštějí.</p>
         <p>Vytvořeno: {value.generatedAt??'čas generování nedoložen'}. Knihovnu pro zobrazení načítá původní HTML z unpkg.com.</p>
         {value.corpus&&<p>Analyzováno: {value.corpus.codeFiles} zdrojových souborů.</p>}
         {value.warnings?.map((warning,index)=><p key={index}>Upozornění původního Graphify: {warning}</p>)}

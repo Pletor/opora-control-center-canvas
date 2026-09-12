@@ -8,12 +8,14 @@ from fastapi.responses import JSONResponse
 
 from .archify_routes import ArtifactUnavailable, main_project_root
 from .graphify_runtime import PUBLISH_LOCK, generate_graph
+from .map_artifacts import artifact_root
 from .workspace_sources import WorkspaceSources
 
 MAX_ARTIFACT = 32 * 1024 * 1024
 
 
 def read_output(service, root, name):
+    root = artifact_root(root, 'graphify')
     target = WorkspaceSources(service).target(root, 'graphify-out/' + name)
     if not target.is_file():
         raise ArtifactUnavailable('Výstup Graphify není běžný soubor.')

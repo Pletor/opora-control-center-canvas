@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from .gitio import git
+from .map_artifacts import LOCK, artifact_root
 from .workspace_sources import WorkspaceSources, reparse
 
 DIRECTORY = 'docs/architecture/archify'
@@ -54,6 +55,7 @@ def main_project_root(service, project):
 
 
 def _read(sources, root, name, limit):
+    root = artifact_root(root, 'archify')
     if not isinstance(name, str) or not NAME.fullmatch(name):
         raise ArtifactUnavailable('Neplatný název souboru mapy.')
     relative = DIRECTORY + '/' + name
@@ -83,6 +85,11 @@ def _digest(data):
 
 
 def load_artifact(service, project):
+    with LOCK:
+        return _load_artifact(service, project)
+
+
+def _load_artifact(service, project):
     root = main_project_root(service, project)
     sources = WorkspaceSources(service)
     receipt = _json(_read(sources, root, 'deliver-receipt.json', MAX_JSON))
@@ -128,7 +135,7 @@ def load_artifact(service, project):
     current = git(root, 'rev-parse', 'HEAD', timeout=3, optional=True) if (root / '.git').exists() else None
     freshness = 'changed' if revision and current and revision != current else 'unknown'
     return {
-        'project': project, 'sourceRoot': str(root), 'sourcePath': DIRECTORY + '/' + name,
+        'project': project, 'sourceRoot': str(root), 'sourcePath': (artifact_root(root, 'archify') / DIRECTORY / name).relative_to(root).as_posix(),
         'fileName': name, 'specificationName': spec_name, 'html': html.decode('utf-8'),
         'specificationJson': specification.decode('utf-8'), 'specificationDocument': document,
         'artifact': _digest(html), 'specification': _digest(specification),

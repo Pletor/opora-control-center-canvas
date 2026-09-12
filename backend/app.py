@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .agent_routes import create_agent_router
 from .archify_routes import create_archify_router
 from .graphify_routes import create_graphify_router
+from .map_refresh import MapRefresh, create_map_refresh_router
 from .build_identity import build_identity
 from .coding_runs import CodingRuns
 from .context_routes import create_context_router
@@ -44,10 +45,13 @@ def create_app(data_root=None):
     links = NodeLinks(service)
     journal = NodeJournal(service)
     identity = build_identity(service.root)
+    map_refresh = MapRefresh(service)
 
     @asynccontextmanager
     async def lifespan(app):
+        map_refresh.start()
         yield
+        map_refresh.close()
         handoffs.close()
         coding.close()
         plans.close()
@@ -55,6 +59,7 @@ def create_app(data_root=None):
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.service = service
+    app.state.map_refresh = map_refresh
     app.state.plan_runs = plans
     app.state.coding_runs = coding
     app.state.task_handoffs = handoffs
@@ -286,6 +291,7 @@ def create_app(data_root=None):
     app.include_router(create_node_sessions_router(service))
     app.include_router(create_archify_router(service))
     app.include_router(create_graphify_router(service))
+    app.include_router(create_map_refresh_router(map_refresh))
     app.include_router(create_task_handoff_router(handoffs))
     app.include_router(create_workspace_router(service))
     app.include_router(create_context_router(service))

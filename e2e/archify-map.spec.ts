@@ -44,6 +44,7 @@ test('Graphify-out načte projekt, vytvoří chybějící graf a zobrazí původ
   await expect(page.getByText('2 uzlů · 1 vztahů')).toBeVisible();
   expect(generated).toBe(1);
   await page.getByRole('button',{name:'Aktualizovat graf',exact:true}).click();
+  await page.getByRole('button',{name:'Aktualizovat teď',exact:true}).click();
   await expect.poll(()=>generated).toBe(2);
   await page.getByRole('button',{name:'Archify',exact:true}).click();
   await expect(page.locator('iframe[title="Archify — mapa projektu"]')).toBeVisible();
@@ -64,7 +65,29 @@ test('Mapa přímo zobrazí hotové HTML, nikoli vlastní renderer nebo graf',as
   expect(createHash('sha256').update(fs.readFileSync((await download.path())!)).digest('hex')).toBe(receipt.artifact.sha256);
   expect(posts).toEqual([]);
   await page.route('**/api/archify/artifact?project=draft',route=>route.fulfill({status:404,json:{error:'Mapa zatím chybí.'}}));
-  await page.getByRole('button',{name:'Načíst ze souboru',exact:true}).click();
+  await page.getByRole('button',{name:'Aktualizovat graf',exact:true}).click();
+  await page.getByRole('button',{name:'Načíst uložený výstup',exact:true}).click();
   await expect(iframe).toHaveCount(0);
   await expect(page.getByRole('alert')).toContainText('Mapa zatím chybí');
+});
+
+test('obě mapy mají malé menu a nezávislé uložené volby aktualizace',async({page})=>{
+  const automatic={graphify:true,archify:true};const writes:any[]=[];
+  await page.route('**/api/archify/artifact?project=draft',route=>route.fulfill({json:artifact}));
+  await page.route('**/api/graphify/artifact?project=draft',route=>route.fulfill({json:{project:'draft',html:'<html><head></head><body>Graphify fixture</body></html>',graphJson:'{}',counts:{nodes:1,edges:0},sourceRoot:'Fixture',scope:'fixture'}}));
+  await page.route('**/api/map-refresh/status?project=draft',route=>route.fulfill({json:{project:'draft',enabled:true,status:'watching',automatic,versions:{graphify:null,archify:null}}}));
+  await page.route('**/api/map-refresh/settings',route=>{const value=route.request().postDataJSON();writes.push(value);automatic[value.tool as keyof typeof automatic]=value.automatic;return route.fulfill({json:{ok:true}})});
+  await page.goto('/?screen=canvas&project=draft&workspace=draft&environment=project');
+  await page.getByRole('button',{name:'Aktualizovat graf',exact:true}).click();
+  await expect(page.getByRole('group',{name:'Aktualizace Archify',exact:true})).toBeVisible();
+  await page.getByRole('radio',{name:'Pouze ručně',exact:true}).click();
+  await expect(page.getByRole('radio',{name:'Pouze ručně',exact:true})).toBeChecked();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('group',{name:'Aktualizace Archify',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Graphify-out',exact:true}).click();
+  await page.getByRole('button',{name:'Aktualizovat graf',exact:true}).click();
+  await expect(page.getByRole('radio',{name:'Po mergi do main',exact:true})).toBeChecked();
+  await page.getByRole('radio',{name:'Pouze ručně',exact:true}).click();
+  await expect(page.getByRole('radio',{name:'Pouze ručně',exact:true})).toBeChecked();
+  expect(writes).toEqual([{project:'draft',tool:'archify',automatic:false},{project:'draft',tool:'graphify',automatic:false}]);
 });
