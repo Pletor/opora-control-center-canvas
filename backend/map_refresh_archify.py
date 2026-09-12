@@ -1,5 +1,6 @@
 """Bounded private Archify generation from one sanitized source snapshot."""
 
+import copy
 import json
 import os
 import re
@@ -158,7 +159,8 @@ Reserve your final response for the required JSON, not a plan. If exploration is
 Do not use Bash, Write, Edit, network access, MCP, project instructions, credentials, or any source outside this snapshot.
 
 Return exactly one JSON object and no Markdown fences. Its keys must be exactly candidate, specification, evidence.
-- candidate: a fresh Archify architecture JSON, not copied from an old artifact. It must set schema_version=1, diagram_type=architecture, meta.quality_profile=showcase, preserve real identifiers, use <=12 components, and give every component a sources entry.
+- candidate: a COMPLETE RENDERABLE Archify architecture JSON, not merely topology. Set schema_version=1, diagram_type=architecture, meta.quality_profile=showcase. Prefer 6-8 primary components, at most 12. Every component MUST include numeric pos [x,y] and size [w,h], like the example. Include a fitting meta.viewBox. Automatic edge routing does NOT place nodes automatically. Keep labels and routes clear and use sparse connections.
+- Every component must also have sources for LOCAL validation by the caller. There is NO verified public repository URL: do not invent meta.repository. The caller stores sources in a local evidence sidecar, not in the renderer's public-repository link fields.
 - specification: concise Czech Markdown explaining the architecture and evidence. Do not include a revision line; the caller supplies it.
 - evidence: nonempty objects with exactly path, line, identifier. path is source-relative, line is 1-based, and that exact identifier must occur on that exact line. Every candidate component source path+line must occur in evidence.
 Do not invent components, protocols, APIs, paths, or source claims. Prefer the optional graphify-out report only when it is itself grounded in this snapshot.
@@ -383,7 +385,16 @@ def _author(source_root, source_revision, *, deadline, cancel):
     final[final.index('--allowedTools') + 1] = ''
     final += ['--resume', session, '--disable-slash-commands']
     return _run_process(final, cwd=source_root, env=os.environ.copy(), deadline=deadline,
-                        cancel=cancel, stdin='Exploration is complete. No tools are available now. Emit the final JSON object with candidate, specification, evidence immediately. Use only the source evidence already read. Prefer fewer components over unsupported claims. No Markdown fences, no further plan, no requests for tools.')
+                        cancel=cancel, stdin='Exploration is complete. No tools are available now. Emit the final JSON object with candidate, specification, evidence immediately. The candidate MUST be renderable: EVERY component needs explicit numeric pos [x,y] and size [w,h], plus a fitting meta.viewBox, as in the original example. Automatic routes do not place nodes. Prefer 6-8 well-spaced primary components with sparse links and local sources. No invented public meta.repository. Preserve evidence already read. No Markdown fences, no further plan, no requests for tools.')
+
+
+def _render_candidate(candidate):
+    # Původní renderer váže sources na veřejný repozitář. Lokální důkazy mají vlastní sidecar.
+    result = copy.deepcopy(candidate)
+    result.get('meta', {}).pop('repository', None)
+    for component in result.get('components', []):
+        component.pop('sources', None)
+    return result
 
 
 def build_archify(
@@ -404,7 +415,7 @@ def build_archify(
         agent_raw = _author(source_root, source_revision, deadline=deadline, cancel=cancel)
         payload = _agent_payload(agent_raw)
         _validate_evidence(source_root, payload["candidate"], payload["evidence"])
-        candidate_text = json.dumps(payload["candidate"], ensure_ascii=False, indent=2) + "\n"
+        candidate_text = json.dumps(_render_candidate(payload["candidate"]), ensure_ascii=False, indent=2) + "\n"
         candidate = stage / FILES["candidate"]
         candidate.write_text(candidate_text, encoding="utf-8")
         node = shutil.which("node")
@@ -494,7 +505,8 @@ def build_archify(
         (stage / FILES["spec"]).write_text(spec, encoding="utf-8")
         _write_json(
             stage / FILES["evidence"],
-            {"sourceRevision": source_revision, "evidence": payload["evidence"]},
+            {"sourceRevision": source_revision, "evidence": payload["evidence"],
+             "componentSources": {component['id']: component['sources'] for component in payload['candidate']['components']}},
         )
         _copy_staged(stage, output_root)
         return {

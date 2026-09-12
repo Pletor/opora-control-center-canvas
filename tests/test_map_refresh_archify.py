@@ -93,7 +93,10 @@ def test_build_archify_runs_bounded_readonly_agent_and_native_receipts(tmp_path,
     (source / "src/app.py").write_text("# snapshot\nclass APIService: pass\n", encoding="utf-8")
     output = tmp_path / "private-output"
     revision = "a" * 40
-    candidate_text = json.dumps(_candidate(), ensure_ascii=False, indent=2) + "\n"
+    rendered_candidate = _candidate()
+    for component in rendered_candidate['components']:
+        component.pop('sources')
+    candidate_text = json.dumps(rendered_candidate, ensure_ascii=False, indent=2) + "\n"
     html = "<!doctype html><html><body><svg></svg></body></html>"
     seen = []
 
@@ -172,6 +175,15 @@ def test_author_reserves_a_tool_free_final_turn(tmp_path, monkeypatch):
     result = subject._author(tmp_path, 'a' * 40, deadline=9999999999, cancel=None)
     assert json.loads(result)['candidate'] == _candidate()
     assert sum(int(c[c.index('--max-turns') + 1]) for c in calls) <= subject.MAX_TURNS
+
+
+def test_local_repository_keeps_evidence_outside_public_link_fields():
+    from backend import map_refresh_archify as subject
+    original = _candidate()
+    rendered = subject._render_candidate(original)
+    assert 'sources' not in rendered['components'][0]
+    assert original['components'][0]['sources'][0]['path'] == 'src/app.py'
+    assert rendered['components'][0]['id'] == original['components'][0]['id']
 
 
 def test_build_archify_refuses_nonempty_private_output(tmp_path):
