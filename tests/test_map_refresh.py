@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
-from backend.gitio import git
+from backend.app.factory import create_app
+from backend.integrations.gitio import git
 
 
 def repository(path, name):
@@ -16,7 +16,7 @@ def repository(path, name):
 
 
 def test_main_merge_queues_only_its_project_and_claim_is_exclusive(tmp_path):
-    from backend.map_refresh import MapRefresh
+    from backend.maps.map_refresh import MapRefresh
     app = create_app(tmp_path / 'state')
     service = app.state.service
     a = repository(tmp_path / 'a', 'alpha')
@@ -47,7 +47,7 @@ def test_main_merge_queues_only_its_project_and_claim_is_exclusive(tmp_path):
 
 
 def test_snapshot_uses_committed_main_and_ignores_other_project_and_secrets(tmp_path):
-    from backend.map_refresh_snapshot import snapshot_main
+    from backend.maps.map_refresh_snapshot import snapshot_main
     root = repository(tmp_path / 'repo', 'committed_symbol')
     (root / '.env').write_text('DO_NOT_COPY_SECRET=yes')
     git(root, 'add', '-f', '.env')
@@ -87,7 +87,7 @@ def test_automation_is_off_until_explicitly_enabled(tmp_path):
 
 
 def test_real_graphify_refresh_publishes_only_selected_project(tmp_path):
-    from backend.graphify_routes import load_graph
+    from backend.api.graphify_routes import load_graph
     app = create_app(tmp_path / 'state')
     service = app.state.service
     a = repository(tmp_path / 'a', 'alpha')

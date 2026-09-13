@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from test_workspace_sources import ORIGIN, attach
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 @pytest.mark.parametrize("path", ["..", "../outside", "/absolute", "C:/Windows", "src//file", "src/./file", "src\\file", "src/NUL.txt", "src/trailing.", "src/trailing ", ".git/config", "x" * 256, "/".join(["x" * 100] * 22)])

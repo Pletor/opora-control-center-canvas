@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from backend.context_routes import create_context_router
-from backend.service import CanvasService
+from backend.api.context_routes import create_context_router
+from backend.domain.service import CanvasService
 
 ORIGIN = "http://127.0.0.1:8740"
 

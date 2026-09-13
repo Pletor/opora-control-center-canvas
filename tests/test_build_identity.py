@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 def test_build_identity_describes_runtime_and_real_features(tmp_path):

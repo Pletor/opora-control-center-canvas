@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from test_workspace_sources import ORIGIN, attach
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 FIELDS = {"purpose": "Smysl aplikace", "goal": "Funkční projekt", "architecture": "API a UI", "technologies": "Python, React", "notes": "Teorie a tvorba", "requirements": "Požadavek není automaticky důkaz."}
 

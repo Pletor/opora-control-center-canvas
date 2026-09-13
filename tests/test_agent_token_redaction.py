@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.agent_sources import redact
+from backend.agents.sources.agent_sources import redact
 
 
 @pytest.mark.parametrize("key", [

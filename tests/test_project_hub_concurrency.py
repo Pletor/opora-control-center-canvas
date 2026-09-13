@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 ORIGIN = "http://127.0.0.1:8740"
 

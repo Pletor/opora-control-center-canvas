@@ -4,9 +4,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.agent_routes import create_agent_router
-from backend.agent_sources import LocalOrchestratorSource, PlatnoSource, redact
-from backend.service import CanvasService
+from backend.api.agent_routes import create_agent_router
+from backend.agents.sources.agent_sources import LocalOrchestratorSource, PlatnoSource, redact
+from backend.domain.service import CanvasService
 
 
 def _fetch_from(table):

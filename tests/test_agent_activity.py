@@ -1,8 +1,8 @@
 import pytest
 
-from backend.agent_activity import AgentActivityJournal
-from backend.agent_bindings import AgentBindings
-from backend.service import CanvasService
+from backend.agents.sources.agent_activity import AgentActivityJournal
+from backend.agents.sources.agent_bindings import AgentBindings
+from backend.domain.service import CanvasService
 
 KNOWN_SOURCES = ("hermes-orchestrator", "oporacc-platno")
 

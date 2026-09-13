@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
-from backend.archify_routes import ArtifactUnavailable
-from backend.graphify_runtime import clean_environment, writable
+from backend.app.factory import create_app
+from backend.api.archify_routes import ArtifactUnavailable
+from backend.maps.graphify_runtime import clean_environment, writable
 
 
 def test_generate_uses_official_graphify_and_persists_output(tmp_path):
@@ -58,7 +58,7 @@ def test_graphify_reads_original_output_for_selected_project(tmp_path):
 
 
 def test_failed_regeneration_preserves_existing_outputs(tmp_path, monkeypatch):
-    import backend.graphify_runtime as runtime
+    import backend.maps.graphify_runtime as runtime
     root = tmp_path / 'source'
     output = root / 'graphify-out'
     output.mkdir(parents=True)

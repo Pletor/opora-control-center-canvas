@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}
@@ -25,7 +25,7 @@ def test_coding_workspace_requires_confirmation_and_never_accepts_target_paths(t
 
 
 def test_scoped_tools_reject_traversal_links_and_test_writes(tmp_path):
-    from backend.coding_tools import ScopedFiles
+    from backend.agents.runs.coding_tools import ScopedFiles
     root = tmp_path / "repo"; root.mkdir()
     (root / "calculator.py").write_text("def add(a, b):\n    return 0\n")
     files = ScopedFiles(root)

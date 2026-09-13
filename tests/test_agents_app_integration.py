@@ -2,8 +2,8 @@
 
 from fastapi.testclient import TestClient
 
-from backend.agent_sources import PlatnoSource
-from backend.app import create_app
+from backend.agents.sources.agent_sources import PlatnoSource
+from backend.app.factory import create_app
 
 
 def test_real_app_exposes_agent_sources_before_static(tmp_path, monkeypatch):

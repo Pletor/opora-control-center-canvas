@@ -1,4 +1,4 @@
-from backend.service import CanvasService
+from backend.domain.service import CanvasService
 
 
 def test_main_graph_is_pinned_to_reported_sha(tmp_path, monkeypatch):
@@ -16,6 +16,6 @@ def test_main_graph_is_pinned_to_reported_sha(tmp_path, monkeypatch):
             return "main"
         return None if kwargs.get("optional") else ""
 
-    monkeypatch.setattr("backend.service.git", snapshot_git)
+    monkeypatch.setattr("backend.domain.service.git", snapshot_git)
     snapshot = service.view("fixture", "main")
     assert ("show", snapshot["sha"] + ":opora-canvas.json") in calls

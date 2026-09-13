@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.archify_routes import create_archify_router
+from backend.api.archify_routes import create_archify_router
 
 
 def delivery(root):
@@ -76,14 +76,14 @@ def test_receipt_cannot_grant_access_outside_artifact_directory(tmp_path):
 
 
 def test_artifact_has_a_read_size_limit(tmp_path):
-    from backend.archify_routes import MAX_HTML
+    from backend.api.archify_routes import MAX_HTML
     delivery(tmp_path)
     (tmp_path / 'docs/architecture/archify/map.architecture.html').write_bytes(b'x' * (MAX_HTML + 1))
     assert client_for(tmp_path).get('/api/archify/artifact?project=mine').status_code == 409
 
 
 def test_linked_worktree_reads_main_artifact_without_copying(tmp_path):
-    from backend.gitio import git
+    from backend.integrations.gitio import git
     main = tmp_path / 'main'
     main.mkdir()
     git(main, 'init', '--initial-branch=main')

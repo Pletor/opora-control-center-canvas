@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from test_workspace_sources import ORIGIN
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 def test_root_document_uses_the_existing_project_goal_with_conflict_guard(tmp_path):

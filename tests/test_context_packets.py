@@ -1,7 +1,7 @@
 import pytest
 
-from backend.context_packets import ContextPackets
-from backend.service import CanvasService
+from backend.agents.packets.context_packets import ContextPackets
+from backend.domain.service import CanvasService
 
 ORIGIN = "http://127.0.0.1:8740"
 

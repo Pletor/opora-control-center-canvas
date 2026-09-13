@@ -1,4 +1,4 @@
-from backend.wireframe_context import wireframe_context
+from backend.domain.project.wireframe_context import wireframe_context
 
 
 def test_saved_wireframe_projects_native_geometry_and_frame_relative_coordinates():

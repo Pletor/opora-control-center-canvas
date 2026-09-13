@@ -1,6 +1,6 @@
 import subprocess
 
-from backend.service import CanvasService
+from backend.domain.service import CanvasService
 
 
 def git(root, *args):

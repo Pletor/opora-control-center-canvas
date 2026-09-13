@@ -5,9 +5,9 @@ import json
 from fastapi.testclient import TestClient
 from test_desktop_v3_packets import HEADERS, ORIGIN, preview, request, seed
 
-from backend.app import create_app
-from backend.llm_runs import _canonical
-from backend.task_handoff_tools import DocumentTools
+from backend.app.factory import create_app
+from backend.agents.runs.llm_runs import _canonical
+from backend.agents.runs.task_handoff_tools import DocumentTools
 
 
 def _snapshot(client, scope):

@@ -2,8 +2,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
-from backend.service import CanvasService
+from backend.app.factory import create_app
+from backend.domain.service import CanvasService
 
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}

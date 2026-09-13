@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from backend.task_handoff_tools import DocumentTools
+from backend.agents.runs.task_handoff_tools import DocumentTools
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Windows junction boundary')

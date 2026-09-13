@@ -15,13 +15,13 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from test_workspace_sources import ORIGIN, attach
 
-from backend.agent_catalog import AgentCatalog
-from backend.agent_routes import create_agent_router
-from backend.agent_sources import LocalOrchestratorSource, redact
-from backend.agent_telemetry import read_telemetry
-from backend.app import create_app
-from backend.context_packets import ContextPackets
-from backend.service import CanvasService
+from backend.agents.sources.agent_catalog import AgentCatalog
+from backend.api.agent_routes import create_agent_router
+from backend.agents.sources.agent_sources import LocalOrchestratorSource, redact
+from backend.agents.sources.agent_telemetry import read_telemetry
+from backend.app.factory import create_app
+from backend.agents.packets.context_packets import ContextPackets
+from backend.domain.service import CanvasService
 
 # Syntetický token ve tvaru fine-grained GitHub PAT; není to skutečný přístupový údaj.
 FIXTURE_PAT = "github_pat_11FAKE0000fakefakefakefake0123456789abcdefghijklmnop"

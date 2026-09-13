@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 def test_empty_application_and_origin_gate(tmp_path):

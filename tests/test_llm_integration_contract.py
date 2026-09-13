@@ -6,7 +6,7 @@ import time
 import pytest
 from test_llm_runs import Canvas, context, preview, start, wait_for
 
-from backend.llm_runs import PlanRuns
+from backend.agents.runs.llm_runs import PlanRuns
 
 
 def test_root_layer_is_a_valid_planning_scope(tmp_path):
@@ -77,7 +77,7 @@ def test_close_during_preflight_never_launches_a_later_process(tmp_path):
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows containment regression")
 def test_failed_job_assignment_terminates_suspended_process(tmp_path, monkeypatch):
-    import backend.llm_runs as module
+    import backend.agents.runs.llm_runs as module
     created = []
     original = module.subprocess.Popen
     def capture(*args, **kwargs):

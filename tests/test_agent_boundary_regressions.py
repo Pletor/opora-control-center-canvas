@@ -18,13 +18,13 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.agent_activity import AgentActivityJournal
-from backend.agent_bindings import AgentBindings
-from backend.agent_catalog import AgentCatalog
-from backend.agent_routes import create_agent_router
-from backend.agent_sources import LocalOrchestratorSource, PlatnoSource, redact
-from backend.app import create_app
-from backend.service import CanvasService
+from backend.agents.sources.agent_activity import AgentActivityJournal
+from backend.agents.sources.agent_bindings import AgentBindings
+from backend.agents.sources.agent_catalog import AgentCatalog
+from backend.api.agent_routes import create_agent_router
+from backend.agents.sources.agent_sources import LocalOrchestratorSource, PlatnoSource, redact
+from backend.app.factory import create_app
+from backend.domain.service import CanvasService
 
 ORIGIN = "http://127.0.0.1:8740"
 

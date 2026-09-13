@@ -4,7 +4,7 @@ import copy
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}
@@ -196,7 +196,7 @@ def test_main_workspace_is_read_only_for_state(tmp_path, monkeypatch):
             return "main"
         return None
 
-    monkeypatch.setattr("backend.service.git", fake_git)
+    monkeypatch.setattr("backend.domain.service.git", fake_git)
     with TestClient(app, base_url=ORIGIN) as client:
         response = _get(client, project="p", workspace="main")
         assert response.status_code == 200, response.text

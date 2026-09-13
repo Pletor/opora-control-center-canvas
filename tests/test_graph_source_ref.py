@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from test_workspace_sources import ORIGIN, attach
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 def view(client, pid, wid="draft"):

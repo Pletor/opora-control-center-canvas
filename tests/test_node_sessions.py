@@ -8,14 +8,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.node_session_sources import (
+from backend.domain.node.node_session_sources import (
     ClaudeLaneSource,
     HermesSessionSource,
     SourceError,
     default_process_create_time,
 )
-from backend.node_sessions import NodeSessions, create_node_sessions_router
-from backend.service import CanvasService
+from backend.domain.node.node_sessions import NodeSessions, create_node_sessions_router
+from backend.domain.service import CanvasService
 
 T0 = datetime(2026, 9, 11, 12, 0, 0, tzinfo=UTC)
 HERMES_ID = "20260101_000000_abcdef12"

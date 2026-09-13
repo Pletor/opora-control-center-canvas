@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.llm_runs import PlanRuns
+from backend.agents.runs.llm_runs import PlanRuns
 
 
 class Canvas:

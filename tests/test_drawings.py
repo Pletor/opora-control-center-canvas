@@ -3,8 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
-from backend.drawings import validate_scene
+from backend.app.factory import create_app
+from backend.domain.node.drawings import validate_scene
 
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}
@@ -125,7 +125,7 @@ def test_layer_scope_and_main_and_archived_project_are_guarded(tmp_path, monkeyp
             return "main"
         return None
 
-    monkeypatch.setattr("backend.service.git", fake_git)
+    monkeypatch.setattr("backend.domain.service.git", fake_git)
     with TestClient(app, base_url=ORIGIN) as client:
         assert drawing(client, {**ROOT, "layer": "missing"}).status_code == 409
         main = drawing(client, {"project": "p", "workspace": "main", "layer": ""})

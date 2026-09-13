@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from test_workspace_sources import ORIGIN
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 def test_new_project_has_an_empty_managed_source_tree(tmp_path):

@@ -1,6 +1,6 @@
 import pytest
 
-from backend.graph import validate_graph
+from backend.domain.graph.graph import validate_graph
 
 
 def node(node_id, parent_id=None):

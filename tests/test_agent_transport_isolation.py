@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
 
-from backend import agent_routes, agent_sources
-from backend.app import create_app
+from backend.agents.sources import agent_sources
+from backend.api import agent_routes
+from backend.app.factory import create_app
 
 
 def test_process_adapter_reuses_the_registered_transport(monkeypatch, tmp_path):

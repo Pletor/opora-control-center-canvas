@@ -86,7 +86,7 @@ def _receipt(command, candidate, html):
 
 
 def test_build_archify_runs_bounded_readonly_agent_and_native_receipts(tmp_path, monkeypatch):
-    from backend import map_refresh_archify as subject
+    from backend.maps import map_refresh_archify as subject
 
     source = tmp_path / "snapshot"
     (source / "src").mkdir(parents=True)
@@ -145,7 +145,7 @@ def test_build_archify_runs_bounded_readonly_agent_and_native_receipts(tmp_path,
 
 
 def test_build_archify_rejects_bad_evidence_without_publishing(tmp_path, monkeypatch):
-    from backend import map_refresh_archify as subject
+    from backend.maps import map_refresh_archify as subject
 
     source = tmp_path / "snapshot"
     (source / "src").mkdir(parents=True)
@@ -161,7 +161,7 @@ def test_build_archify_rejects_bad_evidence_without_publishing(tmp_path, monkeyp
 
 
 def test_author_reserves_a_tool_free_final_turn(tmp_path, monkeypatch):
-    from backend import map_refresh_archify as subject
+    from backend.maps import map_refresh_archify as subject
     calls = []
     session = '1538a182-cee7-44e8-bdfc-36f60e3b1fdf'
     def fake(command, **kwargs):
@@ -178,7 +178,7 @@ def test_author_reserves_a_tool_free_final_turn(tmp_path, monkeypatch):
 
 
 def test_local_repository_keeps_evidence_outside_public_link_fields():
-    from backend import map_refresh_archify as subject
+    from backend.maps import map_refresh_archify as subject
     original = _candidate()
     rendered = subject._render_candidate(original)
     assert 'sources' not in rendered['components'][0]
@@ -187,7 +187,7 @@ def test_local_repository_keeps_evidence_outside_public_link_fields():
 
 
 def test_build_archify_refuses_nonempty_private_output(tmp_path):
-    from backend import map_refresh_archify as subject
+    from backend.maps import map_refresh_archify as subject
 
     source = tmp_path / "snapshot"
     source.mkdir()

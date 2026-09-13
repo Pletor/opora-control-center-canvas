@@ -1,7 +1,7 @@
 import pytest
 
-from backend.agent_bindings import AgentBindings
-from backend.service import CanvasService
+from backend.agents.sources.agent_bindings import AgentBindings
+from backend.domain.service import CanvasService
 
 
 @pytest.fixture

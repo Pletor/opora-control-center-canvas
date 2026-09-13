@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 def test_context_router_is_integrated_without_starting_an_agent(tmp_path):

@@ -1,5 +1,5 @@
-from backend import agent_sources
-from backend.agent_catalog import AgentCatalog
+from backend.agents.sources import agent_sources
+from backend.agents.sources.agent_catalog import AgentCatalog
 
 
 def test_oporacc_process_preserves_worktrees_evidence_and_source_times():
@@ -50,7 +50,7 @@ def test_bridge_detail_exposes_public_telemetry_not_raw_reasoning():
 def test_application_registers_the_process_source(monkeypatch, tmp_path):
     from fastapi.testclient import TestClient
 
-    from backend.app import create_app
+    from backend.app.factory import create_app
     def fetch(self, path):
         if path == "/api/process":
             return 200, {"runs": [{"run": "app-fixture", "state": "COMPLETED"}]}

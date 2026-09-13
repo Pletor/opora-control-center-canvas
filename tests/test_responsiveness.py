@@ -1,7 +1,7 @@
 import concurrent.futures
 import threading
 
-from backend.service import CanvasService
+from backend.domain.service import CanvasService
 
 
 def test_slow_git_view_does_not_block_bootstrap(tmp_path, monkeypatch):
@@ -21,7 +21,7 @@ def test_slow_git_view_does_not_block_bootstrap(tmp_path, monkeypatch):
             return "main"
         return None if kwargs.get("optional") else ""
 
-    monkeypatch.setattr("backend.service.git", slow_git)
+    monkeypatch.setattr("backend.domain.service.git", slow_git)
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         source = pool.submit(service.view, "fixture", "main")
         assert entered.wait(1)

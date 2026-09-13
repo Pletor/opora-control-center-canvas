@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 def test_saved_assignment_history_survives_node_removal_and_restart(tmp_path):

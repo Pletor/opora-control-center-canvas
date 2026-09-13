@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.service import CanvasService, validate_graph
+from backend.domain.service import CanvasService, validate_graph
 
 
 def git(root, *args):

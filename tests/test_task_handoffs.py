@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
-from backend.task_handoff_tools import DocumentTools
+from backend.app.factory import create_app
+from backend.agents.runs.task_handoff_tools import DocumentTools
 
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}

@@ -2,7 +2,7 @@
 from fastapi.testclient import TestClient
 from test_workspace_sources import ORIGIN, attach
 
-from backend.app import create_app
+from backend.app.factory import create_app
 
 
 def test_working_tree_hides_ignored_noise_before_pagination_and_prioritizes_src(tmp_path):
