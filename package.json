@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "uv run opora",
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build && node tools/copy-drawing-assets.mjs"
   },

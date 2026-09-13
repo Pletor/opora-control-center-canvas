@@ -1,1 +1,1 @@
-Build a vývojové skripty: kopie assetů kreslení pro build a lokální náhledový server.
+Build a dev skripty. opora.py = jediný spouštěč aplikace podle opora.toml (`uv run opora`); copy-drawing-assets.mjs kopíruje fonty kreslení do dist/; serve-preview.py je starší ruční náhled nad kopií dat.

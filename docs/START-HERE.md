@@ -5,7 +5,7 @@
 Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikace. Rozhodnutí uživatele: 2026-09-09. Nevytváříme další paralelní varianty produktu.
 
 - Aplikace: **http://127.0.0.1:8740/**
-- Instalace a spuštění: [README.md](../README.md).
+- Spuštění: `uv run opora` (nastavení v [opora.toml](../opora.toml)); instalace viz [README.md](../README.md).
 - Směr vývoje: konkrétní kroky vznikají při praktickém vývoji. Dřívější plány, koncepty a LLM/Hermes běhy byly odstraněny 2026-09-13; základ je funkční editor plátna s Podklady pro agenta (náhled, neměnný snímek, export pro externího agenta).
 
 ## Nově: pracovní módy

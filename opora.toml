@@ -1,0 +1,32 @@
+# Opora Control Center – jediný zdroj nastavení běhu aplikace.
+# Spuštění: `uv run opora` (nebo `npm start`). Profil: `uv run opora --profile preview`.
+# Lokální přepisy (mimo git): opora.local.toml se stejnou strukturou.
+
+[app]
+host = "127.0.0.1"
+port = 8740
+data = ".data/production"      # adresář s canvas.sqlite, projekty a snímky
+open_browser = true            # po startu otevřít http://host:port
+title = "Opora Canvas"
+
+[build]
+frontend = "auto"              # auto = sestavit, když dist/ chybí nebo je starší než frontend/; always; never
+command = "npm run build"
+
+[profiles.preview]             # náhled nad kopií dat, nikdy nad produkcí
+port = 8790
+data = ".data/preview"
+open_browser = false
+
+[profiles.dev]                 # backend pro `npm run dev` (Vite proxuje /api sem)
+port = 8740
+data = ".data/production"
+open_browser = false
+frontend = "never"
+
+[integrations]                 # prázdná hodnota = nenastaveno; tajemství (API klíče) sem nepatří, jdou přes proměnné prostředí
+hermes_api_url = ""            # OPORA_HERMES_API_URL  (klíč: OPORA_HERMES_API_KEY v prostředí)
+node_session_lanes_root = ""   # OPORA_NODE_SESSION_LANES_ROOT – kořen lane souborů Claude session
+graphify_python = ""           # OPORA_GRAPHIFY_PYTHON – python s nainstalovaným graphify
+agent_orchestrator_root = ""   # OPORA_AGENT_ORCHESTRATOR_ROOT
+agent_platno_url = ""          # OPORA_AGENT_PLATNO_URL
