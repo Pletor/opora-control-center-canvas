@@ -1,5 +1,5 @@
 // Klient pro sdílené API Desktop v3. Fetch přes existující api() z ../types.
-import { api } from "../types";
+import { api } from "@/types";
 import type {
   DesktopState,
   StateResponse,
@@ -7,7 +7,7 @@ import type {
   PacketSnapshotResponse,
   HandoffRun,
   PlanningRun,
-} from "./types";
+} from "@/desktop-v3/types";
 
 const query = (params: Record<string, string>): string =>
   Object.entries(params)

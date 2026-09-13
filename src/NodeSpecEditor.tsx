@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type NodeSpec, type SpecFields } from "./types";
+import { api, type NodeSpec, type SpecFields } from "@/types";
 
 const drafts = new Map<string, { fields: SpecFields; revision: number }>();
 export function discardSpecDrafts(project: string, workspace?: string, nodeIds?: string[]) {

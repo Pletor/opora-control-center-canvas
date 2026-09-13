@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { RemovalPreview } from "./types";
+import type { RemovalPreview } from "@/types";
 
 export default function RemovalDialog({ preview, onClose, onConfirm }: {
   preview: RemovalPreview; onClose: () => void;

@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
-import './archify-map.css';
-import MapUpdateMenu from './MapUpdateMenu';
+import '@/archify-map.css';
+import MapUpdateMenu from '@/MapUpdateMenu';
 
 type Artifact = {
   html:string; specificationJson:string; fileName:string; specificationName:string;

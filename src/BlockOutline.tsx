@@ -11,8 +11,8 @@ import {
   removeBlock,
   serializeBlocks,
   type Block,
-} from "./block-commands";
-import "./natural-canvas.css";
+} from "@/block-commands";
+import "@/natural-canvas.css";
 
 export type LinkTarget = { id: string; name: string; kind: string };
 type Menu = { kind: "slash" | "link"; blockId: string; query: string } | null;

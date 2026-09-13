@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "./types";
-import { clearPendingEdit, editScope, readPendingEdit, writePendingEdit } from "./use-pending-edits";
+import { api } from "@/types";
+import { clearPendingEdit, editScope, readPendingEdit, writePendingEdit } from "@/use-pending-edits";
 
 export type DocumentFields = { purpose: string; goal: string; architecture: string; technologies: string; notes: string; requirements: string };
 export type WorkspaceDocument = { revision: number; settingsRevision: number | null; fields: DocumentFields; nodeId: string | null; status: "missing" | "documented" | "stale"; savedAt: string | null; changeDetection: string };

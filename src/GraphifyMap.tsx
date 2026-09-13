@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
-import './archify-map.css';
-import MapUpdateMenu from './MapUpdateMenu';
+import '@/archify-map.css';
+import MapUpdateMenu from '@/MapUpdateMenu';
 
 type Artifact={project:string;html:string;graphJson:string;sourceRoot:string;sourcePath:string;counts:{nodes:number;edges:number};version:string|null;scope:string;generatedAt:string|null;warnings?:string[];corpus?:{codeFiles:number}};
 // Sdílení probíhajícího požadavku zabrání dvojímu startu při React StrictMode/remountu.

@@ -9,8 +9,8 @@ import {
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
-import { api } from "./types";
-import { useDesktopAppearance } from "./DesktopThemeControls";
+import { api } from "@/types";
+import { useDesktopAppearance } from "@/DesktopThemeControls";
 import {
   drawingDrafts,
   drawingSaves,
@@ -19,13 +19,13 @@ import {
   type DrawingSnapshot,
   type DrawingScene,
   type DrawingTool,
-} from "./drawing-state";
-import type { SurfaceSettings } from "./workspace-settings";
-import type { WireframeKind, WireframeMetadata } from "./wireframe-model";
-import { buildWireframeMetadata, getWireframeTemplate, sanitizeWireframeMetadata } from "./wireframe-model";
-import WireframeInspector, { type InspectableWireframe } from "./WireframeInspector";
-import WireframePreview from "./WireframePreview";
-import "./drawing.css";
+} from "@/drawing-state";
+import type { SurfaceSettings } from "@/workspace-settings";
+import type { WireframeKind, WireframeMetadata } from "@/wireframe-model";
+import { buildWireframeMetadata, getWireframeTemplate, sanitizeWireframeMetadata } from "@/wireframe-model";
+import WireframeInspector, { type InspectableWireframe } from "@/WireframeInspector";
+import WireframePreview from "@/WireframePreview";
+import "@/drawing.css";
 
 export type WireframeInsert = { kind: WireframeKind; sequence: number };
 type WireframeContext = { drawingRevision: number; blocks: unknown[]; elements: unknown[]; annotations: unknown[]; source: string };

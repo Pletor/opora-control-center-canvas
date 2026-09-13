@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type View } from "./types";
-import LiveRunDetail, { type LivePane } from "./LiveRunDetail";
+import { api, type View } from "@/types";
+import LiveRunDetail, { type LivePane } from "@/LiveRunDetail";
 import type {
   AgentBindingCandidate,
   AgentRunDetail,
   AgentRunSummary,
   AgentRunsPage,
   AgentSourceHealth,
-} from "./agent-types";
+} from "@/agent-types";
 
 const POLL_MS = 4000;
 

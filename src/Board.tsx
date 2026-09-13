@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, memo } from "react";
-import { useDesktopAppearance } from "./DesktopThemeControls";
+import { useDesktopAppearance } from "@/DesktopThemeControls";
 import {
   ReactFlow,
   Background,
@@ -13,8 +13,8 @@ import {
   type Connection,
   type Viewport,
 } from "@xyflow/react";
-import type { SurfaceSettings } from "./workspace-settings";
-import type { Graph } from "./types";
+import type { SurfaceSettings } from "@/workspace-settings";
+import type { Graph } from "@/types";
 const Card = memo(function Card({ id, data, selected }: NodeProps) {
   const rename = data.rename as
     | { editing: boolean; commit: (name: string) => void; cancel: () => void; start: () => void }

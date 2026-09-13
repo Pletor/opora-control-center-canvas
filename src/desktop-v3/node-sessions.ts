@@ -1,6 +1,6 @@
 // Klient pro GET/POST /api/node-sessions přesně dle CONTRACT.md (node-live-20260911).
 // Žádné vymyšlené stavy, procenta pokroku ani obsah zpráv — jen bezpečná metadata ze zdroje.
-import { api } from "../types";
+import { api } from "@/types";
 
 export type NodeSessionSource = "hermes" | "claude";
 export type NodeSessionRole = "orchestrator" | "worker";

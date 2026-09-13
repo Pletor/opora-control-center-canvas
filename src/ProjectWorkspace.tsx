@@ -1,7 +1,7 @@
-import ArchifyMap from './ArchifyMap';
-import GraphifyMap from './GraphifyMap';
-import ProjectLayout, {type ProjectMapKind} from './ProjectLayout';
-import type {WorkspaceSelection} from './workspace-selection';
+import ArchifyMap from '@/ArchifyMap';
+import GraphifyMap from '@/GraphifyMap';
+import ProjectLayout, {type ProjectMapKind} from '@/ProjectLayout';
+import type {WorkspaceSelection} from '@/workspace-selection';
 
 /** Hlavní stránka skládá hotové komponenty; kontext a dokumentový editor zůstávají v Editoru. */
 export default function ProjectWorkspace({project,workspace,selection,onChange,mapKind}:{

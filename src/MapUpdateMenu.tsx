@@ -1,5 +1,5 @@
 import {useEffect,useId,useRef,useState} from 'react';
-import './map-update-menu.css';
+import '@/map-update-menu.css';
 
 type Tool='graphify'|'archify';
 type Status={project:string;enabled:boolean;status:string;phase?:string;error?:string|null;automatic:Record<Tool,boolean>;versions:Record<Tool,string|null>};

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "./types";
-import BlockOutline, { type LinkTarget } from "./BlockOutline";
-import { clearPendingEdit, editScope, readPendingEdit, usePendingFlush, writePendingEdit } from "./use-pending-edits";
-import "./text-workspace.css";
-import "./natural-canvas.css";
+import { api } from "@/types";
+import BlockOutline, { type LinkTarget } from "@/BlockOutline";
+import { clearPendingEdit, editScope, readPendingEdit, usePendingFlush, writePendingEdit } from "@/use-pending-edits";
+import "@/text-workspace.css";
+import "@/natural-canvas.css";
 
 type Snapshot = { revision: number; text: string; readOnly: boolean; available: boolean };
 type Draft = Snapshot & { dirty: boolean };

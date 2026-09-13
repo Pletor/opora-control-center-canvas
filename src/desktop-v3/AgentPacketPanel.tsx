@@ -11,8 +11,8 @@ import {
   snapshotPacket,
   startHandoff,
   stopHandoff,
-} from "./api";
-import type { HandoffRun, PacketPreviewResponse, PacketSnapshotResponse } from "./types";
+} from "@/desktop-v3/api";
+import type { HandoffRun, PacketPreviewResponse, PacketSnapshotResponse } from "@/desktop-v3/types";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();

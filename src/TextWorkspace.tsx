@@ -1,6 +1,6 @@
-import NodeTextEditor from "./NodeTextEditor";
-import type { LinkTarget } from "./BlockOutline";
-import type { CanvasNode } from "./types";
+import NodeTextEditor from "@/NodeTextEditor";
+import type { LinkTarget } from "@/BlockOutline";
+import type { CanvasNode } from "@/types";
 
 /** Dokument vrstvy a jejích dětí: jeden sloupec textu, kontext (souvislosti, deník) nese inspektor. */
 export default function TextWorkspace({

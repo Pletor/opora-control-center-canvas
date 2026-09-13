@@ -1,4 +1,4 @@
-import type { AgentRunDetail } from "./agent-types";
+import type { AgentRunDetail } from "@/agent-types";
 
 export type LivePane = "sessions" | "cost" | "memory" | "sources";
 const text = (value: unknown) => typeof value === "string" || typeof value === "number" ? String(value) : "Nedostupné";

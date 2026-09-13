@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { animationCss, sanitizeWireframeMetadata } from "./wireframe-model";
+import { animationCss, sanitizeWireframeMetadata } from "@/wireframe-model";
 
 type PreviewElement = {
   id: string;

@@ -1,9 +1,9 @@
 // Sdílená logika načtení/uložení State s CAS ochranou (expectedRevision) a ochranou
 // proti zastaralým async odpovědím (scoped A->B->A). Interní modul, nikoli veřejný export.
 import { useEffect, useRef, useState } from "react";
-import { errorMessage, fetchState, saveState } from "./api";
-import type { DesktopState } from "./types";
-import { emptyDesktopState } from "./types";
+import { errorMessage, fetchState, saveState } from "@/desktop-v3/api";
+import type { DesktopState } from "@/desktop-v3/types";
+import { emptyDesktopState } from "@/desktop-v3/types";
 
 export type DesktopStateHandle = {
   state: DesktopState;

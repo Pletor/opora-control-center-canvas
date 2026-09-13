@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { useDesktopState } from "./state-store";
-import { NODE_PHASES } from "./types";
-import type { DesktopState, NodePhase } from "./types";
-import { emptyNodeWorkflow } from "./types";
+import { useDesktopState } from "@/desktop-v3/state-store";
+import { NODE_PHASES } from "@/desktop-v3/types";
+import type { DesktopState, NodePhase } from "@/desktop-v3/types";
+import { emptyNodeWorkflow } from "@/desktop-v3/types";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();

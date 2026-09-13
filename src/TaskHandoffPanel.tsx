@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api } from './types';
+import { api } from '@/types';
 
 export type TaskHandoff = {
   id: string; digest: string; scope: { project: string; workspace: string; node: string };

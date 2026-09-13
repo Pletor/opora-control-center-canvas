@@ -1,4 +1,4 @@
-import { WORKSPACE_MODES, type WorkspaceMode } from "./workspace-settings";
+import { WORKSPACE_MODES, type WorkspaceMode } from "@/workspace-settings";
 
 /** Jediná navigace módů: úzký rail, jen slova, žádné dekorativní ikony. */
 export default function ModeRail({ mode, onMode, editorOnly = false, inactive = false }: { mode: WorkspaceMode; onMode: (mode: WorkspaceMode) => void; editorOnly?: boolean; inactive?: boolean }) {

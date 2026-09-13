@@ -1,5 +1,5 @@
-import type { CanvasNode, Graph } from "./types";
-import "./agent-context-map.css";
+import type { CanvasNode, Graph } from "@/types";
+import "@/agent-context-map.css";
 
 export type ContextPacket = { id: string; digest: string; sizeBytes: number; scope?: { project: string; workspace: string; node: string }; excluded: unknown[]; truncated: unknown[]; sourceRefs: unknown[]; content: { focus?: { name?: string; nodeId?: string; purpose?: string; spec?: { fields?: Record<string, unknown> } }; neighbors?: unknown[]; journal?: unknown[] } };
 type DiagramNode = { id: string; name: string; kind: CanvasNode["kind"]; parentId: string | null; sourceRef?: CanvasNode["sourceRef"] };

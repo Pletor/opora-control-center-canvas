@@ -1,6 +1,6 @@
-import { DRAWING_TOOLS, type DrawingTool } from "./drawing-state";
-import WireframeTools from "./WireframeTools";
-import type { WireframeKind } from "./wireframe-model";
+import { DRAWING_TOOLS, type DrawingTool } from "@/drawing-state";
+import WireframeTools from "@/WireframeTools";
+import type { WireframeKind } from "@/wireframe-model";
 
 export default function DrawingTools({
   tool,

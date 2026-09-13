@@ -1,4 +1,4 @@
-import type { HandoffRun, PlanningRun } from './types';
+import type { HandoffRun, PlanningRun } from '@/desktop-v3/types';
 
 export const ACTIVE_RUNS = new Set(['starting', 'running', 'stopping', 'verifying']);
 export type LiveSession = {

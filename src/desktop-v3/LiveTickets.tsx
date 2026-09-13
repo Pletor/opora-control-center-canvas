@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DesktopState, Ticket, TicketPriority, TicketStatus } from './types';
+import type { DesktopState, Ticket, TicketPriority, TicketStatus } from '@/desktop-v3/types';
 
 type Props = {state:DesktopState; readOnly:boolean; nodeId?:string; sessionId:string;
   mutate:(fn:(state:DesktopState)=>DesktopState)=>Promise<boolean>};

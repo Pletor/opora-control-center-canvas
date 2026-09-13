@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { api } from "./types";
-import { SOURCE_DRAG_TYPE } from "./workspace-selection";
+import { api } from "@/types";
+import { SOURCE_DRAG_TYPE } from "@/workspace-selection";
 
 type Entry = { name: string; path: string; kind: "directory" | "file" | "link"; blocked: boolean };
 type TreePage = { root: string | null; entries: Entry[]; total: number; hasMore: boolean; nextOffset: number | null; available: boolean; observedAt: string | null; hiddenCount?: number };

@@ -1,6 +1,6 @@
 import {useState, type ReactNode} from 'react';
-import SourceExplorer from './SourceExplorer';
-import './project-layout.css';
+import SourceExplorer from '@/SourceExplorer';
+import '@/project-layout.css';
 
 // Jediná definice filtrů a rozložení hlavního projektu. Štítky třídí cesty, ne obsah souborů.
 const filters = [

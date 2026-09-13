@@ -1,46 +1,46 @@
 import { useEffect, useRef, useState, lazy, Suspense, type ReactNode } from "react";
-import Board from "./Board";
-import ProjectHome from "./ProjectHome";
-import TextWorkspace from "./TextWorkspace";
-import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "./context-actions";
-import PlanPanel from "./PlanPanel";
-import TopBar from "./TopBar";
-import ModeRail from "./ModeRail";
-import EnvironmentSwitch, { type Environment } from "./EnvironmentSwitch";
-import ProjectWorkspace from "./ProjectWorkspace";
-import {ProjectMapNavigation, type ProjectMapKind} from "./ProjectLayout";
-import WorkspaceDocumentEditor from "./WorkspaceDocumentEditor";
-import EditorWorkbench, { type WorkbenchPane } from "./EditorWorkbench";
-import ContextShelf from "./ContextShelf";
-import SourceExplorer from "./SourceExplorer";
-import { useWorkspaceSelection } from "./workspace-selection";
-import "./desktop-workspaces.css";
+import Board from "@/Board";
+import ProjectHome from "@/ProjectHome";
+import TextWorkspace from "@/TextWorkspace";
+import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "@/context-actions";
+import PlanPanel from "@/PlanPanel";
+import TopBar from "@/TopBar";
+import ModeRail from "@/ModeRail";
+import EnvironmentSwitch, { type Environment } from "@/EnvironmentSwitch";
+import ProjectWorkspace from "@/ProjectWorkspace";
+import {ProjectMapNavigation, type ProjectMapKind} from "@/ProjectLayout";
+import WorkspaceDocumentEditor from "@/WorkspaceDocumentEditor";
+import EditorWorkbench, { type WorkbenchPane } from "@/EditorWorkbench";
+import ContextShelf from "@/ContextShelf";
+import SourceExplorer from "@/SourceExplorer";
+import { useWorkspaceSelection } from "@/workspace-selection";
+import "@/desktop-workspaces.css";
 
-import ScopeContext from "./ScopeContext";
-import LayerContext from "./LayerContext";
-import AgentsWorkspace from "./AgentsWorkspace";
-import "./agents.css";
-import CodingPanel from "./CodingPanel";
-import type { WireframeKind } from "./wireframe-model";
-import DrawingTools from "./DrawingTools";
-import { discardDrawingDrafts, type DrawingTool } from "./drawing-state";
-const DrawingWorkspace = lazy(() => import("./DrawingWorkspace"));
-import ArchifyMap from "./ArchifyMap";
-import WorkspaceSettings from "./WorkspaceSettings";
-import WorkspaceBoundary from "./WorkspaceBoundary";
+import ScopeContext from "@/ScopeContext";
+import LayerContext from "@/LayerContext";
+import AgentsWorkspace from "@/AgentsWorkspace";
+import "@/agents.css";
+import CodingPanel from "@/CodingPanel";
+import type { WireframeKind } from "@/wireframe-model";
+import DrawingTools from "@/DrawingTools";
+import { discardDrawingDrafts, type DrawingTool } from "@/drawing-state";
+const DrawingWorkspace = lazy(() => import("@/DrawingWorkspace"));
+import ArchifyMap from "@/ArchifyMap";
+import WorkspaceSettings from "@/WorkspaceSettings";
+import WorkspaceBoundary from "@/WorkspaceBoundary";
 import {
   readMode,
   readSettings,
   SETTINGS_KEY,
   type WorkspaceMode,
   type SurfaceSettings,
-} from "./workspace-settings";
-import "./workspace-modes.css";
-import DesktopThemeControls from "./DesktopThemeControls";
-import "./desktop-v3.css";
-import NodePanel, { type NodeTab } from "./NodePanel";
-import RemovalDialog from "./RemovalDialog";
-import { discardSpecDrafts } from "./NodeSpecEditor";
+} from "@/workspace-settings";
+import "@/workspace-modes.css";
+import DesktopThemeControls from "@/DesktopThemeControls";
+import "@/desktop-v3.css";
+import NodePanel, { type NodeTab } from "@/NodePanel";
+import RemovalDialog from "@/RemovalDialog";
+import { discardSpecDrafts } from "@/NodeSpecEditor";
 import {
   api,
   type Graph,
@@ -50,7 +50,7 @@ import {
   type CanvasNode,
   type Workspace,
   type RemovalPreview,
-} from "./types";
+} from "@/types";
 const initial = new URLSearchParams(location.search);
 /** Sjednotí URL parametry mode a environment do jednoho konzistentního páru. */
 function resolveInitialModeEnvironment(

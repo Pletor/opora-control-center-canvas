@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { useDesktopState } from "./state-store";
-import type { Rule, RuleScope, Decision, Setting } from "./types";
+import { useDesktopState } from "@/desktop-v3/state-store";
+import type { Rule, RuleScope, Decision, Setting } from "@/desktop-v3/types";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();

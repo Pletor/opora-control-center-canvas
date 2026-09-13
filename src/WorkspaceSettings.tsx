@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { SurfaceSettings } from "./workspace-settings";
+import type { SurfaceSettings } from "@/workspace-settings";
 export default function WorkspaceSettings({
   value,
   onChange,

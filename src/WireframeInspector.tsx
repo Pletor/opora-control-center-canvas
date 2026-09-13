@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react";
-import type { WireframeMetadata } from "./wireframe-model";
+import type { WireframeMetadata } from "@/wireframe-model";
 
 export type InspectableWireframe = {
   id: string;

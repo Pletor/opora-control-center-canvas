@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api, type Project, type View, type Workspace } from "./types";
+import { api, type Project, type View, type Workspace } from "@/types";
 
 /**
  * Jedna kompaktní lišta: projekt, větev, revize a jedno menu s nastavením i operacemi.

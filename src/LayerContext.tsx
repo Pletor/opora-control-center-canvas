@@ -1,8 +1,8 @@
 import { useState } from "react";
-import NodeJournal from "./NodeJournal";
-import NodeLinksPanel from "./NodeLinksPanel";
-import type { LinkTarget } from "./BlockOutline";
-import type { CanvasNode } from "./types";
+import NodeJournal from "@/NodeJournal";
+import NodeLinksPanel from "@/NodeLinksPanel";
+import type { LinkTarget } from "@/BlockOutline";
+import type { CanvasNode } from "@/types";
 
 /** Kontext vrstvy v módu Text: souvislosti a datovaný deník téhož uzlu. */
 export default function LayerContext({

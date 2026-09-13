@@ -1,9 +1,9 @@
 import { useState, type KeyboardEvent } from "react";
-import NodeSpecEditor from "./NodeSpecEditor";
-import NodeTextEditor from "./NodeTextEditor";
-import NodeLinksPanel from "./NodeLinksPanel";
-import NodeActivity from "./NodeActivity";
-import type { CanvasNode, Workspace } from "./types";
+import NodeSpecEditor from "@/NodeSpecEditor";
+import NodeTextEditor from "@/NodeTextEditor";
+import NodeLinksPanel from "@/NodeLinksPanel";
+import NodeActivity from "@/NodeActivity";
+import type { CanvasNode, Workspace } from "@/types";
 
 export type NodeTab = "content" | "spec" | "work";
 const TABS: { key: NodeTab; label: string }[] = [

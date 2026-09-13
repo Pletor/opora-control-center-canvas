@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchNodeSessions, errorMessage, type NodeSession, type SessionEvent } from "./node-sessions";
-import "./node-sessions.css";
+import { fetchNodeSessions, errorMessage, type NodeSession, type SessionEvent } from "@/desktop-v3/node-sessions";
+import "@/desktop-v3/node-sessions.css";
 
 const STATUS_LABEL: Record<NodeSession["status"], string> = {
   running: "Běží",

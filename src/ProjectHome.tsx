@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api, type Project, type Job } from "./types";
-import "./project-home.css";
+import { api, type Project, type Job } from "@/types";
+import "@/project-home.css";
 
 export type ProjectSettings = { goal: string; platform: "web" | "app" | "component"; provider: string; model: string; budgetSeconds: number };
 export type SettingsSnapshot = { project: Project; revision: number; settings: ProjectSettings };

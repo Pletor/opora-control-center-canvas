@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "./types";
-import "./natural-canvas.css";
+import { api } from "@/types";
+import "@/natural-canvas.css";
 
 export type NodeLink = { nodeId: string; name: string; kind: string; via: "text" | "edge"; direction: "in" | "out" };
 export type NodeLinksResult = {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "./types";
+import { api } from "@/types";
 type Target = { id: string; path: string; branch: string; workspace: string; layer: string };
 type Run = { id: string; project: string; status: string; message: string; targetPath: string; events: unknown[]; result: unknown; localTreeInactive: boolean; pid: number | null };
 export default function CodingPanel({ project, dirty, enabled = true, initialWorkspace = "draft", initialLayer = "" }: { project: string; dirty: boolean; enabled?: boolean; initialWorkspace?: string; initialLayer?: string }) {

@@ -1,5 +1,5 @@
-import type { WireframeKind } from "./wireframe-model";
-import { WIREFRAME_KINDS, getWireframeTemplate } from "./wireframe-model";
+import type { WireframeKind } from "@/wireframe-model";
+import { WIREFRAME_KINDS, getWireframeTemplate } from "@/wireframe-model";
 
 export default function WireframeTools({
   enabled,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "./types";
-import type { AgentActivityEntry, AgentBinding, AgentBindingCandidate, AgentBindingList } from "./agent-types";
+import { api } from "@/types";
+import type { AgentActivityEntry, AgentBinding, AgentBindingCandidate, AgentBindingList } from "@/agent-types";
 
 const POLL_MS = 5000;
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SOURCE_DRAG_TYPE, type WorkspaceSelection } from "./workspace-selection";
+import { SOURCE_DRAG_TYPE, type WorkspaceSelection } from "@/workspace-selection";
 
 export default function ContextShelf({ project, workspace, value, onChange, onAdd, onOpen }: {
   project: string; workspace: string; value: WorkspaceSelection; onChange: (update: Partial<WorkspaceSelection>) => void;

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api, type Graph } from "./types";
-import AgentContextMap, { packetMarkdown, snapshotDesignContext, type ContextPacket, type DesignContext } from "./AgentContextMap";
-import PlanPanel from "./PlanPanel";
-import CodingPanel from "./CodingPanel";
-import TaskHandoffPanel from "./TaskHandoffPanel";
-import type { WorkspaceSelection } from "./workspace-selection";
+import { api, type Graph } from "@/types";
+import AgentContextMap, { packetMarkdown, snapshotDesignContext, type ContextPacket, type DesignContext } from "@/AgentContextMap";
+import PlanPanel from "@/PlanPanel";
+import CodingPanel from "@/CodingPanel";
+import TaskHandoffPanel from "@/TaskHandoffPanel";
+import type { WorkspaceSelection } from "@/workspace-selection";
 
 /** packet = jediný hlavní vstup Podklady pro agenta; ostatní panely jsou pokročilé nástroje. */
 export type WorkbenchPane = "packet" | "context" | "plan" | "coding" | "task";

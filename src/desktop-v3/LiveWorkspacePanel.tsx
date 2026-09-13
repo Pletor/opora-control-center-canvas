@@ -1,11 +1,11 @@
 import {useEffect, useRef, useState} from 'react';
-import {api} from '../types';
-import {errorMessage, exportHandoff, fetchPlanningRuns, type HandoffExport} from './api';
-import {useDesktopState} from './state-store';
-import {ACTIVE_RUNS, downloadLiveText, fetchLiveRuns, handoffSession, planningSession, type LiveSession} from './live-sessions';
-import {LiveTickets} from './LiveTickets';
-import {NodeSessionsPanel} from './NodeSessionsPanel';
-import './live-workspace.css';
+import {api} from '@/types';
+import {errorMessage, exportHandoff, fetchPlanningRuns, type HandoffExport} from '@/desktop-v3/api';
+import {useDesktopState} from '@/desktop-v3/state-store';
+import {ACTIVE_RUNS, downloadLiveText, fetchLiveRuns, handoffSession, planningSession, type LiveSession} from '@/desktop-v3/live-sessions';
+import {LiveTickets} from '@/desktop-v3/LiveTickets';
+import {NodeSessionsPanel} from '@/desktop-v3/NodeSessionsPanel';
+import '@/desktop-v3/live-workspace.css';
 
 const tabs=['1 Události','2 Důkazy a výstup','3 Náklady a výkon','4 Paměť','5 Ovládání','6 Tickety','7 Kontext a osa'];
 const stateFilters=[['all','Vše'],['active','Běží'],['completed','Dokončeno'],['failed','Problémy']] as const;

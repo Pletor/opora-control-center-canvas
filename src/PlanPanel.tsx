@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "./types";
+import { api } from "@/types";
 
 type Run = { id: string; project_id: string; workspace: string; layer: string; status: string; message: string; output: string };
 export default function PlanPanel({ project, dirty, enabled = true, initialWorkspace = "draft", initialLayer = "" }: { project: string; dirty: boolean; enabled?: boolean; initialWorkspace?: string; initialLayer?: string }) {
