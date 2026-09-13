@@ -1,7 +1,6 @@
 import os
 import sqlite3
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -21,6 +20,7 @@ from .llm_runs import PlanRuns
 from .node_journal import NodeJournal
 from .node_links import NodeLinks
 from .node_sessions import create_node_sessions_router
+from .paths import DIST_DIR
 from .planning_context import build_planning_context
 from .service import CanvasService
 from .task_handoff_routes import create_task_handoff_router
@@ -296,7 +296,7 @@ def create_app(data_root=None):
     app.include_router(create_workspace_router(service))
     app.include_router(create_context_router(service))
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, handoffs))
-    dist =Path(__file__).resolve().parent.parent / "dist"
+    dist = DIST_DIR
     if dist.exists():
         app.mount("/", StaticFiles(directory=dist, html=True), name="canvas")
     return app

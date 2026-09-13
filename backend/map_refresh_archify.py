@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from .llm_runs import _WindowsJob
+from .paths import REPO_ROOT, VENDOR_DIR
 
 TOTAL_SECONDS = 600
 MAX_TURNS = 10
@@ -140,7 +141,7 @@ def _run_process(command, *, cwd, env, deadline, cancel, stdin=None):
 
 
 def _package_file(name):
-    path = Path(__file__).resolve().parents[1] / "vendor" / "archify" / "archify" / name
+    path = VENDOR_DIR / "archify" / "archify" / name
     try:
         return path.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as exc:
@@ -420,7 +421,7 @@ def build_archify(
         candidate.write_text(candidate_text, encoding="utf-8")
         node = shutil.which("node")
         cli = (
-            Path(__file__).resolve().parents[1]
+            REPO_ROOT
             / "vendor"
             / "archify"
             / "archify"

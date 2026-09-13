@@ -2,10 +2,11 @@ import hashlib
 from pathlib import Path
 
 from .gitio import git
+from .paths import REPO_ROOT
 
 
 def build_identity(data_root):
-    root = Path(__file__).resolve().parent.parent
+    root = REPO_ROOT
     sources = sorted([*root.joinpath("backend").glob("*.py"), *root.joinpath("src").glob("*")])
     digest = hashlib.sha256()
     for path in sources:

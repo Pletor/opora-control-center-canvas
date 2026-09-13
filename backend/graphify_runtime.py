@@ -16,6 +16,7 @@ from pathlib import Path
 from .archify_routes import ArtifactUnavailable, main_project_root
 from .llm_runs import _WindowsJob
 from .map_artifacts import LOCK as PUBLISH_LOCK
+from .paths import GRAPHIFY_VENV
 from .workspace_sources import reparse
 
 # Nejvýše jeden dražší parser na proces serveru; žádný placený model.
@@ -53,7 +54,7 @@ def clean_environment():
 @lru_cache(maxsize=1)
 def runtime():
     configured = os.environ.get('OPORA_GRAPHIFY_PYTHON')
-    local = Path(__file__).resolve().parents[1] / '.venv-graphify' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    local = GRAPHIFY_VENV / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
     candidates = [configured] if configured else [str(local), shutil.which('python'), sys.executable]
     for candidate in dict.fromkeys(candidates):
         if not candidate or not Path(candidate).is_file():
