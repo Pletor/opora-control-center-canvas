@@ -3,7 +3,7 @@
 import math
 import re
 
-from .agent_sources import clip, redact
+from backend.agent_sources import clip, redact
 
 
 def read_telemetry(fetch, base_url, run_id):

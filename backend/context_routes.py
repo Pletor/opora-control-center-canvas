@@ -7,7 +7,7 @@ zaregistrovaný `@app.exception_handler(ValueError)` vracející 409 (viz app.py
 """
 from fastapi import APIRouter
 
-from .context_packets import ContextPackets
+from backend.context_packets import ContextPackets
 
 
 def create_context_router(service):

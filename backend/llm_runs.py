@@ -13,7 +13,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .project_hub import MODEL_RE as IDENTIFIER
+from backend.project_hub import MODEL_RE as IDENTIFIER
 
 MAX_CONTEXT_CHARS = 50_000
 MAX_OUTPUT_BYTES = 64 * 1024

@@ -2,8 +2,8 @@ import re
 import uuid
 from datetime import UTC, datetime
 
-from .agent_sources import redact
-from .graph import valid_id
+from backend.agent_sources import redact
+from backend.graph import valid_id
 
 REQUIRED_FIELDS = {
     "project",

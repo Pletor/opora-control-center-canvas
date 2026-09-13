@@ -2,7 +2,7 @@
 
 Integrace rodičem: v `backend/app.py`
 
-    from .node_sessions import create_node_sessions_router
+    from backend.node_sessions import create_node_sessions_router
     app.include_router(create_node_sessions_router(service))
 
 Router nic nespouští: GET jen čte zdroje, POST jen uloží explicitně potvrzenou
@@ -18,8 +18,8 @@ from datetime import UTC, datetime
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from .graph import valid_id
-from .node_session_sources import (
+from backend.graph import valid_id
+from backend.node_session_sources import (
     ClaudeLaneSource,
     HermesSessionSource,
     SourceError,

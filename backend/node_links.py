@@ -5,7 +5,7 @@ jméno se hlásí jako nevyřešené, uzel se z něj nevytváří. Počty jsou s
 """
 import re
 
-from .graph import valid_id
+from backend.graph import valid_id
 
 LINK = re.compile(r"\[\[([^\[\]\n]{1,160})\]\]")
 

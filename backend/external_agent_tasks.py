@@ -4,9 +4,9 @@ import hashlib
 import os
 from pathlib import Path
 
-from .desktop_v3_packets import packet_digest
-from .graph import valid_id
-from .workspace_sources import relative_path, reparse
+from backend.desktop_v3_packets import packet_digest
+from backend.graph import valid_id
+from backend.workspace_sources import relative_path, reparse
 
 TASK_DIRECTORY = "docs/opora-control-center/tasks"
 MAX_EXPORT_BYTES = 1_200_000

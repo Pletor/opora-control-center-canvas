@@ -8,9 +8,9 @@ import json
 import re
 import uuid
 
-from .graph import digest, encode, valid_id
-from .node_journal import NodeJournal, valid_day
-from .service import now
+from backend.graph import digest, encode, valid_id
+from backend.node_journal import NodeJournal, valid_day
+from backend.service import now
 
 MAX_NEIGHBORS = 20
 MAX_JOURNAL_DAYS = 31

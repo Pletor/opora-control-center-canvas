@@ -9,8 +9,8 @@ import uuid
 
 from fastapi import APIRouter, Query
 
-from .archify_routes import main_project_root
-from .gitio import git
+from backend.archify_routes import main_project_root
+from backend.gitio import git
 
 LOGGER = logging.getLogger(__name__)
 
@@ -164,7 +164,7 @@ class MapRefresh:
             if self.builder:
                 self.builder(job, self)
             else:
-                from .map_refresh_pipeline import build_maps
+                from backend.map_refresh_pipeline import build_maps
                 build_maps(job, self)
             self.finish(job, 'succeeded')
         except Exception as exc:

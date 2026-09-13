@@ -2,7 +2,7 @@
 
 Integrace rodičem: v `backend/app.py` po vytvoření `service`/`app` přidat
 
-    from .agent_routes import create_agent_router
+    from backend.agent_routes import create_agent_router
     app.include_router(create_agent_router(service))
 
 Router nic nespouští ani nezastavuje; všechny endpointy jsou GET (čtení) kromě
@@ -16,10 +16,10 @@ import os
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from .agent_activity import AgentActivityJournal
-from .agent_bindings import AgentBindings
-from .agent_catalog import AgentCatalog, UnknownSource
-from .agent_sources import LocalOrchestratorSource, OporaProcessSource, PlatnoSource
+from backend.agent_activity import AgentActivityJournal
+from backend.agent_bindings import AgentBindings
+from backend.agent_catalog import AgentCatalog, UnknownSource
+from backend.agent_sources import LocalOrchestratorSource, OporaProcessSource, PlatnoSource
 
 DEFAULT_ORCHESTRATOR_ROOT = (
     r"C:\Users\Admin\AppData\Local\hermes\handoffs\canvas-orchestration"

@@ -2,7 +2,7 @@ import re
 import uuid
 from pathlib import Path
 
-from .graph import EMPTY, encode, valid_id
+from backend.graph import EMPTY, encode, valid_id
 
 PROVIDERS = {"openai-codex", "anthropic", "openrouter"}
 PLATFORMS = {"web", "app", "component"}

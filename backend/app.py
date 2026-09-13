@@ -6,27 +6,27 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .agent_routes import create_agent_router
-from .archify_routes import create_archify_router
-from .graphify_routes import create_graphify_router
-from .map_refresh import MapRefresh, create_map_refresh_router
-from .build_identity import build_identity
-from .coding_runs import CodingRuns
-from .context_routes import create_context_router
-from .desktop_v3_packets import DesktopV3Packets
-from .desktop_v3_routes import create_desktop_v3_router
-from .desktop_v3_state import DesktopV3State
-from .llm_runs import PlanRuns
-from .node_journal import NodeJournal
-from .node_links import NodeLinks
-from .node_sessions import create_node_sessions_router
-from .paths import DIST_DIR
-from .planning_context import build_planning_context
-from .service import CanvasService
-from .task_handoff_routes import create_task_handoff_router
-from .task_handoffs import TaskHandoffs
-from .wireframe_context import wireframe_context
-from .workspace_sources import create_workspace_router
+from backend.agent_routes import create_agent_router
+from backend.archify_routes import create_archify_router
+from backend.graphify_routes import create_graphify_router
+from backend.map_refresh import MapRefresh, create_map_refresh_router
+from backend.build_identity import build_identity
+from backend.coding_runs import CodingRuns
+from backend.context_routes import create_context_router
+from backend.desktop_v3_packets import DesktopV3Packets
+from backend.desktop_v3_routes import create_desktop_v3_router
+from backend.desktop_v3_state import DesktopV3State
+from backend.llm_runs import PlanRuns
+from backend.node_journal import NodeJournal
+from backend.node_links import NodeLinks
+from backend.node_sessions import create_node_sessions_router
+from backend.paths import DIST_DIR
+from backend.planning_context import build_planning_context
+from backend.service import CanvasService
+from backend.task_handoff_routes import create_task_handoff_router
+from backend.task_handoffs import TaskHandoffs
+from backend.wireframe_context import wireframe_context
+from backend.workspace_sources import create_workspace_router
 
 
 def create_app(data_root=None):

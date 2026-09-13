@@ -3,7 +3,7 @@ import json
 import math
 import re
 
-from .workspace_sources import relative_path
+from backend.workspace_sources import relative_path
 
 EMPTY = {"nodes": [], "edges": []}
 NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y"}

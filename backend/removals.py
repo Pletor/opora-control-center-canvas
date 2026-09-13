@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from .graph import digest, encode
+from backend.graph import digest, encode
 
 
 class RemovalService:

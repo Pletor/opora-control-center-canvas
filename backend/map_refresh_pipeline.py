@@ -5,10 +5,10 @@ import threading
 from pathlib import Path
 from types import SimpleNamespace
 
-from .graphify_runtime import generate_graph, writable
-from .map_artifacts import publish
-from .map_refresh_archify import build_archify
-from .map_refresh_snapshot import snapshot_main
+from backend.graphify_runtime import generate_graph, writable
+from backend.map_artifacts import publish
+from backend.map_refresh_archify import build_archify
+from backend.map_refresh_snapshot import snapshot_main
 
 
 def build_maps(job, manager):

@@ -9,9 +9,9 @@ from pathlib import Path, PureWindowsPath
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
-from .gitio import git
-from .map_artifacts import LOCK, artifact_root
-from .workspace_sources import WorkspaceSources, reparse
+from backend.gitio import git
+from backend.map_artifacts import LOCK, artifact_root
+from backend.workspace_sources import WorkspaceSources, reparse
 
 DIRECTORY = 'docs/architecture/archify'
 MAX_HTML = 4 * 1024 * 1024

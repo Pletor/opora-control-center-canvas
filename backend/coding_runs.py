@@ -10,9 +10,9 @@ import time
 import uuid
 from pathlib import Path
 
-from .coding_tools import ALLOWED, IMAGE, ScopedFiles, cleanup_container, docker, run_tests
-from .gitio import git
-from .llm_runs import _canonical, _digest, _now
+from backend.coding_tools import ALLOWED, IMAGE, ScopedFiles, cleanup_container, docker, run_tests
+from backend.gitio import git
+from backend.llm_runs import _canonical, _digest, _now
 
 ACTIVE = {"starting", "running", "stopping", "verifying"}
 

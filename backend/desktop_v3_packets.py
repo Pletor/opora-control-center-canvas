@@ -12,13 +12,13 @@ import hashlib
 import json
 import uuid
 
-from .context_packets import redact_text
-from .desktop_v3_state import DesktopV3State
-from .graph import encode, valid_id
-from .node_journal import NodeJournal
-from .service import now
-from .workspace_documents import WorkspaceDocuments
-from .workspace_sources import SourceMissing, relative_path
+from backend.context_packets import redact_text
+from backend.desktop_v3_state import DesktopV3State
+from backend.graph import encode, valid_id
+from backend.node_journal import NodeJournal
+from backend.service import now
+from backend.workspace_documents import WorkspaceDocuments
+from backend.workspace_sources import SourceMissing, relative_path
 
 SCHEMA = "opora.packet/1"
 MAX_PACKET_BYTES = 900_000

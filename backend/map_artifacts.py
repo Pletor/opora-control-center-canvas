@@ -8,7 +8,7 @@ import threading
 import uuid
 from pathlib import Path
 
-from .workspace_sources import reparse
+from backend.workspace_sources import reparse
 
 LOCK = threading.RLock()
 DIRECTORIES = {'graphify': 'graphify-out', 'archify': 'docs/architecture/archify'}

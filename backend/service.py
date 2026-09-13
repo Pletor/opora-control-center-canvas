@@ -8,14 +8,14 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .drawings import DrawingStore
-from .gitio import git, github_url
-from .graph import EMPTY, digest, encode, valid_id, validate_graph
-from .node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
-from .node_text import NodeTextStore
-from .project_hub import ProjectHub
-from .removals import RemovalService
-from .workspace_sources import WorkspaceSources
+from backend.drawings import DrawingStore
+from backend.gitio import git, github_url
+from backend.graph import EMPTY, digest, encode, valid_id, validate_graph
+from backend.node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
+from backend.node_text import NodeTextStore
+from backend.project_hub import ProjectHub
+from backend.removals import RemovalService
+from backend.workspace_sources import WorkspaceSources
 
 GRAPH_FILE = "opora-canvas.json"
 

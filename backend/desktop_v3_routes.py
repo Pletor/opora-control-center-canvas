@@ -1,7 +1,7 @@
 """HTTP kontrakt Desktop v3: paměť projektu, stav uzlů, podklady pro agenta."""
 
 from fastapi import APIRouter
-from .external_agent_tasks import ExternalAgentTasks
+from backend.external_agent_tasks import ExternalAgentTasks
 
 
 def create_desktop_v3_router(state, packets, handoffs):

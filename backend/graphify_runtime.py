@@ -13,11 +13,11 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 
-from .archify_routes import ArtifactUnavailable, main_project_root
-from .llm_runs import _WindowsJob
-from .map_artifacts import LOCK as PUBLISH_LOCK
-from .paths import GRAPHIFY_VENV
-from .workspace_sources import reparse
+from backend.archify_routes import ArtifactUnavailable, main_project_root
+from backend.llm_runs import _WindowsJob
+from backend.map_artifacts import LOCK as PUBLISH_LOCK
+from backend.paths import GRAPHIFY_VENV
+from backend.workspace_sources import reparse
 
 # Nejvýše jeden dražší parser na proces serveru; žádný placený model.
 GATE = threading.Lock()

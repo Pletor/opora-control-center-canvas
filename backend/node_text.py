@@ -1,7 +1,7 @@
 """Text dokumentu sdílí identitu uzlu; žádný paralelní strom bloků."""
 from datetime import UTC, datetime
 
-from .graph import valid_id
+from backend.graph import valid_id
 
 
 class NodeTextStore:

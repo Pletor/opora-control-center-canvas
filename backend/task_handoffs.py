@@ -8,10 +8,10 @@ import time
 import uuid
 from pathlib import Path
 
-from .context_packets import ContextPackets, redact_text
-from .gitio import git
-from .graph import valid_id
-from .llm_runs import _canonical, _now
+from backend.context_packets import ContextPackets, redact_text
+from backend.gitio import git
+from backend.graph import valid_id
+from backend.llm_runs import _canonical, _now
 
 ACTIVE = {"starting", "running", "stopping", "verifying"}
 TERMINAL = {"completed", "failed", "cancelled", "interrupted"}
@@ -311,7 +311,7 @@ class TaskHandoffs:
         settings, revision = self._settings(scope["project"])
         readable = list(dict.fromkeys(item for item in [scope["node"], *(item["nodeId"] for item in packet["context"]["ancestors"])] if item))
         context = self._snapshot_context(snapshot)
-        from .desktop_v3_packets import MAX_PACKET_BYTES
+        from backend.desktop_v3_packets import MAX_PACKET_BYTES
 
         if len(_canonical(context).encode("utf-8")) > MAX_CONTEXT_BYTES + MAX_PACKET_BYTES:
             raise ValueError("Úplný kontext dokumentačního úkolu překročil bezpečný limit.")

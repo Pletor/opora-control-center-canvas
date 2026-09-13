@@ -1,6 +1,6 @@
-from .desktop_v3_packets import ancestor_ids, drawing_chain, memory_for
-from .desktop_v3_state import DesktopV3State, default_state
-from .wireframe_context import wireframe_context
+from backend.desktop_v3_packets import ancestor_ids, drawing_chain, memory_for
+from backend.desktop_v3_state import DesktopV3State, default_state
+from backend.wireframe_context import wireframe_context
 
 
 def build_planning_context(canvas, project, workspace, layer):

@@ -6,7 +6,7 @@ import subprocess
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from .gitio import git
+from backend.gitio import git
 
 EXCLUDED = {'.git', '.opora', '.opora-map-refresh', '.claude', '.agents', '.worktrees', '.data',
             'vendor', 'node_modules', 'dist', 'build', 'graphify-out', 'evidence', 'test-results'}

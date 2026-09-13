@@ -23,7 +23,7 @@ class WorkspaceDocuments:
                 PRIMARY KEY(project, workspace, path))""")
 
     def _source_version(self, project, workspace, path):
-        from .workspace_sources import SourceMissing
+        from backend.workspace_sources import SourceMissing
 
         try:
             root = self.sources.root(project, workspace)
@@ -75,7 +75,7 @@ class WorkspaceDocuments:
         }
 
     def read(self, project, workspace, path):
-        from .workspace_sources import relative_path
+        from backend.workspace_sources import relative_path
 
         path = relative_path(path)
         version = self._source_version(project, workspace, path)
@@ -84,7 +84,7 @@ class WorkspaceDocuments:
             return self._response(scope, self._row(scope), version)
 
     def save(self, payload):
-        from .workspace_sources import relative_path
+        from backend.workspace_sources import relative_path
 
         keys = {"project", "workspace", "path", "expectedRevision", "fields", "nodeId"}
         if payload.get("path") == "":
@@ -100,7 +100,7 @@ class WorkspaceDocuments:
             raise ValueError("Neplatná revize dokumentace.")
         node = payload["nodeId"]
         if node is not None:
-            from .graph import valid_id
+            from backend.graph import valid_id
 
             if not valid_id(node):
                 raise ValueError("Neplatný uzel dokumentace.")

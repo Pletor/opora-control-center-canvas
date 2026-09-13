@@ -231,7 +231,7 @@ def create_workspace_router(service):
     def tree(project: str, workspace: str, path: str = "", offset: int = Query(0, ge=0), limit: int = Query(200, ge=1, le=500), visibility: Literal['all', 'working'] = 'all'):
         return sources.tree(project, workspace, path, offset, limit, visibility)
 
-    from .workspace_documents import WorkspaceDocuments
+    from backend.workspace_documents import WorkspaceDocuments
 
     documents = WorkspaceDocuments(service, sources)
 

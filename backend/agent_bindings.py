@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from .graph import valid_id
+from backend.graph import valid_id
 
 _ID_FIELDS = ("sourceId", "runId")
 REQUIRED_FIELDS = {

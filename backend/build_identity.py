@@ -1,8 +1,8 @@
 import hashlib
 from pathlib import Path
 
-from .gitio import git
-from .paths import REPO_ROOT
+from backend.gitio import git
+from backend.paths import REPO_ROOT
 
 
 def build_identity(data_root):

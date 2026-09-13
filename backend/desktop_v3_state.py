@@ -8,9 +8,9 @@ nasazení: postup vpřed vyžaduje neprázdná splněná kritéria, opačný sm�
 import json
 from datetime import datetime
 
-from .graph import valid_id
-from .service import now
-from .workspace_sources import relative_path
+from backend.graph import valid_id
+from backend.service import now
+from backend.workspace_sources import relative_path
 
 PHASES = ("discover", "define", "build", "verify", "live")
 RULE_KINDS = ("must", "must_not")

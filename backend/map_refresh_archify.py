@@ -10,8 +10,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from .llm_runs import _WindowsJob
-from .paths import REPO_ROOT, VENDOR_DIR
+from backend.llm_runs import _WindowsJob
+from backend.paths import REPO_ROOT, VENDOR_DIR
 
 TOTAL_SECONDS = 600
 MAX_TURNS = 10

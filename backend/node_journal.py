@@ -5,7 +5,7 @@ Deník nemění stav práce ani nevytváří uzly.
 """
 from datetime import UTC, date, datetime
 
-from .graph import valid_id
+from backend.graph import valid_id
 
 FIELDS = {"project", "workspace", "node", "day", "expected_revision", "text"}
 

@@ -229,7 +229,7 @@ class OporaProcessSource(PlatnoSource):
         return out
 
     def run_detail(self, run_id):
-        from .agent_telemetry import read_telemetry
+        from backend.agent_telemetry import read_telemetry
         for run in self.list_runs():
             if run["runId"] == run_id:
                 run["telemetry"] = [read_telemetry(self._fetch, self.base_url, bridge) for bridge in run["bridgeRunIds"][:4]]
