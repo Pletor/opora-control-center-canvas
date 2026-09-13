@@ -34,6 +34,8 @@ import {
 } from "@/shared/surface-settings/logic/workspace-settings";
 import "@/layout/shell/styles/workspace-modes.css";
 import DesktopThemeControls from "@/app/components/DesktopThemeControls";
+import AccountCorner from "@/layout/account-corner/components/AccountCorner";
+import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
 import RemovalDialog from "@/ui-kit/removal-dialog/components/RemovalDialog";
@@ -130,6 +132,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
   const [settings, setSettings] = useState(readSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [nodeTab, setNodeTab] = useState<NodeTab>("content");
   const [textRevision, setTextRevision] = useState(0);
   const [focusRun, setFocusRun] = useState<{ sourceId: string; runId: string } | null>(null);
@@ -430,6 +433,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   if (screen === "home") return <>
     <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
+    <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
+    {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} />}
   </>;
   const artifactMapOpen = mode === "map" && !editorDocumentOpen;
   const inspectorTools =
@@ -785,6 +790,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         <div className="v3-slot">{v3.agentPacket?.({ project, workspace, nodeId: selected ?? "", path: selection.value.sourcePath, references: selection.value.references, note: selection.value.note })
           ?? <p className="agent-packet-dock-empty">Panel Podklady pro agenta není v této sestavě napojený.</p>}</div>
       </section>}
+      <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
+      {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} />}
       {settingsOpen && (
         <WorkspaceSettings
           value={settings}

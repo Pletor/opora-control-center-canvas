@@ -1,0 +1,1 @@
+Nastavení aplikace z levého dolního rohu (SettingsDialog): vlevo navigace, vpravo sekce. Obecné = vzhled prohlížeče; Skills = katalog skills Claude Code z /api/claude-code/skills s možností vypnout (ukládá backend do claude-code-skills.json); Connectors = katalog aplikací k napojení (logic/connectors.ts).

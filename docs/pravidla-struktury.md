@@ -11,6 +11,7 @@ opora-canvas/
       top-bar/
       environment-switch/ # Projekt | Editor | Live Run (Alt+1..3)
       mode-rail/        # módy plátna uvnitř Editoru
+      account-corner/   # levý dolní roh: tlačítko Opora a popup menu
       shell/            # styly pracovní plochy
     project-setup/      # KROK 1: přiřazení repozitářů a složek, vytvoření projektu
     project/            # PROSTŘEDÍ PROJEKT: pohled na main
@@ -38,6 +39,7 @@ opora-canvas/
       desktop-state/    # stav panelů (paměť, workflow, podklady)
       selection/        # vybraný zdroj, reference, poznámka
       surface-settings/ # mřížka, přichytávání, mód
+    settings/           # nastavení aplikace z levého dolního rohu: Obecné, Skills (Claude Code), Connectors
     ui-kit/             # prvky bez domény: removal-dialog, workspace-boundary, panel-frame
     (uvnitř každé feature složky: components/ = .tsx · logic/ = .ts · styles/ = .css · README)
 
@@ -46,7 +48,7 @@ opora-canvas/
     api/                # ROBUSTNÍ API: tenké routery podle prostředí; app_routes = zdraví, identita, bootstrap
       project_setup/    # project_routes: nastavení, lokální/prázdný projekt, connect
       project/          # project_workspace_routes, workspace_routes, archify_routes, graphify_routes, map_refresh_routes
-      editor/           # canvas_routes, node_routes, desktop_v3_routes
+      editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes
       live_run/         # agent_routes, node_session_routes
     mcp/                # MCP server nad api/ (slot)
     canvas/             # základ plátna: canvas_service (DB, git sync, graf), graph (validace)
@@ -63,7 +65,7 @@ opora-canvas/
       task_execution/   # slot: vykonání úkolu z uzlu podle ID
     live_run/           # PROSTŘEDÍ LIVE RUN: agent_sources, agent_catalog, agent_bindings, agent_activity, agent_telemetry, node_sessions
     integrations/       # platforma: gitio, windows_job, build_identity
-    claude_code/        # slot: hooky, commands, skills řízené z aplikace
+    claude_code/        # skills_catalog (SKILL.md z projektu, uživatele, pluginů), skill_preferences (vypnuté skills); hooky a commands přibudou
     library/            # slot: načítání a verze předloh
     (každý balíček má README; test leží vedle modulu jako test_<modul>.py)
 

@@ -1,1 +1,1 @@
-Generování a řízení hooků, commands a skills z aplikace.
+Claude Code řízené z aplikace. Dnes: katalog skills na tomto počítači (skills_catalog.py čte SKILL.md z .claude/skills projektu, ~/.claude/skills a marketplace pluginů) a seznam vypnutých skills (skill_preferences.py, JSON v datovém kořeni). Hooky a commands přibudou.
