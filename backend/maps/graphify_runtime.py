@@ -14,9 +14,9 @@ from functools import lru_cache
 from pathlib import Path
 
 from backend.agents.runs.llm_runs import _WindowsJob
-from backend.api.archify_routes import ArtifactUnavailable, main_project_root
 from backend.integrations.workspace_sources import reparse
 from backend.maps.map_artifacts import LOCK as PUBLISH_LOCK
+from backend.maps.map_artifacts import ArtifactUnavailable, main_project_root
 from backend.paths import GRAPHIFY_VENV
 
 # Nejvýše jeden dražší parser na proces serveru; žádný placený model.

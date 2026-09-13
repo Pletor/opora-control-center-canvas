@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.agents.packets.desktop_v3_packets import DesktopV3Packets
 from backend.agents.packets.desktop_v3_state import DesktopV3State
+from backend.agents.packets.planning_context import build_planning_context
 from backend.agents.runs.coding_runs import CodingRuns
 from backend.agents.runs.llm_runs import PlanRuns
 from backend.agents.runs.task_handoffs import TaskHandoffs
@@ -20,7 +21,6 @@ from backend.api.task_handoff_routes import create_task_handoff_router
 from backend.domain.node.node_journal import NodeJournal
 from backend.domain.node.node_links import NodeLinks
 from backend.domain.node.node_sessions import create_node_sessions_router
-from backend.domain.project.planning_context import build_planning_context
 from backend.domain.project.wireframe_context import wireframe_context
 from backend.domain.service import CanvasService
 from backend.integrations.build_identity import build_identity

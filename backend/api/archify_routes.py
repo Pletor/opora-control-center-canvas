@@ -4,54 +4,19 @@ import hashlib
 import json
 import re
 import subprocess
-from pathlib import Path, PureWindowsPath
+from pathlib import PureWindowsPath
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from backend.integrations.gitio import git
-from backend.integrations.workspace_sources import WorkspaceSources, reparse
-from backend.maps.map_artifacts import LOCK, artifact_root
+from backend.integrations.workspace_sources import WorkspaceSources
+from backend.maps.map_artifacts import LOCK, ArtifactUnavailable, artifact_root, main_project_root
 
 DIRECTORY = 'docs/architecture/archify'
 MAX_HTML = 4 * 1024 * 1024
 MAX_JSON = 512 * 1024
 NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$')
-
-
-class ArtifactUnavailable(ValueError):
-    pass
-
-
-def _canonical_root(root):
-    if not root.is_dir() or reparse(root) or root.resolve() != root.absolute():
-        raise ArtifactUnavailable('Zdroj projektu není bezpečný dostupný adresář.')
-    return root.resolve()
-
-
-def main_project_root(service, project):
-    with service.lock:
-        item = service.project_hub.settings(project)['project']
-    if not item.get('sourcePath'):
-        raise ArtifactUnavailable('Projekt nemá připojený zdrojový adresář.')
-    root = _canonical_root(Path(item['sourcePath']))
-    # První záznam Git worktree list je hlavní pracovní strom, nikoli vybraná větev.
-    if (root / '.git').exists():
-        records = git(root, 'worktree', 'list', '--porcelain', '-z', timeout=3)
-        if not isinstance(records, str):
-            raise ArtifactUnavailable('Hlavní pracovní strom nelze určit.')
-        first = records.split('\0', 1)[0]
-        if not first.startswith('worktree ') or len(first) > 4096:
-            raise ArtifactUnavailable('Hlavní pracovní strom nelze určit.')
-        main = _canonical_root(Path(first.removeprefix('worktree ')))
-        args = ('rev-parse', '--path-format=absolute', '--git-common-dir')
-        source_git, main_git = git(root, *args, timeout=3), git(main, *args, timeout=3)
-        if not isinstance(source_git, str) or not isinstance(main_git, str):
-            raise ArtifactUnavailable('Identitu pracovního stromu nelze ověřit.')
-        if Path(source_git).resolve() != Path(main_git).resolve():
-            raise ArtifactUnavailable('Pracovní stromy nepatří ke stejnému projektu.')
-        root = main
-    return root
 
 
 def _read(sources, root, name, limit):

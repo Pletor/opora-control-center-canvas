@@ -8,6 +8,7 @@ import threading
 import uuid
 from pathlib import Path
 
+from backend.integrations.gitio import git
 from backend.integrations.workspace_sources import reparse
 
 LOCK = threading.RLock()
@@ -17,6 +18,10 @@ SIGNALS = {'graphify': 'graphify-out/opora-receipt.json', 'archify': 'docs/archi
 
 class MapArtifactError(ValueError):
     """Kontrolovaná chyba projektových artefaktů, nikoli interní TypeError API."""
+
+
+class ArtifactUnavailable(ValueError):
+    pass
 
 
 def contained(root, relative):
@@ -76,6 +81,37 @@ def artifact_root(root, tool):
         if not selected.is_dir():
             raise ValueError('Uložená verze mapy chybí.')
         return selected
+
+
+def _canonical_root(root):
+    if not root.is_dir() or reparse(root) or root.resolve() != root.absolute():
+        raise ArtifactUnavailable('Zdroj projektu není bezpečný dostupný adresář.')
+    return root.resolve()
+
+
+def main_project_root(service, project):
+    with service.lock:
+        item = service.project_hub.settings(project)['project']
+    if not item.get('sourcePath'):
+        raise ArtifactUnavailable('Projekt nemá připojený zdrojový adresář.')
+    root = _canonical_root(Path(item['sourcePath']))
+    # První záznam Git worktree list je hlavní pracovní strom, nikoli vybraná větev.
+    if (root / '.git').exists():
+        records = git(root, 'worktree', 'list', '--porcelain', '-z', timeout=3)
+        if not isinstance(records, str):
+            raise ArtifactUnavailable('Hlavní pracovní strom nelze určit.')
+        first = records.split('\0', 1)[0]
+        if not first.startswith('worktree ') or len(first) > 4096:
+            raise ArtifactUnavailable('Hlavní pracovní strom nelze určit.')
+        main = _canonical_root(Path(first.removeprefix('worktree ')))
+        args = ('rev-parse', '--path-format=absolute', '--git-common-dir')
+        source_git, main_git = git(root, *args, timeout=3), git(main, *args, timeout=3)
+        if not isinstance(source_git, str) or not isinstance(main_git, str):
+            raise ArtifactUnavailable('Identitu pracovního stromu nelze ověřit.')
+        if Path(source_git).resolve() != Path(main_git).resolve():
+            raise ArtifactUnavailable('Pracovní stromy nepatří ke stejnému projektu.')
+        root = main
+    return root
 
 
 def publish(root, revision, outputs):

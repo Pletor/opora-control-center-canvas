@@ -7,8 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
-from backend.api.archify_routes import ArtifactUnavailable
 from backend.maps.graphify_runtime import clean_environment, writable
+from backend.maps.map_artifacts import ArtifactUnavailable
 
 
 def test_generate_uses_official_graphify_and_persists_output(tmp_path):

@@ -1,4 +1,4 @@
-"""git mv backend modulů do balíčků + přepis `backend.<mod>` → `backend.<pkg>.<mod>` všude (backend, tests, tools, pyproject)."""
+"""git mv backend modulů do balíčků + přepis `backend.<mod>` → `backend.<pkg>.<mod>` všude (backend, tests, tools)."""
 import re
 import subprocess
 from pathlib import Path
@@ -9,11 +9,12 @@ MAP = {
     "agent_routes": "api", "archify_routes": "api", "graphify_routes": "api",
     "context_routes": "api", "desktop_v3_routes": "api", "task_handoff_routes": "api",
     "service": "domain", "graph": "domain/graph",
-    "project_hub": "domain/project", "planning_context": "domain/project", "wireframe_context": "domain/project",
+    "project_hub": "domain/project", "wireframe_context": "domain/project",
     "node_text": "domain/node", "node_specs": "domain/node", "node_links": "domain/node",
     "node_journal": "domain/node", "node_sessions": "domain/node", "node_session_sources": "domain/node",
     "removals": "domain/node", "drawings": "domain/node",
     "context_packets": "agents/packets", "desktop_v3_packets": "agents/packets", "desktop_v3_state": "agents/packets",
+    "planning_context": "agents/packets",
     "coding_runs": "agents/runs", "coding_tools": "agents/runs", "coding_worker": "agents/runs",
     "coding_oracle": "agents/runs", "llm_runs": "agents/runs", "task_handoffs": "agents/runs",
     "task_handoff_tools": "agents/runs", "task_handoff_worker": "agents/runs", "external_agent_tasks": "agents/runs",
@@ -39,6 +40,8 @@ def git(*args):
     subprocess.run(["git", *args], cwd=ROOT, check=True)
 
 
+assert not (ROOT / "backend" / "app" / "__init__.py").exists(), "backend už je rozdělený; skript je jednorázový"
+
 # 1) přesuny
 for mod, target in MAP.items():
     src = Path("backend") / f"{mod}.py"
@@ -50,7 +53,6 @@ for mod, target in MAP.items():
 SKIP_DIRS = {".venv", "node_modules", "vendor", ".git", "dist", "__pycache__"}
 SELF = Path(__file__).resolve()  # tento skript obsahuje literál `backend.app.factory`, nesmí přepsat sám sebe
 files = [p for p in ROOT.rglob("*.py") if not SKIP_DIRS & set(p.parts) and p.resolve() != SELF]
-files += [ROOT / "pyproject.toml"]
 for mod in sorted(MAP, key=len, reverse=True):
     pat = re.compile(rf"\bbackend\.{re.escape(mod)}\b(?!\w)")
     for path in files:

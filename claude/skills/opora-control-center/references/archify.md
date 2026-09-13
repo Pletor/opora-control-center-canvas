@@ -53,7 +53,7 @@ U obyčejné připojené složky se čte její vlastní adresář.
 
 ```bash
 .venv/Scripts/python.exe -m pytest tests/test_archify_routes.py tests/test_workspace_sources.py -q
-.venv/Scripts/python.exe -m ruff check backend/archify_routes.py tests/test_archify_routes.py
+.venv/Scripts/python.exe -m ruff check backend/api/archify_routes.py tests/test_archify_routes.py
 npm run build
 npx playwright test --config playwright.archify.config.ts
 ```

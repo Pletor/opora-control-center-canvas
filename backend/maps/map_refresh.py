@@ -9,8 +9,8 @@ import uuid
 
 from fastapi import APIRouter, Query
 
-from backend.api.archify_routes import main_project_root
 from backend.integrations.gitio import git
+from backend.maps.map_artifacts import main_project_root
 
 LOGGER = logging.getLogger(__name__)
 

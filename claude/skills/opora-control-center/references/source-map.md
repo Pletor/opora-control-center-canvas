@@ -24,11 +24,11 @@ Nečti všechny soubory; vezmi jen kontrakt právě řešené operace.
 | Klientské API a readback exportů | `src/desktop-v3/api.ts` |
 | Pravidla, rozhodnutí, tickety, workflow | `src/desktop-v3/types.ts`, `src/desktop-v3/ProjectMemoryPanel.tsx`, `src/desktop-v3/NodeWorkflowPanel.tsx` |
 | Skutečné Live Run a neaktivní transporty | `src/desktop-v3/LiveWorkspacePanel.tsx` |
-| HTTP hranice a hlavní routy | `backend/app.py` |
-| Validace grafu/sourceRef | `backend/graph.py` |
-| Whole-state revize a packet routy | `backend/desktop_v3_routes.py`, `backend/desktop_v3_state.py` |
-| Handoff routy a omezení | `backend/task_handoff_routes.py`, `backend/task_handoffs.py` |
-| Zdrojové stromy a dokumenty workspace | `backend/workspace_sources.py` |
+| HTTP hranice a hlavní routy | `backend/app/factory.py` |
+| Validace grafu/sourceRef | `backend/domain/graph/graph.py` |
+| Whole-state revize a packet routy | `backend/api/desktop_v3_routes.py`, `backend/agents/packets/desktop_v3_state.py` |
+| Handoff routy a omezení | `backend/api/task_handoff_routes.py`, `backend/agents/runs/task_handoffs.py` |
+| Zdrojové stromy a dokumenty workspace | `backend/integrations/workspace_sources.py` |
 
 ## Co bylo skutečně provedeno při sestavení
 

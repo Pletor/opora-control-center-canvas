@@ -6,10 +6,9 @@ import subprocess
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
-from backend.api.archify_routes import ArtifactUnavailable, main_project_root
 from backend.integrations.workspace_sources import WorkspaceSources
 from backend.maps.graphify_runtime import PUBLISH_LOCK, generate_graph
-from backend.maps.map_artifacts import artifact_root
+from backend.maps.map_artifacts import ArtifactUnavailable, artifact_root, main_project_root
 
 MAX_ARTIFACT = 32 * 1024 * 1024
 

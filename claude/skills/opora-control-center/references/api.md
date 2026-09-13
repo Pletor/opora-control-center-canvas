@@ -96,7 +96,7 @@ Níže je postup, ne automaticky schválený zápis. Hodnoty doplň z aktuální
    Jméno je neprázdné, nejvýše 160 znaků; purpose nejvýše 12000. Souřadnice
    jsou konečná čísla; zvol pozici podle skutečné vrstvy, ne náhodným přepsáním layoutu.
 4. POST graph s původním digestem, potom GET view; ověř ID, parentId a absenci sourceRef.
-5. Selže-li validace, neodstraňuj ji. Ověř současná pravidla v `backend/graph.py`.
+5. Selže-li validace, neodstraňuj ji. Ověř současná pravidla v `backend/domain/graph/graph.py`.
 
 Připojení projektu, existujících souborů, kreslení, mazání a coding start mají
 vlastní rozsáhlejší kontrakty. Neodhaduj payload. Načti cíleně jejich frontend
