@@ -6,42 +6,29 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.agents.packets.desktop_v3_packets import DesktopV3Packets
-from backend.agents.packets.desktop_v3_state import DesktopV3State
-from backend.agents.packets.planning_context import build_planning_context
-from backend.agents.runs.coding_runs import CodingRuns
-from backend.agents.runs.llm_runs import PlanRuns
-from backend.agents.runs.task_handoffs import TaskHandoffs
-from backend.api.agent_routes import create_agent_router
-from backend.api.archify_routes import create_archify_router
-from backend.api.context_routes import create_context_router
-from backend.api.desktop_v3_routes import create_desktop_v3_router
-from backend.api.graphify_routes import create_graphify_router
-from backend.api.task_handoff_routes import create_task_handoff_router
-from backend.domain.node.node_journal import NodeJournal
-from backend.domain.node.node_links import NodeLinks
-from backend.domain.node.node_sessions import create_node_sessions_router
-from backend.domain.project.wireframe_context import wireframe_context
-from backend.domain.service import CanvasService
+from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
+from backend.api.live_run.agent_routes import create_agent_router
+from backend.api.project.archify_routes import create_archify_router
+from backend.api.project.graphify_routes import create_graphify_router
+from backend.canvas.canvas_service import CanvasService
+from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+from backend.editor.agent_packet.desktop_v3_packets import DesktopV3Packets
+from backend.editor.node.node_journal import NodeJournal
+from backend.editor.node.node_links import NodeLinks
+from backend.editor.node.wireframe_context import wireframe_context
 from backend.integrations.build_identity import build_identity
-from backend.integrations.workspace_sources import create_workspace_router
-from backend.maps.map_refresh import MapRefresh, create_map_refresh_router
+from backend.live_run.node_sessions import create_node_sessions_router
 from backend.paths import DIST_DIR
+from backend.project.maps.map_refresh import MapRefresh, create_map_refresh_router
+from backend.project.workspace.workspace_sources import create_workspace_router
 
 
 def create_app(data_root=None):
     service = CanvasService(data_root or os.environ.get("OPORA_CANVAS_DATA", ".data/production"))
 
-    plans = PlanRuns(service, lambda project, workspace, layer: build_planning_context(service, project, workspace, layer))
-    service.plan_runs = plans
-    coding = CodingRuns(service, plans)
-    service.coding_runs = coding
-    handoffs = TaskHandoffs(service, plans)
-    service.task_handoffs = handoffs
     desktop_state = DesktopV3State(service)
     service.desktop_v3_state = desktop_state
     desktop_packets = DesktopV3Packets(service, desktop_state)
-    handoffs.desktop_v3 = desktop_packets
     links = NodeLinks(service)
     journal = NodeJournal(service)
     identity = build_identity(service.root)
@@ -52,17 +39,11 @@ def create_app(data_root=None):
         map_refresh.start()
         yield
         map_refresh.close()
-        handoffs.close()
-        coding.close()
-        plans.close()
         service.close()
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.service = service
     app.state.map_refresh = map_refresh
-    app.state.plan_runs = plans
-    app.state.coding_runs = coding
-    app.state.task_handoffs = handoffs
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -180,10 +161,6 @@ def create_app(data_root=None):
     def save_node_text(payload: dict):
         return service.texts.access(payload.get("project"), payload.get("workspace"), payload.get("node"), payload)
 
-    @app.get("/api/node-links/targets")
-    def node_link_targets(project: str, workspace: str):
-        return links.targets(project, workspace)
-
     @app.get("/api/node-links")
     def node_links(project: str, workspace: str, node: str):
         return links.links(project, workspace, node)
@@ -227,50 +204,6 @@ def create_app(data_root=None):
             return {"workspaces": [{"id": "draft", "label": "Lokální pracovní návrh"}]}
         return {"workspaces": [{"id": "main", "label": "Schválená větev · pouze čtení"}] + [{"id": w["id"], "label": w["actor"] + " · " + w["branch"]} for w in service.workspaces(project)]}
 
-    @app.get("/api/llm/capabilities")
-    def llm_capabilities():
-        return plans.capabilities()
-
-    @app.get("/api/coding/capabilities")
-    def coding_capabilities():
-        return coding.capabilities()
-
-    @app.get("/api/coding/runs")
-    def coding_list(project: str | None = None):
-        return coding.list(project)
-
-    @app.post("/api/coding/workspaces")
-    def coding_workspace(payload: dict):
-        return coding.create_target(payload)
-
-    @app.post("/api/coding/preview")
-    def coding_preview(payload: dict):
-        return coding.preview(payload)
-
-    @app.post("/api/coding/start")
-    def coding_start(payload: dict):
-        return coding.start(payload)
-
-    @app.post("/api/coding/stop")
-    def coding_stop(payload: dict):
-        return coding.stop(payload)
-
-    @app.get("/api/llm/preview")
-    def llm_preview(project: str, workspace: str, layer: str = ""):
-        return plans.preview(project, workspace, layer)
-
-    @app.get("/api/llm/runs")
-    def llm_runs(project: str | None = None):
-        return plans.list(project)
-
-    @app.post("/api/llm/start")
-    def llm_start(payload: dict):
-        return plans.start(payload)
-
-    @app.post("/api/llm/stop")
-    def llm_stop(payload: dict):
-        return plans.stop(payload)
-
     @app.post("/api/connect")
     def connect(payload: dict):
         return service.connect(payload.get("url"), payload.get("approved"))
@@ -292,10 +225,8 @@ def create_app(data_root=None):
     app.include_router(create_archify_router(service))
     app.include_router(create_graphify_router(service))
     app.include_router(create_map_refresh_router(map_refresh))
-    app.include_router(create_task_handoff_router(handoffs))
     app.include_router(create_workspace_router(service))
-    app.include_router(create_context_router(service))
-    app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, handoffs))
+    app.include_router(create_desktop_v3_router(desktop_state, desktop_packets))
     dist = DIST_DIR
     if dist.exists():
         app.mount("/", StaticFiles(directory=dist, html=True), name="canvas")

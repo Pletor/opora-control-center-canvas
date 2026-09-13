@@ -1,1 +1,1 @@
-Výchozí obsah knihovny předloh.
+Výchozí obsah knihovny předloh. Zatím slot.

@@ -1,8 +1,8 @@
-"""Nezávislá integrační oracle: kresba rodiče se dostane beze změny do předání."""
+"""Nezávislá integrační oracle: kresba rodiče se dostane beze změny do zmrazeného snímku."""
 import json
 
 from fastapi.testclient import TestClient
-from backend.integrations.tests.test_workspace_sources import attach
+from backend.project.workspace.tests.test_workspace_sources import attach
 
 from backend.app.factory import create_app
 
@@ -10,23 +10,11 @@ ORIGIN = 'http://127.0.0.1:8740'
 HEADERS = {'origin': ORIGIN}
 
 
-def contains_object(value, expected):
-    if value == expected:
-        return True
-    if isinstance(value, dict):
-        return any(contains_object(item, expected) for item in value.values())
-    if isinstance(value, list):
-        return any(contains_object(item, expected) for item in value)
-    return False
-
-
 def test_ancestor_drawing_reaches_the_exact_frozen_agent_payload(tmp_path):
     source = tmp_path / 'source'
     (source / 'src').mkdir(parents=True)
     (source / 'src/editor.ts').write_text('// Actual source stays unchanged', encoding='utf-8')
     app = create_app(tmp_path / 'data')
-    started = []
-    app.state.task_handoffs._run = lambda run: started.append(run)
     with TestClient(app, base_url=ORIGIN) as client:
         project = attach(client, source)
         scope = {'project': project, 'workspace': 'draft'}
@@ -56,13 +44,7 @@ def test_ancestor_drawing_reaches_the_exact_frozen_agent_payload(tmp_path):
         reread = client.get('/api/desktop-v3/packet/snapshots/' + snapshot['id'], params=scope)
         assert reread.status_code == 200, reread.text
         assert reread.json()['packet'] == snapshot['packet']
-        prepared = client.post('/api/desktop-v3/packet/snapshots/' + snapshot['id'] + '/prepare', headers=HEADERS, json={**scope, 'task': 'Napiš stručné zadání UI podle přesně přiložené kresby.'})
-        assert prepared.status_code == 200, prepared.text
-        handoff = prepared.json()
-        exported = client.get('/api/task-handoffs/' + handoff['id'] + '/export')
-        assert exported.status_code == 200, exported.text
-        assert contains_object(exported.json(), snapshot['packet']), 'Agent export neobsahuje přesný schválený balíček.'
-        assert not started, 'Preview/snapshot/prepare nesmí spustit model.'
+        assert 'session' not in snapshot['packet']['context'], 'Podklady už nevkládají žádný běh modelu.'
         assert (source / 'src/editor.ts').read_text(encoding='utf-8') == '// Actual source stays unchanged'
 
 
@@ -78,34 +60,9 @@ def test_project_packet_can_be_previewed_without_selecting_a_node(tmp_path):
         body = response.json()
         assert body['packet']['scope']['nodeId'] == ''
         assert body['packet']['context']['project']['id'] == project
+        assert body['packet']['task']['kind'] == 'project', 'Rozsah projektu se nesmí vydávat za existující uzel.'
         frozen = client.post('/api/desktop-v3/packet/snapshot', headers=HEADERS, json={**request, 'digest': body['digest']})
         assert frozen.status_code == 200, frozen.text
         assert frozen.json()['packet'] == body['packet']
-        prepared = client.post('/api/desktop-v3/packet/snapshots/' + frozen.json()['id'] + '/prepare', headers=HEADERS, json={'project': project, 'workspace': 'draft', 'task': 'Připrav dokumentaci celého projektu.'})
-        assert prepared.status_code == 200, prepared.text
-        exported = client.get('/api/task-handoffs/' + prepared.json()['id'] + '/export').json()
-        assert exported['context']['map']['nodes'] == [], 'Rozsah projektu se nesmí vydávat za existující uzel.'
-
-
-def test_session_packet_contains_real_scoped_proposal_output(tmp_path):
-    source = tmp_path / 'source'
-    source.mkdir()
-    app = create_app(tmp_path / 'data')
-    with TestClient(app, base_url=ORIGIN) as client:
-        project = attach(client, source)
-        db = app.state.service.db
-        with db:
-            db.execute('INSERT INTO llm_runs(id,project_id,workspace,layer,digest,context,status,message,output,provider_billing,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                       ('prior-proposal', project, 'draft', '', 'fixture-digest', '{}', 'completed', 'Testovací návrh', 'Uložený výstup testovacího návrhu.', 'unknown', '2026-09-10T00:00:00Z', '2026-09-10T00:00:01Z'))
-        request = {'project': project, 'workspace': 'draft', 'nodeId': '', 'path': '', 'sessionId': 'prior-proposal', 'references': [], 'note': ''}
-        response = client.post('/api/desktop-v3/packet/preview', headers=HEADERS, json=request)
-        assert response.status_code == 200, response.text
-        packet = response.json()['packet']
-        assert packet['context']['session']['output'] == 'Uložený výstup testovacího návrhu.'
-        assert any(row['kind'] == 'session' and row['included'] for row in packet['sourceManifest'])
-        other_source = tmp_path / 'other'
-        other_source.mkdir()
-        other_project = attach(client, other_source)
-        rejected = client.post('/api/desktop-v3/packet/preview', headers=HEADERS, json={**request, 'project': other_project})
-        assert rejected.status_code == 409, rejected.text
-        assert 'Uložený výstup' not in rejected.text
+        prepare = client.post('/api/desktop-v3/packet/snapshots/' + frozen.json()['id'] + '/prepare', headers=HEADERS, json={'project': project, 'workspace': 'draft', 'task': 'x'})
+        assert prepare.status_code in (404, 405), 'Příprava handoffu přes Hermes byla odstraněna.'

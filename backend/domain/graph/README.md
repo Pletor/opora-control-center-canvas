@@ -1,1 +1,0 @@
-Doména grafu (graph.py).

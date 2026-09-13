@@ -41,29 +41,36 @@ opora-canvas/
     ui-kit/             # prvky bez domény: removal-dialog, workspace-boundary, panel-frame
     (uvnitř každé feature složky: components/ = .tsx · logic/ = .ts · styles/ = .css · README)
 
-  backend/
-    app/                # create_app, registrace routerů, middleware, origin guard
-    api/                # tenké routery: project, sector, node, agents, library, claude, maps
-    domain/
-      project/          # project_hub, settings, workspaces
-      sector/
-      node/             # node_text, node_specs, node_links, node_journal, removals, node_sessions
-      graph/            # graph.py, view, digest
-    agents/
-      control/          # rozhraní pro agenty (MCP server, viz §6)
-      packets/          # desktop_v3_packets, desktop_v3_state, redakce textu
-      runs/             # external_agent_tasks (export pro externího agenta)
-      sources/          # agent_sources, agent_bindings, agent_activity, agent_telemetry, agent_catalog
-    library/            # knihovna předloh: načtení, verze, checklisty, zpětná vazba
-    claude_code/        # hooky, commands, skills řízené z aplikace
-    maps/               # archify_*, graphify_*, map_refresh_*, map_artifacts
-    integrations/       # gitio, workspace_sources, workspace_documents, build_identity
-    (každý balíček má vlastní tests/)
+  backend/              # stejný příběh jako frontend; mcp → api → prostředí → canvas, integrations
+    app/                # create_app, middleware, mount dist/ (+ 25 inline rout = dluh)
+    api/                # ROBUSTNÍ API: tenké routery podle prostředí
+      project/          # archify_routes, graphify_routes
+      editor/           # desktop_v3_routes
+      live_run/         # agent_routes
+      project_setup/    # slot: připojení a založení projektu
+    mcp/                # MCP server nad api/ (slot)
+    canvas/             # základ plátna: canvas_service (DB, git sync, graf), graph (validace)
+    project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
+    project/            # PROSTŘEDÍ PROJEKT
+      workspace/        # strom zdrojů, otevírání souborů, dokumentace k cestám
+      maps/             # graphify, archify, map_refresh, artefakty, snapshoty
+    editor/             # PROSTŘEDÍ EDITOR: obsah uzlů a vše, co dostává agent
+      node/             # node_text, node_specs, node_journal, node_links, drawings, wireframe_context, removals
+      sector/           # slot: zpracování celého sektoru
+      agent_memory/     # desktop_v3_state: pravidla, rozhodnutí, fáze uzlu
+      agent_packet/     # desktop_v3_packets, redact: podklady pro agenta
+      agent_handoff/    # external_agent_tasks: předání úkolu externímu agentovi
+      task_execution/   # slot: vykonání úkolu z uzlu podle ID
+    live_run/           # PROSTŘEDÍ LIVE RUN: agent_sources, agent_catalog, agent_bindings, agent_activity, agent_telemetry, node_sessions
+    integrations/       # platforma: gitio, windows_job, build_identity
+    claude_code/        # slot: hooky, commands, skills řízené z aplikace
+    library/            # slot: načítání a verze předloh
+    (každý balíček má vlastní tests/ a README)
 
-  database/
-    schema/             # SQL / migrace po tabulkách
-    repositories/       # přístup k datům (vyčleněno ze service.py)
-    seeds/              # výchozí obsah knihovny předloh
+  database/             # dnes dokumentace: mapa tabulek → vlastnící modul (database/README.md)
+    schema/             # slot: SQL schéma a migrace po tabulkách
+    repositories/       # slot: přístup k datům vyčleněný z modulů
+    seeds/              # slot: výchozí obsah knihovny předloh
 
   library/              # DATA knihovny předloh, verzované v gitu
     components/<name>/  # blueprint.md + checklist.yaml + šablona kódu
@@ -81,7 +88,7 @@ opora-canvas/
 Pravidla umístění nového souboru:
 
 1. Vidí to uživatel? → `frontend/`. Kde v cestě uživatele to je? → `project-setup/`, `project/`, `editor/` nebo `live-run/`. Je to obecné (bez domény)? → `ui-kit/`. Sdílený stav bez závislosti na prostředí? → `shared/`. Uvnitř složky: .tsx do `components/`, .ts do `logic/`, .css do `styles/`.
-2. Je to logika, proces, integrace? → `backend/`. Router jen do `api/`, logika do `domain/`, `agents/`, `maps/` nebo `integrations/`.
+2. Je to logika, proces, integrace? → `backend/`. Kde v cestě uživatele to je? → `project_setup/`, `project/`, `editor/` nebo `live_run/`. Router jen do `api/<prostředí>/`. Základ plátna → `canvas/`, platforma → `integrations/`.
 3. Je to schéma nebo přístup k datům? → `database/`.
 4. Je to předloha, checklist nebo poučení? → `library/`.
 5. Test leží vedle toho, co testuje. Css leží vedle komponenty. Název souboru říká, co dělá a k čemu patří.
@@ -90,22 +97,45 @@ Pravidla umístění nového souboru:
 
 ```
 backend
-backend/agents
-backend/agents/control
-backend/agents/packets
-backend/agents/runs
-backend/agents/sources
 backend/api
+backend/api/editor
+backend/api/live_run
+backend/api/project
+backend/api/project/tests
+backend/api/project_setup
 backend/app
+backend/app/tests
+backend/canvas
+backend/canvas/tests
 backend/claude_code
-backend/domain
-backend/domain/graph
-backend/domain/node
-backend/domain/project
-backend/domain/sector
+backend/editor
+backend/editor/agent_handoff
+backend/editor/agent_handoff/tests
+backend/editor/agent_memory
+backend/editor/agent_memory/tests
+backend/editor/agent_packet
+backend/editor/agent_packet/tests
+backend/editor/node
+backend/editor/node/tests
+backend/editor/sector
+backend/editor/task_execution
 backend/integrations
+backend/integrations/tests
 backend/library
-backend/maps
+backend/live_run
+backend/live_run/tests
+backend/mcp
+backend/project
+backend/project/maps
+backend/project/maps/tests
+backend/project/workspace
+backend/project/workspace/tests
+backend/project_setup
+backend/project_setup/tests
+database
+database/repositories
+database/schema
+database/seeds
 frontend
 frontend/app
 frontend/app/components
@@ -173,6 +203,9 @@ frontend/live-run/run-monitor/components
 frontend/live-run/run-monitor/logic
 frontend/live-run/run-monitor/styles
 frontend/project
+frontend/project-setup
+frontend/project-setup/components
+frontend/project-setup/styles
 frontend/project/maps
 frontend/project/maps/components
 frontend/project/maps/styles
@@ -183,9 +216,6 @@ frontend/project/source-tree
 frontend/project/source-tree/components
 frontend/project/workspace
 frontend/project/workspace/components
-frontend/project-setup
-frontend/project-setup/components
-frontend/project-setup/styles
 frontend/shared
 frontend/shared/api
 frontend/shared/contexts

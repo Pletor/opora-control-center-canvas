@@ -1,0 +1,1 @@
+Prostředí Editor: obsah uzlů a vše, co dostává agent. node/ obsah uzlu, sector/ zpracování sektoru (slot), agent_memory/ paměť projektu, agent_packet/ podklady pro agenta, agent_handoff/ předání úkolu ven, task_execution/ vykonání úkolu z uzlu (slot).

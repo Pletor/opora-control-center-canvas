@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from backend.agents.sources.agent_sources import PlatnoSource
+from backend.live_run.agent_sources import PlatnoSource
 from backend.app.factory import create_app
 
 

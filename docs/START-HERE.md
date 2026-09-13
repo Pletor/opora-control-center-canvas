@@ -6,9 +6,7 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 
 - Aplikace: **http://127.0.0.1:8740/**
 - Instalace a spuštění: [README.md](../README.md).
-- Schválený směr vývoje: [EDITOR-SPEC.md](source-synthesis/2026-09-09/EDITOR-SPEC.md).
-- Zpracované podklady a mapa: [přehled syntézy](source-synthesis/2026-09-09/README.md).
-- První rozpracovaný řez: **R01 — editor zadání uzlu**, podklady a výsledek v WU-R01 (historické zadání, odstraněno při restrukturalizaci 2026-09-13). Editor je implementovaný a testovaný; další moduly přibývají po ověřených řezech.
+- Směr vývoje: konkrétní kroky vznikají při praktickém vývoji. Dřívější plány, koncepty a LLM/Hermes běhy byly odstraněny 2026-09-13; základ je funkční editor plátna s Podklady pro agenta (náhled, neměnný snímek, export pro externího agenta).
 
 ## Nově: pracovní módy
 

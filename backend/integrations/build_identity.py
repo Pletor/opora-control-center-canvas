@@ -15,4 +15,4 @@ def build_identity(data_root):
             digest.update(b"\0")
             digest.update(path.read_bytes())
     index = root / "dist" / "index.html"
-    return {"product": "Opora Canvas", "commit": git(root, "rev-parse", "HEAD"), "sourceSha256": digest.hexdigest(), "frontendIndexSha256": hashlib.sha256(index.read_bytes()).hexdigest() if index.exists() else None, "runtimeRoot": str(root), "dataRoot": str(Path(data_root).resolve()), "features": ["project-home", "saved-wireframe-context", "proposal-only-hermes", "fractal-node-text", "hermes-isolated-addition-oracle"], "codingScope": "calculator.py in server-created isolated Git workspaces; immutable Docker oracle only"}
+    return {"product": "Opora Canvas", "commit": git(root, "rev-parse", "HEAD"), "sourceSha256": digest.hexdigest(), "frontendIndexSha256": hashlib.sha256(index.read_bytes()).hexdigest() if index.exists() else None, "runtimeRoot": str(root), "dataRoot": str(Path(data_root).resolve()), "features": ["project-home", "saved-wireframe-context", "fractal-node-text"]}

@@ -13,15 +13,15 @@ import json
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from backend.integrations.tests.test_workspace_sources import ORIGIN, attach
+from backend.project.workspace.tests.test_workspace_sources import ORIGIN, attach
 
-from backend.agents.sources.agent_catalog import AgentCatalog
-from backend.api.agent_routes import create_agent_router
-from backend.agents.sources.agent_sources import LocalOrchestratorSource, redact
-from backend.agents.sources.agent_telemetry import read_telemetry
+from backend.live_run.agent_catalog import AgentCatalog
+from backend.api.live_run.agent_routes import create_agent_router
+from backend.live_run.agent_sources import LocalOrchestratorSource, redact
+from backend.live_run.agent_telemetry import read_telemetry
 from backend.app.factory import create_app
-from backend.agents.packets.context_packets import ContextPackets
-from backend.domain.service import CanvasService
+from backend.editor.agent_packet.redact import redact_text
+from backend.canvas.canvas_service import CanvasService
 
 # Syntetický token ve tvaru fine-grained GitHub PAT; není to skutečný přístupový údaj.
 FIXTURE_PAT = "github_pat_11FAKE0000fakefakefakefake0123456789abcdefghijklmnop"
@@ -37,43 +37,29 @@ DOC_FIELDS = {
 # ---------------------------------------------------------------------------
 
 
-def test_context_packet_redacts_bare_fine_grained_github_token(tmp_path):
-    service = CanvasService(tmp_path / "data")
-    try:
+def test_packet_redactor_masks_bare_fine_grained_github_token(tmp_path):
+    for text in (f"Uzel {FIXTURE_PAT}", f"Účel {FIXTURE_PAT}", f"Deník s tokenem {FIXTURE_PAT}"):
+        redacted = redact_text(text)
+        assert FIXTURE_PAT not in redacted
+        assert "[REDACTED]" in redacted
+    assert redact_text("") == "" and redact_text(None) is None
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        view = client.get("/api/view").json()
         nodes = [
             {"id": "sector", "parentId": None, "kind": "sector", "name": "Sektor", "purpose": "", "x": 0, "y": 0},
             {"id": "focus", "parentId": "sector", "kind": "node",
              "name": f"Uzel {FIXTURE_PAT}", "purpose": f"Účel {FIXTURE_PAT}", "x": 0, "y": 0},
         ]
-        view = service.view("draft", "draft")
-        service.save_graph("draft", "draft", {"nodes": nodes, "edges": []}, view["digest"])
-        scope = ("draft", "draft", "focus")
-        spec = service.specs.read(scope)
-        service.specs.save(scope, spec["revision"],
-                           {key: f"{value} {FIXTURE_PAT}" for key, value in spec["fields"].items()})
-        service.texts.access("draft", "draft", "focus", {
-            "project": "draft", "workspace": "draft", "node": "focus",
-            "expected_revision": 0, "text": f"Text s tokenem {FIXTURE_PAT}",
+        assert client.post("/api/graph", headers={"origin": ORIGIN}, json={
+            "project": "draft", "workspace": "draft", "digest": view["digest"], "graph": {"nodes": nodes, "edges": []},
+        }).status_code == 200
+        preview = client.post("/api/desktop-v3/packet/preview", headers={"origin": ORIGIN}, json={
+            "project": "draft", "workspace": "draft", "nodeId": "focus", "path": "", "sessionId": "",
+            "references": [], "note": f"Poznámka {FIXTURE_PAT}",
         })
-        day = "2026-09-10"
-        packets = ContextPackets(service)
-        packets.journal.access("draft", "draft", "focus", day, {
-            "project": "draft", "workspace": "draft", "node": "focus", "day": day,
-            "expected_revision": 0, "text": f"Deník s tokenem {FIXTURE_PAT}",
-        })
-        stored = packets.build({
-            "project": "draft", "workspace": "draft", "node": "focus",
-            "includeNodeIds": [], "includeJournalDays": [day], "maxBytes": 50000,
-        })
-        assert FIXTURE_PAT not in json.dumps(stored, ensure_ascii=False)
-        row = service.db.execute(
-            "SELECT payload FROM context_packets WHERE id=?", (stored["id"],)
-        ).fetchone()
-        assert FIXTURE_PAT not in row["payload"]
-        assert FIXTURE_PAT not in json.dumps(packets.load(stored["id"]), ensure_ascii=False)
-        assert "[REDACTED]" in json.dumps(stored, ensure_ascii=False)
-    finally:
-        service.close()
+        assert preview.status_code == 200, preview.text
+        assert FIXTURE_PAT not in preview.text
+        assert "[REDACTED]" in preview.text
 
 
 def test_redact_keeps_intentional_numeric_token_counters():

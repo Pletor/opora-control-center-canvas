@@ -1,0 +1,1 @@
+Strom zdrojů projektu, otevírání souborů a dokumentace k cestám (workspace_sources.py, workspace_documents.py). test_workspace_sources.py exportuje sdílené helpery attach() a ORIGIN pro ostatní testy.
