@@ -24,11 +24,10 @@ Uzel/sektor/vazbu smažeš z detailu s potvrzením dopadu; repozitář odebereš
 |---|---|
 | Python backend | `backend/` |
 | React frontend | `frontend/` |
-| Automatické testy | `tests/`, `e2e/` |
+| Automatické testy | vedle testovaného kódu: `backend/**/tests/`, `tools/tests/` |
 | Návrh a zdrojové rozbory | `docs/` |
-| Přesná zadání implementačních řezů a provenance | `.opora/workunits/` |
-| Skutečná lokální data | `.data/production/` |
-| Důkazy provedených testů | `evidence/` |
+| Pravidla umístění souborů | `docs/pravidla-struktury.md` |
+| Skutečná lokální data | `.data/` (gitignored) |
 | Sestavený klient, generovaný z frontend zdrojů | `dist/` |
 
 Technické podsložky nejsou další aplikace. Případné pracovní kopie agentů mají být pouze uvnitř tohoto kořene, nikoli dalšími primárními projekty vedle něj.

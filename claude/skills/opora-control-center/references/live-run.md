@@ -10,12 +10,13 @@
   konkrétní lane artefakty. `running` je ověřený proces, `recent_activity` jen
   nedávná uložená událost. Otevřená konverzace není důkaz běžícího modelu.
 - Připojení k uzlu není spuštění modelu. Před prací na výslovně zadaném uzlu
-  ověř skutečné session ID a přesný scope, potom přes `terminal` spusť z kořene aplikace:
+  ověř skutečné session ID a přesný scope, potom zavolej API (stejný Origin, JSON):
   ```bash
-  python scripts/bind_node_session.py --base-url http://127.0.0.1:8780 --project PROJECT_ID --workspace WORKSPACE_ID --node-id NODE_ID --source hermes --session-id REAL_SESSION_ID --role orchestrator --title "Konkrétní úkol" --confirm
+  curl -s -X POST http://127.0.0.1:8780/api/node-sessions/bind -H "Content-Type: application/json" -H "Origin: http://127.0.0.1:8780" \
+    -d '{"project":"PROJECT_ID","workspace":"WORKSPACE_ID","nodeId":"NODE_ID","source":"hermes","sessionId":"REAL_SESSION_ID","role":"orchestrator","title":"Konkrétní úkol"}'
   ```
-  Pro Claude použij `--source claude --run-id LANE_SLUG --session-id REAL_CLAUDE_ID
-  --role worker --parent-session-id REAL_HERMES_ID`. Skript vždy ověří zápis GETem.
+  Pro Claude použij `"source":"claude"`, `"runId":"LANE_SLUG"`, `"role":"worker"` a
+  `"parentSessionId":"REAL_HERMES_ID"`. Zápis vždy ověř GETem `/api/node-sessions`.
 - Server používá `OPORA_HERMES_API_URL`, server-side `OPORA_HERMES_API_KEY` a
   `OPORA_NODE_SESSION_LANES_ROOT`. Tajemství nepatří do frontendu ani exportů.
 - Po dokončení nebo před přechodem na jiné zadání uzavři **vazbu**, nikoli model:
