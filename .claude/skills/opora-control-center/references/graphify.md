@@ -62,10 +62,10 @@ Po změně runtime restartujte server (výběr je cachovaný).
 
 ## Kód a ověření
 
-`backend/api/graphify_routes.py`, `backend/maps/graphify_{runtime,worker}.py`, `frontend/project/maps/components/GraphifyMap.tsx`.
+`backend/api/project/graphify_routes.py`, `backend/project/maps/graphify_{runtime,worker}.py`, `frontend/project/maps/components/GraphifyMap.tsx`.
 Navigace i geometrie zůstávají ve společném `ProjectLayout`.
 API: GET `/api/graphify/artifact?project=ID`, POST `/api/graphify/generate?project=ID`.
 POST vyžaduje stejný Origin a `Content-Type: application/json`.
-Test: `pytest tests/test_graphify_routes.py` (nativní smoke vyžaduje runtime výše).
+Test: `pytest backend/api/project/test_graphify_routes.py` (nativní smoke vyžaduje runtime výše).
 E2E testy byly odstraněny při restrukturalizaci; ověření proveď ručně přes náhled (`tools/serve-preview.py`) nebo přes API.
 Testovací fixture HTML není důkaz nasazení; skutečný náhled je ověřován zvlášť.

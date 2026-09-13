@@ -1,1 +1,1 @@
-Rozhraní Editoru: stav desktopu, náhled a snímek podkladů pro agenta, export (desktop_v3_routes).
+Rozhraní Editoru: graf plátna, kresby, wireframe kontext, odstraňování (canvas_routes); text, odkazy, deník a zadání uzlu (node_routes); stav desktopu a podklady pro agenta (desktop_v3_routes).

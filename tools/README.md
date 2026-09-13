@@ -1,1 +1,1 @@
-Build a vývojové skripty; restructure/ jsou jednorázové skripty přesunu.
+Build a vývojové skripty: kopie assetů kreslení pro build a lokální náhledový server.

@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 from fastapi.testclient import TestClient
-from backend.project.workspace.tests.test_workspace_sources import ORIGIN, attach
+from backend.project.workspace.test_workspace_sources import ORIGIN, attach
 
 from backend.app.factory import create_app
 

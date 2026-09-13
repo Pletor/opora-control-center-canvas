@@ -15,4 +15,4 @@ testpaths = ["backend", "tools"]
 [tool.ruff]
 line-length = 100
 # Testy žijí vedle kódu; jejich styl nebyl nikdy lintován, ať baseline zůstane srovnatelná.
-extend-exclude = ["**/tests/**"]
+extend-exclude = ["**/test_*.py"]

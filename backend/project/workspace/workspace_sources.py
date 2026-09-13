@@ -6,10 +6,8 @@ import stat
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
 from urllib.parse import quote
 
-from fastapi import APIRouter, Query
 from pathspec import GitIgnoreSpec
 
 RESERVED = re.compile(r"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)", re.IGNORECASE)
@@ -217,30 +215,3 @@ class WorkspaceSources:
                 "hasMore": more, "nextOffset": offset + limit if more else None,
                 "available": True, "observedAt": datetime.now(UTC).isoformat(),
                 "visibility": visibility, "hiddenCount": hidden_count}
-
-
-def create_workspace_router(service):
-    router = APIRouter(prefix="/api/workspace")
-    sources = WorkspaceSources(service)
-
-    @router.post("/open-file")
-    def open_file(payload: dict):
-        return sources.open_file(payload)
-
-    @router.get("/tree")
-    def tree(project: str, workspace: str, path: str = "", offset: int = Query(0, ge=0), limit: int = Query(200, ge=1, le=500), visibility: Literal['all', 'working'] = 'all'):
-        return sources.tree(project, workspace, path, offset, limit, visibility)
-
-    from backend.project.workspace.workspace_documents import WorkspaceDocuments
-
-    documents = WorkspaceDocuments(service, sources)
-
-    @router.get("/document")
-    def document(project: str, workspace: str, path: str = ""):
-        return documents.read(project, workspace, path)
-
-    @router.post("/document")
-    def save_document(payload: dict):
-        return documents.save(payload)
-
-    return router

@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from backend.project.workspace.tests.test_workspace_sources import ORIGIN
+from backend.project.workspace.test_workspace_sources import ORIGIN
 
 from backend.app.factory import create_app
 

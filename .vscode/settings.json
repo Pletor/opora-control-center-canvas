@@ -1,0 +1,12 @@
+{
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "*.py": "test_${capture}.py, test_${capture}_*.py",
+    "*.tsx": "${capture}.test.tsx, ${capture}.test.ts",
+    "*.ts": "${capture}.test.ts",
+    "*.mjs": "test_${capture}.py, ${capture}.test.mjs",
+    "package.json": "package-lock.json",
+    "pyproject.toml": "uv.lock"
+  }
+}

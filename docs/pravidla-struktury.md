@@ -42,12 +42,12 @@ opora-canvas/
     (uvnitř každé feature složky: components/ = .tsx · logic/ = .ts · styles/ = .css · README)
 
   backend/              # stejný příběh jako frontend; mcp → api → prostředí → canvas, integrations
-    app/                # create_app, middleware, mount dist/ (+ 25 inline rout = dluh)
-    api/                # ROBUSTNÍ API: tenké routery podle prostředí
-      project/          # archify_routes, graphify_routes
-      editor/           # desktop_v3_routes
-      live_run/         # agent_routes
-      project_setup/    # slot: připojení a založení projektu
+    app/                # create_app, middleware, mount dist/, skládání routerů z api/
+    api/                # ROBUSTNÍ API: tenké routery podle prostředí; app_routes = zdraví, identita, bootstrap
+      project_setup/    # project_routes: nastavení, lokální/prázdný projekt, connect
+      project/          # project_workspace_routes, workspace_routes, archify_routes, graphify_routes, map_refresh_routes
+      editor/           # canvas_routes, node_routes, desktop_v3_routes
+      live_run/         # agent_routes, node_session_routes
     mcp/                # MCP server nad api/ (slot)
     canvas/             # základ plátna: canvas_service (DB, git sync, graf), graph (validace)
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
@@ -65,7 +65,7 @@ opora-canvas/
     integrations/       # platforma: gitio, windows_job, build_identity
     claude_code/        # slot: hooky, commands, skills řízené z aplikace
     library/            # slot: načítání a verze předloh
-    (každý balíček má vlastní tests/ a README)
+    (každý balíček má README; test leží vedle modulu jako test_<modul>.py)
 
   database/             # dnes dokumentace: mapa tabulek → vlastnící modul (database/README.md)
     schema/             # slot: SQL schéma a migrace po tabulkách
@@ -91,7 +91,7 @@ Pravidla umístění nového souboru:
 2. Je to logika, proces, integrace? → `backend/`. Kde v cestě uživatele to je? → `project_setup/`, `project/`, `editor/` nebo `live_run/`. Router jen do `api/<prostředí>/`. Základ plátna → `canvas/`, platforma → `integrations/`.
 3. Je to schéma nebo přístup k datům? → `database/`.
 4. Je to předloha, checklist nebo poučení? → `library/`.
-5. Test leží vedle toho, co testuje. Css leží vedle komponenty. Název souboru říká, co dělá a k čemu patří.
+5. Test leží hned vedle toho, co testuje, jako `test_<modul>.py` (backend) nebo `<Name>.test.tsx` (frontend); žádné složky tests/. Css leží ve `styles/` vedle komponenty. Název souboru říká, co dělá a k čemu patří.
 
 ## Skutečný stav
 
@@ -101,37 +101,25 @@ backend/api
 backend/api/editor
 backend/api/live_run
 backend/api/project
-backend/api/project/tests
 backend/api/project_setup
 backend/app
-backend/app/tests
 backend/canvas
-backend/canvas/tests
 backend/claude_code
 backend/editor
 backend/editor/agent_handoff
-backend/editor/agent_handoff/tests
 backend/editor/agent_memory
-backend/editor/agent_memory/tests
 backend/editor/agent_packet
-backend/editor/agent_packet/tests
 backend/editor/node
-backend/editor/node/tests
 backend/editor/sector
 backend/editor/task_execution
 backend/integrations
-backend/integrations/tests
 backend/library
 backend/live_run
-backend/live_run/tests
 backend/mcp
 backend/project
 backend/project/maps
-backend/project/maps/tests
 backend/project/workspace
-backend/project/workspace/tests
 backend/project_setup
-backend/project_setup/tests
 database
 database/repositories
 database/schema

@@ -1,4 +1,4 @@
-# Plán struktury `backend/` a `database/` (fáze 1 – návrh v2, čeká na schválení)
+# Plán struktury `backend/` a `database/` (provedeno; doplněno o vyjmutí routerů a testy vedle modulů)
 
 Cíl: backend má na první úrovni stejný příběh jako frontend:
 **project_setup → project | editor | live_run**, pod nimi společný základ plátna a platforma.
@@ -22,11 +22,11 @@ Chování se nemění; mění se jen cesty, názvy balíčků, název jednoho so
 | Šuplík balíčku | Co obsahuje |
 |---|---|
 | kořen balíčku | moduly s logikou (`.py`) + `__init__.py` |
-| `tests/` | pytest soubory, testují jen svůj balíček |
+| `test_<modul>.py` | test leží hned vedle modulu, který testuje (v seznamu souborů pod ním); žádné složky tests/ |
 | `README.md` | první věta: co balíček dělá a pro které prostředí frontendu pracuje |
 
 - Balíčky snake_case; název souboru říká, co dělá. Žádné `utils`, `misc`, `common`, `helpers`, verze.
-- Routery pouze v `api/` (čtyři výjimky z §0 zůstávají jako dluh).
+- Routery pouze v `api/<prostředí>/`; moduly prostředí žádný APIRouter nevytvářejí.
 - Směr závislostí: `mcp/` → `api/` → prostředí (`project_setup`, `project`, `editor`, `live_run`) → `canvas/`, `integrations/`. Nižší vrstva nikdy neimportuje vyšší. (Dnes porušeno jednou: `graph.py` → `workspace_sources`, viz §5.)
 - Žádná změna obsahu modulů, žádné rozdělování souborů, žádné mazání. Přesun výhradně `git mv`.
 
@@ -176,7 +176,7 @@ Beze změny: `pyproject.toml`, `tools/serve-preview.py` (`backend.app`), `tools/
 Dokumentace: `.claude/skills/opora-control-center/references/{source-map,api,graphify,archify}.md`, `docs/pravidla-struktury.md`, README každého balíčku.
 
 ## 5. Evidovaný dluh (vyžaduje změnu obsahu souborů, mimo rozsah)
-1. Routery v `live_run/node_sessions.py`, `project/workspace/workspace_sources.py`, `project/maps/map_refresh.py` a 25 inline rout v `app/factory.py` → vyjmout do `api/<prostředí>/`. To je první krok stavby robustního API; `mcp/` pak volá jen `api/`, nikdy moduly prostředí přímo.
+1. HOTOVO: routery vyjmuty do `api/live_run/node_session_routes.py`, `api/project/workspace_routes.py`, `api/project/map_refresh_routes.py`; 25 inline rout z `app/factory.py` rozděleno do `api/app_routes.py`, `api/project_setup/project_routes.py`, `api/project/project_workspace_routes.py`, `api/editor/canvas_routes.py`, `api/editor/node_routes.py`. `mcp/` bude volat jen `api/`.
 2. `canvas/graph.py` importuje `project/workspace/workspace_sources.relative_path` (základ závisí na prostředí).
 3. `integrations/build_identity.py` hashuje `backend/*.py` a `src/*`; po restrukturalizaci hashuje jen `paths.py`.
 4. `desktop_v3_state.py` drží paměť projektu i fáze uzlu v jednom souboru; při růstu rozdělit na `agent_memory` a `workflow`.
@@ -188,3 +188,6 @@ Dokumentace: `.claude/skills/opora-control-center/references/{source-map,api,gra
 2. `uv run ruff check backend tools` – žádné nové nálezy
 3. `git status --short` – jen R, M, A; žádné D z této migrace
 4. grep na staré moduly (`backend.domain`, `backend.agents`, `backend.maps`, `backend.integrations.workspace`, `backend.api.[a-z_]+_routes`) v backend, tools, .claude, docs → 0 nálezů
+
+## 7. Doplněk: testy vedle modulů
+Všech 44 testů přejmenováno na `test_<modul>.py` a přesunuto ze složek `tests/` přímo vedle testovaného modulu (např. `node_text.py` + `test_node_text.py`). Více testů k jednomu modulu: `test_<modul>_<téma>.py` (např. `test_canvas_service_sync.py`). Sdílené helpery `attach()`/`ORIGIN` žijí v `project/workspace/test_workspace_sources.py`. Ruff vylučuje `**/test_*.py`. VS Code zanoří test pod modul přes `explorer.fileNesting` v `.vscode/settings.json` (vzor `test_${capture}.py, test_${capture}_*.py`), takže po rozkliknutí souboru je test hned pod ním.

@@ -2,7 +2,7 @@
 import json
 
 from fastapi.testclient import TestClient
-from backend.project.workspace.tests.test_workspace_sources import attach
+from backend.project.workspace.test_workspace_sources import attach
 
 from backend.editor.agent_packet import desktop_v3_packets
 from backend.app.factory import create_app

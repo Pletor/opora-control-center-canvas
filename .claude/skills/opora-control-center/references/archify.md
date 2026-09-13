@@ -52,8 +52,8 @@ U obyčejné připojené složky se čte její vlastní adresář.
 ## Ověření
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/test_archify_routes.py tests/test_workspace_sources.py -q
-.venv/Scripts/python.exe -m ruff check backend/api/project/archify_routes.py tests/test_archify_routes.py
+.venv/Scripts/python.exe -m pytest backend/api/project/test_archify_routes.py backend/project/workspace/test_workspace_sources.py -q
+.venv/Scripts/python.exe -m ruff check backend/api/project/archify_routes.py
 npm run build
 ```
 

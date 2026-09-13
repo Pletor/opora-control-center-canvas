@@ -14,7 +14,8 @@ from backend.live_run.node_session_sources import (
     SourceError,
     default_process_create_time,
 )
-from backend.live_run.node_sessions import NodeSessions, create_node_sessions_router
+from backend.api.live_run.node_session_routes import create_node_sessions_router
+from backend.live_run.node_sessions import NodeSessions
 from backend.canvas.canvas_service import CanvasService
 
 T0 = datetime(2026, 9, 11, 12, 0, 0, tzinfo=UTC)

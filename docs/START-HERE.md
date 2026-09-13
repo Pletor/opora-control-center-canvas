@@ -22,7 +22,7 @@ Uzel/sektor/vazbu smažeš z detailu s potvrzením dopadu; repozitář odebereš
 |---|---|
 | Python backend | `backend/` |
 | React frontend | `frontend/` |
-| Automatické testy | vedle testovaného kódu: `backend/**/tests/`, `tools/tests/` |
+| Automatické testy | hned vedle testovaného modulu jako `test_<modul>.py` (backend, tools) |
 | Návrh a zdrojové rozbory | `docs/` |
 | Pravidla umístění souborů | `docs/pravidla-struktury.md` |
 | Skutečná lokální data | `.data/` (gitignored) |
