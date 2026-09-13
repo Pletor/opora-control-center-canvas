@@ -13,17 +13,17 @@ Nečti všechny soubory; vezmi jen kontrakt právě řešené operace.
 
 | Oblast | Primární zdroj |
 |---|---|
-| Přepínání prostředí, URL a vytváření uzlů | `src/App.tsx` |
-| Projekt/workspace, menu | `src/TopBar.tsx` |
-| Módy plátna | `src/ModeRail.tsx`, `src/workspace-settings.ts` |
-| Inspektor uzlu | `src/NodePanel.tsx` |
-| Text a zadání, revize | `src/NodeTextEditor.tsx`, `src/NodeSpecEditor.tsx` |
-| Reference a zakázané cesty | `src/workspace-selection.ts` |
-| Vstup práce s AI | `src/EditorWorkbench.tsx` |
-| Snapshot / schválení běhu | `src/desktop-v3/AgentPacketPanel.tsx` |
-| Klientské API a readback exportů | `src/desktop-v3/api.ts` |
-| Pravidla, rozhodnutí, tickety, workflow | `src/desktop-v3/types.ts`, `src/desktop-v3/ProjectMemoryPanel.tsx`, `src/desktop-v3/NodeWorkflowPanel.tsx` |
-| Skutečné Live Run a neaktivní transporty | `src/desktop-v3/LiveWorkspacePanel.tsx` |
+| Přepínání prostředí, URL a vytváření uzlů | `frontend/app/App.tsx` |
+| Projekt/workspace, menu | `frontend/layout/top-bar/TopBar.tsx` |
+| Módy plátna | `frontend/layout/mode-rail/ModeRail.tsx`, `frontend/project-detail/workspace/workspace-settings.ts` |
+| Inspektor uzlu | `frontend/node-detail/NodePanel.tsx` |
+| Text a zadání, revize | `frontend/node-detail/content/NodeTextEditor.tsx`, `frontend/node-detail/assignment/NodeSpecEditor.tsx` |
+| Reference a zakázané cesty | `frontend/project-detail/workspace/workspace-selection.ts` |
+| Vstup práce s AI | `frontend/layout/shell/EditorWorkbench.tsx` |
+| Snapshot / schválení běhu | `frontend/agents/desktop-v3/AgentPacketPanel.tsx` |
+| Klientské API a readback exportů | `frontend/agents/desktop-v3/api.ts` |
+| Pravidla, rozhodnutí, tickety, workflow | `frontend/agents/desktop-v3/types.ts`, `frontend/agents/desktop-v3/ProjectMemoryPanel.tsx`, `frontend/agents/desktop-v3/NodeWorkflowPanel.tsx` |
+| Skutečné Live Run a neaktivní transporty | `frontend/agents/desktop-v3/LiveWorkspacePanel.tsx` |
 | HTTP hranice a hlavní routy | `backend/app/factory.py` |
 | Validace grafu/sourceRef | `backend/domain/graph/graph.py` |
 | Whole-state revize a packet routy | `backend/api/desktop_v3_routes.py`, `backend/agents/packets/desktop_v3_state.py` |

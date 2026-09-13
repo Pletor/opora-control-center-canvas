@@ -18,7 +18,7 @@ def test_drawing_fonts_resolve_installed_package_in_worktree(tmp_path, dependenc
     scripts = workspace / "scripts"
     scripts.mkdir(parents=True)
     shutil.copyfile(
-        REPO_ROOT / "scripts" / "copy-drawing-assets.mjs",
+        REPO_ROOT / "tools" / "copy-drawing-assets.mjs",
         scripts / "copy-drawing-assets.mjs",
     )
     dependency_root = workspace if dependency_location == "local" else repository

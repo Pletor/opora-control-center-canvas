@@ -14,7 +14,7 @@ def to_alias(file: Path, spec: str) -> str:
 changed = 0
 for path in list(SRC.rglob("*.ts")) + list(SRC.rglob("*.tsx")):
     text = path.read_bytes().decode("utf-8")
-    new = IMP.sub(lambda m: f"{m.group(1)}{m.group(2)}{to_alias(path, m.group(3))}{m.group(2)}", text)
+    new = IMP.sub(lambda m, path=path: f"{m.group(1)}{m.group(2)}{to_alias(path, m.group(3))}{m.group(2)}", text)
     if new != text:
         path.write_bytes(new.encode("utf-8"))
         changed += 1

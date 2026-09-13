@@ -1,0 +1,1 @@
+Výchozí obsah knihovny předloh.

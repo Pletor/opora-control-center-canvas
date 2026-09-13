@@ -3,8 +3,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PATTERN = re.compile(rb"^(\s*)from \.(\w+) import", re.M)
-PATTERN_BARE = re.compile(rb"^(\s*)from \. import (.+)$", re.M)
+PATTERN = re.compile(rb"^(\s*)from \.(\w+) import", re.MULTILINE)
+PATTERN_BARE = re.compile(rb"^(\s*)from \. import (.+)$", re.MULTILINE)
 changed = 0
 for path in sorted((ROOT / "backend").rglob("*.py")):
     raw = path.read_bytes()

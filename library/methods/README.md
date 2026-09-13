@@ -1,0 +1,1 @@
+Předlohy metod.

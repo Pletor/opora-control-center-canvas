@@ -1,0 +1,1 @@
+Karta uzlu na plátně.

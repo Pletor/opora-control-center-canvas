@@ -5,9 +5,9 @@
 Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikace. Rozhodnutí uživatele: 2026-09-09. Nevytváříme další paralelní varianty produktu.
 
 - Aplikace: **http://127.0.0.1:8740/**
-- Instalace a spuštění: [README.md](README.md).
-- Schválený směr vývoje: [EDITOR-SPEC.md](docs/source-synthesis/2026-09-09/EDITOR-SPEC.md).
-- Zpracované podklady a mapa: [přehled syntézy](docs/source-synthesis/2026-09-09/README.md).
+- Instalace a spuštění: [README.md](../README.md).
+- Schválený směr vývoje: [EDITOR-SPEC.md](source-synthesis/2026-09-09/EDITOR-SPEC.md).
+- Zpracované podklady a mapa: [přehled syntézy](source-synthesis/2026-09-09/README.md).
 - První rozpracovaný řez: **R01 — editor zadání uzlu**, podklady a výsledek v [.opora/workunits/WU-R01/RESULT.md](.opora/workunits/WU-R01/RESULT.md). Editor je implementovaný a testovaný; další moduly přibývají po ověřených řezech.
 
 ## Nově: pracovní módy
@@ -23,7 +23,7 @@ Uzel/sektor/vazbu smažeš z detailu s potvrzením dopadu; repozitář odebereš
 | Obsah | Umístění uvnitř tohoto kořene |
 |---|---|
 | Python backend | `backend/` |
-| React frontend | `src/` |
+| React frontend | `frontend/` |
 | Automatické testy | `tests/`, `e2e/` |
 | Návrh a zdrojové rozbory | `docs/` |
 | Přesná zadání implementačních řezů a provenance | `.opora/workunits/` |

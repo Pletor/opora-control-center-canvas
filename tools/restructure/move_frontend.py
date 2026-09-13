@@ -1,6 +1,7 @@
 # tools/restructure/move_frontend.py
 """git mv src → frontend podle MAP a přepis aliasů @/<stará> → @/<nová> ve všech ts/tsx/css/html. Jednorázový."""
-import re, subprocess
+import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,7 +62,7 @@ assert not leftover, f"unmapped files in src: {leftover}"
 
 def alias_key(path_no_prefix: str) -> str:
     """Jak se soubor objevuje v importu: .ts/.tsx bez přípony, .css a .d.ts s příponou, složka beze změny."""
-    if path_no_prefix.endswith(".d.ts") or path_no_prefix.endswith(".css"):
+    if path_no_prefix.endswith((".d.ts", ".css")):
         return path_no_prefix
     if path_no_prefix.endswith((".ts", ".tsx")):
         return path_no_prefix.rsplit(".", 1)[0]
@@ -74,7 +75,7 @@ for old in sorted(renames, key=len, reverse=True):
     pat = re.compile(rf"""(['"])@/{re.escape(old_key)}(?=['"/])""")
     for path in files:
         text = path.read_bytes().decode("utf-8")
-        out = pat.sub(lambda m: f"{m.group(1)}@/{new_key}", text)
+        out = pat.sub(lambda m, new_key=new_key: f"{m.group(1)}@/{new_key}", text)
         if out != text:
             path.write_bytes(out.encode("utf-8"))
 print("done")

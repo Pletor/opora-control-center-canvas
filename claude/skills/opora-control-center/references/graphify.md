@@ -62,7 +62,7 @@ Po změně runtime restartujte server (výběr je cachovaný).
 
 ## Kód a ověření
 
-`backend/graphify_{routes,runtime,worker}.py`, `src/GraphifyMap.tsx`.
+`backend/api/graphify_routes.py`, `backend/maps/graphify_{runtime,worker}.py`, `frontend/project-detail/maps/GraphifyMap.tsx`.
 Navigace i geometrie zůstávají ve společném `ProjectLayout`.
 API: GET `/api/graphify/artifact?project=ID`, POST `/api/graphify/generate?project=ID`.
 POST vyžaduje stejný Origin a `Content-Type: application/json`.
