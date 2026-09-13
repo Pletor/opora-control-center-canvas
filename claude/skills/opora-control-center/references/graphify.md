@@ -67,5 +67,5 @@ Navigace i geometrie zůstávají ve společném `ProjectLayout`.
 API: GET `/api/graphify/artifact?project=ID`, POST `/api/graphify/generate?project=ID`.
 POST vyžaduje stejný Origin a `Content-Type: application/json`.
 Test: `pytest tests/test_graphify_routes.py` (nativní smoke vyžaduje runtime výše).
-UI: `npx playwright test --config playwright.archify.config.ts`.
+E2E testy byly odstraněny při restrukturalizaci; ověření proveď ručně přes náhled (`tools/serve-preview.py`) nebo přes API.
 Testovací fixture HTML není důkaz nasazení; skutečný náhled je ověřován zvlášť.

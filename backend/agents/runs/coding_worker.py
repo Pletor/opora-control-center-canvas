@@ -6,7 +6,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # Spouští se výhradně Pythonem instalovaného Hermesu; neimportuje cílové repo.
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_root))
+assert (_root / "backend" / "paths.py").is_file(), "kořen repozitáře nenalezen; změnila se hloubka souboru"
 from backend.agents.runs.coding_tools import ScopedFiles, run_tests
 
 

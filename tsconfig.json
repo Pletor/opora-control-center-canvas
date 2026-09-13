@@ -13,5 +13,5 @@
       "@/*": ["./frontend/*"]
     }
   },
-  "include": ["frontend", "vite.config.ts", "playwright.config.ts", "e2e"]
+  "include": ["frontend", "vite.config.ts"]
 }

@@ -1,0 +1,1 @@
+Deník uzlu (NodeJournal).

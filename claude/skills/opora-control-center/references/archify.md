@@ -55,8 +55,9 @@ U obyčejné připojené složky se čte její vlastní adresář.
 .venv/Scripts/python.exe -m pytest tests/test_archify_routes.py tests/test_workspace_sources.py -q
 .venv/Scripts/python.exe -m ruff check backend/api/archify_routes.py tests/test_archify_routes.py
 npm run build
-npx playwright test --config playwright.archify.config.ts
 ```
+
+E2E testy byly odstraněny při restrukturalizaci; ověření proveď ručně přes náhled (`tools/serve-preview.py`) nebo přes API.
 
 UI test používá výslovnou fixture. Nasazení se ověřuje zvlášť přes skutečné
 project ID, odpověď živého API, shodu bajtů a screenshot vloženého prohlížeče.

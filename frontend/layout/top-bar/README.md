@@ -1,0 +1,1 @@
+Horní lišta aplikace (TopBar).

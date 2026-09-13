@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type CanvasNode, type Job, type Project, type View, type Workspace } from "@/shared/types/types";
-import { WORKSPACE_MODES, type WorkspaceMode } from "@/project-detail/workspace/workspace-settings";
+import { WORKSPACE_MODES, type WorkspaceMode } from "@/shared/types/workspace-mode";
 
 /**
  * Inspektor bez výběru: skutečný kontext pohledu (zdroj, worktree, operace)

@@ -6,7 +6,9 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+_root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_root))
+assert (_root / "backend" / "paths.py").is_file(), "kořen repozitáře nenalezen; změnila se hloubka souboru"
 from backend.agents.runs.task_handoff_tools import DocumentTools
 
 

@@ -1,0 +1,1 @@
+Sdílené React kontexty (ScopeContext).
