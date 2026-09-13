@@ -1,0 +1,1 @@
+Prostředí Editor: řízení vývoje. Uprostřed plátno a detail uzlu, vlevo knihovna komponent, metod a funkcí (component-library), vpravo ovládání Claude Code (llm-control), workflow jako základ pipeline.

@@ -1,1 +1,1 @@
-Sdílené prostředky napříč funkcemi: API klient, kontexty, hooky a typy; nesmí importovat z konkrétních funkcí.
+Sdílený stav a typy bez závislosti na prostředích: api (slot), types, hooks, contexts, desktop-state, selection, surface-settings. NESMÍ importovat z app/, layout/, project-setup/, project/, editor/, live-run/.
