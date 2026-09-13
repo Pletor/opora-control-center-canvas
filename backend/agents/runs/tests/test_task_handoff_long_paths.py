@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from test_task_handoffs import HEADERS, ORIGIN, _prepare, _seed_packet
+from backend.agents.runs.tests.test_task_handoffs import HEADERS, ORIGIN, _prepare, _seed_packet
 
 from backend.app.factory import create_app
 

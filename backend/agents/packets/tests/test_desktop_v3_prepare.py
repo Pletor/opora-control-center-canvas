@@ -3,7 +3,7 @@ import hashlib
 import json
 
 from fastapi.testclient import TestClient
-from test_desktop_v3_packets import HEADERS, ORIGIN, preview, request, seed
+from backend.agents.packets.tests.test_desktop_v3_packets import HEADERS, ORIGIN, preview, request, seed
 
 from backend.app.factory import create_app
 from backend.agents.runs.llm_runs import _canonical

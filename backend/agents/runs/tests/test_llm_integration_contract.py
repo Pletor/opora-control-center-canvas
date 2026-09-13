@@ -4,7 +4,7 @@ import threading
 import time
 
 import pytest
-from test_llm_runs import Canvas, context, preview, start, wait_for
+from backend.agents.runs.tests.test_llm_runs import Canvas, context, preview, start, wait_for
 
 from backend.agents.runs.llm_runs import PlanRuns
 

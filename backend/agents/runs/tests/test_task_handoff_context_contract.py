@@ -1,6 +1,6 @@
 """HTTP důkaz, že dokumentace mapovaného souboru není závislá na ručním nodeId."""
 from fastapi.testclient import TestClient
-from test_workspace_sources import attach
+from backend.integrations.tests.test_workspace_sources import attach
 
 from backend.app.factory import create_app
 

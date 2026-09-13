@@ -1,7 +1,7 @@
 import time
 
 from fastapi.testclient import TestClient
-from test_llm_runs import child_command
+from backend.agents.runs.tests.test_llm_runs import child_command
 
 from backend.app.factory import create_app
 

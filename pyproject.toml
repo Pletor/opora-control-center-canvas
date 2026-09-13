@@ -11,5 +11,8 @@ dependencies = [
 dev = ["pytest>=8,<9", "httpx>=0.27,<1", "ruff>=0.9"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
+testpaths = ["backend", "tools"]
 [tool.ruff]
 line-length = 100
+# Testy žijí vedle kódu; jejich styl nebyl nikdy lintován, ať baseline zůstane srovnatelná.
+extend-exclude = ["**/tests/**"]

@@ -13,7 +13,7 @@ import json
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from test_workspace_sources import ORIGIN, attach
+from backend.integrations.tests.test_workspace_sources import ORIGIN, attach
 
 from backend.agents.sources.agent_catalog import AgentCatalog
 from backend.api.agent_routes import create_agent_router

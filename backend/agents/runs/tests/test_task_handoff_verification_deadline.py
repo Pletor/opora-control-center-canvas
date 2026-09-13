@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
-from test_task_handoffs import HEADERS, ORIGIN, _prepare, _ShortChildPlans
+from backend.agents.runs.tests.test_task_handoffs import HEADERS, ORIGIN, _prepare, _ShortChildPlans
 
 from backend.app.factory import create_app
 

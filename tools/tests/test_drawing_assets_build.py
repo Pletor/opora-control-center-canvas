@@ -1,9 +1,10 @@
 import json
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
+
+from backend.paths import REPO_ROOT
 
 
 @pytest.mark.parametrize("dependency_location", ["local", "hoisted"])
@@ -17,7 +18,7 @@ def test_drawing_fonts_resolve_installed_package_in_worktree(tmp_path, dependenc
     scripts = workspace / "scripts"
     scripts.mkdir(parents=True)
     shutil.copyfile(
-        Path(__file__).resolve().parents[1] / "scripts" / "copy-drawing-assets.mjs",
+        REPO_ROOT / "scripts" / "copy-drawing-assets.mjs",
         scripts / "copy-drawing-assets.mjs",
     )
     dependency_root = workspace if dependency_location == "local" else repository
