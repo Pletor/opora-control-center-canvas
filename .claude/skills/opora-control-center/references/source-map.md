@@ -25,11 +25,11 @@ Nečti všechny soubory; vezmi jen kontrakt právě řešené operace.
 | Pravidla, rozhodnutí, tickety, workflow | `frontend/shared/desktop-state/logic/types.ts`, `frontend/editor/llm-control/project-memory/components/ProjectMemoryPanel.tsx`, `frontend/editor/workflow/components/NodeWorkflowPanel.tsx` |
 | Live Run telemetrie sessions | `frontend/live-run/node-sessions/components/LiveWorkspacePanel.tsx` |
 | HTTP hranice a hlavní routy | `backend/app/factory.py` |
-| Validace grafu/sourceRef | `backend/domain/graph/graph.py` |
-| Whole-state revize a packet routy | `backend/api/desktop_v3_routes.py`, `backend/agents/packets/desktop_v3_state.py` |
-| Vazby sessions na uzel, Hermes zdroj | `backend/domain/node/node_sessions.py` |
-| Telemetrie agentů | `backend/api/agent_routes.py` |
-| Zdrojové stromy a dokumenty workspace | `backend/integrations/workspace_sources.py` |
+| Validace grafu/sourceRef | `backend/canvas/graph.py` |
+| Whole-state revize a packet routy | `backend/api/editor/desktop_v3_routes.py`, `backend/editor/agent_memory/desktop_v3_state.py` |
+| Vazby sessions na uzel, Hermes zdroj | `backend/live_run/node_sessions.py` |
+| Telemetrie agentů | `backend/api/live_run/agent_routes.py` |
+| Zdrojové stromy a dokumenty workspace | `backend/project/workspace/workspace_sources.py` |
 
 ## Co bylo skutečně provedeno při sestavení
 
