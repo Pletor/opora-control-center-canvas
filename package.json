@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build && node scripts/copy-drawing-assets.mjs",
-    "test:e2e": "playwright test"
+    "build": "tsc --noEmit && vite build && node scripts/copy-drawing-assets.mjs"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
@@ -15,7 +14,6 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@playwright/test": "^1.51.1",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
