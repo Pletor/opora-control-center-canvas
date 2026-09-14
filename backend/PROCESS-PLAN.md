@@ -1,6 +1,6 @@
 # Plán: složka projektu jako jediné místo a procesy návrh → proces → hotovo → oprava
 
-Stav: vrstvy 1–5 provedeny (2026-09-14). Vrstva 6 (frontend) následuje. Odchylky od plánu: `main/` a `workspaces` tabulka zůstávají v registru jako index; kresby, texty, zadání a deník zůstávají v `project.sqlite` (soubory `nodes/*.md` a `canvas/*.json` jsou další krok); `map-refresh/state.sqlite` zůstává napříč projekty, protože je to jedna fronta.
+Stav: všech 6 vrstev provedeno (2026-09-14); ověřeno v prohlížeči nad kopií produkčních dat: migrace při startu, záložka Proces, cyklus návrh → proces → oprava (z odpovědi agenta) → proces → hotovo, přehled Procesy v Live Run. Odchylky od plánu: `main/` a `workspaces` tabulka zůstávají v registru jako index; kresby, texty, zadání a deník zůstávají v `project.sqlite` (soubory `nodes/*.md` a `canvas/*.json` jsou další krok); `map-refresh/state.sqlite` zůstává napříč projekty, protože je to jedna fronta.
 
 Schváleno 2026-09-14. Rozhodnutí uživatele: (1) klíčem je ID, frontend ukazuje název; (2) výstupy JSON a DB, Markdown podle typu procesu; (3) žádné duplicity, `main/` je čistý, každý nový pracovní prostor je git worktree.
 

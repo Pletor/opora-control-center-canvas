@@ -35,6 +35,7 @@ import {
 import "@/layout/shell/styles/workspace-modes.css";
 import DesktopThemeControls from "@/app/components/DesktopThemeControls";
 import AccountCorner from "@/layout/account-corner/components/AccountCorner";
+import ProcessOverview from "@/live-run/processes/components/ProcessOverview";
 import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
@@ -96,7 +97,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [editorDocumentOpen, setEditorDocumentOpen] = useState(false);
   const [workbenchOpen, setWorkbenchOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(readInspectorOpen);
-  const [liveView, setLiveView] = useState<"overview" | "runs">("overview");
+  const [liveView, setLiveView] = useState<"overview" | "runs" | "processes">("overview");
   function toggleInspector() {
     setInspectorOpen((shown) => {
       try { localStorage.setItem(INSPECTOR_KEY, shown ? "hidden" : "shown"); } catch { /* platí aspoň v této relaci */ }
@@ -553,8 +554,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   <nav className="v3-live-tabs" aria-label="Pohled Live Run">
                     <button aria-pressed={liveView === "overview"} onClick={() => setLiveView("overview")}>Přehled a tickety</button>
                     <button aria-pressed={liveView === "runs"} onClick={() => setLiveView("runs")}>Dohled běhů</button>
+                    <button aria-pressed={liveView === "processes"} onClick={() => setLiveView("processes")}>Procesy</button>
                   </nav>
                   {liveView === "overview" ? <div className="v3-slot">{v3.liveWorkspace({ project, workspace, nodeId: selected ?? undefined })}</div>
+                    : liveView === "processes" ? <ProcessOverview project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name ?? project} nodeNames={Object.fromEntries(graph.nodes.map((n) => [n.id, n.name]))} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />
                     : <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />}
                 </div> : <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />
               ) : mode === "map" ? (

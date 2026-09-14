@@ -2,18 +2,20 @@ import { useState, type KeyboardEvent } from "react";
 import NodeSpecEditor from "@/editor/node-detail/assignment/components/NodeSpecEditor";
 import NodeTextEditor from "@/editor/node-detail/content/components/NodeTextEditor";
 import NodeLinksPanel from "@/editor/node-detail/links/components/NodeLinksPanel";
+import NodeProcesses from "@/editor/node-detail/process/components/NodeProcesses";
 import NodeActivity from "@/live-run/node-activity/components/NodeActivity";
 import type { CanvasNode, Workspace } from "@/shared/types/logic/types";
 
-export type NodeTab = "content" | "spec" | "work";
+export type NodeTab = "content" | "spec" | "process" | "work";
 const TABS: { key: NodeTab; label: string }[] = [
   { key: "content", label: "Obsah" },
   { key: "spec", label: "Zadání" },
+  { key: "process", label: "Proces" },
   { key: "work", label: "Práce" },
 ];
 
 /**
- * Inspektor uzlu: hlavička s primárními akcemi, tři karty (Obsah · Zadání · Práce)
+ * Inspektor uzlu: hlavička s primárními akcemi, čtyři karty (Obsah · Zadání · Proces · Práce)
  * a patička s destruktivní akcí. Karty zůstávají připojené, aby rozepsaný text nezmizel.
  */
 export default function NodePanel({
@@ -149,6 +151,9 @@ export default function NodePanel({
               </button>
             </>
           )}
+        </section>
+        <section role="tabpanel" id="node-panel-process" aria-labelledby="node-tab-process" hidden={tab !== "process"}>
+          {tab === "process" && <NodeProcesses key={project + ":" + node.id} project={project} nodeId={node.id} readOnly={readOnly} />}
         </section>
         <section role="tabpanel" id="node-panel-work" aria-labelledby="node-tab-work" hidden={tab !== "work"}>
           <h3>Pracovní prostory uzlu</h3>

@@ -21,7 +21,7 @@ opora-canvas/
       workspace/        # složení plochy, dokumentace k cestám
     editor/             # PROSTŘEDÍ EDITOR: řízení vývoje
       canvas/           # board, drawing (Excalidraw), wireframes, settings, node-card, sector-card
-      node-detail/      # NodePanel: content, assignment, journal, links
+      node-detail/      # NodePanel: content, assignment, process (návrh → proces → hotovo → oprava), journal, links
       sector-detail/    # stejná šablona jako node-detail
       workflow/         # fáze, kritéria, kroky uzlu → základ pipeline
       component-library/ # LEVÁ STRANA: knihovna komponent, metod, funkcí (palette/)
@@ -33,6 +33,7 @@ opora-canvas/
       run-monitor/      # běhy agentů a jejich důkazy
       node-sessions/    # živé session na uzlu
       node-activity/    # aktivita agentů na uzlu (záložka Práce)
+      processes/        # přehled procesů projektu: oprava, proces, návrh, hotovo
     shared/             # bez závislosti na prostředích
       api/              # slot: jeden klient nad backend API
       types/  hooks/  contexts/
