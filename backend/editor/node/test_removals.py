@@ -68,11 +68,11 @@ def test_sector_removes_descendants_and_incident_edges_after_read_only_preview(t
     with TestClient(app, base_url=ORIGIN) as client:
         graph = nested_graph()
         install_graph(client, graph)
-        changes = app.state.service.db.total_changes
+        changes = app.state.service.db_for("draft").total_changes
         params = {**SCOPE, "kind": "node", "target": "sector"}
         preview = client.get("/api/removal-preview", params=params).json()
         assert preview["nodeCount"] == 4 and preview["edgeCount"] == 2
-        assert app.state.service.db.total_changes == changes
+        assert app.state.service.db_for("draft").total_changes == changes
         result = client.post(
             "/api/remove",
             headers=HEADERS,
@@ -81,7 +81,7 @@ def test_sector_removes_descendants_and_incident_edges_after_read_only_preview(t
         assert result.status_code == 200
         assert [n["id"] for n in result.json()["view"]["graph"]["nodes"]] == ["keep", "keep2"]
         assert [e["id"] for e in result.json()["view"]["graph"]["edges"]] == ["untouched"]
-        snapshot = app.state.service.db.execute("SELECT graph FROM graph_recoveries").fetchone()
+        snapshot = app.state.service.db_for("draft").execute("SELECT graph FROM graph_recoveries").fetchone()
         assert json.loads(snapshot[0]) == graph
 
 
@@ -223,10 +223,10 @@ def test_snapshot_failure_and_missing_origin_leave_graph_unchanged(tmp_path):
         preview = client.get("/api/removal-preview", params=params).json()
         body = {**params, "digest": preview["digest"], "confirmed": True}
         assert client.post("/api/remove", json=body).status_code == 403
-        app.state.service.db.execute(
+        app.state.service.db_for("draft").execute(
             "CREATE TRIGGER fail_snapshot BEFORE INSERT ON graph_recoveries BEGIN SELECT RAISE(ABORT, 'internal-sentinel'); END"
         )
-        app.state.service.db.commit()
+        app.state.service.db_for("draft").commit()
         result = client.post("/api/remove", headers=HEADERS, json=body)
         assert result.status_code == 503 and "internal-sentinel" not in result.text
         assert client.get("/api/view").json()["digest"] == current["digest"]

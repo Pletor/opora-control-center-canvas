@@ -21,26 +21,13 @@ class AgentActivityJournal:
 
     def __init__(self, canvas):
         self.canvas = canvas
-        canvas.db.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS agent_activity_entries(
-                id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
-                node_id TEXT NOT NULL, source_id TEXT NOT NULL, run_id TEXT NOT NULL,
-                source_event_id TEXT NOT NULL, source_timestamp TEXT, ingest_timestamp TEXT NOT NULL,
-                kind TEXT NOT NULL, summary TEXT NOT NULL,
-                author_type TEXT NOT NULL, source_trust TEXT NOT NULL,
-                UNIQUE(project_id, workspace_id, node_id, source_id, run_id, source_event_id)
-            );
-            """
-        )
-        canvas.db.commit()
 
     def list_for_node(self, pid, wid, node_id):
         if not valid_id(node_id):
             raise ValueError("Neplatný identifikátor uzlu.")
         with self.canvas.lock:
             self.canvas.view(pid, wid)  # ověří existenci projektu/workspace bez odhalení interních cest
-            rows = self.canvas.db.execute(
+            rows = self.canvas.db_for(pid).execute(
                 """SELECT id,source_id,run_id,source_event_id,source_timestamp,ingest_timestamp,
                           kind,summary,author_type,source_trust
                    FROM agent_activity_entries WHERE project_id=? AND workspace_id=? AND node_id=?

@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from backend.canvas.graph import EMPTY, digest, encode, valid_id, validate_graph
+from backend.canvas.migrate_to_project_folders import migrate
+from backend.canvas.project_folder import ProjectFolder
 from backend.editor.node.drawings import DrawingStore
 from backend.editor.node.node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
 from backend.editor.node.node_text import NodeTextStore
@@ -16,6 +18,7 @@ from backend.editor.node.removals import RemovalService
 from backend.integrations.gitio import git, github_url
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from backend.project_setup.project_hub import ProjectHub
+from database.schema.project_schema import PROJECT_SCHEMA, REGISTRY_SCHEMA
 
 GRAPH_FILE = "opora-canvas.json"
 
@@ -28,21 +31,19 @@ class CanvasService:
     def __init__(self, root):
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        migrate(self.root)  # stará centrální canvas.sqlite → registry + složky projektů (jednorázově)
         self.lock = threading.RLock()
         self.graph_lock = threading.RLock()
         self.git_lock = threading.RLock()
         self.pool = ThreadPoolExecutor(max_workers=2)
-        self.db = sqlite3.connect(self.root / "canvas.sqlite", check_same_thread=False)
+        # registry.sqlite: jen seznam projektů, workspaces, jobs a archiv; vše ostatní má projekt ve své složce
+        self.db = sqlite3.connect(self.root / "registry.sqlite", check_same_thread=False)
         self.db.row_factory = sqlite3.Row
-        self.drawings = DrawingStore(self.db)
-        self.specs = NodeSpecStore(self.db)
+        self.db.executescript(REGISTRY_SCHEMA)
+        self._project_dbs = {}
+        self.drawings = DrawingStore(self)
+        self.specs = NodeSpecStore(self)
         self.removals = RemovalService(self)
-        self.db.executescript("""CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,name TEXT,repo TEXT,url TEXT,branch TEXT);
-        CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY,project_id TEXT,directory TEXT,branch TEXT,node_id TEXT,actor TEXT,base_sha TEXT);
-        CREATE TABLE IF NOT EXISTS drafts(id TEXT PRIMARY KEY,graph TEXT);
-        CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,kind TEXT,status TEXT,message TEXT,project_id TEXT,updated_at TEXT);
-        """)
-        self.db.execute("INSERT OR IGNORE INTO drafts VALUES('draft',?)", (encode(EMPTY),))
         self.db.execute(
             "UPDATE jobs SET status='interrupted',message='Proces skončil před dokončením.' WHERE status IN ('queued','running')"
         )
@@ -131,7 +132,42 @@ class CanvasService:
 
     def close(self):
         self.pool.shutdown(wait=True)
+        with self.lock:
+            for db in self._project_dbs.values():
+                db.close()
+            self._project_dbs.clear()
         self.db.close()
+
+    def folder(self, pid):
+        return ProjectFolder(self.root, pid)
+
+    def db_for(self, pid):
+        """Databáze jednoho projektu: projects/<id>/project.sqlite. Schéma vznikne při prvním otevření."""
+        if not isinstance(pid, str) or (pid != "draft" and not valid_id(pid)):
+            raise ValueError("Neplatné ID projektu.")
+        with self.lock:
+            db = self._project_dbs.get(pid)
+            if db is None:
+                folder = self.folder(pid)
+                if pid == "draft" and not folder.exists():
+                    folder.create("Lokální návrh", "empty")
+                folder.path.mkdir(parents=True, exist_ok=True)
+                db = sqlite3.connect(folder.database, check_same_thread=False)
+                db.row_factory = sqlite3.Row
+                db.executescript(PROJECT_SCHEMA)
+                if pid == "draft":
+                    db.execute("INSERT OR IGNORE INTO drafts VALUES('draft',?)", (encode(EMPTY),))
+                db.commit()
+                self._project_dbs[pid] = db
+            return db
+
+    def project_ids(self):
+        """draft + všechny neodpojené projekty z registru."""
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT id FROM projects WHERE id NOT IN (SELECT project_id FROM archived_projects) ORDER BY id"
+            ).fetchall()
+        return ["draft", *(r[0] for r in rows)]
 
     def row(self, table, key):
         if table not in ("projects", "workspaces") or not valid_id(key):
@@ -170,6 +206,9 @@ class CanvasService:
                 "INSERT INTO projects VALUES(?,?,?,?,?)", (pid, name, str(repo), url, branch)
             )
             self.db.commit()
+            folder = self.folder(pid)
+            if not folder.exists():
+                folder.create(name or pid, "git", url or "", branch=branch or "")
             return self.row("projects", pid)
 
     def workspaces(self, pid):
@@ -196,7 +235,7 @@ class CanvasService:
         with self.lock:
             if pid == "draft" and wid == "draft":
                 graph = json.loads(
-                    self.db.execute("SELECT graph FROM drafts WHERE id='draft'").fetchone()[0]
+                    self.db_for("draft").execute("SELECT graph FROM drafts WHERE id='draft'").fetchone()[0]
                 )
                 return {
                     "graph": graph,
@@ -215,7 +254,7 @@ class CanvasService:
             if source["sourceKind"] != "git":
                 if wid != "draft":
                     raise ValueError("Lokální a prázdné projekty používají pouze pracovní prostor draft.")
-                row = self.db.execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()
+                row = self.db_for(pid).execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()
                 if row is None:
                     raise ValueError("Projektový draft nebyl nalezen.")
                 graph = json.loads(row[0])
@@ -345,8 +384,9 @@ class CanvasService:
                                for node in graph["nodes"]], "edges": graph["edges"]}
             if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
                 with self.lock:
-                    self.db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(graph), pid))
-                    self.db.commit()
+                    db = self.db_for(pid)
+                    db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(graph), pid))
+                    db.commit()
             else:
                 location, _ = self.location(pid, wid)
                 target = location / GRAPH_FILE
@@ -371,7 +411,7 @@ class CanvasService:
             base = git(project["repo"], "rev-parse", "HEAD")
             wid = uuid.uuid4().hex
             branch = "work/" + wid
-            directory = self.root / "projects" / pid / "workspaces" / wid
+            directory = self.folder(pid).worktrees / wid
             directory.parent.mkdir(parents=True, exist_ok=True)
             git(project["repo"], "worktree", "add", "-b", branch, str(directory), base, timeout=60)
             with self.lock:

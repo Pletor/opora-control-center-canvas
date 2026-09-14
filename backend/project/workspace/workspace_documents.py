@@ -15,12 +15,6 @@ class WorkspaceDocuments:
     def __init__(self, service, sources):
         self.service = service
         self.sources = sources
-        with service.lock, service.db:
-            service.db.execute("""CREATE TABLE IF NOT EXISTS workspace_documents(
-                project TEXT NOT NULL, workspace TEXT NOT NULL, path TEXT NOT NULL,
-                revision INTEGER NOT NULL, fields TEXT NOT NULL, node_id TEXT,
-                source_version TEXT, saved_at TEXT NOT NULL,
-                PRIMARY KEY(project, workspace, path))""")
 
     def _source_version(self, project, workspace, path):
         from backend.project.workspace.workspace_sources import SourceMissing
@@ -44,7 +38,7 @@ class WorkspaceDocuments:
         return json.dumps([info.st_mtime_ns, info.st_size, info.st_ino]) if target.is_file() else None
 
     def _row(self, scope):
-        return self.service.db.execute(
+        return self.service.db_for(scope[0]).execute(
             "SELECT * FROM workspace_documents WHERE project=? AND workspace=? AND path=?", scope
         ).fetchone()
 
@@ -109,8 +103,9 @@ class WorkspaceDocuments:
                 raise ValueError("Uzel není součástí tohoto pracovního prostoru.")
         version = self._source_version(payload["project"], payload["workspace"], path)
         scope = (payload["project"], payload["workspace"], path)
-        with self.service.lock, self.service.db:
-            self.service.db.execute("BEGIN IMMEDIATE")
+        db = self.service.db_for(scope[0])
+        with self.service.lock, db:
+            db.execute("BEGIN IMMEDIATE")
             row = self._row(scope)
             if version is MISSING and row is None:
                 raise ValueError("Tato cesta ve zdroji neexistuje; dokumentovat lze jen existující cestu.")
@@ -128,7 +123,7 @@ class WorkspaceDocuments:
                     self.service.project_hub.write_settings(
                         scope[0], settings["revision"] + 1, fields["goal"], values["platform"])
             stored_fields = {**fields, "goal": ""} if path == "" else fields
-            self.service.db.execute(
+            db.execute(
                 "INSERT OR REPLACE INTO workspace_documents VALUES(?,?,?,?,?,?,?,?)",
                 # Chybějící zdroj se ukládá jako neznámá verze; až se soubor vrátí,
                 # dokumentace se poctivě označí jako "stale", ne jako aktuální.

@@ -33,23 +33,9 @@ class AgentBindings:
     def __init__(self, canvas, known_sources):
         self.canvas = canvas
         self.known_sources = frozenset(known_sources)
-        canvas.db.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS agent_bindings(
-                id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
-                layer TEXT NOT NULL, node_id TEXT NOT NULL, source_id TEXT NOT NULL,
-                run_id TEXT NOT NULL, session_id TEXT, created_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS agent_binding_scopes(
-                project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
-                revision INTEGER NOT NULL, PRIMARY KEY(project_id, workspace_id, node_id)
-            );
-            """
-        )
-        canvas.db.commit()
 
     def _scope_revision(self, pid, wid, node_id):
-        row = self.canvas.db.execute(
+        row = self.canvas.db_for(pid).execute(
             "SELECT revision FROM agent_binding_scopes WHERE project_id=? AND workspace_id=? AND node_id=?",
             (pid, wid, node_id),
         ).fetchone()
@@ -80,8 +66,9 @@ class AgentBindings:
             raise ValueError("Neplatný identifikátor session.")
         if type(payload["expectedRevision"]) is not int or payload["expectedRevision"] < 0:
             raise ValueError("Neplatná očekávaná revize vazby.")
-        with self.canvas.lock, self.canvas.db:
-            self.canvas.db.execute("BEGIN IMMEDIATE")
+        db = self.canvas.db_for(pid)
+        with self.canvas.lock, db:
+            db.execute("BEGIN IMMEDIATE")
             _graph, exists = self._node_exists(pid, wid, node_id)
             if not exists:
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
@@ -90,7 +77,7 @@ class AgentBindings:
             revision = self._scope_revision(pid, wid, node_id)
             if revision != payload["expectedRevision"]:
                 raise ValueError("Vazby na tomto uzlu se změnily v jiném okně. Obnovte je.")
-            self.canvas.db.execute(
+            db.execute(
                 "INSERT INTO agent_bindings VALUES(?,?,?,?,?,?,?,?,?)",
                 (
                     uuid.uuid4().hex,
@@ -104,7 +91,7 @@ class AgentBindings:
                     datetime.now(UTC).isoformat(),
                 ),
             )
-            self.canvas.db.execute(
+            db.execute(
                 "INSERT INTO agent_binding_scopes VALUES(?,?,?,1) ON CONFLICT(project_id,workspace_id,node_id) DO UPDATE SET revision=revision+1",
                 (pid, wid, node_id),
             )
@@ -115,7 +102,7 @@ class AgentBindings:
             raise ValueError("Neplatný identifikátor uzlu.")
         with self.canvas.lock:
             revision = self._scope_revision(pid, wid, node_id)
-            rows = self.canvas.db.execute(
+            rows = self.canvas.db_for(pid).execute(
                 """SELECT id,source_id,run_id,session_id,layer,created_at FROM agent_bindings
                    WHERE project_id=? AND workspace_id=? AND node_id=? ORDER BY created_at""",
                 (pid, wid, node_id),
@@ -155,7 +142,7 @@ class AgentBindings:
                 raise ValueError("Sektor v tomto pracovním prostoru neexistuje.")
             node_ids = self._descendants(view["graph"], sector_id)
             placeholders = ",".join("?" * len(node_ids))
-            rows = self.canvas.db.execute(
+            rows = self.canvas.db_for(pid).execute(
                 f"""SELECT DISTINCT source_id,run_id FROM agent_bindings
                     WHERE project_id=? AND workspace_id=? AND node_id IN ({placeholders})""",
                 (pid, wid, *node_ids),
@@ -178,7 +165,7 @@ class AgentBindings:
         ancestors = self._ancestors(graph, node_id)
         placeholders = ",".join("?" * len(ancestors))
         with self.canvas.lock:
-            row = self.canvas.db.execute(
+            row = self.canvas.db_for(pid).execute(
                 f"""SELECT 1 FROM agent_bindings
                     WHERE project_id=? AND workspace_id=? AND source_id=? AND run_id=?
                     AND node_id IN ({placeholders}) LIMIT 1""",
@@ -187,11 +174,15 @@ class AgentBindings:
         return row is not None
 
     def bound_run_keys(self, source_id):
+        """Napříč všemi projekty: každý projekt má vazby ve své databázi."""
+        keys = set()
         with self.canvas.lock:
-            rows = self.canvas.db.execute(
-                "SELECT DISTINCT run_id FROM agent_bindings WHERE source_id=?", (source_id,)
-            ).fetchall()
-        return {r["run_id"] for r in rows}
+            for pid in self.canvas.project_ids():
+                rows = self.canvas.db_for(pid).execute(
+                    "SELECT DISTINCT run_id FROM agent_bindings WHERE source_id=?", (source_id,)
+                ).fetchall()
+                keys.update(r["run_id"] for r in rows)
+        return keys
 
     def filter_unbound(self, candidates):
         cache = {}

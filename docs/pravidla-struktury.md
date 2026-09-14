@@ -48,13 +48,14 @@ opora-canvas/
     api/                # ROBUSTNÍ API: tenké routery podle prostředí; app_routes = zdraví, identita, bootstrap
       project_setup/    # project_routes: nastavení, lokální/prázdný projekt, connect
       project/          # project_workspace_routes, workspace_routes, archify_routes, graphify_routes, map_refresh_routes
-      editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes
+      editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes, process_routes
       live_run/         # agent_routes, node_session_routes
     mcp/                # MCP server nad api/ (slot)
-    canvas/             # základ plátna: canvas_service (DB, git sync, graf), graph (validace)
+    canvas/             # základ plátna: canvas_service (registr + db_for(projekt), git sync, graf), graph, project_folder (projects/<id>/), project_registry, migrate_to_project_folders
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
     project/            # PROSTŘEDÍ PROJEKT
       workspace/        # strom zdrojů, otevírání souborů, dokumentace k cestám
+      worktrees/        # worktree_manager: worktree z čistého main, fork, run_check, úklid
       maps/             # graphify, archify, map_refresh, artefakty, snapshoty
     editor/             # PROSTŘEDÍ EDITOR: obsah uzlů a vše, co dostává agent
       node/             # node_text, node_specs, node_journal, node_links, drawings, wireframe_context, removals
@@ -62,6 +63,7 @@ opora-canvas/
       agent_memory/     # desktop_v3_state: pravidla, rozhodnutí, fáze uzlu
       agent_packet/     # desktop_v3_packets, redact: podklady pro agenta
       agent_handoff/    # external_agent_tasks: předání úkolu externímu agentovi
+      process/          # process_store, process_lifecycle (návrh → proces → hotovo → oprava), process_reports (odpovědi agentů)
       task_execution/   # slot: vykonání úkolu z uzlu podle ID
     live_run/           # PROSTŘEDÍ LIVE RUN: agent_sources, agent_catalog, agent_bindings, agent_activity, agent_telemetry, node_sessions
     integrations/       # platforma: gitio, windows_job, build_identity
@@ -69,8 +71,8 @@ opora-canvas/
     library/            # slot: načítání a verze předloh
     (každý balíček má README; test leží vedle modulu jako test_<modul>.py)
 
-  database/             # dnes dokumentace: mapa tabulek → vlastnící modul (database/README.md)
-    schema/             # slot: SQL schéma a migrace po tabulkách
+  database/             # kde data žijí: registry.sqlite + projects/<id>/project.sqlite (database/README.md)
+    schema/             # project_schema.py: REGISTRY_SCHEMA a PROJECT_SCHEMA po tabulkách s vlastníkem
     repositories/       # slot: přístup k datům vyčleněný z modulů
     seeds/              # slot: výchozí obsah knihovny předloh
 

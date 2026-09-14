@@ -211,10 +211,10 @@ def test_database_failure_is_safe_and_does_not_create_revision(tmp_path):
     app = create_app(tmp_path)
     with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
         create_node(client)
-        app.state.service.db.execute(
+        app.state.service.db_for("draft").execute(
             "CREATE TRIGGER fail_spec BEFORE INSERT ON node_spec_revisions BEGIN SELECT RAISE(ABORT, 'private-sentinel'); END"
         )
-        app.state.service.db.commit()
+        app.state.service.db_for("draft").commit()
         result = client.post(
             "/api/node-spec",
             headers=HEADERS,

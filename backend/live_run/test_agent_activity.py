@@ -26,8 +26,9 @@ def _seed_node(service, node_id="n1", sector_id=None):
 
 
 def _insert_entry(service, entry_id, node_id, event_id, summary, author_type, trust="source_confirmed"):
-    with service.lock, service.db:
-        service.db.execute(
+    db = service.db_for("draft")
+    with service.lock, db:
+        db.execute(
             "INSERT INTO agent_activity_entries VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 entry_id, "draft", "draft", node_id, "hermes-orchestrator", "agents-sonnet", event_id,

@@ -117,18 +117,11 @@ def validate_scene(scene):
 
 
 class DrawingStore:
-    def __init__(self, db):
-        self.db = db
-        self.db.execute(
-            """CREATE TABLE IF NOT EXISTS drawing_revisions(
-                project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, layer_id TEXT NOT NULL,
-                revision INTEGER NOT NULL, scene TEXT NOT NULL, saved_at TEXT NOT NULL,
-                PRIMARY KEY(project_id, workspace_id, layer_id, revision)
-            )"""
-        )
+    def __init__(self, canvas):
+        self.canvas = canvas
 
     def read(self, scope):
-        row = self.db.execute(
+        row = self.canvas.db_for(scope[0]).execute(
             """SELECT revision,scene,saved_at FROM drawing_revisions
                WHERE project_id=? AND workspace_id=? AND layer_id=? ORDER BY revision DESC LIMIT 1""",
             scope,
@@ -145,18 +138,19 @@ class DrawingStore:
         if type(expected_revision) is not int or expected_revision < 0:
             raise ValueError("Neplatná očekávaná revize kresby.")
         encoded = validate_scene(scene)
+        db = self.canvas.db_for(scope[0])
         try:
-            self.db.execute("BEGIN IMMEDIATE")
+            db.execute("BEGIN IMMEDIATE")
             current = self.read(scope)
             if current["revision"] != expected_revision:
                 raise ValueError("Kresba se změnila v jiném okně. Obnovte ji.")
             revision = expected_revision + 1
-            self.db.execute(
+            db.execute(
                 "INSERT INTO drawing_revisions VALUES(?,?,?,?,?,?)",
                 (*scope, revision, encoded, saved_at),
             )
-            self.db.commit()
+            db.commit()
         except Exception:
-            self.db.rollback()
+            db.rollback()
             raise
         return {"scene": scene, "revision": revision, "saved_at": saved_at}

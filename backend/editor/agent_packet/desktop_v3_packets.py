@@ -194,14 +194,6 @@ class DesktopV3Packets:
         self.state = state_store or DesktopV3State(canvas)
         self.journal = NodeJournal(canvas)
         self.documents = WorkspaceDocuments(canvas, canvas.workspace_sources)
-        with canvas.lock:
-            canvas.db.execute(
-                """CREATE TABLE IF NOT EXISTS desktop_v3_snapshots(
-                id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
-                node_id TEXT NOT NULL, digest TEXT NOT NULL, request TEXT NOT NULL,
-                packet TEXT NOT NULL, created_at TEXT NOT NULL)"""
-            )
-            canvas.db.commit()
 
     # ---- sestavení -----------------------------------------------------------------
 
@@ -406,8 +398,9 @@ class DesktopV3Packets:
                 raise ValueError("Podklady se od náhledu změnily; obnovte náhled a snapshot vytvořte znovu.")
             snapshot_id = uuid.uuid4().hex
             created_at = now()
-            with self.canvas.db:
-                self.canvas.db.execute(
+            db = self.canvas.db_for(request["project"])
+            with db:
+                db.execute(
                     "INSERT INTO desktop_v3_snapshots VALUES(?,?,?,?,?,?,?,?)",
                     (snapshot_id, request["project"], request["workspace"], request["nodeId"], digest,
                      encode(request), encode(packet), created_at),
@@ -418,7 +411,7 @@ class DesktopV3Packets:
         if not valid_id(snapshot_id):
             raise ValueError("Neplatné ID snapshotu podkladů.")
         with self.canvas.lock:
-            row = self.canvas.db.execute(
+            row = self.canvas.db_for(project).execute(
                 "SELECT * FROM desktop_v3_snapshots WHERE id=?", (snapshot_id,)
             ).fetchone()
         if row is None or row["project_id"] != project or row["workspace_id"] != workspace:

@@ -7,13 +7,6 @@ from backend.canvas.graph import digest, encode
 class RemovalService:
     def __init__(self, canvas):
         self.canvas = canvas
-        canvas.db.execute("""CREATE TABLE IF NOT EXISTS graph_recoveries(
-            id TEXT PRIMARY KEY, project_id TEXT, workspace_id TEXT,
-            graph TEXT NOT NULL, created_at TEXT NOT NULL)""")
-        canvas.db.execute(
-            "CREATE TABLE IF NOT EXISTS archived_projects(project_id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, archived_at TEXT NOT NULL)"
-        )
-        canvas.db.commit()
 
     def archived(self, project):
         return (
@@ -140,8 +133,9 @@ class RemovalService:
             if payload["digest"] != preview["digest"]:
                 raise ValueError("Plátno se změnilo. Otevřete nový náhled odstranění.")
             # Snapshot předchází změně; jeho existence není důkazem dokončeného mazání.
-            with self.canvas.lock, self.canvas.db:
-                self.canvas.db.execute(
+            db = self.canvas.db_for(payload["project"])
+            with self.canvas.lock, db:
+                db.execute(
                     "INSERT INTO graph_recoveries VALUES(?,?,?,?,?)",
                     (
                         uuid.uuid4().hex,

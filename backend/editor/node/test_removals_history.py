@@ -51,7 +51,7 @@ def test_saved_assignment_history_survives_node_removal_and_restart(tmp_path):
             == 200
         )
         before = [
-            tuple(row) for row in app.state.service.db.execute("SELECT * FROM node_spec_revisions")
+            tuple(row) for row in app.state.service.db_for("draft").execute("SELECT * FROM node_spec_revisions")
         ]
         params = {"project": "draft", "workspace": "draft", "kind": "node", "target": "preserve"}
         preview = client.get("/api/removal-preview", params=params).json()
@@ -65,12 +65,12 @@ def test_saved_assignment_history_survives_node_removal_and_restart(tmp_path):
         )
         assert client.get("/api/node-spec", params=scope).status_code == 409
         assert [
-            tuple(row) for row in app.state.service.db.execute("SELECT * FROM node_spec_revisions")
+            tuple(row) for row in app.state.service.db_for("draft").execute("SELECT * FROM node_spec_revisions")
         ] == before
     restarted = create_app(tmp_path)
     with TestClient(restarted, base_url=origin) as client:
         assert client.get("/api/view").json()["graph"]["nodes"] == []
         assert [
             tuple(row)
-            for row in restarted.state.service.db.execute("SELECT * FROM node_spec_revisions")
+            for row in restarted.state.service.db_for("draft").execute("SELECT * FROM node_spec_revisions")
         ] == before

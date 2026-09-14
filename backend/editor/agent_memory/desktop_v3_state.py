@@ -187,17 +187,10 @@ def _scope_ids(project, workspace):
 class DesktopV3State:
     def __init__(self, canvas):
         self.canvas = canvas
-        with canvas.lock:
-            canvas.db.execute(
-                """CREATE TABLE IF NOT EXISTS desktop_v3_state(
-                project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision INTEGER NOT NULL,
-                state TEXT NOT NULL, saved_at TEXT NOT NULL, PRIMARY KEY(project_id, workspace_id))"""
-            )
-            canvas.db.commit()
 
     def current(self, project, workspace):
         """Uložený stav bez ověření rozsahu; volající drží zámky a rozsah už ověřil."""
-        row = self.canvas.db.execute(
+        row = self.canvas.db_for(project).execute(
             "SELECT revision,state FROM desktop_v3_state WHERE project_id=? AND workspace_id=?",
             (project, workspace),
         ).fetchone()
@@ -227,14 +220,15 @@ class DesktopV3State:
             view = self.canvas.view(project, workspace)
             if view["readOnly"]:
                 raise ValueError("Main je pouze pro čtení; paměť projektu se ukládá v pracovním prostoru.")
-            with self.canvas.lock, self.canvas.db:
-                self.canvas.db.execute("BEGIN IMMEDIATE")
+            db = self.canvas.db_for(project)
+            with self.canvas.lock, db:
+                db.execute("BEGIN IMMEDIATE")
                 current = self.current(project, workspace)
                 if current["revision"] != expected:
                     raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
                 check_phase_transitions(current["state"], state)
                 revision = expected + 1
-                self.canvas.db.execute(
+                db.execute(
                     "INSERT OR REPLACE INTO desktop_v3_state VALUES(?,?,?,?,?)",
                     (project, workspace, revision, json.dumps(state, ensure_ascii=False), now()),
                 )

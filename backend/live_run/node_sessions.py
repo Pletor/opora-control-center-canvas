@@ -51,23 +51,6 @@ class NodeSessions:
         self.service = service
         self.adapters = {"hermes": hermes, "claude": claude}
         self.clock = clock or _now
-        with service.lock:
-            service.db.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS node_sessions(
-                    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
-                    node_id TEXT NOT NULL, source TEXT NOT NULL, session_id TEXT NOT NULL,
-                    run_id TEXT, role TEXT NOT NULL, title TEXT NOT NULL, parent_session_id TEXT,
-                    bound_at TEXT NOT NULL, baseline_at TEXT NOT NULL, baseline_cursor INTEGER NOT NULL,
-                    closed_at TEXT, closed_snapshot TEXT
-                );
-                CREATE UNIQUE INDEX IF NOT EXISTS node_sessions_active
-                    ON node_sessions(project_id, workspace_id, source, session_id) WHERE closed_at IS NULL;
-                CREATE INDEX IF NOT EXISTS node_sessions_scope
-                    ON node_sessions(project_id, workspace_id, node_id);
-                """
-            )
-            service.db.commit()
 
     # --- validace ---------------------------------------------------------
 
@@ -134,11 +117,12 @@ class NodeSessions:
         row_id = uuid.uuid4().hex
         with self.service.graph_lock:
             self._live_node(pid, wid, node_id, for_write=True)
-            with self.service.lock, self.service.db:
-                self.service.db.execute("BEGIN IMMEDIATE")
+            db = self.service.db_for(pid)
+            with self.service.lock, db:
+                db.execute("BEGIN IMMEDIATE")
                 existing = self._find(pid, wid, source, session_id)
                 if existing is None:
-                    self.service.db.execute(
+                    db.execute(
                         "INSERT INTO node_sessions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL)",
                         (row_id, pid, wid, node_id, source, session_id, run_id, payload["role"], title,
                          payload["parentSessionId"], bound_at, bound_at, int(evidence["baselineCursor"])),
@@ -147,12 +131,12 @@ class NodeSessions:
             self._check_same(existing, payload, title)
             return self._session(existing, self._node_names(pid, wid))
         with self.service.lock:
-            row = dict(self.service.db.execute("SELECT * FROM node_sessions WHERE id=?", (row_id,)).fetchone())
+            row = dict(self.service.db_for(pid).execute("SELECT * FROM node_sessions WHERE id=?", (row_id,)).fetchone())
         return self._session(row, self._node_names(pid, wid))
 
     def _find(self, pid, wid, source, session_id):
         with self.service.lock:
-            row = self.service.db.execute(
+            row = self.service.db_for(pid).execute(
                 "SELECT * FROM node_sessions WHERE project_id=? AND workspace_id=? AND source=? AND session_id=? AND closed_at IS NULL",
                 (pid, wid, source, session_id),
             ).fetchone()
@@ -189,7 +173,7 @@ class NodeSessions:
         query += " ORDER BY bound_at DESC, id LIMIT ?"
         params.append(LIMIT + 1)
         with self.service.lock:
-            rows = [dict(r) for r in self.service.db.execute(query, params).fetchall()]
+            rows = [dict(r) for r in self.service.db_for(pid).execute(query, params).fetchall()]
         # Zdroje se čtou až po uvolnění zámku; jeden vadný zdroj neskryje ostatní řádky.
         sessions = [self._session(row, names) for row in rows[:LIMIT]]
         return {
@@ -227,7 +211,7 @@ class NodeSessions:
         # Uzavření může doběhnout během síťového čtení: nevracet novou aktivitu
         # do již uzavřeného přiřazení ani z dříve zahájeného GET.
         with self.service.lock:
-            closed = self.service.db.execute(
+            closed = self.service.db_for(row["project_id"]).execute(
                 "SELECT closed_snapshot FROM node_sessions WHERE id=? AND closed_at IS NOT NULL",
                 (row["id"],),
             ).fetchone()

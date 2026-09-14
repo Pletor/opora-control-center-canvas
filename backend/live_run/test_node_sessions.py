@@ -256,7 +256,7 @@ def test_bind_idempotent_and_conflict_does_not_mutate(service):
     for change in ({"title": "Jiný"}, {"nodeId": "n2"}, {"role": "worker"}):
         with pytest.raises(ValueError, match="nelze přepsat"):
             sessions.bind(payload(**change))
-    row = service.db.execute("SELECT node_id,title,role,baseline_cursor FROM node_sessions").fetchall()
+    row = service.db_for("draft").execute("SELECT node_id,title,role,baseline_cursor FROM node_sessions").fetchall()
     assert [tuple(r) for r in row] == [("n1", "Telegram orchestrace", "orchestrator", 10)]
 
 
@@ -385,9 +385,10 @@ def test_list_scope_filter_and_truncation(service):
             raise SourceError("test")
 
     sessions = NodeSessions(service, hermes=Unavailable(), claude=Unavailable(), clock=Clock())
-    with service.lock, service.db:
+    db = service.db_for("draft")
+    with service.lock, db:
         for index in range(101):
-            service.db.execute(
+            db.execute(
                 "INSERT INTO node_sessions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL)",
                 (f"r{index}", "draft", "draft", "n2" if index else "n1", "hermes", f"s{index}", None, "worker",
                  "T", None, observed(index), observed(index), 0),

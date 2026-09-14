@@ -32,7 +32,7 @@ def test_update_only_name_and_settings(tmp_path):
 
 
 def test_ids_are_validated(tmp_path):
-    for bad in ("", "../x", "P1", "a/b", "x" * 65):
+    for bad in ("", "../x", ".hidden", "a/b", "x" * 65):
         with pytest.raises(ValueError):
             ProjectFolder(tmp_path, bad)
     folder = ProjectFolder(tmp_path, "p1")

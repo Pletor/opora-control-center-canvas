@@ -7,21 +7,16 @@ from backend.canvas.graph import valid_id
 class NodeTextStore:
     def __init__(self, canvas):
         self.canvas = canvas
-        canvas.db.execute("""CREATE TABLE IF NOT EXISTS node_text_revisions(
-            project_id TEXT, workspace_id TEXT, node_id TEXT, revision INTEGER,
-            text TEXT NOT NULL, saved_at TEXT NOT NULL,
-            PRIMARY KEY(project_id,workspace_id,node_id,revision))""")
-        canvas.db.commit()
 
     def read(self, scope):
-        row = self.canvas.db.execute(
+        row = self.canvas.db_for(scope[0]).execute(
             "SELECT revision,text,saved_at FROM node_text_revisions WHERE project_id=? AND workspace_id=? AND node_id=? ORDER BY revision DESC LIMIT 1", scope
         ).fetchone()
         return dict(row) if row else {"revision": 0, "text": "", "saved_at": None}
 
     def read_all(self, project, workspace):
         """Poslední uložený text každého uzlu prostoru; podklad pro odkazy a zpětné odkazy."""
-        rows = self.canvas.db.execute(
+        rows = self.canvas.db_for(project).execute(
             "SELECT node_id,text FROM node_text_revisions AS t WHERE project_id=? AND workspace_id=? AND revision=(SELECT MAX(revision) FROM node_text_revisions WHERE project_id=t.project_id AND workspace_id=t.workspace_id AND node_id=t.node_id)",
             (project, workspace),
         ).fetchall()
@@ -47,10 +42,11 @@ class NodeTextStore:
             scope = (project, workspace, node)
             with self.canvas.lock:
                 if payload is not None:
-                    with self.canvas.db:
-                        self.canvas.db.execute("BEGIN IMMEDIATE")
+                    db = self.canvas.db_for(project)
+                    with db:
+                        db.execute("BEGIN IMMEDIATE")
                         value = self.read(scope)
                         if value["revision"] != payload["expected_revision"]:
                             raise ValueError("Konflikt: text se změnil v jiném okně. Rozepsaný text zůstal zachován.")
-                        self.canvas.db.execute("INSERT INTO node_text_revisions VALUES(?,?,?,?,?,?)", (*scope, value["revision"] + 1, text, datetime.now(UTC).isoformat()))
+                        db.execute("INSERT INTO node_text_revisions VALUES(?,?,?,?,?,?)", (*scope, value["revision"] + 1, text, datetime.now(UTC).isoformat()))
                 return {**self.read(scope), "readOnly": False, "available": True}

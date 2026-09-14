@@ -1,1 +1,1 @@
-SQL schéma a migrace po tabulkách. Zatím slot: schéma žije inline v modulech uvedených v database/README.md.
+SQL schéma po tabulkách (project_schema.py): REGISTRY_SCHEMA pro `registry.sqlite` v datovém kořeni (projekty, workspaces, jobs, archiv) a PROJECT_SCHEMA pro `projects/<id>/project.sqlite` (vše o jednom projektu, vlastník tabulky v komentáři). Tabulky vytváří jen CanvasService přes toto schéma, vlastnící moduly je jen čtou a píší.

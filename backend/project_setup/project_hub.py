@@ -5,9 +5,6 @@ from backend.canvas.graph import EMPTY, encode, valid_id
 
 PLATFORMS = {"web", "app", "component"}
 DEFAULT_SETTINGS = {"goal": "", "platform": "web"}
-# Sloupce zrušené vrstvy lokálních LLM běhů: ve starší databázi jsou NOT NULL,
-# proto se při zápisu doplní neutrální hodnotou a při čtení se ignorují.
-_LEGACY_COLUMNS = {"provider": "", "model": "", "budget_seconds": 0}
 
 
 class ProjectHub:
@@ -15,31 +12,14 @@ class ProjectHub:
 
     def __init__(self, canvas):
         self.canvas = canvas
-        db = canvas.db
-        db.executescript("""
-        CREATE TABLE IF NOT EXISTS project_sources(
-            project_id TEXT PRIMARY KEY, source_kind TEXT NOT NULL, source_path TEXT
-        );
-        CREATE TABLE IF NOT EXISTS project_settings(
-            project_id TEXT PRIMARY KEY, revision INTEGER NOT NULL, goal TEXT NOT NULL,
-            platform TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS builtin_project_metadata(
-            project_id TEXT PRIMARY KEY, name TEXT NOT NULL
-        );
-        """)
-        db.execute("INSERT OR IGNORE INTO builtin_project_metadata VALUES('draft',?)", ("Lokální návrh",))
-        db.commit()
-        columns = {row[1] for row in db.execute("PRAGMA table_info(project_settings)")}
-        self._legacy = {name: value for name, value in _LEGACY_COLUMNS.items() if name in columns}
+        canvas.db.execute("INSERT OR IGNORE INTO builtin_project_metadata VALUES('draft',?)", ("Lokální návrh",))
+        canvas.db.commit()
 
     def write_settings(self, pid, revision, goal, platform):
-        """Jediný zápis project_settings; starší sloupce dostanou neutrální hodnotu."""
-        names = ["project_id", "revision", "goal", "platform", *self._legacy]
-        values = [pid, revision, goal, platform, *self._legacy.values()]
-        self.canvas.db.execute(
-            f"INSERT OR REPLACE INTO project_settings({','.join(names)}) VALUES({','.join('?' * len(values))})",
-            values,
+        """Jediný zápis project_settings; leží v databázi projektu."""
+        self.canvas.db_for(pid).execute(
+            "INSERT OR REPLACE INTO project_settings(project_id,revision,goal,platform) VALUES(?,?,?,?)",
+            (pid, revision, goal, platform),
         )
 
     def source_info(self, project):
@@ -62,7 +42,7 @@ class ProjectHub:
         return {key: project.get(key) for key in ("id", "name", "url", "branch")} | self.source_info(project)
 
     def _settings(self, pid):
-        row = self.canvas.db.execute(
+        row = self.canvas.db_for(pid).execute(
             "SELECT revision,goal,platform FROM project_settings WHERE project_id=?", (pid,)
         ).fetchone()
         if row is None:
@@ -99,35 +79,40 @@ class ProjectHub:
             raise ValueError("Neplatná očekávaná revize nastavení.")
         name = self._validate_name(payload["name"])
         self._validate_settings(payload["settings"])
-        with self.canvas.lock, self.canvas.db:
-            self.canvas.db.execute("BEGIN IMMEDIATE")
+        with self.canvas.lock:
             self._project(pid)  # verifies registry and archive state
-            revision, _ = self._settings(pid)
-            if revision != payload["expected_revision"]:
-                raise ValueError("Nastavení se změnilo v jiném okně. Obnovte je.")
-            values = payload["settings"]
-            self.write_settings(pid, revision + 1, values["goal"], values["platform"])
-            if pid == "draft":
-                self.canvas.db.execute("UPDATE builtin_project_metadata SET name=? WHERE project_id='draft'", (name,))
-            else:
-                self.canvas.db.execute("UPDATE projects SET name=? WHERE id=?", (name, pid))
+            db = self.canvas.db_for(pid)
+            with db:
+                db.execute("BEGIN IMMEDIATE")
+                revision, _ = self._settings(pid)
+                if revision != payload["expected_revision"]:
+                    raise ValueError("Nastavení se změnilo v jiném okně. Obnovte je.")
+                values = payload["settings"]
+                self.write_settings(pid, revision + 1, values["goal"], values["platform"])
+            with self.canvas.db:
+                if pid == "draft":
+                    self.canvas.db.execute("UPDATE builtin_project_metadata SET name=? WHERE project_id='draft'", (name,))
+                else:
+                    self.canvas.db.execute("UPDATE projects SET name=? WHERE id=?", (name, pid))
+            folder = self.canvas.folder(pid)
+            if folder.exists():
+                folder.update(name=name, settings={"goal": values["goal"], "platform": values["platform"], "revision": revision + 1})
         return self.settings(pid)
 
     def _new(self, name, kind, path=None):
         pid = uuid.uuid4().hex
-        managed = self.canvas.root / "sources" / pid if kind == "empty" else None
-        if managed is not None:
-            managed.mkdir(parents=True, exist_ok=False)
-            path = str(managed.resolve())
-        try:
-            with self.canvas.lock, self.canvas.db:
+        folder = self.canvas.folder(pid)
+        if kind == "empty":
+            # Prázdný projekt má zdroj přímo ve své složce: projects/<id>/main
+            path = str(folder.main.resolve())
+        with self.canvas.lock:
+            folder.create(name, kind, path or "")
+            with self.canvas.db:
                 self.canvas.db.execute("INSERT INTO projects VALUES(?,?,?,?,?)", (pid, name, "", "", ""))
                 self.canvas.db.execute("INSERT INTO project_sources VALUES(?,?,?)", (pid, kind, path))
-                self.canvas.db.execute("INSERT INTO drafts VALUES(?,?)", (pid, encode(EMPTY)))
-        except Exception:
-            if managed is not None:
-                managed.rmdir()  # Pouze právě vytvořená prázdná složka; žádné mazání zdroje uživatele.
-            raise
+            db = self.canvas.db_for(pid)
+            with db:
+                db.execute("INSERT INTO drafts VALUES(?,?)", (pid, encode(EMPTY)))
         return self._project(pid)
 
     def local_project(self, payload):

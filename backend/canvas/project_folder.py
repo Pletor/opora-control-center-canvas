@@ -11,7 +11,7 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-PROJECT_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+PROJECT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 SOURCE_KINDS = ("git", "local", "empty")
 SUBFOLDERS = ("main", "worktrees", "canvas", "nodes", "sectors", "processes", "memory", "packets", "maps", "runs")
 

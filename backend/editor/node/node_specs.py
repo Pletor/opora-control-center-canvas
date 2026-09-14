@@ -26,16 +26,11 @@ def validate_payload(payload):
 
 
 class NodeSpecStore:
-    def __init__(self, db):
-        self.db = db
-        db.execute("""CREATE TABLE IF NOT EXISTS node_spec_revisions(
-            project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
-            revision INTEGER NOT NULL, fields TEXT NOT NULL, saved_at TEXT NOT NULL,
-            PRIMARY KEY(project_id, workspace_id, node_id, revision))""")
-        db.commit()
+    def __init__(self, canvas):
+        self.canvas = canvas
 
     def read(self, scope):
-        row = self.db.execute(
+        row = self.canvas.db_for(scope[0]).execute(
             "SELECT revision,fields,saved_at FROM node_spec_revisions WHERE project_id=? AND workspace_id=? AND node_id=? ORDER BY revision DESC LIMIT 1",
             scope,
         ).fetchone()
@@ -48,7 +43,7 @@ class NodeSpecStore:
         }
 
     def history(self, scope):
-        rows = self.db.execute(
+        rows = self.canvas.db_for(scope[0]).execute(
             "SELECT revision,fields,saved_at FROM node_spec_revisions WHERE project_id=? AND workspace_id=? AND node_id=? ORDER BY revision DESC LIMIT 21",
             scope,
         ).fetchall()
@@ -65,8 +60,9 @@ class NodeSpecStore:
         }
 
     def save(self, scope, expected_revision, fields):
-        with self.db:
-            self.db.execute("BEGIN IMMEDIATE")
+        db = self.canvas.db_for(scope[0])
+        with db:
+            db.execute("BEGIN IMMEDIATE")
             current = self.read(scope)
             if current["revision"] != expected_revision:
                 raise ValueError(
@@ -74,7 +70,7 @@ class NodeSpecStore:
                 )
             revision = current["revision"] + 1
             saved_at = datetime.now(UTC).isoformat()
-            self.db.execute(
+            db.execute(
                 "INSERT INTO node_spec_revisions VALUES(?,?,?,?,?,?)",
                 (*scope, revision, json.dumps(fields, ensure_ascii=False), saved_at),
             )

@@ -63,7 +63,7 @@ def test_stale_and_concurrent_drawing_saves_cannot_both_commit(tmp_path):
         assert drawing(first).json()["revision"] == 1
         assert save(first, {"elements": []}).status_code == 409
         assert (
-            app.state.service.db.execute("SELECT COUNT(*) FROM drawing_revisions").fetchone()[0]
+            app.state.service.db_for("draft").execute("SELECT COUNT(*) FROM drawing_revisions").fetchone()[0]
             == 1
         )
 
