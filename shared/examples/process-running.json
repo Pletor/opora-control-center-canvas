@@ -1,0 +1,34 @@
+{
+  "id": "prc-3f9a1c2b7d44",
+  "projectId": "aff4759e37cd469eb946c5ec17e41adf",
+  "nodeId": "node-retrieval-rerank",
+  "sectorId": null,
+  "title": "Reranker 2. stupně v RetrievalService",
+  "state": "running",
+  "createdAt": "2026-09-14T09:00:00Z",
+  "updatedAt": "2026-09-14T09:20:00Z",
+  "revision": 3,
+  "owner": { "kind": "agent", "name": "claude-code" },
+  "inputs": {
+    "nodeText": "nodes/node-retrieval-rerank/text.md",
+    "spec": "nodes/node-retrieval-rerank/spec.json",
+    "packet": "packets/snap-77aa19.json",
+    "worktree": "wt-rerank-01",
+    "references": ["src/retrieval/service.py"]
+  },
+  "steps": [
+    {
+      "id": "stp-a1b2c3d4", "title": "Navrhnout rozhraní rerankeru", "state": "done",
+      "evidence": { "summary": "Rozhraní Reranker.score(query, candidates) v service.py", "at": "2026-09-14T09:18:00Z", "by": { "kind": "agent", "name": "claude-code" }, "reportId": "rpt-0a0b0c0d0e0f", "outputs": ["worktrees/wt-rerank-01/src/retrieval/service.py"] }
+    },
+    { "id": "stp-a1b2c3d5", "title": "Implementovat a otestovat", "state": "running", "evidence": null }
+  ],
+  "outputs": [
+    { "kind": "json", "ref": "processes/prc-3f9a1c2b7d44/reports/20260914T091800Z-claude-code.json", "digest": null }
+  ],
+  "failure": null,
+  "history": [
+    { "from": null, "to": "draft", "at": "2026-09-14T09:00:00Z", "by": { "kind": "human", "name": "Pletor" }, "note": "založeno z uzlu" },
+    { "from": "draft", "to": "running", "at": "2026-09-14T09:05:00Z", "by": { "kind": "human", "name": "Pletor" }, "note": "worktree wt-rerank-01 z main" }
+  ]
+}

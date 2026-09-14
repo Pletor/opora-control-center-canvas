@@ -1,1 +1,1 @@
-Základ plátna společný všem prostředím: CanvasService (canvas_service.py: databáze canvas.sqlite, git sync, view a save grafu) a validace grafu (graph.py).
+Základ plátna společný všem prostředím: CanvasService (canvas_service.py: databáze canvas.sqlite, git sync, view a save grafu), validace grafu (graph.py), hlavní složka projektu (project_folder.py: projects/<id>/ s project.json) a registr projektů bez duplicit (project_registry.py).

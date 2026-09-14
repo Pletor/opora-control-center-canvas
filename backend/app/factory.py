@@ -11,6 +11,7 @@ from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.claude_code_routes import create_claude_code_router
 from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
 from backend.api.editor.node_routes import create_node_router
+from backend.api.editor.process_routes import create_process_router
 from backend.api.live_run.agent_routes import create_agent_router
 from backend.api.live_run.node_session_routes import create_node_sessions_router
 from backend.api.project.archify_routes import create_archify_router
@@ -114,6 +115,7 @@ def create_app(data_root=None):
     app.include_router(create_node_router(service))
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets))
     app.include_router(create_claude_code_router(service))
+    app.include_router(create_process_router(service))
     # prostředí Live Run
     app.include_router(create_agent_router(service))
     app.include_router(create_node_sessions_router(service))

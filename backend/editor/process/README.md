@@ -1,0 +1,1 @@
+Procesy uvnitř složky projektu pro prostředí Editor: úložiště `processes/<id>/process.json` (process_store), životní cyklus návrh → proces → hotovo → oprava s tabulkou přechodů (process_lifecycle) a append-only odpovědi agentů v `reports/` (process_reports). Kontrakt: shared/process.schema.json.

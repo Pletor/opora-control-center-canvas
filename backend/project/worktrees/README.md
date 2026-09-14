@@ -1,0 +1,1 @@
+Worktrees projektu pro prostředí Projekt: každý běžící proces dostane `worktrees/<wt-id>/` z čistého `main/` nebo fork z jiného worktree; ověření průchodnosti běží uvnitř worktree. Do `main/` se nikdy nezapisuje.
