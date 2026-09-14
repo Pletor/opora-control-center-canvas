@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type Project, type View, type Workspace } from "@/shared/types/logic/types";
 
 /**
- * Jedna kompaktní lišta: projekt, větev, revize a jedno menu s nastavením i operacemi.
- * Každé tlačítko má skutečný handler; git operace se lokálnímu návrhu nenabízejí.
+ * Jedna kompaktní lišta: projekt, větev, revize a přepínač prostředí.
+ * Nastavení i operace projektu žijí v Nastavení (levý dolní roh), ne tady.
  */
 export default function TopBar({
   projects,
@@ -18,14 +18,8 @@ export default function TopBar({
   onMain,
   onWorkspace,
   onSelectWorkspace,
-  onSurfaceSettings,
-  onProjectSettings,
-  onRefresh,
-  onSync,
-  onRemoveProject,
   children,
   projectNavigation,
-  trailing,
 }: {
   projects: Project[];
   draftProject?: Project;
@@ -39,17 +33,9 @@ export default function TopBar({
   onMain: () => void;
   onWorkspace: () => void;
   onSelectWorkspace: (id: string) => void;
-  onSurfaceSettings: () => void;
-  onProjectSettings: () => void;
-  onRefresh: () => void;
-  onSync: () => void;
-  onRemoveProject: () => void;
   children?: ReactNode;
   projectNavigation?: ReactNode;
-  trailing?: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const anchor = useRef<HTMLDivElement>(null);
   const [openingWorktree, setOpeningWorktree] = useState(false);
   const [worktreeResult, setWorktreeResult] = useState<{ error: boolean; text: string } | null>(null);
   const worktreeLock = useRef(false);
@@ -73,35 +59,6 @@ export default function TopBar({
       if (ticket === worktreeGeneration.current) setWorktreeResult({ error: true, text: String(error) });
     } finally { worktreeLock.current = false; setOpeningWorktree(false); }
   }
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      if (!anchor.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open]);
-  const item = (label: string, action: () => void, extra?: { danger?: boolean; disabled?: boolean; hint?: string }) => (
-    <button
-      type="button"
-      className={extra?.danger ? "menu-item danger" : "menu-item"}
-      disabled={extra?.disabled}
-      title={extra?.hint}
-      onClick={() => {
-        setOpen(false);
-        action();
-      }}
-    >
-      {label}
-    </button>
-  );
   return (
     <header className="topbar" role="banner">
       <div className="brand" title="Opora Control Center">
@@ -165,30 +122,6 @@ export default function TopBar({
         </div>
       )}
       <span className="local-status">LOKÁLNĚ · {location.port}</span>
-      <div className="menu-anchor" ref={anchor}>
-        <button
-          type="button"
-          className="menu-button"
-          aria-haspopup="true"
-          aria-expanded={open}
-          aria-controls="app-menu"
-          onClick={() => setOpen((value) => !value)}
-        >
-          Nastavení
-        </button>
-        {open && (
-          <div id="app-menu" className="menu" role="group" aria-label="Nastavení a operace">
-            <div className="menu-head">Tento prohlížeč</div>
-            {item("Nastavení plochy", onSurfaceSettings, { hint: "Mřížka a přichytávání; neukládá se do projektu." })}
-            <div className="menu-head">Projekt</div>
-            {item("Nastavení projektu", onProjectSettings, { hint: "Zadání a nastavení v přehledu projektu." })}
-            {item("Obnovit pohled", onRefresh, { disabled: busy })}
-            {!localProject && item("Synchronizovat main", onSync, { disabled: busy, hint: "Aktualizuje jen čistou spravovanou kopii. Žádný push." })}
-            {!localProject && item("Odebrat repozitář", onRemoveProject, { danger: true, disabled: busy, hint: "Odebere ze seznamu; GitHub ani soubory se nemažou." })}
-          </div>
-        )}
-      </div>
-      {trailing}
     </header>
   );
 }

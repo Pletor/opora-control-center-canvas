@@ -1,4 +1,4 @@
-import { setAppearance, useDesktopAppearance, type DesktopDensity, type DesktopTheme } from "@/app/components/DesktopThemeControls";
+import { setAppearance, useDesktopAppearance, type DesktopDensity, type DesktopTheme } from "@/app/logic/desktop-appearance";
 
 const THEMES: { id: DesktopTheme; label: string }[] = [
   { id: "light", label: "Světlý" },

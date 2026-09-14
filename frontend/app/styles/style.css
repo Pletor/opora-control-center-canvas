@@ -344,12 +344,6 @@ textarea:not(:where(.excalidraw *)) {
   color: #a8b8ad;
   letter-spacing: 0.08em;
 }
-.menu-anchor {
-  position: relative;
-}
-.menu-button[aria-expanded="true"] {
-  background: var(--surface-3);
-}
 .menu {
   position: absolute;
   right: 0;

@@ -6,7 +6,7 @@
     <title>Opora Canvas</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <script>
-      // Vzhled před prvním vykreslením (bez bliknutí); stejný klíč a pravidla jako DesktopThemeControls.tsx.
+      // Vzhled před prvním vykreslením (bez bliknutí); stejný klíč a pravidla jako frontend/app/logic/desktop-appearance.ts.
       (function () {
         var stored = {};
         try { stored = JSON.parse(localStorage.getItem("opora:desktop-theme:v1") || "null") || {}; } catch (e) { stored = {}; }

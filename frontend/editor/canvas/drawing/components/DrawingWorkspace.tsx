@@ -10,7 +10,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import { api } from "@/shared/types/logic/types";
-import { useDesktopAppearance } from "@/app/components/DesktopThemeControls";
+import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
 import {
   drawingDrafts,
   drawingSaves,

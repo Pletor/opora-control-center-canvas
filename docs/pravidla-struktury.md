@@ -20,7 +20,7 @@ opora-canvas/
       maps/             # Archify, Graphify, obnova map
       workspace/        # složení plochy, dokumentace k cestám
     editor/             # PROSTŘEDÍ EDITOR: řízení vývoje
-      canvas/           # board, drawing (Excalidraw), wireframes, settings, node-card, sector-card
+      canvas/           # board, drawing (Excalidraw), wireframes, node-card, sector-card
       node-detail/      # NodePanel: content, assignment, process (návrh → proces → hotovo → oprava), journal, links
       sector-detail/    # stejná šablona jako node-detail
       workflow/         # fáze, kritéria, kroky uzlu → základ pipeline
@@ -40,7 +40,7 @@ opora-canvas/
       desktop-state/    # stav panelů (paměť, workflow, podklady)
       selection/        # vybraný zdroj, reference, poznámka
       surface-settings/ # mřížka, přichytávání, mód
-    settings/           # nastavení aplikace z levého dolního rohu: Obecné, Skills (Claude Code), Connectors
+    settings/           # nastavení aplikace z levého dolního rohu: Obecné, Plátno, Projekt, Skills (Claude Code), Connectors
     ui-kit/             # prvky bez domény: removal-dialog, workspace-boundary, panel-frame
     (uvnitř každé feature složky: components/ = .tsx · logic/ = .ts · styles/ = .css · README)
 

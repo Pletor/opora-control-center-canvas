@@ -23,7 +23,6 @@ import DrawingTools from "@/editor/canvas/drawing/components/DrawingTools";
 import { discardDrawingDrafts, type DrawingTool } from "@/editor/canvas/drawing/logic/drawing-state";
 const DrawingWorkspace = lazy(() => import("@/editor/canvas/drawing/components/DrawingWorkspace"));
 import ArchifyMap from "@/project/maps/components/ArchifyMap";
-import WorkspaceSettings from "@/editor/canvas/settings/components/WorkspaceSettings";
 import WorkspaceBoundary from "@/ui-kit/workspace-boundary/components/WorkspaceBoundary";
 import {
   readMode,
@@ -33,7 +32,6 @@ import {
   type SurfaceSettings,
 } from "@/shared/surface-settings/logic/workspace-settings";
 import "@/layout/shell/styles/workspace-modes.css";
-import DesktopThemeControls from "@/app/components/DesktopThemeControls";
 import AccountCorner from "@/layout/account-corner/components/AccountCorner";
 import ProcessOverview from "@/live-run/processes/components/ProcessOverview";
 import SettingsDialog from "@/settings/components/SettingsDialog";
@@ -132,7 +130,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [editingName, setEditingName] = useState<string | null>(null);
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
   const [settings, setSettings] = useState(readSettings);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [nodeTab, setNodeTab] = useState<NodeTab>("content");
   const [textRevision, setTextRevision] = useState(0);
@@ -435,7 +432,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
     <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
-    {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} />}
+    {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
   </>;
   const artifactMapOpen = mode === "map" && !editorDocumentOpen;
   const inspectorTools =
@@ -457,7 +454,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     <div className="app desktop-v2 desktop-v3">
       <TopBar
         projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={setProjectMapKind}/> : null}
-        trailing={<DesktopThemeControls/>}
         projects={projects}
         draftProject={draftProject}
         project={project}
@@ -482,17 +478,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           setWorkspace(id);
           enter(null);
         }}
-        onSurfaceSettings={() => setSettingsOpen(true)}
-        onProjectSettings={() => setScreen("home")}
-        onRefresh={() => run(refresh)}
-        onSync={() => {
-          if (window.confirm("Aktualizovat pouze čistou spravovanou kopii ze schváleného upstreamu? Žádný push."))
-            run(async () => {
-              await api("/api/sync", { project, confirmed: true });
-              await bootstrap();
-            });
-        }}
-        onRemoveProject={() => requestRemoval("project", project)}
       >
         <EnvironmentSwitch value={environment} onChange={changeEnvironment} disabled={busy} />
 
@@ -794,14 +779,25 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           ?? <p className="agent-packet-dock-empty">Panel Podklady pro agenta není v této sestavě napojený.</p>}</div>
       </section>}
       <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
-      {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} />}
-      {settingsOpen && (
-        <WorkspaceSettings
-          value={settings}
-          onChange={updateSettings}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
+      {appSettingsOpen && <SettingsDialog
+        onClose={() => setAppSettingsOpen(false)}
+        surface={{ value: settings, onChange: updateSettings }}
+        project={{
+          name: activeProject?.name ?? draftProject?.name ?? "Lokální návrh",
+          localProject,
+          busy,
+          onProjectSettings: () => setScreen("home"),
+          onRefresh: () => run(refresh),
+          onSync: () => {
+            if (window.confirm("Aktualizovat pouze čistou spravovanou kopii ze schváleného upstreamu? Žádný push."))
+              run(async () => {
+                await api("/api/sync", { project, confirmed: true });
+                await bootstrap();
+              });
+          },
+          onRemoveProject: () => requestRemoval("project", project),
+        }}
+      />}
       {removal && (
         <RemovalDialog
           key={removal.digest}

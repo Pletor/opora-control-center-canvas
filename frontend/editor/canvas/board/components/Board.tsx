@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, memo } from "react";
-import { useDesktopAppearance } from "@/app/components/DesktopThemeControls";
+import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
 import {
   ReactFlow,
   Background,

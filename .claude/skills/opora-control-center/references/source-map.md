@@ -14,7 +14,8 @@ Nečti všechny soubory; vezmi jen kontrakt právě řešené operace.
 | Oblast | Primární zdroj |
 |---|---|
 | Přepínání prostředí, URL a vytváření uzlů | `frontend/app/components/App.tsx` |
-| Projekt/workspace, menu | `frontend/layout/top-bar/components/TopBar.tsx` |
+| Projekt/workspace, přepínač prostředí | `frontend/layout/top-bar/components/TopBar.tsx` |
+| Nastavení aplikace (vzhled, plátno, operace projektu, skills, connectors) | `frontend/settings/components/SettingsDialog.tsx` |
 | Módy plátna | `frontend/layout/mode-rail/components/ModeRail.tsx`, `frontend/shared/surface-settings/logic/workspace-settings.ts` |
 | Inspektor uzlu | `frontend/editor/node-detail/components/NodePanel.tsx` |
 | Text a zadání, revize | `frontend/editor/node-detail/content/components/NodeTextEditor.tsx`, `frontend/editor/node-detail/assignment/components/NodeSpecEditor.tsx` |

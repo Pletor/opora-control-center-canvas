@@ -39,7 +39,7 @@ export default function AccountCorner({ onSettings }: { onSettings: () => void }
             }}
           >
             Nastavení
-            <small>Obecné, Skills, Connectors</small>
+            <small>Obecné, Plátno, Projekt, Skills, Connectors</small>
           </button>
         </div>
       )}
