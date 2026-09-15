@@ -96,7 +96,27 @@ Pravidla umístění nového souboru:
 2. Je to logika, proces, integrace? → `backend/`. Kde v cestě uživatele to je? → `project_setup/`, `project/`, `editor/` nebo `live_run/`. Router jen do `api/<prostředí>/`. Základ plátna → `canvas/`, platforma → `integrations/`.
 3. Je to schéma nebo přístup k datům? → `database/`.
 4. Je to předloha, checklist nebo poučení? → `library/`.
-5. Test leží hned vedle toho, co testuje, jako `test_<modul>.py` (backend) nebo `<Name>.test.tsx` (frontend); žádné složky tests/. Css leží ve `styles/` vedle komponenty. Název souboru říká, co dělá a k čemu patří.
+5. Test leží hned vedle toho, co testuje, jako `test_<modul>.py` (backend) nebo `<name>.test.ts` (frontend, běží `npm test` = vitest); žádné složky tests/. Css leží ve `styles/` vedle komponenty. Název souboru říká, co dělá a k čemu patří.
+
+## Skládání frontendu: rodič skládá dílky, události bublají nahoru
+
+Každý viditelný celek (karta, blok, panel, záložka) je **složka feature** s vlastním `README.md` a podsložkami `components/`, `logic/`, `styles/`. Uvnitř platí:
+
+1. **Jeden rodič, malé dílky.** Rodičovská komponenta (`NodeCard`, `CanvasBlock`, `NodeTree`) importuje dílky a skládá je. Dílek (`CardHead`, `BlockTodos`, `BlockState`…) zobrazuje jednu část a nic neví o plátně, API ani o ostatních dílcích. Žádný soubor nemá být delší než zhruba 200 řádků; když roste, vzniká další dílek.
+2. **Data tečou dolů, události nahoru.** Dílek dostává hotová data v props a každou změnu hlásí callbackem (`onToggle`, `onAddTodo`, `onBranch`). Kdo ukládá, rozhoduje rodič: on drží `useDesktopState`, zámek zápisu a revizi. Dílek nikdy nevolá `mutate` ani `fetch`.
+3. **Logika bez Reactu do `logic/`.** Odvození dat a mutace stavu jsou čisté funkce (`card-model.ts`, `block-model.ts`, `tree-model.ts`) s testem `<name>.test.ts` hned vedle. Komponenta je jen mapování props → JSX.
+4. **Styl na dílek, BEM, příběhově popsaný.** Jeden `styles/<feature>.css` na složku. Třídy podle BEM: blok = feature (`node-card`), prvek = `blok__prvek` (`node-card__title`, `node-card__port`), varianta = `blok__prvek--stav` (`node-card__port--open`, `node-card--sector`). Blok se stylizuje jen svými třídami: žádné selektory na `strong`/`p`/`li` uvnitř bloku, žádné vnoření přes tři úrovně, žádný `!important`. Tokeny barev a rytmu jen z `design-tokens/`. Každý blok v souboru začíná komentářem, který vypráví, co uživatel vidí a proč (například „Karta je 272 široká, zlatý řez; porty jsou kuličky na pravé hraně, protože z nich se táhne vazba“), ne co selektor technicky dělá. Kdo čte jen CSS, musí z komentářů pochopit celý dílek.
+5. **Změna jednoho dílku nerozbije celek.** Když se mění jen akce, pravidla, stav nebo další krok, sahá se jen do jejich složky; rodič se mění jen tehdy, když přibývá nový dílek nebo nová událost.
+
+Příklady: `frontend/editor/canvas/node-card/` (karta), `frontend/editor/workflow/blocks/` (bloky Akce / Pravidla), `frontend/editor/workflow/pipeline-picker/`, `frontend/editor/node-detail/tree/` (strom obsahu), `frontend/editor/canvas/tag-filter/`.
+
+## Jedno rozhraní pro všechny projekty
+
+Rozhraní je jedno pro celou aplikaci. Vzhled (barevný režim, hustota, tokeny v `design-tokens/`) a ovládání (mřížka, přichytávání, vypnuté skills) se ukládají jednou pro aplikaci, nikdy s klíčem projektu. Per projekt se ukládá jen obsah: graf, poloha plátna, paměť projektu, cíl a platforma.
+
+Když se má chování lišit, liší se podle **druhu projektu**, ne podle konkrétního projektu, a to na jediném místě: `frontend/shared/project-capabilities/logic/project-capabilities.ts`. Rodič (`App`) schopnosti spočítá a rozdá dílkům v props; dílek nikdy nečte `sourceKind` ani `project === "draft"` sám. Nová větev chování = nové pole ve schopnostech + test, ne další podmínka v komponentě.
+
+Audit stavu k 2026-09-15: `docs/ux-central-audit.md`.
 
 ## Skutečný stav
 

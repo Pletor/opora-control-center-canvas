@@ -1,5 +1,21 @@
-import { useEffect, useRef, useState, lazy, Suspense, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, lazy, Suspense, type ReactNode } from "react";
 import Board from "@/editor/canvas/board/components/Board";
+import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
+import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, type BlockApi, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
+import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
+import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, setDone, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
+import { edgeFromConnection, sameEdge, type BoardConnection } from "@/editor/canvas/board/logic/board-model";
+import { layerFootprints, spreadLayer } from "@/editor/canvas/board/logic/layout-model";
+import EdgeReportPanel from "@/editor/canvas/edge-report/components/EdgeReportPanel";
+import { edgeReportView, reportOf, setEdgeReport } from "@/editor/canvas/edge-report/logic/edge-report-model";
+import { addMaterial, captionMaterial, materialKindOf, moveMaterial, removeMaterial } from "@/editor/workflow/blocks/logic/block-model";
+import NodeLibraryDrawer from "@/editor/component-library/node-library/components/NodeLibraryDrawer";
+import { addBlockOfKind, closeLibrary, initialLibrary, openLibrary, showSection } from "@/editor/component-library/node-library/logic/library-model";
+import { cardBlocks } from "@/editor/canvas/node-card/logic/card-model";
+import { nodeWorkflowOf, type PipelineLibrary } from "@/shared/desktop-state/logic/types";
+import { fetchPipelines } from "@/shared/desktop-state/logic/api";
+import "@/editor/component-library/node-library/styles/node-library.css";
+import TagFilter from "@/editor/canvas/tag-filter/components/TagFilter";
 import ProjectHome from "@/project-setup/components/ProjectHome";
 import TextWorkspace from "@/editor/node-detail/content/components/TextWorkspace";
 import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "@/editor/llm-control/editor-context/components/context-actions";
@@ -9,9 +25,9 @@ import EnvironmentSwitch, { type Environment } from "@/layout/environment-switch
 import ProjectWorkspace from "@/project/workspace/components/ProjectWorkspace";
 import {ProjectMapNavigation, type ProjectMapKind} from "@/project/shell/components/ProjectLayout";
 import WorkspaceDocumentEditor from "@/project/workspace/components/WorkspaceDocumentEditor";
-import ContextShelf from "@/editor/llm-control/editor-context/components/ContextShelf";
 import SourceExplorer from "@/project/source-tree/components/SourceExplorer";
 import { useWorkspaceSelection } from "@/shared/selection/logic/workspace-selection";
+import { clearSelection, emptySelection, panelsFor, selectBlock, selectEdge, selectNode, type Panels, type Selection } from "@/app/logic/selection-model";
 import "@/layout/shell/styles/desktop-workspaces.css";
 
 import ScopeContext from "@/shared/contexts/components/ScopeContext";
@@ -31,12 +47,18 @@ import {
   type WorkspaceMode,
   type SurfaceSettings,
 } from "@/shared/surface-settings/logic/workspace-settings";
+import { isLocalKind, projectCapabilities } from "@/shared/project-capabilities/logic/project-capabilities";
 import "@/layout/shell/styles/workspace-modes.css";
 import AccountCorner from "@/layout/account-corner/components/AccountCorner";
 import ProcessOverview from "@/live-run/processes/components/ProcessOverview";
 import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
+import CommentPanel from "@/editor/canvas/comment-card/components/CommentPanel";
+import { newComment, nextCommentSpot } from "@/editor/canvas/comment-card/logic/comment-model";
+import AreaPanel from "@/editor/canvas/area/components/AreaPanel";
+import { areaLabel, membersOf, moveWithMembers, newArea, nextAreaSpot, resizeArea } from "@/editor/canvas/area/logic/area-model";
+import BlockDrawerContent from "@/app/components/BlockDrawerContent";
 import RemovalDialog from "@/ui-kit/removal-dialog/components/RemovalDialog";
 import { discardSpecDrafts } from "@/editor/node-detail/assignment/components/NodeSpecEditor";
 import {
@@ -75,10 +97,6 @@ export type DesktopV3Slots = {
   agentPacket?: (scope: { project: string; workspace: string; nodeId: string; path: string; references: string[]; note: string }) => ReactNode;
   liveWorkspace?: (scope: { project: string; workspace: string; nodeId?: string }) => ReactNode;
 };
-const INSPECTOR_KEY = "opora:desktop-inspector:v1";
-function readInspectorOpen() {
-  try { return localStorage.getItem(INSPECTOR_KEY) !== "hidden"; } catch { return true; }
-}
 export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [screen, setScreen] = useState<"home" | "canvas">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
   const [draftProject, setDraftProject] = useState<Project | undefined>();
@@ -90,19 +108,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     initial.get("workspace") ?? "draft",
   );
   const [drawingTool, setDrawingTool] = useState<DrawingTool>("selection");
-  const selection = useWorkspaceSelection(project, workspace);
-  const [showContext, setShowContext] = useState(false);
+  const docSelection = useWorkspaceSelection(project, workspace);
   const [editorDocumentOpen, setEditorDocumentOpen] = useState(false);
-  const [workbenchOpen, setWorkbenchOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(readInspectorOpen);
   const [liveView, setLiveView] = useState<"overview" | "runs" | "processes">("overview");
-  function toggleInspector() {
-    setInspectorOpen((shown) => {
-      try { localStorage.setItem(INSPECTOR_KEY, shown ? "hidden" : "shown"); } catch { /* platí aspoň v této relaci */ }
-      return !shown;
-    });
-  }
-  useEffect(() => { setShowContext(selection.value.references.length > 0); }, [project, workspace, selection.value.references.length]);
   const [drawingCommand, setDrawingCommand] = useState<{
     type: DrawingTool;
     sequence: number;
@@ -135,9 +143,54 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [textRevision, setTextRevision] = useState(0);
   const [focusRun, setFocusRun] = useState<{ sourceId: string; runId: string } | null>(null);
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
-  const [selected, setSelected] = useState<string | null>(initial.get("node"));
-  const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
+  const initialNode = initial.get("node");
+  const [selection, setSelection] = useState<Selection>(() => (initialNode ? selectNode(initialNode) : emptySelection()));
+  // Odvozené zkratky: zbytek souboru je psaný proti trojici "vybraný uzel / blok / vazba".
+  const selected = selection.node;
+  const selectedBlock = selection.block;
+  const selectedEdge = selection.edge;
   const [removal, setRemoval] = useState<RemovalPreview | null>(null);
+  // Bloky z portů karty: otevřené v této relaci (blok s uloženými položkami je vidět vždy).
+  const [openBlocks, setOpenBlocks] = useState<OpenBlocks>({});
+  const [pipelinePickerFor, setPipelinePickerFor] = useState<string | null>(null);
+  // Knihovna uzlu vlevo: panel vyjede, když uživatel klikne na kartu, a zajede, když výběr zmizí.
+  const [library, setLibrary] = useState(initialLibrary);
+  useEffect(() => { setLibrary((l) => (selected ? openLibrary(l) : closeLibrary(l))); }, [selected]);
+  const [pipelineLibrary, setPipelineLibrary] = useState<PipelineLibrary | null>(null);
+  useEffect(() => {
+    if (!library.open || library.section !== "actions" || pipelineLibrary) return;
+    fetchPipelines().then(setPipelineLibrary).catch(() => setPipelineLibrary({ categories: [] }));
+  }, [library.open, library.section, pipelineLibrary]);
+  // Filtr štítků: karty bez vybraného štítku jsou na plátně ztlumené; prázdný = bez filtru.
+  const [tagFilter, setTagFilter] = useState("");
+  const desktop = useDesktopState(project, workspace);
+  // Vybraný blok zmizel ze stavu (smazán jinde): výběr spadne zpět na uzel, aby zásuvka i inspektor zůstaly platné.
+  useEffect(() => {
+    if (!selected || !selectedBlock) return;
+    if (!nodeWorkflowOf(desktop.state, selected).blocks.some((b) => b.id === selectedBlock)) setSelection(selectNode(selected));
+  }, [selected, selectedBlock, desktop.state]);
+  const blockApi = useRef<BlockApi>({
+    mutate: async () => false, close: () => {}, pickPipeline: () => {}, uploadMaterial: async () => null, discardUpload: () => {}, previewUrl: () => null,
+  });
+  function togglePort(nodeId: string, port: BlockPort) {
+    setOpenBlocks((current) => toggleOpen(current, nodeId, port));
+  }
+  blockApi.current = {
+    mutate: desktop.mutate,
+    close: (nodeId, port) => setOpenBlocks((current) => closeOpen(current, nodeId, port)),
+    pickPipeline: (nodeId) => setPipelinePickerFor(nodeId),
+    uploadMaterial: async (nodeId, dataUrl) => {
+      try {
+        const saved = await api<{ file: string }>("/api/node-materials/upload", { project, workspace, nodeId, dataUrl });
+        return saved.file;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Podklad se nepodařilo nahrát.");
+        return null;
+      }
+    },
+    discardUpload: (nodeId, file) => { void api("/api/node-materials/remove", { project, nodeId, file }).catch(() => {}); },
+    previewUrl: (nodeId, material) => materialPreviewUrl(project, workspace, nodeId, material),
+  };
   const activeScope = useRef({ project, workspace });
   activeScope.current = { project, workspace };
   const activeContext = useRef("");
@@ -199,9 +252,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     if (lastLoadedScope.current !== nextScope) {
       operationGeneration.current++;
       setBusy(false); setModal(null);
-      // První načtení zachová uzel z odkazu; další změna scope jej zahodí.
-      if (lastLoadedScope.current) setSelected(null);
-      setSelectedEdge(null); setRemoval(null); lastLoadedScope.current = nextScope;
+      // První načtení zachová uzel z odkazu; další změna scope zahodí výběr celý (uzel, blok i vazbu).
+      const hadScope = !!lastLoadedScope.current;
+      setSelection((current) => (hadScope ? emptySelection() : { ...current, block: null, edge: null }));
+      setRemoval(null); lastLoadedScope.current = nextScope;
       // Výběr v asynchronním stromu platí jen pro původní projekt/workspace.
       setCreateOrigin(null); setCreatePath(null); setCreateKind("directory");
       setCreatePlannedPath(""); setCreatePurpose(""); setCreateTargetSector("");
@@ -262,6 +316,17 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const edge = graph.edges.find((e) => e.id === selectedEdge);
   const layer = graph.nodes.find((n) => n.id === parent);
   const editable = !!view && !view.readOnly && !busy;
+  const blocks = useMemo(
+    () => buildBlockNodes(graph, parent, desktop.state, openBlocks, desktop.readOnly || !!view?.readOnly, blockApi),
+    [graph, parent, desktop.state, openBlocks, desktop.readOnly, view?.readOnly],
+  );
+  // Uzavřená karta: bloky, porty, akce, pravidla i podklady jsou jen ke čtení, dokud ji člověk neotevře.
+  const selectedWorkflow = node ? nodeWorkflowOf(desktop.state, node.id) : null;
+  const selectedClosed = !!selectedWorkflow?.done.confirmed;
+  const libraryReadOnly = !editable || desktop.readOnly || selectedClosed;
+  // Vybraný blok pro Editor v zásuvce (panels.drawer === "block"); undefined, dokud stav nedorazí.
+  const selectedBlockData = selectedWorkflow?.blocks.find((b) => b.id === selectedBlock);
+  const pickerNode = graph.nodes.find((n) => n.id === pipelinePickerFor);
   const visible = graph.nodes.filter((n) => n.parentId === parent);
   const visibleIds = new Set(visible.map((n) => n.id));
   const outsideLinks = graph.edges.filter(
@@ -282,8 +347,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const activeProject = project === "draft" ? draftProject : projects.find((p) => p.id === project);
   // Volné uzly patří jen historickému vestavěnému draftu; připojený projekt
   // musí nejdřív dostat sektor, aby nevznikl zdroj bez vlastního kontextu.
-  const legacyFreeNode = project === "draft" && (activeProject?.sourceKind ?? "builtin") === "builtin";
-  const legacyFreeSector = modal === "sector" && project === "draft" && (activeProject?.sourceKind ?? "builtin") === "builtin";
+  const capabilities = projectCapabilities(project, activeProject);
+  const legacyFreeNode = capabilities.legacyFree;
+  const legacyFreeSector = modal === "sector" && capabilities.legacyFree;
   const conceptCreate = createOrigin === "concept";
   const requiresTargetSector = modal === "node" && !effectiveSector && !legacyFreeNode && !conceptCreate;
   const requiresModeChoice = !legacyFreeSector && !(modal === "node" && legacyFreeNode && !effectiveSector?.sourceRef) && (modal === "sector" || modal === "node");
@@ -293,15 +359,16 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const plannedNodePathReady = createOrigin !== "planned" || modal !== "node" || !createPlannedPath.trim() || effectiveSector?.sourceRef?.origin === "existing" || !!effectiveSector?.sourceRef?.path;
   const createReady = !requiresTargetSector && plannedNodePathReady && (!requiresModeChoice || (createOrigin !== null && purposeReady && pathReady));
   const activeWorkspace = view?.workspaces.find((w) => w.id === workspace);
-  const localProject = project === "draft" || ["local", "empty", "builtin"].includes(activeProject?.sourceKind ?? "");
-  const linkTargets = graph.nodes.map((n) => ({ id: n.id, name: n.name, kind: n.kind }));
+  const localProject = capabilities.localProject;
+  // Komentář ani oblast nemají zdroj ani vazby next/action/rule a nesmí být cílem odkazu: ven z grafu
+  // nabízených cílů se proto vylučují.
+  const linkTargets = graph.nodes.filter((n) => n.kind !== "comment" && n.kind !== "area").map((n) => ({ id: n.id, name: n.name, kind: n.kind }));
   /** Odkaz i souvislost vedou na tentýž uzel: otevře se jeho vrstva a označí se. */
   function openNode(id: string) {
     const target = graph.nodes.find((n) => n.id === id);
     if (!target) return;
     setParent(target.parentId);
-    setSelected(target.id);
-    setSelectedEdge(null);
+    setSelection(selectNode(target.id));
   }
   /** Kontextová akce: rodičovská integrace dostane přesný scope, běh nevzniká zde. */
   function requestAgentTask(nodeId: string, text: string, source: AgentTaskRequest["source"]) {
@@ -332,15 +399,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   }
   function enter(id: string | null) {
     setParent(id);
-    setSelected(null);
-    setSelectedEdge(null);
+    setSelection(emptySelection());
   }
   function selectProject(id: string, sourceKind?: string) {
     generation.current++;
     setView(null);
     setProject(id);
     const kind = sourceKind ?? projects.find((p) => p.id === id)?.sourceKind;
-    setWorkspace(id === "draft" || ["local", "empty", "builtin"].includes(kind ?? "") ? "draft" : "main");
+    setWorkspace(id === "draft" || isLocalKind(kind) ? "draft" : "main");
     enter(null);
   }
   function updateSettings(value: SurfaceSettings) {
@@ -351,18 +417,64 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       setError("Nastavení nyní platí, ale prohlížeč je nemohl uložit.");
     }
   }
-  function connectGraph(source: string, target: string) {
-    if (!editable || source === target) return;
-    if (graph.edges.some((e) => e.source === source && e.target === target)) {
+  /**
+   * Dokončený tah na plátně. Z tlačítka bloku (úchyt `block:<blockId>:<portId>`) vznikne vazba
+   * `port: "block"` s identitou bloku i portu, z hrany karty klasický `next / action / rule`.
+   */
+  function connectEdge(connection: BoardConnection) {
+    if (!editable) return;
+    const created = edgeFromConnection(connection);
+    if (!created) return;
+    if (graph.edges.some((e) => sameEdge(e, created))) {
       setError("Toto propojení už existuje.");
       return;
     }
-    run(() =>
-      save({
-        ...graph,
-        edges: [...graph.edges, { id: crypto.randomUUID(), source, target }],
-      }),
-    );
+    run(() => save({ ...graph, edges: [...graph.edges, created] }));
+  }
+  /** Nový komentář na aktuální vrstvě, umístěný úhlopříčně za ty už existující. */
+  function createComment() {
+    if (!editable) return;
+    const spot = nextCommentSpot(graph.nodes, parent);
+    const created = newComment(parent, spot.x, spot.y);
+    run(async () => {
+      await save({ ...graph, nodes: [...graph.nodes, created] });
+      setSelection(selectNode(created.id));
+    });
+  }
+  /** Nová oblast na aktuální vrstvě, umístěná úhlopříčně za ty už existující. */
+  function createArea() {
+    if (!editable) return;
+    const spot = nextAreaSpot(graph.nodes, parent);
+    const created = newArea(parent, spot.x, spot.y);
+    run(async () => {
+      await save({ ...graph, nodes: [...graph.nodes, created] });
+      setSelection(selectNode(created.id));
+    });
+  }
+  /** Tažení rámečku oblasti: posune ji i všechny její aktuální členy o stejný vektor. */
+  function moveArea(id: string, dx: number, dy: number) {
+    if (!editable) return;
+    run(() => save({ ...graph, nodes: moveWithMembers(graph.nodes, id, dx, dy) }));
+  }
+  /** Tahadlo NodeResizer: uloží novou (ohraničenou) velikost oblasti. */
+  function resizeAreaNode(id: string, w: number, h: number) {
+    if (!editable) return;
+    run(() => save({ ...graph, nodes: graph.nodes.map((n) => (n.id === id ? resizeArea(n, w, h) : n)) }));
+  }
+  /** Tlačítko „Srovnat“: rozestrká celou viditelnou vrstvu bez překryvů a uloží všechny změněné pozice naráz. */
+  function arrangeLayer() {
+    if (!editable) return;
+    const spread = spreadLayer(layerFootprints(graph, parent, desktop.state, openBlocks, {}));
+    const moved = new Map(spread.map((p) => [p.id, p]));
+    const nodes = graph.nodes.map((n) => {
+      const to = moved.get(n.id);
+      return to && (to.x !== n.x || to.y !== n.y) ? { ...n, x: to.x, y: to.y } : n;
+    });
+    if (nodes.some((n, i) => n !== graph.nodes[i])) run(() => save({ ...graph, nodes }));
+  }
+  /** Text komentáře opuštěný na plátně nebo v inspektoru. */
+  function commentText(nodeId: string, text: string) {
+    run(() => save({ ...graph, nodes: graph.nodes.map((n) => (n.id === nodeId ? { ...n, purpose: text } : n)) }));
   }
   async function requestRemoval(kind: RemovalPreview["kind"], target: string) {
     const context = activeContext.current;
@@ -419,8 +531,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         result.view
       ) {
         setView(result.view);
-        setSelected(null);
-        setSelectedEdge(null);
+        setSelection(emptySelection());
         if (parent && result.nodeIds?.includes(parent)) setParent(null);
       }
     }
@@ -448,8 +559,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         onTool={(type) => setDrawingCommand((old) => ({ type, sequence: old.sequence + 1 }))}
       />
     ) : undefined;
-  const showNode = !!node && (mode === "structure" || mode === "map");
-  const showEdge = !showNode && !!edge && (mode === "structure" || mode === "map");
+  // Kreslení má vlastní inspektor (nástroje plátna) mimo model výběru; ostatní režimy jdou přes panelsFor.
+  const panels: Panels = mode === "drawing" ? { drawer: null, inspector: "scope" } : panelsFor(selection, mode, !!layer, node?.kind);
+  const inspectorShown = panels.inspector !== null;
   return (
     <div className="app desktop-v2 desktop-v3">
       <TopBar
@@ -490,7 +602,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           </button>
         </div>
       )}
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={selection.value} onChange={selection.change} mapKind={projectMapKind}/> : <>
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind}/> : <>
       {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru">
         <div className="v3-tool-group" role="group" aria-label="Pohled">
           <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
@@ -499,19 +611,20 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         {(mode === "structure" || mode === "text") && <div className="v3-tool-group" role="group" aria-label="Tvorba">
           <button type="button" disabled={!editable} onClick={() => open("sector")}>+ Sektor</button>
           <button type="button" className="primary" disabled={!editable} onClick={() => open("node")}>+ Uzel</button>
+          <button type="button" disabled={!editable} onClick={createComment}>+ Komentář</button>
+          <button type="button" disabled={!editable} onClick={createArea}>+ Oblast</button>
+        </div>}
+        {mode === "structure" && <div className="v3-tool-group" role="group" aria-label="Filtr štítků">
+          <TagFilter graph={graph} parent={parent} state={desktop.state} value={tagFilter} onChange={setTagFilter} />
+        </div>}
+        {mode === "structure" && <div className="v3-tool-group" role="group" aria-label="Rozložení">
+          <button type="button" disabled={!editable} onClick={arrangeLayer}>Srovnat</button>
         </div>}
         {/* Se skrytým inspektorem zůstávají nástroje kreslení a mapy dosažitelné v liště. */}
-        {!inspectorOpen && !editorDocumentOpen && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
+        {!inspectorShown && !editorDocumentOpen && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
         <span className="v3-grow" />
-        {!artifactMapOpen && <><div className="v3-tool-group" role="group" aria-label="Panely">
-          <button aria-pressed={showContext} onClick={() => setShowContext((shown) => !shown)}>Kontext</button>
-          <button aria-pressed={inspectorOpen} title="Skrýt nebo zobrazit pravý inspektor" onClick={toggleInspector}>Inspektor</button>
-        </div>
-        <button className="primary v3-materials" aria-pressed={workbenchOpen} title="Náhled, neměnný snímek a export podkladů pro externího agenta" onClick={() => setWorkbenchOpen((shown) => !shown)}>Podklady pro agenta</button></>}
       </div>}
-      <div className={"workspace-shell " + mode + "-mode" + ((mode === "agents" || mode === "map") ? " no-inspector" : "") + (!showContext ? " no-context" : "") + (!inspectorOpen ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
-        {environment === "editor" && showContext && !artifactMapOpen && <ContextShelf project={project} workspace={workspace} value={selection.value} onChange={selection.change} onAdd={selection.add}
-          onOpen={(path) => { selection.change({ sourcePath: path }); setEditorDocumentOpen(true); }} />}
+      <div className={"workspace-shell " + mode + "-mode" + ((mode === "agents" || mode === "map") ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
             <nav aria-label="Cesta plátnem" className="crumbs">
@@ -531,7 +644,63 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
 
           </div>}
           <div className="canvas-surface">
-            {environment === "editor" && editorDocumentOpen ? <WorkspaceDocumentEditor key={JSON.stringify([project, workspace, selection.value.sourcePath])} project={project} workspace={workspace} path={selection.value.sourcePath} /> : view ? (
+            {environment === "editor" && mode === "structure" && !editorDocumentOpen && !artifactMapOpen && view && (
+              <>
+                <NodeLibraryDrawer
+                  open={panels.drawer !== null}
+                  section={library.section}
+                  onSection={(section) => setLibrary((l) => showSection(l, section))}
+                  // Komentář ani oblast nemají bloky, akce ani podklady: knihovna je nikdy nesmí dostat jako svůj uzel.
+                  node={node && node.kind !== "comment" && node.kind !== "area" ? node : null}
+                  workflow={selectedWorkflow}
+                  rows={selectedWorkflow ? cardBlocks(selectedWorkflow) : []}
+                  readOnly={libraryReadOnly}
+                  pipelines={pipelineLibrary}
+                  edges={graph.edges}
+                  project={project}
+                  workspace={workspace}
+                  onClose={() => setLibrary(closeLibrary)}
+                  onAddBlock={(kind) => { if (node && !libraryReadOnly) void desktop.mutate(addBlockOfKind(node.id, kind)); }}
+                  onRemoveBlock={(blockId) => { if (node && !libraryReadOnly) void desktop.mutate(removeBlock(node.id, blockId)); }}
+                  onAddAction={(pipeline) => { if (node && !libraryReadOnly) void desktop.mutate(addAction(node.id, pipeline)); }}
+                  materials={{
+                    previewUrl: (material) => (node ? blockApi.current.previewUrl(node.id, material) : null),
+                    onMove: (index, delta) => { if (node && !libraryReadOnly) void desktop.mutate(moveMaterial(node.id, index, delta)); },
+                    onRemove: (material) => {
+                      if (!node || libraryReadOnly) return;
+                      const id = node.id;
+                      void desktop.mutate(removeMaterial(id, material.id)).then((ok) => { if (ok && material.kind === "upload") blockApi.current.discardUpload(id, material.path); });
+                    },
+                    onCaption: (id, caption) => { if (node && !libraryReadOnly) void desktop.mutate(captionMaterial(node.id, id, caption)); },
+                    onAddRef: (path, caption) => (node && !libraryReadOnly ? desktop.mutate(addMaterial(node.id, materialKindOf(path), path.trim(), caption)) : Promise.resolve(false)),
+                    onUpload: async (dataUrl, caption) => {
+                      if (!node || libraryReadOnly) return false;
+                      const file = await blockApi.current.uploadMaterial(node.id, dataUrl);
+                      return file ? desktop.mutate(addMaterial(node.id, "upload", file, caption)) : false;
+                    },
+                  }}
+                  content={panels.drawer === "block" && node && selectedWorkflow && selectedBlockData ? {
+                    title: `Blok ${selectedBlockData.number} · ${selectedBlockData.title}`,
+                    body: (
+                      <BlockDrawerContent
+                        desktop={desktop}
+                        project={project}
+                        workspace={workspace}
+                        node={node}
+                        workflow={selectedWorkflow}
+                        blockId={selectedBlockData.id}
+                        linkTargets={linkTargets}
+                        disabled={libraryReadOnly}
+                        onSelectBlock={(id) => setSelection(selectBlock(node.id, id))}
+                        onSelectNode={() => setSelection(selectNode(node.id))}
+                        onPickTag={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
+                      />
+                    ),
+                  } : undefined}
+                />
+              </>
+            )}
+            {environment === "editor" && editorDocumentOpen ? <WorkspaceDocumentEditor key={JSON.stringify([project, workspace, docSelection.value.sourcePath])} project={project} workspace={workspace} path={docSelection.value.sourcePath} /> : view ? (
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} />
               ) : mode === "agents" ? (
@@ -580,16 +749,13 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   settings={settings}
                   parent={parent}
                   selected={selected}
+                  selectedBlock={selectedBlock}
                   disabled={!editable}
                   selectedEdge={selectedEdge}
-                  onSelect={(id) => {
-                    setSelected(id);
-                    setSelectedEdge(null);
-                  }}
-                  onSelectEdge={(id) => {
-                    setSelectedEdge(id);
-                    setSelected(null);
-                  }}
+                  onSelect={(id) => setSelection(selectNode(id))}
+                  onSelectBlock={(nodeId, blockId) => setSelection(selectBlock(nodeId, blockId))}
+                  onClear={() => setSelection(clearSelection())}
+                  onSelectEdge={(id) => setSelection(selectEdge(id))}
                   onEnter={enter}
                   editing={editingName}
                   onEditing={setEditingName}
@@ -616,7 +782,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                     };
                     run(async () => {
                       await save({ ...graph, nodes: [...graph.nodes, created] });
-                      setSelected(created.id);
+                      setSelection(selectNode(created.id));
                       setEditingName(created.id);
                     });
                   }}
@@ -630,21 +796,27 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                       }),
                     )
                   }
-                  onConnect={(c) => {
-                    if (c.source && c.target)
-                      run(() =>
-                        save({
-                          ...graph,
-                          edges: [
-                            ...graph.edges,
-                            {
-                              id: crypto.randomUUID(),
-                              source: c.source!,
-                              target: c.target!,
-                            },
-                          ],
-                        }),
-                      );
+                  onCommentText={commentText}
+                  onAreaMove={moveArea}
+                  onAreaResize={resizeAreaNode}
+                  onConnect={connectEdge}
+                  state={desktop.state}
+                  blocks={blocks}
+                  openBlocks={openBlocks}
+                  onTogglePort={togglePort}
+                  tagFilter={tagFilter}
+                  onTagFilter={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
+                  onCardBlock={(nodeId, event) => {
+                    // Uzavřená karta má bloky i porty jen ke čtení; dílek je zamčený, tady je pojistka.
+                    if (nodeWorkflowOf(desktop.state, nodeId).done.confirmed) return;
+                    if (event.type === "add") void desktop.mutate(addBlock(nodeId));
+                    else if (event.type === "move") void desktop.mutate(moveBlock(nodeId, event.blockId, event.delta));
+                    else if (event.type === "remove") void desktop.mutate(removeBlock(nodeId, event.blockId));
+                    else if (event.type === "text") void desktop.mutate(updateBlock(nodeId, event.blockId, { text: event.text }));
+                    else if (event.type === "add-port") void desktop.mutate(addBlockPort(nodeId, event.blockId));
+                    else if (event.type === "rename-port") void desktop.mutate(renameBlockPort(nodeId, event.blockId, event.portId, event.label));
+                    else if (event.type === "remove-port") void desktop.mutate(removeBlockPort(nodeId, event.blockId, event.portId));
+                    else void desktop.mutate(updateBlock(nodeId, event.blockId, { title: event.title }));
                   }}
                 />
               )
@@ -683,9 +855,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
             </span>
           </footer>}
         </main>
-        {mode !== "agents" && !artifactMapOpen && !editorDocumentOpen && inspectorOpen && (
+        {!editorDocumentOpen && panels.inspector !== null && (
           <aside className="inspector" aria-label="Inspektor">
-            {showNode && node ? (<>
+            {panels.inspector === "node" && node ? (<>
               <NodePanel
                 key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
                 node={node}
@@ -711,6 +883,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 }
                 onWorkspace={() => open("workspace")}
                 onOpenNode={openNode}
+                graphNodes={linkTargets}
+                done={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).done}
+                onDone={(patch) => { void desktop.mutate(setDone(node.id, patch)); }}
+                onPickTag={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
+                onSelectBlock={(id) => setSelection(selectBlock(node.id, id))}
                 onAgentTask={() => requestAgentTask(node.id, node.purpose || node.name, "canvas")}
                 onLiveRun={v3.liveWorkspace ? () => {
                   setLiveView("overview");
@@ -723,24 +900,59 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 }}
               />
               {v3.nodeWorkflow && <div className="v3-slot v3-node-workflow">{v3.nodeWorkflow({ project, workspace, nodeId: node.id })}</div>}
-            </>) : showEdge && edge ? (
-              <div className="edge-panel">
-                <div className="eyebrow">VAZBA · DETAIL</div>
-                <h2>
-                  {graph.nodes.find((n) => n.id === edge.source)?.name} → {graph.nodes.find((n) => n.id === edge.target)?.name}
-                </h2>
-                <p className="muted">Explicitní propojení mezi uzly. Smazání odstraní jen vazbu, uzly zůstávají.</p>
-                <button
-                  type="button"
-                  className="danger"
-                  disabled={!editable}
-                  title={view?.readOnly ? "Main je pouze pro čtení." : "Zobrazit dopad před smazáním"}
-                  onClick={() => requestRemoval("edge", edge.id)}
-                >
-                  Smazat vazbu
-                </button>
-              </div>
-            ) : mode === "text" && layer ? (
+            </>) : panels.inspector === "comment" && node ? (
+              <CommentPanel
+                key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
+                node={node}
+                readOnly={!!view?.readOnly}
+                busy={busy}
+                onSave={(n) =>
+                  run(() =>
+                    save({
+                      ...graph,
+                      nodes: graph.nodes.map((old) => (old.id === n.id ? n : old)),
+                    }),
+                  )
+                }
+                onDelete={() => requestRemoval("node", node.id)}
+              />
+            ) : panels.inspector === "area" && node ? (
+              <AreaPanel
+                key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
+                node={node}
+                readOnly={!!view?.readOnly}
+                busy={busy}
+                members={membersOf(node, graph.nodes).map((m) => ({ id: m.id, name: m.name, kind: m.kind }))}
+                flows={graph.edges
+                  .filter((e) => e.port === "flow" && (e.source === node.id || e.target === node.id))
+                  .map((e) => {
+                    const otherId = e.source === node.id ? e.target : e.source;
+                    const other = graph.nodes.find((n) => n.id === otherId);
+                    const direction: "in" | "out" = e.target === node.id ? "in" : "out";
+                    return { id: e.id, name: other ? areaLabel(other) : otherId, direction };
+                  })}
+                onSave={(n) =>
+                  run(() =>
+                    save({
+                      ...graph,
+                      nodes: graph.nodes.map((old) => (old.id === n.id ? n : old)),
+                    }),
+                  )
+                }
+                onOpenNode={openNode}
+                onDelete={() => requestRemoval("node", node.id)}
+              />
+            ) : panels.inspector === "edge" && edge ? (
+              <EdgeReportPanel
+                key={project + ":" + workspace + ":" + edge.id}
+                view={edgeReportView(edge, graph.nodes, nodeWorkflowOf(desktop.state, edge.source))}
+                report={reportOf(desktop.state, edge.id)}
+                readOnly={!!view?.readOnly || desktop.readOnly}
+                busy={busy}
+                onChange={(field, value) => { void desktop.mutate(setEdgeReport(edge.id, { [field]: value })); }}
+                onDelete={() => requestRemoval("edge", edge.id)}
+              />
+            ) : panels.inspector === "layer" && layer ? (
               <LayerContext
                 key={project + ":" + workspace + ":" + layer.id}
                 project={project}
@@ -772,12 +984,19 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         )}
       </div>
       </>}
-      {/* Práce s AI = jen Podklady pro agenta (náhled, neměnný snímek, export). Nic se samo neodesílá modelu. */}
-      {environment === "editor" && workbenchOpen && <section className="agent-packet-dock" aria-label="Práce s AI">
-        <header><strong>Práce s AI · {project}/{workspace}</strong><button onClick={() => setWorkbenchOpen(false)}>Skrýt podklady</button></header>
-        <div className="v3-slot">{v3.agentPacket?.({ project, workspace, nodeId: selected ?? "", path: selection.value.sourcePath, references: selection.value.references, note: selection.value.note })
-          ?? <p className="agent-packet-dock-empty">Panel Podklady pro agenta není v této sestavě napojený.</p>}</div>
-      </section>}
+      {pickerNode && (
+        <PipelinePicker
+          nodeName={pickerNode.name}
+          onClose={() => setPipelinePickerFor(null)}
+          onSelect={(pipeline) => {
+            const nodeId = pickerNode.id;
+            setPipelinePickerFor(null);
+            desktop.mutate(addAction(nodeId, pipeline)).then((ok) => {
+              if (!ok) setError(desktop.error || "Akci se nepodařilo uložit.");
+            });
+          }}
+        />
+      )}
       <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
       {appSettingsOpen && <SettingsDialog
         onClose={() => setAppSettingsOpen(false)}
@@ -953,8 +1172,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                         activeScope.current.workspace !== submitScope.workspace
                       ) return;
                       setParent(parentId);
-                      setSelected(n.id);
-                      setSelectedEdge(null);
+                      setSelection(selectNode(n.id));
                       setModal(null);
                     });
                   });

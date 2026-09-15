@@ -1,0 +1,1 @@
+Schopnosti projektu podle druhu zdroje (project-capabilities.ts): jediné místo, kde se rozhraní větví podle projektu. Rodič (App) je spočítá a rozdá dílkům v props; žádný dílek si druh projektu nevyhodnocuje sám.
