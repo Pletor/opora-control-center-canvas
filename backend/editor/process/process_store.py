@@ -11,6 +11,7 @@ import json
 import os
 import re
 import secrets
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -22,6 +23,19 @@ PROCESS_ID = re.compile(r"^prc-[0-9a-f]{12}$")
 STEP_ID = re.compile(r"^stp-[0-9a-f]{8}$")
 REQUIRED = ("id", "projectId", "title", "state", "createdAt", "updatedAt", "revision", "owner", "inputs", "steps", "outputs", "failure", "history")
 INPUT_KEYS = ("nodeText", "spec", "packet", "worktree", "references")
+_PATH_LOCKS: dict[str, threading.Lock] = {}
+_PATH_LOCKS_LOCK = threading.Lock()
+
+
+def _path_lock(path: Path) -> threading.Lock:
+    """Vrátí procesový zámek pro kanonickou cestu jednoho souboru procesu."""
+    canonical_path = os.path.normcase(str(path.resolve()))
+    with _PATH_LOCKS_LOCK:
+        lock = _PATH_LOCKS.get(canonical_path)
+        if lock is None:
+            lock = threading.Lock()
+            _PATH_LOCKS[canonical_path] = lock
+        return lock
 
 
 def now() -> str:
@@ -175,19 +189,24 @@ class ProcessStore:
 
     def save(self, process: dict, expected_revision: int) -> dict:
         validate(process)
-        stored = self.get(process["id"])
-        if stored["revision"] != expected_revision or process["revision"] != expected_revision:
-            raise ValueError(f"Proces se mezitím změnil (revize {stored['revision']}, očekávána {expected_revision}). Načtěte ho znovu.")
-        if process["history"][: len(stored["history"])] != stored["history"]:
-            raise ValueError("Historie procesu je append-only; existující záznamy nelze měnit ani mazat.")
-        if process["createdAt"] != stored["createdAt"] or process["projectId"] != stored["projectId"]:
-            raise ValueError("createdAt a projectId procesu nelze měnit.")
-        updated = {**process, "revision": expected_revision + 1, "updatedAt": now()}
-        self._write(self._file(updated["id"]), updated)
-        return updated
+        path = self._file(process["id"])
+        with _path_lock(path):
+            stored = self.get(process["id"])
+            if stored["revision"] != expected_revision or process["revision"] != expected_revision:
+                raise ValueError(f"Proces se mezitím změnil (revize {stored['revision']}, očekávána {expected_revision}). Načtěte ho znovu.")
+            if process["history"][: len(stored["history"])] != stored["history"]:
+                raise ValueError("Historie procesu je append-only; existující záznamy nelze měnit ani mazat.")
+            if process["createdAt"] != stored["createdAt"] or process["projectId"] != stored["projectId"]:
+                raise ValueError("createdAt a projectId procesu nelze měnit.")
+            updated = {**process, "revision": expected_revision + 1, "updatedAt": now()}
+            self._write(path, updated)
+            return updated
 
     def _write(self, path: Path, process: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(process, ensure_ascii=False, indent=2), encoding="utf-8")
-        os.replace(tmp, path)
+        tmp = path.with_name(f"{path.name}.{secrets.token_hex(12)}.tmp")
+        try:
+            tmp.write_text(json.dumps(process, ensure_ascii=False, indent=2), encoding="utf-8")
+            os.replace(tmp, path)
+        finally:
+            tmp.unlink(missing_ok=True)
