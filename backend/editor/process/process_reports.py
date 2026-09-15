@@ -54,7 +54,7 @@ class ProcessReports:
         tmp.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, path)
         report["file"] = path.name
-        updated = self._apply(process, report)
+        updated = process if report["stale"] else self._apply(process, report)
         if updated is not process:
             updated = self.store.save(updated, expected_revision=process["revision"])
         return {"report": report, "process": updated}
