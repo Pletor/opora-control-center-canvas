@@ -116,6 +116,7 @@ Když o to uživatel požádá, asistent připraví zadání podle [predani-mode
 | POST | `/api/assistant/sessions/{id}/messages` | `{text, context}` | zařadí zprávu, vrátí 202. Během běžícího tahu 409 |
 | GET | `/api/assistant/sessions/{id}/events` | `after=<seq>` | **SSE** stream událostí, po výpadku se naváže od `after` |
 | GET | `/api/assistant/sessions/{id}/transcript` | | historie z JSONL přepisu |
+| POST | `/api/assistant/sessions/{id}/title` | `{title}` | přejmenuje úkol (1–80 znaků), vrátí `{session}` |
 | POST | `/api/assistant/sessions/{id}/stop` | | ukončí běžící tah (zabije proces, další zpráva obnoví přes `--resume`) |
 | POST | `/api/assistant/sessions/{id}/close` | | ukončí proces a session označí `closed` |
 | POST | `/api/assistant/approvals/{approvalId}` | `{decision: "allow"\|"deny", note?}` | rozhodnutí člověka (fáze 2) |
@@ -138,19 +139,68 @@ Všechny `/api/assistant/*` jsou **jen pro loopback**. Přes tunel ([vzdaleny-pr
 
 ## 9. UI (`frontend/layout/assistant-panel/`)
 
-- Tlačítko **Asistent** je v pravém rohu horní lišty za `LOKÁLNĚ · port` (`frontend/layout/top-bar/components/TopBar.tsx`). Je vidět ve všech prostředích (projekt, editor, live run).
-- Klik otevře panel vpravo nad plátnem. Panel obsahuje:
-  - záložky session a tlačítko „Nová session“,
-  - seznam zpráv se streamovaným textem,
-  - řádky volání nástrojů (sbalené, název a krátký souhrn),
-  - karty schválení „Povolit / Zamítnout“ s náhledem zápisu (fáze 2),
-  - pole pro zprávu a tlačítko Stop.
-- Dílky: `AssistantButton`, `AssistantPanel` (rodič, drží spojení a stav), `SessionTabs`, `MessageList`, `ToolCallRow`, `ApprovalCard`, `Composer`.
-- Logika bez Reactu:
-  - `logic/assistant-events.ts` skládá události SSE do stavu konverzace (test `assistant-events.test.ts`),
-  - `logic/assistant-api.ts` volá endpointy.
-- Výchozí model pro novou session se ukládá jednou pro aplikaci, nikdy per projekt. Fáze 1 ho drží v prohlížeči (`localStorage` `opora:assistant:v1`); do Nastavení → Obecné se přesune, až bude potřeba. Šířka panelu je pevná (420 px, na úzkém okně 100 %).
-- Když `status.available` je `false`, panel řekne, že `claude` není nainstalovaný nebo přihlášený, a nabídne příkaz `claude` k přihlášení v terminálu.
+Asistent slouží k přemýšlení nad víc úkoly najednou. Proto má přehled úkolů na první pohled, rychlé přepínání a text, který se čte jako dokument, ne jako chat v bublinách. Design je prostorný a klidný: hodně vzduchu, jedna akcentní barva, žádné rámečky navíc.
+
+**Tlačítko.** **Asistent** je v pravém rohu horní lišty za `LOKÁLNĚ · port` (`frontend/layout/top-bar/components/TopBar.tsx`) ve všech prostředích. Když nějaká session pracuje, tlačítko to ukáže tečkou.
+
+**Tři velikosti** (přepínač v hlavičce panelu, ikonami s popiskem):
+
+| Velikost | Co uživatel vidí | Kdy |
+|---|---|---|
+| `minimized` | Malá lišta vpravo dole: název aktivního úkolu, stav (pracuje / čeká na vás / hotovo) a počet úkolů. Klik ji rozbalí zpět. | Asistent pracuje, uživatel kouká na plátno |
+| `side` (výchozí) | Panel vpravo přes celou výšku pod lištou, šířka cca 480 px (na okně pod 900 px celá šířka). Nahoře rozbalovací přehled úkolů, pod ním konverzace. | Práce s plátnem a asistentem zároveň |
+| `full` | Celá plocha pod horní lištou. Vlevo trvalý sloupec úkolů (cca 300 px), vpravo konverzace ve středu se sloupcem textu nejvýš cca 72 znaků. | Soustředěné přemýšlení, delší odpovědi, grilling |
+
+- Velikost se ukládá jednou pro aplikaci (`localStorage` `opora:assistant:v1`, stejně jako výchozí model), nikdy per projekt.
+- Zkratky: `Esc` v `full` přejde na `side`, v `side` na `minimized`. `Alt+↑` / `Alt+↓` přepíná na předchozí / další úkol.
+
+**Přehled úkolů** (každá session je jeden úkol):
+
+- Položka ukazuje:
+  - název (lze přejmenovat dvojklikem nebo tužkou),
+  - stav tečkou a slovem: *pracuje*, *připraveno*, *chyba*,
+  - model,
+  - čas poslední změny relativně („před 5 min“),
+  - první řádek poslední odpovědi asistenta jako náhled, když je k dispozici.
+- Aktivní úkol je zvýrazněný. Kliknutí přepne bez ztráty rozepsané zprávy: koncept zprávy se drží per session v paměti panelu.
+- Úkol, který doběhl, zatímco se uživatel díval jinam, má značku „nové“, dokud ho neotevře.
+- „+ Nový úkol“ s výběrem modelu je nahoře v přehledu. Zavřít úkol jde z položky, s potvrzením v řádku, ne dialogem.
+
+**Konverzace:**
+
+- Zpráva uživatele je odsazený blok s jemným akcentem vlevo. Odpověď asistenta je čistý text přes celou šířku sloupce. Žádné bubliny.
+- Odpověď asistenta se vykresluje jako bezpečný základní Markdown bez HTML: odstavce, `**tučně**`, `*kurzíva*`, `` `kód` ``, bloky kódu, nadpisy, odrážky, číslované seznamy, oddělovač `---` a odkazy jako text. Implementace je vlastní (`logic/markdown.ts` → struktura → React prvky), bez `innerHTML` a bez nové závislosti, s testem.
+- Písmo 15 px, řádkování 1,6, mezi zprávami velká mezera.
+- Řádky nástrojů jsou jeden tlumený řádek. Víc nástrojů po sobě se sbalí do „3 kroky (Read, Grep, Skill)“ a rozbalí se kliknutím.
+- Stav běhu je u konce konverzace („pracuje…“ s časem od začátku tahu). Stop je vedle pole pro zprávu.
+- Pole pro zprávu roste s textem do cca 40 % výšky. `Enter` odešle, `Shift+Enter` udělá nový řádek. Nápověda `/grill-me`, `/wayfinder` se ukáže, když pole začíná `/`.
+
+**Přejmenování úkolu:** `POST /api/assistant/sessions/{id}/title {title}` (1–80 znaků, bez řídicích znaků) → `{session}`.
+
+**Dílky:**
+
+- `AssistantButton`
+- `AssistantPanel`: rodič, drží velikost, spojení a stav
+- `TaskList`, `TaskItem`
+- `SizeSwitch`
+- `MinimizedBar`
+- `Conversation`
+- `MessageBlock`
+- `Markdown`
+- `ToolSteps`
+- `Composer`
+- `ApprovalCard` (fáze 2)
+
+**Logika bez Reactu:**
+
+- `assistant-events.ts`
+- `markdown.ts`
+- `task-overview.ts`: stav, náhled, „nové“, relativní čas
+- `assistant-prefs.ts`
+
+Každá s testem `*.test.ts`.
+
+Když `status.available` je `false`, panel řekne, že `claude` není nainstalovaný nebo přihlášený, a nabídne příkaz `claude` k přihlášení v terminálu.
 
 ## 10. Fáze a ověření
 
