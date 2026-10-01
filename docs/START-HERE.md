@@ -10,7 +10,7 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 
 ## Nově: pracovní módy
 
-**Struktura / Kreslení / Mapa** vlevo, **Nastavení plochy** nahoře. Kresby jsou samostatné pro každou vrstvu a mají ruční ukládání; Mapa používá skutečný graph a exportuje pro Archify. Ovládání a důkazy: WU-MODES-01 (historické zadání, odstraněno při restrukturalizaci 2026-09-13).
+Kresby jsou samostatné pro každou vrstvu a mají ruční ukládání. Mapy projektu (Archify a Graphify-out v prostředí Projekt) se po mergi do main samy přepíšou na místě v `archify-out/` a `graphify-out/` hlavního projektu, viz [mapy-projektu.md](mapy-projektu.md). Nastavení je vlevo dole.
 
 ## Nově: odstranění vložených položek
 

@@ -10,7 +10,8 @@ opora-canvas/
     layout/             # kostra obrazovky společná všem prostředím
       top-bar/
       environment-switch/ # Projekt | Editor | Live Run (Alt+1..3)
-      mode-rail/        # módy plátna uvnitř Editoru
+      mode-rail/        # módy plátna uvnitř Editoru (vodorovné záložky ve druhé řadě lišty)
+      panel-dock/       # tlačítka Knihovna | Agenti a postupy a panel zavěšený pod nimi (docs/rozvrzeni-editoru.md)
       account-corner/   # levý dolní roh: tlačítko Opora a popup menu
       shell/            # styly pracovní plochy
     project-setup/      # KROK 1: přiřazení repozitářů a složek, vytvoření projektu
@@ -20,8 +21,8 @@ opora-canvas/
       maps/             # Archify, Graphify, obnova map
       workspace/        # složení plochy, dokumentace k cestám
     editor/             # PROSTŘEDÍ EDITOR: řízení vývoje
-      canvas/           # board, drawing (Excalidraw), wireframes, node-card, sector-card
-      node-detail/      # NodePanel: content, assignment, process (návrh → proces → hotovo → oprava), journal, links
+      canvas/           # board, drawing (Excalidraw), wireframes, node-card, sector-card, history (krok zpět, Ctrl+Z)
+      node-detail/      # NodePanel: content, assignment, process (návrh → proces → hotovo → oprava), journal, links, agent-summary (souhrn práce agentů v módu Text)
       sector-detail/    # stejná šablona jako node-detail
       workflow/         # fáze, kritéria, kroky uzlu → základ pipeline
       component-library/ # LEVÁ STRANA: knihovna komponent, metod, funkcí (palette/)
@@ -67,7 +68,8 @@ opora-canvas/
       process/          # process_store, process_lifecycle (návrh → proces → hotovo → oprava), process_reports (odpovědi agentů)
       task_execution/   # slot: vykonání úkolu z uzlu podle ID
     live_run/           # PROSTŘEDÍ LIVE RUN: agent_sources, agent_catalog, agent_bindings, agent_activity, agent_telemetry, node_sessions
-    integrations/       # platforma: gitio, windows_job, build_identity
+    memory/             # paměť agenta podle role napříč projekty (OpenViking): roles, memory_service
+    integrations/       # platforma: gitio, windows_job, build_identity, openviking_client
     claude_code/        # skills_catalog (SKILL.md z projektu, uživatele, pluginů), skill_preferences (vypnuté skills); hooky a commands přibudou
     library/            # slot: načítání a verze předloh
     (každý balíček má README; test leží vedle modulu jako test_<modul>.py)
@@ -82,6 +84,7 @@ opora-canvas/
     functions/
     methods/
     lessons/            # zaznamenané chyby → návrhy aktualizace předloh
+    agent-roles.json    # role agenta (frontend, backend, databáze…): id, název, popis
 
   .claude/              # co čte Claude Code: hooks/, commands/, skills/ (opora-control-center, prompt-master)
   shared/               # JSON schémata kontraktů FE ↔ BE ↔ agenti
@@ -141,6 +144,7 @@ backend/integrations
 backend/library
 backend/live_run
 backend/mcp
+backend/memory
 backend/project
 backend/project/maps
 backend/project/workspace
@@ -181,6 +185,19 @@ frontend/editor/llm-control/editor-context/components
 frontend/editor/llm-control/project-memory
 frontend/editor/llm-control/project-memory/components
 frontend/editor/node-detail
+frontend/editor/node-detail/agent-summary
+frontend/editor/node-detail/agent-summary/components
+frontend/editor/node-detail/agent-summary/logic
+frontend/editor/node-detail/agent-summary/styles
+frontend/editor/node-detail/agent-workspace
+frontend/app/access-gate
+frontend/app/access-gate/components
+frontend/app/access-gate/logic
+frontend/app/access-gate/styles
+frontend/editor/node-detail/agent-workspace/memory
+frontend/editor/node-detail/agent-workspace/memory/components
+frontend/editor/node-detail/agent-workspace/memory/logic
+frontend/editor/node-detail/agent-workspace/memory/styles
 frontend/editor/node-detail/assignment
 frontend/editor/node-detail/assignment/components
 frontend/editor/node-detail/components
@@ -200,6 +217,10 @@ frontend/layout/environment-switch
 frontend/layout/environment-switch/components
 frontend/layout/mode-rail
 frontend/layout/mode-rail/components
+frontend/layout/panel-dock
+frontend/layout/panel-dock/components
+frontend/layout/panel-dock/logic
+frontend/layout/panel-dock/styles
 frontend/layout/shell
 frontend/layout/shell/styles
 frontend/layout/top-bar
