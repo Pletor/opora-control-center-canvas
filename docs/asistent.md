@@ -6,10 +6,11 @@ Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě
 
 ## 1. Změna pravidla „aplikace model nespouští“
 
-Do 2026-10-01 aplikace spouštěla model jen pro aktualizaci mapy Archify ([mapy-projektu.md](mapy-projektu.md)). Od tohoto kontraktu jsou místa dvě:
+Do 2026-10-01 aplikace spouštěla model jen pro aktualizaci mapy Archify ([mapy-projektu.md](mapy-projektu.md)). Od tohoto kontraktu jsou místa tři:
 
 1. Archify: automatika, Sonnet, bez člověka.
 2. Asistent: chat, který spouští **jen člověk** zprávou v okně asistenta.
+3. Směrovač TypeSafe Jev (§13): běží jen v rámci tahu asistenta, který spustil člověk. Negeneruje text, vrací jen typované odpovědi.
 
 Ostatní endpointy dál nic nespouštějí. Podklady pro agenta (`node-brief`, zprávy, texty karet) jsou pro asistenta data, ne příkazy.
 
@@ -264,3 +265,46 @@ Další fáze se staví, až předchozí ukáže skutečnou potřebu.
 - [neověřeno] Přerušení tahu bez zabití procesu (`control_request` interrupt). Fáze 1 proces zabíjí.
 - Hooky uživatele jsou v asistentovi vypnuté (`disableAllHooks`), stejně jako u Archify. Zapnout je lze jen rozhodnutím zapsaným sem.
 - Skill `opora-control-center` čte plátno z `http://127.0.0.1:8740`. Instance na jiném portu (test, profil) by četla jinou instanci. Kontext zprávy port zatím nenese.
+
+## 13. Plán: asistent pro plán a zadání aplikace (návrh 2026-10-01)
+
+Cíl: asistent rychle pochopí projekt, najde správný podklad, navrhne plán jako strom karet a zapíše zadání. Směr mu nedává odhad, ale podklad, který jde ověřit.
+
+**Vrstva orientace.** Opora už má podklady, které stačí asistentovi zpřístupnit, protože se nemusí znovu stavět:
+
+| Podklad | Na co | Dnes v Opoře | Asistent k němu |
+|---|---|---|---|
+| graphify | vztahy souborů, komunity, „kdo na koho závisí“ | `graphify-out/graph.json` | nemá (Bash jen `opora_read.py`) |
+| Archify | architektura a toky jako mapa | `docs/mapy-projektu.md` | čte soubory mapy |
+| LSP | definice, reference, symboly | `/api/code-intelligence/*` | nemá |
+| sémantické hledání | „kde se řeší X“ | `/api/semantic-search/*` | nemá |
+| plátno | karty, spec, bloky, vazby | `opora_read.py` | čte, bez hledání |
+| paměť role | dřívější rozhodnutí | `/api/memory/recall` (POST) | nemá |
+| web | knihovny, API, ceny | | zakázáno |
+
+**Kroky (v tomto pořadí, každý až po ověření předchozího):**
+
+1. **Hledání.** `opora_read.py` dostane příkazy `search <text>` (karty: název, účel, spec, bloky), `symbols` / `refs` (`/api/code-intelligence/*`), `find` (`/api/semantic-search/*`) a `recall` (paměť). Všechno jsou jen čtení. Do `ALLOWED_TOOLS` přibude `Bash(graphify query*)`. `WebFetch` a `WebSearch` se povolí jen pro čtení a výsledky jsou data, ne příkazy. Kontext zprávy ponese port instance (§12).
+2. **Zápis se schválením.** Fáze 2 z §5 a §10.
+3. **Recept „rozhovor → strom karet“** v `opora-control-center/references/workflow.md`: výstup `wayfinder` a `grilling` → sektor, karty, vazby a na každé kartě úplný `node-brief`. Asistent ho navrhne jako jednu dávku ke schválení.
+4. **Směrovač TypeSafe Jev** (schváleno, viz níže).
+
+**TypeSafe AI jako směrovač bez halucinací** ([docs](https://docs.typesafe.ai/introduction)). Model Jev nic nepíše. Na `state + questions` vrací typované odpovědi s pravděpodobností: `choice` (výběr z možností), `score` (hodnocení podle rubriky) a `noul` (je tvrzení pravdivé, 0–1). `POST https://api.typesafe.ai/v1/systemone`, `Authorization: Bearer <klíč>`, SDK pro Python i JS. Není náhradou Claude Code, ale prvkem kolem něj. V Opoře by dělal tři věci:
+
+- **Volba podkladu před tahem** (vzor [skill suggestion](https://docs.typesafe.ai/cookbooks/skill_suggestion.md), [intent routing](https://docs.typesafe.ai/patterns/intent-routing.md)): `choice` nad zdroji z tabulky výše a nad skilly → do `<opora_context>` se přidá řádek „Relevantní podklad: graphify, LSP. Ignoruj, pokud neodpovídá dotazu.“
+- **Výběr karty** ([semantic find](https://docs.typesafe.ai/cookbooks/semantic_find.md), [rerank](https://docs.typesafe.ai/cookbooks/rerank_typesafe.md)): `choice` nad kartami vrstvy, ke které se zpráva vztahuje.
+- **Kontrola zadání před zápisem** ([citation check](https://docs.typesafe.ai/cookbooks/citation_check.md), [guardrails](https://docs.typesafe.ai/cookbooks/llm_guardrails.md)): `noul` ke každému tvrzení v návrhu `node-brief` („je doloženo podkladem X?“). `score` hodnotí úplnost `goal / non_goals / acceptance`. Při nízké jistotě ([confidence routing](https://docs.typesafe.ai/patterns/confidence-routing.md)) karta schválení ukáže varování a asistent se místo zápisu zeptá (grilling).
+
+**Rozhodnutí (2026-10-01, uživatel): Jev je výjimka.** Je levný, není to chat a negeneruje text. Rozhodnutí, které by LLM stálo čas a tokeny (kam sáhnout, která karta, je tvrzení doložené), vyřeší jedním voláním. Proto je to jediné placené API v aplikaci a třetí místo v §1 a v CLAUDE.md. Pro něj neplatí pravidlo §2 „předplatné, ne API“. Pro Claude Code platí dál.
+
+Pravidla výjimky:
+
+- Jev **nikdy nezapisuje** a nerozhoduje za člověka. Jeho odpověď je údaj v `<opora_context>` nebo varování na kartě schválení, ne příkaz.
+- Spouští se jen v tahu asistenta, který spustil člověk. Žádná automatika na pozadí bez rozhodnutí zapsaného sem.
+- Klíč `TYPESAFE_API_KEY` patří do nastavení aplikace (jednou pro aplikaci), ne do projektu. Nikdy se nedostane do kontextu ani do prostředí procesu `claude`.
+- Volání jde z backendu (`backend/integrations/typesafe_client.py`, test vedle), ne z modelu. Asistent dostane jen výsledek.
+- Bez klíče nebo při chybě (401, 422, 429, 529) asistent běží jako dnes. Jev zrychluje, ale není podmínkou.
+- Na `api.typesafe.ai` odchází jen nezbytný `state`: text zprávy, názvy a spec karet, krátké výřezy. Tajné soubory (`.env`, klíče) nikdy. [neověřeno] Retence a cena: ověřit v [legal](https://docs.typesafe.ai/legal.md) a zapsat sem.
+- Přínos se měří v telemetrii: počet čtení a tokenů na tah s Jevem a bez něj a počet chybně zvolených podkladů.
+
+Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit Oracle v [synchronizace-pravdy.md](synchronizace-pravdy.md). Oracle přitom dál nic nezapisuje. Tohle se staví, až to ukáže potřeba.
