@@ -1,5 +1,7 @@
 # Rozvržení Editoru: módy nahoře, panely zavěšené pod tlačítkem
 
+> **Změna 2026-10-01:** Knihovna a Agenti se už nezavěšují pod tlačítko. Otevírají se jako šuplík u levého okraje s profilem projektu. Dílek 2 a pravidlo „obsah panelů se nemění“ nahrazuje [suplik-a-profil.md](suplik-a-profil.md).
+
 Kontrakt pro přestavbu rámu Editoru. Návrh (varianta 1A, schválena 2026-09-17) je v Claude Design:
 https://claude.ai/design/p/12f7db47-989c-46c5-8498-aa12e01f8408?file=Rozvr%C5%BEen%C3%AD+Editoru.dc.html
 

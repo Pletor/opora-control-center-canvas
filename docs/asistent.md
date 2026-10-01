@@ -155,6 +155,26 @@ Asistent slouží k přemýšlení nad víc úkoly najednou. Proto má přehled 
 - Velikost se ukládá jednou pro aplikaci (`localStorage` `opora:assistant:v1`, stejně jako výchozí model), nikdy per projekt.
 - Zkratky: `Esc` v `full` přejde na `side`, v `side` na `minimized`. `Alt+↑` / `Alt+↓` přepíná na předchozí / další úkol.
 
+**Celá plocha: tři sloupce** (návrh: artboard 1 v artefaktu https://claude.ai/artifact/C6jQswc2bWSgcBUj5bmUfg):
+
+- **Úkoly vlevo (288 px):**
+  - nahoře „+ Nový úkol“ a pod ním hledání v názvech;
+  - úkoly jsou rozdělené do skupin **Pracuje**, **Čeká na vás** (připravené s novou odpovědí) a **Ostatní**; prázdná skupina se nezobrazí.
+- **Konverzace uprostřed:**
+  - sloupec široký až 920 px, aby se vešly tabulky, kód a karty otázek; odstavce jsou dál nejvýš asi 80 znaků;
+  - konverzace je členěná po **tazích**: každý tah má hlavičku „Tah N“ s časem, délkou a počtem kroků, pod ní zprávu uživatele, kroky nástrojů a odpověď;
+  - pole pro zprávu je stejně široké jako sloupec a nad textem říká, do kterého úkolu se píše.
+- **Osnova vpravo (296 px, jen od šířky okna 1280 px):**
+  - **Kontext:** projekt, vrstva a vybraná karta z posledního odeslaného kontextu;
+  - **Průběh:** odkazy na tahy; klik posune konverzaci a aktivní tah je zvýrazněný;
+  - **Otázky k rozhodnutí:** otázky Q1…Qn z poslední odpovědi, které klik posune na místo;
+  - **Kroky:** počet kroků a zamítnutých nástrojů.
+- **Otázky ve tvaru grillingu:**
+  - Odpověď, ve které je víc otázek ve tvaru grillingu (`❓ **Q1** - **Téma**: otázka` a pod ní `➡️ doporučení`), se vykreslí jako mřížka karet otázek (2 sloupce, na úzké ploše 1).
+  - Karta má číslo a téma, otázku a doporučení jako štítek.
+  - Rozpoznání je čistá funkce `logic/decisions.ts` s testem. Když rozpoznání selže, zobrazí se běžný Markdown.
+- V režimu vpravo a ve velikosti minimalizovat zůstává rozvržení z dosavadního kontraktu. Jen odpověď s otázkami grillingu dostane karty v jednom sloupci.
+
 **Přehled úkolů** (každá session je jeden úkol):
 
 - Položka ukazuje:
