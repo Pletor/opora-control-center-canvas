@@ -1,1 +1,1 @@
-Plátno Editoru: board (React Flow uzly a hrany), drawing (Excalidraw), wireframes, settings (mřížka, přichytávání), sloty node-card a sector-card.
+Plátno Editoru: board (React Flow uzly a hrany, `logic/board-model.ts` skládá vazbu z tahu a říká, jak vypadá), node-card (karta uzlu / sektoru rozpadlá do dílků, zlatý řez, tlačítka portů u bloků), edge-report (inspektor vybrané vazby: zpráva agenta v pěti pojmenovaných polích), tag-filter (filtr štítků v liště), drawing (Excalidraw), wireframes, settings (mřížka, přichytávání).

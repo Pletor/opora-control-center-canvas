@@ -1,0 +1,105 @@
+/* Záložka Strom: bloky odsazené podle hloubky, stav barevně, formuláře v rytmu 5 / 8 / 13. */
+.node-tree .tree-list { list-style: none; margin: 0; padding: 0; }
+.tree-block {
+  margin-left: calc(var(--depth, 0) * 16px);
+  border-left: 2px solid var(--line);
+  padding-left: 8px;
+  margin-bottom: 5px;
+}
+.tree-block.tree-status-met { border-left-color: var(--accent); }
+.tree-block.tree-status-unmet { border-left-color: var(--danger); }
+.tree-block.tree-status-blocked { border-left-color: var(--gold); }
+.tree-block-head { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.tree-toggle, .tree-tools button {
+  min-height: 0;
+  padding: 0 4px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.tree-tools { display: flex; gap: 2px; margin-left: auto; }
+.tree-tools button:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); }
+.tree-number {
+  font: 600 11px var(--mono);
+  color: var(--accent);
+  min-width: 28px;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.tree-number:hover { text-decoration: underline; }
+.tree-title {
+  flex: 1;
+  min-width: 0;
+  font: 600 13px var(--font);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 2px 5px;
+}
+.tree-title:hover, .tree-title:focus { border-color: var(--line-strong); background: var(--field); }
+.tree-status-chip { font: 500 10px var(--mono); padding: 1px 6px; border-radius: 8px; background: var(--surface-2); color: var(--ink-muted); }
+.tree-status-chip.tree-status-met { color: var(--accent); background: var(--accent-soft); }
+.tree-status-chip.tree-status-unmet { color: var(--danger); background: var(--danger-soft); }
+.tree-status-chip.tree-status-blocked { color: var(--gold); background: var(--gold-soft); }
+.tree-head-tags, .tree-head-todos { font: 10px var(--mono); color: var(--ink-muted); white-space: nowrap; }
+.tree-block-body { display: grid; gap: 8px; padding: 8px 0 8px 33px; }
+.tree-block-body textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: 12px/1.5 var(--font);
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 5px 8px;
+  resize: vertical;
+}
+.tree-id { font: 10px var(--mono); color: var(--ink-muted); }
+.tree-part h5 { margin: 0 0 5px; font: 600 10px var(--mono); letter-spacing: 0.08em; color: var(--ink-muted); text-transform: uppercase; }
+.tree-form { display: grid; grid-template-columns: 1fr auto auto; gap: 5px; }
+.tree-form input, .tree-condition input, .tree-branch select, .tree-branch input {
+  min-width: 0;
+  font-size: 12px;
+  padding: 4px 6px;
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+}
+.tree-form button, .tree-tags input { min-height: 0; font-size: 12px; }
+.tree-todos { list-style: none; margin: 0 0 5px; padding: 0; }
+.tree-todos li { display: flex; align-items: center; gap: 5px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.tree-todos li label { display: flex; gap: 5px; align-items: center; flex: 1; min-width: 0; }
+.tree-todos li.is-done span { text-decoration: line-through; color: var(--ink-muted); }
+.tree-todos li button { min-height: 0; padding: 0 4px; background: transparent; border: 0; color: var(--ink-muted); cursor: pointer; }
+.tree-tags { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.tree-tag { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.tree-tag-name { min-height: 0; padding: 1px 6px; font: 500 11px var(--mono); background: transparent; border: 0; color: var(--ink-2); cursor: pointer; }
+.tree-tag > button:last-child { min-height: 0; padding: 0 5px; background: transparent; border: 0; color: var(--ink-muted); cursor: pointer; }
+.tree-tags input { width: 96px; padding: 2px 6px; background: transparent; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--ink); }
+.tree-images { list-style: none; margin: 0 0 5px; padding: 0; display: grid; gap: 5px; }
+.tree-images li { display: grid; grid-template-columns: 64px 1fr auto; gap: 8px; align-items: center; }
+.tree-images img { width: 64px; height: 40px; object-fit: cover; border-radius: 5px; border: 1px solid var(--line); background: var(--surface-2); }
+.tree-image-missing { width: 64px; height: 40px; display: grid; place-items: center; font: 9px var(--mono); color: var(--ink-muted); border: 1px dashed var(--line-strong); border-radius: 5px; }
+.tree-image-meta { display: grid; min-width: 0; font-size: 12px; }
+.tree-image-meta code { font: 10px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; }
+.tree-images li button { min-height: 0; padding: 0 4px; background: transparent; border: 0; color: var(--ink-muted); cursor: pointer; }
+.tree-status { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 5px; }
+.tree-status button { min-height: 0; padding: 2px 8px; font-size: 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2); cursor: pointer; }
+.tree-status button[aria-checked="true"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
+.tree-status button[aria-checked="true"].tree-status-unmet { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); }
+.tree-status button[aria-checked="true"].tree-status-blocked { border-color: var(--gold-line); background: var(--gold-soft); color: var(--gold); }
+.tree-condition { display: grid; gap: 3px; font-size: 11px; color: var(--ink-muted); margin-bottom: 5px; }
+.tree-branch { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: center; padding: 5px 0; border-top: 1px dashed var(--line); }
+.tree-branch-when { font: 600 11px var(--mono); }
+.tree-branch-onMet .tree-branch-when { color: var(--accent); }
+.tree-branch-onUnmet .tree-branch-when { color: var(--danger); }
+.tree-branch input { grid-column: 2; }
+.tree-branch-label { grid-column: 2; color: var(--ink-muted); font-size: 11px; }

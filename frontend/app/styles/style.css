@@ -596,66 +596,12 @@ textarea:not(:where(.excalidraw *)) {
 .job-list strong {
   color: var(--ink-2);
 }
-.map-tools {
-  border-bottom: 1px solid var(--line);
-  padding-bottom: var(--sp-3);
-  margin-bottom: var(--sp-2);
-}
 /* Plátno */
 .react-flow {
   height: 100%;
   width: 100%;
 }
-.canvas-card {
-  width: 250px;
-  background: var(--surface-3);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  padding: var(--sp-3) var(--sp-4);
-  color: var(--ink);
-}
-.canvas-card.sector {
-  background: #223229;
-  border-color: var(--accent-line);
-}
-.canvas-card.selected {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-.node-kind {
-  font: 10px var(--mono);
-  letter-spacing: 0.08em;
-  color: #bad6ca;
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--sp-2);
-}
-.node-kind span {
-  color: var(--ink-muted);
-  letter-spacing: 0;
-}
-.canvas-card strong {
-  display: block;
-  font-size: var(--fs-4);
-  overflow-wrap: anywhere;
-}
-.canvas-card p {
-  font-size: var(--fs-1);
-  color: var(--ink-2);
-  line-height: 1.55;
-  margin: 6px 0 var(--sp-3);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.node-foot {
-  border-top: 1px solid #ffffff14;
-  padding-top: var(--sp-2);
-  font-size: 10px;
-  color: var(--ink-muted);
-}
+/* Karta uzlu má vlastní styl v editor/canvas/node-card/styles/node-card.css. */
 .react-flow__handle {
   background: #b9d5bf;
   border: 2px solid #16201a;
@@ -840,9 +786,6 @@ textarea:not(:where(.excalidraw *)) {
   }
   .crumbs {
     flex-basis: 100%;
-  }
-  .canvas-card {
-    width: 220px;
   }
   .statusline span:last-child {
     display: none;

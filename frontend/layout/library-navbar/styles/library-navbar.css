@@ -1,0 +1,350 @@
+/* Knihovna (blok library-navbar): obsah zavěšeného panelu, který visí pod tlačítkem Knihovna
+   v liště nástrojů (`layout/panel-dock/`). Panel je karta 360px nad plátnem, ne sloupec vedle něj:
+   Knihovna ho vyplní celý na šířku i na výšku, rámeček a stín patří panelu, a rohy si bere od něj,
+   aby povrch nepřečníval přes zaoblení. Kdo ji nepotřebuje, zavře ji křížkem, Esc nebo klikem
+   mimo — plátno pak nic neztratí. Základní písmo 14px — panel se čte stejně snadno jako zbytek
+   editoru; barvy jen z tokenů, proto drží světlý i tmavý režim beze změny kódu. */
+.library-navbar {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--surface);
+  border-radius: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+.library-navbar__panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Hlavička 48px: šipka zpět o vrstvu výš, jméno vrstvy a vpravo křížek, který panel zavře. Jméno
+   je to jediné, co panel o projektu ví — dostane ho hotové v props a nic si nedohledává. */
+.library-navbar__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 48px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line);
+}
+.library-navbar__layer { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
+.library-navbar__close,
+.library-navbar__back {
+  flex: none;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 4px 6px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.library-navbar__close:hover,
+.library-navbar__back:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
+.library-navbar__back:disabled { opacity: 0.35; cursor: default; }
+
+/* Záložky OBSAH | STRÁNKA: dvě slova přes celou šířku, verzálky a prostrkání z nich dělají
+   orientační bod, ne další tlačítko. Aktivní svítí akcentem a drží podtržení. */
+.library-navbar__tabs { display: flex; border-bottom: 1px solid var(--line); }
+.library-navbar__tab {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 4px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.library-navbar__tab:hover { color: var(--ink); }
+.library-navbar__tab--active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Přepínač Elementy | Bloky: dvě pilulky v jednom korytě. Je to jen pohled na tentýž katalog,
+   proto je tišší než záložky — zvolená pilulka vystoupí barvou plochy, ne rámem. */
+.library-navbar__switch { display: flex; gap: 2px; margin: 10px 12px 0; padding: 2px; background: var(--bg); border-radius: 8px; }
+.library-navbar__switch-button {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.library-navbar__switch-button--active { background: var(--surface); border-color: var(--line-strong); color: var(--ink); font-weight: 600; }
+
+/* Hledání: pruh 36px vysoký, ikona lupy vlevo, pole uprostřed a tiše počet nálezů vpravo.
+   Diakritika se pro hledání zahazuje, takže „formular“ najde „Formulář“ — číslo je na to důkaz. */
+.library-navbar__search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; margin-top: 8px; }
+.library-navbar__search-icon { flex: none; color: var(--ink-muted); }
+.library-navbar__search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 8px;
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 14px;
+}
+.library-navbar__search-count { flex: none; color: var(--ink-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Tělo: jediná rolující plocha panelu; hlavička, záložky a hledání zůstávají na místě. */
+.library-navbar__body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px 12px; }
+.library-navbar__empty { margin: 12px 0; color: var(--ink-muted); font-style: italic; }
+
+/* Ikona kategorie: žeton 28px, rádius 8px, uvnitř kreslená ikona 16px. Žeton drží barvu (`--c`) i
+   měkký podklad, ikona jen kreslí — proto tu není velikost písma, jen místo, do kterého se ikona
+   posadí. `--c` nastaví modifikátor kategorie na rodičovském řádku nebo dlaždici; token sám žádnou
+   barvu nevymýšlí. */
+.library-navbar__icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) var(--cat-soft), transparent);
+}
+
+/* Dlaždice: jeden sloupec (názvy katalogu jsou dlouhé, ve dvou sloupcích by se lámaly na čtyři
+   řádky), rádius 10px (dlaždice mají větší zaoblení než řádky). Ikona
+   sedí vlevo nahoře, úchyt ze šesti teček vpravo nahoře říká „chyť mě a táhni“, popis je celá věta katalogu
+   (dřív jen v title) a dole dvě značky rozpadu — dílky v barvě kategorie, pravidla neutrálně.
+   Pruh 3px na levé hraně nese barvu kategorie i ve sbaleném pohledu na katalog. */
+.library-navbar__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.library-navbar__tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  column-gap: 8px;
+  row-gap: 4px;
+  padding: 8px 10px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--c);
+  border-radius: 10px;
+  color: var(--ink);
+  cursor: grab;
+}
+.library-navbar__tile:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+.library-navbar__tile:active { cursor: grabbing; }
+.library-navbar__tile-grip { position: absolute; top: 8px; right: 8px; color: var(--ink-muted); }
+.library-navbar__tile-label { grid-column: 2; align-self: center; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.library-navbar__tile-desc { grid-column: 1 / -1; color: var(--ink-muted); font-size: 13px; overflow-wrap: anywhere; }
+.library-navbar__tile-badges { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.library-navbar__tile-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.library-navbar__tile-badge--accent { background: color-mix(in srgb, var(--c) var(--cat-soft), transparent); color: var(--c); }
+.library-navbar__tile--fe-components { --c: var(--cat-fe-components); }
+.library-navbar__tile--fe-css { --c: var(--cat-fe-css); }
+.library-navbar__tile--fe-logic { --c: var(--cat-fe-logic); }
+.library-navbar__tile--backend { --c: var(--cat-backend); }
+.library-navbar__tile--database { --c: var(--cat-database); }
+.library-navbar__tile--cloud { --c: var(--cat-cloud); }
+.library-navbar__tile--cache { --c: var(--cat-cache); }
+.library-navbar__tile--security { --c: var(--cat-security); }
+.library-navbar__tile--tests { --c: var(--cat-tests); }
+
+/* Kategorie: devět řádků pod sebou, min. 40px, s ikonou-žetonem, počtem a šipkou. Pruh 3px na
+   levé hraně nese barvu kategorie pořád, otevřený řádek navíc podbarví plochu i text —
+   je jasné, ke které kategorii sloupec náhledů vedle patří. */
+.library-navbar__categories { display: grid; gap: 4px; }
+.library-navbar__category {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--c);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.library-navbar__category:hover { border-color: var(--accent-line); }
+.library-navbar__category--open { background: color-mix(in srgb, var(--c) 10%, transparent); border-color: var(--c); color: var(--c); }
+.library-navbar__category-label { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.library-navbar__category-count { color: var(--ink-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.library-navbar__category--open .library-navbar__category-count { color: inherit; }
+.library-navbar__category-chevron { color: var(--ink-muted); }
+.library-navbar__category--open .library-navbar__category-chevron { color: inherit; }
+.library-navbar__category--fe-components { --c: var(--cat-fe-components); }
+.library-navbar__category--fe-css { --c: var(--cat-fe-css); }
+.library-navbar__category--fe-logic { --c: var(--cat-fe-logic); }
+.library-navbar__category--backend { --c: var(--cat-backend); }
+.library-navbar__category--database { --c: var(--cat-database); }
+.library-navbar__category--cloud { --c: var(--cat-cloud); }
+.library-navbar__category--cache { --c: var(--cat-cache); }
+.library-navbar__category--security { --c: var(--cat-security); }
+.library-navbar__category--tests { --c: var(--cat-tests); }
+
+/* Sloupec náhledů: vyjede vpravo vedle panelu, ne přes něj, aby zůstal vidět seznam kategorií —
+   vyčnívá ze zavěšeného panelu ven nad plátno, proto panel nic neořezává.
+   Náhled u nás není obrázek — je to začátek rozpadu: nadpis, věta a první tři dílky. I náhled se
+   dá chytit a táhnout na plátno. Kotví se k celému panelu (`.library-navbar`), ne k rolujícímu
+   tělu — jinak by ho přetečení těla uřízlo u pravé hrany. */
+.library-navbar__previews {
+  position: absolute;
+  z-index: 7; /* jediné, co z panelu vyčnívá ven — musí být vidět nad plátnem vedle. */
+  top: 56px;
+  left: 100%;
+  width: 288px;
+  max-height: calc(100% - 72px);
+  overflow: auto;
+  margin-left: 8px;
+  padding: 12px;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+}
+.library-navbar__previews-title { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-muted); }
+.library-navbar__previews-hint { margin: 4px 0 12px; color: var(--ink-muted); font-size: 13px; }
+.library-navbar__preview {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: grab;
+}
+.library-navbar__preview:hover { border-color: var(--accent-line); }
+.library-navbar__preview-title { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.library-navbar__preview-icon { color: var(--ink-muted); }
+.library-navbar__preview-hint { color: var(--ink-muted); font-size: 13px; }
+.library-navbar__preview-step { color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+.library-navbar__preview-step-title { color: var(--ink); }
+.library-navbar__preview-summary { color: var(--ink-muted); font-size: 11px; font-weight: 600; }
+
+/* Záložka STRÁNKA: projekt shora, ne aktuální vrstva. Filtr a hledání drží místo nahoře a roluje
+   jen seznam pod nimi — kdo hledá vrstvu, nechce ztratit ovládání pod palcem. */
+.library-navbar__page { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.library-navbar__page-list { flex: 1; min-height: 0; overflow: auto; padding: 0 12px 12px; }
+
+/* Filtr Vše | Sektory | Uzly | Oblasti: čtyři pilulky, které se při úzkém panelu zalomí. Je to
+   výběr pohledu, ne akce, proto zvolená pilulka jen ztmavne plochou — stejná řeč jako přepínač
+   Elementy | Bloky o kus výš. */
+.library-navbar__filters { display: flex; flex-wrap: wrap; gap: 2px; margin: 10px 12px 0; padding: 2px; background: var(--bg); border-radius: 8px; }
+.library-navbar__filter {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 6px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.library-navbar__filter--active { background: var(--surface); border-color: var(--line-strong); color: var(--ink); font-weight: 600; }
+
+/* Skupina seznamu (Sektory / Uzly mimo sektor / Oblasti): hlavička je nadpis sekce — malá,
+   tučná, verzálky — a celá je tlačítko, takže sbalit jde odkudkoli z řádku. Znaménko vlevo
+   vypráví stav, číslo vpravo říká, kolik vrstev uvnitř zbylo po filtru. */
+.library-navbar__group { margin-top: 12px; }
+.library-navbar__group-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  padding: 6px 4px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.library-navbar__group-head:hover { color: var(--ink); }
+/* Znaménko skupiny: jedna šipka ve dvou polohách. Zavřená míří doprava („je tu ještě něco“),
+   otevřená se otočí o čtvrt kruhu dolů („koukáš dovnitř“) — stejný pohyb, jaký zná každý strom. */
+.library-navbar__group-sign { color: inherit; }
+.library-navbar__group-sign--open { transform: rotate(90deg); }
+.library-navbar__group-label { min-width: 0; overflow-wrap: anywhere; }
+.library-navbar__group-count { color: var(--ink-muted); font: inherit; font-variant-numeric: tabular-nums; }
+.library-navbar__group--collapsed .library-navbar__group-head { border-bottom-color: transparent; }
+
+/* Strom vrstev: řádky min. 40px, odsazení 24px na úroveň přes modifikátor `--depth-N` (data
+   o hloubce nese komponenta, CSS jen kreslí). Vodicí vlasová linka drží oko u sloupce rodiče.
+   Značka druhu je 24px žeton s kreslenou ikonou, domeček zůstává jen značkou. Skrytá karta ztlumí celý řádek —
+   nikdy jen text zvlášť, aby kontrast zůstal čitelný. */
+.library-navbar__rows { display: grid; gap: 1px; padding-top: 4px; }
+.library-navbar__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  padding: 4px 8px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+.library-navbar__row:hover { background: var(--accent-soft); color: var(--accent); }
+.library-navbar__row--hidden { opacity: 0.55; }
+.library-navbar__row-kind {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-muted);
+}
+.library-navbar__row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.library-navbar__row--root .library-navbar__row-name { font-weight: 600; }
+.library-navbar__row-home { flex: none; color: var(--ink-muted); }
+.library-navbar__row-flag { flex: none; color: var(--ink-muted); font-size: 11px; font-weight: 600; }
+.library-navbar__row--depth-0 { padding-left: 8px; }
+.library-navbar__row--depth-1 { padding-left: 32px; }
+.library-navbar__row--depth-2 { padding-left: 56px; }
+.library-navbar__row--depth-3 { padding-left: 80px; }
+.library-navbar__row--depth-4 { padding-left: 104px; }
+.library-navbar__row--nested::before { content: ""; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-strong); }
+.library-navbar__row--depth-1::before { left: 20px; }
+.library-navbar__row--depth-2::before { left: 44px; }
+.library-navbar__row--depth-3::before { left: 68px; }
+.library-navbar__row--depth-4::before { left: 92px; }

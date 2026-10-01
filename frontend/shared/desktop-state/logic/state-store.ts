@@ -16,6 +16,17 @@ export type DesktopStateHandle = {
   mutate: (fn: (current: DesktopState) => DesktopState) => Promise<boolean>;
 };
 
+type Published = { state: DesktopState; revision: number; readOnly: boolean };
+type Listener = (value: Published) => void;
+// Více instancí hooku nad stejným scope (panel uzlu, bloky na plátně) sdílí jednu revizi:
+// po úspěšném čtení či zápisu jedné instance dostanou ostatní tentýž stav, jinak by další
+// zápis narazil na CAS („revize nesouhlasí“) jen proto, že ho provedlo jiné okno téže stránky.
+const listeners = new Map<string, Set<Listener>>();
+
+function publish(scope: string, value: Published, except: Listener) {
+  for (const listener of listeners.get(scope) ?? []) if (listener !== except) listener(value);
+}
+
 export function useDesktopState(project: string, workspace: string): DesktopStateHandle {
   const [state, setState] = useState<DesktopState>(emptyDesktopState());
   const [revision, setRevision] = useState(0);
@@ -24,6 +35,24 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
   const [error, setError] = useState("");
   const generation = useRef(0);
   const scopeKey = useRef("");
+  const listener = useRef<Listener>(() => {});
+  listener.current = (value) => {
+    setState(value.state);
+    setRevision(value.revision);
+    setReadOnly(value.readOnly);
+  };
+  const self = useRef<Listener>((value) => listener.current(value));
+
+  useEffect(() => {
+    const scope = `${project}::${workspace}`;
+    const set = listeners.get(scope) ?? new Set<Listener>();
+    set.add(self.current);
+    listeners.set(scope, set);
+    return () => {
+      set.delete(self.current);
+      if (set.size === 0) listeners.delete(scope);
+    };
+  }, [project, workspace]);
 
   const load = () => {
     const ticket = ++generation.current;
@@ -38,6 +67,7 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
         setRevision(value.revision);
         setReadOnly(value.readOnly);
         setLoading(false);
+        publish(scope, value, self.current);
       })
       .catch((e) => {
         if (ticket !== generation.current || scopeKey.current !== scope) return;
@@ -72,6 +102,7 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
       setRevision(value.revision);
       setReadOnly(value.readOnly);
       setError("");
+      publish(scope, value, self.current);
       return true;
     } catch (e) {
       if (ticket !== generation.current || scopeKey.current !== scope) return false;

@@ -1,14 +1,25 @@
-/* Mód Text: jeden sloupec dokumentu, obsah před ovládáním. */
+/* Mód Text je stránka na psaní, ne panel: obsah před ovládáním, jeden souvislý dokument shora dolů.
+   Sloupec je široký (max 1400 px) a vystředěný, s 32px okraji — text tak dýchá přes celou plochu,
+   ale nikdy se neroztáhne do nečitelně dlouhých řádků. Hlavička se drží té samé šířky, aby nadpis,
+   nápověda i text začínaly na jedné svislici. */
 .text-workspace {
   position: absolute;
   inset: 0;
   overflow: auto;
-  padding: var(--sp-5) clamp(16px, 4vw, 48px) var(--sp-6);
+  padding: var(--sp-5) 32px var(--sp-6);
   background: var(--bg);
   color: var(--ink);
 }
 .text-workspace > * {
-  max-width: 860px;
+  max-width: min(100%, 1400px);
+  margin-inline: auto;
+}
+/* Podzáložka Agenti není dokument ke čtení, ale pracovní plocha: karty vlevo, segmenty vpravo, a
+   pět polí paměti vedle sebe. Ani široký sloupec dokumentu je nesmí mačkat — tenhle jediný pohled
+   strop sundá a rozprostře se přes celou šířku. Uživatel zůstává v dokumentu beze změny. */
+.text-workspace--agents > * {
+  max-width: none;
+  margin-inline: 0;
 }
 .text-head h2 {
   font-size: 24px;
@@ -17,47 +28,217 @@
 .text-head p {
   margin-bottom: var(--sp-4);
 }
+/* Řádek ovládání pod nápovědou: vlevo podzáložky, vpravo stav kapitol. Obojí mění jen pohled, ne obsah,
+   proto leží na jedné tiché lince a zalomí se, když stránka zúží. */
+.text-workspace__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+/* Podzáložky Uživatel/Agenti (`text-workspace__subtabs`): stránka je pořád ten samý dokument, jen se
+   dívá jednou očima uživatele (dnešní obsah), podruhé očima modelu (jeho pracovní prostor) — proto
+   dva tiché přepínače hned pod úvodní nápovědou, ne další úroveň záložek jinde v UI. */
+.text-workspace__subtabs {
+  display: flex;
+  gap: var(--sp-2);
+}
+.text-workspace__subtab {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink-muted);
+  padding: 2px var(--sp-3);
+}
+.text-workspace__subtab--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-line);
+  font-weight: 600;
+}
+/* „Rozbaleno X z Y“ a dvě hromadná tlačítka: po načtení je vše sbalené, takže stránka začíná jako
+   obsah knihy — seznam kapitol — a člověk si otevře jen to, co chce číst. */
+.text-workspace__chapters {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.text-workspace__count {
+  font-size: var(--fs-1);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.text-workspace__bulk {
+  min-height: 0;
+  padding: 2px var(--sp-3);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-1);
+  font-weight: 600;
+}
+
+/* Děti vrstvy jsou kapitoly: každá je deska s vlastní hlavičkou, aby bylo vidět, kde jedna karta končí
+   a druhá začíná. Mezi deskami je jen 12 px — sbalené kapitoly se tak čtou jako obsah, rozbalená
+   dostane místo svou osnovou, ne mezerou. */
 .text-children {
-  border-left: 1px solid var(--line-strong);
-  margin: var(--sp-5) 0;
-  padding-left: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  /* Jen svislý margin: vodorovný drží `.text-workspace > *` a středí tím kapitoly na osu hlavičky. */
+  margin-block: var(--sp-5) 0;
+  padding: 0;
+  border: 0;
 }
 .text-block {
-  margin: 0 0 var(--sp-4);
-  padding: var(--sp-3) var(--sp-4);
+  margin: 0;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
 }
-.text-block > header,
+/* Hover nad řádkem souhrnu (nebo nad kapitolou samotnou) obtáhne desku barvou odkazu; skok ze souhrnu
+   ji na chvíli rozsvítí plným prstenem, ať oko po posunu stránky ví, kam se dívat. */
+.text-block--hovered {
+  border-color: var(--accent-line);
+}
+.text-block--highlighted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+/* Hlavička 44 px se při čtení dlouhé kapitoly lepí k horní hraně stránky: pořád je vidět, čí text
+   čtu, kdo na kartě pracuje a co čeká. Nese podklad desky, aby text pod ní neprosvítal. */
+.text-block__head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--surface);
+}
+.text-block--expanded .text-block__head {
+  border-bottom: 1px solid var(--line);
+}
+.text-block__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+/* Celý název je přepínač rozbalení: šipka, druh a jméno tvoří jedno velké cílové pole. Dlouhé jméno se
+   ořízne třemi tečkami, aby stav vpravo nikdy nevypadl z řádku. */
+.text-block__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 0;
+  padding: var(--sp-1) 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+.text-block__toggle:hover {
+  background: transparent;
+}
+.text-block__chevron {
+  color: var(--ink-muted);
+}
+.text-block__kind {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.text-block__name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.text-block__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.text-block__lock {
+  display: inline-flex;
+  color: var(--gold);
+}
+.text-block__time {
+  font-size: var(--fs-1);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+/* Tělo kapitoly je osnova odsazená pod název (40 px vlevo), takže šipka a druh vytvoří okraj, po
+   kterém oko sjíždí dolů. Sbalená kapitola tělo jen skryje — editor zůstává, rozepsaný text nezmizí. */
+.text-block__body {
+  padding: var(--sp-2) var(--sp-4) var(--sp-3) 40px;
+}
+/* „Zanořit“ je vedlejší cesta, ne nabídka: leží tiše na konci hlavičky a vystoupí, až když je myš nebo
+   klávesnice v kapitole. Místo si drží pořád, aby se řádek s nadpisem nehýbal. */
+.text-block__enter {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  text-decoration: underline;
+  opacity: 0;
+  cursor: pointer;
+}
+.text-block:hover .text-block__enter,
+.text-block:focus-within .text-block__enter,
+.text-block__enter:focus-visible {
+  opacity: 1;
+}
+.text-block__enter:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+/* Zdrojový text je záchranná ruční cesta pod hotovým dokumentem: zavřený řádek s tichým popiskem,
+   oddělený jen vlasovou linkou. Kdo ho otevře, dostane velké pole na odstavce — a ukládá si sám. */
+.source-text {
+  margin-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+}
+.source-text > summary {
+  cursor: pointer;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  padding: 6px 0;
+}
+.source-text textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* Stav uložení je poznámka pod čarou: jeden řádek vpravo od textu, který nesoutěží s obsahem. */
 .text-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-}
-.text-block > header h3 {
-  margin: 0;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: var(--fs-3);
-  color: var(--ink);
-}
-.kind-mark {
-  font: 10px var(--mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-  margin-right: 4px;
-}
-.node-text-editor textarea {
-  width: 100%;
-  resize: vertical;
-  min-height: 110px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
-.text-actions {
   font-size: var(--fs-1);
   flex-wrap: wrap;
   color: var(--ink-muted);
@@ -76,18 +257,19 @@
 .text-mode .canvas-surface {
   min-height: 500px;
 }
-@media (max-width: 700px) {
+/* Na úzkém okně se rozvržení nemění, jen se stáhnou okraje: dokument zůstane dokumentem. */
+@media (max-width: 720px) {
   .text-workspace {
-    padding: var(--sp-3);
+    padding: var(--sp-3) 16px var(--sp-5);
   }
-  .text-children {
-    padding-left: var(--sp-2);
-  }
-  .text-block {
-    padding: var(--sp-2) var(--sp-3);
-  }
-  .text-block > header {
-    align-items: start;
+  .text-block__head {
     flex-wrap: wrap;
+    padding-block: var(--sp-1);
+  }
+  .text-block__body {
+    padding-left: var(--sp-4);
+  }
+  .text-block__enter {
+    opacity: 1;
   }
 }

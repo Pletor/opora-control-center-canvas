@@ -1,0 +1,282 @@
+/* SOUHRN PRÁCE AGENTŮ (blok `agent-summary`)
+   Příběh: než člověk začne číst kapitoly, potřebuje vědět, kde se pracuje a co čeká na něj. Proto nad
+   dokumentem vrstvy stojí jedna klidná deska: hlavička 44 px s názvem a větou „kolik rozbalených karet,
+   kolik čeká na tebe“, pod ní řada filtrů, tabulka a legenda. Deska je kontejner (`@container`), takže
+   o rozvržení rozhoduje šířka stránky, ne okna — v úzkém sloupci se tabulka přeskládá sama. */
+.agent-summary {
+  container: agent-summary / inline-size;
+  display: flex;
+  flex-direction: column;
+  margin-block: 0 var(--sp-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+  font-size: 13px;
+}
+.agent-summary__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  min-height: 44px;
+  padding: var(--sp-1) 14px;
+  border-bottom: 1px solid var(--line);
+}
+.agent-summary__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.agent-summary__headline {
+  font-size: var(--fs-1);
+  color: var(--ink-muted);
+}
+/* Řazení a Obnovit jsou nástroje, ne obsah: tiché obrysové knoflíky vpravo, stejně vysoké jako čip. */
+.agent-summary__tools {
+  display: flex;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+.agent-summary__tool,
+.agent-summary__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.agent-summary__tool--active,
+.agent-summary__filter--active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Filtr je řada čipů, protože voleb je šest a všechny se vejdou: jedním pohledem je vidět, co
+   tabulka právě ukazuje, a přepnutí je jeden klik bez rozbalovací nabídky. */
+.agent-summary__filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: var(--sp-2) 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-muted);
+}
+
+/* Tabulka: jeden řádek 40 px na rozbalenou kartu, hlavička 32 px s tichými verzálkami. Sloupce mají
+   pevné šířky tam, kde je obsah krátký (žeton, tečky), a pružné pro název a další krok, aby se dlouhé
+   věty ořízly tři tečkami, ne rozlámaly řádek. Když stránka nestačí, tabulka se posune vodorovně. */
+.agent-summary__scroll {
+  overflow-x: auto;
+}
+.agent-summary__table {
+  min-width: 964px;
+}
+.agent-summary__row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) 112px 104px 132px 128px minmax(150px, 1fr) 112px 36px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--line);
+}
+.agent-summary__row--head {
+  min-height: 32px;
+  background: var(--bg);
+}
+.agent-summary__row--hovered {
+  background: var(--accent-soft);
+}
+.agent-summary__cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: var(--sp-1) 10px;
+}
+.agent-summary__cell--th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.agent-summary__cell--card,
+.agent-summary__cell--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+.agent-summary__cell--lock {
+  justify-content: center;
+  padding-inline: 0;
+}
+.agent-summary__sub {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.agent-summary__sub--gaps {
+  color: var(--danger);
+}
+
+/* Název karty je odkaz na její kapitolu níže: barva odkazu a tečkované podtržení, druh karty drobně
+   před ním. Klik stránku jen posune, nic neotevírá — proto odkaz, ne těžké tlačítko. */
+.agent-summary__name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  text-align: left;
+}
+.agent-summary__name:hover {
+  background: transparent;
+}
+.agent-summary__kind {
+  flex: none;
+  font: 700 11px var(--mono);
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.agent-summary__name-text {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.agent-summary__change-inline {
+  display: none;
+  gap: 6px;
+  align-items: baseline;
+}
+.agent-summary__time {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Žetony stavu a komunikace mluví barvou z jedné tabulky: zelená píše agent, teal píše člověk, tlumená
+   prázdno, zlatá čeká na potvrzení, červená chce upřesnit, modrá nese otevřené otázky. Písmo 11/700,
+   aby se číslo přečetlo i koutkem oka. */
+.agent-summary__work,
+.agent-summary__comm {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.agent-summary__work--agent { color: var(--cat-agents); background: color-mix(in srgb, var(--cat-agents) var(--cat-soft), transparent); }
+.agent-summary__work--human { color: var(--accent); background: var(--accent-soft); }
+.agent-summary__work--empty { color: var(--ink-muted); }
+.agent-summary__comms {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.agent-summary__comm--pending { color: var(--gold); background: var(--gold-soft); }
+.agent-summary__comm--clarify { color: var(--danger); background: var(--danger-soft); }
+.agent-summary__comm--question { color: var(--cat-fe-logic); background: color-mix(in srgb, var(--cat-fe-logic) var(--cat-soft), transparent); }
+.agent-summary__more,
+.agent-summary__missing {
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+.agent-summary__missing--loading {
+  opacity: 0.5;
+}
+/* Klidná komunikace: tiché slovo „nic“, ne prázdná buňka. Prázdno by vypadalo jako nenačtený údaj,
+   „–“ patří jen údaji, který karta nemá. Nula se tak čte jako klid, ne jako chyba. */
+.agent-summary__none {
+  color: var(--ink-muted);
+}
+
+/* Pět teček paměti: vyplněné plné, zbylé jen obrys. Tečka 9 px je nejmenší tvar, u kterého se ještě
+   pozná plná od prázdné, a pět vedle sebe se vejde do žetonu i do hlavičky kapitoly. */
+.agent-summary__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.agent-summary__dot {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+}
+.agent-summary__dot--filled {
+  background: var(--accent);
+}
+.agent-summary__dots-count {
+  margin-left: 3px;
+  font-size: 11px;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.agent-summary__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Ověření a další krok: slova místo piktogramů, aby se nemuselo hádat. Přítomné zeleně, chybějící
+   červeně; další krok je jedna věta s ikonou druhu a ořízne se, když je delší než sloupec. Zámek je
+   zlatý, protože nemluví o stavu, ale o tom, co smíš — a proč, řekne popisek. */
+.agent-summary__verify { display: inline-flex; gap: 6px; white-space: nowrap; font-size: var(--fs-1); }
+.agent-summary__check { font-weight: 600; }
+.agent-summary__check--present { color: var(--cat-agents); }
+.agent-summary__check--missing { color: var(--danger); }
+.agent-summary__next-icon { color: var(--ink-muted); }
+.agent-summary__next-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.agent-summary__lock,
+.agent-summary__legend-mark--lock { display: inline-flex; color: var(--gold); }
+.agent-summary__legend-mark--pending { color: var(--gold); }
+.agent-summary__legend-mark--clarify { color: var(--danger); }
+.agent-summary__legend-mark--question { color: var(--cat-fe-logic); }
+
+/* Legenda a prázdné stavy jsou poznámka pod čarou: tlumené pozadí stránky, drobné písmo, nic, co
+   by soupeřilo s řádky. Prázdná deska radši řekne, co udělat, než aby ukázala holou hlavičku. */
+.agent-summary__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: var(--sp-2) 14px;
+  background: var(--bg);
+  font-size: var(--fs-1);
+  color: var(--ink-muted);
+}
+.agent-summary__legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.agent-summary__empty { padding: 28px 20px; text-align: center; color: var(--ink-muted); }
+.agent-summary__empty-title { margin: 0 0 var(--sp-1); font-size: 15px; font-weight: 600; color: var(--ink); }
+.agent-summary__empty-text { margin: 0; line-height: 1.5; }
+.agent-summary__no-match { margin: 0; padding: var(--sp-4) 14px; color: var(--ink-muted); }
+
+/* Užší stránka (pod 964 px desky): sloupec Změna uhne pod název karty, aby zbylé sloupce nemusely
+   hubnout pod čitelnou míru. Údaj nezmizí, jen se přestěhuje. */
+@container agent-summary (max-width: 963.98px) {
+  .agent-summary__table { min-width: 852px; }
+  .agent-summary__row { grid-template-columns: minmax(190px, 1.2fr) 112px 104px 132px 128px minmax(150px, 1fr) 36px; }
+  .agent-summary__cell--change { display: none; }
+  .agent-summary__change-inline { display: flex; font-size: 11px; }
+}

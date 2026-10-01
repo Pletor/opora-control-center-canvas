@@ -1,0 +1,47 @@
+/* ZPRÁVA NA VAZBĚ (blok `edge-report`)
+   Příběh: uživatel klikne na čáru mezi kartami a v inspektoru se otevře to jediné, co k vazbě patří —
+   odkud kam vede a co se při tom přechodu stalo. Čte se odshora dolů jako dopis: nadpis říká trasu,
+   řádek pod ním, z kterého bloku a tlačítka vazba vyrůstá, pak pět pojmenovaných polí a nakonec podpis.
+   Rytmus 13 / 8 / 5 je stejný jako v kartě, aby inspektor působil jako pokračování plátna, ne jako jiná aplikace. */
+.edge-report {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Hlavička: nadřazený popisek portu drobným monospace, pod ním trasa jako název panelu. Šipka je jen
+   znak mezi jmény — proto ji čtečka přeskakuje a nese vlastní tlumenou barvu. */
+.edge-report__eyebrow { font: 600 10px var(--mono); letter-spacing: 0.1em; color: var(--ink-muted); }
+.edge-report__route { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.edge-report__arrow { color: var(--accent); }
+.edge-report__origin { margin: 0; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.edge-report__note { margin: 0; font-size: 11px; line-height: 1.5; color: var(--ink-muted); }
+.edge-report__note code { overflow-wrap: anywhere; }
+
+/* Pět polí pod sebou, každé s vlastním jménem nad rámečkem a nápovědou pod ním. Nápověda je drobná
+   schválně: jméno pole stačí zkušenému, nápověda pomůže tomu, kdo sem přišel poprvé. */
+.edge-report__fields { display: flex; flex-direction: column; gap: 8px; }
+.edge-report__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.edge-report__label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.edge-report__input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 5px 8px;
+  resize: vertical;
+}
+.edge-report__input:focus { border-color: var(--accent-line); outline: none; }
+.edge-report__input:read-only { background: var(--surface-2); color: var(--ink-2); }
+.edge-report__hint { font-size: 10px; color: var(--ink-muted); }
+
+/* Podpis a mazání na konci: nejdřív se dozvíte, kdo tu naposledy psal, teprve pak stojí destruktivní akce.
+   Nedotčená vazba místo podpisu přizná, že je prázdná — prázdná zpráva je taky informace. */
+.edge-report__signature { margin: 0; font: 500 11px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; }
+.edge-report__delete { align-self: flex-start; }

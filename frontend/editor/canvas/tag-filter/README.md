@@ -1,0 +1,1 @@
+Filtr štítků v liště Editoru: `TagFilter` (čipy s počty, zrušení) nad `logic/tag-filter-model.ts` (štítky viditelné vrstvy, testováno). Vybraný štítek předává App do Boardu, karty bez něj jsou ztlumené.

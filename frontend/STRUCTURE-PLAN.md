@@ -331,7 +331,7 @@ Přepsat podle §3 ve všech 44 souborech s importy. Nejcitlivější body:
 | frontend/README.md | doplnit příběh z §0 |
 | README.md v každé změněné složce | první věta = co složka zobrazuje a odkud bere data |
 
-Zastaralé odkazy na `src/…` v docs/architecture/archify/SPEC.md:28–30 a backend/integrations/build_identity.py:10 jsou mimo rozsah; jen eviduji.
+Zastaralý odkaz na `src/…` v backend/integrations/build_identity.py:10 je mimo rozsah; jen eviduji.
 
 ## 6. Ověření po fázi 2
 1. `npm run build` (tsc --noEmit + vite build) – přiložit výstup

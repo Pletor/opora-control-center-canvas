@@ -1,0 +1,66 @@
+/* KOMUNIKACE MEZI AGENTY (blok `agent-communication`)
+   Příběh: vedle pěti vlastních poznámek karty je skládací poštovní schránka. Neotevřená nic nečte;
+   zavřená hlavička přesto řekne, kolik věcí čeká na člověka, aby se nevyřízená předávka neztratila.
+   Po otevření není poštou seznam řádků, ale rozprava: každé vlákno drží pohromadě původní zprávu
+   a odpovědi k ní a nahlas říká, že jména ani potvrzení nejsou ověření identity. Nová zpráva se
+   píše až pod historií, aby odeslání bylo vědomý krok; převzetí naopak zůstává u své zprávy —
+   formulář vyroste přímo pod ní, takže se nikdy nepotvrzuje naslepo něco jiného, než co je vidět. */
+.agent-communication { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.agent-communication__summary { cursor: pointer; padding: var(--sp-2) var(--sp-3); color: var(--ink); font-weight: 700; }
+.agent-communication__content { display: flex; flex-direction: column; gap: var(--sp-3); padding: 0 var(--sp-3) var(--sp-3); }
+.agent-communication__notice, .agent-communication__readonly, .agent-communication__error { margin: 0; padding: var(--sp-2); border-radius: var(--radius); font-size: var(--fs-1); }
+.agent-communication__notice { color: var(--ink-2); background: var(--gold-soft); border: 1px solid var(--gold-line); }
+.agent-communication__readonly { color: var(--ink-muted); background: var(--surface); border: 1px solid var(--line); }
+.agent-communication__error { color: var(--danger); background: var(--danger-soft); border: 1px solid var(--danger-line); }
+.agent-communication__toolbar, .agent-communication__message-head, .agent-communication__receipt-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.agent-communication__toolbar { color: var(--ink-muted); font-size: var(--fs-1); }
+
+/* Vlákna jsou jediný sloupec, protože rozprava má jeden časový tok: nejnovější začátek je nahoře
+   a starší klesají dolů. Vlákno čekající na člověka má zlatou hranu po celé výšce — je vidět už
+   při rolování, ještě než se dočte text. */
+.agent-communication__threads { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.agent-communication__thread { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); min-width: 0; }
+.agent-communication__thread--pending { border-color: var(--gold-line); box-shadow: inset 3px 0 0 var(--gold-line); }
+.agent-communication__pending { margin: 0; color: var(--gold); font-size: var(--fs-0); font-weight: 600; }
+/* Odpověď je odsazená a drží svislou linku k rodiči: čte se jako pokračování, ne jako nová pošta. */
+.agent-communication__message { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.agent-communication__reply { padding-left: var(--sp-3); border-left: 2px solid var(--line); }
+.agent-communication__message-head time, .agent-communication__declared, .agent-communication__digest { color: var(--ink-muted); font-size: var(--fs-0); }
+.agent-communication__body, .agent-communication__receipt { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-communication__declared, .agent-communication__digest { margin: 0; }
+.agent-communication__receipt { padding-top: 4px; color: var(--ink-2); font-size: var(--fs-1); border-top: 1px solid var(--line); }
+.agent-communication__receipt-actions { justify-content: flex-start; }
+.agent-communication__orphan { margin: 0; color: var(--ink-muted); font-size: var(--fs-0); font-style: italic; }
+
+/* Štítky nad zprávou odpovídají na tři otázky v jednom řádku: odkud zpráva jde, co je zač a jak
+   na ni karta odpověděla. Stav má vlastní barvu, protože „uloženo“ a „převzato“ nesmí splynout;
+   nahrazená zpráva má přerušovaný rám, aby bylo vidět, že platí až oprava pod ní. */
+.agent-communication__badges { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.agent-communication__badge, .agent-communication__state, .agent-communication__superseded { padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); font-size: var(--fs-0); background: var(--surface-2); }
+.agent-communication__badge--incoming { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.agent-communication__badge--outgoing { color: var(--ink-2); background: var(--surface-3); border-color: var(--line-strong); }
+.agent-communication__state--saved { color: var(--ink-muted); background: var(--surface-2); border-color: var(--line); }
+.agent-communication__state--accepted { color: var(--accent); background: var(--ok-soft); border-color: var(--accent-line); }
+.agent-communication__state--rejected { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.agent-communication__state--needs-clarification { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+.agent-communication__superseded { color: var(--ink-muted); background: var(--surface-3); border-style: dashed; border-color: var(--line-strong); }
+
+/* Dočítání starších zpráv patří pod historii a zůstává po směrech: obě schránky mají vlastní
+   kurzor, takže se nabízí jen ta, kde server ještě něco má. */
+.agent-communication__footer { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+/* Formulář drží běžné tokenové pole, aby odeslání nevypadalo jako spuštění modelu nebo systémové
+   oprávnění; je to jen místní adresovaný zápis. */
+.agent-communication__form, .agent-communication__receipt-form { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); }
+.agent-communication__form h4 { margin: 0; color: var(--ink); font-size: var(--fs-2); }
+.agent-communication__form label, .agent-communication__receipt-form label { display: flex; flex-direction: column; gap: 4px; color: var(--ink-2); font-size: var(--fs-1); }
+.agent-communication__form input, .agent-communication__form select, .agent-communication__form textarea, .agent-communication__receipt-form input, .agent-communication__receipt-form textarea { width: 100%; box-sizing: border-box; padding: var(--sp-2); color: var(--ink); font: inherit; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+.agent-communication__form textarea, .agent-communication__receipt-form textarea { resize: vertical; min-height: 64px; }
+.agent-communication__receipt-form p, .agent-communication__reply-target { margin: 0; color: var(--ink-muted); font-size: var(--fs-1); }
+.agent-communication__reply-target { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Potvrzení stojí uvnitř vlákna, hned pod svou zprávou: lehce odsazené, se zlatou hranou akce
+   a hlavičkou, která nahlas pojmenuje, co a které zprávě se chystám udělat. Dvojice tlačítek
+   nechává Zrušit vedle potvrzení, aby z rozmyšleného kroku šlo kdykoli couvnout. */
+.agent-communication__receipt-form { margin-top: var(--sp-2); background: var(--surface-2); border-color: var(--gold-line); }
+.agent-communication__receipt-headline { margin: 0; color: var(--ink); font-size: var(--fs-1); overflow-wrap: anywhere; }
+.agent-communication__receipt-form-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }

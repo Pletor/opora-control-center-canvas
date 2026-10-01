@@ -1,0 +1,98 @@
+// Oblast na plátně: dashovaný rámeček, ne karta uzlu — beze bloků, jen jméno ve štítku a dva úchyty
+// toku (in/out). Rodič (Board) dodá hotová data přes props; velikost nese `style` samotného React
+// Flow uzlu (nastavuje Board z `data.view.w/h`), tenhle dílek jen kreslí rámeček a tahadlo změny
+// velikosti. Přejmenování a změna velikosti bublají nahoru přes onRename / onResize.
+import { memo, useEffect, useRef, useState } from "react";
+import { Handle, NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
+import { AREA_SIZE_MAX, AREA_SIZE_MIN } from "@/editor/canvas/area/logic/area-model";
+import type { AreaColor } from "@/shared/types/logic/types";
+import "@/editor/canvas/area/styles/area.css";
+
+export type AreaCardView = { label: string; unnamed: boolean; members: number; w: number; h: number; color: AreaColor };
+
+export type AreaCardData = {
+  view: AreaCardView;
+  disabled: boolean;
+  onRename: (name: string) => void;
+  onResize: (w: number, h: number) => void;
+};
+
+const AreaCard = memo(function AreaCard({ id, data, selected }: NodeProps<Node<AreaCardData>>) {
+  const { view, disabled, onRename, onResize } = data;
+  const [editing, setEditing] = useState(false);
+  const nameField = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) return;
+    nameField.current?.focus();
+    nameField.current?.select();
+  }, [editing]);
+
+  const commitName = (value: string) => {
+    setEditing(false);
+    const next = value.trim();
+    if (next !== view.label && !(next === "" && view.unnamed)) onRename(next);
+  };
+
+  return (
+    <div
+      className={"area-card" + (selected ? " area-card--selected" : "")}
+      data-testid={"area-card-" + id}
+      data-color={view.color}
+    >
+      <NodeResizer
+        isVisible={selected && !disabled}
+        minWidth={AREA_SIZE_MIN}
+        minHeight={AREA_SIZE_MIN}
+        maxWidth={AREA_SIZE_MAX}
+        maxHeight={AREA_SIZE_MAX}
+        onResizeEnd={(_, params) => onResize(params.width, params.height)}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="nodrag area-card__flow area-card__flow--in"
+        data-testid={"area-flow-in-" + id}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="flow"
+        className="nodrag area-card__flow area-card__flow--out"
+        data-testid={"area-flow-out-" + id}
+      />
+      {editing ? (
+        <input
+          ref={nameField}
+          className="nodrag area-card__tag-input"
+          aria-label="Název oblasti"
+          data-testid={"area-rename-" + id}
+          defaultValue={view.unnamed ? "" : view.label}
+          autoFocus
+          maxLength={160}
+          onFocus={(e) => e.currentTarget.select()}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.nativeEvent.isComposing) return;
+            if (e.key === "Enter") commitName(e.currentTarget.value);
+            if (e.key === "Escape") setEditing(false);
+          }}
+          onBlur={(e) => commitName(e.currentTarget.value)}
+        />
+      ) : (
+        <div
+          className={"area-card__tag" + (view.unnamed ? " area-card__tag--unnamed" : "")}
+          title={disabled ? undefined : `Dvojklik přejmenuje oblast · ${view.members} ${view.members === 1 ? "karta" : view.members < 5 ? "karty" : "karet"}`}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            if (!disabled) setEditing(true);
+          }}
+        >
+          {view.label}
+        </div>
+      )}
+    </div>
+  );
+});
+
+export default AreaCard;

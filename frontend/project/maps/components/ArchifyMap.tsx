@@ -55,12 +55,12 @@ export default function ArchifyMap({project}:{project:string}){
       <div className="archify-body"><iframe title="Archify — mapa projektu" sandbox="allow-scripts allow-downloads" srcDoc={preview} referrerPolicy="no-referrer"/></div>
       <details className="archify-receipt"><summary>Původ a ověření · {value.validation.compositionProfile} · {value.freshness==='changed'?'projekt má novější revizi':'aktuálnost zdrojů neověřena'}</summary>
         <p>Hlavní projekt: <code>{value.sourceRoot}</code></p><p>Soubor: <code>{value.sourcePath}</code></p>
-        <p>Mapa odpovídá doručovacímu potvrzení. Novou analýzu vytváří Sonnet s původním Archify po volbě „Aktualizovat teď“ nebo po změně main, pokud je automatika zapnutá. Samotné čtení uloženého HTML agenta nespouští.</p>
+        <p>Mapa odpovídá doručovacímu potvrzení. Novou analýzu vytváří Sonnet s původním Archify po změně main (pokud automatiku nevypnete) nebo po volbě „Aktualizovat teď“. Samotné čtení uloženého HTML agenta nespouští.</p>
         <p>Revize uvedená autorem: <code>{value.sourceRevision??'neuvedena'}</code></p>
         <p>Validace: {value.validation.checksPassed}/{value.validation.checkCount}, upozornění: {value.validation.warnings}. Doložená kontrola prohlížeče: {value.browserEvidence.status}, záznamů: {value.browserEvidence.coverage.length}.</p>
         <p>HTML SHA-256: <code>{value.artifact.sha256}</code></p>
         <details><summary>Specifikace a omezení autora</summary><pre>{value.specificationDocument||'SPEC.md nebyl dodán.'}</pre></details>
       </details>
-    </>:!busy&&<div className="archify-empty">Ve VS Code spusťte původní Archify nad hlavním projektem. HTML, JSON a deliver-receipt.json patří do <code>docs/architecture/archify/</code>. Poté použijte „Načíst ze souboru“.</div>}
+    </>:!busy&&<div className="archify-empty">Mapa se vytvoří automaticky do <code>archify-out/</code> hlavního projektu a po každém mergi do main se přepíše na místě. Hned ji spustí „Aktualizovat teď“.</div>}
   </section>;
 }

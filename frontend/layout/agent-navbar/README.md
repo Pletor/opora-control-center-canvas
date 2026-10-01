@@ -1,0 +1,48 @@
+Panel „Agenti a postupy“: zavěšený panel Editoru pod tlačítkem „Agenti a postupy“ v liště nástrojů. Zatímco Knihovna je knihovna kódu (know-how o tom, CO se staví), tahle police je knihovna postupů — JAK se řídí Claude a agenti: Workflows, Pipelines, Pravidla, Hooky a commands, Skills, Agenti. Obsah panelu je kontrakt `docs/panely-editoru.md`, „Dílek 3: Agenti a postupy“; rozvržení (panel visí v `layout/panel-dock/`, už to není sloupec u pravé hrany a nesbaluje se na lištu) je `docs/rozvrzeni-editoru.md`, Dílek 4 — kód je provádí, nemění.
+
+**Dílky**
+
+- `components/AgentNavbar.tsx` — rodič: hlavička „Agenti a postupy“ + tichá připomínka zkratky + křížek `x` (`aria-label="Zavřít Agenty a postupy"`, `data-testid="agent-navbar-close"`, hlásí `onClose`), záložky Katalog | Agenti | Hook a pod nimi jeden z dílků. Kreslí se jen v otevřeném zavěšeném panelu, proto záložkám podává `selectedNodeId` přímo a `AgentControlPanel` dostává `active` vždy `true`. Seznam položek i počty na kategorii skládá on (kategorie → hledání, `agentItemsOf(category, items)` pro každou kategorii zvlášť), aby dílek dostal hotová data. Nic neukládá; stav dostává v props a změny hlásí callbackem.
+- `components/AgentNavbarCatalog.tsx` — záložka Katalog: svislý seznam šesti kategorií (žeton 28px s ikonou 16px, název, tichý počet), hledání „Najít postup“ (ikona `search`, tichý počet nálezů), nadpis „Kategorie · N“ a pod tím seznam řádků. Řádek = žeton 24px s ikonou kategorie, název, jednořádkový popis s výpustkou, značka „N kroků“ (`stepsBadge`) a úchyt `grip-vertical`; je zdroj tažení (`startAgentDrag`). Řádek nese ikonu **své kategorie**, ne vlastní znak z katalogu — sloupec se pak čte jedním pohledem a katalog (`agent-catalog.ts`) zůstává beze změny. Položka druhu `info` (hook, skill) se táhnout nedá, nemá úchyt a je ztlumená (opacity 0.55).
+- `components/AgentNavbarAgents.tsx` — záložka Agenti: co agent vybrané karty dostane. Stáhne balíček pro model (`GET /api/desktop-v3/node-brief`), složí z něj pohled (`briefSummary`) a vykreslí hlavičku, pět sekcí a dvě tlačítka. Bez vybrané karty jen pozve („Vyberte kartu.“). Všechno je **jen ke čtení**: aplikace žádný model nespouští a záložka nikdy nezapisuje — zadání se mění v kartě, v inspektoru.
+- `components/AgentBriefHeader.tsx` — hlavička zadání: jméno karty 15px a tři tiché značky (druh v barvě kategorie `fe-components`, fáze v barvě kategorie `agents`, otevřeno/uzavřeno neutrálně — uzavřeno zlatě), pod nimi trvalá zlatá poznámka „Jen ke čtení“ a poznámka k uzavření.
+- `components/AgentBriefSections.tsx` — pět sekcí ve stejném pořadí, v jakém balíček čte model: **Cíl a konec** (barva `workflows`; `goal.goal`, kritéria jako odškrtnutý seznam, stop podmínky), **Harness** (barva `pipelines`; akce s `pipelineId` a parametry klíč–hodnota, kroky), **Smyčka** (barva `rules`; otevřené bloky, souhrn poslední zprávy), **Předávky** (barva `hooks`; rodič s šipkou `arrow-up`, příchozí `arrow-left`, odchozí `arrow-right` s první řádkou jejich `agentWorkspace.handoff`, počet karet uvnitř) a **Pracovní prostor** (barva `agents`; `frame` a `handoff` karty, prvních 300 znaků). Soubor říká jen, co kam patří; kreslí to `AgentBriefParts`.
+- `components/AgentBriefParts.tsx` — čtyři stavební kameny zadání: `Section` (rámeček s hlavičkou — žeton 24px s ikonou 16px, název, tiché číslo vpravo; bere `category`, podle které si žeton půjčí **barvu** z katalogu, a `icon`, která mluví o **obsahu** sekce: `target`, `cpu`, `repeat`, `arrow-left-right`, `folder`; sekce sama žádnou položku katalogu nedrží), `Kv` (dvojice klíč–hodnota), `Check` (odškrtnutí — `check` / `circle`, obraz stavu, ne zaškrtávátko) a `Hand` (soused: šipka směru, jméno, jedna věta předávky).
+
+**Stav**
+
+`logic/agent-navbar.ts` drží čistý model s testem vedle (`agent-navbar.test.ts`, běží `npm test`):
+
+- Stav je `{ category, query, tab }` — nic víc; výchozí je `{ category: "workflows", query: "", tab: "catalog" }`. Viditelnost panelu stav nenese: `collapsed` a `toggleCollapsed` se zrušily a uložené `collapsed` se při čtení zahodí, takže po načtení stránky je panel vždy zavřený (drží ho `layout/panel-dock/` jen v paměti sezení).
+- Akce `setCategory`, `setQuery`, `setTab`. `setCategory` mění jen kategorii, nic nerozbaluje.
+- `readState` / `writeState` / `parseAgentNavbar` ukládají celý stav pod **jediným klíčem pro celou aplikaci**: `opora:agent-navbar:v1`. Nikdy per projekt, nikdy druhý klíč. Uložená preference je cizí text: neznámá kategorie, jiný typ i rozbitý JSON tiše spadnou na výchozí stav a dotaz se usekne na 120 znaků.
+- `isCollapseShortcut(event)` je pravidlo zkratky **Ctrl+Shift+.** (na Macu ⌘⇧.). Podle rozložení klávesnice přijde „.“ nebo „>“, proto platí obojí; Alt kombinaci vylučuje (Alt+1..3 patří prostředím). Znovu ho používá `panelForShortcut` v `layout/panel-dock/logic/panel-dock.ts`.
+- `categoryIcon(category)` vrací **jméno ikony** ze sady `ui-kit/icon/` podle kontraktu (`docs/panely-editoru.md`, doladění bod 4): workflows → `workflow`, pipelines → `link`, rules → `scale`, hooks → `terminal`, skills → `sparkles`, agents → `users`; neznámá kategorie dostane `workflow`. Lišta i katalog kreslí ikonu odsud, ne z `agent-catalog.ts` — ikona kategorie je věc panelu. Unicode glyfy (⇶ ⛓ § ⌘ ✦ ◉ ⌕ ⋮⋮ ⇤ ⇥ ✓ ○ ▲ ← →) se ruší; kreslí se SVG se stopou 1.75px.
+- `stepsBadge(steps)` skloňuje počet kroků do tiché značky na řádku katalogu (1 krok / 3 kroky / 7 kroků, bez konce — v řádku není na větu místo). `stepsLine(steps, endCriteria)` staví na `stepsBadge` a přidává „· konec: …“ pro tooltip řádku a pro zadání karty.
+
+`logic/agent-brief-view.ts` je čistý pohled na balíček pro model, s testem vedle (`agent-brief-view.test.ts`):
+
+- `briefSummary(brief)` přeloží JSON z `node-brief` do toho, co se vejde do police: `header` (jméno, druh, fáze, hotovo), `goal` (cíl, kritéria, stop podmínky), `harness` (akce, kroky), `loop` (otevřené bloky, souhrn poslední zprávy), `handoffs` (příchozí, odchozí, rodič, počet dětí) a `workspace` (rámec a předávka karty).
+- Balíček je **cizí JSON**: chybějící klíč, `null`, pole místo objektu i cizí typ dávají prázdnou, ale platnou hodnotu, nikdy výjimku. Prázdná karta je běžný stav, ne porucha.
+- `firstLine(text)` bere první neprázdnou řádku (předávka souseda je zápisník, v seznamu je místo na jednu větu), `truncate(text, limit)` ořeže na `SPACE_PREVIEW` = 300 znaků s výpustkou, `phaseLabel`/`kindLabel` dávají fázi a druhu karty české jméno.
+- `handoffLink(nodeId)` skládá `opora://agent-workspace/<nodeId>#handoff` (stejný tvar jako `sectionLink` v inspektoru), `briefJson(brief)` celý balíček odsazený dvěma mezerami do schránky.
+
+`logic/use-node-brief.ts` je jediné místo, kde panel mluví se serverem: `GET /api/desktop-v3/node-brief` přes společný klient (`shared/desktop-state/logic/api.ts`). Načte se při změně karty, projektu, prostředí nebo `refreshKey` (otisk plátna + revize plochy, skládá ho App); pozdní odpověď po přepnutí karty se zahodí, aby v panelu nesvítilo zadání jiné karty. Hook jen čte — nic neukládá a nic modelu neodesílá.
+
+`logic/use-agent-navbar.ts` je jen vazba na React (`useAgentNavbar()`): drží hodnotu a po každé změně ji uloží. API je `{ state, category, search, tab }`; `toggle` ani posluchač zkratky tu už nejsou — zkratku i Esc drží `layout/panel-dock/logic/use-panel-dock.ts`.
+
+**Tažení (zdroj)**
+
+`startAgentDrag(dataTransfer, itemId)` z katalogu zapíše do schránky tažení jen id položky pod typem `application/x-opora-agent-item` a nastaví `effectAllowed = "copy"`. Tím zdroj tažení končí: puštění na plátno (pravidlo → pravidla uzlu, pipeline → akce v bloku Akce, workflow → sektor s fázemi, agent → pravidlo s rolí) je fáze 3 a bydlí u plátna, ne tady.
+
+**Styl**
+
+`styles/agent-navbar.css`, blok `agent-navbar`, BEM `blok__prvek--varianta`; každý blok začíná příběhovým komentářem. Žetony drží míry z kontraktu (kategorie 28px, řádek a sekce 24px) a ikona uvnitř má 16px; žeton nese barvu a podklad, ikona jen kreslí — proto u žetonů není velikost písma. Panel vyplní zavěšený panel (`width` i `height` 100 %, bez `border-left`, rohy `border-radius: inherit`), bez modifikátoru `--collapsed`, bez media dotazu a bez tokenu šířky; ostatní rozměry jsou v px podle kontraktu (`docs/panely-editoru.md`) — jsou to pevná čísla panelu, ne typografie, která má růst s uživatelem. Barva kategorie jde do proměnné `--c` přes BEM variantu (`agent-navbar__category--pipelines`, `agent-navbar__list--rules`, `agent-navbar__section--hooks`…), která ji nastaví z tokenu `--cat-<id>`; žeton pak čte `--c` pro barvu i pro měkký podklad `color-mix(in srgb, var(--c) var(--cat-soft), transparent)`. Barvy jen z tokenů (`design-tokens/styles/theme-tokens.css`), takže panel drží světlý i tmavý režim. Polohu, vrstvu, rámeček a stín dává zavěšený panel (`layout/panel-dock/styles/panel-dock.css`), ne tento blok.
+
+**Zapojení**
+
+`app/components/App.tsx` volá `useAgentNavbar()` jednou, složí `agentNavbarPanel` (až za `view` a `desktop`, protože záložka Agenti potřebuje `project`, `workspace`, `selectedNodeId` a `refreshKey` = `view?.digest + ":" + desktop.revision`, a `onClose={dock.close}`) a vykreslí ho **uvnitř `<PanelDropdown>`** jen v prostředí Editoru a jen když je otevřený panel `agents`. Tlačítko „Agenti a postupy“ je v `layout/panel-dock/components/PanelToggles.tsx`. Úvodní obrazovka, Projekt ani Live Run panel nekreslí; žádné odsazení těla aplikace ani sloupec v rámu neexistuje.
+
+**Obsah**
+
+Položky bere panel z `frontend/editor/component-library/agent-catalog/logic/agent-catalog.ts` (fáze 1): `AGENT_CATEGORIES`, `AGENT_ITEMS`, `agentItemsOf`, `agentItemById`, `searchAgentItems`, `startAgentDrag`, `AGENT_DRAG_TYPE`. Panel sám žádnou položku nedrží a katalog nemění.

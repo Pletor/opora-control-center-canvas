@@ -1,0 +1,246 @@
+/* PAMĚŤ ROLE (blok `agent-memory`)
+   Příběh: pět polí vedle je paměť jedné karty — co se stalo tady. Tenhle celek je o patro výš:
+   drží zkušenost kompetence, která kartu přežije. Proto se čte shora dolů jako rozhovor s někým,
+   kdo si něco pamatuje: nejdřív se přizná, jestli vůbec může odpovědět (pruh stavu), pak kdo se ptá
+   (role karty), pak se položí otázka (dotaz a „Vybavit“), přijdou odpovědi rozdělené podle toho,
+   odkud jsou, a teprve úplně dole stojí dvě věci, které něco mění: zápis a půjčka. Nic z toho se
+   nespustí samo — každý krok je tlačítko, protože paměť role je sdílená a zápis do ní je rozhodnutí. */
+.agent-memory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+/* Pruh stavu mluví dřív, než se člověk zeptá: vypnutá paměť je klidné sdělení s návodem, nedostupný
+   server je varování, protože to je porucha, ne volba. Nikdy tu nestojí prázdný výsledek vydávaný
+   za „role si nic nepamatuje“. */
+.agent-memory__banner {
+  margin: 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+.agent-memory__banner--unavailable {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+/* Chybějící klíč role není porucha ani ticho — je to jeden krok od hotového stavu, proto zlatě
+   jako půjčka: čeká na klik, ne na opravu. Tlačítko sedí hned pod větou, aby se krok nehledal. */
+.agent-memory__banner--needs-provisioning {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+.agent-memory__banner--needs-provisioning p {
+  margin: 0;
+}
+.agent-memory__banner--needs-provisioning button {
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--ink);
+  font: inherit;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.agent-memory__banner--needs-provisioning button:hover:enabled {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+/* Role je první otázka celého panelu: bez ní paměť neví, čí zkušenost hledá. Stojí proto nad
+   dotazem a ne v nastavení — je to vlastnost téhle karty, kterou člověk mění při pohledu na výsledky. */
+.agent-memory__role,
+.agent-memory__recall label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+.agent-memory__role select,
+.agent-memory__recall input,
+.agent-memory__form select,
+.agent-memory__form input,
+.agent-memory__form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--sp-2);
+  color: var(--ink);
+  font: inherit;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.agent-memory__form textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+/* Otázka a tlačítko stojí v jedné řadě, protože je to jeden úkon: dotaz bez „Vybavit“ nic neudělá.
+   Prázdné pole není chyba — panel se pak zeptá cílem karty, což je nejčastější dotaz vůbec. */
+.agent-memory__recall {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.agent-memory__recall label {
+  flex: 1 1 220px;
+}
+.agent-memory__recall button,
+.agent-memory__form button {
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--ink);
+  font: inherit;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.agent-memory__recall button:hover:enabled,
+.agent-memory__form button:hover:enabled {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+/* Poznámky pod ovládáním jsou tiché: říkají původ seznamu („z briefu karty“), ořez rozpočtem nebo
+   že karta nemá roli. Jsou to přiznání, ne obsah paměti, proto nesoupeří s výsledky. */
+.agent-memory__note {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-0);
+}
+
+/* Skupina je odpověď na otázku „čí to je“ a to je důležitější než pořadí skóre: vlastní zkušenost,
+   pak tenhle projekt a nakonec půjčka od jiné role. Nadpis skupiny nese celé jméno půjčující role,
+   aby si nikdo nespletl cizí zkušenost s vlastní. */
+.agent-memory__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.agent-memory__group-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+.agent-memory__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+/* Položka je karta v malém: nahoře řádek „odkud, jak blízko, kde to leží“, pod ním samotný text.
+   Adresa zůstává drobná a technická — je to důkaz původu, ne obsah, který má člověk číst. */
+.agent-memory__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+.agent-memory__item-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin: 0;
+}
+.agent-memory__origin {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+}
+.agent-memory__origin--self {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.agent-memory__origin--project {
+  color: var(--ink-2);
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+}
+/* Půjčka je zlatá jako všechno, co čeká na lidské posouzení: je to cizí zkušenost, ne pravda o kódu. */
+.agent-memory__origin--lent {
+  color: var(--gold);
+  background: var(--gold-soft);
+  border-color: var(--gold-line);
+}
+/* Skóre je podobnost dotazu, ne jistota. Proto stojí tiše vedle původu a nikdy se nekreslí jako
+   procento ani jako pruh — paměť nemá důvěru ani expiraci a panel si ji nevymýšlí. */
+.agent-memory__score {
+  color: var(--ink-muted);
+  font-size: var(--fs-0);
+}
+.agent-memory__uri {
+  color: var(--ink-muted);
+  font: 10px var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.agent-memory__text {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.agent-memory__text--empty {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* Formuláře jsou dole a mají pevnější rám: odsud se paměť mění nebo se sahá k jiné roli. Oddělený
+   rám je slib, že se nahoře jen čte — kdo nechce nic změnit, sem nemusí. */
+.agent-memory__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+.agent-memory__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+.agent-memory__form-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-2);
+}
+.agent-memory__form button {
+  align-self: flex-start;
+}

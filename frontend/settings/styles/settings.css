@@ -1,4 +1,4 @@
-/* Nastavení aplikace: dialog s levou navigací, sekce Obecné, Skills a Connectors. */
+/* Nastavení aplikace: dialog s levou navigací, sekce Obecné (vzhled a automatika map), Skills a Connectors. */
 .settings-dialog { width: min(1000px, calc(100vw - 32px)); height: min(720px, calc(100vh - 32px)); padding: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden; }
 .settings-nav { padding: var(--sp-3) var(--sp-2); border-right: 1px solid var(--line); background: var(--surface); display: grid; align-content: start; gap: var(--sp-3); overflow: auto; }
 .settings-nav .menu-item { display: block; width: 100%; }
@@ -11,12 +11,29 @@
 .settings-section h3 { margin: 0 0 4px; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 
+/* Automatika map je jediné serverové nastavení v Obecné: řádek stojí ve stejném rytmu jako barevný
+   režim a hustota, pod ním jedna věta, co poloha přepínače právě znamená, aby člověk věděl, že
+   mapy se po mergi přepisují sami a ruční „Aktualizovat teď“ funguje vždy. */
+.map-refresh-setting { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.map-refresh-setting__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.map-refresh-setting__switch { width: auto; margin: 0; accent-color: var(--accent); }
+.map-refresh-setting__detail { font-size: 12px; color: var(--ink-muted); }
+/* Chyba serveru stojí přímo pod přepínačem, ne v jiném panelu: patří k tomu, co se právě nepovedlo. */
+.map-refresh-setting__error { font-size: 12px; color: var(--danger); }
+
 .connectors, .skills { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
 .connector, .skill { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
 .connector-body, .skill-body { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .connector-body span, .skill-body span { font-size: 12px; color: var(--ink-muted); overflow-wrap: anywhere; }
 .connector-status { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); white-space: nowrap; }
 .connector-status.available { color: var(--accent); }
+/* Živý konektor umí i selhat: nedostupný server není „připravujeme“, ale porucha, kterou má člověk
+   vidět hned ve výčtu, ne až v panelu karty. */
+.connector-status.error { color: var(--danger); }
+/* Chybějící klíč role je krok od hotového, ne porucha — proto zlatě, stejně jako v panelu karty. */
+.connector-status.needs_provisioning { color: var(--gold); }
+.connector-actions { display: flex; align-items: center; gap: 8px; }
+.connector-error { margin: 10px 0 0; padding: 8px 10px; border: 1px solid var(--danger-line); border-radius: 8px; background: var(--danger-soft); color: var(--danger); font-size: 12px; }
 
 .skills-toolbar { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
 .skills-toolbar input { flex: 0 1 320px; min-width: 0; }

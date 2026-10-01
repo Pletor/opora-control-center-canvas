@@ -1,0 +1,122 @@
+/* CELKOVÝ POHLED NA PROCES (blok `sync-dashboard`)
+   Příběh: na stránce projektu vidí orchestrátor jedním pohledem, kolik rozsahů čeká na 1:1, kolik
+   je rozpracovaných, kolik zelených a kolik uzavřených, jaké echo proces nejvíc tíží, a dole tabulku
+   se stejným seznamem do detailu — stav, jméno, neprošlé kontroly a jeden další krok. Dokud report
+   nedorazil, dílek řekne jen jednu tichou větu místo prázdné stránky. */
+.sync-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  font-size: var(--fs-1);
+  color: var(--ink);
+}
+.sync-dashboard__empty {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+/* Souhrn stavů a tlačítko Přepočítat sedí v jedné hlavě: číslo řekne rozsah dřív, než se čte
+   tabulka, a přepočet je jediná akce, kterou dashboard sám vyvolává u rodiče. */
+.sync-dashboard__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.sync-dashboard__summary {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.sync-dashboard__stat {
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.sync-dashboard__stat--waiting { color: var(--gold); }
+.sync-dashboard__stat--green { color: var(--accent); }
+.sync-dashboard__stat--draft,
+.sync-dashboard__stat--closed { color: var(--ink-muted); }
+.sync-dashboard__refresh {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink);
+  padding: var(--sp-1) var(--sp-3);
+  cursor: pointer;
+}
+
+/* Echo podle závažnosti je druhá věta souhrnu: vysoká barvou křičí, protože blokuje bránu; střední
+   a nízká jsou tišší, protože jedna čeká jen na kartě a druhá leží jen v seznamu. */
+.sync-dashboard__severity {
+  display: flex;
+  gap: var(--sp-3);
+}
+.sync-dashboard__severity-item--high { color: var(--danger); }
+.sync-dashboard__severity-item--medium { color: var(--gold); }
+.sync-dashboard__severity-item--low { color: var(--ink-muted); }
+
+/* Pět nejčastějších typů echa je žebříček, ne abeceda: orchestrátor tak vidí, který druh nerovnosti
+   se v projektu opakuje nejvíc a stojí za to ho řešit systémově, ne kartu po kartě. */
+.sync-dashboard__signals {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sync-dashboard__signal {
+  display: flex;
+  gap: 4px;
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.sync-dashboard__signal-type {
+  font: 11px var(--mono);
+  color: var(--ink-2);
+}
+.sync-dashboard__signal-count {
+  color: var(--ink-muted);
+}
+
+/* Filtr je jedna tichá zaškrtávací volba, ne další panel: kdo chce vidět jen to, co blokuje, si
+   tabulku zúží sám, aniž by dashboard cokoli přepočítával nebo ukládal. */
+.sync-dashboard__filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+/* Tabulka rozsahů napodobuje seznam commitů z GitHubu, jen se jmenuje OporaHub: stav vlevo nese
+   stejnou barvu jako puntík na kartě, jméno a neprošlé kontroly jdou za sebou, další krok je jedna
+   věta k přečtení, ne tlačítko k odklikání. */
+.sync-dashboard__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sync-dashboard__row--head .sync-dashboard__cell {
+  color: var(--ink-muted);
+  font-weight: 600;
+  text-align: left;
+}
+.sync-dashboard__cell {
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.sync-dashboard__cell--empty {
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+/* Barva vlevo od řádku nese stav dřív, než se dočte slovo: čeká zlatě jako čekárna, zelené zeleně
+   jako povolení, rozpracováno a uzavřeno tiše splynou, protože ani jedno nevolá po pozornosti. */
+.sync-dashboard__row--waiting .sync-dashboard__cell:first-child { border-left: 2px solid var(--gold-line); }
+.sync-dashboard__row--green .sync-dashboard__cell:first-child { border-left: 2px solid var(--accent-line); }
+.sync-dashboard__row--draft .sync-dashboard__cell:first-child,
+.sync-dashboard__row--closed .sync-dashboard__cell:first-child { border-left: 2px solid var(--line-strong); }

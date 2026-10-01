@@ -1,1 +1,1 @@
-Levá strana Editoru: knihovna komponent, metod a funkcí, která se vyvíjí podle tvorby kódu a zpětné vazby. Zatím slot bez kódu; podsložka palette = paleta k vložení.
+Levá strana Editoru: knihovna komponent, metod a funkcí, která se vyvíjí podle tvorby kódu a zpětné vazby. `node-library/` = pevná lišta + vysouvací panel s obsahem pro vybranou kartu (bloky, akce, podklady, kontrola kontextu). Podsložka `palette/` = paleta k vložení (zatím slot).

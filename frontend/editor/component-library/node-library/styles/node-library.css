@@ -1,0 +1,123 @@
+/* Knihovna uzlu (blok node-library).
+   Příběh: uživatel klikne na kartu a od levé hrany plátna vyjede panel 300 px široký. Panel patří té kartě,
+   nabízí, co do ní vložit (bloky, akce, podklady), a v poslední záložce říká, zda má model dost kontextu.
+   Klik na prázdné plátno výběr zruší a panel zajede zpět. Není tu žádná pevná lišta: plátno má celou šířku. */
+.node-library {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 300px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--surface);
+  border-right: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-pop);
+  font-size: 12px;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform 0.22s ease, visibility 0s linear 0.22s;
+}
+.node-library--open { transform: translateX(0); visibility: visible; transition: transform 0.22s ease; }
+
+/* Hlava: jméno karty, ke které panel patří, a křížek, kdyby uživatel chtěl panel zavřít bez změny výběru. */
+.node-library__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 13px;
+  border-bottom: 1px solid var(--line);
+}
+.node-library__title { font-size: 14px; overflow-wrap: anywhere; }
+.node-library__close { min-height: 0; padding: 0 6px; background: transparent; border: 0; color: var(--ink-muted); cursor: pointer; }
+
+/* Záložky: čtyři sekce v jedné řadě; aktivní má barvu akcentu a podtržení, aby bylo jasné, kde uživatel je. */
+.node-library__tabs { display: flex; border-bottom: 1px solid var(--line); }
+.node-library__tab {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 4px;
+  font: 600 10px var(--mono);
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.node-library__tab:hover { color: var(--ink); }
+.node-library__tab--active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Tělo: roluje samo, hlava a záložky zůstávají na místě. Rytmus 13 / 8 / 5 jako v kartě. */
+.node-library__body { flex: 1; overflow: auto; padding: 8px 13px 13px; }
+.node-library__note { margin: 5px 0; color: var(--ink-muted); font-size: 11px; }
+.node-library__note b { color: var(--ink); }
+.node-library__empty { margin: 13px 0; color: var(--ink-muted); font-style: italic; }
+.node-library__missing { color: var(--ink-muted); }
+
+/* Nabídka k vložení („Add one of the content blocks“): karta s ikonou, názvem a nápovědou, čárkovaný rám říká
+   „tohle ještě v kartě není, klikem to tam dáš“. */
+.node-library__pick {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  padding: 8px 10px;
+  margin-bottom: 5px;
+  text-align: left;
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.node-library__pick:hover:not(:disabled) { border-color: var(--accent-line); background: var(--accent-soft); }
+.node-library__pick:disabled { opacity: 0.5; cursor: default; }
+.node-library__pick-icon { font-size: 16px; text-align: center; color: var(--ink-muted); }
+.node-library__pick-text strong { display: block; font-size: 12px; }
+.node-library__pick-text small { display: block; color: var(--ink-muted); font-size: 10px; }
+.node-library__category-title { margin: 13px 0 5px; font-size: 12px; }
+
+/* Co už v kartě je: úsporný seznam číslo · název · odebrat, stejný rytmus jako řádky bloků v kartě. */
+.node-library__rows { list-style: none; margin: 0; padding: 0; }
+.node-library__row { display: grid; grid-template-columns: auto 1fr auto; gap: 5px; align-items: center; padding: 4px 0; border-top: 1px solid var(--line); }
+.node-library__row-number { font: 600 10px var(--mono); color: var(--ink-muted); }
+.node-library__row-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-library__row-remove { min-height: 0; padding: 0 4px; background: transparent; border: 1px solid transparent; color: var(--ink-muted); cursor: pointer; }
+.node-library__row-remove:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); }
+
+/* Podklady: tentýž dílek jako blok Podklady u karty, jen bez rámu a stínu, protože rám dává panel. */
+.node-library__materials.canvas-block { width: auto; border: 0; box-shadow: none; background: transparent; }
+.node-library__materials .block-body { padding: 0; }
+
+/* Kontext: kontrolní seznam sedmi věcí, které model potřebuje; fajfka v barvě akcentu = splněno, tečka = chybí. */
+.node-library__checks { list-style: none; margin: 0; padding: 0; }
+.node-library__check { display: grid; grid-template-columns: 18px 1fr; gap: 5px; padding: 5px 0; border-top: 1px solid var(--line); }
+.node-library__check-mark { font: 600 12px var(--mono); color: var(--ink-muted); }
+.node-library__check--ok .node-library__check-mark { color: var(--accent); }
+.node-library__summary { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 0; }
+.node-library__summary-key { font: 600 10px var(--mono); color: var(--ink-muted); }
+.node-library__summary-value { margin: 0; overflow-wrap: anywhere; }
+
+/* Balíček pro model: stažený JSON se ukáže tak, jak ho model dostane — bez úprav, jen ve schránce na dosah.
+   Rámeček je záměrně nízký a rolovací: není to text ke čtení, je to doklad, že se vydává právě tohle. */
+.node-library__brief-actions { display: flex; gap: 5px; flex-wrap: wrap; margin: 5px 0; }
+.node-library__brief-button { min-height: 0; padding: 3px 8px; font-size: 11px; }
+.node-library__brief {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: 500 10px/1.5 var(--mono);
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

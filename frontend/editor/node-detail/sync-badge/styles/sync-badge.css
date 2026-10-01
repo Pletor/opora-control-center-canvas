@@ -1,0 +1,118 @@
+/* VERDIKT ORACLE (blok `sync-badge`)
+   Příběh: uzel dostane jednu tichou destičku s barevným puntíkem a jednou větou, ne graf ani formulář.
+   Zelená smí dál, žlutá čeká a řekne na co, červená nesmí a řekne proč, tlumená jen popisuje stav
+   (rozpracováno, uzavřeno). Sedm kontrol brány leží schované za tlačítko, protože ta otázka je detail
+   pro toho, kdo chce vědět přesně proč — hlavní věta má stačit sama. */
+.sync-badge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-size: var(--fs-1);
+}
+.sync-badge__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.sync-badge__dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ink-muted);
+}
+.sync-badge__label {
+  font-weight: 700;
+  color: var(--ink);
+}
+.sync-badge__detail {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* Barva puntíku a popisku nese odpověď dřív, než se dočte věta: zelená jako OK, žlutá jako zlatá
+   čekárna, červená jako zákaz. Tlumená splyne s okolím, protože rozpracováno a uzavřeno nejsou poplach. */
+.sync-badge--green .sync-badge__dot { background: var(--accent); }
+.sync-badge--green .sync-badge__label { color: var(--accent); }
+.sync-badge--amber .sync-badge__dot { background: var(--gold); }
+.sync-badge--amber .sync-badge__label { color: var(--gold); }
+.sync-badge--red .sync-badge__dot { background: var(--danger); }
+.sync-badge--red .sync-badge__label { color: var(--danger); }
+.sync-badge--muted .sync-badge__dot { background: var(--ink-muted); }
+.sync-badge--muted .sync-badge__label { color: var(--ink-2); }
+
+/* Další kroky jsou věty k přečtení, ne checklist s vlastními zaškrtávátky: uzel jich má nejvýš pár
+   a orchestrátor si je odnáší jako pokyn, nic tady neodklikává. */
+.sync-badge__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+}
+
+/* Tlačítko je tichý podtržený text, ne knoflík: rozbalení sedmi kontrol je pro toho, kdo chce vědět
+   přesně, která z nich padla, a nemá soupeřit pohledem s barvou a větou nad ním. */
+.sync-badge__toggle {
+  align-self: flex-start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* Rozbalený seznam: jeden řádek na kontrolu, prošlá tiše zelená, nesplněná červená a nese typ echa
+   z části 7 kontraktu, aby bylo jasné, co přesně za ní stojí. */
+.sync-badge__checks {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sync-badge__check {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.sync-badge__check-state {
+  font-weight: 700;
+}
+.sync-badge__check--passed .sync-badge__check-state { color: var(--accent); }
+.sync-badge__check--failed .sync-badge__check-state { color: var(--danger); }
+.sync-badge__check-name {
+  color: var(--ink-2);
+}
+.sync-badge__check-signal {
+  color: var(--ink-muted);
+  font: 11px var(--mono);
+}
+
+/* Tlačítko commitu stojí hned pod štítkem: je to jediný krok, který člověk udělá sám,
+   a proto vypadá jako věta v textu, ne jako hlavní akce karty. */
+.sync-badge__commit {
+  margin: var(--sp-1) 0 0;
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.sync-badge__commit:hover {
+  border-color: var(--accent);
+}
+

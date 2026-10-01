@@ -1,0 +1,239 @@
+/* PLOCHA AGENTI (blok `agent-segments`)
+   Příběh: dřív byla záložka Agenti jeden úzký sloupec, ve kterém se pod sebou opakoval celý pracovní
+   prostor pro vrstvu i pro každé dítě — člověk se ztratil dřív, než dočetl druhou kartu. Teď je to
+   plocha se dvěma poli: vlevo úzká lišta karet (260 px, právě tak, aby se vešlo jméno uzlu), vpravo
+   pojmenované segmenty té jediné karty, na kterou člověk klikl. Kdo kam patří, se tím čte z rozvržení
+   samotného: vlevo „o čem“, vpravo „co o tom víme“. */
+.agent-segments {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: start;
+}
+@media (min-width: 1100px) {
+  .agent-segments {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+}
+
+/* Lišta karet je rejstřík, ne menu: drobný nadpis a pod ním seznam, kde vybraná karta svítí teplým
+   podkladem a levým proužkem — stejná řeč výběru jako jinde na plátně. „Zanořit“ stojí až za jménem
+   a tiše, protože je to skok jinam, kdežto klik na jméno jen přepne, co se vpravo kreslí. */
+.agent-segments__rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.agent-segments__rail-title {
+  margin: 0;
+  font-size: var(--fs-0);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+}
+.agent-segments__rail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.agent-segments__rail-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border-left: 2px solid transparent;
+  border-radius: var(--radius);
+  padding-left: var(--sp-1);
+  min-width: 0;
+}
+.agent-segments__rail-item--selected {
+  border-left-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.agent-segments__rail-pick {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 0;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--ink);
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+}
+.agent-segments__rail-pick:hover {
+  border-color: var(--line-strong);
+}
+.agent-segments__rail-kind {
+  font: 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.agent-segments__rail-name {
+  font-size: var(--fs-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.agent-segments__rail-enter {
+  font-size: var(--fs-0);
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.agent-segments__rail-enter:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.agent-segments__rail-empty {
+  margin: 0;
+  font-size: var(--fs-1);
+}
+/* V úzkém okně by svislá lišta ukradla půl šířky, a přitom karet bývá pět, ne padesát. Proto se
+   překlopí do vodorovného pásu pilulek nad plochou: totéž rozhodnutí („kterou kartu čtu“), jen
+   položené naplocho, aby pod ním zůstalo místo na segmenty. Druh karty přitom stojí před jménem
+   na jednom řádku, ne nad ním — v pilulce není na dvouřádkový popisek místo. */
+@media (max-width: 1099px) {
+  .agent-segments__rail {
+    position: static;
+  }
+  .agent-segments__rail-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+  }
+  .agent-segments__rail-item {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    padding: 0 var(--sp-1) 0 0;
+  }
+  .agent-segments__rail-item--selected {
+    border-color: var(--accent-line);
+  }
+  .agent-segments__rail-pick {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--sp-1);
+  }
+  .agent-segments__rail-name {
+    max-width: 22ch;
+  }
+}
+
+/* Pravá strana je jedna mřížka o deseti sloupcích, protože tak vyjde přesně to, co má člověk vidět:
+   Přehled přes celou šířku jako pás, pod ním Start a Komunikace jako dvě poloviny a nakonec pět polí
+   paměti jako pět stejně širokých sloupců vedle sebe — pět kroků práce v jedné řadě, ne pět odstavců
+   pod sebou. V užším okně mřížka sama přejde na sloupce po 280 px a nejužší okno zůstane jednosloupcové. */
+.agent-segments__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-3);
+  align-content: start;
+  min-width: 0;
+}
+.agent-segments__segment--overview,
+.agent-segments__segment--top {
+  grid-column: 1 / -1;
+}
+@media (min-width: 1100px) {
+  .agent-segments__grid {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+  .agent-segments__segment--top {
+    grid-column: span 5;
+  }
+  /* Paměť role je horní segment jako Start a Komunikace, ale do poloviny řádku se nevejde: nese
+     výběr role, dotaz, tři skupiny výsledků a dva formuláře. Bere si proto celý řádek pod dvojicí —
+     jinak by za ni zbyla prázdná půlka a pět polí paměti karty by se rozsypalo mimo svou řadu. */
+  .agent-segments__segment--wide {
+    grid-column: 1 / -1;
+  }
+  .agent-segments__segment--memory {
+    grid-column: span 2;
+  }
+}
+@media (max-width: 719px) {
+  .agent-segments__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Segment je pojmenovaný celek: titulek, pod ním jedna věta, k čemu to je a kdo sem píše, a vpravo
+   tichý přepínač Sbalit/Rozbalit. Sbalený segment nezmizí — zůstane stát jako štítek se svou větou,
+   takže rozvržení plochy se pod rukama nehýbe a člověk pořád vidí, co karta všechno má. Rozbalený
+   dostane o odstín světlejší podklad, aby bylo na první pohled poznat, kde se právě pracuje. */
+.agent-segments__segment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.agent-segments__segment--open {
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+.agent-segments__segment-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.agent-segments__segment-title {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  color: var(--ink);
+}
+.agent-segments__toggle {
+  font-size: var(--fs-0);
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.agent-segments__toggle:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+/* Věta pod titulkem je smlouva segmentu: říká, k čemu pole slouží a čí poznámky v něm stojí. Proto
+   je tichá kurzíva — patří k nadpisu, ne k obsahu, a nesmí soupeřit s tím, co do segmentu napsal model. */
+.agent-segments__caption {
+  margin: 0;
+  font-size: var(--fs-0);
+  color: var(--ink-muted);
+  font-style: italic;
+}
+.agent-segments__segment-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  min-width: 0;
+}

@@ -1,234 +1,253 @@
-/* Přirozená práce s bloky: hustý pracovní povrch, žádné velké dekorativní plochy. */
+/* Osnova uzlu. Sousední dílky (deník, odkazy) znají jen tenhle soubor, proto si nese i jejich zbytky. */
+@import "./node-detail-shared.css";
+
+/* Osnova je zápisník, ne formulář. Řádek nemá rámeček ani desku; drží ho jen kulička odrážky
+   a tenká svislá linka, která vede od rodiče dolů podél všech jeho dětí a končí s poslední z nich.
+   Text je hlavní hrdina: 15 px na řádkování 1.6, pole roste s obsahem, nikdy nemá vlastní posuvník
+   ani úchyt pro tažení. Plocha se rozsvítí teprve pod myší, při psaní zůstane tmavá a vidět je jen
+   kurzor — ruka má vědět, kde je, aniž by dokument blikal. */
 .block-outline {
+  --block-indent: 24px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 4px;
-  border: 1px solid #26313b;
-  border-radius: 8px;
-  background: #131920;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
 }
-.block-row {
+/* Design-tokens kdysi dorovnávaly tmavé hexy osnovy na světlý režim a podkládaly ji deskou
+   `--surface`. Dokument žádnou desku nemá — v obou režimech leží přímo na stránce. Starší pravidlo
+   se načítá později, proto se sem přibírá `[role="group"]`: přebít ho musí síla, ne pořadí. */
+:root[data-theme="light"] .block-outline[role="group"] {
+  background: transparent;
+}
+
+/* Řádek: vlevo úzký sloupec ovládání (šipka a kulička), vpravo text a odkazy. Každá úroveň zanoření
+   je 24 px doprava a přesně tam, kde je kulička rodiče, vede dolů vodicí linka; kreslí ji opakovaný
+   přechod na pozadí, takže nepotřebuje žádný prvek navíc a mezi řádky se nikde nepřetrhne. */
+.block-outline__row {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  padding: 1px 2px;
-  border-radius: 6px;
+  padding-block: 2px;
+  padding-inline-start: calc(var(--block-depth, 0) * var(--block-indent));
+  border-radius: var(--radius);
+  background-image: repeating-linear-gradient(to right, transparent 0 23px, var(--line-strong) 23px 24px);
+  background-size: calc(var(--block-depth, 0) * var(--block-indent)) 100%;
+  background-repeat: no-repeat;
 }
-.block-row:focus-within {
-  background: #182230;
+.block-outline__row:hover {
+  background-color: var(--surface-2);
 }
-.block-bullet {
-  color: #6f8598;
-  line-height: 1.7;
-  font-size: 14px;
+
+/* Šipka je tichá: ukáže se až pod myší nebo když je blok sbalený, aby dokument nevypadal jako strom
+   se spoustou ovládání. Místo pro ni drží i řádky bez dětí, jinak by text poskakoval doleva. */
+.block-outline__toggle,
+.block-outline__gap {
+  flex: 0 0 16px;
+  height: 1.6em;
+}
+.block-outline__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 8px;
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+}
+.block-outline__row:hover .block-outline__toggle,
+.block-outline__row:focus-within .block-outline__toggle,
+.block-outline__row[data-collapsed="true"] .block-outline__toggle {
+  opacity: 1;
+}
+.block-outline__toggle:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+/* Kulička je kotva řádku: 6 px bod v ose textu. Sbalený blok ji dostane v prstenci, aby bylo poznat,
+   že se pod ní něco skrývá. Úkol a hotovo ji vymění za zaškrtávací čtvereček, rozhodnutí a důkaz
+   jen obarví — značka se pozná okem, ale text bloku zůstává ten, co uživatel napsal. */
+.block-outline__bullet {
+  position: relative;
+  flex: 0 0 16px;
+  height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   user-select: none;
 }
-.block-input {
+.block-outline__bullet::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-muted);
+}
+.block-outline__row[data-collapsed="true"] .block-outline__bullet::before {
+  background: var(--ink-2);
+  box-shadow: 0 0 0 4px var(--surface-3);
+}
+.block-outline__row[data-mark="decision"] .block-outline__bullet::before {
+  background: var(--accent);
+}
+.block-outline__row[data-mark="evidence"] .block-outline__bullet::before {
+  background: var(--gold);
+}
+.block-outline__row[data-mark="todo"] .block-outline__bullet::before,
+.block-outline__row[data-mark="done"] .block-outline__bullet::before {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--ink-muted);
+  border-radius: 3px;
+  background: transparent;
+}
+.block-outline__row[data-mark="done"] .block-outline__bullet::before {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.block-outline__row[data-mark="done"] .block-outline__bullet::after {
+  content: "✓";
+  position: absolute;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+/* Pole textu je jen text: bez rámečku, bez podkladu, bez posuvníku. Roste s obsahem (`field-sizing`),
+   a když řádek začíná mřížkou, zvětší se celý řádek — kulička i šipka jdou s ním, protože měří v em. */
+.block-outline__input {
   flex: 1;
-  min-height: 24px;
-  resize: none;
-  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 0 3px;
   border: 0;
   outline: 0;
-  padding: 2px 4px;
-  color: #e7eef5;
+  resize: none;
+  overflow: hidden;
   background: transparent;
+  color: var(--ink);
   font: inherit;
-  line-height: 1.6;
+  line-height: inherit;
   field-sizing: content;
 }
-.block-input::placeholder {
-  color: #63788a;
+.block-outline__input::placeholder {
+  color: var(--ink-muted);
 }
-.block-links {
+/* Nadpis si bere vzduch nad sebou přes padding, ne margin: vodicí linka je pozadí řádku a musela by
+   se tam jinak přetrhnout. */
+.block-outline__row[data-heading="1"] {
+  font-size: 25px;
+  font-weight: 650;
+  padding-block: var(--sp-4) 2px;
+}
+.block-outline__row[data-heading="2"] {
+  font-size: 20px;
+  font-weight: 650;
+  padding-block: var(--sp-3) 2px;
+}
+.block-outline__row[data-heading="3"] {
+  font-size: 17px;
+  font-weight: 600;
+  padding-block: var(--sp-2) 2px;
+}
+
+/* Odkaz [[uzel]] je štítek na konci řádku, na který se dá kliknout; nenalezený uzel zežloutne
+   a kliknout nejde, protože není kam. */
+.block-outline__links {
   display: flex;
+  flex: 0 0 auto;
   gap: 4px;
   align-items: center;
   flex-wrap: wrap;
+  padding-inline-start: 8px;
+  padding-block: 2px;
 }
-.block-link {
-  border: 1px solid #2f4a3f;
-  background: #16241d;
-  color: #9fd8bc;
-  border-radius: 999px;
+/* Řádek bez odkazů si nechá celou šířku, aby se do něj dalo kliknout kdekoli. Jakmile odkazy má,
+   pole se smrskne na svůj text a štítky stojí hned za větou, ne u pravého okraje stránky — to umí
+   jen prohlížeč, který velikost pole podle obsahu zvládá. */
+@supports (field-sizing: content) {
+  .block-outline__row:has(.block-outline__links) .block-outline__input {
+    flex: 0 1 auto;
+    width: auto;
+  }
+}
+.block-outline__link {
+  min-height: 0;
   padding: 1px 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 11px;
+  line-height: 1.5;
   cursor: pointer;
 }
-.block-link.unresolved {
-  border-color: #4a4030;
-  background: #241f16;
-  color: #d8c49f;
+.block-outline__link--unresolved {
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+  color: var(--gold);
   cursor: default;
 }
-.block-menu {
+
+/* Paleta se otevře pod rozepsaným řádkem, zarovnaná s jeho textem, a překryje, co je pod ní:
+   uživatel vybírá z hotových možností a nesmí přitom ztratit místo, kde píše. */
+.block-outline__menu {
   position: absolute;
   z-index: 20;
   top: 100%;
-  left: 24px;
+  left: calc(var(--block-depth, 0) * var(--block-indent) + 32px);
   min-width: 260px;
   margin: 2px 0 0;
   padding: 4px;
   list-style: none;
-  border: 1px solid #2c3a46;
-  border-radius: 8px;
-  background: #101821;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  font-size: var(--fs-2);
 }
-.block-menu-head,
-.block-menu-empty {
+.block-outline__menu-head,
+.block-outline__menu-empty {
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: var(--fs-0);
   letter-spacing: 0.04em;
-  color: #7f93a5;
+  color: var(--ink-muted);
 }
-.block-menu button {
+.block-outline__command {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+  min-height: 0;
   padding: 5px 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: transparent;
-  color: #dbe6ef;
+  color: var(--ink);
   text-align: left;
   cursor: pointer;
 }
-.block-menu button.active,
-.block-menu button:hover {
-  background: #1d2a38;
+.block-outline__command--active,
+.block-outline__command:hover {
+  background: var(--surface-3);
 }
-.block-menu kbd {
-  color: #8fb0c9;
-  font-size: 11px;
-  border: 1px solid #2f414f;
-  border-radius: 4px;
+.block-outline__hint {
   padding: 0 5px;
-}
-.source-text > summary {
-  cursor: pointer;
-  color: #8698a8;
-  font-size: 12px;
-  padding: 4px 0;
-}
-.block-outline {
-  font-size: 14px;
-}
-.node-links h4 {
-  margin: 8px 0 4px;
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  color: #8fa4b6;
-}
-.node-links ul,
-.journal-days {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.node-links li button,
-.journal-days li button {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  text-align: left;
-  font-size: 12px;
-}
-.node-links em {
-  color: #7c92a5;
-  font-style: normal;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--ink-2);
   font-size: 11px;
-}
-.journal-days {
-  margin-top: 8px;
-  flex-direction: row;
-  flex-wrap: wrap;
-}
-.node-journal > header {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.node-journal > header .eyebrow {
-  flex-basis: 100%;
-  margin-bottom: 0;
-}
-.node-journal .field.inline {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-}
-.journal-days li button.active {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-}
-.board-surface {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-.board-hint {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
-  margin: 0;
-  z-index: 5;
-  color: #7f93a5;
-  font-size: 11px;
-  pointer-events: none;
-}
-.card-rename {
-  width: 100%;
-  font: inherit;
-  font-weight: 600;
-  color: #e7eef5;
-  background: #0e161e;
-  border: 1px solid #3d6f8f;
-  border-radius: 5px;
-  padding: 2px 5px;
-}
-.agent-task-notice {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  z-index: 60;
-  max-width: 380px;
-  padding: 12px 14px;
-  border: 1px solid #33505f;
-  border-radius: 10px;
-  background: #101a22;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
-}
-.agent-task-notice dl {
-  margin: 8px 0;
-  display: grid;
-  gap: 2px;
-  font-size: 12px;
-}
-.agent-task-notice dl div {
-  display: flex;
-  gap: 8px;
-}
-.agent-task-notice dt {
-  color: #8298aa;
-  min-width: 62px;
-}
-.agent-task-notice dd {
-  margin: 0;
-  color: #dbe6ef;
-  word-break: break-word;
-}
-.detail-extras {
-  gap: 8px;
 }

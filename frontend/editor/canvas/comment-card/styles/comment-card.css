@@ -1,0 +1,93 @@
+/* KOMENTÁŘ NA PLÁTNĚ (blok `comment-card`)
+   Příběh: mezi kartami uzlů občas potřeba nechat vzkaz, který nikam nevede a nic neřídí — lepicí
+   lístek, ne dílek architektury. Proto je užší než karta uzlu (240 místo 272), nemá porty ani bloky
+   a leží rovně, beze sklonu: na plátně má být čitelný stejně snadno jako karta, jen barvou hned
+   prozradí, že je to jiný druh věci. Teplý odstín papíru (`--comment-bg`) drží kontrast se svým
+   inkoustem (`--comment-ink`) v obou režimech vzhledu — ve světlém tmavým, ve tmavém krémovým, aby
+   lístek nezůstal skoro stejně tmavý jako to, na čem stojí. Shora dolů: drobný popisek „✎ komentář“, titulek (dvojklik
+   přejmenuje přímo na plátně, stejně jako jméno karty), pak textarea na vlastní poznámku, která
+   roste s výškou lístku. Přetahovat po plátně jde jen lístek; co se dá psát, nese třídu `nodrag`. */
+.comment-card {
+  position: relative;
+  width: 240px;
+  min-height: 120px;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 6px;
+  background: var(--comment-bg);
+  border: 1px solid var(--comment-line);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  color: var(--comment-ink);
+  font-family: var(--font);
+}
+/* Tmavý režim byl skoro nečitelný (tmavý inkoust na skoro stejně tmavém podkladu) — lístek teď zůstává
+   teplé zlatavé barvy, ale zesvětlený, s krémovým inkoustem (kontrast na `--comment-bg` ~6,2 : 1) a
+   vlastním odstínem popisku, aby nezanikl v opacitě jako předtím. */
+:root[data-theme="dark"] { --comment-bg: #6b5a24; --comment-line: #a68a3a; --comment-ink: #fff6d6; --comment-eyebrow: #e8d48a; }
+:root[data-theme="light"] { --comment-bg: #f3e9c6; --comment-line: #d8c98f; --comment-ink: #3a3010; }
+
+/* Vybraný lístek svítí stejným akcentním obrysem jako vybraná karta uzlu (`node-card--selected`),
+   aby oko na plátně čtelo výběr jednotně bez ohledu na druh věci, na kterou právě padlo. */
+.comment-card--selected { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Popisek nahoře jen tiše řekne, co tenhle lístek je — komentář, ne uzel se svým vlastním stavem. */
+.comment-card__eyebrow {
+  font: 600 10px var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--comment-ink);
+  opacity: 0.7;
+}
+/* Ve tmavém režimu má popisek vlastní zlatavý odstín místo ztlumeného inkoustu — na `--comment-bg`
+   je tak čitelný sám, ne jen jako slabý stín titulku. */
+:root[data-theme="dark"] .comment-card__eyebrow { color: var(--comment-eyebrow); opacity: 1; }
+
+/* Titulek se čte jako první, proto tučně; dvojklik ho přímo na plátně přejmenuje, stejně jako u karty. */
+.comment-card__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+.comment-card__title-input {
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--comment-line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* Text lístku vyplní zbytek výšky a roste s ní; bez rámečku navíc, ať vypadá jako popsaný papír,
+   ne jako formulářové pole. Ukládá se až při opuštění pole, stejně jako popis bloku v kartě uzlu. */
+.comment-card__text {
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  /* Lístek roste s textem, aby se poznámka četla celá bez posuvníku; ruční tažení by ji zase schovalo. */
+  field-sizing: content;
+  overflow: hidden;
+  resize: none;
+  font: 400 12px/1.5 var(--font);
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.comment-card__text::placeholder { color: var(--comment-ink); opacity: 0.55; }
+.comment-card__text:focus { outline: none; }
+
+/* INSPEKTOR KOMENTÁŘE (blok `comment-panel`)
+   Příběh: stejný sled jako u ostatních malých inspektorů (vazba, uzel) — nejdřív popisek druhu,
+   pak pole, na konci destruktivní akce. Panel nemá vlastní rámeček ani barvu, jen svislý rytmus
+   mezi poli; zbytek (vstupy, tlačítko, patička) nese sdílené třídy `field` / `eyebrow` / `panel-foot`. */
+.comment-panel { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.comment-panel__note { margin: 0; }

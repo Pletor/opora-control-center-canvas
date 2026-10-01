@@ -1,0 +1,17 @@
+/* Štítky stojí v jedné řadě: když se do lišty nevejdou, řada se posouvá do strany, místo aby lištu zalomila. */
+.tag-filter { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.tag-filter > * { flex: none; }
+.tag-filter-label { font: 600 10px var(--mono); letter-spacing: 0.08em; color: var(--ink-muted); margin-right: 3px; }
+.tag-filter-chip {
+  min-height: 0;
+  padding: 2px 8px;
+  font: 500 11px var(--mono);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.tag-filter-chip b { font-weight: 600; color: var(--ink-muted); }
+.tag-filter-chip.is-active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
+.tag-filter-clear { min-height: 0; padding: 2px 8px; font-size: 11px; background: transparent; border: 0; color: var(--ink-muted); cursor: pointer; }

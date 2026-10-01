@@ -5,19 +5,36 @@ import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, 
 import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
 import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, setDone, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
 import { edgeFromConnection, sameEdge, type BoardConnection } from "@/editor/canvas/board/logic/board-model";
-import { layerFootprints, spreadLayer } from "@/editor/canvas/board/logic/layout-model";
+import { emptyHistory, record, redo, sameGraph, undo, type GraphHistory } from "@/editor/canvas/history/logic/graph-history";
+import { useUndoShortcut } from "@/editor/canvas/history/logic/undo-shortcut";
+import { arrangeLayer as arrangeFootprints, layerFootprints } from "@/editor/canvas/board/logic/layout-model";
+import { clampAreaResize, settleCard } from "@/editor/canvas/board/logic/solid-bodies";
+import { itemById } from "@/editor/component-library/library-catalog/logic/library-catalog";
+import { cardFromItem, insertBlockFromItem, workflowFromItem } from "@/editor/component-library/library-catalog/logic/catalog-insert";
+import { agentItemById } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
+import { insertActionFromItem, insertRulesFromItem, sectorFromWorkflow } from "@/editor/component-library/agent-catalog/logic/agent-insert";
 import EdgeReportPanel from "@/editor/canvas/edge-report/components/EdgeReportPanel";
 import { edgeReportView, reportOf, setEdgeReport } from "@/editor/canvas/edge-report/logic/edge-report-model";
 import { addMaterial, captionMaterial, materialKindOf, moveMaterial, removeMaterial } from "@/editor/workflow/blocks/logic/block-model";
 import NodeLibraryDrawer from "@/editor/component-library/node-library/components/NodeLibraryDrawer";
 import { addBlockOfKind, closeLibrary, initialLibrary, openLibrary, showSection } from "@/editor/component-library/node-library/logic/library-model";
+import LibraryNavbar from "@/layout/library-navbar/components/LibraryNavbar";
+import { useLibraryNavbar } from "@/layout/library-navbar/logic/use-library-navbar";
+import "@/layout/library-navbar/styles/library-navbar.css";
+import AgentNavbar from "@/layout/agent-navbar/components/AgentNavbar";
+import { useAgentNavbar } from "@/layout/agent-navbar/logic/use-agent-navbar";
+import "@/layout/agent-navbar/styles/agent-navbar.css";
+import PanelToggles from "@/layout/panel-dock/components/PanelToggles";
+import PanelDropdown from "@/layout/panel-dock/components/PanelDropdown";
+import { usePanelDock } from "@/layout/panel-dock/logic/use-panel-dock";
+import { DOCK_PANELS } from "@/layout/panel-dock/logic/panel-dock";
 import { cardBlocks } from "@/editor/canvas/node-card/logic/card-model";
 import { nodeWorkflowOf, type PipelineLibrary } from "@/shared/desktop-state/logic/types";
 import { fetchPipelines } from "@/shared/desktop-state/logic/api";
 import "@/editor/component-library/node-library/styles/node-library.css";
 import TagFilter from "@/editor/canvas/tag-filter/components/TagFilter";
 import ProjectHome from "@/project-setup/components/ProjectHome";
-import TextWorkspace from "@/editor/node-detail/content/components/TextWorkspace";
+import TextWorkspace, { type TextSubtab } from "@/editor/node-detail/content/components/TextWorkspace";
 import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "@/editor/llm-control/editor-context/components/context-actions";
 import TopBar from "@/layout/top-bar/components/TopBar";
 import ModeRail from "@/layout/mode-rail/components/ModeRail";
@@ -29,6 +46,8 @@ import SourceExplorer from "@/project/source-tree/components/SourceExplorer";
 import { useWorkspaceSelection } from "@/shared/selection/logic/workspace-selection";
 import { clearSelection, emptySelection, panelsFor, selectBlock, selectEdge, selectNode, type Panels, type Selection } from "@/app/logic/selection-model";
 import "@/layout/shell/styles/desktop-workspaces.css";
+import "@/editor/node-detail/sync-badge/styles/sync-badge.css";
+import "@/project/sync-dashboard/styles/sync-dashboard.css";
 
 import ScopeContext from "@/shared/contexts/components/ScopeContext";
 import LayerContext from "@/editor/node-detail/components/LayerContext";
@@ -54,6 +73,11 @@ import ProcessOverview from "@/live-run/processes/components/ProcessOverview";
 import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
+import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
+import { commitSpec } from "@/shared/desktop-state/logic/api";
+import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-report";
+import SyncDashboard from "@/project/sync-dashboard/components/SyncDashboard";
+import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import CommentPanel from "@/editor/canvas/comment-card/components/CommentPanel";
 import { newComment, nextCommentSpot } from "@/editor/canvas/comment-card/logic/comment-model";
 import AreaPanel from "@/editor/canvas/area/components/AreaPanel";
@@ -67,6 +91,7 @@ import {
   type View,
   type Project,
   type Job,
+  type Bootstrap,
   type CanvasNode,
   type Workspace,
   type RemovalPreview,
@@ -126,6 +151,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const lastEditorMode = useRef<WorkspaceMode>(mode === "agents" ? "structure" : mode);
   function setMode(next: WorkspaceMode) {
     setEditorDocumentOpen(false);
+    // Jiný mód = jiný pohled na vrstvu; zavěšený panel z minulého pohledu by jen zakrýval plátno.
+    dock.close();
     setEditorMode(next);
     if (next !== "agents") lastEditorMode.current = next;
     setEnvironment(next === "agents" ? "live" : "editor");
@@ -140,6 +167,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [settings, setSettings] = useState(readSettings);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [nodeTab, setNodeTab] = useState<NodeTab>("content");
+  // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
+  const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
   const [textRevision, setTextRevision] = useState(0);
   const [focusRun, setFocusRun] = useState<{ sourceId: string; runId: string } | null>(null);
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
@@ -156,6 +185,20 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   // Knihovna uzlu vlevo: panel vyjede, když uživatel klikne na kartu, a zajede, když výběr zmizí.
   const [library, setLibrary] = useState(initialLibrary);
   useEffect(() => { setLibrary((l) => (selected ? openLibrary(l) : closeLibrary(l))); }, [selected]);
+  // Knihovna (levý navbar): jedno rozhraní pro celou aplikaci — stav i preference drží hook,
+  // ukládá se pod jediným klíčem `opora:library-navbar:v1`, nikdy s klíčem projektu.
+  const libraryNavbar = useLibraryNavbar();
+  // Zavěšené panely Editoru (docs/rozvrzeni-editoru.md): Knihovna nebo Agenti a postupy visí pod
+  // svým tlačítkem v liště nástrojů, otevřený je nejvýš jeden a jen v Editoru. Stav je jen v paměti
+  // sezení; zkratky Ctrl+Shift+, / Ctrl+Shift+. a Esc drží hook. Úvodní obrazovka panely nekreslí,
+  // proto tam zkratky nic nepřepínají a odchod na ni panel zavře.
+  const dock = usePanelDock(environment === "editor" && screen === "canvas");
+  // Agenti a postupy: obsah zavěšeného panelu. Stav drží týž druh hooku pod jediným klíčem
+  // `opora:agent-navbar:v1`. Samotné složení panelu čeká níž, až bude znát plátno a plochu
+  // (`view`, `desktop`) — záložka Agenti si podle nich načítá zadání vybrané karty.
+  const agentNavbar = useAgentNavbar();
+  // Přechod na jinou vrstvu (Zanořit, drobečková navigace) vrací stránku Text zpět na Uživatele.
+  useEffect(() => { setTextSubtab("user"); }, [parent]);
   const [pipelineLibrary, setPipelineLibrary] = useState<PipelineLibrary | null>(null);
   useEffect(() => {
     if (!library.open || library.section !== "actions" || pipelineLibrary) return;
@@ -164,6 +207,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   // Filtr štítků: karty bez vybraného štítku jsou na plátně ztlumené; prázdný = bez filtru.
   const [tagFilter, setTagFilter] = useState("");
   const desktop = useDesktopState(project, workspace);
+  // Echo Oracle nad projektem: jeden dotaz na otevřený projekt, přepočet jen na vyžádání.
+  const sync = useSyncReport(project, workspace);
   // Vybraný blok zmizel ze stavu (smazán jinde): výběr spadne zpět na uzel, aby zásuvka i inspektor zůstaly platné.
   useEffect(() => {
     if (!selected || !selectedBlock) return;
@@ -222,9 +267,12 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [actor, setActor] = useState("");
   const operationGeneration = useRef(0);
   const generation = useRef(0);
+  // Kroky zpět na plátně: snímky grafu patří k jednomu projektu a prostoru, proto žijí v ref vedle
+  // pohledu a s každým novým načtením se vyprazdňují.
+  const historyRef = useRef<GraphHistory>(emptyHistory());
   async function bootstrap() {
     const ticket = ++bootstrapGeneration.current;
-    const b = await api<{ projects: Project[]; jobs: Job[]; draft?: Project }>("/api/bootstrap");
+    const b = await api<Bootstrap>("/api/bootstrap");
     if (ticket !== bootstrapGeneration.current) return;
     setProjects(b.projects);
     setDraftProject(b.draft);
@@ -233,6 +281,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   async function refresh() {
     const g = ++generation.current;
     setView(null);
+    historyRef.current = emptyHistory();
     try {
       const v = await api<View>(
         `/api/view?project=${encodeURIComponent(project)}&workspace=${encodeURIComponent(workspace)}`,
@@ -292,16 +341,32 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       if (isCurrent()) setBusy(false);
     }
   }
-  async function save(graph: Graph, onApplied?: () => void) {
+  /**
+   * Jediná cesta, kterou se graf ukládá — proto tady vzniká i krok zpět: graf platný před změnou se
+   * odloží do historie. `stepped` posílá jen krok zpět/vpřed: nese hotovou historii, takže se sám
+   * jako nový krok nezapisuje, a jde na server s `undo: true` — jen tehdy smí snímek uzel nebo
+   * vazbu vypustit (vznik uzlu se tak dá vzít zpět), aniž by se cokoli mazalo. Odmítnuté uložení
+   * (kolize digestu) historii vrátí, jak byla.
+   */
+  async function save(graph: Graph, onApplied?: () => void, stepped?: GraphHistory) {
     if (!view) return;
+    const historyBefore = historyRef.current;
+    historyRef.current = stepped ?? (sameGraph(view.graph, graph) ? historyBefore : record(historyBefore, view.graph));
     const ticket = ++generation.current;
     const scope = { project, workspace };
-    const saved = await api<View>("/api/graph", {
-      project,
-      workspace,
-      graph,
-      digest: view.digest,
-    });
+    let saved: View;
+    try {
+      saved = await api<View>("/api/graph", {
+        project,
+        workspace,
+        graph,
+        digest: view.digest,
+        undo: stepped !== undefined,
+      });
+    } catch (e) {
+      historyRef.current = historyBefore;
+      throw e;
+    }
     if (
       ticket === generation.current &&
       activeScope.current.project === scope.project &&
@@ -313,9 +378,43 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   }
   const graph = view?.graph ?? { nodes: [], edges: [] };
   const node = graph.nodes.find((n) => n.id === selected);
+  const syncView = badgeView(pickVerdict(sync.report, node?.id ?? null));
+  // Dashboard procesu na úvodní obrazovce: jména rozsahů bere z grafu, zbytek z echa.
+  const syncBoard = dashboardView(sync.report, Object.fromEntries(graph.nodes.map((n) => [n.id, n.name])));
   const edge = graph.edges.find((e) => e.id === selectedEdge);
   const layer = graph.nodes.find((n) => n.id === parent);
   const editable = !!view && !view.readOnly && !busy;
+  // Agenti a postupy dostanou adresu karty a jeden otisk stavu: otisk plátna + revize plochy. Když se
+  // karta pohne (jiný graf, jiná revize textů a bloků), otisk se změní a záložka Agenti si zadání
+  // načte znovu. Panel sám nic nedohledává — jen dostane props; kreslí se jen v zavěšeném panelu.
+  const agentNavbarPanel = (
+    <AgentNavbar
+      state={agentNavbar.state}
+      project={project}
+      workspace={workspace}
+      selectedNodeId={selected}
+      refreshKey={(view?.digest ?? "") + ":" + desktop.revision}
+      readOnly={!!view?.readOnly || desktop.readOnly || !!(selected && nodeWorkflowOf(desktop.state, selected).done.confirmed)}
+      onClose={dock.close}
+      onCategory={agentNavbar.category}
+      onSearch={agentNavbar.search}
+      onTab={agentNavbar.tab}
+    />
+  );
+  /** Krok zpět i vpřed je jen uložení staršího snímku grafu; historii nese `save` v `stepped`. */
+  function stepHistory(direction: "undo" | "redo") {
+    if (!editable) return;
+    const step = direction === "undo" ? undo(historyRef.current, graph) : redo(historyRef.current, graph);
+    if (!step) return;
+    run(() => save(step.graph, undefined, step.history));
+  }
+  // Ctrl+Z patří plátnu Editoru: ne v Projektu ani Live Runu, ne nad dokumentací a ne v kreslení,
+  // kde má krok zpět Excalidraw. Psaní do polí a textů si zkratku hlídá samo (isTypingTarget).
+  useUndoShortcut({
+    enabled: editable && environment === "editor" && mode !== "drawing" && !editorDocumentOpen,
+    onUndo: () => stepHistory("undo"),
+    onRedo: () => stepHistory("redo"),
+  });
   const blocks = useMemo(
     () => buildBlockNodes(graph, parent, desktop.state, openBlocks, desktop.readOnly || !!view?.readOnly, blockApi),
     [graph, parent, desktop.state, openBlocks, desktop.readOnly, view?.readOnly],
@@ -324,6 +423,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const selectedWorkflow = node ? nodeWorkflowOf(desktop.state, node.id) : null;
   const selectedClosed = !!selectedWorkflow?.done.confirmed;
   const libraryReadOnly = !editable || desktop.readOnly || selectedClosed;
+  // Uzavřené karty pro seznam vrstev v knihovně (záložka STRÁNKA): panel je jen označí jako skryté.
+  const closedNodeIds = useMemo(
+    () => new Set(Object.entries(desktop.state.nodes).filter(([, workflow]) => workflow.done?.confirmed).map(([id]) => id)),
+    [desktop.state],
+  );
   // Vybraný blok pro Editor v zásuvce (panels.drawer === "block"); undefined, dokud stav nedorazí.
   const selectedBlockData = selectedWorkflow?.blocks.find((b) => b.id === selectedBlock);
   const pickerNode = graph.nodes.find((n) => n.id === pipelinePickerFor);
@@ -404,6 +508,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   function selectProject(id: string, sourceKind?: string) {
     generation.current++;
     setView(null);
+    historyRef.current = emptyHistory();
     setProject(id);
     const kind = sourceKind ?? projects.find((p) => p.id === id)?.sourceKind;
     setWorkspace(id === "draft" || isLocalKind(kind) ? "draft" : "main");
@@ -451,22 +556,149 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       setSelection(selectNode(created.id));
     });
   }
+  /**
+   * Položka knihovny puštěná na plátno. Karta (`kind: "card"`) vzniká jedinou cestou, kterou se graf ukládá —
+   * přes `save` — takže se rovnou zapíše do historie (Ctrl+Z ji vezme zpátky) a ještě před uložením dosedne
+   * mezi pevná tělesa, aby nestála na nikom. Teprve nad hotovou kartou se jedním `desktop.mutate` doplní
+   * rozpad položky jako bloky a její musí/nesmí jako pravidla uzlu. Položka `kind: "block"` graf nemění:
+   * přidá jeden blok do vybrané karty, a bez výběru se jen řekne, co chybí.
+   */
+  function dropCatalogItem(itemId: string, x: number, y: number) {
+    if (!editable) return;
+    const item = itemById(itemId);
+    if (!item) return;
+    if (item.kind === "block") {
+      if (!node || (node.kind !== "node" && node.kind !== "sector")) {
+        setError("Nejdřív vyberte kartu.");
+        return;
+      }
+      // Uzavřená karta má obsah jen ke čtení; stejná pojistka jako u bloků kreslených na kartě.
+      if (nodeWorkflowOf(desktop.state, node.id).done.confirmed) {
+        setError("Karta je uzavřená; blok do ní přidat nelze.");
+        return;
+      }
+      void desktop.mutate(insertBlockFromItem(node.id, item));
+      return;
+    }
+    const dropped = cardFromItem(item, parent, x, y);
+    // Otisk nové karty se počítá nad vrstvou, ve které už stojí; ostatní otisky jsou překážky.
+    const footprints = layerFootprints({ ...graph, nodes: [...graph.nodes, dropped] }, parent, desktop.state, openBlocks, {});
+    const print = footprints.find((f) => f.id === dropped.id);
+    const at = print
+      ? settleCard(
+          dropped,
+          print,
+          footprints.filter((f) => f.id !== dropped.id),
+          graph.nodes.filter((n) => n.parentId === parent && n.kind === "area" && !!n.size),
+        )
+      : { x: dropped.x, y: dropped.y };
+    const created: CanvasNode = { ...dropped, x: at.x, y: at.y };
+    run(async () => {
+      await save({ ...graph, nodes: [...graph.nodes, created] });
+      await desktop.mutate((current) => ({ ...current, nodes: { ...current.nodes, [created.id]: workflowFromItem(item) } }));
+      setSelection(selectNode(created.id));
+    });
+  }
+  /**
+   * Položka pravého katalogu (postup) puštěná na plátno. Pravidlo, role agenta i pipeline míří do
+   * vybrané karty — bez výběru se jen řekne, co chybí, uzavřená karta zůstává jen ke čtení a totéž
+   * pravidlo ani tatáž pipeline se nepřidají dvakrát. Workflow jako jediné sahá na graf: sektor
+   * dosedne mezi pevná tělesa a uloží se přes `save` i s kartami fází a vazbami `next`, takže ho
+   * Ctrl+Z vezme zpátky celý; teprve nad hotovým sektorem doplní jeden `desktop.mutate` stav karet.
+   */
+  function dropAgentItem(itemId: string, x: number, y: number) {
+    if (!editable) return;
+    const item = agentItemById(itemId);
+    // Položka `info` (kdy sáhnout po hooku či skillu) se netáhne; panel ji ani nenechá zvednout.
+    if (!item || item.kind === "info") return;
+    if (item.kind === "workflow") {
+      const insert = sectorFromWorkflow(item, parent, x, y);
+      if (!insert) return;
+      // Otisk nového sektoru se počítá nad vrstvou, ve které už stojí; ostatní otisky jsou překážky.
+      const footprints = layerFootprints({ ...graph, nodes: [...graph.nodes, insert.sector] }, parent, desktop.state, openBlocks, {});
+      const print = footprints.find((f) => f.id === insert.sector.id);
+      const at = print
+        ? settleCard(
+            insert.sector,
+            print,
+            footprints.filter((f) => f.id !== insert.sector.id),
+            graph.nodes.filter((n) => n.parentId === parent && n.kind === "area" && !!n.size),
+          )
+        : { x: insert.sector.x, y: insert.sector.y };
+      const sector: CanvasNode = { ...insert.sector, x: at.x, y: at.y };
+      run(async () => {
+        await save({
+          ...graph,
+          nodes: [...graph.nodes, sector, ...insert.children],
+          edges: [...graph.edges, ...insert.edges],
+        });
+        await desktop.mutate((current) => ({ ...current, nodes: { ...current.nodes, ...insert.nodes } }));
+        setSelection(selectNode(sector.id));
+      });
+      return;
+    }
+    if (!node || (node.kind !== "node" && node.kind !== "sector")) {
+      setError("Nejdřív vyberte kartu.");
+      return;
+    }
+    // Uzavřená karta má obsah jen ke čtení; stejná pojistka jako u levé knihovny.
+    if (nodeWorkflowOf(desktop.state, node.id).done.confirmed) {
+      setError("Karta je uzavřená; postup do ní přidat nelze.");
+      return;
+    }
+    void desktop.mutate(
+      item.kind === "action" ? insertActionFromItem(node.id, item) : insertRulesFromItem(node.id, item),
+    );
+  }
   /** Tažení rámečku oblasti: posune ji i všechny její aktuální členy o stejný vektor. */
   function moveArea(id: string, dx: number, dy: number) {
     if (!editable) return;
     run(() => save({ ...graph, nodes: moveWithMembers(graph.nodes, id, dx, dy) }));
   }
-  /** Tahadlo NodeResizer: uloží novou (ohraničenou) velikost oblasti. */
+  /**
+   * Tahadlo NodeResizer: rámeček je pevné těleso, takže vyžádaný rozměr ještě projde přes `clampAreaResize` —
+   * zmenšit se smí jen do chvíle, než by z oblasti vypadl její obsah, a vyrůst jen k první překážce (jiná
+   * oblast nebo cizí karta). Teprve ustálený rozměr se uloží.
+   */
   function resizeAreaNode(id: string, w: number, h: number) {
     if (!editable) return;
-    run(() => save({ ...graph, nodes: graph.nodes.map((n) => (n.id === id ? resizeArea(n, w, h) : n)) }));
+    const area = graph.nodes.find((n) => n.id === id);
+    if (!area?.size) return;
+    const memberIds = new Set(membersOf(area, graph.nodes).map((n) => n.id));
+    const footprints = layerFootprints(graph, area.parentId, desktop.state, openBlocks, {});
+    const fitted = clampAreaResize(
+      { id, x: area.x, y: area.y, w: area.size.w, h: area.size.h },
+      footprints.filter((f) => memberIds.has(f.id)),
+      graph.nodes
+        .filter((n) => n.parentId === area.parentId && n.kind === "area" && n.id !== id && !!n.size)
+        .map((n) => ({ id: n.id, x: n.x, y: n.y, w: n.size!.w, h: n.size!.h })),
+      footprints.filter((f) => !memberIds.has(f.id)),
+      w,
+      h,
+    );
+    run(() => save({ ...graph, nodes: graph.nodes.map((n) => (n.id === id ? resizeArea(n, fitted.w, fitted.h) : n)) }));
   }
-  /** Tlačítko „Srovnat“: rozestrká celou viditelnou vrstvu bez překryvů a uloží všechny změněné pozice naráz. */
+  /**
+   * Tlačítko „Srovnat“: srovná celou viditelnou vrstvu podle toku — co spojuje vazba, stojí vedle sebe
+   * zleva doprava, co spolu nesouvisí, leží zvlášť, karty v oblasti zůstanou v ní (a rámeček se pod nimi
+   * v případě potřeby zvětší) a volné karty se odstěhují pod oblasti. Nové polohy i rozměry uloží naráz.
+   */
   function arrangeLayer() {
     if (!editable) return;
-    const spread = spreadLayer(layerFootprints(graph, parent, desktop.state, openBlocks, {}));
-    const moved = new Map(spread.map((p) => [p.id, p]));
+    const layerAreas = graph.nodes.filter((n) => n.parentId === parent && n.kind === "area");
+    const arranged = arrangeFootprints(
+      layerFootprints(graph, parent, desktop.state, openBlocks, {}),
+      graph.edges,
+      layerAreas,
+    );
+    const moved = new Map(arranged.nodes.map((p) => [p.id, p]));
+    const framed = new Map(arranged.areas.map((a) => [a.id, a]));
     const nodes = graph.nodes.map((n) => {
+      const frame = framed.get(n.id);
+      if (frame) {
+        const sized = frame.w !== n.size?.w || frame.h !== n.size?.h ? resizeArea(n, frame.w, frame.h) : n;
+        return frame.x !== sized.x || frame.y !== sized.y ? { ...sized, x: frame.x, y: frame.y } : sized;
+      }
       const to = moved.get(n.id);
       return to && (to.x !== n.x || to.y !== n.y) ? { ...n, x: to.x, y: to.y } : n;
     });
@@ -505,6 +737,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       confirmed: true,
     });
     generation.current++;
+    // Smazání jde mimo `save` a bere s sebou i obsah uzlu: starší snímky grafu by ho jen vzkřísily prázdný.
+    historyRef.current = emptyHistory();
     if (preview.kind === "project") {
       bootstrapGeneration.current++;
       discardSpecDrafts(preview.project);
@@ -539,8 +773,13 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       current?.digest === preview.digest ? null : current,
     );
   }
+  // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez zavěšených panelů: nemá plátno, kam
+  // by se dalo táhnout, ani vybranou kartu, pro kterou by Agenti a postupy něco ukázali.
   if (screen === "home") return <>
-    <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
+    <div className="editor-frame">
+      <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
+      <SyncDashboard view={syncBoard} onRefresh={sync.refresh} />
+    </div>
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
     <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
     {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
@@ -602,10 +841,13 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           </button>
         </div>
       )}
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind}/> : <>
+      {/* Lišta Editoru se čte zleva jako věta: na co se dívám (záložky módů), z čeho beru (tlačítka
+          zavěšených panelů) a vpravo, co s tím dělám (skupiny nástrojů). */}
       {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru">
+        <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
+        <PanelToggles open={dock.open} onToggle={dock.toggle} />
+        <span className="v3-grow" />
         <div className="v3-tool-group" role="group" aria-label="Pohled">
-          <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
           <button aria-pressed={editorDocumentOpen} onClick={() => setEditorDocumentOpen((open) => !open)}>Dokumentace</button>
         </div>
         {(mode === "structure" || mode === "text") && <div className="v3-tool-group" role="group" aria-label="Tvorba">
@@ -614,7 +856,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           <button type="button" disabled={!editable} onClick={createComment}>+ Komentář</button>
           <button type="button" disabled={!editable} onClick={createArea}>+ Oblast</button>
         </div>}
-        {mode === "structure" && <div className="v3-tool-group" role="group" aria-label="Filtr štítků">
+        {mode === "structure" && <div className="v3-tool-group v3-tool-group--shrink" role="group" aria-label="Filtr štítků">
           <TagFilter graph={graph} parent={parent} state={desktop.state} value={tagFilter} onChange={setTagFilter} />
         </div>}
         {mode === "structure" && <div className="v3-tool-group" role="group" aria-label="Rozložení">
@@ -622,8 +864,12 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         </div>}
         {/* Se skrytým inspektorem zůstávají nástroje kreslení a mapy dosažitelné v liště. */}
         {!inspectorShown && !editorDocumentOpen && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
-        <span className="v3-grow" />
       </div>}
+      {/* Rám prostředí pod horní lištou a lištou nástrojů: obsah prostředí zabírá celou šířku. V Editoru
+          do rámu visí zavěšený panel (Knihovna nebo Agenti a postupy) nad plátnem, ne vedle něj
+          (kontrakt docs/rozvrzeni-editoru.md). */}
+      <div className="editor-frame">
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind}/> :
       <div className={"workspace-shell " + mode + "-mode" + ((mode === "agents" || mode === "map") ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
@@ -645,7 +891,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           </div>}
           <div className="canvas-surface">
             {environment === "editor" && mode === "structure" && !editorDocumentOpen && !artifactMapOpen && view && (
-              <>
                 <NodeLibraryDrawer
                   open={panels.drawer !== null}
                   section={library.section}
@@ -698,11 +943,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                     ),
                   } : undefined}
                 />
-              </>
             )}
             {environment === "editor" && editorDocumentOpen ? <WorkspaceDocumentEditor key={JSON.stringify([project, workspace, docSelection.value.sourcePath])} project={project} workspace={workspace} path={docSelection.value.sourcePath} /> : view ? (
               mode === "text" ? (
-                <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} />
+                <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
               ) : mode === "agents" ? (
                 v3.liveWorkspace ? <div className="v3-live">
                   <nav className="v3-live-tabs" aria-label="Pohled Live Run">
@@ -804,7 +1048,21 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   blocks={blocks}
                   openBlocks={openBlocks}
                   onTogglePort={togglePort}
+                  onBlockMove={(nodeId, port, dx, dy) =>
+                    run(() =>
+                      save({
+                        ...graph,
+                        nodes: graph.nodes.map((n) =>
+                          n.id === nodeId
+                            ? { ...n, blockOffsets: { ...n.blockOffsets, [port]: { dx: Math.round(dx), dy: Math.round(dy) } } }
+                            : n,
+                        ),
+                      }),
+                    )
+                  }
                   tagFilter={tagFilter}
+                  onCatalogDrop={dropCatalogItem}
+                  onAgentDrop={dropAgentItem}
                   onTagFilter={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
                   onCardBlock={(nodeId, event) => {
                     // Uzavřená karta má bloky i porty jen ke čtení; dílek je zamčený, tady je pojistka.
@@ -865,6 +1123,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 workspace={workspace}
                 readOnly={!!view?.readOnly}
                 busy={busy}
+                syncView={syncView}
+                onCommitSpec={() => run(async () => {
+                  await commitSpec(project, workspace, node.id, "zadání " + node.name);
+                  sync.refresh();
+                })}
                 workspaces={view?.workspaces ?? []}
                 tab={nodeTab}
                 onTab={setNodeTab}
@@ -919,8 +1182,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
             ) : panels.inspector === "area" && node ? (
               <AreaPanel
                 key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
+                project={project}
+                workspace={workspace}
                 node={node}
                 readOnly={!!view?.readOnly}
+                closed={selectedClosed}
                 busy={busy}
                 members={membersOf(node, graph.nodes).map((m) => ({ id: m.id, name: m.name, kind: m.kind }))}
                 flows={graph.edges
@@ -982,8 +1248,32 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
             )}
           </aside>
         )}
+      </div>}
+      {environment === "editor" && dock.open && (
+        <PanelDropdown panel={dock.open} label={DOCK_PANELS.find((item) => item.key === dock.open)?.label ?? ""} onClose={dock.close}>
+          {dock.open === "library" ? (
+            <LibraryNavbar
+              state={libraryNavbar.state}
+              layerName={layer ? layer.name : "Projekt"}
+              nodes={graph.nodes}
+              closed={closedNodeIds}
+              onTab={libraryNavbar.tab}
+              onMode={libraryNavbar.mode}
+              onSearch={libraryNavbar.search}
+              onCategory={libraryNavbar.category}
+              onPageFilter={libraryNavbar.pageFilter}
+              onPageSearch={libraryNavbar.pageSearch}
+              onToggleGroup={libraryNavbar.group}
+              onOpenLayer={openNode}
+              onBack={layer ? () => enter(layer.parentId) : undefined}
+              onClose={dock.close}
+            />
+          ) : (
+            agentNavbarPanel
+          )}
+        </PanelDropdown>
+      )}
       </div>
-      </>}
       {pickerNode && (
         <PipelinePicker
           nodeName={pickerNode.name}

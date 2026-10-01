@@ -1,0 +1,85 @@
+// Panel vybrané vazby: odkud kam vede, z jakého portu (u vazby z bloku i z kterého tlačítka) a pět
+// pojmenovaných polí zprávy, kterou tam agent nebo člověk nechává pro dalšího v řadě. Dílek nic neukládá:
+// rozepsaný text drží u sebe a po opuštění pole ho ohlásí nahoru přes onChange; ukládá rodič (App).
+import { useState } from "react";
+import type { EdgeReport, EdgeReportField } from "@/shared/desktop-state/logic/types";
+import { EDGE_REPORT_FIELDS, MAX_REPORT_FIELD } from "@/shared/desktop-state/logic/types";
+import { filledFields, reportSignature, type EdgeReportView } from "@/editor/canvas/edge-report/logic/edge-report-model";
+import "@/editor/canvas/edge-report/styles/edge-report.css";
+
+export default function EdgeReportPanel({
+  view,
+  report,
+  readOnly,
+  busy,
+  onChange,
+  onDelete,
+}: {
+  view: EdgeReportView;
+  report: EdgeReport;
+  readOnly: boolean;
+  busy: boolean;
+  /** Opuštění pole ohlásí hotovou hodnotu; rodič ji uloží přes desktop.mutate(setEdgeReport(...)). */
+  onChange: (field: EdgeReportField, value: string) => void;
+  onDelete: () => void;
+}) {
+  const [draft, setDraft] = useState<Partial<Record<EdgeReportField, string>>>({});
+  const value = (field: EdgeReportField) => draft[field] ?? report[field];
+  const commit = (field: EdgeReportField) => {
+    const next = draft[field];
+    setDraft((current) => ({ ...current, [field]: undefined }));
+    if (next !== undefined && next !== report[field]) onChange(field, next);
+  };
+  const signature = reportSignature(report);
+  return (
+    <div className="edge-report" data-testid="edge-report-panel">
+      <div className="edge-report__eyebrow">VAZBA · {view.portLabel}</div>
+      <h2 className="edge-report__route">
+        {view.sourceName} <span className="edge-report__arrow" aria-hidden="true">→</span> {view.targetName}
+      </h2>
+      {view.blockNumber && (
+        <p className="edge-report__origin">
+          Z bloku <b>{view.blockNumber}</b> {view.blockTitle}
+          {view.portName && <> · port <b>{view.portName}</b></>}
+        </p>
+      )}
+      <p className="edge-report__note">
+        Zpráva na vazbě je paměť mezi kartami: co se udělalo, co z toho platí a na co si má dát pozor další agent.
+        Vyplněno <b>{filledFields(report)} / {EDGE_REPORT_FIELDS.length}</b>. Identifikátor vazby: <code>{view.edgeId}</code>
+      </p>
+      <div className="edge-report__fields">
+        {EDGE_REPORT_FIELDS.map((field) => (
+          <label key={field.id} className="edge-report__field">
+            <span className="edge-report__label">{field.label}</span>
+            <textarea
+              className="edge-report__input"
+              aria-label={field.label}
+              data-testid={"edge-report-" + field.id}
+              title={field.hint}
+              rows={3}
+              maxLength={MAX_REPORT_FIELD}
+              readOnly={readOnly}
+              disabled={busy}
+              value={value(field.id)}
+              onChange={(e) => setDraft((current) => ({ ...current, [field.id]: e.target.value }))}
+              onBlur={() => commit(field.id)}
+            />
+            <small className="edge-report__hint">{field.hint}</small>
+          </label>
+        ))}
+      </div>
+      <p className="edge-report__signature">
+        {signature ? <>Naposledy zapsal {signature}</> : "Na této vazbě zatím nikdo nic nevysvětlil."}
+      </p>
+      <button
+        type="button"
+        className="edge-report__delete danger"
+        disabled={readOnly || busy}
+        title={readOnly ? "Main je pouze pro čtení." : "Zobrazit dopad před smazáním"}
+        onClick={onDelete}
+      >
+        Smazat vazbu
+      </button>
+    </div>
+  );
+}

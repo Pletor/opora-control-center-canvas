@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "@/shared/types/logic/types";
-import { SOURCE_DRAG_TYPE } from "@/shared/selection/logic/workspace-selection";
 
 type Entry = { name: string; path: string; kind: "directory" | "file" | "link"; blocked: boolean };
 type TreePage = { root: string | null; entries: Entry[]; total: number; hasMore: boolean; nextOffset: number | null; available: boolean; observedAt: string | null; hiddenCount?: number };
@@ -117,10 +116,7 @@ export default function SourceExplorer({ project, workspace, selected, onSelect,
     const page = Object.hasOwn(pages, path) ? pages[path] : undefined;
     return <>{page?.entries.filter((entry) => !filterPath || filterPath(entry.path)).filter((entry) => directoriesOnly ? entry.kind === "directory" : true).filter((entry) => !needle || entry.kind === "directory" || entry.path.toLocaleLowerCase().includes(needle)).map((entry) => <div key={entry.path}>
       <div role="treeitem" aria-selected={selected === entry.path} aria-expanded={entry.kind === "directory" && !rootOnly ? expanded.has(entry.path) : undefined}
-        className={"source-row" + (selected === entry.path ? " selected" : "")} style={{ paddingLeft: 8 + depth * 14 }}
-        draggable={!entry.blocked} onDragStart={(e) => {
-          e.dataTransfer.setData(SOURCE_DRAG_TYPE, JSON.stringify({ project, workspace, path: entry.path })); e.dataTransfer.effectAllowed = "copy";
-        }}>
+        className={"source-row" + (selected === entry.path ? " selected" : "")} style={{ paddingLeft: 8 + depth * 14 }}>
         {entry.kind === "directory" && !rootOnly ? <button type="button" className="source-toggle" aria-label={(expanded.has(entry.path) ? "Sbalit " : "Rozbalit ") + entry.name}
           onClick={() => { setActionFile(null); toggle(entry); }}>{expanded.has(entry.path) ? "⌄" : "›"}</button> : <span className="source-file-mark" aria-hidden="true">{entry.blocked ? "↗" : "·"}</span>}
         <button type="button" className="source-name" disabled={entry.blocked} title={entry.blocked ? "Odkaz nelze otevřít" : entry.path}

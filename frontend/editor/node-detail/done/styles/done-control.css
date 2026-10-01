@@ -1,0 +1,47 @@
+/* UZAVŘENÍ KARTY (blok `done-control`)
+   Příběh: v detailu uzlu stojí krátký blok, který odpovídá na jedinou otázku — je tahle karta hotová?
+   První řádek nese stav a jeho značku (kolečko = otevřeno, přesýpací hodiny = agent to navrhl, zámek =
+   člověk potvrdil), pod ním věta, co ze stavu plyne, pak poznámka a teprve nakonec dvě tlačítka.
+   Pořadí je schválně takové: nejdřív se rozhodne podle stavu, až potom se maže nebo zamyká. */
+.done-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+/* Stavový řádek: značka zleva, jméno stavu tučně, razítko času drobně vzadu. Uzavřená karta je akcentem,
+   návrh agenta tlumeně — potvrzení má být vidět víc než návrh. */
+.done-control__state { margin: 0; display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-2); }
+.done-control__mark { font-size: 13px; line-height: 1; }
+.done-control__state--closed { color: var(--accent); }
+.done-control__state--proposed { color: var(--ink-muted); }
+.done-control__stamp { font: 500 10px var(--mono); color: var(--ink-muted); }
+
+.done-control__note { margin: 0; font-size: 11px; line-height: 1.5; color: var(--ink-muted); }
+
+/* Poznámka: krátké pole, které se pošle spolu s rozhodnutím. Ukládá se až tlačítkem, aby se rozepsaná
+   věta nezapsala dřív, než se člověk rozhodne. */
+.done-control__field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--ink-2); }
+.done-control__input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 5px 8px;
+  resize: vertical;
+}
+.done-control__input:focus { border-color: var(--accent-line); outline: none; }
+.done-control__input:read-only { background: var(--surface-2); color: var(--ink-2); }
+
+/* Dvě tlačítka vedle sebe: zavřít je primární, znovu otevřít tiché. Obě zhasnou, když stav nedává smysl. */
+.done-control__actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.done-control__button:disabled { opacity: 0.45; cursor: default; }

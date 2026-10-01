@@ -1,0 +1,336 @@
+/* KARTA UZLU (blok `node-card`)
+   Příběh: karta je 272 široká a nejméně 168 vysoká — zlatý řez 1 : 1.618, proto se jich vedle sebe vejde
+   několik a přesto se dá každá přečíst z odstupu. Shora dolů jde vždy stejný sled: pruh hlavy 34 (kdo jsem
+   a v jaké jsem fázi), tělo 104 (jméno a podstata), pásmo bloků, které roste s obsahem, a pata 30 s počty.
+   Rytmus odsazení je 13 / 8 / 5, stejný jako v knihovně uzlu, aby oko mezi panely nepřeskakovalo.
+   Přetahovat po plátně jde jen karta; všechno, co se dá zmáčknout, nese třídu `nodrag`. */
+.node-card {
+  position: relative;
+  width: 272px;
+  min-height: 168px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: 34px 104px auto 30px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  box-shadow: 0 8px 21px rgba(0, 0, 0, 0.25);
+  color: var(--ink);
+  font-family: var(--font);
+}
+:root[data-theme="light"] .node-card { background: var(--surface); box-shadow: var(--shadow-pop); }
+
+/* Varianty karty: sektor je zlatý (obaluje uzly), vybraná svítí obrysem akcentu, karta mimo filtr štítků
+   zeslábne, aby zůstala na místě, ale nekřičela. Uzavřená karta je ztlumená a se zámkem: práce skončila. */
+.node-card--sector { background: var(--sector-bg); border-color: var(--gold-line); }
+.node-card--selected { outline: 2px solid var(--accent); outline-offset: 3px; }
+.node-card--dimmed { opacity: 0.35; }
+.node-card--closed { opacity: 0.62; border-style: dashed; }
+.node-card--closed.node-card--selected { opacity: 0.85; }
+
+/* HLAVA: nalevo druh karty s kuličkou barvy svého druhu, napravo fáze jako plánovací stav člověka.
+   Mezi ně se vklíní zámek, jakmile je karta uzavřená, nebo přesýpací hodiny, když uzavření navrhl agent
+   a člověk je ještě nepotvrdil — kdo kartu vidí, hned pozná, že se do ní už nemá psát. */
+.node-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 13px;
+  border-bottom: 1px solid var(--line);
+}
+.node-card__kind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 10px var(--mono);
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+.node-card__kind::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.node-card--sector .node-card__kind { color: var(--gold); }
+.node-card__lock { font-size: 11px; line-height: 1; }
+.node-card__lock--proposed { opacity: 0.7; }
+.node-card__phase {
+  font: 500 10px var(--mono);
+  color: var(--ink-muted);
+  background: var(--surface-2);
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+.node-card__phase--live { color: var(--accent); background: var(--accent-soft); }
+
+/* TĚLO: jméno je to první, co se čte, proto 16 px a dvojklik na něj přejmenovává přímo na plátně.
+   Podstata pod ním má tři řádky — tolik, aby se dala pochopit, a ne tolik, aby se karta protáhla.
+   Když podstata chybí, zůstává kurzívou věta, která říká, že tam něco patří. */
+.node-card__body {
+  padding: 8px 13px 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 5px;
+  min-width: 0;
+}
+.node-card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+.node-card__rename {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--accent-line);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.node-card__purpose {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-wrap: pretty;
+}
+.node-card__purpose--empty { color: var(--ink-muted); font-style: italic; }
+
+/* BLOKY OBSAHU: každý blok je vlastní rámeček na tichém podkladu, s pruhem 3 px vlevo v barvě svého stavu
+   (šedá = otevřeno, akcent = splněno, červená = nesplněno, jantar = blokováno) — stav je vidět na první
+   pohled, i když se karta rozroste a zbytek pásma odscrolluje pryč. V hlavě rámečku je číslo, název
+   (dvojklik přejmenuje) a tatáž kulička stavu jako druhý, jemnější signál; nástroje (nahoru, dolů, pryč)
+   se ukážou až najetím, aby rámeček v klidu vypadal jako karta úkolu, ne jako ovládací panel. Pod hlavou
+   roste pole pro popis — co se má stát a jak to má vypadat — s místem na tři řádky hned a tažením rohu až
+   na šest. Blok vybraný z plátna (klik na jeho plochu) dostane obrys akcentu, aby bylo jasné, který dílek
+   právě edituje knihovna vlevo. Mezi bloky je 8 px, aby byly čitelně oddělené i bez linky mezi nimi.
+   Pravý okraj pásma je jen 8 px, protože sem zprava dosedají porty bloků a ty musí doběhnout až na hranu karty. */
+.node-card__blocks { padding: 0 8px 8px 13px; }
+.node-card__block-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.node-card__block-item { list-style: none; }
+.node-card__block {
+  display: grid;
+  gap: 5px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.node-card__block--selected { outline: 2px solid var(--accent-line); }
+.node-card__block--met { border-left-color: var(--accent); }
+.node-card__block--unmet { border-left-color: #c4524a; }
+.node-card__block--blocked { border-left-color: #c98a1e; }
+.node-card__block-head {
+  display: grid;
+  grid-template-columns: auto 1fr 8px auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 20px;
+}
+.node-card__block-number { font: 600 10px var(--mono); color: var(--ink-muted); }
+.node-card__block-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+.node-card__block-title-input {
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+/* Kulička stavu: šedá = otevřeno, akcent = splněno, červená = nesplněno, jantar = blokováno; stejná paleta jako pruh vlevo. */
+.node-card__block-status { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); }
+.node-card__block--met .node-card__block-status { background: var(--accent); }
+.node-card__block--unmet .node-card__block-status { background: #c4524a; }
+.node-card__block--blocked .node-card__block-status { background: #c98a1e; }
+.node-card__block-tools { display: flex; gap: 1px; opacity: 0; transition: opacity 0.15s; }
+.node-card__block:hover .node-card__block-tools,
+.node-card__block:focus-within .node-card__block-tools { opacity: 1; }
+.node-card__block-tool {
+  min-height: 0;
+  padding: 0 3px;
+  font-size: 10px;
+  line-height: 18px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.node-card__block-tool:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); }
+.node-card__block-tool:disabled { opacity: 0.35; cursor: default; }
+/* Popis bloku: plná šířka rámečku, tři řádky vidět rovnou, výš jde dotáhnout tažením rohu do šesti. */
+.node-card__block-text {
+  width: 100%;
+  box-sizing: border-box;
+  max-height: calc(6 * 1.45em + 10px);
+  padding: 5px 7px;
+  font: 400 12px/1.45 var(--font);
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  resize: vertical;
+}
+.node-card__block-text:focus { border-color: var(--accent-line); outline: none; }
+.node-card__block-text::placeholder { color: var(--ink-muted); }
+.node-card__block-add {
+  width: 100%;
+  margin-top: 5px;
+  padding: 3px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.node-card__block-add:hover { border-color: var(--accent-line); color: var(--accent); }
+
+/* PORTY BLOKU: pod blokem stojí jeho tlačítka, jako v chat-builderu odpovědi pod zprávou. Řada je odsazená
+   o 16 px doprava od bloku (patří jemu), ale zprava přetéká o 8 px zpět na hranu karty — kulička na konci
+   tlačítka tak sedí přesně na obrysu, protože právě z ní se táhne vazba na jinou kartu. Osm portů je strop:
+   víc voleb už z karty dělá rozcestník, ne zadání. */
+.node-card__block-ports { list-style: none; margin: 3px -8px 3px 16px; padding: 0; display: grid; gap: 3px; }
+.node-card__port-row { position: relative; display: flex; align-items: center; gap: 3px; padding-right: 14px; }
+.node-card__block-port {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 8px;
+  text-align: left;
+  font: 500 11px var(--font);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.node-card__block-port:hover { border-color: var(--accent-line); color: var(--ink); }
+.node-card__block-port-input {
+  flex: 1;
+  min-width: 0;
+  font: 500 11px var(--font);
+  color: inherit;
+  background: var(--field);
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.node-card__port-remove {
+  min-height: 0;
+  padding: 0 2px;
+  font-size: 9px;
+  line-height: 14px;
+  background: transparent;
+  border: 0;
+  color: var(--ink-muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.node-card__port-row:hover .node-card__port-remove,
+.node-card__port-row:focus-within .node-card__port-remove { opacity: 1; }
+/* Kulička portu bloku: 11 px na obrysu karty, barvou akcentu, aby bylo vidět, odkud vazba vyrůstá.
+   Dvě úrovně selektoru přebíjejí výchozí úchyt React Flow, který by ji jinak posadil jinam. */
+.node-card .node-card__block-port-dot {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 11px;
+  height: 11px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface-3);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  cursor: crosshair;
+}
+:root[data-theme="light"] .node-card .node-card__block-port-dot { border-color: var(--surface); }
+.node-card__port-add {
+  margin: 0 8px 5px 16px;
+  padding: 1px 8px;
+  font-size: 10px;
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.node-card__port-add:hover { border-color: var(--accent-line); color: var(--accent); }
+
+/* PATA: vlevo štítky (nejvýš tři, zbytek se sbalí do „+N“), vpravo jen nenulové počty — karta nikdy
+   neukazuje „0 akcí“, protože prázdné číslo nic neříká. Klik na štítek filtruje celé plátno. */
+.node-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 13px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--ink-muted);
+  min-width: 0;
+}
+.node-card__tags { display: flex; gap: 5px; min-width: 0; overflow: hidden; }
+.node-card__tag {
+  font: 500 10px var(--mono);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.node-card__tag--more { color: var(--ink-muted); }
+.node-card__counts { display: flex; gap: 8px; white-space: nowrap; }
+.node-card__count-value { font-weight: 600; color: var(--ink); }
+
+/* PORTY KARTY: čtyři kuličky na pravé hraně ve výškách 22 / 60 / 98 / 136 — pořadí odshora dolů odpovídá
+   tomu, jak se o uzlu přemýšlí: kam se jde dál, čím se to udělá, co se nesmí porušit, z čeho se vychází.
+   Klik otevře příslušný blok vedle karty, tah propojí s jinou kartou; podklady se jen otevírají.
+   Popisky se objeví až najetím na kartu, aby plátno v klidu zůstalo čisté. */
+.node-card .node-card__port {
+  position: absolute;
+  right: -7px;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--surface-3);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  cursor: pointer;
+}
+:root[data-theme="light"] .node-card .node-card__port { border-color: var(--surface); }
+.node-card .node-card__port--next { top: 22px; background: var(--accent); }
+.node-card .node-card__port--action { top: 60px; background: #c98a1e; }
+.node-card .node-card__port--rule { top: 98px; background: transparent; border-color: #c4524a; }
+/* Port podkladů netáhne vazbu, React Flow mu proto vypíná ukazatel; klik na blok musí projít. */
+.node-card .node-card__port--material { top: 136px; background: #5f947f; pointer-events: all; cursor: pointer; }
+.node-card .node-card__port--open { box-shadow: 0 0 0 3px rgba(201, 138, 30, 0.35); }
+.node-card .node-card__port--rule.node-card__port--open { box-shadow: 0 0 0 3px rgba(196, 82, 74, 0.35); }
+.node-card .node-card__port--material.node-card__port--open { box-shadow: 0 0 0 3px rgba(95, 148, 127, 0.4); }
+.node-card__port-labels { position: absolute; left: 100%; top: 0; bottom: 0; width: 0; pointer-events: none; }
+.node-card__port-label {
+  position: absolute;
+  left: 13px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font: 500 10px var(--mono);
+  color: var(--ink-muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.node-card:hover .node-card__port-label { opacity: 1; }
+.node-card__port-label--next { top: 28px; }
+.node-card__port-label--action { top: 66px; }
+.node-card__port-label--rule { top: 104px; }
+.node-card__port-label--material { top: 142px; }

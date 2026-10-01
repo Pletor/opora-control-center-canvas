@@ -1,11 +1,36 @@
 // Klient pro sdílené API Desktop v3. Fetch přes existující api() z ../types.
 import { api } from "@/shared/types/logic/types";
 import type {
+  AgentWorkspaceSummaries,
   DesktopState,
+  NodeBrief,
   StateResponse,
   PacketPreviewResponse,
   PacketSnapshotResponse,
+  PipelineLibrary,
+  SyncReport,
 } from "@/shared/desktop-state/logic/types";
+
+/** Knihovna předloh pipeline pro blok Akce; verzovaná v library/, jen ke čtení. */
+export function fetchPipelines(): Promise<PipelineLibrary> {
+  return api<PipelineLibrary>("/api/desktop-v3/pipelines");
+}
+
+/**
+ * Balíček pro model: jeden JSON s celou kartou (cíl, hranice, kontext, harness, bloky, graf, smyčka).
+ * Jen ke čtení a jen na vyžádání člověka; nic se tím modelu neodesílá.
+ */
+export function fetchNodeBrief(project: string, workspace: string, nodeId: string): Promise<NodeBrief> {
+  return api<NodeBrief>(`/api/desktop-v3/node-brief?${query({ project, workspace, nodeId })}`);
+}
+
+/**
+ * Levný souhrn paměti všech karet jedním dotazem (vyplněná pole, autor, čas), bez komunikace a
+ * ověření. Stačí na hlavičky sbalených kapitol; plný stav karty nese jen `fetchNodeBrief`.
+ */
+export function fetchAgentWorkspaceSummaries(project: string, workspace: string): Promise<AgentWorkspaceSummaries> {
+  return api<AgentWorkspaceSummaries>(`/api/desktop-v3/agent-workspace-summaries?${query({ project, workspace })}`);
+}
 
 const query = (params: Record<string, string>): string =>
   Object.entries(params)
@@ -109,5 +134,23 @@ export async function exportExternalTask(expected: SnapshotReadbackExpectation):
 
 export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * Echo a verdikt Oracle nad projektem (`GET /api/sync-report`). Jen čtení: říká, co nesedí mezi
+ * zadáním, kódem a gitem, a jestli rozsah smí do mainu. Nic nespouští a nic neukládá.
+ */
+export function fetchSyncReport(project: string, workspace: string): Promise<SyncReport> {
+  return api<SyncReport>(`/api/sync-report?${query({ project, workspace })}`);
+}
+
+/**
+ * Commit zadání v OporaHubu. Obsah si backend vezme ze svého stavu, tělo nese jen rozsah,
+ * popisek a autora; agent tudy zapsat nesmí, hlídá si to úložiště samo.
+ */
+export function commitSpec(project: string, workspace: string, scope: string, subject: string) {
+  return api<{ id: string; specRevision: number }>("/api/opora-commit", {
+    project, workspace, scope, subject, by: { kind: "human", name: "Člověk" },
+  });
 }
 

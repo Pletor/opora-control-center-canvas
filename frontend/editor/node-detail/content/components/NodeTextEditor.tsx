@@ -84,7 +84,7 @@ export default function NodeTextEditor({
   return <section className="node-text-editor" aria-label="Dokument uzlu">
     {error && <div role="alert">{error}{form && <button disabled={busy} onClick={() => { clearPendingEdit(key); setError(""); setReload(x => x + 1); }}>Zahodit rozepsaný text a načíst uložený</button>}</div>}
     {form && <BlockOutline key={key + reload} value={form.text} readOnly={form.readOnly || !form.available} targets={targets} label="Bloky uzlu" testId="node-blocks" onChange={text => edit(text, true)} onOpenNode={onOpenNode} onAgentTask={onAgentTask} />}
-    <details className="source-text" open>
+    <details className="source-text">
       <summary>Zdrojový text (ruční uložení, Ctrl+S)</summary>
       <label className="field">Text uzlu<textarea aria-label="Text uzlu" rows={6} maxLength={64000} disabled={!form || busy} readOnly={form?.readOnly || !form?.available} value={form?.text ?? ""} placeholder="Pište odstavce, poznámky a souvislosti…" onChange={e => edit(e.target.value, false)} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); void save(); } }} /></label>
     </details>

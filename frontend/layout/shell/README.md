@@ -1,1 +1,5 @@
-Styly pracovní plochy: přepínač prostředí, dok Podklady pro agenta, živá lišta (desktop-workspaces.css) a módy plátna (workspace-modes.css). Komponentu ProjectLayout najdeš v project/shell.
+Styly pracovní plochy: přepínač prostředí, dok Podklady pro agenta, živá lišta (desktop-workspaces.css) a záložky módů plátna s rámem prostředí (workspace-modes.css). Komponentu ProjectLayout najdeš v project/shell.
+
+**Rám prostředí (`.editor-frame`, workspace-modes.css)** je vše pod horní lištou a lištou nástrojů. Obsah prostředí (`workspace-shell` v Editoru a Live Runu, `project-layout` v Projektu, `project-home` na úvodní obrazovce) zabírá celou šířku — vedle něj už nestojí lišta módů, Knihovna ani Agenti a postupy. Rám je `position: relative`, protože do něj v Editoru visí zavěšený panel (`layout/panel-dock/`, `PanelDropdown`): leží nad plátnem, ne vedle něj. Kontrakt je `docs/rozvrzeni-editoru.md`; nahradil skladbu sloupců z `docs/panely-editoru.md`, Doladění bod 1.
+
+**Záložky módů (`.mode-rail`, workspace-modes.css)** stojí na začátku lišty nástrojů Editoru jako vodorovná řada: ikona 16px vlevo od popisku 13px, aktivní mód barvou akcentu a spodní linkou 2px. Pod 1100px se popisky skryjí jen vizuálně; jméno nese `aria-label` i `title`.

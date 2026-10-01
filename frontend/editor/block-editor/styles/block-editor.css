@@ -1,0 +1,73 @@
+/* Editor bloku (blok block-editor): stejná zásuvka jako Knihovna, ale místo nabídky k vložení ukazuje
+   celý obsah jednoho vybraného bloku shora dolů - název, popis, porty, stav, štítky, checklist, obrázky
+   a podbloky. Sekce jdou pod sebou v rytmu 13 / 8 / 5, oddělené tenkou linkou nahoře, aby bylo na první
+   pohled jasné, kde jedna končí a druhá začíná. Dílek nic neukládá; ukládá rodič, jakmile pole opustíte. */
+.block-editor { font-size: 12px; }
+
+/* Hlava: číslo bloku jako ve Stromu a Knihovně, ID hned vedle pro dohledání přes /api/desktop-v3/trace. */
+.block-editor__eyebrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.block-editor__kicker { font: 600 10px var(--mono); letter-spacing: 0.08em; color: var(--ink-muted); text-transform: uppercase; }
+.block-editor__id { font: 10px var(--mono); color: var(--ink-muted); }
+
+/* Název a popis: první, co uživatel vidí a upraví; popis má dost řádků na celý krok, ne jednu větu. */
+.block-editor__field { display: grid; gap: 3px; margin-bottom: 8px; font-size: 11px; color: var(--ink-muted); }
+.block-editor__title, .block-editor__text {
+  box-sizing: border-box;
+  width: 100%;
+  font: 13px/1.4 var(--font);
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+.block-editor__text { font-size: 12px; resize: vertical; }
+
+/* Sekce pod sebou: tenká linka nahoře odděluje jednu od druhé, 13 nad linkou, 8 pod nadpisem sekce. */
+.block-editor__section { border-top: 1px solid var(--line); padding-top: 13px; margin-top: 13px; }
+.block-editor__section h5 { margin: 0 0 8px; font: 600 10px var(--mono); letter-spacing: 0.08em; color: var(--ink-muted); text-transform: uppercase; }
+.block-editor__empty { margin: 5px 0; color: var(--ink-muted); font-style: italic; font-size: 11px; }
+.block-editor__add { min-height: 0; padding: 3px 8px; font-size: 11px; }
+
+/* Porty: popisek rovnou v seznamu, ne za dvojklikem jako na kartě - v zásuvce je na úpravu dost místa. */
+.block-editor__ports { list-style: none; margin: 0 0 5px; padding: 0; display: grid; gap: 5px; }
+.block-editor__port { display: flex; align-items: center; gap: 5px; }
+.block-editor__port-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 4px 6px;
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+}
+.block-editor__port-remove { min-height: 0; padding: 0 4px; background: transparent; border: 0; color: var(--ink-muted); cursor: pointer; }
+
+/* Podbloky: číslo a název jako řádek Knihovny; klik přepne Editor na ten podblok, žádný nový panel nevzniká. */
+.block-editor__children { list-style: none; margin: 0 0 5px; padding: 0; }
+.block-editor__child {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 0;
+  padding: 4px 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+}
+.block-editor__children li:first-child .block-editor__child { border-top: 0; }
+.block-editor__child:hover { color: var(--accent); }
+.block-editor__child-number { font: 600 10px var(--mono); color: var(--ink-muted); }
+.block-editor__child-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Patička: přesun v pořadí sourozenců vlevo, nevratné odebrání bloku i podstromu vpravo - stejně jako ve Stromu. */
+.block-editor__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--line); }
+.block-editor__move { display: flex; gap: 2px; }
+.block-editor__move button { min-height: 0; padding: 0 6px; font-size: 11px; background: transparent; border: 1px solid var(--line); border-radius: 5px; color: var(--ink-muted); cursor: pointer; }
+.block-editor__move button:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); }

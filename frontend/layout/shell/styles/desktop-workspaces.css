@@ -2,10 +2,6 @@
 .environment-switch button small { display: block; font-size: 10px; color: var(--ink-muted); margin-top: 2px; }
 .tree-visibility { display: flex; align-items: flex-start; gap: 8px; margin: 12px; font-size: 12px; color: var(--ink-muted); }
 .tree-visibility input { width: auto; flex-shrink: 0; margin-top: 2px; }
-.agent-packet-dock { position: fixed; z-index: 40; right: 18px; top: 112px; bottom: 20px; width: min(760px, calc(100vw - 36px)); overflow: auto; background: var(--bg); border: 1px solid var(--accent-line); border-radius: 10px; box-shadow: 0 16px 70px #0008; }
-.agent-packet-dock > header { position: sticky; top: 0; z-index: 1; display: flex; gap: 12px; justify-content: space-between; align-items: center; padding: 14px 18px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.agent-packet-dock > .v3-slot { padding: 20px; }
-.agent-packet-dock pre { max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); padding: 12px; }
 .live-page-controls { display: flex; gap: 8px; margin: 12px 0; }
 
 .live-toolbar { margin: -16px -16px 18px; }
@@ -26,17 +22,12 @@
 .environment-switch button { border-color: transparent; background: transparent; padding: 4px 13px; color: var(--ink-muted); white-space: nowrap; }
 .environment-switch button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
 .environment-toolbar { min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 7px 16px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
-.environment-toolbar .mode-rail { display: flex; flex-direction: row; width: auto; padding: 0; gap: 3px; border: 0; }
-.environment-toolbar .mode-rail button { min-height: 30px; padding: 4px 10px; width: auto; border-radius: 4px; }
-.environment-toolbar .drawing-tools, .environment-toolbar .map-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.environment-toolbar .drawing-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .desktop-v2 .workspace-shell { grid-template-columns: 260px minmax(0,1fr) var(--inspector-w); }
-.source-explorer, .context-shelf { overflow: auto; min-height: 0; min-width: 0; }
-.source-explorer, .context-shelf { background: var(--surface); padding: 18px 14px; }
-.source-explorer { border-right: 1px solid var(--line); padding-inline: 0; }
-.context-shelf { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.source-explorer { overflow: auto; min-height: 0; min-width: 0; background: var(--surface); padding: 18px 14px; border-right: 1px solid var(--line); padding-inline: 0; }
 .source-heading { padding: 0 14px 16px; }
 .source-heading code { display: block; font-size: 11px; color: var(--ink-muted); overflow-wrap: anywhere; }
-.source-heading h2, .context-shelf h2 { font-size: 16px; }
+.source-heading h2 { font-size: 16px; }
 .source-row { display: flex; min-height: 31px; align-items: center; }
 .source-row.selected { background: var(--accent-soft); color: var(--accent); }
 .source-row button { border: 0; background: none; color: inherit; padding: 4px; text-align: left; }
@@ -52,10 +43,6 @@
 .topbar-worktree-result { position: absolute; top: calc(100% + 6px); right: 0; z-index: 100; width: 260px; max-width: calc(100vw - 24px); padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 12px; }
 .project-overview-link { margin: 0 10px 12px; }
 .tree-note, .tree-more { margin: 12px; font-size: 11px; color: var(--ink-muted); }
-.context-references { list-style: none; padding: 0; margin: 18px 0; }
-.context-references li { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
-.context-references button { border: 0; background: none; padding: 7px 4px; }
-.reference-path { flex: 1; min-width: 0; overflow-wrap: anywhere; text-align: left; font-family: var(--mono); color: var(--accent); }
 @media (max-width: 1250px) { .desktop-v2 .workspace-shell { grid-template-columns: 220px minmax(0,1fr) 300px; } }
 .desktop-v2 .workspace-shell.no-inspector { grid-template-columns: minmax(0,1fr); }
 .desktop-v2 .workspace-shell.no-context:not(.no-inspector) { grid-template-columns: minmax(0,1fr) var(--inspector-w); }
@@ -77,6 +64,10 @@
   .desktop-v2 .workspace-shell.no-context:not(.no-inspector) { grid-template-columns: minmax(0,1fr); }
   .desktop-v2 .menu { position: fixed; left: 12px; right: 12px; top: 110px; width: auto; }
 }
+
+/* Police „Agenti a postupy“ (`agent-navbar`) už není sloupec rámu: v Editoru visí jako panel pod
+   svým tlačítkem ve druhé řadě lišty (`layout/panel-dock/`, docs/rozvrzeni-editoru.md). Plátno se
+   o ni proto nikde neodsazuje a nic pro ni nerezervuje místo. */
 
 /* Vazba uzlu/sektoru na zdroj: návrh nového vs. napojení na skutečný strom. */
 .source-badge { margin: 2px 0 0; font-size: 12px; color: var(--ink-muted); }

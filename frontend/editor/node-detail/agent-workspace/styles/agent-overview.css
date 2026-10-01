@@ -1,0 +1,194 @@
+/* PŘEHLED KARTY PRO AGENTA (blok `agent-overview`)
+   Příběh: než agent otevře jedinou sekci, musí na jeden pohled vědět, kde stojí. Proto je nahoře
+   úzký pás, ne další dlouhá stránka: nejdřív drobná cesta ke kartě (odkud kam jsem se zanořil),
+   pod ní tři stejně široké dlaždice vedle sebe — Práce, Komunikace, Ověření — a docela dole dvě
+   tiché věty: co dělat dál a co aplikace zaručeně nedělá. Pás je vizuálně klidnější než pole pod
+   ním (jen obrys a tlumené pozadí), protože nic z něj se needituje; je to stav, ne formulář. */
+.agent-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  min-width: 0;
+}
+/* Horní řádek pásu: vlevo cesta ke kartě, vpravo dvě tlačítka na celou plochu. Stojí právě tady,
+   protože přehled je jediný segment, který se nesbaluje — ovládání rozbalení tak nikdy nezmizí. */
+.agent-overview__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+/* Cesta ke kartě čte se jako drobenka „Sektor / Ohnisko“: nejmenší písmo v pásu, protože je to
+   souřadnice, ne sdělení. Když brief cestu nenese, zůstane holé ID karty — nic se nedomýšlí. */
+.agent-overview__path {
+  margin: 0;
+  font-size: var(--fs-0);
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+}
+.agent-overview__bulk {
+  display: flex;
+  gap: var(--sp-1);
+}
+.agent-overview__bulk-button {
+  font-size: var(--fs-0);
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.agent-overview__bulk-button:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+/* Tři dlaždice v jedné řadě, dokud se vejdou; v úzkém inspektoru se samy zalomí pod sebe. Každá
+   nese jeden druh pravdy a nesoupeří s ostatními: stejná šířka, stejný rytmus, žádná barva navíc. */
+.agent-overview__chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-2);
+}
+.agent-overview__chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+.agent-overview__chip-title {
+  margin: 0;
+  font-size: var(--fs-0);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+}
+.agent-overview__chip-value {
+  margin: 0;
+  font-size: var(--fs-1);
+  font-weight: 600;
+  color: var(--ink);
+}
+.agent-overview__chip-note {
+  margin: 0;
+  font-size: var(--fs-0);
+  color: var(--ink-muted);
+}
+
+/* Počty nevyřízených položek jsou malé pilulky pod hodnotou dlaždice, a to jen tehdy, když nějaká
+   položka skutečně čeká: nula se nezobrazuje, aby prázdná karta nevypadala jako fronta práce.
+   Teplá barva = někdo čeká na tvoji odpověď, červená = někdo požádal o upřesnění nebo odmítl. */
+.agent-overview__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.agent-overview__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+}
+.agent-overview__badge--pending {
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+.agent-overview__badge--clarify {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.agent-overview__badge--question {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.agent-overview__badge--gap {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Na ploše Agenti je pás rozcestník: číslo i název dlaždice vedou na kotvu segmentu, kde se to dá
+   vyřídit — „Bez potvrzení 2“ skočí do Komunikace, „Mezery“ do Startu, „Práce“ do Rámce. Odkaz si
+   nebere vlastní barvu ani podtržení napevno: pilulka i nadpis mají zůstat tím, čím byly, jen
+   tečkované podtržení a ukazováček přiznají, že se dá kliknout. V inspektoru, kde segmenty nejsou,
+   žádný odkaz nevznikne a text zůstane textem. */
+.agent-overview__go {
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.agent-overview__go:hover {
+  text-decoration: underline;
+}
+.agent-overview__badge-text,
+.agent-overview__chip-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: inherit;
+}
+
+/* Další krok je jediná věta s vlastním štítkem vlevo, aby šla přečíst i koutkem oka. Pod ní drobně
+   druh doporučení s výslovnou připomínkou, že doporučení není přijatý úkol ani právo jednat. */
+.agent-overview__next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-1);
+  color: var(--ink);
+}
+.agent-overview__next-label {
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  font-size: var(--fs-0);
+  letter-spacing: 0.06em;
+}
+.agent-overview__next-kind {
+  width: 100%;
+  color: var(--ink-muted);
+  font-size: var(--fs-0);
+}
+
+/* Poslední dvě věty pásu jsou záruky a zámek. Záruky jsou tiché (co aplikace nedělá), zámek naopak
+   ohraničený teplým rámečkem, protože mění, co smíš udělat: nevysvětluje stav, ale zakazuje zápis. */
+.agent-overview__safety {
+  margin: 0;
+  font-size: var(--fs-0);
+  color: var(--ink-muted);
+}
+.agent-overview__lock {
+  margin: 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius);
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-size: var(--fs-1);
+}

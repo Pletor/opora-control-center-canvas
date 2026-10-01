@@ -2,7 +2,6 @@ import { useState } from "react";
 
 export type WorkspaceSelection = { sourcePath: string; references: string[]; note: string };
 const memory = new Map<string, WorkspaceSelection>();
-export const SOURCE_DRAG_TYPE = "application/x-opora-source-reference";
 const empty = (): WorkspaceSelection => ({ sourcePath: "", references: [], note: "" });
 export function allowedReference(path: string) {
   return path.length <= 2048 && !!path && !path.startsWith("/") && !/[\\:\u0000-\u001f]/.test(path)

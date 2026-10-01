@@ -6,7 +6,9 @@
   "scripts": {
     "start": "uv run opora",
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build && node tools/copy-drawing-assets.mjs"
+    "build": "tsc --noEmit && vite build && node tools/copy-drawing-assets.mjs",
+    "test": "vitest run",
+    "verify": "uv run python tools/verify.py"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
@@ -21,7 +23,8 @@
     "@vitejs/plugin-react": "4.7.0",
     "prettier": "3.9.6",
     "typescript": "7.0.2",
-    "vite": "6.4.3"
+    "vite": "6.4.3",
+    "vitest": "^3.2.4"
   },
   "overrides": {
     "@excalidraw/excalidraw": {

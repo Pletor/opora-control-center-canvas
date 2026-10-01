@@ -1,0 +1,111 @@
+/* Přepínače panelů (blok panel-toggles): hned za záložkami módů stojí dvě tlačítka, Knihovna a
+   Agenti a postupy. Nejsou to módy — nepřepínají, na co se uživatel dívá, jen zavěsí pod sebe panel,
+   ze kterého se bere. Proto je od záložek odděluje tichá svislá čára a mají vlastní rámeček, zatímco
+   záložky jsou jen podtržené slovo. Každé tlačítko nese ikonu 16 px, jméno a drobnou klávesovou
+   zkratku, aby ruka zkratku potkávala pokaždé, když sáhne myší. Otevřené tlačítko se obarví stejně
+   jako panel, který pod ním visí, a šipka panelu míří přesně na jeho střed — oko tak ví, kam patří. */
+.panel-toggles {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding-left: 8px;
+  margin-left: 2px;
+  border-left: 1px solid var(--line);
+}
+.panel-toggles__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.panel-toggles__button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.panel-toggles__button--open,
+.panel-toggles__button--open:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.panel-toggles__label {
+  line-height: 1;
+}
+/* Zkratka je nápověda, ne ovládání: menší, strojopisem a o tón tišší než jméno. V otevřeném
+   tlačítku převezme barvu akcentu, aby nestála jako cizí skvrna v obarvené ploše. */
+.panel-toggles__kbd {
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.panel-toggles__button--open .panel-toggles__kbd {
+  border-color: var(--accent-line);
+  color: inherit;
+}
+/* Pod 1700 px se druhá řada lišty nevejde celá: zkratka ustoupí jako první, protože je jen nápověda.
+   Jméno a ikona zůstávají a zkratku dál říká tooltip tlačítka, takže se nic neztratí. */
+@media (max-width: 1699px) {
+  .panel-toggles__kbd {
+    display: none;
+  }
+}
+
+/* Zavěšený panel (blok panel-dock): Knihovna nebo Agenti a postupy visí pod svým tlačítkem jako
+   karta 360 px široká, 8 px od horní i dolní hrany rámu. Nestojí v toku — plátno pod ním zůstává
+   celé a panel ho jen na chvíli překryje, dokud ho uživatel nezavře křížkem, Esc, klikem mimo nebo
+   přepnutím módu. Stín 18 px dolů říká „ležím nad plátnem“, ne „jsem jeho sloupec“. Vrstva 20
+   drží panel nad plátnem i nad šuplíkem knihovny uzlu (6/7), ale pod horní lištou (30) a rohem
+   účtu (60). Přetečení je viditelné, protože z Knihovny vyjíždí vpravo sloupec náhledů. Vodorovnou
+   polohu a polohu šipky dopočítá dílek podle tlačítka (`left`, `--panel-dock-arrow`). */
+.panel-dock {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 20;
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+  overflow: visible;
+  transition: opacity 120ms ease;
+}
+/* Šipka: čtvereček 12 × 12 otočený o 45°, napůl zasunutý pod horní hranu. Rámeček má jen na dvou
+   horních stranách, takže nad panelem vystoupí zobáček, který plynule navazuje na jeho obrys;
+   spodní polovinu překryje obsah panelu. Míří na střed tlačítka — střed šipky je v proměnné a měří
+   se od vnější hrany panelu, kdežto šipka se posazuje až za rámeček 1 px; proto polovina šipky
+   (6 px) plus ten rámeček. */
+.panel-dock__arrow {
+  position: absolute;
+  top: -7px;
+  left: calc(var(--panel-dock-arrow, 44px) - 7px);
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  background: var(--surface);
+  border-top: 1px solid var(--line-strong);
+  border-left: 1px solid var(--line-strong);
+  transform: rotate(45deg);
+}
+/* Tažení položky z panelu: panel zprůsvitní a přestane brát myš, aby šlo položku pustit i na
+   plátno přímo pod ním. Po puštění se vrátí celý a zůstává otevřený pro další položku. */
+.panel-dock--dragging {
+  opacity: 0.4;
+  pointer-events: none;
+}

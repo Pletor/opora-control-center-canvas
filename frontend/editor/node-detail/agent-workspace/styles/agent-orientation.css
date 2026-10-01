@@ -1,0 +1,20 @@
+/* START NOVÉHO AGENTA (blok `agent-orientation`)
+   Příběh: krátká přistávací plocha ukáže nejdřív směr a mezery, pak dovolí hledat jen
+   v konkrétním načteném balíčku. Čtyři tiché karty drží rytmus nad pracovní pamětí,
+   aniž by předstíraly oprávnění nebo nahrazovaly komunikační panel. */
+.agent-orientation { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.agent-orientation__head { display: flex; justify-content: space-between; gap: var(--sp-2); align-items: start; }
+.agent-orientation__head h3, .agent-orientation__head p, .agent-orientation__card h4, .agent-orientation__card p { margin: 0; }
+.agent-orientation__head p, .agent-orientation__card small, .agent-orientation__safety, .agent-orientation__older { color: var(--ink-muted); font-size: var(--fs-1); }
+.agent-orientation__copy { white-space: nowrap; }
+.agent-orientation__cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.agent-orientation__card { padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.agent-orientation__card ul { margin: var(--sp-1) 0 0; padding-left: var(--sp-3); }
+.agent-orientation__search { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-1); font-weight: 600; }
+.agent-orientation__search input { width: 100%; }
+.agent-orientation__results { display: flex; flex-direction: column; gap: 2px; }
+.agent-orientation__results p { display: flex; justify-content: space-between; gap: var(--sp-2); margin: 0; font-size: var(--fs-1); }
+.agent-orientation__results span { color: var(--ink-muted); }
+.agent-orientation__error { margin: 0; color: var(--danger); }
+.agent-orientation__safety, .agent-orientation__older { margin: 0; }
+@media (max-width: 520px) { .agent-orientation__head { flex-direction: column; } .agent-orientation__cards { grid-template-columns: 1fr; } }

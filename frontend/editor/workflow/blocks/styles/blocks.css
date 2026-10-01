@@ -1,0 +1,132 @@
+/* Bloky Akce / Pravidla napojené šipkou na port karty. Rytmus stejný jako karta: 13 / 8 / 5.
+   Blok stojí u své karty, ale není k ní přišitý: barevná hlavička je zároveň úchyt, za který se dá
+   odtáhnout jinam, když se u karty tísní víc bloků. Tělo se drží psaní a klikání (`nodrag`), tak
+   ruka v podobě kurzoru patří jen hlavičce. */
+.canvas-block {
+  width: 260px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  box-shadow: 0 8px 21px rgba(0, 0, 0, 0.25);
+  color: var(--ink);
+  font-size: var(--fs-1);
+}
+:root[data-theme="light"] .canvas-block { background: var(--surface); box-shadow: var(--shadow-pop); }
+.canvas-block header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 13px;
+  border-radius: 13px 13px 0 0;
+  font-weight: 600;
+  cursor: grab;
+}
+.canvas-block header:active { cursor: grabbing; }
+.canvas-block.block-action header { background: rgba(201, 138, 30, 0.22); color: var(--gold); }
+.canvas-block.block-rule header { background: rgba(196, 82, 74, 0.2); color: var(--danger); }
+.canvas-block header button {
+  min-height: 0;
+  padding: 0 6px;
+  font-size: 11px;
+  background: transparent;
+  border: 0;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.canvas-block .block-body { padding: 8px 13px 13px; }
+.canvas-block .block-note { margin: 0 0 5px; color: var(--ink-muted); font-size: 11px; }
+.canvas-block ol { list-style: none; margin: 0; padding: 0; }
+.canvas-block li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+}
+.canvas-block li .block-index { font: 600 10px var(--mono); color: var(--ink-muted); }
+.canvas-block li .block-label { overflow-wrap: anywhere; }
+.canvas-block li .block-label small { display: block; color: var(--ink-muted); font: 10px var(--mono); }
+.canvas-block li .block-tools { display: flex; gap: 2px; }
+.canvas-block li .block-tools button {
+  min-height: 0;
+  padding: 0 4px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.canvas-block li .block-tools button:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); }
+.canvas-block .block-add {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px;
+  border: 1px dashed #c98a1e;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+}
+.canvas-block.block-rule .block-add { border-color: #c4524a; color: var(--danger); }
+.canvas-block .block-add:disabled { opacity: 0.5; cursor: default; }
+.canvas-block .block-form { display: grid; grid-template-columns: 1fr auto; gap: 5px; margin-top: 8px; }
+.canvas-block .block-form input,
+.canvas-block .block-form select {
+  min-width: 0;
+  font-size: 12px;
+  padding: 4px 6px;
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+}
+.canvas-block .rule-kind { font: 600 9px var(--mono); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line-strong); }
+.canvas-block .rule-kind.must_not { color: var(--danger); border-color: var(--danger-line); }
+.canvas-block .rule-kind.must { color: var(--accent); border-color: var(--accent-line); }
+
+/* Blok Podklady: náhledy obrázků, pole pro přetažení, cesta / URL. */
+.canvas-block.block-material header { background: rgba(95, 148, 127, 0.22); color: #5f947f; }
+.canvas-block.block-material .block-add { border-color: #5f947f; color: #5f947f; }
+.canvas-block .block-materials li { grid-template-columns: 56px 1fr auto; }
+.canvas-block .block-materials img,
+.canvas-block .block-materials .material-thumb-missing {
+  width: 56px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font: 600 9px var(--mono);
+  color: var(--ink-muted);
+}
+.canvas-block .block-materials .block-label input {
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+  padding: 2px 4px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.canvas-block .block-materials .block-label input:focus { background: var(--field); border-color: var(--line-strong); }
+.canvas-block .block-materials .block-label small a { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
+.canvas-block .block-dropzone {
+  margin-top: 8px;
+  padding: 13px 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-muted);
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.canvas-block .block-dropzone:hover:not(.is-disabled),
+.canvas-block .block-dropzone.is-dragging { border-color: #5f947f; background: rgba(95, 148, 127, 0.12); color: var(--ink); }
+.canvas-block .block-dropzone.is-disabled { opacity: 0.5; cursor: default; }
+.canvas-block .block-error { margin: 5px 0 0; font-size: 11px; color: var(--danger); }

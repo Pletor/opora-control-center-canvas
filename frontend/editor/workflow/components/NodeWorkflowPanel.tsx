@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import { NODE_PHASES } from "@/shared/desktop-state/logic/types";
-import type { DesktopState, NodePhase } from "@/shared/desktop-state/logic/types";
-import { emptyNodeWorkflow } from "@/shared/desktop-state/logic/types";
+import type { DesktopState, NodePhase, NodeWorkflowFull } from "@/shared/desktop-state/logic/types";
+import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -17,9 +17,8 @@ const PHASE_LABEL: Record<NodePhase, string> = {
   live: "Live",
 };
 
-function withNode(state: DesktopState, nodeId: string, fn: (node: ReturnType<typeof emptyNodeWorkflow>) => ReturnType<typeof emptyNodeWorkflow>): DesktopState {
-  const current = state.nodes[nodeId] ?? emptyNodeWorkflow();
-  return { ...state, nodes: { ...state.nodes, [nodeId]: fn(current) } };
+function withNode(state: DesktopState, nodeId: string, fn: (node: NodeWorkflowFull) => NodeWorkflowFull): DesktopState {
+  return { ...state, nodes: { ...state.nodes, [nodeId]: fn(nodeWorkflowOf(state, nodeId)) } };
 }
 
 export function NodeWorkflowPanel({
@@ -55,7 +54,7 @@ export function NodeWorkflowPanel({
     saveLockRef.current = false;
   }, [settledCount]);
 
-  const node = state.nodes[nodeId] ?? emptyNodeWorkflow();
+  const node = nodeWorkflowOf(state, nodeId);
   const phaseIndex = NODE_PHASES.indexOf(node.phase);
   const nextPhase = NODE_PHASES[phaseIndex + 1];
   const criteriaSatisfied = node.criteria.length > 0 && node.criteria.every((c) => c.checked);
@@ -120,6 +119,14 @@ export function NodeWorkflowPanel({
         setNewStepAssignee("");
       }
     });
+  }
+
+  function removeAction(id: string) {
+    return run((current) => withNode(current, nodeId, (n) => ({ ...n, actions: n.actions.filter((a) => a.id !== id) })));
+  }
+
+  function removeNodeRule(id: string) {
+    return run((current) => withNode(current, nodeId, (n) => ({ ...n, rules: n.rules.filter((r) => r.id !== id) })));
   }
 
   function advance() {
@@ -268,6 +275,43 @@ export function NodeWorkflowPanel({
                 Přidat krok
               </button>
             </div>
+          </section>
+
+          {/* Bloky z portů karty: přidávají se na plátně (kulička „akce“ / „pravidla“), zde je přehled s ID. */}
+          <section className="v3-section" aria-label="Akce uzlu (pipeline)">
+            <h3>Akce · {node.actions.length} pipeline</h3>
+            {node.actions.length === 0 && (
+              <p className="v3-empty">Zatím žádná akce. Na kartě klikněte na oranžovou kuličku „akce“ a vyberte pipeline z knihovny.</p>
+            )}
+            <ol className="v3-step-list">
+              {node.actions.map((action, index) => (
+                <li key={action.id} className="v3-step">
+                  <span className="v3-step-n">#{index + 1}</span>
+                  <span className="v3-step-text">{action.label}</span>
+                  <span className="v3-chip" title={`ID akce ${action.id}`}>{action.pipelineId}</span>
+                  <button type="button" disabled={readOnly || busy} onClick={() => removeAction(action.id)}>
+                    Odebrat
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="v3-section" aria-label="Pravidla uzlu">
+            <h3>Pravidla uzlu · {node.rules.length}</h3>
+            {node.rules.length === 0 && (
+              <p className="v3-empty">Zatím žádné pravidlo. Na kartě klikněte na červenou kuličku „pravidla“.</p>
+            )}
+            <ul className="v3-criteria-list">
+              {node.rules.map((rule) => (
+                <li key={rule.id} className="v3-criterion">
+                  <span className="v3-chip">{rule.kind === "must" ? "musí" : "nesmí"}</span> {rule.text}
+                  <button type="button" disabled={readOnly || busy} onClick={() => removeNodeRule(rule.id)}>
+                    Odebrat
+                  </button>
+                </li>
+              ))}
+            </ul>
           </section>
         </>
       )}

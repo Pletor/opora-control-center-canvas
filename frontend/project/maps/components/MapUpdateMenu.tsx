@@ -61,7 +61,7 @@ export default function MapUpdateMenu({project,tool,busy=false,onUpdate,onReload
         <label><input type="radio" name={id} checked={state?.automatic?.[tool]===false} onChange={()=>void setting(false)}/>Pouze ručně</label>
       </fieldset>
       <small>Jen tento projekt · {tool==='archify'?'Sonnet: nejvýše 10 minut / 10 tahů':'lokální Graphify bez modelu'}</small>
-      {!state?.enabled&&<small>Automatika na serveru není zapnutá.</small>}
+      {state&&!state.enabled&&<small>Automatická aktualizace map je v aplikaci vypnutá (Nastavení → Obecné). „Aktualizovat teď“ funguje dál.</small>}
     </div>}
     {running&&<span className="map-update-state" role="status">{state?.status==='queued'?'Čeká na aktualizaci':`Aktualizuji · ${state?.phase??tool}`}</span>}
     {(error||state?.error)&&<span className="map-update-error" role="alert">{error||state?.error}</span>}

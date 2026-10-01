@@ -1,1 +1,1 @@
-Workflow uzlu: fáze discover→live, kritéria a kroky (NodeWorkflowPanel); základ budoucí pipeline. Stav z shared/desktop-state.
+Workflow uzlu: fáze discover→live, kritéria a kroky (`components/NodeWorkflowPanel`), bloky Akce / Pravidla u karty na plátně (`blocks/`), pop-up výběru pipeline z knihovny (`pipeline-picker/`). Stav z shared/desktop-state.

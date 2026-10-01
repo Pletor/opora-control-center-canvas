@@ -1,61 +1,85 @@
-/* Rail módů, mapa a obsah v jednotlivých módech. Rozměry shellu drží style.css. */
-.mode-rail {
-  background: var(--surface);
-  border-right: 1px solid var(--line);
+/* Záložky módů plátna (structure/text/drawing/map) v liště nástrojů Editoru a rám prostředí pod ní.
+   Mapa a obsah jednotlivých módů drží zbytek souboru; rozměry shellu drží style.css. Kontrakt
+   rozvržení: docs/rozvrzeni-editoru.md. */
+/* Rám prostředí: vše pod horní lištou a lištou nástrojů. Obsah prostředí (shell s plátnem a
+   inspektorem, plocha Projektu, rozcestník projektů) zabírá celou šířku — nestojí vedle něj žádný
+   sloupec lišty módů, Knihovny ani Agentů, takže plátno dostane všechno, co okno má. Rám je
+   `position: relative`, protože v Editoru do něj visí zavěšený panel (`layout/panel-dock/`): leží
+   nad plátnem, ne vedle něj, a po zavření plátnu nic nevezme. */
+.editor-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: flex;
-  flex-direction: column;
+  align-items: stretch;
+}
+/* Obsah prostředí bere celý rám, ať je to shell Editoru, plocha Projektu, nebo rozcestník
+   projektů na úvodní obrazovce; `min-width: 0` mu dovolí se zúžit, místo aby rám přetekl. */
+.editor-frame > .workspace-shell,
+.editor-frame > .project-layout,
+.editor-frame > .project-home {
+  flex: 1;
+  min-width: 0;
+}
+/* Záložky módů: první věc v liště nástrojů, čtená zleva jako věta „na co se dívám“. Každá záložka
+   je ikona 16 px vlevo od jednoslovného popisku 13 px — řádek, ne kartička, aby celá řada zabrala
+   jen výšku lišty a plátnu nic neubrala. Aktivní mód se pozná barvou akcentu a spodní linkou 2 px,
+   jako záložka v knize; neaktivní jsou tiché. Když je otevřená Dokumentace, nesvítí žádná. */
+.mode-rail {
+  display: flex;
+  align-items: center;
   gap: 2px;
-  padding: var(--sp-2) var(--sp-1);
+  flex: none;
 }
-.mode-rail button {
-  padding: 10px 4px;
-  font-size: var(--fs-0);
-  letter-spacing: 0.02em;
-  border-color: transparent;
+.mode-rail__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 10px;
   background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
   color: var(--ink-muted);
-  min-height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
-.mode-rail button:hover {
-  color: var(--ink);
+/* Místo pro ikonu 16 px: čtverec, ve kterém ikona sedí přesně uprostřed, ať je široká nebo vysoká.
+   Není to text, proto tu není velikost písma — kreslí se SVG ze sady `ui-kit/icon`. */
+.mode-rail__glyph {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+.mode-rail__label {
+  line-height: 1;
+}
+.mode-rail__button:hover {
   background: var(--surface-2);
+  color: var(--ink);
 }
-.mode-rail button[aria-pressed="true"] {
-  background: var(--accent-soft);
-  color: #c5ead1;
-  box-shadow: inset 2px 0 0 var(--accent);
+/* Lišta nástrojů kreslí každé stisknuté tlačítko jako obarvenou pilulku. Záložka ale není
+   zapnutý přepínač, je to místo, kde uživatel stojí — proto má aktivní záložka selektor o stupeň
+   silnější, který pilulku smaže a nechá jen barvu a linku pod slovem. */
+.mode-rail .mode-rail__button.mode-rail__button--active[aria-pressed="true"] {
+  background: transparent;
+  border-color: transparent;
+  border-bottom-color: var(--accent);
+  color: var(--accent);
 }
-.project-map {
-  position: absolute;
-  inset: 0;
-}
-.map-card {
-  width: 250px;
-  min-height: 84px;
-  background: #1f2c39;
-  border: 1px solid #54728d;
-  border-radius: var(--radius-lg);
-  padding: var(--sp-4);
-  color: #e4edf5;
-}
-.map-card small {
-  display: block;
-  font: 10px var(--mono);
-  letter-spacing: 0.08em;
-  color: #a6bed3;
-  margin-bottom: var(--sp-2);
-}
-.map-card strong {
-  display: block;
-  overflow-wrap: anywhere;
-  font-size: var(--fs-3);
-}
-.map-card.project {
-  background: #25392e;
-  border-color: #87b79b;
-}
-.map-card.selected {
-  outline: 2px solid var(--accent);
+/* Úzké okno (pod 1100 px): popisky zmizí, zůstanou ikony, aby se módy i přepínače panelů vešly
+   do jedné řady. Popisek je skrytý jen pro oko — odečítač ho dál přečte a jméno nese i `title`. */
+@media (max-width: 1100px) {
+  .mode-rail__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 .drawing-tools {
   display: grid;
@@ -65,19 +89,4 @@
 .agents-mode .agents-workspace {
   position: absolute;
   inset: 0;
-}
-@media (max-width: 900px) {
-  .mode-rail {
-    flex-direction: row;
-    flex-shrink: 0;
-    padding: var(--sp-1);
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    overflow-x: auto;
-  }
-  .mode-rail button {
-    flex: 1;
-    min-width: 64px;
-    font-size: var(--fs-1);
-  }
 }

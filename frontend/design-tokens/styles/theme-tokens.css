@@ -16,6 +16,24 @@
   --sector-bg: #223229;
   --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.5);
   --backdrop: #05090bba;
+  /* Barvy kategorií panelů (Knihovna, Agenti a postupy): světlejší odstíny stejného tónu jako ve světlém režimu,
+     aby ikona i proužek nesly stejnou identitu na tmavém povrchu. Měkký podklad ikony = --cat-soft z barvy. */
+  --cat-soft: 18%;
+  --cat-fe-components: #8fcfc4;
+  --cat-fe-logic: #9dbdf0;
+  --cat-fe-css: #c3aee8;
+  --cat-backend: #a3cfa4;
+  --cat-database: #e4c788;
+  --cat-cache: #efb08a;
+  --cat-security: #eda3a3;
+  --cat-cloud: #b1c3d2;
+  --cat-tests: #e5a9cc;
+  --cat-workflows: #8fcfc4;
+  --cat-pipelines: #9dbdf0;
+  --cat-rules: #e4c788;
+  --cat-hooks: #efb08a;
+  --cat-skills: #c3aee8;
+  --cat-agents: #a3cfa4;
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -48,6 +66,24 @@
   --sector-bg: #f7f3e8;
   --shadow-pop: 0 12px 32px rgba(30, 25, 15, 0.14);
   --backdrop: rgba(28, 27, 24, 0.32);
+  /* Barvy kategorií panelů: tlumené odstíny odvozené z --accent a --gold (stejná sytost, jiný tón),
+     ne syté základní barvy. Devět pro bloky Knihovny, šest pro postupy. */
+  --cat-soft: 12%;
+  --cat-fe-components: #1d6b70;
+  --cat-fe-logic: #2f5f9e;
+  --cat-fe-css: #6a4c9c;
+  --cat-backend: #3b6d3f;
+  --cat-database: #8a5f0f;
+  --cat-cache: #a2521f;
+  --cat-security: #9b3b3b;
+  --cat-cloud: #4e6273;
+  --cat-tests: #8a3f6d;
+  --cat-workflows: #1d6b70;
+  --cat-pipelines: #2f5f9e;
+  --cat-rules: #8a5f0f;
+  --cat-hooks: #a2521f;
+  --cat-skills: #6a4c9c;
+  --cat-agents: #3b6d3f;
 }
 
 /* Hustota: volitelná preference, mění jen rytmus a velikost písma. */
@@ -67,10 +103,13 @@
 .desktop-v3 .v3-toolbar input { width: 200px; }
 .v3-tool-group { display: flex; align-items: center; gap: 4px; padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--line); flex-wrap: wrap; }
 .v3-tool-group:last-of-type { border-right: 0; }
+/* Skupina, která smí ustoupit (filtr štítků): začíná na 120 px, roste jen do své přirozené šířky a když
+   místo dojde, zúží se a obsah se posouvá do strany. Lišta se tak nezalomí kvůli počtu štítků. */
+.v3-tool-group--shrink { flex: 1 1 120px; min-width: 0; max-width: max-content; flex-wrap: nowrap; }
 .v3-grow { flex: 1; }
 .desktop-v3 .v3-materials { font-weight: 600; }
 .desktop-v3 .canvas-area { background: var(--bg); }
-.desktop-v3 .inspector, .desktop-v3 .context-shelf { background: var(--surface); }
+.desktop-v3 .inspector { background: var(--surface); }
 
 .desktop-v3 .workspace-shell { grid-template-columns: var(--shelf-w) minmax(0, 1fr) var(--inspector-w); }
 .desktop-v3 .workspace-shell.no-context:not(.no-inspector) { grid-template-columns: minmax(0, 1fr) var(--inspector-w); }
@@ -101,13 +140,10 @@
 /* Pokročilý Agenti viewer je v v3 flex potomek pod záložkami, ne absolutní vrstva přes ně (jinak kryje návrat na přehled). */
 .agents-mode .v3-live > .agents-workspace { position: relative; inset: auto; }
 
-:root[data-theme="light"] .agent-packet-dock { box-shadow: var(--shadow-pop); }
-
 /* Světlý režim: pevné tmavé barvy původních stylů převedené na tokeny. */
 :root[data-theme="light"] .primary:hover { background: var(--accent-hover); color: var(--accent-ink); }
 :root[data-theme="light"] .segment button[aria-pressed="true"],
-:root[data-theme="light"] .mode-rail button[aria-pressed="true"],
-:root[data-theme="light"] .node-kind { color: var(--accent); }
+:root[data-theme="light"] .mode-rail button[aria-pressed="true"] { color: var(--accent); }
 :root[data-theme="light"] .local-status,
 :root[data-theme="light"] .block-bullet,
 :root[data-theme="light"] .block-menu-head,
@@ -119,9 +155,7 @@
 :root[data-theme="light"] .agent-task-notice dt,
 :root[data-theme="light"] .drawing-note { color: var(--ink-muted); }
 :root[data-theme="light"] .error { background: var(--danger-soft); color: var(--danger); }
-:root[data-theme="light"] .canvas-card.sector { background: var(--sector-bg); }
-:root[data-theme="light"] .canvas-card, :root[data-theme="light"] .menu { box-shadow: var(--shadow-pop); }
-:root[data-theme="light"] .node-foot { border-top-color: var(--line); }
+:root[data-theme="light"] .menu { box-shadow: var(--shadow-pop); }
 :root[data-theme="light"] .react-flow__handle { background: var(--accent); border-color: var(--surface); }
 :root[data-theme="light"] .react-flow__controls button { color: var(--ink-2); background: var(--surface); border-color: var(--line); }
 :root[data-theme="light"] .react-flow__controls button svg { fill: var(--ink-2); }
@@ -130,18 +164,14 @@
 :root[data-theme="light"] .block-outline { border-color: var(--line); background: var(--surface); }
 :root[data-theme="light"] .block-row:focus-within { background: var(--accent-soft); }
 :root[data-theme="light"] .block-input, :root[data-theme="light"] .block-menu button,
-:root[data-theme="light"] .agent-task-notice dd, :root[data-theme="light"] .map-card { color: var(--ink); }
+:root[data-theme="light"] .agent-task-notice dd { color: var(--ink); }
 :root[data-theme="light"] .block-input::placeholder { color: var(--ink-muted); }
 :root[data-theme="light"] .block-link { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
 :root[data-theme="light"] .block-link.unresolved { border-color: var(--gold-line); background: var(--gold-soft); color: var(--gold); }
 :root[data-theme="light"] .block-menu { border-color: var(--line-strong); background: var(--surface); box-shadow: var(--shadow-pop); }
 :root[data-theme="light"] .block-menu button.active, :root[data-theme="light"] .block-menu button:hover { background: var(--surface-3); }
 :root[data-theme="light"] .block-menu kbd { color: var(--ink-2); border-color: var(--line-strong); }
-:root[data-theme="light"] .card-rename { color: var(--ink); background: var(--field); border-color: var(--accent-line); }
 :root[data-theme="light"] .agent-task-notice { border-color: var(--line-strong); background: var(--surface); box-shadow: var(--shadow-pop); }
-:root[data-theme="light"] .map-card { background: var(--surface); border-color: var(--line-strong); }
-:root[data-theme="light"] .map-card small { color: var(--ink-muted); }
-:root[data-theme="light"] .map-card.project { background: var(--accent-soft); border-color: var(--accent-line); }
 :root[data-theme="light"] .agent-badge-ok { background: var(--ok-soft); color: #2d6a3e; border-color: #9ccaa9; }
 :root[data-theme="light"] .agent-badge-warn { background: var(--gold-soft); color: var(--gold); border-color: var(--gold-line); }
 :root[data-theme="light"] .agent-badge-bad { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-line); }
