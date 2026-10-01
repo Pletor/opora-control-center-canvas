@@ -23,6 +23,7 @@ Načti pouze referenci potřebnou pro aktuální požadavek:
 | Vytvořit/upravit uzel či sektor, text, kresba | [references/editor.md](references/editor.md) |
 | Zadání, pravidla, náhled balíčku, neměnný snímek, export pro externího agenta, zpětný ticket | [references/external-agent.md](references/external-agent.md) |
 | Live Run: telemetrie sessions na uzlu, vazba session, tickety | [references/live-run.md](references/live-run.md) |
+| `/grill-me`, `/wayfinder`, mapa rozhodnutí, frontier, převzetí karty, pipeline od myšlenky ke kartě | [references/workflow.md](references/workflow.md) |
 | Mapa, Archify, diagramy a jejich export | [references/archify.md](references/archify.md) |
 | Graphify-out, generování grafu ze zdrojového kódu | [references/graphify.md](references/graphify.md) |
 | Menu aktualizace, automatika po mergi, oddělení map projektů | [references/map-refresh.md](references/map-refresh.md) |

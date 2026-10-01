@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit
@@ -84,6 +85,12 @@ def summary(command, data, args, base):
     if command == 'snapshot':
         packet = data.get('packet', {})
         return {**pick(data, ['id', 'digest', 'createdAt']), 'scope': packet.get('scope'), 'warnings': packet.get('warnings'), 'sourceManifest': packet.get('sourceManifest')}
+    if command == 'node-brief':
+        node = data.get('node', {})
+        return {'schema': data.get('schema'), 'readOnly': data.get('readOnly'), 'node': pick(node, ['id', 'name', 'kind', 'path', 'sourceRef']),
+                'goal': data.get('goal'), 'phase': data.get('harness', {}).get('phase'),
+                'stopConditions': data.get('harness', {}).get('stopConditions'), 'loop': data.get('loop'),
+                'note': 'Souhrn; celý balíček pro model vypíše --raw.'}
     if command in ('node-text', 'node-spec'):
         out = pick(data, ['revision', 'readOnly', 'available'])
         out['contentLengths'] = ({'text': len(data.get('text', ''))} if command == 'node-text'
@@ -91,6 +98,56 @@ def summary(command, data, args, base):
         out['note'] = 'Obsah vynechán; --raw jej vypíše.'
         return out
     return data
+
+
+CLAIM_PREFIX = 'Převzato:'
+TICKET_TYPES = ('research', 'prototype', 'grilling', 'task')
+
+
+def ticket_type(name):
+    match = re.match(r'\[(\w+)\]', name or '')
+    return match.group(1) if match and match.group(1) in TICKET_TYPES else ''
+
+
+def claim_of(frame):
+    for line in (frame or '').splitlines():
+        if line.strip().startswith(CLAIM_PREFIX):
+            return line.strip()[len(CLAIM_PREFIX):].strip()
+    return ''
+
+
+def frontier(graph, state, sector_id, frames):
+    """Mapa wayfinderu nad sektorem: karty sektoru rozdělené na uzavřené, převzaté, blokované a frontier.
+
+    Blokace je vazba `next` (nebo bez portu) z neuzavřené karty. Převzetí je řádek `Převzato:`
+    v `agent-workspace.frame`. Pořadí karet je pořadí v grafu.
+    """
+    nodes = graph.get('nodes', [])
+    sector = next((n for n in nodes if n.get('id') == sector_id), None)
+    if sector is None or sector.get('kind') != 'sector':
+        raise ValueError('--node musí být ID sektoru (mapy) v tomto workspace.')
+    names = {n['id']: n.get('name', '') for n in nodes}
+    cards = [n for n in nodes if n.get('parentId') == sector_id and n.get('kind') == 'node']
+    done = {cid: bool(state.get('nodes', {}).get(cid, {}).get('done', {}).get('confirmed')) for cid in names}
+    out = {'map': {'id': sector_id, 'name': sector.get('name', '')}, 'frontier': [], 'claimed': [], 'blocked': [], 'closed': []}
+    for card in cards:
+        cid = card['id']
+        row = {'id': cid, 'name': card.get('name', ''), 'type': ticket_type(card.get('name'))}
+        blockers = [e['source'] for e in graph.get('edges', [])
+                    if e.get('target') == cid and e.get('port', 'next') == 'next' and not done.get(e.get('source'), False)]
+        claim = claim_of(frames.get(cid, ''))
+        if done[cid]:
+            out['closed'].append(row)
+        elif claim:
+            out['claimed'].append({**row, 'claim': claim})
+        elif blockers:
+            out['blocked'].append({**row, 'blockedBy': [{'id': b, 'name': names.get(b, '')} for b in blockers]})
+        else:
+            out['frontier'].append(row)
+    ids = {sector_id, *(c['id'] for c in cards)}
+    out['decisions'] = [pick(d, ['id', 'text', 'nodeId', 'pinned', 'by', 'createdAt']) for d in state.get('decisions', []) if d.get('nodeId') in ids]
+    out['fog'] = [{'id': n['id'], 'name': n.get('name', '')} for n in nodes if n.get('parentId') == sector_id and n.get('kind') == 'comment']
+    return out
 
 
 def required(args, *names):
@@ -103,7 +160,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base-url', help='domácí adresa http://127.0.0.1:PORT')
     parser.add_argument('--api-base', help='vzdálená adresa tunelu https://HOST; vyžaduje ' + TOKEN_ENV)
-    parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'sessions', 'snapshot', 'node-text', 'node-spec'])
+    parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'sessions', 'snapshot', 'node-text', 'node-spec', 'node-brief', 'frontier'])
     parser.add_argument('--project')
     parser.add_argument('--workspace')
     parser.add_argument('--node')
@@ -139,6 +196,18 @@ def main():
             data['note'] = 'Backend identity vzniká při startu; není důkazem verze později nasazeného frontendu.'
         elif command == 'projects':
             data = fetch('/api/bootstrap')
+        elif command in ('node-brief', 'frontier'):
+            required(args, 'project', 'workspace', 'node')
+            params = {'project': args.project, 'workspace': args.workspace}
+            if command == 'node-brief':
+                data = fetch('/api/desktop-v3/node-brief', {**params, 'nodeId': args.node})
+            else:
+                graph = fetch('/api/view', params).get('graph', {})
+                state = fetch('/api/desktop-v3/state', params).get('state', {})
+                open_cards = [n['id'] for n in graph.get('nodes', []) if n.get('parentId') == args.node and n.get('kind') == 'node'
+                              and not state.get('nodes', {}).get(n['id'], {}).get('done', {}).get('confirmed')]
+                frames = {cid: fetch('/api/desktop-v3/agent-workspace', {**params, 'nodeId': cid}).get('workspace', {}).get('frame', '') for cid in open_cards}
+                data = frontier(graph, state, args.node, frames)
         elif command in ('view', 'state', 'node-text', 'node-spec', 'snapshot', 'sessions'):
             required(args, 'project', 'workspace')
             params = {'project': args.project, 'workspace': args.workspace}
