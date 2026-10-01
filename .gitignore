@@ -1,7 +1,7 @@
 .venv/
 .venv-graphify/
 graphify-out/
-.opora-map-refresh/
+archify-out/
 node_modules/
 dist/
 .data/
@@ -13,3 +13,7 @@ test-results/
 .env*
 .worktrees/
 opora.local.toml
+.hermes/
+.claude/worktrees/
+/image*.png
+/*.mp4
