@@ -20,6 +20,7 @@ import {
   currentScope,
   isBindingInScope,
   isFreshScope,
+  scopeKey,
   type HookBinding,
   type HookEvent,
   type Scope,
@@ -194,11 +195,11 @@ export default function AgentControlPanel({ active, project, workspace, selected
     {loadError && <p className="agent-control__error" role="alert">{loadError}</p>}
     {error && <p className="agent-control__error" role="alert">{error}</p>}
     {!scopeLoaded && active && <p className="agent-control__note">Načítám stav tohoto scope…</p>}
-    <HookBindingForm key={`${project}:${workspace}:${selectedNodeId}`} disabled={mutationDisabled} project={project} workspace={workspace} nodeId={selectedNodeId} onBind={onBind} />
+    <HookBindingForm key={scopeKey("form", scope)} disabled={mutationDisabled} project={project} workspace={workspace} nodeId={selectedNodeId} onBind={onBind} />
     {visibleGenerated && <section className="agent-control__generated"><h3 className="agent-control__heading">Vygenerované nastavení</h3><code>{visibleGenerated.settingsPath}</code><button type="button" className="agent-control__button" onClick={() => void copy(visibleGenerated.settingsPath)}>Kopírovat cestu</button><code>{visibleGenerated.launchCommand}</code><button type="button" className="agent-control__button" onClick={() => void copy(visibleGenerated.launchCommand)}>Kopírovat launch command</button><p className="agent-control__warning">Příkaz se zde nikdy automaticky nespouští.</p></section>}
     <HookBindingList bindings={scopedBindings} readOnly={scopeReadOnly} disabled={!bindingsReady} expandedId={expandedId} events={events} eventsTruncated={eventsTruncated} onExpanded={(id) => void onExpanded(id)} onControl={onControl} />
     {expandedBinding && <VscHookInstall key={`${expandedBinding.id}:${expandedBinding.revision}`} binding={expandedBinding} disabled={mutationDisabled} onChanged={refreshActivity} />}
-    <LspControl key={`${project}:${workspace}:${selectedNodeId}`} disabled={!active} project={project} workspace={workspace} nodeId={selectedNodeId} status={scopeLoaded ? lspStatus : null} onQuery={queryLsp} />
-    <SemanticQuery key={`${project}:${workspace}:${selectedNodeId}`} disabled={!active} project={project} workspace={workspace} />
+    <LspControl key={scopeKey("lsp", scope)} disabled={!active} project={project} workspace={workspace} nodeId={selectedNodeId} status={scopeLoaded ? lspStatus : null} onQuery={queryLsp} />
+    <SemanticQuery key={scopeKey("semantic", scope)} disabled={!active} project={project} workspace={workspace} />
   </div>;
 }

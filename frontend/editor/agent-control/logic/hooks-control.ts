@@ -77,3 +77,8 @@ export function canControlBinding(
 export function lspProviderLabel(status: "configured" | "unavailable"): string {
   return status === "configured" ? "nakonfigurováno" : "nedostupné";
 }
+
+/** React key of one panel part for one card. Each part needs its own prefix: siblings sharing a key are duplicated on every render. */
+export function scopeKey(part: "form" | "lsp" | "semantic", scope: Scope): string {
+  return `${part}:${scope.project}:${scope.workspace}:${scope.nodeId ?? ""}`;
+}

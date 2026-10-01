@@ -7,6 +7,7 @@ import {
   isFreshScope,
   isUuid,
   parseAllowedPaths,
+  scopeKey,
 } from "./hooks-control";
 
 describe("hooks-control – scoped form and safe labels", () => {
@@ -47,5 +48,14 @@ describe("hooks-control – scoped form and safe labels", () => {
     const binding = { project: "p1", workspace: "w1", nodeId: "n1" };
     expect(isBindingInScope(binding, scope)).toBe(true);
     expect(isBindingInScope({ ...binding, nodeId: "n2" }, scope)).toBe(false);
+  });
+});
+
+describe("hooks-control – panel keys", () => {
+  it("gives every panel part its own key for the same card", () => {
+    const scope = currentScope("p", "w", "n");
+    const keys = (["form", "lsp", "semantic"] as const).map((part) => scopeKey(part, scope));
+    expect(new Set(keys).size).toBe(3);
+    expect(scopeKey("form", currentScope("p", "w", "m"))).not.toBe(keys[0]);
   });
 });
