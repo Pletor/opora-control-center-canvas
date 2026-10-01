@@ -1,12 +1,9 @@
-// Rodič Knihovny: hlavička s vrstvou a křížkem, záložky OBSAH | STRÁNKA, přepínač Elementy | Bloky,
-// hledání, filtr „Pro tento projekt / Vše“ a pod nimi jeden ze tří dílků. Rodič nic neukládá sám — stav
-// dostává v props z `useLibraryNavbar` v App a každou změnu hlásí callbackem nahoru. Projekt zná jen
-// přes hotový `profile` z App (docs/suplik-a-profil.md); druh zdroje ani nastavení nečte.
-//
-// Knihovna leží v šuplíku u levého okraje (`layout/panel-dock/`) a vyplní ho pod hlavičkou projektu.
-// Kdy je vidět, rozhoduje App; dílek se jen nakreslí a křížek v hlavičce ohlásí `onClose` nahoru.
-import LibraryTiles from "@/layout/library-navbar/components/LibraryTiles";
-import LibraryCategories from "@/layout/library-navbar/components/LibraryCategories";
+// Rodič Knihovny: záložky OBSAH | STRÁNKA a pod nimi buď hledání, filtr „Pro tento projekt / Vše“ a jeden
+// seznam prvků podle kategorií (`LibraryContent`), nebo strom vrstev (`LibraryPagePanel`). Vlastní
+// hlavičku nemá — panel sekce má jednu hlavičku projektu a zavírá se ikonou nebo ☰ (docs/menu-a-katalog.md).
+// Rodič nic neukládá: stav dostává v props z `useLibraryNavbar` v App a každou změnu hlásí callbackem.
+// Projekt zná jen přes hotový `profile` z App; druh zdroje ani nastavení nečte.
+import LibraryContent from "@/layout/library-navbar/components/LibraryContent";
 import LibraryPagePanel from "@/layout/library-navbar/components/LibraryPagePanel";
 import CatalogScopeBar from "@/layout/panel-dock/components/CatalogScopeBar";
 import CatalogOutsideRow from "@/layout/panel-dock/components/CatalogOutsideRow";
@@ -15,15 +12,9 @@ import { libraryView } from "@/layout/library-navbar/logic/library-scope";
 import type { CatalogScope } from "@/layout/panel-dock/logic/panel-drawer";
 import { outsideSummary } from "@/editor/component-library/library-catalog/logic/catalog-fit";
 import type { ProjectProfile } from "@/shared/project-capabilities/logic/project-capabilities";
-import {
-  LIBRARY_MODES,
-  LIBRARY_TABS,
-  type LibraryMode,
-  type LibraryNavbarState,
-  type LibraryTab,
-} from "@/layout/library-navbar/logic/library-navbar";
+import { LIBRARY_TABS, type LibraryNavbarState, type LibraryTab } from "@/layout/library-navbar/logic/library-navbar";
 import type { LayerFilter, LayerGroupId } from "@/layout/library-navbar/logic/layer-list";
-import { CATALOG_ITEMS, type CatalogCategory, type CatalogItem } from "@/editor/component-library/library-catalog/logic/library-catalog";
+import { CATALOG_ITEMS, type CatalogItem } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import type { CanvasNode } from "@/shared/types/logic/types";
 
 /** Stálé prázdné hodnoty, aby výchozí props nedělaly z každého vykreslení nový objekt. */
@@ -33,7 +24,6 @@ const NO_PROFILE: ProjectProfile = { architecture: "", tenancy: "", platform: "w
 
 export default function LibraryNavbar({
   state,
-  layerName,
   items = CATALOG_ITEMS,
   nodes = EMPTY_NODES,
   closed = EMPTY_CLOSED,
@@ -43,19 +33,14 @@ export default function LibraryNavbar({
   onScope,
   onToggleOutside,
   onTab,
-  onMode,
   onSearch,
-  onCategory,
+  onItem,
   onPageFilter,
   onPageSearch,
   onToggleGroup,
   onOpenLayer,
-  onBack,
-  onClose,
 }: {
   state: LibraryNavbarState;
-  /** Jméno vrstvy, ve které uživatel stojí; panel ho jen ukazuje. */
-  layerName: string;
   items?: CatalogItem[];
   /** Graf projektu pro záložku STRÁNKA; panel si ho nikdy nenačítá sám. */
   nodes?: CanvasNode[];
@@ -68,18 +53,14 @@ export default function LibraryNavbar({
   onScope?: (scope: CatalogScope) => void;
   onToggleOutside?: () => void;
   onTab: (tab: LibraryTab) => void;
-  onMode: (mode: LibraryMode) => void;
   onSearch: (query: string) => void;
-  onCategory: (category: CatalogCategory) => void;
+  /** Klik na prvek: otevře nebo zavře jeho náhled. */
+  onItem: (id: string) => void;
   onPageFilter: (filter: LayerFilter) => void;
   onPageSearch: (query: string) => void;
   onToggleGroup: (group: LayerGroupId) => void;
   /** Klik na vrstvu; co se stane (vstup do vrstvy a výběr karty), rozhoduje rodič. */
   onOpenLayer: (id: string) => void;
-  /** Šipka zpět o vrstvu výš; bez ní je šipka zhasnutá (jsme na kořeni). */
-  onBack?: () => void;
-  /** Křížek v hlavičce: zavře šuplík; co to znamená, rozhoduje rodič. */
-  onClose: () => void;
 }) {
   const view = libraryView(items, profile, { scope, showOutside, query: state.query });
   const found = view.shown;
@@ -89,29 +70,6 @@ export default function LibraryNavbar({
   return (
     <aside className="library-navbar" aria-label="Knihovna" data-testid="library-navbar">
       <div className="library-navbar__panel">
-        <header className="library-navbar__head">
-          <button
-            type="button"
-            className="library-navbar__back"
-            aria-label="Zpět o vrstvu výš"
-            disabled={!onBack}
-            onClick={onBack}
-          >
-            <Icon name="chevron-left" size={16} />
-          </button>
-          <strong className="library-navbar__layer">{layerName}</strong>
-          <button
-            type="button"
-            className="library-navbar__close"
-            aria-label="Zavřít Knihovnu"
-            title="Zavřít Knihovnu (Esc)"
-            data-testid="library-close"
-            onClick={onClose}
-          >
-            <Icon name="x" size={16} />
-          </button>
-        </header>
-
         <nav className="library-navbar__tabs" role="tablist" aria-label="Záložky knihovny">
           {LIBRARY_TABS.map((tab) => (
             <button
@@ -142,29 +100,13 @@ export default function LibraryNavbar({
           />
         ) : (
           <>
-            <div className="library-navbar__switch" role="group" aria-label="Pohled na katalog">
-              {LIBRARY_MODES.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className={"library-navbar__switch-button" + (state.mode === mode.id ? " library-navbar__switch-button--active" : "")}
-                  aria-pressed={state.mode === mode.id}
-                  title={mode.hint}
-                  data-testid={"library-mode-" + mode.id}
-                  onClick={() => onMode(mode.id)}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-
             <div className="library-navbar__search">
               <Icon className="library-navbar__search-icon" name="search" size={16} />
               <input
                 type="search"
                 className="library-navbar__search-input"
-                placeholder="Najít položku"
-                aria-label="Najít položku v knihovně"
+                placeholder="Najít prvek"
+                aria-label="Najít prvek v knihovně"
                 value={state.query}
                 onChange={(event) => onSearch(event.target.value)}
               />
@@ -175,19 +117,15 @@ export default function LibraryNavbar({
             )}
 
             <div className="library-navbar__body">
-              {state.mode === "elements" ? (
-                <LibraryTiles items={found} notes={view.notes} outside={view.outsideIds} onOpenCategory={onCategory} />
-              ) : (
-                <LibraryCategories
-                  categories={view.categories}
-                  items={found}
-                  notes={view.notes}
-                  outside={view.outsideIds}
-                  profileOnly={view.profileOnly}
-                  open={state.category}
-                  onOpen={onCategory}
-                />
-              )}
+              <LibraryContent
+                categories={view.categories}
+                items={found}
+                open={state.item}
+                notes={view.notes}
+                outside={view.outsideIds}
+                profileOnly={view.profileOnly}
+                onOpen={onItem}
+              />
               {outsideRow && onToggleOutside && (
                 <CatalogOutsideRow
                   summary={outsideSummary(view.outside, ["prvek", "prvky", "prvků"])}

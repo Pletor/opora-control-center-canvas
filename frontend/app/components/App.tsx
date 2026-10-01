@@ -23,12 +23,15 @@ import { useLibraryNavbar } from "@/layout/library-navbar/logic/use-library-navb
 import "@/layout/library-navbar/styles/library-navbar.css";
 import AgentNavbar from "@/layout/agent-navbar/components/AgentNavbar";
 import { useAgentNavbar } from "@/layout/agent-navbar/logic/use-agent-navbar";
+import type { AgentSection } from "@/layout/agent-navbar/logic/agent-navbar";
 import "@/layout/agent-navbar/styles/agent-navbar.css";
-import PanelToggles from "@/layout/panel-dock/components/PanelToggles";
-import PanelDrawer from "@/layout/panel-dock/components/PanelDrawer";
+import MenuButton from "@/layout/panel-dock/components/MenuButton";
+import PanelDock from "@/layout/panel-dock/components/PanelDock";
+import DockSettings from "@/layout/panel-dock/components/DockSettings";
 import { usePanelDock } from "@/layout/panel-dock/logic/use-panel-dock";
 import { usePanelDrawer } from "@/layout/panel-dock/logic/use-panel-drawer";
 import ProjectProfile from "@/layout/project-profile/components/ProjectProfile";
+import ProfileCard from "@/layout/project-profile/components/ProfileCard";
 import { useProjectProfile } from "@/layout/project-profile/logic/use-project-profile";
 import { cardBlocks } from "@/editor/canvas/node-card/logic/card-model";
 import { nodeWorkflowOf, type PipelineLibrary } from "@/shared/desktop-state/logic/types";
@@ -71,7 +74,7 @@ import {
   type WorkspaceMode,
   type SurfaceSettings,
 } from "@/shared/surface-settings/logic/workspace-settings";
-import { catalogProfile, isLocalKind, projectCapabilities } from "@/shared/project-capabilities/logic/project-capabilities";
+import { catalogProfile, isLocalKind, profileUnset, projectCapabilities } from "@/shared/project-capabilities/logic/project-capabilities";
 import "@/layout/shell/styles/workspace-modes.css";
 import AccountCorner from "@/layout/account-corner/components/AccountCorner";
 import ProcessOverview from "@/live-run/processes/components/ProcessOverview";
@@ -195,20 +198,20 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   // Knihovna (levý navbar): jedno rozhraní pro celou aplikaci — stav i preference drží hook,
   // ukládá se pod jediným klíčem `opora:library-navbar:v1`, nikdy s klíčem projektu.
   const libraryNavbar = useLibraryNavbar();
-  // Šuplík Editoru (docs/suplik-a-profil.md): Knihovna nebo Agenti a postupy vyjedou u levého
-  // okraje pod lištou, otevřený je nejvýš jeden a jen v Editoru. Stav je jen v paměti
-  // sezení; zkratky Ctrl+Shift+, / Ctrl+Shift+. a Esc drží hook. Úvodní obrazovka panely nekreslí,
-  // proto tam zkratky nic nepřepínají a odchod na ni panel zavře.
+  // Menu Editoru (docs/menu-a-katalog.md, část A): ☰ vysune u levého okraje lištu ikon a vedle ní
+  // panel sekce (Knihovna, Agenti, Postupy, Nastavení), jen v Editoru. Otevřenost je jen v paměti
+  // sezení, poslední sekce se pamatuje jednou pro aplikaci; zkratky Ctrl+Shift+, / Ctrl+Shift+.
+  // a Esc drží hook. Úvodní obrazovka menu nekreslí, proto tam zkratky nic nepřepínají.
   const dock = usePanelDock(environment === "editor" && screen === "canvas");
-  // Šuplík Knihovna/Agenti (docs/suplik-a-profil.md): filtr „Pro tento projekt / Vše“ je preference
-  // aplikace, karta profilu a „Mimo profil · zobrazit“ jen paměť sezení. Profil patří projektu:
-  // načte se z /api/project-settings při otevření šuplíku a ukládá ho jen App s očekávanou revizí.
+  // Filtr „Pro tento projekt / Vše“ je preference aplikace, „Mimo profil · zobrazit“ jen paměť
+  // sezení. Profil patří projektu: načte se z /api/project-settings při otevření sekce a ukládá ho
+  // jen App s očekávanou revizí.
   const drawer = usePanelDrawer();
-  const projectProfile = useProjectProfile(project, dock.open);
+  const projectProfile = useProjectProfile(project, dock.section);
   const profile = catalogProfile(projectProfile.snapshot?.settings ?? null);
-  // Agenti a postupy: obsah šuplíku. Stav drží týž druh hooku pod jediným klíčem
-  // `opora:agent-navbar:v1`. Samotné složení panelu čeká níž, až bude znát plátno a plochu
-  // (`view`, `desktop`) — záložka Agenti si podle nich načítá zadání vybrané karty.
+  // Agenti a Postupy: dvě sekce menu nad jedním katalogem. Stav drží týž druh hooku pod jediným
+  // klíčem `opora:agent-navbar:v1`. Samotné složení panelu čeká níž, až bude znát plátno a plochu
+  // (`view`, `desktop`) — záložka Vybraná karta si podle nich načítá zadání vybrané karty.
   const agentNavbar = useAgentNavbar();
   // Přechod na jinou vrstvu (Zanořit, drobečková navigace) vrací stránku Text zpět na Uživatele.
   useEffect(() => { setTextSubtab("user"); }, [parent]);
@@ -397,11 +400,12 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const edge = graph.edges.find((e) => e.id === selectedEdge);
   const layer = graph.nodes.find((n) => n.id === parent);
   const editable = !!view && !view.readOnly && !busy;
-  // Agenti a postupy dostanou adresu karty a jeden otisk stavu: otisk plátna + revize plochy. Když se
-  // karta pohne (jiný graf, jiná revize textů a bloků), otisk se změní a záložka Agenti si zadání
-  // načte znovu. Panel sám nic nedohledává — jen dostane props; kreslí se jen v šuplíku.
-  const agentNavbarPanel = (
+  // Sekce Agenti a Postupy dostanou adresu karty a jeden otisk stavu: otisk plátna + revize plochy.
+  // Když se karta pohne (jiný graf, jiná revize textů a bloků), otisk se změní a záložka Vybraná karta
+  // si zadání načte znovu. Panel sám nic nedohledává — jen dostane props; kreslí se jen v menu.
+  const agentNavbarPanel = (section: AgentSection) => (
     <AgentNavbar
+      section={section}
       state={agentNavbar.state}
       project={project}
       workspace={workspace}
@@ -413,7 +417,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       showOutside={drawer.showOutside}
       onScope={drawer.setScope}
       onToggleOutside={drawer.toggleOutside}
-      onClose={dock.close}
       onCategory={agentNavbar.category}
       onSearch={agentNavbar.search}
       onTab={agentNavbar.tab}
@@ -574,32 +577,20 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       setSelection(selectNode(created.id));
     });
   }
-  /**
-   * Položka knihovny puštěná na plátno. Karta (`kind: "card"`) vzniká jedinou cestou, kterou se graf ukládá —
-   * přes `save` — takže se rovnou zapíše do historie (Ctrl+Z ji vezme zpátky) a ještě před uložením dosedne
-   * mezi pevná tělesa, aby nestála na nikom. Teprve nad hotovou kartou se jedním `desktop.mutate` doplní
-   * rozpad položky jako bloky a její musí/nesmí jako pravidla uzlu. Položka `kind: "block"` graf nemění:
-   * přidá jeden blok do vybrané karty, a bez výběru se jen řekne, co chybí.
-   */
-  function dropCatalogItem(itemId: string, x: number, y: number) {
-    if (!editable) return;
-    const item = itemById(itemId);
-    if (!item) return;
-    if (item.kind === "block") {
-      if (!node || (node.kind !== "node" && node.kind !== "sector")) {
-        setError("Nejdřív vyberte kartu.");
-        return;
-      }
-      // Uzavřená karta má obsah jen ke čtení; stejná pojistka jako u bloků kreslených na kartě.
-      if (nodeWorkflowOf(desktop.state, node.id).done.confirmed) {
-        setError("Karta je uzavřená; blok do ní přidat nelze.");
-        return;
-      }
-      void desktop.mutate(insertBlockFromItem(node.id, item));
-      return;
-    }
-    const dropped = cardFromItem(item, parent, x, y);
-    // Otisk nové karty se počítá nad vrstvou, ve které už stojí; ostatní otisky jsou překážky.
+  /** Karta (uzel nebo sektor), na kterou se pustilo; komentář, oblast i prázdné plátno vrací `null`. */
+  function dropCard(targetId: string | null): CanvasNode | null {
+    const hit = targetId ? graph.nodes.find((n) => n.id === targetId) : undefined;
+    return hit && (hit.kind === "node" || hit.kind === "sector") ? hit : null;
+  }
+  /** Do uzavřené karty se nic nevkládá (obsah je jen ke čtení); řekne to a vrátí `false`. */
+  function openForDrop(card: CanvasNode): boolean {
+    if (!nodeWorkflowOf(desktop.state, card.id).done.confirmed) return true;
+    setError("Karta je uzavřená; vložit do ní nelze.");
+    return false;
+  }
+  /** Nová karta nebo sektor dosedne mezi pevná tělesa vrstvy, aby nestála na nikom. */
+  function settleDropped(dropped: CanvasNode): CanvasNode {
+    // Otisk se počítá nad vrstvou, ve které už stojí; ostatní otisky jsou překážky.
     const footprints = layerFootprints({ ...graph, nodes: [...graph.nodes, dropped] }, parent, desktop.state, openBlocks, {});
     const print = footprints.find((f) => f.id === dropped.id);
     const at = print
@@ -610,7 +601,26 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           graph.nodes.filter((n) => n.parentId === parent && n.kind === "area" && !!n.size),
         )
       : { x: dropped.x, y: dropped.y };
-    const created: CanvasNode = { ...dropped, x: at.x, y: at.y };
+    return { ...dropped, x: at.x, y: at.y };
+  }
+  /**
+   * Prvek Knihovny puštěný na plátno (docs/menu-a-katalog.md §B4). Na kartu pod ukazatelem jde jako
+   * blok a jeho invarianty se přidají do pravidel karty. Na prázdné plátno vznikne nová karta jedinou
+   * cestou, kterou se graf ukládá — přes `save`, takže ji Ctrl+Z vezme zpátky — a teprve nad ní jeden
+   * `desktop.mutate` doplní bloky, kritéria hotovo a pravidla.
+   */
+  function dropCatalogItem(itemId: string, x: number, y: number, targetId: string | null) {
+    if (!editable) return;
+    const item = itemById(itemId);
+    if (!item) return;
+    const target = dropCard(targetId);
+    if (target) {
+      if (!openForDrop(target)) return;
+      void desktop.mutate(insertBlockFromItem(target.id, item));
+      setSelection(selectNode(target.id));
+      return;
+    }
+    const created = settleDropped(cardFromItem(item, parent, x, y));
     run(async () => {
       await save({ ...graph, nodes: [...graph.nodes, created] });
       await desktop.mutate((current) => ({ ...current, nodes: { ...current.nodes, [created.id]: workflowFromItem(item) } }));
@@ -618,32 +628,20 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     });
   }
   /**
-   * Položka pravého katalogu (postup) puštěná na plátno. Pravidlo, role agenta i pipeline míří do
-   * vybrané karty — bez výběru se jen řekne, co chybí, uzavřená karta zůstává jen ke čtení a totéž
-   * pravidlo ani tatáž pipeline se nepřidají dvakrát. Workflow jako jediné sahá na graf: sektor
-   * dosedne mezi pevná tělesa a uloží se přes `save` i s kartami fází a vazbami `next`, takže ho
-   * Ctrl+Z vezme zpátky celý; teprve nad hotovým sektorem doplní jeden `desktop.mutate` stav karet.
+   * Položka Agentů a Postupů puštěná na plátno. Hranice, role agenta, pipeline i hook míří do karty pod
+   * ukazatelem, jinak do vybrané karty; bez obojího se jen řekne, co chybí. Totéž pravidlo ani tatáž
+   * pipeline se nepřidají dvakrát. Workflow jako jediné sahá na graf: sektor dosedne mezi pevná tělesa
+   * a uloží se přes `save` i s kartami fází a vazbami `next`; teprve pak doplní `desktop.mutate` stav karet.
    */
-  function dropAgentItem(itemId: string, x: number, y: number) {
+  function dropAgentItem(itemId: string, x: number, y: number, targetId: string | null) {
     if (!editable) return;
     const item = agentItemById(itemId);
-    // Položka `info` (kdy sáhnout po hooku či skillu) se netáhne; panel ji ani nenechá zvednout.
+    // Položka `info` (kdy sáhnout po skillu) se netáhne; panel ji ani nenechá zvednout.
     if (!item || item.kind === "info") return;
     if (item.kind === "workflow") {
       const insert = sectorFromWorkflow(item, parent, x, y);
       if (!insert) return;
-      // Otisk nového sektoru se počítá nad vrstvou, ve které už stojí; ostatní otisky jsou překážky.
-      const footprints = layerFootprints({ ...graph, nodes: [...graph.nodes, insert.sector] }, parent, desktop.state, openBlocks, {});
-      const print = footprints.find((f) => f.id === insert.sector.id);
-      const at = print
-        ? settleCard(
-            insert.sector,
-            print,
-            footprints.filter((f) => f.id !== insert.sector.id),
-            graph.nodes.filter((n) => n.parentId === parent && n.kind === "area" && !!n.size),
-          )
-        : { x: insert.sector.x, y: insert.sector.y };
-      const sector: CanvasNode = { ...insert.sector, x: at.x, y: at.y };
+      const sector = settleDropped(insert.sector);
       run(async () => {
         await save({
           ...graph,
@@ -655,17 +653,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       });
       return;
     }
-    if (!node || (node.kind !== "node" && node.kind !== "sector")) {
-      setError("Nejdřív vyberte kartu.");
+    const target = dropCard(targetId) ?? dropCard(node?.id ?? null);
+    if (!target) {
+      setError("Pusťte položku na kartu.");
       return;
     }
-    // Uzavřená karta má obsah jen ke čtení; stejná pojistka jako u levé knihovny.
-    if (nodeWorkflowOf(desktop.state, node.id).done.confirmed) {
-      setError("Karta je uzavřená; postup do ní přidat nelze.");
-      return;
-    }
+    if (!openForDrop(target)) return;
     void desktop.mutate(
-      item.kind === "action" ? insertActionFromItem(node.id, item) : insertRulesFromItem(node.id, item),
+      item.kind === "action" ? insertActionFromItem(target.id, item) : insertRulesFromItem(target.id, item),
     );
   }
   /** Tažení rámečku oblasti: posune ji i všechny její aktuální členy o stejný vektor. */
@@ -860,11 +855,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           </button>
         </div>
       )}
-      {/* Lišta Editoru se čte zleva jako věta: na co se dívám (záložky módů), z čeho beru (tlačítka
-          šuplíku) a vpravo, co s tím dělám (skupiny nástrojů). */}
+      {/* Lišta Editoru se čte zleva jako věta: odkud beru (☰ menu), na co se dívám (záložky módů)
+          a vpravo, co s tím dělám (skupiny nástrojů). */}
       {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru">
+        <MenuButton open={dock.rail} onToggle={dock.toggleMenu} />
         <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
-        <PanelToggles open={dock.open} onToggle={dock.toggle} />
         <span className="v3-grow" />
         <div className="v3-tool-group" role="group" aria-label="Pohled">
           <button aria-pressed={editorDocumentOpen} onClick={() => setEditorDocumentOpen((open) => !open)}>Dokumentace</button>
@@ -1268,31 +1263,44 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           </aside>
         )}
       </div>}
-      {environment === "editor" && dock.open && (
-        <PanelDrawer
-          panel={dock.open}
-          onSelect={dock.toggle}
+      {environment === "editor" && dock.rail && (
+        <PanelDock
+          section={dock.section}
+          onSelect={dock.select}
           onClose={dock.close}
-          head={
+          head={dock.section === "settings" ? null : (
             <ProjectProfile
               name={projectProfile.snapshot?.project.name ?? activeProject?.name ?? ""}
               profile={profile}
               loaded={!!projectProfile.snapshot}
-              editing={drawer.editingProfile}
-              dismissed={drawer.profileDismissed}
-              saving={projectProfile.saving}
               error={projectProfile.error}
-              onEdit={drawer.setEditingProfile}
-              onDismiss={drawer.dismissProfile}
-              onSave={(draft) => { projectProfile.save(draft).then((saved) => { if (saved) drawer.setEditingProfile(false); }); }}
-              onReload={projectProfile.reload}
+              onSettings={() => dock.select("settings")}
             />
-          }
+          )}
         >
-          {dock.open === "library" ? (
+          {dock.section === "settings" ? (
+            <DockSettings
+              scope={drawer.scope}
+              filtering={!profileUnset(profile)}
+              onScope={drawer.setScope}
+              profileCard={projectProfile.snapshot ? (
+                <ProfileCard
+                  name={projectProfile.snapshot.project.name || activeProject?.name || ""}
+                  profile={profile}
+                  saving={projectProfile.saving}
+                  error={projectProfile.error}
+                  onSave={(draft) => { void projectProfile.save(draft); }}
+                  onReload={projectProfile.reload}
+                />
+              ) : (
+                <p className="dock-settings__hint">{projectProfile.error || "Načítám profil projektu…"}</p>
+              )}
+            />
+          ) : dock.section === "agents" || dock.section === "flows" ? (
+            agentNavbarPanel(dock.section)
+          ) : dock.section === "library" ? (
             <LibraryNavbar
               state={libraryNavbar.state}
-              layerName={layer ? layer.name : "Projekt"}
               nodes={graph.nodes}
               closed={closedNodeIds}
               profile={profile}
@@ -1301,20 +1309,15 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
               onScope={drawer.setScope}
               onToggleOutside={drawer.toggleOutside}
               onTab={libraryNavbar.tab}
-              onMode={libraryNavbar.mode}
               onSearch={libraryNavbar.search}
-              onCategory={libraryNavbar.category}
+              onItem={libraryNavbar.item}
               onPageFilter={libraryNavbar.pageFilter}
               onPageSearch={libraryNavbar.pageSearch}
               onToggleGroup={libraryNavbar.group}
               onOpenLayer={openNode}
-              onBack={layer ? () => enter(layer.parentId) : undefined}
-              onClose={dock.close}
             />
-          ) : (
-            agentNavbarPanel
-          )}
-        </PanelDrawer>
+          ) : null}
+        </PanelDock>
       )}
       </div>
       {pickerNode && (

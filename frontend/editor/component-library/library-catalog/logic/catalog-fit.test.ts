@@ -60,9 +60,14 @@ describe("catalog-fit – vydané katalogy", () => {
     expect(library.outside.map((item) => item.id)).toContain("ms-api-gateway");
   });
 
-  it("Agenti: pravidla tenanta a modulů jsou ve výběru, služba s vlastními daty a saga ne", () => {
-    expect(agents.fitting.map((item) => item.id)).toEqual(expect.arrayContaining(["rule-tenant-in-every-query", "rule-modules-keep-data"]));
-    expect(agents.outside.map((item) => item.id)).toEqual(expect.arrayContaining(["rule-service-owns-data", "wf-saga-across-services"]));
+  it("Agenti: saga přes služby je mimo profil modulárního monolitu", () => {
+    expect(agents.outside.map((item) => item.id)).toEqual(["wf-saga-across-services"]);
+  });
+
+  it("architektonická pravidla jsou invarianty prvků Knihovny, ke kterým patří", () => {
+    const invariants = (id: string) => library.fitting.find((item) => item.id === id)?.invariants.map((rule) => rule.text) ?? [];
+    expect(invariants("tenant-data-isolation").join(" ")).toContain("filtruje podle tenanta");
+    expect(invariants("be-module-boundary").length).toBe(2);
   });
 
   it("každé fits míří na známou hodnotu profilu a nikdy není prázdné", () => {

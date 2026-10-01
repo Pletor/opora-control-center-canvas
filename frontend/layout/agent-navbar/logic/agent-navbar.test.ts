@@ -3,11 +3,13 @@ import { AGENT_CATEGORIES } from "@/editor/component-library/agent-catalog/logic
 import { iconPath } from "@/ui-kit/icon/logic/icon-paths";
 import {
   AGENT_NAVBAR_KEY,
+  AGENT_NAVBAR_TABS,
   categoryIcon,
   emptyAgentNavbar,
   isCollapseShortcut,
   parseAgentNavbar,
   readState,
+  sectionCategories,
   setCategory,
   setQuery,
   setTab,
@@ -15,25 +17,35 @@ import {
   stepsLine,
 } from "./agent-navbar";
 
-describe("agent-navbar – stav panelu", () => {
-  it("začíná na kategorii Workflows a na záložce Katalog; viditelnost nenese", () => {
-    expect(emptyAgentNavbar()).toEqual({ category: "workflows", query: "", tab: "catalog" });
+describe("agent-navbar – sekce Agenti a Postupy", () => {
+  it("Postupy jsou workflows a pipelines, Agenti všechno ostatní a nic se neztratí", () => {
+    expect(sectionCategories("flows")).toEqual(["workflows", "pipelines"]);
+    const agents = sectionCategories("agents");
+    expect(agents).toEqual(expect.arrayContaining(["hooks", "skills", "agents"]));
+    expect(agents).not.toContain("workflows");
+    expect([...agents, ...sectionCategories("flows")].sort()).toEqual(AGENT_CATEGORIES.map((c) => c.id).sort());
   });
 
-  it("výběr kategorie mění jen kategorii, nic nerozbaluje", () => {
-    expect(setCategory(emptyAgentNavbar(), "skills")).toEqual({
-      category: "skills",
-      query: "",
+  it("záložky Agentů jsou Katalog | Vybraná karta | Hook", () => {
+    expect(AGENT_NAVBAR_TABS.map((tab) => tab.label)).toEqual(["Katalog", "Vybraná karta", "Hook"]);
+  });
+});
+
+describe("agent-navbar – stav sekcí", () => {
+  it("každá sekce začíná na své první kategorii a na záložce Katalog; viditelnost nenese", () => {
+    expect(emptyAgentNavbar()).toEqual({
+      agents: { category: sectionCategories("agents")[0], query: "" },
+      flows: { category: "workflows", query: "" },
       tab: "catalog",
     });
   });
 
-  it("kategorie, hledání a záložka se navzájem nemažou", () => {
-    const state = setQuery(setCategory(emptyAgentNavbar(), "hooks"), "commit");
-    const onAgents = setTab(state, "agents");
-    expect(onAgents).toEqual({ ...state, tab: "agents" });
-    expect(setTab(onAgents, "catalog").query).toBe("commit");
-    expect(setCategory(onAgents, "rules")).toMatchObject({ tab: "agents", query: "commit", category: "rules" });
+  it("kategorie a hledání jedné sekce nemažou druhou", () => {
+    const state = setQuery(setCategory(emptyAgentNavbar(), "flows", "pipelines"), "flows", "commit");
+    const agents = setCategory(state, "agents", "skills");
+    expect(agents.flows).toEqual({ category: "pipelines", query: "commit" });
+    expect(agents.agents).toEqual({ category: "skills", query: "" });
+    expect(setTab(agents, "hook")).toMatchObject({ tab: "hook", flows: { query: "commit" } });
   });
 });
 
@@ -51,17 +63,26 @@ describe("agent-navbar – jeden klíč pro celou aplikaci", () => {
     );
   });
 
-  it("starší preference s `collapsed` se ignoruje: po načtení je panel vždy zavřený", () => {
-    expect(parseAgentNavbar(JSON.stringify({ collapsed: false }))).toEqual(emptyAgentNavbar());
-    expect(parseAgentNavbar(JSON.stringify({ collapsed: true, tab: "hook" }))).not.toHaveProperty("collapsed");
+  it("kategorie z cizí sekce se nepřijme", () => {
+    const stored = JSON.stringify({ agents: { category: "workflows" }, flows: { category: "skills" } });
+    expect(parseAgentNavbar(stored)).toEqual(emptyAgentNavbar());
+  });
+
+  it("starší tvar s jednou kategorií přejde do sekce, do které kategorie patří", () => {
+    expect(parseAgentNavbar(JSON.stringify({ category: "pipelines", query: "x", tab: "agents", collapsed: true }))).toEqual({
+      ...emptyAgentNavbar(),
+      flows: { category: "pipelines", query: "" },
+      tab: "agents",
+    });
+    expect(parseAgentNavbar(JSON.stringify({ category: "skills" })).agents.category).toBe("skills");
   });
 
   it("uložený stav se vrátí celý a dlouhý dotaz se usekne", () => {
-    const stored = JSON.stringify({ category: "agents", query: "x".repeat(300), tab: "agents" });
+    const stored = JSON.stringify({ agents: { category: "hooks", query: "x".repeat(300) }, flows: { category: "pipelines", query: "a" }, tab: "hook" });
     expect(parseAgentNavbar(stored)).toEqual({
-      category: "agents",
-      query: "x".repeat(120),
-      tab: "agents",
+      agents: { category: "hooks", query: "x".repeat(120) },
+      flows: { category: "pipelines", query: "a" },
+      tab: "hook",
     });
   });
 
@@ -74,7 +95,7 @@ describe("agent-navbar – zkratka Ctrl+Shift+. (posluchač drží panel-dock)",
   const key = (over: Partial<Parameters<typeof isCollapseShortcut>[0]>) =>
     ({ key: ".", ctrlKey: true, metaKey: false, shiftKey: true, altKey: false, ...over });
 
-  it("Ctrl+Shift+. i ⌘⇧. panel přepnou, a to i když rozložení pošle „>“", () => {
+  it("Ctrl+Shift+. i ⌘⇧. otevřou Agenty, a to i když rozložení pošle „>“", () => {
     expect(isCollapseShortcut(key({}))).toBe(true);
     expect(isCollapseShortcut(key({ key: ">" }))).toBe(true);
     expect(isCollapseShortcut(key({ ctrlKey: false, metaKey: true }))).toBe(true);

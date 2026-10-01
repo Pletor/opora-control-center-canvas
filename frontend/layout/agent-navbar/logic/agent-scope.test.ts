@@ -8,12 +8,11 @@ const fitting = { scope: "fitting" as const, showOutside: false, query: "" };
 const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
 describe("agent-scope – Agenti pro profil projektu", () => {
-  it("pravidla tenanta a modulů jsou vidět s důvodem, služba s vlastními daty čeká mimo profil", () => {
+  it("Hranice platí všem projektům: nic mimo profil, žádná poznámka", () => {
     const view = agentView("rules", modularMulti, fitting);
-    expect(ids(view.shown)).toEqual(expect.arrayContaining(["rule-tenant-in-every-query", "rule-modules-keep-data"]));
-    expect(ids(view.hidden)).toEqual(["rule-service-owns-data"]);
-    expect(view.notes["rule-tenant-in-every-query"]).toBe("kvůli profilu: multitenant");
-    expect(view.counts.rules).toBe(agentItemsOf("rules").length - 1);
+    expect(ids(view.hidden)).toEqual([]);
+    expect(view.notes).toEqual({});
+    expect(view.counts.rules).toBe(agentItemsOf("rules").length);
   });
 
   it("saga přes služby je u modulárního projektu mimo profil, Vše ji ukáže ztlumeně", () => {

@@ -4,6 +4,6 @@ Záložky módů plátna uvnitř Editoru (struktura, text, kreslení, mapa; běh
 
 Aktivní mód má modifikátor `mode-rail__button--active`, `aria-pressed="true"`, barvu `--accent` a spodní linku 2px. Když je otevřená Dokumentace (`inactive`), nesvítí žádná záložka. `aria-label` („Mód: …“) i `title` („jméno: nápověda“) nesou jméno módu, takže pod 1100px šířky okna, kdy se popisky skryjí jen vizuálně, zůstane jméno čitelné pro odečítač i v bublině.
 
-Props: `{ mode, onMode, editorOnly?, inactive? }`. Tlačítko Knihovna, props `libraryExpanded` a `onLibrary` i konstanta `LIBRARY_ICON` se zrušily — Knihovnu otevírá `PanelToggles` v `layout/panel-dock/`.
+Props: `{ mode, onMode, editorOnly?, inactive? }`. Tlačítko Knihovna, props `libraryExpanded` a `onLibrary` i konstanta `LIBRARY_ICON` se zrušily — Knihovnu otevírá menu ☰ v `layout/panel-dock/` (`MenuButton`).
 
 Styl drží blok `.mode-rail` v `layout/shell/styles/workspace-modes.css`. Lišta nástrojů kreslí stisknutá tlačítka jako pilulku (`.v3-toolbar button[aria-pressed]` v design-tokens); aktivní záložka ji přebíjí vlastním silnějším selektorem, aby zůstala jen barva a linka.

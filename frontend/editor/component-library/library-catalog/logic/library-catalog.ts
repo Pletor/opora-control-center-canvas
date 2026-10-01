@@ -1,9 +1,8 @@
-// Katalog knihovny levého navbaru: data a čisté funkce nad nimi. Položka není obrázek v panelu,
-// je to know-how: co musí a nesmí platit (`rules`), na jaké dílky se to rozpadá (`decomposition`)
-// a jak vypadá kostra kódu (`template`). Panel ani plátno si nic nevymýšlí — dlaždice mimo katalog
-// neexistuje. Kategorie odpovídají blokům 2–10 sektoru „Drag&drop-knihovna-levý navbar“ a navíc Multitenanci
-// (docs/suplik-a-profil.md).
-// Bez Reactu a bez API; testuje se vedle v library-catalog.test.ts.
+// Katalog Knihovny: data a čisté funkce nad nimi. Prvek je know-how pro silný model: k čemu je
+// (`purpose`), s čím v projektu souvisí (`relates`), kdy je hotovo (`done`) a které tvrdé hranice nesmí
+// překročit (`invariants`, 0–2). Obecné rady sem nepatří. Prvek nemá druh karta/blok — co z něj na
+// plátně vznikne, určí místo puštění (catalog-insert.ts). Kontrakt: docs/menu-a-katalog.md §B.
+// Bez Reactu a bez API; testuje se vedle v library-catalog.test.ts a catalog-lint.test.ts.
 import { frontendComponentItems } from "./catalog-frontend-components";
 import { frontendStyleItems } from "./catalog-frontend-style";
 import { frontendLogicItems } from "./catalog-frontend-logic";
@@ -28,24 +27,27 @@ export type CatalogCategory =
 /** Kategorie tak, jak ji vidí uživatel: popisek v panelu a věta, co do ní patří. */
 export type CatalogCategoryInfo = { id: CatalogCategory; label: string; hint: string };
 
-/** Pravidla položky: co musí platit a čeho se držet dál od sebe. */
-export type CatalogRules = { must: string[]; mustNot: string[] };
+/** Tvrdá hranice prvku: při porušení se rozbije bezpečnost, data nebo kontrakt. Na kartě je to pravidlo uzlu. */
+export type CatalogInvariant = { text: string; kind: "must" | "must_not" };
 
-/** Jeden krok rozpadu: dílek, směr dat nebo místo, kde bydlí stav. */
+/** Jeden krok rozpadu: dílek, směr dat nebo místo, kde bydlí stav. Jen když nese informaci navíc. */
 export type CatalogStep = { title: string; text: string };
 
 export type CatalogItem = {
   id: string;
   category: CatalogCategory;
   label: string;
-  hint: string;
-  /** Jeden znak nebo krátká inline SVG cesta; panel ho kreslí jako značku dlaždice. */
-  icon: string;
-  /** `card` vytvoří při puštění kartu s bloky rozpadu, `block` jen jeden blok. Čte fáze 3. */
-  kind: "card" | "block";
-  rules: CatalogRules;
-  decomposition: CatalogStep[];
-  template: string;
+  /** K čemu prvek je, jedna věta. */
+  purpose: string;
+  /** S čím souvisí: `@id` jiného prvku Knihovny, nebo krátká věta o vrstvě či datech. */
+  relates: string[];
+  /** 1–3 ověřitelná kritéria hotovo. */
+  done: string[];
+  /** 0–2 skutečné tvrdé hranice. */
+  invariants: CatalogInvariant[];
+  steps?: CatalogStep[];
+  /** Kostra kódu v konvencích repozitáře; první řádek bývá odkaz na místo kódu. */
+  template?: string;
   /** Pro které projekty prvek dává smysl (docs/suplik-a-profil.md); bez `fits` patří všem. */
   fits?: CatalogFit;
 };
@@ -104,25 +106,42 @@ export function foldDiacritics(value: string): string {
   return value.normalize("NFD").replace(COMBINING_MARKS, "").toLowerCase();
 }
 
-/** Hledání nad popiskem a nápovědou; prázdný dotaz nechává katalog, jak je. */
+/** Hledání nad popiskem a účelem; prázdný dotaz nechává katalog, jak je. */
 export function searchItems(items: CatalogItem[], query: string): CatalogItem[] {
   const needle = foldDiacritics(query.trim());
   if (!needle) return items;
-  return items.filter((item) => foldDiacritics(item.label + " " + item.hint).includes(needle));
+  return items.filter((item) => foldDiacritics(item.label + " " + item.purpose).includes(needle));
 }
 
-const plural = (count: number, forms: [string, string, string]): string =>
-  `${count} ${count === 1 ? forms[0] : count >= 2 && count <= 4 ? forms[1] : forms[2]}`;
+/** Odkaz `@id` v `relates`; cokoli jiného je věta, která se čte, jak je. */
+const REF = /^@([\w-]+)$/;
 
-/** Řádek „rozpad“ pod dlaždicí: kolik dílků a kolik pravidel položka nese. */
-export function decompositionSummary(item: CatalogItem): string {
-  const rules = item.rules.must.length + item.rules.mustNot.length;
-  return `${plural(item.decomposition.length, ["dílek", "dílky", "dílků"])} · ${plural(rules, ["pravidlo", "pravidla", "pravidel"])}`;
+/** Id, na které řádek `relates` odkazuje, nebo `null`, když je to věta. */
+export function relatesRef(line: string): string | null {
+  return REF.exec(line.trim())?.[1] ?? null;
+}
+
+/** Co o odkazovaném prvku řádek „Souvisí s“ řekne: název a účel. */
+export type RelatedInfo = { label: string; purpose: string };
+
+/**
+ * Řádky „Souvisí s“ pro kartu a náhled: `@id` se přeloží na „Název: účel“, aby model věděl, kam se
+ * podívat, i bez katalogu po ruce; věta zůstane, jak je. Neznámé id (lint ho nepustí) zůstane jako text.
+ */
+export function relatesLines(
+  relates: string[],
+  lookup: (id: string) => RelatedInfo | null = (id) => itemById(id),
+): string[] {
+  return relates.map((line) => {
+    const ref = relatesRef(line);
+    const found = ref ? lookup(ref) : null;
+    return found ? `${found.label}: ${found.purpose}` : line.trim();
+  });
 }
 
 export type CatalogViolation = {
   itemId: string;
-  rule: "px" | "nesting" | "important" | "id" | "bem";
+  rule: "px" | "nesting" | "important" | "id" | "bem" | "relates" | "done" | "invariants" | "purpose";
   detail: string;
 };
 
@@ -143,7 +162,7 @@ export function isStyleTemplate(template: string): boolean {
 
 function pxViolations(item: CatalogItem): CatalogViolation[] {
   const found: CatalogViolation[] = [];
-  for (const raw of item.template.split("\n")) {
+  for (const raw of (item.template ?? "").split("\n")) {
     const line = raw.trim();
     const numbers = line.match(/(\d+(?:\.\d+)?)px/g);
     if (!numbers) continue;
@@ -175,10 +194,10 @@ function selectorGroupDepth(group: string): number {
  * čtvrtá úroveň specifičnosti, kterou pak nejde v BEM ničím přebít.
  */
 function nestingViolations(item: CatalogItem): CatalogViolation[] {
-  if (!isStyleTemplate(item.template)) return [];
+  if (!isStyleTemplate(item.template ?? "")) return [];
   let depth = 0;
   let deepest = 0;
-  for (const raw of item.template.split("\n")) {
+  for (const raw of (item.template ?? "").split("\n")) {
     const line = raw.trim();
     // `@media`/`@container`/… otevírají blok, ale nejsou to selektory — jejich podmínka se
     // nepočítá jako dílek selektoru, jen jako obal, který zvyšuje hloubku přes { } jako dřív.
@@ -197,9 +216,9 @@ function nestingViolations(item: CatalogItem): CatalogViolation[] {
 
 /** `!important` přebíjí kaskádu místo toho, aby ji respektoval — v katalogu na to nesmí dojít. */
 function importantViolations(item: CatalogItem): CatalogViolation[] {
-  if (!isStyleTemplate(item.template)) return [];
+  if (!isStyleTemplate(item.template ?? "")) return [];
   const found: CatalogViolation[] = [];
-  for (const raw of item.template.split("\n")) {
+  for (const raw of (item.template ?? "").split("\n")) {
     const line = raw.trim();
     if (line.includes("!important")) {
       found.push({ itemId: item.id, rule: "important", detail: `!important: ${line}` });
@@ -210,9 +229,9 @@ function importantViolations(item: CatalogItem): CatalogViolation[] {
 
 /** `#id` v selektoru váže styl na jeden konkrétní uzel stránky; BEM styluje přes třídu. */
 function idSelectorViolations(item: CatalogItem): CatalogViolation[] {
-  if (!isStyleTemplate(item.template)) return [];
+  if (!isStyleTemplate(item.template ?? "")) return [];
   const found: CatalogViolation[] = [];
-  for (const raw of item.template.split("\n")) {
+  for (const raw of (item.template ?? "").split("\n")) {
     const line = raw.trim();
     if (!/\{\s*$/.test(line)) continue;
     const selectorText = line.slice(0, line.lastIndexOf("{"));
@@ -225,10 +244,30 @@ function idSelectorViolations(item: CatalogItem): CatalogViolation[] {
 
 /** `blok__prvek__prvek` řetězí dva prvky do sebe; BEM zná jen jednu úroveň `blok__prvek`. */
 function bemViolations(item: CatalogItem): CatalogViolation[] {
-  if (!isStyleTemplate(item.template)) return [];
-  const matches = item.template.match(DOUBLE_BEM_ELEMENT);
+  if (!isStyleTemplate(item.template ?? "")) return [];
+  const matches = (item.template ?? "").match(DOUBLE_BEM_ELEMENT);
   if (!matches) return [];
   return matches.map((match) => ({ itemId: item.id, rule: "bem" as const, detail: `víc než jedno __: ${match}` }));
+}
+
+/** Kontrakt tvaru prvku (§B2): účel, 1–3 kritéria hotovo, 0–2 invarianty a `@id` jen na existující prvek. */
+function shapeViolations(item: CatalogItem, known: ReadonlySet<string>): CatalogViolation[] {
+  const found: CatalogViolation[] = [];
+  if (!item.purpose.trim()) found.push({ itemId: item.id, rule: "purpose", detail: "Chybí účel (purpose)." });
+  if (item.done.length < 1 || item.done.length > 3) {
+    found.push({ itemId: item.id, rule: "done", detail: `Kritérií hotovo je ${item.done.length}, smí být 1–3.` });
+  }
+  if (item.invariants.length > 2) {
+    found.push({ itemId: item.id, rule: "invariants", detail: `Invariant je ${item.invariants.length}, smí být 0–2.` });
+  }
+  for (const line of item.relates) {
+    const ref = relatesRef(line);
+    if (line.trim().startsWith("@") && (!ref || !known.has(ref))) {
+      found.push({ itemId: item.id, rule: "relates", detail: `Neznámý odkaz: ${line}.` });
+    }
+    if (ref === item.id) found.push({ itemId: item.id, rule: "relates", detail: "Prvek odkazuje sám na sebe." });
+  }
+  return found;
 }
 
 /**
@@ -236,9 +275,13 @@ function bemViolations(item: CatalogItem): CatalogViolation[] {
  * px jen na 1px linku, rám (mimo radius), obrys a stín, ikona do 24 — jinak rem/em/%. Selektory
  * se nevnoří přes tři úrovně, ať už skládáním pravidel do sebe nebo mezerou na jednom řádku.
  * Žádné `!important`, žádné `#id` selektory a žádná třída s víc než jedním `__` (`blok__prvek__prvek`).
+ * K tomu tvar prvku: účel, 1–3 kritéria hotovo, nejvýš 2 invarianty a `@id` v `relates` jen na prvek
+ * téhož katalogu.
  */
 export function catalogLint(items: CatalogItem[] = CATALOG_ITEMS): CatalogViolation[] {
+  const known = new Set(items.map((item) => item.id));
   return items.flatMap((item) => [
+    ...shapeViolations(item, known),
     ...pxViolations(item),
     ...nestingViolations(item),
     ...importantViolations(item),

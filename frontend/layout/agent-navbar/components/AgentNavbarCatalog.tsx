@@ -1,6 +1,7 @@
-// Dílek Katalog: rozbalená knihovna postupů. Nahoře svislý seznam šesti kategorií (řádek, ne
-// čip — v úzkém panelu se čipy zalamovaly a nešlo je přečíst), pod ním hledání a nadpis „Kategorie ·
-// N“, zbytek panelu je seznam řádků. Řádek je zdroj tažení (`startAgentDrag`); položka druhu `info`
+// Dílek Katalog: rozbalená knihovna postupů. Nahoře svislý seznam kategorií (řádek, ne čip — v úzkém
+// panelu se čipy zalamovaly a nešlo je přečíst); prop `categories` ho omezí, aby si sekce Agenti a
+// Postupy katalog rozdělily. Pod ním hledání a nadpis „Kategorie · N“, zbytek panelu je seznam řádků.
+// Řádek ukáže účel a počet kroků (jen postup a pipeline kroky mají). Řádek je zdroj tažení (`startAgentDrag`); položka druhu `info`
 // (hook, skill) se táhnout nedá a je ztlumená. Postup mimo profil projektu je ztlumený taky a pod
 // popisem nese poznámku („mimo profil“ nebo „kvůli profilu: …“). Dílek nic nefiltruje a nic
 // neukládá — kategorie, položky, počty, poznámky i filtr dostává hotové v props a změny hlásí nahoru.
@@ -30,6 +31,7 @@ export default function AgentNavbarCatalog({
   filter = null,
   footer = null,
   query,
+  categories,
   onCategory,
   onSearch,
 }: {
@@ -46,14 +48,18 @@ export default function AgentNavbarCatalog({
   /** Řádek „Mimo profil“ na konci seznamu; skládá ho rodič. */
   footer?: ReactNode;
   query: string;
+  /** Které kategorie ukázat (id z `AGENT_CATEGORIES`); bez něj všechny. Sekce Agenti a Postupy si tak dělí katalog. */
+  categories?: readonly string[];
   onCategory: (category: AgentCategory) => void;
   onSearch: (query: string) => void;
 }) {
-  const activeCategory = AGENT_CATEGORIES.find((item) => item.id === category) ?? AGENT_CATEGORIES[0];
+  const shown = categories ? AGENT_CATEGORIES.filter((item) => categories.includes(item.id)) : AGENT_CATEGORIES;
+  const searchLabel = shown.some((item) => item.id === "workflows") ? "Najít postup" : "Najít agenta, skill nebo hook";
+  const activeCategory = shown.find((item) => item.id === category) ?? shown[0] ?? AGENT_CATEGORIES[0];
   return (
     <div className="agent-navbar__catalog">
       <nav className="agent-navbar__categories" aria-label="Kategorie postupů">
-        {AGENT_CATEGORIES.map((item) => (
+        {shown.map((item) => (
           <button
             key={item.id}
             type="button"
@@ -81,8 +87,8 @@ export default function AgentNavbarCatalog({
         <input
           type="search"
           className="agent-navbar__search-input"
-          placeholder="Najít postup"
-          aria-label="Najít postup"
+          placeholder={searchLabel}
+          aria-label={searchLabel}
           value={query}
           onChange={(event) => onSearch(event.target.value)}
         />
@@ -107,10 +113,9 @@ export default function AgentNavbarCatalog({
                   }
                   draggable={draggable}
                   title={
-                    item.hint +
-                    " — " +
-                    stepsLine(item.decomposition.length, item.endCriteria) +
-                    (draggable ? " — chyťte a táhněte na plátno" : "")
+                    item.purpose +
+                    (item.steps?.length ? " — " + stepsLine(item.steps.length, (item.done ?? []).join("; ")) : "") +
+                    (draggable ? " — táhněte na kartu nebo na plátno" : "")
                   }
                   data-testid={"agent-tile-" + item.id}
                   onDragStart={(event: DragEvent<HTMLLIElement>) => {
@@ -123,10 +128,10 @@ export default function AgentNavbarCatalog({
                   </span>
                   <span className="agent-navbar__item-text">
                     <span className="agent-navbar__item-name">{item.label}</span>
-                    <span className="agent-navbar__item-hint">{item.hint}</span>
+                    <span className="agent-navbar__item-hint">{item.purpose}</span>
                     {notes[item.id] && <span className="agent-navbar__item-fit">{notes[item.id]}</span>}
                   </span>
-                  <span className="agent-navbar__item-steps">{stepsBadge(item.decomposition.length)}</span>
+                  {item.steps?.length ? <span className="agent-navbar__item-steps">{stepsBadge(item.steps.length)}</span> : null}
                   {draggable && <Icon className="agent-navbar__item-grip" name="grip-vertical" size={16} />}
                 </li>
               );

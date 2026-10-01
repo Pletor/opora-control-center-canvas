@@ -1,59 +1,29 @@
-// Rodič Profil projektu v šuplíku: skládá hlavičku projektu a pod ní kartu profilu. Karta je
-// rozbalená sama, dokud profil není nastavený a uživatel ji neodložil („Teď ne“), nebo když ji
-// otevře odkaz „Změnit“. Nic nenačítá ani neukládá — profil, stav ukládání i chybu dostane v props
-// a každou volbu hlásí nahoru; ukládá App.
+// Rodič Profil projektu v menu: hlavička projektu pro Knihovnu, Agenty a Postupy. Karta profilu se
+// tu nerozbaluje — odkaz „Nastavit“ / „Změnit“ hlásí `onSettings` a rodič přepne do sekce Nastavení,
+// kde karta stojí vždy rozbalená. Nic nenačítá ani neukládá; chybu ze serveru dostane hotovou.
 import ProjectHead from "@/layout/project-profile/components/ProjectHead";
-import ProfileCard from "@/layout/project-profile/components/ProfileCard";
-import { profileUnset, type ProjectProfile } from "@/shared/project-capabilities/logic/project-capabilities";
+import { profileUnset, type ProjectProfile as Profile } from "@/shared/project-capabilities/logic/project-capabilities";
 import { profileWords } from "@/shared/project-capabilities/logic/project-profile";
-import type { ProfileDraft } from "@/layout/project-profile/logic/profile-card";
 import "@/layout/project-profile/styles/project-profile.css";
 
 export default function ProjectProfile({
   name,
   profile,
   loaded,
-  editing,
-  dismissed,
-  saving,
   error,
-  onEdit,
-  onDismiss,
-  onSave,
-  onReload,
+  onSettings,
 }: {
   name: string;
-  profile: ProjectProfile;
-  /** Nastavení už dorazilo; do té doby se karta neukazuje, aby neblikla u nastaveného projektu. */
+  profile: Profile;
+  /** Nastavení už dorazilo; do té doby hlavička neříká „nenastaven“, aby to neblikalo u nastaveného projektu. */
   loaded: boolean;
-  editing: boolean;
-  dismissed: boolean;
-  saving: boolean;
   error: string;
-  onEdit: (editing: boolean) => void;
-  onDismiss: () => void;
-  onSave: (draft: ProfileDraft) => void;
-  onReload: () => void;
+  onSettings: () => void;
 }) {
-  const unset = profileUnset(profile);
-  const open = editing || (loaded && unset && !dismissed);
   return (
     <>
-      <ProjectHead name={name} words={profileWords(profile)} unset={unset} open={open} onEdit={() => (open ? onDismiss() : onEdit(true))} />
-      {open ? (
-        <ProfileCard
-          name={name}
-          profile={profile}
-          saving={saving}
-          error={error}
-          dismissLabel={unset ? "Teď ne, ukázat vše" : "Zrušit"}
-          onSave={onSave}
-          onDismiss={onDismiss}
-          onReload={onReload}
-        />
-      ) : (
-        error && <p className="project-profile__error" role="alert">{error}</p>
-      )}
+      <ProjectHead name={name} words={loaded ? profileWords(profile) : "Načítám profil…"} unset={loaded && profileUnset(profile)} onSettings={onSettings} />
+      {error && <p className="project-profile__error" role="alert">{error}</p>}
     </>
   );
 }

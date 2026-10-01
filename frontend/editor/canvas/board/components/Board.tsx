@@ -43,6 +43,16 @@ const CARD_GRAB = { x: 136, y: 84 };
 const dropTypeOf = (types: readonly string[]): string | null =>
   types.includes(CATALOG_DRAG_TYPE) ? CATALOG_DRAG_TYPE : types.includes(AGENT_DRAG_TYPE) ? AGENT_DRAG_TYPE : null;
 
+/**
+ * Karta pod ukazatelem při puštění: id uzlu React Flow, na který se pustilo. Boční blok (Akce /
+ * Pravidla / Podklady) patří své kartě, proto se přeloží na její id. Prázdné plátno vrací `null`.
+ */
+function dropTargetOf(target: EventTarget | null): string | null {
+  const id = target instanceof Element ? target.closest(".react-flow__node")?.getAttribute("data-id") ?? null : null;
+  if (!id) return null;
+  return isBlockId(id) ? parseBlockId(id)?.nodeId ?? null : id;
+}
+
 /** Z celé instance React Flow potřebuje drop jedinou schopnost: přepočet obrazovky na souřadnice vrstvy. */
 type ScreenToFlow = { screenToFlowPosition: (position: { x: number; y: number }) => { x: number; y: number } };
 
@@ -134,15 +144,15 @@ export default function Board({
   /** Bloky obsahu v kartě; ukládá rodič. */
   onCardBlock: (nodeId: string, event: CardBlockEvent) => void;
   /**
-   * Položka knihovny puštěná na plátno: id z tažení a místo puštění už přepočtené do souřadnic vrstvy.
-   * Co z položky vznikne (karta s bloky, nebo blok do vybrané karty), rozhoduje rodič; plátno panel nezná.
+   * Prvek Knihovny puštěný na plátno: id z tažení, místo puštění v souřadnicích vrstvy a id uzlu pod
+   * ukazatelem (`null` = prázdné plátno). Co vznikne (blok v kartě, nebo nová karta), rozhoduje rodič.
    */
-  onCatalogDrop: (itemId: string, x: number, y: number) => void;
+  onCatalogDrop: (itemId: string, x: number, y: number, targetId: string | null) => void;
   /**
-   * Položka pravého katalogu (postup) puštěná na plátno: stejné místo v souřadnicích vrstvy, jiný
-   * cíl. Co z ní vznikne — pravidlo, akce, nebo celý sektor s fázemi — rozhoduje rodič, ne plátno.
+   * Položka Agentů a Postupů puštěná na plátno: stejné místo i cíl. Co z ní vznikne — pravidlo, akce,
+   * nebo celý sektor s fázemi — rozhoduje rodič, ne plátno.
    */
-  onAgentDrop: (itemId: string, x: number, y: number) => void;
+  onAgentDrop: (itemId: string, x: number, y: number, targetId: string | null) => void;
 }) {
   const make = (): Node[] =>
     (graph.nodes
@@ -289,7 +299,7 @@ export default function Board({
           y: (event.clientY - rect.top - viewport.y) / viewport.zoom,
         };
         const drop = dragType === AGENT_DRAG_TYPE ? onAgentDrop : onCatalogDrop;
-        drop(itemId, Math.round(at.x) - CARD_GRAB.x, Math.round(at.y) - CARD_GRAB.y);
+        drop(itemId, Math.round(at.x) - CARD_GRAB.x, Math.round(at.y) - CARD_GRAB.y, dropTargetOf(event.target));
       }}
     >
       <ReactFlow

@@ -1,16 +1,22 @@
-// Stav panelu Agenti a postupy bez Reactu: která kategorie, co se hledá a která záložka. Jestli je
-// panel vidět, tu není — to drží šuplík (`layout/panel-dock/`) jen v paměti sezení. Panel je jeden pro celou aplikaci — neví nic o projektu, pracovním prostoru ani
-// o druhu zdroje, a proto se ukládá pod jediným klíčem `opora:agent-navbar:v1`.
+// Stav sekcí Agenti a Postupy bez Reactu (docs/menu-a-katalog.md, část A): která kategorie a co se
+// hledá v každé sekci zvlášť a která záložka svítí v Agentech. Jestli je sekce vidět, tu není — to
+// drží menu (`layout/panel-dock/`). Stav je jeden pro celou aplikaci — neví nic o projektu,
+// pracovním prostoru ani o druhu zdroje, a proto se ukládá pod jediným klíčem `opora:agent-navbar:v1`.
 import { AGENT_CATEGORIES, type AgentCategory } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
 import type { IconName } from "@/ui-kit/icon/logic/icon-paths";
 
-/** Záložky v hlavě rozbaleného panelu: knihovna postupů × co dostane agent vybrané karty. */
+/** Dvě sekce menu nad jedním katalogem: Agenti (kdo a s jakými hranicemi) a Postupy (v jakém pořadí). */
+export type AgentSection = "agents" | "flows";
+
+/** Záložky sekce Agenti: katalog × co dostane agent vybrané karty × hook. Postupy záložky nemají. */
 export type AgentNavbarTab = "catalog" | "agents" | "hook";
 
+/** Co si každá sekce pamatuje sama: přepnutím na druhou sekci se kategorie ani hledání neztratí. */
+export type AgentSectionState = { category: AgentCategory; query: string };
+
 export type AgentNavbarState = {
-  /** Vybraná kategorie katalogu; nikdy `null`, protože lišta i katalog vždy něco ukazují. */
-  category: AgentCategory;
-  query: string;
+  agents: AgentSectionState;
+  flows: AgentSectionState;
   tab: AgentNavbarTab;
 };
 
@@ -19,42 +25,65 @@ export const AGENT_NAVBAR_KEY = "opora:agent-navbar:v1";
 
 export const AGENT_NAVBAR_TABS: { id: AgentNavbarTab; label: string }[] = [
   { id: "catalog", label: "Katalog" },
-  { id: "agents", label: "Agenti" },
+  { id: "agents", label: "Vybraná karta" },
   { id: "hook", label: "Hook" },
 ];
 
-/** Název police. Je i v `aria-label`, proto stojí vedle stavu, ne v komponentě — píše se jednou. */
-export const AGENT_NAVBAR_TITLE = "Agenti a postupy";
+/** Postupy jsou workflows a pipelines; všechno ostatní v katalogu (agenti, skilly, hooky, hranice) patří Agentům. */
+const FLOW_CATEGORIES: readonly string[] = ["workflows", "pipelines"];
+
+/** Kategorie sekce v pořadí katalogu. Agenti berou zbytek, aby nová kategorie katalogu nikdy nezmizela. */
+export function sectionCategories(section: AgentSection): AgentCategory[] {
+  return AGENT_CATEGORIES.map((info) => info.id).filter((id) => FLOW_CATEGORIES.includes(id) === (section === "flows"));
+}
+
+/** Název sekce pro `aria-label`; píše se jednou, vedle stavu. */
+export const AGENT_SECTION_TITLE: Record<AgentSection, string> = { agents: "Agenti", flows: "Postupy" };
+
+const firstOf = (section: AgentSection): AgentCategory => sectionCategories(section)[0];
 
 export const emptyAgentNavbar = (): AgentNavbarState => ({
-  category: "workflows",
-  query: "",
+  agents: { category: firstOf("agents"), query: "" },
+  flows: { category: firstOf("flows"), query: "" },
   tab: "catalog",
 });
 
-/** Výběr kategorie mění jen kategorii; hledání i záložka čekají, jak je uživatel nechal. */
-export const setCategory = (state: AgentNavbarState, category: AgentCategory): AgentNavbarState => ({
+/** Výběr kategorie mění jen kategorii té sekce; hledání i záložka čekají, jak je uživatel nechal. */
+export const setCategory = (state: AgentNavbarState, section: AgentSection, category: AgentCategory): AgentNavbarState => ({
   ...state,
-  category,
+  [section]: { ...state[section], category },
 });
 
-export const setQuery = (state: AgentNavbarState, query: string): AgentNavbarState => ({ ...state, query });
+export const setQuery = (state: AgentNavbarState, section: AgentSection, query: string): AgentNavbarState => ({
+  ...state,
+  [section]: { ...state[section], query },
+});
+
 export const setTab = (state: AgentNavbarState, tab: AgentNavbarTab): AgentNavbarState => ({ ...state, tab });
 
-const KNOWN = new Set<string>(AGENT_CATEGORIES.map((category) => category.id));
+function parseSection(value: unknown, section: AgentSection, legacyCategory: unknown): AgentSectionState {
+  const own = value && typeof value === "object" ? (value as Partial<AgentSectionState>) : {};
+  const allowed = sectionCategories(section) as string[];
+  const category = [own.category, legacyCategory].find((item) => typeof item === "string" && allowed.includes(item));
+  return {
+    category: (category as AgentCategory | undefined) ?? firstOf(section),
+    query: typeof own.query === "string" ? own.query.slice(0, 120) : "",
+  };
+}
 
-/** Uložená preference je cizí text: co nesedí, se tiše nahradí výchozím stavem. */
+/**
+ * Uložená preference je cizí text: co nesedí, se tiše nahradí výchozím stavem. Starší tvar nesl
+ * jednu `category` pro celý panel — přejde do sekce, do které patří; starší `collapsed` se zahodí.
+ */
 export function parseAgentNavbar(raw: string | null): AgentNavbarState {
   const empty = emptyAgentNavbar();
   if (!raw) return empty;
   try {
-    const value = JSON.parse(raw) as Partial<AgentNavbarState> | null;
+    const value = JSON.parse(raw) as Record<string, unknown> | null;
     if (!value || typeof value !== "object") return empty;
     return {
-      // Starší preference nesla `collapsed`. Panel se dnes otevírá jen v šuplíku a po načtení
-      // stránky je vždy zavřený, proto se uložená hodnota při čtení zahodí.
-      category: typeof value.category === "string" && KNOWN.has(value.category) ? (value.category as AgentCategory) : empty.category,
-      query: typeof value.query === "string" ? value.query.slice(0, 120) : "",
+      agents: parseSection(value.agents, "agents", value.category),
+      flows: parseSection(value.flows, "flows", value.category),
       tab: value.tab === "agents" || value.tab === "hook" ? value.tab : "catalog",
     };
   } catch {
@@ -85,7 +114,7 @@ export function writeState(state: AgentNavbarState): boolean {
 export type ShortcutKey = Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">;
 
 /**
- * Ctrl+Shift+. (na Macu ⌘⇧.) otevře a zavře panel; posluchač drží `layout/panel-dock/`. Podle rozložení klávesnice přijde z téhle
+ * Ctrl+Shift+. (na Macu ⌘⇧.) otevře menu na Agentech; posluchač drží `layout/panel-dock/`. Podle rozložení klávesnice přijde z téhle
  * kombinace „.“ nebo „>“, proto platí obojí. Alt drží stranou jiné zkratky plochy (Alt+1..3 přepíná
  * prostředí) a samotná tečka bez modifikátorů patří psaní.
  */

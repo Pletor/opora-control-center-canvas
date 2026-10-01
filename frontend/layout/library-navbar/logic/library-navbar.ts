@@ -1,22 +1,19 @@
-// Stav Knihovny bez Reactu: která záložka, který režim, co se hledá a která kategorie je rozbalená.
+// Stav Knihovny bez Reactu: která záložka, co se hledá a který prvek má otevřený náhled.
 // Jestli je Knihovna vidět, tu není — to drží šuplík (`layout/panel-dock/`) jen v paměti
 // sezení. Stav je jeden pro celou aplikaci — neví nic o projektu, pracovním prostoru ani o druhu
 // zdroje, a proto se ukládá pod jediným klíčem `opora:library-navbar:v1`.
-import { CATALOG_CATEGORIES, CATALOG_DRAG_TYPE, type CatalogCategory } from "@/editor/component-library/library-catalog/logic/library-catalog";
+import { CATALOG_DRAG_TYPE, itemById, type CatalogCategory } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import { LAYER_FILTERS, LAYER_GROUPS, type LayerFilter, type LayerGroupId } from "@/layout/library-navbar/logic/layer-list";
 import type { IconName } from "@/ui-kit/icon/logic/icon-paths";
 
 /** Záložky v hlavě panelu: obsah knihovny × stránka (seznam vrstev nad grafem). */
 export type LibraryTab = "content" | "page";
-/** Přepínač pod záložkou OBSAH: ploché dlaždice × kategorie s náhledy. */
-export type LibraryMode = "elements" | "blocks";
 
 export type LibraryNavbarState = {
   tab: LibraryTab;
-  mode: LibraryMode;
   query: string;
-  /** Rozbalená kategorie v režimu Bloky; `null` = zavřeno, sloupec náhledů se nekreslí. */
-  category: CatalogCategory | null;
+  /** Prvek s otevřeným náhledem (účel, souvislosti, hotovo, invarianty, šablona); `null` = žádný. */
+  item: string | null;
   /** STRÁNKA: která skupina vrstev se ukazuje. Vlastní pole, aby filtr katalogu zůstal nedotčený. */
   pageFilter: LayerFilter;
   /** STRÁNKA: vlastní hledání, aby se přepnutím záložky neztratil rozepsaný dotaz v katalogu. */
@@ -68,30 +65,22 @@ export const LIBRARY_TABS: { id: LibraryTab; label: string }[] = [
   { id: "page", label: "STRÁNKA" },
 ];
 
-export const LIBRARY_MODES: { id: LibraryMode; label: string; hint: string }[] = [
-  { id: "elements", label: "Elementy", hint: "Všechny položky katalogu jako dlaždice" },
-  { id: "blocks", label: "Bloky", hint: "Kategorie se sloupcem náhledů rozpadu" },
-];
-
 export const emptyLibraryNavbar = (): LibraryNavbarState => ({
   tab: "content",
-  mode: "elements",
   query: "",
-  category: null,
+  item: null,
   pageFilter: "all",
   pageQuery: "",
   collapsed: [],
 });
 
-/** Záložka mění jen sebe: hledání i rozbalená kategorie čekají, až se uživatel vrátí na OBSAH. */
+/** Záložka mění jen sebe: hledání i otevřený náhled čekají, až se uživatel vrátí na OBSAH. */
 export const setTab = (state: LibraryNavbarState, tab: LibraryTab): LibraryNavbarState => ({ ...state, tab });
-export const setMode = (state: LibraryNavbarState, mode: LibraryMode): LibraryNavbarState => ({ ...state, mode });
 export const setQuery = (state: LibraryNavbarState, query: string): LibraryNavbarState => ({ ...state, query });
-/** Klik na kategorii ji rozbalí, klik na tutéž ji zavře; sloupec náhledů patří vždy jen jedné. */
-export const openCategory = (state: LibraryNavbarState, category: CatalogCategory): LibraryNavbarState => ({
+/** Klik na prvek otevře jeho náhled, klik na tentýž ho zavře; otevřený je vždy nejvýš jeden. */
+export const openItem = (state: LibraryNavbarState, item: string): LibraryNavbarState => ({
   ...state,
-  mode: "blocks",
-  category: state.category === category ? null : category,
+  item: state.item === item ? null : item,
 });
 
 /** Filtr STRÁNKY; `all` je výchozí, takže seznam napoprvé ukáže všechny tři skupiny. */
@@ -103,7 +92,6 @@ export const toggleGroup = (state: LibraryNavbarState, group: LayerGroupId): Lib
   collapsed: state.collapsed.includes(group) ? state.collapsed.filter((id) => id !== group) : [...state.collapsed, group],
 });
 
-const KNOWN = new Set<string>(CATALOG_CATEGORIES.map((category) => category.id));
 const KNOWN_FILTERS = new Set<string>(LAYER_FILTERS.map((filter) => filter.id));
 const KNOWN_GROUPS = new Set<string>(LAYER_GROUPS.map((group) => group.id));
 
@@ -115,12 +103,11 @@ export function parseLibraryNavbar(raw: string | null): LibraryNavbarState {
     const value = JSON.parse(raw) as Partial<LibraryNavbarState> | null;
     if (!value || typeof value !== "object") return empty;
     return {
-      // Starší preference nesly `open` a `expanded`. Knihovna se dnes otevírá jen v šuplíku
-      // a po načtení stránky je vždy zavřená, proto se obě hodnoty při čtení zahodí.
+      // Starší preference nesly `open`, `expanded`, `mode` (Elementy/Bloky) a `category`. Nic z toho
+      // dnes neplatí, proto se to při čtení zahodí; Knihovna je po načtení stránky vždy zavřená.
       tab: value.tab === "page" ? "page" : "content",
-      mode: value.mode === "blocks" ? "blocks" : "elements",
       query: typeof value.query === "string" ? value.query.slice(0, 120) : "",
-      category: typeof value.category === "string" && KNOWN.has(value.category) ? (value.category as CatalogCategory) : null,
+      item: typeof value.item === "string" && itemById(value.item) ? value.item : null,
       pageFilter: typeof value.pageFilter === "string" && KNOWN_FILTERS.has(value.pageFilter) ? (value.pageFilter as LayerFilter) : empty.pageFilter,
       pageQuery: typeof value.pageQuery === "string" ? value.pageQuery.slice(0, 120) : "",
       collapsed: Array.isArray(value.collapsed)

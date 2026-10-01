@@ -1,30 +1,26 @@
-// Dílek Karta profilu: dvě otázky o projektu (architektura a uživatelé), „Uložit pro projekt“
-// a „Teď ne, ukázat vše“. Rozepsaná volba žije jen v kartě, dokud ji uživatel neuloží; hotovou
+// Dílek Karta profilu: dvě otázky o projektu (architektura a uživatelé) a „Uložit pro projekt“.
+// Stojí vždy rozbalená v sekci Nastavení menu; „Vrátit“ zahodí rozepsanou volbu. Rozepsaná volba žije jen v kartě, dokud ji uživatel neuloží; hotovou
 // volbu hlásí `onSave` nahoru a ukládá rodič (App) přes /api/project-settings. Chybu ze serveru
 // (například že se nastavení mezitím změnilo jinde) dostane hotovou a ukáže ji česky v kartě.
 import { useEffect, useState } from "react";
 import type { ProjectProfile } from "@/shared/project-capabilities/logic/project-capabilities";
 import { ARCHITECTURE_OPTIONS, TENANCY_OPTIONS } from "@/shared/project-capabilities/logic/project-profile";
 import { chooseArchitecture, chooseTenancy, draftChanged, draftOf, type ProfileDraft } from "@/layout/project-profile/logic/profile-card";
+import "@/layout/project-profile/styles/project-profile.css";
 
 export default function ProfileCard({
   name,
   profile,
   saving,
   error,
-  dismissLabel,
   onSave,
-  onDismiss,
   onReload,
 }: {
   name: string;
   profile: ProjectProfile;
   saving: boolean;
   error: string;
-  /** „Teď ne, ukázat vše“ u nenastaveného profilu, „Zrušit“ při změně nastaveného. */
-  dismissLabel: string;
   onSave: (draft: ProfileDraft) => void;
-  onDismiss: () => void;
   /** Po chybě: načíst uložené nastavení znovu. */
   onReload: () => void;
 }) {
@@ -94,11 +90,13 @@ export default function ProfileCard({
         >
           {saving ? "Ukládám…" : "Uložit pro projekt"}
         </button>
-        <button type="button" className="project-profile__dismiss" disabled={saving} data-testid="profile-dismiss" onClick={onDismiss}>
-          {dismissLabel}
-        </button>
+        {draftChanged(draft, profile) && (
+          <button type="button" className="project-profile__dismiss" disabled={saving} data-testid="profile-dismiss" onClick={() => setDraft(draftOf(profile))}>
+            Vrátit
+          </button>
+        )}
       </div>
-      <p className="project-profile__note">Změníte ho kdykoli tady nebo v Nastavení → Projekt.</p>
+      <p className="project-profile__note">Změníte ho kdykoli tady nebo v Nastavení → Projekt. Profil patří projektu, vzhled menu ne.</p>
     </section>
   );
 }

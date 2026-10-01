@@ -6,7 +6,7 @@ import Icon from "@/ui-kit/icon/components/Icon";
  * Jediná navigace módů: vodorovné záložky na začátku lišty nástrojů Editoru — kontrakt „Rozvržení
  * Editoru“ (docs/rozvrzeni-editoru.md, Dílek 1). Každá záložka je ikona vlevo od popisku; aktivní
  * mód svítí akcentem a nese spodní linku. V úzkém okně popisek zmizí jen vizuálně, jméno dál nese
- * `aria-label` i `title`. Knihovna tu už není — otevírá ji `layout/panel-dock/` (PanelToggles).
+ * `aria-label` i `title`. Knihovna tu už není — otevírá ji menu ☰ v `layout/panel-dock/`.
  */
 export default function ModeRail({ mode, onMode, editorOnly = false, inactive = false }: { mode: WorkspaceMode; onMode: (mode: WorkspaceMode) => void; editorOnly?: boolean; inactive?: boolean }) {
   return (

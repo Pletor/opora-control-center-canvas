@@ -1,26 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { emptyDesktopState, nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
+import { emptyDesktopState, nodeWorkflowOf, type DesktopState } from "@/shared/desktop-state/logic/types";
 import {
   blockFromItem,
+  blockTextFromItem,
   cardFromItem,
   insertBlockFromItem,
-  purposeFromItem,
-  templateReference,
+  RELATES_BLOCK_TITLE,
   TEMPLATE_BLOCK_TITLE,
   workflowFromItem,
 } from "./catalog-insert";
 import { itemById, type CatalogItem } from "./library-catalog";
 
-/** Zkušební položka: základ, ke kterému se v testu dopisuje jen to, co se zkouší. */
+/** Zkušební prvek: základ, ke kterému se v testu dopisuje jen to, co se zkouší. */
 const fixture = (patch: Partial<CatalogItem> = {}): CatalogItem => ({
   id: "fixture",
   category: "fe-components",
-  label: "Zkušební položka",
-  hint: "Jen pro test",
-  icon: "×",
-  kind: "card",
-  rules: { must: ["Musí platit A", "Musí platit B"], mustNot: ["Nesmí C"] },
-  decomposition: [
+  label: "Zkušební prvek",
+  purpose: "Jen pro test.",
+  relates: ["@fe-pure-model", "Data jdou přes rodiče."],
+  done: ["Test prochází."],
+  invariants: [
+    { kind: "must", text: "Musí platit A" },
+    { kind: "must_not", text: "Nesmí C" },
+  ],
+  steps: [
     { title: "Dílek", text: "Jedno pole" },
     { title: "Logika", text: "Čistá funkce" },
   ],
@@ -28,81 +31,86 @@ const fixture = (patch: Partial<CatalogItem> = {}): CatalogItem => ({
   ...patch,
 });
 
-describe("catalog-insert – karta z položky", () => {
-  it("jméno je popisek, účel nese nápovědu i odkaz ze šablony", () => {
+const pure = itemById("fe-pure-model")!;
+
+describe("catalog-insert – nová karta", () => {
+  it("jméno je popisek a účel je purpose prvku", () => {
     const card = cardFromItem(fixture(), "sektor", 120.4, 40.6);
     expect(card.kind).toBe("node");
     expect(card.parentId).toBe("sektor");
-    expect(card.name).toBe("Zkušební položka");
-    expect(card.purpose).toBe("Jen pro test · logic/form-model.ts");
+    expect(card.name).toBe("Zkušební prvek");
+    expect(card.purpose).toBe("Jen pro test.");
     expect({ x: card.x, y: card.y }).toEqual({ x: 120, y: 41 });
-    expect(card.id).not.toBe(cardFromItem(fixture(), null, 0, 0).id);
   });
 
-  it("odkaz na šablonu je první neprázdný řádek bez značky komentáře", () => {
-    expect(templateReference("\n\n  # backend/editor/node/node_text.py\nx = 1")).toBe("backend/editor/node/node_text.py");
-    expect(templateReference(".blok__prvek {\n  color: red;\n}")).toBe(".blok__prvek {");
-    expect(templateReference("   ")).toBe("");
-    expect(purposeFromItem(fixture({ hint: "", template: "" }))).toBe("");
-  });
-});
-
-describe("catalog-insert – stav uzlu z položky", () => {
-  it("rozpad se stane očíslovanými bloky a šablona posledním blokem", () => {
+  it("bloky jsou Souvisí s, kroky a Šablona; @id je přeložené na název a účel", () => {
     const workflow = workflowFromItem(fixture());
     expect(workflow.blocks.map((b) => [b.number, b.title])).toEqual([
-      ["1", "Dílek"],
-      ["2", "Logika"],
-      ["3", TEMPLATE_BLOCK_TITLE],
+      ["1", RELATES_BLOCK_TITLE],
+      ["2", "Dílek"],
+      ["3", "Logika"],
+      ["4", TEMPLATE_BLOCK_TITLE],
     ]);
-    expect(workflow.blocks[0].text).toBe("Jedno pole");
-    expect(workflow.blocks[2].text).toBe("// logic/form-model.ts\nexport function validate() {}");
-    expect(workflow.blocks.every((b) => b.parentBlockId === "")).toBe(true);
-    expect(new Set(workflow.blocks.map((b) => b.id)).size).toBe(3);
+    expect(workflow.blocks[0].text).toBe(`- ${pure.label}: ${pure.purpose}\n- Data jdou přes rodiče.`);
+    expect(workflow.blocks[3].text).toBe("// logic/form-model.ts\nexport function validate() {}");
   });
 
-  it("musí a nesmí se stanou pravidly uzlu ve stejném pořadí", () => {
+  it("hotovo jde do kritérií a invarianty do pravidel uzlu", () => {
     const workflow = workflowFromItem(fixture());
+    expect(workflow.criteria.map((c) => [c.text, c.checked])).toEqual([["Test prochází.", false]]);
     expect(workflow.rules.map((r) => [r.kind, r.text])).toEqual([
       ["must", "Musí platit A"],
-      ["must", "Musí platit B"],
       ["must_not", "Nesmí C"],
     ]);
     expect(workflow.phase).toBe("discover");
     expect(workflow.actions).toEqual([]);
-    expect(workflow.materials).toEqual([]);
-    expect(workflow.done.confirmed).toBe(false);
   });
 
-  it("vydaná položka „Formulář s validací“ dá kartu s rozpadem i pravidly", () => {
-    const item = itemById("fe-form-validated");
-    expect(item).not.toBeNull();
-    const workflow = workflowFromItem(item!);
-    expect(workflow.blocks.length).toBe(item!.decomposition.length + 1);
-    expect(workflow.blocks.at(-1)?.title).toBe(TEMPLATE_BLOCK_TITLE);
-    expect(workflow.rules.length).toBe(item!.rules.must.length + item!.rules.mustNot.length);
+  it("prvek bez souvislostí, kroků a šablony nedá prázdné bloky", () => {
+    const workflow = workflowFromItem(fixture({ relates: [], steps: undefined, template: undefined }));
+    expect(workflow.blocks).toEqual([]);
+  });
+
+  it("vydaný prvek „Formulář s validací“ dá kartu se souvislostmi, kroky, kritérii i šablonou", () => {
+    const item = itemById("fe-form-validated")!;
+    const workflow = workflowFromItem(item);
+    expect(workflow.blocks[0].title).toBe(RELATES_BLOCK_TITLE);
+    expect(workflow.blocks.length).toBe(1 + (item.steps?.length ?? 0) + 1);
+    expect(workflow.criteria.length).toBe(item.done.length);
   });
 });
 
-describe("catalog-insert – blok z položky", () => {
-  it("nadpis je popisek, text šablona a kategorie zůstane štítkem", () => {
-    const block = blockFromItem(fixture({ kind: "block", category: "fe-css", label: "Mřížka", template: ".m { display: grid; }" }));
-    expect(block.title).toBe("Mřížka");
-    expect(block.text).toBe(".m { display: grid; }");
+describe("catalog-insert – blok do karty", () => {
+  it("text má účel, Souvisí s, Hotovo, Kroky a šablonu v tomto pořadí", () => {
+    expect(blockTextFromItem(fixture())).toBe(
+      [
+        "Jen pro test.",
+        `Souvisí s:\n- ${pure.label}: ${pure.purpose}\n- Data jdou přes rodiče.`,
+        "Hotovo, když:\n- Test prochází.",
+        "Kroky:\n1. Dílek — Jedno pole\n2. Logika — Čistá funkce",
+        "// logic/form-model.ts\nexport function validate() {}",
+      ].join("\n\n"),
+    );
+    const block = blockFromItem(fixture({ category: "fe-css" }));
+    expect(block.title).toBe("Zkušební prvek");
     expect(block.tags).toEqual(["fe-css"]);
-    expect(block.state.status).toBe("open");
   });
 
-  it("vložení do vybrané karty doplní blok na konec a přečísluje", () => {
-    const item = fixture({ kind: "block", label: "Mřížka", category: "fe-css" });
-    const first = insertBlockFromItem("uzel", item)(emptyDesktopState());
-    const second = insertBlockFromItem("uzel", fixture({ kind: "block", label: "Řádek" }))(first);
-    expect(nodeWorkflowOf(second, "uzel").blocks.map((b) => [b.number, b.title])).toEqual([
+  it("vložení doplní blok na konec, přečísluje a přidá invarianty bez duplicit", () => {
+    const start: DesktopState = emptyDesktopState();
+    const first = insertBlockFromItem("uzel", fixture({ label: "Mřížka" }))(start);
+    const second = insertBlockFromItem("uzel", fixture({ label: "Řádek" }))(first);
+    const node = nodeWorkflowOf(second, "uzel");
+    expect(node.blocks.map((b) => [b.number, b.title])).toEqual([
       ["1", "Mřížka"],
       ["2", "Řádek"],
     ]);
-    expect(nodeWorkflowOf(second, "uzel").blocks[0].tags).toEqual(["fe-css"]);
-    // Stav uzlu se nepřepisuje: co v něm bylo, zůstává (jiné uzly se nedotknou vůbec).
+    expect(node.rules.map((r) => r.text)).toEqual(["Musí platit A", "Nesmí C"]);
     expect(nodeWorkflowOf(second, "jiny").blocks).toEqual([]);
+  });
+
+  it("prvek bez invariant pravidla karty nemění", () => {
+    const next = insertBlockFromItem("uzel", fixture({ invariants: [] }))(emptyDesktopState());
+    expect(nodeWorkflowOf(next, "uzel").rules).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
-// Dílek Filtr šuplíku: dvě pilulky „Pro tento projekt N“ a „Vše M“ pod hledáním Knihovny i Agentů.
-// Čísla dostane hotová, volbu hlásí `onScope` nahoru; ukládá ji rodič jednou pro aplikaci.
+// Dílek Filtr katalogu: dvě pilulky „Pro tento projekt N“ a „Vše M“ pod hledáním Knihovny, Agentů
+// a Postupů a bez čísel v Nastavení (tam filtr platí pro všechny katalogy najednou). Čísla dostane
+// hotová, volbu hlásí `onScope` nahoru; ukládá ji rodič jednou pro aplikaci.
 import type { CatalogScope } from "@/layout/panel-dock/logic/panel-drawer";
 
 export default function CatalogScopeBar({
@@ -9,11 +10,12 @@ export default function CatalogScopeBar({
   onScope,
 }: {
   scope: CatalogScope;
-  fitting: number;
-  all: number;
+  /** Počty u pilulek; bez nich jen slova. */
+  fitting?: number;
+  all?: number;
   onScope: (scope: CatalogScope) => void;
 }) {
-  const options: { id: CatalogScope; label: string; count: number }[] = [
+  const options: { id: CatalogScope; label: string; count?: number }[] = [
     { id: "fitting", label: "Pro tento projekt", count: fitting },
     { id: "all", label: "Vše", count: all },
   ];
@@ -28,7 +30,7 @@ export default function CatalogScopeBar({
           data-testid={"catalog-scope-" + option.id}
           onClick={() => onScope(option.id)}
         >
-          {option.label} <span className="catalog-scope__count">{option.count}</span>
+          {option.label}{option.count !== undefined && <> <span className="catalog-scope__count">{option.count}</span></>}
         </button>
       ))}
     </div>

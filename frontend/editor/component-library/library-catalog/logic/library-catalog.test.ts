@@ -3,7 +3,7 @@ import {
   CATALOG_CATEGORIES,
   CATALOG_ITEMS,
   catalogLint,
-  decompositionSummary,
+  relatesLines,
   foldDiacritics,
   itemById,
   itemsOf,
@@ -16,11 +16,10 @@ const fixture = (patch: Partial<CatalogItem>): CatalogItem => ({
   id: "fixture",
   category: "fe-css",
   label: "Zkušební položka",
-  hint: "Jen pro test",
-  icon: "×",
-  kind: "block",
-  rules: { must: ["Musí"], mustNot: [] },
-  decomposition: [{ title: "Dílek", text: "Popis" }],
+  purpose: "Jen pro test.",
+  relates: [],
+  done: ["Hotovo."],
+  invariants: [],
   template: ".zkouska { padding: 0.5rem; }",
   ...patch,
 });
@@ -42,15 +41,28 @@ describe("library-catalog – katalog jako data", () => {
     expect(CATALOG_ITEMS.filter((item) => !known.has(item.category))).toEqual([]);
   });
 
-  it("každá položka nese aspoň jedno pravidlo musí, jeden krok rozpadu a šablonu", () => {
+  it("každý prvek nese popisek, účel, 1–3 kritéria hotovo a nejvýš 2 invarianty", () => {
     for (const item of CATALOG_ITEMS) {
-      expect(item.rules.must.length, item.id).toBeGreaterThan(0);
-      expect(item.decomposition.length, item.id).toBeGreaterThan(0);
-      expect(item.template.trim().length, item.id).toBeGreaterThan(0);
       expect(item.label.trim().length, item.id).toBeGreaterThan(0);
-      expect(item.hint.trim().length, item.id).toBeGreaterThan(0);
-      expect(item.icon.trim().length, item.id).toBeGreaterThan(0);
+      expect(item.purpose.trim().length, item.id).toBeGreaterThan(0);
+      expect(item.done.length, item.id).toBeGreaterThanOrEqual(1);
+      expect(item.done.length, item.id).toBeLessThanOrEqual(3);
+      expect(item.invariants.length, item.id).toBeLessThanOrEqual(2);
     }
+  });
+
+  it("sloučené duplicity v katalogu nejsou a žádný popisek se neopakuje", () => {
+    for (const gone of ["fe-form-state-split", "fe-member-area", "be-input-validation", "cloud-env-vars", "cloud-single-source-ports", "be-module-with-test", "cache-invalidate-on-source"]) {
+      expect(itemById(gone), gone).toBeNull();
+    }
+    const labels = CATALOG_ITEMS.map((item) => item.label);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("tři brány hotovo vypisuje jen test-done-gates, ostatní na ně odkazují", () => {
+    const gates = CATALOG_ITEMS.filter((item) => (item.template ?? "").includes("npm run build")).map((item) => item.id);
+    expect(gates).toEqual(["test-done-gates"]);
+    expect(itemById("cloud-repeatable-build")?.relates).toContain("@test-done-gates");
   });
 
   it("itemsOf vrací jen svou kategorii a itemById najde položku z tažení", () => {
@@ -66,26 +78,38 @@ describe("library-catalog – hledání bez diakritiky", () => {
     expect(found.map((item) => item.id)).toContain("fe-form-validated");
   });
 
-  it("hledá i v nápovědě, prázdný dotaz nechává katalog beze změny", () => {
+  it("hledá i v účelu, prázdný dotaz nechává katalog beze změny", () => {
     expect(searchItems(CATALOG_ITEMS, "  ")).toBe(CATALOG_ITEMS);
     expect(searchItems(CATALOG_ITEMS, "DIAKRITIKA").length).toBe(0);
     expect(foldDiacritics("Řádek Flex")).toBe("radek flex");
-    const byHint = searchItems(CATALOG_ITEMS, "expectedRevision");
-    expect(byHint.map((item) => item.id)).toContain("be-cas-revision");
+    const byPurpose = searchItems(CATALOG_ITEMS, "409");
+    expect(byPurpose.map((item) => item.id)).toContain("be-cas-revision");
   });
 
-  it("řádek rozpadu počítá dílky i pravidla česky", () => {
-    expect(decompositionSummary(fixture({}))).toBe("1 dílek · 1 pravidlo");
-    expect(decompositionSummary(fixture({
-      decomposition: [{ title: "a", text: "" }, { title: "b", text: "" }, { title: "c", text: "" }],
-      rules: { must: ["a", "b", "c"], mustNot: ["d", "e"] },
-    }))).toBe("3 dílky · 5 pravidel");
+  it("souvislosti: @id se přeloží na název a účel, věta zůstane", () => {
+    const pure = itemById("fe-pure-model")!;
+    expect(relatesLines(["@fe-pure-model", " Data přes rodiče. "])).toEqual([`${pure.label}: ${pure.purpose}`, "Data přes rodiče."]);
+    expect(relatesLines(["@neexistuje"])).toEqual(["@neexistuje"]);
   });
 });
 
 describe("library-catalog – lint pravidel z bloku 3", () => {
   it("vydaný katalog je čistý", () => {
     expect(catalogLint()).toEqual([]);
+  });
+
+  it("chytí neznámý odkaz, chybějící hotovo a víc než dvě invarianty", () => {
+    const bad = fixture({
+      id: "spatny-tvar",
+      relates: ["@neexistuje"],
+      done: [],
+      invariants: [
+        { kind: "must", text: "a" },
+        { kind: "must", text: "b" },
+        { kind: "must_not", text: "c" },
+      ],
+    });
+    expect(catalogLint([bad]).map((v) => v.rule)).toEqual(["done", "invariants", "relates"]);
   });
 
   it("chytí px mimo povolený seznam", () => {

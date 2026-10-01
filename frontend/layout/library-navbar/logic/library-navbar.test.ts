@@ -7,10 +7,9 @@ import {
   isLibraryCollapseShortcut,
   layerKindIcon,
   LIBRARY_NAVBAR_KEY,
-  openCategory,
+  openItem,
   parseLibraryNavbar,
   readLibraryNavbar,
-  setMode,
   setPageFilter,
   setPageQuery,
   setQuery,
@@ -20,12 +19,11 @@ import {
 } from "./library-navbar";
 
 describe("library-navbar – stav panelu", () => {
-  it("začíná na záložce OBSAH v režimu Elementy a se seznamem vrstev na Vše", () => {
+  it("začíná na záložce OBSAH bez otevřeného náhledu a se seznamem vrstev na Vše", () => {
     expect(emptyLibraryNavbar()).toEqual({
       tab: "content",
-      mode: "elements",
       query: "",
-      category: null,
+      item: null,
       pageFilter: "all",
       pageQuery: "",
       collapsed: [],
@@ -37,26 +35,26 @@ describe("library-navbar – stav panelu", () => {
     expect(emptyLibraryNavbar()).not.toHaveProperty("open");
   });
 
-  it("záložka, režim a hledání se navzájem nemažou", () => {
-    const state = setQuery(setMode(emptyLibraryNavbar(), "blocks"), "grid");
+  it("záložka, náhled a hledání se navzájem nemažou", () => {
+    const state = setQuery(openItem(emptyLibraryNavbar(), "css-flex-row"), "grid");
     const onPage = setTab(state, "page");
     expect(onPage).toEqual({ ...state, tab: "page" });
     expect(setTab(onPage, "content").query).toBe("grid");
   });
 
-  it("klik na kategorii ji rozbalí, druhý klik zavře, a vždy přepne na Bloky", () => {
-    const opened = openCategory(emptyLibraryNavbar(), "backend");
-    expect(opened).toMatchObject({ mode: "blocks", category: "backend" });
-    expect(openCategory(opened, "backend").category).toBeNull();
-    expect(openCategory(opened, "cache").category).toBe("cache");
+  it("klik na prvek otevře náhled, druhý klik ho zavře, jiný prvek ho převezme", () => {
+    const opened = openItem(emptyLibraryNavbar(), "be-cas-revision");
+    expect(opened.item).toBe("be-cas-revision");
+    expect(openItem(opened, "be-cas-revision").item).toBeNull();
+    expect(openItem(opened, "db-paging").item).toBe("db-paging");
   });
 });
 
 describe("library-navbar – stav záložky STRÁNKA", () => {
   it("filtr a hledání vrstev nesahají na katalog", () => {
-    const catalog = setQuery(setMode(emptyLibraryNavbar(), "blocks"), "grid");
+    const catalog = setQuery(openItem(emptyLibraryNavbar(), "db-paging"), "grid");
     const page = setPageQuery(setPageFilter(catalog, "sector"), "platby");
-    expect(page).toMatchObject({ mode: "blocks", query: "grid", pageFilter: "sector", pageQuery: "platby" });
+    expect(page).toMatchObject({ item: "db-paging", query: "grid", pageFilter: "sector", pageQuery: "platby" });
   });
 
   it("klik na hlavičku skupinu sbalí a druhý ji zase rozbalí", () => {
@@ -87,15 +85,10 @@ describe("library-navbar – jeden klíč pro celou aplikaci", () => {
     expect(parsed).not.toHaveProperty("open");
   });
 
-  it("uložený stav se vrátí i s rozbalenou kategorií", () => {
-    const stored = JSON.stringify({ open: true, tab: "page", mode: "blocks", query: "css", category: "fe-css" });
-    expect(parseLibraryNavbar(stored)).toEqual({
-      ...emptyLibraryNavbar(),
-      tab: "page",
-      mode: "blocks",
-      query: "css",
-      category: "fe-css",
-    });
+  it("uložený stav se vrátí i s otevřeným prvkem; starý režim a kategorie se zahodí", () => {
+    const stored = JSON.stringify({ open: true, tab: "page", mode: "blocks", query: "css", category: "fe-css", item: "css-flex-row" });
+    expect(parseLibraryNavbar(stored)).toEqual({ ...emptyLibraryNavbar(), tab: "page", query: "css", item: "css-flex-row" });
+    expect(parseLibraryNavbar(JSON.stringify({ item: "fe-member-area" })).item).toBeNull();
   });
 
   it("stav STRÁNKY bydlí v tomtéž klíči a cizí hodnoty se zahodí", () => {

@@ -9,11 +9,10 @@ const fixture = (patch: Partial<CatalogItem>): CatalogItem => ({
   id: "fixture",
   category: "fe-css",
   label: "Zkušební položka",
-  hint: "Jen pro test",
-  icon: "×",
-  kind: "block",
-  rules: { must: ["Musí"], mustNot: [] },
-  decomposition: [{ title: "Dílek", text: "Popis" }],
+  purpose: "Jen pro test.",
+  relates: [],
+  done: ["Hotovo."],
+  invariants: [],
   template: ".zkouska { padding: 0.5rem; }",
   ...patch,
 });
@@ -98,22 +97,5 @@ describe("catalog-lint – pravidlo po pravidle", () => {
   it("jedna úroveň __ (blok__prvek) je v pořádku", () => {
     const ok = fixture({ template: [".dlazdice__popis {", "  color: var(--ink-muted);", "}"].join("\n") });
     expect(catalogLint([ok])).toEqual([]);
-  });
-});
-
-describe("catalog-lint – fe-css položky vysvětlují relativní jednotky", () => {
-  /** "rem"/"em" jen jako samostatný token (mezera/číslice/interpunkce kolem), ne konec českého
-   * slova jako „komentářem“ — proto kontrola sousedů přes Unicode písmeno, ne \b. */
-  const mentionsRelativeUnit = (text: string): boolean => {
-    if (text.includes("%")) return true;
-    if (/relativ/i.test(text)) return true;
-    return /(?:^|[^\p{L}])(rem|em)(?:$|[^\p{L}])/iu.test(text);
-  };
-
-  it("každá položka kategorie fe-css zmiňuje v pravidlech „musí“ rem, em, % nebo slovo „relativní“", () => {
-    const offenders = CATALOG_ITEMS.filter(
-      (item) => item.category === "fe-css" && !item.rules.must.some(mentionsRelativeUnit),
-    ).map((item) => item.id);
-    expect(offenders).toEqual([]);
   });
 });

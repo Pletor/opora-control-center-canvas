@@ -1,7 +1,8 @@
-/* Profil projektu (blok project-profile): v šuplíku pod přepínačem stojí vanička se jménem projektu
-   a profilem slovy („Web · Modulární monolit · Multitenant“), vpravo odkaz „Změnit“. Uživatel tak
-   vždy ví, ke kterému projektu výběr pod ní patří a podle čeho je zúžený. Vanička je o tón tmavší
-   než šuplík, aby se četla jako štítek projektu, ne jako další ovládání. */
+/* Profil projektu (blok project-profile): v Knihovně, Agentech a Postupech stojí pod názvem sekce
+   vanička se jménem projektu a pod ním profilem slovy, na jehož konci je odkaz („Web · Modulární
+   monolit · Změnit“, nebo „Profil nenastaven · Nastavit“). Uživatel tak vždy ví, ke kterému projektu
+   výběr pod ní patří a podle čeho je zúžený; karta profilu se tu nerozbaluje, odkaz vede do
+   Nastavení. Vanička je o tón tmavší než panel, aby se četla jako štítek projektu, ne jako ovládání. */
 .project-profile {
   display: flex;
   align-items: center;
@@ -14,22 +15,23 @@
 .project-profile__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .project-profile__name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .project-profile__words { color: var(--ink-muted); font-size: 12px; }
-/* Odkaz vypadá jako odkaz, ne jako tlačítko: změna profilu je vzácná a nemá přebíjet obsah. */
+/* Odkaz vypadá jako odkaz, ne jako tlačítko: změna profilu je vzácná a nemá přebíjet obsah. Je
+   posledním slovem řádku profilu, proto si bere jeho velikost písma a nemá vlastní odsazení. */
 .project-profile__link {
   flex: none;
   min-height: 0;
-  padding: 2px 4px;
+  padding: 0;
   background: transparent;
   border: 0;
   color: var(--accent);
-  font-size: 13px;
+  font: inherit;
+  font-weight: 600;
   cursor: pointer;
 }
 .project-profile__link:hover { text-decoration: underline; }
 
-/* Karta profilu: když profil chybí, rozbalí se pod hlavičkou sama. Rámeček v barvě akcentu říká,
-   že tohle je otázka, na kterou se čeká; dvě odpovědi stačí a zbytek šuplíku pod ní mezitím ukazuje
-   vše. Volby jsou celé řádky se jménem a krátkou větou — vybírá se podle významu, ne podle zkratky. */
+/* Karta profilu: v Nastavení menu stojí vždy rozbalená. Rámeček v barvě akcentu říká, že tohle je
+   otázka o projektu; dvě odpovědi stačí a Knihovna, Agenti i Postupy se podle nich zúží. Volby jsou celé řádky se jménem a krátkou větou — vybírá se podle významu, ne podle zkratky. */
 .project-profile__card {
   display: flex;
   flex-direction: column;
@@ -72,8 +74,8 @@
 .project-profile__option--on:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
 .project-profile__option-label { font-size: 14px; }
 .project-profile__option-hint { color: var(--ink-muted); font-size: 12px; }
-/* Uložení je jediná plná akce karty; „Teď ne“ stojí vedle jako tichý text, aby odložení bylo
-   snadné, ale nepletlo se s potvrzením. */
+/* Uložení je jediná plná akce karty; „Vrátit“ (jen když je co vracet) stojí vedle jako tichý text,
+   aby zahození rozepsané volby bylo snadné, ale nepletlo se s potvrzením. */
 .project-profile__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .project-profile__save {
   min-height: 0;

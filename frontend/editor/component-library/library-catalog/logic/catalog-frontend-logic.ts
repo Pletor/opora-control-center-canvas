@@ -1,5 +1,5 @@
-// Kategorie Frontend – logika (blok 4 sektoru). Odvození dat a mutace stavu jsou čisté funkce
-// v logic/<name>.ts s testem vedle; hook je jen vazba na React, kontext jen pro sdílený stav.
+// Kategorie Frontend – logika. Odvození dat a mutace stavu jsou čisté funkce v logic/<name>.ts,
+// hook je jen vazba na React. Tvar prvku: library-catalog.ts, kontrakt docs/menu-a-katalog.md §B2.
 import type { CatalogItem } from "./library-catalog";
 
 export const frontendLogicItems: CatalogItem[] = [
@@ -7,22 +7,17 @@ export const frontendLogicItems: CatalogItem[] = [
     id: "fe-pure-model",
     category: "fe-logic",
     label: "Čistý model s testem vedle",
-    hint: "logic/<name>.ts + <name>.test.ts: stav dovnitř, nový stav ven",
-    icon: "ƒ",
-    kind: "card",
-    rules: {
-      must: [
-        "Funkce nevrací mutovaný vstup; vrací nový objekt.",
-        "Test leží ve stejné složce jako modul a jmenuje se stejně.",
-        "Model nezná React, DOM ani fetch.",
-      ],
-      mustNot: ["Žádné volání API z modelu.", "Žádná složka tests/ stranou od kódu."],
-    },
-    decomposition: [
-      { title: "Typy", text: "Tvar stavu pojmenovaný jednou a sdílený dál." },
-      { title: "Odvození", text: "Čtecí funkce: ze stavu spočítá, co dílek vykreslí." },
-      { title: "Mutace", text: "Funkce stav → stav; rodič ji podá do mutate." },
+    purpose: "Stav a jeho změny jako čisté funkce v logic/<name>.ts: stav dovnitř, nový stav ven.",
+    relates: [
+      "@test-unit-beside",
+      "@fe-hook-over-model",
+      "Rodič předá mutaci do mutate; dílky dostanou odvozená data v props.",
     ],
+    done: [
+      "Modul neimportuje React, DOM ani fetch.",
+      "Vedle leží <name>.test.ts a npm test prochází.",
+    ],
+    invariants: [{ kind: "must_not", text: "Mutace nemění vstupní stav, vrací nový objekt." }],
     template: [
       "// logic/panel-model.ts",
       "export type PanelState = { open: boolean; query: string };",
@@ -34,22 +29,17 @@ export const frontendLogicItems: CatalogItem[] = [
     id: "fe-hook-over-model",
     category: "fe-logic",
     label: "Hook nad čistým modelem",
-    hint: "useState drží stav, hook jen podává akce modelu",
-    icon: "⎔",
-    kind: "card",
-    rules: {
-      must: [
-        "Hook nemá vlastní logiku: volá funkce z modelu.",
-        "Vrací dvojici stav + akce, nic jiného.",
-        "Zápis do localStorage je v try/catch a nikdy nezhavaruje panel.",
-      ],
-      mustNot: ["Hook nesmí číst id projektu ani druh zdroje.", "Žádná business pravidla uvnitř komponenty."],
-    },
-    decomposition: [
-      { title: "Model", text: "Čisté funkce se stavem (testované)." },
-      { title: "Hook", text: "useState + useEffect pro uložení preference." },
-      { title: "Rodič", text: "Zavolá hook jednou a rozdá stav dílkům v props." },
+    purpose: "Hook drží stav přes useState a podává akce z modelu; vlastní logiku nemá.",
+    relates: [
+      "@fe-pure-model",
+      "Volá ho rodič jednou a rozdá výsledek dílkům.",
+      "Preference aplikace se ukládá pod jediný klíč, nikdy per projekt.",
     ],
+    done: [
+      "Hook vrací stav a akce, každá akce je jedno volání funkce z modelu.",
+      "Bez localStorage (soukromé okno) panel funguje s výchozím stavem.",
+    ],
+    invariants: [{ kind: "must_not", text: "Hook nečte id projektu ani druh zdroje (sourceKind)." }],
     template: [
       "// logic/use-panel.ts",
       "export function usePanel() {",
@@ -59,52 +49,16 @@ export const frontendLogicItems: CatalogItem[] = [
     ].join("\n"),
   },
   {
-    id: "fe-form-state-split",
-    category: "fe-logic",
-    label: "Rozepsaná hodnota lokálně, hotová nahoru",
-    hint: "Psaní nebliká přes celý strom, uloží se až hotová hodnota",
-    icon: "✐",
-    kind: "block",
-    rules: {
-      must: [
-        "Rozepsaný text drží pole; nahoru jde na blur nebo Enter.",
-        "Rodič dostane hotovou hodnotu jedním callbackem.",
-        "Escape vrací pole na poslední uloženou hodnotu.",
-      ],
-      mustNot: ["Žádné ukládání na každý stisk klávesy.", "Žádná kopie hodnoty ve dvou stavech naráz."],
-    },
-    decomposition: [
-      { title: "Lokální draft", text: "useState v poli; jen ono ví, co je rozepsané." },
-      { title: "Commit", text: "onBlur a Enter pošlou hodnotu nahoru." },
-      { title: "Reset", text: "Změna props zvenčí přepíše draft." },
-    ],
-    template: [
-      "// components/CommitInput.tsx",
-      "const [draft, setDraft] = useState(value);",
-      "useEffect(() => setDraft(value), [value]);",
-      "<input value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={() => onCommit(draft)} />",
-    ].join("\n"),
-  },
-  {
     id: "fe-routing-as-data",
     category: "fe-logic",
     label: "Routing jako data",
-    hint: "Cesty jsou pole záznamů, ne větvení v komponentě",
-    icon: "⇉",
-    kind: "block",
-    rules: {
-      must: [
-        "Cesta je záznam s id, popiskem a podmínkou zobrazení.",
-        "Výběr cesty je čistá funkce nad daty.",
-        "Neznámá cesta má výchozí větev.",
-      ],
-      mustNot: ["Žádný řetěz if uvnitř komponenty.", "Žádná cesta odvozená z id projektu."],
-    },
-    decomposition: [
-      { title: "Tabulka cest", text: "Data: id, popisek, kdo ji smí vidět." },
-      { title: "Výběr", text: "routeFor(path) → záznam nebo výchozí." },
-      { title: "Vykreslení", text: "Rodič podle záznamu složí obrazovku." },
+    purpose: "Cesty jsou pole záznamů a výběr cesty je čistá funkce, ne větvení v komponentě.",
+    relates: ["@fe-pure-model", "@fe-auth-guard", "Rodič podle vybraného záznamu složí obrazovku."],
+    done: [
+      "Neznámá cesta vrací výchozí záznam.",
+      "routeFor má test vedle.",
     ],
+    invariants: [],
     template: [
       "// logic/routes.ts",
       "export const ROUTES = [",
@@ -117,22 +71,26 @@ export const frontendLogicItems: CatalogItem[] = [
   {
     id: "fe-auth-guard",
     category: "fe-logic",
-    label: "Guard přihlášení bez tajemství v klientu",
-    hint: "Klient jen skrývá, právo rozhoduje server",
-    icon: "⚿",
-    kind: "card",
-    rules: {
-      must: [
-        "Guard je čistá funkce: stav relace → smí / nesmí.",
-        "Server odpověď 401 vede na výzvu k přihlášení, ne na prázdnou obrazovku.",
-        "Relace se drží v jednom kontextu.",
-      ],
-      mustNot: ["Žádný token, klíč ani heslo v kódu klienta.", "Žádné právo vyhodnocené jen v prohlížeči."],
-    },
-    decomposition: [
-      { title: "Stav relace", text: "Kdo je přihlášený a co o něm víme." },
-      { title: "canSee(state, need)", text: "Čistá funkce s testem vedle." },
-      { title: "Odpověď serveru", text: "401 nebo 403 přepne obrazovku na přihlášení." },
+    label: "Přihlášená sekce a guard",
+    purpose: "Stav relace v jednom kontextu a guard, který podle něj ukáže obsah nebo výzvu k přihlášení.",
+    relates: [
+      "@sec-server-validation",
+      "@sec-no-secrets",
+      "@fe-routing-as-data",
+      "Odpověď serveru 401/403 přepne obrazovku na přihlášení.",
+    ],
+    done: [
+      "canSee(session, need) je čistá funkce s testem vedle.",
+      "Nepřihlášený vidí výzvu k přihlášení, ne prázdnou stránku.",
+    ],
+    invariants: [
+      { kind: "must_not", text: "Guard v klientu jen skrývá obsah; o právu rozhoduje server." },
+      { kind: "must_not", text: "V klientském kódu není token, klíč ani heslo." },
+    ],
+    steps: [
+      { title: "SessionContext", text: "Jediný zdroj pravdy o relaci pro celou sekci." },
+      { title: "MemberGuard", text: "Dostane stav relace v props, vrací obsah nebo výzvu." },
+      { title: "session-api.ts", text: "Přihlášení a odhlášení voláním serveru." },
     ],
     template: [
       "// logic/guard.ts",

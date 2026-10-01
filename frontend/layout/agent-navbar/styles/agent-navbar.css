@@ -1,8 +1,9 @@
-/* Agenti a postupy (blok agent-navbar): knihovna postupů v šuplíku u levého okraje Editoru
+/* Agenti a Postupy (blok agent-navbar): obsah dvou sekcí menu Editoru u levého okraje
    (`layout/panel-dock/`). Příběh: zatímco Knihovna nese know-how o kódu, tady leží to, JAK se
-   agentem řídí práce. Šuplík je pás 380px nad plátnem, ne sloupec vedle něj — dost na název
+   agentem řídí práce — v Agentech kdo a s jakými hranicemi, v Postupech v jakém pořadí. Panel
+   sekce je pás 380px nad plátnem, ne sloupec vedle něj — dost na název
    postupu, větu k čemu je a značku „N kroků“, a po zavření plátnu nic nevezme. Obsah vyplní tělo
-   šuplíku pod hlavičkou projektu; roluje se uvnitř, ne stránkou. Míry jsou v px podle kontraktu
+   panelu sekce pod hlavičkou projektu; roluje se uvnitř, ne stránkou. Míry jsou v px podle kontraktu
    (`docs/panely-editoru.md`) — jsou to pevná čísla panelu, ne typografie, která má růst s uživatelem. */
 .agent-navbar {
   position: relative;
@@ -19,37 +20,10 @@
 }
 .agent-navbar__panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-/* HLAVA panelu (48px): název vlevo a pod ním tichá připomínka zkratky, vpravo křížek, který
-   šuplík zavře — stejně jako Esc nebo tlačítko v liště. */
-.agent-navbar__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 48px;
-  flex: none;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--line);
-}
-.agent-navbar__head-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.agent-navbar__title { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
-.agent-navbar__shortcut-hint { color: var(--ink-muted); font: 500 11px var(--mono); }
-.agent-navbar__close {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius);
-  color: var(--ink-muted);
-  cursor: pointer;
-}
-.agent-navbar__close:hover { background: var(--bg); color: var(--ink); }
-
-/* ZÁLOŽKY Katalog | Agenti: dvě slova přes celou šířku, verzálky jako v ostatních panelech
-   aplikace; aktivní svítí akcentem a drží podtržení 2px, aby bylo jasné, který dílek se dívá dolů. */
+/* ZÁLOŽKY Katalog | Vybraná karta | Hook (jen v sekci Agenti): tři slova přes celou šířku,
+   verzálky jako v ostatních panelech aplikace; aktivní svítí akcentem a drží podtržení 2px, aby bylo
+   jasné, který dílek se dívá dolů. Vlastní hlavičku s křížkem panel nemá — jednu hlavičku nese
+   rám sekce v menu a zavírá se ikonou v liště nebo ☰. Postupy záložky nemají, jsou jen katalog. */
 .agent-navbar__tabs { display: flex; flex: none; border-bottom: 1px solid var(--line); }
 .agent-navbar__tab {
   flex: 1;

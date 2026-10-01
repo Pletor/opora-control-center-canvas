@@ -1,28 +1,25 @@
-// Kategorie Backend (blok 5) a Databáze (blok 6) sektoru. Router je tenký, logika bydlí v modulu
-// prostředí a test leží vedle něj; schéma má u každé tabulky vlastníka a migrace se dá vrátit.
+// Kategorie Backend a Databáze. Router je tenký, logika bydlí v modulu prostředí a test leží vedle
+// něj; schéma má u každé tabulky vlastníka a migrace se dá vrátit. Tvar prvku: library-catalog.ts.
 import type { CatalogItem } from "./library-catalog";
 
 export const backendItems: CatalogItem[] = [
   {
     id: "be-environment-router",
     category: "backend",
-    label: "Router prostředí",
-    hint: "api/<prostředí>/: přijme, ověří tvar, zavolá modul, vrátí odpověď",
-    icon: "⇄",
-    kind: "card",
-    rules: {
-      must: [
-        "Router leží jen v backend/api/<prostředí>/.",
-        "Router validuje tvar vstupu a hned deleguje do modulu.",
-        "Chyba uživateli je česky a bez vnitřních detailů.",
-      ],
-      mustNot: ["Žádná logika v routeru.", "Žádný přímý přístup do databáze z routeru."],
-    },
-    decomposition: [
-      { title: "Router", text: "Cesta, tvar vstupu, volání modulu, odpověď." },
-      { title: "Modul prostředí", text: "Logika: čte a zapisuje, hlídá pravidla." },
-      { title: "test_<modul>.py", text: "Test leží vedle modulu, ne ve složce tests/." },
+    label: "Router a modul prostředí",
+    purpose: "Router v backend/api/<prostředí>/ jen přijme a ověří tvar; logika je v modulu prostředí s testem vedle.",
+    relates: [
+      "@sec-server-validation",
+      "@be-cas-revision",
+      "@be-czech-error",
+      "@test-unit-beside",
+      "Balíček modulu má README, které říká, co vlastní.",
     ],
+    done: [
+      "Router nemá logiku ani přístup do databáze, jen volá modul.",
+      "Vedle modulu leží test_<modul>.py a uv run pytest backend prochází.",
+    ],
+    invariants: [],
     template: [
       "# backend/api/editor/library_routes.py",
       "@router.post(\"/api/library/insert\")",
@@ -34,21 +31,18 @@ export const backendItems: CatalogItem[] = [
     id: "be-cas-revision",
     category: "backend",
     label: "Revize s CAS",
-    hint: "Zápis nese expectedRevision; kolize je 409, neznámá entita 404",
-    icon: "⟲",
-    kind: "card",
-    rules: {
-      must: [
-        "Každý zápis nese revizi, kterou klient četl.",
-        "Neshoda revizí končí 409 s českou hláškou a aktuální revizí.",
-        "Revize roste o jedna při každém přijatém zápisu.",
-      ],
-      mustNot: ["Žádný zápis naslepo bez revize.", "Žádné tiché přepsání cizí změny."],
-    },
-    decomposition: [
-      { title: "Čtení", text: "Vrací obsah i revizi." },
-      { title: "Zápis", text: "Porovná revizi, uloží, vrátí novou." },
-      { title: "Kolize", text: "409 s aktuálním stavem, aby klient mohl sloučit." },
+    purpose: "Zápis nese revizi, kterou klient četl; server zapisuje pod zámkem a při neshodě vrací 409.",
+    relates: [
+      "@be-environment-router",
+      "Desktop v3 stav, uzly grafu i agent-workspace se zapisují s expectedRevision.",
+    ],
+    done: [
+      "Zápis se starou revizí vrátí 409 s aktuální revizí a nic nezapíše.",
+      "Přijatý zápis zvýší revizi o jedna.",
+    ],
+    invariants: [
+      { kind: "must", text: "Každý zápis nese očekávanou revizi; zápis bez ní se odmítne." },
+      { kind: "must_not", text: "Kolize 409 se nepřepisuje silou; klient načte stav znovu a sloučí." },
     ],
     template: [
       "# backend/editor/<modul>/store.py",
@@ -62,90 +56,22 @@ export const backendItems: CatalogItem[] = [
     ].join("\n"),
   },
   {
-    id: "be-input-validation",
-    category: "backend",
-    label: "Validace vstupu na serveru",
-    hint: "Tvar, délky, enumy; klient jen pomáhá",
-    icon: "✓",
-    kind: "block",
-    rules: {
-      must: [
-        "Tvar, délky a povolené hodnoty ověřuje server, i když je ověřil klient.",
-        "Neplatný vstup končí 400 s větou, co je špatně.",
-        "Limit délky má každé textové pole.",
-      ],
-      mustNot: ["Žádná důvěra ve vstup z prohlížeče.", "Žádná validace jen typovou anotací."],
-    },
-    decomposition: [
-      { title: "Tvar", text: "Povinná pole a jejich typy." },
-      { title: "Meze", text: "Délky textů a povolené hodnoty výčtu." },
-      { title: "Hláška", text: "Česká věta pro uživatele, detail jen do logu." },
-    ],
-    template: [
-      "# backend/editor/<modul>/validation.py",
-      "SECTIONS = {\"log\", \"failures\", \"fixes\", \"handoff\"}",
-      "def check(section: str, text: str) -> str:",
-      "    if section not in SECTIONS:",
-      "        raise BadRequest(\"Neznámá sekce pracovního prostoru.\")",
-      "    return text[:12000]",
-    ].join("\n"),
-  },
-  {
     id: "be-czech-error",
     category: "backend",
     label: "Chyba s českou hláškou",
-    hint: "Uživatel čte větu, log čte vývojář",
-    icon: "!",
-    kind: "block",
-    rules: {
-      must: [
-        "Hláška pro uživatele je česky a říká, co dělat dál.",
-        "Technický detail jde do logu, ne do odpovědi.",
-        "Stavový kód odpovídá příčině (400 / 404 / 409).",
-      ],
-      mustNot: ["Žádný stack trace v odpovědi.", "Žádná anglická hláška v uživatelském rozhraní."],
-    },
-    decomposition: [
-      { title: "Typ chyby", text: "BadRequest, NotFound, Conflict — jeden typ na příčinu." },
-      { title: "Hláška", text: "Věta pro člověka u každého typu." },
-      { title: "Log", text: "Kontext projektu a prostoru ke stopě." },
+    purpose: "Uživatel dostane českou větu, co dělat dál; technický detail jde do logu.",
+    relates: ["@cloud-structured-log", "@be-environment-router"],
+    done: [
+      "Stavový kód odpovídá příčině (400 / 403 / 404 / 409).",
+      "Odpověď neobsahuje stack trace ani vnitřní cestu.",
     ],
+    invariants: [],
     template: [
       "# backend/app/errors.py",
       "class Conflict(Exception):",
       "    status = 409",
       "    def __init__(self, message: str = \"Záznam se mezitím změnil.\") -> None:",
       "        super().__init__(message)",
-    ].join("\n"),
-  },
-  {
-    id: "be-module-with-test",
-    category: "backend",
-    label: "Modul prostředí s testem vedle",
-    hint: "Logika mimo router, test_<modul>.py ve stejné složce",
-    icon: "▣",
-    kind: "card",
-    rules: {
-      must: [
-        "Modul patří do backend/<prostředí>/<oblast>/.",
-        "Test se jmenuje test_<modul>.py a leží vedle.",
-        "Balíček má README, které říká, co modul vlastní.",
-      ],
-      mustNot: ["Žádná složka tests/ stranou.", "Žádné sdílení stavu mezi prostředími přes globální proměnné."],
-    },
-    decomposition: [
-      { title: "Modul", text: "Čistá funkce nebo služba nad úložištěm." },
-      { title: "Test", text: "Případ užití a hraniční případ." },
-      { title: "README", text: "Kdo modul vlastní a co do něj nepatří." },
-    ],
-    template: [
-      "# backend/editor/library/catalog.py",
-      "def items_of(category: str) -> list[dict]:",
-      "    return [item for item in CATALOG if item[\"category\"] == category]",
-      "",
-      "# backend/editor/library/test_catalog.py",
-      "def test_items_of_vraci_jen_svou_kategorii() -> None:",
-      "    assert all(i[\"category\"] == \"backend\" for i in items_of(\"backend\"))",
     ].join("\n"),
   },
 ];
@@ -155,22 +81,13 @@ export const databaseItems: CatalogItem[] = [
     id: "db-table-owner",
     category: "database",
     label: "Tabulka s vlastníkem ve schématu",
-    hint: "Vytváření jen ve schématu, u každé tabulky komentář, kdo ji vlastní",
-    icon: "▤",
-    kind: "card",
-    rules: {
-      must: [
-        "Tabulka vzniká jen ve schématu, nikdy v modulu za běhu.",
-        "Komentář u tabulky říká, který modul ji vlastní.",
-        "Klíče a cizí klíče jsou pojmenované.",
-      ],
-      mustNot: ["Žádné CREATE TABLE rozeseté po kódu.", "Žádná tabulka bez vlastníka."],
-    },
-    decomposition: [
-      { title: "Definice", text: "Sloupce, klíče, výchozí hodnoty." },
-      { title: "Vlastník", text: "Komentář: který modul do tabulky píše." },
-      { title: "Registrace", text: "Tabulka je součástí jednoho schématu projektu." },
+    purpose: "Tabulka vzniká jen ve schématu projektu a komentář u ní říká, který modul do ní píše.",
+    relates: ["@db-reversible-migration", "@be-module-boundary"],
+    done: [
+      "Tabulka je ve schématu s komentářem vlastníka.",
+      "V kódu modulů není CREATE TABLE.",
     ],
+    invariants: [],
     template: [
       "# database/schema/project_schema.py",
       "# Vlastník: backend/editor/library — katalog vložených položek.",
@@ -188,22 +105,13 @@ export const databaseItems: CatalogItem[] = [
     id: "db-reversible-migration",
     category: "database",
     label: "Vratná a idempotentní migrace",
-    hint: "Spustí se dvakrát se stejným výsledkem a umí zpět",
-    icon: "⇅",
-    kind: "card",
-    rules: {
-      must: [
-        "Migrace je idempotentní (IF NOT EXISTS, kontrola stavu).",
-        "Ke každému kroku existuje krok zpět nebo doklad, proč nejde.",
-        "Data se před nevratným krokem zálohují.",
-      ],
-      mustNot: ["Žádná migrace, která maže sloupec bez zálohy.", "Žádný ruční zásah bez záznamu."],
-    },
-    decomposition: [
-      { title: "up()", text: "Přidá tabulku nebo sloupec; dá se spustit opakovaně." },
-      { title: "down()", text: "Vrátí změnu do původního stavu." },
-      { title: "Ověření", text: "Test na prázdné i naplněné databázi." },
+    purpose: "Migrace jde spustit dvakrát se stejným výsledkem a má krok zpět.",
+    relates: ["@db-table-owner", "@test-fixture-data"],
+    done: [
+      "up() dvakrát po sobě nehlásí chybu a down() vrátí původní schéma.",
+      "Test projde na prázdné i naplněné databázi.",
     ],
+    invariants: [{ kind: "must_not", text: "Migrace nemaže sloupec ani tabulku s daty bez zálohy." }],
     template: [
       "# database/migrations/0007_library_inserts.py",
       "def up(db) -> None:",
@@ -217,22 +125,13 @@ export const databaseItems: CatalogItem[] = [
     id: "db-index-by-query",
     category: "database",
     label: "Index podle skutečného dotazu",
-    hint: "Index vzniká z dotazu, který je pomalý, ne dopředu",
-    icon: "⌗",
-    kind: "block",
-    rules: {
-      must: [
-        "Index vzniká až k dotazu, který existuje a je měřitelně pomalý.",
-        "Pořadí sloupců indexu kopíruje podmínku dotazu.",
-        "U indexu je komentář s dotazem, kvůli kterému vznikl.",
-      ],
-      mustNot: ["Žádný index „pro jistotu“.", "Žádný index na sloupec s pár hodnotami."],
-    },
-    decomposition: [
-      { title: "Dotaz", text: "Co se ptáme a jak často." },
-      { title: "Míra", text: "Kolik řádků dotaz čte bez indexu." },
-      { title: "Index", text: "Sloupce v pořadí podmínky." },
+    purpose: "Index vzniká k existujícímu, měřitelně pomalému dotazu a kopíruje pořadí jeho podmínky.",
+    relates: ["@db-paging"],
+    done: [
+      "U indexu je komentář s dotazem, kvůli kterému vznikl.",
+      "Plán dotazu (EXPLAIN) index používá.",
     ],
+    invariants: [],
     template: [
       "-- Kvůli: SELECT * FROM library_inserts WHERE node_id = ? ORDER BY created_at DESC",
       "CREATE INDEX IF NOT EXISTS ix_library_inserts_node_created",
@@ -243,22 +142,13 @@ export const databaseItems: CatalogItem[] = [
     id: "db-paging",
     category: "database",
     label: "Stránkování velkého výpisu",
-    hint: "Velká data po stránkách, agregace v databázi",
-    icon: "⋯",
-    kind: "card",
-    rules: {
-      must: [
-        "Výpis má limit a kurzor; klient nikdy nedostane vše.",
-        "Agregace (count, sum) běží v databázi, ne v aplikaci.",
-        "Řazení je stabilní, jinak se stránky překrývají.",
-      ],
-      mustNot: ["Žádné načtení celé tabulky do paměti.", "Žádné stránkování přes offset u velkých dat."],
-    },
-    decomposition: [
-      { title: "Kurzor", text: "Poslední viděný klíč místo offsetu." },
-      { title: "Limit", text: "Pevný strop na stránku." },
-      { title: "Součty", text: "Agregace jedním dotazem vedle stránky." },
+    purpose: "Velký výpis po stránkách s kurzorem a stabilním řazením; součty počítá databáze.",
+    relates: ["@db-index-by-query"],
+    done: [
+      "Výpis má limit a kurzor, stránky se nepřekrývají.",
+      "Agregace běží jedním dotazem v databázi.",
     ],
+    invariants: [{ kind: "must_not", text: "Klient nikdy nedostane celou tabulku najednou." }],
     template: [
       "-- stránka po kurzoru, stabilní řazení",
       "SELECT id, node_id, created_at FROM library_inserts",
@@ -271,22 +161,10 @@ export const databaseItems: CatalogItem[] = [
     id: "db-sqlite-limit",
     category: "database",
     label: "Kdy stačí sqlite a kdy ne",
-    hint: "Jeden projekt lokálně ano; sdílený zápis po síti ne",
-    icon: "◈",
-    kind: "block",
-    rules: {
-      must: [
-        "Jeden projekt = jeden soubor databáze ve složce projektu.",
-        "Zápis serializovaný; čtení může běžet souběžně.",
-        "Přechod dál se rozhoduje podle sdíleného zápisu, ne podle objemu.",
-      ],
-      mustNot: ["Žádný soubor databáze na síťovém disku.", "Žádný souběžný zápis ze dvou procesů bez zámku."],
-    },
-    decomposition: [
-      { title: "Hranice", text: "Kdy sqlite stačí: lokálně, jeden zapisovatel." },
-      { title: "Signál", text: "Co znamená, že je čas přejít dál." },
-      { title: "Cesta ven", text: "Schéma připravené na jiný stroj." },
-    ],
+    purpose: "Jeden projekt lokálně s jedním zapisovatelem stačí sqlite; sdílený zápis po síti už ne.",
+    relates: ["@sec-path-guard", "Soubor databáze leží v datové složce projektu."],
+    done: ["Rozhodnutí o úložišti je zapsané s důvodem (počet zapisovatelů, síť)."],
+    invariants: [{ kind: "must_not", text: "Soubor sqlite nesmí ležet na síťovém disku ani mít dva zapisovatele bez zámku." }],
     template: [
       "# backend/canvas/project_folder.py",
       "def db_path(project_id: str) -> Path:",

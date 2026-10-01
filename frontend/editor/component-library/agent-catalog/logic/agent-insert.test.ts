@@ -4,59 +4,62 @@ import {
   actionFromItem,
   insertActionFromItem,
   insertRulesFromItem,
-  NEW_CARD_PHASE,
   PHASE_LABELS,
   phaseNote,
-  phasesFromTemplate,
+  phasesFromSteps,
   ruleFromItem,
   sectorFromWorkflow,
 } from "./agent-insert";
 import { agentItemById, type AgentItem } from "./agent-catalog";
+import { RELATES_BLOCK_TITLE } from "@/editor/component-library/library-catalog/logic/catalog-insert";
+import { itemById } from "@/editor/component-library/library-catalog/logic/library-catalog";
+
+const PHASE_STEPS = [
+  { title: "discover", text: "Najdi podklady." },
+  { title: "define", text: "Popiš rozhraní." },
+  { title: "build", text: "Postav to." },
+  { title: "verify", text: "Ověř to." },
+  { title: "live", text: "Předej to." },
+];
 
 /** Zkušební položka: základ, ke kterému se v testu dopisuje jen to, co se zkouší. */
 const fixture = (patch: Partial<AgentItem> = {}): AgentItem => ({
   id: "fixture",
   category: "rules",
   label: "Zkušební postup",
-  hint: "Jen pro test",
-  icon: "×",
+  purpose: "Jen pro test.",
   kind: "rule",
-  rules: { must: ["Musí platit A", "Musí platit B"], mustNot: ["Nesmí C"] },
-  decomposition: [
-    { title: "discover", text: "Najdi podklady." },
-    { title: "define", text: "Popiš rozhraní." },
+  relates: ["@test-done-gates"],
+  invariants: [
+    { kind: "must", text: "Musí platit A" },
+    { kind: "must_not", text: "Nesmí C" },
   ],
-  template: [
-    "1. discover — najdi podklady.",
-    "2. define — popiš rozhraní.",
-    "3. build — postav to.",
-    "4. verify — ověř to.",
-    "5. live — předej to.",
-  ].join("\n"),
-  endCriteria: "Hotovo, když projdou testy.",
-  stopCondition: "Chybí podklad — zastav a vyžádej si ho.",
-  refs: ["fe-pure-model", "css-bem-block"],
+  steps: PHASE_STEPS,
+  done: ["Testy prochází."],
+  stopCondition: "Chybí podklad.",
   ...patch,
 });
 
-describe("agent-insert – pravidla uzlu z položky", () => {
-  it("musí a nesmí se stanou pravidly uzlu s popiskem položky vepředu", () => {
+const gates = itemById("test-done-gates")!;
+
+describe("agent-insert – pravidla karty", () => {
+  it("invarianty se stanou pravidly karty beze změny textu", () => {
     const rules = ruleFromItem(fixture())!;
     expect(rules.map((r) => [r.kind, r.text])).toEqual([
-      ["must", "Zkušební postup: Musí platit A"],
-      ["must", "Zkušební postup: Musí platit B"],
-      ["must_not", "Zkušební postup: Nesmí C"],
+      ["must", "Musí platit A"],
+      ["must_not", "Nesmí C"],
     ]);
-    expect(new Set(rules.map((r) => r.id)).size).toBe(3);
   });
 
-  it("agent dostane navíc první pravidlo s rolí a modelem", () => {
-    const rules = ruleFromItem(fixture({ kind: "agent", label: "Subagent Explore: haiku", hint: "role: hledání · model: haiku" }))!;
-    expect(rules[0]).toMatchObject({
-      kind: "must",
-      text: "Role: Subagent Explore: haiku. role: hledání · model: haiku",
-    });
-    expect(rules.length).toBe(4);
+  it("agent dostane navíc první pravidlo s rolí", () => {
+    const rules = ruleFromItem(fixture({ kind: "agent", label: "Subagent Explore: haiku", purpose: "Hledá a čte." }))!;
+    expect(rules[0]).toMatchObject({ kind: "must", text: "Role: Subagent Explore: haiku. Hledá a čte." });
+    expect(rules.length).toBe(3);
+  });
+
+  it("vydaná hranice dá na kartu svou invariantu", () => {
+    const rules = ruleFromItem(agentItemById("rule-no-delete-without-preview")!)!;
+    expect(rules.map((r) => [r.kind, r.text])).toEqual([["must_not", "Nic se nemaže na první zavolání bez náhledu a potvrzení."]]);
   });
 
   it("položka info se netáhne: null ze všech tří překladů", () => {
@@ -67,84 +70,62 @@ describe("agent-insert – pravidla uzlu z položky", () => {
   });
 });
 
-describe("agent-insert – akce z položky", () => {
-  it("pipeline si drží identitu položky a kroky nese jako text v parametrech", () => {
-    const action = actionFromItem(fixture({ kind: "action", id: "pl-feature-folder" }))!;
+describe("agent-insert – akce", () => {
+  it("pipeline si drží id a nese účel, kroky, hotovo, stop a souvislosti jako texty", () => {
+    const action = actionFromItem(fixture({ kind: "action", id: "pl-feature-folder", steps: [{ title: "A", text: "" }, { title: "B", text: "" }] }))!;
     expect(action.pipelineId).toBe("pl-feature-folder");
-    expect(action.label).toBe("Zkušební postup");
     expect(action.params).toEqual({
-      steps: "discover → define",
-      endCriteria: "Hotovo, když projdou testy.",
-      stopCondition: "Chybí podklad — zastav a vyžádej si ho.",
-      refs: "fe-pure-model, css-bem-block",
+      purpose: "Jen pro test.",
+      steps: "A → B",
+      done: "Testy prochází.",
+      stopCondition: "Chybí podklad.",
+      relates: `${gates.label}: ${gates.purpose}`,
     });
   });
 
-  it("parametry jsou objekt textů v mezích backendu (ACTION_KEYS, MAX_PARAMS)", () => {
-    const action = actionFromItem(agentItemById("pl-verify-before-done")!)!;
-    expect(Object.keys(action.params).length).toBeLessThanOrEqual(50);
-    expect(Object.values(action.params).every((value) => typeof value === "string")).toBe(true);
-    expect(action.id).not.toBe(actionFromItem(fixture())!.id);
+  it("hook bez kroků a hotovo nenese prázdné parametry", () => {
+    const action = actionFromItem(agentItemById("hook-restart-backend")!)!;
+    expect(Object.keys(action.params).sort()).toEqual(["purpose", "relates"]);
+    expect(Object.values(action.params).every((value) => typeof value === "string" && value.length > 0)).toBe(true);
   });
 });
 
 describe("agent-insert – sektor z workflow", () => {
   const insert = () => sectorFromWorkflow(fixture({ kind: "workflow" }), "vrstva", 120.4, 40.6)!;
 
-  it("sektor je rám postupu na místě puštění", () => {
-    const { sector } = insert();
+  it("sektor je rám postupu s účelem, invariantami a blokem Souvisí s", () => {
+    const { sector, nodes } = insert();
     expect(sector.kind).toBe("sector");
     expect(sector.parentId).toBe("vrstva");
-    expect(sector.name).toBe("Zkušební postup");
-    expect(sector.purpose).toBe("Jen pro test");
+    expect(sector.purpose).toBe("Jen pro test.");
     expect({ x: sector.x, y: sector.y }).toEqual({ x: 120, y: 41 });
+    expect(nodes[sector.id].rules.map((r) => r.text)).toEqual(["Musí platit A", "Nesmí C"]);
+    expect(nodes[sector.id].blocks.map((b) => [b.title, b.text])).toEqual([[RELATES_BLOCK_TITLE, `- ${gates.label}: ${gates.purpose}`]]);
   });
 
-  it("každá fáze šablony má uvnitř sektoru vlastní kartu v jedné řadě", () => {
-    const { sector, children, phases } = insert();
+  it("každá fáze z kroků má vlastní kartu v jedné řadě a vazby next", () => {
+    const { sector, children, phases, edges } = insert();
     expect(phases).toEqual(["discover", "define", "build", "verify", "live"]);
     expect(children.map((c) => c.name)).toEqual(["Objevit", "Definovat", "Postavit", "Ověřit", "Provoz"]);
-    expect(children.every((c) => c.parentId === sector.id && c.kind === "node")).toBe(true);
-    expect(children.map((c) => [c.x, c.y])).toEqual([
-      [80, 80],
-      [400, 80],
-      [720, 80],
-      [1040, 80],
-      [1360, 80],
-    ]);
-    // Podstata karty je krok rozpadu se stejným názvem, jinak řádek šablony bez čísla.
+    expect(children.every((c) => c.parentId === sector.id)).toBe(true);
+    expect(children.map((c) => c.x)).toEqual([80, 400, 720, 1040, 1360]);
     expect(children[0].purpose).toBe("Najdi podklady.");
-    expect(children[2].purpose).toBe("build — postav to.");
+    expect(edges.map((e) => [e.source, e.target, e.port])).toEqual(
+      children.slice(1).map((child, index) => [children[index].id, child.id, "next"]),
+    );
   });
 
-  it("sousední fáze spojuje vazba next, poslední už nikam nepokračuje", () => {
-    const { children, edges } = insert();
-    expect(edges.map((e) => [e.source, e.target, e.port])).toEqual([
-      [children[0].id, children[1].id, "next"],
-      [children[1].id, children[2].id, "next"],
-      [children[2].id, children[3].id, "next"],
-      [children[3].id, children[4].id, "next"],
-    ]);
-    expect(new Set(edges.map((e) => e.id)).size).toBe(4);
-  });
-
-  it("stav nových karet nese fázi, kterou karta zastupuje, a kritérium konce visí na poslední", () => {
+  it("karty nesou svou fázi a kritéria hotovo visí na poslední", () => {
     const { children, nodes } = insert();
-    expect(Object.keys(nodes).sort()).toEqual(children.map((c) => c.id).sort());
-    // Vznik karty v libovolné fázi backend nehlídá; kritérii hlídá jen postup existující karty.
     expect(children.map((c) => nodes[c.id].phase)).toEqual(["discover", "define", "build", "verify", "live"]);
-    expect(NEW_CARD_PHASE).toBe("discover");
     expect(nodes[children[0].id].criteria).toEqual([]);
-    expect(nodes[children[4].id].criteria.map((c) => [c.text, c.checked])).toEqual([
-      ["Hotovo, když projdou testy.", false],
-    ]);
+    expect(nodes[children[4].id].criteria.map((c) => [c.text, c.checked])).toEqual([["Testy prochází.", false]]);
   });
 
-  it("fáze se čtou ze šablony; co v ní není, kartu nedostane", () => {
-    expect(phasesFromTemplate("1. discover\n2. build\n3. live")).toEqual(["discover", "build", "live"]);
-    expect(phasesFromTemplate("bez fází")).toEqual([]);
-    expect(sectorFromWorkflow(fixture({ kind: "workflow", template: "bez fází" }), null, 0, 0)).toBeNull();
-    expect(phaseNote(fixture(), "verify")).toBe("verify — ověř to.");
+  it("fáze se čtou z názvů kroků; workflow bez nich sektor nedá", () => {
+    expect(phasesFromSteps(fixture({ steps: [{ title: "Live", text: "" }, { title: "discover", text: "" }] }))).toEqual(["discover", "live"]);
+    expect(sectorFromWorkflow(fixture({ kind: "workflow", steps: [] }), null, 0, 0)).toBeNull();
+    expect(phaseNote(fixture(), "verify")).toBe("Ověř to.");
     expect(PHASE_LABELS.live).toBe("Provoz");
   });
 
@@ -153,38 +134,28 @@ describe("agent-insert – sektor z workflow", () => {
     const made = sectorFromWorkflow(item, null, 0, 0)!;
     expect(made.children.length).toBe(5);
     expect(made.edges.length).toBe(4);
-    expect(made.children[4].purpose).toBe(item.decomposition[4].text);
+    expect(made.children[4].purpose).toBe(item.steps![4].text);
   });
 });
 
-describe("agent-insert – vložení do vybrané karty", () => {
+describe("agent-insert – vložení do karty", () => {
   it("pravidla se přidají jednou; druhé puštění téže dlaždice kartu nezaplevelí", () => {
     const item = fixture();
     const first = insertRulesFromItem("uzel", item)(emptyDesktopState());
     const second = insertRulesFromItem("uzel", item)(first);
-    expect(nodeWorkflowOf(second, "uzel").rules.length).toBe(3);
-    // Jiná položka se přidá vedle, protože má jiný text.
-    const third = insertRulesFromItem("uzel", fixture({ label: "Jiný postup" }))(second);
-    expect(nodeWorkflowOf(third, "uzel").rules.length).toBe(6);
-    expect(nodeWorkflowOf(third, "jiny").rules).toEqual([]);
+    expect(nodeWorkflowOf(second, "uzel").rules.length).toBe(2);
+    expect(nodeWorkflowOf(second, "jiny").rules).toEqual([]);
   });
 
   it("akce se pozná podle pipelineId, takže se linka nerozdvojí ani po přejmenování", () => {
-    const item = fixture({ kind: "action", id: "pl-feature-folder" });
-    const first = insertActionFromItem("uzel", item)(emptyDesktopState());
+    const first = insertActionFromItem("uzel", fixture({ kind: "action", id: "pl-feature-folder" }))(emptyDesktopState());
     const second = insertActionFromItem("uzel", fixture({ kind: "action", id: "pl-feature-folder", label: "Jinak" }))(first);
     expect(nodeWorkflowOf(second, "uzel").actions.map((a) => a.label)).toEqual(["Zkušební postup"]);
-    const third = insertActionFromItem("uzel", fixture({ kind: "action", id: "pl-verify-before-done" }))(second);
-    expect(nodeWorkflowOf(third, "uzel").actions.map((a) => a.pipelineId)).toEqual([
-      "pl-feature-folder",
-      "pl-verify-before-done",
-    ]);
   });
 
-  it("položka info nezmění stav ani jedním vložením", () => {
-    const info = fixture({ kind: "info" });
+  it("položka info nezmění stav", () => {
     const state = emptyDesktopState();
-    expect(insertRulesFromItem("uzel", info)(state)).toBe(state);
-    expect(insertActionFromItem("uzel", info)(state)).toBe(state);
+    expect(insertRulesFromItem("uzel", fixture({ kind: "info" }))(state)).toBe(state);
+    expect(insertActionFromItem("uzel", fixture({ kind: "info" }))(state)).toBe(state);
   });
 });

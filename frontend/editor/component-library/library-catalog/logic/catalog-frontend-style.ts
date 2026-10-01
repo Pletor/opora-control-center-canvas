@@ -1,5 +1,5 @@
-// Kategorie Frontend – CSS a styl (blok 3 sektoru). Šablony tady jsou zároveň důkaz: lint katalogu
-// nad nimi hlídá, že px zůstalo jen na lince, rámu, obrysu, stínu a ikoně a že se selektory nevnořují.
+// Kategorie Frontend – CSS a styl. Šablony jsou zároveň důkaz: `catalogLint` nad nimi hlídá, že px
+// zůstalo jen na lince, rámu, obrysu, stínu a ikoně a že se selektory nevnořují. Tvar prvku: library-catalog.ts.
 import type { CatalogItem } from "./library-catalog";
 
 export const frontendStyleItems: CatalogItem[] = [
@@ -7,22 +7,13 @@ export const frontendStyleItems: CatalogItem[] = [
     id: "css-reset-global",
     category: "fe-css",
     label: "Reset a globální nastavení",
-    hint: "Jednou pro aplikaci: box-sizing, rytmus, barevné schéma z tokenů",
-    icon: "◻",
-    kind: "block",
-    rules: {
-      must: [
-        "Reset je jeden soubor pro celou aplikaci, načtený nejdřív.",
-        "Barvy a rytmus jen přes proměnné z design-tokens.",
-        "Základní velikost písma v rem, aby se dala zvětšit v prohlížeči.",
-      ],
-      mustNot: ["Žádné !important a žádné pevné rozměry v px.", "Reset nesmí stylovat konkrétní blok."],
-    },
-    decomposition: [
-      { title: "Kořen", text: "box-sizing, color-scheme, barva pozadí a inkoustu z tokenů." },
-      { title: "Typografie", text: "Rodina písma a základní řádkování; velikosti v rem." },
-      { title: "Média", text: "img a svg se vejdou do rodiče (max-width: 100%)." },
+    purpose: "Jeden soubor pro celou aplikaci: box-sizing, barevné schéma a písmo z tokenů.",
+    relates: ["@css-type-scale", "Barvy a rytmus berou proměnné z design-tokens."],
+    done: [
+      "Reset se načítá jako první a nestyluje žádný konkrétní blok.",
+      "Základní písmo je v rem.",
     ],
+    invariants: [],
     template: [
       "*, *::before, *::after { box-sizing: border-box; }",
       "body {",
@@ -38,22 +29,13 @@ export const frontendStyleItems: CatalogItem[] = [
     id: "css-type-scale",
     category: "fe-css",
     label: "Typografická škála v rem",
-    hint: "Pět kroků od drobného popisku po titulek, všechny odvozené od kořene",
-    icon: "Aa",
-    kind: "block",
-    rules: {
-      must: [
-        "Každý krok škály je proměnná v rem.",
-        "Odsazení vázané na písmo se měří v em.",
-        "Titulek i popisek berou velikost ze škály, ne z čísla v dílku.",
-      ],
-      mustNot: ["Žádná velikost písma v px.", "Žádná škála duplikovaná ve feature složce."],
-    },
-    decomposition: [
-      { title: "Tokeny", text: "--fs-1 až --fs-5 v rem na kořeni aplikace." },
-      { title: "Použití", text: "Blok sahá jen po tokenu, nikdy po konkrétním čísle." },
-      { title: "Hustota", text: "Volba hustoty mění tokeny, ne jednotlivé bloky." },
+    purpose: "Pět velikostí písma jako proměnné v rem na kořeni; bloky berou jen tokeny.",
+    relates: ["@css-reset-global", "Volba hustoty mění tokeny, ne jednotlivé bloky."],
+    done: [
+      "--fs-1 až --fs-5 jsou v rem na :root.",
+      "Žádný blok nemá velikost písma číslem.",
     ],
+    invariants: [],
     template: [
       ":root {",
       "  --fs-1: 0.75rem;",
@@ -69,22 +51,13 @@ export const frontendStyleItems: CatalogItem[] = [
     id: "css-grid-responsive",
     category: "fe-css",
     label: "Responzivní mřížka Grid",
-    hint: "Plošné rozvržení: sloupce se skládají samy podle místa",
-    icon: "▤",
-    kind: "block",
-    rules: {
-      must: [
-        "Grid pro plošné rozvržení (řádky i sloupce naráz).",
-        "Mobile-first: základ je jeden sloupec, breakpoint přidává.",
-        "Mezery v rem, šířky v %, minmax nebo fr.",
-      ],
-      mustNot: ["Žádné pevné šířky sloupců v px.", "Žádné vnoření selektorů přes tři úrovně."],
-    },
-    decomposition: [
-      { title: "Kontejner", text: "display: grid a mezera z tokenu." },
-      { title: "Sloupce", text: "repeat(auto-fit, minmax(…, 1fr)) místo pevného počtu." },
-      { title: "Breakpoint", text: "Media query z tokenů mění jen počet sloupců." },
+    purpose: "Plošné rozvržení, kde se sloupce skládají podle místa; základ je jeden sloupec.",
+    relates: ["@css-flex-row", "@css-container-query"],
+    done: [
+      "Na úzké obrazovce je jeden sloupec a stránka nemá vodorovný posuvník.",
+      "Šířky sloupců jsou fr/minmax/%, mezery v rem.",
     ],
+    invariants: [],
     template: [
       ".seznam {",
       "  display: grid;",
@@ -100,23 +73,13 @@ export const frontendStyleItems: CatalogItem[] = [
     id: "css-flex-row",
     category: "fe-css",
     label: "Řádek Flex",
-    hint: "Jedna řada prvků: zarovnání, mezera a zalomení, když dojde místo",
-    icon: "≡",
-    kind: "block",
-    rules: {
-      must: [
-        "Flex pro řádek a zarovnání, Grid pro plochu.",
-        "Mezera přes gap, ne přes margin sousedů.",
-        "Prvek, který má růst, dostane flex: 1 a min-width: 0.",
-        "Mezera i vnitřní odsazení v rem, aby rostly s textem.",
-      ],
-      mustNot: ["Žádné float a žádné rozměry v px.", "Žádné zarovnání přes prázdné elementy."],
-    },
-    decomposition: [
-      { title: "Řádek", text: "display: flex, align-items a gap z tokenu." },
-      { title: "Pružný prvek", text: "flex: 1 s min-width: 0, aby text mohl zkrátit." },
-      { title: "Zalomení", text: "flex-wrap: wrap drží řádek čitelný na úzké obrazovce." },
+    purpose: "Jedna řada prvků se zarovnáním, mezerou přes gap a zalomením, když dojde místo.",
+    relates: ["@css-grid-responsive"],
+    done: [
+      "Pružný prvek má flex: 1 a min-width: 0, takže dlouhý text řádek nerozbije.",
+      "Mezery jsou přes gap v rem.",
     ],
+    invariants: [],
     template: [
       ".hlavicka {",
       "  display: flex;",
@@ -131,22 +94,13 @@ export const frontendStyleItems: CatalogItem[] = [
     id: "css-container-query",
     category: "fe-css",
     label: "Container query dílku",
-    hint: "Dílek se řídí místem, které dostal, ne šířkou okna",
-    icon: "❐",
-    kind: "block",
-    rules: {
-      must: [
-        "Dílek, který se používá ve více místech, reaguje na kontejner.",
-        "container-type: inline-size na obalu dílku.",
-        "Prahy v rem, aby šly s velikostí písma.",
-      ],
-      mustNot: ["Žádné media query kvůli místu uvnitř panelu.", "Žádné měření šířky v JavaScriptu kvůli stylu."],
-    },
-    decomposition: [
-      { title: "Obal", text: "Nese container-type a jméno kontejneru." },
-      { title: "Dílek", text: "Základní podoba pro úzké místo." },
-      { title: "Práh", text: "@container mění rozvržení, ne barvy." },
+    purpose: "Dílek použitý na více místech se řídí šířkou svého kontejneru, ne okna.",
+    relates: ["@css-grid-responsive", "@fe-parent-composes"],
+    done: [
+      "Obal nese container-type: inline-size a práh je v rem.",
+      "Dílek vypadá správně v úzkém panelu i na široké ploše.",
     ],
+    invariants: [],
     template: [
       ".dlazdice-obal {",
       "  container-type: inline-size;",
@@ -162,26 +116,13 @@ export const frontendStyleItems: CatalogItem[] = [
     id: "css-bem-block",
     category: "fe-css",
     label: "BEM blok s příběhovým komentářem",
-    hint: "blok__prvek--varianta a komentář, který vypráví, co uživatel vidí",
-    icon: "❝",
-    kind: "block",
-    rules: {
-      must: [
-        "Blok = feature složka, prvek = blok__prvek, varianta = blok__prvek--stav.",
-        "Každý blok v souboru začíná příběhovým komentářem.",
-        "px jen na 1px linku, rám, obrys a stín; ikona se vejde do 24.",
-        "Rozměry a mezery bloku v rem nebo em, aby rostly s textem.",
-      ],
-      mustNot: [
-        "Žádné selektory na holé značky uvnitř bloku (p, li, strong).",
-        "Žádné vnoření přes tři úrovně a žádný !important.",
-      ],
-    },
-    decomposition: [
-      { title: "Komentář", text: "Co uživatel vidí a proč: rytmus, poměr, chování." },
-      { title: "Blok", text: "Rozvržení a rám celku." },
-      { title: "Prvek a varianta", text: "Části bloku a jejich stavy, každá vlastní třídou." },
+    purpose: "Třídy blok__prvek--varianta, blok = feature složka, a nad blokem komentář o tom, co uživatel vidí a proč.",
+    relates: ["@fe-parent-composes", "Pravidla stylu: sekce „Styl na dílek“ v docs/pravidla-struktury.md."],
+    done: [
+      "catalogLint nehlásí px mimo linku/rám/stín/ikonu, vnoření přes tři úrovně, !important ani #id.",
+      "Každý blok v souboru začíná příběhovým komentářem.",
     ],
+    invariants: [],
     template: [
       "/* Dlaždice knihovny: čtvereček s ikonou a popiskem, pod ním tichá řádka rozpadu.",
       "   Táhne se myší na plátno, proto má kurzor grab a při tažení zesvětlá. */",
