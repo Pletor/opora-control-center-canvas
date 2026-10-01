@@ -15,14 +15,16 @@ from pathlib import Path
 
 from backend.integrations.windows_job import WindowsJob
 from backend.paths import GRAPHIFY_VENV
+from backend.project.maps.map_artifacts import FILES, ArtifactUnavailable, main_project_root
 from backend.project.maps.map_artifacts import LOCK as PUBLISH_LOCK
-from backend.project.maps.map_artifacts import ArtifactUnavailable, main_project_root
+from backend.project.maps.map_git_exclude import ensure_excluded
 from backend.project.workspace.workspace_sources import reparse
 
 # Nejvýše jeden dražší parser na proces serveru; žádný placený model.
 GATE = threading.Lock()
 
-PUBLIC_FILES = ('graph.json', 'graph.html', 'GRAPH_REPORT.md')
+# Soubory z původního CLI; `opora-receipt.json` k nim doplní aplikace (FILES['graphify']).
+PUBLIC_FILES = tuple(name for name in FILES['graphify'] if name != 'opora-receipt.json')
 
 
 def writable(root, relative):
@@ -141,11 +143,13 @@ def generate_graph(service, project):
                 receipt['corpus'] = json.loads(log.splitlines()[0])
                 payloads['opora-receipt.json'] = json.dumps(receipt, ensure_ascii=False).encode('utf-8')
                 # Veřejné bajty zůstávají přesně tak, jak je vygenerovalo původní CLI.
+                # Stejná stabilní sada a stejný atomický zápis jako automatika (docs/mapy-projektu.md).
                 with PUBLISH_LOCK:
-                    for name, data in payloads.items():
+                    ensure_excluded(root, 'graphify-out')
+                    for name in FILES['graphify']:
                         destination = writable(root, 'graphify-out/' + name)
-                        temporary = writable(root, 'graphify-out/opora-' + name + '.tmp')
-                        temporary.write_bytes(data)
+                        temporary = writable(root, 'graphify-out/' + name + '.tmp')
+                        temporary.write_bytes(payloads[name])
                         writable(root, 'graphify-out/' + name)
                         os.replace(temporary, destination)
     finally:

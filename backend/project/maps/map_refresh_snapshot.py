@@ -8,8 +8,9 @@ from pathlib import Path, PurePosixPath
 
 from backend.integrations.gitio import git
 
-EXCLUDED = {'.git', '.opora', '.opora-map-refresh', '.claude', '.agents', '.worktrees', '.data',
-            'vendor', 'node_modules', 'dist', 'build', 'graphify-out', 'evidence', 'test-results'}
+# Mapy samotné do snapshotu nepatří: `graphify-out/` ani `archify-out/` nejsou zdroj.
+EXCLUDED = {'.git', '.opora', '.claude', '.agents', '.worktrees', '.data', 'vendor', 'node_modules',
+            'dist', 'build', 'graphify-out', 'archify-out', 'evidence', 'test-results'}
 EXTENSIONS = {'.py', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.toml', '.yaml', '.yml',
               '.md', '.sql', '.go', '.rs', '.java', '.cs', '.c', '.cpp', '.h', '.html', '.css', '.vue', '.svelte'}
 OMITTED_NAMES = {'claude.md', 'agents.md', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock',

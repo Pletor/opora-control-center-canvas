@@ -18,6 +18,8 @@ MAX_TURNS = 10
 MAX_AGENT_BYTES = 512 * 1024
 MAX_SPEC_BYTES = 512 * 1024
 REVISION = re.compile(r"^[a-f0-9]{40}$")
+SESSION = re.compile(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}")
+MAX_DIAGNOSTICS = 10
 SAFE_EVIDENCE_PATH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/ -]{0,239}$")
 FILES = {
     "candidate": "map.architecture.json",
@@ -32,6 +34,56 @@ FILES = {
 
 class ArchifyBuildError(ValueError):
     """A safe, publishable-to-users failure from the private build boundary."""
+
+
+class ArchifyValidationError(ArchifyBuildError):
+    """The candidate itself was rejected; diagnostics allow one repair round."""
+
+    def __init__(self, message, diagnostics=()):
+        super().__init__(message)
+        self.diagnostics = list(diagnostics)
+
+
+def _finding_text(item):
+    if isinstance(item, str):
+        text = item
+    elif isinstance(item, dict):
+        code, message = item.get("code"), item.get("message")
+        if not isinstance(message, str) or not message:
+            rest = {k: v for k, v in item.items() if k not in ("code", "severity", "message")}
+            message = f"{item.get('severity', 'issue')}: {json.dumps(rest, ensure_ascii=False)}"
+        fixes = item.get("supportedFixes")
+        if isinstance(fixes, list) and fixes and str(fixes[0]) not in message:
+            message += " — " + "; ".join(str(fix) for fix in fixes)
+        text = message if not code or message.startswith("[") else f"[{code}] {message}"
+    else:
+        return None
+    return text[:400]
+
+
+def _findings(items):
+    """Errors first, bounded, as plain strings safe to show and to feed back."""
+    if not isinstance(items, list):
+        return []
+    ordered = sorted(items, key=lambda item: not (isinstance(item, dict) and item.get("severity") == "error"))
+    return [text for text in map(_finding_text, ordered) if text][:MAX_DIAGNOSTICS]
+
+
+def _receipt_findings(receipt):
+    composition, checks = receipt.get("composition"), receipt.get("checks")
+    failed = [
+        {"code": f"check/{item.get('name')}", "severity": "error",
+         "message": "; ".join(str(detail) for detail in item.get("details") or []) or None}
+        for item in checks if isinstance(item, dict) and not item.get("ok")
+    ] if isinstance(checks, list) else []
+    issues = composition.get("issues") if isinstance(composition, dict) else None
+    diagnostics = receipt.get("diagnostics")
+    return _findings([*(diagnostics if isinstance(diagnostics, list) else []),
+                      *(issues if isinstance(issues, list) else []), *failed])
+
+
+def _with_first(prefix, diagnostics):
+    return f"{prefix}: {diagnostics[0][:300]}" if diagnostics else prefix
 
 
 def _cancelled(cancel):
@@ -60,6 +112,20 @@ def _safe_node_env():
     env = {name: os.environ[name] for name in names if os.environ.get(name)}
     env["NO_COLOR"] = "1"
     return env
+
+
+def _node_executable():
+    """First real node on PATH; version-manager shims fail under the stripped env."""
+    names = ("node.exe", "node") if os.name == "nt" else ("node",)
+    for entry in os.environ.get("PATH", "").split(os.pathsep):
+        entry = entry.strip().strip('"')
+        if not entry or any(part.lower() == "shims" for part in Path(entry).parts):
+            continue
+        for name in names:
+            candidate = Path(entry) / name
+            if candidate.is_file():
+                return str(candidate)
+    return None
 
 
 def _terminate(process, job):
@@ -126,6 +192,10 @@ def _run_process(command, *, cwd, env, deadline, cancel, stdin=None):
             if Path(command[0]).name.lower().startswith('claude') and envelope.get('subtype') == 'error_max_turns':
                 return stdout.decode('utf-8')
             stage = 'Claude' if Path(command[0]).name.lower().startswith('claude') else 'Archify ' + str(command[2])
+            diagnostics = [] if stage == 'Claude' else _findings(envelope.get('diagnostics'))
+            if diagnostics:
+                raise ArchifyValidationError(
+                    _with_first(f'{stage} nedokončil běh (exit {process.returncode})', diagnostics), diagnostics)
             reason = envelope.get('subtype', 'nonzero_exit')
             raise ArchifyBuildError(f'{stage} nedokončil běh (exit {process.returncode}, {reason}).')
         return stdout.decode("utf-8", errors="strict")
@@ -221,22 +291,61 @@ def _json_object(raw, label):
     return value
 
 
+def _preview(raw, limit):
+    return " ".join(str(raw if raw is not None else "").split())[:limit]
+
+
+def _claude_envelope(raw):
+    """Claude Code CLI stdout must be one JSON object; otherwise nothing is repairable."""
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        value = None
+    if not isinstance(value, dict):
+        raise ArchifyBuildError(f"Claude Code nevrátil JSON obálku: {_preview(raw, 200)}")
+    return value
+
+
+def _content_object(content):
+    """The reply as a JSON object: bare, inside any ``` fence, or between the outer braces."""
+    text = content.strip()
+    attempts = [text]
+    fence = re.search(r"```[A-Za-z0-9_-]*[ \t]*\n?(.*?)```", text, re.S)
+    if fence:
+        attempts.append(fence.group(1).strip())
+    start, end = text.find("{"), text.rfind("}")
+    if 0 <= start < end:
+        attempts.append(text[start:end + 1])
+    for attempt in attempts:
+        try:
+            value = json.loads(attempt)
+        except ValueError:
+            continue
+        if isinstance(value, dict):
+            return value
+    return None
+
+
 def _agent_payload(raw):
-    envelope = _json_object(raw, "Claude")
+    envelope = _claude_envelope(raw)
     content = envelope.get("result", raw)
     if not isinstance(content, str) or len(content.encode("utf-8")) > MAX_AGENT_BYTES:
         raise ArchifyBuildError("Claude neposkytl bezpečný návrh Archify.")
-    if content.strip().startswith('```json\n') and content.strip().endswith('\n```'):
-        content = content.strip()[8:-4]
-    payload = _json_object(content, "Claude")
-    if set(payload) != {"candidate", "specification", "evidence"}:
-        raise ArchifyBuildError("Claude neposkytl očekávanou strukturu návrhu Archify.")
-    if not isinstance(payload["candidate"], dict) or not isinstance(payload["specification"], str):
-        raise ArchifyBuildError("Claude neposkytl kandidáta a specifikaci Archify.")
-    if len(payload["specification"].encode("utf-8")) > MAX_SPEC_BYTES or not isinstance(
-        payload["evidence"], list
+    payload = _content_object(content)
+    if (
+        payload is None
+        or set(payload) != {"candidate", "specification", "evidence"}
+        or not isinstance(payload["candidate"], dict)
+        or not isinstance(payload["specification"], str)
+        or not isinstance(payload["evidence"], list)
     ):
-        raise ArchifyBuildError("Claude poskytl příliš velký nebo neplatný důkaz Archify.")
+        diagnostics = ["[agent/json] Odpověď nebyla jeden JSON objekt s klíči candidate, specification, "
+                       f"evidence (candidate objekt, specification text, evidence seznam); začátek odpovědi: "
+                       f"{_preview(content, 120)!r}"]
+        raise ArchifyValidationError(_with_first("Claude neposkytl platný návrh Archify", diagnostics),
+                                     diagnostics)
+    if len(payload["specification"].encode("utf-8")) > MAX_SPEC_BYTES:
+        raise ArchifyBuildError("Claude poskytl příliš velkou specifikaci Archify.")
     return payload
 
 
@@ -291,7 +400,13 @@ def _validate_evidence(source_root, candidate, evidence):
         except (OSError, UnicodeError) as exc:
             raise ArchifyBuildError("Důkaz Archify nelze bezpečně přečíst.") from exc
         if item["line"] > len(lines) or item["identifier"] not in lines[item["line"] - 1]:
-            raise ArchifyBuildError("Důkaz Archify neodpovídá cestě, řádku nebo identifikátoru.")
+            found = ("řádek neexistuje" if item["line"] > len(lines)
+                     else f"řádek je {lines[item['line'] - 1].strip()[:160]!r}")
+            diagnostics = [f"[evidence/mismatch] {item['path']}:{item['line']} neobsahuje "
+                           f"identifikátor {item['identifier'][:120]!r} ({found})."]
+            raise ArchifyValidationError(
+                _with_first("Důkaz Archify neodpovídá cestě, řádku nebo identifikátoru", diagnostics),
+                diagnostics)
         pairs.add((item["path"], item["line"]))
     if not pairs:
         raise ArchifyBuildError("Kandidát Archify nemá žádný ověřený důkaz.")
@@ -304,12 +419,20 @@ def _validate_evidence(source_root, candidate, evidence):
                 not isinstance(source, dict)
                 or (source.get("path"), source.get("line")) not in pairs
             ):
-                raise ArchifyBuildError("Zdroj komponenty Archify nemá ověřený důkaz.")
+                where = (f"{source.get('path')}:{source.get('line')}" if isinstance(source, dict)
+                         else "neplatný zdroj")
+                diagnostics = [f"[evidence/component-source] Komponenta {str(component.get('id'))[:80]!r} "
+                               f"odkazuje na {where[:200]}, které v evidence chybí."]
+                raise ArchifyValidationError(
+                    _with_first("Zdroj komponenty Archify nemá ověřený důkaz", diagnostics), diagnostics)
 
 
 def _parse_receipt(raw, command):
     receipt = _json_object(raw, "Původní Archify CLI")
     if receipt.get("ok") is not True or receipt.get("command") != command:
+        diagnostics = _receipt_findings(receipt)
+        if diagnostics:
+            raise ArchifyValidationError(_with_first(f"Původní Archify {command} selhal", diagnostics), diagnostics)
         raise ArchifyBuildError(f"Původní Archify {command} selhal.")
     return receipt
 
@@ -343,9 +466,11 @@ def _validation_summary(receipt):
         result.get("errors"),
         result.get("warnings"),
     ) != (9, 9, "showcase", 0, 0):
-        raise ArchifyBuildError(
-            "Původní Archify neprokázal 9 showcase kontrol bez chyb a varování."
-        )
+        prefix = "Původní Archify neprokázal 9 showcase kontrol bez chyb a varování"
+        diagnostics = _receipt_findings(receipt)
+        if diagnostics:
+            raise ArchifyValidationError(_with_first(prefix, diagnostics), diagnostics)
+        raise ArchifyBuildError(prefix + ".")
     return result
 
 
@@ -369,23 +494,84 @@ def _copy_staged(stage, output_root):
     stage.replace(output_root)
 
 
+def _session_id(envelope):
+    session = envelope.get('session_id')
+    return session if isinstance(session, str) and SESSION.fullmatch(session) else None
+
+
+def _resume_command(session):
+    """One tools-disabled turn in the same Claude session."""
+    final = _claude_command()
+    final[final.index('--max-turns') + 1] = '1'
+    final[final.index('--tools') + 1] = ''
+    final[final.index('--allowedTools') + 1] = ''
+    return final + ['--resume', session, '--disable-slash-commands']
+
+
+def _repair_prompt(diagnostics):
+    listed = "\n".join(f"- {item}" for item in diagnostics)
+    return f"""The caller's validation REJECTED your previous reply. No tools are available now.
+Diagnostics:
+{listed}
+
+Emit a COMPLETE corrected JSON object with exactly the keys candidate, specification, evidence, fixing every diagnostic.
+Same rules as before: the candidate MUST be renderable (EVERY component has numeric pos [x,y] and size [w,h], plus a fitting meta.viewBox), no meta.repository, evidence items have exactly path, line, identifier and that exact identifier occurs on that exact line, and every component source path+line occurs in evidence. Keep only evidence you already read; drop a claim rather than invent one.
+No Markdown fences, no plan, no requests for tools."""
+
+
+def _repair(agent_raw, error, source_root, *, deadline, cancel):
+    """Exactly one tools-free correction of a rejected reply; returns raw CLI stdout or the original error."""
+    try:
+        session = _session_id(_claude_envelope(agent_raw))
+    except ArchifyBuildError:
+        session = None
+    if not session or not error.diagnostics:
+        raise error
+    raw = _run_process(_resume_command(session), cwd=source_root, env=os.environ.copy(),
+                       deadline=deadline, cancel=cancel, stdin=_repair_prompt(error.diagnostics))
+    return raw
+
+
+def _native_cli():
+    node = _node_executable()
+    cli = REPO_ROOT / "vendor" / "archify" / "archify" / "bin" / "archify.mjs"
+    if not node or not cli.is_file():
+        raise ArchifyBuildError("Původní Node CLI Archify není dostupné.")
+    return [node, str(cli)]
+
+
+def _check_candidate(source_root, stage, payload, *, deadline, cancel):
+    """Local evidence, then strict native validate; returns receipt, summary and CLI prefix."""
+    _validate_evidence(source_root, payload["candidate"], payload["evidence"])
+    candidate_text = json.dumps(_render_candidate(payload["candidate"]), ensure_ascii=False, indent=2) + "\n"
+    (stage / FILES["candidate"]).write_text(candidate_text, encoding="utf-8")
+    common = _native_cli()
+    validate = _parse_receipt(
+        _run_process(
+            [*common, "validate", "architecture", FILES["candidate"], "--quality", "showcase",
+             "--repo-root", str(source_root), "--json"],
+            cwd=stage,
+            env=_safe_node_env(),
+            deadline=deadline,
+            cancel=cancel,
+        ),
+        "validate",
+    )
+    return validate, _validation_summary(validate), common
+
+
 def _author(source_root, source_revision, *, deadline, cancel):
     command = _claude_command()
     command[command.index('--max-turns') + 1] = '6'
     raw = _run_process(command, cwd=source_root, env=os.environ.copy(), deadline=deadline,
                        cancel=cancel, stdin=_prompt(source_revision))
-    envelope = _json_object(raw, 'Claude')
+    envelope = _claude_envelope(raw)
     if envelope.get('subtype') != 'error_max_turns':
         return raw
-    session = envelope.get('session_id')
-    if not isinstance(session, str) or not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', session):
+    session = _session_id(envelope)
+    if not session:
         raise ArchifyBuildError('Claude neposkytl bezpečný identifikátor pokračování.')
-    final = _claude_command()
-    final[final.index('--max-turns') + 1] = '1'
-    final[final.index('--tools') + 1] = ''
-    final[final.index('--allowedTools') + 1] = ''
-    final += ['--resume', session, '--disable-slash-commands']
-    return _run_process(final, cwd=source_root, env=os.environ.copy(), deadline=deadline,
+    return _run_process(_resume_command(session), cwd=source_root, env=os.environ.copy(), deadline=deadline,
                         cancel=cancel, stdin='Exploration is complete. No tools are available now. Emit the final JSON object with candidate, specification, evidence immediately. The candidate MUST be renderable: EVERY component needs explicit numeric pos [x,y] and size [w,h], plus a fitting meta.viewBox, as in the original example. Automatic routes do not place nodes. Prefer 6-8 well-spaced primary components with sparse links and local sources. No invented public meta.repository. Preserve evidence already read. No Markdown fences, no further plan, no requests for tools.')
 
 
@@ -414,44 +600,18 @@ def build_archify(
     stage = Path(tempfile.mkdtemp(prefix="archify-private-", dir=output_root.parent))
     try:
         agent_raw = _author(source_root, source_revision, deadline=deadline, cancel=cancel)
-        payload = _agent_payload(agent_raw)
-        _validate_evidence(source_root, payload["candidate"], payload["evidence"])
-        candidate_text = json.dumps(_render_candidate(payload["candidate"]), ensure_ascii=False, indent=2) + "\n"
+        bounds = {"deadline": deadline, "cancel": cancel}
+        try:
+            payload = _agent_payload(agent_raw)
+            validate, summary, common = _check_candidate(source_root, stage, payload, **bounds)
+        except ArchifyValidationError as error:
+            repaired = _repair(agent_raw, error, source_root, **bounds)
+            try:
+                payload = _agent_payload(repaired)
+                validate, summary, common = _check_candidate(source_root, stage, payload, **bounds)
+            except ArchifyValidationError as again:
+                raise ArchifyValidationError("Po opravě: " + str(again), again.diagnostics) from again
         candidate = stage / FILES["candidate"]
-        candidate.write_text(candidate_text, encoding="utf-8")
-        node = shutil.which("node")
-        cli = (
-            REPO_ROOT
-            / "vendor"
-            / "archify"
-            / "archify"
-            / "bin"
-            / "archify.mjs"
-        )
-        if not node or not cli.is_file():
-            raise ArchifyBuildError("Původní Node CLI Archify není dostupné.")
-        common = [node, str(cli)]
-        validate = _parse_receipt(
-            _run_process(
-                [
-                    *common,
-                    "validate",
-                    "architecture",
-                    FILES["candidate"],
-                    "--quality",
-                    "showcase",
-                    "--repo-root",
-                    str(source_root),
-                    "--json",
-                ],
-                cwd=stage,
-                env=_safe_node_env(),
-                deadline=deadline,
-                cancel=cancel,
-            ),
-            "validate",
-        )
-        summary = _validation_summary(validate)
         _write_json(stage / FILES["validate"], validate)
         deliver = _parse_receipt(
             _run_process(

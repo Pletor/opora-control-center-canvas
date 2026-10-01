@@ -1,4 +1,4 @@
-"""Mapa čte doručené Archify HTML hlavního projektu; nic negeneruje ani nespouští."""
+"""Mapa čte stabilní sadu Archify v `archify-out/` hlavního projektu; nic negeneruje ani nespouští."""
 
 import hashlib
 import json
@@ -11,21 +11,22 @@ from fastapi.responses import JSONResponse
 
 from backend.integrations.gitio import git
 from backend.project.maps.map_artifacts import (
+    DIRECTORIES,
     LOCK,
     ArtifactUnavailable,
-    artifact_root,
     main_project_root,
 )
 from backend.project.workspace.workspace_sources import WorkspaceSources
 
-DIRECTORY = 'docs/architecture/archify'
+DIRECTORY = DIRECTORIES['archify']
+HTML_NAME = 'map.architecture.html'
+SPEC_NAME = 'map.architecture.json'
 MAX_HTML = 4 * 1024 * 1024
 MAX_JSON = 512 * 1024
 NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$')
 
 
 def _read(sources, root, name, limit):
-    root = artifact_root(root, 'archify')
     if not isinstance(name, str) or not NAME.fullmatch(name):
         raise ArtifactUnavailable('Neplatný název souboru mapy.')
     relative = DIRECTORY + '/' + name
@@ -65,14 +66,14 @@ def _load_artifact(service, project):
     receipt = _json(_read(sources, root, 'deliver-receipt.json', MAX_JSON))
     if receipt.get('ok') is not True or receipt.get('command') != 'deliver':
         raise ArtifactUnavailable('Chybí úspěšné potvrzení doručení Archify.')
-    # Cesty z potvrzení nejsou oprávnění číst filesystem; použije se jen bezpečný basename.
+    # Cesty z potvrzení nejsou oprávnění číst filesystem; sada má pevné názvy souborů.
     output = receipt.get('output')
     input_path = receipt.get('input')
     if not isinstance(output, str) or not isinstance(input_path, str):
         raise ArtifactUnavailable('Potvrzení neuvádí soubory mapy.')
-    name, spec_name = PureWindowsPath(output).name, PureWindowsPath(input_path).name
-    if not name.endswith('.html') or not spec_name.endswith('.json'):
-        raise ArtifactUnavailable('Potvrzení neodkazuje na HTML a JSON.')
+    if PureWindowsPath(output).name != HTML_NAME or PureWindowsPath(input_path).name != SPEC_NAME:
+        raise ArtifactUnavailable('Potvrzení neodkazuje na stabilní HTML a JSON mapy.')
+    name, spec_name = HTML_NAME, SPEC_NAME
     html = _read(sources, root, name, MAX_HTML)
     specification = _read(sources, root, spec_name, MAX_JSON)
     if _digest(html) != receipt.get('artifact') or _digest(specification) != receipt.get('specification'):
@@ -105,7 +106,7 @@ def _load_artifact(service, project):
     current = git(root, 'rev-parse', 'HEAD', timeout=3, optional=True) if (root / '.git').exists() else None
     freshness = 'changed' if revision and current and revision != current else 'unknown'
     return {
-        'project': project, 'sourceRoot': str(root), 'sourcePath': (artifact_root(root, 'archify') / DIRECTORY / name).relative_to(root).as_posix(),
+        'project': project, 'sourceRoot': str(root), 'sourcePath': DIRECTORY + '/' + name,
         'fileName': name, 'specificationName': spec_name, 'html': html.decode('utf-8'),
         'specificationJson': specification.decode('utf-8'), 'specificationDocument': document,
         'artifact': _digest(html), 'specification': _digest(specification),
@@ -125,7 +126,7 @@ def create_archify_router(service):
             value = load_artifact(service, project)
             return JSONResponse(value, headers={'Cache-Control': 'no-store'})
         except FileNotFoundError:
-            return JSONResponse({'error': 'Mapa zatím chybí. Spusťte Archify nad hlavním projektem a uložte výstupy do ' + DIRECTORY + '.'}, status_code=404)
+            return JSONResponse({'error': 'Mapa zatím chybí. Vytvoří se automaticky v ' + DIRECTORY + '/; hned ji spustí volba „Aktualizovat teď“.'}, status_code=404)
         except ArtifactUnavailable as exc:
             return JSONResponse({'error': str(exc)}, status_code=409)
         except (ValueError, KeyError, OSError, UnicodeError, subprocess.SubprocessError):

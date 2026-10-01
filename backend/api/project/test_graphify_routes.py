@@ -94,3 +94,26 @@ def test_graphify_refuses_output_symlink(tmp_path):
         pytest.skip('Symlinks are unavailable to this Windows user.')
     with pytest.raises(ArtifactUnavailable):
         writable(root, 'graphify-out/graph.html')
+
+
+def test_manual_generate_writes_the_same_stable_set_atomically(tmp_path, monkeypatch):
+    import backend.project.maps.graphify_runtime as runtime
+    from backend.project.maps.map_artifacts import FILES
+    root = tmp_path / 'source'
+    (root / 'graphify-out').mkdir(parents=True)
+    (root / 'graphify-out/graph.html').write_text('previous')
+    service = SimpleNamespace(lock=threading.RLock(), project_hub=SimpleNamespace(settings=lambda project: {'project': {'sourcePath': str(root)}}))
+    def fake(source, output):
+        produced = output / 'graphify-out'
+        produced.mkdir()
+        (produced / 'graph.json').write_text(json.dumps({'nodes': [{'id': 'a'}], 'links': []}))
+        (produced / 'graph.html').write_text('<html>new</html>')
+        (produced / 'GRAPH_REPORT.md').write_text('# report')
+        (output / 'graphify.log').write_text('{"codeFiles": 1}\n')
+    monkeypatch.setattr(runtime, 'run_original', fake)
+    runtime.generate_graph(service, 'mine')
+    names = sorted(p.name for p in (root / 'graphify-out').iterdir())
+    assert names == sorted([*FILES['graphify'], 'opora-build.lock'])
+    assert (root / 'graphify-out/graph.html').read_text() == '<html>new</html>'
+    receipt = json.loads((root / 'graphify-out/opora-receipt.json').read_text())
+    assert receipt['hashes']['graph.html'] == hashlib.sha256(b'<html>new</html>').hexdigest()

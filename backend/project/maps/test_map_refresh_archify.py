@@ -197,3 +197,188 @@ def test_build_archify_refuses_nonempty_private_output(tmp_path):
     with pytest.raises(ValueError, match="prázdný"):
         subject.build_archify(source, output, "c" * 40)
     assert (output / "previous.html").read_text(encoding="utf-8") == "preserve"
+
+
+SESSION = '1538a182-cee7-44e8-bdfc-36f60e3b1fdf'
+DIAGNOSTIC = ('[composition/label-route-clearance] showcase architecture label "CachePort" '
+              'is 0px from route (minimum 4px) — adjust labelAt')
+
+
+def _snapshot(tmp_path):
+    source = tmp_path / "snapshot"
+    (source / "src").mkdir(parents=True)
+    (source / "src/app.py").write_text("# snapshot\nclass APIService: pass\n", encoding="utf-8")
+    return source
+
+
+def _envelope(payload):
+    return json.dumps({"type": "result", "session_id": SESSION, "result": payload})
+
+
+def _rejected_validate():
+    return json.dumps({"ok": False, "command": "validate", "stage": "render", "error": "render failed",
+                       "diagnostics": [{"severity": "warning", "code": "x/minor", "message": "minor"},
+                                       {"severity": "error", "code": "composition/label-route-clearance",
+                                        "message": DIAGNOSTIC}]})
+
+
+def _fake_pipeline(subject, monkeypatch, *, author, validate_results):
+    """Claude calls pop from author; validate pops from validate_results (str or exception)."""
+    html = "<!doctype html><html><body><svg></svg></body></html>"
+    calls = []
+
+    def fake_run(command, *, cwd, env, deadline, cancel, stdin=None):
+        calls.append((command, stdin))
+        if Path(command[0]).name.startswith("claude"):
+            return author.pop(0)
+        native = command[2]
+        if native == "validate":
+            result = validate_results.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+        candidate = (Path(cwd) / "map.architecture.json").read_bytes().decode("utf-8")
+        if native == "deliver":
+            (Path(cwd) / "map.architecture.html").write_text(html, encoding="utf-8")
+        return _receipt(native, candidate, html)
+
+    monkeypatch.setattr(subject, "_run_process", fake_run)
+    monkeypatch.setattr(subject, "_node_executable", lambda: "node")
+    return calls
+
+
+def test_node_executable_skips_version_manager_shims(tmp_path, monkeypatch):
+    import os
+    from backend.project.maps import map_refresh_archify as subject
+
+    shims, real = tmp_path / "mise" / "Shims", tmp_path / "nodejs"
+    for folder in (shims, real):
+        folder.mkdir(parents=True)
+        for name in ("node", "node.exe"):
+            (folder / name).write_text("", encoding="utf-8")
+    monkeypatch.setenv("PATH", os.pathsep.join([str(tmp_path / "missing"), str(shims), str(real)]))
+    assert Path(subject._node_executable()).parent == real
+    monkeypatch.setenv("PATH", str(shims))
+    assert subject._node_executable() is None
+
+
+def test_nonzero_archify_validate_reports_first_error_diagnostic(tmp_path):
+    import sys
+    from backend.project.maps import map_refresh_archify as subject
+
+    script = tmp_path / "fake.py"
+    script.write_text(f"import sys\nsys.stdout.write({_rejected_validate()!r})\nsys.exit(1)\n", encoding="utf-8")
+    with pytest.raises(subject.ArchifyValidationError) as caught:
+        subject._run_process([sys.executable, str(script), "validate"], cwd=tmp_path, env=None,
+                             deadline=subject.time.monotonic() + 30, cancel=None)
+    assert "Archify validate nedokončil běh (exit 1): [composition/label-route-clearance]" in str(caught.value)
+    assert caught.value.diagnostics == [DIAGNOSTIC, "[x/minor] minor"]
+
+
+def test_validate_failure_gets_one_repair_round(tmp_path, monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    source, output = _snapshot(tmp_path), tmp_path / "private-output"
+    payload = _envelope(_agent_output("a" * 40))
+    rejection = subject.ArchifyValidationError("Archify validate nedokončil běh (exit 1): x", [DIAGNOSTIC])
+    calls = _fake_pipeline(subject, monkeypatch, author=[payload, payload],
+                           validate_results=[rejection, _receipt("validate", "", "")])
+    result = subject.build_archify(source, output, "a" * 40)
+
+    assert result["validation"]["checksPassed"] == 9
+    assert (output / "map.architecture.html").is_file()
+    resumes = [(command, stdin) for command, stdin in calls if "--resume" in command]
+    assert len(resumes) == 1
+    command, stdin = resumes[0]
+    assert command[command.index("--resume") + 1] == SESSION
+    assert command[command.index("--tools") + 1] == "" and command[command.index("--max-turns") + 1] == "1"
+    assert DIAGNOSTIC in stdin
+
+
+def test_second_validate_failure_raises_after_repair_without_publishing(tmp_path, monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    source, output = _snapshot(tmp_path), tmp_path / "private-output"
+    payload = _envelope(_agent_output("a" * 40))
+    _fake_pipeline(subject, monkeypatch, author=[payload, payload],
+                   validate_results=[_rejected_validate(), _rejected_validate()])
+    with pytest.raises(subject.ArchifyValidationError, match="Po opravě: .*label-route-clearance") as caught:
+        subject.build_archify(source, output, "a" * 40)
+    assert caught.value.diagnostics[0] == DIAGNOSTIC
+    assert not output.exists() or not any(output.iterdir())
+    assert not list(tmp_path.glob("archify-private-*"))
+
+
+def test_evidence_mismatch_triggers_repair(tmp_path, monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    source, output = _snapshot(tmp_path), tmp_path / "private-output"
+    wrong = json.loads(_agent_output("a" * 40))
+    wrong["evidence"][0]["line"] = 1
+    calls = _fake_pipeline(subject, monkeypatch,
+                           author=[_envelope(json.dumps(wrong)), _envelope(_agent_output("a" * 40))],
+                           validate_results=[_receipt("validate", "", "")])
+    subject.build_archify(source, output, "a" * 40)
+    stdin = next(stdin for command, stdin in calls if "--resume" in command)
+    assert "src/app.py:1" in stdin and "APIService" in stdin
+    assert sum(1 for command, _ in calls if Path(command[0]).name == "node") == 3
+
+
+def test_evidence_mismatch_without_session_names_offending_item(tmp_path, monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    source, output = _snapshot(tmp_path), tmp_path / "private-output"
+    wrong = json.loads(_agent_output("a" * 40))
+    wrong["evidence"][0]["line"] = 1
+    calls = _fake_pipeline(subject, monkeypatch, author=[json.dumps(wrong)], validate_results=[])
+    with pytest.raises(subject.ArchifyValidationError, match=r"src/app\.py:1 .*'APIService'"):
+        subject.build_archify(source, output, "a" * 40)
+    assert len(calls) == 1 and not output.exists()
+
+
+def test_fenced_reply_with_prose_is_accepted(tmp_path, monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    source, output = _snapshot(tmp_path), tmp_path / "private-output"
+    reply = "Here is the map:\n```\n" + _agent_output("a" * 40) + "```\nDone."
+    calls = _fake_pipeline(subject, monkeypatch, author=[_envelope(reply)],
+                           validate_results=[_receipt("validate", "", "")])
+    subject.build_archify(source, output, "a" * 40)
+    assert (output / "map.architecture.html").is_file()
+    assert not any("--resume" in command for command, _ in calls)
+
+
+def test_prose_reply_triggers_repair_and_repaired_json_builds(tmp_path, monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    source, output = _snapshot(tmp_path), tmp_path / "private-output"
+    calls = _fake_pipeline(subject, monkeypatch,
+                           author=[_envelope("I will now produce the map."), _envelope(_agent_output("a" * 40))],
+                           validate_results=[_receipt("validate", "", "")])
+    subject.build_archify(source, output, "a" * 40)
+    assert (output / "map.architecture.html").is_file()
+    stdin = next(stdin for command, stdin in calls if "--resume" in command)
+    assert "[agent/json]" in stdin and "I will now produce the map." in stdin
+
+
+def test_invalid_envelope_is_not_repaired(tmp_path, monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    source, output = _snapshot(tmp_path), tmp_path / "private-output"
+    calls = _fake_pipeline(subject, monkeypatch, author=["Error: login\nexpired"], validate_results=[])
+    with pytest.raises(subject.ArchifyBuildError, match="Claude Code nevrátil JSON obálku: Error: login expired") as caught:
+        subject.build_archify(source, output, "a" * 40)
+    assert not isinstance(caught.value, subject.ArchifyValidationError)
+    assert len(calls) == 1 and not output.exists()
+
+
+def test_repair_reply_still_not_json_fails_without_publishing(tmp_path, monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    source, output = _snapshot(tmp_path), tmp_path / "private-output"
+    calls = _fake_pipeline(subject, monkeypatch, author=[_envelope("plan first"), _envelope("still a plan")],
+                           validate_results=[])
+    with pytest.raises(subject.ArchifyValidationError, match=r"Po opravě: .*\[agent/json\].*still a plan"):
+        subject.build_archify(source, output, "a" * 40)
+    assert sum(1 for command, _ in calls if "--resume" in command) == 1
+    assert not output.exists() and not list(tmp_path.glob("archify-private-*"))

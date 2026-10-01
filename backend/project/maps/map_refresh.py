@@ -1,4 +1,4 @@
-"""Trvalý projektový trigger změn main. Jedna fronta, žádné slučování grafů."""
+"""Trvalý projektový trigger změn main. Jedna fronta, žádné slučování grafů (docs/mapy-projektu.md)."""
 import json
 import logging
 import os
@@ -8,9 +8,18 @@ import time
 import uuid
 
 from backend.integrations.gitio import git
-from backend.project.maps.map_artifacts import main_project_root
+from backend.project.maps.map_artifacts import main_project_root, missing_tools
 
 LOGGER = logging.getLogger(__name__)
+TOOLS = ('graphify', 'archify')
+# Verze schématu fronty. 1 = automatika zapnutá bez ručního kroku; dřívější uložená 0
+# pocházela z původního výchozího stavu, proto se jednou převede na 1.
+SCHEMA_VERSION = 1
+
+
+def worker_allowed():
+    # Testy a nástroje bez serveru nastaví OPORA_MAP_REFRESH_WORKER=0; worker pak nevznikne.
+    return os.environ.get('OPORA_MAP_REFRESH_WORKER', '1') != '0'
 
 
 class MapRefresh:
@@ -26,7 +35,7 @@ class MapRefresh:
         self.db.row_factory = sqlite3.Row
         self.db.executescript('''
             CREATE TABLE IF NOT EXISTS config(id INTEGER PRIMARY KEY CHECK(id=1), enabled INTEGER NOT NULL);
-            INSERT OR IGNORE INTO config VALUES(1,0);
+            INSERT OR IGNORE INTO config VALUES(1,1);
             CREATE TABLE IF NOT EXISTS projects(
                 project TEXT PRIMARY KEY, root TEXT NOT NULL, observed TEXT NOT NULL,
                 wanted TEXT, built TEXT, status TEXT NOT NULL, phase TEXT,
@@ -43,9 +52,14 @@ class MapRefresh:
             'auto_graphify': 'INTEGER NOT NULL DEFAULT 1', 'auto_archify': 'INTEGER NOT NULL DEFAULT 1',
             'requested_tools': '''TEXT NOT NULL DEFAULT '["graphify","archify"]' ''',
             'running_tools': 'TEXT', 'built_graphify': 'TEXT', 'built_archify': 'TEXT',
+            'manual': 'INTEGER NOT NULL DEFAULT 0',
         }.items():
             if name not in columns:
                 self.db.execute(f'ALTER TABLE projects ADD COLUMN {name} {definition}')
+        if self.db.execute('PRAGMA user_version').fetchone()[0] < SCHEMA_VERSION:
+            # Jednorázově: pozdější výslovné vypnutí uživatelem už zůstane vypnuté.
+            self.db.execute('UPDATE config SET enabled=1 WHERE id=1')
+            self.db.execute(f'PRAGMA user_version={SCHEMA_VERSION}')
         self.db.commit()
 
     def enabled(self):
@@ -57,30 +71,38 @@ class MapRefresh:
             raise ValueError('Automatizace vyžaduje explicitní boolean.')
         with self.lock, self.db:
             self.db.execute('UPDATE config SET enabled=? WHERE id=1', (int(enabled),))
-        if enabled:
-            # Stávající projekty se pouze ozbrojí; zapnutí samo nespustí placené analýzy.
-            self.scan(baseline=True)
-            if start:
-                self.start()
-        else:
-            self.stop.set()
-        return {'enabled': enabled}
+        # Vypnutí worker nezastaví: dál zpracuje výslovné „Aktualizovat teď“, jen nesleduje main.
+        if enabled and start:
+            self.start()
+        return self.config()
 
-    def observe(self, project, root, revision, *, baseline=False):
+    def config(self):
+        return {'enabled': self.enabled()}
+
+    def observe(self, project, root, revision, *, missing=()):
+        """Zapíše pozorovanou revizi main. Nová revize zařadí automatické nástroje;
+        chybějící stabilní sada (`missing`) zařadí jednorázový počáteční běh."""
         now = time.time()
         root = os.path.normcase(str(root))
         with self.lock, self.db:
             self.db.execute('BEGIN IMMEDIATE')
             row = self.db.execute('SELECT * FROM projects WHERE project=?', (project,)).fetchone()
             if row is None or row['root'] != root:
-                self.db.execute('''INSERT OR REPLACE INTO projects(project,root,observed,wanted,built,status,phase,owner,running,lease,updated,error) VALUES(?,?,?,?,NULL,?,NULL,NULL,NULL,NULL,?,NULL)''',
-                                (project, root, revision, None if baseline else revision, 'watching' if baseline else 'queued', now))
+                tools = [tool for tool in TOOLS if tool in missing and (row is None or row['auto_' + tool])]
+                self.db.execute('''INSERT OR REPLACE INTO projects(project,root,observed,wanted,built,status,phase,owner,running,lease,updated,error,requested_tools) VALUES(?,?,?,?,NULL,?,NULL,NULL,NULL,NULL,?,NULL,?)''',
+                                (project, root, revision, revision if tools else None, 'queued' if tools else 'watching', now, json.dumps(tools or list(TOOLS))))
             elif row['observed'] != revision:
-                tools = [tool for tool in ('graphify', 'archify') if row['auto_' + tool]]
+                tools = [tool for tool in TOOLS if row['auto_' + tool]]
                 self.db.execute('''UPDATE projects SET observed=?,wanted=?,status=?,requested_tools=?,updated=?,error=NULL WHERE project=?''',
                                 (revision, revision, 'running' if row['owner'] else 'queued' if tools else 'watching', json.dumps(tools), now, project))
+            elif row['status'] in ('watching', 'succeeded') and row['owner'] is None:
+                # Neúspěšný běh se sám neopakuje; znovu ho spustí až nový merge nebo ruční volba.
+                tools = [tool for tool in TOOLS if tool in missing and row['auto_' + tool]]
+                if tools:
+                    self.db.execute('''UPDATE projects SET wanted=?,status='queued',requested_tools=?,updated=?,error=NULL WHERE project=?''',
+                                    (revision, json.dumps(tools), now, project))
 
-    def scan(self, *, baseline=False):
+    def scan(self):
         if not self.enabled():
             return
         projects = self.service.bootstrap()['projects']
@@ -89,7 +111,7 @@ class MapRefresh:
                 root = main_project_root(self.service, project['id'])
                 revision = git(root, 'rev-parse', '--verify', 'refs/heads/main', timeout=3, optional=True)
                 if revision and len(revision) == 40:
-                    self.observe(project['id'], root, revision, baseline=baseline)
+                    self.observe(project['id'], root, revision, missing=missing_tools(root))
             except (ValueError, OSError):
                 continue
         active = {p['id'] for p in projects}
@@ -102,34 +124,35 @@ class MapRefresh:
         now = time.time()
         with self.lock, self.db:
             self.db.execute('BEGIN IMMEDIATE')
-            if not self.enabled():
-                return None
+            enabled = self.enabled()
             # Pád procesu nesmí vytvořit nekonečný retry placeného modelu.
             self.db.execute("UPDATE runs SET status='interrupted',finished=?,error='Vypršel lease běhu.' WHERE status='running' AND id IN (SELECT owner FROM projects WHERE lease<?)", (now, now))
             self.db.execute("UPDATE projects SET status=CASE WHEN wanted!=running THEN 'queued' ELSE 'failed' END,owner=NULL,running=NULL,lease=NULL,error='Běh byl přerušen. Nový merge nebo ruční opakování jej obnoví.' WHERE owner IS NOT NULL AND lease<?", (now,))
             if self.db.execute('SELECT 1 FROM projects WHERE owner IS NOT NULL LIMIT 1').fetchone():
                 return None
-            row = self.db.execute("SELECT * FROM projects WHERE status='queued' ORDER BY updated,project LIMIT 1").fetchone()
+            # Při vypnuté automatice se zpracují jen výslovně vyžádané běhy („Aktualizovat teď“).
+            row = self.db.execute("SELECT * FROM projects WHERE status='queued' AND (? OR manual=1) ORDER BY updated,project LIMIT 1", (int(enabled),)).fetchone()
             if row is None:
                 return None
             # Dvě registrace worktrees téhož repozitáře nevytvářejí druhý placený běh.
             shared = self.db.execute("SELECT 1 FROM projects WHERE root=? AND project!=? AND built_graphify=? AND built_archify=? LIMIT 1", (row['root'], row['project'], row['wanted'], row['wanted'])).fetchone()
             if shared:
-                self.db.execute("UPDATE projects SET status='succeeded',built=wanted WHERE project=?", (row['project'],))
+                self.db.execute("UPDATE projects SET status='succeeded',built=wanted,manual=0 WHERE project=?", (row['project'],))
                 return None
             owner = uuid.uuid4().hex
             changed = self.db.execute("UPDATE projects SET status='running',phase='snapshot',owner=?,running=wanted,running_tools=requested_tools,lease=?,updated=? WHERE project=? AND owner IS NULL AND status='queued'", (owner, now + 900, now, row['project']))
             if changed.rowcount != 1:
                 raise ValueError('Převzetí aktualizace se změnilo.')
             self.db.execute('INSERT INTO runs VALUES(?,?,?,?,?,?,NULL,NULL)', (owner, row['project'], row['root'], row['wanted'], 'running', now))
-            return {'id': owner, 'project': row['project'], 'root': row['root'], 'revision': row['wanted'], 'tools': json.loads(row['requested_tools'])}
+            return {'id': owner, 'project': row['project'], 'root': row['root'], 'revision': row['wanted'],
+                    'tools': json.loads(row['requested_tools']), 'manual': bool(row['manual'])}
 
     def phase(self, job, phase):
         with self.lock, self.db:
             self.db.execute('UPDATE projects SET phase=? WHERE project=? AND owner=?', (phase, job['project'], job['id']))
 
     def current(self, job):
-        if self.stop.is_set() or not self.enabled():
+        if self.stop.is_set() or not (self.enabled() or job.get('manual')):
             return False
         with self.lock:
             row = self.db.execute('SELECT * FROM projects WHERE project=?', (job['project'],)).fetchone()
@@ -146,8 +169,9 @@ class MapRefresh:
             if row is None:
                 return
             next_status = 'queued' if row['wanted'] != job['revision'] or row['requested_tools'] != row['running_tools'] else status
-            self.db.execute('UPDATE projects SET status=?,phase=NULL,owner=NULL,running=NULL,lease=NULL,built=?,updated=?,error=? WHERE project=? AND owner=?',
-                            (next_status, job['revision'] if status == 'succeeded' else row['built'], now, error, job['project'], job['id']))
+            self.db.execute('UPDATE projects SET status=?,phase=NULL,owner=NULL,running=NULL,lease=NULL,built=?,updated=?,error=?,manual=? WHERE project=? AND owner=?',
+                            (next_status, job['revision'] if status == 'succeeded' else row['built'], now, error,
+                             row['manual'] if next_status == 'queued' else 0, job['project'], job['id']))
             self.db.execute('UPDATE runs SET status=?,finished=?,error=? WHERE id=?', (status, now, error, job['id']))
             if status == 'succeeded':
                 for tool in job.get('tools', ['graphify', 'archify']):
@@ -172,15 +196,21 @@ class MapRefresh:
         return job
 
     def retry(self, project, tool=None):
+        """„Aktualizovat teď“: výslovná volba člověka, proto platí i při vypnuté automatice
+        a i u nástroje nastaveného na „Pouze ručně“."""
         if tool not in (None, 'graphify', 'archify'):
             raise ValueError('Neplatný nástroj mapy.')
-        if not self.enabled():
-            raise ValueError('Automatické aktualizace nejsou zapnuté.')
         root = main_project_root(self.service, project)
         revision = git(root, 'rev-parse', 'refs/heads/main', timeout=3)
         self.observe(project, root, revision)
         with self.lock, self.db:
-            self.db.execute("UPDATE projects SET wanted=?,requested_tools=?,status=CASE WHEN owner IS NULL THEN 'queued' ELSE status END,error=NULL WHERE project=?", (revision, json.dumps([tool] if tool else ['graphify', 'archify']), project))
+            row = self.db.execute('SELECT status,requested_tools FROM projects WHERE project=?', (project,)).fetchone()
+            wanted = {tool} if tool else set(TOOLS)
+            if row['status'] == 'queued':
+                wanted |= set(json.loads(row['requested_tools']))
+            tools = [item for item in TOOLS if item in wanted]
+            self.db.execute("UPDATE projects SET wanted=?,requested_tools=?,manual=1,status=CASE WHEN owner IS NULL THEN 'queued' ELSE status END,error=NULL WHERE project=?", (revision, json.dumps(tools), project))
+        self.start()
         return self.status(project)
 
     def settings(self, project, tool, automatic):
@@ -188,7 +218,7 @@ class MapRefresh:
             raise ValueError('Neplatné nastavení aktualizace mapy.')
         root = main_project_root(self.service, project)
         revision = git(root, 'rev-parse', 'refs/heads/main', timeout=3)
-        self.observe(project, root, revision, baseline=True)
+        self.observe(project, root, revision)
         column = {'graphify': 'auto_graphify', 'archify': 'auto_archify'}[tool]
         with self.lock, self.db:
             self.db.execute(f'UPDATE projects SET {column}=? WHERE project=?', (int(automatic), project))
@@ -202,13 +232,13 @@ class MapRefresh:
             return {'project': project, 'enabled': self.enabled(), 'status': row['status'] if row else 'unavailable',
                     'sourceRoot': row['root'] if row else None, 'observedRevision': row['observed'] if row else None,
                     'sourceRevision': row['built'] if row else None, 'phase': row['phase'] if row else None,
-                    'automatic': {tool: bool(row['auto_' + tool]) if row else False for tool in ('graphify', 'archify')},
+                    'automatic': {tool: bool(row['auto_' + tool]) if row else True for tool in TOOLS},
                     'versions': {tool: row['built_' + tool] if row else None for tool in ('graphify', 'archify')},
                     'error': row['error'] if row else None, 'runs': runs,
                     'trigger': 'refs/heads/main', 'agent': 'claude-code/sonnet', 'maxSeconds': 600, 'maxTurns': 10}
 
     def start(self):
-        if not self.enabled() or self.thread and self.thread.is_alive():
+        if not worker_allowed() or self.closed or self.thread and self.thread.is_alive():
             return
         self.stop.clear()
         self.thread = threading.Thread(target=self._loop, name='project-map-refresh', daemon=True)

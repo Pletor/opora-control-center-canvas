@@ -1,4 +1,4 @@
-"""Rozhraní Projektu: stav, nastavení a opakování obnovy map."""
+"""Rozhraní Projektu: stav, globální přepínač, nastavení a opakování obnovy map."""
 
 from fastapi import APIRouter, Query
 
@@ -9,6 +9,11 @@ def create_map_refresh_router(manager):
     @router.get('/status')
     def status(project: str = Query(min_length=1, max_length=64)):
         return manager.status(project)
+
+    @router.get('/config')
+    def config():
+        # Globální přepínač aplikace (Nastavení → Obecné), nikdy per projekt.
+        return manager.config()
 
     @router.post('/configure')
     def configure(payload: dict):

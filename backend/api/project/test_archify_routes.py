@@ -10,7 +10,7 @@ from backend.api.project.archify_routes import create_archify_router
 
 
 def delivery(root):
-    folder = root / 'docs/architecture/archify'
+    folder = root / 'archify-out'
     folder.mkdir(parents=True)
     html = b'<!doctype html><html><head></head><body><svg><text>REAL FILE</text></svg></body></html>'
     spec = b'{"diagram_type":"architecture","components":[],"connections":[],"boundaries":[]}'
@@ -51,7 +51,7 @@ def test_map_reads_exact_file_without_a_renderer(tmp_path):
 
 def test_map_rejects_modified_html_and_does_not_return_stale_data(tmp_path):
     delivery(tmp_path)
-    path = tmp_path / 'docs/architecture/archify/map.architecture.html'
+    path = tmp_path / 'archify-out/map.architecture.html'
     path.write_bytes(path.read_bytes() + b'changed')
     response = client_for(tmp_path).get('/api/archify/artifact?project=mine')
     assert response.status_code == 409
@@ -71,14 +71,29 @@ def test_receipt_cannot_grant_access_outside_artifact_directory(tmp_path):
     html, receipt = delivery(tmp_path)
     receipt['output'] = str(tmp_path / 'secret.html')
     (tmp_path / 'secret.html').write_bytes(html)
-    (tmp_path / 'docs/architecture/archify/deliver-receipt.json').write_text(json.dumps(receipt))
-    assert client_for(tmp_path).get('/api/archify/artifact?project=mine').status_code == 404
+    (tmp_path / 'archify-out/deliver-receipt.json').write_text(json.dumps(receipt))
+    response = client_for(tmp_path).get('/api/archify/artifact?project=mine')
+    assert response.status_code == 409
+    assert 'html' not in response.json()
+
+
+def test_reader_uses_the_one_stable_folder(tmp_path):
+    delivery(tmp_path)
+    value = client_for(tmp_path).get('/api/archify/artifact?project=mine').json()
+    assert value['sourcePath'] == 'archify-out/map.architecture.html'
+    assert value['fileName'] == 'map.architecture.html'
+
+
+def test_missing_map_says_it_is_created_automatically(tmp_path):
+    response = client_for(tmp_path).get('/api/archify/artifact?project=mine')
+    assert response.status_code == 404
+    assert 'automaticky' in response.json()['error'] and 'Aktualizovat teď' in response.json()['error']
 
 
 def test_artifact_has_a_read_size_limit(tmp_path):
     from backend.api.project.archify_routes import MAX_HTML
     delivery(tmp_path)
-    (tmp_path / 'docs/architecture/archify/map.architecture.html').write_bytes(b'x' * (MAX_HTML + 1))
+    (tmp_path / 'archify-out/map.architecture.html').write_bytes(b'x' * (MAX_HTML + 1))
     assert client_for(tmp_path).get('/api/archify/artifact?project=mine').status_code == 409
 
 
@@ -95,14 +110,14 @@ def test_linked_worktree_reads_main_artifact_without_copying(tmp_path):
     assert response.status_code == 200, response.text
     assert response.json()['html'].encode() == html
     assert response.json()['sourceRoot'] == str(main.resolve())
-    assert not (linked / 'docs/architecture/archify').exists()
+    assert not (linked / 'archify-out').exists()
 
 
 def test_symlink_artifact_is_never_opened(tmp_path):
     import pytest
     delivery(tmp_path)
     target = tmp_path / 'outside.html'
-    path = tmp_path / 'docs/architecture/archify/map.architecture.html'
+    path = tmp_path / 'archify-out/map.architecture.html'
     path.replace(target)
     try:
         path.symlink_to(target)

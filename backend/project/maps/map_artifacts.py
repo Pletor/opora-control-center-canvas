@@ -1,23 +1,24 @@
-"""Atomický ukazatel na soukromé výstupy uvnitř jediného projektu."""
-import hashlib
-import json
+"""Stabilní sada map na pevných cestách hlavního projektu, přepisovaná na místě (docs/mapy-projektu.md)."""
 import os
 import re
-import shutil
 import threading
-import uuid
 from pathlib import Path
 
 from backend.integrations.gitio import git
+from backend.project.maps.map_git_exclude import ensure_excluded
 from backend.project.workspace.workspace_sources import reparse
 
 LOCK = threading.RLock()
-DIRECTORIES = {'graphify': 'graphify-out', 'archify': 'docs/architecture/archify'}
-SIGNALS = {'graphify': 'graphify-out/opora-receipt.json', 'archify': 'docs/architecture/archify/deliver-receipt.json'}
-
-
-class MapArtifactError(ValueError):
-    """Kontrolovaná chyba projektových artefaktů, nikoli interní TypeError API."""
+DIRECTORIES = {'graphify': 'graphify-out', 'archify': 'archify-out'}
+# Jediné soubory, které se publikují; ostatní mezivýstupy zůstávají v dočasné složce běhu.
+FILES = {
+    'graphify': ('graph.json', 'graph.html', 'GRAPH_REPORT.md', 'opora-receipt.json'),
+    'archify': ('map.architecture.html', 'map.architecture.json', 'deliver-receipt.json',
+                'visual-check-receipt.json', 'SPEC.md'),
+}
+# Podle tohoto souboru se pozná, že sada nástroje v projektu existuje.
+SIGNALS = {'graphify': 'graphify-out/graph.json', 'archify': 'archify-out/deliver-receipt.json'}
+MAX_FILE = 32 * 1024 * 1024
 
 
 class ArtifactUnavailable(ValueError):
@@ -39,48 +40,6 @@ def contained(root, relative):
     if not target.resolve().is_relative_to(root.resolve()):
         raise ValueError('Úložiště map opouští projekt.')
     return target
-
-
-def signal_hash(root, tool):
-    path = contained(root, SIGNALS[tool])
-    try:
-        data = path.read_bytes()
-    except FileNotFoundError:
-        return None
-    if len(data) > 512 * 1024:
-        raise ValueError('Potvrzení mapy je příliš velké.')
-    return hashlib.sha256(data).hexdigest()
-
-
-def pointer(root):
-    path = contained(root, '.opora-map-refresh/current.json')
-    try:
-        with path.open('rb') as stream:
-            data = stream.read(16385)
-    except FileNotFoundError:
-        return {}
-    if len(data) > 16384:
-        raise ValueError('Ukazatel mapy je příliš velký.')
-    result = json.loads(data)
-    if not isinstance(result, dict):
-        raise MapArtifactError('Neplatný ukazatel mapy.')
-    return result
-
-
-def artifact_root(root, tool):
-    with LOCK:
-        entry = pointer(root).get(tool)
-        if not entry:
-            return root
-        if not isinstance(entry, dict) or not re.fullmatch(r'[a-f0-9]{32}', str(entry.get('version', ''))):
-            raise ValueError('Neplatná verze mapy.')
-        # Nový ruční výstup původního nástroje má přednost před předchozí automatikou.
-        if entry.get('signal') != signal_hash(root, tool):
-            return root
-        selected = contained(root, '.opora-map-refresh/versions/' + entry['version'])
-        if not selected.is_dir():
-            raise ValueError('Uložená verze mapy chybí.')
-        return selected
 
 
 def _canonical_root(root):
@@ -114,48 +73,43 @@ def main_project_root(service, project):
     return root
 
 
+def missing_tools(root):
+    """Nástroje, jejichž stabilní sada v projektu chybí; takový projekt dostane počáteční běh."""
+    missing = []
+    for tool, relative in SIGNALS.items():
+        try:
+            if not contained(root, relative).is_file():
+                missing.append(tool)
+        except ValueError:
+            continue
+    return missing
+
+
+def _payloads(tool, source):
+    payloads = {}
+    for name in FILES[tool]:
+        path = Path(source) / name
+        if not path.is_file() or reparse(path):
+            raise ValueError('Běh nedodal úplnou sadu mapy.')
+        if path.stat().st_size > MAX_FILE:
+            raise ValueError('Výstupy mapy překročily limit.')
+        payloads[name] = path.read_bytes()
+    return payloads
+
+
 def publish(root, revision, outputs):
+    """Přepíše stabilní soubory na místě. Každý soubor jde přes `<name>.tmp` a `os.replace`."""
     if not re.fullmatch(r'[a-f0-9]{40}', revision) or not outputs or set(outputs) - set(DIRECTORIES):
         raise ValueError('Neplatné výstupy aktualizace map.')
+    # Nejdřív se přečte celá sada; neúplný běh nepřepíše ani jeden soubor.
+    prepared = {tool: _payloads(tool, source) for tool, source in outputs.items()}
     with LOCK:
-        current = pointer(root)
-        version = uuid.uuid4().hex
-        target = contained(root, '.opora-map-refresh/versions/' + version)
-        target.mkdir(parents=True, exist_ok=False)
-        (target / '.owner.json').write_text(json.dumps({'format':'opora-maps-v1','version':version}), encoding='utf-8')
-        for tool, source in outputs.items():
-            destination = contained(target, DIRECTORIES[tool])
-            destination.mkdir(parents=True)
-            files = ([Path(source) / name for name in ('graph.json', 'graph.html', 'GRAPH_REPORT.md', 'opora-receipt.json')]
-                     if tool == 'graphify' else [p for p in Path(source).rglob('*') if p.is_file()])
-            if not files or len(files) > 50 or sum(p.stat().st_size for p in files) > 64 * 1024 * 1024:
-                raise ValueError('Výstupy mapy překročily limit.')
-            for path in files:
-                if reparse(path):
-                    raise ValueError('Výstup nástroje obsahuje odkaz.')
-                relative = path.relative_to(source).as_posix()
-                out = contained(destination, relative)
-                out.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(path, out)
-            if tool == 'graphify':
-                # Standardní Graphify cesta zůstává aktuální také pro CLI agenty.
-                alias = contained(root, 'graphify-out')
-                alias.mkdir(exist_ok=True)
-                for name in ('graph.json', 'graph.html', 'GRAPH_REPORT.md', 'opora-receipt.json'):
-                    data = (destination / name).read_bytes()
-                    pending = contained(root, 'graphify-out/' + name + '.refresh-tmp')
-                    pending.write_bytes(data)
-                    os.replace(pending, contained(root, 'graphify-out/' + name))
-            current[tool] = {'version': version, 'revision': revision, 'signal': signal_hash(root, tool)}
-        pending = contained(root, '.opora-map-refresh/current.tmp')
-        pending.write_text(json.dumps(current), encoding='utf-8')
-        os.replace(pending, contained(root, '.opora-map-refresh/current.json'))
-        # Archiv vlastní automatika; uchovává aktivní verze a tři nejnovější.
-        versions = target.parent
-        retained = {entry['version'] for entry in current.values()}
-        owned = sorted((p for p in versions.iterdir() if re.fullmatch(r'[a-f0-9]{32}', p.name) and p.is_dir() and not reparse(p)), key=lambda p: p.stat().st_mtime, reverse=True)
-        for old in owned[3:]:
-            if old.name not in retained and (old / '.owner.json').is_file():
-                owner = json.loads((old / '.owner.json').read_text(encoding='utf-8'))
-                if owner == {'format':'opora-maps-v1','version':old.name}:
-                    shutil.rmtree(old)
+        for tool, payloads in prepared.items():
+            folder = contained(root, DIRECTORIES[tool])
+            folder.mkdir(exist_ok=True)
+            ensure_excluded(root, DIRECTORIES[tool])
+            for name, data in payloads.items():
+                destination = contained(root, DIRECTORIES[tool] + '/' + name)
+                pending = contained(root, DIRECTORIES[tool] + '/' + name + '.tmp')
+                pending.write_bytes(data)
+                os.replace(pending, destination)

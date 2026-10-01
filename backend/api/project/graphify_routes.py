@@ -7,14 +7,13 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from backend.project.maps.graphify_runtime import PUBLISH_LOCK, generate_graph
-from backend.project.maps.map_artifacts import ArtifactUnavailable, artifact_root, main_project_root
+from backend.project.maps.map_artifacts import ArtifactUnavailable, main_project_root
 from backend.project.workspace.workspace_sources import WorkspaceSources
 
 MAX_ARTIFACT = 32 * 1024 * 1024
 
 
 def read_output(service, root, name):
-    root = artifact_root(root, 'graphify')
     target = WorkspaceSources(service).target(root, 'graphify-out/' + name)
     if not target.is_file():
         raise ArtifactUnavailable('Výstup Graphify není běžný soubor.')

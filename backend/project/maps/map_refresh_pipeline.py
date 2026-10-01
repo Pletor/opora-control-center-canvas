@@ -1,4 +1,4 @@
-"""Soukromé sestavení map z neměnného main a publikace jen do téhož projektu."""
+"""Sestavení map z neměnného main v dočasné složce a publikace stabilní sady do téhož projektu."""
 import json
 import tempfile
 import threading
@@ -46,6 +46,7 @@ def build_maps(job, manager):
                 manager.phase(job, 'archify')
                 destination = work / 'archify'
                 build_archify(source, destination, job['revision'], cancel=manager.stop)
+                # Publikuje se jen pět souborů ze smlouvy; validate receipt a evidence zůstanou v temp.
                 outputs['archify'] = destination
             manager.phase(job, 'publishing')
             # Provider neběží v transakci. Krátká publikace znovu ověřuje owner, root i SHA.
