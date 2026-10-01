@@ -2,7 +2,7 @@
 
 Uživatel nemusí psát jen do terminálu ve VS Code. V aplikaci otevře okno s asistentem, který čte plátno, vede ho skilly `grill-me` (`grilling`), `wayfinder` a `opora-control-center` a na požádání připraví zadání pro model. Asistent je Claude Code spuštěný aplikací pod uživatelovým předplatným. Aplikace přitom nevolá API.
 
-Stav: **kontrakt schválen** (2026-10-01), kód zatím neexistuje. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md), pipeline v [workflow-opora.md](workflow-opora.md).
+Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě v aplikaci. Fáze 2 a 3 čekají na skutečnou potřebu. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md), pipeline v [workflow-opora.md](workflow-opora.md).
 
 ## 1. Změna pravidla „aplikace model nespouští“
 
@@ -35,7 +35,7 @@ claude -p
   --settings {"disableAllHooks": true, "permissions": {"deny": [<seznam z §5>]}}
 ```
 
-- **cwd** je originální složka projektu (lokální projekt) nebo hlavní pracovní strom git projektu. Proto se načte CLAUDE.md projektu a jeho `.claude/skills`.
+- **cwd** je kořen zdroje projektu z `WorkspaceSources.root(project, workspace)`: u lokálního projektu originální složka (`draft`), u git projektu pracovní strom workspace (výchozí `main`). Proto se načte CLAUDE.md projektu a jeho `.claude/skills`.
 - Zprávy jdou na stdin jako řádky stream-json. Události se čtou ze stdout po řádcích.
 - Spuštění a ukončení přebírá obsluhu z Archify: `Popen(shell=False)`, `WindowsJob` (`backend/integrations/windows_job.py`), zabití celého stromu procesů.
 - Limity v celé instanci:
@@ -50,12 +50,12 @@ claude -p
 - Registr je jeden JSON v datovém kořeni aplikace (`assistant/sessions.json`, atomický zápis přes `.tmp` a `os.replace`). Záznam session:
 
   ```
-  { id, projectId, title, model, claudeSessionId, createdAt, updatedAt,
+  { id, projectId, workspace, title, model, claudeSessionId, createdAt, updatedAt,
     state: "idle" | "running" | "waiting_approval" | "closed" | "error",
     nodeId: string | null }   // karta, ke které session patří (volitelné)
   ```
 
-- Historie se neduplikuje. Čte se z přepisu Claude Code `~/.claude/projects/<cwd>/<claudeSessionId>.jsonl` stávajícím parserem (`backend/live_run/node_session_sources.py`).
+- Historie se neduplikuje. Čte se z přepisu Claude Code `~/.claude/projects/<cwd>/<claudeSessionId>.jsonl` vlastním parserem `backend/claude_code/assistant/transcript.py`. Parser z `node_session_sources.py` vrací souhrny aktivity, ne texty zpráv. Přepis nese jen texty uživatele a asistenta, řádky nástrojů jsou jen v živých událostech.
 - „Nová session“ znamená nový proces bez `--resume`. Každá session je samostatný úkol a session si navzájem nesdílejí kontext.
 - Session patří k projektu (podle cwd). Rozhraní je pro všechny projekty stejné.
 - Navázání na kartu se provede přes `POST /api/node-sessions/bind` (`source: "claude"`). Je to fáze 3.
@@ -72,7 +72,8 @@ claude -p
   - `Edit`, `Write`, `NotebookEdit`,
   - jakýkoli jiný `Bash`,
   - `WebFetch`, `WebSearch`,
-  - `Read(**/.env)`, `Read(**/*.pem)`, `Read(**/*.key)`, tedy stejný deny seznam jako u Archify.
+  - `Read(**/.env)`, `Read(**/.env.*)`, `Read(**/*.pem)`, `Read(**/*.key)`.
+  - Celý `Bash` v deny **není**: deny má přednost před allow a zablokoval by i povolený čtecí skript. Ostatní Bash zamítne `--permission-mode dontAsk` (ověřeno v §11).
 - Výsledek: asistent čte kód, mapy i plátno a radí, ale nic nezapíše.
 
 **Fáze 2, zápis se schválením:**
@@ -91,7 +92,8 @@ claude -p
   { projectId, workspace, layerId, selectedNodeIds[], environment: "project"|"editor"|"live" }
   ```
 
-  Backend kontext vloží před text zprávy jako `<opora_context>…</opora_context>`. Je to údaj, ne pokyn.
+  Backend kontext vloží před text zprávy jako `<opora_context>…</opora_context>`. Je to údaj, ne pokyn. Zpráva začínající `/` (lomítkový příkaz) má kontext až za textem, aby ji CLI rozpoznalo jako příkaz.
+- `wayfinder` a `grill-me` mají `disable-model-invocation: true`: model je sám nespustí, uživatel je píše jako `/wayfinder …` nebo `/grill-me …`. `grilling` a `opora-control-center` model použije sám.
 - Plátno se čte přes skill `opora-control-center` (`opora_read.py`: `view`, `node-brief`, `frontier`, …).
 - Skilly `grilling` a `wayfinder` píšou podle mapování ve [workflow-opora.md](workflow-opora.md) §3 a `references/workflow.md`. Ve fázi 1 jen navrhnou, co zapsat. Od fáze 2 zapisují se schválením.
 
@@ -110,7 +112,7 @@ Když o to uživatel požádá, asistent připraví zadání podle [predani-mode
 |---|---|---|---|
 | GET | `/api/assistant/status` | | `{available, claudePath, version, running, limit}`, bez spuštění modelu (`claude --version`) |
 | GET | `/api/assistant/sessions` | `project` | seznam session projektu |
-| POST | `/api/assistant/sessions` | `{project, title?, model?}` | založí session, proces vznikne až s první zprávou |
+| POST | `/api/assistant/sessions` | `{project, workspace?, title?, model?}` | založí session, proces vznikne až s první zprávou |
 | POST | `/api/assistant/sessions/{id}/messages` | `{text, context}` | zařadí zprávu, vrátí 202. Během běžícího tahu 409 |
 | GET | `/api/assistant/sessions/{id}/events` | `after=<seq>` | **SSE** stream událostí, po výpadku se naváže od `after` |
 | GET | `/api/assistant/sessions/{id}/transcript` | | historie z JSONL přepisu |
@@ -147,7 +149,7 @@ Všechny `/api/assistant/*` jsou **jen pro loopback**. Přes tunel ([vzdaleny-pr
 - Logika bez Reactu:
   - `logic/assistant-events.ts` skládá události SSE do stavu konverzace (test `assistant-events.test.ts`),
   - `logic/assistant-api.ts` volá endpointy.
-- Výchozí model a šířka panelu se ukládají jednou pro aplikaci (Nastavení → Obecné), nikdy per projekt.
+- Výchozí model pro novou session se ukládá jednou pro aplikaci, nikdy per projekt. Fáze 1 ho drží v prohlížeči (`localStorage` `opora:assistant:v1`); do Nastavení → Obecné se přesune, až bude potřeba. Šířka panelu je pevná (420 px, na úzkém okně 100 %).
 - Když `status.available` je `false`, panel řekne, že `claude` není nainstalovaný nebo přihlášený, a nabídne příkaz `claude` k přihlášení v terminálu.
 
 ## 10. Fáze a ověření
@@ -161,9 +163,33 @@ Všechny `/api/assistant/*` jsou **jen pro loopback**. Přes tunel ([vzdaleny-pr
 
 Další fáze se staví, až předchozí ukáže skutečnou potřebu.
 
-## 11. Neověřeno / otevřené
+## 11. Ověřeno ve fázi 0 (2026-10-01, Claude Code na Windows, haiku)
 
-- [neověřeno] Přesná pole událostí stream-json a jestli CLI přijímá v jednom procesu víc zpráv po sobě. Záložní postup je jeden proces na tah s `--resume`.
-- [neověřeno] Vzor `Bash(python *opora_read.py*)` v `--allowedTools` pod Windows. Kdyby nefungoval, fáze 1 přejde rovnou na čtecí MCP nástroje.
+- Přihlášení: `system/init` má `apiKeySource: "none"` bez `ANTHROPIC_API_KEY`, tedy předplatné.
+- Jeden proces přijme víc zpráv po sobě: každá zpráva na stdin = jeden tah. Každý tah začne `system/init` (stejné `session_id`) a skončí `result`.
+- Události stdout, jeden JSON na řádek:
+  - `system`: `init`, `status` a `thinking_tokens`. Pole `init`: `session_id`, `model`, `tools`, `skills`, `slash_commands`, `apiKeySource`, `cwd`.
+  - `stream_event`: `event.type` je `message_start`, `content_block_start`, `content_block_delta` (`delta.type: "text_delta"`, `delta.text`), `content_block_stop`, `message_delta` nebo `message_stop`.
+  - `assistant`: `message.content[]` s bloky `thinking` (prázdný text), `text` a `tool_use {id, name, input}`.
+  - `user`: `message.content[]` s `tool_result {tool_use_id, content, is_error}`.
+  - `rate_limit_event`.
+  - `result`: `subtype` (`success`…), `is_error`, `num_turns`, `session_id`, `duration_ms`, `result`, `permission_denials[]`, `usage`.
+- Skilly `grill-me`, `grilling`, `wayfinder` a `opora-control-center` jsou v `init.skills` / `slash_commands`.
+- Zápis je zamítnutý. `--disallowedTools` nástroje úplně odebere (`Write` „No such tool available“). `--permission-mode dontAsk` zamítne Bash mimo povolený vzor (`python -c "open(...,'w')…"`, `echo > soubor`); zamítnutí jsou v `result.permission_denials`. Soubor nevznikl.
+- Čtecí příkazy (`python --version`) Claude Code povolí sám i mimo vzor. Je to vestavěné chování pro příkazy jen ke čtení a nevadí to.
+
+Živý test fáze 1 (2026-10-01, Sonnet, lokální projekt v `draft`):
+
+- **Panel:** tlačítko v liště otevře panel, „+ Nová session“ založí session a text se streamuje.
+- **Kontext a oprávnění:** model správně přečetl kontext plátna. `Read` prošel, `Write` byl zamítnut a soubor nevznikl.
+- **Restart backendu:**
+  - Session zůstala v registru a historie se načetla z přepisu.
+  - Další zpráva navázala přes `--resume`; model si pamatoval předchozí tah.
+  - Windows job ukončil celý strom procesů, žádný `claude -p` nezůstal viset.
+- **Lomítkový příkaz:** `/grill-me …` spustil skill `grilling` a vrátil první kolo otázek s doporučenými odpověďmi.
+
+## 12. Neověřeno / otevřené
+
 - [neověřeno] Přerušení tahu bez zabití procesu (`control_request` interrupt). Fáze 1 proces zabíjí.
 - Hooky uživatele jsou v asistentovi vypnuté (`disableAllHooks`), stejně jako u Archify. Zapnout je lze jen rozhodnutím zapsaným sem.
+- Skill `opora-control-center` čte plátno z `http://127.0.0.1:8740`. Instance na jiném portu (test, profil) by četla jinou instanci. Kontext zprávy port zatím nenese.

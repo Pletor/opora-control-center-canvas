@@ -131,6 +131,20 @@ def test_hook_control_stays_on_this_computer(remote_app):
         assert client.get("/api/agent-hooks/events?bindingId=x", headers=headers).status_code != 403
 
 
+def test_assistant_is_loopback_only():
+    assert is_loopback_only("/api/assistant") and is_loopback_only("/api/assistant/status")
+    assert is_loopback_only("/api/assistant/sessions/abc/events")
+    assert not is_loopback_only("/api/assistantx") and not is_loopback_only("/api/assistants/status")
+
+
+def test_assistant_refused_through_tunnel_even_with_token(remote_app):
+    with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
+        headers = {"authorization": "Bearer " + TOKEN, "origin": "https://" + PUBLIC}
+        assert client.get("/api/assistant/status", headers=headers).status_code == 403
+        assert client.get("/api/assistant/sessions?project=p1", headers=headers).status_code == 403
+        assert client.post("/api/assistant/sessions", json={"project": "p1"}, headers=headers).status_code == 403
+
+
 def test_https_origin_and_forwarded_proto(remote_app):
     with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
         bearer = {"authorization": "Bearer " + TOKEN}

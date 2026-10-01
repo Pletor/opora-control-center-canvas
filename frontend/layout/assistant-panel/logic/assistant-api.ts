@@ -1,0 +1,53 @@
+import { api } from "@/shared/types/logic/types";
+import type { SessionState } from "./assistant-events";
+
+export type AssistantModel = "opus" | "sonnet" | "fable";
+export const MODELS: AssistantModel[] = ["opus", "sonnet", "fable"];
+
+export type AssistantStatus = { available: boolean; claudePath: string | null; version: string | null; running: number; limit: number };
+
+export type AssistantSession = {
+  id: string;
+  projectId: string;
+  workspace: string;
+  title: string;
+  model: string;
+  claudeSessionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  state: SessionState;
+  nodeId: string | null;
+  lastSeq: number;
+};
+
+/** Co uživatel právě vidí; backend to vloží před text zprávy jako údaj, ne pokyn. */
+export type AssistantContext = {
+  projectId: string;
+  workspace: string;
+  layerId: string | null;
+  selectedNodeIds: string[];
+  environment: "project" | "editor" | "live";
+};
+
+const base = "/api/assistant";
+const sessionUrl = (id: string) => `${base}/sessions/${encodeURIComponent(id)}`;
+
+export const fetchStatus = () => api<AssistantStatus>(`${base}/status`);
+
+export const fetchSessions = (project: string) =>
+  api<{ sessions: AssistantSession[] }>(`${base}/sessions?project=${encodeURIComponent(project)}`).then((r) => r.sessions);
+
+export const createSession = (body: { project: string; workspace?: string; title?: string; model?: AssistantModel }) =>
+  api<{ session: AssistantSession }>(`${base}/sessions`, body).then((r) => r.session);
+
+export const sendMessage = (id: string, text: string, context: AssistantContext) =>
+  api<unknown>(`${sessionUrl(id)}/messages`, { text, context });
+
+export const stopSession = (id: string) => api<unknown>(`${sessionUrl(id)}/stop`, {});
+
+export const closeSession = (id: string) => api<unknown>(`${sessionUrl(id)}/close`, {});
+
+export const fetchTranscript = (id: string) =>
+  api<{ messages: { role: "user" | "assistant"; text: string }[] }>(`${sessionUrl(id)}/transcript`).then((r) => r.messages);
+
+export const eventsUrl = (id: string, after: number) => `${sessionUrl(id)}/events?after=${after}`;

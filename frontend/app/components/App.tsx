@@ -37,6 +37,9 @@ import ProjectHome from "@/project-setup/components/ProjectHome";
 import TextWorkspace, { type TextSubtab } from "@/editor/node-detail/content/components/TextWorkspace";
 import { AgentTaskNotice, emitAgentTask, type AgentTaskRequest } from "@/editor/llm-control/editor-context/components/context-actions";
 import TopBar from "@/layout/top-bar/components/TopBar";
+import AssistantButton from "@/layout/assistant-panel/components/AssistantButton";
+import AssistantPanel from "@/layout/assistant-panel/components/AssistantPanel";
+import "@/layout/assistant-panel/styles/assistant-panel.css";
 import ModeRail from "@/layout/mode-rail/components/ModeRail";
 import EnvironmentSwitch, { type Environment } from "@/layout/environment-switch/components/EnvironmentSwitch";
 import ProjectWorkspace from "@/project/workspace/components/ProjectWorkspace";
@@ -166,6 +169,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
   const [settings, setSettings] = useState(readSettings);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [nodeTab, setNodeTab] = useState<NodeTab>("content");
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
   const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
@@ -804,6 +808,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   return (
     <div className="app desktop-v2 desktop-v3">
       <TopBar
+        trailing={<AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />}
         projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={setProjectMapKind}/> : null}
         projects={projects}
         draftProject={draftProject}
@@ -1619,6 +1624,12 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
             )}
           </section>
         </div>
+      )}
+      {assistantOpen && (
+        <AssistantPanel
+          context={{ projectId: project, workspace, layerId: parent ?? null, selectedNodeIds: selected ? [selected] : [], environment }}
+          onClose={() => setAssistantOpen(false)}
+        />
       )}
     </div>
   );

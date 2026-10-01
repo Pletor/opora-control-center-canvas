@@ -22,6 +22,8 @@ TOKEN_REQUIRED = "Přístup vyžaduje token."
 # jestli smí sáhnout na soubory. Z veřejného hosta je nepustíme ani s platným tokenem —
 # token otevírá aplikaci, ne řízení procesů na tomto stroji.
 LOOPBACK_ONLY_PATHS = frozenset({"/api/agent-hooks/event", "/api/agent-hooks/ack"})
+# Asistent spouští Claude Code na tomto počítači; kdo má URL tunelu, nesmí ho ovládat.
+ASSISTANT_PREFIX = "/api/assistant"
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
 OPEN_PATHS = frozenset({"/api/access/status", "/api/access/login", "/api/access/logout"})
 
@@ -76,7 +78,7 @@ def bearer_token(authorization):
 
 
 def is_loopback_only(path):
-    return path in LOOPBACK_ONLY_PATHS
+    return path in LOOPBACK_ONLY_PATHS or path == ASSISTANT_PREFIX or path.startswith(ASSISTANT_PREFIX + "/")
 
 
 def requires_token(path):

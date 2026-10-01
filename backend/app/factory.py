@@ -10,6 +10,7 @@ from starlette.routing import Match
 from backend.api.access_routes import create_access_router
 from backend.api.app_routes import create_app_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
+from backend.api.editor.assistant_routes import create_assistant_router
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.claude_code_routes import create_claude_code_router
 from backend.api.editor.code_intelligence_routes import create_code_intelligence_router
@@ -38,6 +39,8 @@ from backend.app.remote_access import (
     requires_token,
 )
 from backend.canvas.canvas_service import CanvasService
+from backend.claude_code.assistant.manager import AssistantManager
+from backend.claude_code.assistant.workspace import project_locator
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
 from backend.canvas.sync_report import SyncReport
@@ -75,11 +78,14 @@ def create_app(data_root=None):
     service.agent_workspace = agent_workspace
     identity = build_identity(service.root)
     map_refresh = MapRefresh(service)
+    # Asistent: Claude Code pod předplatným, proces spouští jen zpráva člověka (docs/asistent.md).
+    assistant = AssistantManager(service.root, project_locator(service))
 
     @asynccontextmanager
     async def lifespan(app):
         map_refresh.start()
         yield
+        assistant.close_all()
         map_refresh.close()
         service.close()
 
@@ -172,6 +178,7 @@ def create_app(data_root=None):
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
     app.include_router(create_agent_message_router(agent_messages))
     app.include_router(create_claude_code_router(service))
+    app.include_router(create_assistant_router(assistant))
     app.include_router(create_process_router(service))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)

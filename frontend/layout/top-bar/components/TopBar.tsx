@@ -20,6 +20,7 @@ export default function TopBar({
   onSelectWorkspace,
   children,
   projectNavigation,
+  trailing,
 }: {
   projects: Project[];
   draftProject?: Project;
@@ -35,6 +36,8 @@ export default function TopBar({
   onSelectWorkspace: (id: string) => void;
   children?: ReactNode;
   projectNavigation?: ReactNode;
+  /** Slot úplně vpravo, za nápisem LOKÁLNĚ (tlačítko Asistent). */
+  trailing?: ReactNode;
 }) {
   const [openingWorktree, setOpeningWorktree] = useState(false);
   const [worktreeResult, setWorktreeResult] = useState<{ error: boolean; text: string } | null>(null);
@@ -122,6 +125,7 @@ export default function TopBar({
         </div>
       )}
       <span className="local-status">LOKÁLNĚ · {location.port}</span>
+      {trailing}
     </header>
   );
 }
