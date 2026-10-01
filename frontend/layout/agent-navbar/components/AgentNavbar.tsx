@@ -1,28 +1,30 @@
 // Rodič panelu Agenti a postupy: hlavička „Agenti a postupy“ s křížkem, záložky Katalog | Agenti |
 // Hook a pod nimi jeden z dílků. Rodič nic neukládá sám — stav dostává v props z `useAgentNavbar`
-// v App a každou změnu hlásí callbackem nahoru. O projektu, pracovním prostoru ani o druhu zdroje
-// neví nic; panel je jeden pro celou aplikaci.
+// v App a každou změnu hlásí callbackem nahoru. Projekt zná jen přes hotový `profile` z App
+// (docs/suplik-a-profil.md), podle kterého se katalog zúží; druh zdroje ani nastavení nečte.
 //
-// Panel visí v zavěšeném panelu Editoru (`layout/panel-dock/`) a vyplní ho celý. Kreslí se, jen když
-// je otevřený, proto se záložky ptají serveru rovnou a křížek v hlavičce ohlásí `onClose` nahoru.
+// Panel leží v šuplíku u levého okraje (`layout/panel-dock/`) a vyplní ho pod hlavičkou projektu.
+// Kreslí se, jen když je otevřený, proto se záložky ptají serveru rovnou a křížek ohlásí `onClose`.
 import AgentNavbarCatalog from "@/layout/agent-navbar/components/AgentNavbarCatalog";
 import AgentNavbarAgents from "@/layout/agent-navbar/components/AgentNavbarAgents";
 import AgentControlPanel from "@/editor/agent-control/components/AgentControlPanel";
 import "@/editor/agent-control/styles/agent-control.css";
 import Icon from "@/ui-kit/icon/components/Icon";
+import CatalogScopeBar from "@/layout/panel-dock/components/CatalogScopeBar";
+import CatalogOutsideRow from "@/layout/panel-dock/components/CatalogOutsideRow";
+import type { CatalogScope } from "@/layout/panel-dock/logic/panel-drawer";
+import { agentView } from "@/layout/agent-navbar/logic/agent-scope";
+import { outsideSummary } from "@/editor/component-library/library-catalog/logic/catalog-fit";
+import type { ProjectProfile } from "@/shared/project-capabilities/logic/project-capabilities";
 import {
   AGENT_NAVBAR_TABS,
   AGENT_NAVBAR_TITLE,
   type AgentNavbarState,
   type AgentNavbarTab,
 } from "@/layout/agent-navbar/logic/agent-navbar";
-import {
-  AGENT_CATEGORIES,
-  agentItemsOf,
-  searchAgentItems,
-  type AgentCategory,
-  type AgentItem,
-} from "@/editor/component-library/agent-catalog/logic/agent-catalog";
+import type { AgentCategory, AgentItem } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
+
+const NO_PROFILE: ProjectProfile = { architecture: "", tenancy: "", platform: "web" };
 
 export default function AgentNavbar({
   state,
@@ -32,6 +34,11 @@ export default function AgentNavbar({
   refreshKey = "",
   readOnly = false,
   items,
+  profile = NO_PROFILE,
+  scope = "fitting",
+  showOutside = false,
+  onScope,
+  onToggleOutside,
   onClose,
   onCategory,
   onSearch,
@@ -49,22 +56,22 @@ export default function AgentNavbar({
   readOnly?: boolean;
   /** Celý katalog; jde předat kvůli testu, jinak platí obsah knihovny postupů. */
   items?: AgentItem[];
-  /** Křížek v hlavičce: zavře zavěšený panel; co to znamená, rozhoduje rodič. */
+  /** Profil projektu od App; podle něj se katalog zúží. Bez profilu se nic nefiltruje. */
+  profile?: ProjectProfile;
+  scope?: CatalogScope;
+  showOutside?: boolean;
+  onScope?: (scope: CatalogScope) => void;
+  onToggleOutside?: () => void;
+  /** Křížek v hlavičce: zavře šuplík; co to znamená, rozhoduje rodič. */
   onClose: () => void;
   onCategory: (category: AgentCategory) => void;
   onSearch: (query: string) => void;
   onTab: (tab: AgentNavbarTab) => void;
 }) {
-  // Seznam se skládá tady, aby dílek dostal hotová data: nejdřív kategorie, pak hledání.
-  // `agentItemsOf` bere `items` jako druhý argument — `undefined` z nepovinné props je stejné jako
-  // vynechaný argument, takže test i běžný provoz sáhnou na stejnou výchozí knihovnu postupů.
-  const inCategory = agentItemsOf(state.category, items);
-  const found = searchAgentItems(inCategory, state.query);
-  // Počet položek na kategorii (bez ohledu na hledání) pro řádek kategorie v katalogu — počítá se
-  // tady, ne v dílku, aby katalog jen vypisoval hotová čísla.
-  const categoryCounts = Object.fromEntries(
-    AGENT_CATEGORIES.map((info) => [info.id, agentItemsOf(info.id, items).length]),
-  ) as Record<AgentCategory, number>;
+  // Seznam se skládá tady, aby dílek dostal hotová data: kategorie, profil projektu, hledání a čísla
+  // u kategorií. Pravidla drží `agentView`; `items` jde předat kvůli testu, jinak platí celý katalog.
+  const view = agentView(state.category, profile, { scope, showOutside, query: state.query }, items);
+  const outsideRow = view.outside.length > 0 && scope === "fitting" && !state.query.trim();
   return (
     <aside className="agent-navbar" aria-label={AGENT_NAVBAR_TITLE} data-testid="agent-navbar">
       <div className="agent-navbar__panel">
@@ -118,9 +125,17 @@ export default function AgentNavbar({
           />
         ) : (
           <AgentNavbarCatalog
-            items={found}
+            items={view.shown}
             category={state.category}
-            categoryCounts={categoryCounts}
+            categoryCounts={view.counts}
+            notes={view.notes}
+            outside={view.outsideIds}
+            filter={view.filtering && onScope ? (
+              <CatalogScopeBar scope={scope} fitting={view.fittingCount} all={view.allCount} onScope={onScope} />
+            ) : null}
+            footer={outsideRow && onToggleOutside ? (
+              <CatalogOutsideRow summary={outsideSummary(view.outside, ["postup", "postupy", "postupů"])} shown={showOutside} onToggle={onToggleOutside} />
+            ) : null}
             query={state.query}
             onCategory={onCategory}
             onSearch={onSearch}

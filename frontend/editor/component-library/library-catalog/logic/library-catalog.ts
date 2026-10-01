@@ -1,7 +1,8 @@
 // Katalog knihovny levého navbaru: data a čisté funkce nad nimi. Položka není obrázek v panelu,
 // je to know-how: co musí a nesmí platit (`rules`), na jaké dílky se to rozpadá (`decomposition`)
 // a jak vypadá kostra kódu (`template`). Panel ani plátno si nic nevymýšlí — dlaždice mimo katalog
-// neexistuje. Kategorie odpovídají blokům 2–10 sektoru „Drag&drop-knihovna-levý navbar“.
+// neexistuje. Kategorie odpovídají blokům 2–10 sektoru „Drag&drop-knihovna-levý navbar“ a navíc Multitenanci
+// (docs/suplik-a-profil.md).
 // Bez Reactu a bez API; testuje se vedle v library-catalog.test.ts.
 import { frontendComponentItems } from "./catalog-frontend-components";
 import { frontendStyleItems } from "./catalog-frontend-style";
@@ -9,6 +10,8 @@ import { frontendLogicItems } from "./catalog-frontend-logic";
 import { backendItems, databaseItems } from "./catalog-backend";
 import { cloudItems, cacheItems } from "./catalog-platform";
 import { securityItems, testItems } from "./catalog-safety";
+import { architectureItems, tenancyItems } from "./catalog-architecture";
+import type { CatalogFit } from "./catalog-fit";
 
 export type CatalogCategory =
   | "fe-components"
@@ -16,6 +19,7 @@ export type CatalogCategory =
   | "fe-logic"
   | "backend"
   | "database"
+  | "tenancy"
   | "cloud"
   | "cache"
   | "security"
@@ -42,6 +46,8 @@ export type CatalogItem = {
   rules: CatalogRules;
   decomposition: CatalogStep[];
   template: string;
+  /** Pro které projekty prvek dává smysl (docs/suplik-a-profil.md); bez `fits` patří všem. */
+  fits?: CatalogFit;
 };
 
 /**
@@ -56,23 +62,29 @@ export const CATALOG_CATEGORIES: CatalogCategoryInfo[] = [
   { id: "fe-logic", label: "Frontend – logika", hint: "Čisté funkce v logic/ s testem vedle, hook jen jako vazba." },
   { id: "backend", label: "Backend", hint: "Tenký router, logika v modulu prostředí, revize s CAS." },
   { id: "database", label: "Databáze", hint: "Schéma po tabulkách s vlastníkem, vratné migrace, velká data." },
+  { id: "tenancy", label: "Multitenance", hint: "Víc zákazníků v jedné aplikaci: tenant v každém požadavku a oddělená data." },
   { id: "cloud", label: "Cloud a infrastruktura", hint: "Prostředí konfigurací, opakovatelný build, strukturované logy." },
   { id: "cache", label: "Cache", hint: "Klíč z digestu vstupů, invalidace při změně zdroje." },
   { id: "security", label: "Security", hint: "Same-origin zápis, validace na serveru, žádná tajemství v klientu." },
   { id: "tests", label: "Testy", hint: "Unit vedle logiky, e2e po cestě uživatele, brány hotovo." },
 ];
 
+const CATEGORY_ORDER = new Map(CATALOG_CATEGORIES.map((category, index) => [category.id, index]));
+
+/** Celý katalog v pořadí kategorií; prvky pro jednu architekturu stojí na konci své kategorie. */
 export const CATALOG_ITEMS: CatalogItem[] = [
   ...frontendComponentItems,
   ...frontendStyleItems,
   ...frontendLogicItems,
   ...backendItems,
   ...databaseItems,
+  ...tenancyItems,
   ...cloudItems,
   ...cacheItems,
   ...securityItems,
   ...testItems,
-];
+  ...architectureItems,
+].sort((a, b) => (CATEGORY_ORDER.get(a.category) ?? 0) - (CATEGORY_ORDER.get(b.category) ?? 0));
 
 /** Položky jedné kategorie v pořadí katalogu. */
 export function itemsOf(category: CatalogCategory, items: CatalogItem[] = CATALOG_ITEMS): CatalogItem[] {

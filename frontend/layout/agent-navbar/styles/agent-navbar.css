@@ -1,9 +1,8 @@
-/* Agenti a postupy (blok agent-navbar): knihovna postupů, obsah zavěšeného panelu pod tlačítkem
-   „Agenti a postupy“ v liště nástrojů Editoru (`layout/panel-dock/`). Příběh: zatímco Knihovna nese
-   know-how o kódu, tady leží to, JAK se agentem řídí práce. Panel je karta 360px nad plátnem, ne
-   sloupec vedle něj — dost na název postupu, větu k čemu je a značku „N kroků“, a po zavření plátnu
-   nic nevezme. Obsah vyplní panel celý na šířku i na výšku, rámeček a stín patří panelu a rohy si
-   bere od něj; roluje se uvnitř, ne stránkou. Míry jsou v px podle kontraktu
+/* Agenti a postupy (blok agent-navbar): knihovna postupů v šuplíku u levého okraje Editoru
+   (`layout/panel-dock/`). Příběh: zatímco Knihovna nese know-how o kódu, tady leží to, JAK se
+   agentem řídí práce. Šuplík je pás 380px nad plátnem, ne sloupec vedle něj — dost na název
+   postupu, větu k čemu je a značku „N kroků“, a po zavření plátnu nic nevezme. Obsah vyplní tělo
+   šuplíku pod hlavičkou projektu; roluje se uvnitř, ne stránkou. Míry jsou v px podle kontraktu
    (`docs/panely-editoru.md`) — jsou to pevná čísla panelu, ne typografie, která má růst s uživatelem. */
 .agent-navbar {
   position: relative;
@@ -21,7 +20,7 @@
 .agent-navbar__panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 /* HLAVA panelu (48px): název vlevo a pod ním tichá připomínka zkratky, vpravo křížek, který
-   zavěšený panel zavře — stejně jako Esc nebo klik mimo. */
+   šuplík zavře — stejně jako Esc nebo tlačítko v liště. */
 .agent-navbar__head {
   display: flex;
   align-items: center;
@@ -146,6 +145,11 @@
 .agent-navbar__item:active { cursor: grabbing; }
 .agent-navbar__item--info { opacity: 0.55; cursor: default; }
 .agent-navbar__item--info:hover { background: transparent; }
+/* Postup mimo profil projektu (ukázaný řádkem „Mimo profil“ nebo hledáním) je ztlumený, ale dá se
+   vzít. Poznámka pod popisem říká proč: „kvůli profilu: …“ v akcentu, nebo „mimo profil“. */
+.agent-navbar__item--outside { opacity: 0.6; }
+.agent-navbar__item-fit { color: var(--accent); font-size: 12px; }
+.agent-navbar__item--outside .agent-navbar__item-fit { color: var(--ink-muted); }
 .agent-navbar__item-icon {
   flex: none;
   display: grid;

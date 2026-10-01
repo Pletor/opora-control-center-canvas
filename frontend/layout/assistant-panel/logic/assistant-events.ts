@@ -9,12 +9,15 @@ export type SessionState = "idle" | "running" | "waiting_approval" | "closed" | 
 
 export type AssistantEvent = { seq?: number; type: string; [key: string]: unknown };
 
-type MessageItem = { kind: "message"; id: string; role: "user" | "assistant"; text: string; streaming: boolean; origin: "history" | "live" | "local" };
+/** `at`: kdy zprávu odeslal tento panel (ms); jen u zpráv odeslaných odsud, jinak čas neznáme. */
+type MessageItem = { kind: "message"; id: string; role: "user" | "assistant"; text: string; streaming: boolean; origin: "history" | "live" | "local"; at?: number };
 
 export type ChatItem =
   | MessageItem
   | { kind: "tool"; id: string; name: string; summary: string; status: "running" | "ok" | "error"; result: string }
-  | { kind: "error"; id: string; text: string };
+  | { kind: "error"; id: string; text: string }
+  /** Konec tahu podle `turn_end`: nese délku a zamítnuté nástroje do hlavičky tahu. Nevykresluje se. */
+  | { kind: "turn_end"; id: string; durationMs: number | null; denied: number; isError: boolean };
 
 export type TurnInfo = { durationMs: number; isError: boolean; numTurns: number; denied: number };
 
@@ -51,11 +54,12 @@ export function loadTranscript(
 }
 
 /** Zpráva, kterou uživatel právě odeslal: ukáže se hned, server ji později jen potvrdí. */
-export function addLocalUserMessage(conv: Conversation, text: string, id: string): Conversation {
+export function addLocalUserMessage(conv: Conversation, text: string, id: string, at?: number): Conversation {
+  const item: MessageItem = { kind: "message", id, role: "user", text, streaming: false, origin: "local" };
   return {
     ...conv,
     state: "running",
-    items: [...conv.items, { kind: "message", id, role: "user", text, streaming: false, origin: "local" }],
+    items: [...conv.items, at === undefined ? item : { ...item, at }],
   };
 }
 
@@ -162,7 +166,14 @@ export function applyEvent(conv: Conversation, event: AssistantEvent): Conversat
         numTurns: typeof event.numTurns === "number" ? event.numTurns : 0,
         denied,
       };
-      return { ...base, items: finishStreaming(base.items), lastTurn, state: base.state === "error" ? "error" : "idle" };
+      const marker: ChatItem = {
+        kind: "turn_end",
+        id: `end${at}`,
+        durationMs: typeof event.durationMs === "number" ? event.durationMs : null,
+        denied,
+        isError: lastTurn.isError,
+      };
+      return { ...base, items: [...finishStreaming(base.items), marker], lastTurn, state: base.state === "error" ? "error" : "idle" };
     }
     case "error":
       return {

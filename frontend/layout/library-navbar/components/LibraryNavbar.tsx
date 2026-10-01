@@ -1,14 +1,20 @@
 // Rodič Knihovny: hlavička s vrstvou a křížkem, záložky OBSAH | STRÁNKA, přepínač Elementy | Bloky,
-// hledání a pod ním jeden ze tří dílků. Rodič nic neukládá sám — stav dostává v props z `useLibraryNavbar`
-// v App a každou změnu hlásí callbackem nahoru. O projektu ani o druhu zdroje neví nic; panel je jeden
-// pro celou aplikaci.
+// hledání, filtr „Pro tento projekt / Vše“ a pod nimi jeden ze tří dílků. Rodič nic neukládá sám — stav
+// dostává v props z `useLibraryNavbar` v App a každou změnu hlásí callbackem nahoru. Projekt zná jen
+// přes hotový `profile` z App (docs/suplik-a-profil.md); druh zdroje ani nastavení nečte.
 //
-// Knihovna visí v zavěšeném panelu (`layout/panel-dock/`) a vyplní ho celý. Kdy je vidět, rozhoduje
-// App; dílek se jen nakreslí a křížek v hlavičce ohlásí `onClose` nahoru.
+// Knihovna leží v šuplíku u levého okraje (`layout/panel-dock/`) a vyplní ho pod hlavičkou projektu.
+// Kdy je vidět, rozhoduje App; dílek se jen nakreslí a křížek v hlavičce ohlásí `onClose` nahoru.
 import LibraryTiles from "@/layout/library-navbar/components/LibraryTiles";
 import LibraryCategories from "@/layout/library-navbar/components/LibraryCategories";
 import LibraryPagePanel from "@/layout/library-navbar/components/LibraryPagePanel";
+import CatalogScopeBar from "@/layout/panel-dock/components/CatalogScopeBar";
+import CatalogOutsideRow from "@/layout/panel-dock/components/CatalogOutsideRow";
 import Icon from "@/ui-kit/icon/components/Icon";
+import { libraryView } from "@/layout/library-navbar/logic/library-scope";
+import type { CatalogScope } from "@/layout/panel-dock/logic/panel-drawer";
+import { outsideSummary } from "@/editor/component-library/library-catalog/logic/catalog-fit";
+import type { ProjectProfile } from "@/shared/project-capabilities/logic/project-capabilities";
 import {
   LIBRARY_MODES,
   LIBRARY_TABS,
@@ -17,18 +23,13 @@ import {
   type LibraryTab,
 } from "@/layout/library-navbar/logic/library-navbar";
 import type { LayerFilter, LayerGroupId } from "@/layout/library-navbar/logic/layer-list";
-import {
-  CATALOG_CATEGORIES,
-  CATALOG_ITEMS,
-  searchItems,
-  type CatalogCategory,
-  type CatalogItem,
-} from "@/editor/component-library/library-catalog/logic/library-catalog";
+import { CATALOG_ITEMS, type CatalogCategory, type CatalogItem } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import type { CanvasNode } from "@/shared/types/logic/types";
 
 /** Stálé prázdné hodnoty, aby výchozí props nedělaly z každého vykreslení nový objekt. */
 const EMPTY_CLOSED: ReadonlySet<string> = new Set<string>();
 const EMPTY_NODES: CanvasNode[] = [];
+const NO_PROFILE: ProjectProfile = { architecture: "", tenancy: "", platform: "web" };
 
 export default function LibraryNavbar({
   state,
@@ -36,6 +37,11 @@ export default function LibraryNavbar({
   items = CATALOG_ITEMS,
   nodes = EMPTY_NODES,
   closed = EMPTY_CLOSED,
+  profile = NO_PROFILE,
+  scope = "fitting",
+  showOutside = false,
+  onScope,
+  onToggleOutside,
   onTab,
   onMode,
   onSearch,
@@ -55,6 +61,12 @@ export default function LibraryNavbar({
   nodes?: CanvasNode[];
   /** Id uzavřených karet (`done.confirmed`) pro značku „skryto“ v seznamu vrstev. */
   closed?: ReadonlySet<string>;
+  /** Profil projektu od App; podle něj se katalog zúží. Bez profilu se nic nefiltruje. */
+  profile?: ProjectProfile;
+  scope?: CatalogScope;
+  showOutside?: boolean;
+  onScope?: (scope: CatalogScope) => void;
+  onToggleOutside?: () => void;
   onTab: (tab: LibraryTab) => void;
   onMode: (mode: LibraryMode) => void;
   onSearch: (query: string) => void;
@@ -66,11 +78,13 @@ export default function LibraryNavbar({
   onOpenLayer: (id: string) => void;
   /** Šipka zpět o vrstvu výš; bez ní je šipka zhasnutá (jsme na kořeni). */
   onBack?: () => void;
-  /** Křížek v hlavičce: zavře zavěšený panel; co to znamená, rozhoduje rodič. */
+  /** Křížek v hlavičce: zavře šuplík; co to znamená, rozhoduje rodič. */
   onClose: () => void;
 }) {
-  const found = searchItems(items, state.query);
-  const categories = CATALOG_CATEGORIES.filter((category) => found.some((item) => item.category === category.id));
+  const view = libraryView(items, profile, { scope, showOutside, query: state.query });
+  const found = view.shown;
+  // Řádek mimo profil patří k filtru projektu; hledání a „Vše“ už ukazují všechno.
+  const outsideRow = view.outside.length > 0 && scope === "fitting" && !state.query.trim();
 
   return (
     <aside className="library-navbar" aria-label="Knihovna" data-testid="library-navbar">
@@ -156,12 +170,30 @@ export default function LibraryNavbar({
               />
               <small className="library-navbar__search-count">{found.length}</small>
             </div>
+            {view.filtering && onScope && (
+              <CatalogScopeBar scope={scope} fitting={view.fittingCount} all={view.allCount} onScope={onScope} />
+            )}
 
             <div className="library-navbar__body">
               {state.mode === "elements" ? (
-                <LibraryTiles items={found} onOpenCategory={onCategory} />
+                <LibraryTiles items={found} notes={view.notes} outside={view.outsideIds} onOpenCategory={onCategory} />
               ) : (
-                <LibraryCategories categories={categories} items={found} open={state.category} onOpen={onCategory} />
+                <LibraryCategories
+                  categories={view.categories}
+                  items={found}
+                  notes={view.notes}
+                  outside={view.outsideIds}
+                  profileOnly={view.profileOnly}
+                  open={state.category}
+                  onOpen={onCategory}
+                />
+              )}
+              {outsideRow && onToggleOutside && (
+                <CatalogOutsideRow
+                  summary={outsideSummary(view.outside, ["prvek", "prvky", "prvků"])}
+                  shown={showOutside}
+                  onToggle={onToggleOutside}
+                />
               )}
             </div>
           </>

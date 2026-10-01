@@ -1,4 +1,5 @@
-// Dílek Bloky: devět kategorií pod sebou, každá se šipkou a počtem položek. Rozbalená kategorie
+// Dílek Bloky: kategorie pod sebou, každá se šipkou a počtem položek; kategorie, která je ve výběru
+// jen kvůli profilu projektu, nese štítek „kvůli profilu“ (pořadí i štítek dostane hotové). Rozbalená kategorie
 // otevře vedle panelu sloupec náhledů — a náhled není obrázek, je to začátek rozpadu položky.
 // Náhled se dá chytit a táhnout na plátno stejně jako dlaždice.
 //
@@ -18,9 +19,15 @@ import {
 
 const PREVIEW_STEPS = 3;
 
+const NO_NOTES: Readonly<Record<string, string>> = {};
+const NO_IDS: ReadonlySet<string> = new Set();
+
 export default function LibraryCategories({
   categories,
   items,
+  notes = NO_NOTES,
+  outside = NO_IDS,
+  profileOnly = NO_IDS,
   open,
   onOpen,
 }: {
@@ -28,6 +35,11 @@ export default function LibraryCategories({
   categories: CatalogCategoryInfo[];
   /** Už vyhledané položky; dílek je jen rozdělí podle kategorie. */
   items: CatalogItem[];
+  /** „kvůli profilu: …“ nebo „mimo profil“ podle id prvku. */
+  notes?: Readonly<Record<string, string>>;
+  outside?: ReadonlySet<string>;
+  /** Kategorie ve výběru jen kvůli profilu projektu. */
+  profileOnly?: ReadonlySet<string>;
   open: CatalogCategory | null;
   onOpen: (category: CatalogCategory) => void;
 }) {
@@ -56,6 +68,7 @@ export default function LibraryCategories({
               <Icon name={categoryIcon(category.id)} size={16} />
             </span>
             <span className="library-navbar__category-label">{category.label}</span>
+            {profileOnly.has(category.id) && <span className="library-navbar__fit">kvůli profilu</span>}
             <small className="library-navbar__category-count">{count}</small>
             <Icon
               className="library-navbar__category-chevron"
@@ -72,7 +85,7 @@ export default function LibraryCategories({
           {previews.map((item) => (
             <article
               key={item.id}
-              className="library-navbar__preview"
+              className={"library-navbar__preview" + (outside.has(item.id) ? " library-navbar__preview--outside" : "")}
               draggable
               data-testid={"library-preview-" + item.id}
               onDragStart={(event: DragEvent<HTMLElement>) => startCatalogDrag(event.dataTransfer, item.id)}
@@ -82,6 +95,7 @@ export default function LibraryCategories({
                 {item.label}
               </span>
               <span className="library-navbar__preview-hint">{item.hint}</span>
+              {notes[item.id] && <span className="library-navbar__fit">{notes[item.id]}</span>}
               {item.decomposition.slice(0, PREVIEW_STEPS).map((step) => (
                 <span key={step.title} className="library-navbar__preview-step">
                   <b className="library-navbar__preview-step-title">{step.title}</b> {step.text}

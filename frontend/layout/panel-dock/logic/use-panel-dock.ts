@@ -1,4 +1,4 @@
-// Vazba zavěšených panelů na React. Hook nemá vlastní pravidla: drží jednu hodnotu (který panel je
+// Vazba šuplíku Editoru na React. Hook nemá vlastní pravidla: drží jednu hodnotu (který panel je
 // otevřený), mění ji funkcemi z panel-dock.ts a váže jeden posluchač `keydown` na `window` pro obě
 // zkratky i Esc. Stav je jen v paměti sezení a nikam se neukládá — po načtení stránky panel nikdy
 // nezakrývá plátno. Volá ho rodič (App) jednou a rozdá výsledek dílkům v props.

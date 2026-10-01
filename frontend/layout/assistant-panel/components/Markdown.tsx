@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { parseMarkdown, type Block, type Inline } from "../logic/markdown";
+import { parseInline, parseMarkdown, type Block, type Inline } from "../logic/markdown";
 
 /**
  * Odpověď asistenta jako dokument: struktura z `logic/markdown.ts` → React prvky. Žádné HTML ani
@@ -60,7 +60,17 @@ function block(node: Block, i: number): ReactNode {
   }
 }
 
-export default function Markdown({ text }: { text: string }) {
+/** `compact`: menší mezery mezi bloky, pro text uvnitř karty otázky. */
+export default function Markdown({ text, compact = false }: { text: string; compact?: boolean }) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
-  return <div className="assistant-panel__md">{blocks.map(block)}</div>;
+  return <div className={"assistant-panel__md" + (compact ? " assistant-panel__md--compact" : "")}>{blocks.map(block)}</div>;
+}
+
+/** Krátký text v řádku (štítek doporučení): jen inline značky, řádky oddělí zalomení. */
+export function MarkdownInline({ text }: { text: string }) {
+  const nodes = useMemo(
+    () => text.split("\n").flatMap((line, i): Inline[] => (i ? [{ type: "break" }, ...parseInline(line)] : parseInline(line))),
+    [text],
+  );
+  return <>{inline(nodes)}</>;
 }

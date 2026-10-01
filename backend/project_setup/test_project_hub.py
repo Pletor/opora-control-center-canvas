@@ -47,7 +47,7 @@ def test_empty_settings_cas_and_archived_project_are_guarded(tmp_path):
             "project": pid,
             "expected_revision": 0,
             "name": "Renamed",
-            "settings": {"goal": "Ship", "platform": "web"},
+            "settings": {"goal": "Ship", "platform": "web", "architecture": "", "tenancy": ""},
         }
         saved = post(client, "/api/project-settings", payload)
         assert saved.status_code == 200 and saved.json()["revision"] == 1
@@ -67,11 +67,19 @@ def test_local_project_rejects_non_absolute_or_missing_paths(tmp_path, path):
         assert response.status_code == 409
 
 
+PROFILE = {"architecture": "", "tenancy": ""}
+
+
 @pytest.mark.parametrize("settings", [
-    {"goal": "x", "platform": "desktop"},
-    {"goal": 5, "platform": "web"},
-    {"goal": "x" * 4001, "platform": "web"},
-    {"goal": "", "platform": "web", "provider": "openai-codex", "model": "gpt-5.6", "budgetSeconds": 10},
+    {"goal": "x", "platform": "desktop", **PROFILE},
+    {"goal": 5, "platform": "web", **PROFILE},
+    {"goal": "x" * 4001, "platform": "web", **PROFILE},
+    {"goal": "", "platform": "web", **PROFILE, "provider": "openai-codex", "model": "gpt-5.6", "budgetSeconds": 10},
+    # Zápis vyžaduje celou sadu klíčů: starý tvar bez profilu neprojde.
+    {"goal": "", "platform": "web"},
+    {"goal": "", "platform": "web", "architecture": "soa", "tenancy": ""},
+    {"goal": "", "platform": "web", "architecture": "", "tenancy": "many"},
+    {"goal": "", "platform": "web", "architecture": None, "tenancy": ""},
 ])
 def test_settings_schema_and_platform_validation(tmp_path, settings):
     service = CanvasService(tmp_path)
@@ -102,11 +110,49 @@ def test_legacy_settings_table_with_llm_columns_stays_readable_and_writable(tmp_
     try:
         current = service.project_hub.settings("draft")
         assert current["revision"] == 3
-        assert current["settings"] == {"goal": "Starý cíl", "platform": "app"}
+        assert current["settings"] == {"goal": "Starý cíl", "platform": "app", **PROFILE}
         saved = service.project_hub.save_settings({
             "project": "draft", "expected_revision": 3, "name": "Návrh",
-            "settings": {"goal": "Nový cíl", "platform": "web"},
+            "settings": {"goal": "Nový cíl", "platform": "web", **PROFILE},
         })
-        assert saved["revision"] == 4 and saved["settings"] == {"goal": "Nový cíl", "platform": "web"}
+        assert saved["revision"] == 4 and saved["settings"] == {"goal": "Nový cíl", "platform": "web", **PROFILE}
     finally:
         service.close()
+
+
+def test_settings_without_profile_read_with_defaults(tmp_path):
+    """Projekt uložený před profilem má řádek v project_settings, ale žádný v project_profile."""
+    service = CanvasService(tmp_path)
+    try:
+        pid = service.project_hub.empty_project({"name": "Starý", "confirmed": True})["id"]
+        db = service.db_for(pid)
+        db.execute("INSERT INTO project_settings VALUES(?,?,?,?)", (pid, 2, "Starý cíl", "app"))
+        db.commit()
+        current = service.project_hub.settings(pid)
+        assert current["revision"] == 2
+        assert current["settings"] == {"goal": "Starý cíl", "platform": "app", "architecture": "", "tenancy": ""}
+        # Neznámá hodnota v uloženém profilu (novější verze, ruční zásah) se čte jako nenastaveno.
+        db.execute("INSERT INTO project_profile VALUES(?,?,?)", (pid, "mesh", "multi"))
+        db.commit()
+        assert service.project_hub.settings(pid)["settings"]["architecture"] == ""
+        assert service.project_hub.settings(pid)["settings"]["tenancy"] == "multi"
+    finally:
+        service.close()
+
+
+def test_profile_round_trip_and_cas(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        pid = post(client, "/api/empty-project", {"name": "Ample", "confirmed": True}).json()["id"]
+        fresh = client.get("/api/project-settings", params={"project": pid}).json()
+        assert fresh["settings"] == {"goal": "", "platform": "web", "architecture": "", "tenancy": ""}
+        profile = {**fresh["settings"], "architecture": "modular", "tenancy": "multi"}
+        payload = {"project": pid, "expected_revision": 0, "name": "Ample", "settings": profile}
+        saved = post(client, "/api/project-settings", payload)
+        assert saved.status_code == 200
+        assert saved.json()["revision"] == 1 and saved.json()["settings"] == profile
+        stale = post(client, "/api/project-settings", payload)
+        assert stale.status_code == 409 and "jiném okně" in stale.json()["error"]
+        bad = post(client, "/api/project-settings", {**payload, "expected_revision": 1, "settings": {**profile, "tenancy": "x"}})
+        assert bad.status_code == 409 and bad.json()["error"] == "Neplatné rozdělení uživatelů projektu."
+        reset = post(client, "/api/project-settings", {**payload, "expected_revision": 1, "settings": fresh["settings"]})
+        assert reset.json()["settings"]["architecture"] == "" and reset.json()["revision"] == 2

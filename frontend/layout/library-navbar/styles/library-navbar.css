@@ -1,8 +1,7 @@
-/* Knihovna (blok library-navbar): obsah zavěšeného panelu, který visí pod tlačítkem Knihovna
-   v liště nástrojů (`layout/panel-dock/`). Panel je karta 360px nad plátnem, ne sloupec vedle něj:
-   Knihovna ho vyplní celý na šířku i na výšku, rámeček a stín patří panelu, a rohy si bere od něj,
-   aby povrch nepřečníval přes zaoblení. Kdo ji nepotřebuje, zavře ji křížkem, Esc nebo klikem
-   mimo — plátno pak nic neztratí. Základní písmo 14px — panel se čte stejně snadno jako zbytek
+/* Knihovna (blok library-navbar): obsah šuplíku u levého okraje Editoru (`layout/panel-dock/`).
+   Šuplík je pás 380px nad plátnem, ne sloupec vedle něj: Knihovna vyplní celé jeho tělo pod
+   hlavičkou projektu, linka a stín patří šuplíku. Kdo ji nepotřebuje, zavře ji křížkem, Esc nebo
+   tlačítkem v liště — plátno pak nic neztratí. Základní písmo 14px — panel se čte stejně snadno jako zbytek
    editoru; barvy jen z tokenů, proto drží světlý i tmavý režim beze změny kódu. */
 .library-navbar {
   position: relative;
@@ -166,6 +165,13 @@
 .library-navbar__tile--cache { --c: var(--cat-cache); }
 .library-navbar__tile--security { --c: var(--cat-security); }
 .library-navbar__tile--tests { --c: var(--cat-tests); }
+.library-navbar__tile--tenancy { --c: var(--accent); }
+/* Prvek mimo profil projektu (ukázaný řádkem „Mimo profil“ nebo hledáním) je ztlumený: dá se
+   vzít, ale oko hned vidí, že k projektu nepatří. Důvod „kvůli profilu: …“ nese tichá značka
+   v akcentu — tenhle prvek je ve výběru proto, jaký projekt je. */
+.library-navbar__tile--outside,
+.library-navbar__preview--outside { opacity: 0.6; }
+.library-navbar__tile-badge--fit { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
 
 /* Kategorie: devět řádků pod sebou, min. 40px, s ikonou-žetonem, počtem a šipkou. Pruh 3px na
    levé hraně nese barvu kategorie pořád, otevřený řádek navíc podbarví plochu i text —
@@ -173,7 +179,7 @@
 .library-navbar__categories { display: grid; gap: 4px; }
 .library-navbar__category {
   display: grid;
-  grid-template-columns: 28px 1fr auto auto;
+  grid-template-columns: 28px 1fr auto auto auto;
   align-items: center;
   gap: 8px;
   min-height: 40px;
@@ -202,9 +208,22 @@
 .library-navbar__category--cache { --c: var(--cat-cache); }
 .library-navbar__category--security { --c: var(--cat-security); }
 .library-navbar__category--tests { --c: var(--cat-tests); }
+.library-navbar__category--tenancy { --c: var(--accent); }
+/* Štítek „kvůli profilu“: pilulka s obrysem v akcentu u kategorie, která je ve výběru jen díky
+   profilu projektu (a stojí proto nahoře), a u náhledu, který profil přivedl. */
+.library-navbar__fit {
+  justify-self: start;
+  padding: 1px 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
 
-/* Sloupec náhledů: vyjede vpravo vedle panelu, ne přes něj, aby zůstal vidět seznam kategorií —
-   vyčnívá ze zavěšeného panelu ven nad plátno, proto panel nic neořezává.
+/* Sloupec náhledů: vyjede vpravo vedle šuplíku, ne přes něj, aby zůstal vidět seznam kategorií —
+   vyčnívá ze šuplíku ven nad plátno, proto šuplík nic neořezává.
    Náhled u nás není obrázek — je to začátek rozpadu: nadpis, věta a první tři dílky. I náhled se
    dá chytit a táhnout na plátno. Kotví se k celému panelu (`.library-navbar`), ne k rolujícímu
    tělu — jinak by ho přetečení těla uřízlo u pravé hrany. */

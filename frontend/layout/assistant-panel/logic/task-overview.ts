@@ -151,6 +151,44 @@ export function formatElapsed(ms: number): string {
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
+export type TaskGroupKey = "working" | "waiting" | "other";
+
+export type TaskGroup = { key: TaskGroupKey; label: string; tasks: TaskView[] };
+
+const GROUP_LABEL: Record<TaskGroupKey, string> = { working: "Pracuje", waiting: "Čeká na vás", other: "Ostatní" };
+
+/**
+ * Skupina úkolu ve sloupci na celé ploše: „Pracuje“ běží, „Čeká na vás“ je připravená nová odpověď
+ * (značka „nové“) nebo čekání na schválení, všechno ostatní (viděné, chyba) je „Ostatní“.
+ */
+export function taskGroup(task: TaskView): TaskGroupKey {
+  if (task.status === "working") return "working";
+  if (task.status === "waiting" || (task.status === "ready" && task.isNew)) return "waiting";
+  return "other";
+}
+
+/** Skupiny v pořadí Pracuje, Čeká na vás, Ostatní; uvnitř skupiny pořadí seznamu. Prázdná skupina vypadne. */
+export function groupTasks(tasks: TaskView[]): TaskGroup[] {
+  const keys: TaskGroupKey[] = ["working", "waiting", "other"];
+  return keys
+    .map((key) => ({ key, label: GROUP_LABEL[key], tasks: tasks.filter((t) => taskGroup(t) === key) }))
+    .filter((g) => g.tasks.length > 0);
+}
+
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+/** Hledání v názvech: bez ohledu na velikost písmen a diakritiku, všechna slova dotazu musí sedět. */
+export function filterTasks(tasks: TaskView[], query: string): TaskView[] {
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  if (!words.length) return tasks;
+  return tasks.filter((t) => {
+    const title = fold(t.title);
+    return words.every((w) => title.includes(w));
+  });
+}
+
 /** „1 úkol“, „3 úkoly“, „5 úkolů“, „0 úkolů“. */
 export function tasksCount(count: number): string {
   if (count === 1) return "1 úkol";

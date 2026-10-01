@@ -1,5 +1,5 @@
 // Stav panelu Agenti a postupy bez Reactu: která kategorie, co se hledá a která záložka. Jestli je
-// panel vidět, tu není — to drží zavěšený panel (`layout/panel-dock/`) jen v paměti sezení. Panel je jeden pro celou aplikaci — neví nic o projektu, pracovním prostoru ani
+// panel vidět, tu není — to drží šuplík (`layout/panel-dock/`) jen v paměti sezení. Panel je jeden pro celou aplikaci — neví nic o projektu, pracovním prostoru ani
 // o druhu zdroje, a proto se ukládá pod jediným klíčem `opora:agent-navbar:v1`.
 import { AGENT_CATEGORIES, type AgentCategory } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
 import type { IconName } from "@/ui-kit/icon/logic/icon-paths";
@@ -51,7 +51,7 @@ export function parseAgentNavbar(raw: string | null): AgentNavbarState {
     const value = JSON.parse(raw) as Partial<AgentNavbarState> | null;
     if (!value || typeof value !== "object") return empty;
     return {
-      // Starší preference nesla `collapsed`. Panel se dnes otevírá jen jako zavěšený a po načtení
+      // Starší preference nesla `collapsed`. Panel se dnes otevírá jen v šuplíku a po načtení
       // stránky je vždy zavřený, proto se uložená hodnota při čtení zahodí.
       category: typeof value.category === "string" && KNOWN.has(value.category) ? (value.category as AgentCategory) : empty.category,
       query: typeof value.query === "string" ? value.query.slice(0, 120) : "",

@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isBusy, type Conversation as ConversationState } from "../logic/assistant-events";
 import { formatElapsed } from "../logic/task-overview";
-import { groupEntries } from "../logic/tool-steps";
-import MessageBlock from "./MessageBlock";
-import ToolSteps from "./ToolSteps";
+import type { Turn } from "../logic/turns";
+import { useActiveTurn } from "../logic/use-active-turn";
+import TurnBlock from "./TurnBlock";
 
 /** Hodiny tahu: od chvíle, kdy panel uviděl běh, tikají po sekundě; po doběhnutí zmizí. */
 function useElapsed(running: boolean): number {
@@ -19,22 +19,34 @@ function useElapsed(running: boolean): number {
 }
 
 /**
- * Konverzace jako dokument: zprávy pod sebou s velkou mezerou, kroky nástrojů sbalené do řádku a na
- * konci „pracuje… 0:12“. Posouvá se ke konci jen tehdy, když uživatel už u konce je, aby ho při čtení
- * starší odpovědi nový text netahal dolů.
+ * Konverzace jako dokument členěný po tazích: každý tah má hlavičku, pod ní zprávu uživatele, kroky
+ * nástrojů a odpověď; na konci „pracuje… 0:12“. Posouvá se ke konci jen tehdy, když uživatel už u konce
+ * je, aby ho při čtení starší odpovědi nový text netahal dolů. Který tah se právě čte, hlásí nahoru.
  */
-export default function Conversation({ conv, loading, sessionKey }: { conv: ConversationState; loading: boolean; sessionKey: string }) {
+export default function Conversation({
+  conv,
+  turns,
+  loading,
+  sessionKey,
+  onActiveTurn,
+}: {
+  conv: ConversationState;
+  turns: Turn[];
+  loading: boolean;
+  sessionKey: string;
+  onActiveTurn: (anchor: string | null) => void;
+}) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
-  const entries = useMemo(() => groupEntries(conv.items), [conv.items]);
   const running = isBusy(conv.state);
   const elapsed = useElapsed(running);
+  useActiveTurn(scroller, turns.map((t) => t.anchor), onActiveTurn);
 
   useEffect(() => { stick.current = true; }, [sessionKey]);
   useEffect(() => {
     const el = scroller.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [entries, running, loading]);
+  }, [conv.items, running, loading]);
 
   return (
     <div
@@ -47,16 +59,12 @@ export default function Conversation({ conv, loading, sessionKey }: { conv: Conv
     >
       <div className="assistant-panel__column" role="log" aria-live="polite" aria-label="Konverzace s asistentem">
         {loading && <p className="assistant-panel__hint">Načítám historii…</p>}
-        {!loading && entries.length === 0 && (
+        {!loading && turns.length === 0 && (
           <p className="assistant-panel__hint">
             Zeptejte se na plátno, kód nebo další krok. Asistent jen čte a radí, nic nezapisuje.
           </p>
         )}
-        {entries.map((entry) => {
-          if (entry.kind === "steps") return <ToolSteps key={entry.id} tools={entry.tools} />;
-          if (entry.kind === "error") return <p key={entry.item.id} role="alert" className="assistant-panel__error">{entry.item.text}</p>;
-          return <MessageBlock key={entry.item.id} message={entry.item} />;
-        })}
+        {turns.map((turn) => <TurnBlock key={turn.anchor} turn={turn} />)}
         {running && (
           <p className="assistant-panel__working" role="status">
             <span className="assistant-panel__working-pulse" aria-hidden="true" />

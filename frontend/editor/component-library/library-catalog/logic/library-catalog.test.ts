@@ -31,7 +31,7 @@ describe("library-catalog – katalog jako data", () => {
       expect(itemsOf(category.id).length, category.label).toBeGreaterThan(0);
     }
     expect(CATALOG_CATEGORIES.map((c) => c.id)).toEqual([
-      "fe-components", "fe-css", "fe-logic", "backend", "database", "cloud", "cache", "security", "tests",
+      "fe-components", "fe-css", "fe-logic", "backend", "database", "tenancy", "cloud", "cache", "security", "tests",
     ]);
   });
 

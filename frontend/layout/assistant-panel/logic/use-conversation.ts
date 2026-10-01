@@ -72,7 +72,7 @@ export function useConversation(enabled: boolean, project: string, activeId: str
   const send = useCallback(async (text: string, context: AssistantContext) => {
     if (!activeId) return false;
     const localId = `local-${++counter.current}`;
-    update(activeId, (c) => addLocalUserMessage(c, text, localId));
+    update(activeId, (c) => addLocalUserMessage(c, text, localId, Date.now()));
     try {
       await sendMessage(activeId, text, context);
       return true;

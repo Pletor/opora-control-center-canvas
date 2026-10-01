@@ -25,9 +25,11 @@ import AgentNavbar from "@/layout/agent-navbar/components/AgentNavbar";
 import { useAgentNavbar } from "@/layout/agent-navbar/logic/use-agent-navbar";
 import "@/layout/agent-navbar/styles/agent-navbar.css";
 import PanelToggles from "@/layout/panel-dock/components/PanelToggles";
-import PanelDropdown from "@/layout/panel-dock/components/PanelDropdown";
+import PanelDrawer from "@/layout/panel-dock/components/PanelDrawer";
 import { usePanelDock } from "@/layout/panel-dock/logic/use-panel-dock";
-import { DOCK_PANELS } from "@/layout/panel-dock/logic/panel-dock";
+import { usePanelDrawer } from "@/layout/panel-dock/logic/use-panel-drawer";
+import ProjectProfile from "@/layout/project-profile/components/ProjectProfile";
+import { useProjectProfile } from "@/layout/project-profile/logic/use-project-profile";
 import { cardBlocks } from "@/editor/canvas/node-card/logic/card-model";
 import { nodeWorkflowOf, type PipelineLibrary } from "@/shared/desktop-state/logic/types";
 import { fetchPipelines } from "@/shared/desktop-state/logic/api";
@@ -69,7 +71,7 @@ import {
   type WorkspaceMode,
   type SurfaceSettings,
 } from "@/shared/surface-settings/logic/workspace-settings";
-import { isLocalKind, projectCapabilities } from "@/shared/project-capabilities/logic/project-capabilities";
+import { catalogProfile, isLocalKind, projectCapabilities } from "@/shared/project-capabilities/logic/project-capabilities";
 import "@/layout/shell/styles/workspace-modes.css";
 import AccountCorner from "@/layout/account-corner/components/AccountCorner";
 import ProcessOverview from "@/live-run/processes/components/ProcessOverview";
@@ -154,7 +156,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const lastEditorMode = useRef<WorkspaceMode>(mode === "agents" ? "structure" : mode);
   function setMode(next: WorkspaceMode) {
     setEditorDocumentOpen(false);
-    // Jiný mód = jiný pohled na vrstvu; zavěšený panel z minulého pohledu by jen zakrýval plátno.
+    // Jiný mód = jiný pohled na vrstvu; šuplík z minulého pohledu by jen zakrýval plátno.
     dock.close();
     setEditorMode(next);
     if (next !== "agents") lastEditorMode.current = next;
@@ -193,12 +195,18 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   // Knihovna (levý navbar): jedno rozhraní pro celou aplikaci — stav i preference drží hook,
   // ukládá se pod jediným klíčem `opora:library-navbar:v1`, nikdy s klíčem projektu.
   const libraryNavbar = useLibraryNavbar();
-  // Zavěšené panely Editoru (docs/rozvrzeni-editoru.md): Knihovna nebo Agenti a postupy visí pod
-  // svým tlačítkem v liště nástrojů, otevřený je nejvýš jeden a jen v Editoru. Stav je jen v paměti
+  // Šuplík Editoru (docs/suplik-a-profil.md): Knihovna nebo Agenti a postupy vyjedou u levého
+  // okraje pod lištou, otevřený je nejvýš jeden a jen v Editoru. Stav je jen v paměti
   // sezení; zkratky Ctrl+Shift+, / Ctrl+Shift+. a Esc drží hook. Úvodní obrazovka panely nekreslí,
   // proto tam zkratky nic nepřepínají a odchod na ni panel zavře.
   const dock = usePanelDock(environment === "editor" && screen === "canvas");
-  // Agenti a postupy: obsah zavěšeného panelu. Stav drží týž druh hooku pod jediným klíčem
+  // Šuplík Knihovna/Agenti (docs/suplik-a-profil.md): filtr „Pro tento projekt / Vše“ je preference
+  // aplikace, karta profilu a „Mimo profil · zobrazit“ jen paměť sezení. Profil patří projektu:
+  // načte se z /api/project-settings při otevření šuplíku a ukládá ho jen App s očekávanou revizí.
+  const drawer = usePanelDrawer();
+  const projectProfile = useProjectProfile(project, dock.open);
+  const profile = catalogProfile(projectProfile.snapshot?.settings ?? null);
+  // Agenti a postupy: obsah šuplíku. Stav drží týž druh hooku pod jediným klíčem
   // `opora:agent-navbar:v1`. Samotné složení panelu čeká níž, až bude znát plátno a plochu
   // (`view`, `desktop`) — záložka Agenti si podle nich načítá zadání vybrané karty.
   const agentNavbar = useAgentNavbar();
@@ -391,7 +399,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const editable = !!view && !view.readOnly && !busy;
   // Agenti a postupy dostanou adresu karty a jeden otisk stavu: otisk plátna + revize plochy. Když se
   // karta pohne (jiný graf, jiná revize textů a bloků), otisk se změní a záložka Agenti si zadání
-  // načte znovu. Panel sám nic nedohledává — jen dostane props; kreslí se jen v zavěšeném panelu.
+  // načte znovu. Panel sám nic nedohledává — jen dostane props; kreslí se jen v šuplíku.
   const agentNavbarPanel = (
     <AgentNavbar
       state={agentNavbar.state}
@@ -400,6 +408,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       selectedNodeId={selected}
       refreshKey={(view?.digest ?? "") + ":" + desktop.revision}
       readOnly={!!view?.readOnly || desktop.readOnly || !!(selected && nodeWorkflowOf(desktop.state, selected).done.confirmed)}
+      profile={profile}
+      scope={drawer.scope}
+      showOutside={drawer.showOutside}
+      onScope={drawer.setScope}
+      onToggleOutside={drawer.toggleOutside}
       onClose={dock.close}
       onCategory={agentNavbar.category}
       onSearch={agentNavbar.search}
@@ -778,7 +791,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       current?.digest === preview.digest ? null : current,
     );
   }
-  // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez zavěšených panelů: nemá plátno, kam
+  // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez šuplíku Knihovna/Agenti: nemá plátno, kam
   // by se dalo táhnout, ani vybranou kartu, pro kterou by Agenti a postupy něco ukázali.
   if (screen === "home") return <>
     <div className="editor-frame">
@@ -848,7 +861,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         </div>
       )}
       {/* Lišta Editoru se čte zleva jako věta: na co se dívám (záložky módů), z čeho beru (tlačítka
-          zavěšených panelů) a vpravo, co s tím dělám (skupiny nástrojů). */}
+          šuplíku) a vpravo, co s tím dělám (skupiny nástrojů). */}
       {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru">
         <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
         <PanelToggles open={dock.open} onToggle={dock.toggle} />
@@ -872,8 +885,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         {!inspectorShown && !editorDocumentOpen && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
       </div>}
       {/* Rám prostředí pod horní lištou a lištou nástrojů: obsah prostředí zabírá celou šířku. V Editoru
-          do rámu visí zavěšený panel (Knihovna nebo Agenti a postupy) nad plátnem, ne vedle něj
-          (kontrakt docs/rozvrzeni-editoru.md). */}
+          z levého okraje rámu vyjíždí šuplík (Knihovna nebo Agenti a postupy) nad plátnem, ne vedle
+          něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame">
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind}/> :
       <div className={"workspace-shell " + mode + "-mode" + ((mode === "agents" || mode === "map") ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
@@ -1256,13 +1269,37 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         )}
       </div>}
       {environment === "editor" && dock.open && (
-        <PanelDropdown panel={dock.open} label={DOCK_PANELS.find((item) => item.key === dock.open)?.label ?? ""} onClose={dock.close}>
+        <PanelDrawer
+          panel={dock.open}
+          onSelect={dock.toggle}
+          onClose={dock.close}
+          head={
+            <ProjectProfile
+              name={projectProfile.snapshot?.project.name ?? activeProject?.name ?? ""}
+              profile={profile}
+              loaded={!!projectProfile.snapshot}
+              editing={drawer.editingProfile}
+              dismissed={drawer.profileDismissed}
+              saving={projectProfile.saving}
+              error={projectProfile.error}
+              onEdit={drawer.setEditingProfile}
+              onDismiss={drawer.dismissProfile}
+              onSave={(draft) => { projectProfile.save(draft).then((saved) => { if (saved) drawer.setEditingProfile(false); }); }}
+              onReload={projectProfile.reload}
+            />
+          }
+        >
           {dock.open === "library" ? (
             <LibraryNavbar
               state={libraryNavbar.state}
               layerName={layer ? layer.name : "Projekt"}
               nodes={graph.nodes}
               closed={closedNodeIds}
+              profile={profile}
+              scope={drawer.scope}
+              showOutside={drawer.showOutside}
+              onScope={drawer.setScope}
+              onToggleOutside={drawer.toggleOutside}
               onTab={libraryNavbar.tab}
               onMode={libraryNavbar.mode}
               onSearch={libraryNavbar.search}
@@ -1277,7 +1314,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           ) : (
             agentNavbarPanel
           )}
-        </PanelDropdown>
+        </PanelDrawer>
       )}
       </div>
       {pickerNode && (

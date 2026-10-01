@@ -4,8 +4,11 @@ import {
   anyWorking,
   buildTasks,
   cleanTitle,
+  filterTasks,
   firstLine,
   formatElapsed,
+  groupTasks,
+  taskGroup,
   isNewTask,
   neighbourTask,
   nextSeen,
@@ -14,6 +17,7 @@ import {
   taskStatus,
   tasksCount,
   type TaskSource,
+  type TaskView,
 } from "./task-overview";
 
 const NOW = Date.parse("2026-10-01T12:00:00Z");
@@ -126,6 +130,39 @@ describe("čas tahu", () => {
     expect(formatElapsed(185_000)).toBe("3:05");
     expect(formatElapsed(3_729_000)).toBe("1:02:09");
     expect(formatElapsed(-5)).toBe("0:00");
+  });
+});
+
+describe("skupiny a hledání na celé ploše", () => {
+  const view = (id: string, over: Partial<TaskView> = {}): TaskView => ({
+    id, title: id, status: "ready", statusWord: "", model: "opus", when: "", preview: "", isNew: false, active: false, ...over,
+  });
+
+  it("Pracuje, Čeká na vás (nové nebo čeká na schválení), Ostatní; prázdná skupina vypadne", () => {
+    const tasks = [
+      view("hotovo"),
+      view("běží", { status: "working" }),
+      view("nová", { isNew: true }),
+      view("chyba", { status: "error", isNew: true }),
+      view("schválit", { status: "waiting" }),
+    ];
+    expect(tasks.map(taskGroup)).toEqual(["other", "working", "waiting", "other", "waiting"]);
+    expect(groupTasks(tasks).map((g) => [g.label, g.tasks.map((t) => t.id)])).toEqual([
+      ["Pracuje", ["běží"]],
+      ["Čeká na vás", ["nová", "schválit"]],
+      ["Ostatní", ["hotovo", "chyba"]],
+    ]);
+    expect(groupTasks([view("a")]).map((g) => g.key)).toEqual(["other"]);
+    expect(groupTasks([])).toEqual([]);
+  });
+
+  it("hledá v názvech bez diakritiky a velikosti písmen, všechna slova", () => {
+    const tasks = [view("Export plátna do PDF"), view("Revize mapy Archify"), view("Tmavý režim exportu")];
+    expect(filterTasks(tasks, "").map((t) => t.id)).toHaveLength(3);
+    expect(filterTasks(tasks, "  EXPORT ").map((t) => t.id)).toEqual(["Export plátna do PDF", "Tmavý režim exportu"]);
+    expect(filterTasks(tasks, "platna pdf").map((t) => t.id)).toEqual(["Export plátna do PDF"]);
+    expect(filterTasks(tasks, "rezim").map((t) => t.id)).toEqual(["Tmavý režim exportu"]);
+    expect(filterTasks(tasks, "nic")).toEqual([]);
   });
 });
 

@@ -1,7 +1,7 @@
-// Zavěšené panely Editoru bez Reactu: který panel je otevřený, co ho přepne a kam se dropdown
-// posadí. Kontrakt `docs/rozvrzeni-editoru.md` (Dílek 2). Knihovna ani Agenti a postupy už nejsou
-// sloupce v toku — visí pod svým tlačítkem v liště nástrojů a otevřený je vždy nejvýš jeden, aby
-// plátno nikdy nezakrývaly dva najednou. Komponenty jen čtou výsledek; pravidla drží tento soubor.
+// Šuplík Editoru bez Reactu: který panel je otevřený a co ho přepne. Kontrakt
+// `docs/suplik-a-profil.md` (část 4). Knihovna ani Agenti a postupy nejsou sloupce v toku — vyjíždějí
+// jako šuplík u levého okraje a otevřený je vždy nejvýš jeden, aby plátno nikdy nezakrývaly dva
+// najednou. Komponenty jen čtou výsledek; pravidla drží tento soubor.
 import { isLibraryCollapseShortcut, type ShortcutKey } from "@/layout/library-navbar/logic/library-navbar";
 import { isCollapseShortcut } from "@/layout/agent-navbar/logic/agent-navbar";
 import type { IconName } from "@/ui-kit/icon/logic/icon-paths";
@@ -29,25 +29,4 @@ export function panelForShortcut(event: ShortcutKey): DockPanel | null {
 /** Esc zavře otevřený panel. Jiná klávesa ne — panel nemá druhou cestu ven z klávesnice. */
 export function isDismissKey(event: { key: string }): boolean {
   return event.key === "Escape";
-}
-
-/** Šířka panelu, okraj od hrany rámu, poloha šipky od levé hrany panelu a nejmenší odstup šipky od rohu. */
-export const PANEL_WIDTH = 360;
-export const PANEL_GAP = 8;
-export const ARROW_INSET = 44;
-export const ARROW_EDGE = 16;
-
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
-/**
- * Kam dropdown posadit: šipka má stát 44 px od levé hrany panelu přímo pod středem tlačítka. U pravé
- * hrany rámu se panel zarazí 8 px před koncem a šipka se posune doprava, aby dál mířila na tlačítko;
- * nikdy ale nevjede do zaobleného rohu (16 px od obou hran). `anchorCenter` i `left` se měří od levé
- * hrany rámu, `arrow` od levé hrany panelu.
- */
-export function dropdownPlacement(anchorCenter: number, frameWidth: number): { left: number; arrow: number } {
-  const maxLeft = Math.max(PANEL_GAP, frameWidth - PANEL_WIDTH - PANEL_GAP);
-  const left = clamp(anchorCenter - ARROW_INSET, PANEL_GAP, maxLeft);
-  const arrow = clamp(anchorCenter - left, ARROW_EDGE, PANEL_WIDTH - ARROW_EDGE);
-  return { left, arrow };
 }

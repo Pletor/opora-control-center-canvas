@@ -16,6 +16,8 @@ import { ruleItems } from "./catalog-rules";
 import { hookItems } from "./catalog-hooks";
 import { skillItems } from "./catalog-skills";
 import { agentItems } from "./catalog-agents";
+import { architectureRuleItems, architectureWorkflowItems } from "./catalog-architecture";
+import type { CatalogFit } from "@/editor/component-library/library-catalog/logic/catalog-fit";
 
 export type AgentCategory = "workflows" | "pipelines" | "rules" | "hooks" | "skills" | "agents";
 
@@ -45,6 +47,8 @@ export type AgentItem = {
   stopCondition: string;
   /** Id položek levého katalogu (`CATALOG_ITEMS`), na které krok pipeline odkazuje — odkazem, ne kopií. Smí být prázdné. */
   refs: string[];
+  /** Pro které projekty postup dává smysl (docs/suplik-a-profil.md); bez `fits` patří všem. */
+  fits?: CatalogFit;
 };
 
 /**
@@ -64,8 +68,10 @@ export const AGENT_CATEGORIES: AgentCategoryInfo[] = [
 
 export const AGENT_ITEMS: AgentItem[] = [
   ...workflowItems,
+  ...architectureWorkflowItems,
   ...pipelineItems,
   ...ruleItems,
+  ...architectureRuleItems,
   ...hookItems,
   ...skillItems,
   ...agentItems,

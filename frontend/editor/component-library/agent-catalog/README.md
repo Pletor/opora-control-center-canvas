@@ -105,3 +105,5 @@ věci, každá se svým `rule` v nálezu:
 
 Katalog nezná projekt: nečte `sourceKind`, id projektu ani pracovní prostor. Je stejný pro všechny
 projekty a pro všechna prostředí (Editor i Live Run).
+
+Položka smí nést `fits` stejně jako levý katalog (`library-catalog/logic/catalog-fit.ts`). `logic/catalog-architecture.ts` drží pravidla „Každý dotaz nese tenanta“ (multi), „Moduly si nesahají do dat“ (modular), „Služba vlastní svá data“ (microservices) a workflow „Saga přes služby“ (microservices); ostatní položky jsou univerzální.

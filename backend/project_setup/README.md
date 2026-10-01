@@ -1,1 +1,3 @@
-Krok 1, úvodní nastavení: připojení repozitáře nebo složky, založení projektu, nastavení a metadata (project_hub.py); tabulky project_sources, project_settings, builtin_project_metadata.
+Krok 1, úvodní nastavení: připojení repozitáře nebo složky, založení projektu, nastavení a metadata (project_hub.py); tabulky project_sources, project_settings, project_profile, builtin_project_metadata.
+
+Nastavení projektu (`/api/project-settings`) má klíče `goal`, `platform`, `architecture` (`""`, `monolith`, `modular`, `microservices`, `serverless`) a `tenancy` (`""`, `single`, `multi`); `""` = nenastaveno (docs/suplik-a-profil.md). Profil leží ve vlastní tabulce `project_profile`, revizi nese dál `project_settings`; projekt bez řádku profilu (uložený před profilem) se čte s `""`, neznámá uložená hodnota taky. Zápis vyžaduje všechny čtyři klíče a `expected_revision`; neplatná hodnota i kolize revizí vrací českou chybu (409).

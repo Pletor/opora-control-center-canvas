@@ -4,7 +4,11 @@ from pathlib import Path
 from backend.canvas.graph import EMPTY, encode, valid_id
 
 PLATFORMS = {"web", "app", "component"}
-DEFAULT_SETTINGS = {"goal": "", "platform": "web"}
+# Profil projektu (docs/suplik-a-profil.md): "" = nenastaveno, podle pole se pak nic nefiltruje.
+ARCHITECTURES = {"", "monolith", "modular", "microservices", "serverless"}
+TENANCIES = {"", "single", "multi"}
+DEFAULT_PROFILE = {"architecture": "", "tenancy": ""}
+DEFAULT_SETTINGS = {"goal": "", "platform": "web", **DEFAULT_PROFILE}
 
 
 class ProjectHub:
@@ -21,6 +25,25 @@ class ProjectHub:
             "INSERT OR REPLACE INTO project_settings(project_id,revision,goal,platform) VALUES(?,?,?,?)",
             (pid, revision, goal, platform),
         )
+
+    def write_profile(self, pid, architecture, tenancy):
+        """Profil leží ve vlastní tabulce, aby starší project_settings zůstala beze změny schématu."""
+        self.canvas.db_for(pid).execute(
+            "INSERT OR REPLACE INTO project_profile(project_id,architecture,tenancy) VALUES(?,?,?)",
+            (pid, architecture, tenancy),
+        )
+
+    def _profile(self, pid):
+        row = self.canvas.db_for(pid).execute(
+            "SELECT architecture,tenancy FROM project_profile WHERE project_id=?", (pid,)
+        ).fetchone()
+        if row is None:
+            return dict(DEFAULT_PROFILE)
+        # Hodnota, kterou dnešní verze nezná, se čte jako nenastaveno: profil pak nic neskrývá.
+        return {
+            "architecture": row["architecture"] if row["architecture"] in ARCHITECTURES else "",
+            "tenancy": row["tenancy"] if row["tenancy"] in TENANCIES else "",
+        }
 
     def source_info(self, project):
         if isinstance(project, str):
@@ -45,9 +68,10 @@ class ProjectHub:
         row = self.canvas.db_for(pid).execute(
             "SELECT revision,goal,platform FROM project_settings WHERE project_id=?", (pid,)
         ).fetchone()
+        profile = self._profile(pid)
         if row is None:
-            return 0, dict(DEFAULT_SETTINGS)
-        return row["revision"], {"goal": row["goal"], "platform": row["platform"]}
+            return 0, {**DEFAULT_SETTINGS, **profile}
+        return row["revision"], {"goal": row["goal"], "platform": row["platform"], **profile}
 
     def settings(self, project):
         if not isinstance(project, str) or (project != "draft" and not valid_id(project)):
@@ -70,6 +94,10 @@ class ProjectHub:
             raise ValueError("Neplatný cíl projektu.")
         if not isinstance(values["platform"], str) or values["platform"] not in PLATFORMS:
             raise ValueError("Neplatná platforma projektu.")
+        if not isinstance(values["architecture"], str) or values["architecture"] not in ARCHITECTURES:
+            raise ValueError("Neplatná architektura projektu.")
+        if not isinstance(values["tenancy"], str) or values["tenancy"] not in TENANCIES:
+            raise ValueError("Neplatné rozdělení uživatelů projektu.")
 
     def save_settings(self, payload):
         if not isinstance(payload, dict) or set(payload) != {"project", "expected_revision", "name", "settings"}:
@@ -89,6 +117,7 @@ class ProjectHub:
                     raise ValueError("Nastavení se změnilo v jiném okně. Obnovte je.")
                 values = payload["settings"]
                 self.write_settings(pid, revision + 1, values["goal"], values["platform"])
+                self.write_profile(pid, values["architecture"], values["tenancy"])
             with self.canvas.db:
                 if pid == "draft":
                     self.canvas.db.execute("UPDATE builtin_project_metadata SET name=? WHERE project_id='draft'", (name,))
@@ -96,7 +125,7 @@ class ProjectHub:
                     self.canvas.db.execute("UPDATE projects SET name=? WHERE id=?", (name, pid))
             folder = self.canvas.folder(pid)
             if folder.exists():
-                folder.update(name=name, settings={"goal": values["goal"], "platform": values["platform"], "revision": revision + 1})
+                folder.update(name=name, settings={**{key: values[key] for key in DEFAULT_SETTINGS}, "revision": revision + 1})
         return self.settings(pid)
 
     def _new(self, name, kind, path=None):

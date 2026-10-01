@@ -53,7 +53,9 @@
    „vpravo“ je to šuplík pod horní lištou široký asi 480 px: dost na odstavec textu a pořád je vidět
    plátno. Pod 900 px šířky okna zabere celou šířku, protože úzký sloupec se nedá číst. Ve velikosti
    „celá plocha“ zakryje všechno pod lištou; lišta s tlačítkem Asistent zůstává, takže cesta zpět je
-   vždy na stejném místě. Panel nemá rámečky navíc: jedna linka odděluje hlavičku, jedna přehled. */
+   vždy na stejném místě. Celá plocha má tři sloupce: úkoly 288 px, konverzace uprostřed a osnova
+   296 px; osnova se ukáže jen od šířky okna 1280 px, aby konverzace nikdy nebyla stísněná. Panel nemá
+   rámečky navíc: jedna linka odděluje hlavičku, jedna přehled. */
 .assistant-panel {
   position: fixed;
   top: var(--topbar-h);
@@ -109,9 +111,27 @@
   border-bottom: 1px solid var(--line);
 }
 .assistant-panel__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
   margin-right: auto;
   font-size: var(--fs-3);
   font-weight: 600;
+  white-space: nowrap;
+}
+/* Na celé ploše za jménem stojí „/ název úkolu · model“: tišší, aby jméno úkolu bylo vidět, ale
+   nepřebilo konverzaci; dlouhý název se zkrátí, přepínač velikostí zůstane vždy na místě. */
+.assistant-panel__brand-sep,
+.assistant-panel__brand-meta {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+.assistant-panel__brand-task {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-weight: 500;
+  text-overflow: ellipsis;
 }
 .assistant-panel__sizes {
   display: flex;
@@ -193,8 +213,8 @@
 }
 
 /* Přehled úkolů je srdce panelu: na první pohled říká, co běží, co doběhlo a co čeká. Na celé ploše je
-   to trvalý sloupec vlevo (300 px) na o stupeň tmavším podkladu, takže se oddělí od textu bez linky
-   navíc. V panelu vpravo je to pruh nahoře: sbalený ukazuje jen aktivní úkol a počet (s tečkou, když
+   to trvalý sloupec vlevo (288 px) na o stupeň tmavším podkladu, takže se oddělí od textu bez linky
+   navíc; úkoly v něm stojí ve skupinách Pracuje / Čeká na vás / Ostatní a nad nimi je hledání. V panelu vpravo je to pruh nahoře: sbalený ukazuje jen aktivní úkol a počet (s tečkou, když
    se jinde něco změnilo), rozbalený celý seznam, který se posouvá sám a konverzaci nikdy nevytlačí. */
 .assistant-panel__tasks {
   display: flex;
@@ -204,10 +224,8 @@
 }
 .assistant-panel__tasks--column {
   flex: none;
-  width: 300px;
+  width: 288px;
   border-right: 1px solid var(--line);
-  /* Vlevo dole zůstává menu aplikace (account-corner); seznam úkolů končí nad ním. */
-  padding-bottom: 64px;
 }
 .assistant-panel__tasks--drawer {
   flex: none;
@@ -293,11 +311,6 @@
   margin-left: 4px;
   color: var(--ink-muted);
   font-weight: 400;
-}
-/* Dole vlevo plave menu aplikace „Opora“; konec sloupce úkolů má proto rezervu, aby poslední
-   úkol šlo odrolovat nad něj. */
-.assistant-panel__tasks--column .assistant-panel__task-list {
-  padding-bottom: 72px;
 }
 
 /* „+ Nový úkol“ je jediné plné akcentní tlačítko v přehledu; vedle něj malý výběr modelu, protože
@@ -461,9 +474,11 @@
 }
 
 /* Konverzace se čte jako dokument, ne jako chat: písmo 15 px, řádkování 1,6 a velká mezera mezi
-   zprávami. Na celé ploše stojí text ve sloupci nejvýš 72 znaků uprostřed, protože delší řádek oko
-   ztrácí; v panelu vpravo je sloupec prostě celá šířka s pohodlným okrajem. Posouvá se jen konverzace,
-   hlavička, přehled a pole pro zprávu zůstávají na místě. */
+   tahy. Na celé ploše je sloupec široký až 920 px, aby se vešly tabulky, kód a dvě karty otázek
+   vedle sebe, ale odstavce a seznamy dál končí kolem 80 znaků, protože delší řádek oko ztrácí. V panelu
+   vpravo je sloupec prostě celá šířka s pohodlným okrajem. Posouvá se jen konverzace; hlavička,
+   přehled, osnova a pole pro zprávu zůstávají na místě. Sloupec je „kontejner“: karty otázek si podle
+   jeho šířky samy zvolí jeden, nebo dva sloupce. */
 .assistant-panel__conversation {
   flex: 1;
   min-height: 0;
@@ -473,11 +488,26 @@
 .assistant-panel__column {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 44px;
   max-width: 72ch;
   margin: 0 auto;
+  container-type: inline-size;
   font-size: 15px;
   line-height: 1.6;
+}
+.assistant-panel--full .assistant-panel__conversation {
+  padding: var(--sp-6) 56px var(--sp-4);
+  scrollbar-gutter: stable;
+}
+.assistant-panel--full .assistant-panel__column {
+  max-width: 920px;
+}
+.assistant-panel--full .assistant-panel__md-paragraph,
+.assistant-panel--full .assistant-panel__md-list,
+.assistant-panel--full .assistant-panel__md-quote,
+.assistant-panel--full .assistant-panel__md-heading,
+.assistant-panel--full .assistant-panel__message--user {
+  max-width: 80ch;
 }
 .assistant-panel__hint {
   margin: 0;
@@ -737,7 +767,8 @@
 }
 
 /* Pole pro zprávu je jedna zaoblená deska dole, zarovnaná se sloupcem textu: vlevo text, vpravo
-   kulaté akcentní tlačítko Odeslat, za běhu místo něj tichý Stop. Deska roste s textem až do 40 %
+   kulaté akcentní tlačítko Odeslat, za běhu místo něj tichý Stop. Na celé ploše je stejně široká
+   jako sloupec konverzace (920 px) a nad textem drobně říká, do kterého úkolu se odpovídá. Deska roste s textem až do 40 %
    výšky panelu a pak se posouvá uvnitř. Fokus obarví celou desku, ne jen textové pole. Nad ní se
    při psaní „/“ ukáže nabídka lomítkových příkazů. */
 .assistant-panel__composer {
@@ -761,6 +792,30 @@
 .assistant-panel__field:focus-within {
   border-color: var(--accent-line);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+/* Pole si vpravo nechá místo na posuvník jako konverzace nad ním, aby obě hrany lícovaly. */
+.assistant-panel--full .assistant-panel__composer {
+  padding: var(--sp-3) 56px var(--sp-5);
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+.assistant-panel--full .assistant-panel__field,
+.assistant-panel--full .assistant-panel__slash {
+  max-width: 920px;
+}
+.assistant-panel__field-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.assistant-panel__field-label {
+  padding-top: 6px;
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .assistant-panel__input {
   flex: 1;
@@ -993,4 +1048,262 @@
 .assistant-panel__mini-close:hover {
   background: var(--surface-2);
   color: var(--ink);
+}
+
+/* Sloupec úkolů na celé ploše se čte shora dolů jako rozpis dne: nahoře „Úkoly N“ a jediné plné
+   tlačítko „+ Nový úkol“, pod ním hledání v názvech (píše se, filtruje se hned, Esc ho vymaže) a pak
+   skupiny. Každá skupina má malý kapitálkový štítek s počtem, takže oko nejdřív najde „Pracuje“
+   a „Čeká na vás“ a teprve pak zbytek. Prázdná skupina se nezobrazí vůbec. Dole vlevo plave menu
+   aplikace „Opora“; konec seznamu má proto rezervu, aby poslední úkol šlo odrolovat nad něj. */
+.assistant-panel__tasks-search {
+  flex: none;
+  margin: 0 var(--sp-4) var(--sp-3);
+  border-color: var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  font-size: var(--fs-2);
+}
+.assistant-panel__task-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  flex: 1;
+  min-height: 0;
+  padding: var(--sp-1) 0 72px;
+  overflow-y: auto;
+}
+.assistant-panel__task-group-label {
+  margin: 0;
+  padding: 0 var(--sp-5) 6px;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.assistant-panel__task-group-count {
+  margin-left: 4px;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.assistant-panel__tasks-none {
+  padding: 0 var(--sp-5);
+}
+
+/* Tah je jedna kapitola rozhovoru: drobná hlavička „TAH 2“ s tichým „14:06 · 38 s · 6 kroků“, pod ní
+   zpráva uživatele, kroky a odpověď. Mezi tahy je velká mezera, uvnitř tahu menší, takže je bez
+   jediné linky vidět, co k čemu patří. Když osnova na tah posune, tah se zastaví kousek pod horním
+   okrajem, aby hlavička nebyla nalepená na hranu. */
+.assistant-panel__turn {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+  scroll-margin-top: var(--sp-5);
+}
+.assistant-panel__turn-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-bottom: -8px;
+}
+.assistant-panel__turn-number {
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.assistant-panel__turn-meta {
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Otázky k rozhodnutí z grillingu nejsou zeď textu, ale karty v mřížce: úvodní věta, pak karty
+   (dvě vedle sebe, když je sloupec aspoň 640 px široký, jinak pod sebou) a závěr. Karta je klidná
+   deska o stupeň světlejší než pozadí: nahoře číslo a téma, uprostřed otázka, dole „Doporučení“
+   a celé doporučení jako akcentní štítek, nic se nezkracuje. Karta, na kterou ukáže osnova, se
+   zastaví kousek pod okrajem. */
+.assistant-panel__decisions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9em;
+}
+.assistant-panel__decision-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+  margin: 0.2em 0;
+  padding: 0;
+  list-style: none;
+}
+@container (min-width: 640px) {
+  .assistant-panel__decision-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.assistant-panel__decision {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: var(--sp-4) 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  scroll-margin-top: var(--sp-5);
+}
+.assistant-panel__decision-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  color: var(--ink-muted);
+  font-size: var(--fs-2);
+  line-height: 1.4;
+}
+.assistant-panel__decision-id {
+  flex: none;
+  color: var(--accent);
+  font-weight: 650;
+}
+.assistant-panel__decision-topic {
+  color: var(--ink);
+  font-weight: 600;
+}
+.assistant-panel__decision-question {
+  font-size: var(--fs-3);
+  line-height: 1.55;
+}
+.assistant-panel__decision-recommendation {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin: auto 0 0;
+}
+.assistant-panel__decision-label {
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__decision-tag {
+  padding: 3px 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--fs-2);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* Markdown uvnitř karty dýchá méně než odpověď, aby karta zůstala kompaktní. */
+.assistant-panel__md--compact {
+  gap: 0.4em;
+}
+
+/* Osnova vpravo je mapa úkolu, ke které se oko vrací, když přemýšlí: s čím asistent pracuje
+   (kontext ze zprávy), kudy rozhovor šel (tahy, ten právě čtený je zvýrazněný a klik na jiný plynule
+   posune konverzaci), co je potřeba rozhodnout (otázky z poslední odpovědi) a kolik kroků to stálo.
+   Je tišší než konverzace: menší písmo, žádné desky, jen štítky sekcí a řádky. Pod šířkou okna
+   1280 px zmizí, aby konverzace měla místo. */
+.assistant-panel__outline {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  flex: none;
+  width: 296px;
+  min-height: 0;
+  padding: var(--sp-5) var(--sp-4);
+  overflow-y: auto;
+  border-left: 1px solid var(--line);
+  font-size: var(--fs-2);
+}
+@media (max-width: 1279.98px) {
+  .assistant-panel__outline {
+    display: none;
+  }
+}
+.assistant-panel__outline-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.assistant-panel__outline-label {
+  margin: 0;
+  padding: 0 10px 2px;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.assistant-panel__outline-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px var(--sp-3);
+  margin: 0;
+  padding: 0 10px;
+}
+.assistant-panel__outline-key {
+  color: var(--ink-muted);
+}
+.assistant-panel__outline-value {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-panel__outline-note {
+  margin: 0;
+  padding: 0 10px;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  line-height: 1.55;
+}
+.assistant-panel__outline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.assistant-panel__outline-link {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  text-align: left;
+}
+.assistant-panel__outline-link:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.assistant-panel__outline-link--active,
+.assistant-panel__outline-link--active:hover {
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--accent);
+  color: var(--ink);
+}
+.assistant-panel__outline-index {
+  flex: none;
+  min-width: 1.6em;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.assistant-panel__outline-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

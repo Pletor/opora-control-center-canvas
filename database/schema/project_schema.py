@@ -21,6 +21,8 @@ PROJECT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS drafts(id TEXT PRIMARY KEY, graph TEXT);
 -- backend/project_setup/project_hub.py: cíl a platforma projektu
 CREATE TABLE IF NOT EXISTS project_settings(project_id TEXT PRIMARY KEY, revision INTEGER NOT NULL, goal TEXT NOT NULL, platform TEXT NOT NULL);
+-- backend/project_setup/project_hub.py: profil projektu (architektura, uživatelé); revizi nese project_settings
+CREATE TABLE IF NOT EXISTS project_profile(project_id TEXT PRIMARY KEY, architecture TEXT NOT NULL, tenancy TEXT NOT NULL);
 -- backend/editor/node/node_text.py
 CREATE TABLE IF NOT EXISTS node_text_revisions(
     project_id TEXT, workspace_id TEXT, node_id TEXT, revision INTEGER,

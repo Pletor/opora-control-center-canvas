@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type Project, type Job } from "@/shared/types/logic/types";
+import { api, type Project, type Job, type ProjectSettings, type SettingsSnapshot } from "@/shared/types/logic/types";
+import { ARCHITECTURE_OPTIONS, TENANCY_OPTIONS } from "@/shared/project-capabilities/logic/project-profile";
 import "@/project-setup/styles/project-home.css";
 
-export type ProjectSettings = { goal: string; platform: "web" | "app" | "component"; };
-export type SettingsSnapshot = { project: Project; revision: number; settings: ProjectSettings };
 type Draft = SettingsSnapshot & { dirty: boolean };
 const drafts = new Map<string, Draft>();
 
@@ -104,6 +103,9 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, o
         {form ? <form onSubmit={(e) => { e.preventDefault(); saveSettings(); }}>
           <div className="hub-fields"><label className="field">Název projektu<input value={form.project.name} maxLength={120} required disabled={busy} onChange={(e) => change({}, e.target.value)} /></label>
           <label className="field">Cílová platforma<select value={form.settings.platform} disabled={busy} onChange={(e) => change({ platform: e.target.value as ProjectSettings["platform"] })}><option value="web">Web</option><option value="app">Aplikace</option><option value="component">Komponenta</option></select></label></div>
+          {/* Profil projektu: podle něj Knihovna a Agenti ukazují jen to, co k projektu sedí (docs/suplik-a-profil.md). */}
+          <div className="hub-fields"><label className="field">Architektura<select aria-label="Architektura" value={form.settings.architecture} disabled={busy} onChange={(e) => change({ architecture: e.target.value as ProjectSettings["architecture"] })}><option value="">Nenastaveno – ukázat vše</option>{ARCHITECTURE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label} – {option.hint}</option>)}</select></label>
+          <label className="field">Uživatelé<select aria-label="Uživatelé" value={form.settings.tenancy} disabled={busy} onChange={(e) => change({ tenancy: e.target.value as ProjectSettings["tenancy"] })}><option value="">Nenastaveno – ukázat vše</option>{TENANCY_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label} – {option.hint}</option>)}</select></label></div>
           <label className="field">Cíl projektu<textarea aria-label="Cíl projektu" rows={4} maxLength={4000} value={form.settings.goal} disabled={busy} onChange={(e) => change({ goal: e.target.value })} /></label>
           <div className="hub-actions"><span role="status" data-testid="project-settings-status">{busy ? "Ukládám…" : form.dirty ? "Neuložené nastavení" : form.revision ? `Uloženo · verze ${form.revision}` : "Výchozí nastavení"}</span><button className="primary" disabled={busy || !form.dirty}>Uložit nastavení projektu</button></div>
         </form> : <p role="status">Načítám nastavení…</p>}

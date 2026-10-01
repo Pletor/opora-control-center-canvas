@@ -1,13 +1,14 @@
 // Dílek Katalog: rozbalená knihovna postupů. Nahoře svislý seznam šesti kategorií (řádek, ne
 // čip — v úzkém panelu se čipy zalamovaly a nešlo je přečíst), pod ním hledání a nadpis „Kategorie ·
 // N“, zbytek panelu je seznam řádků. Řádek je zdroj tažení (`startAgentDrag`); položka druhu `info`
-// (hook, skill) se táhnout nedá a je ztlumená. Dílek nic nefiltruje a nic neukládá — kategorie,
-// položky i jejich počty dostává hotové v props a změny hlásí nahoru.
+// (hook, skill) se táhnout nedá a je ztlumená. Postup mimo profil projektu je ztlumený taky a pod
+// popisem nese poznámku („mimo profil“ nebo „kvůli profilu: …“). Dílek nic nefiltruje a nic
+// neukládá — kategorie, položky, počty, poznámky i filtr dostává hotové v props a změny hlásí nahoru.
 //
 // Všechny značky jsou kreslené ikony ze sady `ui-kit/icon`, ne Unicode glyfy: ikona řádku je ikona
 // jeho kategorie (`categoryIcon`) — položka nese ikonu police, ve které leží, aby se oko po sloupci
 // klouzalo místo aby ho zdržovalo devět různých znaků z katalogu.
-import type { DragEvent } from "react";
+import type { DragEvent, ReactNode } from "react";
 import { categoryIcon, stepsBadge, stepsLine } from "@/layout/agent-navbar/logic/agent-navbar";
 import Icon from "@/ui-kit/icon/components/Icon";
 import {
@@ -17,10 +18,17 @@ import {
   type AgentItem,
 } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
 
+const NO_NOTES: Readonly<Record<string, string>> = {};
+const NO_OUTSIDE: ReadonlySet<string> = new Set();
+
 export default function AgentNavbarCatalog({
   items,
   category,
   categoryCounts,
+  notes = NO_NOTES,
+  outside = NO_OUTSIDE,
+  filter = null,
+  footer = null,
   query,
   onCategory,
   onSearch,
@@ -30,6 +38,13 @@ export default function AgentNavbarCatalog({
   category: AgentCategory;
   /** Kolik položek má každá kategorie celkem (bez ohledu na hledání) — pro číslo u řádku kategorie. */
   categoryCounts: Record<AgentCategory, number>;
+  /** „kvůli profilu: …“ nebo „mimo profil“ podle id položky. */
+  notes?: Readonly<Record<string, string>>;
+  outside?: ReadonlySet<string>;
+  /** Přepínač „Pro tento projekt / Vše“ pod hledáním; skládá ho rodič. */
+  filter?: ReactNode;
+  /** Řádek „Mimo profil“ na konci seznamu; skládá ho rodič. */
+  footer?: ReactNode;
   query: string;
   onCategory: (category: AgentCategory) => void;
   onSearch: (query: string) => void;
@@ -73,6 +88,7 @@ export default function AgentNavbarCatalog({
         />
         <small className="agent-navbar__search-count">{items.length}</small>
       </div>
+      {filter}
 
       <p className="agent-navbar__section-heading">{activeCategory.label} · {items.length}</p>
 
@@ -84,7 +100,11 @@ export default function AgentNavbarCatalog({
               return (
                 <li
                   key={item.id}
-                  className={"agent-navbar__item" + (draggable ? "" : " agent-navbar__item--info")}
+                  className={
+                    "agent-navbar__item" +
+                    (draggable ? "" : " agent-navbar__item--info") +
+                    (outside.has(item.id) ? " agent-navbar__item--outside" : "")
+                  }
                   draggable={draggable}
                   title={
                     item.hint +
@@ -104,6 +124,7 @@ export default function AgentNavbarCatalog({
                   <span className="agent-navbar__item-text">
                     <span className="agent-navbar__item-name">{item.label}</span>
                     <span className="agent-navbar__item-hint">{item.hint}</span>
+                    {notes[item.id] && <span className="agent-navbar__item-fit">{notes[item.id]}</span>}
                   </span>
                   <span className="agent-navbar__item-steps">{stepsBadge(item.decomposition.length)}</span>
                   {draggable && <Icon className="agent-navbar__item-grip" name="grip-vertical" size={16} />}
@@ -114,6 +135,7 @@ export default function AgentNavbarCatalog({
         ) : (
           <p className="agent-navbar__empty">V téhle kategorii nic takového není. Zkuste jiné slovo.</p>
         )}
+        {footer}
       </div>
     </div>
   );

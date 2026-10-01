@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { iconPath } from "@/ui-kit/icon/logic/icon-paths";
-import {
-  ARROW_EDGE,
-  ARROW_INSET,
-  DOCK_PANELS,
-  dropdownPlacement,
-  isDismissKey,
-  PANEL_GAP,
-  PANEL_WIDTH,
-  panelForShortcut,
-  togglePanel,
-} from "./panel-dock";
+import { DOCK_PANELS, isDismissKey, panelForShortcut, togglePanel } from "./panel-dock";
 
 describe("panel-dock – tlačítka panelů", () => {
   it("Knihovna stojí vlevo od Agentů a každý panel nese jméno, ikonu a zkratku z kontraktu", () => {
@@ -59,27 +49,5 @@ describe("panel-dock – klávesnice", () => {
     expect(isDismissKey({ key: "Escape" })).toBe(true);
     expect(isDismissKey({ key: "Enter" })).toBe(false);
     expect(isDismissKey({ key: "Esc" })).toBe(false);
-  });
-});
-
-describe("panel-dock – poloha dropdownu pod tlačítkem", () => {
-  it("míry panelu drží kontrakt", () => {
-    expect({ PANEL_WIDTH, PANEL_GAP, ARROW_INSET, ARROW_EDGE }).toEqual({ PANEL_WIDTH: 360, PANEL_GAP: 8, ARROW_INSET: 44, ARROW_EDGE: 16 });
-  });
-
-  it.each([
-    [520, 1080, 476, 44],
-    [620, 920, 552, 68],
-    [20, 1080, 8, 16],
-    [500, 300, 8, 344],
-  ])("tlačítko se středem %i v rámu %i px → panel od %i, šipka %i", (anchorCenter, frameWidth, left, arrow) => {
-    expect(dropdownPlacement(anchorCenter, frameWidth)).toEqual({ left, arrow });
-  });
-
-  it("šipka míří na střed tlačítka, dokud to rám dovolí", () => {
-    for (const anchorCenter of [60, 300, 700]) {
-      const { left, arrow } = dropdownPlacement(anchorCenter, 1440);
-      expect(left + arrow).toBe(anchorCenter);
-    }
   });
 });

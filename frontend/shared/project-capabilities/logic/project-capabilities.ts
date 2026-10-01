@@ -1,4 +1,4 @@
-import type { Project } from "@/shared/types/logic/types";
+import type { Architecture, Platform, Project, Tenancy } from "@/shared/types/logic/types";
 
 /**
  * Jediné místo, kde se chování rozhraní odvozuje od druhu projektu.
@@ -30,4 +30,28 @@ export function projectCapabilities(projectId: string, activeProject: Project | 
     legacyFree: isDraft && kind === "builtin",
     defaultWorkspace: localProject ? "draft" : "main",
   };
+}
+
+/**
+ * Profil projektu pro katalogy Knihovny a Agentů (docs/suplik-a-profil.md). Profil popisuje projekt,
+ * ne vzhled: podle něj se zúží výběr, rozhraní zůstává stejné. `""` znamená nenastaveno a podle
+ * takového pole se nic nefiltruje. Dílek nastavení nečte — dostane hotový profil v props od App.
+ */
+export type ProjectProfile = { architecture: Architecture | ""; tenancy: Tenancy | ""; platform: Platform };
+
+const ARCHITECTURES: Architecture[] = ["monolith", "modular", "microservices", "serverless"];
+const TENANCIES: Tenancy[] = ["single", "multi"];
+const PLATFORMS: Platform[] = ["web", "app", "component"];
+
+/** Nastavení (i chybějící nebo starší bez profilu) na profil; neznámá hodnota se čte jako nenastaveno. */
+export function catalogProfile(settings: { architecture?: string; tenancy?: string; platform?: string } | null): ProjectProfile {
+  const architecture = ARCHITECTURES.find((value) => value === settings?.architecture) ?? "";
+  const tenancy = TENANCIES.find((value) => value === settings?.tenancy) ?? "";
+  const platform = PLATFORMS.find((value) => value === settings?.platform) ?? "web";
+  return { architecture, tenancy, platform };
+}
+
+/** Profil, který nic neříká: ani architektura, ani uživatelé. Šuplík pak nabídne kartu profilu. */
+export function profileUnset(profile: ProjectProfile): boolean {
+  return !profile.architecture && !profile.tenancy;
 }

@@ -1,6 +1,7 @@
 /**
  * Konverzace k vykreslení: zprávy a chyby zůstávají samostatně, po sobě jdoucí volání nástrojů se
- * sbalí do jedné skupiny „3 kroky (Read, Grep, Skill)“. Čistá funkce bez Reactu.
+ * sbalí do jedné skupiny „3 kroky (Read, Grep, Skill)“. Značka konce tahu se nevykresluje (nese jen
+ * údaje pro hlavičku tahu, viz `turns.ts`). Čistá funkce bez Reactu.
  */
 import type { ChatItem } from "./assistant-events";
 
@@ -18,15 +19,17 @@ export function groupEntries(items: ChatItem[]): ConversationEntry[] {
       const last = out[out.length - 1];
       if (last && last.kind === "steps") last.tools.push(item);
       else out.push({ kind: "steps", id: `steps-${item.id}`, tools: [item] });
-    } else if (item.kind === "error") out.push({ kind: "error", item });
+    } else if (item.kind === "turn_end") continue;
+    else if (item.kind === "error") out.push({ kind: "error", item });
     else out.push({ kind: "message", item });
   }
   return out;
 }
 
-function stepsWord(count: number): string {
+/** „krok“, „kroky“, „kroků“ podle počtu. */
+export function stepsWord(count: number): string {
   if (count === 1) return "krok";
-  return count < 5 ? "kroky" : "kroků";
+  return count >= 2 && count <= 4 ? "kroky" : "kroků";
 }
 
 /** „3 kroky (Read, Grep, Skill)“: jména bez opakování v pořadí prvního výskytu. */

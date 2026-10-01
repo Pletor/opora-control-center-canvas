@@ -1,4 +1,4 @@
-Panel „Agenti a postupy“: zavěšený panel Editoru pod tlačítkem „Agenti a postupy“ v liště nástrojů. Zatímco Knihovna je knihovna kódu (know-how o tom, CO se staví), tahle police je knihovna postupů — JAK se řídí Claude a agenti: Workflows, Pipelines, Pravidla, Hooky a commands, Skills, Agenti. Obsah panelu je kontrakt `docs/panely-editoru.md`, „Dílek 3: Agenti a postupy“; rozvržení (panel visí v `layout/panel-dock/`, už to není sloupec u pravé hrany a nesbaluje se na lištu) je `docs/rozvrzeni-editoru.md`, Dílek 4 — kód je provádí, nemění.
+Panel „Agenti a postupy“: obsah šuplíku Editoru u levého okraje (`layout/panel-dock/`, kontrakt `docs/suplik-a-profil.md`). Zatímco Knihovna je knihovna kódu (know-how o tom, CO se staví), tahle police je knihovna postupů — JAK se řídí Claude a agenti: Workflows, Pipelines, Pravidla, Hooky a commands, Skills, Agenti. Obsah panelu je kontrakt `docs/panely-editoru.md`, „Dílek 3: Agenti a postupy“; rozvržení (panel visí v `layout/panel-dock/`, už to není sloupec u pravé hrany a nesbaluje se na lištu) je `docs/rozvrzeni-editoru.md`, Dílek 4 — kód je provádí, nemění.
 
 **Dílky**
 
@@ -41,8 +41,12 @@ Panel „Agenti a postupy“: zavěšený panel Editoru pod tlačítkem „Agent
 
 **Zapojení**
 
-`app/components/App.tsx` volá `useAgentNavbar()` jednou, složí `agentNavbarPanel` (až za `view` a `desktop`, protože záložka Agenti potřebuje `project`, `workspace`, `selectedNodeId` a `refreshKey` = `view?.digest + ":" + desktop.revision`, a `onClose={dock.close}`) a vykreslí ho **uvnitř `<PanelDropdown>`** jen v prostředí Editoru a jen když je otevřený panel `agents`. Tlačítko „Agenti a postupy“ je v `layout/panel-dock/components/PanelToggles.tsx`. Úvodní obrazovka, Projekt ani Live Run panel nekreslí; žádné odsazení těla aplikace ani sloupec v rámu neexistuje.
+`app/components/App.tsx` volá `useAgentNavbar()` jednou, složí `agentNavbarPanel` (až za `view` a `desktop`, protože záložka Agenti potřebuje `project`, `workspace`, `selectedNodeId` a `refreshKey` = `view?.digest + ":" + desktop.revision`, a `onClose={dock.close}`) a vykreslí ho **uvnitř `<PanelDrawer>`** jen v prostředí Editoru a jen když je otevřený panel `agents`. Tlačítko „Agenti a postupy“ je v `layout/panel-dock/components/PanelToggles.tsx`. Úvodní obrazovka, Projekt ani Live Run panel nekreslí; žádné odsazení těla aplikace ani sloupec v rámu neexistuje.
 
 **Obsah**
 
 Položky bere panel z `frontend/editor/component-library/agent-catalog/logic/agent-catalog.ts` (fáze 1): `AGENT_CATEGORIES`, `AGENT_ITEMS`, `agentItemsOf`, `agentItemById`, `searchAgentItems`, `startAgentDrag`, `AGENT_DRAG_TYPE`. Panel sám žádnou položku nedrží a katalog nemění.
+
+**Profil projektu (docs/suplik-a-profil.md)**
+
+Panel dostává od App hotový `profile` a stav filtru (`scope`, `showOutside`, `onScope`, `onToggleOutside`). `logic/agent-scope.ts` (+ test) — `agentView(category, profile, options)`: vybraná kategorie přes `catalogView` šuplíku, čísla u kategorií s filtrem projektu počítají jen to, co k projektu sedí, a postupy nesou poznámku (`agent-navbar__item-fit`); postup mimo profil je ztlumený (`agent-navbar__item--outside`). `AgentNavbarCatalog` dostane přepínač (`filter`) a řádek mimo profil (`footer`) složené rodičem. Hledání v kategorii najde i postupy mimo profil.

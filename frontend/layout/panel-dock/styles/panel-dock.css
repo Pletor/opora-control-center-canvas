@@ -3,7 +3,7 @@
    ze kterého se bere. Proto je od záložek odděluje tichá svislá čára a mají vlastní rámeček, zatímco
    záložky jsou jen podtržené slovo. Každé tlačítko nese ikonu 16 px, jméno a drobnou klávesovou
    zkratku, aby ruka zkratku potkávala pokaždé, když sáhne myší. Otevřené tlačítko se obarví stejně
-   jako panel, který pod ním visí, a šipka panelu míří přesně na jeho střed — oko tak ví, kam patří. */
+   jako segment v šuplíku, který vyjel u levého okraje — oko tak ví, co je otevřené. */
 .panel-toggles {
   display: flex;
   align-items: center;
@@ -62,50 +62,131 @@
   }
 }
 
-/* Zavěšený panel (blok panel-dock): Knihovna nebo Agenti a postupy visí pod svým tlačítkem jako
-   karta 360 px široká, 8 px od horní i dolní hrany rámu. Nestojí v toku — plátno pod ním zůstává
-   celé a panel ho jen na chvíli překryje, dokud ho uživatel nezavře křížkem, Esc, klikem mimo nebo
-   přepnutím módu. Stín 18 px dolů říká „ležím nad plátnem“, ne „jsem jeho sloupec“. Vrstva 20
-   drží panel nad plátnem i nad šuplíkem knihovny uzlu (6/7), ale pod horní lištou (30) a rohem
-   účtu (60). Přetečení je viditelné, protože z Knihovny vyjíždí vpravo sloupec náhledů. Vodorovnou
-   polohu a polohu šipky dopočítá dílek podle tlačítka (`left`, `--panel-dock-arrow`). */
-.panel-dock {
+/* Šuplík (blok panel-drawer): Knihovna nebo Agenti a postupy vyjedou u levého okraje pracovní
+   plochy jako pevný pás 380 px přes celou výšku pod lištou. Je to jedno stálé místo — oko ho najde
+   vždy vlevo, ať bylo tlačítko v liště kdekoli. Šuplík leží nad plátnem (vrstva 20: nad plátnem
+   i šuplíkem knihovny uzlu 6/7, pod horní lištou 30 a rohem účtu 60), ale plátno vpravo zůstává
+   volné: pravá hrana nese linku a stín do plátna, který říká „ležím nad ním, nejsem jeho sloupec“.
+   Přetečení je viditelné, protože z Knihovny vyjíždí vpravo sloupec náhledů. Na úzkém okně
+   (pod 900 px) zabere celou šířku — vedle by na plátno stejně nezbylo místo. */
+.panel-drawer {
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 8px;
+  top: 0;
+  bottom: 0;
+  left: 0;
   z-index: 20;
-  width: 360px;
+  width: 380px;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+  border-right: 1px solid var(--line-strong);
+  box-shadow: 12px 0 32px rgba(0, 0, 0, 0.18);
   overflow: visible;
   transition: opacity 120ms ease;
 }
-/* Šipka: čtvereček 12 × 12 otočený o 45°, napůl zasunutý pod horní hranu. Rámeček má jen na dvou
-   horních stranách, takže nad panelem vystoupí zobáček, který plynule navazuje na jeho obrys;
-   spodní polovinu překryje obsah panelu. Míří na střed tlačítka — střed šipky je v proměnné a měří
-   se od vnější hrany panelu, kdežto šipka se posazuje až za rámeček 1 px; proto polovina šipky
-   (6 px) plus ten rámeček. */
-.panel-dock__arrow {
-  position: absolute;
-  top: -7px;
-  left: calc(var(--panel-dock-arrow, 44px) - 7px);
-  width: 12px;
-  height: 12px;
-  box-sizing: border-box;
-  background: var(--surface);
-  border-top: 1px solid var(--line-strong);
-  border-left: 1px solid var(--line-strong);
-  transform: rotate(45deg);
+@media (max-width: 899px) {
+  .panel-drawer { width: 100%; }
 }
-/* Tažení položky z panelu: panel zprůsvitní a přestane brát myš, aby šlo položku pustit i na
+/* Horní část šuplíku: přepínač a hlavička projektu s odsazením 16 px a mezerou 12 px — stejný rytmus
+   jako hledání pod ní. Když je rozbalená karta profilu, roluje se tahle část sama, aby seznam pod ní
+   nikdy nezmizel celý. */
+.panel-drawer__top {
+  flex: none;
+  max-height: 66%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+/* Přepínač Knihovna | Agenti a postupy: dva segmenty v jedné vaničce. Aktivní segment je vyvýšený
+   povrchem a tučným písmem, neaktivní je jen tiché slovo — je jasné, co je v šuplíku teď. */
+.panel-drawer__switch {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.panel-drawer__segment {
+  flex: 1;
+  min-height: 0;
+  padding: 7px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.panel-drawer__segment:hover { color: var(--ink); }
+.panel-drawer__segment--active,
+.panel-drawer__segment--active:hover {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  color: var(--ink);
+  font-weight: 600;
+}
+/* Tělo šuplíku: Knihovna nebo Agenti vyplní zbytek výšky a rolují se uvnitř sebe. Dole nechá
+   52 px volna, protože levý dolní roh patří tlačítku Opora (roh účtu leží nad vším) — poslední
+   položka seznamu tak nikdy nezmizí pod ním. */
+.panel-drawer__body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  padding-bottom: 52px;
+}
+/* Tažení položky ze šuplíku: šuplík zprůsvitní a přestane brát myš, aby šlo položku pustit i na
    plátno přímo pod ním. Po puštění se vrátí celý a zůstává otevřený pro další položku. */
-.panel-dock--dragging {
+.panel-drawer--dragging {
   opacity: 0.4;
   pointer-events: none;
 }
+
+/* Filtr katalogu (blok catalog-scope): pod hledáním dvě pilulky „Pro tento projekt N“ a „Vše M“.
+   Výchozí je projekt — výběr ze stovky věcí se zúží na to, co projekt opravdu potřebuje, a číslo
+   u „Vše“ poctivě říká, kolik toho zůstalo stranou. Aktivní pilulka nese akcent, druhá je tichá. */
+.catalog-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 8px;
+}
+.catalog-scope__pill {
+  min-height: 0;
+  padding: 2px 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.catalog-scope__pill:hover { color: var(--ink); }
+.catalog-scope__pill--active,
+.catalog-scope__pill--active:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.catalog-scope__count { font-weight: 600; }
+/* Řádek „Mimo profil“: čárkovaný rámeček na konci seznamu je pozvánka, ne další položka. Říká, kolik
+   prvků profil schoval a pro jaké projekty jsou, a jedním klikem je ukáže — ztlumené, aby bylo
+   vidět, že k projektu nepatří. */
+.catalog-scope__outside {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.catalog-scope__outside:hover { color: var(--ink); border-color: var(--accent-line); }
+.catalog-scope__outside-action { color: var(--accent); font-weight: 600; }

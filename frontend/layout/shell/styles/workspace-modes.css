@@ -4,8 +4,8 @@
 /* Rám prostředí: vše pod horní lištou a lištou nástrojů. Obsah prostředí (shell s plátnem a
    inspektorem, plocha Projektu, rozcestník projektů) zabírá celou šířku — nestojí vedle něj žádný
    sloupec lišty módů, Knihovny ani Agentů, takže plátno dostane všechno, co okno má. Rám je
-   `position: relative`, protože v Editoru do něj visí zavěšený panel (`layout/panel-dock/`): leží
-   nad plátnem, ne vedle něj, a po zavření plátnu nic nevezme. */
+   `position: relative`, protože v Editoru z jeho levého okraje vyjíždí šuplík Knihovna/Agenti
+   (`layout/panel-dock/`): leží nad plátnem, ne vedle něj, a po zavření plátnu nic nevezme. */
 .editor-frame {
   position: relative;
   flex: 1;

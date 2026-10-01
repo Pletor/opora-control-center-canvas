@@ -1,5 +1,5 @@
 // Stav Knihovny bez Reactu: která záložka, který režim, co se hledá a která kategorie je rozbalená.
-// Jestli je Knihovna vidět, tu není — to drží zavěšený panel (`layout/panel-dock/`) jen v paměti
+// Jestli je Knihovna vidět, tu není — to drží šuplík (`layout/panel-dock/`) jen v paměti
 // sezení. Stav je jeden pro celou aplikaci — neví nic o projektu, pracovním prostoru ani o druhu
 // zdroje, a proto se ukládá pod jediným klíčem `opora:library-navbar:v1`.
 import { CATALOG_CATEGORIES, CATALOG_DRAG_TYPE, type CatalogCategory } from "@/editor/component-library/library-catalog/logic/library-catalog";
@@ -43,6 +43,7 @@ const CATEGORY_ICON: Record<CatalogCategory, IconName> = {
   security: "shield",
   cloud: "cloud",
   tests: "check-circle",
+  tenancy: "users",
 };
 
 /** Neznámá nebo cizí kategorie dostane dílek — lišta i dlaždice tak nikdy nezůstanou bez ikony. */
@@ -114,8 +115,8 @@ export function parseLibraryNavbar(raw: string | null): LibraryNavbarState {
     const value = JSON.parse(raw) as Partial<LibraryNavbarState> | null;
     if (!value || typeof value !== "object") return empty;
     return {
-      // Starší preference nesly `open` a `expanded`. Knihovna se dnes otevírá jen jako zavěšený
-      // panel a po načtení stránky je vždy zavřená, proto se obě hodnoty při čtení zahodí.
+      // Starší preference nesly `open` a `expanded`. Knihovna se dnes otevírá jen v šuplíku
+      // a po načtení stránky je vždy zavřená, proto se obě hodnoty při čtení zahodí.
       tab: value.tab === "page" ? "page" : "content",
       mode: value.mode === "blocks" ? "blocks" : "elements",
       query: typeof value.query === "string" ? value.query.slice(0, 120) : "",

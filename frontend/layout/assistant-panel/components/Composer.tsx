@@ -4,13 +4,15 @@ import { slashHints } from "../logic/slash-commands";
 /**
  * Pole pro zprávu. Text drží rodič (koncept per úkol), dílek ho jen zobrazuje a hlásí změny.
  * `Enter` odešle, `Shift+Enter` zalomí řádek, pole roste s textem do 40 % výšky panelu. Během běhu
- * je vedle pole Stop. Když text začíná `/`, nabídne lomítkové příkazy.
+ * je vedle pole Stop. Když text začíná `/`, nabídne lomítkové příkazy. `label` je drobný popisek nad
+ * textem (na celé ploše „Odpověď do úkolu „…““), aby bylo jasné, kam zpráva jde.
  */
 export default function Composer({
   value,
   busy,
   disabled,
   focusKey,
+  label,
   onChange,
   onSend,
   onStop,
@@ -19,6 +21,7 @@ export default function Composer({
   busy: boolean;
   disabled: boolean;
   focusKey: string;
+  label?: string;
   onChange: (text: string) => void;
   onSend: (text: string) => void;
   onStop: () => void;
@@ -75,20 +78,23 @@ export default function Composer({
         </ul>
       )}
       <div className="assistant-panel__field">
-        <textarea
-          ref={field}
-          className="assistant-panel__input"
-          aria-label="Zpráva pro asistenta"
-          rows={1}
-          value={value}
-          disabled={disabled}
-          placeholder={disabled ? "Nejdřív založte úkol." : "Napište zprávu…  (Enter odešle, Shift+Enter nový řádek)"}
-          onChange={(e) => { setHidden(false); onChange(e.target.value); }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && hints.length) { e.preventDefault(); setHidden(true); return; }
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
-          }}
-        />
+        <label className="assistant-panel__field-text">
+          {label && <span className="assistant-panel__field-label">{label}</span>}
+          <textarea
+            ref={field}
+            className="assistant-panel__input"
+            aria-label="Zpráva pro asistenta"
+            rows={1}
+            value={value}
+            disabled={disabled}
+            placeholder={disabled ? "Nejdřív založte úkol." : "Napište zprávu…  (Enter odešle, Shift+Enter nový řádek)"}
+            onChange={(e) => { setHidden(false); onChange(e.target.value); }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && hints.length) { e.preventDefault(); setHidden(true); return; }
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); }
+            }}
+          />
+        </label>
         {busy ? (
           <button type="button" className="assistant-panel__stop" onClick={onStop} title="Ukončit běžící tah">
             <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" /></svg>

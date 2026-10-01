@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLocalKind, projectCapabilities } from "./project-capabilities";
+import { catalogProfile, isLocalKind, profileUnset, projectCapabilities } from "./project-capabilities";
 
 const project = (sourceKind?: string) => ({ id: "p1", name: "P", url: null, branch: null, sourceKind });
 
@@ -23,5 +23,21 @@ describe("projectCapabilities", () => {
     expect(["local", "empty", "builtin"].every(isLocalKind)).toBe(true);
     expect(isLocalKind("git")).toBe(false);
     expect(isLocalKind(undefined)).toBe(false);
+  });
+});
+
+describe("catalogProfile", () => {
+  it("chybějící nastavení i starší nastavení bez profilu znamená nenastaveno a web", () => {
+    expect(catalogProfile(null)).toEqual({ architecture: "", tenancy: "", platform: "web" });
+    expect(catalogProfile({ platform: "app" })).toEqual({ architecture: "", tenancy: "", platform: "app" });
+    expect(profileUnset(catalogProfile({ platform: "app" }))).toBe(true);
+  });
+  it("platné hodnoty projdou, neznámé se čtou jako nenastaveno", () => {
+    expect(catalogProfile({ architecture: "modular", tenancy: "multi", platform: "web" })).toEqual({ architecture: "modular", tenancy: "multi", platform: "web" });
+    expect(catalogProfile({ architecture: "mesh", tenancy: "many", platform: "desktop" })).toEqual({ architecture: "", tenancy: "", platform: "web" });
+  });
+  it("profil je nastavený, jakmile má aspoň jedno pole", () => {
+    expect(profileUnset({ architecture: "", tenancy: "multi", platform: "web" })).toBe(false);
+    expect(profileUnset({ architecture: "serverless", tenancy: "", platform: "web" })).toBe(false);
   });
 });

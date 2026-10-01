@@ -70,6 +70,15 @@ export type View = {
   observedAt: string;
 };
 export type Project = { id: string; name: string; url: string | null; branch: string | null; sourceKind?: string; sourcePath?: string | null };
+/** Cílová platforma projektu (`backend/project_setup/project_hub.py`, PLATFORMS). */
+export type Platform = "web" | "app" | "component";
+/** Architektura z profilu projektu (docs/suplik-a-profil.md); "" v nastavení = nenastaveno. */
+export type Architecture = "monolith" | "modular" | "microservices" | "serverless";
+/** Kolik zákazníků aplikace obsluhuje; "" v nastavení = nenastaveno. */
+export type Tenancy = "single" | "multi";
+/** Nastavení projektu tak, jak ho vrací a přijímá `/api/project-settings`. Zápis nese vždy všechny klíče. */
+export type ProjectSettings = { goal: string; platform: Platform; architecture: Architecture | ""; tenancy: Tenancy | "" };
+export type SettingsSnapshot = { project: Project; revision: number; settings: ProjectSettings };
 export type Job = {
   id: string;
   kind: string;
