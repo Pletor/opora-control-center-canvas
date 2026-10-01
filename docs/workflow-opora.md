@@ -2,7 +2,7 @@
 
 Jedna pipeline pro všechny projekty. Skilly `/grill-me` a `/wayfinder` ji otevírají: zpřesní jádro zadání a výsledek zapíšou do prvků, které OPORA už má (sektor, karta, spec, bloky, pravidla, vazby, rozhodnutí). Agent pak dostane úplný `node-brief` a nepálí tokeny na práci mimo podstatu aplikace. Každá karta je dílek, který navazuje na existující komponenty a vazby.
 
-Stav: **návrh ke schválení** (2026-10-01). Inventura je ověřená proti kódu. Pipeline a mapování jsou návrh. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md).
+Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kódu; skilly `grilling` a `wayfinder` zapisují podle mapování v §3, operace popisuje `.claude/skills/opora-control-center/references/workflow.md`. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md).
 
 ## 1. Inventura (ověřeno proti `backend/`, 108 rout v `backend/app/factory.py`)
 
@@ -39,7 +39,7 @@ Stav: **návrh ke schválení** (2026-10-01). Inventura je ověřená proti kód
 | Vzdálený přístup | tunel s tokenem, hooky jen z loopbacku | `/api/access/*` | člověk | hotovo |
 | Ostatní | seznam skillů Claude Code, LSP, sémantické hledání, strom a soubory workspace | `/api/claude-code/*`, `/api/code-intelligence/*`, `/api/semantic-search/*`, `/api/workspace/*` | UI | hotovo |
 
-### Rozpory mezi skillem, dokumenty a kódem (neopraveno)
+### Rozpory mezi skillem, dokumenty a kódem (opraveno 2026-10-01)
 
 1. `node-sessions/bind`: `references/api.md` a `live-run.md` vynechávají povinné `runId`, `parentSessionId`, `confirmed: true`, takže požadavek podle návodu skončí 409.
 2. Pohled „Live Run → Tickety“ popsaný v `live-run.md` a `external-agent.md` ve frontendu neexistuje.
@@ -139,7 +139,7 @@ Na každou z nich pipeline buď navazuje, nebo ji výslovně nechává beze změ
 - „Jedno rozhraní pro všechny projekty“ přes `project-capabilities.ts`;
 - oba režimy projektu (lokální složka bez worktree, git projekt s workspace).
 
-## 5. Mezery a co se mění (po schválení)
+## 5. Mezery a co se změnilo
 
 Kód aplikace: **žádná změna** v backendu ani frontendu není nutná. Mapování stojí na existujících endpointech.
 
@@ -151,4 +151,4 @@ Soubory:
 - `.claude/skills/opora-control-center/scripts/opora_read.py`: příkazy `node-brief` a `frontier` (jen GET). Zavírá rozpor 3 a mezeru „Frontier“;
 - tento dokument a `docs/predani-modelum.md`.
 
-Rozpory 1–9 navrhuji opravit v dokumentaci samostatně po schválení. Nejsou podmínkou pipeline, kromě rozporu 3, který řeší `opora_read.py`.
+Rozpory 1–9 jsou opravené v dokumentaci a referencích skillu samostatným commitem.
