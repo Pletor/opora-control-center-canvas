@@ -2,8 +2,10 @@
  * Čistý reducer konverzace asistenta: události SSE a přepis historie se skládají do jednoho stavu.
  * Žádný React, žádné síťové volání. Jeden tah vypadá takto: `text_delta` průběžně roste zpráva,
  * `message` se stejným `messageId` ji nahradí finálním textem (nevznikne duplicita), `tool_use`
- * otevře řádek nástroje a `tool_result` se stejným `id` ho uzavře.
+ * otevře řádek nástroje a `tool_result` se stejným `id` ho uzavře. `approval` přidá kartu schválení
+ * a `approval_resolved` se stejným `approvalId` ji uzavře (docs/asistent.md §5.1).
  */
+import { addApprovalItem, resolveApprovalItem, type Approval } from "./approval";
 
 export type SessionState = "idle" | "running" | "waiting_approval" | "closed" | "error";
 
@@ -16,6 +18,8 @@ export type ChatItem =
   | MessageItem
   | { kind: "tool"; id: string; name: string; summary: string; status: "running" | "ok" | "error"; result: string }
   | { kind: "error"; id: string; text: string }
+  /** Žádost o zápis na plátno; `replayed`: obnovená z bufferu po otevření úkolu, který na schválení čeká. */
+  | { kind: "approval"; id: string; approval: Approval; replayed?: boolean }
   /** Konec tahu podle `turn_end`: nese délku a zamítnuté nástroje do hlavičky tahu. Nevykresluje se. */
   | { kind: "turn_end"; id: string; durationMs: number | null; denied: number; isError: boolean };
 
@@ -135,10 +139,18 @@ function onToolResult(conv: Conversation, event: AssistantEvent, seq: number): C
   return { ...conv, items: next };
 }
 
-/** Jedna událost SSE do stavu. Neznámé typy a už viděné `seq` stav nemění. */
+/**
+ * Jedna událost SSE do stavu. Neznámé typy a už viděné `seq` stav nemění. Výjimkou jsou `approval`
+ * a `approval_resolved` pod `lastSeq`: úkol, který čeká na schválení, se otevírá s přehráním bufferu,
+ * aby čekající karta byla vidět i po přepnutí; rozhodnuté žádosti se z přehrání zase zahodí.
+ */
 export function applyEvent(conv: Conversation, event: AssistantEvent): Conversation {
   const seq = typeof event.seq === "number" ? event.seq : null;
-  if (seq !== null && seq <= conv.lastSeq) return conv;
+  if (seq !== null && seq <= conv.lastSeq) {
+    if (event.type === "approval") return { ...conv, items: addApprovalItem(conv.items, event, true) };
+    if (event.type === "approval_resolved") return { ...conv, items: resolveApprovalItem(conv.items, event, true) };
+    return conv;
+  }
   const base = seq !== null ? { ...conv, lastSeq: seq } : conv;
   const at = seq ?? base.lastSeq;
   switch (event.type) {
@@ -158,6 +170,10 @@ export function applyEvent(conv: Conversation, event: AssistantEvent): Conversat
     }
     case "tool_result":
       return onToolResult(base, event, at);
+    case "approval":
+      return { ...base, items: addApprovalItem(base.items, event, false) };
+    case "approval_resolved":
+      return { ...base, items: resolveApprovalItem(base.items, event) };
     case "turn_end": {
       const denied = Array.isArray(event.denied) ? event.denied.length : typeof event.denied === "number" ? event.denied : 0;
       const lastTurn: TurnInfo = {

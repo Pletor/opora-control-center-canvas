@@ -1,7 +1,8 @@
 # API — přesný scope, čtení a bezpečný zápis
 
 Toto je příručka pro autorizovanou práci přes HTTP, ne univerzální admin API.
-Pomocný `scripts/opora_read.py` záměrně podporuje jen GET; nic nemění a nic nespouští.
+Pomocný `scripts/opora_read.py` čte přes GET a POST posílá jen na pevný seznam čtecích dotazů
+(`POST_ROUTES`: LSP, sémantika, paměť, řazení RLM); nic nemění a nic nespouští.
 
 ## Spuštění skriptu
 
@@ -18,11 +19,37 @@ python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 fron
 `node-brief` vrací balíček karty (`/api/desktop-v3/node-brief`). `frontier` je mapa wayfinderu
 nad sektorem: karty rozdělené na `frontier`, `claimed`, `blocked`, `closed` (viz workflow.md).
 
+Bez `--base-url` i `--api-base` vezme skript adresu z `OPORA_BASE_URL` (asistent ji dostane
+od své instance). Musí to být loopback jako u `--base-url`.
+
+### Hledání (jen čtení)
+
+```bash
+python "<SKILL_DIR>/scripts/opora_read.py" search --project ID --workspace ID --query "platby" [--layer ID]
+python "<SKILL_DIR>/scripts/opora_read.py" index --project ID --workspace ID [--layer ID]
+python "<SKILL_DIR>/scripts/opora_read.py" rank --project ID --workspace ID --query "kde se řeší platby" [--layer ID] [--top 10]
+python "<SKILL_DIR>/scripts/opora_read.py" code --project ID --workspace ID --path src/app.ts --operation references --line 10 --character 4
+python "<SKILL_DIR>/scripts/opora_read.py" find --project ID --workspace ID --query "uložení stavu" [--path .] [--limit 10]
+python "<SKILL_DIR>/scripts/opora_read.py" recall --project ID --workspace ID --query "rozhodnutí" (--role R | --node N) [--max-tokens N]
+```
+
+| Příkaz | Co dělá |
+|---|---|
+| `search` | GET view + `desktop-v3/state`; karty, kde je každé slovo dotazu v názvu, účelu, blocích, kritériích nebo krocích. Bez velikosti písmen a diakritiky, nejvýš 20 `{id, name, parentId, kde}`. Spec se neprohledává (`note`) |
+| `index` | oddíly plátna bez obsahu `{id, name, parentId, kind, chars}`; `chars` = délka účelu, bloků, kritérií a kroků |
+| `rank` | kandidáti z indexu (nejvýš 255, text ≤ 300 znaků) → `POST /api/rlm/rank`; `{status: ok, ranked: [{id, p, name}]}` nebo `unavailable` (Jev bez klíče či v poruše). Postup: [rlm.md](rlm.md) |
+| `code` | `POST /api/code-intelligence/query` `{project, workspace, language, path, operation, line, character}`; `operation` = `definition\|references\|hover\|documentSymbols`, jazyk z přípony (`typescript` / `python`), řádek a znak od nuly. Textový dotaz LSP nemá |
+| `find` | `POST /api/semantic-search/query` `{project, workspace, path, query, limit}`; `path` je relativní podstrom, `limit` 1–20 |
+| `recall` | `POST /api/memory/recall` `{role, project, workspace, nodeId, query, maxTokens}`; bez role a karty vrátí backend `skipped` |
+
+Pořadí hledání: plátno `search` (nebo `index` → `rank`) → `find` / `code` → graphify → Archify →
+`recall` → web. POST na jinou cestu skript odmítne dřív, než cokoli odešle.
+
 Výstup je JSON na stdout. Návratový kód 0 = požadované čtení uspělo;
 1 = chybný vstup / nedostupnost. Kód 0 neznamená úspěšné splnění uživatelského
 úkolu. Skript odmítá redirecty a proxy a omezuje velikost odpovědi.
 `--base-url` pustí jen loopback; vzdálená adresa jde výhradně přes `--api-base https://HOST`
-a jen s tokenem v `OPORA_ACCESS_TOKEN` (jediná proměnná prostředí, kterou skript čte).
+a jen s tokenem v `OPORA_ACCESS_TOKEN`. Skript čte jen tuhle proměnnou a `OPORA_BASE_URL`.
 
 Po readbacku snapshotu porovnej očekávané ID, digest a node s uloženým zadáním;
 skript sám nezná očekávaný digest. `--raw` je plný obsah, nikoli redaktor tajemství.
@@ -84,8 +111,8 @@ loopback. Pro veřejný Host pak platí:
 - Origin se porovnává proti `https://HOST` (schéma z `X-Forwarded-Proto`),
 - `/api/access/status` (bez tokenu), `POST /api/access/login {token}` a
   `POST /api/access/logout` obsluhují přihlášení prohlížeče,
-- `/api/agent-hooks/event` a `/api/agent-hooks/ack` vrací zvenčí **403 i s tokenem**;
-  hooky řídí procesy na tom počítači, ne u vzdáleného agenta.
+- `/api/agent-hooks/event`, `/api/agent-hooks/ack`, `/api/assistant/*` a `/api/rlm/*` vrací
+  zvenčí **403 i s tokenem**; řídí procesy a klíče na tom počítači, ne u vzdáleného agenta.
 
 Token drž jen v proměnné prostředí `OPORA_ACCESS_TOKEN`, nikdy v příkazu, souboru,
 poznámce ani ve výstupu. Čtecí skript ho pak použije sám:
@@ -123,6 +150,7 @@ a **Origin shodný s http://Host** (přes tunel `https://HOST`).
 | `/api/desktop-v3/agent-message-receipt` | project, workspace, nodeId (příjemce), messageId, digest (SHA-256 zprávy), `disposition: accepted\|rejected\|needs_clarification`, note, recipientLabel |
 | `/api/node-materials/upload` | přesně project, workspace, nodeId, `dataUrl` (obrázek png/jpg/gif/webp/svg, max 8 MB); main odmítne |
 | `/api/node-materials/remove` | project, nodeId, file |
+| `/api/rlm/rank` | přesně project, workspace, query (1–2000 znaků), `candidates: [{id, text}]` (1–255, id `[A-Za-z0-9_-]{1,128}`, text nad 300 znaků se ořízne), top 1–50. Jen čtení, jen loopback; `{status: ok, ranked}` nebo `{status: unavailable}` |
 | `/api/memory/recall`, `/remember`, `/lend`, `/provision`, `/settings` | přesná pole podle `docs/pamet-agentu.md`; `remember` a `provision` vyžadují `confirmed: true` |
 | `/api/processes` | project, title, volitelně owner, `by: {kind, name}`, nodeId, sectorId, steps [text], inputs; založí proces |
 | `/api/processes/{id}/transition` | project, `revision`, `to: draft\|running\|done\|repair`, `by`, volitelně note, failure, fix |

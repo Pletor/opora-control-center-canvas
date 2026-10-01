@@ -53,4 +53,11 @@ export const closeSession = (id: string) => api<unknown>(`${sessionUrl(id)}/clos
 export const fetchTranscript = (id: string) =>
   api<{ messages: { role: "user" | "assistant"; text: string }[] }>(`${sessionUrl(id)}/transcript`).then((r) => r.messages);
 
+/** Rozhodnutí člověka o zápisu na plátno (§5.1); poznámka jde asistentovi jako důvod zamítnutí. */
+export const decideApproval = (approvalId: string, decision: "allow" | "deny", note?: string) =>
+  api<{ approvalId: string; decision: string; session: AssistantSession }>(
+    `${base}/approvals/${encodeURIComponent(approvalId)}`,
+    note ? { decision, note } : { decision },
+  );
+
 export const eventsUrl = (id: string, after: number) => `${sessionUrl(id)}/events?after=${after}`;

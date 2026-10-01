@@ -67,12 +67,19 @@ def validate_context(context):
     return clean
 
 
-def compose(text, context):
-    """Text, který jde na stdin procesu."""
+def compose(text, context, hint=None):
+    """Text, který jde na stdin procesu.
+
+    `hint` vyplňuje jen backend (směrovač Jev, §13.2); od UI ho `validate_context` odmítne.
+    """
+    if hint:
+        context = {**(context or {}), "hint": hint}
     if not context:
         return text
     payload = json.dumps(context, ensure_ascii=False, separators=(",", ":"))
     block = f"<opora_context>{payload}</opora_context>"
+    if hint and hint.get("sources"):
+        block += f"\nRelevantní podklad: {', '.join(hint['sources'])}. Ignoruj, pokud neodpovídá dotazu."
     # Skilly jen pro uživatele (/wayfinder, /grill-me) CLI pozná, jen když zpráva lomítkem začíná.
     if text.lstrip().startswith("/"):
         return f"{text}\n\n{block}"

@@ -3,6 +3,7 @@ import { isBusy, type Conversation as ConversationState } from "../logic/assista
 import { formatElapsed } from "../logic/task-overview";
 import type { Turn } from "../logic/turns";
 import { useActiveTurn } from "../logic/use-active-turn";
+import type { ApprovalDecision } from "./ApprovalCard";
 import TurnBlock from "./TurnBlock";
 
 /** Hodiny tahu: od chvíle, kdy panel uviděl běh, tikají po sekundě; po doběhnutí zmizí. */
@@ -29,12 +30,14 @@ export default function Conversation({
   loading,
   sessionKey,
   onActiveTurn,
+  onDecide,
 }: {
   conv: ConversationState;
   turns: Turn[];
   loading: boolean;
   sessionKey: string;
   onActiveTurn: (anchor: string | null) => void;
+  onDecide: ApprovalDecision;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -61,10 +64,10 @@ export default function Conversation({
         {loading && <p className="assistant-panel__hint">Načítám historii…</p>}
         {!loading && turns.length === 0 && (
           <p className="assistant-panel__hint">
-            Zeptejte se na plátno, kód nebo další krok. Asistent jen čte a radí, nic nezapisuje.
+            Zeptejte se na plátno, kód nebo další krok. Asistent čte a radí; na plátno zapíše jen s vaším schválením.
           </p>
         )}
-        {turns.map((turn) => <TurnBlock key={turn.anchor} turn={turn} />)}
+        {turns.map((turn) => <TurnBlock key={turn.anchor} turn={turn} onDecide={onDecide} />)}
         {running && (
           <p className="assistant-panel__working" role="status">
             <span className="assistant-panel__working-pulse" aria-hidden="true" />
@@ -72,7 +75,7 @@ export default function Conversation({
           </p>
         )}
         {!running && conv.lastTurn && conv.lastTurn.denied > 0 && (
-          <p className="assistant-panel__hint">Zamítnuto nástrojů: {conv.lastTurn.denied} (asistent zatím jen čte).</p>
+          <p className="assistant-panel__hint">Zamítnuto nástrojů: {conv.lastTurn.denied} (kód asistent nemění, na plátno zapisuje jen se schválením).</p>
         )}
       </div>
     </div>

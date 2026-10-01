@@ -94,3 +94,17 @@ def test_unknown_and_broken_lines_are_ignored():
     assert map_line(line({"type": "rate_limit_event"}))[0] == []
     assert map_line("{nejde to")[0] == []
     assert map_line("[1, 2]")[0] == []
+
+
+def test_control_request_is_not_an_event_but_is_extracted():
+    from backend.claude_code.assistant.stream import control_request
+
+    line = json.dumps({"type": "control_request", "request_id": "u1",
+                       "request": {"subtype": "can_use_tool", "tool_name": "Bash", "input": {"command": "x"}}})
+    assert control_request(line) == ("u1", {"subtype": "can_use_tool", "tool_name": "Bash", "input": {"command": "x"}})
+    assert map_line(line)[0] == []
+    reply = json.dumps({"type": "control_response", "response": {"subtype": "success", "request_id": "init"}})
+    assert control_request(reply) is None and map_line(reply)[0] == []
+    for bad in ("{", "[]", json.dumps({"type": "control_request", "request_id": "", "request": {}}),
+                json.dumps({"type": "control_request", "request_id": "a", "request": "x"})):
+        assert control_request(bad) is None

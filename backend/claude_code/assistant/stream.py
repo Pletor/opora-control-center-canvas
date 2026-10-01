@@ -2,6 +2,7 @@
 
 `map_line` je čistá funkce: dostane řádek a stav proudu (`messageId`, `sessionId`) a vrátí
 seznam událostí bez `seq` a nový stav. Neznámé typy a neparsovatelné řádky se ignorují.
+`control_request` (dotaz CLI na backend, §5.1) není událost; vytáhne ho `control_request(line)`.
 """
 
 from __future__ import annotations
@@ -132,6 +133,23 @@ HANDLERS = {
     "user": _user,
     "result": _result,
 }
+
+
+def control_request(line):
+    """Řádek `{"type":"control_request","request_id","request":{…}}` → (request_id, request), jinak None.
+
+    Odpověď CLI na náš `initialize` (`control_response`) se nevrací; `map_line` ji ignoruje.
+    """
+    try:
+        item = json.loads(line)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(item, dict) or item.get("type") != "control_request":
+        return None
+    request_id, request = item.get("request_id"), item.get("request")
+    if not isinstance(request_id, str) or not request_id or not isinstance(request, dict):
+        return None
+    return request_id, request
 
 
 def map_line(line, state=None):

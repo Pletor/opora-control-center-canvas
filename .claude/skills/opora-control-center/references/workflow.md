@@ -45,6 +45,21 @@ Uzavřená karta (`done.confirmed`) se počítá jako vyřešená a odblokuje sv
 - Konec (frontier otázek je prázdný a člověk potvrdil shodu): rozhodnutí zapiš jedním `agent-output` (`decisions`, `done.proposed`) a u velkého zadání zpřesni spec sektoru.
 - Fakta zjišťuje agent sám: `node-brief` karty a rodiče, `context.knowledgeGraph` (Graphify), mapa Archify, existující karty přes `view`. Na fakta se člověka neptá.
 
+## Recept: plán aplikace → karty k vykonání
+
+Použij, když mapa sektoru má jasnou cestu (frontier rozhodovacích karet je prázdný) a člověk chce zadání pro stavbu. Výsledek je jedna dávka karet, kterou člověk schválí najednou, ne sto zápisů po jednom.
+
+1. **Orientace, než cokoli navrhneš.** Pro každou část plánu zjisti, co už existuje, v pořadí plátno `search` → `find` / `code` → graphify → Archify → `recall` → web (příkazy v [api.md](api.md)). Co existuje, dostane vazbu nebo `sourceRef`, nikdy novou kartu navíc. Co nejde doložit, je otázka do grillingu, ne předpoklad.
+2. **Rozpad.** Jedna karta = jeden kus práce na jednu session agenta: jedna feature složka nebo jeden modul backendu s testy (`docs/pravidla-struktury.md`). Větší kus rozděl, menší slij.
+3. **Návrh dávky** jako tabulka pro člověka: název `[task] …`, rodič (sektor), účel (čemu v cíli slouží), závislost (`next` z karty), `sourceRef` nebo vazba, doporučený model a effort. Pod tabulkou seznam rozhodnutí z mapy, ze kterých dávka vzešla.
+4. **Po souhlasu zápis ve třech průchodech** (každý GET → POST s revizí/digestem → GET a ověření):
+   - `/api/graph`: všechny karty dávky a jejich `next` vazby **v jednom POST** s digestem z posledního view (recept „konceptový uzel“, nové UUID, pozice v řadě pod sektorem);
+   - `/api/node-spec` na každou kartu: `goal` (co a čemu slouží), `non_goals`, `acceptance` (ověřitelné: testy a příkazy `uv run pytest backend`, `npm test`, `npm run build`);
+   - `/api/desktop-v3/state`: pravidla `must` / `must_not` s `scope: node` a rozhodnutí `Model: …, effort …. Důvod.` s `nodeId` (viz `docs/predani-modelum.md`).
+5. **Kontrola.** `node-brief` každé karty musí být úplný: spec, bloky, pravidla, vazby. Chybí-li něco, karta zůstane v návrhu a otázka jde člověku.
+
+Dokud asistent nemá zápis se schválením (`docs/asistent.md` §5 fáze 2), končí krokem 3: dávku předá člověku jako návrh.
+
 ## Hranice
 
 - Každý zápis: GET → změna → POST s revizí nebo digestem → GET stejného cíle a ověření. Při 409 načti znovu a aplikuj jen svou změnu.

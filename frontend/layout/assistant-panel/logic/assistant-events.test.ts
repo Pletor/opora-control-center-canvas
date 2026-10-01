@@ -9,6 +9,7 @@ import {
   type AssistantEvent,
   type Conversation,
 } from "./assistant-events";
+import { markSending, pendingApprovals, updateApproval } from "./approval";
 
 function run(events: AssistantEvent[], start: Conversation = emptyConversation()): Conversation {
   return events.reduce(applyEvent, start);
@@ -109,8 +110,8 @@ describe("status, error a turn_end", () => {
 });
 
 describe("neznámé a duplicitní události", () => {
-  it("neznámý typ (approval) stav nemění, jen posune seq", () => {
-    const conv = run([{ seq: 1, type: "approval", approvalId: "p" }, { seq: 2, type: "approval_resolved" }]);
+  it("neznámý typ stav nemění, jen posune seq", () => {
+    const conv = run([{ seq: 1, type: "rate_limit", approvalId: "p" }, { seq: 2, type: "approval_resolved" }]);
     expect(conv.items).toEqual([]);
     expect(conv.lastSeq).toBe(2);
   });
@@ -160,5 +161,44 @@ describe("odeslání z UI", () => {
     const failed = failLocalMessage(sent, "local-1", "Asistent ještě odpovídá.");
     expect(failed.state).toBe("idle");
     expect(failed.items).toEqual([{ kind: "error", id: "e-local-1", text: "Asistent ještě odpovídá." }]);
+  });
+});
+
+describe("approval a approval_resolved", () => {
+  const approval = {
+    seq: 3, type: "approval", approvalId: "a1", tool: "Bash", reason: "Zapíše spec",
+    input: { route: "/api/node-spec", project: "p", workspace: "w", node: "n1", script: "x/opora_write.py", payloadSummary: "node: \"n1\"" },
+  };
+
+  it("approval přidá čekající žádost, approval_resolved ji uzavře", () => {
+    const waiting = run([{ seq: 2, type: "status", state: "waiting_approval" }, approval]);
+    expect(waiting.state).toBe("waiting_approval");
+    expect(pendingApprovals(waiting.items).map((a) => a.id)).toEqual(["a1"]);
+    const done = run([{ seq: 4, type: "approval_resolved", approvalId: "a1", decision: "deny", note: "Ne." }, { seq: 5, type: "status", state: "running" }], waiting);
+    expect(pendingApprovals(done.items)).toEqual([]);
+    expect(done.items[0]).toMatchObject({ kind: "approval", approval: { status: "denied", note: "Ne." } });
+    expect(done.state).toBe("running");
+  });
+
+  it("při otevření čekajícího úkolu přehraje z bufferu jen čekající žádosti", () => {
+    const history = loadTranscript([{ role: "user", text: "Zapiš spec" }], "waiting_approval", 10);
+    const old = { ...approval, seq: 1, approvalId: "old" };
+    const conv = run([
+      old,
+      { seq: 2, type: "approval_resolved", approvalId: "old", decision: "allow" },
+      { seq: 3, type: "message", role: "assistant", text: "staré" },
+      { ...approval, seq: 9 },
+    ], history);
+    expect(conv.lastSeq).toBe(10);
+    expect(conv.items.map((it) => it.kind)).toEqual(["message", "approval"]);
+    expect(pendingApprovals(conv.items).map((a) => a.id)).toEqual(["a1"]);
+    const live = applyEvent(conv, { seq: 11, type: "approval_resolved", approvalId: "a1", decision: "allow" });
+    expect(live.items[1]).toMatchObject({ approval: { status: "allowed" } });
+  });
+
+  it("updateApproval změní jen danou žádost", () => {
+    const conv = run([approval, { ...approval, seq: 4, approvalId: "a2" }]);
+    const next = updateApproval(conv, "a2", markSending);
+    expect(next.items.map((it) => it.kind === "approval" && it.approval.status)).toEqual(["pending", "sending"]);
   });
 });

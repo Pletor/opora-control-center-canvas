@@ -15,11 +15,13 @@ Dílky (`components/`):
 - `Conversation`, `TurnBlock`: konverzace po tazích (hlavička „Tah N“ s tím, co je známé), „pracuje… 0:12“ na konci. `MessageBlock`, `Markdown`, `ToolSteps`: zpráva, bezpečný Markdown, sbalené kroky nástrojů.
 - `DecisionCards`: odpověď s otázkami ve tvaru grillingu jako mřížka karet (2 sloupce od šířky sloupce 640 px, jinak 1) s celým doporučením.
 - `Outline` (celá plocha): kontext ze zprávy, průběh (tahy, aktivní zvýrazněný), otázky k rozhodnutí z poslední odpovědi, kroky.
+- `ApprovalCard`: žádost asistenta o zápis na plátno (§5.1) v tahu konverzace: kam zápis jde (cíl, karta, projekt, workspace, cesta), shrnutí payloadu, důvod, poznámka a Povolit / Zamítnout. Uzavřená žádost je tichý řádek s výsledkem; automaticky zamítnutý nástroj jen jeden tlumený řádek.
 - `Composer`: rostoucí pole, Stop, nápověda lomítkových příkazů; na celé ploše popisek „Odpověď do úkolu „…““.
 
 Logika (`logic/`), čisté funkce s testem vedle:
 
-- `assistant-events.ts`: reducer událostí SSE a přepisu (značka konce tahu s délkou, čas odeslání u zpráv odsud).
+- `assistant-events.ts`: reducer událostí SSE a přepisu (značka konce tahu s délkou, čas odeslání u zpráv odsud, `approval` / `approval_resolved`).
+- `approval.ts`: žádost o zápis z události (cíl, shrnutí, stav pending → sending → allowed/denied), popisky cíle, poznámka, položky konverzace a čekající žádosti; úkol s otevřenou žádostí je „Čeká na vás“.
 - `markdown.ts`: text → bloky a inline uzly, bez HTML.
 - `task-overview.ts`: stav slovem, relativní čas, náhled, „nové“, sousední úkol, platný název, skupiny a hledání.
 - `turns.ts`: tahy z konverzace, hlavička tahu, popisek pro osnovu, kotvy, souhrn kroků.
@@ -27,6 +29,6 @@ Logika (`logic/`), čisté funkce s testem vedle:
 - `tool-steps.ts`: sbalení po sobě jdoucích nástrojů. `slash-commands.ts`: nápověda `/grill-me`, `/wayfinder`.
 - `assistant-prefs.ts`: preference aplikace (model, velikost) a přechody velikostí.
 
-React vazby (bez testu, jen skládají logiku a síť): `use-assistant-sessions.ts` (status, seznam session s pollingem 4 s, založit / přejmenovat / zavřít), `use-conversation.ts` (přepis, pak EventSource od `lastSeq`, odeslání, Stop), `use-task-memory.ts` (koncepty, „viděno“, náhledy), `use-task-outline.ts` (tahy, otázky, odeslaný kontext, posun), `use-active-turn.ts` (IntersectionObserver: který tah se čte), `use-panel-keys.ts` (zkratky). Volání API je v `assistant-api.ts`.
+React vazby (bez testu, jen skládají logiku a síť): `use-assistant-sessions.ts` (status, seznam session s pollingem 4 s, založit / přejmenovat / zavřít), `use-conversation.ts` (přepis, pak EventSource od `lastSeq`, u úkolu čekajícího na schválení od začátku bufferu; odeslání, Stop, rozhodnutí o žádosti), `use-task-memory.ts` (koncepty, „viděno“, náhledy), `use-task-outline.ts` (tahy, otázky, odeslaný kontext, posun), `use-active-turn.ts` (IntersectionObserver: který tah se čte), `use-panel-keys.ts` (zkratky). Volání API je v `assistant-api.ts`.
 
 Kontext plátna (projekt, workspace, vrstva, výběr, prostředí) dodá App; panel ho ke každé zprávě přiloží a osnova ukazuje ten naposledy odeslaný (nebo ten, který se pošle).

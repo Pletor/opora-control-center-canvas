@@ -50,3 +50,15 @@ def test_text_limits():
         with pytest.raises(ValueError):
             validate_text(bad)
     assert validate_text("x" * 20000)
+
+
+def test_hint_comes_only_from_backend():
+    with pytest.raises(ValueError):
+        validate_context({**GOOD, "hint": {"sources": ["web"]}})
+    hint = {"sources": ["code", "find"], "needsLookup": 0.8}
+    text = compose("Kde je login?", GOOD, hint)
+    inner = text[len("<opora_context>"):text.index("</opora_context>")]
+    assert json.loads(inner) == {**GOOD, "hint": hint}
+    assert "</opora_context>\nRelevantní podklad: code, find. Ignoruj, pokud neodpovídá dotazu.\n\nKde je login?" in text
+    assert "Relevantní podklad" not in compose("x", None, {"sources": [], "needsLookup": 0.1})
+    assert compose("x", GOOD, None) == compose("x", GOOD)

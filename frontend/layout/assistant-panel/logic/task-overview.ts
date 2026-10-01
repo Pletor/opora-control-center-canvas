@@ -4,6 +4,7 @@
  * z živé konverzace, u ostatních z polledovaného seznamu (`state`, `updatedAt`) a z náhledu, který
  * panel zapamatoval, když byla session naposledy otevřená.
  */
+import { pendingApprovals } from "./approval";
 import type { ChatItem, SessionState } from "./assistant-events";
 
 export type TaskStatus = "working" | "waiting" | "ready" | "error";
@@ -107,7 +108,9 @@ export function buildTasks(
 ): TaskView[] {
   return sessions.map((s, index) => {
     const active = s.id === view.activeId;
-    const status = taskStatus(active ? view.activeState : s.state);
+    // Otevřená karta schválení v aktivním úkolu znamená „čeká na vás“, i když stav ještě nedorazil.
+    const waiting = active && pendingApprovals(view.activeItems).length > 0;
+    const status = waiting ? "waiting" : taskStatus(active ? view.activeState : s.state);
     const preview = active ? previewOf(view.activeItems) || view.previews[s.id] || "" : view.previews[s.id] || "";
     return {
       id: s.id,

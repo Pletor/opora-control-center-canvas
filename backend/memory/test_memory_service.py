@@ -564,3 +564,19 @@ def test_role_keys_refuse_a_broken_shape_and_survive_a_broken_row(tmp_path):
     canvas.db.execute("INSERT OR REPLACE INTO app_settings VALUES('openviking.roleKeys','{nejde')")
     canvas.db.commit()
     assert settings.role_keys() == {}
+
+
+def test_typesafe_key_lives_in_application_settings(tmp_path, monkeypatch):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    canvas = FakeCanvas(tmp_path / "registry.sqlite")
+    settings = AppSettings(canvas)
+    assert settings.typesafe_key() is None
+    monkeypatch.setenv("TYPESAFE_API_KEY", "env-key")
+    assert settings.typesafe_key() == "env-key"
+    assert settings.set_typesafe_key(" ts-1 ") is True
+    assert AppSettings(canvas).typesafe_key() == "ts-1", "uložený klíč přebíjí prostředí"
+    with pytest.raises(ValueError):
+        settings.set_typesafe_key("a b")
+    monkeypatch.delenv("TYPESAFE_API_KEY")
+    assert settings.set_typesafe_key(None) is False
+    assert settings.typesafe_key() is None

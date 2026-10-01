@@ -16,6 +16,7 @@ class Limits:
     idle_seconds: float = 15 * 60
     turn_seconds: float = 30 * 60
     tick_seconds: float = 5.0
+    approval_seconds: float = 10 * 60  # bez rozhodnutí člověka do 10 min platí zamítnutí (§5.1)
 
 
 def expired(lives, now, limits):

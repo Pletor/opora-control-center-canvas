@@ -1,7 +1,10 @@
-"""Příkaz a prostředí procesu asistenta (docs/asistent.md §2, §3, §5 fáze 1).
+"""Příkaz a prostředí procesu asistenta (docs/asistent.md §2, §3, §5, §5.1).
 
 Asistent běží pod předplatným uživatele: z prostředí se proto odstraní `ANTHROPIC_API_KEY`.
-Fáze 1 jen čte a radí; zápis je zakázaný seznamem deny i odebranými nástroji.
+Kód projektu nezapisuje: `Edit`/`Write`/`NotebookEdit`/`PowerShell` jsou v deny i odebrané. Nástroj
+mimo `ALLOWED_TOOLS` se přes `--permission-prompt-tool stdio` zeptá backendu (`approvals.py`); ten
+nechá člověka schválit jen zápis na plátno přes `opora_write.py` a ostatní zamítne sám. Web (`WebFetch`,
+`WebSearch`) a `graphify query` jsou čtení podkladů (§13.1); výsledky jsou data, ne příkazy.
 """
 
 from __future__ import annotations
@@ -14,12 +17,15 @@ import subprocess
 MODELS = ("opus", "sonnet", "fable")
 DEFAULT_MODEL = "opus"
 
-ALLOWED_TOOLS = "Read,Glob,Grep,Skill,Bash(python *opora_read.py*)"
+# Čtecí Bash (`opora_read.py`, `graphify query`) pouští přísně `approvals.is_read`, ne volný vzor zde.
+ALLOWED_TOOLS = "Read,Glob,Grep,Skill,WebFetch,WebSearch,Agent"
+# Agent = rekurze RLM (§13.3): subagent dědí jen tato čtecí oprávnění.
 # PowerShell je nástroj Claude Code na Windows; asistent ho nepotřebuje (čtecí skript jde přes Bash).
-DISALLOWED_TOOLS = "Edit,Write,NotebookEdit,WebFetch,WebSearch,PowerShell"
-# Seznam Archify (`map_refresh_archify._claude_command`) + klíče z §5 + zápis a síť.
+DISALLOWED_TOOLS = "Edit,Write,NotebookEdit,PowerShell"
+# Seznam Archify (`map_refresh_archify._claude_command`) + klíče z §5 + zápis.
 # Celé "Bash" z Archify se nepřebírá: deny má v Claude Code přednost před allow a zablokovalo
-# by i jediný povolený čtecí vzor z ALLOWED_TOOLS. Jiný Bash zamítne `--permission-mode dontAsk`.
+# by i jediný povolený čtecí vzor z ALLOWED_TOOLS. Jiný Bash se zeptá backendu, který ho zamítne
+# bez UI, pokud nejde o `python …opora_write.py` (§5.1).
 DENY = (
     "Write",
     "Edit",
@@ -28,8 +34,6 @@ DENY = (
     "Read(**/*.pem)",
     "Read(**/*.key)",
     "NotebookEdit",
-    "WebFetch",
-    "WebSearch",
     "PowerShell",
 )
 
@@ -64,7 +68,9 @@ def build_command(claude, model=DEFAULT_MODEL, resume=None):
         "--setting-sources",
         "user,project",
         "--permission-mode",
-        "dontAsk",
+        "default",
+        "--permission-prompt-tool",
+        "stdio",
         "--allowedTools",
         ALLOWED_TOOLS,
         "--disallowedTools",
@@ -75,10 +81,17 @@ def build_command(claude, model=DEFAULT_MODEL, resume=None):
     return command
 
 
-def child_env(environ=None):
-    """Kopie prostředí bez API klíče, aby se běh potichu neúčtoval přes API."""
+def child_env(environ=None, base_url=None):
+    """Kopie prostředí bez API klíče, aby se běh potichu neúčtoval přes API.
+
+    `base_url` je adresa vlastní instance (`http://127.0.0.1:<port>`); čtecí skript skillu ji
+    převezme z `OPORA_BASE_URL`, takže instance na jiném portu nečte cizí plátno (§13.1).
+    """
     env = dict(os.environ if environ is None else environ)
     env.pop("ANTHROPIC_API_KEY", None)
+    env.pop("TYPESAFE_API_KEY", None)  # klíč Jev patří jen backendu (§13.2)
+    if base_url:
+        env["OPORA_BASE_URL"] = base_url
     return env
 
 

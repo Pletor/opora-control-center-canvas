@@ -1,6 +1,8 @@
-"""Čtecí klient OPORA: pouze GET na loopback server, nebo na vlastní tunel s tokenem.
+"""Čtecí klient OPORA: GET na loopback server, nebo na vlastní tunel s tokenem.
 
-`--base-url http://127.0.0.1:PORT` je domácí režim beze změny.
+`--base-url http://127.0.0.1:PORT` je domácí režim beze změny; bez něj i bez `--api-base`
+se vezme `OPORA_BASE_URL` (asistent ji dostane od své instance, docs/asistent.md §13.1).
+POST jde jen na pevný seznam čtecích dotazů `POST_ROUTES`; skript nic nezapisuje.
 `--api-base https://HOST` je vzdálený režim: jde jen s tokenem v proměnné prostředí
 `OPORA_ACCESS_TOKEN` (nikdy v příkazu ani v logu) a posílá `Authorization: Bearer` a `Origin`.
 """
@@ -10,12 +12,26 @@ import json
 import os
 import re
 import sys
+import unicodedata
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 MAX_BYTES = 8 * 1024 * 1024
 TOKEN_ENV = 'OPORA_ACCESS_TOKEN'
+BASE_ENV = 'OPORA_BASE_URL'
+GET_TIMEOUT = 10
+# LSP má strop 15 s, lokální sémantický worker 60 s; čtecí POST na ně počká.
+POST_TIMEOUT = 75
+# Jediné cesty, na které skript pošle POST. Všechny jsou dotazy pro čtení, žádný zápis.
+POST_ROUTES = frozenset({'/api/code-intelligence/query', '/api/semantic-search/query', '/api/memory/recall', '/api/rlm/rank'})
+SEARCH_LIMIT = 20
+RANK_MAX_CANDIDATES = 255
+RANK_TEXT_CHARS = 300
+LANGUAGES = {
+    'typescript': ('.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'),
+    'python': ('.py', '.pyi'),
+}
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -46,15 +62,110 @@ def remote_base(value, token):
     return base, {'Authorization': 'Bearer ' + token, 'Origin': base}
 
 
-def request(base, route, params=None, binary=False, headers=None):
-    suffix = '?' + urlencode(params) if params else ''
-    sent = {'Accept': '*/*' if binary else 'application/json', **(headers or {})}
-    req = Request(base + route + suffix, headers=sent, method='GET')
-    with build_opener(ProxyHandler({}), NoRedirect()).open(req, timeout=10) as response:
+def _open(req, timeout):
+    """Jediné místo, kde skript sahá na síť: bez proxy a bez přesměrování."""
+    return build_opener(ProxyHandler({}), NoRedirect()).open(req, timeout=timeout)
+
+
+def _read(req, timeout, binary=False):
+    with _open(req, timeout) as response:
         body = response.read(MAX_BYTES + 1)
         if len(body) > MAX_BYTES:
             raise ValueError('Odpověď překročila limit 8 MiB; zúžte scope.')
         return body if binary else json.loads(body)
+
+
+def request(base, route, params=None, binary=False, headers=None):
+    suffix = '?' + urlencode(params) if params else ''
+    sent = {'Accept': '*/*' if binary else 'application/json', **(headers or {})}
+    return _read(Request(base + route + suffix, headers=sent, method='GET'), GET_TIMEOUT, binary)
+
+
+def post_query(base, route, payload, headers=None):
+    """Čtecí dotaz přes POST; cesta mimo `POST_ROUTES` skončí chybou dřív, než cokoli odejde."""
+    if route not in POST_ROUTES:
+        raise ValueError('POST na ' + route + ' není čtecí dotaz; skript nezapisuje.')
+    sent = {'Accept': 'application/json', **(headers or {}), 'Content-Type': 'application/json', 'Origin': base}
+    data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+    return _read(Request(base + route, data=data, headers=sent, method='POST'), POST_TIMEOUT)
+
+
+def fold(text):
+    """Bez diakritiky a velikosti písmen: NFKD, zahodit spojovací znaky, casefold."""
+    decomposed = unicodedata.normalize('NFKD', text or '')
+    return ''.join(ch for ch in decomposed if not unicodedata.combining(ch)).casefold()
+
+
+def card_fields(node, card):
+    """Prohledávaná pole karty: název a účel z view, bloky, kritéria a kroky ze stavu Desktop v3."""
+    blocks = []
+    for block in card.get('blocks') or []:
+        blocks += [block.get('title') or '', block.get('text') or '']
+        blocks += [todo.get('text') or '' for todo in block.get('todos') or []]
+
+    def lines(items):
+        return '\n'.join(item.get('text') for item in items or [] if item.get('text'))
+
+    return {'name': node.get('name') or '', 'purpose': node.get('purpose') or '',
+            'blocks': '\n'.join(text for text in blocks if text),
+            'criteria': lines(card.get('criteria')), 'steps': lines(card.get('steps'))}
+
+
+def card_body(fields):
+    """Text karty bez názvu (účel, bloky, kritéria, kroky); z něj se počítá `chars`."""
+    return '\n'.join(fields[key] for key in ('purpose', 'blocks', 'criteria', 'steps') if fields[key])
+
+
+def corpus(graph, state, layer=None):
+    """Oddíly plátna v pořadí grafu; `layer` omezí výběr na přímé potomky dané karty či sektoru."""
+    cards = state.get('nodes') or {}
+    return [(node, card_fields(node, cards.get(node.get('id')) or {}))
+            for node in graph.get('nodes', []) if layer is None or node.get('parentId') == layer]
+
+
+SPEC_NOTE = 'Spec je soubor na kartu, proto se neprohledává; přečti ho přes node-spec.'
+
+
+def search(graph, state, query, layer=None):
+    """Karty, kde se každé slovo dotazu najde v některém poli; nejvýš 20, v pořadí grafu."""
+    terms = fold(query).split()
+    if not terms:
+        raise ValueError('--query nesmí být prázdný.')
+    matches = []
+    for node, fields in corpus(graph, state, layer):
+        folded = {key: fold(value) for key, value in fields.items()}
+        if all(any(term in value for value in folded.values()) for term in terms):
+            matches.append({'id': node.get('id'), 'name': fields['name'], 'parentId': node.get('parentId'),
+                            'kde': [key for key, value in folded.items() if any(term in value for term in terms)]})
+    return {'query': query, 'matches': matches[:SEARCH_LIMIT], 'total': len(matches),
+            'truncated': len(matches) > SEARCH_LIMIT, 'note': SPEC_NOTE}
+
+
+def index(graph, state, layer=None):
+    sections = [{'id': node.get('id'), 'name': fields['name'], 'parentId': node.get('parentId'),
+                 'kind': node.get('kind'), 'chars': len(card_body(fields))}
+                for node, fields in corpus(graph, state, layer)]
+    return {'count': len(sections), 'sections': sections,
+            'note': 'Jen tvar korpusu; obsah oddílu načti přes node-brief / node-text.'}
+
+
+def rank_candidates(graph, state, layer=None):
+    """Kandidáti pro Jev: id → název a začátek textu karty, nejvýš 300 znaků a 255 oddílů."""
+    rows = corpus(graph, state, layer)
+    candidates = []
+    for node, fields in rows[:RANK_MAX_CANDIDATES]:
+        body = card_body(fields)
+        text = fields['name'] + ('\n' + body if body else '')
+        candidates.append({'id': node.get('id'), 'text': text[:RANK_TEXT_CHARS]})
+    return candidates, len(rows) > RANK_MAX_CANDIDATES
+
+
+def language_of(path):
+    suffix = os.path.splitext(path or '')[1].lower()
+    for language, suffixes in LANGUAGES.items():
+        if suffix in suffixes:
+            return language
+    raise ValueError('Jazyk nejde odvodit z přípony; LSP umí jen typescript a python.')
 
 
 def pick(value, keys):
@@ -150,6 +261,25 @@ def frontier(graph, state, sector_id, frames):
     return out
 
 
+def rank(ask, graph, state, args):
+    """Levné podvolání RLM: kandidáti z indexu → `/api/rlm/rank` (Jev v backendu, §13.3)."""
+    required(args, 'query')
+    if not 1 <= args.top <= 50:
+        raise ValueError('--top musí být 1 až 50.')
+    candidates, cut = rank_candidates(graph, state, args.layer)
+    if not candidates:
+        raise ValueError('Ve zvolené vrstvě nejsou žádné oddíly k seřazení.')
+    answer = ask('/api/rlm/rank', {'project': args.project, 'workspace': args.workspace, 'query': args.query,
+                                    'candidates': candidates, 'top': args.top})
+    out = {'status': answer.get('status'), 'candidates': len(candidates), 'candidatesTruncated': cut}
+    if answer.get('status') == 'ok':
+        names = {node.get('id'): node.get('name', '') for node in graph.get('nodes', [])}
+        out['ranked'] = [{**row, 'name': names.get(row.get('id'), '')} for row in answer.get('ranked', [])]
+    else:
+        out['note'] = 'Řazení není dostupné; pokračuj přes search a subagenty (references/rlm.md).'
+    return out
+
+
 def required(args, *names):
     for name in names:
         if not getattr(args, name):
@@ -160,14 +290,27 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base-url', help='domácí adresa http://127.0.0.1:PORT')
     parser.add_argument('--api-base', help='vzdálená adresa tunelu https://HOST; vyžaduje ' + TOKEN_ENV)
-    parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'sessions', 'snapshot', 'node-text', 'node-spec', 'node-brief', 'frontier'])
+    parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'sessions', 'snapshot', 'node-text', 'node-spec', 'node-brief', 'frontier',
+                                            'search', 'index', 'rank', 'code', 'find', 'recall'])
     parser.add_argument('--project')
     parser.add_argument('--workspace')
     parser.add_argument('--node')
     parser.add_argument('--id')
+    parser.add_argument('--query', help='search, rank, find, recall')
+    parser.add_argument('--layer', help='search, index, rank: jen přímí potomci této karty či sektoru')
+    parser.add_argument('--top', type=int, default=10, help='rank: 1–50')
+    parser.add_argument('--path', help='code: soubor; find: podstrom (výchozí .)')
+    parser.add_argument('--operation', choices=['definition', 'references', 'hover', 'documentSymbols'])
+    parser.add_argument('--line', type=int, default=0, help='code: řádek od nuly')
+    parser.add_argument('--character', type=int, default=0, help='code: znak od nuly (UTF-16)')
+    parser.add_argument('--limit', type=int, default=10, help='find: 1–20')
+    parser.add_argument('--role', help='recall: role paměti')
+    parser.add_argument('--max-tokens', type=int, help='recall: rozpočet výpisu')
     parser.add_argument('--raw', action='store_true', help='Vypíše plný obsah zvoleného scope; může být soukromý.')
     args = parser.parse_args()
     try:
+        if not args.base_url and not args.api_base:
+            args.base_url = os.environ.get(BASE_ENV, '').strip() or None
         if bool(args.base_url) == bool(args.api_base):
             raise ValueError('Zadejte právě jedno: --base-url pro loopback, nebo --api-base pro tunel.')
         if args.api_base:
@@ -177,6 +320,9 @@ def main():
 
         def fetch(route, params=None, binary=False):
             return request(base, route, params, binary, headers)
+
+        def ask(route, payload):
+            return post_query(base, route, payload, headers)
 
         health = fetch('/api/health')
         if health.get('status') != 'ok' or health.get('product') != 'Opora Canvas':
@@ -208,6 +354,34 @@ def main():
                               and not state.get('nodes', {}).get(n['id'], {}).get('done', {}).get('confirmed')]
                 frames = {cid: fetch('/api/desktop-v3/agent-workspace', {**params, 'nodeId': cid}).get('workspace', {}).get('frame', '') for cid in open_cards}
                 data = frontier(graph, state, args.node, frames)
+        elif command in ('search', 'index', 'rank'):
+            required(args, 'project', 'workspace', *(() if command == 'index' else ('query',)))
+            params = {'project': args.project, 'workspace': args.workspace}
+            graph = fetch('/api/view', params).get('graph', {})
+            state = fetch('/api/desktop-v3/state', params).get('state', {})
+            if command == 'search':
+                data = search(graph, state, args.query, args.layer)
+            elif command == 'index':
+                data = index(graph, state, args.layer)
+            else:
+                data = rank(ask, graph, state, args)
+        elif command == 'code':
+            required(args, 'project', 'workspace', 'path', 'operation')
+            data = ask('/api/code-intelligence/query', {
+                'project': args.project, 'workspace': args.workspace, 'language': language_of(args.path),
+                'path': args.path, 'operation': args.operation, 'line': args.line, 'character': args.character})
+        elif command == 'find':
+            required(args, 'project', 'workspace', 'query')
+            if not 1 <= args.limit <= 20:
+                raise ValueError('--limit musí být 1 až 20.')
+            data = ask('/api/semantic-search/query', {'project': args.project, 'workspace': args.workspace,
+                                                       'path': args.path or '.', 'query': args.query, 'limit': args.limit})
+        elif command == 'recall':
+            required(args, 'project', 'workspace', 'query')
+            if not args.role and not args.node:
+                raise ValueError('recall potřebuje --role nebo --node.')
+            data = ask('/api/memory/recall', {'role': args.role or None, 'project': args.project, 'workspace': args.workspace,
+                                               'nodeId': args.node or None, 'query': args.query, 'maxTokens': args.max_tokens})
         elif command in ('view', 'state', 'node-text', 'node-spec', 'snapshot', 'sessions'):
             required(args, 'project', 'workspace')
             params = {'project': args.project, 'workspace': args.workspace}
@@ -230,7 +404,14 @@ def main():
         print(json.dumps(out, ensure_ascii=True, indent=2))
         return 0
     except HTTPError as error:
-        print(json.dumps({'ok': False, 'error': 'HTTP ' + str(error.code), 'writesPerformed': 0}), file=sys.stderr)
+        out = {'ok': False, 'error': 'HTTP ' + str(error.code), 'writesPerformed': 0}
+        try:
+            detail = json.loads(error.read(64 * 1024)).get('error')
+            if isinstance(detail, str):
+                out['detail'] = detail
+        except (OSError, ValueError, AttributeError):
+            pass
+        print(json.dumps(out, ensure_ascii=True), file=sys.stderr)
     except (URLError, TimeoutError, OSError, ValueError, TypeError, AttributeError) as error:
         print(json.dumps({'ok': False, 'error': str(error), 'writesPerformed': 0}, ensure_ascii=True), file=sys.stderr)
     return 1

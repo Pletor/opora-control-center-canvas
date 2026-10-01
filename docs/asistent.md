@@ -2,7 +2,7 @@
 
 Uživatel nemusí psát jen do terminálu ve VS Code. V aplikaci otevře okno s asistentem, který čte plátno, vede ho skilly `grill-me` (`grilling`), `wayfinder` a `opora-control-center` a na požádání připraví zadání pro model. Asistent je Claude Code spuštěný aplikací pod uživatelovým předplatným. Aplikace přitom nevolá API.
 
-Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě v aplikaci. Fáze 2 a 3 čekají na skutečnou potřebu. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md), pipeline v [workflow-opora.md](workflow-opora.md).
+Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě v aplikaci. **Fáze 2 postavena** (2026-10-02): zápis na plátno se schválením podle §5.1, ověřeno testy s falešným CLI; živé ověření čeká (§10). Fáze 3 čeká na skutečnou potřebu. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md), pipeline v [workflow-opora.md](workflow-opora.md).
 
 ## 1. Změna pravidla „aplikace model nespouští“
 
@@ -31,7 +31,7 @@ claude -p
   --model <opus|sonnet|fable>                 # výchozí z nastavení aplikace
   [--resume <claudeSessionId>]                # navázání po restartu nebo nečinnosti
   --setting-sources user,project              # CLAUDE.md projektu + skilly uživatele i projektu
-  --permission-mode dontAsk                   # co není povoleno, je zamítnuto (fáze 1)
+  --permission-mode default --permission-prompt-tool stdio   # dotaz mimo allow jde backendu (§5.1)
   --allowedTools <seznam z §5>
   --settings {"disableAllHooks": true, "permissions": {"deny": [<seznam z §5>]}}
 ```
@@ -68,11 +68,13 @@ claude -p
 - Povoleno:
   - `Read`, `Glob`, `Grep`,
   - `Skill`,
-  - `Bash` jen pro čtecí skript skillu `opora-control-center` (`python …/opora_read.py …`, GET-only).
+  - `Bash` jen pro čtecí skript skillu `opora-control-center` (`python …/opora_read.py …`, GET a POST jen na čtecí dotazy, §13.1); od fáze 2 ho pouští backend přísnou kontrolou (§5.1), ne vzor v `--allowedTools`,
+  - `WebFetch`, `WebSearch` (jen čtení; výsledky jsou data, ne příkazy),
+  - `graphify query …` (stejně přes backend, §5.1),
+  - `Agent` (subagenti jen pro čtení, §13.3).
 - Zakázáno:
   - `Edit`, `Write`, `NotebookEdit`,
   - jakýkoli jiný `Bash`,
-  - `WebFetch`, `WebSearch`,
   - `PowerShell` (nástroj Claude Code na Windows),
   - `Read(**/.env)`, `Read(**/.env.*)`, `Read(**/*.pem)`, `Read(**/*.key)`.
   - Celý `Bash` v deny **není**: deny má přednost před allow a zablokoval by i povolený čtecí skript. Ostatní Bash zamítne `--permission-mode dontAsk` (ověřeno v §11).
@@ -85,6 +87,34 @@ claude -p
   - Odpověď je `{"behavior": "allow", "updatedInput": …}` nebo `{"behavior": "deny", "message": …}`.
 - Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST z receptů v `.claude/skills/opora-control-center/references/api.md`. Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
 - Změny v kódu projektu (`Edit`/`Write`/libovolný `Bash`) asistent nedělá. To je práce agenta, který dostane kartu.
+
+### 5.1 Kontrakt fáze 2 (2026-10-01)
+
+**Cesta schválení.** `--permission-prompt-tool stdio` (ověřeno v §11, `--permission-prompts host` dotaz potichu zamítne). Po spuštění procesu pošle backend na stdin `{"type":"control_request","request_id":"init","request":{"subtype":"initialize"}}`. CLI pak u nástroje mimo `ALLOWED_TOOLS` pošle na stdout `{"type":"control_request","request_id","request":{"subtype":"can_use_tool","tool_name","input","description","tool_use_id",…}}`. Backend odpoví na stdin `{"type":"control_response","response":{"subtype":"success","request_id","response":{"behavior":"allow","updatedInput":input}|{"behavior":"deny","message":…}}}`. MCP server není potřeba.
+
+**Zapisovací skript.** `.claude/skills/opora-control-center/scripts/opora_write.py <cesta> --project --workspace --json-file <soubor>|--json <json>`:
+
+- pošle POST jen na pevný seznam: `/api/graph`, `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/state`, `/api/desktop-v3/block`, `/api/desktop-v3/agent-workspace`, `/api/desktop-v3/agent-output`;
+- `Content-Type: application/json`, `Origin` podle base, výchozí base z `OPORA_BASE_URL`;
+- na jinou cestu nic nepošle; při 409 vypíše `conflict` a skončí kódem 3 (asistent znovu načte a použije jen svou změnu).
+
+**Co se ptá a co ne:**
+
+- `Read`, `Glob`, `Grep`, `Skill`, `WebFetch`, `WebSearch` a `Agent` jsou v `ALLOWED_TOOLS` a nikdy se neptají.
+- Čtecí Bash (`python <cesta>/opora_read.py …` a `graphify query …`) **není** v `ALLOWED_TOOLS`. Vzor `Bash(python *opora_read.py*)` by pustil i `python -c "…" x/opora_read.py`, tedy libovolný kód. Dotaz na něj proto přijde backendu a ten ho povolí sám bez UI (`approvals.is_read`): skript musí následovat hned po `python`, soubor se jmenuje přesně `opora_read.py` a v příkazu není `; & | < > $`, backtick ani nový řádek. Jinak platí zamítnutí.
+- `Edit`, `Write`, `NotebookEdit` a `PowerShell` zůstávají v `DENY` a nikdy se neptají.
+- `--permission-mode` přejde z `dontAsk` na `default` a přibude `--permission-prompt-tool stdio`, aby se dotazy dostaly k backendu.
+- Backend dotaz **sám zamítne bez UI**, když nejde o `Bash` s příkazem `python …opora_write.py …`. Zpráva: „Asistent zapisuje jen na plátno přes opora_write.py.“
+- Ostatní dotazy se ukážou v UI. Session přejde do `waiting_approval` a pošle událost `approval {approvalId, tool, input, reason}`, kde `input` obsahuje rozparsovaný `{route, project, workspace, payloadSummary}`. Bez odpovědi do 10 min platí zamítnutí.
+- `POST /api/assistant/approvals/{approvalId} {decision, note?}` pošle `control_response` (`allow` s `updatedInput` = původní input, nebo `deny` s `message` = poznámka). Událost `approval_resolved` vrátí session do `running`.
+
+**UI.** `ApprovalCard` v konverzaci ukáže, kam zápis jde (cesta a karta), shrnutí payloadu a tlačítka Povolit / Zamítnout s poznámkou. Úkol čekající na schválení je ve skupině „Čeká na vás“. Logika parsování a shrnutí je v `logic/approval.ts` s testem.
+
+**Hotovo, když:**
+- zamítnutý zápis nic nezmění (test i živě),
+- povolený `/api/node-spec` se na kartě objeví,
+- 409 vede k novému čtení,
+- `Edit` se na nic neptá a projde zamítnutý.
 
 ## 6. Plátno a kontext
 
@@ -121,7 +151,7 @@ Když o to uživatel požádá, asistent připraví zadání podle [predani-mode
 | POST | `/api/assistant/sessions/{id}/title` | `{title}` | přejmenuje úkol (1–80 znaků), vrátí `{session}` |
 | POST | `/api/assistant/sessions/{id}/stop` | | ukončí běžící tah (zabije proces, další zpráva obnoví přes `--resume`) |
 | POST | `/api/assistant/sessions/{id}/close` | | ukončí proces a session označí `closed` |
-| POST | `/api/assistant/approvals/{approvalId}` | `{decision: "allow"\|"deny", note?}` | rozhodnutí člověka (fáze 2) |
+| POST | `/api/assistant/approvals/{approvalId}` | `{decision: "allow"\|"deny", note?}` | rozhodnutí člověka o zápisu na plátno (§5.1): `{approvalId, decision, session}`. Neznámá žádost 404, už rozhodnutá (i po 10 min nebo automaticky) 409, špatné tělo 422 |
 
 Události SSE (`{seq, type, …}`):
 
@@ -130,8 +160,8 @@ Události SSE (`{seq, type, …}`):
 - `message`: `{role, text}`
 - `tool_use`: `{id, name, summary}`
 - `tool_result`: `{id, ok, summary}`
-- `approval`: `{approvalId, tool, input, reason}`
-- `approval_resolved`: `{approvalId, decision}`
+- `approval`: `{approvalId, tool, input, reason}`; `input` je `{route, project, workspace, node, script, payloadSummary}`. Automatické zamítnutí má `auto: true` a `input: {summary}`
+- `approval_resolved`: `{approvalId, decision, note?, auto?, timeout?}`
 - `turn_end`: `{durationMs, usage}`
 - `error`: `{message}`
 
@@ -230,7 +260,7 @@ Když `status.available` je `false`, panel řekne, že `claude` není nainstalov
 |---|---|---|
 | 0 | Ověření | Ruční běh `claude -p` se stream-json pod předplatným potvrdí tvar událostí, `--include-partial-messages`, vzor `Bash(...)` v `--allowedTools` a `--resume` s novou zprávou. Výsledek se zapíše sem do §11 |
 | 1 | Čti a naváděj | Tlačítko, panel, víc session, SSE, `--resume`, kontext plátna, skilly. Žádný zápis. Testy: `pytest` správce session (falešný proces), `assistant-events.test.ts`. `uv run pytest backend`, `npm test`, `npm run build` |
-| 2 | Zápis se schválením | MCP `approve`, karty schválení, zápis karty a zadání podle §7. Test: zamítnutý zápis nic nezmění, 409 vede k novému čtení |
+| 2 | Zápis se schválením | **Postaveno 2026-10-02** podle §5.1 (bez MCP, `--permission-prompt-tool stdio`): `opora_write.py` s testem, `approvals.py` + `approval_book.py`, `initialize` po startu, `approval` / `approval_resolved`, `waiting_approval`, zamítnutí po 10 min, `POST /api/assistant/approvals/{id}`, `ApprovalCard` a „Čeká na vás“. Testy (falešné CLI): zamítnutý zápis nic nezmění, allow vrátí původní input, timeout zamítne, `Edit` zamítne backend bez UI, dvojí rozhodnutí 409, 409 skriptu = `conflict` a kód 3. **Čeká živé ověření:** povolený `/api/node-spec` se objeví na kartě a 409 vede k novému čtení |
 | 3 | Session na kartě | `nodeId` v registru, `node-sessions/bind`, otevření session z karty |
 
 Další fáze se staví, až předchozí ukáže skutečnou potřebu.
@@ -250,6 +280,19 @@ Další fáze se staví, až předchozí ukáže skutečnou potřebu.
 - Zápis je zamítnutý. `--disallowedTools` nástroje úplně odebere (`Write` „No such tool available“). `--permission-mode dontAsk` zamítne Bash mimo povolený vzor (`python -c "open(...,'w')…"`, `echo > soubor`); zamítnutí jsou v `result.permission_denials`. Soubor nevznikl.
 - Čtecí příkazy (`python --version`) Claude Code povolí sám i mimo vzor. Je to vestavěné chování pro příkazy jen ke čtení a nevadí to.
 
+Ověření fáze 2 (2026-10-01, haiku, mimo `.claude`):
+
+- `--permission-mode default --permission-prompts host` žádný `control_request` nepošle. Dotaz zamítne jako `system/permission_denied` a soubor nevznikne.
+- `--permission-mode default --permission-prompt-tool stdio` s úvodním `initialize` pošle `control_request` `can_use_tool` (`tool_name: "Bash"`, `input.command`, `permission_suggestions`, `blocked_path`, `tool_use_id`). Odpověď `allow` s `updatedInput` příkaz provede (složka vznikla). `deny` ho zamítne (`permission_denials` v `result`).
+- Cesta pod `~/.claude` je pro CLI citlivá: zápis tam zamítne `safetyCheck` ještě před dotazem.
+
+Živý test fáze 2 (2026-10-02, Sonnet, náhledová instance 8791, lokální projekt):
+
+- **Čtení bez dotazu:** `opora_read.py search` a `node-spec` pustil backend sám (`approvals.is_read`). Skript četl instanci 8791 přes `OPORA_BASE_URL`. `search "prihlaseni"` našel kartu „Přihlášení“ i bez diakritiky.
+- **Zápis se schválením:** `opora_write.py /api/node-spec` přepnul session do `waiting_approval`. Karta schválení v UI ukázala cestu, kartu a shrnutí payloadu. Po kliknutí na Povolit se spec zapsal a revize se zvedla z 0 na 1.
+- **Nalezená chyba, opravena:** Git Bash (MSYS) přepsal argument `/api/node-spec` na `C:/Program Files/Git/api/node-spec` a skript zápis odmítl. `opora_write.route_of` takovou cestu vrátí na `/api/…` ještě před kontrolou allowlistu.
+- **Obcházení zamítnuto:** příkaz s předponou `MSYS_NO_PATHCONV=1` backend zamítl sám, bez UI.
+
 Živý test fáze 1 (2026-10-01, Sonnet, lokální projekt v `draft`):
 
 - **Panel:** tlačítko v liště otevře panel, „+ Nová session“ založí session a text se streamuje.
@@ -264,7 +307,7 @@ Další fáze se staví, až předchozí ukáže skutečnou potřebu.
 
 - [neověřeno] Přerušení tahu bez zabití procesu (`control_request` interrupt). Fáze 1 proces zabíjí.
 - Hooky uživatele jsou v asistentovi vypnuté (`disableAllHooks`), stejně jako u Archify. Zapnout je lze jen rozhodnutím zapsaným sem.
-- Skill `opora-control-center` čte plátno z `http://127.0.0.1:8740`. Instance na jiném portu (test, profil) by četla jinou instanci. Kontext zprávy port zatím nenese.
+- Uzavřeno: proces dostane `OPORA_BASE_URL` vlastní instance (§13.1).
 
 ## 13. Plán: asistent pro plán a zadání aplikace (návrh 2026-10-01)
 
@@ -308,3 +351,52 @@ Pravidla výjimky:
 - Přínos se měří v telemetrii: počet čtení a tokenů na tah s Jevem a bez něj a počet chybně zvolených podkladů.
 
 Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit Oracle v [synchronizace-pravdy.md](synchronizace-pravdy.md). Oracle přitom dál nic nezapisuje. Tohle se staví, až to ukáže potřeba.
+
+### 13.1 Kontrakt kroku 1: hledání
+
+- **Adresa instance.** Backend předá procesu `claude` proměnnou `OPORA_BASE_URL=http://127.0.0.1:<port vlastní instance>`. `opora_read.py` ji použije jako výchozí `--base-url`, když není zadaná. Tím je uzavřený bod §12 o portu a kontext zprávy port nenese.
+- **Nové příkazy `opora_read.py`:**
+  - `search --project --workspace --query [--layer]`: dvěma GET (view a `desktop-v3/state`) prohledá karty bez rozlišení velikosti písmen a diakritiky. Prohledává název, účel, bloky, kritéria a kroky. Spec je soubor na kartu, proto se neprohledává; výsledek to uvede v `note`. Vrátí nejvýš 20 shod `{id, name, parentId, kde: [pole]}`.
+  - `code --project --workspace --path --operation [--line --character]`: `POST /api/code-intelligence/query` s přesně `{project, workspace, language, path, operation, line, character}`. `operation` je `definition | references | hover | documentSymbols`, `language` (`typescript` / `python`) se odvodí z přípony, `line` a `character` se počítají od nuly. LSP textový dotaz nemá.
+  - `find --project --workspace --query [--path .] [--limit 10]`: `POST /api/semantic-search/query` s přesně `{project, workspace, path, query, limit}`. `path` je relativní cesta k podstromu, `limit` je 1–20.
+  - `recall --project --workspace --query (--role R | --node N) [--max-tokens]`: `POST /api/memory/recall` s přesně `{role, project, workspace, nodeId, query, maxTokens}`. Bez role a karty backend vrátí `skipped`.
+- **POST jen na čtecí dotazy.** Skript dál nesmí zapisovat. POST pošle jen na pevný seznam cest (tři výše a `/api/rlm/rank` z §13.3), s `Content-Type: application/json` a `Origin` podle base. Na jinou cestu POST nepošle (test). Payload odpovídá backendu a neodhaduje se.
+- Testy skriptu leží vedle něj a `uv run pytest backend` je nesbírá. Spouští se `uv run pytest .claude/skills/opora-control-center/scripts`.
+- **Nástroje asistenta.** Do `ALLOWED_TOOLS` přibude `WebFetch`, `WebSearch` a `Bash(graphify query*)`. `WebFetch` a `WebSearch` zmizí z `DISALLOWED_TOOLS` i z `DENY`. Zápis (`Edit`, `Write`, `NotebookEdit`, jiný Bash, `PowerShell`) zůstává zakázaný.
+- **Skill.** `SKILL.md` a `references/api.md` popíšou nové příkazy a pořadí hledání: plátno `search` → `find` / `code` → graphify → Archify → `recall` → web.
+
+### 13.2 Kontrakt Jev v1: volba podkladu
+
+- `backend/integrations/typesafe_client.py`: `evaluate(state, questions, *, key, timeout=3.0, post=…)` → `answers` nebo `None`. Bez klíče, při chybě HTTP (401, 422, 429, 529), při timeoutu nebo neplatné odpovědi vrátí `None` a nic nevyhodí. Model je `jev-latest`, endpoint `https://api.typesafe.ai/v1/systemone`.
+- **Klíč** se bere z nastavení aplikace (jednou pro aplikaci) nebo z proměnné `TYPESAFE_API_KEY` backendu. Do `child_env` procesu `claude` se nepředá, `child_env` ho odstraní stejně jako `ANTHROPIC_API_KEY`.
+  - Uložení: `AppSettings.typesafe_key()` / `set_typesafe_key()` (`app_settings`, klíč `typesafe.apiKey`). Uložený klíč přebíjí prostředí.
+  - `POST /api/assistant/jev-key {key: text | null}` → `{jev: {configured}}` klíč uloží nebo smaže. Klíč se nikdy nevrací. Jen loopback jako celé `/api/assistant/*`.
+  - `GET /api/assistant/status` nese `jev: {configured}`.
+  - Klíč se čte při každé zprávě, takže zapnutí platí bez restartu. Směrovač má tvrdou mez 4 s mimo zámek session; při jejím překročení jde do telemetrie `router: {skipped: "timeout"}`.
+- **Směrovač** `backend/claude_code/assistant/router.py`: před každou zprávou, která nezačíná `/`, jedno volání:
+  - `state = {request: text zprávy (nejvýš 4000 znaků), environment, selectedCount}`,
+  - `questions.source`: `choice` nad `canvas, find, code, graphify, archify, memory, web`,
+  - `questions.needs_lookup`: `noul` „Potřebuje odpověď dohledat podklad v projektu?“.
+- **Do kontextu** se přidá `hint: {sources: [až 2 s pravděpodobností ≥ 0.2], needsLookup: 0–1}`. Klíč `hint` smí vyplnit jen backend. Když ho pošle UI, validace ho odmítne. V textu pro model je hint údaj: „Relevantní podklad: … Ignoruj, pokud neodpovídá dotazu.“
+- **Telemetrie:** výsledek a doba volání do událostí session jako `status` s polem `router`. Bez obsahu zprávy.
+- Výběr karty a kontrola zadání (`noul` / `score`) přijdou s fází 2, kde mají kam ukázat varování.
+
+### 13.3 Kontrakt RLM: rekurzivní hledání
+
+Vzor [Recursive Language Models](https://arxiv.org/abs/2512.24601) (Zhang, Kraska, Khattab, MIT): velký kontext se nevkládá do promptu. Model ho drží jako proměnnou v prostředí, nahlíží do něj po kouscích, hledá v něm a dílčí otázky posílá levnějším podvoláním. Opora to dělá bez spouštění libovolného kódu, ze tří dílů:
+
+1. **Korpus jako proměnná.** Plátno je rozdělené na oddíly (karty). Kód a dokumentaci už pokrývají `Glob`, `Grep` a `Read` po řádcích.
+   - `opora_read.py index --project --workspace [--layer]`: seznam oddílů bez obsahu `{id, name, parentId, kind, chars}`, kde `chars` je velikost textu karty (účel, bloky, kritéria, kroky). Model z něj vidí tvar korpusu dřív, než cokoli načte.
+   - Nahlédnutí do jednoho oddílu je stávající `node-brief` / `node-text` a hledání napříč korpusem je `search` z §13.1.
+2. **Levné podvolání: řazení oddílů přes Jev.** `opora_read.py rank --project --workspace --query [--layer] [--top 10]`.
+   - Skript sestaví kandidáty z indexu (id → název a prvních 300 znaků textu karty, nejvýš 255) a pošle `POST /api/rlm/rank {project, workspace, query, candidates: [{id, text}], top}`.
+   - Backend (`backend/api/editor/rlm_routes.py`, logika `backend/claude_code/assistant/rlm_rank.py`, jen loopback) zavolá Jev `choice` s `criteria = {id: text}`. Vrátí `{status: "ok", ranked: [{id, p}]}` seřazené podle pravděpodobnosti, nejvýš `top`.
+   - Bez klíče nebo při poruše Jev vrátí `{status: "unavailable"}` a model pokračuje bodem 3. Klíč zůstává v backendu, do procesu `claude` se nedostane.
+3. **Rekurze: subagenti.** Do `ALLOWED_TOOLS` přibude `Agent` (dříve `Task`). Kořenový model rozdělí otázku po oddílech nebo složkách a každý kus předá subagentovi (`Explore`, levnější model). Subagent má stejná oprávnění jen pro čtení a vrací zhuštěné nálezy s odkazy `soubor:řádek` nebo `id karty`. Kořen nálezy jen skládá a celé oddíly nečte.
+
+**Postup ve skillu** (`references/rlm.md`): `index` → `rank` (nebo `search`) → přečíst jen 2–5 nejlepších oddílů → kde nestačí, rozdělit a předat subagentům → složit odpověď s odkazy na zdroj. Co nejde doložit odkazem, je otázka pro člověka, ne závěr.
+
+**Hotovo, když:**
+- `index` a `rank` mají testy s falešným HTTP,
+- `/api/rlm/rank` má test s falešným Jev (ok, bez klíče, porucha) a přes tunel vrací 403,
+- `Agent` je v `ALLOWED_TOOLS` (test).

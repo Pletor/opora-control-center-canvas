@@ -11,14 +11,20 @@ def test_command_matches_contract_without_resume():
     assert "--resume" not in command
     pairs = dict(zip(command[10::2], command[11::2]))
     assert pairs["--setting-sources"] == "user,project"
-    assert pairs["--permission-mode"] == "dontAsk"
-    assert pairs["--allowedTools"] == "Read,Glob,Grep,Skill,Bash(python *opora_read.py*)"
-    assert pairs["--disallowedTools"] == "Edit,Write,NotebookEdit,WebFetch,WebSearch,PowerShell"
+    # Fáze 2 (§5.1): dotazy na oprávnění jdou přes stdio do backendu, ne potichu do zamítnutí.
+    assert pairs["--permission-mode"] == "default"
+    assert pairs["--permission-prompt-tool"] == "stdio"
+    # Žádný volný Bash vzor: `python *opora_read.py*` by pustil i `python -c`; čtení hlídá approvals.is_read.
+    assert pairs["--allowedTools"] == "Read,Glob,Grep,Skill,WebFetch,WebSearch,Agent"
+    assert pairs["--disallowedTools"] == "Edit,Write,NotebookEdit,PowerShell"
     settings = json.loads(pairs["--settings"])
     assert settings["disableAllHooks"] is True
     deny = settings["permissions"]["deny"]
-    for item in ("Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch", "PowerShell", "Read(**/.env)", "Read(**/.env.*)"):
+    for item in ("Edit", "Write", "NotebookEdit", "PowerShell", "Read(**/.env)", "Read(**/.env.*)"):
         assert item in deny
+    # Web je čtení podkladů (§13.1): nesmí být v deny ani v odebraných nástrojích.
+    for item in ("WebFetch", "WebSearch"):
+        assert item not in deny and item not in pairs["--disallowedTools"].split(",")
     # Celé "Bash" by v deny přebilo povolený čtecí vzor opora_read.py.
     assert "Bash" not in deny
 
@@ -42,9 +48,45 @@ def test_unknown_model_is_rejected():
 
 
 def test_env_drops_api_key_and_keeps_the_rest():
-    env = cli.child_env({"ANTHROPIC_API_KEY": "sk-x", "CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "p"})
-    assert "ANTHROPIC_API_KEY" not in env
+    env = cli.child_env({"ANTHROPIC_API_KEY": "sk-x", "TYPESAFE_API_KEY": "ts", "CLAUDE_CODE_OAUTH_TOKEN": "t",
+                         "PATH": "p"})
+    assert "ANTHROPIC_API_KEY" not in env and "TYPESAFE_API_KEY" not in env
     assert env == {"CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "p"}
+
+
+def test_env_carries_own_instance_address():
+    env = cli.child_env({"PATH": "p", "OPORA_BASE_URL": "http://127.0.0.1:1"}, base_url="http://127.0.0.1:8741")
+    assert env == {"PATH": "p", "OPORA_BASE_URL": "http://127.0.0.1:8741"}
+    assert "OPORA_BASE_URL" not in cli.child_env({"PATH": "p"})
+
+
+def test_manager_hands_instance_address_to_process(tmp_path, monkeypatch):
+    from backend.claude_code.assistant import manager as manager_module
+
+    seen = {}
+
+    class Process:
+        alive = True
+
+        def __init__(self, command, *, cwd, env, on_line, on_exit):
+            seen["env"] = env
+
+        def start(self):
+            raise OSError("nespouštět")
+
+    monkeypatch.setattr(manager_module, "SessionProcess", Process)
+    manager = manager_module.AssistantManager(
+        tmp_path / "data", lambda project, workspace=None: ("draft", tmp_path), which=lambda name: "claude",
+        environ={"PATH": "p", "ANTHROPIC_API_KEY": "sk"}, base_url="http://127.0.0.1:8741")
+    try:
+        sid = manager.create("p1")["id"]
+        try:
+            manager.send(sid, "ahoj")
+        except manager_module.AssistantUnavailable:
+            pass
+        assert seen["env"] == {"PATH": "p", "OPORA_BASE_URL": "http://127.0.0.1:8741"}
+    finally:
+        manager.close_all()
 
 
 def test_find_claude_uses_which():

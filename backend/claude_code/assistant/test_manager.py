@@ -1,5 +1,6 @@
 """Správce session nad falešným CLI (`fake_cli.py`); skutečný `claude` se nikdy nespouští."""
 
+import json
 import os
 import sys
 import time
@@ -9,6 +10,7 @@ import pytest
 
 from backend.claude_code.assistant import fake_cli
 from backend.claude_code.assistant.manager import (
+    ApprovalNotFound,
     AssistantError,
     AssistantManager,
     AssistantUnavailable,
@@ -31,7 +33,7 @@ class Clock:
         return self.now
 
 
-def make(tmp_path, *, limits=None, clock=None, which=lambda name: "fake-claude"):
+def make(tmp_path, *, limits=None, clock=None, which=lambda name: "fake-claude", **extra):
     root = tmp_path / "projekt"
     root.mkdir(exist_ok=True)
 
@@ -43,7 +45,7 @@ def make(tmp_path, *, limits=None, clock=None, which=lambda name: "fake-claude")
     return AssistantManager(tmp_path / "data", locate, which=which, command_builder=fake_builder,
                             environ={**os.environ,"ANTHROPIC_API_KEY": "sk-test"},
                             limits=limits or Limits(tick_seconds=3600), clock=clock or Clock(),
-                            home=tmp_path, version_probe=lambda path: "9.9.9 (fake)")
+                            home=tmp_path, version_probe=lambda path: "9.9.9 (fake)", **extra)
 
 
 def wait_for(predicate, timeout=20):
@@ -243,3 +245,148 @@ def test_rename_validates_and_survives_first_message(manager):
     with pytest.raises(AssistantError) as closed:
         manager.rename(sid, "Jiný")
     assert closed.value.status == 409
+
+
+def test_router_hint_reaches_cli_and_telemetry_has_no_text(tmp_path):
+    seen = []
+
+    def route_hint(text, context):
+        seen.append(text)
+        return {"sources": ["code"], "needsLookup": 0.9}
+
+    manager = make(tmp_path, route_hint=route_hint)
+    try:
+        sid = manager.create("p1")["id"]
+        manager.send(sid, "Kde je login?", {"projectId": "p1"})
+        idle_after_turn(manager, sid)
+        events = manager.events(sid)[0]
+        router = [e["router"] for e in events if e["type"] == "status" and "router" in e]
+        assert router[0]["sources"] == ["code"] and "ms" in router[0]
+        assert "Kde je login" not in str(router)
+        reply = assistant_texts(manager, sid)[0]
+        assert '"hint":{"sources":["code"],"needsLookup":0.9}' in reply and "Relevantní podklad: code." in reply
+        manager.send(sid, "/grill-me plán")
+        idle_after_turn(manager, sid, 2)
+        assert seen == ["Kde je login?"], "lomítkový příkaz se nesměruje"
+    finally:
+        manager.close_all()
+
+
+def test_slow_or_broken_router_does_not_stop_the_message(tmp_path):
+    def slow(text, context):
+        time.sleep(5)
+        return {"sources": ["web"], "needsLookup": 1.0}
+
+    def broken(text, context):
+        raise RuntimeError("jev down")
+
+    for route_hint, reason in ((slow, "timeout"), (broken, "unavailable")):
+        manager = make(tmp_path, route_hint=route_hint, route_timeout=0.2)
+        try:
+            sid = manager.create("p1")["id"]
+            manager.send(sid, "Ahoj")
+            idle_after_turn(manager, sid)
+            router = [e["router"] for e in manager.events(sid)[0] if e["type"] == "status" and "router" in e]
+            assert router[0]["skipped"] == reason
+            assert "hint" not in assistant_texts(manager, sid)[0]
+        finally:
+            manager.close_all()
+
+
+# --- schválení zápisu (docs/asistent.md §5.1) ------------------------------------------
+def approvals_of(manager, sid, kind="approval"):
+    return [e for e in manager.events(sid)[0] if e["type"] == kind]
+
+
+def waiting(manager, sid):
+    wait_for(lambda: approvals_of(manager, sid))
+    return approvals_of(manager, sid)[0]
+
+
+def test_write_waits_for_human_and_deny_changes_nothing(manager, tmp_path):
+    sid = manager.create("p1")["id"]
+    manager.send(sid, "WRITE spec")
+    approval = waiting(manager, sid)
+    assert approval["tool"] == "Bash" and approval["reason"] == "Zapíše spec karty n1"
+    assert approval["input"]["route"] == "/api/node-spec" and approval["input"]["node"] == "n1"
+    assert approval["input"]["payloadSummary"] == 'node: "n1" · expected_revision: 3'
+    assert manager.session(sid)["state"] == "waiting_approval"
+    result = manager.decide(sid, approval["approvalId"], "deny", "Teď ne.")
+    assert result["decision"] == "deny"
+    idle_after_turn(manager, sid)
+    assert assistant_texts(manager, sid)[-1] == "denied: Teď ne."
+    assert not (tmp_path / "projekt" / "written.txt").exists()
+    resolved = approvals_of(manager, sid, "approval_resolved")
+    assert resolved == [{**resolved[0], "approvalId": approval["approvalId"], "decision": "deny", "note": "Teď ne."}]
+    states = [e.get("state") for e in manager.events(sid)[0] if e["type"] == "status"]
+    assert states[-3:] == ["waiting_approval", "running", "idle"]
+    with pytest.raises(AssistantError) as twice:
+        manager.decide(sid, approval["approvalId"], "allow")
+    assert twice.value.status == 409
+
+
+def test_allow_sends_original_input_back(manager, tmp_path):
+    sid = manager.create("p1")["id"]
+    manager.send(sid, "WRITE spec")
+    approval = waiting(manager, sid)
+    manager.decide_approval(approval["approvalId"], "allow")
+    idle_after_turn(manager, sid)
+    assert assistant_texts(manager, sid)[-1] == "allowed command=" + fake_cli.WRITE_COMMAND
+    written = json.loads((tmp_path / "projekt" / "written.txt").read_text(encoding="utf-8"))
+    assert written == {"command": fake_cli.WRITE_COMMAND, "description": "Zapíše spec karty n1"}
+    assert manager.session(sid)["state"] == "idle"
+
+
+def test_unanswered_approval_is_denied_after_ten_minutes(tmp_path):
+    clock = Clock()
+    manager = make(tmp_path, clock=clock)
+    try:
+        sid = manager.create("p1")["id"]
+        manager.send(sid, "WRITE spec")
+        approval = waiting(manager, sid)
+        clock.now += 9 * 60
+        manager.sweep()
+        assert not approvals_of(manager, sid, "approval_resolved")
+        clock.now += 61
+        manager.sweep()
+        idle_after_turn(manager, sid)
+        resolved = approvals_of(manager, sid, "approval_resolved")[0]
+        assert resolved["decision"] == "deny" and resolved["timeout"] is True and resolved["auto"] is True
+        assert assistant_texts(manager, sid)[-1] == "denied: Bez odpovědi do 10 min platí zamítnutí."
+        assert not (tmp_path / "projekt" / "written.txt").exists()
+        with pytest.raises(AssistantError) as late:
+            manager.decide(sid, approval["approvalId"], "allow")
+        assert late.value.status == 409
+    finally:
+        manager.close_all()
+
+
+def test_edit_is_denied_without_ui(manager, tmp_path):
+    sid = manager.create("p1")["id"]
+    manager.send(sid, "EDIT soubor")
+    idle_after_turn(manager, sid)
+    assert assistant_texts(manager, sid)[-1] == "denied: Asistent zapisuje jen na plátno přes opora_write.py."
+    approval = approvals_of(manager, sid)[0]
+    assert approval["auto"] is True and approval["tool"] == "Edit"
+    assert approvals_of(manager, sid, "approval_resolved")[0]["auto"] is True
+    assert "waiting_approval" not in [e.get("state") for e in manager.events(sid)[0]]
+    assert not (tmp_path / "projekt" / "written.txt").exists()
+
+
+def test_unknown_approval_and_bad_decision(manager):
+    sid = manager.create("p1")["id"]
+    with pytest.raises(ApprovalNotFound):
+        manager.decide_approval("nope", "allow")
+    manager.send(sid, "WRITE")
+    approval = waiting(manager, sid)
+    with pytest.raises(ValueError):
+        manager.decide(sid, approval["approvalId"], "maybe")
+    with pytest.raises(ValueError):
+        manager.decide(sid, approval["approvalId"], "deny", "x" * 2001)
+    other = manager.create("p1")["id"]
+    with pytest.raises(ApprovalNotFound):
+        manager.decide(other, approval["approvalId"], "allow")
+    manager.stop(sid)
+    resolved = approvals_of(manager, sid, "approval_resolved")[0]
+    assert resolved["decision"] == "deny" and resolved["auto"] is True
+    assert manager.session(sid)["state"] == "idle"

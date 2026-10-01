@@ -19,6 +19,7 @@ from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
 from backend.api.editor.process_routes import create_process_router
+from backend.api.editor.rlm_routes import create_rlm_router
 from backend.api.editor.semantic_routes import create_semantic_router
 from backend.api.editor.sync_routes import create_sync_router
 from backend.api.live_run.agent_routes import create_agent_router
@@ -40,6 +41,7 @@ from backend.app.remote_access import (
 )
 from backend.canvas.canvas_service import CanvasService
 from backend.claude_code.assistant.manager import AssistantManager
+from backend.claude_code.assistant.router import route as route_message
 from backend.claude_code.assistant.workspace import project_locator
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
@@ -53,6 +55,7 @@ from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_packet.desktop_v3_packets import DesktopV3Packets
 from backend.editor.agent_packet.node_brief import NodeBrief
 from backend.integrations.build_identity import build_identity
+from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
 from backend.memory.memory_service import AppSettings, MemoryService
 from backend.paths import DIST_DIR, REPO_ROOT
 from backend.project.maps.map_refresh import MapRefresh
@@ -67,7 +70,8 @@ def create_app(data_root=None):
     service.desktop_v3_state = desktop_state
     # Paměť agenta podle role nad OpenVikingem (samostatný server). Aplikace tudy nespouští
     # žádný model; když je paměť vypnutá nebo server dole, všechno ostatní funguje dál.
-    memory_service = MemoryService(settings_store=AppSettings(service))
+    app_settings = AppSettings(service)
+    memory_service = MemoryService(settings_store=app_settings)
     service.memory_service = memory_service
     desktop_packets = DesktopV3Packets(service, desktop_state)
     agent_messages = MessageStore(service, desktop_state)
@@ -78,8 +82,19 @@ def create_app(data_root=None):
     service.agent_workspace = agent_workspace
     identity = build_identity(service.root)
     map_refresh = MapRefresh(service)
+    port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
+    if not 1 <= port <= 65535:
+        raise ValueError("Neplatný lokální port.")
     # Asistent: Claude Code pod předplatným, proces spouští jen zpráva člověka (docs/asistent.md).
-    assistant = AssistantManager(service.root, project_locator(service))
+    # Skill v jeho procesu čte plátno této instance, ne pevného portu 8740 (§13.1).
+    # Směrovač Jev (§13.2): klíč se čte při každé zprávě, takže zapnutí platí bez restartu.
+    def route_hint(text, context):
+        key = app_settings.typesafe_key()
+        return route_message(text, context,
+                             evaluate=lambda state, questions: typesafe_evaluate(state, questions, key=key))
+
+    assistant = AssistantManager(service.root, project_locator(service), base_url=f"http://127.0.0.1:{port}",
+                                 route_hint=route_hint)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -92,9 +107,6 @@ def create_app(data_root=None):
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.service = service
     app.state.map_refresh = map_refresh
-    port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
-    if not 1 <= port <= 65535:
-        raise ValueError("Neplatný lokální port.")
 
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
     remote = RemoteAccess.from_env()
@@ -180,7 +192,9 @@ def create_app(data_root=None):
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
     app.include_router(create_agent_message_router(agent_messages))
     app.include_router(create_claude_code_router(service))
-    app.include_router(create_assistant_router(assistant))
+    app.include_router(create_assistant_router(assistant, jev_settings=app_settings))
+    # RLM: řazení oddílů plátna přes Jev pro asistenta; jen loopback, klíč zůstává v backendu (§13.3)
+    app.include_router(create_rlm_router(key_source=app_settings.typesafe_key))
     app.include_router(create_process_router(service))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)

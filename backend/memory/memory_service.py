@@ -44,6 +44,10 @@ from backend.memory import roles
 SETTINGS_KEY = "openviking.enabled"
 ROLE_KEYS_SETTING = "openviking.roleKeys"
 ENABLED_ENV = "OPORA_OPENVIKING_ENABLED"
+# Klíč TypeSafe Jev pro směrovač asistenta (docs/asistent.md §13.2); platí pro celou aplikaci.
+TYPESAFE_KEY_SETTING = "typesafe.apiKey"
+TYPESAFE_KEY_ENV = "TYPESAFE_API_KEY"
+MAX_TYPESAFE_KEY = 512
 TRUTHY = {"1", "true", "yes", "on", "ano"}
 MAX_ROLE_KEY = 512
 
@@ -129,6 +133,23 @@ class AppSettings:
         clean = _clean_role_keys(mapping)
         self._write(self.keys_key, json.dumps(clean, ensure_ascii=False, sort_keys=True))
         return sorted(clean)
+
+    def typesafe_key(self):
+        """Klíč Jev z nastavení aplikace, jinak z prostředí backendu; `None`, když chybí."""
+        stored = self._read(TYPESAFE_KEY_SETTING)
+        return stored or (os.environ.get(TYPESAFE_KEY_ENV) or "").strip() or None
+
+    def set_typesafe_key(self, key):
+        """Uloží (text) nebo smaže (`None`) klíč a vrátí jen, zda je nastavený."""
+        if key is None:
+            with self.canvas.lock, self.canvas.db:
+                self.canvas.db.execute("DELETE FROM app_settings WHERE key=?", (TYPESAFE_KEY_SETTING,))
+        elif not isinstance(key, str) or not key.strip() or len(key) > MAX_TYPESAFE_KEY or any(
+                ord(c) < 33 for c in key.strip()):
+            raise ValueError(f"Klíč TypeSafe musí být text bez mezer do {MAX_TYPESAFE_KEY} znaků.")
+        else:
+            self._write(TYPESAFE_KEY_SETTING, key.strip())
+        return self.typesafe_key() is not None
 
 
 class _EnvToggle:

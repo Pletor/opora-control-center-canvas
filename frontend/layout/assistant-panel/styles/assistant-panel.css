@@ -1307,3 +1307,153 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Žádost o zápis na plátno je jediné místo, kde asistent čeká na člověka, a proto jediná deska
+   v konverzaci, která se nedá přehlédnout: akcentní obrys a měkké akcentní pozadí, nic křiklavého.
+   Čte se shora dolů jako otázka „smím?“: drobný nadpis a stav, pak tučně kam zápis jde (cíl a karta),
+   pod tím tišeji projekt, workspace a přesná cesta pro kontrolu, pak co se zapíše po polích (jen klíče
+   a délky, nikdy celé texty) a důvod od asistenta. Dole poznámka a dvě tlačítka vpravo: Zamítnout
+   je tiché, Povolit plné akcentní, protože povolit je vědomý krok. Po rozhodnutí deska ztichne do
+   obyčejné linky se slovem výsledku, aby historie nekřičela. Zamítnutý nástroj bez dotazu (Edit,
+   jiný Bash) je jen jeden tlumený řádek: uživatel ví, že se o něco pokusil, ale nemusí nic dělat. */
+.assistant-panel__approval {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4) 18px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+}
+.assistant-panel__approval--allowed,
+.assistant-panel__approval--denied {
+  border-color: var(--line);
+  background: transparent;
+}
+.assistant-panel__approval-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.assistant-panel__approval-kicker {
+  color: var(--accent);
+  font-size: var(--fs-1);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.assistant-panel__approval-status {
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__approval--denied .assistant-panel__approval-status {
+  color: var(--danger);
+}
+.assistant-panel__approval-target {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-3);
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.assistant-panel__approval-scope,
+.assistant-panel__approval-reason,
+.assistant-panel__approval-note {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.assistant-panel__approval-scope {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Pole payloadu jsou krátké řádky pod sebou v neproporcionálním písmu, aby šly přelétnout okem. */
+.assistant-panel__approval-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 8px;
+  background: var(--surface);
+  list-style: none;
+}
+.assistant-panel__approval-field {
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--fs-1);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.assistant-panel__approval-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: 4px;
+}
+.assistant-panel__approval-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px var(--sp-3);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--field);
+  font-size: var(--fs-2);
+  line-height: 1.5;
+  resize: vertical;
+}
+.assistant-panel__approval-input:focus {
+  border-color: var(--accent-line);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.assistant-panel__approval-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+.assistant-panel__approval-button {
+  min-width: 96px;
+  padding-inline: var(--sp-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+.assistant-panel__approval-button--allow {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.assistant-panel__approval-button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.assistant-panel__approval-button--allow:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+.assistant-panel__approval-button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+.assistant-panel__approval-auto {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-2);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.assistant-panel__approval-auto-word {
+  margin-right: var(--sp-2);
+  color: var(--danger);
+  font-weight: 600;
+}
+.assistant-panel__approval-auto-reason {
+  color: var(--ink-muted);
+}

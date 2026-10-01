@@ -10,6 +10,7 @@ export type ToolItem = Extract<ChatItem, { kind: "tool" }>;
 export type ConversationEntry =
   | { kind: "message"; item: Extract<ChatItem, { kind: "message" }> }
   | { kind: "error"; item: Extract<ChatItem, { kind: "error" }> }
+  | { kind: "approval"; item: Extract<ChatItem, { kind: "approval" }> }
   | { kind: "steps"; id: string; tools: ToolItem[] };
 
 export function groupEntries(items: ChatItem[]): ConversationEntry[] {
@@ -21,6 +22,7 @@ export function groupEntries(items: ChatItem[]): ConversationEntry[] {
       else out.push({ kind: "steps", id: `steps-${item.id}`, tools: [item] });
     } else if (item.kind === "turn_end") continue;
     else if (item.kind === "error") out.push({ kind: "error", item });
+    else if (item.kind === "approval") out.push({ kind: "approval", item });
     else out.push({ kind: "message", item });
   }
   return out;

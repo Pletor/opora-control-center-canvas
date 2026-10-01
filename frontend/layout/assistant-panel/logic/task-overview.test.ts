@@ -171,3 +171,29 @@ describe("počet úkolů", () => {
     expect([0, 1, 2, 4, 5].map(tasksCount)).toEqual(["0 úkolů", "1 úkol", "2 úkoly", "4 úkoly", "5 úkolů"]);
   });
 });
+
+describe("čekající schválení", () => {
+  const pending: ChatItem = {
+    kind: "approval",
+    id: "a1",
+    approval: { id: "a1", tool: "Bash", target: null, summary: "", reason: "", auto: false, status: "pending", note: "", timeout: false },
+  };
+  const view = { activeId: "s1", activeState: "running" as const, seen: {}, previews: {}, now: NOW };
+
+  it("aktivní úkol s otevřenou žádostí je ve skupině Čeká na vás", () => {
+    const [task] = buildTasks([session("s1", { state: "running" })], { ...view, activeItems: [pending] });
+    expect(task.status).toBe("waiting");
+    expect(groupTasks([task]).map((g) => g.label)).toEqual(["Čeká na vás"]);
+  });
+
+  it("rozhodnutá žádost úkol do Čeká na vás nedrží", () => {
+    const done: ChatItem = { ...pending, approval: { ...(pending as Extract<ChatItem, { kind: "approval" }>).approval, status: "allowed" } };
+    const [task] = buildTasks([session("s1", { state: "running" })], { ...view, activeItems: [done] });
+    expect(task.status).toBe("working");
+  });
+
+  it("neaktivní úkol ve stavu waiting_approval je také v Čeká na vás", () => {
+    const [task] = buildTasks([session("s2", { state: "waiting_approval" })], { ...view, activeItems: [] });
+    expect(taskGroup(task)).toBe("waiting");
+  });
+});

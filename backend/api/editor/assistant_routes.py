@@ -1,7 +1,8 @@
-"""Rozhraní asistenta: chat s Claude Code v aplikaci (docs/asistent.md §8, fáze 1).
+"""Rozhraní asistenta: chat s Claude Code v aplikaci (docs/asistent.md §8, fáze 1 a 2).
 
 Tenký router nad `backend.claude_code.assistant.manager`. Všechny cesty jsou jen pro loopback
 (`backend/app/remote_access.py`). Události jdou jako SSE a po výpadku se navážou od `after`.
+`POST /approvals/{approvalId}` je rozhodnutí člověka o zápisu na plátno (§5.1).
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from backend.claude_code.assistant.manager import AssistantError, SessionNotFoun
 
 CREATE_KEYS = {"project", "workspace", "title", "model"}
 MESSAGE_KEYS = {"text", "context"}
+APPROVAL_KEYS = {"decision", "note"}
 
 
 def _error(exc):
@@ -63,12 +65,24 @@ async def sse_events(manager, session_id, after, is_disconnected, *, heartbeat=1
         await asyncio.sleep(poll)
 
 
-def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.25):
+def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.25, jev_settings=None):
+    """`jev_settings` je úložiště klíče TypeSafe Jev (`AppSettings`, §13.2); bez něj Jev nejde zapnout."""
     router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
     @router.get("/status")
     def status():
-        return manager.status()
+        configured = bool(jev_settings and jev_settings.typesafe_key())
+        return {**manager.status(), "jev": {"configured": configured}}
+
+    @router.post("/jev-key")
+    def jev_key(payload: dict):
+        """Uloží nebo smaže klíč Jev pro celou aplikaci; klíč se nikdy nevrací."""
+        if jev_settings is None or not isinstance(payload, dict) or set(payload) != {"key"}:
+            return JSONResponse({"error": "Tělo je přesně {key: text | null}."}, status_code=422)
+        try:
+            return {"jev": {"configured": jev_settings.set_typesafe_key(payload["key"])}}
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
 
     @router.get("/sessions")
     def sessions(project: str):
@@ -120,6 +134,19 @@ def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.2
             return {"messages": manager.transcript(session_id)}
         except AssistantError as exc:
             return _error(exc)
+
+    @router.post("/approvals/{approval_id}")
+    def approval(approval_id: str, payload: dict):
+        """Povolit / zamítnout žádost; neznámá 404, už rozhodnutá 409, špatné tělo 422."""
+        if (not isinstance(payload, dict) or set(payload) - APPROVAL_KEYS or "decision" not in payload
+                or payload["decision"] not in ("allow", "deny")):
+            return JSONResponse({"error": "Tělo je {decision: allow | deny, note?}."}, status_code=422)
+        try:
+            return manager.decide_approval(approval_id, payload["decision"], payload.get("note"))
+        except AssistantError as exc:
+            return _error(exc)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
 
     @router.get("/sessions/{session_id}/events")
     def events(session_id: str, request: Request, after: str | None = None):

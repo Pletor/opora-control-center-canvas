@@ -145,6 +145,18 @@ def test_assistant_refused_through_tunnel_even_with_token(remote_app):
         assert client.post("/api/assistant/sessions", json={"project": "p1"}, headers=headers).status_code == 403
 
 
+def test_rlm_is_loopback_only():
+    assert is_loopback_only("/api/rlm") and is_loopback_only("/api/rlm/rank")
+    assert not is_loopback_only("/api/rlmx/rank")
+
+
+def test_rlm_rank_refused_through_tunnel_even_with_token(remote_app):
+    payload = {"project": "p1", "workspace": "draft", "query": "q", "candidates": [{"id": "a", "text": "A"}], "top": 1}
+    with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
+        headers = {"authorization": "Bearer " + TOKEN, "origin": "https://" + PUBLIC}
+        assert client.post("/api/rlm/rank", json=payload, headers=headers).status_code == 403
+
+
 def test_https_origin_and_forwarded_proto(remote_app):
     with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
         bearer = {"authorization": "Bearer " + TOKEN}

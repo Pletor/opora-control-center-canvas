@@ -28,6 +28,8 @@ Načti pouze referenci potřebnou pro aktuální požadavek:
 | Graphify-out, generování grafu ze zdrojového kódu | [references/graphify.md](references/graphify.md) |
 | Menu aktualizace, automatika po mergi, oddělení map projektů | [references/map-refresh.md](references/map-refresh.md) |
 | API místo UI, revize, payloady, chyby | [references/api.md](references/api.md) |
+| Hledání na plátně a v kódu: `search`, `index`, `rank`, `code`, `find`, `recall` | [references/api.md](references/api.md) |
+| Velký projekt: korpus po oddílech, řazení přes Jev, subagenti | [references/rlm.md](references/rlm.md) |
 | Hlášená chyba aplikace a nasazení opravy | [references/bugfix.md](references/bugfix.md) |
 | Odlišná verze aplikace, ověření tvrzení návodu | [references/source-map.md](references/source-map.md) |
 
@@ -42,7 +44,8 @@ Načti pouze referenci potřebnou pro aktuální požadavek:
    python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 status
    ```
    `<SKILL_DIR>` nahraď skutečnou absolutní cestou k tomuto skillu. Skript používá
-   pouze standardní Python 3 a GET; nespouští model, server ani změny dat.
+   pouze standardní Python 3, GET a POST jen na čtecí dotazy; nespouští model, server
+   ani změny dat. Je-li nastavená `OPORA_BASE_URL`, `--base-url` se vynechá.
 4. Urči skutečné `project`, `workspace`, případně `node`/`layer` a snapshot ID.
    Nezaměň název projektu za jeho ID ani Git větev `main` za workspace API.
 5. Pro UI nejprve použij dostupný autorizovaný nástroj pro prohlížeč/desktop.
@@ -76,6 +79,17 @@ Načti pouze referenci potřebnou pro aktuální požadavek:
   Bash, zápisy a UI nástroje podléhají skutečným oprávněním relace. Skript
   vyžaduje běžné schválení Bash. Žádná plošná oprávnění se tímto skillem neudělují.
 
+## Zápis z asistenta v okně OPORA
+
+Asistent (`docs/asistent.md` §5.1) zapisuje na plátno jen skriptem
+`python "<SKILL_DIR>/scripts/opora_write.py" <cesta> --project P --workspace W --json '<payload>'`.
+Každý zápis schvaluje člověk v okně asistenta. Cesty jsou `/api/graph`, `/api/node-spec`,
+`/api/node-text`, `/api/desktop-v3/state`, `/api/desktop-v3/block`, `/api/desktop-v3/agent-workspace`
+a `/api/desktop-v3/agent-output`. Payload je přesně podle [api.md](references/api.md) a nesmí obsahovat
+`; & | < > $` ani backtick, jinak backend příkaz zamítne. Výstup `conflict` (kód 3) = 409: načti stav
+znovu a aplikuj jen svou změnu. Čtecí příkaz piš vždy jako `python <cesta>/opora_read.py …` bez
+řetězení, jinak ho backend nepustí.
+
 ## Rychlé čtení bez zahlcení kontextu
 
 ```bash
@@ -86,6 +100,20 @@ python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 sess
 python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 node-brief --project ID --workspace draft --node NODE_ID
 python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 frontier --project ID --workspace draft --node SEKTOR_ID
 ```
+
+## Hledání místo čtení všeho
+
+```bash
+python "<SKILL_DIR>/scripts/opora_read.py" search --project ID --workspace draft --query "platby"
+python "<SKILL_DIR>/scripts/opora_read.py" index --project ID --workspace draft
+python "<SKILL_DIR>/scripts/opora_read.py" rank --project ID --workspace draft --query "kde se řeší platby"
+python "<SKILL_DIR>/scripts/opora_read.py" find --project ID --workspace draft --query "uložení stavu"
+python "<SKILL_DIR>/scripts/opora_read.py" code --project ID --workspace draft --path src/app.ts --operation documentSymbols
+python "<SKILL_DIR>/scripts/opora_read.py" recall --project ID --workspace draft --query "rozhodnutí" --node NODE_ID
+```
+
+Pořadí: plátno `search` → `find` / `code` → graphify → Archify → `recall` → web.
+U velkého projektu postupuj podle [references/rlm.md](references/rlm.md).
 
 Souhrn je výchozí. `--raw` používej až po výběru konkrétního scope a pouze tehdy,
 když skutečně potřebuješ plný obsah. Výstup může obsahovat soukromé projektové texty.

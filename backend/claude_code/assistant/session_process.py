@@ -80,7 +80,13 @@ class SessionProcess:
         return "\n".join(self._stderr)
 
     def send(self, text):
-        line = user_line(text)
+        self._write(user_line(text))
+
+    def send_json(self, item):
+        """Řídicí řádek na stdin: `initialize` po startu a `control_response` na dotaz (§5.1)."""
+        self._write(json.dumps(item, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+    def _write(self, line):
         with self._write_lock:
             try:
                 self._process.stdin.write(line)

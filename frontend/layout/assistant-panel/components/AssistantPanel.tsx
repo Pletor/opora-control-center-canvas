@@ -168,7 +168,7 @@ export default function AssistantPanel({
             <TasksEmpty withCreate={size !== "full"} model={s.model} onModel={s.setModel} onCreate={() => void createWith("")} onExample={(text) => void createWith(text)} />
           ) : (
             <>
-              <Conversation conv={c.conv} turns={outline.turns} loading={c.loading} sessionKey={activeId ?? ""} onActiveTurn={outline.setActiveTurn} />
+              <Conversation conv={c.conv} turns={outline.turns} loading={c.loading} sessionKey={activeId ?? ""} onActiveTurn={outline.setActiveTurn} onDecide={(id, decision, note) => void c.decide(id, decision, note)} />
               <Composer
                 value={memory.draft}
                 busy={isBusy(c.conv.state)}

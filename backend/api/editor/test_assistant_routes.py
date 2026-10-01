@@ -65,7 +65,8 @@ def frames(body):
 def test_status_and_session_lifecycle(setup):
     client, manager, _ = setup
     assert client.get("/api/assistant/status").json() == {
-        "available": True, "claudePath": "fake-claude", "version": "9.9.9 (fake)", "running": 0, "limit": 3}
+        "available": True, "claudePath": "fake-claude", "version": "9.9.9 (fake)", "running": 0, "limit": 3,
+        "jev": {"configured": False}}
     created = client.post("/api/assistant/sessions", json={"project": "p1", "model": "sonnet"})
     assert created.status_code == 201
     session = created.json()["session"]
@@ -182,3 +183,98 @@ def test_title_endpoint(setup):
     assert missing.status_code == 404
     client.post(f"/api/assistant/sessions/{sid}/close", json={})
     assert client.post(url, json={"title": "Po zavření"}).status_code == 409
+
+
+class FakeJevSettings:
+    def __init__(self):
+        self.key = None
+
+    def typesafe_key(self):
+        return self.key
+
+    def set_typesafe_key(self, key):
+        if key is not None and (not isinstance(key, str) or " " in key):
+            raise ValueError("Klíč TypeSafe musí být text bez mezer.")
+        self.key = key
+        return key is not None
+
+
+def test_jev_key_is_stored_but_never_returned(tmp_path):
+    settings = FakeJevSettings()
+    manager = AssistantManager(tmp_path / "data", lambda project, workspace=None: ("draft", tmp_path),
+                               which=lambda name: None)
+    app = FastAPI()
+    app.include_router(create_assistant_router(manager, jev_settings=settings))
+    with TestClient(app) as client:
+        saved = client.post("/api/assistant/jev-key", json={"key": "ts-secret"})
+        assert saved.json() == {"jev": {"configured": True}} and "ts-secret" not in saved.text
+        status = client.get("/api/assistant/status").json()
+        assert status["jev"] == {"configured": True} and "ts-secret" not in str(status)
+        assert client.post("/api/assistant/jev-key", json={"key": "a b"}).status_code == 422
+        assert client.post("/api/assistant/jev-key", json={"key": "x", "more": 1}).status_code == 422
+        assert client.post("/api/assistant/jev-key", json={"key": None}).json() == {"jev": {"configured": False}}
+
+
+def wait_approval(manager, sid):
+    end = time.monotonic() + 20
+    while time.monotonic() < end:
+        found = [e for e in manager.events(sid)[0] if e["type"] == "approval"]
+        if found:
+            return found[0]
+        time.sleep(0.02)
+    raise AssertionError("Žádost o schválení nepřišla.")
+
+
+def assistant_text(manager, sid):
+    return [e["text"] for e in manager.events(sid)[0] if e["type"] == "message" and e["role"] == "assistant"][-1]
+
+
+def test_approval_endpoint_allow_deny_and_conflict(setup):
+    client, manager, tmp_path = setup
+    sid = client.post("/api/assistant/sessions", json={"project": "p1"}).json()["session"]["id"]
+    client.post(f"/api/assistant/sessions/{sid}/messages", json={"text": "WRITE spec"})
+    approval = wait_approval(manager, sid)
+    assert approval["input"]["route"] == "/api/node-spec"
+    listed = client.get("/api/assistant/sessions", params={"project": "p1"}).json()["sessions"][0]
+    assert listed["state"] == "waiting_approval"
+    url = f"/api/assistant/approvals/{approval['approvalId']}"
+    for bad in ({}, {"decision": "maybe"}, {"decision": "allow", "x": 1}, {"decision": "deny", "note": 5}):
+        assert client.post(url, json=bad).status_code == 422
+    denied = client.post(url, json={"decision": "deny", "note": "Jinou kartu."})
+    assert denied.status_code == 200 and denied.json()["decision"] == "deny"
+    wait_idle(manager, sid)
+    assert assistant_text(manager, sid) == "denied: Jinou kartu."
+    assert not (tmp_path / "projekt" / "written.txt").exists()
+    again = client.post(url, json={"decision": "allow"})
+    assert again.status_code == 409 and "rozhodnuto" in again.json()["error"]
+    assert client.post("/api/assistant/approvals/nope", json={"decision": "allow"}).status_code == 404
+
+    client.post(f"/api/assistant/sessions/{sid}/messages", json={"text": "WRITE znovu"})
+    end = time.monotonic() + 20
+    while len([e for e in manager.events(sid)[0] if e["type"] == "approval"]) < 2 and time.monotonic() < end:
+        time.sleep(0.02)
+    second = [e for e in manager.events(sid)[0] if e["type"] == "approval"][-1]
+    allowed = client.post(f"/api/assistant/approvals/{second['approvalId']}", json={"decision": "allow"})
+    assert allowed.status_code == 200 and allowed.json()["decision"] == "allow"
+    wait_idle(manager, sid, 2)
+    assert assistant_text(manager, sid).startswith("allowed command=python x/opora_write.py /api/node-spec")
+    assert (tmp_path / "projekt" / "written.txt").exists()
+
+
+def test_edit_is_denied_without_approval_endpoint(setup):
+    client, manager, _ = setup
+    sid = client.post("/api/assistant/sessions", json={"project": "p1"}).json()["session"]["id"]
+    client.post(f"/api/assistant/sessions/{sid}/messages", json={"text": "EDIT"})
+    wait_idle(manager, sid)
+    assert assistant_text(manager, sid) == "denied: Asistent zapisuje jen na plátno přes opora_write.py."
+    approval = next(e for e in manager.events(sid)[0] if e["type"] == "approval")
+    assert approval["auto"] is True
+    late = client.post(f"/api/assistant/approvals/{approval['approvalId']}", json={"decision": "allow"})
+    assert late.status_code == 409
+
+
+def test_factory_registers_approval_route(tmp_path):
+    with TestClient(create_app(tmp_path), base_url="http://127.0.0.1:8740") as client:
+        missing = client.post("/api/assistant/approvals/nope", json={"decision": "deny"},
+                              headers={"origin": "http://127.0.0.1:8740"})
+        assert missing.status_code == 404

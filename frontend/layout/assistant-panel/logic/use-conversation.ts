@@ -1,8 +1,11 @@
 // Vazba konverzace aktivní session na React a síť. Konverzaci skládá čistý reducer z
 // assistant-events.ts: nejdřív přepis (historie), pak EventSource od `lastSeq` (jen nové události,
 // už viděné `seq` reducer zahodí). Přepnutí session starý EventSource zavře. Volá ho jen AssistantPanel.
+// Úkol, který čeká na schválení, se otevře s přehráním bufferu od začátku: reducer z něj vezme jen
+// čekající žádosti o zápis, aby karta schválení byla vidět i po přepnutí úkolu.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { eventsUrl, fetchSessions, fetchTranscript, sendMessage, stopSession, type AssistantContext } from "./assistant-api";
+import { markPending, markSending, resolveApproval, updateApproval } from "./approval";
+import { decideApproval, eventsUrl, fetchSessions, fetchTranscript, sendMessage, stopSession, type AssistantContext } from "./assistant-api";
 import {
   addLocalUserMessage,
   applyEvent,
@@ -23,6 +26,7 @@ export type ConversationApi = {
   loading: boolean;
   send: (text: string, context: AssistantContext) => Promise<boolean>;
   stop: () => Promise<void>;
+  decide: (approvalId: string, decision: "allow" | "deny", note?: string) => Promise<void>;
 };
 
 export function useConversation(enabled: boolean, project: string, activeId: string | null, onFailure: (text: string) => void): ConversationApi {
@@ -51,7 +55,8 @@ export function useConversation(enabled: boolean, project: string, activeId: str
       if (!alive) return;
       update(activeId, () => loadTranscript(messages, meta?.state ?? "idle", meta?.lastSeq ?? 0));
       setLoading(false);
-      const opened = new EventSource(eventsUrl(activeId, meta?.lastSeq ?? 0));
+      const after = meta?.state === "waiting_approval" ? 0 : meta?.lastSeq ?? 0;
+      const opened = new EventSource(eventsUrl(activeId, after));
       source = opened;
       const handle = (message: MessageEvent) => {
         try {
@@ -91,6 +96,19 @@ export function useConversation(enabled: boolean, project: string, activeId: str
     } catch (e) { failure.current(messageOf(e)); }
   }, [activeId, update]);
 
+  // Rozhodnutí se ukáže hned; `approval_resolved` ze serveru pak kartu jen potvrdí. Chyba vrátí kartu.
+  const decide = useCallback(async (approvalId: string, decision: "allow" | "deny", note?: string) => {
+    if (!activeId) return;
+    update(activeId, (c) => updateApproval(c, approvalId, markSending));
+    try {
+      await decideApproval(approvalId, decision, note);
+      update(activeId, (c) => updateApproval(c, approvalId, (a) => resolveApproval(a, { decision, note })));
+    } catch (e) {
+      update(activeId, (c) => updateApproval(c, approvalId, markPending));
+      failure.current(messageOf(e));
+    }
+  }, [activeId, update]);
+
   const conv = owned.id === activeId ? owned.conv : EMPTY;
-  return { conv, loading: loading && owned.id === activeId, send, stop };
+  return { conv, loading: loading && owned.id === activeId, send, stop, decide };
 }
