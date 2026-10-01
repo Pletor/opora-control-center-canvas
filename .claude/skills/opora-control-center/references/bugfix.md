@@ -21,5 +21,5 @@ Tato reference se načítá jen pro **opravu kódu aplikace**, ne pro běžnou o
 
 Lokální main není automaticky remote main: bez provedeného push neříkej,
 že je změna na GitHubu. Při blokaci buildu či nasazení řekni přesný blocker.
-V tomto prostředí bývá náhled 8780, jiné servery mohou běžet na 8740/8768;
+Aplikace běží na 8740 (`opora.toml`), jiné servery mohou běžet na 8768/8780;
 port ani proces nepřebírej bez aktuální identifikace. Žádné plošné kill/prune/reset.

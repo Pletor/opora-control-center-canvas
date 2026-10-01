@@ -46,8 +46,9 @@ jako zákaz všech ostatních nástrojů.** Skutečné zákazy patří do opráv
 
 - „Načti skill OPORA a zjisti dostupné projekty. Nic neměň.“
 - „V projektu X vytvoř v sektoru Y koncept Z, bez souboru.“
-- „Z uloženého zadání připrav podklady, ale model nespouštěj.“
-- „U běhu ID ukaž skutečný výsledek a ověření; nic nerestartuj.“
+- „Z uloženého zadání sestav náhled balíčku a neměnný snímek; nic neexportuj.“
+- „Exportuj snímek pro externího agenta a ověř zapsaný soubor ve workspace.“
+- „Ukaž skutečné sessions navázané na uzel X; nic nezastavuj.“
 - „Tlačítko nefunguje: minimální oprava bez testů, main a localhost.“
 
 Příkazy a API byly odvozeny ze zdrojů aplikace; živé schopnosti vždy ověř znovu.

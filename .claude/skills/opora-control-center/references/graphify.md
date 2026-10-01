@@ -7,8 +7,10 @@ Nejde o vlastní extraktor, převodník ručních uzlů ani renderer.
 ## Obsluha
 
 Projekt → **Graphify-out** načte `graphify-out/graph.html` hlavního projektu.
-Pokud výstup chybí, explicitní volba Graphify spustí lokální generování.
-**Aktualizovat graf** znovu načte aktuální zdrojový kód. Otevření Archify nic negeneruje.
+Generování běží samo: když stabilní sada v projektu chybí a po každém mergi do
+main (automatika, `map-refresh.md`, `docs/mapy-projektu.md`). **Aktualizovat
+graf → Aktualizovat teď** ho spustí hned nad aktuálním zdrojovým kódem, i při
+„Pouze ručně“. Otevření mapy samo nic negeneruje.
 Zdroj vlastní projektový hub, worktree se stejně jako u Archify přeloží na hlavní
 pracovní strom. Browser neposílá cestu, shell příkaz ani nastavení modelu.
 Ruční uzly Editoru nejsou importovány, upraveny ani odstraněny.
@@ -54,7 +56,8 @@ Po změně runtime restartujte server (výběr je cachovaný).
   OS zámek chrání projekt i mezi procesy, obvyklý server běží s jedním workerem.
 - Teprve po úspěchu se zveřejní přesné původní bajty `graph.html`, `graph.json`,
   `GRAPH_REPORT.md`; `opora-receipt.json` dokládá verzi, čas, rozsah a SHA-256.
-  Chyba extrakce před publikací nemění předchozí veřejné výstupy.
+  Ruční i automatický běh zapisují tutéž sadu v `graphify-out/` přes
+  `<name>.tmp` a `os.replace`. Chyba extrakce před publikací nemění předchozí výstupy.
 - Viewer přidává CSP jen do náhledu a používá iframe bez same-origin oprávnění.
   Původní HTML načítá vis-network 9.1.6 z unpkg.com; nejde o plně offline viewer.
   Jeho JSON/HTML downloady jsou beze změny. Graf se nepřevádí do React Flow.

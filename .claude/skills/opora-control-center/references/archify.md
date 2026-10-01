@@ -2,10 +2,12 @@
 
 ## Princip
 
-Agent ve VS Code nebo CLI použije původní skill nad skutečným kódem,
-konfigurací a dokumentací projektu. Archify vytvoří specifikaci a HTML.
-Control Center **pouze načte a zobrazí toto HTML**. Nepřevádí ruční graf OPORY,
-nemá vlastní diagramový renderer a otevřením Mapy nespouští model ani Node.
+Mapu vytváří automatika aplikace (`docs/mapy-projektu.md`, `map-refresh.md`):
+po mergi do main, u projektu bez mapy a po volbě „Aktualizovat teď“. Jedna
+session Claude Code Sonnet použije původní skill nad commitem main a Archify
+vytvoří specifikaci a HTML. Prohlížeč mapy **pouze načte a zobrazí toto HTML**.
+Nepřevádí ruční graf OPORY, nemá vlastní diagramový renderer a otevřením Mapy
+nespouští model ani Node.
 
 Původní balíček je celý v `vendor/archify/`; vstup skillu je
 `vendor/archify/archify/SKILL.md`, CLI `vendor/archify/archify/bin/archify.mjs`.
@@ -14,20 +16,25 @@ kontrakt. Zdrojový kód knihovny se kvůli této integraci nemění.
 
 ## Uložení a otevření
 
-Výstupy patří do `docs/architecture/archify/` **hlavního projektu**:
+Jediná sada leží v `archify-out/` **hlavního projektu** a přepisuje se na místě:
 
 - `deliver-receipt.json` — úspěšné potvrzení příkazu deliver;
-- HTML a JSON uvedené v tomto potvrzení, se shodnými SHA-256 a velikostí;
-- volitelně `visual-check-receipt.json` a `SPEC.md` s důkazy a omezeními.
+- `map.architecture.html` a `map.architecture.json`, se SHA-256 a velikostí
+  shodnými s potvrzením;
+- `visual-check-receipt.json` jako volitelný důkaz a `SPEC.md` s `Revize repa`.
+
+Složka je pro git ignorovaná (případně přes lokální `.git/info/exclude`).
 
 V Editoru otevři **Mapa**. HTML se načte přímo, bez přepínače na starý graf.
-**Načíst ze souboru** znovu načte a ověří doručenou sadu; není to generování.
+**Načíst uložený výstup** znovu načte a ověří doručenou sadu; není to generování.
+**Aktualizovat teď** zařadí nový běh Sonnetu i při „Pouze ručně“.
 **Stáhnout HTML/JSON** vrací přesné původní bajty. Ovládání diagramu je původní
 Archify. Úplnost zobrazené architektury závisí na analýze autora, ne na počtu
 ručně založených uzlů OPORY. Uloženou specifikaci svévolně neopravuj.
 
-API: `GET /api/archify/artifact?project=<id>`. Žádné POST render API ani
-sample/example renderer API není v této integraci dostupné.
+API: `GET /api/archify/artifact?project=<id>` čte `archify-out/`. Nový běh
+zařazuje `POST /api/map-refresh/retry?project=<id>&tool=archify`; renderer ani
+sample/example API v této integraci není.
 
 Projekt se vybírá z registry OPORY, nikoli cestou z URL. U připojeného Git
 worktree se hlavní adresář určí z Git metadata a ověří se společná identita
@@ -41,7 +48,7 @@ U obyčejné připojené složky se čte její vlastní adresář.
   skutečný počet dodaných záznamů, nikoli autorův slovní odhad pokrytí.
 - Pokud SPEC.md uvádí revizi a hlavní projekt má jiný HEAD, zobrazí se změna.
   Shodný HEAD sám neprokazuje nepřítomnost rozpracovaných změn: úplná aktuálnost
-  zůstává neověřená. Není implementováno automatické přegenerování agentem.
+  zůstává neověřená.
 - Přístup je omezen na danou složku. Symlinky, junctiony, chybné potvrzení a
   příliš velké soubory se odmítají. Absolutní cesty uvnitř receipt nejsou
   oprávnění ke čtení jiných adresářů.

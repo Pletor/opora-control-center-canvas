@@ -1,7 +1,9 @@
-# Externí agent: Opora → Git workspace → ticket
+# Podklady pro agenta: náhled → snímek → export → ticket
 
-Použij jen pro výslovně schválenou práci mimo dokumentační/coding runtime Opory.
-Export ani návštěva uzlu nespouští model. Externí agent nemá OPORA run ID.
+Jediný podporovaný tok práce s AI v Inspektoru („Práce s AI“ → **Podklady pro
+agenta**). Aplikace sama žádný model nespouští: náhled, snímek ani export nejsou
+běh a externí agent nemá žádné OPORA run ID. Implementaci provádí externí
+VS Code/CLI agent v Git workspace projektu a výsledek vrací jako ticket.
 
 ## Převzetí
 
@@ -10,21 +12,25 @@ Export ani návštěva uzlu nespouští model. Externí agent nemá OPORA run ID
    otevřené ve VS Code; cestu zjisti GET `/api/workspace/tree?project=...&workspace=...`.
 2. Načti uložené Zadání a pravidla. Chybí-li goal/non_goals/acceptance nebo
    konkrétní schválené soubory, implementace je **blocked**. Scope nedoplňuj odhadem.
-3. Sestav náhled → vytvoř neměnný snímek → ověř jej zpětným GET.
-   Musí souhlasit id, digest a project/workspace/nodeId. Nové snímky obsahují
-   `packet.task.depends_on`: příchozí source → target, názvy a uložené fáze
-   předchůdců. `status: null` znamená nedostupné; fáze není důkaz dokončení.
-4. **Exportovat pro externího agenta** zapíše do vybraného Git workspace
+3. **1 Náhled balíčku** (POST `/api/desktop-v3/packet/preview`): přečti
+   `sourceManifest`, warnings, zahrnuté/vyloučené zdroje a digest.
+4. **2 Neměnný snímek** (POST `/api/desktop-v3/packet/snapshot`) → ověř jej
+   zpětným GET `/api/desktop-v3/packet/snapshots/<id>`. Musí souhlasit id, digest
+   a project/workspace/nodeId. Snímky obsahují `packet.task.depends_on`: příchozí
+   source → target, názvy a uložené fáze předchůdců. `status: null` znamená
+   nedostupné; fáze není důkaz dokončení. Po změně zadání vytvoř nový snímek;
+   starý neupravuj a nikdy mu nepřepisuj digest.
+5. **Exportovat pro externího agenta** zapíše do vybraného Git workspace
    `docs/opora-control-center/tasks/<node-id>.md`. Nezapisuje do read-only mainu.
    I neúplné zadání lze exportovat, ale zůstává `Status: blocked`.
-5. Export obsahuje Cíl, Mimo rozsah, Podmínky dokončení, kandidátní cestu,
+6. Export obsahuje Cíl, Mimo rozsah, Podmínky dokončení, kandidátní cestu,
    pravidla, depends_on, Snapshot ID/digest, TODO a Result. `sourceRef` ani
    kandidátní cesta nejsou samy souhlas s implementací. Ověř souhlas uživatele.
-6. Před úpravou kódu ověř skutečný Git kořen, větev, stav a vlastnictví workspace.
+7. Před úpravou kódu ověř skutečný Git kořen, větev, stav a vlastnictví workspace.
    Pokud je ve workspace aktivní cizí práce, nepřepínej jeho větev. Vlastní
    izolovaná větev `opora/<node-id>` je vhodná jen v agentově vyhrazeném worktree;
    zapiš do Result její skutečnou identitu. Vazbu na workspace Opory neměň odhadem.
-7. Agent čte toto zadání, CLAUDE.md a relevantní pravidla; postupuje podle TODO.
+8. Agent čte toto zadání, CLAUDE.md a relevantní pravidla; postupuje podle TODO.
    `Status`: planned → in_progress → review/done, nebo blocked.
    Result obsahuje skutečnou větev/commit, změněné soubory, ověření a blokery.
 
@@ -78,8 +84,7 @@ Používá se existující revizované API paměti; žádný watcher souborů ne
 
 ## Hranice
 
-- Coding sandbox zůstává `calculator.py`; externí export jej nerozšiřuje.
-- Dokumentační handoff zapisuje pouze izolovaný result.md. Limit 10–180 s se
-  nastavuje v Nastavení projektu, sdílí se s LLM návrhy a není cenový strop.
-- Nečti .env ani tajemství; nikdy nepředávej reference jako oprávnění k celému repu.
+- Export je jediný zápis, který tento tok do workspace provádí; širší oprávnění
+  k repu z něj neplyne. Nečti .env ani tajemství; nikdy nepředávej reference
+  jako oprávnění k celému repu.
 - Nové chyby aplikace patří do projektového IMPROVEMENT.md, ne k tichému obejití.
