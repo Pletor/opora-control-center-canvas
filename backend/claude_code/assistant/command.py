@@ -15,7 +15,8 @@ MODELS = ("opus", "sonnet", "fable")
 DEFAULT_MODEL = "opus"
 
 ALLOWED_TOOLS = "Read,Glob,Grep,Skill,Bash(python *opora_read.py*)"
-DISALLOWED_TOOLS = "Edit,Write,NotebookEdit,WebFetch,WebSearch"
+# PowerShell je nástroj Claude Code na Windows; asistent ho nepotřebuje (čtecí skript jde přes Bash).
+DISALLOWED_TOOLS = "Edit,Write,NotebookEdit,WebFetch,WebSearch,PowerShell"
 # Seznam Archify (`map_refresh_archify._claude_command`) + klíče z §5 + zápis a síť.
 # Celé "Bash" z Archify se nepřebírá: deny má v Claude Code přednost před allow a zablokovalo
 # by i jediný povolený čtecí vzor z ALLOWED_TOOLS. Jiný Bash zamítne `--permission-mode dontAsk`.
@@ -29,6 +30,7 @@ DENY = (
     "NotebookEdit",
     "WebFetch",
     "WebSearch",
+    "PowerShell",
 )
 
 

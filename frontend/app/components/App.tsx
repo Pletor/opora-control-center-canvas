@@ -170,6 +170,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [settings, setSettings] = useState(readSettings);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState(false);
   const [nodeTab, setNodeTab] = useState<NodeTab>("content");
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
   const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
@@ -808,7 +809,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   return (
     <div className="app desktop-v2 desktop-v3">
       <TopBar
-        trailing={<AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />}
+        trailing={<AssistantButton open={assistantOpen} busy={assistantBusy} onToggle={() => setAssistantOpen((v) => !v)} />}
         projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={setProjectMapKind}/> : null}
         projects={projects}
         draftProject={draftProject}
@@ -1625,12 +1626,12 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           </section>
         </div>
       )}
-      {assistantOpen && (
-        <AssistantPanel
-          context={{ projectId: project, workspace, layerId: parent ?? null, selectedNodeIds: selected ? [selected] : [], environment }}
-          onClose={() => setAssistantOpen(false)}
-        />
-      )}
+      <AssistantPanel
+        open={assistantOpen}
+        context={{ projectId: project, workspace, layerId: parent ?? null, selectedNodeIds: selected ? [selected] : [], environment }}
+        onClose={() => setAssistantOpen(false)}
+        onBusyChange={setAssistantBusy}
+      />
     </div>
   );
 }

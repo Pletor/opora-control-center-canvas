@@ -13,11 +13,11 @@ def test_command_matches_contract_without_resume():
     assert pairs["--setting-sources"] == "user,project"
     assert pairs["--permission-mode"] == "dontAsk"
     assert pairs["--allowedTools"] == "Read,Glob,Grep,Skill,Bash(python *opora_read.py*)"
-    assert pairs["--disallowedTools"] == "Edit,Write,NotebookEdit,WebFetch,WebSearch"
+    assert pairs["--disallowedTools"] == "Edit,Write,NotebookEdit,WebFetch,WebSearch,PowerShell"
     settings = json.loads(pairs["--settings"])
     assert settings["disableAllHooks"] is True
     deny = settings["permissions"]["deny"]
-    for item in ("Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch", "Read(**/.env)", "Read(**/.env.*)"):
+    for item in ("Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch", "PowerShell", "Read(**/.env)", "Read(**/.env.*)"):
         assert item in deny
     # Celé "Bash" by v deny přebilo povolený čtecí vzor opora_read.py.
     assert "Bash" not in deny

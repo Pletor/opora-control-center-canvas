@@ -45,6 +45,9 @@ export const sendMessage = (id: string, text: string, context: AssistantContext)
 
 export const stopSession = (id: string) => api<unknown>(`${sessionUrl(id)}/stop`, {});
 
+export const renameSession = (id: string, title: string) =>
+  api<{ session: AssistantSession }>(`${sessionUrl(id)}/title`, { title }).then((r) => r.session);
+
 export const closeSession = (id: string) => api<unknown>(`${sessionUrl(id)}/close`, {});
 
 export const fetchTranscript = (id: string) =>

@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 
 MAX_TEXT = 20000
+MAX_TITLE = 80
 MAX_IDS = 50
 MAX_ID = 128
 ENVIRONMENTS = ("project", "editor", "live")
@@ -29,6 +30,14 @@ def validate_text(text):
     if len(text) > MAX_TEXT:
         raise ValueError(f"Zpráva asistentovi může mít nejvýše {MAX_TEXT} znaků.")
     return text
+
+
+def validate_title(title):
+    """Ručně zadaný titulek úkolu: po oříznutí 1–80 znaků bez řídicích znaků."""
+    clean = title.strip() if isinstance(title, str) else ""
+    if not clean or len(clean) > MAX_TITLE or any(ord(c) < 32 or ord(c) == 127 for c in clean):
+        raise ValueError(f"Titulek úkolu má mít 1 až {MAX_TITLE} znaků bez řídicích znaků.")
+    return clean
 
 
 def validate_context(context):

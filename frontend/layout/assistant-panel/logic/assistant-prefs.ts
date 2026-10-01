@@ -1,22 +1,55 @@
 import { MODELS, type AssistantModel } from "./assistant-api";
 
-/** Výchozí model je volba aplikace, ne projektu: jeden klíč pro všechny projekty. */
+/**
+ * Preference asistenta jsou volba aplikace, ne projektu: jeden klíč pro všechny projekty.
+ * Drží výchozí model nové session a velikost panelu (minimalizovat, vpravo, celá plocha).
+ */
 export const ASSISTANT_PREFS_KEY = "opora:assistant:v1";
 
-export function readDefaultModel(): AssistantModel {
+export type PanelSize = "minimized" | "side" | "full";
+export const SIZES: PanelSize[] = ["minimized", "side", "full"];
+
+export type AssistantPrefs = { model: AssistantModel; size: PanelSize };
+export const DEFAULT_PREFS: AssistantPrefs = { model: "opus", size: "side" };
+
+/** Uložený JSON → platné preference; neznámé nebo poškozené hodnoty dostanou výchozí. */
+export function parsePrefs(raw: string | null): AssistantPrefs {
   try {
-    const value = JSON.parse(localStorage.getItem(ASSISTANT_PREFS_KEY) ?? "null");
-    if (value && MODELS.includes(value.model)) return value.model;
+    const value = JSON.parse(raw ?? "null");
+    if (value && typeof value === "object") {
+      return {
+        model: MODELS.includes(value.model) ? value.model : DEFAULT_PREFS.model,
+        size: SIZES.includes(value.size) ? value.size : DEFAULT_PREFS.size,
+      };
+    }
   } catch {
     /* Poškozené preference nejsou data projektu. */
   }
-  return "opus";
+  return { ...DEFAULT_PREFS };
 }
 
-export function writeDefaultModel(model: AssistantModel): void {
+/** Esc zmenší panel o jeden stupeň: celá plocha → vpravo → lišta. Lišta už zůstane. */
+export function smallerSize(size: PanelSize): PanelSize {
+  return size === "full" ? "side" : "minimized";
+}
+
+/** Tlačítko Asistent otevře poslední velikost; z lišty se otevírá vpravo, aby bylo co číst. */
+export function reopenSize(last: PanelSize): PanelSize {
+  return last === "minimized" ? "side" : last;
+}
+
+export function readPrefs(): AssistantPrefs {
   try {
-    localStorage.setItem(ASSISTANT_PREFS_KEY, JSON.stringify({ model }));
+    return parsePrefs(localStorage.getItem(ASSISTANT_PREFS_KEY));
   } catch {
-    /* Bez úložiště model platí jen do zavření stránky. */
+    return { ...DEFAULT_PREFS };
+  }
+}
+
+export function writePrefs(change: Partial<AssistantPrefs>): void {
+  try {
+    localStorage.setItem(ASSISTANT_PREFS_KEY, JSON.stringify({ ...readPrefs(), ...change }));
+  } catch {
+    /* Bez úložiště volba platí jen do zavření stránky. */
   }
 }

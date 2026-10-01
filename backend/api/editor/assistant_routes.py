@@ -92,6 +92,14 @@ def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.2
             return _error(exc)
         return {"accepted": True, "seq": event["seq"]}
 
+    @router.post("/sessions/{session_id}/title")
+    def title(session_id: str, payload: dict):
+        body = _body(payload, {"title"}, {"title"})
+        try:
+            return {"session": manager.rename(session_id, body["title"])}
+        except AssistantError as exc:
+            return _error(exc)
+
     @router.post("/sessions/{session_id}/stop")
     def stop(session_id: str):
         try:

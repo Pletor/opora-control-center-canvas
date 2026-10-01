@@ -213,3 +213,33 @@ def test_errors_for_unknown_session_missing_cli_and_bad_input(tmp_path):
     assert missing.value.status == 503
     assert manager.status()["available"] is False
     assert manager.transcript(sid) == []
+
+
+def test_placeholder_titles_take_first_message(manager):
+    fresh = manager.create("p1")["id"]
+    legacy = manager.create("p1", title="Nová session")["id"]
+    for sid in (fresh, legacy):
+        assert manager.session(sid)["title"] in ("Nový úkol", "Nová session")
+        manager.send(sid, "Navrhni export plátna")
+        idle_after_turn(manager, sid)
+        assert manager.session(sid)["title"] == "Navrhni export plátna"
+
+
+def test_rename_validates_and_survives_first_message(manager):
+    sid = manager.create("p1")["id"]
+    renamed = manager.rename(sid, "  Oprava mapy  ")
+    assert renamed["title"] == "Oprava mapy" and renamed["lastSeq"] == 0
+    for bad in ("", "   ", "x" * 81, "a\nb", None, 5):
+        with pytest.raises(ValueError):
+            manager.rename(sid, bad)
+    assert manager.rename(sid, "x" * 80)["title"] == "x" * 80
+    manager.rename(sid, "Ruční název")
+    manager.send(sid, "první zpráva")
+    idle_after_turn(manager, sid)
+    assert manager.session(sid)["title"] == "Ruční název"
+    with pytest.raises(SessionNotFound):
+        manager.rename("missing", "Název")
+    manager.close(sid)
+    with pytest.raises(AssistantError) as closed:
+        manager.rename(sid, "Jiný")
+    assert closed.value.status == 409

@@ -1,7 +1,8 @@
 /* Tlačítko Asistent (blok assistant-button) stojí úplně vpravo v horní liště, hned za nápisem
    LOKÁLNĚ. Je to tiché obrysové tlačítko s ikonou bubliny a jménem, aby ho oko našlo ve všech
    třech prostředích na stejném místě, ale nekřičelo nad volbou projektu. Otevřené se obarví
-   akcentem stejně jako zavěšené panely, takže je znát, že vpravo něco visí. */
+   akcentem. Když některý úkol pracuje, sedí na bublině malá akcentní tečka: uživatel kouká na
+   plátno a přesto ví, že asistent ještě přemýšlí. */
 .assistant-button {
   display: inline-flex;
   align-items: center;
@@ -27,6 +28,20 @@
   border-color: var(--accent-line);
   color: var(--accent);
 }
+.assistant-button__icon {
+  position: relative;
+  display: inline-flex;
+}
+.assistant-button__dot {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
+}
 /* Na úzkém okně zůstane jen ikona; jméno čte tooltip, aby lišta nepřetekla. */
 @media (max-width: 900px) {
   .assistant-button__label {
@@ -34,10 +49,11 @@
   }
 }
 
-/* Panel asistenta (blok assistant-panel) vyjede zprava přes plátno jako šuplík pod horní lištou.
-   Je úzký (asi 420 px), aby plátno vlevo zůstalo čitelné, a na úzkém okně zabere celou šířku, protože
-   chat bez šířky nejde číst. Nahoře je hlavička s křížkem, pod ní záložky session, uprostřed seznam
-   zpráv, který jediný roste a posouvá se, a dole pole pro zprávu, které se nikdy nehne z dosahu. */
+/* Panel asistenta (blok assistant-panel) je místo na přemýšlení nad víc úkoly najednou. Ve velikosti
+   „vpravo“ je to šuplík pod horní lištou široký asi 480 px: dost na odstavec textu a pořád je vidět
+   plátno. Pod 900 px šířky okna zabere celou šířku, protože úzký sloupec se nedá číst. Ve velikosti
+   „celá plocha“ zakryje všechno pod lištou; lišta s tlačítkem Asistent zůstává, takže cesta zpět je
+   vždy na stejném místě. Panel nemá rámečky navíc: jedna linka odděluje hlavičku, jedna přehled. */
 .assistant-panel {
   position: fixed;
   top: var(--topbar-h);
@@ -46,221 +62,935 @@
   z-index: 30;
   display: flex;
   flex-direction: column;
-  width: min(420px, 100%);
   background: var(--surface);
-  border-left: 1px solid var(--line-strong);
-  box-shadow: var(--shadow-pop);
   color: var(--ink);
   font-size: var(--fs-2);
 }
-.assistant-panel__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: 1px solid var(--line);
+.assistant-panel--side {
+  width: min(480px, 100%);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-pop);
 }
-.assistant-panel__title {
-  font-size: var(--fs-3);
+.assistant-panel--full {
+  left: 0;
+  border-top: 1px solid var(--line);
 }
-.assistant-panel__close {
-  background: transparent;
-  border: 0;
-  color: var(--ink-muted);
-  font-size: var(--fs-5);
-  line-height: 1;
+@media (max-width: 900px) {
+  .assistant-panel--side {
+    width: 100%;
+  }
 }
-.assistant-panel__close:hover {
-  color: var(--ink);
-}
-
-/* Záložky session: každá je malý štítek se jménem a křížkem, aktivní má akcentní podtržení.
-   Tečka před jménem říká, že session právě pracuje, i když se díváte na jinou. Vedle záložek je
-   výběr modelu a „+ Nová session“; model platí jen pro nově zakládanou session. */
-.assistant-panel__tabs {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: 1px solid var(--line);
-}
-.assistant-panel__tablist {
-  display: flex;
-  gap: var(--sp-1);
-  overflow-x: auto;
-}
-.assistant-panel__tab {
-  display: inline-flex;
-  align-items: center;
-  flex: none;
-  max-width: 160px;
-  border-bottom: 2px solid transparent;
-  color: var(--ink-muted);
-}
-.assistant-panel__tab--active {
-  border-bottom-color: var(--accent);
-  color: var(--ink);
-}
-.assistant-panel__tab-name,
-.assistant-panel__tab-close {
-  background: transparent;
-  border: 0;
-  color: inherit;
-  font-size: var(--fs-1);
-}
-.assistant-panel__tab-name {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.assistant-panel__dot {
-  width: 8px;
-  height: 8px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--accent);
-}
-.assistant-panel__new {
-  display: flex;
-  gap: var(--sp-2);
-  align-items: center;
-}
-.assistant-panel__model {
-  font-size: var(--fs-1);
-}
-.assistant-panel__new-button {
-  font-size: var(--fs-1);
-}
-
-/* Seznam zpráv: uživatel mluví vpravo v akcentní bublině, asistent vlevo na klidném podkladu.
-   Text asistenta je předformátovaný a zalamuje se, protože odpovědi bývají seznamy a kód a bez
-   zachovaných řádků by se četly hůř. Řádky nástrojů jsou drobné a sbalené, aby neodváděly pozornost
-   od odpovědi; chyba je vždy červená a nedá se přehlédnout. */
-.assistant-panel__messages {
+.assistant-panel__body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
-  padding: var(--sp-3);
-  overflow-y: auto;
 }
-.assistant-panel__message {
+.assistant-panel--full .assistant-panel__body {
+  flex-direction: row;
+}
+.assistant-panel__main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
 }
-.assistant-panel__message--user {
-  justify-content: flex-end;
+
+/* Hlavička je nízká a tichá: vlevo jméno, vpravo přepínač tří velikostí a křížek. Přepínač jsou tři
+   malé ikony (čára dole = lišta, úzký pravý sloupec = panel vpravo, široký = celá plocha), aktivní
+   má jemný akcentní podklad. Nic dalšího, aby oko hned sjelo k úkolům. */
+.assistant-panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 44px;
+  padding: 0 var(--sp-2) 0 var(--sp-5);
+  border-bottom: 1px solid var(--line);
 }
-.assistant-panel__text {
-  max-width: 92%;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-lg);
+.assistant-panel__brand {
+  margin-right: auto;
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+.assistant-panel__sizes {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.assistant-panel__size,
+.assistant-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.assistant-panel__size:hover,
+.assistant-panel__close:hover {
   background: var(--surface-2);
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  color: var(--ink);
 }
-.assistant-panel__message--user .assistant-panel__text {
+.assistant-panel__size--on,
+.assistant-panel__size--on:hover {
   background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
+  color: var(--accent);
+}
+
+/* Stav úkolu je tečka a slovo, všude stejně: pracuje = akcentní tečka, která pomalu dýchá (jediný
+   pohyb v panelu, aby bylo vidět, že se něco děje); čeká na vás = zlatá; připraveno = prázdný
+   kroužek, klidný; chyba = tlumeně červená. Barva nese stav, slovo ho říká pro čtečky a pro jistotu. */
+.assistant-panel__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-muted);
+}
+.assistant-panel__status-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink-muted);
+}
+.assistant-panel__status--working {
+  color: var(--accent);
+}
+.assistant-panel__status--working .assistant-panel__status-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  animation: assistant-panel-breathe 1.8s ease-in-out infinite;
+}
+.assistant-panel__status--waiting {
+  color: var(--gold);
+}
+.assistant-panel__status--waiting .assistant-panel__status-dot {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.assistant-panel__status--error {
+  color: var(--danger);
+}
+.assistant-panel__status--error .assistant-panel__status-dot {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+@keyframes assistant-panel-breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-panel__status--working .assistant-panel__status-dot {
+    animation: none;
+  }
+}
+
+/* Přehled úkolů je srdce panelu: na první pohled říká, co běží, co doběhlo a co čeká. Na celé ploše je
+   to trvalý sloupec vlevo (300 px) na o stupeň tmavším podkladu, takže se oddělí od textu bez linky
+   navíc. V panelu vpravo je to pruh nahoře: sbalený ukazuje jen aktivní úkol a počet (s tečkou, když
+   se jinde něco změnilo), rozbalený celý seznam, který se posouvá sám a konverzaci nikdy nevytlačí. */
+.assistant-panel__tasks {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+}
+.assistant-panel__tasks--column {
+  flex: none;
+  width: 300px;
+  border-right: 1px solid var(--line);
+  /* Vlevo dole zůstává menu aplikace (account-corner); seznam úkolů končí nad ním. */
+  padding-bottom: 64px;
+}
+.assistant-panel__tasks--drawer {
+  flex: none;
+  max-height: 60%;
+  border-bottom: 1px solid var(--line);
+}
+@media (max-width: 760px) {
+  .assistant-panel__tasks--column {
+    width: 240px;
+  }
+}
+.assistant-panel__tasks-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.assistant-panel__tasks-toggle:hover {
+  background: var(--surface-2);
+}
+.assistant-panel__tasks-current {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+.assistant-panel__tasks-current-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-panel__tasks-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__tasks-badge {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.assistant-panel__tasks-chevron {
+  transition: transform 0.15s ease;
+}
+.assistant-panel__tasks-toggle[aria-expanded="true"] .assistant-panel__tasks-chevron {
+  transform: rotate(180deg);
+}
+.assistant-panel__tasks-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.assistant-panel__tasks-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-5);
+}
+.assistant-panel__tasks--drawer .assistant-panel__tasks-head {
+  padding-top: var(--sp-1);
+}
+.assistant-panel__tasks-title {
+  margin-right: auto;
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+.assistant-panel__tasks-total {
+  margin-left: 4px;
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+/* Dole vlevo plave menu aplikace „Opora“; konec sloupce úkolů má proto rezervu, aby poslední
+   úkol šlo odrolovat nad něj. */
+.assistant-panel__tasks--column .assistant-panel__task-list {
+  padding-bottom: 72px;
+}
+
+/* „+ Nový úkol“ je jediné plné akcentní tlačítko v přehledu; vedle něj malý výběr modelu, protože
+   model se volí jen při založení úkolu a pak už se nemění. */
+.assistant-panel__new {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.assistant-panel__model {
+  min-height: 30px;
+  padding: 3px 6px;
+  font-size: var(--fs-1);
+}
+.assistant-panel__new-task {
+  min-height: 30px;
+  padding: 4px 12px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.assistant-panel__new-task:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--accent-ink);
+}
+
+/* Jeden úkol je řádek bez rámečku: tučný název, pod ním tichý řádek stavu, modelu a času a pod tím
+   šedý náhled poslední odpovědi, aby šlo poznat, o čem úkol je, bez otevření. Aktivní úkol má
+   akcentní proužek vlevo a světlejší podklad. Doběhlý úkol, který uživatel ještě neviděl, nese
+   značku „nové“. Tužka a křížek se ukážou až pod myší nebo fokusem, aby seznam zůstal klidný. */
+.assistant-panel__task-list {
+  margin: 0;
+  padding: 0 var(--sp-2) var(--sp-3);
+  list-style: none;
+  overflow-y: auto;
+  min-height: 0;
+}
+.assistant-panel__task {
+  position: relative;
+  margin-bottom: 2px;
+  border-radius: var(--radius-lg);
+}
+.assistant-panel__task:hover,
+.assistant-panel__task:focus-within {
+  background: var(--surface-2);
+}
+.assistant-panel__task--active,
+.assistant-panel__task--active:hover {
+  background: var(--surface);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.assistant-panel__task-open {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 64px 10px 14px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.assistant-panel__task-open:hover {
+  background: transparent;
+}
+.assistant-panel__task-title {
+  overflow: hidden;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-panel__task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__task-new {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.assistant-panel__task-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.assistant-panel__task-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+}
+.assistant-panel__task:hover .assistant-panel__task-tools,
+.assistant-panel__task:focus-within .assistant-panel__task-tools {
+  opacity: 1;
+}
+.assistant-panel__task-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.assistant-panel__task-tool:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+.assistant-panel__task-rename {
+  width: calc(100% - 16px);
+  margin: 8px;
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+
+/* Zavření úkolu se potvrzuje přímo v řádku, ne dialogem: otázka a dvě tlačítka, výchozí fokus na
+   „Nechat“, aby Enter omylem nic nezavřel. */
+.assistant-panel__task-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: 10px 14px;
+}
+.assistant-panel__task-question {
+  font-size: var(--fs-2);
+}
+.assistant-panel__task-answers {
+  display: flex;
+  gap: var(--sp-2);
+}
+.assistant-panel__task-answer {
+  min-height: 28px;
+  padding: 3px 12px;
+  font-size: var(--fs-1);
+}
+.assistant-panel__task-answer--danger {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Konverzace se čte jako dokument, ne jako chat: písmo 15 px, řádkování 1,6 a velká mezera mezi
+   zprávami. Na celé ploše stojí text ve sloupci nejvýš 72 znaků uprostřed, protože delší řádek oko
+   ztrácí; v panelu vpravo je sloupec prostě celá šířka s pohodlným okrajem. Posouvá se jen konverzace,
+   hlavička, přehled a pole pro zprávu zůstávají na místě. */
+.assistant-panel__conversation {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-6) var(--sp-5) var(--sp-4);
+}
+.assistant-panel__column {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 72ch;
+  margin: 0 auto;
+  font-size: 15px;
+  line-height: 1.6;
 }
 .assistant-panel__hint {
   margin: 0;
   color: var(--ink-muted);
-  font-size: var(--fs-1);
-}
-.assistant-panel__working {
-  margin: 0;
-  color: var(--accent);
-  font-size: var(--fs-1);
-}
-.assistant-panel__error {
-  margin: 0;
-  padding: var(--sp-2) var(--sp-3);
-  background: var(--danger-soft);
-  border: 1px solid var(--danger-line);
-  border-radius: var(--radius);
-  color: var(--danger);
-  font-size: var(--fs-1);
-  overflow-wrap: anywhere;
+  font-size: var(--fs-2);
+  line-height: 1.5;
 }
 
-/* Řádek nástroje: jedna tichá linka „značka · název · souhrn“. Značka zelená, červená nebo
-   tečky podle výsledku; klik rozbalí krátký výsledek strojopisem. */
-.assistant-panel__tool {
+/* Zpráva uživatele je odsazený blok s tenkou akcentní linkou vlevo a malým „Vy“ nad textem; text
+   zůstává tak, jak byl napsán, i se zalomením. Odpověď asistenta je čistý text bez podkladu přes
+   celou šířku sloupce, protože je to to hlavní, co se tu čte. */
+.assistant-panel__message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.assistant-panel__message--user {
+  margin-left: var(--sp-4);
+  padding: 2px 0 2px var(--sp-4);
+  border-left: 2px solid var(--accent-line);
+  color: var(--ink-2);
+}
+.assistant-panel__message-who {
+  display: block;
+  margin-bottom: 2px;
   color: var(--ink-muted);
   font-size: var(--fs-1);
+  font-weight: 600;
 }
-.assistant-panel__tool-line {
+.assistant-panel__message-text {
+  white-space: pre-wrap;
+}
+
+/* Markdown odpovědi: nadpisy jsou jen o stupeň větší a tučné (žádné kapitálky z obecného stylu),
+   odstavce a seznamy dýchají mezerou necelého řádku, kód v řádku má tichý podklad a blok kódu je
+   tmavší deska se strojopisem, která se posouvá do strany místo zalamování. Odkaz je text s adresou
+   v závorce, nic se nedá omylem otevřít. */
+.assistant-panel__md {
   display: flex;
-  gap: var(--sp-2);
-  cursor: pointer;
+  flex-direction: column;
+  gap: 0.8em;
 }
-.assistant-panel__tool-mark {
+.assistant-panel__md-heading {
+  margin: 0.5em 0 0;
+  color: var(--ink);
+  font-weight: 650;
+  letter-spacing: normal;
+  line-height: 1.35;
+  text-transform: none;
+}
+.assistant-panel__md-heading--1 {
+  font-size: 18px;
+}
+.assistant-panel__md-heading--2 {
+  font-size: 16.5px;
+}
+.assistant-panel__md-heading--3,
+.assistant-panel__md-heading--4 {
+  font-size: 15px;
+}
+.assistant-panel__md-paragraph,
+.assistant-panel__md-quote {
+  margin: 0;
+}
+.assistant-panel__md-quote {
+  padding-left: var(--sp-3);
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-2);
+}
+.assistant-panel__md-strong {
+  color: var(--ink);
+  font-weight: 650;
+}
+.assistant-panel__md-code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+}
+.assistant-panel__md-pre {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.assistant-panel__md-list {
+  margin: 0;
+  padding-left: 1.5em;
+}
+.assistant-panel__md-item {
+  margin: 0.3em 0;
+  padding-left: 0.2em;
+}
+.assistant-panel__md-item--nested {
+  margin-left: 1.4em;
+  list-style-type: circle;
+}
+.assistant-panel__md-item::marker {
+  color: var(--ink-muted);
+}
+.assistant-panel__md-rule {
+  width: 100%;
+  margin: 0.4em 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.assistant-panel__md-link {
+  color: var(--accent);
+}
+.assistant-panel__md-href {
+  color: var(--ink-muted);
+  font-size: 0.86em;
+}
+
+/* Kroky nástrojů jsou jeden tlumený řádek „3 kroky (Read, Grep, Skill)“ menším písmem, aby
+   nerušily čtení odpovědí. Klik rozbalí jednotlivé kroky. Chyba je vidět jako tichá červená
+   poznámka „1 chyba“ a vykřičník u kroku, ne jako poplach. */
+.assistant-panel__steps {
+  margin: -12px 0;
+  font-size: var(--fs-2);
+  line-height: 1.5;
+}
+.assistant-panel__steps-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 26px;
+  padding: 2px 8px 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.assistant-panel__steps-line:hover {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.assistant-panel__steps-chevron {
+  transition: transform 0.15s ease;
+}
+.assistant-panel__steps--open .assistant-panel__steps-chevron {
+  transform: rotate(90deg);
+}
+.assistant-panel__steps-running {
+  color: var(--accent);
+}
+.assistant-panel__steps-errors {
+  color: var(--danger);
+  opacity: 0.85;
+}
+.assistant-panel__steps-list {
+  margin: var(--sp-1) 0 0 10px;
+  padding: 0 0 0 var(--sp-3);
+  border-left: 1px solid var(--line);
+  list-style: none;
+}
+.assistant-panel__step {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-2);
+  padding: 3px 0;
+  color: var(--ink-muted);
+}
+.assistant-panel__step-mark {
   flex: none;
   width: 14px;
   text-align: center;
 }
-.assistant-panel__tool--ok .assistant-panel__tool-mark {
+.assistant-panel__step--ok .assistant-panel__step-mark {
   color: var(--accent);
 }
-.assistant-panel__tool--error .assistant-panel__tool-mark {
+.assistant-panel__step--error .assistant-panel__step-mark {
   color: var(--danger);
 }
-.assistant-panel__tool-name {
+.assistant-panel__step-name {
   flex: none;
   color: var(--ink-2);
   font-family: var(--mono);
+  font-size: var(--fs-1);
 }
-.assistant-panel__tool-summary {
+.assistant-panel__step-summary {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.assistant-panel__tool-result {
-  margin: var(--sp-1) 0 0 22px;
+.assistant-panel__step-result {
+  flex-basis: 100%;
   max-height: 160px;
+  margin: var(--sp-1) 0 0 22px;
   overflow: auto;
   font-family: var(--mono);
+  font-size: var(--fs-1);
   white-space: pre-wrap;
 }
 
-/* Pole pro zprávu: dole, vždy na dosah. Odeslat a Stop stojí vpravo pod polem; Stop se ukáže
-   jen za běhu a je červený, protože zabíjí rozdělanou práci. */
+/* Na konci konverzace „pracuje… 0:12“: dýchající tečka a čas tahu, aby uživatel věděl, že čekání
+   má smysl a jak dlouho trvá. Chyba tahu je tlumeně červený blok s textem od backendu beze změny. */
+.assistant-panel__working {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--fs-2);
+}
+.assistant-panel__working-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: assistant-panel-breathe 1.8s ease-in-out infinite;
+}
+.assistant-panel__working-time {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-panel__working-pulse {
+    animation: none;
+  }
+}
+.assistant-panel__error {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: var(--fs-2);
+  overflow-wrap: anywhere;
+}
+.assistant-panel__error--banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-3) var(--sp-4) 0;
+}
+.assistant-panel__error-text {
+  flex: 1;
+}
+.assistant-panel__error-dismiss {
+  min-height: 22px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.assistant-panel__error-dismiss:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+/* Pole pro zprávu je jedna zaoblená deska dole, zarovnaná se sloupcem textu: vlevo text, vpravo
+   kulaté akcentní tlačítko Odeslat, za běhu místo něj tichý Stop. Deska roste s textem až do 40 %
+   výšky panelu a pak se posouvá uvnitř. Fokus obarví celou desku, ne jen textové pole. Nad ní se
+   při psaní „/“ ukáže nabídka lomítkových příkazů. */
 .assistant-panel__composer {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3) var(--sp-3);
-  border-top: 1px solid var(--line);
+  padding: var(--sp-2) var(--sp-5) var(--sp-5);
+}
+.assistant-panel__field {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  width: 100%;
+  max-width: 72ch;
+  margin: 0 auto;
+  padding: 6px 6px 6px var(--sp-4);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--field);
+}
+.assistant-panel__field:focus-within {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .assistant-panel__input {
-  width: 100%;
-  resize: vertical;
-  font: inherit;
+  flex: 1;
+  min-height: 34px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
 }
-.assistant-panel__actions {
-  display: flex;
-  gap: var(--sp-2);
-  justify-content: flex-end;
+/* Obrys fokusu nese celá deska (výše), proto pole uvnitř vlastní obrys nekreslí. */
+.assistant-panel__field .assistant-panel__input:focus-visible {
+  outline: none;
+}
+.assistant-panel__send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.assistant-panel__send:hover {
+  background: var(--accent-hover);
 }
 .assistant-panel__stop {
-  background: var(--danger-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 34px;
+  padding: 0 12px;
   border: 1px solid var(--danger-line);
+  border-radius: 999px;
+  background: var(--danger-soft);
   color: var(--danger);
+  font-size: var(--fs-2);
+}
+.assistant-panel__stop:hover {
+  background: var(--danger-soft);
+  color: var(--ink);
+}
+.assistant-panel__slash {
+  width: 100%;
+  max-width: 72ch;
+  margin: 0 auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  list-style: none;
+}
+.assistant-panel__slash-option {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.assistant-panel__slash-option:hover {
+  background: var(--surface-3);
+}
+.assistant-panel__slash-name {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: var(--fs-2);
+}
+.assistant-panel__slash-hint {
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
 }
 
-/* Oznámení místo chatu: když není co povídat (chybí projekt, CLI nebo spojení), panel to řekne
-   jednou větou uprostřed, ať uživatel ví, co má udělat. */
-.assistant-panel__notice {
-  margin: 0;
-  padding: var(--sp-4);
-  color: var(--ink-2);
-  line-height: 1.5;
+/* Prázdný asistent je pozvánka, ne prázdno: jedna věta, k čemu úkoly jsou, tlačítko „+ Nový úkol“
+   a tři otázky, na které stačí kliknout. Otázky jsou tiché řádky s jemnou linkou, ne karty. */
+.assistant-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 60ch;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-5);
+  overflow-y: auto;
 }
-.assistant-panel__notice--error {
-  color: var(--danger);
+.assistant-panel__empty-lead {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.assistant-panel__empty-label {
+  margin: var(--sp-3) 0 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__examples {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.assistant-panel__example-row {
+  border-bottom: 1px solid var(--line);
+}
+.assistant-panel__example {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-3);
+  text-align: left;
+}
+.assistant-panel__example:hover {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+/* Oznámení místo konverzace (chybí projekt, Claude Code není připravený, spojení selhalo): krátký
+   tučný titulek a jedna věta, co udělat. Stojí nahoře vlevo jako začátek dokumentu. */
+.assistant-panel__notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-width: 60ch;
+  padding: var(--sp-6) var(--sp-5);
+}
+.assistant-panel__notice-title {
+  margin: 0;
+  font-size: var(--fs-4);
+  font-weight: 600;
+}
+.assistant-panel__notice-text {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.assistant-panel__notice-code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-3);
+}
+
+/* Minimalizovaný asistent je malá plovoucí lišta vpravo dole, posazená nad minimapu plátna, aby
+   nezakryla ani ovládání plátna vlevo dole, ani minimapu (ta na úzkém okně vyskočí výš, protože se
+   stavový řádek zalomí; proto rezerva 248 px). Ukazuje stav tečkou, název aktivního úkolu
+   a pod ním „pracuje · 3 úkoly“. Klik kamkoli kromě křížku ji rozbalí zpět. */
+.assistant-panel__mini {
+  position: fixed;
+  right: 16px;
+  bottom: 248px;
+  z-index: 30;
+  display: flex;
+  align-items: stretch;
+  width: min(320px, calc(100vw - 32px));
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  color: var(--ink);
+}
+.assistant-panel__mini-open {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+  border: 0;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: transparent;
+  text-align: left;
+}
+.assistant-panel__mini-open:hover {
+  background: var(--surface-2);
+}
+.assistant-panel__mini-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.assistant-panel__mini-title {
+  overflow: hidden;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-panel__mini-meta {
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__mini-new {
+  color: var(--accent);
+  font-weight: 600;
+}
+.assistant-panel__mini-chevron {
+  flex: none;
+  color: var(--ink-muted);
+}
+.assistant-panel__mini-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.assistant-panel__mini-close:hover {
+  background: var(--surface-2);
+  color: var(--ink);
 }

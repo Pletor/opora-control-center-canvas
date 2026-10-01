@@ -11,10 +11,10 @@ import threading
 import time
 
 from backend.claude_code.assistant import command as cli
-from backend.claude_code.assistant.context import compose, validate_context, validate_text
+from backend.claude_code.assistant.context import compose, validate_context, validate_text, validate_title
 from backend.claude_code.assistant.errors import AssistantError, AssistantUnavailable, SessionNotFound
 from backend.claude_code.assistant.event_log import EventLog
-from backend.claude_code.assistant.registry import DEFAULT_TITLE, SessionRegistry, title_from
+from backend.claude_code.assistant.registry import PLACEHOLDER_TITLES, SessionRegistry, title_from
 from backend.claude_code.assistant.session_process import SessionProcess
 from backend.claude_code.assistant.stream import EMPTY_STATE, map_line
 from backend.claude_code.assistant.transcript import read_transcript
@@ -107,7 +107,7 @@ class AssistantManager:
             if live is None or not live.process.alive:
                 live = self._spawn(record)
             changes = {"state": "running"}
-            if record["title"] == DEFAULT_TITLE and not record["claudeSessionId"]:
+            if record["title"] in PLACEHOLDER_TITLES and not record["claudeSessionId"]:
                 changes["title"] = title_from(text)
             self.registry.update(session_id, **changes)
             event = self._log(session_id).append({"type": "message", "role": "user", "text": text})
@@ -121,6 +121,14 @@ class AssistantManager:
                 return event
         live.process.kill()
         raise AssistantUnavailable("Proces Claude Code nepřijal zprávu; zkuste to znovu.")
+
+    def rename(self, session_id, title):
+        title = validate_title(title)
+        with self._lock:
+            if self._record(session_id)["state"] == "closed":
+                raise AssistantError("Session je zavřená; přejmenovat ji nelze.")
+            self.registry.update(session_id, title=title)
+        return self.session(session_id)
 
     def _spawn(self, record):
         if self.running() >= self.limits.max_processes:

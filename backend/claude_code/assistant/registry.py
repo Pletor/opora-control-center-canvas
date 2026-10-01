@@ -14,7 +14,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 STATES = ("idle", "running", "waiting_approval", "closed", "error")
-DEFAULT_TITLE = "Nová session"
+DEFAULT_TITLE = "Nový úkol"
+# Výchozí názvy, které první zpráva nahradí; „Nová session“ zůstává z fáze 1 v existujících registrech.
+PLACEHOLDER_TITLES = frozenset({DEFAULT_TITLE, "Nová session"})
 TITLE_LIMIT = 60
 FIELDS = ("id", "projectId", "workspace", "title", "model", "claudeSessionId",
           "createdAt", "updatedAt", "state", "nodeId")

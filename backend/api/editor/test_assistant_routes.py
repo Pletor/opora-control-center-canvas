@@ -70,7 +70,7 @@ def test_status_and_session_lifecycle(setup):
     assert created.status_code == 201
     session = created.json()["session"]
     assert session["model"] == "sonnet" and session["workspace"] == "draft" and session["lastSeq"] == 0
-    assert session["state"] == "idle" and session["title"] == "Nová session"
+    assert session["state"] == "idle" and session["title"] == "Nový úkol"
     sid = session["id"]
 
     sent = client.post(f"/api/assistant/sessions/{sid}/messages",
@@ -166,3 +166,19 @@ def test_factory_registers_assistant_routes(tmp_path):
         missing = client.post("/api/assistant/sessions/nope/stop", json={},
                               headers={"origin": "http://127.0.0.1:8740"})
         assert missing.status_code == 404
+
+
+def test_title_endpoint(setup):
+    client, manager, _ = setup
+    sid = client.post("/api/assistant/sessions", json={"project": "p1"}).json()["session"]["id"]
+    url = f"/api/assistant/sessions/{sid}/title"
+    ok = client.post(url, json={"title": "  Nový název  "})
+    assert ok.status_code == 200
+    assert ok.json()["session"]["title"] == "Nový název" and ok.json()["session"]["lastSeq"] == 0
+    assert client.get("/api/assistant/sessions", params={"project": "p1"}).json()["sessions"][0]["title"] == "Nový název"
+    for bad in ({"title": ""}, {"title": "x" * 81}, {"title": "a\tb"}, {"title": 3}, {}, {"title": "a", "x": 1}):
+        assert client.post(url, json=bad).status_code == 409
+    missing = client.post("/api/assistant/sessions/nope/title", json={"title": "A"})
+    assert missing.status_code == 404
+    client.post(f"/api/assistant/sessions/{sid}/close", json={})
+    assert client.post(url, json={"title": "Po zavření"}).status_code == 409

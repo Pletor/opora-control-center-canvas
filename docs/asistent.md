@@ -72,6 +72,7 @@ claude -p
   - `Edit`, `Write`, `NotebookEdit`,
   - jakýkoli jiný `Bash`,
   - `WebFetch`, `WebSearch`,
+  - `PowerShell` (nástroj Claude Code na Windows),
   - `Read(**/.env)`, `Read(**/.env.*)`, `Read(**/*.pem)`, `Read(**/*.key)`.
   - Celý `Bash` v deny **není**: deny má přednost před allow a zablokoval by i povolený čtecí skript. Ostatní Bash zamítne `--permission-mode dontAsk` (ověřeno v §11).
 - Výsledek: asistent čte kód, mapy i plátno a radí, ale nic nezapíše.
