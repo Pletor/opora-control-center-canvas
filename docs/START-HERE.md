@@ -6,6 +6,7 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 
 - Aplikace: **http://127.0.0.1:8740/**
 - Spuštění: `uv run opora` (nastavení v [opora.toml](../opora.toml)); instalace viz [README.md](../README.md).
+- **Jak vyvíjet projekt (zadání v OPORA → agenti ve VS Code → GitHub):** [postup-vyvoje-projektu.md](postup-vyvoje-projektu.md).
 - Směr vývoje: konkrétní kroky vznikají při praktickém vývoji. Dřívější plány, koncepty a LLM/Hermes běhy byly odstraněny 2026-09-13; základ je funkční editor plátna s Podklady pro agenta (náhled, neměnný snímek, export pro externího agenta).
 
 ## Nově: pracovní módy
