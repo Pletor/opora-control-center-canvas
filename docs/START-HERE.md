@@ -11,7 +11,7 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 
 ## Nově: pracovní módy
 
-Kresby jsou samostatné pro každou vrstvu a mají ruční ukládání. Mapy projektu (Archify a Graphify-out v prostředí Projekt) se po mergi do main samy přepíšou na místě v `archify-out/` a `graphify-out/` hlavního projektu, viz [mapy-projektu.md](mapy-projektu.md). Nastavení je vlevo dole.
+Kresby jsou samostatné pro každou vrstvu a mají ruční ukládání; obrázky (screenshot Ctrl+V, přetažení, nástroj Obrázek) se ukládají s kresbou. Mapy projektu (Archify a Graphify-out v prostředí Projekt) se po mergi do main samy přepíšou na místě v `archify-out/` a `graphify-out/` hlavního projektu, viz [mapy-projektu.md](mapy-projektu.md). Nastavení je vlevo dole.
 
 ## Nově: odstranění vložených položek
 

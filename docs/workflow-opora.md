@@ -13,7 +13,7 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 | Graf | uzly `node / sector / comment / area`, vazby `next / action / rule / block / flow`, digest, `undo` | `/api/view`, `/api/graph`; `backend/canvas/graph.py` | UI + agent | hotovo |
 | Odstranění | náhled s digestem a potvrzení | `/api/removal-preview`, `/api/remove` | UI, agent | hotovo |
 | sourceRef | `{origin: existing\|planned, path, kind}`, kontrola proti disku | `graph.py`, `canvas_service.py` | UI, agent | hotovo |
-| Kresba | Excalidraw na vrstvu, kontext wireframu | `/api/drawing`, `/api/wireframe-context` | UI | hotovo |
+| Kresba | Excalidraw na vrstvu, obrázky (PNG/JPEG/WebP/GIF do 10 MB), kontext wireframu | `/api/drawing`, `/api/drawing-file(s)`, `/api/wireframe-context` | UI | hotovo |
 | Spec, text, deník, odkazy, podklady | `goal / non_goals / acceptance` s historií; text; deník po dnech; obrázky | `/api/node-spec(+history)`, `/api/node-text`, `/api/node-journal`, `/api/node-links`, `/api/node-materials/*` | UI + agent | hotovo |
 | Stav Desktop v3 | jeden revizovaný dokument `{settings, rules, decisions, nodes, tickets, edges}` | `/api/desktop-v3/state` | UI + agent | hotovo |
 | Pravidla | projekt `must/must_not` se scope `project/path/node`; pravidla karty | stav Desktop v3 | UI, agent | hotovo |

@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS drawing_revisions(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, layer_id TEXT NOT NULL,
     revision INTEGER NOT NULL, scene TEXT NOT NULL, saved_at TEXT NOT NULL,
     PRIMARY KEY(project_id, workspace_id, layer_id, revision));
+-- backend/editor/node/drawing_files.py: obrázky kresby (scéna nese jen fileId), sdílené vrstvami projektu
+CREATE TABLE IF NOT EXISTS drawing_files(
+    project_id TEXT NOT NULL, file_id TEXT NOT NULL, mime_type TEXT NOT NULL,
+    data BLOB NOT NULL, created_at TEXT NOT NULL,
+    PRIMARY KEY(project_id, file_id));
 -- backend/editor/node/removals.py
 CREATE TABLE IF NOT EXISTS graph_recoveries(
     id TEXT PRIMARY KEY, project_id TEXT, workspace_id TEXT,
@@ -133,6 +138,7 @@ PROJECT_TABLES = {
     "node_spec_revisions": "project_id",
     "node_journal_revisions": "project_id",
     "drawing_revisions": "project_id",
+    "drawing_files": "project_id",
     "graph_recoveries": "project_id",
     "desktop_v3_state": "project_id",
     "desktop_v3_snapshots": "project_id",

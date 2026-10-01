@@ -26,3 +26,10 @@ def test_context_does_not_infer_frame_relative_coordinates_from_unmarked_frame()
         {"id": "wire", "type": "rectangle", "x": 4, "y": 5, "width": 6, "height": 7, "frameId": "plain", "strokeColor": "#000", "backgroundColor": "#fff", "customData": {"oporaWireframe": {"version": 1, "role": "element", "component": "button", "notes": "", "action": "", "behavior": "", "animation": {"preset": "none", "durationMs": 0, "delayMs": 0}, "parallax": {"enabled": False, "speed": 0}}}},
     ]}, "revision": 0, "source": "SQLite"})
     assert "relative" not in result["elements"][0]
+
+
+def test_image_element_is_projected_as_plain_annotation():
+    result = wireframe_context("p", "draft", "", {"scene": {"elements": [
+        {"id": "shot", "type": "image", "fileId": "file-1", "x": 0, "y": 0, "width": 10, "height": 10, "strokeColor": "transparent", "backgroundColor": "transparent"},
+    ]}, "revision": 1, "source": "SQLite"})
+    assert result["annotations"][0]["id"] == "shot" and result["annotations"][0]["type"] == "image"

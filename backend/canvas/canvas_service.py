@@ -11,6 +11,7 @@ from pathlib import Path
 from backend.canvas.graph import EMPTY, digest, encode, valid_id, validate_graph
 from backend.canvas.migrate_to_project_folders import migrate
 from backend.canvas.project_folder import ProjectFolder
+from backend.editor.node.drawing_files import DrawingFileStore, parse_ids
 from backend.editor.node.drawings import DrawingStore
 from backend.editor.node.node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
 from backend.editor.node.node_text import NodeTextStore
@@ -42,6 +43,7 @@ class CanvasService:
         self.db.executescript(REGISTRY_SCHEMA)
         self._project_dbs = {}
         self.drawings = DrawingStore(self)
+        self.drawing_files = DrawingFileStore(self)
         self.specs = NodeSpecStore(self)
         self.removals = RemovalService(self)
         self.db.execute(
@@ -93,6 +95,25 @@ class CanvasService:
                 "available": True,
                 "source": "Lokální kresba v SQLite; není součástí Git commitů.",
             }
+
+    def drawing_file(self, payload):
+        """Nahraje obrázek kresby; stejné hlídání projektu a prostoru jako `drawing`."""
+        if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "file"}:
+            raise ValueError("Neplatný formát nahrání obrázku kresby.")
+        pid = payload["project"]
+        with self.graph_lock:
+            if self.view(pid, payload["workspace"])["readOnly"]:
+                raise ValueError("Main je pouze pro čtení.")
+            with self.lock:
+                return self.drawing_files.put(pid, payload["file"])
+
+    def drawing_file_list(self, pid, wid, ids):
+        wanted = parse_ids(ids)
+        with self.graph_lock:
+            if self.view(pid, wid)["readOnly"]:
+                return {"files": []}
+            with self.lock:
+                return {"files": self.drawing_files.get(pid, wanted)}
 
     def node_spec(self, pid, wid, node_id, payload=None, history=False):
         if payload is not None:

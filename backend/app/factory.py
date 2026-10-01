@@ -127,10 +127,12 @@ def create_app(data_root=None):
                 return JSONResponse(
                     {"error": "Zápisy vyžadují stejný Origin a JSON."}, status_code=403
                 )
+            # Obrázek kresby (do 10 MB, v base64 o třetinu víc) má vlastní strop; ostatní zápisy 2 MB.
+            limit = 14_500_000 if request.url.path == "/api/drawing-file" else 2000000
             body = bytearray()
             async for chunk in request.stream():
                 body.extend(chunk)
-                if len(body) > 2000000:
+                if len(body) > limit:
                     return JSONResponse({"error": "Požadavek je příliš velký."}, status_code=413)
             request._body = bytes(body)
         response = await call_next(request)

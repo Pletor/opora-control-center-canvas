@@ -1,3 +1,4 @@
+import base64
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -73,6 +74,12 @@ def test_stale_and_concurrent_drawing_saves_cannot_both_commit(tmp_path):
     [
         {"elements": [{**ELEMENT, "id": "a"}, {**ELEMENT, "id": "a"}]},
         {"elements": [{**ELEMENT, "type": "image"}]},
+        {"elements": [{**ELEMENT, "type": "image", "fileId": "../x"}]},
+        {"elements": [{**ELEMENT, "type": "image", "fileId": "ok", "dataURL": "data:image/png;base64,AA=="}]},
+        {"elements": [{**ELEMENT, "fileId": "ok"}]},
+        {"elements": [{**ELEMENT, "fileIds": ["ok"]}]},
+        {"elements": [{**ELEMENT, "type": "embeddable"}]},
+        {"elements": [{**ELEMENT, "type": "image", "fileId": "ok", "scale": [1, "x"]}]},
         {"elements": [{**ELEMENT, "link": "javascript:alert(1)"}]},
         {"elements": [{**ELEMENT, "link": "https://"}]},
         {"elements": "not-a-list"},
@@ -88,6 +95,29 @@ def test_invalid_scene_does_not_create_revision(tmp_path, scene):
     with TestClient(create_app(tmp_path), base_url=ORIGIN, raise_server_exceptions=False) as client:
         result = save(client, scene)
         assert result.status_code == 409
+        assert drawing(client).json()["revision"] == 0
+
+
+IMAGE = {**ELEMENT, "id": "image-1", "type": "image", "fileId": "file-1", "status": "saved", "scale": [1, -1], "crop": None}
+PNG_URL = "data:image/png;base64," + base64.b64encode(b"png-bytes").decode()
+
+
+def test_image_element_saves_after_its_file_is_uploaded_and_reloads(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        file = {"id": "file-1", "mimeType": "image/png", "dataURL": PNG_URL}
+        uploaded = client.post("/api/drawing-file", headers=HEADERS, json={"project": "draft", "workspace": "draft", "file": file})
+        assert uploaded.status_code == 200
+        assert save(client, {"elements": [IMAGE]}).status_code == 200
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        assert drawing(client).json()["scene"] == {"elements": [IMAGE]}
+        files = client.get("/api/drawing-files", params={"project": "draft", "workspace": "draft", "ids": "file-1"}).json()["files"]
+        assert [f["dataURL"] for f in files] == [PNG_URL]
+
+
+def test_image_with_unknown_file_is_rejected(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        result = save(client, {"elements": [IMAGE]})
+        assert result.status_code == 409 and result.json()["error"] == "Obrázek kresby není nahraný."
         assert drawing(client).json()["revision"] == 0
 
 

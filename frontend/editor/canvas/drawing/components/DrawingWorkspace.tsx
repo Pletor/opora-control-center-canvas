@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Excalidraw,
-  restoreElements,
-  CaptureUpdateAction,
-  convertToExcalidrawElements,
-  newElementWith,
-} from "@excalidraw/excalidraw";
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { Excalidraw, restoreElements, CaptureUpdateAction, newElementWith } from "@excalidraw/excalidraw";
+import type { BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import { api } from "@/shared/types/logic/types";
@@ -22,90 +16,16 @@ import {
 } from "@/editor/canvas/drawing/logic/drawing-state";
 import type { SurfaceSettings } from "@/shared/surface-settings/logic/workspace-settings";
 import type { WireframeKind, WireframeMetadata } from "@/editor/canvas/wireframes/logic/wireframe-model";
-import { buildWireframeMetadata, getWireframeTemplate, sanitizeWireframeMetadata } from "@/editor/canvas/wireframes/logic/wireframe-model";
-import WireframeInspector, { type InspectableWireframe } from "@/editor/canvas/wireframes/components/WireframeInspector";
+import { getWireframeTemplate, sanitizeWireframeMetadata } from "@/editor/canvas/wireframes/logic/wireframe-model";
+import WireframeInspector from "@/editor/canvas/wireframes/components/WireframeInspector";
+import { insertWireframeElements, inspectable } from "@/editor/canvas/drawing/components/wireframe-elements";
 import WireframePreview from "@/editor/canvas/wireframes/components/WireframePreview";
+import { dropIsBlocked, pasteIsAllowed } from "@/editor/canvas/drawing/logic/drawing-files";
+import { useDrawingFiles } from "@/editor/canvas/drawing/components/use-drawing-files";
 import "@/editor/canvas/drawing/styles/drawing.css";
 
 export type WireframeInsert = { kind: WireframeKind; sequence: number };
 type WireframeContext = { drawingRevision: number; blocks: unknown[]; elements: unknown[]; annotations: unknown[]; source: string };
-
-function labelElement(kind: WireframeKind, x: number, y: number, width: number, height: number, frameId: string | null) {
-  const template = getWireframeTemplate(kind);
-  const customData = buildWireframeMetadata(kind);
-  if (kind === "heading" || kind === "text") {
-    return convertToExcalidrawElements([
-      { type: "text", x, y, text: template.label, fontSize: kind === "heading" ? 28 : 18, frameId, customData },
-    ], { regenerateIds: true });
-  }
-  return convertToExcalidrawElements([
-    {
-      type: "rectangle",
-      x,
-      y,
-      width,
-      height,
-      frameId,
-      strokeColor: "#8fb3c9",
-      backgroundColor: "transparent",
-      roughness: 0,
-      label: { text: template.label },
-      customData,
-    },
-  ], { regenerateIds: true });
-}
-
-function insertWireframeElements(kind: WireframeKind, sequence: number, x: number, y: number, parentFrameId: string | null): readonly ExcalidrawElement[] {
-  const template = getWireframeTemplate(kind);
-  if (template.role === "element") return labelElement(kind, x, y, template.width, template.height, parentFrameId).map((element) => newElementWith(element, { frameId: parentFrameId }));
-  const frame = convertToExcalidrawElements([
-    {
-      type: "frame",
-      x,
-      y,
-      width: template.width,
-      height: template.height,
-      name: template.label,
-      children: [],
-      strokeColor: "#7699ae",
-      backgroundColor: "transparent",
-      customData: buildWireframeMetadata(kind),
-    },
-  ], { regenerateIds: true });
-  const frameId = frame[0]?.id;
-  if (!frameId) return frame;
-  if (kind === "two-columns" || kind === "three-columns") {
-    const slots = template.slots ?? 2;
-    const columns = Array.from({ length: slots }, (_, index) => ({
-      type: "rectangle" as const,
-      x: x + 24 + index * ((template.width - 48) / slots),
-      y: y + 62,
-      width: (template.width - 48) / slots - 12,
-      height: template.height - 86,
-      frameId,
-      strokeColor: "#526b7a",
-      backgroundColor: "transparent",
-      roughness: 0,
-    }));
-    return [...frame, ...convertToExcalidrawElements(columns, { regenerateIds: true })];
-  }
-  return frame;
-}
-
-function inspectable(element: ExcalidrawElement | null): InspectableWireframe | null {
-  if (!element) return null;
-  const customData = sanitizeWireframeMetadata(element.customData);
-  if (!customData) return null;
-  return {
-    id: element.id,
-    type: element.type,
-    ...(element.type === "text" ? { text: element.text } : {}),
-    ...(element.type === "frame" || element.type === "magicframe" ? { name: element.name } : {}),
-    strokeColor: element.strokeColor,
-    backgroundColor: element.backgroundColor,
-    metadata: customData.oporaWireframe,
-  };
-}
 
 export default function DrawingWorkspace({
   project,
@@ -133,7 +53,8 @@ export default function DrawingWorkspace({
   const { theme } = useDesktopAppearance();
   const key = JSON.stringify([project, workspace, layer]);
   const [snapshot, setSnapshot] = useState<DrawingSnapshot | null>(null);
-  const [initialScene, setInitialScene] = useState<DrawingScene | null>(null);
+  const [initialScene, setInitialScene] = useState<(DrawingScene & { files: BinaryFiles }) | null>(null);
+  const images = useDrawingFiles(project, workspace);
   const [scene, setScene] = useState<DrawingScene>({ elements: [] });
   const [revision, setRevision] = useState(0);
   const [savedSignature, setSavedSignature] = useState("");
@@ -167,12 +88,14 @@ export default function DrawingWorkspace({
       const cached = drawingDrafts.get(key);
       const dirty = cached && sceneSignature(cached.scene) !== cached.savedSignature;
       const chosen = dirty && !value.readOnly ? cached! : { scene: restored, revision: value.revision, savedSignature: baseline };
+      const loaded = await images.load(chosen.scene.elements);
+      if (ticket !== generation.current) return;
       setSnapshot(value);
-      setInitialScene(chosen.scene);
+      setInitialScene({ ...chosen.scene, files: loaded.files });
       setScene(chosen.scene);
       setRevision(chosen.revision);
       setSavedSignature(chosen.savedSignature);
-      setError(dirty && cached!.revision !== value.revision ? "Kresba se změnila v jiném okně. Místní kresba zůstala zachovaná." : "");
+      setError(dirty && cached!.revision !== value.revision ? "Kresba se změnila v jiném okně. Místní kresba zůstala zachovaná." : loaded.failed ? "Některé obrázky kresby se nepodařilo načíst." : "");
       if (!value.readOnly) drawingDrafts.set(key, chosen);
     })().catch((e) => {
       if (ticket === generation.current) setError(String(e));
@@ -253,7 +176,9 @@ export default function DrawingWorkspace({
     const signature = sceneSignature(sent);
     setSaving(true);
     setError("");
-    const promise = api<DrawingSnapshot>("/api/drawing", { project, workspace, layer, expected_revision: revision, scene: sent });
+    const files = editor.getFiles();
+    // Nejdřív obrázky, pak scéna: server scénu s neznámým fileId odmítne a draft zůstane.
+    const promise = images.upload(sent.elements, files).then(() => api<DrawingSnapshot>("/api/drawing", { project, workspace, layer, expected_revision: revision, scene: sent }));
     drawingSaves.set(key, promise);
     try {
       const value = await promise;
@@ -300,9 +225,10 @@ export default function DrawingWorkspace({
       </div>
       {exportStatus && <div className="wireframe-export-status" role="status">{exportStatus}</div>}
       {error && <div className="drawing-error" role="alert">{error}<button disabled={saving} onClick={() => { generation.current++; drawingDrafts.delete(key); onReady(false); setInitialScene(null); setSnapshot(null); setEditor(null); setReload(reload + 1); }}>Zahodit místní a načíst uložené</button></div>}
-      {snapshot?.readOnly ? <div className="drawing-unavailable"><h2>Kreslení v pracovním prostoru</h2><p>{snapshot.source}</p><p>Pro úpravy přepni do pracovního prostoru nebo lokálního návrhu.</p></div> : initialScene && <div className="drawing-main"><div className="drawing-editor" data-testid="drawing-surface" onDropCapture={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); e.stopPropagation(); setError("Import souborů do kresby zatím není podporovaný."); } }}>
-        <Excalidraw initialData={{ elements: initialScene.elements, scrollToContent: true }} excalidrawAPI={captureAPI} theme={theme} langCode="cs-CZ" name="Opora kresba" viewModeEnabled={saving} gridModeEnabled={settings.drawingGrid} handleKeyboardGlobally={false} aiEnabled={false} validateEmbeddable={false} UIOptions={{ tools: { image: false }, canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false, clearCanvas: false } }} onPaste={(data) => !Object.keys(data.files ?? {}).length && !data.mixedContent?.some((item) => item.type === "imageUrl") && !data.elements?.some((e) => ["image", "embeddable", "iframe", "magicframe"].includes(e.type))} onLinkOpen={(_, event) => event.preventDefault()} onChange={(elements, state) => {
+      {snapshot?.readOnly ? <div className="drawing-unavailable"><h2>Kreslení v pracovním prostoru</h2><p>{snapshot.source}</p><p>Pro úpravy přepni do pracovního prostoru nebo lokálního návrhu.</p></div> : initialScene && <div className="drawing-main"><div className="drawing-editor" data-testid="drawing-surface" onDropCapture={(e) => { if (dropIsBlocked(e.dataTransfer.files)) { e.preventDefault(); e.stopPropagation(); setError("Do kresby lze přetáhnout jen obrázky PNG, JPEG, WebP nebo GIF."); } }}>
+        <Excalidraw initialData={{ elements: initialScene.elements, files: initialScene.files, scrollToContent: true }} excalidrawAPI={captureAPI} theme={theme} langCode="cs-CZ" name="Opora kresba" viewModeEnabled={saving} gridModeEnabled={settings.drawingGrid} handleKeyboardGlobally={false} aiEnabled={false} validateEmbeddable={false} UIOptions={{ tools: { image: true }, canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false, clearCanvas: false } }} onPaste={pasteIsAllowed} onLinkOpen={(_, event) => event.preventDefault()} onChange={(elements, state, files) => {
           if (renderedGeneration !== generation.current) return;
+          images.remember(files);
           const next = { elements: elements.filter((e) => !e.isDeleted) };
           if (sceneSignature(next) !== sceneSignature(scene)) setScene(next);
           drawingDrafts.set(key, { scene: next, revision, savedSignature });

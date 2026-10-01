@@ -2,11 +2,15 @@ import json
 import math
 from urllib.parse import urlsplit
 
+from backend.editor.node.drawing_files import DrawingFileStore, valid_file_id
+
 MAX_ELEMENTS = 2000
 MAX_SCENE_BYTES = 1_500_000
 MAX_ID_LENGTH = 120
-SUPPORTED_TYPES = {"rectangle", "diamond", "ellipse", "line", "arrow", "freedraw", "text", "frame"}
-FORBIDDEN_FIELDS = {"fileId", "fileIds", "embeddable", "embeddableUrl", "iframe", "dataURL"}
+SUPPORTED_TYPES = {"rectangle", "diamond", "ellipse", "line", "arrow", "freedraw", "text", "frame", "image"}
+# Obrázek nese jen `fileId` (data leží v drawing_files); vložená data a externí embed zůstávají zakázané.
+FORBIDDEN_FIELDS = {"fileIds", "embeddable", "embeddableUrl", "iframe", "dataURL"}
+IMAGE_STATUSES = {"pending", "saved", "error"}
 
 
 def _json_safe(value, depth=0):
@@ -43,6 +47,40 @@ def _json_safe(value, depth=0):
     raise ValueError("Scéna obsahuje nepodporovanou hodnotu.")
 
 
+def _validate_image(element):
+    if not valid_file_id(element.get("fileId")):
+        raise ValueError("Obrázek kresby vyžaduje platné fileId.")
+    if element.get("status", "saved") not in IMAGE_STATUSES:
+        raise ValueError("Neplatný stav obrázku kresby.")
+    scale = element.get("scale", [1, 1])
+    if (
+        not isinstance(scale, list)
+        or len(scale) != 2
+        or any(type(v) not in (int, float) or not math.isfinite(v) or abs(v) > 1000 for v in scale)
+    ):
+        raise ValueError("Neplatné měřítko obrázku kresby.")
+    crop = element.get("crop")
+    if crop is not None and (
+        not isinstance(crop, dict)
+        or any(
+            type(v) not in (int, float) or not math.isfinite(v) or abs(v) > 10_000_000
+            for v in crop.values()
+        )
+    ):
+        raise ValueError("Neplatný ořez obrázku kresby.")
+
+
+def image_file_ids(scene):
+    """Unikátní fileId nesmazaných obrázků scény (scéna je už ověřená)."""
+    return list(
+        dict.fromkeys(
+            element["fileId"]
+            for element in scene["elements"]
+            if element.get("type") == "image" and not element.get("isDeleted")
+        )
+    )
+
+
 def validate_scene(scene):
     if (
         not isinstance(scene, dict)
@@ -69,6 +107,10 @@ def validate_scene(scene):
             raise ValueError("Neplatné nebo duplicitní ID prvku.")
         if not isinstance(element.get("type"), str) or element["type"] not in SUPPORTED_TYPES:
             raise ValueError("Nepodporovaný typ kresby.")
+        if element["type"] == "image":
+            _validate_image(element)
+        elif "fileId" in element:
+            raise ValueError("Vložené soubory a externí embed nejsou podporované.")
         if element["type"] == "text" and (
             not isinstance(element.get("text"), str) or len(element["text"]) > 20000
         ):
@@ -144,6 +186,8 @@ class DrawingStore:
             current = self.read(scope)
             if current["revision"] != expected_revision:
                 raise ValueError("Kresba se změnila v jiném okně. Obnovte ji.")
+            if DrawingFileStore(self.canvas).missing(db, scope[0], image_file_ids(scene)):
+                raise ValueError("Obrázek kresby není nahraný.")
             revision = expected_revision + 1
             db.execute(
                 "INSERT INTO drawing_revisions VALUES(?,?,?,?,?,?)",

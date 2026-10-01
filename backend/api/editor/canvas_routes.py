@@ -33,6 +33,14 @@ def create_canvas_router(service):
             payload.get("project"), payload.get("workspace"), payload.get("layer"), payload
         )
 
+    @router.post("/drawing-file")
+    def save_drawing_file(payload: dict):
+        return service.drawing_file(payload)
+
+    @router.get("/drawing-files")
+    def drawing_files(project: str, workspace: str, ids: str = ""):
+        return service.drawing_file_list(project, workspace, ids)
+
     @router.get("/wireframe-context")
     def wireframe_context_api(project: str, workspace: str, layer: str = ""):
         drawing = service.drawing(project, workspace, layer)
