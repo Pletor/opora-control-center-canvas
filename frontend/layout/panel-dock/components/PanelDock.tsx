@@ -1,6 +1,5 @@
 // Rodič Menu Editoru: u levého okraje pracovní plochy skládá lištu ikon a vedle ní panel zvolené
-// sekce. Obsah sekce (Knihovnu, Agenty, Postupy, Nastavení) i hlavičku projektu dostane hotové od
-// App; sám drží jen jedno chování, které nepatří žádnému dílku: klik mimo pracovní plochu (horní
+// sekce. Obsah sekce (Knihovnu, Agenty, Postupy, Nastavení) dostane hotový od App; sám drží jen jedno chování, které nepatří žádnému dílku: klik mimo pracovní plochu (horní
 // lišta, lišta nástrojů mimo ☰) menu zavře. Klik na plátno nic nezavírá — menu ho nezakrývá celé
 // a dá se s ním pracovat vedle. Všechno ostatní jen hlásí nahoru; rozhoduje rodič.
 import { useEffect, useRef, type ReactNode } from "react";
@@ -11,14 +10,12 @@ import "@/layout/panel-dock/styles/panel-dock.css";
 
 export default function PanelDock({
   section,
-  head,
   onSelect,
   onClose,
   children,
 }: {
   /** Otevřená sekce, nebo `null`, když je vidět jen lišta. */
   section: DockSection | null;
-  head?: ReactNode;
   onSelect: (section: DockSection) => void;
   onClose: () => void;
   /** Obsah otevřené sekce. */
@@ -46,7 +43,7 @@ export default function PanelDock({
     <div ref={dock} className="panel-dock" data-testid="panel-dock-root">
       <DockRail section={section} onSelect={onSelect} />
       {section && (
-        <PanelDrawer section={section} head={head}>
+        <PanelDrawer section={section}>
           {children}
         </PanelDrawer>
       )}

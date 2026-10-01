@@ -60,7 +60,7 @@ fits?: { architecture?: Architecture[]; tenancy?: Tenancy[] }
 
 - `PanelDropdown` se nahradí dílkem `PanelDrawer`. Je absolutně v `editor-frame`: `left: 0; top: 0; bottom: 0; width: 380px`, nad plátnem (`z-index: 20`), pravá hrana s linkou a stínem do plátna. Žádná šipka, žádné měření tlačítka. `dropdownPlacement` a jeho test se smažou.
 - Nahoře je segmentový přepínač **Knihovna | Agenti a postupy**, který volá stávající `dock.toggle`/`open`. Tlačítka v liště zůstávají a fungují stejně. Zkratky, Esc i zavření klikem mimo panel zůstávají; klik na plátno panel nezavře, protože šuplík plátno nezakrývá.
-- Pod přepínačem je **hlavička projektu**: název projektu a profil slovy („Web · Modulární monolit · Multitenant“) s odkazem **Změnit**. Ten rozbalí kartu profilu ve šuplíku.
+- *(Zrušeno 2026-10-01, viz menu-a-katalog.md: projekt a profil jsou jen v Nastavení.)* Pod přepínačem byla **hlavička projektu**: název projektu a profil slovy („Web · Modulární monolit · Multitenant“) s odkazem **Změnit**. Ten rozbalí kartu profilu ve šuplíku.
 - **Karta profilu** (artboard 4) se zobrazí, když profil není nastavený (`architecture` i `tenancy` jsou `""`):
   - dvě skupiny voleb, „Uložit pro projekt“ a „Teď ne, ukázat vše“;
   - „Teď ne“ kartu sbalí do lišty jen pro toto sezení;

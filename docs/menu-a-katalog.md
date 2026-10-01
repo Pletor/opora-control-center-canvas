@@ -35,12 +35,12 @@ V liště za záložkami módů stála dvě tlačítka a šuplík měl ještě v
 
 | Sekce | Obsah |
 |---|---|
-| Knihovna | Hlavička projektu (název + profil slovy). Pak Knihovna: OBSAH (jeden seznam podle kategorií, viz B1) a STRÁNKA (strom vrstvy, beze změny). |
-| Agenti | Hlavička projektu. Pak Katalog jen s kategoriemi agenti, skilly, hooky a hranice, záložka **Vybraná karta** (dnešní „Agenti“, node-brief vybrané karty) a **Hook** (`AgentControlPanel`). |
-| Postupy | Hlavička projektu. Pak katalog postupů a pipeline. |
+| Knihovna | Knihovna: OBSAH (jeden seznam podle kategorií, viz B1) a STRÁNKA (strom vrstvy, beze změny). |
+| Agenti | Katalog jen s kategoriemi agenti, skilly, hooky a hranice, záložka **Vybraná karta** (dnešní „Agenti“, node-brief vybrané karty) a **Hook** (`AgentControlPanel`). |
+| Postupy | Katalog postupů a pipeline. |
 | Nastavení | Karta profilu projektu (`ProfileCard`, vždy rozbalená) a filtr katalogu „Pro tento projekt / Vše“. |
 
-- V sekcích Knihovna, Agenti a Postupy se karta profilu nerozbaluje. Když profil chybí, hlavička nese řádek „Profil nenastaven · Nastavit“, který přepne do Nastavení.
+- Projekt a profil jsou jen v Nastavení (změna 2026-10-01 na přání uživatele: v ostatních sekcích bral štítek projektu místo a pozornost).
 - Vlastní hlavičky Knihovny a Agentů s křížkem se zruší, panel má jednu hlavičku. Zavírá se ikonou nebo ☰.
 - Tažení na plátno funguje dál a panel při tažení dál propouští ukazatel.
 

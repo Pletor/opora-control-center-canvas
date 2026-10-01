@@ -1,22 +1,7 @@
-/* Profil projektu (blok project-profile): v Knihovně, Agentech a Postupech stojí pod názvem sekce
-   vanička se jménem projektu a pod ním profilem slovy, na jehož konci je odkaz („Web · Modulární
-   monolit · Změnit“, nebo „Profil nenastaven · Nastavit“). Uživatel tak vždy ví, ke kterému projektu
-   výběr pod ní patří a podle čeho je zúžený; karta profilu se tu nerozbaluje, odkaz vede do
-   Nastavení. Vanička je o tón tmavší než panel, aby se četla jako štítek projektu, ne jako ovládání. */
-.project-profile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-.project-profile__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.project-profile__name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
-.project-profile__words { color: var(--ink-muted); font-size: 12px; }
-/* Odkaz vypadá jako odkaz, ne jako tlačítko: změna profilu je vzácná a nemá přebíjet obsah. Je
-   posledním slovem řádku profilu, proto si bere jeho velikost písma a nemá vlastní odsazení. */
+/* Profil projektu (blok project-profile) žije jen v sekci Nastavení menu Editoru. V Knihovně,
+   Agentech ani Postupech se neopakuje: tam patří celé místo obsahu sekce, ne štítku projektu. */
+/* Odkaz „Načíst znovu“ u chyby vypadá jako odkaz, ne jako tlačítko: je to cesta ven, ne hlavní
+   akce karty, proto si bere velikost písma řádku a nemá vlastní odsazení. */
 .project-profile__link {
   flex: none;
   min-height: 0;

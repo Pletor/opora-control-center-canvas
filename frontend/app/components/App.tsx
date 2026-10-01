@@ -30,7 +30,6 @@ import PanelDock from "@/layout/panel-dock/components/PanelDock";
 import DockSettings from "@/layout/panel-dock/components/DockSettings";
 import { usePanelDock } from "@/layout/panel-dock/logic/use-panel-dock";
 import { usePanelDrawer } from "@/layout/panel-dock/logic/use-panel-drawer";
-import ProjectProfile from "@/layout/project-profile/components/ProjectProfile";
 import ProfileCard from "@/layout/project-profile/components/ProfileCard";
 import { useProjectProfile } from "@/layout/project-profile/logic/use-project-profile";
 import { cardBlocks } from "@/editor/canvas/node-card/logic/card-model";
@@ -1268,15 +1267,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           section={dock.section}
           onSelect={dock.select}
           onClose={dock.close}
-          head={dock.section === "settings" ? null : (
-            <ProjectProfile
-              name={projectProfile.snapshot?.project.name ?? activeProject?.name ?? ""}
-              profile={profile}
-              loaded={!!projectProfile.snapshot}
-              error={projectProfile.error}
-              onSettings={() => dock.select("settings")}
-            />
-          )}
         >
           {dock.section === "settings" ? (
             <DockSettings
