@@ -154,12 +154,75 @@ def memory_for(stored, node_ids, paths, session_id):
         "phase": node_state["phase"],
         "criteria": node_state["criteria"],
         "steps": node_state["steps"],
+        # Bloky z portů karty: pořadí akcí je pořadí pipeline; starší uzel bez bloků má prázdné pole.
+        "actions": node_state.get("actions", []),
+        "nodeRules": node_state.get("rules", []),
+        "blocks": node_state.get("blocks", []),
+        # Podklady z portu karty: jen odkazy (soubor, cesta, URL) a popisky; obsah se nevkládá.
+        "materials": [{**m, "contentIncluded": False} for m in node_state.get("materials", [])],
     })
 
 
+def _branch_label(branch, blocks, by_id, actions):
+    kind, target = branch["kind"], branch["targetId"]
+    if kind == "block":
+        return next((b["title"] for b in blocks if b["id"] == target), target)
+    if kind == "node":
+        return by_id[target]["name"] if target in by_id else target
+    if kind == "action":
+        return next((a["label"] for a in actions if a["id"] == target), target)
+    return ""
+
+
+def _number_key(number):
+    return tuple(int(part) for part in number.split("."))
+
+
+def big_picture(blocks):
+    """Celý obraz: každý blok jen s číslem, názvem, stavem a štítky; texty patří jen aktuálnímu kroku."""
+    return [
+        {"id": b["id"], "number": b["number"], "title": b["title"], "status": b["state"]["status"],
+         "tags": list(b["tags"]), "parentBlockId": b["parentBlockId"]}
+        for b in sorted(blocks, key=lambda b: _number_key(b["number"]))
+    ]
+
+
+def current_step(blocks, by_id, actions, block_id=""):
+    """Jeden krok pro agenta: vyžádaný blok, jinak první otevřený v pořadí čísel; None bez bloků."""
+    ordered = sorted(blocks, key=lambda b: _number_key(b["number"]))
+    if block_id:
+        chosen = next((b for b in ordered if b["id"] == block_id), None)
+        if chosen is None:
+            raise ValueError(f"Blok {block_id} v tomto uzlu neexistuje.")
+    else:
+        chosen = next((b for b in ordered if b["state"]["status"] == "open"), None)
+    if chosen is None:
+        return None
+    return {
+        "id": chosen["id"], "number": chosen["number"], "title": chosen["title"], "text": chosen["text"],
+        "tags": list(chosen["tags"]), "parentBlockId": chosen["parentBlockId"],
+        "todos": [dict(t) for t in chosen["todos"]],
+        # Obrázek je inspirace jako reference: cesta a popisek, obsah se do podkladů nečte.
+        "images": [{**i, "contentIncluded": False} for i in chosen["images"]],
+        "state": {
+            "status": chosen["state"]["status"], "condition": chosen["state"]["condition"],
+            "onMet": {**chosen["state"]["onMet"], "label": _branch_label(chosen["state"]["onMet"], blocks, by_id, actions)},
+            "onUnmet": {**chosen["state"]["onUnmet"], "label": _branch_label(chosen["state"]["onUnmet"], blocks, by_id, actions)},
+        },
+    }
+
+
+def edge_port(edge):
+    """Vazba bez portu je starší zápis a znamená `next`."""
+    return edge.get("port", "next")
+
+
 def validate_request(payload):
-    if not isinstance(payload, dict) or set(payload) != REQUEST_KEYS:
-        raise ValueError("Neplatný formát požadavku na podklady (project, workspace, nodeId, path, sessionId, references, note).")
+    if not isinstance(payload, dict) or set(payload) not in (REQUEST_KEYS, REQUEST_KEYS | {"blockId"}):
+        raise ValueError("Neplatný formát požadavku na podklady (project, workspace, nodeId, path, sessionId, references, note[, blockId]).")
+    block_id = payload.get("blockId", "")
+    if block_id != "" and not valid_id(block_id):
+        raise ValueError("Neplatný identifikátor bloku.")
     project, workspace, node = payload["project"], payload["workspace"], payload["nodeId"]
     if not isinstance(project, str) or (project != "draft" and not valid_id(project)) or not valid_id(workspace):
         raise ValueError("Neplatný identifikátor projektu nebo pracovního prostoru.")
@@ -298,6 +361,19 @@ class DesktopV3Packets:
                 ],
                 "criteria": memory["criteria"],
                 "steps": memory["steps"],
+                # Co má agent na uzlu vykonat (pipeline v pořadí) a jaká pravidla pro uzel platí.
+                "actions": memory["actions"],
+                "rules": memory["nodeRules"],
+                # Velký obraz (všechny bloky bez textů) a jeden aktuální krok (plný obsah).
+                "bigPicture": big_picture(memory["blocks"]),
+                "currentStep": current_step(memory["blocks"], by_id, memory["actions"], payload.get("blockId", "")),
+                "processes": {"actions": memory["actions"], "rules": memory["nodeRules"]},
+                # Odchozí vazby z portu `next`: kam workflow pokračuje po tomto uzlu.
+                "next": [
+                    {"nodeId": edge["target"], "name": by_id[edge["target"]]["name"], "edgeId": edge["id"], "port": "next"}
+                    for edge in graph["edges"]
+                    if edge["source"] == node and edge_port(edge) == "next" and edge["target"] in by_id
+                ],
             },
             "context": {
                 "project": {key: config["project"].get(key) for key in ("id", "name", "sourceKind")},
@@ -306,7 +382,7 @@ class DesktopV3Packets:
                 "graph": {"digest": view["digest"], "source": view["source"], "totalNodes": len(graph["nodes"])},
                 "ancestors": [summary(nid) for nid in ancestors],
                 "children": [summary(item["id"]) for item in graph["nodes"] if item["parentId"] == (node or None)],
-                "relations": [edge for edge in graph["edges"] if edge["source"] in lineage_set or edge["target"] in lineage_set],
+                "relations": [{**edge, "port": edge_port(edge)} for edge in graph["edges"] if edge["source"] in lineage_set or edge["target"] in lineage_set],
                 "texts": [],
                 "specs": [],
                 "drawings": [],
@@ -319,7 +395,8 @@ class DesktopV3Packets:
             "policy": {"autostart": False, "requiresConfirmation": True, "provider": None, "proposalOnly": True},
             "report": {
                 "evidenceRequired": ["test", "commit", "review", "merge"],
-                "note": "Věta agenta není důkaz. Neznámá hodnota je null, nikdy 0.",
+                "note": "Věta agenta není důkaz. Neznámá hodnota je null, nikdy 0. "
+                        "Pracuj jen na currentStep; ostatní bloky (bigPicture) jsou kontext, ne úkol.",
             },
         }
         packet = redact_deep(packet)

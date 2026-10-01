@@ -14,11 +14,13 @@ def create_canvas_router(service):
 
     @router.post("/graph")
     def graph(payload: dict):
+        # `undo` je krok zpět plátna (Ctrl+Z): snímek smí uzel nebo vazbu vypustit, ale nic nemaže.
         return service.save_graph(
             payload.get("project"),
             payload.get("workspace"),
             payload.get("graph"),
             payload.get("digest"),
+            undo=payload.get("undo") is True,
         )
 
     @router.get("/drawing")

@@ -1,1 +1,5 @@
-Platforma: git I/O (gitio), Windows job objekty pro ohraničené procesy (windows_job), identita buildu (build_identity).
+Platforma: git I/O (gitio), Windows job objekty pro ohraničené procesy (windows_job), identita buildu (build_identity), klient paměti OpenViking na loopbacku (openviking_client).
+
+`openviking_client` posílá jen `X-API-Key`: server v režimu `api_key` odvozuje identitu z klíče a hlavičky `X-OpenViking-*` odmítá. `with_api_key` vyrobí klienta jedné role, `admin_*` metody rozdají rolím klíče. Hlavičky identity zapíná až `trusted_identity=True` pro nasazení `auth_mode: trusted`.
+
+`git_read` čte historii gitu pro párování commitů se zadáním: revize, předky, seznam posledních commitů, trailery a změněné cesty, přejmenování souboru a SHA obsahu. Jen čtení, vše přes `gitio.git`.

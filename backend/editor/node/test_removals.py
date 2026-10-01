@@ -20,6 +20,52 @@ def install_graph(client, graph):
     return result.json()
 
 
+# ---- podklady pro Desktop v3 stav (osiřelé karty a vazby po odstranění) -----------
+
+
+def branch(kind="none", target="", note=""):
+    return {"kind": kind, "targetId": target, "note": note}
+
+
+def state_block(bid="b1", number="1", on_met=None, on_unmet=None):
+    return {
+        "id": bid, "number": number, "title": f"Blok {number}", "text": "", "tags": [], "todos": [], "images": [],
+        "state": {"status": "open", "condition": "", "onMet": on_met or branch(), "onUnmet": on_unmet or branch()},
+        "parentBlockId": "",
+    }
+
+
+def state_node(**overrides):
+    item = {"phase": "discover", "criteria": [], "steps": []}
+    item.update(overrides)
+    return item
+
+
+def edge_report(**overrides):
+    item = {
+        "log": "Log.", "summary": "Souhrn.", "handoff": "Předávka.",
+        "improvements": "", "errors": "", "updatedAt": "2026-09-15T08:00:00+00:00",
+        "by": "agent", "agent": "sonnet/impl",
+    }
+    item.update(overrides)
+    return item
+
+
+def desktop_state(nodes=None, edges=None):
+    return {
+        "settings": [], "rules": [], "decisions": [], "tickets": [],
+        "nodes": nodes or {}, "edges": edges or {},
+    }
+
+
+def install_desktop_state(client, value):
+    saved = client.post(
+        "/api/desktop-v3/state", headers=HEADERS, json={**SCOPE, "expectedRevision": 0, "state": value}
+    )
+    assert saved.status_code == 200, saved.text
+    return saved.json()
+
+
 def test_remove_one_node_requires_preview_confirmation_and_persists(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         graph = {"nodes": [node("remove"), node("keep")], "edges": []}
@@ -286,3 +332,69 @@ def test_main_and_other_workspaces_remain_unchanged(tmp_path):
             == graph
         )
         assert source.read_bytes() == original
+
+
+# ---- Desktop v3 stav odejde s kartou / vazbou ---------------------------------------
+
+
+def test_remove_node_drops_its_desktop_v3_state_and_its_edge_report_and_blanks_pointing_branches(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        graph = {
+            "nodes": [node("gone"), node("target"), node("other")],
+            "edges": [{"id": "e1", "source": "gone", "target": "target"}],
+        }
+        install_graph(client, graph)
+        install_desktop_state(
+            client,
+            desktop_state(
+                nodes={
+                    "gone": state_node(
+                        blocks=[state_block()],
+                        actions=[],
+                        rules=[{"id": "r1", "text": "Nesmí se to rozbít.", "kind": "must"}],
+                    ),
+                    "other": state_node(blocks=[state_block(bid="b-other", on_met=branch("node", "gone"))]),
+                },
+                edges={"e1": edge_report()},
+            ),
+        )
+        params = {**SCOPE, "kind": "node", "target": "gone"}
+        preview = client.get("/api/removal-preview", params=params).json()
+        result = client.post(
+            "/api/remove", headers=HEADERS,
+            json={**params, "digest": preview["digest"], "confirmed": True},
+        )
+        assert result.status_code == 200
+        state = client.get("/api/desktop-v3/state", params=SCOPE).json()["state"]
+        assert "gone" not in state["nodes"]
+        assert "e1" not in state["edges"]
+        assert state["nodes"]["other"]["blocks"][0]["state"]["onMet"] == branch()
+
+
+def test_remove_sector_drops_desktop_v3_state_for_the_whole_subtree(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        graph = nested_graph()
+        install_graph(client, graph)
+        install_desktop_state(
+            client,
+            desktop_state(
+                nodes={
+                    "sector": state_node(blocks=[state_block()]),
+                    "child": state_node(),
+                    "deep": state_node(),
+                    "child2": state_node(),
+                    "keep": state_node(),
+                },
+                edges={"outer": edge_report(), "inner": edge_report(), "untouched": edge_report()},
+            ),
+        )
+        params = {**SCOPE, "kind": "node", "target": "sector"}
+        preview = client.get("/api/removal-preview", params=params).json()
+        result = client.post(
+            "/api/remove", headers=HEADERS,
+            json={**params, "digest": preview["digest"], "confirmed": True},
+        )
+        assert result.status_code == 200
+        state = client.get("/api/desktop-v3/state", params=SCOPE).json()["state"]
+        assert set(state["nodes"]) == {"keep"}
+        assert set(state["edges"]) == {"untouched"}

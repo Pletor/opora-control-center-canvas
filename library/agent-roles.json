@@ -1,0 +1,44 @@
+{
+  "roles": [
+    {
+      "id": "role-frontend",
+      "label": "Frontend",
+      "description": "Obrazovky, dílky a chování rozhraní: co uživatel vidí a čím to ovládá."
+    },
+    {
+      "id": "role-backend",
+      "label": "Backend",
+      "description": "Routery, moduly prostředí a pravidla, podle kterých se data mění."
+    },
+    {
+      "id": "role-db",
+      "label": "Databáze",
+      "description": "Schéma, migrace a přístup k datům: kde data žijí a kdo je smí měnit."
+    },
+    {
+      "id": "role-cloud",
+      "label": "Cloud a infrastruktura",
+      "description": "Běhové prostředí, nasazení, síť a konfigurace strojů, na kterých to běží."
+    },
+    {
+      "id": "role-cache",
+      "label": "Cache",
+      "description": "Vrstvy mezipaměti, jejich platnost a zneplatnění: co se smí pamatovat a jak dlouho."
+    },
+    {
+      "id": "role-security",
+      "label": "Security",
+      "description": "Hranice, tajemství, oprávnění a ověřování: co se nikdy nesmí dostat ven."
+    },
+    {
+      "id": "role-tests",
+      "label": "Testy",
+      "description": "Důkazy chování: testy vedle kódu, ověřovací příkazy a čtení jejich výstupu."
+    },
+    {
+      "id": "role-architect",
+      "label": "Architekt",
+      "description": "Členění celku, kontrakty mezi vrstvami a rozhodnutí o tom, kam nový kus patří."
+    }
+  ]
+}

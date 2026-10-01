@@ -1,0 +1,92 @@
+{
+  "categories": [
+    {
+      "id": "analysis",
+      "label": "Analýza",
+      "description": "Agent nejdřív čte a mapuje; nic nemění.",
+      "pipelines": [
+        {
+          "id": "analysis.read-node-context",
+          "label": "Načíst kontext uzlu",
+          "description": "Přečíst zadání, text, pravidla a zdroje uzlu; sestavit shrnutí bez změny souborů."
+        },
+        {
+          "id": "analysis.map-dependencies",
+          "label": "Zmapovat závislosti",
+          "description": "Najít soubory a uzly, na kterých uzel závisí, a vypsat je s cestami."
+        },
+        {
+          "id": "analysis.risk-review",
+          "label": "Posoudit rizika",
+          "description": "Vypsat, co se může rozbít, které testy to kryjí a co chybí."
+        }
+      ]
+    },
+    {
+      "id": "build",
+      "label": "Sestavení",
+      "description": "Změny ve workspace podle zadání uzlu a jeho pravidel.",
+      "pipelines": [
+        {
+          "id": "build.write-failing-test",
+          "label": "Napsat selhávající test",
+          "description": "Před změnou kódu napsat test, který popisuje očekávané chování uzlu."
+        },
+        {
+          "id": "build.implement-scope",
+          "label": "Implementovat v rozsahu uzlu",
+          "description": "Upravit jen soubory vlastněné uzlem; mimo rozsah se zastavit a nahlásit."
+        },
+        {
+          "id": "build.refactor-safe",
+          "label": "Bezpečně refaktorovat",
+          "description": "Zachovat chování, ověřit testy před a po, vypsat změněné soubory."
+        }
+      ]
+    },
+    {
+      "id": "verify",
+      "label": "Ověření",
+      "description": "Důkazy místo tvrzení: testy, build, kontrola rozsahu.",
+      "pipelines": [
+        {
+          "id": "verify.run-tests",
+          "label": "Spustit testy",
+          "description": "Spustit testy uzlu a vložit skutečný výstup; bez zeleného výstupu nehlásit hotovo."
+        },
+        {
+          "id": "verify.build",
+          "label": "Ověřit build",
+          "description": "Spustit build aplikace a přiložit výstup včetně varování."
+        },
+        {
+          "id": "verify.scope-gate",
+          "label": "Kontrola rozsahu",
+          "description": "Porovnat změněné soubory s povolenými cestami uzlu; odchylku nahlásit jako blocker."
+        }
+      ]
+    },
+    {
+      "id": "handoff",
+      "label": "Předání",
+      "description": "Shrnutí pro člověka a další uzel; žádný merge ani push.",
+      "pipelines": [
+        {
+          "id": "handoff.report",
+          "label": "Sepsat zprávu",
+          "description": "Co se změnilo, kde to je, co je ověřené a co čeká na člověka."
+        },
+        {
+          "id": "handoff.open-ticket",
+          "label": "Založit ticket",
+          "description": "Nalezený problém mimo rozsah uzlu zapsat jako ticket na uzel, ne opravovat."
+        },
+        {
+          "id": "handoff.request-review",
+          "label": "Vyžádat review",
+          "description": "Připravit diff a checklist pro lidskou bránu; merge zůstává na člověku."
+        }
+      ]
+    }
+  ]
+}

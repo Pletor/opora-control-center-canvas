@@ -196,7 +196,20 @@ class CanvasService:
                         "SELECT * FROM jobs WHERE project_id IS NULL OR project_id NOT IN (SELECT project_id FROM archived_projects) ORDER BY updated_at DESC LIMIT 20"
                     )
                 ],
+                # Paměť agenta podle role: jen přepínač aplikace, bez síťového volání.
+                # Skutečnou dostupnost říká teprve GET /api/memory/status.
+                "memory": self.memory_bootstrap(),
             }
+
+    def memory_bootstrap(self):
+        """Stav paměti rolí pro bootstrap; `unknown` = zapnuto, ale server jsme se neptali."""
+        service = getattr(self, "memory_service", None)
+        if service is None:
+            return {"enabled": False, "status": "disabled"}
+        try:
+            return service.bootstrap_status()
+        except (ValueError, OSError, sqlite3.Error):
+            return {"enabled": False, "status": "disabled"}
 
     def register_repository(self, pid, name, repo, url, branch):
         with self.lock:
@@ -364,7 +377,16 @@ class CanvasService:
             if not within:
                 raise ValueError("Uzel odkazuje mimo svůj sektor.")
 
-    def save_graph(self, pid, wid, graph, expected_digest, *, allow_removal=False):
+    def save_graph(self, pid, wid, graph, expected_digest, *, allow_removal=False, undo=False):
+        """Uloží graf plátna. Běžné uložení uzel ani vazbu vypustit nesmí: k tomu je náhled a
+        potvrzení odstranění (`allow_removal`, jen z `/api/remove`, které maže i obsah karty).
+
+        `undo` je krok zpět (Ctrl+Z): vrací starší snímek plátna, takže vznik uzlu, komentáře,
+        oblasti nebo vazby musí jít vzít zpět. Mění jen přítomnost v grafu — text uzlu, zadání,
+        deník, kresba, stav Desktop v3 i prostor agenta zůstávají nedotčené, takže krok vpřed
+        vrátí kartu i s obsahem. Konzistenci snímku hlídá `validate_graph` úplně stejně jako
+        u běžného uložení: vazba na chybějící uzel i potomek chybějícího sektoru jsou neplatný graf.
+        """
         validate_graph(graph)
         with self.graph_lock:
             current = self.view(pid, wid)
@@ -372,7 +394,7 @@ class CanvasService:
                 raise ValueError("Čistý main je pouze pro čtení. Vytvořte pracovní prostor.")
             if current["digest"] != expected_digest:
                 raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
-            if not allow_removal:
+            if not allow_removal and not undo:
                 for collection in ("nodes", "edges"):
                     old_ids = {item["id"] for item in current["graph"][collection]}
                     new_ids = {item["id"] for item in graph[collection]}

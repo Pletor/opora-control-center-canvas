@@ -8,6 +8,31 @@ from backend.project.workspace.workspace_sources import relative_path
 EMPTY = {"nodes": [], "edges": []}
 NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y"}
 NODE_KEYS_WITH_SOURCE = NODE_KEYS | {"sourceRef"}
+# `size` patří jen oblasti (kind "area"): dashovaný obdélník, který geometricky seskupuje
+# karty na plátně. Oblast nikdy nenese zdroj, takže se `size` a `sourceRef` nekombinují.
+NODE_KEYS_WITH_SIZE = NODE_KEYS | {"size"}
+AREA_SIZE_MIN, AREA_SIZE_MAX = 120, 20000
+# `blockOffsets` je nepovinný posun bočních bloků (akce / pravidla / podklady) proti kartě: uživatel
+# si blok odtáhl jinam a poloha má přežít uložení. Je relativní, takže karta bloky bere s sebou;
+# chybějící port stojí na výchozím místě u karty. Smí doplnit kterýkoli z tvarů uzlu výše.
+BLOCK_OFFSET_PORTS = {"action", "rule", "material"}
+# `color` je nepovinná barva rámečku oblasti, aby šly skupiny na plátně rozeznat od sebe;
+# smí ji nést jen oblast (kind "area") a jen jedna z šesti hodnot (viz `AREA_COLORS`).
+AREA_COLORS = ("indigo", "teal", "amber", "rose", "violet", "slate")
+NODE_KEY_SETS = tuple(
+    keys | offsets | color
+    for keys in (NODE_KEYS, NODE_KEYS_WITH_SOURCE, NODE_KEYS_WITH_SIZE)
+    for offsets in (set(), {"blockOffsets"})
+    for color in (set(), {"color"})
+)
+EDGE_KEYS = {"id", "source", "target"}
+# Port karty, ze kterého vazba vede; chybějící port u starších vazeb znamená `next`.
+# `block` je tlačítko bloku: vazba pak povinně nese blok a port, ze kterého se táhne.
+# `flow` je tok mezi oblastmi: smí spojovat jen dvě oblasti, nikdy uzel/sektor/komentář.
+EDGE_PORTS = ("next", "action", "rule", "block", "flow")
+EDGE_KEYS_WITH_PORT = EDGE_KEYS | {"port"}
+EDGE_KEYS_WITH_BLOCK_PORT = EDGE_KEYS_WITH_PORT | {"sourceBlockId", "sourcePortId"}
+EDGE_KEY_SETS = (EDGE_KEYS, EDGE_KEYS_WITH_PORT, EDGE_KEYS_WITH_BLOCK_PORT)
 
 
 def valid_id(value):
@@ -34,6 +59,20 @@ def validate_source_ref(ref, kind):
         raise ValueError("Uzel musí odkazovat na potomka sektoru, ne na kořen.")
 
 
+def validate_block_offsets(offsets):
+    """Ověří posun odtažených bočních bloků: jen známé porty a v každém konečné `dx`/`dy`."""
+    if not isinstance(offsets, dict) or not set(offsets) <= BLOCK_OFFSET_PORTS:
+        raise ValueError("Neplatný posun bloků.")
+    for spot in offsets.values():
+        if not isinstance(spot, dict) or set(spot) != {"dx", "dy"}:
+            raise ValueError("Neplatný posun bloků.")
+        if any(
+            type(spot[k]) not in (int, float) or not math.isfinite(spot[k]) or abs(spot[k]) > 1000000
+            for k in ("dx", "dy")
+        ):
+            raise ValueError("Neplatný posun bloků.")
+
+
 def validate_graph(value):
     if not isinstance(value, dict) or set(value) != {"nodes", "edges"}:
         raise ValueError("Neplatný formát grafu.")
@@ -48,13 +87,45 @@ def validate_graph(value):
     ids = set()
     sources = {}
     for n in nodes:
-        if not isinstance(n, dict) or set(n) not in (NODE_KEYS, NODE_KEYS_WITH_SOURCE):
+        if not isinstance(n, dict) or set(n) not in NODE_KEY_SETS:
             raise ValueError("Neplatný uzel.")
-        if not valid_id(n["id"]) or n["id"] in ids or n["kind"] not in ("node", "sector"):
+        if not valid_id(n["id"]) or n["id"] in ids or n["kind"] not in ("node", "sector", "comment", "area"):
             raise ValueError("Neplatná identita nebo typ uzlu.")
+        # Komentář je lístek na plátně: nemá zdroj, není rodičem a nikdy nenese vazbu (viz níže).
+        if n["kind"] == "comment" and "sourceRef" in n:
+            raise ValueError("Komentář nemá zdroj.")
+        # Oblast je dashovaný obdélník, který geometricky seskupuje karty na plátně: nemá
+        # zdroj, není rodičem (viz níže) a jediná ze všech druhů uzlů nese rozměr `size`.
+        if n["kind"] == "area" and "sourceRef" in n:
+            raise ValueError("Oblast nemá zdroj.")
+        if n["kind"] == "area" and "size" not in n:
+            raise ValueError("Oblast musí mít rozměr.")
+        if n["kind"] != "area" and "size" in n:
+            raise ValueError("Rozměr smí mít jen oblast.")
+        if "size" in n:
+            size = n["size"]
+            if (
+                not isinstance(size, dict)
+                or set(size) != {"w", "h"}
+                or any(
+                    type(size[k]) not in (int, float)
+                    or not math.isfinite(size[k])
+                    or not (AREA_SIZE_MIN <= size[k] <= AREA_SIZE_MAX)
+                    for k in ("w", "h")
+                )
+            ):
+                raise ValueError("Neplatný rozměr oblasti.")
+        # Barvu smí nést jen oblast, a jen jednu ze šesti povolených hodnot.
+        if "color" in n and (n["kind"] != "area" or n["color"] not in AREA_COLORS):
+            raise ValueError("Neplatná barva oblasti.")
+        # Boční bloky patří jen ke kartě uzlu nebo sektoru; komentář ani oblast je nemají.
+        if "blockOffsets" in n:
+            if n["kind"] not in ("node", "sector"):
+                raise ValueError("Posun bloků má jen uzel nebo sektor.")
+            validate_block_offsets(n["blockOffsets"])
         if (
             not isinstance(n["name"], str)
-            or not n["name"].strip()
+            or (n["kind"] != "area" and not n["name"].strip())
             or len(n["name"]) > 160
             or not isinstance(n["purpose"], str)
             or len(n["purpose"]) > 12000
@@ -86,6 +157,13 @@ def validate_graph(value):
                 raise ValueError("Graf má cyklus nebo chybějícího rodiče.")
             seen.add(current)
             current = parents[current]
+    for parent_id in parents.values():
+        if parent_id is None:
+            continue
+        if kinds[parent_id] == "comment":
+            raise ValueError("Komentář nesmí být rodičem.")
+        if kinds[parent_id] == "area":
+            raise ValueError("Oblast nesmí být rodičem.")
     for node_id, source_ref in sources.items():
         if source_ref is None or kinds[node_id] != "node":
             continue
@@ -102,7 +180,8 @@ def validate_graph(value):
     for edge in edges:
         if (
             not isinstance(edge, dict)
-            or set(edge) != {"id", "source", "target"}
+            or set(edge) not in EDGE_KEY_SETS
+            or ("port" in edge and edge["port"] not in EDGE_PORTS)
             or not valid_id(edge["id"])
             or edge["id"] in edge_ids
             or edge["source"] not in ids
@@ -110,6 +189,20 @@ def validate_graph(value):
             or edge["source"] == edge["target"]
         ):
             raise ValueError("Neplatná vazba.")
+        source_kind, target_kind = kinds[edge["source"]], kinds[edge["target"]]
+        if source_kind == "comment" or target_kind == "comment":
+            raise ValueError("Komentář nemá vazby.")
+        # Tok (`flow`) smí spojovat jen dvě oblasti; jiný port mezi oblastmi stejně jako
+        # `flow` mimo oblasti je vždy chyba.
+        if source_kind == "area" or target_kind == "area" or edge.get("port") == "flow":
+            if source_kind != "area" or target_kind != "area" or edge.get("port") != "flow":
+                raise ValueError("Tok vede jen mezi oblastmi.")
+        # Blok a port zdroje patří jen k portu `block` a naopak: půlka zápisu je vždy chyba.
+        from_block = edge.get("port") == "block"
+        if from_block != ("sourceBlockId" in edge):
+            raise ValueError("Vazba z tlačítka bloku vyžaduje port block se sourceBlockId a sourcePortId.")
+        if from_block and not (valid_id(edge["sourceBlockId"]) and valid_id(edge["sourcePortId"])):
+            raise ValueError("Neplatný blok nebo port zdroje vazby.")
         edge_ids.add(edge["id"])
     return value
 

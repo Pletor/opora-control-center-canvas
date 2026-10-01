@@ -145,6 +145,9 @@ class RemovalService:
                         datetime.now(UTC).isoformat(),
                     ),
                 )
+            removed_edge_ids = {e["id"] for e in current["graph"]["edges"]} - {
+                e["id"] for e in remaining["edges"]
+            }
             view = self.canvas.save_graph(
                 payload["project"],
                 payload["workspace"],
@@ -152,4 +155,83 @@ class RemovalService:
                 current["digest"],
                 allow_removal=True,
             )
+            self.forget_workspaces(payload["project"], payload["workspace"], preview["nodeIds"])
+            self.forget_state_entries(
+                payload["project"], payload["workspace"], preview["nodeIds"], removed_edge_ids
+            )
             return {"view": view, "nodeIds": preview["nodeIds"]}
+
+    def forget_workspaces(self, project, workspace, node_ids):
+        """Smazaná karta si bere svůj prostor agenta s sebou (docs/karta-pro-agenty.md).
+
+        Import je až tady: `canvas_service` staví `RemovalService`, takže prostor agenta
+        (přes `desktop_v3_state`) se na úrovni modulu importovat zpět nemůže."""
+        from backend.editor.agent_memory.agent_workspace import AgentWorkspace
+
+        store = AgentWorkspace(self.canvas)
+        for node_id in node_ids:
+            store.delete(project, workspace, node_id)
+
+    def forget_state_entries(self, project, workspace, node_ids, edge_ids):
+        """Smazaná karta i smazaná vazba si berou svůj obsah Desktop v3 stavu s sebou: bloky,
+        pravidla, akce, materiály a uzavření karty (`state.nodes[id]`), zprávu agenta na vazbě
+        (`state.edges[edgeId]`). Jinak by osiřelé karty a vazby v paměti jen rostly (viz nálezu
+        oprava). Nahrané soubory podkladů zůstávají na disku beze změny — jejich úklid je mimo
+        rozsah této opravy.
+
+        Větev `onMet`/`onUnmet` druhu `node` v bloku jiné (přežívající) karty, která mířila na
+        smazaný uzel, se vyprázdní stejně jako `_apply_remove` v `block_access.py` (`kind: "none"`)
+        — jinak by uložení stavu spadlo na `check_node_branches`, protože graf už smazaný uzel nemá.
+
+        Import je až tady ze stejného důvodu jako u `forget_workspaces`."""
+        if not node_ids and not edge_ids:
+            return
+        from backend.editor.agent_memory.block_access import _default_branch
+        from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+
+        store = DesktopV3State(self.canvas)
+        with self.canvas.lock:
+            current = store.current(project, workspace)
+        state = current["state"]
+        removed_nodes, removed_edges = set(node_ids), set(edge_ids)
+
+        def clean(branch):
+            if branch["kind"] == "node" and branch["targetId"] in removed_nodes:
+                return _default_branch()
+            return branch
+
+        new_nodes = {}
+        for node_id, node in state["nodes"].items():
+            if node_id in removed_nodes:
+                continue
+            blocks = node.get("blocks")
+            if blocks:
+                node = {
+                    **node,
+                    "blocks": [
+                        {
+                            **block,
+                            "state": {
+                                **block["state"],
+                                "onMet": clean(block["state"]["onMet"]),
+                                "onUnmet": clean(block["state"]["onUnmet"]),
+                            },
+                        }
+                        for block in blocks
+                    ],
+                }
+            new_nodes[node_id] = node
+        new_edges = {
+            edge_id: report for edge_id, report in state["edges"].items() if edge_id not in removed_edges
+        }
+        new_state = {**state, "nodes": new_nodes, "edges": new_edges}
+        if new_state == state:
+            return
+        store.save(
+            {
+                "project": project,
+                "workspace": workspace,
+                "expectedRevision": current["revision"],
+                "state": new_state,
+            }
+        )

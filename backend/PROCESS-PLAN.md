@@ -18,7 +18,7 @@ Schváleno 2026-09-14. Rozhodnutí uživatele: (1) klíčem je ID, frontend ukaz
 | `processes/<prc-id>/process.json`, `reports/`, `result.md` | procesy a odpovědi agentů | nové |
 | `memory/state.json` | pravidla, rozhodnutí, fáze uzlů | `desktop_v3_state` |
 | `packets/<snap-id>.json` | neměnné snímky podkladů pro agenta | `desktop_v3_snapshots` |
-| `maps/` | fronta obnovy map a běhy (`state.sqlite` per projekt) | `map-refresh/state.sqlite` (řádky daného projektu); artefakty zůstávají v `main/graphify-out` a `main/docs/architecture/archify` |
+| `maps/` | fronta obnovy map a běhy (`state.sqlite` per projekt) | `map-refresh/state.sqlite` (řádky daného projektu); artefakty zůstávají v `main/graphify-out` a `main/archify-out` |
 | `runs/` | vazby běhů, aktivita, session agentů | `agent_bindings`, `agent_binding_scopes`, `agent_activity_entries`, `node_sessions`, složky `llm-runs`, `coding-workspaces`, `task-handoff-*` |
 | `project.sqlite` | revize a indexy nad soubory výše (stejná schémata jako dnes, bez centrální DB) | – |
 

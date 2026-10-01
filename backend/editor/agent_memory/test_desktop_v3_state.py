@@ -9,7 +9,7 @@ from backend.app.factory import create_app
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}
 SCOPE = {"project": "draft", "workspace": "draft"}
-EMPTY = {"settings": [], "rules": [], "decisions": [], "nodes": {}, "tickets": []}
+EMPTY = {"settings": [], "rules": [], "decisions": [], "nodes": {}, "tickets": [], "edges": {}}
 
 
 def _state(**overrides):
@@ -151,23 +151,61 @@ def test_malformed_payloads_are_rejected_without_persisting(tmp_path, mutate):
 def test_phase_advance_requires_non_empty_checked_criteria_and_backward_is_free(tmp_path):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         _seed_graph(client)
+        # Uzel musí nejdřív existovat v previous, jinak je to nová karta bez brány kritérií.
+        seeded = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
+        assert _post(client, seeded).status_code == 200
         unchecked = _state(nodes={"focus": {"phase": "define", "criteria": [{"id": "c1", "text": "Cíl", "checked": False}], "steps": []}})
-        refused = _post(client, unchecked)
+        refused = _post(client, unchecked, expected=1)
         assert refused.status_code == 409
         assert "krit" in refused.json()["error"].lower()
         empty = _state(nodes={"focus": {"phase": "define", "criteria": [], "steps": []}})
-        assert _post(client, empty).status_code == 409
+        assert _post(client, empty, expected=1).status_code == 409
         checked = _state(nodes={"focus": {"phase": "define", "criteria": [{"id": "c1", "text": "Cíl", "checked": True}], "steps": []}})
-        advanced = _post(client, checked)
+        advanced = _post(client, checked, expected=1)
         assert advanced.status_code == 200, advanced.text
         assert advanced.json()["state"]["nodes"]["focus"]["phase"] == "define"
         skip = _state(nodes={"focus": {"phase": "live", "criteria": [{"id": "c1", "text": "Cíl", "checked": True}], "steps": []}})
-        assert _post(client, skip, expected=1).status_code == 200
+        assert _post(client, skip, expected=2).status_code == 200
         back = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
-        reverted = _post(client, back, expected=2)
+        reverted = _post(client, back, expected=3)
         assert reverted.status_code == 200, reverted.text
         assert reverted.json()["state"]["nodes"]["focus"]["phase"] == "discover"
-        assert reverted.json()["revision"] == 3
+        assert reverted.json()["revision"] == 4
+
+
+def test_new_node_may_be_saved_at_any_phase_without_criteria_gate(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        _seed_graph(client)
+        state = _state(nodes={"focus": {"phase": "build", "criteria": [], "steps": []}})
+        created = _post(client, state)
+        assert created.status_code == 200, created.text
+        assert created.json()["state"]["nodes"]["focus"]["phase"] == "build"
+
+
+def test_existing_node_advance_without_criteria_is_still_rejected(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        _seed_graph(client)
+        seeded = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
+        assert _post(client, seeded).status_code == 200
+        advance = _state(nodes={"focus": {"phase": "build", "criteria": [], "steps": []}})
+        refused = _post(client, advance, expected=1)
+        assert refused.status_code == 409
+        assert "krit" in refused.json()["error"].lower()
+
+
+def test_existing_node_advance_with_all_criteria_checked_is_accepted(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        _seed_graph(client)
+        seeded = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
+        assert _post(client, seeded).status_code == 200
+        advance = _state(nodes={"focus": {
+            "phase": "build",
+            "criteria": [{"id": "c1", "text": "Hotovo", "checked": True}],
+            "steps": [],
+        }})
+        advanced = _post(client, advance, expected=1)
+        assert advanced.status_code == 200, advanced.text
+        assert advanced.json()["state"]["nodes"]["focus"]["phase"] == "build"
 
 
 def test_checking_criteria_does_not_touch_runs_or_other_stores(tmp_path):
@@ -201,3 +239,46 @@ def test_main_workspace_is_read_only_for_state(tmp_path, monkeypatch):
         refused = _post(client, _state(settings=[{"id": "s", "key": "k", "value": "v"}]), project="p", workspace="main")
         assert refused.status_code == 409
         assert "main" in refused.json()["error"].lower()
+
+
+def test_upload_material_accepts_both_file_name_shapes():
+    from backend.editor.agent_memory.desktop_v3_state import UPLOAD_FILE
+
+    assert UPLOAD_FILE.fullmatch("8592ffac4a0f45c3a42fd6b04f57be56.jpg")
+    assert UPLOAD_FILE.fullmatch("20260915-182309-30ce481a.jpg")
+    assert UPLOAD_FILE.fullmatch("20260914-184355-19019148.png")
+    assert not UPLOAD_FILE.fullmatch("../20260915-182309-30ce481a.jpg")
+    assert not UPLOAD_FILE.fullmatch("20260915-182309-30ce481a.exe")
+
+
+def _role_state(value):
+    return _state(nodes={"focus": {
+        "phase": "discover", "criteria": [], "steps": [], "agentRole": value,
+    }})
+
+
+def test_card_role_is_optional_and_defaults_to_no_role(tmp_path):
+    """Starší uložený stav `agentRole` nemá; čte se beze změny a jde uložit dál."""
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        _seed_graph(client)
+        without = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
+        assert _post(client, without).status_code == 200
+        assert _get(client).json()["state"]["nodes"]["focus"] == without["nodes"]["focus"]
+
+
+def test_card_role_accepts_a_registry_id_and_explicit_null(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        _seed_graph(client)
+        assert _post(client, _role_state("role-backend")).status_code == 200
+        assert _get(client).json()["state"]["nodes"]["focus"]["agentRole"] == "role-backend"
+        assert _post(client, _role_state(None), expected=1).status_code == 200
+        assert _get(client).json()["state"]["nodes"]["focus"]["agentRole"] is None
+
+
+def test_card_role_outside_the_registry_is_rejected(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        _seed_graph(client)
+        refused = _post(client, _role_state("role-nikdo"))
+        assert refused.status_code == 409 and "role" in refused.json()["error"].lower()
+        assert _post(client, _role_state(7)).status_code == 409
+        assert _get(client).json()["revision"] == 0
