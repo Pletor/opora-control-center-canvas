@@ -22,7 +22,7 @@ kopie souborů: když běh selže, nic se nepřepíše.
 - Je zapnutá bez ručního kroku. Globální přepínač je v aplikaci **Nastavení → Obecné** (app-global, nikdy per projekt). Na serveru ho mění `POST /api/map-refresh/configure {enabled}`.
 - Worker každých 5 s kontroluje `refs/heads/main` každého projektu. Nová revize zařadí běh.
 - Projekt bez stabilních souborů zařadí počáteční běh. Chybět může jedna ze sad `graphify-out/graph.json` nebo `archify-out/deliver-receipt.json`.
-- Po mergi se aktualizuje Graphify (lokálně, bez modelu) i Archify. Archify je jedna relace Claude Code Sonnet, nejvýše 10 tahů a 600 s. Je to jediné místo, kde aplikace spouští model.
+- Po mergi se aktualizuje Graphify (lokálně, bez modelu) i Archify. Archify je jedna relace Claude Code Sonnet, nejvýše 10 tahů a 600 s. Je to jediné automatické spuštění modelu. Druhé místo je asistent, kterého spouští člověk ([asistent.md](asistent.md)).
 - V projektu lze automatiku vypnout pro každý nástroj zvlášť („Pouze ručně“). Tlačítko „Aktualizovat teď“ funguje i tehdy.
 - Nejvýše jeden běh v celé instanci. Starý výsledek se nepublikuje, pokud se `main` mezitím změnil.
 - Snapshot čte jen commit, nikdy rozepsaný worktree, a vynechává `graphify-out/` i `archify-out/`.

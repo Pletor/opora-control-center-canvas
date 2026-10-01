@@ -134,7 +134,7 @@ a **Origin shodný s http://Host** (přes tunel `https://HOST`).
 | `/api/agents/bindings` | vazba agentní telemetrie; payload ověř v `backend/api/live_run/agent_routes.py` |
 
 Pole `expected_revision` a `expectedRevision` mají různý zápis podle endpointu.
-Neopravuj jej „sjednocením“. Žádný endpoint nespouští ani nezastavuje model.
+Neopravuj jej „sjednocením“. Žádný endpoint popsaný zde nespouští ani nezastavuje model. Výjimkou je `/api/assistant/*` (chat v okně aplikace, jen loopback, spouští ho člověk; kontrakt `docs/asistent.md`). Agent ho nevolá.
 
 `undo: true` na `/api/graph` je krok zpět plátna (Ctrl+Z), ne mazání: pustí snímek, ve kterém
 uzel nebo vazba chybí, ale žádný obsah nemaže — text, zadání, deník, kresba, stav Desktop v3
