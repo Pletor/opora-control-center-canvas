@@ -22,6 +22,8 @@ data = Path(args.data).resolve()
 data.mkdir(parents=True, exist_ok=True)
 os.environ["OPORA_CANVAS_PORT"] = str(args.port)
 os.environ["OPORA_CANVAS_DATA"] = str(data)
+# Náhled nad kopií dat nespouští automatickou aktualizaci map ve skutečných projektech.
+os.environ.setdefault("OPORA_MAP_REFRESH_WORKER", "0")
 
 import uvicorn
 
