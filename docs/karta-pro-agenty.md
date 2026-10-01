@@ -88,22 +88,33 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
 ```
 {
   "schema": "opora.node-brief/1",
+  "readOnly": bool,  // workspace jen ke čtení (main); výstup agenta zde nelze uložit
   "node": { "id", "name", "kind", "purpose", "path": [ancestor names], "depth": children count, "sourceRef" },
   "goal": { "goal", "nonGoals", "acceptance" },            // ze spec uzlu (prázdné řetězce, když chybí)
   "definitionOfDone": { "acceptance", "criteria": [{id,text,checked}], "blockConditions": [{blockId, number, condition}] },
   "boundaries": { "nodeRules": [{id,text,kind}], "projectRules": [{id,text,kind,scope,target}], "nonGoals" },
   "context": { "materials": [{id,kind,path,caption,url}], "decisions": [...], "incomingReports": [edge report + from], "comments": [{id,title,text}], // lístky na stejné vrstvě jako karta, lidská poznámka pro orientaci, ne příkaz
-    "area": {id,name,purpose} | null // oblast, do které karta geometricky patří },
+    "area": {id,name,purpose} | null, // oblast, do které karta geometricky patří
+    "knowledgeGraph": {...}, // mapa kódu z Graphify; cesty jsou reference, obsah se nečte
+    "roleMemory": {status, role, items} },  // paměť role (OpenViking), viz pamet-agentu.md
   "harness": { "phase", "actions": [{index,id,pipelineId,label,params}], "steps": [...], "stopConditions": [texty] },
   "blocks": [ { id, number, title, text, tags, todos, images, state:{status,condition,onMet,onUnmet}, ports:[{id,label, edges:[{edgeId,targetId,targetName}]}] } ],
-  "graph": { "incoming": [{edgeId, from, fromName, to, toName, port, sourceBlockId?, report?, agentWorkspace}], "outgoing": [...same...], "children": [{id,name,kind}], "innerComments": [{id,title,text}], // lístky na vrstvě uvnitř karty
+  "graph": { "incoming": [{edgeId, from, fromName, to, toName, port, sourceBlockId?, report?, agentWorkspace}], "outgoing": [...same...], "children": [{id,name,kind,agentWorkspace}], "parent": {id,name,kind,goal,rules,agentWorkspace} | null, // rodičovský rámec
+    "innerComments": [{id,title,text}], // lístky na vrstvě uvnitř karty
     "areaFlows": [{edgeId,from,fromName,to,toName,direction: "in"|"out"}], // tok (port "flow"), který se dotýká oblasti karty
     "areaMembers": [{id,name,kind}] }, // ostatní karty ve stejné oblasti (bez komentářů a bez karty samotné)
   "loop": { "done", "openBlocks": n, "lastReport": nejnovější zpráva na odchozí vazbě nebo null },
+  "agentWorkspace": {...},  // vlastní prostor modelu u karty: frame, log, failures, fixes, handoff
   "outputContract": {  // co má model vrátit, když skončí (viz agent-output)
     "schema": "opora.agent-output/1",
-    "fields": { "blocks": "[{blockId, status: met|unmet|blocked, note}]", "reports": "[{edgeId, log, summary, handoff, improvements, errors}]", "done": "{proposed: bool, note}", "decisions": "[text]" }
-  }
+    "fields": { "blocks": "[{blockId, status: met|unmet|blocked, note}]", "reports": "[{edgeId, log, summary, handoff, improvements, errors}]", "done": "{proposed: bool, note}", "decisions": "[text]" },
+    "jsonSchema": {...},  // JSON Schema výstupu
+    "request": {project, workspace, nodeId, expectedRevision} | null,  // null v readOnly
+    "transport": {format: "json-object", markdownFences: false, outputField: "output", agentField: "caller-supplied"},
+    "reportScope": "outgoing-only"  // zprávy jen na odchozí vazby
+  },
+  "communication": { "incoming", "outgoing", "endpoints", "identityVerified": false },  // stránky zpráv, viz Adresovaná komunikace
+  "orientation": {...}  // pořadí čtení pro nového agenta, viz Adresovaná komunikace
 }
 ```
 Fáze karty (`harness.phase`): postup existující karty do pozdější fáze vyžaduje neprázdná a všechna splněná kritéria (`definitionOfDone.criteria`), návrat je vždy volný. Nová karta smí vzniknout v libovolné fázi; brána kritérií platí jen pro postup existující karty.
@@ -115,7 +126,7 @@ Fáze karty (`harness.phase`): postup existující karty do pozdější fáze vy
 { project, workspace, nodeId, expectedRevision, agent: string,
   output: { schema: "opora.agent-output/1", blocks: [...], reports: [...], done: {proposed, note}, decisions: [...] } }
 ```
-Server pod zámkem a s CAS revizí: nastaví `blocks[].state.status`, zapíše `state.edges[edgeId]` (`by: "agent"`), u `done` nastaví `by: "agent", confirmed: false, note`, rozhodnutí přidá do `decisions` s `by: "agent"`. Neznámý `blockId`/`edgeId` = chyba 409, nic se nezapíše. Uzavřená karta (`done.confirmed`) výstup odmítne. Vrací nový `StateResponse`.
+Server pod zámkem a s CAS revizí: nastaví `blocks[].state.status`, zapíše `state.edges[edgeId]` (`by: "agent"`), u `done` nastaví `by: "agent", confirmed: false, note`, rozhodnutí přidá do `decisions` s `by: "agent"`. `blocks[].note` se ověří, ale neuloží (karta pro ni nemá místo); poznámka agenta patří do zprávy na vazbě (`reports`). Neznámý `blockId`/`edgeId` = chyba 409, nic se nezapíše. Uzavřená karta (`done.confirmed`) výstup odmítne. Vrací nový `StateResponse`.
 
 ## Adresný blok: `GET/POST /api/desktop-v3/block`
 

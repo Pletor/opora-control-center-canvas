@@ -83,6 +83,8 @@ python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 proj
 python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 view --project ID --workspace draft
 python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 state --project ID --workspace draft
 python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 sessions --project ID --workspace draft --node NODE_ID
+python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 node-brief --project ID --workspace draft --node NODE_ID
+python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 frontier --project ID --workspace draft --node SEKTOR_ID
 ```
 
 Souhrn je výchozí. `--raw` používej až po výběru konkrétního scope a pouze tehdy,

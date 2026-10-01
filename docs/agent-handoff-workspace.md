@@ -2,7 +2,7 @@
 
 Navazuje na `docs/karta-pro-agenty.md`, sekce Pracovní prostor agenta a Fraktální předávka. Níže je popsané použití dnešní v1 s pěti klíči API v **Text → Agenti**, nikoli konečná podoba komunikace mezi agenty.
 
-**Rozšířený plán:** [Pracovní prostor a komunikace mezi agenty](../.hermes/plans/2026-09-16_092217-agent-communication-workspace.md). Na základě upřesnění uživatele doplňuje skutečné sekce pro odpovědnost, vstupy, příchozí/odchozí zprávy, otázky a rozhodnutí, důkazy, obnovu a audit. Definuje adresaci, potvrzení přesné verze, idempotenci a ochranu souběžného vlastnictví. Je to návrh změn API a UI; nové funkce zatím nejsou implementované. Původních pět polí zůstává kompatibilní pracovní pamětí, nikoli náhradou komunikačního protokolu.
+**Rozšířený plán:** [Pracovní prostor a komunikace mezi agenty](../.hermes/plans/2026-09-16_092217-agent-communication-workspace.md). Na základě upřesnění uživatele doplňuje skutečné sekce pro odpovědnost, vstupy, příchozí/odchozí zprávy, otázky a rozhodnutí, důkazy, obnovu a audit. Definuje adresaci, potvrzení přesné verze, idempotenci a ochranu souběžného vlastnictví. Je to návrh změn API a UI. První řez v1 je implementovaný: adresované zprávy a potvrzení (`/api/desktop-v3/agent-messages`, `/api/desktop-v3/agent-message-receipt`, `backend/api/editor/agent_message_routes.py`), viz `docs/karta-pro-agenty.md`, sekce Adresovaná komunikace. Ostatní části plánu implementované nejsou. Původních pět polí zůstává kompatibilní pracovní pamětí, nikoli náhradou komunikačního protokolu.
 
 ## Prověřené předchozí plány
 

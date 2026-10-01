@@ -151,8 +151,10 @@ uživatele u cizího serveru.
 Paměť se objevuje ještě na třech místech:
 
 - **Balíček karty** (`node-brief`) nese `context.roleMemory = {status, role, items}`. Karta bez
-  role dostane `{status: "skipped", reason: "karta nemá roli"}`. `context.memory.rules` zůstává
-  beze změny — čte ho předání externímu agentovi. Do `orientation.readingOrder` přibude položka
+  role dostane `{status: "skipped", reason: "karta nemá roli"}`. Pravidla nese node-brief
+  v `boundaries` (`nodeRules`, `projectRules`); klíč `context.memory` v node-brief není.
+  `context.memory.rules` patří balíčku podkladů (`packet/preview`, `packet/snapshot`) a ten
+  zůstává beze změny — čte ho předání externímu agentovi. Do `orientation.readingOrder` přibude položka
   „Paměť role“ jen tehdy, když paměť opravdu něco nese.
 - **Hook** (`SessionStart`) přidá krátký blok (≤ 1500 znaků) a přesný příkaz
   `… memory "<dotaz>"`, a to **jen** když je paměť `configured` a karta má roli. Bash povoluje

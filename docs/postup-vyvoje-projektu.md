@@ -13,6 +13,7 @@ Příklad je Ample, ale stejně se pracuje s každým projektem.
 
 Platí jedno pravidlo: **kód je v gitu, zadání a práce jsou v OPORA, nic není na obou místech.**
 OPORA nikdy nepracuje v kopii. Projekt je připojený jako lokální složka na originál, žádný klon ani worktree.
+Oba režimy v aplikaci existují a volí je druh projektu (`frontend/shared/project-capabilities/logic/project-capabilities.ts`): lokální projekt pracuje v originální složce jen ve workspace `draft`, git projekt má main jen ke čtení a pro uzel vlastní workspace (worktree). Tento postup používá lokální projekt.
 Aplikace sama agenta nespustí ani nepushne. Agenty spouštíš ty.
 
 ## Jednou na začátku
@@ -43,7 +44,7 @@ Jeden terminál je jeden uzel. Spusť `claude` v kořeni projektu a zadej:
 ```text
 /opora-control-center
 Projekt ample (cc5f34ec07cd455ca5ad1a69af19022b), workspace draft, uzel <ID uzlu>.
-Načti node-brief, splň zadání podle pravidel tohoto repa (CLAUDE.md) a drž se rozsahu karty.
+Načti node-brief (opora_read.py node-brief --project cc5f34ec07cd455ca5ad1a69af19022b --workspace draft --node <ID uzlu>), splň zadání podle pravidel tohoto repa (CLAUDE.md) a drž se rozsahu karty.
 Commity piš s trailerem `Opora-Node: <ID uzlu>@<revize zadání>`.
 Na konci zapiš do OPORA agent-output (stav bloků, návrh hotovo) a agent-workspace (log a předávka).
 Nepushuj.

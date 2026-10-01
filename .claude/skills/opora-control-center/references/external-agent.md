@@ -76,9 +76,9 @@ Používá se existující revizované API paměti; žádný watcher souborů ne
 4. POST `/api/desktop-v3/state` s project, workspace, původní expectedRevision
    a celým zachovaným state. `nodes` a cizí tickety neměň. Při 409 žádný force:
    načti současný dokument a vyřeš konkrétní konflikt.
-5. GET stejného scope; ověř ticket podle ID i přesného obsahu. V UI je viditelný
-   v Live Run → Tickety bez filtru konkrétní session, případně pro vybraný uzel.
-   Bezsessionový agentní ticket je označen „externí agent · neověřený výsledek“.
+5. GET stejného scope; ověř ticket podle ID i přesného obsahu
+   (`opora_read.py state --project ID --workspace ID --raw`, pole `tickets`).
+   Ticket žije jen ve stavu Desktop v3; zobrazení ticketů v UI zatím není implementované.
 6. Člověk ověří Result, uzavře ticket a případně posune workflow fázi uzlu.
    Automatické obarvení/fáze podle agentova tvrzení není podporované ani důkaz.
 

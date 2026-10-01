@@ -16,10 +16,12 @@ tickety. Aplikace z něj žádný model nespouští ani nezastavuje.
   ověř skutečné session ID a přesný scope, potom zavolej API (stejný Origin, JSON):
   ```bash
   curl -s -X POST http://127.0.0.1:8740/api/node-sessions/bind -H "Content-Type: application/json" -H "Origin: http://127.0.0.1:8740" \
-    -d '{"project":"PROJECT_ID","workspace":"WORKSPACE_ID","nodeId":"NODE_ID","source":"hermes","sessionId":"REAL_SESSION_ID","role":"orchestrator","title":"Konkrétní úkol"}'
+    -d '{"project":"PROJECT_ID","workspace":"WORKSPACE_ID","nodeId":"NODE_ID","source":"hermes","sessionId":"REAL_SESSION_ID","runId":null,"role":"orchestrator","title":"Konkrétní úkol","parentSessionId":null,"confirmed":true}'
   ```
-  Pro Claude použij `"source":"claude"`, `"runId":"LANE_SLUG"`, `"role":"worker"` a
-  `"parentSessionId":"REAL_HERMES_ID"`. Zápis vždy ověř GETem `/api/node-sessions`.
+  Payload musí mít přesně těchto deset klíčů; chybějící i navíc = 409. Pro Claude použij
+  `"source":"claude"`, `"runId":"LANE_SLUG"` (název lane, povinný), `"role":"worker"` a
+  `"parentSessionId":"REAL_HERMES_ID"`. Hermes má vždy `"runId":null`. `parentSessionId`
+  je `null` nebo ID jiné session; prázdný řetězec se odmítne. Zápis vždy ověř GETem `/api/node-sessions`.
 - Server používá `OPORA_HERMES_API_URL`, server-side `OPORA_HERMES_API_KEY` a
   `OPORA_NODE_SESSION_LANES_ROOT`. Tajemství nepatří do frontendu ani exportů.
 - Vazba se přes API neuzavírá (žádný `close` endpoint). Další úkol může získat
@@ -41,3 +43,7 @@ stavy open/doing/done. Nevyplňuj náhodné session ID. Celoprojektový ticket
 nemusí mít konkrétní session. Autorství `human` nebo `agent` musí odpovídat
 skutečnému původu. Stav done není automaticky ověřená oprava. Ticket externího
 agenta viz [external-agent.md](external-agent.md).
+
+Tickety se ukládají ve stavu Desktop v3 (`state.tickets`) a čtou se přes API:
+`opora_read.py state --project ID --workspace ID --raw`. Zobrazení ticketů v UI
+zatím není implementované.

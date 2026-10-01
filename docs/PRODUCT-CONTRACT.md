@@ -32,6 +32,8 @@ Aktualizace: fetch → ověření schváleného upstreamu a revize → fast-forw
 
 Každý aktivní WorkUnit má workspace_id, project_id, node_id, vlastní branch/worktree (nebo doložený fork), base SHA, povolené cesty, vazbu na agenta a důkazy. Jeden writer na pracovní strom. Souběžní agenti nemění stejný checkout.
 
+Worktree na WorkUnit platí pro git projekt. Druh projektu volí režim v `frontend/shared/project-capabilities/logic/project-capabilities.ts`: git projekt má main jen ke čtení a pro uzel vlastní workspace (worktree), lokální projekt pracuje v originální složce jen ve workspace `draft` a Git pracovní prostory nevytváří.
+
 Existence worktree nebo procesu neznamená běžícího agenta. Odpojené, prunable, nedostupné a neznámé stavy se ukazují zvlášť.
 
 Přepnutí režimu je změna pohledu, nikoli git checkout. Plátno pracovního prostoru zobrazuje rozdíl oproti schválenému základu a konkrétní aktivní workspace; nebarví vše jako hotový main.

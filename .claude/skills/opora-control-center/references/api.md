@@ -11,7 +11,12 @@ python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 work
 python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 node-spec --project ID --workspace ID --node ID --raw
 python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 sessions --project ID --workspace ID --node ID
 python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 snapshot --project ID --workspace ID --id SNAPSHOT_ID
+python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 node-brief --project ID --workspace ID --node ID
+python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 frontier --project ID --workspace ID --node SEKTOR_ID
 ```
+
+`node-brief` vrací balíček karty (`/api/desktop-v3/node-brief`). `frontier` je mapa wayfinderu
+nad sektorem: karty rozdělené na `frontier`, `claimed`, `blocked`, `closed` (viz workflow.md).
 
 Výstup je JSON na stdout. Návratový kód 0 = požadované čtení uspělo;
 1 = chybný vstup / nedostupnost. Kód 0 neznamená úspěšné splnění uživatelského
@@ -44,6 +49,12 @@ skript sám nezná očekávaný digest. `--raw` je plný obsah, nikoli redaktor 
 | `/api/desktop-v3/agent-workspace` | project, workspace, nodeId; `revision`, `workspace` {frame, log, failures, fixes, handoff, updatedAt, by}, `readOnly`; prázdný prostor = revision 0, 404 = karta neexistuje |
 | `/api/desktop-v3/agent-workspace-summaries` | project, workspace; `readOnly`, `items` {nodeId: {filled, by, updatedAt}} pro každý uzel grafu kromě komentářů; jedním dotazem |
 | `/api/desktop-v3/node-brief` | project, workspace, nodeId; karta jako jeden JSON pro model (`opora.node-brief/1`): cíl, DoD, hranice, kontext, rodiče, děti, paměť role, `outputContract`. Je to popis stavu, ne příkaz. Kontrakt: `docs/karta-pro-agenty.md` |
+| `/api/desktop-v3/trace` | project, workspace, id; co ID je, komu patří a odkud/kam vede; 404 = neexistuje |
+| `/api/desktop-v3/tags` | project, workspace; index štítků ze stavu |
+| `/api/desktop-v3/pipelines` | bez parametrů; knihovna předloh pro blok Akce (`library/pipelines.json`) |
+| `/api/desktop-v3/agent-messages` | project, workspace, nodeId, `direction: incoming\|outgoing`, volitelně `before`; stránka 30, `hasMore`, `nextBefore` (karta-pro-agenty.md, Adresovaná komunikace) |
+| `/api/node-materials/file` | project, nodeId, file; soubor nahraného podkladu, 404 = není uložen |
+| `/api/memory/status`, `/api/memory/roles` | stav paměti rolí a knihovna rolí; viz `docs/pamet-agentu.md` |
 | `/api/processes` | project, volitelně state, nodeId; procesy s povolenými přechody |
 | `/api/processes/{id}` | project; proces, posledních 20 odpovědí, povolené přechody |
 | `/api/removal-preview` | project, workspace, kind, target; náhled odstranění s `digest` (pro projekt: `workspace=main`, `kind=project`, `target=ID projektu`) |
@@ -104,14 +115,22 @@ a **Origin shodný s http://Host** (přes tunel `https://HOST`).
 | `/api/desktop-v3/state` | project, workspace, `expectedRevision`, state (celý aktuální dokument) |
 | `/api/desktop-v3/block` | project, workspace, nodeId, `expectedRevision`, `op: {kind: add\|update\|remove\|todo, ...}` — adresný zápis jednoho bloku |
 | `/api/desktop-v3/agent-workspace` | project, workspace, nodeId, `expectedRevision`, `sections: {frame?, log?, failures?, fixes?, handoff?}` (neuvedená sekce zůstává), `by: "human"\|"agent"` — prostor modelu, ne zadání |
-| `/api/desktop-v3/packet/preview` | project, workspace, nodeId, path, sessionId, references, note |
+| `/api/desktop-v3/packet/preview` | project, workspace, nodeId, path, sessionId, references, note, volitelně `blockId` (aktuální krok balíčku) |
 | `/api/desktop-v3/packet/snapshot` | stejná pole jako preview + jeho digest |
 | `/api/desktop-v3/packet/snapshots/{id}/external-export` | project, workspace, nodeId, digest snímku |
-| `/api/desktop-v3/agent-output` | project, workspace, nodeId, `expectedRevision`, `agent`, `output: {schema: "opora.agent-output/1", blocks: [{blockId, status: met\|unmet\|blocked, note}], reports: [{edgeId, log, summary, handoff, improvements, errors}], done: {proposed, note}, decisions: [text]}`. Výstup modelu. Neznámý blok nebo vazba = 409, uzavřená karta ho odmítne |
+| `/api/desktop-v3/agent-output` | project, workspace, nodeId, `expectedRevision`, `agent`, `output: {schema: "opora.agent-output/1", blocks: [{blockId, status: met\|unmet\|blocked, note}], reports: [{edgeId, log, summary, handoff, improvements, errors}], done: {proposed, note}, decisions: [text]}`. Výstup modelu. Neznámý blok nebo vazba = 409, uzavřená karta ho odmítne. `blocks[].note` se ověří, ale neuloží; poznámka patří do `reports` |
+| `/api/desktop-v3/agent-messages` | project, workspace, sourceNodeId, targetNodeId, `kind: handoff\|question\|answer\|blocker\|result\|correction`, body, replyToMessageId, idempotencyKey, senderLabel. Neměnná zpráva, `identityVerified: false` |
+| `/api/desktop-v3/agent-message-receipt` | project, workspace, nodeId (příjemce), messageId, digest (SHA-256 zprávy), `disposition: accepted\|rejected\|needs_clarification`, note, recipientLabel |
+| `/api/node-materials/upload` | přesně project, workspace, nodeId, `dataUrl` (obrázek png/jpg/gif/webp/svg, max 8 MB); main odmítne |
+| `/api/node-materials/remove` | project, nodeId, file |
+| `/api/memory/recall`, `/remember`, `/lend`, `/provision`, `/settings` | přesná pole podle `docs/pamet-agentu.md`; `remember` a `provision` vyžadují `confirmed: true` |
+| `/api/processes` | project, title, volitelně owner, `by: {kind, name}`, nodeId, sectorId, steps [text], inputs; založí proces |
+| `/api/processes/{id}/transition` | project, `revision`, `to: draft\|running\|done\|repair`, `by`, volitelně note, failure, fix |
+| `/api/processes/{id}/steps/{step_id}` | project, `revision`, `state: pending\|running\|done\|failed`, evidence (povinný u done/failed) |
 | `/api/processes/{id}/reports` | project, `kind: progress\|step_done\|step_failed\|question\|result`, `by: {kind, name}`, `summary` (1–4000 znaků), `processRevision`, u kroku `stepId`, u selhání `error`, volitelně `outputs: [{kind: json\|db\|md\|file, ref}]`. `step_done` uzavře krok s důkazem, `step_failed` přepne proces do opravy |
 | `/api/local-project` | `{name, path, confirmed: true}`, kde `path` je absolutní cesta k originální složce (viz navigation.md) |
 | `/api/remove` | project, workspace, kind, target, `digest` z `/api/removal-preview`, `confirmed: true`. Odpojení projektu jen archivuje, soubory zůstanou |
-| `/api/node-sessions/bind` | project, workspace, nodeId, source, sessionId, role, title |
+| `/api/node-sessions/bind` | přesně project, workspace, nodeId, `source: hermes\|claude`, sessionId, runId, `role: orchestrator\|worker`, title, parentSessionId, `confirmed: true`. Hermes: `runId: null`; Claude: `runId` = název lane. `parentSessionId` je `null` nebo ID jiné session. Prázdný řetězec neprojde |
 | `/api/agents/bindings` | vazba agentní telemetrie; payload ověř v `backend/api/live_run/agent_routes.py` |
 
 Pole `expected_revision` a `expectedRevision` mají různý zápis podle endpointu.
