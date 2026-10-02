@@ -45,14 +45,13 @@ opora-canvas/
     ui-kit/             # prvky bez domény: removal-dialog, workspace-boundary, panel-frame
     (uvnitř každé feature složky: components/ = .tsx · logic/ = .ts · styles/ = .css · README)
 
-  backend/              # stejný příběh jako frontend; mcp → api → prostředí → canvas, integrations
+  backend/              # stejný příběh jako frontend; api → prostředí → canvas, integrations
     app/                # create_app, middleware, mount dist/, skládání routerů z api/
     api/                # ROBUSTNÍ API: tenké routery podle prostředí; app_routes = zdraví, identita, bootstrap
       project_setup/    # project_routes: nastavení, lokální/prázdný projekt, connect
       project/          # project_workspace_routes, workspace_routes, archify_routes, graphify_routes, map_refresh_routes
       editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes, process_routes
       live_run/         # agent_routes, node_session_routes
-    mcp/                # MCP server nad api/ (slot)
     canvas/             # základ plátna: canvas_service (registr + db_for(projekt), git sync, graf), graph, project_folder (projects/<id>/), project_registry, migrate_to_project_folders
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
     project/            # PROSTŘEDÍ PROJEKT
@@ -143,7 +142,6 @@ backend/editor/task_execution
 backend/integrations
 backend/library
 backend/live_run
-backend/mcp
 backend/memory
 backend/project
 backend/project/maps

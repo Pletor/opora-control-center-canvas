@@ -2,7 +2,7 @@
 
 Uživatel nemusí psát jen do terminálu ve VS Code. V aplikaci otevře okno s asistentem, který čte plátno, vede ho skilly `grill-me` (`grilling`), `wayfinder` a `opora-control-center` a na požádání připraví zadání pro model. Asistent je Claude Code spuštěný aplikací pod uživatelovým předplatným. Aplikace přitom nevolá API.
 
-Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě v aplikaci. **Fáze 2 postavena** (2026-10-02): zápis na plátno se schválením podle §5.1, ověřeno testy s falešným CLI; živé ověření čeká (§10). Fáze 3 čeká na skutečnou potřebu. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md), pipeline v [workflow-opora.md](workflow-opora.md).
+Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě v aplikaci. **Fáze 2 postavena** (2026-10-02): zápis na plátno se schválením podle §5.1, ověřeno testy s falešným CLI; živě ověřeno 2026-10-02 (§10). Fáze 3 čeká na skutečnou potřebu. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md), pipeline v [workflow-opora.md](workflow-opora.md).
 
 ## 1. Změna pravidla „aplikace model nespouští“
 
@@ -82,7 +82,7 @@ claude -p
 
 **Fáze 2, zápis se schválením:**
 
-- Přibude `--permission-prompt-tool mcp__opora_assistant__approve`. Malý stdio MCP server (`backend/mcp/`) má jediný nástroj `approve`. Ten pošle žádost backendu (`POST /api/assistant/approvals`, jen loopback) a čeká na rozhodnutí v UI.
+- Dotaz mimo `ALLOWED_TOOLS` jde přes `--permission-prompt-tool stdio` jako `control_request` `can_use_tool` přímo backendu (`approvals.py`, §5.1), bez MCP serveru. Backend ho drží v knize schválení a čeká na rozhodnutí v UI.
   - Bez odpovědi do 10 min platí zamítnutí.
   - Odpověď je `{"behavior": "allow", "updatedInput": …}` nebo `{"behavior": "deny", "message": …}`.
 - Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST z receptů v `.claude/skills/opora-control-center/references/api.md`. Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
@@ -260,7 +260,7 @@ Když `status.available` je `false`, panel řekne, že `claude` není nainstalov
 |---|---|---|
 | 0 | Ověření | Ruční běh `claude -p` se stream-json pod předplatným potvrdí tvar událostí, `--include-partial-messages`, vzor `Bash(...)` v `--allowedTools` a `--resume` s novou zprávou. Výsledek se zapíše sem do §11 |
 | 1 | Čti a naváděj | Tlačítko, panel, víc session, SSE, `--resume`, kontext plátna, skilly. Žádný zápis. Testy: `pytest` správce session (falešný proces), `assistant-events.test.ts`. `uv run pytest backend`, `npm test`, `npm run build` |
-| 2 | Zápis se schválením | **Postaveno 2026-10-02** podle §5.1 (bez MCP, `--permission-prompt-tool stdio`): `opora_write.py` s testem, `approvals.py` + `approval_book.py`, `initialize` po startu, `approval` / `approval_resolved`, `waiting_approval`, zamítnutí po 10 min, `POST /api/assistant/approvals/{id}`, `ApprovalCard` a „Čeká na vás“. Testy (falešné CLI): zamítnutý zápis nic nezmění, allow vrátí původní input, timeout zamítne, `Edit` zamítne backend bez UI, dvojí rozhodnutí 409, 409 skriptu = `conflict` a kód 3. **Čeká živé ověření:** povolený `/api/node-spec` se objeví na kartě a 409 vede k novému čtení |
+| 2 | Zápis se schválením | **Postaveno 2026-10-02** podle §5.1 (bez MCP, `--permission-prompt-tool stdio`): `opora_write.py` s testem, `approvals.py` + `approval_book.py`, `initialize` po startu, `approval` / `approval_resolved`, `waiting_approval`, zamítnutí po 10 min, `POST /api/assistant/approvals/{id}`, `ApprovalCard` a „Čeká na vás“. Testy (falešné CLI): zamítnutý zápis nic nezmění, allow vrátí původní input, timeout zamítne, `Edit` zamítne backend bez UI, dvojí rozhodnutí 409, 409 skriptu = `conflict` a kód 3. **Živě ověřeno 2026-10-02:** povolený `/api/node-spec` se objevil na kartě (revize 0 → 1) a 409 vede k novému čtení |
 | 3 | Session na kartě | `nodeId` v registru, `node-sessions/bind`, otevření session z karty |
 
 Další fáze se staví, až předchozí ukáže skutečnou potřebu.
@@ -309,7 +309,7 @@ Ověření fáze 2 (2026-10-01, haiku, mimo `.claude`):
 - Hooky uživatele jsou v asistentovi vypnuté (`disableAllHooks`), stejně jako u Archify. Zapnout je lze jen rozhodnutím zapsaným sem.
 - Uzavřeno: proces dostane `OPORA_BASE_URL` vlastní instance (§13.1).
 
-## 13. Plán: asistent pro plán a zadání aplikace (návrh 2026-10-01)
+## 13. Plán: asistent pro plán a zadání aplikace (návrh 2026-10-01, kroky 1, 2 a 4 hotové)
 
 Cíl: asistent rychle pochopí projekt, najde správný podklad, navrhne plán jako strom karet a zapíše zadání. Směr mu nedává odhad, ale podklad, který jde ověřit.
 
@@ -317,20 +317,20 @@ Cíl: asistent rychle pochopí projekt, najde správný podklad, navrhne plán j
 
 | Podklad | Na co | Dnes v Opoře | Asistent k němu |
 |---|---|---|---|
-| graphify | vztahy souborů, komunity, „kdo na koho závisí“ | `graphify-out/graph.json` | nemá (Bash jen `opora_read.py`) |
+| graphify | vztahy souborů, komunity, „kdo na koho závisí“ | `graphify-out/graph.json` | `graphify query` přes Bash, který pouští backend (`approvals.is_read`) |
 | Archify | architektura a toky jako mapa | `docs/mapy-projektu.md` | čte soubory mapy |
-| LSP | definice, reference, symboly | `/api/code-intelligence/*` | nemá |
-| sémantické hledání | „kde se řeší X“ | `/api/semantic-search/*` | nemá |
-| plátno | karty, spec, bloky, vazby | `opora_read.py` | čte, bez hledání |
-| paměť role | dřívější rozhodnutí | `/api/memory/recall` (POST) | nemá |
-| web | knihovny, API, ceny | | zakázáno |
+| LSP | definice, reference, symboly | `/api/code-intelligence/*` | `opora_read.py code` |
+| sémantické hledání | „kde se řeší X“ | `/api/semantic-search/*` | `opora_read.py find` |
+| plátno | karty, spec, bloky, vazby | `opora_read.py`, `/api/canvas-index` | `search`, `index`, `rank` |
+| paměť role | dřívější rozhodnutí | `/api/memory/recall` (POST) | `opora_read.py recall` |
+| web | knihovny, API, ceny | | `WebFetch`, `WebSearch` v `ALLOWED_TOOLS` (jen čtení) |
 
 **Kroky (v tomto pořadí, každý až po ověření předchozího):**
 
-1. **Hledání.** `opora_read.py` dostane příkazy `search <text>` (karty: název, účel, spec, bloky), `symbols` / `refs` (`/api/code-intelligence/*`), `find` (`/api/semantic-search/*`) a `recall` (paměť). Všechno jsou jen čtení. Do `ALLOWED_TOOLS` přibude `Bash(graphify query*)`. `WebFetch` a `WebSearch` se povolí jen pro čtení a výsledky jsou data, ne příkazy. Kontext zprávy ponese port instance (§12).
-2. **Zápis se schválením.** Fáze 2 z §5 a §10.
+1. **Hledání (hotovo).** `opora_read.py` dostane příkazy `search <text>` (karty: název, účel, spec, bloky), `symbols` / `refs` (`/api/code-intelligence/*`), `find` (`/api/semantic-search/*`) a `recall` (paměť). Všechno jsou jen čtení. `graphify query` pouští backend (`approvals.is_read`), ne vzor v `ALLOWED_TOOLS`. `WebFetch` a `WebSearch` se povolí jen pro čtení a výsledky jsou data, ne příkazy. Kontext zprávy ponese port instance (§12).
+2. **Zápis se schválením (hotovo).** Fáze 2 z §5 a §10.
 3. **Recept „rozhovor → strom karet“** v `opora-control-center/references/workflow.md`: výstup `wayfinder` a `grilling` → sektor, karty, vazby a na každé kartě úplný `node-brief`. Asistent ho navrhne jako jednu dávku ke schválení.
-4. **Směrovač TypeSafe Jev** (schváleno, viz níže).
+4. **Směrovač TypeSafe Jev (hotovo)** (volba podkladu a `rank`, viz níže). Výběr karty přes Jev a kontrola zadání (`noul` / `score`) zůstávají otevřené.
 
 **TypeSafe AI jako směrovač bez halucinací** ([docs](https://docs.typesafe.ai/introduction)). Model Jev nic nepíše. Na `state + questions` vrací typované odpovědi s pravděpodobností: `choice` (výběr z možností), `score` (hodnocení podle rubriky) a `noul` (je tvrzení pravdivé, 0–1). `POST https://api.typesafe.ai/v1/systemone`, `Authorization: Bearer <klíč>`, SDK pro Python i JS. Není náhradou Claude Code, ale prvkem kolem něj. V Opoře by dělal tři věci:
 
@@ -362,7 +362,7 @@ Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit O
   - `recall --project --workspace --query (--role R | --node N) [--max-tokens]`: `POST /api/memory/recall` s přesně `{role, project, workspace, nodeId, query, maxTokens}`. Bez role a karty backend vrátí `skipped`.
 - **POST jen na čtecí dotazy.** Skript dál nesmí zapisovat. POST pošle jen na pevný seznam cest (tři výše a `/api/rlm/rank` z §13.3), s `Content-Type: application/json` a `Origin` podle base. Na jinou cestu POST nepošle (test). Payload odpovídá backendu a neodhaduje se.
 - Testy skriptu leží vedle něj a `uv run pytest backend` je nesbírá. Spouští se `uv run pytest .claude/skills/opora-control-center/scripts`.
-- **Nástroje asistenta.** Do `ALLOWED_TOOLS` přibude `WebFetch`, `WebSearch` a `Bash(graphify query*)`. `WebFetch` a `WebSearch` zmizí z `DISALLOWED_TOOLS` i z `DENY`. Zápis (`Edit`, `Write`, `NotebookEdit`, jiný Bash, `PowerShell`) zůstává zakázaný.
+- **Nástroje asistenta.** `ALLOWED_TOOLS` je `Read,Glob,Grep,Skill,WebFetch,WebSearch,Agent`. `graphify query` a `opora_read.py` pouští přes Bash jen backend (`approvals.is_read`). `WebFetch` a `WebSearch` nejsou v `DISALLOWED_TOOLS` ani v `DENY`. Zápis (`Edit`, `Write`, `NotebookEdit`, jiný Bash, `PowerShell`) zůstává zakázaný.
 - **Skill.** `SKILL.md` a `references/api.md` popíšou nové příkazy a pořadí hledání: plátno `search` → `find` / `code` → graphify → Archify → `recall` → web.
 
 ### 13.2 Kontrakt Jev v1: volba podkladu
@@ -392,7 +392,7 @@ Vzor [Recursive Language Models](https://arxiv.org/abs/2512.24601) (Zhang, Krask
    - Skript sestaví kandidáty z indexu (id → název a prvních 300 znaků textu karty, nejvýš 255) a pošle `POST /api/rlm/rank {project, workspace, query, candidates: [{id, text}], top}`.
    - Backend (`backend/api/editor/rlm_routes.py`, logika `backend/claude_code/assistant/rlm_rank.py`, jen loopback) zavolá Jev `choice` s `criteria = {id: text}`. Vrátí `{status: "ok", ranked: [{id, p}]}` seřazené podle pravděpodobnosti, nejvýš `top`.
    - Bez klíče nebo při poruše Jev vrátí `{status: "unavailable"}` a model pokračuje bodem 3. Klíč zůstává v backendu, do procesu `claude` se nedostane.
-3. **Rekurze: subagenti.** Do `ALLOWED_TOOLS` přibude `Agent` (dříve `Task`). Kořenový model rozdělí otázku po oddílech nebo složkách a každý kus předá subagentovi (`Explore`, levnější model). Subagent má stejná oprávnění jen pro čtení a vrací zhuštěné nálezy s odkazy `soubor:řádek` nebo `id karty`. Kořen nálezy jen skládá a celé oddíly nečte.
+3. **Rekurze: subagenti.** `Agent` (dříve `Task`) je v `ALLOWED_TOOLS`. Kořenový model rozdělí otázku po oddílech nebo složkách a každý kus předá subagentovi (`Explore`, levnější model). Subagent má stejná oprávnění jen pro čtení a vrací zhuštěné nálezy s odkazy `soubor:řádek` nebo `id karty`. Kořen nálezy jen skládá a celé oddíly nečte.
 
 **Postup ve skillu** (`references/rlm.md`): `index` → `rank` (nebo `search`) → přečíst jen 2–5 nejlepších oddílů → kde nestačí, rozdělit a předat subagentům → složit odpověď s odkazy na zdroj. Co nejde doložit odkazem, je otázka pro člověka, ne závěr.
 

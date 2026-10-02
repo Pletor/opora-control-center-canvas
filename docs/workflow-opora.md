@@ -43,13 +43,10 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 
 1. `node-sessions/bind`: `references/api.md` a `live-run.md` vynechávají povinné `runId`, `parentSessionId`, `confirmed: true`, takže požadavek podle návodu skončí 409.
 2. Pohled „Live Run → Tickety“ popsaný v `live-run.md` a `external-agent.md` ve frontendu neexistuje.
-3. `opora_read.py` neumí `node-brief`, `agent-workspace` ani `processes`, přestože `postup-vyvoje-projektu.md` agentovi říká „Načti node-brief“.
-4. `references/api.md` nezná adresované zprávy, `trace/tags/pipelines`, zakládání a přechody procesů, `/api/memory/*`, `node-materials` a `packet/preview.blockId`.
-5. Náčrt `node-brief` v `karta-pro-agenty.md` nemá `readOnly`, `agentWorkspace`, `communication`, `orientation`, `knowledgeGraph`, `roleMemory`, `graph.parent` ani podrobnosti `outputContract`.
-6. `agent-handoff-workspace.md` tvrdí, že komunikace není implementovaná. Verze v1 přitom je.
-7. `pamet-agentu.md` zmiňuje `context.memory.rules` v `node-brief`. Takový klíč neexistuje, pravidla jsou v `boundaries`.
-8. `agent-output.blocks[].note` se ověří a zahodí. Dokumentace to neuvádí.
-9. `postup-vyvoje-projektu.md` (bez worktree, lokální složka) a `PRODUCT-CONTRACT.md` (worktree na WorkUnit) popisují dva režimy. Oba v kódu existují a rozhoduje druh projektu.
+3. `references/api.md` nezná adresované zprávy, `trace/tags/pipelines`, zakládání a přechody procesů, `/api/memory/*`, `node-materials` a `packet/preview.blockId`.
+4. `pamet-agentu.md` zmiňuje `context.memory.rules` v `node-brief`. Takový klíč neexistuje, pravidla jsou v `boundaries`.
+5. `agent-output.blocks[].note` se ověří a zahodí. Dokumentace to neuvádí.
+6. `postup-vyvoje-projektu.md` (bez worktree, lokální složka) a `PRODUCT-CONTRACT.md` (worktree na WorkUnit) popisují dva režimy. Oba v kódu existují a rozhoduje druh projektu.
 
 ## 2. Pipeline
 
@@ -105,10 +102,10 @@ Opírá se to jen o existující pole. Nic nového se nestaví.
 | Not yet specified (mlha) | komentáře (`kind: comment`) na vrstvě sektoru | `/api/graph` | ne |
 | Out of scope | spec sektoru `non_goals`; vyřazená karta uzavřená s poznámkou „mimo rozsah“ | `/api/node-spec`, `done` | ne |
 | Ticket | karta (`kind: node`) uvnitř sektoru | `/api/graph` | ne |
-| Typ ticketu | předpona názvu `[research] / [prototype] / [grilling] / [task]` (konvence jako `[external:…]`) | `/api/graph` | **ano, slabá**: typ nemá pole; konvence stačí, dokud nevadí |
+| Typ ticketu | předpona názvu `[research] / [prototype] / [grilling] / [task]` (konvence jako `[external:…]`) | `/api/graph` | **ano, slabá**: typ je předpona názvu a nemá pole; vrstva, stav, model, effort a termín pole mají (`card`, `docs/kontext-karet-a-index.md`) |
 | Otázka ticketu | spec karty `goal`, `acceptance` = co je odpověď | `/api/node-spec` | ne |
 | Blokace | vazba `next` z blokující karty na blokovanou; `packet.depends_on` ji už takto čte | `/api/graph` | ne |
-| Frontier | karty sektoru bez `done.confirmed`, jejichž všechny příchozí `next` vedou z uzavřených karet, a nejsou převzaté | výpočet z `/api/view` + `/api/desktop-v3/state` | **ano, malá**: chybí čtecí příkaz v `opora_read.py` |
+| Frontier | karty sektoru bez `done.confirmed`, jejichž všechny příchozí `next` vedou z uzavřených karet, a nejsou převzaté | výpočet z `/api/view` + `/api/desktop-v3/state` | ne (čtecí příkaz `frontier` v `opora_read.py` existuje) |
 | Claim | `agent-workspace.frame` řádek „Převzato: <session/role> <ISO>“, `by: agent`; nově Live Run vazba session ↔ karta | `/api/desktop-v3/agent-workspace`, `/api/node-sessions/bind` | **ano, vědomě**: není výlučný zámek. Pro jednoho člověka s jedním vláknem nevadí |
 | Resolution comment | `agent-output`: `decisions` + `done.proposed` + zpráva na odchozí vazbě (`summary`, `handoff`) | `/api/desktop-v3/agent-output` | ne |
 | Zavření ticketu | `done.confirmed` potvrdí člověk (HITL odpovídá wayfinderu) | `/api/desktop-v3/state` | ne |

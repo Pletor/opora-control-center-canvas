@@ -58,7 +58,7 @@ Použij, když mapa sektoru má jasnou cestu (frontier rozhodovacích karet je p
    - `/api/desktop-v3/state`: pravidla `must` / `must_not` s `scope: node` a rozhodnutí `Model: …, effort …. Důvod.` s `nodeId` (viz `docs/predani-modelum.md`).
 5. **Kontrola.** `node-brief` každé karty musí být úplný: spec, bloky, pravidla, vazby. Chybí-li něco, karta zůstane v návrhu a otázka jde člověku.
 
-Dokud asistent nemá zápis se schválením (`docs/asistent.md` §5 fáze 2), končí krokem 3: dávku předá člověku jako návrh.
+Kroky 4–5 zapisuje asistent až po schválení člověka (`opora_write.py`, ApprovalCard, `docs/asistent.md` §5.1).
 
 ## Hranice
 
