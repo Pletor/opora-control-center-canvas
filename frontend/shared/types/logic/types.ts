@@ -10,6 +10,16 @@ export type BlockOffset = { dx: number; dy: number };
 export type BlockOffsets = Partial<Record<"action" | "rule" | "material", BlockOffset>>;
 /** Barva rámečku oblasti, aby šly skupiny na plátně rozeznat od sebe; chybí = dnešní vzhled (indigo). */
 export type AreaColor = "indigo" | "teal" | "amber" | "rose" | "violet" | "slate";
+/** Typ workflow karty; neukládá se, čte se jen z předpony názvu `[task] ` atd. (docs/kontext-karet-a-index.md §1). */
+export type CardType = "research" | "prototype" | "grilling" | "task";
+/** Vrstva karty podle otázky frontend / backend / database / library z docs/pravidla-struktury.md. */
+export type CardLayer = "frontend" | "backend" | "database" | "library";
+/** Ruční stav karty; `done` se nikdy neukládá, odvozuje se z uzavření karty. */
+export type CardStatus = "draft" | "ready";
+export type CardModel = "fable" | "opus" | "sonnet" | "haiku";
+export type CardEffort = "low" | "medium" | "high" | "xhigh" | "max";
+/** Nepovinná karta uzlu (jen `kind: "node"`); každý klíč je nepovinný a prázdná karta se neukládá. */
+export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: string; model?: CardModel; effort?: CardEffort };
 export type CanvasNode = {
   id: string;
   parentId: string | null;
@@ -25,6 +35,8 @@ export type CanvasNode = {
   blockOffsets?: BlockOffsets;
   /** Jen s `kind: "area"`: barva rámečku; chybí = indigová (viz `areaColorOf`). */
   color?: AreaColor;
+  /** Jen s `kind: "node"`: typ, ruční stav, termín, model a effort karty; chybí u starších uzlů. */
+  card?: NodeCardFields;
 };
 /** Port karty, ze kterého vazba vede. Starší vazba bez portu znamená `next`. `flow` spojuje jen dvě oblasti. */
 export type EdgePort = "next" | "action" | "rule" | "flow";

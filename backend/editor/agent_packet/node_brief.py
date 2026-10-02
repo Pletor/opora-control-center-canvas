@@ -34,6 +34,7 @@ cesty ve `graphify-out` se určují stejnými pomocníky jako při generování
 import subprocess
 
 from backend.canvas.areas import area_of
+from backend.canvas.card_context import card_address, card_layer, effective_status, effective_type
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.agent_output import SCHEMA as OUTPUT_SCHEMA
 from backend.editor.agent_memory.agent_output import output_json_schema
@@ -182,6 +183,10 @@ class NodeBrief:
         def name_of(nid):
             return by_id[nid]["name"] if nid in by_id else ""
 
+        def address_of(nid):
+            """Čitelná adresa karty (jen ke čtení, nikdy klíč); neznámý uzel má prázdnou."""
+            return card_address(by_id, by_id[nid]) if nid in by_id else ""
+
         def comments_of(parent_id):
             """Komentáře jsou lidské poznámky pro orientaci na vrstvě, ne příkazy modelu."""
             items = [item for item in graph["nodes"] if item["kind"] == "comment" and item["parentId"] == parent_id]
@@ -249,8 +254,11 @@ class NodeBrief:
             return {
                 "edgeId": edge["id"],
                 "from": edge["source"], "fromName": name_of(edge["source"]),
+                "fromAddress": address_of(edge["source"]),
                 "to": edge["target"], "toName": name_of(edge["target"]),
+                "toAddress": address_of(edge["target"]),
                 "port": edge_port(edge),
+                # Zpráva nese i `sentAt` a `due`, když je aplikace nebo člověk zapsali.
                 "sourceBlockId": edge.get("sourceBlockId", ""),
                 "sourcePortId": edge.get("sourcePortId", ""),
                 "report": reports.get(edge["id"]),
@@ -289,6 +297,14 @@ class NodeBrief:
                 # Co je v hloubce: kolik dětí karta má.
                 "depth": sum(1 for item in graph["nodes"] if item["parentId"] == node_id),
                 "sourceRef": node.get("sourceRef"),
+                # Karta (kontrakt `docs/kontext-karet-a-index.md` §6): efektivní hodnoty,
+                # chybějící je null. Stav `done` se odvozuje z uzavření karty, neukládá se.
+                # `type` je typ workflow z předpony názvu (čte ho workflow), `layer` vrstva karty.
+                "type": effective_type(node),
+                "layer": card_layer(node),
+                "status": effective_status(node, done["confirmed"]),
+                **{key: (node.get("card") or {}).get(key) for key in ("due", "model", "effort")},
+                "address": address_of(node_id),
             },
             "goal": {
                 "goal": fields["goal"], "nonGoals": fields["non_goals"], "acceptance": fields["acceptance"],

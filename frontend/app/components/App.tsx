@@ -14,12 +14,13 @@ import { cardFromItem, insertBlockFromItem, workflowFromItem } from "@/editor/co
 import { agentItemById } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
 import { insertActionFromItem, insertRulesFromItem, sectorFromWorkflow } from "@/editor/component-library/agent-catalog/logic/agent-insert";
 import EdgeReportPanel from "@/editor/canvas/edge-report/components/EdgeReportPanel";
-import { edgeReportView, reportOf, setEdgeReport } from "@/editor/canvas/edge-report/logic/edge-report-model";
+import { edgeReportView, edgeRoute, reportOf, setEdgeReport } from "@/editor/canvas/edge-report/logic/edge-report-model";
 import { addMaterial, captionMaterial, materialKindOf, moveMaterial, removeMaterial } from "@/editor/workflow/blocks/logic/block-model";
 import NodeLibraryDrawer from "@/editor/component-library/node-library/components/NodeLibraryDrawer";
 import { addBlockOfKind, closeLibrary, initialLibrary, openLibrary, showSection } from "@/editor/component-library/node-library/logic/library-model";
 import LibraryNavbar from "@/layout/library-navbar/components/LibraryNavbar";
 import { useLibraryNavbar } from "@/layout/library-navbar/logic/use-library-navbar";
+import { useCanvasIndex } from "@/layout/library-navbar/logic/use-canvas-index";
 import "@/layout/library-navbar/styles/library-navbar.css";
 import AgentNavbar from "@/layout/agent-navbar/components/AgentNavbar";
 import { useAgentNavbar } from "@/layout/agent-navbar/logic/use-agent-navbar";
@@ -49,7 +50,8 @@ import EnvironmentSwitch, { type Environment } from "@/layout/environment-switch
 import ProjectWorkspace from "@/project/workspace/components/ProjectWorkspace";
 import {ProjectMapNavigation, type ProjectMapKind} from "@/project/shell/components/ProjectLayout";
 import WorkspaceDocumentEditor from "@/project/workspace/components/WorkspaceDocumentEditor";
-import SourceExplorer from "@/project/source-tree/components/SourceExplorer";
+import CreateDialog from "@/editor/canvas/create-dialog/components/CreateDialog";
+import type { CreateResult } from "@/editor/canvas/create-dialog/logic/create-form";
 import { useWorkspaceSelection } from "@/shared/selection/logic/workspace-selection";
 import { clearSelection, emptySelection, panelsFor, selectBlock, selectEdge, selectNode, type Panels, type Selection } from "@/app/logic/selection-model";
 import "@/layout/shell/styles/desktop-workspaces.css";
@@ -81,7 +83,7 @@ import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
 import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
-import { commitSpec } from "@/shared/desktop-state/logic/api";
+import { commitSpec, saveNodeSpec } from "@/shared/desktop-state/logic/api";
 import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-report";
 import SyncDashboard from "@/project/sync-dashboard/components/SyncDashboard";
 import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
@@ -270,15 +272,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [modal, setModal] = useState<
     "github" | "sector" | "node" | "workspace" | null
   >(null);
-  const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [approved, setApproved] = useState(false);
-  const [createOrigin, setCreateOrigin] = useState<"existing" | "planned" | "concept" | null>(null);
-  const [createPath, setCreatePath] = useState<string | null>(null);
-  const [createKind, setCreateKind] = useState<"directory" | "file">("directory");
-  const [createPlannedPath, setCreatePlannedPath] = useState("");
-  const [createPurpose, setCreatePurpose] = useState("");
-  const [createTargetSector, setCreateTargetSector] = useState("");
   const [actor, setActor] = useState("");
   const operationGeneration = useRef(0);
   const generation = useRef(0);
@@ -319,10 +314,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       // První načtení zachová uzel z odkazu; další změna scope zahodí výběr celý (uzel, blok i vazbu).
       const hadScope = !!lastLoadedScope.current;
       setSelection((current) => (hadScope ? emptySelection() : { ...current, block: null, edge: null }));
+      // Zavřený pop-up tvorby zahodí i svůj rozepsaný formulář (výběr ve stromu platí jen pro tento scope).
       setRemoval(null); lastLoadedScope.current = nextScope;
-      // Výběr v asynchronním stromu platí jen pro původní projekt/workspace.
-      setCreateOrigin(null); setCreatePath(null); setCreateKind("directory");
-      setCreatePlannedPath(""); setCreatePurpose(""); setCreateTargetSector("");
     }
     setError("");
     if (screen === "canvas") refresh(); else generation.current++;
@@ -448,6 +441,16 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     () => new Set(Object.entries(desktop.state.nodes).filter(([, workflow]) => workflow.done?.confirmed).map(([id]) => id)),
     [desktop.state],
   );
+  // Hledání ve STRÁNCE Knihovny jde přes jednotný index plátna (docs/kontext-karet-a-index.md §5):
+  // jen s otevřenou záložkou a neprázdným dotazem; nová revize grafu nebo plochy dotaz zopakuje.
+  // Bez odpovědi (načítá se, selhalo) panel filtruje lokálně podle názvu jako dřív.
+  const pageMatches = useCanvasIndex(
+    project,
+    workspace,
+    libraryNavbar.state.pageQuery,
+    environment === "editor" && dock.rail && dock.section === "library" && libraryNavbar.state.tab === "page",
+    `${view?.digest ?? ""}:${desktop.revision}`,
+  );
   // Vybraný blok pro Editor v zásuvce (panels.drawer === "block"); undefined, dokud stav nedorazí.
   const selectedBlockData = selectedWorkflow?.blocks.find((b) => b.id === selectedBlock);
   const pickerNode = graph.nodes.find((n) => n.id === pipelinePickerFor);
@@ -466,22 +469,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   }
   const ancestorSector = [...ancestors].reverse().find((n) => n.kind === "sector") ?? null;
   const availableSectors = graph.nodes.filter((n) => n.kind === "sector");
-  const targetSector = graph.nodes.find((n) => n.id === createTargetSector) ?? null;
-  const effectiveSector = modal === "node" ? (ancestorSector ?? targetSector) : null;
   const activeProject = project === "draft" ? draftProject : projects.find((p) => p.id === project);
   // Volné uzly patří jen historickému vestavěnému draftu; připojený projekt
   // musí nejdřív dostat sektor, aby nevznikl zdroj bez vlastního kontextu.
   const capabilities = projectCapabilities(project, activeProject);
-  const legacyFreeNode = capabilities.legacyFree;
-  const legacyFreeSector = modal === "sector" && capabilities.legacyFree;
-  const conceptCreate = createOrigin === "concept";
-  const requiresTargetSector = modal === "node" && !effectiveSector && !legacyFreeNode && !conceptCreate;
-  const requiresModeChoice = !legacyFreeSector && !(modal === "node" && legacyFreeNode && !effectiveSector?.sourceRef) && (modal === "sector" || modal === "node");
-  const existingAllowedForNode = modal !== "node" || effectiveSector?.sourceRef?.origin === "existing";
-  const purposeReady = conceptCreate ? createPurpose.trim().length > 0 : createOrigin !== "planned" || (modal === "sector" ? createPurpose.trim().length >= 12 : createPurpose.trim().length > 0);
-  const pathReady = createOrigin !== "existing" || (existingAllowedForNode && createPath !== null);
-  const plannedNodePathReady = createOrigin !== "planned" || modal !== "node" || !createPlannedPath.trim() || effectiveSector?.sourceRef?.origin === "existing" || !!effectiveSector?.sourceRef?.path;
-  const createReady = !requiresTargetSector && plannedNodePathReady && (!requiresModeChoice || (createOrigin !== null && purposeReady && pathReady));
   const activeWorkspace = view?.workspaces.find((w) => w.id === workspace);
   const localProject = capabilities.localProject;
   // Komentář ani oblast nemají zdroj ani vazby next/action/rule a nesmí být cílem odkazu: ven z grafu
@@ -510,16 +501,31 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       }),
     );
   }
+  // Pop-up tvorby si rozepsaný formulář drží sám; nové otevření ho vykreslí znovu a tím vyčistí.
+  const [createSequence, setCreateSequence] = useState(0);
   function open(kind: typeof modal) {
     setModal(kind);
-    setName("");
     setApproved(false);
-    setCreateOrigin(null);
-    setCreatePath(null);
-    setCreateKind("directory");
-    setCreatePlannedPath("");
-    setCreatePurpose("");
-    setCreateTargetSector("");
+    setCreateSequence((value) => value + 1);
+  }
+  /**
+   * Hotový uzel z pop-upu tvorby: uloží se graf a teprve potom zadání sektoru přes existující spec API
+   * (nová karta má revizi zadání 0). Ukládá jen App; dialog o API nic neví.
+   */
+  function createFromDialog(result: CreateResult) {
+    const submitScope = { ...activeScope.current };
+    run(async () => {
+      await save({ ...graph, nodes: [...graph.nodes, result.node] }, () => {
+        if (
+          activeScope.current.project !== submitScope.project ||
+          activeScope.current.workspace !== submitScope.workspace
+        ) return;
+        setParent(result.node.parentId);
+        setSelection(selectNode(result.node.id));
+        setModal(null);
+      });
+      if (result.spec) await saveNodeSpec(submitScope.project, submitScope.workspace, result.node.id, 0, result.spec);
+    });
   }
   function enter(id: string | null) {
     setParent(id);
@@ -1228,7 +1234,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 report={reportOf(desktop.state, edge.id)}
                 readOnly={!!view?.readOnly || desktop.readOnly}
                 busy={busy}
+                route={edgeRoute(edge, graph.nodes)}
                 onChange={(field, value) => { void desktop.mutate(setEdgeReport(edge.id, { [field]: value })); }}
+                onDue={(due) => { void desktop.mutate(setEdgeReport(edge.id, { due })); }}
                 onDelete={() => requestRemoval("edge", edge.id)}
               />
             ) : panels.inspector === "layer" && layer ? (
@@ -1293,6 +1301,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
               state={libraryNavbar.state}
               nodes={graph.nodes}
               closed={closedNodeIds}
+              pageMatches={pageMatches}
               profile={profile}
               scope={drawer.scope}
               showOutside={drawer.showOutside}
@@ -1461,197 +1470,19 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 )}
               </>
             ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (busy || !name.trim() || !createReady) return;
-                  const submitScope = { ...activeScope.current };
-                  run(async () => {
-                    const parentId = modal === "node" && !ancestorSector && targetSector ? targetSector.id : parent;
-                    const siblings = graph.nodes.filter((n) => n.parentId === parentId).length;
-                    const plannedNodePath = modal === "node" && effectiveSector?.sourceRef?.path && createPlannedPath.trim()
-                      ? `${effectiveSector.sourceRef.path}/${createPlannedPath.trim()}`
-                      : createPlannedPath.trim();
-                    let sourceRef: CanvasNode["sourceRef"] = null;
-                    if (modal === "sector" && createOrigin === "existing") {
-                      sourceRef = { origin: "existing", path: createPath ?? "", kind: "directory" };
-                    } else if (modal === "sector" && createOrigin === "planned") {
-                      sourceRef = { origin: "planned", path: createPlannedPath.trim(), kind: "directory" };
-                    } else if (modal === "node" && effectiveSector && createOrigin === "existing") {
-                      sourceRef = { origin: "existing", path: createPath ?? "", kind: createKind };
-                    } else if (modal === "node" && effectiveSector && createOrigin === "planned") {
-                      sourceRef = { origin: "planned", path: plannedNodePath, kind: createKind };
-                    }
-                    const n: CanvasNode = {
-                      id: crypto.randomUUID(),
-                      parentId,
-                      kind: modal as "sector" | "node",
-                      name,
-                      purpose: createOrigin === "planned" || conceptCreate ? createPurpose.trim() : "",
-                      x: (siblings % 3) * 310,
-                      y: Math.floor(siblings / 3) * 210,
-                      ...(sourceRef ? { sourceRef } : {}),
-                    };
-                    await save({ ...graph, nodes: [...graph.nodes, n] }, () => {
-                      if (
-                        activeScope.current.project !== submitScope.project ||
-                        activeScope.current.workspace !== submitScope.workspace
-                      ) return;
-                      setParent(parentId);
-                      setSelection(selectNode(n.id));
-                      setModal(null);
-                    });
-                  });
-                }}
-              >
-                <div className="eyebrow">{modal === "sector" ? "SEKTOR V TÉTO VRSTVĚ" : "UZEL V TÉTO VRSTVĚ"}</div>
-                <h2>{modal === "sector" ? "Nový sektor" : "Nový uzel"}</h2>
-                <label className="field">
-                  Název uzlu
-                  <input
-                    aria-label="Název uzlu"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    maxLength={160}
-                    autoFocus
-                  />
-                </label>
-                {modal === "node" && !ancestorSector && (!conceptCreate || availableSectors.length > 0) && (
-                  <label className="field">
-                    Cílový sektor
-                    <select
-                      aria-label="Cílový sektor"
-                      value={createTargetSector}
-                      onChange={(e) => {
-                        const nextTargetSector = graph.nodes.find((n) => n.id === e.target.value && n.kind === "sector") ?? null;
-                        setCreateTargetSector(e.target.value);
-                        // Legacy volný uzel nemá volbu zdroje: nenechávej skrytý návrh
-                        // blokovat vytvoření ani prosakovat do uzlu bez zdroje.
-                        if (legacyFreeNode && !nextTargetSector?.sourceRef) {
-                          setCreateOrigin(null);
-                          setCreatePath(null);
-                          setCreateKind("directory");
-                          setCreatePlannedPath("");
-                          setCreatePurpose("");
-                          return;
-                        }
-                        // Změna rodiče nemaže rozepsaný návrh. Jen existující cestu
-                        // je nutné znovu vybrat v rozsahu nového sektoru.
-                        if (createOrigin === "existing") {
-                          setCreateOrigin(null);
-                          setCreatePath(null);
-                        } else if (createOrigin === "planned" && createPlannedPath.trim() &&
-                          nextTargetSector?.sourceRef?.origin !== "existing" && !nextTargetSector?.sourceRef?.path) {
-                          // Neurčený sektor nemůže relativní cestu bezpečně ukotvit.
-                          setCreatePlannedPath("");
-                        }
-                      }}
-                    >
-                      <option value="">{legacyFreeNode ? "Bez zdroje (volný uzel jako dosud)" : "Vyberte sektor"}</option>
-                      {availableSectors.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                    {requiresTargetSector && !targetSector && <p className="create-source-note">Tento projekt vyžaduje sektor. Vyberte cílový sektor, aby se uzel vytvořil v jeho vrstvě se zdrojovým kontextem.</p>}
-                  </label>
-                )}
-                {requiresModeChoice && (
-                  <>
-                    <div className="create-mode-toggle" role="group" aria-label="Původ zdroje">
-                      <button type="button" aria-pressed={conceptCreate}
-                        onClick={() => { setCreateOrigin("concept"); setCreatePath(null); }}>
-                        Jen funkce / myšlenka, bez souboru
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={createOrigin === "existing"}
-                        disabled={!existingAllowedForNode}
-                        title={!existingAllowedForNode ? "Sektor zatím nemá napojený existující zdroj." : undefined}
-                        onClick={() => { setCreateOrigin("existing"); setCreatePath(null); }}
-                      >
-                        Navázat na existující zdroj
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={createOrigin === "planned"}
-                        onClick={() => { setCreateOrigin("planned"); setCreatePath(null); }}
-                      >
-                        Navrhnout nové
-                      </button>
-                    </div>
-                    {conceptCreate && <label className="field">
-                      Co má tato část umět?
-                      <textarea aria-label="Co má tato část umět?" rows={3} required maxLength={2000}
-                        value={createPurpose} onChange={(e) => setCreatePurpose(e.target.value)} />
-                      <span className="create-source-note">Popište chování vlastními slovy. Nevybíráte soubor ani cestu; vznikne pouze návrh v Editoru.</span>
-                    </label>}
-                    {createOrigin === "existing" && (
-                      existingAllowedForNode ? (
-                        <>
-                          <div className="create-source-picker">
-                            <SourceExplorer
-                              project={project}
-                              workspace={workspace}
-                              selected={createPath ?? ""}
-                              onSelect={(path, kind) => { setCreatePath(path); if (modal === "node") setCreateKind(kind === "root" ? "directory" : kind); }}
-                              search=""
-                              refresh={0}
-                              basePath={modal === "node" ? (effectiveSector?.sourceRef?.path ?? "") : ""}
-                              rootLabel=""
-                              directoriesOnly={modal === "sector"}
-                              rootOnly={modal === "sector"}
-                            />
-                          </div>
-                          {createPath !== null ? (
-                            <p className="create-source-picked">Vybráno: <code>{createPath || "/"}</code></p>
-                          ) : (
-                            <p className="create-source-note">Vyberte {modal === "sector" ? "složku" : "složku nebo soubor"} ve stromu, nebo zrušte dialog.</p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="create-source-note">Tento sektor nemá napojený existující zdroj; nejdřív mu jej přiřaďte, nebo uzel jen navrhněte.</p>
-                      )
-                    )}
-                    {createOrigin === "planned" && (
-                      <>
-                        <label className="field">
-                          {modal === "node" ? "Zamýšlená cesta v sektoru (nepovinné, nic se nevytváří na disku)" : "Zamýšlená cesta (nepovinné, nic se nevytváří na disku)"}
-                          <input
-                            aria-label="Zamýšlená cesta"
-                            value={createPlannedPath}
-                            onChange={(e) => setCreatePlannedPath(e.target.value)}
-                            maxLength={400}
-                          />
-                        </label>
-                        {modal === "node" && (
-                          <label className="field">
-                            Druh navrhovaného zdroje
-                            <select aria-label="Druh navrhovaného zdroje" value={createKind} onChange={(e) => setCreateKind(e.target.value as "directory" | "file")}>
-                              <option value="directory">Složka</option>
-                              <option value="file">Soubor</option>
-                            </select>
-                          </label>
-                        )}
-                        <label className="field">
-                          {modal === "sector" ? "Podstata návrhu sektoru (nejméně 12 znaků)" : "Podstata návrhu uzlu"}
-                          <textarea
-                            aria-label={modal === "sector" ? "Podstata návrhu sektoru" : "Podstata návrhu uzlu"}
-                            rows={3}
-                            required
-                            value={createPurpose}
-                            onChange={(e) => setCreatePurpose(e.target.value)}
-                            maxLength={2000}
-                          />
-                        </label>
-                      </>
-                    )}
-                  </>
-                )}
-                <button className="primary" disabled={busy || !name.trim() || !createReady}>
-                  Vytvořit
-                </button>
-              </form>
+              <CreateDialog
+                key={createSequence}
+                kind={modal}
+                project={project}
+                workspace={workspace}
+                parent={parent}
+                nodes={graph.nodes}
+                ancestorSector={ancestorSector}
+                sectors={availableSectors}
+                legacyFree={capabilities.legacyFree}
+                busy={busy}
+                onCreate={createFromDialog}
+              />
             )}
           </section>
         </div>

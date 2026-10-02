@@ -96,67 +96,66 @@ def fold(text):
     return ''.join(ch for ch in decomposed if not unicodedata.combining(ch)).casefold()
 
 
-def card_fields(node, card):
-    """Prohledávaná pole karty: název a účel z view, bloky, kritéria a kroky ze stavu Desktop v3."""
-    blocks = []
-    for block in card.get('blocks') or []:
-        blocks += [block.get('title') or '', block.get('text') or '']
-        blocks += [todo.get('text') or '' for todo in block.get('todos') or []]
-
-    def lines(items):
-        return '\n'.join(item.get('text') for item in items or [] if item.get('text'))
-
-    return {'name': node.get('name') or '', 'purpose': node.get('purpose') or '',
-            'blocks': '\n'.join(text for text in blocks if text),
-            'criteria': lines(card.get('criteria')), 'steps': lines(card.get('steps'))}
+INDEX_ROUTE = '/api/canvas-index'
+INDEX_LIMIT = 2000
 
 
-def card_body(fields):
-    """Text karty bez názvu (účel, bloky, kritéria, kroky); z něj se počítá `chars`."""
-    return '\n'.join(fields[key] for key in ('purpose', 'blocks', 'criteria', 'steps') if fields[key])
+def index_entries(fetch, params, layer=None, q=''):
+    """Záznamy z jednotného indexu plátna (docs/kontext-karet-a-index.md §5); skript nic neskládá.
 
-
-def corpus(graph, state, layer=None):
-    """Oddíly plátna v pořadí grafu; `layer` omezí výběr na přímé potomky dané karty či sektoru."""
-    cards = state.get('nodes') or {}
-    return [(node, card_fields(node, cards.get(node.get('id')) or {}))
-            for node in graph.get('nodes', []) if layer is None or node.get('parentId') == layer]
+    `layer` omezí výběr na přímé potomky dané karty či sektoru (vazby rodiče nemají)."""
+    data = fetch(INDEX_ROUTE, {**params, 'q': q, 'limit': INDEX_LIMIT})
+    entries = data.get('entries', [])
+    if layer is not None:
+        entries = [entry for entry in entries if entry.get('parentId') == layer]
+    return entries
 
 
 SPEC_NOTE = 'Spec je soubor na kartu, proto se neprohledává; přečti ho přes node-spec.'
+# Kde se slovo dotazu našlo: název, adresa, popis, nebo jinde v korpusu (bloky, kritéria, kroky, zpráva).
+WHERE_FIELDS = ('name', 'address', 'purpose', 'text')
 
 
-def search(graph, state, query, layer=None):
-    """Karty, kde se každé slovo dotazu najde v některém poli; nejvýš 20, v pořadí grafu."""
-    terms = fold(query).split()
-    if not terms:
+def search(entries, query):
+    """Shody z indexu (pořadí indexu: název > adresa > jinde); nejvýš 20."""
+    terms = [term for term in fold(query).split() if ':' not in term]
+    if not fold(query).split():
         raise ValueError('--query nesmí být prázdný.')
     matches = []
-    for node, fields in corpus(graph, state, layer):
-        folded = {key: fold(value) for key, value in fields.items()}
-        if all(any(term in value for value in folded.values()) for term in terms):
-            matches.append({'id': node.get('id'), 'name': fields['name'], 'parentId': node.get('parentId'),
-                            'kde': [key for key, value in folded.items() if any(term in value for term in terms)]})
+    for entry in entries:
+        folded = {key: fold(entry.get(key) or '') for key in WHERE_FIELDS}
+        matches.append({'id': entry.get('id'), 'name': entry.get('name', ''), 'parentId': entry.get('parentId'),
+                        'kind': entry.get('kind'), 'address': entry.get('address', entry.get('fromAddress', '')),
+                        'type': entry.get('type'), 'layer': entry.get('layer'), 'status': entry.get('status'),
+                        'kde': [key for key, value in folded.items() if any(term in value for term in terms)]})
     return {'query': query, 'matches': matches[:SEARCH_LIMIT], 'total': len(matches),
             'truncated': len(matches) > SEARCH_LIMIT, 'note': SPEC_NOTE}
 
 
-def index(graph, state, layer=None):
-    sections = [{'id': node.get('id'), 'name': fields['name'], 'parentId': node.get('parentId'),
-                 'kind': node.get('kind'), 'chars': len(card_body(fields))}
-                for node, fields in corpus(graph, state, layer)]
+def cards(entries):
+    """Jen karty (sektor, uzel, oblast); vazby nejsou oddíly korpusu."""
+    return [entry for entry in entries if entry.get('kind') != 'edge']
+
+
+def index(entries):
+    sections = [{'id': entry.get('id'), 'name': entry.get('name', ''), 'parentId': entry.get('parentId'),
+                 'kind': entry.get('kind'), 'chars': len(entry.get('text') or ''),
+                 'address': entry.get('address', ''), 'type': entry.get('type'), 'layer': entry.get('layer'),
+                 'status': entry.get('status')}
+                for entry in cards(entries)]
     return {'count': len(sections), 'sections': sections,
             'note': 'Jen tvar korpusu; obsah oddílu načti přes node-brief / node-text.'}
 
 
-def rank_candidates(graph, state, layer=None):
-    """Kandidáti pro Jev: id → název a začátek textu karty, nejvýš 300 znaků a 255 oddílů."""
-    rows = corpus(graph, state, layer)
+def rank_candidates(entries):
+    """Kandidáti pro Jev: id → adresa, typ, vrstva, název a začátek korpusu, nejvýš 300 znaků a 255 oddílů."""
+    rows = cards(entries)
     candidates = []
-    for node, fields in rows[:RANK_MAX_CANDIDATES]:
-        body = card_body(fields)
-        text = fields['name'] + ('\n' + body if body else '')
-        candidates.append({'id': node.get('id'), 'text': text[:RANK_TEXT_CHARS]})
+    for entry in rows[:RANK_MAX_CANDIDATES]:
+        head = [entry.get('address') or '', entry.get('type') or '', entry.get('layer') or '', entry.get('name') or '',
+                (entry.get('text') or '')[:RANK_TEXT_CHARS]]
+        text = '\n'.join(part for part in head if part)
+        candidates.append({'id': entry.get('id'), 'text': text[:RANK_TEXT_CHARS]})
     return candidates, len(rows) > RANK_MAX_CANDIDATES
 
 
@@ -216,6 +215,7 @@ TICKET_TYPES = ('research', 'prototype', 'grilling', 'task')
 
 
 def ticket_type(name):
+    """Typ workflow: jen předpona názvu `[task]` atd.; `card` nese vrstvu, ne typ."""
     match = re.match(r'\[(\w+)\]', name or '')
     return match.group(1) if match and match.group(1) in TICKET_TYPES else ''
 
@@ -261,19 +261,19 @@ def frontier(graph, state, sector_id, frames):
     return out
 
 
-def rank(ask, graph, state, args):
+def rank(ask, entries, args):
     """Levné podvolání RLM: kandidáti z indexu → `/api/rlm/rank` (Jev v backendu, §13.3)."""
     required(args, 'query')
     if not 1 <= args.top <= 50:
         raise ValueError('--top musí být 1 až 50.')
-    candidates, cut = rank_candidates(graph, state, args.layer)
+    candidates, cut = rank_candidates(entries)
     if not candidates:
         raise ValueError('Ve zvolené vrstvě nejsou žádné oddíly k seřazení.')
     answer = ask('/api/rlm/rank', {'project': args.project, 'workspace': args.workspace, 'query': args.query,
                                     'candidates': candidates, 'top': args.top})
     out = {'status': answer.get('status'), 'candidates': len(candidates), 'candidatesTruncated': cut}
     if answer.get('status') == 'ok':
-        names = {node.get('id'): node.get('name', '') for node in graph.get('nodes', [])}
+        names = {entry.get('id'): entry.get('name', '') for entry in entries}
         out['ranked'] = [{**row, 'name': names.get(row.get('id'), '')} for row in answer.get('ranked', [])]
     else:
         out['note'] = 'Řazení není dostupné; pokračuj přes search a subagenty (references/rlm.md).'
@@ -357,14 +357,14 @@ def main():
         elif command in ('search', 'index', 'rank'):
             required(args, 'project', 'workspace', *(() if command == 'index' else ('query',)))
             params = {'project': args.project, 'workspace': args.workspace}
-            graph = fetch('/api/view', params).get('graph', {})
-            state = fetch('/api/desktop-v3/state', params).get('state', {})
             if command == 'search':
-                data = search(graph, state, args.query, args.layer)
+                if not fold(args.query).split():
+                    raise ValueError('--query nesmí být prázdný.')
+                data = search(index_entries(fetch, params, args.layer, args.query), args.query)
             elif command == 'index':
-                data = index(graph, state, args.layer)
+                data = index(index_entries(fetch, params, args.layer))
             else:
-                data = rank(ask, graph, state, args)
+                data = rank(ask, index_entries(fetch, params, args.layer), args)
         elif command == 'code':
             required(args, 'project', 'workspace', 'path', 'operation')
             data = ask('/api/code-intelligence/query', {

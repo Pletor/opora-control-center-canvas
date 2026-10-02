@@ -4,13 +4,17 @@ import io
 import json
 import sys
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import opora_read
+
+from backend.canvas.canvas_index import build_index
+from backend.canvas.canvas_index import search as index_search
 
 BASE = 'http://127.0.0.1:8741'
 SCOPE = ['--project', 'p1', '--workspace', 'draft']
@@ -48,8 +52,14 @@ def net(monkeypatch):
     }
 
     def fake_open(req, timeout):
-        route = urlsplit(req.full_url).path
+        parts = urlsplit(req.full_url)
+        route = parts.path
         body = json.loads(req.data) if req.data else None
+        if route == '/api/canvas-index':
+            # Falešný server odpovídá skutečnou logikou indexu nad aktuálním grafem a stavem.
+            query = {key: values[0] for key, values in parse_qs(parts.query).items()}
+            entries = build_index(answers['/api/view']['graph'], answers['/api/desktop-v3/state']['state'])
+            answers[route] = index_search(entries, query.get('q', ''), int(query.get('limit', 200)))
         calls.append({'method': req.get_method(), 'route': route, 'body': body,
                       'headers': {k.lower(): v for k, v in req.header_items()}, 'timeout': timeout})
         return Response(json.dumps(answers.get(route, {'ok': True})).encode('utf-8'))
@@ -136,19 +146,21 @@ def test_search_ignores_case_and_diacritics(net, monkeypatch, capsys):
     calls, _ = net
     code, out, _ = run(monkeypatch, capsys, 'search', *SCOPE, '--query', 'SIFROVANI cislo')
     assert code == 0 and posts(calls) == []
-    assert [call['route'] for call in calls] == ['/api/health', '/api/view', '/api/desktop-v3/state']
-    assert out['matches'] == [{'id': 'a', 'name': 'Přihlášení', 'parentId': 'sec', 'kde': ['blocks']}]
+    # Skript nic neskládá: čte jen jednotný index plátna.
+    assert [call['route'] for call in calls] == ['/api/health', '/api/canvas-index']
+    assert out['matches'] == [{'id': 'a', 'name': 'Přihlášení', 'parentId': 'sec', 'kind': 'node',
+                               'address': 'plan/prihlaseni', 'type': None, 'layer': None, 'status': None, 'kde': ['text']}]
     assert 'node-spec' in out['note']
-    _, out, _ = run(monkeypatch, capsys, 'search', *SCOPE, '--query', 'heslo formular')
-    assert out['matches'][0]['kde'] == ['criteria', 'steps']
+    _, out, _ = run(monkeypatch, capsys, 'search', *SCOPE, '--query', 'prihlaseni')
+    assert out['matches'][0]['kde'] == ['name', 'address', 'text']
     _, out, _ = run(monkeypatch, capsys, 'search', *SCOPE, '--query', 'nic', '--layer', 'sec')
     assert out['matches'] == []
 
 
 def test_search_returns_at_most_twenty(net, monkeypatch, capsys):
     _, answers = net
-    answers['/api/view'] = {'graph': {'nodes': [{'id': f'n{i}', 'parentId': None, 'kind': 'node', 'name': f'Karta {i}'}
-                                                for i in range(30)]}}
+    answers['/api/view'] = {'graph': {'nodes': [{'id': f'n{i}', 'parentId': None, 'kind': 'node', 'name': f'Karta {i}',
+                                                 'purpose': ''} for i in range(30)], 'edges': []}}
     _, out, _ = run(monkeypatch, capsys, 'search', *SCOPE, '--query', 'karta')
     assert len(out['matches']) == 20 and out['total'] == 30 and out['truncated'] is True
 
@@ -158,11 +170,13 @@ def test_index_reports_chars_without_content(net, monkeypatch, capsys):
     code, out, _ = run(monkeypatch, capsys, 'index', *SCOPE)
     assert code == 0 and posts(calls) == []
     rows = {row['id']: row for row in out['sections']}
-    body = 'Účet uživatele\nŠifrování\nbcrypt\nŽádné ČÍSLO\nHeslo se ověří\nFormulář'
-    assert rows['a'] == {'id': 'a', 'name': 'Přihlášení', 'parentId': 'sec', 'kind': 'node', 'chars': len(body)}
-    assert rows['b']['chars'] == 0 and out['count'] == 4
+    body = 'plan/prihlaseni\nPřihlášení\nÚčet uživatele\nŠifrování\nbcrypt\nŽádné ČÍSLO\nHeslo se ověří\nFormulář'
+    assert rows['a'] == {'id': 'a', 'name': 'Přihlášení', 'parentId': 'sec', 'kind': 'node', 'chars': len(body),
+                         'address': 'plan/prihlaseni', 'type': None, 'layer': None, 'status': None}
+    assert rows['b']['chars'] == len('plan/platby\nPlatby') and out['count'] == 4
+    # Pořadí indexu je podle adresy.
     _, out, _ = run(monkeypatch, capsys, 'index', *SCOPE, '--layer', 'sec')
-    assert [row['id'] for row in out['sections']] == ['a', 'b']
+    assert [row['id'] for row in out['sections']] == ['b', 'a']
 
 
 def test_rank_sends_candidates_and_names_results(net, monkeypatch, capsys):
@@ -173,15 +187,16 @@ def test_rank_sends_candidates_and_names_results(net, monkeypatch, capsys):
     assert call['route'] == '/api/rlm/rank'
     assert set(call['body']) == {'project', 'workspace', 'query', 'candidates', 'top'}
     assert call['body']['top'] == 5 and call['body']['query'] == 'platby'
-    assert [c['id'] for c in call['body']['candidates']] == ['a', 'b']
-    assert call['body']['candidates'][1] == {'id': 'b', 'text': 'Platby'}
+    # Pořadí indexu je podle adresy; text = adresa + typ + název + začátek korpusu.
+    assert [c['id'] for c in call['body']['candidates']] == ['b', 'a']
+    assert call['body']['candidates'][0] == {'id': 'b', 'text': 'plan/platby\nPlatby\nplan/platby\nPlatby'}
     assert out['ranked'] == [{'id': 'b', 'p': 0.7, 'name': 'Platby'}, {'id': 'a', 'p': 0.2, 'name': 'Přihlášení'}]
 
 
 def test_rank_limits_candidates_and_text(net, monkeypatch, capsys):
     calls, answers = net
     answers['/api/view'] = {'graph': {'nodes': [{'id': f'n{i}', 'parentId': None, 'kind': 'node', 'name': 'K',
-                                                 'purpose': 'x' * 1000} for i in range(300)]}}
+                                                 'purpose': 'x' * 1000} for i in range(300)], 'edges': []}}
     answers['/api/rlm/rank'] = {'status': 'unavailable'}
     _, out, _ = run(monkeypatch, capsys, 'rank', *SCOPE, '--query', 'q')
     candidates = posts(calls)[0]['body']['candidates']

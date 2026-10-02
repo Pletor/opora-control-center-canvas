@@ -168,6 +168,43 @@ def test_empty_texts_and_empty_timestamp_are_a_valid_report():
     assert validate_state(state(edges={"e1": blank}))["edges"]["e1"] == blank
 
 
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"sentAt": "2026-10-02T08:00:00+00:00"},
+        {"sentAt": ""},
+        {"due": "2026-10-10"},
+        {"due": ""},
+        {"sentAt": "2026-10-02T08:00:00+00:00", "due": "2026-10-10"},
+    ],
+)
+def test_report_may_carry_sent_at_and_due(extra):
+    value = report(**extra)
+    assert validate_state(state(edges={"e1": value}))["edges"]["e1"] == value
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"sentAt": "včera"},
+        {"sentAt": None},
+        {"due": "2026-02-30"},
+        {"due": "10.10.2026"},
+        {"due": None},
+        {"due": "2026-10-10T08:00"},
+    ],
+)
+def test_invalid_sent_at_or_due_is_rejected(extra):
+    with pytest.raises(ValueError):
+        validate_state(state(edges={"e1": report(**extra)}))
+
+
+def test_sent_at_does_not_replace_required_report_keys():
+    partial = {key: value for key, value in report(sentAt="").items() if key != "agent"}
+    with pytest.raises(ValueError):
+        validate_state(state(edges={"e1": partial}))
+
+
 # ---- přes API ---------------------------------------------------------------------
 
 

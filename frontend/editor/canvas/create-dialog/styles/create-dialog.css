@@ -1,0 +1,130 @@
+/* POP-UP TVORBY (blok `create-dialog`)
+   Příběh: člověk klikne na „+ Sektor“ nebo „+ Uzel“ a na první pohled vidí jen to, bez čeho karta
+   nevznikne: název, kam patří, z čeho vychází a jedno pole popisu. Všechno nepovinné čeká sbalené
+   dole, takže formulář je krátký a čte se shora dolů jako věta. Kdyby se přesto protáhl (strom
+   zdrojů, rozbalené sekce), posouvá se uvnitř dialogu a „Vytvořit“ zůstává na konci cesty.
+   Rytmus odsazení drží společné `.field` (mezera var(--sp-3) mezi poli, var(--sp-1) mezi popiskem
+   a ovládáním); vlastní skupiny čipů a přepínač ho opakují, aby nic nevyskočilo z řady. */
+.create-dialog {
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding-right: var(--sp-1);
+}
+.create-dialog__head { margin-bottom: var(--sp-2); }
+
+/* Skupina bez vlastního `<label>` (vrstva, původ): stejný popisek a stejná mezera jako běžné pole,
+   jen ovládání pod ním jsou tlačítka. „(nepovinné)“ je tlumené, ať nekřičí víc než název pole. */
+.create-dialog__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: var(--sp-3) 0;
+}
+.create-dialog__label { font-size: var(--fs-1); color: var(--ink-2); }
+.create-dialog__optional { color: var(--ink-muted); }
+
+/* Čipy (vrstva FE · BE · DB · Knihovna, Složka / Soubor): malé, v jedné řadě, aby volba byla jeden
+   klik a nezabrala řádek jako select. Vybraný čip přebírá akcent; nevybraný je jen obrys, protože
+   vrstva je nepovinná a prázdný stav nesmí vypadat jako chyba. */
+.create-dialog__chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.create-dialog__chips--inline { flex-wrap: nowrap; padding-bottom: 1px; }
+.create-dialog__chip {
+  min-height: 0;
+  padding: 3px var(--sp-2);
+  font-size: var(--fs-1);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.create-dialog__chip:hover:not(:disabled) { color: var(--ink); border-color: var(--line-strong); }
+.create-dialog__chip--on,
+.create-dialog__chip--on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
+
+/* Původ: tři varianty srostlé do jednoho segmentu na jeden řádek — je vidět, že se vybírá právě jedna.
+   Zakázaná varianta zůstává na svém místě, jen zeslábne; proč, řekne tooltip. */
+.create-dialog__segment {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.create-dialog__segment-option {
+  min-height: 0;
+  padding: 6px var(--sp-2);
+  font-size: var(--fs-1);
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.create-dialog__segment-option + .create-dialog__segment-option { border-left: 1px solid var(--line); }
+.create-dialog__segment-option:hover:not(:disabled) { color: var(--ink); }
+.create-dialog__segment-option--on,
+.create-dialog__segment-option--on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.create-dialog__segment-option:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Nový návrh: cesta a Složka / Soubor na jednom řádku, protože jsou to dvě poloviny jedné odpovědi
+   „co navrhuji“. Cesta bere zbytek šířky, čipy sedí dole v rovině se spodní hranou pole. */
+.create-dialog__row { display: flex; align-items: flex-end; gap: var(--sp-2); }
+.create-dialog__grow { flex: 1; min-width: 0; margin-bottom: 0; }
+.create-dialog__row > .create-dialog__chips { margin-bottom: 6px; }
+
+/* Sbalené nepovinné sekce (zadání sektoru, pro agenta): jedna tichá řádka s šipkou. Vpravo v ní
+   stojí, co už je vyplněné (např. „ready · sonnet/medium“), takže se nemusí rozbalovat kvůli kontrole. */
+.create-dialog__fold {
+  margin: var(--sp-3) 0 0;
+  border-top: 1px solid var(--line);
+  padding-top: var(--sp-2);
+}
+.create-dialog__fold-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  cursor: pointer;
+  font-size: var(--fs-1);
+  color: var(--ink-2);
+}
+.create-dialog__fold-title { flex: none; }
+.create-dialog__fold-value {
+  margin-left: auto;
+  min-width: 0;
+  font: var(--fs-0) var(--mono);
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.create-dialog__fold-body { padding-top: var(--sp-1); }
+
+/* Pro agenta: čtyři krátké volby ve dvou sloupcích — stav, model, effort, termín. Každá je jedno slovo,
+   takže dva sloupce zaberou místo jednoho textového pole. Detail karty používá tutéž mřížku. */
+.create-dialog__agent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: var(--sp-2);
+}
+.create-dialog__agent-field { margin: var(--sp-1) 0; }
+
+/* Zadání sektoru: tři nízká pole pod sebou (cíl, co nedělat, hotovo když); kdo chce psát víc,
+   pokračuje později v záložce Zadání. */
+.create-dialog__spec { display: flex; flex-direction: column; }
+.create-dialog__spec .field { margin: var(--sp-1) 0; }
+
+/* Konec cesty: „Vytvořit“ přes celou šířku, pod ním při zhasnutém tlačítku věta, co ještě chybí.
+   Tlumená, ne červená — není to chyba, jen seznam toho, co doplnit. */
+.create-dialog__foot { margin-top: var(--sp-4); }
+.create-dialog__missing {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-1);
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .create-dialog__agent { grid-template-columns: 1fr; }
+  .create-dialog__row { flex-direction: column; align-items: stretch; }
+  .create-dialog__segment-option { white-space: normal; }
+}

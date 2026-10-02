@@ -19,6 +19,26 @@
 .edge-report__note { margin: 0; font-size: 11px; line-height: 1.5; color: var(--ink-muted); }
 .edge-report__note code { overflow-wrap: anywhere; }
 
+/* Předání jako hlavička dopisu: From, To, Sent a Date v úzké tabulce nad textem. Popisky vlevo mají
+   pevnou šířku a monospace, aby se hodnoty srovnaly pod sebe a oko je přečetlo jedním tahem. Adresa
+   karty je pod názvem drobně — slouží k orientaci, ne jako odkaz. „nepředáno“ je tlumené, protože to
+   není chyba, jen stav. Termín je jediné, co tu člověk mění; ostatní dopočítá aplikace. */
+.edge-report__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+.edge-report__meta-row { display: grid; grid-template-columns: 44px 1fr; align-items: baseline; gap: 8px; min-width: 0; }
+.edge-report__meta-label { font: 600 10px var(--mono); letter-spacing: 0.06em; color: var(--ink-muted); }
+.edge-report__meta-value { display: flex; flex-direction: column; font-size: 12px; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.edge-report__meta-value--empty { color: var(--ink-muted); font-style: italic; }
+.edge-report__meta-address { font-size: 10px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.edge-report__meta-date { justify-self: start; font: inherit; font-size: 12px; }
+
 /* Pět polí pod sebou, každé s vlastním jménem nad rámečkem a nápovědou pod ním. Nápověda je drobná
    schválně: jméno pole stačí zkušenému, nápověda pomůže tomu, kdo sem přišel poprvé. */
 .edge-report__fields { display: flex; flex-direction: column; gap: 8px; }

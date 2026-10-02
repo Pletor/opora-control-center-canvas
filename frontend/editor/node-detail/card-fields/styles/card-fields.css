@@ -1,0 +1,8 @@
+/* KARTA V DETAILU (blok `card-fields`)
+   Příběh: v záložce Zadání si člověk u hotového uzlu doplní nebo opraví vrstvu a pokyny pro agenta —
+   stejné čipy a stejné dva sloupce, jaké viděl při jejím založení, jen tady rovnou rozbalené. Krátká věta nad nimi říká,
+   proč tu chybí „hotovo“: to dává jen uzavření karty. Tlačítko Uložit se objeví, až když se něco změní,
+   aby nevisela akce, která nic neudělá. */
+.card-fields { margin: 0 0 13px; }
+.card-fields__note { margin: 0 0 5px; font-size: 12px; color: var(--ink-muted); }
+.card-fields__save { margin-top: 5px; }

@@ -4,23 +4,30 @@
 import { useState } from "react";
 import type { EdgeReport, EdgeReportField } from "@/shared/desktop-state/logic/types";
 import { EDGE_REPORT_FIELDS, MAX_REPORT_FIELD } from "@/shared/desktop-state/logic/types";
-import { filledFields, reportSignature, type EdgeReportView } from "@/editor/canvas/edge-report/logic/edge-report-model";
+import { filledFields, reportSignature, type EdgeReportView, type EdgeRoute } from "@/editor/canvas/edge-report/logic/edge-report-model";
+import EdgeReportMeta from "@/editor/canvas/edge-report/components/EdgeReportMeta";
 import "@/editor/canvas/edge-report/styles/edge-report.css";
 
 export default function EdgeReportPanel({
   view,
+  route,
   report,
   readOnly,
   busy,
   onChange,
+  onDue,
   onDelete,
 }: {
   view: EdgeReportView;
+  /** From / To: název a adresa obou karet z `edgeRoute`. */
+  route: EdgeRoute;
   report: EdgeReport;
   readOnly: boolean;
   busy: boolean;
   /** Opuštění pole ohlásí hotovou hodnotu; rodič ji uloží přes desktop.mutate(setEdgeReport(...)). */
   onChange: (field: EdgeReportField, value: string) => void;
+  /** Nový termín převzetí (`YYYY-MM-DD` nebo `""`); rodič ho uloží přes setEdgeReport(..., { due }). */
+  onDue: (due: string) => void;
   onDelete: () => void;
 }) {
   const [draft, setDraft] = useState<Partial<Record<EdgeReportField, string>>>({});
@@ -47,6 +54,7 @@ export default function EdgeReportPanel({
         Zpráva na vazbě je paměť mezi kartami: co se udělalo, co z toho platí a na co si má dát pozor další agent.
         Vyplněno <b>{filledFields(report)} / {EDGE_REPORT_FIELDS.length}</b>. Identifikátor vazby: <code>{view.edgeId}</code>
       </p>
+      <EdgeReportMeta route={route} sentAt={report.sentAt} due={report.due} readOnly={readOnly} busy={busy} onDue={onDue} />
       <div className="edge-report__fields">
         {EDGE_REPORT_FIELDS.map((field) => (
           <label key={field.id} className="edge-report__field">

@@ -2,6 +2,7 @@ import hashlib
 import json
 import math
 import re
+from datetime import date
 
 from backend.project.workspace.workspace_sources import relative_path
 
@@ -19,11 +20,23 @@ BLOCK_OFFSET_PORTS = {"action", "rule", "material"}
 # `color` je nepovinná barva rámečku oblasti, aby šly skupiny na plátně rozeznat od sebe;
 # smí ji nést jen oblast (kind "area") a jen jedna z šesti hodnot (viz `AREA_COLORS`).
 AREA_COLORS = ("indigo", "teal", "amber", "rose", "violet", "slate")
+# `card` je nepovinná karta uzlu (jen kind "node"): vrstva (otázka frontend / backend / database /
+# library z `docs/pravidla-struktury.md`), ruční stav, termín a doporučený model s effortem.
+# Typ workflow se neukládá, čte se jen z předpony názvu (`[task] …`). `done` se nikdy neukládá, odvozuje se z uzavření karty (`done.confirmed`).
+# Kontrakt: `docs/kontext-karet-a-index.md` §1.
+CARD_VALUES = {
+    "layer": ("frontend", "backend", "database", "library"),
+    "status": ("draft", "ready"),
+    "model": ("fable", "opus", "sonnet", "haiku"),
+    "effort": ("low", "medium", "high", "xhigh", "max"),
+}
+CARD_KEYS = set(CARD_VALUES) | {"due"}
 NODE_KEY_SETS = tuple(
-    keys | offsets | color
+    keys | offsets | color | card
     for keys in (NODE_KEYS, NODE_KEYS_WITH_SOURCE, NODE_KEYS_WITH_SIZE)
     for offsets in (set(), {"blockOffsets"})
     for color in (set(), {"color"})
+    for card in (set(), {"card"})
 )
 EDGE_KEYS = {"id", "source", "target"}
 # Port karty, ze kterého vazba vede; chybějící port u starších vazeb znamená `next`.
@@ -71,6 +84,28 @@ def validate_block_offsets(offsets):
             for k in ("dx", "dy")
         ):
             raise ValueError("Neplatný posun bloků.")
+
+
+def valid_date(value):
+    """Platné kalendářní datum přesně ve tvaru YYYY-MM-DD."""
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def validate_card(card):
+    """Ověří kartu uzlu: neprázdný objekt jen se známými klíči a povolenými hodnotami."""
+    if not isinstance(card, dict) or not card or not set(card) <= CARD_KEYS:
+        raise ValueError("Neplatná karta uzlu.")
+    for key, allowed in CARD_VALUES.items():
+        if key in card and card[key] not in allowed:
+            raise ValueError("Neplatná karta uzlu.")
+    if "due" in card and not valid_date(card["due"]):
+        raise ValueError("Neplatný termín karty.")
 
 
 def validate_graph(value):
@@ -123,6 +158,11 @@ def validate_graph(value):
             if n["kind"] not in ("node", "sector"):
                 raise ValueError("Posun bloků má jen uzel nebo sektor.")
             validate_block_offsets(n["blockOffsets"])
+        # Kartu (druh, stav, termín, model, effort) nese jen uzel; sektor, komentář ani oblast ne.
+        if "card" in n:
+            if n["kind"] != "node":
+                raise ValueError("Kartu má jen uzel.")
+            validate_card(n["card"])
         if (
             not isinstance(n["name"], str)
             or (n["kind"] != "area" and not n["name"].strip())

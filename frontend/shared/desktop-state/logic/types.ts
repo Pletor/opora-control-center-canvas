@@ -73,6 +73,10 @@ export type EdgeReport = {
   updatedAt: string;
   by: DecisionBy;
   agent: string;
+  /** Kdy se naposledy změnil neprázdný `handoff` (ISO čas); nastavuje aplikace, ručně nejde. Chybí = nepředáno. */
+  sentAt?: string;
+  /** Termín převzetí `YYYY-MM-DD` nebo `""`; volitelný, upravuje člověk. */
+  due?: string;
 };
 export const MAX_REPORT_FIELD = 4000;
 /** Pojmenovaná pole zprávy v pořadí, ve kterém je člověk i model čte. */

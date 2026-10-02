@@ -70,3 +70,25 @@ describe("card-model", () => {
     expect(matchesTagFilter(emptyNodeWorkflow(), "")).toBe(true);
   });
 });
+
+describe("card-model: vrstva a stav karty", () => {
+  it("uzel bez karty nemá štítky, starší graf se nemění", () => {
+    const view = cardView(node, emptyNodeWorkflow(), 0);
+    expect(view.cardLayer).toBeNull();
+    expect(view.cardStatus).toBeNull();
+  });
+
+  it("vrstva jen z karty (ne z předpony), stav done z uzavření", () => {
+    const workflow = { ...emptyNodeWorkflow(), done: { confirmed: true, at: "", by: "human" as const, note: "" } };
+    expect(cardView({ ...node, name: "[task] Login" }, emptyNodeWorkflow(), 0).cardLayer).toBeNull();
+    const view = cardView({ ...node, card: { layer: "database", status: "ready" } }, workflow, 0);
+    expect(view.cardLayer).toBe("database");
+    expect(view.cardStatus).toBe("done");
+  });
+
+  it("sektor vrstvu ani stav nenese", () => {
+    const view = cardView({ ...node, kind: "sector", name: "[task] S", card: { layer: "backend", status: "ready" } }, emptyNodeWorkflow(), 0);
+    expect(view.cardLayer).toBeNull();
+    expect(view.cardStatus).toBeNull();
+  });
+});

@@ -16,6 +16,7 @@ import { LIBRARY_TABS, type LibraryNavbarState, type LibraryTab } from "@/layout
 import type { LayerFilter, LayerGroupId } from "@/layout/library-navbar/logic/layer-list";
 import { CATALOG_ITEMS, type CatalogItem } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import type { CanvasNode } from "@/shared/types/logic/types";
+import type { IndexMatches } from "@/layout/library-navbar/logic/canvas-index";
 
 /** Stálé prázdné hodnoty, aby výchozí props nedělaly z každého vykreslení nový objekt. */
 const EMPTY_CLOSED: ReadonlySet<string> = new Set<string>();
@@ -27,6 +28,7 @@ export default function LibraryNavbar({
   items = CATALOG_ITEMS,
   nodes = EMPTY_NODES,
   closed = EMPTY_CLOSED,
+  pageMatches = null,
   profile = NO_PROFILE,
   scope = "fitting",
   showOutside = false,
@@ -46,6 +48,8 @@ export default function LibraryNavbar({
   nodes?: CanvasNode[];
   /** Id uzavřených karet (`done.confirmed`) pro značku „skryto“ v seznamu vrstev. */
   closed?: ReadonlySet<string>;
+  /** Shody indexu plátna pro hledání ve STRÁNCE; načítá je App, `null` = lokální filtr podle názvu. */
+  pageMatches?: IndexMatches | null;
   /** Profil projektu od App; podle něj se katalog zúží. Bez profilu se nic nefiltruje. */
   profile?: ProjectProfile;
   scope?: CatalogScope;
@@ -90,6 +94,7 @@ export default function LibraryNavbar({
           <LibraryPagePanel
             nodes={nodes}
             closed={closed}
+            matches={pageMatches}
             filter={state.pageFilter}
             query={state.pageQuery}
             collapsed={state.collapsed}

@@ -1,7 +1,9 @@
-"""Rozhraní Editoru: graf plátna, kresby, wireframe kontext a odstraňování."""
+"""Rozhraní Editoru: graf plátna, index karet, kresby, wireframe kontext a odstraňování."""
 
 from fastapi import APIRouter
 
+from backend.canvas.canvas_index import DEFAULT_LIMIT, build_index, search
+from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.node.wireframe_context import wireframe_context
 
 
@@ -11,6 +13,16 @@ def create_canvas_router(service):
     @router.get("/view")
     def view(project: str = "draft", workspace: str = "draft"):
         return service.view(project, workspace)
+
+    @router.get("/canvas-index")
+    def canvas_index(project: str = "draft", workspace: str = "draft", q: str = "", limit: int = DEFAULT_LIMIT):
+        # Jednotný index karet a vazeb (docs/kontext-karet-a-index.md §5): staví se v paměti,
+        # nic neukládá. Graf i stav plochy se čtou pod jedním zámkem grafu, stejně jako `/view`.
+        with service.graph_lock:
+            graph = service.view(project, workspace)["graph"]
+            store = getattr(service, "desktop_v3_state", None) or DesktopV3State(service)
+            state = store.read(project, workspace)["state"]
+        return search(build_index(graph, state), q, limit)
 
     @router.post("/graph")
     def graph(payload: dict):

@@ -15,7 +15,7 @@ import re
 from datetime import datetime
 
 from backend.canvas.canvas_service import now
-from backend.canvas.graph import valid_id
+from backend.canvas.graph import valid_date, valid_id
 from backend.memory.roles import role_ids
 from backend.project.workspace.workspace_sources import relative_path
 
@@ -82,6 +82,10 @@ DONE_KEYS = {"confirmed", "at", "by", "note"}
 # Zpráva agenta na vazbě: pět pojmenovaných textů, čas, původce a označení agenta.
 EDGE_REPORT_KEYS = {"log", "summary", "handoff", "improvements", "errors", "updatedAt", "by", "agent"}
 EDGE_REPORT_TEXTS = ("log", "summary", "handoff", "improvements", "errors")
+# Volitelná pole zprávy (kontrakt `docs/kontext-karet-a-index.md` §4): `sentAt` je čas posledního
+# předání neprázdného `handoff` (nastavuje ho aplikace, ne člověk ani agent), `due` je termín
+# převzetí `YYYY-MM-DD` nebo "". Starší zprávy bez nich zůstávají platné.
+EDGE_REPORT_OPTIONAL = ("sentAt", "due")
 MAX_EDGE_REPORTS = 4000
 MAX_AGENT = 120
 
@@ -259,13 +263,21 @@ def _validate_edge_reports(state):
         _fail(f"edges musí být objekt nejvýše {MAX_EDGE_REPORTS} zpráv.")
     for edge_id, report in reports.items():
         _ident(edge_id, "klíč vazby")
-        if not isinstance(report, dict) or set(report) != EDGE_REPORT_KEYS:
+        if (
+            not isinstance(report, dict)
+            or not EDGE_REPORT_KEYS <= set(report)
+            or not set(report) <= EDGE_REPORT_KEYS | set(EDGE_REPORT_OPTIONAL)
+        ):
             _fail(f"zpráva na vazbě {edge_id} má neplatná pole.")
         for key in EDGE_REPORT_TEXTS:
             _text(report[key], MAX_TEXT, f"{key} zprávy na vazbě {edge_id}", allow_empty=True)
         _timestamp(report["updatedAt"], f"updatedAt zprávy na vazbě {edge_id}", allow_empty=True)
         _enum(report["by"], ACTORS, "původce zprávy na vazbě")
         _text(report["agent"], MAX_AGENT, "označení agenta", allow_empty=True)
+        if "sentAt" in report:
+            _timestamp(report["sentAt"], f"sentAt zprávy na vazbě {edge_id}", allow_empty=True)
+        if "due" in report and report["due"] != "" and not valid_date(report["due"]):
+            _fail(f"due zprávy na vazbě {edge_id} musí být YYYY-MM-DD nebo prázdné.")
 
 
 def _validate_blocks(node, node_id):

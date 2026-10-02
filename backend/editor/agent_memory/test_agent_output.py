@@ -186,3 +186,53 @@ def test_card_without_stored_state_accepts_a_done_proposal_and_a_decision(tmp_pa
         result = send(client, body).json()
         assert result["state"]["nodes"]["dalsi"]["done"]["by"] == "agent"
         assert result["state"]["decisions"][0]["nodeId"] == "dalsi"
+
+
+def _report(handoff):
+    return {"edgeId": "e-out", "log": "", "summary": "", "handoff": handoff, "improvements": "", "errors": ""}
+
+
+def _stored_report(**overrides):
+    item = {"log": "", "summary": "", "handoff": "Staré předání.", "improvements": "", "errors": "",
+            "updatedAt": "2026-09-01T08:00:00+00:00", "by": "human", "agent": "",
+            "sentAt": "2026-09-01T08:00:00+00:00", "due": "2026-10-10"}
+    item.update(overrides)
+    return item
+
+
+def test_new_handoff_sets_sent_at_to_the_write_time(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        revision = prepared(client)
+        report = send(client, payload(revision)).json()["state"]["edges"]["e-out"]
+        assert report["sentAt"] == report["updatedAt"] and report["sentAt"]
+        assert "due" not in report
+
+
+def test_changed_handoff_moves_sent_at_and_keeps_due(tmp_path):
+    state = base_state()
+    state["edges"] = {"e-out": _stored_report()}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        revision = prepared(client, state)
+        body = payload(revision, output=output(reports=[_report("Nové předání.")]))
+        report = send(client, body).json()["state"]["edges"]["e-out"]
+        assert report["sentAt"] == report["updatedAt"] != "2026-09-01T08:00:00+00:00"
+        assert report["due"] == "2026-10-10" and report["handoff"] == "Nové předání."
+
+
+@pytest.mark.parametrize("handoff", ["Staré předání.", "", "   "])
+def test_unchanged_or_empty_handoff_keeps_sent_at_and_due(tmp_path, handoff):
+    state = base_state()
+    state["edges"] = {"e-out": _stored_report()}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        revision = prepared(client, state)
+        body = payload(revision, output=output(reports=[_report(handoff)]))
+        report = send(client, body).json()["state"]["edges"]["e-out"]
+        assert report["sentAt"] == "2026-09-01T08:00:00+00:00"
+        assert report["due"] == "2026-10-10"
+
+
+def test_agent_cannot_send_sent_at_or_due(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        revision = prepared(client)
+        forged = {**_report("Předání."), "sentAt": "2026-01-01T00:00:00+00:00"}
+        assert send(client, payload(revision, output=output(reports=[forged]))).status_code == 409

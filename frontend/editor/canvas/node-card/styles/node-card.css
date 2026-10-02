@@ -59,6 +59,22 @@
 }
 .node-card__phase--live { color: var(--accent); background: var(--accent-soft); }
 
+/* Štítky karty: vrstva (FE, BE, DB, Knihovna) a stav sedí v hlavě hned vedle fáze, drobně a bez barvy
+   navíc — je to poznámka na okraji, ne nový nadpis. Objeví se jen u uzlu, který vrstvu nebo stav má, takže
+   karta bez nich vypadá přesně jako dřív. Připravená karta dostane akcent (může se na ní začít),
+   hotová zeslábne spolu s celou uzavřenou kartou. */
+.node-card__badges { display: flex; gap: 5px; margin-left: auto; margin-right: 5px; min-width: 0; }
+.node-card__badge {
+  font: 500 10px var(--mono);
+  color: var(--ink-muted);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.node-card__badge--ready { color: var(--accent); border-color: var(--accent-line); }
+.node-card__badge--done { border-style: dashed; }
+
 /* TĚLO: jméno je to první, co se čte, proto 16 px a dvojklik na něj přejmenovává přímo na plátně.
    Podstata pod ním má tři řádky — tolik, aby se dala pochopit, a ne tolik, aby se karta protáhla.
    Když podstata chybí, zůstává kurzívou věta, která říká, že tam něco patří. */

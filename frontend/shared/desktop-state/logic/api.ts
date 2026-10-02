@@ -1,5 +1,5 @@
 // Klient pro sdílené API Desktop v3. Fetch přes existující api() z ../types.
-import { api } from "@/shared/types/logic/types";
+import { api, type NodeSpec, type SpecFields } from "@/shared/types/logic/types";
 import type {
   AgentWorkspaceSummaries,
   DesktopState,
@@ -154,3 +154,10 @@ export function commitSpec(project: string, workspace: string, scope: string, su
   });
 }
 
+/**
+ * Uloží zadání karty (cíl, co není součástí, podmínky dokončení) přes `POST /api/node-spec` —
+ * totéž API, kterým ukládá záložka Zadání. `expectedRevision` hlídá souběh; nová karta má 0.
+ */
+export function saveNodeSpec(project: string, workspace: string, node: string, expectedRevision: number, fields: SpecFields): Promise<NodeSpec> {
+  return api<NodeSpec>("/api/node-spec", { project, workspace, node, expected_revision: expectedRevision, fields });
+}

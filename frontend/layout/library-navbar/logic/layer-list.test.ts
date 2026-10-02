@@ -136,3 +136,23 @@ describe("layer-list – cizí a poškozená data", () => {
     expect(countLayers(buildLayerTree(loop))).toBe(0);
   });
 });
+
+describe("layer-list – shody z indexu plátna", () => {
+  it("s neprázdným dotazem ukáže jen shody, jejich obsah a předky", () => {
+    const rows = buildLayerTree(graph, "all", "typ:task", new Set(), new Set(["n3", "a2"])).flatMap((group) => group.rows);
+    expect(rows.map((row) => row.id)).toEqual(["s1", "s2", "n3", "a2"]);
+  });
+
+  it("shoda sektoru z indexu ukáže celý jeho obsah stejně jako lokální filtr", () => {
+    const [fromIndex] = buildLayerTree(graph, "all", "platby", new Set(), new Set(["s1"]));
+    const [local] = buildLayerTree(graph, "sector", "platby");
+    expect(fromIndex.rows.map((row) => row.id)).toEqual(local.rows.map((row) => row.id));
+    expect(fromIndex.rows.map((row) => row.id)).toContain("n3");
+  });
+
+  it("bez dotazu se shody nepoužijí a bez shod platí lokální filtr podle názvu", () => {
+    expect(countLayers(buildLayerTree(graph, "all", "", new Set(), new Set(["n3"])))).toBe(countLayers(buildLayerTree(graph)));
+    expect(buildLayerTree(graph, "all", "ucteNKA", new Set(), null)).toEqual(buildLayerTree(graph, "all", "ucteNKA"));
+    expect(countLayers(buildLayerTree(graph, "all", "ucteNKA", new Set(), new Set()))).toBe(0);
+  });
+});

@@ -74,9 +74,6 @@
 .source-badge code { color: inherit; }
 .source-badge-existing { color: var(--accent); }
 .source-badge-planned { font-style: italic; }
-.create-mode-toggle { display: flex; gap: 8px; margin: 8px 0 14px; }
-.create-mode-toggle button { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink-muted); }
-.create-mode-toggle button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
 .create-source-picker { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; margin: 8px 0 14px; }
 .create-source-picker .source-explorer { border-right: 0; padding-inline: 0; }
 .create-source-picked { font-size: 12px; margin: 0 0 14px; overflow-wrap: anywhere; }

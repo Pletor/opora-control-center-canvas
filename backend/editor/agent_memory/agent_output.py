@@ -168,10 +168,19 @@ class AgentOutput:
             for item in output["reports"]:
                 if item["edgeId"] not in edge_ids:
                     raise ValueError(f"Vazba {item['edgeId']} v tomto pracovním prostoru neexistuje.")
-                written[item["edgeId"]] = {
+                previous = written.get(item["edgeId"], {})
+                report = {
                     **{key: item[key] for key in REPORT_TEXTS},
                     "updatedAt": stamp, "by": "agent", "agent": payload["agent"],
                 }
+                # `sentAt` a `due` agent neposílá: termín převzetí se přenese ze stávající zprávy
+                # a čas předání se posune jen tehdy, když agent mění neprázdný `handoff`.
+                for key in ("sentAt", "due"):
+                    if key in previous:
+                        report[key] = previous[key]
+                if item["handoff"].strip() and item["handoff"] != previous.get("handoff"):
+                    report["sentAt"] = stamp
+                written[item["edgeId"]] = report
             # Agent smí uzavření karty jen navrhnout; potvrzení zapisuje člověk.
             if output["done"]["proposed"]:
                 node["done"] = {"confirmed": False, "at": stamp, "by": "agent", "note": output["done"]["note"]}

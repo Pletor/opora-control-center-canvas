@@ -116,7 +116,9 @@ def test_brief_reads_top_down_from_graph_spec_and_state(tmp_path):
         data = response.json()
         assert data["schema"] == "opora.node-brief/1"
         assert data["node"] == {"id": "focus", "name": "Ohnisko", "kind": "node", "purpose": "Podstata",
-                                "path": ["Sektor"], "depth": 1, "sourceRef": None}
+                                "path": ["Sektor"], "depth": 1, "sourceRef": None,
+                                "type": None, "layer": None, "status": None, "due": None, "model": None, "effort": None,
+                                "address": "sektor/ohnisko"}
         assert data["goal"] == {"goal": "Dodat kartu.", "nonGoals": "Neřešit frontend.",
                                 "acceptance": "Testy zelené."}
         assert data["definitionOfDone"]["acceptance"] == "Testy zelené."
@@ -206,6 +208,46 @@ def test_graph_incoming_outgoing_children_and_reports(tmp_path):
         assert data["loop"]["lastReport"]["edgeId"] == "e-out"
         assert data["loop"]["openBlocks"] == 2
         assert data["loop"]["done"] == {"confirmed": False, "at": "", "by": "human", "note": ""}
+
+
+def test_node_carries_card_fields_and_links_carry_addresses(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        graph = {
+            "nodes": [
+                {**item, "card": {"layer": "backend", "status": "ready", "due": "2026-10-10", "model": "sonnet", "effort": "high"},
+                 "name": "[task] Ohnisko"} if item["id"] == "focus" else item
+                for item in GRAPH["nodes"]
+            ],
+            "edges": GRAPH["edges"],
+        }
+        view = client.get("/api/view", params=SCOPE).json()
+        assert client.post("/api/graph", headers=HEADERS,
+                           json={**SCOPE, "graph": graph, "digest": view["digest"]}).status_code == 200
+        state = full_state()
+        state["edges"]["e-out"] = report(sentAt="2026-10-02T08:00:00+00:00", due="2026-10-12")
+        save_state(client, state)
+        data = brief(client).json()
+        node = data["node"]
+        assert node["layer"] == "backend"
+        assert (node["type"], node["status"], node["due"], node["model"], node["effort"]) == (
+            "task", "ready", "2026-10-10", "sonnet", "high")
+        assert node["address"] == "sektor/ohnisko" and node["name"] == "[task] Ohnisko"
+        incoming, outgoing = data["graph"]["incoming"][0], data["graph"]["outgoing"][0]
+        assert incoming["fromAddress"] == "sektor/predchudce" and incoming["toAddress"] == "sektor/ohnisko"
+        assert outgoing["toAddress"] == "sektor/dalsi"
+        assert outgoing["report"]["sentAt"] == "2026-10-02T08:00:00+00:00"
+        assert outgoing["report"]["due"] == "2026-10-12"
+        assert "sentAt" not in incoming["report"] and "due" not in incoming["report"]
+
+
+def test_closed_card_has_done_status(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        seed_graph(client)
+        state = full_state()
+        state["nodes"]["focus"]["done"] = {"confirmed": True, "at": "2026-09-14T09:00:00+00:00",
+                                           "by": "human", "note": ""}
+        save_state(client, state)
+        assert brief(client).json()["node"]["status"] == "done"
 
 
 def test_stop_conditions_name_condition_missing_material_must_not_and_closed_card(tmp_path):

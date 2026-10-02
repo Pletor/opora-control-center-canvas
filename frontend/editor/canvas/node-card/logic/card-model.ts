@@ -3,6 +3,8 @@
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { BlockPortDef, BlockStatus, NodePhase, NodeWorkflowFull } from "@/shared/desktop-state/logic/types";
 import { blockPorts } from "@/shared/desktop-state/logic/types";
+import { cardLayer, effectiveStatus, type EffectiveStatus } from "@/shared/card-context/logic/card-context";
+import type { CardLayer } from "@/shared/types/logic/types";
 
 export type CardPort = "next" | "action" | "rule" | "material";
 export const CARD_PORTS: CardPort[] = ["next", "action", "rule", "material"];
@@ -56,7 +58,14 @@ export type CardView = {
   closed: boolean;
   /** Uzavření navržené agentem, které člověk zatím nepotvrdil. */
   doneProposed: boolean;
+  /** Vrstva uzlu (FE / BE / DB / Knihovna) z `card.layer`; sektor ji nemá. Typ workflow je vidět v názvu. */
+  cardLayer: CardLayer | null;
+  /** Efektivní stav uzlu: `done` z uzavření, jinak ruční stav, jinak `null`; sektor ho nemá. */
+  cardStatus: EffectiveStatus | null;
 };
+
+/** Popisky štítků karty: krátké, česky, aby se vešly do hlavy vedle fáze. */
+export const CARD_STATUS_LABEL: Record<EffectiveStatus, string> = { draft: "rozpracovaná", ready: "připravená", done: "hotovo" };
 
 /** Štítky uzlu = sjednocení štítků všech bloků v pořadí prvního výskytu. */
 export function nodeTags(workflow: Pick<NodeWorkflowFull, "blocks">): string[] {
@@ -86,6 +95,8 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     rows: cardBlocks(workflow),
     closed: workflow.done.confirmed,
     doneProposed: workflow.done.by === "agent" && !workflow.done.confirmed,
+    cardLayer: node.kind === "node" ? cardLayer(node) : null,
+    cardStatus: node.kind === "node" ? effectiveStatus(node, workflow.done.confirmed) : null,
   };
 }
 

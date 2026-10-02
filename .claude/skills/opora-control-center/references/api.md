@@ -35,9 +35,9 @@ python "<SKILL_DIR>/scripts/opora_read.py" recall --project ID --workspace ID --
 
 | Příkaz | Co dělá |
 |---|---|
-| `search` | GET view + `desktop-v3/state`; karty, kde je každé slovo dotazu v názvu, účelu, blocích, kritériích nebo krocích. Bez velikosti písmen a diakritiky, nejvýš 20 `{id, name, parentId, kde}`. Spec se neprohledává (`note`) |
-| `index` | oddíly plátna bez obsahu `{id, name, parentId, kind, chars}`; `chars` = délka účelu, bloků, kritérií a kroků |
-| `rank` | kandidáti z indexu (nejvýš 255, text ≤ 300 znaků) → `POST /api/rlm/rank`; `{status: ok, ranked: [{id, p, name}]}` nebo `unavailable` (Jev bez klíče či v poruše). Postup: [rlm.md](rlm.md) |
+| `search` | GET `/api/canvas-index` (jednotný index karet a vazeb); každé slovo dotazu musí být v korpusu (adresa, typ, název, popis, zdroj, bloky, kritéria, kroky; u vazby summary a handoff). Bez velikosti písmen a diakritiky, filtry `typ:task` (předpona názvu), `stav:ready`, `druh:edge`, `vrstva:fe\|be\|db\|knihovna` (i plné `frontend` …); pořadí název > adresa > jinde. Nejvýš 20 `{id, name, parentId, kind, address, type, status, kde}`, `kde` ⊂ `name, address, purpose, text`. Spec se neprohledává (`note`) |
+| `index` | karty z `/api/canvas-index` bez obsahu (bez komentářů a vazeb) `{id, name, parentId, kind, chars, address, type, status}`; `chars` = délka korpusu karty, pořadí podle adresy |
+| `rank` | kandidáti z `/api/canvas-index` (nejvýš 255, `text` = adresa + typ + název + začátek korpusu, ≤ 300 znaků) → `POST /api/rlm/rank`; `{status: ok, ranked: [{id, p, name}]}` nebo `unavailable` (Jev bez klíče či v poruše). Postup: [rlm.md](rlm.md) |
 | `code` | `POST /api/code-intelligence/query` `{project, workspace, language, path, operation, line, character}`; `operation` = `definition\|references\|hover\|documentSymbols`, jazyk z přípony (`typescript` / `python`), řádek a znak od nuly. Textový dotaz LSP nemá |
 | `find` | `POST /api/semantic-search/query` `{project, workspace, path, query, limit}`; `path` je relativní podstrom, `limit` 1–20 |
 | `recall` | `POST /api/memory/recall` `{role, project, workspace, nodeId, query, maxTokens}`; bez role a karty vrátí backend `skipped` |
@@ -64,6 +64,7 @@ skript sám nezná očekávaný digest. `--raw` je plný obsah, nikoli redaktor 
 | `/api/project-settings` | project; zadání a další nastavení projektu (bez provider/model/limitu) |
 | `/api/project-workspaces` | project |
 | `/api/view` | project, workspace; `graph`, `digest`, `readOnly` |
+| `/api/canvas-index` | project, workspace, `q` (slova + filtry `typ:`, `stav:`, `druh:`, `vrstva:`), `limit` 1–2000 (výchozí 200); `{entries, total}`, záznamy karet a vazeb s `address`, `type` (z předpony názvu), `layer`, `status` (docs/kontext-karet-a-index.md §5) |
 | `/api/node-text` | project, workspace, node |
 | `/api/node-spec` | project, workspace, node |
 | `/api/node-spec/history` | project, workspace, node |
@@ -138,7 +139,7 @@ a **Origin shodný s http://Host** (přes tunel `https://HOST`).
 | `/api/node-spec` | project, workspace, node, `expected_revision`, fields `{goal, non_goals, acceptance}` |
 | `/api/node-journal` | project, workspace, node, záznam |
 | `/api/project-settings` | project, nastavení (zadání apod.) |
-| `/api/graph` | project, workspace, graph `{nodes, edges}`, `digest` z posledního view, volitelně `undo` (bool, výchozí false) |
+| `/api/graph` | project, workspace, graph `{nodes, edges}`, `digest` z posledního view, volitelně `undo` (bool, výchozí false). Tvar nového uzlu a sektoru: recept „Nový uzel a sektor s kartou“ níže |
 | `/api/desktop-v3/state` | project, workspace, `expectedRevision`, state (celý aktuální dokument) |
 | `/api/desktop-v3/block` | project, workspace, nodeId, `expectedRevision`, `op: {kind: add\|update\|remove\|todo, ...}` — adresný zápis jednoho bloku |
 | `/api/desktop-v3/agent-workspace` | project, workspace, nodeId, `expectedRevision`, `sections: {frame?, log?, failures?, fixes?, handoff?}` (neuvedená sekce zůstává), `by: "human"\|"agent"` — prostor modelu, ne zadání |
@@ -196,6 +197,58 @@ Níže je postup, ne automaticky schválený zápis. Hodnoty doplň z aktuální
    jsou konečná čísla; zvol pozici podle skutečné vrstvy, ne náhodným přepsáním layoutu.
 4. POST graph s původním digestem, potom GET view; ověř ID, parentId a absenci sourceRef.
 5. Selže-li validace, neodstraňuj ji. Ověř současná pravidla v `backend/canvas/graph.py`.
+
+### Recept: nový uzel a sektor s kartou
+
+Kontrakt: `docs/kontext-karet-a-index.md` §1, §2 a §4. Graf se posílá **celý** (všechny dosavadní
+`nodes` a `edges` beze změny) s `digest` z posledního GET view; nový záznam se jen přidá.
+
+Tvar nového záznamu v `graph.nodes`:
+
+```
+{id, parentId, kind, name, purpose, x, y, sourceRef?, card?{layer, status, due, model, effort}}
+```
+
+- `kind` je `"sector"` nebo `"node"`; `id` nové UUID (`[A-Za-z0-9_-]{1,80}`), `parentId` je vrstva
+  (u uzlu obvykle ID sektoru, u sektoru v kořeni `null`), `name` 1–160 znaků, `purpose` (popis)
+  nejvýš 12000 a posílá se vždy, i prázdný. `x`, `y` konečná čísla podle skutečné vrstvy.
+- `sourceRef` je nepovinný `{origin: "existing"|"planned", path, kind: "directory"|"file"}`;
+  myšlenka (koncept) ho nemá. Existující zdroj uzlu jen v sektoru s existujícím zdrojem.
+- `card` smí jen uzel (`kind: "node"`); u sektoru, komentáře i oblasti je to chyba. Každý klíč je
+  nepovinný, ale **prázdný `card` se neposílá** (`{}` backend odmítne) — bez vyplněných hodnot
+  klíč `card` vynech. Jiný klíč (i `type`) nebo hodnota = chyba validace.
+  - `layer`: `frontend` · `backend` · `database` · `library` (v UI FE · BE · DB · Knihovna),
+  - `status`: jen `draft` nebo `ready`; `done` se nikdy neukládá, dává ho uzavření karty,
+  - `due`: `YYYY-MM-DD` (platné datum),
+  - `model`: `fable` · `opus` · `sonnet` · `haiku`; `effort`: `low` · `medium` · `high` · `xhigh` · `max`.
+- Typ workflow (`research` / `prototype` / `grilling` / `task`) se do karty neukládá; je to předpona
+  názvu, např. `"[task] Přihlášení"` (malými písmeny, s mezerou).
+
+Zadání sektoru (cíl, co nedělat, hotovo když) jde **po** uložení grafu zvlášť přes POST
+`/api/node-spec` `{node: ID sektoru, expected_revision: 0, fields: {goal, non_goals, acceptance}}`
+(nová karta má revizi 0). Sektor `card` nemá; jeho stav je odvozený z uzlů.
+
+Zpráva na vazbě (`state.edges[edgeId]`) smí navíc nést `due` (`YYYY-MM-DD` nebo `""`), termín
+převzetí. `sentAt` agent nikdy nenastavuje: nastaví ho aplikace sama, když se změní neprázdný
+`handoff` (agent přes `/api/desktop-v3/agent-output`, kde `sentAt` ani `due` neposílá a `due`
+se přenese ze stávající zprávy). Termín `due` nastaví člověk v panelu vazby, nebo agent celým
+dokumentem `/api/desktop-v3/state` (stávající `sentAt` v něm jen zachová).
+
+Příklad pro `opora_write.py` (zkrácený: v reálném volání patří do `nodes` a `edges` i všechny
+dosavadní záznamy z view; `project` a `workspace` doplní skript). Celý příkaz nesmí obsahovat znaky
+středník, ampersand, svislou čáru, menší, větší, dolar ani zpětný apostrof, jinak ho backend zamítne:
+
+```bash
+python "<SKILL_DIR>/scripts/opora_write.py" /api/graph --project P --workspace W --json '{"digest": "DIGEST_Z_VIEW", "graph": {"edges": [], "nodes": [{"id": "sektor-platby", "parentId": null, "kind": "sector", "name": "Platby", "purpose": "Platební brána a vyúčtování", "x": 0, "y": 0}, {"id": "uzel-faktura", "parentId": "sektor-platby", "kind": "node", "name": "[task] Faktura PDF", "purpose": "Vygenerovat fakturu po zaplacení", "x": 0, "y": 210, "card": {"layer": "backend", "status": "ready", "due": "2026-10-20", "model": "sonnet", "effort": "medium"}}]}}'
+```
+
+Potom zadání sektoru:
+
+```bash
+python "<SKILL_DIR>/scripts/opora_write.py" /api/node-spec --project P --workspace W --json '{"node": "sektor-platby", "expected_revision": 0, "fields": {"goal": "Zákazník dostane fakturu", "non_goals": "Neřešit refundace", "acceptance": "Faktura se uloží k objednávce"}}'
+```
+
+Ověř GET view (ID, `parentId`, `card`) a GET `/api/node-spec`.
 
 Připojení projektu, existujících souborů, kreslení a mazání mají vlastní
 rozsáhlejší kontrakty. Neodhaduj payload. Načti cíleně jejich frontend

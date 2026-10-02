@@ -4,6 +4,8 @@
 // vstup do vrstvy a výběr karty.
 import { useMemo } from "react";
 import LibraryLayerGroup from "@/layout/library-navbar/components/LibraryLayerGroup";
+import LibraryEdgeGroup from "@/layout/library-navbar/components/LibraryEdgeGroup";
+import type { IndexMatches } from "@/layout/library-navbar/logic/canvas-index";
 import {
   buildLayerTree,
   countLayers,
@@ -17,6 +19,7 @@ import type { CanvasNode } from "@/shared/types/logic/types";
 export default function LibraryPagePanel({
   nodes,
   closed,
+  matches = null,
   filter,
   query,
   collapsed,
@@ -29,6 +32,11 @@ export default function LibraryPagePanel({
   nodes: CanvasNode[];
   /** Id uzavřených karet (`done.confirmed`); panel je jen kreslí jako skryté. */
   closed: ReadonlySet<string>;
+  /**
+   * Shody indexu plátna pro aktuální dotaz (App je načte přes `useCanvasIndex`). `null` = index
+   * nedorazil nebo selhal; strom pak filtruje lokálně podle názvu jako dřív.
+   */
+  matches?: IndexMatches | null;
   filter: LayerFilter;
   query: string;
   collapsed: LayerGroupId[];
@@ -37,7 +45,9 @@ export default function LibraryPagePanel({
   onToggleGroup: (group: LayerGroupId) => void;
   onOpenLayer: (id: string) => void;
 }) {
-  const groups = useMemo(() => buildLayerTree(nodes, filter, query, closed), [nodes, filter, query, closed]);
+  const groups = useMemo(() => buildLayerTree(nodes, filter, query, closed, matches?.ids ?? null), [nodes, filter, query, closed, matches]);
+  // Vazby nejsou vrstva: ukážou se jen pod „Vše“ a jen se shodami z indexu.
+  const edges = filter === "all" && query.trim() ? matches?.edges ?? [] : [];
   // Prázdná skupina má říct pravdivý důvod: při hledání je vinen dotaz, jinak je tam opravdu prázdno.
   const emptyOf = (id: LayerGroupId) =>
     query.trim() ? "Hledání tu nic nenašlo." : LAYER_GROUPS.find((group) => group.id === id)?.empty ?? "";
@@ -67,7 +77,7 @@ export default function LibraryPagePanel({
           value={query}
           onChange={(event) => onSearch(event.target.value)}
         />
-        <small className="library-navbar__search-count">{countLayers(groups)}</small>
+        <small className="library-navbar__search-count">{countLayers(groups) + edges.length}</small>
       </div>
 
       <div className="library-navbar__page-list">
@@ -81,6 +91,7 @@ export default function LibraryPagePanel({
             onOpen={onOpenLayer}
           />
         ))}
+        {edges.length > 0 && <LibraryEdgeGroup edges={edges} onOpen={onOpenLayer} />}
       </div>
     </div>
   );

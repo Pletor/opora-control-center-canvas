@@ -285,3 +285,27 @@
 .library-navbar__row--depth-2::before { left: 44px; }
 .library-navbar__row--depth-3::before { left: 68px; }
 .library-navbar__row--depth-4::before { left: 92px; }
+
+/* Vazby: když hledání najde text ve zprávě na vazbě (souhrn, předání), objeví se pod stromem vlastní
+   skupina. Řádek má stejnou výšku a hover jako řádek vrstvy, aby se dal přečíst stejným okem, jen
+   místo žetonu druhu nese trasu „odkud → kam“ a pod ní tlumeně jeden řádek předání. Klik vede na
+   zdrojovou kartu — vazba patří tam, odkud vychází. */
+.library-navbar__edge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 40px;
+  padding: 4px 8px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+.library-navbar__edge:hover { background: var(--accent-soft); color: var(--accent); }
+.library-navbar__edge-route { min-width: 0; overflow-wrap: anywhere; }
+.library-navbar__edge-handoff { min-width: 0; font-size: 12px; color: var(--ink-muted); overflow-wrap: anywhere; }

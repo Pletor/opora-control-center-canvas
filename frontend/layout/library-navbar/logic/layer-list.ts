@@ -81,11 +81,19 @@ function branchesOf(nodes: CanvasNode[], parentId: string | null, seen: Set<stri
  * sektoru je); co nesedí, přežije jen kvůli potomkovi, který sedí — jinak by se nález nedal
  * ukázat na správném místě stromu.
  */
-function pruneBranch(branch: Branch, needle: string): Branch | null {
-  if (foldDiacritics(labelOf(branch.node)).includes(needle)) return branch;
-  const children = branch.children.map((child) => pruneBranch(child, needle)).filter((child): child is Branch => child !== null);
+function pruneBranch(branch: Branch, search: Search): Branch | null {
+  // Shoda nese celý svůj obsah stejně jako lokální filtr, ať už ji našel index, nebo název.
+  if (search.ids ? search.ids.has(branch.node.id) : foldDiacritics(labelOf(branch.node)).includes(search.needle)) return branch;
+  const children = branch.children.map((child) => pruneBranch(child, search)).filter((child): child is Branch => child !== null);
   return children.length ? { ...branch, children } : null;
 }
+
+/**
+ * Hledání: buď lokální filtr podle názvu (`needle`), nebo shody z indexu plátna (`ids`), které už
+ * dotaz vyhodnotil na backendu — pak se název znovu neporovnává.
+ */
+type Search = { needle: string; ids: ReadonlySet<string> | null };
+const searching = (search: Search): boolean => !!search.needle || !!search.ids;
 
 const rowOf = (node: CanvasNode, depth: number, closed: ReadonlySet<string>): LayerRow => ({
   id: node.id,
@@ -127,25 +135,25 @@ function layerPath(node: CanvasNode, byId: Map<string, CanvasNode>): string {
 }
 
 /** Sektory a jejich obsah: kořen je sektor v projektu, pod ním rekurzivně jeho uzly i podsektory. */
-function sectorRows(roots: Branch[], needle: string, closed: ReadonlySet<string>): LayerRow[] {
-  return flatten(prune(roots.filter((branch) => branch.node.kind === "sector"), needle), 0, closed);
+function sectorRows(roots: Branch[], search: Search, closed: ReadonlySet<string>): LayerRow[] {
+  return flatten(prune(roots.filter((branch) => branch.node.kind === "sector"), search), 0, closed);
 }
 
 /** Uzly, které nesedí v žádném sektoru — leží rovnou v projektu; i ony si nesou svůj obsah. */
-function looseNodeRows(roots: Branch[], needle: string, closed: ReadonlySet<string>): LayerRow[] {
-  return flatten(prune(roots.filter((branch) => branch.node.kind === "node"), needle), 0, closed);
+function looseNodeRows(roots: Branch[], search: Search, closed: ReadonlySet<string>): LayerRow[] {
+  return flatten(prune(roots.filter((branch) => branch.node.kind === "node"), search), 0, closed);
 }
 
-function prune(branches: Branch[], needle: string): Branch[] {
-  if (!needle) return branches;
-  return branches.map((branch) => pruneBranch(branch, needle)).filter((branch): branch is Branch => branch !== null);
+function prune(branches: Branch[], search: Search): Branch[] {
+  if (!searching(search)) return branches;
+  return branches.map((branch) => pruneBranch(branch, search)).filter((branch): branch is Branch => branch !== null);
 }
 
 /** Oblasti po vrstvách: odsazení říká, jak hluboko jejich vrstva leží, pořadí drží vrstvy pohromadě. */
-function areaRows(nodes: CanvasNode[], byId: Map<string, CanvasNode>, needle: string, closed: ReadonlySet<string>): LayerRow[] {
+function areaRows(nodes: CanvasNode[], byId: Map<string, CanvasNode>, search: Search, closed: ReadonlySet<string>): LayerRow[] {
   return nodes
     .filter((node) => node.kind === "area")
-    .filter((node) => !needle || foldDiacritics(labelOf(node)).includes(needle))
+    .filter((node) => (search.ids ? search.ids.has(node.id) : !search.needle || foldDiacritics(labelOf(node)).includes(search.needle)))
     .sort((a, b) => layerPath(a, byId).localeCompare(layerPath(b, byId), "cs") || byLabel(a, b))
     .map((node) => rowOf(node, layerDepth(node, byId), closed));
 }
@@ -154,14 +162,20 @@ function areaRows(nodes: CanvasNode[], byId: Map<string, CanvasNode>, needle: st
  * Seznam vrstev pro panel: vrátí skupiny, které filtr propouští (`all` všechny tři), každou už
  * s hotovými řádky. Prázdná skupina se nezahazuje — panel o ní řekne vlastní větou, aby bylo
  * poznat rozdíl mezi „nic tu není“ a „filtr to schoval“.
+ *
+ * `matches` jsou id shod z indexu plátna (`GET /api/canvas-index`) pro tentýž neprázdný dotaz:
+ * strom pak ukáže je s jejich obsahem a předky. Bez nich (`null`, index nedorazil nebo selhal) platí
+ * dnešní lokální filtr podle názvu.
  */
 export function buildLayerTree(
   nodes: CanvasNode[],
   filter: LayerFilter = "all",
   query = "",
   closed: ReadonlySet<string> = new Set<string>(),
+  matches: ReadonlySet<string> | null = null,
 ): LayerGroup[] {
   const needle = foldDiacritics(query.trim());
+  const search: Search = { needle, ids: needle ? matches : null };
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const roots = branchesOf(nodes, null, new Set(), byId);
   return LAYER_GROUPS.filter((group) => filter === "all" || filter === group.filter).map((group) => ({
@@ -169,10 +183,10 @@ export function buildLayerTree(
     label: group.label,
     rows:
       group.id === "sectors"
-        ? sectorRows(roots, needle, closed)
+        ? sectorRows(roots, search, closed)
         : group.id === "nodes"
-          ? looseNodeRows(roots, needle, closed)
-          : areaRows(nodes, byId, needle, closed),
+          ? looseNodeRows(roots, search, closed)
+          : areaRows(nodes, byId, search, closed),
   }));
 }
 

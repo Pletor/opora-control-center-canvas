@@ -3,13 +3,14 @@
 ## Vytvořit sektor
 
 1. Vyber projekt a zapisovatelný workspace, v Editoru mód **Struktura**.
-2. `+ Sektor` → `Název uzlu`.
-3. U připojeného projektu výslovně zvol původ:
-   - **Jen funkce / myšlenka, bez souboru**: vyplň `Co má tato část umět?`.
+2. `+ Sektor` → `Název`.
+3. U připojeného projektu výslovně zvol **Původ** (segment na jednom řádku):
+   - **Myšlenka**: vyplň `Popis` (co má tato část umět).
      Vznikne koncept bez sourceRef, žádný adresář na disku.
-   - **Navázat na existující zdroj**: zvol skutečnou složku v nabídnutém stromu.
-   - **Navrhnout nové**: `Podstata návrhu sektoru` alespoň 12 znaků;
+   - **Existující zdroj**: zvol skutečnou složku v nabídnutém stromu.
+   - **Nový návrh**: `Popis` alespoň 12 znaků;
      zamýšlená cesta je nepovinná a nic nevytváří na disku.
+   Nepovinně rozbal **Zadání sektoru (nepovinné)**: cíl, co nedělat, hotovo když.
 4. `Vytvořit`, potom ověř sektor v grafu/API. Builtin Lokální návrh umožňuje
    také volný sektor bez volby zdroje.
 
@@ -17,7 +18,8 @@
 
 - Buď vyber sektor → **Otevřít vnitřní plátno** → `+ Uzel`,
 - nebo `+ Uzel` z vnější vrstvy → vyber **Cílový sektor**.
-- Vyplň název, původ a příslušný popis/zdroj. Samotný výběr sektoru nemusí
+- Vyplň název, nepovinně **Vrstvu** (čipy FE · BE · DB · Knihovna, druhý klik zruší), původ a
+  příslušný zdroj a `Popis`. Stav, model, effort a termín jsou ve sbalené sekci **Pro agenta (nepovinné)**. Samotný výběr sektoru nemusí
   nahradit povinnou volbu původu a popis.
 - Koncept může mít sektor jako rodiče, aniž získá filesystem sourceRef.
 - Existující zdroj uzlu lze navázat pouze uvnitř sektoru s existujícím zdrojem.

@@ -8,6 +8,7 @@ import NodeTree from "@/editor/node-detail/tree/components/NodeTree";
 import NodeTabs, { type NodeTab } from "@/editor/node-detail/components/NodeTabs";
 import SyncBadge from "@/editor/node-detail/sync-badge/components/SyncBadge";
 import type { BadgeView } from "@/editor/node-detail/sync-badge/logic/sync-badge";
+import NodeCardEditor from "@/editor/node-detail/card-fields/components/NodeCardEditor";
 import DoneControl from "@/editor/node-detail/done/components/DoneControl";
 import NodeActivity from "@/live-run/node-activity/components/NodeActivity";
 import type { NodeDone } from "@/shared/desktop-state/logic/types";
@@ -127,6 +128,7 @@ export default function NodePanel({
         </section>
         <section role="tabpanel" id="node-panel-spec" aria-labelledby="node-tab-spec" hidden={tab !== "spec"}>
           <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
+          {node.kind === "node" && <NodeCardEditor node={node} readOnly={readOnly} busy={busy} onSave={onSave} />}
           <h3>Podstata</h3>
           <label className="field">
             Proč tento uzel existuje
