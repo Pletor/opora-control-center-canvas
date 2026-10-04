@@ -23,8 +23,8 @@ describe("selection-model", () => {
     it("vybraný blok otevře knihovnu bloku bez inspektoru", () => {
       expect(panelsFor(selectBlock("n1", "b1"), "structure", false)).toEqual({ drawer: "block", inspector: null });
     });
-    it("vybraný uzel otevře knihovnu uzlu i inspektor uzlu", () => {
-      expect(panelsFor(selectNode("n1"), "structure", false)).toEqual({ drawer: "node", inspector: "node" });
+    it("vybraný uzel otevře pouze pravý inspektor a žádný levý panel", () => {
+      expect(panelsFor(selectNode("n1"), "structure", false)).toEqual({ drawer: null, inspector: "node" });
     });
     it("vybraná vazba otevře jen inspektor vazby", () => {
       expect(panelsFor(selectEdge("e1"), "structure", false)).toEqual({ drawer: null, inspector: "edge" });
@@ -38,8 +38,8 @@ describe("selection-model", () => {
     it("vybraná oblast otevře jen svůj inspektor, bez knihovny", () => {
       expect(panelsFor(selectNode("a1"), "structure", false, "area")).toEqual({ drawer: null, inspector: "area" });
     });
-    it("vybraný uzel bez druhu se chová jako dřív (knihovna i inspektor uzlu)", () => {
-      expect(panelsFor(selectNode("n1"), "structure", false, "node")).toEqual({ drawer: "node", inspector: "node" });
+    it("explicitní druh uzlu rovněž neotevře levý panel", () => {
+      expect(panelsFor(selectNode("n1"), "structure", false, "node")).toEqual({ drawer: null, inspector: "node" });
     });
   });
 

@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import json
 
-MAX_TEXT = 20000
+# Vejde se celé zadání projektu (cca 35 000 znaků) s rezervou; frontend drží stejný limit.
+MAX_TEXT = 60000
 MAX_TITLE = 80
 MAX_IDS = 50
 MAX_ID = 128
 ENVIRONMENTS = ("project", "editor", "live")
-CONTEXT_KEYS = ("projectId", "workspace", "layerId", "selectedNodeIds", "environment")
+SCOPES = ("board", "selection")
+CONTEXT_KEYS = ("projectId", "workspace", "layerId", "selectedNodeIds", "environment", "scope")
+SCOPE_SELECTION = ("Rozsah: jen vybrané uzly (selectedNodeIds) do hloubky; navazující uzly jen propoj vazbou; "
+                   "na konci navrhni další uzel a počkej.")
+SCOPE_SELECTION_EMPTY = "Rozsah: výběr, ale nic není vybráno; zeptej se, na čem pracovat."
 
 
 def _short_string(value, label, nullable=False):
@@ -64,22 +69,32 @@ def validate_context(context):
         if context["environment"] not in ENVIRONMENTS:
             raise ValueError("Kontext zprávy: environment je project, editor nebo live.")
         clean["environment"] = context["environment"]
+    if "scope" in context:
+        if context["scope"] not in SCOPES:
+            raise ValueError("Kontext zprávy: scope je board nebo selection.")
+        clean["scope"] = context["scope"]
     return clean
 
 
-def compose(text, context, hint=None):
+def compose(text, context, hint=None, drafts_dir=None):
     """Text, který jde na stdin procesu.
 
     `hint` vyplňuje jen backend (směrovač Jev, §13.2); od UI ho `validate_context` odmítne.
+    `drafts_dir` (absolutní cesta adresáře konceptů session, docs/davka-planu.md §2) také jen backend:
+    model v příkazu nesmí `$OPORA_DRAFTS_DIR`, cestu proto potřebuje doslova.
     """
     if hint:
         context = {**(context or {}), "hint": hint}
+    if drafts_dir:
+        context = {**(context or {}), "draftsDir": drafts_dir}
     if not context:
         return text
     payload = json.dumps(context, ensure_ascii=False, separators=(",", ":"))
     block = f"<opora_context>{payload}</opora_context>"
     if hint and hint.get("sources"):
         block += f"\nRelevantní podklad: {', '.join(hint['sources'])}. Ignoruj, pokud neodpovídá dotazu."
+    if context.get("scope") == "selection":
+        block += "\n" + (SCOPE_SELECTION if context.get("selectedNodeIds") else SCOPE_SELECTION_EMPTY)
     # Skilly jen pro uživatele (/wayfinder, /grill-me) CLI pozná, jen když zpráva lomítkem začíná.
     if text.lstrip().startswith("/"):
         return f"{text}\n\n{block}"

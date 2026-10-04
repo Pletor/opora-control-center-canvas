@@ -226,3 +226,11 @@ def test_without_any_base_it_refuses(net, monkeypatch, capsys):
     calls, _ = net
     code, _, err = run(monkeypatch, capsys, 'index', *SCOPE, base=False)
     assert code == 1 and 'právě jedno' in json.loads(err)['error'] and calls == []
+
+
+def test_node_brief_summary_shows_start_and_length_of_card_text():
+    text = "Zadání Jihlava, kap. Zpracování dat. " * 20
+    data = {"schema": "opora.node-brief/1", "node": {"id": "n"}, "content": {"text": text, "revision": 3}}
+    out = opora_read.summary("node-brief", data, None, None)
+    assert out["content"] == {"start": text[:opora_read.CONTENT_PREVIEW], "length": len(text), "revision": 3}
+    assert opora_read.summary("node-brief", {**data, "content": None}, None, None)["content"] is None

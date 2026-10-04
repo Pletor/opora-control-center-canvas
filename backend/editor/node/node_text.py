@@ -4,6 +4,18 @@ from datetime import UTC, datetime
 from backend.canvas.graph import valid_id
 
 
+def validate_payload(payload):
+    """Tvar a limity zápisu textu uzlu; sdílí ho `/api/node-text` i dávka plánu. Vrací text."""
+    if set(payload) != {"project", "workspace", "node", "expected_revision", "text"}:
+        raise ValueError("Neplatný formát textu.")
+    if type(payload["expected_revision"]) is not int or payload["expected_revision"] < 0:
+        raise ValueError("Neplatná očekávaná revize textu.")
+    text = payload["text"]
+    if not isinstance(text, str) or len(text) > 64000 or "\0" in text:
+        raise ValueError("Neplatný text nebo překročen limit 64000 znaků.")
+    return text
+
+
 class NodeTextStore:
     def __init__(self, canvas):
         self.canvas = canvas
@@ -24,13 +36,7 @@ class NodeTextStore:
 
     def access(self, project, workspace, node, payload=None):
         if payload is not None:
-            if set(payload) != {"project", "workspace", "node", "expected_revision", "text"}:
-                raise ValueError("Neplatný formát textu.")
-            if type(payload["expected_revision"]) is not int or payload["expected_revision"] < 0:
-                raise ValueError("Neplatná očekávaná revize textu.")
-            text = payload["text"]
-            if not isinstance(text, str) or len(text) > 64000 or "\0" in text:
-                raise ValueError("Neplatný text nebo překročen limit 64000 znaků.")
+            text = validate_payload(payload)
         with self.canvas.graph_lock:
             view = self.canvas.view(project, workspace)
             if not valid_id(node) or not any(n["id"] == node for n in view["graph"]["nodes"]):

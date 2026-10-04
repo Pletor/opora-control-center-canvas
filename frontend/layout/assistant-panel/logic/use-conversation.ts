@@ -3,6 +3,8 @@
 // už viděné `seq` reducer zahodí). Přepnutí session starý EventSource zavře. Volá ho jen AssistantPanel.
 // Úkol, který čeká na schválení, se otevře s přehráním bufferu od začátku: reducer z něj vezme jen
 // čekající žádosti o zápis, aby karta schválení byla vidět i po přepnutí úkolu.
+// Vedle reduceru běží hlídač zápisu (canvas-write.ts): povolený zápis, který doběhl, ohlásí
+// `onCanvasWritten` (docs/asistent.md §6.2); přehrané staré události ho nespustí.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { markPending, markSending, resolveApproval, updateApproval } from "./approval";
 import { decideApproval, eventsUrl, fetchSessions, fetchTranscript, sendMessage, stopSession, type AssistantContext } from "./assistant-api";
@@ -15,9 +17,10 @@ import {
   type AssistantEvent,
   type Conversation,
 } from "./assistant-events";
+import { startWatch, watchEvent } from "./canvas-write";
 import { messageOf } from "./use-assistant-sessions";
 
-const EVENT_TYPES = ["status", "text_delta", "message", "tool_use", "tool_result", "turn_end", "error", "approval", "approval_resolved"];
+const EVENT_TYPES = ["status", "text_delta", "message", "tool_use", "tool_result", "progress", "turn_end", "error", "approval", "approval_resolved"];
 
 const EMPTY = emptyConversation();
 
@@ -29,7 +32,13 @@ export type ConversationApi = {
   decide: (approvalId: string, decision: "allow" | "deny", note?: string) => Promise<void>;
 };
 
-export function useConversation(enabled: boolean, project: string, activeId: string | null, onFailure: (text: string) => void): ConversationApi {
+export function useConversation(
+  enabled: boolean,
+  project: string,
+  activeId: string | null,
+  onFailure: (text: string) => void,
+  onCanvasWritten: () => void = () => {},
+): ConversationApi {
   // Konverzace nese id své session: po přepnutí úkolu se do nového nikdy nedostane obsah starého
   // (ani na jeden render, ani pozdní událostí z dobíhajícího streamu).
   const [owned, setOwned] = useState<{ id: string | null; conv: Conversation }>({ id: null, conv: emptyConversation() });
@@ -40,6 +49,8 @@ export function useConversation(enabled: boolean, project: string, activeId: str
   const counter = useRef(0);
   const failure = useRef(onFailure);
   failure.current = onFailure;
+  const written = useRef(onCanvasWritten);
+  written.current = onCanvasWritten;
 
   // Historie z přepisu, potom jen nové události; cleanup zavře EventSource staré session.
   useEffect(() => {
@@ -56,12 +67,17 @@ export function useConversation(enabled: boolean, project: string, activeId: str
       update(activeId, () => loadTranscript(messages, meta?.state ?? "idle", meta?.lastSeq ?? 0));
       setLoading(false);
       const after = meta?.state === "waiting_approval" ? 0 : meta?.lastSeq ?? 0;
+      let watch = startWatch(meta?.lastSeq ?? 0);
       const opened = new EventSource(eventsUrl(activeId, after));
       source = opened;
       const handle = (message: MessageEvent) => {
         try {
           const event = JSON.parse(message.data) as AssistantEvent;
-          if (event && typeof event.type === "string") update(activeId, (c) => applyEvent(c, event));
+          if (!event || typeof event.type !== "string") return;
+          update(activeId, (c) => applyEvent(c, event));
+          const watched = watchEvent(watch, event);
+          watch = watched.watch;
+          if (watched.written) written.current();
         } catch { /* Poškozený řádek streamu se přeskočí. */ }
       };
       opened.onmessage = handle;

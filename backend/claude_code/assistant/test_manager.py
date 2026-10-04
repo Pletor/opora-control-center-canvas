@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from backend.claude_code.assistant import fake_cli
+from backend.claude_code.assistant import manager as manager_module
 from backend.claude_code.assistant.manager import (
     ApprovalNotFound,
     AssistantError,
@@ -88,7 +89,9 @@ def test_full_turn_maps_events_and_stores_session(manager):
     assert events[2] == {"seq": 3, "type": "text_delta", "messageId": "msg_1", "text": "ok"}
     reply = events[3]["text"]
     assert "resume=none" in reply and "apikey=unset" in reply and "cwd=projekt" in reply
-    assert 'got=<opora_context>{"projectId":"p1","selectedNodeIds":["n1"],"environment":"editor"}</opora_context>' in reply
+    drafts = json.dumps(str(manager.drafts_dir(sid)), ensure_ascii=False)
+    assert ('got=<opora_context>{"projectId":"p1","selectedNodeIds":["n1"],"environment":"editor",'
+            f'"draftsDir":{drafts}}}</opora_context>') in reply
     record = manager.session(sid)
     assert record["claudeSessionId"] and record["state"] == "idle" and record["lastSeq"] == 6
     assert record["title"] == "Co dál s kartou?"
@@ -390,3 +393,47 @@ def test_unknown_approval_and_bad_decision(manager):
     resolved = approvals_of(manager, sid, "approval_resolved")[0]
     assert resolved["decision"] == "deny" and resolved["auto"] is True
     assert manager.session(sid)["state"] == "idle"
+
+
+# --- koncept zápisu (docs/davka-planu.md §2) ---------------------------------------------
+def test_drafts_dir_lives_with_session_and_write_into_it_needs_no_human(manager):
+    sid = manager.create("p1")["id"]
+    drafts = manager.drafts_dir(sid)
+    assert drafts.parent.name == "assistant-drafts" and not drafts.exists()
+    manager.send(sid, "DRAFT plán")
+    approval = waiting(manager, sid)
+    assert drafts.is_dir() and (drafts / "plan.json").is_file()
+    # Write konceptu prošel bez UI; na kartu schválení jde až zápis a jeho souhrn je z obsahu souboru.
+    assert len(approvals_of(manager, sid)) == 1 and approval["tool"] == "Bash"
+    assert approval["input"]["route"] == "/api/canvas-plan"
+    assert approval["input"]["payloadSummary"] == ("Jen ověření (dryRun), nic nezapíše. Přidá 1 oblast, 1 kartu, "
+                                                   "1 blok, 1 port, 1 vazbu (next 1), text u 1 karty.")
+    assert "fileDigest" not in approval["input"] and "jsonFile" not in approval["input"]
+    manager.decide(sid, approval["approvalId"], "allow")
+    idle_after_turn(manager, sid)
+    assert assistant_texts(manager, sid)[-1] == "allowed "
+    manager.close(sid)
+    assert not drafts.exists()
+
+
+def test_draft_changed_after_request_is_denied_on_allow(manager):
+    sid = manager.create("p1")["id"]
+    manager.send(sid, "DRAFT plán")
+    approval = waiting(manager, sid)
+    (manager.drafts_dir(sid) / "plan.json").write_text('{"plan": {"nodes": []}}', encoding="utf-8")
+    result = manager.decide(sid, approval["approvalId"], "allow")
+    assert result["decision"] == "deny"
+    idle_after_turn(manager, sid)
+    assert assistant_texts(manager, sid)[-1] == "denied: " + manager_module.CHANGED_DRAFT_MESSAGE
+    resolved = approvals_of(manager, sid, "approval_resolved")[0]
+    assert resolved["decision"] == "deny" and resolved["auto"] is True
+
+
+def test_write_outside_drafts_is_denied_without_ui(manager, tmp_path):
+    sid = manager.create("p1")["id"]
+    manager.send(sid, "ESCAPE")
+    idle_after_turn(manager, sid)
+    assert assistant_texts(manager, sid)[-1] == "write denied: Asistent zapisuje jen na plátno přes opora_write.py."
+    approval = approvals_of(manager, sid)[0]
+    assert approval["auto"] is True and approval["tool"] == "Write"
+    assert not (tmp_path / "data" / "assistant-drafts" / "escape.json").exists()

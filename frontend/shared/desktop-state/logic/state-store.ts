@@ -11,6 +11,10 @@ export type DesktopStateHandle = {
   readOnly: boolean;
   loading: boolean;
   error: string;
+  /**
+   * Znovu načte stav ze serveru (např. po zápisu asistenta z jiného procesu, docs/asistent.md §6.2).
+   * Když právě běží uložení, počká na jeho konec: rozpracovaná změna se nepřepíše ani nezahodí.
+   */
   reload: () => void;
   /** Aplikuje mutaci na aktuální stav a uloží ji s CAS ochranou. */
   mutate: (fn: (current: DesktopState) => DesktopState) => Promise<boolean>;
@@ -42,6 +46,8 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     setReadOnly(value.readOnly);
   };
   const self = useRef<Listener>((value) => listener.current(value));
+  const saving = useRef(0);
+  const reloadQueued = useRef(false);
 
   useEffect(() => {
     const scope = `${project}::${workspace}`;
@@ -95,6 +101,7 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     // waiting on the round trip; reconciled with the server's exact saved state below, or rolled
     // back on failure/staleness.
     setState(next);
+    saving.current++;
     try {
       const value = await saveState(project, workspace, previousRevision, next);
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
@@ -109,8 +116,19 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
       setState(previous);
       setError(errorMessage(e));
       return false;
+    } finally {
+      saving.current--;
+      if (saving.current === 0 && reloadQueued.current) {
+        reloadQueued.current = false;
+        load();
+      }
     }
   };
 
-  return { state, revision, readOnly, loading, error, reload: load, mutate };
+  const reload = () => {
+    if (saving.current > 0) reloadQueued.current = true;
+    else load();
+  };
+
+  return { state, revision, readOnly, loading, error, reload, mutate };
 }

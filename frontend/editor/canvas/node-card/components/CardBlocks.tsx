@@ -84,7 +84,7 @@ export default function CardBlocks({
                   className="node-card__block-text nodrag"
                   aria-label="Popis bloku"
                   placeholder="Co se má stát a jak to má vypadat…"
-                  rows={3}
+                  rows={5}
                   defaultValue={row.text}
                   readOnly={disabled}
                   onKeyDown={(e) => e.stopPropagation()}

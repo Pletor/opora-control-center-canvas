@@ -61,8 +61,8 @@ export function layerKindIcon(kind: string): IconName {
 }
 
 export const LIBRARY_TABS: { id: LibraryTab; label: string }[] = [
-  { id: "content", label: "OBSAH" },
-  { id: "page", label: "STRÁNKA" },
+  { id: "content", label: "Prvky" },
+  { id: "page", label: "Struktura" },
 ];
 
 export const emptyLibraryNavbar = (): LibraryNavbarState => ({

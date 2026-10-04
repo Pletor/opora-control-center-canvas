@@ -25,6 +25,7 @@ class Pending:
     tool_input: dict
     created: float
     tool: str = "Bash"
+    draft: tuple | None = None  # (cesta, sha256) konceptu u `--json-file`; ověří se před povolením
 
 
 class ApprovalBook:

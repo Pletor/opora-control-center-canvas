@@ -17,6 +17,7 @@ import type { LayerFilter, LayerGroupId } from "@/layout/library-navbar/logic/la
 import { CATALOG_ITEMS, type CatalogItem } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { IndexMatches } from "@/layout/library-navbar/logic/canvas-index";
+import type { ReactNode } from "react";
 
 /** Stálé prázdné hodnoty, aby výchozí props nedělaly z každého vykreslení nový objekt. */
 const EMPTY_CLOSED: ReadonlySet<string> = new Set<string>();
@@ -41,6 +42,8 @@ export default function LibraryNavbar({
   onPageSearch,
   onToggleGroup,
   onOpenLayer,
+  structureActions,
+  insertion,
 }: {
   state: LibraryNavbarState;
   items?: CatalogItem[];
@@ -65,6 +68,9 @@ export default function LibraryNavbar({
   onToggleGroup: (group: LayerGroupId) => void;
   /** Klik na vrstvu; co se stane (vstup do vrstvy a výběr karty), rozhoduje rodič. */
   onOpenLayer: (id: string) => void;
+  structureActions?: ReactNode;
+  insertion: { disabled: boolean; layerName: string; blockTargetName: string | null; notice: string;
+    onInsert: (id: string) => void; onInsertBlock: (id: string) => void };
 }) {
   const view = libraryView(items, profile, { scope, showOutside, query: state.query });
   const found = view.shown;
@@ -91,7 +97,7 @@ export default function LibraryNavbar({
         </nav>
 
         {state.tab === "page" ? (
-          <LibraryPagePanel
+          <><LibraryPagePanel
             nodes={nodes}
             closed={closed}
             matches={pageMatches}
@@ -102,9 +108,11 @@ export default function LibraryNavbar({
             onSearch={onPageSearch}
             onToggleGroup={onToggleGroup}
             onOpenLayer={onOpenLayer}
-          />
+          />{structureActions}</>
         ) : (
           <>
+            <p className="library-navbar__insert-hint">Vložit → {insertion.layerName}. Tažením na kartu vytvoříte její vnitřní komponentu.</p>
+            {insertion.notice && <p className="library-navbar__insert-hint" role="status">{insertion.notice}</p>}
             <div className="library-navbar__search">
               <Icon className="library-navbar__search-icon" name="search" size={16} />
               <input
@@ -130,6 +138,11 @@ export default function LibraryNavbar({
                 outside={view.outsideIds}
                 profileOnly={view.profileOnly}
                 onOpen={onItem}
+                onInsert={insertion.onInsert}
+                onInsertBlock={insertion.onInsertBlock}
+                disabled={insertion.disabled}
+                blockTargetName={insertion.blockTargetName}
+                searching={!!state.query.trim()}
               />
               {outsideRow && onToggleOutside && (
                 <CatalogOutsideRow

@@ -1,7 +1,8 @@
 """Kruhový buffer událostí jedné session: `seq` roste monotónně, drží se posledních 2000.
 
 Událost delší než 64 KB (JSON v UTF-8) se zkrátí na nejdelším textovém poli a dostane
-`"truncated": true`. Čtenáři SSE se ptají `after(seq)`; vlákno procesu jen přidává.
+`"truncated": true`. Zpráva uživatele má vlastní strop (`max_bytes` v `append`), aby se dlouhé
+zadání v historii nezkrátilo. Čtenáři SSE se ptají `after(seq)`; vlákno procesu jen přidává.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from collections import deque
 
 MAX_EVENTS = 2000
 MAX_EVENT_BYTES = 64 * 1024
+# 60 000 znaků české zprávy i s escapováním JSON.
+MAX_USER_MESSAGE_BYTES = 256 * 1024
 
 
 def _size(event):
@@ -47,10 +50,10 @@ class EventLog:
         self._max_bytes = max_bytes
         self._lock = threading.Lock()
 
-    def append(self, event):
+    def append(self, event, max_bytes=None):
         with self._lock:
             self._seq += 1
-            stored = {"seq": self._seq, **truncate_event(event, self._max_bytes)}
+            stored = {"seq": self._seq, **truncate_event(event, max_bytes or self._max_bytes)}
             self._events.append(stored)
             return stored
 

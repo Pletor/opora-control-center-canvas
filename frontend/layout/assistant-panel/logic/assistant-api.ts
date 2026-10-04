@@ -20,14 +20,21 @@ export type AssistantSession = {
   lastSeq: number;
 };
 
-/** Co uživatel právě vidí; backend to vloží před text zprávy jako údaj, ne pokyn. */
-export type AssistantContext = {
+/** Rozsah práce (docs/asistent.md §6.1): celý obraz, nebo jen vybrané uzly do hloubky. */
+export type AssistantScope = "board" | "selection";
+export const SCOPES: AssistantScope[] = ["board", "selection"];
+
+/** Na co se uživatel dívá (dodá App); panel k tomu přidá rozsah z preferencí. */
+export type ViewContext = {
   projectId: string;
   workspace: string;
   layerId: string | null;
   selectedNodeIds: string[];
   environment: "project" | "editor" | "live";
 };
+
+/** Co uživatel právě vidí a v jakém rozsahu; backend to vloží před text zprávy jako údaj, ne pokyn. */
+export type AssistantContext = ViewContext & { scope: AssistantScope };
 
 const base = "/api/assistant";
 const sessionUrl = (id: string) => `${base}/sessions/${encodeURIComponent(id)}`;

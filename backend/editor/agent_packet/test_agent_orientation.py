@@ -106,3 +106,20 @@ def test_orientation_survives_an_older_brief_without_role_memory():
     del brief["context"]["roleMemory"]
     orientation = orientation_from_brief(brief, "draft", "draft")
     assert not any(entry["id"] == "role-memory" for entry in orientation["readingOrder"])
+
+
+def test_new_work_does_not_require_a_previous_agents_handoff():
+    brief = _brief_with_role_memory({})
+    brief["agentWorkspace"]["frame"] = ""
+    orientation = orientation_from_brief(brief, "draft", "draft")
+    assert orientation["contextGaps"] == []
+    assert orientation["nextAction"]["kind"] == "follow-harness"
+    assert any(item["id"] == "materials" for item in orientation["optionalContext"])
+
+
+def test_continuing_previous_work_still_identifies_a_missing_handoff():
+    brief = _brief_with_role_memory({})
+    brief["agentWorkspace"]["frame"] = ""
+    brief["resultHistory"] = {"items": [{"id": "previous-result"}]}
+    orientation = orientation_from_brief(brief, "draft", "draft")
+    assert {item["id"] for item in orientation["contextGaps"]} == {"agent-workspace"}

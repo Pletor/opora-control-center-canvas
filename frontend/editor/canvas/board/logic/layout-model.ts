@@ -14,7 +14,7 @@ import {
 
 export type Footprint = { id: string; x: number; y: number; w: number; h: number };
 
-const CARD_W = 272;
+const CARD_W = 360;
 const CARD_H_DEFAULT = 240;
 const COMMENT_W = 240;
 const COMMENT_H_DEFAULT = 140;

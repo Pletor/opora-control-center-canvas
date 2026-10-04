@@ -539,6 +539,25 @@
 .assistant-panel__message-text {
   white-space: pre-wrap;
 }
+/* Vložené zadání v odeslané zprávě je sbalené na jeden řádek se štítkem a začátkem textu, aby
+   konverzaci nezaplavilo; kliknutí ho rozbalí celé a dalším se zase sbalí. */
+.assistant-panel__message-paste {
+  margin-top: var(--sp-2);
+}
+.assistant-panel__message-paste-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__message-paste-preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Markdown odpovědi: nadpisy jsou jen o stupeň větší a tučné (žádné kapitálky z obecného stylu),
    odstavce a seznamy dýchají mezerou necelého řádku, kód v řádku má tichý podklad a blok kódu je
@@ -730,6 +749,12 @@
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
+/* Když model minuty přemýšlí nebo píše obří vstup nástroje, nepadá žádný text. Vedle času proto stojí
+   tlumený řádek „Přemýšlí… 3 kB“ / „Píše Write… 24 kB“: roste, takže je vidět, že se něco děje. */
+.assistant-panel__working-progress {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
 @media (prefers-reduced-motion: reduce) {
   .assistant-panel__working-pulse {
     animation: none;
@@ -768,8 +793,10 @@
 
 /* Pole pro zprávu je jedna zaoblená deska dole, zarovnaná se sloupcem textu: vlevo text, vpravo
    kulaté akcentní tlačítko Odeslat, za běhu místo něj tichý Stop. Na celé ploše je stejně široká
-   jako sloupec konverzace (920 px) a nad textem drobně říká, do kterého úkolu se odpovídá. Deska roste s textem až do 40 %
-   výšky panelu a pak se posouvá uvnitř. Fokus obarví celou desku, ne jen textové pole. Nad ní se
+   jako sloupec konverzace (920 px) a nad textem drobně říká, do kterého úkolu se odpovídá. Prázdná má tři
+   řádky, aby se psalo pohodlně, a roste s textem až do 40 % výšky panelu. Vložené dlouhé zadání jde
+   tlačítkem Rozbalit otevřít na tři čtvrtiny panelu a celé ho projít, Sbalit (nebo Esc) ho vrátí;
+   od 2 000 znaků je vedle počítadlo, které před limitem zčervená. Fokus obarví celou desku, ne jen textové pole. Nad ní se
    při psaní „/“ ukáže nabídka lomítkových příkazů. */
 .assistant-panel__composer {
   display: flex;
@@ -779,6 +806,7 @@
 }
 .assistant-panel__field {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--sp-2);
   width: 100%;
@@ -792,6 +820,52 @@
 .assistant-panel__field:focus-within {
   border-color: var(--accent-line);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+/* Pod polem tichý řádek s rozsahem práce: dvě slova „Výběr / Celý obraz“ jako malý segment, stejný
+   jazyk jako přepínač velikosti v hlavičce (aktivní má jemný akcentní podklad). Uživatel před odesláním
+   vidí, jestli asistent půjde do hloubky jen u vybraných uzlů, nebo převezme celé plátno. U Výběru stojí
+   vedle počet vybraných uzlů; když není vybráno nic, slovo zlátne, protože se asistent nejdřív zeptá. */
+.assistant-panel__scope {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  max-width: 72ch;
+  margin: 0 auto;
+  font-size: var(--fs-1);
+}
+.assistant-panel--full .assistant-panel__scope {
+  max-width: 920px;
+}
+.assistant-panel__scope-options {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.assistant-panel__scope-option {
+  min-height: 24px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__scope-option:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.assistant-panel__scope-option--on,
+.assistant-panel__scope-option--on:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.assistant-panel__scope-count {
+  color: var(--ink-muted);
+}
+.assistant-panel__scope-count--empty {
+  color: var(--warn);
 }
 /* Pole si vpravo nechá místo na posuvník jako konverzace nad ním, aby obě hrany lícovaly. */
 .assistant-panel--full .assistant-panel__composer {
@@ -809,16 +883,26 @@
   flex: 1;
   min-width: 0;
 }
-.assistant-panel__field-label {
+.assistant-panel__field-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
   padding-top: 6px;
+}
+.assistant-panel__field-label {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   color: var(--ink-muted);
   font-size: var(--fs-1);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Pole nesmí mít `flex: 1`: ve sloupci popisku by flex-basis 0 přebil výšku, kterou mu nastavuje
+   Composer, a zůstalo by jen na min-height (dva řádky). */
 .assistant-panel__input {
-  flex: 1;
+  flex: none;
+  width: 100%;
   min-height: 34px;
   padding: 6px 0;
   border: 0;
@@ -827,6 +911,125 @@
   line-height: 1.5;
   resize: none;
 }
+.assistant-panel__field-count {
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.assistant-panel__field-count--over {
+  color: var(--danger);
+}
+.assistant-panel__field-toggle {
+  flex: none;
+  padding: 2px 10px;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.assistant-panel__field-toggle:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.assistant-panel__field-label + .assistant-panel__field-toggle,
+.assistant-panel__field-bar > .assistant-panel__field-toggle:first-child {
+  margin-left: auto;
+}
+/* Dlouhý vložený text se nesype do pole, ale leží nad ním jako dlaždice, podobně jako příloha:
+   pár řádků náhledu, štítek Vloženo s délkou a tužka, která text vrátí do pole k úpravě. Pole pod
+   dlaždicemi zůstane prázdné pro vlastní pokyn, takže zadání i otázka k němu jdou jednou zprávou.
+   Dlaždice se řadí vedle sebe a při víc kusech se zalamují na další řádek. */
+.assistant-panel__pasted {
+  display: flex;
+  flex: 0 0 100%;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-2) 0 0;
+  list-style: none;
+}
+.assistant-panel__pasted-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 148px;
+  height: 116px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+.assistant-panel__pasted-preview {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.35;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+.assistant-panel__pasted-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.assistant-panel__pasted-badge {
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.assistant-panel__pasted-size {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.assistant-panel__pasted-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--ink-2);
+}
+.assistant-panel__pasted-edit:hover,
+.assistant-panel__pasted-remove:hover {
+  color: var(--ink);
+}
+.assistant-panel__pasted-remove {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
 /* Obrys fokusu nese celá deska (výše), proto pole uvnitř vlastní obrys nekreslí. */
 .assistant-panel__field .assistant-panel__input:focus-visible {
   outline: none;

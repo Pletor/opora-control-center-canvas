@@ -35,7 +35,7 @@ describe("block-model", () => {
     const opened = buildBlockNodes(graph, null, emptyDesktopState(), toggleOpen({}, "login", "rule"), false, api);
     expect(opened.nodes.map((n) => n.id)).toEqual(["block:rule:login"]);
     expect(opened.edges[0]).toMatchObject({ source: "login", sourceHandle: "rule", target: "block:rule:login" });
-    expect(opened.nodes[0].position).toEqual({ x: 427, y: 239 });
+    expect(opened.nodes[0].position).toEqual({ x: 515, y: 239 });
     const withItems = buildBlockNodes(graph, null, addAction("login", { id: "p", label: "x", description: "" })(emptyDesktopState()), {}, false, api);
     expect(withItems.nodes.map((n) => n.data.port)).toEqual(["action"]);
     expect(isBlockId(withItems.nodes[0].id)).toBe(true);
@@ -66,7 +66,7 @@ describe("block-model", () => {
   it("blok podkladů stojí na místě pravidel, dokud pravidla nejsou vidět", () => {
     const alone = buildBlockNodes(graph, null, emptyDesktopState(), toggleOpen({}, "login", "material"), false, api);
     expect(alone.nodes.map((n) => n.id)).toEqual(["block:material:login"]);
-    expect(alone.nodes[0].position).toEqual({ x: 427, y: 239 });
+    expect(alone.nodes[0].position).toEqual({ x: 515, y: 239 });
     const both = buildBlockNodes(graph, null, emptyDesktopState(), toggleOpen(toggleOpen({}, "login", "rule"), "login", "material"), false, api);
     expect(both.nodes.map((n) => n.position.y)).toEqual([239, 449]);
     expect(both.edges[1]).toMatchObject({ sourceHandle: "material", target: "block:material:login" });
@@ -78,12 +78,12 @@ describe("block-model", () => {
       edges: [],
     };
     const open = toggleOpen({}, "login", "rule");
-    // Bez posunu blok vyjde z výchozího místa (karta 100/50 + 327/189), s posunem z uloženého.
-    expect(buildBlockNodes(graph, null, emptyDesktopState(), open, false, api).nodes[0].position).toEqual({ x: 427, y: 239 });
+    // Bez posunu blok vyjde z výchozího místa (karta 100/50 + 415/189), s posunem z uloženého.
+    expect(buildBlockNodes(graph, null, emptyDesktopState(), open, false, api).nodes[0].position).toEqual({ x: 515, y: 239 });
     expect(buildBlockNodes(moved, null, emptyDesktopState(), open, false, api).nodes[0].position).toEqual({ x: -80, y: 370 });
     // Posun platí jen pro svůj port: podklady dál stojí na svém výchozím místě u karty.
     const both = buildBlockNodes(moved, null, emptyDesktopState(), toggleOpen(open, "login", "material"), false, api);
-    expect(both.nodes.map((n) => n.position)).toEqual([{ x: -80, y: 370 }, { x: 427, y: 449 }]);
+    expect(both.nodes.map((n) => n.position)).toEqual([{ x: -80, y: 370 }, { x: 515, y: 449 }]);
     expect(both.nodes.every((n) => n.draggable === true && n.selectable === false)).toBe(true);
     // Jen ke čtení: blok je na svém místě, ale odtáhnout ho nejde (vlastní `draggable` přebíjí plátno).
     expect(buildBlockNodes(moved, null, emptyDesktopState(), open, true, api).nodes[0].draggable).toBe(false);

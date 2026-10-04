@@ -25,8 +25,13 @@ export type ChatItem =
 
 export type TurnInfo = { durationMs: number; isError: boolean; numTurns: number; denied: number };
 
+/** Poslední `progress` běžícího tahu: model generuje bez viditelného textu (docs/asistent.md, události SSE). */
+export type Progress = { kind: "thinking" | "tool_input"; chars: number; name: string | null };
+
 export type Conversation = {
   items: ChatItem[];
+  /** Co model právě generuje beze slov; mizí s prvním viditelným výstupem a koncem tahu. */
+  progress: Progress | null;
   /** Nejvyšší zpracovaný seq; události s nižším nebo stejným seq se ignorují. */
   lastSeq: number;
   state: SessionState;
@@ -36,7 +41,7 @@ export type Conversation = {
 export const STATES: SessionState[] = ["idle", "running", "waiting_approval", "closed", "error"];
 
 export function emptyConversation(state: SessionState = "idle", lastSeq = 0): Conversation {
-  return { items: [], lastSeq, state, lastTurn: null };
+  return { items: [], progress: null, lastSeq, state, lastTurn: null };
 }
 
 function str(value: unknown): string {
@@ -54,7 +59,7 @@ export function loadTranscript(
     if (m.role !== "user" && m.role !== "assistant") return;
     items.push({ kind: "message", id: `h${i}`, role: m.role, text: m.text, streaming: false, origin: "history" });
   });
-  return { items, lastSeq, state, lastTurn: null };
+  return { items, progress: null, lastSeq, state, lastTurn: null };
 }
 
 /** Zpráva, kterou uživatel právě odeslal: ukáže se hned, server ji později jen potvrdí. */
@@ -145,6 +150,19 @@ function onToolResult(conv: Conversation, event: AssistantEvent, seq: number): C
  * aby čekající karta byla vidět i po přepnutí; rozhodnuté žádosti se z přehrání zase zahodí.
  */
 export function applyEvent(conv: Conversation, event: AssistantEvent): Conversation {
+  const next = reduceEvent(conv, event);
+  if (next === conv || event.type === "progress") return next;
+  // Cokoli jiného než `progress` znamená, že model už něco ukázal nebo skončil: ukazatel zmizí.
+  return next.progress === null ? next : { ...next, progress: null };
+}
+
+function onProgress(conv: Conversation, event: AssistantEvent): Conversation {
+  const kind = event.kind === "thinking" || event.kind === "tool_input" ? event.kind : null;
+  if (!kind || typeof event.chars !== "number") return conv;
+  return { ...conv, progress: { kind, chars: event.chars, name: str(event.name) || null } };
+}
+
+function reduceEvent(conv: Conversation, event: AssistantEvent): Conversation {
   const seq = typeof event.seq === "number" ? event.seq : null;
   if (seq !== null && seq <= conv.lastSeq) {
     if (event.type === "approval") return { ...conv, items: addApprovalItem(conv.items, event, true) };
@@ -158,6 +176,8 @@ export function applyEvent(conv: Conversation, event: AssistantEvent): Conversat
       const state = STATES.find((s) => s === event.state);
       return state ? { ...base, state } : base;
     }
+    case "progress":
+      return onProgress(base, event);
     case "text_delta":
       return onTextDelta(base, event, at);
     case "message":

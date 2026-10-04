@@ -309,3 +309,10 @@
 .library-navbar__edge:hover { background: var(--accent-soft); color: var(--accent); }
 .library-navbar__edge-route { min-width: 0; overflow-wrap: anywhere; }
 .library-navbar__edge-handoff { min-width: 0; font-size: 12px; color: var(--ink-muted); overflow-wrap: anywhere; }
+
+/* Čtyři domény udržují konkrétní komponenty i dřívější odborné předlohy v jednom katalogu. */
+.library-navbar__family { border-top: 1px solid var(--line); padding: 8px 0; }
+.library-navbar__family > summary { cursor: pointer; padding: 8px; font-weight: 700; color: var(--ink); }
+.library-navbar__insert-hint { padding: 8px 12px; margin: 0; font-size: 12px; color: var(--ink-muted); line-height: 1.5; }
+.library-navbar__insert { margin: 0 8px 8px; font-size: 12px; }
+.library-navbar__insert-block { margin: 8px; max-width: calc(100% - 16px); font-size: 12px; }

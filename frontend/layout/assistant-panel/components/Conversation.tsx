@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isBusy, type Conversation as ConversationState } from "../logic/assistant-events";
+import { progressLabel } from "../logic/progress-label";
 import { formatElapsed } from "../logic/task-overview";
 import type { Turn } from "../logic/turns";
 import { useActiveTurn } from "../logic/use-active-turn";
@@ -72,6 +73,9 @@ export default function Conversation({
           <p className="assistant-panel__working" role="status">
             <span className="assistant-panel__working-pulse" aria-hidden="true" />
             {conv.state === "waiting_approval" ? "čeká na vás…" : "pracuje…"} <span className="assistant-panel__working-time">{formatElapsed(elapsed)}</span>
+            {conv.progress && conv.state === "running" && (
+              <span className="assistant-panel__working-progress">{progressLabel(conv.progress)}</span>
+            )}
           </p>
         )}
         {!running && conv.lastTurn && conv.lastTurn.denied > 0 && (

@@ -150,7 +150,8 @@ def test_brief_exposes_typed_output_and_exact_request_revision(tmp_path):
         seed_graph(client)
         saved = save_state(client, full_state())
         contract = brief(client).json()["outputContract"]
-        assert contract["request"] == {**SCOPE, "nodeId": "focus", "expectedRevision": saved["revision"]}
+        assert contract["request"] == {**SCOPE, "nodeId": "focus", "expectedRevision": saved["revision"],
+                                       "contextVersion": brief(client).json()["contextVersion"]}
         schema = contract["jsonSchema"]
         assert schema["additionalProperties"] is False
         assert set(schema["required"]) == {"schema", "blocks", "reports", "done", "decisions"}
@@ -274,7 +275,8 @@ def test_card_without_state_or_materials_still_builds_with_defaults(tmp_path):
         assert data["goal"] == {"goal": "", "nonGoals": "", "acceptance": ""}
         assert data["harness"]["phase"] == "discover"
         assert data["loop"]["lastReport"] is None and data["loop"]["done"]["confirmed"] is False
-        assert any("nemá žádný podklad" in text for text in data["harness"]["stopConditions"])
+        assert not any("nemá žádný podklad" in text for text in data["harness"]["stopConditions"])
+        assert any(item["id"] == "materials" for item in data["orientation"]["optionalContext"])
         assert data["node"]["path"] == ["Sektor"] and data["node"]["depth"] == 0
 
 
@@ -320,7 +322,7 @@ def test_context_area_and_graph_area_flows_and_members(tmp_path):
             "nodes": [
                 *GRAPH["nodes"],
                 # Oblast na stejné vrstvě jako "focus" (parentId "sektor"); její obdélník
-                # [-50, 350] x [-50, 350] obsahuje střed "focus" (136, 120), ale ne "pred"
+                # [-50, 350] x [-50, 350] obsahuje střed "focus" (180, 120), ale ne "pred"
                 # (-164, 120) ani "dalsi" (436, 120).
                 {"id": "region-1", "parentId": "sektor", "kind": "area", "name": "Oblast",
                  "purpose": "Jádro řešení.", "x": -50, "y": -50, "size": {"w": 400, "h": 400}},
@@ -471,7 +473,7 @@ def test_graph_parent_carries_its_own_goal_and_rules_for_the_child(tmp_path):
         assert root_child["graph"]["parent"]["rules"] == []
 
 
-def test_missing_material_stop_condition_looks_at_ancestors_too(tmp_path):
+def test_optional_material_context_inherits_ancestors_without_blocking_empty_tasks(tmp_path):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         seed_graph(client)
         state = full_state()
@@ -483,14 +485,18 @@ def test_missing_material_stop_condition_looks_at_ancestors_too(tmp_path):
                            "caption": "Sektor"}],
         }
         save_state(client, state)
-        stops = brief(client).json()["harness"]["stopConditions"]
-        assert not any("nemá žádný podklad" in text for text in stops)
+        inherited = brief(client).json()
+        assert not any("nemá žádný podklad" in text for text in inherited["harness"]["stopConditions"])
+        assert inherited["context"]["materials"][0]["sourceNodeId"] == "sektor"
+        assert not any(item["id"] == "materials" for item in inherited["orientation"]["optionalContext"])
 
-        # Bez podkladu na kartě i na žádném předkovi se stop podmínka vrátí.
+        # Bez podkladu karty i předků jde o volitelný kontext, nikoli důvod zastavit práci.
         state["nodes"]["sektor"]["materials"] = []
         save_state(client, state, expected=1)
-        stops = brief(client).json()["harness"]["stopConditions"]
-        assert any("nemá žádný podklad" in text for text in stops)
+        empty = brief(client).json()
+        assert not any("nemá žádný podklad" in text for text in empty["harness"]["stopConditions"])
+        assert empty["context"]["materials"] == []
+        assert any(item["id"] == "materials" for item in empty["orientation"]["optionalContext"])
 
 
 def test_upload_material_gets_the_servable_file_url(tmp_path):
@@ -615,3 +621,21 @@ def test_project_memory_rules_stay_untouched_by_role_memory(tmp_path):
         packet = response.json()["packet"]
         assert packet["context"]["memory"]["rules"][0]["text"] == "Nikdy nespouštět model."
         assert "roleMemory" not in packet["context"]["memory"]
+
+
+def test_brief_carries_card_text_as_content_or_null(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        seed_graph(client)
+        assert brief(client).json()["content"] is None
+        excerpt = "Zadání Jihlava, kap. Zpracování dat:\n1. Nahrání | 2. OCR > 3. Chunking"
+        saved = client.post("/api/node-text", headers=HEADERS,
+                            json={**SCOPE, "node": "focus", "expected_revision": 0, "text": excerpt})
+        assert saved.status_code == 200, saved.text
+        assert brief(client).json()["content"] == {"text": excerpt, "revision": 1}
+        # Text se v balíčku rediguje stejně jako zbytek; prázdný text je zase null.
+        client.post("/api/node-text", headers=HEADERS,
+                    json={**SCOPE, "node": "focus", "expected_revision": 1, "text": "token: abcdefgh12345678"})
+        assert "abcdefgh12345678" not in brief(client).json()["content"]["text"]
+        client.post("/api/node-text", headers=HEADERS,
+                    json={**SCOPE, "node": "focus", "expected_revision": 2, "text": "  "})
+        assert brief(client).json()["content"] is None

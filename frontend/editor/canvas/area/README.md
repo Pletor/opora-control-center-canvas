@@ -1,5 +1,5 @@
 Oblast na plátně (`kind: "area"`): dashovaný rámeček, ne karta uzlu. Seskupuje karty geometricky —
-karta patří do nejmenší oblasti na stejné vrstvě, jejíž obdélník obsahuje její střed (`x+136, y+120`;
+karta patří do nejmenší oblasti na stejné vrstvě, jejíž obdélník obsahuje její střed (`x+180, y+120`;
 komentář `x+120, y+80`) — členství se nikde neukládá, počítá se z pozic při každém vykreslení. Stejné
 pravidlo počítá i backend (`backend/canvas/areas.py`, `area_of`) pro `context.area` / `graph.areaMembers`
 / `graph.areaFlows` v node-brief.

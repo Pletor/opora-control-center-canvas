@@ -6,8 +6,8 @@ Uzavřená karta (`done.confirmed`) výstup odmítne, neznámý `blockId` nebo `
 a nezapíše se nic: mutuje se kopie stavu a teprve celek jde přes `DesktopV3State.save`,
 která drží zámek i CAS na revizi.
 
-`blocks[].note` je součást tvaru výstupu, ale datový model karty pro něj nemá místo:
-ověří se a dál se nenese. Poznámka agenta patří do zprávy na vazbě.
+Původní výstup včetně `blocks[].note` se uchová v neměnné historii výsledků. Volitelný
+contextVersion váže výsledek k přesnému zadání; staré požadavky jsou legacy-unbound.
 """
 
 import copy
@@ -24,6 +24,9 @@ from backend.editor.agent_memory.desktop_v3_state import (
     DesktopV3State,
     default_done,
 )
+from backend.editor.agent_memory.agent_results import AgentResults, result_record
+from backend.editor.agent_packet.desktop_v3_packets import redact_deep
+from backend.editor.agent_packet.specification_context import capture_specification
 
 SCHEMA = "opora.agent-output/1"
 PAYLOAD_KEYS = {"project", "workspace", "nodeId", "expectedRevision", "agent", "output"}
@@ -79,8 +82,12 @@ def _unique(values, label):
 
 def validate_output(payload):
     """Tvar celého požadavku; identity se proti grafu a kartě ověřují až v `apply`."""
-    if not isinstance(payload, dict) or set(payload) != PAYLOAD_KEYS:
+    if not isinstance(payload, dict) or set(payload) not in (PAYLOAD_KEYS, PAYLOAD_KEYS | {"contextVersion"}):
         _fail("očekávám project, workspace, nodeId, expectedRevision, agent a output.")
+    if "contextVersion" in payload:
+        version = payload["contextVersion"]
+        if not isinstance(version, str) or len(version) != 64 or any(c not in "0123456789abcdef" for c in version):
+            _fail("contextVersion musí být otisk zadání z aktuálního node-briefu.")
     project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
     if not isinstance(project, str) or (project != "draft" and not valid_id(project)) or not valid_id(workspace):
         _fail("neplatný identifikátor projektu nebo pracovního prostoru.")
@@ -135,13 +142,14 @@ class AgentOutput:
     def __init__(self, canvas, state_store=None):
         self.canvas = canvas
         self.state = state_store or DesktopV3State(canvas)
+        self.results = AgentResults(canvas)
 
     def apply(self, payload):
         """Zapíše výstup agenta do stavu a vrátí novou StateResponse; při chybě nezapíše nic."""
         validate_output(payload)
         project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
         expected, output = payload["expectedRevision"], payload["output"]
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock, self.canvas.lock:
             graph = self.canvas.view(project, workspace)["graph"]
             if not any(item["id"] == node_id for item in graph["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
@@ -150,6 +158,10 @@ class AgentOutput:
                 raise ValueError("Main je pouze pro čtení; výstup agenta patří do pracovního prostoru.")
             if stored["revision"] != expected:
                 raise ValueError("Stav se změnil (revize nesouhlasí); načtěte kartu znovu.")
+            captured = capture_specification(self.canvas, project, workspace, node_id) if "contextVersion" in payload else None
+            if captured and captured["contextVersion"] != payload["contextVersion"]:
+                raise ValueError("Zadání nebo jeho kontext se změnily (contextVersion nesouhlasí). "
+                                 "Výsledek nebyl uložen; zachovejte rozepsaný výstup a načtěte nové zadání.")
             state = copy.deepcopy(stored["state"])
             # Karta bez uloženého stavu vzniká až tím, co se do ní opravdu zapíše.
             node = state["nodes"].get(node_id, {"phase": "discover", "criteria": [], "steps": []})
@@ -190,7 +202,9 @@ class AgentOutput:
                     "id": uuid.uuid4().hex, "text": text, "pinned": False, "path": "",
                     "nodeId": node_id, "createdAt": stamp, "by": "agent",
                 })
-            return self.state.save({
+            record = result_record(payload, captured)
+            saved = self.state.save({
                 "project": project, "workspace": workspace,
                 "expectedRevision": expected, "state": state,
-            })
+            }, after_write=lambda db: self.results.insert(db, project, workspace, record))
+            return {**saved, "acceptedResult": redact_deep(record)}

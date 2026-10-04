@@ -98,6 +98,7 @@ describe("panel-dock – paměť sekce", () => {
   });
 
   it("uložená sekce se přečte, cizí text spadne na žádnou", () => {
+    expect(parseDockSection('{"section":"skeleton"}')).toBe("library");
     expect(parseDockSection("{\"section\":\"flows\"}")).toBe("flows");
     expect(parseDockSection("{\"section\":null}")).toBeNull();
     expect(parseDockSection("{\"section\":\"projekt-42\"}")).toBeNull();

@@ -20,6 +20,8 @@ export type CardModel = "fable" | "opus" | "sonnet" | "haiku";
 export type CardEffort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Nepovinná karta uzlu (jen `kind: "node"`); každý klíč je nepovinný a prázdná karta se neukládá. */
 export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: string; model?: CardModel; effort?: CardEffort };
+/** Product structure shares the same graph identities across deployment environments. */
+export type NodeSite = { kind: "application"; environments: { name: string; host: string }[] } | { kind: "page"; path: string };
 export type CanvasNode = {
   id: string;
   parentId: string | null;
@@ -37,6 +39,7 @@ export type CanvasNode = {
   color?: AreaColor;
   /** Jen s `kind: "node"`: typ, ruční stav, termín, model a effort karty; chybí u starších uzlů. */
   card?: NodeCardFields;
+  site?: NodeSite;
 };
 /** Port karty, ze kterého vazba vede. Starší vazba bez portu znamená `next`. `flow` spojuje jen dvě oblasti. */
 export type EdgePort = "next" | "action" | "rule" | "flow";

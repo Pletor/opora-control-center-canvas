@@ -57,13 +57,13 @@ export function areaLabel(area: Pick<CanvasNode, "name">): string {
 // Odsazení středu karty od jejího levého horního rohu, podle druhu uzlu — stejné hodnoty jako
 // backendový `_CENTRE_OFFSET`, aby členství vypočtené na plátně souhlasilo s tím v node-brief.
 const CENTRE_OFFSET: Record<string, { dx: number; dy: number }> = {
-  node: { dx: 136, dy: 120 },
-  sector: { dx: 136, dy: 120 },
+  node: { dx: 180, dy: 120 },
+  sector: { dx: 180, dy: 120 },
   comment: { dx: 120, dy: 80 },
 };
 
 // Půdorys karty pro hledání volného místa (dvojnásobek CENTRE_OFFSET výš — stejný střed, celý obdélník).
-const NODE_FOOTPRINT = { w: 272, h: 240 }; // node / sector
+const NODE_FOOTPRINT = { w: 360, h: 240 }; // node / sector
 const COMMENT_FOOTPRINT = { w: 240, h: 160 };
 
 function centreOf(node: Pick<CanvasNode, "kind" | "x" | "y">): { cx: number; cy: number } {

@@ -29,8 +29,11 @@ export type LibraryNavbarApi = {
   group: (group: LayerGroupId) => void;
 };
 
-export function useLibraryNavbar(): LibraryNavbarApi {
-  const [state, setState] = useState<LibraryNavbarState>(readLibraryNavbar);
+export function useLibraryNavbar(initialTab?: LibraryTab): LibraryNavbarApi {
+  const [state, setState] = useState<LibraryNavbarState>(() => {
+    const stored = readLibraryNavbar();
+    return initialTab ? { ...stored, tab: initialTab } : stored;
+  });
   useEffect(() => { writeLibraryNavbar(state); }, [state]);
   return {
     state,

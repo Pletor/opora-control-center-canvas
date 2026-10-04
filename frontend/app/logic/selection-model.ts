@@ -34,7 +34,7 @@ export type Panels = {
 
 /**
  * Který panel se má otevřít pro daný výběr a režim. Struktura: blok vede do knihovny bez inspektoru,
- * uzel do knihovny i inspektoru, vazba jen do inspektoru, nic vybraného = žádný panel. Komentář i
+ * uzel jen do pravého inspektoru, vazba jen do inspektoru, nic vybraného = žádný panel. Komentář i
  * oblast nemají knihovnu (nenesou bloky) a otevřou jen svůj vlastní inspektor. Text: inspektor ukazuje
  * deník vrstvy, pokud vrstva existuje, jinak obecný kontext. Mapa a běhy panely nepoužívají.
  */
@@ -43,7 +43,7 @@ export function panelsFor(sel: Selection, mode: PanelsMode, hasLayer: boolean, s
     if (sel.block) return { drawer: "block", inspector: null };
     if (sel.node && selectedKind === "comment") return { drawer: null, inspector: "comment" };
     if (sel.node && selectedKind === "area") return { drawer: null, inspector: "area" };
-    if (sel.node) return { drawer: "node", inspector: "node" };
+    if (sel.node) return { drawer: null, inspector: "node" };
     if (sel.edge) return { drawer: null, inspector: "edge" };
     return { drawer: null, inspector: null };
   }

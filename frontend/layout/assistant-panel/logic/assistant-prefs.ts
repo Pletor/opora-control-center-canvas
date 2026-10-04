@@ -1,16 +1,17 @@
-import { MODELS, type AssistantModel } from "./assistant-api";
+import { MODELS, SCOPES, type AssistantModel, type AssistantScope } from "./assistant-api";
 
 /**
  * Preference asistenta jsou volba aplikace, ne projektu: jeden klíč pro všechny projekty.
- * Drží výchozí model nové session a velikost panelu (minimalizovat, vpravo, celá plocha).
+ * Drží výchozí model nové session, velikost panelu (minimalizovat, vpravo, celá plocha)
+ * a rozsah práce asistenta (Celý obraz / Výběr, docs/asistent.md §6.1).
  */
 export const ASSISTANT_PREFS_KEY = "opora:assistant:v1";
 
 export type PanelSize = "minimized" | "side" | "full";
 export const SIZES: PanelSize[] = ["minimized", "side", "full"];
 
-export type AssistantPrefs = { model: AssistantModel; size: PanelSize };
-export const DEFAULT_PREFS: AssistantPrefs = { model: "opus", size: "side" };
+export type AssistantPrefs = { model: AssistantModel; size: PanelSize; scope: AssistantScope };
+export const DEFAULT_PREFS: AssistantPrefs = { model: "opus", size: "side", scope: "board" };
 
 /** Uložený JSON → platné preference; neznámé nebo poškozené hodnoty dostanou výchozí. */
 export function parsePrefs(raw: string | null): AssistantPrefs {
@@ -20,6 +21,7 @@ export function parsePrefs(raw: string | null): AssistantPrefs {
       return {
         model: MODELS.includes(value.model) ? value.model : DEFAULT_PREFS.model,
         size: SIZES.includes(value.size) ? value.size : DEFAULT_PREFS.size,
+        scope: SCOPES.includes(value.scope) ? value.scope : DEFAULT_PREFS.scope,
       };
     }
   } catch {

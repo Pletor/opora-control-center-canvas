@@ -8,6 +8,8 @@ to Oracle dovolí (`canMerge`). Agent nesmí ani jedno — hlídá to `OporaHub`
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
+from backend.editor.agent_packet.specification_context import capture_specification
+
 
 def create_oporahub_router(service, hub, report):
     router = APIRouter(prefix="/api", tags=["oporahub"])
@@ -23,20 +25,32 @@ def create_oporahub_router(service, hub, report):
         pid = payload.get("project")
         wid = payload.get("workspace") or "draft"
         scope_id = payload.get("scope")
-        view = service.view(pid, wid)
-        node = next((item for item in view["graph"]["nodes"] if item["id"] == scope_id), None)
-        if node is None:
-            return JSONResponse({"error": "Rozsah v tomto pracovním prostoru neexistuje."},
-                                status_code=404)
-        spec = service.specs.read((pid, wid, scope_id))
-        return hub.commit((pid, wid, scope_id), {
-            "kind": node["kind"],
-            "specRevision": spec["revision"],
-            "graphDigest": view["digest"],
-            "subject": payload.get("subject") or f"zadání revize {spec['revision']}",
-            "by": author(payload),
-            "pair": None,
-        })
+        with service.graph_lock, service.lock:
+            view = service.view(pid, wid)
+            node = next((item for item in view["graph"]["nodes"] if item["id"] == scope_id), None)
+            if node is None:
+                return JSONResponse({"error": "Rozsah v tomto pracovním prostoru neexistuje."},
+                                    status_code=404)
+            spec = service.specs.read((pid, wid, scope_id))
+            snapshot = capture_specification(service, pid, wid, scope_id)
+            return hub.commit((pid, wid, scope_id), {
+                "kind": node["kind"],
+                "specRevision": spec["revision"],
+                "graphDigest": view["digest"],
+                "subject": payload.get("subject") or f"zadání revize {spec['revision']}",
+                "by": author(payload),
+                "pair": None,
+                "specificationSnapshot": snapshot,
+            })
+
+    @router.get("/opora-commit")
+    def read_commit(
+        project: str = Query(min_length=1, max_length=64),
+        workspace: str = Query(default="draft", min_length=1, max_length=64),
+        scope: str = Query(min_length=1, max_length=80),
+        id: str = Query(min_length=40, max_length=40),
+    ):
+        return hub.read((project, workspace, scope), id)
 
     @router.get("/opora-commits")
     def history(

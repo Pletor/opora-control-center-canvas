@@ -1,8 +1,9 @@
-"""Rozhraní Editoru: graf plátna, index karet, kresby, wireframe kontext a odstraňování."""
+"""Rozhraní Editoru: graf plátna, dávka plánu, index karet, kresby, wireframe kontext a odstraňování."""
 
 from fastapi import APIRouter
 
 from backend.canvas.canvas_index import DEFAULT_LIMIT, build_index, search
+from backend.canvas.canvas_plan import apply_plan
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.node.wireframe_context import wireframe_context
 
@@ -34,6 +35,11 @@ def create_canvas_router(service):
             payload.get("digest"),
             undo=payload.get("undo") is True,
         )
+
+    @router.post("/canvas-plan")
+    def canvas_plan(payload: dict):
+        # Dávka plánu (docs/davka-planu.md §3): jen přidává, atomicky; `dryRun` nic nezapíše.
+        return apply_plan(service, payload)
 
     @router.get("/drawing")
     def drawing(project: str, workspace: str, layer: str = ""):

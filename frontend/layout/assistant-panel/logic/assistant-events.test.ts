@@ -202,3 +202,19 @@ describe("approval a approval_resolved", () => {
     expect(next.items.map((it) => it.kind === "approval" && it.approval.status)).toEqual(["pending", "sending"]);
   });
 });
+
+describe("progress", () => {
+  it("drží poslední progress a smaže ho prvním viditelným výstupem nebo koncem tahu", () => {
+    let conv = applyEvent(emptyConversation("running"), { seq: 1, type: "progress", kind: "thinking", chars: 2100 });
+    expect(conv.progress).toEqual({ kind: "thinking", chars: 2100, name: null });
+    conv = applyEvent(conv, { seq: 2, type: "progress", kind: "tool_input", chars: 4000, name: "Write" });
+    expect(conv.progress).toEqual({ kind: "tool_input", chars: 4000, name: "Write" });
+    expect(applyEvent(conv, { seq: 3, type: "text_delta", messageId: "m", text: "a" }).progress).toBeNull();
+    expect(applyEvent(conv, { seq: 3, type: "tool_use", id: "t", name: "Write" }).progress).toBeNull();
+    expect(applyEvent(conv, { seq: 3, type: "turn_end" }).progress).toBeNull();
+    expect(applyEvent(conv, { seq: 3, type: "status", state: "idle" }).progress).toBeNull();
+  });
+  it("neplatný progress ignoruje", () => {
+    expect(applyEvent(emptyConversation("running"), { seq: 1, type: "progress", kind: "x", chars: 5 }).progress).toBeNull();
+  });
+});

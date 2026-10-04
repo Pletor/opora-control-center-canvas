@@ -1,6 +1,6 @@
 import json
 
-from backend.claude_code.assistant.event_log import EventLog, truncate_event
+from backend.claude_code.assistant.event_log import MAX_USER_MESSAGE_BYTES, EventLog, truncate_event
 
 
 def test_seq_grows_and_buffer_keeps_last_events():
@@ -24,3 +24,10 @@ def test_large_event_is_truncated_with_marker():
     assert truncate_event({"type": "status", "state": "idle"}) == {"type": "status", "state": "idle"}
     stored = EventLog().append(event)
     assert stored["truncated"] is True and stored["seq"] == 1
+
+
+def test_user_message_has_own_cap():
+    # Celé zadání projektu (60 000 znaků s diakritikou) se v historii nezkrátí.
+    event = {"type": "message", "role": "user", "text": "ř\n" * 30000}
+    stored = EventLog().append(event, MAX_USER_MESSAGE_BYTES)
+    assert "truncated" not in stored and stored["text"] == event["text"]

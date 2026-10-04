@@ -12,10 +12,10 @@ export const BLOCK_COLOR: Record<BlockPort, string> = { action: "#c98a1e", rule:
 /** Pravoúhlé vedení šipky od karty k bloku: stejné zaoblení a odstup jako vazby grafu (viz board-model). */
 const BLOCK_EDGE_PATH = { type: "smoothstep" as const, pathOptions: { borderRadius: 12, offset: 24 } };
 
-/** Výchozí místo bloku: vpravo od karty (272 + mezera 55); akce nad středem, pravidla pod ním, podklady pod
+/** Výchozí místo bloku: vpravo od karty (360 + mezera 55); akce nad středem, pravidla pod ním, podklady pod
  *  pravidly (nebo na jejich místě, když blok pravidel není vidět). Odtud blok vyjde, než si ho uživatel
  *  odtáhne jinam — pak platí `blockOffsets` uzlu. */
-export const BLOCK_OFFSET_X = 327;
+export const BLOCK_OFFSET_X = 415;
 export const BLOCK_OFFSET_Y: Record<BlockPort, number> = { action: -21, rule: 189, material: 399 };
 export const MATERIAL_OFFSET_WITHOUT_RULES = 189;
 

@@ -39,8 +39,11 @@ from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.agent_output import SCHEMA as OUTPUT_SCHEMA
 from backend.editor.agent_memory.agent_output import output_json_schema
 from backend.editor.agent_memory.agent_workspace import AgentWorkspace, empty_workspace, handoff_of
+from backend.editor.agent_memory.agent_results import AgentResults
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State, default_done
 from backend.editor.agent_packet.agent_orientation import orientation_from_brief
+from backend.editor.agent_packet.card_content import card_content
+from backend.editor.agent_packet.specification_context import capture_specification
 from backend.editor.agent_packet.desktop_v3_packets import (
     _number_key,
     ancestor_ids,
@@ -88,17 +91,15 @@ def _material(item, project, node_id):
 
 
 def stop_conditions(blocks, node_rules, project_rules, has_materials, done):
-    """Kdy se zastavit: nesplněná podmínka bloku, chybějící podklad, pravidlo must_not, uzavřená karta.
+    """Závazné podmínky bloků, zákazy a uzavření; prázdný seznam podkladů sám práci neblokuje.
 
-    Chybějící podklad se hlásí, jen když ho nemá ani karta, ani žádný předek (podklady mohou
-    ležet na sektoru nad ní)."""
+    Povinný podklad musí být vyjádřený podmínkou bloku. Volitelné podklady a jejich
+    nepřítomnost vysvětluje orientation.optionalContext."""
     texts = []
     for item in blocks:
         condition = item["state"]["condition"]
         if condition and item["state"]["status"] != "met":
             texts.append(f"Blok {item['number']} {item['title']}: podmínka „{condition}“ není splněná.")
-    if not has_materials:
-        texts.append("Karta nemá žádný podklad; chybějící podklad je důvod zastavit a vyžádat si ho.")
     for rule in [*node_rules, *project_rules]:
         if rule["kind"] == "must_not":
             texts.append(f"Pravidlo nesmí: {rule['text']}")
@@ -161,6 +162,7 @@ class NodeBrief:
         brief["context"]["roleMemory"] = redact_deep(role_memory(
             self.memory, pending["nodeState"], project, node_id, pending["goal"]
         ))
+        brief["orientation"] = orientation_from_brief(brief, project, workspace)
         return brief
 
     def _assemble(self, project, workspace, node_id):
@@ -169,6 +171,7 @@ class NodeBrief:
         if node_id not in by_id:
             raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
         node = by_id[node_id]
+        captured = capture_specification(self.canvas, project, workspace, node_id)
         stored = self.state.read(project, workspace)
         read_only = stored["readOnly"]
         node_state = stored["state"]["nodes"].get(node_id, {})
@@ -289,6 +292,8 @@ class NodeBrief:
 
         brief = redact_deep({
             "schema": SCHEMA,
+            "contextVersion": captured["contextVersion"],
+            "specification": captured["specification"],
             "readOnly": read_only,
             "node": {
                 "id": node_id, "name": node["name"], "kind": node["kind"], "purpose": node["purpose"],
@@ -297,6 +302,7 @@ class NodeBrief:
                 # Co je v hloubce: kolik dětí karta má.
                 "depth": sum(1 for item in graph["nodes"] if item["parentId"] == node_id),
                 "sourceRef": node.get("sourceRef"),
+                **({"site": node["site"]} if "site" in node else {}),
                 # Karta (kontrakt `docs/kontext-karet-a-index.md` §6): efektivní hodnoty,
                 # chybějící je null. Stav `done` se odvozuje z uzavření karty, neukládá se.
                 # `type` je typ workflow z předpony názvu (čte ho workflow), `layer` vrstva karty.
@@ -309,6 +315,8 @@ class NodeBrief:
             "goal": {
                 "goal": fields["goal"], "nonGoals": fields["non_goals"], "acceptance": fields["acceptance"],
             },
+            # Text karty (node-text): podklad, typicky výňatek zadání; prázdný je null.
+            "content": card_content(self.canvas, project, workspace, node_id, read_only),
             "definitionOfDone": {
                 "acceptance": fields["acceptance"],
                 "criteria": memory["criteria"],
@@ -323,6 +331,13 @@ class NodeBrief:
                 "nonGoals": fields["non_goals"],
             },
             "context": {
+                "project": captured["specification"]["project"],
+                "ancestors": [
+                    {"nodeId": nid, "name": name_of(nid),
+                     **({"site": by_id[nid]["site"]} if "site" in by_id[nid] else {}),
+                     **next(card for card in captured["specification"]["cards"] if card["nodeId"] == nid)}
+                    for nid in reversed(ancestors)
+                ],
                 "materials": materials,
                 "decisions": memory["decisions"],
                 # Zpráva předchozího agenta: co udělal, než přešel na tuto kartu.
@@ -355,6 +370,7 @@ class NodeBrief:
             "blocks": [
                 {
                     "id": item["id"], "number": item["number"], "title": item["title"], "text": item["text"],
+                    "parentBlockId": item["parentBlockId"],
                     "tags": list(item["tags"]), "todos": [dict(todo) for todo in item["todos"]],
                     # Obrázek je inspirace jako reference: cesta a popisek, obsah se nečte.
                     "images": [{**image, "contentIncluded": False} for image in item["images"]],
@@ -400,7 +416,7 @@ class NodeBrief:
                 **OUTPUT_CONTRACT,
                 "jsonSchema": output_json_schema(),
                 "request": None if read_only else {"project": project, "workspace": workspace, "nodeId": node_id,
-                            "expectedRevision": stored["revision"]},
+                            "expectedRevision": stored["revision"], "contextVersion": captured["contextVersion"]},
                 "transport": {"format": "json-object", "markdownFences": False,
                               "outputField": "output", "agentField": "caller-supplied"},
                 "reportScope": "outgoing-only",
@@ -429,6 +445,7 @@ class NodeBrief:
                 "identityVerified": False, "status": "unavailable", "reason": unavailable,
             }
         brief["orientation"] = orientation_from_brief(brief, project, workspace)
+        brief["resultHistory"] = AgentResults(self.canvas).history(project, workspace, node_id)
         return brief
 
     def _message_page(self, project, workspace, node_id, direction):

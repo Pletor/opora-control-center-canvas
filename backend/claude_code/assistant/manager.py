@@ -4,6 +4,8 @@ Proces vznikne až s první zprávou a po nečinnosti zanikne; další zpráva h
 `--resume <claudeSessionId>`. Model spouští jen člověk zprávou, nic jiného.
 Dotaz CLI na oprávnění (`control_request` can_use_tool, §5.1) backend buď sám zamítne, nebo ho
 ukáže v UI jako `approval` a čeká na rozhodnutí člověka (`decide`); bez odpovědi do 10 min zamítne.
+Každá session má adresář konceptů `<data>/assistant-drafts/<id>/` (docs/davka-planu.md §2): vznikne se
+spuštěním procesu, proces ho zná z `OPORA_DRAFTS_DIR` a z `<opora_context>`, zaniká se `close`.
 """
 
 from __future__ import annotations
@@ -12,13 +14,14 @@ import shutil
 import threading
 import time
 import uuid
+from pathlib import Path
 
 from backend.claude_code.assistant import approvals
 from backend.claude_code.assistant import command as cli
 from backend.claude_code.assistant.approval_book import ApprovalBook, ApprovalNotFound, Pending
 from backend.claude_code.assistant.context import compose, validate_context, validate_text, validate_title
 from backend.claude_code.assistant.errors import AssistantError, AssistantUnavailable, SessionNotFound
-from backend.claude_code.assistant.event_log import EventLog
+from backend.claude_code.assistant.event_log import MAX_USER_MESSAGE_BYTES, EventLog
 from backend.claude_code.assistant.registry import PLACEHOLDER_TITLES, SessionRegistry, title_from
 from backend.claude_code.assistant.session_process import SessionProcess
 from backend.claude_code.assistant.stream import EMPTY_STATE, control_request, map_line, tool_summary
@@ -29,6 +32,7 @@ __all__ = ["ApprovalNotFound", "AssistantError", "AssistantManager", "AssistantU
            "SessionNotFound"]
 DECISIONS = ("allow", "deny")
 NOTE_LIMIT = 2000
+CHANGED_DRAFT_MESSAGE = "Koncept se po žádosti o schválení změnil; pošli zápis znovu."
 
 
 class _Live:
@@ -44,6 +48,7 @@ class AssistantManager:
                  environ=None, limits=None, clock=time.monotonic, home=None, version_probe=cli.claude_version,
                  base_url=None, route_hint=None, route_timeout=4.0):
         self.registry = SessionRegistry(data_root)
+        self._drafts_root = Path(data_root) / "assistant-drafts"
         self.locate = locate
         self.limits = limits or Limits()
         self._which, self._build, self._environ = which, command_builder, environ
@@ -59,6 +64,10 @@ class AssistantManager:
         self._watchdog = Watchdog(self.sweep, self.limits.tick_seconds)
 
     # --- čtení -----------------------------------------------------------------------
+    def drafts_dir(self, session_id):
+        """Adresář konceptů session; id je hex z registru, takže cesta nevyleze z `assistant-drafts`."""
+        return self._drafts_root / session_id
+
     def _log(self, session_id):
         return self._logs.setdefault(session_id, EventLog())
 
@@ -145,12 +154,12 @@ class AssistantManager:
             if record["title"] in PLACEHOLDER_TITLES and not record["claudeSessionId"]:
                 changes["title"] = title_from(text)
             self.registry.update(session_id, **changes)
-            event = self._log(session_id).append({"type": "message", "role": "user", "text": text})
+            event = self._log(session_id).append({"type": "message", "role": "user", "text": text}, MAX_USER_MESSAGE_BYTES)
             if telemetry is not None:
                 self._log(session_id).append({"type": "status", "router": telemetry})
             live.turn_started = live.last_activity = self._clock()
             try:
-                live.process.send(compose(text, context, hint))
+                live.process.send(compose(text, context, hint, drafts_dir=str(self.drafts_dir(session_id))))
             except OSError:
                 self._detach(session_id)
                 self._end_turn(session_id, "Proces Claude Code nepřijal zprávu; zkuste to znovu.")
@@ -177,7 +186,12 @@ class AssistantManager:
         _workspace, root = self.locate(record["projectId"], record["workspace"])
         command = self._build(claude, record["model"], record["claudeSessionId"])
         sid = record["id"]
-        process = SessionProcess(command, cwd=root, env=cli.child_env(self._environ, self._base_url),
+        drafts = self.drafts_dir(sid)
+        try:
+            drafts.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise AssistantUnavailable("Adresář konceptů asistenta nejde založit.") from exc
+        process = SessionProcess(command, cwd=root, env=cli.child_env(self._environ, self._base_url, drafts),
                                  on_line=lambda proc, line: self._on_line(sid, proc, line),
                                  on_exit=lambda proc: self._on_exit(sid, proc))
         live = self._live[sid] = _Live(process, self._clock())
@@ -257,8 +271,8 @@ class AssistantManager:
             return
         tool = request.get("tool_name") if isinstance(request.get("tool_name"), str) else ""
         tool_input = request.get("input") if isinstance(request.get("input"), dict) else {}
-        kind, data = approvals.classify(request)
-        if kind == "auto_allow":  # čtení skillu a graphify: bez UI, bez záznamu (krok už je v tool_use)
+        kind, data = approvals.classify(request, self.drafts_dir(session_id))
+        if kind == "auto_allow":  # čtení, graphify a koncept: bez UI, bez záznamu (krok už je v tool_use)
             self._reply(live, approvals.response(request_id, "allow", tool_input))
             return
         approval_id = uuid.uuid4().hex
@@ -270,7 +284,10 @@ class AssistantManager:
             self._approvals.mark_resolved(approval_id, session_id)
             log.append({"type": "approval_resolved", "approvalId": approval_id, "decision": "deny", "auto": True})
             return
-        self._approvals.add(Pending(approval_id, session_id, request_id, tool_input, self._clock(), tool))
+        # Otisk konceptu (`--json-file`) jde do knihy, ne do UI: `decide` ho ověří před povolením.
+        draft = (data.pop("jsonFile", None), data.pop("fileDigest", None))
+        self._approvals.add(Pending(approval_id, session_id, request_id, tool_input, self._clock(), tool,
+                                    draft if draft[1] else None))
         self.registry.update(session_id, state="waiting_approval")
         log.append({"type": "status", "state": "waiting_approval"})
         log.append({"type": "approval", "approvalId": approval_id, "tool": tool, "input": data,
@@ -309,7 +326,11 @@ class AssistantManager:
         with self._lock:
             self._record(session_id)
             entry = self._approvals.take(approval_id, session_id)
-            self._resolve(entry, decision, note)
+            if decision == "allow" and entry.draft and                     approvals.draft_digest(entry.draft[0], self.drafts_dir(session_id)) != entry.draft[1]:
+                decision, note = "deny", CHANGED_DRAFT_MESSAGE
+                self._resolve(entry, decision, note, auto=True)
+            else:
+                self._resolve(entry, decision, note)
         return {"approvalId": approval_id, "decision": decision, "session": self.session(session_id)}
 
     def decide_approval(self, approval_id, decision, note=None):
@@ -332,6 +353,7 @@ class AssistantManager:
         with self._lock:
             self.registry.update(session_id, state="closed")
             self._log(session_id).append({"type": "status", "state": "closed"})
+            shutil.rmtree(self.drafts_dir(session_id), ignore_errors=True)  # koncepty nic necommitují
         return self.session(session_id)
 
     # --- limity a vypnutí ---------------------------------------------------------------

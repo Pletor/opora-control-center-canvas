@@ -140,7 +140,9 @@ def create_app(data_root=None):
                     {"error": "Zápisy vyžadují stejný Origin a JSON."}, status_code=403
                 )
             # Obrázek kresby (do 10 MB, v base64 o třetinu víc) má vlastní strop; ostatní zápisy 2 MB.
-            limit = 14_500_000 if request.url.path == "/api/drawing-file" else 2000000
+            # Dávka plánu (docs/davka-planu.md §3) smí mít celé 2 MiB.
+            limit = (14_500_000 if request.url.path == "/api/drawing-file"
+                     else 2 * 1024 * 1024 if request.url.path == "/api/canvas-plan" else 2000000)
             body = bytearray()
             async for chunk in request.stream():
                 body.extend(chunk)

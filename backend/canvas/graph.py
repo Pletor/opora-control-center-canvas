@@ -5,6 +5,7 @@ import re
 from datetime import date
 
 from backend.project.workspace.workspace_sources import relative_path
+from backend.canvas.site_metadata import validate_sites
 
 EMPTY = {"nodes": [], "edges": []}
 NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y"}
@@ -32,11 +33,12 @@ CARD_VALUES = {
 }
 CARD_KEYS = set(CARD_VALUES) | {"due"}
 NODE_KEY_SETS = tuple(
-    keys | offsets | color | card
+    keys | offsets | color | card | site
     for keys in (NODE_KEYS, NODE_KEYS_WITH_SOURCE, NODE_KEYS_WITH_SIZE)
     for offsets in (set(), {"blockOffsets"})
     for color in (set(), {"color"})
     for card in (set(), {"card"})
+    for site in (set(), {"site"})
 )
 EDGE_KEYS = {"id", "source", "target"}
 # Port karty, ze kterého vazba vede; chybějící port u starších vazeb znamená `next`.
@@ -244,6 +246,7 @@ def validate_graph(value):
         if from_block and not (valid_id(edge["sourceBlockId"]) and valid_id(edge["sourcePortId"])):
             raise ValueError("Neplatný blok nebo port zdroje vazby.")
         edge_ids.add(edge["id"])
+    validate_sites(nodes)
     return value
 
 

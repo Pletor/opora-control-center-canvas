@@ -1,55 +1,34 @@
-# Instalace a načítání
+# Skill opora-control-center
 
-Tato složka je hotový projektový skill pro **Claude Code**, nikoli plugin aplikace.
-Nemění databázi OPORA, model, oprávnění ani automaticky nespouští agenty.
+Znovupoužitelný skill pro práci s plátnem OPORA v **kterémkoli projektu**, současném i budoucím.
+Platí pro asistenta v okně OPORA (`docs/asistent.md`) i pro agenta mimo aplikaci (Claude Code
+v terminálu nebo VS Code). Globálně je dostupný přes odkaz `~/.claude/skills/opora-control-center`
+na tuto složku v repu OPORA, takže v repu projektu nic instalovat netřeba a úprava zde platí všude.
 
-## Kam složku dát
-
-Doporučené projektové umístění:
-
-```text
-<repo>/.claude/skills/opora-control-center/SKILL.md
-```
-
-Pro použití ve všech projektech ji můžeš sám zkopírovat do
-`~/.claude/skills/opora-control-center/`. Nekopíruj současně různé verze do obou
-umístění. ZIP rozbal tak, aby nevzniklo dvojité `opora-control-center/` vnoření.
-
-## Jak skill načíst
-
-- Spusť Claude Code v projektu s touto `.claude/skills/` složkou.
-- Automaticky: popiš činnost, například „V OPORA vytvoř uzel pod sektorem“.
-  Claude rozhoduje podle `description`; text referencí nemusí předem načíst.
-- Výslovně: `/opora-control-center` a následně konkrétní požadavek.
-- Není-li rozpoznán, otevři novou relaci a ověř správnou cestu a název.
-- Jiný klient než Claude Code může vyžadovat vlastní mechanismus importu skillů;
-  existence složky sama o sobě nezaručuje podporu.
-
-Není potřeba další „loader skill“ ani import celého manuálu do CLAUDE.md.
-`SKILL.md` už obsahuje spouštěcí podmínky i rozcestník pro jednotlivé situace.
-
-## Metadata a oprávnění
-
-`name` odpovídá složce; `description` říká co a kdy použít. `model` není záměrně
-nastaven — skill nemění tvůj aktuální model. `allowed-tools: Read, Grep, Glob`
-předem nepovoluje obecný shell ani zápisy. **Samotné allowed-tools nelze chápat
-jako zákaz všech ostatních nástrojů.** Skutečné zákazy patří do oprávnění klienta.
+Projekt neurčuje skill, ale dvě hodnoty: `<projectId>` a `<workspace>`. Asistent je dostane
+v `<opora_context>`, agent mimo aplikaci je zjistí `opora_read.py projects` / `workspaces`.
+Do skillu nepatří nic specifického pro jeden projekt.
 
 ## Co je uvnitř
 
-- `SKILL.md`: krátký aktivní postup a podmíněné načítání.
-- `references/`: pracovní postupy, API, hranice a dohledatelné zdroje.
-- `scripts/opora_read.py`: čtecí diagnostika; Python 3, bez dalších balíčků.
-- `assets/task-brief.md`: šablona zadání; načíst jen při sestavování úkolu.
+- `SKILL.md`: kde agent běží (v aplikaci / mimo ni), rozcestník, postup a hranice.
+- `references/`: čtení a zápis (`api.md`), pracovní postupy na plátně (`workflow.md`), orientace,
+  mapy, telemetrie, export.
+- `scripts/opora_read.py`: čtení plátna a hledání (loopback i tunel); jen standardní Python 3.
+- `scripts/opora_write.py`: zápis na pevný seznam cest, jen loopback. V okně OPORA každé volání
+  schvaluje člověk (kromě `--dry-run` u `/api/canvas-plan`).
+- `assets/task-brief.md`: šablona návrhu karty.
 
-## Příklady zadání
+## Příklad: připojený projekt
 
-- „Načti skill OPORA a zjisti dostupné projekty. Nic neměň.“
-- „V projektu X vytvoř v sektoru Y koncept Z, bez souboru.“
-- „Z uloženého zadání sestav náhled balíčku a neměnný snímek; nic neexportuj.“
-- „Exportuj snímek pro externího agenta a ověř zapsaný soubor ve workspace.“
-- „Ukaž skutečné sessions navázané na uzel X; nic nezastavuj.“
-- „Tlačítko nefunguje: minimální oprava bez testů, main a localhost.“
+```bash
+python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 projects
+# → id projektu, např. "ample" = cc5f34ec07cd455ca5ad1a69af19022b
+python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 view --project cc5f34ec07cd455ca5ad1a69af19022b --workspace draft
+```
 
-Příkazy a API byly odvozeny ze zdrojů aplikace; živé schopnosti vždy ověř znovu.
-Podrobnosti a omezení viz `references/source-map.md`.
+## Údržba
+
+Testy skriptů: `uv run pytest .claude/skills/opora-control-center/scripts` (z kořene repa OPORA).
+Co asistent smí spustit, určuje backend (`backend/claude_code/assistant/approvals.py`, `command.py`),
+ne tento skill. Novou cestu nebo příkaz zapiš do skillu až ve chvíli, kdy existuje v kódu.

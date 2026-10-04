@@ -66,6 +66,13 @@ CREATE TABLE IF NOT EXISTS desktop_v3_snapshots(
     id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
     node_id TEXT NOT NULL, digest TEXT NOT NULL, request TEXT NOT NULL,
     packet TEXT NOT NULL, created_at TEXT NOT NULL);
+-- backend/editor/agent_memory/agent_results.py: immutable original outputs and their specification
+CREATE TABLE IF NOT EXISTS agent_result_records(
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
+    record TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS agent_results_scope
+    ON agent_result_records(project_id, workspace_id, node_id, sequence DESC);
 -- backend/project/workspace/workspace_documents.py
 CREATE TABLE IF NOT EXISTS workspace_documents(
     project TEXT NOT NULL, workspace TEXT NOT NULL, path TEXT NOT NULL,

@@ -2,18 +2,18 @@
 
 Oblast je dashovaný obdélník na plátně, který karty seskupuje podle polohy, ne podle
 odkazu. Karta patří do oblasti na stejné vrstvě (stejný `parentId`), jejíž obdélník
-`[x, x+w] × [y, y+h]` obsahuje střed karty. Střed karty (uzel/sektor) je `(x+136, y+120)`
-(karta je široká 272 a vysoká zhruba 240), střed komentáře `(x+120, y+80)`. Když karta leží
+`[x, x+w] × [y, y+h]` obsahuje střed karty. Střed karty (uzel/sektor) je `(x+180, y+120)`
+(karta je široká 360 a vysoká zhruba 240), střed komentáře `(x+120, y+80)`. Když karta leží
 uvnitř více oblastí zároveň, vyhrává nejmenší (podle plochy). Oblast sama do jiné oblasti
 nikdy nepatří (stejně jako nikdy není rodičem, viz `graph.py`).
 """
 
 # Odsazení středu karty od jejího levého horního rohu, podle druhu uzlu.
-_CENTRE_OFFSET = {"node": (136, 120), "sector": (136, 120), "comment": (120, 80)}
+_CENTRE_OFFSET = {"node": (180, 120), "sector": (180, 120), "comment": (120, 80)}
 
 
 def _centre(node):
-    dx, dy = _CENTRE_OFFSET.get(node["kind"], (136, 120))
+    dx, dy = _CENTRE_OFFSET.get(node["kind"], (180, 120))
     return node["x"] + dx, node["y"] + dy
 
 

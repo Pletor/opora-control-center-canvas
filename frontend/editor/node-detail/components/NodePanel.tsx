@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import DetailFold from "./DetailFold";
+import ResultHistory from "@/editor/llm-control/editor-context/components/ResultHistory";
 import NodeSpecEditor from "@/editor/node-detail/assignment/components/NodeSpecEditor";
 import NodeTextEditor from "@/editor/node-detail/content/components/NodeTextEditor";
 import AgentWorkspace from "@/editor/node-detail/agent-workspace/components/AgentWorkspace";
@@ -17,8 +19,8 @@ import type { CanvasNode, Workspace } from "@/shared/types/logic/types";
 export type { NodeTab };
 
 /**
- * Inspektor uzlu: hlavička s primárními akcemi, pět záložek (Obsah · Strom · Zadání · Proces · Práce)
- * a patička s destruktivní akcí. Záložky zůstávají připojené, aby rozepsaný text nezmizel.
+ * Jeden inspektor: Zadání · Vazby · Práce. Sekundární editory se načtou při prvním rozbalení
+ * a zůstanou připojené, aby sbalení nebo přepnutí záložky nesmazalo rozepsaný text.
  * Uzavření karty (`done`) drží dílek `done/DoneControl`; ukládá rodič (App).
  */
 export default function NodePanel({
@@ -45,6 +47,8 @@ export default function NodePanel({
   onDone,
   syncView,
   onCommitSpec,
+  workflow,
+  resultRevision,
 }: {
   node: CanvasNode;
   project: string;
@@ -79,36 +83,32 @@ export default function NodePanel({
   syncView?: BadgeView | null;
   /** Zapíše commit zadání v OporaHubu; bez něj brána 1:1 zůstane zavřená. */
   onCommitSpec?: () => void;
+  workflow?: ReactNode;
+  resultRevision: number;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
   const [textRevision, setTextRevision] = useState(0);
   const assigned = workspaces.filter((w) => w.node_id === node.id);
-  const kind = node.kind === "sector" ? "Sektor" : "Uzel";
+  const kind = node.site?.kind === "application" ? "Aplikace" : node.site?.kind === "page" ? "Stránka" : node.kind === "sector" ? "Sektor" : "Uzel";
   return (
     <div className="node-panel">
       <header className="panel-head">
         <div className="eyebrow">{kind.toLocaleUpperCase("cs")} · DETAIL</div>
         <h2>{node.name}</h2>
-        <code className="identity">{node.id}</code>
+        <details><summary>Identita a zdroj</summary><code className="identity">{node.id}</code>
         {node.sourceRef && (
           <p className={"source-badge " + (node.sourceRef.origin === "existing" ? "source-badge-existing" : "source-badge-planned")}>
             {node.sourceRef.origin === "existing" ? "Existující zdroj" : "Návrh zdroje"}: <code>{node.sourceRef.path || (node.sourceRef.origin === "planned" ? "cesta neurčena" : "/")}</code> ({node.sourceRef.kind === "directory" ? "složka" : "soubor"})
           </p>
         )}
-        <SyncBadge view={syncView ?? null} />
-        {onCommitSpec && !readOnly && (
-          <button type="button" className="sync-badge__commit" onClick={onCommitSpec}
-            title="Zapíše revizi zadání do OporaHubu. Nic se tím nespouští.">
-            Zacommitovat zadání
-          </button>
-        )}
+        </details>
         <div className="action-row">
           <button type="button" className="primary" onClick={onEnter}>
             Otevřít vnitřní plátno
           </button>
-          <button type="button" data-testid="agent-task-action" disabled={busy} onClick={onAgentTask} title="Vydá přesný scope pro panel agenta. Nic se nespouští.">
-            Připravit úkol pro agenta
+          <button type="button" data-testid="agent-task-action" disabled={busy} onClick={onAgentTask} title="Načte uložené zadání a souvislosti pro předání agentovi.">
+            Předat zadání
           </button>
           {onLiveRun && <button type="button" data-testid="node-live-run-action" onClick={onLiveRun}
             title="Sledovat skutečné sessions a aktivitu na tomto uzlu. Žádný běh se nespustí.">
@@ -118,18 +118,17 @@ export default function NodePanel({
       </header>
       <NodeTabs tab={tab} onTab={onTab} />
       <div className="panel-body">
-        <section role="tabpanel" id="node-panel-content" aria-labelledby="node-tab-content" hidden={tab !== "content"}>
-          <NodeTextEditor key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} node={node.id} onSaved={() => setTextRevision((value) => value + 1)} />
-          <h3>Souvislosti</h3>
+        <section role="tabpanel" id="node-panel-links" aria-labelledby="node-tab-links" hidden={tab !== "links"}>
+          <h3>Vazby a souvislosti</h3>
           <NodeLinksPanel project={project} workspace={workspace} node={node.id} revision={textRevision} readOnly={readOnly} onOpenNode={onOpenNode} />
-        </section>
-        <section role="tabpanel" id="node-panel-tree" aria-labelledby="node-tab-tree" hidden={tab !== "tree"}>
-          {tab === "tree" && <NodeTree key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} nodeId={node.id} graphNodes={graphNodes} onPickTag={onPickTag} onSelectBlock={onSelectBlock} />}
+          <DetailFold title="Bloky, porty a větvení">
+            <NodeTree key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} nodeId={node.id} graphNodes={graphNodes} onPickTag={onPickTag} onSelectBlock={onSelectBlock} />
+          </DetailFold>
         </section>
         <section role="tabpanel" id="node-panel-spec" aria-labelledby="node-tab-spec" hidden={tab !== "spec"}>
           <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
-          {node.kind === "node" && <NodeCardEditor node={node} readOnly={readOnly} busy={busy} onSave={onSave} />}
-          <h3>Podstata</h3>
+          <DetailFold title="Účel komponenty">
+          <p className="muted">Dlouhodobý smysl této části. Konkrétní práci určuje zadání výše.</p>
           <label className="field">
             Proč tento uzel existuje
             <textarea
@@ -155,9 +154,21 @@ export default function NodePanel({
               </button>
             </>
           )}
-          {node.kind === "sector" && (
-            <>
-              <h3>Pracovní prostor agenta</h3>
+          </DetailFold>
+          <DetailFold title="Popis a podklady">
+            <NodeTextEditor key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} node={node.id} onSaved={() => setTextRevision((value) => value + 1)} />
+          </DetailFold>
+          {node.kind === "node" && <DetailFold title="Nastavení karty"><NodeCardEditor node={node} readOnly={readOnly} busy={busy} onSave={onSave} /></DetailFold>}
+        </section>
+        <section role="tabpanel" id="node-panel-work" aria-labelledby="node-tab-work" hidden={tab !== "work"}>
+          <DetailFold title="Výsledky a původní zadání"><ResultHistory project={project} workspace={workspace} nodeId={node.id} revision={resultRevision} /></DetailFold>
+          <DetailFold title="Postup, kritéria a kroky">{workflow}</DetailFold>
+          <DetailFold title="Ověření a uzavření">
+            <SyncBadge view={syncView ?? null} />
+            {onCommitSpec && !readOnly && <button type="button" className="sync-badge__commit" onClick={onCommitSpec}>Zacommitovat zadání</button>}
+            <DoneControl done={done} readOnly={readOnly} busy={busy} onDone={onDone} />
+          </DetailFold>
+          <DetailFold title="Pracovní paměť a předávka">
               <AgentWorkspace
                 key={project + ":" + workspace + ":" + node.id}
                 project={project}
@@ -165,15 +176,9 @@ export default function NodePanel({
                 nodeId={node.id}
                 readOnly={readOnly || done.confirmed}
               />
-            </>
-          )}
-        </section>
-        <section role="tabpanel" id="node-panel-process" aria-labelledby="node-tab-process" hidden={tab !== "process"}>
-          <h3>Uzavření karty</h3>
-          <DoneControl done={done} readOnly={readOnly} busy={busy} onDone={onDone} />
-          {tab === "process" && <NodeProcesses key={project + ":" + node.id} project={project} nodeId={node.id} readOnly={readOnly} />}
-        </section>
-        <section role="tabpanel" id="node-panel-work" aria-labelledby="node-tab-work" hidden={tab !== "work"}>
+          </DetailFold>
+          <DetailFold title="Procesy"><NodeProcesses key={project + ":" + node.id} project={project} nodeId={node.id} readOnly={readOnly} /></DetailFold>
+          <DetailFold title="Pracovní prostory">
           <h3>Pracovní prostory uzlu</h3>
           {assigned.length ? (
             assigned.map((w) => (
@@ -189,6 +194,7 @@ export default function NodePanel({
           <button type="button" onClick={onWorkspace}>
             Připravit oddělený worktree
           </button>
+          </DetailFold>
           <h3>Aktivita agenta</h3>
           {tab === "work" && (
             <NodeActivity project={project} workspace={workspace} nodeId={node.id} isSector={node.kind === "sector"} onOpenRun={onOpenRun} />

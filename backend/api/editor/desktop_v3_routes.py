@@ -98,6 +98,11 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         """Výstup modelu (opora.agent-output/1) pod CAS revizí; vrací novou StateResponse."""
         return agent_output.apply(payload)
 
+    @router.get("/agent-results")
+    def read_agent_results(project: str, workspace: str, nodeId: str, before: int | None = None):
+        """Original outputs retain their specification version after the live card changes."""
+        return agent_output.results.history(project, workspace, nodeId, before)
+
     @router.get("/block")
     def read_block(project: str, workspace: str, nodeId: str, blockId: str):
         """Jeden blok karty s dětmi a rodičem (adresný přístup); 404 = blok v tomto rozsahu neexistuje."""

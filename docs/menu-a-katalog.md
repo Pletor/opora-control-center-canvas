@@ -35,7 +35,7 @@ V liště za záložkami módů stála dvě tlačítka a šuplík měl ještě v
 
 | Sekce | Obsah |
 |---|---|
-| Knihovna | Knihovna: OBSAH (jeden seznam podle kategorií, viz B1) a STRÁNKA (strom vrstvy, beze změny). |
+| Knihovna | **Prvky** (katalog podle čtyř domén, viz B1) a **Struktura** (jediný strom částí projektu s možností přidávání). Uložené klíče záložek `content` a `page` zůstávají. Samostatná sekce Kostra se nezobrazuje. |
 | Agenti | Katalog jen s kategoriemi agenti, skilly, hooky a hranice, záložka **Vybraná karta** (dnešní „Agenti“, node-brief vybrané karty) a **Hook** (`AgentControlPanel`). |
 | Postupy | Katalog postupů a pipeline. |
 | Nastavení | Karta profilu projektu (`ProfileCard`, vždy rozbalená) a filtr katalogu „Pro tento projekt / Vše“. |
@@ -48,10 +48,14 @@ V liště za záložkami módů stála dvě tlačítka a šuplík měl ještě v
 
 ### B1. Knihovna bez duplicit
 
-- Přepínač Elementy/Bloky zaniká. OBSAH je jeden seznam seskupený podle kategorií (a podle profilu, viz suplik-a-profil §4). Náhled prvku (šablona, souvislosti, hotovo) se ukáže u otevřeného prvku.
-- Pole `kind` u prvku zaniká. Kartu nebo blok určí místo puštění:
-  - **na kartu** pod ukazatelem: prvek se vloží jako blok do té karty;
-  - **na prázdné plátno**: vznikne nová karta.
+- **Prvky** mají čtyři hlavní skupiny: Frontend, Backend, Databáze, Infrastruktura. Praktické předlohy komponent stojí před odbornými podsekcemi; původní položky a jejich ID zůstávají dostupné. Hledání a profilové filtrování zůstávají podle suplik-a-profil §4.
+- Kliknutí na položku otevře její popis a výslovné tlačítko **Vložit**. To vytváří komponentu v aktuální vrstvě, stejně jako přetažení na prázdné plátno.
+- Přetažení vytváří skutečnou novou kartu se zadáním:
+  - **na uzel nebo sektor**: novou část uvnitř tohoto rodiče;
+  - **na oblast**: kartu ve vrstvě oblasti, geometricky uvnitř jejího rámu; oblast není hierarchický rodič;
+  - **na prázdné plátno**: kartu v aktuální vrstvě na místě puštění, s případným odsazením kvůli kolizi.
+- Původní vložení textového bloku zůstává samostatnou akcí **Přidat jako blok do vybrané karty**. Přetažení ho nespouští skrytě. Uzavřená karta a pohled pouze ke čtení vložení odmítnou.
+- **Struktura** ukazuje již existující instance stejného grafu; katalog ukazuje předlohy. Je to jediný strom v levém menu, bez druhé kopie v sekci Kostra. Starší preference této sekce se převedou na Knihovnu; uložené projektové uzly se tím nemění.
 - Duplicity se sloučí. Zachová se jedno id, druhé zanikne:
   - `fe-form-validated` ← `fe-form-state-split`
   - `fe-auth-guard` ← `fe-member-area`
@@ -89,28 +93,29 @@ type CatalogItem = {
   - Skutečné hranice aplikace, které nepatří k jednomu prvku (`rule-no-model-launch`, `rule-materials-not-commands`, `rule-no-delete-without-preview`), tvoří v Agentech malou kategorii **Hranice** a táhnou se na kartu jako pravidlo.
 - Id pipeline zůstávají stejná, protože jsou uložená v `actions[].pipelineId` na existujících kartách.
 
-### B4. Co se zapíše na plátno (bez změny schématu a backendu)
+### B4. Co se zapíše na plátno
 
 | Pole prvku | Nová karta | Blok do existující karty |
 |---|---|---|
 | `label` | `graph node.name` | `block.title` |
-| `purpose` | `graph node.purpose` | první odstavec `block.text` |
-| `relates` | blok „Souvisí s“ (řádky; `@id` přeloženo na název prvku) | odstavec „Souvisí s:“ v `block.text` |
-| `done` | `nodes[id].criteria` | odstavec „Hotovo, když:“ v `block.text` |
-| `invariants` | `nodes[id].rules` (`must` / `must_not`) | přidají se do `rules` karty (dnes se ztrácely), duplicity podle textu se přeskočí |
-| `steps` | bloky jako dnes | odstavec „Kroky:“ |
-| `template` | blok „Šablona“ | konec `block.text` |
+| `purpose` | `graph node.purpose` a výchozí upravitelné `spec.goal` | první odstavec `block.text` |
+| `relates` | oddíl „Souvisí s“ v uloženém textu karty (`@id` přeloženo na název prvku) | odstavec „Souvisí s:“ v `block.text` |
+| `done` | `spec.acceptance`; nové vložení neduplikuje stejné podmínky do checklistu | odstavec „Hotovo, když:“ v `block.text` |
+| `invariants` | pravidla omezená na vložený uzel (`must` / `must_not`) | přidají se do `rules` karty, duplicity podle textu se přeskočí |
+| `steps` | kroky v uloženém textu karty | odstavec „Kroky:“ |
+| `template` | oddíl „Šablona“ v uloženém textu karty | konec `block.text` |
 | `category` | — | `block.tags` jako dnes |
 
-- `node-brief` tak vydá `purpose` (`node.purpose`), `done` (`definitionOfDone.criteria`), `invariants` (`boundaries.nodeRules`) a `relates` (blok „Souvisí s“) bez zásahu do backendu.
+- Nová instance se ukládá přes existující `POST /api/canvas-plan`: graf, specifikace a podklady tvoří jednu dávku, nikoli dodatečný nehlídaný zápis obsahu. Volitelná `position: {x,y}` určuje místo; bez ní zůstává automatické rozložení. Podrobnosti atomického zápisu a jeho hranice v Git workspace popisuje `docs/davka-planu.md`.
+- `node-brief` vydá skutečný uložený cíl (`goal.goal`), podmínky dokončení (`definitionOfDone.acceptance`), invarianty (`boundaries`) a celý uložený text. Nová předloha nezakládá rozbalené pracovní bloky, aby plátno zůstalo kompaktní; podklad je dostupný v detailu a předávce. Katalogový základ je upravitelný návrh, ne tvrzení o hotové realizaci.
 - Karty vložené ze starého tvaru se dál načtou beze změny, protože uložená data mají stejný tvar.
 - Workflow při vložení nově přenese `invariants` na kartu sektoru a `stopCondition` do `harness` poslední fáze, pokud na to existuje pole. Když ne, zůstává to jako dnes.
 
 ## Hotovo, když
 
-- `uv run pytest backend` neselže nic kromě 2 známých testů graphify, `npm test` a `npm run build` projdou.
+- `uv run pytest backend`, `npm test` a `npm run build` projdou s lokálně nakonfigurovanými závislostmi.
 - V liště je jen ☰ a módy. ☰ → lišta → panel se otevírá, přepíná a zavírá podle A.
 - Knihovna nemá Elementy/Bloky a žádný prvek se v ní neopakuje.
-- Puštění na prázdné plátno vytvoří kartu, puštění na kartu blok.
-- `node-brief` nové karty má `purpose`, kritéria hotovo, jen skutečné invarianty a blok „Souvisí s“.
+- Vložit i přetažení vytvoří kartu s uloženým zadáním; puštění na sektor/uzel vytvoří jeho potomka, oblast zachová geometrické členství. Blok se vkládá jen výslovnou akcí.
+- `node-brief` nové karty má `purpose`, uložený cíl a akceptaci, skutečné invarianty a uložený podklad se souvislostmi.
 - Ověřeno na 1440×900 a 800 px, ve světlém i tmavém režimu.

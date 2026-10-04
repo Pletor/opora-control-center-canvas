@@ -1,5 +1,6 @@
 import type { AssistantContext } from "../logic/assistant-api";
 import { stepsWord } from "../logic/tool-steps";
+import { SCOPE_LABEL } from "../logic/work-scope";
 import { turnLabel, type Turn } from "../logic/turns";
 import type { OutlineDecisions } from "../logic/use-task-outline";
 
@@ -44,6 +45,8 @@ export default function Outline({
           <dd className="assistant-panel__outline-value">{ENVIRONMENT[context.environment]} · {context.workspace}</dd>
           <dt className="assistant-panel__outline-key">Vrstva</dt>
           <dd className="assistant-panel__outline-value" title={context.layerId ?? undefined}>{context.layerId ?? "hlavní plátno"}</dd>
+          <dt className="assistant-panel__outline-key">Rozsah</dt>
+          <dd className="assistant-panel__outline-value">{SCOPE_LABEL[context.scope ?? "board"]}</dd>
           <dt className="assistant-panel__outline-key">{selected.length > 1 ? "Vybrané karty" : "Vybraná karta"}</dt>
           <dd className="assistant-panel__outline-value" title={selected.join(", ") || undefined}>{selected.length ? selected.join(", ") : "nic"}</dd>
         </dl>

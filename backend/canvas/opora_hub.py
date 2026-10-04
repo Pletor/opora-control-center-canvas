@@ -8,9 +8,11 @@ tabulka `opora_commits` je jen index a `rebuild_index` ji z těch souborů kdyko
 Agenti do OporaHubu nezapisují: commit i merge dělá orchestrátor nebo člověk.
 """
 
+import json
+import re
 from datetime import UTC, datetime, timedelta
 
-from backend.canvas.graph import valid_id
+from backend.canvas.graph import digest as graph_digest, valid_id
 from backend.canvas.opora_hub_store import OporaHubStore, content_id
 
 AUTHORS = ("human", "orchestrator", "agent")
@@ -67,8 +69,20 @@ def _content(payload):
         raise ValueError("Předmět commitu smí mít nejvýše 200 znaků.")
     if pair is not None and not isinstance(pair, dict):
         raise ValueError("Pár commitu je objekt s vazbou na git, nebo nic.")
-    return {"kind": kind, "specRevision": revision, "graphDigest": digest,
-            "subject": subject.strip(), "by": _author(payload.get("by")), "pair": pair}
+    fields = {"kind": kind, "specRevision": revision, "graphDigest": digest,
+              "subject": subject.strip(), "by": _author(payload.get("by")), "pair": pair}
+    if "specificationSnapshot" in payload:
+        snapshot = payload["specificationSnapshot"]
+        if (not isinstance(snapshot, dict) or set(snapshot) != {"contextVersion", "specification"}
+                or not isinstance(snapshot["contextVersion"], str)
+                or not re.fullmatch(r"[a-f0-9]{64}", snapshot["contextVersion"])
+                or not isinstance(snapshot["specification"], dict)
+                or snapshot["specification"].get("schema") != "opora.specification-context/1"
+                or graph_digest(snapshot["specification"]) != snapshot["contextVersion"]):
+            raise ValueError("Snímek zadání neodpovídá své verzi kontextu.")
+        # Detached JSON content: subsequent edits to a caller's dict cannot alter the commit.
+        fields["specificationSnapshot"] = json.loads(json.dumps(snapshot, ensure_ascii=False))
+    return fields
 
 
 def _record(row):
@@ -138,6 +152,14 @@ class OporaHub:
             " AND scope_id=? ORDER BY created_at DESC LIMIT ?",
             (pid, wid, scope_id, limit)).fetchall()
         return [_record(row) for row in rows]
+
+    def read(self, scope, commit_id):
+        """Úplný neměnný obsah; staré commity zůstávají čitelné bez nového snímku."""
+        pid, wid, scope_id = _scope(scope)
+        record = self.store.read(pid, commit_id)
+        if record.get("project") != pid or record.get("workspace") != wid or record.get("scope", {}).get("id") != scope_id:
+            raise ValueError("Commit nepatří tomuto rozsahu.")
+        return {**record, "inMain": commit_id in self.store.main_ids(pid)}
 
     def head(self, scope):
         """Poslední commit rozsahu, ať v mainu je, nebo není."""

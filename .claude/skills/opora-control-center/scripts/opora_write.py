@@ -1,10 +1,12 @@
 """Zapisovací klient OPORA pro asistenta: jeden POST na plátno, jen na pevný seznam cest.
 
-`opora_write.py <cesta> --project P --workspace W (--json '<json>' | --json-file soubor)`.
+`opora_write.py <cesta> --project P --workspace W (--json '<json>' | --json-file soubor) [--dry-run]`.
+`--dry-run` (bez hodnoty) jen u `/api/canvas-plan`: do payloadu nastaví `dryRun: true` (přepíše hodnotu
+z konceptu), dávka se jen ověří a nic se nezapíše; koncept se kvůli tomu nepřepisuje.
 Adresa je jen loopback (`--base-url http://127.0.0.1:PORT`, jinak `OPORA_BASE_URL`), bez proxy
 a bez přesměrování. Každé volání asistenta schvaluje člověk v UI (docs/asistent.md §5.1).
 `project` a `workspace` se doplní do payloadu; jiná hodnota v payloadu je chyba.
-Při 409 vypíše `conflict` a skončí kódem 3: asistent znovu načte stav a použije jen svou změnu.
+Při 409 vypíše `conflict: <detail>` a skončí kódem 3. 409 je změněný stav i neplatný payload; rozliší je detail.
 """
 import argparse
 import json
@@ -18,11 +20,11 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 BASE_ENV = 'OPORA_BASE_URL'
 TIMEOUT = 30
 MAX_BYTES = 8 * 1024 * 1024
-MAX_PAYLOAD = 2 * 1024 * 1024
+MAX_PAYLOAD = 2 * 1024 * 1024  # shodně s `DRAFT_LIMIT` v approvals.py (koncept dávky plánu)
 # Jediné cesty, na které skript pošle POST (docs/asistent.md §5.1). Jinam nic neodejde.
 WRITE_ROUTES = frozenset({
     '/api/graph', '/api/node-spec', '/api/node-text', '/api/desktop-v3/state', '/api/desktop-v3/block',
-    '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output',
+    '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output', '/api/canvas-plan',
 })
 EXIT_CONFLICT = 3
 
@@ -112,25 +114,33 @@ def main(argv=None):
     parser.add_argument('--workspace', required=True)
     parser.add_argument('--json', dest='json_text')
     parser.add_argument('--json-file')
+    parser.add_argument('--dry-run', action='store_true', help='jen ověření dávky; jen u /api/canvas-plan')
     parser.add_argument('--base-url', help='domácí adresa http://127.0.0.1:PORT; výchozí ' + BASE_ENV)
     args = parser.parse_args(argv)
     args.route = route_of(args.route)
     try:
         if args.route not in WRITE_ROUTES:
             raise ValueError('Cesta ' + args.route + ' není povolený zápis na plátno.')
+        if args.dry_run and args.route != '/api/canvas-plan':
+            raise ValueError('--dry-run platí jen pro /api/canvas-plan.')
         base = base_url(args.base_url or os.environ.get(BASE_ENV, '').strip())
         payload = scoped(load_payload(args.json_text, args.json_file), args.project, args.workspace)
+        if args.dry_run:
+            payload = {**payload, 'dryRun': True}
         result = post(base, args.route, payload)
         print(json.dumps({'ok': True, 'route': args.route, 'result': result}, ensure_ascii=True, indent=2))
         return 0
     except HTTPError as error:
         detail = _detail(error)
         if error.code == 409:
+            # Backend vrací 409 i pro neplatný payload (každá ValueError, factory.py); `detail` rozliší,
+            # zda opakovat s čerstvou revizí, nebo opravit payload. Stejný zápis znovu nepomůže.
             out = {'ok': False, 'conflict': True, 'error': 'conflict',
-                   'note': 'Stav se mezitím změnil. Znovu načti stav a použij jen svou změnu.'}
+                   'note': 'Zápis odmítnut (409): buď se stav mezitím změnil, nebo payload neprošel validací. '
+                           'Podle detail buď znovu načti stav a použij jen svou změnu, nebo oprav payload.'}
             if detail:
                 out['detail'] = detail
-            print('conflict')
+            print('conflict' + (': ' + detail if detail else ''))
             print(json.dumps(out, ensure_ascii=True), file=sys.stderr)
             return EXIT_CONFLICT
         out = {'ok': False, 'error': 'HTTP ' + str(error.code)}

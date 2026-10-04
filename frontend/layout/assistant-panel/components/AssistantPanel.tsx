@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { AssistantContext } from "../logic/assistant-api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AssistantContext, AssistantScope, ViewContext } from "../logic/assistant-api";
 import { isBusy } from "../logic/assistant-events";
 import { readPrefs, reopenSize, smallerSize, writePrefs, type PanelSize } from "../logic/assistant-prefs";
 import { anyWorking, groupTasks, neighbourTask } from "../logic/task-overview";
@@ -23,26 +23,33 @@ import TasksEmpty from "./TasksEmpty";
  * koncepty zpráv a zkratky. Dílky dostávají hotová data a hlásí volby nahoru. Zůstává připojený
  * i zavřený (`open=false` nic nevykreslí), aby tlačítko v liště vědělo, že nějaký úkol ještě pracuje.
  * Na celé ploše skládá tři sloupce: úkoly, konverzaci po tazích a osnovu (tu skrývá CSS pod 1280 px).
+ * K pohledu od App přidá rozsah práce (preference aplikace, §6.1) a povolený zápis, který doběhl,
+ * ohlásí nahoru `onCanvasWritten`, aby rodič načetl plátno znovu (§6.2).
  */
 export default function AssistantPanel({
   open,
-  context,
+  context: view,
   onClose,
   onBusyChange,
+  onCanvasWritten,
 }: {
   open: boolean;
-  context: AssistantContext;
+  context: ViewContext;
   onClose: () => void;
   onBusyChange: (busy: boolean) => void;
+  onCanvasWritten: () => void;
 }) {
   const [size, setSizeState] = useState<PanelSize>(() => readPrefs().size);
+  const [scope, setScopeState] = useState<AssistantScope>(() => readPrefs().scope);
+  const setScope = useCallback((next: AssistantScope) => { setScopeState(next); writePrefs({ scope: next }); }, []);
+  const context = useMemo<AssistantContext>(() => ({ ...view, scope }), [view, scope]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [watch, setWatch] = useState(false);
   const lastExpanded = useRef<PanelSize>(size === "full" ? "full" : "side");
   const root = useRef<HTMLElement>(null);
 
   const s = useAssistantSessions(open, watch, context.projectId, context.workspace);
-  const c = useConversation(open && s.status?.available === true, context.projectId, s.activeId, s.setFailure);
+  const c = useConversation(open && s.status?.available === true, context.projectId, s.activeId, s.setFailure, onCanvasWritten);
   const memory = useTaskMemory(s.sessions, s.activeId, c.conv, open);
   const { tasks } = memory;
   const working = anyWorking(tasks);
@@ -82,14 +89,15 @@ export default function AssistantPanel({
 
   const activeId = s.activeId;
   const send = useCallback(
-    async (text: string) => {
+    async (message: string, draft: string, blockIds: string[]) => {
       if (!activeId) return;
-      if (await c.send(text, context)) {
-        memory.clearDraft(activeId, text);
+      if (await c.send(message, context)) {
+        memory.clearDraft(activeId, draft);
+        memory.clearPasted(activeId, blockIds);
         outline.rememberSent(activeId, context);
       }
     },
-    [activeId, c.send, context, memory.clearDraft, outline.rememberSent],
+    [activeId, c.send, context, memory.clearDraft, memory.clearPasted, outline.rememberSent],
   );
   const createWith = useCallback(
     async (text: string) => {
@@ -171,12 +179,17 @@ export default function AssistantPanel({
               <Conversation conv={c.conv} turns={outline.turns} loading={c.loading} sessionKey={activeId ?? ""} onActiveTurn={outline.setActiveTurn} onDecide={(id, decision, note) => void c.decide(id, decision, note)} />
               <Composer
                 value={memory.draft}
+                pasted={memory.pasted}
                 busy={isBusy(c.conv.state)}
                 disabled={!activeId}
                 focusKey={activeId ?? ""}
                 label={size === "full" && activeTask ? `Odpověď do úkolu „${activeTask.title}“` : undefined}
+                scope={scope}
+                selectedCount={context.selectedNodeIds.length}
+                onScope={setScope}
                 onChange={(text) => activeId && memory.setDraft(activeId, text)}
-                onSend={(text) => void send(text)}
+                onPastedChange={(blocks) => activeId && memory.setPasted(activeId, blocks)}
+                onSend={(message, draft, blockIds) => void send(message, draft, blockIds)}
                 onStop={() => void c.stop()}
               />
             </>

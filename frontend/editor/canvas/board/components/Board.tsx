@@ -12,6 +12,7 @@ import {
   type Edge,
   type Connection,
   type Viewport,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import { CATALOG_DRAG_TYPE } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import { AGENT_DRAG_TYPE } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
@@ -30,6 +31,7 @@ import AreaCard, { type AreaCardData } from "@/editor/canvas/area/components/Are
 import { areaColorOf, areaLabel, membersOf } from "@/editor/canvas/area/logic/area-model";
 import { blockNodeTypes } from "@/editor/workflow/blocks/components/CanvasBlock";
 import { isBlockId, parseBlockId, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
+import { revealNodeCenter } from "../logic/reveal-node";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
 
@@ -54,7 +56,7 @@ function dropTargetOf(target: EventTarget | null): string | null {
 }
 
 /** Z celé instance React Flow potřebuje drop jedinou schopnost: přepočet obrazovky na souřadnice vrstvy. */
-type ScreenToFlow = { screenToFlowPosition: (position: { x: number; y: number }) => { x: number; y: number } };
+type ScreenToFlow = Pick<ReactFlowInstance, "screenToFlowPosition" | "getNode" | "getZoom" | "setCenter">;
 
 export type CardBlockEvent =
   | { type: "add" }
@@ -99,6 +101,8 @@ export default function Board({
   onCardBlock,
   onCatalogDrop,
   onAgentDrop,
+  reveal,
+  onRevealed,
 }: {
   graph: Graph;
   /** Stav Desktop v3 (fáze, bloky, akce, pravidla) pro patu a hlavu karty. */
@@ -153,6 +157,8 @@ export default function Board({
    * nebo celý sektor s fázemi — rozhoduje rodič, ne plátno.
    */
   onAgentDrop: (itemId: string, x: number, y: number, targetId: string | null) => void;
+  reveal?: { id: string; scope: string; nonce: number } | null;
+  onRevealed?: (nonce: number) => void;
 }) {
   const make = (): Node[] =>
     (graph.nodes
@@ -254,6 +260,39 @@ export default function Board({
   // Puštěná položka knihovny potřebuje souřadnice vrstvy, ne obrazovky; přepočet umí jen živá instance
   // React Flow, a ta se sem dostane jedinou cestou — přes onInit, protože plátno si ReactFlow vykresluje samo.
   const flow = useRef<ScreenToFlow | null>(null);
+  const surface = useRef<HTMLDivElement>(null);
+  const consumeReveal = useRef(onRevealed);
+  consumeReveal.current = onRevealed;
+  useEffect(() => {
+    if (!reveal || reveal.scope !== scope) return;
+    let frame = 0;
+    let attempts = 0;
+    const focus = () => {
+      const instance = flow.current;
+      const node = instance?.getNode(reveal.id);
+      const rect = surface.current?.getBoundingClientRect();
+      if (!instance || !node?.measured?.width || !node.measured.height || !rect?.width) {
+        if (++attempts < 90) frame = requestAnimationFrame(focus);
+        else consumeReveal.current?.(reveal.nonce);
+        return;
+      }
+      const visible = { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+      const editor = surface.current?.closest(".editor-frame") ?? surface.current?.parentElement?.parentElement;
+      const overlays = Array.from(editor?.querySelectorAll(".panel-drawer, .dock-rail, .inspector") ?? [])
+        .map((panel) => panel.getBoundingClientRect()).sort((left, right) => left.left - right.left);
+      for (const overlay of overlays) {
+        if (!overlay.width || overlay.bottom <= rect.top || overlay.top >= rect.bottom) continue;
+        if (overlay.left <= rect.left + 1 && overlay.right > visible.left) visible.left = Math.min(rect.right, overlay.right);
+        else if (overlay.left < visible.left + 1 && overlay.right > visible.left) visible.left = Math.min(rect.right, overlay.right);
+        else if (overlay.right >= rect.right - 1 && overlay.left < visible.right) visible.right = Math.max(rect.left, overlay.left);
+      }
+      const target = revealNodeCenter(rect, visible, { ...node.position, width: node.measured.width, height: node.measured.height }, instance.getZoom());
+      if (target) void instance.setCenter(target.x, target.y, { zoom: target.zoom });
+      consumeReveal.current?.(reveal.nonce);
+    };
+    frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [reveal, scope]);
   const ids = new Set(nodes.map((n) => n.id));
   // Komentář nemá porty ani úchyty (nekreslí se), ale tah myší z jiné karty by na něj přesto mohl dopadnout.
   const commentIds = new Set(graph.nodes.filter((n) => n.kind === "comment").map((n) => n.id));
@@ -267,6 +306,7 @@ export default function Board({
     .concat(blocks.edges);
   return (
     <div
+      ref={surface}
       className="board-surface"
       data-testid="board-surface"
       /* Capture fáze: d3 zoom zastavuje dvojklik na plátně dřív, než by probublal. */

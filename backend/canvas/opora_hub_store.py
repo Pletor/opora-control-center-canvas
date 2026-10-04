@@ -9,6 +9,7 @@ Tenhle modul nezná SQLite; druhou půlku (index a pravidla) má `opora_hub.py`.
 import hashlib
 import json
 import os
+import re
 import secrets
 
 MAIN_LOG = "main.log"
@@ -57,6 +58,19 @@ class OporaHubStore:
             if record.get("project") == pid and record.get("workspace") == wid:
                 records.append(record)
         return records
+
+    def read(self, pid, commit_id):
+        """Načte obsah podle bezpečného ID a ověří otisk, nikoli jen index SQLite."""
+        if not isinstance(commit_id, str) or not re.fullmatch(r"[a-f0-9]{40}", commit_id):
+            raise ValueError("Neplatné ID commitu OporaHubu.")
+        try:
+            record = json.loads((self.folder(pid) / f"{commit_id}.json").read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            raise ValueError("Commit v OporaHubu neexistuje.") from None
+        if (not isinstance(record, dict) or record.get("id") != commit_id
+                or content_id({key: value for key, value in record.items() if key != "id"}) != commit_id):
+            raise ValueError("Obsah commitu OporaHubu neodpovídá jeho otisku.")
+        return record
 
     def main_ids(self, pid):
         """`id` commitů v mainu. Opakovaný zápis téhož `id` nevadí, čte se jako množina."""

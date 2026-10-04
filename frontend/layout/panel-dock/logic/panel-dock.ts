@@ -21,7 +21,7 @@ export type DockSectionInfo = {
   apart?: boolean;
 };
 
-/** Pořadí v liště shora dolů: Knihovna, Agenti, Postupy, oddělovač, Nastavení. */
+/** Kostra je návrh projektu; Knihovna a Agenti nabízejí podklady pro jeho práci. */
 export const DOCK_SECTIONS: DockSectionInfo[] = [
   { key: "library", label: "Knihovna", icon: "library", shortcut: "Ctrl+Shift+," },
   { key: "agents", label: "Agenti", icon: "bot", shortcut: "Ctrl+Shift+." },
@@ -85,10 +85,17 @@ const KNOWN = new Set<string>(DOCK_SECTIONS.map((item) => item.key));
 export function parseDockSection(raw: string | null): DockSection | null {
   try {
     const value = raw ? (JSON.parse(raw) as { section?: unknown } | null) : null;
+    if (value?.section === "skeleton") return "library";
     return value && typeof value.section === "string" && KNOWN.has(value.section) ? (value.section as DockSection) : null;
   } catch {
     return null;
   }
+}
+
+/** Compatibility: the old separate tree now opens Library > Structure without touching graph data. */
+export function readLegacySkeletonPreference(): boolean {
+  try { return JSON.parse(localStorage.getItem(PANEL_DOCK_KEY) ?? "null")?.section === "skeleton"; }
+  catch { return false; }
 }
 
 export function readDockSection(): DockSection | null {

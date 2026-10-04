@@ -3,6 +3,7 @@ import json
 import pytest
 
 from backend.canvas.canvas_service import CanvasService
+from backend.canvas.graph import digest
 from backend.canvas.opora_hub import AUTHORS, WRITERS, OporaHub
 from backend.canvas.opora_hub_store import content_id
 
@@ -194,3 +195,38 @@ def test_invalid_commit_is_refused_in_czech(hub, payload):
 def test_invalid_scope_is_refused(hub, scope):
     with pytest.raises(ValueError):
         hub.commit(scope, work())
+
+
+def test_frozen_specification_survives_input_changes_and_index_rebuild(hub):
+    specification = {"schema": "opora.specification-context/1", "cards": [{"goal": "Původní chování"}]}
+    snapshot = {"contextVersion": digest(specification), "specification": specification}
+    saved = hub.commit(SCOPE, work(specificationSnapshot=snapshot))
+    snapshot["specification"]["cards"][0]["goal"] = "Nové chování"
+
+    assert saved["specificationSnapshot"]["specification"]["cards"][0]["goal"] == "Původní chování"
+    assert hub.read(SCOPE, saved["id"]) == saved
+    assert hub.rebuild_index("draft", "draft") == 1
+    assert hub.read(SCOPE, saved["id"]) == saved
+
+
+def test_snapshot_version_must_match_the_actual_frozen_content(hub):
+    snapshot = {"contextVersion": "0" * 64,
+                "specification": {"schema": "opora.specification-context/1", "cards": []}}
+    with pytest.raises(ValueError, match="verzi kontextu"):
+        hub.commit(SCOPE, work(specificationSnapshot=snapshot))
+    assert hub.history(SCOPE) == []
+
+
+def test_full_readback_preserves_legacy_commits_and_rejects_foreign_or_tampered_content(hub):
+    saved = hub.commit(SCOPE, work())
+    assert hub.read(SCOPE, saved["id"]) == saved
+    assert "specificationSnapshot" not in hub.read(SCOPE, saved["id"])
+    with pytest.raises(ValueError, match="rozsahu"):
+        hub.read(OTHER, saved["id"])
+    with pytest.raises(ValueError, match="ID"):
+        hub.read(SCOPE, "../" + saved["id"])
+    record = stored(hub, saved["id"])
+    record["subject"] = "poškozený obsah"
+    (hub.store.folder("draft") / f"{saved['id']}.json").write_text(json.dumps(record), encoding="utf-8")
+    with pytest.raises(ValueError, match="otisku"):
+        hub.read(SCOPE, saved["id"])

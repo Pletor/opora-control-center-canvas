@@ -1,16 +1,19 @@
 /* KARTA UZLU (blok `node-card`)
-   Příběh: karta je 272 široká a nejméně 168 vysoká — zlatý řez 1 : 1.618, proto se jich vedle sebe vejde
-   několik a přesto se dá každá přečíst z odstupu. Shora dolů jde vždy stejný sled: pruh hlavy 34 (kdo jsem
-   a v jaké jsem fázi), tělo 104 (jméno a podstata), pásmo bloků, které roste s obsahem, a pata 30 s počty.
+   Příběh: karta je 360 široká a nejméně 168 vysoká. Užší karta (272) měla pole bloků tak úzká, že se zadání
+   nedalo číst, proto je karta širší a písmo v ní o stupeň větší; vedle sebe se jich vejde méně, ale každá se
+   dá přečíst bez otevírání detailu. Shora dolů jde vždy stejný sled: pruh hlavy 34 (kdo jsem
+   a v jaké jsem fázi), tělo aspoň 104 (jméno a podstata), pásmo bloků, které roste s obsahem, a pata 30 s počty.
    Rytmus odsazení je 13 / 8 / 5, stejný jako v knihovně uzlu, aby oko mezi panely nepřeskakovalo.
    Přetahovat po plátně jde jen karta; všechno, co se dá zmáčknout, nese třídu `nodrag`. */
 .node-card {
   position: relative;
-  width: 272px;
+  width: 360px;
   min-height: 168px;
   box-sizing: border-box;
   display: grid;
-  grid-template-rows: 34px 104px auto 30px;
+  grid-template-rows: 34px minmax(104px, auto) auto 30px;
+  /* Sloupec je zamčený na šířku karty: dlouhý text uvnitř se zalomí, nikdy kartu nerozšíří. */
+  grid-template-columns: minmax(0, 1fr);
   background: var(--surface-3);
   border: 1px solid var(--line-strong);
   border-radius: 13px;
@@ -105,11 +108,11 @@
 }
 .node-card__purpose {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--ink-2);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-wrap: pretty;
@@ -121,21 +124,22 @@
    pohled, i když se karta rozroste a zbytek pásma odscrolluje pryč. V hlavě rámečku je číslo, název
    (dvojklik přejmenuje) a tatáž kulička stavu jako druhý, jemnější signál; nástroje (nahoru, dolů, pryč)
    se ukážou až najetím, aby rámeček v klidu vypadal jako karta úkolu, ne jako ovládací panel. Pod hlavou
-   roste pole pro popis — co se má stát a jak to má vypadat — s místem na tři řádky hned a tažením rohu až
-   na šest. Blok vybraný z plátna (klik na jeho plochu) dostane obrys akcentu, aby bylo jasné, který dílek
+   roste pole pro popis — co se má stát a jak to má vypadat — s místem na pět řádků hned a tažením rohu až
+   na šestnáct, aby se dalo přečíst i delší zadání. Blok vybraný z plátna (klik na jeho plochu) dostane obrys akcentu, aby bylo jasné, který dílek
    právě edituje knihovna vlevo. Mezi bloky je 8 px, aby byly čitelně oddělené i bez linky mezi nimi.
    Pravý okraj pásma je jen 8 px, protože sem zprava dosedají porty bloků a ty musí doběhnout až na hranu karty. */
 .node-card__blocks { padding: 0 8px 8px 13px; }
-.node-card__block-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.node-card__block-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .node-card__block-item { list-style: none; }
 .node-card__block {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 5px;
   padding: 8px 10px;
   border-left: 3px solid var(--line-strong);
   border-radius: 8px;
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 .node-card__block--selected { outline: 2px solid var(--accent-line); }
 .node-card__block--met { border-left-color: var(--accent); }
@@ -180,13 +184,13 @@
 }
 .node-card__block-tool:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); }
 .node-card__block-tool:disabled { opacity: 0.35; cursor: default; }
-/* Popis bloku: plná šířka rámečku, tři řádky vidět rovnou, výš jde dotáhnout tažením rohu do šesti. */
+/* Popis bloku: plná šířka rámečku, pět řádků vidět rovnou, výš jde dotáhnout tažením rohu do šestnácti. */
 .node-card__block-text {
   width: 100%;
   box-sizing: border-box;
-  max-height: calc(6 * 1.45em + 10px);
-  padding: 5px 7px;
-  font: 400 12px/1.45 var(--font);
+  max-height: calc(16 * 1.5em + 12px);
+  padding: 6px 8px;
+  font: 400 13px/1.5 var(--font);
   color: var(--ink);
   background: var(--field);
   border: 1px solid var(--line);
@@ -211,30 +215,30 @@
 /* PORTY BLOKU: pod blokem stojí jeho tlačítka, jako v chat-builderu odpovědi pod zprávou. Řada je odsazená
    o 16 px doprava od bloku (patří jemu), ale zprava přetéká o 8 px zpět na hranu karty — kulička na konci
    tlačítka tak sedí přesně na obrysu, protože právě z ní se táhne vazba na jinou kartu. Osm portů je strop:
-   víc voleb už z karty dělá rozcestník, ne zadání. */
-.node-card__block-ports { list-style: none; margin: 3px -8px 3px 16px; padding: 0; display: grid; gap: 3px; }
+   víc voleb už z karty dělá rozcestník, ne zadání. Dlouhý popisek portu se zalomí na další řádek, aby byl
+   celý čitelný a kartu nevytlačil do šířky. */
+.node-card__block-ports { list-style: none; margin: 3px -8px 3px 16px; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px; }
 .node-card__port-row { position: relative; display: flex; align-items: center; gap: 3px; padding-right: 14px; }
 .node-card__block-port {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: 2px 8px;
+  padding: 3px 10px;
   text-align: left;
-  font: 500 11px var(--font);
+  font: 500 12px/1.4 var(--font);
   color: var(--ink-2);
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border-radius: 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 .node-card__block-port:hover { border-color: var(--accent-line); color: var(--ink); }
 .node-card__block-port-input {
   flex: 1;
   min-width: 0;
-  font: 500 11px var(--font);
+  font: 500 12px var(--font);
   color: inherit;
   background: var(--field);
   border: 1px solid var(--accent-line);

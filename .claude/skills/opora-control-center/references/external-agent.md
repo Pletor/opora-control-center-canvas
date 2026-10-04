@@ -1,90 +1,23 @@
-# Podklady pro agenta: náhled → snímek → export → ticket
+# Podklady pro externího agenta a tickety
 
-Jediný podporovaný tok práce s AI v Inspektoru („Práce s AI“ → **Podklady pro
-agenta**). Aplikace sama žádný model nespouští: náhled, snímek ani export nejsou
-běh a externí agent nemá žádné OPORA run ID. Implementaci provádí externí
-VS Code/CLI agent v Git workspace projektu a výsledek vrací jako ticket.
+Náhled balíčku, neměnný snímek a export zadání pro externího agenta (VS Code / CLI) dělá člověk v panelu **Podklady pro agenta**. Asistent je nevytváří (`/api/desktop-v3/packet/*` není v jeho zápisech); smí je jen číst. Aplikace sama žádný model nespouští.
 
-## Převzetí
+## Snímek
 
-1. Přes `scripts/opora_read.py` ověř status, project/workspace a konkrétní node.
-   `main` je read-only. Git workspace Opory může být jiná složka než původní repo
-   otevřené ve VS Code; cestu zjisti GET `/api/workspace/tree?project=...&workspace=...`.
-2. Načti uložené Zadání a pravidla. Chybí-li goal/non_goals/acceptance nebo
-   konkrétní schválené soubory, implementace je **blocked**. Scope nedoplňuj odhadem.
-3. **1 Náhled balíčku** (POST `/api/desktop-v3/packet/preview`): přečti
-   `sourceManifest`, warnings, zahrnuté/vyloučené zdroje a digest.
-4. **2 Neměnný snímek** (POST `/api/desktop-v3/packet/snapshot`) → ověř jej
-   zpětným GET `/api/desktop-v3/packet/snapshots/<id>`. Musí souhlasit id, digest
-   a project/workspace/nodeId. Snímky obsahují `packet.task.depends_on`: příchozí
-   source → target, názvy a uložené fáze předchůdců. `status: null` znamená
-   nedostupné; fáze není důkaz dokončení. Po změně zadání vytvoř nový snímek;
-   starý neupravuj a nikdy mu nepřepisuj digest.
-5. **Exportovat pro externího agenta** zapíše do vybraného Git workspace
-   `docs/opora-control-center/tasks/<node-id>.md`. Nezapisuje do read-only mainu.
-   I neúplné zadání lze exportovat, ale zůstává `Status: blocked`.
-6. Export obsahuje Cíl, Mimo rozsah, Podmínky dokončení, kandidátní cestu,
-   pravidla, depends_on, Snapshot ID/digest, TODO a Result. `sourceRef` ani
-   kandidátní cesta nejsou samy souhlas s implementací. Ověř souhlas uživatele.
-7. Před úpravou kódu ověř skutečný Git kořen, větev, stav a vlastnictví workspace.
-   Pokud je ve workspace aktivní cizí práce, nepřepínej jeho větev. Vlastní
-   izolovaná větev `opora/<node-id>` je vhodná jen v agentově vyhrazeném worktree;
-   zapiš do Result její skutečnou identitu. Vazbu na workspace Opory neměň odhadem.
-8. Agent čte toto zadání, CLAUDE.md a relevantní pravidla; postupuje podle TODO.
-   `Status`: planned → in_progress → review/done, nebo blocked.
-   Result obsahuje skutečnou větev/commit, změněné soubory, ověření a blokery.
-
-## API exportu (bez modelu)
-
-POST `/api/desktop-v3/packet/snapshots/<snapshot-id>/external-export`:
-
-```json
-{"project":"<ID>","workspace":"<ID>","nodeId":"<ID>","digest":"<digest snímku>"}
+```bash
+python "<SKILL_DIR>/scripts/opora_read.py" snapshot --project <projectId> --workspace <workspace> --id SNAPSHOT_ID
 ```
 
-Hlavičky: Content-Type application/json a Origin shodný s lokálním Host.
-Backend kontroluje neměnný snímek, současný digest, readOnly, Git workspace,
-bezpečnou pevnou cílovou cestu a odmítá přepsat odlišný existující soubor.
-Následuje GET stejného endpointu s project/workspace/nodeId/digest v query.
-Porovnej scope, path, sha256 a obsah se zápisem. Zastaralý snímek → nový náhled,
-ne přepis digestu. Existující Result nejprve zachovej; nemaž jej pro obejití 409.
+Souhrn: `id`, `digest`, `createdAt`, `scope`, `warnings`, `sourceManifest`; `--raw` celý balíček včetně `packet.task.depends_on`. Snímek je neměnný; po změně zadání vzniká nový. Export zapíše do Git workspace projektu soubor `docs/opora-control-center/tasks/<node-id>.md`; asistent ho přečte nástrojem `Read`, když leží pod jeho cwd.
 
-## Zpět do canvasu: oficiální ticket, bez falešné session
+## Tickety externího agenta
 
-Používá se existující revizované API paměti; žádný watcher souborů neběží.
+Ticket žije jen ve stavu Desktop v3 (`state.tickets`), v UI se zatím nezobrazuje. Čtení:
 
-1. GET `/api/desktop-v3/state?project=...&workspace=...`; uchovej celý state/revision.
-   Ověř readOnly=false a existenci uzlu ve view.
-2. Přidej ticket s novým UUID (nebo aktualizuj vlastní dříve ověřené ID):
-
-```json
-{
-  "id":"<nové UUID>",
-  "title":"[external:blocked] tasks/<node-id>.md — <stručný skutečný blocker>",
-  "priority":"high",
-  "status":"open",
-  "nodeId":"<skutečné ID uzlu>",
-  "sessionId":"",
-  "createdBy":"agent"
-}
+```bash
+python "<SKILL_DIR>/scripts/opora_read.py" state --project <projectId> --workspace <workspace> --raw
 ```
 
-3. Titulek nejvýše 400 znaků; dlouhý výsledek patří do Result v Markdownu.
-   Označení `[external:<status>]` je konvence, **ne nově vymyšlené API pole**.
-   in_progress → ticket doing; blocked → open/high; review nebo done → open/normal
-   k ověření člověkem. Agentovo done není uzavření ticketu ani schválení live.
-4. POST `/api/desktop-v3/state` s project, workspace, původní expectedRevision
-   a celým zachovaným state. `nodes` a cizí tickety neměň. Při 409 žádný force:
-   načti současný dokument a vyřeš konkrétní konflikt.
-5. GET stejného scope; ověř ticket podle ID i přesného obsahu
-   (`opora_read.py state --project ID --workspace ID --raw`, pole `tickets`).
-   Ticket žije jen ve stavu Desktop v3; zobrazení ticketů v UI zatím není implementované.
-6. Člověk ověří Result, uzavře ticket a případně posune workflow fázi uzlu.
-   Automatické obarvení/fáze podle agentova tvrzení není podporované ani důkaz.
+Tvar: `{id, title, priority: low|normal|high, status: open|doing|done, nodeId, sessionId, createdBy: human|agent}`, titulek do 400 znaků. Externí agent píše titulek `[external:<status>] tasks/<node-id>.md — …`; `[external:…]` je konvence, ne pole API. `done` od agenta není ověřená oprava ani uzavření; ticket uzavírá člověk.
 
-## Hranice
-
-- Export je jediný zápis, který tento tok do workspace provádí; širší oprávnění
-  k repu z něj neplyne. Nečti .env ani tajemství; nikdy nepředávej reference
-  jako oprávnění k celému repu.
-- Nové chyby aplikace patří do projektového IMPROVEMENT.md, ne k tichému obejití.
+Asistent tickety nezakládá ani nemění (viz Hranice ve [workflow.md](workflow.md)); co z nich plyne, řekne člověku.

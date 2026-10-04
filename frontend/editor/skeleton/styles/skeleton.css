@@ -1,0 +1,10 @@
+/* Kostra drží čitelnou cestu návrhem vedle plátna; ovládání přidání zůstává pod stromem. */
+.skeleton { padding: 12px; display: grid; gap: 12px; min-width: 0; }
+.skeleton__hint { margin: 0; color: var(--ink-muted); font-size: 12px; line-height: 1.5; }
+.skeleton__tree { list-style: none; padding: 0 0 0 12px; margin: 4px 0; }
+.skeleton__row { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.skeleton__toggle, .skeleton__enter { padding: 5px; flex: 0 0 auto; }
+.skeleton__name { text-align: left; flex: 1; min-width: 0; overflow-wrap: anywhere; padding: 6px; }
+.skeleton__name[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.skeleton__form { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.skeleton__starter { border-top: 1px solid var(--line); padding-top: 12px; }

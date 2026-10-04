@@ -28,6 +28,8 @@ POST_ROUTES = frozenset({'/api/code-intelligence/query', '/api/semantic-search/q
 SEARCH_LIMIT = 20
 RANK_MAX_CANDIDATES = 255
 RANK_TEXT_CHARS = 300
+# Souhrn node-brief ukáže z textu karty jen začátek; celý text vypíše --raw.
+CONTENT_PREVIEW = 200
 LANGUAGES = {
     'typescript': ('.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'),
     'python': ('.py', '.pyi'),
@@ -189,16 +191,21 @@ def summary(command, data, args, base):
     if command == 'sessions':
         rows = data if isinstance(data, list) else data.get('sessions', data.get('bindings', []))
         out = pick(data, ['truncated']) if isinstance(data, dict) else {}
-        out['sessions'] = [pick(r, ['id', 'nodeId', 'source', 'sessionId', 'runId', 'role', 'title', 'running', 'recent_activity', 'closedAt']) for r in rows]
-        out['note'] = 'Telemetrie pouze pro čtení (limit 100). running = ověřený proces; recent_activity = uložená událost.'
+        out['sessions'] = [pick(r, ['id', 'nodeId', 'source', 'sessionId', 'runId', 'role', 'title', 'model', 'status', 'statusReason', 'lastActivityAt', 'closedAt']) for r in rows]
+        out['note'] = 'Telemetrie pouze pro čtení (limit 100). status running = ověřený proces; recent_activity = uložená událost.'
         return out
     if command == 'snapshot':
         packet = data.get('packet', {})
         return {**pick(data, ['id', 'digest', 'createdAt']), 'scope': packet.get('scope'), 'warnings': packet.get('warnings'), 'sourceManifest': packet.get('sourceManifest')}
     if command == 'node-brief':
         node = data.get('node', {})
+        content = data.get('content') or {}
+        text = content.get('text', '') if isinstance(content.get('text'), str) else ''
         return {'schema': data.get('schema'), 'readOnly': data.get('readOnly'), 'node': pick(node, ['id', 'name', 'kind', 'path', 'sourceRef']),
-                'goal': data.get('goal'), 'phase': data.get('harness', {}).get('phase'),
+                'goal': data.get('goal'),
+                # Text karty (podklad): jen začátek a délka; celý ho vypíše --raw.
+                'content': {'start': text[:CONTENT_PREVIEW], 'length': len(text), 'revision': content.get('revision')} if text else None,
+                'phase': data.get('harness', {}).get('phase'),
                 'stopConditions': data.get('harness', {}).get('stopConditions'), 'loop': data.get('loop'),
                 'note': 'Souhrn; celý balíček pro model vypíše --raw.'}
     if command in ('node-text', 'node-spec'):

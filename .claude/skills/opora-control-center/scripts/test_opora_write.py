@@ -60,7 +60,7 @@ def test_posts_allowed_route_with_scope_and_headers(net, capsys):
 def test_every_contract_route_is_allowed():
     assert opora_write.WRITE_ROUTES == {
         '/api/graph', '/api/node-spec', '/api/node-text', '/api/desktop-v3/state', '/api/desktop-v3/block',
-        '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output'}
+        '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output', '/api/canvas-plan'}
 
 
 @pytest.mark.parametrize('route', ['/api/remove', '/api/local-project', '/api/node-spec/../remove', '/api/graph?x=1'])
@@ -77,7 +77,7 @@ def test_conflict_prints_conflict_and_exits_3(net, capsys):
     behaviour['status'] = 409
     assert opora_write.main(['/api/desktop-v3/state', *SCOPE, '--json', '{"expectedRevision": 1}']) == 3
     captured = capsys.readouterr()
-    assert captured.out.strip() == 'conflict'
+    assert captured.out.strip() == 'conflict: Revize nesouhlasí.'
     err = json.loads(captured.err)
     assert err['conflict'] is True and err['detail'] == 'Revize nesouhlasí.'
     assert len(calls) == 1
@@ -140,3 +140,34 @@ def test_msys_converted_route_is_restored_before_allowlist(value, expected):
     assert opora_write.route_of(value) == expected
     if expected == "/api/remove":
         assert expected not in opora_write.WRITE_ROUTES
+
+
+def test_plan_draft_goes_to_canvas_plan_and_size_is_capped(net, tmp_path):
+    calls, _ = net
+    path = tmp_path / 'plan.json'
+    path.write_text('{"dryRun": true, "plan": {"nodes": [], "edges": []}}', encoding='utf-8')
+    assert opora_write.main(['/api/canvas-plan', *SCOPE, '--json-file', str(path)]) == 0
+    assert calls[0]['body']['dryRun'] is True and calls[0]['body']['plan'] == {'nodes': [], 'edges': []}
+    # Stejný strop jako koncept v approvals.py: 2 MiB projde, o bajt víc ne.
+    assert opora_write.MAX_PAYLOAD == 2 * 1024 * 1024
+    big = tmp_path / 'big.json'
+    big.write_bytes(b'{"t": "' + b'x' * (opora_write.MAX_PAYLOAD - 8) + b'"}')
+    assert big.stat().st_size == opora_write.MAX_PAYLOAD + 1
+    assert opora_write.main(['/api/canvas-plan', *SCOPE, '--json-file', str(big)]) == 1
+    assert len(calls) == 1
+
+
+def test_dry_run_flag_sets_dry_run_even_when_draft_says_false(net, tmp_path):
+    calls, _ = net
+    path = tmp_path / 'plan.json'
+    path.write_text('{"dryRun": false, "plan": {"nodes": [], "edges": []}}', encoding='utf-8')
+    assert opora_write.main(['/api/canvas-plan', *SCOPE, '--json-file', str(path), '--dry-run']) == 0
+    assert calls[0]['body']['dryRun'] is True
+    assert opora_write.main(['/api/canvas-plan', *SCOPE, '--json-file', str(path)]) == 0
+    assert calls[1]['body']['dryRun'] is False
+
+
+def test_dry_run_flag_on_other_route_fails_without_sending(net, capsys):
+    calls, _ = net
+    assert opora_write.main(['/api/graph', *SCOPE, '--json', '{}', '--dry-run']) == 1
+    assert calls == [] and '--dry-run' in capsys.readouterr().err

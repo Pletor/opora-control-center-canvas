@@ -480,7 +480,7 @@ class DesktopV3State:
             with self.canvas.lock:
                 return {**self.current(project, workspace), "readOnly": False}
 
-    def save(self, payload):
+    def save(self, payload, *, after_write=None):
         if not isinstance(payload, dict) or set(payload) != SAVE_KEYS:
             raise ValueError("Neplatný formát uložení stavu Desktop v3.")
         project, workspace = payload["project"], payload["workspace"]
@@ -515,5 +515,9 @@ class DesktopV3State:
                     "INSERT OR REPLACE INTO desktop_v3_state VALUES(?,?,?,?,?)",
                     (project, workspace, revision, json.dumps(state, ensure_ascii=False), now()),
                 )
+                # Internal hook: result provenance commits or rolls back with the state.
+                # It is never accepted from an HTTP payload.
+                if after_write is not None:
+                    after_write(db)
             with self.canvas.lock:
                 return {**self.current(project, workspace), "readOnly": False}

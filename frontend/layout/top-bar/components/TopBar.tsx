@@ -14,6 +14,7 @@ export default function TopBar({
   workspace,
   view,
   activeWorkspace,
+  onHome,
   onSelectProject,
   onMain,
   onWorkspace,
@@ -30,6 +31,7 @@ export default function TopBar({
   workspace: string;
   view: View | null;
   activeWorkspace?: Workspace;
+  onHome: () => void;
   onSelectProject: (id: string) => void;
   onMain: () => void;
   onWorkspace: () => void;
@@ -64,10 +66,10 @@ export default function TopBar({
   }
   return (
     <header className="topbar" role="banner">
-      <div className="brand" title="Opora Control Center">
+      <button type="button" className="brand" title="Přehled repozitářů" aria-label="Opora — přehled repozitářů" data-testid="opora-home" disabled={busy} onClick={onHome}>
         <span className="mark" aria-hidden="true">O</span>
         <strong>OPORA</strong>
-      </div>
+      </button>
       <label className="topbar-field">
         <span>Projekt</span>
         <select aria-label="Projekt" disabled={busy} value={project} onChange={(e) => onSelectProject(e.target.value)}>

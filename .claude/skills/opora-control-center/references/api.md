@@ -1,273 +1,234 @@
-# API — přesný scope, čtení a bezpečný zápis
+# API — čtení a zápis přes skripty skillu
 
-Toto je příručka pro autorizovanou práci přes HTTP, ne univerzální admin API.
-Pomocný `scripts/opora_read.py` čte přes GET a POST posílá jen na pevný seznam čtecích dotazů
-(`POST_ROUTES`: LSP, sémantika, paměť, řazení RLM); nic nemění a nic nespouští.
+V okně OPORA (asistent) sahá agent na aplikaci jen dvěma skripty; mimo aplikaci viz SKILL.md „Agent mimo aplikaci“. `opora_read.py` čte (GET a POST jen na
+pevné čtecí dotazy), backend ho pustí bez dotazu. `opora_write.py` zapisuje na plátno, každé volání
+schvaluje člověk (výjimka: `/api/canvas-plan … --dry-run`). Adresu vlastní instance oba vezmou
+z `OPORA_BASE_URL` (loopback `http://127.0.0.1:<port>`), proto `--base-url` nepiš.
 
-## Spuštění skriptu
+Příklady používají `--project <projectId> --workspace <workspace>`; obě hodnoty ber z `<opora_context>`, mimo aplikaci z `opora_read.py projects` / `workspaces`.
+Vrstvu a výběr ber z `<opora_context>` zprávy.
 
-```bash
-python "<SKILL_DIR>/scripts/opora_read.py" --help
-python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 workspaces --project ID
-python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 node-spec --project ID --workspace ID --node ID --raw
-python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 sessions --project ID --workspace ID --node ID
-python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 snapshot --project ID --workspace ID --id SNAPSHOT_ID
-python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 node-brief --project ID --workspace ID --node ID
-python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 frontier --project ID --workspace ID --node SEKTOR_ID
-```
+## Pravidla příkazu
 
-`node-brief` vrací balíček karty (`/api/desktop-v3/node-brief`). `frontier` je mapa wayfinderu
-nad sektorem: karty rozdělené na `frontier`, `claimed`, `blocked`, `closed` (viz workflow.md).
+- Příkaz začíná `python` a hned cestou ke skriptu; cestu s mezerou dej do uvozovek.
+- V celém příkazu nesmí být `;` `&` `|` `<` `>` `$` `` ` `` ani nový řádek. Jinak ho backend
+  zamítne bez dotazu. Řetězení, přesměrování a jiný Bash neprojde.
+- `<SKILL_DIR>` a `<draftsDir>` jsou zástupné: nahraď je skutečnou absolutní cestou (`draftsDir`
+  je v `<opora_context>`). Se znaky `<` `>` příkaz neprojde.
+- `graphify query …` projde také bez dotazu (čtení).
 
-Bez `--base-url` i `--api-base` vezme skript adresu z `OPORA_BASE_URL` (asistent ji dostane
-od své instance). Musí to být loopback jako u `--base-url`.
-
-### Hledání (jen čtení)
+## Čtení: `opora_read.py`
 
 ```bash
-python "<SKILL_DIR>/scripts/opora_read.py" search --project ID --workspace ID --query "platby" [--layer ID]
-python "<SKILL_DIR>/scripts/opora_read.py" index --project ID --workspace ID [--layer ID]
-python "<SKILL_DIR>/scripts/opora_read.py" rank --project ID --workspace ID --query "kde se řeší platby" [--layer ID] [--top 10]
-python "<SKILL_DIR>/scripts/opora_read.py" code --project ID --workspace ID --path src/app.ts --operation references --line 10 --character 4
-python "<SKILL_DIR>/scripts/opora_read.py" find --project ID --workspace ID --query "uložení stavu" [--path .] [--limit 10]
-python "<SKILL_DIR>/scripts/opora_read.py" recall --project ID --workspace ID --query "rozhodnutí" (--role R | --node N) [--max-tokens N]
+python "<SKILL_DIR>/scripts/opora_read.py" <příkaz> [volby]
 ```
 
-| Příkaz | Co dělá |
-|---|---|
-| `search` | GET `/api/canvas-index` (jednotný index karet a vazeb); každé slovo dotazu musí být v korpusu (adresa, typ, název, popis, zdroj, bloky, kritéria, kroky; u vazby summary a handoff). Bez velikosti písmen a diakritiky, filtry `typ:task` (předpona názvu), `stav:ready`, `druh:edge`, `vrstva:fe\|be\|db\|knihovna` (i plné `frontend` …); pořadí název > adresa > jinde. Nejvýš 20 `{id, name, parentId, kind, address, type, status, kde}`, `kde` ⊂ `name, address, purpose, text`. Spec se neprohledává (`note`) |
-| `index` | karty z `/api/canvas-index` bez obsahu (bez komentářů a vazeb) `{id, name, parentId, kind, chars, address, type, status}`; `chars` = délka korpusu karty, pořadí podle adresy |
-| `rank` | kandidáti z `/api/canvas-index` (nejvýš 255, `text` = adresa + typ + název + začátek korpusu, ≤ 300 znaků) → `POST /api/rlm/rank`; `{status: ok, ranked: [{id, p, name}]}` nebo `unavailable` (Jev bez klíče či v poruše). Postup: [rlm.md](rlm.md) |
-| `code` | `POST /api/code-intelligence/query` `{project, workspace, language, path, operation, line, character}`; `operation` = `definition\|references\|hover\|documentSymbols`, jazyk z přípony (`typescript` / `python`), řádek a znak od nuly. Textový dotaz LSP nemá |
-| `find` | `POST /api/semantic-search/query` `{project, workspace, path, query, limit}`; `path` je relativní podstrom, `limit` 1–20 |
-| `recall` | `POST /api/memory/recall` `{role, project, workspace, nodeId, query, maxTokens}`; bez role a karty vrátí backend `skipped` |
+Výstup je JSON na stdout, kód 0 = čtení uspělo, 1 = chyba (JSON na stderr, u HTTP `detail`).
+Bez `--raw` vrací souhrn, s `--raw` celou odpověď backendu.
+
+| Příkaz | Volby | Co vrátí (souhrn) |
+|---|---|---|
+| `status` | — | zdraví, identita backendu při startu, otisk servírovaného indexu, počet projektů |
+| `projects` | — | `draft`, `projects [{id, name, sourceKind}]`, `jobsCount` |
+| `workspaces` | `--project` | prostory projektu (`/api/project-workspaces`) |
+| `view` | `--project --workspace` | `readOnly`, `digest`, počty, `nodes [{id, parentId, kind, name, sourceRef}]`. Celý graf (s `x`, `y`, `purpose`, `card`, vazbami) jen s `--raw` |
+| `state` | `--project --workspace` | `revision`, `readOnly`, počty `settings, rules, decisions, nodes, tickets`. Obsah (bloky, pravidla, zprávy na vazbách) jen s `--raw` |
+| `node-text` | `--project --workspace --node` | `revision`, délka textu; text s `--raw` |
+| `node-spec` | `--project --workspace --node` | `revision`, délky `goal, non_goals, acceptance`; obsah s `--raw` |
+| `node-brief` | `--project --workspace --node` | balíček karty `opora.node-brief/1`: cíl, začátek textu karty, fáze, stop podmínky, smyčka. Celý (bloky, vazby, rodiče, děti, `outputContract`) s `--raw`. Kontrakt `docs/karta-pro-agenty.md` |
+| `frontier` | `--project --workspace --node SEKTOR` | karty sektoru v `frontier`, `claimed`, `blocked`, `closed`, rozhodnutí sektoru a komentáře (`fog`) |
+| `sessions` | `--project --workspace [--node]` | navázané sessions agentů (limit 100), jen telemetrie |
+| `snapshot` | `--project --workspace --id` | uložený snímek podkladů: `id, digest, createdAt, scope, warnings, sourceManifest` |
+| `search` | `--project --workspace --query [--layer ID]` | nejvýš 20 shod z indexu plátna `{id, name, parentId, kind, address, type, layer, status, kde}` |
+| `index` | `--project --workspace [--layer ID]` | karty bez obsahu `{id, name, parentId, kind, chars, address, type, layer, status}` |
+| `rank` | `--project --workspace --query [--layer ID] [--top 1–50]` | `{status: ok, ranked [{id, p, name}]}` nebo `unavailable`; postup [rlm.md](rlm.md) |
+| `code` | `--project --workspace --path SOUBOR --operation definition\|references\|hover\|documentSymbols [--line N --character N]` | odpověď LSP; jazyk z přípony (jen TypeScript/JS a Python), řádek a znak od nuly |
+| `find` | `--project --workspace --query [--path PODSTROM] [--limit 1–20]` | sémantické hledání v kódu projektu |
+| `recall` | `--project --workspace --query (--role R \| --node N) [--max-tokens N]` | paměť role; karta bez role vrátí `skipped` |
+
+`search` hledá v korpusu karty (adresa, typ, vrstva, název, popis, zdroj, bloky, kritéria, kroky)
+a vazby (konce, zpráva). Bez velikosti písmen a diakritiky, každé slovo musí sedět. Filtry:
+`typ:task`, `stav:ready`, `druh:edge`, `vrstva:be` (nebo `backend`). Spec se neprohledává; čti ho
+přes `node-spec`. `--layer` nechá jen přímé potomky dané karty či sektoru.
+
+```bash
+python "<SKILL_DIR>/scripts/opora_read.py" view --project <projectId> --workspace <workspace>
+python "<SKILL_DIR>/scripts/opora_read.py" search --project <projectId> --workspace <workspace> --query "typ:task ingest"
+python "<SKILL_DIR>/scripts/opora_read.py" node-brief --project <projectId> --workspace <workspace> --node NODE_ID --raw
+```
 
 Pořadí hledání: plátno `search` (nebo `index` → `rank`) → `find` / `code` → graphify → Archify →
-`recall` → web. POST na jinou cestu skript odmítne dřív, než cokoli odešle.
+`recall` → web.
 
-Výstup je JSON na stdout. Návratový kód 0 = požadované čtení uspělo;
-1 = chybný vstup / nedostupnost. Kód 0 neznamená úspěšné splnění uživatelského
-úkolu. Skript odmítá redirecty a proxy a omezuje velikost odpovědi.
-`--base-url` pustí jen loopback; vzdálená adresa jde výhradně přes `--api-base https://HOST`
-a jen s tokenem v `OPORA_ACCESS_TOKEN`. Skript čte jen tuhle proměnnou a `OPORA_BASE_URL`.
-
-Po readbacku snapshotu porovnej očekávané ID, digest a node s uloženým zadáním;
-skript sám nezná očekávaný digest. `--raw` je plný obsah, nikoli redaktor tajemství.
-
-## Čtení — doložené routy
-
-| GET | Parametry / použití |
-|---|---|
-| `/api/health` | identita Opora Canvas a dostupnost |
-| `/api/build-identity` | identita backendu **při startu**, ne nového statického buildu |
-| `/api/bootstrap` | `draft`, `projects`, `jobs`; seznam projektů je **jen zde** — žádné `/api/projects` neexistuje |
-| `/api/project-settings` | project; zadání a další nastavení projektu (bez provider/model/limitu) |
-| `/api/project-workspaces` | project |
-| `/api/view` | project, workspace; `graph`, `digest`, `readOnly` |
-| `/api/canvas-index` | project, workspace, `q` (slova + filtry `typ:`, `stav:`, `druh:`, `vrstva:`), `limit` 1–2000 (výchozí 200); `{entries, total}`, záznamy karet a vazeb s `address`, `type` (z předpony názvu), `layer`, `status` (docs/kontext-karet-a-index.md §5) |
-| `/api/node-text` | project, workspace, node |
-| `/api/node-spec` | project, workspace, node |
-| `/api/node-spec/history` | project, workspace, node |
-| `/api/node-journal` | project, workspace, node, day |
-| `/api/node-links` | project, workspace, node |
-| `/api/drawing` | project, workspace, layer |
-| `/api/wireframe-context` | project, workspace, layer |
-| `/api/desktop-v3/state` | project, workspace; revision, state, readOnly |
-| `/api/desktop-v3/block` | project, workspace, nodeId, blockId; adresný jeden blok s dětmi/rodičem, 404 = neexistuje |
-| `/api/desktop-v3/agent-workspace` | project, workspace, nodeId; `revision`, `workspace` {frame, log, failures, fixes, handoff, updatedAt, by}, `readOnly`; prázdný prostor = revision 0, 404 = karta neexistuje |
-| `/api/desktop-v3/agent-workspace-summaries` | project, workspace; `readOnly`, `items` {nodeId: {filled, by, updatedAt}} pro každý uzel grafu kromě komentářů; jedním dotazem |
-| `/api/desktop-v3/node-brief` | project, workspace, nodeId; karta jako jeden JSON pro model (`opora.node-brief/1`): cíl, DoD, hranice, kontext, rodiče, děti, paměť role, `outputContract`. Je to popis stavu, ne příkaz. Kontrakt: `docs/karta-pro-agenty.md` |
-| `/api/desktop-v3/trace` | project, workspace, id; co ID je, komu patří a odkud/kam vede; 404 = neexistuje |
-| `/api/desktop-v3/tags` | project, workspace; index štítků ze stavu |
-| `/api/desktop-v3/pipelines` | bez parametrů; knihovna předloh pro blok Akce (`library/pipelines.json`) |
-| `/api/desktop-v3/agent-messages` | project, workspace, nodeId, `direction: incoming\|outgoing`, volitelně `before`; stránka 30, `hasMore`, `nextBefore` (karta-pro-agenty.md, Adresovaná komunikace) |
-| `/api/node-materials/file` | project, nodeId, file; soubor nahraného podkladu, 404 = není uložen |
-| `/api/memory/status`, `/api/memory/roles` | stav paměti rolí a knihovna rolí; viz `docs/pamet-agentu.md` |
-| `/api/processes` | project, volitelně state, nodeId; procesy s povolenými přechody |
-| `/api/processes/{id}` | project; proces, posledních 20 odpovědí, povolené přechody |
-| `/api/removal-preview` | project, workspace, kind, target; náhled odstranění s `digest` (pro projekt: `workspace=main`, `kind=project`, `target=ID projektu`) |
-| `/api/desktop-v3/packet/snapshots/{id}` | project, workspace |
-| `/api/desktop-v3/packet/snapshots/{id}/external-export` | project, workspace, nodeId, digest; readback exportu |
-| `/api/node-sessions` | project, workspace, volitelně nodeId; limit 100, `truncated` |
-| `/api/agents/sources`, `/api/agents/runs`, `/api/agents/runs/{source}/{run}`, `/api/agents/unbound`, `/api/agents/bindings`, `/api/agents/activity` | telemetrie agentů, pouze čtení |
-| `/api/map-refresh/status` | project; viz map-refresh.md |
-| `/api/map-refresh/config` | `{enabled}` globální automatiky map; viz map-refresh.md |
-| `/api/archify/artifact` | project; stabilní sada z `archify-out/` hlavního projektu |
-| `/api/graphify/artifact` | project; stabilní sada z `graphify-out/` hlavního projektu |
-| `/api/agent-hooks` | project, workspace, nodeId; `bindings`, `readOnly`, `taskRevision` (Hook control, nic nespouští) |
-| `/api/agent-hooks/events` | bindingId; posledních 50 událostí, `truncated`, bez obsahů nástrojů |
-| `/api/agent-hooks/vscode` | bindingId; stav instalace hooku do `.claude/settings.local.json` workspace (bez zápisu) |
-| `/api/code-intelligence/status` | project, workspace; LSP providery (`configured` ≠ běží), `semantic` stav z reálné služby, `preference` |
-| `/api/semantic-search/status` | project, workspace; lokální ONNX model `configured`/`unavailable`, žádný download |
-
-## Vzdálený přístup přes tunel
-
-Aplikace běží na uživatelově počítači (SQLite, data na disku, Hook control, lokální
-modely) a ven vede jen tunel na `127.0.0.1:8740`. Backend je v tomto režimu jen tehdy,
-když má obě proměnné `OPORA_PUBLIC_HOSTS` a `OPORA_ACCESS_TOKEN`; jinak platí výhradně
-loopback. Pro veřejný Host pak platí:
-
-- každý `/api/*` (i GET) vyžaduje `Authorization: Bearer <token>` nebo cookie
-  `opora_access`; bez něj přijde 401 `{"error": "Přístup vyžaduje token."}`,
-- Origin se porovnává proti `https://HOST` (schéma z `X-Forwarded-Proto`),
-- `/api/access/status` (bez tokenu), `POST /api/access/login {token}` a
-  `POST /api/access/logout` obsluhují přihlášení prohlížeče,
-- `/api/agent-hooks/event`, `/api/agent-hooks/ack`, `/api/assistant/*` a `/api/rlm/*` vrací
-  zvenčí **403 i s tokenem**; řídí procesy a klíče na tom počítači, ne u vzdáleného agenta.
-
-Token drž jen v proměnné prostředí `OPORA_ACCESS_TOKEN`, nikdy v příkazu, souboru,
-poznámce ani ve výstupu. Čtecí skript ho pak použije sám:
+## Zápis: `opora_write.py`
 
 ```bash
-python "<SKILL_DIR>/scripts/opora_read.py" --api-base https://JMENO.trycloudflare.com view --project ID --workspace draft
+python "<SKILL_DIR>/scripts/opora_write.py" <cesta> --project P --workspace W (--json '<json>' | --json-file "<draftsDir>/x.json") [--dry-run]
 ```
 
-Adresa quick tunelu se mění při každém spuštění; starou nepoužívej jako důkaz identity.
-Kdo má URL i token, má plný zápis — zachází se s ním jako s heslem. `docs/vzdaleny-pristup.md`.
+- Cesta je jedna z osmi: `/api/graph`, `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/state`,
+  `/api/desktop-v3/block`, `/api/desktop-v3/agent-workspace`, `/api/desktop-v3/agent-output`,
+  `/api/canvas-plan`. Jinou skript ani schvalování nepustí.
+- `project` a `workspace` doplní skript z voleb; jiná hodnota v payloadu je chyba.
+- `--json` jen pro krátký payload bez zakázaných znaků. Delší payload napiš nástrojem `Write`
+  jako `*.json` do `draftsDir` z `<opora_context>` (absolutní cesta, jméno bez `:`, do 2 MiB) a pošli
+  `--json-file`. Karta schválení ukáže souhrn skutečného obsahu souboru; po schválení ho neměň.
+- `--dry-run` jen u `/api/canvas-plan`; u jiné cesty je to chyba.
+- Main (`readOnly: true`) je jen pro čtení; zapisuj do pracovního prostoru (výchozí workspace je `main` u git projektu a jinak `draft`).
 
-## Zápis — až na konkrétní uživatelův požadavek
+Návratový kód: 0 = zapsáno (`{ok, route, result}`), 3 = HTTP 409, 1 = jiná chyba.
+Backend vrací 409 pro **každou** chybu validace, nejen pro konflikt revize: skript vypíše `conflict`
+a skutečný důvod je v `detail` na stderr. Při změněné revizi nebo digestu znovu načti stav a použij
+jen svou změnu; při chybě validace oprav payload. Starý dokument s novou revizí neposílej.
 
-Backend přijímá lokální Host `127.0.0.1:PORT` nebo `localhost:PORT` (a v režimu tunelu
-i povolený veřejný Host, viz výše). Pro POST vyžaduje `Content-Type: application/json`
-a **Origin shodný s http://Host** (přes tunel `https://HOST`).
-`localhost` a `127.0.0.1` v Origin nelze libovolně míchat.
-403 není povel obejít kontrolu: oprav adresu a formát požadavku.
+| Cesta | Payload (kromě project, workspace) | Revize odkud |
+|---|---|---|
+| `/api/graph` | `digest`, `graph {nodes, edges}` celý | `digest` z `view` |
+| `/api/node-spec` | `node`, `expected_revision`, `fields {goal ≤4000, non_goals ≤8000, acceptance ≤12000}` — všechna tři pole vždy | `revision` z `node-spec` (nová karta 0) |
+| `/api/node-text` | `node`, `expected_revision`, `text` (≤ 64000) | `revision` z `node-text` (nová karta 0) |
+| `/api/desktop-v3/state` | `expectedRevision`, `state` (celý dokument) | `revision` ze `state` |
+| `/api/desktop-v3/block` | `nodeId`, `expectedRevision`, `op` (viz níže) | `revision` ze `state` |
+| `/api/desktop-v3/agent-workspace` | `nodeId`, `expectedRevision`, `sections {frame?, log?, failures?, fixes?, handoff?}` (každá ≤ 12000, neuvedená zůstává), `by: "agent"` | revize prostoru karty; prázdný prostor má 0 |
+| `/api/desktop-v3/agent-output` | `nodeId`, `expectedRevision`, `agent`, `output` (viz níže) | `revision` ze `state` (`node-brief --raw` → `outputContract.request`) |
+| `/api/canvas-plan` | `digest`, `plan`, volitelně `dryRun` | `digest` z `view` |
 
-| POST | Přesná důležitá pole payloadu |
-|---|---|
-| `/api/node-text` | project, workspace, node, `expected_revision`, text |
-| `/api/node-spec` | project, workspace, node, `expected_revision`, fields `{goal, non_goals, acceptance}` |
-| `/api/node-journal` | project, workspace, node, záznam |
-| `/api/project-settings` | project, nastavení (zadání apod.) |
-| `/api/graph` | project, workspace, graph `{nodes, edges}`, `digest` z posledního view, volitelně `undo` (bool, výchozí false). Tvar nového uzlu a sektoru: recept „Nový uzel a sektor s kartou“ níže |
-| `/api/desktop-v3/state` | project, workspace, `expectedRevision`, state (celý aktuální dokument) |
-| `/api/desktop-v3/block` | project, workspace, nodeId, `expectedRevision`, `op: {kind: add\|update\|remove\|todo, ...}` — adresný zápis jednoho bloku |
-| `/api/desktop-v3/agent-workspace` | project, workspace, nodeId, `expectedRevision`, `sections: {frame?, log?, failures?, fixes?, handoff?}` (neuvedená sekce zůstává), `by: "human"\|"agent"` — prostor modelu, ne zadání |
-| `/api/desktop-v3/packet/preview` | project, workspace, nodeId, path, sessionId, references, note, volitelně `blockId` (aktuální krok balíčku) |
-| `/api/desktop-v3/packet/snapshot` | stejná pole jako preview + jeho digest |
-| `/api/desktop-v3/packet/snapshots/{id}/external-export` | project, workspace, nodeId, digest snímku |
-| `/api/desktop-v3/agent-output` | project, workspace, nodeId, `expectedRevision`, `agent`, `output: {schema: "opora.agent-output/1", blocks: [{blockId, status: met\|unmet\|blocked, note}], reports: [{edgeId, log, summary, handoff, improvements, errors}], done: {proposed, note}, decisions: [text]}`. Výstup modelu. Neznámý blok nebo vazba = 409, uzavřená karta ho odmítne. `blocks[].note` se ověří, ale neuloží; poznámka patří do `reports` |
-| `/api/desktop-v3/agent-messages` | project, workspace, sourceNodeId, targetNodeId, `kind: handoff\|question\|answer\|blocker\|result\|correction`, body, replyToMessageId, idempotencyKey, senderLabel. Neměnná zpráva, `identityVerified: false` |
-| `/api/desktop-v3/agent-message-receipt` | project, workspace, nodeId (příjemce), messageId, digest (SHA-256 zprávy), `disposition: accepted\|rejected\|needs_clarification`, note, recipientLabel |
-| `/api/node-materials/upload` | přesně project, workspace, nodeId, `dataUrl` (obrázek png/jpg/gif/webp/svg, max 8 MB); main odmítne |
-| `/api/node-materials/remove` | project, nodeId, file |
-| `/api/rlm/rank` | přesně project, workspace, query (1–2000 znaků), `candidates: [{id, text}]` (1–255, id `[A-Za-z0-9_-]{1,128}`, text nad 300 znaků se ořízne), top 1–50. Jen čtení, jen loopback; `{status: ok, ranked}` nebo `{status: unavailable}` |
-| `/api/memory/recall`, `/remember`, `/lend`, `/provision`, `/settings` | přesná pole podle `docs/pamet-agentu.md`; `remember` a `provision` vyžadují `confirmed: true` |
-| `/api/processes` | project, title, volitelně owner, `by: {kind, name}`, nodeId, sectorId, steps [text], inputs; založí proces |
-| `/api/processes/{id}/transition` | project, `revision`, `to: draft\|running\|done\|repair`, `by`, volitelně note, failure, fix |
-| `/api/processes/{id}/steps/{step_id}` | project, `revision`, `state: pending\|running\|done\|failed`, evidence (povinný u done/failed) |
-| `/api/processes/{id}/reports` | project, `kind: progress\|step_done\|step_failed\|question\|result`, `by: {kind, name}`, `summary` (1–4000 znaků), `processRevision`, u kroku `stepId`, u selhání `error`, volitelně `outputs: [{kind: json\|db\|md\|file, ref}]`. `step_done` uzavře krok s důkazem, `step_failed` přepne proces do opravy |
-| `/api/local-project` | `{name, path, confirmed: true}`, kde `path` je absolutní cesta k originální složce (viz navigation.md) |
-| `/api/remove` | project, workspace, kind, target, `digest` z `/api/removal-preview`, `confirmed: true`. Odpojení projektu jen archivuje, soubory zůstanou |
-| `/api/node-sessions/bind` | přesně project, workspace, nodeId, `source: hermes\|claude`, sessionId, runId, `role: orchestrator\|worker`, title, parentSessionId, `confirmed: true`. Hermes: `runId: null`; Claude: `runId` = název lane. `parentSessionId` je `null` nebo ID jiné session. Prázdný řetězec neprojde |
-| `/api/agents/bindings` | vazba agentní telemetrie; payload ověř v `backend/api/live_run/agent_routes.py` |
+Pole `expected_revision` a `expectedRevision` se liší podle cesty; nesjednocuj je. Do uzavřené
+karty (`done.confirmed`) backend blok, výstup ani prostor agenta nezapíše.
 
-Pole `expected_revision` a `expectedRevision` mají různý zápis podle endpointu.
-Neopravuj jej „sjednocením“. Žádný endpoint popsaný zde nespouští ani nezastavuje model. Výjimkou je `/api/assistant/*` (chat v okně aplikace, jen loopback, spouští ho člověk; kontrakt `docs/asistent.md`). Agent ho nevolá.
+Revizi prostoru agenta čtecí skript neukazuje. Bez jistoty piš do karty přes `agent-output`
+(zprávy na vazbách) a prostor nech, pokud nejde o prázdný prostor s revizí 0.
 
-`undo: true` na `/api/graph` je krok zpět plátna (Ctrl+Z), ne mazání: pustí snímek, ve kterém
-uzel nebo vazba chybí, ale žádný obsah nemaže — text, zadání, deník, kresba, stav Desktop v3
-i prostor agenta zůstávají, takže návrat stejného ID kartu vrátí i s obsahem. Snímek musí být
-konzistentní (žádná osiřelá vazba, žádný potomek bez rodiče). Skutečné odstranění má vždy
-náhled a potvrzení přes `/api/removal-preview` + `/api/remove`; `undo` ho nenahrazuje.
+### `op` pro `/api/desktop-v3/block`
 
-### Recept: přidat pravidlo bez ztráty ostatních dat
+Klíče přesně takto:
 
-Níže je postup, ne automaticky schválený zápis. Hodnoty doplň z aktuálního úkolu:
+- `{kind: "add", parentBlockId: "" nebo ID, title, text}`
+- `{kind: "update", blockId, patch}` — `patch` ⊂ `{title, text, tags, state, ports}`
+- `{kind: "remove", blockId}`
+- `{kind: "todo", blockId, todo}` — `todo` je `{kind: "add", text, assignee?}` nebo `{kind: "toggle"|"remove", id}`
 
-1. GET `/api/desktop-v3/state?project=...&workspace=...`.
-2. Je-li readOnly, zastav. Uchovej celé state a revision.
-3. Zkopíruj celé state a přidej **jedno** pravidlo do `rules`:
-   `{id: nové UUID, text: schválené znění, kind: "must" nebo "must_not",
-   scope: "project" / "path" / "node", target: "" nebo skutečná cesta/ID}`.
-4. POST nový celý dokument s původní `expectedRevision`. **Sekvenčně** —
-   současný whole-state zápis z jiné karty/agenta může vytvořit konflikt.
-5. GET stejný scope, vyhledej ID pravidla a porovnej obsah. Zkontroluj, že
-   ostatní pravidla/nastavení/rozhodnutí/uzly/tickety nezmizely.
-6. Při 409 nerecykluj starý dokument s novou revizí: načti nový stav,
-   znovu aplikuj jen tuto změnu; významový konflikt předej uživateli.
+ID bloků a úkolů najdeš v `node-brief --raw` nebo `state --raw`.
 
-### Recept: konceptový uzel bez filesystem oprávnění
+### `output` pro `/api/desktop-v3/agent-output`
 
-1. GET view; vyber existující rodičovský sektor ID a ověř readOnly=false.
-2. Zachovej všechny nodes/edges; přidej objekt s přesnými poli
-   `id, parentId, kind: "node", name, purpose, x, y`. Konceptu **nepřidávej sourceRef**.
-3. ID musí odpovídat `[A-Za-z0-9_-]{1,80}`; použij nově vygenerované UUID.
-   Jméno je neprázdné, nejvýše 160 znaků; purpose nejvýše 12000. Souřadnice
-   jsou konečná čísla; zvol pozici podle skutečné vrstvy, ne náhodným přepsáním layoutu.
-4. POST graph s původním digestem, potom GET view; ověř ID, parentId a absenci sourceRef.
-5. Selže-li validace, neodstraňuj ji. Ověř současná pravidla v `backend/canvas/graph.py`.
+Všech pět klíčů je povinných:
 
-### Recept: nový uzel a sektor s kartou
-
-Kontrakt: `docs/kontext-karet-a-index.md` §1, §2 a §4. Graf se posílá **celý** (všechny dosavadní
-`nodes` a `edges` beze změny) s `digest` z posledního GET view; nový záznam se jen přidá.
-
-Tvar nového záznamu v `graph.nodes`:
-
-```
-{id, parentId, kind, name, purpose, x, y, sourceRef?, card?{layer, status, due, model, effort}}
+```json
+{"schema": "opora.agent-output/1",
+ "blocks": [{"blockId": "…", "status": "met", "note": "…"}],
+ "reports": [{"edgeId": "…", "log": "", "summary": "…", "handoff": "…", "improvements": "", "errors": ""}],
+ "done": {"proposed": false, "note": ""},
+ "decisions": ["…"]}
 ```
 
-- `kind` je `"sector"` nebo `"node"`; `id` nové UUID (`[A-Za-z0-9_-]{1,80}`), `parentId` je vrstva
-  (u uzlu obvykle ID sektoru, u sektoru v kořeni `null`), `name` 1–160 znaků, `purpose` (popis)
-  nejvýš 12000 a posílá se vždy, i prázdný. `x`, `y` konečná čísla podle skutečné vrstvy.
-- `sourceRef` je nepovinný `{origin: "existing"|"planned", path, kind: "directory"|"file"}`;
-  myšlenka (koncept) ho nemá. Existující zdroj uzlu jen v sektoru s existujícím zdrojem.
-- `card` smí jen uzel (`kind: "node"`); u sektoru, komentáře i oblasti je to chyba. Každý klíč je
-  nepovinný, ale **prázdný `card` se neposílá** (`{}` backend odmítne) — bez vyplněných hodnot
-  klíč `card` vynech. Jiný klíč (i `type`) nebo hodnota = chyba validace.
-  - `layer`: `frontend` · `backend` · `database` · `library` (v UI FE · BE · DB · Knihovna),
-  - `status`: jen `draft` nebo `ready`; `done` se nikdy neukládá, dává ho uzavření karty,
-  - `due`: `YYYY-MM-DD` (platné datum),
-  - `model`: `fable` · `opus` · `sonnet` · `haiku`; `effort`: `low` · `medium` · `high` · `xhigh` · `max`.
-- Typ workflow (`research` / `prototype` / `grilling` / `task`) se do karty neukládá; je to předpona
-  názvu, např. `"[task] Přihlášení"` (malými písmeny, s mezerou).
+`status` je `met`, `unmet` nebo `blocked`. Neznámý blok nebo vazba je chyba a nic se nezapíše.
+`blocks[].note` se ověří, ale neuloží; text patří do `reports`. Uzavření karty agent jen navrhne
+(`done.proposed`), potvrzuje člověk. `sentAt` a `due` zprávy na vazbě agent neposílá: `sentAt` nastaví
+aplikace a `due` nastavuje člověk v panelu vazby.
 
-Zadání sektoru (cíl, co nedělat, hotovo když) jde **po** uložení grafu zvlášť přes POST
-`/api/node-spec` `{node: ID sektoru, expected_revision: 0, fields: {goal, non_goals, acceptance}}`
-(nová karta má revizi 0). Sektor `card` nemá; jeho stav je odvozený z uzlů.
+### Recept: víc karet najednou (dávka plánu)
 
-Zpráva na vazbě (`state.edges[edgeId]`) smí navíc nést `due` (`YYYY-MM-DD` nebo `""`), termín
-převzetí. `sentAt` agent nikdy nenastavuje: nastaví ho aplikace sama, když se změní neprázdný
-`handoff` (agent přes `/api/desktop-v3/agent-output`, kde `sentAt` ani `due` neposílá a `due`
-se přenese ze stávající zprávy). Termín `due` nastaví člověk v panelu vazby, nebo agent celým
-dokumentem `/api/desktop-v3/state` (stávající `sentAt` v něm jen zachová).
+Víc než pár karet, bloky s porty, vazby, text, spec, pravidla a rozhodnutí jdou jednou dávkou
+`POST /api/canvas-plan`. Dávka jen přidává, a to atomicky: buď projde celá, nebo nic.
 
-Příklad pro `opora_write.py` (zkrácený: v reálném volání patří do `nodes` a `edges` i všechny
-dosavadní záznamy z view; `project` a `workspace` doplní skript). Celý příkaz nesmí obsahovat znaky
-středník, ampersand, svislou čáru, menší, větší, dolar ani zpětný apostrof, jinak ho backend zamítne:
+1. `view` → `digest`.
+2. `Write` konceptu **jednou a bez `dryRun`** do `<draftsDir>/plan.json`:
 
-```bash
-python "<SKILL_DIR>/scripts/opora_write.py" /api/graph --project P --workspace W --json '{"digest": "DIGEST_Z_VIEW", "graph": {"edges": [], "nodes": [{"id": "sektor-platby", "parentId": null, "kind": "sector", "name": "Platby", "purpose": "Platební brána a vyúčtování", "x": 0, "y": 0}, {"id": "uzel-faktura", "parentId": "sektor-platby", "kind": "node", "name": "[task] Faktura PDF", "purpose": "Vygenerovat fakturu po zaplacení", "x": 0, "y": 210, "card": {"layer": "backend", "status": "ready", "due": "2026-10-20", "model": "sonnet", "effort": "medium"}}]}}'
-```
+   ```json
+   {"digest": "DIGEST_Z_VIEW",
+    "plan": {
+      "nodes": [
+        {"ref": "vlna-2", "kind": "sector", "parent": null, "name": "Vlna 2", "purpose": "Zpracování dokumentů",
+         "spec": {"goal": "…", "non_goals": "…", "acceptance": "…"}},
+        {"ref": "ingest", "kind": "node", "parent": "vlna-2", "name": "[task] Ingest dokumentů",
+         "purpose": "…", "text": "Doslovný výňatek zadání …",
+         "sourceRef": {"origin": "planned", "path": "api/src/ingest", "kind": "directory"},
+         "spec": {"goal": "…", "acceptance": "…"},
+         "blocks": [{"ref": "formaty", "title": "Formáty vstupu", "text": "…", "condition": "…",
+                     "ports": [{"ref": "ok", "label": "Splněno, dál chunking"}]}],
+         "rules": [{"kind": "must", "text": "Každý záznam nese organizaci a projekt."}]},
+        {"ref": "chunking", "kind": "node", "parent": "vlna-2", "name": "[task] Chunking", "purpose": "…"}
+      ],
+      "edges": [
+        {"from": "ingest", "to": "chunking", "port": "block", "block": "formaty", "blockPort": "ok"},
+        {"from": "@EXISTUJICI_ID", "to": "ingest", "port": "next"}
+      ],
+      "decisions": [{"node": "ingest", "text": "…", "pinned": false}]
+    }}
+   ```
 
-Potom zadání sektoru:
+3. Ověření bez dotazu (nic nezapíše):
 
-```bash
-python "<SKILL_DIR>/scripts/opora_write.py" /api/node-spec --project P --workspace W --json '{"node": "sektor-platby", "expected_revision": 0, "fields": {"goal": "Zákazník dostane fakturu", "non_goals": "Neřešit refundace", "acceptance": "Faktura se uloží k objednávce"}}'
-```
+   ```bash
+   python "<SKILL_DIR>/scripts/opora_write.py" /api/canvas-plan --project <projectId> --workspace <workspace> --json-file "<draftsDir>/plan.json" --dry-run
+   ```
 
-Ověř GET view (ID, `parentId`, `card`) a GET `/api/node-spec`.
+4. Ostře tentýž příkaz bez `--dry-run`; člověk schválí jednou. Koncept kvůli tomu nepřepisuj.
+5. Odpověď `{ok, dryRun, refs {ref → id}, blocks {"ref/blokRef" → blockId}, summary, digest, revision}`.
+   Zkontroluj `node-brief` nových karet.
 
-Připojení projektu, existujících souborů, kreslení a mazání mají vlastní
-rozsáhlejší kontrakty. Neodhaduj payload. Načti cíleně jejich frontend
-volání a backend podle `source-map.md`, nebo proveď operaci přes autorizované UI.
+Pravidla dávky (`backend/canvas/canvas_plan*.py`):
 
-## Oracle: echo, verdikt a OporaHub
+- Požadavek smí mít jen `digest`, `plan`, `dryRun` (+ project, workspace). `plan` jen `nodes`, `edges`,
+  `decisions`; prázdná dávka je chyba. Nejvýš 200 uzlů, 600 vazeb, 2 MiB.
+- Uzel: povinné `ref` (`[a-z0-9-]`, do 80, unikátní), `kind` (`node`, `sector`, `comment`, `area`),
+  `name`. Volitelné `parent`, `purpose`, `sourceRef`, `size {w, h}` (oblast), `spec` (chybějící pole
+  doplní prázdná), `text`, `agentRole`, `blocks`, `rules`. Jiné pole je chyba; `card` ani souřadnice dávka
+  nebere (karty položí backend do mřížky pod existující uzly).
+- `parent` a konce vazeb: `"@<id existujícího uzlu>"`, `ref` z dávky, nebo `null` (kořen). Rodič-oblast
+  znamená „polož dovnitř“; když se karta nevejde, chyba „zvětšete její size“.
+- `blocks`, `rules`, `agentRole` jen u `node` a `sector`. Blok: `ref`, `title`, volitelně `text`,
+  `condition`, `ports [{ref, label}]`. Pravidlo: přesně `{kind: "must"|"must_not", text}`, scope je karta.
+- Vazba: `from`, `to`, `port` (výchozí `next`; dále `action`, `rule`, `block`, `flow`). `block` vyžaduje
+  `block` a `blockPort` zdroje (u karty z dávky jejich `ref`, u existující karty ID bloku); u jiného portu
+  jsou chyba. `flow` jen mezi oblastmi, komentář bez vazeb.
+- Rozhodnutí: `text`, volitelně `node` (ref nebo `@id`), `pinned`.
+- Chyba nese jméno položky (`ingest.blocks[0]: …`). Opravu pošli novým menším konceptem jen s opravenou
+  částí. Jedna dávka = jedna oblast nebo sektor, nejvýš ~25 kB.
 
-Jen čtení, pokud není řečeno jinak. Kontrakt je `docs/synchronizace-pravdy.md`.
+Laťka karty a postup od dlouhého zadání: [workflow.md](workflow.md) „Recept: dlouhé zadání → strom karet“.
 
-- `GET /api/sync-report?project=&workspace=` — echo (nerovnosti mezi zadáním, kódem a
-  gitem) a verdikt každého rozsahu: `canCommit`, `canMerge`, kontroly brány a další krok.
-  Nic nespouští; běh trvá jednotky sekund, protože čte historii gitu.
-- `POST /api/check-run` `{project, workspace, scope, sha, status: "green"|"red", detail}` —
-  zapíše výsledek běhu kontrol k jednomu commitu. Aplikace testy nespouští, jen zapisuje
-  výsledek. `GET /api/check-run?project=&workspace=&scope=` vrací poslední záznam.
-- `POST /api/opora-commit` `{project, workspace, scope, subject, by}` — commit zadání
-  v OporaHubu. Obsah (revizi zadání a otisk grafu) si backend vezme ze svého stavu.
-  `by.kind` musí být `human` nebo `orchestrator`; **agent zapsat nesmí** (409).
-- `GET /api/opora-commits?project=&workspace=&scope=&limit=` — historie, hlava a main.
-- `POST /api/opora-merge` `{project, workspace, scope, id, by}` — merge commitu do mainu
-  OporaHubu. Projde jen tehdy, když má rozsah `canMerge`; jinak 409 se seznamem kroků.
+### Recept: nový uzel a sektor s kartou (i konceptový uzel)
 
+Pro jednu dvě karty, nebo když je potřeba `card` (dávka ho nebere). `/api/graph` posílá **celý** graf:
+
+1. `view --raw` → celé `graph.nodes`, `graph.edges` a `digest`. `readOnly: true` = zastav.
+2. Zachovej všechny záznamy beze změny a přidej nový uzel:
+   `{id, parentId, kind, name, purpose, x, y, sourceRef?, card?}`.
+   - `id` nové UUID (`[A-Za-z0-9_-]{1,80}`), `kind` `sector` nebo `node`, `parentId` je ID sektoru nebo
+     `null`, `name` 1–160 znaků, `purpose` (≤ 12000) vždy, i prázdný, `x`, `y` konečná čísla podle vrstvy.
+   - `sourceRef` `{origin: "existing"|"planned", path, kind: "directory"|"file"}`; `existing` musí být
+     skutečný soubor či složka zdroje projektu (jinak „Zdroj neodpovídá…“). Konceptový uzel ho nemá.
+   - `card` jen u `node`, nikdy prázdné `{}`: `layer` `frontend|backend|database|library`, `status`
+     `draft|ready` (`done` dává uzavření karty), `due` `YYYY-MM-DD`, `model` `fable|opus|sonnet|haiku`,
+     `effort` `low|medium|high|xhigh|max`. Jiný klíč je chyba.
+   - Typ workflow je předpona názvu: `"[task] Přihlášení"` (`research`, `prototype`, `grilling`, `task`).
+3. Celý graf zapiš do `<draftsDir>/graph.json` jako `{"digest": "…", "graph": {...}}` a pošli:
+
+   ```bash
+   python "<SKILL_DIR>/scripts/opora_write.py" /api/graph --project <projectId> --workspace <workspace> --json-file "<draftsDir>/graph.json"
+   ```
+
+4. Zadání nové karty zvlášť (revize 0, všechna tři pole):
+
+   ```bash
+   python "<SKILL_DIR>/scripts/opora_write.py" /api/node-spec --project <projectId> --workspace <workspace> --json '{"node": "NOVE_ID", "expected_revision": 0, "fields": {"goal": "Zákazník dostane fakturu", "non_goals": "Neřešit refundace", "acceptance": "Faktura se uloží k objednávce"}}'
+   ```
+
+5. Ověř `view` (ID, `parentId`) a `node-spec`.
+
+Graf, ve kterém chybí existující uzel nebo vazba, backend odmítne („Mazání vyžaduje náhled
+a potvrzení odstranění“). Mazání, kreslení, připojení projektu a podklady pro agenta (snímek, export)
+dělá člověk v UI.
+
+### Recept: přidat pravidlo k existující kartě nebo projektu
+
+Dávka umí pravidla jen u nových karet. Jinak přes celý stav:
+
+1. `state --raw` → `revision`, `state`. `readOnly: true` = zastav.
+2. Do kopie celého `state.rules` přidej **jedno** pravidlo
+   `{id: nové UUID, text, kind: "must"|"must_not", scope: "project"|"path"|"node", target: "" nebo cesta / ID karty}`.
+3. Zapiš `{"expectedRevision": REVIZE, "state": {...celý...}}` do `<draftsDir>/state.json`
+   a pošli `/api/desktop-v3/state --json-file`. Zápisy celého stavu jen po jednom.
+4. `state --raw` znovu: pravidlo je tam a ostatní pravidla, rozhodnutí a uzly nezmizely.
+5. Při 409 s konfliktem revize načti nový stav a přidej jen to jedno pravidlo znovu.

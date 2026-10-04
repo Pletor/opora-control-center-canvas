@@ -1,0 +1,7 @@
+/* Sbalené doplňky pravého detailu nechávají prostor hlavnímu zadání a zachovávají rozepsané editory. */
+.node-detail-fold { border-top: 1px solid var(--line); padding: 12px 0; }
+.node-detail-fold > summary { cursor: pointer; font-weight: 600; }
+.node-detail-fold__body { padding-top: 10px; }
+/* Historie zachová i dlouhý vrácený JSON v šířce inspektoru. */
+.result-history__item { margin-top: 10px; }
+.result-history__item pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow-y: auto; font-size: 12px; }

@@ -108,3 +108,31 @@ def test_control_request_is_not_an_event_but_is_extracted():
     for bad in ("{", "[]", json.dumps({"type": "control_request", "request_id": "", "request": {}}),
                 json.dumps({"type": "control_request", "request_id": "a", "request": "x"})):
         assert control_request(bad) is None
+
+
+def _ev(event):
+    return line({"type": "stream_event", "event": event})
+
+
+def test_progress_for_thinking_and_tool_input_every_2000_chars():
+    _, state = map_line(_ev({"type": "message_start", "message": {"id": "msg_p"}}))
+    _, state = map_line(_ev({"type": "content_block_start", "index": 0, "content_block": {"type": "thinking"}}), state)
+    thinking = lambda n: _ev({"type": "content_block_delta", "index": 0,
+                              "delta": {"type": "thinking_delta", "thinking": "x" * n}})
+    events, state = map_line(thinking(1500), state)
+    assert events == []
+    events, state = map_line(thinking(600), state)
+    assert events == [{"type": "progress", "messageId": "msg_p", "kind": "thinking", "chars": 2100}]
+    events, state = map_line(thinking(1000), state)
+    assert events == []
+    # nový blok počítá od nuly a nese jméno nástroje
+    _, state = map_line(_ev({"type": "content_block_start", "index": 1,
+                             "content_block": {"type": "tool_use", "id": "t1", "name": "Write"}}), state)
+    assert state["block"]["chars"] == 0
+    part = _ev({"type": "content_block_delta", "index": 1,
+                "delta": {"type": "input_json_delta", "partial_json": "y" * 2500}})
+    events, state = map_line(part, state)
+    assert events == [{"type": "progress", "messageId": "msg_p", "kind": "tool_input", "chars": 2500, "name": "Write"}]
+    events, _ = map_line(part, state)
+    assert events == [{"type": "progress", "messageId": "msg_p", "kind": "tool_input", "chars": 5000, "name": "Write"}]
+    assert state["block"]["chars"] == 2500  # původní stav se nemutuje

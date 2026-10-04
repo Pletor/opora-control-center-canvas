@@ -11,7 +11,10 @@ import json
 
 TOOL_SUMMARY_LIMIT = 200
 RESULT_SUMMARY_LIMIT = 300
-EMPTY_STATE = {"messageId": None, "sessionId": None}
+PROGRESS_STEP = 2000
+EMPTY_STATE = {"messageId": None, "sessionId": None, "block": None}
+# Délku bloku, který se generuje (thinking, vstup nástroje), drží `state["block"]` = {kind, name, chars, index}.
+_PROGRESS_DELTAS = {"thinking_delta": ("thinking", "thinking"), "input_json_delta": ("tool_input", "partial_json")}
 
 
 def _short(value, limit):
@@ -67,18 +70,53 @@ def _system(item, state):
     return [{"type": "status", "state": "running"}], state
 
 
+def _block_start(event, state):
+    block = event.get("content_block")
+    block = block if isinstance(block, dict) else {}
+    kind = {"thinking": "thinking", "tool_use": "tool_input"}.get(block.get("type"))
+    if kind is None:
+        return {**state, "block": None}
+    name = block.get("name") if kind == "tool_input" and isinstance(block.get("name"), str) else None
+    return {**state, "block": {"kind": kind, "name": name, "chars": 0, "index": event.get("index")}}
+
+
+def _progress_delta(delta, state):
+    """Přírůstek thinking / vstupu nástroje → (události, stav); `progress` nejvýš po každých PROGRESS_STEP znacích."""
+    kind, field = _PROGRESS_DELTAS[delta["type"]]
+    chunk = delta.get(field)
+    if not isinstance(chunk, str):
+        return [], state
+    block = state.get("block")
+    if not isinstance(block, dict) or block.get("kind") != kind:
+        block = {"kind": kind, "name": None, "chars": 0, "index": None}
+    chars = block["chars"] + len(chunk)
+    block = {**block, "chars": chars}
+    state = {**state, "block": block}
+    if chars // PROGRESS_STEP == (chars - len(chunk)) // PROGRESS_STEP:
+        return [], state
+    event = {"type": "progress", "messageId": state.get("messageId"), "kind": kind, "chars": chars}
+    if kind == "tool_input" and block.get("name"):
+        event["name"] = block["name"]
+    return [event], state
+
+
 def _stream_event(item, state):
     event = item.get("event")
     if not isinstance(event, dict):
         return [], state
-    if event.get("type") == "message_start":
+    kind = event.get("type")
+    if kind == "message_start":
         message = event.get("message")
         message_id = message.get("id") if isinstance(message, dict) else None
-        return [], {**state, "messageId": message_id if isinstance(message_id, str) else None}
-    if event.get("type") == "content_block_delta":
+        return [], {**state, "messageId": message_id if isinstance(message_id, str) else None, "block": None}
+    if kind == "content_block_start":
+        return [], _block_start(event, state)
+    if kind == "content_block_delta":
         delta = event.get("delta")
         if isinstance(delta, dict) and delta.get("type") == "text_delta" and isinstance(delta.get("text"), str):
             return [{"type": "text_delta", "messageId": state.get("messageId"), "text": delta["text"]}], state
+        if isinstance(delta, dict) and delta.get("type") in _PROGRESS_DELTAS:
+            return _progress_delta(delta, state)
     return [], state
 
 

@@ -1,0 +1,1 @@
+Pomocníci tvorby struktury nad stejnými návrhovými uzly jako plátno (`id`, `parentId`). Výchozí sektory a vlastní části jsou dostupné v Knihovna → Struktura; samostatná sekce Kostra se nezobrazuje. Ukládání předávají rodiči App přes existující graph API; nevytvářejí soubory ani druhou kopii grafu.

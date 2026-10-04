@@ -16,12 +16,16 @@ def test_command_matches_contract_without_resume():
     assert pairs["--permission-prompt-tool"] == "stdio"
     # Žádný volný Bash vzor: `python *opora_read.py*` by pustil i `python -c`; čtení hlídá approvals.is_read.
     assert pairs["--allowedTools"] == "Read,Glob,Grep,Skill,WebFetch,WebSearch,Agent"
-    assert pairs["--disallowedTools"] == "Edit,Write,NotebookEdit,PowerShell"
+    assert pairs["--disallowedTools"] == "Edit,NotebookEdit,PowerShell"
     settings = json.loads(pairs["--settings"])
     assert settings["disableAllHooks"] is True
     deny = settings["permissions"]["deny"]
-    for item in ("Edit", "Write", "NotebookEdit", "PowerShell", "Read(**/.env)", "Read(**/.env.*)"):
+    for item in ("Edit", "NotebookEdit", "PowerShell", "Read(**/.env)", "Read(**/.env.*)"):
         assert item in deny
+    # Write se musí zeptat backendu (koncept, docs/davka-planu.md §2): deny ani odebrání by dotaz zastavily
+    # a v allow by prošel kamkoli. Mimo adresář konceptů ho zamítne `approvals.classify`.
+    for listed in (deny, pairs["--disallowedTools"].split(","), pairs["--allowedTools"].split(",")):
+        assert not any(item.startswith("Write") for item in listed)
     # Web je čtení podkladů (§13.1): nesmí být v deny ani v odebraných nástrojích.
     for item in ("WebFetch", "WebSearch"):
         assert item not in deny and item not in pairs["--disallowedTools"].split(",")
@@ -60,6 +64,12 @@ def test_env_carries_own_instance_address():
     assert "OPORA_BASE_URL" not in cli.child_env({"PATH": "p"})
 
 
+def test_env_carries_drafts_dir_of_this_session_only():
+    env = cli.child_env({"PATH": "p", "OPORA_DRAFTS_DIR": "C:/cizi"}, drafts_dir="C:/data/assistant-drafts/s1")
+    assert env == {"PATH": "p", "OPORA_DRAFTS_DIR": "C:/data/assistant-drafts/s1"}
+    assert "OPORA_DRAFTS_DIR" not in cli.child_env({"PATH": "p", "OPORA_DRAFTS_DIR": "C:/cizi"})
+
+
 def test_manager_hands_instance_address_to_process(tmp_path, monkeypatch):
     from backend.claude_code.assistant import manager as manager_module
 
@@ -84,7 +94,10 @@ def test_manager_hands_instance_address_to_process(tmp_path, monkeypatch):
             manager.send(sid, "ahoj")
         except manager_module.AssistantUnavailable:
             pass
-        assert seen["env"] == {"PATH": "p", "OPORA_BASE_URL": "http://127.0.0.1:8741"}
+        drafts = tmp_path / "data" / "assistant-drafts" / sid
+        assert seen["env"] == {"PATH": "p", "OPORA_BASE_URL": "http://127.0.0.1:8741",
+                               "OPORA_DRAFTS_DIR": str(drafts)}
+        assert drafts.is_dir()
     finally:
         manager.close_all()
 

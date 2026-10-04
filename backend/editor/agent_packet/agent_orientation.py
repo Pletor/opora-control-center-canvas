@@ -48,7 +48,13 @@ def orientation_from_brief(brief, project=None, workspace=None):
         gaps.append(_item("goal", "Chybí cíl", "Doplňte cíl karty před samostatným pokračováním.", [{"source": "goal"}]))
     if not has_definition:
         gaps.append(_item("acceptance", "Chybí definice hotovo", "Požádejte o kritéria dokončení nebo je doplňte v kartě.", [{"source": "definitionOfDone"}]))
-    if not workspace_hidden and not any(agent_workspace.get(key) for key in ("frame", "log", "failures", "fixes", "handoff")):
+    has_prior_work = bool(
+        done.get("confirmed") or brief.get("loop", {}).get("lastReport")
+        or brief.get("resultHistory", {}).get("items")
+        or any(step.get("done") for step in brief["harness"].get("steps", []))
+        or any(block.get("state", {}).get("status", "open") != "open" for block in brief["blocks"])
+    )
+    if has_prior_work and not workspace_hidden and not any(agent_workspace.get(key) for key in ("frame", "log", "failures", "fixes", "handoff")):
         gaps.append(_item("agent-workspace", "Chybí pracovní předávka", "Přečtěte komunikaci a vyžádejte si předávku.", [{"source": "agentWorkspace"}]))
     if not communication_available:
         gaps.append(_item("communication", "Komunikace není dostupná", communication.get("reason", "Služba komunikace není dostupná."), [{"source": "communication"}]))

@@ -102,6 +102,27 @@ def manifest_index(packet):
     return {(item["kind"], item["ownerId"]): item for item in packet["sourceManifest"]}
 
 
+def test_only_next_edges_are_work_dependencies(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        scope = seed(client, tmp_path)
+        view = client.get("/api/view", params=scope).json()
+        graph = view["graph"]
+        graph["edges"].extend([
+            {"id": "next", "source": "parent", "target": "focus", "port": "next"},
+            {"id": "legacy-next", "source": "sector", "target": "focus"},
+            {"id": "rule", "source": "sibling", "target": "focus", "port": "rule"},
+            {"id": "action", "source": "sibling", "target": "focus", "port": "action"},
+        ])
+        saved = client.post("/api/graph", headers=HEADERS,
+                            json={**scope, "graph": graph, "digest": view["digest"]})
+        assert saved.status_code == 200, saved.text
+        response = preview(client, scope)
+        assert response.status_code == 200, response.text
+        packet = response.json()["packet"]
+        assert {item["nodeId"] for item in packet["task"]["depends_on"]} == {"parent", "sector"}
+        assert {item["id"] for item in packet["context"]["relations"]} >= {"rule", "action"}
+
+
 def test_preview_includes_ancestor_drawing_with_revision_geometry_and_deleted_filtering(tmp_path):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         scope = seed(client, tmp_path)

@@ -77,7 +77,7 @@ size: { w: number, h: number }   // každé 120..20000, jen u kind "area"
 - nikdy není rodičem jiného uzlu (`Oblast nesmí být rodičem.`),
 - smí být zdrojem/cílem vazby jen tehdy, když je oblastí i druhý konec, a taková vazba musí nést `port: "flow"` (`Tok vede jen mezi oblastmi.`) — `flow` přibývá k `next | action | rule | block`.
 
-Členství karty v oblasti se nikde neukládá, počítá se geometricky (`area_of` v `backend/canvas/areas.py`): karta patří do oblasti na stejné vrstvě (stejný `parentId`), jejíž obdélník `[x, x+w] × [y, y+h]` obsahuje střed karty — střed uzlu/sektoru je `(x+136, y+120)` (karta 272×~240), střed komentáře `(x+120, y+80)`. Leží-li karta ve více oblastech, vyhrává nejmenší (podle plochy). Oblast sama do jiné oblasti nepatří.
+Členství karty v oblasti se nikde neukládá, počítá se geometricky (`area_of` v `backend/canvas/areas.py`): karta patří do oblasti na stejné vrstvě (stejný `parentId`), jejíž obdélník `[x, x+w] × [y, y+h]` obsahuje střed karty — střed uzlu/sektoru je `(x+180, y+120)` (karta 360×~240), střed komentáře `(x+120, y+80)`. Leží-li karta ve více oblastech, vyhrává nejmenší (podle plochy). Oblast sama do jiné oblasti nepatří.
 
 Balíček pro model vydává oblast jako orientaci, ne jako příkaz: `context.area` řekne, k jakému tématu karta patří, `graph.areaFlows` jaký tok do tématu přichází nebo z něj odchází, `graph.areaMembers` které další karty patří ke stejnému tématu.
 
@@ -91,6 +91,7 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
   "readOnly": bool,  // workspace jen ke čtení (main); výstup agenta zde nelze uložit
   "node": { "id", "name", "kind", "purpose", "path": [ancestor names], "depth": children count, "sourceRef" },
   "goal": { "goal", "nonGoals", "acceptance" },            // ze spec uzlu (prázdné řetězce, když chybí)
+  "content": { "text", "revision" } | null,               // text karty (node-text): podklad, typicky doslovný výňatek zadání; prázdný = null
   "definitionOfDone": { "acceptance", "criteria": [{id,text,checked}], "blockConditions": [{blockId, number, condition}] },
   "boundaries": { "nodeRules": [{id,text,kind}], "projectRules": [{id,text,kind,scope,target}], "nonGoals" },
   "context": { "materials": [{id,kind,path,caption,url}], "decisions": [...], "incomingReports": [edge report + from], "comments": [{id,title,text}], // lístky na stejné vrstvě jako karta, lidská poznámka pro orientaci, ne příkaz
@@ -119,14 +120,28 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
 ```
 Fáze karty (`harness.phase`): postup existující karty do pozdější fáze vyžaduje neprázdná a všechna splněná kritéria (`definitionOfDone.criteria`), návrat je vždy volný. Nová karta smí vzniknout v libovolné fázi; brána kritérií platí jen pro postup existující karty.
 
-`stopConditions` se odvozují: nesplněná podmínka bloku, chybějící podklad, pravidlo `must_not`, uzavřená karta. Chybějící podklad se hlásí, jen když ho nemá ani karta, ani žádný předek (podklady mohou ležet na sektoru nad ní).
+`stopConditions` se odvozují z nesplněných podmínek bloků, pravidel `must_not` a uzavření karty. Samotný prázdný seznam podkladů práci neblokuje; povinný podklad musí být pojmenován v podmínce bloku. Orientace uvádí nepřipojené podklady jako volitelný kontext. Nový úkol nepotřebuje předávku předchozího agenta; chybějící předávka se hlásí při doloženém pokračování práce.
+
+### Předání konkrétní verze zadání
+
+Aktuální `node-brief` obsahuje `contextVersion` a `specification` (`opora.specification-context/1`): uložený projektový rámec, zadání karty a souvisejících karet, zděděné podmínky, sémantický graf a lokálně uložené podklady podle dostupnosti. `contextVersion` je otisk tohoto snímku. Pouhý posun karty při zachovaném členství v oblasti a hlášení postupu nejsou novou verzí zadání; změna jeho obsahu ano. Odkazy na externí soubory zůstávají referencemi, nikoli důkazem přečteného nebo archivovaného obsahu.
+
+Aplikace a stránky jsou stejné uzly tohoto grafu, označené nepovinným `site`: aplikace nese prostředí s hosty, stránka cestu. `node.site` a metadata předků v `context.ancestors` orientují agenta, kam stránka a její komponenty patří. `specification.graph` uchovává stejná metadata; změna hostu nebo cesty mění `contextVersion` a nový OporaHub snímek je zachytí. Host není důkazem nasazení. Dlouhodobý účel se čte z `node.purpose`, pracovní zadání z `goal`; vytvoření stránky samo o sobě nevyplňuje cíl ani akceptaci úkolu.
+
+Mapa domény ukládá pořadí stránek v pořadí uzlů grafu. Je-li v projektu stránka, `specification.navigation` přenáší seznam domén a jejich stránky v tomto pořadí (`nodeId`, `parentPageId`); obyčejné mezilehlé kontejnery nejsou dalšími stránkami. Změna pořadí stránek mění `contextVersion`, pouhé přerovnání běžných karet ne. Nové domény používají vlastní application ID a samostatné stromy; původní vícehostová aplikace stále znamená jednu sdílenou strukturu, nikoli prokázané oddělení prostředí.
+
+Nové předání z UI kopíruje/stahuje celý brief. Požadavek v `outputContract.request` obsahuje vedle `expectedRevision` také `contextVersion`; obě hodnoty musí výsledek zachovat. Při změně zadání server odmítne zápis a rozepsaný výsledek se nesmí automaticky převázat na novou verzi.
+
+Přijatý výsledek vrací `acceptedResult`. `GET /api/desktop-v3/agent-results?project&workspace&nodeId&before` a `node-brief.resultHistory` poskytují neměnnou evidenci s původním snímkem, verzí a úplným výstupem. Evidence a změna pracovního stavu se zapisují atomicky. Starší klient bez `contextVersion` zůstává kompatibilní, ale jeho záznam je výslovně `legacy-unbound`. Přijetí výsledku neznamená nezávislé ověření testů ani Git merge.
+
+Nový commit OporaHubu ukládá tentýž serverem sestavený snímek do `specificationSnapshot`. Úplný historický obsah lze načíst přes `GET /api/opora-commit?project&workspace&scope&id`; server ověřuje rozsah i obsahový otisk. Staré commity bez snímku se nedoplňují domnělým historickým obsahem.
 
 ## Výstup modelu: `POST /api/desktop-v3/agent-output`
 ```
 { project, workspace, nodeId, expectedRevision, agent: string,
   output: { schema: "opora.agent-output/1", blocks: [...], reports: [...], done: {proposed, note}, decisions: [...] } }
 ```
-Server pod zámkem a s CAS revizí: nastaví `blocks[].state.status`, zapíše `state.edges[edgeId]` (`by: "agent"`), u `done` nastaví `by: "agent", confirmed: false, note`, rozhodnutí přidá do `decisions` s `by: "agent"`. `blocks[].note` se ověří, ale neuloží (karta pro ni nemá místo); poznámka agenta patří do zprávy na vazbě (`reports`). Neznámý `blockId`/`edgeId` = chyba 409, nic se nezapíše. Uzavřená karta (`done.confirmed`) výstup odmítne. Vrací nový `StateResponse`.
+Server pod zámkem a s CAS revizí: nastaví `blocks[].state.status`, zapíše `state.edges[edgeId]` (`by: "agent"`), u `done` nastaví `by: "agent", confirmed: false, note`, rozhodnutí přidá do `decisions` s `by: "agent"`. `blocks[].note` se nekopíruje do stavu karty, ale zachová se v úplném neměnném záznamu výsledku; předávka sousedovi patří do zprávy na vazbě (`reports`). Neznámý `blockId`/`edgeId` = chyba 409, nic se nezapíše. Uzavřená karta (`done.confirmed`) výstup odmítne. Vrací nový `StateResponse` doplněný o `acceptedResult`.
 
 ## Adresný blok: `GET/POST /api/desktop-v3/block`
 
@@ -214,4 +229,3 @@ Rozšíření plánu: `.hermes/plans/2026-09-16_092217-agent-communication-works
 Orientace nového agenta je nyní aditivně v `node-brief.orientation` a skutečné stránky zpráv v `node-brief.communication`. V Text → Agenti je zobrazuje Start pro nového agenta: pořadí čtení, zdroje, mezery, volitelný kontext, doporučený krok, hledání v načteném kontextu a kopie úplného JSON. Praktický vstupní návod je `docs/agent-onboarding.md`. Paměť, kterou read-only pohled nezpřístupňuje, je `unavailable`, nikoli údajně chybějící; GET nic nepotvrzuje ani nemění.
 
 Samostatné kroky další implementace: vazba na ověřený runtime/scope, atomický převod vlastnictví, bohatší checkpointy a řízená obnova. Není dovoleno je vykazovat jako hotové jen proto, že funguje zpráva a receipt. Důkazy komunikace jsou v `.hermes/communication-v1/`, orientace a jejího nasazení v `.hermes/agent-orientation-v1/`. Vizuální průchod se ověřuje odděleně od testů a HTTP.
-

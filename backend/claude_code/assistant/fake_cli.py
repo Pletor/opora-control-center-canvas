@@ -5,6 +5,8 @@ Na každou zprávu ze stdin vypíše tvary z docs/asistent.md §11: `system/init
 `SLEEP` tah nikdy nedokončí, `DIE` ukončí proces uprostřed tahu, `WRITE` se zeptá na Bash
 s `opora_write.py` a `EDIT` na nástroj Edit (§5.1). Po `allow` zápis „provede“ (soubor
 `written.txt` v cwd) a odpoví „allowed command=…“; po `deny` odpoví „denied: <zpráva>“.
+`DRAFT` zapíše koncept `Write` do `$OPORA_DRAFTS_DIR/plan.json` a pak se zeptá na `--json-file`
+(docs/davka-planu.md §2); `ESCAPE` zkusí `Write` přes `..` mimo adresář konceptů.
 Na `control_request` initialize odpoví `control_response` jako skutečné CLI.
 """
 
@@ -56,6 +58,27 @@ def permission_reply(turn, text):
     return "denied: " + str(answer.get("message"))
 
 
+PLAN = {"dryRun": True, "plan": {"nodes": [{"ref": "a", "kind": "area", "text": "Zadání"},
+                                          {"ref": "k", "parent": "a", "blocks": [{"ref": "b", "ports": [{"ref": "ok"}]}]}],
+                                "edges": [{"from": "k", "to": "@n1", "port": "next"}]}}
+
+
+def draft_reply(turn, text):
+    """Koncept: `Write` (backend pustí sám), soubor zapíše „CLI“, pak zápis s `--json-file`."""
+    drafts = os.environ.get("OPORA_DRAFTS_DIR", "")
+    path = os.path.join(drafts, "..", "escape.json") if "ESCAPE" in text else os.path.join(drafts, "plan.json")
+    content = json.dumps(PLAN)
+    answer = ask(turn, "Write", {"file_path": path, "content": content})
+    if answer.get("behavior") != "allow":
+        return "write denied: " + str(answer.get("message"))
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(content)
+    command = ("python x/opora_write.py /api/canvas-plan --project p --workspace w --json-file "
+               f'"{path.replace(os.sep, "/")}"')
+    answer = ask(f"{turn}b", "Bash", {"command": command, "description": "Dávka plánu"})
+    return ("allowed " if answer.get("behavior") == "allow" else "denied: " + str(answer.get("message")))
+
+
 def main(argv):
     session = argv[argv.index("--resume") + 1] if "--resume" in argv else str(uuid.uuid4())
     resume = argv[argv.index("--resume") + 1] if "--resume" in argv else "none"
@@ -86,7 +109,9 @@ def main(argv):
         emit({"type": "stream_event", "event": {"type": "message_start", "message": {"id": message_id}}})
         emit({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0,
                                                 "delta": {"type": "text_delta", "text": "ok"}}})
-        if "WRITE" in text or "EDIT" in text:
+        if "DRAFT" in text or "ESCAPE" in text:
+            reply = draft_reply(turn, text)
+        elif "WRITE" in text or "EDIT" in text:
             reply = permission_reply(turn, text)
         else:
             reply = f"resume={resume} apikey={api_key} cwd={os.path.basename(os.getcwd())} got={text}"

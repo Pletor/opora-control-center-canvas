@@ -65,13 +65,13 @@ describe("layout-model", () => {
       { id: "a", kind: "node", x: 0, y: 0 },
       { measuredHeight: 240, openPorts: [], hasActions: true, hasRules: false, hasMaterials: false },
     );
-    expect(withAction).toEqual({ id: "a", x: 0, y: -21, w: 327 + 260, h: 240 + 21 });
+    expect(withAction).toEqual({ id: "a", x: 0, y: -21, w: 415 + 260, h: 240 + 21 });
 
     const withoutBlocks = footprintOf(
       { id: "a", kind: "node", x: 0, y: 0 },
       { measuredHeight: 240, openPorts: [], hasActions: false, hasRules: false, hasMaterials: false },
     );
-    expect(withoutBlocks).toEqual({ id: "a", x: 0, y: 0, w: 272, h: 240 });
+    expect(withoutBlocks).toEqual({ id: "a", x: 0, y: 0, w: 360, h: 240 });
   });
 
   it("boční blok se počítá do kolize, i když se samotné karty nepřekrývají", () => {
@@ -97,7 +97,7 @@ describe("layout-model", () => {
     const opts = { measuredHeight: 240, openPorts: [], hasActions: true, hasRules: false, hasMaterials: false };
     // Blok Akce odtažený nalevo a dolů: otisk se rozšíří tím směrem a vpravo končí už na hraně karty.
     const movedLeft = footprintOf({ id: "a", kind: "node", x: 0, y: 0, blockOffsets: { action: { dx: -300, dy: 100 } } }, opts);
-    expect(movedLeft).toEqual({ id: "a", x: -300, y: 0, w: 300 + 272, h: 300 });
+    expect(movedLeft).toEqual({ id: "a", x: -300, y: 0, w: 300 + 360, h: 300 });
 
     // Karta B stála v cestě výchozímu místu bloku; po odtažení bloku už ji otisk netlačí pryč.
     const b: Footprint = { id: "b", x: 400, y: 0, w: 272, h: 240 };

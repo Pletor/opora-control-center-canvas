@@ -43,7 +43,8 @@ claude -p
   - nejvýš **3** běžící procesy,
   - po **15 min** nečinnosti se proces ukončí a další zpráva ho obnoví přes `--resume`,
   - jeden tah nejvýš **30 min**,
-  - jedna událost do UI nejvýš 64 KB, delší se zkrátí se značkou.
+  - zpráva uživatele nejvýš 60 000 znaků (vejde se celé zadání projektu),
+  - jedna událost do UI nejvýš 64 KB, delší se zkrátí se značkou; zpráva uživatele má strop 256 KB, takže se nezkrátí.
 - Archify a asistent se navzájem neblokují.
 
 ## 4. Session: registr a historie
@@ -87,6 +88,7 @@ claude -p
   - Odpověď je `{"behavior": "allow", "updatedInput": …}` nebo `{"behavior": "deny", "message": …}`.
 - Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST z receptů v `.claude/skills/opora-control-center/references/api.md`. Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
 - Změny v kódu projektu (`Edit`/`Write`/libovolný `Bash`) asistent nedělá. To je práce agenta, který dostane kartu.
+- Jediná výjimka je **koncept zápisu** ([davka-planu.md](davka-planu.md) §2): `Write` souboru `*.json` do adresáře konceptů vlastní session `<data>/assistant-drafts/<sessionId>/` (mimo repo projektu, v datech Opory mimo git). Koncept nic nemění; mění až zápis na plátno, který schvaluje člověk.
 
 ### 5.1 Kontrakt fáze 2 (2026-10-01)
 
@@ -94,7 +96,7 @@ claude -p
 
 **Zapisovací skript.** `.claude/skills/opora-control-center/scripts/opora_write.py <cesta> --project --workspace --json-file <soubor>|--json <json>`:
 
-- pošle POST jen na pevný seznam: `/api/graph`, `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/state`, `/api/desktop-v3/block`, `/api/desktop-v3/agent-workspace`, `/api/desktop-v3/agent-output`;
+- pošle POST jen na pevný seznam: `/api/graph`, `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/state`, `/api/desktop-v3/block`, `/api/desktop-v3/agent-workspace`, `/api/desktop-v3/agent-output`, `/api/canvas-plan` (dávka plánu, [davka-planu.md](davka-planu.md) §3); payload nejvýš 2 MiB;
 - `Content-Type: application/json`, `Origin` podle base, výchozí base z `OPORA_BASE_URL`;
 - na jinou cestu nic nepošle; při 409 vypíše `conflict` a skončí kódem 3 (asistent znovu načte a použije jen svou změnu).
 
@@ -102,11 +104,17 @@ claude -p
 
 - `Read`, `Glob`, `Grep`, `Skill`, `WebFetch`, `WebSearch` a `Agent` jsou v `ALLOWED_TOOLS` a nikdy se neptají.
 - Čtecí Bash (`python <cesta>/opora_read.py …` a `graphify query …`) **není** v `ALLOWED_TOOLS`. Vzor `Bash(python *opora_read.py*)` by pustil i `python -c "…" x/opora_read.py`, tedy libovolný kód. Dotaz na něj proto přijde backendu a ten ho povolí sám bez UI (`approvals.is_read`): skript musí následovat hned po `python`, soubor se jmenuje přesně `opora_read.py` a v příkazu není `; & | < > $`, backtick ani nový řádek. Jinak platí zamítnutí.
-- `Edit`, `Write`, `NotebookEdit` a `PowerShell` zůstávají v `DENY` a nikdy se neptají.
+- `Edit`, `NotebookEdit` a `PowerShell` zůstávají v `DENY` i v `--disallowedTools` a nikdy se neptají.
+- `Write` **není** v `DENY`, `--disallowedTools` ani `ALLOWED_TOOLS` (od 2026-10-02, koncept zápisu): deny i odebrání by dotaz zastavily dřív, než dojde k backendu, a allow by ho pustil kamkoli. Každý `Write` se proto zeptá backendu a ten rozhodne sám, bez UI (`approvals.is_draft_write`):
+  - **adresář konceptů** `<data>/assistant-drafts/<sessionId>/` (`<data>` = datový kořen instance, např. `.data/production`) založí backend při spuštění procesu session a smaže ho při `close`; proces ho zná z env `OPORA_DRAFTS_DIR` (vedle `OPORA_BASE_URL`) a z pole `draftsDir` v `<opora_context>`, které plní jen backend (UI ho poslat nesmí). Model v příkazu nesmí `$`, proto potřebuje cestu doslova;
+  - `auto_allow`, jen když `file_path` je absolutní, po `Path.resolve()` (odstraní `..`, následuje symlinky i junction) leží uvnitř adresáře konceptů **té** session, jméno končí `.json` a nemá `:` (alternativní datový proud NTFS), `content` je text do 2 MiB v UTF-8 a adresář existuje;
+  - cokoli jiného (relativní cesta, `..` ven, symlink ven, cizí session, jiná přípona, větší obsah, session bez adresáře) je `auto_deny` s obvyklou zprávou.
 - `--permission-mode` přejde z `dontAsk` na `default` a přibude `--permission-prompt-tool stdio`, aby se dotazy dostaly k backendu.
-- Backend dotaz **sám zamítne bez UI**, když nejde o `Bash` s příkazem `python …opora_write.py …`. Zpráva: „Asistent zapisuje jen na plátno přes opora_write.py.“
+- Backend dotaz **sám zamítne bez UI**, když nejde o `Bash` s příkazem `python …opora_write.py …` ani o `Write` konceptu. Zpráva: „Asistent zapisuje jen na plátno přes opora_write.py.“
+- `--json-file <soubor>` je platný jen pro koncept: absolutní cesta (v uvozovkách, s `/`), která po `resolve` leží v adresáři konceptů session a končí `.json`; soubor nejvýš 2 MiB, UTF-8, JSON objekt. Backend ho přečte a `payloadSummary` je souhrn **skutečného obsahu** (u `/api/canvas-plan` počty: „Přidá 1 oblast, 2 karty, 3 bloky, 3 porty, 3 vazby (next 1, block 1, flow 1), 2 pravidla, 1 rozhodnutí, text u 2 karet.“, s předponou „Jen ověření (dryRun), nic nezapíše.“ u `dryRun`). Jinak `auto_deny`. Otisk obsahu (sha256) drží kniha schválení; když se koncept mezi žádostí a rozhodnutím změní, `allow` se změní na `deny` („Koncept se po žádosti o schválení změnil; pošli zápis znovu.“).
 - Ostatní dotazy se ukážou v UI. Session přejde do `waiting_approval` a pošle událost `approval {approvalId, tool, input, reason}`, kde `input` obsahuje rozparsovaný `{route, project, workspace, payloadSummary}`. Bez odpovědi do 10 min platí zamítnutí.
 - `POST /api/assistant/approvals/{approvalId} {decision, note?}` pošle `control_response` (`allow` s `updatedInput` = původní input, nebo `deny` s `message` = poznámka). Událost `approval_resolved` vrátí session do `running`.
+- Pozor: povolovací pravidla z `--setting-sources user,project` se sčítají s `--settings`. Pravidlo `Write`/`Bash(…)` v allow uživatele nebo projektu by dotaz k backendu obešlo (Ample má `Bash(graphify *)`); deny v `--settings` hlídá jen `Edit`, `NotebookEdit`, `PowerShell` a citlivé `Read`.
 
 **UI.** `ApprovalCard` v konverzaci ukáže, kam zápis jde (cesta a karta), shrnutí payloadu a tlačítka Povolit / Zamítnout s poznámkou. Úkol čekající na schválení je ve skupině „Čeká na vás“. Logika parsování a shrnutí je v `logic/approval.ts` s testem.
 
@@ -129,6 +137,21 @@ claude -p
 - Plátno se čte přes skill `opora-control-center` (`opora_read.py`: `view`, `node-brief`, `frontier`, …).
 - Skilly `grilling` a `wayfinder` píšou podle mapování ve [workflow-opora.md](workflow-opora.md) §3 a `references/workflow.md`. Ve fázi 1 jen navrhnou, co zapsat. Od fáze 2 zapisují se schválením.
 
+### 6.1 Rozsah práce: „Výběr“ a „Celý obraz“ (kontrakt 2026-10-02)
+
+Vznikl z běhu `707d5523…`: asistent v jednom tahu stavěl celé plátno pěti dávkami po 30–45 kB, minuty generoval naslepo a člověk nevěděl, na čem pracuje. Proto jsou dva módy:
+
+- **Celý obraz** (`scope: "board"`, výchozí): jako dosud, asistent pracuje autonomně nad celým plátnem.
+- **Výběr** (`scope: "selection"`): rozsah = uzly vybrané na plátně (`selectedNodeIds`; oblast nebo sektor zahrnuje i svůj obsah). Asistent jde do hloubky jen u nich: text karty (podklad), spec, bloky s porty, pravidla, `sourceRef`. Když práce navazuje na uzel mimo výběr, **jen vytvoří vazbu** (`next` / `block`) na existující uzel, nic v něm nemění a nezakládá nové uzly mimo výběr. Na konci napíše, co v rozsahu udělal, a navrhne **jeden další navazující uzel** (po vazbách) a počká, až ho člověk vybere. Bez výběru v tomto módu se nejdřív zeptá, na čem pracovat.
+- Rozsah se **nevynucuje** v backendu (rozhodnutí uživatele 2026-10-02), je to instrukce pro model. Schvalování zápisů zůstává beze změny.
+- **Kontext:** UI pošle `scope` v kontextu zprávy (`"board"` | `"selection"`, `validate_context` jiné hodnoty odmítne). `compose` při `"selection"` přidá za `<opora_context>` jednu větu: `Rozsah: jen vybrané uzly (selectedNodeIds) do hloubky; navazující uzly jen propoj vazbou; na konci navrhni další uzel a počkej.` Bez výběru: `Rozsah: výběr, ale nic není vybráno; zeptej se, na čem pracovat.`
+- **UI:** přepínač „Výběr / Celý obraz“ v panelu asistenta u pole zprávy; volba je preference aplikace (`assistant-prefs`), ne projektu. U módu Výběr panel ukáže, kolik uzlů je vybráno.
+- **Skill:** `references/workflow.md` „Mód Výběr“ popisuje postup výše.
+
+### 6.2 Plátno se po zápisu asistenta načte znovu
+
+Zápis asistenta jde přes backend z jiného procesu; otevřený editor o něm dosud nevěděl (`frontend/shared/desktop-state/logic/state-store.ts` načítá jen při mountu), takže po „Povolit“ se na plátně nic nezměnilo. Pravidlo: když v panelu přijde `tool_result` s `ok: true` k nástroji, jehož žádost o zápis člověk povolil (`approval` → `approval_resolved allow` → `tool_result` téhož tahu), panel to ohlásí callbackem nahoru (`onCanvasWritten`) a rodič editoru znovu načte graf i stav Desktop v3 (stejná cesta jako při otevření projektu). Neuložené místní úpravy se nepřepíšou: platí stávající zámek a revize; při rozporu se ukáže stávající konflikt.
+
 ## 7. Zadání pro model
 
 Když o to uživatel požádá, asistent připraví zadání podle [predani-modelum.md](predani-modelum.md):
@@ -145,7 +168,7 @@ Když o to uživatel požádá, asistent připraví zadání podle [predani-mode
 | GET | `/api/assistant/status` | | `{available, claudePath, version, running, limit}`, bez spuštění modelu (`claude --version`) |
 | GET | `/api/assistant/sessions` | `project` | seznam session projektu |
 | POST | `/api/assistant/sessions` | `{project, workspace?, title?, model?}` | založí session, proces vznikne až s první zprávou |
-| POST | `/api/assistant/sessions/{id}/messages` | `{text, context}` | zařadí zprávu, vrátí 202. Během běžícího tahu 409 |
+| POST | `/api/assistant/sessions/{id}/messages` | `{text, context}` | zařadí zprávu (text nejvýš 60 000 znaků), vrátí 202. Během běžícího tahu 409 |
 | GET | `/api/assistant/sessions/{id}/events` | `after=<seq>` | **SSE** stream událostí, po výpadku se naváže od `after` |
 | GET | `/api/assistant/sessions/{id}/transcript` | | historie z JSONL přepisu |
 | POST | `/api/assistant/sessions/{id}/title` | `{title}` | přejmenuje úkol (1–80 znaků), vrátí `{session}` |
@@ -156,6 +179,7 @@ Když o to uživatel požádá, asistent připraví zadání podle [predani-mode
 Události SSE (`{seq, type, …}`):
 
 - `status`: `{state}`
+- `progress`: `{messageId, kind, chars, name?}` — model generuje bez viditelného textu: `kind: "thinking"` (přemýšlení) nebo `"tool_input"` (vstup nástroje, `name` = nástroj, např. koncept dávky přes `Write`). `chars` je dosud vygenerovaná délka; stream ho posílá nejvýš po každých 2 000 nových znacích bloku a znovu od nuly u nového bloku. Panel ho ukáže u běžícího tahu („Přemýšlí… 3 kB“, „Píše Write… 24 kB“), aby dlouhé generování nevypadalo jako zaseknutí.
 - `text_delta`: `{messageId, text}`
 - `message`: `{role, text}`
 - `tool_use`: `{id, name, summary}`
@@ -362,7 +386,7 @@ Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit O
   - `recall --project --workspace --query (--role R | --node N) [--max-tokens]`: `POST /api/memory/recall` s přesně `{role, project, workspace, nodeId, query, maxTokens}`. Bez role a karty backend vrátí `skipped`.
 - **POST jen na čtecí dotazy.** Skript dál nesmí zapisovat. POST pošle jen na pevný seznam cest (tři výše a `/api/rlm/rank` z §13.3), s `Content-Type: application/json` a `Origin` podle base. Na jinou cestu POST nepošle (test). Payload odpovídá backendu a neodhaduje se.
 - Testy skriptu leží vedle něj a `uv run pytest backend` je nesbírá. Spouští se `uv run pytest .claude/skills/opora-control-center/scripts`.
-- **Nástroje asistenta.** `ALLOWED_TOOLS` je `Read,Glob,Grep,Skill,WebFetch,WebSearch,Agent`. `graphify query` a `opora_read.py` pouští přes Bash jen backend (`approvals.is_read`). `WebFetch` a `WebSearch` nejsou v `DISALLOWED_TOOLS` ani v `DENY`. Zápis (`Edit`, `Write`, `NotebookEdit`, jiný Bash, `PowerShell`) zůstává zakázaný.
+- **Nástroje asistenta.** `ALLOWED_TOOLS` je `Read,Glob,Grep,Skill,WebFetch,WebSearch,Agent`. `graphify query` a `opora_read.py` pouští přes Bash jen backend (`approvals.is_read`). `WebFetch` a `WebSearch` nejsou v `DISALLOWED_TOOLS` ani v `DENY`. Zápis (`Edit`, `NotebookEdit`, jiný Bash, `PowerShell`) zůstává zakázaný; `Write` pustí backend jen do adresáře konceptů session (§5.1).
 - **Skill.** `SKILL.md` a `references/api.md` popíšou nové příkazy a pořadí hledání: plátno `search` → `find` / `code` → graphify → Archify → `recall` → web.
 
 ### 13.2 Kontrakt Jev v1: volba podkladu

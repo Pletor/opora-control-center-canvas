@@ -101,7 +101,7 @@ def test_validation_and_errors(setup):
     bad = client.post(f"/api/assistant/sessions/{sid}/messages",
                       json={"text": "x", "context": {"selectedNodeIds": ["n"] * 51}})
     assert bad.status_code == 409 and "selectedNodeIds" in bad.json()["error"]
-    assert client.post(f"/api/assistant/sessions/{sid}/messages", json={"text": "x" * 20001}).status_code == 409
+    assert client.post(f"/api/assistant/sessions/{sid}/messages", json={"text": "x" * 60001}).status_code == 409
     assert client.post(f"/api/assistant/sessions/{sid}/messages", json={"text": "SLEEP"}).status_code == 202
     busy = client.post(f"/api/assistant/sessions/{sid}/messages", json={"text": "znovu"})
     assert busy.status_code == 409 and "odpovídá" in busy.json()["error"]

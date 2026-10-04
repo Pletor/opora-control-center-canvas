@@ -1,0 +1,7 @@
+/* Předání ukazuje lidský cíl nahoře a přesný přenosný podklad až po rozbalení. Dlouhé identity zůstávají uvnitř dialogu. */
+.handoff { position: fixed; inset: 0; margin: auto; color: var(--ink); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; }
+.handoff::backdrop { background: var(--backdrop); }
+.handoff pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 340px; overflow-y: auto; font-size: 12px; }
+.handoff__version, .handoff__scope { overflow-wrap: anywhere; }
+.handoff__section { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+.handoff__gaps { border-left: 3px solid var(--gold); padding-left: 12px; }

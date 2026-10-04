@@ -1,17 +1,19 @@
-# Zadání: <název>
+# Zadání karty: <název>
 
-- Projekt ID: <ověřené ID>
-- Workspace ID: <ověřené ID>
-- Uzel / sektor ID: <ověřené ID nebo výslovný projektový rozsah>
-- Cíl: <co má uživatel umět>
-- Mimo rozsah: <co se nemění>
-- Podmínky dokončení: <pozorovatelný výsledek, ne samotné „hotovo“>
-- Zdroje / reference: <jen nutné autorizované cesty, žádná tajemství>
-- Povolené změny: <konkrétní soubory nebo dokument>
-- Zakázané změny: <cizí data, konfigurace, redesign...>
-- Snapshot ID / digest: <doplnit až po skutečném vytvoření>
-- Export pro externího agenta: <cesta tasks/<node-id>.md ve workspace / ne — pouze podklady>
-- Implementace schválena: <ano od uživatele / ne — pouze připravit>
-- Ověření: <uživatelova kontrola; u hlášené chyby bez psaní testů>
+Šablona návrhu karty pro člověka před zápisem. Pole odpovídají tomu, co se zapíše (`/api/canvas-plan`
+nebo `/api/graph` + `/api/node-spec`, viz [api.md](../references/api.md)).
 
-Neodesílej šablonu s placeholdery jako schválený úkol. Snímek ani run ID si nevymýšlej.
+- Projekt / workspace: <z `<opora_context>`, `<projectId>` / `<workspace>`>
+- Rodič: <ID sektoru nebo oblasti ověřené přes `view`, nebo kořen>
+- Název: <`[task]` / `[research]` / `[grilling]` / `[prototype]` + název, do 160 znaků>
+- Popis (`purpose`): <podstata karty>
+- Cíl (`goal`): <co má po dokončení platit>
+- Mimo rozsah (`non_goals`): <sousední karty, které to řeší, jménem>
+- Hotovo když (`acceptance`): <ověřitelné body + příkazy testů projektu>
+- Text karty: <doslovný výňatek zadání s názvem kapitoly>
+- Bloky a porty: <blok → podmínka → porty s popiskem výsledku>
+- Vazby: <odkud a kam, `next` / `block` / `flow`>
+- Zdroj (`sourceRef`): <`existing` cesta ověřená v repu / `planned` cesta / žádný u konceptu>
+- Pravidla: <`must` / `must_not` ze zadání>
+
+Šablonu s placeholdery nezapisuj. ID ani digest si nevymýšlej; ber je z `view`.
