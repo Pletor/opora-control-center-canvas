@@ -1,0 +1,155 @@
+/* Architektura projektu má vlastní tmavý rám: uživatel tu „kreslí plán“, ne pracuje v Editoru,
+   proto jiné pozadí a jiné barvy. Tokeny žijí jen na kořeni této feature; dílky (landing,
+   domain-map, page-editor, component-structure, element-detail) je čtou, nikdy nepřepisují.
+   Barvy vrstev jsou závazné z kontraktu: frontend zelená, backend fialová, databáze jantarová,
+   security červená, infrastruktura modrá, cache levandulová, oblast jantarová přerušovaná. */
+.architecture-editor {
+  --ae-bg: #0c1723;
+  --ae-panel: #0f1c29;
+  --ae-card: #1b2e3b;
+  --ae-line: #304b5a;
+  --ae-text: #e3f1fb;
+  --ae-muted: #a2bacb;
+  --ae-accent: #38d6c2;
+  --ae-cyan: #75d9ff;
+  --ae-tone-frontend: #30e9b0;
+  --ae-tone-backend: #c18aff;
+  --ae-tone-database: #ffc548;
+  --ae-tone-security: #ff5d6c;
+  --ae-tone-infrastructure: #4ea8ff;
+  --ae-tone-cache: #b48cff;
+  --ae-tone-area: #ffc548;
+  /* Globální světlá témata dědí tyto proměnné; uvnitř editoru zůstávají v jeho paletě. */
+  --bg: var(--ae-bg);
+  --surface: var(--ae-panel);
+  --surface-2: var(--ae-card);
+  --ink: var(--ae-text);
+  --ink-2: var(--ae-text);
+  --ink-muted: var(--ae-muted);
+  --line: var(--ae-line);
+  --line-strong: var(--ae-line);
+  --accent: var(--ae-accent);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--ae-bg);
+  color: var(--ae-text);
+  font: 13px/1.45 system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+/* Základ ovládacích prvků celé obrazovky: jedno zaoblení, jedna linka, tmavé pole. Má specificitu jedné
+   třídy (:where) a načítá se první, takže každá třída dílku (aktivní stránka, dlaždice, tlačítko karty) ho
+   přebije, protože se načte až po něm; dílky mění jen to, čím se liší. */
+.architecture-editor :where(*) { box-sizing: border-box; }
+.architecture-editor :where(h2) { margin: 0; font-size: 17px; }
+/* Hosty a názvy zůstávají tak, jak jsou uloženy; velká písmena patří jen malým štítkům. */
+.architecture-editor :where(h3) { margin: 8px 0 12px; font-size: 14px; text-transform: none; letter-spacing: normal; }
+.architecture-editor :where(button, input, textarea, select) {
+  font: inherit;
+  color: var(--ae-text);
+  background: var(--ae-card);
+  border: 1px solid var(--ae-line);
+  border-radius: 7px;
+  box-shadow: none;
+}
+.architecture-editor :where(button) { padding: 6px 10px; cursor: pointer; }
+.architecture-editor :where(button:hover:not(:disabled)) { border-color: var(--ae-accent); }
+.architecture-editor :where(button:disabled) { opacity: .45; cursor: not-allowed; }
+.architecture-editor :where(input, textarea, select) { width: 100%; min-width: 0; padding: 9px; background: #111f2b; }
+.architecture-editor :where(textarea) { resize: vertical; }
+.architecture-editor :where(code) { font-size: 11px; color: var(--ae-cyan); overflow-wrap: anywhere; }
+.architecture-editor [hidden] { display: none; }
+.architecture-editor [role=alert] { color: #ffada9; }
+
+/* Hlavička: vlevo logo a název obrazovky, vedle drobečky „krok · prostředí / host / stránka“,
+   aby uživatel vždy věděl, ve které doméně a stránce kreslí. Vpravo akce; ID editoru je jen
+   malý čip, protože ho člověk potřebuje zřídka (kopíruje ho agentovi), ale musí být po ruce. */
+.ae-header {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--ae-line);
+  background: var(--ae-panel);
+}
+.ae-header__back { font-size: 12px; }
+.ae-header__brand { display: flex; align-items: center; gap: 10px; }
+.ae-header__logo { color: var(--ae-cyan); }
+.ae-header__title { margin: 0; font-size: 17px; white-space: nowrap; }
+.ae-header__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--ae-line);
+  color: var(--ae-muted);
+  font-size: 12px;
+}
+.ae-header__step { color: var(--ae-text); font-weight: 650; margin-right: 4px; }
+.ae-header__crumb + .ae-header__crumb::before { content: "/"; margin-right: 6px; color: var(--ae-line); }
+.ae-header__workspace { margin-left: 8px; font-size: 11px; opacity: .8; }
+.ae-header__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+.ae-header__button { font-size: 12px; }
+.ae-header__button--primary { border-color: color-mix(in srgb, var(--ae-accent) 60%, var(--ae-line)); color: var(--ae-accent); }
+.ae-header__id {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 230px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+.ae-header__id-label { color: var(--ae-muted); font-weight: 700; }
+.ae-header__id-value { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Hláška nad obsahem: jedna řádka pod hlavičkou, aby chyba zápisu nezakryla mapu. */
+.ae-message { padding: 8px 16px; background: #172c39; border-bottom: 1px solid var(--ae-line); }
+.ae-loading { padding: 25px; }
+.ae-route-error { padding: 28px; }
+
+/* Sdílené rozvržení Mapy projektu (domain-map): úzký panel vlevo, pracovní plocha vpravo. */
+.ae-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0; }
+.ae-sidebar {
+  overflow: auto;
+  border-right: 1px solid var(--ae-line);
+  background: var(--ae-panel);
+  /* Rezerva nad globálním ovladačem účtu v levém dolním rohu. */
+  padding-bottom: 90px;
+  scroll-padding-bottom: 90px;
+}
+.ae-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+/* Formulář stránky / domény: rámeček v barvě akcentu, popisky nad poli, aby šel vyplnit shora dolů. */
+.ae-form fieldset { min-width: 0; margin: 8px 0; padding: 8px; border: 1px solid var(--ae-line); }
+.ae-form label { display: flex; flex-direction: column; gap: 7px; margin: 16px 0 10px; color: var(--ae-muted); }
+.ae-product-form {
+  max-width: 650px;
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid var(--ae-accent);
+  border-radius: 12px;
+  background: var(--ae-panel);
+  scroll-margin: 20px;
+}
+
+@media (max-width: 1400px) {
+  .ae-layout { grid-template-columns: 245px minmax(0, 1fr); }
+  .ae-header__id { max-width: 170px; }
+}
+@media (max-width: 1050px) {
+  .ae-layout { grid-template-columns: 220px minmax(0, 1fr); }
+  .ae-header { padding: 9px; gap: 10px; }
+  .ae-header__crumbs { order: 3; flex-basis: 100%; padding-left: 0; border-left: 0; }
+}
+@media (max-width: 760px) {
+  .ae-layout { grid-template-columns: 190px minmax(0, 1fr); }
+  .ae-header__actions { margin-left: 0; }
+}

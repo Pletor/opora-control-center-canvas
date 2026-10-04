@@ -11,6 +11,7 @@ import { cloudItems, cacheItems } from "./catalog-platform";
 import { securityItems, testItems } from "./catalog-safety";
 import { architectureItems, tenancyItems } from "./catalog-architecture";
 import type { CatalogFit } from "./catalog-fit";
+import { practicalItems } from "./catalog-practical";
 
 export type CatalogCategory =
   | "fe-components"
@@ -75,6 +76,7 @@ const CATEGORY_ORDER = new Map(CATALOG_CATEGORIES.map((category, index) => [cate
 
 /** Celý katalog v pořadí kategorií; prvky pro jednu architekturu stojí na konci své kategorie. */
 export const CATALOG_ITEMS: CatalogItem[] = [
+  ...practicalItems,
   ...frontendComponentItems,
   ...frontendStyleItems,
   ...frontendLogicItems,

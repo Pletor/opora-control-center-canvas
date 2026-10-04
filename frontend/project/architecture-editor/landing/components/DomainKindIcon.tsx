@@ -1,0 +1,10 @@
+import type { DomainKind } from "../logic/domain-kind";
+
+/** Small outline icon for the domain kind: globe (web), window (application), gear (administration). */
+export default function DomainKindIcon({ kind }: { kind: DomainKind }) {
+  return <svg className={"arch-landing__icon arch-landing__icon--" + kind} viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    {kind === "web" && <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.2"/></>}
+    {kind === "app" && <><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><rect x="8.5" y="8.5" width="7" height="7" rx="1"/></>}
+    {kind === "admin" && <><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></>}
+  </svg>;
+}

@@ -1,4 +1,4 @@
-Katalog Knihovny jako **data**. Prvek mimo katalog neexistuje: panel `frontend/layout/library-navbar/` i puštění na plátno berou obsah odsud a nic si nedomýšlejí. Kontrakt: `docs/menu-a-katalog.md` §B.
+Katalog Knihovny jako **data**. Panel `frontend/layout/library-navbar/`, tlačítko Vložit i přetažení berou obsah odsud. Prvky jsou seskupené pod Frontend, Backend, Databáze a Infrastruktura; původní jemné kategorie a ID zůstávají. Kontrakt: `docs/menu-a-katalog.md` §B.
 
 Prvek je know-how pro silný model. Neříká, jak dělat dobrou práci; říká, k čemu prvek je, s čím v projektu souvisí, kdy je hotovo a kterou hranici nesmí překročit.
 
@@ -15,26 +15,28 @@ Prvek je know-how pro silný model. Neříká, jak dělat dobrou práci; říká
 - `template?` — kostra kódu v konvencích repozitáře.
 - `fits?` — pro které projekty prvek dává smysl (`docs/suplik-a-profil.md`); bez `fits` patří všem.
 
-Prvek **nemá druh** karta/blok. Co z něj vznikne, určí místo puštění.
+Přetažení nebo Vložit vytvoří novou komponentu se specifikací. Puštění na uzel/sektor ji vloží jako potomka, puštění na oblast ji geometricky umístí dovnitř. Blok do existující karty se přidává jen výslovnou akcí z detailu prvku. Struktura v Knihovně je jediný strom již vložených instancí; není kopií katalogu.
 
-## Co se zapíše na plátno (`catalog-insert.ts`)
+## Co se zapíše na plátno (`catalog-plan.ts`, blok přes `catalog-insert.ts`)
 
-| Pole | Nová karta (prázdné plátno) | Blok do karty pod ukazatelem |
+| Pole | Nová komponenta | Výslovné přidání bloku do vybrané karty |
 |---|---|---|
 | `label` | `node.name` | `block.title` |
-| `purpose` | `node.purpose` | první odstavec textu |
-| `relates` | první blok „Souvisí s“ (řádky) | odstavec „Souvisí s:“ |
-| `done` | `criteria` karty | odstavec „Hotovo, když:“ |
-| `invariants` | `rules` karty | přidají se do `rules` karty, stejný text se přeskočí |
-| `steps` | bloky | odstavec „Kroky:“ |
-| `template` | blok „Šablona“ | konec textu |
+| `purpose` | `node.purpose` a výchozí `spec.goal` | první odstavec textu |
+| `relates` | oddíl „Souvisí s“ v uloženém textu karty | odstavec „Souvisí s:“ |
+| `done` | `spec.acceptance`, bez duplicitního checklistu | odstavec „Hotovo, když:“ |
+| `invariants` | pravidla omezená na novou kartu | přidají se do `rules` karty, stejný text se přeskočí |
+| `steps` | oddíl kroků v uloženém textu karty | odstavec „Kroky:“ |
+| `template` | oddíl „Šablona“ v uloženém textu karty | konec textu |
 | `category` | — | `block.tags` |
 
-`node-brief` z toho vydá modelu `node.purpose`, `definitionOfDone.criteria`, `boundaries.nodeRules` a blok „Souvisí s“ bez zásahu do backendu. Uložené karty ze staršího tvaru katalogu mají stejný tvar dat, proto se načtou beze změny.
+Nová instance jde přes jednu dávku `canvas-plan`, která uloží graf, specifikaci a obsah. `node-brief` vydá modelu `node.purpose`, `goal.goal`, `definitionOfDone.acceptance`, pravidla v `boundaries` a uložený text karty. Nové předlohy nezakládají rozbalené pracovní bloky: plátno zůstává kompaktní, celý podklad je v detailu a předávce. Uložené karty ze staršího tvaru katalogu včetně checklistů a bloků se načtou beze změny; změna předlohy je zpětně nepřepisuje. Starší čisté převody `cardFromItem` a `workflowFromItem` zůstávají kompatibilními pomocníky, nikoli cestou nového UI vložení.
 
 ## Soubory v `logic/`
 
 - `library-catalog.ts` — typy, kategorie, složený `CATALOG_ITEMS` a čisté funkce: `itemsOf`, `itemById`, `searchItems` (popisek + účel, bez diakritiky), `foldDiacritics`, `relatesRef`, `relatesLines`, `catalogLint`, konstanta `CATALOG_DRAG_TYPE`.
+- `catalog-practical.ts` — praktické předlohy tlačítka, dialogu, parallax animace, endpointu, datové tabulky a dalších částí aplikace; `catalog-families.ts` — čtyři hlavní skupiny a mapování vrstvy karty.
+- `catalog-plan.ts` — společné umístění a dávka pro Vložit i přetažení; uloží specifikaci, text a pravidla nové komponenty.
 - `catalog-frontend-components.ts`, `catalog-frontend-style.ts`, `catalog-frontend-logic.ts`, `catalog-backend.ts` (backend + databáze), `catalog-platform.ts` (cloud + cache), `catalog-safety.ts` (security + testy), `catalog-architecture.ts` (Multitenance a prvky pro jednu architekturu) — jen data.
 - `catalog-insert.ts` — `cardFromItem`, `workflowFromItem`, `blockTextFromItem`, `blockFromItem`, `rulesFromItem`, `criteriaFromItem`, `insertBlockFromItem`, konstanty `RELATES_BLOCK_TITLE` a `TEMPLATE_BLOCK_TITLE`.
 - `catalog-fit.ts` — `fitsProfile`, `splitByProfile`, `fitReason`, `fitWords`, `outsideSummary`; používá ji i katalog Agentů.

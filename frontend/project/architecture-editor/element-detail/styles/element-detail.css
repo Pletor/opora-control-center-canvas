@@ -1,0 +1,87 @@
+/*
+ * Detail prvku je úzký pravý sloupec Editoru stránky. Nahoře vždy stojí, kde prvek žije (kontext
+ * agenta), pod tím kdo to je a tři záložky. Sloupec roluje sám, hlavička se zavřením zůstává nahoře.
+ */
+.element-detail {
+  --ed-frontend: var(--ae-tone-frontend, #30e9b0);
+  --ed-backend: var(--ae-tone-backend, #c18aff);
+  --ed-database: var(--ae-tone-database, #ffc548);
+  --ed-library: var(--ae-tone-infrastructure, #65b7ff);
+  --ed-tone: var(--ae-cyan, #75d9ff);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--ae-panel, #0f1c29);
+  color: var(--ae-text, #e3f1fb);
+  border-left: 1px solid var(--ae-line, #304b5a);
+}
+.element-detail__head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--ae-line, #304b5a); }
+.element-detail__heading { margin: 0; font-size: 14px; }
+.element-detail__close { display: inline-flex; padding: 5px; }
+.element-detail__body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 12px 14px 18px; }
+.element-detail__muted { margin: 0; font-size: 12px; color: var(--ae-muted, #a2bacb); }
+.element-detail__text { margin: 0 0 6px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.element-detail__lead { font-weight: 700; }
+
+/*
+ * Kontext agenta je tyrkysově orámovaný blok faktů: prostředí jako štítek, doména, stránka, cesta
+ * komponent a cesta v repozitáři. Navržená cesta nese pod sebou upozornění, že zatím není souborem.
+ */
+.element-detail__context { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--ae-accent, #38d6c2) 45%, transparent); border-radius: 10px; background: var(--ae-card, #1b2e3b); }
+.element-detail__context-title { margin: 0 0 8px; font-size: 13px; color: var(--ae-cyan, #75d9ff); }
+.element-detail__facts { display: grid; gap: 2px; margin: 0; }
+.element-detail__fact-label { margin-top: 6px; font-size: 11px; color: var(--ae-muted, #a2bacb); }
+.element-detail__fact { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.element-detail__badge { display: inline-block; padding: 1px 7px; font-size: 11px; border-radius: 5px; color: var(--ae-bg, #0c1723); background: var(--ae-accent, #38d6c2); }
+.element-detail__path { font-size: 11px; color: var(--ae-cyan, #75d9ff); }
+.element-detail__notice { margin: 8px 0 0; font-size: 11px; color: var(--ed-database); }
+
+/* Identita prvku: ikona v barvě vrstvy, velký název a účel; tón stejný jako na plátně. */
+.element-detail__identity--frontend { --ed-tone: var(--ed-frontend); }
+.element-detail__identity--backend { --ed-tone: var(--ed-backend); }
+.element-detail__identity--database { --ed-tone: var(--ed-database); }
+.element-detail__identity--library { --ed-tone: var(--ed-library); }
+.element-detail__identity { display: flex; gap: 10px; align-items: center; }
+.element-detail__icon { width: 32px; height: 32px; padding: 6px; flex-shrink: 0; color: var(--ed-tone); border: 1px solid var(--ed-tone); border-radius: 8px; }
+.element-detail__identity-text { min-width: 0; }
+.element-detail__name { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.element-detail__purpose { margin: 2px 0 0; font-size: 12px; color: var(--ae-muted, #a2bacb); }
+
+/* Záložky jsou tichý řádek textu; aktivní má tyrkysovou linku, aby bylo jasné, kterou část čtu. */
+.element-detail__tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--ae-line, #304b5a); }
+.element-detail__tab { flex: 1; padding: 7px 4px; font-size: 12px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--ae-muted, #a2bacb); cursor: pointer; }
+.element-detail__tab--active { color: var(--ae-text, #e3f1fb); border-bottom-color: var(--ae-accent, #38d6c2); }
+.element-detail__pane { display: flex; flex-direction: column; gap: 12px; }
+
+/* Formulář identity: pod sebou Název a Účel, uložení vpravo; neuložený koncept je vidět i chyba. */
+.element-detail__form { display: flex; flex-direction: column; gap: 8px; }
+.element-detail__field { display: grid; gap: 4px; }
+.element-detail__field-label { font-size: 11px; color: var(--ae-muted, #a2bacb); }
+.element-detail__input { width: 100%; box-sizing: border-box; padding: 7px 9px; font: inherit; font-size: 12px; color: inherit; background: var(--ae-bg, #0c1723); border: 1px solid var(--ae-line, #304b5a); border-radius: 7px; resize: vertical; }
+.element-detail__error { margin: 0; font-size: 12px; color: #ff7b8a; }
+.element-detail__actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.element-detail__hint { margin-right: auto; font-size: 11px; color: var(--ed-database); }
+.element-detail__button { font-size: 12px; padding: 5px 10px; }
+.element-detail__button--primary { color: var(--ae-bg, #0c1723); background: var(--ae-accent, #38d6c2); border-color: var(--ae-accent, #38d6c2); }
+
+/* Vazby a porty: řádky s druhým koncem vlevo a portem vpravo; klik přeskočí na druhý konec. */
+.element-detail__links { display: grid; gap: 6px; }
+.element-detail__subtitle { margin: 0; font-size: 12px; font-weight: 700; }
+.element-detail__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.element-detail__link { display: flex; justify-content: space-between; gap: 8px; width: 100%; padding: 6px 9px; text-align: left; color: inherit; background: var(--ae-card, #1b2e3b); border: 1px solid var(--ae-line, #304b5a); border-radius: 7px; cursor: pointer; }
+.element-detail__link-name { font-size: 12px; overflow-wrap: anywhere; }
+.element-detail__port { font-size: 11px; color: var(--ae-cyan, #75d9ff); }
+
+/*
+ * Práce: pětikroková mini pipeline (aktuální fáze svítí akcentem), věta o uzavření karty a velké
+ * tlačítko do Editoru, protože pracovní zadání se mění jen tam.
+ */
+.element-detail__phases { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.element-detail__phase { padding: 4px 8px; font-size: 11px; border: 1px solid var(--ae-line, #304b5a); border-radius: 6px; }
+.element-detail__phase--past { color: var(--ae-muted, #a2bacb); }
+.element-detail__phase--current { color: var(--ae-bg, #0c1723); background: var(--ae-accent, #38d6c2); border-color: var(--ae-accent, #38d6c2); font-weight: 700; }
+.element-detail__closure { margin: 0; font-size: 12px; color: var(--ae-muted, #a2bacb); }
+.element-detail__closure--done { color: var(--ed-frontend); }
+.element-detail__open { width: 100%; padding: 10px; font-size: 13px; font-weight: 700; color: var(--ae-bg, #0c1723); background: var(--ae-accent, #38d6c2); border: 0; border-radius: 8px; cursor: pointer; }

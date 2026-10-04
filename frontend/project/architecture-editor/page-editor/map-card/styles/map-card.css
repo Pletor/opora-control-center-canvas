@@ -1,0 +1,124 @@
+/* Karta na Mapě architektury: tmavá dlaždice orámovaná barvou své vrstvy (frontend zelená,
+   backend fialová, databáze jantarová…), aby šlo vrstvy rozeznat i při malém přiblížení.
+   Nahoře ikona v rámečku, druh, název a štítek „N uzlů“; pod tím účel a až tři potomci jako
+   řádky. Dole „+ Přidat komponentu“, protože karta roste zevnitř, ne z bočního panelu. */
+.map-card {
+  --tone: var(--ae-tone-infrastructure);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  border: 1.5px solid var(--tone);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tone) 7%, #101d29);
+  box-shadow: 0 0 0 1px #0006, 0 6px 18px color-mix(in srgb, var(--tone) 14%, transparent);
+  color: var(--ae-text);
+}
+.map-card--frontend { --tone: var(--ae-tone-frontend); }
+.map-card--backend { --tone: var(--ae-tone-backend); }
+.map-card--database { --tone: var(--ae-tone-database); }
+.map-card--security { --tone: var(--ae-tone-security); }
+.map-card--cache { --tone: var(--ae-tone-cache); }
+/* Vybraná karta dostane druhý světlý obrys, aby bylo jasné, k čemu patří Detail vpravo. */
+.map-card--selected { outline: 2px solid var(--ae-cyan); outline-offset: 3px; }
+
+.map-card__head { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--tone); }
+.map-card__icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid color-mix(in srgb, var(--tone) 60%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+}
+.map-card__heading { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.map-card__kind { font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+.map-card__title { overflow: hidden; color: var(--ae-text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.map-card__count {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border: 1px solid var(--ae-line);
+  border-radius: 6px;
+  color: var(--ae-muted);
+  font-size: 10px;
+}
+.map-card__purpose {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--ae-muted);
+  font-size: 11px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Menu ⋮ je malé a nenápadné; otevřené leží nad sousedními kartami. */
+.map-card__menu { position: relative; flex-shrink: 0; }
+.map-card__menu-button { padding: 0 6px; border-color: transparent; background: transparent; font-size: 15px; line-height: 1.4; }
+.map-card__menu-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--ae-line);
+  border-radius: 8px;
+  background: var(--ae-panel);
+  box-shadow: 0 8px 22px #0009;
+}
+.map-card__menu-item { border-color: transparent; background: transparent; font-size: 12px; text-align: left; }
+
+/* Potomci jsou řádky s vlastní barvou vrstvy: náhled, co je uvnitř, bez otevírání struktury. */
+.map-card__children { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.map-card__child {
+  --tone: var(--ae-tone-infrastructure);
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  column-gap: 7px;
+  width: 100%;
+  padding: 6px 8px;
+  border-color: color-mix(in srgb, var(--tone) 35%, var(--ae-line));
+  background: #0e1c28;
+  text-align: left;
+}
+.map-card__child--frontend { --tone: var(--ae-tone-frontend); }
+.map-card__child--backend { --tone: var(--ae-tone-backend); }
+.map-card__child--database { --tone: var(--ae-tone-database); }
+.map-card__child-icon { grid-row: span 2; align-self: center; color: var(--tone); }
+.map-card__child-name { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.map-card__child-purpose { overflow: hidden; color: var(--ae-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.map-card__more { color: var(--ae-muted); font-size: 10px; padding-left: 4px; }
+
+/* Patička: přidání komponenty je přerušovaná výzva přes celou šířku, detail je malý odkaz vedle. */
+.map-card__foot { display: flex; gap: 6px; margin-top: auto; }
+.map-card__add { flex: 1; padding: 5px; white-space: nowrap; border-style: dashed; color: var(--ae-muted); font-size: 11px; }
+.map-card__open { padding: 5px 7px; white-space: nowrap; color: var(--ae-cyan); font-size: 10px; }
+
+/* Porty jsou barevné kroužky na bocích: vlevo vstup, vpravo výstup, z nich se táhne vazba. */
+.map-card__port.react-flow__handle {
+  width: 11px;
+  height: 11px;
+  border: 2px solid #0c1723;
+  background: var(--tone);
+}
+
+/* Oblast: přerušovaný jantarový rám, který karty seskupuje podle polohy. Je průhledná a leží
+   pod kartami; hlavička „OBLAST: …“ s počtem sektorů a „+ Sektor“ sedí v levém horním rohu. */
+.map-card--area {
+  --tone: var(--ae-tone-area);
+  border: 1.5px dashed var(--tone);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tone) 4%, transparent);
+  box-shadow: none;
+}
+.map-card__area-add { flex-shrink: 0; padding: 3px 8px; color: var(--tone); font-size: 11px; }
+
+/* Komentář je jen poznámka bez portů, šedá, aby nesoupeřil s kartami. */
+.map-card--comment { --tone: var(--ae-line); min-height: 60px; }

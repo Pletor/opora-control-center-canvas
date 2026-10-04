@@ -1,6 +1,8 @@
 import {useState, type ReactNode} from 'react';
 import SourceExplorer from '@/project/source-tree/components/SourceExplorer';
 import '@/project/shell/styles/project-layout.css';
+import type {ProjectMapKind} from '../logic/project-view';
+export type {ProjectMapKind} from '../logic/project-view';
 
 // Jediná definice filtrů a rozložení hlavního projektu. Štítky třídí cesty, ne obsah souborů.
 const filters = [
@@ -13,17 +15,17 @@ const filters = [
 ] as const;
 
 /** Sdílený přepínač mapy v existující hlavičce; žádná další kopie horní lišty. */
-export type ProjectMapKind = 'archify' | 'graphify';
 export function ProjectMapNavigation({value,onChange}:{value:ProjectMapKind;onChange:(value:ProjectMapKind)=>void}){
   return <div className="project-map-navigation" role="group" aria-label="Výstup mapy">
+    <button type="button" aria-pressed={value==='architecture'} data-testid="project-view-architecture" onClick={()=>onChange('architecture')}>Architektura projektu</button>
     <button type="button" aria-pressed={value==='archify'} onClick={()=>onChange('archify')}>Archify</button>
     <button type="button" aria-pressed={value==='graphify'} title="Původní Graphify: načíst nebo vytvořit graf hlavního projektu" onClick={()=>onChange('graphify')}>Graphify-out</button>
   </div>;
 }
 
 /** Geometrie, strom, hledání a filtry jsou společné pro libovolný obsah hlavní plochy. */
-export default function ProjectLayout({project,workspace,selected,onSelect,children}:{
-  project:string;workspace:string;selected:string;onSelect:(path:string)=>void;children:ReactNode;
+export default function ProjectLayout({project,workspace,selected,onSelect,children,productTree}:{
+  project:string;workspace:string;selected:string;onSelect:(path:string)=>void;children:ReactNode;productTree?:ReactNode;
 }){
   const [search,setSearch]=useState('');
   const [filter,setFilter]=useState<(typeof filters)[number]['id']>('all');
@@ -31,8 +33,9 @@ export default function ProjectLayout({project,workspace,selected,onSelect,child
   const active=filters.find(item=>item.id===filter)!;
   return <section className="project-layout" aria-label="Hlavní projekt">
     <div className="project-layout-sidebar">
+      {productTree}
       <div className="project-tree-search" role="search">
-        <label htmlFor="project-tree-query">Strom</label>
+        <label htmlFor="project-tree-query">Zdrojové soubory</label>
         <input id="project-tree-query" aria-label="Hledat v načteném stromu" placeholder="Hledat v načteném stromu…" value={search} onChange={event=>setSearch(event.target.value)}/>
         <select aria-label="Filtr viditelnosti stromu" value={visibility} onChange={event=>setVisibility(event.target.value as 'all'|'working')}>
           <option value="all">Filtr: vše</option><option value="working">Pracovní</option>

@@ -1,0 +1,5 @@
+Strom domén a stránek vedle map zdrojového kódu je navigační projekce stejných `CanvasNode.id`, `parentId` a nepovinného `site`. Odkazuje na mapu příslušné domény; nevytváří druhý formulář pro správu struktury. Obyčejné mezilehlé uzly jsou při zobrazení stromu průhledné, v grafu zůstávají zachované.
+
+Čisté `productTree`, `sitePlan`, `editProductNode` a fingerprint používá autoritativní mapa domény. Nové domény jsou application sektory s jedním prostředím/hostem a vlastním stromem stránek. Starší vícehostové aplikace zůstávají sdílené, dokud uživatel výslovně neoddělí host do nového prázdného sektoru. Žádné automatické kopírování nebo mazání stránek.
+
+Účel se ukládá jen do `node.purpose`; pracovní zadání se nekopíruje automaticky. Fingerprint polí strukturálního formuláře brání přepsání cizí úpravy po obnovení grafu. `page-path` ořízne právě zadanou cestu, doplní chybějící úvodní lomítko a vysvětlí neplatný tvar před odesláním; uložené cesty nepřepisuje. Backend nadále autoritativně ověřuje jejich unikátnost v nejbližší aplikaci.
