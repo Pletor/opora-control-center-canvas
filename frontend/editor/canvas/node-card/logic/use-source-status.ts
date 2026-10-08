@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/shared/types/logic/types";
-export type SourceStatus = { status: "present" | "missing" | "unavailable"; path: string; origin: "existing" | "planned" };
+export type SourceStatus = { status: "present" | "missing" | "unavailable" | "unspecified"; path: string; origin: "existing" | "planned" };
 export function useSourceStatus(project: string, workspace: string, revision: string) {
   const [value, setValue] = useState<{ key: string; nodes: Record<string, SourceStatus> } | null>(null);
   const key = JSON.stringify([project, workspace, revision]);

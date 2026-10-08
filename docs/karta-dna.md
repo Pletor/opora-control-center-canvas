@@ -112,8 +112,11 @@ BEM CSS s příběhovým komentářem, soubor ≤ ~200 řádků, rodič ukládá
   zprávy a celý node-brief. Chybějící hodnoty se nevydávají za ověření ani undefined.
 - Feature má jediný styles/card-dna.css s BEM třídami a tokeny. Kompaktní porty
   neřežou svůj handle; oříznutý je pouze dlouhý popisek.
-- npm test/build používají configLoader runner (test navíc no-cache): worktree
-  sdílí node_modules přes junction a ověřování nemá zapisovat cache/config do něj.
+- Oprava přejímky A1: plánovaná prázdná cesta má stav `unspecified` / „cesta neurčena“,
+  nikoli úspěch podle existence kořenové složky. UI odmítne i starou odpověď `present`.
+- Oprava přejímky A2: obnoveny původní skripty `test: vitest run` a
+  `build: tsc --noEmit && vite build && node tools/copy-drawing-assets.mjs`.
+  Oba byly spuštěny v tomto worktree bez přepisu shellu / configLoader workaroundu.
 
 ### Dosud neověřeno v prohlížeči
 

@@ -35,8 +35,8 @@ def source_status(canvas, project, workspace):
             ref = node.get("sourceRef")
             if not ref:
                 continue
-            status = "unavailable"
-            if root is not None:
+            status = "unspecified" if ref["origin"] == "planned" and not ref["path"].strip() else "unavailable"
+            if root is not None and status != "unspecified":
                 try:
                     target = canvas.workspace_sources.target(root, ref["path"])
                     status = "present" if (target.is_dir() if ref["kind"] == "directory" else target.is_file()) else "missing"

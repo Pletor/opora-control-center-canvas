@@ -30,7 +30,7 @@ export default function CardDnaCode({ node, data: rawData, state: _state, graph:
 }
 
 function SourceAvailability({ source, realization, status }: { source: CanvasNode["sourceRef"]; realization: CanvasNode["realization"]; status?: SourceStatus }) {
-  const label = status?.status === "present" ? "existuje" : status?.status === "missing" ? "chybí" : status?.status === "unavailable" ? "nedostupný" : "nenačtený";
+  const label = source?.origin === "planned" && !source.path.trim() || status?.status === "unspecified" ? "cesta neurčena" : status?.status === "present" ? "existuje" : status?.status === "missing" ? "chybí" : status?.status === "unavailable" ? "nedostupný" : "nenačtený";
   const commitUrl = githubCommitUrl(realization?.prUrl, realization?.commit);
   return <section><h3>Zdroj</h3><p>sourceRef: {source ? `${source.origin} · ${source.path}` : "nepřiřazen"} · source-status: <b>{label}</b></p>
     {realization && <p>Commit <code>{realization.commit || "nedoloženo"}</code>{commitUrl && <> · <a href={commitUrl} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">GitHub commit</a></>} · ověřeno {realization.verifiedAt || "nikdy"}</p>}</section>;

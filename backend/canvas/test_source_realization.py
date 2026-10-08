@@ -6,6 +6,19 @@ from backend.project.workspace.test_workspace_sources import attach, ORIGIN
 from backend.editor.agent_memory.test_completion_evidence import evidence
 
 
+def test_planned_empty_path_is_unspecified_not_the_existing_root(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        pid = attach(client, source)
+        graph = {"nodes": [sector(purpose="Plánovaný adresář výstupů projektu", source_ref={"origin": "planned", "path": "", "kind": "directory"})], "edges": []}
+        saved = post_graph(client, pid, graph, view(client, pid)["digest"])
+        assert saved.status_code == 200, saved.text
+        result = client.get("/api/desktop-v3/source-status", params={"project": pid, "workspace": "draft"})
+        assert result.status_code == 200
+        assert result.json()["nodes"][graph["nodes"][0]["id"]]["status"] == "unspecified"
+
+
 def test_realization_requires_merge_and_disk_then_tracks_disappearance(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
