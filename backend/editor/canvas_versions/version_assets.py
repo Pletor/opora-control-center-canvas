@@ -8,6 +8,7 @@ import os
 import uuid
 from contextlib import contextmanager
 
+from backend.canvas.read_cache import file_stamp
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import UPLOAD_FILE
 from backend.editor.node.drawing_files import decode_file
@@ -23,13 +24,15 @@ def material_path(canvas, project, node, filename):
     return target
 
 
-def capture_assets(canvas, db, project, state, records):
+def capture_assets(canvas, db, project, state, records, *, asset_stamps=None):
     uploads = {}
     for node_id, node in state["nodes"].items():
         for item in node.get("materials", []):
             if item["kind"] == "upload":
                 filename = item["path"]
                 path = material_path(canvas, project, node_id, filename)
+                if asset_stamps is not None:
+                    asset_stamps[path] = file_stamp(path)
                 uploads[(node_id, filename)] = {
                     "nodeId": node_id, "file": filename,
                     "data": base64.b64encode(path.read_bytes()).decode("ascii") if path.is_file() else None,

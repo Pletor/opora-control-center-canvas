@@ -254,3 +254,151 @@ sync-reportu; frontend nekříží mutovatelné výsledky mezi odběrateli.
 - Server 8791: po měření čistý shutdown aplikace, exit 0 a ověřené odmítnutí TCP
   spojení. Oba vlastní pytest procesy skončily. Vite v tomto kole nebyl spuštěn;
   existující preview koordinátora na 5199 nebylo měněno ani ukončováno.
+
+### Kolo 5 – bajtová cache, pojistka a finální měření (2026-10-08)
+
+Závěry této sekce nahrazují popis cache z kola 4 výše. Měřeno pouze na
+`127.0.0.1:8791`, existující kopii `.data/kopie`, ample
+`cc5f34ec07cd455ca5ad1a69af19022b`, workspace `draft`, sektor
+`a8257274-56e3-464f-8d92-d60d777888eb`. Žádné zápisy na plátno OPORA.
+
+#### Co je nyní v cache a co není
+
+- `ReadCache`: neměnné UTF-8 JSON bytes, společný procesní LRU rozpočet
+  32 MiB (33 554 432 serializovaných bajtů). Položka nad 8 MiB se neukládá.
+  Zachován i početní limit pro metadata; zánik instance přes weakref uvolní rozpočet.
+  Limit je pro uložené JSON payloady, **nikoli pro celkové RSS** ani souběžné
+  dočasné pracovní objekty při obsluze požadavků.
+- `view` a project settings: pod `canvas.lock` kontrola razítka a reference na
+  snapshot; jeho dekódování i serializace nové cache položky mimo tento zámek.
+  Vnořená volání již vlastnící zámek cache nepoužívají.
+- State se **necachuje**: SQLite už uchovává JSON. Ve veřejném GET se pod zámky
+  vyzvedne řádek a JSON se dekóduje mimo ně; interní transakční current čte přímo DB.
+- Historie verzí cachuje **jen databázové souhrny**, ne živé dirty/currentToken.
+  Živý obsah se zachytí při každém čtení. Žádný `rglob`; jednou se načtou pouze
+  referencované uploady, jejich otisky se po capture ověří mimo canvas zámky.
+  Změna během čtení vyvolá omezený retry. SQL historie a její JSON dekódování
+  zůstávají na samostatném read-only spojení mimo společné zámky.
+- Sync-report má single-flight per `(project, workspace)`, s weak-reference mapou
+  zámků. Git neběží pod globálním mutexem historie ani pod `canvas.lock`.
+- SQL razítko zahrnuje identitu spojení, `total_changes`, `data_version` a
+  `schema_version`; DDL je tedy invaliduje. Git scope nedohledává zbytečně cestu
+  ani neprovádí mrtvé file-stat I/O. View/settings/souhrny verzí v otevřených
+  transakcích cache nepoužívají.
+- Stávající env vzor backendu: **`OPORA_READ_CACHE=0` vypne všechny instance**
+  ReadCache (žádné hity, žádná serializace ani ukládání). Výchozí hodnota je `1`.
+  Selhání serializace pouze vynechá položku; nesmí shodit vlastní čtení.
+
+#### Metodika a RSS
+
+Každý režim má nový proces Uvicornu i nový headless Chrome context (1600×1000).
+Plátno zůstalo viditelné a skutečně pollovalo po nejméně 600 s. RSS je Windows
+working set skutečného Uvicorn PID (nikoli launcheru .venv). První vzorek je po
+otevření a zahřátí, poslední při 600 s, vzorkování po 10 s. První karty znamenají
+první `.node-card` + dva animation frames. Zahřáté časy níže jsou dokončené GET
+včetně těla v prohlížeči, 30 vzorků na endpoint **po 10 minutách**, za pokračujícího
+běžného pollingu. Uvádíme medián / p95; nejde o garantované SLA. Worker map byl vypnut.
+
+| Metrika | Cache 1 | Cache 0 |
+|---|---:|---:|
+| RSS po zahřátí (MiB) | 70.2 | 70.8 |
+| RSS po 10 min (MiB) | 70.3 | 759.3 |
+| Nejvyšší vzorkované RSS (MiB) | 87.1 | 1083.2 |
+| RSS po zavření prohlížeče a HTTP vzorcích (MiB) | 73.3 | 72.8 |
+| Délka pollingu (s) | 600.0 | 600.0 |
+| První karty (ms) | 474.5 | 452.1 |
+
+#### Teplé GET za pollingu (medián / p95, ms)
+
+| Endpoint | Cache 1 | Cache 0 |
+|---|---:|---:|
+| bootstrap | 1.4 / 16.7 | 1.6 / 1.8 |
+| desktop-v3/assignment-status | 64.7 / 86.8 | 59.1 / 383.2 |
+| desktop-v3/card-checklist | 11.9 / 13.0 | 13.4 / 14.7 |
+| desktop-v3/frontier | 21.2 / 22.8 | 21.4 / 22.5 |
+| desktop-v3/leases | 3.0 / 3.5 | 3.0 / 4.4 |
+| desktop-v3/scenario-history | 6.7 / 7.5 | 7.0 / 7.6 |
+| desktop-v3/source-status | 3.1 / 3.5 | 5.1 / 9.8 |
+| desktop-v3/state | 18.2 / 43.0 | 22.5 / 52.9 |
+| desktop-v3/usage-summary | 19.1 / 20.8 | 21.2 / 28.9 |
+| desktop-v3/work-overview | 25.0 / 31.3 | 27.8 / 36.5 |
+| view | 5.6 / 10.3 | 9.8 / 306.0 |
+
+#### Přímé srovnání state/view před a po
+
+Stejný klient urllib, 30 zahřátých dokončených HTTP GET bez otevřeného prohlížeče.
+Před = skutečný `df46f28` na 8791 a stejné kopii, nikoli převzatý port 8740.
+Po = finální implementace. Tabulka udává medián / p95 v ms.
+
+| Endpoint | Před df46f28 | Po cache 1 | Po cache 0 |
+|---|---:|---:|---:|
+| view | 4.8 / 5.4 | 4.5 / 28.9 | 15.3 / 29.3 |
+| desktop-v3/state | 15.0 / 38.3 | 25.4 / 36.0 | 29.5 / 42.0 |
+
+Artefakty mimo commit: `.data/round5-final-poll-1.json`,
+`.data/round5-final-poll-0.json`, `.data/round5-baseline.json`;
+harness `.data/round5_poll.py` a `.data/round5_server.py`. První průběžné běhy
+`round5-poll-*.json` se do finálních tabulek nemíchají.
+Zdrojový kód je po dobu obou finálních běhů zmrazen; souběžná kontrola testů
+může ovlivnit začátek běhu, ale koncové teplé vzorky již neběží současně s ní.
+
+#### Vyhodnocení a doporučení
+
+**Ponechat omezenou cache bezpečných cest**, zejména databázových souhrnů historie.
+State a živé dirty/currentToken zůstávají bez cache. Nezvyšovat rozpočet.
+`OPORA_READ_CACHE=0` je funkční provozní pojistka, nikoli v tomto datasetu
+bezplatná optimalizace.
+
+Bez cache splnily bootstrap a první karty cíle 300 ms / 3 s a všechny mediány
+měřených devíti desktop-v3 čtení byly pod 200 ms. **Celý cíl „teplé desktop-v3/*
+< 200 ms“ ale bez cache splněn není**: assignment-status má p95 383,2 ms
+(maximum 907,5 ms). S cache je nejhorší desktop p95 86,8 ms; ani zde však
+negarantujeme každý vzorek pod 200 ms: assignment-status měl maximum 510,6 ms
+a usage-summary 452,7 ms. Srovnání zahrnuje devět čtení skutečně otevřeného
+plátna, nikoli libovolnou parametrizaci všech desktop-v3 API.
+
+Měření není důkazem trvalého úniku: paměť bez cache za běhu oscilovala mezi
+69,5 a 1 083,2 MiB, po zavření prohlížeče a přímých GET klesla na 72,8 MiB.
+Hodnota 759,3 MiB je skutečný vzorek při 600 s, nikoli trvale držená cache.
+Plátno v tomto běhu dokončilo 105 čtení canvas-versions; s cache 205
+(včetně zahřívacích sond běžely i další GET). Drahá cesta bez cache znovu
+načítá a dekóduje historické snapshoty. Oddělení od zámků odstranilo jejich
+dlouhé držení, ne CPU práci, alokace a veškeré latencové špičky.
+
+Přímý state benchmark po opravě nemá nižší medián než baseline (15,0 → 25,4 ms
+s ostatními cache zapnutými). Neprohlašujeme plošné zrychlení: samotná cache
+state byla odstraněna, bezpečnost a menší sdílená kritická sekce mají přednost.
+Měření je lokální, ne izolované systémové SLA ani důkaz chování při souběžných
+zápisech do projektu.
+
+Další cesta bez cache: perzistovaná metadata starých verzí a čtení pouze
+potřebných sloupců místo opakovaného SELECT */fetchall velkých snapshotů.
+To v tomto kole není migrací dat ani změnou formátu implementováno.
+Živý capture velkých referencovaných materiálů rovněž zůstává pod zámky
+kvůli konzistenci interních writerů; nekryje jej cache ani obecný časový limit.
+
+#### Kontroly kola 5
+
+- `npm test`: **1 064 passed / 153 souborů**, původní skript.
+- `npm run build`: **prošel**, původní skript; zůstává varování o velkých chunkech.
+- Cache + scope + historie verzí: **74 passed**, 2 existující deprecation warnings.
+- `test_cache_write_paths`: všech **18 scénářů** nyní porovnává skutečné zapnutí
+  cache se skutečným **OPORA_READ_CACHE=0**, nikoli s mockem jedné metody.
+  Zahrnuty view, state, versions, leases, settings, bootstrap a podle zápisového
+  payloadu také node-spec, node-text a agent-workspace.
+- RED → GREEN: bajtové LRU a sdílený rozpočet, DDL, vypnutí serializace,
+  neměnný snímek, dekódování/serializace mimo canvas.lock, dva projekty současně
+  v git historii, zákaz rglob a retry po změně referencovaného uploadu.
+  Dále GC uvolnění rozpočtu, nepropustné transakční cesty a fallback při chybě JSON.
+- Finální `uv run pytest backend`: **1 475 passed, 4 skipped, 2 failed**,
+  2 warnings, 551,82 s. Pouze dvě známé Graphify chyby uvedené výše
+  (`graphifyy==0.9.24` / `OPORA_GRAPHIFY_PYTHON`), žádná nová regrese.
+  Předchozí průběžný full běh nepočítáme jako finální: proběhly po něm korekce.
+- Hash kontrola **1 165 zdrojových/testovacích souborů**: během finálního suite
+  nulový drift. Stejný snapshot je použit v obou finálních polling bězích.
+- Nezávislé read-only Claude review finálního diffu: **passed**, bez bezpečnostního
+  či logického blockeru; výkonová omezení jsou uvedena výše. Další nezávislý
+  kritik odhalil race uploadu; deterministický test ji prokázal a oprava prošla.
+- Po měření oba finální servery skončily čistým shutdownem (exit 0); port 8791
+  odmítá TCP spojení. Žádný z 35 evidovaných vlastních procesů a potomků neběží.
+  Npm/pytest/review procesy jsou ukončené. Žádný Vite server se nespouštěl.

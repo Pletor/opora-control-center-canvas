@@ -273,18 +273,24 @@ class CanvasService:
         return Path(workspace["directory"]), project
 
     def view(self, pid, wid):
+        # Vnořený writer už vlastní zámek; nepřidáváme mu kopírování cache.
+        if self.lock._is_owned():
+            return self._view(pid, wid)
+        key = ('view', pid, wid)
         with self.lock:
             stamp = scope_stamp(self, pid, wid)
-            key = ('view', pid, wid)
-            cached = self.read_cache.get(key, stamp) if stamp is not None else None
-            if cached is not None:
-                return {**cached, 'observedAt': now()}
-            if stamp is not None:
+            snapshot = self.read_cache.get_snapshot(key, stamp) if stamp is not None else None
+            if snapshot is None and stamp is not None:
                 result = self._view(pid, wid)
-                if stamp == scope_stamp(self, pid, wid):
-                    self.read_cache.put(key, stamp, result)
-                return result
-        # Git a otevřené transakce mají vždy čerstvý pohled; pomalý Git bez zámku registru.
+                cacheable = stamp == scope_stamp(self, pid, wid)
+        if snapshot is not None:
+            return {**self.read_cache.decode(snapshot), 'observedAt': now()}
+        if stamp is not None:
+            # Razítko patří zachycenému výsledku. Pozdější writer způsobí cache miss.
+            if cacheable:
+                self.read_cache.put(key, stamp, result)
+            return result
+        # Git a otevřené transakce mají vždy čerstvý pohled.
         return self._view(pid, wid)
 
     def _view(self, pid, wid):

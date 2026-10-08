@@ -9,7 +9,6 @@ import inspect
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.canvas.read_cache import ReadCache
 
 CASES = [
     ('state', 'editor.agent_memory.test_agent_output', 'test_output_writes_block_status_edge_report_done_proposal_and_decision', '/api/desktop-v3/state'),
@@ -71,7 +70,7 @@ def test_write_reads_fresh_value_with_warm_cache(case, module, name, target, tmp
             after = snapshot(client, body)
             # Všechny instance cache, včetně privátní cache CanvasVersions.
             with monkeypatch.context() as uncached:
-                uncached.setattr(ReadCache, 'get', lambda *args: None)
+                uncached.setenv('OPORA_READ_CACHE', '0')
                 cold = snapshot(client, body)
             assert after == cold, case
             # Duplicitní import / save může být záměrný no-op, alespoň jeden zápis

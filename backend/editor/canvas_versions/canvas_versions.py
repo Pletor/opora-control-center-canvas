@@ -68,13 +68,14 @@ class CanvasVersions:
         from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
         return self._desktop_state or getattr(self.canvas, "desktop_v3_state", None) or DesktopV3State(self.canvas)
 
-    def _capture(self, db, project, workspace):
+    def _capture(self, db, project, workspace, *, asset_stamps=None):
         view = self.canvas.view(project, workspace)
         stored = self.desktop_state().current(project, workspace)
         records = read_records(db, project, workspace)
         settings = self.canvas.project_hub.settings(project)
         snapshot = {"schema": SCHEMA, "records": records,
-                    "assets": capture_assets(self.canvas, db, project, stored["state"], records),
+                    "assets": capture_assets(self.canvas, db, project, stored["state"], records,
+                                             asset_stamps=asset_stamps),
                     "excluded": EXCLUDED, "projectGoal": {"goal": settings["settings"]["goal"], "revision": settings["revision"], "restore": False}}
         snapshot["integrity"] = digest(snapshot)
         return view, stored, snapshot

@@ -1,18 +1,18 @@
-"""Historie má vlastní čtecí spojení: velké staré snapshoty nedrží zámek plátna."""
+"""Živé čtení historie: velké staré snapshoty nedrží zámek plátna.
+
+Cache živého výsledku je vypnutá: externí soubory nemají spolehlivou revizi.
+Cachují se pouze souhrny uložených verzí, závislé výhradně na SQLite.
+Není potřeba žádný rglob, _capture jednou načte jen odkazované materiály.
+"""
 import sqlite3
 from contextlib import closing
 
-from backend.canvas.read_cache import file_stamp, scope_stamp
+from backend.canvas.read_cache import database_stamp, file_stamp
 from .version_content import current_token
 
 
-def asset_stamp(canvas, project):
-    root = canvas.folder(project).canvas / 'materials'
-    return tuple(file_stamp(path) for path in sorted(root.rglob('*')) if path.is_file())
-
-
 def list_cached(versions, project, workspace, summary, limit):
-    # Jeden výpočet historie na instanci, ale nikdy pod společným zámkem služby.
+    # Dirty/currentToken se vždy počítají z čerstvého obsahu.
     with versions._read_lock:
         for _ in range(3):
             try:
@@ -23,45 +23,53 @@ def list_cached(versions, project, workspace, summary, limit):
                 if not any(word in str(error).lower() for word in ('locked', 'busy')):
                     raise
             except OSError:
-                # Materiál může mezi otisky změnit externí editor; nepublikujeme cache.
                 continue
         raise ValueError('Plátno nebo jeho soubory se během čtení změnily či jsou zamčené. Obnovte seznam verzí.')
 
 
 def _read_once(versions, project, workspace, summary, limit):
     canvas = versions.canvas
-    key = ('versions', project, workspace)
+    canvas.view(project, workspace)
     with canvas.graph_lock, canvas.lock:
-        canvas.view(project, workspace)  # validace rozsahu i před cache hitem
-        stamp = scope_stamp(canvas, project, workspace)
-        files = asset_stamp(canvas, project)
-        token = (stamp, files)
-        cached = versions._read_cache.get(key, token) if stamp is not None else None
-        if cached is not None:
-            return cached
-        path = canvas.folder(project).database
-    # SELECT * je nutný pro staré verze bez metadat; čteme jen pro cache miss.
-    # Vlastní read-only spojení neporuší transakci sdíleného writeru.
-    with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=.25)) as reader:
-        reader.row_factory = sqlite3.Row
-        rows = reader.execute(
-            'SELECT * FROM canvas_versions WHERE project_id=? AND workspace_id=? '
-            'ORDER BY created_at DESC,rowid DESC LIMIT ?', (project, workspace, limit)).fetchall()
-    summaries = [summary(row) for row in rows]
-    del rows
-    with canvas.graph_lock, canvas.lock:
-        if stamp != scope_stamp(canvas, project, workspace) or files != asset_stamp(canvas, project):
-            return None
         db = canvas.db_for(project)
-        with db:
-            db.execute('BEGIN')
-            view, stored, snapshot = versions._capture(db, project, workspace)
+        stamp = (database_stamp(canvas.db), database_stamp(db))
+        path = canvas.folder(project).database
+        key = ('summaries', project, workspace, limit)
+        cacheable = not db.in_transaction and not canvas.db.in_transaction
+        cached = versions._read_cache.get_snapshot(key, stamp) if cacheable else None
+    summaries = versions._read_cache.decode(cached)
+    if summaries is None:
+        # Samostatné read-only spojení neporuší transakci sdíleného writeru.
+        with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=.25)) as reader:
+            reader.row_factory = sqlite3.Row
+            rows = reader.execute(
+                'SELECT * FROM canvas_versions WHERE project_id=? AND workspace_id=? '
+                'ORDER BY created_at DESC,rowid DESC LIMIT ?', (project, workspace, limit)).fetchall()
+        summaries = [summary(row) for row in rows]
+        del rows
+    asset_stamps = {}
+    with canvas.graph_lock, canvas.lock:
+        if stamp != (database_stamp(canvas.db), database_stamp(db)):
+            return None
+        if db.in_transaction:
+            view, stored, snapshot = versions._capture(db, project, workspace, asset_stamps=asset_stamps)
             result = {'versions': summaries,
                       'dirty': False if view['readOnly'] else versions._dirty(db, project, workspace, view, stored, snapshot)}
             result['currentToken'] = current_token(view['graph'], stored, snapshot)
-        # Kontrola také po načtení souborů: externí zápis nesmí publikovat starý token.
-        if stamp != scope_stamp(canvas, project, workspace) or files != asset_stamp(canvas, project):
+        else:
+            with db:
+                db.execute('BEGIN')
+                view, stored, snapshot = versions._capture(db, project, workspace, asset_stamps=asset_stamps)
+                result = {'versions': summaries,
+                          'dirty': False if view['readOnly'] else versions._dirty(db, project, workspace, view, stored, snapshot)}
+                result['currentToken'] = current_token(view['graph'], stored, snapshot)
+    if any(file_stamp(path) != saved for path, saved in asset_stamps.items()):
+        return None
+    with canvas.graph_lock, canvas.lock:
+        if stamp != (database_stamp(canvas.db), database_stamp(db)):
             return None
-        if stamp is not None:
-            versions._read_cache.put(key, token, result)
-        return result
+        publish = cacheable and not db.in_transaction and not canvas.db.in_transaction
+    if publish and cached is None:
+        # Pozdní publikace nese staré razítko, další writer tedy vynutí miss.
+        versions._read_cache.put(key, stamp, summaries)
+    return result

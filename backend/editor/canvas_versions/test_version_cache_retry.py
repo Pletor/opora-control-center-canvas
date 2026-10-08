@@ -15,8 +15,8 @@ def test_transient_read_failure_retries_without_caching_old_data(tmp_path, monke
         versions = CanvasVersions(canvas)
         versions.save({'project': 'draft', 'workspace': 'draft', 'digest': canvas.view('draft', 'draft')['digest'], 'author': 'New'})
         calls = []
-        target = module.sqlite3 if failure == 'busy' else module
-        name = 'connect' if failure == 'busy' else 'asset_stamp'
+        target = module.sqlite3 if failure == 'busy' else versions
+        name = 'connect' if failure == 'busy' else '_capture'
         original = getattr(target, name)
 
         def flaky(*args, **kwargs):

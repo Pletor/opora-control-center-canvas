@@ -12,6 +12,7 @@ z páru. Rozsah bez obojího dál dostane echo `evidence-missing` a `checks-unkn
 
 from datetime import UTC, datetime
 import threading
+from weakref import WeakValueDictionary
 from backend.canvas.read_cache import ReadCache, database_stamp
 
 from backend.canvas import areas, commit_pairs, sync_evidence
@@ -36,7 +37,8 @@ class SyncReport:
         # V testech se kontrola dokumentace nahrazuje; jinak se čte skutečný strom.
         self._doc_issues = doc_issues
         self._history_cache = ReadCache(limit=32)
-        self._history_lock = threading.Lock()
+        self._history_guard = threading.Lock()
+        self._history_locks = WeakValueDictionary()
 
     def report(self, pid, wid):
         view = self.service.view(pid, wid)
@@ -87,7 +89,13 @@ class SyncReport:
         with self.service.lock:
             revision = (database_stamp(self.service.db), database_stamp(self.service.db_for(pid)))
         key, stamp = (pid, wid), (str(root), head, graph_digest, revision)
-        with self._history_lock:
+        # Single-flight jen pro konkrétní scope; mrtvé klíče nezůstávají v mapě.
+        with self._history_guard:
+            lock = self._history_locks.get(key)
+            if lock is None:
+                lock = threading.Lock()
+                self._history_locks[key] = lock
+        with lock:
             cached = self._history_cache.get(key, stamp)
             if cached is not None:
                 return cached

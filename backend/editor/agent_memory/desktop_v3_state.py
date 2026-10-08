@@ -17,7 +17,6 @@ from datetime import datetime, timedelta
 
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import valid_date, valid_id
-from backend.canvas.read_cache import database_stamp
 from backend.memory.roles import role_ids
 from backend.project.workspace.workspace_sources import relative_path
 
@@ -543,21 +542,14 @@ class DesktopV3State:
     def current(self, project, workspace):
         """Uložený stav bez ověření rozsahu; volající drží zámky a rozsah už ověřil."""
         db = self.canvas.db_for(project)
-        key = ('state', project, workspace)
-        stamp = database_stamp(db)
-        cached = self.canvas.read_cache.get(key, stamp) if not db.in_transaction else None
-        if cached is not None:
-            return cached
         row = db.execute(
             "SELECT revision,state FROM desktop_v3_state WHERE project_id=? AND workspace_id=?",
             (project, workspace),
         ).fetchone()
         if row is None:
             return {"revision": 0, "state": default_state()}
-        result = {"revision": row["revision"], "state": fill_defaults(json.loads(row["state"]))}
-        if not db.in_transaction and stamp == database_stamp(db):
-            self.canvas.read_cache.put(key, stamp, result)
-        return result
+        # Interní write/transaction cesta nepotřebuje druhou kopii téhož JSON v cache.
+        return {"revision": row["revision"], "state": fill_defaults(json.loads(row["state"]))}
 
     def read(self, project, workspace):
         _scope_ids(project, workspace)
@@ -566,7 +558,15 @@ class DesktopV3State:
             if view["readOnly"]:
                 return {"revision": 0, "state": default_state(), "readOnly": True}
             with self.canvas.lock:
-                return {**self.current(project, workspace), "readOnly": False}
+                db = self.canvas.db_for(project)
+                # SQLite již uchovává neměnný JSON: nepřidáváme jeho kopii do cache.
+                row = db.execute(
+                    "SELECT revision,state FROM desktop_v3_state WHERE project_id=? AND workspace_id=?",
+                    (project, workspace),
+                ).fetchone()
+        result = ({"revision": row["revision"], "state": fill_defaults(json.loads(row["state"]))}
+                  if row is not None else {"revision": 0, "state": default_state()})
+        return {**result, "readOnly": False}
 
     def save(self, payload, *, after_write=None, autonomy_close=frozenset(), autonomy=None, actor="system"):
         """Uloží celý stav. Interní parametry (nikdy z HTTP): `autonomy_close` = karty, které smí

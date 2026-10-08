@@ -77,20 +77,23 @@ class ProjectHub:
     def settings(self, project):
         if not isinstance(project, str) or (project != "draft" and not valid_id(project)):
             raise ValueError("Neplatný identifikátor projektu.")
+        nested = self.canvas.lock._is_owned()
+        key = ('project', project)
         with self.canvas.lock:
             item = self._project(project)
             db = self.canvas.db_for(project)
             stamp = (database_stamp(self.canvas.db), database_stamp(db))
-            key = ('project', project)
-            cacheable = not db.in_transaction and not self.canvas.db.in_transaction
-            cached = self.canvas.read_cache.get(key, stamp) if cacheable else None
-            if cached is not None:
-                return cached
-            revision, values = self._settings(project)
-            result = {"project": item, "revision": revision, "settings": values}
-            if cacheable:
-                self.canvas.read_cache.put(key, stamp, result)
-            return result
+            cacheable = not nested and not db.in_transaction and not self.canvas.db.in_transaction
+            snapshot = self.canvas.read_cache.get_snapshot(key, stamp) if cacheable else None
+            if snapshot is None:
+                revision, values = self._settings(project)
+                result = {"project": item, "revision": revision, "settings": values}
+                cacheable = cacheable and stamp == (database_stamp(self.canvas.db), database_stamp(db))
+        if snapshot is not None:
+            return self.canvas.read_cache.decode(snapshot)
+        if cacheable:
+            self.canvas.read_cache.put(key, stamp, result)
+        return result
 
     def _validate_name(self, name):
         if not isinstance(name, str) or not name.strip() or len(name.strip()) > 120:
