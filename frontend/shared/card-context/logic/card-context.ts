@@ -3,7 +3,7 @@
 // ji přepočítá sám. Backend drží tytéž funkce v `backend/canvas/card_context.py` se stejnými testy.
 import type { CanvasNode, CardEffort, CardLayer, CardModel, CardStatus, CardType, NodeCardFields } from "@/shared/types/logic/types";
 
-const WORKFLOW_TYPES: CardType[] = ["research", "prototype", "grilling", "task"];
+const WORKFLOW_TYPES: CardType[] = ["research", "prototype", "grilling", "task", "gate"];
 export const CARD_LAYERS: CardLayer[] = ["frontend", "backend", "database", "library"];
 /** Krátký štítek vrstvy: v čipech pop-upu, v detailu i v hlavě karty (stejně jako backend `LAYER_LABELS`). */
 export const LAYER_LABEL: Record<CardLayer, string> = { frontend: "FE", backend: "BE", database: "DB", library: "Knihovna" };

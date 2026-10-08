@@ -23,7 +23,6 @@ open_browser = false
 frontend = "never"
 
 [integrations]
-hermes_api_url = ""
 graphify_python = "C:/py/python.exe"
 """
 
@@ -60,13 +59,13 @@ def test_local_override_merges_deeply(tmp_path):
 
 
 def test_environment_from_settings_never_overrides_existing():
-    settings = resolve({"app": {"port": 8791, "data": "d"}, "integrations": {"graphify_python": "py", "hermes_api_url": "http://h"}})
-    environ = {"OPORA_HERMES_API_URL": "http://existing"}
+    settings = resolve({"app": {"port": 8791, "data": "d"}, "integrations": {"graphify_python": "py"}})
+    environ = {"OPORA_GRAPHIFY_PYTHON": "existing"}
     applied = apply_environment(settings, environ)
-    assert applied == ["OPORA_GRAPHIFY_PYTHON"]
+    assert applied == []
     assert environ["OPORA_CANVAS_PORT"] == "8791"
     assert environ["OPORA_CANVAS_DATA"] == "d"
-    assert environ["OPORA_HERMES_API_URL"] == "http://existing"
+    assert environ["OPORA_GRAPHIFY_PYTHON"] == "existing"
 
 
 def test_frontend_stale_detects_missing_or_older_build(tmp_path):

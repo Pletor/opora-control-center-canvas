@@ -23,7 +23,7 @@ export default function BlockFrame({
     <div className={`canvas-block block-${port}`} data-testid={blockNodeId(nodeId, port)}>
       <Handle type="target" position={Position.Left} id={port} isConnectable={false} />
       <header title="Táhnutím za hlavičku blok přesuneš po plátně">
-        <span>{port === "action" ? "⚡" : port === "rule" ? "◎" : "▣"} {BLOCK_LABEL[port]} · {nodeName}</span>
+        <span>{port === "action" ? "⚡" : port === "rule" ? "◎" : port === "pipeline" ? "⇶" : "▣"} {BLOCK_LABEL[port]} · {nodeName}</span>
         <button type="button" className="nodrag" title="Skrýt blok (položky zůstávají uložené)" onClick={onClose}>✕</button>
       </header>
       <div className="block-body nodrag">

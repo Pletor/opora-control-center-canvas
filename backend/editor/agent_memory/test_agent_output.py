@@ -75,6 +75,11 @@ def prepared(client, state=None):
 
 
 def send(client, body):
+    """Jako skutečný agent: contextVersion přebírá z aktuálního node-briefu (povinný, upgrade-opora #36)."""
+    if isinstance(body, dict) and "contextVersion" not in body and isinstance(body.get("nodeId"), str):
+        brief = client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": body["nodeId"]})
+        if brief.status_code == 200:
+            body = {**body, "contextVersion": brief.json()["outputContract"]["request"]["contextVersion"]}
     return client.post("/api/desktop-v3/agent-output", headers=HEADERS, json=body)
 
 
@@ -110,6 +115,8 @@ def test_done_without_proposal_leaves_the_card_open(tmp_path):
 def test_closed_card_refuses_the_output(tmp_path):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         state = base_state()
+        from backend.editor.agent_memory.test_completion_evidence import evidence
+        state["nodes"]["focus"]["evidence"] = evidence()
         state["nodes"]["focus"]["done"] = {"confirmed": True, "at": "2026-09-14T08:00:00+00:00",
                                            "by": "human", "note": "Zavřeno."}
         revision = prepared(client, state)

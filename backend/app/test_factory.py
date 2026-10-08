@@ -28,7 +28,7 @@ def test_empty_application_and_origin_gate(tmp_path):
         )
 
 
-def test_hook_control_lsp_semantic_and_vscode_routes_are_wired(tmp_path):
+def test_lsp_and_semantic_routes_are_wired(tmp_path):
     app = create_app(tmp_path)
     with TestClient(app, base_url="http://127.0.0.1:8740") as client:
         for path in ("/api/semantic-search/status", "/api/code-intelligence/status"):
@@ -41,8 +41,6 @@ def test_hook_control_lsp_semantic_and_vscode_routes_are_wired(tmp_path):
         assert lsp["semantic"]["status"] == semantic["status"]
         assert lsp["semantic"]["reason"] == semantic["detail"]
         assert lsp["preference"] == ["lsp", "semantic", "scoped-text"]
-        # The installer resolves bindings through HookControl; an unknown binding is a 4xx, not a crash.
-        assert client.get("/api/agent-hooks/vscode?bindingId=missing").status_code in {404, 409}
 
 
 def test_unknown_api_path_is_not_found_for_every_method(tmp_path):

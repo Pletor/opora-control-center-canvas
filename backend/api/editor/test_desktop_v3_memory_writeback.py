@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
 from backend.app.factory import create_app
+from backend.app.human_session import HumanSession
+from backend.editor.agent_memory.test_completion_evidence import evidence
 from backend.canvas.canvas_service import CanvasService
 from backend.editor.agent_handoff.message_store import MessageStore
 from backend.editor.agent_memory.agent_output import AgentOutput
@@ -69,6 +71,13 @@ def build(tmp_path, explode=False):
     workspace = AgentWorkspace(service, state)
     service.agent_workspace = workspace
     app = FastAPI()
+    human = HumanSession()
+
+    @app.middleware("http")
+    async def actor(request, call_next):
+        # Jako factory.py: původce z dokladu UI / hlavičky agenta (upgrade-opora #29).
+        request.state.actor, request.state.agent = human.actor(request.headers, request.cookies)
+        return await call_next(request)
 
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
@@ -143,6 +152,7 @@ def test_confirming_a_card_commits_it_once(tmp_path):
         state, revision = seed(client)
         assert write_space(client).status_code == 200
         state["nodes"]["focus"]["done"] = {"confirmed": True, "at": "", "by": "human", "note": ""}
+        state["nodes"]["focus"]["evidence"] = evidence()
         done = client.post("/api/desktop-v3/state", headers=HEADERS,
                            json={**SCOPE, "expectedRevision": revision, "state": state})
         assert done.status_code == 200, done.text
@@ -161,6 +171,7 @@ def test_a_broken_memory_never_fails_confirming_a_card(tmp_path):
     with TestClient(app, base_url=ORIGIN) as client:
         state, revision = seed(client)
         state["nodes"]["focus"]["done"] = {"confirmed": True, "at": "", "by": "human", "note": ""}
+        state["nodes"]["focus"]["evidence"] = evidence()
         done = client.post("/api/desktop-v3/state", headers=HEADERS,
                            json={**SCOPE, "expectedRevision": revision, "state": state})
         assert done.status_code == 200, done.text

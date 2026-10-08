@@ -35,6 +35,7 @@ describe("pravidla platnosti", () => {
     expect(missingFields(f, ctx())).toContain("Cílový sektor");
     consistent(f, ctx());
     expect(canCreate(f, ctx({ targetSector: existingSector }))).toBe(true);
+    expect(canCreate(f, ctx({ targetSector: bareSector }))).toBe(true);
   });
 
   it("koncept uzlu cílový sektor nevyžaduje, ale chce popis", () => {
@@ -83,8 +84,10 @@ describe("pravidla platnosti", () => {
 
   it("zamýšlená cesta uzlu potřebuje sektor, který ji ukotví", () => {
     const f = form("node", { origin: "planned", purpose: "x", plannedPath: "a/b" });
-    expect(createRules(f, ctx({ targetSector: bareSector })).plannedPathReady).toBe(false);
-    expect(missingFields(f, ctx({ targetSector: bareSector }))[0]).toMatch(/Cílový sektor s cestou/);
+    expect(createRules(f, ctx({ targetSector: bareSector })).plannedPathReady).toBe(true);
+    expect(missingFields(f, ctx({ targetSector: bareSector }))).toEqual([]);
+    const result = buildCreated(f, ctx({ targetSector: bareSector }), { parent: null, nodes: [], id: "new" });
+    expect(result.node.sourceRef?.path).toBe("a/b");
     expect(canCreate(f, ctx({ targetSector: existingSector }))).toBe(true);
   });
 
@@ -115,7 +118,8 @@ describe("změna cílového sektoru", () => {
 
   it("relativní zamýšlená cesta se zahodí, když ji nový sektor nemá kam ukotvit", () => {
     const f = form("node", { origin: "planned", plannedPath: "a" });
-    expect(changeTargetSector(f, bareSector, false).plannedPath).toBe("");
+    expect(changeTargetSector(f, bareSector, false).plannedPath).toBe("a");
+    expect(changeTargetSector(f, null, false).plannedPath).toBe("");
     expect(changeTargetSector(f, existingSector, false).plannedPath).toBe("a");
   });
 

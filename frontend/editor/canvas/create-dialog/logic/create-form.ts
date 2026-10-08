@@ -72,7 +72,8 @@ export function createRules(form: CreateForm, ctx: CreateContext): CreateRules {
   const legacyFreeSector = !node && ctx.legacyFree;
   const requiresTargetSector = node && !effectiveSector && !ctx.legacyFree && !concept;
   const requiresModeChoice = !legacyFreeSector && !(node && ctx.legacyFree && !effectiveSector?.sourceRef);
-  const existingAllowed = !node || effectiveSector?.sourceRef?.origin === "existing";
+  const unboundSector = !!effectiveSector && !effectiveSector.sourceRef;
+  const existingAllowed = !node || unboundSector || effectiveSector?.sourceRef?.origin === "existing";
   const purpose = form.purpose.trim();
   const purposeReady = concept
     ? purpose.length > 0
@@ -80,7 +81,7 @@ export function createRules(form: CreateForm, ctx: CreateContext): CreateRules {
   const pathReady = form.origin !== "existing" || (existingAllowed && form.path !== null);
   const plannedPathReady =
     form.origin !== "planned" || !node || !form.plannedPath.trim() ||
-    effectiveSector?.sourceRef?.origin === "existing" || !!effectiveSector?.sourceRef?.path;
+    unboundSector || effectiveSector?.sourceRef?.origin === "existing" || !!effectiveSector?.sourceRef?.path;
   const ready = !requiresTargetSector && plannedPathReady &&
     (!requiresModeChoice || (form.origin !== null && purposeReady && pathReady));
   return { effectiveSector, concept, requiresTargetSector, requiresModeChoice, existingAllowed, purposeReady, pathReady, plannedPathReady, ready };
@@ -127,7 +128,7 @@ export function changeTargetSector(form: CreateForm, next: SectorRef | null, leg
   if (legacyFree && !next?.sourceRef)
     return { ...form, targetSector, origin: null, path: null, entryKind: "directory", plannedPath: "" };
   if (form.origin === "existing") return { ...form, targetSector, origin: null, path: null };
-  if (form.origin === "planned" && form.plannedPath.trim() && next?.sourceRef?.origin !== "existing" && !next?.sourceRef?.path)
+  if (form.origin === "planned" && form.plannedPath.trim() && (!next || (next.sourceRef?.origin === "planned" && !next.sourceRef.path)))
     return { ...form, targetSector, plannedPath: "" };
   return { ...form, targetSector };
 }

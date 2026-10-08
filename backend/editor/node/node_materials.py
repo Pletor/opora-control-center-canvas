@@ -74,9 +74,10 @@ class NodeMaterials:
         return target, SUFFIX_MIME[target.suffix]
 
     def remove(self, project, node_id, name):
-        try:
-            target, _ = self.file_path(project, node_id, name)
-        except (FileNotFoundError, ValueError):
-            return False
-        target.unlink()
-        return True
+        with self.canvas.graph_lock:
+            try:
+                target, _ = self.file_path(project, node_id, name)
+            except (FileNotFoundError, ValueError):
+                return False
+            target.unlink()
+            return True

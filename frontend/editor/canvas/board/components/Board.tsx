@@ -1,12 +1,18 @@
 // Plátno: React Flow nad grafem. Kartu skládá NodeCard z modelu karty (editor/canvas/node-card),
 // bloky Akce / Pravidla dodává rodič (App) už spočítané. Board jen mapuje data a bublá události nahoru.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
+import { resolveFacts } from "@/editor/canvas/node-card/components/CardFacts";
+import WorkNow from "@/editor/canvas/node-card/components/WorkNow";
+import { useWorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
+import { useScenarioHistory } from "@/editor/canvas/node-card/logic/use-scenario-history";
+import { useAddedPulse } from "@/editor/canvas/node-card/logic/use-added-pulse";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
+  SelectionMode,
   applyNodeChanges,
   type Node,
   type Edge,
@@ -21,9 +27,22 @@ import type { Graph } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
 import { edgeAppearance } from "@/editor/canvas/board/logic/board-model";
+import { upstreamRows } from "@/editor/canvas/node-card/logic/upstream";
+import { useFrontier } from "@/editor/canvas/node-card/logic/use-frontier";
+import { areaSummary, handoffMark, useCardChecklist } from "@/editor/canvas/card-checklist/logic/card-checklist";
+import { proposalCount, proposalsIn } from "@/editor/canvas/node-card/logic/completion-proposals";
+import ConfirmSectorProposals from "@/editor/canvas/node-card/components/ConfirmSectorProposals";
+import { evidenceReadiness } from "@/editor/canvas/node-card/logic/evidence-readiness";
+import { releaseLease } from "@/editor/canvas/node-card/logic/release-lease";
+import SectorGateEditor from "@/editor/canvas/node-card/components/SectorGateEditor";
+import SectorAutonomy from "@/editor/canvas/node-card/components/SectorAutonomy";
+import "@/editor/canvas/board/styles/board-bar.css";
+import { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
 import { layerFootprints } from "@/editor/canvas/board/logic/layout-model";
 import { settleArea, settleCard } from "@/editor/canvas/board/logic/solid-bodies";
 import NodeCard, { type NodeCardData } from "@/editor/canvas/node-card/components/NodeCard";
+import { effectiveRules } from "@/editor/canvas/node-card/logic/effective-rules";
+import type { UsageSummary } from "@/editor/canvas/node-card/logic/use-usage";
 import { cardView, matchesTagFilter } from "@/editor/canvas/node-card/logic/card-model";
 import CommentCard, { type CommentCardData } from "@/editor/canvas/comment-card/components/CommentCard";
 import { commentView } from "@/editor/canvas/comment-card/logic/comment-model";
@@ -32,6 +51,7 @@ import { areaColorOf, areaLabel, membersOf } from "@/editor/canvas/area/logic/ar
 import { blockNodeTypes } from "@/editor/workflow/blocks/components/CanvasBlock";
 import { isBlockId, parseBlockId, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import { revealNodeCenter } from "../logic/reveal-node";
+import { isDeleteKey, reportsSelection, sameSelection, selectionIds } from "../logic/box-selection";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
 
@@ -59,6 +79,7 @@ function dropTargetOf(target: EventTarget | null): string | null {
 type ScreenToFlow = Pick<ReactFlowInstance, "screenToFlowPosition" | "getNode" | "getZoom" | "setCenter">;
 
 export type CardBlockEvent =
+  | { type: "configure-spawn"; blockId: string; portId: string; action: import("@/shared/desktop-state/logic/types").PortSpawn | undefined }
   | { type: "add" }
   | { type: "move"; blockId: string; delta: -1 | 1 }
   | { type: "remove"; blockId: string }
@@ -66,14 +87,33 @@ export type CardBlockEvent =
   | { type: "text"; blockId: string; text: string }
   | { type: "add-port"; blockId: string }
   | { type: "rename-port"; blockId: string; portId: string; label: string }
-  | { type: "remove-port"; blockId: string; portId: string };
+  | { type: "remove-port"; blockId: string; portId: string }
+  | { type: "decide-port"; blockId: string; portId: string; status: "chosen" | "rejected" | ""; reason: string };
 
 export default function Board({
+  onUrlDownload,
+  sourceStatuses,
+  onRealizeSource,
+  onAutonomy,
+  onSaveEvidence,
+  onSaveSector,
+  onConfirmSector,
+  onConfirmProposal,
+  confirmError,
+  leases,
+  assignmentStatuses,
+  usage,
+  onRuleWrite,
+  sourceContext,
+  heightsRef,
   graph,
   state,
   settings,
   parent,
   selected,
+  multiSelected,
+  onMultiSelect,
+  onDeleteSelection,
   selectedBlock,
   scope,
   disabled,
@@ -104,12 +144,35 @@ export default function Board({
   reveal,
   onRevealed,
 }: {
+  usage?: UsageSummary | null;
+  onUrlDownload?: (nodeId: string, enabled: boolean) => Promise<boolean>;
+  sourceStatuses?: Record<string, import("@/editor/canvas/node-card/logic/use-source-status").SourceStatus>;
+  onRealizeSource?: (nodeId: string, commit: string, prUrl: string) => Promise<void>;
+  onConfirmProposal?: (nodeId: string) => Promise<boolean>;
+  /** Poslední chyba uložení stavu (text ze serveru); karta ji ukáže, když potvrzení selže. */
+  confirmError?: string;
+  onConfirmSector?: (sectorId: string, ids: string[]) => Promise<void>;
+  onSaveSector?: (node: import("@/shared/types/logic/types").CanvasNode) => void;
+  onAutonomy?: (sectorId: string, until: string, grantedBy: string, note: string) => Promise<void>;
+  onSaveEvidence?: (nodeId: string, value: import("@/editor/canvas/node-card/components/CardEvidence").CompletionEvidence) => Promise<boolean>;
+  leases?: Record<string, import("@/editor/canvas/node-card/logic/use-leases").CardLease>;
+  assignmentStatuses?: import("@/editor/canvas/node-card/logic/use-assignment-status").AssignmentStatuses;
+  onRuleWrite?: NonNullable<NodeCardData["rules"]>["write"];
+  sourceContext?: { project: string; workspace: string };
+  /** Naměřené výšky karet vrstvy pro „Srovnat“ v App (karta s bloky je vyšší než výchozí otisk). */
+  heightsRef?: { current: Record<string, number> };
   graph: Graph;
   /** Stav Desktop v3 (fáze, bloky, akce, pravidla) pro patu a hlavu karty. */
   state: DesktopState;
   settings: SurfaceSettings;
   parent: string | null;
   selected: string | null;
+  /** Hromadný výběr (tah obdélníkem, Ctrl+klik): id uzlů vrstvy, drží ho rodič. */
+  multiSelected: string[];
+  /** Výběr na plátně se změnil (bez bočních bloků); rodič z něj skládá svůj výběr. */
+  onMultiSelect: (ids: string[]) => void;
+  /** Delete / Backspace mimo psaní: rodič otevře jeden potvrzovací dialog pro celý výběr. */
+  onDeleteSelection: () => void;
   /** Id vybraného bloku v kartě vybraného uzlu; zvýrazní jeho rámeček. */
   selectedBlock: string | null;
   scope: string;
@@ -160,6 +223,15 @@ export default function Board({
   reveal?: { id: string; scope: string; nonce: number } | null;
   onRevealed?: (nonce: number) => void;
 }) {
+  const [showFrontier, setShowFrontier] = useState(true);
+  const frontier = useFrontier(sourceContext, parent, showFrontier, state);
+  const checklists = useCardChecklist(sourceContext, parent, state);
+  const isSelected = (id: string) => id === selected || multiSelected.includes(id);
+  const sectors = useMemo(() => sectorViews(graph, state), [graph, state]);
+  const movedCards = useAddedPulse(graph.nodes.map(n => `${n.id}:${n.parentId}:${n.x}:${n.y}`));
+  const workRevision = useMemo(() => ({ graph, state }), [graph, state]);
+  const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workRevision);
+  const scenarios = useScenarioHistory(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workRevision);
   const make = (): Node[] =>
     (graph.nodes
       .filter((n) => n.parentId === parent)
@@ -169,7 +241,7 @@ export default function Board({
             id: n.id,
             type: "comment",
             position: { x: n.x, y: n.y },
-            selected: n.id === selected,
+            selected: isSelected(n.id),
             connectable: false,
             data: {
               view: commentView(n),
@@ -185,12 +257,13 @@ export default function Board({
             id: n.id,
             type: "area",
             position: { x: n.x, y: n.y },
-            selected: n.id === selected,
+            selected: isSelected(n.id),
             // Oblast musí zůstat pod kartami vždy, i vybraná — proto vlastní z-index i mimo CSS.
             zIndex: -1,
             style: { width: size.w, height: size.h },
             data: {
-              view: { label: areaLabel(n), unnamed: !n.name.trim(), members: membersOf(n, graph.nodes).length, w: size.w, h: size.h, color: areaColorOf(n) },
+              view: { label: areaLabel(n), unnamed: !n.name.trim(), members: membersOf(n, graph.nodes).length, w: size.w, h: size.h, color: areaColorOf(n),
+                summary: checklists ? areaSummary(membersOf(n, graph.nodes).flatMap((m) => checklists[m.id] ? [checklists[m.id]] : [])) : undefined },
               disabled,
               onRename: (name: string) => onRename(n.id, name),
               onResize: (w: number, h: number) => onAreaResize(n.id, w, h),
@@ -203,9 +276,35 @@ export default function Board({
           id: n.id,
           type: "canvas",
           position: { x: n.x, y: n.y },
-          selected: n.id === selected,
+          selected: isSelected(n.id),
           data: {
             view,
+            checklist: checklists?.[n.id],
+            usage: (n.kind === "sector" ? usage?.sectors : usage?.nodes)?.[n.id],
+            upstream: { rows: upstreamRows(graph, state, n.id), open: onSelect },
+            frontier: frontier.rows?.[n.id],
+            sectorProgress: sectors[n.id],
+            evidence: state.nodes[n.id]?.evidence,
+            facts: resolveFacts(n.factRefs ?? [], state.settings),
+            work: work?.data?.nodes[n.id],
+            workCounts: work?.data?.sectors[n.id],
+            moved: movedCards.includes(`${n.id}:${n.parentId}:${n.x}:${n.y}`),
+            inputSecurity: onUrlDownload ? { enabled: !!state.nodes[n.id]?.downloadsUrl, save: (enabled: boolean) => onUrlDownload(n.id, enabled) } : undefined,
+            scenario: n.scenario ? { command: n.scenario.command, history: scenarios?.nodes?.[n.id], error: scenarios?.error } : undefined,
+            realization: n.sourceRef && onRealizeSource ? { value: n.realization, status: sourceStatuses?.[n.id], disabled,
+              save: (commit: string, prUrl: string) => onRealizeSource(n.id, commit, prUrl) } : undefined,
+            autonomous: state.nodes[n.id]?.done?.by === "autonomy" && state.nodes[n.id]?.done?.confirmed,
+            saveEvidence: onSaveEvidence ? value => onSaveEvidence(n.id, value) : undefined,
+            lease: leases?.[n.id],
+            releaseLease: leases?.[n.id] && sourceContext ? () => releaseLease(sourceContext.project, sourceContext.workspace, n.id) : undefined,
+            completion: onConfirmProposal ? { confirm: () => onConfirmProposal(n.id), note: state.nodes[n.id]?.done?.note,
+              readiness: evidenceReadiness(state.nodes[n.id]?.evidence, n), error: confirmError,
+              pending: n.kind === "sector" ? proposalCount(graph, state, n.id) : 0 } : undefined,
+            assignmentWarning: assignmentStatuses?.[n.id]?.status === "changed" && sourceContext
+              ? { ...sourceContext, nodeId: n.id, resultId: assignmentStatuses[n.id].resultId, source: assignmentStatuses[n.id].source } : undefined,
+            inheritedRules: effectiveRules(graph, state, n.id).filter((rule) => rule.inherited || rule.origin.storage === "node" || !onRuleWrite),
+            rules: onRuleWrite ? { items: state.rules.filter((rule) => rule.scope === "node" && rule.target === n.id), write: onRuleWrite } : undefined,
+            source: n.sourceRef && sourceContext ? { source: n.sourceRef, ...sourceContext } : undefined,
             dimmed: !matchesTagFilter(workflow, tagFilter),
             onTag: onTagFilter,
             // Vybraný blok patří jen kartě svého uzlu; jinou kartu jeho výběr nezvýrazní.
@@ -225,6 +324,8 @@ export default function Board({
               addPort: (blockId) => onCardBlock(n.id, { type: "add-port", blockId }),
               renamePort: (blockId, portId, label) => onCardBlock(n.id, { type: "rename-port", blockId, portId, label }),
               removePort: (blockId, portId) => onCardBlock(n.id, { type: "remove-port", blockId, portId }),
+              decidePort: (blockId, portId, status, reason) => onCardBlock(n.id, { type: "decide-port", blockId, portId, status, reason }),
+              configureSpawn: (blockId, portId, action) => onCardBlock(n.id, { type: "configure-spawn", blockId, portId, action }),
             },
             rename: {
               editing: editing === n.id,
@@ -239,6 +340,12 @@ export default function Board({
         };
       }) as Node[]).concat(blocks.nodes);
   const [nodes, setNodes] = useState<Node[]>(make);
+  useEffect(() => {
+    if (!heightsRef) return;
+    const heights: Record<string, number> = {};
+    for (const n of nodes) if (!isBlockId(n.id) && n.measured?.height) heights[n.id] = n.measured.height;
+    heightsRef.current = heights;
+  }, [nodes, heightsRef]);
   // Nově postavené uzly dostanou změřené rozměry z předchozí verze: React Flow by je jinak do přeměření
   // skryl (visibility: hidden) a rozepsaná textarea v kartě by při každé změně výběru ztratila fokus.
   useEffect(() => {
@@ -249,7 +356,37 @@ export default function Board({
         return old?.measured ? { ...n, measured: old.measured, width: old.width, height: old.height } : n;
       });
     });
-  }, [graph, state, parent, selected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter]);
+  }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project, sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, scenarios, confirmError, movedCards]);
+  // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
+  // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
+  const latestNodes = useRef(nodes);
+  latestNodes.current = nodes;
+  const onNodesChange = (changes: Parameters<typeof applyNodeChanges>[0]) => {
+    setNodes((n) => applyNodeChanges(changes, n));
+    if (!reportsSelection(changes)) return;
+    const before = selectionIds(latestNodes.current);
+    latestNodes.current = applyNodeChanges(changes, latestNodes.current);
+    const ids = selectionIds(latestNodes.current);
+    if (!sameSelection(ids, before)) onMultiSelect(ids);
+  };
+  // Delete / Backspace smaže výběr — jen mimo psaní a jen tehdy, když klávesa míří na plátno
+  // (nebo nikam, tělo stránky); tlačítko v inspektoru ani dialog ji nedostanou.
+  const deleteSelection = useRef(onDeleteSelection);
+  deleteSelection.current = onDeleteSelection;
+  useEffect(() => {
+    if (disabled) return;
+    const key = (event: KeyboardEvent) => {
+      if (!isDeleteKey(event, event.target)) return;
+      const target = event.target;
+      const onBoard = target === document.body || target === document.documentElement ||
+        (target instanceof Node && !!surface.current?.contains(target));
+      if (!onBoard) return;
+      event.preventDefault();
+      deleteSelection.current();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [disabled]);
   const [viewport, setViewport] = useState<Viewport>(() => {
     try {
       return JSON.parse(localStorage.getItem("viewport:" + scope) ?? "null") ?? { x: 60, y: 90, zoom: 1 };
@@ -300,9 +437,12 @@ export default function Board({
   const areaIds = new Set(graph.nodes.filter((n) => n.kind === "area").map((n) => n.id));
   // Vazba z portu `action`/`rule` vede z téhož úchytu jako blok, vazba z tlačítka bloku z úchytu
   // `block:<blockId>:<portId>` uvnitř karty; starší vazba bez portu = `next`. Vzhled řeší board-model.
+  const addedEdges = useAddedPulse(graph.edges.map(edge => edge.id));
   const edges: Edge[] = graph.edges
     .filter((e) => ids.has(e.source) && ids.has(e.target))
-    .map((e): Edge => ({ ...e, ...edgeAppearance(e) }))
+    .map((e): Edge => ({ ...e, ...edgeAppearance(e, state.nodes[e.source]?.blocks?.find(b => b.id === e.sourceBlockId)?.ports?.find(p => p.id === e.sourcePortId)), animated: addedEdges.includes(e.id),
+      // Předávka jen barvou: zelená vazba = zpráva je předaná; malá jantarová obálka = hotová karta ji nenechala.
+      ...handoffLook(handoffMark(e, state, graph.nodes), edgeAppearance(e).style) }))
     .concat(blocks.edges);
   return (
     <div
@@ -342,6 +482,22 @@ export default function Board({
         drop(itemId, Math.round(at.x) - CARD_GRAB.x, Math.round(at.y) - CARD_GRAB.y, dropTargetOf(event.target));
       }}
     >
+      <div className="board-bar nodrag nopan" role="toolbar" aria-label="Stav sektoru">
+        <WorkNow overview={work?.data} error={work?.error} sectorId={parent} open={onSelect} />
+        {parent && onAutonomy && graph.nodes.find(n => n.id === parent)?.kind === "sector" &&
+          <SectorAutonomy key={scope + parent} sectorId={parent} name={graph.nodes.find(n => n.id === parent)!.name}
+            grant={state.autonomy?.[parent]} disabled={disabled} save={(until, who, note) => onAutonomy(parent, until, who, note)} />}
+        {parent && onSaveSector && graph.nodes.find(n => n.id === parent)?.kind === "sector" &&
+          <SectorGateEditor sector={graph.nodes.find(n => n.id === parent)!} graph={graph} disabled={disabled} save={onSaveSector} />}
+        {/* Počet ke schválení jen jednou: v sektoru ho nese souhrn hromadného potvrzení. */}
+        {parent && graph.nodes.find(n => n.id === parent)?.kind === "sector" && onConfirmSector
+          ? <ConfirmSectorProposals key={scope + JSON.stringify(proposalsIn(graph, state, parent))}
+            proposals={proposalsIn(graph, state, parent).map(p => ({ ...p, readiness: evidenceReadiness(state.nodes[p.id]?.evidence, graph.nodes.find(n => n.id === p.id)) }))}
+            disabled={disabled} confirm={ids => onConfirmSector(parent, ids)} />
+          : <span className="board-bar__chip">Ke schválení: {proposalCount(graph, state, parent)}</span>}
+        <button type="button" aria-pressed={showFrontier} onClick={() => setShowFrontier(value => !value)}>Frontier · {showFrontier ? "zapnuto" : "vypnuto"}</button>
+        {frontier.error && <p role="alert">{frontier.error}</p>}
+      </div>
       <ReactFlow
         colorMode={useDesktopAppearance().theme}
         onInit={(instance) => { flow.current = instance; }}
@@ -360,7 +516,12 @@ export default function Board({
         // Vybraná oblast se nesmí vyhouplout nad karty: React Flow by ji jinak z výchozí logiky
         // vrstvení vytáhl nahoru bez ohledu na zIndex uzlu.
         elevateNodesOnSelect={false}
-        onNodesChange={(changes) => setNodes((n) => applyNodeChanges(changes, n))}
+        onNodesChange={onNodesChange}
+        // Tah levým tlačítkem po prázdném plátně táhne obdélník výběru (stačí zasáhnout kus karty);
+        // posun je prostřední / pravé tlačítko nebo mezerník + tah, kolečko dál zoomuje.
+        selectionOnDrag
+        panOnDrag={[1, 2]}
+        selectionMode={SelectionMode.Partial}
         onNodeClick={(event, n) => {
           if (isBlockId(n.id)) return;
           // Komentář nemá bloky ani knihovnu: klik na něj jen vybere lístek, žádné směrování na blok.
@@ -455,9 +616,24 @@ export default function Board({
       </ReactFlow>
       {!disabled && (
         <p className="board-hint" data-testid="board-hint">
-          Dvojklik na prázdné plátno = nový uzel · dvojklik na kartu = do hloubky · kuličky vpravo: další krok / akce / pravidla / podklady · z portu bloku se táhne vazba na jinou kartu
+          Tah po plátně = výběr · Delete = smazat vybrané · prostřední tlačítko nebo mezerník + tah = posun · dvojklik na prázdné plátno = nový uzel · dvojklik na kartu = do hloubky · z portu bloku se táhne vazba na jinou kartu
         </p>
       )}
     </div>
   );
+}
+
+/** Vzhled vazby podle předávky: bez textu. Předáno = zelená čára, chybí = drobná jantarová obálka;
+ *  plánovací vazby (zdroj ještě nehotový) zůstávají beze změny, aby plátno nebylo ukřičené. */
+function handoffLook(mark: "sent" | "missing" | null, style: Edge["style"]): Partial<Edge> {
+  if (mark === "sent") return { style: { ...style, stroke: "#22c55e", strokeWidth: 2 } };
+  if (mark !== "missing") return {};
+  return {
+    label: "✉",
+    labelStyle: { fill: "#f59e0b", fontSize: 12 },
+    labelBgStyle: { fill: "#111827", stroke: "#f59e0b" },
+    labelBgPadding: [4, 2] as [number, number],
+    labelBgBorderRadius: 4,
+    labelShowBg: true,
+  };
 }

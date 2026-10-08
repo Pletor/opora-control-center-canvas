@@ -310,7 +310,7 @@ def _content_object(content):
     """The reply as a JSON object: bare, inside any ``` fence, or between the outer braces."""
     text = content.strip()
     attempts = [text]
-    fence = re.search(r"```[A-Za-z0-9_-]*[ \t]*\n?(.*?)```", text, re.S)
+    fence = re.search(r"```[A-Za-z0-9_-]*[ \t]*\n?(.*?)```", text, re.DOTALL)
     if fence:
         attempts.append(fence.group(1).strip())
     start, end = text.find("{"), text.rfind("}")

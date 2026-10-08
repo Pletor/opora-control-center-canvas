@@ -1,11 +1,16 @@
 // Tělo karty: název (s přejmenováním přímo na kartě) a podstata do tří řádků.
 // Přejmenování probublává nahoru přes onCommit / onCancel / onStart; stav „edituje se“ drží rodič.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 
 export type RenameHandlers = { editing: boolean; start: () => void; cancel: () => void; commit: (name: string) => void };
 
 export default function CardBody({ id, name, purpose, rename }: { id: string; name: string; purpose: string; rename?: RenameHandlers }) {
   const field = useRef<HTMLInputElement>(null);
+  const [, changed] = useState(0);
+  const dirty = () => !!rename?.editing && !!field.current && field.current.value !== name;
+  useScopedSaveParticipant({ id: `card-name:${id}`, label: `Název uzlu: ${name}`,
+    dirty: dirty(), isDirty: dirty, blocked: "Dokončete přejmenování karty a vyčkejte na uložení." });
   // React Flow kartu do změření skrývá, proto se fokus zkouší i v dalších snímcích.
   useEffect(() => {
     if (!rename?.editing) return;
@@ -32,6 +37,7 @@ export default function CardBody({ id, name, purpose, rename }: { id: string; na
             aria-label="Jméno uzlu na plátně"
             data-testid={"card-rename-" + id}
             defaultValue={name}
+            onInput={() => changed((value) => value + 1)}
             autoFocus
             maxLength={160}
             onFocus={(e) => e.currentTarget.select()}

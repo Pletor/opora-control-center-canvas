@@ -1,4 +1,4 @@
-Strom domén a stránek vedle map zdrojového kódu je navigační projekce stejných `CanvasNode.id`, `parentId` a nepovinného `site`. Odkazuje na mapu příslušné domény; nevytváří druhý formulář pro správu struktury. Obyčejné mezilehlé uzly jsou při zobrazení stromu průhledné, v grafu zůstávají zachované.
+Čistá logika domén a stránek: projekce stejných `CanvasNode.id`, `parentId` a nepovinného `site`. Feature nemá vlastní komponentu; strom domén zobrazuje jen editor architektury, levé menu Archify a Graphify-out ukazuje pouze skutečné složky projektu. Obyčejné mezilehlé uzly jsou při sestavení stromu průhledné, v grafu zůstávají zachované.
 
 Čisté `productTree`, `sitePlan`, `editProductNode` a fingerprint používá autoritativní mapa domény. Nové domény jsou application sektory s jedním prostředím/hostem a vlastním stromem stránek. Starší vícehostové aplikace zůstávají sdílené, dokud uživatel výslovně neoddělí host do nového prázdného sektoru. Žádné automatické kopírování nebo mazání stránek.
 

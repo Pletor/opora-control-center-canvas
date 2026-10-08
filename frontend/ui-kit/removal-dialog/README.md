@@ -1,1 +1,1 @@
-Dialog pro potvrzení odstranění (RemovalDialog).
+Dialog pro potvrzení odstranění (RemovalDialog). Druh `node`, `edge` i `selection` (hromadný výběr, titul „Smazat vybrané“) ukazuje počet uzlů včetně potomků a vazeb a připomíná, že smazání jde vrátit tlačítkem Zpět nebo Ctrl+Z; `project` (odebrání repozitáře) má vlastní texty a vrátit nejde.

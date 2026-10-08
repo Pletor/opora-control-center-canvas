@@ -22,6 +22,25 @@ def test_write_command_is_asked_with_parsed_target():
 
 
 @pytest.mark.parametrize("command", [
+    'python x/opora_write.py /api/desktop-v3/lease --project p --workspace w --json "{}"',
+    'python x/opora_write.py /api/desktop-v3/assignment-snapshot --project p --workspace w --json "{}"',
+])
+def test_lease_and_snapshot_need_no_prompt(command):
+    """Kritika #35: převzetí a snímek nemění obsah karty; heartbeat nesmí zahltit člověka dotazy."""
+    assert approvals.classify(bash(command)) == ("auto_allow", None)
+
+
+def test_state_write_summary_shows_closures_and_rules():
+    """Kritika #42: člověk neschvaluje celý stav naslepo."""
+    command = ("python x/opora_write.py /api/desktop-v3/state --project p --workspace w --json "
+               "'{\"state\": {\"nodes\": {\"a\": {\"done\": {\"confirmed\": true}}}, \"rules\": [{}]}}'")
+    kind, parsed = approvals.classify(bash(command))
+    assert kind == "ask"
+    assert "1 karet · 1 pravidel · uzavřeno 1" in parsed["payloadSummary"]
+
+
+@pytest.mark.parametrize("command", [
+    'python x/opora_write.py /api/canvas-versions --project p --workspace w --json "{}"',
     'python3 .claude/skills/opora-control-center/scripts/opora_write.py /api/graph --project p --workspace w --json "{}"',
     'python "P:/0. OSVC/repo/.claude/skills/opora-control-center/scripts/opora_write.py" /api/desktop-v3/state '
     "--workspace w --project p --json '{\"layers\": []}'",
@@ -98,7 +117,6 @@ def test_reason_prefers_command_description():
 @pytest.mark.parametrize("command", [
     'python "C:/Users/x y/.claude/skills/opora-control-center/scripts/opora_read.py" view --project p',
     "python3 .claude/skills/opora-control-center/scripts/opora_read.py search --query login",
-    "python opora_read.py index --project p --workspace main",
     'graphify query "auth flow"',
 ])
 def test_read_commands_pass_without_asking(command):
@@ -112,6 +130,9 @@ def test_read_commands_pass_without_asking(command):
     "python x/opora_read.py view && del y",
     "python x/opora_read.py $(whoami)",
     "python x/opora_reader.py view",
+    # Připnuto ke složce skillu (upgrade-opora #42): podstrčený skript jinde neprojde.
+    "python opora_read.py index --project p --workspace main",
+    "python C:/tmp/opora_read.py view",
     "graphify query x | tee out.txt",
     "graphify update .",
 ])

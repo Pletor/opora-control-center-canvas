@@ -398,3 +398,33 @@ def test_remove_sector_drops_desktop_v3_state_for_the_whole_subtree(tmp_path):
         state = client.get("/api/desktop-v3/state", params=SCOPE).json()["state"]
         assert set(state["nodes"]) == {"keep"}
         assert set(state["edges"]) == {"untouched"}
+
+
+def test_agent_cannot_remove_confirmed_cards_or_sectors(tmp_path):
+    """Kritika #41: agent nesmaže hotovou práci ani sektor; malou nehotovou kartu ano."""
+    from backend.editor.agent_memory.test_completion_evidence import evidence
+    agent = {**HEADERS, "X-Opora-Actor": "agent; name=cleaner"}
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        install_graph(client, nested_graph())
+        nodes = client.get("/api/view", params=SCOPE).json()["graph"]["nodes"]
+        sector = next(n["id"] for n in nodes if n["kind"] == "sector")
+        cards = [n["id"] for n in nodes if n["kind"] == "node"]
+        stored = client.get("/api/desktop-v3/state", params=SCOPE).json()
+        state = stored["state"]
+        state["nodes"][cards[0]] = {"phase": "discover", "criteria": [], "steps": [], "evidence": evidence(),
+                                     "done": {"confirmed": True, "by": "human", "at": "2026-10-07T12:00:00Z", "note": ""}}
+        assert client.post("/api/desktop-v3/state", headers=HEADERS,
+                           json={**SCOPE, "state": state, "expectedRevision": stored["revision"]}).status_code == 200
+
+        def remove(target, headers):
+            preview = client.get("/api/removal-preview", params={**SCOPE, "kind": "node", "target": target}).json()
+            assert preview["confirmedNodeIds"] == ([cards[0]] if cards[0] in preview["nodeIds"] else [])
+            return client.post("/api/remove", headers=headers, json={
+                **SCOPE, "kind": "node", "target": target, "digest": preview["digest"], "confirmed": True})
+
+        assert remove(cards[0], agent).status_code == 403
+        assert remove(sector, agent).status_code == 403
+        open_cards = [c for c in cards if c != cards[0]]
+        if open_cards:
+            assert remove(open_cards[0], agent).status_code == 200
+        assert remove(cards[0], HEADERS).status_code == 200

@@ -3,6 +3,7 @@
 // podle původu, jeden popis a sbalené nepovinné sekce (zadání sektoru / pro agenta). Rozepsaný
 // formulář drží u sebe; hotový uzel a zadání ohlásí přes onCreate. Nic neukládá — to dělá App.
 import { useState } from "react";
+import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import AgentFields from "@/editor/canvas/create-dialog/components/AgentFields";
 import CreateSourceFields from "@/editor/canvas/create-dialog/components/CreateSourceFields";
 import FoldSection from "@/editor/canvas/create-dialog/components/FoldSection";
@@ -56,6 +57,13 @@ export default function CreateDialog({
   onCreate: (result: CreateResult) => void;
 }) {
   const [form, setForm] = useState(() => emptyCreateForm(kind));
+  useScopedSaveParticipant({
+    id: `create-dialog:${kind}:${parent ?? "root"}`,
+    label: kind === "sector" ? "Nový sektor" : "Nový uzel",
+    dirty: JSON.stringify(form) !== JSON.stringify(emptyCreateForm(kind)),
+    pending: busy,
+    blocked: "Rozpracovanou kartu nejprve vytvořte nebo její formulář zavřete. Uložit vše nové karty samo nevytváří.",
+  });
   const targetSector = sectors.find((s) => s.id === form.targetSector) ?? null;
   const ctx: CreateContext = { ancestorSector, targetSector, legacyFree };
   const rules = createRules(form, ctx);

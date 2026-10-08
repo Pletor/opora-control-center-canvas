@@ -15,7 +15,7 @@ Kontrakt je `docs/kontext-karet-a-index.md` §1 a §3. Frontend má stejná prav
 import re
 import unicodedata
 
-CARD_TYPES = ("research", "prototype", "grilling", "task")
+CARD_TYPES = ("research", "prototype", "grilling", "task", "gate")
 TYPE_PREFIXES = {f"[{kind}] ": kind for kind in CARD_TYPES}
 CARD_LAYERS = ("frontend", "backend", "database", "library")
 # Krátký štítek vrstvy v UI i v korpusu hledání (filtr `vrstva:fe|be|db|knihovna`).

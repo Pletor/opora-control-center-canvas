@@ -184,16 +184,10 @@ def summary(command, data, args, base):
                 'nodeCount': len(nodes), 'edgeCount': len(edges),
                 'nodes': [pick(n, ['id', 'parentId', 'kind', 'name', 'sourceRef']) for n in nodes],
                 'workspaces': [pick(w, ['id', 'actor', 'node_id', 'branch']) for w in data.get('workspaces', [])],
-                'links': {env: base + '/?' + urlencode({'screen': 'canvas', 'project': args.project, 'workspace': args.workspace, 'environment': env, 'mode': 'structure'}) for env in ['project', 'editor', 'live']}}
+                'links': {env: base + '/?' + urlencode({'screen': 'canvas', 'project': args.project, 'workspace': args.workspace, 'environment': env, 'mode': 'structure'}) for env in ['project', 'editor', 'hub']}}
     if command == 'state':
         state = data.get('state', {})
         return {**pick(data, ['revision', 'readOnly']), 'counts': {k: len(state.get(k, [])) for k in ['settings', 'rules', 'decisions', 'nodes', 'tickets']}, 'note': 'Obsah vynechán; --raw jej vypíše v daném scope.'}
-    if command == 'sessions':
-        rows = data if isinstance(data, list) else data.get('sessions', data.get('bindings', []))
-        out = pick(data, ['truncated']) if isinstance(data, dict) else {}
-        out['sessions'] = [pick(r, ['id', 'nodeId', 'source', 'sessionId', 'runId', 'role', 'title', 'model', 'status', 'statusReason', 'lastActivityAt', 'closedAt']) for r in rows]
-        out['note'] = 'Telemetrie pouze pro čtení (limit 100). status running = ověřený proces; recent_activity = uložená událost.'
-        return out
     if command == 'snapshot':
         packet = data.get('packet', {})
         return {**pick(data, ['id', 'digest', 'createdAt']), 'scope': packet.get('scope'), 'warnings': packet.get('warnings'), 'sourceManifest': packet.get('sourceManifest')}
@@ -203,10 +197,18 @@ def summary(command, data, args, base):
         text = content.get('text', '') if isinstance(content.get('text'), str) else ''
         return {'schema': data.get('schema'), 'readOnly': data.get('readOnly'), 'node': pick(node, ['id', 'name', 'kind', 'path', 'sourceRef']),
                 'goal': data.get('goal'),
+                'usage': data.get('usage'),
                 # Text karty (podklad): jen začátek a délka; celý ho vypíše --raw.
                 'content': {'start': text[:CONTENT_PREVIEW], 'length': len(text), 'revision': content.get('revision')} if text else None,
                 'phase': data.get('harness', {}).get('phase'),
                 'stopConditions': data.get('harness', {}).get('stopConditions'), 'loop': data.get('loop'),
+                # Pipeline: etapa na řadě a postup; celé etapy s předávkami vypíše --raw.
+                'pipeline': pick(data['pipeline'], ['profile', 'routedBy', 'current', 'stuck']) | {
+                    'done': sum(1 for s in data['pipeline'].get('stages', []) if s.get('status') in ('passed', 'skipped')),
+                    'total': len(data['pipeline'].get('stages', []))} if data.get('pipeline') else None,
+                'checks': data.get('node', {}).get('checks'), 'goalMode': data.get('node', {}).get('goal_mode'),
+                'evidence': data.get('evidence'),
+                'request': (data.get('outputContract') or {}).get('request'),
                 'note': 'Souhrn; celý balíček pro model vypíše --raw.'}
     if command in ('node-text', 'node-spec'):
         out = pick(data, ['revision', 'readOnly', 'available'])
@@ -247,15 +249,21 @@ def frontier(graph, state, sector_id, frames):
     names = {n['id']: n.get('name', '') for n in nodes}
     cards = [n for n in nodes if n.get('parentId') == sector_id and n.get('kind') == 'node']
     done = {cid: bool(state.get('nodes', {}).get(cid, {}).get('done', {}).get('confirmed')) for cid in names}
-    out = {'map': {'id': sector_id, 'name': sector.get('name', '')}, 'frontier': [], 'claimed': [], 'blocked': [], 'closed': []}
+    out = {'map': {'id': sector_id, 'name': sector.get('name', '')}, 'frontier': [], 'claimed': [], 'blocked': [], 'waiting': [], 'closed': []}
     for card in cards:
         cid = card['id']
         row = {'id': cid, 'name': card.get('name', ''), 'type': ticket_type(card.get('name'))}
         blockers = [e['source'] for e in graph.get('edges', [])
                     if e.get('target') == cid and e.get('port', 'next') == 'next' and not done.get(e.get('source'), False)]
         claim = claim_of(frames.get(cid, ''))
+        waiting = [{'blockId': b['id'], 'ask': b['state'].get('note') or b['state'].get('condition') or b.get('title', '')}
+                   for b in state.get('nodes', {}).get(cid, {}).get('blocks', [])
+                   if b.get('state', {}).get('status') == 'blocked']
         if done[cid]:
             out['closed'].append(row)
+        elif waiting:
+            out['waiting'].append({**row, 'waitingOnHuman': waiting, 'claim': claim,
+                                   'blockedBy': [{'id': b, 'name': names.get(b, '')} for b in blockers]})
         elif claim:
             out['claimed'].append({**row, 'claim': claim})
         elif blockers:
@@ -297,8 +305,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base-url', help='domácí adresa http://127.0.0.1:PORT')
     parser.add_argument('--api-base', help='vzdálená adresa tunelu https://HOST; vyžaduje ' + TOKEN_ENV)
-    parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'sessions', 'snapshot', 'node-text', 'node-spec', 'node-brief', 'frontier',
-                                            'search', 'index', 'rank', 'code', 'find', 'recall'])
+    parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'snapshot', 'node-text', 'node-spec', 'node-brief', 'frontier',
+                                            'search', 'index', 'rank', 'code', 'find', 'recall', 'rule', 'decision', 'versions', 'leases', 'source-status', 'work-overview', 'scenario-history', 'layout-preview',
+                                            'pipeline-profiles', 'agent-workspace', 'agent-results', 'assignment-status', 'usage-summary'])
     parser.add_argument('--project')
     parser.add_argument('--workspace')
     parser.add_argument('--node')
@@ -335,6 +344,11 @@ def main():
         if health.get('status') != 'ok' or health.get('product') != 'Opora Canvas':
             raise ValueError('Adresa nevrací očekávanou identitu zdravého Opora Canvas.')
         command = args.command
+        if command == 'layout-preview':
+            required(args, 'project', 'workspace')
+            svg = fetch('/api/layout-preview', {'project': args.project, 'workspace': args.workspace, 'layer': args.node or ''}, binary=True)
+            print(svg.decode('utf-8'))
+            return 0
         if command == 'status':
             data = {'health': health, 'baseUrl': base, 'writesPerformed': 0}
             try:
@@ -349,18 +363,15 @@ def main():
             data['note'] = 'Backend identity vzniká při startu; není důkazem verze později nasazeného frontendu.'
         elif command == 'projects':
             data = fetch('/api/bootstrap')
-        elif command in ('node-brief', 'frontier'):
+        elif command == 'pipeline-profiles':
+            data = fetch('/api/desktop-v3/pipeline-profiles')
+        elif command in ('node-brief', 'agent-workspace', 'agent-results'):
             required(args, 'project', 'workspace', 'node')
-            params = {'project': args.project, 'workspace': args.workspace}
-            if command == 'node-brief':
-                data = fetch('/api/desktop-v3/node-brief', {**params, 'nodeId': args.node})
-            else:
-                graph = fetch('/api/view', params).get('graph', {})
-                state = fetch('/api/desktop-v3/state', params).get('state', {})
-                open_cards = [n['id'] for n in graph.get('nodes', []) if n.get('parentId') == args.node and n.get('kind') == 'node'
-                              and not state.get('nodes', {}).get(n['id'], {}).get('done', {}).get('confirmed')]
-                frames = {cid: fetch('/api/desktop-v3/agent-workspace', {**params, 'nodeId': cid}).get('workspace', {}).get('frame', '') for cid in open_cards}
-                data = frontier(graph, state, args.node, frames)
+            data = fetch('/api/desktop-v3/' + command, {'project': args.project, 'workspace': args.workspace, 'nodeId': args.node})
+        elif command == 'frontier':
+            # Bez --node je to kořen plátna (karty bez rodiče); router tak vidí needsRouting celého prostoru.
+            required(args, 'project', 'workspace')
+            data = fetch('/api/desktop-v3/frontier', {'project': args.project, 'workspace': args.workspace, 'nodeId': args.node or ''})
         elif command in ('search', 'index', 'rank'):
             required(args, 'project', 'workspace', *(() if command == 'index' else ('query',)))
             params = {'project': args.project, 'workspace': args.workspace}
@@ -389,15 +400,22 @@ def main():
                 raise ValueError('recall potřebuje --role nebo --node.')
             data = ask('/api/memory/recall', {'role': args.role or None, 'project': args.project, 'workspace': args.workspace,
                                                'nodeId': args.node or None, 'query': args.query, 'maxTokens': args.max_tokens})
-        elif command in ('view', 'state', 'node-text', 'node-spec', 'snapshot', 'sessions'):
+        elif command in ('leases', 'source-status', 'work-overview', 'scenario-history', 'assignment-status', 'usage-summary'):
+            required(args, 'project', 'workspace')
+            data = fetch('/api/desktop-v3/' + command, {'project': args.project, 'workspace': args.workspace})
+        elif command == 'versions':
+            required(args, 'project', 'workspace')
+            data = fetch('/api/canvas-versions', {'project': args.project, 'workspace': args.workspace})
+        elif command in ('rule', 'decision'):
+            required(args, 'project', 'workspace', 'id')
+            data = fetch('/api/desktop-v3/' + command, {'project': args.project, 'workspace': args.workspace, 'id': args.id})
+        elif command in ('view', 'state', 'node-text', 'node-spec', 'snapshot'):
             required(args, 'project', 'workspace')
             params = {'project': args.project, 'workspace': args.workspace}
-            routes = {'view': '/api/view', 'state': '/api/desktop-v3/state', 'node-text': '/api/node-text', 'node-spec': '/api/node-spec', 'sessions': '/api/node-sessions'}
+            routes = {'view': '/api/view', 'state': '/api/desktop-v3/state', 'node-text': '/api/node-text', 'node-spec': '/api/node-spec'}
             if command in ('node-text', 'node-spec'):
                 required(args, 'node')
                 params['node'] = args.node
-            if command == 'sessions' and args.node:
-                params['nodeId'] = args.node
             if command == 'snapshot':
                 required(args, 'id')
                 route = '/api/desktop-v3/packet/snapshots/' + quote(args.id, safe='')

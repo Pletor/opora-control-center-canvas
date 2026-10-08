@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type SettingsSnapshot } from "@/shared/types/logic/types";
 import type { ProfileDraft } from "./profile-card";
+import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 
 export type ProjectProfileApi = {
   snapshot: SettingsSnapshot | null;
@@ -44,12 +45,12 @@ export function useProjectProfile(project: string, reloadKey: unknown): ProjectP
     setSaving(true);
     setError("");
     try {
-      const value = await api<SettingsSnapshot>("/api/project-settings", {
+      const value = await trackSaveWrite(project, "*", api<SettingsSnapshot>("/api/project-settings", {
         project,
         expected_revision: snapshot.revision,
         name: snapshot.project.name,
         settings: { ...snapshot.settings, ...draft },
-      });
+      }));
       if (current === ticket.current) setSnapshot(value);
       return true;
     } catch (reason) {

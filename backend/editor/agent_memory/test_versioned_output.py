@@ -120,16 +120,16 @@ def test_result_record_failure_rolls_back_state_too(tmp_path, monkeypatch):
         assert brief(client)["resultHistory"]["items"] == []
 
 
-def test_legacy_output_is_explicitly_unbound(tmp_path):
+def test_output_without_context_version_is_refused(tmp_path):
+    """Kritika #36: vazbu na zadání nejde obejít vynecháním contextVersion; nic se nezapíše."""
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         prepared(client)
         request = result_request(brief(client))
         del request["contextVersion"]
-        response = send(client, request)
-        assert response.status_code == 200
-        record = response.json()["acceptedResult"]
-        assert record["binding"] == "legacy-unbound"
-        assert record["contextVersion"] is None and record["specification"] is None
+        before = client.get("/api/desktop-v3/state", params=SCOPE).json()
+        response = client.post("/api/desktop-v3/agent-output", headers=HEADERS, json=request)
+        assert response.status_code == 409 and "contextVersion" in response.json()["error"]
+        assert client.get("/api/desktop-v3/state", params=SCOPE).json() == before
 
 
 def test_readonly_snapshot_marks_unavailable_text_spec_and_drawings(tmp_path, monkeypatch):

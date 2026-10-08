@@ -5,7 +5,6 @@ from pathlib import Path
 from backend.integrations.gitio import git
 from backend.paths import REPO_ROOT
 
-
 SOURCE_SUFFIXES = {
     "backend": {".py", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg", ".sql"},
     "frontend": {".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".json", ".yaml", ".yml"},

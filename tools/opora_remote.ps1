@@ -3,7 +3,7 @@
 Vzdálený přístup k Opora Control Center: aplikace zůstává tady, ven vede Cloudflare quick tunnel.
 
 .DESCRIPTION
-Aplikace se nedá hostovat jinde (SQLite, data na disku, Hook control, lokální modely), proto běží
+Aplikace se nedá hostovat jinde (SQLite, data na disku, asistent, lokální modely), proto běží
 dál na tomhle počítači a veřejnou adresu jí dá tunel. Skript je návod, který se dá spustit:
 
   1. ověří `cloudflared`,

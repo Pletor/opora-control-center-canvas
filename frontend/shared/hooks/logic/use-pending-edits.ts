@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { hasSaveParticipant, notifySaveParticipants, trackSaveWrite } from "./save-coordinator";
+import { api } from "@/shared/types/logic/types";
 
 /**
  * Jedna evidence rozepsané editace pro bloky uzlu i deník.
@@ -57,6 +59,7 @@ export function writePendingEdit(scope: string, edit: PendingEdit) {
   const all = readAll();
   all[scope] = edit;
   writeAll(all);
+  notifySaveParticipants();
 }
 
 export function clearPendingEdit(scope: string, expected?: PendingEdit) {
@@ -64,10 +67,43 @@ export function clearPendingEdit(scope: string, expected?: PendingEdit) {
   if (expected && current && (current.text !== expected.text || current.revision !== expected.revision)) return;
   memory.delete(scope);
   const all = readAll();
-  if (!(scope in all)) return;
+  if (!(scope in all)) { notifySaveParticipants(); return; }
   delete all[scope];
   writeAll(all);
+  notifySaveParticipants();
 }
+
+/** Saved drafts from unmounted editors remain visible to the central save control. */
+export function pendingEditsInScope(project: string, workspace: string) {
+  const all = { ...Object.fromEntries(memory), ...readAll() };
+  return Object.entries(all).filter(([key]) => { try { const [, p, w] = JSON.parse(key); return p === project && w === workspace; } catch { return false; } });
+}
+
+const pendingWrites = new Map<string, Promise<unknown>>();
+export const pendingEditSaving = (scope: string) => pendingWrites.has(scope);
+/** The same per-content CAS writer serves visible editors and drafts whose view was closed. */
+export async function persistPendingEdit<T extends { revision: number }>(scope: string): Promise<T | null> {
+  while (pendingWrites.has(scope)) { await pendingWrites.get(scope); if (!readPendingEdit(scope)) return null; }
+  const edit = readPendingEdit(scope); if (!edit) return null;
+  const [kind, project, workspace, node, day] = JSON.parse(scope) as string[];
+  const write = (async () => {
+    let value: T;
+    if (kind === "node-text" || kind === "node-journal") value = await api<T>(kind === "node-text" ? "/api/node-text" : "/api/node-journal", { project, workspace, node, ...(day ? { day } : {}), text: edit.text, expected_revision: edit.revision });
+    else if (kind === "workspace-document") {
+      const draft = JSON.parse(edit.text);
+      const saved = await api<{ nodeId: string | null }>("/api/workspace/document?" + new URLSearchParams({ project, workspace, path: node }));
+      value = await api<T>("/api/workspace/document", { project, workspace, path: node, nodeId: saved.nodeId, fields: draft.fields ?? draft, expectedRevision: edit.revision, ...(!node ? { expectedSettingsRevision: draft.settingsRevision ?? -1 } : {}) });
+    } else throw new Error("Rozepsaný obsah vyžaduje otevření původního editoru.");
+    const current = readPendingEdit(scope);
+    if (current && current.text !== edit.text) writePendingEdit(scope, { ...current, revision: value.revision });
+    else clearPendingEdit(scope, edit);
+    return value;
+  })();
+  const tracked = trackSaveWrite(project, workspace, write); pendingWrites.set(scope, tracked); notifySaveParticipants();
+  try { return await tracked; } finally { if (pendingWrites.get(scope) === tracked) pendingWrites.delete(scope); notifySaveParticipants(); }
+}
+export const orphanedPendingEdits = (project: string, workspace: string) => pendingEditsInScope(project, workspace).filter(([key]) => !hasSaveParticipant(key));
+export async function flushOrphanedPendingEdits(project: string, workspace: string) { for (const [key] of orphanedPendingEdits(project, workspace)) await persistPendingEdit(key); }
 
 /**
  * Odchod z uzlu/režimu i zavření karty se pokusí čekající uložení dopsat.

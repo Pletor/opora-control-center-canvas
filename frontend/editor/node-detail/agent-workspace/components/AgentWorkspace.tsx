@@ -9,6 +9,7 @@
 // rozloženích: „stack“ je dnešní sloupec do inspektoru, „segments“ rozprostře tytéž celky po ploše
 // Agenti — tam rozbalení nedrží prostor, ale deska nad ním.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSaveParticipant } from "@/shared/hooks/logic/save-coordinator";
 import {
   SECTIONS,
   clampSection,
@@ -80,6 +81,12 @@ export default function AgentWorkspace({
   const segments = layout === "segments";
   const [drafts, setDrafts] = useState<AgentWorkspaceSections>(() => sectionValues(record));
   const baseline = useRef<AgentWorkspaceSections>(sectionValues(record));
+  const currentDrafts = useRef(drafts); currentDrafts.current = drafts;
+  const dirty = SECTIONS.some(({ key }) => drafts[key] !== record[key]);
+  useSaveParticipant({ id: JSON.stringify(["agent-workspace", project, workspace, nodeId]), project, workspace, label: "Pracovní prostor agenta " + nodeId, dirty,
+    isDirty: () => SECTIONS.some(({ key }) => currentDrafts.current[key] !== baseline.current[key]),
+    blocked: disabled && dirty ? "Pracovní prostor je pouze ke čtení nebo se načítá." : undefined,
+    flush: async () => { const changes: Partial<AgentWorkspaceSections> = {}; for (const { key } of SECTIONS) if (currentDrafts.current[key] !== baseline.current[key]) changes[key] = currentDrafts.current[key]; await save(changes); } });
   const [localOpen, setLocalOpen] = useState<Record<SectionKey, boolean>>(() => sectionsOpenByDefault(record));
   const [copied, setCopied] = useState<SectionKey | null>(null);
   const copiedTimer = useRef<number | null>(null);
@@ -121,7 +128,7 @@ export default function AgentWorkspace({
 
   function blur(key: SectionKey) {
     if (disabled || drafts[key] === baseline.current[key]) return;
-    void save({ [key]: drafts[key] });
+    void save({ [key]: drafts[key] }).catch(() => {});
   }
 
   function toggleSection(key: SectionKey, isOpen: boolean) {

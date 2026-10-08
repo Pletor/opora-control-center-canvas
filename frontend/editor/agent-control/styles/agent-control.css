@@ -1,20 +1,24 @@
-/* Hook control is a truthful, narrow operational panel: compact forms make scope explicit,
-   while the event timeline stays below its matching binding so generated settings never look like
-   a running process. It uses the right-panel rhythm and only its own BEM block. */
+/* Záložka Kód je úzký pracovní panel vpravo: dva krátké formuláře pod sebou, nejdřív LSP,
+   protože ten odpovídá přesně, a pod ním lokální sémantické dohledání jako záloha. Výsledek
+   leží hned pod svým dotazem, aby bylo jasné, na co odpovídá. Panel drží rytmus pravého
+   panelu a stylizuje jen svůj BEM blok.
+   Pod kódem leží Hook control vybrané karty: krátký formulář dělá rozsah výslovným a časová osa
+   událostí visí pod svým připojením, aby vygenerované nastavení nikdy nevypadalo jako běžící proces. */
 .agent-control { flex: 1; min-height: 0; overflow: auto; padding: 12px; color: var(--ink); }
 .agent-control__note, .agent-control__warning, .agent-control__error, .agent-control__meta, .agent-control__result { margin: 0 0 8px; overflow-wrap: anywhere; }
 .agent-control__note, .agent-control__meta { color: var(--ink-muted); font-size: 12px; line-height: 1.45; }
 .agent-control__warning { color: var(--gold); font-size: 12px; line-height: 1.45; }
 .agent-control__error { color: var(--danger); font-size: 12px; line-height: 1.45; }
 .agent-control__heading { margin: 14px 0 8px; font-size: 13px; }
-.agent-control__form, .agent-control__lsp, .agent-control__generated, .agent-control__bindings { border-top: 1px solid var(--line); }
+.agent-control__lsp, .agent-control__hook, .agent-control__form, .agent-control__generated, .agent-control__bindings { border-top: 1px solid var(--line); }
+.agent-control__hook { margin-top: 16px; padding-top: 4px; }
 .agent-control__field { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; color: var(--ink-2); font-size: 12px; }
 .agent-control__field input, .agent-control__field textarea, .agent-control__query input, .agent-control__query select { box-sizing: border-box; width: 100%; min-height: 30px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--field); color: var(--ink); padding: 5px 7px; }
-.agent-control__limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.agent-control__check { display: flex; gap: 7px; margin: 8px 0; color: var(--ink-2); font-size: 12px; line-height: 1.35; }
 .agent-control__button { min-height: 30px; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: transparent; color: var(--ink-2); cursor: pointer; font-size: 12px; }
 .agent-control__button:hover:not(:disabled) { border-color: var(--accent-line); color: var(--accent); }
 .agent-control__button:disabled { cursor: not-allowed; opacity: .55; }
+.agent-control__limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.agent-control__check { display: flex; gap: 7px; margin: 8px 0; color: var(--ink-2); font-size: 12px; line-height: 1.35; }
 .agent-control__button--primary { width: 100%; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .agent-control__button--danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
 .agent-control__generated { display: flex; flex-direction: column; gap: 6px; padding: 0 0 10px; }

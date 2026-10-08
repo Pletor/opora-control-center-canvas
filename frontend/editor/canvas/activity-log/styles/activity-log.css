@@ -1,0 +1,270 @@
+/* ZÁZNAM ČINNOSTI V LIŠTĚ (blok `activity-log`)
+   Příběh: vedle Historie uložení stojí druhá otázka „kdo tu co dělal“. Ikonka je čtvercová a tichá
+   jako historie, protože záznam se jen čte; panel se otevírá pod ní u pravého okraje, takže plátno
+   zůstane vidět a kliknutí na kartu v záznamu ji ukáže hned vedle. */
+.activity-log {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.activity-log__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--v3-btn-h, 30px);
+  padding-inline: 0;
+}
+
+/* PANEL (prvek `activity-log__panel`)
+   Příběh: úzký sloupec čtený shora dolů — kdo (záložka), čeho se to týká (filtr karty), co a kdy
+   (seznam po dnech). Posouvá se jen seznam; hlavička a záložky stojí, aby počty byly pořád vidět. */
+.activity-log__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(72vh, 620px);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+}
+.activity-log__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 4px;
+}
+.activity-log__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.activity-log__close {
+  display: inline-flex;
+  min-height: 0;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+}
+
+/* Záložky Já / Agenti: postava v barvě člověka (teal), robot v barvě agentů — stejné barvy jako
+   žeton „kdo naposledy psal“ v souhrnu práce agentů, takže se aktér pozná dřív, než se čte. Číslo
+   říká, kolik zápisů je načteno („+“ = jsou starší); červené číslo s křížkem jen tehdy, když něco
+   selhalo. Aktivní záložka má spodní linku v barvě aktéra. */
+.activity-log__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.activity-log__tab {
+  --c: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+.activity-log__tab--human { --c: var(--accent); }
+.activity-log__tab--agent { --c: var(--cat-agents); }
+.activity-log__tab--active {
+  color: var(--c);
+  border-bottom-color: var(--c);
+}
+.activity-log__count {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.activity-log__count--failed {
+  gap: 2px;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Filtr karty je přepínač v jednom řádku: zapnutý svítí jako ostatní aktivní filtry (accent-soft)
+   a nese jméno karty, aby bylo jasné, proč je seznam kratší. */
+.activity-log__filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 12px 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-2);
+  font-size: 12px;
+  text-align: left;
+}
+.activity-log__filter--active {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.activity-log__filter-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-log__error {
+  margin: 8px 12px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* Seznam po dnech: nadpis dne je tichý verzálkový štítek s počtem, pod ním řádky. */
+.activity-log__scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 4px 6px 8px;
+  overflow-y: auto;
+}
+.activity-log__empty {
+  margin: 0;
+  padding: 12px 8px;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.activity-log__day-title {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 6px 2px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.activity-log__day-count {
+  font-variant-numeric: tabular-nums;
+}
+.activity-log__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Řádek zápisu: čas vlevo v tabulkových číslicích (sloupec se dá přejet okem), uprostřed co se
+   stalo, vpravo tichý status. Proužek na levé hraně má barvu aktéra; selhaný zápis ho přebarví
+   na červenou a status řekne „selhalo“ slovy — chyba je jediné, co má na první pohled vyčnívat. */
+.activity-log__row {
+  --c: var(--accent);
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 6px 8px;
+  border-left: 3px solid color-mix(in srgb, var(--c) 45%, transparent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.activity-log__row:hover { background: var(--surface-2); }
+.activity-log__row--agent { --c: var(--cat-agents); }
+.activity-log__row--failed {
+  --c: var(--danger);
+  background: var(--danger-soft);
+}
+.activity-log__time {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.activity-log__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.activity-log__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Žeton agenta: robot a jméno v barvě agentů, stejný tvar jako žeton práce v souhrnu. */
+.activity-log__agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 140px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cat-agents) var(--cat-soft), transparent);
+  color: var(--cat-agents);
+  font-size: 11px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-log__action {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.activity-log__detail {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+/* Karty zápisu jsou malé odkazy: klik otevře kartu na plátně. Karta, která v grafu už není,
+   zůstane jen tichým ID bez podtržení, protože není kam skočit. */
+.activity-log__nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.activity-log__node {
+  min-height: 0;
+  max-width: 100%;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-log__node--missing {
+  color: var(--ink-muted);
+  border-style: dashed;
+}
+.activity-log__status {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.activity-log__status--failed {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* Načíst starší: celá šířka pod seznamem, protože starší zápisy pokračují právě tam. */
+.activity-log__older {
+  width: 100%;
+  margin-top: 8px;
+}

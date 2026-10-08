@@ -1,1 +1,0 @@
-Pro asistenta v aplikaci nepoužitelné: je to prompt pro Claude Code, který mění kód aplikace OPORA (React, FastAPI, testy); asistent kód OPORA nemění. Kontrakt karty čti v `docs/karta-pro-agenty.md` a přes `node-brief --raw`.

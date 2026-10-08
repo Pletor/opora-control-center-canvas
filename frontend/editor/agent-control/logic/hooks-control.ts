@@ -1,3 +1,5 @@
+import type { Scope } from "./code-query";
+
 export type HookState = "active" | "paused" | "stopped";
 
 export type HookBinding = {
@@ -36,16 +38,6 @@ export type HookEvent = {
   taskRevision: number;
 };
 
-export type Scope = { project: string; workspace: string; nodeId: string | null };
-
-export function currentScope(project: string, workspace: string, nodeId: string | null): Scope {
-  return { project, workspace, nodeId };
-}
-
-export function isFreshScope(expected: Scope, actual: Scope): boolean {
-  return expected.project === actual.project && expected.workspace === actual.workspace && expected.nodeId === actual.nodeId;
-}
-
 /** A server binding is actionable only in the exact card scope that returned it. */
 export function isBindingInScope(binding: Pick<HookBinding, "project" | "workspace" | "nodeId">, scope: Scope): boolean {
   return scope.nodeId !== null && binding.project === scope.project && binding.workspace === scope.workspace && binding.nodeId === scope.nodeId;
@@ -72,13 +64,4 @@ export function canControlBinding(
 ): boolean {
   if (binding.state === "stopped") return false;
   return !readOnly || (binding.hookObserved && action !== "resume");
-}
-
-export function lspProviderLabel(status: "configured" | "unavailable"): string {
-  return status === "configured" ? "nakonfigurováno" : "nedostupné";
-}
-
-/** React key of one panel part for one card. Each part needs its own prefix: siblings sharing a key are duplicated on every render. */
-export function scopeKey(part: "form" | "lsp" | "semantic", scope: Scope): string {
-  return `${part}:${scope.project}:${scope.workspace}:${scope.nodeId ?? ""}`;
 }

@@ -4,7 +4,7 @@ a vazba `block` míří na blok a port zdroje — z dávky podle refů, u existu
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref
 
 BLOCK_FIELDS = {"ref", "title", "text", "condition", "ports"}
-PORT_FIELDS = {"ref", "label"}
+PORT_FIELDS = {"ref", "label", "status", "reason", "onMet"}
 EDGE_FIELDS = {"from", "to", "port", "block", "blockPort"}
 NO_BRANCH = {"kind": "none", "targetId": "", "note": ""}
 
@@ -23,7 +23,8 @@ def blocks_of(built, ref, node_id, items):
         for port_index, port in enumerate(items_of(item.get("ports", []), label, "ports")):
             fields(port, PORT_FIELDS, {"ref"}, f"{label}.ports[{port_index}]")
             # Id portu je jeho `ref`: unikátní jen uvnitř bloku a volající ho zná bez odpovědi.
-            ports.append({"id": plan_ref(port["ref"], f"{label}.ports[{port_index}]"), "label": port.get("label", "")})
+            ports.append({"id": plan_ref(port["ref"], f"{label}.ports[{port_index}]"), "label": port.get("label", ""),
+                          **{key: port[key] for key in ("status", "reason", "onMet") if key in port}})
         blocks.append({
             "id": block_id, "number": str(index + 1), "title": item["title"], "text": item.get("text", ""),
             "tags": [], "todos": [], "images": [],
@@ -54,7 +55,7 @@ def _source_port(built, source, item, label):
     if source in built.labels and built.labels[source] in built.refs:
         block_id = built.blocks.get(f"{built.labels[source]}/{item['block']}")
     else:
-        block_id = item["block"]
+        block_id = built.blocks.get(f"@{source}/{item['block']}", item["block"])
     blocks = built.state["nodes"].get(source, {}).get("blocks", [])
     block = next((entry for entry in blocks if entry["id"] == block_id), None)
     if block is None:

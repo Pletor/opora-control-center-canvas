@@ -57,10 +57,10 @@ claude -p
     nodeId: string | null }   // karta, ke které session patří (volitelné)
   ```
 
-- Historie se neduplikuje. Čte se z přepisu Claude Code `~/.claude/projects/<cwd>/<claudeSessionId>.jsonl` vlastním parserem `backend/claude_code/assistant/transcript.py`. Parser z `node_session_sources.py` vrací souhrny aktivity, ne texty zpráv. Přepis nese jen texty uživatele a asistenta, řádky nástrojů jsou jen v živých událostech.
+- Historie se neduplikuje. Čte se z přepisu Claude Code `~/.claude/projects/<cwd>/<claudeSessionId>.jsonl` vlastním parserem `backend/claude_code/assistant/transcript.py`. Přepis nese jen texty uživatele a asistenta, řádky nástrojů jsou jen v živých událostech.
 - „Nová session“ znamená nový proces bez `--resume`. Každá session je samostatný úkol a session si navzájem nesdílejí kontext.
 - Session patří k projektu (podle cwd). Rozhraní je pro všechny projekty stejné.
-- Navázání na kartu se provede přes `POST /api/node-sessions/bind` (`source: "claude"`). Je to fáze 3.
+- Navázání session na kartu je fáze 3. Dřívější vazba přes `/api/node-sessions` zanikla spolu s Live Runem, takže se musí navrhnout znovu.
 
 ## 5. Oprávnění
 
@@ -86,7 +86,7 @@ claude -p
 - Dotaz mimo `ALLOWED_TOOLS` jde přes `--permission-prompt-tool stdio` jako `control_request` `can_use_tool` přímo backendu (`approvals.py`, §5.1), bez MCP serveru. Backend ho drží v knize schválení a čeká na rozhodnutí v UI.
   - Bez odpovědi do 10 min platí zamítnutí.
   - Odpověď je `{"behavior": "allow", "updatedInput": …}` nebo `{"behavior": "deny", "message": …}`.
-- Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST z receptů v `.claude/skills/opora-control-center/references/api.md`. Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
+- Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST podle referencí skillu `.claude/skills/opora-control-center/references/` (`api.md` cesty a payloady, `canvas-plan.md` dávky, `agent-loop.md` výstup agenta, `pipeline.md` router). Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
 - Změny v kódu projektu (`Edit`/`Write`/libovolný `Bash`) asistent nedělá. To je práce agenta, který dostane kartu.
 - Jediná výjimka je **koncept zápisu** ([davka-planu.md](davka-planu.md) §2): `Write` souboru `*.json` do adresáře konceptů vlastní session `<data>/assistant-drafts/<sessionId>/` (mimo repo projektu, v datech Opory mimo git). Koncept nic nemění; mění až zápis na plátno, který schvaluje člověk.
 
@@ -129,7 +129,7 @@ claude -p
 - Ke každé zprávě UI přiloží, na co se uživatel dívá:
 
   ```
-  { projectId, workspace, layerId, selectedNodeIds[], environment: "project"|"editor"|"live" }
+  { projectId, workspace, layerId, selectedNodeIds[], environment: "project"|"editor"|"hub" }
   ```
 
   Backend kontext vloží před text zprávy jako `<opora_context>…</opora_context>`. Je to údaj, ne pokyn. Zpráva začínající `/` (lomítkový příkaz) má kontext až za textem, aby ji CLI rozpoznalo jako příkaz.
@@ -191,7 +191,7 @@ Události SSE (`{seq, type, …}`):
 
 Backend drží posledních 2000 událostí session v paměti. Starší historie se čte z přepisu.
 
-Všechny `/api/assistant/*` jsou **jen pro loopback**. Přes tunel ([vzdaleny-pristup.md](vzdaleny-pristup.md)) vrací 403 i s tokenem, stejně jako `/api/agent-hooks/event`. Kdo má URL tunelu, nesmí ovládat agenta na tomto počítači.
+Všechny `/api/assistant/*` jsou **jen pro loopback**. Přes tunel ([vzdaleny-pristup.md](vzdaleny-pristup.md)) vrací 403 i s tokenem, chybou „Tohle běží jen na tomto počítači.“ (totéž platí pro `/api/rlm*`), stejně jako `/api/agent-hooks/event`. Kdo má URL tunelu, nesmí ovládat agenta na tomto počítači.
 
 ## 9. UI (`frontend/layout/assistant-panel/`)
 
@@ -285,7 +285,7 @@ Když `status.available` je `false`, panel řekne, že `claude` není nainstalov
 | 0 | Ověření | Ruční běh `claude -p` se stream-json pod předplatným potvrdí tvar událostí, `--include-partial-messages`, vzor `Bash(...)` v `--allowedTools` a `--resume` s novou zprávou. Výsledek se zapíše sem do §11 |
 | 1 | Čti a naváděj | Tlačítko, panel, víc session, SSE, `--resume`, kontext plátna, skilly. Žádný zápis. Testy: `pytest` správce session (falešný proces), `assistant-events.test.ts`. `uv run pytest backend`, `npm test`, `npm run build` |
 | 2 | Zápis se schválením | **Postaveno 2026-10-02** podle §5.1 (bez MCP, `--permission-prompt-tool stdio`): `opora_write.py` s testem, `approvals.py` + `approval_book.py`, `initialize` po startu, `approval` / `approval_resolved`, `waiting_approval`, zamítnutí po 10 min, `POST /api/assistant/approvals/{id}`, `ApprovalCard` a „Čeká na vás“. Testy (falešné CLI): zamítnutý zápis nic nezmění, allow vrátí původní input, timeout zamítne, `Edit` zamítne backend bez UI, dvojí rozhodnutí 409, 409 skriptu = `conflict` a kód 3. **Živě ověřeno 2026-10-02:** povolený `/api/node-spec` se objevil na kartě (revize 0 → 1) a 409 vede k novému čtení |
-| 3 | Session na kartě | `nodeId` v registru, `node-sessions/bind`, otevření session z karty |
+| 3 | Session na kartě | `nodeId` v registru, vazba session ↔ karta (nový návrh), otevření session z karty |
 
 Další fáze se staví, až předchozí ukáže skutečnou potřebu.
 

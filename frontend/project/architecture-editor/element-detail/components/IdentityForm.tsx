@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import type { CanvasNode } from "@/shared/types/logic/types";
 
 type Props = {
@@ -18,6 +19,11 @@ export default function IdentityForm({ node, disabled, onIdentity }: Props) {
   const [error, setError] = useState("");
   const dirty = name !== node.name || purpose !== node.purpose;
   const locked = disabled || saving;
+  const changed = useRef(dirty); changed.current = dirty;
+  useScopedSaveParticipant({ id: `architecture-identity:${node.id}`, label: `Název a účel: ${node.name}`,
+    dirty, pending: saving, isDirty: () => changed.current,
+    blocked: disabled ? "Prvek nyní nelze upravovat." : undefined,
+    flush: () => confirmSavedChange(() => onIdentity(node, name, purpose), () => changed.current) });
 
   async function save() {
     if (!dirty || locked) return;

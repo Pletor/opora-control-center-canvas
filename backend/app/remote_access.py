@@ -1,6 +1,6 @@
 """Vzdálený přístup přes tunel: kdo smí mluvit s API, když Host není loopback.
 
-Aplikace zůstává na tomto počítači (SQLite, data na disku, Hook control, lokální modely).
+Aplikace zůstává na tomto počítači (SQLite, data na disku, asistent, lokální modely).
 Ven ji pouští jen tunel — Cloudflare quick tunnel míří na `http://127.0.0.1:8740` a dává
 náhodnou adresu `https://<jméno>.trycloudflare.com`. Tenhle modul je jediné místo, které
 rozhoduje, jestli je takový požadavek povolený, a drží i malý router `/api/access/*`,
@@ -18,14 +18,16 @@ import os
 COOKIE_NAME = "opora_access"
 MIN_TOKEN_LENGTH = 24
 TOKEN_REQUIRED = "Přístup vyžaduje token."
-# Hooky běží na tomto počítači: událost i ACK mluví do živého agenta tady a rozhodují,
-# jestli smí sáhnout na soubory. Z veřejného hosta je nepustíme ani s platným tokenem —
-# token otevírá aplikaci, ne řízení procesů na tomto stroji.
-LOOPBACK_ONLY_PATHS = frozenset({"/api/agent-hooks/event", "/api/agent-hooks/ack"})
 # Asistent spouští Claude Code na tomto počítači; kdo má URL tunelu, nesmí ho ovládat.
+# Token otevírá aplikaci, ne řízení procesů na tomto stroji.
 ASSISTANT_PREFIX = "/api/assistant"
 # Řazení pro asistenta volá placené API (Jev) klíčem aplikace; zvenčí ne (docs/asistent.md §13.3).
 RLM_PREFIX = "/api/rlm"
+# Otevření souboru spouští VS Code / os.startfile na tomto stroji; přes tunel ne (upgrade-opora #42).
+OPEN_FILE_PATH = "/api/workspace/open-file"
+# Hooky běží na tomto počítači: událost i ACK mluví do živého agenta tady a rozhodují,
+# jestli smí sáhnout na soubory. Z veřejného hosta je nepustíme ani s platným tokenem.
+LOOPBACK_ONLY_PATHS = frozenset({"/api/agent-hooks/event", "/api/agent-hooks/ack"})
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
 OPEN_PATHS = frozenset({"/api/access/status", "/api/access/login", "/api/access/logout"})
 
@@ -81,7 +83,7 @@ def bearer_token(authorization):
 
 def is_loopback_only(path):
     return path in LOOPBACK_ONLY_PATHS or any(
-        path == prefix or path.startswith(prefix + "/") for prefix in (ASSISTANT_PREFIX, RLM_PREFIX))
+        path == prefix or path.startswith(prefix + "/") for prefix in (ASSISTANT_PREFIX, RLM_PREFIX, OPEN_FILE_PATH))
 
 
 def requires_token(path):

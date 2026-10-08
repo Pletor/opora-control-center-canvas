@@ -229,3 +229,45 @@ Rozšíření plánu: `.hermes/plans/2026-09-16_092217-agent-communication-works
 Orientace nového agenta je nyní aditivně v `node-brief.orientation` a skutečné stránky zpráv v `node-brief.communication`. V Text → Agenti je zobrazuje Start pro nového agenta: pořadí čtení, zdroje, mezery, volitelný kontext, doporučený krok, hledání v načteném kontextu a kopie úplného JSON. Praktický vstupní návod je `docs/agent-onboarding.md`. Paměť, kterou read-only pohled nezpřístupňuje, je `unavailable`, nikoli údajně chybějící; GET nic nepotvrzuje ani nemění.
 
 Samostatné kroky další implementace: vazba na ověřený runtime/scope, atomický převod vlastnictví, bohatší checkpointy a řízená obnova. Není dovoleno je vykazovat jako hotové jen proto, že funguje zpráva a receipt. Důkazy komunikace jsou v `.hermes/communication-v1/`, orientace a jejího nasazení v `.hermes/agent-orientation-v1/`. Vizuální průchod se ověřuje odděleně od testů a HTTP.
+
+## Pipeline karty (port „pipeline“)
+
+Proces karty je autonomní. ROUTER (orchestrátor, LLM na začátku) určí každé kartě pipeline a každou
+etapu dělá **vlastní nová relace** agenta (karta + jedna etapa), ne jedna dlouhá relace. Proto
+proces drží server (`backend/editor/agent_memory/card_pipeline.py`, `pipeline_routing.py`).
+Člověk jen sleduje a jedním klikem přepne profil (čipy v bloku Pipeline).
+
+Stav uzlu `stages = {profile, items, routedBy, reason}`; etapa
+`{id, kind: work|test|review|fix|critic, lens: ""|user|sly|hacker, title, brief, status, note, by, approved, doneBy, at, retryOf?}`.
+
+**Router**
+- `GET /api/desktop-v3/frontier`: `needsRouting` = otevřené karty bez pipeline; každý řádek karty nese
+  `pipeline {routed, profile, current {id, kind, lens, title}, finished, total, stuck}`.
+- `GET /api/desktop-v3/pipeline-profiles`: šablony profilů goal, code, design, security, testing, research, custom (jediný zdroj pravdy).
+- `POST /api/desktop-v3/pipeline` `{project, workspace, nodeId, expectedRevision, op: route|add, reason, profile?, stages?[{kind, lens, title, brief}]}`.
+  `route` sestaví pipeline ze šablony (+ etapy navíc), `add` vloží etapy za rozpracovanou část.
+
+**Pravomoci (aditivní = autonomní, ubírající = člověk)**
+- Agent etapy přidává kdykoli (platí hned). Profil přestaví, jen dokud je vše `todo` a pipeline nesestavil člověk.
+- Odebrat, přeskládat, upravit definici a přeskočit (`skipped`) smí jen člověk (agent 403, i přes `/state`).
+- Podlaha pipeline od routeru: `review` + kritik `hacker`; karta `[task]` nebo s `checks` i `test`. Jinak 409 s výčtem.
+
+**Relace na etapě**: `frontier` → lease claim → `node-brief` (`pipeline.current`, předávky = `note` předchozích etap)
+→ práce → `agent-output.output.stages [{id, status: doing|passed|failed, note}]` → release.
+- `passed`/`failed` nese neprázdné `note` (předávka další relaci).
+- Pořadí: etapu lze nahlásit, až když předchozí byly zkusené (ne `todo`/`doing`).
+- Nezávislost: `review` a `critic` neuzavře relace (jméno agenta), která uzavřela `work`/`fix`.
+- GOAL: `test` na kartě `goal_mode: until_checks_pass` projde jen se zelenými `evidence.checksRun`.
+- Selhaný `test`/`critic` sám vloží `fix` a opakování (`retryOf`); po 3 smyčkách pipeline čeká na člověka
+  (`pipeline.stuck`, `loop.waitingOnHuman`, frontier `waiting`).
+- Uzavření karty (člověk i autonomie) jen když je každá etapa `passed`, člověkem `skipped`, nebo ji nahradilo úspěšné opakování.
+
+## Kontrolní pás karty
+
+Deset polí ano / ne: `goal, done, text, blocks, links, source, checks, pipeline, evidence, handoff`, stav
+`yes` (je) / `no` (chybí) / `run` (rozpracováno) / `fail` (selhalo nebo čeká na člověka) a `hint` (co doplnit a kam).
+Jeden výpočet (`backend/editor/agent_packet/card_checklist.py`) pro plátno (pás pod hlavičkou karty, souhrn
+oblasti), `GET /api/desktop-v3/card-checklist?layer=`, `node-brief.checklist` a `frontier` (`missing` = klíče,
+které nejsou `yes`). Relace začne tím, co chybí, a na konci ověří, že po jejím výstupu pole zezelenala.
+Obálka na vazbě mezi kartami ukazuje předávku: „předáno“ = `state.edges[id].handoff`, „chybí“ = zdroj je hotový bez zprávy.
+

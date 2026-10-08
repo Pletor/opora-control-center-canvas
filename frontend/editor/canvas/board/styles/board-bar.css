@@ -1,0 +1,67 @@
+/* LIŠTA PLÁTNA: jedna neprůhledná řada čipů vpravo nahoře (zadání stránky, mapa architektury, Teď se děje,
+   autonomie, brána, ke schválení, frontier). Čip je souhrn na první pohled; klik otevře panel pod ním, který kreslí vlastní plné pozadí
+   a stín, takže se nemíchá s kartami pod sebou. Lišta sama karty nepřekrývá víc než o jeden řádek. */
+.board-bar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 5px 6px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+.board-bar__pop { position: relative; }
+.board-bar__pop > summary { list-style: none; }
+.board-bar__pop > summary::-webkit-details-marker { display: none; }
+.board-bar__chip,
+.board-bar > button,
+.board-bar__gate select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-3);
+  color: var(--ink);
+  font: 500 12px var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.board-bar__chip--on { border-color: #22c55e; color: #22c55e; }
+.board-bar__chip--warn { border-color: #f59e0b; color: #f59e0b; }
+.board-bar > button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.board-bar__gate { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--font); color: var(--ink-muted); }
+.board-bar__gate select { max-width: 220px; }
+.board-bar__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(440px, 80vw);
+  max-height: 60vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.board-bar__panel p { margin: 0 0 8px; }
+.board-bar__presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.board-bar__presets button,
+.board-bar__off { min-height: 32px; padding: 4px 12px; border-radius: 8px; cursor: pointer; }
+.board-bar__off { border-color: var(--danger); color: var(--danger); }
+.board-bar__muted { color: var(--ink-muted); font-size: 12px; }

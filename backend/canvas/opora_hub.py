@@ -12,7 +12,8 @@ import json
 import re
 from datetime import UTC, datetime, timedelta
 
-from backend.canvas.graph import digest as graph_digest, valid_id
+from backend.canvas.graph import digest as graph_digest
+from backend.canvas.graph import valid_id
 from backend.canvas.opora_hub_store import OporaHubStore, content_id
 
 AUTHORS = ("human", "orchestrator", "agent")

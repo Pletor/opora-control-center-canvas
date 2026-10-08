@@ -1,0 +1,40 @@
+/* PROSTŘEDÍ OPORAHUB (blok `oporahub-workspace`)
+   Příběh: po Alt+3 uživatel nevidí plátno, ale klidnou stránku, která se čte shora dolů jako
+   zpráva o stavu. Nahoře jméno prostředí a jedna věta, proč existuje — pravda je v GitHubu a hub
+   jen drží plán s kódem v souladu. Pod ní celkový pohled na proces přes celou šířku rámu, aby
+   tabulka rozsahů měla místo a dlouhá stránka se posouvala uvnitř, ne celé okno. */
+.oporahub-workspace {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* Hlava je krátká: titulek a podtitul pod sebou, podtitul tiše, aby neodváděl od čísel pod ním. */
+.oporahub-workspace__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.oporahub-workspace__title {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 700;
+}
+.oporahub-workspace__lead {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-2);
+}
+
+/* Tělo nese složené dílky; dnes jen dashboard procesu, další přibudou pod něj. */
+.oporahub-workspace__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}

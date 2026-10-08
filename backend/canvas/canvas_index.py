@@ -13,8 +13,8 @@ při každém volání z grafu a stavu plochy (graf má nejvýše 2000 uzlů) a 
 import re
 
 from backend.canvas.card_context import (
-    card_address,
     LAYER_LABELS,
+    card_address,
     card_chain,
     card_layer,
     effective_status,

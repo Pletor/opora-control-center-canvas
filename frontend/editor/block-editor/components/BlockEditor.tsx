@@ -1,6 +1,7 @@
 // Editor jednoho bloku v levé zásuvce: název, popis, porty, stav a větvení, štítky, checklist, obrázky
 // a podbloky. Dílek nic neukládá; každá změna bublá nahoru přes `events`, ukládá rodič (App / NodeTree).
 import { useEffect, useState } from "react";
+import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import { blockPorts, type Block } from "@/shared/desktop-state/logic/types";
 import type { BranchTarget } from "@/editor/node-detail/tree/logic/tree-model";
 import type { BlockEditorEvents } from "@/editor/block-editor/logic/block-events";
@@ -31,6 +32,9 @@ export default function BlockEditor({
 }) {
   const [title, setTitle] = useState(block.title);
   const [text, setText] = useState(block.text);
+  useScopedSaveParticipant({ id: `block-editor:${node.id}:${block.id}`, label: `Blok ${block.number}: ${block.title}`,
+    dirty: title !== block.title || text !== block.text,
+    blocked: "Dokončete název nebo popis bloku a vyčkejte na jeho uložení." });
   useEffect(() => setTitle(block.title), [block.title]);
   useEffect(() => setText(block.text), [block.text]);
   return (

@@ -33,7 +33,7 @@ starý vybraný uzel ani dřívější odpověď nepřenášej do nového kontex
 ## Přímé odkazy
 
 Odkaz do aplikace vrací `opora_read.py view` v poli `links` (pro `project`,
-`editor`, `live`), tvar `/?screen=canvas&project=ID&workspace=<workspace>&environment=editor&mode=structure`.
+`editor`, `hub`), tvar `/?screen=canvas&project=ID&workspace=<workspace>&environment=editor&mode=structure`.
 Neskládej ho ručně z názvu projektu.
 
 Filtrace stromu není mazání. Skryté/ignorované soubory nepřidávej automaticky

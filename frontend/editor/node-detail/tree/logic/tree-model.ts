@@ -155,6 +155,20 @@ export const renameBlockPort = (nodeId: string, blockId: string, portId: string,
 export const removeBlockPort = (nodeId: string, blockId: string, portId: string) =>
   updateBlockWith(nodeId, blockId, (b) => ({ ports: blockPorts(b).filter((p) => p.id !== portId) }));
 
+export const setPortSpawn = (nodeId: string, blockId: string, portId: string, action: BlockPortDef["onMet"]) =>
+  updateBlockWith(nodeId, blockId, b => ({ ports: blockPorts(b).map(p => {
+    if (p.id !== portId) return p;
+    const { onMet: _previous, ...base } = p;
+    return action ? { ...base, onMet: action } : base;
+  }) }));
+
+export const decideBlockPort = (nodeId: string, blockId: string, portId: string, status: "chosen" | "rejected" | "", reason: string) =>
+  updateBlockWith(nodeId, blockId, (b) => ({ ports: blockPorts(b).map(p => {
+    if (p.id !== portId || (status && !reason.trim())) return p;
+    const { status: _status, reason: _reason, ...base } = p;
+    return status ? { ...base, status, reason: reason.trim() } : base;
+  }) }));
+
 /**
  * Uzavření karty: člověk potvrzuje (`by: "human"`), agent smí jen navrhnout (`by: "agent", confirmed: false`).
  * Čas se razítkuje teď, pokud ho volající nedodá; ostatní pole zůstávají z předchozího stavu.

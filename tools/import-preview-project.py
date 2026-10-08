@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from backend.canvas.migrate_to_project_folders import migrate  # noqa: E402
+from backend.canvas.migrate_to_project_folders import migrate
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--project", required=True, help="ID projektu v náhledové databázi")

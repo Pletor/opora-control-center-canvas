@@ -69,7 +69,9 @@ export type IconName =
   | "mail"
   | "play"
   | "filter"
-  | "arrow-up-down";
+  | "arrow-up-down"
+  // Záznam činnosti v horní liště
+  | "activity";
 
 /** Cesta každé ikony na plátně 24×24, stopa zvenčí (`stroke`), nikdy výplň. */
 export const ICON_PATHS: Record<IconName, string> = {
@@ -196,6 +198,8 @@ export const ICON_PATHS: Record<IconName, string> = {
   filter: "M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
   /** Dvě šipky proti sobě: řazení. */
   "arrow-up-down": "M21 16l-4 4-4-4 M17 20V4 M3 8l4-4 4 4 M7 4v16",
+  /** Puls: záznam činnosti (kdo co kdy zapsal). */
+  activity: "M22 12h-4l-3 9L9 3l-3 9H2",
 };
 
 /**

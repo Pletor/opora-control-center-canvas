@@ -33,7 +33,8 @@ KNOWN_FAILURES = (
 
 
 def run(command):
-    result = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    result = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", check=False)
     return result.returncode, (result.stdout or "") + (result.stderr or "")
 
 
@@ -44,13 +45,15 @@ def only_known_failures(output):
 
 def check_ruff():
     """Ráčna nad nálezy ruffu: vrátí (stav, věta)."""
-    _, output = run(RUFF)
-    found = 0
+    code, output = run(RUFF)
+    found = None
     for line in output.splitlines():
         if line.startswith("Found ") and line.endswith("errors."):
             found = int(line.split()[1])
         elif line.strip() == "All checks passed!":
             found = 0
+    if found is None or code not in (0, 1):
+        return False, "Výsledek ruffu nelze ověřit: " + output[-500:]
     if found > RUFF_BASELINE:
         return False, f"nálezů ruffu přibylo: {found} proti povoleným {RUFF_BASELINE}"
     if found < RUFF_BASELINE:

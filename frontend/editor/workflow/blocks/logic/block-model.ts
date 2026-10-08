@@ -1,14 +1,15 @@
-// Čistý model bloků Akce / Pravidla / Podklady u karty: identita bloku na plátně, mutace stavu uzlu a rozmístění.
+// Čistý model bloků Akce / Pravidla / Podklady / Pipeline u karty: identita bloku na plátně, mutace stavu uzlu a rozmístění.
 // Bloky nejsou uzly grafu; žijí ve stavu Desktop v3 pod nodes[nodeId].actions / .rules / .materials.
 import type { Node, Edge } from "@xyflow/react";
 import type { BlockOffset, CanvasNode, Graph } from "@/shared/types/logic/types";
 import type { DesktopState, MaterialKind, NodeAction, NodeMaterial, NodeRule, NodeWorkflowFull, PipelineTemplate, RuleKind } from "@/shared/desktop-state/logic/types";
 import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
+import type { CardPipeline, PipelineProfile } from "@/editor/workflow/card-pipeline/logic/pipeline-model";
 
-export type BlockPort = "action" | "rule" | "material";
-export const BLOCK_PORTS: BlockPort[] = ["action", "rule", "material"];
-export const BLOCK_LABEL: Record<BlockPort, string> = { action: "Akce", rule: "Pravidla", material: "Podklady" };
-export const BLOCK_COLOR: Record<BlockPort, string> = { action: "#c98a1e", rule: "#c4524a", material: "#5f947f" };
+export type BlockPort = "action" | "rule" | "material" | "pipeline";
+export const BLOCK_PORTS: BlockPort[] = ["action", "rule", "material", "pipeline"];
+export const BLOCK_LABEL: Record<BlockPort, string> = { action: "Akce", rule: "Pravidla", material: "Podklady", pipeline: "Pipeline" };
+export const BLOCK_COLOR: Record<BlockPort, string> = { action: "#c98a1e", rule: "#c4524a", material: "#5f947f", pipeline: "#7c6bd6" };
 /** Pravoúhlé vedení šipky od karty k bloku: stejné zaoblení a odstup jako vazby grafu (viz board-model). */
 const BLOCK_EDGE_PATH = { type: "smoothstep" as const, pathOptions: { borderRadius: 12, offset: 24 } };
 
@@ -16,7 +17,7 @@ const BLOCK_EDGE_PATH = { type: "smoothstep" as const, pathOptions: { borderRadi
  *  pravidly (nebo na jejich místě, když blok pravidel není vidět). Odtud blok vyjde, než si ho uživatel
  *  odtáhne jinam — pak platí `blockOffsets` uzlu. */
 export const BLOCK_OFFSET_X = 415;
-export const BLOCK_OFFSET_Y: Record<BlockPort, number> = { action: -21, rule: 189, material: 399 };
+export const BLOCK_OFFSET_Y: Record<BlockPort, number> = { action: -21, rule: 189, material: 399, pipeline: 609 };
 export const MATERIAL_OFFSET_WITHOUT_RULES = 189;
 
 export function blockNodeId(nodeId: string, port: BlockPort): string {
@@ -118,6 +119,8 @@ export type BlockApi = {
   mutate: (fn: (current: DesktopState) => DesktopState) => Promise<boolean>;
   close: (nodeId: string, port: BlockPort) => void;
   pickPipeline: (nodeId: string) => void;
+  /** Přestaví pipeline karty na profil (POST /api/desktop-v3/pipeline jako člověk); false = neuloženo. */
+  routePipeline: (nodeId: string, profile: PipelineProfile) => Promise<boolean>;
   /** Nahraje obrázek (data URL) do složky projektu a vrátí jméno souboru; null = neuloženo. */
   uploadMaterial: (nodeId: string, dataUrl: string) => Promise<string | null>;
   /** Smaže nahraný soubor poté, co byl odebrán ze stavu uzlu. */
@@ -132,6 +135,9 @@ export type BlockData = {
   actions: NodeAction[];
   rules: NodeRule[];
   materials: NodeMaterial[];
+  /** Pipeline karty (etapy) a zda je karta GOAL (profil pak vede testy přes kontroly karty). */
+  stages: CardPipeline;
+  goal: boolean;
   readOnly: boolean;
   api: { current: BlockApi };
 };
@@ -162,7 +168,8 @@ export function buildBlockNodes(
     if (card.parentId !== parent) continue;
     const workflow = nodeWorkflowOf(state, card.id);
     const opened = open[card.id] ?? [];
-    const itemsOf = { action: workflow.actions, rule: workflow.rules, material: workflow.materials };
+    const stages = workflow.stages ?? { profile: "custom" as const, items: [] };
+    const itemsOf = { action: workflow.actions, rule: workflow.rules, material: workflow.materials, pipeline: stages.items };
     const shown = (port: BlockPort) => opened.includes(port) || itemsOf[port].length > 0;
     for (const port of BLOCK_PORTS) {
       if (!shown(port)) continue;
@@ -177,7 +184,7 @@ export function buildBlockNodes(
         draggable: !readOnly,
         selectable: false,
         connectable: false,
-        data: { nodeId: card.id, nodeName: card.name, port, actions: workflow.actions, rules: workflow.rules, materials: workflow.materials, readOnly, api },
+        data: { nodeId: card.id, nodeName: card.name, port, actions: workflow.actions, rules: workflow.rules, materials: workflow.materials, stages, goal: card.goal_mode === "until_checks_pass", readOnly, api },
       });
       edges.push({
         id: `block-edge:${port}:${card.id}`,

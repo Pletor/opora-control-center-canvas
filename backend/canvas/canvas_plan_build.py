@@ -9,14 +9,15 @@ a blok s portem zdroje vazby `block`.
 
 import copy
 
+from backend.canvas.canvas_plan_extend import extend_cards
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref, position_of
 from backend.canvas.canvas_plan_links import blocks_of, edge_of
 from backend.canvas.canvas_service import now
 from backend.editor.node.node_specs import EMPTY_FIELDS
 
-PLAN_KEYS = {"nodes", "edges", "decisions"}
+PLAN_KEYS = {"nodes", "edges", "decisions", "extend"}
 NODE_FIELDS = {"ref", "kind", "parent", "name", "purpose", "sourceRef", "size", "spec", "text",
-               "agentRole", "blocks", "rules", "card", "position", "criteria", "site"}
+               "agentRole", "blocks", "rules", "card", "position", "criteria", "site", "design", "gateNodeId", "checks", "goal_mode", "factRefs", "scenario", "downloadsUrl", "color"}
 RULE_FIELDS = {"kind", "text"}
 DECISION_FIELDS = {"node", "text", "pinned"}
 MAX_NODES, MAX_EDGES = 200, 600
@@ -28,7 +29,7 @@ class Built:
     """Výsledek sestavení: nové položky, doplněný stav, spec/text a jmenovky pro chyby."""
 
     def __init__(self, graph, state):
-        self.graph, self.state = graph, copy.deepcopy(state)
+        self.graph, self.state = copy.deepcopy(graph), copy.deepcopy(state)
         self.state_changed = False
         self.nodes, self.edges = [], []
         self.inside = {}  # id nové karty → id oblasti, do které se položí
@@ -36,6 +37,9 @@ class Built:
         self.specs, self.texts = {}, {}
         self.refs, self.blocks = {}, {}
         self.labels = {}  # nové id → jméno položky v dávce (pro hlášení chyb)
+        self.extend_revisions, self.documents = [], []
+        self.spec_revisions, self.text_revisions = {}, {}
+        self.layout_moves = {}
 
     def new_graph(self):
         return {"nodes": [*self.graph["nodes"], *self.nodes], "edges": [*self.graph["edges"], *self.edges]}
@@ -48,12 +52,15 @@ def build(plan, graph, state):
     nodes_in = items_of(plan.get("nodes", []), "plan", "nodes")
     edges_in = items_of(plan.get("edges", []), "plan", "edges")
     decisions_in = items_of(plan.get("decisions", []), "plan", "decisions")
+    extensions = items_of(plan.get("extend", []), "plan", "extend")
+    if len(extensions) > MAX_NODES:
+        raise ValueError("Dávka má nejvýše 200 rozšíření.")
     if len(nodes_in) > MAX_NODES or len(edges_in) > MAX_EDGES:
         raise ValueError(f"Dávka plánu má nejvýš {MAX_NODES} uzlů a {MAX_EDGES} vazeb.")
-    if not (nodes_in or edges_in or decisions_in):
+    if not (nodes_in or edges_in or decisions_in or extensions):
         raise ValueError("Dávka plánu je prázdná.")
     built = Built(graph, state)
-    existing = {node["id"]: node for node in graph["nodes"]}
+    existing = {node["id"]: node for node in built.graph["nodes"]}
     for index, item in enumerate(nodes_in):
         fields(item, NODE_FIELDS, {"ref", "kind", "name"}, f"nodes[{index}]")
         ref = plan_ref(item["ref"], f"nodes[{index}]")
@@ -77,6 +84,14 @@ def build(plan, graph, state):
                for item in nodes_in}
     for item in nodes_in:
         _node(built, item, parents, kinds, existing)
+    for item, node in zip(nodes_in, built.nodes, strict=True):
+        if "gateNodeId" in item:
+            node["gateNodeId"] = resolve(item["gateNodeId"], item["ref"])
+    extend_cards(built, extensions, existing)
+    if built.layout_moves:
+        from backend.canvas.canvas_layout import arrange
+        for area, move in built.layout_moves.items():
+            built.graph = arrange(built.graph, area, move["order"], move["columns"])
     for index, item in enumerate(edges_in):
         edge_of(built, item, f"edges[{index}]", resolve)
     for index, item in enumerate(decisions_in):
@@ -111,7 +126,7 @@ def _node(built, item, parents, kinds, existing):
         parent = existing[parent]["parentId"] if parent in existing else parents[parent]
     node = {"id": node_id, "parentId": parent, "kind": item["kind"], "name": item["name"],
             "purpose": item.get("purpose", ""), "x": 0, "y": 0}
-    for key in ("sourceRef", "size", "card", "site"):
+    for key in ("sourceRef", "size", "card", "site", "design", "checks", "goal_mode", "factRefs", "scenario", "color"):
         if key in item:
             node[key] = item[key]
     if "position" in item:
@@ -123,7 +138,7 @@ def _node(built, item, parents, kinds, existing):
         built.specs[node_id] = {**EMPTY_FIELDS, **item["spec"]}
     if "text" in item:
         built.texts[node_id] = item["text"]
-    card_keys = {"blocks", "rules", "agentRole", "criteria"} & set(item)
+    card_keys = {"blocks", "rules", "agentRole", "criteria", "downloadsUrl"} & set(item)
     if card_keys and item["kind"] not in CARD_KINDS:
         fail(ref, "bloky, pravidla a role má jen uzel nebo sektor.")
     for index, rule in enumerate(items_of(item.get("rules", []), ref, "rules")):
@@ -134,7 +149,7 @@ def _node(built, item, parents, kinds, existing):
         built.state["rules"].append({"id": rule_id, "text": rule["text"], "kind": rule["kind"],
                                      "scope": "node", "target": node_id})
         built.state_changed = True
-    if {"blocks", "agentRole", "criteria"} & set(item):
+    if {"blocks", "agentRole", "criteria", "downloadsUrl"} & set(item):
         criteria = []
         for index, text in enumerate(items_of(item.get("criteria", []), ref, "criteria")):
             criterion_id = new_id()
@@ -144,5 +159,10 @@ def _node(built, item, parents, kinds, existing):
                       "blocks": blocks_of(built, ref, node_id, items_of(item.get("blocks", []), ref, "blocks"))}
         if "agentRole" in item:
             state_node["agentRole"] = item["agentRole"]
+        if "downloadsUrl" in item:
+            from backend.editor.agent_memory.input_security import security_block
+            state_node["downloadsUrl"] = item["downloadsUrl"]
+            if item["downloadsUrl"]:
+                state_node["blocks"].append(security_block(len(state_node["blocks"]) + 1))
         built.state["nodes"][node_id] = state_node
         built.state_changed = True

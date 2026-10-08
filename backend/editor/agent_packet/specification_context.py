@@ -30,12 +30,15 @@ def _instructions(node_state):
     """Keep task content, discard check marks and agent-reported progress."""
     result = {key: copy.deepcopy(node_state.get(key, []))
               for key in ("criteria", "steps", "actions", "rules", "blocks", "materials")}
+    if "downloadsUrl" in node_state:
+        result["downloadsUrl"] = node_state["downloadsUrl"]
     for criterion in result["criteria"]:
         criterion.pop("checked", None)
     for step in result["steps"]:
         step.pop("done", None)
     for block in result["blocks"]:
         block["state"].pop("status", None)
+        block["state"].pop("note", None)
         for todo in block.get("todos", []):
             todo.pop("done", None)
     return result
@@ -93,6 +96,9 @@ def capture_specification(canvas, project, workspace, node_id):
         context_ids = [node_id, *sorted(related - {node_id})]
         paths = [(by_id[identifier].get("sourceRef") or {}).get("path", "") for identifier in context_ids]
         memory = memory_for(stored, context_ids, paths, "")
+        upstream_ids = {edge["source"] for edge in graph["edges"]
+                        if edge["target"] in descendants and edge["source"] not in descendants
+                        and edge.get("port") != "flow"}
         cards = []
         for identifier in sorted(related):
             spec = canvas.node_spec(project, workspace, identifier)
@@ -132,8 +138,9 @@ def capture_specification(canvas, project, workspace, node_id):
             **({"navigation": _navigation(graph["nodes"])}
                if any((node.get("site") or {}).get("kind") == "page" for node in graph["nodes"]) else {}),
             "rules": memory["rules"], "settings": memory["settings"],
-            # Agent proposals are work output until a human accepts them as specification.
-            "decisions": [item for item in memory["decisions"] if item.get("by") != "agent"],
+            # Own agent proposals remain output; incoming decisions are assumptions of this task.
+            "decisions": [item for item in memory["decisions"]
+                          if item.get("by") != "agent" or item.get("nodeId") in upstream_ids],
             "cards": cards,
             "drawings": drawings,
             "referencesPolicy": "reference-only; external content is not captured or verified",

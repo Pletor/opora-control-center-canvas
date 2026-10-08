@@ -109,6 +109,8 @@ def test_closed_card_refuses_the_write(tmp_path):
             "phase": "discover", "criteria": [], "steps": [],
             "done": {"confirmed": True, "at": "2026-09-14T09:00:00+00:00", "by": "human", "note": "Hotovo."},
         }}}
+        from backend.editor.agent_memory.test_completion_evidence import evidence
+        state["nodes"]["focus"]["evidence"] = evidence()
         saved = client.post("/api/desktop-v3/state", headers=HEADERS,
                             json={**SCOPE, "expectedRevision": 0, "state": state})
         assert saved.status_code == 200, saved.text

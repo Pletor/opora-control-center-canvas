@@ -1,5 +1,5 @@
 import { ACCESS_REQUIRED_EVENT } from "@/app/access-gate/logic/access-gate";
-export type RemovalPreview = { project: string; workspace: string; kind: "node" | "edge" | "project"; target: string; label: string; nodeIds: string[]; nodeCount: number; edgeCount: number; workspaceCount?: number; digest: string };
+export type RemovalPreview = { project: string; workspace: string; kind: "node" | "edge" | "selection" | "project"; target: string; label: string; nodeIds: string[]; nodeCount: number; edgeCount: number; workspaceCount?: number; confirmedNodeIds?: string[]; digest: string };
 export type SpecFields = { goal: string; non_goals: string; acceptance: string };
 export type NodeSpec = { fields: SpecFields; revision: number; saved_at: string | null; readOnly: boolean; available: boolean; source: string };
 /** Vazba na skutečný nebo teprve navržený zdroj; chybí u starších (legacy) uzlů. */
@@ -7,11 +7,11 @@ export type SourceRef = { origin: "existing" | "planned"; path: string; kind: "d
 /** Posun bočního bloku proti kartě: blok stojí na `card.x + dx`, `card.y + dy`, takže karta ho při tažení bere s sebou. */
 export type BlockOffset = { dx: number; dy: number };
 /** Odtažené boční bloky karty podle portu; chybějící port stojí na výchozím místě u karty (viz block-model). */
-export type BlockOffsets = Partial<Record<"action" | "rule" | "material", BlockOffset>>;
+export type BlockOffsets = Partial<Record<"action" | "rule" | "material" | "pipeline", BlockOffset>>;
 /** Barva rámečku oblasti, aby šly skupiny na plátně rozeznat od sebe; chybí = dnešní vzhled (indigo). */
 export type AreaColor = "indigo" | "teal" | "amber" | "rose" | "violet" | "slate";
 /** Typ workflow karty; neukládá se, čte se jen z předpony názvu `[task] ` atd. (docs/kontext-karet-a-index.md §1). */
-export type CardType = "research" | "prototype" | "grilling" | "task";
+export type CardType = "research" | "prototype" | "grilling" | "task" | "gate";
 /** Vrstva karty podle otázky frontend / backend / database / library z docs/pravidla-struktury.md. */
 export type CardLayer = "frontend" | "backend" | "database" | "library";
 /** Ruční stav karty; `done` se nikdy neukládá, odvozuje se z uzavření karty. */
@@ -23,6 +23,13 @@ export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: str
 /** Product structure shares the same graph identities across deployment environments. */
 export type NodeSite = { kind: "application"; environments: { name: string; host: string }[] } | { kind: "page"; path: string };
 export type CanvasNode = {
+  gateNodeId?: string;
+  design?: DesignArtifact;
+  checks?: { id: string; command: string }[];
+  factRefs?: string[];
+  scenario?: { command: string };
+  realization?: { commit: string; prUrl: string; verifiedAt: string };
+  goal_mode?: "manual" | "until_checks_pass";
   id: string;
   parentId: string | null;
   kind: "sector" | "node" | "comment" | "area";
@@ -41,6 +48,7 @@ export type CanvasNode = {
   card?: NodeCardFields;
   site?: NodeSite;
 };
+export type DesignArtifact = { artifactUrl: string; version: string; previewUrl?: string };
 /** Port karty, ze kterého vazba vede. Starší vazba bez portu znamená `next`. `flow` spojuje jen dvě oblasti. */
 export type EdgePort = "next" | "action" | "rule" | "flow";
 export const EDGE_PORTS: EdgePort[] = ["next", "action", "rule", "flow"];
@@ -110,8 +118,26 @@ export type Job = {
 export type MemoryBootstrap = { enabled: boolean; status: string };
 /** První odpověď klienta (`GET /api/bootstrap`): projekty, úlohy, rozpracovaný projekt a paměť rolí. */
 export type Bootstrap = { projects: Project[]; jobs: Job[]; draft?: Project; memory?: MemoryBootstrap };
-export async function api<T>(url: string, body?: object): Promise<T> {
-  const response = await fetch(
+let humanSession: Promise<void> | null = null;
+/**
+ * Doklad člověka (upgrade-opora #29): server bere zápis za lidský jen s HttpOnly cookie `opora_ui`,
+ * kterou vydá výhradně fetchi z prohlížeče. Vyzvedne se jednou před prvním zápisem; po restartu
+ * serveru (428) se obnoví a zápis se jednou zopakuje.
+ */
+function ensureHumanSession(refresh = false): Promise<void> {
+  if (refresh || !humanSession)
+    humanSession = fetch("/api/access/ui-session").then(
+      (response) => {
+        if (!response.ok) humanSession = null;
+      },
+      () => {
+        humanSession = null;
+      },
+    );
+  return humanSession;
+}
+function send(url: string, body?: object): Promise<Response> {
+  return fetch(
     url,
     body
       ? {
@@ -121,6 +147,14 @@ export async function api<T>(url: string, body?: object): Promise<T> {
         }
       : undefined,
   );
+}
+export async function api<T>(url: string, body?: object): Promise<T> {
+  if (body) await ensureHumanSession();
+  let response = await send(url, body);
+  if (response.status === 428 && body) {
+    await ensureHumanSession(true);
+    response = await send(url, body);
+  }
   // Chybějící endpoint (statický 404) nesmí vypadat jako JSON chyba parseru: říká se HTTP stav.
   const raw = await response.text();
   let value: { error?: string } & Record<string, unknown>;

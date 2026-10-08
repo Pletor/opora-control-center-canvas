@@ -29,7 +29,7 @@ const SIDE_BLOCK_H = 200;
  */
 export function footprintOf(
   node: { id: string; kind: string; x: number; y: number; blockOffsets?: BlockOffsets },
-  opts: { measuredHeight?: number; openPorts: BlockPort[]; hasActions: boolean; hasRules: boolean; hasMaterials: boolean },
+  opts: { measuredHeight?: number; openPorts: BlockPort[]; hasActions: boolean; hasRules: boolean; hasMaterials: boolean; hasStages?: boolean },
 ): Footprint | null {
   if (node.kind === "area") return null;
   if (node.kind === "comment") {
@@ -39,7 +39,7 @@ export function footprintOf(
   let y0 = node.y;
   let x1 = node.x + CARD_W;
   let y1 = node.y + (opts.measuredHeight ?? CARD_H_DEFAULT);
-  const hasItems: Record<BlockPort, boolean> = { action: opts.hasActions, rule: opts.hasRules, material: opts.hasMaterials };
+  const hasItems: Record<BlockPort, boolean> = { action: opts.hasActions, rule: opts.hasRules, material: opts.hasMaterials, pipeline: !!opts.hasStages };
   const shown = (port: BlockPort) => opts.openPorts.includes(port) || hasItems[port];
   for (const port of BLOCK_PORTS) {
     if (!shown(port)) continue;
@@ -64,21 +64,33 @@ export function layerFootprints(
   state: DesktopState,
   openBlocks: OpenBlocks,
   heights: Record<string, number>,
+  estimate = false,
 ): Footprint[] {
   const footprints: Footprint[] = [];
   for (const n of graph.nodes) {
     if (n.parentId !== parent) continue;
     const workflow = nodeWorkflowOf(state, n.id);
     const footprint = footprintOf(n, {
-      measuredHeight: heights[n.id],
+      measuredHeight: heights[n.id] ?? (estimate && n.kind !== "comment" && n.kind !== "area" ? estimateCardHeight(workflow) : undefined),
       openPorts: openBlocks[n.id] ?? [],
       hasActions: workflow.actions.length > 0,
       hasRules: workflow.rules.length > 0,
       hasMaterials: workflow.materials.length > 0,
+      hasStages: (workflow.stages?.items.length ?? 0) > 0,
     });
     if (footprint) footprints.push(footprint);
   }
   return footprints;
+}
+
+/**
+ * Odhad výšky kompaktní karty, kterou plátno zrovna neměří (jiná vrstva): hlava, účel a kontrolní pás,
+ * plus řádek na každý kořenový blok a jeho porty. Raději víc než méně — karta pak má kolem sebe vzduch.
+ */
+export function estimateCardHeight(workflow: Pick<ReturnType<typeof nodeWorkflowOf>, "blocks">): number {
+  const roots = workflow.blocks.filter((b) => !b.parentBlockId);
+  const ports = roots.reduce((sum, b) => sum + (b.ports?.length ?? 0), 0);
+  return 300 + roots.length * 80 + ports * 34;
 }
 
 /** Kolik by bylo třeba uzly rozestrčit na každé ose, aby mezi nimi zůstala `gap`; ≤0 = na té ose se nepřekrývají. */
@@ -129,7 +141,7 @@ export function resolveOverlap(moved: Footprint, others: Footprint[], gap = 24, 
 // vazeb a skupiny se poskládají pod sebe. Nic se nepřekrývá a žádná karta nezmizí.
 
 /** Mezery rozvržení: vodorovná mezi sloupci, svislá mezi kartami ve sloupci, mřížka pro zaokrouhlení. */
-export type ArrangeOptions = { gapX?: number; gapY?: number; grid?: number };
+export type ArrangeOptions = { gapX?: number; gapY?: number; grid?: number; areaGap?: number };
 /** Rámeček oblasti po srovnání: poloha zůstává, rozměr může vyrůst, aby se obsah vešel. */
 export type ArrangedArea = { id: string; x: number; y: number; w: number; h: number };
 export type Arrangement = { nodes: { id: string; x: number; y: number }[]; areas: ArrangedArea[] };
@@ -413,6 +425,39 @@ export function arrangeLayer(
     }
   }
 
+  // Oblasti se odpuzují jako magnety stejné polarity: zvětšený rámeček nesmí najet na sousední oblast.
+  // Skládají se v řadách podle původního rozvržení — co stálo vedle sebe (svisle se překrývalo), zůstane
+  // v jedné řadě zleva doprava, řady jdou pod sebe; mezi všemi je `areaGap`. Karty jedou se svou oblastí.
+  if (frames.length > 1) {
+    const areaGap = opts.areaGap ?? gapX;
+    const order = [...frames].sort(byOriginalPlace);
+    const rows: ArrangedArea[][] = [];
+    let bandBottom = -Infinity;
+    for (const frame of order) {
+      if (rows.length && frame.y < bandBottom) {
+        rows[rows.length - 1].push(frame);
+        bandBottom = Math.max(bandBottom, frame.y + frame.h);
+      } else {
+        rows.push([frame]);
+        bandBottom = frame.y + frame.h;
+      }
+    }
+    const startX = Math.min(...frames.map((frame) => frame.x));
+    let rowY = Math.min(...frames.map((frame) => frame.y));
+    for (const row of rows) {
+      let x = startX;
+      for (const frame of [...row].sort((p, q) => p.x - q.x || (p.id < q.id ? -1 : 1))) {
+        const dx = snap(x, grid) - frame.x;
+        const dy = snap(rowY, grid) - frame.y;
+        for (const item of placed) if (home.get(item.id) === frame.id) { item.x += dx; item.y += dy; }
+        frame.x += dx;
+        frame.y += dy;
+        x = frame.x + frame.w + areaGap;
+      }
+      rowY = Math.max(...row.map((frame) => frame.y + frame.h)) + areaGap;
+    }
+  }
+
   // Volné karty: jeden celek pod všemi oblastmi, zarovnaný na jejich levou hranu. Bez oblastí prostě (80, 80).
   const free = placeGroup(
     footprints.filter((f) => !home.get(f.id)),
@@ -434,4 +479,30 @@ export function arrangeLayer(
   const settled: Footprint[] = [];
   for (const item of placed) settled.push({ ...item, ...resolveOverlap(item, settled, 24, grid) });
   return { nodes: settled.map(({ id, x, y }) => ({ id, x, y })), areas: frames };
+}
+
+/**
+ * Srovná všechny vrstvy grafu („Srovnat vše“): každá vrstva zvlášť stejným pravidlem jako „Srovnat“.
+ * Výšky karet z `heights` (naměřené), jinak odhad podle bloků, aby se nezměřené vrstvy nepřekrývaly.
+ * Vrací nové uzly grafu (polohy a rozměry oblastí); co se nehnulo, zůstává tentýž objekt.
+ */
+export function arrangeGraph(graph: Graph, state: DesktopState, openBlocks: OpenBlocks, heights: Record<string, number>, opts: ArrangeOptions = {}): CanvasNode[] {
+  const layers = [...new Set(graph.nodes.map((n) => n.parentId ?? null))];
+  const moved = new Map<string, { x: number; y: number }>();
+  const framed = new Map<string, ArrangedArea>();
+  for (const layer of layers) {
+    const areas = graph.nodes.filter((n) => (n.parentId ?? null) === layer && n.kind === "area");
+    const arranged = arrangeLayer(layerFootprints(graph, layer, state, openBlocks, heights, true), graph.edges, areas, opts);
+    for (const node of arranged.nodes) moved.set(node.id, node);
+    for (const area of arranged.areas) framed.set(area.id, area);
+  }
+  return graph.nodes.map((n) => {
+    const frame = framed.get(n.id);
+    if (frame) {
+      const size = frame.w !== n.size?.w || frame.h !== n.size?.h ? { ...n, size: { w: frame.w, h: frame.h } } : n;
+      return frame.x !== n.x || frame.y !== n.y ? { ...size, x: frame.x, y: frame.y } : size;
+    }
+    const to = moved.get(n.id);
+    return to && (to.x !== n.x || to.y !== n.y) ? { ...n, x: to.x, y: to.y } : n;
+  });
 }

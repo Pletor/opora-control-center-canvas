@@ -3,7 +3,10 @@
 // text bublá nahoru, dílek nic neukládá. Dvojklik na kartu dál vede do hloubky, proto řádky zastavují jen
 // svůj vlastní dvojklik. Uzavřená karta má bloky jen ke čtení. Blok vybraný na plátně (`data-block-id`
 // čte Board z kliknutí) má zvýrazněný rámeček, aby bylo jasné, který dílek právě edituje knihovna vlevo.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { notifySaveParticipants } from "@/shared/hooks/logic/save-coordinator";
+import { useAddedPulse } from "../logic/use-added-pulse";
 import type { CardBlockRow } from "@/editor/canvas/node-card/logic/card-model";
 import CardBlockPorts, { type CardPortHandlers } from "@/editor/canvas/node-card/components/CardBlockPorts";
 
@@ -32,17 +35,29 @@ export default function CardBlocks({
   selectedBlockId?: string;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const added = useAddedPulse(rows.map(row => row.id));
+  const root = useRef<HTMLDivElement>(null);
+  const [, changed] = useState(0);
+  const hasDraft = () => Array.from(root.current?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input[data-save-blur], textarea[data-save-blur]") ?? [])
+    .some((field) => field.value !== field.defaultValue);
+  useScopedSaveParticipant({ id: `card-blocks:${id}`, label: "Bloky na plátně",
+    dirty: hasDraft(), isDirty: hasDraft,
+    blocked: "Dokončete popis nebo název bloku na plátně a vyčkejte na jeho uložení." });
+  const savedValues = JSON.stringify(rows.map((row) => [row.id, row.title, row.text]));
+  useEffect(() => { notifySaveParticipants(); }, [savedValues]);
   const commit = (blockId: string, title: string, current: string) => {
     setEditing(null);
     const value = title.trim();
     if (value && value !== current) handlers.rename(blockId, value);
   };
   return (
-    <div className="node-card__blocks" data-testid={"card-blocks-" + id}>
+    <div ref={root} onInputCapture={event => {
+      if ((event.target as HTMLElement).hasAttribute("data-save-blur")) changed(value => value + 1);
+    }} className="node-card__blocks" data-testid={"card-blocks-" + id}>
       {rows.length > 0 && (
         <ol className="node-card__block-list">
           {rows.map((row, index) => (
-            <li key={row.id} className="node-card__block-item" data-block-id={row.id}>
+            <li key={row.id} className={"node-card__block-item" + (added.includes(row.id) ? " node-card__added-pulse" : "")} data-block-id={row.id}>
               <div
                 className={`node-card__block node-card__block--${row.status}` + (selectedBlockId === row.id ? " node-card__block--selected" : "")}
                 data-testid={"card-block-" + row.id}
@@ -54,6 +69,7 @@ export default function CardBlocks({
                       className="nodrag node-card__block-title-input"
                       aria-label="Název bloku"
                       defaultValue={row.title}
+                      data-save-blur="true"
                       autoFocus
                       maxLength={160}
                       onFocus={(e) => e.currentTarget.select()}
@@ -86,6 +102,7 @@ export default function CardBlocks({
                   placeholder="Co se má stát a jak to má vypadat…"
                   rows={5}
                   defaultValue={row.text}
+                  data-save-blur="true"
                   readOnly={disabled}
                   onKeyDown={(e) => e.stopPropagation()}
                   onDoubleClick={(e) => e.stopPropagation()}

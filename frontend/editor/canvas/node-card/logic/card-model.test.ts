@@ -11,6 +11,14 @@ function block(id: string, tags: string[], status: Block["state"]["status"] = "o
 }
 
 describe("card-model", () => {
+  it("blocked and unmet blocks stay unfinished and expose the request", () => {
+    const blocked = block("1", [], "blocked");
+    blocked.state.note = "Doplň adresu projektu";
+    const workflow = { ...emptyNodeWorkflow(), blocks: [blocked, block("2", [], "unmet"), block("3", [], "met")] };
+    const view = cardView(node, workflow, 0);
+    expect(view.openBlocks).toBe(2);
+    expect(view.waitingOnHuman).toEqual([{ blockId: "1", ask: "Doplň adresu projektu" }]);
+  });
   it("sjednotí štítky bloků v pořadí prvního výskytu bez duplicit", () => {
     const workflow = { ...emptyNodeWorkflow(), blocks: [block("1", ["auth", "ui"]), block("2", ["ui", "kritické"])] };
     expect(nodeTags(workflow)).toEqual(["auth", "ui", "kritické"]);

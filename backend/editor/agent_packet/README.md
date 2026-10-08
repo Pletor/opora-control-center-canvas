@@ -1,3 +1,14 @@
 Podklady pro agenta: složení uzlu (text, zadání, kresby, dokumentace, paměť) do packetu opora.packet/1, neměnný snímek, redakce tajemství (desktop_v3_packets.py, redact.py).
 Balíček celé karty pro model: cíl, definice hotovo, hranice, kontext, harness, bloky s porty, graf a smyčka v jednom JSON opora.node-brief/1 (node_brief.py).
 Fraktální předávka v balíčku: pracovní prostor karty i okolí (vazby celý, potomci/rodič/oblast jen rámec a předávka) a odkaz na mapu Graphify v context.knowledgeGraph (node_brief.py).
+
+`loop.openBlocks` počítá všechny nesplněné bloky (`open`, `unmet`, `blocked`). `loop.waitingOnHuman`
+vypisuje bloky `blocked` jako `{blockId, ask}`: poznámku posledního výstupu agenta, jinak podmínku
+nebo název bloku. Poznámka je v `block.state.note`, nemění verzi zadání. Stav `blocked` používej
+pro čekání na zásah člověka; nesplněná kontrola, kterou může agent dál řešit, je `unmet`.
+
+`boundaries.effectiveRules` obsahuje účinná projektová, cestová, adresná i lokální pravidla
+karty a všech jejích předků. Každé nese `origin {scope, nodeId, name, path, storage}` a `inherited`.
+`scope` rozlišuje projekt, cestu, sektor a kartu; `storage` rozlišuje projektovou a lokální
+kolekci (ID lokálních pravidel se mohou opakovat). Zákazy předků se zahrnují i do stop podmínek.
+Původní `nodeRules` a `projectRules` zůstávají kompatibilní. Plátno zobrazuje stejný původ ikonami.

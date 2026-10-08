@@ -1,6 +1,7 @@
 // Inspektor komentáře: titulek, text lístku a smazání. Dílek nic neukládá — rozepsané pole drží
 // u sebe a po opuštění (blur) hotovou hodnotu ohlásí nahoru přes onSave(node), stejně jako NodePanel.
 import { useState } from "react";
+import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import "@/editor/canvas/comment-card/styles/comment-card.css";
 
@@ -19,6 +20,9 @@ export default function CommentPanel({
 }) {
   const [title, setTitle] = useState(node.name);
   const [text, setText] = useState(node.purpose);
+  useScopedSaveParticipant({ id: `comment-fields:${node.id}`, label: `Komentář: ${node.name}`,
+    dirty: title.trim() !== node.name || text !== node.purpose,
+    blocked: "Dokončete úpravu komentáře a vyčkejte na její uložení." });
   return (
     <div className="comment-panel" data-testid="comment-panel">
       <div className="eyebrow">KOMENTÁŘ</div>

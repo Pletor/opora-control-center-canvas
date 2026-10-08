@@ -4,10 +4,12 @@ import type { BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw/excalidra
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
 import { api } from "@/shared/types/logic/types";
+import { useSaveParticipant, notifySaveParticipants, trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
 import {
   drawingDrafts,
   drawingSaves,
+  drawingFiles,
   sceneSignature,
   isDrawingTool,
   type DrawingSnapshot,
@@ -147,6 +149,23 @@ export default function DrawingWorkspace({
     return () => cancelAnimationFrame(frame);
   }, [editor, snapshot?.readOnly, wireframeInsert]);
   const dirty = sceneSignature(scene) !== savedSignature;
+  async function flushDrawing() {
+    while (drawingSaves.has(key)) await drawingSaves.get(key);
+    const cached = drawingDrafts.get(key);
+    if (!cached || sceneSignature(cached.scene) === cached.savedSignature) return;
+    const signature = sceneSignature(cached.scene);
+    const write = trackSaveWrite(project, workspace, images.upload(cached.scene.elements, Object.fromEntries(drawingFiles)).then(() => api<DrawingSnapshot>("/api/drawing", { project, workspace, layer, expected_revision: cached.revision, scene: cached.scene })));
+    drawingSaves.set(key, write); notifySaveParticipants();
+    try {
+      const saved = await write;
+      const current = drawingDrafts.get(key);
+      drawingDrafts.set(key, { scene: current?.scene ?? cached.scene, revision: saved.revision, savedSignature: signature });
+      setReload((value) => value + 1);
+    } finally { if (drawingSaves.get(key) === write) drawingSaves.delete(key); notifySaveParticipants(); }
+  }
+  useSaveParticipant({ id: "drawing:" + key, project, workspace, label: "Kresba " + layer, dirty: !!snapshot && dirty, pending: saving, retainOnUnmount: true,
+    isDirty: () => { const draft = drawingDrafts.get(key); return !!draft && sceneSignature(draft.scene) !== draft.savedSignature; }, isPending: () => drawingSaves.has(key),
+    flush: flushDrawing, discard: () => { drawingDrafts.delete(key); setReload((value) => value + 1); } });
   const selectedWireframe = inspectable(selected);
   function updateSelected(update: (element: ExcalidrawElement) => ExcalidrawElement) {
     if (!editor || !selected || snapshot?.readOnly) return;
@@ -172,30 +191,12 @@ export default function DrawingWorkspace({
   async function save() {
     if (!snapshot || snapshot.readOnly || saving || !editor) return;
     const ticket = generation.current;
-    const sent: DrawingScene = JSON.parse(sceneSignature({ elements: editor.getSceneElements() }));
-    const signature = sceneSignature(sent);
-    setSaving(true);
-    setError("");
-    const files = editor.getFiles();
-    // Nejdřív obrázky, pak scéna: server scénu s neznámým fileId odmítne a draft zůstane.
-    const promise = images.upload(sent.elements, files).then(() => api<DrawingSnapshot>("/api/drawing", { project, workspace, layer, expected_revision: revision, scene: sent }));
-    drawingSaves.set(key, promise);
-    try {
-      const value = await promise;
-      const cached = drawingDrafts.get(key);
-      if (cached && sceneSignature(cached.scene) === signature) drawingDrafts.set(key, { scene: sent, revision: value.revision, savedSignature: signature });
-      if (ticket === generation.current) {
-        setSnapshot(value);
-        setScene(sent);
-        setRevision(value.revision);
-        setSavedSignature(signature);
-      }
-    } catch (e) {
-      if (ticket === generation.current) setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (drawingSaves.get(key) === promise) drawingSaves.delete(key);
-      if (ticket === generation.current) setSaving(false);
-    }
+    images.remember(editor.getFiles());
+    drawingDrafts.set(key, { scene: JSON.parse(sceneSignature({ elements: editor.getSceneElements() })), revision, savedSignature });
+    setSaving(true); setError(""); notifySaveParticipants();
+    try { await flushDrawing(); }
+    catch (cause) { if (ticket === generation.current) setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { if (ticket === generation.current) setSaving(false); }
   }
   async function exportSavedContext() {
     if (dirty || !revision || saving) return;
@@ -231,7 +232,10 @@ export default function DrawingWorkspace({
           images.remember(files);
           const next = { elements: elements.filter((e) => !e.isDeleted) };
           if (sceneSignature(next) !== sceneSignature(scene)) setScene(next);
-          drawingDrafts.set(key, { scene: next, revision, savedSignature });
+          const previous = drawingDrafts.get(key);
+          if (!previous || sceneSignature(previous.scene) !== sceneSignature(next) || previous.revision !== revision || previous.savedSignature !== savedSignature) {
+            drawingDrafts.set(key, { scene: next, revision, savedSignature }); notifySaveParticipants();
+          }
           const selectedId = Object.keys(state.selectedElementIds).find((id) => state.selectedElementIds[id]);
           setSelected(selectedId ? elements.find((element) => element.id === selectedId) ?? null : null);
           if (isDrawingTool(state.activeTool.type) && state.activeTool.type !== tool) onTool(state.activeTool.type);

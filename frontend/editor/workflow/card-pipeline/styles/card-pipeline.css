@@ -1,0 +1,56 @@
+/* Blok Pipeline: stav na první pohled. Pruh teček nahoře je celá pipeline (barva = stav etapy),
+   pod ním etapy v pořadí. Barvy nesou informaci: zelená prošlo, červená selhalo, modrá běží,
+   šedá čeká, přeškrtnutá přeskočeno; etapa na řadě má fialový proužek, opakování po opravě ↺.
+   Druh etapy je ikona v kroužku, pohled kritika štítek (hodný / vyčuraný / hacker). */
+.canvas-block.block-pipeline { width: 300px; }
+.canvas-block.block-pipeline header { background: rgba(124, 107, 214, 0.22); color: #9d8ff0; }
+:root[data-theme="light"] .canvas-block.block-pipeline header { color: #5b4bc4; }
+
+/* Profily jako čipy: jeden klik přestaví pipeline; zapnutý profil je plný, potvrzení červené. */
+.card-pipeline .pipeline-profiles { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 5px; }
+.card-pipeline .pipeline-chip {
+  min-height: 0; padding: 1px 8px; border-radius: 999px; font-size: 10px; cursor: pointer;
+  border: 1px solid var(--line-strong); background: transparent; color: var(--ink-2);
+}
+.card-pipeline .pipeline-chip--on { background: #7c6bd6; border-color: #7c6bd6; color: #fff; }
+.card-pipeline .pipeline-chip--confirm { border-color: var(--danger); color: var(--danger); }
+.card-pipeline .pipeline-routed { margin: 0 0 5px; font-size: 10px; color: var(--ink-muted); overflow-wrap: anywhere; }
+
+.card-pipeline .pipeline-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; margin-bottom: 5px; font: 10px var(--mono); color: var(--ink-muted); }
+.card-pipeline .pipeline-track { display: flex; gap: 3px; flex-basis: 100%; }
+.card-pipeline .pipeline-dot { flex: 1; max-width: 21px; height: 5px; border-radius: 3px; background: var(--line-strong); }
+.card-pipeline .pipeline-dot--doing { background: #60a5fa; }
+.card-pipeline .pipeline-dot--passed { background: #22c55e; }
+.card-pipeline .pipeline-dot--failed { background: var(--danger); }
+.card-pipeline .pipeline-dot--skipped { background: repeating-linear-gradient(45deg, var(--line-strong) 0 2px, transparent 2px 4px); }
+.card-pipeline .pipeline-next { color: var(--ink); }
+.card-pipeline .pipeline-failed { color: var(--danger); }
+.card-pipeline .pipeline-retries { color: var(--gold); }
+
+.canvas-block .card-pipeline li.pipeline-stage { display: block; padding: 5px 0; }
+.card-pipeline .pipeline-stage__row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 5px; align-items: center; }
+.card-pipeline .pipeline-stage--current { box-shadow: inset 3px 0 0 #7c6bd6; padding-left: 5px; }
+.card-pipeline .pipeline-retry { margin-left: 5px; color: var(--gold); }
+.card-pipeline .pipeline-stage--skipped .pipeline-stage__title { text-decoration: line-through; color: var(--ink-muted); }
+.card-pipeline .pipeline-kind {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+  font-size: 10px; background: var(--surface-2); color: var(--ink-2);
+}
+.card-pipeline .pipeline-stage--passed .pipeline-kind { background: rgba(34, 197, 94, 0.25); color: #22c55e; }
+.card-pipeline .pipeline-stage--failed .pipeline-kind { background: rgba(196, 82, 74, 0.25); color: var(--danger); }
+.card-pipeline .pipeline-stage--doing .pipeline-kind { background: rgba(96, 165, 250, 0.25); color: #60a5fa; }
+.card-pipeline .pipeline-stage__title {
+  min-height: 0; padding: 0; border: 0; background: transparent; color: var(--ink);
+  text-align: left; font: inherit; cursor: pointer; overflow-wrap: anywhere;
+}
+.card-pipeline .pipeline-lens { margin-left: 5px; padding: 0 5px; border-radius: 5px; font: 500 9px var(--mono); background: var(--surface-2); color: var(--ink-2); }
+.card-pipeline .pipeline-lens--hacker { color: var(--danger); }
+.card-pipeline .pipeline-lens--sly { color: var(--gold); }
+.card-pipeline .pipeline-status { font: 500 9px var(--mono); color: var(--ink-muted); white-space: nowrap; }
+.card-pipeline .pipeline-status--passed { color: #22c55e; }
+.card-pipeline .pipeline-status--failed { color: var(--danger); }
+.card-pipeline .pipeline-status--doing { color: #60a5fa; }
+.card-pipeline .pipeline-stage--current .pipeline-status { color: #9d8ff0; }
+.card-pipeline .pipeline-stage__note { margin: 3px 0 0 23px; font-size: 10px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.card-pipeline .pipeline-stage__edit { display: grid; gap: 5px; margin: 5px 0 0 23px; }
+.card-pipeline .pipeline-stage__edit textarea { resize: vertical; font: inherit; }

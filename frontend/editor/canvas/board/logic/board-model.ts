@@ -41,7 +41,7 @@ export function edgeFromConnection(connection: BoardConnection, id: string = new
 export type EdgeAppearance = {
   sourceHandle: string;
   className: string;
-  style?: { stroke: string; strokeDasharray?: string };
+  style?: { stroke: string; strokeDasharray?: string; strokeWidth?: number };
   type: "smoothstep";
   pathOptions: { borderRadius: number; offset: number };
 };
@@ -58,14 +58,16 @@ const EDGE_STYLE: Record<string, { stroke: string; strokeDasharray?: string }> =
 /** Pravoúhlé vedení sdílí všechny vazby grafu: zaoblení 12 a odstup 24 od karty, než se lomí. */
 const EDGE_PATH_OPTIONS = { borderRadius: 12, offset: 24 };
 
-export function edgeAppearance(edge: GraphEdge): EdgeAppearance {
+export function edgeAppearance(edge: GraphEdge, decision?: { status?: "chosen" | "rejected" }): EdgeAppearance {
   const port = edge.port ?? "next";
   return {
     sourceHandle: isBlockEdge(edge) ? blockHandleId(edge.sourceBlockId, edge.sourcePortId) : port,
     // Tok mezi oblastmi nese vlastní třídu (ne "edge-port-*"), ať jde v CSS i mimo ni stylovat
     // samostatně od vazeb mezi kartami.
     className: port === "flow" ? "edge-flow" : "edge-port-" + port,
-    style: EDGE_STYLE[port],
+    style: port === "block" && decision?.status === "chosen" ? { stroke: "var(--accent)", strokeWidth: 4 }
+      : port === "block" && decision?.status === "rejected" ? { stroke: "#94a3b8", strokeDasharray: "2 5", strokeWidth: 1 }
+      : EDGE_STYLE[port],
     type: "smoothstep",
     pathOptions: EDGE_PATH_OPTIONS,
   };

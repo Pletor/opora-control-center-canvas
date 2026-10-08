@@ -1,5 +1,8 @@
 # Synchronizace pravdy: OPORA, kód, GitHub, Linear, Oracle
 
+> **Od 2026-10-04 je pravda v GitHubu**, včetně plánu. Části 1, 2, 3, 6 (zákaz zápisu do gitu), 16 a 17
+> nahrazuje `docs/oporahub.md`. Echo, verdikt Oracle a brána 1:1 platí dál.
+
 Proces má čtyři vrstvy a jednu nad nimi.
 
 - **Git a GitHub** drží čistý kód a jeho dokumentaci. Nic jiného.

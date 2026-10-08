@@ -7,7 +7,7 @@ export const skillItems: AgentItem[] = [
     id: "skill-opora-control-center",
     category: "skills",
     label: "opora-control-center: obsluha aplikace",
-    purpose: "Obsluha běžící aplikace OPORA: uzly, sektory, podklady pro agenta, mapy a telemetrie; ne změny jejího zdrojového kódu.",
+    purpose: "Obsluha běžící aplikace OPORA: uzly, sektory, podklady pro agenta a mapy; ne změny jejího zdrojového kódu.",
     kind: "info",
     relates: ["Ze skillu se načítá jen reference, kterou úkol potřebuje."],
     invariants: [],

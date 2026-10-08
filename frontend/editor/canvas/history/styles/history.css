@@ -1,0 +1,33 @@
+/* ZPĚT A VPŘED V LIŠTĚ EDITORU (blok `history-buttons`)
+   Příběh: po smazání nebo nechtěném tahu má člověk cestu zpátky po ruce, i když nezná Ctrl+Z.
+   Dvojice stojí v liště Editoru ve skupině Pohled: patří k tomu,
+   na co se dívám, ne k plátnu samotnému, a plátno tak nic nepřekrývá. Vypadá jako každé jiné
+   tlačítko lišty (stejná výška, rámeček i povrch), jen Zpět a Vpřed drží těsně u sebe, protože
+   patří k sobě. Když není kam krokovat, tlačítko zešedne, ale nezmizí — lišta neposkakuje a člověk
+   vidí, že historie je prázdná, ne že funkce chybí. */
+.history-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Jeden krok: šipka a krátké slovo vedle ní, aby tlačítko šlo přečíst i bez najetí myší
+   (titulek pak jen doplní klávesovou zkratku). Povrch a výšku dává lišta (`.v3-toolbar button`). */
+.history-buttons__step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+/* Šipka je o kus větší než text: je to první, co oko pozná, slovo vedle ji jen potvrzuje. */
+.history-buttons__glyph {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Na úzké liště zůstanou jen šipky — slovo by lištu zbytečně zalomilo. */
+@media (max-width: 900px) {
+  .history-buttons__label {
+    display: none;
+  }
+}

@@ -6,14 +6,20 @@ import { LAYER_LABEL } from "@/shared/card-context/logic/card-context";
 export default function CardHead({
   view,
 }: {
-  view: Pick<CardView, "kind" | "phase" | "phaseLabel" | "closed" | "doneProposed"> & Partial<Pick<CardView, "cardLayer" | "cardStatus">>;
+  view: Pick<CardView, "kind" | "phase" | "phaseLabel" | "closed" | "doneProposed"> & Partial<Pick<CardView, "cardLayer" | "cardStatus" | "cardModel" | "cardEffort" | "waitingOnHuman">>;
 }) {
   return (
     <div className="node-card__head">
       <span className="node-card__kind">{view.kind === "sector" ? "SEKTOR" : "UZEL"}</span>
+      {!view.closed && !!view.waitingOnHuman?.length && (
+        <span className="node-card__badge node-card__badge--waiting" role="status"
+          title={view.waitingOnHuman.map((item) => item.ask).join("\n")}>
+          👤 Čeká na tebe: {view.waitingOnHuman[0].ask}
+        </span>
+      )}
       {view.closed && (
         <span className="node-card__lock" title="Karta je uzavřená: bloky a porty jsou jen ke čtení." aria-label="Uzavřená karta">
-          🔒
+          <span style={{ color: "#16a34a" }}>✓</span> 🔒
         </span>
       )}
       {view.doneProposed && (
@@ -21,9 +27,10 @@ export default function CardHead({
           ⌛
         </span>
       )}
-      {(view.cardLayer || view.cardStatus) && (
+      {(view.cardLayer || view.cardStatus || view.cardModel) && (
         <span className="node-card__badges">
           {view.cardLayer && <span className="node-card__badge" title="Vrstva karty">{LAYER_LABEL[view.cardLayer]}</span>}
+          {view.cardModel && <span className="node-card__badge" title={"Model: " + view.cardModel + (view.cardEffort ? ", effort: " + view.cardEffort : "")}>{view.cardModel}</span>}
           {view.cardStatus && (
             <span className={"node-card__badge node-card__badge--" + view.cardStatus} title="Stav karty">
               {CARD_STATUS_LABEL[view.cardStatus]}

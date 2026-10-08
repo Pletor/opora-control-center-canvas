@@ -8,6 +8,7 @@
 // serverem a hlídá revizi.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/shared/types/logic/types";
+import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import {
   emptyWorkspace,
   type AgentWorkspaceRecord,
@@ -78,17 +79,18 @@ export function useAgentWorkspace(project: string, workspace: string, nodeId: st
     const ticket = generation.current;
     const { project, workspace, nodeId } = scope.current;
     try {
-      const value = await api<AgentWorkspaceResponse>("/api/desktop-v3/agent-workspace", {
+      const value = await trackSaveWrite(project, workspace, api<AgentWorkspaceResponse>("/api/desktop-v3/agent-workspace", {
         project,
         workspace,
         nodeId,
         expectedRevision: revisionRef.current,
         sections,
         by: "human",
-      });
+      }));
       if (ticket !== generation.current) return;
       setRecord(value.workspace);
       setRevision(value.revision);
+      revisionRef.current = value.revision;
       setReadOnly(value.readOnly);
       setError("");
     } catch (e) {
@@ -97,10 +99,10 @@ export function useAgentWorkspace(project: string, workspace: string, nodeId: st
       if (message.startsWith("Konflikt")) {
         // Revize se změnila jinde: rozepsaný text komponenta nezahazuje, jen se znovu načte, co je uloženo.
         setError(AGENT_WORKSPACE_CONFLICT_MESSAGE);
-        load();
       } else {
         setError(message);
       }
+      throw e;
     }
   }, [load]);
 

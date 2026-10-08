@@ -36,7 +36,7 @@ def _cursor(value):
         number = int(value)
     except (TypeError, ValueError):
         return 0
-    return number if number >= 0 else 0
+    return max(number, 0)
 
 
 def sse_frame(event):

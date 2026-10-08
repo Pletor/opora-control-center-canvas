@@ -11,7 +11,6 @@ import os
 import queue
 import re
 import shutil
-import stat
 import subprocess
 import threading
 import time
@@ -394,7 +393,7 @@ class CodeIntelligence:
         lines = text.split("\n")
         if line >= len(lines):
             raise ValueError("line je mimo rozsah souboru.")
-        raw_line = lines[line][:-1] if lines[line].endswith("\r") else lines[line]
+        raw_line = lines[line].removesuffix("\r")
         units = len(raw_line.encode("utf-16-le")) // 2
         if character > units:
             raise ValueError("character je mimo UTF-16 rozsah řádku.")

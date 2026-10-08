@@ -1,6 +1,6 @@
 # Plán: složka projektu jako jediné místo a procesy návrh → proces → hotovo → oprava
 
-Stav: všech 6 vrstev provedeno (2026-09-14); ověřeno v prohlížeči nad kopií produkčních dat: migrace při startu, záložka Proces, cyklus návrh → proces → oprava (z odpovědi agenta) → proces → hotovo, přehled Procesy v Live Run. Odchylky od plánu: `main/` a `workspaces` tabulka zůstávají v registru jako index; kresby, texty, zadání a deník zůstávají v `project.sqlite` (soubory `nodes/*.md` a `canvas/*.json` jsou další krok); `map-refresh/state.sqlite` zůstává napříč projekty, protože je to jedna fronta.
+Stav: všech 6 vrstev provedeno (2026-09-14); ověřeno v prohlížeči nad kopií produkčních dat: migrace při startu, záložka Proces, cyklus návrh → proces → oprava (z odpovědi agenta) → proces → hotovo, (přehled Procesy v Live Run byl později zrušen spolu s prostředím). Odchylky od plánu: `main/` a `workspaces` tabulka zůstávají v registru jako index; kresby, texty, zadání a deník zůstávají v `project.sqlite` (soubory `nodes/*.md` a `canvas/*.json` jsou další krok); `map-refresh/state.sqlite` zůstává napříč projekty, protože je to jedna fronta.
 
 Schváleno 2026-09-14. Rozhodnutí uživatele: (1) klíčem je ID, frontend ukazuje název; (2) výstupy JSON a DB, Markdown podle typu procesu; (3) žádné duplicity, `main/` je čistý, každý nový pracovní prostor je git worktree.
 
@@ -19,7 +19,7 @@ Schváleno 2026-09-14. Rozhodnutí uživatele: (1) klíčem je ID, frontend ukaz
 | `memory/state.json` | pravidla, rozhodnutí, fáze uzlů | `desktop_v3_state` |
 | `packets/<snap-id>.json` | neměnné snímky podkladů pro agenta | `desktop_v3_snapshots` |
 | `maps/` | fronta obnovy map a běhy (`state.sqlite` per projekt) | `map-refresh/state.sqlite` (řádky daného projektu); artefakty zůstávají v `main/graphify-out` a `main/archify-out` |
-| `runs/` | vazby běhů, aktivita, session agentů | `agent_bindings`, `agent_binding_scopes`, `agent_activity_entries`, `node_sessions`, složky `llm-runs`, `coding-workspaces`, `task-handoff-*` |
+| `runs/` | složky běhů agentů | složky `llm-runs`, `coding-workspaces`, `task-handoff-*` (tabulky vazeb, aktivity a session byly zrušeny spolu s Live Runem) |
 | `project.sqlite` | revize a indexy nad soubory výše (stejná schémata jako dnes, bez centrální DB) | – |
 
 Mimo složku projektu zůstává jen `.data/production/registry.sqlite` (tabulky `projects` s cestou složky, `archived_projects`, `jobs`) a `claude-code-skills.json` (nastavení aplikace). Vestavěný projekt `draft` („Lokální návrh“) dostane vlastní složku `projects/draft/`.
@@ -64,14 +64,14 @@ Registr odmítne druhý projekt se stejným zdrojem (URL nebo kanonická cesta, 
 | 2 | `editor/process/process_store.py`, `process_lifecycle.py` | – | `test_process_store.py`, `test_process_lifecycle.py` (každý zakázaný přechod) |
 | 3 | `editor/process/process_reports.py`, `api/editor/process_routes.py` | `app/factory.py` (include router) | `test_process_reports.py`, `test_process_routes.py` |
 | 4 | `project/worktrees/worktree_manager.py` | – | `test_worktree_manager.py` (reálný git v tmp) |
-| 5 | `canvas/migrate_to_project_folders.py` | `canvas_service.py` (`db_for(project)`, registr), `project_hub.py`, `node_text/specs/journal/drawings/removals`, `desktop_v3_state/packets`, `workspace_documents`, `map_refresh`, `agent_bindings/activity`, `node_sessions`; `DrawingStore`/`NodeSpecStore` dostanou service místo raw connection | všechny existující testy + `test_migrate_to_project_folders.py` |
-| 6 | `frontend/editor/node-detail/process/`, `frontend/live-run/processes/` | `NodePanel.tsx` (záložka Proces), `App.tsx` (Live Run: procesy) | build + kontrola v prohlížeči |
+| 5 | `canvas/migrate_to_project_folders.py` | `canvas_service.py` (`db_for(project)`, registr), `project_hub.py`, `node_text/specs/journal/drawings/removals`, `desktop_v3_state/packets`, `workspace_documents`, `map_refresh`, ; `DrawingStore`/`NodeSpecStore` dostanou service místo raw connection | všechny existující testy + `test_migrate_to_project_folders.py` |
+| 6 | `frontend/editor/node-detail/process/` | `NodePanel.tsx` (záložka Proces) | build + kontrola v prohlížeči |
 
 Pozorování z investigace, se kterými vrstva 5 počítá: 13 modulů volá `canvas.db`; `DrawingStore` a `NodeSpecStore` dostávají raw spojení; `agent_bindings.bound_run_keys(source_id)` a `map_refresh.claim()` jsou dnes napříč projekty (registr si ponechá souhrnný index); `workspace_documents.save` zapisuje do `project_settings` v jedné transakci (obě tabulky zůstanou v `project.sqlite`); test `test_project_hub.py:84` počítá s legacy `canvas.sqlite` (migrační skript ho převede).
 
 ## 8. Frontend
 
-Detail uzlu dostane záložku **Proces** (stav, kroky, důkazy, poslední odpovědi agentů, tlačítka přechodů podle tabulky). Live Run dostane pohled **Procesy** (běžící a v opravě napříč projektem). Všude se ukazuje název projektu a název procesu, ID jen v detailu a v API.
+Detail uzlu dostane záložku **Proces** (stav, kroky, důkazy, poslední odpovědi agentů, tlačítka přechodů podle tabulky). Všude se ukazuje název projektu a název procesu, ID jen v detailu a v API.
 
 ## 9. Ověření
 `uv run pytest` bez nových selhání oproti baseline (2 graphify selhání jsou známá); proces projde všemi čtyřmi stavy přes API; `step_failed` přepne do repair bez ztráty historie; report do běžícího procesu je vidět s kontextem; frontend zobrazuje názvy.

@@ -1,0 +1,204 @@
+/* ULOŽIT A HISTORIE ULOŽENÍ V LIŠTĚ (blok `save-versions`)
+   Příběh: plátno se ukládá samo, takže tlačítko ULOŽIT neslibuje „nic se neztratí“ — slibuje bod,
+   ke kterému se dá vrátit. Proto stojí až na pravém konci lišty, kde věta lišty končí („co s tím
+   dělám“), a je klidné, dokud se plátno od poslední verze nezmění. Ikonka historie ho drží zleva
+   jako jeho minulost: nejdřív vidím, kam se můžu vrátit, pak uložím nový bod. Skupina je kotvou
+   panelu, který se otevírá pod ní u pravého okraje. */
+.save-versions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 0;
+}
+
+/* Uložit vše je hlavní krok lišty, a proto nese barvu značky OPORA: plný teal s ikonou diskety,
+   stejně jako hlavní akce v ostatních pohledech. Pevná šířka drží lištu na místě, když se popisek
+   změní na „Ukládám…“. Barva se nemění podle stavu, aby tlačítko bylo vždy k nalezení na stejném
+   místě a ve stejném tónu; neuloženou práci ohlásí jen zlatá tečka v rohu a jemný prstenec. */
+.save-versions__save {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 118px;
+  padding-inline: 12px;
+  border-radius: var(--radius);
+  font-weight: 600;
+}
+.topbar .save-versions__save {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.topbar .save-versions__save:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-ink);
+}
+.save-versions__save--dirty {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--gold-line);
+}
+
+/* Disketa kreslená tahem v barvě písma: na tealu čte stejně jako popisek v obou režimech. */
+.save-versions__icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+/* Zlatá tečka = „od poslední verze se něco změnilo“. Zlatá, ne červená: nejde o chybu, jen o
+   práci, která ještě nemá bod návratu. */
+.save-versions__dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid var(--surface);
+}
+.save-versions__external{max-width:190px;font-size:11px;color:var(--warn)}
+
+/* Ikonka historie je čtvercová a tichá: patří k ULOŽIT, ale nesoupeří s ním. Otevřený panel ji
+   rozsvítí stejně jako ostatní přepínače lišty (aria-pressed). */
+.save-versions__history {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--v3-btn-h, 30px);
+  padding-inline: 0;
+}
+.save-versions__glyph {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Slovo pro odečítač obrazovky: barvu a tečku nevidí, proto stav řekne nahlas. */
+.save-versions__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* PANEL HISTORIE ULOŽENÍ (prvek `save-versions__panel`)
+   Příběh: historie se otevírá tam, kam člověk právě klikl — u pravého okraje, těsně pod lištou —
+   a překrývá plátno jen úzkým sloupcem, aby bylo vidět, co se obnovením změní. Čte se shora dolů
+   jako postup: nápověda, co udělat, seznam verzí od nejnovější, a dole rozhodnutí OBNOVIT / STORNO.
+   Potvrzení obnovy nahradí spodní tlačítka jednou větou, takže se nic neotevírá nad panelem. */
+.save-versions__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+}
+.save-versions__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 4px;
+}
+.save-versions__panel-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.save-versions__panel-close {
+  min-height: 0;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+}
+
+/* Nápověda je v tónovaném rámečku: je to návod, ne obsah, a nesmí splynout se seznamem. */
+.save-versions__panel-info {
+  margin: 4px 12px 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.save-versions__panel-error {
+  margin: 0 12px 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* Seznam verzí: dvouřádkový záznam (kdy, kdo), jen on se posouvá, hlavička a rozhodnutí stojí. */
+.save-versions__panel-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+.save-versions__panel-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.save-versions__panel-item:hover {
+  background: var(--surface-2);
+}
+.save-versions__panel-item--selected,
+.save-versions__panel-item--selected:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.save-versions__panel-when {
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.save-versions__panel-author {
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.save-versions__panel-empty {
+  padding: 10px 8px;
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+/* Rozhodnutí dole: OBNOVIT vpravo jako hlavní krok, STORNO vedle; potvrzovací věta se zalomí nad ně. */
+.save-versions__panel-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+.save-versions__panel-question {
+  flex: 1 1 100%;
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.45;
+}

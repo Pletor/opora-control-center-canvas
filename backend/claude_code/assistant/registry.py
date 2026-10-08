@@ -10,7 +10,7 @@ import json
 import os
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 STATES = ("idle", "running", "waiting_approval", "closed", "error")
@@ -23,7 +23,7 @@ FIELDS = ("id", "projectId", "workspace", "title", "model", "claudeSessionId",
 
 
 def now_iso():
-    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def title_from(text):

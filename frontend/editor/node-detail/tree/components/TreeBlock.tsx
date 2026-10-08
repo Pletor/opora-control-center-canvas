@@ -1,6 +1,7 @@
 // Jeden blok stromu: hlavička (číslo, název, status, nástroje) a po rozbalení text, štítky, TODO, obrázky, stav.
 // Dílky nic neukládají; každá změna bublá nahoru jako událost se jménem bloku.
 import { useEffect, useState } from "react";
+import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import type { Block } from "@/shared/desktop-state/logic/types";
 import type { BranchTarget } from "@/editor/node-detail/tree/logic/tree-model";
 import type { TreeBlockEvents } from "@/editor/block-editor/logic/block-events";
@@ -38,6 +39,9 @@ export default function TreeBlock({
   // Text a název se ukládají až po opuštění pole, aby každý znak nezapisoval revizi.
   const [title, setTitle] = useState(block.title);
   const [text, setText] = useState(block.text);
+  useScopedSaveParticipant({ id: `tree-block:${block.id}`, label: `Blok ${block.number}: ${block.title}`,
+    dirty: title !== block.title || text !== block.text,
+    blocked: "Dokončete název nebo text bloku a vyčkejte na jeho uložení." });
   useEffect(() => setTitle(block.title), [block.title]);
   useEffect(() => setText(block.text), [block.text]);
   const openTodos = block.todos.filter((t) => !t.done).length;

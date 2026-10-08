@@ -9,10 +9,17 @@ import type { Graph } from "@/shared/types/logic/types";
 export const HISTORY_LIMIT = 100;
 
 /**
- * `past` jsou snímky před aktuálním grafem (poslední je ten nejbližší, ten se vrátí prvním Ctrl+Z),
+ * Jeden krok zpět: snímek grafu před změnou. `restore` nese jen krok vzniklý smazáním — je to
+ * `recoveryId` zálohy na serveru; krok zpět pak místo uložení snímku volá obnovu, která vrátí i obsah
+ * smazaných karet (stav Desktop v3, prostor agenta), nejen jejich přítomnost v grafu.
+ */
+export type HistoryStep = { graph: Graph; restore?: string };
+
+/**
+ * `past` jsou kroky před aktuálním grafem (poslední je ten nejbližší, ten se vrátí prvním Ctrl+Z),
  * `future` jsou snímky, které krok zpět odložil stranou a krok vpřed je vrací zpátky.
  */
-export type GraphHistory = { past: Graph[]; future: Graph[] };
+export type GraphHistory = { past: HistoryStep[]; future: Graph[] };
 
 /** Prázdná historie: nové plátno, jiný projekt i jiný prostor začínají bez kroků. */
 export function emptyHistory(): GraphHistory {
@@ -34,21 +41,36 @@ export function sameGraph(a: Graph, b: Graph): boolean {
  */
 export function record(history: GraphHistory, previous: Graph): GraphHistory {
   const top = history.past[history.past.length - 1];
-  if (top && sameGraph(top, previous)) return history.future.length ? { past: history.past, future: [] } : history;
-  const past = [...history.past, previous].slice(-HISTORY_LIMIT);
+  if (top && !top.restore && sameGraph(top.graph, previous)) return history.future.length ? { past: history.past, future: [] } : history;
+  const past = [...history.past, { graph: previous }].slice(-HISTORY_LIMIT);
+  return { past, future: [] };
+}
+
+/**
+ * Smazání jako krok zpět: `before` je graf před smazáním, `recoveryId` záloha smazaného obsahu na
+ * serveru. Krok se zakládá vždy (i když na vrcholu leží tentýž graf — ten by obsah nevrátil) a větev
+ * dopředu zahodí stejně jako každá jiná změna.
+ */
+export function recordRemoval(history: GraphHistory, before: Graph, recoveryId: string): GraphHistory {
+  const past = [...history.past, { graph: before, restore: recoveryId }].slice(-HISTORY_LIMIT);
   return { past, future: [] };
 }
 
 /**
  * Krok zpět: vrátí poslední odložený snímek jako `graph` k uložení a historii, ve které `current`
- * (graf na plátně teď) čeká ve `future` na krok vpřed. Prázdná historie vrací `null` — volající pak
+ * (graf na plátně teď) čeká ve `future` na krok vpřed. Nese-li krok `restore`, volající neukládá
+ * snímek, ale obnoví zálohu smazání s tímto id. Prázdná historie vrací `null` — volající pak
  * neukládá vůbec nic.
  */
-export function undo(history: GraphHistory, current: Graph): { history: GraphHistory; graph: Graph } | null {
-  const graph = history.past[history.past.length - 1];
-  if (!graph) return null;
+export function undo(
+  history: GraphHistory,
+  current: Graph,
+): { history: GraphHistory; graph: Graph; restore?: string } | null {
+  const step = history.past[history.past.length - 1];
+  if (!step) return null;
   return {
-    graph,
+    graph: step.graph,
+    ...(step.restore ? { restore: step.restore } : {}),
     history: { past: history.past.slice(0, -1), future: [...history.future, current].slice(-HISTORY_LIMIT) },
   };
 }
@@ -59,6 +81,6 @@ export function redo(history: GraphHistory, current: Graph): { history: GraphHis
   if (!graph) return null;
   return {
     graph,
-    history: { past: [...history.past, current].slice(-HISTORY_LIMIT), future: history.future.slice(0, -1) },
+    history: { past: [...history.past, { graph: current }].slice(-HISTORY_LIMIT), future: history.future.slice(0, -1) },
   };
 }

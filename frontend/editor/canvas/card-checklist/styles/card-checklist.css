@@ -1,0 +1,59 @@
+/* KONTROLNÍ PÁS: deset políček pod hlavičkou karty. Barva nese stav a jinde se nepoužívá:
+   zelená je, šedá čárkovaná chybí, modrá rozpracováno, jantarová selhalo / čeká na člověka.
+   Pod 50 % zoomu (React Flow přidá menší písmo) zůstanou jen barevné body. */
+.card-checklist {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 3px;
+  padding: 2px 12px 8px;
+}
+.card-checklist__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  cursor: default;
+}
+.card-checklist__cell b {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 18px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  font: 600 10px var(--mono);
+}
+.card-checklist__cell small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 500 8px var(--mono);
+  color: var(--ink-muted);
+}
+.card-checklist__cell--yes b { color: #22c55e; background: rgba(34, 197, 94, 0.16); border: 1px solid rgba(34, 197, 94, 0.5); }
+.card-checklist__cell--no b { color: var(--ink-muted); background: transparent; border: 1px dashed var(--line-strong); }
+.card-checklist__cell--run b { color: #60a5fa; background: rgba(96, 165, 250, 0.16); border: 1px solid rgba(96, 165, 250, 0.55); }
+.card-checklist__cell--fail b { color: #f59e0b; background: rgba(245, 158, 11, 0.16); border: 1px solid rgba(245, 158, 11, 0.6); }
+
+/* SOUHRN OBLASTI: pod štítkem oblasti, pruhy počtů karet; jantarové číslo jen když někdo čeká na člověka. */
+.area-summary {
+  position: absolute;
+  top: 34px;
+  left: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  font: 500 10px var(--mono);
+  color: var(--ink-muted);
+  pointer-events: none;
+}
+.area-summary__bar { display: flex; flex-direction: column; gap: 2px; min-width: 90px; }
+.area-summary__bar > i { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.area-summary__bar > i > i { display: block; height: 4px; background: #22c55e; }
+.area-summary__waiting { color: #f59e0b; }
+
+/* OBÁLKA PŘEDÁVKY na vazbě: plná = zpráva je, čárkovaná = zdroj hotový, předávka chybí. */
+.edge-handoff { font: 600 11px var(--mono); }

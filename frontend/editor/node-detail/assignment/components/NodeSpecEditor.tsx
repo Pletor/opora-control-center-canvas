@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { useSaveParticipant, notifySaveParticipants, trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import { api, type NodeSpec, type SpecFields } from "@/shared/types/logic/types";
 
 const drafts = new Map<string, { fields: SpecFields; revision: number }>();
+const pendingSaves = new Map<string, Promise<NodeSpec>>();
+async function persistSpec(key: string) {
+  while (pendingSaves.has(key)) await pendingSaves.get(key);
+  const draft = drafts.get(key); if (!draft) return null;
+  const [project, workspace, node] = JSON.parse(key);
+  const write = trackSaveWrite(project, workspace, api<NodeSpec>("/api/node-spec", { project, workspace, node, expected_revision: draft.revision, fields: draft.fields }));
+  pendingSaves.set(key, write); notifySaveParticipants();
+  try { const saved = await write; const current = drafts.get(key); if (current === draft) drafts.delete(key); else if (current) drafts.set(key, { ...current, revision: saved.revision }); return saved; }
+  finally { if (pendingSaves.get(key) === write) pendingSaves.delete(key); notifySaveParticipants(); }
+}
 export function discardSpecDrafts(project: string, workspace?: string, nodeIds?: string[]) {
   for (const key of drafts.keys()) {
     const [p, w, n] = JSON.parse(key) as string[];
@@ -51,19 +62,18 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled }:
     return () => { generation.current++; };
   }, [project, workspace, nodeId, reload]);
   const dirty = !!stored && !sameFields(fields, stored.fields);
-  async function save() {
-    if (!stored || stored.readOnly || loading || saving || disabled) return;
+  useSaveParticipant({ id: "spec:" + key, project, workspace, label: "Zadání uzlu " + nodeId, dirty, pending: saving, retainOnUnmount: true, isDirty: () => drafts.has(key), isPending: () => pendingSaves.has(key), flush: async () => { await persistSpec(key); setReload((value) => value + 1); }, discard: () => { drafts.delete(key); setReload((value) => value + 1); } });
+  async function save(propagate = false) {
+    if (!stored || stored.readOnly || loading || saving || disabled) { if (propagate) throw new Error("Zadání není připravené k uložení."); return; }
     const ticket = generation.current;
     setSaving(true); setError("");
     try {
-      const value = await api<NodeSpec>("/api/node-spec", {
-        project, workspace, node: nodeId, expected_revision: baseRevision, fields,
-      });
-      const draft = drafts.get(key);
-      if (draft && draft.revision === baseRevision && sameFields(draft.fields, fields)) drafts.delete(key);
+      const value = await persistSpec(key); if (!value) return;
+      notifySaveParticipants();
       if (ticket === generation.current) { setStored(value); setFields(value.fields); setBaseRevision(value.revision); }
     } catch (e) {
       if (ticket === generation.current) setError(e instanceof Error ? e.message : String(e));
+      if (propagate) throw e;
     } finally {
       if (ticket === generation.current) setSaving(false);
     }
@@ -81,10 +91,11 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled }:
         onChange={(e) => {
           const next = { ...fields, [key]: e.target.value };
           drafts.set(JSON.stringify([project, workspace, nodeId]), { fields: next, revision: baseRevision });
-          setFields(next);
+          if (stored && sameFields(next, stored.fields)) drafts.delete(key);
+          notifySaveParticipants(); setFields(next);
         }} />
     </label>)}
-    {stored && !stored.readOnly && <button className="primary wide" disabled={!dirty || loading || saving || disabled} onClick={save}>Uložit zadání</button>}
+    {stored && !stored.readOnly && <button className="primary wide" disabled={!dirty || loading || saving || disabled} onClick={() => void save()}>Uložit zadání</button>}
     {error && <div className="spec-error" role="alert"><p>{error}</p>
       <button disabled={saving || loading} onClick={() => { drafts.delete(key); setReload(reload + 1); }}>Zahodit rozepsané a načíst uložené</button>
     </div>}

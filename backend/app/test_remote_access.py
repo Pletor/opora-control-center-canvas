@@ -48,8 +48,6 @@ def test_token_rules_and_paths():
     assert not tokens_equal(TOKEN, None) and not tokens_equal("", "")
     assert bearer_token("Bearer " + TOKEN) == TOKEN
     assert bearer_token(TOKEN) is None and bearer_token("Bearer   ") is None
-    assert is_loopback_only("/api/agent-hooks/event") and is_loopback_only("/api/agent-hooks/ack")
-    assert not is_loopback_only("/api/agent-hooks/events")
     assert requires_token("/api/view") and not requires_token("/api/access/status")
     assert not requires_token("/assets/index.js") and not requires_token("/")
     assert scheme_from(None) == "https" and scheme_from("http") == "http"
@@ -84,10 +82,8 @@ def test_loopback_keeps_todays_rules_in_remote_mode(remote_app):
         assert client.get("/api/access/status").json() == {
             "remote": False, "authenticated": True, "host": "127.0.0.1:8740"
         }
-        # Hook control je doma pořád dostupný; zamítnutí přijde z jeho vlastní validace, ne z hranice.
-        answer = client.post("/api/agent-hooks/ack", json={"bindingId": "x"},
-                             headers={"origin": "http://127.0.0.1:8740"})
-        assert answer.json().get("error") != "Hook control běží jen na tomto počítači."
+        # Asistent je doma pořád dostupný; hranice ho zamyká jen pro veřejného hosta.
+        assert client.get("/api/assistant/status").status_code != 403
 
 
 def test_public_host_needs_a_token(remote_app):
@@ -120,17 +116,6 @@ def test_login_sets_the_cookie_and_logout_clears_it(remote_app):
         assert client.get("/api/bootstrap").status_code == 401
 
 
-def test_hook_control_stays_on_this_computer(remote_app):
-    with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
-        headers = {"authorization": "Bearer " + TOKEN, "origin": "https://" + PUBLIC}
-        for route in ("/api/agent-hooks/event", "/api/agent-hooks/ack"):
-            answer = client.post(route, json={"bindingId": "x"}, headers=headers)
-            assert answer.status_code == 403
-            assert answer.json() == {"error": "Hook control běží jen na tomto počítači."}
-        # Čtení událostí zůstává běžnou routou pod tokenem.
-        assert client.get("/api/agent-hooks/events?bindingId=x", headers=headers).status_code != 403
-
-
 def test_assistant_is_loopback_only():
     assert is_loopback_only("/api/assistant") and is_loopback_only("/api/assistant/status")
     assert is_loopback_only("/api/assistant/sessions/abc/events")
@@ -140,7 +125,9 @@ def test_assistant_is_loopback_only():
 def test_assistant_refused_through_tunnel_even_with_token(remote_app):
     with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
         headers = {"authorization": "Bearer " + TOKEN, "origin": "https://" + PUBLIC}
-        assert client.get("/api/assistant/status", headers=headers).status_code == 403
+        refused = client.get("/api/assistant/status", headers=headers)
+        assert refused.status_code == 403
+        assert refused.json() == {"error": "Tohle běží jen na tomto počítači."}
         assert client.get("/api/assistant/sessions?project=p1", headers=headers).status_code == 403
         assert client.post("/api/assistant/sessions", json={"project": "p1"}, headers=headers).status_code == 403
 
@@ -176,3 +163,15 @@ def test_static_files_load_without_a_token(remote_app, monkeypatch):
     # Bez tokenu musí projít všechno mimo /api, jinak by se přihlašovací obrazovka nenačetla.
     with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
         assert client.get("/nic-takoveho.js").status_code != 401
+
+
+def test_open_file_is_loopback_only():
+    """Spuštění souboru na hostiteli nesmí jít přes tunel (upgrade-opora #42)."""
+    assert is_loopback_only("/api/workspace/open-file")
+    assert not is_loopback_only("/api/workspace/open-files") and not is_loopback_only("/api/workspace/file")
+
+
+def test_hook_event_and_ack_are_loopback_only():
+    """Hook rozhoduje o souborech na tomto stroji; přes tunel ne (upgrade-opora #38)."""
+    assert is_loopback_only("/api/agent-hooks/event") and is_loopback_only("/api/agent-hooks/ack")
+    assert not is_loopback_only("/api/agent-hooks/events")

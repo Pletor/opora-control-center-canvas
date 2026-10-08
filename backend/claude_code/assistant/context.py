@@ -13,7 +13,7 @@ MAX_TEXT = 60000
 MAX_TITLE = 80
 MAX_IDS = 50
 MAX_ID = 128
-ENVIRONMENTS = ("project", "editor", "live")
+ENVIRONMENTS = ("project", "editor", "hub")
 SCOPES = ("board", "selection")
 CONTEXT_KEYS = ("projectId", "workspace", "layerId", "selectedNodeIds", "environment", "scope")
 SCOPE_SELECTION = ("Rozsah: jen vybrané uzly (selectedNodeIds) do hloubky; navazující uzly jen propoj vazbou; "
@@ -67,7 +67,7 @@ def validate_context(context):
         clean["selectedNodeIds"] = [_short_string(item, "selectedNodeIds") for item in ids]
     if "environment" in context:
         if context["environment"] not in ENVIRONMENTS:
-            raise ValueError("Kontext zprávy: environment je project, editor nebo live.")
+            raise ValueError("Kontext zprávy: environment je project, editor nebo hub.")
         clean["environment"] = context["environment"]
     if "scope" in context:
         if context["scope"] not in SCOPES:
