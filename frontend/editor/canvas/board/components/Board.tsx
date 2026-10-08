@@ -36,6 +36,12 @@ import { evidenceReadiness } from "@/editor/canvas/node-card/logic/evidence-read
 import { releaseLease } from "@/editor/canvas/node-card/logic/release-lease";
 import SectorGateEditor from "@/editor/canvas/node-card/components/SectorGateEditor";
 import SectorAutonomy from "@/editor/canvas/node-card/components/SectorAutonomy";
+import { stabilizeCardData } from "@/editor/card-dna/logic/card-stability";
+import { pipelineOf, pipelineSummary } from "@/editor/workflow/card-pipeline/logic/pipeline-model";
+import { cardStatusData } from "@/editor/card-dna/logic/card-status";
+import { cardClickAction, isCardControl } from "@/editor/card-dna/logic/card-click";
+import CardDnaDialog from "@/editor/card-dna/components/CardDnaDialog";
+import CardDnaDetail from "@/editor/card-dna/components/CardDnaDetail";
 import "@/editor/canvas/board/styles/board-bar.css";
 import { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
 import { layerFootprints } from "@/editor/canvas/board/logic/layout-model";
@@ -128,6 +134,8 @@ export default function Board({
   editing,
   onEditing,
   onRename,
+  onSaveNode,
+  onPipelineChange,
   onCreateAt,
   onCommentText,
   onAreaMove,
@@ -191,6 +199,10 @@ export default function Board({
   editing: string | null;
   onEditing: (id: string | null) => void;
   onRename: (id: string, name: string) => void;
+  /** DNA detail hlásí upravený uzel rodiči; rodič jediný zapisuje graf. */
+  onSaveNode?: (node: import("@/shared/types/logic/types").CanvasNode) => void;
+  /** DNA workflow hlásí lidskou úpravu etapy; rodič jí zapisuje desktop state. */
+  onPipelineChange?: (event: { type: "move"; nodeId: string; index: number; delta: number } | { type: "remove" | "skip"; nodeId: string; stageId: string } | { type: "edit"; nodeId: string; stageId: string; title: string; brief: string }) => void;
   /** Dvojklik na prázdné plátno vytvoří uzel na daném místě vrstvy. */
   onCreateAt: (x: number, y: number) => void;
   /** Text komentáře opuštěný na plátně (blur v textarea lístku); ukládá rodič. */
@@ -224,6 +236,9 @@ export default function Board({
   onRevealed?: (nonce: number) => void;
 }) {
   const [showFrontier, setShowFrontier] = useState(true);
+  const [openCard, setOpenCard] = useState<string | null>(null);
+  const cardOrigin = useRef<HTMLElement | null>(null);
+  useEffect(() => { setOpenCard(null); cardOrigin.current = null; }, [scope, parent]);
   const frontier = useFrontier(sourceContext, parent, showFrontier, state);
   const checklists = useCardChecklist(sourceContext, parent, state);
   const isSelected = (id: string) => id === selected || multiSelected.includes(id);
@@ -271,6 +286,7 @@ export default function Board({
           };
         }
         const workflow = nodeWorkflowOf(state, n.id);
+        const pipeline = pipelineSummary(pipelineOf(state, n.id));
         const view = cardView(n, workflow, graph.nodes.filter((c) => c.parentId === n.id).length);
         return {
           id: n.id,
@@ -279,6 +295,7 @@ export default function Board({
           selected: isSelected(n.id),
           data: {
             view,
+            pipeline: { finished: pipeline.finished, total: pipeline.total, failed: pipeline.stuck.length },
             checklist: checklists?.[n.id],
             usage: (n.kind === "sector" ? usage?.sectors : usage?.nodes)?.[n.id],
             upstream: { rows: upstreamRows(graph, state, n.id), open: onSelect },
@@ -291,6 +308,7 @@ export default function Board({
             moved: movedCards.includes(`${n.id}:${n.parentId}:${n.x}:${n.y}`),
             inputSecurity: onUrlDownload ? { enabled: !!state.nodes[n.id]?.downloadsUrl, save: (enabled: boolean) => onUrlDownload(n.id, enabled) } : undefined,
             scenario: n.scenario ? { command: n.scenario.command, history: scenarios?.nodes?.[n.id], error: scenarios?.error } : undefined,
+            ...cardStatusData(n.id, sourceStatuses, assignmentStatuses),
             realization: n.sourceRef && onRealizeSource ? { value: n.realization, status: sourceStatuses?.[n.id], disabled,
               save: (commit: string, prUrl: string) => onRealizeSource(n.id, commit, prUrl) } : undefined,
             autonomous: state.nodes[n.id]?.done?.by === "autonomy" && state.nodes[n.id]?.done?.confirmed,
@@ -339,7 +357,7 @@ export default function Board({
           },
         };
       }) as Node[]).concat(blocks.nodes);
-  const [nodes, setNodes] = useState<Node[]>(make);
+  const [nodes, setNodes] = useState<Node[]>(() => make().map(n => n.type === "canvas" ? { ...n, data: stabilizeCardData(undefined, n.data) } : n));
   useEffect(() => {
     if (!heightsRef) return;
     const heights: Record<string, number> = {};
@@ -353,7 +371,8 @@ export default function Board({
       const measured = new Map(previous.map((n) => [n.id, n]));
       return make().map((n) => {
         const old = measured.get(n.id);
-        return old?.measured ? { ...n, measured: old.measured, width: old.width, height: old.height } : n;
+        const stable = n.type === "canvas" ? { ...n, data: stabilizeCardData(old?.data, n.data) } : n;
+        return old?.measured ? { ...stable, measured: old.measured, width: old.width, height: old.height } : stable;
       });
     });
   }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project, sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, scenarios, confirmError, movedCards]);
@@ -513,6 +532,7 @@ export default function Board({
         nodesConnectable={!disabled}
         deleteKeyCode={null}
         zoomOnDoubleClick={false}
+        onlyRenderVisibleElements
         // Vybraná oblast se nesmí vyhouplout nad karty: React Flow by ji jinak z výchozí logiky
         // vrstvení vytáhl nahoru bez ohledu na zIndex uzlu.
         elevateNodesOnSelect={false}
@@ -525,14 +545,25 @@ export default function Board({
         onNodeClick={(event, n) => {
           if (isBlockId(n.id)) return;
           // Komentář nemá bloky ani knihovnu: klik na něj jen vybere lístek, žádné směrování na blok.
-          if (n.type === "comment") { onSelect(n.id); return; }
+          if (n.type === "comment" || n.type === "area") { onSelect(n.id); return; }
           // Klik dopadl buď na plochu bloku v kartě (nese data-block-id), nebo jinam na kartu.
           const hit = (event.target as HTMLElement).closest<HTMLElement>("[data-block-id]");
-          hit?.dataset.blockId ? onSelectBlock(n.id, hit.dataset.blockId) : onSelect(n.id);
+          if (isCardControl(event.target as HTMLElement)) {
+            if (hit?.dataset.blockId) onSelectBlock(n.id, hit.dataset.blockId);
+            return;
+          }
+          onSelect(n.id);
+          const action = cardClickAction({ detail: event.detail, modified: event.ctrlKey || event.metaKey || event.shiftKey });
+          if (action === "enter") { setOpenCard(null); onEnter(n.id); }
+          if (action === "preview") {
+            cardOrigin.current = event.detail === 0 ? null : (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
+            setOpenCard(n.id);
+          }
         }}
         onEdgeClick={(_, edge) => !isBlockId(edge.target) && onSelectEdge(edge.id)}
         onPaneClick={onClear}
-        onNodeDoubleClick={(_, n) => !isBlockId(n.id) && n.type !== "comment" && n.type !== "area" && onEnter(n.id)}
+        // Druhý click (detail=2) již vstoupil dovnitř; dblclick nesmí akci zdvojit.
+        onNodeDoubleClick={(event) => event.preventDefault()}
         onNodeDragStop={(_, dragged) => {
           const block = parseBlockId(dragged.id);
           if (block) {
@@ -614,6 +645,15 @@ export default function Board({
           maskColor="rgba(15,19,24,.75)"
         />
       </ReactFlow>
+      {openCard && (() => {
+        const card = nodes.find((item) => item.id === openCard && item.type === "canvas") as Node<NodeCardData> | undefined;
+        const node = graph.nodes.find((item) => item.id === openCard);
+        if (!card || !node) return null;
+        return <CardDnaDialog key={scope + ":" + openCard} title={card.data.view.name} origin={cardOrigin.current} project={sourceContext?.project} workspace={sourceContext?.workspace} onClose={() => setOpenCard(null)} renderTab={(tab, openTab) => <CardDnaDetail
+          tab={tab} node={node} data={card.data} state={state} graph={graph} project={sourceContext?.project} workspace={sourceContext?.workspace}
+          onSaveNode={onSaveNode} onTab={openTab}
+        />} />;
+      })()}
       {!disabled && (
         <p className="board-hint" data-testid="board-hint">
           Tah po plátně = výběr · Delete = smazat vybrané · prostřední tlačítko nebo mezerník + tah = posun · dvojklik na prázdné plátno = nový uzel · dvojklik na kartu = do hloubky · z portu bloku se táhne vazba na jinou kartu

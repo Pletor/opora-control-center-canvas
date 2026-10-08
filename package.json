@@ -6,8 +6,8 @@
   "scripts": {
     "start": "uv run opora",
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build && node tools/copy-drawing-assets.mjs",
-    "test": "vitest run",
+    "build": "tsc --noEmit && vite build --configLoader runner && node tools/copy-drawing-assets.mjs",
+    "test": "vitest run --configLoader runner --no-cache",
     "verify": "uv run python tools/verify.py"
   },
   "dependencies": {

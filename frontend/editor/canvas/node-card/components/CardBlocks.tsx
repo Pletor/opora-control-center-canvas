@@ -26,6 +26,8 @@ export default function CardBlocks({
   disabled,
   handlers,
   selectedBlockId,
+  compact = false,
+  showHandles = true,
 }: {
   id: string;
   rows: CardBlockRow[];
@@ -33,6 +35,9 @@ export default function CardBlocks({
   handlers: CardBlockHandlers;
   /** Blok právě vybraný na plátně; zvýrazní se, ať sedí knihovna k tomu, co je vidět. */
   selectedBlockId?: string;
+  /** Plátno ukazuje jen orientační řádek; editace patří do DNA dialogu. */
+  compact?: boolean;
+  showHandles?: boolean;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const added = useAddedPulse(rows.map(row => row.id));
@@ -64,7 +69,7 @@ export default function CardBlocks({
               >
                 <div className="node-card__block-head">
                   <span className="node-card__block-number">{row.number}</span>
-                  {editing === row.id ? (
+                  {!compact && editing === row.id ? (
                     <input
                       className="nodrag node-card__block-title-input"
                       aria-label="Název bloku"
@@ -96,22 +101,12 @@ export default function CardBlocks({
                     <button type="button" className="node-card__block-tool" aria-label="Odebrat blok" disabled={disabled} onClick={() => handlers.remove(row.id)}>✕</button>
                   </span>
                 </div>
-                <textarea
-                  className="node-card__block-text nodrag"
-                  aria-label="Popis bloku"
-                  placeholder="Co se má stát a jak to má vypadat…"
-                  rows={5}
-                  defaultValue={row.text}
-                  data-save-blur="true"
-                  readOnly={disabled}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  onDoubleClick={(e) => e.stopPropagation()}
-                  onBlur={(e) => {
-                    const value = e.currentTarget.value;
-                    if (value !== row.text) handlers.text(row.id, value);
-                  }}
-                />
-                <CardBlockPorts blockId={row.id} ports={row.ports} disabled={disabled} handlers={handlers} />
+                {compact ? <span className="node-card__block-summary">{row.text}</span> : <textarea
+                  className="node-card__block-text nodrag" aria-label="Popis bloku" placeholder="Co se má stát a jak to má vypadat…" rows={5}
+                  defaultValue={row.text} data-save-blur="true" readOnly={disabled} onKeyDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
+                  onBlur={(e) => { const value = e.currentTarget.value; if (value !== row.text) handlers.text(row.id, value); }}
+                />}
+                <CardBlockPorts blockId={row.id} ports={row.ports} disabled={disabled} handlers={handlers} compact={compact} showHandles={showHandles} />
               </div>
             </li>
           ))}

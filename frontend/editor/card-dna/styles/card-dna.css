@@ -1,0 +1,32 @@
+/* DNA dává detailům klidné místo. Záložky vedou od cíle k důkazům, za dialogem zůstává lehké plátno. */
+.card-dna { position: fixed; inset: 0; margin: auto; width: min(960px, calc(100vw - 48px)); max-height: min(820px, calc(100vh - 48px)); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); padding: 0; box-shadow: var(--shadow-pop); }
+.card-dna::backdrop { background: color-mix(in srgb, var(--ink) 56%, transparent); }
+.card-dna__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--line); }
+.card-dna__title { margin: 0; font-size: 18px; }
+.card-dna__tabs { display: flex; gap: var(--sp-1); overflow-x: auto; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.card-dna__tab[aria-selected="true"] { color: var(--accent); border-color: currentColor; }
+.card-dna__panel { overflow: auto; max-height: calc(min(820px, 100vh - 48px) - 132px); padding: var(--sp-4) var(--sp-5); }
+/* První klik ukáže orientační náhled, ale nevezme původní kartě druhý klik. Po opuštění karty se stejný dialog stane modálním. */
+.card-dna--preview { pointer-events: none; z-index: 1000; }
+/* Neuložený koncept zůstane ve svém panelu a červená zpráva vysvětlí, kde ho uložit nebo zrušit. */
+.card-dna__error { color: var(--danger); background: var(--danger-soft); padding: var(--sp-3) var(--sp-5); margin: 0; }
+/* Důkazy a DNA balík mají vlastní posun; dlouhý příkaz nikdy neroztáhne celý dialog. */
+.card-dna__table-scroll, .card-dna__export { overflow: auto; max-width: 100%; }
+.card-dna__table { width: 100%; text-align: left; }
+/* Kompaktní stopa: indikátory říkají, co je živé, řádky bloků drží porty bez editorů a skrytých formulářů. */
+.card-dna-compact__indicators { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--line); color: var(--ink-muted); font: 500 10px/1.35 var(--mono); }
+.card-dna-compact__blocks { display: grid; gap: var(--sp-1); margin: 0; padding: 0 var(--sp-2) var(--sp-2) var(--sp-3); list-style: none; }
+.card-dna-compact__block { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding: var(--sp-1) var(--sp-3); border-left: 3px solid var(--line-strong); border-radius: var(--radius); background: var(--surface-2); font-size: 12px; }
+.card-dna-compact__block--met { border-left-color: var(--accent); }
+.card-dna-compact__block--unmet { border-left-color: var(--danger); }
+.card-dna-compact__block--blocked { border-left-color: var(--warn); }
+.card-dna-compact__block--selected { outline: 2px solid var(--accent-line); }
+.card-dna-compact__number { color: var(--ink-muted); font: 600 10px var(--mono); }
+.card-dna-compact__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-dna-compact__state { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
+.card-dna-compact__block--met .card-dna-compact__state { background: var(--accent); }
+.card-dna-compact__block--unmet .card-dna-compact__state { background: var(--danger); }
+.card-dna-compact__block--blocked .card-dna-compact__state { background: var(--warn); }
+.card-dna-compact__port { position: relative; flex: 0 1 auto; max-width: 72px; overflow: visible; white-space: nowrap; color: var(--ink-muted); font-size: 10px; padding-right: var(--sp-2); }
+.card-dna-compact__port-label { display: block; overflow: hidden; text-overflow: ellipsis; }
+.card-dna-compact__port-handle { right: -3px; width: 8px; height: 8px; border: 1px solid var(--surface-3); background: var(--accent); }

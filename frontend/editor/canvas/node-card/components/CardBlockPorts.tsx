@@ -23,11 +23,15 @@ export default function CardBlockPorts({
   ports,
   disabled,
   handlers,
+  compact = false,
+  showHandles = true,
 }: {
   blockId: string;
   ports: BlockPortDef[];
   disabled: boolean;
   handlers: CardPortHandlers;
+  compact?: boolean;
+  showHandles?: boolean;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const added = useAddedPulse(ports.map(port => port.id));
@@ -89,11 +93,11 @@ export default function CardBlockPorts({
                   ✕
                 </button>
               )}
-              {handlers.decidePort && <PortDecisionEditor key={JSON.stringify(port)} port={port} blockId={blockId} disabled={disabled}
+              {!compact && handlers.decidePort && <PortDecisionEditor key={JSON.stringify(port)} port={port} blockId={blockId} disabled={disabled}
                 onSave={(status, reason) => handlers.decidePort?.(blockId, port.id, status, reason)} />}
-              {handlers.configureSpawn && <PortSpawnEditor key={"spawn:" + JSON.stringify(port)} port={port} blockId={blockId} disabled={disabled}
+              {!compact && handlers.configureSpawn && <PortSpawnEditor key={"spawn:" + JSON.stringify(port)} port={port} blockId={blockId} disabled={disabled}
                 onSave={action => handlers.configureSpawn?.(blockId, port.id, action)} />}
-              <Handle
+              {showHandles && <Handle
                 type="source"
                 position={Position.Right}
                 id={blockHandleId(blockId, port.id)}
@@ -102,7 +106,7 @@ export default function CardBlockPorts({
                 isConnectableStart
                 isConnectableEnd={false}
                 data-testid={"card-port-handle-" + port.id}
-              />
+              />}
             </li>
           ))}
         </ul>

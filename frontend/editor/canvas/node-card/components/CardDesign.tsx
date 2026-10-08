@@ -4,7 +4,7 @@ import type { DesignArtifact } from "@/shared/types/logic/types";
 export function safeDesignUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return /^https?:\/\//i.test(value) && !!url.hostname && !url.username && !url.password &&
+    return /^https:\/\//i.test(value) && !!url.hostname && !url.username && !url.password &&
       !/[\s\\\u0000-\u001f]/.test(value) && value.length <= 2048;
   } catch { return false; }
 }

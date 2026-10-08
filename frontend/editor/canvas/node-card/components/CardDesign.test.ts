@@ -2,6 +2,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import CardDesign, { safeDesignUrl, safePreviewUrl } from "./CardDesign";
+it("DNA odkazy nepovolují nešifrované http", () => {
+  expect(safeDesignUrl("http://example.com/proof")).toBe(false);
+});
 
 it("shows version and an on-demand preview button linking to the artifact", () => {
   const html = renderToStaticMarkup(createElement(CardDesign, { design: {

@@ -54,6 +54,7 @@ import { usePanelDrawer } from "@/layout/panel-dock/logic/use-panel-drawer";
 import ProfileCard from "@/layout/project-profile/components/ProfileCard";
 import { useProjectProfile } from "@/layout/project-profile/logic/use-project-profile";
 import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
+import { editStage, moveStage, removeStage, toggleSkip } from "@/editor/workflow/card-pipeline/logic/pipeline-model";
 import "@/editor/component-library/node-library/styles/node-library.css";
 import TagFilter from "@/editor/canvas/tag-filter/components/TagFilter";
 import ProjectHome from "@/project-setup/components/ProjectHome";
@@ -1302,6 +1303,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                       }),
                     )
                   }
+                  onSaveNode={(updated) => run(() => save({ ...graph, nodes: graph.nodes.map((old) => old.id === updated.id ? updated : old) }))}
                   onCreateAt={(x, y) => {
                     if (!editable) return;
                     const created: CanvasNode = {
