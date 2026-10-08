@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 
 from backend.canvas.graph import EMPTY, encode, valid_id
+from backend.canvas.read_cache import database_stamp
 
 PLATFORMS = {"web", "app", "component"}
 # Profil projektu (docs/suplik-a-profil.md): "" = nenastaveno, podle pole se pak nic nefiltruje.
@@ -78,8 +79,18 @@ class ProjectHub:
             raise ValueError("Neplatný identifikátor projektu.")
         with self.canvas.lock:
             item = self._project(project)
+            db = self.canvas.db_for(project)
+            stamp = (database_stamp(self.canvas.db), database_stamp(db))
+            key = ('project', project)
+            cacheable = not db.in_transaction and not self.canvas.db.in_transaction
+            cached = self.canvas.read_cache.get(key, stamp) if cacheable else None
+            if cached is not None:
+                return cached
             revision, values = self._settings(project)
-            return {"project": item, "revision": revision, "settings": values}
+            result = {"project": item, "revision": revision, "settings": values}
+            if cacheable:
+                self.canvas.read_cache.put(key, stamp, result)
+            return result
 
     def _validate_name(self, name):
         if not isinstance(name, str) or not name.strip() or len(name.strip()) > 120:

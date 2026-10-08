@@ -11,6 +11,7 @@ from pathlib import Path
 from backend.canvas.graph import EMPTY, digest, encode, valid_id, validate_graph
 from backend.canvas.migrate_to_project_folders import migrate
 from backend.canvas.project_folder import ProjectFolder
+from backend.canvas.read_cache import ReadCache, scope_stamp
 from backend.editor.node.drawing_files import DrawingFileStore, parse_ids
 from backend.editor.node.drawings import DrawingStore
 from backend.editor.node.node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
@@ -46,6 +47,7 @@ class CanvasService:
         self.db.row_factory = sqlite3.Row
         self.db.executescript(REGISTRY_SCHEMA)
         self._project_dbs = {}
+        self.read_cache = ReadCache()
         self.drawings = DrawingStore(self)
         self.drawing_files = DrawingFileStore(self)
         self.specs = NodeSpecStore(self)
@@ -271,6 +273,21 @@ class CanvasService:
         return Path(workspace["directory"]), project
 
     def view(self, pid, wid):
+        with self.lock:
+            stamp = scope_stamp(self, pid, wid)
+            key = ('view', pid, wid)
+            cached = self.read_cache.get(key, stamp) if stamp is not None else None
+            if cached is not None:
+                return {**cached, 'observedAt': now()}
+            if stamp is not None:
+                result = self._view(pid, wid)
+                if stamp == scope_stamp(self, pid, wid):
+                    self.read_cache.put(key, stamp, result)
+                return result
+        # Git a otevřené transakce mají vždy čerstvý pohled; pomalý Git bez zámku registru.
+        return self._view(pid, wid)
+
+    def _view(self, pid, wid):
         with self.lock:
             if pid == "draft" and wid == "draft":
                 graph = json.loads(

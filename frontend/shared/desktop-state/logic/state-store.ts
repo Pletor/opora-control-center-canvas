@@ -7,6 +7,7 @@ import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
 import type { Rule, Decision, StateResponse } from "@/shared/desktop-state/logic/types";
 import { api } from "@/shared/types/logic/types";
+import { retainSnapshot, type ScopedSnapshot } from "./state-revision";
 
 export type DesktopStateHandle = {
   mutateItem: (kind: "rule" | "decision", expected: Rule | Decision | null, item: Rule | Decision | null) => Promise<boolean>;
@@ -46,11 +47,14 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
   const generation = useRef(0);
   const scopeKey = useRef("");
   const listener = useRef<Listener>(() => {});
-  listener.current = (value) => {
-    setState(value.state);
-    setRevision(value.revision);
-    setReadOnly(value.readOnly);
-  };
+  const accepted = useRef<ScopedSnapshot | null>(null);
+  function accept(value: StateResponse) {
+    const scope = `${project}::${workspace}`;
+    const next = retainSnapshot(accepted.current, scope, value);
+    accepted.current = { scope, value: next };
+    setState(next.state); setRevision(next.revision); setReadOnly(next.readOnly);
+  }
+  listener.current = accept;
   const self = useRef<Listener>((value) => listener.current(value));
   const saving = useRef(0);
   const reloadQueued = useRef(false);
@@ -75,9 +79,7 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     fetchState(project, workspace)
       .then((value) => {
         if (ticket !== generation.current || scopeKey.current !== scope) return;
-        setState(value.state);
-        setRevision(value.revision);
-        setReadOnly(value.readOnly);
+        accept(value);
         setLoading(false);
         publish(scope, value, self.current);
       })
@@ -111,9 +113,7 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     try {
       const value = await trackSaveWrite(project, workspace, saveState(project, workspace, previousRevision, next));
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
-      setState(value.state);
-      setRevision(value.revision);
-      setReadOnly(value.readOnly);
+      accept(value);
       setError("");
       publish(scope, value, self.current);
       if (value.graphChanged) window.dispatchEvent(new CustomEvent("opora:spawned", { detail: { project, workspace } }));
@@ -148,7 +148,7 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
         op: !expected ? "add" : !item ? "remove" : "update",
       }));
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
-      setState(value.state); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
+      accept(value); setError("");
       publish(scope, value, self.current);
       if (value.graphChanged) window.dispatchEvent(new CustomEvent("opora:spawned", { detail: { project, workspace } }));
       return true;
@@ -163,7 +163,7 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
   const apply = (value: StateResponse) => {
     const scope = `${project}::${workspace}`;
     generation.current++;
-    setState(value.state); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
+    accept(value); setError("");
     publish(scope, value, self.current);
   };
   return { state, revision, readOnly, loading, error, reload, mutate, mutateItem, apply };

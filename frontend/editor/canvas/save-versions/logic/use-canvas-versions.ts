@@ -37,7 +37,8 @@ export function useCanvasVersions({ project, workspace, enabled, refreshKey, pau
     if (accept || !owner.token || !external) { owner.token = result.currentToken; setToken(result.currentToken); }
     if (accept) setExternal(false); else if (external) setExternal(true);
     owner.writeRevision = ownRevision;
-    setVersions(result.versions ?? []); setDirty(result.dirty); setError("");
+    setVersions(previous => JSON.stringify(previous) === JSON.stringify(result.versions ?? []) ? previous : result.versions ?? []);
+    setDirty(result.dirty); setError("");
     return result;
   }, [project, workspace, scope]);
   useEffect(() => { setToken(""); setExternal(false); setSaving(false); setError(""); setVersions([]); setDirty(false); }, [scope]);
@@ -50,9 +51,13 @@ export function useCanvasVersions({ project, workspace, enabled, refreshKey, pau
   useEffect(() => {
     if (!enabled || paused || saving) return;
     const owner = latest.current;
-    const check = () => { void refresh().catch((cause) => { if (latest.current === owner) setError(String(cause)); }); };
-    const timer = window.setInterval(check, 3000); window.addEventListener("focus", check);
-    return () => { clearInterval(timer); window.removeEventListener("focus", check); };
+    const check = () => {
+      if (document.visibilityState === "hidden") return;
+      void refresh().catch((cause) => { if (latest.current === owner) setError(String(cause)); });
+    };
+    const timer = window.setInterval(check, 3000);
+    window.addEventListener("focus", check); document.addEventListener("visibilitychange", check);
+    return () => { clearInterval(timer); window.removeEventListener("focus", check); document.removeEventListener("visibilitychange", check); };
   }, [enabled, paused, saving, refresh]);
   async function save(digest: string, author: string, expectedToken: string) {
     const owner = latest.current; setSaving(true);

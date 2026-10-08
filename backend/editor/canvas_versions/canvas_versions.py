@@ -2,6 +2,10 @@
 import json
 import re
 import uuid
+import threading
+
+from backend.canvas.read_cache import ReadCache
+from .version_read_cache import list_cached
 from datetime import UTC, datetime
 
 from backend.canvas.graph import digest, encode
@@ -57,6 +61,8 @@ def _summary(row):
 class CanvasVersions:
     def __init__(self, canvas, desktop_state=None):
         self.canvas, self._desktop_state = canvas, desktop_state
+        self._read_cache = ReadCache(limit=32)
+        self._read_lock = threading.Lock()
 
     def desktop_state(self):
         from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
@@ -103,15 +109,7 @@ class CanvasVersions:
                 "coverage": "full", "unavailableAssets": unavailable_assets(snapshot)}
 
     def list(self, project, workspace):
-        with self.canvas.graph_lock, self.canvas.lock:
-            db = self.canvas.db_for(project)
-            with db:
-                db.execute("BEGIN")
-                view, stored, snapshot = self._capture(db, project, workspace)
-                rows = db.execute("SELECT * FROM canvas_versions WHERE project_id=? AND workspace_id=? ORDER BY created_at DESC,rowid DESC LIMIT ?",
-                                  (project, workspace, MAX_VERSIONS)).fetchall()
-                return {"versions": [_summary(row) for row in rows], "dirty": False if view["readOnly"] else self._dirty(db, project, workspace, view, stored, snapshot),
-                        "currentToken": current_token(view["graph"], stored, snapshot)}
+        return list_cached(self, project, workspace, _summary, MAX_VERSIONS)
 
     def _read(self, db, project, workspace, version_id):
         if not isinstance(version_id, str) or not VERSION_ID.fullmatch(version_id):

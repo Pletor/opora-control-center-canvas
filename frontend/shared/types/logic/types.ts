@@ -148,7 +148,22 @@ function send(url: string, body?: object): Promise<Response> {
       : undefined,
   );
 }
-export async function api<T>(url: string, body?: object): Promise<T> {
+const pendingReads = new Map<string, Promise<unknown>>();
+export function api<T>(url: string, body?: object): Promise<T> {
+  if (body) {
+    // Čtení zahájené před zápisem se po něm nesmí připojit k novému odběrateli.
+    pendingReads.clear();
+    return request<T>(url, body).finally(() => pendingReads.clear());
+  }
+  const pending = pendingReads.get(url);
+  if (pending) return pending.then(value => structuredClone(value) as T);
+  const next = request<T>(url).finally(() => {
+    if (pendingReads.get(url) === next) pendingReads.delete(url);
+  });
+  pendingReads.set(url, next);
+  return next.then(value => structuredClone(value));
+}
+async function request<T>(url: string, body?: object): Promise<T> {
   if (body) await ensureHumanSession();
   let response = await send(url, body);
   if (response.status === 428 && body) {

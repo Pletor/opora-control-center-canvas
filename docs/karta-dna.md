@@ -124,3 +124,133 @@ Skutečný pomalý dvojklik a náhled→modalita, Esc/křížek/změna tabu/skry
 rozepsanými editory, návrat focusu, release lease proti živému serveru,
 rozhodnutí/spawn/rename, port drag-to-connect a výkon při hromadném výběru.
 Jednotkové a SSR testy nejsou náhradou těchto browser kontrol.
+
+## Výkon – měření
+
+### Příčina a oprava (2026-10-08)
+
+Prokázáno časovanými zámky na **8791**, data výhradně `.data/kopie`:
+`backend/editor/canvas_versions/canvas_versions.py:106–115` v revizi `7e1ab39`.
+`CanvasVersions.list` držel `graph_lock` a `canvas.lock` přes `SELECT * / fetchall`
+(řádky 111–112) a dekódování všech snapshotů v `_summary` (řádek 113, funkce 48–54).
+Nejde o prokázaný problém synchronního IO přímo v event loopu: konkrétní důkaz je
+blokování ostatních vláken na společných zámcích.
+
+- Původní uložený profil `.data/versions-before.prof`: celkem 2 820 ms,
+  `fetchall` 1 833 ms, `_summary` 837 ms. Pozdější profil s konfliktní instrumentací
+  není použit jako důkaz.
+- Čerstvý lokální harness `.data/timed_server.py` na stejném portu zavolal původní
+  **jen metodu list** načtenou pomocí `git show 7e1ab39:…`, bez přepisování/stashování
+  worktree. Zámek historie držel 3 355,6 ms; souběžní čtenáři na zámek čekali
+  3 240–3 305 ms. Důkaz: `.data/lock-measurements.jsonl`.
+- Nová metoda: samostatné read-only SQLite spojení a dekódování mimo společné zámky,
+  `backend/editor/canvas_versions/version_read_cache.py:43–51`; pod zámkem pouze
+  validace rozsahu, revizí a konzistentní capture. Nejdelší naměřený úsek nové historie
+  pod společným zámkem 117,1 ms. Při souběžné změně se výsledek zahodí a načte znovu.
+- `backend/canvas/read_cache.py:42–59`: revize SQL (`total_changes`, `data_version`),
+  bypass rozpracovaných transakcí a Git pohledů, klíče project/workspace. `get/put`
+  mají vlastní RLock a kopírují vstup i výstup. Historie navíc kontroluje otisky
+  materiálů; dočasné busy/IO závody mají omezený retry.
+- Frontend deduplikuje rozpracované GET podle celé URL, vrací oddělené kopie,
+  sdílí pollery a pozastavuje je ve skrytém okně. Zápis ruší deduplikační generaci.
+  Desktop stav zachovává identitu podle revize; sync-report se načítá až pro Hub
+  nebo příslušný detail, nikoli při prvním vykreslení plátna.
+
+### Před / po
+
+Jednotlivé vzorky, nikoli percentily nebo garantované SLA. `Před 8740` je převzato
+z přejímky koordinátora; 8740 nebyl v tomto kole měněn. **Úplné srovnatelné „před“
+na 8791 se stashnutými změnami nemáme.** Izolovaný replay staré metody níže není
+baseline celé aplikace. Staré soubory pojmenované `before` nejsou bez doloženého
+stavu zdrojů považovány za takovou baseline.
+
+| Scénář | Před 8740, přejímka (ms) | Po 8791, mezivýsledek (ms) | Po 8791, finální build (ms) |
+|---|---:|---:|---:|
+| desktop-v3/leases | 5 374 | 6,2 | 4,7 |
+| desktop-v3/state | 2 655 | 24,3 | 17,4 |
+| bootstrap | 3 832 | 6,2 | 2,5 |
+| první karty sektoru 2 | 11 700 | 407 | 421,3 |
+
+Finální měření: Chrome headless, nový browser context, produkční build, ample,
+sektor `a8257274-56e3-464f-8d92-d60d777888eb`, první `.node-card` + dva animation frames.
+API vzorky jsou následná dokončená čtení včetně těla (zahřáté cache); nelze je
+zaměnit za latenci všech souběžných požadavků při startu. Síťový záznam neobsahuje
+sync-report. Artefakt `.data/browser-verified.json`, skript `.data/browser_measure.py`.
+
+Izolovaný souběh na 8791 (`.data/final-contention.json`; historie a další požadavky
+spuštěné po 50 ms, stejné kopie dat, měřicí instrumentace + běžná souběžná zátěž):
+
+| HTTP požadavek | Stará metoda list (ms) | Nová studená historie (ms) | Nová zahřátá historie (ms) |
+|---|---:|---:|---:|
+| historie (114 verzí) | 3 625,5 | 3 785,3 | 15,3 |
+| souběžné leases | 3 581,3 | 367,4 | 29,8 |
+| souběžný bootstrap | 3 573,7 | 231,6 | 4,4 |
+| souběžný state | 3 609,6 | 366,4 | 28,9 |
+
+Studená historie zůstává nákladná; oprava odstraňuje hlavně blokování ostatních
+požadavků a opakované dekódování. Metadata starých verzí se nemigrovala. Artefakty
+měření a kopie databází zůstávají mimo commit pod existujícím `.gitignore: .data/`.
+
+### Audit všech zápisových cest
+
+`backend/canvas/test_cache_write_paths.py::test_write_reads_fresh_value_with_warm_cache`
+obsahuje **18 parametrů**. Každý skutečně zavolá HTTP handler → produkční zápisovou
+službu. Před zápisem zahřeje view/state/settings/versions a relevantní další čtení,
+po zápisu ověří nový obsah a shodu s nezávislým čtením při vypnutém `ReadCache.get`.
+Původní doménové aserce scénáře zůstávají zachovány. Úspěšná odpověď bez změny dat
+sama o sobě nestačí; každý parametr musí mít alespoň jeden měnící zápis.
+
+| Parametr / cesta | Zápisová hranice / invalidace |
+|---|---|
+| state | DesktopV3State.save → desktop_v3_state |
+| graph | CanvasService.save_graph → drafts; Git pohled je bez cache |
+| node-spec | NodeSpecStore.save → node_spec_revisions |
+| node-text | NodeTextStore.access → node_text_revisions |
+| canvas-plan | apply_plan → graf, texty, specifikace, desktop stav v transakci |
+| pipeline | pipeline route/add → DesktopV3State.save |
+| lease | CardLeases.apply → card_leases, assignment snapshot, work activity |
+| agent-output | AgentOutput.apply → desktop stav a historie výsledků |
+| agent-workspace | AgentWorkspace.save → agent_workspace_revisions |
+| block | BlockAccess.apply → DesktopV3State.save |
+| rule | MemoryItems.apply → změna pravidla v desktop stavu |
+| decision | MemoryItems.apply → změna rozhodnutí v desktop stavu |
+| realize-source | realize_source → save_graph, nový sourceRef + realization |
+| versions-save | CanvasVersions.save → canvas_versions |
+| versions-restore | CanvasVersions.restore → graf, stav, obsah, soubory; nová SQL generace + otisky souborů |
+| settings | ProjectHub.save_settings → registr + project_settings/profile |
+| import-project | ProjectHub.local_project → registr + nový projektový draft; opakované připojení je idempotentní |
+| remove-project | Removals.remove → archivace registru; zahřátý scope následně odmítne čtení |
+
+Každý SQL zápis konzervativně invaliduje projektovou generaci; registry zápisy
+navíc generaci registru. Nemusíme ručně udržovat seznam invalidate callbacků v každém
+writeru. Git connect/import/sync používají register_repository a zápisy registru;
+Git HEAD/index/pracovní soubor se necachují. Síťový clone nebyl v tomto kole spouštěn.
+Import v parametrizovaném testu znamená připojení existujícího lokálního projektu.
+
+Další testy: dva projekty a dva workspace se stejnými datovými klíči; odmítnutí
+neplatného veřejného scope; commit druhého SQLite spojení; read-your-write uvnitř
+transakce a rollback; mutace vrácené kopie; deterministický souběh get/eviction
+(před zámkem reprodukoval KeyError, po opravě prošel); dekódování historie bez
+společných zámků; retry po busy DB nebo změně materiálu; Git HEAD invalidace historie
+sync-reportu; frontend nekříží mutovatelné výsledky mezi odběrateli.
+
+### Závěrečné kontroly
+
+- `npm test`: 1 064 passed / 153 souborů. Včetně obou testů CardDnaCode a nového
+  případu plánované prázdné cesty se starou odpovědí present.
+- `npm run build`: prošel (`tsc --noEmit`, Vite, kopie fontů). Varování o velkých
+  chunkech zůstává. `npm config get script-shell` = null; žádný lokální workaround.
+- Cílená cache sada: 30 passed (18 zápisových cest + 12 scope/cache/souběh/retry).
+- Nezávislé read-only review finálního diffu: bez konkrétního bezpečnostního nebo
+  logického blockeru. Diagnostický harness není součástí produkčního kódu.
+- Finální `uv run pytest backend`: **1 458 passed, 4 skipped, 2 failed**, 2 warnings,
+  532,87 s. Pouze známé environmentální Graphify chyby:
+  `backend/api/project/test_graphify_routes.py::test_generate_uses_official_graphify_and_persists_output`
+  a `backend/project/maps/test_map_refresh.py::test_real_graphify_refresh_publishes_only_selected_project`.
+  Příčina obou: chybí `graphifyy==0.9.24` / nastavení `OPORA_GRAPHIFY_PYTHON`.
+  První průběžný běh měl navíc chybu inicializace databáze v novém testu scope;
+  po opravě fixture byl celý původní příkaz spuštěn znovu. Hash kontrola všech
+  1 143 zdrojových/testovacích souborů potvrdila během finálního běhu nulový drift.
+- Server 8791: po měření čistý shutdown aplikace, exit 0 a ověřené odmítnutí TCP
+  spojení. Oba vlastní pytest procesy skončily. Vite v tomto kole nebyl spuštěn;
+  existující preview koordinátora na 5199 nebylo měněno ani ukončováno.

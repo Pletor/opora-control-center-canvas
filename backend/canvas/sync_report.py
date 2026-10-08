@@ -11,6 +11,8 @@ z páru. Rozsah bez obojího dál dostane echo `evidence-missing` a `checks-unkn
 """
 
 from datetime import UTC, datetime
+import threading
+from backend.canvas.read_cache import ReadCache, database_stamp
 
 from backend.canvas import areas, commit_pairs, sync_evidence
 from backend.canvas.check_runs import CheckRuns
@@ -33,13 +35,15 @@ class SyncReport:
         self.hub = OporaHub(service)
         # V testech se kontrola dokumentace nahrazuje; jinak se čte skutečný strom.
         self._doc_issues = doc_issues
+        self._history_cache = ReadCache(limit=32)
+        self._history_lock = threading.Lock()
 
     def report(self, pid, wid):
         view = self.service.view(pid, wid)
         nodes = view["graph"]["nodes"]
         root = self._root(pid, wid)
         main_head = sync_evidence.main_head(root)
-        commits = sync_evidence.commits_in_main(root, main_head)
+        commits = self._history(pid, wid, root, main_head, view["digest"])
         # SQLite spojení služby je sdílené mezi vlákny; čtení proto drží její zámek,
         # git a disk zůstávají mimo něj, ať souběžný report nikoho neblokuje.
         with self.service.lock:
@@ -77,6 +81,17 @@ class SyncReport:
             "verdicts": result["verdicts"],
             "counts": _counts(result),
         }
+
+    def _history(self, pid, wid, root, head, graph_digest):
+        # Cachuje se nákladná historie, nikoli verdikt: disk a dokumentace jsou vždy živé.
+        with self.service.lock:
+            revision = (database_stamp(self.service.db), database_stamp(self.service.db_for(pid)))
+        key, stamp = (pid, wid), (str(root), head, graph_digest, revision)
+        with self._history_lock:
+            cached = self._history_cache.get(key, stamp)
+            if cached is not None:
+                return cached
+            return self._history_cache.put(key, stamp, sync_evidence.commits_in_main(root, head))
 
     def _root(self, pid, wid):
         try:

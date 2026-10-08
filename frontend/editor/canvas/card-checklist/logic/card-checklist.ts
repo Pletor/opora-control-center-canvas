@@ -2,7 +2,7 @@
 // (`GET /api/desktop-v3/card-checklist`, backend/editor/agent_packet/card_checklist.py) stejně jako
 // pro frontier a node-brief; tady jsou jen typy, načtení vrstvy a odvozené souhrny pro oblast a vazby.
 import { useEffect, useState } from "react";
-import { api } from "@/shared/types/logic/types";
+import { watchQuery } from "@/shared/hooks/logic/query-poll";
 import type { CanvasNode, GraphEdge } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 
@@ -20,21 +20,9 @@ export function useCardChecklist(scope: { project: string; workspace: string } |
   const key = JSON.stringify([scope?.project, scope?.workspace, parent]);
   useEffect(() => {
     if (!scope) return;
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
     const params = new URLSearchParams({ ...scope, layer: parent ?? "" });
-    async function refresh() {
-      try {
-        const result = await api<{ nodes: Checklists }>("/api/desktop-v3/card-checklist?" + params);
-        if (live) setValue({ key, nodes: result.nodes });
-      } catch {
-        // Pás je doplněk: bez něj karta funguje dál, jen bez souhrnu.
-        if (live) setValue(null);
-      }
-      if (live) timer = setTimeout(refresh, 20000);
-    }
-    void refresh();
-    return () => { live = false; clearTimeout(timer); };
+    return watchQuery<{ nodes: Checklists }>("/api/desktop-v3/card-checklist?" + params, 20000,
+      result => setValue({ key, nodes: result.nodes }), () => setValue(null));
   }, [key, revision]);
   return value?.key === key ? value.nodes : undefined;
 }

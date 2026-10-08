@@ -106,6 +106,7 @@ import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
 import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
 import { commitSpec, saveNodeSpec } from "@/shared/desktop-state/logic/api";
+import { watchQuery } from "@/shared/hooks/logic/query-poll";
 import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-report";
 import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
 import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
@@ -231,7 +232,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const leases = useLeases(project, workspace);
   const assignmentStatuses = useAssignmentStatus(project, workspace, desktop.revision, textRevision);
   // Echo Oracle nad projektem: jeden dotaz na otevřený projekt, přepočet jen na vyžádání.
-  const sync = useSyncReport(project, workspace);
+  const sync = useSyncReport(project, workspace, screen === "canvas" && environment === "hub");
   // Vybraný blok zmizel ze stavu (smazán jinde): výběr spadne zpět na uzel, aby zásuvka i inspektor zůstaly platné.
   useEffect(() => {
     if (!selected || !selectedBlock) return;
@@ -351,9 +352,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     }
   }
   useEffect(() => {
-    bootstrap().catch((e) => setError(String(e)));
-    const t = setInterval(() => bootstrap().catch(() => {}), 2500);
-    return () => clearInterval(t);
+    return watchQuery<Bootstrap>("/api/bootstrap", 2500, b => {
+      setProjects(previous => JSON.stringify(previous) === JSON.stringify(b.projects) ? previous : b.projects);
+      setDraftProject(b.draft);
+      setJobs(previous => JSON.stringify(previous) === JSON.stringify(b.jobs) ? previous : b.jobs);
+    }, e => setError(String(e)));
   }, []);
   useEffect(() => {
     const nextScope = JSON.stringify([project, workspace]);

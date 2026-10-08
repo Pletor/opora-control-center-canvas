@@ -62,6 +62,33 @@ def verdict_of(payload, scope_id):
     return next(item for item in payload["verdicts"] if item["scope"]["id"] == scope_id)
 
 
+def test_report_reuses_git_history_until_revision_or_head_changes(tmp_path, monkeypatch):
+    from backend.canvas import sync_evidence
+    source = source_repo(tmp_path)
+    original = sync_evidence.commits_in_main
+    calls = []
+    def commits(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(sync_evidence, 'commits_in_main', commits)
+    with TestClient(create_app(tmp_path / 'data'), base_url=ORIGIN) as client:
+        pid = attach(client, source)
+        save_graph(client, pid)
+        report(client, pid)
+        report(client, pid)
+        assert len(calls) == 1
+        save_spec(client, pid)
+        report(client, pid)
+        assert len(calls) == 2
+        (source / 'src' / 'hello.py').write_text('print(2)')
+        run(source, 'add', 'src/hello.py')
+        run(source, 'commit', '-q', '-m', 'change')
+        report(client, pid)
+        assert len(calls) == 3
+        (source / 'src' / 'hello.py').unlink()
+        assert 'source-missing' in types(report(client, pid))
+
+
 def test_report_pairs_existing_sources_and_blocks_merge_without_evidence(tmp_path):
     source = source_repo(tmp_path)
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:

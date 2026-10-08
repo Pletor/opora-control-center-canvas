@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import valid_date, valid_id
+from backend.canvas.read_cache import database_stamp
 from backend.memory.roles import role_ids
 from backend.project.workspace.workspace_sources import relative_path
 
@@ -541,13 +542,22 @@ class DesktopV3State:
 
     def current(self, project, workspace):
         """Uložený stav bez ověření rozsahu; volající drží zámky a rozsah už ověřil."""
-        row = self.canvas.db_for(project).execute(
+        db = self.canvas.db_for(project)
+        key = ('state', project, workspace)
+        stamp = database_stamp(db)
+        cached = self.canvas.read_cache.get(key, stamp) if not db.in_transaction else None
+        if cached is not None:
+            return cached
+        row = db.execute(
             "SELECT revision,state FROM desktop_v3_state WHERE project_id=? AND workspace_id=?",
             (project, workspace),
         ).fetchone()
         if row is None:
             return {"revision": 0, "state": default_state()}
-        return {"revision": row["revision"], "state": fill_defaults(json.loads(row["state"]))}
+        result = {"revision": row["revision"], "state": fill_defaults(json.loads(row["state"]))}
+        if not db.in_transaction and stamp == database_stamp(db):
+            self.canvas.read_cache.put(key, stamp, result)
+        return result
 
     def read(self, project, workspace):
         _scope_ids(project, workspace)

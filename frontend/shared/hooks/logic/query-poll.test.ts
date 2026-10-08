@@ -1,0 +1,40 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { watchQuery } from "./query-poll";
+
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+it("shares the endpoint timer, pauses hidden tabs and resumes once", async () => {
+  vi.useFakeTimers();
+  const document = Object.assign(new EventTarget(), { visibilityState: "visible" });
+  vi.stubGlobal("document", document);
+  const fetch = vi.fn(async () => new Response('{"nodes":{}}'));
+  vi.stubGlobal("fetch", fetch);
+  const a = vi.fn(), b = vi.fn();
+  const stopA = watchQuery("/api/poll-test",1000,a,vi.fn());
+  const stopB = watchQuery("/api/poll-test",1000,b,vi.fn());
+  await vi.advanceTimersByTimeAsync(1);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(a).toHaveBeenCalledTimes(1);
+  expect(b).toHaveBeenCalledTimes(1);
+  a.mock.calls[0][0].nodes.injected = true;
+  expect(b.mock.calls[0][0].nodes).toEqual({});
+  document.visibilityState = "hidden";
+  document.dispatchEvent(new Event("visibilitychange"));
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  document.visibilityState = "visible";
+  document.dispatchEvent(new Event("visibilitychange"));
+  await vi.advanceTimersByTimeAsync(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  stopA(); stopB();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
+it("does not publish into an unsubscribed scope", async () => {
+  let done!: (r:Response)=>void;
+  vi.stubGlobal("fetch",vi.fn(()=>new Promise<Response>(r=>{done=r;})));
+  const receive=vi.fn();
+  const stop=watchQuery("/api/old-scope",1000,receive,vi.fn());
+  stop(); done(new Response('{}'));
+  await new Promise(resolve=>setTimeout(resolve,0));
+  expect(receive).not.toHaveBeenCalled();
+});
