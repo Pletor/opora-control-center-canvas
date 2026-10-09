@@ -1,4 +1,4 @@
-Build a dev skripty. opora.py = jediný spouštěč aplikace podle opora.toml (`uv run opora`); copy-drawing-assets.mjs kopíruje fonty kreslení do dist/; serve-preview.py je starší ruční náhled nad kopií dat; opora_remote.ps1 je runbook vzdáleného přístupu (cloudflared quick tunnel + token, `docs/vzdaleny-pristup.md`), opora_hook.py zůstává schválně jen na loopbacku.
+Build a dev skripty. opora.py = jediný spouštěč aplikace podle opora.toml (`uv run opora`); copy-drawing-assets.mjs kopíruje fonty kreslení do dist/; serve-preview.py je starší ruční náhled nad kopií dat; opora_remote.ps1 je runbook vzdáleného přístupu (cloudflared quick tunnel + token, `docs/vzdaleny-pristup.md`).
 
 `doc_check.py` projde markdown v repozitáři a ohlásí odkazy na cesty, které neexistují; `uv run python tools/doc_check.py` vrací nenulový kód, když nějaké najde.
 

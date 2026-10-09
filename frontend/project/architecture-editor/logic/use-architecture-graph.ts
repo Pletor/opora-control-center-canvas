@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Graph, type View } from "@/shared/types/logic/types";
+import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 
 type Snapshot = { scope: string; view: View };
 export type ArchitecturePlanResult = { view: View; refs: Record<string, string> };
@@ -77,7 +78,7 @@ export function useArchitectureGraph(project: string, workspace: string, onGraph
       let view: View;
       let refs: Record<string, string> = {};
       if (path === "/api/canvas-plan") {
-        const result = await api<{ ok?: boolean; dryRun?: boolean; refs?: unknown }>(path, { project, workspace, digest: expectedDigest, ...body });
+        const result = await trackSaveWrite(project, workspace, api<{ ok?: boolean; dryRun?: boolean; refs?: unknown }>(path, { project, workspace, digest: expectedDigest, ...body }));
         if (result?.ok !== true || result.dryRun !== false) throw new Error("Server nepotvrdil uložení plánu. Před opakováním obnovte plátno.");
         accepted = true;
         if (!result.refs || typeof result.refs !== "object" || Array.isArray(result.refs) || Object.values(result.refs).some((id) => typeof id !== "string" || !/^[A-Za-z0-9_-]{1,80}$/.test(id))) throw new Error("Server nevrátil platné identity vytvořených prvků.");
@@ -85,7 +86,7 @@ export function useArchitectureGraph(project: string, workspace: string, onGraph
         view = await api<View>(url);
         if (Object.values(refs).some((id) => !view.graph.nodes.some((node) => node.id === id))) throw new Error("Načtené plátno neobsahuje vytvořené prvky.");
       } else {
-        view = await api<View>(path, { project, workspace, digest: expectedDigest, ...body });
+        view = await trackSaveWrite(project, workspace, api<View>(path, { project, workspace, digest: expectedDigest, ...body }));
         accepted = true;
       }
       if (!active(generation)) throw new Error("Rozsah editoru se během ukládání změnil.");

@@ -193,7 +193,7 @@ paměť, **2.** zavolat `POST /api/memory/provision {"confirmed": true}`, **3.**
 `GET /api/memory/status` = `configured`. Dokud kterákoli role nemá klíč, stav je
 `needs_provisioning` a `missingRoles` říká které.
 
-Přenos je stejně přísný jako u Hermes zdroje: jen `http` na loopback, bez proxy, bez
+Přenos je přísný: jen `http` na loopback, bez proxy, bez
 přesměrování, timeout 5 s pro zdraví a správu rolí / 30 s pro data, strop odpovědi 512 kB.
 
 ## Když paměť není

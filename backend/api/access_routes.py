@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from backend.app.remote_access import COOKIE_NAME, TOKEN_REQUIRED, set_access_cookie, tokens_equal
 
 
-def create_access_router(remote, *, port=8740):
+def create_access_router(remote, *, port=8740, human=None):
     """`/api/access/*`: stav, přihlášení a odhlášení. Middleware je pouští bez tokenu."""
     router = APIRouter(prefix="/api/access", tags=["access"])
     loopback = (f"127.0.0.1:{port}", f"localhost:{port}")
@@ -35,6 +35,14 @@ def create_access_router(remote, *, port=8740):
         if not tokens_equal(remote.token, token):
             return JSONResponse({"error": TOKEN_REQUIRED}, status_code=401)
         set_access_cookie(response, remote.token)
+        return {"ok": True}
+
+    @router.get("/ui-session")
+    def ui_session(request: Request, response: Response):
+        """Doklad člověka pro UI (upgrade-opora #29): cookie dostane jen fetch z prohlížeče."""
+        if human is None or not human.from_browser(request.headers):
+            return JSONResponse({"error": "Doklad člověka vydává jen prohlížeč s UI aplikace."}, status_code=403)
+        human.issue(response, secure=bool(public_host(request)))
         return {"ok": True}
 
     @router.post("/logout")

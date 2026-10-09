@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import type { Rule, RuleScope, Decision, Setting } from "@/shared/desktop-state/logic/types";
+import MemoryItemText from "./MemoryItemText";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -22,7 +23,7 @@ export function ProjectMemoryPanel({
   workspace: string;
   path: string;
 }) {
-  const { state, readOnly, loading, error, reload, mutate } = useDesktopState(project, workspace);
+  const { state, readOnly, loading, error, reload, mutate, mutateItem } = useDesktopState(project, workspace);
   const [newSettingKey, setNewSettingKey] = useState("");
   const [newSettingValue, setNewSettingValue] = useState("");
   const [newRuleText, setNewRuleText] = useState("");
@@ -45,12 +46,16 @@ export function ProjectMemoryPanel({
     saveLockRef.current = false;
   }, [settledCount]);
 
-  async function run(fn: (current: typeof state) => typeof state): Promise<boolean> {
+  const run = (fn: (current: typeof state) => typeof state) => runAction(() => mutate(fn));
+  const itemWrite = (kind: "rule" | "decision", before: Rule | Decision | null, after: Rule | Decision | null) =>
+    runAction(() => mutateItem(kind, before, after));
+
+  async function runAction(action: () => Promise<boolean>): Promise<boolean> {
     if (saveLockRef.current) return false;
     saveLockRef.current = true;
     setBusy(true);
     try {
-      return await mutate(fn);
+      return await action();
     } finally {
       setBusy(false);
       setSettledCount((n) => n + 1);
@@ -91,13 +96,14 @@ export function ProjectMemoryPanel({
     if (newRuleScope === "path" && !path) return;
     const rule: Rule = { id: newId(), text, kind: negative ? "must_not" : "must", scope: newRuleScope, target };
     const submittedVersion = ruleDraftVersion.current;
-    run((current) => ({ ...current, rules: current.rules.concat([rule]) })).then((ok) => {
+    itemWrite("rule", null, rule).then((ok) => {
       if (ok && ruleDraftVersion.current === submittedVersion) setNewRuleText("");
     });
   }
 
   function removeRule(id: string) {
-    return run((current) => ({ ...current, rules: current.rules.filter((r) => r.id !== id) }));
+    const rule = state.rules.find((r) => r.id === id);
+    return rule ? itemWrite("rule", rule, null) : Promise.resolve(false);
   }
 
   function addDecision() {
@@ -113,16 +119,14 @@ export function ProjectMemoryPanel({
       by: "human",
     };
     const submittedVersion = decisionDraftVersion.current;
-    run((current) => ({ ...current, decisions: [decision].concat(current.decisions) })).then((ok) => {
+    itemWrite("decision", null, decision).then((ok) => {
       if (ok && decisionDraftVersion.current === submittedVersion) setNewDecisionText("");
     });
   }
 
   function togglePin(id: string) {
-    return run((current) => ({
-      ...current,
-      decisions: current.decisions.map((d) => (d.id === id ? { ...d, pinned: !d.pinned } : d)),
-    }));
+    const decision = state.decisions.find((d) => d.id === id);
+    return decision ? itemWrite("decision", decision, { ...decision, pinned: !decision.pinned }) : Promise.resolve(false);
   }
 
   const pinnedCount = state.decisions.filter((d) => d.pinned).length;
@@ -152,7 +156,8 @@ export function ProjectMemoryPanel({
       {!loading && (
         <>
           <section className="v3-section" aria-label="Nastavení projektu">
-            <h3>Nastavení</h3>
+            <h3>Fakta projektu</h3>
+            <p>Společné hodnoty projektu. Karty na ně odkazují přes stabilní ID; změna hodnoty se projeví u všech odkazů.</p>
             {state.settings.length === 0 && <p className="v3-empty">Zatím žádná nastavení.</p>}
             <ul className="v3-kv-list">
               {state.settings.map((setting) => (
@@ -203,7 +208,8 @@ export function ProjectMemoryPanel({
             <ul className="v3-rule-list">
               {state.rules.map((rule) => (
                 <li key={rule.id} className={`v3-rule v3-rule-${rule.kind}`}>
-                  <span className="v3-rule-text">{rule.text}</span>
+                  <MemoryItemText id={`rule:${rule.id}`} text={rule.text} disabled={readOnly || busy}
+                    save={(text) => itemWrite("rule", rule, { ...rule, text })} />
                   <span className="v3-chip">{scopeLabel(rule)}</span>
                   <span className="v3-chip">{rule.kind === "must_not" ? "zákaz" : "pravidlo"}</span>
                   <button type="button" disabled={readOnly || busy} onClick={() => removeRule(rule.id)}>
@@ -250,7 +256,11 @@ export function ProjectMemoryPanel({
               {sortedDecisions.map((decision) => (
                 <li key={decision.id} className={`v3-decision${decision.pinned ? " v3-pinned" : ""}`}>
                   <span className="v3-decision-date">{decision.createdAt}</span>
-                  <span className="v3-decision-text">{decision.text}</span>
+                  {state.decisions.some(d => d.supersedes === decision.id) ? <del>{decision.text}</del> :
+                    <MemoryItemText id={`decision:${decision.id}`} text={decision.text} disabled={readOnly || busy} actionLabel="Opravit rozhodnutí"
+                      save={(text) => itemWrite("decision", null, { ...decision, id: newId(), text, supersedes: decision.id, by: "human", createdAt: new Date().toISOString() })} />}
+                  {decision.supersedes && <span className="v3-chip">Oprava rozhodnutí {decision.supersedes}</span>}
+                  <button type="button" disabled={readOnly || busy || !!decision.supersedes || state.decisions.some(d => d.supersedes === decision.id)} onClick={() => itemWrite("decision", decision, null)}>Odebrat</button>
                   {decision.path && <span className="v3-chip">{decision.path}</span>}
                   <span className="v3-chip">{decision.by === "agent" ? "agent" : "člověk"}</span>
                   <button type="button" disabled={readOnly || busy} onClick={() => togglePin(decision.id)}>

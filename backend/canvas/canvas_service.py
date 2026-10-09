@@ -19,7 +19,11 @@ from backend.editor.node.removals import RemovalService
 from backend.integrations.gitio import git, github_url
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from backend.project_setup.project_hub import ProjectHub
-from database.schema.project_schema import PROJECT_SCHEMA, REGISTRY_SCHEMA
+from database.schema.project_schema import (
+    PROJECT_SCHEMA,
+    REGISTRY_SCHEMA,
+    ensure_canvas_version_columns,
+)
 
 GRAPH_FILE = "opora-canvas.json"
 
@@ -176,6 +180,7 @@ class CanvasService:
                 db = sqlite3.connect(folder.database, check_same_thread=False)
                 db.row_factory = sqlite3.Row
                 db.executescript(PROJECT_SCHEMA)
+                ensure_canvas_version_columns(db)
                 if pid == "draft":
                     db.execute("INSERT OR IGNORE INTO drafts VALUES('draft',?)", (encode(EMPTY),))
                 db.commit()
@@ -384,6 +389,10 @@ class CanvasService:
                 continue
             sector = self._nearest_sector(new_by_id, node)
             sector_ref = sector.get("sourceRef") if sector else None
+            # A conceptual sector groups work across repository directories. Its cards
+            # carry project-relative paths; a bound sector still enforces its subtree.
+            if sector is not None and not sector_ref:
+                continue
             if ref["origin"] == "existing" and (not sector_ref or sector_ref["origin"] != "existing"):
                 raise ValueError("Uzel s existujícím zdrojem vyžaduje existující zdroj sektoru.")
             if ref["origin"] == "planned" and not ref["path"]:
@@ -398,7 +407,7 @@ class CanvasService:
             if not within:
                 raise ValueError("Uzel odkazuje mimo svůj sektor.")
 
-    def save_graph(self, pid, wid, graph, expected_digest, *, allow_removal=False, undo=False):
+    def save_graph(self, pid, wid, graph, expected_digest, *, allow_removal=False, undo=False, _commit=True, actor="system"):
         """Uloží graf plátna. Běžné uložení uzel ani vazbu vypustit nesmí: k tomu je náhled a
         potvrzení odstranění (`allow_removal`, jen z `/api/remove`, které maže i obsah karty).
 
@@ -422,14 +431,24 @@ class CanvasService:
                     if old_ids - new_ids:
                         raise ValueError("Mazání vyžaduje náhled a potvrzení odstranění.")
             self._verify_source_refs(pid, wid, current["graph"], graph)
+            if actor not in ("human", "system"):
+                # Brána, kontroly a vazby mezi sektory mění jen člověk (upgrade-opora #30).
+                from backend.canvas.activity_log import HumanRequired
+                from backend.canvas.protected_fields import protected_changes
+                changes = protected_changes(current["graph"], graph)
+                if changes:
+                    raise HumanRequired(actor, "Tato pole mění jen člověk v UI: " + ", ".join(changes[:10]))
             # Zaokrouhlujeme až při zápisu; čtení starého grafu nesmí změnit jeho digest.
             graph = {"nodes": [{**node, "x": round(node["x"]), "y": round(node["y"])}
                                for node in graph["nodes"]], "edges": graph["edges"]}
             if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
                 with self.lock:
                     db = self.db_for(pid)
+                    if not _commit and not db.in_transaction:
+                        raise RuntimeError("Transakční zápis grafu vyžaduje otevřenou transakci.")
                     db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(graph), pid))
-                    db.commit()
+                    if _commit:
+                        db.commit()
             else:
                 location, _ = self.location(pid, wid)
                 target = location / GRAPH_FILE

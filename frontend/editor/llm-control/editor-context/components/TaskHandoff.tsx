@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchNodeBrief } from "@/shared/desktop-state/logic/api";
+import { api } from "@/shared/types/logic/types";
 import type { NodeBrief } from "@/shared/desktop-state/logic/types";
 import { orientationSummary } from "@/editor/node-detail/agent-workspace/logic/agent-orientation";
 import { asRecord } from "../logic/handoff";
@@ -41,14 +42,21 @@ export default function TaskHandoff({ request, onClose, onSaved }: { request: Ag
   const json = brief ? JSON.stringify(brief, null, 2) : "";
   const version = typeof brief?.contextVersion === "string" ? brief.contextVersion : "";
   const spec = asRecord(brief?.goal);
-  async function copy() {
-    try { await navigator.clipboard.writeText(json); setCopied(true); setClipboardError(""); }
-    catch { setClipboardError("Schránka není dostupná. Použijte stažení JSON."); }
+  async function remember() {
+    await api("/api/desktop-v3/assignment-snapshot", { project, workspace, nodeId, contextVersion: version });
   }
-  function download() {
+  async function copy() {
+    try { await remember(); await navigator.clipboard.writeText(json); setCopied(true); setClipboardError(""); }
+    catch (e) { setClipboardError(String(e)); }
+  }
+  async function download() {
+    try {
+    await remember();
     const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = `opora-zadani-${nodeId}.json`; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
+    setClipboardError("");
+    } catch (e) { setClipboardError(String(e)); }
   }
   return <dialog ref={dialog} className="modal handoff" aria-modal="true" aria-label="Předat zadání"
     onCancel={(event) => { event.preventDefault(); onClose(); }}

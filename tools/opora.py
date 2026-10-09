@@ -20,11 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "opora.toml"
 LOCAL_CONFIG = ROOT / "opora.local.toml"
 ENV_BY_KEY = {
-    "hermes_api_url": "OPORA_HERMES_API_URL",
-    "node_session_lanes_root": "OPORA_NODE_SESSION_LANES_ROOT",
     "graphify_python": "OPORA_GRAPHIFY_PYTHON",
-    "agent_orchestrator_root": "OPORA_AGENT_ORCHESTRATOR_ROOT",
-    "agent_platno_url": "OPORA_AGENT_PLATNO_URL",
 }
 SOURCE_DIRS = ("frontend", "index.html", "vite.config.ts", "package.json")
 

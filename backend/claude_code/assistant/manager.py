@@ -19,12 +19,26 @@ from pathlib import Path
 from backend.claude_code.assistant import approvals
 from backend.claude_code.assistant import command as cli
 from backend.claude_code.assistant.approval_book import ApprovalBook, ApprovalNotFound, Pending
-from backend.claude_code.assistant.context import compose, validate_context, validate_text, validate_title
-from backend.claude_code.assistant.errors import AssistantError, AssistantUnavailable, SessionNotFound
+from backend.claude_code.assistant.context import (
+    compose,
+    validate_context,
+    validate_text,
+    validate_title,
+)
+from backend.claude_code.assistant.errors import (
+    AssistantError,
+    AssistantUnavailable,
+    SessionNotFound,
+)
 from backend.claude_code.assistant.event_log import MAX_USER_MESSAGE_BYTES, EventLog
 from backend.claude_code.assistant.registry import PLACEHOLDER_TITLES, SessionRegistry, title_from
 from backend.claude_code.assistant.session_process import SessionProcess
-from backend.claude_code.assistant.stream import EMPTY_STATE, control_request, map_line, tool_summary
+from backend.claude_code.assistant.stream import (
+    EMPTY_STATE,
+    control_request,
+    map_line,
+    tool_summary,
+)
 from backend.claude_code.assistant.transcript import read_transcript
 from backend.claude_code.assistant.watchdog import Limits, Watchdog, expired
 

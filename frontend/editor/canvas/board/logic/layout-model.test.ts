@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, GraphEdge } from "@/shared/types/logic/types";
-import { arrangeLayer, footprintOf, resolveOverlap, type Footprint } from "./layout-model";
+import { arrangeGraph, arrangeLayer, estimateCardHeight, footprintOf, resolveOverlap, type Footprint } from "./layout-model";
+import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
 
 /** Skutečně se protínají jako obdélníky, bez ohledu na mezeru — pro ověření výsledku po srovnání. */
 function rectsOverlap(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }): boolean {
@@ -232,5 +233,33 @@ describe("arrangeLayer", () => {
         expect(rectsOverlap(rect, areas[0])).toBe(false);
       }
     }
+  });
+});
+
+describe("oblasti se odpuzují jako magnety stejné polarity", () => {
+  it("zvětšená oblast odsune sousední oblast i s jejími kartami, nic se nepřekrývá", () => {
+    const left = frame("left", 0, 0, 400, 300);
+    const right = frame("right", 420, 0, 400, 300);
+    const input = [card("a1", 20, 60), card("a2", 40, 80), card("a3", 60, 100), card("b1", 440, 60)];
+    const { nodes, areas } = arrangeLayer(input, [link("a1", "a2"), link("a2", "a3")], [left, right], { areaGap: 160 });
+    const [l, r] = ["left", "right"].map((id) => areas.find((a) => a.id === id)!);
+    expect(rectsOverlap(l, r)).toBe(false);
+    expect(r.x - (l.x + l.w) >= 160 || r.y - (l.y + l.h) >= 160).toBe(true);
+    const b1 = rectsOf(input, nodes).find((rect) => rect.id === "b1")!;
+    expect(b1.x).toBeGreaterThanOrEqual(r.x);
+    expect(b1.y).toBeGreaterThanOrEqual(r.y);
+    expect(noneOverlap(rectsOf(input, nodes))).toBe(true);
+  });
+});
+
+describe("srovnat vše", () => {
+  it("srovná každou vrstvu zvlášť a nezměřenou kartu odhadne podle bloků", () => {
+    const node = (id: string, parentId: string | null, x: number, y: number): CanvasNode => ({ id, parentId, kind: "node", name: id, purpose: "", x, y });
+    const graph = { nodes: [node("s", null, 0, 0), node("t", null, 10, 10), node("c1", "s", 0, 0), node("c2", "s", 5, 5)], edges: [link("c1", "c2")] };
+    const nodes = arrangeGraph(graph, emptyDesktopState(), {}, {});
+    const at = (id: string) => nodes.find((n) => n.id === id)!;
+    expect(at("c2").x).toBeGreaterThan(at("c1").x);
+    expect(at("s").x === at("t").x && at("s").y === at("t").y).toBe(false);
+    expect(estimateCardHeight({ blocks: [] })).toBeGreaterThanOrEqual(240);
   });
 });

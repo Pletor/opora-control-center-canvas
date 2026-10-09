@@ -26,8 +26,8 @@ describe("agent-navbar – sekce Agenti a Postupy", () => {
     expect([...agents, ...sectionCategories("flows")].sort()).toEqual(AGENT_CATEGORIES.map((c) => c.id).sort());
   });
 
-  it("záložky Agentů jsou Katalog | Vybraná karta | Hook", () => {
-    expect(AGENT_NAVBAR_TABS.map((tab) => tab.label)).toEqual(["Katalog", "Vybraná karta", "Hook"]);
+  it("záložky Agentů jsou Katalog | Vybraná karta | Kód", () => {
+    expect(AGENT_NAVBAR_TABS.map((tab) => tab.label)).toEqual(["Katalog", "Vybraná karta", "Kód"]);
   });
 });
 
@@ -45,7 +45,7 @@ describe("agent-navbar – stav sekcí", () => {
     const agents = setCategory(state, "agents", "skills");
     expect(agents.flows).toEqual({ category: "pipelines", query: "commit" });
     expect(agents.agents).toEqual({ category: "skills", query: "" });
-    expect(setTab(agents, "hook")).toMatchObject({ tab: "hook", flows: { query: "commit" } });
+    expect(setTab(agents, "code")).toMatchObject({ tab: "code", flows: { query: "commit" } });
   });
 });
 
@@ -82,7 +82,7 @@ describe("agent-navbar – jeden klíč pro celou aplikaci", () => {
     expect(parseAgentNavbar(stored)).toEqual({
       agents: { category: "hooks", query: "x".repeat(120) },
       flows: { category: "pipelines", query: "a" },
-      tab: "hook",
+      tab: "code",
     });
   });
 

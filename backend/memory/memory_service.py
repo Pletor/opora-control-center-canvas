@@ -105,9 +105,8 @@ class AppSettings:
         return None if row is None else row[0]
 
     def _write(self, key, value):
-        with self.canvas.lock:
-            with self.canvas.db:
-                self.canvas.db.execute("INSERT OR REPLACE INTO app_settings VALUES(?,?)", (key, value))
+        with self.canvas.lock, self.canvas.db:
+            self.canvas.db.execute("INSERT OR REPLACE INTO app_settings VALUES(?,?)", (key, value))
 
     def enabled(self):
         stored = self._read(self.key)

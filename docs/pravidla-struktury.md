@@ -4,12 +4,12 @@ Tento dokument je autorita pro umístění nového souboru. Při pochybnosti se 
 
 ```
 opora-canvas/
-  frontend/             # cesta uživatele: nastavení → Projekt | Editor | Live Run
+  frontend/             # cesta uživatele: nastavení → Projekt | Editor | OporaHub
     app/                # main.tsx, App.tsx, theme, barrel panelů (skládání prostředí)
     design-tokens/      # theme-tokens.css: barvy, témata, hustota
     layout/             # kostra obrazovky společná všem prostředím
       top-bar/
-      environment-switch/ # Projekt | Editor | Live Run (Alt+1..3)
+      environment-switch/ # Projekt | Editor | OporaHub (Alt+1..3)
       mode-rail/        # módy plátna uvnitř Editoru (vodorovné záložky ve druhé řadě lišty)
       panel-dock/       # tlačítka Knihovna | Agenti a postupy a panel zavěšený pod nimi (docs/rozvrzeni-editoru.md)
       account-corner/   # levý dolní roh: tlačítko Opora a popup menu
@@ -26,15 +26,12 @@ opora-canvas/
       sector-detail/    # stejná šablona jako node-detail
       workflow/         # fáze, kritéria, kroky uzlu → základ pipeline
       component-library/ # LEVÁ STRANA: knihovna komponent, metod, funkcí (palette/)
-      llm-control/      # PRAVÁ STRANA: Claude Code hooky, skills, commandy, agenti
+      llm-control/      # PRAVÁ STRANA: Claude Code skills, commandy, agenti
         project-memory/ # pravidla, rozhodnutí, nastavení
         editor-context/ # reference a „úkol pro agenta“
         agent-packet/   # podklady pro agenta: náhled, snímek, export
-    live-run/           # PROSTŘEDÍ LIVE RUN: jak agenti pracují
-      run-monitor/      # běhy agentů a jejich důkazy
-      node-sessions/    # živé session na uzlu
-      node-activity/    # aktivita agentů na uzlu (záložka Práce)
-      processes/        # přehled procesů projektu: oprava, proces, návrh, hotovo
+    hub/                # PROSTŘEDÍ OPORAHUB: plán a dokumentace 1:1 s kódem
+      oporahub-workspace/ # panel synchronizace (Oracle verdikt, echo)
     shared/             # bez závislosti na prostředích
       api/              # slot: jeden klient nad backend API
       types/  hooks/  contexts/
@@ -51,7 +48,6 @@ opora-canvas/
       project_setup/    # project_routes: nastavení, lokální/prázdný projekt, connect
       project/          # project_workspace_routes, workspace_routes, archify_routes, graphify_routes, map_refresh_routes
       editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes, process_routes
-      live_run/         # agent_routes, node_session_routes
     canvas/             # základ plátna: canvas_service (registr + db_for(projekt), git sync, graf), graph, project_folder (projects/<id>/), project_registry, migrate_to_project_folders
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
     project/            # PROSTŘEDÍ PROJEKT
@@ -66,10 +62,9 @@ opora-canvas/
       agent_handoff/    # external_agent_tasks: předání úkolu externímu agentovi
       process/          # process_store, process_lifecycle (návrh → proces → hotovo → oprava), process_reports (odpovědi agentů)
       task_execution/   # slot: vykonání úkolu z uzlu podle ID
-    live_run/           # PROSTŘEDÍ LIVE RUN: agent_sources, agent_catalog, agent_bindings, agent_activity, agent_telemetry, node_sessions
     memory/             # paměť agenta podle role napříč projekty (OpenViking): roles, memory_service
     integrations/       # platforma: gitio, windows_job, build_identity, openviking_client
-    claude_code/        # skills_catalog (SKILL.md z projektu, uživatele, pluginů), skill_preferences (vypnuté skills); hooky a commands přibudou
+    claude_code/        # skills_catalog (SKILL.md z projektu, uživatele, pluginů), skill_preferences (vypnuté skills); commands přibudou
     library/            # slot: načítání a verze předloh
     (každý balíček má README; test leží vedle modulu jako test_<modul>.py)
 
@@ -94,8 +89,8 @@ opora-canvas/
 
 Pravidla umístění nového souboru:
 
-1. Vidí to uživatel? → `frontend/`. Kde v cestě uživatele to je? → `project-setup/`, `project/`, `editor/` nebo `live-run/`. Je to obecné (bez domény)? → `ui-kit/`. Sdílený stav bez závislosti na prostředí? → `shared/`. Uvnitř složky: .tsx do `components/`, .ts do `logic/`, .css do `styles/`.
-2. Je to logika, proces, integrace? → `backend/`. Kde v cestě uživatele to je? → `project_setup/`, `project/`, `editor/` nebo `live_run/`. Router jen do `api/<prostředí>/`. Základ plátna → `canvas/`, platforma → `integrations/`.
+1. Vidí to uživatel? → `frontend/`. Kde v cestě uživatele to je? → `project-setup/`, `project/`, `editor/` nebo `hub/`. Je to obecné (bez domény)? → `ui-kit/`. Sdílený stav bez závislosti na prostředí? → `shared/`. Uvnitř složky: .tsx do `components/`, .ts do `logic/`, .css do `styles/`.
+2. Je to logika, proces, integrace? → `backend/`. Kde v cestě uživatele to je? → `project_setup/`, `project/`, `editor/`. Router jen do `api/<prostředí>/`. Základ plátna → `canvas/`, platforma → `integrations/`.
 3. Je to schéma nebo přístup k datům? → `database/`.
 4. Je to předloha, checklist nebo poučení? → `library/`.
 5. Test leží hned vedle toho, co testuje, jako `test_<modul>.py` (backend) nebo `<name>.test.ts` (frontend, běží `npm test` = vitest); žádné složky tests/. Css leží ve `styles/` vedle komponenty. Název souboru říká, co dělá a k čemu patří.
@@ -126,7 +121,6 @@ Audit stavu k 2026-09-15: `docs/ux-central-audit.md`.
 backend
 backend/api
 backend/api/editor
-backend/api/live_run
 backend/api/project
 backend/api/project_setup
 backend/app
@@ -141,7 +135,6 @@ backend/editor/sector
 backend/editor/task_execution
 backend/integrations
 backend/library
-backend/live_run
 backend/memory
 backend/project
 backend/project/maps
@@ -210,6 +203,11 @@ frontend/editor/node-detail/links/components
 frontend/editor/sector-detail
 frontend/editor/workflow
 frontend/editor/workflow/components
+frontend/hub
+frontend/hub/oporahub-workspace
+frontend/hub/oporahub-workspace/components
+frontend/hub/oporahub-workspace/logic
+frontend/hub/oporahub-workspace/styles
 frontend/layout
 frontend/layout/environment-switch
 frontend/layout/environment-switch/components
@@ -223,17 +221,6 @@ frontend/layout/shell
 frontend/layout/shell/styles
 frontend/layout/top-bar
 frontend/layout/top-bar/components
-frontend/live-run
-frontend/live-run/node-activity
-frontend/live-run/node-activity/components
-frontend/live-run/node-sessions
-frontend/live-run/node-sessions/components
-frontend/live-run/node-sessions/logic
-frontend/live-run/node-sessions/styles
-frontend/live-run/run-monitor
-frontend/live-run/run-monitor/components
-frontend/live-run/run-monitor/logic
-frontend/live-run/run-monitor/styles
 frontend/project
 frontend/project-setup
 frontend/project-setup/components

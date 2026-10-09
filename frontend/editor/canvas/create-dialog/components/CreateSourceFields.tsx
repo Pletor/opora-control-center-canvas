@@ -59,7 +59,7 @@ export default function CreateSourceFields({
       {form.origin === "planned" && (
         <div className="create-dialog__row">
           <label className="field create-dialog__grow">
-            {sector ? "Zamýšlená cesta (nepovinné)" : "Zamýšlená cesta v sektoru (nepovinné)"}
+            {sector ? "Zamýšlená cesta (nepovinné)" : rules.effectiveSector?.sourceRef ? "Zamýšlená cesta v sektoru (nepovinné)" : "Zamýšlená cesta v projektu (nepovinné)"}
             <input aria-label="Zamýšlená cesta" value={form.plannedPath} maxLength={400}
               placeholder="nic se nevytváří na disku" onChange={(e) => set({ plannedPath: e.target.value })} />
           </label>

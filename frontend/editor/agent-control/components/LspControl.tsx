@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
 import type { LspQueryInput, LspQueryResponse, LspStatus } from "@/editor/agent-control/logic/agent-control-api";
-import { lspProviderLabel } from "@/editor/agent-control/logic/hooks-control";
+import { lspProviderLabel } from "@/editor/agent-control/logic/code-query";
 
-type Props = { disabled: boolean; project: string; workspace: string; nodeId: string; status: LspStatus | null; onQuery: (input: LspQueryInput) => Promise<LspQueryResponse> };
+type Props = { disabled: boolean; project: string; workspace: string; status: LspStatus | null; onQuery: (input: LspQueryInput) => Promise<LspQueryResponse> };
 
 /** Keyed by card scope by the parent; request ids reject late answers for a newer question. */
-export default function LspControl({ disabled, project, workspace, nodeId, status, onQuery }: Props) {
+export default function LspControl({ disabled, project, workspace, status, onQuery }: Props) {
   const request = useRef(0);
   const [language, setLanguage] = useState<"typescript" | "python">("typescript");
   const [path, setPath] = useState("");
@@ -24,7 +24,7 @@ export default function LspControl({ disabled, project, workspace, nodeId, statu
     setResult(null);
     setError("");
     try {
-      const value = await onQuery({ project, workspace, nodeId, language, path: path.trim(), operation, line: Number(line), character: Number(character) });
+      const value = await onQuery({ project, workspace, language, path: path.trim(), operation, line: Number(line), character: Number(character) });
       if (generation === request.current) setResult(value);
     } catch (reason) {
       if (generation === request.current) setError(reason instanceof Error ? reason.message : String(reason));

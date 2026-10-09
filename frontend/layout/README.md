@@ -1,1 +1,1 @@
-Kostra obrazovky společná všem prostředím: horní lišta, přepínač prostředí Projekt | Editor | Live Run, záložky módů plátna (`mode-rail/`), zavěšené panely Editoru (`panel-dock/` — Knihovna z `library-navbar/` a Agenti a postupy z `agent-navbar/`) a styly shellu.
+Kostra obrazovky společná všem prostředím: horní lišta, přepínač prostředí Projekt | Editor | OporaHub, záložky módů plátna (`mode-rail/`), zavěšené panely Editoru (`panel-dock/` — Knihovna z `library-navbar/` a Agenti a postupy z `agent-navbar/`) a styly shellu.

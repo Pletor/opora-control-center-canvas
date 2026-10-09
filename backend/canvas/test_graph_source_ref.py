@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import pytest
 from backend.project.workspace.test_workspace_sources import ORIGIN, attach
 
 from backend.app.factory import create_app
@@ -42,6 +43,35 @@ def test_sector_binds_existing_root_directory(tmp_path):
         assert r.status_code == 200, r.text
         reloaded = view(client, pid)
         assert reloaded["graph"]["nodes"][0]["sourceRef"] == ref
+
+
+@pytest.mark.parametrize('origin', ['existing', 'planned'])
+def test_unbound_sector_accepts_project_relative_paths_across_directories(tmp_path, origin):
+    source = tmp_path / 'source'
+    for name in ('backend', 'frontend', 'database'):
+        (source / name).mkdir(parents=True)
+        (source / name / 'entry.py').write_text('pass', encoding='utf-8')
+    with TestClient(create_app(tmp_path / 'data'), base_url=ORIGIN) as client:
+        pid = attach(client, source)
+        graph = {'nodes': [sector(), *[
+            node(id=name, source_ref={'origin': origin, 'path': name + '/entry.py', 'kind': 'file'})
+            for name in ('backend', 'frontend', 'database')]], 'edges': []}
+        result = post_graph(client, pid, graph, view(client, pid)['digest'])
+        assert result.status_code == 200, result.text
+        assert view(client, pid)['graph'] == graph
+        graph['nodes'][1]['sourceRef']['path'] = '../outside.py'
+        result = post_graph(client, pid, graph, view(client, pid)['digest'])
+        assert result.status_code == 409
+
+
+def test_unbound_sector_still_checks_existing_file_on_disk(tmp_path):
+    source = tmp_path / 'source'
+    source.mkdir()
+    with TestClient(create_app(tmp_path / 'data'), base_url=ORIGIN) as client:
+        pid = attach(client, source)
+        graph = {'nodes': [sector(), node(source_ref={
+            'origin': 'existing', 'path': 'missing.py', 'kind': 'file'})], 'edges': []}
+        assert post_graph(client, pid, graph, view(client, pid)['digest']).status_code == 409
 
 
 def test_sector_existing_path_must_exist_on_disk(tmp_path):

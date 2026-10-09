@@ -1,5 +1,5 @@
 /* CELKOVÝ POHLED NA PROCES (blok `sync-dashboard`)
-   Příběh: na stránce projektu vidí orchestrátor jedním pohledem, kolik rozsahů čeká na 1:1, kolik
+   Příběh: v prostředí OporaHub vidí orchestrátor jedním pohledem, kolik rozsahů čeká na 1:1, kolik
    je rozpracovaných, kolik zelených a kolik uzavřených, jaké echo proces nejvíc tíží, a dole tabulku
    se stejným seznamem do detailu — stav, jméno, neprošlé kontroly a jeden další krok. Dokud report
    nedorazil, dílek řekne jen jednu tichou větu místo prázdné stránky. */

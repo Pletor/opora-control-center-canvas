@@ -1,7 +1,7 @@
 # Plán struktury `backend/` a `database/` (provedeno; doplněno o vyjmutí routerů a testy vedle modulů)
 
 Cíl: backend má na první úrovni stejný příběh jako frontend:
-**project_setup → project | editor | live_run**, pod nimi společný základ plátna a platforma.
+**project_setup → project | editor**, pod nimi společný základ plátna a platforma.
 Každé prostředí má připravené místo pro logiku, která bude přibývat: paměť agentů, předávání
 struktury, textů a kreseb agentovi jako jednotlivý uzel (vykonat úkol) nebo celý sektor (zpracovat).
 Nad prostředími se postaví nové robustní API (`api/` rozdělené stejně podle prostředí) a nad API
@@ -13,8 +13,8 @@ Chování se nemění; mění se jen cesty, názvy balíčků, název jednoho so
 - Importy jsou všude absolutní `from backend.x.y import …`. Kořen: `pyproject.toml` `pythonpath=["."]`, `testpaths=["backend","tools"]`. Aplikaci spouští `tools/serve-preview.py` přes `backend.app.create_app`.
 - Testy leží v `tests/` každého balíčku; osm jich testuje jiný balíček, než kde leží.
 - `database/` obsahuje jen 4 README. Všech 20 SQLite tabulek vzniká `CREATE TABLE IF NOT EXISTS` uvnitř 13 modulů.
-- Názvy bez obsahu: `domain/service.py` (CanvasService), `agents/runs/` (jen export úkolu), `agents/sources/` (vše pro Live Run), `agents/packets/` (paměť + podklady dohromady).
-- Routery mimo `api/`: `node_sessions.py`, `workspace_sources.py`, `map_refresh.py`, 25 inline rout v `app/factory.py`. Vyjmutí = rozdělení souboru = změna obsahu → dluh v §5.
+- Názvy bez obsahu: `domain/service.py` (CanvasService), `agents/runs/` (jen export úkolu), `agents/packets/` (paměť + podklady dohromady).
+- Routery mimo `api/`: `workspace_sources.py`, `map_refresh.py`, 25 inline rout v `app/factory.py`. Vyjmutí = rozdělení souboru = změna obsahu → dluh v §5.
 - Baseline testů: 282 passed, 2 failed (graphify, externí nástroj), 6 skipped.
 
 ## 1. Pravidla
@@ -27,7 +27,7 @@ Chování se nemění; mění se jen cesty, názvy balíčků, název jednoho so
 
 - Balíčky snake_case; název souboru říká, co dělá. Žádné `utils`, `misc`, `common`, `helpers`, verze.
 - Routery pouze v `api/<prostředí>/`; moduly prostředí žádný APIRouter nevytvářejí.
-- Směr závislostí: `mcp/` → `api/` → prostředí (`project_setup`, `project`, `editor`, `live_run`) → `canvas/`, `integrations/`. Nižší vrstva nikdy neimportuje vyšší. (Dnes porušeno jednou: `graph.py` → `workspace_sources`, viz §5.)
+- Směr závislostí: `mcp/` → `api/` → prostředí (`project_setup`, `project`, `editor`) → `canvas/`, `integrations/`. Nižší vrstva nikdy neimportuje vyšší. (Dnes porušeno jednou: `graph.py` → `workspace_sources`, viz §5.)
 - Žádná změna obsahu modulů, žádné rozdělování souborů, žádné mazání. Přesun výhradně `git mv`.
 
 ## 2. Cílový strom
@@ -37,11 +37,10 @@ backend/
 ├── README.md · STRUCTURE-PLAN.md · __init__.py · paths.py
 ├── app/                    spuštění aplikace: create_app, middleware, mount dist/
 │   ├── factory.py
-│   └── tests/  test_api · test_agents_app_integration · test_backend_review_guards · test_v3_acceptance
+│   └── tests/  test_api · test_backend_review_guards · test_v3_acceptance
 ├── api/                    ROBUSTNÍ API: tenké routery rozdělené podle prostředí, nad nimi MCP
 │   ├── project/            archify_routes · graphify_routes  + tests/ (test_archify_routes · test_graphify_routes)
 │   ├── editor/             desktop_v3_routes
-│   ├── live_run/           agent_routes
 │   └── project_setup/      README (slot): rozhraní pro připojení a založení projektu (dnes inline v app/factory.py)
 ├── mcp/                    MCP SERVER nad api/: get_tree, get_node, claim_task… README (slot, dříve agents/control)
 │
@@ -78,13 +77,8 @@ backend/
 │   │   └── tests/  __init__ (slot)
 │   └── task_execution/     README (slot): vykonání úkolu z uzlu podle ID – najít zadání, podrobnosti, dotáhnout do konce; zpracování sektoru
 │
-├── live_run/               PROSTŘEDÍ LIVE RUN: co agenti dělají
-│   ├── agent_sources · agent_catalog · agent_bindings · agent_activity · agent_telemetry
-│   ├── node_sessions · node_session_sources
-│   └── tests/  test_agent_sources · test_agent_bindings · test_agent_activity · test_agent_telemetry… · test_node_sessions · test_oporacc_process_source
-│
 ├── integrations/           PLATFORMA: gitio · windows_job · build_identity  + tests/test_build_identity
-├── claude_code/            README (slot): hooky, commands, skills řízené z aplikace
+├── claude_code/            README (slot): commands, skills řízené z aplikace
 └── library/                README (slot): předlohy, checklisty, zpětná vazba
 
 database/                   dnes dokumentace: kde která tabulka žije
@@ -120,7 +114,7 @@ Zanikají balíčky `domain/`, `agents/`, `maps/` – všechny soubory jsou pře
 | maps/* (7 modulů, README, __init__, tests/) | project/maps/ | mapy jsou pohled na main |
 | – | project/__init__.py, README.md; project/workspace/__init__.py, README.md; project/workspace/tests/__init__.py | nové |
 
-### 3.3 editor/ a live_run/
+### 3.3 editor/
 | Stará cesta | Nová cesta | Proč |
 |---|---|---|
 | domain/node/{node_text,node_specs,node_journal,node_links,drawings,removals}.py, README.md, __init__.py | editor/node/ | obsah uzlu |
@@ -134,22 +128,16 @@ Zanikají balíčky `domain/`, `agents/`, `maps/` – všechny soubory jsou pře
 | agents/packets/tests/test_desktop_v3_packets.py, __init__.py | editor/agent_packet/tests/ | |
 | agents/runs/external_agent_tasks.py, README.md, __init__.py | editor/agent_handoff/ | předání úkolu ven |
 | agents/runs/tests/__init__.py | editor/agent_handoff/tests/__init__.py | slot |
-| agents/sources/*.py, README.md, __init__.py | live_run/ | katalog, vazby, aktivita, telemetrie |
-| agents/sources/tests/* | live_run/tests/ | |
-| domain/node/node_sessions.py, node_session_sources.py | live_run/ | živé session ↔ uzel |
-| domain/node/tests/test_node_sessions.py | live_run/tests/ | |
-| agents/runs/tests/test_oporacc_process_source.py | live_run/tests/ | testuje agent_sources |
 | agents/control/README.md | mcp/README.md | MCP server nad API, vlastní balíček na první úrovni |
 | api/archify_routes.py, graphify_routes.py | api/project/ | rozhraní prostředí Projekt |
 | api/tests/test_archify_routes.py, test_graphify_routes.py, __init__.py | api/project/tests/ | |
 | api/desktop_v3_routes.py | api/editor/desktop_v3_routes.py | rozhraní Editoru |
-| api/agent_routes.py | api/live_run/agent_routes.py | rozhraní Live Run |
-| api/README.md, __init__.py | zůstávají; + api/project/__init__.py, api/editor/__init__.py, api/live_run/__init__.py, api/project_setup/README.md | nové |
+| api/README.md, __init__.py | zůstávají; + api/project/__init__.py, api/editor/__init__.py, api/project_setup/README.md | nové |
 | agents/README.md, agents/__init__.py | editor/README.md, editor/__init__.py | text přepsat |
-| – | editor/agent_memory/__init__.py + tests/__init__.py + README; editor/task_execution/README.md; live_run/__init__.py (z agents/sources/__init__.py) | nové |
+| – | editor/agent_memory/__init__.py + tests/__init__.py + README; editor/task_execution/README.md | nové |
 
 ### 3.4 database/ – žádný přesun, jen dokumentace
-`database/README.md` dostane tabulku „tabulka → modul, který ji vytváří“: canvas.sqlite: projects, workspaces, drafts, jobs → canvas/canvas_service; drawing_revisions → editor/node/drawings; node_journal_revisions → editor/node/node_journal; node_spec_revisions → editor/node/node_specs; node_text_revisions → editor/node/node_text; graph_recoveries, archived_projects → editor/node/removals; project_sources, project_settings, builtin_project_metadata → project_setup/project_hub; workspace_documents → project/workspace/workspace_documents; node_sessions → live_run/node_sessions; agent_activity_entries → live_run/agent_activity; agent_bindings, agent_binding_scopes → live_run/agent_bindings; desktop_v3_* → editor/agent_memory, editor/agent_packet; state.sqlite: config, projects, runs → project/maps/map_refresh.
+`database/README.md` dostane tabulku „tabulka → modul, který ji vytváří“: canvas.sqlite: projects, workspaces, drafts, jobs → canvas/canvas_service; drawing_revisions → editor/node/drawings; node_journal_revisions → editor/node/node_journal; node_spec_revisions → editor/node/node_specs; node_text_revisions → editor/node/node_text; graph_recoveries, archived_projects → editor/node/removals; project_sources, project_settings, builtin_project_metadata → project_setup/project_hub; workspace_documents → project/workspace/workspace_documents; desktop_v3_* → editor/agent_memory, editor/agent_packet; state.sqlite: config, projects, runs → project/maps/map_refresh.
 
 ## 4. Co se přepíše
 | Starý modul | Nový modul |
@@ -158,7 +146,6 @@ Zanikají balíčky `domain/`, `agents/`, `maps/` – všechny soubory jsou pře
 | backend.domain.graph.graph | backend.canvas.graph |
 | backend.domain.project.project_hub | backend.project_setup.project_hub |
 | backend.domain.project.wireframe_context | backend.editor.node.wireframe_context |
-| backend.domain.node.node_sessions, node_session_sources | backend.live_run.node_sessions, node_session_sources |
 | backend.domain.node.* (ostatní) | backend.editor.node.* |
 | backend.integrations.workspace_sources, workspace_documents | backend.project.workspace.* |
 | backend.integrations.tests.test_workspace_sources | backend.project.workspace.tests.test_workspace_sources |
@@ -166,8 +153,6 @@ Zanikají balíčky `domain/`, `agents/`, `maps/` – všechny soubory jsou pře
 | backend.agents.packets.desktop_v3_state | backend.editor.agent_memory.desktop_v3_state |
 | backend.agents.packets.desktop_v3_packets, redact | backend.editor.agent_packet.* |
 | backend.agents.runs.external_agent_tasks | backend.editor.agent_handoff.external_agent_tasks |
-| backend.agents.sources.* | backend.live_run.* |
-| backend.api.agent_routes | backend.api.live_run.agent_routes |
 | backend.api.archify_routes, graphify_routes | backend.api.project.* |
 | backend.api.desktop_v3_routes | backend.api.editor.desktop_v3_routes |
 | řetězec "backend.domain.service.git" (4 testy) | "backend.canvas.canvas_service.git" |
@@ -176,7 +161,7 @@ Beze změny: `pyproject.toml`, `tools/serve-preview.py` (`backend.app`), `tools/
 Dokumentace: `.claude/skills/opora-control-center/references/{source-map,api,graphify,archify}.md`, `docs/pravidla-struktury.md`, README každého balíčku.
 
 ## 5. Evidovaný dluh (vyžaduje změnu obsahu souborů, mimo rozsah)
-1. HOTOVO: routery vyjmuty do `api/live_run/node_session_routes.py`, `api/project/workspace_routes.py`, `api/project/map_refresh_routes.py`; 25 inline rout z `app/factory.py` rozděleno do `api/app_routes.py`, `api/project_setup/project_routes.py`, `api/project/project_workspace_routes.py`, `api/editor/canvas_routes.py`, `api/editor/node_routes.py`. `mcp/` bude volat jen `api/`.
+1. HOTOVO: routery vyjmuty do `api/project/workspace_routes.py`, `api/project/map_refresh_routes.py`; 25 inline rout z `app/factory.py` rozděleno do `api/app_routes.py`, `api/project_setup/project_routes.py`, `api/project/project_workspace_routes.py`, `api/editor/canvas_routes.py`, `api/editor/node_routes.py`. `mcp/` bude volat jen `api/`.
 2. `canvas/graph.py` importuje `project/workspace/workspace_sources.relative_path` (základ závisí na prostředí).
 3. `integrations/build_identity.py` hashuje `backend/*.py` a `src/*`; po restrukturalizaci hashuje jen `paths.py`.
 4. `desktop_v3_state.py` drží paměť projektu i fáze uzlu v jednom souboru; při růstu rozdělit na `agent_memory` a `workflow`.

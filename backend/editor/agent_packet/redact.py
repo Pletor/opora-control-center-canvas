@@ -1,7 +1,7 @@
 """Minimální, samostatný redaktor známých vzorů tajemství v uživatelském textu.
 
-Tvary tokenů drží krok s `agent_sources._SECRET_TEXT` (zejména fine-grained
-`github_pat_`), ale zůstává samostatný: podklady redigují jen text, ne klíče,
+Pokrývá známé tvary tokenů (zejména fine-grained `github_pat_`) a zůstává
+samostatný: podklady redigují jen text, ne klíče,
 takže záměrné číselné čítače (např. cache_read_tokens) tudy vůbec neprocházejí.
 """
 

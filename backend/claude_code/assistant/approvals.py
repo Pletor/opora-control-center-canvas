@@ -30,8 +30,15 @@ DRAFT_SUFFIX = ".json"
 
 # Shodně se seznamem v `opora_write.py` (WRITE_ROUTES).
 WRITE_ROUTES = frozenset({
+    "/api/desktop-v3/lease",
+    "/api/desktop-v3/realize-source",
+    "/api/canvas-layout",
+    "/api/desktop-v3/assignment-snapshot",
+    "/api/canvas-versions",
+    "/api/desktop-v3/rule", "/api/desktop-v3/decision",
     "/api/graph", "/api/node-spec", "/api/node-text", "/api/desktop-v3/state", "/api/desktop-v3/block",
     "/api/desktop-v3/agent-workspace", "/api/desktop-v3/agent-output", "/api/canvas-plan",
+    "/api/desktop-v3/pipeline",
 })
 # Celý příkaz: python, skript `…opora_write.py`, cesta a volby. Žádný znak, který by v shellu
 # řetězil (`;`, `&`, `|`), přesměroval (`<`, `>`), substituoval (`` ` ``, `$`) nebo zalomil řádek.
@@ -45,12 +52,15 @@ COMMAND = re.compile(
 # Čtení bez dotazu (§5.1): backend je pustí sám místo volného vzoru v `--allowedTools`. Vzor
 # `Bash(python *opora_read.py*)` by pustil i `python -c "…" x/opora_read.py`, tedy libovolný kód.
 # Tady musí skript následovat hned po `python` a jméno souboru je přesně `opora_read.py`.
+# Cesta je připnutá ke složce skillu (upgrade-opora #42): podstrčený `x/opora_read.py` jinde neprojde.
 READ_COMMAND = re.compile(
     r"^python3?(?:\.exe)? +"
-    r"(?:\"(?:[^\"$`;&|<>\r\n]*[/\\])?opora_read\.py\""
-    r"|(?:[A-Za-z0-9_.:~/\\-]*[/\\])?opora_read\.py)"
+    r"(?:\"(?:[^\"$`;&|<>\r\n]*[/\\])?opora-control-center[/\\]scripts[/\\]opora_read\.py\""
+    r"|(?:[A-Za-z0-9_.:~/\\-]*[/\\])?opora-control-center[/\\]scripts[/\\]opora_read\.py)"
     r"(?: +[^;&|<>`$\r\n]*)?$"
 )
+# Převzetí a snímek zadání nemění obsah karty: bez dotazu, jinak by člověk schvaloval každý heartbeat.
+NO_PROMPT_ROUTES = frozenset({"/api/desktop-v3/lease", "/api/desktop-v3/assignment-snapshot"})
 GRAPHIFY_COMMAND = re.compile(r"^graphify +query(?: +[^;&|<>`$\r\n]*)?$")
 OPTIONS = {"--project": "project", "--workspace": "workspace", "--json": "json", "--json-file": "jsonFile"}
 
@@ -85,8 +95,26 @@ def plan_summary(payload):
     return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
 
 
+def state_summary(payload):
+    """Celý stav (`/api/desktop-v3/state`): co zápis obsahuje, aby člověk neschvaloval naslepo."""
+    raw_state, raw_nodes, raw_rules = payload.get("state"), None, None
+    state = raw_state if isinstance(raw_state, dict) else {}
+    raw_nodes, raw_rules = state.get("nodes"), state.get("rules")
+    nodes = raw_nodes if isinstance(raw_nodes, dict) else {}
+    rules = raw_rules if isinstance(raw_rules, list) else []
+    closed = sum(1 for node in nodes.values() if isinstance(node, dict) and isinstance(node.get("done"), dict)
+                 and node["done"].get("confirmed") is True)
+    proposed = sum(1 for node in nodes.values() if isinstance(node, dict) and isinstance(node.get("done"), dict)
+                   and node["done"].get("by") == "agent" and node["done"].get("confirmed") is False)
+    text = (f"Celý stav plátna: {len(nodes)} karet · {len(rules)} pravidel · uzavřeno {closed} · "
+            f"návrhů uzavření {proposed}. Zápis přepíše stav; pravidla člověka a uzavření server agentovi nedovolí změnit.")
+    return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
+
+
 def summary_of(route, payload):
-    return plan_summary(payload) if route == "/api/canvas-plan" else payload_summary(payload)
+    if route == "/api/canvas-plan":
+        return plan_summary(payload)
+    return state_summary(payload) if route == "/api/desktop-v3/state" else payload_summary(payload)
 
 
 def _inside_drafts(value, drafts_dir, *, must_exist):
@@ -223,6 +251,8 @@ def classify(request, drafts_dir=None):
         return "auto_deny", AUTO_DENY_MESSAGE
     if parsed.get("dryRun") and parsed["route"] == "/api/canvas-plan":
         return "auto_allow", None  # jen ověření, nic nezapíše (docs/davka-planu.md §3)
+    if parsed["route"] in NO_PROMPT_ROUTES:
+        return "auto_allow", None
     return "ask", parsed
 
 

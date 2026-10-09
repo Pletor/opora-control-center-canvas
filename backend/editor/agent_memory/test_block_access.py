@@ -213,6 +213,8 @@ def test_stale_revision_is_refused_and_nothing_is_written(tmp_path):
 def test_closed_card_refuses_the_operation(tmp_path):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         state = base_state()
+        from backend.editor.agent_memory.test_completion_evidence import evidence
+        state["nodes"]["focus"]["evidence"] = evidence()
         state["nodes"]["focus"]["done"] = {"confirmed": True, "at": "2026-09-14T08:00:00+00:00",
                                            "by": "human", "note": "Zavřeno."}
         revision = prepared(client, state)

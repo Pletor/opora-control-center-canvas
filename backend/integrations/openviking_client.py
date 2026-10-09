@@ -4,8 +4,7 @@ OpenViking je samostatný server (docker compose v jeho repozitáři). Opora ho 
 zapisuje do něj; **žádný model tudy nespouští**. Extrakci paměti dělá OpenViking sám uvnitř
 (commit session → jeho vlastní LLM), Opora o tom jen dostane `task_id`.
 
-Stejná disciplína jako `HermesSessionSource` v `backend/live_run/node_session_sources.py`:
-pouze `http://` na loopback, bez proxy, bez přesměrování, s timeoutem a stropem velikosti
+Disciplína spojení: pouze `http://` na loopback, bez proxy, bez přesměrování, s timeoutem a stropem velikosti
 odpovědi. Klíč žije jen v hlavičce požadavku, nikdy v URL ani v odpovědi.
 
 Mapování Opory na identity OpenVikingu (`docs/pamet-agentu.md`):

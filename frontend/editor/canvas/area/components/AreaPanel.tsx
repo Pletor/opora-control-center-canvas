@@ -3,6 +3,7 @@
 // ohlásí nahoru přes onSave(node), stejně jako NodePanel a CommentPanel. Členy a toky spočítá rodič
 // (App) z grafu — tenhle dílek je jen vypíše a klik na člena předá dál přes onOpenNode.
 import { useState } from "react";
+import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import { AREA_COLORS, areaColorOf, setAreaColor } from "@/editor/canvas/area/logic/area-model";
 import AgentWorkspace from "@/editor/node-detail/agent-workspace/components/AgentWorkspace";
@@ -41,6 +42,9 @@ export default function AreaPanel({
 }) {
   const [name, setName] = useState(node.name);
   const [purpose, setPurpose] = useState(node.purpose);
+  useScopedSaveParticipant({ id: `area-fields:${node.id}`, label: `Oblast: ${node.name || node.id}`,
+    dirty: name.trim() !== node.name || purpose !== node.purpose,
+    blocked: "Dokončete úpravu názvu nebo účelu oblasti a vyčkejte na její uložení." });
   return (
     <div className="area-panel" data-testid="area-panel">
       <div className="eyebrow">OBLAST</div>

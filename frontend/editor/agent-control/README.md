@@ -1,5 +1,5 @@
-# Agent control
+# Agent control – záložka Kód
 
-Hook is the third tab in the single right-side Agent Navbar mount. It calls the Hook, LSP, and semantic-search HTTP contracts directly; it never stores policy locally or starts an external process.
+Kód je třetí záložka sekce Agenti v pravém panelu (`AgentNavbar`). Volá přímo HTTP kontrakty LSP (`/api/code-intelligence/*`) a lokálního sémantického hledání (`/api/semantic-search/*`); nic neukládá a nespouští žádný externí proces.
 
-Components receive scope/read-only state from `AgentNavbar`. `AgentControlPanel` applies scope tickets before accepting asynchronous Hook/LSP/event results. The binding form stays mounted after a failed POST so a conflict cannot erase the operator's draft.
+`AgentControlPanel` dostává projekt, pracovní prostor a vybranou kartu v props; pozdní odpověď pro jinou kartu zahodí (`logic/code-query.ts`). `LspControl` a `SemanticQuery` jsou dílky s vlastním formulářem, klíčované podle karty.

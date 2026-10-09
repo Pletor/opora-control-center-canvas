@@ -57,10 +57,27 @@ def test_posts_allowed_route_with_scope_and_headers(net, capsys):
     assert json.loads(capsys.readouterr().out)['result'] == {'ok': True, 'revision': 4}
 
 
+def test_every_write_is_reported_as_agent(net, monkeypatch):
+    """Záznam činnosti (docs/zaznam-cinnosti.md): zápis skriptu nese X-Opora-Actor agenta."""
+    calls, _ = net
+    monkeypatch.setenv(opora_write.AGENT_ENV, 'Claude <Code> 1')
+    opora_write.main(['/api/node-spec', *SCOPE, '--json', '{"node": "n1", "expected_revision": 3}'])
+    monkeypatch.delenv(opora_write.AGENT_ENV)
+    opora_write.main(['/api/node-spec', *SCOPE, '--json', '{"node": "n1", "expected_revision": 3}'])
+    assert [c['headers']['x-opora-actor'] for c in calls] == ['agent; name=Claude Code 1', 'agent; name=agent']
+
+
 def test_every_contract_route_is_allowed():
     assert opora_write.WRITE_ROUTES == {
+        '/api/desktop-v3/lease',
+        '/api/desktop-v3/realize-source',
+        '/api/canvas-layout',
+        '/api/desktop-v3/assignment-snapshot',
+        '/api/canvas-versions',
+        '/api/desktop-v3/rule', '/api/desktop-v3/decision',
         '/api/graph', '/api/node-spec', '/api/node-text', '/api/desktop-v3/state', '/api/desktop-v3/block',
-        '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output', '/api/canvas-plan'}
+        '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output', '/api/canvas-plan',
+        '/api/desktop-v3/pipeline'}
 
 
 @pytest.mark.parametrize('route', ['/api/remove', '/api/local-project', '/api/node-spec/../remove', '/api/graph?x=1'])
@@ -171,3 +188,27 @@ def test_dry_run_flag_on_other_route_fails_without_sending(net, capsys):
     calls, _ = net
     assert opora_write.main(['/api/graph', *SCOPE, '--json', '{}', '--dry-run']) == 1
     assert calls == [] and '--dry-run' in capsys.readouterr().err
+
+
+def test_documented_write_routes_match_the_allowlist():
+    """Kritika #39: SKILL.md a api.md uvádějí přesně ty cesty, které skript pustí."""
+    import pathlib
+    import opora_write
+    skill = pathlib.Path(__file__).resolve().parent.parent
+    for doc in (skill / "SKILL.md", skill / "references" / "api.md"):
+        text = doc.read_text(encoding="utf-8")
+        missing = sorted(route for route in opora_write.WRITE_ROUTES if f"`{route}`" not in text)
+        assert not missing, (doc.name, missing)
+
+
+def test_lease_token_from_environment_is_sent_as_header(monkeypatch):
+    import opora_write
+    sent = {}
+    monkeypatch.setattr(opora_write, "_read", lambda request, timeout: sent.update(request.headers) or {})
+    monkeypatch.setenv("OPORA_LEASE_TOKEN", "a" * 64)
+    opora_write.post("http://127.0.0.1:8740", "/api/desktop-v3/agent-output", {})
+    assert sent["X-opora-lease"] == "a" * 64
+    monkeypatch.setenv("OPORA_LEASE_TOKEN", "not-a-token")
+    sent.clear()
+    opora_write.post("http://127.0.0.1:8740", "/api/desktop-v3/agent-output", {})
+    assert "X-opora-lease" not in sent

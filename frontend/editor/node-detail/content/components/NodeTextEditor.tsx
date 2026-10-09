@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import BlockOutline, { type LinkTarget } from "@/editor/node-detail/content/components/BlockOutline";
-import { clearPendingEdit, editScope, readPendingEdit, usePendingFlush, writePendingEdit } from "@/shared/hooks/logic/use-pending-edits";
+import { useSaveParticipant } from "@/shared/hooks/logic/save-coordinator";
+import { persistPendingEdit, pendingEditSaving, clearPendingEdit, editScope, readPendingEdit, usePendingFlush, writePendingEdit } from "@/shared/hooks/logic/use-pending-edits";
 import "@/editor/node-detail/content/styles/text-workspace.css";
 import "@/editor/node-detail/content/styles/block-outline.css";
 
@@ -50,6 +51,7 @@ export default function NodeTextEditor({
   }, [key, reload]);
   // Rozepsaný text nesmí zmizet přechodem jinam: čekající uložení se dokončí hned.
   usePendingFlush(key, () => { if (timer.current) { window.clearTimeout(timer.current); timer.current = null; void save(latest.current); } });
+  useSaveParticipant({ id: key, project, workspace, label: "Text uzlu " + node, dirty: !!form?.dirty, pending: busy, retainOnUnmount: true, isDirty: () => !!readPendingEdit(key), isPending: () => pendingEditSaving(key), flush: async () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } await persistPendingEdit<Snapshot>(key); setReload((value) => value + 1); }, discard: () => setReload((value) => value + 1) });
   async function save(source?: Draft | null) {
     const value = source ?? form;
     if (!value || busy || value.readOnly || !value.available || !value.dirty) return;
@@ -57,7 +59,7 @@ export default function NodeTextEditor({
     if (timer.current) { window.clearTimeout(timer.current); timer.current = null; }
     setBusy(true); setError("");
     try {
-      const saved = await api<Snapshot>("/api/node-text", { project, workspace, node, expected_revision: value.revision, text: value.text });
+      const saved = await persistPendingEdit<Snapshot>(key); if (!saved) return;
       // Starý editor smí potvrdit jen svůj snapshot, ne měnit novou instanci či její draft.
       if (!owner || lifetime.current !== owner) { clearPendingEdit(key, value); return; }
       onSaved?.();
@@ -86,7 +88,7 @@ export default function NodeTextEditor({
     {form && <BlockOutline key={key + reload} value={form.text} readOnly={form.readOnly || !form.available} targets={targets} label="Bloky uzlu" testId="node-blocks" onChange={text => edit(text, true)} onOpenNode={onOpenNode} onAgentTask={onAgentTask} />}
     <details className="source-text">
       <summary>Zdrojový text (ruční uložení, Ctrl+S)</summary>
-      <label className="field">Text uzlu<textarea aria-label="Text uzlu" rows={6} maxLength={64000} disabled={!form || busy} readOnly={form?.readOnly || !form?.available} value={form?.text ?? ""} placeholder="Pište odstavce, poznámky a souvislosti…" onChange={e => edit(e.target.value, false)} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); void save(); } }} /></label>
+      <label className="field">Text uzlu<textarea aria-label="Text uzlu" rows={6} maxLength={64000} disabled={!form || busy} readOnly={form?.readOnly || !form?.available} value={form?.text ?? ""} placeholder="Pište odstavce, poznámky a souvislosti…" onChange={e => edit(e.target.value, false)}  /></label>
     </details>
     <div className="text-actions"><span data-testid="text-status" role="status">{status}</span>{form?.available && !form.readOnly && <button disabled={busy || !form.dirty} onClick={() => save()}>Uložit text</button>}</div>
   </section>;

@@ -4,10 +4,11 @@ export type Setting = { id: string; key: string; value: string };
 
 export type RuleKind = "must" | "must_not";
 export type RuleScope = "project" | "path" | "node";
-export type Rule = { id: string; text: string; kind: RuleKind; scope: RuleScope; target: string };
+export type Rule = { id: string; text: string; kind: RuleKind; scope: RuleScope; target: string; by?: "human" | "agent" };
 
 export type DecisionBy = "human" | "agent";
 export type Decision = {
+  supersedes?: string;
   id: string;
   text: string;
   pinned: boolean;
@@ -36,9 +37,10 @@ export type BranchKind = "block" | "node" | "action" | "none";
 export type Branch = { kind: BranchKind; targetId: string; note: string };
 export type Todo = { id: string; text: string; done: boolean; assignee: string };
 export type ImageRef = { id: string; path: string; caption: string };
-export type BlockState = { status: BlockStatus; condition: string; onMet: Branch; onUnmet: Branch };
+export type BlockState = { status: BlockStatus; condition: string; onMet: Branch; onUnmet: Branch; note?: string };
 /** Tlačítko bloku, ze kterého se táhne vazba na jinou kartu. Nejvýš 8 na blok, popisek do 80 znaků. */
-export type BlockPortDef = { id: string; label: string };
+export type PortSpawn = { kind: "spawn"; template: { name: string; purpose?: string; spec?: Record<string, string>; text?: string; checks?: { id: string; command: string }[]; goal_mode?: "manual" | "until_checks_pass" } };
+export type BlockPortDef = { id: string; label: string; status?: "chosen" | "rejected"; reason?: string; onMet?: PortSpawn };
 export const MAX_BLOCK_PORTS = 8;
 export const MAX_BLOCK_PORT_LABEL = 80;
 export type Block = {
@@ -60,7 +62,7 @@ export const emptyBranch = (): Branch => ({ kind: "none", targetId: "", note: ""
 export const blockPorts = (block: Pick<Block, "ports">): BlockPortDef[] => block.ports ?? [];
 
 /** Uzavření karty. Agent smí `done` jen navrhnout (`by: "agent"`, `confirmed: false`); potvrzuje člověk. */
-export type NodeDone = { confirmed: boolean; at: string; by: DecisionBy; note: string };
+export type NodeDone = { confirmed: boolean; at: string; by: DecisionBy | "autonomy"; note: string };
 export const emptyDone = (): NodeDone => ({ confirmed: false, at: "", by: "human", note: "" });
 
 /** Zpráva agenta na vazbě: co udělal, když přecházel z jedné karty na druhou. Každé pole do 4000 znaků. */
@@ -90,6 +92,9 @@ export const EDGE_REPORT_FIELDS: { id: EdgeReportField; label: string; hint: str
 ];
 
 export type NodeWorkflowState = {
+  downloadsUrl?: boolean;
+  evidence?: import("@/editor/canvas/node-card/components/CardEvidence").CompletionEvidence;
+  scenarioRun?: { command: string; at: string; passed: number; failed: number; logUrl: string; firstFailure: string };
   phase: NodePhase;
   criteria: Criterion[];
   steps: Step[];
@@ -105,9 +110,13 @@ export type NodeWorkflowState = {
    * paměť role se u ní jen nečte ani nezapisuje (docs/pamet-agentu.md).
    */
   agentRole?: string | null;
+  /** Pipeline karty (port „pipeline“): etapy práce, testů, review, oprav a kritiků; řídí ji člověk. */
+  stages?: import("@/editor/workflow/card-pipeline/logic/pipeline-model").CardPipeline;
+  /** Podněty k dalšímu vývoji: ne-blokující nálezy review a kritiků; odškrtává člověk. */
+  ideas?: import("@/editor/node-detail/ideas/logic/ideas-model").CardIdea[];
 };
 /** Stav uzlu se všemi bloky vyplněnými; oba bloky se ukládají vždy spolu. */
-export type NodeWorkflowFull = Required<NodeWorkflowState>;
+export type NodeWorkflowFull = Required<Omit<NodeWorkflowState, "evidence" | "scenarioRun" | "downloadsUrl" | "stages" | "ideas">> & Pick<NodeWorkflowState, "evidence" | "scenarioRun" | "downloadsUrl" | "stages" | "ideas">;
 
 export type PipelineTemplate = { id: string; label: string; description: string };
 export type PipelineCategory = { id: string; label: string; description: string; pipelines: PipelineTemplate[] };
@@ -126,6 +135,7 @@ export type Ticket = {
 };
 
 export type DesktopState = {
+  autonomy?: Record<string, { until: string; grantedAt: string; grantedBy?: string; note: string }>;
   settings: Setting[];
   rules: Rule[];
   decisions: Decision[];
@@ -175,7 +185,7 @@ export const nodeWorkflowOf = (state: DesktopState, nodeId: string): NodeWorkflo
 /** Všechny zprávy na vazbách; starší stav bez sekce `edges` se čte jako prázdná mapa. */
 export const edgeReports = (state: DesktopState): Record<string, EdgeReport> => state.edges ?? {};
 
-export type StateResponse = { revision: number; state: DesktopState; readOnly: boolean };
+export type StateResponse = { revision: number; state: DesktopState; readOnly: boolean; graphChanged?: boolean };
 
 export type SourceManifestEntry = {
   kind: string;

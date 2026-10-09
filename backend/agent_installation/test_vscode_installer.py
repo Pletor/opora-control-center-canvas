@@ -8,7 +8,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.agent_installation.vscode_installer import VscodeHookInstaller
-from backend.api.live_run.hook_install_routes import create_hook_install_router
+from backend.api.editor.hook_install_routes import create_hook_install_router
+from backend.app.human_session import HumanSession
+from backend.canvas.activity_log import HumanRequired
 
 SESSION = "123e4567-e89b-42d3-a456-426614174000"
 BINDING_ID = "binding-001"
@@ -87,6 +89,14 @@ def test_refuses_stale_readonly_path_escape_corrupt_source_and_config_without_wr
 def test_vscode_routes_require_exact_dtos_and_never_return_config(tmp_path):
     installer, root, binding, command = setup_installer(tmp_path)
     app = FastAPI()
+    human = HumanSession()
+
+    @app.middleware("http")
+    async def actor(request, call_next):
+        # Jako factory.py: původce z dokladu UI / hlavičky agenta (upgrade-opora #29).
+        request.state.actor, request.state.agent = human.actor(request.headers, request.cookies)
+        return await call_next(request)
+
     app.include_router(create_hook_install_router(installer.service, binding_lookup=lambda binding_id: binding if binding_id == BINDING_ID else None))
     client = TestClient(app)
     missing = client.get("/api/agent-hooks/vscode", params={"bindingId": BINDING_ID})
@@ -94,5 +104,8 @@ def test_vscode_routes_require_exact_dtos_and_never_return_config(tmp_path):
     rejected = client.post("/api/agent-hooks/vscode", json={"bindingId": BINDING_ID})
     assert rejected.status_code == 409
     payload = {"bindingId": BINDING_ID, "expectedBindingRevision": 7, "expectedSettingsDigest": None, "action": "install", "confirmed": True}
+    # Hook si agent sám nenainstaluje: instalaci potvrzuje člověk v UI (upgrade-opora #38).
+    with pytest.raises(HumanRequired):
+        client.post("/api/agent-hooks/vscode", json=payload, headers={"X-Opora-Actor": "agent; name=x"})
     installed = client.post("/api/agent-hooks/vscode", json=payload)
     assert installed.status_code == 200 and "hooks" not in installed.text and "client.json" not in installed.text

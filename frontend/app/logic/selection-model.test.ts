@@ -55,12 +55,9 @@ describe("selection-model", () => {
     });
   });
 
-  describe("panelsFor v mapě a bězích", () => {
+  describe("panelsFor v mapě", () => {
     it("mapa nemá žádné panely, i s výběrem", () => {
       expect(panelsFor(selectNode("n1"), "map", true)).toEqual({ drawer: null, inspector: null });
-    });
-    it("běhy agentů nemají žádné panely", () => {
-      expect(panelsFor(selectEdge("e1"), "agents", true)).toEqual({ drawer: null, inspector: null });
     });
   });
 });

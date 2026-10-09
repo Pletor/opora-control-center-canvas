@@ -1,15 +1,21 @@
 // Záložky detailu uzlu: jediná řada tlačítek s ARIA tablistem a pohybem šipkami. Dílek nic neví o obsahu
 // záložek ani o ukládání; vybranou záložku drží rodič (NodePanel) a změna bublá nahoru přes onTab.
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
-export type NodeTab = "spec" | "links" | "work";
+export type NodeTab = "spec" | "links" | "work" | "ideas";
 export const TABS: { key: NodeTab; label: string }[] = [
   { key: "spec", label: "Zadání" },
   { key: "links", label: "Vazby" },
   { key: "work", label: "Práce" },
+  { key: "ideas", label: "Podněty" },
 ];
 
-export default function NodeTabs({ tab, onTab }: { tab: NodeTab; onTab: (tab: NodeTab) => void }) {
+export default function NodeTabs({ tab, onTab, badges }: {
+  tab: NodeTab;
+  onTab: (tab: NodeTab) => void;
+  /** Drobný odznak za názvem záložky (např. počet otevřených podnětů); obsah dodá rodič. */
+  badges?: Partial<Record<NodeTab, ReactNode>>;
+}) {
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number;
     switch (event.key) {
@@ -39,6 +45,7 @@ export default function NodeTabs({ tab, onTab }: { tab: NodeTab; onTab: (tab: No
           onClick={() => onTab(item.key)}
         >
           {item.label}
+          {badges?.[item.key]}
         </button>
       ))}
     </div>

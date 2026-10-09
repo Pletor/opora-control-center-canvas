@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import BlockOutline, { type LinkTarget } from "@/editor/node-detail/content/components/BlockOutline";
-import { clearPendingEdit, editScope, readPendingEdit, usePendingFlush, writePendingEdit } from "@/shared/hooks/logic/use-pending-edits";
+import { useSaveParticipant } from "@/shared/hooks/logic/save-coordinator";
+import { persistPendingEdit, pendingEditSaving, clearPendingEdit, editScope, readPendingEdit, usePendingFlush, writePendingEdit } from "@/shared/hooks/logic/use-pending-edits";
 import "@/editor/node-detail/content/styles/block-outline.css";
 
 type Entry = {
@@ -84,20 +85,14 @@ export default function NodeJournal({
     void save();
   });
 
+  useSaveParticipant({ id: key, project, workspace, label: "Deník " + nodeName + " / " + day, dirty: draft !== null, pending: busy, retainOnUnmount: true, isDirty: () => !!readPendingEdit(key), isPending: () => pendingEditSaving(key), flush: async () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } await persistPendingEdit<Entry>(key); setReload((value) => value + 1); }, discard: () => setReload((value) => value + 1) });
   async function save() {
     const change = pending.current;
     if (!change || busy) return;
     setBusy(true);
     setError("");
     try {
-      const value = await api<Entry>("/api/node-journal", {
-        project,
-        workspace,
-        node,
-        day,
-        expected_revision: change.revision,
-        text: change.text,
-      });
+      const value = await persistPendingEdit<Entry>(key); if (!value) return;
       if (liveKey.current !== key) {
         clearPendingEdit(key, change);
         return;

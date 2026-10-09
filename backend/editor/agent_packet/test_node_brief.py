@@ -245,6 +245,8 @@ def test_closed_card_has_done_status(tmp_path):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         seed_graph(client)
         state = full_state()
+        from backend.editor.agent_memory.test_completion_evidence import evidence
+        state["nodes"]["focus"]["evidence"] = evidence()
         state["nodes"]["focus"]["done"] = {"confirmed": True, "at": "2026-09-14T09:00:00+00:00",
                                            "by": "human", "note": ""}
         save_state(client, state)
@@ -255,6 +257,8 @@ def test_stop_conditions_name_condition_missing_material_must_not_and_closed_car
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         seed_graph(client)
         state = full_state()
+        from backend.editor.agent_memory.test_completion_evidence import evidence
+        state["nodes"]["focus"]["evidence"] = evidence()
         state["nodes"]["focus"]["done"] = {"confirmed": True, "at": "2026-09-14T09:00:00+00:00",
                                            "by": "human", "note": "Hotovo."}
         save_state(client, state)

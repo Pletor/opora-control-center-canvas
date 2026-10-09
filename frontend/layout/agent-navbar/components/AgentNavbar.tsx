@@ -1,5 +1,5 @@
 // Rodič sekcí Agenti a Postupy (docs/menu-a-katalog.md, část A): oba jsou pohled na jeden katalog,
-// jen každý ukáže své kategorie. Agenti mají záložky Katalog | Vybraná karta | Hook, Postupy jsou
+// jen každý ukáže své kategorie. Agenti mají záložky Katalog | Vybraná karta | Kód, Postupy jsou
 // jen katalog postupů a pipeline. Rodič nic neukládá sám — stav dostává v props z `useAgentNavbar`
 // v App a každou změnu hlásí callbackem nahoru. Projekt zná jen přes hotový `profile` z App
 // (docs/suplik-a-profil.md), podle kterého se katalog zúží; druh zdroje ani nastavení nečte.
@@ -57,7 +57,7 @@ export default function AgentNavbar({
   selectedNodeId?: string | null;
   /** Otisk plátna a revize plochy; změní se, když se karta pohne, a zadání se načte znovu. */
   refreshKey?: string;
-  /** Parent truth for workspace/closed card read-only; Hook repeats server read-only after GET. */
+  /** Rodičovská pravda o read-only ploše či uzavřené kartě; Hook po GET zopakuje i read-only ze serveru. */
   readOnly?: boolean;
   /** Celý katalog; jde předat kvůli testu, jinak platí obsah knihovny postupů. */
   items?: AgentItem[];
@@ -107,7 +107,7 @@ export default function AgentNavbar({
             selectedNodeId={selectedNodeId}
             refreshKey={refreshKey}
           />
-        ) : tab === "hook" ? (
+        ) : tab === "code" ? (
           <AgentControlPanel
             active
             project={project}

@@ -4,12 +4,13 @@ import type { CanvasNode } from "@/shared/types/logic/types";
 import type { BlockPortDef, BlockStatus, NodePhase, NodeWorkflowFull } from "@/shared/desktop-state/logic/types";
 import { blockPorts } from "@/shared/desktop-state/logic/types";
 import { cardLayer, effectiveStatus, type EffectiveStatus } from "@/shared/card-context/logic/card-context";
+import { openIdeas } from "@/editor/node-detail/ideas/logic/ideas-model";
 import type { CardLayer } from "@/shared/types/logic/types";
 
-export type CardPort = "next" | "action" | "rule" | "material";
-export const CARD_PORTS: CardPort[] = ["next", "action", "rule", "material"];
-export const PORT_LABEL: Record<CardPort, string> = { next: "další krok", action: "akce", rule: "pravidla", material: "podklady" };
-/** Port „podklady“ otevírá blok, ale vazbu na jinou kartu z něj táhnout nelze. */
+export type CardPort = "next" | "action" | "rule" | "material" | "pipeline";
+export const CARD_PORTS: CardPort[] = ["next", "action", "rule", "material", "pipeline"];
+export const PORT_LABEL: Record<CardPort, string> = { next: "další krok", action: "akce", rule: "pravidla", material: "podklady", pipeline: "pipeline" };
+/** Porty „podklady“ a „pipeline“ otevírají blok, ale vazbu na jinou kartu z nich táhnout nelze. */
 export const LINKABLE_PORTS: CardPort[] = ["next", "action", "rule"];
 
 export const PHASE_LABEL: Record<NodePhase, string> = {
@@ -52,16 +53,24 @@ export type CardView = {
   rules: number;
   materials: number;
   openBlocks: number;
+  waitingOnHuman: { blockId: string; ask: string }[];
   blocks: number;
   rows: CardBlockRow[];
   /** Karta uzavřená člověkem: jen ke čtení, ztlumená, se zámkem v hlavě. */
   closed: boolean;
   /** Uzavření navržené agentem, které člověk zatím nepotvrdil. */
   doneProposed: boolean;
+  /** Otevřené podněty k dalšímu vývoji (ne-blokující nálezy review a kritiků). */
+  openIdeas: number;
   /** Vrstva uzlu (FE / BE / DB / Knihovna) z `card.layer`; sektor ji nemá. Typ workflow je vidět v názvu. */
   cardLayer: CardLayer | null;
   /** Efektivní stav uzlu: `done` z uzavření, jinak ruční stav, jinak `null`; sektor ho nemá. */
   cardStatus: EffectiveStatus | null;
+  design?: import("@/shared/types/logic/types").DesignArtifact;
+  checks?: import("@/shared/types/logic/types").CanvasNode["checks"];
+  goal_mode?: import("@/shared/types/logic/types").CanvasNode["goal_mode"];
+  cardModel: string | null;
+  cardEffort: string | null;
 };
 
 /** Popisky štítků karty: krátké, česky, aby se vešly do hlavy vedle fáze. */
@@ -90,13 +99,21 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     actions: workflow.actions.length,
     rules: workflow.rules.length,
     materials: workflow.materials.length,
-    openBlocks: workflow.blocks.filter((b) => b.state.status === "open").length,
+    openBlocks: workflow.blocks.filter((b) => b.state.status !== "met").length,
+    waitingOnHuman: workflow.blocks.filter((b) => b.state.status === "blocked")
+      .map((b) => ({ blockId: b.id, ask: b.state.note || b.state.condition || b.title })),
     blocks: workflow.blocks.length,
     rows: cardBlocks(workflow),
     closed: workflow.done.confirmed,
     doneProposed: workflow.done.by === "agent" && !workflow.done.confirmed,
+    openIdeas: openIdeas(workflow.ideas),
     cardLayer: node.kind === "node" ? cardLayer(node) : null,
     cardStatus: node.kind === "node" ? effectiveStatus(node, workflow.done.confirmed) : null,
+    design: node.design,
+    checks: node.checks,
+    goal_mode: node.goal_mode,
+    cardModel: node.card?.model ?? null,
+    cardEffort: node.card?.effort ?? null,
   };
 }
 

@@ -8,8 +8,8 @@ import type { IconName } from "@/ui-kit/icon/logic/icon-paths";
 /** Dvě sekce menu nad jedním katalogem: Agenti (kdo a s jakými hranicemi) a Postupy (v jakém pořadí). */
 export type AgentSection = "agents" | "flows";
 
-/** Záložky sekce Agenti: katalog × co dostane agent vybrané karty × hook. Postupy záložky nemají. */
-export type AgentNavbarTab = "catalog" | "agents" | "hook";
+/** Záložky sekce Agenti: katalog × co dostane agent vybrané karty × navigace v kódu. Postupy záložky nemají. */
+export type AgentNavbarTab = "catalog" | "agents" | "code";
 
 /** Co si každá sekce pamatuje sama: přepnutím na druhou sekci se kategorie ani hledání neztratí. */
 export type AgentSectionState = { category: AgentCategory; query: string };
@@ -26,7 +26,7 @@ export const AGENT_NAVBAR_KEY = "opora:agent-navbar:v1";
 export const AGENT_NAVBAR_TABS: { id: AgentNavbarTab; label: string }[] = [
   { id: "catalog", label: "Katalog" },
   { id: "agents", label: "Vybraná karta" },
-  { id: "hook", label: "Hook" },
+  { id: "code", label: "Kód" },
 ];
 
 /** Postupy jsou workflows a pipelines; všechno ostatní v katalogu (agenti, skilly, hooky, hranice) patří Agentům. */
@@ -84,7 +84,8 @@ export function parseAgentNavbar(raw: string | null): AgentNavbarState {
     return {
       agents: parseSection(value.agents, "agents", value.category),
       flows: parseSection(value.flows, "flows", value.category),
-      tab: value.tab === "agents" || value.tab === "hook" ? value.tab : "catalog",
+      // Starší záložka „hook“ nesla i LSP a sémantiku; ty teď žijí v záložce Kód.
+      tab: value.tab === "agents" || value.tab === "code" ? value.tab : value.tab === "hook" ? "code" : "catalog",
     };
   } catch {
     return empty;

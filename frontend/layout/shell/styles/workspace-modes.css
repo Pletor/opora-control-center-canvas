@@ -24,7 +24,7 @@
 /* Záložky módů: první věc v liště nástrojů, čtená zleva jako věta „na co se dívám“. Každá záložka
    je ikona 16 px vlevo od jednoslovného popisku 13 px — řádek, ne kartička, aby celá řada zabrala
    jen výšku lišty a plátnu nic neubrala. Aktivní mód se pozná barvou akcentu a spodní linkou 2 px,
-   jako záložka v knize; neaktivní jsou tiché. Když je otevřená Dokumentace, nesvítí žádná. */
+   jako záložka v knize; neaktivní jsou tiché. */
 .mode-rail {
   display: flex;
   align-items: center;
@@ -85,8 +85,4 @@
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 6px;
-}
-.agents-mode .agents-workspace {
-  position: absolute;
-  inset: 0;
 }

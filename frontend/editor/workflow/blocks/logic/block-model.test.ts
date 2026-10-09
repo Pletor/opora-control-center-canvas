@@ -7,7 +7,7 @@ const graph: Graph = {
   nodes: [{ id: "login", parentId: null, kind: "node", name: "Přihlášení", purpose: "", x: 100, y: 50 }],
   edges: [],
 };
-const api = { current: { mutate: async () => true, close: () => {}, pickPipeline: () => {}, uploadMaterial: async () => null, discardUpload: () => {}, previewUrl: () => null } };
+const api = { current: { mutate: async () => true, close: () => {}, pickPipeline: () => {}, routePipeline: async () => true, uploadMaterial: async () => null, discardUpload: () => {}, previewUrl: () => null } };
 
 describe("block-model", () => {
   it("přidá akci s ID, přesune ji a starý uzel bez bloků přitom doplní", () => {

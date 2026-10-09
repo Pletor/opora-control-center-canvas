@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProductDraft } from "@/project/product-tree/logic/product-tree";
 import { normalizePagePath } from "@/project/product-tree/logic/page-path";
+import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 
 /** Structural identity belongs to the domain map; working specifications stay in Editor. */
 export default function ArchitectureProductForm({ initial, disabled, onSave, onClose }: {
@@ -9,6 +10,10 @@ export default function ArchitectureProductForm({ initial, disabled, onSave, onC
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  useScopedSaveParticipant({ id: `architecture-product-form:${initial.id ?? initial.parentId ?? "new-domain"}`,
+    label: draft.site.kind === "page" ? "Formulář stránky" : "Formulář domény",
+    dirty: JSON.stringify(draft) !== JSON.stringify(initial), pending: saving,
+    blocked: "Nejprve potvrďte nebo zrušte tento formulář. Uložit vše nevytváří nové stránky ani domény." });
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => { form.current?.scrollIntoView({ block: "nearest" }); form.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true }); }, []);
   const locked = disabled || saving;

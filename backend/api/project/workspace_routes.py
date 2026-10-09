@@ -6,7 +6,11 @@ from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, JSONResponse
 
 from backend.project.workspace.workspace_documents import WorkspaceDocuments
-from backend.project.workspace.workspace_sources import SourceMissing, WorkspaceSources, relative_path
+from backend.project.workspace.workspace_sources import (
+    SourceMissing,
+    WorkspaceSources,
+    relative_path,
+)
 
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
                ".webp": "image/webp", ".svg": "image/svg+xml"}

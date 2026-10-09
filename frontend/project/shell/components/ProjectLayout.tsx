@@ -24,8 +24,8 @@ export function ProjectMapNavigation({value,onChange}:{value:ProjectMapKind;onCh
 }
 
 /** Geometrie, strom, hledání a filtry jsou společné pro libovolný obsah hlavní plochy. */
-export default function ProjectLayout({project,workspace,selected,onSelect,children,productTree}:{
-  project:string;workspace:string;selected:string;onSelect:(path:string)=>void;children:ReactNode;productTree?:ReactNode;
+export default function ProjectLayout({project,workspace,selected,onSelect,children}:{
+  project:string;workspace:string;selected:string;onSelect:(path:string)=>void;children:ReactNode;
 }){
   const [search,setSearch]=useState('');
   const [filter,setFilter]=useState<(typeof filters)[number]['id']>('all');
@@ -33,7 +33,6 @@ export default function ProjectLayout({project,workspace,selected,onSelect,child
   const active=filters.find(item=>item.id===filter)!;
   return <section className="project-layout" aria-label="Hlavní projekt">
     <div className="project-layout-sidebar">
-      {productTree}
       <div className="project-tree-search" role="search">
         <label htmlFor="project-tree-query">Zdrojové soubory</label>
         <input id="project-tree-query" aria-label="Hledat v načteném stromu" placeholder="Hledat v načteném stromu…" value={search} onChange={event=>setSearch(event.target.value)}/>

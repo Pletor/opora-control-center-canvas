@@ -30,7 +30,7 @@ export type ViewContext = {
   workspace: string;
   layerId: string | null;
   selectedNodeIds: string[];
-  environment: "project" | "editor" | "live";
+  environment: "project" | "editor" | "hub";
 };
 
 /** Co uživatel právě vidí a v jakém rozsahu; backend to vloží před text zprávy jako údaj, ne pokyn. */

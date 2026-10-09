@@ -1,11 +1,15 @@
 // Sdílená logika načtení/uložení State s CAS ochranou (expectedRevision) a ochranou
 // proti zastaralým async odpovědím (scoped A->B->A). Interní modul, nikoli veřejný export.
 import { useEffect, useRef, useState } from "react";
+import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import { errorMessage, fetchState, saveState } from "@/shared/desktop-state/logic/api";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
+import type { Rule, Decision, StateResponse } from "@/shared/desktop-state/logic/types";
+import { api } from "@/shared/types/logic/types";
 
 export type DesktopStateHandle = {
+  mutateItem: (kind: "rule" | "decision", expected: Rule | Decision | null, item: Rule | Decision | null) => Promise<boolean>;
   state: DesktopState;
   revision: number;
   readOnly: boolean;
@@ -18,6 +22,8 @@ export type DesktopStateHandle = {
   reload: () => void;
   /** Aplikuje mutaci na aktuální stav a uloží ji s CAS ochranou. */
   mutate: (fn: (current: DesktopState) => DesktopState) => Promise<boolean>;
+  /** Převezme stav z odpovědi adresného zápisu (autonomie, hromadné potvrzení) a pošle ho ostatním instancím. */
+  apply: (value: StateResponse) => void;
 };
 
 type Published = { state: DesktopState; revision: number; readOnly: boolean };
@@ -103,13 +109,14 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     setState(next);
     saving.current++;
     try {
-      const value = await saveState(project, workspace, previousRevision, next);
+      const value = await trackSaveWrite(project, workspace, saveState(project, workspace, previousRevision, next));
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
       setState(value.state);
       setRevision(value.revision);
       setReadOnly(value.readOnly);
       setError("");
       publish(scope, value, self.current);
+      if (value.graphChanged) window.dispatchEvent(new CustomEvent("opora:spawned", { detail: { project, workspace } }));
       return true;
     } catch (e) {
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
@@ -130,5 +137,34 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     else load();
   };
 
-  return { state, revision, readOnly, loading, error, reload, mutate };
+  const mutateItem: DesktopStateHandle["mutateItem"] = async (kind, expected, item) => {
+    if (readOnly || (!expected && !item)) return false;
+    const ticket = generation.current;
+    const scope = `${project}::${workspace}`;
+    saving.current++;
+    try {
+      const value = await trackSaveWrite(project, workspace, api<StateResponse>(`/api/desktop-v3/${kind}`, {
+        project, workspace, id: (item ?? expected)!.id, expected, item,
+        op: !expected ? "add" : !item ? "remove" : "update",
+      }));
+      if (ticket !== generation.current || scopeKey.current !== scope) return false;
+      setState(value.state); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
+      publish(scope, value, self.current);
+      if (value.graphChanged) window.dispatchEvent(new CustomEvent("opora:spawned", { detail: { project, workspace } }));
+      return true;
+    } catch (e) {
+      if (ticket === generation.current && scopeKey.current === scope) setError(errorMessage(e));
+      return false;
+    } finally {
+      saving.current--;
+      if (saving.current === 0 && reloadQueued.current) { reloadQueued.current = false; load(); }
+    }
+  };
+  const apply = (value: StateResponse) => {
+    const scope = `${project}::${workspace}`;
+    generation.current++;
+    setState(value.state); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
+    publish(scope, value, self.current);
+  };
+  return { state, revision, readOnly, loading, error, reload, mutate, mutateItem, apply };
 }

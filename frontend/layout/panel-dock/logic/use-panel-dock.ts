@@ -32,7 +32,7 @@ export type PanelDockApi = {
 
 export function usePanelDock(enabled: boolean): PanelDockApi {
   const [state, setState] = useState(() => closedDock(readDockSection()));
-  // Mimo Editor menu není kam vysunout: odchod do Projektu nebo Live Runu ho zavře.
+  // Mimo Editor menu není kam vysunout: odchod do Projektu nebo OporaHubu ho zavře.
   useEffect(() => {
     if (!enabled) setState((current) => (current.rail ? closedDock(current.last) : current));
   }, [enabled]);

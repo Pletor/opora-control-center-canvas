@@ -5,12 +5,25 @@ zrcadlí až po úspěšném uložení a uzavřená karta se předává jako ses
 vypnutá, server dole nebo karta bez role, uložení v Opoře proběhne úplně stejně.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from backend.canvas.activity_log import require_human
+from backend.canvas.source_realization import realize_source, source_status
 from backend.editor.agent_handoff.external_agent_tasks import ExternalAgentTasks
 from backend.editor.agent_memory import pipeline_library
+from backend.editor.agent_memory.assignment_snapshots import assignment_comparison, save_assignment
+from backend.editor.agent_memory.assignment_status import assignment_status
+from backend.editor.agent_memory.card_leases import CardLeases
+from backend.editor.agent_memory.confirm_proposals import confirm_proposals
+from backend.editor.agent_memory.memory_items import MemoryItems
+from backend.editor.agent_memory.pipeline_routing import PipelineRouting, profiles as pipeline_profiles
+from backend.editor.agent_memory.scenario_history import scenario_history
 from backend.editor.agent_memory.trace import tags_index, trace
+from backend.editor.agent_memory.usage import usage_summary
+from backend.editor.agent_packet.card_checklist import checklists, missing
+from backend.editor.agent_packet.frontier import frontier
+from backend.editor.agent_packet.work_overview import work_overview
 
 
 def _node_role(node):
@@ -31,6 +44,109 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
                              *, memory_service=None):
     router = APIRouter(prefix="/api/desktop-v3", tags=["desktop-v3"])
     external_tasks = ExternalAgentTasks(packets)
+    items = MemoryItems(state)
+    leases = CardLeases(state.canvas)
+    routing = PipelineRouting(state.canvas, state)
+
+    @router.get("/scenario-history")
+    def read_scenario_history(project: str, workspace: str):
+        return scenario_history(state.canvas, project, workspace)
+
+    @router.get("/work-overview")
+    def read_work_overview(project: str, workspace: str):
+        return work_overview(state.canvas, project, workspace)
+
+    @router.get("/source-status")
+    def read_source_status(project: str, workspace: str):
+        return source_status(state.canvas, project, workspace)
+
+    @router.post("/realize-source")
+    def write_source_realization(payload: dict):
+        return realize_source(state, payload)
+
+    @router.post("/autonomy")
+    def grant_autonomy(payload: dict, request: Request):
+        require_human(request.state.actor, "Autonomii svěřuje pouze člověk v UI.")
+        with state.canvas.graph_lock, state.canvas.lock:
+            return state.set_autonomy(payload)
+
+    @router.post("/confirm-proposals")
+    def confirm_sector_proposals(payload: dict, request: Request):
+        require_human(request.state.actor, "Hromadné potvrzení provádí člověk v UI.")
+        return confirm_proposals(state, payload)
+
+    @router.get("/leases")
+    def read_leases(project: str, workspace: str):
+        return leases.summary(project, workspace)
+
+    @router.post("/lease")
+    def write_lease(payload: dict, request: Request):
+        return leases.apply(payload, actor=request.state.actor)
+
+    @router.get("/usage-summary")
+    def read_usage(project: str, workspace: str):
+        return usage_summary(state.canvas, project, workspace)
+
+    @router.get("/assignment-status")
+    def read_assignment_status(project: str, workspace: str):
+        return assignment_status(state.canvas, project, workspace)
+
+    @router.get("/frontier")
+    def read_frontier(project: str, workspace: str, nodeId: str = ""):
+        with state.canvas.graph_lock, state.canvas.lock:
+            graph = state.canvas.view(project, workspace)["graph"]
+            stored = state.read(project, workspace)["state"]
+            spaces = agent_workspace.read_many(project, workspace, [n["id"] for n in graph["nodes"]])
+            out = frontier(graph, stored, nodeId, {key: value.get("frame", "") for key, value in spaces.items()}, leases.summary(project, workspace)["nodes"])
+            # Kontrolní pás: co každé kartě chybí (klíče polí), aby relace věděla, co doplnit.
+            rows = [row for group in ("frontier", "claimed", "blocked", "waiting", "closed") for row in out[group]]
+            lists = checklists(state.canvas, project, workspace, graph, stored, {row["id"] for row in rows})
+            for row in rows:
+                if row["id"] in lists:
+                    row["missing"] = missing(lists[row["id"]])
+            return out
+
+    @router.get("/card-checklist")
+    def read_card_checklist(project: str, workspace: str, layer: str = ""):
+        """Kontrolní pás karet jedné vrstvy (`layer` = rodič, prázdný = kořen) pro plátno."""
+        with state.canvas.graph_lock, state.canvas.lock:
+            view = state.canvas.view(project, workspace)
+            if view["readOnly"]:
+                return {"nodes": {}}
+            graph = view["graph"]
+            ids = {n["id"] for n in graph["nodes"] if (n.get("parentId") or "") == layer}
+            # Oblast zobrazuje souhrn svých karet: patří na stejnou vrstvu, takže stačí tato sada.
+            return {"nodes": checklists(state.canvas, project, workspace, graph, state.read(project, workspace)["state"], ids)}
+
+    @router.post("/assignment-snapshot")
+    def write_assignment_snapshot(payload: dict):
+        return save_assignment(state.canvas, payload)
+
+    @router.get("/assignment-comparison")
+    def read_assignment_comparison(project: str, workspace: str, nodeId: str, id: str, source: str = "result"):
+        return assignment_comparison(state.canvas, project, workspace, nodeId, id, source)
+
+    @router.get("/rule")
+    def read_rule(project: str, workspace: str, id: str):
+        return items.read("rules", project, workspace, id)
+
+    @router.post("/rule")
+    def write_rule(payload: dict, request: Request):
+        return items.apply("rules", payload, actor=request.state.actor)
+
+    @router.get("/decision")
+    def read_decision(project: str, workspace: str, id: str):
+        return items.read("decisions", project, workspace, id)
+
+    @router.post("/decision")
+    def write_decision(payload: dict, request: Request):
+        return items.apply("decisions", payload, actor=request.state.actor)
+
+    def _require_lease(payload, request):
+        """Kartu drženou cizím lease smí měnit jen držitel tokenu nebo člověk (upgrade-opora #35)."""
+        if isinstance(payload, dict):
+            leases.require(payload.get("project"), payload.get("workspace"), payload.get("nodeId"),
+                           request.state.actor, request.headers.get("x-opora-lease"))
 
     def remembered(call):
         """Paměť je nejvýš doplněk: každá její chyba se tiše spolkne, uložení už proběhlo."""
@@ -41,19 +157,28 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         except Exception:  # noqa: BLE001 - zápis do paměti nikdy nesmí shodit uložení
             return
 
+    @router.get("/pipeline-profiles")
+    def read_pipeline_profiles():
+        return pipeline_profiles()
+
+    @router.post("/pipeline")
+    def write_pipeline(payload: dict, request: Request):
+        """Router (orchestrátor) nebo člověk určí proces karty; pravomoci a podlahu hlídá PipelineRouting."""
+        return routing.apply(payload, actor=request.state.actor, agent=getattr(request.state, "agent", ""))
+
     @router.get("/state")
     def read_state(project: str, workspace: str):
         return state.read(project, workspace)
 
     @router.post("/state")
-    def save_state(payload: dict):
+    def save_state(payload: dict, request: Request):
         before = set()
         if memory_service is not None and isinstance(payload, dict):
             try:
                 before = confirmed_nodes(state.read(payload["project"], payload["workspace"])["state"])
             except Exception:  # noqa: BLE001 - neplatný rozsah vyřeší samo state.save
                 before = set()
-        saved = state.save(payload)
+        saved = state.save(payload, actor=request.state.actor)
         for node_id in sorted(confirmed_nodes(saved["state"]) - before):
             remembered(lambda node_id=node_id: _commit_card(payload, saved, node_id))
         return saved
@@ -94,8 +219,9 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         return briefs.build(project, workspace, nodeId)
 
     @router.post("/agent-output")
-    def write_agent_output(payload: dict):
+    def write_agent_output(payload: dict, request: Request):
         """Výstup modelu (opora.agent-output/1) pod CAS revizí; vrací novou StateResponse."""
+        _require_lease(payload, request)
         return agent_output.apply(payload)
 
     @router.get("/agent-results")
@@ -114,8 +240,9 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         return found
 
     @router.post("/block")
-    def write_block(payload: dict):
+    def write_block(payload: dict, request: Request):
         """Operace nad jedním blokem (add/update/remove/todo) pod CAS revizí; vrací StateResponse + block."""
+        _require_lease(payload, request)
         return block_access.apply(payload)
 
     @router.get("/agent-workspace")

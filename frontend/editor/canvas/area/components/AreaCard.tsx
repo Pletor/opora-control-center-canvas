@@ -7,8 +7,12 @@ import { Handle, NodeResizer, Position, type Node, type NodeProps } from "@xyflo
 import { AREA_SIZE_MAX, AREA_SIZE_MIN } from "@/editor/canvas/area/logic/area-model";
 import type { AreaColor } from "@/shared/types/logic/types";
 import "@/editor/canvas/area/styles/area.css";
+import AreaSummary from "@/editor/canvas/card-checklist/components/AreaSummary";
+import type { areaSummary } from "@/editor/canvas/card-checklist/logic/card-checklist";
 
-export type AreaCardView = { label: string; unnamed: boolean; members: number; w: number; h: number; color: AreaColor };
+export type AreaCardView = { label: string; unnamed: boolean; members: number; w: number; h: number; color: AreaColor;
+  /** Souhrn kontrolních pásů karet v oblasti (pipeline, důkazy, předávky, čeká na člověka). */
+  summary?: ReturnType<typeof areaSummary> };
 
 export type AreaCardData = {
   view: AreaCardView;
@@ -91,6 +95,7 @@ const AreaCard = memo(function AreaCard({ id, data, selected }: NodeProps<Node<A
           {view.label}
         </div>
       )}
+      {view.summary && <AreaSummary summary={view.summary} />}
     </div>
   );
 });

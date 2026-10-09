@@ -1,4 +1,4 @@
-// Porty karty: čtyři kuličky na pravé hraně. Tah = zdroj vazby (React Flow Handle), klik bez tahu = otevřít/skrýt blok.
+// Porty karty: pět kuliček na pravé hraně. Tah = zdroj vazby (React Flow Handle), klik bez tahu = otevřít/skrýt blok.
 // Který port je otevřený rozhoduje rodič; sem přichází jen `open` a událost `onToggle` bublá nahoru.
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { Handle, Position } from "@xyflow/react";
@@ -32,7 +32,9 @@ export default function CardPorts({ id, open, onToggle }: { id: string; open: Bl
               ? "Další krok: tahem propojit s další kartou"
               : port === "material"
                 ? "Podklady: klik otevře blok s obrázky a odkazy pro tento uzel"
-                : `${PORT_LABEL[port]}: klik otevře blok, tah propojí s kartou`
+                : port === "pipeline"
+                  ? "Pipeline: klik otevře etapy práce, testů, review, oprav a tří kritiků"
+                  : `${PORT_LABEL[port]}: klik otevře blok, tah propojí s kartou`
           }
           data-testid={`port-${port}-${id}`}
           {...(port === "next" ? {} : click(port))}

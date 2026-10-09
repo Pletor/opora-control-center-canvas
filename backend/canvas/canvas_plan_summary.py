@@ -35,14 +35,18 @@ def plan_summary(plan):
     """Souhrn z nepřeloženého `plan` (`{nodes, edges, decisions}`)."""
     plan = plan if isinstance(plan, dict) else {}
     nodes, edges = _items(plan.get("nodes")), _items(plan.get("edges"))
-    blocks = [block for node in nodes for block in _items(node.get("blocks"))]
+    extensions = _items(plan.get("extend"))
+    content = nodes + extensions
+    blocks = [block for node in content for block in _items(node.get("blocks"))]
     kinds = [node.get("kind", "node") for node in nodes]
     parts = [counted(kinds.count(kind), forms) for kind, forms in KINDS if kinds.count(kind)]
     other = sum(1 for kind in kinds if kind not in dict(KINDS))
     if other:
         parts.append(counted(other, UNKNOWN_KIND))
     ports = sum(len(_items(block.get("ports"))) for block in blocks)
-    for number, forms in ((len(blocks), ("blok", "bloky", "bloků")), (ports, ("port", "porty", "portů"))):
+    ports += sum(len(_items(addition.get("ports"))) for item in extensions for addition in _items(item.get("ports")))
+    block_count = len(blocks) + sum(node.get("downloadsUrl") is True for node in nodes)
+    for number, forms in ((block_count, ("blok", "bloky", "bloků")), (ports, ("port", "porty", "portů"))):
         if number:
             parts.append(counted(number, forms))
     if edges:
@@ -51,7 +55,7 @@ def plan_summary(plan):
         names = [name if name in EDGE_PORTS else OTHER_PORT for name in names]
         detail = ", ".join(f"{port} {names.count(port)}" for port in (*EDGE_PORTS, OTHER_PORT) if port in names)
         parts.append(f"{counted(len(edges), ('vazbu', 'vazby', 'vazeb'))} ({detail})")
-    rules = sum(len(_items(node.get("rules"))) for node in nodes)
+    rules = sum(len(_items(node.get("rules"))) for node in content)
     decisions = len(_items(plan.get("decisions")))
     for number, forms in ((rules, ("pravidlo", "pravidla", "pravidel")), (decisions, ("rozhodnutí",) * 3)):
         if number:
@@ -59,4 +63,11 @@ def plan_summary(plan):
     texts = sum(1 for node in nodes if isinstance(node.get("text"), str) and node["text"].strip())
     if texts:
         parts.append(f"text u {texts} {'karty' if texts == 1 else 'karet'}")
-    return ("Přidá " + ", ".join(parts) + ".") if parts else "Dávka nic nepřidá."
+    result = ("Přidá " + ", ".join(parts) + ".") if parts else ""
+    if extensions:
+        result += (" " if result else "") + f"Rozšíří {len(extensions)} existujících karet; spec {sum('spec' in item for item in extensions)}, text {sum('text' in item for item in extensions)}."
+        moved = sum("parent" in item for item in extensions)
+        recolored = sum("color" in item for item in extensions)
+        if moved or recolored:
+            result += f" Přesuny {moved}, změny barev {recolored}."
+    return result or "Dávka nic nepřidá."

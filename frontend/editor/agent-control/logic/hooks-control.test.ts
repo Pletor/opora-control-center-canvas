@@ -1,14 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  bindingAvailability,
-  canControlBinding,
-  currentScope,
-  isBindingInScope,
-  isFreshScope,
-  isUuid,
-  parseAllowedPaths,
-  scopeKey,
-} from "./hooks-control";
+import { currentScope, isFreshScope, scopeKey } from "./code-query";
+import { bindingAvailability, canControlBinding, isBindingInScope, isUuid, parseAllowedPaths } from "./hooks-control";
 
 describe("hooks-control – scoped form and safe labels", () => {
   it("keeps only non-empty relative allowed paths and removes duplicates", () => {

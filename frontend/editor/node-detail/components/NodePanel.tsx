@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import DetailFold from "./DetailFold";
 import ResultHistory from "@/editor/llm-control/editor-context/components/ResultHistory";
 import NodeSpecEditor from "@/editor/node-detail/assignment/components/NodeSpecEditor";
@@ -11,15 +12,17 @@ import NodeTabs, { type NodeTab } from "@/editor/node-detail/components/NodeTabs
 import SyncBadge from "@/editor/node-detail/sync-badge/components/SyncBadge";
 import type { BadgeView } from "@/editor/node-detail/sync-badge/logic/sync-badge";
 import NodeCardEditor from "@/editor/node-detail/card-fields/components/NodeCardEditor";
+import FactRefsEditor from "@/editor/node-detail/card-fields/components/FactRefsEditor";
 import DoneControl from "@/editor/node-detail/done/components/DoneControl";
-import NodeActivity from "@/live-run/node-activity/components/NodeActivity";
+import IdeasPanel, { IdeasCount } from "@/editor/node-detail/ideas/components/IdeasPanel";
+import { openIdeas, type CardIdea, type IdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
 import type { NodeDone } from "@/shared/desktop-state/logic/types";
 import type { CanvasNode, Workspace } from "@/shared/types/logic/types";
 
 export type { NodeTab };
 
 /**
- * Jeden inspektor: Zadání · Vazby · Práce. Sekundární editory se načtou při prvním rozbalení
+ * Jeden inspektor: Zadání · Vazby · Práce · Podněty. Sekundární editory se načtou při prvním rozbalení
  * a zůstanou připojené, aby sbalení nebo přepnutí záložky nesmazalo rozepsaný text.
  * Uzavření karty (`done`) drží dílek `done/DoneControl`; ukládá rodič (App).
  */
@@ -38,13 +41,14 @@ export default function NodePanel({
   onDelete,
   onOpenNode,
   onAgentTask,
-  onOpenRun,
-  onLiveRun,
   graphNodes,
   onPickTag,
   onSelectBlock,
   done,
   onDone,
+  ideas,
+  onIdeaStatus,
+  onIdeaRemove,
   syncView,
   onCommitSpec,
   workflow,
@@ -59,6 +63,10 @@ export default function NodePanel({
   /** Uzavření karty ze stavu Desktop v3; potvrzuje člověk, agent smí jen navrhnout. */
   done: NodeDone;
   onDone: (patch: Partial<NodeDone>) => void;
+  /** Podněty k dalšímu vývoji ze stavu Desktop v3; odškrtává a maže člověk, ukládá rodič. */
+  ideas: CardIdea[];
+  onIdeaStatus: (id: string, status: IdeaStatus) => void;
+  onIdeaRemove: (id: string) => void;
   /** Uzly grafu jako cíle větví ve Stromu. */
   graphNodes: { id: string; name: string }[];
   /** Klik na štítek ve Stromu nastaví filtr plátna. */
@@ -75,10 +83,6 @@ export default function NodePanel({
   onOpenNode: (id: string) => void;
   /** Připraví scope úkolu pro panel agenta; žádný běh nespouští. */
   onAgentTask: () => void;
-  /** Běh → detail zdroje v módu Běhy; jen čtení. */
-  onOpenRun: (sourceId: string, runId: string) => void;
-  /** Přepne na skutečné sessions tohoto uzlu; nic nespouští. */
-  onLiveRun?: () => void;
   /** Verdikt Oracle pro tento uzel; hotová data z reportu, dílek je jen zobrazuje. */
   syncView?: BadgeView | null;
   /** Zapíše commit zadání v OporaHubu; bez něj brána 1:1 zůstane zavřená. */
@@ -89,6 +93,18 @@ export default function NodePanel({
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
   const [textRevision, setTextRevision] = useState(0);
+  const storedPurpose = useRef(node.purpose);
+  useEffect(() => {
+    const previous = storedPurpose.current;
+    storedPurpose.current = node.purpose;
+    setPurpose((draft) => draft === previous ? node.purpose : draft);
+  }, [node.purpose]);
+  const purposeDirty = useRef(purpose !== node.purpose);
+  purposeDirty.current = purpose !== node.purpose;
+  useScopedSaveParticipant({ id: `node-purpose:${node.id}`, label: `Účel: ${node.name}`,
+    dirty: purposeDirty.current, isDirty: () => purposeDirty.current,
+    blocked: !confirmed ? "Nejprve potvrďte změnu podstaty v detailu uzlu." : readOnly ? "Karta je pouze ke čtení." : undefined,
+    flush: () => confirmSavedChange(() => onSave({ ...node, purpose }), () => purposeDirty.current) });
   const assigned = workspaces.filter((w) => w.node_id === node.id);
   const kind = node.site?.kind === "application" ? "Aplikace" : node.site?.kind === "page" ? "Stránka" : node.kind === "sector" ? "Sektor" : "Uzel";
   return (
@@ -110,13 +126,9 @@ export default function NodePanel({
           <button type="button" data-testid="agent-task-action" disabled={busy} onClick={onAgentTask} title="Načte uložené zadání a souvislosti pro předání agentovi.">
             Předat zadání
           </button>
-          {onLiveRun && <button type="button" data-testid="node-live-run-action" onClick={onLiveRun}
-            title="Sledovat skutečné sessions a aktivitu na tomto uzlu. Žádný běh se nespustí.">
-            Sledovat v Live Run ↗
-          </button>}
         </div>
       </header>
-      <NodeTabs tab={tab} onTab={onTab} />
+      <NodeTabs tab={tab} onTab={onTab} badges={{ ideas: <IdeasCount count={openIdeas(ideas)} /> }} />
       <div className="panel-body">
         <section role="tabpanel" id="node-panel-links" aria-labelledby="node-tab-links" hidden={tab !== "links"}>
           <h3>Vazby a souvislosti</h3>
@@ -159,6 +171,7 @@ export default function NodePanel({
             <NodeTextEditor key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} node={node.id} onSaved={() => setTextRevision((value) => value + 1)} />
           </DetailFold>
           {node.kind === "node" && <DetailFold title="Nastavení karty"><NodeCardEditor node={node} readOnly={readOnly} busy={busy} onSave={onSave} /></DetailFold>}
+          {(node.kind === "node" || node.kind === "sector") && <DetailFold title="Fakta projektu"><FactRefsEditor key={`${project}:${workspace}:${node.id}`} node={node} project={project} workspace={workspace} disabled={readOnly || busy} onSave={onSave} /></DetailFold>}
         </section>
         <section role="tabpanel" id="node-panel-work" aria-labelledby="node-tab-work" hidden={tab !== "work"}>
           <DetailFold title="Výsledky a původní zadání"><ResultHistory project={project} workspace={workspace} nodeId={node.id} revision={resultRevision} /></DetailFold>
@@ -195,10 +208,10 @@ export default function NodePanel({
             Připravit oddělený worktree
           </button>
           </DetailFold>
-          <h3>Aktivita agenta</h3>
-          {tab === "work" && (
-            <NodeActivity project={project} workspace={workspace} nodeId={node.id} isSector={node.kind === "sector"} onOpenRun={onOpenRun} />
-          )}
+        </section>
+        <section role="tabpanel" id="node-panel-ideas" aria-labelledby="node-tab-ideas" hidden={tab !== "ideas"}>
+          <h3>Podněty k dalšímu vývoji</h3>
+          <IdeasPanel ideas={ideas} readOnly={readOnly} busy={busy} onStatus={onIdeaStatus} onRemove={onIdeaRemove} />
         </section>
       </div>
       <footer className="panel-foot">

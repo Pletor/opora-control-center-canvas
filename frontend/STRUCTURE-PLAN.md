@@ -1,7 +1,7 @@
 # Plán struktury `frontend/` (fáze 1 – návrh v2, čeká na schválení)
 
 Cíl: strom složek vypráví příběh aplikace. Kdo ho otevře, vidí cestu uživatele:
-**nastavení projektu → prostředí Projekt | Editor | Live Run**, každé se svými nástroji.
+**nastavení projektu → prostředí Projekt | Editor | OporaHub**, každé se svými nástroji.
 Uvnitř každé feature složky jsou soubory rozdělené podle druhu do pevných šuplíků.
 Chování aplikace se nemění; mění se jen cesty, názvy složek, názvy čtyř souborů a import řádky.
 
@@ -11,8 +11,8 @@ Chování aplikace se nemění; mění se jen cesty, názvy složek, názvy čty
 |---|---|---|
 | 1. Úvodní nastavení | přiřadí repozitáře nebo složky, vytvoří projekt | `project-setup/` |
 | 2. Prostředí **Projekt** | vidí main skrz strom složek, Archify, Graphify a další vývojová zobrazení | `project/` |
-| 3. Prostředí **Editor** | řídí vývoj: plátno, detail uzlu, workflow a pipeline; vlevo knihovna komponent, metod a funkcí; vpravo ovládání Claude Code (hooky, skills, commandy, agenti, paměť) | `editor/` |
-| 4. Prostředí **Live Run** | sleduje, jak agenti pracují, co se děje, jak fungují | `live-run/` |
+| 3. Prostředí **Editor** | řídí vývoj: plátno, detail uzlu, workflow a pipeline; vlevo knihovna komponent, metod a funkcí; vpravo ovládání Claude Code (skills, commandy, agenti, paměť) | `editor/` |
+| 4. Prostředí **OporaHub** | plán a dokumentace 1:1 s kódem (panel synchronizace) | `hub/` |
 | společné | vstup aplikace, kostra obrazovky, přepínač prostředí, tokeny vzhledu, sdílený stav, prvky bez domény | `app/`, `layout/`, `design-tokens/`, `shared/`, `ui-kit/` |
 
 ## 1. Pravidla
@@ -32,7 +32,7 @@ Složka obsahuje buď jen podsložky + README, nebo soubory jednoho druhu.
 - NIKDY `utils`, `misc`, `common`, `helpers`, `panels`, `components` jako název feature, verze (`v2`, `v3`)
 
 ### 1.3 Pravidlo závislostí
-- `shared/` a `ui-kit/` nesmí importovat z `project-setup/`, `project/`, `editor/`, `live-run/`, `layout/`, `app/`
+- `shared/` a `ui-kit/` nesmí importovat z `project-setup/`, `project/`, `editor/`, `hub/`, `layout/`, `app/`
 - `app/` je jediné místo, které skládá všechna prostředí dohromady
 
 ### 1.4 Co se NEDĚLÁ
@@ -57,7 +57,7 @@ frontend/
 │
 ├── layout/                            kostra obrazovky společná všem prostředím
 │   ├── top-bar/            components/TopBar.tsx
-│   ├── environment-switch/ components/EnvironmentSwitch.tsx   Projekt | Editor | Live Run (Alt+1..3)
+│   ├── environment-switch/ components/EnvironmentSwitch.tsx   Projekt | Editor | OporaHub (Alt+1..3)
 │   ├── mode-rail/          components/ModeRail.tsx            módy plátna uvnitř Editoru
 │   └── shell/              styles/desktop-workspaces.css · workspace-modes.css
 │
@@ -71,7 +71,7 @@ frontend/
 │   ├── source-tree/ components/SourceExplorer.tsx         strom složek a souborů projektu
 │   ├── maps/        components/ArchifyMap.tsx · GraphifyMap.tsx · MapUpdateMenu.tsx
 │   │                styles/archify-map.css · map-update-menu.css
-│   └── workspace/   components/ProjectWorkspace.tsx · WorkspaceDocumentEditor.tsx
+│   └── workspace/   components/ProjectWorkspace.tsx
 │
 ├── editor/                            PROSTŘEDÍ EDITOR: řízení vývoje
 │   ├── canvas/                        plátno
@@ -98,19 +98,13 @@ frontend/
 │   │   ├── README (slot, dříve library/)
 │   │   └── palette/ README (slot, dříve layout/left-bar/)
 │   └── llm-control/                   PRAVÁ STRANA: ovládání Claude Code
-│       ├── README (dříve layout/right-bar/)              hooky, skills, commandy, agenti
+│       ├── README (dříve layout/right-bar/)              skills, commandy, agenti
 │       ├── project-memory/  components/ProjectMemoryPanel.tsx   pravidla, rozhodnutí, nastavení
 │       ├── editor-context/  components/ContextShelf.tsx · context-actions.tsx  reference a „úkol pro agenta“
 │       └── agent-packet/    components/AgentPacketPanel.tsx     podklady pro agenta: náhled, snímek, export
 │
-├── live-run/                          PROSTŘEDÍ LIVE RUN: jak agenti pracují
-│   ├── run-monitor/    components/AgentsWorkspace.tsx · LiveRunDetail.tsx
-│   │                   logic/agent-types.ts
-│   │                   styles/agents.css
-│   ├── node-sessions/  components/NodeSessionsPanel.tsx · LiveWorkspacePanel.tsx
-│   │                   logic/node-sessions.ts
-│   │                   styles/node-sessions.css · live-workspace.css
-│   └── node-activity/  components/NodeActivity.tsx          aktivita agentů na uzlu (záložka Práce)
+├── hub/                               PROSTŘEDÍ OPORAHUB: plán a dokumentace 1:1 s kódem
+│   └── oporahub-workspace/  components/ · logic/ · styles/   panel synchronizace (Oracle verdikt, echo)
 │
 ├── shared/                            sdílený stav a typy, bez závislosti na prostředích
 │   ├── api/              README (slot – klient `api()` zatím žije v types/types.ts, §4)
@@ -141,7 +135,7 @@ Legenda: **R** = přejmenování složky/cesty, **RN** = přejmenování souboru
 | app/main.tsx | app/components/main.tsx | vstup; cesta v index.html se přepíše |
 | app/vite-env.d.ts | app/logic/vite-env.d.ts | deklarace = logika |
 | app/style.css | app/styles/style.css | šuplík |
-| agents/desktop-v3/index.ts | app/logic/desktop-panels.ts | RN; barrel skládá panely z editoru i live-run, patří ke skládání v app/ |
+| agents/desktop-v3/index.ts | app/logic/desktop-panels.ts | RN; barrel skládá panely z editoru, patří ke skládání v app/ |
 | design/README.md | design-tokens/README.md | R; složka má jen tokeny |
 | design/desktop-v3.css | design-tokens/styles/theme-tokens.css | RN; definuje tokeny témat, „desktop-v3“ nic neříká |
 
@@ -153,7 +147,7 @@ Legenda: **R** = přejmenování složky/cesty, **RN** = přejmenování souboru
 | layout/top-bar/TopBar.tsx | layout/top-bar/components/TopBar.tsx | šuplík |
 | layout/mode-rail/README.md | layout/mode-rail/README.md | = (text: jen módy plátna) |
 | layout/mode-rail/ModeRail.tsx | layout/mode-rail/components/ModeRail.tsx | šuplík |
-| layout/mode-rail/EnvironmentSwitch.tsx | layout/environment-switch/components/EnvironmentSwitch.tsx | přepínač Projekt/Editor/Live Run je hlavní osa příběhu, zaslouží vlastní složku |
+| layout/mode-rail/EnvironmentSwitch.tsx | layout/environment-switch/components/EnvironmentSwitch.tsx | přepínač Projekt/Editor/OporaHub je hlavní osa příběhu, zaslouží vlastní složku |
 | – | layout/environment-switch/README.md | nový README |
 | layout/shell/README.md | layout/shell/README.md | = (text aktualizovat) |
 | layout/shell/desktop-workspaces.css | layout/shell/styles/desktop-workspaces.css | šuplík |
@@ -184,7 +178,6 @@ Legenda: **R** = přejmenování složky/cesty, **RN** = přejmenování souboru
 | project-detail/maps/map-update-menu.css | project/maps/styles/map-update-menu.css | šuplík |
 | project-detail/workspace/README.md | project/workspace/README.md | R |
 | project-detail/ProjectWorkspace.tsx | project/workspace/components/ProjectWorkspace.tsx | skládá shell + mapy |
-| project-detail/workspace/WorkspaceDocumentEditor.tsx | project/workspace/components/WorkspaceDocumentEditor.tsx | dokumentace k cestám projektu |
 | – | project/shell/README.md | nový README |
 
 ### editor/canvas/
@@ -241,23 +234,6 @@ Legenda: **R** = přejmenování složky/cesty, **RN** = přejmenování souboru
 | agents/desktop-v3/AgentPacketPanel.tsx | editor/llm-control/agent-packet/components/AgentPacketPanel.tsx | podklady pro agenta = vstup práce s LLM |
 | – | editor/llm-control/project-memory/README.md | nový README |
 
-### live-run/ (prostředí Live Run)
-| Stará cesta | Nová cesta | Proč |
-|---|---|---|
-| agents/README.md | live-run/README.md | R; text přepsat podle §0 |
-| agents/AgentsWorkspace.tsx | live-run/run-monitor/components/AgentsWorkspace.tsx | seznam a stav běhů |
-| agents/LiveRunDetail.tsx | live-run/run-monitor/components/LiveRunDetail.tsx | detail jednoho běhu |
-| agents/agent-types.ts | live-run/run-monitor/logic/agent-types.ts | typy běhů a telemetrie |
-| agents/agents.css | live-run/run-monitor/styles/agents.css | šuplík |
-| agents/desktop-v3/NodeSessionsPanel.tsx | live-run/node-sessions/components/NodeSessionsPanel.tsx | živé session na uzlu |
-| agents/desktop-v3/LiveWorkspacePanel.tsx | live-run/node-sessions/components/LiveWorkspacePanel.tsx | obal NodeSessionsPanel |
-| agents/desktop-v3/node-sessions.ts | live-run/node-sessions/logic/node-sessions.ts | klient /api/node-sessions |
-| agents/desktop-v3/node-sessions.css | live-run/node-sessions/styles/node-sessions.css | šuplík |
-| agents/desktop-v3/live-workspace.css | live-run/node-sessions/styles/live-workspace.css | šuplík |
-| node-detail/work/README.md | live-run/node-activity/README.md | R; „work“ = aktivita agentů na uzlu |
-| node-detail/work/NodeActivity.tsx | live-run/node-activity/components/NodeActivity.tsx | dtto (NodePanel ho dál importuje jako záložku Práce) |
-| – | live-run/run-monitor/README.md, node-sessions/README.md | nové README |
-
 ### shared/
 | Stará cesta | Nová cesta | Proč |
 |---|---|---|
@@ -270,7 +246,7 @@ Legenda: **R** = přejmenování složky/cesty, **RN** = přejmenování souboru
 | shared/hooks/use-pending-edits.ts | shared/hooks/logic/use-pending-edits.ts | šuplík |
 | shared/contexts/README.md | shared/contexts/README.md | = |
 | shared/contexts/ScopeContext.tsx | shared/contexts/components/ScopeContext.tsx | šuplík |
-| agents/desktop-v3/README.md | shared/desktop-state/README.md | R; zbývá stav sdílený panely v editoru i live-run |
+| agents/desktop-v3/README.md | shared/desktop-state/README.md | R; zbývá stav sdílený panely v editoru i hubu |
 | agents/desktop-v3/api.ts | shared/desktop-state/logic/api.ts | importuje jen shared/types |
 | agents/desktop-v3/state-store.ts | shared/desktop-state/logic/state-store.ts | dtto |
 | agents/desktop-v3/types.ts | shared/desktop-state/logic/types.ts | dtto |
@@ -285,7 +261,7 @@ Legenda: **R** = přejmenování složky/cesty, **RN** = přejmenování souboru
 | components/removal-dialog/README.md | ui-kit/removal-dialog/README.md | R |
 | components/removal-dialog/RemovalDialog.tsx | ui-kit/removal-dialog/components/RemovalDialog.tsx | šuplík |
 | project-detail/workspace/WorkspaceBoundary.tsx | ui-kit/workspace-boundary/components/WorkspaceBoundary.tsx | obecný error boundary bez domény |
-| agents/desktop-v3/panels.css | ui-kit/panel-frame/styles/panels.css | společný rám .v3-panel pro 4 panely v různých prostředích |
+| agents/desktop-v3/panels.css | ui-kit/panel-frame/styles/panels.css | společný rám .v3-panel pro 3 panely v různých prostředích |
 | – | ui-kit/workspace-boundary/README.md, panel-frame/README.md | nové README |
 
 Kontrolní součet: 108 původních souborů, 0 smazaných, 4 přejmenované soubory, 16 nových README.
@@ -297,7 +273,7 @@ Zanikají složky: `agents/`, `canvas/`, `components/`, `design/`, `library/`, `
 |---|---|
 | editor/llm-control/agent-packet | **naplnit** AgentPacketPanel.tsx |
 | editor/component-library, editor/component-library/palette | zachovat; kód knihovny zatím neexistuje, složka drží místo pro levou stranu Editoru |
-| editor/llm-control (kořen) | zachovat; README popíše hooky, skills, commandy, agenty; podsložky project-memory, editor-context, agent-packet už kód mají |
+| editor/llm-control (kořen) | zachovat; README popíše skills, commandy, agenty; podsložky project-memory, editor-context, agent-packet už kód mají |
 | editor/canvas/node-card, sector-card | zachovat; karta je dnes uvnitř Board.tsx, vyjmutí = refaktor mimo rozsah |
 | editor/sector-detail | zachovat; žádný kód |
 | shared/api | zachovat; `api()` žije v shared/types/logic/types.ts, vyjmutí = změna obsahu souboru; doporučený další krok |
@@ -314,12 +290,11 @@ Zanikají složky: `agents/`, `canvas/`, `components/`, `design/`, `library/`, `
 Přepsat podle §3 ve všech 44 souborech s importy. Nejcitlivější body:
 - `app/components/App.tsx`: 34 importů včetně lazy `@/editor/canvas/drawing/components/DrawingWorkspace`
 - `app/components/main.tsx`: `@/agents/desktop-v3` → `@/app/logic/desktop-panels`
-- `app/logic/desktop-panels.ts`: 4 panely v `editor/llm-control/project-memory`, `editor/workflow`, `editor/llm-control/agent-packet`, `live-run/node-sessions` + `@/ui-kit/panel-frame/styles/panels.css`
+- `app/logic/desktop-panels.ts`: 3 panely v `editor/llm-control/project-memory`, `editor/workflow`, `editor/llm-control/agent-packet` + `@/ui-kit/panel-frame/styles/panels.css`
 - `block-outline.css` importují 4 soubory (BlockOutline, NodeTextEditor, NodeJournal, NodeLinksPanel)
 - `shared/desktop-state/logic/*` importují ProjectMemoryPanel, NodeWorkflowPanel, AgentPacketPanel
 - `shared/selection` importují ContextShelf, SourceExplorer, ProjectWorkspace, App
 - `shared/surface-settings` importují Board, ModeRail, DrawingWorkspace, WorkspaceSettings, App
-- `live-run/node-activity` importuje NodePanel; `live-run/run-monitor/logic/agent-types` importuje NodeActivity
 
 ### 5.3 Dokumentace a skill
 | Soubor | Změna |
@@ -336,4 +311,4 @@ Zastaralý odkaz na `src/…` v backend/integrations/build_identity.py:10 je mim
 ## 6. Ověření po fázi 2
 1. `npm run build` (tsc --noEmit + vite build) – přiložit výstup
 2. `git status --short` – jen R, M a A (nové README), žádné D
-3. grep `frontend/shared/` a `frontend/ui-kit/` na importy `@/(app|layout|project-setup|project|editor|live-run)` – musí být 0 výsledků
+3. grep `frontend/shared/` a `frontend/ui-kit/` na importy `@/(app|layout|project-setup|project|editor|hub)` – musí být 0 výsledků

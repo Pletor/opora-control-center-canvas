@@ -114,10 +114,8 @@
 .desktop-v3 .workspace-shell { grid-template-columns: var(--shelf-w) minmax(0, 1fr) var(--inspector-w); }
 .desktop-v3 .workspace-shell.no-context:not(.no-inspector) { grid-template-columns: minmax(0, 1fr) var(--inspector-w); }
 .desktop-v3 .workspace-shell.inspector-hidden { grid-template-columns: var(--shelf-w) minmax(0, 1fr); }
-.desktop-v3 .workspace-shell.document-open { grid-template-columns: var(--shelf-w) minmax(0, 1fr); }
 .desktop-v3 .workspace-shell.no-inspector,
-.desktop-v3 .workspace-shell.inspector-hidden.no-context,
-.desktop-v3 .workspace-shell.document-open.no-context { grid-template-columns: minmax(0, 1fr); }
+.desktop-v3 .workspace-shell.inspector-hidden.no-context { grid-template-columns: minmax(0, 1fr); }
 
 
 /* Vzhled: jedno tiché tlačítko vpravo v topbaru. */
@@ -133,12 +131,7 @@
 .desktop-v3 .inspector .node-panel { flex-shrink: 0; }
 .desktop-v3 .inspector .v3-slot.v3-node-workflow { flex-shrink: 0; }
 .v3-node-workflow { border-top: 1px solid var(--line); margin-top: var(--sp-4); padding-top: var(--sp-3); }
-.v3-live { display: flex; flex-direction: column; min-height: 0; height: 100%; }
-.v3-live-tabs { display: flex; gap: 4px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); }
-.v3-live-tabs button[aria-pressed="true"], .desktop-v3 .v3-toolbar button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
-.v3-live > :last-child { flex: 1; min-height: 0; overflow: auto; }
-/* Pokročilý Agenti viewer je v v3 flex potomek pod záložkami, ne absolutní vrstva přes ně (jinak kryje návrat na přehled). */
-.agents-mode .v3-live > .agents-workspace { position: relative; inset: auto; }
+.desktop-v3 .v3-toolbar button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
 
 /* Světlý režim: pevné tmavé barvy původních stylů převedené na tokeny. */
 :root[data-theme="light"] .primary:hover { background: var(--accent-hover); color: var(--accent-ink); }

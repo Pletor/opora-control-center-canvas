@@ -1,7 +1,7 @@
 """Zapisovací klient OPORA pro asistenta: jeden POST na plátno, jen na pevný seznam cest.
 
 `opora_write.py <cesta> --project P --workspace W (--json '<json>' | --json-file soubor) [--dry-run]`.
-`--dry-run` (bez hodnoty) jen u `/api/canvas-plan`: do payloadu nastaví `dryRun: true` (přepíše hodnotu
+`--dry-run` (bez hodnoty) u `/api/canvas-plan` a `/api/canvas-layout`: nastaví `dryRun: true` (přepíše hodnotu
 z konceptu), dávka se jen ověří a nic se nezapíše; koncept se kvůli tomu nepřepisuje.
 Adresa je jen loopback (`--base-url http://127.0.0.1:PORT`, jinak `OPORA_BASE_URL`), bez proxy
 a bez přesměrování. Každé volání asistenta schvaluje člověk v UI (docs/asistent.md §5.1).
@@ -23,10 +23,27 @@ MAX_BYTES = 8 * 1024 * 1024
 MAX_PAYLOAD = 2 * 1024 * 1024  # shodně s `DRAFT_LIMIT` v approvals.py (koncept dávky plánu)
 # Jediné cesty, na které skript pošle POST (docs/asistent.md §5.1). Jinam nic neodejde.
 WRITE_ROUTES = frozenset({
+    '/api/desktop-v3/lease',
+    '/api/desktop-v3/realize-source',
+    '/api/canvas-layout',
+    '/api/desktop-v3/assignment-snapshot',
+    '/api/canvas-versions',
+    '/api/desktop-v3/rule', '/api/desktop-v3/decision',
     '/api/graph', '/api/node-spec', '/api/node-text', '/api/desktop-v3/state', '/api/desktop-v3/block',
     '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output', '/api/canvas-plan',
+    '/api/desktop-v3/pipeline',
 })
 EXIT_CONFLICT = 3
+# Záznam činnosti (docs/zaznam-cinnosti.md): každý zápis skriptu se hlásí jako agent.
+AGENT_ENV = 'OPORA_AGENT_NAME'
+LEASE_ENV = 'OPORA_LEASE_TOKEN'
+AGENT_NAME = re.compile(r'[^\w .:()\-]')
+
+
+def actor_header():
+    """Hodnota `X-Opora-Actor`; jméno z `OPORA_AGENT_NAME` (nepovolené znaky pryč), výchozí `agent`."""
+    name = AGENT_NAME.sub('', os.environ.get(AGENT_ENV, '')).strip()[:80]
+    return 'agent; name=' + (name or 'agent')
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -85,7 +102,12 @@ def post(base, route, payload):
     if route not in WRITE_ROUTES:
         raise ValueError('Cesta ' + route + ' není povolený zápis na plátno.')
     data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-    headers = {'Accept': 'application/json', 'Content-Type': 'application/json', 'Origin': base}
+    headers = {'Accept': 'application/json', 'Content-Type': 'application/json', 'Origin': base,
+               'X-Opora-Actor': actor_header()}
+    # Zápis na kartu drženou lease nese token převzetí (upgrade-opora #35).
+    lease = os.environ.get(LEASE_ENV, '').strip()
+    if re.fullmatch(r'[0-9a-f]{64}', lease):
+        headers['X-Opora-Lease'] = lease
     return _read(Request(base + route, data=data, headers=headers, method='POST'), TIMEOUT)
 
 
@@ -114,15 +136,15 @@ def main(argv=None):
     parser.add_argument('--workspace', required=True)
     parser.add_argument('--json', dest='json_text')
     parser.add_argument('--json-file')
-    parser.add_argument('--dry-run', action='store_true', help='jen ověření dávky; jen u /api/canvas-plan')
+    parser.add_argument('--dry-run', action='store_true', help='jen ověření dávky nebo rozmístění; /api/canvas-plan a /api/canvas-layout')
     parser.add_argument('--base-url', help='domácí adresa http://127.0.0.1:PORT; výchozí ' + BASE_ENV)
     args = parser.parse_args(argv)
     args.route = route_of(args.route)
     try:
         if args.route not in WRITE_ROUTES:
             raise ValueError('Cesta ' + args.route + ' není povolený zápis na plátno.')
-        if args.dry_run and args.route != '/api/canvas-plan':
-            raise ValueError('--dry-run platí jen pro /api/canvas-plan.')
+        if args.dry_run and args.route not in ('/api/canvas-plan', '/api/canvas-layout'):
+            raise ValueError('--dry-run platí jen pro /api/canvas-plan a /api/canvas-layout.')
         base = base_url(args.base_url or os.environ.get(BASE_ENV, '').strip())
         payload = scoped(load_payload(args.json_text, args.json_file), args.project, args.workspace)
         if args.dry_run:

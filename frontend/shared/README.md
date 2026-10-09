@@ -1,1 +1,1 @@
-Sdílený stav a typy bez závislosti na prostředích: api (slot), types, hooks, contexts, desktop-state, selection, surface-settings. NESMÍ importovat z app/, layout/, project-setup/, project/, editor/, live-run/.
+Sdílený stav a typy bez závislosti na prostředích: api (slot), types, hooks, contexts, desktop-state, selection, surface-settings. NESMÍ importovat z app/, layout/, project-setup/, project/, editor/, hub/.

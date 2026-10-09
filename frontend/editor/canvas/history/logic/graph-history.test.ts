@@ -3,6 +3,7 @@ import {
   emptyHistory,
   HISTORY_LIMIT,
   record,
+  recordRemoval,
   redo,
   sameGraph,
   undo,
@@ -35,7 +36,7 @@ describe("graph-history", () => {
     const before = emptyHistory();
     const first = graph(node("a"));
     const after = record(before, first);
-    expect(after.past).toEqual([first]);
+    expect(after.past).toEqual([{ graph: first }]);
     expect(before.past).toEqual([]);
   });
 
@@ -60,8 +61,8 @@ describe("graph-history", () => {
     let history = emptyHistory();
     for (let i = 0; i <= HISTORY_LIMIT + 4; i++) history = record(history, graph(node("a", i)));
     expect(history.past).toHaveLength(HISTORY_LIMIT);
-    expect(history.past[0]).toEqual(graph(node("a", 5)));
-    expect(history.past[HISTORY_LIMIT - 1]).toEqual(graph(node("a", HISTORY_LIMIT + 4)));
+    expect(history.past[0]).toEqual({ graph: graph(node("a", 5)) });
+    expect(history.past[HISTORY_LIMIT - 1]).toEqual({ graph: graph(node("a", HISTORY_LIMIT + 4)) });
   });
 
   it("krok zpět vrátí poslední snímek a aktuální graf odloží dopředu", () => {
@@ -69,6 +70,7 @@ describe("graph-history", () => {
     const b = graph(node("a", 10));
     const stepped = undo(record(emptyHistory(), a), b)!;
     expect(stepped.graph).toEqual(a);
+    expect(stepped.restore).toBeUndefined();
     expect(stepped.history.past).toEqual([]);
     expect(stepped.history.future).toEqual([b]);
   });
@@ -79,7 +81,7 @@ describe("graph-history", () => {
     const back = undo(record(emptyHistory(), a), b)!;
     const forward = redo(back.history, back.graph)!;
     expect(forward.graph).toEqual(b);
-    expect(forward.history.past).toEqual([a]);
+    expect(forward.history.past).toEqual([{ graph: a }]);
     expect(forward.history.future).toEqual([]);
   });
 
@@ -96,5 +98,35 @@ describe("graph-history", () => {
     const forward = redo(second.history, second.graph)!;
     expect(forward.graph).toEqual(b);
     expect(redo(forward.history, forward.graph)!.graph).toEqual(c);
+  });
+
+  it("recordRemoval založí krok s obnovou a zahodí větev dopředu", () => {
+    const a = graph(node("a"), node("b"));
+    const b = graph(node("a"));
+    const stepped = undo(record(emptyHistory(), a), b)!;
+    const removed = recordRemoval(stepped.history, a, "rec-1");
+    expect(removed.past).toEqual([{ graph: a, restore: "rec-1" }]);
+    expect(removed.future).toEqual([]);
+    expect(stepped.history.past).toEqual([]);
+  });
+
+  it("recordRemoval se nespojí s obyčejným krokem téhož grafu", () => {
+    const a = graph(node("a"), node("b"));
+    const removed = recordRemoval(record(emptyHistory(), a), a, "rec-1");
+    expect(removed.past).toHaveLength(2);
+    expect(record(removed, a).past).toHaveLength(3);
+  });
+
+  it("krok zpět na smazání vrací restore, krok vpřed za ním je obyčejný snímek", () => {
+    const before = graph(node("a"), node("b"));
+    const after = graph(node("a"));
+    const back = undo(recordRemoval(emptyHistory(), before, "rec-1"), after)!;
+    expect(back.restore).toBe("rec-1");
+    expect(back.graph).toEqual(before);
+    expect(back.history.future).toEqual([after]);
+    const forward = redo(back.history, before)!;
+    expect(forward.graph).toEqual(after);
+    expect(forward.history.past).toEqual([{ graph: before }]);
+    expect(undo(forward.history, after)!.restore).toBeUndefined();
   });
 });

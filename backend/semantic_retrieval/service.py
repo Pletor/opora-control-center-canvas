@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-import stat
 import subprocess
-import sys
 from pathlib import Path
 
 from backend.project.workspace.workspace_sources import relative_path, reparse

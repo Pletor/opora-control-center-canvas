@@ -25,8 +25,4 @@ open_browser = false
 frontend = "never"
 
 [integrations]                 # prázdná hodnota = nenastaveno; tajemství (API klíče) sem nepatří, jdou přes proměnné prostředí
-hermes_api_url = ""            # OPORA_HERMES_API_URL  (klíč: OPORA_HERMES_API_KEY v prostředí)
-node_session_lanes_root = ""   # OPORA_NODE_SESSION_LANES_ROOT – kořen lane souborů Claude session
 graphify_python = ""           # OPORA_GRAPHIFY_PYTHON – python s nainstalovaným graphify
-agent_orchestrator_root = ""   # OPORA_AGENT_ORCHESTRATOR_ROOT
-agent_platno_url = ""          # OPORA_AGENT_PLATNO_URL

@@ -1,7 +1,34 @@
 import uuid
 from datetime import UTC, datetime
 
-from backend.canvas.graph import digest, encode
+from backend.canvas.graph import digest, encode, valid_id
+from backend.editor.node import removal_recovery
+
+MAX_SELECTION = 500
+# Agent smí smazat jen malý kus nehotové práce; víc, sektory, brány a uzavřené karty maže člověk (upgrade-opora #41).
+AGENT_REMOVAL_LIMIT = 20
+
+
+def selection_ids(target):
+    """`target` výběru: čárkami spojený seznam 1..500 různých id uzlů."""
+    ids = target.split(",") if isinstance(target, str) else []
+    if not 1 <= len(ids) <= MAX_SELECTION or len(set(ids)) != len(ids) or not all(map(valid_id, ids)):
+        raise ValueError("Neplatný výběr k odstranění.")
+    return ids
+
+
+def descendants(nodes, roots):
+    """Cíle a všichni jejich potomci přes `parentId`."""
+    children = {}
+    for item in nodes:
+        children.setdefault(item["parentId"], []).append(item["id"])
+    removed, pending = set(), list(roots)
+    while pending:
+        item = pending.pop()
+        if item not in removed:
+            removed.add(item)
+            pending.extend(children.get(item, []))
+    return removed
 
 
 class RemovalService:
@@ -59,27 +86,22 @@ class RemovalService:
         if current["readOnly"]:
             raise ValueError("Main je pouze pro čtení. Přepněte do pracovního prostoru.")
         graph = current["graph"]
-        if kind not in ("node", "edge"):
+        if kind not in ("node", "edge", "selection"):
             raise ValueError("Nepodporovaný typ odstranění.")
-        items = graph["nodes"] if kind == "node" else graph["edges"]
-        selected = next((item for item in items if item["id"] == target), None)
-        if selected is None:
-            raise ValueError("Položka již v plátně neexistuje.")
-        removed = set()
-        if kind == "node":
-            children = {}
-            for item in graph["nodes"]:
-                children.setdefault(item["parentId"], []).append(item["id"])
-            pending = [target]
-            while pending:
-                item = pending.pop()
-                if item not in removed:
-                    removed.add(item)
-                    pending.extend(children.get(item, []))
-            label = selected["name"]
-        else:
+        if kind == "edge":
+            selected = next((item for item in graph["edges"] if item["id"] == target), None)
+            if selected is None:
+                raise ValueError("Položka již v plátně neexistuje.")
             names = {n["id"]: n["name"] for n in graph["nodes"]}
             label = names[selected["source"]] + " → " + names[selected["target"]]
+            removed = set()
+        else:
+            roots = selection_ids(target) if kind == "selection" else [target]
+            by_id = {item["id"]: item for item in graph["nodes"]}
+            if any(root not in by_id for root in roots):
+                raise ValueError("Položka již v plátně neexistuje.")
+            removed = descendants(graph["nodes"], roots)
+            label = by_id[roots[0]]["name"] if len(roots) == 1 else f"{len(roots)} " + ("položky" if len(roots) < 5 else "položek")
         remaining = {
             "nodes": [n for n in graph["nodes"] if n["id"] not in removed],
             "edges": [
@@ -90,12 +112,17 @@ class RemovalService:
                 and not (kind == "edge" and e["id"] == target)
             ],
         }
+        from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+        with self.canvas.lock:
+            stored_nodes = DesktopV3State(self.canvas).current(project, workspace)["state"]["nodes"]
+        confirmed = sorted(n for n in removed if stored_nodes.get(n, {}).get("done", {}).get("confirmed"))
         preview = {
             "project": project,
             "workspace": workspace,
             "kind": kind,
             "target": target,
             "label": label,
+            "confirmedNodeIds": confirmed,
             "nodeIds": sorted(removed),
             "nodeCount": len(removed),
             "edgeCount": len(graph["edges"]) - len(remaining["edges"]),
@@ -118,13 +145,42 @@ class RemovalService:
         with self.canvas.graph_lock:
             return self.plan(project, workspace, kind, target)[2]
 
-    def remove(self, payload):
+    def guard(self, actor, current, remaining, preview):
+        """Co smí smazat jen člověk: projekt, sektory, brány, uzavřené karty, vazby sektorů, víc než limit."""
+        if actor in ("human", "system"):
+            return
+        from backend.canvas.activity_log import HumanRequired
+        from backend.canvas.protected_fields import protected_changes
+        if preview["kind"] == "project":
+            raise HumanRequired(actor, "Projekt maže jen člověk v UI.")
+        graph = current["graph"]
+        kinds = {n["id"]: n["kind"] for n in graph["nodes"]}
+        gates = {n.get("gateNodeId") for n in graph["nodes"]} - {None}
+        removed = set(preview["nodeIds"])
+        reasons = []
+        if any(kinds.get(n) == "sector" for n in removed):
+            reasons.append("sektor")
+        if removed & gates:
+            reasons.append("brána sektoru")
+        if preview.get("confirmedNodeIds"):
+            reasons.append(f"uzavřené karty ({len(preview['confirmedNodeIds'])})")
+        if len(removed) > AGENT_REMOVAL_LIMIT:
+            reasons.append(f"víc než {AGENT_REMOVAL_LIMIT} uzlů")
+        survivors = {"nodes": [n for n in graph["nodes"] if n["id"] not in removed],
+                     "edges": [e for e in graph["edges"] if e["source"] not in removed and e["target"] not in removed]}
+        if protected_changes(survivors, remaining):
+            reasons.append("vazba mezi sektory")
+        if reasons:
+            raise HumanRequired(actor, "Tohle maže jen člověk v UI: " + ", ".join(reasons) + ".")
+
+    def remove(self, payload, *, actor="system"):
         if (
             set(payload) != {"project", "workspace", "kind", "target", "digest", "confirmed"}
             or payload["confirmed"] is not True
         ):
             raise ValueError("Odstranění vyžaduje výslovné potvrzení náhledu.")
         if payload["kind"] == "project":
+            self.guard(actor, None, None, {"kind": "project", "nodeIds": []})
             return self.remove_project(payload)
         with self.canvas.graph_lock:
             current, remaining, preview = self.plan(
@@ -132,22 +188,28 @@ class RemovalService:
             )
             if payload["digest"] != preview["digest"]:
                 raise ValueError("Plátno se změnilo. Otevřete nový náhled odstranění.")
-            # Snapshot předchází změně; jeho existence není důkazem dokončeného mazání.
+            self.guard(actor, current, remaining, preview)
+            removed_edge_ids = {e["id"] for e in current["graph"]["edges"]} - {
+                e["id"] for e in remaining["edges"]
+            }
+            # Snapshot i záznam obnovy předcházejí změně; jejich existence není důkazem mazání.
+            recovery_id = uuid.uuid4().hex
             db = self.canvas.db_for(payload["project"])
             with self.canvas.lock, db:
                 db.execute(
                     "INSERT INTO graph_recoveries VALUES(?,?,?,?,?)",
                     (
-                        uuid.uuid4().hex,
+                        recovery_id,
                         payload["project"],
                         payload["workspace"],
                         encode(current["graph"]),
                         datetime.now(UTC).isoformat(),
                     ),
                 )
-            removed_edge_ids = {e["id"] for e in current["graph"]["edges"]} - {
-                e["id"] for e in remaining["edges"]
-            }
+                removal_recovery.capture(
+                    self.canvas, db, recovery_id, payload["project"], payload["workspace"],
+                    current["graph"], preview["nodeIds"], sorted(removed_edge_ids),
+                )
             view = self.canvas.save_graph(
                 payload["project"],
                 payload["workspace"],
@@ -159,7 +221,11 @@ class RemovalService:
             self.forget_state_entries(
                 payload["project"], payload["workspace"], preview["nodeIds"], removed_edge_ids
             )
-            return {"view": view, "nodeIds": preview["nodeIds"]}
+            return {"view": view, "nodeIds": preview["nodeIds"], "recoveryId": recovery_id}
+
+    def restore(self, payload):
+        """Krok zpět po smazání: vrátí uzly, vazby, stav Desktop v3 i prostor agenta (jednou)."""
+        return removal_recovery.restore(self.canvas, payload)
 
     def forget_workspaces(self, project, workspace, node_ids):
         """Smazaná karta si bere svůj prostor agenta s sebou (docs/karta-pro-agenty.md).
@@ -224,7 +290,12 @@ class RemovalService:
         new_edges = {
             edge_id: report for edge_id, report in state["edges"].items() if edge_id not in removed_edges
         }
-        new_state = {**state, "nodes": new_nodes, "edges": new_edges}
+        new_state = {
+            **state, "nodes": new_nodes, "edges": new_edges,
+            "rules": [rule for rule in state["rules"]
+                      if not (rule["scope"] == "node" and rule["target"] in removed_nodes)],
+            "decisions": [item for item in state["decisions"] if item["nodeId"] not in removed_nodes],
+        }
         if new_state == state:
             return
         store.save(

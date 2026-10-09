@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
+from backend.editor.agent_memory.test_completion_evidence import evidence
 from backend.canvas.areas import area_of
 from backend.canvas.canvas_plan_layout import overlapping
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed, send, snapshot
@@ -22,6 +23,21 @@ def component(parent="@n0", position=None):
                     "ports": [{"ref": "success", "label": "Přihlášen"}]}],
         "rules": [{"kind": "must_not", "text": "Neukládat heslo do logu."}],
     }]}
+
+
+def test_plan_preserves_all_card_fields_in_graph_and_brief(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        digest = seed(client)
+        plan = component()
+        card = {'layer': 'backend', 'status': 'ready', 'model': 'sonnet', 'effort': 'high', 'due': '2026-10-10'}
+        plan['nodes'][0]['card'] = card
+        result = send(client, digest, plan)
+        assert result.status_code == 200, result.text
+        node_id = result.json()['refs']['component']
+        view = client.get('/api/view', params=SCOPE).json()
+        assert next(n for n in view['graph']['nodes'] if n['id'] == node_id)['card'] == card
+        brief = client.get('/api/desktop-v3/node-brief', params={**SCOPE, 'nodeId': node_id}).json()
+        assert all(brief['node'][key] == value for key, value in card.items())
 
 
 @pytest.mark.parametrize("parent,expected_parent", [("@n0", "n0"), ("@s0", "s0"), ("@a0", None), (None, None)])
@@ -112,6 +128,7 @@ def test_catalog_cannot_add_under_closed_card_or_ancestor(tmp_path, closed):
         state = client.get("/api/desktop-v3/state", params=SCOPE).json()
         node = state["state"]["nodes"].setdefault(closed, {"phase": "discover", "criteria": [], "steps": []})
         node["done"] = {"confirmed": True, "at": "2026-10-04T12:00:00+00:00", "by": "human", "note": ""}
+        node["evidence"] = evidence()
         saved = client.post("/api/desktop-v3/state", headers=HEADERS,
                             json={**SCOPE, "expectedRevision": state["revision"], "state": state["state"]})
         assert saved.status_code == 200, saved.text

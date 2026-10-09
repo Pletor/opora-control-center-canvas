@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
+from backend.editor.agent_memory.test_completion_evidence import evidence
 
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}
@@ -147,7 +148,8 @@ def test_closed_card_is_read_only_for_new_messages(tmp_path):
         state = {
             "settings": [], "rules": [], "decisions": [], "tickets": [], "edges": {},
             "nodes": {"b": {"phase": "discover", "criteria": [], "steps": [],
-                            "done": {"confirmed": True, "at": "2026-09-16T09:00:00+00:00", "by": "human", "note": "Hotovo."}}},
+                            "done": {"confirmed": True, "at": "2026-09-16T09:00:00+00:00", "by": "human", "note": "Hotovo."},
+                           "evidence": evidence()}},
         }
         assert client.post("/api/desktop-v3/state", headers=HEADERS, json={**SCOPE, "expectedRevision": 0, "state": state}).status_code == 200
         inbox = client.get("/api/desktop-v3/agent-messages", params={**SCOPE, "nodeId": "b", "direction": "incoming"})
@@ -161,7 +163,8 @@ def close_card(client, node_id="b"):
     state = {
         "settings": [], "rules": [], "decisions": [], "tickets": [], "edges": {},
         "nodes": {node_id: {"phase": "discover", "criteria": [], "steps": [],
-                           "done": {"confirmed": True, "at": "2026-09-16T09:00:00+00:00", "by": "human", "note": "Hotovo."}}},
+                           "done": {"confirmed": True, "at": "2026-09-16T09:00:00+00:00", "by": "human", "note": "Hotovo."},
+                           "evidence": evidence()}},
     }
     response = client.post("/api/desktop-v3/state", headers=HEADERS, json={**SCOPE, "expectedRevision": 0, "state": state})
     assert response.status_code == 200, response.text

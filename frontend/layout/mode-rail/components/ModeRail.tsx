@@ -8,11 +8,11 @@ import Icon from "@/ui-kit/icon/components/Icon";
  * mód svítí akcentem a nese spodní linku. V úzkém okně popisek zmizí jen vizuálně, jméno dál nese
  * `aria-label` i `title`. Knihovna tu už není — otevírá ji menu ☰ v `layout/panel-dock/`.
  */
-export default function ModeRail({ mode, onMode, editorOnly = false, inactive = false }: { mode: WorkspaceMode; onMode: (mode: WorkspaceMode) => void; editorOnly?: boolean; inactive?: boolean }) {
+export default function ModeRail({ mode, onMode }: { mode: WorkspaceMode; onMode: (mode: WorkspaceMode) => void }) {
   return (
     <nav className="mode-rail" aria-label="Pracovní módy">
-      {WORKSPACE_MODES.filter((item) => !editorOnly || item.key !== "agents").map((item) => {
-        const active = !inactive && mode === item.key;
+      {WORKSPACE_MODES.map((item) => {
+        const active = mode === item.key;
         return (
           <button
             key={item.key}

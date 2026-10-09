@@ -4,7 +4,7 @@ import { SCOPE_LABEL } from "../logic/work-scope";
 import { turnLabel, type Turn } from "../logic/turns";
 import type { OutlineDecisions } from "../logic/use-task-outline";
 
-const ENVIRONMENT = { project: "Projekt", editor: "Editor", live: "Live Run" } as const;
+const ENVIRONMENT = { project: "Projekt", editor: "Editor", hub: "OporaHub" } as const;
 
 function deniedWord(count: number): string {
   if (count === 1) return "zamítnutý";

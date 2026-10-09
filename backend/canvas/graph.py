@@ -4,8 +4,13 @@ import math
 import re
 from datetime import date
 
-from backend.project.workspace.workspace_sources import relative_path
+from backend.canvas.card_checks import validate_checks
+from backend.canvas.design_metadata import validate_design
+from backend.canvas.gate_scenario import validate_scenario
+from backend.canvas.project_facts import validate_fact_refs
 from backend.canvas.site_metadata import validate_sites
+from backend.canvas.source_realization import validate_realization
+from backend.project.workspace.workspace_sources import relative_path
 
 EMPTY = {"nodes": [], "edges": []}
 NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y"}
@@ -17,7 +22,7 @@ AREA_SIZE_MIN, AREA_SIZE_MAX = 120, 20000
 # `blockOffsets` je nepovinný posun bočních bloků (akce / pravidla / podklady) proti kartě: uživatel
 # si blok odtáhl jinam a poloha má přežít uložení. Je relativní, takže karta bloky bere s sebou;
 # chybějící port stojí na výchozím místě u karty. Smí doplnit kterýkoli z tvarů uzlu výše.
-BLOCK_OFFSET_PORTS = {"action", "rule", "material"}
+BLOCK_OFFSET_PORTS = {"action", "rule", "material", "pipeline"}
 # `color` je nepovinná barva rámečku oblasti, aby šly skupiny na plátně rozeznat od sebe;
 # smí ji nést jen oblast (kind "area") a jen jedna z šesti hodnot (viz `AREA_COLORS`).
 AREA_COLORS = ("indigo", "teal", "amber", "rose", "violet", "slate")
@@ -33,12 +38,18 @@ CARD_VALUES = {
 }
 CARD_KEYS = set(CARD_VALUES) | {"due"}
 NODE_KEY_SETS = tuple(
-    keys | offsets | color | card | site
+    keys | offsets | color | card | site | design | gate | checks | facts | realization | scenario
     for keys in (NODE_KEYS, NODE_KEYS_WITH_SOURCE, NODE_KEYS_WITH_SIZE)
     for offsets in (set(), {"blockOffsets"})
     for color in (set(), {"color"})
     for card in (set(), {"card"})
     for site in (set(), {"site"})
+    for design in (set(), {"design"})
+    for gate in (set(), {"gateNodeId"})
+    for checks in (set(), {"checks"}, {"goal_mode"}, {"checks", "goal_mode"})
+    for facts in (set(), {"factRefs"})
+    for realization in (set(), {"realization"})
+    for scenario in (set(), {"scenario"})
 )
 EDGE_KEYS = {"id", "source", "target"}
 # Port karty, ze kterého vazba vede; chybějící port u starších vazeb znamená `next`.
@@ -161,6 +172,20 @@ def validate_graph(value):
                 raise ValueError("Posun bloků má jen uzel nebo sektor.")
             validate_block_offsets(n["blockOffsets"])
         # Kartu (druh, stav, termín, model, effort) nese jen uzel; sektor, komentář ani oblast ne.
+        validate_checks(n)
+        validate_fact_refs(n)
+        if "scenario" in n:
+            if n["kind"] != "node":
+                raise ValueError("Scénář patří jen kartě uzlu.")
+            validate_scenario(n["scenario"])
+        if "realization" in n:
+            if n["kind"] not in ("node", "sector") or not n.get("sourceRef"):
+                raise ValueError("Realizace patří kartě s cestou zdroje.")
+            validate_realization(n["realization"])
+        if "design" in n:
+            if n["kind"] != "node":
+                raise ValueError("Návrh patří pouze uzlu.")
+            validate_design(n["design"])
         if "card" in n:
             if n["kind"] != "node":
                 raise ValueError("Kartu má jen uzel.")
@@ -218,6 +243,17 @@ def validate_graph(value):
             cursor = parents[cursor]
         if not has_sector:
             raise ValueError("Uzel se zdrojem musí ležet uvnitř sektoru.")
+    for node in nodes:
+        if "gateNodeId" not in node:
+            continue
+        gate_id = node["gateNodeId"]
+        if node["kind"] != "sector" or not valid_id(gate_id) or kinds.get(gate_id) != "node":
+            raise ValueError("Brána sektoru musí být existující karta; před smazáním brány zrušte její přiřazení.")
+        cursor = parents[gate_id]
+        while cursor is not None and kinds[cursor] != "sector":
+            cursor = parents[cursor]
+        if cursor != node["id"]:
+            raise ValueError("Brána musí patřit do svého nejbližšího sektoru.")
     edge_ids = set()
     for edge in edges:
         if (

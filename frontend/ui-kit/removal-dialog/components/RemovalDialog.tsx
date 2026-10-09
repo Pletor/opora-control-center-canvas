@@ -24,7 +24,7 @@ export default function RemovalDialog({ preview, onClose, onConfirm }: {
   }
   return <dialog ref={dialog} className="removal-dialog" aria-labelledby="removal-title"
     onCancel={(e) => { e.preventDefault(); if (!pending) onClose(); }}>
-    <h2 id="removal-title">{isProject ? "Odebrat repozitář" : "Smazat z plátna"}</h2>
+    <h2 id="removal-title">{isProject ? "Odebrat repozitář" : preview.kind === "selection" ? "Smazat vybrané" : "Smazat z plátna"}</h2>
     <p><strong>{preview.label}</strong></p>
     {isProject ? <>
       <p>Projekt zmizí ze seznamu OporaCC. <strong>GitHub ani lokální soubory se nesmažou.</strong></p>
@@ -32,8 +32,11 @@ export default function RemovalDialog({ preview, onClose, onConfirm }: {
       <p>Historie a pracovní kopie zůstanou uložené. Neuložené rozepsané změny tohoto projektu budou zahozeny.</p>
     </> : <>
       <p>Uzly včetně všech potomků: <strong data-testid="removal-node-count">{preview.nodeCount}</strong></p>
+      {!!preview.confirmedNodeIds?.length && <p style={{ color: "var(--danger, #dc2626)" }}
+        title="Uzavřené karty mají potvrzenou práci; smazáním zmizí z plátna i jejich uzavření.">
+        z toho uzavřené: <strong data-testid="removal-confirmed-count">{preview.confirmedNodeIds.length}</strong></p>}
       <p>Vazby k odstranění: <strong data-testid="removal-edge-count">{preview.edgeCount}</strong></p>
-      <p>Ostatní uzly a pracovní prostory zůstanou. Předchozí graf a uložená zadání zachováme v lokální historii; obnovení přes UI zatím není dostupné.</p>
+      <p>Ostatní uzly a pracovní prostory zůstanou. Smazání vrátíte tlačítkem Zpět nebo Ctrl+Z.</p>
       {preview.nodeCount > 0 && <p>Neuložené rozepsané změny mazaných uzlů budou zahozeny.</p>}
     </>}
     {error && <p role="alert">{error}</p>}

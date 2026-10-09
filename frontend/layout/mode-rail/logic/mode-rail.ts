@@ -11,7 +11,6 @@ export const MODE_ICONS: Record<string, IconName> = {
   text: "type",
   drawing: "pencil",
   map: "map",
-  agents: "bot",
 };
 
 /** Neznámý mód (chybějící řádek v tabulce, cizí data) dostane ikonu struktury místo prázdného místa. */

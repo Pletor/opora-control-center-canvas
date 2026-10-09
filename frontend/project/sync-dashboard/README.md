@@ -1,6 +1,6 @@
 # sync-dashboard
 
-Celkový pohled na proces jednoho projektu na stránce projektu: co je zelené, co čeká na 1:1, co
+Celkový pohled na proces jednoho projektu v prostředí OporaHub (`frontend/hub/oporahub-workspace/`): co je zelené, co čeká na 1:1, co
 blokuje a proč. Kontrakt je `docs/synchronizace-pravdy.md`, části 5 (stavy a barvy), 8 (verdikt
 Oracle) a 9 (dashboard projektu). Data přijdou hotová v props z `GET /api/sync-report`; napojení
 (fetch, obnova) dělá rodičovská stránka, tento dílek jen zobrazuje.

@@ -25,7 +25,7 @@ div.app
      PanelDropdown → LibraryNavbar | AgentNavbar     jen Editor a jen když je panel otevřený
 ```
 
-- Dnešní skupiny nástrojů (Pohled/Dokumentace, Tvorba, Filtr štítků, Rozložení, Nástroje pohledu) se přesunou za `v3-grow`, tedy doprava. Jejich obsah a podmínky zobrazení se nemění.
+- Dnešní skupiny nástrojů (Pohled, Tvorba, Filtr štítků, Rozložení, Nástroje pohledu) se přesunou za `v3-grow`, tedy doprava. Jejich obsah a podmínky zobrazení se nemění.
 - `editor-frame` už nemá sloupce Lišta módů, Knihovna ani Agenti. Plátno a inspektor zabírají celou šířku.
 - Domovská obrazovka (`ProjectHome`, bez projektu) panel Agentů nevykresluje. Nemá plátno, kam by se dalo táhnout, ani vybranou kartu.
 

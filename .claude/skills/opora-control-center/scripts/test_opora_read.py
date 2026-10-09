@@ -13,6 +13,42 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import opora_read
 
+
+def test_versions_returns_workspace_token_for_approved_save(net, monkeypatch, capsys):
+    calls, answers = net
+    answers['/api/canvas-versions'] = {'currentToken': 'version-token', 'dirty': True, 'versions': []}
+    code, out, _ = run(monkeypatch, capsys, 'versions', *SCOPE)
+    assert code == 0 and out['currentToken'] == 'version-token'
+    assert calls[-1]['route'] == '/api/canvas-versions'
+
+
+@pytest.mark.parametrize('kind', ['rule', 'decision'])
+def test_read_one_memory_item(net, monkeypatch, capsys, kind):
+    calls, answers = net
+    answers['/api/desktop-v3/' + kind] = {'item': {'id': 'a', 'text': 'Exact original'}, 'revision': 3}
+    code, out, _ = run(monkeypatch, capsys, kind, *SCOPE, '--id', 'a')
+    assert code == 0
+    assert calls[-1]['route'] == '/api/desktop-v3/' + kind
+    assert out['item']['text'] == 'Exact original'
+
+
+def test_frontier_waiting_takes_precedence_over_claim_and_dependencies():
+    graph = {'nodes': [{'id': 's', 'kind': 'sector'},
+                       {'id': 'a', 'kind': 'node', 'parentId': 's'},
+                       {'id': 'b', 'kind': 'node', 'parentId': 's'}],
+             'edges': [{'id': 'e', 'source': 'b', 'target': 'a'}]}
+    state = {'nodes': {'a': {'blocks': [{'id': 'ask', 'title': 'Credentials',
+                                        'state': {'status': 'blocked', 'note': 'Supply URL'}}]}}}
+    result = opora_read.frontier(graph, state, 's', {'a': opora_read.CLAIM_PREFIX + ' agent'})
+    assert result['claimed'] == []
+    assert result['blocked'] == []
+    assert [r['id'] for r in result['frontier']] == ['b']
+    assert result['waiting'][0]['waitingOnHuman'] == [{'blockId': 'ask', 'ask': 'Supply URL'}]
+    state['nodes']['a']['done'] = {'confirmed': True}
+    result = opora_read.frontier(graph, state, 's', {})
+    assert result['waiting'] == []
+    assert [r['id'] for r in result['closed']] == ['a']
+
 from backend.canvas.canvas_index import build_index
 from backend.canvas.canvas_index import search as index_search
 
@@ -234,3 +270,33 @@ def test_node_brief_summary_shows_start_and_length_of_card_text():
     out = opora_read.summary("node-brief", data, None, None)
     assert out["content"] == {"start": text[:opora_read.CONTENT_PREVIEW], "length": len(text), "revision": 3}
     assert opora_read.summary("node-brief", {**data, "content": None}, None, None)["content"] is None
+
+
+@pytest.mark.parametrize('command,route', [
+    ('agent-workspace', '/api/desktop-v3/agent-workspace'), ('agent-results', '/api/desktop-v3/agent-results')])
+def test_card_scoped_reads_send_node_id(net, monkeypatch, capsys, command, route):
+    calls, answers = net
+    answers[route] = {'revision': 4}
+    code, out, _ = run(monkeypatch, capsys, command, *SCOPE, '--node', 'n1')
+    assert code == 0 and out['revision'] == 4 and calls[-1]['route'] == route
+
+
+def test_frontier_without_node_reads_the_canvas_root_and_profiles_need_no_scope(net, monkeypatch, capsys):
+    calls, answers = net
+    answers['/api/desktop-v3/frontier'] = {'needsRouting': [{'id': 'n1'}]}
+    code, out, _ = run(monkeypatch, capsys, 'frontier', *SCOPE)
+    assert code == 0 and out['needsRouting'] == [{'id': 'n1'}]
+    answers['/api/desktop-v3/pipeline-profiles'] = {'profiles': [{'id': 'goal'}]}
+    code, out, _ = run(monkeypatch, capsys, 'pipeline-profiles')
+    assert code == 0 and out['profiles'][0]['id'] == 'goal'
+
+
+def test_node_brief_summary_carries_pipeline_and_output_request():
+    stages = [{'id': 'a', 'status': 'passed'}, {'id': 'b', 'status': 'todo'}]
+    data = {'node': {'id': 'n', 'checks': [{'id': 'unit', 'command': 'pytest'}], 'goal_mode': 'until_checks_pass'},
+            'pipeline': {'profile': 'goal', 'routedBy': 'router-1', 'current': {'id': 'b'}, 'stuck': [], 'stages': stages},
+            'outputContract': {'request': {'nodeId': 'n', 'expectedRevision': 2, 'contextVersion': 'f' * 64}}}
+    out = opora_read.summary('node-brief', data, None, None)
+    assert out['pipeline'] == {'profile': 'goal', 'routedBy': 'router-1', 'current': {'id': 'b'}, 'stuck': [], 'done': 1, 'total': 2}
+    assert out['request']['expectedRevision'] == 2 and out['goalMode'] == 'until_checks_pass'
+    assert opora_read.summary('node-brief', {'node': {}}, None, None)['pipeline'] is None

@@ -1,13 +1,34 @@
+import { fetchState } from "@/shared/desktop-state/logic/api";
+import type { StateResponse } from "@/shared/desktop-state/logic/types";
 import { useEffect, useMemo, useRef, useState, lazy, Suspense, type ReactNode } from "react";
 import Board from "@/editor/canvas/board/components/Board";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
+import { useUsage } from "@/editor/canvas/node-card/logic/use-usage";
+import { useAssignmentStatus } from "@/editor/canvas/node-card/logic/use-assignment-status";
+import { useLeases } from "@/editor/canvas/node-card/logic/use-leases";
+import { useSourceStatus } from "@/editor/canvas/node-card/logic/use-source-status";
+import { setUrlDownload } from "@/editor/canvas/node-card/logic/input-security";
+import { confirmProposal } from "@/editor/canvas/node-card/logic/completion-proposals";
 import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, type BlockApi, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
-import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, setDone, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
+import { removeIdea, setIdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
+import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, decideBlockPort, setPortSpawn, setDone, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
 import { edgeFromConnection, sameEdge, type BoardConnection } from "@/editor/canvas/board/logic/board-model";
-import { emptyHistory, record, redo, sameGraph, undo, type GraphHistory } from "@/editor/canvas/history/logic/graph-history";
+import { emptyHistory, record, recordRemoval, redo, sameGraph, undo, type GraphHistory } from "@/editor/canvas/history/logic/graph-history";
+import HistoryButtons from "@/editor/canvas/history/components/HistoryButtons";
+import { SaveScopeProvider } from "@/shared/hooks/logic/save-scope-context";
+import { useSaveScope, useSaveParticipant, flushSaveScope, invalidateSavedScope, trackSaveWrite, waitForSaveWrites, saveScopeEntries } from "@/shared/hooks/logic/save-coordinator";
+import { orphanedPendingEdits, flushOrphanedPendingEdits } from "@/shared/hooks/logic/use-pending-edits";
+import SaveVersionsTools from "@/editor/canvas/save-versions/components/SaveVersionsTools";
+import ActivityLogTools from "@/editor/canvas/activity-log/components/ActivityLogTools";
+import { useCanvasVersions } from "@/editor/canvas/save-versions/logic/use-canvas-versions";
+import { useSaveShortcut } from "@/editor/canvas/save-versions/logic/use-save-shortcut";
+import { versionAuthor } from "@/editor/canvas/save-versions/logic/save-versions";
+import { deletableSelection, selectionPlan } from "@/editor/canvas/board/logic/box-selection";
 import { useUndoShortcut } from "@/editor/canvas/history/logic/undo-shortcut";
-import { arrangeLayer as arrangeFootprints, layerFootprints } from "@/editor/canvas/board/logic/layout-model";
+import { arrangeGraph, arrangeLayer as arrangeFootprints, layerFootprints, type ArrangeOptions } from "@/editor/canvas/board/logic/layout-model";
+/** Rozestupy „Srovnat“: dost místa na obálky předávek na vazbách a oblasti se odpuzují jako magnety. */
+const ARRANGE_SPACING: ArrangeOptions = { gapX: 160, gapY: 72, areaGap: 160 };
 import { clampAreaResize, settleCard } from "@/editor/canvas/board/logic/solid-bodies";
 import { itemById } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import { insertBlockFromItem } from "@/editor/component-library/library-catalog/logic/catalog-insert";
@@ -47,26 +68,23 @@ import AssistantButton from "@/layout/assistant-panel/components/AssistantButton
 import AssistantPanel from "@/layout/assistant-panel/components/AssistantPanel";
 import "@/layout/assistant-panel/styles/assistant-panel.css";
 import ModeRail from "@/layout/mode-rail/components/ModeRail";
-import EnvironmentSwitch, { type Environment } from "@/layout/environment-switch/components/EnvironmentSwitch";
+import EnvironmentSwitch from "@/layout/environment-switch/components/EnvironmentSwitch";
+import { resolveInitialModeEnvironment, type Environment } from "@/layout/environment-switch/logic/environment";
 import ProjectWorkspace from "@/project/workspace/components/ProjectWorkspace";
 
 import {ProjectMapNavigation, type ProjectMapKind} from "@/project/shell/components/ProjectLayout";
 import { readProjectView } from "@/project/shell/logic/project-view";
 import { architectureEditorId } from "@/project/architecture-editor/logic/editor-model";
 import { domainForNode } from "@/project/architecture-editor/logic/domain-model";
-import WorkspaceDocumentEditor from "@/project/workspace/components/WorkspaceDocumentEditor";
 import CreateDialog from "@/editor/canvas/create-dialog/components/CreateDialog";
 import type { CreateResult } from "@/editor/canvas/create-dialog/logic/create-form";
 import { useWorkspaceSelection } from "@/shared/selection/logic/workspace-selection";
 import { clearSelection, emptySelection, panelsFor, selectBlock, selectEdge, selectNode, type Panels, type Selection } from "@/app/logic/selection-model";
 import "@/layout/shell/styles/desktop-workspaces.css";
 import "@/editor/node-detail/sync-badge/styles/sync-badge.css";
-import "@/project/sync-dashboard/styles/sync-dashboard.css";
 
 import ScopeContext from "@/shared/contexts/components/ScopeContext";
 import LayerContext from "@/editor/node-detail/components/LayerContext";
-import AgentsWorkspace from "@/live-run/run-monitor/components/AgentsWorkspace";
-import "@/live-run/run-monitor/styles/agents.css";
 import type { WireframeKind } from "@/editor/canvas/wireframes/logic/wireframe-model";
 import DrawingTools from "@/editor/canvas/drawing/components/DrawingTools";
 import { discardDrawingDrafts, type DrawingTool } from "@/editor/canvas/drawing/logic/drawing-state";
@@ -83,14 +101,13 @@ import {
 import { catalogProfile, isLocalKind, profileUnset, projectCapabilities } from "@/shared/project-capabilities/logic/project-capabilities";
 import "@/layout/shell/styles/workspace-modes.css";
 import AccountCorner from "@/layout/account-corner/components/AccountCorner";
-import ProcessOverview from "@/live-run/processes/components/ProcessOverview";
 import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
 import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
 import { commitSpec, saveNodeSpec } from "@/shared/desktop-state/logic/api";
 import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-report";
-import SyncDashboard from "@/project/sync-dashboard/components/SyncDashboard";
+import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
 import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import CommentPanel from "@/editor/canvas/comment-card/components/CommentPanel";
 import { newComment, nextCommentSpot } from "@/editor/canvas/comment-card/logic/comment-model";
@@ -112,20 +129,6 @@ import {
   type NodeSpec,
 } from "@/shared/types/logic/types";
 const initial = new URLSearchParams(location.search);
-/** Sjednotí URL parametry mode a environment do jednoho konzistentního páru. */
-function resolveInitialModeEnvironment(
-  params: URLSearchParams,
-): { mode: WorkspaceMode; environment: Environment } {
-  const modeParam = readMode(params.get("mode"));
-  const envParam = params.get("environment");
-  const hasEnv = envParam === "project" || envParam === "editor" || envParam === "live";
-  if (!hasEnv) {
-    return { mode: modeParam, environment: modeParam === "agents" ? "live" : "editor" };
-  }
-  const environment = envParam as Environment;
-  if (environment === "live") return { mode: "agents", environment };
-  return { mode: modeParam === "agents" ? "structure" : modeParam, environment };
-}
 const initialModeEnvironment = resolveInitialModeEnvironment(initial);
 /**
  * Montážní místa v3 panelů (frontend/agents/desktop-v3). Koordinátor je předá v main.tsx, např.
@@ -135,7 +138,6 @@ export type DesktopV3Slots = {
   projectMemory?: (scope: { project: string; workspace: string; path: string }) => ReactNode;
   nodeWorkflow?: (scope: { project: string; workspace: string; nodeId: string }) => ReactNode;
   agentPacket?: (scope: { project: string; workspace: string; nodeId: string; path: string; references: string[]; note: string }) => ReactNode;
-  liveWorkspace?: (scope: { project: string; workspace: string; nodeId?: string }) => ReactNode;
 };
 export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [screen, setScreen] = useState<"home" | "canvas">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
@@ -149,8 +151,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   );
   const [drawingTool, setDrawingTool] = useState<DrawingTool>("selection");
   const docSelection = useWorkspaceSelection(project, workspace);
-  const [editorDocumentOpen, setEditorDocumentOpen] = useState(false);
-  const [liveView, setLiveView] = useState<"overview" | "runs" | "processes">("overview");
   const [drawingCommand, setDrawingCommand] = useState<{
     type: DrawingTool;
     sequence: number;
@@ -163,19 +163,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     () => initialModeEnvironment.environment,
   );
   const [projectMapKind,setProjectMapKind] = useState<ProjectMapKind>(() => readProjectView(initial.get("projectView")));
-  const lastEditorMode = useRef<WorkspaceMode>(mode === "agents" ? "structure" : mode);
   function setMode(next: WorkspaceMode) {
-    setEditorDocumentOpen(false);
     // Jiný mód = jiný pohled na vrstvu; šuplík z minulého pohledu by jen zakrýval plátno.
     dock.close();
     setEditorMode(next);
-    if (next !== "agents") lastEditorMode.current = next;
-    setEnvironment(next === "agents" ? "live" : "editor");
+    setEnvironment("editor");
   }
   function changeEnvironment(next: Environment) {
     setEnvironment(next);
-    if (next === "live") setEditorMode("agents");
-    else if (next === "editor") setEditorMode(lastEditorMode.current);
   }
   const [editingName, setEditingName] = useState<string | null>(null);
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
@@ -187,7 +182,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
   const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
   const [textRevision, setTextRevision] = useState(0);
-  const [focusRun, setFocusRun] = useState<{ sourceId: string; runId: string } | null>(null);
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
   const initialNode = initial.get("node");
   const [selection, setSelection] = useState<Selection>(() => (initialNode ? selectNode(initialNode) : emptySelection()));
@@ -196,6 +190,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const selectedBlock = selection.block;
   const selectedEdge = selection.edge;
   const [removal, setRemoval] = useState<RemovalPreview | null>(null);
+  // Hromadný výběr na plátně (tah obdélníkem, Ctrl+klik): patří jedné vrstvě jednoho prostoru.
+  const [multiSelected, setMultiSelected] = useState<string[]>([]);
+  useEffect(() => setMultiSelected([]), [project, workspace, parent]);
   // Bloky z portů karty: otevřené v této relaci (blok s uloženými položkami je vidět vždy).
   const [openBlocks, setOpenBlocks] = useState<OpenBlocks>({});
   const [pipelinePickerFor, setPipelinePickerFor] = useState<string | null>(null);
@@ -230,6 +227,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   // Filtr štítků: karty bez vybraného štítku jsou na plátně ztlumené; prázdný = bez filtru.
   const [tagFilter, setTagFilter] = useState("");
   const desktop = useDesktopState(project, workspace);
+  const usage = useUsage(project, workspace, desktop.revision);
+  const leases = useLeases(project, workspace);
+  const assignmentStatuses = useAssignmentStatus(project, workspace, desktop.revision, textRevision);
   // Echo Oracle nad projektem: jeden dotaz na otevřený projekt, přepočet jen na vyžádání.
   const sync = useSyncReport(project, workspace);
   // Vybraný blok zmizel ze stavu (smazán jinde): výběr spadne zpět na uzel, aby zásuvka i inspektor zůstaly platné.
@@ -237,8 +237,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     if (!selected || !selectedBlock) return;
     if (!nodeWorkflowOf(desktop.state, selected).blocks.some((b) => b.id === selectedBlock)) setSelection(selectNode(selected));
   }, [selected, selectedBlock, desktop.state]);
+  // Naměřené výšky karet (plní Board): „Srovnat“ s nimi nepřekryje vyšší karty s bloky.
+  const cardHeights = useRef<Record<string, number>>({});
   const blockApi = useRef<BlockApi>({
-    mutate: async () => false, close: () => {}, pickPipeline: () => {}, uploadMaterial: async () => null, discardUpload: () => {}, previewUrl: () => null,
+    mutate: async () => false, close: () => {}, pickPipeline: () => {}, routePipeline: async () => false, uploadMaterial: async () => null, discardUpload: () => {}, previewUrl: () => null,
   });
   function togglePort(nodeId: string, port: BlockPort) {
     setOpenBlocks((current) => toggleOpen(current, nodeId, port));
@@ -247,6 +249,16 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     mutate: desktop.mutate,
     close: (nodeId, port) => setOpenBlocks((current) => closeOpen(current, nodeId, port)),
     pickPipeline: (nodeId) => setPipelinePickerFor(nodeId),
+    routePipeline: async (nodeId, profile) => {
+      try {
+        await api("/api/desktop-v3/pipeline", { project, workspace, nodeId, expectedRevision: desktop.revision, op: "route", profile, reason: "Přepnuto člověkem v UI." });
+        desktop.reload();
+        return true;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Pipeline se nepodařilo přestavět.");
+        return false;
+      }
+    },
     uploadMaterial: async (nodeId, dataUrl) => {
       try {
         const saved = await api<{ file: string }>("/api/node-materials/upload", { project, workspace, nodeId, dataUrl });
@@ -273,6 +285,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [view, setView] = useState<View | null>(null);
+  const sourceStatuses = useSourceStatus(project, workspace, view?.digest ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [modal, setModal] = useState<
@@ -316,6 +329,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       })
       .catch((e) => { if (g === generation.current) setError(String(e)); });
   }
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const scope = (event as CustomEvent<{ project: string; workspace: string }>).detail;
+      if (scope.project === project && scope.workspace === workspace) reloadCanvas();
+    };
+    window.addEventListener("opora:spawned", changed);
+    return () => window.removeEventListener("opora:spawned", changed);
+  });
   async function refresh() {
     const g = ++generation.current;
     setView(null);
@@ -397,7 +418,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     if (!view) return;
     savingGraph.current++;
     try {
-      await saveGraph(graph, onApplied, stepped);
+      await trackSaveWrite(project, workspace, saveGraph(graph, onApplied, stepped));
     } finally {
       savingGraph.current--;
       if (savingGraph.current === 0 && canvasReloadQueued.current) reloadCanvas();
@@ -449,8 +470,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       project={project}
       workspace={workspace}
       selectedNodeId={selected}
-      refreshKey={(view?.digest ?? "") + ":" + desktop.revision}
       readOnly={!!view?.readOnly || desktop.readOnly || !!(selected && nodeWorkflowOf(desktop.state, selected).done.confirmed)}
+      refreshKey={(view?.digest ?? "") + ":" + desktop.revision}
       profile={profile}
       scope={drawer.scope}
       showOutside={drawer.showOutside}
@@ -461,20 +482,121 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       onTab={agentNavbar.tab}
     />
   );
-  /** Krok zpět i vpřed je jen uložení staršího snímku grafu; historii nese `save` v `stepped`. */
+  /**
+   * Krok zpět i vpřed je jen uložení staršího snímku grafu; historii nese `save` v `stepped`. Krok
+   * zpět na smazání (`restore`) místo toho obnoví zálohu na serveru — vrátí karty i s obsahem.
+   */
   function stepHistory(direction: "undo" | "redo") {
     if (!editable) return;
     const step = direction === "undo" ? undo(historyRef.current, graph) : redo(historyRef.current, graph);
     if (!step) return;
-    run(() => save(step.graph, undefined, step.history));
+    const restore = (step as { restore?: string }).restore;
+    run(() => (restore ? restoreRemoval(restore, step.history) : save(step.graph, undefined, step.history)));
   }
-  // Ctrl+Z patří plátnu Editoru: ne v Projektu ani Live Runu, ne nad dokumentací a ne v kreslení,
+  /** Obnova smazaného (`/api/remove/restore`); odmítnutí (digest, už použito) historii nemění. */
+  async function restoreRemoval(recoveryId: string, stepped: GraphHistory) {
+    if (!view) return;
+    const ticket = ++generation.current;
+    const scope = { project, workspace };
+    const result = await api<{ view: View }>("/api/remove/restore", { project, workspace, recoveryId, digest: view.digest });
+    if (ticket !== generation.current || activeScope.current.project !== scope.project || activeScope.current.workspace !== scope.workspace) return;
+    historyRef.current = stepped;
+    setView(result.view);
+    desktop.reload();
+  }
+  // Ctrl+Z patří plátnu Editoru: ne v Projektu ani OporaHubu, ne nad dokumentací a ne v kreslení,
   // kde má krok zpět Excalidraw. Psaní do polí a textů si zkratku hlídá samo (isTypingTarget).
+  const historyEnabled = editable && environment === "editor" && mode !== "drawing";
   useUndoShortcut({
-    enabled: editable && environment === "editor" && mode !== "drawing" && !editorDocumentOpen,
+    enabled: historyEnabled,
     onUndo: () => stepHistory("undo"),
     onRedo: () => stepHistory("redo"),
   });
+  // Central save flushes the existing content owners before creating a workspace checkpoint.
+  const [saveAllBusy, setSaveAllBusy] = useState(false);
+  const [restorationEpoch, setRestorationEpoch] = useState(0);
+  const saveAllLock = useRef(false);
+  const restoreTicket = useRef<{ versionId: string; token: string; digest: string; project: string; workspace: string } | null>(null);
+  const saveScope = useSaveScope(project, workspace);
+  useSaveParticipant({ id: JSON.stringify(["persisted-content", project, workspace]), project, workspace, label: "Rozepsané texty a dokumentace",
+    dirty: orphanedPendingEdits(project, workspace).length > 0, isDirty: () => orphanedPendingEdits(project, workspace).length > 0,
+    flush: () => flushOrphanedPendingEdits(project, workspace) });
+  const versionsEnabled = screen === "canvas" && !!view;
+  const canvasVersions = useCanvasVersions({ project, workspace, enabled: versionsEnabled, refreshKey: `${view?.digest ?? ""}:${desktop.revision}:${saveScope.writeRevision}`, paused: saveAllBusy || saveScope.pending });
+  const versionAuthorName = versionAuthor(view?.workspaces, workspace);
+  async function prepareCheckpoint() {
+    if (!view || view.readOnly || desktop.readOnly) throw new Error("Tento pracovní prostor je pouze ke čtení.");
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    await waitForSaveWrites(project, workspace);
+    await canvasVersions.preflight();
+    await flushSaveScope(project, workspace);
+    const fresh = await api<View>("/api/view?" + new URLSearchParams({ project, workspace }));
+    const versions = await canvasVersions.refresh(true);
+    if (!versions.currentToken) throw new Error("Chybí potvrzený otisk pracovního prostoru.");
+    if (activeScope.current.project !== project || activeScope.current.workspace !== workspace) throw new Error("Pracovní prostor se během ukládání změnil.");
+    return { digest: fresh.digest, token: versions.currentToken, fresh };
+  }
+  function saveVersion() {
+    if (!versionsEnabled || saveAllLock.current) return;
+    saveAllLock.current = true; setSaveAllBusy(true); setError("");
+    void (async () => {
+      try { const checkpoint = await prepareCheckpoint(); await canvasVersions.save(checkpoint.digest, versionAuthorName, checkpoint.token); if (activeScope.current.project === project && activeScope.current.workspace === workspace) setView(checkpoint.fresh); }
+      catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+      finally { saveAllLock.current = false; setSaveAllBusy(false); }
+    })();
+  }
+  async function prepareRestore(versionId: string) {
+    if (saveAllLock.current) throw new Error("Počkejte na dokončení ukládání.");
+    saveAllLock.current = true; setSaveAllBusy(true); restoreTicket.current = null;
+    try { const checkpoint = await prepareCheckpoint(); restoreTicket.current = { versionId, token: checkpoint.token, digest: checkpoint.digest, project, workspace }; }
+    finally { saveAllLock.current = false; setSaveAllBusy(false); }
+  }
+  async function restoreVersion(versionId: string) {
+    const confirmed = restoreTicket.current;
+    if (!confirmed || confirmed.versionId !== versionId || confirmed.project !== project || confirmed.workspace !== workspace) throw new Error("Znovu vyberte verzi a potvrďte její obnovení.");
+    if (saveAllLock.current || saveScopeEntries(project, workspace).length) throw new Error("Od přípravy obnovy vznikly další změny. Znovu připravte obnovení.");
+    saveAllLock.current = true; setSaveAllBusy(true);
+    try {
+      const restored = await canvasVersions.restore(versionId, confirmed.digest, versionAuthorName, confirmed.token);
+      if (activeScope.current.project !== project || activeScope.current.workspace !== workspace) return;
+      invalidateSavedScope(project, workspace); discardSpecDrafts(project, workspace); discardDrawingDrafts(project, workspace);
+      const restoredIds = new Set(restored.graph.nodes.map((node) => node.id));
+      if (parent && !restoredIds.has(parent)) setParent(null);
+      if (selected && !restoredIds.has(selected)) setSelection(emptySelection());
+      const route = new URLSearchParams(location.search);
+      const routeDomain = route.get("domainId");
+      const survivingDomain = routeDomain && restored.graph.nodes.some((node) => node.id === routeDomain && node.site?.kind === "application") ? routeDomain : null;
+      if (survivingDomain) route.set("domainId", survivingDomain); else route.delete("domainId");
+      for (const key of ["pageId", "architectureNode"]) {
+        const id = route.get(key);
+        if (id && (!restoredIds.has(id) || !survivingDomain || domainForNode(restored.graph, id)?.id !== survivingDomain)) route.delete(key);
+      }
+      if (route.has("editorId")) route.set("editorId", architectureEditorId(project, workspace, survivingDomain ?? undefined));
+      history.replaceState(null, "", "/?" + route);
+      generation.current++; historyRef.current = emptyHistory(); setView(restored); desktop.reload();
+      setRestorationEpoch((value) => value + 1); restoreTicket.current = null;
+    } finally { saveAllLock.current = false; setSaveAllBusy(false); }
+  }
+  function reloadExternalSaveState() {
+    const pending = saveScopeEntries(project, workspace);
+    if (pending.length) { setError("Nejprve dokončete nebo zahoďte rozepsané změny v původním panelu: " + pending.map((entry) => entry.label).join(", ")); return; }
+    if (saveAllLock.current) return;
+    saveAllLock.current = true; setSaveAllBusy(true);
+    void (async () => {
+      try {
+        const fresh = await api<View>("/api/view?" + new URLSearchParams({ project, workspace }));
+        await canvasVersions.refresh(true);
+        if (activeScope.current.project !== project || activeScope.current.workspace !== workspace) return;
+        const changed = saveScopeEntries(project, workspace);
+        if (changed.length) throw new Error("Během načítání vznikly rozepsané změny. Zůstávají zachované: " + changed.map((entry) => entry.label).join(", "));
+        generation.current++; historyRef.current = emptyHistory(); setView(fresh); desktop.reload();
+        setRestorationEpoch((value) => value + 1); setError("");
+      } catch (cause) { setError(String(cause)); }
+      finally { saveAllLock.current = false; setSaveAllBusy(false); }
+    })();
+  }
+  useSaveShortcut({ enabled: versionsEnabled, onSave: saveVersion });
   const blocks = useMemo(
     () => buildBlockNodes(graph, parent, desktop.state, openBlocks, desktop.readOnly || !!view?.readOnly, blockApi),
     [graph, parent, desktop.state, openBlocks, desktop.readOnly, view?.readOnly],
@@ -502,12 +624,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const selectedBlockData = selectedWorkflow?.blocks.find((b) => b.id === selectedBlock);
   const pickerNode = graph.nodes.find((n) => n.id === pipelinePickerFor);
   const visible = graph.nodes.filter((n) => n.parentId === parent);
-  const visibleIds = new Set(visible.map((n) => n.id));
-  const outsideLinks = graph.edges.filter(
-    (e) =>
-      (visibleIds.has(e.source) || visibleIds.has(e.target)) &&
-      !(visibleIds.has(e.source) && visibleIds.has(e.target)),
-  ).length;
   const ancestors: CanvasNode[] = [];
   let cursor = layer;
   while (cursor) {
@@ -515,7 +631,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     cursor = graph.nodes.find((n) => n.id === cursor!.parentId);
   }
   const ancestorSector = [...ancestors].reverse().find((n) => n.kind === "sector") ?? null;
-  const currentPage = [...ancestors].reverse().find((n) => n.site?.kind === "page") ?? null;
   const availableSectors = graph.nodes.filter((n) => n.kind === "sector");
   const activeProject = project === "draft" ? draftProject : projects.find((p) => p.id === project);
   // Volné uzly patří jen historickému vestavěnému draftu; připojený projekt
@@ -709,7 +824,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           const target = placement.parentId ? graph.nodes.find((candidate) => candidate.id === placement.parentId) : null;
           if (target && closedNodeIds.has(target.id)) throw new Error("Cílová karta je uzavřená; vložit do ní nelze.");
           const plan = catalogPlan(item, placement);
-          const saved = await api<CanvasPlanResult>("/api/canvas-plan", { ...scope, digest: view.digest, plan });
+          const saved = await trackSaveWrite(project, workspace, api<CanvasPlanResult>("/api/canvas-plan", { ...scope, digest: view.digest, plan }));
           accepted = saved.ok && !saved.dryRun;
           const id = saved.refs?.component;
           if (!accepted || !id) throw new Error("Server nepotvrdil vytvoření komponenty.");
@@ -727,7 +842,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           historyRef.current = fresh.digest === saved.digest ? record(historyRef.current, view.graph) : emptyHistory();
           setView(fresh);
           desktop.reload();
-          setEditorDocumentOpen(false);
           setEditorMode("structure");
           setTagFilter("");
           setParent(created.parentId);
@@ -834,9 +948,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     if (!editable) return;
     const layerAreas = graph.nodes.filter((n) => n.parentId === parent && n.kind === "area");
     const arranged = arrangeFootprints(
-      layerFootprints(graph, parent, desktop.state, openBlocks, {}),
+      layerFootprints(graph, parent, desktop.state, openBlocks, cardHeights.current, true),
       graph.edges,
       layerAreas,
+      ARRANGE_SPACING,
     );
     const moved = new Map(arranged.nodes.map((p) => [p.id, p]));
     const framed = new Map(arranged.areas.map((a) => [a.id, a]));
@@ -849,6 +964,12 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       const to = moved.get(n.id);
       return to && (to.x !== n.x || to.y !== n.y) ? { ...n, x: to.x, y: to.y } : n;
     });
+    if (nodes.some((n, i) => n !== graph.nodes[i])) run(() => save({ ...graph, nodes }));
+  }
+  /** „Srovnat vše“: každá vrstva grafu stejným pravidlem jako „Srovnat“, uloženo jedním zápisem. */
+  function arrangeAllLayers() {
+    if (!editable) return;
+    const nodes = arrangeGraph(graph, desktop.state, openBlocks, cardHeights.current, ARRANGE_SPACING);
     if (nodes.some((n, i) => n !== graph.nodes[i])) run(() => save({ ...graph, nodes }));
   }
   /** Text komentáře opuštěný na plátně nebo v inspektoru. */
@@ -875,10 +996,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     });
   }
   async function confirmRemoval(preview: RemovalPreview) {
+    // Graf před smazáním: krok zpět na něj vrátí smazané přes zálohu `recoveryId` (jen týž scope).
+    const sameScope = () => activeScope.current.project === preview.project && activeScope.current.workspace === preview.workspace;
+    const before = sameScope() ? view?.graph : undefined;
     const result = await api<{
       view?: View;
       nodeIds?: string[];
       removedProject?: string;
+      recoveryId?: string;
     }>("/api/remove", {
       project: preview.project,
       workspace: preview.workspace,
@@ -888,8 +1013,12 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       confirmed: true,
     });
     generation.current++;
-    // Smazání jde mimo `save` a bere s sebou i obsah uzlu: starší snímky grafu by ho jen vzkřísily prázdný.
-    historyRef.current = emptyHistory();
+    // Smazání jde mimo `save` a bere s sebou i obsah uzlu: bez zálohy (`recoveryId`) by ho starší
+    // snímky grafu jen vzkřísily prázdné, proto se historie bez ní (a vždy u projektu) vyprázdní.
+    historyRef.current = preview.kind !== "project" && before && result.recoveryId && sameScope()
+      ? recordRemoval(historyRef.current, before, result.recoveryId)
+      : emptyHistory();
+    setMultiSelected([]);
     if (preview.kind === "project") {
       bootstrapGeneration.current++;
       discardSpecDrafts(preview.project);
@@ -927,15 +1056,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez šuplíku Knihovna/Agenti: nemá plátno, kam
   // by se dalo táhnout, ani vybranou kartu, pro kterou by Agenti a postupy něco ukázali.
   if (screen === "home") return <>
-    <div className="editor-frame">
+    <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
-      <SyncDashboard view={syncBoard} onRefresh={sync.refresh} />
     </div>
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
     <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
     {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
   </>;
-  const artifactMapOpen = mode === "map" && !editorDocumentOpen;
+  const artifactMapOpen = mode === "map";
   const inspectorTools =
     mode === "map" ? (
       null
@@ -952,36 +1080,30 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   // Kreslení má vlastní inspektor (nástroje plátna) mimo model výběru; ostatní režimy jdou přes panelsFor.
   const panels: Panels = mode === "drawing" ? { drawer: null, inspector: "scope" } : panelsFor(selection, mode, !!layer, node?.kind);
   const inspectorShown = panels.inspector !== null;
-  const productTreeProps = { nodes: graph.nodes, workspace, readOnly: !view || view.readOnly || desktop.readOnly, busy: busy || desktop.loading,
-    onOpenDomain: openDomainMap, onChooseWorkspace: () => {
-      if (localProject) { setWorkspace("draft"); enter(null); }
-      else if (view?.workspaces.length) { setWorkspace(view.workspaces[0].id); enter(null); }
-      else open("workspace");
-    } };
   const catalogPanel = <LibraryNavbar
     state={libraryNavbar.state} nodes={graph.nodes} closed={closedNodeIds} pageMatches={pageMatches}
     profile={profile} scope={drawer.scope} showOutside={drawer.showOutside}
     onScope={drawer.setScope} onToggleOutside={drawer.toggleOutside}
     onTab={libraryNavbar.tab} onSearch={libraryNavbar.search} onItem={libraryNavbar.item}
     onPageFilter={libraryNavbar.pageFilter} onPageSearch={libraryNavbar.pageSearch} onToggleGroup={libraryNavbar.group}
-    onOpenLayer={(id) => { setEditorDocumentOpen(false); setEditorMode("structure"); setTagFilter(""); openNode(id); }}
+    onOpenLayer={(id) => { setEditorMode("structure"); setTagFilter(""); openNode(id); }}
     structureActions={<SkeletonActions key={project + ":" + workspace} nodes={graph.nodes} selected={selected}
       readOnly={!editable || desktop.readOnly || selectedClosed} busy={busy} onAdd={addSkeleton}
-      onEnter={(id) => { setEditorDocumentOpen(false); setEditorMode("structure"); setTagFilter(""); enter(id); }} />}
+      onEnter={(id) => { setEditorMode("structure"); setTagFilter(""); enter(id); }} />}
     insertion={{ disabled: !editable || desktop.readOnly || desktop.loading || ancestors.some((ancestor) => closedNodeIds.has(ancestor.id)),
       layerName: layer?.name ?? "kořen návrhu", blockTargetName: !selectedClosed ? dropCard(selected)?.name ?? null : null,
       notice: catalogNotice, onInsert: (id) => { void insertCatalogComponent(id, null); }, onInsertBlock: insertCatalogBlock }}
   />;
   return (
-    <div className="app desktop-v2 desktop-v3">
+    <SaveScopeProvider project={project} workspace={workspace}><div className="app desktop-v2 desktop-v3">
       <TopBar
         onHome={() => setScreen("home")}
-        trailing={<AssistantButton open={assistantOpen} busy={assistantBusy} onToggle={() => setAssistantOpen((v) => !v)} />}
-        projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={setProjectMapKind}/> : null}
+        trailing={<><AssistantButton open={assistantOpen} busy={assistantBusy} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
+        projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={(kind) => { if (!saveAllBusy) setProjectMapKind(kind); }}/> : null}
         projects={projects}
         draftProject={draftProject}
         project={project}
-        busy={busy}
+        busy={busy || saveAllBusy}
         localProject={localProject}
         workspace={workspace}
         view={view}
@@ -1003,7 +1125,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           enter(null);
         }}
       >
-        <EnvironmentSwitch value={environment} onChange={changeEnvironment} disabled={busy} />
+        <EnvironmentSwitch value={environment} onChange={changeEnvironment} disabled={busy || saveAllBusy} />
 
       </TopBar>
       {error && (
@@ -1016,12 +1138,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       )}
       {/* Lišta Editoru se čte zleva jako věta: odkud beru (☰ menu), na co se dívám (záložky módů)
           a vpravo, co s tím dělám (skupiny nástrojů). */}
-      {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru">
+      {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru" inert={saveAllBusy}>
         <MenuButton open={dock.rail} onToggle={dock.toggleMenu} />
-        <ModeRail mode={mode} onMode={setMode} editorOnly inactive={editorDocumentOpen} />
+        <ModeRail mode={mode} onMode={setMode} />
         <span className="v3-grow" />
         <div className="v3-tool-group" role="group" aria-label="Pohled">
-          <button aria-pressed={editorDocumentOpen} onClick={() => setEditorDocumentOpen((open) => !open)}>Dokumentace</button>
+          {/* Lišta stojí i během ukládání (jen zešedne), aby při každém kroku neproblikla. */}
+          {view && !view.readOnly && <HistoryButtons canUndo={historyEnabled && historyRef.current.past.length > 0} canRedo={historyEnabled && historyRef.current.future.length > 0}
+            onUndo={() => stepHistory("undo")} onRedo={() => stepHistory("redo")} />}
         </div>
         {(mode === "structure" || mode === "text") && <div className="v3-tool-group" role="group" aria-label="Tvorba">
           <button type="button" disabled={!editable} onClick={() => open("sector")}>+ Sektor</button>
@@ -1034,16 +1158,19 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         </div>}
         {mode === "structure" && <div className="v3-tool-group" role="group" aria-label="Rozložení">
           <button type="button" disabled={!editable} onClick={arrangeLayer}>Srovnat</button>
+          <button type="button" disabled={!editable} onClick={arrangeAllLayers} title="Srovná všechny vrstvy projektu najednou; nezměřené karty podle odhadu výšky">Srovnat vše</button>
         </div>}
         {/* Se skrytým inspektorem zůstávají nástroje kreslení a mapy dosažitelné v liště. */}
-        {!inspectorShown && !editorDocumentOpen && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
+        {!inspectorShown && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
+
       </div>}
       {/* Rám prostředí pod horní lištou a lištou nástrojů: obsah prostředí zabírá celou šířku. V Editoru
           z levého okraje rámu vyjíždí šuplík (Knihovna nebo Agenti a postupy) nad plátnem, ne vedle
           něj (kontrakt docs/suplik-a-profil.md). */}
-      <div className="editor-frame">
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} product={productTreeProps} onOpenEditor={openArchitectureNode} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      <div className={"workspace-shell " + mode + "-mode" + ((mode === "agents" || mode === "map") ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "") + (environment === "editor" && editorDocumentOpen ? " document-open" : "")}>
+      <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
+      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} /> :
+      <div className={"workspace-shell " + mode + "-mode" + (mode === "map" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
             <nav aria-label="Cesta plátnem" className="crumbs">
@@ -1055,17 +1182,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 </span>
               ))}
             </nav>
-            {currentPage && <button type="button" data-testid="page-assignment" title={`Zadání stránky ${currentPage.name}`}
-              onClick={() => { setSelection(selectNode(currentPage.id)); setNodeTab("spec"); }}>Zadání stránky: {currentPage.name}</button>}
-            {mode === "structure" && outsideLinks > 0 && (
-              <button type="button" className="quiet" onClick={() => setMode("map")}>
-                Mapa architektury projektu
-              </button>
-            )}
 
           </div>}
           <div className="canvas-surface">
-            {environment === "editor" && mode === "structure" && panels.drawer === "block" && !editorDocumentOpen && !artifactMapOpen && view && node && selectedWorkflow && selectedBlockData && (
+            {environment === "editor" && mode === "structure" && panels.drawer === "block" && !artifactMapOpen && view && node && selectedWorkflow && selectedBlockData && (
                 <BlockEditorDrawer title={`Blok ${selectedBlockData.number} · ${selectedBlockData.title}`}
                   onClose={() => setSelection(selectNode(node.id))}>
                       <BlockDrawerContent
@@ -1083,20 +1203,9 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                       />
                 </BlockEditorDrawer>
             )}
-            {environment === "editor" && editorDocumentOpen ? <WorkspaceDocumentEditor key={JSON.stringify([project, workspace, docSelection.value.sourcePath])} project={project} workspace={workspace} path={docSelection.value.sourcePath} /> : view ? (
+            {view ? (
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
-              ) : mode === "agents" ? (
-                v3.liveWorkspace ? <div className="v3-live">
-                  <nav className="v3-live-tabs" aria-label="Pohled Live Run">
-                    <button aria-pressed={liveView === "overview"} onClick={() => setLiveView("overview")}>Přehled a tickety</button>
-                    <button aria-pressed={liveView === "runs"} onClick={() => setLiveView("runs")}>Dohled běhů</button>
-                    <button aria-pressed={liveView === "processes"} onClick={() => setLiveView("processes")}>Procesy</button>
-                  </nav>
-                  {liveView === "overview" ? <div className="v3-slot">{v3.liveWorkspace({ project, workspace, nodeId: selected ?? undefined })}</div>
-                    : liveView === "processes" ? <ProcessOverview project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name ?? project} nodeNames={Object.fromEntries(graph.nodes.map((n) => [n.id, n.name]))} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />
-                    : <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />}
-                </div> : <AgentsWorkspace project={project} workspace={workspace} focusRun={focusRun} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />
               ) : mode === "map" ? (
                 <ArchifyMap key={project} project={project}/>
               ) : mode === "drawing" ? (
@@ -1124,8 +1233,35 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                     />
                   </Suspense>
                 </WorkspaceBoundary>
-              ) : (
+              ) : (<>
                 <Board
+                  heightsRef={cardHeights}
+                  usage={usage}
+                  leases={leases}
+                  onUrlDownload={(nodeId, enabled) => desktop.mutate(setUrlDownload(nodeId, enabled))}
+                  sourceStatuses={sourceStatuses}
+                  onRealizeSource={async (nodeId, commit, prUrl) => {
+                    await trackSaveWrite(project, workspace, api("/api/desktop-v3/realize-source", { project, workspace, nodeId, digest: view?.digest, commit, prUrl }));
+                    reloadCanvas();
+                  }}
+                  onConfirmProposal={(id) => desktop.mutate(confirmProposal(id))}
+                  confirmError={desktop.error}
+                  onAutonomy={async (sectorId, until, grantedBy, note) => {
+                    // Revize až těsně před zápisem: stav mezitím mění agenti a stará revize by souhlas tiše odmítla.
+                    const fresh = await fetchState(project, workspace);
+                    desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/autonomy", { project, workspace, sectorId, until, grantedBy, note, expectedRevision: fresh.revision })));
+                  }}
+                  onSaveEvidence={(id, evidence) => desktop.mutate(current => ({ ...current, nodes: {
+                    ...current.nodes, [id]: { ...nodeWorkflowOf(current, id), evidence },
+                  } }))}
+                  onSaveSector={updated => { void run(() => save({ ...graph, nodes: graph.nodes.map(n => n.id === updated.id ? updated : n) })); }}
+                  onConfirmSector={async (sectorId, nodeIds) => {
+                    const fresh = await fetchState(project, workspace);
+                    desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/confirm-proposals", { project, workspace, sectorId, nodeIds, expectedRevision: fresh.revision })));
+                  }}
+                  assignmentStatuses={assignmentStatuses}
+                  onRuleWrite={(expected, item) => desktop.mutateItem("rule", expected, item)}
+                  sourceContext={{ project, workspace }}
                   key={project + workspace + parent}
                   scope={project + workspace + parent}
                   reveal={catalogReveal}
@@ -1134,12 +1270,25 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   settings={settings}
                   parent={parent}
                   selected={selected}
+                  multiSelected={multiSelected}
+                  onMultiSelect={(ids) => {
+                    const plan = selectionPlan(ids);
+                    setMultiSelected(plan.multi);
+                    setSelection((current) => plan.single ? (current.node === plan.single ? current : selectNode(plan.single)) : clearSelection());
+                  }}
+                  onDeleteSelection={() => {
+                    if (removal) return;
+                    const ids = deletableSelection(multiSelected, selected, new Set(visible.map((n) => n.id)));
+                    if (ids.length > 1) void requestRemoval("selection", ids.join(","));
+                    else if (ids.length === 1) void requestRemoval("node", ids[0]);
+                    else if (selectedEdge) void requestRemoval("edge", selectedEdge);
+                  }}
                   selectedBlock={selectedBlock}
                   disabled={!editable}
                   selectedEdge={selectedEdge}
-                  onSelect={(id) => setSelection(selectNode(id))}
+                  onSelect={openNode}
                   onSelectBlock={(nodeId, blockId) => setSelection(selectBlock(nodeId, blockId))}
-                  onClear={() => setSelection(clearSelection())}
+                  onClear={() => { setSelection(clearSelection()); setMultiSelected([]); }}
                   onSelectEdge={(id) => setSelection(selectEdge(id))}
                   onEnter={enter}
                   editing={editingName}
@@ -1215,10 +1364,12 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                     else if (event.type === "add-port") void desktop.mutate(addBlockPort(nodeId, event.blockId));
                     else if (event.type === "rename-port") void desktop.mutate(renameBlockPort(nodeId, event.blockId, event.portId, event.label));
                     else if (event.type === "remove-port") void desktop.mutate(removeBlockPort(nodeId, event.blockId, event.portId));
+                    else if (event.type === "decide-port") void desktop.mutate(decideBlockPort(nodeId, event.blockId, event.portId, event.status, event.reason));
+                    else if (event.type === "configure-spawn") void desktop.mutate(setPortSpawn(nodeId, event.blockId, event.portId, event.action));
                     else void desktop.mutate(updateBlock(nodeId, event.blockId, { title: event.title }));
                   }}
                 />
-              )
+              </>)
             ) : (
               <div className="loading" role="status">
                 Načítám plátno…
@@ -1254,11 +1405,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
             </span>
           </footer>}
         </main>
-        {!editorDocumentOpen && panels.inspector !== null && (
+        {panels.inspector !== null && (
           <aside className="inspector" aria-label="Inspektor">
             {panels.inspector === "node" && node ? (<>
               <NodePanel
-                key={project + ":" + workspace + ":" + node.id + ":" + view?.digest}
+                key={project + ":" + workspace + ":" + node.id}
                 node={node}
                 project={project}
                 workspace={workspace}
@@ -1290,20 +1441,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 graphNodes={linkTargets}
                 done={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).done}
                 onDone={(patch) => { void desktop.mutate(setDone(node.id, patch)); }}
+                ideas={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).ideas ?? []}
+                onIdeaStatus={(id, status) => { void desktop.mutate(setIdeaStatus(node.id, id, status)); }}
+                onIdeaRemove={(id) => { void desktop.mutate(removeIdea(node.id, id)); }}
                 onPickTag={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
                 onSelectBlock={(id) => setSelection(selectBlock(node.id, id))}
                 onAgentTask={() => requestAgentTask(node.id, "", "canvas")}
                 workflow={v3.nodeWorkflow?.({ project, workspace, nodeId: node.id })}
                 resultRevision={desktop.revision}
-                onLiveRun={v3.liveWorkspace ? () => {
-                  setLiveView("overview");
-                  setMode("agents");
-                } : undefined}
-                onOpenRun={(sourceId, runId) => {
-                  setFocusRun({ sourceId, runId });
-                  setLiveView("runs");
-                  setMode("agents");
-                }}
               />
             </>) : panels.inspector === "comment" && node ? (
               <CommentPanel
@@ -1601,6 +1746,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         onBusyChange={setAssistantBusy}
         onCanvasWritten={reloadCanvas}
       />
-    </div>
+    </div></SaveScopeProvider>
   );
 }
