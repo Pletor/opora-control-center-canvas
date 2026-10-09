@@ -3,6 +3,7 @@
 // a zapisuje je rodič (App) přes desktop.mutate(setIdeaStatus / removeIdea).
 import { sortedIdeas, sourceLabel, type CardIdea, type IdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
 import "@/editor/node-detail/ideas/styles/ideas.css";
+import "@/editor/node-detail/brief-vault/styles/brief-vault.css";
 
 export default function IdeasPanel({
   ideas,
@@ -10,12 +11,18 @@ export default function IdeasPanel({
   busy,
   onStatus,
   onRemove,
+  fragmentTitles,
+  onOpenFragment,
 }: {
   ideas: CardIdea[];
   readOnly: boolean;
   busy: boolean;
   onStatus: (id: string, status: IdeaStatus) => void;
   onRemove: (id: string) => void;
+  /** Názvy fragmentů schránky pro čip u Podnětu s `fragmentId`. */
+  fragmentTitles?: Record<string, string>;
+  /** Klik na čip fragmentu otevře schránku na něm. */
+  onOpenFragment?: (fragmentId: string) => void;
 }) {
   if (!ideas.length) {
     return (
@@ -38,6 +45,12 @@ export default function IdeasPanel({
             />
             <span className="ideas__text">{idea.text}</span>
           </label>
+          {idea.fragmentId && (
+            <button type="button" className="brief-chip" data-testid="idea-fragment" disabled={!onOpenFragment}
+              title="Podnět patří k fragmentu schránky zadání; klik otevře schránku" onClick={() => onOpenFragment?.(idea.fragmentId!)}>
+              Ze schránky: {fragmentTitles?.[idea.fragmentId] ?? "fragment"}
+            </button>
+          )}
           <span className="ideas__meta" title={idea.at}>
             {sourceLabel(idea.source)}{idea.by && idea.by !== "human" ? " · " + idea.by : ""}
           </span>

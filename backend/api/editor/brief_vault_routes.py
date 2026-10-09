@@ -1,7 +1,8 @@
 """Rozhraní Editoru: schránka zadání (docs/navrh-schranka-zadani.md, „API“).
 
-Čtení stromu a fragmentu smí agent i člověk. Zápis je jedna operace `op`; `set-mvp`, `delete`
-a `restore` patří člověku (služba volá `require_human`: agent 403, neznámý původce 428).
+Čtení stromu, fragmentu, historie a balíčku pro LLM (`research-brief`) smí agent i člověk. Zápis je
+jedna operace `op`; `set-mvp`, `delete`, `restore` a `feedback` patří člověku, odpověď na otázku pro
+člověka také (služba volá `require_human`: agent 403, neznámý původce 428).
 """
 
 from fastapi import APIRouter, Request
@@ -20,6 +21,14 @@ def create_brief_vault_router(service, desktop_state=None):
     @router.get("/brief-vault/fragment")
     def brief_vault_fragment(project: str, workspace: str, id: str, revision: int | None = None):
         return vault.fragment(project, workspace, id, revision)
+
+    @router.get("/brief-vault/history")
+    def brief_vault_history(project: str, workspace: str, scope: str | None = None, limit: int = 300):
+        return vault.history(project, workspace, scope, limit)
+
+    @router.get("/brief-vault/research-brief")
+    def brief_vault_research_brief(project: str, workspace: str, fragment: str):
+        return vault.research_brief(project, workspace, fragment)
 
     @router.post("/brief-vault")
     def brief_vault_write(payload: dict, request: Request):

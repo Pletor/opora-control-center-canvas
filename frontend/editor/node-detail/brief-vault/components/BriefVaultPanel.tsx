@@ -1,9 +1,9 @@
-// Záložka Schránka: pruh pokrytí, strom fragmentů s kuličkou stavu a detail vybraného fragmentu.
-// Jen čtení. Strom dodá rodič (useBriefVault), detail si dílek načte sám; klik na čip karty bublá přes onOpenNode.
-import { useMemo, useState } from "react";
-import {
-  COVERAGE_SEGMENTS, coverageOf, coverageSegments, statusDot, type VaultNode,
-} from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+// Strom schránky: pruh pokrytí, strom fragmentů s kuličkou stavu a detail vybraného fragmentu (sekce Zadání
+// v okně schránky). Strom dodá rodič (useBriefVault), detail si dílek načte sám; klik na čip karty bublá přes
+// onOpenNode a akce nad fragmentem (výzkum, otázka) dodá rodič v `detailActions`.
+import { useMemo, useState, type ReactNode } from "react";
+import { countChangedMvp, coverageOf, statusDot, textRevisionOf, type VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import CoverageBar from "@/editor/node-detail/brief-vault/components/CoverageBar";
 import FragmentDetailView from "@/editor/node-detail/brief-vault/components/FragmentDetailView";
 import "@/editor/node-detail/brief-vault/styles/brief-vault.css";
 
@@ -17,6 +17,9 @@ export default function BriefVaultPanel({
   scopeLabel,
   nodeNames,
   onOpenNode,
+  initialSelected = null,
+  detailActions,
+  emptyHint,
 }: {
   project: string;
   workspace: string;
@@ -29,11 +32,17 @@ export default function BriefVaultPanel({
   scopeLabel: string;
   nodeNames: Record<string, string>;
   onOpenNode: (id: string) => void;
+  /** Fragment, který se má hned otevřít (klik na čip „Ze schránky“). */
+  initialSelected?: string | null;
+  /** Akce nad vybraným fragmentem (okno schránky: výzkum, otázka); záložka je bez akcí. */
+  detailActions?: (id: string) => ReactNode;
+  /** Vlastní text prázdného výsledku (např. hledání bez shody). */
+  emptyHint?: ReactNode;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialSelected);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const coverage = useMemo(() => coverageOf(roots), [roots]);
-  const segments = coverageSegments(coverage);
+  const changedMvp = useMemo(() => countChangedMvp(roots), [roots]);
   const toggle = (id: string) => setExpanded((current) => {
     const next = new Set(current);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -43,37 +52,20 @@ export default function BriefVaultPanel({
   if (error && !roots.length) return <p className="error" role="alert">Schránku nelze načíst: {error}</p>;
   if (loading) return <p className="muted" role="status">Načítám schránku…</p>;
   if (readOnly) return <p className="brief-vault__empty">Main je jen ke čtení. Schránka zadání žije v pracovním prostoru; přepněte do něj.</p>;
+  if (!roots.length && emptyHint) return <div className="brief-vault__empty">{emptyHint}</div>;
   if (!roots.length) {
     return (
       <div className="brief-vault__empty" data-testid="brief-vault-empty">
         <p><strong>Schránka {scopeLabel} je prázdná.</strong></p>
         <p>Sem se ukládá dlouhé zadání doslova a s historií verzí: agent nebo člověk ho vloží, rozdělí na kapitoly,
           vybere MVP a jen vybrané kapitoly vloží jako karty. Zbytek tu zůstane „uloženo“ na později a nic se neztratí.</p>
-        <p className="muted">Vložení a rozdělení zatím dělá agent přes <code>/api/brief-vault</code> (recept ve skillu OPORA).</p>
+        <p className="muted">Vložení a rozdělení dělá agent přes <code>/api/brief-vault</code> (recept ve skillu OPORA); výzkum, otázky, MVP a vložení jako karty jsou v okně schránky.</p>
       </div>
     );
   }
   return (
     <div className="brief-vault" data-testid="brief-vault">
-      <div className="brief-vault__coverage">
-        <div className="brief-vault__bar" role="img"
-          aria-label={`Pokrytí: ${coverage.leaves} kapitol, ` + COVERAGE_SEGMENTS.map((s) => `${s.label} ${coverage[s.key]}`).join(", ")}>
-          {segments.map((segment) => (
-            <span key={segment.key} className={"brief-vault__segment brief-vault__segment--" + segment.key}
-              style={{ width: segment.percent + "%" }} title={`${segment.label}: ${segment.count}`} />
-          ))}
-        </div>
-        <p className="brief-vault__legend">
-          <strong>{coverage.leaves} {coverage.leaves === 1 ? "kapitola" : coverage.leaves < 5 ? "kapitoly" : "kapitol"}:</strong>{" "}
-          {COVERAGE_SEGMENTS.map((segment, index) => (
-            <span key={segment.key} className={"brief-vault__legend-item" + (coverage[segment.key] ? "" : " brief-vault__legend-item--zero")}>
-              {index > 0 && " · "}
-              <i className={"brief-vault__swatch brief-vault__segment--" + segment.key} aria-hidden="true" />
-              {segment.label} {coverage[segment.key]}
-            </span>
-          ))}
-        </p>
-      </div>
+      <CoverageBar coverage={coverage} changedMvp={changedMvp} />
       {error && <p className="muted" role="status">Obnovení selhalo, ukazuji poslední načtený stav.</p>}
       <ul className="brief-vault__tree" role="tree" aria-label={"Schránka " + scopeLabel}>
         {roots.map((root) => (
@@ -83,7 +75,8 @@ export default function BriefVaultPanel({
       </ul>
       {selected && (
         <FragmentDetailView key={selected} project={project} workspace={workspace} id={selected}
-          nodeNames={nodeNames} onOpenNode={onOpenNode} onClose={() => setSelected(null)} refresh={roots} />
+          nodeNames={nodeNames} onOpenNode={onOpenNode} onClose={() => setSelected(null)} refresh={roots}
+          actions={detailActions?.(selected)} />
       )}
     </div>
   );
@@ -111,15 +104,17 @@ function TreeRow({ node, depth, expanded, selected, onToggle, onSelect }: {
         <span className={"brief-vault__dot brief-vault__dot--" + dot.tone} title={dot.label} aria-hidden="true" />
         <button type="button" className="brief-vault__title" onClick={() => onSelect(node.id)}
           title={`${node.title} · ${dot.label} · r${node.revision}`}>
-          {node.kind === "research" && <span className="brief-vault__kind">research: </span>}
+          {node.kind === "research" && <span className="brief-vault__kind">výzkum: </span>}
+          {node.kind === "question" && <span className="brief-vault__kind">otázka: </span>}
           {node.title}
         </button>
         <span className="brief-vault__state">{dot.label}</span>
         {node.cards.length > 0 && <span className="brief-vault__meta" title="Karty vzniklé z fragmentu">→ {node.cards.length}</span>}
         {node.changedSinceInsert && (
-          <span className="brief-vault__changed" title="Karta vznikla ze starší revize fragmentu">⚠ v{node.revision} &gt; v{latestRef}</span>
+          <span className="brief-vault__changed" title="Karta vznikla ze starší revize textu fragmentu">⚠ v{textRevisionOf(node)} &gt; v{latestRef}</span>
         )}
         {node.ideas > 0 && <span className="brief-vault__meta" title="Otevřené Podněty k fragmentu">💡{node.ideas}</span>}
+        {!!node.hidden && <span className="brief-vault__meta" title="Hlubší větev pod stropem hloubky stromu">+{node.hidden} hlouběji</span>}
       </div>
       {open && node.children.length > 0 && (
         <ul role="group" className="brief-vault__tree">

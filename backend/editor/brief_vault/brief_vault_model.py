@@ -9,12 +9,15 @@ from typing import NoReturn
 from backend.canvas.graph import valid_id
 
 COLUMNS = ("parent_id", "scope_node_id", "ord", "kind", "title", "text", "stage", "mvp", "note", "by", "actor", "deleted")
-KINDS = ("brief", "research")
+# `research` = ověření proveditelnosti, `question` = otázka K upřesnění; obojí je poznámka k fragmentu, ne kus zadání.
+KINDS = ("brief", "research", "question")
 STAGES = ("draft", "research", "ready")
 # `proposed` navrhuje agent; `yes` / `no` rozhoduje jen člověk.
 MVP_VALUES = ("none", "proposed", "yes", "no")
 ACTORS = ("human", "agent", "unknown", "")
 MAX_TITLE, MAX_TEXT, MAX_NOTE, MAX_BY = 160, 64000, 1000, 120
+# Strop hloubky fraktálu (kořen = 1): hlubší strom nejde založit (409) a čtení ho nevnoří dál.
+MAX_DEPTH = 32
 # Revize, kterou obnova verze plátna zapíše fragmentu vzniklému až po verzi: měkce smazaný
 # a prázdný. Starší revize s doslovným textem v tabulce zůstávají.
 TOMBSTONE = {"parent_id": None, "scope_node_id": None, "ord": 0, "kind": "brief", "title": "", "text": "",
@@ -90,3 +93,25 @@ def history_rows(db, project, workspace, fragment_id):
     return [dict(row) for row in db.execute(
         "SELECT * FROM brief_fragment_revisions WHERE project_id=? AND workspace_id=? AND fragment_id=? ORDER BY revision",
         (project, workspace, fragment_id))]
+
+
+def text_revisions(db, project, workspace, fragment_ids=None):
+    """Revize, ve které se naposledy změnil TEXT fragmentu, {id: revize}.
+
+    „Změněno po vložení“ porovnává odkaz karty jen s ní: revize, které mění jen metadata
+    (propose-mvp, stage, výsledek výzkumu), kartě zadání nemění.
+    """
+    query = ("SELECT fragment_id, MAX(revision) AS revision FROM (SELECT fragment_id, revision, text,"
+             " LAG(text) OVER (PARTITION BY fragment_id ORDER BY revision) AS previous"
+             " FROM brief_fragment_revisions WHERE project_id=? AND workspace_id=?{only})"
+             " WHERE previous IS NULL OR previous != text GROUP BY fragment_id")
+    params = [project, workspace]
+    only = ""
+    if fragment_ids is not None:
+        ids = sorted(set(fragment_ids))
+        if not ids:
+            return {}
+        only = f" AND fragment_id IN ({','.join('?' for _ in ids)})"
+        params.extend(ids)
+    return {row["fragment_id"]: row["revision"] for row in db.execute(query.format(only=only), params)}
+

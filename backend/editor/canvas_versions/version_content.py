@@ -13,10 +13,11 @@ STORES = {
     "documents": ("workspace_documents", ("path",), ("fields", "node_id", "source_version")),
     "briefFragments": ("brief_fragment_revisions", ("fragment_id",), ("parent_id", "scope_node_id", "ord", "kind", "title",
                                                                      "text", "stage", "mvp", "note", "by", "actor", "deleted")),
+    "briefDetails": ("brief_fragment_details", ("fragment_id",), ("fields",)),
 }
 # Části přidané až po verzích, které je neznají: starší snímek je čte jako prázdné a jejich
 # prázdný seznam nemění digest obsahu (stará verze projde kontrolou integrity a není „změněná“).
-LATER_STORES = ("briefFragments",)
+LATER_STORES = ("briefFragments", "briefDetails")
 JSON_COLUMNS = {"fields", "scene", "sections"}
 SCHEMA = "opora.canvas-version/2"
 EXCLUDED = ["source-code", "git-history", "project-settings", "external-references", "immutable-agent-evidence"]
@@ -50,6 +51,7 @@ def empty_data(name):
         "agentWorkspaces": {"sections": dict.fromkeys(SECTIONS, ""), "by": "human"},
         "documents": {"fields": dict.fromkeys(sorted(FIELDS), ""), "node_id": None, "source_version": None},
         "briefFragments": dict(TOMBSTONE),
+        "briefDetails": {"fields": {}},
     }[name]
 
 
@@ -93,6 +95,7 @@ def restore_records(db, project, workspace, target, current, timestamp):
 def validate_records(records, project, workspace):
     from backend.canvas.graph import valid_id
     from backend.editor.agent_memory.agent_workspace import validate_save
+    from backend.editor.brief_vault.brief_vault_details import validate_details
     from backend.editor.brief_vault.brief_vault_model import validate_record
     from backend.editor.node.drawings import validate_scene
     from backend.editor.node.node_journal import valid_day
@@ -121,6 +124,8 @@ def validate_records(records, project, workspace):
                 validate_save({"project": project, "workspace": workspace, "nodeId": key[0], "expectedRevision": 0, "sections": data["sections"], "by": data["by"]})
             elif name == "briefFragments":
                 validate_record(data)
+            elif name == "briefDetails":
+                validate_details(data["fields"])
             elif name == "documents":
                 relative_path(key[0])
                 if set(data["fields"]) != FIELDS or any(not isinstance(value, str) or len(value) > 16000 for value in data["fields"].values()):

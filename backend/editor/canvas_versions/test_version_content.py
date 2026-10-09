@@ -29,6 +29,7 @@ def contents(marker):
     items["agentWorkspaces"]["sections"]["handoff"] = marker
     items["documents"]["fields"]["purpose"] = marker
     items["briefFragments"].update(text=marker, title=marker, deleted=0, scope_node_id="")
+    items["briefDetails"]["fields"] = {"decisions": [marker]}
     items["drawings"]["scene"]["elements"] = [{"id": "rect", "type": "rectangle", "x": 0, "y": 0,
                                                 "width": 10 if marker == "before" else 20, "height": 10}]
     return items

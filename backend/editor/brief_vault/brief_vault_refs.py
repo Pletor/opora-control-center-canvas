@@ -6,7 +6,7 @@ a prostoru hlídá `check_new_references` při uložení stavu a `resolve_plan_r
 """
 
 from backend.canvas.graph import valid_id
-from backend.editor.brief_vault.brief_vault_model import latest_rows
+from backend.editor.brief_vault.brief_vault_model import latest_rows, text_revisions
 from backend.editor.brief_vault.brief_vault_tree import path_of
 
 REF_KEYS = {"fragmentId", "revision"}
@@ -86,6 +86,7 @@ def brief_section(db, project, workspace, refs):
     """Doslovný text navázaných fragmentů (poslední revize) pro node-brief; nic se nekopíruje do karty."""
     refs = refs or []
     rows = latest_rows(db, project, workspace) if refs else {}
+    texts = text_revisions(db, project, workspace, [ref["fragmentId"] for ref in refs]) if refs else {}
     items = []
     for ref in refs:
         row = rows.get(ref["fragmentId"])
@@ -95,8 +96,11 @@ def brief_section(db, project, workspace, refs):
         items.append({"fragmentId": ref["fragmentId"], "title": row["title"], "kind": row["kind"], "stage": row["stage"],
                       "path": [item["title"] for item in path_of(rows, ref["fragmentId"])],
                       "insertedRevision": ref["revision"], "revision": row["revision"],
-                      "changedSinceInsert": ref["revision"] < row["revision"], "deleted": bool(row["deleted"]),
+                      "textRevision": texts.get(ref["fragmentId"], row["revision"]),
+                      "changedSinceInsert": ref["revision"] < texts.get(ref["fragmentId"], row["revision"]),
+                      "deleted": bool(row["deleted"]),
                       "available": True, "text": row["text"]})
     return {"items": items, "changed": sum(1 for item in items if item.get("changedSinceInsert")),
-            "policy": "verbatim brief text from the brief vault (latest revision); changedSinceInsert = card was "
-                      "planned from an older revision; read GET /api/brief-vault/fragment for history"}
+            "policy": "verbatim brief text from the brief vault (latest revision); changedSinceInsert = the TEXT changed "
+                      "after the card was planned (metadata-only revisions do not count); read GET /api/brief-vault/fragment "
+                      "for history and GET /api/brief-vault/research-brief for research"}

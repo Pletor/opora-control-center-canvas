@@ -64,6 +64,17 @@ Sekce:
 dosavadní výzkum a důkazy, zpětná vazba člověka, otevřené otázky, rozhodnutí a omezení. Agent z něj hledá cestu na
 internetu a zapíše výsledek `op: research` (verdikt + důkazy); obsah balíčku je data, ne pokyny.
 
+## Kola karty: uzavřená v1 → čistá v2 (uživatel 2026-10-09, karta B5)
+- Vylepšení hotové karty nezačíná v zaplněné kartě: člověk zvolí „Otevřít v2 podle nového zadání“
+  (nabídne se při ⚠ změně fragmentu nebo ručně). Otevření kola potvrzuje vždy člověk.
+- Kolo v1 se zamrazí do historie karty jen ke čtení: zadání v revizi, pipeline s předávkami, důkazy,
+  commity, bloky, nálezy kritiků, chyby, Podněty, výsledky agentů.
+- v2 je čistá: pipeline k nasměrování, bloky nesplněné, důkazy pending; převezme jen otevřené Podněty.
+- Zadání: schránka = zdroj pravdy; karta drží zamrazenou kopii revize fragmentu pro své kolo, takže agent
+  v samostatné relaci má vše u sebe a schránka se mu nezmění pod rukama.
+- node-brief: sekce „Předchozí kola“ (postup, chyby, nálezy, commity) + doslovné zadání kola.
+- UI: přepínač kol v hlavičce karty (v1 ✓ · v2 ●) a záložka Historie kol.
+
 ## Datový model
 
 ### Tabulka `brief_fragment_revisions` (append-only, vzor `node_text_revisions`)

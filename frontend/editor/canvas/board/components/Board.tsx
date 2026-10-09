@@ -228,7 +228,10 @@ export default function Board({
   const [showFrontier, setShowFrontier] = useState(true);
   const frontier = useFrontier(sourceContext, parent, showFrontier, state);
   const checklists = useCardChecklist(sourceContext, parent, state);
-  const vault = useBriefVault(sourceContext, state);
+  // Strom schránky se obnoví jen při změně odkazů karet a Podnětů do schránky, ne při každé změně stavu.
+  const vaultRefs = useMemo(() => JSON.stringify(Object.entries(state.nodes).map(([id, node]) =>
+    [id, node.fragmentRefs ?? [], (node.ideas ?? []).map((idea) => idea.fragmentId ?? "")])), [state.nodes]);
+  const vault = useBriefVault(sourceContext, vaultRefs);
   const vaultIndex = useMemo(() => indexVault(vault.tree?.roots ?? []), [vault.tree]);
   const isSelected = (id: string) => id === selected || multiSelected.includes(id);
   const sectors = useMemo(() => sectorViews(graph, state), [graph, state]);

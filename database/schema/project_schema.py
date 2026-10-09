@@ -41,6 +41,17 @@ CREATE TABLE IF NOT EXISTS brief_fragment_revisions(
     text TEXT NOT NULL, stage TEXT NOT NULL, mvp TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL,
     actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL,
     PRIMARY KEY(project_id, workspace_id, fragment_id, revision));
+-- backend/editor/brief_vault/brief_vault_details.py: výzkum, otázka a odkazy na rozhodnutí fragmentu (JSON, jen přibývají revize)
+CREATE TABLE IF NOT EXISTS brief_fragment_details(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
+    fields TEXT NOT NULL, saved_at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, fragment_id, revision));
+-- backend/editor/brief_vault/brief_vault_details.py: zpětná vazba člověka k fragmentu (append-only)
+CREATE TABLE IF NOT EXISTS brief_fragment_feedback(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL, fragment_id TEXT NOT NULL,
+    fragment_revision INTEGER NOT NULL, verdict TEXT NOT NULL, text TEXT NOT NULL, by TEXT NOT NULL,
+    actor TEXT NOT NULL, at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
 -- backend/editor/node/node_specs.py
 CREATE TABLE IF NOT EXISTS node_spec_revisions(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
@@ -160,6 +171,8 @@ PROJECT_TABLES = {
     "project_settings": "project_id",
     "node_text_revisions": "project_id",
     "brief_fragment_revisions": "project_id",
+    "brief_fragment_details": "project_id",
+    "brief_fragment_feedback": "project_id",
     "node_spec_revisions": "project_id",
     "node_journal_revisions": "project_id",
     "drawing_revisions": "project_id",

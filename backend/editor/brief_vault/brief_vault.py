@@ -13,9 +13,12 @@ from datetime import UTC, datetime
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+from backend.editor.brief_vault import brief_vault_develop as develop
+from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_model import (
     COLUMNS,
     MAX_BY,
+    MAX_DEPTH,
     MAX_NOTE,
     MAX_TEXT,
     MAX_TITLE,
@@ -28,8 +31,8 @@ from backend.editor.brief_vault.brief_vault_model import (
     text_of,
     validate_record,
 )
+from backend.editor.brief_vault.brief_vault_read import VaultReader
 from backend.editor.brief_vault.brief_vault_split import split_parts
-from backend.editor.brief_vault.brief_vault_tree import fragment_links, tree_of
 
 SCOPE_KEYS = {"project", "workspace", "op"}
 # Pole každé operace: (povinná, volitelná).
@@ -37,16 +40,18 @@ OPS = {
     "create": ({"title", "text"}, {"scopeNodeId", "parentId", "stage", "note"}),
     "revise": ({"fragmentId", "expectedRevision", "note"}, {"text", "title", "stage"}),
     "split": ({"fragmentId", "expectedRevision"}, {"parts", "splitter", "note"}),
-    "research": ({"fragmentId", "title", "text"}, {"note"}),
+    "research": ({"fragmentId", "title", "text"}, {"note", "question", "status"}),
     "promote": ({"fragmentId", "expectedRevision", "note"}, {"text"}),
     "propose-mvp": ({"fragmentIds"}, {"note"}),
     "set-mvp": ({"fragmentIds", "mvp"}, {"note"}),
     "delete": ({"fragmentId", "expectedRevision", "note"}, set()),
     "restore": ({"fragmentId", "expectedRevision", "revision", "note"}, set()),
+    **develop.OPS,
 }
 HUMAN_OPS = {"set-mvp": "MVP potvrzuje nebo zamítá jen člověk; agent ho navrhuje přes propose-mvp.",
              "delete": "Fragment zadání maže jen člověk.",
-             "restore": "Starou revizi fragmentu obnovuje jen člověk."}
+             "restore": "Starou revizi fragmentu obnovuje jen člověk.",
+             **develop.HUMAN_OPS}
 MAX_IDS = 500
 
 
@@ -67,17 +72,44 @@ def _payload(payload):
             fail(f"{key} musí být nezáporné celé číslo.")
     if "note" in payload:
         text_of(payload["note"], MAX_NOTE, "note", allow_empty=payload["op"] in ("create", "split", "research",
-                                                                                 "propose-mvp", "set-mvp"))
+                                                                                 "propose-mvp", "set-mvp", "question",
+                                                                                 "answer", "link-decisions", "from-idea"))
     return payload["op"]
 
 
 class _Write:
     """Jeden zápis v transakci: kdo, kdy a nová revize fragmentu."""
 
-    def __init__(self, db, project, workspace, actor, agent):
+    def __init__(self, db, project, workspace, actor, agent, state_store=None):
         self.db, self.project, self.workspace, self.actor = db, project, workspace, actor
         self.by = (agent or "agent") if actor == "agent" else actor
         self.at = _now()
+        self.state_store = state_store
+
+    def state(self):
+        """Stav plátna v téže transakci (rozhodnutí, Podněty)."""
+        return self.state_store.current(self.project, self.workspace)
+
+    def details(self, fragment_id):
+        found = latest_details(self.db, self.project, self.workspace, [fragment_id]).get(fragment_id)
+        return dict(found["fields"]) if found else {}
+
+    def check_depth(self, parent_id):
+        """Nové dítě rodiče `parent_id` nesmí překročit strop hloubky (bez rekurze, 409)."""
+        depth, cursor, seen = 0, parent_id, set()
+        while cursor is not None and depth <= MAX_DEPTH:
+            if cursor in seen:
+                break
+            seen.add(cursor)
+            row = self.db.execute("SELECT parent_id FROM brief_fragment_revisions WHERE project_id=? AND workspace_id=?"
+                                  " AND fragment_id=? ORDER BY revision DESC LIMIT 1",
+                                  (self.project, self.workspace, cursor)).fetchone()
+            if row is None:
+                break
+            depth += 1
+            cursor = row["parent_id"]
+        if depth + 1 > MAX_DEPTH or cursor in seen:
+            fail(f"strom schránky má strop hloubky {MAX_DEPTH}; vložte fragment výš nebo rozdělte jinou větev.")
 
     def latest(self, fragment_id, *, live=True):
         if not isinstance(fragment_id, str) or not valid_id(fragment_id):
@@ -137,6 +169,7 @@ def _create(w, payload, node_ids):
     scope, parent = payload.get("scopeNodeId"), None
     if "parentId" in payload:
         parent = w.latest(payload["parentId"])["fragment_id"]
+        w.check_depth(parent)
     elif scope != "" and scope not in node_ids:
         fail("scopeNodeId musí být \"\" (plátno) nebo id existující karty či sektoru.")
     row = w.new(parent=parent, scope=scope, title=title, text=text, stage=_stage(payload.get("stage", "draft")),
@@ -163,18 +196,11 @@ def _split(w, payload, node_ids):
     if w.children(row["fragment_id"]):
         fail("fragment už má podfragmenty; rozdělte některý z nich, nebo je nejdřív smaže člověk.")
     parts = split_parts(payload, row["text"])
+    w.check_depth(row["fragment_id"])
     note = (f"Rozděleno z {row['fragment_id']} r{row['revision']}. " + payload.get("note", "")).strip()
     children = [w.new(parent=row["fragment_id"], scope=None, title=part["title"], text=part["text"],
                       kind=row["kind"], note=note) for part in parts]
     return {"fragment": public(row), "children": [public(child) for child in children]}
-
-
-def _research(w, payload, node_ids):
-    parent = w.latest(payload["fragmentId"])
-    row = w.new(parent=parent["fragment_id"], scope=None, kind="research", stage="research",
-                title=text_of(payload["title"], MAX_TITLE, "title", allow_empty=False),
-                text=text_of(payload["text"], MAX_TEXT, "text"), note=payload.get("note") or "Research k fragmentu.")
-    return {"fragment": public(row)}
 
 
 def _promote(w, payload, node_ids):
@@ -228,14 +254,15 @@ def _restore(w, payload, node_ids):
     return {"fragment": public(w.insert(row["fragment_id"], row["revision"] + 1, data_of(old), note))}
 
 
-HANDLERS = {"create": _create, "revise": _revise, "split": _split, "research": _research, "promote": _promote,
-            "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore}
+HANDLERS = {"create": _create, "revise": _revise, "split": _split, "research": develop.research, "promote": _promote,
+            "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore, **develop.HANDLERS}
 
 
-class BriefVault:
+class BriefVault(VaultReader):
+    """Zápis jedné operace schránky; čtení (strom, fragment, balíček pro LLM, historie) dědí z `VaultReader`."""
+
     def __init__(self, canvas, state_store=None):
-        self.canvas = canvas
-        self.state = state_store or getattr(canvas, "desktop_v3_state", None) or DesktopV3State(canvas)
+        super().__init__(canvas, state_store or getattr(canvas, "desktop_v3_state", None) or DesktopV3State(canvas))
 
     def apply(self, payload, *, actor="unknown", agent=""):
         """Jedna operace schránky v jedné transakci; ValueError = nic se nezapsalo (HTTP 409)."""
@@ -252,36 +279,4 @@ class BriefVault:
             with self.canvas.lock, db:
                 db.execute("BEGIN IMMEDIATE")
                 return {"ok": True, "op": op,
-                        **HANDLERS[op](_Write(db, project, workspace, actor, agent), payload, node_ids)}
-
-    def _read(self, project, workspace):
-        view = self.canvas.view(project, workspace)
-        if view["readOnly"]:
-            return None, None
-        return latest_rows(self.canvas.db_for(project), project, workspace), self.state.current(project, workspace)["state"]
-
-    def tree(self, project, workspace, scope=None):
-        """Stromy schránek bez plných textů, s odvozeným stavem a pokrytím podstromu."""
-        if scope is not None and scope != "" and not valid_id(scope):
-            fail("scope má neplatný identifikátor.")
-        with self.canvas.graph_lock, self.canvas.lock:
-            rows, state = self._read(project, workspace)
-            if rows is None:
-                return {"readOnly": True, "roots": []}
-            return {"readOnly": False, "roots": tree_of(rows, state, scope)}
-
-    def fragment(self, project, workspace, fragment_id, revision=None):
-        """Plný text revize, historie, děti, cesta, karty a Podněty jednoho fragmentu."""
-        if not isinstance(fragment_id, str) or not valid_id(fragment_id):
-            fail("id fragmentu je neplatné.")
-        with self.canvas.graph_lock, self.canvas.lock:
-            rows, state = self._read(project, workspace)
-            if rows is None or fragment_id not in rows:
-                fail(f"fragment {fragment_id} v tomto pracovním prostoru neexistuje.")
-            history = history_rows(self.canvas.db_for(project), project, workspace, fragment_id)
-            chosen = rows[fragment_id] if revision is None else next(
-                (row for row in history if row["revision"] == revision), None)
-            if chosen is None:
-                fail(f"fragment nemá revizi {revision}.")
-            return {"fragment": public(chosen, with_text=True), "latestRevision": rows[fragment_id]["revision"],
-                    "history": [public(row) for row in history], **fragment_links(rows, state, fragment_id)}
+                        **HANDLERS[op](_Write(db, project, workspace, actor, agent, self.state), payload, node_ids)}

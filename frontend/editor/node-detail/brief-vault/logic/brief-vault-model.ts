@@ -4,7 +4,12 @@
 
 export type FragmentRef = { fragmentId: string; revision: number };
 export type FragmentStatus = "changed" | "inserted" | "research" | "mvp" | "proposed" | "saved";
-export type FragmentKind = "brief" | "research";
+export type FragmentKind = "brief" | "research" | "question";
+export type Verdict = "feasible" | "dead_end" | "unrealistic" | "unverified";
+export type ResearchStatus = "assigned" | "running" | "done";
+/** Výtah výzkumu ve stromu (bez důkazů). */
+export type ResearchSummary = { question: string; verdict: Verdict; confidence: "" | "low" | "medium" | "high"; status: ResearchStatus; round: number; evidence: number };
+export type QuestionSummary = { askedFor: "human" | "agent"; answered: boolean };
 
 /** Revize fragmentu bez textu (`public()` na serveru). */
 export type FragmentRevision = {
@@ -25,17 +30,31 @@ export type FragmentRevision = {
   chars: number;
 };
 
-/** Uzel stromu schránky s odvozeným stavem; `children` jsou podfragmenty i research. */
+/** Uzel stromu schránky s odvozeným stavem; `children` jsou podfragmenty, research i otázky. */
 export type VaultNode = FragmentRevision & {
   status: FragmentStatus;
   inserted: boolean;
   cards: { nodeId: string; revision: number }[];
+  /** Revize poslední změny TEXTU; „změněno po vložení“ porovnává jen s ní (metadata kartě zadání nemění). */
+  textRevision?: number;
   changedSinceInsert: boolean;
   /** Otevřené Podněty navázané na fragment. */
   ideas: number;
+  /** Počet záznamů zpětné vazby člověka. */
+  feedback?: number;
+  research?: ResearchSummary;
+  question?: QuestionSummary;
+  /** Id rozhodnutí plátna, na která fragment odkazuje (text se nekopíruje). */
+  decisions?: string[];
+  /** Kolik potomků pod stropem hloubky server už nevnořil. */
+  hidden?: number;
   children: VaultNode[];
 };
-export type VaultTree = { readOnly: boolean; roots: VaultNode[] };
+export type Feedback = { id: string; fragmentId: string; fragmentRevision: number; verdict: "agree" | "disagree" | "comment"; text: string; by: string; actor: string; at: string };
+export type VaultTree = { readOnly: boolean; roots: VaultNode[]; feedback?: Feedback[] };
+export type Evidence = { url: string; title: string; quote: string; accessedAt: string };
+export type ResearchDetails = Omit<ResearchSummary, "evidence"> & { approach: string; evidence: Evidence[] };
+export type QuestionDetails = { askedFor: "human" | "agent"; proposal: string; answer: string; answeredBy: string; answeredAt: string };
 
 export type FragmentDetail = {
   fragment: FragmentRevision & { text: string };
@@ -47,6 +66,10 @@ export type FragmentDetail = {
   children: (FragmentRevision & { status: FragmentStatus })[];
   cards: { nodeId: string; revision: number; changedSinceInsert: boolean }[];
   ideas: { nodeId: string; ideaId: string; text: string; status: "open" | "done" }[];
+  textRevision?: number;
+  details?: { research?: ResearchDetails; question?: QuestionDetails; decisions?: string[] };
+  decisions?: ({ id: string; available: true; text: string; nodeId: string; pinned: boolean } | { id: string; available: false })[];
+  feedback?: Feedback[];
 };
 
 /** Segmenty pruhu pokrytí v pevném pořadí (zleva): hotové vlevo, varování vpravo. */
@@ -88,6 +111,20 @@ export function coverageOf(roots: VaultNode[]): Coverage {
   return result;
 }
 
+/** Kolik listů v segmentu „změněno“ je zároveň MVP (potvrzené nebo navržené): varování MVP neschová. */
+export function countChangedMvp(roots: VaultNode[]): number {
+  let count = 0;
+  const stack = [...roots];
+  while (stack.length) {
+    const node = stack.pop()!;
+    if (node.kind !== "brief") continue;
+    const briefs = node.children.filter((child) => child.kind === "brief");
+    if (!briefs.length) { if (node.status === "changed" && (node.mvp === "yes" || node.mvp === "proposed")) count += 1; }
+    else stack.push(...briefs);
+  }
+  return count;
+}
+
 /** Šířky segmentů v procentech; prázdný strom = žádný segment. */
 export function coverageSegments(coverage: Coverage): { key: CoverageKey; label: string; count: number; percent: number }[] {
   if (!coverage.leaves) return [];
@@ -100,8 +137,12 @@ export type StatusDot = { tone: "mvp" | "inserted" | "research" | "proposed" | "
 export function statusDot(node: Pick<VaultNode, "status" | "mvp" | "kind" | "stage">): StatusDot {
   if (node.kind === "research") return node.stage === "ready"
     ? { tone: "saved", label: "research uzavřen" } : { tone: "research", label: "v researchu" };
+  if (node.kind === "question") return node.stage === "ready"
+    ? { tone: "saved", label: "zodpovězeno" } : { tone: "proposed", label: "k upřesnění" };
   switch (node.status) {
-    case "changed": return { tone: "changed", label: "změněno po vložení" };
+    // Varování nesmí schovat MVP: kulička je žlutá, popisek i odznak řeknou, že jde o MVP.
+    case "changed": return { tone: "changed", label: node.mvp === "yes" ? "MVP vloženo · změněno po vložení"
+      : node.mvp === "proposed" ? "návrh MVP · změněno po vložení" : "změněno po vložení" };
     case "inserted": return node.mvp === "yes" ? { tone: "mvp", label: "MVP vloženo" } : { tone: "inserted", label: "vloženo" };
     case "research": return { tone: "research", label: "v researchu" };
     case "mvp": return { tone: "mvp", label: "MVP, nevloženo" };
@@ -120,18 +161,32 @@ export function indexVault(roots: VaultNode[]): Map<string, VaultNode> {
 
 export type BriefChip = { fragmentId: string; title: string; insertedRevision: number; latestRevision: number | null; changed: boolean };
 
+/** Revize poslední změny textu (starší server bez `textRevision` = poslední revize). */
+export function textRevisionOf(node: Pick<VaultNode, "revision" | "textRevision">): number {
+  return node.textRevision ?? node.revision;
+}
+
 /** Čipy „Ze schránky“ karty; fragment mimo načtený strom (smazaný, jiný prostor) zůstane jako „nedostupné“. */
 export function briefChips(refs: FragmentRef[] | undefined, index: Map<string, VaultNode>): BriefChip[] {
   return (refs ?? []).map((ref) => {
     const node = index.get(ref.fragmentId);
+    const latest = node ? textRevisionOf(node) : null;
     return { fragmentId: ref.fragmentId, title: node?.title ?? "nedostupné", insertedRevision: ref.revision,
-      latestRevision: node?.revision ?? null, changed: !!node && ref.revision < node.revision };
+      latestRevision: latest, changed: latest != null && ref.revision < latest };
   });
 }
 
-/** Kolik fragmentů karty má novější revizi, než ze které karta vznikla (0 = odznak se nekreslí). */
+/** Kolik fragmentů karty má novější TEXT, než ze kterého karta vznikla (0 = odznak se nekreslí). */
 export function changedSinceInsert(refs: FragmentRef[] | undefined, index: Map<string, VaultNode>): number {
   return briefChips(refs, index).filter((chip) => chip.changed).length;
+}
+
+/** Rozsah schránky (vlastník kořene), ve které fragment leží; `null` = fragment mimo načtený strom. */
+export function scopeOfFragment(index: Map<string, VaultNode>, fragmentId: string): string | null {
+  let node = index.get(fragmentId);
+  const seen = new Set<string>();
+  while (node && node.parentId && !seen.has(node.id)) { seen.add(node.id); node = index.get(node.parentId); }
+  return node && !node.parentId ? node.scopeNodeId ?? "" : null;
 }
 
 /** Karta má vlastní schránku, když některý kořen je připnutý k ní. */

@@ -1,22 +1,20 @@
-// Schránka plátna nebo otevřené vrstvy v inspektoru bez výběru: načte strom a ukáže kořeny daného rozsahu.
+// Schránka plátna nebo otevřené vrstvy v inspektoru bez výběru: pruh pokrytí a tlačítko „Otevřít schránku“
+// (okno s levým menu otevře rodič přes onOpenVault).
 import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
 import { rootsOf } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
-import BriefVaultPanel from "@/editor/node-detail/brief-vault/components/BriefVaultPanel";
+import BriefVaultEntry from "@/editor/node-detail/brief-vault/components/BriefVaultEntry";
 
-export default function BriefVaultScope({ project, workspace, scope, scopeLabel, revision, nodeNames, onOpenNode }: {
+export default function BriefVaultScope({ project, workspace, scope, revision, onOpenVault }: {
   project: string;
   workspace: string;
   /** `""` = plátno, jinak id sektoru otevřené vrstvy. */
   scope: string;
-  scopeLabel: string;
   revision: unknown;
-  nodeNames: Record<string, string>;
-  onOpenNode: (id: string) => void;
+  onOpenVault: (scope: string) => void;
 }) {
   const vault = useBriefVault({ project, workspace }, revision);
   return (
-    <BriefVaultPanel project={project} workspace={workspace} roots={rootsOf(vault.tree?.roots ?? [], scope)}
-      loading={!vault.tree && !vault.error} readOnly={!!vault.tree?.readOnly} error={vault.error}
-      scopeLabel={scopeLabel} nodeNames={nodeNames} onOpenNode={onOpenNode} />
+    <BriefVaultEntry roots={rootsOf(vault.tree?.roots ?? [], scope)} loading={!vault.tree && !vault.error}
+      readOnly={!!vault.tree?.readOnly} error={vault.error} onOpen={() => onOpenVault(scope)} />
   );
 }

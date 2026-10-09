@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
-  briefChips, changedSinceInsert, coverageKey, coverageOf, coverageSegments, hasOwnVault, indexVault, rootsOf, statusDot,
+  briefChips, changedSinceInsert, countChangedMvp, scopeOfFragment, coverageKey, coverageOf, coverageSegments, hasOwnVault, indexVault, rootsOf, statusDot,
   type VaultNode,
 } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import BriefVaultPanel from "@/editor/node-detail/brief-vault/components/BriefVaultPanel";
@@ -79,9 +79,36 @@ describe("changed since insert", () => {
   it("renders chips with the inserted revision and a warning", () => {
     const html = renderToStaticMarkup(createElement(BriefChips, { refs: [{ fragmentId: latest.id, revision: 1 }, { fragmentId: same.id, revision: 1 }], index }));
     expect(html).toContain("Ze schránky:");
-    expect(html).toContain("3.37 Version activation v1 ⚠");
+    expect(html).toContain("3.37 Version activation v1 → v3 ⚠");
     expect(html).toContain("3.36 Chunks");
     expect(renderToStaticMarkup(createElement(BriefChips, { refs: [], index }))).toBe("");
+  });
+});
+
+describe("text revision and MVP under a warning", () => {
+  it("ignores metadata-only revisions (propose-mvp, stage) when the server sends textRevision", () => {
+    const meta = node({ revision: 4, textRevision: 1, title: "3.12 Chunks", mvp: "proposed" });
+    const text = node({ revision: 4, textRevision: 3, title: "3.13 Overlap" });
+    const index = indexVault([node({ children: [meta, text] })]);
+    expect(changedSinceInsert([{ fragmentId: meta.id, revision: 1 }], index)).toBe(0);
+    expect(changedSinceInsert([{ fragmentId: text.id, revision: 2 }], index)).toBe(1);
+    expect(briefChips([{ fragmentId: text.id, revision: 2 }], index)[0].latestRevision).toBe(3);
+  });
+
+  it("keeps MVP visible on a changed fragment (label and coverage note)", () => {
+    expect(statusDot(node({ status: "changed", mvp: "yes" })).label).toBe("MVP vloženo · změněno po vložení");
+    expect(statusDot(node({ status: "changed", mvp: "proposed" })).label).toBe("návrh MVP · změněno po vložení");
+    const roots = [node({ children: [node({ status: "changed", mvp: "yes" }), node({ status: "changed" }), node({ status: "mvp", mvp: "yes" })] })];
+    expect(countChangedMvp(roots)).toBe(1);
+  });
+
+  it("finds the vault scope of a fragment through its parents", () => {
+    const leaf = node({ title: "leaf" });
+    const root = node({ scopeNodeId: "sector", children: [leaf] });
+    leaf.parentId = root.id;
+    const index = indexVault([root]);
+    expect(scopeOfFragment(index, leaf.id)).toBe("sector");
+    expect(scopeOfFragment(index, "missing")).toBeNull();
   });
 });
 

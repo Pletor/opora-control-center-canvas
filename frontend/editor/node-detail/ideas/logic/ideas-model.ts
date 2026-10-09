@@ -14,6 +14,8 @@ export type CardIdea = {
   source: string;
   /** Etapa pipeline, při jejímž odevzdání podnět vznikl. */
   stageId?: string;
+  /** Fragment schránky zadání, ke kterému Podnět patří (obousměrně: fragment ukazuje své Podněty). */
+  fragmentId?: string;
   at: string;
   status: IdeaStatus;
 };

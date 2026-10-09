@@ -1,30 +1,43 @@
-// Načtení schránky zadání: celý strom prostoru (všechny rozsahy) a detail jednoho fragmentu. Jen čtení;
-// zápis (research, MVP, vložení jako karty) je mimo tento dílek. Strom se obnoví při změně `revision`
-// (stav plátna) a každých 15 s, aby odznak „zadání se změnilo“ přišel i po nové revizi fragmentu.
-import { useEffect, useState } from "react";
+// Načtení schránky zadání: celý strom prostoru (všechny rozsahy) ze sdíleného zdroje `brief-vault-store`
+// (jeden dotaz a jeden poller pro celé UI) a detail jednoho fragmentu. `revision` = otisk stavu plátna:
+// jeho změna požádá o obnovu, požadavky všech panelů ze stejné změny se slijí do jednoho dotazu.
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { api } from "@/shared/types/logic/types";
 import type { FragmentDetail, VaultTree } from "./brief-vault-model";
+import { createVaultStore, type VaultSnapshot } from "./brief-vault-store";
+
+export const vaultStore = createVaultStore({
+  fetchTree: (project, workspace) => api<VaultTree>("/api/brief-vault?" + new URLSearchParams({ project, workspace })),
+});
+
+const EMPTY: VaultSnapshot = { error: "" };
 
 export function useBriefVault(scope: { project: string; workspace: string } | undefined, revision: unknown) {
-  const [value, setValue] = useState<{ key: string; tree: VaultTree } | null>(null);
-  const [error, setError] = useState("");
-  const key = JSON.stringify([scope?.project, scope?.workspace]);
+  const project = scope?.project ?? "";
+  const workspace = scope?.workspace ?? "";
+  const live = !!project && !!workspace;
+  const cache = useRef<VaultSnapshot>(EMPTY);
+  const subscribe = useCallback((listener: () => void) => (live ? vaultStore.subscribe(project, workspace, listener) : () => {}),
+    [live, project, workspace]);
+  const read = () => {
+    const next = live ? vaultStore.snapshot(project, workspace) : EMPTY;
+    // Stejná data = stejný objekt, jinak by React překresloval donekonečna.
+    if (next.tree !== cache.current.tree || next.error !== cache.current.error) cache.current = next;
+    return cache.current;
+  };
+  const snapshot = useSyncExternalStore(subscribe, read, read);
+  const seen = useRef(revision);
   useEffect(() => {
-    if (!scope?.project || !scope.workspace) return;
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const params = new URLSearchParams({ project: scope.project, workspace: scope.workspace });
-    async function refresh() {
-      try {
-        const tree = await api<VaultTree>("/api/brief-vault?" + params);
-        if (live) { setValue({ key, tree }); setError(""); }
-      } catch (e) { if (live) setError(String(e)); }
-      if (live) timer = setTimeout(refresh, 15000);
-    }
-    void refresh();
-    return () => { live = false; clearTimeout(timer); };
-  }, [key, revision]);
-  return { tree: value?.key === key ? value.tree : undefined, error };
+    if (!live || Object.is(seen.current, revision)) return;
+    seen.current = revision;
+    vaultStore.refresh(project, workspace);
+  }, [live, project, workspace, revision]);
+  return { tree: snapshot.tree, error: snapshot.error };
+}
+
+/** Po vlastním zápisu do schránky: hned načíst strom pro všechny panely. */
+export function reloadBriefVault(project: string, workspace: string) {
+  return vaultStore.reload(project, workspace);
 }
 
 export function useFragmentDetail(project: string, workspace: string, id: string | null, revision: number | null, refresh: unknown) {
@@ -44,3 +57,5 @@ export function useFragmentDetail(project: string, workspace: string, id: string
   }, [key, refresh]);
   return { detail: id && value?.key === key ? value.detail : undefined, error: id ? error : "" };
 }
+
+export type { VaultTree };

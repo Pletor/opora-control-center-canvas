@@ -147,3 +147,7 @@ button.brief-chip:hover { border-color: var(--accent-line); color: var(--accent)
 
 .brief-vault__empty { font-size: 12px; line-height: 1.5; color: var(--ink-2); }
 .brief-vault__empty p { margin: 0 0 6px; }
+
+/* Akce nad fragmentem v okně schránky (výzkum, otázka) a širší pruh v Přehledu. */
+.brief-vault__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.brief-vault__bar--large { height: 14px; border-radius: 7px; }

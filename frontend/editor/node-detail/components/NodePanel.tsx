@@ -16,10 +16,10 @@ import FactRefsEditor from "@/editor/node-detail/card-fields/components/FactRefs
 import DoneControl from "@/editor/node-detail/done/components/DoneControl";
 import IdeasPanel, { IdeasCount } from "@/editor/node-detail/ideas/components/IdeasPanel";
 import { openIdeas, type CardIdea, type IdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
-import BriefVaultPanel from "@/editor/node-detail/brief-vault/components/BriefVaultPanel";
+import BriefVaultEntry from "@/editor/node-detail/brief-vault/components/BriefVaultEntry";
 import BriefChips from "@/editor/node-detail/brief-vault/components/BriefChips";
 import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
-import { hasOwnVault, indexVault, rootsOf, type FragmentRef } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import { hasOwnVault, indexVault, rootsOf, scopeOfFragment, type FragmentRef } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import type { NodeDone } from "@/shared/desktop-state/logic/types";
 import type { CanvasNode, Workspace } from "@/shared/types/logic/types";
 
@@ -58,6 +58,7 @@ export default function NodePanel({
   onCommitSpec,
   workflow,
   resultRevision,
+  onOpenVault,
 }: {
   node: CanvasNode;
   project: string;
@@ -96,6 +97,8 @@ export default function NodePanel({
   onCommitSpec?: () => void;
   workflow?: ReactNode;
   resultRevision: number;
+  /** Otevře okno schránky zadání (rozsah = vlastník kořene, volitelně rovnou na fragmentu). */
+  onOpenVault?: (scope: string, focus?: string) => void;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
@@ -117,7 +120,11 @@ export default function NodePanel({
   const vaultIndex = useMemo(() => indexVault(vaultRoots), [vaultRoots]);
   const showVault = node.kind === "sector" || hasOwnVault(vaultRoots, node.id);
   const shownTab: NodeTab = tab === "vault" && !showVault ? "spec" : tab;
-  const nodeNames = useMemo(() => Object.fromEntries(graphNodes.map((item) => [item.id, item.name])), [graphNodes]);
+  const fragmentTitles = useMemo(() => Object.fromEntries([...vaultIndex].map(([id, item]) => [id, item.title])), [vaultIndex]);
+  const openFragment = (fragmentId: string) => {
+    const scope = scopeOfFragment(vaultIndex, fragmentId);
+    if (scope != null) onOpenVault?.(scope, fragmentId);
+  };
   const assigned = workspaces.filter((w) => w.node_id === node.id);
   const kind = node.site?.kind === "application" ? "Aplikace" : node.site?.kind === "page" ? "Stránka" : node.kind === "sector" ? "Sektor" : "Uzel";
   return (
@@ -151,7 +158,7 @@ export default function NodePanel({
           </DetailFold>
         </section>
         <section role="tabpanel" id="node-panel-spec" aria-labelledby="node-tab-spec" hidden={shownTab !== "spec"}>
-          <BriefChips refs={fragmentRefs} index={vaultIndex} />
+          <BriefChips refs={fragmentRefs} index={vaultIndex} onOpen={onOpenVault ? openFragment : undefined} />
           <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
           <DetailFold title="Účel komponenty">
           <p className="muted">Dlouhodobý smysl této části. Konkrétní práci určuje zadání výše.</p>
@@ -225,14 +232,14 @@ export default function NodePanel({
         </section>
         <section role="tabpanel" id="node-panel-ideas" aria-labelledby="node-tab-ideas" hidden={shownTab !== "ideas"}>
           <h3>Podněty k dalšímu vývoji</h3>
-          <IdeasPanel ideas={ideas} readOnly={readOnly} busy={busy} onStatus={onIdeaStatus} onRemove={onIdeaRemove} />
+          <IdeasPanel ideas={ideas} readOnly={readOnly} busy={busy} onStatus={onIdeaStatus} onRemove={onIdeaRemove}
+            fragmentTitles={fragmentTitles} onOpenFragment={onOpenVault ? openFragment : undefined} />
         </section>
         {showVault && (
           <section role="tabpanel" id="node-panel-vault" aria-labelledby="node-tab-vault" hidden={shownTab !== "vault"}>
             <h3>Schránka zadání</h3>
-            <BriefVaultPanel project={project} workspace={workspace} roots={rootsOf(vaultRoots, node.id)}
-              loading={!vault.tree && !vault.error} readOnly={!!vault.tree?.readOnly} error={vault.error}
-              scopeLabel={node.kind === "sector" ? "sektoru" : "karty"} nodeNames={nodeNames} onOpenNode={onOpenNode} />
+            <BriefVaultEntry roots={rootsOf(vaultRoots, node.id)} loading={!vault.tree && !vault.error}
+              readOnly={!!vault.tree?.readOnly} error={vault.error} onOpen={() => onOpenVault?.(node.id)} />
           </section>
         )}
       </div>

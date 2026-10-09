@@ -104,6 +104,7 @@ import AccountCorner from "@/layout/account-corner/components/AccountCorner";
 import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
+import BriefVaultWindow, { type VaultWindowRequest } from "@/editor/node-detail/brief-vault-window/components/BriefVaultWindow";
 import BriefVaultScope from "@/editor/node-detail/brief-vault/components/BriefVaultScope";
 import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
 import { commitSpec, saveNodeSpec } from "@/shared/desktop-state/logic/api";
@@ -175,6 +176,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   }
   const [editingName, setEditingName] = useState<string | null>(null);
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
+  const [vaultWindow, setVaultWindow] = useState<(VaultWindowRequest & { project: string; workspace: string }) | null>(null);
   const [settings, setSettings] = useState(readSettings);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -648,6 +650,21 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     if (!target) return;
     setParent(target.parentId);
     setSelection(selectNode(target.id));
+  }
+  /** Okno schránky zadání: rozsah = plátno (""), sektor nebo karta s vlastní schránkou; volitelně rovnou na fragmentu. */
+  function openVault(scope: string, focus?: string) {
+    const owner = graph.nodes.find((n) => n.id === scope);
+    const label = !scope ? "plátna" : owner ? `${owner.kind === "sector" ? "sektoru" : "karty"} „${owner.name}“` : "vrstvy";
+    setVaultWindow({ project, workspace, scope, owner: label, focus: focus ?? null });
+  }
+  /** Po vložení karet ze schránky: načíst plátno i stav, jako po každé dávce plánu. */
+  function reloadAfterVaultPlan() {
+    const scope = { project, workspace };
+    void run(async () => {
+      const fresh = await api<View>(`/api/view?${new URLSearchParams(scope)}`);
+      if (activeScope.current.project !== scope.project || activeScope.current.workspace !== scope.workspace) return;
+      generation.current++; historyRef.current = emptyHistory(); setView(fresh); desktop.reload();
+    });
   }
   /** Kontextová akce: rodičovská integrace dostane přesný scope, běh nevzniká zde. */
   function requestAgentTask(nodeId: string, text: string, source: AgentTaskRequest["source"]) {
@@ -1451,6 +1468,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 onAgentTask={() => requestAgentTask(node.id, "", "canvas")}
                 workflow={v3.nodeWorkflow?.({ project, workspace, nodeId: node.id })}
                 resultRevision={desktop.revision}
+                onOpenVault={openVault}
               />
             </>) : panels.inspector === "comment" && node ? (
               <CommentPanel
@@ -1536,8 +1554,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 tools={inspectorTools}
                 vault={view ? (
                   <BriefVaultScope project={project} workspace={workspace} scope={layer?.id ?? ""}
-                    scopeLabel={layer ? "vrstvy" : "plátna"} revision={desktop.revision}
-                    nodeNames={Object.fromEntries(graph.nodes.map((n) => [n.id, n.name]))} onOpenNode={openNode} />
+                    revision={desktop.revision} onOpenVault={(scope) => openVault(scope)} />
                 ) : undefined}
                 onWorkspace={() => open("workspace")}
               />
@@ -1617,6 +1634,13 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           onClose={() => setRemoval(null)}
           onConfirm={confirmRemoval}
         />
+      )}
+      {vaultWindow && view && vaultWindow.project === project && vaultWindow.workspace === workspace && (
+        <BriefVaultWindow key={JSON.stringify([project, workspace, vaultWindow.scope, vaultWindow.focus])} project={project} workspace={workspace}
+          request={vaultWindow} state={desktop.state} digest={view.digest} readOnly={!!view.readOnly}
+          nodes={graph.nodes.map((n) => ({ id: n.id, name: n.name, kind: n.kind, parentId: n.parentId }))}
+          onOpenNode={(id) => { openNode(id); setMode("structure"); }} onClose={() => setVaultWindow(null)}
+          onPlanApplied={reloadAfterVaultPlan} onStateChanged={() => desktop.reload()} />
       )}
       {agentTask && <TaskHandoff key={JSON.stringify([agentTask.project, agentTask.workspace, agentTask.nodeId, agentTask.requestedAt])}
         request={agentTask} onClose={() => setAgentTask(null)} onSaved={() => { desktop.reload(); reloadCanvas(); }} />}
