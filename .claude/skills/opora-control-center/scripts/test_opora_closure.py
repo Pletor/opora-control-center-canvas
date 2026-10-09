@@ -85,3 +85,8 @@ def test_failed_stage_with_queued_retry_is_running_not_stuck():
                         stage('c', 'fix', 'todo', 'Oprava: Code review'), stage('d', 'review', 'todo', 'Code review', retry_of='b')]}
     row = opora_closure.card_row(NODE, {'stages': stages, 'evidence': EVIDENCE}, 'abc', '', WEB)
     assert row['pipeline'] == 'běží: Oprava: Code review' and row['retry'] == ''
+
+
+def test_card_number_accepts_sector_letters():
+    names = ['[task] 3.1 Index', '[task] K.5 Sada', '[task] B1 Schránka', '[task] 2.43 XLSX', '[task] Bez čísla']
+    assert [m.group(1) if (m := opora_closure.CARD_NUMBER.match(n)) else None for n in names] == ['3.1', 'K.5', 'B1', '2.43', None]

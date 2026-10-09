@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from opora_write import BASE_ENV, LEASE_ENV, TIMEOUT, _detail, _read, base_url, post  # noqa: E402
 
 AGENT = 'closure-auto'
-CARD_NUMBER = re.compile(r'^\[task\]\s+([0-9]+(?:\.[0-9]+)+)\s')
+CARD_NUMBER = re.compile(r'^\[task\]\s+((?:[0-9]+|[A-Z]\.?[0-9]+)(?:\.[0-9]+)*)\s')  # 3.1, K.5, B1
 REVIEW_KINDS = ('review', 'critic')
 RETRIED = ('test', 'review', 'critic')  # shodně s card_pipeline.RETRIED
 
@@ -159,7 +159,7 @@ def collect(base, project, workspace, repo, sector, remote, branch):
         row.update(number=match[1], sha=pushed, web=web, stages=entry.get('stages'), evidence=entry.get('evidence'),
                    revision=stored['revision'])
         rows.append(row)
-    rows.sort(key=lambda row: [int(part) for part in row['number'].split('.')])
+    rows.sort(key=lambda row: [(0, int(p)) if p.isdigit() else (1, p) for p in re.split(r'\.|(?<=[A-Z])(?=[0-9])', row['number'])])
     return rows
 
 
