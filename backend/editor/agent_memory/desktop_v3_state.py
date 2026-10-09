@@ -6,13 +6,17 @@ nasazení: postup vpřed vyžaduje neprázdná splněná kritéria, opačný sm�
 
 `edges` je sekce zpráv agenta na vazbách grafu (log, souhrn, předání, zlepšení, chyby);
 uzel navíc nese `done` (uzavření karty), `agentRole` (která role agenta si tuhle práci
-pamatuje napříč projekty) a blok `ports` (tlačítka, z nichž vede vazba na jinou kartu).
+pamatuje napříč projekty), blok `ports` (tlačítka, z nichž vede vazba na jinou kartu), `ideas`
+(podněty k dalšímu vývoji, `card_ideas.py`) a `fragmentRefs` (z čeho ve schránce zadání karta
+vznikla, `backend/editor/brief_vault/brief_vault_refs.py`).
 Všechny tyto klíče jsou volitelné, aby starší uložený stav zůstal platný.
 """
 
+import copy
+import functools
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import valid_date, valid_id
@@ -23,6 +27,8 @@ PHASES = ("discover", "define", "build", "verify", "live")
 RULE_KINDS = ("must", "must_not")
 RULE_SCOPES = ("project", "path", "node")
 ACTORS = ("human", "agent")
+# Uzavření karty navíc zná „autonomy“: potvrdil agent v sektoru, kterému člověk svěřil autonomii.
+DONE_ACTORS = ("human", "agent", "autonomy")
 PRIORITIES = ("low", "normal", "high")
 STATUSES = ("open", "doing", "done")
 
@@ -35,6 +41,9 @@ MAX_TITLE = 400
 
 SETTING_KEYS = {"id", "key", "value"}
 RULE_KEYS = {"id", "text", "kind", "scope", "target"}
+# `by` = původce pravidla. Chybí = člověk (starší stav). Pravidlo od agenta je jen návrh:
+# do effectiveRules a stopConditions jde až po schválení člověkem (upgrade-opora #37).
+RULE_AUTHORS = ("human", "agent")
 DECISION_KEYS = {"id", "text", "pinned", "path", "nodeId", "createdAt", "by"}
 NODE_KEYS = {"phase", "criteria", "steps"}
 # Bloky uzlu z portů karty: akce (pipeline z knihovny) a pravidla uzlu. Starší stav je nemá;
@@ -90,15 +99,21 @@ MAX_EDGE_REPORTS = 4000
 MAX_AGENT = 120
 
 
+@functools.cache
 def _node_key_sets():
-    """Volitelné klíče uzlu; `actions` a `rules` chodí vždy spolu, zbytek nezávisle."""
+    """Volitelné klíče uzlu; `actions` a `rules` chodí vždy spolu, zbytek nezávisle.
+    Sad je 2^11; spočítají se jednou a hledá se v množině, ne v n-tici."""
     sets = (frozenset(NODE_KEYS), frozenset(NODE_KEYS) | {"actions", "rules"})
-    for optional in ("blocks", "materials", "done", "agentRole"):
+    for optional in ("blocks", "materials", "done", "agentRole", "evidence", "scenarioRun", "downloadsUrl", "stages", "ideas", "fragmentRefs"):
         sets = sets + tuple(item | {optional} for item in sets)
-    return sets
+    return frozenset(sets)
 TICKET_KEYS = {"id", "title", "priority", "status", "nodeId", "sessionId", "createdBy"}
 STATE_KEYS = {"settings", "rules", "decisions", "nodes", "tickets"}
-STATE_KEY_SETS = (frozenset(STATE_KEYS), frozenset(STATE_KEYS) | {"edges"})
+STATE_KEY_SETS = tuple(frozenset(STATE_KEYS) | extra for extra in (set(), {"edges"}, {"autonomy"}, {"edges", "autonomy"}))
+# Svěřená autonomie sektoru: {sectorId: {until, grantedAt, note}}; zapisuje jen člověk přes /autonomy.
+AUTONOMY_KEYS = {"until", "grantedAt", "note"}
+AUTONOMY_SAVE_KEYS = {"project", "workspace", "expectedRevision", "sectorId", "until", "note"}
+MAX_AUTONOMY_DAYS = 30
 SAVE_KEYS = {"project", "workspace", "expectedRevision", "state"}
 
 
@@ -222,8 +237,15 @@ def _branch(value, label, block_ids, action_ids):
 
 def _validate_ports(block):
     """Tlačítka bloku; `_items` hlídá tvar a jedinečnost ID uvnitř bloku."""
-    for port in _items(block.get("ports", []), PORT_KEYS, MAX_PORTS, f"ports[{block['id']}]"):
+    port_shapes = (PORT_KEYS, PORT_KEYS | {"status", "reason"}, PORT_KEYS | {"onMet"}, PORT_KEYS | {"status", "reason", "onMet"})
+    for port in _items(block.get("ports", []), port_shapes, MAX_PORTS, f"ports[{block['id']}]"):
         _text(port["label"], MAX_PORT_LABEL, "název portu bloku", allow_empty=True)
+        if "status" in port:
+            _enum(port["status"], ("chosen", "rejected"), "rozhodnutí portu")
+            _text(port["reason"], MAX_TEXT, "důvod rozhodnutí portu")
+        if "onMet" in port:
+            from backend.editor.agent_memory.port_spawn import validate_spawn
+            validate_spawn(port["onMet"])
 
 
 def _validate_done(node, node_id):
@@ -235,10 +257,36 @@ def _validate_done(node, node_id):
         _fail(f"uzavření uzlu {node_id} má neplatná pole.")
     confirmed = _bool(done["confirmed"], "potvrzení uzavření")
     _timestamp(done["at"], f"čas uzavření uzlu {node_id}", allow_empty=True)
-    by = _enum(done["by"], ACTORS, "původce uzavření")
+    by = _enum(done["by"], DONE_ACTORS, "původce uzavření")
     _text(done["note"], MAX_TEXT, "poznámka k uzavření", allow_empty=True)
     if by == "agent" and confirmed:
         _fail("agent smí uzavření karty jen navrhnout; potvrzuje ho člověk.")
+    if by == "autonomy" and not confirmed:
+        _fail("„autonomy“ označuje jen potvrzené uzavření ve svěřené autonomii.")
+
+
+def _validate_autonomy(state):
+    """Sektory se svěřenou autonomií; tvar hlídá validace, změnu jen cesta /autonomy."""
+    grants = state.get("autonomy", {})
+    if not isinstance(grants, dict) or len(grants) > MAX_ITEMS:
+        _fail(f"autonomy musí být objekt nejvýše {MAX_ITEMS} sektorů.")
+    for sector_id, grant in grants.items():
+        _ident(sector_id, "sektor autonomie")
+        if not isinstance(grant, dict) or set(grant) not in (AUTONOMY_KEYS, AUTONOMY_KEYS | {"grantedBy"}):
+            _fail(f"autonomie sektoru {sector_id} má neplatná pole.")
+        _timestamp(grant["until"], "platnost autonomie")
+        _timestamp(grant["grantedAt"], "čas udělení autonomie")
+        _text(grant["note"], MAX_TEXT, "poznámka k autonomii", allow_empty=True)
+        if "grantedBy" in grant:
+            _text(grant["grantedBy"], 160, "autor souhlasu")
+        if datetime.fromisoformat(grant["until"]).tzinfo is None or datetime.fromisoformat(grant["grantedAt"]).tzinfo is None:
+            _fail("Časy autonomie musí obsahovat časovou zónu.")
+
+
+def autonomy_active(state, sector_id, at):
+    """Platí v čase `at` svěřená autonomie pro sektor? `at` je datetime s časovou zónou."""
+    grant = state.get("autonomy", {}).get(sector_id) if sector_id else None
+    return grant is not None and datetime.fromisoformat(grant["until"]) > at
 
 
 def _validate_agent_role(node, node_id):
@@ -315,8 +363,10 @@ def _validate_blocks(node, node_id):
                 _fail("cesta obrázku musí být platná relativní cesta.")
             _text(image["caption"], MAX_TITLE, "popisek obrázku", allow_empty=True)
         state = item["state"]
-        if not isinstance(state, dict) or set(state) != STATE_BLOCK_KEYS:
+        if not isinstance(state, dict) or set(state) - {"note"} != STATE_BLOCK_KEYS:
             _fail("stav bloku má neplatná pole.")
+        if "note" in state:
+            _text(state["note"], MAX_TEXT, "poznámka ke stavu bloku", allow_empty=True)
         _enum(state["status"], BLOCK_STATUSES, "status bloku")
         _text(state["condition"], MAX_TEXT, "podmínka bloku", allow_empty=True)
         _branch(state["onMet"], "onMet", block_ids, action_ids)
@@ -372,17 +422,20 @@ def check_node_branches(state, graph_node_ids):
 
 def validate_state(state):
     if not isinstance(state, dict) or frozenset(state) not in STATE_KEY_SETS:
-        _fail("očekávám pole settings, rules, decisions, nodes, tickets a volitelně edges.")
+        _fail("očekávám pole settings, rules, decisions, nodes, tickets a volitelně edges a autonomy.")
     _validate_edge_reports(state)
+    _validate_autonomy(state)
     for item in _items(state["settings"], SETTING_KEYS, MAX_ITEMS, "settings"):
         _text(item["key"], MAX_KEY, "klíč nastavení")
         _text(item["value"], MAX_TEXT, "hodnota nastavení", allow_empty=True)
-    for item in _items(state["rules"], RULE_KEYS, MAX_ITEMS, "rules"):
+    for item in _items(state["rules"], (RULE_KEYS, RULE_KEYS | {"by"}), MAX_ITEMS, "rules"):
         _text(item["text"], MAX_TEXT, "text pravidla")
+        if "by" in item:
+            _enum(item["by"], RULE_AUTHORS, "původce pravidla")
         _enum(item["kind"], RULE_KINDS, "druh pravidla")
         _enum(item["scope"], RULE_SCOPES, "rozsah pravidla")
         _rule_target(item)
-    for item in _items(state["decisions"], DECISION_KEYS, MAX_ITEMS, "decisions"):
+    for item in _items(state["decisions"], (DECISION_KEYS, DECISION_KEYS | {"supersedes"}), MAX_ITEMS, "decisions"):
         _text(item["text"], MAX_TEXT, "text rozhodnutí")
         _bool(item["pinned"], "pinned")
         try:
@@ -392,6 +445,8 @@ def validate_state(state):
         _optional_ident(item["nodeId"], "uzel rozhodnutí")
         _created_at(item["createdAt"])
         _enum(item["by"], ACTORS, "původce rozhodnutí")
+    from backend.editor.agent_memory.decision_versions import validate_versions
+    validate_versions(state["decisions"])
     nodes = state["nodes"]
     if not isinstance(nodes, dict) or len(nodes) > MAX_NODES:
         _fail(f"nodes musí být objekt nejvýše {MAX_NODES} uzlů.")
@@ -402,6 +457,23 @@ def validate_state(state):
         _validate_blocks(node, node_id)
         _validate_materials(node, node_id)
         _validate_done(node, node_id)
+        from backend.editor.agent_memory.input_security import validate_input_security
+        validate_input_security(node)
+        if "scenarioRun" in node:
+            from backend.canvas.gate_scenario import validate_run
+            validate_run(node["scenarioRun"])
+        if "evidence" in node:
+            from backend.editor.agent_memory.completion_evidence import validate_evidence
+            validate_evidence(node["evidence"])
+        if "stages" in node:
+            from backend.editor.agent_memory.card_pipeline import validate_stages
+            validate_stages(node["stages"])
+        if "ideas" in node:
+            from backend.editor.agent_memory.card_ideas import validate_ideas
+            validate_ideas(node["ideas"])
+        if "fragmentRefs" in node:
+            from backend.editor.brief_vault.brief_vault_refs import validate_refs
+            validate_refs(node["fragmentRefs"], f"fragmentRefs[{node_id}]")
         _validate_agent_role(node, node_id)
         for item in _items(node.get("actions", []), ACTION_KEYS, MAX_SUBITEMS, f"actions[{node_id}]"):
             _text(item["pipelineId"], MAX_KEY, "pipelineId akce")
@@ -450,6 +522,23 @@ def check_phase_transitions(previous, state):
             )
 
 
+def stamp_agent_rules(actor, previous, rules):
+    """Nové nebo změněné pravidlo od ne-člověka je návrh agenta; lidské pravidlo agent nemění ani nemaže."""
+    before = {rule["id"]: rule for rule in previous}
+    for rule in rules:
+        old = before.get(rule["id"])
+        if old == rule:
+            continue
+        if old is not None and old.get("by", "human") != "agent":
+            from backend.canvas.activity_log import HumanRequired
+            raise HumanRequired(actor, "Pravidlo člověka mění jen člověk; navrhněte nové pravidlo.")
+        rule["by"] = "agent"
+    kept = {rule["id"] for rule in rules}
+    if any(rule.get("by", "human") != "agent" for rule_id, rule in before.items() if rule_id not in kept):
+        from backend.canvas.activity_log import HumanRequired
+        raise HumanRequired(actor, "Pravidlo člověka odebírá jen člověk.")
+
+
 def _scope_ids(project, workspace):
     if not isinstance(project, str) or (project != "draft" and not valid_id(project)):
         raise ValueError("Neplatný identifikátor projektu.")
@@ -480,7 +569,14 @@ class DesktopV3State:
             with self.canvas.lock:
                 return {**self.current(project, workspace), "readOnly": False}
 
-    def save(self, payload, *, after_write=None):
+    def save(self, payload, *, after_write=None, autonomy_close=frozenset(), autonomy=None, actor="system"):
+        """Uloží celý stav. Interní parametry (nikdy z HTTP): `autonomy_close` = karty, které smí
+        uzavřít agent ve svěřené autonomii (jen `AgentOutput`); `autonomy` = nová mapa svěřené
+        autonomie (jen `set_autonomy`). Jinak se uložená autonomie přenáší beze změny.
+
+        `actor` je ověřený původce HTTP zápisu (`human` / `agent` / `unknown`); `system` značí
+        serverovou cestu, která pravidla hlídá sama (agent-output, potvrzení, bloky). Potvrzení
+        a otevření uzavřené karty smí obecný zápis stavu jen od člověka (upgrade-opora #30)."""
         if not isinstance(payload, dict) or set(payload) != SAVE_KEYS:
             raise ValueError("Neplatný formát uložení stavu Desktop v3.")
         project, workspace = payload["project"], payload["workspace"]
@@ -501,15 +597,76 @@ class DesktopV3State:
                 if current["revision"] != expected:
                     raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
                 check_phase_transitions(current["state"], state)
+                # Nový odkaz do schránky zadání (karta i Podnět) míří na živý fragment tohoto prostoru.
+                from backend.editor.brief_vault.brief_vault_refs import check_new_references
+                check_new_references(db, project, workspace, current["state"], state)
+                from backend.editor.agent_memory.decision_versions import preserve_versions
+                preserve_versions(current["state"]["decisions"], state["decisions"])
+                # Autonomii mění jen člověk cestou /autonomy; běžný zápis ji převezme z uloženého stavu.
+                state["autonomy"] = (autonomy if autonomy is not None
+                                     else copy.deepcopy(current["state"].get("autonomy", {})))
+                if not state["autonomy"]:
+                    del state["autonomy"]
+                if actor not in ("human", "system"):
+                    stamp_agent_rules(actor, current["state"]["rules"], state["rules"])
+                    from backend.editor.agent_memory.card_pipeline import guard_state_write
+                    for node_id in set(state["nodes"]) | set(current["state"]["nodes"]):
+                        before = current["state"]["nodes"].get(node_id, {}).get("stages")
+                        after = state["nodes"].get(node_id, {}).get("stages")
+                        if before != after:
+                            guard_state_write(actor, before, after)
+                        from backend.editor.agent_memory import card_ideas
+                        before = current["state"]["nodes"].get(node_id, {}).get("ideas")
+                        after = state["nodes"].get(node_id, {}).get("ideas")
+                        # Odebrání celé karty hlídají jiná pravidla; tady jen změna podnětů živé karty.
+                        if node_id in state["nodes"] and before != after:
+                            card_ideas.guard_state_write(actor, before, after)
+                for node_id, node in state["nodes"].items():
+                    done = node.get("done", default_done())
+                    previous_done = current["state"]["nodes"].get(node_id, {}).get("done", default_done())
+                    previous_evidence = current["state"]["nodes"].get(node_id, {}).get("evidence")
+                    if (actor not in ("human", "system") and done != previous_done
+                            and (done["confirmed"] or previous_done["confirmed"])):
+                        from backend.canvas.activity_log import HumanRequired
+                        raise HumanRequired(actor, "Uzavření karty potvrzuje nebo ruší jen člověk v UI; agent ho navrhuje přes agent-output.")
+                    previous_scenario = current["state"]["nodes"].get(node_id, {}).get("scenarioRun")
+                    if done["confirmed"] and (not previous_done["confirmed"] or node.get("evidence") != previous_evidence or node.get("scenarioRun") != previous_scenario):
+                        from backend.canvas.card_checks import checks_passed
+                        from backend.editor.agent_memory.completion_evidence import evidence_ready
+                        graph_node = next(item for item in view["graph"]["nodes"] if item["id"] == node_id)
+                        if not evidence_ready(node.get("evidence"), graph_node):
+                            raise ValueError("Uzavření vyžaduje doložené testy, review, merge a úspěšné kontroly; neaplikovatelné kroky zdůvodněte "
+                                             "([task] karta a karta s kontrolami nesmí mít testy ani merge jako N/A).")
+                        if not checks_passed(graph_node, node.get("evidence")):
+                            raise ValueError("Uzavření vyžaduje úspěšný běh každé zadané kontroly se shodným ID a příkazem.")
+                        from backend.editor.agent_memory.card_pipeline import open_stages
+                        waiting = open_stages(node.get("stages"))
+                        if waiting:
+                            raise ValueError("Uzavření vyžaduje hotovou pipeline karty; otevřené etapy: "
+                                             + ", ".join(item["title"] for item in waiting) + ".")
+                        scenario = graph_node.get("scenario")
+                        scenario_run = node.get("scenarioRun", {})
+                        if scenario and (scenario_run.get("command") != scenario["command"] or scenario_run.get("failed") != 0):
+                            raise ValueError("Uzavření brány vyžaduje úspěšný běh jejího aktuálního scénáře.")
+                    if done["by"] == "autonomy" and done != previous_done and node_id not in autonomy_close:
+                        raise ValueError("Uzavření ve svěřené autonomii zapisuje jen výstup agenta (agent-output).")
                 # Hromadný zápis stavu nesmí obejít zámek, který hlídá adresné API bloků.
                 for node_id, previous in current["state"]["nodes"].items():
                     node = state["nodes"].get(node_id)
                     if node is None:
+                        if actor not in ("human", "system") and previous.get("done", default_done())["confirmed"]:
+                            from backend.canvas.activity_log import HumanRequired
+                            raise HumanRequired(actor, "Uzavřenou kartu ze stavu odebírá jen člověk.")
                         continue
                     if (previous.get("done", default_done())["confirmed"]
                             and node.get("done", default_done())["confirmed"]
-                            and previous.get("blocks", []) != node.get("blocks", [])):
-                        raise ValueError("Uzavřená karta má bloky a porty jen ke čtení; nejprve ji otevřete.")
+                            and (previous.get("blocks", []) != node.get("blocks", [])
+                                 or previous.get("stages") != node.get("stages"))):
+                        raise ValueError("Uzavřená karta má bloky, porty a pipeline jen ke čtení; nejprve ji otevřete.")
+                from backend.editor.agent_memory.port_spawn import persist_spawns, prepare_spawns
+                spawned = prepare_spawns(self.canvas, db, project, workspace, view["graph"], current["state"], state)
+                if spawned:
+                    state = spawned[0].state
                 revision = expected + 1
                 db.execute(
                     "INSERT OR REPLACE INTO desktop_v3_state VALUES(?,?,?,?,?)",
@@ -519,5 +676,41 @@ class DesktopV3State:
                 # It is never accepted from an HTTP payload.
                 if after_write is not None:
                     after_write(db)
+                persist_spawns(self.canvas, db, project, workspace, view["digest"], spawned, now())
             with self.canvas.lock:
-                return {**self.current(project, workspace), "readOnly": False}
+                return {**self.current(project, workspace), "readOnly": False,
+                        **({"graphChanged": True} if spawned else {})}
+
+    def set_autonomy(self, payload):
+        """Člověk svěří sektoru autonomii do času `until` (prázdné `until` ji odebere).
+
+        Agent pak smí v tomto sektoru kartu se všemi bloky `met` uzavřít sám (agent-output);
+        bránu sektoru (karta s vazbou `next` ven ze sektoru) potvrzuje dál člověk."""
+        if not isinstance(payload, dict) or set(payload) not in (AUTONOMY_SAVE_KEYS, AUTONOMY_SAVE_KEYS | {"grantedBy"}):
+            raise ValueError("Neplatný formát autonomie: project, workspace, expectedRevision, sectorId, until, note.")
+        sector_id, until, note = payload["sectorId"], payload["until"], payload["note"]
+        _ident(sector_id, "sektor autonomie")
+        _text(note, MAX_TEXT, "poznámka k autonomii", allow_empty=True)
+        granted_by = _text(payload.get("grantedBy", "human"), 160, "autor souhlasu")
+        if until != "":
+            _timestamp(until, "platnost autonomie")
+            limit = datetime.fromisoformat(until)
+            current_time = datetime.fromisoformat(now())
+            if limit.tzinfo is None:
+                raise ValueError("Platnost autonomie musí mít časovou zónu.")
+            if not current_time < limit <= current_time + timedelta(days=MAX_AUTONOMY_DAYS):
+                raise ValueError(f"Platnost autonomie musí být v budoucnu a nejvýš {MAX_AUTONOMY_DAYS} dní.")
+        project, workspace = payload["project"], payload["workspace"]
+        _scope_ids(project, workspace)
+        graph = self.canvas.view(project, workspace)["graph"]
+        if not any(item["id"] == sector_id and item.get("kind") == "sector" for item in graph["nodes"]):
+            raise ValueError("Autonomii lze svěřit jen existujícímu sektoru.")
+        stored = self.read(project, workspace)
+        grants = copy.deepcopy(stored["state"].get("autonomy", {}))
+        if until == "":
+            grants.pop(sector_id, None)
+        else:
+            grants[sector_id] = {"until": until, "grantedAt": now(), "note": note, "grantedBy": granted_by}
+        state = {key: value for key, value in stored["state"].items() if key != "autonomy"}
+        return self.save({"project": project, "workspace": workspace,
+                          "expectedRevision": payload["expectedRevision"], "state": state}, autonomy=grants)

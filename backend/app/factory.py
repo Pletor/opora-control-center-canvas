@@ -9,12 +9,17 @@ from starlette.routing import Match
 
 from backend.api.access_routes import create_access_router
 from backend.api.app_routes import create_app_router
+from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
+from backend.api.editor.brief_vault_routes import create_brief_vault_router
 from backend.api.editor.canvas_routes import create_canvas_router
+from backend.api.editor.canvas_version_routes import create_canvas_version_router
 from backend.api.editor.claude_code_routes import create_claude_code_router
 from backend.api.editor.code_intelligence_routes import create_code_intelligence_router
 from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
+from backend.api.editor.hook_install_routes import create_hook_install_router
+from backend.api.editor.hook_routes import create_hook_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
@@ -22,16 +27,13 @@ from backend.api.editor.process_routes import create_process_router
 from backend.api.editor.rlm_routes import create_rlm_router
 from backend.api.editor.semantic_routes import create_semantic_router
 from backend.api.editor.sync_routes import create_sync_router
-from backend.api.live_run.agent_routes import create_agent_router
-from backend.api.live_run.hook_install_routes import create_hook_install_router
-from backend.api.live_run.hook_routes import create_hook_router
-from backend.api.live_run.node_session_routes import create_node_sessions_router
 from backend.api.project.archify_routes import create_archify_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
 from backend.api.project.project_workspace_routes import create_project_workspace_router
 from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
+from backend.app.human_session import HumanSession
 from backend.app.remote_access import (
     COOKIE_NAME,
     TOKEN_REQUIRED,
@@ -39,13 +41,14 @@ from backend.app.remote_access import (
     is_loopback_only,
     requires_token,
 )
+from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.canvas_service import CanvasService
-from backend.claude_code.assistant.manager import AssistantManager
-from backend.claude_code.assistant.router import route as route_message
-from backend.claude_code.assistant.workspace import project_locator
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
 from backend.canvas.sync_report import SyncReport
+from backend.claude_code.assistant.manager import AssistantManager
+from backend.claude_code.assistant.router import route as route_message
+from backend.claude_code.assistant.workspace import project_locator
 from backend.code_intelligence import CodeIntelligence
 from backend.editor.agent_handoff.message_store import MessageStore
 from backend.editor.agent_memory.agent_output import AgentOutput
@@ -111,6 +114,20 @@ def create_app(data_root=None):
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
     remote = RemoteAccess.from_env()
 
+    activity_log = ActivityLog(service)
+    # Člověk = relační doklad UI, ne chybějící hlavička (upgrade-opora #29).
+    human = HumanSession()
+
+    def _log_activity(request, status):
+        """Záznam činnosti (docs/zaznam-cinnosti.md); jeho selhání nikdy neshodí požadavek."""
+        try:
+            actor, agent = request.state.actor, request.state.agent
+            described = describe(getattr(request, "_body", b""), dict(request.query_params))
+            activity_log.record(actor=actor, agent=agent, method=request.method, path=request.url.path,
+                                described=described, status=status)
+        except Exception:  # noqa: BLE001 - záznam je doplněk, ne podmínka zápisu
+            return
+
     @app.middleware("http")
     async def boundary(request: Request, call_next):
         host = request.headers.get("host", "")
@@ -122,13 +139,14 @@ def create_app(data_root=None):
         expected_origin = ("http://" + host if loopback
                            else remote.origin_for(host, request.headers.get("x-forwarded-proto")))
         origin = request.headers.get("origin")
+        request.state.actor, request.state.agent = human.actor(request.headers, request.cookies)
         if origin and origin != expected_origin:
             return JSONResponse({"error": "Nepovolený Origin."}, status_code=403)
         if public:
             path = request.url.path
             if is_loopback_only(path):
                 return JSONResponse(
-                    {"error": "Hook control běží jen na tomto počítači."}, status_code=403
+                    {"error": "Tohle běží jen na tomto počítači."}, status_code=403
                 )
             if requires_token(path) and not remote.authorized(
                     request.headers.get("authorization"), request.cookies.get(COOKIE_NAME)):
@@ -150,12 +168,24 @@ def create_app(data_root=None):
                     return JSONResponse({"error": "Požadavek je příliš velký."}, status_code=413)
             request._body = bytes(body)
         response = await call_next(request)
+        if request.method not in ("GET", "HEAD") and request.url.path.startswith("/api"):
+            _log_activity(request, response.status_code)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
+        # Obrázky jen z vlastního původu, data:/blob: a https (upgrade-opora #42); http beacon ani <object> ne.
+        baseline_csp = "img-src 'self' data: blob: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        route_csp = response.headers.get("Content-Security-Policy")
+        response.headers["Content-Security-Policy"] = (route_csp + ", " + baseline_csp) if route_csp else baseline_csp
         if request.url.path.startswith("/api"):
             response.headers["Cache-Control"] = "no-store"
         return response
+
+    @app.exception_handler(HumanRequired)
+    async def human_required(request, exc):
+        # 428: UI si obnoví doklad a zkusí to znovu; agent dostane jasné 403.
+        return JSONResponse({"error": str(exc), "humanRequired": True},
+                            status_code=403 if exc.actor == "agent" else 428)
 
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
@@ -179,7 +209,7 @@ def create_app(data_root=None):
     # aplikace
     app.include_router(create_app_router(service, identity))
     # hranice vzdáleného přístupu: stav, přihlášení a odhlášení tunelu
-    app.include_router(create_access_router(remote, port=port))
+    app.include_router(create_access_router(remote, port=port, human=human))
     # krok 1: nastavení projektu
     app.include_router(create_project_setup_router(service))
     # prostředí Projekt
@@ -190,7 +220,11 @@ def create_app(data_root=None):
     app.include_router(create_map_refresh_router(map_refresh))
     # prostředí Editor
     app.include_router(create_canvas_router(service))
+    app.include_router(create_canvas_version_router(service, desktop_state))
+    app.include_router(create_activity_log_router(activity_log))
     app.include_router(create_node_router(service))
+    # Schránka zadání: doslovné verzované fragmenty a odkazy karet (docs/navrh-schranka-zadani.md)
+    app.include_router(create_brief_vault_router(service, desktop_state))
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
     app.include_router(create_agent_message_router(agent_messages))
     app.include_router(create_claude_code_router(service))
@@ -198,6 +232,9 @@ def create_app(data_root=None):
     # RLM: řazení oddílů plátna přes Jev pro asistenta; jen loopback, klíč zůstává v backendu (§13.3)
     app.include_router(create_rlm_router(key_source=app_settings.typesafe_key))
     app.include_router(create_process_router(service))
+    # Hook control: karta a cesty, které agent na disku smí měnit (upgrade-opora #38, bez Live Run).
+    app.include_router(create_hook_router(service, port=port))
+    app.include_router(create_hook_install_router(service, binding_lookup=service.hook_control.public_binding))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)
     sync_report = SyncReport(service, check_runs=check_runs)
@@ -218,11 +255,6 @@ def create_app(data_root=None):
     app.include_router(create_semantic_router(service, semantic_service=semantic))
     # Paměť role: stejná vrstva jako sémantika — explicitní dotaz, nikdy automatické volání.
     app.include_router(create_memory_router(service, memory_service))
-    # prostředí Live Run
-    app.include_router(create_agent_router(service))
-    app.include_router(create_node_sessions_router(service))
-    app.include_router(create_hook_router(service, port=port))
-    app.include_router(create_hook_install_router(service, binding_lookup=service.hook_control.public_binding))
 
     # Neznámá cesta pod /api je chyba klienta, ne soubor: bez tohohle ji chytne statický
     # mount níž a na POST odpoví 405, což vypadá jako špatná metoda, ne jako překlep v cestě.

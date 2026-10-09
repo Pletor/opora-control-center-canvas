@@ -13,6 +13,12 @@ CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, kind TEXT, status TEXT, mes
 CREATE TABLE IF NOT EXISTS archived_projects(project_id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, archived_at TEXT NOT NULL);
 -- backend/memory/memory_service.py: nastavení platné pro celou aplikaci (nikdy per projekt).
 CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+-- backend/canvas/activity_log.py: záznam činnosti člověka a agentů (docs/zaznam-cinnosti.md).
+CREATE TABLE IF NOT EXISTS activity_log(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, actor TEXT NOT NULL, agent TEXT NOT NULL,
+  method TEXT NOT NULL, path TEXT NOT NULL, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
+  node_ids TEXT NOT NULL, status INTEGER NOT NULL, summary TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS activity_log_scope ON activity_log(project_id, workspace_id, actor, id);
 """
 
 # projects/<id>/project.sqlite – vše o jednom projektu; vlastník tabulky v komentáři.
@@ -28,6 +34,13 @@ CREATE TABLE IF NOT EXISTS node_text_revisions(
     project_id TEXT, workspace_id TEXT, node_id TEXT, revision INTEGER,
     text TEXT NOT NULL, saved_at TEXT NOT NULL,
     PRIMARY KEY(project_id,workspace_id,node_id,revision));
+-- backend/editor/brief_vault/brief_vault.py: schránka zadání; doslovné fragmenty, jen přibývají revize
+CREATE TABLE IF NOT EXISTS brief_fragment_revisions(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
+    parent_id TEXT, scope_node_id TEXT, ord INTEGER NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
+    text TEXT NOT NULL, stage TEXT NOT NULL, mvp TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL,
+    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, fragment_id, revision));
 -- backend/editor/node/node_specs.py
 CREATE TABLE IF NOT EXISTS node_spec_revisions(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
@@ -52,6 +65,18 @@ CREATE TABLE IF NOT EXISTS drawing_files(
 CREATE TABLE IF NOT EXISTS graph_recoveries(
     id TEXT PRIMARY KEY, project_id TEXT, workspace_id TEXT,
     graph TEXT NOT NULL, created_at TEXT NOT NULL);
+-- backend/editor/node/removal_recovery.py: jednorázový záznam obnovy smazaného obsahu (id = graph_recoveries.id)
+CREATE TABLE IF NOT EXISTS removal_restores(
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
+    record TEXT NOT NULL, created_at TEXT NOT NULL, used_at TEXT);
+-- backend/editor/canvas_versions/canvas_versions.py: uložené verze plátna (graf + stav Desktop v3)
+CREATE TABLE IF NOT EXISTS canvas_versions(
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
+    author TEXT NOT NULL, created_at TEXT NOT NULL, graph TEXT NOT NULL, state TEXT NOT NULL,
+    graph_digest TEXT NOT NULL, state_digest TEXT NOT NULL,
+    snapshot TEXT, content_digest TEXT);
+CREATE INDEX IF NOT EXISTS canvas_versions_scope
+    ON canvas_versions(project_id, workspace_id, created_at DESC);
 -- backend/editor/agent_memory/desktop_v3_state.py
 CREATE TABLE IF NOT EXISTS desktop_v3_state(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision INTEGER NOT NULL,
@@ -67,6 +92,24 @@ CREATE TABLE IF NOT EXISTS desktop_v3_snapshots(
     node_id TEXT NOT NULL, digest TEXT NOT NULL, request TEXT NOT NULL,
     packet TEXT NOT NULL, created_at TEXT NOT NULL);
 -- backend/editor/agent_memory/agent_results.py: immutable original outputs and their specification
+CREATE TABLE IF NOT EXISTS assignment_snapshots(
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
+    record TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS card_leases(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
+    owner TEXT NOT NULL, token TEXT NOT NULL, expires_at REAL NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, node_id));
+CREATE TABLE IF NOT EXISTS card_work_activity(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
+    agent TEXT NOT NULL, started_at TEXT, updated_at TEXT NOT NULL, touched TEXT,
+    PRIMARY KEY(project_id, workspace_id, node_id));
+CREATE TABLE IF NOT EXISTS port_spawns(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
+    block_id TEXT NOT NULL, port_id TEXT NOT NULL, target_id TEXT NOT NULL, created_at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, node_id, block_id, port_id));
+CREATE INDEX IF NOT EXISTS assignment_snapshots_scope
+    ON assignment_snapshots(project_id, workspace_id, node_id, sequence DESC);
 CREATE TABLE IF NOT EXISTS agent_result_records(
     sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
@@ -79,22 +122,6 @@ CREATE TABLE IF NOT EXISTS workspace_documents(
     revision INTEGER NOT NULL, fields TEXT NOT NULL, node_id TEXT,
     source_version TEXT, saved_at TEXT NOT NULL,
     PRIMARY KEY(project, workspace, path));
--- backend/live_run/agent_bindings.py
-CREATE TABLE IF NOT EXISTS agent_bindings(
-    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
-    layer TEXT NOT NULL, node_id TEXT NOT NULL, source_id TEXT NOT NULL,
-    run_id TEXT NOT NULL, session_id TEXT, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS agent_binding_scopes(
-    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
-    revision INTEGER NOT NULL, PRIMARY KEY(project_id, workspace_id, node_id));
--- backend/live_run/agent_activity.py
-CREATE TABLE IF NOT EXISTS agent_activity_entries(
-    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
-    node_id TEXT NOT NULL, source_id TEXT NOT NULL, run_id TEXT NOT NULL,
-    source_event_id TEXT NOT NULL, source_timestamp TEXT, ingest_timestamp TEXT NOT NULL,
-    kind TEXT NOT NULL, summary TEXT NOT NULL,
-    author_type TEXT NOT NULL, source_trust TEXT NOT NULL,
-    UNIQUE(project_id, workspace_id, node_id, source_id, run_id, source_event_id));
 -- backend/editor/agent_handoff/message_store.py: neměnné adresované zprávy a jedno potvrzení adresáta.
 CREATE TABLE IF NOT EXISTS agent_messages(
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,16 +152,6 @@ CREATE TABLE IF NOT EXISTS opora_commits(
     PRIMARY KEY(project_id, workspace_id, id));
 CREATE INDEX IF NOT EXISTS opora_commits_scope
     ON opora_commits(project_id, workspace_id, scope_id, created_at);
--- backend/live_run/node_sessions.py
-CREATE TABLE IF NOT EXISTS node_sessions(
-    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
-    node_id TEXT NOT NULL, source TEXT NOT NULL, session_id TEXT NOT NULL,
-    run_id TEXT, role TEXT NOT NULL, title TEXT NOT NULL, parent_session_id TEXT,
-    bound_at TEXT NOT NULL, baseline_at TEXT NOT NULL, baseline_cursor INTEGER NOT NULL,
-    closed_at TEXT, closed_snapshot TEXT);
-CREATE UNIQUE INDEX IF NOT EXISTS node_sessions_active
-    ON node_sessions(project_id, workspace_id, source, session_id) WHERE closed_at IS NULL;
-CREATE INDEX IF NOT EXISTS node_sessions_scope ON node_sessions(project_id, workspace_id, node_id);
 """
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
@@ -142,19 +159,25 @@ PROJECT_TABLES = {
     "drafts": "id",
     "project_settings": "project_id",
     "node_text_revisions": "project_id",
+    "brief_fragment_revisions": "project_id",
     "node_spec_revisions": "project_id",
     "node_journal_revisions": "project_id",
     "drawing_revisions": "project_id",
     "drawing_files": "project_id",
     "graph_recoveries": "project_id",
+    "canvas_versions": "project_id",
     "desktop_v3_state": "project_id",
     "desktop_v3_snapshots": "project_id",
     "workspace_documents": "project",
-    "agent_bindings": "project_id",
-    "agent_binding_scopes": "project_id",
-    "agent_activity_entries": "project_id",
     "check_runs": "project_id",
     "opora_commits": "project_id",
-    "node_sessions": "project_id",
 }
 REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects")
+
+
+def ensure_canvas_version_columns(db):
+    """Add full snapshot columns; existing graph/state versions remain explicitly partial."""
+    columns = {row[1] for row in db.execute("PRAGMA table_info(canvas_versions)")}
+    for name in ("snapshot", "content_digest"):
+        if name not in columns:
+            db.execute(f"ALTER TABLE canvas_versions ADD COLUMN {name} TEXT")

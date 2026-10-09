@@ -105,7 +105,7 @@ def _check_content(project, workspace, built):
             raise ValueError(_named(error, built.labels)) from error
 
 
-def apply_plan(service, payload):
+def apply_plan(service, payload, *, actor="system"):
     project, workspace, expected_digest, dry, plan = _request(payload)
     store = getattr(service, "desktop_v3_state", None) or DesktopV3State(service)
     with service.graph_lock:
@@ -117,13 +117,44 @@ def apply_plan(service, payload):
         with service.lock:
             stored = store.current(project, workspace)
         built = build(plan, view["graph"], stored["state"])
+        if actor not in ("human", "system"):
+            # Pravidla z dávky agenta jsou návrhy, dokud je neschválí člověk (upgrade-opora #37).
+            from backend.editor.agent_memory.desktop_v3_state import stamp_agent_rules
+            stamp_agent_rules(actor, stored["state"]["rules"], built.state["rules"])
+        if any(revision != stored["revision"] for revision in built.extend_revisions):
+            raise ValueError("Rozšíření má zastaralou expectedRevision stavu.")
+        # `fragmentRef` míří na živý fragment schránky téhož projektu a prostoru (bez revize = poslední).
+        from backend.editor.brief_vault.brief_vault_refs import resolve_plan_refs
+        with service.lock:
+            resolve_plan_refs(service.db_for(project), project, workspace, built)
+        for node_id, kind, expected, value in built.documents:
+            if kind == "spec":
+                current = service.node_spec(project, workspace, node_id)
+                if not isinstance(value, dict):
+                    raise ValueError("Rozšíření spec.fields musí být objekt.")
+                built.specs[node_id] = {**current["fields"], **value}
+                built.spec_revisions[node_id] = expected
+            else:
+                current = service.texts.read((project, workspace, node_id))
+                built.texts[node_id] = value
+                built.text_revisions[node_id] = expected
+            if current["revision"] != expected:
+                raise ValueError(f"{node_id}: zastaralá revize {kind}.")
         _check_graph(service, project, workspace, view["graph"], built)
         _check_content(project, workspace, built)
-        missing = layout(built.nodes, view["graph"]["nodes"], built.inside, built.positions)
+        missing = layout(built.nodes, built.graph["nodes"], built.inside, built.positions)
         if missing is not None:
             raise ValueError(f"{built.labels[missing]}: karta se nevejde do oblasti; zvětšete její size.")
         # Placement may shift a requested point; validate the actual graph before persistence.
         _check_graph(service, project, workspace, view["graph"], built)
+        if actor not in ("human", "system"):
+            # Rozšíření existující karty nesmí měnit bránu, kontroly ani vazby sektorů (upgrade-opora #30);
+            # hlídá se i v dryRun, aby agent chybu viděl dřív, než dávku pošle.
+            from backend.canvas.activity_log import HumanRequired
+            from backend.canvas.protected_fields import protected_changes
+            changes = protected_changes(view["graph"], built.new_graph())
+            if changes:
+                raise HumanRequired(actor, "Tato pole mění jen člověk v UI: " + ", ".join(changes[:10]))
         result = {"ok": True, "dryRun": dry, "refs": built.refs, "blocks": built.blocks,
                   "summary": plan_summary(plan)}
         if dry:
@@ -141,11 +172,19 @@ def _write(service, store, project, workspace, expected_digest, revision, built)
         if store.current(project, workspace)["revision"] != revision:
             raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
         for node_id, fields in built.specs.items():
+            expected = built.spec_revisions.get(node_id, 0)
+            actual = db.execute("SELECT COALESCE(MAX(revision),0) FROM node_spec_revisions WHERE project_id=? AND workspace_id=? AND node_id=?", (project, workspace, node_id)).fetchone()[0]
+            if actual != expected:
+                raise ValueError("Specifikace se během dávky změnila.")
             db.execute("INSERT INTO node_spec_revisions VALUES(?,?,?,?,?,?)",
-                       (project, workspace, node_id, 1, json.dumps(fields, ensure_ascii=False), saved_at))
+                       (project, workspace, node_id, expected + 1, json.dumps(fields, ensure_ascii=False), saved_at))
         for node_id, text in built.texts.items():
+            expected = built.text_revisions.get(node_id, 0)
+            actual = db.execute("SELECT COALESCE(MAX(revision),0) FROM node_text_revisions WHERE project_id=? AND workspace_id=? AND node_id=?", (project, workspace, node_id)).fetchone()[0]
+            if actual != expected:
+                raise ValueError("Text se během dávky změnil.")
             db.execute("INSERT INTO node_text_revisions VALUES(?,?,?,?,?,?)",
-                       (project, workspace, node_id, 1, text, saved_at))
+                       (project, workspace, node_id, expected + 1, text, saved_at))
         if built.state_changed:
             revision += 1
             db.execute("INSERT OR REPLACE INTO desktop_v3_state VALUES(?,?,?,?,?)",
