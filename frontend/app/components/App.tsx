@@ -104,6 +104,7 @@ import AccountCorner from "@/layout/account-corner/components/AccountCorner";
 import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
+import BriefVaultScope from "@/editor/node-detail/brief-vault/components/BriefVaultScope";
 import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
 import { commitSpec, saveNodeSpec } from "@/shared/desktop-state/logic/api";
 import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-report";
@@ -1442,6 +1443,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 done={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).done}
                 onDone={(patch) => { void desktop.mutate(setDone(node.id, patch)); }}
                 ideas={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).ideas ?? []}
+                fragmentRefs={desktop.state.nodes[node.id]?.fragmentRefs}
                 onIdeaStatus={(id, status) => { void desktop.mutate(setIdeaStatus(node.id, id, status)); }}
                 onIdeaRemove={(id) => { void desktop.mutate(removeIdea(node.id, id)); }}
                 onPickTag={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
@@ -1532,6 +1534,11 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 jobs={jobs}
                 localProject={localProject}
                 tools={inspectorTools}
+                vault={view ? (
+                  <BriefVaultScope project={project} workspace={workspace} scope={layer?.id ?? ""}
+                    scopeLabel={layer ? "vrstvy" : "plátna"} revision={desktop.revision}
+                    nodeNames={Object.fromEntries(graph.nodes.map((n) => [n.id, n.name]))} onOpenNode={openNode} />
+                ) : undefined}
                 onWorkspace={() => open("workspace")}
               />
             )}

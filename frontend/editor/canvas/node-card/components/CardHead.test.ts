@@ -26,3 +26,11 @@ it("shows open ideas as a quiet count and hides zero", () => {
   expect(head(2)).toContain("Podněty k dalšímu vývoji: 2 otevřených");
   expect(head(0)).not.toContain("💡");
 });
+
+it("warns when the brief changed after the card was planned and hides zero", () => {
+  const head = (briefChanged: number) => renderToStaticMarkup(createElement(CardHead, { view: { kind: "node", phase: "build",
+    phaseLabel: "build", closed: false, doneProposed: false, briefChanged } }));
+  expect(head(1)).toContain("⚠ zadání se změnilo");
+  expect(head(1)).toContain("1 fragment schránky má novější revizi");
+  expect(head(0)).not.toContain("zadání se změnilo");
+});

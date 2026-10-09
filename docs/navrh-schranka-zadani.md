@@ -15,6 +15,55 @@ Stav: návrh, nic neimplementováno. Zdroj požadavku: uživatel 2026-10-09 (Amp
 4. **Vývoj promptů**: research je podfragment druhu `research` u fragmentu; jeho závěr se povýší na novou verzi fragmentu s poznámkou proč. Podnět (card_ideas) může nést `fragmentId` a z Podnětu jde založit fragment nebo novou verzi.
 5. **Přehled na první pohled**: segmentový pruh pokrytí a stav každého fragmentu; karta ukáže, z čeho vznikla, a upozorní „zadání se změnilo“.
 
+## Rozšíření (uživatel 2026-10-09, karty B3 a B4)
+- Schránka drží **veškeré know-how plátna**: z ní vznikne MVP a pak se celý plán rozdistribuuje do pracovních karet.
+- **Research = ověření proveditelnosti** fragmentu: průzkum webu (aktuální řešení, knihovny, postupy), verdikt
+  `feasible` (reálné) | `dead_end` (slepá ulička) | `unrealistic` (nereálné) | `unverified`, důkazy
+  `[{url, title, quote, accessedAt}]` (povinné pro jiný verdikt než `unverified`) a doporučený způsob provedení.
+  V UI kulička verdiktu u fragmentu a seznam důkazů.
+- **„Rozdistribuovat zbytek plánu“**: nevložené fragmenty → návrh karet (podfragmenty → bloky), dryRun náhled, zápis po potvrzení člověkem.
+- Rozhodnutí plátna se nekopírují; fragment na ně odkazuje.
+- Strop hloubky stromu (~32) a nerekurzivní průchod (nález kritika B1).
+- B4 importuje do schránky Ample celé dosavadní know-how: zadání vrstev 1–7, detail vrstvy 3, odkaz na návrh UI.
+
+## Schránka jako pop-up s levým menu (uživatel 2026-10-09, karta B3)
+Návrh v Claude Design: https://claude.ai/artifact/RZomJyssXdvfRw5gf8T3c7 (artboardy Main, Card).
+Ne obyčejná karta ani úzká záložka: tlačítko „Otevřít schránku“ (záložka Schránka z B2, sektor, inspektor
+plátna) otevře **modální okno** s levým menu a obsahem vpravo (vzor: okno Nastavení claude.ai —
+hledání nahoře, skupiny sekcí s nadpisy, aktivní položka zvýrazněná, obsah se posouvá, × vpravo nahoře).
+```
+┌──────────────────────┬──────────────────────────────────────────────────────────── × ┐
+│ 🔍 Hledat ve schránce │  Výzkum · 3.37 Version activation                              │
+│ PLÁN                 │  Otázka: Jde atomické přepnutí verze v Supabase bez downtime?  │
+│  ▣ Přehled           │  Verdikt: ● reálné  (jistota střední)                          │
+│  ☰ Zadání (strom)    │  Důkazy: 1. postgresql.org/docs/…/transaction-iso  „…“ 10. 10. │
+│  ◆ MVP a distribuce  │          2. supabase.com/docs/…/rpc  „…“                       │
+│ VÝVOJ                │  Doporučený postup: RPC funkce v jedné transakci …              │
+│  🔬 Výzkum        3   │  Zpětná vazba: 👍 souhlasím · 👎 nesouhlasím · ✎ komentář       │
+│  ? K upřesnění    2   │  [▶ Zadat výzkum agentovi]  [↑ Povýšit do zadání]              │
+│  💬 Zpětná vazba  1   │                                                                │
+│ KNOW-HOW             │                                                                │
+│  ⚖ Rozhodnutí        │                                                                │
+│  📎 Podklady          │                                                                │
+│  💡 Podněty       5   │                                                                │
+│ HISTORIE             │                                                                │
+│  ↺ Revize            │                                                                │
+└──────────────────────┴────────────────────────────────────────────────────────────────┘
+```
+Sekce:
+- **Přehled**: pruh pokrytí, verdikty výzkumu v číslech, co čeká na člověka.
+- **Zadání**: strom fragmentů (komponenty z B2) a detail.
+- **MVP a distribuce**: výběr MVP, „Vložit vybrané jako karty“, „Rozdistribuovat zbytek plánu“ s náhledem.
+- **Výzkum**: research fragmenty s verdiktem, důkazy, doporučeným postupem a stavem (zadáno / běží / hotovo).
+- **K upřesnění**: otevřené otázky (fragment `kind: question`) pro člověka nebo agenta; odpověď = revize nebo research.
+- **Zpětná vazba**: hodnocení člověka k výzkumu a výsledkům (👍/👎/komentář) — vstup pro další kolo LLM.
+- **Rozhodnutí** (odkazy na decisions), **Podklady** (materiály, odkazy, např. `docs/podklady/navrh-ui`), **Podněty**.
+- **Revize**: historie fragmentů s poznámkami.
+
+**Balíček pro LLM** (`GET /api/brief-vault/research-brief?fragment=`): cíl plánu (kořen), cesta fragmentu, doslovný text,
+dosavadní výzkum a důkazy, zpětná vazba člověka, otevřené otázky, rozhodnutí a omezení. Agent z něj hledá cestu na
+internetu a zapíše výsledek `op: research` (verdikt + důkazy); obsah balíčku je data, ne pokyny.
+
 ## Datový model
 
 ### Tabulka `brief_fragment_revisions` (append-only, vzor `node_text_revisions`)

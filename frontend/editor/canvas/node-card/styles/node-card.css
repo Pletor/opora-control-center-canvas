@@ -89,6 +89,8 @@
 .node-card__source button:disabled { cursor: default; }
 .node-card__source span { display: block; font-size: 11px; overflow-wrap: anywhere; }
 .node-card__badge--waiting { color: #c98a1e; border-color: currentColor; min-width: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Zadání ze schránky se po vložení změnilo: stejný tichý odznak jako podněty, jen v barvě varování. */
+.node-card__badge--brief-changed { color: var(--gold); border-color: var(--gold-line); background: var(--gold-soft); white-space: nowrap; }
 
 /* TĚLO: jméno je to první, co se čte, proto 16 px a dvojklik na něj přejmenovává přímo na plátně.
    Podstata pod ním má tři řádky — tolik, aby se dala pochopit, a ne tolik, aby se karta protáhla.

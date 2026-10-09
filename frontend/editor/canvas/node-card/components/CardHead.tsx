@@ -1,12 +1,12 @@
 // Hlava karty: druh (uzel / sektor), fáze, u uzlu s kartou drobný štítek vrstvy (FE / BE / DB /
-// Knihovna) a stavu, tichý počet otevřených podnětů k dalšímu vývoji a — u uzavřené karty — zámek. Jen zobrazení; vrstvu a stav počítá `cardView`.
+// Knihovna) a stavu, tichý počet otevřených podnětů k dalšímu vývoji, ⚠ „zadání se změnilo“ (schránka zadání) a — u uzavřené karty — zámek. Jen zobrazení; vrstvu a stav počítá `cardView`.
 import { CARD_STATUS_LABEL, type CardView } from "@/editor/canvas/node-card/logic/card-model";
 import { LAYER_LABEL } from "@/shared/card-context/logic/card-context";
 
 export default function CardHead({
   view,
 }: {
-  view: Pick<CardView, "kind" | "phase" | "phaseLabel" | "closed" | "doneProposed"> & Partial<Pick<CardView, "cardLayer" | "cardStatus" | "cardModel" | "cardEffort" | "waitingOnHuman" | "openIdeas">>;
+  view: Pick<CardView, "kind" | "phase" | "phaseLabel" | "closed" | "doneProposed"> & Partial<Pick<CardView, "cardLayer" | "cardStatus" | "cardModel" | "cardEffort" | "waitingOnHuman" | "openIdeas" | "briefChanged">>;
 }) {
   return (
     <div className="node-card__head">
@@ -25,6 +25,12 @@ export default function CardHead({
       {view.doneProposed && (
         <span className="node-card__lock node-card__lock--proposed" title="Agent navrhl uzavření; potvrzuje člověk." aria-label="Uzavření navržené agentem">
           ⌛
+        </span>
+      )}
+      {!!view.briefChanged && (
+        <span className="node-card__badge node-card__badge--brief-changed" role="status"
+          title={`Zadání se změnilo: ${view.briefChanged} ${view.briefChanged === 1 ? "fragment schránky má" : "fragmenty schránky mají"} novější revizi, než ze které karta vznikla (detail karty, záložka Zadání).`}>
+          ⚠ zadání se změnilo
         </span>
       )}
       {!!view.openIdeas && (

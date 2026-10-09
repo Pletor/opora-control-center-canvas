@@ -62,6 +62,8 @@ export type CardView = {
   doneProposed: boolean;
   /** Otevřené podněty k dalšímu vývoji (ne-blokující nálezy review a kritiků). */
   openIdeas: number;
+  /** Fragmenty schránky zadání, které mají novější revizi, než ze které karta vznikla (doplní Board). */
+  briefChanged?: number;
   /** Vrstva uzlu (FE / BE / DB / Knihovna) z `card.layer`; sektor ji nemá. Typ workflow je vidět v názvu. */
   cardLayer: CardLayer | null;
   /** Efektivní stav uzlu: `done` z uzavření, jinak ruční stav, jinak `null`; sektor ho nemá. */

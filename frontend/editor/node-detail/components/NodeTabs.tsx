@@ -2,37 +2,41 @@
 // záložek ani o ukládání; vybranou záložku drží rodič (NodePanel) a změna bublá nahoru přes onTab.
 import type { KeyboardEvent, ReactNode } from "react";
 
-export type NodeTab = "spec" | "links" | "work" | "ideas";
+export type NodeTab = "spec" | "links" | "work" | "ideas" | "vault";
 export const TABS: { key: NodeTab; label: string }[] = [
   { key: "spec", label: "Zadání" },
   { key: "links", label: "Vazby" },
   { key: "work", label: "Práce" },
   { key: "ideas", label: "Podněty" },
+  { key: "vault", label: "Schránka" },
 ];
 
-export default function NodeTabs({ tab, onTab, badges }: {
+export default function NodeTabs({ tab, onTab, badges, hidden }: {
   tab: NodeTab;
+  /** Záložky, které uzel nemá (např. Schránka u karty bez vlastní schránky). */
+  hidden?: NodeTab[];
   onTab: (tab: NodeTab) => void;
   /** Drobný odznak za názvem záložky (např. počet otevřených podnětů); obsah dodá rodič. */
   badges?: Partial<Record<NodeTab, ReactNode>>;
 }) {
+  const tabs = TABS.filter((item) => !hidden?.includes(item.key));
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number;
     switch (event.key) {
-      case "ArrowRight": next = (index + 1) % TABS.length; break;
-      case "ArrowLeft": next = (index + TABS.length - 1) % TABS.length; break;
+      case "ArrowRight": next = (index + 1) % tabs.length; break;
+      case "ArrowLeft": next = (index + tabs.length - 1) % tabs.length; break;
       case "Home": next = 0; break;
-      case "End": next = TABS.length - 1; break;
+      case "End": next = tabs.length - 1; break;
       default: return;
     }
     event.preventDefault();
-    onTab(TABS[next].key);
+    onTab(tabs[next].key);
     // Fokus zůstává v tomto tablistu, ne v jiném inspektoru či skrytém panelu.
     event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
   }
   return (
     <div className="panel-tabs" role="tablist" aria-label="Části uzlu">
-      {TABS.map((item, index) => (
+      {tabs.map((item, index) => (
         <button
           key={item.key}
           type="button"

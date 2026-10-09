@@ -1,0 +1,149 @@
+/* SCHRÁNKA ZADÁNÍ (záložka Schránka, čipy „Ze schránky“)
+   Příběh: zadání vrstvy má desítky kapitol. Člověk na první pohled vidí pruh pokrytí (co je vložené jako
+   karty, co čeká v researchu, co je jen uložené a co se po vložení změnilo), pod ním strom kapitol s kuličkou
+   stavu ve stejném jazyce jako porty karty a po kliku doslovný text s historií. */
+.brief-vault { display: flex; flex-direction: column; gap: 8px; }
+
+/* Pruh pokrytí: segmenty v pevném pořadí, hotové vlevo, varování vpravo. */
+.brief-vault__bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+}
+.brief-vault__segment { display: block; height: 100%; }
+.brief-vault__segment--mvpInserted { background: #5f947f; }
+.brief-vault__segment--inserted { background: var(--accent); }
+.brief-vault__segment--research { background: repeating-linear-gradient(135deg, var(--accent-line) 0 3px, var(--surface-3) 3px 6px); }
+.brief-vault__segment--saved { background: var(--line-strong); }
+.brief-vault__segment--changed { background: var(--gold); }
+.brief-vault__legend { margin: 4px 0 0; font-size: 11px; line-height: 1.6; color: var(--ink-2); }
+.brief-vault__legend-item--zero { color: var(--ink-muted); }
+.brief-vault__swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin: 0 3px 0 2px; vertical-align: baseline; }
+
+/* Strom: řádek = rozbalení, kulička, název, stav, počet karet, varování, podněty. */
+.brief-vault__tree { list-style: none; margin: 0; padding: 0; }
+.brief-vault__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.brief-vault__row:hover { background: var(--surface-2); }
+.brief-vault__row--selected { background: var(--accent-soft); }
+.brief-vault__twist {
+  flex: 0 0 14px;
+  width: 14px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.brief-vault__title {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.brief-vault__title:hover { color: var(--accent); background: transparent; }
+.brief-vault__kind { color: var(--ink-muted); }
+.brief-vault__state { font: 500 10px var(--mono); color: var(--ink-muted); white-space: nowrap; }
+.brief-vault__meta { font: 500 10px var(--mono); color: var(--ink-muted); white-space: nowrap; }
+.brief-vault__changed { font: 600 10px var(--mono); color: var(--gold); white-space: nowrap; }
+
+/* Kulička stavu: stejná velikost a rámeček jako port karty. */
+.brief-vault__dot {
+  flex: 0 0 10px;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  background: transparent;
+  vertical-align: middle;
+}
+.brief-vault__dot--mvp { background: #5f947f; border-color: #5f947f; }
+.brief-vault__dot--inserted { background: var(--accent); border-color: var(--accent); }
+.brief-vault__dot--research { border-color: var(--accent); background: linear-gradient(90deg, var(--accent) 50%, transparent 50%); }
+.brief-vault__dot--proposed { border-color: #5f947f; border-style: dashed; }
+.brief-vault__dot--changed { background: var(--gold); border-color: var(--gold); }
+
+/* Detail fragmentu. */
+.brief-vault__detail {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+}
+.brief-vault__detail h4 { margin: 2px 0; font-size: 13px; overflow-wrap: anywhere; }
+.brief-vault__detail h5 { margin: 10px 0 4px; font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.brief-vault__detail-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.brief-vault__path { font-size: 10px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.brief-vault__close { border: 0; background: transparent; color: var(--ink-muted); font-size: 16px; line-height: 1; padding: 0 2px; cursor: pointer; }
+.brief-vault__close:hover { color: var(--ink); background: transparent; }
+.brief-vault__old { margin: 6px 0 0; font-size: 11px; color: var(--gold); }
+.brief-vault__text {
+  margin: 6px 0 0;
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--field);
+  color: var(--ink);
+  font: 12px/1.5 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.brief-vault__history, .brief-vault__research { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+.brief-vault__history li { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.brief-vault__revision {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+  padding: 1px 6px;
+  font: 500 10px var(--mono);
+  cursor: pointer;
+}
+.brief-vault__revision[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.brief-vault__note { color: var(--ink-muted); overflow-wrap: anywhere; }
+
+/* Čipy karet a čipy „Ze schránky“ na kartě. */
+.brief-vault__chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.brief-vault__from { margin: 0 0 8px; }
+.brief-vault__from-label { font-size: 11px; color: var(--ink-muted); }
+.brief-chip {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink-2);
+  padding: 1px 8px;
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.brief-chip { cursor: pointer; }
+button.brief-chip:hover { border-color: var(--accent-line); color: var(--accent); }
+.brief-chip--changed { border-color: var(--gold-line); color: var(--gold); background: var(--gold-soft); }
+
+.brief-vault__empty { font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+.brief-vault__empty p { margin: 0 0 6px; }

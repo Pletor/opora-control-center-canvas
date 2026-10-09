@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import DetailFold from "./DetailFold";
 import ResultHistory from "@/editor/llm-control/editor-context/components/ResultHistory";
@@ -16,13 +16,17 @@ import FactRefsEditor from "@/editor/node-detail/card-fields/components/FactRefs
 import DoneControl from "@/editor/node-detail/done/components/DoneControl";
 import IdeasPanel, { IdeasCount } from "@/editor/node-detail/ideas/components/IdeasPanel";
 import { openIdeas, type CardIdea, type IdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
+import BriefVaultPanel from "@/editor/node-detail/brief-vault/components/BriefVaultPanel";
+import BriefChips from "@/editor/node-detail/brief-vault/components/BriefChips";
+import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
+import { hasOwnVault, indexVault, rootsOf, type FragmentRef } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import type { NodeDone } from "@/shared/desktop-state/logic/types";
 import type { CanvasNode, Workspace } from "@/shared/types/logic/types";
 
 export type { NodeTab };
 
 /**
- * Jeden inspektor: Zadání · Vazby · Práce · Podněty. Sekundární editory se načtou při prvním rozbalení
+ * Jeden inspektor: Zadání · Vazby · Práce · Podněty · Schránka (sektor, nebo karta s vlastní schránkou). Sekundární editory se načtou při prvním rozbalení
  * a zůstanou připojené, aby sbalení nebo přepnutí záložky nesmazalo rozepsaný text.
  * Uzavření karty (`done`) drží dílek `done/DoneControl`; ukládá rodič (App).
  */
@@ -47,6 +51,7 @@ export default function NodePanel({
   done,
   onDone,
   ideas,
+  fragmentRefs,
   onIdeaStatus,
   onIdeaRemove,
   syncView,
@@ -65,6 +70,8 @@ export default function NodePanel({
   onDone: (patch: Partial<NodeDone>) => void;
   /** Podněty k dalšímu vývoji ze stavu Desktop v3; odškrtává a maže člověk, ukládá rodič. */
   ideas: CardIdea[];
+  /** Fragmenty schránky zadání, ze kterých karta vznikla (stav uzlu `fragmentRefs`). */
+  fragmentRefs?: FragmentRef[];
   onIdeaStatus: (id: string, status: IdeaStatus) => void;
   onIdeaRemove: (id: string) => void;
   /** Uzly grafu jako cíle větví ve Stromu. */
@@ -105,6 +112,12 @@ export default function NodePanel({
     dirty: purposeDirty.current, isDirty: () => purposeDirty.current,
     blocked: !confirmed ? "Nejprve potvrďte změnu podstaty v detailu uzlu." : readOnly ? "Karta je pouze ke čtení." : undefined,
     flush: () => confirmSavedChange(() => onSave({ ...node, purpose }), () => purposeDirty.current) });
+  const vault = useBriefVault({ project, workspace }, resultRevision);
+  const vaultRoots = vault.tree?.roots ?? [];
+  const vaultIndex = useMemo(() => indexVault(vaultRoots), [vaultRoots]);
+  const showVault = node.kind === "sector" || hasOwnVault(vaultRoots, node.id);
+  const shownTab: NodeTab = tab === "vault" && !showVault ? "spec" : tab;
+  const nodeNames = useMemo(() => Object.fromEntries(graphNodes.map((item) => [item.id, item.name])), [graphNodes]);
   const assigned = workspaces.filter((w) => w.node_id === node.id);
   const kind = node.site?.kind === "application" ? "Aplikace" : node.site?.kind === "page" ? "Stránka" : node.kind === "sector" ? "Sektor" : "Uzel";
   return (
@@ -128,16 +141,17 @@ export default function NodePanel({
           </button>
         </div>
       </header>
-      <NodeTabs tab={tab} onTab={onTab} badges={{ ideas: <IdeasCount count={openIdeas(ideas)} /> }} />
+      <NodeTabs tab={shownTab} onTab={onTab} hidden={showVault ? [] : ["vault"]} badges={{ ideas: <IdeasCount count={openIdeas(ideas)} /> }} />
       <div className="panel-body">
-        <section role="tabpanel" id="node-panel-links" aria-labelledby="node-tab-links" hidden={tab !== "links"}>
+        <section role="tabpanel" id="node-panel-links" aria-labelledby="node-tab-links" hidden={shownTab !== "links"}>
           <h3>Vazby a souvislosti</h3>
           <NodeLinksPanel project={project} workspace={workspace} node={node.id} revision={textRevision} readOnly={readOnly} onOpenNode={onOpenNode} />
           <DetailFold title="Bloky, porty a větvení">
             <NodeTree key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} nodeId={node.id} graphNodes={graphNodes} onPickTag={onPickTag} onSelectBlock={onSelectBlock} />
           </DetailFold>
         </section>
-        <section role="tabpanel" id="node-panel-spec" aria-labelledby="node-tab-spec" hidden={tab !== "spec"}>
+        <section role="tabpanel" id="node-panel-spec" aria-labelledby="node-tab-spec" hidden={shownTab !== "spec"}>
+          <BriefChips refs={fragmentRefs} index={vaultIndex} />
           <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
           <DetailFold title="Účel komponenty">
           <p className="muted">Dlouhodobý smysl této části. Konkrétní práci určuje zadání výše.</p>
@@ -173,7 +187,7 @@ export default function NodePanel({
           {node.kind === "node" && <DetailFold title="Nastavení karty"><NodeCardEditor node={node} readOnly={readOnly} busy={busy} onSave={onSave} /></DetailFold>}
           {(node.kind === "node" || node.kind === "sector") && <DetailFold title="Fakta projektu"><FactRefsEditor key={`${project}:${workspace}:${node.id}`} node={node} project={project} workspace={workspace} disabled={readOnly || busy} onSave={onSave} /></DetailFold>}
         </section>
-        <section role="tabpanel" id="node-panel-work" aria-labelledby="node-tab-work" hidden={tab !== "work"}>
+        <section role="tabpanel" id="node-panel-work" aria-labelledby="node-tab-work" hidden={shownTab !== "work"}>
           <DetailFold title="Výsledky a původní zadání"><ResultHistory project={project} workspace={workspace} nodeId={node.id} revision={resultRevision} /></DetailFold>
           <DetailFold title="Postup, kritéria a kroky">{workflow}</DetailFold>
           <DetailFold title="Ověření a uzavření">
@@ -209,10 +223,18 @@ export default function NodePanel({
           </button>
           </DetailFold>
         </section>
-        <section role="tabpanel" id="node-panel-ideas" aria-labelledby="node-tab-ideas" hidden={tab !== "ideas"}>
+        <section role="tabpanel" id="node-panel-ideas" aria-labelledby="node-tab-ideas" hidden={shownTab !== "ideas"}>
           <h3>Podněty k dalšímu vývoji</h3>
           <IdeasPanel ideas={ideas} readOnly={readOnly} busy={busy} onStatus={onIdeaStatus} onRemove={onIdeaRemove} />
         </section>
+        {showVault && (
+          <section role="tabpanel" id="node-panel-vault" aria-labelledby="node-tab-vault" hidden={shownTab !== "vault"}>
+            <h3>Schránka zadání</h3>
+            <BriefVaultPanel project={project} workspace={workspace} roots={rootsOf(vaultRoots, node.id)}
+              loading={!vault.tree && !vault.error} readOnly={!!vault.tree?.readOnly} error={vault.error}
+              scopeLabel={node.kind === "sector" ? "sektoru" : "karty"} nodeNames={nodeNames} onOpenNode={onOpenNode} />
+          </section>
+        )}
       </div>
       <footer className="panel-foot">
         <button

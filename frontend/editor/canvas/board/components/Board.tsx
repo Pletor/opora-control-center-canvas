@@ -52,6 +52,8 @@ import { blockNodeTypes } from "@/editor/workflow/blocks/components/CanvasBlock"
 import { isBlockId, parseBlockId, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import { revealNodeCenter } from "../logic/reveal-node";
 import { isDeleteKey, reportsSelection, sameSelection, selectionIds } from "../logic/box-selection";
+import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
+import { changedSinceInsert, indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
 
@@ -226,6 +228,8 @@ export default function Board({
   const [showFrontier, setShowFrontier] = useState(true);
   const frontier = useFrontier(sourceContext, parent, showFrontier, state);
   const checklists = useCardChecklist(sourceContext, parent, state);
+  const vault = useBriefVault(sourceContext, state);
+  const vaultIndex = useMemo(() => indexVault(vault.tree?.roots ?? []), [vault.tree]);
   const isSelected = (id: string) => id === selected || multiSelected.includes(id);
   const sectors = useMemo(() => sectorViews(graph, state), [graph, state]);
   const movedCards = useAddedPulse(graph.nodes.map(n => `${n.id}:${n.parentId}:${n.x}:${n.y}`));
@@ -271,7 +275,8 @@ export default function Board({
           };
         }
         const workflow = nodeWorkflowOf(state, n.id);
-        const view = cardView(n, workflow, graph.nodes.filter((c) => c.parentId === n.id).length);
+        const view = { ...cardView(n, workflow, graph.nodes.filter((c) => c.parentId === n.id).length),
+          briefChanged: changedSinceInsert(workflow.fragmentRefs, vaultIndex) };
         return {
           id: n.id,
           type: "canvas",
