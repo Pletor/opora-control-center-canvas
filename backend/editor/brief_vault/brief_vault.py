@@ -203,6 +203,17 @@ def _split(w, payload, node_ids):
     return {"fragment": public(row), "children": [public(child) for child in children]}
 
 
+def _promoted_text(w, payload, research):
+    """Nový text rodiče: `text` z požadavku, jinak závěr výzkumu (`approach`). Otázka ani poznámka výzkumu
+    zadání nepřepíše (kritik B3); bez obojího 409 a rodič zůstane beze změny."""
+    if "text" in payload:
+        return text_of(payload["text"], MAX_TEXT, "text", allow_empty=False)
+    approach = (w.details(research["fragment_id"]).get("research") or {}).get("approach", "")
+    if not approach.strip():
+        fail("promote bez text potřebuje závěr výzkumu (approach z research-update); jinak pošlete celý nový text rodiče.")
+    return text_of(approach, MAX_TEXT, "approach")
+
+
 def _promote(w, payload, node_ids):
     research = w.latest(payload["fragmentId"])
     if research["kind"] != "research" or research["parent_id"] is None:
@@ -210,7 +221,7 @@ def _promote(w, payload, node_ids):
     parent = w.latest(research["parent_id"])
     if parent["revision"] != payload["expectedRevision"]:
         fail(f"rodič se změnil (revize {parent['revision']}, očekávána {payload['expectedRevision']}); načtěte ho znovu.")
-    text = text_of(payload.get("text", research["text"]), MAX_TEXT, "text")
+    text = _promoted_text(w, payload, research)
     note = f"Povýšen research {research['fragment_id']} r{research['revision']}: {payload['note']}"
     promoted = w.revise(parent, note, text=text)
     done = w.revise(research, f"Povýšeno do {parent['fragment_id']} r{promoted['revision']}.", stage="ready")

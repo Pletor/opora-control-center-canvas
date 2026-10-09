@@ -50,7 +50,10 @@ Pravidla dávky:
 - Uzel: `ref` (`[a-z0-9-]` ≤ 80), `kind` (`node`, `sector`, `comment`, `area`), `name` (≤ 160).
   Volitelně `parent`, `purpose`, `sourceRef`, `spec`, `text`, `card`, `blocks`, `rules`, `criteria`,
   `agentRole`, `checks`, `goal_mode`, `scenario`, `design`, `factRefs`, `downloadsUrl`, `gateNodeId`
-  (sektor), `size` a `color` (oblast), `site`, `position`. Bez `position` rozmístí backend.
+  (sektor), `size` a `color` (oblast), `site`, `position`, `fragmentRef`. Bez `position` rozmístí backend.
+- `fragmentRef` (jen `node` a `sector`): odkaz do schránky zadání `{fragmentId, revision?}` nebo pole 1–50 odkazů;
+  bez `revision` poslední revize. Fragment musí existovat v tomtéž projektu a prostoru (jinak 409). Karta pak
+  v `node-brief.fragments` dostane doslovný text a `changedSinceInsert`; schránka ji počítá jako „vloženo“.
 - `parent` a konce vazeb: `ref` z dávky, `"@<id>"` existujícího uzlu, nebo `null` (kořen).
 - Vazba: `from`, `to`, `port` `next` (výchozí) | `action` | `rule` | `block` | `flow`. `block`
   vyžaduje `block` + `blockPort` zdroje; `flow` jen mezi oblastmi; komentář bez vazeb.
@@ -73,7 +76,14 @@ Položka `{node: "@id", expectedRevision, …}` (revize ze `state`), každá kar
 - `ports: [{block: "<blockId>", ports: [{ref, label}]}]`, `rules: [{kind, text}]`,
 - `spec: {expectedRevision, fields: {goal?, non_goals?, acceptance?}}` (doplní jen uvedená pole),
 - `text: {expectedRevision, text}` (nahradí celý text),
-- přesun do oblasti `{parent: "@oblast", columns}`, barva oblasti `{color}`.
+- přesun do oblasti `{parent: "@oblast", columns}`, barva oblasti `{color}`,
+- `fragmentRef` (stejný tvar jako u nové karty): přidá odkazy do schránky; odkaz na týž fragment přepíše revizi, ostatní zůstanou.
+
+```json
+{"digest": "DIGEST", "plan": {"nodes": [], "edges": [], "extend": [
+  {"node": "@NODE_ID", "expectedRevision": 41,
+   "fragmentRef": [{"fragmentId": "FRAGMENT_3_36"}, {"fragmentId": "FRAGMENT_3_37"}]}]}}
+```
 
 Hrana ve stejné dávce může mít `from: "@id"`, `block: "<ref nového bloku>"`, `blockPort: "<ref portu>"`.
 Výsledek vrátí `blocks["@id/ref"]`.

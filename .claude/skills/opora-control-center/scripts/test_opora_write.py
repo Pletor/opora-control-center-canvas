@@ -77,7 +77,21 @@ def test_every_contract_route_is_allowed():
         '/api/desktop-v3/rule', '/api/desktop-v3/decision',
         '/api/graph', '/api/node-spec', '/api/node-text', '/api/desktop-v3/state', '/api/desktop-v3/block',
         '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output', '/api/canvas-plan',
-        '/api/desktop-v3/pipeline'}
+        '/api/desktop-v3/pipeline', '/api/brief-vault'}
+
+
+def test_brief_vault_op_is_posted_with_scope_and_lease(net, monkeypatch):
+    """Schránka zadání: op jde na /api/brief-vault s rozsahem; podcesty čtení zápisem nejsou."""
+    calls, _ = net
+    monkeypatch.setenv(opora_write.LEASE_ENV, 'a' * 64)
+    body = {'op': 'split', 'fragmentId': 'f1', 'expectedRevision': 1, 'splitter': 'heading-number'}
+    assert opora_write.main(['/api/brief-vault', *SCOPE, '--json', json.dumps(body)]) == 0
+    assert calls[0]['route'] == '/api/brief-vault'
+    assert calls[0]['body'] == {**body, 'project': 'p1', 'workspace': 'draft'}
+    assert calls[0]['headers']['x-opora-lease'] == 'a' * 64
+    for route in ('/api/brief-vault/fragment', '/api/brief-vault/research-brief', '/api/brief-vault/../graph'):
+        assert opora_write.main([route, *SCOPE, '--json', '{}']) == 1
+    assert len(calls) == 1
 
 
 @pytest.mark.parametrize('route', ['/api/remove', '/api/local-project', '/api/node-spec/../remove', '/api/graph?x=1'])

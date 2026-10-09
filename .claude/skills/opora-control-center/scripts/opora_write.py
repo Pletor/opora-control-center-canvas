@@ -32,6 +32,8 @@ WRITE_ROUTES = frozenset({
     '/api/graph', '/api/node-spec', '/api/node-text', '/api/desktop-v3/state', '/api/desktop-v3/block',
     '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output', '/api/canvas-plan',
     '/api/desktop-v3/pipeline',
+    # Schránka zadání: doslovné verzované fragmenty, split, výzkum, propose-mvp (references/workflow.md).
+    '/api/brief-vault',
 })
 EXIT_CONFLICT = 3
 # Záznam činnosti (docs/zaznam-cinnosti.md): každý zápis skriptu se hlásí jako agent.

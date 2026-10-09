@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
-import BriefVaultWindow, { closeOnEscape } from "./BriefVaultWindow";
+import BriefVaultWindow, { DRAFT_CONFIRM, closeOnEscape, closeUnlessDraft, hasUnsavedDraft } from "./BriefVaultWindow";
 import VaultNav from "./VaultNav";
 import OverviewSection from "./OverviewSection";
 import MvpSection from "./MvpSection";
@@ -46,6 +46,24 @@ describe("brief vault window", () => {
     closeOnEscape(event("keydown", "Enter"), onClose);
     expect(onClose).toHaveBeenCalledTimes(2);
     expect(esc.preventDefault).toHaveBeenCalled();
+  });
+
+  it("asks before closing over an unsaved field and keeps the window open on cancel", () => {
+    const field = (value: string, isConnected = true) => ({ value, isConnected });
+    expect(hasUnsavedDraft([])).toBe(false);
+    expect(hasUnsavedDraft([field("  "), field("odeslaný formulář", false)])).toBe(false);
+    expect(hasUnsavedDraft([field("rozepsaná odpověď")])).toBe(true);
+    const onClose = vi.fn();
+    const refuse = vi.fn(() => false);
+    closeUnlessDraft([field("rozepsaná odpověď")], refuse, onClose);
+    expect(refuse).toHaveBeenCalledWith(DRAFT_CONFIRM);
+    expect(onClose).not.toHaveBeenCalled();
+    closeUnlessDraft([field("rozepsaná odpověď")], () => true, onClose);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    const never = vi.fn(() => false);
+    closeUnlessDraft([field("")], never, onClose);
+    expect(never).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 
   it("marks the current section and shows counts in the menu", () => {

@@ -110,3 +110,24 @@ def test_inline_rule_example_has_the_validated_shape(route):
     payload = json.loads(block)
     from backend.editor.agent_memory.memory_items import KEYS
     assert set(payload) | {"project", "workspace"} == KEYS and route in opora_write.WRITE_ROUTES
+
+
+def test_brief_vault_example_creates_a_verbatim_root(tmp_path):
+    """Příklad schránky zadání z api.md projde backendem a text se uloží doslova (B4)."""
+    from fastapi.testclient import TestClient
+
+    from backend.app.factory import create_app
+
+    payload = {**SCOPE, **json.loads(examples()["/api/brief-vault"])}
+    assert "/api/brief-vault" in opora_write.WRITE_ROUTES
+    agent = {"origin": ORIGIN, "X-Opora-Actor": "agent; name=worker-7f3a"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        created = client.post("/api/brief-vault", headers=agent, json=payload)
+        assert created.status_code == 200, created.text
+        fragment = created.json()["fragment"]
+        detail = client.get("/api/brief-vault/fragment", params={**SCOPE, "id": fragment["id"]}).json()
+        assert detail["fragment"]["text"] == payload["text"] and fragment["by"] == "worker-7f3a"
+        split = client.post("/api/brief-vault", headers=agent, json={**SCOPE, "op": "split", "fragmentId": fragment["id"],
+                                                                     "expectedRevision": 1, "parts": [
+            {"title": "1", "text": payload["text"].split("\n\n")[0]}, {"title": "2", "text": payload["text"].split("\n\n")[1]}]})
+        assert split.status_code == 200, split.text

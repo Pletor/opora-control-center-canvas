@@ -1,6 +1,6 @@
 // Okno schránky zadání (modální pop-up s levým menu, návrh Claude Design „Main“): vlevo hledání a sekce
 // Plán · Vývoj · Know-how · Historie s počty, vpravo jedna sekce. Esc i × zavírá (nativní <dialog>, pozadí
-// je neaktivní). Strom bere ze sdíleného zdroje schránky; plátno po vložení karet obnoví rodič (onPlanApplied).
+// je neaktivní); s rozepsaným polem se nejdřív zeptá, aby se text neztratil. Strom bere ze sdíleného zdroje schránky; plátno po vložení karet obnoví rodič (onPlanApplied).
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { rootsOf } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
@@ -28,6 +28,27 @@ export function closeOnEscape(event: { type: string; key?: string; preventDefaul
   event.preventDefault();
   event.stopPropagation();
   onClose();
+}
+
+type DraftField = { isConnected: boolean; value: string };
+export const DRAFT_CONFIRM = "Rozepsaný text ve schránce není uložený a zavřením se ztratí. Zavřít přesto?";
+
+/** Pole, do kterého člověk psal, je pořád v okně a není prázdné (odeslaný formulář zmizí nebo se vyprázdní). */
+export function hasUnsavedDraft(fields: Iterable<DraftField>): boolean {
+  for (const field of fields) if (field.isConnected && field.value.trim()) return true;
+  return false;
+}
+
+/** Zavření okna: s rozepsaným polem až po potvrzení člověka. */
+export function closeUnlessDraft(fields: Iterable<DraftField>, ask: (message: string) => boolean, onClose: () => void) {
+  if (hasUnsavedDraft(fields) && !ask(DRAFT_CONFIRM)) return;
+  onClose();
+}
+
+/** Psaní do textového pole okna (ne hledání, ne přepínače) si okno zapamatuje kvůli dotazu při zavření. */
+function isDraftField(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
+  if (target instanceof HTMLTextAreaElement) return true;
+  return target instanceof HTMLInputElement && !["search", "checkbox", "radio", "button", "submit"].includes(target.type);
 }
 
 /** Uzly v rozsahu schránky: vlastník a všichni jeho potomci (plátno = všechny). */
@@ -63,6 +84,8 @@ export default function BriefVaultWindow({ project, workspace, request, state, n
   const [notice, setNotice] = useState("");
   const scope = useMemo(() => ({ project, workspace }), [project, workspace]);
   const vault = useBriefVault(scope, null);
+  const drafts = useRef(new Set<HTMLInputElement | HTMLTextAreaElement>());
+  const requestClose = () => closeUnlessDraft(drafts.current, (message) => window.confirm(message), onClose);
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const element = dialog.current!;
@@ -101,7 +124,7 @@ export default function BriefVaultWindow({ project, workspace, request, state, n
       case "overview": return <OverviewSection roots={roots} feedback={feedback} onSection={setSection} />;
       case "tree": return (
         <BriefVaultPanel project={project} workspace={workspace} roots={filterTree(roots, query)} loading={false} readOnly={false}
-          error={vault.error} scopeLabel={request.owner} nodeNames={nodeNames} onOpenNode={(id) => { onOpenNode(id); onClose(); }}
+          error={vault.error} scopeLabel={request.owner} nodeNames={nodeNames} onOpenNode={(id) => closeUnlessDraft(drafts.current, (message) => window.confirm(message), () => { onOpenNode(id); onClose(); })}
           initialSelected={request.focus ?? null} emptyHint={query ? "Hledání nenašlo žádnou kapitolu." : undefined}
           detailActions={editable ? (id) => <FragmentActions scope={scope} fragmentId={id} onSection={setSection} /> : undefined} />
       );
@@ -118,8 +141,9 @@ export default function BriefVaultWindow({ project, workspace, request, state, n
   };
   return (
     <dialog ref={dialog} className="vault-window" aria-modal="true" aria-label="Schránka zadání" data-testid="brief-vault-window"
-      onCancel={(event) => closeOnEscape(event, onClose)}
-      onKeyDown={(event) => closeOnEscape(event, onClose)}>
+      onCancel={(event) => closeOnEscape(event, requestClose)}
+      onKeyDown={(event) => closeOnEscape(event, requestClose)}
+      onInput={(event) => { if (isDraftField(event.target)) drafts.current.add(event.target); }}>
       <div className="vault-window__frame">
         <VaultNav section={section} counts={counts} query={query} owner={request.owner} onSection={setSection} onQuery={setQuery} />
         <main className="vault-window__main">
@@ -128,7 +152,7 @@ export default function BriefVaultWindow({ project, workspace, request, state, n
               <div className="vault-window__crumb">Schránka zadání · {request.owner}</div>
               <h2 className="vault-window__title">{title}</h2>
             </div>
-            <button type="button" ref={close} className="vault-window__close" aria-label="Zavřít schránku" onClick={onClose}>×</button>
+            <button type="button" ref={close} className="vault-window__close" aria-label="Zavřít schránku" onClick={requestClose}>×</button>
           </header>
           {notice && <p className="vault-window__notice" role="status">{notice}</p>}
           {vault.error && vault.tree && <p className="vault-window__notice" role="status">Obnovení selhalo, ukazuji poslední načtený stav.</p>}

@@ -96,7 +96,7 @@ def net(monkeypatch):
             query = {key: values[0] for key, values in parse_qs(parts.query).items()}
             entries = build_index(answers['/api/view']['graph'], answers['/api/desktop-v3/state']['state'])
             answers[route] = index_search(entries, query.get('q', ''), int(query.get('limit', 200)))
-        calls.append({'method': req.get_method(), 'route': route, 'body': body,
+        calls.append({'method': req.get_method(), 'route': route, 'body': body, 'query': parse_qs(parts.query),
                       'headers': {k.lower(): v for k, v in req.header_items()}, 'timeout': timeout})
         return Response(json.dumps(answers.get(route, {'ok': True})).encode('utf-8'))
 
@@ -300,3 +300,31 @@ def test_node_brief_summary_carries_pipeline_and_output_request():
     assert out['pipeline'] == {'profile': 'goal', 'routedBy': 'router-1', 'current': {'id': 'b'}, 'stuck': [], 'done': 1, 'total': 2}
     assert out['request']['expectedRevision'] == 2 and out['goalMode'] == 'until_checks_pass'
     assert opora_read.summary('node-brief', {'node': {}}, None, None)['pipeline'] is None
+
+
+def test_vault_reads_tree_fragment_and_research_brief_by_get(net, monkeypatch, capsys):
+    """Schránka zadání: tři GET čtení se správnými parametry; souhrn bez textů, --raw celé."""
+    calls, answers = net
+    coverage = {'leaves': 62, 'inserted': 20, 'saved': 42}
+    answers['/api/brief-vault'] = {'readOnly': False, 'feedback': [], 'roots': [
+        {'id': 'r1', 'title': '3. VRSTVA', 'scopeNodeId': 's3', 'revision': 1, 'chars': 17796, 'status': 'saved',
+         'coverage': coverage, 'children': [{'id': 'c1', 'children': []}, {'id': 'c2', 'children': []}]}]}
+    code, out, _ = run(monkeypatch, capsys, 'vault', *SCOPE, '--node', 's3')
+    assert code == 0 and calls[-1]['route'] == '/api/brief-vault' and calls[-1]['query']['scope'] == ['s3']
+    assert out['roots'] == [{'id': 'r1', 'title': '3. VRSTVA', 'scopeNodeId': 's3', 'revision': 1, 'chars': 17796,
+                             'status': 'saved', 'children': 2, 'coverage': coverage}]
+    code, out, _ = run(monkeypatch, capsys, 'vault', *SCOPE)
+    assert 'scope' not in calls[-1]['query']
+    answers['/api/brief-vault/fragment'] = {'fragment': {'id': 'c1', 'revision': 2, 'title': '3.37', 'text': 'Doslovně.', 'chars': 9},
+                                           'latestRevision': 2, 'history': [{}, {}], 'children': [], 'cards': [], 'path': []}
+    code, out, _ = run(monkeypatch, capsys, 'vault-fragment', *SCOPE, '--id', 'c1')
+    assert code == 0 and calls[-1]['query']['id'] == ['c1'] and 'text' not in out['fragment'] and out['history'] == 2
+    code, out, _ = run(monkeypatch, capsys, 'vault-fragment', *SCOPE, '--id', 'c1', '--raw')
+    assert out['fragment']['text'] == 'Doslovně.'
+    answers['/api/brief-vault/research-brief'] = {'schema': 'opora.brief-vault.research-brief/1', 'trust': {'data': ['goal']},
+                                                 'target': {'id': 'c1'}, 'fragment': {'id': 'c1', 'text': 'x'}, 'research': [{}]}
+    code, out, _ = run(monkeypatch, capsys, 'research-brief', *SCOPE, '--id', 'c1')
+    assert code == 0 and calls[-1]['route'] == '/api/brief-vault/research-brief' and calls[-1]['query']['fragment'] == ['c1']
+    assert out['trust'] == {'data': ['goal']} and out['counts']['research'] == 1 and 'text' not in out['fragment']
+    assert all(call['method'] == 'GET' for call in calls)
+    assert run(monkeypatch, capsys, 'research-brief', *SCOPE)[0] == 1

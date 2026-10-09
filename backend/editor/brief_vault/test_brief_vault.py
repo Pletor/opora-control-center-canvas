@@ -95,6 +95,24 @@ def test_split_with_parts_mismatch_is_rejected_without_writes(vault):
     assert [child["ord"] for child in ok["children"]] == [1, 2]
 
 
+def test_split_parts_may_end_at_a_single_line_break_but_never_drop_or_add_text(vault):
+    """Kapitola hned pod posledním řádkem předchozí (bez prázdného řádku) se dá oddělit `parts`; spojení sedí doslovně."""
+    text = "Úvod.\n\n3.1 Architektura\nTabulky.\n3.2 Chunks\nŘádky.\n\n\n3.3 Q&A"
+    fragment = root(vault, text)
+    for parts in ([{"title": "a", "text": "Úvod."}, {"title": "b", "text": "3.1 Architektura\nTabulky.3.2 Chunks\nŘádky."},
+                   {"title": "c", "text": "3.3 Q&A"}],
+                  [{"title": "a", "text": "Úvod.\n"}, {"title": "b", "text": "3.1 Architektura\nTabulky.\n3.2 Chunks\nŘádky."},
+                   {"title": "c", "text": "\n3.3 Q&A"}, {"title": "d", "text": "navíc"}]):
+        with pytest.raises(ValueError, match="spojení"):
+            op(vault, "split", fragmentId=fragment["id"], expectedRevision=1, parts=parts)
+    parts = [{"title": "Úvod", "text": "Úvod."}, {"title": "3.1", "text": "3.1 Architektura\nTabulky."},
+             {"title": "3.2", "text": "3.2 Chunks\nŘádky.\n"}, {"title": "3.3", "text": "3.3 Q&A"}]
+    children = op(vault, "split", fragmentId=fragment["id"], expectedRevision=1, parts=parts)["children"]
+    texts = [vault.fragment("draft", "draft", child["id"])["fragment"]["text"] for child in children]
+    assert texts == [part["text"] for part in parts]
+    assert texts[0] + "\n\n" + texts[1] + "\n" + texts[2] + "\n\n" + texts[3] == text
+
+
 def test_research_promote_new_parent_revision_and_marks_research_ready(vault):
     fragment = root(vault, "Verze se přepíná.")
     research = op(vault, "research", fragmentId=fragment["id"], title="Atomické přepnutí", text="Použít transakci.")["fragment"]

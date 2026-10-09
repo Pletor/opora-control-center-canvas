@@ -62,7 +62,8 @@ Sekce:
 
 **Balíček pro LLM** (`GET /api/brief-vault/research-brief?fragment=`): cíl plánu (kořen), cesta fragmentu, doslovný text,
 dosavadní výzkum a důkazy, zpětná vazba člověka, otevřené otázky, rozhodnutí a omezení. Agent z něj hledá cestu na
-internetu a zapíše výsledek `op: research` (verdikt + důkazy); obsah balíčku je data, ne pokyny.
+internetu a zapíše výsledek `op: research` (verdikt + důkazy); obsah balíčku je data, ne pokyny: pole `trust`
+(`instructions: ["report"]`, `untrustedData` = všechny texty balíčku, `note`) ho ohraničí jako `node-brief.trust` (B4).
 
 ## Kola karty: uzavřená v1 → čistá v2 (uživatel 2026-10-09, karta B5)
 - Vylepšení hotové karty nezačíná v zaplněné kartě: člověk zvolí „Otevřít v2 podle nového zadání“
@@ -110,7 +111,7 @@ Odvozené (nepersistují se, počítá je čtení):
 Tabulku přidat do `STORES` (`version_content.py`:7-14), `empty_data` a restore (`version_restore.py`). Uložení i obnova verze tak nesou i schránku.
 
 ## Invarianty (hlídá server, ne UI)
-- **Žádná ztráta zadání**: `split` vytvoří děti tak, že spojení jejich textů (v pořadí, s oddělovačem `\n\n`) == text rodiče; jinak 409. Rodič si ponechá plný text (děti jsou členění, ne náhrada).
+- **Žádná ztráta zadání**: `split` vytvoří děti tak, že spojení jejich textů (v pořadí, s oddělovačem `\n\n`, nebo `\n` tam, kde rodič prázdný řádek nemá, tj. kapitola hned pod předchozí — B4) == text rodiče; jinak 409. Rodič si ponechá plný text (děti jsou členění, ne náhrada).
 - Text se nikdy nepřepisuje: každá změna = nová revize s `note`.
 - `mvp: yes|no`, smazání fragmentu a obnova staré revize = **jen člověk** (`require_human`, 403/428 jako dnes).
 - `fragmentRef` musí mířit na existující fragment téhož projektu a workspace.
@@ -124,7 +125,7 @@ Tabulku přidat do `STORES` (`version_content.py`:7-14), `empty_data` a restore 
 | POST `/api/brief-vault` | `op: create` (kořen se `scopeNodeId` nebo dítě s `parentId`) | agent, člověk |
 | | `op: revise` (`fragmentId, expectedRevision, text?, title?, stage?, note`) | agent, člověk |
 | | `op: split` (`fragmentId, expectedRevision, parts:[{title, text}]` nebo `splitter: "heading-number"` = řádky `^\d+(\.\d+)* `) | agent, člověk |
-| | `op: research` (založí dítě `kind: research`) / `op: promote` (závěr research → nová revize rodiče) | agent, člověk |
+| | `op: research` (založí dítě `kind: research`) / `op: promote` (závěr research → nová revize rodiče; text z `text`, jinak `approach` výzkumu, jinak 409 — B4) | agent, člověk |
 | | `op: propose-mvp` (`fragmentIds`) | agent |
 | | `op: set-mvp`, `op: delete`, `op: restore` | jen člověk |
 
