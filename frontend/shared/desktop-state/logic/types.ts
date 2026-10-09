@@ -116,9 +116,11 @@ export type NodeWorkflowState = {
   ideas?: import("@/editor/node-detail/ideas/logic/ideas-model").CardIdea[];
   /** Odkud karta vznikla ve schránce zadání: fragment a revize při vložení (zapisuje canvas-plan). */
   fragmentRefs?: import("@/editor/node-detail/brief-vault/logic/brief-vault-model").FragmentRef[];
+  /** Aktuální kolo karty (chybí = kolo 1); mění ho jen otevření nového kola člověkem (POST /api/desktop-v3/card-round). */
+  round?: import("@/editor/node-detail/rounds/logic/rounds-model").CardRound;
 };
 /** Stav uzlu se všemi bloky vyplněnými; oba bloky se ukládají vždy spolu. */
-export type NodeWorkflowFull = Required<Omit<NodeWorkflowState, "evidence" | "scenarioRun" | "downloadsUrl" | "stages" | "ideas" | "fragmentRefs">> & Pick<NodeWorkflowState, "evidence" | "scenarioRun" | "downloadsUrl" | "stages" | "ideas" | "fragmentRefs">;
+export type NodeWorkflowFull = Required<Omit<NodeWorkflowState, "evidence" | "scenarioRun" | "downloadsUrl" | "stages" | "ideas" | "fragmentRefs" | "round">> & Pick<NodeWorkflowState, "evidence" | "scenarioRun" | "downloadsUrl" | "stages" | "ideas" | "fragmentRefs" | "round">;
 
 export type PipelineTemplate = { id: string; label: string; description: string };
 export type PipelineCategory = { id: string; label: string; description: string; pipelines: PipelineTemplate[] };

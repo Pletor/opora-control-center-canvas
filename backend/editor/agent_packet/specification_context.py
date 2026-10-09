@@ -32,6 +32,9 @@ def _instructions(node_state):
               for key in ("criteria", "steps", "actions", "rules", "blocks", "materials")}
     if "downloadsUrl" in node_state:
         result["downloadsUrl"] = node_state["downloadsUrl"]
+    # Kolo karty je součást zadání: výstup ke kolu v1 se nezapíše do čisté v2 (card_rounds.py).
+    if "round" in node_state:
+        result["round"] = node_state["round"]["number"]
     for criterion in result["criteria"]:
         criterion.pop("checked", None)
     for step in result["steps"]:

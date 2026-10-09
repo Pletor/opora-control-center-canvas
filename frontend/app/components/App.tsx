@@ -1469,6 +1469,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 workflow={v3.nodeWorkflow?.({ project, workspace, nodeId: node.id })}
                 resultRevision={desktop.revision}
                 onOpenVault={openVault}
+                round={desktop.state.nodes[node.id]?.round}
+                onOpenRound={async (reason) => {
+                  // Nové kolo potvrzuje člověk: revize těsně před zápisem, server zamrazí kolo a vrátí nový stav.
+                  const fresh = await fetchState(project, workspace);
+                  desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/card-round",
+                    { project, workspace, nodeId: node.id, expectedRevision: fresh.revision, reason })));
+                  setNodeTab("work");
+                }}
               />
             </>) : panels.inspector === "comment" && node ? (
               <CommentPanel

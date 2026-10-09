@@ -19,14 +19,16 @@ import { openIdeas, type CardIdea, type IdeaStatus } from "@/editor/node-detail/
 import BriefVaultEntry from "@/editor/node-detail/brief-vault/components/BriefVaultEntry";
 import BriefChips from "@/editor/node-detail/brief-vault/components/BriefChips";
 import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
-import { hasOwnVault, indexVault, rootsOf, scopeOfFragment, type FragmentRef } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import { changedSinceInsert, hasOwnVault, indexVault, rootsOf, scopeOfFragment, type FragmentRef } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import RoundsPanel, { OpenRoundOffer, RoundSwitch } from "@/editor/node-detail/rounds/components/RoundsPanel";
+import { roundNumber, roundOffer, type CardRound } from "@/editor/node-detail/rounds/logic/rounds-model";
 import type { NodeDone } from "@/shared/desktop-state/logic/types";
 import type { CanvasNode, Workspace } from "@/shared/types/logic/types";
 
 export type { NodeTab };
 
 /**
- * Jeden inspektor: Zadání · Vazby · Práce · Podněty · Schránka (sektor, nebo karta s vlastní schránkou). Sekundární editory se načtou při prvním rozbalení
+ * Jeden inspektor: Zadání · Vazby · Práce · Podněty · Historie kol · Schránka (sektor, nebo karta s vlastní schránkou). Sekundární editory se načtou při prvním rozbalení
  * a zůstanou připojené, aby sbalení nebo přepnutí záložky nesmazalo rozepsaný text.
  * Uzavření karty (`done`) drží dílek `done/DoneControl`; ukládá rodič (App).
  */
@@ -59,6 +61,8 @@ export default function NodePanel({
   workflow,
   resultRevision,
   onOpenVault,
+  round,
+  onOpenRound,
 }: {
   node: CanvasNode;
   project: string;
@@ -99,6 +103,10 @@ export default function NodePanel({
   resultRevision: number;
   /** Otevře okno schránky zadání (rozsah = vlastník kořene, volitelně rovnou na fragmentu). */
   onOpenVault?: (scope: string, focus?: string) => void;
+  /** Aktuální kolo karty ze stavu Desktop v3 (chybí = kolo 1). */
+  round?: CardRound;
+  /** Člověk otevře uzavřenou kartu jako nové kolo; zapisuje rodič (App) přes POST /api/desktop-v3/card-round. */
+  onOpenRound?: (reason: string) => Promise<void>;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
@@ -125,6 +133,15 @@ export default function NodePanel({
     const scope = scopeOfFragment(vaultIndex, fragmentId);
     if (scope != null) onOpenVault?.(scope, fragmentId);
   };
+  const currentRound = roundNumber(round);
+  const [selectedRound, setSelectedRound] = useState(currentRound);
+  useEffect(() => setSelectedRound(currentRound), [currentRound, node.id]);
+  const briefChanged = changedSinceInsert(fragmentRefs, vaultIndex);
+  const offer = onOpenRound ? roundOffer(done.confirmed, readOnly, briefChanged) : null;
+  const pickRound = (value: number) => {
+    setSelectedRound(value);
+    onTab(value === currentRound ? "work" : "rounds");
+  };
   const assigned = workspaces.filter((w) => w.node_id === node.id);
   const kind = node.site?.kind === "application" ? "Aplikace" : node.site?.kind === "page" ? "Stránka" : node.kind === "sector" ? "Sektor" : "Uzel";
   return (
@@ -132,6 +149,10 @@ export default function NodePanel({
       <header className="panel-head">
         <div className="eyebrow">{kind.toLocaleUpperCase("cs")} · DETAIL</div>
         <h2>{node.name}</h2>
+        <RoundSwitch current={currentRound} closed={done.confirmed} selected={shownTab === "rounds" ? selectedRound : currentRound} onSelect={pickRound} />
+        {offer === "prominent" && onOpenRound && (
+          <OpenRoundOffer current={currentRound} closed={done.confirmed} readOnly={readOnly} busy={busy} briefChanged={briefChanged} onOpenRound={onOpenRound} />
+        )}
         <details><summary>Identita a zdroj</summary><code className="identity">{node.id}</code>
         {node.sourceRef && (
           <p className={"source-badge " + (node.sourceRef.origin === "existing" ? "source-badge-existing" : "source-badge-planned")}>
@@ -234,6 +255,14 @@ export default function NodePanel({
           <h3>Podněty k dalšímu vývoji</h3>
           <IdeasPanel ideas={ideas} readOnly={readOnly} busy={busy} onStatus={onIdeaStatus} onRemove={onIdeaRemove}
             fragmentTitles={fragmentTitles} onOpenFragment={onOpenVault ? openFragment : undefined} />
+        </section>
+        <section role="tabpanel" id="node-panel-rounds" aria-labelledby="node-tab-rounds" hidden={shownTab !== "rounds"}>
+          <h3>Historie kol</h3>
+          {shownTab === "rounds" && (
+            <RoundsPanel project={project} workspace={workspace} nodeId={node.id} current={currentRound} closed={done.confirmed}
+              readOnly={readOnly} busy={busy} briefChanged={briefChanged} revision={resultRevision}
+              selected={selectedRound} onSelect={pickRound} onOpenRound={offer === "prominent" ? undefined : onOpenRound} />
+          )}
         </section>
         {showVault && (
           <section role="tabpanel" id="node-panel-vault" aria-labelledby="node-tab-vault" hidden={shownTab !== "vault"}>

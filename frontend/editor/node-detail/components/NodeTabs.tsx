@@ -2,12 +2,13 @@
 // záložek ani o ukládání; vybranou záložku drží rodič (NodePanel) a změna bublá nahoru přes onTab.
 import type { KeyboardEvent, ReactNode } from "react";
 
-export type NodeTab = "spec" | "links" | "work" | "ideas" | "vault";
+export type NodeTab = "spec" | "links" | "work" | "ideas" | "rounds" | "vault";
 export const TABS: { key: NodeTab; label: string }[] = [
   { key: "spec", label: "Zadání" },
   { key: "links", label: "Vazby" },
   { key: "work", label: "Práce" },
   { key: "ideas", label: "Podněty" },
+  { key: "rounds", label: "Historie kol" },
   { key: "vault", label: "Schránka" },
 ];
 

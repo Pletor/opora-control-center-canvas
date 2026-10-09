@@ -7,8 +7,8 @@ nasazení: postup vpřed vyžaduje neprázdná splněná kritéria, opačný sm�
 `edges` je sekce zpráv agenta na vazbách grafu (log, souhrn, předání, zlepšení, chyby);
 uzel navíc nese `done` (uzavření karty), `agentRole` (která role agenta si tuhle práci
 pamatuje napříč projekty), blok `ports` (tlačítka, z nichž vede vazba na jinou kartu), `ideas`
-(podněty k dalšímu vývoji, `card_ideas.py`) a `fragmentRefs` (z čeho ve schránce zadání karta
-vznikla, `backend/editor/brief_vault/brief_vault_refs.py`).
+(podněty k dalšímu vývoji, `card_ideas.py`), `fragmentRefs` (z čeho ve schránce zadání karta
+vznikla, `backend/editor/brief_vault/brief_vault_refs.py`) a `round` (aktuální kolo karty, `card_rounds.py`).
 Všechny tyto klíče jsou volitelné, aby starší uložený stav zůstal platný.
 """
 
@@ -102,9 +102,9 @@ MAX_AGENT = 120
 @functools.cache
 def _node_key_sets():
     """Volitelné klíče uzlu; `actions` a `rules` chodí vždy spolu, zbytek nezávisle.
-    Sad je 2^11; spočítají se jednou a hledá se v množině, ne v n-tici."""
+    Sad je 2^12; spočítají se jednou a hledá se v množině, ne v n-tici."""
     sets = (frozenset(NODE_KEYS), frozenset(NODE_KEYS) | {"actions", "rules"})
-    for optional in ("blocks", "materials", "done", "agentRole", "evidence", "scenarioRun", "downloadsUrl", "stages", "ideas", "fragmentRefs"):
+    for optional in ("blocks", "materials", "done", "agentRole", "evidence", "scenarioRun", "downloadsUrl", "stages", "ideas", "fragmentRefs", "round"):
         sets = sets + tuple(item | {optional} for item in sets)
     return frozenset(sets)
 TICKET_KEYS = {"id", "title", "priority", "status", "nodeId", "sessionId", "createdBy"}
@@ -474,6 +474,9 @@ def validate_state(state):
         if "fragmentRefs" in node:
             from backend.editor.brief_vault.brief_vault_refs import validate_refs
             validate_refs(node["fragmentRefs"], f"fragmentRefs[{node_id}]")
+        if "round" in node:
+            from backend.editor.agent_memory.card_rounds import validate_round
+            validate_round(node["round"], node_id)
         _validate_agent_role(node, node_id)
         for item in _items(node.get("actions", []), ACTION_KEYS, MAX_SUBITEMS, f"actions[{node_id}]"):
             _text(item["pipelineId"], MAX_KEY, "pipelineId akce")
@@ -597,6 +600,9 @@ class DesktopV3State:
                 if current["revision"] != expected:
                     raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
                 check_phase_transitions(current["state"], state)
+                # Číslo kola karty mění jen otevření nového kola člověkem (card_rounds.open_round).
+                from backend.editor.agent_memory import card_rounds
+                card_rounds.guard_state_write(actor, current["state"], state)
                 # Nový odkaz do schránky zadání (karta i Podnět) míří na živý fragment tohoto prostoru.
                 from backend.editor.brief_vault.brief_vault_refs import check_new_references
                 check_new_references(db, project, workspace, current["state"], state)

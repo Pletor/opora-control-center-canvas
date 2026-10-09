@@ -55,6 +55,8 @@
 .node-card--sector .node-card__kind { color: var(--gold); }
 .node-card__lock { font-size: 11px; line-height: 1; }
 .node-card__lock--proposed { opacity: 0.7; }
+/* Kola karty „v1 ✓ · v2 ●“: tichý údaj, že karta má zamrazenou historii (detail, Historie kol). */
+.node-card__rounds { font: 500 10px var(--mono); color: var(--ink-muted); white-space: nowrap; }
 .node-card__phase {
   font: 500 10px var(--mono);
   color: var(--ink-muted);

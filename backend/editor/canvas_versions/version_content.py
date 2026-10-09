@@ -14,11 +14,13 @@ STORES = {
     "briefFragments": ("brief_fragment_revisions", ("fragment_id",), ("parent_id", "scope_node_id", "ord", "kind", "title",
                                                                      "text", "stage", "mvp", "note", "by", "actor", "deleted")),
     "briefDetails": ("brief_fragment_details", ("fragment_id",), ("fields",)),
+    # Zamrazená kola karet (card_rounds.py); stav nese `nodes[].round`, záznamy kol tato část.
+    "cardRounds": ("card_rounds", ("node_id", "round"), ("record",)),
 }
 # Části přidané až po verzích, které je neznají: starší snímek je čte jako prázdné a jejich
 # prázdný seznam nemění digest obsahu (stará verze projde kontrolou integrity a není „změněná“).
-LATER_STORES = ("briefFragments", "briefDetails")
-JSON_COLUMNS = {"fields", "scene", "sections"}
+LATER_STORES = ("briefFragments", "briefDetails", "cardRounds")
+JSON_COLUMNS = {"fields", "scene", "sections", "record"}
 SCHEMA = "opora.canvas-version/2"
 EXCLUDED = ["source-code", "git-history", "project-settings", "external-references", "immutable-agent-evidence"]
 
@@ -52,6 +54,7 @@ def empty_data(name):
         "documents": {"fields": dict.fromkeys(sorted(FIELDS), ""), "node_id": None, "source_version": None},
         "briefFragments": dict(TOMBSTONE),
         "briefDetails": {"fields": {}},
+        "cardRounds": {"record": {}},
     }[name]
 
 
@@ -95,6 +98,7 @@ def restore_records(db, project, workspace, target, current, timestamp):
 def validate_records(records, project, workspace):
     from backend.canvas.graph import valid_id
     from backend.editor.agent_memory.agent_workspace import validate_save
+    from backend.editor.agent_memory.card_rounds import validate_record as validate_round_record
     from backend.editor.brief_vault.brief_vault_details import validate_details
     from backend.editor.brief_vault.brief_vault_model import validate_record
     from backend.editor.node.drawings import validate_scene
@@ -126,6 +130,10 @@ def validate_records(records, project, workspace):
                 validate_record(data)
             elif name == "briefDetails":
                 validate_details(data["fields"])
+            elif name == "cardRounds":
+                if type(key[1]) is not int or key[1] < 1:
+                    raise ValueError("Neplatné kolo karty v uložené verzi.")
+                validate_round_record(data["record"], key[0], key[1])
             elif name == "documents":
                 relative_path(key[0])
                 if set(data["fields"]) != FIELDS or any(not isinstance(value, str) or len(value) > 16000 for value in data["fields"].values()):

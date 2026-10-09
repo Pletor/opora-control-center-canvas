@@ -5,6 +5,7 @@ import type { BlockPortDef, BlockStatus, NodePhase, NodeWorkflowFull } from "@/s
 import { blockPorts } from "@/shared/desktop-state/logic/types";
 import { cardLayer, effectiveStatus, type EffectiveStatus } from "@/shared/card-context/logic/card-context";
 import { openIdeas } from "@/editor/node-detail/ideas/logic/ideas-model";
+import { roundNumber } from "@/editor/node-detail/rounds/logic/rounds-model";
 import type { CardLayer } from "@/shared/types/logic/types";
 
 export type CardPort = "next" | "action" | "rule" | "material" | "pipeline";
@@ -62,6 +63,8 @@ export type CardView = {
   doneProposed: boolean;
   /** Otevřené podněty k dalšímu vývoji (ne-blokující nálezy review a kritiků). */
   openIdeas: number;
+  /** Aktuální kolo karty (1 = bez historie); v2+ ukáže hlava přepínač „v1 ✓ · v2 ●“. */
+  round: number;
   /** Fragmenty schránky zadání, které mají novější revizi, než ze které karta vznikla (doplní Board). */
   briefChanged?: number;
   /** Vrstva uzlu (FE / BE / DB / Knihovna) z `card.layer`; sektor ji nemá. Typ workflow je vidět v názvu. */
@@ -109,6 +112,7 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     closed: workflow.done.confirmed,
     doneProposed: workflow.done.by === "agent" && !workflow.done.confirmed,
     openIdeas: openIdeas(workflow.ideas),
+    round: roundNumber(workflow.round),
     cardLayer: node.kind === "node" ? cardLayer(node) : null,
     cardStatus: node.kind === "node" ? effectiveStatus(node, workflow.done.confirmed) : null,
     design: node.design,

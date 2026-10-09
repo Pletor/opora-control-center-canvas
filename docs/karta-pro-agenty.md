@@ -273,6 +273,20 @@ Agent je přidává jen přes `agent-output.output.ideas` (nejvýš 20 na výstu
 textu, nejvýš 200 na kartě; `stageId` = etapa uzavřená stejným výstupem). `node-brief.ideas` = `{open, done, policy}`.
 Odškrtnout (`done`) a smazat smí jen člověk (detail karty, záložka Podněty); obecný zápis stavu od agenta 403.
 
+**Kola karty** (`backend/editor/agent_memory/card_rounds.py`): uzavřenou kartu otevře jako nové kolo jen člověk
+(`POST /api/desktop-v3/card-round {project, workspace, nodeId, expectedRevision, reason}`; agent 403, neznámý 428).
+Kolo N se zamrazí do append-only `card_rounds` (`opora.card-round/1`: zadání kola s doslovnými revizemi fragmentů,
+pipeline s předávkami, bloky, důkazy, commity, nálezy kritiků, chyby, Podněty, předávky, prostor agenta, odkazy na
+výsledky agentů); `GET /api/desktop-v3/card-rounds?nodeId=&round=` je čte. Karta v kole N+1: bez pipeline (router),
+fáze `discover` (zamrazená fáze kola je v záznamu `phase`), bloky `open`, důkazy `pending`, jen otevřené Podněty, prázdný prostor agenta, `fragmentRefs` na aktuální revize,
+porty bloků bez volby (`status`/`reason`) a kritéria nezaškrtnutá (nové zadání = nové postupy; volby zůstávají v zamrazeném
+kole a `previousRounds[].decided` = „rozhodnutí v1: …“ jako kontext), rozhodnutí karty se nemažou a v node-brief nesou
+`context.decisions[].fromRound` (UI Paměť projektu: štítek „z v1“), stav uzlu `round = {number, openedAt, by, reason}` (obecný zápis stavu ho nemění). `node-brief.rounds` = aktuální
+kolo a jeho doslovné zadání (`rounds.brief.fragments`, zamrazená kopie; nemění se se schránkou; text schránky je `trust.dataFromAgents`), `node-brief.previousRounds`
+= kompaktní shrnutí každého kola (postup, chyby, nálezy, commity, Podněty, `detail`): poznámka etapy jen jednou
+(`pipeline.stages[].note`, zkrácená na 280 znaků), `criticFindings[].stageId` a `errors.failedStageIds` na ni odkazují;
+plné texty v `detail`. Verze plátna nesou kola (část `cardRounds`).
+
 ## Kontrolní pás karty
 
 Deset polí ano / ne: `goal, done, text, blocks, links, source, checks, pipeline, evidence, handoff`, stav

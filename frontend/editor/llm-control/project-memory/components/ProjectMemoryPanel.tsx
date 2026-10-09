@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import type { Rule, RuleScope, Decision, Setting } from "@/shared/desktop-state/logic/types";
 import MemoryItemText from "./MemoryItemText";
+import { fromRoundLabel } from "@/editor/node-detail/rounds/logic/rounds-model";
+import { useDecisionRounds } from "@/editor/node-detail/rounds/logic/use-decision-rounds";
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -30,6 +32,8 @@ export function ProjectMemoryPanel({
   const [newRuleScope, setNewRuleScope] = useState<RuleScope>("project");
   const [newDecisionText, setNewDecisionText] = useState("");
   const [busy, setBusy] = useState(false);
+  // Rozhodnutí karty z dřívějšího kola nesou štítek „z v1“ (kolo vzniku podle zamrazené historie kol).
+  const decisionRound = useDecisionRounds(project, workspace, state.decisions, state.nodes);
 
   // Verze konceptů: úspěšný zápis smaže koncept jen tehdy, když se od odeslání nezměnil (klíč a
   // hodnota nastavení tvoří jednu dvojici s jednou verzí), takže nikdy nesmaže novější text.
@@ -263,6 +267,12 @@ export function ProjectMemoryPanel({
                   <button type="button" disabled={readOnly || busy || !!decision.supersedes || state.decisions.some(d => d.supersedes === decision.id)} onClick={() => itemWrite("decision", decision, null)}>Odebrat</button>
                   {decision.path && <span className="v3-chip">{decision.path}</span>}
                   <span className="v3-chip">{decision.by === "agent" ? "agent" : "člověk"}</span>
+                  {decisionRound.has(decision.id) && (
+                    <span className="v3-chip" data-testid="decision-from-round"
+                      title={`Rozhodnutí vzniklo v kole v${decisionRound.get(decision.id)} karty; aktuální kolo ho nepřebírá jako volbu, jen jako kontext.`}>
+                      {fromRoundLabel(decisionRound.get(decision.id))}
+                    </span>
+                  )}
                   <button type="button" disabled={readOnly || busy} onClick={() => togglePin(decision.id)}>
                     {decision.pinned ? "Odepnout" : "Připnout"}
                   </button>

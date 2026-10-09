@@ -13,10 +13,11 @@ from backend.editor.node.test_removals import HEADERS, ORIGIN, SCOPE, desktop_st
 
 def seed(db, name, data, revision=1, key=None, workspace="draft"):
     table, keys, columns = STORES[name]
-    key = key or (["a", "2026-10-05"] if name == "journals" else [""] if name == "documents" else ["a"])
+    key = key or (["a", "2026-10-05"] if name == "journals" else [""] if name == "documents"
+                  else ["a", 1] if name == "cardRounds" else ["a"])
     p, w = ("project", "workspace") if name == "documents" else ("project_id", "workspace_id")
     names = (p, w, *keys, "revision", *columns, "saved_at")
-    values = [json.dumps(data[col]) if col in {"fields", "scene", "sections"} else data[col] for col in columns]
+    values = [json.dumps(data[col]) if col in {"fields", "scene", "sections", "record"} else data[col] for col in columns]
     db.execute(f"INSERT OR REPLACE INTO {table}({','.join(names)}) VALUES({','.join('?' for _ in names)})",
                ("draft", workspace, *key, revision, *values, "2026-10-05T10:00:00Z"))
     db.commit()
@@ -30,6 +31,7 @@ def contents(marker):
     items["documents"]["fields"]["purpose"] = marker
     items["briefFragments"].update(text=marker, title=marker, deleted=0, scope_node_id="")
     items["briefDetails"]["fields"] = {"decisions": [marker]}
+    items["cardRounds"]["record"] = {"schema": "opora.card-round/1", "nodeId": "a", "round": 1, "openReason": marker}
     items["drawings"]["scene"]["elements"] = [{"id": "rect", "type": "rectangle", "x": 0, "y": 0,
                                                 "width": 10 if marker == "before" else 20, "height": 10}]
     return items

@@ -1,12 +1,14 @@
 // Hlava karty: druh (uzel / sektor), fáze, u uzlu s kartou drobný štítek vrstvy (FE / BE / DB /
-// Knihovna) a stavu, tichý počet otevřených podnětů k dalšímu vývoji, ⚠ „zadání se změnilo“ (schránka zadání) a — u uzavřené karty — zámek. Jen zobrazení; vrstvu a stav počítá `cardView`.
+// Knihovna) a stavu, tichý počet otevřených podnětů k dalšímu vývoji, ⚠ „zadání se změnilo“ (schránka zadání), kola karty
+// „v1 ✓ · v2 ●“ (od v2) a — u uzavřené karty — zámek. Jen zobrazení; vrstvu a stav počítá `cardView`.
 import { CARD_STATUS_LABEL, type CardView } from "@/editor/canvas/node-card/logic/card-model";
 import { LAYER_LABEL } from "@/shared/card-context/logic/card-context";
+import { roundChips } from "@/editor/node-detail/rounds/logic/rounds-model";
 
 export default function CardHead({
   view,
 }: {
-  view: Pick<CardView, "kind" | "phase" | "phaseLabel" | "closed" | "doneProposed"> & Partial<Pick<CardView, "cardLayer" | "cardStatus" | "cardModel" | "cardEffort" | "waitingOnHuman" | "openIdeas" | "briefChanged">>;
+  view: Pick<CardView, "kind" | "phase" | "phaseLabel" | "closed" | "doneProposed"> & Partial<Pick<CardView, "cardLayer" | "cardStatus" | "cardModel" | "cardEffort" | "waitingOnHuman" | "openIdeas" | "briefChanged" | "round">>;
 }) {
   return (
     <div className="node-card__head">
@@ -25,6 +27,12 @@ export default function CardHead({
       {view.doneProposed && (
         <span className="node-card__lock node-card__lock--proposed" title="Agent navrhl uzavření; potvrzuje člověk." aria-label="Uzavření navržené agentem">
           ⌛
+        </span>
+      )}
+      {(view.round ?? 1) > 1 && (
+        <span className="node-card__rounds" data-testid="card-rounds"
+          title="Kola karty: minulá kola jsou zamrazená v historii (detail karty, záložka Historie kol).">
+          {roundChips(view.round ?? 1, view.closed).map((chip) => chip.label + " " + chip.mark).join(" · ")}
         </span>
       )}
       {!!view.briefChanged && (
