@@ -173,3 +173,8 @@ def ensure_canvas_version_columns(db):
     for name in ("snapshot", "content_digest"):
         if name not in columns:
             db.execute(f"ALTER TABLE canvas_versions ADD COLUMN {name} TEXT")
+    # Dirty polling hledá digest bez načítání velkých snapshotů pod zámkem.
+    # Až po doplnění sloupců: podporuje i staré graph/state verze.
+    if {"project_id", "workspace_id"} <= columns:
+        db.execute("CREATE INDEX IF NOT EXISTS canvas_versions_content "
+                   "ON canvas_versions(project_id, workspace_id, content_digest)")

@@ -22,6 +22,37 @@ def test_latest_result_status_tracks_saved_assignment_and_survives_restart(tmp_p
         assert client.get("/api/desktop-v3/assignment-status", params=SCOPE).json()["nodes"]["focus"]["status"] == "changed"
 
 
+def test_status_reuses_unchanged_scope_capture_and_invalidates_after_specification(tmp_path, monkeypatch):
+    """Polling nesmí znovu skládat plnou specifikaci, ale zápis ji ihned invaliduje."""
+    import backend.editor.agent_memory.assignment_status as status_module
+
+    original = status_module.capture_specification
+    calls = 0
+
+    def captured(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(status_module, "capture_specification", captured)
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        prepared(client)
+        result = send(client, result_request(brief(client)))
+        assert result.status_code == 200, result.text
+
+        def status():
+            response = client.get("/api/desktop-v3/assignment-status", params=SCOPE)
+            assert response.status_code == 200, response.text
+            return response.json()["nodes"]["focus"]
+
+        assert status()["status"] == "current"
+        assert status()["status"] == "current"
+        assert calls == 1
+        specification(client, "focus", "Changed after cached status")
+        assert status()["status"] == "changed"
+        assert calls == 2
+
+
 def test_claim_snapshots_assignment_so_unbound_work_is_detected(tmp_path):
     """Kritika #36: snímek zadání vzniká už při převzetí, i když agent assignment-snapshot vynechá."""
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:

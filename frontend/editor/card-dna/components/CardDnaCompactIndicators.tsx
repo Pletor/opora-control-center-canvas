@@ -3,15 +3,10 @@ import type { CompletionEvidence } from "@/editor/canvas/node-card/components/Ca
 import type { CardLease } from "@/editor/canvas/node-card/logic/use-leases";
 import { leaseSeconds } from "@/editor/canvas/node-card/components/CardLease";
 import { useLeaseClock } from "@/editor/card-dna/logic/lease-clock";
+import { compactCheckCount } from "@/editor/card-dna/logic/compact-indicators";
 import "@/editor/card-dna/styles/card-dna.css";
 
 type Props = { pipeline?: { finished: number; total: number; failed: number }; view: CardView; evidence?: CompletionEvidence; lease?: CardLease; assignmentChanged: boolean; commit?: string; tokens?: number | null };
-function checkCount(view: CardView, evidence?: CompletionEvidence) {
-  const runs = evidence?.checksRun ?? [];
-  const total = view.checks?.length || runs.length;
-  const passed = new Set(runs.filter(run => run.exitCode === 0).map(run => run.checkId)).size;
-  return { total, finished: Math.min(passed, total), failed: runs.filter(run => run.exitCode !== 0).length };
-}
 function CardDnaCompactLeaseIndicator({ lease }: { lease: CardLease }) {
   const seconds = leaseSeconds(lease, useLeaseClock());
   return <span title="Převzetí agentem">🤖 {lease.owner} · {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}</span>;
@@ -19,7 +14,7 @@ function CardDnaCompactLeaseIndicator({ lease }: { lease: CardLease }) {
 
 /** Jedna tichá řádka orientačních signálů; velké podklady zůstávají mimo plátno. */
 export default function CardDnaCompactIndicators({ pipeline, view, evidence, lease, assignmentChanged, commit, tokens }: Props) {
-  const checks = checkCount(view, evidence);
+  const checks = compactCheckCount(view, evidence);
   return <div className="card-dna-compact__indicators" aria-label="Stav karty">
     {pipeline && <span title="Pipeline: dokončené etapy / celkem">◌ {pipeline.finished}/{pipeline.total}{pipeline.failed ? ` · ${pipeline.failed} selhání` : ""}</span>}
     {!!checks.total && <span title="Dokončené kontroly a selhání">✓ {checks.finished}/{checks.total}{checks.failed ? ` · ${checks.failed} selhání` : ""}</span>}

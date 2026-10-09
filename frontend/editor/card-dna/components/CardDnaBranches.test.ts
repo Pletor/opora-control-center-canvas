@@ -62,4 +62,18 @@ describe("Card DNA detail branches", () => {
     expect(html).toContain("Předchůdce");
     expect(html).toContain("Následník");
   });
+
+  it("ve workflow vrací celý upstream kontext zamítnutého portu", () => {
+    const rejectedGraph = { ...graph, edges: [{ id: "in", source: "before", target: "n1", sourceBlockId: "block", sourcePortId: "port" }] } as Graph;
+    const rejectedState = {
+      ...state,
+      nodes: { ...state.nodes, before: { blocks: [{ id: "block", ports: [{ id: "port", label: "API", status: "rejected", reason: "REJECT_REASON" }] }] } },
+      decisions: [...state.decisions, { id: "old", nodeId: "before", text: "Původní předpoklad", pinned: false, path: "", by: "agent", createdAt: "2026-10-08" }, { id: "fix", nodeId: "before", text: "Opravený předpoklad", supersedes: "old", pinned: false, path: "", by: "agent", createdAt: "2026-10-09" }],
+    } as unknown as DesktopState;
+    const html = renderToStaticMarkup(createElement(CardDnaWorkflow, { ...props, graph: rejectedGraph, state: rejectedState }));
+    expect(html).toContain("Zamítnutá větev z:");
+    expect(html).toContain("Předpoklad se změnil");
+    expect(html).toContain("REJECT_REASON");
+    expect(html).toContain("Původní předpoklad");
+  });
 });

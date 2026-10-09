@@ -2,11 +2,18 @@
 
 import json
 
+from backend.canvas.read_cache import scope_stamp
 from backend.editor.agent_packet.specification_context import capture_specification
 
 
 def assignment_status(canvas, project, workspace):
+    """Aktuálnost předání; neměnný výsledek sdílí poller do příštího zápisu scope."""
+    key = ("assignment-status", project, workspace)
     with canvas.graph_lock, canvas.lock:
+        stamp = scope_stamp(canvas, project, workspace)
+        snapshot = canvas.read_cache.get_snapshot(key, stamp) if stamp is not None else None
+        if snapshot is not None:
+            return canvas.read_cache.decode(snapshot)
         view = canvas.view(project, workspace)
         existing = {node["id"] for node in view["graph"]["nodes"]}
         rows = canvas.db_for(project).execute(
@@ -37,4 +44,8 @@ def assignment_status(canvas, project, workspace):
                               "resultId": record["id"]}
             if source == "handoff":
                 nodes[node_id]["source"] = source
-        return {"nodes": nodes}
+        result = {"nodes": nodes}
+        # Pozdní zápis nese nové razítko; starý výpočet proto nepublikujeme.
+        if stamp is not None and stamp == scope_stamp(canvas, project, workspace):
+            canvas.read_cache.put(key, stamp, result)
+        return result

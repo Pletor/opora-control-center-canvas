@@ -402,3 +402,110 @@ kvůli konzistenci interních writerů; nekryje jej cache ani obecný časový l
 - Po měření oba finální servery skončily čistým shutdownem (exit 0); port 8791
   odmítá TCP spojení. Žádný z 35 evidovaných vlastních procesů a potomků neběží.
   Npm/pytest/review procesy jsou ukončené. Žádný Vite server se nespouštěl.
+
+
+### Výkon – měření, kolo 6 (oprava po review)
+
+`backend/editor/agent_memory/assignment_status.py:12–18,48–51` nyní používá
+omezenou ReadCache se SQL scope stamp. Změny databází invalidují výsledek;
+v transakci, pro Git source a při OPORA_READ_CACHE=0 zůstává původní výpočet.
+Profil `.data/round6-assignment-status-profile.json`:34 statusů, studený
+výpočet52ms, z toho jedno `specification_context.py:70`46ms, vnořeně28
+`canvas_service.py:275(view)` a29 digestů. Původně se tato práce opakovala
+při každém pollu pod graph_lock/canvas.lock. Teplý hit má79 volání funkcí,
+žádné capture. Profil vysvětluje odstraněnou opakovanou práci, ne automaticky
+každou historickou500ms špičku. Regrese `test_assignment_status.py:25`
+ověřuje opakované čtení bez capture a invalidaci po změně specifikace.
+
+Metodika `.data/round6_poll.py`:cache1, vlastní `.data/kopie`, port8791,
+ample cc5f34ec07cd455ca5ad1a69af19022b/draft, stejný sektor jako kolo5,
+nový headless Chrome1600×1000, map worker vypnut,600s viditelný polling.
+Potom30 dokončených browser GET včetně těla na endpoint za pokračujícího
+pollingu, bez souběžných npm/pytest. Artefakt `.data/round6-poll-1.json`.
+Přerušené běhy (uspání stroje/souběh pytest) nejsou použity.
+
+| Endpoint | Medián / p95 / maximum (ms) |
+|---|---:|
+| desktop-v3/assignment-status | 1.8 / 2.5 / 2.5 |
+| desktop-v3/card-checklist | 12.7 / 14.0 / 14.0 |
+| desktop-v3/frontier | 20.3 / 24.1 / 45.2 |
+| desktop-v3/leases | 3.5 / 5.0 / 5.2 |
+| desktop-v3/scenario-history | 6.6 / 7.8 / 425.9 |
+| desktop-v3/source-status | 3.3 / 3.6 / 3.8 |
+| desktop-v3/state | 17.6 / 23.8 / 23.8 |
+| desktop-v3/usage-summary | 18.8 / 21.5 / 41.3 |
+| desktop-v3/work-overview | 25.2 / 27.3 / 29.2 |
+| view | 5.9 / 7.4 / 10.5 |
+| bootstrap | 1.5 / 1.8 / 1.9 |
+
+Polling600.012s, první karty947.8ms,
+JavaScript chyby:0. Všechna desktop p95<200ms, ale maximum
+scenario-history425,9ms překračuje300ms. Tento běh tedy nesplnil oba limity,
+ani při výrazném zlepšení assignment-status a usage-summary.
+
+#### Kontroly kola6
+
+- npm test:1070 passed/157 souborů, exit0.
+- npm run build:exit0; stávající warning velkých chunků.
+- uv run pytest backend:1478 passed,4 skipped,2 warnings,566,36s, exit0.
+  OPORA_GRAPHIFY_PYTHON=nativní absolutní cesta do zdejší .venv-graphify.
+  První běh měl2 Graphify pády kvůli mnou chybně předané MSYS cestě;
+  po opravě prostředí byla zopakována celá sada.
+- Cizí backend/project/maps/test_map_refresh.py beze změny proti review
+  snapshotu a mimo commit. Zelený výsledek zahrnuje tento předem dirty test.
+- Regrese101 checksRun, upstream rejected/reason/supersedes; čistá logika
+  v logic/, fetch historie přes hook.
+- Chrome test201 událostí:100→200→201, nejstarší dostupná; teprve poté API
+  before=12. `.data/round6-ui-result.json`, harness round6-ui.cjs/.py.
+- Nezávislé lokální read-only review:bez bezpečnostního/logického blockeru.
+  Doporučen samostatný hook cancel/retry test.
+
+#### Druhá příčina špiček a finální oprava
+
+Telemetrie `.data/round6-gc-telemetry.json` při druhém 600s běhu vyloučila
+GC jako hlavní příčinu: nejdelší GC pauza 47,2 ms, většina pomalých čtení
+se s dlouhým GC vůbec nepřekrývala. Současně běžel `/api/canvas-versions`.
+Profil tří teplých volání jeho `CanvasVersions.list` ukázal 1,044 s celkem,
+0,837 s v `canvas_versions.py:83(_dirty)` a 0,774 s v SQLite execute.
+Příčina: `canvas_versions.py:85` hledal content_digest přes scope index,
+jenž neobsahoval digest; čtení velkých řádků blokovalo společný canvas lock
+v `version_read_cache.py:51–65`. Nešlo o chybu GC ani o potřebu zvýšit cache.
+
+Oprava `database/schema/project_schema.py:176–180` doplňuje covering index
+(project_id, workspace_id, content_digest), až po migraci starších sloupců.
+Data ani kontrakt dirty/currentToken se nemění. RED test pro nové i legacy
+schéma prokázal chybějící covering index; GREEN ověřuje EXPLAIN QUERY PLAN,
+idempotentní migraci a zachování starého řádku. Celý canvas_versions balíček:
+37 passed. Nezávislé read-only review tohoto dodatku: bez nálezu.
+
+Po indexu: tři teplá volání 0,302 s, `_dirty` 0,084 s, SQLite execute
+0,010 s. Profil `.data/round6-versions-profile.txt` je finální profil po
+opravě; hodnoty před opravou jsou zaznamenané v tool výstupu této relace.
+Finální úplná backendová sada po této změně: **1 480 passed, 4 skipped,
+2 warnings, 546,27 s, exit 0**. Předchozích 1 478 není finální gate.
+
+#### Finální měření kola 6 (po covering indexu)
+
+Stejná metodika jako výše (`.data/round6_poll.py`, cache 1, vlastní `.data/kopie`, port 8791,
+ample cc5f34ec07cd455ca5ad1a69af19022b/draft, headless Chrome, map worker vypnut), 600,0 s
+viditelného pollingu. Artefakt `.data/round6-final-poll-1.json`. Teplá čtení: 30 dokončených
+browser GET na endpoint hned po otevření (před pollingem) a po 10 min pollingu.
+
+| Endpoint | Před pollingem: medián / p95 / max (ms) | Po 10 min: medián / p95 / max (ms) |
+|---|---:|---:|
+| desktop-v3/assignment-status | 2.6 / 111.3 / 221.7 | 1.7 / 3.5 / 90.0 |
+| desktop-v3/card-checklist | 11.2 / 13.4 / 104.6 | 13.8 / 18.9 / 19.9 |
+| desktop-v3/frontier | 16.5 / 22.1 / 47.0 | 16.7 / 26.2 / 40.1 |
+| desktop-v3/leases | 2.6 / 2.8 / 3.4 | 3.0 / 4.2 / 4.4 |
+| desktop-v3/scenario-history | 5.7 / 6.3 / 6.5 | 7.2 / 10.4 / 10.6 |
+| desktop-v3/source-status | 3.0 / 3.3 / 3.4 | 3.4 / 4.9 / 8.7 |
+| desktop-v3/state | 14.3 / 16.2 / 37.9 | 17.8 / 47.4 / 68.7 |
+| desktop-v3/usage-summary | 16.2 / 23.6 / 24.8 | 24.3 / 31.7 / 34.3 |
+| desktop-v3/work-overview | 18.1 / 21.0 / 26.8 | 26.2 / 36.5 / 154.9 |
+| view | 5.1 / 6.5 / 6.6 | 6.8 / 8.0 / 8.6 |
+| bootstrap | 1.5 / 1.8 / 1.9 | 1.8 / 2.1 / 2.4 |
+
+**Cíl splněn:** všechna teplá desktop-v3 GET mají p95 < 200 ms a maximum < 300 ms v obou
+měřeních (nejhorší maximum 221,7 ms assignment-status hned po otevření, po pollingu 154,9 ms
+work-overview). První karty 418,4 ms, JavaScript chyby 0, RSS backendu 61,5 MiB před otevřením
+a 77,9 MiB po pollingu.
