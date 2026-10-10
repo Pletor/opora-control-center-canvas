@@ -89,3 +89,45 @@ def test_agent_cannot_edit_or_remove_human_rules(tmp_path):
         removed = client.post('/api/desktop-v3/rule', headers=AGENT, json={
             **SCOPE, 'id': 'h', 'op': 'remove', 'expected': human, 'item': None})
         assert removed.status_code == 403
+
+
+def big_state(client):
+    """Stav kolem 300 kB (dlouhá rozhodnutí), ať je vidět, že odpověď zápisu nenese celý stav."""
+    before = client.get('/api/desktop-v3/state', params=SCOPE).json()
+    state = {**before['state'], 'decisions': [decision(f'old{i}', 'x' * 3000) for i in range(100)]}
+    saved = client.post('/api/desktop-v3/state', headers=HEADERS,
+                        json={**SCOPE, 'expectedRevision': before['revision'], 'state': state})
+    assert saved.status_code == 200, saved.text
+    return saved.json()['revision']
+
+
+@pytest.mark.parametrize('kind,make', [('rule', rule), ('decision', decision)])
+def test_write_returns_only_revision_and_item_unless_full_is_asked(tmp_path, kind, make):
+    """Karta P3: odpověď zápisu < 10 kB (revize + položka), `?full=1` vrátí i celý stav jako dřív."""
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        install_graph(client, nested_graph())
+        revision = big_state(client)
+        added = write(client, kind, 'add', None, make('a'))
+        assert added.status_code == 200, added.text
+        assert added.json() == {'revision': revision + 1, 'readOnly': False, 'item': make('a')}
+        assert len(added.content) < 10 * 1024
+        stored = client.get('/api/desktop-v3/state', params=SCOPE).json()
+        assert stored['revision'] == revision + 1 and make('a') in stored['state'][kind + 's']
+        full = client.post(f'/api/desktop-v3/{kind}?full=1', headers=HEADERS, json={
+            **SCOPE, 'id': 'b', 'op': 'add', 'expected': None, 'item': make('b')})
+        assert full.status_code == 200, full.text
+        body = full.json()
+        assert body['revision'] == revision + 2 and body['item'] == make('b')
+        assert body['state'] == client.get('/api/desktop-v3/state', params=SCOPE).json()['state']
+        removed = write(client, kind, 'remove', make('a'), None)
+        assert removed.json() == {'revision': revision + 3, 'readOnly': False, 'item': None}
+
+
+def test_agent_rule_write_returns_the_item_as_stored_with_its_author(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        install_graph(client, nested_graph())
+        response = client.post('/api/desktop-v3/rule', headers=AGENT, json={
+            **SCOPE, 'id': 'p', 'op': 'add', 'expected': None, 'item': rule('p', 'Návrh')})
+        assert response.status_code == 200, response.text
+        assert response.json()['item'] == {**rule('p', 'Návrh'), 'by': 'agent'}
+        assert client.get('/api/desktop-v3/rule', params={**SCOPE, 'id': 'p'}).json()['item'] == response.json()['item']

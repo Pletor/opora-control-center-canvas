@@ -1,6 +1,8 @@
-"""Addressed rule/decision writes compare only the item the caller actually read."""
-import copy
+"""Addressed rule/decision writes compare only the item the caller actually read.
 
+Zápis vrací jen novou revizi a zapsanou položku (karta P3, < 10 kB místo celého stavu);
+`full=True` (HTTP `?full=1`) vrátí kvůli starším klientům i celý stav.
+"""
 from backend.canvas.graph import valid_id
 
 KEYS = {"project", "workspace", "id", "op", "expected", "item"}
@@ -18,7 +20,7 @@ class MemoryItems:
         item = next((x for x in stored["state"][collection] if x["id"] == identifier), None)
         return {"item": item, "revision": stored["revision"], "readOnly": stored["readOnly"]}
 
-    def apply(self, collection, payload, *, actor="system"):
+    def apply(self, collection, payload, *, actor="system", full=False):
         if not isinstance(payload, dict) or set(payload) != KEYS:
             raise ValueError("Zápis položky vyžaduje project, workspace, id, op, expected a item.")
         identifier, operation = payload["id"], payload["op"]
@@ -49,7 +51,9 @@ class MemoryItems:
                 nodes = self.canvas.view(project, workspace)["graph"]["nodes"]
                 if target and not any(n["id"] == target for n in nodes):
                     raise ValueError("Cílová karta položky neexistuje.")
-            state = copy.deepcopy(stored["state"])
+            # Mění se jen jedna sekce: mělká kopie stavu a nový seznam; ostatní uzly zůstávají sdílené
+            # s uloženým stavem, a proto je `save(base=...)` znovu neověřuje.
+            state = {**stored["state"], collection: list(stored["state"][collection])}
             items = state[collection]
             if operation == "add":
                 items.append(replacement)
@@ -60,6 +64,7 @@ class MemoryItems:
                 else:
                     items[index] = replacement
             saved = self.state.save({"project": project, "workspace": workspace,
-                                     "expectedRevision": stored["revision"], "state": state}, actor=actor)
-            item = next((x for x in saved["state"][collection] if x["id"] == identifier), None)
+                                     "expectedRevision": stored["revision"], "state": state}, actor=actor,
+                                    base=stored["state"], slim=not full)
+            item = next((x for x in state[collection] if x["id"] == identifier), None)
             return {**saved, "item": item}

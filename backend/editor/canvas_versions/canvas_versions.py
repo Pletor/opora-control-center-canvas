@@ -144,13 +144,34 @@ class CanvasVersions:
 
     def list(self, project, workspace):
         # Bez zámků projektu (karta P2): jeden snímek WAL, takže stav, záznamy i verze jsou
-        # konzistentní a zápis (lease, stav, nová verze) na výpis nečeká.
+        # konzistentní a zápis (lease, stav, nová verze) na výpis nečeká. Výsledek se drží
+        # v cache podle tokenu dat (karta P3): polling beze změny nic nepřepočítává.
         with self.canvas.reading(project):
-            db = self.canvas.db_for(project)
-            view, stored, snapshot = self._capture(db, project, workspace)
-            return {"versions": self._summaries(db, project, workspace),
-                    "dirty": False if view["readOnly"] else self._dirty(db, project, workspace, view, stored, snapshot),
-                    "currentToken": current_token(view["graph"], stored, snapshot)}
+            return self._cached("canvas-versions", project, workspace, lambda db: {
+                "versions": self._summaries(db, project, workspace), **self._head(db, project, workspace)})
+
+    def head(self, project, workspace):
+        """Jen `currentToken` a `dirty` (levný polling klienta); z výpisu v cache, pokud platí."""
+        with self.canvas.reading(project):
+            listed = self.canvas.read_cache.get(("canvas-versions", project, workspace), self.canvas.view_token(project, workspace))
+            if listed is not None:
+                return {"currentToken": listed["currentToken"], "dirty": listed["dirty"]}
+            return self._cached("canvas-versions-head", project, workspace, lambda db: self._head(db, project, workspace))
+
+    def _head(self, db, project, workspace):
+        view, stored, snapshot = self._capture(db, project, workspace)
+        return {"dirty": False if view["readOnly"] else self._dirty(db, project, workspace, view, stored, snapshot),
+                "currentToken": current_token(view["graph"], stored, snapshot)}
+
+    def _cached(self, kind, project, workspace, build):
+        key = (kind, project, workspace)
+        token = self.canvas.view_token(project, workspace)
+        cached = self.canvas.read_cache.get(key, token)
+        if cached is None:
+            cached = build(self.canvas.db_for(project))
+            if token is not None:
+                self.canvas.read_cache.put(key, token, cached)
+        return cached
 
     def _read(self, db, project, workspace, version_id):
         if not isinstance(version_id, str) or not VERSION_ID.fullmatch(version_id):

@@ -10,7 +10,7 @@ import statistics
 import threading
 import time
 
-from perf_common import parser, use_repo
+from perf_common import parser, percentiles, use_repo
 
 # Druhý projekt kopie dat: OPORA Control Center — vývoj aplikace.
 OTHER_PROJECT = "4b38182c5b04482bb00e0f3d3ae55656"
@@ -76,12 +76,12 @@ def main():
             busy[name].extend(values)
     stop.set()
 
-    print(f"{'endpoint':<16} {'klid med':>9} {'souběh med':>11} {'souběh p95':>11} {'souběh max':>11}")
+    print(f"{'endpoint':<16} {'klid med':>9} {'souběh med':>11} {'souběh p95':>11} {'souběh p99':>11} {'souběh max':>11}")
     ok = True
     for name in probes:
-        calm, loaded = statistics.median(quiet[name]), statistics.median(busy[name])
-        p95 = statistics.quantiles(busy[name], n=20)[-1]
-        print(f"{name:<16} {calm:7.0f}ms {loaded:9.0f}ms {p95:9.0f}ms {max(busy[name]):9.0f}ms")
+        calm = statistics.median(quiet[name])
+        loaded, p95, p99 = percentiles(busy[name])
+        print(f"{name:<16} {calm:7.0f}ms {loaded:9.0f}ms {p95:9.0f}ms {p99:9.0f}ms {max(busy[name]):9.0f}ms")
         if name.startswith("leases"):
             ok &= max(busy[name]) < LEASES_LIMIT_MS
         else:

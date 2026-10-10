@@ -68,3 +68,21 @@ def test_brief_version_tracks_page_order_but_not_ordinary_node_order(tmp_path):
         reordered = save()
         assert reordered["contextVersion"] != first["contextVersion"]
         assert reordered["specification"]["navigation"][0]["pages"][0]["nodeId"] == "contact"
+
+
+def test_context_version_is_identical_to_the_pre_cache_algorithm(tmp_path):
+    """Karta P3: projekce grafu se počítá jednou na digest grafu, ale contextVersion zůstává bit
+    po bitu stejný jako před cache (hodnoty spočítané kódem 4bdec60 nad stejným plátnem); jinak by
+    všechny uložené výsledky agentů vypadaly jako „změněné zadání“."""
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        prepared(client)
+        current = client.get("/api/view", params=SCOPE).json()
+        value = copy.deepcopy(current["graph"])
+        value["nodes"] += pages()
+        response = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": value, "digest": current["digest"]})
+        assert response.status_code == 200, response.text
+        versions = [client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": node}).json()["contextVersion"]
+                    for node in ("focus", "app", "home")]
+        assert versions == ["7bcfc73cd3337de4835499b8b6d543f6f5a9861b0096df4f1c6b56d86803b58b",
+                            "5f7ee84128336f28de975880f0b28e89925f2bedcd3854d8662bf304270f9f76",
+                            "674ab3d2c41ee74272c8d58e656ac59054edab4c371332ce1b215a8ddf8ff25c"]

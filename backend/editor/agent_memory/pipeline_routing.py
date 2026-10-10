@@ -3,6 +3,9 @@
 `op: "route"` sestaví pipeline ze šablony profilu (+ volitelné etapy navíc), `op: "add"` přidá
 etapy za rozpracovanou část, `op: "retry"` (+ `stageId`) znovu zařadí zaseknutou etapu (oprava + opakování). Agent podléhá pravomocem a podlaze z `card_pipeline`; člověk smí
 vše (i profil `custom` bez podlahy). Zápis jde přes `DesktopV3State.save` pod CAS revizí.
+
+Odpověď nese jen `revision`, `nodeId` a novou pipeline karty `stages` (karta P3); `full=True`
+(HTTP `?full=1`) vrátí kvůli starším klientům celý stav.
 """
 
 import copy
@@ -48,7 +51,7 @@ class PipelineRouting:
         self.canvas = canvas
         self.state = state_store or DesktopV3State(canvas)
 
-    def apply(self, payload, *, actor, agent=""):
+    def apply(self, payload, *, actor, agent="", full=False):
         _validate(payload)
         project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
         human = actor == "human"
@@ -61,8 +64,9 @@ class PipelineRouting:
             stored = self.state.read(project, workspace)
             if stored["revision"] != payload["expectedRevision"]:
                 raise ValueError("Stav se změnil (revize nesouhlasí); načtěte frontier znovu.")
-            state = copy.deepcopy(stored["state"])
-            node = state["nodes"].get(node_id, {"phase": "discover", "criteria": [], "steps": []})
+            # Mění se jen jeden uzel: kopie jen jeho, ostatní uzly zůstávají sdílené s uloženým stavem.
+            state = {**stored["state"], "nodes": dict(stored["state"]["nodes"])}
+            node = copy.deepcopy(state["nodes"].get(node_id, {"phase": "discover", "criteria": [], "steps": []}))
             if node.get("done", default_done())["confirmed"]:
                 raise ValueError("Karta je uzavřená; pipeline je jen ke čtení.")
             current = node.get("stages")
@@ -102,5 +106,7 @@ class PipelineRouting:
             pipeline.validate_stages(value)
             node["stages"] = value
             state["nodes"][node_id] = node
-            return self.state.save({"project": project, "workspace": workspace,
-                                    "expectedRevision": payload["expectedRevision"], "state": state})
+            saved = self.state.save({"project": project, "workspace": workspace,
+                                     "expectedRevision": payload["expectedRevision"], "state": state},
+                                    base=stored["state"], slim=not full)
+            return saved if full else {**saved, "nodeId": node_id, "stages": value}

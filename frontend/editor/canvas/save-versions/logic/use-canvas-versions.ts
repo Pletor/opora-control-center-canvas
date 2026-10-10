@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type View } from "@/shared/types/logic/types";
 import { saveWriteRevision } from "@/shared/hooks/logic/save-coordinator";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
-import { withSavedVersion, type CanvasVersion, type CanvasVersions } from "./save-versions";
+import { headChanged, withSavedVersion, type CanvasVersion, type CanvasVersions, type CanvasVersionsHead } from "./save-versions";
 
 /** Interval obnovy výpisu verzí (dřív 3 s; dotaz trval až 6 s a fronta rostla). */
 export const VERSIONS_POLL_MS = 30_000;
@@ -28,8 +28,9 @@ export function useCanvasVersions({ project, workspace, enabled, refreshKey, pau
   const [currentToken, setToken] = useState("");
   const [externalChanged, setExternal] = useState(false);
   const scope = JSON.stringify([project, workspace]);
-  const latest = useRef({ scope, token: "", writeRevision: 0, read: 0 });
-  if (latest.current.scope !== scope) latest.current = { scope, token: "", writeRevision: saveWriteRevision(project, workspace), read: latest.current.read + 1 };
+  // `seen` = hlava posledního načteného výpisu: polling stahuje výpis jen při její změně.
+  const latest = useRef({ scope, token: "", writeRevision: 0, read: 0, seen: null as CanvasVersionsHead | null });
+  if (latest.current.scope !== scope) latest.current = { scope, token: "", writeRevision: saveWriteRevision(project, workspace), read: latest.current.read + 1, seen: null };
   const refresh = useCallback(async (accept = false) => {
     if (latest.current.scope !== scope) throw new Error("Pracovní prostor se změnil.");
     const owner = latest.current; const ticket = ++owner.read;
@@ -41,6 +42,7 @@ export function useCanvasVersions({ project, workspace, enabled, refreshKey, pau
     if (accept || !owner.token || !external) { owner.token = result.currentToken; setToken(result.currentToken); }
     if (accept) setExternal(false); else if (external) setExternal(true);
     owner.writeRevision = ownRevision;
+    owner.seen = { currentToken: result.currentToken, dirty: result.dirty };
     setVersions(result.versions ?? []); setDirty(result.dirty); setError("");
     return result;
   }, [project, workspace, scope]);
@@ -51,12 +53,19 @@ export function useCanvasVersions({ project, workspace, enabled, refreshKey, pau
     setLoading(true);
     void refresh().catch((cause) => { if (latest.current === owner) setError(String(cause)); }).finally(() => { if (latest.current === owner) setLoading(false); });
   }, [enabled, refreshKey, refresh]);
-  // Výpis verzí je drahý dotaz pod zámkem serveru: jednou za 30 s, nikdy dva najednou, ve skryté
-  // záložce vůbec (sdílený poller); první načtení dělá efekt výše, návrat do okna požádá o refresh.
+  // Polling se ptá jen levné hlavy (token obsahu + neuloženo, karta P3); celý výpis stáhne, až se
+  // hlava změní. Jednou za 30 s, nikdy dva najednou, ve skryté záložce vůbec (sdílený poller);
+  // první načtení dělá efekt výše, návrat do okna požádá o refresh.
   const polling = enabled && !paused && !saving;
-  const poll = usePolling(() => {
+  const poll = usePolling(async () => {
     const owner = latest.current;
-    return refresh().catch((cause) => { if (latest.current === owner) setError(String(cause)); });
+    try {
+      const head = await api<CanvasVersionsHead>("/api/canvas-versions/head?" + new URLSearchParams({ project, workspace }));
+      if (latest.current !== owner || !headChanged(owner.seen, head)) return;
+      await refresh();
+    } catch (cause) {
+      if (latest.current === owner) setError(String(cause));
+    }
   }, { intervalMs: VERSIONS_POLL_MS, enabled: polling, immediate: false });
   useEffect(() => {
     if (!polling) return;
@@ -70,6 +79,7 @@ export function useCanvasVersions({ project, workspace, enabled, refreshKey, pau
       const result = await api<{ version: CanvasVersion; dirty: boolean; currentToken: string }>("/api/canvas-versions", { project, workspace, digest, author, expectedToken });
       if (latest.current !== owner) return;
       owner.read++; owner.token = result.currentToken; owner.writeRevision = saveWriteRevision(project, workspace);
+      owner.seen = { currentToken: result.currentToken, dirty: result.dirty };
       setVersions((items) => withSavedVersion(items, result.version)); setDirty(result.dirty); setToken(result.currentToken); setExternal(false);
     } finally { if (latest.current === owner) setSaving(false); }
   }

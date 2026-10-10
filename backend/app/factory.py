@@ -42,7 +42,7 @@ from backend.app.remote_access import (
     requires_token,
 )
 from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
-from backend.canvas.canvas_service import CanvasService
+from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
 from backend.canvas.sync_report import SyncReport
@@ -190,6 +190,11 @@ def create_app(data_root=None):
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
         return JSONResponse({"error": str(exc)}, status_code=409)
+
+    @app.exception_handler(ProjectNotFound)
+    async def missing_project(request, exc):
+        # Neznámé ID projektu (i jiná velikost písmen): nic se nezaloží ani neotevře (karta P3).
+        return JSONResponse({"error": str(exc)}, status_code=404)
 
     @app.exception_handler(sqlite3.Error)
     async def storage_error(request, exc):

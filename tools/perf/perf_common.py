@@ -4,8 +4,14 @@ Skripty měří jen na kopii dat (`data_copy.py`), nikdy na živém `.data/produ
 některé z nich na kopii zapisují (verze, rozhodnutí, pipeline).
 """
 import argparse
+import statistics
 import sys
 from pathlib import Path
+
+# Windows konzole (cp1250) neumí znaky jako ≤; výstup měření jde vždy v UTF-8.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LIVE_DATA = REPO_ROOT / ".data" / "production"
@@ -40,3 +46,12 @@ def use_repo():
     """Moduly backendu importovatelné i při spuštění `python tools/perf/<skript>.py`."""
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
+
+
+def percentiles(values):
+    """p50, p95 a p99 v ms; z méně než dvou vzorků vrátí jedinou hodnotu třikrát."""
+    if len(values) < 2:
+        value = values[0] if values else 0.0
+        return value, value, value
+    cuts = statistics.quantiles(values, n=100, method="inclusive")
+    return statistics.median(values), cuts[94], cuts[98]

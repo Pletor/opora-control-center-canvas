@@ -14,6 +14,10 @@ Samostatná pravidla a rozhodnutí: `memory_items.py` poskytuje adresné add/upd
 `/api/desktop-v3/rule` a `/api/desktop-v3/decision`. `expected` je původní položka (null při
 přidání); porovnání a zápis drží graph_lock. Nová revize celého stavu vzniká vždy, ale klient
 neposílá zbytek stavu a nezahodí změny jiných položek. Validaci obsahu provádí DesktopV3State.
+Odpověď je štíhlá (karta P3): `{revision, readOnly, item}`, u `/pipeline` `{revision, readOnly, nodeId, stages}`;
+`?full=1` přidá celý stav. Zápis staví na mělké kopii uloženého stavu a `save(base=...)` znovu
+neověřuje uzly, které se nezměnily (totožné objekty). `DesktopV3State.current` drží stav v cache
+podle tokenu dat a revize (`backend/canvas/read_cache.py`); vrácený stav je jen ke čtení.
 
 `port_spawn.py` vytváří následníka z `port.onMet` při přechodu bloku do `met` ve společném
 ukládání stavu (UI, adresný blok i agent-output). Zamítnutý port přeskočí. Tabulka

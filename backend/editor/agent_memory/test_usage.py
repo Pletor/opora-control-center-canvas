@@ -42,3 +42,18 @@ def test_invalid_usage_rejects_entire_output(tmp_path, usage):
         assert send(client, payload(output=output(usage=usage))).status_code == 409
         assert client.get('/api/desktop-v3/state', params=SCOPE).json() == before
         assert summary(client)['nodes']['focus']['reports'] == 0
+
+
+def test_summary_is_cached_until_the_next_accepted_output(tmp_path):
+    """Karta P3: součty se drží v cache podle tokenu dat; nový výstup agenta je přepočítá."""
+    from backend.editor.agent_memory.usage import usage_summary
+
+    app = create_app(tmp_path)
+    with TestClient(app, base_url=ORIGIN) as client:
+        prepared(client)
+        service = app.state.service
+        first = usage_summary(service, 'draft', 'draft')
+        assert usage_summary(service, 'draft', 'draft') is first and first['nodes']['focus']['reports'] == 0
+        assert send(client, payload(1, output=output(usage={'tokens': 7, 'durationMs': 1, 'attempts': 1}))).status_code == 200
+        after = usage_summary(service, 'draft', 'draft')
+        assert after is not first and after['nodes']['focus'] == {'tokens': 7, 'durationMs': 1, 'attempts': 1, 'reports': 1}

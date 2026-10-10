@@ -8,6 +8,7 @@ vypnutá, server dole nebo karta bez role, uložení v Opoře proběhne úplně 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from backend.api.http_etag import conditional, etag_of
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import payload_project
 from backend.canvas.source_realization import realize_source, source_status
@@ -145,16 +146,18 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         return items.read("rules", project, workspace, id)
 
     @router.post("/rule")
-    def write_rule(payload: dict, request: Request):
-        return items.apply("rules", payload, actor=request.state.actor)
+    def write_rule(payload: dict, request: Request, full: bool = False):
+        """Vrací {revision, item}; `?full=1` i celý stav (starší klienti)."""
+        return items.apply("rules", payload, actor=request.state.actor, full=full)
 
     @router.get("/decision")
     def read_decision(project: str, workspace: str, id: str):
         return items.read("decisions", project, workspace, id)
 
     @router.post("/decision")
-    def write_decision(payload: dict, request: Request):
-        return items.apply("decisions", payload, actor=request.state.actor)
+    def write_decision(payload: dict, request: Request, full: bool = False):
+        """Vrací {revision, item}; `?full=1` i celý stav (starší klienti)."""
+        return items.apply("decisions", payload, actor=request.state.actor, full=full)
 
     def _require_lease(payload, request):
         """Kartu drženou cizím lease smí měnit jen držitel tokenu nebo člověk (upgrade-opora #35)."""
@@ -176,13 +179,17 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         return pipeline_profiles()
 
     @router.post("/pipeline")
-    def write_pipeline(payload: dict, request: Request):
-        """Router (orchestrátor) nebo člověk určí proces karty; pravomoci a podlahu hlídá PipelineRouting."""
-        return routing.apply(payload, actor=request.state.actor, agent=getattr(request.state, "agent", ""))
+    def write_pipeline(payload: dict, request: Request, full: bool = False):
+        """Router (orchestrátor) nebo člověk určí proces karty; pravomoci a podlahu hlídá PipelineRouting.
+        Vrací {revision, nodeId, stages}; `?full=1` celý stav (starší klienti)."""
+        return routing.apply(payload, actor=request.state.actor, agent=getattr(request.state, "agent", ""), full=full)
 
     @router.get("/state")
-    def read_state(project: str, workspace: str):
-        return state.read(project, workspace)
+    def read_state(project: str, workspace: str, request: Request):
+        """Celý stav; ETag z revize a času uložení, `If-None-Match` beze změny → 304 (karta P3)."""
+        with state.canvas.reading(project):
+            tag = etag_of("state", project, workspace, state.stamp(project, workspace))
+            return conditional(request, tag, lambda: state.read(project, workspace))
 
     @router.post("/state")
     def save_state(payload: dict, request: Request):

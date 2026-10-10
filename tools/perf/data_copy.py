@@ -16,8 +16,10 @@ DEFAULT_TARGET = REPO_ROOT / ".data" / "perf-copy"
 SKIPPED = ("-wal", "-shm", "-journal")
 
 
-def _backup(source, target):
-    reader = sqlite3.connect(f"{source.resolve().as_uri()}?mode=ro", uri=True)
+def backup_sqlite(source, target):
+    """Konzistentní kopie SQLite přes backup API: zahrne i potvrzená data, která jsou zatím jen
+    v souboru -wal (běžící server), a zdroj otevře jen pro čtení. Prostá kopie souboru je minula."""
+    reader = sqlite3.connect(f"{Path(source).resolve().as_uri()}?mode=ro", uri=True)
     try:
         writer = sqlite3.connect(target)
         try:
@@ -46,7 +48,7 @@ def copy_data(source, target):
             destination = target / origin.relative_to(source)
             destination.parent.mkdir(parents=True, exist_ok=True)
             if name.endswith(".sqlite"):
-                _backup(origin, destination)
+                backup_sqlite(origin, destination)
             else:
                 shutil.copy2(origin, destination)
             copied += 1

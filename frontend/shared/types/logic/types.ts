@@ -1,4 +1,5 @@
 import { ACCESS_REQUIRED_EVENT } from "@/app/access-gate/logic/access-gate";
+import { createEtagCache, notModifiedValue } from "@/shared/types/logic/etag-cache";
 export type RemovalPreview = { project: string; workspace: string; kind: "node" | "edge" | "selection" | "project"; target: string; label: string; nodeIds: string[]; nodeCount: number; edgeCount: number; workspaceCount?: number; confirmedNodeIds?: string[]; digest: string };
 export type SpecFields = { goal: string; non_goals: string; acceptance: string };
 export type NodeSpec = { fields: SpecFields; revision: number; saved_at: string | null; readOnly: boolean; available: boolean; source: string };
@@ -136,7 +137,9 @@ function ensureHumanSession(refresh = false): Promise<void> {
     );
   return humanSession;
 }
-function send(url: string, body?: object): Promise<Response> {
+/** Poslední ETag a tělo čtení podle URL (karta P3): GET posílá If-None-Match, 304 se vezme z paměti. */
+const etags = createEtagCache();
+function send(url: string, body?: object, conditional = true): Promise<Response> {
   return fetch(
     url,
     body
@@ -145,7 +148,7 @@ function send(url: string, body?: object): Promise<Response> {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         }
-      : undefined,
+      : { headers: conditional ? etags.headers(url) : {}, cache: "no-store" },
   );
 }
 export async function api<T>(url: string, body?: object): Promise<T> {
@@ -155,8 +158,15 @@ export async function api<T>(url: string, body?: object): Promise<T> {
     await ensureHumanSession(true);
     response = await send(url, body);
   }
+  // 304 = obsah se od posledního čtení nezměnil; bez uloženého těla se dotaz zopakuje bez podmínky.
+  if (!body && response.status === 304) {
+    const cached = etags.cached(url);
+    if (cached !== null) return notModifiedValue(cached) as T;
+    response = await send(url, undefined, false);
+  }
   // Chybějící endpoint (statický 404) nesmí vypadat jako JSON chyba parseru: říká se HTTP stav.
   const raw = await response.text();
+  if (!body) etags.remember(url, response.ok ? response.headers?.get?.("ETag") ?? null : null, raw);
   let value: { error?: string } & Record<string, unknown>;
   try {
     value = JSON.parse(raw);

@@ -7,6 +7,16 @@ import type { Workspace } from "@/shared/types/logic/types";
 export type CanvasVersion = { id: string; createdAt: string; author: string; nodeCount: number; actor?: "agent" | "human" | "unknown"; changedCardCount?: number | null; coverage?: "full" | "legacy-partial"; unavailableAssets?: number };
 /** Odpověď `GET /api/canvas-versions`: seznam verzí a jestli se plátno od poslední verze změnilo. */
 export type CanvasVersions = { versions: CanvasVersion[]; dirty: boolean; currentToken?: string };
+/** Odpověď levné hlavy `GET /api/canvas-versions/head` pro polling (karta P3). */
+export type CanvasVersionsHead = { currentToken: string; dirty: boolean };
+
+/**
+ * Stojí za to stáhnout celý výpis verzí? Jen když hlava ukáže jiný obsah (token) nebo jiný stav
+ * „neuloženo“ než poslední načtený výpis; dokud nic načteno není, vždy.
+ */
+export function headChanged(seen: CanvasVersionsHead | null, head: CanvasVersionsHead): boolean {
+  return !seen || seen.currentToken !== head.currentToken || seen.dirty !== head.dirty;
+}
 
 /** Autor, když aplikace nezná jméno ze svého profilu ani z pracovního prostoru. */
 export const LOCAL_AUTHOR = "Místní uživatel";

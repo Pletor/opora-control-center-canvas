@@ -66,3 +66,22 @@ def test_benchmarks_refuse_live_data(tmp_path, monkeypatch):
 
 def test_live_data_points_to_production():
     assert perf_common.LIVE_DATA.parts[-2:] == (".data", "production")
+
+
+def test_backup_includes_committed_rows_that_live_only_in_the_wal(tmp_path):
+    """Karta P3: běžící server drží potvrzená data v -wal; prostá kopie souboru je minula."""
+    from tools.perf.data_copy import backup_sqlite
+
+    source = tmp_path / "registry.sqlite"
+    live = sqlite3.connect(source)
+    live.execute("PRAGMA journal_mode=WAL")
+    live.execute("PRAGMA wal_autocheckpoint=0")
+    with live:
+        live.execute("CREATE TABLE projects(id TEXT)")
+        live.execute("INSERT INTO projects VALUES('ample')")
+    assert (tmp_path / "registry.sqlite-wal").stat().st_size > 0
+    backup_sqlite(source, tmp_path / "backup.sqlite")
+    copy = sqlite3.connect(tmp_path / "backup.sqlite")
+    assert copy.execute("SELECT id FROM projects").fetchall() == [("ample",)]
+    copy.close()
+    live.close()

@@ -70,6 +70,26 @@ def _navigation(nodes):
             for identifier in sorted(domains)]
 
 
+def _graph_part(canvas, project, workspace, view):
+    """Redigovaná projekce celého grafu (a navigace stránek) je pro všechny karty stejná: počítá se
+    jednou na digest grafu (karta P3) a je sdílená, jen ke čtení. Redakce je po hodnotách, takže
+    výsledek je totožný s redakcí celé specifikace najednou."""
+    key = ("spec-graph", project, workspace)
+    cached = canvas.read_cache.get(key, view["digest"])
+    if cached is not None:
+        return cached
+    graph = view["graph"]
+    part = {"graph": redact_deep({
+        "nodes": [_node(node, graph["nodes"]) for node in sorted(graph["nodes"], key=lambda n: n["id"])],
+        "edges": sorted(graph["edges"], key=lambda edge: edge["id"]),
+    })}
+    # Persisted graph array order drives the domain map's page navigation.
+    # Omit the projection for legacy graphs without pages.
+    if any((node.get("site") or {}).get("kind") == "page" for node in graph["nodes"]):
+        part["navigation"] = redact_deep(_navigation(graph["nodes"]))
+    return canvas.read_cache.put(key, view["digest"], part)
+
+
 def capture_specification(canvas, project, workspace, node_id):
     """Return the version and frozen canonical data under the existing reentrant locks."""
     if not all(valid_id(value) for value in (project, workspace, node_id)):
@@ -124,7 +144,8 @@ def capture_specification(canvas, project, workspace, node_id):
                 "scene": drawing["scene"],
                 "imageContentsIncluded": False,
             })
-        specification = redact_deep({
+        shared = _graph_part(canvas, project, workspace, view)
+        head = redact_deep({
             "schema": SCHEMA,
             "scope": {"project": project, "workspace": workspace, "nodeId": node_id},
             "project": {
@@ -132,14 +153,8 @@ def capture_specification(canvas, project, workspace, node_id):
                 "revision": config.get("revision", 0), "settings": config.get("settings", {}),
             },
             "ancestors": list(reversed(lineage[1:])),
-            "graph": {
-                "nodes": [_node(node, graph["nodes"]) for node in sorted(graph["nodes"], key=lambda n: n["id"])],
-                "edges": sorted(graph["edges"], key=lambda edge: edge["id"]),
-            },
-            # Persisted graph array order drives the domain map's page navigation.
-            # Omit the projection for legacy graphs without pages.
-            **({"navigation": _navigation(graph["nodes"])}
-               if any((node.get("site") or {}).get("kind") == "page" for node in graph["nodes"]) else {}),
+        })
+        specification = {**head, **shared, **redact_deep({
             "rules": memory["rules"], "settings": memory["settings"],
             # Own agent proposals remain output; incoming decisions are assumptions of this task.
             "decisions": [item for item in memory["decisions"]
@@ -147,5 +162,5 @@ def capture_specification(canvas, project, workspace, node_id):
             "cards": cards,
             "drawings": drawings,
             "referencesPolicy": "reference-only; external content is not captured or verified",
-        })
+        })}
         return {"contextVersion": digest(specification), "specification": specification}

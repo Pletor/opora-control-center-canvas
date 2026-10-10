@@ -1,10 +1,12 @@
 """Profil zápisů rozhodnutí a pipeline (cProfile). ZAPISUJE do kopie dat.
 
 `uv run python tools/perf/bench_writes.py <kopie> [--project P]`
+U každého zápisu vypíše i délku odpovědi v JSON (cíl karty P3: < 10 kB).
 """
 import copy
 import cProfile
 import io
+import json
 import pstats
 import time
 
@@ -16,8 +18,9 @@ def profile(name, action):
     started = time.perf_counter()
     profiler.enable()
     try:
-        action()
-        outcome = "ok"
+        result = action()
+        size = len(json.dumps(result, ensure_ascii=False).encode("utf-8"))
+        outcome = f"ok, odpověď {size / 1024:.1f} kB"
     except Exception as error:  # noqa: BLE001 - měření hlásí chybu zápisu, nespadne
         outcome = repr(error)[:200]
     profiler.disable()
@@ -62,7 +65,7 @@ def main():
         profile("pipeline route", lambda: routing.apply({
             "project": project, "workspace": workspace, "nodeId": target,
             "expectedRevision": current["revision"], "op": "route", "reason": "perf",
-            "profile": "standard"}, actor="human"))
+            "profile": "code"}, actor="human"))
 
 
 if __name__ == "__main__":

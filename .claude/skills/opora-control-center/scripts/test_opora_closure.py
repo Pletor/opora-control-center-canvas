@@ -90,3 +90,28 @@ def test_failed_stage_with_queued_retry_is_running_not_stuck():
 def test_card_number_accepts_sector_letters():
     names = ['[task] 3.1 Index', '[task] K.5 Sada', '[task] B1 Schránka', '[task] 2.43 XLSX', '[task] Bez čísla']
     assert [m.group(1) if (m := opora_closure.CARD_NUMBER.match(n)) else None for n in names] == ['3.1', 'K.5', 'B1', '2.43', None]
+
+
+def test_requeue_carries_revision_from_slim_response_and_refreshes_on_conflict(monkeypatch):
+    """Karta P3: znovuzařazení vrací jen {revision, nodeId, stages}; další karta použije tuto revizi
+    bez čtení celého stavu, při konfliktu 409 jednou s čerstvou revizí ze stavu."""
+    from urllib.error import HTTPError
+    reads, sent = [], []
+    monkeypatch.setattr(opora_closure, 'get', lambda base, route, params: reads.append(route) or {'revision': 40})
+
+    def post(base, route, payload):
+        sent.append(payload['expectedRevision'])
+        if payload['expectedRevision'] == 7:
+            raise HTTPError(route, 409, 'conflict', {}, None)
+        return {'revision': payload['expectedRevision'] + 1, 'nodeId': payload['nodeId'], 'stages': {'items': []}}
+
+    monkeypatch.setattr(opora_closure, 'post', post)
+    first = {'id': 'n1', 'retry': 'a'}
+    assert opora_closure.requeue_with_revision('http://127.0.0.1:1', 'p', 'w', first, None) == 41
+    assert reads == ['/api/desktop-v3/state'] and sent == [40]
+    second = {'id': 'n2', 'retry': 'b'}
+    assert opora_closure.requeue_with_revision('http://127.0.0.1:1', 'p', 'w', second, 41) == 42
+    assert reads == ['/api/desktop-v3/state'] and sent == [40, 41]
+    third = {'id': 'n3', 'retry': 'c'}
+    assert opora_closure.requeue_with_revision('http://127.0.0.1:1', 'p', 'w', third, 7) == 41
+    assert reads == ['/api/desktop-v3/state'] * 2 and sent == [40, 41, 7, 40]

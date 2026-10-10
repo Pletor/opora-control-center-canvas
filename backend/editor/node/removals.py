@@ -83,6 +83,8 @@ class RemovalService:
                 "INSERT INTO archived_projects VALUES(?,?,?)",
                 (payload["project"], encode(snapshot), datetime.now(UTC).isoformat()),
             )
+        # Odpojený projekt nesmí dál vracet nic z paměti čtení (graf, stav, verze).
+        self.canvas.forget_project(payload["project"])
         return {"removedProject": payload["project"]}
 
     def plan(self, project, workspace, kind, target):

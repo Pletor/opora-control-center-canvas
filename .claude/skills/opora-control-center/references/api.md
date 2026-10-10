@@ -80,6 +80,11 @@ python "<SKILL_DIR>/scripts/opora_write.py" <cesta> --project P --workspace W (-
 | `/api/desktop-v3/realize-source` | `nodeId`, `digest`, `commit`, `prUrl` | `view` | agent po merge |
 | `/api/desktop-v3/state` | `expectedRevision`, `state` (celý dokument) | `state --raw` | agent jen aditivně; raději adresné cesty |
 | `/api/canvas-versions` | `digest`, `expectedToken`, `author` | `versions` → `currentToken`, `view` → `digest` | agent (obnova jen člověk) |
+
+Štíhlé odpovědi: `/api/desktop-v3/pipeline` vrací `{revision, nodeId, stages}`, `/api/desktop-v3/rule`
+a `/decision` `{revision, item}` (ne celý stav ~700 kB); `?full=1` za cestou vrátí i celý stav.
+Čtení `state`, `view`, `canvas-index` a `canvas-versions` posílá `ETag` (`If-None-Match` beze změny = 304);
+levná hlava verzí `GET /api/canvas-versions/head` = `{currentToken, dirty}`. Neznámé ID projektu = 404.
 | `/api/brief-vault` | `op` + pole operace (níže „Schránka zadání“) | `vault-fragment` → `revision` | agent; `set-mvp`, `delete`, `restore`, `feedback` jen člověk |
 
 Pole `expected_revision` (spec, text) a `expectedRevision` (ostatní) nesjednocuj. Do uzavřené karty

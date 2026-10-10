@@ -110,7 +110,8 @@ def test_state_is_isolated_per_project_and_workspace(tmp_path):
         assert _post(client, _state(settings=[{"id": "s1", "key": "k", "value": "OTHER"}]), project=other).status_code == 200
         assert _get(client).json()["state"]["settings"][0]["value"] == "DRAFT_ONLY"
         assert _get(client, project=other).json()["state"]["settings"][0]["value"] == "OTHER"
-        assert _get(client, project="missing-project").status_code == 409
+        # Neznámé ID projektu je 404 a nic nezaloží (karta P3).
+        assert _get(client, project="missing-project").status_code == 404
         assert _get(client, project="../x").status_code == 409
 
 

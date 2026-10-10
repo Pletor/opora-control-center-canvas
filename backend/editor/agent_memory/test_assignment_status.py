@@ -57,3 +57,34 @@ def test_handoff_detects_changes_before_first_result_and_preserves_original(tmp_
         assert comparison["before"] == assignment["specification"]
         assert comparison["after"] != comparison["before"]
         assert client.get("/api/desktop-v3/assignment-comparison", params={**params, "nodeId": "other"}).status_code == 409
+
+
+def test_unchanged_project_answers_from_cache_and_any_write_recomputes(tmp_path, monkeypatch):
+    """Karta P3: opakované čtení beze změny nic nepřepočítává; zápis (zadání, lease) token změní."""
+    from backend.editor.agent_memory import assignment_status as module
+
+    calls = []
+    original = module.capture_specification
+    monkeypatch.setattr(module, "capture_specification", lambda *args: calls.append(args[3]) or original(*args))
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        prepared(client)
+        assert send(client, result_request(brief(client))).status_code == 200
+
+        def status():
+            response = client.get("/api/desktop-v3/assignment-status", params=SCOPE)
+            assert response.status_code == 200, response.text
+            return response.json()["nodes"]
+
+        first = status()
+        assert first["focus"]["status"] == "current" and calls == ["focus"]
+        assert status() == first and status() == first
+        assert calls == ["focus"]
+        claim = client.post("/api/desktop-v3/lease", headers=HEADERS, json={
+            **SCOPE, "nodeId": "focus", "op": "claim", "owner": "worker", "ttlSeconds": 60})
+        assert claim.status_code == 200, claim.text
+        calls.clear()
+        # Převzetí uložilo nový snímek zadání: výsledek se přepočítal a ukazuje ho (ne starý z cache).
+        assert status()["focus"] == {"status": "current", "resultId": claim.json()["assignment"]["id"], "source": "handoff"}
+        assert calls == ["focus"]
+        specification(client, "focus", "Changed after cache")
+        assert status()["focus"]["status"] == "changed"

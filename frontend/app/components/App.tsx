@@ -56,6 +56,7 @@ import { usePanelDrawer } from "@/layout/panel-dock/logic/use-panel-drawer";
 import ProfileCard from "@/layout/project-profile/components/ProfileCard";
 import { useProjectProfile } from "@/layout/project-profile/logic/use-project-profile";
 import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
+import { withStages, type PipelineWriteResponse } from "@/shared/desktop-state/logic/slim-writes";
 import "@/editor/component-library/node-library/styles/node-library.css";
 import TagFilter from "@/editor/canvas/tag-filter/components/TagFilter";
 import ProjectHome from "@/project-setup/components/ProjectHome";
@@ -255,8 +256,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     pickPipeline: (nodeId) => setPipelinePickerFor(nodeId),
     routePipeline: async (nodeId, profile) => {
       try {
-        await api("/api/desktop-v3/pipeline", { project, workspace, nodeId, expectedRevision: desktop.revision, op: "route", profile, reason: "Přepnuto člověkem v UI." });
-        desktop.reload();
+        const base = desktop.revision;
+        // Odpověď nese jen revizi a nové etapy karty (karta P3); stav se doplní lokálně.
+        const value = await api<PipelineWriteResponse>("/api/desktop-v3/pipeline", { project, workspace, nodeId, expectedRevision: base, op: "route", profile, reason: "Přepnuto člověkem v UI." });
+        desktop.applySlim(base, value, (current) => withStages(current, value.nodeId, value.stages));
         return true;
       } catch (error) {
         setError(error instanceof Error ? error.message : "Pipeline se nepodařilo přestavět.");

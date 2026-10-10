@@ -203,9 +203,27 @@ def apply(base, project, workspace, row):
 
 
 def requeue(base, project, workspace, row):
-    post(base, '/api/desktop-v3/pipeline', {'project': project, 'workspace': workspace, 'nodeId': row['id'],
-                                            'expectedRevision': row['revision'], 'op': 'retry', 'stageId': row['retry'],
-                                            'reason': 'Zaseknutá etapa bez opakování; automatická oprava + opakování.'})
+    """Znovu zařadí etapu; vrací štíhlou odpověď serveru {revision, nodeId, stages} (karta P3)."""
+    return post(base, '/api/desktop-v3/pipeline', {'project': project, 'workspace': workspace, 'nodeId': row['id'],
+                                                   'expectedRevision': row['revision'], 'op': 'retry', 'stageId': row['retry'],
+                                                   'reason': 'Zaseknutá etapa bez opakování; automatická oprava + opakování.'})
+
+
+def requeue_with_revision(base, project, workspace, row, known):
+    """Znovu zařadí etapu a vrátí novou revizi stavu. Revize z odpovědi předchozího znovuzařazení
+    (`known`) ušetří čtení celého stavu (~700 kB); při konfliktu (mezitím zapsal někdo jiný) se zápis
+    jednou zopakuje s čerstvou revizí ze stavu."""
+    def fresh():
+        return get(base, '/api/desktop-v3/state', {'project': project, 'workspace': workspace})['revision']
+
+    row['revision'] = known if known is not None else fresh()
+    try:
+        return (requeue(base, project, workspace, row) or {}).get('revision')
+    except HTTPError as error:
+        if error.code != 409 or known is None:
+            raise
+    row['revision'] = fresh()
+    return (requeue(base, project, workspace, row) or {}).get('revision')
 
 
 def is_push(stdin_text):
@@ -239,16 +257,17 @@ def main(argv=None):
         rows = collect(base, args.project, args.workspace, args.repo, args.node, args.remote, args.branch)
         applied, errors = [], []
         if args.apply or args.hook:
+            revision = None  # revize ze štíhlé odpovědi posledního znovuzařazení; jiný zápis ji zahodí
             for row in [row for row in rows if row['apply'] or row['retry']]:
                 try:
                     if row['retry']:
-                        # Revize stavu se po každém zápisu mění; čerstvá revize pro každou kartu.
-                        row['revision'] = get(base, '/api/desktop-v3/state', {'project': args.project, 'workspace': args.workspace})['revision']
-                        requeue(base, args.project, args.workspace, row)
+                        revision = requeue_with_revision(base, args.project, args.workspace, row, revision)
                     else:
+                        revision = None
                         apply(base, args.project, args.workspace, row)
                     applied.append(row['number'])
                 except Exception as cause:  # jedna karta nesmí zastavit ostatní
+                    revision = None
                     detail = _detail(cause) if isinstance(cause, HTTPError) else None
                     errors.append(f"{row['number']}: {detail or cause}")
             if applied:

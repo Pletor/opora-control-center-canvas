@@ -67,6 +67,13 @@ def items_of(response):
     return response.json()["state"]["nodes"]["focus"]["stages"]["items"]
 
 
+def routed_stages(response):
+    """Štíhlá odpověď POST /pipeline (karta P3): jen revize, karta a její nová pipeline, žádný stav."""
+    value = response.json()
+    assert "state" not in value and value["nodeId"] == "focus" and type(value["revision"]) is int
+    return value["stages"]
+
+
 def test_shape_rejects_unknown_kind_lens_and_dangling_retry():
     validate_stages(pipeline())
     for broken in (stage("x", "deploy"), stage("x", "critic"), stage("x", "test", "hacker"),
@@ -82,7 +89,8 @@ def test_router_routes_from_server_profile_and_frontier_dispatches_the_session(t
         assert [row["id"] for row in frontier["needsRouting"]] == ["focus"]
         routed = route(client, revision, profile="security")
         assert routed.status_code == 200, routed.text
-        stages = routed.json()["state"]["nodes"]["focus"]["stages"]
+        stages = routed_stages(routed)
+        assert stages == client.get("/api/desktop-v3/state", params=SCOPE).json()["state"]["nodes"]["focus"]["stages"]
         assert stages["routedBy"] == "router-1" and stages["reason"] == "Kód backendu."
         assert all(item["approved"] and item["by"] == "agent" for item in stages["items"])
         frontier = client.get("/api/desktop-v3/frontier", params=SCOPE).json()
@@ -103,7 +111,7 @@ def test_floor_rejects_a_weak_pipeline_from_the_router_but_not_from_a_human(tmp_
         human = route(client, revision, headers=HEADERS, profile="custom",
                       stages=[{"kind": "work", "lens": "", "title": "Ručně", "brief": ""}])
         assert human.status_code == 200, human.text
-        assert human.json()["state"]["nodes"]["focus"]["stages"]["routedBy"] == "human"
+        assert routed_stages(human)["routedBy"] == "human"
         again = route(client, human.json()["revision"], profile="code")
         assert again.status_code == 403
 
@@ -115,13 +123,15 @@ def test_agent_adds_stages_without_a_human_but_never_removes_reorders_or_skips(t
             **SCOPE, "nodeId": "focus", "expectedRevision": saved["revision"], "op": "add", "reason": "Chybí kontrola UX.",
             "stages": [{"kind": "critic", "lens": "user", "title": "Kritik UX", "brief": ""}]})
         assert added.status_code == 200, added.text
-        assert items_of(added)[0]["title"] == "Kritik UX" and items_of(added)[0]["approved"] is True
+        assert routed_stages(added)["items"][0]["title"] == "Kritik UX" and routed_stages(added)["items"][0]["approved"] is True
+        stored = client.get("/api/desktop-v3/state", params=SCOPE).json()
+        assert stored["revision"] == added.json()["revision"] and stored["state"]["nodes"]["focus"]["stages"] == routed_stages(added)
         for mutate in (lambda s: s["items"].pop(0),
                        lambda s: s["items"][0].update(status="skipped"),
                        lambda s: s["items"].reverse(),
                        lambda s: s.update(profile="design"),
                        lambda s: s["items"][1].update(brief="nic")):
-            broken = copy.deepcopy(added.json()["state"])
+            broken = copy.deepcopy(stored["state"])
             mutate(broken["nodes"]["focus"]["stages"])
             refused = client.post("/api/desktop-v3/state", headers=AGENT,
                                   json={**SCOPE, "expectedRevision": added.json()["revision"], "state": broken})
@@ -210,7 +220,7 @@ def test_stuck_stage_is_requeued_by_retry_op_until_loops_run_out(tmp_path):
         assert retry_op(client, revision, "test").status_code == 409
         queued = retry_op(client, revision, "review")
         assert queued.status_code == 200, queued.text
-        items = items_of(queued)
+        items = routed_stages(queued)["items"]
         assert [item["id"] for item in items[:4]] == ["work", "review", "fix", "test"]
         assert items[4]["kind"] == "fix" and items[5]["retryOf"] == "review" and items[5]["by"] == "agent"
         brief = client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": "focus"}).json()["pipeline"]
@@ -355,3 +365,31 @@ def test_only_a_human_marks_ideas_done(tmp_path):
                             json={**SCOPE, "expectedRevision": added.json()["revision"], "state": state})
         assert human.status_code == 200, human.text
         assert human.json()["state"]["nodes"]["focus"]["ideas"][0]["status"] == "done"
+
+
+def test_pipeline_write_is_slim_and_full_query_returns_the_whole_state(tmp_path):
+    """Karta P3 (etapa test): štíhlá odpověď POST /pipeline zůstane < 10 kB i nad velkým stavem
+    a `?full=1` vrátí celý stav shodný s GET /state."""
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        prepared(client, routed=False)
+        current = client.get("/api/desktop-v3/state", params=SCOPE).json()
+        big = {**current["state"], "decisions": [
+            {"id": f"d{i}", "text": "x" * 3000, "nodeId": "", "path": "", "pinned": False,
+             "createdAt": "2026-10-10T10:00:00+00:00", "by": "human"} for i in range(100)]}
+        saved = client.post("/api/desktop-v3/state", headers=HEADERS,
+                            json={**SCOPE, "expectedRevision": current["revision"], "state": big})
+        assert saved.status_code == 200, saved.text
+        revision = saved.json()["revision"]
+        slim = route(client, revision, profile="code")
+        assert slim.status_code == 200, slim.text
+        assert len(slim.content) < 10 * 1024 and slim.json()["revision"] == revision + 1
+        stored = client.get("/api/desktop-v3/state", params=SCOPE).json()
+        assert routed_stages(slim) == stored["state"]["nodes"]["focus"]["stages"]
+        assert len(stored["state"]["decisions"]) == 100
+        added = client.post("/api/desktop-v3/pipeline?full=1", headers=ROUTER, json={
+            **SCOPE, "nodeId": "focus", "expectedRevision": revision + 1, "op": "add", "reason": "Chybí UX.",
+            "stages": [{"kind": "critic", "lens": "user", "title": "Kritik UX", "brief": "Projdi UI."}]})
+        assert added.status_code == 200, added.text
+        body = added.json()
+        assert body["revision"] == revision + 2 and len(added.content) > 300 * 1024
+        assert body["state"] == client.get("/api/desktop-v3/state", params=SCOPE).json()["state"]

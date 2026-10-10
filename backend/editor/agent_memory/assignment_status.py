@@ -6,6 +6,19 @@ from backend.editor.agent_packet.specification_context import capture_specificat
 
 
 def assignment_status(canvas, project, workspace):
+    """Stav zadání karet proti poslednímu výstupu nebo předávce. Výsledek se cachuje podle tokenu
+    dat projektu (karta P3): opakované čtení beze změny nic nepřepočítává; každý zápis token změní."""
+    with canvas.reading(project):
+        key = ("assignment-status", project, workspace)
+        token = canvas.view_token(project, workspace)
+        cached = canvas.read_cache.get(key, token)
+        if cached is not None:
+            return cached
+        result = _assignment_status(canvas, project, workspace)
+        return canvas.read_cache.put(key, token, result) if token is not None else result
+
+
+def _assignment_status(canvas, project, workspace):
     with canvas.reading(project):
         view = canvas.view(project, workspace)
         existing = {node["id"] for node in view["graph"]["nodes"]}

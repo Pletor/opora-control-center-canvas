@@ -30,7 +30,9 @@ Po úspěšné obnově se načte graf, Desktop i obsah editorů znovu a vyprázd
 
 Existující modul `backend/editor/canvas_versions/` vlastní verze v projektové databázi. Nové sloupce `snapshot` a `content_digest` se přidávají kompatibilně, staré řádky zůstávají čitelné.
 
-- `GET /api/canvas-versions?project&workspace` vrací `versions`, `dirty` a `currentToken`.
+- `GET /api/canvas-versions?project&workspace` vrací `versions`, `dirty` a `currentToken` (s `ETag`; beze změny `If-None-Match` → 304).
+- `GET /api/canvas-versions/head?project&workspace` vrací jen `currentToken` a `dirty`: levná hlava pro polling UI
+  (jednou za 30 s); celý výpis si klient stáhne, až se hlava změní. Obojí se drží v cache podle tokenu dat projektu.
 - `GET /api/canvas-versions?project&workspace&versionId` vrací neměnný obsah konkrétní verze a ověřenou integritu.
 - `POST /api/canvas-versions` přijímá `project`, `workspace`, `digest`, `author`, `expectedToken`. Uložení bez tokenu zůstává pouze kompatibilní neobnovovací operací s označením `legacy-unbound`.
 - `POST /api/canvas-versions/restore` navíc přijímá `versionId`; `expectedToken` je povinný. Token se vztahuje k potvrzovanému současnému stavu, nikoli k historické cílové verzi.

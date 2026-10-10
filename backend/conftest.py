@@ -5,6 +5,9 @@ Fronta se v testech řídí ručně přes `claim()` a `run_one()`; viz docs/mapy
 import os
 
 os.environ['OPORA_MAP_REFRESH_WORKER'] = '0'
+# Sdílené hodnoty cache čtení (karta P3) se nesmí měnit na místě: v testech to hlídá otisk
+# hodnoty při každém čtení z cache (backend/canvas/read_cache.py).
+os.environ['OPORA_READ_CACHE_GUARD'] = '1'
 
 # Testovací klient hraje lidské UI (upgrade-opora #29): server bere za člověka jen požadavek
 # s relačním dokladem `opora_ui`. Pevné tajemství dostane každá aplikace z prostředí a každý

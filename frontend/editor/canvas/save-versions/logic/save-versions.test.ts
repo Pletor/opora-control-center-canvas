@@ -3,6 +3,7 @@ import {
   LOCAL_AUTHOR,
   authorLine,
   canRestore,
+  headChanged,
   clockLabel,
   isSaveShortcut,
   relativeTime,
@@ -111,5 +112,15 @@ describe("isSaveShortcut", () => {
     expect(isSaveShortcut(key("s", { ctrlKey: true, altKey: true }))).toBe(false);
     expect(isSaveShortcut(key("s", { ctrlKey: true, shiftKey: true }))).toBe(false);
     expect(isSaveShortcut(key("z", { ctrlKey: true }))).toBe(false);
+  });
+});
+
+describe("headChanged", () => {
+  it("downloads the version list only when the cheap head shows other content or dirty flag", () => {
+    const seen = { currentToken: "t1", dirty: false };
+    expect(headChanged(null, seen)).toBe(true);
+    expect(headChanged(seen, { currentToken: "t1", dirty: false })).toBe(false);
+    expect(headChanged(seen, { currentToken: "t2", dirty: false })).toBe(true);
+    expect(headChanged(seen, { currentToken: "t1", dirty: true })).toBe(true);
   });
 });

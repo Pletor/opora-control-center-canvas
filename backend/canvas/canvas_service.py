@@ -12,6 +12,7 @@ from pathlib import Path
 from backend.canvas.graph import EMPTY, digest, encode, valid_id, validate_graph
 from backend.canvas.migrate_to_project_folders import migrate
 from backend.canvas.project_folder import ProjectFolder
+from backend.canvas.read_cache import ReadCache
 from backend.editor.node.drawing_files import DrawingFileStore, parse_ids
 from backend.editor.node.drawings import DrawingStore
 from backend.editor.node.node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
@@ -32,6 +33,17 @@ BUSY_TIMEOUT_MS = 5000
 # Volná čtecí spojení na projekt: nad tuto mez se vrácené spojení zavře. Spojení se půjčuje na blok
 # `reading`, ne na vlákno, takže počet otevřených nezávisí na tom, kolik vláken threadpool vystřídal.
 READER_POOL_SIZE = 8
+# Po checkpointu se soubor -wal zkrátí nejvýš na tuto velikost; bez meze zůstával na špičce
+# (velký obrázek kresby, dlouhý snímek) až do vypnutí serveru.
+JOURNAL_SIZE_LIMIT = 16 * 1024 * 1024
+
+
+class ProjectNotFound(ValueError):
+    """Projekt s tímto ID (přesně, včetně velikosti písmen) neexistuje: HTTP 404 a nic se nezaloží."""
+
+    def __init__(self, pid=""):
+        super().__init__("Projekt neexistuje.")
+        self.project = pid
 
 
 def open_sqlite(path, *, reader=False):
@@ -41,12 +53,17 @@ def open_sqlite(path, *, reader=False):
     otevírá `CanvasService.reading`.
     """
     db = sqlite3.connect(path, check_same_thread=False, isolation_level=None if reader else "")
-    db.row_factory = sqlite3.Row
-    db.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
-    if reader:
-        db.execute("PRAGMA query_only=1")
-    else:
-        db.execute("PRAGMA journal_mode=WAL")
+    try:
+        db.row_factory = sqlite3.Row
+        db.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+        db.execute(f"PRAGMA journal_size_limit={JOURNAL_SIZE_LIMIT}")
+        if reader:
+            db.execute("PRAGMA query_only=1")
+        else:
+            db.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.Error:
+        db.close()
+        raise
     return db
 
 
@@ -76,6 +93,12 @@ class CanvasService:
         self._local = threading.local()
         self._idle_readers = {}
         self._readers = []
+        # Projekty, jejichž složka na disku existuje přesně pod tímto ID (karta P3): jen pro ně
+        # vznikne zámek, spojení nebo soubor. Neznámé ID (i jiná velikost písmen) = ProjectNotFound.
+        self._known_projects = set()
+        # Sondy PRAGMA data_version (karta P3): {pid: (uid, spojení, zámek)}; registr pod klíčem None.
+        self._probes = {}
+        self.read_cache = ReadCache()
         self.drawings = DrawingStore(self)
         self.drawing_files = DrawingFileStore(self)
         self.specs = NodeSpecStore(self)
@@ -188,17 +211,47 @@ class CanvasService:
     def close(self):
         self.pool.shutdown(wait=True)
         with self._locks_guard:
-            for db in [*self._readers, *self._project_dbs.values()]:
+            for db in [*self._readers, *self._project_dbs.values(), *(probe[1] for probe in self._probes.values())]:
                 db.close()
             self._readers.clear()
             self._idle_readers.clear()
             self._project_dbs.clear()
+            self._probes.clear()
         with self.registry_lock:
             self.db.close()
+
+    def project_exists(self, pid):
+        """Má projekt složku přesně pod tímto ID? Velikost písmen se porovnává i na Windows, kde
+        by `ABC` otevřelo složku `abc`: alias jinak napsaného ID tak nedostane druhý zámek ani DB."""
+        if pid == "draft" or pid in self._known_projects:
+            return True
+        if not isinstance(pid, str) or not valid_id(pid):
+            return False
+        try:
+            names = os.listdir(self.root / "projects")
+        except OSError:
+            return False
+        folder = self.folder(pid)
+        if pid not in names or not (folder.identity_file.is_file() or folder.database.is_file()):
+            return False
+        with self._locks_guard:
+            self._known_projects.add(pid)
+        return True
+
+    def forget_project(self, pid):
+        """Smazaný nebo odpojený projekt: zahodí jeho odvozená čtení z paměti (cache)."""
+        self.read_cache.drop(pid)
 
     def _project_lock(self, locks, pid):
         if pid != "draft" and not valid_id(pid):
             raise ValueError("Neplatné ID projektu.")
+        with self._locks_guard:
+            lock = locks.get(pid)
+        if lock is not None:
+            return lock
+        # Zámek jen pro existující projekt: mapa zámků neroste s každým ID z požadavku.
+        if not self.project_exists(pid):
+            raise ProjectNotFound(pid)
         with self._locks_guard:
             return locks.setdefault(pid, threading.RLock())
 
@@ -214,7 +267,53 @@ class CanvasService:
         scopes = getattr(self._local, "scopes", None)
         if scopes is None:
             scopes = self._local.scopes = {}
+            self._local.tokens = {}
+            self._local.views = {}
         return scopes
+
+    def _probe(self, pid):
+        """Sonda změn projektu (pid) nebo registru (None): vlastní spojení jen pro PRAGMA data_version."""
+        with self._locks_guard:
+            probe = self._probes.get(pid)
+        if probe is not None:
+            return probe
+        path = self.root / "registry.sqlite" if pid is None else self.folder(pid).database
+        created = (uuid.uuid4().hex, open_sqlite(path, reader=True), threading.Lock())
+        with self._locks_guard:
+            probe = self._probes.setdefault(pid, created)
+        if probe is not created:
+            created[1].close()
+        return probe
+
+    def _probe_token(self, pid):
+        """Razítko potvrzených dat: data_version se změní po každém commitu jiného spojení
+        (zápisové spojení tohoto procesu i jiný proces nad stejnými daty). Uid sondy dělá razítko
+        jedinečné pro tento proces, takže ho nejde zaměnit po restartu."""
+        parts = []
+        for key in (pid, None):
+            uid, db, lock = self._probe(key)
+            with lock:
+                parts += [uid, db.execute("PRAGMA data_version").fetchone()[0]]
+        return tuple(parts)
+
+    def data_token(self, pid):
+        """Token dat projektu pro cache čtení (karta P3); None = výsledek necachovat.
+
+        Platí jen uvnitř `reading(pid)`: snímek bloku odpovídá přesně tomuto tokenu (žádný commit
+        mezi přečtením tokenu a začátkem snímku). Při zápisu (vlákno drží `lock_for`) je None:
+        zápisové spojení vidí i nepotvrzené změny."""
+        if self.lock_for(pid)._is_owned():
+            return None
+        self._scopes()
+        return self._local.tokens.get(pid)
+
+    def view_token(self, pid, wid):
+        """Token pro výsledky odvozené z grafu a dat projektu. Graf Git projektu leží v souboru
+        nebo v Gitu, token SQLite ho nekryje: tam None (necachovat)."""
+        token = self.data_token(pid)
+        if token is None or (pid == "draft" and wid == "draft"):
+            return token
+        return token if self.project_hub.source_info(pid)["sourceKind"] != "git" else None
 
     def reader(self, pid):
         """Půjčí čtecí spojení projektu (WAL: nečeká na zapisovatele, nevidí rozpracované).
@@ -257,6 +356,9 @@ class CanvasService:
         Uvnitř bloku vrací `db_for(pid)` čtecí spojení tohoto vlákna. Drží-li vlákno zámek dat
         projektu (čtení uvnitř zápisu), zůstává zápisové spojení, aby čtení vidělo vlastní změny.
         Vnořené bloky sdílejí snímek vnějšího.
+
+        Na začátku bloku se přečte token dat (`data_token`): před i po otevření snímku. Shodují-li
+        se, snímek je přesně ten stav a cache čtení ho smí použít i uložit; jinak se v bloku necachuje.
         """
         scopes = self._scopes()
         if pid in scopes or self.lock_for(pid)._is_owned():
@@ -264,11 +366,18 @@ class CanvasService:
             return
         db = self.reader(pid)
         try:
+            before = self._probe_token(pid)
             db.execute("BEGIN")
+            db.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchall()  # otevře snímek hned
+            token = before if self._probe_token(pid) == before else None
             scopes[pid] = db
+            self._local.tokens[pid] = token
+            self._local.views[pid] = {}
             yield
         finally:
             scopes.pop(pid, None)
+            self._local.tokens.pop(pid, None)
+            self._local.views.pop(pid, None)
             self.release_reader(pid, db)
 
     def folder(self, pid):
@@ -284,7 +393,7 @@ class CanvasService:
         db = self._project_dbs.get(pid)
         if db is not None:
             return db
-        with self.lock_for(pid):
+        with self.lock_for(pid):  # neexistující projekt skončí ProjectNotFound dřív, než vznikne soubor
             db = self._project_dbs.get(pid)
             if db is None:
                 folder = self.folder(pid)
@@ -386,16 +495,52 @@ class CanvasService:
             raise ValueError("Pracovní prostor patří jinému projektu.")
         return Path(workspace["directory"]), project
 
+    def _parsed_graph(self, pid, wid, raw, token=None, check=None):
+        """(graph, digest) ze surového textu grafu přes cache: stejný token nebo stejný text = bez
+        parsování a hashování. Graf je sdílený mezi požadavky, jen ke čtení (karta P3)."""
+        key = ("graph", pid, wid)
+        hit = self.read_cache.get(key, token)
+        if hit is None:
+            raw = raw()
+            _stamp, previous = self.read_cache.peek(key)
+            if previous is not None and previous[0] == raw:
+                hit = previous
+            else:
+                graph = json.loads(raw)
+                graph = check(graph) if check else graph
+                hit = (raw, graph, digest(graph))
+            self.read_cache.put(key, token, hit)
+        return hit[1], hit[2]
+
+    def _draft_graph(self, pid):
+        def raw():
+            row = self.db_for(pid).execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()
+            if row is None:
+                raise ValueError("Projektový draft nebyl nalezen.")
+            return row[0]
+
+        return self._parsed_graph(pid, "draft", raw, self.data_token(pid))
+
     def view(self, pid, wid):
+        """Graf plátna a jeho zdroj. Uvnitř jednoho `reading` bloku se počítá jednou (snímek se
+        nemění) a vrací se mělká kopie; graf je sdílený, jen ke čtení."""
+        with self.reading(pid):
+            memo = None if self.lock_for(pid)._is_owned() else self._local.views.get(pid)
+            if memo is not None and wid in memo:
+                return dict(memo[wid])
+            result = self._view(pid, wid)
+            if memo is not None:
+                memo[wid] = result
+            return dict(result)
+
+    def _view(self, pid, wid):
         # Čtení grafu jde přes snímek (WAL); uvnitř zápisu zůstává zápisové spojení s vlastními změnami.
         with self.reading(pid):
             if pid == "draft" and wid == "draft":
-                graph = json.loads(
-                    self.db_for("draft").execute("SELECT graph FROM drafts WHERE id='draft'").fetchone()[0]
-                )
+                graph, graph_digest = self._draft_graph("draft")
                 return {
                     "graph": graph,
-                    "digest": digest(graph),
+                    "digest": graph_digest,
                     "readOnly": False,
                     "source": "Lokální návrh, není schválený main",
                     "sha": None,
@@ -410,13 +555,10 @@ class CanvasService:
             if source["sourceKind"] != "git":
                 if wid != "draft":
                     raise ValueError("Lokální a prázdné projekty používají pouze pracovní prostor draft.")
-                row = self.db_for(pid).execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()
-                if row is None:
-                    raise ValueError("Projektový draft nebyl nalezen.")
-                graph = json.loads(row[0])
+                graph, graph_digest = self._draft_graph(pid)
                 return {
                     "graph": graph,
-                    "digest": digest(graph),
+                    "digest": graph_digest,
                     "readOnly": False,
                     "source": "Lokální graf projektu v SQLite; zdrojová složka nebyla načtena.",
                     "sha": None,
@@ -440,10 +582,11 @@ class CanvasService:
             if file.exists() and file.stat().st_size > 2000000:
                 raise ValueError("Graf je příliš velký.")
             raw = file.read_text(encoding="utf-8") if file.exists() else None
-        graph = validate_graph(json.loads(raw)) if raw else json.loads(encode(EMPTY))
+        # Soubor a Git nekryje token dat: graf se znovu neparsuje jen při stejném surovém textu.
+        graph, graph_digest = self._parsed_graph(pid, wid, lambda: raw or encode(EMPTY), check=validate_graph if raw else None)
         return {
             "graph": graph,
-            "digest": digest(graph),
+            "digest": graph_digest,
             "readOnly": wid == "main",
             "source": "Git HEAD:" + GRAPH_FILE
             if wid == "main"

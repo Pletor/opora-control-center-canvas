@@ -420,7 +420,9 @@ def check_node_branches(state, graph_node_ids):
             raise ValueError(f"Blok {block_id} uzlu {node_id}: větev {via} míří na neexistující uzel {target}.")
 
 
-def validate_state(state):
+def validate_state(state, *, unchanged=None):
+    """Ověří celý stav. `unchanged` = uzly uloženého (už ověřeného) stavu, ze kterého volající
+    vyšel mělkou kopií: uzel, který je s ním totožný objekt (`is`), se znovu neprochází (karta P3)."""
     if not isinstance(state, dict) or frozenset(state) not in STATE_KEY_SETS:
         _fail("očekávám pole settings, rules, decisions, nodes, tickets a volitelně edges a autonomy.")
     _validate_edge_reports(state)
@@ -454,6 +456,8 @@ def validate_state(state):
         _ident(node_id, "klíč uzlu")
         if not isinstance(node, dict) or frozenset(node) not in _node_key_sets():
             _fail("stav uzlu má neplatná pole.")
+        if unchanged is not None and unchanged.get(node_id) is node:
+            continue
         _validate_blocks(node, node_id)
         _validate_materials(node, node_id)
         _validate_done(node, node_id)
@@ -549,19 +553,40 @@ def _scope_ids(project, workspace):
         raise ValueError("Neplatný identifikátor pracovního prostoru.")
 
 
+HEAD_SQL = "SELECT revision,saved_at FROM desktop_v3_state WHERE project_id=? AND workspace_id=?"
+
+
 class DesktopV3State:
     def __init__(self, canvas):
         self.canvas = canvas
 
     def current(self, project, workspace):
-        """Uložený stav bez ověření rozsahu; volající drží zámky a rozsah už ověřil."""
-        row = self.canvas.db_for(project).execute(
-            "SELECT revision,state FROM desktop_v3_state WHERE project_id=? AND workspace_id=?",
-            (project, workspace),
-        ).fetchone()
-        if row is None:
-            return {"revision": 0, "state": default_state()}
-        return {"revision": row["revision"], "state": fill_defaults(json.loads(row["state"]))}
+        """Uložený stav bez ověření rozsahu; volající drží zámky a rozsah už ověřil.
+
+        Stav se cachuje podle tokenu dat a revize (karta P3; `backend/canvas/read_cache.py`):
+        vrácený `state` je sdílený mezi požadavky a jen ke čtení. Kdo ho mění, vezme si kopii
+        (mělkou tam, kde mění jen jednu sekci, a `save(..., base=...)` pak neověřuje nezměněné uzly)."""
+        canvas = self.canvas
+        with canvas.reading(project):
+            key = ("state", project, workspace)
+            token = canvas.data_token(project)
+            hit = canvas.read_cache.get(key, token)
+            if hit is None:
+                db = canvas.db_for(project)
+                head = db.execute(HEAD_SQL, (project, workspace)).fetchone()
+                if head is None:
+                    return {"revision": 0, "state": default_state()}
+                stamp = (head["revision"], head["saved_at"])
+                _token, previous = canvas.read_cache.peek(key)
+                if previous is not None and previous[0] == stamp:
+                    hit = previous
+                else:
+                    row = db.execute("SELECT state FROM desktop_v3_state WHERE project_id=? AND workspace_id=?",
+                                     (project, workspace)).fetchone()
+                    hit = (stamp, fill_defaults(json.loads(row["state"])))
+                if token is not None:
+                    canvas.read_cache.put(key, token, hit)
+            return {"revision": hit[0][0], "state": hit[1]}
 
     def read(self, project, workspace):
         _scope_ids(project, workspace)
@@ -569,17 +594,29 @@ class DesktopV3State:
             view = self.canvas.view(project, workspace)
             if view["readOnly"]:
                 return {"revision": 0, "state": default_state(), "readOnly": True}
-            with self.canvas.reading(project):
-                return {**self.current(project, workspace), "readOnly": False}
+            return {**self.current(project, workspace), "readOnly": False}
 
-    def save(self, payload, *, after_write=None, autonomy_close=frozenset(), autonomy=None, actor="system"):
+    def stamp(self, project, workspace):
+        """Levná identita uloženého stavu pro ETag (revize + čas uložení), bez čtení samotného stavu."""
+        _scope_ids(project, workspace)
+        with self.canvas.reading(project):
+            if self.canvas.view(project, workspace)["readOnly"]:
+                return ("readOnly",)
+            head = self.canvas.db_for(project).execute(HEAD_SQL, (project, workspace)).fetchone()
+            return ("state", 0, "") if head is None else ("state", head["revision"], head["saved_at"])
+
+    def save(self, payload, *, after_write=None, autonomy_close=frozenset(), autonomy=None, actor="system",
+             base=None, slim=False):
         """Uloží celý stav. Interní parametry (nikdy z HTTP): `autonomy_close` = karty, které smí
         uzavřít agent ve svěřené autonomii (jen `AgentOutput`); `autonomy` = nová mapa svěřené
         autonomie (jen `set_autonomy`). Jinak se uložená autonomie přenáší beze změny.
 
         `actor` je ověřený původce HTTP zápisu (`human` / `agent` / `unknown`); `system` značí
         serverovou cestu, která pravidla hlídá sama (agent-output, potvrzení, bloky). Potvrzení
-        a otevření uzavřené karty smí obecný zápis stavu jen od člověka (upgrade-opora #30)."""
+        a otevření uzavřené karty smí obecný zápis stavu jen od člověka (upgrade-opora #30).
+
+        Interní `base` = uložený stav, ze kterého volající vyšel mělkou kopií: nezměněné uzly se
+        znovu neověřují. `slim` = odpověď jen s revizí (karta P3); celý stav si volající nečte."""
         if not isinstance(payload, dict) or set(payload) != SAVE_KEYS:
             raise ValueError("Neplatný formát uložení stavu Desktop v3.")
         project, workspace = payload["project"], payload["workspace"]
@@ -587,7 +624,7 @@ class DesktopV3State:
         expected = payload["expectedRevision"]
         if type(expected) is not int or expected < 0:
             raise ValueError("Neplatná očekávaná revize stavu.")
-        state = validate_state(payload["state"])
+        state = validate_state(payload["state"], unchanged=base["nodes"] if base is not None else None)
         with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             if view["readOnly"]:
@@ -683,9 +720,11 @@ class DesktopV3State:
                 if after_write is not None:
                     after_write(db)
                 persist_spawns(self.canvas, db, project, workspace, view["digest"], spawned, now())
+            changed = {"graphChanged": True} if spawned else {}
+            if slim:
+                return {"revision": revision, "readOnly": False, **changed}
             with self.canvas.lock_for(project):
-                return {**self.current(project, workspace), "readOnly": False,
-                        **({"graphChanged": True} if spawned else {})}
+                return {**self.current(project, workspace), "readOnly": False, **changed}
 
     def set_autonomy(self, payload):
         """Člověk svěří sektoru autonomii do času `until` (prázdné `until` ji odebere).

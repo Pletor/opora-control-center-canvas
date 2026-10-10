@@ -6,6 +6,7 @@ import { errorMessage, fetchState, saveState } from "@/shared/desktop-state/logi
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
 import type { Rule, Decision, StateResponse } from "@/shared/desktop-state/logic/types";
+import { appliesTo, withItem, type ItemWriteResponse } from "@/shared/desktop-state/logic/slim-writes";
 import { api } from "@/shared/types/logic/types";
 
 export type DesktopStateHandle = {
@@ -24,6 +25,11 @@ export type DesktopStateHandle = {
   mutate: (fn: (current: DesktopState) => DesktopState) => Promise<boolean>;
   /** Převezme stav z odpovědi adresného zápisu (autonomie, hromadné potvrzení) a pošle ho ostatním instancím. */
   apply: (value: StateResponse) => void;
+  /**
+   * Štíhlá odpověď zápisu (revize + změněná položka, karta P3): `patch` z ní udělá nový stav, ze
+   * kterého zápis vyšel (`baseRevision`). Jiná revize nebo změna grafu = stav se načte celý.
+   */
+  applySlim: (baseRevision: number, response: { revision: number; readOnly: boolean; graphChanged?: boolean }, patch: (current: DesktopState) => DesktopState) => void;
 };
 
 type Published = { state: DesktopState; revision: number; readOnly: boolean };
@@ -54,6 +60,9 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
   const self = useRef<Listener>((value) => listener.current(value));
   const saving = useRef(0);
   const reloadQueued = useRef(false);
+  // Poslední vykreslený stav a revize: štíhlá odpověď zápisu se vkládá do nich, ne do stavu z doby volání.
+  const latest = useRef({ state, revision });
+  latest.current = { state, revision };
 
   useEffect(() => {
     const scope = `${project}::${workspace}`;
@@ -141,15 +150,23 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     if (readOnly || (!expected && !item)) return false;
     const ticket = generation.current;
     const scope = `${project}::${workspace}`;
+    const id = (item ?? expected)!.id;
+    const baseRevision = revision;
     saving.current++;
     try {
-      const value = await trackSaveWrite(project, workspace, api<StateResponse>(`/api/desktop-v3/${kind}`, {
-        project, workspace, id: (item ?? expected)!.id, expected, item,
+      // Odpověď nese jen revizi a uloženou položku (karta P3), ne celý stav.
+      const value = await trackSaveWrite(project, workspace, api<ItemWriteResponse>(`/api/desktop-v3/${kind}`, {
+        project, workspace, id, expected, item,
         op: !expected ? "add" : !item ? "remove" : "update",
       }));
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
-      setState(value.state); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
-      publish(scope, value, self.current);
+      if (appliesTo(baseRevision, value) && latest.current.revision === baseRevision) {
+        const next = withItem(latest.current.state, kind, id, value.item);
+        setState(next); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
+        publish(scope, { state: next, revision: value.revision, readOnly: value.readOnly }, self.current);
+      } else {
+        reloadQueued.current = true; // načte se celý stav, až doběhne tento i další rozepsaný zápis
+      }
       if (value.graphChanged) window.dispatchEvent(new CustomEvent("opora:spawned", { detail: { project, workspace } }));
       return true;
     } catch (e) {
@@ -166,5 +183,12 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     setState(value.state); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
     publish(scope, value, self.current);
   };
-  return { state, revision, readOnly, loading, error, reload, mutate, mutateItem, apply };
+  const applySlim: DesktopStateHandle["applySlim"] = (baseRevision, response, patch) => {
+    if (!appliesTo(baseRevision, response) || latest.current.revision !== baseRevision) {
+      reload();
+      return;
+    }
+    apply({ state: patch(latest.current.state), revision: response.revision, readOnly: response.readOnly });
+  };
+  return { state, revision, readOnly, loading, error, reload, mutate, mutateItem, apply, applySlim };
 }

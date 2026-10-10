@@ -74,7 +74,8 @@ def test_source_scope_archive_and_missing_states(tmp_path):
         assert empty.status_code == 200 and empty.json()["available"] is False
         assert empty.json()["root"] is None
         assert client.get("/api/workspace/tree", params={"project": "draft", "workspace": "other"}).status_code == 409
-        assert client.get("/api/workspace/tree", params={"project": "missing", "workspace": "main"}).status_code == 409
+        # Neznámé ID projektu je 404 a nic nezaloží (karta P3).
+        assert client.get("/api/workspace/tree", params={"project": "missing", "workspace": "main"}).status_code == 404
         source = tmp_path / "source"
         source.mkdir()
         pid = attach(client, source)
