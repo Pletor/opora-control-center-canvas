@@ -1,1 +1,1 @@
-Sdílené React hooky (use-pending-edits).
+Sdílené React hooky (use-pending-edits) a jeden vzor pro periodická čtení UI: `poller.ts` (bez Reactu: nikdy dva dotazy najednou, další kolo až po dokončení, ve skryté záložce stojí a po návratu načte jednou) a `use-polling.ts` (napojení na komponentu; změna `refreshKeys` jen požádá o refresh). `setInterval` smí jen tikat hodinami; `poller.test.ts` to hlídá pro celý frontend.

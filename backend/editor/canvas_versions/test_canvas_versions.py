@@ -1,8 +1,11 @@
 """Uložené verze plátna (docs/verze-platna.md): seznam, dirty, uložení a obnovení grafu i stavu."""
 
+import re
+
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
+from backend.editor.canvas_versions.canvas_versions import LIST_SQL, SAME_CONTENT_SQL, SNAPSHOT_SQL, _summary
 from backend.editor.node.test_removals import (
     HEADERS,
     ORIGIN,
@@ -190,3 +193,67 @@ def test_main_is_read_only(tmp_path, monkeypatch):
                                json={**scope, "versionId": "f" * 32, "digest": view["digest"], "author": AUTHOR,
                                      "expectedToken": listed["currentToken"]})
         assert restored.status_code == 409 and "Main je pouze pro čtení" in restored.json()["error"]
+
+
+def _raw_columns(sql):
+    """Sloupce verze, které dotaz na canvas_versions vrací do Pythonu (mimo json_* / typeof v SQL)."""
+    select = sql[sql.upper().index("SELECT") + 6:sql.index("FROM canvas_versions")]
+    previous = None
+    while previous != select:
+        previous, select = select, re.sub(r"(json_\w+|typeof|count)\([^()]*\)", "", select)
+    return set(re.findall(r"\b(?:graph|state|snapshot)\b|\*", select))
+
+
+def test_list_reads_metadata_in_sql_and_matches_full_row_summary(tmp_path):
+    from backend.editor.canvas_versions.test_version_content import seed
+
+    app = create_app(tmp_path)
+    with TestClient(app, base_url=ORIGIN) as client:
+        db = app.state.service.db_for("draft")
+        install_graph(client, graph("a"))
+        assert save(client).status_code == 200
+        # Chybějící příloha i obrázek kresby = dvě nedostupná aktiva ve snímku.
+        install_desktop_state(client, desktop_state(nodes={"a": state_node(materials=[{
+            "id": "m", "kind": "upload", "path": "20261005-101010-12345678.png", "caption": "x"}])}))
+        seed(db, "drawings", {"scene": {"elements": [
+            {"id": "i", "type": "image", "fileId": "gone", "x": 0, "y": 0, "width": 1, "height": 1}]}})
+        install_graph(client, graph("a", "b"))
+        assert save(client, author="Agent").status_code == 200
+        db.execute("INSERT INTO canvas_versions(id,project_id,workspace_id,author,created_at,graph,state,graph_digest,state_digest)"
+                   " VALUES(?,?,?,?,?,?,?,?,?)", ("0" * 32, "draft", "draft", "Starý", "2026-01-01T00:00:00+00:00",
+                                                  '{"nodes":[{"id":"x"}],"edges":[]}', "{}", "g", "s"))
+        db.commit()
+        statements = []
+        db.set_trace_callback(statements.append)
+        listed = versions(client)["versions"]
+        db.set_trace_callback(None)
+
+        rows = db.execute("SELECT * FROM canvas_versions ORDER BY created_at DESC,rowid DESC").fetchall()
+        assert listed == [_summary(row) for row in rows]
+        assert [item["unavailableAssets"] for item in listed] == [2, 0, 0]
+        assert [item["coverage"] for item in listed] == ["full", "full", "legacy-partial"]
+        assert [item["nodeCount"] for item in listed] == [2, 1, 1]
+        version_reads = [sql for sql in statements if "FROM canvas_versions" in sql]
+        assert any("json_each(snapshot" in sql for sql in version_reads)
+        assert all(_raw_columns(sql) == set() for sql in version_reads), version_reads
+
+        # Řádek verze se nemění: druhý výpis už snímky neparsuje, výsledek je stejný.
+        statements.clear()
+        db.set_trace_callback(statements.append)
+        assert versions(client)["versions"] == listed
+        db.set_trace_callback(None)
+        assert not any("json_each" in sql or "json_extract" in sql for sql in statements)
+
+
+def test_raw_column_detector_flags_blob_reads():
+    assert _raw_columns("SELECT * FROM canvas_versions") == {"*"}
+    assert _raw_columns("SELECT id,graph,snapshot FROM canvas_versions") == {"graph", "snapshot"}
+    assert _raw_columns(LIST_SQL) == set() and _raw_columns(SNAPSHOT_SQL) == set()
+
+
+def test_dirty_lookup_uses_content_digest_index(tmp_path):
+    app = create_app(tmp_path)
+    with TestClient(app, base_url=ORIGIN):
+        db = app.state.service.db_for("draft")
+        plan = " ".join(row["detail"] for row in db.execute("EXPLAIN QUERY PLAN " + SAME_CONTENT_SQL, ("draft", "draft", "x")))
+        assert "canvas_versions_content" in plan, plan

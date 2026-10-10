@@ -19,6 +19,7 @@ import HistoryButtons from "@/editor/canvas/history/components/HistoryButtons";
 import { SaveScopeProvider } from "@/shared/hooks/logic/save-scope-context";
 import { useSaveScope, useSaveParticipant, flushSaveScope, invalidateSavedScope, trackSaveWrite, waitForSaveWrites, saveScopeEntries } from "@/shared/hooks/logic/save-coordinator";
 import { orphanedPendingEdits, flushOrphanedPendingEdits } from "@/shared/hooks/logic/use-pending-edits";
+import { usePolling } from "@/shared/hooks/logic/use-polling";
 import SaveVersionsTools from "@/editor/canvas/save-versions/components/SaveVersionsTools";
 import ActivityLogTools from "@/editor/canvas/activity-log/components/ActivityLogTools";
 import { useCanvasVersions } from "@/editor/canvas/save-versions/logic/use-canvas-versions";
@@ -353,11 +354,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       if (g === generation.current) setError(String(e));
     }
   }
-  useEffect(() => {
-    bootstrap().catch((e) => setError(String(e)));
-    const t = setInterval(() => bootstrap().catch(() => {}), 2500);
-    return () => clearInterval(t);
-  }, []);
+  // Projekty a úlohy přes sdílený poller: nikdy dva dotazy najednou, ve skryté záložce stojí.
+  // Chybu ukáže jen první načtení; další kola zkoušejí potichu znovu.
+  const firstBootstrap = useRef(true);
+  usePolling(() => {
+    const first = firstBootstrap.current;
+    firstBootstrap.current = false;
+    return bootstrap().catch((e) => { if (first) setError(String(e)); });
+  }, { intervalMs: 2500 });
   useEffect(() => {
     const nextScope = JSON.stringify([project, workspace]);
     if (lastLoadedScope.current !== nextScope) {

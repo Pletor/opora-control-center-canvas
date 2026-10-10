@@ -262,3 +262,69 @@ def test_main_reads_empty_message_stream_without_draft_memory_and_refuses_post(t
 
         assert listed.status_code == 200 and listed.json()["messages"] == [] and listed.json()["readOnly"] is True
         assert post.status_code == 409
+
+
+def _many_cards(count):
+    extra = [{"id": f"k{index}", "parentId": "sektor", "kind": "node", "name": f"Karta {index}",
+              "purpose": "", "x": 0, "y": 200 + index} for index in range(count)]
+    return {**GRAPH, "nodes": [*GRAPH["nodes"], *extra]}
+
+
+def _count_state_reads(monkeypatch):
+    from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+
+    calls = []
+    original = DesktopV3State.current
+
+    def counted(self, project, workspace):
+        calls.append((project, workspace))
+        return original(self, project, workspace)
+
+    monkeypatch.setattr(DesktopV3State, "current", counted)
+    return calls
+
+
+def _install(client, graph):
+    view = client.get("/api/view", params=SCOPE).json()
+    saved = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": graph, "digest": view["digest"]})
+    assert saved.status_code == 200, saved.text
+
+
+def test_listing_parses_state_once_and_still_hides_closed_targets(tmp_path, monkeypatch):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        _install(client, _many_cards(40))
+        close_card(client, "b")
+        calls = _count_state_reads(monkeypatch)
+
+        listed = client.get("/api/desktop-v3/agent-messages", params={**SCOPE, "nodeId": "a", "direction": "outgoing"})
+
+        assert listed.status_code == 200, listed.text
+        assert len(calls) == 1
+        targets = [item["id"] for item in listed.json()["targets"]]
+        assert "b" not in targets and "a" not in targets and len(targets) == 41
+
+
+def test_node_brief_message_section_reads_state_at_most_once_for_any_card_count(tmp_path, monkeypatch):
+    from backend.editor.agent_handoff.message_store import MessageStore
+
+    counts = {}
+    for size in (0, 60):
+        app = create_app(tmp_path / f"data{size}")
+        with TestClient(app, base_url=ORIGIN) as client:
+            _install(client, _many_cards(size))
+            assert client.post("/api/desktop-v3/agent-messages", headers=HEADERS, json=message_payload()).status_code == 200
+            service = app.state.service
+            store = MessageStore(service, service.desktop_v3_state)
+            calls = _count_state_reads(monkeypatch)
+            pages = store.pages("draft", "draft", "b")
+            assert len(calls) <= 1
+            assert [len(pages["incoming"]["messages"]), len(pages["outgoing"]["messages"])] == [1, 0]
+            assert set(pages["incoming"]) == {"messages", "hasMore", "nextBefore"}
+            calls.clear()
+            brief = client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": "b"})
+            assert brief.status_code == 200, brief.text
+            assert brief.json()["communication"]["incoming"]["messages"][0]["sourceNodeId"] == "a"
+            counts[size] = len(calls)
+            monkeypatch.undo()
+    # Počet čtení stavu nezávisí na počtu karet (dřív 1 + 2 × N v sekci zpráv).
+    assert counts[0] == counts[60], counts

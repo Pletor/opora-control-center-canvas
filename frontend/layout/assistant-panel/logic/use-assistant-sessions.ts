@@ -2,7 +2,8 @@
 // model a akce založit / přejmenovat / zavřít. Seznam se obnovuje pollingem `GET sessions` každé
 // 4 s, jen když je panel otevřený (i jako lišta) nebo když při zavření ještě něco pracovalo; tak se
 // stav ostatních úkolů mění i bez otevření jejich konverzace. Volá ho jen AssistantPanel.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "@/shared/hooks/logic/use-polling";
 import {
   closeSession,
   createSession,
@@ -60,22 +61,21 @@ export function useAssistantSessions(open: boolean, watch: boolean, project: str
   }, [project]);
 
   const polling = (open || watch) && available && !!project;
-  useEffect(() => {
-    if (!polling) return;
-    let alive = true;
-    const load = () =>
-      fetchSessions(project)
-        .then((list) => {
-          if (!alive) return;
-          const live = list.filter((s) => s.state !== "closed");
-          setSessions((current) => (same(current, live) ? current : live));
-          setActiveId((current) => (current && live.some((s) => s.id === current) ? current : live[0]?.id ?? null));
-        })
-        .catch((e) => alive && setFailure(messageOf(e)));
-    void load();
-    const timer = window.setInterval(load, POLL_MS);
-    return () => { alive = false; window.clearInterval(timer); };
-  }, [polling, project]);
+  // Sdílený poller: nikdy dva dotazy najednou, ve skryté záložce stojí. Výsledek jiného projektu
+  // (dotaz běžel při přepnutí) se zahodí.
+  const projectRef = useRef(project);
+  useEffect(() => { projectRef.current = project; }, [project]);
+  usePolling(() => {
+    const asked = project;
+    return fetchSessions(asked)
+      .then((list) => {
+        if (projectRef.current !== asked) return;
+        const live = list.filter((s) => s.state !== "closed");
+        setSessions((current) => (same(current, live) ? current : live));
+        setActiveId((current) => (current && live.some((s) => s.id === current) ? current : live[0]?.id ?? null));
+      })
+      .catch((e) => { if (projectRef.current === asked) setFailure(messageOf(e)); });
+  }, { intervalMs: POLL_MS, enabled: polling, refreshKeys: [project] });
 
   const setModel = useCallback((next: AssistantModel) => { setModelState(next); writePrefs({ model: next }); }, []);
 

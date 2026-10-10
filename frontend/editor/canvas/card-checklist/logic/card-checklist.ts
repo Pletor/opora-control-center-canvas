@@ -1,8 +1,9 @@
 // Kontrolní pás karty: deset polí ano / ne, co karta pro agenta už má a co chybí. Počítá server
 // (`GET /api/desktop-v3/card-checklist`, backend/editor/agent_packet/card_checklist.py) stejně jako
 // pro frontier a node-brief; tady jsou jen typy, načtení vrstvy a odvozené souhrny pro oblast a vazby.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "@/shared/types/logic/types";
+import { usePolling } from "@/shared/hooks/logic/use-polling";
 import type { CanvasNode, GraphEdge } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 
@@ -18,24 +19,16 @@ export const STATE_LABEL: Record<CheckState, string> = { yes: "je", no: "chybí"
 export function useCardChecklist(scope: { project: string; workspace: string } | undefined, parent: string | null, revision: unknown): Checklists | undefined {
   const [value, setValue] = useState<{ key: string; nodes: Checklists } | null>(null);
   const key = JSON.stringify([scope?.project, scope?.workspace, parent]);
-  useEffect(() => {
+  usePolling(async () => {
     if (!scope) return;
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const params = new URLSearchParams({ ...scope, layer: parent ?? "" });
-    async function refresh() {
-      try {
-        const result = await api<{ nodes: Checklists }>("/api/desktop-v3/card-checklist?" + params);
-        if (live) setValue({ key, nodes: result.nodes });
-      } catch {
-        // Pás je doplněk: bez něj karta funguje dál, jen bez souhrnu.
-        if (live) setValue(null);
-      }
-      if (live) timer = setTimeout(refresh, 20000);
+    try {
+      const result = await api<{ nodes: Checklists }>("/api/desktop-v3/card-checklist?" + new URLSearchParams({ ...scope, layer: parent ?? "" }));
+      setValue({ key, nodes: result.nodes });
+    } catch {
+      // Pás je doplněk: bez něj karta funguje dál, jen bez souhrnu.
+      setValue((current) => (current?.key === key ? null : current));
     }
-    void refresh();
-    return () => { live = false; clearTimeout(timer); };
-  }, [key, revision]);
+  }, { intervalMs: 20000, enabled: !!scope, refreshKeys: [key, revision] });
   return value?.key === key ? value.nodes : undefined;
 }
 

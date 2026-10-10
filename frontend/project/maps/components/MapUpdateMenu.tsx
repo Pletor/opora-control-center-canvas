@@ -1,5 +1,6 @@
 import {useEffect,useId,useRef,useState} from 'react';
 import '@/project/maps/styles/map-update-menu.css';
+import {usePolling} from '@/shared/hooks/logic/use-polling';
 
 type Tool='graphify'|'archify';
 type Status={project:string;enabled:boolean;status:string;phase?:string;error?:string|null;automatic:Record<Tool,boolean>;versions:Record<Tool,string|null>};
@@ -17,11 +18,13 @@ export default function MapUpdateMenu({project,tool,busy=false,onUpdate,onReload
       if(next&&next!==version.current){version.current=next;void callbacks.current.onReload()}
     }
   }
+  const abort=useRef<AbortController|null>(null);
   useEffect(()=>{
-    alive.current=true;version.current=null;const abort=new AbortController();
-    const refresh=()=>void read(abort.signal).catch(()=>{});refresh();const timer=setInterval(refresh,5000);
-    return()=>{alive.current=false;abort.abort();clearInterval(timer)};
+    alive.current=true;version.current=null;const controller=new AbortController();abort.current=controller;
+    return()=>{alive.current=false;controller.abort()};
   },[project,tool]);
+  // Stav aktualizace map po 5 s přes sdílený poller: nikdy dva dotazy najednou, ve skryté záložce stojí.
+  usePolling(()=>read(abort.current?.signal).catch(()=>{}),{intervalMs:5000,refreshKeys:[project,tool]});
   useEffect(()=>{
     if(!open)return;
     function outside(event:PointerEvent){if(!root.current?.contains(event.target as Node))setOpen(false)}

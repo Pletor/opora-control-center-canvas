@@ -55,9 +55,48 @@ def _summary(row):
             "coverage": "full" if snapshot else "legacy-partial", "unavailableAssets": unavailable_assets(snapshot)}
 
 
+# Výpis verzí bez blobů (karta P1): sloupce graph/state/snapshot (~5 MB na verzi) se do Pythonu nečtou.
+# Počet uzlů spočítá SQLite z grafu; typeof(snapshot) nečte obsah sloupce.
+LIST_SQL = ("SELECT id, created_at, author, json_array_length(graph, '$.nodes') AS node_count,"
+            " typeof(snapshot) = 'text' AS has_snapshot FROM canvas_versions"
+            " WHERE project_id=? AND workspace_id=? ORDER BY created_at DESC,rowid DESC LIMIT ?")
+# Metadata uvnitř snímku spočítá SQLite (json_extract / json_each) jen pro verze, které ještě nejsou
+# v paměti. Řádek verze se po vložení nemění (id = uuid4), proto jeho metadata stačí přečíst jednou.
+SNAPSHOT_SQL = ("SELECT id, CASE WHEN json_type(snapshot, '$.saveMetadata.actor') IS NULL THEN 'unknown'"
+                " ELSE json_extract(snapshot, '$.saveMetadata.actor') END AS actor,"
+                " json_extract(snapshot, '$.saveMetadata.changedCardCount') AS changed,"
+                " (SELECT count(*) FROM json_each(snapshot, '$.assets.uploads')"
+                " WHERE json_type(value, '$.data') = 'null')"
+                " + (SELECT count(*) FROM json_each(snapshot, '$.assets.drawings')"
+                " WHERE json_type(value, '$.file') = 'null') AS unavailable"
+                " FROM canvas_versions WHERE project_id=? AND workspace_id=? AND id IN ({})")
+# Je obsah už uložený? Jde přes index canvas_versions_content (database/schema/project_schema.py).
+SAME_CONTENT_SQL = "SELECT 1 FROM canvas_versions WHERE project_id=? AND workspace_id=? AND content_digest=? LIMIT 1"
+LEGACY = {"actor": "unknown", "changedCardCount": None, "coverage": "legacy-partial", "unavailableAssets": 0}
+
+
 class CanvasVersions:
     def __init__(self, canvas, desktop_state=None):
         self.canvas, self._desktop_state = canvas, desktop_state
+        # (project, workspace) -> {id verze: metadata ze snímku}; plní a čte se jen pod canvas.lock.
+        self._snapshot_meta = {}
+
+    def _summaries(self, db, project, workspace):
+        rows = db.execute(LIST_SQL, (project, workspace, MAX_VERSIONS)).fetchall()
+        known = self._snapshot_meta.get((project, workspace), {})
+        meta = {row["id"]: known.get(row["id"], LEGACY) for row in rows}
+        missing = [row["id"] for row in rows if row["has_snapshot"] and row["id"] not in known]
+        if missing:
+            query = SNAPSHOT_SQL.format(",".join("?" * len(missing)))
+            for item in db.execute(query, (project, workspace, *missing)):
+                meta[item["id"]] = {"actor": item["actor"], "changedCardCount": item["changed"],
+                                    "coverage": "full", "unavailableAssets": item["unavailable"]}
+        # Jen verze z aktuálního výpisu: smazané retencí z paměti zmizí.
+        self._snapshot_meta[(project, workspace)] = meta
+        return [{"id": row["id"], "createdAt": row["created_at"], "author": row["author"],
+                 "actor": meta[row["id"]]["actor"], "changedCardCount": meta[row["id"]]["changedCardCount"],
+                 "nodeCount": row["node_count"], "coverage": meta[row["id"]]["coverage"],
+                 "unavailableAssets": meta[row["id"]]["unavailableAssets"]} for row in rows]
 
     def desktop_state(self):
         from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
@@ -76,8 +115,7 @@ class CanvasVersions:
 
     def _dirty(self, db, project, workspace, view, stored, snapshot):
         from backend.editor.agent_memory.desktop_v3_state import default_state
-        matching = db.execute("SELECT 1 FROM canvas_versions WHERE project_id=? AND workspace_id=? AND content_digest=? LIMIT 1",
-                              (project, workspace, content_digest(view["graph"], stored["state"], snapshot))).fetchone()
+        matching = db.execute(SAME_CONTENT_SQL, (project, workspace, content_digest(view["graph"], stored["state"], snapshot))).fetchone()
         if matching:
             return False
         any_version = db.execute("SELECT 1 FROM canvas_versions WHERE project_id=? AND workspace_id=? LIMIT 1", (project, workspace)).fetchone()
@@ -109,9 +147,8 @@ class CanvasVersions:
             with db:
                 db.execute("BEGIN")
                 view, stored, snapshot = self._capture(db, project, workspace)
-                rows = db.execute("SELECT * FROM canvas_versions WHERE project_id=? AND workspace_id=? ORDER BY created_at DESC,rowid DESC LIMIT ?",
-                                  (project, workspace, MAX_VERSIONS)).fetchall()
-                return {"versions": [_summary(row) for row in rows], "dirty": False if view["readOnly"] else self._dirty(db, project, workspace, view, stored, snapshot),
+                return {"versions": self._summaries(db, project, workspace),
+                        "dirty": False if view["readOnly"] else self._dirty(db, project, workspace, view, stored, snapshot),
                         "currentToken": current_token(view["graph"], stored, snapshot)}
 
     def _read(self, db, project, workspace, version_id):

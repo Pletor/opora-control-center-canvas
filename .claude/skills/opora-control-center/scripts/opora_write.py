@@ -18,7 +18,9 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 BASE_ENV = 'OPORA_BASE_URL'
-TIMEOUT = 30
+# Pomalý server (dlouhé dotazy pod globálním zámkem) odpovídá i za desítky sekund; zápis se
+# po vypršení NEopakuje: server ho mohl provést, druhý pokus by zapsal 2× (karta P1).
+TIMEOUT = 90
 MAX_BYTES = 8 * 1024 * 1024
 MAX_PAYLOAD = 2 * 1024 * 1024  # shodně s `DRAFT_LIMIT` v approvals.py (koncept dávky plánu)
 # Jediné cesty, na které skript pošle POST (docs/asistent.md §5.1). Jinam nic neodejde.

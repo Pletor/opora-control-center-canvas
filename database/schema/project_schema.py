@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS canvas_versions(
     snapshot TEXT, content_digest TEXT);
 CREATE INDEX IF NOT EXISTS canvas_versions_scope
     ON canvas_versions(project_id, workspace_id, created_at DESC);
+-- Index canvas_versions_content (dotaz „je obsah už uložený“) vzniká v ensure_canvas_version_columns:
+-- starší tabulka sloupec content_digest v tuto chvíli ještě nemá.
 -- backend/editor/agent_memory/desktop_v3_state.py
 CREATE TABLE IF NOT EXISTS desktop_v3_state(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, revision INTEGER NOT NULL,
@@ -193,9 +195,18 @@ PROJECT_TABLES = {
 REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects")
 
 
+# CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).
+CANVAS_VERSIONS_CONTENT_INDEX = """
+CREATE INDEX IF NOT EXISTS canvas_versions_content
+    ON canvas_versions(project_id, workspace_id, content_digest);
+"""
+
+
 def ensure_canvas_version_columns(db):
     """Add full snapshot columns; existing graph/state versions remain explicitly partial."""
     columns = {row[1] for row in db.execute("PRAGMA table_info(canvas_versions)")}
     for name in ("snapshot", "content_digest"):
         if name not in columns:
             db.execute(f"ALTER TABLE canvas_versions ADD COLUMN {name} TEXT")
+    if {"project_id", "workspace_id"} <= columns:
+        db.execute(CANVAS_VERSIONS_CONTENT_INDEX)

@@ -226,3 +226,21 @@ def test_lease_token_from_environment_is_sent_as_header(monkeypatch):
     sent.clear()
     opora_write.post("http://127.0.0.1:8740", "/api/desktop-v3/agent-output", {})
     assert "X-opora-lease" not in sent
+
+
+def test_write_waits_ninety_seconds_and_timeout_is_not_retried(monkeypatch, capsys):
+    """Zápis po vypršení neopakuje: server ho mohl provést a druhý pokus by zapsal 2× (karta P1)."""
+    import opora_save
+
+    seen = []
+
+    def slow(req, timeout):
+        seen.append((req.get_method(), timeout))
+        raise TimeoutError('timed out')
+
+    monkeypatch.setattr(opora_write, '_open', slow)
+    monkeypatch.setenv(opora_write.BASE_ENV, BASE)
+    code = opora_write.main(['/api/node-spec', *SCOPE, '--json', '{"node": "n1", "expected_revision": 3}'])
+    assert code == 1 and 'timed out' in capsys.readouterr().err
+    assert seen == [('POST', 90)]
+    assert opora_write.TIMEOUT == 90 and opora_save.TIMEOUT == 90

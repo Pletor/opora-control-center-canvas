@@ -471,9 +471,11 @@ class NodeBrief:
         # Komunikace jsou reálné, samostatně stránkované pohledy MessageStore. Nula zpráv je
         # platný stav, ne výpadek; identita i receipt zůstávají doslovně z neměnného záznamu.
         if self.messages is not None:
+            # Obě strany jedním voláním: jeden pohled na plátno, bez seznamu cílů (karta P1).
+            pages = self.messages.pages(project, workspace, node_id)
             brief["communication"] = {
-                "incoming": self._message_page(project, workspace, node_id, "incoming"),
-                "outgoing": self._message_page(project, workspace, node_id, "outgoing"),
+                "incoming": pages["incoming"],
+                "outgoing": pages["outgoing"],
                 "endpoints": {
                     "list": "/api/desktop-v3/agent-messages",
                     "send": "/api/desktop-v3/agent-messages",
@@ -531,7 +533,3 @@ class NodeBrief:
         brief["autonomy"] = {"sectorId": sector_id, "grant": redact_deep(stored["state"].get("autonomy", {}).get(sector_id)),
                              "policy": "nearest sector only; all blocks met and evidence required; sector gates always human; validity checked at submission"}
         return brief
-
-    def _message_page(self, project, workspace, node_id, direction):
-        page = self.messages.list(project, workspace, node_id, direction, None)
-        return {"messages": page["messages"], "hasMore": page["hasMore"], "nextBefore": page["nextBefore"]}

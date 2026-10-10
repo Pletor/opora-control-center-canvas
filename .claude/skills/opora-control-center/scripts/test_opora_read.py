@@ -328,3 +328,18 @@ def test_vault_reads_tree_fragment_and_research_brief_by_get(net, monkeypatch, c
     assert out['trust'] == {'data': ['goal']} and out['counts']['research'] == 1 and 'text' not in out['fragment']
     assert all(call['method'] == 'GET' for call in calls)
     assert run(monkeypatch, capsys, 'research-brief', *SCOPE)[0] == 1
+
+
+def test_get_waits_sixty_seconds_and_timeout_is_not_retried(monkeypatch, capsys):
+    """Pomalý server: GET čeká 60 s; po vypršení skript skončí chybou a dotaz neopakuje (karta P1)."""
+    seen = []
+
+    def slow(req, timeout):
+        seen.append(timeout)
+        raise TimeoutError('timed out')
+
+    monkeypatch.setattr(opora_read, '_open', slow)
+    code, out, err = run(monkeypatch, capsys, 'view', *SCOPE)
+    assert opora_read.GET_TIMEOUT == 60
+    assert code == 1 and out is None and json.loads(err)['writesPerformed'] == 0
+    assert seen == [60]

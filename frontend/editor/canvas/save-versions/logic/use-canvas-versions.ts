@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type View } from "@/shared/types/logic/types";
 import { saveWriteRevision } from "@/shared/hooks/logic/save-coordinator";
+import { usePolling } from "@/shared/hooks/logic/use-polling";
 import { withSavedVersion, type CanvasVersion, type CanvasVersions } from "./save-versions";
+
+/** Interval obnovy výpisu verzí (dřív 3 s; dotaz trval až 6 s a fronta rostla). */
+export const VERSIONS_POLL_MS = 30_000;
 
 export type CanvasVersionsState = {
   versions: CanvasVersion[]; dirty: boolean; loading: boolean; saving: boolean; error: string;
@@ -47,13 +51,19 @@ export function useCanvasVersions({ project, workspace, enabled, refreshKey, pau
     setLoading(true);
     void refresh().catch((cause) => { if (latest.current === owner) setError(String(cause)); }).finally(() => { if (latest.current === owner) setLoading(false); });
   }, [enabled, refreshKey, refresh]);
-  useEffect(() => {
-    if (!enabled || paused || saving) return;
+  // Výpis verzí je drahý dotaz pod zámkem serveru: jednou za 30 s, nikdy dva najednou, ve skryté
+  // záložce vůbec (sdílený poller); první načtení dělá efekt výše, návrat do okna požádá o refresh.
+  const polling = enabled && !paused && !saving;
+  const poll = usePolling(() => {
     const owner = latest.current;
-    const check = () => { void refresh().catch((cause) => { if (latest.current === owner) setError(String(cause)); }); };
-    const timer = window.setInterval(check, 3000); window.addEventListener("focus", check);
-    return () => { clearInterval(timer); window.removeEventListener("focus", check); };
-  }, [enabled, paused, saving, refresh]);
+    return refresh().catch((cause) => { if (latest.current === owner) setError(String(cause)); });
+  }, { intervalMs: VERSIONS_POLL_MS, enabled: polling, immediate: false });
+  useEffect(() => {
+    if (!polling) return;
+    const focus = () => { void poll.poke(); };
+    window.addEventListener("focus", focus);
+    return () => window.removeEventListener("focus", focus);
+  }, [polling, poll]);
   async function save(digest: string, author: string, expectedToken: string) {
     const owner = latest.current; setSaving(true);
     try {

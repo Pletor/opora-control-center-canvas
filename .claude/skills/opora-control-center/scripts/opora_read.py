@@ -20,7 +20,8 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 MAX_BYTES = 8 * 1024 * 1024
 TOKEN_ENV = 'OPORA_ACCESS_TOKEN'
 BASE_ENV = 'OPORA_BASE_URL'
-GET_TIMEOUT = 10
+# Čtení na pomalém serveru (node-brief, výpis verzí) trvá i desítky sekund; bez automatického opakování.
+GET_TIMEOUT = 60
 # LSP má strop 15 s, lokální sémantický worker 60 s; čtecí POST na ně počká.
 POST_TIMEOUT = 75
 # Jediné cesty, na které skript pošle POST. Všechny jsou dotazy pro čtení, žádný zápis.

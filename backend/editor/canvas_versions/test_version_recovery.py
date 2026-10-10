@@ -130,3 +130,14 @@ def test_additive_migration_preserves_legacy_rows():
     ensure_canvas_version_columns(db)
     assert db.execute("SELECT * FROM canvas_versions").fetchone() == ("old", "original", None, None)
     db.close()
+
+
+def test_migration_adds_content_digest_index_after_missing_column():
+    db = sqlite3.connect(":memory:")
+    db.execute("CREATE TABLE canvas_versions(id TEXT PRIMARY KEY, project_id TEXT, workspace_id TEXT, graph TEXT)")
+    ensure_canvas_version_columns(db)
+    ensure_canvas_version_columns(db)
+    indexes = {row[1]: [col[2] for col in db.execute(f"PRAGMA index_info({row[1]})")]
+               for row in db.execute("PRAGMA index_list(canvas_versions)")}
+    assert indexes["canvas_versions_content"] == ["project_id", "workspace_id", "content_digest"]
+    db.close()

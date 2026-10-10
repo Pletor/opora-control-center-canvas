@@ -7,3 +7,5 @@ Kontrakt: `docs/verze-platna.md`. Router: `backend/api/editor/canvas_version_rou
 `version_content.py` popisuje revizní úložiště, sémantický digest a token aktuálního obsahu. `version_assets.py` zachycuje místní soubory a zajišťuje návrat souborových zápisů při výjimce. `version_restore.py` validuje obnovu před zápisem a obnovuje obsah v nových, monotónních revizích.
 
 Obnova vyžaduje token aktuálního pracovního prostoru, používá společnou databázovou transakci a při výjimce vrací souborové změny. Uchová záchrannou verzi odlišného současného obsahu. Neobnovuje společný cíl/nastavení projektu, zdrojový kód, Git historii, externí reference ani neměnné důkazy agentů. Kontext cíle zůstává ve snapshotu pro orientaci a kontrolu souběhu.
+
+Výpis verzí nečte sloupce graph/state/snapshot do Pythonu (`LIST_SQL`, `SNAPSHOT_SQL`): počet uzlů a metadata snímku spočítá SQLite (`json_array_length`, `json_extract`, `json_each`) a metadata neměnného řádku verze si instance pamatuje, takže další výpis sahá jen na nové verze. Dotaz „je obsah už uložený“ (`SAME_CONTENT_SQL`) jde přes index `canvas_versions_content`.

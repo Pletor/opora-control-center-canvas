@@ -9,6 +9,8 @@ Kdy mě číst: potřebuješ přesný příkaz `opora_read.py`, tvar payloadu pr
 - V okně OPORA nesmí příkaz obsahovat `;` `&` `|` `<` `>` `$` `` ` `` ani nový řádek (backend ho zamítne).
   `<SKILL_DIR>` a `<draftsDir>` nahraď skutečnou absolutní cestou.
 - Mimo okno přidej `--base-url http://127.0.0.1:<port>`, pokud nemáš `OPORA_BASE_URL`.
+- Časové limity: čtení (GET) 60 s, zápis a `opora_save.py` 90 s, čtecí POST 75 s. Po vypršení skript
+  nic neopakuje; zápis mohl na serveru proběhnout, proto nejdřív čtením ověř stav a teprve pak zapisuj znovu.
 
 ## Čtení: `opora_read.py`
 

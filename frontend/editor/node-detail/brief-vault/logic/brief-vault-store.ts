@@ -1,17 +1,18 @@
 // Jeden sdílený zdroj stromu schránky pro celé UI (plátno, inspektor, záložka, pop-up). Dřív si každý
 // panel tahal GET /api/brief-vault sám a každých 15 s (tři pollery najednou). Teď: jeden záznam na
-// projekt a prostor, jeden poller, požadavky na obnovu ze stejného okamžiku (změna stavu plátna) se
-// slijí do jednoho dotazu. Bez Reactu; hook `useBriefVault` se jen přihlásí k odběru.
+// projekt a prostor, jeden poller (sdílený vzor `createPoller`), požadavky na obnovu ze stejného okamžiku
+// (změna stavu plátna) se slijí do jednoho dotazu. Bez Reactu; hook `useBriefVault` se jen přihlásí k odběru.
 import type { VaultTree } from "./brief-vault-model";
+import { createPoller, type Poller, type VisibilitySource } from "@/shared/hooks/logic/poller";
 
 export type VaultSnapshot = { tree?: VaultTree; error: string };
 type Timer = ReturnType<typeof setTimeout>;
 type Entry = VaultSnapshot & {
   listeners: Set<() => void>;
-  poll?: Timer;
   pending?: Timer;
-  inflight?: Promise<void>;
-  again: boolean;
+  // Sdílený poller (shared/hooks/logic/poller.ts): jeden dotaz najednou, požadavek během běhu se
+  // provede hned po něm, ve skryté záložce stojí.
+  poller: Poller;
 };
 
 export type VaultStoreOptions = {
@@ -22,10 +23,11 @@ export type VaultStoreOptions = {
   debounceMs?: number;
   setTimer?: (fn: () => void, ms: number) => Timer;
   clearTimer?: (timer: Timer) => void;
+  visibility?: VisibilitySource;
 };
 
 export function createVaultStore(options: VaultStoreOptions) {
-  const { fetchTree, pollMs = 15000, debounceMs = 200 } = options;
+  const { fetchTree, pollMs = 15000, debounceMs = 200, visibility } = options;
   const setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
   const clearTimer = options.clearTimer ?? ((timer) => clearTimeout(timer));
   const entries = new Map<string, Entry>();
@@ -34,33 +36,22 @@ export function createVaultStore(options: VaultStoreOptions) {
   function entry(project: string, workspace: string): Entry {
     const key = keyOf(project, workspace);
     let found = entries.get(key);
-    if (!found) { found = { error: "", listeners: new Set(), again: false }; entries.set(key, found); }
+    if (!found) {
+      const item: Entry = { error: "", listeners: new Set(), poller: undefined as unknown as Poller };
+      item.poller = createPoller({
+        run: () => fetchTree(project, workspace)
+          .then((tree) => { item.tree = tree; item.error = ""; })
+          .catch((e: unknown) => { item.error = e instanceof Error ? e.message : String(e); })
+          .finally(() => emit(item)),
+        intervalMs: pollMs, visibility, setTimer, clearTimer,
+      });
+      entries.set(key, item);
+      found = item;
+    }
     return found;
   }
 
   function emit(item: Entry) { item.listeners.forEach((listener) => listener()); }
-
-  function schedulePoll(project: string, workspace: string, item: Entry) {
-    if (item.poll) clearTimer(item.poll);
-    item.poll = undefined;
-    if (pollMs > 0 && item.listeners.size) item.poll = setTimer(() => { void load(project, workspace); }, pollMs);
-  }
-
-  /** Jeden dotaz najednou; požadavek během běhu se provede hned po něm (nic se neztratí). */
-  function load(project: string, workspace: string): Promise<void> {
-    const item = entry(project, workspace);
-    if (item.inflight) { item.again = true; return item.inflight; }
-    item.inflight = fetchTree(project, workspace)
-      .then((tree) => { item.tree = tree; item.error = ""; })
-      .catch((e: unknown) => { item.error = e instanceof Error ? e.message : String(e); })
-      .finally(() => {
-        item.inflight = undefined;
-        emit(item);
-        if (item.again) { item.again = false; void load(project, workspace); }
-        else schedulePoll(project, workspace, item);
-      });
-    return item.inflight;
-  }
 
   return {
     snapshot(project: string, workspace: string): VaultSnapshot {
@@ -70,21 +61,21 @@ export function createVaultStore(options: VaultStoreOptions) {
     subscribe(project: string, workspace: string, listener: () => void): () => void {
       const item = entry(project, workspace);
       item.listeners.add(listener);
-      if (!item.tree && !item.inflight && !item.pending) void load(project, workspace);
-      else if (!item.poll && !item.inflight) schedulePoll(project, workspace, item);
+      // První odběratel rozběhne poller; načte hned, jen když strom ještě není a nic se nechystá.
+      if (item.listeners.size === 1) item.poller.start(!item.tree && !item.pending);
       return () => {
         item.listeners.delete(listener);
-        if (!item.listeners.size && item.poll) { clearTimer(item.poll); item.poll = undefined; }
+        if (!item.listeners.size) item.poller.stop();
       };
     },
     /** Požadavek na obnovu (změna stavu plátna, zápis do schránky); slije se s ostatními v okně `debounceMs`. */
     refresh(project: string, workspace: string) {
       const item = entry(project, workspace);
       if (item.pending) return;
-      item.pending = setTimer(() => { item.pending = undefined; void load(project, workspace); }, debounceMs);
+      item.pending = setTimer(() => { item.pending = undefined; void item.poller.refresh(); }, debounceMs);
     },
     /** Okamžité načtení (po vlastním zápisu); vrací slib dokončení. */
-    reload(project: string, workspace: string) { return load(project, workspace); },
+    reload(project: string, workspace: string) { return entry(project, workspace).poller.refresh(); },
   };
 }
 

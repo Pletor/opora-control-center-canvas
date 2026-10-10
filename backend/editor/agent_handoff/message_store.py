@@ -40,9 +40,11 @@ class MessageStore:
     def _cards(self, view):
         return {item["id"]: item for item in view["graph"]["nodes"]}
 
-    def _closed(self, project, workspace, node_id):
-        state = self.state.current(project, workspace)["state"]
-        return state["nodes"].get(node_id, {}).get("done", default_done())["confirmed"]
+    def _closed_ids(self, project, workspace):
+        """Uzavřené karty z jednoho čtení stavu. Stav má stovky kB; parsovat ho pro každou kartu
+        zvlášť dělalo z výpisu zpráv O(N²) (karta P1)."""
+        nodes = self.state.current(project, workspace)["state"]["nodes"]
+        return {node_id for node_id, node in nodes.items() if node.get("done", default_done())["confirmed"]}
 
     def _assert_card(self, cards, node_id):
         if node_id not in cards:
@@ -53,7 +55,7 @@ class MessageStore:
         self._assert_card(cards, target)
         if view["readOnly"]:
             raise ValueError("Main je pouze pro čtení; zprávy se odesílají z pracovního prostoru.")
-        if self._closed(project, workspace, source) or self._closed(project, workspace, target):
+        if {source, target} & self._closed_ids(project, workspace):
             raise ValueError("Uzavřená karta nepřijímá ani neodesílá nové zprávy.")
 
     def _message(self, row):
@@ -148,7 +150,7 @@ class MessageStore:
                         raise ValueError("Zpráva už má jiné neměnné potvrzení.")
                     return self._message(message)
                 # An exact immutable replay is above; only a new write is closed-card forbidden.
-                if self._closed(project, workspace, node_id):
+                if node_id in self._closed_ids(project, workspace):
                     raise ValueError("Uzavřená karta nové potvrzení nezapisuje.")
                 db.execute(
                     "INSERT INTO agent_message_receipts(message_id,disposition,note,recipient_label,created_at) VALUES(?,?,?,?,?)",
@@ -171,28 +173,39 @@ class MessageStore:
             view = self._view(project, workspace)
             cards = self._cards(view)
             self._assert_card(cards, node_id)
-            closed = False if view["readOnly"] else self._closed(project, workspace, node_id)
-            column = "target_node_id" if direction == "incoming" else "source_node_id"
-            conditions = "project_id=? AND workspace_id=? AND " + column + "=?"
-            args = [project, workspace, node_id]
-            if cursor is not None:
-                conditions += " AND sequence<?"
-                args.append(cursor)
-            db = self.canvas.db_for(project)
+            closed = set() if view["readOnly"] else self._closed_ids(project, workspace)
             with self.canvas.lock:
-                rows = db.execute(
-                    "SELECT * FROM agent_messages WHERE " + conditions + " ORDER BY sequence DESC LIMIT ?",
-                    (*args, PAGE_SIZE + 1),
-                ).fetchall()
-                has_more = len(rows) > PAGE_SIZE
-                rows = rows[:PAGE_SIZE]
-                messages = [self._message(row) for row in rows]
+                page = self._page(project, workspace, node_id, direction, cursor)
             targets = [
                 {"id": item["id"], "name": item["name"]}
                 for item in view["graph"]["nodes"]
-                if item["id"] != node_id and (view["readOnly"] or not self._closed(project, workspace, item["id"]))
+                if item["id"] != node_id and item["id"] not in closed
             ]
-            return {
-                "messages": messages, "readOnly": view["readOnly"] or closed, "targets": targets,
-                "hasMore": has_more, "nextBefore": rows[-1]["sequence"] if has_more else None,
-            }
+            return {"messages": page["messages"], "readOnly": view["readOnly"] or node_id in closed,
+                    "targets": targets, "hasMore": page["hasMore"], "nextBefore": page["nextBefore"]}
+
+    def pages(self, project, workspace, node_id):
+        """První strana příchozích i odchozích zpráv pro node-brief: jeden pohled na plátno,
+        stav Desktop v3 se nečte (brief nepotřebuje seznam cílů ani uzavření)."""
+        with self.canvas.graph_lock:
+            self._assert_card(self._cards(self._view(project, workspace)), node_id)
+            with self.canvas.lock:
+                return {direction: self._page(project, workspace, node_id, direction, None)
+                        for direction in ("incoming", "outgoing")}
+
+    def _page(self, project, workspace, node_id, direction, cursor):
+        """Jedna strana zpráv karty (volající drží canvas.lock)."""
+        column = "target_node_id" if direction == "incoming" else "source_node_id"
+        conditions = "project_id=? AND workspace_id=? AND " + column + "=?"
+        args = [project, workspace, node_id]
+        if cursor is not None:
+            conditions += " AND sequence<?"
+            args.append(cursor)
+        rows = self.canvas.db_for(project).execute(
+            "SELECT * FROM agent_messages WHERE " + conditions + " ORDER BY sequence DESC LIMIT ?",
+            (*args, PAGE_SIZE + 1),
+        ).fetchall()
+        has_more = len(rows) > PAGE_SIZE
+        rows = rows[:PAGE_SIZE]
+        return {"messages": [self._message(row) for row in rows], "hasMore": has_more,
+                "nextBefore": rows[-1]["sequence"] if has_more else None}
