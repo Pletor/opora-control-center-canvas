@@ -565,11 +565,11 @@ class DesktopV3State:
 
     def read(self, project, workspace):
         _scope_ids(project, workspace)
-        with self.canvas.graph_lock:
+        with self.canvas.reading(project):
             view = self.canvas.view(project, workspace)
             if view["readOnly"]:
                 return {"revision": 0, "state": default_state(), "readOnly": True}
-            with self.canvas.lock:
+            with self.canvas.reading(project):
                 return {**self.current(project, workspace), "readOnly": False}
 
     def save(self, payload, *, after_write=None, autonomy_close=frozenset(), autonomy=None, actor="system"):
@@ -588,13 +588,13 @@ class DesktopV3State:
         if type(expected) is not int or expected < 0:
             raise ValueError("Neplatná očekávaná revize stavu.")
         state = validate_state(payload["state"])
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             if view["readOnly"]:
                 raise ValueError("Main je pouze pro čtení; paměť projektu se ukládá v pracovním prostoru.")
             check_node_branches(state, {item["id"] for item in view["graph"]["nodes"]})
             db = self.canvas.db_for(project)
-            with self.canvas.lock, db:
+            with self.canvas.lock_for(project), db:
                 db.execute("BEGIN IMMEDIATE")
                 current = self.current(project, workspace)
                 if current["revision"] != expected:
@@ -683,7 +683,7 @@ class DesktopV3State:
                 if after_write is not None:
                     after_write(db)
                 persist_spawns(self.canvas, db, project, workspace, view["digest"], spawned, now())
-            with self.canvas.lock:
+            with self.canvas.lock_for(project):
                 return {**self.current(project, workspace), "readOnly": False,
                         **({"graphChanged": True} if spawned else {})}
 

@@ -48,18 +48,20 @@ class ProjectHub:
     def source_info(self, project):
         if isinstance(project, str):
             project = self.canvas.row("projects", project)
-        row = self.canvas.db.execute(
-            "SELECT source_kind,source_path FROM project_sources WHERE project_id=?", (project["id"],)
-        ).fetchone()
+        with self.canvas.registry_lock:
+            row = self.canvas.db.execute(
+                "SELECT source_kind,source_path FROM project_sources WHERE project_id=?", (project["id"],)
+            ).fetchone()
         if row is None:
             return {"sourceKind": "git", "sourcePath": project["repo"]}
         return {"sourceKind": row["source_kind"], "sourcePath": row["source_path"]}
 
     def _project(self, pid):
         if pid == "draft":
-            name = self.canvas.db.execute(
-                "SELECT name FROM builtin_project_metadata WHERE project_id='draft'"
-            ).fetchone()[0]
+            with self.canvas.registry_lock:
+                name = self.canvas.db.execute(
+                    "SELECT name FROM builtin_project_metadata WHERE project_id='draft'"
+                ).fetchone()[0]
             return {"id": "draft", "name": name, "url": None, "branch": None, "sourceKind": "builtin", "sourcePath": None}
         project = self.canvas.row("projects", pid)
         return {key: project.get(key) for key in ("id", "name", "url", "branch")} | self.source_info(project)
@@ -76,7 +78,7 @@ class ProjectHub:
     def settings(self, project):
         if not isinstance(project, str) or (project != "draft" and not valid_id(project)):
             raise ValueError("Neplatný identifikátor projektu.")
-        with self.canvas.lock:
+        with self.canvas.reading(project):
             item = self._project(project)
             revision, values = self._settings(project)
             return {"project": item, "revision": revision, "settings": values}
@@ -107,7 +109,7 @@ class ProjectHub:
             raise ValueError("Neplatná očekávaná revize nastavení.")
         name = self._validate_name(payload["name"])
         self._validate_settings(payload["settings"])
-        with self.canvas.lock:
+        with self.canvas.lock_for(pid):
             self._project(pid)  # verifies registry and archive state
             db = self.canvas.db_for(pid)
             with db:
@@ -118,7 +120,7 @@ class ProjectHub:
                 values = payload["settings"]
                 self.write_settings(pid, revision + 1, values["goal"], values["platform"])
                 self.write_profile(pid, values["architecture"], values["tenancy"])
-            with self.canvas.db:
+            with self.canvas.registry_lock, self.canvas.db:
                 if pid == "draft":
                     self.canvas.db.execute("UPDATE builtin_project_metadata SET name=? WHERE project_id='draft'", (name,))
                 else:
@@ -134,7 +136,8 @@ class ProjectHub:
         if kind == "empty":
             # Prázdný projekt má zdroj přímo ve své složce: projects/<id>/main
             path = str(folder.main.resolve())
-        with self.canvas.lock:
+        # Nový projekt ještě nikdo jiný nezná: jeho zámek pod registry_lock deadlock nezpůsobí.
+        with self.canvas.registry_lock:
             folder.create(name, kind, path or "")
             with self.canvas.db:
                 self.canvas.db.execute("INSERT INTO projects VALUES(?,?,?,?,?)", (pid, name, "", "", ""))
@@ -155,7 +158,7 @@ class ProjectHub:
         if not resolved.is_dir():
             raise ValueError("Lokální složka neexistuje nebo není adresář.")
         canonical = str(resolved)
-        with self.canvas.lock, self.canvas.db:
+        with self.canvas.registry_lock, self.canvas.db:
             self.canvas.db.execute("BEGIN IMMEDIATE")
             existing = self.canvas.db.execute(
                 """SELECT p.* FROM projects p JOIN project_sources s ON s.project_id=p.id

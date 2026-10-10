@@ -49,14 +49,14 @@ class NodeJournal:
                 raise ValueError("Neplatný zápis nebo překročen limit 64000 znaků.")
         if not valid_day(day):
             raise ValueError("Neplatné datum zápisu; očekávám YYYY-MM-DD.")
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             if not valid_id(node) or not any(n["id"] == node for n in view["graph"]["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
             if view["readOnly"]:
                 raise ValueError("Main je pouze pro čtení; deník se píše v pracovním prostoru.")
             scope = (project, workspace, node, day)
-            with self.canvas.lock:
+            with self.canvas.lock_for(project):
                 if payload is not None:
                     db = self.canvas.db_for(project)
                     with db:

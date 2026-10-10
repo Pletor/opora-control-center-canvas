@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from backend.canvas.activity_log import require_human
+from backend.canvas.graph import payload_project
 from backend.canvas.source_realization import realize_source, source_status
 from backend.editor.agent_handoff.external_agent_tasks import ExternalAgentTasks
 from backend.editor.agent_memory import pipeline_library
@@ -69,7 +70,8 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
     @router.post("/autonomy")
     def grant_autonomy(payload: dict, request: Request):
         require_human(request.state.actor, "Autonomii svěřuje pouze člověk v UI.")
-        with state.canvas.graph_lock, state.canvas.lock:
+        project = payload_project(payload)
+        with state.canvas.graph_lock_for(project), state.canvas.lock_for(project):
             return state.set_autonomy(payload)
 
     @router.post("/confirm-proposals")
@@ -105,7 +107,7 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
 
     @router.get("/frontier")
     def read_frontier(project: str, workspace: str, nodeId: str = ""):
-        with state.canvas.graph_lock, state.canvas.lock:
+        with state.canvas.reading(project):
             graph = state.canvas.view(project, workspace)["graph"]
             stored = state.read(project, workspace)["state"]
             spaces = agent_workspace.read_many(project, workspace, [n["id"] for n in graph["nodes"]])
@@ -121,7 +123,7 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
     @router.get("/card-checklist")
     def read_card_checklist(project: str, workspace: str, layer: str = ""):
         """Kontrolní pás karet jedné vrstvy (`layer` = rodič, prázdný = kořen) pro plátno."""
-        with state.canvas.graph_lock, state.canvas.lock:
+        with state.canvas.reading(project):
             view = state.canvas.view(project, workspace)
             if view["readOnly"]:
                 return {"nodes": {}}

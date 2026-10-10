@@ -49,8 +49,7 @@ def _canonical_root(root):
 
 
 def main_project_root(service, project):
-    with service.lock:
-        item = service.project_hub.settings(project)['project']
+    item = service.project_hub.settings(project)['project']  # settings čte snímkem projektu sama
     if not item.get('sourcePath'):
         raise ArtifactUnavailable('Projekt nemá připojený zdrojový adresář.')
     root = _canonical_root(Path(item['sourcePath']))

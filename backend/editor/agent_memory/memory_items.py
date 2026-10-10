@@ -36,7 +36,7 @@ class MemoryItems:
         elif not isinstance(replacement, dict) or replacement.get("id") != identifier:
             raise ValueError("ID nové položky nesouhlasí.")
         project, workspace = payload["project"], payload["workspace"]
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             stored = self.state.read(project, workspace)
             if stored["readOnly"]:
                 raise ValueError("Main je pouze pro čtení.")

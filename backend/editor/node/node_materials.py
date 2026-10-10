@@ -50,7 +50,7 @@ class NodeMaterials:
             raise ValueError("Obrázek se nepodařilo dekódovat.") from error
         if not content or len(content) > MAX_BYTES:
             raise ValueError("Obrázek je prázdný nebo větší než 8 MB.")
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             if not valid_id(node_id) or not any(n["id"] == node_id for n in view["graph"]["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
@@ -74,7 +74,7 @@ class NodeMaterials:
         return target, SUFFIX_MIME[target.suffix]
 
     def remove(self, project, node_id, name):
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             try:
                 target, _ = self.file_path(project, node_id, name)
             except (FileNotFoundError, ValueError):

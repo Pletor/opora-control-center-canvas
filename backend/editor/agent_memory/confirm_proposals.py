@@ -19,7 +19,7 @@ def confirm_proposals(state_store, payload):
         raise ValueError("Potvrzení vyžaduje platnou revizi stavu.")
     project, workspace, sector = (payload[key] for key in ("project", "workspace", "sectorId"))
     canvas = state_store.canvas
-    with canvas.graph_lock, canvas.lock:
+    with canvas.graph_lock_for(project), canvas.lock_for(project):
         graph = canvas.view(project, workspace)["graph"]
         by_id = {node["id"]: node for node in graph["nodes"]}
         if by_id.get(sector, {}).get("kind") != "sector":

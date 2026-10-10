@@ -25,7 +25,7 @@ def create_oporahub_router(service, hub, report):
         pid = payload.get("project")
         wid = payload.get("workspace") or "draft"
         scope_id = payload.get("scope")
-        with service.graph_lock, service.lock:
+        with service.graph_lock_for(pid), service.lock_for(pid):
             view = service.view(pid, wid)
             node = next((item for item in view["graph"]["nodes"] if item["id"] == scope_id), None)
             if node is None:

@@ -508,7 +508,7 @@ def test_a_broken_client_factory_is_unavailable_not_a_crash():
 
 class FakeCanvas:
     def __init__(self, path):
-        self.lock = threading.RLock()
+        self.registry_lock = threading.RLock()
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
         self.db.execute("CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)")

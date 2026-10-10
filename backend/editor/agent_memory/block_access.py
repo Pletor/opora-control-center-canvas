@@ -257,7 +257,7 @@ class BlockAccess:
         validate_block_op(payload)
         project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
         expected, op = payload["expectedRevision"], payload["op"]
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             graph = self.canvas.view(project, workspace)["graph"]
             if not any(item["id"] == node_id for item in graph["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")

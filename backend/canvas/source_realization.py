@@ -24,7 +24,7 @@ def validate_realization(value):
 
 
 def source_status(canvas, project, workspace):
-    with canvas.graph_lock:
+    with canvas.reading(project):
         graph = canvas.view(project, workspace)["graph"]
         try:
             root = canvas.workspace_sources.root(project, workspace)
@@ -53,7 +53,7 @@ def realize_source(state, payload):
         raise ValueError("Realizace vyžaduje project, workspace, nodeId, digest, commit a prUrl.")
     canvas = state.canvas
     project, workspace = payload["project"], payload["workspace"]
-    with canvas.graph_lock, canvas.lock:
+    with canvas.graph_lock_for(project), canvas.lock_for(project):
         view = canvas.view(project, workspace)
         if view["readOnly"] or view["digest"] != payload["digest"]:
             raise ValueError("Plátno je pouze ke čtení nebo se změnilo. Obnovte ho.")

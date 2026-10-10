@@ -25,7 +25,7 @@ class CardLeases:
         """Zápis na kartu drženou platným lease smí jen držitel tokenu (nebo člověk)."""
         if actor == "human" or not all(isinstance(v, str) and valid_id(v) for v in (project, workspace, node_id)):
             return
-        with self.canvas.lock:
+        with self.canvas.reading(project):
             row = self.canvas.db_for(project).execute(
                 "SELECT owner,token,expires_at FROM card_leases WHERE project_id=? AND workspace_id=? AND node_id=?",
                 (project, workspace, node_id),
@@ -35,7 +35,7 @@ class CardLeases:
             raise ValueError(f"Kartu drží {row['owner']}; zápis vyžaduje token převzetí v hlavičce X-Opora-Lease.")
 
     def summary(self, project, workspace):
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(project):
             graph = self.canvas.view(project, workspace)["graph"]
             ids = {node["id"] for node in graph["nodes"]}
             stamp = time.time()
@@ -70,7 +70,7 @@ class CardLeases:
         elif not forced and (not isinstance(payload["token"], str) or len(payload["token"]) != 64):
             raise ValueError("Neplatný token převzetí.")
         project, workspace, node_id = (payload[k] for k in ("project", "workspace", "nodeId"))
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
             view = self.canvas.view(project, workspace)
             node = next((n for n in view["graph"]["nodes"] if n["id"] == node_id), None)
             if view["readOnly"] or node is None or node["kind"] not in ("node", "sector"):

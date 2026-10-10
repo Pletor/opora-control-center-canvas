@@ -97,13 +97,13 @@ class AgentWorkspace:
     def read(self, project, workspace, node_id):
         """Prostor jedné karty; None = karta v tomto rozsahu neexistuje (i na read-only mainu)."""
         _scope(project, workspace, node_id)
-        with self.canvas.graph_lock:
+        with self.canvas.reading(project):
             view = self.canvas.view(project, workspace)
             if not any(item["id"] == node_id for item in view["graph"]["nodes"]):
                 return None
             if view["readOnly"]:
                 return {"revision": 0, "workspace": empty_workspace(), "readOnly": True}
-            with self.canvas.lock:
+            with self.canvas.reading(project):
                 return {**self.current(project, workspace, node_id), "readOnly": False}
 
     def read_many(self, project, workspace, node_ids):
@@ -125,7 +125,7 @@ class AgentWorkspace:
     def summaries(self, project, workspace):
         """Vyplněnost prostoru všech karet v rozsahu jedním dotazem; komentáře se nepočítají."""
         _scope_ids(project, workspace)
-        with self.canvas.graph_lock:
+        with self.canvas.reading(project):
             view = self.canvas.view(project, workspace)
             node_ids = [item["id"] for item in view["graph"]["nodes"] if item.get("kind") != "comment"]
             if view["readOnly"]:
@@ -133,7 +133,7 @@ class AgentWorkspace:
                     "readOnly": True,
                     "items": {node_id: {"filled": 0, "by": "human", "updatedAt": ""} for node_id in node_ids},
                 }
-            with self.canvas.lock:
+            with self.canvas.reading(project):
                 records = self.read_many(project, workspace, node_ids)
         return {
             "readOnly": False,
@@ -154,13 +154,13 @@ class AgentWorkspace:
         validate_save(payload)
         project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
         expected, sections = payload["expectedRevision"], payload["sections"]
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             if not any(item["id"] == node_id for item in view["graph"]["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
             if view["readOnly"]:
                 raise ValueError("Main je pouze pro čtení; pracovní prostor agenta patří do pracovního prostoru.")
-            with self.canvas.lock:
+            with self.canvas.lock_for(project):
                 stored = self.state.current(project, workspace)
                 node = stored["state"]["nodes"].get(node_id, {})
                 if node.get("done", default_done())["confirmed"]:
@@ -186,7 +186,7 @@ class AgentWorkspace:
         """Smazaná karta si bere svůj prostor s sebou; prostor se nikdy nekopíruje jinam."""
         if not valid_id(node_id):
             return
-        with self.canvas.lock:
+        with self.canvas.lock_for(project):
             db = self.canvas.db_for(project)
             with db:
                 db.execute(

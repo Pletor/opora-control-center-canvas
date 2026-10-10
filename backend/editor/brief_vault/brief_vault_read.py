@@ -75,7 +75,7 @@ class VaultReader:
         """Stromy schránek bez plných textů, s odvozeným stavem, pokrytím a výtahem výzkumu; jeden dotaz pro celé UI."""
         if scope is not None and scope != "" and not valid_id(scope):
             fail("scope má neplatný identifikátor.")
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(project):
             read = self._read(project, workspace)
             if read is None:
                 return {"readOnly": True, "roots": [], "feedback": []}
@@ -90,7 +90,7 @@ class VaultReader:
         """Plný text revize, historie, děti, cesta, karty, Podněty, podrobnosti a zpětná vazba fragmentu."""
         if not isinstance(fragment_id, str) or not valid_id(fragment_id):
             fail("id fragmentu je neplatné.")
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(project):
             read = self._read(project, workspace)
             if read is None or fragment_id not in read["rows"]:
                 fail(f"fragment {fragment_id} v tomto pracovním prostoru neexistuje.")
@@ -111,7 +111,7 @@ class VaultReader:
         """Poslední revize fragmentů rozsahu napříč schránkou (bez textů), nejnovější první."""
         if scope is not None and scope != "" and not valid_id(scope):
             fail("scope má neplatný identifikátor.")
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(project):
             view = self.canvas.view(project, workspace)
             if view["readOnly"]:
                 return {"readOnly": True, "items": []}
@@ -138,7 +138,7 @@ class VaultReader:
         """Balíček pro LLM k výzkumu fragmentu (research nebo question míří na svého rodiče)."""
         if not isinstance(fragment_id, str) or not valid_id(fragment_id):
             fail("id fragmentu je neplatné.")
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(project):
             read = self._read(project, workspace)
             if read is None or fragment_id not in read["rows"] or read["rows"][fragment_id]["deleted"]:
                 fail(f"fragment {fragment_id} v tomto pracovním prostoru neexistuje.")

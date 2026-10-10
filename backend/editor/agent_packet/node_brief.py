@@ -182,7 +182,7 @@ class NodeBrief:
 
     def build(self, project, workspace, node_id):
         validate_scope(project, workspace, node_id)
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(project):
             brief = self._assemble(project, workspace, node_id)
             pending = brief["context"].pop("roleMemory")
         # Síťové vybavení paměti role až po uvolnění zámků: OpenViking může odpovídat

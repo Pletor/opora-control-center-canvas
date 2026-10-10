@@ -216,7 +216,7 @@ class AgentOutput:
         validate_output(payload)
         project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
         expected, output = payload["expectedRevision"], payload["output"]
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
             graph = self.canvas.view(project, workspace)["graph"]
             if not any(item["id"] == node_id for item in graph["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")

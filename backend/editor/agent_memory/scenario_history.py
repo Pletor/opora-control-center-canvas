@@ -6,7 +6,7 @@ from backend.editor.agent_packet.desktop_v3_packets import redact_deep
 
 
 def scenario_history(canvas, project, workspace):
-    with canvas.graph_lock, canvas.lock:
+    with canvas.reading(project):
         graph = canvas.view(project, workspace)["graph"]
         nodes = {node["id"]: node for node in graph["nodes"] if node.get("scenario")}
         runs = {node_id: [] for node_id in nodes}

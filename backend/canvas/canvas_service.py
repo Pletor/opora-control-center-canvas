@@ -5,6 +5,7 @@ import subprocess
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -26,6 +27,27 @@ from database.schema.project_schema import (
 )
 
 GRAPH_FILE = "opora-canvas.json"
+# Zapisovatel počká na zámek SQLite (WAL checkpoint, jiný proces), místo aby hned spadl na „database is locked“.
+BUSY_TIMEOUT_MS = 5000
+# Volná čtecí spojení na projekt: nad tuto mez se vrácené spojení zavře. Spojení se půjčuje na blok
+# `reading`, ne na vlákno, takže počet otevřených nezávisí na tom, kolik vláken threadpool vystřídal.
+READER_POOL_SIZE = 8
+
+
+def open_sqlite(path, *, reader=False):
+    """Spojení SQLite ve WAL: čtenáři nečekají na zapisovatele a vidí jen potvrzená data.
+
+    Čtecí spojení je jen pro čtení (`query_only`) a v autocommit režimu; transakci snímku
+    otevírá `CanvasService.reading`.
+    """
+    db = sqlite3.connect(path, check_same_thread=False, isolation_level=None if reader else "")
+    db.row_factory = sqlite3.Row
+    db.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
+    if reader:
+        db.execute("PRAGMA query_only=1")
+    else:
+        db.execute("PRAGMA journal_mode=WAL")
+    return db
 
 
 def now():
@@ -37,15 +59,23 @@ class CanvasService:
         self.root = Path(root).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
         migrate(self.root)  # stará centrální canvas.sqlite → registry + složky projektů (jednorázově)
-        self.lock = threading.RLock()
-        self.graph_lock = threading.RLock()
+        # Zámky po projektech (karta P2): pořadí vždy graph_lock_for(p) → lock_for(p) → registry_lock.
+        # Zámky dvou různých projektů se do sebe nevnořují; registry_lock je list (pod ním žádný zámek projektu).
+        self._locks_guard = threading.Lock()
+        self._project_locks = {}
+        self._graph_locks = {}
+        self.registry_lock = threading.RLock()
         self.git_lock = threading.RLock()
         self.pool = ThreadPoolExecutor(max_workers=2)
         # registry.sqlite: jen seznam projektů, workspaces, jobs a archiv; vše ostatní má projekt ve své složce
-        self.db = sqlite3.connect(self.root / "registry.sqlite", check_same_thread=False)
-        self.db.row_factory = sqlite3.Row
+        self.db = open_sqlite(self.root / "registry.sqlite")
         self.db.executescript(REGISTRY_SCHEMA)
         self._project_dbs = {}
+        # Rozpracované snímky vlákna ({pid: spojení}); volná čtecí spojení po projektech (pod _locks_guard)
+        # a seznam všech otevřených čtecích spojení kvůli close().
+        self._local = threading.local()
+        self._idle_readers = {}
+        self._readers = []
         self.drawings = DrawingStore(self)
         self.drawing_files = DrawingFileStore(self)
         self.specs = NodeSpecStore(self)
@@ -69,7 +99,7 @@ class CanvasService:
             "scene",
         }:
             raise ValueError("Neplatný formát uložení kresby.")
-        with self.graph_lock:
+        with self.reading(pid) if payload is None else self.graph_lock_for(pid):
             view = self.view(pid, wid)
             if layer and not any(node["id"] == layer for node in view["graph"]["nodes"]):
                 raise ValueError("Vrstva kresby v tomto pracovním prostoru neexistuje.")
@@ -85,7 +115,7 @@ class CanvasService:
                     "saved_at": None,
                 }
             scope = (pid, wid, layer)
-            with self.lock:
+            with nullcontext() if payload is None else self.lock_for(pid):
                 result = (
                     self.drawings.read(scope)
                     if payload is None
@@ -105,24 +135,24 @@ class CanvasService:
         if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "file"}:
             raise ValueError("Neplatný formát nahrání obrázku kresby.")
         pid = payload["project"]
-        with self.graph_lock:
+        with self.graph_lock_for(pid):
             if self.view(pid, payload["workspace"])["readOnly"]:
                 raise ValueError("Main je pouze pro čtení.")
-            with self.lock:
+            with self.lock_for(pid):
                 return self.drawing_files.put(pid, payload["file"])
 
     def drawing_file_list(self, pid, wid, ids):
         wanted = parse_ids(ids)
-        with self.graph_lock:
+        with self.reading(pid):
             if self.view(pid, wid)["readOnly"]:
                 return {"files": []}
-            with self.lock:
-                return {"files": self.drawing_files.get(pid, wanted)}
+            return {"files": self.drawing_files.get(pid, wanted)}
 
     def node_spec(self, pid, wid, node_id, payload=None, history=False):
         if payload is not None:
             validate_payload(payload)
-        with self.graph_lock:
+        # Čtení zadání jde snímkem bez zámků; zápis drží zámek grafu a dat projektu.
+        with self.reading(pid) if payload is None else self.graph_lock_for(pid):
             view = self.view(pid, wid)
             if not valid_id(node_id) or not any(n["id"] == node_id for n in view["graph"]["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
@@ -139,7 +169,7 @@ class CanvasService:
                     "available": False,
                     "source": "Import zadání z Git mainu zatím není podporovaný.",
                 }
-            with self.lock:
+            with nullcontext() if payload is None else self.lock_for(pid):
                 scope = (pid, wid, node_id)
                 result = (
                     self.specs.history(scope)
@@ -157,11 +187,89 @@ class CanvasService:
 
     def close(self):
         self.pool.shutdown(wait=True)
-        with self.lock:
-            for db in self._project_dbs.values():
+        with self._locks_guard:
+            for db in [*self._readers, *self._project_dbs.values()]:
                 db.close()
+            self._readers.clear()
+            self._idle_readers.clear()
             self._project_dbs.clear()
-        self.db.close()
+        with self.registry_lock:
+            self.db.close()
+
+    def _project_lock(self, locks, pid):
+        if pid != "draft" and not valid_id(pid):
+            raise ValueError("Neplatné ID projektu.")
+        with self._locks_guard:
+            return locks.setdefault(pid, threading.RLock())
+
+    def lock_for(self, pid):
+        """Zámek dat jednoho projektu: zápisové spojení SQLite a jeho transakce."""
+        return self._project_lock(self._project_locks, pid)
+
+    def graph_lock_for(self, pid):
+        """Zámek grafu jednoho projektu: čtení grafu → ověření → zápis jako jeden krok."""
+        return self._project_lock(self._graph_locks, pid)
+
+    def _scopes(self):
+        scopes = getattr(self._local, "scopes", None)
+        if scopes is None:
+            scopes = self._local.scopes = {}
+        return scopes
+
+    def reader(self, pid):
+        """Půjčí čtecí spojení projektu (WAL: nečeká na zapisovatele, nevidí rozpracované).
+
+        Volající ho vrací přes `release_reader`; `reading` to dělá sám. Spojení se otevírá mimo
+        `_locks_guard` (ten zůstává list bez I/O).
+        """
+        self.db_for(pid)  # schéma a WAL zajistí zápisové spojení
+        with self._locks_guard:
+            idle = self._idle_readers.get(pid)
+            if idle:
+                return idle.pop()
+        db = open_sqlite(self.folder(pid).database, reader=True)
+        with self._locks_guard:
+            self._readers.append(db)
+        return db
+
+    def release_reader(self, pid, db):
+        """Vrátí půjčené čtecí spojení: ukončí jeho snímek a nechá ho volné, nebo nad mezí zavře."""
+        try:
+            if db.in_transaction:
+                db.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass  # poškozené spojení se nevrací, jen zavře
+        else:
+            with self._locks_guard:
+                idle = self._idle_readers.setdefault(pid, [])
+                if db in self._readers and len(idle) < READER_POOL_SIZE:
+                    idle.append(db)
+                    return
+        with self._locks_guard:
+            if db in self._readers:
+                self._readers.remove(db)
+        db.close()
+
+    @contextmanager
+    def reading(self, pid):
+        """Čtení projektu bez zámků nad jedním konzistentním snímkem SQLite.
+
+        Uvnitř bloku vrací `db_for(pid)` čtecí spojení tohoto vlákna. Drží-li vlákno zámek dat
+        projektu (čtení uvnitř zápisu), zůstává zápisové spojení, aby čtení vidělo vlastní změny.
+        Vnořené bloky sdílejí snímek vnějšího.
+        """
+        scopes = self._scopes()
+        if pid in scopes or self.lock_for(pid)._is_owned():
+            yield
+            return
+        db = self.reader(pid)
+        try:
+            db.execute("BEGIN")
+            scopes[pid] = db
+            yield
+        finally:
+            scopes.pop(pid, None)
+            self.release_reader(pid, db)
 
     def folder(self, pid):
         return ProjectFolder(self.root, pid)
@@ -170,15 +278,20 @@ class CanvasService:
         """Databáze jednoho projektu: projects/<id>/project.sqlite. Schéma vznikne při prvním otevření."""
         if not isinstance(pid, str) or (pid != "draft" and not valid_id(pid)):
             raise ValueError("Neplatné ID projektu.")
-        with self.lock:
+        scoped = self._scopes().get(pid)
+        if scoped is not None and not self.lock_for(pid)._is_owned():
+            return scoped
+        db = self._project_dbs.get(pid)
+        if db is not None:
+            return db
+        with self.lock_for(pid):
             db = self._project_dbs.get(pid)
             if db is None:
                 folder = self.folder(pid)
                 if pid == "draft" and not folder.exists():
                     folder.create("Lokální návrh", "empty")
                 folder.path.mkdir(parents=True, exist_ok=True)
-                db = sqlite3.connect(folder.database, check_same_thread=False)
-                db.row_factory = sqlite3.Row
+                db = open_sqlite(folder.database)
                 db.executescript(PROJECT_SCHEMA)
                 ensure_canvas_version_columns(db)
                 if pid == "draft":
@@ -189,7 +302,7 @@ class CanvasService:
 
     def project_ids(self):
         """draft + všechny neodpojené projekty z registru."""
-        with self.lock:
+        with self.registry_lock:
             rows = self.db.execute(
                 "SELECT id FROM projects WHERE id NOT IN (SELECT project_id FROM archived_projects) ORDER BY id"
             ).fetchall()
@@ -200,15 +313,18 @@ class CanvasService:
             raise ValueError("Neplatný identifikátor.")
         if table == "projects" and self.removals.archived(key):
             raise ValueError("Projekt byl odpojen z aplikace.")
-        row = self.db.execute(f"SELECT * FROM {table} WHERE id=?", (key,)).fetchone()
+        # Registr je jedno sdílené spojení: i krátké čtení drží registry_lock (list, pod ním nic dalšího).
+        with self.registry_lock:
+            row = self.db.execute(f"SELECT * FROM {table} WHERE id=?", (key,)).fetchone()
         if row is None:
             raise ValueError("Položka nebyla nalezena.")
         return dict(row)
 
     def bootstrap(self):
-        with self.lock:
+        draft = self.project_hub.settings("draft")["project"]  # snímek draftu; registry_lock zůstává list
+        with self.registry_lock:
             return {
-                "draft": self.project_hub.settings("draft")["project"],
+                "draft": draft,
                 "projects": [
                     {key: r[key] for key in ("id", "name", "url", "branch")}
                     | self.project_hub.source_info(dict(r))
@@ -238,7 +354,7 @@ class CanvasService:
             return {"enabled": False, "status": "disabled"}
 
     def register_repository(self, pid, name, repo, url, branch):
-        with self.lock:
+        with self.registry_lock:
             if not valid_id(pid):
                 raise ValueError("Neplatné ID projektu.")
             self.db.execute(
@@ -251,7 +367,7 @@ class CanvasService:
             return self.row("projects", pid)
 
     def workspaces(self, pid):
-        with self.lock:
+        with self.registry_lock:
             return [
                 dict(r)
                 for r in self.db.execute(
@@ -271,7 +387,8 @@ class CanvasService:
         return Path(workspace["directory"]), project
 
     def view(self, pid, wid):
-        with self.lock:
+        # Čtení grafu jde přes snímek (WAL); uvnitř zápisu zůstává zápisové spojení s vlastními změnami.
+        with self.reading(pid):
             if pid == "draft" and wid == "draft":
                 graph = json.loads(
                     self.db_for("draft").execute("SELECT graph FROM drafts WHERE id='draft'").fetchone()[0]
@@ -418,7 +535,7 @@ class CanvasService:
         u běžného uložení: vazba na chybějící uzel i potomek chybějícího sektoru jsou neplatný graf.
         """
         validate_graph(graph)
-        with self.graph_lock:
+        with self.graph_lock_for(pid):
             current = self.view(pid, wid)
             if current["readOnly"]:
                 raise ValueError("Čistý main je pouze pro čtení. Vytvořte pracovní prostor.")
@@ -442,7 +559,7 @@ class CanvasService:
             graph = {"nodes": [{**node, "x": round(node["x"]), "y": round(node["y"])}
                                for node in graph["nodes"]], "edges": graph["edges"]}
             if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
-                with self.lock:
+                with self.lock_for(pid):
                     db = self.db_for(pid)
                     if not _commit and not db.in_transaction:
                         raise RuntimeError("Transakční zápis grafu vyžaduje otevřenou transakci.")
@@ -466,7 +583,7 @@ class CanvasService:
         ):
             raise ValueError("Vyplňte uzel a označení vlastníka pracovního prostoru.")
         with self.git_lock:
-            with self.lock:
+            with self.registry_lock:
                 project = self.row("projects", pid)
                 if self.project_hub.source_info(project)["sourceKind"] != "git":
                     raise ValueError("Lokální a prázdné projekty nevytvářejí Git pracovní prostory.")
@@ -476,7 +593,7 @@ class CanvasService:
             directory = self.folder(pid).worktrees / wid
             directory.parent.mkdir(parents=True, exist_ok=True)
             git(project["repo"], "worktree", "add", "-b", branch, str(directory), base, timeout=60)
-            with self.lock:
+            with self.registry_lock:
                 self.row("projects", pid)
                 self.db.execute(
                     "INSERT INTO workspaces VALUES(?,?,?,?,?,?,?)",
@@ -486,7 +603,7 @@ class CanvasService:
                 return self.row("workspaces", wid)
 
     def job(self, kind, action, pid=None):
-        with self.lock, self.db:
+        with self.registry_lock, self.db:
             self.db.execute("BEGIN IMMEDIATE")
             if pid is not None and self.removals.archived(pid):
                 raise ValueError("Projekt byl odpojen z aplikace.")
@@ -498,7 +615,7 @@ class CanvasService:
             self.db.commit()
 
         def update(status, message, project=pid):
-            with self.lock:
+            with self.registry_lock:
                 self.db.execute(
                     "UPDATE jobs SET status=?,message=?,project_id=?,updated_at=? WHERE id=?",
                     (status, message, project, now(), jid),
@@ -539,7 +656,7 @@ class CanvasService:
         return self.job("clone", clone, pid)
 
     def sync(self, pid):
-        with self.lock:
+        with self.registry_lock:
             project = self.row("projects", pid)
             if self.project_hub.source_info(project)["sourceKind"] != "git":
                 raise ValueError("Lokální a prázdné projekty nelze synchronizovat přes Git.")

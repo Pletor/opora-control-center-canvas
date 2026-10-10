@@ -204,7 +204,26 @@ def _raw_columns(sql):
     return set(re.findall(r"\b(?:graph|state|snapshot)\b|\*", select))
 
 
-def test_list_reads_metadata_in_sql_and_matches_full_row_summary(tmp_path):
+def _trace_all(service, monkeypatch, sink):
+    """Výpis verzí čte čtecím spojením vlákna (karta P2): sleduj zápisové i všechna čtecí spojení."""
+    from backend.canvas import canvas_service
+
+    connections = [service.db_for("draft"), *service._readers]
+    original = canvas_service.open_sqlite
+
+    def traced(*args, **kwargs):
+        connection = original(*args, **kwargs)
+        connections.append(connection)
+        connection.set_trace_callback(sink)
+        return connection
+
+    monkeypatch.setattr(canvas_service, "open_sqlite", traced)
+    for connection in connections:
+        connection.set_trace_callback(sink)
+    return lambda: [connection.set_trace_callback(None) for connection in connections]
+
+
+def test_list_reads_metadata_in_sql_and_matches_full_row_summary(tmp_path, monkeypatch):
     from backend.editor.canvas_versions.test_version_content import seed
 
     app = create_app(tmp_path)
@@ -224,9 +243,9 @@ def test_list_reads_metadata_in_sql_and_matches_full_row_summary(tmp_path):
                                                   '{"nodes":[{"id":"x"}],"edges":[]}', "{}", "g", "s"))
         db.commit()
         statements = []
-        db.set_trace_callback(statements.append)
+        stop = _trace_all(app.state.service, monkeypatch, statements.append)
         listed = versions(client)["versions"]
-        db.set_trace_callback(None)
+        stop()
 
         rows = db.execute("SELECT * FROM canvas_versions ORDER BY created_at DESC,rowid DESC").fetchall()
         assert listed == [_summary(row) for row in rows]
@@ -239,9 +258,9 @@ def test_list_reads_metadata_in_sql_and_matches_full_row_summary(tmp_path):
 
         # Řádek verze se nemění: druhý výpis už snímky neparsuje, výsledek je stejný.
         statements.clear()
-        db.set_trace_callback(statements.append)
+        stop = _trace_all(app.state.service, monkeypatch, statements.append)
         assert versions(client)["versions"] == listed
-        db.set_trace_callback(None)
+        stop()
         assert not any("json_each" in sql or "json_extract" in sql for sql in statements)
 
 

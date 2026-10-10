@@ -78,13 +78,13 @@ class MessageStore:
         project, workspace = payload["project"], payload["workspace"]
         source, target = payload["sourceNodeId"], payload["targetNodeId"]
         content_digest = canonical_digest(message_content(payload))
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             cards = self._cards(view)
             self._assert_card(cards, source)
             self._assert_card(cards, target)
             db = self.canvas.db_for(project)
-            with self.canvas.lock, db:
+            with self.canvas.lock_for(project), db:
                 db.execute("BEGIN IMMEDIATE")
                 existing = db.execute(
                     "SELECT * FROM agent_messages WHERE project_id=? AND workspace_id=? AND source_node_id=? AND idempotency_key=?",
@@ -121,14 +121,14 @@ class MessageStore:
     def receipt(self, payload):
         validate_receipt(payload)
         project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             cards = self._cards(view)
             self._assert_card(cards, node_id)
             if view["readOnly"]:
                 raise ValueError("Main je pouze pro čtení; potvrzení se zapisuje v pracovním prostoru.")
             db = self.canvas.db_for(project)
-            with self.canvas.lock, db:
+            with self.canvas.lock_for(project), db:
                 db.execute("BEGIN IMMEDIATE")
                 message = db.execute(
                     "SELECT * FROM agent_messages WHERE id=? AND project_id=? AND workspace_id=?",
@@ -168,13 +168,13 @@ class MessageStore:
             cursor = int(before)
             if not 1 <= cursor <= 9223372036854775807:
                 raise ValueError("before musí být kladné celé serverové pořadí.")
-        with self.canvas.graph_lock:
+        with self.canvas.reading(project):
             # View i cíle se odvozují pod stejným zámkem jako validace karty.
             view = self._view(project, workspace)
             cards = self._cards(view)
             self._assert_card(cards, node_id)
             closed = set() if view["readOnly"] else self._closed_ids(project, workspace)
-            with self.canvas.lock:
+            with self.canvas.reading(project):
                 page = self._page(project, workspace, node_id, direction, cursor)
             targets = [
                 {"id": item["id"], "name": item["name"]}
@@ -187,14 +187,14 @@ class MessageStore:
     def pages(self, project, workspace, node_id):
         """První strana příchozích i odchozích zpráv pro node-brief: jeden pohled na plátno,
         stav Desktop v3 se nečte (brief nepotřebuje seznam cílů ani uzavření)."""
-        with self.canvas.graph_lock:
+        with self.canvas.reading(project):
             self._assert_card(self._cards(self._view(project, workspace)), node_id)
-            with self.canvas.lock:
+            with self.canvas.reading(project):
                 return {direction: self._page(project, workspace, node_id, direction, None)
                         for direction in ("incoming", "outgoing")}
 
     def _page(self, project, workspace, node_id, direction, cursor):
-        """Jedna strana zpráv karty (volající drží canvas.lock)."""
+        """Jedna strana zpráv karty (volající čte snímkem `canvas.reading(project)`)."""
         column = "target_node_id" if direction == "incoming" else "source_node_id"
         conditions = "project_id=? AND workspace_id=? AND " + column + "=?"
         args = [project, workspace, node_id]

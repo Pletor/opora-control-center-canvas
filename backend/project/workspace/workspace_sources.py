@@ -105,14 +105,14 @@ class WorkspaceSources:
         self.service = service
 
     def root(self, project, workspace):
-        with self.service.lock:
-            item = self.service.project_hub.settings(project)["project"]
-            if item["sourceKind"] == "git":
-                root, _ = self.service.location(project, workspace)
-            else:
-                if workspace != "draft":
-                    raise ValueError("Tento projekt používá pracovní prostor draft.")
-                root = Path(item["sourcePath"]) if item["sourcePath"] else None
+        # settings čte snímkem projektu a location registr pod registry_lock; zámek projektu netřeba.
+        item = self.service.project_hub.settings(project)["project"]
+        if item["sourceKind"] == "git":
+            root, _ = self.service.location(project, workspace)
+        else:
+            if workspace != "draft":
+                raise ValueError("Tento projekt používá pracovní prostor draft.")
+            root = Path(item["sourcePath"]) if item["sourcePath"] else None
         if root is None:
             return None
         if not root.is_dir():
@@ -152,7 +152,7 @@ class WorkspaceSources:
         if os.name != "nt":
             raise ValueError("Otevírání souborů je dostupné pouze v lokální aplikaci na Windows.")
         try:
-            with self.service.graph_lock:
+            with self.service.reading(payload["project"]):
                 root = self.root(payload["project"], payload["workspace"])
                 if root is None:
                     raise ValueError("Projekt nemá připojený zdrojový adresář.")

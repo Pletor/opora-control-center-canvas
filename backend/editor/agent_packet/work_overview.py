@@ -10,7 +10,7 @@ STATUSES = ("waiting", "claimed", "waiting-human", "proposed", "done", "blocked"
 
 
 def work_overview(canvas, project, workspace):
-    with canvas.graph_lock, canvas.lock:
+    with canvas.reading(project):
         graph = canvas.view(project, workspace)["graph"]
         state = DesktopV3State(canvas).read(project, workspace)["state"]
         leases = CardLeases(canvas).summary(project, workspace)["nodes"]

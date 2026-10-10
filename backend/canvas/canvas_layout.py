@@ -86,7 +86,7 @@ def apply_layout(canvas, payload, *, actor="system"):
     if type(payload.get("dryRun", False)) is not bool:
         raise ValueError("dryRun musí být true/false.")
     project, workspace = payload["project"], payload["workspace"]
-    with canvas.graph_lock:
+    with canvas.graph_lock_for(project):
         view = canvas.view(project, workspace)
         if view["readOnly"] or view["digest"] != payload["digest"]:
             raise ValueError("Plátno je pouze ke čtení nebo se změnilo.")

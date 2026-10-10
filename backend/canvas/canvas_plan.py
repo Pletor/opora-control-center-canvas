@@ -108,13 +108,13 @@ def _check_content(project, workspace, built):
 def apply_plan(service, payload, *, actor="system"):
     project, workspace, expected_digest, dry, plan = _request(payload)
     store = getattr(service, "desktop_v3_state", None) or DesktopV3State(service)
-    with service.graph_lock:
+    with service.graph_lock_for(project):
         view = service.view(project, workspace)
         if view["readOnly"]:
             raise ValueError("Čistý main je pouze pro čtení. Vytvořte pracovní prostor.")
         if view["digest"] != expected_digest:
             raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
-        with service.lock:
+        with service.lock_for(project):
             stored = store.current(project, workspace)
         built = build(plan, view["graph"], stored["state"])
         if actor not in ("human", "system"):
@@ -125,7 +125,7 @@ def apply_plan(service, payload, *, actor="system"):
             raise ValueError("Rozšíření má zastaralou expectedRevision stavu.")
         # `fragmentRef` míří na živý fragment schránky téhož projektu a prostoru (bez revize = poslední).
         from backend.editor.brief_vault.brief_vault_refs import resolve_plan_refs
-        with service.lock:
+        with service.lock_for(project):
             resolve_plan_refs(service.db_for(project), project, workspace, built)
         for node_id, kind, expected, value in built.documents:
             if kind == "spec":
@@ -167,7 +167,7 @@ def _write(service, store, project, workspace, expected_digest, revision, built)
     """Spec, text a stav v jedné transakci, graf poslední (viz docstring modulu)."""
     db = service.db_for(project)
     saved_at = now()
-    with service.lock, db:
+    with service.lock_for(project), db:
         db.execute("BEGIN IMMEDIATE")
         if store.current(project, workspace)["revision"] != revision:
             raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")

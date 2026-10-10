@@ -53,7 +53,7 @@ class PipelineRouting:
         project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
         human = actor == "human"
         by = "human" if human else "agent"
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
             graph = self.canvas.view(project, workspace)["graph"]
             graph_node = next((n for n in graph["nodes"] if n["id"] == node_id), None)
             if graph_node is None or graph_node.get("kind") != "node":

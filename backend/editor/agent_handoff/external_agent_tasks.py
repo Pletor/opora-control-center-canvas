@@ -4,7 +4,7 @@ import hashlib
 import os
 from pathlib import Path
 
-from backend.canvas.graph import valid_id
+from backend.canvas.graph import payload_project, valid_id
 from backend.editor.agent_packet.desktop_v3_packets import packet_digest
 from backend.project.workspace.workspace_sources import relative_path, reparse
 
@@ -126,8 +126,9 @@ class ExternalAgentTasks:
         return path, target
 
     def export(self, snapshot_id, payload):
+        project = payload_project(payload)
         try:
-            with self.canvas.graph_lock, self.canvas.lock:
+            with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
                 snapshot = self._snapshot(snapshot_id, payload)
                 if self.packets.current_digest(snapshot) != snapshot["digest"]:
                     raise ValueError("Zdroje se změnily; vytvořte nový snímek před exportem.")
@@ -153,7 +154,7 @@ class ExternalAgentTasks:
 
     def read(self, snapshot_id, payload):
         try:
-            with self.canvas.graph_lock, self.canvas.lock:
+            with self.canvas.reading(payload_project(payload)):
                 self._snapshot(snapshot_id, payload)
                 path, target = self._target(payload)
                 with target.open("rb") as stream:

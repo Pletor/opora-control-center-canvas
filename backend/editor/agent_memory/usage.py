@@ -10,7 +10,7 @@ def total(samples):
 
 
 def usage_summary(canvas, project, workspace):
-    with canvas.graph_lock, canvas.lock:
+    with canvas.reading(project):
         graph = canvas.view(project, workspace)["graph"]
         by_id = {n["id"]: n for n in graph["nodes"]}
         samples = {key: [] for key in by_id}

@@ -281,13 +281,13 @@ class BriefVault(VaultReader):
         if op in HUMAN_OPS:
             require_human(actor, HUMAN_OPS[op])
         project, workspace = payload["project"], payload["workspace"]
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             if view["readOnly"]:
                 fail("main je pouze pro čtení; schránka se mění v pracovním prostoru.")
             node_ids = {node["id"] for node in view["graph"]["nodes"]}
             db = self.canvas.db_for(project)
-            with self.canvas.lock, db:
+            with self.canvas.lock_for(project), db:
                 db.execute("BEGIN IMMEDIATE")
                 return {"ok": True, "op": op,
                         **HANDLERS[op](_Write(db, project, workspace, actor, agent, self.state), payload, node_ids)}

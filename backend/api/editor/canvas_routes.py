@@ -30,7 +30,7 @@ def create_canvas_router(service):
     def canvas_index(project: str = "draft", workspace: str = "draft", q: str = "", limit: int = DEFAULT_LIMIT):
         # Jednotný index karet a vazeb (docs/kontext-karet-a-index.md §5): staví se v paměti,
         # nic neukládá. Graf i stav plochy se čtou pod jedním zámkem grafu, stejně jako `/view`.
-        with service.graph_lock:
+        with service.reading(project):
             graph = service.view(project, workspace)["graph"]
             store = getattr(service, "desktop_v3_state", None) or DesktopV3State(service)
             state = store.read(project, workspace)["state"]

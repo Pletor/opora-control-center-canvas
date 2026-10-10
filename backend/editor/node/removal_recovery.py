@@ -33,7 +33,7 @@ def pointing_branches(state, removed_nodes):
 
 
 def capture(canvas, db, recovery_id, project, workspace, graph, node_ids, edge_ids):
-    """Uloží záznam obnovy; volající drží `canvas.lock` a otevřenou transakci `db`."""
+    """Uloží záznam obnovy; volající drží `canvas.lock_for(project)` a otevřenou transakci `db`."""
     from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 
     state = DesktopV3State(canvas).current(project, workspace)["state"]
@@ -172,14 +172,14 @@ def restore(canvas, payload):
     project, workspace, recovery_id = payload["project"], payload["workspace"], payload["recoveryId"]
     if not isinstance(recovery_id, str) or not re.fullmatch(r"[0-9a-f]{32}", recovery_id):
         raise ValueError("Neplatný záznam obnovy.")
-    with canvas.graph_lock:
+    with canvas.graph_lock_for(project):
         current = canvas.view(project, workspace)
         if current["readOnly"]:
             raise ValueError("Main je pouze pro čtení. Přepněte do pracovního prostoru.")
         if payload["digest"] != current["digest"]:
             raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
         db = canvas.db_for(project)
-        with canvas.lock:
+        with canvas.lock_for(project):
             row = db.execute(
                 "SELECT record,used_at FROM removal_restores WHERE id=? AND project_id=? AND workspace_id=?",
                 (recovery_id, project, workspace),
@@ -191,7 +191,7 @@ def restore(canvas, payload):
         record = json.loads(row["record"])
         graph, restored_nodes = merged_graph(current["graph"], record)
         view = canvas.save_graph(project, workspace, graph, current["digest"], undo=True)
-        with canvas.lock, db:
+        with canvas.lock_for(project), db:
             db.execute("UPDATE removal_restores SET used_at=? WHERE id=?", (_now(), recovery_id))
             for values in record["workspaceRows"]:
                 if values[2] in restored_nodes:
@@ -200,7 +200,7 @@ def restore(canvas, payload):
                         values,
                     )
         store = DesktopV3State(canvas)
-        with canvas.lock:
+        with canvas.lock_for(project):
             stored = store.current(project, workspace)
         new_state = restored_state(stored["state"], record, view["graph"])
         if new_state != stored["state"]:

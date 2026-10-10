@@ -218,7 +218,7 @@ def open_round(store, payload, actor):
         raise ValueError(f"Důvod nového kola musí být text do {MAX_REASON} znaků.")
     reason = reason.strip() or "nové zadání"
     canvas = store.canvas
-    with canvas.graph_lock, canvas.lock:
+    with canvas.graph_lock_for(project), canvas.lock_for(project):
         view = canvas.view(project, workspace)
         if view["readOnly"]:
             raise ValueError("Main je pouze pro čtení; kolo karty se otevírá v pracovním prostoru.")
@@ -356,7 +356,7 @@ def read_rounds(store, project, workspace, node_id, round_=None):
     if not valid_id(node_id) or (round_ is not None and (type(round_) is not int or round_ < 1)):
         raise ValueError("Neplatný dotaz na kola karty.")
     canvas = store.canvas
-    with canvas.graph_lock, canvas.lock:
+    with canvas.reading(project):
         view = canvas.view(project, workspace)
         if not any(item["id"] == node_id for item in view["graph"]["nodes"]):
             raise ValueError("Karta v tomto pracovním prostoru neexistuje.")

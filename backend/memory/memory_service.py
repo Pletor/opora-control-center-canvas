@@ -98,14 +98,14 @@ class AppSettings:
         return (os.environ.get(self.env) or "").strip().lower() in TRUTHY
 
     def _read(self, key):
-        with self.canvas.lock:
+        with self.canvas.registry_lock:
             row = self.canvas.db.execute(
                 "SELECT value FROM app_settings WHERE key=?", (key,)
             ).fetchone()
         return None if row is None else row[0]
 
     def _write(self, key, value):
-        with self.canvas.lock, self.canvas.db:
+        with self.canvas.registry_lock, self.canvas.db:
             self.canvas.db.execute("INSERT OR REPLACE INTO app_settings VALUES(?,?)", (key, value))
 
     def enabled(self):
@@ -141,7 +141,7 @@ class AppSettings:
     def set_typesafe_key(self, key):
         """Uloží (text) nebo smaže (`None`) klíč a vrátí jen, zda je nastavený."""
         if key is None:
-            with self.canvas.lock, self.canvas.db:
+            with self.canvas.registry_lock, self.canvas.db:
                 self.canvas.db.execute("DELETE FROM app_settings WHERE key=?", (TYPESAFE_KEY_SETTING,))
         elif not isinstance(key, str) or not key.strip() or len(key) > MAX_TYPESAFE_KEY or any(
                 ord(c) < 33 for c in key.strip()):

@@ -87,7 +87,7 @@ class ActivityLog:
         self.service = service
 
     def record(self, *, actor, agent, method, path, described, status):
-        with self.service.lock:
+        with self.service.registry_lock:
             self.service.db.execute(
                 "INSERT INTO activity_log(at,actor,agent,method,path,project_id,workspace_id,node_ids,status,summary)"
                 " VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -118,7 +118,7 @@ class ActivityLog:
             where.append("id<?")
             args.append(before)
         sql = "SELECT * FROM activity_log" + (" WHERE " + " AND ".join(where) if where else "")
-        with self.service.lock:
+        with self.service.registry_lock:
             rows = self.service.db.execute(sql + " ORDER BY id DESC LIMIT ?", (*args, limit + 1)).fetchall()
         entries = [_entry(row) for row in rows[:limit]]
         return {"entries": entries, "nextBefore": entries[-1]["id"] if len(rows) > limit else None}

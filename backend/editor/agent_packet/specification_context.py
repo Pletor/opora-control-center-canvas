@@ -74,7 +74,7 @@ def capture_specification(canvas, project, workspace, node_id):
     """Return the version and frozen canonical data under the existing reentrant locks."""
     if not all(valid_id(value) for value in (project, workspace, node_id)):
         raise ValueError("Neplatný rozsah specifikace.")
-    with canvas.graph_lock, canvas.lock:
+    with canvas.reading(project):
         view = canvas.view(project, workspace)
         graph = view["graph"]
         by_id = {node["id"]: node for node in graph["nodes"]}

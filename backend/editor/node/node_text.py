@@ -37,7 +37,7 @@ class NodeTextStore:
     def access(self, project, workspace, node, payload=None):
         if payload is not None:
             text = validate_payload(payload)
-        with self.canvas.graph_lock:
+        with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             if not valid_id(node) or not any(n["id"] == node for n in view["graph"]["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
@@ -46,7 +46,7 @@ class NodeTextStore:
                     raise ValueError("Main je pouze pro čtení.")
                 return {"revision": 0, "text": "", "saved_at": None, "readOnly": True, "available": False}
             scope = (project, workspace, node)
-            with self.canvas.lock:
+            with self.canvas.lock_for(project):
                 if payload is not None:
                     db = self.canvas.db_for(project)
                     with db:

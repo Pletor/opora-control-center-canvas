@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from backend.canvas.graph import digest, encode, valid_id
+from backend.canvas.graph import digest, encode, payload_project, valid_id
 from backend.editor.node import removal_recovery
 
 MAX_SELECTION = 500
@@ -36,21 +36,24 @@ class RemovalService:
         self.canvas = canvas
 
     def archived(self, project):
-        return (
-            self.canvas.db.execute(
-                "SELECT 1 FROM archived_projects WHERE project_id=?", (project,)
-            ).fetchone()
-            is not None
-        )
+        with self.canvas.registry_lock:
+            return (
+                self.canvas.db.execute(
+                    "SELECT 1 FROM archived_projects WHERE project_id=?", (project,)
+                ).fetchone()
+                is not None
+            )
 
     def project_plan(self, project, workspace, target):
         if project != target or workspace != "main":
             raise ValueError("Nesouhlasí rozsah odpojení projektu.")
         data = self.canvas.row("projects", project)
-        if self.canvas.db.execute(
-            "SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running') LIMIT 1",
-            (project,),
-        ).fetchone():
+        with self.canvas.registry_lock:
+            running = self.canvas.db.execute(
+                "SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running') LIMIT 1",
+                (project,),
+            ).fetchone()
+        if running:
             raise ValueError("Probíhá operace repozitáře. Odpojte ho až po jejím dokončení.")
         workspaces = self.canvas.workspaces(project)
         snapshot = {"project": data, "workspaces": workspaces}
@@ -68,7 +71,8 @@ class RemovalService:
         }
 
     def remove_project(self, payload):
-        with self.canvas.git_lock, self.canvas.graph_lock, self.canvas.lock, self.canvas.db:
+        project = payload_project(payload)
+        with self.canvas.git_lock, self.canvas.graph_lock_for(project), self.canvas.lock_for(project), self.canvas.registry_lock, self.canvas.db:
             self.canvas.db.execute("BEGIN IMMEDIATE")
             snapshot, preview = self.project_plan(
                 payload["project"], payload["workspace"], payload["target"]
@@ -113,7 +117,7 @@ class RemovalService:
             ],
         }
         from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
-        with self.canvas.lock:
+        with self.canvas.reading(project):
             stored_nodes = DesktopV3State(self.canvas).current(project, workspace)["state"]["nodes"]
         confirmed = sorted(n for n in removed if stored_nodes.get(n, {}).get("done", {}).get("confirmed"))
         preview = {
@@ -140,9 +144,9 @@ class RemovalService:
 
     def preview(self, project, workspace, kind, target):
         if kind == "project":
-            with self.canvas.lock:
+            with self.canvas.registry_lock:
                 return self.project_plan(project, workspace, target)[1]
-        with self.canvas.graph_lock:
+        with self.canvas.reading(project):
             return self.plan(project, workspace, kind, target)[2]
 
     def guard(self, actor, current, remaining, preview):
@@ -182,7 +186,8 @@ class RemovalService:
         if payload["kind"] == "project":
             self.guard(actor, None, None, {"kind": "project", "nodeIds": []})
             return self.remove_project(payload)
-        with self.canvas.graph_lock:
+        project = payload["project"]
+        with self.canvas.graph_lock_for(project):
             current, remaining, preview = self.plan(
                 payload["project"], payload["workspace"], payload["kind"], payload["target"]
             )
@@ -195,7 +200,7 @@ class RemovalService:
             # Snapshot i záznam obnovy předcházejí změně; jejich existence není důkazem mazání.
             recovery_id = uuid.uuid4().hex
             db = self.canvas.db_for(payload["project"])
-            with self.canvas.lock, db:
+            with self.canvas.lock_for(project), db:
                 db.execute(
                     "INSERT INTO graph_recoveries VALUES(?,?,?,?,?)",
                     (
@@ -256,7 +261,7 @@ class RemovalService:
         from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 
         store = DesktopV3State(self.canvas)
-        with self.canvas.lock:
+        with self.canvas.lock_for(project):
             current = store.current(project, workspace)
         state = current["state"]
         removed_nodes, removed_edges = set(node_ids), set(edge_ids)

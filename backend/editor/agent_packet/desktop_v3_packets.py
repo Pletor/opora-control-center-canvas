@@ -455,7 +455,7 @@ class DesktopV3Packets:
 
     def build(self, payload):
         validate_request(payload)
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(payload["project"]):
             packet = self._assemble(payload)
         return {"digest": packet_digest(packet), "packet": packet}
 
@@ -469,7 +469,7 @@ class DesktopV3Packets:
         expected = payload["digest"]
         if not isinstance(expected, str):
             raise ValueError("Digest náhledu musí být text.")  # noqa: TRY004 - klientská validační chyba mapovaná na HTTP 409
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.graph_lock_for(request["project"]), self.canvas.lock_for(request["project"]):
             packet = self._assemble(request)
             digest = packet_digest(packet)
             if digest != expected:
@@ -488,7 +488,7 @@ class DesktopV3Packets:
     def load(self, snapshot_id, project, workspace):
         if not valid_id(snapshot_id):
             raise ValueError("Neplatné ID snapshotu podkladů.")
-        with self.canvas.lock:
+        with self.canvas.reading(project):
             row = self.canvas.db_for(project).execute(
                 "SELECT * FROM desktop_v3_snapshots WHERE id=?", (snapshot_id,)
             ).fetchone()
@@ -501,5 +501,5 @@ class DesktopV3Packets:
 
     def current_digest(self, snapshot):
         """Digest podkladů sestavených teď ze stejného rozsahu; liší se = zdroje se změnily."""
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(snapshot["request"]["project"]):
             return packet_digest(self._assemble(snapshot["request"]))

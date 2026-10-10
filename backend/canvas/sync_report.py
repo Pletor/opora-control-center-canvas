@@ -40,9 +40,9 @@ class SyncReport:
         root = self._root(pid, wid)
         main_head = sync_evidence.main_head(root)
         commits = sync_evidence.commits_in_main(root, main_head)
-        # SQLite spojení služby je sdílené mezi vlákny; čtení proto drží její zámek,
-        # git a disk zůstávají mimo něj, ať souběžný report nikoho neblokuje.
-        with self.service.lock:
+        # Registr je sdílené spojení: čtení drží registry_lock; projektová data se čtou
+        # snímkem (reading) bez zámku; git a disk zůstávají mimo, ať report nikoho neblokuje.
+        with self.service.registry_lock:
             rows = self.service.db.execute(
                 "SELECT id, node_id, branch, base_sha FROM workspaces WHERE project_id=?",
                 (pid,),
@@ -50,11 +50,11 @@ class SyncReport:
         workspaces = sync_evidence.workspaces_from(rows, root, main_head)
         by_node = {row["nodeId"]: row for row in workspaces if row["nodeId"]}
         done = self._done_scopes(pid)
-        with self.service.lock:
+        with self.service.reading(pid):
             scopes = [self._scope(pid, wid, node, done, nodes)
                       for node in nodes if node["kind"] in LINKABLE]
         pairs, owned_all = self._pairs(scopes, nodes, commits, by_node)
-        with self.service.lock:
+        with self.service.reading(pid):
             self._mark_checks(pid, wid, scopes, pairs)
         state = {
             "observedAt": datetime.now(UTC).isoformat(),
@@ -152,7 +152,7 @@ class SyncReport:
         neuklízí (`backend/editor/node/removals.py`), takže je aspoň vidět.
         """
         try:
-            with self.service.lock:
+            with self.service.reading(pid):
                 db = self.service.db_for(pid)
                 rows = db.execute(
                     "SELECT DISTINCT node_id FROM node_spec_revisions"

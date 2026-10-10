@@ -65,6 +65,14 @@ def valid_id(value):
     return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value))
 
 
+def payload_project(payload):
+    """Projekt z těla požadavku pro výběr zámku projektu; neplatné tělo = klientská chyba."""
+    project = payload.get("project") if isinstance(payload, dict) else None
+    if project != "draft" and not valid_id(project):
+        raise ValueError("Neplatné ID projektu.")
+    return project
+
+
 def validate_source_ref(ref, kind):
     """Ověří tvar odkazu na skutečný nebo navrhovaný zdroj; nesahá na disk."""
     if ref is None:

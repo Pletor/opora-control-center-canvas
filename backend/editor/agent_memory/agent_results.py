@@ -38,7 +38,7 @@ class AgentResults:
             raise ValueError("Neplatný rozsah výsledků agenta.")
         if before is not None and (type(before) is not int or before < 1):
             raise ValueError("Neplatný kurzor výsledků agenta.")
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(project):
             view = self.canvas.view(project, workspace)
             if not any(node["id"] == node_id for node in view["graph"]["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")

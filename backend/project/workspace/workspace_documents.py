@@ -74,7 +74,7 @@ class WorkspaceDocuments:
         path = relative_path(path)
         version = self._source_version(project, workspace, path)
         scope = (project, workspace, path)
-        with self.service.lock:
+        with self.service.reading(project):
             return self._response(scope, self._row(scope), version)
 
     def save(self, payload):
@@ -104,7 +104,7 @@ class WorkspaceDocuments:
         version = self._source_version(payload["project"], payload["workspace"], path)
         scope = (payload["project"], payload["workspace"], path)
         db = self.service.db_for(scope[0])
-        with self.service.lock, db:
+        with self.service.lock_for(scope[0]), db:
             db.execute("BEGIN IMMEDIATE")
             row = self._row(scope)
             if version is MISSING and row is None:

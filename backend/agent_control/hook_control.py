@@ -45,8 +45,10 @@ class HookControl:
 
     @contextmanager
     def _authority_lock(self):
-        """Vždy graph → service → Hook SQLite, včetně kontrol state/scope."""
-        with getattr(self.service, "graph_lock", nullcontext()), self.service.lock, self.store.lock:
+        """Zámek Hook SQLite. Binding může patřit kterémukoli projektu, proto se pod ním
+        nebere zámek projektu (karta P2): plátno, zadání i stav karty se čtou snímkem
+        `reading` a zámky projektu bere jen jejich vlastní zápis."""
+        with self.store.lock:
             yield
 
     @contextmanager
@@ -67,11 +69,16 @@ class HookControl:
         spec = self.service.node_spec(project, workspace, node_id)
         return Path(root).resolve(), spec
 
+    def _reading(self, project):
+        reading = getattr(self.service, "reading", None)
+        return reading(project) if reading is not None else nullcontext()
+
     def _closed(self, binding):
         state = getattr(self.service, "desktop_v3_state", None)
         if state is None:
             return bool(getattr(self.service, "closed", False))
-        node = state.current(binding["project"], binding["workspace"])["state"]["nodes"].get(binding["nodeId"], {})
+        with self._reading(binding["project"]):
+            node = state.current(binding["project"], binding["workspace"])["state"]["nodes"].get(binding["nodeId"], {})
         return bool(node.get("done", {}).get("confirmed", False))
 
     @staticmethod
@@ -271,8 +278,9 @@ class HookControl:
         if state is None:
             return None
         try:
-            node = state.current(binding["project"], binding["workspace"])["state"]["nodes"].get(
-                binding["nodeId"], {})
+            with self._reading(binding["project"]):
+                node = state.current(binding["project"], binding["workspace"])["state"]["nodes"].get(
+                    binding["nodeId"], {})
         except (ValueError, OSError, KeyError):
             return None
         value = node.get("agentRole")

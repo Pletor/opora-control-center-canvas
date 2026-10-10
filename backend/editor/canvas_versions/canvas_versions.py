@@ -78,7 +78,8 @@ LEGACY = {"actor": "unknown", "changedCardCount": None, "coverage": "legacy-part
 class CanvasVersions:
     def __init__(self, canvas, desktop_state=None):
         self.canvas, self._desktop_state = canvas, desktop_state
-        # (project, workspace) -> {id verze: metadata ze snímku}; plní a čte se jen pod canvas.lock.
+        # (project, workspace) -> {id verze: metadata ze snímku}; řádky verzí se nemění, proto
+        # stačí atomické přiřazení slovníku (čte se i bez zámku projektu).
         self._snapshot_meta = {}
 
     def _summaries(self, db, project, workspace):
@@ -142,14 +143,14 @@ class CanvasVersions:
                 "coverage": "full", "unavailableAssets": unavailable_assets(snapshot)}
 
     def list(self, project, workspace):
-        with self.canvas.graph_lock, self.canvas.lock:
+        # Bez zámků projektu (karta P2): jeden snímek WAL, takže stav, záznamy i verze jsou
+        # konzistentní a zápis (lease, stav, nová verze) na výpis nečeká.
+        with self.canvas.reading(project):
             db = self.canvas.db_for(project)
-            with db:
-                db.execute("BEGIN")
-                view, stored, snapshot = self._capture(db, project, workspace)
-                return {"versions": self._summaries(db, project, workspace),
-                        "dirty": False if view["readOnly"] else self._dirty(db, project, workspace, view, stored, snapshot),
-                        "currentToken": current_token(view["graph"], stored, snapshot)}
+            view, stored, snapshot = self._capture(db, project, workspace)
+            return {"versions": self._summaries(db, project, workspace),
+                    "dirty": False if view["readOnly"] else self._dirty(db, project, workspace, view, stored, snapshot),
+                    "currentToken": current_token(view["graph"], stored, snapshot)}
 
     def _read(self, db, project, workspace, version_id):
         if not isinstance(version_id, str) or not VERSION_ID.fullmatch(version_id):
@@ -167,7 +168,7 @@ class CanvasVersions:
         return row, graph, state, snapshot
 
     def read(self, project, workspace, version_id):
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.reading(project):
             self.canvas.view(project, workspace)
             row, graph, state, snapshot = self._read(self.canvas.db_for(project), project, workspace, version_id)
             return {"version": _summary(row), "project": project, "workspace": workspace, "graph": graph,
@@ -182,7 +183,7 @@ class CanvasVersions:
     def save(self, payload, *, actor="human"):
         author = _payload(payload, SAVE_KEYS)
         project, workspace = payload["project"], payload["workspace"]
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
             db = self.canvas.db_for(project)
             with db:
                 db.execute("BEGIN IMMEDIATE")
@@ -199,7 +200,7 @@ class CanvasVersions:
         if "expectedToken" not in payload:
             raise ValueError("Obnovení vyžaduje expectedToken. Nejprve načtěte aktuální historii pracovního prostoru.")
         project, workspace = payload["project"], payload["workspace"]
-        with self.canvas.graph_lock, self.canvas.lock:
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
             db = self.canvas.db_for(project)
             graph_file = None
             if project != "draft" and self.canvas.project_hub.source_info(project)["sourceKind"] == "git":

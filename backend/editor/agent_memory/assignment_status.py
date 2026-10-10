@@ -6,7 +6,7 @@ from backend.editor.agent_packet.specification_context import capture_specificat
 
 
 def assignment_status(canvas, project, workspace):
-    with canvas.graph_lock, canvas.lock:
+    with canvas.reading(project):
         view = canvas.view(project, workspace)
         existing = {node["id"] for node in view["graph"]["nodes"]}
         rows = canvas.db_for(project).execute(
