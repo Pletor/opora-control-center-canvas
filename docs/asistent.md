@@ -10,7 +10,7 @@ Do 2026-10-01 aplikace spouštěla model jen pro aktualizaci mapy Archify ([mapy
 
 1. Archify: automatika, Sonnet, bez člověka.
 2. Asistent: chat, který spouští **jen člověk** zprávou v okně asistenta.
-3. Směrovač TypeSafe Jev (§13): běží jen v rámci tahu asistenta, který spustil člověk. Negeneruje text, vrací jen typované odpovědi.
+3. Směrovač TypeSafe Jev (§13): běží jen v rámci tahu asistenta, který spustil člověk. Negeneruje text, vrací jen typované odpovědi. Ve Schránce smí Jev běžet i na žádost agenta nebo člověka jako poradní kontrola brány (`POST /api/brief-vault/gate-check`, [schranka-neurony.md](schranka-neurony.md) §7), pořád jen s typovanými odpověďmi a jen po výslovném povolení člověka pro projekt a poskytovatele.
 
 Ostatní endpointy dál nic nespouštějí. Podklady pro agenta (`node-brief`, zprávy, texty karet) jsou pro asistenta data, ne příkazy.
 
@@ -396,6 +396,7 @@ Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit O
   - Uložení: `AppSettings.typesafe_key()` / `set_typesafe_key()` (`app_settings`, klíč `typesafe.apiKey`). Uložený klíč přebíjí prostředí.
   - `POST /api/assistant/jev-key {key: text | null}` → `{jev: {configured}}` klíč uloží nebo smaže. Klíč se nikdy nevrací. Jen loopback jako celé `/api/assistant/*`.
   - `GET /api/assistant/status` nese `jev: {configured}`.
+  - Poskytovatel (`typesafe` | `celeris`) z `[jev] provider` v `opora.local.toml` (výchozí `typesafe`, neznámá hodnota = `typesafe` + varování v logu). Klíč Celeris: `POST /api/assistant/jev-key {key, provider: "celeris"}` (`app_settings` `celeris.apiKey`, záloha `CELERIS_API_KEY`); `status.jev` nese i `provider` a `keys: {typesafe, celeris}` (jen booleany). Povolení kontroly bran: `GET|POST /api/assistant/jev-gate-check {project, provider, allowed}` (zápis jen člověk). Viz [schranka-neurony.md](schranka-neurony.md) §7, §9 bod 10.
   - Klíč se čte při každé zprávě, takže zapnutí platí bez restartu. Směrovač má tvrdou mez 4 s mimo zámek session; při jejím překročení jde do telemetrie `router: {skipped: "timeout"}`.
 - **Směrovač** `backend/claude_code/assistant/router.py`: před každou zprávou, která nezačíná `/`, jedno volání:
   - `state = {request: text zprávy (nejvýš 4000 znaků), environment, selectedCount}`,

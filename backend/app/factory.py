@@ -12,6 +12,7 @@ from backend.api.app_routes import create_app_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
+from backend.api.editor.brief_vault_check_routes import create_brief_vault_check_router
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
@@ -61,6 +62,7 @@ from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_packet.desktop_v3_packets import DesktopV3Packets
 from backend.editor.agent_packet.node_brief import NodeBrief
 from backend.integrations.build_identity import build_identity
+from backend.integrations.typesafe_client import configured_provider
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
 from backend.memory.memory_service import AppSettings, MemoryService
 from backend.paths import DIST_DIR, REPO_ROOT
@@ -96,10 +98,16 @@ def create_app(data_root=None):
     # Asistent: Claude Code pod předplatným, proces spouští jen zpráva člověka (docs/asistent.md).
     # Skill v jeho procesu čte plátno této instance, ne pevného portu 8740 (§13.1).
     # Směrovač Jev (§13.2): klíč se čte při každé zprávě, takže zapnutí platí bez restartu.
+    # Poskytovatel Jev (typesafe | celeris) z `[jev] provider` v opora.local.toml (docs/schranka-neurony.md §7).
+    jev_provider = configured_provider()
+
+    def jev_evaluate(state, questions, *, key):
+        return typesafe_evaluate(state, questions, key=key, provider=jev_provider)
+
     def route_hint(text, context):
-        key = app_settings.typesafe_key()
+        key = app_settings.jev_key(jev_provider)
         return route_message(text, context,
-                             evaluate=lambda state, questions: typesafe_evaluate(state, questions, key=key))
+                             evaluate=lambda state, questions: jev_evaluate(state, questions, key=key))
 
     assistant = AssistantManager(service.root, project_locator(service), base_url=f"http://127.0.0.1:{port}",
                                  route_hint=route_hint)
@@ -238,12 +246,14 @@ def create_app(data_root=None):
     app.include_router(create_node_router(service))
     # Schránka zadání: doslovné verzované fragmenty a odkazy karet (docs/navrh-schranka-zadani.md)
     app.include_router(create_brief_vault_router(service, desktop_state))
+    # Poradní kontrola brány přes Jev; jen s povolením člověka pro projekt a poskytovatele (§9 bod 10)
+    app.include_router(create_brief_vault_check_router(service, settings=app_settings, provider=jev_provider))
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
     app.include_router(create_agent_message_router(agent_messages))
     app.include_router(create_claude_code_router(service))
-    app.include_router(create_assistant_router(assistant, jev_settings=app_settings))
+    app.include_router(create_assistant_router(assistant, jev_settings=app_settings, jev_provider=jev_provider))
     # RLM: řazení oddílů plátna přes Jev pro asistenta; jen loopback, klíč zůstává v backendu (§13.3)
-    app.include_router(create_rlm_router(key_source=app_settings.typesafe_key))
+    app.include_router(create_rlm_router(key_source=lambda: app_settings.jev_key(jev_provider), evaluate=jev_evaluate))
     app.include_router(create_process_router(service))
     # Hook control: karta a cesty, které agent na disku smí měnit (upgrade-opora #38, bez Live Run).
     app.include_router(create_hook_router(service, port=port))

@@ -52,7 +52,7 @@ def test_unknown_model_is_rejected():
 
 
 def test_env_drops_api_key_and_keeps_the_rest():
-    env = cli.child_env({"ANTHROPIC_API_KEY": "sk-x", "TYPESAFE_API_KEY": "ts", "CLAUDE_CODE_OAUTH_TOKEN": "t",
+    env = cli.child_env({"ANTHROPIC_API_KEY": "sk-x", "TYPESAFE_API_KEY": "ts", "CELERIS_API_KEY": "c", "CLAUDE_CODE_OAUTH_TOKEN": "t",
                          "PATH": "p"})
     assert "ANTHROPIC_API_KEY" not in env and "TYPESAFE_API_KEY" not in env
     assert env == {"CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "p"}

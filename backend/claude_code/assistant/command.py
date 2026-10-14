@@ -93,6 +93,7 @@ def child_env(environ=None, base_url=None, drafts_dir=None):
     env = dict(os.environ if environ is None else environ)
     env.pop("ANTHROPIC_API_KEY", None)
     env.pop("TYPESAFE_API_KEY", None)  # klíč Jev patří jen backendu (§13.2)
+    env.pop("CELERIS_API_KEY", None)  # stejně klíč poskytovatele Celeris (docs/schranka-neurony.md §7)
     if base_url:
         env["OPORA_BASE_URL"] = base_url
     env.pop("OPORA_DRAFTS_DIR", None)  # zděděný adresář jiné session neplatí

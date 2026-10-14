@@ -66,6 +66,17 @@ def test_environment_from_settings_never_overrides_existing():
     assert environ["OPORA_CANVAS_PORT"] == "8791"
     assert environ["OPORA_CANVAS_DATA"] == "d"
     assert environ["OPORA_GRAPHIFY_PYTHON"] == "existing"
+    assert environ["OPORA_JEV_PROVIDER"] == "typesafe"
+
+
+def test_jev_provider_from_local_config(tmp_path):
+    (tmp_path / "opora.toml").write_text(CONFIG, encoding="utf-8")
+    (tmp_path / "opora.local.toml").write_text('[jev]\nprovider = "celeris"\n', encoding="utf-8")
+    settings = resolve(load_config(tmp_path / "opora.toml", tmp_path / "opora.local.toml"))
+    assert settings["jev_provider"] == "celeris"
+    environ = {}
+    apply_environment(settings, environ)
+    assert environ["OPORA_JEV_PROVIDER"] == "celeris"
 
 
 def test_frontend_stale_detects_missing_or_older_build(tmp_path):

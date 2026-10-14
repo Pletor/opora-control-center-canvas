@@ -2,7 +2,9 @@
 
 import asyncio
 import json
+import sqlite3
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -15,6 +17,7 @@ from backend.api.editor.assistant_routes import create_assistant_router, sse_eve
 from backend.app.factory import create_app
 from backend.claude_code.assistant import fake_cli
 from backend.claude_code.assistant.manager import AssistantManager, Limits
+from backend.memory.memory_service import AppSettings
 
 FAKE = str(Path(fake_cli.__file__))
 SID = "0f8fad5b-d9cb-469f-a165-70867728950e"
@@ -66,7 +69,7 @@ def test_status_and_session_lifecycle(setup):
     client, manager, _ = setup
     assert client.get("/api/assistant/status").json() == {
         "available": True, "claudePath": "fake-claude", "version": "9.9.9 (fake)", "running": 0, "limit": 3,
-        "jev": {"configured": False}}
+        "jev": {"configured": False, "provider": "typesafe", "keys": {"typesafe": False, "celeris": False}}}
     created = client.post("/api/assistant/sessions", json={"project": "p1", "model": "sonnet"})
     assert created.status_code == 201
     session = created.json()["session"]
@@ -185,34 +188,74 @@ def test_title_endpoint(setup):
     assert client.post(url, json={"title": "Po zavření"}).status_code == 409
 
 
-class FakeJevSettings:
+class FakeCanvas:
+    """Jen tabulka `app_settings` a zámek, na kterých stojí skutečné `AppSettings`."""
+
     def __init__(self):
-        self.key = None
-
-    def typesafe_key(self):
-        return self.key
-
-    def set_typesafe_key(self, key):
-        if key is not None and (not isinstance(key, str) or " " in key):
-            raise ValueError("Klíč TypeSafe musí být text bez mezer.")
-        self.key = key
-        return key is not None
+        self.db = sqlite3.connect(":memory:", check_same_thread=False)
+        self.db.execute("CREATE TABLE app_settings(key TEXT PRIMARY KEY, value TEXT)")
+        self.registry_lock = threading.RLock()
 
 
-def test_jev_key_is_stored_but_never_returned(tmp_path):
-    settings = FakeJevSettings()
+def jev_app(tmp_path, monkeypatch, actor="human", provider="typesafe"):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("CELERIS_API_KEY", raising=False)
+    settings = AppSettings(FakeCanvas())
     manager = AssistantManager(tmp_path / "data", lambda project, workspace=None: ("draft", tmp_path),
                                which=lambda name: None)
     app = FastAPI()
-    app.include_router(create_assistant_router(manager, jev_settings=settings))
+
+    @app.middleware("http")
+    async def as_actor(request, call_next):
+        request.state.actor = actor
+        return await call_next(request)
+
+    app.include_router(create_assistant_router(manager, jev_settings=settings, jev_provider=provider))
+    return app, settings
+
+
+def test_jev_key_is_stored_but_never_returned(tmp_path, monkeypatch):
+    app, _settings = jev_app(tmp_path, monkeypatch)
     with TestClient(app) as client:
         saved = client.post("/api/assistant/jev-key", json={"key": "ts-secret"})
-        assert saved.json() == {"jev": {"configured": True}} and "ts-secret" not in saved.text
+        assert saved.json()["jev"]["configured"] is True and "ts-secret" not in saved.text
         status = client.get("/api/assistant/status").json()
-        assert status["jev"] == {"configured": True} and "ts-secret" not in str(status)
+        assert status["jev"] == {"configured": True, "provider": "typesafe", "keys": {"typesafe": True, "celeris": False}}
+        assert "ts-secret" not in str(status)
         assert client.post("/api/assistant/jev-key", json={"key": "a b"}).status_code == 422
         assert client.post("/api/assistant/jev-key", json={"key": "x", "more": 1}).status_code == 422
-        assert client.post("/api/assistant/jev-key", json={"key": None}).json() == {"jev": {"configured": False}}
+        assert client.post("/api/assistant/jev-key", json={"key": None}).json()["jev"]["configured"] is False
+
+
+def test_celeris_key_is_separate_and_never_returned(tmp_path, monkeypatch):
+    app, settings = jev_app(tmp_path, monkeypatch, provider="celeris")
+    with TestClient(app) as client:
+        saved = client.post("/api/assistant/jev-key", json={"key": "cel-secret", "provider": "celeris"})
+        assert saved.status_code == 200 and "cel-secret" not in saved.text
+        assert saved.json()["jev"] == {"configured": True, "provider": "celeris", "keys": {"typesafe": False, "celeris": True}}
+        assert settings.celeris_key() == "cel-secret" and settings.typesafe_key() is None
+        assert client.post("/api/assistant/jev-key", json={"key": "x", "provider": "openai"}).status_code == 422
+        assert "cel-secret" not in client.get("/api/assistant/status").text
+
+
+def test_gate_check_permission_is_human_only(tmp_path, monkeypatch):
+    app, settings = jev_app(tmp_path, monkeypatch)
+    with TestClient(app) as client:
+        assert client.get("/api/assistant/jev-gate-check", params={"project": "p1"}).json() == {
+            "project": "p1", "allowed": {"typesafe": False, "celeris": False}}
+        allowed = client.post("/api/assistant/jev-gate-check", json={"project": "p1", "provider": "celeris", "allowed": True})
+        assert allowed.json() == {"project": "p1", "allowed": {"typesafe": False, "celeris": True}}
+        assert settings.gate_check_allowed("p1", "celeris") and not settings.gate_check_allowed("p1", "typesafe")
+        assert not settings.gate_check_allowed("p2", "celeris")
+        assert client.post("/api/assistant/jev-gate-check",
+                           json={"project": "p1", "provider": "celeris", "allowed": "ano"}).status_code == 422
+        client.post("/api/assistant/jev-gate-check", json={"project": "p1", "provider": "celeris", "allowed": False})
+        assert not settings.gate_check_allowed("p1", "celeris")
+    agent_app, agent_settings = jev_app(tmp_path, monkeypatch, actor="agent")
+    with TestClient(agent_app, raise_server_exceptions=False) as client:
+        refused = client.post("/api/assistant/jev-gate-check", json={"project": "p1", "provider": "celeris", "allowed": True})
+        assert refused.status_code >= 400
+        assert agent_settings.gate_check_permissions() == {}
 
 
 def wait_approval(manager, sid):

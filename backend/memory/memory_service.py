@@ -48,6 +48,13 @@ ENABLED_ENV = "OPORA_OPENVIKING_ENABLED"
 TYPESAFE_KEY_SETTING = "typesafe.apiKey"
 TYPESAFE_KEY_ENV = "TYPESAFE_API_KEY"
 MAX_TYPESAFE_KEY = 512
+# Klíč Celeris (poskytovatel Jev se stejným API, docs/schranka-neurony.md §7); stejné zabezpečení jako klíč TypeSafe.
+CELERIS_KEY_SETTING = "celeris.apiKey"
+CELERIS_KEY_ENV = "CELERIS_API_KEY"
+JEV_KEYS = {"typesafe": (TYPESAFE_KEY_SETTING, TYPESAFE_KEY_ENV, "TypeSafe"),
+            "celeris": (CELERIS_KEY_SETTING, CELERIS_KEY_ENV, "Celeris")}
+# Povolení externí kontroly bran Schránky (§9 bod 10): {projekt: [poskytovatel…]}; samotný klíč nestačí.
+GATE_CHECK_SETTING = "jev.gateCheckAllowed"
 TRUTHY = {"1", "true", "yes", "on", "ano"}
 MAX_ROLE_KEY = 512
 
@@ -133,22 +140,75 @@ class AppSettings:
         self._write(self.keys_key, json.dumps(clean, ensure_ascii=False, sort_keys=True))
         return sorted(clean)
 
-    def typesafe_key(self):
-        """Klíč Jev z nastavení aplikace, jinak z prostředí backendu; `None`, když chybí."""
-        stored = self._read(TYPESAFE_KEY_SETTING)
-        return stored or (os.environ.get(TYPESAFE_KEY_ENV) or "").strip() or None
+    def jev_key(self, provider="typesafe"):
+        """Klíč poskytovatele Jev z nastavení aplikace, jinak z prostředí backendu; `None`, když chybí."""
+        if provider not in JEV_KEYS:
+            return None
+        setting, env, _label = JEV_KEYS[provider]
+        stored = self._read(setting)
+        return stored or (os.environ.get(env) or "").strip() or None
 
-    def set_typesafe_key(self, key):
-        """Uloží (text) nebo smaže (`None`) klíč a vrátí jen, zda je nastavený."""
+    def set_jev_key(self, key, provider="typesafe"):
+        """Uloží (text) nebo smaže (`None`) klíč poskytovatele a vrátí jen, zda je nastavený."""
+        if provider not in JEV_KEYS:
+            raise ValueError("Poskytovatel Jev musí být " + " nebo ".join(JEV_KEYS) + ".")
+        setting, _env, label = JEV_KEYS[provider]
         if key is None:
             with self.canvas.registry_lock, self.canvas.db:
-                self.canvas.db.execute("DELETE FROM app_settings WHERE key=?", (TYPESAFE_KEY_SETTING,))
+                self.canvas.db.execute("DELETE FROM app_settings WHERE key=?", (setting,))
         elif not isinstance(key, str) or not key.strip() or len(key) > MAX_TYPESAFE_KEY or any(
                 ord(c) < 33 for c in key.strip()):
-            raise ValueError(f"Klíč TypeSafe musí být text bez mezer do {MAX_TYPESAFE_KEY} znaků.")
+            raise ValueError(f"Klíč {label} musí být text bez mezer do {MAX_TYPESAFE_KEY} znaků.")
         else:
-            self._write(TYPESAFE_KEY_SETTING, key.strip())
-        return self.typesafe_key() is not None
+            self._write(setting, key.strip())
+        return self.jev_key(provider) is not None
+
+    def typesafe_key(self):
+        return self.jev_key("typesafe")
+
+    def set_typesafe_key(self, key):
+        return self.set_jev_key(key, "typesafe")
+
+    def celeris_key(self):
+        return self.jev_key("celeris")
+
+    def set_celeris_key(self, key):
+        return self.set_jev_key(key, "celeris")
+
+    def gate_check_permissions(self):
+        """Povolení kontroly bran `{projekt: [poskytovatel…]}`; poškozený zápis = nic povoleno."""
+        try:
+            stored = json.loads(self._read(GATE_CHECK_SETTING) or "{}")
+        except (TypeError, ValueError):
+            return {}
+        if not isinstance(stored, dict):
+            return {}
+        return {project: sorted(p for p in providers if p in JEV_KEYS) for project, providers in stored.items()
+                if isinstance(project, str) and SCOPE_ID.fullmatch(project) and isinstance(providers, list)}
+
+    def gate_check_allowed(self, project, provider):
+        return provider in self.gate_check_permissions().get(project, [])
+
+    def set_gate_check_allowed(self, project, provider, allowed):
+        """Povolí nebo zakáže kontrolu bran pro (projekt, poskytovatel); volá jen člověk (router)."""
+        if not isinstance(project, str) or not SCOPE_ID.fullmatch(project):
+            raise ValueError("Projekt musí být krátký identifikátor.")
+        if provider not in JEV_KEYS:
+            raise ValueError("Poskytovatel Jev musí být " + " nebo ".join(JEV_KEYS) + ".")
+        if type(allowed) is not bool:
+            raise ValueError("Povolení musí být true/false.")
+        with self.canvas.registry_lock:
+            permissions = self.gate_check_permissions()
+            current = set(permissions.get(project, []))
+            current = current | {provider} if allowed else current - {provider}
+            if current:
+                permissions[project] = sorted(current)
+            else:
+                permissions.pop(project, None)
+            with self.canvas.db:
+                self.canvas.db.execute("INSERT OR REPLACE INTO app_settings VALUES(?,?)",
+                                       (GATE_CHECK_SETTING, json.dumps(permissions, sort_keys=True)))
+        return sorted(current)
 
 
 class _EnvToggle:

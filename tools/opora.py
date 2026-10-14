@@ -66,6 +66,8 @@ def resolve(config: dict, profile: str | None = None, **overrides) -> dict:
         "frontend": str(build.get("frontend", "auto")),
         "build_command": str(build.get("command", "npm run build")),
         "integrations": {k: str(v) for k, v in config.get("integrations", {}).items() if v},
+        # Poskytovatel Jev (docs/schranka-neurony.md §7); platnost a varování hlídá backend (typesafe_client).
+        "jev_provider": str(config.get("jev", {}).get("provider", "typesafe")),
         "profile": profile or "app",
     }
 
@@ -109,6 +111,7 @@ def port_free(host: str, port: int) -> bool:
 def apply_environment(settings: dict, environ=os.environ) -> list[str]:
     environ["OPORA_CANVAS_PORT"] = str(settings["port"])
     environ["OPORA_CANVAS_DATA"] = settings["data"]
+    environ["OPORA_JEV_PROVIDER"] = settings["jev_provider"]
     applied = []
     for key, value in settings["integrations"].items():
         name = ENV_BY_KEY.get(key)
@@ -141,7 +144,7 @@ def main(argv=None) -> int:
 
     print(f"[opora] profil: {settings['profile']} | {url} | data: {data}")
     if args.check:
-        for key in ("frontend", "build_command", "open_browser", "integrations"):
+        for key in ("frontend", "build_command", "open_browser", "integrations", "jev_provider"):
             print(f"[opora] {key}: {settings[key]}")
         return 0
     if not port_free(settings["host"], settings["port"]):
