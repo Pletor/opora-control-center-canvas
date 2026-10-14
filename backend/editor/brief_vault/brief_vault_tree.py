@@ -8,10 +8,12 @@ Strom se skládá bez rekurze a vnoření končí na `MAX_DEPTH` (hlubší věte
 `effectiveDiscipline` = disciplína nejbližšího předka včetně sebe (`effective_disciplines`); filtr
 (`tree_of(discipline=…)`) ponechá fragmenty dané disciplíny a jejich cestu ke kořeni, aby strom zůstal souvislý.
 `effectiveTrack` je odvozený alias do K5, pak smazat (kreslení → `ux`, jinak `logic`, nezařazené → null).
+Brány cyklu (`gates` jen booleany + `predictionError`, `gateStep`, `gatesStale`) skládá `brief_vault_gate_rules`.
 """
 
 from backend.editor.brief_vault.brief_vault_details import details_summary
 from backend.editor.brief_vault.brief_vault_disciplines import track_from_discipline
+from backend.editor.brief_vault.brief_vault_gate_rules import detail, gate_state, summary
 from backend.editor.brief_vault.brief_vault_model import MAX_DEPTH, effective_disciplines, public
 
 STATUSES = ("changed", "inserted", "research", "mvp", "proposed", "saved")
@@ -146,7 +148,8 @@ def tree_of(rows, state, scope=None, text_revisions=None, details=None, feedback
                 coverage[key] += value
         # Pod stropem hloubky už se nevnořuje (JSON i UI zůstanou mělké); počet zůstane vidět.
         hidden = sum(1 + kid["hidden"] for kid in kids) if depth >= MAX_DEPTH else 0
-        return {**public(row), **effective_fields(disciplines, fragment_id), "status": status, "inserted": bool(cards),
+        return {**public(row), **effective_fields(disciplines, fragment_id),
+                **summary(gate_state(row, disciplines.get(fragment_id))), "status": status, "inserted": bool(cards),
                 "cards": cards, "textRevision": text_revision, "changedSinceInsert": status == "changed",
                 "ideas": sum(1 for idea in ideas.get(fragment_id, []) if idea["status"] == "open"),
                 "feedback": feedback.get(fragment_id, 0), **details_summary(details.get(fragment_id, {})),
@@ -189,13 +192,14 @@ def fragment_links(rows, state, fragment_id, text_revisions=None, details=None):
     disciplines = effective_disciplines(rows)
     root = path_of(rows, fragment_id)[0]["id"]
     latest_text = text_revisions.get(fragment_id, rows[fragment_id]["revision"])
+    gates = gate_state(rows[fragment_id], disciplines.get(fragment_id))
 
     def status(row):
         return status_of(row, children, refs, text_revisions.get(row["fragment_id"]), details)
 
     return {"path": path_of(rows, fragment_id), "scopeNodeId": rows[root]["scope_node_id"],
             "status": status(rows[fragment_id]), "textRevision": latest_text,
-            **effective_fields(disciplines, fragment_id),
+            **effective_fields(disciplines, fragment_id), **summary(gates), "gateDetail": detail(gates),
             "children": [{**public(row), **effective_fields(disciplines, row["fragment_id"]), "status": status(row), **details_summary(details.get(row["fragment_id"], {}))}
                          for row in children.get(fragment_id, [])],
             "cards": [{**ref, "changedSinceInsert": ref["revision"] < latest_text} for ref in refs.get(fragment_id, [])],

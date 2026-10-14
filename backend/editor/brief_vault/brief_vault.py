@@ -16,6 +16,7 @@ from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault import brief_vault_develop as develop
+from backend.editor.brief_vault import brief_vault_gates as gates
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_model import (
     COLUMNS,
@@ -55,11 +56,12 @@ OPS = {
     # Alias do K5, pak smazat: frontend zatím posílá `set-track` s `track` (ux → ux, logic → be).
     "set-track": ({"fragmentId", "expectedRevision", "track", "note"}, set()),
     **develop.OPS,
+    **gates.OPS,
 }
 HUMAN_OPS = {"set-mvp": "MVP potvrzuje nebo zamítá jen člověk; agent ho navrhuje přes propose-mvp.",
              "delete": "Fragment zadání maže jen člověk.",
              "restore": "Starou revizi fragmentu obnovuje jen člověk.",
-             **develop.HUMAN_OPS}
+             **develop.HUMAN_OPS, **gates.HUMAN_OPS}
 MAX_IDS = 500
 
 
@@ -154,7 +156,8 @@ class _Write:
         """Nový fragment; `discipline` None = dědí od rodiče (kořen ji dostane vždy, hlídá volající)."""
         siblings = self.children(parent) if parent is not None else []
         data = {"parent_id": parent, "scope_node_id": scope, "ord": max((row["ord"] for row in siblings), default=0) + 1,
-                "kind": kind, "title": title, "text": text, "stage": stage, "mvp": "none", "deleted": 0, "discipline": discipline}
+                "kind": kind, "title": title, "text": text, "stage": stage, "mvp": "none", "deleted": 0, "discipline": discipline,
+                "gates": None}
         return self.insert(uuid.uuid4().hex, 1, data, note)
 
 
@@ -272,8 +275,9 @@ def _restore(w, payload, node_ids):
     if old is None or old["deleted"]:
         fail("obnovit lze jen existující nesmazanou revizi fragmentu.")
     note = f"Obnovena revize r{old['revision']}: {payload['note']}"
-    # Disciplína je zařazení, ne obsah: obnova vrátí text a metadata, disciplínu nechá aktuální (set-discipline).
-    data = {**data_of(old), "discipline": row["discipline"]}
+    # Disciplína je zařazení a brány jsou stav cyklu, ne obsah: obnova vrátí text a metadata, disciplínu a brány nechá
+    # aktuální (brány s jiným otiskem vstupů se pak hlásí jako zneplatněné, §9 bod 4).
+    data = {**data_of(old), "discipline": row["discipline"], "gates": row["gates"]}
     return {"fragment": public(w.insert(row["fragment_id"], row["revision"] + 1, data, note))}
 
 
@@ -289,7 +293,7 @@ def _set_discipline(w, payload, node_ids):
 
 HANDLERS = {"create": _create, "revise": _revise, "split": _split, "research": develop.research, "promote": _promote,
             "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore, "set-discipline": _set_discipline,
-            "set-track": _set_discipline, **develop.HANDLERS}
+            "set-track": _set_discipline, **develop.HANDLERS, **gates.HANDLERS}
 
 
 class BriefVault(VaultReader):

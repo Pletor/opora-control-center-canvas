@@ -188,7 +188,7 @@ def test_tree_of_1000_nodes_without_recursion(client):
     row = dict(db.execute("SELECT * FROM brief_fragment_revisions WHERE fragment_id=?", (first["id"],)).fetchone())
     parent = first["id"]
     for index in range(999):  # řetěz 1000 uzlů zapsaný mimo API (např. stará data nebo obnova verze)
-        db.execute("INSERT INTO brief_fragment_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL)",
+        db.execute("INSERT INTO brief_fragment_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,NULL)",
                    (row["project_id"], row["workspace_id"], f"deep{index}", 1, parent, None, 1, "brief", f"d{index}",
                     "x", "draft", "none", "", "t", "agent", 0, row["saved_at"]))
         parent = f"deep{index}"

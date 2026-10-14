@@ -9,8 +9,9 @@ from typing import NoReturn
 from backend.canvas.graph import valid_id
 from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_IDS, discipline_from_track
 
+# `gates` = JSON bran cyklu (docs/schranka-neurony.md §3, brief_vault_gate_rules.py), NULL = žádná brána.
 COLUMNS = ("parent_id", "scope_node_id", "ord", "kind", "title", "text", "stage", "mvp", "note", "by", "actor", "deleted",
-           "discipline")
+           "discipline", "gates")
 # `research` = ověření proveditelnosti, `question` = otázka K upřesnění; obojí je poznámka k fragmentu, ne kus zadání.
 KINDS = ("brief", "research", "question")
 STAGES = ("draft", "research", "ready")
@@ -23,7 +24,8 @@ MAX_DEPTH = 32
 # Revize, kterou obnova verze plátna zapíše fragmentu vzniklému až po verzi: měkce smazaný
 # a prázdný. Starší revize s doslovným textem v tabulce zůstávají.
 TOMBSTONE = {"parent_id": None, "scope_node_id": None, "ord": 0, "kind": "brief", "title": "", "text": "",
-             "stage": "draft", "mvp": "none", "note": "", "by": "", "actor": "", "deleted": 1, "discipline": None}
+             "stage": "draft", "mvp": "none", "note": "", "by": "", "actor": "", "deleted": 1, "discipline": None,
+             "gates": None}
 
 
 class BadRequest(ValueError):
@@ -68,6 +70,9 @@ def validate_record(data):
         fail("deleted musí být 0 nebo 1.")
     if data["discipline"] is not None and data["discipline"] not in DISCIPLINE_IDS:
         fail("discipline musí být id disciplíny nebo null.")
+    from backend.editor.brief_vault.brief_vault_gate_rules import stored_gates_valid
+    if not stored_gates_valid(data["gates"]):
+        fail("gates musí být null nebo JSON bran cyklu.")
     return data
 
 

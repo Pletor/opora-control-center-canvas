@@ -58,10 +58,32 @@ CREATE TABLE IF NOT EXISTS brief_fragment_revisions(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
     parent_id TEXT, scope_node_id TEXT, ord INTEGER NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
     text TEXT NOT NULL, stage TEXT NOT NULL, mvp TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL,
-    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL, track TEXT, discipline TEXT,
+    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL, track TEXT, discipline TEXT, gates TEXT,
     PRIMARY KEY(project_id, workspace_id, fragment_id, revision));
--- Sloupce track (historická stopa, kód ji už nečte ani nepíše) a discipline (docs/schranka-neurony.md §2,
--- NULL = dědí) starší databáze dostanou v ensure_brief_fragment_columns; tam je i backfill track → discipline.
+-- Sloupce track (historická stopa, kód ji už nečte ani nepíše), discipline (docs/schranka-neurony.md §2,
+-- NULL = dědí) a gates (§3, JSON bran cyklu, NULL = žádná) starší databáze dostanou v ensure_brief_fragment_columns;
+-- tam je i backfill track → discipline.
+-- backend/editor/brief_vault/brief_vault_gates.py: návrhy payloadu bran (§9 bod 9), jen přibývají; platí pro otisk vstupů
+CREATE TABLE IF NOT EXISTS brief_gate_proposals(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL, fragment_id TEXT NOT NULL,
+    fragment_revision INTEGER NOT NULL, gate TEXT NOT NULL, input_hash TEXT NOT NULL, payload TEXT NOT NULL,
+    note TEXT NOT NULL, by TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL, seq INTEGER NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+CREATE INDEX IF NOT EXISTS brief_gate_proposals_fragment
+    ON brief_gate_proposals(project_id, workspace_id, fragment_id, gate, seq);
+-- backend/editor/brief_vault/brief_vault_lessons.py: poučení z brány learned (§5, §9 bod 12); stav poučení jako revize
+-- (verze plátna je nese), lesson_id je otisk původu (fragment, cyklus) = unikátní původ
+CREATE TABLE IF NOT EXISTS brief_lessons(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, lesson_id TEXT NOT NULL, revision INTEGER NOT NULL,
+    fragment_id TEXT NOT NULL, cycle_revision INTEGER NOT NULL, discipline TEXT NOT NULL, kind TEXT NOT NULL,
+    text TEXT NOT NULL, weight REAL NOT NULL, created_at TEXT NOT NULL, confirmed_at TEXT NOT NULL,
+    dropped INTEGER NOT NULL, by TEXT NOT NULL, actor TEXT NOT NULL, saved_at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, lesson_id, revision));
+-- backend/editor/brief_vault/brief_vault_lessons.py: potvrzení a vyřazení poučení (append-only události)
+CREATE TABLE IF NOT EXISTS brief_lesson_events(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL, lesson_id TEXT NOT NULL,
+    kind TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
 -- backend/editor/brief_vault/brief_vault_details.py: výzkum, otázka a odkazy na rozhodnutí fragmentu (JSON, jen přibývají revize)
 CREATE TABLE IF NOT EXISTS brief_fragment_details(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
@@ -248,7 +270,7 @@ def ensure_canvas_version_columns(db):
 
 
 def ensure_brief_fragment_columns(db):
-    """Doplní historickou stopu a disciplínu fragmentu (docs/schranka-neurony.md §2 „Migrace“, §9 bod 5).
+    """Doplní historickou stopu, disciplínu a brány fragmentu (docs/schranka-neurony.md §2 „Migrace“, §3, §9 bod 5).
 
     Backfill je doplnění schématu, ne nová revize: jen řádky s `track IS NOT NULL AND discipline IS NULL`
     (`ux` → `ux`, `logic` → `be`). Nový kód `track` nepíše, takže záměrné NULL z `set-discipline` se
@@ -256,7 +278,7 @@ def ensure_brief_fragment_columns(db):
     columns = _columns(db, "brief_fragment_revisions")
     if not columns:
         return
-    for name in ("track", "discipline"):
+    for name in ("track", "discipline", "gates"):
         if name not in columns:
             add_column(db, "brief_fragment_revisions", name)
     db.execute("UPDATE brief_fragment_revisions SET discipline=CASE track WHEN 'ux' THEN 'ux' WHEN 'logic' THEN 'be' END"

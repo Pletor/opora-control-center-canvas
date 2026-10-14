@@ -13,18 +13,22 @@ STORES = {
     "documents": ("workspace_documents", ("path",), ("fields", "node_id", "source_version")),
     "briefFragments": ("brief_fragment_revisions", ("fragment_id",), ("parent_id", "scope_node_id", "ord", "kind", "title",
                                                                      "text", "stage", "mvp", "note", "by", "actor", "deleted",
-                                                                     "discipline")),
+                                                                     "discipline", "gates")),
     "briefDetails": ("brief_fragment_details", ("fragment_id",), ("fields",)),
     # Zamrazená kola karet (card_rounds.py); stav nese `nodes[].round`, záznamy kol tato část.
     "cardRounds": ("card_rounds", ("node_id", "round"), ("record",)),
+    # Poučení Schránky (brief_vault_lessons.py, docs/schranka-neurony.md §5, §9 bod 5): stav poučení jako revize.
+    "briefLessons": ("brief_lessons", ("lesson_id",), ("fragment_id", "cycle_revision", "discipline", "kind", "text", "weight",
+                                                       "created_at", "confirmed_at", "dropped", "by", "actor")),
 }
 # Části přidané až po verzích, které je neznají: starší snímek je čte jako prázdné a jejich
 # prázdný seznam nemění digest obsahu (stará verze projde kontrolou integrity a není „změněná“).
-LATER_STORES = ("briefFragments", "briefDetails", "cardRounds")
+LATER_STORES = ("briefFragments", "briefDetails", "cardRounds", "briefLessons")
 JSON_COLUMNS = {"fields", "scene", "sections", "record"}
 # Sloupce přidané do části až po verzích, které je neznají (hodnota „nic“). Starší snímek je při obnově
 # dostane s touto hodnotou a digest obsahu je s touto hodnotou vynechá, takže stará verze zůstane platná.
-LATER_COLUMNS = {"briefFragments": {"discipline": None}}
+# `gates` (brány cyklu, JSON text) mají starší snímky prázdné = NULL.
+LATER_COLUMNS = {"briefFragments": {"discipline": None, "gates": None}}
 # Sloupce, které část už neukládá (snímky z doby před disciplínami nesou `track`). Při obnově se převedou
 # (`with_later_stores`, stejně jako backfill DB: ux → ux, logic → be) a digest uloženého snímku je s výchozí
 # hodnotou vynechá jako dřív, takže integrita starých verzí platí dál.
@@ -52,6 +56,7 @@ def read_records(db, project, workspace):
 
 def empty_data(name):
     from backend.editor.agent_memory.agent_workspace import SECTIONS
+    from backend.editor.brief_vault.brief_vault_lessons import TOMBSTONE as LESSON_TOMBSTONE
     from backend.editor.brief_vault.brief_vault_model import TOMBSTONE
     from backend.editor.node.node_specs import EMPTY_FIELDS
     from backend.project.workspace.workspace_documents import FIELDS
@@ -63,6 +68,7 @@ def empty_data(name):
         "briefFragments": dict(TOMBSTONE),
         "briefDetails": {"fields": {}},
         "cardRounds": {"record": {}},
+        "briefLessons": dict(LESSON_TOMBSTONE),
     }[name]
 
 
@@ -130,6 +136,7 @@ def validate_records(records, project, workspace):
     from backend.editor.agent_memory.agent_workspace import validate_save
     from backend.editor.agent_memory.card_rounds import validate_record as validate_round_record
     from backend.editor.brief_vault.brief_vault_details import validate_details
+    from backend.editor.brief_vault.brief_vault_lessons import validate_lesson_record
     from backend.editor.brief_vault.brief_vault_model import validate_record
     from backend.editor.node.drawings import validate_scene
     from backend.editor.node.node_journal import valid_day
@@ -158,6 +165,8 @@ def validate_records(records, project, workspace):
                 validate_save({"project": project, "workspace": workspace, "nodeId": key[0], "expectedRevision": 0, "sections": data["sections"], "by": data["by"]})
             elif name == "briefFragments":
                 validate_record(data)
+            elif name == "briefLessons":
+                validate_lesson_record(data)
             elif name == "briefDetails":
                 validate_details(data["fields"])
             elif name == "cardRounds":

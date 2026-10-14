@@ -5,6 +5,7 @@ jedna operace `op`; `set-mvp`, `delete`, `restore` a `feedback` patří člověk
 člověka také (služba volá `require_human`: agent 403, neznámý původce 428). Chybný tvar požadavku
 (`BadRequest`, např. kořen bez disciplíny nebo neznámý filtr `discipline`) je 400; konflikt stavu zůstává 409.
 `GET /brief-vault/disciplines` vrací tabulku disciplín s počty živých fragmentů (docs/schranka-neurony.md §2).
+`GET /brief-vault/next` je nezávazná fronta bran cyklu a `GET /brief-vault/lessons` živá poučení (§3, §5, §9).
 """
 
 from fastapi import APIRouter, Request
@@ -12,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from backend.editor.brief_vault.brief_vault import BriefVault
 from backend.editor.brief_vault.brief_vault_model import BadRequest
+from backend.editor.brief_vault.brief_vault_next import lessons, next_work
 
 
 def _bad_request(call):
@@ -32,6 +34,14 @@ def create_brief_vault_router(service, desktop_state=None):
     @router.get("/brief-vault/disciplines")
     def brief_vault_disciplines(project: str, workspace: str):
         return vault.disciplines(project, workspace)
+
+    @router.get("/brief-vault/next")
+    def brief_vault_next(project: str, workspace: str, discipline: str | None = None):
+        return _bad_request(lambda: next_work(service, project, workspace, discipline))
+
+    @router.get("/brief-vault/lessons")
+    def brief_vault_lessons(project: str, workspace: str, discipline: str | None = None):
+        return _bad_request(lambda: lessons(service, project, workspace, discipline))
 
     @router.get("/brief-vault/fragment")
     def brief_vault_fragment(project: str, workspace: str, id: str, revision: int | None = None):
