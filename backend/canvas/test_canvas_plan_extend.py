@@ -1,13 +1,20 @@
 import copy
-import pytest
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
-from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed, send, snapshot
-from backend.canvas.test_canvas_plan import GRAPH, STATE
-from backend.canvas.canvas_service import CanvasService
 from backend.canvas.canvas_plan import apply_plan
+from backend.canvas.canvas_service import CanvasService
+from backend.canvas.test_canvas_plan import (
+    GRAPH,
+    ORIGIN,
+    SCOPE,
+    STATE,
+    seed,
+    send,
+    snapshot,
+)
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 
 
@@ -85,3 +92,31 @@ def test_failed_graph_write_rolls_back_existing_documents_and_state(tmp_path, mo
         assert service.db_for("draft").execute("SELECT COUNT(*) FROM node_text_revisions").fetchone()[0] == 0
     finally:
         service.close()
+
+
+def test_replace_blocks_swaps_card_blocks_unless_a_block_edge_starts_there(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        digest = seed(client)
+        revision = client.get("/api/desktop-v3/state", params=SCOPE).json()["revision"]
+        bad = {"node": "@n0", "expectedRevision": revision, "replaceBlocks": True, "spec": {"expectedRevision": 0, "fields": {}}}
+        assert send(client, digest, {"extend": [bad]}).status_code == 409  # replaceBlocks bez blocks
+        item = {"node": "@n0", "expectedRevision": revision, "replaceBlocks": True,
+                "blocks": [{"ref": "a", "title": "A"}, {"ref": "b", "title": "B", "condition": "hotovo"}]}
+        result = send(client, digest, {"extend": [item]})
+        assert result.status_code == 200, result.text
+        assert "Bloky nahradí u 1" in result.json()["summary"]
+        blocks = client.get("/api/desktop-v3/state", params=SCOPE).json()["state"]["nodes"]["n0"]["blocks"]
+        assert [(b["number"], b["title"]) for b in blocks] == [("1", "A"), ("2", "B")]
+        assert blocks[1]["state"]["condition"] == "hotovo"
+        # Vazba z bloku karty: nahrazení by ji nechalo viset, proto 409 a nic se nezapíše.
+        linked = {"extend": [{**extension(client), "spec": {"expectedRevision": 0, "fields": {"goal": "x"}}}],
+                  "edges": [{"from": "@n0", "to": "@s0", "port": "block", "block": "new-block", "blockPort": "yes"}]}
+        linked["extend"][0].pop("ports")
+        done = send(client, result.json()["digest"], linked)
+        assert done.status_code == 200, done.text
+        again = {"node": "@n0", "expectedRevision": client.get("/api/desktop-v3/state", params=SCOPE).json()["revision"],
+                 "replaceBlocks": True, "blocks": [{"ref": "c", "title": "C"}]}
+        before = snapshot(client, ["n0"])
+        refused = send(client, done.json()["digest"], {"extend": [again]})
+        assert refused.status_code == 409 and "vazba" in refused.json()["error"]
+        assert snapshot(client, ["n0"]) == before

@@ -144,8 +144,9 @@ def test_double_placed_off_keeps_cards_and_reinsert_needs_new_planned(client):
     assert "nové planned" in gate(client, off, "placed", expect=409)["error"]
     off = gate(client, off, "planned", value=False)["fragment"]
     again = gate(client, gate(client, off, "planned")["fragment"], "placed")
-    assert again["gates"]["placed"] is True and set(again["placement"]["refs"]) == {"f1"}  # oblast a sektor znovu použité
-    assert len(kinds(client)["area"]) == 1 and len(kinds(client)["sector"]) == 2 and len(kinds(client)["node"]) == 3
+    # Fragment už kartu má: znovu vložení ji aktualizuje (extend), nezakládá druhou (K11).
+    assert again["gates"]["placed"] is True and again["placement"]["refs"] == {}
+    assert len(kinds(client)["area"]) == 1 and len(kinds(client)["sector"]) == 2 and len(kinds(client)["node"]) == 2
 
 
 def test_canvas_plan_validates_brief_marks(client):
@@ -226,3 +227,35 @@ def test_failed_version_save_blocks_placed(client, monkeypatch, error, status):
     monkeypatch.undo()
     assert (view(client)["digest"], state(client)["revision"], len(stored(client, fragment["id"]))) == before
     assert kinds(client)["area"] == [] and versions(client) == []
+
+
+def test_second_round_placed_updates_the_same_card(client):
+    """K11: dvě kola `placed` = jedna karta; spec, bloky i fragmentRef z nového kola, otisk plánu nese update."""
+    fragment = walk(client, root(client), "placed")
+    [card_id] = [item["id"] for item in kinds(client)["node"] if item["id"] != "c1"]
+    first_ref = state(client)["state"]["nodes"][card_id]["fragmentRefs"][0]
+    fragment = gate(client, fragment, "verified", payload={"actual": {"tests": "fail", "criticRounds": 2,
+                                                                     "unexpected": False}})["fragment"]
+    fragment = gate(client, fragment, "synthesized", value=False)["fragment"]
+    research = post(client, op="research", fragmentId=fragment["id"], title="Doklady z repa", text="")["fragment"]
+    post(client, op="research-update", fragmentId=research["id"], expectedRevision=1, note="cesty k souborům",
+         approach="1. Uprav backend/import.py\n2. Doplň test_import.py", status="done")
+    done = "Import odmítne vadný řádek. Test to ověří."
+    synth = {"type": "SCHEMA", "done": done, "prediction": {"tests": "pass", "criticRounds": 1, "risk": "kódování"}}
+    fragment = gate(client, fragment, "synthesized", payload=synth)["fragment"]
+    fragment = gate(client, fragment, "decided", payload={"verdict": "yes", "reason": "Řeší výtku kritika."})["fragment"]
+    fragment = gate(client, fragment, "planned")["fragment"]
+    stored_plan = stored(client, fragment["id"])[-1][2]["planned"]["payload"]
+    assert stored_plan["plan"]["nodes"] == [] and stored_plan["plan"]["extend"][0]["node"] == "@" + card_id
+    assert stored_plan["hash"] == plan_hash(stored_plan["plan"]) and "Bloky nahradí u 1" in stored_plan["summary"]
+    again = gate(client, fragment, "placed")
+    assert again["placement"]["refs"] == {} and [item["id"] for item in kinds(client)["node"]] == ["c1", card_id]
+    current = state(client)["state"]["nodes"][card_id]
+    assert [block["title"] for block in current["blocks"]][:2] == ["Uprav backend/import.py", "Doplň test_import.py"]
+    assert current["blocks"][1]["state"]["condition"] == done and len(current["blocks"]) == 6
+    assert [block["number"] for block in current["blocks"]] == [str(n) for n in range(1, 7)]
+    ref = current["fragmentRefs"][0]
+    assert ref["fragmentId"] == fragment["id"] and ref["revision"] > first_ref["revision"] and len(current["fragmentRefs"]) == 1
+    spec = client.get("/api/node-spec", params={**SCOPE, "node": card_id})
+    assert spec.status_code == 200, spec.text
+    assert spec.json()["fields"]["goal"] == done and spec.json()["fields"]["acceptance"] == "SCHEMA: " + done

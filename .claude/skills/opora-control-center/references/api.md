@@ -175,27 +175,33 @@ poučení). Bránu N jde zapnout jen po 1…N−1 (jinak 400), CAS = 409. `decid
 `other` vrátí fragment k `synthesized`. Brána platí jen pro otisk názvu, textu a platné disciplíny: po `revise`
 nebo `set-discipline` (i na předkovi) je `gatesStale: true` a cyklus běží znovu. Odpověď `gate`:
 `{ok, op, fragment, gates: {<brána>: bool, predictionError}, gateStep, gatesStale, deadEnd, returnedTo?, lesson?, placement?}` (`placement` u `placed`: `{planId, refs, summary, digest, revision}`).
-Strom `vault` nese u fragmentu `gates`, `gateStep`, `gatesStale`, `deadEnd`. Detail GET `/api/brief-vault/fragment`
+Strom `vault` nese u fragmentu `gates`, `gateStep`, `gatesStale`, `deadEnd`, `round`, `exhausted` (kolo = 1 + počet
+vypnutí `synthesized` po `verified` s `tests: "fail"`; `exhausted` = kolo > 3, čeká na člověka). Detail GET `/api/brief-vault/fragment`
 navíc `gateDetail` (záznamy bran) a `proposals: {<brána>: {…návrh, by, actor, at, note, status: pending|rejected|used,
 rejection}}` = poslední návrh každé brány s payloadem pro aktuální otisk vstupů. Zamítnutý návrh se pro `gate` nikdy
 nepoužije a starší návrh neoživí: `/next` pak vrátí `needs: "proposal"`.
 
-Recept agenta: GET `/api/brief-vault/next?discipline=` → `{fragment: {id, title, effectiveDiscipline, revision},
-gate, needs: "proposal"|"confirm", proposal?, hint, lessons (≤3), blocked}` nebo `{fragment: null, blocked}`. Při
+Recept agenta: GET `/api/brief-vault/next?discipline=` → `{fragment: {id, title, effectiveDiscipline, revision, round,
+exhausted}, gate, needs: "proposal"|"confirm", proposal?, hint, lessons (≤3), blocked, blockedBy}` nebo
+`{fragment: null, blocked, blockedBy}`. Při
 `needs: "proposal"` pošli `propose`, pak `gate` s `value: true` bez payloadu; při `confirm` jen `gate`. Fronta je bez
 rezervace (souběžný zápis dostane 409, načti znovu); `planned` přijde jako `needs: "confirm"` (plán sestaví server);
-`blocked` = fragmenty čekající na návrh nebo na `placed` (zápis na plátno schvaluje člověk, fronta ho nevrací).
+`blocked` = součet `blockedBy: {proposal, confirm, exhausted, plan}`: čeká na návrh · na `placed` s platným plánem
+(schvaluje člověk) · vyčerpaný po 3 kolech (fronta ho nevrací) · na `placed`, ale plán zastaral (nové `planned`).
 Role navrhovatel / potvrzovatel a CLI `opora_cycle.py`: [cycle.md](cycle.md).
 
 **Plán struktury** (`docs/schranka-neurony.md` §4, §9 body 1–3): `gate` `planned` (`value: true`, bez payloadu) server
 sestaví z fragmentu oblast skupiny (značka `briefGroup` ve stavu uzlu) → sektor disciplíny (`briefDiscipline`) →
 kartu za list nebo za každé přímé dítě `brief` (`[task] …`, `draft`, `card.layer` podle disciplíny, bloky z podfragmentů,
-u logiky 4 závěrečné bloky, `fragmentRef`, `spec.goal` = `done` ze `synthesized`, `next` mezi sourozenci), ověří dryRun
+u logiky 4 závěrečné bloky, `fragmentRef`, `spec.goal` = `done` ze `synthesized`, `next` mezi sourozenci; název
+`[task] <fragment>: <první věta done>`, list bez dětí bere bloky z číslovaných kroků `approach` posledního hotového
+`research`). Kartu, kterou fragment ve vrstvě už má, nezakládá znovu: plán ji aktualizuje položkou `extend`
+(spec, `replaceBlocks`, `fragmentRef`; víc karet = 409 `duplicate-card`, uzavřená = 409 `card-closed`), ověří dryRun
 a uloží `{planId, generator, sourceRevisions, sourceHashes, scope, digest, plan, hash, summary}`. `gate` `placed` vloží
 právě uložený plán atomicky s revizí fragmentu; změněné plátno, zadání nebo značky = 409 „plán se změnil, znovu
 planned“ (nic se nezapíše). Vypnutí `placed` karty nemaže; znovu vložit jde až po novém `planned`. Zápis `placed`
 schvaluje člověk jako `/api/canvas-plan`. Nezařazený fragment nebo chybějící `synthesized` = 409 `{error, fragments:
-[{id, title, reason: "no-discipline"|"no-synthesized"|"not-live"}]}` (text `error` jmenuje první důvod, pole všechny).
+[{id, title, reason: "no-discipline"|"no-synthesized"|"not-live"|"duplicate-card"|"card-closed"}]}` (text `error` jmenuje první důvod, pole všechny).
 POST `/api/brief-vault/plan {project, workspace, fragmentIds}` je jen čtení (tlačítka Schránky): `{plan, summary, hash,
 skipped, digest}`; dávku pak zapíše `/api/canvas-plan`.
 

@@ -8,11 +8,17 @@ Pokrytí počítá listy druhu `brief` (research a question jsou poznámky k fra
 Strom se skládá bez rekurze a vnoření končí na `MAX_DEPTH` (hlubší větev = počet `hidden`).
 `effectiveDiscipline` = disciplína nejbližšího předka včetně sebe (`effective_disciplines`); filtr
 (`tree_of(discipline=…)`) ponechá fragmenty dané disciplíny a jejich cestu ke kořeni, aby strom zůstal souvislý.
-Brány cyklu (`gates` jen booleany + `predictionError`, `gateStep`, `gatesStale`) skládá `brief_vault_gate_rules`.
+Brány cyklu (`gates` jen booleany + `predictionError`, `gateStep`, `gatesStale`) a kolo (`round`, `exhausted`)
+skládá `brief_vault_gate_rules`.
 """
 
 from backend.editor.brief_vault.brief_vault_details import details_summary
-from backend.editor.brief_vault.brief_vault_gate_rules import detail, gate_state, summary
+from backend.editor.brief_vault.brief_vault_gate_rules import (
+    detail,
+    gate_state,
+    round_fields,
+    summary,
+)
 from backend.editor.brief_vault.brief_vault_model import (
     MAX_DEPTH,
     effective_disciplines,
@@ -129,8 +135,9 @@ def _discipline_kept(rows, disciplines, wanted):
     return kept
 
 
-def tree_of(rows, state, scope=None, text_revisions=None, details=None, feedback=None, discipline=None, legacy=None):
-    """Stromy kořenů rozsahu; `details` = {id: fields}, `feedback` = {id: počet}.
+def tree_of(rows, state, scope=None, text_revisions=None, details=None, feedback=None, discipline=None, legacy=None,
+            rounds=None):
+    """Stromy kořenů rozsahu; `details` = {id: fields}, `feedback` = {id: počet}, `rounds` = {id: kolo}.
 
     `discipline` (id | `none` = nezařazené) ponechá fragmenty dané platné disciplíny a jejich cestu ke kořeni.
     Filtr i pokrytí běží nad úplnými řádky (i pod stropem hloubky); strop ořízne až výstup. Uzel jiné disciplíny,
@@ -161,7 +168,7 @@ def tree_of(rows, state, scope=None, text_revisions=None, details=None, feedback
         # Pod stropem hloubky už se nevnořuje (JSON i UI zůstanou mělké); počet zůstane vidět.
         hidden = sum(1 + kid["hidden"] for kid in kids) if depth >= MAX_DEPTH else 0
         return {**public(row), **effective_fields(disciplines, fragment_id),
-                **summary(gate_state(row, disciplines.get(fragment_id))), "status": status, "inserted": bool(cards),
+                **summary(gate_state(row, disciplines.get(fragment_id))), **round_fields(rounds, fragment_id), "status": status, "inserted": bool(cards),
                 "cards": cards, "textRevision": text_revision, "changedSinceInsert": status == "changed",
                 "ideas": sum(1 for idea in ideas.get(fragment_id, []) if idea["status"] == "open"),
                 "feedback": feedback.get(fragment_id, 0), **details_summary(details.get(fragment_id, {})),
@@ -198,7 +205,7 @@ def path_of(rows, fragment_id):
     return list(reversed(path))
 
 
-def fragment_links(rows, state, fragment_id, text_revisions=None, details=None, legacy=None):
+def fragment_links(rows, state, fragment_id, text_revisions=None, details=None, legacy=None, rounds=None):
     refs, children = refs_by_fragment(state), _children(rows)
     text_revisions, details = text_revisions or {}, details or {}
     disciplines = effective_disciplines(rows)
@@ -211,7 +218,8 @@ def fragment_links(rows, state, fragment_id, text_revisions=None, details=None, 
 
     return {"path": path_of(rows, fragment_id), "scopeNodeId": rows[root]["scope_node_id"],
             "status": status(rows[fragment_id]), "textRevision": latest_text,
-            **effective_fields(disciplines, fragment_id), **summary(gates), "gateDetail": detail(gates),
+            **effective_fields(disciplines, fragment_id), **summary(gates), **round_fields(rounds, fragment_id),
+            "gateDetail": detail(gates),
             "children": [{**public(row), **effective_fields(disciplines, row["fragment_id"]), "status": status(row), **details_summary(details.get(row["fragment_id"], {}))}
                          for row in children.get(fragment_id, [])],
             "cards": [{**ref, "changedSinceInsert": ref_changed(ref, rows[fragment_id], latest_text, legacy)}

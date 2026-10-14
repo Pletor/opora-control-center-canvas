@@ -1,0 +1,68 @@
+"""Karta, kterou fragment už má: žádné duplicitní karty mezi koly (docs/schranka-neurony.md §4, §11; K11).
+
+Živá karta fragmentu U ve vrstvě plánu = uzel `node` na plátně uvnitř vrstvy (vrstva `None` = celé plátno), jehož
+**první** odkaz `fragmentRefs` ve stavu Desktop v3 míří na U (karta vznikla za U z dřívějšího `placed`; další odkazy
+jsou podfragmenty). Takovou kartu plán nezakládá znovu: místo položky `nodes` vrátí položku `extend` dávky
+`/api/canvas-plan`, tedy existující cestu zápisu specu, bloků a odkazů se stávající validací (`node_specs`,
+`validate_state`, `resolve_plan_refs`): `spec` (goal, acceptance z nového `synthesized`) s revizí specu, bloky
+přepočítané stejně jako u nové karty (`replaceBlocks`), `fragmentRef` (přepíše se na poslední revizi a otisk obsahu)
+a `expectedRevision` = revize stavu. Víc takových karet ve vrstvě = 409 (`duplicate-card`); uzavřená karta = 409
+(`card-closed`), protože uzavřenou kartu dávka měnit nesmí: nejdřív ji otevřete.
+"""
+
+from backend.editor.brief_vault.brief_vault_model import blocked
+from backend.editor.brief_vault.brief_vault_plan_cards import approach_steps
+
+
+def _inside(by_id, node, layer):
+    cursor, seen = node.get("parentId"), set()
+    while cursor is not None and cursor not in seen:
+        if cursor == layer:
+            return True
+        seen.add(cursor)
+        cursor = (by_id.get(cursor) or {}).get("parentId")
+    return False
+
+
+def live_cards(graph, state, layer):
+    """{fragmentId: [id karty]} karet vrstvy podle jejich prvního odkazu do schránky."""
+    by_id = {node["id"]: node for node in graph["nodes"]}
+    result = {}
+    for node in graph["nodes"]:
+        refs = (state.get("nodes", {}).get(node["id"]) or {}).get("fragmentRefs") or []
+        if node["kind"] != "node" or not refs or (layer is not None and not _inside(by_id, node, layer)):
+            continue
+        result.setdefault(refs[0]["fragmentId"], []).append(node["id"])
+    return result
+
+
+def existing_card(cards, row, state):
+    """Id karty, kterou plán aktualizuje, nebo None; víc karet nebo uzavřená karta = 409 s výčtem."""
+    ids = cards.get(row["fragment_id"], [])
+    if len(ids) > 1:
+        blocked(f"fragment „{row['title']}“ má ve vrstvě víc karet ({', '.join(ids)}); nechte jednu, pak plánujte znovu.",
+                [{"id": row["fragment_id"], "title": row["title"], "reason": "duplicate-card"}])
+    if not ids:
+        return None
+    if ((state.get("nodes", {}).get(ids[0]) or {}).get("done") or {}).get("confirmed"):
+        blocked(f"karta {ids[0]} fragmentu „{row['title']}“ je uzavřená; nejdřív ji otevřete, pak plánujte znovu.",
+                [{"id": row["fragment_id"], "title": row["title"], "reason": "card-closed"}])
+    return ids[0]
+
+
+def research_steps(rows, fragment_id, details):
+    """Kroky `approach` posledního hotového výzkumu fragmentu (`research` se `status: done`, poslední podle `ord`)."""
+    done = [row for row in rows.values() if row["parent_id"] == fragment_id and row["kind"] == "research"
+            and not row["deleted"]
+            and ((details.get(row["fragment_id"]) or {}).get("research") or {}).get("status") == "done"]
+    if not done:
+        return []
+    last = max(done, key=lambda row: (row["ord"], row["fragment_id"]))
+    return approach_steps(details[last["fragment_id"]]["research"]["approach"])
+
+
+def update_of(card, node_id, revision, spec_revision):
+    """Položka `extend` dávky, která existující kartu převede na tvar `card` (spec, bloky, odkazy)."""
+    return {"node": "@" + node_id, "expectedRevision": revision,
+            "spec": {"expectedRevision": spec_revision, "fields": card["spec"]},
+            "fragmentRef": card["fragmentRef"], "blocks": card["blocks"], "replaceBlocks": True}

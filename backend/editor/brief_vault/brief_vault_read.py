@@ -18,6 +18,7 @@ from backend.editor.brief_vault.brief_vault_model import (
     bad_request,
     effective_disciplines,
     fail,
+    gate_rounds,
     history_rows,
     latest_rows,
     legacy_hashes,
@@ -77,7 +78,7 @@ class VaultReader:
         state = self.state.current(project, workspace)["state"]
         return {"db": db, "view": view, "rows": latest_rows(db, project, workspace), "state": state,
                 "legacy": legacy_hashes(db, project, workspace, legacy_pairs(state)),
-                "texts": text_revisions(db, project, workspace),
+                "texts": text_revisions(db, project, workspace), "rounds": gate_rounds(db, project, workspace),
                 "details": {key: value["fields"] for key, value in latest_details(db, project, workspace).items()}}
 
     def tree(self, project, workspace, scope=None, discipline=None):
@@ -94,7 +95,7 @@ class VaultReader:
                 return {"readOnly": True, "roots": [], "feedback": []}
             db = read["db"]
             roots = tree_of(read["rows"], read["state"], scope, read["texts"], read["details"],
-                            _feedback_counts(db, project, workspace), discipline, read["legacy"])
+                            _feedback_counts(db, project, workspace), discipline, read["legacy"], read["rounds"])
             ids = set(_ids_of(roots))
             feedback = [item for item in feedback_rows(db, project, workspace) if item["fragmentId"] in ids]
             return {"readOnly": False, "roots": roots, "feedback": feedback}
@@ -133,7 +134,8 @@ class VaultReader:
                     "history": [public(row) for row in history], "details": details,
                     "decisions": decisions_of(read["state"], details.get("decisions", [])),
                     "feedback": feedback_rows(db, project, workspace, [fragment_id]), "proposals": proposals,
-                    **fragment_links(rows, read["state"], fragment_id, read["texts"], read["details"], read["legacy"])}
+                    **fragment_links(rows, read["state"], fragment_id, read["texts"], read["details"], read["legacy"],
+                                    read["rounds"])}
 
     def history(self, project, workspace, scope=None, limit=MAX_HISTORY):
         """Poslední revize fragmentů rozsahu napříč schránkou (bez textů), nejnovější první."""

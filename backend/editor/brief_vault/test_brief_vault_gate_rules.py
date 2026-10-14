@@ -5,11 +5,14 @@ import pytest
 
 from backend.editor.brief_vault.brief_vault_gate_rules import (
     GATES,
+    MAX_ROUNDS,
     MICROSTEP_TYPES,
     encode_gates,
     gate_state,
     input_hash,
     prediction_error,
+    round_fields,
+    round_of,
     stored_gates_valid,
     summary,
     validate_payload,
@@ -95,3 +98,27 @@ def test_stored_gates_shape():
     assert not stored_gates_valid(json.dumps({"nope": _entry(True, digest)}))
     assert not stored_gates_valid(json.dumps({"scoped": {"value": True}}))
     assert list(json.loads(encode_gates({"weighed": _entry(True, digest), "scoped": _entry(True, digest)}))) == ["scoped", "weighed"]
+
+
+def _gates(**entries):
+    return encode_gates({name: {"value": value, "payload": payload, "by": "t", "actor": "agent", "at": "T",
+                                "inputHash": "h", "revision": revision}
+                         for name, (value, payload, revision) in entries.items()})
+
+
+def test_round_counts_new_synthesized_after_failed_verified():
+    fail = {"actual": {"tests": "fail", "criticRounds": 1, "unexpected": False}, "predictionError": 0.3}
+    passed = {"actual": {"tests": "pass", "criticRounds": 1, "unexpected": False}, "predictionError": 0.0}
+    assert round_of([]) == 1 and round_of([None, "poškozené"]) == 1
+    verified_fail = _gates(synthesized=(True, {}, 3), verified=(True, fail, 7))
+    assert round_of([verified_fail, verified_fail]) == 1  # neúspěch sám kolo nezvedne, převzatý záznam jednou
+    reset = _gates(synthesized=(False, None, 8), verified=(False, None, 8))
+    assert round_of([verified_fail, reset, reset]) == 2
+    other = _gates(synthesized=(False, None, 4), decided=(False, {"verdict": "other"}, 4))
+    assert round_of([other]) == 1  # decided: other bez neúspěšného verified nové kolo nepočítá
+    verified_pass = _gates(synthesized=(True, {}, 9), verified=(True, passed, 12))
+    assert round_of([verified_fail, reset, verified_pass, _gates(synthesized=(False, None, 13))]) == 2
+    again = _gates(synthesized=(True, {}, 9), verified=(True, fail, 12))
+    assert round_of([verified_fail, reset, again, _gates(synthesized=(False, None, 13))]) == 3
+    assert round_fields({"f": 4}, "f") == {"round": 4, "exhausted": True} and MAX_ROUNDS == 3
+    assert round_fields({}, "f") == {"round": 1, "exhausted": False}

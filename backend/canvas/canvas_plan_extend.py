@@ -1,9 +1,13 @@
-"""Append content to existing cards; document replacement requires explicit revisions."""
+"""Append content to existing cards; document replacement requires explicit revisions.
+
+`replaceBlocks: true` (with `blocks`) replaces the card's blocks instead of appending; it is refused while
+a `block` edge still starts from one of the current blocks (the edge would point at nothing)."""
 
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref
 from backend.canvas.canvas_plan_links import PORT_FIELDS, blocks_of
 
-EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef"}
+EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef",
+                 "replaceBlocks"}
 
 
 def extend_cards(built, extensions, existing):
@@ -53,6 +57,15 @@ def extend_cards(built, extensions, existing):
         if "fragmentRef" in item:
             built.fragment_refs[node_id] = item["fragmentRef"]
         blocks = workflow.setdefault("blocks", [])
+        if "replaceBlocks" in item:
+            if type(item["replaceBlocks"]) is not bool or "blocks" not in item:
+                fail(label, "replaceBlocks je true/false a vyžaduje blocks.")
+            if item["replaceBlocks"]:
+                current = {block["id"] for block in blocks}
+                if any(edge.get("source") == node_id and edge.get("sourceBlockId") in current
+                       for edge in built.graph["edges"]):
+                    fail(label, "replaceBlocks: z bloku karty vede vazba; nejdřív ji odpojte.")
+                blocks.clear()
         offset = max((int(block["number"].split(".")[0]) for block in blocks), default=0)
         added = blocks_of(built, target, node_id, items_of(item.get("blocks", []), label, "blocks"))
         for position, block in enumerate(added, offset + 1):

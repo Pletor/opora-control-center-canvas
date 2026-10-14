@@ -11,7 +11,12 @@ from backend.editor.brief_vault.brief_vault_plan import (
     build_plan,
     plan_hash,
 )
-from backend.editor.brief_vault.brief_vault_plan_cards import LOGIC_BLOCKS
+from backend.editor.brief_vault.brief_vault_plan_cards import (
+    LOGIC_BLOCKS,
+    MAX_STEPS,
+    approach_steps,
+    first_sentence,
+)
 
 SYNTH = {"type": "SCHEMA", "done": "Tabulka existuje a test projde.",
          "prediction": {"tests": "pass", "criticRounds": 1, "risk": "migrace"}}
@@ -46,8 +51,8 @@ class Vault:
             fid = self.rows[fid]["parent_id"]
         return None
 
-    def plan(self, ids, graph=GRAPH, state=EMPTY, texts=None):
-        return build_plan(self.rows, graph, state, texts or {}, ids)
+    def plan(self, ids, graph=GRAPH, state=EMPTY, texts=None, details=None, revision=0, spec_revision=None):
+        return build_plan(self.rows, graph, state, texts or {}, ids, details, revision, spec_revision)
 
 
 def chunks():
@@ -73,7 +78,7 @@ def test_area_sector_and_one_card_per_direct_child():
                            "briefGroup": "logika"}
     assert nodes["s1"] == {"ref": "s1", "kind": "sector", "parent": "a1", "name": "Backend", "briefDiscipline": "be"}
     card = nodes["f1"]
-    assert card["kind"] == "node" and card["parent"] == "s1" and card["name"] == "[task] 3.12 Chunks"
+    assert card["kind"] == "node" and card["parent"] == "s1" and card["name"] == "[task] 3.12 Chunks: " + SYNTH["done"]
     assert card["card"] == {"status": "draft", "layer": "backend"}
     assert card["fragmentRef"] == [{"fragmentId": "a"}, {"fragmentId": "a1"}, {"fragmentId": "a2"}]
     assert [block["title"] for block in card["blocks"]] == ["3.12.1 Chunk id", "3.12.2 Overlap",
@@ -152,7 +157,7 @@ def test_selection_is_normalized_and_ordered_by_tree():
     first = vault.plan(["z", "a1", "r"])
     assert first == vault.plan(["r", "z"])
     names = [node["name"] for node in first["plan"]["nodes"] if node["kind"] == "node"]
-    assert names == ["[task] 3.12 Chunks", "[task] 3.15 Metadata", "[task] Druhé zadání"]
+    assert names == [f"[task] {title}: {SYNTH['done']}" for title in ("3.12 Chunks", "3.15 Metadata", "Druhé zadání")]
     with pytest.raises(ValueError, match="fragmentIds"):
         vault.plan([])
     with pytest.raises(Blocked, match="živé fragmenty druhu brief") as raised:
@@ -206,3 +211,83 @@ def test_batch_cap_reports_skipped_cards_and_hash_is_stable():
     assert plan_hash(vault.plan(["r"], texts=texts)["plan"]) == plan_hash(built["plan"])
     vault.rows["k0"]["title"] = "jiný"
     assert plan_hash(vault.plan(["r"])["plan"]) != plan_hash(built["plan"])
+
+
+def test_approach_steps_and_first_sentence():
+    approach = "Úvod k postupu.\n1. Přidej tabulku\n   s indexem.\n2) Napiš migraci\n- Otestuj návrat\n\n* Zapiš doklad"
+    assert approach_steps(approach) == ["Přidej tabulku s indexem.", "Napiš migraci", "Otestuj návrat", "Zapiš doklad"]
+    assert approach_steps("Bez seznamu\n\n druhý řádek ") == ["Bez seznamu", "druhý řádek"]
+    assert approach_steps("\n".join(f"{n}. krok {n}" for n in range(1, 60)))[-1] == f"krok {MAX_STEPS}"
+    assert first_sentence("Tabulka existuje. Test projde.") == "Tabulka existuje."
+    assert first_sentence("v1.2 vznikne? Ano.") == "v1.2 vznikne?"
+    long = first_sentence("slovo " * 40)
+    assert len(long) == 80 and long.endswith("…")
+
+
+def research_vault(status="done"):
+    vault = Vault()
+    vault.add("x", "Uložení košíku", discipline="be", synth=True)
+    vault.add("r1", "Starší výzkum", parent="x", ord=1, kind="research")
+    vault.add("r2", "Doklady z repa", parent="x", ord=2, kind="research")
+    vault.add("r3", "Rozpracovaný", parent="x", ord=3, kind="research")
+    details = {"r1": {"research": {"status": "done", "approach": "1. starý krok"}},
+               "r2": {"research": {"status": status, "approach": "Postup:\n1. Přidej tabulku carts\n2. Napiš endpoint"}},
+               "r3": {"research": {"status": "running", "approach": "1. nehotové"}}}
+    return vault, details
+
+
+def test_leaf_card_blocks_come_from_last_done_research_approach():
+    vault, details = research_vault()
+    card = by_ref(vault.plan(["x"], details=details)["plan"])["f1"]
+    assert card["name"] == "[task] Uložení košíku: Tabulka existuje a test projde."
+    assert [(block["title"], block["condition"]) for block in card["blocks"][:2]] == [
+        ("Přidej tabulku carts", "Krok proveden: Přidej tabulku carts"), ("Napiš endpoint", SYNTH["done"])]
+    assert [block["title"] for block in card["blocks"][2:]] == [block["title"] for block in LOGIC_BLOCKS]
+    assert [block["ref"] for block in card["blocks"]] == [f"b{n}" for n in range(1, 7)]
+    vault, details = research_vault(status="running")  # poslední hotový je pak r1
+    assert by_ref(vault.plan(["x"], details=details)["plan"])["f1"]["blocks"][0]["title"] == "starý krok"
+    assert len(by_ref(vault.plan(["x"])["plan"])["f1"]["blocks"]) == 4  # bez výzkumu jen závěrečné bloky
+
+
+def card_graph(*cards):
+    return {"nodes": [*GRAPH["nodes"], {"id": "s2", "kind": "sector", "parentId": None},
+                      *({"id": node_id, "kind": "node", "parentId": parent} for node_id, parent in cards)], "edges": []}
+
+
+def refs_state(refs, closed=()):
+    return {"nodes": {node_id: {"fragmentRefs": [{"fragmentId": fid, "revision": 1}],
+                                **({"done": {"confirmed": True}} if node_id in closed else {})}
+                      for node_id, fid in refs.items()}}
+
+
+def test_card_the_fragment_already_has_is_updated_not_duplicated():
+    vault, details = research_vault()
+    graph, state = card_graph(("K", "s1")), refs_state({"K": "x"})
+    built = vault.plan(["x"], graph, state, details=details, revision=5, spec_revision=lambda node_id: {"K": 2}[node_id])
+    fresh = by_ref(vault.plan(["x"], details=details)["plan"])["f1"]
+    assert built["plan"]["nodes"] == [] and built["plan"]["edges"] == []
+    assert built["plan"]["extend"] == [{"node": "@K", "expectedRevision": 5,
+                                        "spec": {"expectedRevision": 2, "fields": fresh["spec"]},
+                                        "fragmentRef": fresh["fragmentRef"], "blocks": fresh["blocks"],
+                                        "replaceBlocks": True}]
+    assert plan_hash(built["plan"]) != plan_hash(vault.plan(["x"], graph, state, details=details, revision=6)["plan"])
+    # Karta jiné vrstvy (mimo s1) ani karta, kde fragment není prvním odkazem, se neaktualizuje.
+    assert by_ref(vault.plan(["x"], card_graph(("K", "s2")), state)["plan"])["f1"]["kind"] == "node"
+    other = {"nodes": {"K": {"fragmentRefs": [{"fragmentId": "r", "revision": 1}, {"fragmentId": "x", "revision": 1}]}}}
+    assert "extend" not in vault.plan(["x"], graph, other)["plan"]
+    with pytest.raises(Blocked, match="víc karet") as raised:
+        vault.plan(["x"], card_graph(("K", "s1"), ("L", "s1")), refs_state({"K": "x", "L": "x"}))
+    assert raised.value.fragments[0]["reason"] == "duplicate-card"
+    with pytest.raises(Blocked, match="uzavřená") as raised:
+        vault.plan(["x"], graph, refs_state({"K": "x"}, closed={"K"}))
+    assert raised.value.fragments[0]["reason"] == "card-closed"
+
+
+def test_siblings_link_only_when_one_card_is_new():
+    vault = chunks()
+    graph, state = card_graph(("K", "s1")), refs_state({"K": "a"})
+    built = vault.plan(["r"], graph, state)
+    assert [item["node"] for item in built["plan"]["extend"]] == ["@K"]
+    assert built["plan"]["edges"] == [{"from": "@K", "to": "f1", "port": "next"}]
+    both = vault.plan(["r"], card_graph(("K", "s1"), ("L", "s1")), refs_state({"K": "a", "L": "b"}))
+    assert both["plan"]["edges"] == [] and both["plan"]["nodes"] == []

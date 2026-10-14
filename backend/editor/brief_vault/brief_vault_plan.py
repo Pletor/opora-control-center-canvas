@@ -5,15 +5,18 @@ ve skupině G ve vrstvě, kde visí kořen jeho schránky (sektor = dovnitř sek
 kořen): oblast G (značka `briefGroup` ve stavu uzlu, jinak nová) → sektor D v oblasti (značka `briefDiscipline`,
 jinak nový) → karta za F (list) nebo za každého přímého potomka F druhu `brief` (tvar karty
 `brief_vault_plan_cards`). Každá karta jde do sektoru své disciplíny (dítě s přepsanou disciplínou do svého).
-Sourozenci z jednoho F se spojí vazbou `next`; vazbu na `fe` plán nezakládá.
+Sourozenci z jednoho F se spojí vazbou `next`; vazbu na `fe` plán nezakládá. Karta, kterou fragment ve vrstvě
+už má (první `fragmentRef` míří na něj), se nezakládá znovu: plán ji aktualizuje položkou `extend`
+(`brief_vault_plan_update`), vazbu `next` mezi dvěma existujícími kartami nepřidává.
 Sektor se hledá v oblasti skupiny podle jejího id (členství v oblasti je geometrické, `areas.area_of`);
 označený sektor mimo oblast své skupiny je 409 (druhý sektor by byl duplicitní značkou).
 
 Výběr se normalizuje (potomci vybraných předků vypadnou) a řadí v pořadí stromu. Disciplína je pro strukturu
 povinná a `done` bere karta z platné brány `synthesized` fragmentu F; chybí-li, 409 s výčtem v textu i strukturovaně
-(`fragments: [{id, title, reason}]`, reason `not-live | no-discipline | no-synthesized`). Duplicitní značka
+(`fragments: [{id, title, reason}]`, reason `not-live | no-discipline | no-synthesized | duplicate-card | card-closed`). Duplicitní značka
 v kontejneru je 409. Dávka má nejvýš 200 uzlů; co se nevejde, ohlásí `skipped`. Otisk plánu = sha256
-kanonického JSON (klíče seřazené, kolekce v pořadí generátoru, jen refy dávky a id existujících uzlů, bez časů).
+kanonického JSON (klíče seřazené, kolekce v pořadí generátoru, jen refy dávky a id existujících uzlů, bez časů;
+položky `extend` nesou i revizi stavu a specu karty, takže změna karty mezi `planned` a `placed` = nové `planned`).
 Nic nezapisuje: `dry_plan` dávku jen ověří přes `apply_plan` s `dryRun`.
 """
 
@@ -23,6 +26,7 @@ import math
 
 from backend.canvas.areas import area_of
 from backend.canvas.graph import valid_id
+from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_disciplines import (
     BY_ID,
     DISCIPLINES,
@@ -40,6 +44,12 @@ from backend.editor.brief_vault.brief_vault_model import (
     text_revisions,
 )
 from backend.editor.brief_vault.brief_vault_plan_cards import card_of
+from backend.editor.brief_vault.brief_vault_plan_update import (
+    existing_card,
+    live_cards,
+    research_steps,
+    update_of,
+)
 from backend.editor.brief_vault.brief_vault_tree import live_ids, path_of
 
 GENERATOR = 1
@@ -150,11 +160,15 @@ def _cycles(rows, fragment_ids):
     return cycles, disciplines, kids
 
 
-def build_plan(rows, graph, state, texts, fragment_ids):
-    """Dávka `{nodes, edges}` pro výběr fragmentů + `skipped`, zdroje a vrstvy; ValueError = 409."""
+def build_plan(rows, graph, state, texts, fragment_ids, details=None, revision=0, spec_revision=None):
+    """Dávka `{nodes, edges, extend?}` pro výběr fragmentů + `skipped`, zdroje a vrstvy; ValueError = 409.
+
+    `details` = {id: podrobnosti} (výzkum pro bloky karty), `revision` = revize stavu Desktop v3 a
+    `spec_revision(id)` = revize specu existující karty (obojí jen pro položky `extend`)."""
     cycles, disciplines, kids = _cycles(rows, fragment_ids)
+    details, spec_revision = details or {}, spec_revision or (lambda node_id: 0)
     marks = marked(graph, state)
-    nodes, edges, skipped, scopes = [], [], 0, []
+    nodes, edges, extend, skipped, scopes, cards = [], [], [], 0, [], {}
     areas, sectors, sources = {}, {}, {}
 
     def existing(key, layer, value):
@@ -181,12 +195,28 @@ def build_plan(rows, graph, state, texts, fragment_ids):
         layer = _layer(graph, rows[path_of(rows, fid)[0]["id"]]["scope_node_id"])
         if layer not in scopes:
             scopes.append(layer)
+            cards[layer] = live_cards(graph, state, layer)
         previous = None
         for row in (rows[fid], *units, *(kid for unit in units for kid in kids.get(unit["fragment_id"], []))):
             sources[row["fragment_id"]] = row
         for unit in units:
             uid = unit["fragment_id"]
             discipline = disciplines[uid]
+            unit_kids = kids.get(uid, [])
+            steps = [] if unit_kids else research_steps(rows, uid, details)
+            path = [item["title"] for item in path_of(rows, uid)]
+            current = existing_card(cards[layer], unit, state)
+            if current is not None:
+                if len(extend) >= MAX_PLAN_NODES:
+                    skipped, previous = skipped + 1, None
+                    continue
+                card = card_of("u", "@" + current, unit, unit_kids, path, discipline,
+                               texts.get(uid, unit["revision"]), synthesized, steps)
+                extend.append(update_of(card, current, revision, spec_revision(current)))
+                if previous is not None and not previous.startswith("@"):
+                    edges.append({"from": previous, "to": "@" + current, "port": "next"})
+                previous = "@" + current
+                continue
             group = group_of(discipline)
             # Nejdřív oblast skupiny, pak sektor disciplíny v ní (podle skutečného id oblasti, ne jen vrstvy).
             area = areas.get((layer, group)) or existing("briefGroup", layer, group)
@@ -208,13 +238,13 @@ def build_plan(rows, graph, state, texts, fragment_ids):
                     (layer, group if item["kind"] == "area" else discipline)] = item["ref"]
             nodes.extend(new)
             ref = f"f{len([n for n in nodes if n['kind'] == 'node']) + 1}"
-            path = [item["title"] for item in path_of(rows, uid)]
-            nodes.append(card_of(ref, sector, unit, kids.get(uid, []), path, discipline,
-                                 texts.get(uid, unit["revision"]), synthesized))
+            nodes.append(card_of(ref, sector, unit, unit_kids, path, discipline,
+                                 texts.get(uid, unit["revision"]), synthesized, steps))
             if previous is not None:
                 edges.append({"from": previous, "to": ref, "port": "next"})
             previous = ref
-    return {"plan": {"nodes": nodes, "edges": edges}, "skipped": skipped, "scopes": ["" if s is None else s for s in scopes],
+    plan = {"nodes": nodes, "edges": edges, **({"extend": extend} if extend else {})}
+    return {"plan": plan, "skipped": skipped, "scopes": ["" if s is None else s for s in scopes],
             "sourceRevisions": {fid: row["revision"] for fid, row in sources.items()},
             "sourceHashes": {fid: input_hash(row["title"], row["text"], disciplines.get(fid)) for fid, row in sources.items()}}
 
@@ -224,8 +254,11 @@ def read_plan(canvas, store, project, workspace, view, fragment_ids):
     with canvas.lock_for(project):
         db = canvas.db_for(project)
         rows, texts = latest_rows(db, project, workspace), text_revisions(db, project, workspace)
-        state = store.current(project, workspace)["state"]
-    return build_plan(rows, view["graph"], state, texts, fragment_ids)
+        current = store.current(project, workspace)
+        research = [fid for fid, row in rows.items() if row["kind"] == "research" and not row["deleted"]]
+        details = {fid: item["fields"] for fid, item in latest_details(db, project, workspace, research).items()}
+    return build_plan(rows, view["graph"], current["state"], texts, fragment_ids, details, current["revision"],
+                      lambda node_id: canvas.specs.read((project, workspace, node_id))["revision"])
 
 
 def dry_plan(canvas, store, project, workspace, fragment_ids, actor="system"):

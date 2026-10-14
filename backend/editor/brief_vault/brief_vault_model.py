@@ -212,3 +212,13 @@ def text_revisions(db, project, workspace, fragment_ids=None):
         params.extend(ids)
     return {row["fragment_id"]: row["revision"] for row in db.execute(query.format(only=only), params)}
 
+
+
+def gate_rounds(db, project, workspace):
+    """Kolo každého fragmentu prostoru s nějakou branou v historii, {id: kolo} (`round_of`, §11)."""
+    from backend.editor.brief_vault.brief_vault_gate_rules import round_of
+    history = {}
+    for row in db.execute("SELECT fragment_id, gates FROM brief_fragment_revisions WHERE project_id=? AND workspace_id=?"
+                          " AND gates IS NOT NULL ORDER BY fragment_id, revision", (project, workspace)):
+        history.setdefault(row["fragment_id"], []).append(row["gates"])
+    return {fragment_id: round_of(items) for fragment_id, items in history.items()}

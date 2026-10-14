@@ -12,7 +12,7 @@ Adresa jako u `opora_write.py` (`--base-url` / `OPORA_BASE_URL`, jen loopback). 
 
 | Příkaz | Co dělá |
 |---|---|
-| `next [--discipline be]` | hlava fronty: `{fragment, gate, needs: proposal\|confirm, proposal?, hint, lessons, blocked}` nebo `{fragment: null}` |
+| `next [--discipline be]` | hlava fronty: `{fragment (s round, exhausted), gate, needs: proposal\|confirm, proposal?, hint, lessons, blocked, blockedBy}` nebo `{fragment: null, blocked, blockedBy}` |
 | `propose F GATE --json-file p.json --note "…"` | `op: propose`; revizi načte sám, `--revision N` ji připne na tu, kterou jsi četl |
 | `yes F GATE --note "…"` | `op: gate` `value: true` bez payloadu (server vezme poslední platný návrh) |
 | `no F GATE --note "…"` | `op: gate` `value: false`: vypne **zapnutou** bránu a všechny další (kaskáda) |
@@ -76,7 +76,7 @@ text, ne starý cyklus; payload má přesně tvar z tabulky výše; tvrzení ply
 |---|---|
 | `scoped` | fragment věcně patří projektu; obsah odpovídá `effectiveDiscipline` (např. `be` = serverová logika, ne vzhled); samotný štítek disciplíny nestačí |
 | `weighed` | přínos popisuje požadovanou funkci; riziko je konkrétní možné selhání; žádné metriky, technologie ani záruky, které fragment nemá |
-| `synthesized` | `type` z výčtu a sedí na krok; jeden krok v rozsahu fragmentu; `done` jde rozhodnout testem nebo pozorováním; předpověď je předpověď, ne „naměřeno“ |
+| `synthesized` | `type` z výčtu a sedí na krok; jeden krok v rozsahu fragmentu; `done` jde rozhodnout testem nebo pozorováním; předpověď je předpověď, ne „naměřeno“; v kole ≥ 2 řeší výtky kritika z minulého kola a zůstává stejný druh mikrokroku v rozsahu fragmentu (žádný útěk do „auditu“ či přehledu) |
 | `decided` | důvod odpovídá fragmentu a payloadům 2–3; `yes` = přijetí téhle syntézy, `other` = konkrétní potřeba přepracování, `no` = doložené odmítnutí |
 | `planned` | platné `decided: yes` a `done` ze `synthesized`; server plán sestaví a ověří dryRun sám (409 s výčtem = nepotvrzuj, oprav vstupy); po `yes` zkontroluj vrácené brány |
 | `placed` | platné `planned` a nic se od něj nezměnilo; `next` ho nevrací (počítá ho do `blocked`), proto ho potvrzovatel dá hned po `planned`: `yes F placed` zapíše uložený plán na plátno rovnou (před zápisem backend uloží verzi plátna „před placed“, vložení jde vrátit); 409 „plán se změnil“ = znovu `planned` |
@@ -84,6 +84,13 @@ text, ne starý cyklus; payload má přesně tvar z tabulky výše; tvrzení ply
 | `learned` | poučení plyne z doloženého výsledku tohoto cyklu; `kind` sedí; nezobecňuje víc, než důkaz unese |
 
 Větve pokryté předkem s `placed` fronta nevrací a jejich brány přepíná jen člověk.
+
+**Kola.** Nové kolo = `no F synthesized` po `verified` s `fail`; server počítá `round` (strom, detail, `next`).
+Po 3 kolech je fragment `exhausted`: fronta ho nevrací (`blockedBy.exhausted`), čeká na člověka. Před novým
+`synthesized` doporučeně „Doklady z repa“: `research` dítě s cestami k souborům v `approach` (číslované kroky,
+`status: done`); z nich vzniknou bloky karty a `placed` aktualizuje tutéž kartu (žádná druhá).
+`blockedBy`: `proposal` (čeká na návrh), `confirm` (`placed` s platným plánem), `plan` (plán zastaral: `no F planned`
+a znovu `yes F planned`), `exhausted`.
 
 ## Ukázka
 

@@ -5,11 +5,18 @@ chybějící = vypnutá. `revision` je revize fragmentu, ve které záznam vznik
 `value: false` jako značku, od které revize platí nové návrhy (§9 bod 9). Platná je jen zapnutá brána se
 shodným `inputHash` (sha256 názvu, textu a platné disciplíny, §9 bod 4) a se všemi předchozími branami platnými;
 cokoli jiného se chová jako vypnuté a zapnutý záznam s jiným otiskem hlásí `gatesStale`.
+
+Kolo fragmentu (`round_of`, §11): 1 + počet nových kol, tj. vypnutí `synthesized` (záznam `value: false`), kterému
+od předchozího vypnutí předcházelo `verified` s `actual.tests == "fail"`. Počítá se z historie revizí (záznamy
+podle své `revision`, opakované převzetí téhož záznamu se nepočítá dvakrát). Kolo se zvedne až začátkem nového
+kola, ne samotným neúspěšným `verified`: `learned` neúspěšného kola tak ještě patří do fronty. Po `MAX_ROUNDS`
+kolech je fragment vyčerpaný (`exhausted`) a čeká na člověka.
 """
 
 import hashlib
 import json
 
+MAX_ROUNDS = 3
 GATES = ("scoped", "weighed", "synthesized", "decided", "planned", "placed", "verified", "learned")
 # Brány, které payload od klienta nemají (návrh nepotřebují); `planned`/`placed` payload vypočítá server.
 NO_PAYLOAD = ("scoped", "planned", "placed")
@@ -182,3 +189,28 @@ def summary(state):
 def detail(state):
     """Brány pro detail fragmentu: záznamy s payloadem a příznakem, zda platí."""
     return {gate: {**entry, "valid": gate in state["on"]} for gate, entry in state["entries"].items()}
+
+
+def round_of(history):
+    """Kolo fragmentu z uložených bran jeho revizí (`gates` JSON v pořadí revizí), viz docstring modulu."""
+    events = set()
+    for raw in history:
+        entries = parse_gates(raw)
+        verified, synthesized = entries.get("verified"), entries.get("synthesized")
+        if isinstance(verified, dict) and verified.get("value") is True and isinstance(verified.get("payload"), dict)                 and (verified["payload"].get("actual") or {}).get("tests") == "fail":
+            events.add((verified.get("revision", 0), 0))
+        if isinstance(synthesized, dict) and synthesized.get("value") is False:
+            events.add((synthesized.get("revision", 0), 1))
+    rounds, failed = 1, False
+    for _revision, kind in sorted(events):
+        if kind == 0:
+            failed = True
+        elif failed:
+            rounds, failed = rounds + 1, False
+    return rounds
+
+
+def round_fields(rounds, fragment_id):
+    """`round` a `exhausted` fragmentu pro strom, detail a frontu (`rounds` = {id: kolo}, chybějící = 1)."""
+    number = (rounds or {}).get(fragment_id, 1)
+    return {"round": number, "exhausted": number > MAX_ROUNDS}

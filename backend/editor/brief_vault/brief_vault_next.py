@@ -5,8 +5,11 @@ dostane 409. Vrací živé fragmenty druhu `brief` s živými předky, platnou d
 (nebo zneplatněnou) branou; vylučuje slepé uličky (`decided = no`) a větve pokryté `placed` předka. Pořadí:
 číslo chybějící brány, hloubka, cesta `ord` od kořene, `fragmentId`. `needs` říká, zda brána čeká na návrh
 payloadu (`proposal`), nebo jen na potvrzení (`confirm`, s návrhem v `proposal`); `planned` je potvrzení bez
-návrhu (plán sestaví server). `blocked` = počet fragmentů fronty, které samotné potvrzení agenta neposune: čekají
-na návrh payloadu, nebo na bránu `placed` (zápis uloženého plánu na plátno schvaluje člověk; fronta je nevrací).
+návrhu (plán sestaví server). `blocked` = počet fragmentů fronty, které samotné potvrzení agenta neposune, a
+`blockedBy` ho rozkládá: `proposal` (čeká na návrh payloadu), `confirm` (čeká na `placed`, uložený plán dál platí:
+zápis na plátno schvaluje člověk), `plan` (čeká na `placed`, ale uložený plán je zastaralý: změnilo se plátno nebo
+zdroj, je třeba nové `planned`) a `exhausted` (po `MAX_ROUNDS` kolech, §11: čeká na člověka). Brány `placed`
+ani vyčerpané fragmenty fronta nevrací; `blocked` = součet `blockedBy` (kompatibilita).
 `lessons(versionId=…)` čte poučení uložené verze plátna (snímek k času verze), ne živou tabulku.
 """
 
@@ -17,6 +20,8 @@ from backend.editor.brief_vault.brief_vault_gate_rules import (
     NO_PAYLOAD,
     dead_end,
     gate_state,
+    input_hash,
+    round_fields,
 )
 from backend.editor.brief_vault.brief_vault_gates import covered
 from backend.editor.brief_vault.brief_vault_lessons import (
@@ -29,6 +34,7 @@ from backend.editor.brief_vault.brief_vault_lessons import (
 from backend.editor.brief_vault.brief_vault_model import (
     bad_request,
     effective_disciplines,
+    gate_rounds,
     latest_rows,
 )
 from backend.editor.brief_vault.brief_vault_proposals import usable_proposal
@@ -53,45 +59,65 @@ def _ords(rows, fragment_id):
     return tuple(reversed(path))
 
 
-def _queue(db, project, workspace, discipline):
+def _plan_current(rows, disciplines, state, digest):
+    """Uložený plán brány `planned` by `placed` vložil: shodný digest plátna i otisky zdrojů."""
+    stored = state["entries"]["planned"].get("payload") or {}
+    if stored.get("digest") != digest:
+        return False
+    return all(fid in rows and not rows[fid]["deleted"]
+               and input_hash(rows[fid]["title"], rows[fid]["text"], disciplines.get(fid)) == expected
+               for fid, expected in (stored.get("sourceHashes") or {}).items())
+
+
+def _queue(db, project, workspace, discipline, digest):
     rows = latest_rows(db, project, workspace)
-    live, disciplines = live_ids(rows), effective_disciplines(rows)
+    live, disciplines, rounds = live_ids(rows), effective_disciplines(rows), gate_rounds(db, project, workspace)
     states = {fid: gate_state(rows[fid], disciplines[fid]) for fid in live if disciplines.get(fid)}
-    queue, blocked = [], 0
+    queue, blocked = [], {"proposal": 0, "confirm": 0, "exhausted": 0, "plan": 0}
     for fragment_id, state in states.items():
         if rows[fragment_id]["kind"] != "brief" or (discipline and disciplines[fragment_id] != discipline):
             continue
         if state["next"] is None or dead_end(state) or covered(rows, fragment_id, states):
             continue
+        if round_fields(rounds, fragment_id)["exhausted"]:
+            blocked["exhausted"] += 1  # po MAX_ROUNDS kolech čeká na člověka (§11)
+            continue
         gate = state["next"]
         if gate == "placed":
-            blocked += 1  # zápis na plátno: uložený plán vkládá až schválení člověka
+            # Zápis na plátno: uložený plán vkládá až schválení člověka; zastaralý plán chce nové planned.
+            blocked["confirm" if _plan_current(rows, disciplines, state, digest) else "plan"] += 1
             continue
         proposal = None if gate in NO_PAYLOAD else usable_proposal(db, project, workspace, fragment_id, gate, state)
         needs = "confirm" if gate in NO_PAYLOAD or proposal else "proposal"
-        blocked += needs == "proposal"
+        blocked["proposal"] += needs == "proposal"
         ords = _ords(rows, fragment_id)
         queue.append(((GATES.index(gate), len(ords), ords, fragment_id), fragment_id, gate, needs, proposal))
     queue.sort(key=lambda item: item[0])
-    return rows, disciplines, states, queue, blocked
+    return rows, disciplines, states, rounds, queue, blocked
+
+
+def _blocked(counts):
+    return {"blocked": sum(counts.values()), "blockedBy": counts}
 
 
 def next_work(canvas, project, workspace, discipline=None):
     """Další brána k práci (nebo `{fragment: null}`) s poučeními disciplíny a počtem blokovaných."""
     discipline = _discipline(discipline)
     with canvas.reading(project):
-        if canvas.view(project, workspace)["readOnly"]:
-            return {"fragment": None, "blocked": 0}
+        view = canvas.view(project, workspace)
+        if view["readOnly"]:
+            return {"fragment": None, **_blocked({"proposal": 0, "confirm": 0, "exhausted": 0, "plan": 0})}
         db = canvas.db_for(project)
-        rows, disciplines, states, queue, blocked = _queue(db, project, workspace, discipline)
+        rows, disciplines, states, rounds, queue, blocked = _queue(db, project, workspace, discipline, view["digest"])
         if not queue:
-            return {"fragment": None, "blocked": blocked}
+            return {"fragment": None, **_blocked(blocked)}
         _key, fragment_id, gate, needs, proposal = queue[0]
         row, found = rows[fragment_id], disciplines[fragment_id]
         result = {"fragment": {"id": fragment_id, "title": row["title"], "effectiveDiscipline": found,
-                               "revision": row["revision"], "gatesStale": states[fragment_id]["stale"]},
+                               "revision": row["revision"], "gatesStale": states[fragment_id]["stale"],
+                               **round_fields(rounds, fragment_id)},
                   "gate": gate, "needs": needs, "hint": f"{HINTS[gate]} {NEEDS_HINT[needs]}",
-                  "lessons": live_lessons(db, project, workspace, {found}, NEXT_LIMIT), "blocked": blocked}
+                  "lessons": live_lessons(db, project, workspace, {found}, NEXT_LIMIT), **_blocked(blocked)}
         if proposal:
             result["proposal"] = proposal
         return result
