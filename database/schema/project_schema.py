@@ -25,6 +25,15 @@ CREATE INDEX IF NOT EXISTS activity_log_scope ON activity_log(project_id, worksp
 PROJECT_SCHEMA = """
 -- backend/canvas/canvas_service.py: graf plátna ne-git projektu
 CREATE TABLE IF NOT EXISTS drafts(id TEXT PRIMARY KEY, graph TEXT);
+-- backend/canvas/project_architecture.py: architektura projektu (domény, stránky, sektory mezi nimi), jedna nad všemi worktree;
+-- removed = ID uzlů a hran, které architektura smazala (skryjí se i ve starých kopiích grafu)
+CREATE TABLE IF NOT EXISTS project_architecture(
+    project_id TEXT PRIMARY KEY, revision INTEGER NOT NULL, graph TEXT NOT NULL,
+    updated_at TEXT NOT NULL, actor TEXT NOT NULL, removed TEXT NOT NULL);
+-- backend/canvas/project_architecture.py: historie a návrat architektury; jen přibývají revize
+CREATE TABLE IF NOT EXISTS project_architecture_revisions(
+    project_id TEXT NOT NULL, revision INTEGER NOT NULL, graph TEXT NOT NULL, actor TEXT NOT NULL,
+    workspace TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(project_id, revision));
 -- backend/project_setup/project_hub.py: cíl a platforma projektu
 CREATE TABLE IF NOT EXISTS project_settings(project_id TEXT PRIMARY KEY, revision INTEGER NOT NULL, goal TEXT NOT NULL, platform TEXT NOT NULL);
 -- backend/project_setup/project_hub.py: profil projektu (architektura, uživatelé); revizi nese project_settings

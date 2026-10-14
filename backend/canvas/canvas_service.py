@@ -9,8 +9,19 @@ from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
+from backend.canvas.architecture_graph import (
+    check_shape,
+    compose,
+    ids,
+    missing_links,
+    references,
+    same_content,
+    split,
+    visible_content,
+)
 from backend.canvas.graph import EMPTY, digest, encode, valid_id, validate_graph
 from backend.canvas.migrate_to_project_folders import migrate
+from backend.canvas.project_architecture import ARCHITECTURE_WID, ProjectArchitecture, blocked_message
 from backend.canvas.project_folder import ProjectFolder
 from backend.canvas.read_cache import ReadCache
 from backend.canvas.workspace_graph import (
@@ -108,6 +119,7 @@ class CanvasService:
         # Sondy PRAGMA data_version (karta P3): {pid: (uid, spojení, zámek)}; registr pod klíčem None.
         self._probes = {}
         self.read_cache = ReadCache()
+        self.architecture = ProjectArchitecture(self)
         self.drawings = DrawingStore(self)
         self.drawing_files = DrawingFileStore(self)
         self.specs = NodeSpecStore(self)
@@ -188,7 +200,9 @@ class CanvasService:
             view = self.view(pid, wid)
             if not valid_id(node_id) or not any(n["id"] == node_id for n in view["graph"]["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
-            if view["readOnly"]:
+            # Zadání uzlu architektury leží pod `architecture`, takže jde číst i psát i z mainu.
+            scope_wid = self.document_workspace(pid, wid, node_id)
+            if view["readOnly"] and scope_wid == wid:
                 if payload is not None:
                     raise ValueError("Main je pouze pro čtení.")
                 return {
@@ -202,7 +216,7 @@ class CanvasService:
                     "source": "Import zadání z Git mainu zatím není podporovaný.",
                 }
             with nullcontext() if payload is None else self.lock_for(pid):
-                scope = (pid, wid, node_id)
+                scope = (pid, scope_wid, node_id)
                 result = (
                     self.specs.history(scope)
                     if history
@@ -549,11 +563,10 @@ class CanvasService:
     def _view(self, pid, wid):
         # Čtení grafu jde přes snímek (WAL); uvnitř zápisu zůstává zápisové spojení s vlastními změnami.
         with self.reading(pid):
+            architecture = self.architecture.read(pid)
             if pid == "draft" and wid == "draft":
                 graph, graph_digest = self._draft_graph("draft")
-                return {
-                    "graph": graph,
-                    "digest": graph_digest,
+                return self._composed_view(pid, wid, architecture, graph, graph_digest, False, {
                     "readOnly": False,
                     "source": "Lokální návrh, není schválený main",
                     "sha": None,
@@ -561,17 +574,14 @@ class CanvasService:
                     "dirty": False,
                     "graphStatus": "present",
                     "workspaces": [],
-                    "observedAt": now(),
-                }
+                })
             project = self.row("projects", pid)
             source = self.project_hub.source_info(project)
             if source["sourceKind"] != "git":
                 if wid != "draft":
                     raise ValueError("Lokální a prázdné projekty používají pouze pracovní prostor draft.")
                 graph, graph_digest = self._draft_graph(pid)
-                return {
-                    "graph": graph,
-                    "digest": graph_digest,
+                return self._composed_view(pid, wid, architecture, graph, graph_digest, False, {
                     "readOnly": False,
                     "source": "Lokální graf projektu v SQLite; zdrojová složka nebyla načtena.",
                     "sha": None,
@@ -579,23 +589,16 @@ class CanvasService:
                     "dirty": False,
                     "graphStatus": "present",
                     "workspaces": [],
-                    "observedAt": now(),
-                }
+                })
             location, _project = self.location(pid, wid)
         # Pomalý Git nesmí držet zámek registru ani blokovat první načtení plátna.
         sha = git(location, "rev-parse", "HEAD")
         branch = git(location, "branch", "--show-current")
         dirty = bool(git(location, "status", "--porcelain"))
-        if wid == "main":
-            raw = git(location, "show", sha + ":" + GRAPH_FILE, optional=True)
-            origin = "git"
-        else:
-            raw, origin = read_workspace_graph(self.graph_file(pid, wid), location)
+        raw, origin = self._git_content_raw(pid, wid, location, sha)
         # Soubor a Git nekryje token dat: graf se znovu neparsuje jen při stejném surovém textu.
-        graph, graph_digest = self._parsed_graph(pid, wid, lambda: raw or encode(EMPTY), check=validate_graph if raw else None)
-        return {
-            "graph": graph,
-            "digest": graph_digest,
+        graph, graph_digest = self._parsed_graph(pid, wid, lambda: raw or encode(EMPTY), check=check_shape)
+        return self._composed_view(pid, wid, architecture, graph, graph_digest, origin in ("git", "legacy"), {
             "readOnly": wid == "main",
             "source": "Git HEAD:" + GRAPH_FILE
             if wid == "main"
@@ -607,8 +610,81 @@ class CanvasService:
             "dirty": dirty,
             "graphStatus": "present" if raw else "missing",
             "workspaces": self.workspaces(pid),
+        })
+
+    def _git_content_raw(self, pid, wid, location, sha=None):
+        """(surový obsah, původ) Git prostoru: main = HEAD:opora-canvas.json, worktree = data plátna."""
+        if wid == "main":
+            return git(location, "show", (sha or "HEAD") + ":" + GRAPH_FILE, optional=True), "git"
+        return read_workspace_graph(self.graph_file(pid, wid), location)
+
+    def _composed_view(self, pid, wid, architecture, content, content_digest, legacy, fields):
+        """Pohled = architektura ∪ obsah prostoru (docs/domeny-a-worktree.md §4); digest ze složeného grafu.
+
+        Složení a jeho validace se drží v cache podle digestu architektury a obsahu."""
+        key = ("composed", pid, wid)
+        stamp = (architecture["digest"], architecture["raw"][2], content_digest, legacy)
+        hit = self.read_cache.get(key, stamp)
+        if hit is None:
+            graph, conflicts = compose(architecture["graph"], architecture["removed"], content, legacy=legacy)
+            # Graf z Gitu a souboru se ověřoval vždy; lokální graf z SQLite jen tehdy, když ho skládáme
+            # s architekturou (dřív se nečetl s validací a starý projekt se nesmí přestat otevírat).
+            if fields["sha"] is not None or architecture["graph"]["nodes"]:
+                validate_graph(graph)
+            hit = self.read_cache.put(key, stamp, {"graph": graph, "digest": digest(graph), "conflicts": conflicts})
+        return {
+            "graph": hit["graph"],
+            "digest": hit["digest"],
+            **fields,
+            "architectureEditable": True,
+            "architectureRevision": architecture["revision"],
+            "conflicts": hit["conflicts"],
             "observedAt": now(),
         }
+
+    def workspace_content(self, pid, wid):
+        """(obsah prostoru bez architektury, legacy) přímo ze zdroje, bez skládání a bez Git stavu."""
+        with self.reading(pid):
+            if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
+                if wid != "draft":
+                    raise ValueError("Lokální a prázdné projekty používají pouze pracovní prostor draft.")
+                return self._draft_graph(pid)[0], False
+            location, _project = self.location(pid, wid)
+        raw, origin = self._git_content_raw(pid, wid, location)
+        return check_shape(json.loads(raw)) if raw else EMPTY, origin in ("git", "legacy")
+
+    def architecture_references(self, pid, removed, *, skip=None, hidden=()):
+        """Prostory, jejichž obsah nebo `workspaces.node_id` odkazuje na odebírané uzly architektury.
+
+        [{workspace, label, reason}]; `skip` = prostor, jehož nový obsah ověřuje volající sám."""
+        removed = set(removed)
+        if not removed:
+            return []
+        if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
+            spaces = [("draft", "draft")]
+            rows = []
+        else:
+            rows = self.workspaces(pid)
+            spaces = [("main", "main")] + [(row["id"], row["branch"] or row["id"]) for row in rows]
+        hits = []
+        for wid, label in spaces:
+            if wid == skip:
+                continue
+            try:
+                content, _legacy = self.workspace_content(pid, wid)
+                referenced = references(content, removed, hidden)
+            except (ValueError, OSError, subprocess.SubprocessError):
+                hits.append({"workspace": wid, "label": label, "reason": "obsah nejde ověřit"})
+                continue
+            if referenced:
+                hits.append({"workspace": wid, "label": label, "reason": "obsah"})
+        hits += [{"workspace": row["id"], "label": row["branch"] or row["id"], "reason": "worktree domény"}
+                 for row in rows if row["node_id"] in removed]
+        return hits
+
+    def document_workspace(self, pid, wid, node_id):
+        """Prostor, pod kterým leží zadání a text uzlu: uzel architektury → `architecture`, jinak `wid`."""
+        return ARCHITECTURE_WID if node_id in self.architecture.node_ids(pid) else wid
 
     def _nearest_sector(self, by_id, node):
         cursor = node.get("parentId")
@@ -691,10 +767,13 @@ class CanvasService:
         validate_graph(graph)
         with self.graph_lock_for(pid):
             current = self.view(pid, wid)
-            if current["readOnly"]:
-                raise ValueError("Čistý main je pouze pro čtení. Vytvořte pracovní prostor.")
             if current["digest"] != expected_digest:
                 raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
+            architecture = self.architecture.read(pid)
+            arch_nodes, arch_edges = ids(architecture["graph"])
+            if undo:
+                # Krok zpět i obnova verze vrací jen obsah; architektura zůstává současná (§4).
+                graph = self._content_only(architecture, graph)
             if not allow_removal and not undo:
                 for collection in ("nodes", "edges"):
                     old_ids = {item["id"] for item in current["graph"][collection]}
@@ -712,19 +791,68 @@ class CanvasService:
             # Zaokrouhlujeme až při zápisu; čtení starého grafu nesmí změnit jeho digest.
             graph = {"nodes": [{**node, "x": round(node["x"]), "y": round(node["y"])}
                                for node in graph["nodes"]], "edges": graph["edges"]}
+            # Uzly se `site` a jejich předkové patří architektuře projektu, zbytek obsahu prostoru.
+            new_arch, new_content = split(graph)
+            new_arch_nodes, new_arch_edges = ids(new_arch)
+            if current["readOnly"]:
+                old_content = {"nodes": [n for n in current["graph"]["nodes"] if n["id"] not in arch_nodes],
+                               "edges": [e for e in current["graph"]["edges"] if e["id"] not in arch_edges]}
+                if not same_content(old_content, new_content, new_arch_nodes | new_arch_edges):
+                    raise ValueError("Čistý main je pouze pro čtení. Vytvořte pracovní prostor; "
+                                     "architekturu (domény a stránky) lze měnit i tady.")
+            arch_changed = digest(new_arch) != architecture["digest"]
+            if arch_changed:
+                validate_graph(new_arch)
+                hits = self.architecture_references(pid, arch_nodes - new_arch_nodes, skip=wid, hidden=new_arch_nodes)
+                if hits:
+                    raise ValueError(blocked_message(hits))
+            kept = ids(new_content)
             if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
                 with self.lock_for(pid):
                     db = self.db_for(pid)
                     if not _commit and not db.in_transaction:
                         raise RuntimeError("Transakční zápis grafu vyžaduje otevřenou transakci.")
-                    db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(graph), pid))
-                    if _commit:
-                        db.commit()
+                    try:
+                        if arch_changed:
+                            self.architecture.write(db, pid, new_arch, architecture["revision"], actor, wid, kept)
+                        db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(new_content), pid))
+                        if _commit:
+                            db.commit()
+                    except Exception:
+                        if _commit:
+                            db.rollback()
+                        raise
             else:
                 # Cílové repo zůstává čisté: graf jde do dat plátna, starý soubor ve worktree se nepíše.
                 self.location(pid, wid)
-                write_workspace_graph(self.graph_file(pid, wid), encode(graph))
+                if arch_changed:
+                    # Architektura před obsahem: selže-li pak zápis souboru, kopie se při skládání skryjí.
+                    with self.lock_for(pid):
+                        db = self.db_for(pid)
+                        try:
+                            self.architecture.write(db, pid, new_arch, architecture["revision"], actor, wid, kept)
+                            if _commit:
+                                db.commit()
+                        except Exception:
+                            if _commit:
+                                db.rollback()
+                            raise
+                if not current["readOnly"]:
+                    write_workspace_graph(self.graph_file(pid, wid), encode(new_content))
             return self.view(pid, wid)
+
+    def _content_only(self, architecture, graph):
+        """Složený graf ze současné architektury a obsahu staršího snímku (krok zpět, obnova verze)."""
+        _snapshot_architecture, snapshot_content = split(graph)
+        content, _conflicts = visible_content(architecture["graph"], architecture["removed"], snapshot_content, legacy=False)
+        missing = missing_links(architecture["graph"], content)
+        if missing:
+            raise ValueError("Obsah odkazuje na doménu nebo stránku, která už v architektuře není ("
+                             + ", ".join(map(str, missing[:5]))
+                             + "). Nejdřív obnovte revizi architektury.")
+        composed = {"nodes": [*architecture["graph"]["nodes"], *content["nodes"]],
+                    "edges": [*architecture["graph"]["edges"], *content["edges"]]}
+        return validate_graph(composed)
 
     def create_workspace(self, pid, node_id, actor):
         if (

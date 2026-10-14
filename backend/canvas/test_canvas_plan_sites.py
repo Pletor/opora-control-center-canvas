@@ -66,9 +66,16 @@ def test_sites_roundtrip_editor_scope_and_immutable_snapshot(tmp_path):
             assert saved.status_code == 200, saved.text
             assert brief(client, refs["page"])["contextVersion"] != previous_version
         assert frozen["specification"] == before["specification"]
-        # Ordinary graph undo restores metadata and IDs without creating another page.
-        restored = save_graph(client, original, undo=True)
+        # Krok zpět plátna vrací jen obsah; host a cesta jsou architektura (docs/domeny-a-worktree.md §4).
+        undone = save_graph(client, original, undo=True)
+        assert undone.status_code == 200, undone.text
+        assert view(client)["graph"] != original
+        # Architekturu vrací obnova revize: stejná ID, žádná další stránka.
+        current = client.get("/api/project-architecture", params={"project": "draft"}).json()
+        restored = client.post("/api/project-architecture/restore", headers=HEADERS,
+                               json={"project": "draft", "revision": 1, "digest": current["digest"]})
         assert restored.status_code == 200, restored.text
+        assert restored.json()["revision"] == current["revision"] + 1
         assert view(client)["graph"] == original
         assert brief(client, refs["page"])["contextVersion"] == before["contextVersion"]
 

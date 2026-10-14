@@ -30,6 +30,7 @@ from backend.api.editor.sync_routes import create_sync_router
 from backend.api.project.archify_routes import create_archify_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
+from backend.api.project.project_architecture_routes import create_project_architecture_router
 from backend.api.project.project_web_status_routes import create_project_web_status_router
 from backend.api.project.project_work_status_routes import create_project_work_status_router
 from backend.api.project.project_workspace_routes import create_project_workspace_router
@@ -226,6 +227,7 @@ def create_app(data_root=None):
     app.include_router(create_archify_router(service))
     app.include_router(create_graphify_router(service))
     app.include_router(create_map_refresh_router(map_refresh))
+    app.include_router(create_project_architecture_router(service))
     # prostředí Editor
     app.include_router(create_canvas_router(service))
     app.include_router(create_canvas_version_router(service, desktop_state))

@@ -92,8 +92,10 @@ def test_two_workspaces_are_isolated_and_main_is_read_only(tmp_path):
     Path(a["directory"], "README.md").write_text("agent A")
     assert Path(b["directory"], "README.md").read_text() == "base"
     assert (managed / "README.md").read_text() == "base"
-    with pytest.raises(ValueError):
-        s.save_graph(p["id"], "main", {"nodes": [], "edges": []}, s.view(p["id"], "main")["digest"])
+    # Obsah mainu je jen pro čtení; architekturu smí main měnit (docs/domeny-a-worktree.md §4).
+    card = {"id": "card1", "parentId": None, "kind": "node", "name": "Karta", "purpose": "", "x": 0, "y": 0}
+    with pytest.raises(ValueError, match="pouze pro čtení"):
+        s.save_graph(p["id"], "main", {"nodes": [card], "edges": []}, s.view(p["id"], "main")["digest"])
     assert s.view(p["id"], a["id"])["dirty"] is True
     assert s.view(p["id"], "main")["dirty"] is False
 

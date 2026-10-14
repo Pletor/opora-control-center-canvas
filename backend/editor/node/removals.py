@@ -89,8 +89,6 @@ class RemovalService:
 
     def plan(self, project, workspace, kind, target):
         current = self.canvas.view(project, workspace)
-        if current["readOnly"]:
-            raise ValueError("Main je pouze pro čtení. Přepněte do pracovního prostoru.")
         graph = current["graph"]
         if kind not in ("node", "edge", "selection"):
             raise ValueError("Nepodporovaný typ odstranění.")
@@ -108,6 +106,15 @@ class RemovalService:
                 raise ValueError("Položka již v plátně neexistuje.")
             removed = descendants(graph["nodes"], roots)
             label = by_id[roots[0]]["name"] if len(roots) == 1 else f"{len(roots)} " + ("položky" if len(roots) < 5 else "položek")
+        # Uzly architektury jsou společné všem prostorům projektu (docs/domeny-a-worktree.md §4):
+        # na mainu jde odebrat jen architekturu a nikde ne tu, na kterou odkazuje jiný prostor.
+        arch_nodes = self.canvas.architecture.node_ids(project)
+        arch_edges = {e["id"] for e in self.canvas.architecture.read(project)["graph"]["edges"]}
+        if current["readOnly"] and not (removed <= arch_nodes if kind != "edge" else target in arch_edges):
+            raise ValueError("Main je pouze pro čtení. Přepněte do pracovního prostoru.")
+        blocked = self.canvas.architecture_references(
+            project, removed & arch_nodes, skip=workspace, hidden=arch_nodes - removed
+        )
         remaining = {
             "nodes": [n for n in graph["nodes"] if n["id"] not in removed],
             "edges": [
@@ -132,6 +139,7 @@ class RemovalService:
             "nodeIds": sorted(removed),
             "nodeCount": len(removed),
             "edgeCount": len(graph["edges"]) - len(remaining["edges"]),
+            "blockedBy": blocked,
             "digest": digest(
                 {
                     "project": project,
@@ -195,6 +203,9 @@ class RemovalService:
             )
             if payload["digest"] != preview["digest"]:
                 raise ValueError("Plátno se změnilo. Otevřete nový náhled odstranění.")
+            if preview["blockedBy"]:
+                from backend.canvas.project_architecture import blocked_message
+                raise ValueError(blocked_message(preview["blockedBy"]))
             self.guard(actor, current, remaining, preview)
             removed_edge_ids = {e["id"] for e in current["graph"]["edges"]} - {
                 e["id"] for e in remaining["edges"]
