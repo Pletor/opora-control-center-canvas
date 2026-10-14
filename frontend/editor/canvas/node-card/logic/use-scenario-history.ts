@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
+import { keepSame } from "@/shared/hooks/logic/same-response";
 import type { NodeWorkflowState } from "@/shared/desktop-state/logic/types";
 export type ScenarioHistory = { latest: NodeWorkflowState["scenarioRun"] | null; previous: NodeWorkflowState["scenarioRun"] | null;
   current: boolean; comparable: boolean; deltaPassed: number | null; deltaFailed: number | null };
@@ -9,8 +10,8 @@ export function useScenarioHistory(project: string, workspace: string, revision:
   const key = JSON.stringify([project, workspace]);
   usePolling(async () => {
     try { const result = await api<{ nodes: Record<string, ScenarioHistory> }>("/api/desktop-v3/scenario-history?" + new URLSearchParams({ project, workspace }));
-      setValue({ key, nodes: result.nodes });
-    } catch (error) { setValue({ key, error: String(error) }); }
-  }, { intervalMs: 15000, enabled: !!project && !!workspace, refreshKeys: [key, revision] });
+      setValue((current) => keepSame(current, { key, nodes: result.nodes }));
+    } catch (error) { setValue((current) => keepSame(current, { key, error: String(error) })); }
+  }, { intervalMs: 15000, enabled: !!project && !!workspace, refreshKeys: [key], debouncedKeys: [revision] });
   return value?.key === key ? value : null;
 }

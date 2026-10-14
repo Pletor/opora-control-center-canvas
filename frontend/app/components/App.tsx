@@ -21,6 +21,7 @@ import { SaveScopeProvider } from "@/shared/hooks/logic/save-scope-context";
 import { useSaveScope, useSaveParticipant, flushSaveScope, invalidateSavedScope, trackSaveWrite, waitForSaveWrites, saveScopeEntries } from "@/shared/hooks/logic/save-coordinator";
 import { orphanedPendingEdits, flushOrphanedPendingEdits } from "@/shared/hooks/logic/use-pending-edits";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
+import { keepSame } from "@/shared/hooks/logic/same-response";
 import SaveVersionsTools from "@/editor/canvas/save-versions/components/SaveVersionsTools";
 import ActivityLogTools from "@/editor/canvas/activity-log/components/ActivityLogTools";
 import { useCanvasVersions } from "@/editor/canvas/save-versions/logic/use-canvas-versions";
@@ -321,9 +322,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     const ticket = ++bootstrapGeneration.current;
     const b = await api<Bootstrap>("/api/bootstrap");
     if (ticket !== bootstrapGeneration.current) return;
-    setProjects(b.projects);
-    setDraftProject(b.draft);
-    setJobs(b.jobs);
+    // Idle polling každých 2,5 s: stejný obsah nechá starou referenci, jinak se App i Board překreslují zbytečně.
+    setProjects((current) => keepSame(current, b.projects));
+    setDraftProject((current) => keepSame(current, b.draft));
+    setJobs((current) => keepSame(current, b.jobs));
   }
   // Zápis asistenta (docs/asistent.md §6.2) jde přes backend z jiného procesu. Po ohlášení z panelu
   // se graf i stav Desktop v3 načtou znovu stejnými cestami jako při otevření projektu, jen bez

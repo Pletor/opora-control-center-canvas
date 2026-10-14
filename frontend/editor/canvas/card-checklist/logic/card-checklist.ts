@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
+import { keepSame } from "@/shared/hooks/logic/same-response";
 import type { CanvasNode, GraphEdge } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 
@@ -23,12 +24,12 @@ export function useCardChecklist(scope: { project: string; workspace: string } |
     if (!scope) return;
     try {
       const result = await api<{ nodes: Checklists }>("/api/desktop-v3/card-checklist?" + new URLSearchParams({ ...scope, layer: parent ?? "" }));
-      setValue({ key, nodes: result.nodes });
+      setValue((current) => keepSame(current, { key, nodes: result.nodes }));
     } catch {
       // Pás je doplněk: bez něj karta funguje dál, jen bez souhrnu.
       setValue((current) => (current?.key === key ? null : current));
     }
-  }, { intervalMs: 20000, enabled: !!scope, refreshKeys: [key, revision] });
+  }, { intervalMs: 20000, enabled: !!scope, refreshKeys: [key], debouncedKeys: [revision] });
   return value?.key === key ? value.nodes : undefined;
 }
 
