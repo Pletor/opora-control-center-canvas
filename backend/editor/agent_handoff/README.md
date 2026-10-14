@@ -1,1 +1,1 @@
-Předání úkolu externímu agentovi: výslovný Markdown export snímku podkladů do docs/…/tasks bez startu modelu (external_agent_tasks.py).
+Předání úkolu externímu agentovi: výslovný Markdown export snímku podkladů do dat plátna (`projects/<id>/packets/external-tasks/<workspace>/<uzel>.md`, ne do repa projektu) bez startu modelu (external_agent_tasks.py).

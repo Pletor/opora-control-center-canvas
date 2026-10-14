@@ -110,6 +110,13 @@ export type ExternalTaskExport = {
   path: string; sha256: string; content: string;
 };
 
+/** Zadání leží v datech plátna (`…/packets/external-tasks/<workspace>/<uzel>.md`), ne v repu projektu. */
+export function isExternalTaskPath(path: unknown, workspace: string, nodeId: string): boolean {
+  if (typeof path !== "string") return false;
+  const parts = path.split(/[\\/]/);
+  return parts.length > 3 && parts.slice(-3).join("/") === `external-tasks/${workspace}/${nodeId}.md`;
+}
+
 export async function exportExternalTask(expected: SnapshotReadbackExpectation): Promise<ExternalTaskExport> {
   const { id, digest, project, workspace, nodeId } = expected;
   const endpoint = `/api/desktop-v3/packet/snapshots/${encodeURIComponent(id)}/external-export`;
@@ -119,7 +126,7 @@ export async function exportExternalTask(expected: SnapshotReadbackExpectation):
   for (const value of [written, read]) {
     if (value.snapshotId !== id || value.digest !== digest || value.project !== project ||
         value.workspace !== workspace || value.nodeId !== nodeId ||
-        value.path !== `docs/opora-control-center/tasks/${nodeId}.md` ||
+        !isExternalTaskPath(value.path, workspace, nodeId) ||
         typeof value.content !== "string" || !/^[a-f0-9]{64}$/.test(value.sha256)) {
       throw new Error("Export nemá očekávanou identitu, cestu nebo rozsah.");
     }

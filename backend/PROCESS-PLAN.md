@@ -11,7 +11,7 @@ Schváleno 2026-09-14. Rozhodnutí uživatele: (1) klíčem je ID, frontend ukaz
 | `project.json` | ID, název, druh zdroje (git / local / empty), URL nebo cesta, větev, nastavení (cíl, platforma, revize) | tabulky `projects`, `project_sources`, `project_settings` |
 | `main/` | čistá spravovaná kopie zdroje; nikdy se do ní nezapisuje | existuje |
 | `worktrees/<wt-id>/` + `worktrees/<wt-id>.json` | git worktree pro běžící proces; metadata vedle složky | dnešní `workspaces/<wid>/` (přejmenování, tabulka `workspaces` → metadata JSON) |
-| `canvas/graph.json` | graf plátna pro ne-git projekty (git projekty ho mají v `main/opora-canvas.json`) | tabulka `drafts` |
+| `canvas/graph.json` | graf plátna pro ne-git projekty (git pracovní prostory ho mají v `canvas/workspaces/<wid>/graph.json`; `main` jen čte verzovaný `opora-canvas.json` z Git HEAD) | tabulka `drafts` |
 | `canvas/drawings/` | kresby po vrstvách | `drawing_revisions` (index v `project.sqlite`) |
 | `nodes/<node-id>/text.md`, `spec.json`, `journal/<den>.md` | obsah uzlu, který čte agent | `node_text_revisions`, `node_spec_revisions`, `node_journal_revisions` (revize v `project.sqlite`) |
 | `sectors/<sector-id>/` | totéž pro sektor (slot) | – |

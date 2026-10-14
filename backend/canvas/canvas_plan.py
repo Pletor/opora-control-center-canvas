@@ -9,8 +9,8 @@ dávka se sestaví v paměti (`canvas_plan_build`) a projde stávajícími valid
 Pořadí zápisů: spec, text i stav leží v SQLite projektu, a tak jdou do jedné transakce
 (`BEGIN IMMEDIATE`). Graf se zapisuje poslední, stále uvnitř té transakce, stávajícím
 `save_graph`: u lokálního projektu leží graf ve stejné databázi a jeho `commit` potvrdí všechno
-naráz; u Git prostoru se soubor grafu přepíše atomicky (`os.replace`) a teprve potom se
-transakce potvrdí. Když zápis grafu selže, transakce se vrátí a nic nezůstane. Zbývá jen
+naráz; u Git prostoru se soubor grafu v datech plátna (ne v repu) přepíše atomicky
+(`os.replace`) a teprve potom se transakce potvrdí. Když zápis grafu selže, transakce se vrátí a nic nezůstane. Zbývá jen
 úzké okno mezi přepsáním souboru a `commit` — tehdy by na plátně byly karty bez obsahu,
 nikdy obsah bez karet (nová UUID nikdo jiný nezná).
 """

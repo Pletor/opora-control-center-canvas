@@ -82,6 +82,19 @@ class ProjectFolder:
             raise ValueError("Neplatné ID uzlu.")
         return self.path / "nodes" / node_id
 
+    def workspace_graph(self, workspace_id: str) -> Path:
+        """Graf plátna Git pracovního prostoru. Leží v datech plátna, ne v cílovém repu (to má jen kód)."""
+        if not isinstance(workspace_id, str) or not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", workspace_id):
+            raise ValueError("Neplatné ID pracovního prostoru.")
+        return self.canvas / "workspaces" / workspace_id / "graph.json"
+
+    def external_task(self, workspace_id: str, node_id: str) -> Path:
+        """Markdown zadání pro externího agenta; patří do dat plátna, cílové repo zůstává čisté."""
+        for value in (workspace_id, node_id):
+            if not isinstance(value, str) or not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", value):
+                raise ValueError("Neplatné ID pracovního prostoru nebo uzlu.")
+        return self.packets / "external-tasks" / workspace_id / f"{node_id}.md"
+
     def sector(self, sector_id: str) -> Path:
         if not isinstance(sector_id, str) or not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", sector_id):
             raise ValueError("Neplatné ID sektoru.")

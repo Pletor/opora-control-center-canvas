@@ -1,14 +1,16 @@
-"""Výslovný Markdown export snímku do Git workspace; žádný start modelu ani kódu."""
+"""Výslovný Markdown export snímku do dat plátna; žádný start modelu ani kódu.
+
+Zadání leží v `projects/<id>/packets/external-tasks/<workspace>/<uzel>.md`, ne v cílovém repu:
+repo nese jen kód. API vrací absolutní cestu souboru, aby ho agent mohl přečíst.
+"""
 
 import hashlib
 import os
-from pathlib import Path
 
 from backend.canvas.graph import payload_project, valid_id
 from backend.editor.agent_packet.desktop_v3_packets import packet_digest
 from backend.project.workspace.workspace_sources import relative_path, reparse
 
-TASK_DIRECTORY = "docs/opora-control-center/tasks"
 MAX_EXPORT_BYTES = 1_200_000
 
 
@@ -105,25 +107,23 @@ class ExternalAgentTasks:
         return snapshot
 
     def _target(self, payload, create=False):
-        path = relative_path(f"{TASK_DIRECTORY}/{payload['nodeId']}.md")
-        root = self.canvas.workspace_sources.root(payload["project"], payload["workspace"])
-        if root is None:
-            raise ValueError("Git workspace nemá dostupný kořen.")
-        target = root
-        for part in Path(path).parts[:-1]:
-            target = target / part
+        folder = self.canvas.folder(payload["project"])
+        root = folder.path
+        target = folder.external_task(payload["workspace"], payload["nodeId"])
+        current = root
+        for part in target.relative_to(root).parts[:-1]:
+            current = current / part
             if create:
-                target.mkdir(exist_ok=True)
-            if target.exists() or target.is_symlink():
-                if reparse(target) or not target.is_dir():
+                current.mkdir(exist_ok=True)
+            if current.exists() or current.is_symlink():
+                if reparse(current) or not current.is_dir():
                     raise ValueError("Export nesmí procházet odkazy nebo soubory místo složek.")
-        target = root / path
         if target.exists() or target.is_symlink():
             if reparse(target) or not target.is_file() or target.stat().st_nlink != 1:
                 raise ValueError("Export vyžaduje běžný soubor bez odkazů.")
-        if not target.resolve().is_relative_to(root):
-            raise ValueError("Export opouští Git workspace.")
-        return path, target
+        if not target.resolve().is_relative_to(root.resolve()):
+            raise ValueError("Export opouští data projektu.")
+        return str(target), target
 
     def export(self, snapshot_id, payload):
         project = payload_project(payload)
@@ -150,7 +150,7 @@ class ExternalAgentTasks:
                     raise ValueError("Zpětné čtení exportu neodpovídá snímku.")
                 return result
         except OSError as exc:
-            raise ValueError("Export nelze bezpečně zapsat do vybraného Git workspace.") from exc
+            raise ValueError("Export nelze bezpečně zapsat do dat plátna.") from exc
 
     def read(self, snapshot_id, payload):
         try:
@@ -166,4 +166,4 @@ class ExternalAgentTasks:
                         "nodeId": payload["nodeId"], "path": path,
                         "sha256": hashlib.sha256(raw).hexdigest(), "content": raw.decode("utf-8")}
         except (OSError, UnicodeError) as exc:
-            raise ValueError("Export nelze bezpečně načíst z vybraného Git workspace.") from exc
+            raise ValueError("Export nelze bezpečně načíst z dat plátna.") from exc
