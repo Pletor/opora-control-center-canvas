@@ -30,6 +30,8 @@ from backend.api.editor.sync_routes import create_sync_router
 from backend.api.project.archify_routes import create_archify_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
+from backend.api.project.project_web_status_routes import create_project_web_status_router
+from backend.api.project.project_work_status_routes import create_project_work_status_router
 from backend.api.project.project_workspace_routes import create_project_workspace_router
 from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
@@ -61,6 +63,7 @@ from backend.integrations.build_identity import build_identity
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
 from backend.memory.memory_service import AppSettings, MemoryService
 from backend.paths import DIST_DIR, REPO_ROOT
+from backend.project.architecture.web_status import WebStatusService
 from backend.project.maps.map_refresh import MapRefresh
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from backend.semantic_retrieval.service import SemanticRetrieval
@@ -240,6 +243,8 @@ def create_app(data_root=None):
     # Hook control: karta a cesty, které agent na disku smí měnit (upgrade-opora #38, bez Live Run).
     app.include_router(create_hook_router(service, port=port))
     app.include_router(create_hook_install_router(service, binding_lookup=service.hook_control.public_binding))
+    app.include_router(create_project_work_status_router(service, assistant.registry, service.hook_control.store))
+    app.include_router(create_project_web_status_router(WebStatusService(service)))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)
     sync_report = SyncReport(service, check_runs=check_runs)

@@ -209,3 +209,14 @@ def test_the_private_client_config_carries_the_card_but_never_the_role(tmp_path)
     config = json.loads(Path(control._binding(binding["id"])["client_path"]).read_text(encoding="utf-8"))
     assert config["nodeId"] == "node"
     assert "role" not in config and "agentRole" not in config
+
+
+def test_store_for_project_lists_only_that_project_read_only(tmp_path):
+    from backend.agent_control.hook_store import HookStore
+
+    store = HookStore(tmp_path)
+    for index, project in enumerate(("a", "b", "a")):
+        store.insert({"id": f"b{index}", "project": project, "workspace": "w", "nodeId": "n"}, "h", tmp_path, tmp_path)
+    store.db.commit()
+    assert sorted(item["id"] for item in store.for_project("a")) == ["b0", "b2"]
+    assert store.for_project("zzz") == []
