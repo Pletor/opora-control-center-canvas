@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from backend.claude_code.assistant.manager import AssistantError, SessionNotFound
 
-CREATE_KEYS = {"project", "workspace", "title", "model"}
+CREATE_KEYS = {"project", "workspace", "title", "model", "nodeId"}
 MESSAGE_KEYS = {"text", "context"}
 APPROVAL_KEYS = {"decision", "note"}
 
@@ -92,7 +92,7 @@ def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.2
     def create(payload: dict):
         body = _body(payload, CREATE_KEYS, {"project"})
         try:
-            session = manager.create(body["project"], body.get("workspace"), body.get("title"), body.get("model"))
+            session = manager.create(body["project"], body.get("workspace"), body.get("title"), body.get("model"), body.get("nodeId"))
         except AssistantError as exc:
             return _error(exc)
         return {"session": session}

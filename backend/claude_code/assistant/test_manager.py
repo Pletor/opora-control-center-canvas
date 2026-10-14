@@ -437,3 +437,11 @@ def test_write_outside_drafts_is_denied_without_ui(manager, tmp_path):
     approval = approvals_of(manager, sid)[0]
     assert approval["auto"] is True and approval["tool"] == "Write"
     assert not (tmp_path / "data" / "assistant-drafts" / "escape.json").exists()
+
+
+def test_create_binds_session_to_card(manager):
+    """Relace karty nese nodeId (živý panel domény); bez něj zůstává None."""
+    assert manager.create("p1", node_id="card-1")["nodeId"] == "card-1"
+    assert manager.create("p1")["nodeId"] is None
+    with pytest.raises(AssistantError):
+        manager.create("p1", node_id="")

@@ -122,14 +122,16 @@ class AssistantManager:
         return read_transcript(self._record(session_id).get("claudeSessionId"), self._home)
 
     # --- zápis -----------------------------------------------------------------------
-    def create(self, project, workspace=None, title=None, model=None):
+    def create(self, project, workspace=None, title=None, model=None, node_id=None):
         model = model or cli.DEFAULT_MODEL
         if model not in cli.MODELS:
             raise AssistantError("Model asistenta je opus, sonnet nebo fable.")
         if title is not None and (not isinstance(title, str) or len(title) > 120):
             raise AssistantError("Název session může mít nejvýše 120 znaků.")
+        if node_id is not None and (not isinstance(node_id, str) or not 0 < len(node_id) <= 200):
+            raise AssistantError("Karta session musí být platné ID uzlu.")
         chosen, _root = self.locate(project, workspace)
-        return self._public(self.registry.create(project, chosen, model, title))
+        return self._public(self.registry.create(project, chosen, model, title, node_id))
 
     def _route(self, text, context):
         """Hint a telemetrie směrovače mimo zámek, s tvrdou mezí; porucha = bez hintu."""

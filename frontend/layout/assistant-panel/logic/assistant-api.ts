@@ -44,7 +44,7 @@ export const fetchStatus = () => api<AssistantStatus>(`${base}/status`);
 export const fetchSessions = (project: string) =>
   api<{ sessions: AssistantSession[] }>(`${base}/sessions?project=${encodeURIComponent(project)}`).then((r) => r.sessions);
 
-export const createSession = (body: { project: string; workspace?: string; title?: string; model?: AssistantModel }) =>
+export const createSession = (body: { project: string; workspace?: string; title?: string; model?: AssistantModel; nodeId?: string }) =>
   api<{ session: AssistantSession }>(`${base}/sessions`, body).then((r) => r.session);
 
 export const sendMessage = (id: string, text: string, context: AssistantContext) =>

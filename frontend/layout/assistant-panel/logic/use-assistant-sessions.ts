@@ -30,7 +30,7 @@ export type SessionsApi = {
   model: AssistantModel;
   setModel: (model: AssistantModel) => void;
   /** Bez voleb ve workspace pohledu; `workspace`/`title` založí úkol jinde (živý panel domény). Zprávu neposílá. */
-  create: (options?: { workspace?: string; title?: string }) => Promise<AssistantSession | null>;
+  create: (options?: { workspace?: string; title?: string; nodeId?: string }) => Promise<AssistantSession | null>;
   close: (id: string) => Promise<void>;
   rename: (id: string, title: string) => Promise<AssistantSession | null>;
 };
@@ -80,9 +80,9 @@ export function useAssistantSessions(open: boolean, watch: boolean, project: str
 
   const setModel = useCallback((next: AssistantModel) => { setModelState(next); writePrefs({ model: next }); }, []);
 
-  const create = useCallback(async (options: { workspace?: string; title?: string } = {}) => {
+  const create = useCallback(async (options: { workspace?: string; title?: string; nodeId?: string } = {}) => {
     try {
-      const session = await createSession({ project, workspace: options.workspace ?? workspace, model, ...(options.title ? { title: options.title } : {}) });
+      const session = await createSession({ project, workspace: options.workspace ?? workspace, model, ...(options.title ? { title: options.title } : {}), ...(options.nodeId ? { nodeId: options.nodeId } : {}) });
       setSessions((list) => [...list, session]);
       setActiveId(session.id);
       return session;
