@@ -1,13 +1,25 @@
-// Přehled plánu: jedna věta stavu, pruh pokrytí, dlaždice Výzkum · K upřesnění · Změněno po vložení
-// a seznam „Čeká na tebe“. Klik vede do příslušné sekce (onSection). Jen zobrazení.
+// Přehled plánu: jedna věta stavu, pruh pokrytí vybrané disciplíny, dlaždice Výzkum · K upřesnění · Změněno
+// po vložení, přehled po disciplínách (pokrytí a chyba předpovědi) a seznam „Čeká na tebe“. Klik vede do
+// příslušné sekce (onSection) nebo přepne disciplínu (onView). Dole nastavení Schránky od rodiče (povolení
+// kontroly bran Jev pro projekt). Jen zobrazení.
 import { countChangedMvp, coverageOf, type Feedback, type VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import CoverageBar, { chaptersLabel } from "@/editor/node-detail/brief-vault/components/CoverageBar";
 import { VERDICTS, questionItems, verdictCounts, waitingOnHuman, type SectionId } from "../logic/vault-dock-model";
+import type { ReactNode } from "react";
+import type { DisciplineStat } from "../logic/discipline-stats";
+import type { DisciplineView } from "../logic/disciplines";
+import DisciplineOverview from "./DisciplineOverview";
 
-export default function OverviewSection({ roots, feedback, onSection }: {
+export default function OverviewSection({ roots, feedback, stats, view, onSection, onView, setting }: {
   roots: VaultNode[];
   feedback: Feedback[];
+  /** Pokrytí a chyba předpovědi po disciplínách celého rozsahu. */
+  stats: DisciplineStat[];
+  view: DisciplineView;
   onSection: (id: SectionId) => void;
+  onView: (view: DisciplineView) => void;
+  /** Nastavení Schránky (jednorázové, mimo tok práce). */
+  setting?: ReactNode;
 }) {
   const coverage = coverageOf(roots);
   const verdicts = verdictCounts(roots);
@@ -40,6 +52,7 @@ export default function OverviewSection({ roots, feedback, onSection }: {
           <span className="vault-tile__hint">{coverage.changed ? "Karty vznikly ze starší revize textu." : "Karty mají aktuální zadání."}</span>
         </button>
       </div>
+      <DisciplineOverview stats={stats} view={view} onView={onView} />
       <section className="vault-panel" aria-label="Čeká na tebe">
         <h3 className="vault-panel__title">Čeká na tebe</h3>
         {waiting.length ? waiting.map((item) => (
@@ -50,6 +63,7 @@ export default function OverviewSection({ roots, feedback, onSection }: {
           </div>
         )) : <p className="vault-panel__text">Nic nečeká: výzkum má zpětnou vazbu, otázky odpovědi a karty aktuální zadání.</p>}
       </section>
+      {setting}
     </div>
   );
 }

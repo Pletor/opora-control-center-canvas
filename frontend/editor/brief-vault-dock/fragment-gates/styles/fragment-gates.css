@@ -1,0 +1,33 @@
+/* BRÁNY CYKLU V DETAILU FRAGMENTU (blok fragment-gates)
+   Příběh: pod doslovným textem fragmentu člověk vidí, jak daleko došel cyklus, který řídí agenti. Osm bran
+   pod sebou jako kontrolní seznam: u splněné brány je vidět, kdo ji potvrdil a co do ní zapsal (přínos,
+   mikrokrok, verdikt, chyba předpovědi), u další na řadě případný návrh a jeho autor. Nic se tu nemačká;
+   je to výpis, ne ovladač. Brány dál v pořadí jsou tiché, aby oko neskákalo dopředu. Slepá ulička
+   a zneplatnění mají vlastní větu nahoře, protože mění, co dává smysl čekat. */
+.fragment-gates { display: flex; flex-direction: column; gap: 8px; flex-basis: 100%; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.fragment-gates__title { margin: 0; font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.fragment-gates__dead { margin: 0; font-size: 12px; color: var(--ink-2); padding: 6px 8px; border-radius: 6px; background: var(--surface-3); }
+.fragment-gates__stale { margin: 0; font-size: 12px; color: var(--gold); }
+.fragment-gates__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* Řádek brány: tečka ve stejném jazyce jako pruh ve stromu, vpravo titulek, kdo a kdy, a payload. Vypnuté
+   brány dál v pořadí jsou ztlumené; další na řadě má jemný podklad, aby bylo jasné, kde cyklus stojí. */
+.fragment-gates__row { display: flex; gap: 8px; align-items: flex-start; padding: 6px; border-radius: 6px; font-size: 12px; }
+.fragment-gates__row .brief-gates__dot { margin-top: 4px; width: 8px; height: 8px; flex: none; }
+.fragment-gates__row--off { opacity: 0.6; }
+.fragment-gates__row--next { background: var(--accent-soft); }
+.fragment-gates__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fragment-gates__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.fragment-gates__state { font: 500 10px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; }
+.fragment-gates__error { font: 600 10px var(--mono); color: var(--gold); }
+.fragment-gates__waiting { font-size: 11px; color: var(--ink-muted); }
+.fragment-gates__payload { margin: 0; padding-left: 14px; color: var(--ink-2); line-height: 1.5; overflow-wrap: anywhere; }
+/* Návrh čekající na potvrzení: přerušovaná linka vlevo říká „ještě neplatí“, ale obsah je čitelný celý. */
+.fragment-gates__proposal { display: flex; flex-direction: column; gap: 2px; padding-left: 8px; border-left: 2px dashed var(--accent-line); }
+.fragment-gates__queue { margin: 0; font-size: 12px; color: var(--ink-2); }
+
+/* Poučení disciplíny: řádek = druh, text, platná váha a autor; váha v procentech ukazuje, jak poučení vyhasíná. */
+.fragment-gates__lessons { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.fragment-gates__lesson { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; padding: 4px 0; border-top: 1px solid var(--line); }
+.fragment-gates__lesson-text { flex: 1; min-width: 160px; overflow-wrap: anywhere; }
+.fragment-gates__weight { font: 500 10px var(--mono); color: var(--ink-muted); }

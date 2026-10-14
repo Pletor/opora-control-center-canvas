@@ -1,19 +1,22 @@
 // Náhled vložení karet ze schránky: plán struktury (oblast → sektor → karty) složí server z vybraných fragmentů
 // a ověří ho dryRun (POST /api/brief-vault/plan, nic se nezapíše). Člověk vidí karty, bloky a nové oblasti
-// a sektory a teprve jeho klik pošle tutéž dávku na /api/canvas-plan.
+// a sektory a teprve jeho klik pošle tutéž dávku na /api/canvas-plan. Když server plán odmítne kvůli
+// nezařazeným fragmentům nebo chybějícímu mikrokroku, dílek vypíše dotčené fragmenty s „Otevřít fragment“
+// (klik bublá přes onOpenFragment k rodiči, který přepne na Zadání a fragment otevře).
 import { useEffect, useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import type { CanvasPlanResult } from "@/editor/component-library/library-catalog/logic/catalog-plan";
-import { fetchPlan, previewOf, type ServerPlan } from "../logic/vault-plan-preview";
+import { fetchPlan, planBlocker, previewOf, type ServerPlan } from "../logic/vault-plan-preview";
 import type { VaultScope } from "../logic/vault-actions";
 
-export default function PlanPreview({ scope, digest, fragmentIds, title, onApplied, onCancel }: {
+export default function PlanPreview({ scope, digest, fragmentIds, title, onApplied, onCancel, onOpenFragment }: {
   scope: VaultScope;
   digest: string;
   fragmentIds: string[];
   title: string;
   onApplied: (result: CanvasPlanResult, cards: number) => void;
   onCancel: () => void;
+  onOpenFragment: (id: string) => void;
 }) {
   const [plan, setPlan] = useState<ServerPlan | null>(null);
   const [error, setError] = useState("");
@@ -57,12 +60,32 @@ export default function PlanPreview({ scope, digest, fragmentIds, title, onAppli
         </>
       )}
       {!plan && !error && <p className="vault-dock__notice" role="status">Skládám plán na serveru (dryRun, nic se nezapíše)…</p>}
-      {error && <p className="vault-dock__error" role="alert">{error}</p>}
+      {error && <PlanError error={error} onOpenFragment={onOpenFragment} />}
       <div className="vault-actions">
         <button type="button" className="vault-button vault-button--primary" disabled={!plan || busy || !count}
           onClick={() => void write()}>Potvrdit a vložit {count} {count === 1 ? "kartu" : count > 1 && count < 5 ? "karty" : "karet"}</button>
         <button type="button" className="vault-button" disabled={busy} onClick={onCancel}>Zrušit</button>
       </div>
     </section>
+  );
+}
+
+/** Odmítnutý plán: srozumitelný důvod a dotčené fragmenty k otevření; jiná chyba jako text serveru. */
+function PlanError({ error, onOpenFragment }: { error: string; onOpenFragment: (id: string) => void }) {
+  const blocker = planBlocker(error);
+  if (!blocker) return <p className="vault-dock__error" role="alert">{error}</p>;
+  return (
+    <div className="vault-plan__blocked" role="alert" data-testid="vault-plan-blocked">
+      <p className="vault-panel__text"><strong>Plán nejde složit.</strong> {blocker.text}</p>
+      <ul className="vault-plan__list">
+        {blocker.fragments.map((item) => (
+          <li key={item.id} className="vault-plan__blocked-item">
+            <span>{item.title}</span>
+            <button type="button" className="vault-button" onClick={() => onOpenFragment(item.id)}>Otevřít fragment</button>
+          </li>
+        ))}
+        {blocker.more > 0 && <li>… a dalších {blocker.more}</li>}
+      </ul>
+    </div>
   );
 }

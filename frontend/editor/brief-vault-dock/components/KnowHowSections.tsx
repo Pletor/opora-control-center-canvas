@@ -2,11 +2,12 @@
 // rozsahu) a Podněty (obousměrně s fragmentem: čip fragmentu, nebo „Udělat z toho fragment“).
 import { useState } from "react";
 import type { Decision, NodeMaterial } from "@/shared/desktop-state/logic/types";
-import type { Track, VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import type { VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import type { CardIdea } from "@/editor/node-detail/ideas/logic/ideas-model";
 import { flatten, fold, safeHref } from "../logic/vault-dock-model";
 import { vaultOp, type VaultScope } from "../logic/vault-actions";
-import { ideaTarget, type TrackView } from "../logic/vault-tracks";
+import { ideaTarget, type DisciplineView } from "../logic/disciplines";
+import DisciplineSelect from "./DisciplineSelect";
 
 const hit = (text: string, query: string) => !query.trim() || fold(text).includes(fold(query.trim()));
 
@@ -84,20 +85,20 @@ export function MaterialsSection({ materials, nodeNames, query }: { materials: {
   );
 }
 
-export function IdeasSection({ scope, roots, ideas, nodeNames, vaultScope, track, query, readOnly, onLinked }: {
+export function IdeasSection({ scope, roots, ideas, nodeNames, vaultScope, view, query, readOnly, onLinked }: {
   scope: VaultScope; roots: VaultNode[]; ideas: { nodeId: string; idea: CardIdea }[];
-  nodeNames: Record<string, string>; vaultScope: string; track: TrackView; query: string; readOnly: boolean; onLinked: () => void;
+  nodeNames: Record<string, string>; vaultScope: string; view: DisciplineView; query: string; readOnly: boolean; onLinked: () => void;
 }) {
-  // Nový kořen z Podnětu ve stopě „Nezařazené“: stopu musí zvolit člověk, server bez ní kořen odmítne.
-  const [chosen, setChosen] = useState<Track | null>(null);
-  const needsTrack = !readOnly && ideaTarget(roots, vaultScope, track, null) === null;
+  // Nový kořen z Podnětu v pohledu „Nezařazené“: disciplínu musí zvolit člověk, server bez ní kořen odmítne.
+  const [chosen, setChosen] = useState("");
+  const needsDiscipline = !readOnly && ideaTarget(roots, vaultScope, view, null) === null;
   const titles = Object.fromEntries(flatten(roots).map((item) => [item.node.id, item.node.title]));
   const [message, setMessage] = useState("");
   const items = ideas.filter(({ idea }) => hit(idea.text, query));
   async function makeFragment(nodeId: string, ideaId: string) {
     try {
-      const target = ideaTarget(roots, vaultScope, track, chosen);
-      if (!target) { setMessage("Nejdřív vyber stopu nového zadání: CX/UX/UI, nebo Backend + DB."); return; }
+      const target = ideaTarget(roots, vaultScope, view, chosen || null);
+      if (!target) { setMessage("Nejdřív vyber disciplínu nového zadání."); return; }
       await vaultOp(scope, { op: "from-idea", nodeId, ideaId, ...target });
       onLinked();
       setMessage("Fragment vznikl a Podnět na něj odkazuje.");
@@ -106,13 +107,9 @@ export function IdeasSection({ scope, roots, ideas, nodeNames, vaultScope, track
   return (
     <div className="vault-stack" data-testid="vault-ideas">
       <p className="vault-dock__lead">Podněty review a kritiků k dalšímu vývoji. Z Podnětu uděláš fragment zadání; Podnět pak ukazuje, kam patří.</p>
-      {needsTrack && (
-        <label className="vault-field">Stopa nového zadání (schránka zatím nemá kořen, Podnět ho založí)
-          <select value={chosen ?? ""} onChange={(event) => setChosen((event.target.value || null) as Track | null)}>
-            <option value="">vyber stopu…</option>
-            <option value="ux">CX/UX/UI</option>
-            <option value="logic">Backend + DB</option>
-          </select>
+      {needsDiscipline && (
+        <label className="vault-field">Disciplína nového zadání (schránka zatím nemá kořen, Podnět ho založí)
+          <DisciplineSelect value={chosen} label="Disciplína nového zadání z Podnětu" placeholder="vyber disciplínu…" onChange={setChosen} />
         </label>
       )}
       {items.length ? <section className="vault-panel">{items.map(({ nodeId, idea }) => (

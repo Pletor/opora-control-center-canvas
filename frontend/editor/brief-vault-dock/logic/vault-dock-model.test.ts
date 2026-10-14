@@ -62,8 +62,8 @@ describe("vault dock model", () => {
     expect(safeHref("javascript:alert(1)")).toBeUndefined();
     expect(safeHref("nesmysl")).toBeUndefined();
   });
-  it("skips path-only nodes of another track in what waits on the human", () => {
-    const root = node("Vrstva", { offTrack: true, mvp: "proposed", children: [node("3.1", { mvp: "proposed" })] });
+  it("skips path-only nodes of another discipline in what waits on the human", () => {
+    const root = node("Vrstva", { offPath: true, mvp: "proposed", children: [node("3.1", { mvp: "proposed" })] });
     expect(waitingOnHuman([root]).map((item) => item.text)).toEqual(["1 fragment navržený do MVP čeká na potvrzení"]);
   });
 

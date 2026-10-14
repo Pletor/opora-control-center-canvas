@@ -5,8 +5,6 @@
 export type FragmentRef = { fragmentId: string; revision: number };
 export type FragmentStatus = "changed" | "inserted" | "research" | "mvp" | "proposed" | "saved";
 export type FragmentKind = "brief" | "research" | "question";
-/** Stopa fragmentu (docs/navrh-schranka-zadani.md, „Dvě stopy a levé menu“): CX/UX/UI nebo Backend + DB. */
-export type Track = "ux" | "logic";
 export type Verdict = "feasible" | "dead_end" | "unrealistic" | "unverified";
 export type ResearchStatus = "assigned" | "running" | "done";
 /** Výtah výzkumu ve stromu (bez důkazů). */
@@ -30,14 +28,30 @@ export type FragmentRevision = {
   at: string;
   deleted: boolean;
   chars: number;
-  /** Vlastní stopa revize (`null` = dědí po předkovi); starší server pole nemá. */
-  track?: Track | null;
-  /** Platná stopa: `track` nejbližšího předka včetně sebe, jinak nezařazené (`null`). */
-  effectiveTrack?: Track | null;
+  /** Vlastní disciplína revize (`null` = dědí po předkovi; docs/schranka-neurony.md §2). Id z `brief-vault-dock/logic/disciplines.ts`. */
+  discipline?: string | null;
 };
 
+/** Brány cyklu ve stromu a v detailu (docs/schranka-neurony.md §3): jen booleany a `predictionError` u `verified`. */
+export type GateFlags = Record<GateName, boolean> & { predictionError: number | null };
+export type GateName = "scoped" | "weighed" | "synthesized" | "decided" | "planned" | "placed" | "verified" | "learned";
+/** Platná disciplína (nejbližší předek včetně sebe, `null` = nezařazené) a stav bran fragmentu. */
+export type GateSummary = {
+  effectiveDiscipline?: string | null;
+  gates?: GateFlags;
+  /** Počet platně zapnutých bran 0–8 (prefix v pořadí cyklu). */
+  gateStep?: number;
+  /** Některá zapnutá brána má jiný otisk vstupů (název, text, disciplína): chová se jako vypnutá. */
+  gatesStale?: boolean;
+  /** `decided` = `no`: slepá ulička. */
+  deadEnd?: boolean;
+};
+/** Záznam brány v detailu fragmentu (`gateDetail`): payload, kdo a kdy, a zda platí. */
+export type GateEntry = { value: boolean; payload: Record<string, unknown> | null; by: string; actor: string; at: string;
+  inputHash: string; revision: number; valid: boolean };
+
 /** Uzel stromu schránky s odvozeným stavem; `children` jsou podfragmenty, research i otázky. */
-export type VaultNode = FragmentRevision & {
+export type VaultNode = FragmentRevision & GateSummary & {
   status: FragmentStatus;
   inserted: boolean;
   cards: { nodeId: string; revision: number }[];
@@ -54,8 +68,8 @@ export type VaultNode = FragmentRevision & {
   decisions?: string[];
   /** Kolik potomků pod stropem hloubky server už nevnořil. */
   hidden?: number;
-  /** Pohled jedné stopy: uzel jiné stopy, který zůstal jen jako cesta ke kořeni (nepočítá se, nevkládá se). */
-  offTrack?: boolean;
+  /** Pohled jedné disciplíny: uzel jiné disciplíny, který zůstal jen jako cesta ke kořeni (nepočítá se, nevkládá se). */
+  offPath?: boolean;
   children: VaultNode[];
 };
 export type Feedback = { id: string; fragmentId: string; fragmentRevision: number; verdict: "agree" | "disagree" | "comment"; text: string; by: string; actor: string; at: string };
@@ -64,7 +78,7 @@ export type Evidence = { url: string; title: string; quote: string; accessedAt: 
 export type ResearchDetails = Omit<ResearchSummary, "evidence"> & { approach: string; evidence: Evidence[] };
 export type QuestionDetails = { askedFor: "human" | "agent"; proposal: string; answer: string; answeredBy: string; answeredAt: string };
 
-export type FragmentDetail = {
+export type FragmentDetail = GateSummary & {
   fragment: FragmentRevision & { text: string };
   latestRevision: number;
   history: FragmentRevision[];
@@ -78,6 +92,8 @@ export type FragmentDetail = {
   details?: { research?: ResearchDetails; question?: QuestionDetails; decisions?: string[] };
   decisions?: ({ id: string; available: true; text: string; nodeId: string; pinned: boolean } | { id: string; available: false })[];
   feedback?: Feedback[];
+  /** Uložené záznamy bran (i vypnuté a zneplatněné) s payloadem; chybějící brána = nikdy nezapnutá. */
+  gateDetail?: Partial<Record<GateName, GateEntry>>;
 };
 
 /** Segmenty pruhu pokrytí v pevném pořadí (zleva): hotové vlevo, varování vpravo. */
@@ -109,7 +125,7 @@ export function coverageOf(roots: VaultNode[]): Coverage {
     if (node.kind !== "brief") return;
     const briefs = node.children.filter((child) => child.kind === "brief");
     if (!briefs.length) {
-      if (node.offTrack) return;
+      if (node.offPath) return;
       result.leaves += 1;
       result[coverageKey(node)] += 1;
       return;
@@ -128,7 +144,7 @@ export function countChangedMvp(roots: VaultNode[]): number {
     const node = stack.pop()!;
     if (node.kind !== "brief") continue;
     const briefs = node.children.filter((child) => child.kind === "brief");
-    if (!briefs.length) { if (!node.offTrack && node.status === "changed" && (node.mvp === "yes" || node.mvp === "proposed")) count += 1; }
+    if (!briefs.length) { if (!node.offPath && node.status === "changed" && (node.mvp === "yes" || node.mvp === "proposed")) count += 1; }
     else stack.push(...briefs);
   }
   return count;

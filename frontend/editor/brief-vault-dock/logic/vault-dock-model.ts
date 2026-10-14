@@ -1,5 +1,5 @@
 // Čistý model Schránky v levém menu Editoru (návrh Claude Design „Main“ a docs/navrh-schranka-zadani.md
-// „Dvě stopy a levé menu“): sekce vnitřního menu, počty, hledání, výzkum s verdiktem, otázky K upřesnění,
+// „Levé menu“, docs/schranka-neurony.md §6): sekce vnitřního menu, počty, hledání, výzkum s verdiktem, otázky K upřesnění,
 // přehled „čeká na tebe“, rozsah a vlastník schránky. Bez Reactu; data přicházejí ze stromu GET /api/brief-vault.
 import { coverageOf, type Coverage, type Feedback, type Verdict, type VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
@@ -95,7 +95,7 @@ export type WaitingItem = { id: string; text: string; section: SectionId; action
 /** „Čeká na tebe“: hotový výzkum bez zpětné vazby, otázky pro člověka, návrhy MVP a změněné zadání karet. */
 export function waitingOnHuman(roots: VaultNode[], feedback: Feedback[] = []): WaitingItem[] {
   const answered = new Set(feedback.map((item) => item.fragmentId));
-  const list = flatten(roots).map((item) => item.node).filter((node) => !node.offTrack);
+  const list = flatten(roots).map((item) => item.node).filter((node) => !node.offPath);
   const items: WaitingItem[] = [];
   list.filter((node) => node.kind === "research" && node.research?.status === "done" && !answered.has(node.id))
     .forEach((node) => items.push({ id: "r:" + node.id, text: `Výzkum „${node.title}“ čeká na tvou zpětnou vazbu`, section: "research", action: "Otevřít", tone: "research" }));

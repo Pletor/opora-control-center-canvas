@@ -100,7 +100,7 @@ export default function NodePanel({
   onCommitSpec?: () => void;
   workflow?: ReactNode;
   resultRevision: number;
-  /** Otevře Schránku v levém menu (rozsah = vlastník kořene, volitelně rovnou na fragmentu a v jeho stopě). */
+  /** Otevře Schránku v levém menu (rozsah = vlastník kořene, volitelně rovnou na fragmentu a v jeho disciplíně). */
   onOpenVault?: (scope: string, focus?: string) => void;
   /** Aktuální kolo karty ze stavu Desktop v3 (chybí = kolo 1). */
   round?: CardRound;

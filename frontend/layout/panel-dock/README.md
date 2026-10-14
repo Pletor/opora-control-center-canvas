@@ -1,4 +1,4 @@
-Menu Editoru za jedním tlačítkem ☰: lišta ikon u levého okraje pracovní plochy a vedle ní panel zvolené sekce. Sekce shora: **Struktura**, **Schránka**, pod oddělovačem **Nastavení**. Kontrakt je `docs/menu-a-katalog.md` (část A, rozvržení menu), sekci Schránka `docs/navrh-schranka-zadani.md` („Dvě stopy a levé menu“) — kód je provádí, nemění. Sekce Knihovna (Prvky), Agenti (Katalog, Kód) a Postupy jsou smazané; záložka Struktura Knihovny je teď sekce Struktura a záložka Vybraná karta Agentů je druhá záložka Struktury.
+Menu Editoru za jedním tlačítkem ☰: lišta ikon u levého okraje pracovní plochy a vedle ní panel zvolené sekce. Sekce shora: **Struktura**, **Schránka**, pod oddělovačem **Nastavení**. Kontrakt je `docs/menu-a-katalog.md` (část A, rozvržení menu), sekci Schránka `docs/navrh-schranka-zadani.md` a `docs/schranka-neurony.md` §6 (disciplíny a brány) — kód je provádí, nemění. Sekce Knihovna (Prvky), Agenti (Katalog, Kód) a Postupy jsou smazané; záložka Struktura Knihovny je teď sekce Struktura a záložka Vybraná karta Agentů je druhá záložka Struktury.
 
 **Dílky**
 

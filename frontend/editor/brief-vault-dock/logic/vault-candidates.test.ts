@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { defaultSelection, distributeCandidates, planRequest, selectionCandidates } from "./vault-candidates";
-import { filterByTrack } from "./vault-tracks";
+import { filterByDiscipline } from "./disciplines";
 
 let seq = 0;
 const node = (title: string, extra: Partial<VaultNode> = {}): VaultNode => ({
@@ -31,10 +31,10 @@ describe("vault candidates", () => {
     expect(distributeCandidates([node("Inserted root", { inserted: true })])).toEqual([]);
   });
 
-  it("a path-only node of another track never becomes a candidate", () => {
-    const logic = node("Výpočet", { effectiveTrack: "logic", mvp: "yes" });
-    const root = node("Zadání", { effectiveTrack: "ux", mvp: "yes", children: [node("Tok", { effectiveTrack: "ux" }), logic] });
-    const view = filterByTrack([root], "logic");
+  it("a path-only node of another discipline never becomes a candidate", () => {
+    const logic = node("Výpočet", { effectiveDiscipline: "be", mvp: "yes" });
+    const root = node("Zadání", { effectiveDiscipline: "ux", mvp: "yes", children: [node("Tok", { effectiveDiscipline: "ux" }), logic] });
+    const view = filterByDiscipline([root], "be");
     expect(distributeCandidates(view).map((item) => item.title)).toEqual(["Výpočet"]);
     expect([...defaultSelection(view)]).toEqual([logic.id]);
     expect(selectionCandidates(view, new Set([root.id, logic.id])).map((item) => item.title)).toEqual(["Výpočet"]);

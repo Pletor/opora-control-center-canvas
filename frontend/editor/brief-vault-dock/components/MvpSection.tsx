@@ -1,7 +1,8 @@
 // MVP a distribuce: výběr kapitol do MVP (agent navrhuje, člověk potvrzuje), „Vložit vybrané jako karty“
 // a „Rozdistribuovat zbytek plánu“. Obojí pošle vybrané fragmenty serveru, ten složí plán struktury
-// (POST /api/brief-vault/plan) a PlanPreview ho ukáže; zapíše se až po potvrzení člověkem. Výběr drží tento dílek; kapitoly i karty jsou jen z vybrané stopy
-// (předek jiné stopy je cesta, ne řádek k výběru).
+// (POST /api/brief-vault/plan) a PlanPreview ho ukáže; zapíše se až po potvrzení člověkem. Výběr drží tento
+// dílek; kapitoly i karty jsou jen z vybrané disciplíny (předek jiné disciplíny je cesta, ne řádek k výběru).
+// Odmítnutý plán nabídne „Otevřít fragment“ (onOpenFragment k rodiči).
 import { useMemo, useState } from "react";
 import type { VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import type { CanvasPlanResult } from "@/editor/component-library/library-catalog/logic/catalog-plan";
@@ -19,15 +20,16 @@ function tagOf(node: VaultNode): { label: string; tone: string } {
   return { label: "uloženo", tone: "" };
 }
 
-export default function MvpSection({ scope, roots, query, readOnly, digest, onApplied }: {
+export default function MvpSection({ scope, roots, query, readOnly, digest, onApplied, onOpenFragment }: {
   scope: VaultScope;
   roots: VaultNode[];
   query: string;
   readOnly: boolean;
   digest: string;
   onApplied: (result: CanvasPlanResult, message: string) => void;
+  onOpenFragment: (id: string) => void;
 }) {
-  const rows = useMemo(() => flatten(roots).filter((item) => item.node.kind === "brief" && !item.node.offTrack
+  const rows = useMemo(() => flatten(roots).filter((item) => item.node.kind === "brief" && !item.node.offPath
     && (item.depth > 0 || !item.node.children.some((child) => child.kind === "brief"))), [roots]);
   const [selected, setSelected] = useState<Set<string>>(() => defaultSelection(roots));
   const [preview, setPreview] = useState<{ title: string; fragmentIds: string[] } | null>(null);
@@ -70,7 +72,7 @@ export default function MvpSection({ scope, roots, query, readOnly, digest, onAp
         )}
       </section>
       {preview ? (
-        <PlanPreview scope={scope} digest={digest} fragmentIds={preview.fragmentIds} title={preview.title} onCancel={() => setPreview(null)}
+        <PlanPreview scope={scope} digest={digest} fragmentIds={preview.fragmentIds} title={preview.title} onCancel={() => setPreview(null)} onOpenFragment={onOpenFragment}
           onApplied={(result, cards) => { setPreview(null); onApplied(result, `Vloženo ${cards} karet s odkazem na schránku.`); }} />
       ) : (
         <div className="vault-grid">

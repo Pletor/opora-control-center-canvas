@@ -642,7 +642,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     setParent(target.parentId);
     setSelection(selectNode(target.id));
   }
-  /** Schránka v levém menu: rozsah = plátno (""), sektor nebo karta s vlastní schránkou; volitelně rovnou na fragmentu (a v jeho stopě). */
+  /** Schránka v levém menu: rozsah = plátno (""), sektor nebo karta s vlastní schránkou; volitelně rovnou na fragmentu (a v jeho disciplíně). */
   function openVault(scope: string, focus?: string) {
     setVaultRequest({ project, workspace, scope, focus: focus ? { id: focus, nonce: ++vaultNonce.current } : null });
     dock.open("vault");

@@ -1,7 +1,7 @@
 // Které fragmenty schránky jdou do plánu struktury: „Vložit vybrané jako karty“ a „Rozdistribuovat zbytek plánu“.
 // Tady se jen vybírá; jak z fragmentu vznikne oblast → sektor → karta, rozhoduje server (POST /api/brief-vault/plan,
-// docs/schranka-neurony.md §4), aby existovalo jediné pravidlo. Uzel jiné stopy je v pohledu jen cesta ke kořeni
-// (`offTrack`) a kartou se nestane. Bez Reactu.
+// docs/schranka-neurony.md §4), aby existovalo jediné pravidlo. Uzel jiné disciplíny je v pohledu jen cesta ke kořeni
+// (`offPath`) a kartou se nestane. Bez Reactu.
 import type { VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { flatten } from "./vault-dock-model";
 
@@ -23,7 +23,7 @@ export function distributeCandidates(roots: VaultNode[]): VaultNode[] {
     const { node, root } = stack.pop()!;
     if (node.kind !== "brief" || node.inserted) continue;
     const kids = briefs(node);
-    if (!node.offTrack && (!kids.length || (!root && !hasInserted(node)))) { result.push(node); continue; }
+    if (!node.offPath && (!kids.length || (!root && !hasInserted(node)))) { result.push(node); continue; }
     for (let index = kids.length - 1; index >= 0; index--) stack.push({ node: kids[index], root: false });
   }
   return result;
@@ -31,12 +31,12 @@ export function distributeCandidates(roots: VaultNode[]): VaultNode[] {
 
 /** „Vložit vybrané jako karty“: vybrané fragmenty v pořadí stromu, už vložené se přeskočí. */
 export function selectionCandidates(roots: VaultNode[], selected: Set<string>): VaultNode[] {
-  return flatten(roots).map((item) => item.node).filter((node) => selected.has(node.id) && node.kind === "brief" && !node.inserted && !node.offTrack);
+  return flatten(roots).map((item) => item.node).filter((node) => selected.has(node.id) && node.kind === "brief" && !node.inserted && !node.offPath);
 }
 
 /** Výchozí výběr MVP: co člověk potvrdil (mvp = yes) a ještě nemá kartu. */
 export function defaultSelection(roots: VaultNode[]): Set<string> {
-  return new Set(flatten(roots).map((item) => item.node).filter((node) => node.kind === "brief" && node.mvp === "yes" && !node.inserted && !node.offTrack).map((node) => node.id));
+  return new Set(flatten(roots).map((item) => item.node).filter((node) => node.kind === "brief" && node.mvp === "yes" && !node.inserted && !node.offPath).map((node) => node.id));
 }
 
 /** Tělo `POST /api/brief-vault/plan`; server výběr normalizuje (potomci vybraných předků vypadnou). */

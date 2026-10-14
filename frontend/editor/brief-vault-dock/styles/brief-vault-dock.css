@@ -1,35 +1,40 @@
 /* SCHRÁNKA V LEVÉM MENU EDITORU (blok vault-dock, návrh Claude Design „Main“)
    Příběh: schránka není úzká záložka karty, ale místo, kde se zadání vyvíjí, a proto má vlastní položku
-   v menu a široký panel vedle lišty. Nahoře stojí přepínač stop, protože vzhled (CX/UX/UI) a logika
-   (Backend + DB) se vyvíjejí odděleně a člověk má vždy vidět, ve které stopě je. Pod ním vlevo klidné
+   v menu a široký panel vedle lišty. Nahoře stojí přepínač disciplín, protože kreslení, logika a provoz
+   se vyvíjejí odděleně a člověk má vždy vidět, ve které disciplíně je. Pod ním vlevo klidné
    menu se skupinami Plán · Vývoj · Know-how · Historie a počty (kde je práce), vpravo jedna sekce naplno.
    Člověk se zorientuje podle menu, ne podle scrollu; plátno vpravo od panelu zůstává vidět. */
 .vault-dock { display: flex; flex-direction: column; height: 100%; min-height: 0; color: var(--ink); }
 .vault-dock__frame { flex: 1; display: flex; min-height: 0; }
 
-/* Přepínač stop: tři pilulky v jedné řadě nad celou schránkou, vybraná plná akcentem, v každé tichý
-   počet kapitol. Řada má stejné odsazení jako menu pod ní, aby obě části četly jako jeden celek. */
-.vault-dock__tracks { flex: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
-.vault-dock__track {
+/* Přepínač disciplín: tři skupiny vedle sebe (Kreslení · Logika · Provoz), každá s tichým nadpisem
+   a pilulkami jen těch disciplín, které už mají živý fragment; spící skupina řekne „spí“ a nezabírá místo.
+   „Nezařazené“ stojí vpravo stranou, protože to není disciplína, ale dluh z doby před disciplínami. Vybraná
+   pilulka je plná akcentem, v každé tichý počet fragmentů. Řada má stejné odsazení jako menu pod ní. */
+.vault-dock__disciplines { flex: none; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.vault-dock__discipline-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.vault-dock__discipline-group--end { margin-left: auto; }
+.vault-dock__discipline-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.vault-dock__discipline-sleep { font-size: 11px; color: var(--ink-muted); font-style: italic; }
+.vault-dock__discipline {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 30px;
-  padding: 4px 12px;
+  min-height: 28px;
+  padding: 3px 11px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: transparent;
   color: var(--ink-2);
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
 }
-.vault-dock__track:hover { border-color: var(--accent-line); color: var(--ink); }
-.vault-dock__track[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.vault-dock__track-count { font: 500 11px var(--mono); opacity: 0.8; }
-/* Stopa v detailu fragmentu a zakládání kořene: drobná řada nad akcemi, ať je stopa vidět dřív než práce. */
-.vault-dock__track-of { flex-basis: 100%; }
-.vault-dock__track-of select { min-height: 32px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink); font: inherit; font-size: 13px; }
+.vault-dock__discipline:hover { border-color: var(--accent-line); color: var(--ink); }
+.vault-dock__discipline[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.vault-dock__discipline-count { font: 500 11px var(--mono); opacity: 0.8; }
+/* Disciplína v detailu fragmentu: drobná řada nad branami, ať je disciplína vidět dřív než práce. */
+.vault-dock__discipline-of { flex-basis: 100%; }
 .vault-dock__create { margin-bottom: 12px; }
 
 /* Levé menu: hledání nahoře, nadpisy skupin malými kapitálkami, aktivní položka zvýrazněná plochou. */
@@ -82,7 +87,7 @@
 .vault-dock__owner { margin-top: auto; padding: 12px 10px 2px; font-size: 11px; line-height: 1.5; color: var(--ink-muted); overflow-wrap: anywhere; }
 .vault-dock__owner code { color: var(--ink-2); }
 
-/* Obsah: hlavička s cestou (vlastník a stopa) a nadpisem sekce; obsah se posouvá, menu stojí. Křížek tu
+/* Obsah: hlavička s cestou (vlastník a disciplína) a nadpisem sekce; obsah se posouvá, menu stojí. Křížek tu
    není: panel se zavírá ikonou v liště, ☰ nebo Esc jako ostatní sekce menu. */
 .vault-dock__main { flex: 1; min-width: 0; overflow-y: auto; padding: 20px 28px 28px; }
 .vault-dock__head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
@@ -184,3 +189,23 @@
 .vault-badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; background: var(--surface-3); color: var(--ink-2); }
 .vault-badge--agree { background: var(--accent-soft); color: var(--accent); }
 .vault-badge--disagree { background: var(--danger-soft); color: var(--danger); }
+
+/* Přehled po disciplínách: jeden řádek na disciplínu jako tabulka bez mřížky. Název vlevo, uprostřed
+   úzký pruh pokrytí, vpravo čísla, která říkají „kolik už pracuje“ a „jak moc jsme se trefili“. Řádek
+   je tlačítko: klik přepne pohled na disciplínu, vybraná je podložená. */
+.vault-discipline-row { display: grid; grid-template-columns: minmax(140px, 1.2fr) minmax(80px, 1fr) auto auto; gap: 12px; align-items: center;
+  width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.vault-discipline-row:hover { background: var(--surface-3); }
+.vault-discipline-row[aria-pressed="true"] { background: var(--accent-soft); }
+.vault-discipline-row__name { overflow-wrap: anywhere; }
+.vault-discipline-row__num { font: 500 11px var(--mono); color: var(--ink-muted); white-space: nowrap; }
+
+/* Odmítnutý plán: místo strohé chyby věta, proč to nejde, a fragmenty, které stačí otevřít a opravit. */
+.vault-plan__blocked { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--gold-line); border-radius: 10px; background: var(--gold-soft); }
+.vault-plan__blocked-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; }
+
+/* Nastavení na konci Přehledu: oddělené přerušovaným rámečkem, protože to není práce, ale jednorázový
+   souhlas, a mluví o datech, která opustí počítač. Věta o tom stojí nad přepínačem, ne v titulku. */
+.vault-setting { border-style: dashed; }
+.vault-setting__toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+.vault-setting__toggle input { width: 16px; height: 16px; accent-color: var(--accent); }

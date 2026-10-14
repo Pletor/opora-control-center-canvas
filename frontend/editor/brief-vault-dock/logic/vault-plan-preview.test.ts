@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { previewOf, type ServerPlan } from "./vault-plan-preview";
+import { planBlocker, previewOf, type ServerPlan } from "./vault-plan-preview";
 
 describe("vault plan preview", () => {
   it("lists cards, counts their blocks and names only the new structure", () => {
@@ -19,5 +19,13 @@ describe("vault plan preview", () => {
     expect(preview.cards.map((card) => card.ref)).toEqual(["f1", "f2"]);
     expect(preview.blocks).toBe(2);
     expect(preview.structure).toEqual(["oblast Logika", "sektor Backend"]);
+  });
+
+  it("turns a 409 about missing discipline or synthesized gate into a list of fragments to open", () => {
+    const missing = planBlocker("Schránka zadání: chybí platná brána synthesized (done mikrokroku) u: „3.12 Chunks (v2)“ (f_12), „Index“ (a-9) a dalších 3.");
+    expect(missing).toMatchObject({ reason: "unsynthesized", more: 3 });
+    expect(missing?.fragments).toEqual([{ id: "f_12", title: "3.12 Chunks (v2)" }, { id: "a-9", title: "Index" }]);
+    expect(planBlocker("Schránka zadání: disciplína je pro strukturu povinná; nezařazené fragmenty: „Staré“ (old1).")?.reason).toBe("unassigned");
+    expect(planBlocker("Schránka zadání: main je pouze pro čtení.")).toBeNull();
   });
 });
