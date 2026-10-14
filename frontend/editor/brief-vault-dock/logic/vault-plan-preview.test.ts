@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ApiError } from "@/shared/types/logic/types";
 import { planBlocker, previewOf, type ServerPlan } from "./vault-plan-preview";
 
 describe("vault plan preview", () => {
@@ -21,11 +22,27 @@ describe("vault plan preview", () => {
     expect(preview.structure).toEqual(["oblast Logika", "sektor Backend"]);
   });
 
-  it("turns a 409 about missing discipline or synthesized gate into a list of fragments to open", () => {
-    const missing = planBlocker("Schránka zadání: chybí platná brána synthesized (done mikrokroku) u: „3.12 Chunks (v2)“ (f_12), „Index“ (a-9) a dalších 3.");
-    expect(missing).toMatchObject({ reason: "unsynthesized", more: 3 });
-    expect(missing?.fragments).toEqual([{ id: "f_12", title: "3.12 Chunks (v2)" }, { id: "a-9", title: "Index" }]);
-    expect(planBlocker("Schránka zadání: disciplína je pro strukturu povinná; nezařazené fragmenty: „Staré“ (old1).")?.reason).toBe("unassigned");
-    expect(planBlocker("Schránka zadání: main je pouze pro čtení.")).toBeNull();
+  it("groups the structured 409 fragments by reason without parsing the error text", () => {
+    const error = new ApiError("Schránka zadání: disciplína je pro strukturu povinná; …", 409, {
+      error: "…",
+      fragments: [
+        { id: "old1", title: "Staré", reason: "no-discipline" },
+        { id: "f_12", title: "3.12 Chunks (v2)", reason: "no-synthesized" },
+        { id: "a-9", title: "", reason: "no-synthesized" },
+        { id: "x", title: "Jiné", reason: "future-reason" },
+        { title: "bez id" },
+      ],
+    });
+    const blocker = planBlocker(error);
+    expect(blocker?.groups.map((group) => group.reason)).toEqual(["no-discipline", "no-synthesized", "future-reason"]);
+    expect(blocker?.groups[1].fragments).toEqual([{ id: "f_12", title: "3.12 Chunks (v2)" }, { id: "a-9", title: "a-9" }]);
+    expect(blocker?.groups[0].text).toContain("nemají disciplínu");
+    expect(blocker?.groups[2].text).toBe("Tyto fragmenty brání složení plánu.");
+  });
+
+  it("other errors stay plain text", () => {
+    expect(planBlocker(new Error("Schránka zadání: chybí platná brána synthesized (done mikrokroku) u: „X“ (x)."))).toBeNull();
+    expect(planBlocker(new ApiError("main je pouze pro čtení.", 409, { error: "main je pouze pro čtení." }))).toBeNull();
+    expect(planBlocker(new ApiError("špatně", 400, { error: "špatně", fragments: [{ id: "x" }] }))).toBeNull();
   });
 });

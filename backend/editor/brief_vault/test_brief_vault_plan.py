@@ -4,6 +4,7 @@ značky `briefGroup`/`briefDiscipline`, tvar karty převzatý z dřívějšího 
 import pytest
 
 from backend.editor.brief_vault.brief_vault_gate_rules import encode_gates, input_hash
+from backend.editor.brief_vault.brief_vault_model import Blocked
 from backend.editor.brief_vault.brief_vault_plan import (
     MAX_PLAN_NODES,
     area_size,
@@ -154,18 +155,25 @@ def test_selection_is_normalized_and_ordered_by_tree():
     assert names == ["[task] 3.12 Chunks", "[task] 3.15 Metadata", "[task] Druhé zadání"]
     with pytest.raises(ValueError, match="fragmentIds"):
         vault.plan([])
-    with pytest.raises(ValueError, match="živé fragmenty druhu brief"):
+    with pytest.raises(Blocked, match="živé fragmenty druhu brief") as raised:
         vault.plan(["q"])
+    assert raised.value.fragments[0]["id"] == "q" and raised.value.fragments[0]["reason"] == "not-live"
 
 
 def test_missing_discipline_or_synthesized_is_409_with_list():
     vault = chunks()
     vault.add("n", "Staré zadání", synth=False, ord=3)  # kořen bez disciplíny (data z doby před stopami)
-    with pytest.raises(ValueError, match="nezařazené fragmenty: „Staré zadání“ \\(n\\)"):
+    with pytest.raises(Blocked, match="nezařazené fragmenty: „Staré zadání“ \\(n\\)") as raised:
         vault.plan(["r", "n"])
+    assert raised.value.fragments == [{"id": "n", "title": "Staré zadání", "reason": "no-discipline"}]
     vault.add("m", "Bez mikrokroku", discipline="be", ord=4)
-    with pytest.raises(ValueError, match="chybí platná brána synthesized .*„Bez mikrokroku“ \\(m\\)"):
+    with pytest.raises(Blocked, match="chybí platná brána synthesized .*„Bez mikrokroku“ \\(m\\)") as raised:
         vault.plan(["r", "m"])
+    assert raised.value.fragments == [{"id": "m", "title": "Bez mikrokroku", "reason": "no-synthesized"}]
+    with pytest.raises(Blocked, match="nezařazené") as raised:  # text jmenuje první důvod, pole nese všechny
+        vault.plan(["n", "m"])
+    assert [(item["id"], item["reason"]) for item in raised.value.fragments] == [("n", "no-discipline"),
+                                                                                  ("m", "no-synthesized")]
     vault.rows["r"]["text"] = "změněný text"  # zneplatněná synthesized se počítá jako chybějící
     with pytest.raises(ValueError, match="„3. VRSTVA“"):
         vault.plan(["r"])

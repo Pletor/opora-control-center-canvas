@@ -71,6 +71,15 @@ CREATE TABLE IF NOT EXISTS brief_gate_proposals(
     PRIMARY KEY(project_id, workspace_id, id));
 CREATE INDEX IF NOT EXISTS brief_gate_proposals_fragment
     ON brief_gate_proposals(project_id, workspace_id, fragment_id, gate, seq);
+-- backend/editor/brief_vault/brief_vault_proposals.py: zamítnutí návrhu brány (op reject-proposal), jen přibývají,
+-- nejvýš jedno na návrh; zamítnutý návrh se pro potvrzení brány nikdy nepoužije
+CREATE TABLE IF NOT EXISTS brief_gate_proposal_rejections(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL, proposal_id TEXT NOT NULL,
+    fragment_id TEXT NOT NULL, fragment_revision INTEGER NOT NULL, gate TEXT NOT NULL, note TEXT NOT NULL,
+    by TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+CREATE UNIQUE INDEX IF NOT EXISTS brief_gate_proposal_rejections_proposal
+    ON brief_gate_proposal_rejections(project_id, workspace_id, proposal_id);
 -- backend/editor/brief_vault/brief_vault_lessons.py: poučení z brány learned (§5, §9 bod 12); stav poučení jako revize
 -- (verze plátna je nese), lesson_id je otisk původu (fragment, cyklus) = unikátní původ
 CREATE TABLE IF NOT EXISTS brief_lessons(

@@ -10,7 +10,8 @@ Sektor se hledá v oblasti skupiny podle jejího id (členství v oblasti je geo
 označený sektor mimo oblast své skupiny je 409 (druhý sektor by byl duplicitní značkou).
 
 Výběr se normalizuje (potomci vybraných předků vypadnou) a řadí v pořadí stromu. Disciplína je pro strukturu
-povinná a `done` bere karta z platné brány `synthesized` fragmentu F; chybí-li, 409 s výčtem. Duplicitní značka
+povinná a `done` bere karta z platné brány `synthesized` fragmentu F; chybí-li, 409 s výčtem v textu i strukturovaně
+(`fragments: [{id, title, reason}]`, reason `not-live | no-discipline | no-synthesized`). Duplicitní značka
 v kontejneru je 409. Dávka má nejvýš 200 uzlů; co se nevejde, ohlásí `skipped`. Otisk plánu = sha256
 kanonického JSON (klíče seřazené, kolekce v pořadí generátoru, jen refy dávky a id existujících uzlů, bez časů).
 Nic nezapisuje: `dry_plan` dávku jen ověří přes `apply_plan` s `dryRun`.
@@ -32,6 +33,7 @@ from backend.editor.brief_vault.brief_vault_gate_rules import gate_state, input_
 from backend.editor.brief_vault.brief_vault_marks import marked
 from backend.editor.brief_vault.brief_vault_model import (
     bad_request,
+    blocked,
     effective_disciplines,
     fail,
     latest_rows,
@@ -66,6 +68,10 @@ def _listed(rows):
     return ", ".join(names) + (f" a dalších {len(rows) - MAX_LISTED}" if len(rows) > MAX_LISTED else "")
 
 
+def _blockers(rows, reason):
+    return [{"id": row["fragment_id"], "title": row["title"], "reason": reason} for row in rows]
+
+
 def _ords(rows, fragment_id):
     path, cursor = [], fragment_id
     while cursor is not None:
@@ -83,7 +89,8 @@ def selection(rows, fragment_ids):
     live = live_ids(rows)
     missing = [fid for fid in fragment_ids if fid not in live or rows[fid]["kind"] != "brief"]
     if missing:
-        fail("plán bere jen živé fragmenty druhu brief; neplatné: " + ", ".join(missing[:MAX_LISTED]) + ".")
+        blocked("plán bere jen živé fragmenty druhu brief; neplatné: " + ", ".join(missing[:MAX_LISTED]) + ".",
+                [{"id": fid, "title": (rows.get(fid) or {}).get("title", ""), "reason": "not-live"} for fid in missing])
     chosen = set(fragment_ids)
 
     def under_chosen(fid):
@@ -134,10 +141,12 @@ def _cycles(rows, fragment_ids):
             unsynthesized.append(rows[fid])
         synthesized = state["entries"]["synthesized"]["payload"] if state and "synthesized" in state["on"] else None
         cycles.append((fid, units, synthesized))
+    # Text chyby jmenuje první důvod (jako dřív); `fragments` nese všechny dotčené fragmenty s důvodem.
+    found = _blockers(unassigned, "no-discipline") + _blockers(unsynthesized, "no-synthesized")
     if unassigned:
-        fail("disciplína je pro strukturu povinná; nezařazené fragmenty: " + _listed(unassigned) + ".")
+        blocked("disciplína je pro strukturu povinná; nezařazené fragmenty: " + _listed(unassigned) + ".", found)
     if unsynthesized:
-        fail("chybí platná brána synthesized (done mikrokroku) u: " + _listed(unsynthesized) + ".")
+        blocked("chybí platná brána synthesized (done mikrokroku) u: " + _listed(unsynthesized) + ".", found)
     return cycles, disciplines, kids
 
 

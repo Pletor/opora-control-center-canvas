@@ -8,6 +8,7 @@ jedna operace `op`; `set-mvp`, `delete`, `restore` a `feedback` patří člověk
 `GET /brief-vault/next` je nezávazná fronta bran cyklu a `GET /brief-vault/lessons` živá poučení (§3, §5, §9;
 s `versionId` poučení uložené verze plátna). `POST /brief-vault/plan {fragmentIds}` je jen čtení: plán struktury
 (oblast → sektor → karty) jako dávka canvas-plan ověřená dryRun, `{plan, summary, hash, skipped, …}` (§4, §9 bod 3).
+Odmítnutý plán (i brána `planned`) je 409 `{error, fragments: [{id, title, reason}]}` (`Blocked`).
 `GET /brief-vault/mirror` je orientační přehled Zrcadla (docs/zrcadlo.md): `{enabled, health?, byDiscipline, hormones?}`.
 """
 
@@ -15,7 +16,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from backend.editor.brief_vault.brief_vault import BriefVault
-from backend.editor.brief_vault.brief_vault_model import BadRequest
+from backend.editor.brief_vault.brief_vault_model import BadRequest, Blocked
 from backend.editor.brief_vault.brief_vault_next import lessons, next_work
 
 
@@ -24,6 +25,8 @@ def _bad_request(call):
         return call()
     except BadRequest as error:
         return JSONResponse({"error": str(error)}, status_code=400)
+    except Blocked as error:
+        return JSONResponse({"error": str(error), "fragments": error.fragments}, status_code=409)
 
 
 def create_brief_vault_router(service, desktop_state=None, mirror=None):

@@ -1,9 +1,12 @@
-"""Operace bran cyklu Schránky: `propose`, `gate`, `confirm-lesson`, `drop-lesson` (docs/schranka-neurony.md §3, §5, §9).
+"""Operace bran cyklu Schránky: `propose`, `reject-proposal`, `gate`, `confirm-lesson`, `drop-lesson`
+(docs/schranka-neurony.md §3, §5, §9).
 
 Každý handler dostane `_Write` z `brief_vault.py` (transakce, CAS, autor, čas). Změna brány je nová revize
 fragmentu se stejným textem a povinnou `note` (append-only, CAS přes `expectedRevision`). Návrh payloadu
 (`propose`) revizi nemění: ukládá se append-only do `brief_gate_proposals` k aktuální revizi a otisku vstupů,
 aby čistě booleovský agent mohl bránu jen potvrdit (`gate` s `value: true` bez payloadu, §9 bod 9).
+`reject-proposal` zamítne poslední čekající návrh brány (append-only záznam, revize nepřibývá, CAS jen kontrola);
+smí ho kdokoli včetně autora návrhu (stažení). Návrhy a zamítnutí čte `brief_vault_proposals`.
 Návrhy nejsou stav fragmentu, proto nejsou v revizi ani v uložené verzi plátna. Chybný tvar, brána, payload
 nebo pořadí = 400 (`BadRequest`); konflikt stavu (CAS, brána už zapnutá/vypnutá) = 409. Payload bran `planned`
 a `placed` skládá server (`brief_vault_placement`) a předá ho v `w.prepared`.
@@ -38,10 +41,16 @@ from backend.editor.brief_vault.brief_vault_model import (
     latest_rows,
     public,
 )
+from backend.editor.brief_vault.brief_vault_proposals import (
+    public_proposal,
+    reject,
+    usable_proposal,
+)
 from backend.editor.brief_vault.brief_vault_tree import live_ids
 
 OPS = {
     "propose": ({"fragmentId", "expectedRevision", "gate", "payload", "note"}, set()),
+    "reject-proposal": ({"fragmentId", "expectedRevision", "gate", "note"}, set()),
     "gate": ({"fragmentId", "expectedRevision", "gate", "value", "note"}, {"payload"}),
     "confirm-lesson": ({"lessonId", "note"}, set()),
     "drop-lesson": ({"lessonId", "note"}, set()),
@@ -59,22 +68,6 @@ def covered(rows, fragment_id, states):
             return True
         cursor = rows[cursor]["parent_id"]
     return False
-
-
-def usable_proposal(db, project, workspace, fragment_id, gate, state):
-    """Poslední návrh brány pro aktuální otisk vstupů, podaný až po posledním vypnutí brány; jinak None."""
-    entry = state["entries"].get(gate)
-    since = entry["revision"] if entry and entry.get("value") is False else 0
-    row = db.execute("SELECT * FROM brief_gate_proposals WHERE project_id=? AND workspace_id=? AND fragment_id=? AND gate=?"
-                     " AND input_hash=? AND fragment_revision>=? ORDER BY seq DESC LIMIT 1",
-                     (project, workspace, fragment_id, gate, state["hash"], since)).fetchone()
-    return public_proposal(row) if row else None
-
-
-def public_proposal(row):
-    return {"id": row["id"], "fragmentId": row["fragment_id"], "revision": row["fragment_revision"], "gate": row["gate"],
-            "payload": json.loads(row["payload"]), "inputHash": row["input_hash"], "note": row["note"], "by": row["by"],
-            "actor": row["actor"], "at": row["at"]}
 
 
 def _context(w, payload):
@@ -133,6 +126,22 @@ def propose(w, payload, node_ids):
     found = w.db.execute("SELECT * FROM brief_gate_proposals WHERE project_id=? AND workspace_id=? AND id=?",
                          (w.project, w.workspace, proposal_id)).fetchone()
     return {"proposal": public_proposal(found)}
+
+
+def reject_proposal(w, payload, node_ids):
+    gate_name = payload["gate"]
+    gate_index(gate_name)
+    if gate_name in NO_PAYLOAD:
+        bad_request(f"brána {gate_name} návrh nemá; není co zamítnout.")
+    row, _rows, _discipline, states = _context(w, payload)
+    state = states[row["fragment_id"]]
+    if gate_name in state["on"]:
+        fail(f"brána {gate_name} je zapnutá; návrh už platí. Nesouhlas = vypnout bránu (op gate value: false).")
+    proposal = usable_proposal(w.db, w.project, w.workspace, row["fragment_id"], gate_name, state)
+    if proposal is None:
+        fail(f"brána {gate_name} nemá čekající návrh; není co zamítnout.")
+    rejection = reject(w.db, w.project, w.workspace, proposal, payload["note"], w.by[:MAX_BY], w.actor, w.at)
+    return {"rejected": {**proposal, "status": "rejected", "rejection": rejection}}
 
 
 def _gate_payload(w, payload, row, state, gate):
@@ -195,4 +204,5 @@ def gate(w, payload, node_ids):
     return {"fragment": public(revised), **summary(gate_state(revised, discipline)), **result}
 
 
-HANDLERS = {"propose": propose, "gate": gate, "confirm-lesson": confirm_lesson, "drop-lesson": drop_lesson}
+HANDLERS = {"propose": propose, "reject-proposal": reject_proposal, "gate": gate, "confirm-lesson": confirm_lesson,
+            "drop-lesson": drop_lesson}

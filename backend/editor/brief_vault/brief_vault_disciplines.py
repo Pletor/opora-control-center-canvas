@@ -70,13 +70,6 @@ def discipline_from_track(track):
     return TRACK_TO_DISCIPLINE.get(track) if isinstance(track, str) else None
 
 
-def track_from_discipline(discipline):
-    """Odvozená stará stopa pro `effectiveTrack` (alias do K5, pak smazat): kreslení → `ux`, jinak `logic`."""
-    if discipline is None:
-        return None
-    return "ux" if group_of(discipline) == "kresleni" else "logic"
-
-
 def public_table(live_counts=None):
     """Tabulka pro `GET /api/brief-vault/disciplines`; `live_counts` = {id: počet živých fragmentů}."""
     live_counts = live_counts or {}

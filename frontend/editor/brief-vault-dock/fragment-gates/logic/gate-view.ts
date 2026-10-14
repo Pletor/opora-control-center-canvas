@@ -1,7 +1,7 @@
 // Brány cyklu v detailu fragmentu jen pro čtení (docs/schranka-neurony.md §3, §6, §9 body 4, 8, 9): stav každé
 // brány, kdo ji zapnul (autor a druh aktéra), payload česky, proč cyklus stojí a stav fronty agentů (/next).
 // Schránku ovládají agenti přes API; UI nic nepřepíná. Bez Reactu.
-import type { FragmentDetail, GateEntry, GateName } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import type { FragmentDetail, GateEntry, GateName, GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { GATES, gateTitle } from "@/editor/node-detail/brief-vault/logic/gate-bar";
 
 const DECIDED = GATES.indexOf("decided");
@@ -56,6 +56,17 @@ export function gateRows(detail: FragmentDetail): GateRow[] {
     else if (next && !detail.effectiveDiscipline) waiting = "Fragment nemá disciplínu (ani po předcích); agent ji musí přiřadit.";
     return { gate, title: gateTitle(gate), on, stale: !!entry?.value && !entry.valid, entry, next, waiting };
   });
+}
+
+/** Stav návrhu brány česky: kdo ho podal a co se s ním stalo (čeká, použit, zamítnut kým a proč). */
+export function proposalStatus(proposal: GateProposal): string {
+  const author = `navrhl ${whoLabel(proposal.by, proposal.actor)}`;
+  if (proposal.status === "used") return `${author} · použit`;
+  if (proposal.status === "pending") return `${author} · čeká na potvrzení`;
+  const rejection = proposal.rejection;
+  if (rejection?.gateOff) return `${author} · neplatí (brána vypnuta po návrhu)`;
+  const note = rejection?.note ? `: ${rejection.note}` : "";
+  return `${author} · zamítl ${rejection ? whoLabel(rejection.by, rejection.actor) : "neznámý"}${note}`;
 }
 
 /** Důvod slepé uličky z payloadu brány `decided`. */

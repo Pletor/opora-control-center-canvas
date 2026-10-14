@@ -11,7 +11,6 @@ from backend.editor.brief_vault.brief_vault_disciplines import (
     is_discipline,
     layer_of,
     public_table,
-    track_from_discipline,
 )
 
 
@@ -40,10 +39,9 @@ def test_helpers():
     assert has_logic_blocks("api") and not has_logic_blocks("fe") and not has_logic_blocks(None)
 
 
-def test_track_migration_and_alias():
+def test_track_migration():
+    """Převod staré stopy zůstává pro backfill databáze a staré snímky verzí."""
     assert [discipline_from_track(value) for value in ("ux", "logic", None, "design", 1)] == ["ux", "be", None, None, None]
-    assert [track_from_discipline(value) for value in ("cx", "content", "fe", "be", "devops", None)] == [
-        "ux", "ux", "logic", "logic", "logic", None]
 
 
 def test_public_table():

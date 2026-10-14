@@ -154,6 +154,7 @@ nepřepisuje: každá změna je nová revize s `note`; CAS přes `expectedRevisi
 | `propose-mvp` | `fragmentIds` (≤ 500) | `note` | návrh; `yes`/`no` nastaví jen člověk |
 | `set-mvp`, `delete`, `restore`, `feedback` | — | — | **jen člověk** (agent 403) |
 | `propose` | `fragmentId`, `expectedRevision`, `gate`, `payload`, `note` | | návrh payloadu brány k aktuální revizi; revizi nepřidá; brány bez payloadu (`scoped`, `planned`, `placed`) = 400 |
+| `reject-proposal` | `fragmentId`, `expectedRevision`, `gate`, `note` | | zamítne poslední čekající návrh brány (append-only, revizi nepřidá, CAS jen kontrola); smí i autor (stažení); `→ {ok, op, rejected: {…návrh, status: "rejected", rejection: {by, actor, at, note}}}`; žádný čekající návrh nebo zapnutá brána = 409 |
 | `gate` | `fragmentId`, `expectedRevision`, `gate`, `value` (`true\|false`), `note` | `payload` | nová revize se stejným textem; `true` bez `payload` vezme poslední návrh (bez návrhu 400 „chybí návrh“); `false` vypne i další brány |
 | `confirm-lesson` | `lessonId`, `note` | | posune `confirmedAt` na teď (váha zpět na 1) |
 | `drop-lesson` | `lessonId`, `note` | | **jen člověk**; poučení zůstane v historii |
@@ -174,7 +175,10 @@ poučení). Bránu N jde zapnout jen po 1…N−1 (jinak 400), CAS = 409. `decid
 `other` vrátí fragment k `synthesized`. Brána platí jen pro otisk názvu, textu a platné disciplíny: po `revise`
 nebo `set-discipline` (i na předkovi) je `gatesStale: true` a cyklus běží znovu. Odpověď `gate`:
 `{ok, op, fragment, gates: {<brána>: bool, predictionError}, gateStep, gatesStale, deadEnd, returnedTo?, lesson?, placement?}` (`placement` u `placed`: `{planId, refs, summary, digest, revision}`).
-Strom `vault` nese u fragmentu `gates`, `gateStep`, `gatesStale`, `deadEnd`.
+Strom `vault` nese u fragmentu `gates`, `gateStep`, `gatesStale`, `deadEnd`. Detail GET `/api/brief-vault/fragment`
+navíc `gateDetail` (záznamy bran) a `proposals: {<brána>: {…návrh, by, actor, at, note, status: pending|rejected|used,
+rejection}}` = poslední návrh každé brány s payloadem pro aktuální otisk vstupů. Zamítnutý návrh se pro `gate` nikdy
+nepoužije a starší návrh neoživí: `/next` pak vrátí `needs: "proposal"`.
 
 Recept agenta: GET `/api/brief-vault/next?discipline=` → `{fragment: {id, title, effectiveDiscipline, revision},
 gate, needs: "proposal"|"confirm", proposal?, hint, lessons (≤3), blocked}` nebo `{fragment: null, blocked}`. Při
@@ -190,7 +194,8 @@ u logiky 4 závěrečné bloky, `fragmentRef`, `spec.goal` = `done` ze `synthesi
 a uloží `{planId, generator, sourceRevisions, sourceHashes, scope, digest, plan, hash, summary}`. `gate` `placed` vloží
 právě uložený plán atomicky s revizí fragmentu; změněné plátno, zadání nebo značky = 409 „plán se změnil, znovu
 planned“ (nic se nezapíše). Vypnutí `placed` karty nemaže; znovu vložit jde až po novém `planned`. Zápis `placed`
-schvaluje člověk jako `/api/canvas-plan`. Nezařazený fragment nebo chybějící `synthesized` = 409 s výčtem.
+schvaluje člověk jako `/api/canvas-plan`. Nezařazený fragment nebo chybějící `synthesized` = 409 `{error, fragments:
+[{id, title, reason: "no-discipline"|"no-synthesized"|"not-live"}]}` (text `error` jmenuje první důvod, pole všechny).
 POST `/api/brief-vault/plan {project, workspace, fragmentIds}` je jen čtení (tlačítka Schránky): `{plan, summary, hash,
 skipped, digest}`; dávku pak zapíše `/api/canvas-plan`.
 

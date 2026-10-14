@@ -49,6 +49,11 @@ export type GateSummary = {
 /** Záznam brány v detailu fragmentu (`gateDetail`): payload, kdo a kdy, a zda platí. */
 export type GateEntry = { value: boolean; payload: Record<string, unknown> | null; by: string; actor: string; at: string;
   inputHash: string; revision: number; valid: boolean };
+/** Poslední návrh brány pro aktuální otisk vstupů (`proposals` v detailu): kdo navrhl a co se s návrhem stalo.
+ *  `rejected` = zamítnutý op reject-proposal (`rejection` s autorem a poznámkou), nebo brána vypnutá po návrhu (`gateOff`). */
+export type GateProposal = { id: string; revision: number; gate: GateName; payload: Record<string, unknown>; note: string;
+  by: string; actor: string; at: string; status: "pending" | "rejected" | "used";
+  rejection: { id: string | null; note: string; by: string; actor: string; at: string; gateOff?: boolean } | null };
 
 /** Uzel stromu schránky s odvozeným stavem; `children` jsou podfragmenty, research i otázky. */
 export type VaultNode = FragmentRevision & GateSummary & {
@@ -94,6 +99,8 @@ export type FragmentDetail = GateSummary & {
   feedback?: Feedback[];
   /** Uložené záznamy bran (i vypnuté a zneplatněné) s payloadem; chybějící brána = nikdy nezapnutá. */
   gateDetail?: Partial<Record<GateName, GateEntry>>;
+  /** Poslední návrh každé brány s payloadem pro aktuální otisk vstupů a jeho stav. */
+  proposals?: Partial<Record<GateName, GateProposal>>;
 };
 
 /** Segmenty pruhu pokrytí v pevném pořadí (zleva): hotové vlevo, varování vpravo. */

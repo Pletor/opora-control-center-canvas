@@ -31,7 +31,6 @@ from backend.editor.brief_vault.brief_vault_model import (
     bad_request,
     data_of,
     discipline_of,
-    discipline_payload,
     fail,
     history_rows,
     latest_rows,
@@ -47,8 +46,7 @@ from backend.integrations import mirror_client
 SCOPE_KEYS = {"project", "workspace", "op"}
 # Pole každé operace: (povinná, volitelná).
 OPS = {
-    # `track` = alias do K5, pak smazat (ux → ux, logic → be; viz discipline_payload).
-    "create": ({"title", "text"}, {"scopeNodeId", "parentId", "stage", "note", "discipline", "track"}),
+    "create": ({"title", "text"}, {"scopeNodeId", "parentId", "stage", "note", "discipline"}),
     "revise": ({"fragmentId", "expectedRevision", "note"}, {"text", "title", "stage"}),
     "split": ({"fragmentId", "expectedRevision"}, {"parts", "splitter", "note"}),
     "research": ({"fragmentId", "title", "text"}, {"note", "question", "status"}),
@@ -58,8 +56,6 @@ OPS = {
     "delete": ({"fragmentId", "expectedRevision", "note"}, set()),
     "restore": ({"fragmentId", "expectedRevision", "revision", "note"}, set()),
     "set-discipline": ({"fragmentId", "expectedRevision", "discipline", "note"}, set()),
-    # Alias do K5, pak smazat: frontend zatím posílá `set-track` s `track` (ux → ux, logic → be).
-    "set-track": ({"fragmentId", "expectedRevision", "track", "note"}, set()),
     **develop.OPS,
     **gates.OPS,
 }
@@ -189,7 +185,7 @@ def _create(w, payload, node_ids):
         w.check_depth(parent)
     elif scope != "" and scope not in node_ids:
         fail("scopeNodeId musí být \"\" (plátno) nebo id existující karty či sektoru.")
-    discipline = discipline_of(discipline_payload(payload)[1], allow_null=parent is not None)
+    discipline = discipline_of(payload.get("discipline"), allow_null=parent is not None)
     row = w.new(parent=parent, scope=scope, title=title, text=text, stage=_stage(payload.get("stage", "draft")),
                 note=payload.get("note") or "Vloženo do schránky.", discipline=discipline)
     return {"fragment": public(row)}
@@ -287,18 +283,17 @@ def _restore(w, payload, node_ids):
 
 
 def _set_discipline(w, payload, node_ids):
-    """Přeřazení fragmentu (a s ním podstromu, který disciplínu dědí) do jiné disciplíny; text beze změny.
-    `op: set-track` s `track` je alias do K5, pak smazat."""
+    """Přeřazení fragmentu (a s ním podstromu, který disciplínu dědí) do jiné disciplíny; text beze změny."""
     row = w.checked(payload)
-    discipline = discipline_of(discipline_payload(payload)[1], allow_null=row["parent_id"] is not None)
+    discipline = discipline_of(payload["discipline"], allow_null=row["parent_id"] is not None)
     if row["discipline"] == discipline:
-        fail(f"{payload['op']} nic nemění; fragment už má tuto disciplínu.")
+        fail("set-discipline nic nemění; fragment už má tuto disciplínu.")
     return {"fragment": public(w.revise(row, payload["note"], discipline=discipline))}
 
 
 HANDLERS = {"create": _create, "revise": _revise, "split": _split, "research": develop.research, "promote": _promote,
             "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore, "set-discipline": _set_discipline,
-            "set-track": _set_discipline, **develop.HANDLERS, **gates.HANDLERS}
+            **develop.HANDLERS, **gates.HANDLERS}
 
 
 class BriefVault(VaultReader):

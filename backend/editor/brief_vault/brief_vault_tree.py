@@ -8,12 +8,10 @@ Pokrytí počítá listy druhu `brief` (research a question jsou poznámky k fra
 Strom se skládá bez rekurze a vnoření končí na `MAX_DEPTH` (hlubší větev = počet `hidden`).
 `effectiveDiscipline` = disciplína nejbližšího předka včetně sebe (`effective_disciplines`); filtr
 (`tree_of(discipline=…)`) ponechá fragmenty dané disciplíny a jejich cestu ke kořeni, aby strom zůstal souvislý.
-`effectiveTrack` je odvozený alias do K5, pak smazat (kreslení → `ux`, jinak `logic`, nezařazené → null).
 Brány cyklu (`gates` jen booleany + `predictionError`, `gateStep`, `gatesStale`) skládá `brief_vault_gate_rules`.
 """
 
 from backend.editor.brief_vault.brief_vault_details import details_summary
-from backend.editor.brief_vault.brief_vault_disciplines import track_from_discipline
 from backend.editor.brief_vault.brief_vault_gate_rules import detail, gate_state, summary
 from backend.editor.brief_vault.brief_vault_model import (
     MAX_DEPTH,
@@ -80,9 +78,8 @@ def status_of(row, children, refs, text_revision=None, details=None, legacy=None
 
 
 def effective_fields(disciplines, fragment_id):
-    """`effectiveDiscipline` a dočasný `effectiveTrack` (alias do K5, pak smazat) jednoho fragmentu."""
-    discipline = disciplines.get(fragment_id)
-    return {"effectiveDiscipline": discipline, "effectiveTrack": track_from_discipline(discipline)}
+    """`effectiveDiscipline` jednoho fragmentu (disciplína nejbližšího předka včetně sebe)."""
+    return {"effectiveDiscipline": disciplines.get(fragment_id)}
 
 
 def live_ids(rows):

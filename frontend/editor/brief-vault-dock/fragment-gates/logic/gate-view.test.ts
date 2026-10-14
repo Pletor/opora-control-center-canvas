@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { FragmentDetail, GateFlags } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { GATES } from "@/editor/node-detail/brief-vault/logic/gate-bar";
-import { deadEndReason, gateRows, payloadLines, queueText, whoLabel } from "./gate-view";
+import type { GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import { deadEndReason, gateRows, payloadLines, proposalStatus, queueText, whoLabel } from "./gate-view";
 
 const flags = (count: number): GateFlags => ({
   ...Object.fromEntries(GATES.map((gate, index) => [gate, index < count])) as Record<(typeof GATES)[number], boolean>, predictionError: null,
@@ -42,6 +43,19 @@ describe("gate view", () => {
     const stale = detail({ gates: flags(0), gateStep: 0, gatesStale: true,
       gateDetail: { scoped: { value: true, payload: null, by: "", actor: "", at: "", inputHash: "x", revision: 1, valid: false } } });
     expect(gateRows(stale)[0]).toMatchObject({ on: false, stale: true, next: true });
+  });
+
+  it("tells who proposed a gate and what happened to the proposal", () => {
+    const proposal: GateProposal = { id: "p", revision: 2, gate: "weighed", payload: {}, note: "", by: "Hermes", actor: "agent",
+      at: "", status: "pending", rejection: null };
+    expect(proposalStatus(proposal)).toBe("navrhl agent Hermes · čeká na potvrzení");
+    expect(proposalStatus({ ...proposal, status: "used" })).toBe("navrhl agent Hermes · použit");
+    expect(proposalStatus({ ...proposal, status: "rejected",
+      rejection: { id: "r", note: "Riziko chybí.", by: "Claude", actor: "agent", at: "" } }))
+      .toBe("navrhl agent Hermes · zamítl agent Claude: Riziko chybí.");
+    expect(proposalStatus({ ...proposal, status: "rejected",
+      rejection: { id: null, note: "", by: "", actor: "human", at: "", gateOff: true } }))
+      .toBe("navrhl agent Hermes · neplatí (brána vypnuta po návrhu)");
   });
 
   it("describes the agent queue", () => {

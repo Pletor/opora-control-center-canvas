@@ -16,9 +16,12 @@ Adresa jako u `opora_write.py` (`--base-url` / `OPORA_BASE_URL`, jen loopback). 
 | `propose F GATE --json-file p.json --note "…"` | `op: propose`; revizi načte sám, `--revision N` ji připne na tu, kterou jsi četl |
 | `yes F GATE --note "…"` | `op: gate` `value: true` bez payloadu (server vezme poslední platný návrh) |
 | `no F GATE --note "…"` | `op: gate` `value: false`: vypne **zapnutou** bránu a všechny další (kaskáda) |
-| `reject F GATE --note "…"` | `op: reject-proposal`: zamítne poslední čekající návrh brány, `next` pak vrátí `needs: proposal` (backend operaci teprve doplní; do té doby 400 „neznámá operace“) |
+| `reject F GATE --note "…"` | `op: reject-proposal`: zamítne poslední čekající návrh brány (revizi nepřidá), `next` pak vrátí `needs: proposal`; smí i autor (stažení vlastního návrhu); bez čekajícího návrhu 409 |
 | `check F GATE [--json-file p.json]` | poradní `gate-check` (Jev); bez payloadu bere návrh z hlavy `next`; `probability: null` = bez povolení / nedostupné |
 | `lessons [--discipline be]` | živá poučení disciplíny |
+
+Stav návrhů fragmentu (kdo navrhl, zda čeká, byl použit, nebo kdo ho zamítl a proč) je v detailu
+GET `/api/brief-vault/fragment` v `proposals`.
 
 Kódy: 0 ok · 1 chyba (400 = špatný tvar, pořadí bran, chybí návrh) · 2 skript odmítl (vlastní návrh,
 návrh není v hlavě `next`) · **3 konflikt 409: nic se nezapsalo, spusť `next` a rozhodni znovu**.

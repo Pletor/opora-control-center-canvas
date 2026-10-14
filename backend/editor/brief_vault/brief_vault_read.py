@@ -13,8 +13,10 @@ from backend.editor.brief_vault.brief_vault_details import (
     latest_details,
 )
 from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_FILTERS, public_table
+from backend.editor.brief_vault.brief_vault_gate_rules import gate_state
 from backend.editor.brief_vault.brief_vault_model import (
     bad_request,
+    effective_disciplines,
     fail,
     history_rows,
     latest_rows,
@@ -22,6 +24,7 @@ from backend.editor.brief_vault.brief_vault_model import (
     public,
     text_revisions,
 )
+from backend.editor.brief_vault.brief_vault_proposals import proposals_of
 from backend.editor.brief_vault.brief_vault_tree import (
     discipline_counts,
     fragment_links,
@@ -106,7 +109,10 @@ class VaultReader:
             return {"disciplines": public_table(counts), "unassigned": unassigned}
 
     def fragment(self, project, workspace, fragment_id, revision=None):
-        """Plný text revize, historie, děti, cesta, karty, Podněty, podrobnosti a zpětná vazba fragmentu."""
+        """Plný text revize, historie, děti, cesta, karty, Podněty, podrobnosti a zpětná vazba fragmentu.
+
+        `proposals` = poslední návrh každé brány s payloadem pro aktuální otisk vstupů a jeho stav
+        (`pending | rejected | used`, viz brief_vault_proposals); jen u fragmentu druhu `brief`."""
         if not isinstance(fragment_id, str) or not valid_id(fragment_id):
             fail("id fragmentu je neplatné.")
         with self.canvas.reading(project):
@@ -120,10 +126,13 @@ class VaultReader:
             if chosen is None:
                 fail(f"fragment nemá revizi {revision}.")
             details = read["details"].get(fragment_id, {})
+            latest = rows[fragment_id]
+            proposals = proposals_of(db, project, workspace, fragment_id, gate_state(
+                latest, effective_disciplines(rows).get(fragment_id)), history) if latest["kind"] == "brief" else {}
             return {"fragment": public(chosen, with_text=True), "latestRevision": rows[fragment_id]["revision"],
                     "history": [public(row) for row in history], "details": details,
                     "decisions": decisions_of(read["state"], details.get("decisions", [])),
-                    "feedback": feedback_rows(db, project, workspace, [fragment_id]),
+                    "feedback": feedback_rows(db, project, workspace, [fragment_id]), "proposals": proposals,
                     **fragment_links(rows, read["state"], fragment_id, read["texts"], read["details"], read["legacy"])}
 
     def history(self, project, workspace, scope=None, limit=MAX_HISTORY):

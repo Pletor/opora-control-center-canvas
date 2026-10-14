@@ -1,17 +1,19 @@
 // Jedna brána v detailu fragmentu, jen zobrazení: tečka stavu, titulek, kdo bránu zapnul a kdy, uložený payload
-// česky (u Ověřeno chyba předpovědi), u další brány na řadě čekající návrh s autorem a důvod, proč cyklus stojí.
+// česky (u Ověřeno chyba předpovědi), poslední návrh brány s autorem a stavem (čeká / použit / zamítnut kým a proč)
+// a důvod, proč cyklus stojí. Použitý návrh se jen jmenuje; jeho payload je už v záznamu brány.
 import { formatError, GATE_TITLES } from "@/editor/node-detail/brief-vault/logic/gate-bar";
 import { shortWhen } from "../../logic/vault-dock-model";
-import { payloadLines, whoLabel, type GateRow as Row, type NextWork } from "../logic/gate-view";
+import type { GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import { payloadLines, proposalStatus, whoLabel, type GateRow as Row } from "../logic/gate-view";
 
-export default function GateRow({ row, proposal }: { row: Row; proposal?: NextWork["proposal"] }) {
+export default function GateRow({ row, proposal }: { row: Row; proposal?: GateProposal }) {
   const state = row.on ? "on" : row.stale ? "stale" : row.next ? "next" : "off";
   const entry = row.entry;
   const lines = payloadLines(row.on || row.stale ? entry?.payload : null);
   const error = row.gate === "verified" && row.on ? entry?.payload?.predictionError as number | undefined : undefined;
   const status = row.on ? `potvrdil ${whoLabel(entry?.by, entry?.actor)} · ${shortWhen(entry?.at ?? "")}`
     : row.stale ? `zneplatněno změnou vstupů (zapnul ${whoLabel(entry?.by, entry?.actor)})`
-    : row.next ? (proposal ? "čeká na potvrzení návrhu" : "další na řadě, čeká na návrh") : "vypnuto";
+    : row.next ? (proposal?.status === "pending" ? "čeká na potvrzení návrhu" : "další na řadě, čeká na návrh") : "vypnuto";
   return (
     <div className={"fragment-gates__row fragment-gates__row--" + state} data-testid={"gate-" + row.gate}>
       <span className={"brief-gates__dot brief-gates__dot--" + state} aria-hidden="true" />
@@ -23,9 +25,12 @@ export default function GateRow({ row, proposal }: { row: Row; proposal?: NextWo
         </div>
         {lines.length > 0 && <ul className="fragment-gates__payload">{lines.map((line) => <li key={line}>{line}</li>)}</ul>}
         {proposal && (
-          <div className="fragment-gates__proposal" aria-label="Návrh čekající na potvrzení">
-            <span className="fragment-gates__state">navrhl {whoLabel(proposal.by, proposal.actor)} · {shortWhen(proposal.at)}{proposal.note ? ` · ${proposal.note}` : ""}</span>
-            <ul className="fragment-gates__payload">{payloadLines(proposal.payload).map((line) => <li key={line}>{line}</li>)}</ul>
+          <div className={"fragment-gates__proposal fragment-gates__proposal--" + proposal.status} aria-label="Poslední návrh brány"
+            data-testid={"proposal-" + row.gate}>
+            <span className="fragment-gates__state">{proposalStatus(proposal)} · {shortWhen(proposal.at)}{proposal.note ? ` · ${proposal.note}` : ""}</span>
+            {proposal.status !== "used" && (
+              <ul className="fragment-gates__payload">{payloadLines(proposal.payload).map((line) => <li key={line}>{line}</li>)}</ul>
+            )}
           </div>
         )}
         {row.waiting && <span className="fragment-gates__waiting">{row.waiting}</span>}

@@ -1,8 +1,8 @@
 """Disciplíny schránky (docs/schranka-neurony.md §2, §9 bod 5): kořen nese disciplínu vždy, dítě ji dědí,
 `set-discipline` přeřadí podstrom novou revizí se stejným textem, filtr stromu nechá cestu ke kořeni,
 stará databáze dostane sloupce a backfill ze stopy, node-brief nese `effectiveDiscipline`, uložená verze
-plátna disciplínu nese (starší verze se stopou zůstanou platné a obnoví se s disciplínou) a `track`
-/ `set-track` / `effectiveTrack` jsou dočasné aliasy do K5."""
+plátna disciplínu nese (starší verze se stopou zůstanou platné a obnoví se s disciplínou) a aliasy stopy
+z K2 (`track`, `set-track`, `effectiveTrack`) API už nepřijímá ani nevrací."""
 import json
 import sqlite3
 
@@ -12,11 +12,19 @@ from fastapi.testclient import TestClient
 from backend.app.factory import create_app
 from backend.canvas.graph import digest as digest_of
 from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_IDS
-from backend.editor.brief_vault.brief_vault_model import MAX_DEPTH, effective_disciplines, latest_rows
+from backend.editor.brief_vault.brief_vault_model import (
+    MAX_DEPTH,
+    effective_disciplines,
+    latest_rows,
+)
 from backend.editor.brief_vault.brief_vault_tree import tree_of
 from backend.editor.node.test_removals import HEADERS, ORIGIN, SCOPE, install_graph, node
 from database.schema import project_schema
-from database.schema.project_schema import add_column, ensure_brief_fragment_columns, ensure_canvas_version_columns
+from database.schema.project_schema import (
+    add_column,
+    ensure_brief_fragment_columns,
+    ensure_canvas_version_columns,
+)
 
 AGENT = {**HEADERS, "X-Opora-Actor": "agent; name=discipline-1"}
 TEXT = "3.1 Tabulky\nřádky.\n\n3.2 Obrazovka\nseznam."
@@ -226,32 +234,19 @@ def test_disciplines_endpoint_counts_live_fragments(client):
     assert counts["unassigned"] == 2 and live["ux"] == 1 and live["be"] == 0
 
 
-def test_track_aliases_until_k5(client):
-    """Alias do K5, pak smazat: `track` v create/from-idea, `op: set-track`, odvozený `effectiveTrack`."""
-    root = post(client, op="create", scopeNodeId="s1", track="logic", title="R", text=TEXT)["fragment"]
-    assert root["discipline"] == "be" and "track" not in root
-    ux = post(client, op="create", parentId=root["id"], track="ux", title="U", text="u")["fragment"]
-    inherit = post(client, op="create", parentId=root["id"], track=None, title="I", text="i")["fragment"]
-    assert ux["discipline"] == "ux" and inherit["discipline"] is None
-    post(client, expect=400, op="create", scopeNodeId="s1", track=None, title="T", text="t")
-    post(client, expect=400, op="create", scopeNodeId="s1", track="design", title="T", text="t")
-    post(client, expect=400, op="create", scopeNodeId="s1", track="be", title="T", text="t")
-    post(client, expect=400, op="create", scopeNodeId="s1", track="ux", discipline="ux", title="T", text="t")
-    moved = post(client, op="set-track", fragmentId=inherit["id"], expectedRevision=1, track="ux", note="UI")["fragment"]
-    assert moved["discipline"] == "ux"
-    post(client, expect=409, op="set-track", fragmentId=inherit["id"], expectedRevision=2, track="ux", note="znovu")
-    post(client, expect=400, op="set-track", fragmentId=root["id"], expectedRevision=1, track=None, note="pryč")
-    post(client, op="set-discipline", fragmentId=ux["id"], expectedRevision=1, discipline="security", note="Bezpečnost")
-    found = nodes(tree(client))
-    assert found[root["id"]]["effectiveTrack"] == "logic" and found[inherit["id"]]["effectiveTrack"] == "ux"
-    assert found[ux["id"]]["effectiveTrack"] == "logic" and found[ux["id"]]["effectiveDiscipline"] == "security"
-    detail = client.get("/api/brief-vault/fragment", params={**SCOPE, "id": inherit["id"]}).json()
-    assert detail["effectiveTrack"] == "ux" and detail["effectiveDiscipline"] == "ux" and "track" not in detail["fragment"]
-    from backend.editor.brief_vault.test_brief_vault_develop import put_state, state
+def test_track_aliases_are_gone(client):
+    """Aliasy stopy z K2 jsou smazané: `track` v create/from-idea = 409 (neznámé pole), `op: set-track` = neznámá
+    operace, strom ani detail `effectiveTrack` nenesou."""
+    post(client, expect=409, op="create", scopeNodeId="s1", track="logic", title="R", text=TEXT)
+    root = post(client, op="create", scopeNodeId="s1", discipline="be", title="R", text=TEXT)["fragment"]
+    post(client, expect=409, op="set-track", fragmentId=root["id"], expectedRevision=1, track="ux", note="UI")
+    assert "effectiveTrack" not in nodes(tree(client))[root["id"]]
+    detail = client.get("/api/brief-vault/fragment", params={**SCOPE, "id": root["id"]}).json()
+    assert "effectiveTrack" not in detail and detail["effectiveDiscipline"] == "be"
+    from backend.editor.brief_vault.test_brief_vault_develop import put_state
     put_state(client, nodes={"c1": {"phase": "discover", "criteria": [], "steps": [], "ideas": [
         {"id": "i1", "text": "Podnět.", "by": "review", "source": "review", "at": "T", "status": "open"}]}})
-    made = post(client, op="from-idea", nodeId="c1", ideaId="i1", scopeNodeId="s1", track="logic")["fragment"]
-    assert made["discipline"] == "be" and state(client)["state"]["nodes"]["c1"]["ideas"][0]["fragmentId"] == made["id"]
+    post(client, expect=409, op="from-idea", nodeId="c1", ideaId="i1", scopeNodeId="s1", track="logic")
 
 
 def test_from_idea_root_needs_discipline(client):
@@ -355,7 +350,7 @@ def test_tree_helpers_on_rows_without_columns():
     ensure_brief_fragment_columns(db)
     ensure_brief_fragment_columns(db)
     roots = tree_of(latest_rows(db, "p", "w"), {})
-    assert roots[0]["discipline"] is None and roots[0]["effectiveDiscipline"] is None and roots[0]["effectiveTrack"] is None
+    assert roots[0]["discipline"] is None and roots[0]["effectiveDiscipline"] is None and "effectiveTrack" not in roots[0]
     rows = latest_rows(db, "p", "w")
     assert tree_of(rows, {}, discipline="none")[0]["id"] == "r" and tree_of(rows, {}, discipline="be") == []
 

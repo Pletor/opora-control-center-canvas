@@ -18,7 +18,7 @@ from backend.editor.brief_vault.brief_vault_gate_rules import (
     dead_end,
     gate_state,
 )
-from backend.editor.brief_vault.brief_vault_gates import covered, usable_proposal
+from backend.editor.brief_vault.brief_vault_gates import covered
 from backend.editor.brief_vault.brief_vault_lessons import (
     HALF_LIFE_DAYS,
     NEXT_LIMIT,
@@ -31,11 +31,12 @@ from backend.editor.brief_vault.brief_vault_model import (
     effective_disciplines,
     latest_rows,
 )
+from backend.editor.brief_vault.brief_vault_proposals import usable_proposal
 from backend.editor.brief_vault.brief_vault_tree import live_ids
 
 NEEDS_HINT = {"proposal": "Chybí návrh: pošli op propose {fragmentId, expectedRevision, gate, payload, note}, pak op gate value: true.",
               "confirm": "Potvrď op gate {fragmentId, expectedRevision, gate, value: true, note} (bez payloadu vezme návrh), "
-                         "nebo nesouhlas zapiš novým návrhem."}
+                         "nebo nesouhlas zapiš op reject-proposal {fragmentId, expectedRevision, gate, note} či novým návrhem."}
 
 
 def _discipline(discipline):

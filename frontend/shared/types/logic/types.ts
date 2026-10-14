@@ -183,6 +183,18 @@ export async function api<T>(url: string, body?: object, method: WriteMethod = "
   // 401 přichází jen zvenčí přes tunel: token chybí nebo vypršel. Brána se musí vrátit.
   if (response.status === 401 && typeof window !== "undefined")
     window.dispatchEvent(new Event(ACCESS_REQUIRED_EVENT));
-  if (!response.ok) throw new Error(value.error ?? `Požadavek se nezdařil (HTTP ${response.status}).`);
+  if (!response.ok) throw new ApiError(value.error ?? `Požadavek se nezdařil (HTTP ${response.status}).`, response.status, value);
   return value as T;
+}
+/** Odmítnutý požadavek: text chyby jako dřív a k tomu HTTP stav a celé tělo odpovědi (strukturované podrobnosti,
+ *  např. `fragments` u odmítnutého plánu Schránky). */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly body: Record<string, unknown>;
+  constructor(message: string, status: number, body: Record<string, unknown>) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
 }

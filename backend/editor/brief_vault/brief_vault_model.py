@@ -9,7 +9,7 @@ import json
 from typing import NoReturn
 
 from backend.canvas.graph import valid_id
-from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_IDS, discipline_from_track
+from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_IDS
 
 # `gates` = JSON bran cyklu (docs/schranka-neurony.md §3, brief_vault_gate_rules.py), NULL = žádná brána.
 COLUMNS = ("parent_id", "scope_node_id", "ord", "kind", "title", "text", "stage", "mvp", "note", "by", "actor", "deleted",
@@ -32,6 +32,19 @@ TOMBSTONE = {"parent_id": None, "scope_node_id": None, "ord": 0, "kind": "brief"
 
 class BadRequest(ValueError):
     """Chybný tvar požadavku (např. kořen bez disciplíny): router ho vrací jako 400, ne 409 (konflikt stavu)."""
+
+
+class Blocked(ValueError):
+    """Konflikt s výčtem dotčených fragmentů (plán struktury, brána planned): router vrací 409
+    `{error, fragments: [{id, title, reason}]}`; `error` je tentýž text jako u `fail`."""
+
+    def __init__(self, message, fragments):
+        super().__init__(message)
+        self.fragments = fragments
+
+
+def blocked(message, fragments) -> NoReturn:
+    raise Blocked("Schránka zadání: " + message, fragments)
 
 
 def fail(message) -> NoReturn:
@@ -86,20 +99,6 @@ def discipline_of(value, *, allow_null):
         bad_request("discipline musí být jedna z " + ", ".join(DISCIPLINE_IDS)
                     + (" nebo null (dědí od rodiče)." if allow_null else "; kořen schránky disciplínu nese vždy."))
     return value
-
-
-def discipline_payload(payload, key="discipline"):
-    """Hodnota disciplíny z požadavku; `track` je alias do K5, pak smazat (ux → ux, logic → be, null → null).
-
-    Vrací (je-li uvedena, hodnota). Obě pole naráz = 400; neznámá stopa = 400."""
-    if "track" in payload:
-        if key in payload:
-            bad_request("pošlete jen discipline (track je dočasný alias).")
-        track = payload["track"]
-        if track is not None and discipline_from_track(track) is None:
-            bad_request("track (alias do K5) musí být \"ux\", \"logic\" nebo null; použijte discipline.")
-        return True, discipline_from_track(track)
-    return key in payload, payload.get(key)
 
 
 def effective_disciplines(rows):
