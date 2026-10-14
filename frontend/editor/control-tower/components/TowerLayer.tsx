@@ -10,6 +10,8 @@ import TowerSector from "./TowerSector";
 
 /** Co dílky pyramidy potřebují od rodiče: rozbalení (s výchozím stavem) a akce (otevřít kartu, vstoupit do vrstvy). */
 export type TowerNav = {
+  /** Projekt a workspace pro zadání, která se z dlaždic kopírují agentovi (router). */
+  project: string; workspace: string;
   isOpen: (id: string, byDefault: boolean) => boolean;
   onToggle: (id: string, open: boolean) => void;
   onOpenNode: (id: string) => void; onEnterLayer: (id: string) => void;

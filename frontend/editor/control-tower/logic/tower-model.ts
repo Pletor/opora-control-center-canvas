@@ -45,7 +45,8 @@ export type TowerArea = {
   id: string; name: string; purpose: string; color: AreaColor;
   sectors: TowerSector[]; cards: TowerCard[]; containers: TowerSector[]; counts: Counts;
 };
-export type InboxKind = "proposed" | "waiting" | "stuck";
+/** `intent` = oblast bez záměru, `goal` = sektor bez podstaty (cíl sektoru `spec.goal` klient nemá, proto `purpose`). */
+export type InboxKind = "proposed" | "waiting" | "stuck" | "intent" | "goal";
 export type InboxItem = {
   kind: InboxKind; nodeId: string; nodeName: string; sectorId: string; sectorName: string; areaId: string; areaName: string; text: string;
 };
@@ -70,7 +71,7 @@ export const MAX_SECTOR_DEPTH = 4;
 export const LOOSE_AREA_ID = "__loose";
 const UNNAMED_SECTOR = "Nepojmenovaný sektor";
 const UNNAMED_CARD = "Nepojmenovaná karta";
-const INBOX_ORDER: Record<InboxKind, number> = { proposed: 0, stuck: 1, waiting: 2 };
+const INBOX_ORDER: Record<InboxKind, number> = { proposed: 0, stuck: 1, waiting: 2, intent: 3, goal: 3 };
 
 export const emptyCounts = (): Counts => ({ cards: 0, closed: 0, running: 0, waitingHuman: 0, proposed: 0, failed: 0, unrouted: 0 });
 
@@ -264,7 +265,10 @@ export function towerFrom(structure: TowerStructure, state: DesktopState, work?:
   }
   function areaOfLayer(a: StructureArea, where: Where): TowerArea {
     const name = areaLabel(a.node);
-    const group = groupOf(a, { ...where, areaId: a.node.id, areaName: name });
+    const inArea = { ...where, areaId: a.node.id, areaName: name };
+    // Vrchol pyramidy: oblast bez záměru je úkol pro člověka, ne pro agenta.
+    if (!a.node.purpose.trim()) inbox.push({ ...inArea, kind: "intent", nodeId: a.node.id, nodeName: name, text: "Oblast „" + name + "“ nemá záměr." });
+    const group = groupOf(a, inArea);
     return { id: a.node.id, name, purpose: a.node.purpose, color: areaColorOf(a.node), ...group, counts: groupCounts(group) };
   }
   function layerOf(layer: StructureLayer, where: Where): TowerLayer {
@@ -274,6 +278,7 @@ export function towerFrom(structure: TowerStructure, state: DesktopState, work?:
     const isSector = b.node.kind === "sector";
     const card = isSector ? undefined : cardOf(b.node, where);
     const name = card?.name ?? nameOr(b.node.name, UNNAMED_SECTOR);
+    if (isSector && !b.node.purpose.trim()) inbox.push({ ...where, kind: "goal", nodeId: b.node.id, nodeName: name, text: "Sektor „" + name + "“ je bez podstaty." });
     // Uvnitř dlaždice začíná nový kontext: skupina fronty = tahle dlaždice, oblast = oblast její vrstvy.
     const inner = layerOf(b.layer, { sectorId: b.node.id, sectorName: name, areaId: "", areaName: "" });
     const gate = isSector ? gates[b.node.id] : undefined;
@@ -333,12 +338,14 @@ export function towerIds(tower: Tower): string[] {
 
 // ---------- Fronta ----------
 
-export type InboxFilter = "all" | InboxKind;
+/** Filtr fronty; „intent“ (čip Záměr) bere oblasti bez záměru i sektory bez podstaty. */
+export type InboxFilter = "all" | "proposed" | "stuck" | "waiting" | "intent";
+const filterOf = (kind: InboxKind): Exclude<InboxFilter, "all"> => (kind === "goal" ? "intent" : kind);
 
 /** Kolik položek fronty je kterého druhu (pro čipy filtru). */
 export function inboxKinds(items: InboxItem[]): Record<InboxFilter, number> {
-  const counts: Record<InboxFilter, number> = { all: items.length, proposed: 0, stuck: 0, waiting: 0 };
-  for (const item of items) counts[item.kind]++;
+  const counts: Record<InboxFilter, number> = { all: items.length, proposed: 0, stuck: 0, waiting: 0, intent: 0 };
+  for (const item of items) counts[filterOf(item.kind)]++;
   return counts;
 }
 
@@ -349,7 +356,7 @@ export function inboxCardCount(items: InboxItem[]): number {
 
 /** Viditelná část fronty: filtr druhu a prvních `limit` položek; `more` = kolik jich zbývá. */
 export function inboxPage(items: InboxItem[], filter: InboxFilter, limit: number): { items: InboxItem[]; total: number; more: number } {
-  const matching = filter === "all" ? items : items.filter((i) => i.kind === filter);
+  const matching = filter === "all" ? items : items.filter((i) => filterOf(i.kind) === filter);
   const shown = matching.slice(0, Math.max(0, limit));
   return { items: shown, total: matching.length, more: matching.length - shown.length };
 }

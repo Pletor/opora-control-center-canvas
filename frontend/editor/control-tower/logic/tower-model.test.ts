@@ -114,7 +114,7 @@ describe("buildTower – pyramida Velínu", () => {
     const tower = buildTower({ graph, state, work });
     expect(tower.inbox).toHaveLength(72);
     expect(inboxCardCount(tower.inbox)).toBe(70);
-    expect(inboxKinds(tower.inbox)).toEqual({ all: 72, proposed: 70, stuck: 0, waiting: 2 });
+    expect(inboxKinds(tower.inbox)).toEqual({ all: 72, proposed: 70, stuck: 0, waiting: 2, intent: 0 });
     expect(inboxPage(tower.inbox, "all", INBOX_LIMIT)).toMatchObject({ total: 72, more: 22 });
     expect(inboxPage(tower.inbox, "all", INBOX_LIMIT).items).toHaveLength(50);
     expect(inboxPage(tower.inbox, "all", 2 * INBOX_LIMIT)).toMatchObject({ total: 72, more: 0 });
@@ -254,5 +254,27 @@ describe("buildTower – pyramida Velínu", () => {
     expect(tower.looseContainers.map((c) => [c.id, c.cards.map((k) => k.id)])).toEqual([["c", ["cc"]]]);
     expect(tower.looseCards.map((c) => c.id)).toEqual(["x"]);
     expect(tower.totals.cards).toBe(3);
+  });
+
+  it("vrchol pyramidy: oblast bez záměru a sektor bez podstaty jdou do fronty až za práci agentů", () => {
+    const graph: Graph = {
+      nodes: [
+        node("ar", "area", null, 0, 0, { name: "Téma", purpose: "", size: { w: 1000, h: 1000 } }),
+        node("s1", "sector", null, 10, 10, { name: "Bez cíle", purpose: "  " }),
+        node("s2", "sector", null, 5000, 0),
+        node("inner", "area", "s2", 0, 0, { name: "Vnitřní", purpose: "", size: { w: 500, h: 500 } }),
+        node("k", "node", "s2", 3000, 0),
+      ],
+      edges: [],
+    };
+    const state = emptyDesktopState();
+    state.nodes.k = { phase: "build", criteria: [], steps: [], done: { confirmed: false, at: "", by: "agent", note: "" } };
+    const tower = buildTower({ graph, state });
+    expect(tower.inbox.map((i) => [i.kind, i.nodeId])).toEqual([["proposed", "k"], ["intent", "ar"], ["goal", "s1"], ["intent", "inner"]]);
+    expect(tower.inbox[1]).toMatchObject({ text: "Oblast „Téma“ nemá záměr.", areaId: "ar" });
+    expect(tower.inbox[2]).toMatchObject({ text: "Sektor „Bez cíle“ je bez podstaty.", areaId: "ar" });
+    expect(tower.inbox[3]).toMatchObject({ sectorId: "s2", areaId: "inner" });
+    expect(inboxKinds(tower.inbox)).toEqual({ all: 4, proposed: 1, stuck: 0, waiting: 0, intent: 3 });
+    expect(inboxPage(tower.inbox, "intent", 50).items.map((i) => i.nodeId)).toEqual(["ar", "s1", "inner"]);
   });
 });

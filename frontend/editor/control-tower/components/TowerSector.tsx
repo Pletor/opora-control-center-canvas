@@ -5,6 +5,7 @@ import { workLabels } from "@/editor/canvas/node-card/components/WorkNow";
 import { contentLabel, layerSize, type TowerSector as Sector } from "../logic/tower-model";
 import TowerBar from "./TowerBar";
 import { collapseChain, defaultOpen } from "../logic/tower-view";
+import RouterCopy from "./RouterCopy";
 import TowerChain from "./TowerChain";
 import TowerLayer, { type TowerNav } from "./TowerLayer";
 
@@ -27,7 +28,7 @@ export default function TowerSector({ sector, depth, siblings, nav }: Props) {
   const inner = open ? collapseChain(sector) : null;
   const cardLabel = card && (card.proposed ? "ke schválení" : !card.statusKnown ? "stav neznámý" : card.status === "idle" ? "v klidu" : workLabels[card.status]);
   return (
-    <article className={"tower-sector" + (depth > 1 ? " tower-sector--nested" : "") + (sector.kind === "card" ? " tower-sector--card" : "") + (sector.verified ? " tower-sector--verified" : "")}>
+    <article className={"tower-sector" + (open ? " tower-sector--open" : "") + (depth > 1 ? " tower-sector--nested" : "") + (sector.kind === "card" ? " tower-sector--card" : "") + (sector.verified ? " tower-sector--verified" : "")}>
       <header className="tower-sector__head">
         <h4 className="tower-sector__name">{sector.name}</h4>
         {sector.kind === "sector" ? (
@@ -46,6 +47,9 @@ export default function TowerSector({ sector, depth, siblings, nav }: Props) {
         {c.failed > 0 && <li className="tower-sector__stat tower-sector__stat--failed">{c.failed} blokováno / selhalo</li>}
         {waiting > 0 && <li className="tower-sector__stat tower-sector__stat--waiting">{waiting} čeká</li>}
       </ul>
+      {sector.kind === "sector" && c.unrouted > 0 && (
+        <RouterCopy project={nav.project} workspace={nav.workspace} sectorId={sector.id} sectorName={sector.name} unrouted={c.unrouted} />
+      )}
       <div className="tower-sector__actions">
         <button type="button" className="tower-sector__toggle" aria-expanded={open} onClick={() => nav.onToggle(sector.id, !open)}>
           {open ? "Sbalit" : contentLabel(size.cards, size.sectors, size.areas)}
@@ -55,7 +59,7 @@ export default function TowerSector({ sector, depth, siblings, nav }: Props) {
       </div>
       {open && (
         <div className="tower-sector__content">
-          {inner && <TowerChain chain={inner.chain} onEnterLayer={nav.onEnterLayer} />}
+          {inner && <TowerChain chain={inner.chain} inner onEnterLayer={nav.onEnterLayer} />}
           {inner && <TowerLayer layer={inner.layer} depth={depth + 1} nav={nav} />}
           {!size.cards && !size.sectors && !size.areas && <p className="tower-sector__empty">Vrstva je prázdná.</p>}
         </div>

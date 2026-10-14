@@ -57,6 +57,7 @@ export default function ControlTower({ project, workspace, graph, state, onOpenN
     }
   }
   const nav = {
+    project, workspace,
     isOpen: (id: string, byDefault: boolean) => overrides[id] ?? byDefault,
     onToggle: (id: string, open: boolean) => setOverrides((old) => ({ ...old, [id]: open })),
     onOpenNode, onEnterLayer,

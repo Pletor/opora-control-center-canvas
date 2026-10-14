@@ -8,9 +8,13 @@ const MARK: Record<InboxKind, { sign: string; label: string }> = {
   proposed: { sign: "✓", label: "ke schválení" },
   stuck: { sign: "⚠", label: "uvízlo" },
   waiting: { sign: "?", label: "otázka" },
+  intent: { sign: "◎", label: "oblast bez záměru" },
+  goal: { sign: "◎", label: "sektor bez podstaty" },
 };
+/** Vrchol pyramidy (záměr oblasti, podstata sektoru) píše člověk; tlačítko otevře inspektor uzlu. */
+const WRITE: Partial<Record<InboxKind, string>> = { intent: "Napsat záměr", goal: "Doplnit podstatu" };
 const FILTERS: { key: InboxFilter; label: string }[] = [
-  { key: "all", label: "Vše" }, { key: "proposed", label: "Ke schválení" }, { key: "stuck", label: "Uvízlo" }, { key: "waiting", label: "Otázky" },
+  { key: "all", label: "Vše" }, { key: "proposed", label: "Ke schválení" }, { key: "stuck", label: "Uvízlo" }, { key: "waiting", label: "Otázky" }, { key: "intent", label: "Záměr" },
 ];
 
 type Props = {
@@ -72,7 +76,7 @@ export default function TowerInbox({ items, total, more, kinds, filter, workStat
                     <ConfirmButton label="Potvrdit" armed={armedText([item.nodeId], nameOf, false)} scope={[item.nodeId]}
                       locked={busy.has(item.nodeId)} action={(ids) => onConfirm(ids, item.sectorId)} />
                   )}
-                  <button type="button" className="tower-inbox__open" onClick={() => onOpenNode(item.nodeId)}>Otevřít</button>
+                  <button type="button" className="tower-inbox__open" onClick={() => onOpenNode(item.nodeId)}>{WRITE[item.kind] ?? "Otevřít"}</button>
                 </span>
               </li>
             ))}

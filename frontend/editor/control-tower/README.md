@@ -53,3 +53,13 @@ hlubší jsou sbalené. Ruční přepnutí přebíjí výchozí stav a pamatuje 
 pod klíčem `opora:velin:<project>` (`readOpen` / `writeOpen`; obojí v try/catch, poškozený zápis = prázdná
 paměť). Koš `failed` se v legendě i v title pruhu jmenuje „blokováno / selhalo“, protože obsahuje i
 `blocked` z přehledu práce.
+
+Vrchol pyramidy a router: fronta hlídá i to, co musí napsat člověk. Druh `intent` je oblast bez záměru
+(„Oblast „X“ nemá záměr“, tlačítko „Napsat záměr“ otevře oblast). Druh `goal` je sektor bez podstaty:
+cíl sektoru (`spec.goal`) klient v grafu nemá, proto se hlídá prázdné `purpose`. Oba druhy filtruje čip
+„Záměr“ a ve frontě jdou až za návrhy, uvízlé procesy a otázky. Dlaždice sektoru s otevřenými kartami bez
+procesu (`counts.unrouted`) ukáže „N čeká na router“ a `RouterCopy` „Zadání pro router“. Zadání staví
+`logic/router-prompt.ts` (testováno): instrukce jen s ověřenými id (`safeIds`), název sektoru jen v
+`dataBlock`; kopírování přes `useCopyText`. Rozvržení: sbalené dlaždice v mřížce `minmax(300px, 1fr)`,
+rozbalená dlaždice přes celou šířku (`tower-sector--open`), drobek uvnitř dlaždice drobně
+(`tower-chain--inner`).

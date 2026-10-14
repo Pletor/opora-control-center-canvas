@@ -95,7 +95,8 @@
 }
 
 /* FRONTA „ČEKÁ NA TEBE“ (blok `tower-inbox`)
-   Příběh: tohle je seznam úkolů člověka a nic jiného. Položky jsou seskupené podle sektoru, aby se
+   Příběh: tohle je seznam úkolů člověka a nic jiného — včetně vrcholu pyramidy: oblast bez záměru a sektor
+   bez podstaty jsou na konci fronty s přerušovaným šedým pruhem a tlačítkem „Napsat záměr“ / „Doplnit podstatu“. Položky jsou seskupené podle sektoru, aby se
    dalo vyřídit vše z jednoho místa najednou. Značka vlevo řekne druh dřív než text — ✓ ke schválení,
    ⚠ uvízlý proces, ? otázka agenta — a tlačítko „Otevřít“ vpravo vede rovnou na kartu. Čipy nahoře
    zúží frontu na jeden druh; po 50 položkách se další přidají tlačítkem, aby dlouhá fronta nezahltila
@@ -144,6 +145,8 @@
 }
 .tower-inbox__item--proposed { border-left-color: #4ade80; }
 .tower-inbox__item--stuck { border-left-color: #f87171; }
+.tower-inbox__item--intent,
+.tower-inbox__item--goal { border-left-color: #94a3b8; border-left-style: dashed; }
 .tower-inbox__mark { font-weight: 700; text-align: center; }
 .tower-inbox__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .tower-inbox__name { font-size: var(--fs-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -226,6 +229,7 @@
    otevře rovnou tam, kde se větví, a cestu nad tím ukáže jako tichý drobek; každý článek je odkaz,
    který vstoupí do své vrstvy na plátně. */
 .tower-chain { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); font-size: var(--fs-1); color: var(--ink-muted); }
+.tower-chain--inner { font-size: var(--fs-0); margin-bottom: var(--sp-1); }
 .tower-chain__item { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .tower-chain__link {
   padding: 1px 4px;
@@ -241,11 +245,13 @@
 /* VRSTVA UVNITŘ (blok `tower-layer`)
    Příběh: každá vrstva se čte stejně, ať je to kořen, oblast, nebo rozbalený sektor či karta s vlastní
    vrstvou — nahoře pásma oblastí té vrstvy, pod nimi sektory mimo oblast, pak prosté karty a nakonec
-   karty, které mají vlastní vrstvu. Dlaždice stojí v mřížce (nejméně 260 px), karty jsou tiché řádky. */
+   karty, které mají vlastní vrstvu. Sbalené dlaždice stojí v mřížce (nejméně 300 px), karty jsou tiché
+   řádky v jednom sloupci. Rozbalená dlaždice si vezme celou šířku řádku (`tower-sector--open`), aby se její
+   vnitřek — oblasti a v nich zase mřížka dlaždic — nemačkal do úzkého sloupce. */
 .tower-layer { display: flex; flex-direction: column; gap: var(--sp-2); }
 .tower-layer__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--sp-3);
   margin-top: var(--sp-2);
 }
@@ -299,6 +305,7 @@
 .tower-sector__enter,
 .tower-sector__open { font-size: var(--fs-1); }
 .tower-sector--card { border-style: dashed; }
+.tower-sector--open { grid-column: 1 / -1; }
 .tower-sector__kind { font-size: var(--fs-0); color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
 .tower-sector__content { border-top: 1px solid var(--line); padding-top: var(--sp-2); }
 .tower-sector__empty,
@@ -340,3 +347,25 @@
 .tower-card__status--unknown { border-style: dashed; color: var(--ink-muted); }
 .tower-card__process { flex: 0 0 auto; max-width: 40%; overflow: hidden; }
 .tower-card__ideas { font-size: var(--fs-0); color: var(--ink-muted); white-space: nowrap; }
+
+/* ROUTER (blok `tower-router`)
+   Příběh: otevřená karta bez schváleného procesu stojí, dokud ji router nenasměruje. Dlaždice sektoru to
+   řekne jedním tichým řádkem („3 čeká na router“) a hned vedle nabídne zadání pro routera ke zkopírování;
+   člověk ho vloží agentovi a nic dalšího nevyplňuje. Když schránka selže, zadání se ukáže v poli
+   označené, aby šlo zkopírovat ručně. */
+.tower-router { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-1); }
+.tower-router__count { color: #94a3b8; }
+.tower-router__copy { font-size: var(--fs-1); }
+.tower-router__status { color: #22c55e; font-size: var(--fs-0); }
+.tower-router__status:empty { display: none; }
+.tower-router__error { color: var(--danger); font-size: var(--fs-0); }
+.tower-router__field {
+  width: 100%;
+  min-height: 96px;
+  font-family: var(--mono);
+  font-size: var(--fs-0);
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
