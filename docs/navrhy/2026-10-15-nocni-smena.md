@@ -28,3 +28,9 @@ Kontrakt → subagent s přesným zadáním → kritik (ChatGPT `codex exec`, He
 
 | Čas | Krok | Stav |
 |---|---|---|
+| noc | K5 UI jen zobrazení (7c45915), K6 CLI cyklu `opora_cycle.py` (e7ec9ec, podklad rolí od Hermese), K8b Zrcadlo + `.env` + pojistná verze před placed (f18ee69), K9 Celeris (abd536a), K10 reject-proposal a úklid aliasů (4e1f29d) | hotovo |
+| noc | Rozhodnutí člověka: Schránka jen pro agenty, bez ovládání v UI; výzkumná smyčka v pískovišti (kontrakt §11, f2f2192) | zapsáno |
+| noc | Prostředí: backend s Celeris (klíč z `.env`), služba Zrcadla 127.0.0.1:8750, pískoviště `cb1f8a93…` se 17 zadáními | běží |
+| noc | Výzkum: 17 výzkumníků (Claude + web) – všech 17 disciplín verdikt feasible, 5–8 důkazů, kořeny na revizi 2 | hotovo |
+| noc | Poznatek: souběžní agenti si přepisovali soubory ve sdíleném scratchpadu → pravidlo „vlastní složka na agenta“; `opora_read vault --discipline` doplněno (c32aa21) | opraveno |
+| noc | Fáze bran: pilot BE (Hermes navrhuje, ChatGPT hodnotí ≥8/10, Claude potvrzuje) | běží |
