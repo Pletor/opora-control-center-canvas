@@ -4,7 +4,7 @@ import { emptyDesktopState, type DesktopState } from "@/shared/desktop-state/log
 import type { WorkOverview, WorkRow } from "@/editor/canvas/node-card/logic/use-work-overview";
 import type { PipelineStage } from "@/editor/workflow/card-pipeline/logic/pipeline-model";
 import {
-  INBOX_LIMIT, buildTower, contentLabel, countSegments, emptyCounts, groupInbox, inboxCardCount, inboxKinds, inboxPage, looseArea, towerFrom, towerStructure,
+  INBOX_LIMIT, buildTower, contentLabel, layerSize, towerIds, countSegments, emptyCounts, groupInbox, inboxCardCount, inboxKinds, inboxPage, looseArea, towerFrom, towerStructure,
 } from "./tower-model";
 
 const node = (id: string, kind: CanvasNode["kind"], parentId: string | null, x: number, y: number, extra: Partial<CanvasNode> = {}): CanvasNode =>
@@ -61,8 +61,8 @@ describe("buildTower – pyramida Velínu", () => {
     expect(tower.areas[1].cards.map((c) => c.id)).toEqual(["c7"]);
     const s1 = tower.areas[0].sectors[0];
     expect(s1.cards.map((c) => c.id)).toEqual(["c1", "c3", "c2"]);
-    expect(s1.subsectors.map((s) => s.id)).toEqual(["ss1"]);
-    expect(s1.subsectors[0].cards.map((c) => c.id)).toEqual(["c4"]);
+    expect(s1.sectors.map((s) => s.id)).toEqual(["ss1"]);
+    expect(s1.sectors[0].cards.map((c) => c.id)).toEqual(["c4"]);
     expect(tower.loose).toEqual([]);
     expect(tower.looseCards.map((c) => c.id)).toEqual(["l1"]);
   });
@@ -74,7 +74,7 @@ describe("buildTower – pyramida Velínu", () => {
     expect(c1).toMatchObject({ closed: true, status: "done", proposed: false });
     expect(c2).toMatchObject({ closed: false, proposed: true, status: "idle" });
     expect(c3.status).toBe("claimed");
-    expect(s1.subsectors[0].cards[0].waiting).toEqual(["Jaký formát?"]);
+    expect(s1.sectors[0].cards[0].waiting).toEqual(["Jaký formát?"]);
     expect(s2.cards[0].process?.waitingOnHuman).toBe(true);
     const c6 = tower.areas[1].sectors[0].cards[0];
     expect(c6).toMatchObject({ ideas: 1, layer: "frontend" });
@@ -98,8 +98,8 @@ describe("buildTower – pyramida Velínu", () => {
     const tower = buildTower(fixture());
     expect(tower.inbox.map((i) => [i.kind, i.nodeId])).toEqual([["proposed", "c2"], ["stuck", "c5"], ["waiting", "c4"]]);
     expect(tower.inbox[1].text).toContain("Kritik y — díra v API");
-    expect(tower.inbox[2]).toMatchObject({ sectorId: "ss1", sectorName: "SS1", areaId: "a1", areaName: "A1", text: "Jaký formát?" });
-    expect(groupInbox(tower.inbox).map((g) => g.title)).toEqual(["A1 › S1", "A1 › S2", "A1 › SS1"]);
+    expect(tower.inbox[2]).toMatchObject({ sectorId: "ss1", sectorName: "SS1", areaId: "", areaName: "", text: "Jaký formát?" });
+    expect(groupInbox(tower.inbox).map((g) => g.title)).toEqual(["S1", "S2", "SS1"]);
     expect(tower.workState).toBe("loaded");
   });
 
@@ -144,7 +144,7 @@ describe("buildTower – pyramida Velínu", () => {
     const s1 = tower.areas[0].sectors[0];
     expect(s1.cards.map((c) => c.status)).toEqual(["done", "idle", "idle"]);
     expect(s1.cards.map((c) => c.statusKnown)).toEqual([true, false, false]);
-    expect(s1.subsectors[0].cards[0].waiting).toEqual([]);
+    expect(s1.sectors[0].cards[0].waiting).toEqual([]);
     expect(tower.totals.running).toBe(0);
     expect(tower.inbox.map((i) => i.kind)).toEqual(["proposed", "stuck"]);
     expect(buildTower({ graph, state }).workState).toBe("unavailable");
@@ -158,7 +158,7 @@ describe("buildTower – pyramida Velínu", () => {
     const tower = buildTower({ graph: { nodes, edges: [] }, state: emptyDesktopState() });
     expect(tower.loose[0].counts.cards).toBe(1);
     let cursor = tower.loose[0];
-    for (let i = 2; i <= 7; i++) cursor = cursor.subsectors[0];
+    for (let i = 2; i <= 7; i++) cursor = cursor.sectors[0];
     expect(cursor.cards[0].id).toBe("deep");
   });
 
@@ -176,7 +176,7 @@ describe("buildTower – pyramida Velínu", () => {
     const tower = buildTower({ graph, state: emptyDesktopState() });
     expect(tower.loose.map((s) => s.id)).toEqual(["ghostSector", "cx"]);
     expect(tower.loose[0].cards.map((c) => c.id)).toEqual(["ghostCard"]);
-    expect(tower.loose[1].subsectors.map((s) => s.id)).toEqual(["cy"]);
+    expect(tower.loose[1].sectors.map((s) => s.id)).toEqual(["cy"]);
     expect(tower.looseCards.map((c) => c.id)).toEqual(["lostCard"]);
     expect(tower.totals.cards).toBe(3);
   });
@@ -188,5 +188,71 @@ describe("buildTower – pyramida Velínu", () => {
     expect(contentLabel(5, 0)).toBe("Obsah: 5 karet");
     expect(contentLabel(0, 2)).toBe("Obsah: 2 podsektory");
     expect(contentLabel(0, 0)).toBe("Obsah: prázdný");
+  });
+
+  // Miniatura tvaru Ample: sektor na kořeni → karta → karta „Trénování“ → sektory vrstev → karty + oblasti ve vrstvách.
+  function amplish(): Graph {
+    return {
+      nodes: [
+        node("al", "sector", null, 0, 0),
+        node("k1", "node", "al", 0, 0),
+        node("tr", "node", "k1", 0, 0, { name: "Trénování" }),
+        node("tr-area", "area", "tr", 0, 1000, { name: "Zpracování", size: { w: 2000, h: 1000 } }),
+        node("v1", "sector", "tr", 0, 0, { name: "1. VRSTVA – VSTUPY" }),
+        node("v2", "sector", "tr", 100, 1100, { name: "2. VRSTVA – INGESTION" }),
+        node("v1-area", "area", "v1", 0, 0, { name: "Zdroje", size: { w: 1000, h: 1000 } }),
+        node("in1", "node", "v1", 100, 100),
+        node("in2", "node", "v1", 300, 100),
+        node("out1", "node", "v1", 5000, 0),
+        node("box", "node", "v1", 6000, 0),
+        node("box-child", "node", "box", 0, 0),
+        node("note", "comment", "v1", 0, 0),
+        node("g1", "node", "v2", 0, 0),
+        node("g2", "node", "v2", 400, 0),
+      ],
+      edges: [],
+    };
+  }
+
+  it("karta s vlastní vrstvou je kontejner a nic z grafu se neztratí", () => {
+    const graph = amplish();
+    const state = emptyDesktopState();
+    state.nodes.g2 = { phase: "build", criteria: [], steps: [], done: { confirmed: false, at: "", by: "agent", note: "" } };
+    const tower = buildTower({ graph, state });
+    const ids = towerIds(tower);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect([...ids].sort()).toEqual(graph.nodes.filter((n) => n.kind === "node" || n.kind === "sector").map((n) => n.id).sort());
+    expect(tower.areas).toEqual([]);
+    expect(looseArea(tower)?.name).toBe("Kořen plátna");
+    const al = tower.loose[0];
+    expect(al).toMatchObject({ kind: "sector", cards: [], sectors: [] });
+    const k1 = al.containers[0];
+    expect(k1).toMatchObject({ id: "k1", kind: "card" });
+    expect(k1.card?.id).toBe("k1");
+    const tr = k1.containers[0];
+    expect(tr).toMatchObject({ id: "tr", kind: "card", name: "Trénování" });
+    expect(tr.sectors.map((s) => s.id)).toEqual(["v1"]);
+    expect(tr.areas.map((a) => [a.name, a.sectors.map((s) => s.id)])).toEqual([["Zpracování", ["v2"]]]);
+    const v1 = tr.sectors[0];
+    expect(v1.areas.map((a) => [a.name, a.cards.map((c) => c.id)])).toEqual([["Zdroje", ["in1", "in2"]]]);
+    expect(v1.cards.map((c) => c.id)).toEqual(["out1"]);
+    expect(v1.containers.map((c) => c.id)).toEqual(["box"]);
+    expect(v1.containers[0].cards.map((c) => c.id)).toEqual(["box-child"]);
+    expect(v1.counts.cards).toBe(5);
+    expect(tr.counts.cards).toBe(1 + 5 + 2);
+    expect(al.counts.cards).toBe(9);
+    expect(tower.totals.cards).toBe(9);
+    expect(tower.totals.proposed).toBe(1);
+    expect(layerSize(v1)).toEqual({ cards: 4, sectors: 0, areas: 1 });
+    expect(contentLabel(4, 0, 1)).toBe("Obsah: 4 karty · 1 oblast");
+    expect(tower.inbox[0]).toMatchObject({ nodeId: "g2", sectorId: "v2", areaId: "", areaName: "" });
+  });
+
+  it("osiřelá kontejnerová karta i karta pod chybějícím rodičem se objeví", () => {
+    const graph: Graph = { nodes: [node("c", "node", "missing", 0, 0), node("cc", "node", "c", 0, 0), node("x", "node", "gone", 0, 10)], edges: [] };
+    const tower = buildTower({ graph, state: emptyDesktopState() });
+    expect(tower.looseContainers.map((c) => [c.id, c.cards.map((k) => k.id)])).toEqual([["c", ["cc"]]]);
+    expect(tower.looseCards.map((c) => c.id)).toEqual(["x"]);
+    expect(tower.totals.cards).toBe(3);
   });
 });

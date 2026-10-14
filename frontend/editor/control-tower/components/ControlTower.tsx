@@ -40,6 +40,7 @@ export default function ControlTower({ project, workspace, graph, state, onOpenN
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  const nav = { expanded, onToggle: toggle, onOpenNode, onEnterLayer };
   const chooseFilter = (next: InboxFilter) => { setFilter(next); setLimit(INBOX_LIMIT); };
   return (
     <section className="control-tower" aria-label="Velín">
@@ -47,7 +48,7 @@ export default function ControlTower({ project, workspace, graph, state, onOpenN
       <div className="control-tower__body">
         <div className="control-tower__pyramid">
           {areas.map((area) => (
-            <TowerArea key={area.id} area={area} expanded={expanded} onToggle={toggle} onOpenNode={onOpenNode} onEnterLayer={onEnterLayer} />
+            <TowerArea key={area.id} area={area} depth={1} nav={nav} />
           ))}
           {!areas.length && <p className="control-tower__empty">Plátno je prázdné. Velín ukáže oblasti, sektory a karty, jakmile vzniknou.</p>}
         </div>

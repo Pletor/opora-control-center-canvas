@@ -209,20 +209,30 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tower-area__grid {
+.tower-area__empty { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+.tower-area--nested { padding: var(--sp-2) var(--sp-3); border-radius: var(--radius); background: var(--surface-2); }
+.tower-area--nested .tower-area__name { font-size: var(--fs-3); }
+
+/* VRSTVA UVNITŘ (blok `tower-layer`)
+   Příběh: každá vrstva se čte stejně, ať je to kořen, oblast, nebo rozbalený sektor či karta s vlastní
+   vrstvou — nahoře pásma oblastí té vrstvy, pod nimi sektory mimo oblast, pak prosté karty a nakonec
+   karty, které mají vlastní vrstvu. Dlaždice stojí v mřížce (nejméně 260 px), karty jsou tiché řádky. */
+.tower-layer { display: flex; flex-direction: column; gap: var(--sp-2); }
+.tower-layer__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--sp-3);
   margin-top: var(--sp-2);
 }
-.tower-area__cards { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.tower-area__empty { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+.tower-layer__cards { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 
 /* DLAŽDICE SEKTORU (blok `tower-sector`)
    Příběh: sektor je jednotka práce, kterou člověk řídí — dlaždice mu na pár řádcích řekne, o čem
    sektor je (účel na dva řádky), kolik je hotovo, co běží, co selhalo a co čeká, a zda prošel bránou
    (zelený štítek „ověřeno“). Dvě tlačítka dole: rozbalit karty přímo tady, nebo vstoupit do vrstvy
-   na plátně. Podsektor uvnitř rozbalení je tatáž dlaždice, jen bez stínu a s odsazením. */
+   na plátně. Podsektor uvnitř rozbalení je tatáž dlaždice, jen bez stínu a s odsazením. Karta s vlastní
+   vrstvou (kontejner) je taky dlaždice, ale s přerušovaným okrajem a štítkem „karta s vrstvou“, aby bylo
+   vidět, že je to karta s vlastním stavem, ne sektor s bránou; má navíc „Otevřít kartu“. */
 .tower-sector {
   display: flex;
   flex-direction: column;
@@ -259,13 +269,15 @@
 .tower-sector__stat--running { color: #60a5fa; }
 .tower-sector__stat--failed { color: #f87171; }
 .tower-sector__stat--waiting { color: #f59e0b; }
-.tower-sector__actions { display: flex; gap: var(--sp-2); justify-content: space-between; }
+.tower-sector__actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: space-between; }
 .tower-sector__toggle,
-.tower-sector__enter { font-size: var(--fs-1); }
+.tower-sector__enter,
+.tower-sector__open { font-size: var(--fs-1); }
+.tower-sector--card { border-style: dashed; }
+.tower-sector__kind { font-size: var(--fs-0); color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
 .tower-sector__content { border-top: 1px solid var(--line); padding-top: var(--sp-2); }
-.tower-sector__cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .tower-sector__empty,
-.tower-sector__deeper { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+.tower-layer__deeper { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
 
 /* ŘÁDEK KARTY (blok `tower-card`)
    Příběh: karta ve Velínu je jen řádek — název, čip stavu a drobné kuličky procesu, nic víc. Celý

@@ -1,6 +1,9 @@
 // Čistý model Velínu: celá pyramida projektu (oblast → sektor → karta) se stavem procesu a jedinou
 // frontou „Čeká na tebe“. Nic neukládá a nic nemění; jen čte graf, stav plátna a přehled práce
 // (`/api/desktop-v3/work-overview`) a skládá z nich data pro dílky Velínu.
+// Hierarchie je obecná: vnitřní vrstvu může mít sektor i karta (dvojklik = do hloubky). Karta s dětmi je
+// v pyramidě **kontejner** a kreslí se jako dlaždice; na každé vrstvě se sektory a karty seskupí podle
+// oblastí té vrstvy (`areaOf`). Nic z grafu se neztratí: každý sektor a karta je v pyramidě přesně jednou.
 // Dvě fáze: `towerStructure(graph)` je čistá geometrie a hierarchie (mění se jen s grafem, memoizuje se
 // zvlášť), `towerFrom(structure, …)` nad ní doplní stav karet, součty a frontu.
 import type { AreaColor, CanvasNode, Graph } from "@/shared/types/logic/types";
@@ -27,21 +30,33 @@ export type TowerCard = {
   statusKnown: boolean;
   process?: CardProcessView; waiting: string[]; ideas: number; layer?: string;
 };
-export type TowerSector = {
-  id: string; name: string; purpose: string; cards: TowerCard[]; subsectors: TowerSector[]; counts: Counts;
-  verified: boolean; gateName: string;
+/** Obsah jedné vrstvy: pásma oblastí, pak sektory, karty a kontejnerové karty mimo oblast. */
+export type TowerLayer = { areas: TowerArea[]; sectors: TowerSector[]; cards: TowerCard[]; containers: TowerSector[] };
+/**
+ * Dlaždice: sektor (`kind: "sector"`), nebo karta s vlastní vrstvou (`kind: "card"`, stav karty v `card`).
+ * Obsah je vnitřní vrstva; `counts` jdou celou hloubkou (u kontejneru včetně karty samotné).
+ */
+export type TowerSector = TowerLayer & {
+  id: string; name: string; purpose: string; kind: "sector" | "card"; card?: TowerCard;
+  counts: Counts; verified: boolean; gateName: string;
 };
-export type TowerArea = { id: string; name: string; purpose: string; color: AreaColor; sectors: TowerSector[]; cards: TowerCard[]; counts: Counts };
+/** Pásmo oblasti na libovolné vrstvě (na kořeni i uvnitř dlaždice); vlastní oblasti nemá. */
+export type TowerArea = {
+  id: string; name: string; purpose: string; color: AreaColor;
+  sectors: TowerSector[]; cards: TowerCard[]; containers: TowerSector[]; counts: Counts;
+};
 export type InboxKind = "proposed" | "waiting" | "stuck";
 export type InboxItem = {
   kind: InboxKind; nodeId: string; nodeName: string; sectorId: string; sectorName: string; areaId: string; areaName: string; text: string;
 };
 export type Tower = {
   areas: TowerArea[];
-  /** Sektory mimo oblast: na kořeni mimo rámeček i osiřelé (rodič neexistuje nebo cyklus). */
+  /** Sektory na kořeni mimo oblast i osiřelé (rodič neexistuje nebo cyklus). */
   loose: TowerSector[];
-  /** Karty mimo sektor i oblast, včetně osiřelých. */
+  /** Karty bez vrstvy na kořeni mimo oblast, včetně osiřelých. */
   looseCards: TowerCard[];
+  /** Kontejnerové karty na kořeni mimo oblast, včetně osiřelých. */
+  looseContainers: TowerSector[];
   totals: Counts;
   /** Celá fronta seřazená podle naléhavosti; stránkuje ji `inboxPage`. */
   inbox: InboxItem[];
@@ -50,7 +65,7 @@ export type Tower = {
 
 /** Kolik položek fronty se ukáže najednou (a o kolik přidá „Zobrazit dalších“). */
 export const INBOX_LIMIT = 50;
-/** Kolik úrovní sektorů se kreslí; součty jdou vždy přes celou hierarchii. */
+/** Kolik úrovní dlaždic se kreslí; součty jdou vždy přes celou hierarchii. */
 export const MAX_SECTOR_DEPTH = 4;
 export const LOOSE_AREA_ID = "__loose";
 const UNNAMED_SECTOR = "Nepojmenovaný sektor";
@@ -107,14 +122,16 @@ export function countSegments(counts: Counts): CountSegment[] {
 
 // ---------- Fáze 1: struktura (jen z grafu) ----------
 
-export type StructureSector = { node: CanvasNode; cards: CanvasNode[]; subsectors: StructureSector[] };
-export type StructureArea = { node: CanvasNode; sectors: StructureSector[]; cards: CanvasNode[] };
-export type TowerStructure = { graph: Graph; areas: StructureArea[]; loose: StructureSector[]; looseCards: CanvasNode[] };
+export type StructureBlock = { node: CanvasNode; layer: StructureLayer };
+export type StructureArea = { node: CanvasNode; sectors: StructureBlock[]; cards: CanvasNode[]; containers: StructureBlock[] };
+export type StructureLayer = { areas: StructureArea[]; sectors: StructureBlock[]; cards: CanvasNode[]; containers: StructureBlock[] };
+export type TowerStructure = { graph: Graph; root: StructureLayer };
 
 const byPosition = (a: CanvasNode, b: CanvasNode) => a.y - b.y || a.x - b.x;
 const nameOr = (name: string, fallback: string) => name.trim() || fallback;
+const isMember = (n: CanvasNode) => n.kind === "sector" || n.kind === "node";
 
-/** Geometrie a hierarchie plátna: oblasti, jejich sektory (celý strom) a karty; osiřelé uzly mimo oblast. */
+/** Geometrie a hierarchie plátna: vrstvy rekurzivně (každý sektor i karta s dětmi), oblasti na každé vrstvě. */
 export function towerStructure(graph: Graph): TowerStructure {
   const nodes = graph.nodes;
   const children = new Map<string | null, CanvasNode[]>();
@@ -123,7 +140,7 @@ export function towerStructure(graph: Graph): TowerStructure {
     if (list) list.push(node); else children.set(node.parentId, [node]);
   }
   for (const list of children.values()) list.sort(byPosition);
-  const ofKind = (id: string | null, kind: CanvasNode["kind"]) => (children.get(id) ?? []).filter((n) => n.kind === kind);
+  const hasLayer = (id: string) => (children.get(id) ?? []).some(isMember);
 
   // Dosažitelné z kořene přes jakékoli rodiče; zbytek je osiřelý (rodič chybí nebo cyklus).
   const reachable = new Set<string>();
@@ -137,50 +154,55 @@ export function towerStructure(graph: Graph): TowerStructure {
   }
 
   const seen = new Set<string>();
-  function sectorOf(node: CanvasNode): StructureSector {
+  const emptyGroup = () => ({ sectors: [] as StructureBlock[], cards: [] as CanvasNode[], containers: [] as StructureBlock[] });
+  /** Zařadí uzel do skupiny: sektor, kontejnerová karta (má vlastní vrstvu), nebo prostá karta. */
+  function place(node: CanvasNode, group: ReturnType<typeof emptyGroup>) {
     seen.add(node.id);
-    return {
-      node,
-      cards: ofKind(node.id, "node"),
-      subsectors: ofKind(node.id, "sector").filter((s) => !seen.has(s.id)).map(sectorOf),
-    };
+    if (node.kind === "sector") group.sectors.push(blockOf(node));
+    else if (hasLayer(node.id)) group.containers.push(blockOf(node));
+    else group.cards.push(node);
+  }
+  function blockOf(node: CanvasNode): StructureBlock {
+    return { node, layer: layerOf(node.id) };
+  }
+  function layerOf(ownerId: string | null): StructureLayer {
+    const own = children.get(ownerId) ?? [];
+    const layerAreas = own.filter((n) => n.kind === "area");
+    // Členství v oblasti jednou pro každý uzel vrstvy, jen proti oblastem téže vrstvy.
+    const byArea = new Map<string, CanvasNode[]>();
+    const outside: CanvasNode[] = [];
+    for (const node of own) {
+      if (!isMember(node) || seen.has(node.id)) continue;
+      seen.add(node.id);
+      const area = layerAreas.length ? areaOf(node, layerAreas) : null;
+      if (area) {
+        const list = byArea.get(area.id);
+        if (list) list.push(node); else byArea.set(area.id, [node]);
+      } else outside.push(node);
+    }
+    const areas = layerAreas.map((area): StructureArea => {
+      const group = emptyGroup();
+      for (const node of byArea.get(area.id) ?? []) place(node, group);
+      return { node: area, ...group };
+    });
+    const rest = emptyGroup();
+    for (const node of outside) place(node, rest);
+    return { areas, ...rest };
   }
 
-  // Členství v oblasti jednou pro každý kořenový sektor a kartu.
-  const members = new Map<string | null, { sectors: CanvasNode[]; cards: CanvasNode[] }>();
-  const bucketOf = (id: string | null) => {
-    let bucket = members.get(id);
-    if (!bucket) { bucket = { sectors: [], cards: [] }; members.set(id, bucket); }
-    return bucket;
-  };
-  for (const node of children.get(null) ?? []) {
-    if (node.kind !== "sector" && node.kind !== "node") continue;
-    const bucket = bucketOf(areaOf(node, nodes)?.id ?? null);
-    (node.kind === "sector" ? bucket.sectors : bucket.cards).push(node);
-  }
-
-  const areas = ofKind(null, "area").map((area): StructureArea => {
-    const bucket = members.get(area.id);
-    return { node: area, sectors: (bucket?.sectors ?? []).map(sectorOf), cards: bucket?.cards ?? [] };
-  });
-  const rootLoose = members.get(null);
-  const loose = (rootLoose?.sectors ?? []).map(sectorOf);
-  const looseCards = [...(rootLoose?.cards ?? [])];
-
-  // Osiřelé sektory: nejdřív vrcholy (rodič není osiřelý sektor), pak zbytky čistých cyklů.
+  const root = layerOf(null);
+  // Osiřelé uzly: nejdřív vrcholy (rodič chybí nebo není osiřelý sektor/karta), pak zbytky čistých cyklů.
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const orphanSectors = nodes.filter((n) => n.kind === "sector" && !reachable.has(n.id)).sort(byPosition);
-  const isOrphanSector = (id: string | null) => {
-    const parent = id ? byId.get(id) : undefined;
-    return !!parent && parent.kind === "sector" && !reachable.has(parent.id);
+  const orphans = nodes.filter((n) => isMember(n) && !reachable.has(n.id)).sort(byPosition);
+  const orphanParent = (n: CanvasNode) => {
+    const parent = n.parentId ? byId.get(n.parentId) : undefined;
+    return !!parent && isMember(parent) && !reachable.has(parent.id);
   };
-  for (const s of orphanSectors) if (!seen.has(s.id) && !isOrphanSector(s.parentId)) loose.push(sectorOf(s));
-  for (const s of orphanSectors) if (!seen.has(s.id)) loose.push(sectorOf(s));
-  // Osiřelé karty, které nespadly pod žádný zobrazený sektor.
-  for (const card of nodes.filter((n) => n.kind === "node" && !reachable.has(n.id)).sort(byPosition)) {
-    if (!(card.parentId && seen.has(card.parentId))) looseCards.push(card);
-  }
-  return { graph, areas, loose, looseCards };
+  for (const n of orphans) if (!seen.has(n.id) && !orphanParent(n)) place(n, root);
+  // Ve zbytku cyklu nejdřív dlaždice (sektor, kontejner), ať prostá karta cyklu skončí uvnitř, ne vedle.
+  const leaf = (n: CanvasNode) => (n.kind === "node" && !hasLayer(n.id) ? 1 : 0);
+  for (const n of [...orphans].sort((a, b) => leaf(a) - leaf(b))) if (!seen.has(n.id)) place(n, root);
+  return { graph, root };
 }
 
 // ---------- Fáze 2: stav, součty, fronta ----------
@@ -222,41 +244,52 @@ function inboxOf(card: TowerCard, where: Where): InboxItem[] {
   return items;
 }
 
+const groupCounts = (g: { sectors: TowerSector[]; cards: TowerCard[]; containers: TowerSector[] }) =>
+  addCounts(...g.sectors.map((s) => s.counts), cardCounts(g.cards), ...g.containers.map((c) => c.counts));
+
 export function towerFrom(structure: TowerStructure, state: DesktopState, work?: WorkOverview, workState: WorkState = work ? "loaded" : "unavailable"): Tower {
   const gates = sectorViews(structure.graph, state, buildBoardIndex(structure.graph, state));
   const inbox: InboxItem[] = [];
-  const cardsOf = (list: CanvasNode[], where: Where) => list.map((node) => {
+  const cardOf = (node: CanvasNode, where: Where) => {
     const card = towerCard(node, state, work, workState);
     inbox.push(...inboxOf(card, where));
     return card;
-  });
-  function sectorOf(s: StructureSector, areaId: string, areaName: string): TowerSector {
-    const name = nameOr(s.node.name, UNNAMED_SECTOR);
-    const cards = cardsOf(s.cards, { sectorId: s.node.id, sectorName: name, areaId, areaName });
-    const subsectors = s.subsectors.map((sub) => sectorOf(sub, areaId, areaName));
-    const gate = gates[s.node.id];
+  };
+  function groupOf(g: { sectors: StructureBlock[]; cards: CanvasNode[]; containers: StructureBlock[] }, where: Where) {
     return {
-      id: s.node.id, name, purpose: s.node.purpose, cards, subsectors,
-      counts: addCounts(cardCounts(cards), ...subsectors.map((sub) => sub.counts)),
-      verified: !!gate?.verified, gateName: gate?.gateName ?? "Nenastavena",
+      sectors: g.sectors.map((b) => blockOf(b, where)),
+      cards: g.cards.map((n) => cardOf(n, where)),
+      containers: g.containers.map((b) => blockOf(b, where)),
     };
   }
-  const areas = structure.areas.map((a): TowerArea => {
+  function areaOfLayer(a: StructureArea, where: Where): TowerArea {
     const name = areaLabel(a.node);
-    const sectors = a.sectors.map((s) => sectorOf(s, a.node.id, name));
-    const cards = cardsOf(a.cards, { sectorId: "", sectorName: "", areaId: a.node.id, areaName: name });
+    const group = groupOf(a, { ...where, areaId: a.node.id, areaName: name });
+    return { id: a.node.id, name, purpose: a.node.purpose, color: areaColorOf(a.node), ...group, counts: groupCounts(group) };
+  }
+  function layerOf(layer: StructureLayer, where: Where): TowerLayer {
+    return { areas: layer.areas.map((a) => areaOfLayer(a, where)), ...groupOf(layer, where) };
+  }
+  function blockOf(b: StructureBlock, where: Where): TowerSector {
+    const isSector = b.node.kind === "sector";
+    const card = isSector ? undefined : cardOf(b.node, where);
+    const name = card?.name ?? nameOr(b.node.name, UNNAMED_SECTOR);
+    // Uvnitř dlaždice začíná nový kontext: skupina fronty = tahle dlaždice, oblast = oblast její vrstvy.
+    const inner = layerOf(b.layer, { sectorId: b.node.id, sectorName: name, areaId: "", areaName: "" });
+    const gate = isSector ? gates[b.node.id] : undefined;
     return {
-      id: a.node.id, name, purpose: a.node.purpose, color: areaColorOf(a.node), sectors, cards,
-      counts: addCounts(cardCounts(cards), ...sectors.map((s) => s.counts)),
+      id: b.node.id, name, purpose: b.node.purpose, kind: isSector ? "sector" : "card", ...(card ? { card } : {}), ...inner,
+      counts: addCounts(...inner.areas.map((a) => a.counts), groupCounts(inner), ...(card ? [cardCounts([card])] : [])),
+      verified: isSector ? !!gate?.verified : !!card?.closed,
+      gateName: isSector ? gate?.gateName ?? "Nenastavena" : "",
     };
-  });
-  const loose = structure.loose.map((s) => sectorOf(s, "", ""));
-  const looseCards = cardsOf(structure.looseCards, { sectorId: "", sectorName: "", areaId: "", areaName: "" });
-  const totals = addCounts(...areas.map((a) => a.counts), ...loose.map((s) => s.counts), cardCounts(looseCards));
+  }
+  const root = layerOf(structure.root, { sectorId: "", sectorName: "", areaId: "", areaName: "" });
+  const totals = addCounts(...root.areas.map((a) => a.counts), groupCounts(root));
   const ordered = inbox.map((item, index) => ({ item, index }))
     .sort((a, b) => INBOX_ORDER[a.item.kind] - INBOX_ORDER[b.item.kind] || a.index - b.index)
     .map(({ item }) => item);
-  return { areas, loose, looseCards, totals, inbox: ordered, workState };
+  return { areas: root.areas, loose: root.sectors, looseCards: root.cards, looseContainers: root.containers, totals, inbox: ordered, workState };
 }
 
 /** Obě fáze najednou (pro testy a jednorázové použití). */
@@ -264,14 +297,38 @@ export function buildTower({ graph, state, work, workState }: { graph: Graph; st
   return towerFrom(towerStructure(graph), state, work, workState);
 }
 
-/** Sektory a karty mimo oblast jako jedno pásmo „Mimo oblast“; `null`, když tam nic není. */
+/** Kořenové sektory a karty mimo oblast jako jedno pásmo; `null`, když tam nic není. Bez oblastí na kořeni je to „Kořen plátna“. */
 export function looseArea(tower: Tower): TowerArea | null {
-  if (!tower.loose.length && !tower.looseCards.length) return null;
+  if (!tower.loose.length && !tower.looseCards.length && !tower.looseContainers.length) return null;
+  const group = { sectors: tower.loose, cards: tower.looseCards, containers: tower.looseContainers };
   return {
-    id: LOOSE_AREA_ID, name: "Mimo oblast", purpose: "Sektory a karty, které neleží v žádné oblasti, včetně osiřelých.",
-    color: "slate", sectors: tower.loose, cards: tower.looseCards,
-    counts: addCounts(cardCounts(tower.looseCards), ...tower.loose.map((s) => s.counts)),
+    id: LOOSE_AREA_ID,
+    name: tower.areas.length ? "Mimo oblast" : "Kořen plátna",
+    purpose: tower.areas.length ? "Sektory a karty, které neleží v žádné oblasti, včetně osiřelých." : "Sektory a karty na nejvyšší vrstvě plátna.",
+    color: "slate", ...group, counts: groupCounts(group),
   };
+}
+
+/** Kolik přímých členů má vnitřní vrstva dlaždice (karty včetně kontejnerových, sektory, oblasti). */
+export function layerSize(layer: TowerLayer): { cards: number; sectors: number; areas: number } {
+  const all = [layer, ...layer.areas];
+  return {
+    cards: all.reduce((n, g) => n + g.cards.length + g.containers.length, 0),
+    sectors: all.reduce((n, g) => n + g.sectors.length, 0),
+    areas: layer.areas.length,
+  };
+}
+
+/** Každé id sektoru a karty v pyramidě (i kontejnerů), v pořadí kreslení — pro kontrolu, že se nic neztratilo. */
+export function towerIds(tower: Tower): string[] {
+  const ids: string[] = [];
+  const group = (g: { sectors: TowerSector[]; cards: TowerCard[]; containers: TowerSector[] }) => {
+    g.sectors.forEach(block); g.cards.forEach((c) => ids.push(c.id)); g.containers.forEach(block);
+  };
+  const block = (b: TowerSector) => { ids.push(b.id); b.areas.forEach(group); group(b); };
+  tower.areas.forEach(group);
+  group({ sectors: tower.loose, cards: tower.looseCards, containers: tower.looseContainers });
+  return ids;
 }
 
 // ---------- Fronta ----------
@@ -299,15 +356,15 @@ export function inboxPage(items: InboxItem[], filter: InboxFilter, limit: number
 
 export type InboxGroup = { key: string; sectorId: string; title: string; items: InboxItem[] };
 
-/** Fronta seskupená podle sektoru, mimo sektor podle oblasti (podle id, ne názvu); pořadí skupin = první výskyt. */
+/** Fronta seskupená podle sektoru (či kontejneru), mimo něj podle oblasti — podle id, ne názvu; pořadí skupin = první výskyt. */
 export function groupInbox(items: InboxItem[]): InboxGroup[] {
   const groups = new Map<string, InboxGroup>();
   for (const item of items) {
-    const key = item.sectorId ? "sector:" + item.sectorId : "area:" + item.areaId;
+    const key = item.sectorId ? "sector:" + item.sectorId + ":" + item.areaId : "area:" + item.areaId;
     let group = groups.get(key);
     if (!group) {
       const title = item.sectorName
-        ? (item.areaName ? item.areaName + " › " : "") + item.sectorName
+        ? item.sectorName + (item.areaName ? " › " + item.areaName : "")
         : item.areaName || "Mimo oblast";
       group = { key, sectorId: item.sectorId, title, items: [] };
       groups.set(key, group);
@@ -319,11 +376,12 @@ export function groupInbox(items: InboxItem[]): InboxGroup[] {
 
 const plural = (n: number, one: string, few: string, many: string) => n + " " + (n === 1 ? one : n >= 2 && n <= 4 ? few : many);
 
-/** Popisek tlačítka rozbalení sektoru: „Obsah: 3 karty · 1 podsektor“ (jen nenulové části). */
-export function contentLabel(cards: number, subsectors: number): string {
+/** Popisek tlačítka rozbalení: „Obsah: 3 karty · 1 podsektor · 2 oblasti“ (jen nenulové části). */
+export function contentLabel(cards: number, subsectors: number, areas = 0): string {
   const parts = [
     cards ? plural(cards, "karta", "karty", "karet") : "",
     subsectors ? plural(subsectors, "podsektor", "podsektory", "podsektorů") : "",
+    areas ? plural(areas, "oblast", "oblasti", "oblastí") : "",
   ].filter(Boolean);
   return "Obsah: " + (parts.join(" · ") || "prázdný");
 }
