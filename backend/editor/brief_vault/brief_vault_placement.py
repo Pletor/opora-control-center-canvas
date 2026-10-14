@@ -11,6 +11,8 @@ digest plátna a znovu sestavený plán se stejným otiskem (to ověří i jedno
 právě uloženého plánu a v téže transakci (`after_write`) revize fragmentu se zapnutou `placed`. Konflikt = 409
 bez vedlejších účinků; selhání zápisu vrátí dávku i bránu. Vypnutí `placed` jde běžnou cestou a karty nemaže.
 Zápis na plátno schvaluje člověk v asistentovi stejně jako `/api/canvas-plan` (`approvals.summary_of`).
+Pojistka zápisu (§11): po ověření a **před** `apply_plan` se pod týmž zámkem grafu uloží verze plátna se štítkem
+(autor verze) „před placed <název fragmentu>“ (`CanvasVersions.checkpoint`); když uložení selže, `placed` nic nezapíše.
 """
 
 import uuid
@@ -31,8 +33,10 @@ from backend.editor.brief_vault.brief_vault_model import (
 )
 from backend.editor.brief_vault.brief_vault_plan import GENERATOR, dry_plan, plan_hash, read_plan
 from backend.editor.brief_vault.brief_vault_tree import live_ids
+from backend.editor.canvas_versions.canvas_versions import CanvasVersions
 
 CHANGED = "plán se změnil, znovu planned"
+BEFORE_PLACED = "před placed "
 
 
 def wants(payload):
@@ -108,7 +112,7 @@ def _stored_plan(vault, payload, view):
     rebuilt = read_plan(vault.canvas, vault.state, project, workspace, view, [row["fragment_id"]])
     if plan_hash(rebuilt["plan"]) != stored["hash"] or plan_hash(stored["plan"]) != stored["hash"]:
         fail(f"{CHANGED} (plán by dnes vypadal jinak).")
-    return stored
+    return stored, row["title"]
 
 
 def run(vault, payload, view, node_ids, make_write, actor):
@@ -122,7 +126,9 @@ def run(vault, payload, view, node_ids, make_write, actor):
             w = make_write(db)
             w.prepared = prepared
             return {"ok": True, "op": "gate", **gates.gate(w, payload, node_ids)}
-    stored = _stored_plan(vault, payload, view)
+    stored, title = _stored_plan(vault, payload, view)
+    # Pojistka zápisu (§11): verze plátna před vložením; výjimka = placed se nezapíše (ValueError 409, jinak 500).
+    CanvasVersions(canvas, vault.state).checkpoint(project, payload["workspace"], BEFORE_PLACED + title, actor=actor)
     done = {}
 
     def after_write(db, refs):

@@ -17,6 +17,7 @@ from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault import brief_vault_develop as develop
 from backend.editor.brief_vault import brief_vault_gates as gates
+from backend.editor.brief_vault import brief_vault_mirror as vault_mirror
 from backend.editor.brief_vault import brief_vault_placement as placement
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_model import (
@@ -41,6 +42,7 @@ from backend.editor.brief_vault.brief_vault_model import (
 from backend.editor.brief_vault.brief_vault_plan import dry_plan
 from backend.editor.brief_vault.brief_vault_read import VaultReader
 from backend.editor.brief_vault.brief_vault_split import split_parts
+from backend.integrations import mirror_client
 
 SCOPE_KEYS = {"project", "workspace", "op"}
 # Pole každé operace: (povinná, volitelná).
@@ -302,11 +304,24 @@ HANDLERS = {"create": _create, "revise": _revise, "split": _split, "research": d
 class BriefVault(VaultReader):
     """Zápis jedné operace schránky; čtení (strom, fragment, balíček pro LLM, historie) dědí z `VaultReader`."""
 
-    def __init__(self, canvas, state_store=None):
+    def __init__(self, canvas, state_store=None, mirror=None):
         super().__init__(canvas, state_store or getattr(canvas, "desktop_v3_state", None) or DesktopV3State(canvas))
+        # Zrcadlo (docs/zrcadlo.md): `mirror(project)` vrací klienta, nebo None; výchozí čte prostředí při každém volání.
+        self.mirror = mirror or (lambda project: mirror_client.client_for(project))
 
     def apply(self, payload, *, actor="unknown", agent=""):
-        """Jedna operace schránky v jedné transakci; ValueError = nic se nezapsalo (HTTP 409)."""
+        """Jedna operace schránky v jedné transakci; ValueError = nic se nezapsalo (HTTP 409).
+
+        Po potvrzení transakce (mimo zámek) volá Zrcadlo; jeho výsledek ani porucha odpověď nemění."""
+        result = self._apply(payload, actor=actor, agent=agent)
+        vault_mirror.after_gate(self.canvas, payload, result, self.mirror)
+        return result
+
+    def mirror_overview(self, project, workspace):
+        """Přesnost Zrcadla po disciplínách a poslední hormony pro Přehled Schránky (docs/zrcadlo.md)."""
+        return vault_mirror.overview(self.canvas, project, workspace, self.mirror(project))
+
+    def _apply(self, payload, *, actor, agent):
         op = _payload(payload)
         if op in HUMAN_OPS:
             require_human(actor, HUMAN_OPS[op])

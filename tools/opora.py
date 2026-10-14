@@ -4,10 +4,13 @@
     uv run opora --profile preview    # profil z [profiles.preview]
     uv run opora --port 8791 --data .data/kopie --no-open
     uv run opora --check              # jen vypíše výslednou konfiguraci
+
+Soubor `.env` v kořeni repa (je-li) doplní prostředí backendu jen o proměnné, které systém nemá; hodnoty se nevypisují.
 """
 
 import argparse
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -19,6 +22,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "opora.toml"
 LOCAL_CONFIG = ROOT / "opora.local.toml"
+DOTENV = ROOT / ".env"
+DOTENV_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 ENV_BY_KEY = {
     "graphify_python": "OPORA_GRAPHIFY_PYTHON",
 }
@@ -68,8 +73,43 @@ def resolve(config: dict, profile: str | None = None, **overrides) -> dict:
         "integrations": {k: str(v) for k, v in config.get("integrations", {}).items() if v},
         # Poskytovatel Jev (docs/schranka-neurony.md §7); platnost a varování hlídá backend (typesafe_client).
         "jev_provider": str(config.get("jev", {}).get("provider", "typesafe")),
+        # Zrcadlo (docs/zrcadlo.md): výchozí vypnuto; loopback a platnost adresy hlídá backend (mirror_client).
+        "mirror": mirror_settings(config.get("mirror", {})),
         "profile": profile or "app",
     }
+
+
+def mirror_settings(section) -> dict:
+    """`[mirror] enabled, url, projects` z TOML; cokoli jiného než `enabled = true` = vypnuto."""
+    section = section if isinstance(section, dict) else {}
+    projects = section.get("projects", [])
+    return {"enabled": section.get("enabled") is True, "url": str(section.get("url", "")),
+            "projects": [str(item) for item in projects] if isinstance(projects, list) else []}
+
+
+def load_dotenv(path: Path = DOTENV, environ=os.environ) -> int:
+    """Doplní z `.env` (`KLÍČ=hodnota`) jen proměnné, které prostředí nemá (systém má přednost); vrací počet.
+
+    Prázdné řádky a `#` komentáře se přeskočí, uvozovky kolem hodnoty se odstraní, neplatný řádek se tiše
+    vynechá. Hodnoty (klíče API) se nikdy nevypisují ani nelogují."""
+    if not path.is_file():
+        return 0
+    applied = 0
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        if key.startswith("export "):
+            key = key[len("export "):].strip()
+        if not DOTENV_KEY.fullmatch(key):
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if key not in environ:
+            environ[key] = value
+            applied += 1
+    return applied
 
 
 def newest_mtime(paths) -> float:
@@ -112,6 +152,9 @@ def apply_environment(settings: dict, environ=os.environ) -> list[str]:
     environ["OPORA_CANVAS_PORT"] = str(settings["port"])
     environ["OPORA_CANVAS_DATA"] = settings["data"]
     environ["OPORA_JEV_PROVIDER"] = settings["jev_provider"]
+    mirror = settings["mirror"]
+    environ["OPORA_MIRROR_URL"] = mirror["url"] if mirror["enabled"] else ""
+    environ["OPORA_MIRROR_PROJECTS"] = ",".join(mirror["projects"]) if mirror["enabled"] else ""
     applied = []
     for key, value in settings["integrations"].items():
         name = ENV_BY_KEY.get(key)
@@ -130,6 +173,9 @@ def main(argv=None) -> int:
     parser.add_argument("--no-build", action="store_true", help="nesestavovat frontend")
     parser.add_argument("--check", action="store_true", help="jen vypsat výslednou konfiguraci a skončit")
     args = parser.parse_args(argv)
+    loaded = load_dotenv()
+    if loaded:
+        print(f"[opora] .env: doplněno {loaded} proměnných (hodnoty se nevypisují)")
 
     try:
         settings = resolve(load_config(), args.profile, port=args.port, data=args.data)
@@ -144,7 +190,7 @@ def main(argv=None) -> int:
 
     print(f"[opora] profil: {settings['profile']} | {url} | data: {data}")
     if args.check:
-        for key in ("frontend", "build_command", "open_browser", "integrations", "jev_provider"):
+        for key in ("frontend", "build_command", "open_browser", "integrations", "jev_provider", "mirror"):
             print(f"[opora] {key}: {settings[key]}")
         return 0
     if not port_free(settings["host"], settings["port"]):

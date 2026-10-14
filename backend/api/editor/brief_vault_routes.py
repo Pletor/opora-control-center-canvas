@@ -8,6 +8,7 @@ jedna operace `op`; `set-mvp`, `delete`, `restore` a `feedback` patří člověk
 `GET /brief-vault/next` je nezávazná fronta bran cyklu a `GET /brief-vault/lessons` živá poučení (§3, §5, §9;
 s `versionId` poučení uložené verze plátna). `POST /brief-vault/plan {fragmentIds}` je jen čtení: plán struktury
 (oblast → sektor → karty) jako dávka canvas-plan ověřená dryRun, `{plan, summary, hash, skipped, …}` (§4, §9 bod 3).
+`GET /brief-vault/mirror` je orientační přehled Zrcadla (docs/zrcadlo.md): `{enabled, health?, byDiscipline, hormones?}`.
 """
 
 from fastapi import APIRouter, Request
@@ -25,9 +26,9 @@ def _bad_request(call):
         return JSONResponse({"error": str(error)}, status_code=400)
 
 
-def create_brief_vault_router(service, desktop_state=None):
+def create_brief_vault_router(service, desktop_state=None, mirror=None):
     router = APIRouter(prefix="/api", tags=["brief-vault"])
-    vault = BriefVault(service, desktop_state)
+    vault = BriefVault(service, desktop_state, mirror=mirror)
 
     @router.get("/brief-vault")
     def brief_vault_tree(project: str, workspace: str, scope: str | None = None, discipline: str | None = None):
@@ -44,6 +45,10 @@ def create_brief_vault_router(service, desktop_state=None):
     @router.get("/brief-vault/lessons")
     def brief_vault_lessons(project: str, workspace: str, discipline: str | None = None, versionId: str | None = None):
         return _bad_request(lambda: lessons(service, project, workspace, discipline, versionId))
+
+    @router.get("/brief-vault/mirror")
+    def brief_vault_mirror(project: str, workspace: str):
+        return vault.mirror_overview(project, workspace)
 
     @router.get("/brief-vault/fragment")
     def brief_vault_fragment(project: str, workspace: str, id: str, revision: int | None = None):

@@ -84,6 +84,14 @@ CREATE TABLE IF NOT EXISTS brief_lesson_events(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL, lesson_id TEXT NOT NULL,
     kind TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL,
     PRIMARY KEY(project_id, workspace_id, id));
+-- backend/editor/brief_vault/brief_vault_mirror.py: provozní log Zrcadla (docs/zrcadlo.md), append-only, mimo verze plátna;
+-- event_id = sha256(projekt, workspace, fragment, cyklus, druh), takže opakované volání se nezapíše dvakrát
+CREATE TABLE IF NOT EXISTS brief_mirror_events(
+    event_id TEXT NOT NULL PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL,
+    revision INTEGER NOT NULL, cycle INTEGER NOT NULL, kind TEXT NOT NULL, request TEXT NOT NULL, result TEXT NOT NULL,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS brief_mirror_events_scope
+    ON brief_mirror_events(project_id, workspace_id, kind, created_at);
 -- backend/editor/brief_vault/brief_vault_details.py: výzkum, otázka a odkazy na rozhodnutí fragmentu (JSON, jen přibývají revize)
 CREATE TABLE IF NOT EXISTS brief_fragment_details(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,

@@ -6,11 +6,12 @@ Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě
 
 ## 1. Změna pravidla „aplikace model nespouští“
 
-Do 2026-10-01 aplikace spouštěla model jen pro aktualizaci mapy Archify ([mapy-projektu.md](mapy-projektu.md)). Od tohoto kontraktu jsou místa tři:
+Do 2026-10-01 aplikace spouštěla model jen pro aktualizaci mapy Archify ([mapy-projektu.md](mapy-projektu.md)). Od tohoto kontraktu jsou místa tři (od K8 čtyři):
 
 1. Archify: automatika, Sonnet, bez člověka.
 2. Asistent: chat, který spouští **jen člověk** zprávou v okně asistenta.
 3. Směrovač TypeSafe Jev (§13): běží jen v rámci tahu asistenta, který spustil člověk. Negeneruje text, vrací jen typované odpovědi. Ve Schránce smí Jev běžet i na žádost agenta nebo člověka jako poradní kontrola brány (`POST /api/brief-vault/gate-check`, [schranka-neurony.md](schranka-neurony.md) §7), pořád jen s typovanými odpověďmi a jen po výslovném povolení člověka pro projekt a poskytovatele.
+4. Zrcadlo (BioCortexAI, [zrcadlo.md](zrcadlo.md)): lokální vývojový model jen na `127.0.0.1`, volaný jen po zápisu brány `synthesized` / `verified` u projektu zapnutého v `opora.local.toml` `[mirror]` (výchozí vypnuto), nikdy neblokuje bránu.
 
 Ostatní endpointy dál nic nespouštějí. Podklady pro agenta (`node-brief`, zprávy, texty karet) jsou pro asistenta data, ne příkazy.
 

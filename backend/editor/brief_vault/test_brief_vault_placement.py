@@ -178,3 +178,51 @@ def test_second_placed_of_the_same_discipline_reuses_area_and_sector(client):
     assert [(item["kind"], item["parent"]) for item in plan_nodes] == [("node", "@" + first["s1"])]
     second = gate(client, other, "placed")["placement"]["refs"]
     assert set(second) == {"f1"} and len(kinds(client)["area"]) == 1 and len(kinds(client)["sector"]) == 2
+
+
+def versions(client):
+    response = client.get("/api/canvas-versions", params=SCOPE)
+    assert response.status_code == 200, response.text
+    return response.json()["versions"]
+
+
+def placed(client, fragment):
+    return client.post("/api/brief-vault", headers=HEADERS, json={
+        **SCOPE, "op": "gate", "fragmentId": fragment["id"], "expectedRevision": fragment["revision"], "gate": "placed",
+        "value": True, "note": "vložit"})
+
+
+def test_placed_saves_canvas_version_before_writing(client):
+    fragment = walk(client, root(client), "planned")
+    before_graph = view(client)["graph"]
+    assert versions(client) == []
+    assert placed(client, fragment).status_code == 200
+    [saved] = versions(client)
+    assert saved["author"] == "před placed Import" and saved["coverage"] == "full"
+    stored_graph = client.get("/api/canvas-versions", params={**SCOPE, "versionId": saved["id"]}).json()["graph"]
+    assert stored_graph == before_graph  # verze je stav před vložením, karty plánu v ní nejsou
+    assert kinds(client)["area"] != []
+
+
+def test_placed_without_canvas_change_reuses_existing_version(client):
+    fragment = walk(client, root(client), "planned")
+    manual = client.post("/api/canvas-versions", headers=HEADERS,
+                         json={**SCOPE, "digest": view(client)["digest"], "author": "Martin"})
+    assert manual.status_code == 200, manual.text
+    assert placed(client, fragment).status_code == 200
+    assert [item["author"] for item in versions(client)] == ["Martin"]  # stejný obsah už uložený, jde se k němu vrátit
+
+
+@pytest.mark.parametrize("error, status", [(ValueError("Main je pouze pro čtení."), 409), (OSError("disk"), 503)])
+def test_failed_version_save_blocks_placed(client, monkeypatch, error, status):
+    fragment = walk(client, root(client), "planned")
+    before = (view(client)["digest"], state(client)["revision"], len(stored(client, fragment["id"])))
+
+    def broken(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(brief_vault_placement.CanvasVersions, "checkpoint", broken)
+    assert placed(client, fragment).status_code == status
+    monkeypatch.undo()
+    assert (view(client)["digest"], state(client)["revision"], len(stored(client, fragment["id"]))) == before
+    assert kinds(client)["area"] == [] and versions(client) == []
