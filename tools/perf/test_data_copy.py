@@ -64,6 +64,23 @@ def test_benchmarks_refuse_live_data(tmp_path, monkeypatch):
             copy_dir(str(path))
 
 
+def test_benchmarks_refuse_configured_data_root_outside_repo(tmp_path, monkeypatch):
+    # Datová složka přesunutá mimo repozitář (opora.local.toml) je pořád živá data.
+    moved, copy = tmp_path / "opora-data", tmp_path / "perf-copy"
+    (moved / "projects").mkdir(parents=True)
+    copy.mkdir()
+    monkeypatch.setattr(perf_common, "configured_data", lambda: moved.resolve())
+
+    assert copy_dir(str(copy)) == str(copy.resolve())
+    for path in (moved, moved / "projects"):
+        with pytest.raises(argparse.ArgumentTypeError, match="kopii"):
+            copy_dir(str(path))
+
+
+def test_configured_data_reads_opora_config():
+    assert perf_common.configured_data().is_absolute()
+
+
 def test_live_data_points_to_production():
     assert perf_common.LIVE_DATA.parts[-2:] == (".data", "production")
 

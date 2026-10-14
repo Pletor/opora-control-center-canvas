@@ -1,6 +1,7 @@
 """Společné argumenty měřicích skriptů výkonu (karta P1, sektor Výkon a škálování).
 
-Skripty měří jen na kopii dat (`data_copy.py`), nikdy na živém `.data/production`:
+Skripty měří jen na kopii dat (`data_copy.py`), nikdy na živých datech (`.data/production`
+ani na datové složce z opora.toml / opora.local.toml, která může ležet mimo repozitář):
 některé z nich na kopii zapisují (verze, rozhodnutí, pipeline).
 """
 import argparse
@@ -21,15 +22,26 @@ AMPLE_NODE = "97cc644b-bba8-40a2-add3-257525c7781f"
 WORKSPACE = "draft"
 
 
+def configured_data():
+    """Datová složka, na které běží aplikace podle opora.toml + opora.local.toml ([app] data)."""
+    use_repo()
+    from tools.opora import load_config, resolve
+
+    try:
+        return (REPO_ROOT / resolve(load_config())["data"]).resolve()
+    except (OSError, ValueError, KeyError):
+        return None
+
+
 def copy_dir(value):
     """Adresář kopie dat; živá data odmítne, ať měření nikdy nesáhne na produkci."""
     path = Path(value).resolve()
     if not path.is_dir():
         raise argparse.ArgumentTypeError(f"Adresář dat {value} neexistuje.")
-    live = LIVE_DATA.resolve()
-    if path == live or live in path.parents:
-        raise argparse.ArgumentTypeError(
-            "Měř na kopii dat (tools/perf/data_copy.py), ne na .data/production.")
+    for live in (LIVE_DATA.resolve(), configured_data()):
+        if live is not None and (path == live or live in path.parents):
+            raise argparse.ArgumentTypeError(
+                f"Měř na kopii dat (tools/perf/data_copy.py), ne na živých datech {live}.")
     return str(path)
 
 

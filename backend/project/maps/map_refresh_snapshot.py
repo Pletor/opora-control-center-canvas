@@ -58,7 +58,7 @@ def snapshot_main(root, revision, target):
     # Shell se nepoužívá; každý název je samostatný argument až za --.
     env = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
     command = ['git', '-c', 'core.hooksPath=' + str(Path(__file__).with_name('disabled-hooks')),
-               '-c', 'core.fsmonitor=false', '-C', str(root), 'archive', '--format=zip', revision, '--', *selected]
+               '-c', 'core.fsmonitor=false', '-c', 'core.longpaths=true', '-C', str(root), 'archive', '--format=zip', revision, '--', *selected]
     result = subprocess.run(command, check=True, capture_output=True, env=env, timeout=30,
                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     with zipfile.ZipFile(io.BytesIO(result.stdout)) as archive:
