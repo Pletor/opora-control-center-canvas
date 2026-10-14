@@ -57,3 +57,14 @@ ani neupravují; commit obsahuje jen soubory této relace (`git add` po cestách
 | 00:40 | A1 záměr oblasti na rámečku + inspektor + „Rozložit na sektory“ + `references/rozklad.md` (odkaz v SKILL.md, test skill docs 5/5); kritik Hermes 8 nálezů → opraveno; commit 7465a5a | hotovo |
 | 01:20 | S1 sektor → karty (rozklad, ukázky ověřené proti backendu), D2 karta bez inline stylů (řádky 6/13, čipy, pruhy) | hotovo |
 | 02:30 | B1 štíhlý node-brief: bez `criteria`, `steps`, `phase`, brána fáze smazána; kontrakt `karta-pro-agenty.md` upraven; backend 2077 zelených (2 známé pády graphify), FE 1165, build OK | hotovo |
+
+## Ráno (co zbývá člověku)
+
+1. Backend už běží s novou route mapy (restartovala relace A). Paměť rolí: klíč OpenVikingu je v `.env`; po dalším
+   restartu `POST /api/memory/provision {"confirmed": true}` (Nastavení → paměť, nebo curl) a `GET /api/memory/status`.
+2. Prohlédnout v prohlížeči (DevTools držela relace A, vizuálně neověřeno): kartu s kuličkami procesu, mód
+   **Velín** (dřív Mapa), oblast se záměrem a „Rozložit na sektory“, sektor s „Rozložit na karty“, mapu kódu v Projektu.
+3. Vyzkoušet pyramidu na Ample: napsat záměr jedné oblasti → zkopírovat zadání → `claude` v kořeni Ample → dávku
+   potvrdit jedním rozhodnutím.
+4. Nestaví se zatím: shrnutí podnětů sektoru jako jedno rozhodnutí (`docs/pyramida.md` §6), `previousRounds[].criteria`
+   a `depends_on[].status` v balíčku (stará data).

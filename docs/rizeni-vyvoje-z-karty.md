@@ -111,8 +111,8 @@ karta (nebo jedna etapa). Více agentů = více terminálů na nepřekrývajíc�
 
 ## 6. Paměť role (OpenViking) a co s ní
 
-OpenViking běží (`/health` ok, v0.4.17.1), ale Opora hlásí `needs_provisioning`: backend musí startovat
-s `OPORA_OPENVIKING_ADMIN_API_KEY` (dělá to `tools/opora_remote.ps1`; ruční `uv run opora` ho nemá).
+OpenViking běží (`/health` ok, v0.4.17.1). Backend potřebuje `OPORA_OPENVIKING_ADMIN_API_KEY`: od 2026-10-15 je
+v lokálním `.env` (git-ignorovaný, `uv run opora` ho načte), takže po příštím restartu stačí provisioning.
 Po provisioningu (`POST /api/memory/provision {"confirmed": true}`) agent v `node-brief.context.roleMemory`
 dostane, co se jeho role naučila na podobných kartách, a při uzavření karty se jeho prostor zrcadlí
 zpět. Co tam **nepatří**: zadání karty, kód, tajemství; paměť je popis zkušenosti, ne pravda o kódu.
