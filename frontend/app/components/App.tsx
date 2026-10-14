@@ -1301,6 +1301,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
               ) : (<>
                 <Board
                   heightsRef={cardHeights}
+                  revision={desktop.revision}
+                  digest={view?.digest}
                   usage={usage}
                   leases={leases}
                   onUrlDownload={(nodeId, enabled) => desktop.mutate(setUrlDownload(nodeId, enabled))}

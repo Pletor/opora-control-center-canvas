@@ -1,19 +1,23 @@
 // Komentář na plátně: lepicí lístek, ne karta uzlu — beze portů, bez bloků, dvojklik do hloubky ho neotvírá.
-// Rodič (Board) dodá hotová data; přejmenování titulku a změna textu bublají nahoru přes onRename / onText.
+// Rodič (Board) dodá hotová data bez funkcí; přejmenování titulku a změna textu bublají nahoru přes kontext
+// akcí plátna (`renameNode`, `commentText`), aby šel lístek při přestavbě znovu použít beze změny.
 import { memo, useEffect, useRef, useState } from "react";
 import type { Node, NodeProps } from "@xyflow/react";
 import type { CommentView } from "@/editor/canvas/comment-card/logic/comment-model";
+import { useCardActions } from "@/editor/canvas/node-card/logic/card-actions";
 import "@/editor/canvas/comment-card/styles/comment-card.css";
 
 export type CommentCardData = {
   view: CommentView;
   disabled: boolean;
-  onRename: (title: string) => void;
-  onText: (text: string) => void;
 };
 
 const CommentCard = memo(function CommentCard({ id, data, selected }: NodeProps<Node<CommentCardData>>) {
-  const { view, disabled, onRename, onText } = data;
+  const { view, disabled } = data;
+  const actions = useCardActions();
+  const onRename = (title: string) => actions.renameNode(id, title);
+  const onText = (text: string) => actions.commentText(id, text);
+
   const [editing, setEditing] = useState(false);
   const titleField = useRef<HTMLInputElement>(null);
 

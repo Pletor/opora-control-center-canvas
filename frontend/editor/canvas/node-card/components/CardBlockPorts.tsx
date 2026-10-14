@@ -1,6 +1,11 @@
 // Porty bloku: pod řádkem bloku stojí řada tlačítek jako v chat-builderu. Každé nese popisek a na pravé
 // hraně karty kuličku — zdrojový úchyt React Flow s id `block:<blockId>:<portId>`, ze kterého se táhne
 // vazba na jinou kartu. Dílek nic neukládá; přidání, přejmenování i odebrání bublá nahoru do rodiče.
+// Úroveň detailu (oprava 4 v docs/navrhy/2026-10-14-vykon-platna.md): editory rozhodnutí a navazující karty,
+// odebrání a „+ port“ má jen vybraná karta (`full`); nevybraná (`row`) kreslí popisek a kuličku, oddálená
+// (`far`) jen popisek a kuličku bez tlačítka. Kulička (`Handle`) zůstává ve všech úrovních, jinak by se
+// vazby z portu neměly kam připojit. Editor, který je po zrušení výběru rozepsaný (`data-dirty`) nebo má
+// fokus, zůstane namontovaný a vidět, dokud ho člověk neuloží nebo neopustí.
 import { useRef, useState } from "react";
 import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import { Handle, Position } from "@xyflow/react";
@@ -9,6 +14,7 @@ import { MAX_BLOCK_PORTS, type BlockPortDef } from "@/shared/desktop-state/logic
 import PortDecisionEditor from "./PortDecisionEditor";
 import PortSpawnEditor from "./PortSpawnEditor";
 import { useAddedPulse } from "../logic/use-added-pulse";
+import { portEditorsShown } from "../logic/card-lod";
 
 export type CardPortHandlers = {
   configureSpawn?: (blockId: string, portId: string, action: BlockPortDef["onMet"]) => void;
@@ -23,11 +29,13 @@ export default function CardBlockPorts({
   ports,
   disabled,
   handlers,
+  detail = "full",
 }: {
   blockId: string;
   ports: BlockPortDef[];
   disabled: boolean;
   handlers: CardPortHandlers;
+  detail?: "full" | "row" | "far";
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const added = useAddedPulse(ports.map(port => port.id));
@@ -41,14 +49,24 @@ export default function CardBlockPorts({
     const value = label.trim();
     if (value && value !== current) handlers.renamePort(blockId, portId, value);
   };
-  if (!ports.length && disabled) return null;
+  const tools = detail === "full" && !disabled;
+  // Porty, jejichž editor je rozepsaný nebo zaměřený: čte se z DOM jen při renderu (změna výběru, zoomu).
+  const list = useRef<HTMLUListElement>(null);
+  const held = new Set<string>();
+  if (detail !== "full" && list.current && typeof document !== "undefined") {
+    for (const row of Array.from(list.current.querySelectorAll<HTMLElement>("li[data-port-id]")))
+      if (row.querySelector("[data-dirty]") || row.contains(document.activeElement)) held.add(row.dataset.portId ?? "");
+  }
+  if (!ports.length && !tools) return null;
   return (
     <>
       {ports.length > 0 && (
-        <ul className="node-card__block-ports" data-testid={"card-block-ports-" + blockId}>
+        <ul ref={list} className="node-card__block-ports" data-testid={"card-block-ports-" + blockId}>
           {ports.map((port) => (
-            <li key={port.id} className={"node-card__port-row" + (added.includes(port.id) ? " node-card__added-pulse" : "") + (port.status ? " node-card__port-row--" + port.status : "")} title={port.reason}>
-              {editing === port.id ? (
+            <li key={port.id} className={"node-card__port-row" + (added.includes(port.id) ? " node-card__added-pulse" : "") + (port.status ? " node-card__port-row--" + port.status : "") + (detail !== "full" && held.has(port.id) ? " node-card__port-row--held" : "")} title={port.reason} data-port-id={port.id}>
+              {detail === "far" ? (
+                <span className="node-card__block-port node-card__block-port--far">{port.status === "chosen" ? "● " : port.status === "rejected" ? "⊗ " : ""}{port.label}</span>
+              ) : editing === port.id ? (
                 <input
                   ref={field}
                   className="nodrag node-card__block-port-input"
@@ -78,7 +96,7 @@ export default function CardBlockPorts({
                   {port.onMet ? "+ " : ""}{port.status === "chosen" ? "● " : port.status === "rejected" ? "⊗ " : ""}{port.label}
                 </button>
               )}
-              {!disabled && (
+              {tools && (
                 <button
                   type="button"
                   className="nodrag node-card__port-remove"
@@ -89,9 +107,9 @@ export default function CardBlockPorts({
                   ✕
                 </button>
               )}
-              {handlers.decidePort && <PortDecisionEditor key={JSON.stringify(port)} port={port} blockId={blockId} disabled={disabled}
+              {portEditorsShown(detail, held.has(port.id)) && handlers.decidePort && <PortDecisionEditor key={"decision:" + port.id} port={port} blockId={blockId} disabled={disabled}
                 onSave={(status, reason) => handlers.decidePort?.(blockId, port.id, status, reason)} />}
-              {handlers.configureSpawn && <PortSpawnEditor key={"spawn:" + JSON.stringify(port)} port={port} blockId={blockId} disabled={disabled}
+              {portEditorsShown(detail, held.has(port.id)) && handlers.configureSpawn && <PortSpawnEditor key={"spawn:" + port.id} port={port} blockId={blockId} disabled={disabled}
                 onSave={action => handlers.configureSpawn?.(blockId, port.id, action)} />}
               <Handle
                 type="source"
@@ -107,7 +125,7 @@ export default function CardBlockPorts({
           ))}
         </ul>
       )}
-      {!disabled && ports.length < MAX_BLOCK_PORTS && (
+      {tools && ports.length < MAX_BLOCK_PORTS && (
         <button
           type="button"
           className="nodrag node-card__port-add"

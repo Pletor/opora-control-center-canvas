@@ -440,3 +440,17 @@
 .node-card__port-editor > summary::-webkit-details-marker { display: none; }
 .node-card__port-editor > summary:hover { background: var(--surface-2); color: var(--ink); }
 .node-card--compact .node-card__port-editor { display: none; }
+
+/* KARTA Z DÁLKY (zoom pod 0,45, nevybraná): z dálky člověk hledá, kde co je, ne co v kartě stojí. Karta
+   proto ukáže jen hlavu, název a stav a z bloků jen číslo s názvem a popisky portů; kuličky portů zůstanou na
+   hraně, aby vazby dál vedly tam, kam patří. Rozměr drží výchozí výška karty, takže se mapa při oddálení
+   nerozsype. Rozepsaný blok zůstane celý, dokud ho člověk neopustí. */
+.node-card--far .node-card__purpose { -webkit-line-clamp: 1; }
+.node-card__block--far { padding-bottom: 2px; }
+.node-card__block--far .node-card__block-ports { margin-top: 1px; margin-bottom: 1px; }
+.node-card__block-port--far { cursor: default; pointer-events: none; }
+
+/* ROZEPSANÝ EDITOR PORTU PO ZRUŠENÍ VÝBĚRU: kdo začal psát důvod rozhodnutí nebo šablonu navazující karty
+   a klikl jinam, nesmí o text přijít ani ho ztratit z očí. Editor zůstane vidět i na nevybrané kartě, dokud
+   ho člověk neuloží, nezruší nebo neopustí. */
+.node-card--compact .node-card__port-row--held .node-card__port-editor { display: block; }
