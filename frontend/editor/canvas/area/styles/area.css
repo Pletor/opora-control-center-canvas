@@ -244,10 +244,12 @@
    „jak se jmenuji“. Záměr má 2–5 vět, ale na plátně dostane nejvýš dva řádky a šířku do 520 px: čte se
    jako podtitulek, celý text je v bublině a v inspektoru. Pod ním tichý souhrn drobným písmem (kolik
    sektorů, karet, co je hotovo) — ztlumený, protože je to stav, ne výzva; prázdná oblast tu místo čísel
-   napoví první krok. Hlava nechytá myš, aby tažení i výběr rámečku fungovaly jako dřív. */
+   napoví první krok. Záměr sedí u spodní hrany rámečku: karty se v oblasti skládají odshora pod štítek,
+   takže u horní hrany by text schovaly; dole bývá volno a oko ho najde jako popisek pod obrázkem.
+   Hlava nechytá myš, aby tažení i výběr rámečku fungovaly jako dřív. */
 .area-card__head {
   position: absolute;
-  top: 30px;
+  bottom: 10px;
   left: 12px;
   right: 12px;
   max-width: 520px;
