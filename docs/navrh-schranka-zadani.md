@@ -180,3 +180,43 @@ Ample (`cc5f34ec…`, workspace `draft`): text sektoru „3. VRSTVA — ÚLOŽI�
 1. Má se fragment smět rozdělit i jinak než podle číslování kapitol (ručně vybrané úseky)? Návrh: ano, `parts` explicitně; invariant spojení platí vždy.
 2. `mvp` potvrzuje jen člověk (agent jen navrhuje) — souhlas?
 3. Zůstane plný text zadání i v textu sektoru, nebo ho po importu nahradí odkaz do schránky? Návrh: nahradit odkazem až po ověření ukázky.
+
+## Dvě stopy a levé menu (uživatel 2026-10-14)
+
+Dnes se v jedné Schránce míchá vzhled s logikou. Jak věc vypadá a co dělá, se dá **nakreslit** (Claude Design, náčrt, podklady). Jak funguje, jak se počítá, jaké funkce a metody vzniknou a jak spolupracují, je hlavní know-how projektu a potřebuje vlastní péči. Proto má Schránka dvě oddělené stopy a jde otevřít z levého menu Editoru, ne z detailu karty.
+
+Princip vývoje plánu zůstává beze změny (fragment → rozdělení → výzkum → MVP → karty přes `/api/canvas-plan` s `fragmentRef`). Stopa jen určuje, do které části plánu fragment patří a jaké karty z něj vzniknou.
+
+### Stopy
+
+| `track` | Popisek | Co do ní patří | Karty, které z ní vzniknou |
+|---|---|---|---|
+| `ux` | CX/UX/UI | tok uživatele, obrazovky, stavy, texty, náčrty a odkazy na Claude Design | `card.layer = "frontend"` |
+| `logic` | Backend + DB | doménová pravidla, výpočty, funkce a metody, jejich spolupráce, datový model a tabulky, API, invarianty, bezpečnost, migrace | `card.layer = "backend"` |
+| (žádná) | Nezařazené | fragmenty, které vznikly před zavedením stop | karty bez vrstvy (jako dnes) |
+
+- **Dědění:** každá revize fragmentu smí nést `track` (`ux` \| `logic` \| null). Platná stopa fragmentu je `track` nejbližšího předka včetně sebe, jinak „nezařazené“. Kořen nové schránky stopu nese vždy, `create` kořene bez `track` vrátí 400. Dítě stopu dědí, ale smí ji přepsat (podstrom se tím přeřadí).
+- **Přeřazení:** `op: set-track` (`fragmentId, expectedRevision, track: "ux"|"logic"|null, note`) zapíše novou revizi se stejným textem. Je append-only s CAS jako `revise` a smí agent i člověk. Text se nemění.
+- **Migrace:** sloupec `track TEXT NULL` v `brief_fragment_revisions` se přidává idempotentně (stejný mechanismus, jakým schéma doplňuje sloupce dnes). Stávající řádky zůstanou `NULL`, tedy „nezařazené“. Nic se nemaže ani nepřepisuje.
+- **Čtení:** `GET /api/brief-vault` vrací u každého fragmentu `track` (vlastní) i `effectiveTrack` a přijímá volitelný filtr `track=ux|logic|none`. Filtr ponechá cestu ke kořeni, aby strom zůstal souvislý. `node-brief` u `brief.fragments` uvádí `effectiveTrack`. Verze plátna nesou sloupec automaticky.
+
+### Stopa Backend + DB: logika dřív než vzhled
+
+Karta ze stopy `logic` vzniká jako postup, ne jako obrázek. „Vložit vybrané“ a „Rozdistribuovat zbytek“ v `vault-plan.ts` jí po blocích z podfragmentů přidají vždy tyto **čtyři závěrečné bloky** v tomto pořadí:
+
+1. **Funkce a metody**: jaké funkce a metody vzniknou, jejich vstupy a výstupy. Podmínka: „Podpisy a odpovědnost každé funkce jsou zapsané.“
+2. **Spolupráce**: jak si funkce předávají data a v jakém pořadí, včetně tabulek a API, kterých se dotknou. Podmínka: „Tok dat mezi funkcemi je popsaný.“
+3. **Test částí**: každá funkce má vlastní test. Podmínka: „Testy jednotlivých částí prošly.“
+4. **Komponenta**: z prošlých částí se složí funkční celek s testem celku. Podmínka: „Komponenta funguje jako celek a test celku prošel.“ Port: `Komponenta hotová → frontend`.
+
+Frontend se na logiku napojí až na hotovou komponentu. Karta stopy `ux` dostane jen bloky z podfragmentů; vykreslení je samostatná práce nad hotovou komponentou. Strop 40 bloků na kartu platí včetně čtyř závěrečných, takže z podfragmentů se vezme nejvýš 36.
+
+### Levé menu Editoru
+
+- `frontend/layout/panel-dock/logic/panel-dock.ts`: nová sekce `"vault"` (popisek „Schránka“, ikona schránky) mezi Postupy a oddělovačem Nastavení.
+- Obsah sekce: Schránka plátna nebo otevřené vrstvy (dnešní scope `layer?.id ?? ""`) s přepínačem stop nahoře **CX/UX/UI · Backend + DB · Nezařazené** (počty v čipu). Přepínač je filtr pohledu a pamatuje si poslední volbu v aplikaci, ne per projekt. Dnešní sekce okna (Přehled, Zadání, MVP a distribuce, Výzkum, K upřesnění, Zpětná vazba, Know-how, Revize) zůstávají a počítají se nad vybranou stopou. Pokrytí a MVP se počítají za každou stopu zvlášť.
+- Schránka se otevírá v širokém panelu vedle lišty. Modální okno se ruší a s ním mrtvé části. Odkud se Schránka otevírá:
+  - z položky levého menu,
+  - z čipů „Ze schránky“ a z Podnětů v detailu karty (`openVault(scope, focus)` otevře sekci Schránka s fokusem na fragment a přepne na jeho stopu).
+- **Z detailu karty mizí** záložka `vault` (`NodeTabs.tsx`) i sekce v `NodePanel.tsx`. Zůstávají čipy „Ze schránky“, odznak „zadání se změnilo“ a odkaz „Otevřít ve Schránce“ u sektoru nebo karty s vlastní schránkou. `BriefVaultScope` v inspektoru se ruší, protože vstupem je teď menu.
+- Nový kořen se zakládá s volbou stopy. Fragment v detailu ukazuje stopu a umí ji přeřadit (`set-track`).
