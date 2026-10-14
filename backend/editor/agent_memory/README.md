@@ -18,6 +18,10 @@ Odpověď je štíhlá (karta P3): `{revision, readOnly, item}`, u `/pipeline` `
 `?full=1` přidá celý stav. Zápis staví na mělké kopii uloženého stavu a `save(base=...)` znovu
 neověřuje uzly, které se nezměnily (totožné objekty). `DesktopV3State.current` drží stav v cache
 podle tokenu dat a revize (`backend/canvas/read_cache.py`); vrácený stav je jen ke čtení.
+Návrh pravidla od agenta (`by: "agent"`, karta, projekt i cesta) posoudí člověk přes
+`/api/desktop-v3/rule-review` `{project, workspace, id, decision: approve|reject, expected}`:
+schválení uloží pravidlo bez `by` (od té doby platí v `node-brief`), zamítnutí ho odebere.
+Smí jen člověk (cookie `opora_ui`; agent 403, neznámý 428); `expected` je přečtený návrh (CAS).
 
 `port_spawn.py` vytváří následníka z `port.onMet` při přechodu bloku do `met` ve společném
 ukládání stavu (UI, adresný blok i agent-output). Zamítnutý port přeskočí. Tabulka

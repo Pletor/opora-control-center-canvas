@@ -106,6 +106,7 @@ export default function Board({
   assignmentStatuses,
   usage,
   onRuleWrite,
+  onRuleReview,
   sourceContext,
   heightsRef,
   graph,
@@ -160,6 +161,7 @@ export default function Board({
   leases?: Record<string, import("@/editor/canvas/node-card/logic/use-leases").CardLease>;
   assignmentStatuses?: import("@/editor/canvas/node-card/logic/use-assignment-status").AssignmentStatuses;
   onRuleWrite?: NonNullable<NodeCardData["rules"]>["write"];
+  onRuleReview?: NonNullable<NodeCardData["rules"]>["review"];
   sourceContext?: { project: string; workspace: string };
   /** Naměřené výšky karet vrstvy pro „Srovnat“ v App (karta s bloky je vyšší než výchozí otisk). */
   heightsRef?: { current: Record<string, number> };
@@ -311,7 +313,7 @@ export default function Board({
             assignmentWarning: assignmentStatuses?.[n.id]?.status === "changed" && sourceContext
               ? { ...sourceContext, nodeId: n.id, resultId: assignmentStatuses[n.id].resultId, source: assignmentStatuses[n.id].source } : undefined,
             inheritedRules: effectiveRules(graph, state, n.id).filter((rule) => rule.inherited || rule.origin.storage === "node" || !onRuleWrite),
-            rules: onRuleWrite ? { items: state.rules.filter((rule) => rule.scope === "node" && rule.target === n.id), write: onRuleWrite } : undefined,
+            rules: onRuleWrite && onRuleReview ? { items: state.rules.filter((rule) => rule.scope === "node" && rule.target === n.id), write: onRuleWrite, review: onRuleReview } : undefined,
             source: n.sourceRef && sourceContext ? { source: n.sourceRef, ...sourceContext } : undefined,
             dimmed: !matchesTagFilter(workflow, tagFilter),
             onTag: onTagFilter,

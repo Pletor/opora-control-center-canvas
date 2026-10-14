@@ -57,7 +57,8 @@ export type NodeCardData = {
   assignmentWarning?: { project: string; workspace: string; nodeId: string; resultId: string; source?: "handoff" | "result" };
   usage?: Usage;
   inheritedRules?: EffectiveRule[];
-  rules?: { items: Rule[]; write: (expected: Rule, item: Rule) => Promise<boolean> };
+  rules?: { items: Rule[]; write: (expected: Rule, item: Rule) => Promise<boolean>;
+    review: (rule: Rule, decision: import("@/shared/desktop-state/logic/agent-rule").RuleReviewDecision) => Promise<boolean> };
   source?: { source: SourceRef; project: string; workspace: string };
   view: CardView;
   rename: RenameHandlers;
@@ -113,7 +114,7 @@ const NodeCard = memo(function NodeCard({ id, data, selected }: NodeProps<Node<N
       {view.design && <CardDesign key={JSON.stringify(view.design)} design={view.design} />}
       {(selected || data.usage?.tokens != null || data.usage?.durationMs != null) && <CardUsage usage={data.usage} sector={view.kind === "sector"} />}
       {selected && !!data.inheritedRules?.length && <InheritedRules rules={data.inheritedRules} />}
-      {selected && data.rules && data.rules.items.length > 0 && <CardRules rules={data.rules.items} write={data.rules.write} disabled={blocks.disabled} />}
+      {selected && data.rules && data.rules.items.length > 0 && <CardRules rules={data.rules.items} write={data.rules.write} review={data.rules.review} disabled={blocks.disabled} />}
       {selected && data.source && <CardSource key={JSON.stringify(data.source)} {...data.source} />}
       {selected && data.realization && <SourceRealization key={JSON.stringify(data.realization.value)} nodeId={id} {...data.realization} mergePassed={data.evidence?.merge.status === "passed"} />}
       <CardBlocks id={id} rows={view.rows} disabled={blocks.disabled} handlers={blocks} selectedBlockId={selectedBlockId} />

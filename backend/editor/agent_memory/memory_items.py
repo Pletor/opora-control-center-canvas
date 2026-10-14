@@ -3,9 +3,11 @@
 Zápis vrací jen novou revizi a zapsanou položku (karta P3, < 10 kB místo celého stavu);
 `full=True` (HTTP `?full=1`) vrátí kvůli starším klientům i celý stav.
 """
+from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 
 KEYS = {"project", "workspace", "id", "op", "expected", "item"}
+REVIEW_KEYS = {"project", "workspace", "id", "decision", "expected"}
 
 
 class MemoryItems:
@@ -68,3 +70,23 @@ class MemoryItems:
                                     base=stored["state"], slim=not full)
             item = next((x for x in state[collection] if x["id"] == identifier), None)
             return {**saved, "item": item}
+
+    def review_rule(self, payload, *, actor, full=False):
+        """Člověk schválí nebo zamítne návrh pravidla od agenta (karta, projekt i cesta stejně).
+
+        Schválení = uložení pravidla bez `by` (od té doby platí v `node-brief`), zamítnutí = odebrání.
+        Agent dostane 403, neznámý původce 428; `expected` je přečtený návrh (CAS jako u zápisu položky)."""
+        require_human(actor, "Návrh pravidla schvaluje nebo zamítá jen člověk v UI.")
+        if not isinstance(payload, dict) or set(payload) != REVIEW_KEYS:
+            raise ValueError("Posouzení pravidla vyžaduje project, workspace, id, decision a expected.")
+        expected, decision = payload["expected"], payload["decision"]
+        if decision not in ("approve", "reject"):
+            raise ValueError("Posouzení pravidla je approve nebo reject.")
+        if not isinstance(expected, dict) or expected.get("by") != "agent":
+            raise ValueError("Schválit nebo zamítnout lze jen návrh pravidla od agenta.")
+        approved = {key: value for key, value in expected.items() if key != "by"}
+        return self.apply("rules", {
+            "project": payload["project"], "workspace": payload["workspace"], "id": payload["id"],
+            "op": "update" if decision == "approve" else "remove", "expected": expected,
+            "item": approved if decision == "approve" else None,
+        }, actor=actor, full=full)

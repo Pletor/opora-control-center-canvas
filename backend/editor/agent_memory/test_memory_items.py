@@ -131,3 +131,78 @@ def test_agent_rule_write_returns_the_item_as_stored_with_its_author(tmp_path):
         assert response.status_code == 200, response.text
         assert response.json()['item'] == {**rule('p', 'Návrh'), 'by': 'agent'}
         assert client.get('/api/desktop-v3/rule', params={**SCOPE, 'id': 'p'}).json()['item'] == response.json()['item']
+
+
+def review(client, expected, decision, headers=HEADERS, scope=SCOPE):
+    return client.post('/api/desktop-v3/rule-review', headers=headers, json={
+        **scope, 'id': expected['id'], 'decision': decision, 'expected': expected})
+
+
+def source_project(client, tmp_path):
+    """Lokální projekt se zdrojem src/app.py a kartou `deep`, pro kterou platí pravidla projektu i cesty src."""
+    from backend.project.workspace.test_workspace_sources import attach
+    (tmp_path / 'source' / 'src').mkdir(parents=True)
+    (tmp_path / 'source' / 'src' / 'app.py').write_text('x = 1', encoding='utf-8')
+    scope = {'project': attach(client, tmp_path / 'source'), 'workspace': 'draft'}
+    graph = nested_graph()
+    graph['nodes'][0]['sourceRef'] = {'origin': 'existing', 'path': 'src', 'kind': 'directory'}
+    graph['nodes'][2]['sourceRef'] = {'origin': 'existing', 'path': 'src/app.py', 'kind': 'file'}
+    digest = client.get('/api/view', params=scope).json()['digest']
+    installed = client.post('/api/graph', headers=HEADERS, json={**scope, 'graph': graph, 'digest': digest})
+    assert installed.status_code == 200, installed.text
+    return scope
+
+
+def test_human_approves_agent_project_and_path_rules_in_project_memory(tmp_path):
+    """Paměť projektu: návrh agenta (projekt i cesta) začne platit v node-brief až po schválení člověkem."""
+    with TestClient(create_app(tmp_path / 'data'), base_url=ORIGIN) as client:
+        scope = source_project(client, tmp_path)
+        proposals = []
+        for item in (rule('proj', 'Projekt: testy u každé změny'),
+                     {**rule('cesta', 'Cesta: src jen s testem'), 'scope': 'path', 'target': 'src'}):
+            written = client.post('/api/desktop-v3/rule', headers=AGENT, json={
+                **scope, 'id': item['id'], 'op': 'add', 'expected': None, 'item': item})
+            assert written.status_code == 200, written.text
+            proposals.append(written.json()['item'])
+        brief = client.get('/api/desktop-v3/node-brief', params={**scope, 'nodeId': 'deep'}).json()
+        assert not {r['id'] for r in brief['boundaries']['effectiveRules']} & {'proj', 'cesta'}
+        assert not {r['id'] for r in brief['boundaries']['projectRules']} & {'proj', 'cesta'}
+        assert {r['id'] for r in brief['boundaries']['proposedRules']} == {'proj', 'cesta'}
+        for proposal in proposals:
+            approved = review(client, proposal, 'approve', scope=scope)
+            assert approved.status_code == 200, approved.text
+            assert approved.json()['item'] == {k: v for k, v in proposal.items() if k != 'by'}
+        brief = client.get('/api/desktop-v3/node-brief', params={**scope, 'nodeId': 'deep'}).json()
+        assert {'proj', 'cesta'} <= {r['id'] for r in brief['boundaries']['effectiveRules']}
+        assert {'proj', 'cesta'} <= {r['id'] for r in brief['boundaries']['projectRules']}
+        assert brief['boundaries']['proposedRules'] == []
+
+
+def test_agent_cannot_approve_or_reject_and_stale_review_is_rejected(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        install_graph(client, nested_graph())
+        proposal = client.post('/api/desktop-v3/rule', headers=AGENT, json={
+            **SCOPE, 'id': 'p', 'op': 'add', 'expected': None, 'item': rule('p', 'Návrh')}).json()['item']
+        assert review(client, proposal, 'approve', AGENT).status_code == 403
+        assert review(client, proposal, 'reject', AGENT).status_code == 403
+        # CAS: návrh se mezitím změnil, staré `expected` neprojde.
+        changed = client.post('/api/desktop-v3/rule', headers=AGENT, json={
+            **SCOPE, 'id': 'p', 'op': 'update', 'expected': proposal, 'item': {**proposal, 'text': 'Jiný'}})
+        assert changed.status_code == 200, changed.text
+        assert review(client, proposal, 'approve').status_code == 409
+        # Lidské pravidlo není návrh: posouzení odmítne.
+        human = rule('h', 'Člověk')
+        assert write(client, 'rule', 'add', None, human).status_code == 200
+        assert review(client, human, 'reject').status_code == 409
+        assert client.get('/api/desktop-v3/rule', params={**SCOPE, 'id': 'p'}).json()['item']['by'] == 'agent'
+
+
+def test_human_rejects_agent_rule_proposal(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        install_graph(client, nested_graph())
+        proposal = client.post('/api/desktop-v3/rule', headers=AGENT, json={
+            **SCOPE, 'id': 'p', 'op': 'add', 'expected': None, 'item': rule('p', 'Návrh')}).json()['item']
+        rejected = review(client, proposal, 'reject')
+        assert rejected.status_code == 200, rejected.text
+        assert rejected.json()['item'] is None
+        assert client.get('/api/desktop-v3/rule', params={**SCOPE, 'id': 'p'}).json()['item'] is None

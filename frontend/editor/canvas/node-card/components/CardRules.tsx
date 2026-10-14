@@ -1,22 +1,25 @@
 import { useState } from "react";
 import type { Rule } from "@/shared/desktop-state/logic/types";
 import MemoryItemText from "@/editor/llm-control/project-memory/components/MemoryItemText";
-import { AGENT_RULE_LABEL, asHumanRule, isAgentRule } from "../logic/agent-rule";
+import RuleReview from "@/editor/llm-control/project-memory/components/RuleReview";
+import { AGENT_RULE_LABEL, asHumanRule, isAgentRule, type RuleReviewDecision } from "@/shared/desktop-state/logic/agent-rule";
 
-export default function CardRules({ rules, disabled, write }: {
+export default function CardRules({ rules, disabled, write, review }: {
   rules: Rule[]; disabled: boolean; write: (expected: Rule, item: Rule) => Promise<boolean>;
+  review: (rule: Rule, decision: RuleReviewDecision) => Promise<boolean>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // Uložení člověkem pravidlo vždy schválí: odešle se bez `by`, takže návrh agenta začne platit.
-  async function save(rule: Rule, text: string) {
+  async function run(action: () => Promise<boolean>) {
     setBusy(true); setError("");
     try {
-      const saved = await write(rule, asHumanRule(rule, text));
+      const saved = await action();
       if (!saved) setError("Pravidlo se nepodařilo uložit. Obnovte kartu a porovnejte změny.");
       return saved;
     } finally { setBusy(false); }
   }
+  // Uložení člověkem pravidlo vždy schválí: odešle se bez `by`, takže návrh agenta začne platit.
+  const save = (rule: Rule, text: string) => run(() => write(rule, asHumanRule(rule, text)));
   return <div className="node-card__rules nodrag" onClick={(event) => event.stopPropagation()}>
     {rules.map((rule) => {
       const proposal = isAgentRule(rule);
@@ -25,11 +28,9 @@ export default function CardRules({ rules, disabled, write }: {
         <summary title={proposal ? `🤖 ${AGENT_RULE_LABEL} · ${rule.text}` : rule.text} aria-label={label}>
           {proposal && "🤖 "}{rule.kind === "must" ? "✓" : "⊘"}
         </summary>
-        {proposal && <small style={{ display: "block" }}>🤖 {AGENT_RULE_LABEL}</small>}
         <MemoryItemText id={`canvas-rule:${rule.id}`} text={rule.text} disabled={disabled || busy}
           save={(text) => save(rule, text)} />
-        {proposal && <button type="button" disabled={disabled || busy} title="Uložit pravidlo jako člověk; pak platí i pro agenty"
-          onClick={() => void save(rule, rule.text)}>✓ Schválit</button>}
+        <RuleReview rule={rule} disabled={disabled || busy} review={(item, decision) => void run(() => review(item, decision))} />
       </details>;
     })}
     {error && <span role="alert">{error}</span>}

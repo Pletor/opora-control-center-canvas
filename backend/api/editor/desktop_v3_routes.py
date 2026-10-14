@@ -150,6 +150,11 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         """Vrací {revision, item}; `?full=1` i celý stav (starší klienti)."""
         return items.apply("rules", payload, actor=request.state.actor, full=full)
 
+    @router.post("/rule-review")
+    def review_rule(payload: dict, request: Request, full: bool = False):
+        """Člověk schválí (`approve`) nebo zamítne (`reject`) návrh pravidla od agenta; agent 403."""
+        return items.review_rule(payload, actor=request.state.actor, full=full)
+
     @router.get("/decision")
     def read_decision(project: str, workspace: str, id: str):
         return items.read("decisions", project, workspace, id)
