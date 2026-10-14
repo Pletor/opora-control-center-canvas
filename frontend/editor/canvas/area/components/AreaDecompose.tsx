@@ -1,13 +1,11 @@
 // Složený oddíl „Rozložit na sektory“ v inspektoru oblasti: z hotového záměru ukáže zadání pro
 // agenta-rozkladače a tlačítko, které ho zkopíruje do schránky. Nic neukládá ani nespouští — agenta
-// spouští člověk v terminálu se skillem. Zadání skládá čistá funkce `decomposePrompt`; dílek drží jen
-// krátký příznak „Zkopírováno“.
-import { useEffect, useState } from "react";
+// spouští člověk v terminálu se skillem. Zadání skládá čistá funkce `decomposePrompt`; kopírování a
+// hlášky (úspěch / ruční kopie) obstará sdílený `useCopyText`.
 import { czechCount } from "@/editor/canvas/area/logic/area-model";
 import { decomposePrompt } from "@/editor/canvas/area/logic/decompose-prompt";
+import { COPY_FAILED_TEXT, useCopyText } from "@/shared/hooks/logic/use-copy-text";
 import "@/editor/canvas/area/styles/area.css";
-
-const COPIED_MS = 2000;
 
 export default function AreaDecompose({
   project,
@@ -25,24 +23,15 @@ export default function AreaDecompose({
   intent: string;
   sectors: number;
 }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), COPIED_MS);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
+  const { status, copy, fieldRef } = useCopyText();
   const prompt = decomposePrompt({ project, workspace, areaId, areaName, intent, sectors });
-  const state = !prompt
+  const state = !intent.trim()
     ? "Nejdřív napište záměr."
-    : sectors > 0
-      ? `Oblast má ${czechCount(sectors, "sektor", "sektory", "sektorů")}; další rozklad přidá nové vedle nich.`
-      : "Zkopírujte zadání a vložte ho agentovi v terminálu se skillem.";
-
-  const copy = () => {
-    if (!prompt) return;
-    navigator.clipboard.writeText(prompt).then(() => setCopied(true), () => setCopied(false));
-  };
+    : !prompt
+      ? "Zadání nejde sestavit: identifikátor projektu, workspace nebo oblasti obsahuje nepovolené znaky."
+      : sectors > 0
+        ? `Oblast má ${czechCount(sectors, "sektor", "sektory", "sektorů")}; další rozklad přidá nové vedle nich.`
+        : "Zkopírujte zadání a vložte ho agentovi v terminálu se skillem.";
 
   return (
     <details className="area-decompose" data-testid="area-decompose">
@@ -51,6 +40,7 @@ export default function AreaDecompose({
       {prompt && (
         <>
           <textarea
+            ref={fieldRef}
             className="area-decompose__prompt"
             aria-label="Zadání pro agenta-rozkladače"
             data-testid="area-decompose-prompt"
@@ -60,10 +50,12 @@ export default function AreaDecompose({
             onFocus={(e) => e.currentTarget.select()}
           />
           <div className="area-decompose__actions">
-            <button type="button" onClick={copy} data-testid="area-decompose-copy">
-              {copied ? "Zkopírováno" : "Kopírovat zadání"}
+            <span className="area-decompose__status" role="status">{status === "copied" ? "Zkopírováno" : ""}</span>
+            <button type="button" onClick={() => void copy(prompt)} data-testid="area-decompose-copy">
+              Kopírovat zadání
             </button>
           </div>
+          {status === "failed" && <p className="area-decompose__alert" role="alert">{COPY_FAILED_TEXT}</p>}
         </>
       )}
     </details>

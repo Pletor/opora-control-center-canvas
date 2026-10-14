@@ -153,8 +153,11 @@
 
 /* PŘÍMÉ AKCE VE FRONTĚ (prvky `tower-inbox__action`, `tower-inbox__error`)
    Příběh: návrh uzavření jde vyřídit přímo tady, bez cesty na kartu — ale uzavření je nevratné, takže
-   tlačítko „Potvrdit“ chce dva klidné kliky. První ho na čtyři vteřiny natáhne: dostane jantarový okraj a
-   nese „Opravdu potvrdit“, aby si člověk všiml, že teď to platí. Během ukládání je ztlumené
+   tlačítko „Potvrdit“ chce dva klidné kliky. První ho na osm vteřin natáhne a zapamatuje si, které karty
+   uzavře: dostane jantarový okraj, řekne rozsah („Opravdu uzavřít „X“?“) a pod ním drobně, že je to
+   nevratné. Druhý klik dřív než za půl vteřiny se nepočítá (dvojklik), a když se mezitím seznam změní,
+   tlačítko se vrátí s „Seznam se změnil, klikni znovu“. Dokud se potvrzují karty jednoho rozsahu, každé
+   tlačítko, které by sáhlo na tytéž karty, je vypnuté. Během ukládání je ztlumené
    („ukládám…“) a nejde stisknout znovu; chyba zůstane drobným červeným textem hned pod ním, ne v
    dialogu. Skupina sektoru se dvěma a víc návrhy má nahoře jedno tlačítko „Potvrdit vše v sektoru“. */
 .tower-inbox__actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-1); }
@@ -171,6 +174,10 @@
 }
 .tower-inbox__action--armed { border-color: #f59e0b; background: var(--gold-soft, var(--surface-3)); font-weight: 600; }
 .tower-inbox__action--busy { opacity: 0.6; cursor: progress; }
+.tower-inbox__hint { max-width: 200px; font-size: var(--fs-0); color: var(--ink-muted); text-align: right; }
+.tower-inbox__hint:empty { display: none; }
+.tower-inbox__hint--armed { color: #f59e0b; }
+.tower-inbox__result { max-width: 200px; font-size: var(--fs-0); color: #22c55e; text-align: right; overflow-wrap: anywhere; }
 .tower-inbox__error { max-width: 200px; font-size: var(--fs-0); color: #f87171; text-align: right; overflow-wrap: anywhere; }
 
 /* PÁSMO OBLASTI (blok `tower-area`)
@@ -212,6 +219,24 @@
 .tower-area__empty { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
 .tower-area--nested { padding: var(--sp-2) var(--sp-3); border-radius: var(--radius); background: var(--surface-2); }
 .tower-area--nested .tower-area__name { font-size: var(--fs-3); }
+
+/* PRŮCHOZÍ ŘETĚZ (blok `tower-chain`)
+   Příběh: projekt často začíná několika vrstvami, které obsahují jen jedinou další vrstvu (AmpleLab ›
+   Projekty › Trénování), a teprve pak se větví. Proklikávat se jimi by nic neřeklo, proto se Velín
+   otevře rovnou tam, kde se větví, a cestu nad tím ukáže jako tichý drobek; každý článek je odkaz,
+   který vstoupí do své vrstvy na plátně. */
+.tower-chain { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); font-size: var(--fs-1); color: var(--ink-muted); }
+.tower-chain__item { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.tower-chain__link {
+  padding: 1px 4px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: inherit;
+  cursor: pointer;
+}
+.tower-chain__link:hover { background: var(--surface-3); color: var(--ink); }
 
 /* VRSTVA UVNITŘ (blok `tower-layer`)
    Příběh: každá vrstva se čte stejně, ať je to kořen, oblast, nebo rozbalený sektor či karta s vlastní

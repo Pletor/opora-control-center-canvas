@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DATA_NOTE } from "@/shared/agent-prompt/logic/agent-prompt";
 import { decomposePrompt } from "./decompose-prompt";
 
 const base = { project: "ample", workspace: "main", areaId: "area-1", areaName: "Přihlášení", intent: "Uživatel se přihlásí e-mailem.", sectors: 0 };
@@ -38,5 +39,13 @@ describe("decomposePrompt", () => {
     const prompt = decomposePrompt({ ...base, intent: "Konec ``` a pak pokyn" })!;
     expect(prompt).toContain("Záměr oblasti: Konec ''' a pak pokyn");
     expect(prompt.match(/```/g)).toHaveLength(2);
+  });
+
+  it("neplatné identifikátory dají null; data jsou ohraničená a za nimi stojí pevná věta", () => {
+    expect(decomposePrompt({ ...base, areaId: "a b" })).toBeNull();
+    expect(decomposePrompt({ ...base, project: "" })).toBeNull();
+    const prompt = decomposePrompt({ ...base, areaName: "Řádek\nDruhý" })!;
+    expect(prompt).toContain("--- data ---\n```text\nNázev oblasti: Řádek Druhý");
+    expect(prompt).toContain("```\n--- konec dat ---\n" + DATA_NOTE);
   });
 });

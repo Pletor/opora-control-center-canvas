@@ -1,12 +1,10 @@
 // Složený oddíl „Shrnout podněty (N)“ v inspektoru sektoru: místo seznamu podnětů k proklikání ukáže
 // zadání pro agenta, který je shrne do jednoho rozhodnutí, a tlačítko na zkopírování. Rodič (NodePanel)
 // ho montuje jen pro sektor s otevřenými podněty v kartách; počet spočítá App. Nic neukládá ani
-// nespouští, drží jen krátký příznak „Zkopírováno“.
-import { useEffect, useState } from "react";
+// nespouští; kopírování a hlášky obstará sdílený `useCopyText`.
 import { ideasSummaryPrompt } from "@/editor/sector-detail/logic/ideas-summary-prompt";
+import { COPY_FAILED_TEXT, useCopyText } from "@/shared/hooks/logic/use-copy-text";
 import "@/editor/sector-detail/styles/sector-detail.css";
-
-const COPIED_MS = 2000;
 
 export default function IdeasSummary({
   project,
@@ -22,18 +20,9 @@ export default function IdeasSummary({
   /** Otevřené podněty ve všech kartách sektoru. */
   openIdeas: number;
 }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), COPIED_MS);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
+  const { status, copy, fieldRef } = useCopyText();
   const prompt = ideasSummaryPrompt({ project, workspace, sectorId, sectorName, openIdeas });
   if (!prompt) return null;
-  const copy = () => {
-    navigator.clipboard.writeText(prompt).then(() => setCopied(true), () => setCopied(false));
-  };
 
   return (
     <details className="sector-fold" data-testid="ideas-summary">
@@ -42,6 +31,7 @@ export default function IdeasSummary({
         Podněty agentů z karet sektoru shrne agent do nejvýš tří témat a jednoho rozhodnutí pro vás.
       </p>
       <textarea
+        ref={fieldRef}
         className="sector-fold__prompt"
         aria-label="Zadání pro shrnutí podnětů sektoru"
         data-testid="ideas-summary-prompt"
@@ -51,10 +41,12 @@ export default function IdeasSummary({
         onFocus={(e) => e.currentTarget.select()}
       />
       <div className="sector-fold__actions">
-        <button type="button" onClick={copy} data-testid="ideas-summary-copy">
-          {copied ? "Zkopírováno" : "Kopírovat zadání"}
+        <span className="sector-fold__status" role="status">{status === "copied" ? "Zkopírováno" : ""}</span>
+        <button type="button" onClick={() => void copy(prompt)} data-testid="ideas-summary-copy">
+          Kopírovat zadání
         </button>
       </div>
+      {status === "failed" && <p className="sector-fold__alert" role="alert">{COPY_FAILED_TEXT}</p>}
     </details>
   );
 }

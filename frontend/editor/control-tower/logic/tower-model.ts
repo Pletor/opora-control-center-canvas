@@ -105,7 +105,7 @@ export function cardCounts(cards: TowerCard[]): Counts {
 
 export type CountSegment = { key: Bucket; label: string; count: number; share: number };
 const SEGMENT_LABEL: Record<Bucket, string> = {
-  closed: "hotovo", proposed: "ke schválení", failed: "selhalo", waitingHuman: "čeká na tebe", running: "pracuje", idle: "čeká",
+  closed: "hotovo", proposed: "ke schválení", failed: "blokováno / selhalo", waitingHuman: "čeká na tebe", running: "pracuje", idle: "čeká",
 };
 
 /** Úseky pruhu stavů (jen nenulové), podíl v procentech; prázdné součty vrátí prázdný pruh. */

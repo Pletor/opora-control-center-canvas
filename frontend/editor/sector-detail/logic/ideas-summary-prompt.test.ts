@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DATA_NOTE } from "@/shared/agent-prompt/logic/agent-prompt";
 import { ideasSummaryPrompt } from "./ideas-summary-prompt";
 
 const base = { project: "ample", workspace: "main", sectorId: "sec-1", sectorName: "Příjem dokumentu", openIdeas: 14 };
@@ -27,5 +28,12 @@ describe("ideasSummaryPrompt", () => {
   it("trojité zpětné apostrofy v názvu blok neukončí", () => {
     const prompt = ideasSummaryPrompt({ ...base, sectorName: "A ``` B" })!;
     expect(prompt.match(/```/g)).toHaveLength(2);
+  });
+
+  it("neplatné identifikátory dají null; data jsou ohraničená a za nimi stojí pevná věta", () => {
+    expect(ideasSummaryPrompt({ ...base, sectorId: "sec 1" })).toBeNull();
+    const prompt = ideasSummaryPrompt({ ...base, sectorName: "A\nB" })!;
+    expect(prompt).toContain("--- data ---\n```text\nNázev sektoru: A B");
+    expect(prompt).toContain("```\n--- konec dat ---\n" + DATA_NOTE);
   });
 });

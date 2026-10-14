@@ -27,5 +27,18 @@
 .sector-fold__actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   margin-top: 4px;
+}
+/* Hlášky po kopírování: tiché „Zkopírováno“ vedle tlačítka (a jen na chvíli), aby člověk věděl, že může
+   vložit; když schránka nejde, výrazná červená výzva pod polem a text v poli je už označený k ruční kopii. */
+.sector-fold__status {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.sector-fold__alert {
+  margin: 4px 0 0;
+  color: var(--danger);
+  font-size: 12px;
 }

@@ -31,10 +31,25 @@ kuličkami `CardProcess`), `TowerInbox` (fronta s čipy druhu, „Zobrazit dalš
 `tower-inbox`, `tower-area`, `tower-sector`, `tower-card`); pod 1000 px šířky jde fronta nad pyramidu.
 
 Přímé akce fronty: `ControlTower` bere nepovinné `onConfirmProposal(nodeId)` a `onConfirmSector(sectorId,
-ids)` — App mu dává tytéž handlery jako plátnu (`confirmProposalNow`, `confirmSectorNow`). U položky „ke
+ids)`. App mu dává tytéž handlery jako plátnu (`confirmProposalNow`, `confirmSectorNow`). U položky „ke
 schválení“ je `ConfirmButton` „Potvrdit“, ve skupině sektoru se dvěma a víc návrhy „Potvrdit vše v sektoru
-(N)“; uvízlé procesy a otázky mají jen „Otevřít“, protože rozhodnutí potřebuje kontext karty. Potvrzení je
-nevratné, proto bez `confirm()` dialogu dvojí klik: `logic/inbox-actions.ts` (testováno) drží automat
-`confirmStep` (idle → armed na `ARM_MS` = 4 s → busy → idle / error, `tick` po vypršení vrací do klidu) a
-`proposalsBySector` (sektor → id návrhů z celé fronty, ne jen viditelné stránky). Úspěch nic nepřekresluje
-sám: položka zmizí, až přijde nový stav plátna.
+(N)“. Uvízlé procesy a otázky mají jen „Otevřít“, protože rozhodnutí potřebuje kontext karty. Potvrzení je
+nevratné, proto bez `confirm()` dialogu dvojí klik (`logic/inbox-actions.ts`, testováno). Automat
+`confirmStep` jde idle → armed → busy → idle / done / error. Natažení si pamatuje rozsah (id karet) na
+`ARM_MS` = 8 s. Druhý klik se počítá až po `ARM_GUARD_MS` = 500 ms a potvrdí jen zapamatovaný rozsah;
+změna seznamu natažení zruší (`stale`, „Seznam se změnil, klikni znovu“). Opakovaný `keydown` tlačítko
+ignoruje. Natažený text nese rozsah (`armedText`) a nevratnost je vypsaná v `role="status"` přes
+`aria-describedby`. ControlTower drží sdílený zámek (`Set` právě potvrzovaných karet, `scopeLocked`) a
+obálku `runConfirm`: po kartách sekvenčně přes `onConfirmProposal`, hromadné `onConfirmSector` jen když
+první chybí. Výsledek `{ ok, failed }` shrne `confirmSummary` („Uzavřeno 2, selhalo 1: …“) u tlačítka.
+`proposalsBySector` dává rozsah sektoru z celé fronty, ne jen z viditelné stránky.
+
+Jak se pyramida ukáže (`logic/tower-view.ts`, testováno): `collapseChain(layer)` je **průchozí řetěz**.
+Dokud vrstva obsahuje jen jednu dlaždici (sektor nebo kartu s vrstvou) a nic jiného, Velín do ní
+sestoupí. Přeskočené vrstvy ukáže `TowerChain` jako drobek („AmpleLab › Projekty › Trénování“, klik =
+vstoupit do vrstvy). Totéž platí na kořeni (`rootLayer(tower)`) i uvnitř rozbalené dlaždice.
+`defaultOpen(depth, siblings)`: dlaždice první úrovně vrstvy, která se větví (2+ členů), je rozbalená a
+hlubší jsou sbalené. Ruční přepnutí přebíjí výchozí stav a pamatuje se per projekt v `localStorage`
+pod klíčem `opora:velin:<project>` (`readOpen` / `writeOpen`; obojí v try/catch, poškozený zápis = prázdná
+paměť). Koš `failed` se v legendě i v title pruhu jmenuje „blokováno / selhalo“, protože obsahuje i
+`blocked` z přehledu práce.

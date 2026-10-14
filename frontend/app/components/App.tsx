@@ -13,7 +13,7 @@ import { confirmProposal } from "@/editor/canvas/node-card/logic/completion-prop
 import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, type BlockApi, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
 import { openIdeas, removeIdea, setIdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
-import { handoffStageHint } from "@/editor/node-detail/handoff/logic/handoff-prompt";
+import { handoffStage } from "@/editor/node-detail/handoff/logic/handoff-prompt";
 import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, decideBlockPort, setPortSpawn, setDone, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
 import { edgeFromConnection, sameEdge, type BoardConnection } from "@/editor/canvas/board/logic/board-model";
 import { emptyHistory, record, recordRemoval, redo, sameGraph, undo, type GraphHistory } from "@/editor/canvas/history/logic/graph-history";
@@ -1338,7 +1338,7 @@ export default function App() {
                 onOpenNode={openNode}
                 graphNodes={linkTargets}
                 childCount={node.kind === "sector" ? graph.nodes.filter((child) => child.parentId === node.id && child.kind === "node").length : 0}
-                stageHint={node.kind === "node" ? handoffStageHint(desktop.state.nodes[node.id]?.stages) : ""}
+                stageOnTurn={node.kind === "node" ? handoffStage(desktop.state.nodes[node.id]?.stages) : null}
                 openIdeasInSector={node.kind === "sector" ? graph.nodes.filter((child) => child.parentId === node.id).reduce((sum, child) => sum + openIdeas(desktop.state.nodes[child.id]?.ideas), 0) : 0}
                 done={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).done}
                 onDone={(patch) => { void desktop.mutate(setDone(node.id, patch)); }}

@@ -1,6 +1,7 @@
 // Fronta „Čeká na tebe“: jediné místo, kde člověk vidí, co od něj agenti chtějí. Jen čte a otevírá kartu.
 // Bez přehledu práce nesmí tvrdit, že nic nečeká: otázky agentů jsou jen v přehledu, ne ve stavu plátna.
 import ConfirmButton from "./ConfirmButton";
+import { armedText, scopeLocked } from "../logic/inbox-actions";
 import { INBOX_LIMIT, groupInbox, type InboxFilter, type InboxItem, type InboxKind, type WorkState } from "../logic/tower-model";
 
 const MARK: Record<InboxKind, { sign: string; label: string }> = {
@@ -17,12 +18,15 @@ type Props = {
   workState: WorkState; workError?: string;
   /** Návrhy uzavření podle sektoru z celé fronty (ne jen viditelné stránky), pro „Potvrdit vše v sektoru“. */
   proposals: ReadonlyMap<string, string[]>;
-  onConfirmProposal?: (nodeId: string) => Promise<boolean>;
-  onConfirmSector?: (sectorId: string, ids: string[]) => Promise<void>;
+  /** Karty, které se právě potvrzují (sdílený zámek tlačítek karty i sektoru). */
+  busy: ReadonlySet<string>;
+  nameOf: (id: string) => string;
+  /** Potvrdí rozsah karet (v sektoru `sectorId`); chybí, když potvrzovat nejde. */
+  onConfirm?: (ids: string[], sectorId: string) => Promise<{ message: string; failed: boolean }>;
   onFilter: (filter: InboxFilter) => void; onMore: () => void; onOpenNode: (id: string) => void;
 };
 
-export default function TowerInbox({ items, total, more, kinds, filter, workState, workError, proposals, onConfirmProposal, onConfirmSector, onFilter, onMore, onOpenNode }: Props) {
+export default function TowerInbox({ items, total, more, kinds, filter, workState, workError, proposals, busy, nameOf, onConfirm, onFilter, onMore, onOpenNode }: Props) {
   const groups = groupInbox(items);
   const known = workState === "loaded";
   return (
@@ -46,12 +50,15 @@ export default function TowerInbox({ items, total, more, kinds, filter, workStat
       {groups.map((group) => (
         <section key={group.key} className="tower-inbox__group">
           <h3 className="tower-inbox__group-title">{group.title}</h3>
-          {onConfirmSector && group.sectorId && (proposals.get(group.sectorId)?.length ?? 0) >= 2 && (
-            <div className="tower-inbox__group-action">
-              <ConfirmButton label={"Potvrdit vše v sektoru (" + proposals.get(group.sectorId)!.length + ")"}
-                action={() => onConfirmSector(group.sectorId, proposals.get(group.sectorId)!)} />
-            </div>
-          )}
+          {onConfirm && group.sectorId && (proposals.get(group.sectorId)?.length ?? 0) >= 2 && (() => {
+            const scope = proposals.get(group.sectorId)!;
+            return (
+              <div className="tower-inbox__group-action">
+                <ConfirmButton label={"Potvrdit vše v sektoru (" + scope.length + ")"} armed={armedText(scope, nameOf, true)}
+                  scope={scope} locked={scopeLocked(scope, busy)} action={(ids) => onConfirm(ids, group.sectorId)} />
+              </div>
+            );
+          })()}
           <ul className="tower-inbox__list">
             {group.items.map((item, index) => (
               <li key={item.kind + item.nodeId + index} className={"tower-inbox__item tower-inbox__item--" + item.kind}>
@@ -61,8 +68,9 @@ export default function TowerInbox({ items, total, more, kinds, filter, workStat
                   <span className="tower-inbox__text">{item.text}</span>
                 </span>
                 <span className="tower-inbox__actions">
-                  {item.kind === "proposed" && onConfirmProposal && (
-                    <ConfirmButton label="Potvrdit" action={() => onConfirmProposal(item.nodeId)} />
+                  {item.kind === "proposed" && onConfirm && (
+                    <ConfirmButton label="Potvrdit" armed={armedText([item.nodeId], nameOf, false)} scope={[item.nodeId]}
+                      locked={busy.has(item.nodeId)} action={(ids) => onConfirm(ids, item.sectorId)} />
                   )}
                   <button type="button" className="tower-inbox__open" onClick={() => onOpenNode(item.nodeId)}>Otevřít</button>
                 </span>
