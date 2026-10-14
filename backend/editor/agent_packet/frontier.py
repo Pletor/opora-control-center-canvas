@@ -4,7 +4,7 @@ import re
 
 from backend.editor.agent_memory.card_pipeline import summary as pipeline_summary
 from backend.editor.agent_packet.desktop_v3_packets import redact_deep
-from backend.editor.agent_packet.sector_status import sector_blockers, sector_status
+from backend.editor.agent_packet.sector_status import SectorEdges, sector_blockers, sector_status
 
 CLAIM_PREFIX = 'Převzato:'
 TICKET_TYPES = ('research', 'prototype', 'grilling', 'task', 'gate')
@@ -23,22 +23,49 @@ def claim_of(frame):
     return ''
 
 
-def frontier(graph, state, sector_id, frames, leases=None):
+class FrontierIndex:
+    """Co je pro všechny sektory stejné: stav sektorů, uzavření, jména, děti podle rodiče a vazby podle cíle.
+
+    Postaví se jednou (O(N + E)); `work_overview` ji sdílí pro všechny rodiče místo výpočtu na rodiče.
+    """
+
+    def __init__(self, graph, state):
+        nodes = graph.get('nodes', [])
+        self.names = {n['id']: n.get('name', '') for n in nodes}
+        self.statuses = sector_status(graph, state)
+        self.done = {cid: bool(state.get('nodes', {}).get(cid, {}).get('done', {}).get('confirmed')) for cid in self.names}
+        for sid, status in self.statuses.items():
+            self.done[sid] = status['status'] == 'verified'
+        self.children = {}
+        for n in nodes:
+            self.children.setdefault(n.get('parentId'), []).append(n)
+        self.incoming = {}
+        for e in graph.get('edges', []):
+            if e.get('port', 'next') == 'next':
+                self.incoming.setdefault(e.get('target'), []).append(e.get('source'))
+        self._sector_edges = None
+
+    def sector_edges(self, graph):
+        # Líně: jen když se opravdu ptáme na blokace karty (stejně jako dřív, kdy se hrany četly až u karty).
+        if self._sector_edges is None:
+            self._sector_edges = SectorEdges(graph)
+        return self._sector_edges
+
+
+def frontier(graph, state, sector_id, frames, leases=None, index=None):
     """Mapa wayfinderu nad sektorem: karty sektoru rozdělené na uzavřené, převzaté, blokované a frontier.
 
     Blokace je vazba `next` (nebo bez portu) z neuzavřené karty. Převzetí je řádek `Převzato:`
-    v `agent-workspace.frame`. Pořadí karet je pořadí v grafu.
+    v `agent-workspace.frame`. Pořadí karet je pořadí v grafu. `index` = sdílený `FrontierIndex`.
     """
     nodes = graph.get('nodes', [])
     sector = next((n for n in nodes if n.get('id') == sector_id), None) if sector_id else {'id': '', 'name': 'Canvas', 'kind': 'sector'}
     if sector is None or sector.get('kind') not in ('sector', 'node'):
         raise ValueError('--node musí být ID sektoru (mapy) v tomto workspace.')
-    names = {n['id']: n.get('name', '') for n in nodes}
-    cards = [n for n in nodes if n.get('parentId') == (sector_id or None) and n.get('kind') in ('node', 'sector')]
-    done = {cid: bool(state.get('nodes', {}).get(cid, {}).get('done', {}).get('confirmed')) for cid in names}
-    statuses = sector_status(graph, state)
-    for sid, status in statuses.items():
-        done[sid] = status['status'] == 'verified'
+    index = FrontierIndex(graph, state) if index is None else index
+    names, done, statuses = index.names, index.done, index.statuses
+    siblings = index.children.get(sector_id or None, [])
+    cards = [n for n in siblings if n.get('kind') in ('node', 'sector')]
     out = {'map': {'id': sector_id, 'name': sector.get('name', '')}, 'frontier': [], 'claimed': [], 'blocked': [], 'waiting': [], 'closed': [],
            'needsRouting': []}
     for card in cards:
@@ -48,9 +75,8 @@ def frontier(graph, state, sector_id, frames, leases=None):
         stages = state.get('nodes', {}).get(cid, {}).get('stages')
         if card.get('kind') == 'node':
             row['pipeline'] = pipeline_summary(stages)
-        blockers = [e['source'] for e in graph.get('edges', [])
-                    if e.get('target') == cid and e.get('port', 'next') == 'next' and not done.get(e.get('source'), False)]
-        blockers = list(dict.fromkeys([*blockers, *(b['id'] for b in sector_blockers(graph, state, cid, statuses))]))
+        blockers = [source for source in index.incoming.get(cid, ()) if not done.get(source, False)]
+        blockers = list(dict.fromkeys([*blockers, *(b['id'] for b in sector_blockers(graph, state, cid, statuses, index.sector_edges(graph)))]))
         claim = claim_of(frames.get(cid, ''))
         if leases is not None:
             lease = leases.get(cid)
@@ -77,5 +103,5 @@ def frontier(graph, state, sector_id, frames, leases=None):
             out['frontier'].append(row)
     ids = {sector_id, *(c['id'] for c in cards)}
     out['decisions'] = [{k: d[k] for k in ('id', 'text', 'nodeId', 'pinned', 'by', 'createdAt') if k in d} for d in state.get('decisions', []) if d.get('nodeId') in ids]
-    out['fog'] = [{'id': n['id'], 'name': n.get('name', '')} for n in nodes if n.get('parentId') == (sector_id or None) and n.get('kind') == 'comment']
+    out['fog'] = [{'id': n['id'], 'name': n.get('name', '')} for n in siblings if n.get('kind') == 'comment']
     return redact_deep(out)
