@@ -33,7 +33,7 @@ def state(client):
 
 
 def fragment(client, text="3.37 Version activation"):
-    return vault(client, op="create", scopeNodeId="s1", track="ux", title="3.37", text=text)["fragment"]
+    return vault(client, op="create", scopeNodeId="s1", discipline="ux", title="3.37", text=text)["fragment"]
 
 
 def test_state_refs_shape():

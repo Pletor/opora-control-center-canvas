@@ -5,8 +5,8 @@ Fragment má stálé `fragment_id` a řadu revizí v `brief_fragment_revisions` 
 nová revize s poznámkou. Kořen schránky je připnutý k plátnu (`scopeNodeId: ""`), sektoru nebo
 kartě; dítě má jen rodiče (fraktál do libovolné hloubky). `split` hlídá, že se zadání neztratí.
 `mvp: yes|no`, smazání a obnova staré revize patří člověku (`HUMAN_OPS`, 403 / 428).
-Stopa (`track`: `ux` | `logic` | null = dědí) jde s fragmentem do každé další revize; kořen ji nese vždy
-a přeřadí ji jen `set-track` (nová revize se stejným textem).
+Disciplína (`discipline`: id z docs/schranka-neurony.md §2 | null = dědí) jde s fragmentem do každé další
+revize; kořen ji nese vždy a přeřadí ji jen `set-discipline` (nová revize se stejným textem).
 """
 
 import uuid
@@ -26,12 +26,13 @@ from backend.editor.brief_vault.brief_vault_model import (
     MAX_TITLE,
     STAGES,
     data_of,
+    discipline_of,
+    discipline_payload,
     fail,
     history_rows,
     latest_rows,
     public,
     text_of,
-    track_of,
     validate_record,
 )
 from backend.editor.brief_vault.brief_vault_read import VaultReader
@@ -40,7 +41,8 @@ from backend.editor.brief_vault.brief_vault_split import split_parts
 SCOPE_KEYS = {"project", "workspace", "op"}
 # Pole každé operace: (povinná, volitelná).
 OPS = {
-    "create": ({"title", "text"}, {"scopeNodeId", "parentId", "stage", "note", "track"}),
+    # `track` = alias do K5, pak smazat (ux → ux, logic → be; viz discipline_payload).
+    "create": ({"title", "text"}, {"scopeNodeId", "parentId", "stage", "note", "discipline", "track"}),
     "revise": ({"fragmentId", "expectedRevision", "note"}, {"text", "title", "stage"}),
     "split": ({"fragmentId", "expectedRevision"}, {"parts", "splitter", "note"}),
     "research": ({"fragmentId", "title", "text"}, {"note", "question", "status"}),
@@ -49,6 +51,8 @@ OPS = {
     "set-mvp": ({"fragmentIds", "mvp"}, {"note"}),
     "delete": ({"fragmentId", "expectedRevision", "note"}, set()),
     "restore": ({"fragmentId", "expectedRevision", "revision", "note"}, set()),
+    "set-discipline": ({"fragmentId", "expectedRevision", "discipline", "note"}, set()),
+    # Alias do K5, pak smazat: frontend zatím posílá `set-track` s `track` (ux → ux, logic → be).
     "set-track": ({"fragmentId", "expectedRevision", "track", "note"}, set()),
     **develop.OPS,
 }
@@ -146,11 +150,11 @@ class _Write:
     def revise(self, row, note, **changes):
         return self.insert(row["fragment_id"], row["revision"] + 1, {**data_of(row), **changes}, note)
 
-    def new(self, *, parent, scope, title, text, kind="brief", stage="draft", note="", track=None):
-        """Nový fragment; `track` None = dědí od rodiče (kořen ho dostane vždy, hlídá volající)."""
+    def new(self, *, parent, scope, title, text, kind="brief", stage="draft", note="", discipline=None):
+        """Nový fragment; `discipline` None = dědí od rodiče (kořen ji dostane vždy, hlídá volající)."""
         siblings = self.children(parent) if parent is not None else []
         data = {"parent_id": parent, "scope_node_id": scope, "ord": max((row["ord"] for row in siblings), default=0) + 1,
-                "kind": kind, "title": title, "text": text, "stage": stage, "mvp": "none", "deleted": 0, "track": track}
+                "kind": kind, "title": title, "text": text, "stage": stage, "mvp": "none", "deleted": 0, "discipline": discipline}
         return self.insert(uuid.uuid4().hex, 1, data, note)
 
 
@@ -177,9 +181,9 @@ def _create(w, payload, node_ids):
         w.check_depth(parent)
     elif scope != "" and scope not in node_ids:
         fail("scopeNodeId musí být \"\" (plátno) nebo id existující karty či sektoru.")
-    track = track_of(payload.get("track"), allow_null=parent is not None)
+    discipline = discipline_of(discipline_payload(payload)[1], allow_null=parent is not None)
     row = w.new(parent=parent, scope=scope, title=title, text=text, stage=_stage(payload.get("stage", "draft")),
-                note=payload.get("note") or "Vloženo do schránky.", track=track)
+                note=payload.get("note") or "Vloženo do schránky.", discipline=discipline)
     return {"fragment": public(row)}
 
 
@@ -268,22 +272,24 @@ def _restore(w, payload, node_ids):
     if old is None or old["deleted"]:
         fail("obnovit lze jen existující nesmazanou revizi fragmentu.")
     note = f"Obnovena revize r{old['revision']}: {payload['note']}"
-    # Stopa je zařazení, ne obsah: obnova vrátí text a metadata, stopu nechá aktuální (přeřazuje set-track).
-    data = {**data_of(old), "track": row["track"]}
+    # Disciplína je zařazení, ne obsah: obnova vrátí text a metadata, disciplínu nechá aktuální (set-discipline).
+    data = {**data_of(old), "discipline": row["discipline"]}
     return {"fragment": public(w.insert(row["fragment_id"], row["revision"] + 1, data, note))}
 
 
-def _set_track(w, payload, node_ids):
-    """Přeřazení fragmentu (a s ním podstromu, který stopu dědí) do jiné stopy; text beze změny."""
+def _set_discipline(w, payload, node_ids):
+    """Přeřazení fragmentu (a s ním podstromu, který disciplínu dědí) do jiné disciplíny; text beze změny.
+    `op: set-track` s `track` je alias do K5, pak smazat."""
     row = w.checked(payload)
-    track = track_of(payload["track"], allow_null=row["parent_id"] is not None)
-    if row["track"] == track:
-        fail("set-track nic nemění; fragment už má tuto stopu.")
-    return {"fragment": public(w.revise(row, payload["note"], track=track))}
+    discipline = discipline_of(discipline_payload(payload)[1], allow_null=row["parent_id"] is not None)
+    if row["discipline"] == discipline:
+        fail(f"{payload['op']} nic nemění; fragment už má tuto disciplínu.")
+    return {"fragment": public(w.revise(row, payload["note"], discipline=discipline))}
 
 
 HANDLERS = {"create": _create, "revise": _revise, "split": _split, "research": develop.research, "promote": _promote,
-            "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore, "set-track": _set_track, **develop.HANDLERS}
+            "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore, "set-discipline": _set_discipline,
+            "set-track": _set_discipline, **develop.HANDLERS}
 
 
 class BriefVault(VaultReader):

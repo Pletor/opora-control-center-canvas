@@ -24,10 +24,11 @@ from backend.editor.brief_vault.brief_vault_details import (
 from backend.editor.brief_vault.brief_vault_model import (
     MAX_TEXT,
     MAX_TITLE,
+    discipline_of,
+    discipline_payload,
     fail,
     public,
     text_of,
-    track_of,
 )
 
 OPS = {
@@ -36,7 +37,8 @@ OPS = {
     "answer": ({"fragmentId", "expectedRevision", "answer"}, {"note"}),
     "feedback": ({"fragmentId", "verdict"}, {"text"}),
     "link-decisions": ({"fragmentId", "decisionIds"}, {"note"}),
-    "from-idea": ({"nodeId", "ideaId"}, {"parentId", "scopeNodeId", "title", "note", "track"}),
+    # `track` = alias do K5, pak smazat (ux → ux, logic → be; viz discipline_payload).
+    "from-idea": ({"nodeId", "ideaId"}, {"parentId", "scopeNodeId", "title", "note", "discipline", "track"}),
 }
 HUMAN_OPS = {"feedback": "Zpětnou vazbu k výzkumu dává člověk; agent ji čte v balíčku research-brief."}
 
@@ -148,10 +150,10 @@ def from_idea(w, payload, node_ids):
     elif scope != "" and scope not in node_ids:
         fail("scopeNodeId musí být \"\" (plátno) nebo id existující karty či sektoru.")
     title = text_of(payload.get("title") or idea["text"].strip().split("\n")[0][:MAX_TITLE], MAX_TITLE, "title", allow_empty=False)
-    # Nový kořen nese stopu vždy (jako create); dítě ji smí vynechat a dědí.
-    track = track_of(payload.get("track"), allow_null=parent is not None)
+    # Nový kořen nese disciplínu vždy (jako create); dítě ji smí vynechat a dědí. `track` = alias do K5.
+    discipline = discipline_of(discipline_payload(payload)[1], allow_null=parent is not None)
     row = w.new(parent=parent, scope=scope, title=title, text=idea["text"],
-                note=payload.get("note") or f"Z Podnětu karty {node_id}.", track=track)
+                note=payload.get("note") or f"Z Podnětu karty {node_id}.", discipline=discipline)
     idea["fragmentId"] = row["fragment_id"]
     from backend.editor.agent_memory.desktop_v3_state import validate_state
     validate_state(state)

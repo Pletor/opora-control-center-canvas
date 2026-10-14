@@ -7,29 +7,27 @@ používá zápis služby (`brief_vault.py`) i uložená verze plátna (`version
 from typing import NoReturn
 
 from backend.canvas.graph import valid_id
+from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_IDS, discipline_from_track
 
 COLUMNS = ("parent_id", "scope_node_id", "ord", "kind", "title", "text", "stage", "mvp", "note", "by", "actor", "deleted",
-           "track")
+           "discipline")
 # `research` = ověření proveditelnosti, `question` = otázka K upřesnění; obojí je poznámka k fragmentu, ne kus zadání.
 KINDS = ("brief", "research", "question")
 STAGES = ("draft", "research", "ready")
 # `proposed` navrhuje agent; `yes` / `no` rozhoduje jen člověk.
 MVP_VALUES = ("none", "proposed", "yes", "no")
 ACTORS = ("human", "agent", "unknown", "")
-# Stopa plánu (Dvě stopy): `ux` = CX/UX/UI, `logic` = Backend + DB, None = dědí od rodiče (u kořene „nezařazené“).
-TRACKS = ("ux", "logic")
-TRACK_FILTERS = ("ux", "logic", "none")
 MAX_TITLE, MAX_TEXT, MAX_NOTE, MAX_BY = 160, 64000, 1000, 120
 # Strop hloubky fraktálu (kořen = 1): hlubší strom nejde založit (409) a čtení ho nevnoří dál.
 MAX_DEPTH = 32
 # Revize, kterou obnova verze plátna zapíše fragmentu vzniklému až po verzi: měkce smazaný
 # a prázdný. Starší revize s doslovným textem v tabulce zůstávají.
 TOMBSTONE = {"parent_id": None, "scope_node_id": None, "ord": 0, "kind": "brief", "title": "", "text": "",
-             "stage": "draft", "mvp": "none", "note": "", "by": "", "actor": "", "deleted": 1, "track": None}
+             "stage": "draft", "mvp": "none", "note": "", "by": "", "actor": "", "deleted": 1, "discipline": None}
 
 
 class BadRequest(ValueError):
-    """Chybný tvar požadavku (např. kořen bez stopy): router ho vrací jako 400, ne 409 (konflikt stavu)."""
+    """Chybný tvar požadavku (např. kořen bez disciplíny): router ho vrací jako 400, ne 409 (konflikt stavu)."""
 
 
 def fail(message) -> NoReturn:
@@ -68,23 +66,37 @@ def validate_record(data):
     text_of(data["by"], MAX_BY, "by")
     if data["deleted"] not in (0, 1) or type(data["deleted"]) is not int:
         fail("deleted musí být 0 nebo 1.")
-    if data["track"] is not None and data["track"] not in TRACKS:
-        fail("track musí být \"ux\", \"logic\" nebo null.")
+    if data["discipline"] is not None and data["discipline"] not in DISCIPLINE_IDS:
+        fail("discipline musí být id disciplíny nebo null.")
     return data
 
 
-def track_of(value, *, allow_null):
-    """Stopa z požadavku: `ux` | `logic`, u dítěte i null (dědí)."""
+def discipline_of(value, *, allow_null):
+    """Disciplína z požadavku: id z tabulky §2, u dítěte i null (dědí)."""
     if value is None and allow_null:
         return None
-    if value not in TRACKS:
-        bad_request("track musí být \"ux\" (CX/UX/UI) nebo \"logic\" (Backend + DB)"
-             + (" nebo null (dědí od rodiče)." if allow_null else "; kořen schránky stopu nese vždy."))
+    if not isinstance(value, str) or value not in DISCIPLINE_IDS:
+        bad_request("discipline musí být jedna z " + ", ".join(DISCIPLINE_IDS)
+                    + (" nebo null (dědí od rodiče)." if allow_null else "; kořen schránky disciplínu nese vždy."))
     return value
 
 
-def effective_tracks(rows):
-    """Platná stopa každého fragmentu {id: "ux"|"logic"|None}: `track` nejbližšího předka včetně sebe.
+def discipline_payload(payload, key="discipline"):
+    """Hodnota disciplíny z požadavku; `track` je alias do K5, pak smazat (ux → ux, logic → be, null → null).
+
+    Vrací (je-li uvedena, hodnota). Obě pole naráz = 400; neznámá stopa = 400."""
+    if "track" in payload:
+        if key in payload:
+            bad_request("pošlete jen discipline (track je dočasný alias).")
+        track = payload["track"]
+        if track is not None and discipline_from_track(track) is None:
+            bad_request("track (alias do K5) musí být \"ux\", \"logic\" nebo null; použijte discipline.")
+        return True, discipline_from_track(track)
+    return key in payload, payload.get(key)
+
+
+def effective_disciplines(rows):
+    """Platná disciplína každého fragmentu {id: id|None}: `discipline` nejbližšího předka včetně sebe.
 
     Bez rekurze: každý fragment jde nahoru jen k první známé odpovědi (memo), cyklus nebo chybějící
     rodič končí jako „nezařazené“. Celkem O(n) kroků i pro strom hlubší než `MAX_DEPTH`.
@@ -98,8 +110,8 @@ def effective_tracks(rows):
                 break
             seen.add(cursor)
             chain.append(cursor)
-            if rows[cursor].get("track") is not None:
-                found = rows[cursor]["track"]
+            if rows[cursor].get("discipline") is not None:
+                found = rows[cursor]["discipline"]
                 break
             cursor = rows[cursor]["parent_id"]
         for fragment_id in chain:
@@ -117,7 +129,7 @@ def public(row, *, with_text=False):
             "scopeNodeId": row["scope_node_id"], "ord": row["ord"], "kind": row["kind"], "title": row["title"],
             "stage": row["stage"], "mvp": row["mvp"], "note": row["note"], "by": row["by"], "actor": row["actor"],
             "at": row["saved_at"], "deleted": bool(row["deleted"]), "chars": len(row["text"]),
-            "track": row["track"]}
+            "discipline": row["discipline"]}
     if with_text:
         item["text"] = row["text"]
     return item

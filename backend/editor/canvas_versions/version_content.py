@@ -13,7 +13,7 @@ STORES = {
     "documents": ("workspace_documents", ("path",), ("fields", "node_id", "source_version")),
     "briefFragments": ("brief_fragment_revisions", ("fragment_id",), ("parent_id", "scope_node_id", "ord", "kind", "title",
                                                                      "text", "stage", "mvp", "note", "by", "actor", "deleted",
-                                                                     "track")),
+                                                                     "discipline")),
     "briefDetails": ("brief_fragment_details", ("fragment_id",), ("fields",)),
     # Zamrazená kola karet (card_rounds.py); stav nese `nodes[].round`, záznamy kol tato část.
     "cardRounds": ("card_rounds", ("node_id", "round"), ("record",)),
@@ -24,7 +24,11 @@ LATER_STORES = ("briefFragments", "briefDetails", "cardRounds")
 JSON_COLUMNS = {"fields", "scene", "sections", "record"}
 # Sloupce přidané do části až po verzích, které je neznají (hodnota „nic“). Starší snímek je při obnově
 # dostane s touto hodnotou a digest obsahu je s touto hodnotou vynechá, takže stará verze zůstane platná.
-LATER_COLUMNS = {"briefFragments": {"track": None}}
+LATER_COLUMNS = {"briefFragments": {"discipline": None}}
+# Sloupce, které část už neukládá (snímky z doby před disciplínami nesou `track`). Při obnově se převedou
+# (`with_later_stores`, stejně jako backfill DB: ux → ux, logic → be) a digest uloženého snímku je s výchozí
+# hodnotou vynechá jako dřív, takže integrita starých verzí platí dál.
+RETIRED_COLUMNS = {"briefFragments": {"track": None}}
 SCHEMA = "opora.canvas-version/2"
 EXCLUDED = ["source-code", "git-history", "project-settings", "external-references", "immutable-agent-evidence"]
 
@@ -62,18 +66,30 @@ def empty_data(name):
     }[name]
 
 
+def _upgraded_data(name, data):
+    """Data řádku staršího snímku v dnešním tvaru: vyřazená stopa → disciplína, chybějící sloupce s výchozí hodnotou."""
+    data = dict(data)
+    if name == "briefFragments" and "track" in data:
+        from backend.editor.brief_vault.brief_vault_disciplines import discipline_from_track
+        track = data.pop("track")
+        if data.get("discipline") is None:
+            data["discipline"] = discipline_from_track(track)
+    return {**LATER_COLUMNS.get(name, {}), **data}
+
+
 def with_later_stores(records):
-    """Snímek uložený před přidáním části ji dostane jako prázdnou (obnova pak skryje novější fragmenty)
-    a řádky bez později přidaného sloupce ho dostanou s výchozí hodnotou (`LATER_COLUMNS`)."""
+    """Snímek uložený před přidáním části ji dostane jako prázdnou (obnova pak skryje novější fragmenty),
+    řádky bez později přidaného sloupce ho dostanou s výchozí hodnotou (`LATER_COLUMNS`) a snímek se stopou
+    dostane disciplínu jako backfill databáze (`track` ux → `ux`, logic → `be`)."""
     records = {**{name: [] for name in LATER_STORES}, **records}
-    return {name: [{**row, "data": {**LATER_COLUMNS[name], **row["data"]}} for row in rows] if name in LATER_COLUMNS else rows
+    return {name: [{**row, "data": _upgraded_data(name, row["data"])} for row in rows] if name in LATER_COLUMNS else rows
             for name, rows in records.items()}
 
 
 def _digest_data(name, data):
-    """Data řádku pro digest bez později přidaných sloupců s výchozí hodnotou (stejný digest jako dřív)."""
-    later = LATER_COLUMNS.get(name, {})
-    return {key: value for key, value in data.items() if key not in later or value != later[key]}
+    """Data řádku pro digest bez později přidaných i vyřazených sloupců s výchozí hodnotou (stejný digest jako dřív)."""
+    skipped = {**LATER_COLUMNS.get(name, {}), **RETIRED_COLUMNS.get(name, {})}
+    return {key: value for key, value in data.items() if key not in skipped or value != skipped[key]}
 
 
 def content_digest(graph, state, snapshot):

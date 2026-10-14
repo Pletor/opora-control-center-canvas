@@ -12,8 +12,8 @@ from backend.editor.brief_vault.brief_vault_details import (
     feedback_rows,
     latest_details,
 )
+from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_FILTERS, public_table
 from backend.editor.brief_vault.brief_vault_model import (
-    TRACK_FILTERS,
     bad_request,
     fail,
     history_rows,
@@ -22,6 +22,7 @@ from backend.editor.brief_vault.brief_vault_model import (
     text_revisions,
 )
 from backend.editor.brief_vault.brief_vault_tree import (
+    discipline_counts,
     fragment_links,
     path_of,
     refs_by_fragment,
@@ -73,24 +74,33 @@ class VaultReader:
                 "texts": text_revisions(db, project, workspace),
                 "details": {key: value["fields"] for key, value in latest_details(db, project, workspace).items()}}
 
-    def tree(self, project, workspace, scope=None, track=None):
+    def tree(self, project, workspace, scope=None, discipline=None):
         """Stromy schránek bez plných textů, s odvozeným stavem, pokrytím a výtahem výzkumu; jeden dotaz pro celé UI.
 
-        `track` (`ux` | `logic` | `none`) ponechá fragmenty dané platné stopy a jejich cestu ke kořeni."""
+        `discipline` (id | `none`) ponechá fragmenty dané platné disciplíny a jejich cestu ke kořeni."""
         if scope is not None and scope != "" and not valid_id(scope):
             fail("scope má neplatný identifikátor.")
-        if track is not None and track not in TRACK_FILTERS:
-            bad_request("track filtruje ux, logic nebo none (nezařazené).")
+        if discipline is not None and discipline not in DISCIPLINE_FILTERS:
+            bad_request("discipline filtruje id disciplíny (" + ", ".join(DISCIPLINE_FILTERS[:-1]) + ") nebo none (nezařazené).")
         with self.canvas.reading(project):
             read = self._read(project, workspace)
             if read is None:
                 return {"readOnly": True, "roots": [], "feedback": []}
             db = read["db"]
             roots = tree_of(read["rows"], read["state"], scope, read["texts"], read["details"],
-                            _feedback_counts(db, project, workspace), track)
+                            _feedback_counts(db, project, workspace), discipline)
             ids = set(_ids_of(roots))
             feedback = [item for item in feedback_rows(db, project, workspace) if item["fragmentId"] in ids]
             return {"readOnly": False, "roots": roots, "feedback": feedback}
+
+    def disciplines(self, project, workspace):
+        """Tabulka disciplín (docs/schranka-neurony.md §2) s počtem živých fragmentů `brief` na platnou disciplínu;
+        neuron je zapnutý, když `live > 0`. `unassigned` = živé fragmenty bez disciplíny na celé cestě ke kořeni."""
+        with self.canvas.reading(project):
+            view = self.canvas.view(project, workspace)
+            counts, unassigned = ({}, 0) if view["readOnly"] else discipline_counts(
+                latest_rows(self.canvas.db_for(project), project, workspace))
+            return {"disciplines": public_table(counts), "unassigned": unassigned}
 
     def fragment(self, project, workspace, fragment_id, revision=None):
         """Plný text revize, historie, děti, cesta, karty, Podněty, podrobnosti a zpětná vazba fragmentu."""

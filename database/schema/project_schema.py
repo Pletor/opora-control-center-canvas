@@ -58,9 +58,10 @@ CREATE TABLE IF NOT EXISTS brief_fragment_revisions(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
     parent_id TEXT, scope_node_id TEXT, ord INTEGER NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
     text TEXT NOT NULL, stage TEXT NOT NULL, mvp TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL,
-    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL, track TEXT,
+    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL, track TEXT, discipline TEXT,
     PRIMARY KEY(project_id, workspace_id, fragment_id, revision));
--- Sloupec track (stopa ux | logic | NULL = dědí) starší databáze dostanou v ensure_brief_fragment_columns.
+-- Sloupce track (historická stopa, kód ji už nečte ani nepíše) a discipline (docs/schranka-neurony.md §2,
+-- NULL = dědí) starší databáze dostanou v ensure_brief_fragment_columns; tam je i backfill track → discipline.
 -- backend/editor/brief_vault/brief_vault_details.py: výzkum, otázka a odkazy na rozhodnutí fragmentu (JSON, jen přibývají revize)
 CREATE TABLE IF NOT EXISTS brief_fragment_details(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
@@ -247,7 +248,16 @@ def ensure_canvas_version_columns(db):
 
 
 def ensure_brief_fragment_columns(db):
-    """Doplní stopu fragmentu (Dvě stopy); stávající revize zůstanou NULL = „nezařazené“."""
+    """Doplní historickou stopu a disciplínu fragmentu (docs/schranka-neurony.md §2 „Migrace“, §9 bod 5).
+
+    Backfill je doplnění schématu, ne nová revize: jen řádky s `track IS NOT NULL AND discipline IS NULL`
+    (`ux` → `ux`, `logic` → `be`). Nový kód `track` nepíše, takže záměrné NULL z `set-discipline` se
+    opakovaným otevřením nepřepíše. Řádky bez stopy zůstanou NULL = dědí / nezařazené."""
     columns = _columns(db, "brief_fragment_revisions")
-    if columns and "track" not in columns:
-        add_column(db, "brief_fragment_revisions", "track")
+    if not columns:
+        return
+    for name in ("track", "discipline"):
+        if name not in columns:
+            add_column(db, "brief_fragment_revisions", name)
+    db.execute("UPDATE brief_fragment_revisions SET discipline=CASE track WHEN 'ux' THEN 'ux' WHEN 'logic' THEN 'be' END"
+               " WHERE track IN ('ux','logic') AND discipline IS NULL")

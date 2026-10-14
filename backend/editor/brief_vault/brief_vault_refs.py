@@ -7,7 +7,7 @@ a prostoru hlídá `check_new_references` při uložení stavu a `resolve_plan_r
 
 from backend.canvas.graph import valid_id
 from backend.editor.brief_vault.brief_vault_model import (
-    effective_tracks,
+    effective_disciplines,
     latest_rows,
     text_revisions,
 )
@@ -91,7 +91,7 @@ def brief_section(db, project, workspace, refs):
     refs = refs or []
     rows = latest_rows(db, project, workspace) if refs else {}
     texts = text_revisions(db, project, workspace, [ref["fragmentId"] for ref in refs]) if refs else {}
-    tracks = effective_tracks(rows) if refs else {}
+    disciplines = effective_disciplines(rows) if refs else {}
     items = []
     for ref in refs:
         row = rows.get(ref["fragmentId"])
@@ -99,7 +99,7 @@ def brief_section(db, project, workspace, refs):
             items.append({"fragmentId": ref["fragmentId"], "insertedRevision": ref["revision"], "available": False})
             continue
         items.append({"fragmentId": ref["fragmentId"], "title": row["title"], "kind": row["kind"], "stage": row["stage"],
-                      "effectiveTrack": tracks.get(ref["fragmentId"]),
+                      "effectiveDiscipline": disciplines.get(ref["fragmentId"]),
                       "path": [item["title"] for item in path_of(rows, ref["fragmentId"])],
                       "insertedRevision": ref["revision"], "revision": row["revision"],
                       "textRevision": texts.get(ref["fragmentId"], row["revision"]),

@@ -50,7 +50,7 @@ Dlouhé zadání (od člověka, zákazníka, z dokumentu) se **nejdřív uloží
 ne do textu karet. Schránka drží fragmenty s historií revizí; karta na fragment jen odkazuje (`fragmentRef`)
 a `node-brief.fragments` jí doslovný text doplní. Payloady: [api.md](api.md) „Schránka zadání“.
 
-1. **Uložit** kořen: `opora_write.py /api/brief-vault` `{op: "create", scopeNodeId: "" | SEKTOR | KARTA, track: "ux" | "logic", title, text}`
+1. **Uložit** kořen: `opora_write.py /api/brief-vault` `{op: "create", scopeNodeId: "" | SEKTOR | KARTA, discipline: "ux" | "be" | … (api.md „Schránka zadání“), title, text}`
    (text doslova, ≤ 64 000 znaků; delší po kapitolách do víc kořenů). Ověř `opora_read.py vault [--node SEKTOR]`.
 2. **Rozdělit** `{op: "split", fragmentId, expectedRevision, splitter: "heading-number"}` (kapitoly po prázdném
    řádku), jinak explicitní `parts: [{title, text}]`. Server hlídá invariant: spojení dětí (oddělovač prázdný
