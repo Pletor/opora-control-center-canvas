@@ -36,7 +36,6 @@ export type CardActions = {
   cardBlock: (id: string, event: CardBlockEvent) => void;
   saveEvidence: (id: string, value: CompletionEvidence) => Promise<boolean>;
   confirm: (id: string) => Promise<boolean>;
-  urlDownload: (id: string, enabled: boolean) => Promise<boolean>;
   realize: (id: string, commit: string, prUrl: string) => Promise<void>;
   releaseLease: (id: string) => Promise<unknown>;
   ruleWrite: (expected: Rule, item: Rule) => Promise<boolean>;
@@ -48,7 +47,7 @@ const no = async () => false;
 /** Výchozí akce mimo Board (testy, náhled): nic se nestane a nic se neuloží. */
 export const NO_CARD_ACTIONS: CardActions = {
   open: idle, tag: idle, renameStart: idle, renameCancel: idle, renameCommit: idle, renameNode: idle,
-  commentText: idle, resizeArea: idle, togglePort: idle, cardBlock: idle, saveEvidence: no, confirm: no, urlDownload: no,
+  commentText: idle, resizeArea: idle, togglePort: idle, cardBlock: idle, saveEvidence: no, confirm: no,
   realize: async () => {}, releaseLease: async () => undefined, ruleWrite: no, ruleReview: no,
 };
 

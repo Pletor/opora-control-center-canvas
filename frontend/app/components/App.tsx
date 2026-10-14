@@ -1,14 +1,14 @@
 import { saveCanvasGraph } from "@/editor/canvas/board/logic/graph-positions";
 import { fetchState } from "@/shared/desktop-state/logic/api";
 import type { StateResponse } from "@/shared/desktop-state/logic/types";
-import { useEffect, useMemo, useRef, useState, lazy, Suspense, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import "@/ui-kit/panel-frame/styles/panels.css";
 import Board from "@/editor/canvas/board/components/Board";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import { useUsage } from "@/editor/canvas/node-card/logic/use-usage";
 import { useAssignmentStatus } from "@/editor/canvas/node-card/logic/use-assignment-status";
 import { useLeases } from "@/editor/canvas/node-card/logic/use-leases";
 import { useSourceStatus } from "@/editor/canvas/node-card/logic/use-source-status";
-import { setUrlDownload } from "@/editor/canvas/node-card/logic/input-security";
 import { confirmProposal } from "@/editor/canvas/node-card/logic/completion-proposals";
 import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, type BlockApi, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
@@ -86,7 +86,7 @@ import type { WireframeKind } from "@/editor/canvas/wireframes/logic/wireframe-m
 import DrawingTools from "@/editor/canvas/drawing/components/DrawingTools";
 import { discardDrawingDrafts, type DrawingTool } from "@/editor/canvas/drawing/logic/drawing-state";
 const DrawingWorkspace = lazy(() => import("@/editor/canvas/drawing/components/DrawingWorkspace"));
-import ArchifyMap from "@/project/maps/components/ArchifyMap";
+import ControlTower from "@/editor/control-tower/components/ControlTower";
 import WorkspaceBoundary from "@/ui-kit/workspace-boundary/components/WorkspaceBoundary";
 import {
   readMode,
@@ -129,16 +129,7 @@ import {
 } from "@/shared/types/logic/types";
 const initial = new URLSearchParams(location.search);
 const initialModeEnvironment = resolveInitialModeEnvironment(initial);
-/**
- * Montážní místa v3 panelů (frontend/agents/desktop-v3). Koordinátor je předá v main.tsx, např.
- * <App v3={{ agentPacket: (p) => <AgentPacketPanel {...p} /> }} />. Nenapojený slot nevykreslí nic.
- */
-export type DesktopV3Slots = {
-  projectMemory?: (scope: { project: string; workspace: string; path: string }) => ReactNode;
-  nodeWorkflow?: (scope: { project: string; workspace: string; nodeId: string }) => ReactNode;
-  agentPacket?: (scope: { project: string; workspace: string; nodeId: string; path: string; references: string[]; note: string }) => ReactNode;
-};
-export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
+export default function App() {
   const [screen, setScreen] = useState<"home" | "canvas">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
   const [draftProject, setDraftProject] = useState<Project | undefined>();
   const [wireframeMode, setWireframeMode] = useState(initial.get("wireframe") === "1");
@@ -1112,7 +1103,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
               ) : mode === "map" ? (
-                <ArchifyMap key={project} project={project}/>
+                <ControlTower key={project} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }} />
               ) : mode === "drawing" ? (
                 <WorkspaceBoundary
                   key={JSON.stringify([project, workspace, parent, mode])}
@@ -1145,7 +1136,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   digest={view?.digest}
                   usage={usage}
                   leases={leases}
-                  onUrlDownload={(nodeId, enabled) => desktop.mutate(setUrlDownload(nodeId, enabled))}
                   sourceStatuses={sourceStatuses}
                   onRealizeSource={async (nodeId, commit, prUrl) => {
                     await trackSaveWrite(project, workspace, api("/api/desktop-v3/realize-source", { project, workspace, nodeId, digest: view?.digest, commit, prUrl }));
@@ -1352,7 +1342,6 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                 onPickTag={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
                 onSelectBlock={(id) => setSelection(selectBlock(node.id, id))}
                 onAgentTask={() => requestAgentTask(node.id, "", "canvas")}
-                workflow={v3.nodeWorkflow?.({ project, workspace, nodeId: node.id })}
                 resultRevision={desktop.revision}
                 onOpenVault={openVault}
                 round={desktop.state.nodes[node.id]?.round}

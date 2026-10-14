@@ -30,6 +30,7 @@ v `OPORA_ACCESS_TOKEN`. `opora_write.py` zapisuje jen přes loopback.
 
 | Úloha | Cesta | Detail |
 |---|---|---|
+| **Rozložit oblast na sektory** (role rozkladač) | záměr oblasti z `view` → mapa kódu → 2–7 sektorů s kartou `[gate]` jako jedna dávka `canvas-plan --dry-run` → jedno rozhodnutí člověka → ostře | [rozklad.md](references/rozklad.md), pyramida `docs/pyramida.md` |
 | **Naplánovat sektor nebo strom karet** | `view` → koncept dávky → `canvas-plan --dry-run` → ostře → `node-brief` nových karet | [canvas-plan.md](references/canvas-plan.md), laťka karty [workflow.md](references/workflow.md) |
 | **Udělat kartu nebo etapu** (jedna relace) | `frontier` → `lease claim` → `node-brief --raw` → práce → `agent-output` → `lease release` | [agent-loop.md](references/agent-loop.md) |
 | **Být router** | `frontier` (bez `--node` = kořen plátna) → `needsRouting` → `node-brief` → `/api/desktop-v3/pipeline` | [pipeline.md](references/pipeline.md) |

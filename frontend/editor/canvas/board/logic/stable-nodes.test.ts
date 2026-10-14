@@ -31,7 +31,7 @@ function inputFor(graph: Graph, state: DesktopState, patch: Partial<LayerInput> 
   const index = buildBoardIndex(graph, state);
   return { graph, state, index, parent: null, selected: null, multiSelected: new Set(), selectedBlock: null, editing: null, disabled: false,
     openBlocks: {}, tagFilter: "", moved: new Set(), sectors: sectorViews(graph, state, index), vaultIndex: indexVault([]),
-    sourceContext: { project: "p", workspace: "w" }, can: { urlDownload: true, realize: true, saveEvidence: true, confirm: true, rules: true },
+    sourceContext: { project: "p", workspace: "w" }, can: { realize: true, saveEvidence: true, confirm: true, rules: true },
     ...patch };
 }
 

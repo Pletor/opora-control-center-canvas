@@ -1,0 +1,283 @@
+/* VELÍN (blok `control-tower`)
+   Příběh: člověk sem přichází zjistit, jak je na tom celý projekt a co po něm kdo chce — ne nic
+   vyplňovat. Obrazovka je proto rozdělená jako řídicí pult: nahoře jeden pás s celkovým stavem,
+   pod ním vlevo pyramida projektu (oblasti → sektory → karty), která se posouvá sama, a vpravo
+   úzký sloupec fronty „Čeká na tebe“, který zůstává pořád na očích. Na úzké obrazovce (pod 1000 px)
+   jde fronta nahoru nad pyramidu, protože je důležitější než přehled. */
+.control-tower {
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+}
+.control-tower__body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+.control-tower__pyramid {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.control-tower__empty,
+.control-tower__error {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--ink-muted);
+  font-size: var(--fs-2);
+}
+.control-tower__error { color: var(--danger); }
+@media (max-width: 1000px) {
+  .control-tower__body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .control-tower__body > .tower-inbox {
+    order: -1;
+    max-height: 40vh;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+/* PRUH STAVŮ (blok `tower-bar`)
+   Příběh: pruh čte oko dřív než čísla — zelená hotového roste zleva, jantarová a červená říkají
+   „tady je potřeba člověk“. Je tenký (6 px), aby nepřehlušil text, a stejný všude: v pásu, v oblasti
+   i v dlaždici sektoru. Barvy jsou tytéž jako u přehledu „Teď se děje“, šířku nese `--w`. */
+.tower-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.tower-bar__part { width: var(--w); background: #94a3b8; }
+.tower-bar__part--closed { background: #22c55e; }
+.tower-bar__part--proposed { background: #4ade80; }
+.tower-bar__part--failed { background: #f87171; }
+.tower-bar__part--waitingHuman { background: #f59e0b; }
+.tower-bar__part--running { background: #60a5fa; }
+.tower-bar__part--idle { background: #94a3b8; }
+
+/* HORNÍ PÁS (blok `tower-summary`)
+   Příběh: jedna řádka, která odpoví na „jak to jde?“ — nápis Velín, celkový pruh přes celou šířku
+   a čtyři čísla. „Čeká na tebe“ se rozsvítí jantarově, jen když opravdu něco čeká, aby klid vypadal
+   jako klid. Bez přehledu práce je pás „neúplný“: pruh se ztlumí a místo čísel, která nejde znát, je „?“. */
+.tower-summary {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.tower-summary__title { margin: 0; font-size: var(--fs-5); font-weight: 650; }
+.tower-summary__facts { display: flex; gap: var(--sp-4); margin: 0; }
+.tower-summary__fact { display: flex; flex-direction: column-reverse; align-items: flex-end; }
+.tower-summary__label { font-size: var(--fs-0); color: var(--ink-muted); }
+.tower-summary__value { margin: 0; font-size: var(--fs-4); font-weight: 650; font-variant-numeric: tabular-nums; }
+.tower-summary__fact--hot .tower-summary__value { color: #f59e0b; }
+.tower-summary__bar { display: flex; flex-direction: column; gap: 2px; }
+.tower-summary__partial { font-size: var(--fs-0); color: var(--ink-muted); font-style: italic; }
+.tower-summary--partial .tower-summary__bar .tower-bar { opacity: 0.55; }
+@media (max-width: 700px) {
+  .tower-summary { grid-template-columns: minmax(0, 1fr); }
+  .tower-summary__facts { justify-content: space-between; }
+}
+
+/* FRONTA „ČEKÁ NA TEBE“ (blok `tower-inbox`)
+   Příběh: tohle je seznam úkolů člověka a nic jiného. Položky jsou seskupené podle sektoru, aby se
+   dalo vyřídit vše z jednoho místa najednou. Značka vlevo řekne druh dřív než text — ✓ ke schválení,
+   ⚠ uvízlý proces, ? otázka agenta — a tlačítko „Otevřít“ vpravo vede rovnou na kartu. Čipy nahoře
+   zúží frontu na jeden druh; po 50 položkách se další přidají tlačítkem, aby dlouhá fronta nezahltila
+   sloupec. Když přehled práce nepřišel, fronta to řekne nahoře a netvrdí, že nic nečeká. */
+.tower-inbox {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-4);
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+}
+.tower-inbox__title { margin: 0 0 var(--sp-3); font-size: var(--fs-4); }
+.tower-inbox__empty { margin: 0; color: var(--ink-muted); font-size: var(--fs-2); }
+.tower-inbox__filters { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-bottom: var(--sp-3); }
+.tower-inbox__filter {
+  font-size: var(--fs-1);
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+}
+.tower-inbox__filter--on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--ink); font-weight: 600; }
+.tower-inbox__notice { margin: 0 0 var(--sp-3); font-size: var(--fs-1); color: var(--ink-muted); }
+.tower-inbox__notice--error { color: var(--danger); }
+.tower-inbox__group { margin-bottom: var(--sp-4); }
+.tower-inbox__group-title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-0);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+}
+.tower-inbox__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.tower-inbox__item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid #f59e0b;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.tower-inbox__item--proposed { border-left-color: #4ade80; }
+.tower-inbox__item--stuck { border-left-color: #f87171; }
+.tower-inbox__mark { font-weight: 700; text-align: center; }
+.tower-inbox__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tower-inbox__name { font-size: var(--fs-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tower-inbox__text { font-size: var(--fs-1); color: var(--ink-2); overflow-wrap: anywhere; }
+.tower-inbox__open { font-size: var(--fs-1); white-space: nowrap; }
+.tower-inbox__more { width: 100%; font-size: var(--fs-1); }
+
+/* PÁSMO OBLASTI (blok `tower-area`)
+   Příběh: oblast je téma projektu a ve Velínu je to pásmo s barevným pruhem vlevo — stejnou barvou,
+   jakou má její rámeček na plátně, aby člověk poznal „tohle je ta tyrkysová“ bez čtení. Hlava nese
+   název a vlastní součty, účel jen na jeden řádek; pod tím mřížka dlaždic sektorů (nejméně 260 px). */
+.tower-area {
+  --tower-area-stripe: var(--area-line, var(--accent));
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--tower-area-stripe);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+:root[data-theme="dark"] .tower-area[data-color="teal"] { --tower-area-stripe: #4fd8c9; }
+:root[data-theme="light"] .tower-area[data-color="teal"] { --tower-area-stripe: #1f9084; }
+:root[data-theme="dark"] .tower-area[data-color="amber"] { --tower-area-stripe: #f0b955; }
+:root[data-theme="light"] .tower-area[data-color="amber"] { --tower-area-stripe: #b8791a; }
+:root[data-theme="dark"] .tower-area[data-color="rose"] { --tower-area-stripe: #f087a4; }
+:root[data-theme="light"] .tower-area[data-color="rose"] { --tower-area-stripe: #c3467a; }
+:root[data-theme="dark"] .tower-area[data-color="violet"] { --tower-area-stripe: #b98af0; }
+:root[data-theme="light"] .tower-area[data-color="violet"] { --tower-area-stripe: #8047b8; }
+:root[data-theme="dark"] .tower-area[data-color="slate"] { --tower-area-stripe: #9aa6b8; }
+:root[data-theme="light"] .tower-area[data-color="slate"] { --tower-area-stripe: #5c6a7a; }
+.tower-area__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.tower-area__name { margin: 0; font-size: var(--fs-4); }
+.tower-area__counts { font-size: var(--fs-1); color: var(--ink-muted); white-space: nowrap; }
+.tower-area__purpose {
+  margin: 0;
+  font-size: var(--fs-2);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tower-area__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+.tower-area__cards { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.tower-area__empty { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+
+/* DLAŽDICE SEKTORU (blok `tower-sector`)
+   Příběh: sektor je jednotka práce, kterou člověk řídí — dlaždice mu na pár řádcích řekne, o čem
+   sektor je (účel na dva řádky), kolik je hotovo, co běží, co selhalo a co čeká, a zda prošel bránou
+   (zelený štítek „ověřeno“). Dvě tlačítka dole: rozbalit karty přímo tady, nebo vstoupit do vrstvy
+   na plátně. Podsektor uvnitř rozbalení je tatáž dlaždice, jen bez stínu a s odsazením. */
+.tower-sector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.tower-sector--verified { border-color: #22c55e; }
+.tower-sector--nested { background: var(--surface); margin-top: var(--sp-2); }
+.tower-sector__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.tower-sector__name { margin: 0; font-size: var(--fs-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tower-sector__gate {
+  font-size: var(--fs-0);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
+}
+.tower-sector__gate--ok { color: #22c55e; font-weight: 600; }
+.tower-sector__purpose {
+  margin: 0;
+  font-size: var(--fs-1);
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tower-sector__stats { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-1); color: var(--ink-muted); }
+.tower-sector__stat--running { color: #60a5fa; }
+.tower-sector__stat--failed { color: #f87171; }
+.tower-sector__stat--waiting { color: #f59e0b; }
+.tower-sector__actions { display: flex; gap: var(--sp-2); justify-content: space-between; }
+.tower-sector__toggle,
+.tower-sector__enter { font-size: var(--fs-1); }
+.tower-sector__content { border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+.tower-sector__cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.tower-sector__empty,
+.tower-sector__deeper { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+
+/* ŘÁDEK KARTY (blok `tower-card`)
+   Příběh: karta ve Velínu je jen řádek — název, čip stavu a drobné kuličky procesu, nic víc. Celý
+   řádek je jedno tlačítko, které kartu otevře na plátně. Uzavřená karta je ztlumená, aby oko šlo
+   rovnou na to, co ještě běží; počet podnětů je tichý šedý text na konci. */
+.tower-card__open {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.tower-card__open:hover { background: var(--surface-3); }
+.tower-card--closed .tower-card__open { opacity: 0.6; }
+.tower-card__name { flex: 1; min-width: 0; font-size: var(--fs-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tower-card__status {
+  font-size: var(--fs-0);
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid #94a3b8;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.tower-card__status--closed { border-color: #22c55e; }
+.tower-card__status--proposed { border-color: #4ade80; }
+.tower-card__status--failed { border-color: #f87171; }
+.tower-card__status--waitingHuman { border-color: #f59e0b; }
+.tower-card__status--running { border-color: #60a5fa; }
+.tower-card__status--unknown { border-style: dashed; color: var(--ink-muted); }
+.tower-card__process { flex: 0 0 auto; max-width: 40%; overflow: hidden; }
+.tower-card__ideas { font-size: var(--fs-0); color: var(--ink-muted); white-space: nowrap; }

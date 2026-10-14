@@ -10,7 +10,6 @@ import CardSource from "./CardSource";
 import CardRules from "./CardRules";
 import InheritedRules from "./InheritedRules";
 import CardUsage from "./CardUsage";
-import CardDesign from "./CardDesign";
 import AssignmentWarning from "./AssignmentWarning";
 import CardUpstream from "./CardUpstream";
 import CardFrontier from "./CardFrontier";
@@ -19,10 +18,7 @@ import ConfirmProposal from "./ConfirmProposal";
 import SectorProgress from "./SectorProgress";
 import CardEvidence from "./CardEvidence";
 import CardChecks from "./CardChecks";
-import CardFacts from "./CardFacts";
 import SourceRealization from "./SourceRealization";
-import CardScenario from "./CardScenario";
-import InputSecurity from "./InputSecurity";
 import { WorkDetails, WorkProgress, workLabels } from "./WorkNow";
 import EvidenceEditor from "./EvidenceEditor";
 import type { Usage } from "../logic/use-usage";
@@ -48,12 +44,9 @@ export type NodeCardData = {
   /** Kontrolní pás (deset polí ano / ne) ze serveru; chybí = pás se nekreslí. */
   checklist?: import("@/editor/canvas/card-checklist/logic/card-checklist").CheckItem[];
   moved?: boolean;
-  inputSecurity?: { enabled: boolean };
-  scenario?: { command: string; history?: import("../logic/use-scenario-history").ScenarioHistory; error?: string };
   work?: import("../logic/use-work-overview").WorkRow;
   workCounts?: Record<import("../logic/use-work-overview").WorkStatus, number>;
   realization?: { value?: import("@/shared/types/logic/types").CanvasNode["realization"]; status?: import("../logic/use-source-status").SourceStatus; disabled: boolean };
-  facts?: ReturnType<typeof import("./CardFacts").resolveFacts>;
   autonomous?: boolean;
   evidence?: import("./CardEvidence").CompletionEvidence;
   /** Rodič umí uložit důkazy: vybraná karta ukáže jejich editor. */
@@ -103,7 +96,6 @@ function useCardHandlers(actions: CardActions, id: string) {
       toggle: (port: BlockPort) => actions.togglePort(id, port),
       saveEvidence: (value: import("./CardEvidence").CompletionEvidence) => actions.saveEvidence(id, value),
       confirm: () => actions.confirm(id),
-      urlDownload: (enabled: boolean) => actions.urlDownload(id, enabled),
       realize: (commit: string, prUrl: string) => actions.realize(id, commit, prUrl),
       release: () => actions.releaseLease(id),
     };
@@ -137,14 +129,10 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
       <CardBody id={id} name={view.name} purpose={view.purpose} rename={{ ...on.rename, editing: data.rename.editing }} />
       {data.process && <CardProcess view={data.process} detail={full ? "full" : "far"} kind={view.kind} />}
       {full && data.checklist && <CardChecklist items={data.checklist} />}
-      {/* Přepínače a editory jen u vybrané karty (nebo když jsou zapnuté): plátno zůstane čitelné. */}
-      {full && data.inputSecurity && (selected || data.inputSecurity.enabled) && <InputSecurity {...data.inputSecurity} save={on.urlDownload} disabled={blocks.disabled} />}
-      {full && data.scenario && <CardScenario {...data.scenario} />}
       {selected && data.work && <details className="nodrag nopan" style={{ padding: "6px 12px" }}><summary>{data.work.status === "claimed" ? "🔵 " : data.work.status === "done" ? "✓ " : ""}{workLabels[data.work.status]}{data.work.status === "claimed" ? ` · ${data.work.agent}` : ""}</summary><WorkDetails row={data.work} /></details>}
       {full && data.workCounts && <WorkProgress counts={data.workCounts} />}
-      {/* Podrobnosti (fakta, kontroly, důkazy, vychází z, zdroj, pravidla) má nevybraná karta v kontrolním pásu;
+      {/* Podrobnosti (kontroly, důkazy, vychází z, zdroj, pravidla) má nevybraná karta v kontrolním pásu;
           rozepsané jsou u vybrané karty a v panelu detailu. */}
-      {selected && data.facts && <CardFacts facts={data.facts} />}
       {selected && <CardChecks checks={view.checks} goal_mode={view.goal_mode} evidence={data.evidence} />}
       {selected && <CardEvidence evidence={data.evidence} autonomous={data.autonomous} />}
       {selected && data.saveEvidence && <div className="nodrag nopan"><EvidenceEditor nodeId={id} evidence={data.evidence} disabled={blocks.disabled} save={on.saveEvidence} /></div>}
@@ -156,7 +144,6 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
       {selected && data.frontier && <CardFrontier item={data.frontier} />}
       {selected && data.upstream && <CardUpstream rows={data.upstream.rows} open={actions.open} />}
       {full && data.assignmentWarning && <AssignmentWarning key={JSON.stringify(data.assignmentWarning)} {...data.assignmentWarning} />}
-      {full && view.design && <CardDesign key={JSON.stringify(view.design)} design={view.design} />}
       {full && (selected || data.usage?.tokens != null || data.usage?.durationMs != null) && <CardUsage usage={data.usage} sector={view.kind === "sector"} />}
       {selected && !!data.inheritedRules?.length && <InheritedRules rules={data.inheritedRules} />}
       {selected && data.rules && data.rules.items.length > 0 && <CardRules rules={data.rules.items} write={actions.ruleWrite} review={actions.ruleReview} disabled={blocks.disabled} />}

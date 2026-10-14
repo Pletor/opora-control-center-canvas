@@ -4,9 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import AgentFields from "@/editor/canvas/create-dialog/components/AgentFields";
-import DesignEditor from "./DesignEditor";
 import ChecksEditor from "./ChecksEditor";
-import ScenarioEditor from "./ScenarioEditor";
 import LayerChips from "@/editor/canvas/create-dialog/components/LayerChips";
 import { cardDraftOf, sameCardDraft } from "@/editor/canvas/create-dialog/logic/card-draft";
 import { withCard } from "@/shared/card-context/logic/card-context";
@@ -44,9 +42,7 @@ export default function NodeCardEditor({
       <p className="card-fields__note">Vrstva, ruční stav a doporučení pro agenta. Stav „hotovo“ dává jen uzavření karty.</p>
       <LayerChips value={draft} disabled={readOnly || busy} onChange={setDraft} />
       <AgentFields value={draft} disabled={readOnly || busy} onChange={setDraft} />
-      <DesignEditor key={node.id} node={node} disabled={readOnly || busy} onSave={onSave} />
       <ChecksEditor key={`checks:${node.id}`} node={node} disabled={readOnly || busy} onSave={onSave} />
-      <ScenarioEditor key={`scenario:${node.id}`} node={node} disabled={readOnly || busy} onSave={onSave} />
       {!readOnly && dirty && (
         <button type="button" className="card-fields__save" disabled={busy} onClick={() => onSave(withCard(node, draft))}>
           Uložit kartu

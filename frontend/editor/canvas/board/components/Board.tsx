@@ -9,7 +9,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
 import WorkNow from "@/editor/canvas/node-card/components/WorkNow";
 import { useWorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
-import { useScenarioHistory } from "@/editor/canvas/node-card/logic/use-scenario-history";
 import { useAddedPulse } from "@/editor/canvas/node-card/logic/use-added-pulse";
 import {
   ReactFlow,
@@ -62,7 +61,6 @@ const MINIMAP_MAX = 500;
 export type { CardBlockEvent };
 
 export default function Board({
-  onUrlDownload,
   sourceStatuses,
   onRealizeSource,
   onAutonomy,
@@ -115,7 +113,6 @@ export default function Board({
   digest,
 }: {
   usage?: UsageSummary | null;
-  onUrlDownload?: (nodeId: string, enabled: boolean) => Promise<boolean>;
   sourceStatuses?: Record<string, import("@/editor/canvas/node-card/logic/use-source-status").SourceStatus>;
   onRealizeSource?: (nodeId: string, commit: string, prUrl: string) => Promise<void>;
   onConfirmProposal?: (nodeId: string) => Promise<boolean>;
@@ -206,15 +203,14 @@ export default function Board({
   const movedCards = useAddedPulse(graph.nodes.map(movedKey));
   const movedSet = useMemo(() => new Set(movedCards), [movedCards]);
   const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workKey);
-  const scenarios = useScenarioHistory(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workKey);
   const actions = useBoardActions({ disabled, nameOf: (id) => index.byId.get(id)?.name, onSelect, onTagFilter, onEditing, onRename,
-    onCommentText, onAreaResize, onTogglePort, onCardBlock, onSaveEvidence, onConfirmProposal, onUrlDownload, onRealizeSource,
+    onCommentText, onAreaResize, onTogglePort, onCardBlock, onSaveEvidence, onConfirmProposal, onRealizeSource,
     onRuleWrite, onRuleReview, sourceContext });
   // Schopnosti rodiče jako booleany: nové inline callbacky v App vrstvu nepřestaví, jejich přítomnost ano.
-  const can = { urlDownload: !!onUrlDownload, realize: !!onRealizeSource, saveEvidence: !!onSaveEvidence, confirm: !!onConfirmProposal,
+  const can = { realize: !!onRealizeSource, saveEvidence: !!onSaveEvidence, confirm: !!onConfirmProposal,
     rules: !!onRuleWrite && !!onRuleReview };
   const make = (): Node[] => buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
-    disabled, openBlocks, tagFilter, moved: movedSet, sectors, vaultIndex, checklists, usage, frontier: frontier.rows, work, scenarios,
+    disabled, openBlocks, tagFilter, moved: movedSet, sectors, vaultIndex, checklists, usage, frontier: frontier.rows, work,
     leases, sourceStatuses, assignmentStatuses, confirmError, sourceContext,
     can }).concat(blocks.nodes);
   const [nodes, setNodes] = useState<Node[]>(make);
@@ -249,8 +245,8 @@ export default function Board({
   useEffect(() => {
     setNodes((previous) => reuseNodes(previous, make()));
   }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project,
-    sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, scenarios, confirmError, movedCards,
-    checklists, vaultIndex, can.urlDownload, can.realize, can.saveEvidence, can.confirm, can.rules]);
+    sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, confirmError, movedCards,
+    checklists, vaultIndex, can.realize, can.saveEvidence, can.confirm, can.rules]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);

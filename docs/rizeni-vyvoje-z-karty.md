@@ -8,8 +8,11 @@ v [karta-pro-agenty.md](karta-pro-agenty.md); tady je mapa a postup.
 ## 1. Kde co žije
 
 Každý projekt má jednu složku `P:\opora-data\projects\<id>\` (kořen dat nastavuje `opora.local.toml`) a v ní
-jednu databázi `project.sqlite`. Nic z toho není v gitu cílového projektu: **kód je v repu, zadání a práce
-jsou v Opoře, nic není na obou místech.**
+jednu databázi `project.sqlite`; cesty v tabulce jsou relativní k této složce, pokud není řečeno jinak.
+**Kód je v repu, zadání a práce jsou v Opoře, nic není na obou místech.** Dvě výslovné výjimky: mapy
+(`graphify-out/`, `archify-out/`) leží v kořeni worktree projektu, protože je čtou nástroje přímo nad kódem,
+a jsou git-ignorované; graf plátna git projektu leží v datech Opory, nikdy v cílovém repu. Autoritou pro
+průběh etap je `desktop_v3_state.stages`; soubory procesů (`processes/`) jsou starší, nepoužívaná cesta.
 
 | Co | Kde | Kdo zapisuje | Poznámka |
 |---|---|---|---|
@@ -74,8 +77,9 @@ aniž by se karta otevírala. Detail etap (zadání, poznámky, přeskočení) j
 
 ## 4. Jak tvořit detail karty
 
-Detail karty je **inspektor vpravo** (záložky Zadání, Texty, Agenti, Podněty, Historie kol) a **bloky na
-kartě**. Dvě cesty, jeden výsledek:
+Detail karty je **inspektor vpravo** (záložky Zadání, Vazby, Práce, Podněty, Historie kol) a **bloky na
+kartě**. Člověk ho zpravidla nevyplňuje (viz [pyramida.md](pyramida.md): píše záměr oblasti a potvrzuje
+dávky); karty plní agent-rozkladač. Dvě cesty, jeden výsledek:
 
 | Krok | Z Opory | Z terminálu (skill `opora-control-center`) |
 |---|---|---|
@@ -93,7 +97,8 @@ u karty na existující kód + `checks` u karty s testy. Dokud pás není zelen�
 
 | Situace | Řídit z | Proč |
 |---|---|---|
-| plánování oblasti / sektoru, přeskupení plátna, kresba | **Opora** | geometrie, oblasti a vazby se dělají okem; terminál na to nemá nástroj |
+| záměr oblasti, rozmístění na plátně, kresba, schválení dávky | **Opora** | záměr píše člověk; rozmístění a kresba se dělají okem; dávku od agenta potvrzuje jedním rozhodnutím |
+| rozklad oblasti na sektory, sektoru na karty (dávka `canvas-plan`) | terminál (agent-rozkladač) | strukturované založení oblastí, sektorů, karet a vazeb umí dávka s náhledem; viz [pyramida.md](pyramida.md) §3 |
 | psaní zadání jedné karty, bloky, pravidla | Opora (inspektor) nebo asistent v okně | asistent zapisuje po schválení člověkem; výsledek je hned vidět |
 | vykonání karty / etapy pipeline | **terminál v kořeni projektu** (`claude` + skill, nebo hook-řízená relace) | kód je v repu; agent musí vidět soubory, spustit testy, commitovat |
 | router, kritici, review | terminál (jiná relace než autor) | nezávislost: server hlídá jméno relace |
@@ -112,7 +117,26 @@ Po provisioningu (`POST /api/memory/provision {"confirmed": true}`) agent v `nod
 dostane, co se jeho role naučila na podobných kartách, a při uzavření karty se jeho prostor zrcadlí
 zpět. Co tam **nepatří**: zadání karty, kód, tajemství; paměť je popis zkušenosti, ne pravda o kódu.
 
-## 7. Co se během noční směny 2026-10-15 změnilo
+## 7. Co dnes neplatí a je třeba to vědět (nálezy kritika, 2026-10-15)
+
+- **Záloha:** „Verze plátna“ obnoví graf a stav karet, ne výsledky agentů, přílohy ani prostor agenta.
+  Úplná záloha je kopie celé složky projektu v `P:\opora-data` v klidu (bez běžících agentů).
+- **Atomicita výsledku:** `agent-output` zapisuje stav, etapy a evidenci pod jedním zámkem s CAS revizí;
+  opakovaný stejný požadavek po 409 musí agent nejdřív znovu načíst stav. Idempotentní klíč výsledku není.
+- **Pád agenta:** lease vyprší; další relace začíná předávkou (`handoff`) a rozpracovanými změnami v repu.
+  Výsledek proti zastaralému `contextVersion` server odmítne a karta se neposune bez člověka.
+- **Doručení kódu:** uzavření karty nekontroluje commit ani merge. Větev/worktree, commit s trailerem
+  `Opora-Node` a `realize-source` jsou doporučení, ne brána. Souběžní agenti v jedné pracovní kopii si
+  mohou šlapat do git indexu; drž je na nepřekrývajících se cestách nebo ve worktree.
+- **Jedna předávka:** kanonická předávka etapy je `stages[].note`; `agent-workspace.handoff` a zprávy
+  na vazbách na ni odkazují (`opora://agent-workspace/<nodeId>#handoff`). Chybí-li `note`, server etapu
+  `passed`/`failed` odmítne.
+- **Identita:** jméno relace je organizační značka, ne ověřená identita (`identityVerified: false`).
+  Nezávislost kritika hlídá jen porovnání jmen.
+- **Paměť role:** zrcadlí se prostor agenta; filtr tajemství a kódu je jen pravidlo pro agenta, ne
+  mechanismus. Nedostupný OpenViking nic neblokuje, zrcadlení se jen nestane.
+
+## 8. Co se během noční směny 2026-10-15 změnilo
 
 - Kuličky procesu na kartě (§3), původně jen v bloku Pipeline.
 - Velké plátno: drafty bloků v úložišti → kreslí se jen viditelné karty, MiniMap do 500 uzlů, varování

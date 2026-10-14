@@ -1,11 +1,12 @@
-// Inspektor oblasti: jméno, účel, ke čtení seznam karet uvnitř a toků do/z jiných oblastí, na konci
+// Inspektor oblasti: jméno, záměr (a pod ním rozklad na sektory pro agenta), barva, ke čtení seznam karet uvnitř a toků do/z jiných oblastí, na konci
 // smazání. Dílek nic neukládá — rozepsané pole drží u sebe a po opuštění (blur) hotovou hodnotu
 // ohlásí nahoru přes onSave(node), stejně jako NodePanel a CommentPanel. Členy a toky spočítá rodič
 // (App) z grafu — tenhle dílek je jen vypíše a klik na člena předá dál přes onOpenNode.
 import { useState } from "react";
 import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import type { CanvasNode } from "@/shared/types/logic/types";
-import { AREA_COLORS, areaColorOf, setAreaColor } from "@/editor/canvas/area/logic/area-model";
+import { AREA_COLORS, areaColorOf, areaLabel, setAreaColor } from "@/editor/canvas/area/logic/area-model";
+import AreaDecompose from "@/editor/canvas/area/components/AreaDecompose";
 import AgentWorkspace from "@/editor/node-detail/agent-workspace/components/AgentWorkspace";
 import "@/editor/canvas/area/styles/area.css";
 
@@ -44,7 +45,7 @@ export default function AreaPanel({
   const [purpose, setPurpose] = useState(node.purpose);
   useScopedSaveParticipant({ id: `area-fields:${node.id}`, label: `Oblast: ${node.name || node.id}`,
     dirty: name.trim() !== node.name || purpose !== node.purpose,
-    blocked: "Dokončete úpravu názvu nebo účelu oblasti a vyčkejte na její uložení." });
+    blocked: "Dokončete úpravu názvu nebo záměru oblasti a vyčkejte na její uložení." });
   return (
     <div className="area-panel" data-testid="area-panel">
       <div className="eyebrow">OBLAST</div>
@@ -64,18 +65,26 @@ export default function AreaPanel({
         />
       </label>
       <label className="field">
-        Účel
+        Záměr
         <textarea
-          aria-label="Účel oblasti"
+          aria-label="Záměr oblasti"
           rows={5}
           maxLength={4000}
           value={purpose}
           readOnly={readOnly}
-          placeholder="K čemu oblast slouží"
+          placeholder="Co tu má vzniknout a proč. 2–5 vět. Agent z toho navrhne sektory."
           onChange={(e) => setPurpose(e.target.value)}
           onBlur={() => { if (purpose !== node.purpose) onSave({ ...node, purpose }); }}
         />
       </label>
+      <AreaDecompose
+        project={project}
+        workspace={workspace}
+        areaId={node.id}
+        areaName={areaLabel(node)}
+        intent={node.purpose}
+        sectors={members.filter((m) => m.kind === "sector").length}
+      />
       <div className="area-panel__swatches" role="group" aria-label="Barva oblasti">
         {AREA_COLORS.map((c) => (
           <button

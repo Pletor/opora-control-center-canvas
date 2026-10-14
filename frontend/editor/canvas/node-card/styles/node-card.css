@@ -2,7 +2,7 @@
    Příběh: karta je 360 široká a nejméně 168 vysoká. Užší karta (272) měla pole bloků tak úzká, že se zadání
    nedalo číst, proto je karta širší a písmo v ní o stupeň větší; vedle sebe se jich vejde méně, ale každá se
    dá přečíst bez otevírání detailu. Shora dolů jde vždy stejný sled: pruh hlavy 34 (kdo jsem
-   a v jaké jsem fázi), tělo aspoň 104 (jméno a podstata), pásmo bloků, které roste s obsahem, a pata 30 s počty.
+   a jak na tom jsem), tělo aspoň 104 (jméno a podstata), pásmo bloků, které roste s obsahem, a pata 30 s počty.
    Rytmus odsazení je 13 / 8 / 5, stejný jako v knihovně uzlu, aby oko mezi panely nepřeskakovalo.
    Přetahovat po plátně jde jen karta; všechno, co se dá zmáčknout, nese třídu `nodrag`. */
 .node-card {
@@ -58,20 +58,11 @@
 .node-card__lock--proposed { opacity: 0.7; }
 /* Kola karty „v1 ✓ · v2 ●“: tichý údaj, že karta má zamrazenou historii (detail, Historie kol). */
 .node-card__rounds { font: 500 10px var(--mono); color: var(--ink-muted); white-space: nowrap; }
-.node-card__phase {
-  font: 500 10px var(--mono);
-  color: var(--ink-muted);
-  background: var(--surface-2);
-  padding: 2px 8px;
-  border-radius: 8px;
-}
-.node-card__phase--live { color: var(--accent); background: var(--accent-soft); }
-
-/* Štítky karty: vrstva (FE, BE, DB, Knihovna) a stav sedí v hlavě hned vedle fáze, drobně a bez barvy
+/* Štítky karty: vrstva (FE, BE, DB, Knihovna) a stav sedí na pravém konci hlavy, drobně a bez barvy
    navíc — je to poznámka na okraji, ne nový nadpis. Objeví se jen u uzlu, který vrstvu nebo stav má, takže
    karta bez nich vypadá přesně jako dřív. Připravená karta dostane akcent (může se na ní začít),
    hotová zeslábne spolu s celou uzavřenou kartou. */
-.node-card__badges { display: flex; gap: 5px; margin-left: auto; margin-right: 5px; min-width: 0; }
+.node-card__badges { display: flex; gap: 5px; margin-left: auto; min-width: 0; }
 .node-card__badge {
   font: 500 10px var(--mono);
   color: var(--ink-muted);

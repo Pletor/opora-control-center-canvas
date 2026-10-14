@@ -7,7 +7,6 @@ import type { Graph } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
 import { childCount, ownNodeRules, type BoardIndex } from "@/editor/canvas/board/logic/board-index";
-import { resolveFacts } from "@/editor/canvas/node-card/components/CardFacts";
 import type { NodeCardData } from "@/editor/canvas/node-card/components/NodeCard";
 import type { CommentCardData } from "@/editor/canvas/comment-card/components/CommentCard";
 import type { AreaCardData } from "@/editor/canvas/area/components/AreaCard";
@@ -26,7 +25,6 @@ import type { OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import { changedSinceInsert, type indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import type { FrontierItem } from "@/editor/canvas/node-card/logic/use-frontier";
 import type { WorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
-import type { ScenarioHistory } from "@/editor/canvas/node-card/logic/use-scenario-history";
 import type { CardLease } from "@/editor/canvas/node-card/logic/use-leases";
 import type { SourceStatus } from "@/editor/canvas/node-card/logic/use-source-status";
 import type { AssignmentStatuses } from "@/editor/canvas/node-card/logic/use-assignment-status";
@@ -62,14 +60,13 @@ export type LayerInput = {
   usage?: UsageSummary | null;
   frontier?: Record<string, FrontierItem>;
   work?: { data?: WorkOverview } | null;
-  scenarios?: { nodes?: Record<string, ScenarioHistory>; error?: string } | null;
   leases?: Record<string, CardLease>;
   sourceStatuses?: Record<string, SourceStatus>;
   assignmentStatuses?: AssignmentStatuses;
   confirmError?: string;
   sourceContext?: { project: string; workspace: string };
   /** Které akce rodič vůbec umí; karta podle toho ukáže editor, nebo ne. */
-  can: { urlDownload: boolean; realize: boolean; saveEvidence: boolean; confirm: boolean; rules: boolean };
+  can: { realize: boolean; saveEvidence: boolean; confirm: boolean; rules: boolean };
 };
 
 /** Klíč pulsu přesunuté karty (`useAddedPulse` nad pozicemi). */
@@ -91,6 +88,8 @@ export function buildLayerNodes(input: LayerInput): Node[] {
       const members = membersOf(n, graph.nodes);
       const data: AreaCardData = {
         view: { label: areaLabel(n), unnamed: !n.name.trim(), members: members.length, w: size.w, h: size.h, color: areaColorOf(n),
+          purpose: n.purpose, sectors: members.filter((m) => m.kind === "sector").length,
+          closed: members.filter((m) => state.nodes[m.id]?.done?.confirmed).length,
           summary: input.checklists ? areaSummary(members.flatMap((m) => input.checklists?.[m.id] ? [input.checklists[m.id]] : [])) : undefined },
         disabled,
       };
@@ -112,12 +111,9 @@ export function buildLayerNodes(input: LayerInput): Node[] {
       sectorProgress: input.sectors[n.id],
       evidence: own?.evidence,
       process: n.kind === "node" ? processView(own?.stages) : undefined,
-      facts: resolveFacts(n.factRefs ?? [], state.settings),
       work: input.work?.data?.nodes[n.id],
       workCounts: input.work?.data?.sectors[n.id],
       moved: input.moved.has(movedKey(n)),
-      inputSecurity: can.urlDownload ? { enabled: !!own?.downloadsUrl } : undefined,
-      scenario: n.scenario ? { command: n.scenario.command, history: input.scenarios?.nodes?.[n.id], error: input.scenarios?.error } : undefined,
       realization: n.sourceRef && can.realize ? { value: n.realization, status: input.sourceStatuses?.[n.id], disabled } : undefined,
       autonomous: own?.done?.by === "autonomy" && own?.done?.confirmed,
       saveEvidence: can.saveEvidence,

@@ -23,7 +23,6 @@ export type BoardActionProps = {
   onCardBlock: (nodeId: string, event: CardBlockEvent) => void;
   onSaveEvidence?: (nodeId: string, value: CompletionEvidence) => Promise<boolean>;
   onConfirmProposal?: (nodeId: string) => Promise<boolean>;
-  onUrlDownload?: (nodeId: string, enabled: boolean) => Promise<boolean>;
   onRealizeSource?: (nodeId: string, commit: string, prUrl: string) => Promise<void>;
   onRuleWrite?: (expected: Rule, item: Rule) => Promise<boolean>;
   onRuleReview?: (rule: Rule, decision: RuleReviewDecision) => Promise<boolean>;
@@ -52,7 +51,6 @@ export function useBoardActions(props: BoardActionProps): CardActions {
     cardBlock: (id, event) => latest.current.onCardBlock(id, event),
     saveEvidence: (id, value) => latest.current.onSaveEvidence?.(id, value) ?? Promise.resolve(false),
     confirm: (id) => latest.current.onConfirmProposal?.(id) ?? Promise.resolve(false),
-    urlDownload: (id, enabled) => latest.current.onUrlDownload?.(id, enabled) ?? Promise.resolve(false),
     realize: (id, commit, prUrl) => latest.current.onRealizeSource?.(id, commit, prUrl) ?? Promise.resolve(),
     releaseLease: (id) => {
       const scope = latest.current.sourceContext;

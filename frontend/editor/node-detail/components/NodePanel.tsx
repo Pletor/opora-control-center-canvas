@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import DetailFold from "./DetailFold";
 import ResultHistory from "@/editor/llm-control/editor-context/components/ResultHistory";
@@ -6,13 +6,11 @@ import NodeSpecEditor from "@/editor/node-detail/assignment/components/NodeSpecE
 import NodeTextEditor from "@/editor/node-detail/content/components/NodeTextEditor";
 import AgentWorkspace from "@/editor/node-detail/agent-workspace/components/AgentWorkspace";
 import NodeLinksPanel from "@/editor/node-detail/links/components/NodeLinksPanel";
-import NodeProcesses from "@/editor/node-detail/process/components/NodeProcesses";
 import NodeTree from "@/editor/node-detail/tree/components/NodeTree";
 import NodeTabs, { type NodeTab } from "@/editor/node-detail/components/NodeTabs";
 import SyncBadge from "@/editor/node-detail/sync-badge/components/SyncBadge";
 import type { BadgeView } from "@/editor/node-detail/sync-badge/logic/sync-badge";
 import NodeCardEditor from "@/editor/node-detail/card-fields/components/NodeCardEditor";
-import FactRefsEditor from "@/editor/node-detail/card-fields/components/FactRefsEditor";
 import DoneControl from "@/editor/node-detail/done/components/DoneControl";
 import IdeasPanel, { IdeasCount } from "@/editor/node-detail/ideas/components/IdeasPanel";
 import { openIdeas, type CardIdea, type IdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
@@ -57,7 +55,6 @@ export default function NodePanel({
   onIdeaRemove,
   syncView,
   onCommitSpec,
-  workflow,
   resultRevision,
   onOpenVault,
   round,
@@ -98,7 +95,6 @@ export default function NodePanel({
   syncView?: BadgeView | null;
   /** Zapíše commit zadání v OporaHubu; bez něj brána 1:1 zůstane zavřená. */
   onCommitSpec?: () => void;
-  workflow?: ReactNode;
   resultRevision: number;
   /** Otevře Schránku v levém menu (rozsah = vlastník kořene, volitelně rovnou na fragmentu a v jeho disciplíně). */
   onOpenVault?: (scope: string, focus?: string) => void;
@@ -217,11 +213,9 @@ export default function NodePanel({
             <NodeTextEditor key={JSON.stringify([project, workspace, node.id])} project={project} workspace={workspace} node={node.id} onSaved={() => setTextRevision((value) => value + 1)} />
           </DetailFold>
           {node.kind === "node" && <DetailFold title="Nastavení karty"><NodeCardEditor node={node} readOnly={readOnly} busy={busy} onSave={onSave} /></DetailFold>}
-          {(node.kind === "node" || node.kind === "sector") && <DetailFold title="Fakta projektu"><FactRefsEditor key={`${project}:${workspace}:${node.id}`} node={node} project={project} workspace={workspace} disabled={readOnly || busy} onSave={onSave} /></DetailFold>}
         </section>
         <section role="tabpanel" id="node-panel-work" aria-labelledby="node-tab-work" hidden={tab !== "work"}>
           <DetailFold title="Výsledky a původní zadání"><ResultHistory project={project} workspace={workspace} nodeId={node.id} revision={resultRevision} /></DetailFold>
-          <DetailFold title="Postup, kritéria a kroky">{workflow}</DetailFold>
           <DetailFold title="Ověření a uzavření">
             <SyncBadge view={syncView ?? null} />
             {onCommitSpec && !readOnly && <button type="button" className="sync-badge__commit" onClick={onCommitSpec}>Zacommitovat zadání</button>}
@@ -236,7 +230,6 @@ export default function NodePanel({
                 readOnly={readOnly || done.confirmed}
               />
           </DetailFold>
-          <DetailFold title="Procesy"><NodeProcesses key={project + ":" + node.id} project={project} nodeId={node.id} readOnly={readOnly} /></DetailFold>
           <DetailFold title="Pracovní prostory">
           <h3>Pracovní prostory uzlu</h3>
           {assigned.length ? (

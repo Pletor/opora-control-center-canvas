@@ -177,3 +177,24 @@ export function resizeArea(node: CanvasNode, w: number, h: number): CanvasNode {
   const clamp = (value: number) => Math.min(AREA_SIZE_MAX, Math.max(AREA_SIZE_MIN, Math.round(value)));
   return { ...node, size: { w: clamp(w), h: clamp(h) } };
 }
+
+/** Text prázdné oblasti: co má člověk udělat jako první krok pyramidy (záměr → sektory od agenta). */
+export const EMPTY_AREA_ROLLUP = "Prázdná oblast: napište záměr a nechte agenta navrhnout sektory";
+
+/** České skloňování počtu: 1 → první tvar, 2–4 → druhý, jinak (0, 5+) třetí. */
+export function czechCount(count: number, one: string, few: string, many: string): string {
+  return `${count} ${count === 1 ? one : count >= 2 && count <= 4 ? few : many}`;
+}
+
+/**
+ * Tichý souhrn pod záměrem na rámečku oblasti: „3 sektory · 14 karet · 5 hotovo“. Ukáže jen
+ * nenulové části; oblast bez sektorů i karet dostane výzvu k napsání záměru.
+ */
+export function areaRollup({ sectors, cards, closed }: { sectors: number; cards: number; closed: number }): string {
+  const parts: string[] = [];
+  if (sectors > 0) parts.push(czechCount(sectors, "sektor", "sektory", "sektorů"));
+  if (cards > 0) parts.push(czechCount(cards, "karta", "karty", "karet"));
+  if (closed > 0) parts.push(`${closed} hotovo`);
+  if (!sectors && !cards) return EMPTY_AREA_ROLLUP;
+  return parts.join(" · ");
+}

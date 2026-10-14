@@ -1,2 +1,2 @@
-Paměť projektu pro LLM: nastavení, pravidla must/must_not a připnutá rozhodnutí (ProjectMemoryPanel); stav z shared/desktop-state.
+Dílky paměti projektu pro LLM: text položky (MemoryItemText) a schválení/zamítnutí pravidla od agenta (RuleReview), používá je karta (CardRules). Samostatný panel ProjectMemoryPanel byl sirotek bez montáže a je smazaný (2026-10-15).
 Návrh pravidla od agenta (projekt, cesta) nese štítek a tlačítka Schválit / Zamítnout (RuleReview, sdílený s pravidly na kartě); úprava textu člověkem pravidlo také schválí.

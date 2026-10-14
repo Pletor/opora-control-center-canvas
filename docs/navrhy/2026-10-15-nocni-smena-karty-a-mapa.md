@@ -29,6 +29,9 @@ Claude Design (MCP) je nedostupný (HTTP 403), design se dělá přes existujíc
 | Kus | Obsah | Soubory | Stav |
 |---|---|---|---|
 | D1 | **Proces na kartě**: řada kuliček etap pipeline (druh = barva, kritik podle pohledu, security = hacker, stav = výplň, aktuální = kroužek, uvíznutí = jantar), čip profilu, „čeká na router“ u nenasměrované karty; v oddálení jen tečky | `node-card/logic/card-process.ts` (+test), `node-card/components/CardProcess.tsx`, `layer-nodes.ts` (pole `process`), `NodeCard.tsx`, `node-card.css` | |
+| R1 | **Mazání nepoužívaného** (měření na živých datech: fáze 195/208 discover, kritéria 13, kroky 3, akce 4, scénář/fakta/design/stahování 0): panel Postup-kritéria-kroky, čip fáze, scénář, fakta, design, přepínač stahování, procesy v detailu | frontend | běží |
+| V1 | **Velín** místo módu Mapa (Archify iframe): pyramida oblast → sektor → karta, pruhy stavů, kuličky, fronta „Čeká na tebe“ | `frontend/editor/control-tower/`, `App.tsx` | běží |
+| A1 | **Záměr oblasti**: záměr na rámečku a v inspektoru první, souhrn sektorů, „Rozložit na sektory“ (zadání pro agenta), recept `references/rozklad.md` | `area/`, skill reference | běží |
 | D2 | **Čistá karta**: inline styly pryč, jednotné řádky `node-card__row`, mnemotechnické ikony místo emoji mixu, booleovský přepínač jako switch, frontier / sektor / lease / kontroly jako infografika | `node-card/components/*` (CardFrontier, SectorProgress, CardChecks, WorkNow, CardLease, CardUsage, InputSecurity), `node-card.css` | po D1 |
 | P1 | **Velké plátno nepadá**: drafty bloků v úložišti (klíč nodeId+blockId+základ), `CULL_VISIBLE` zapnuto, MiniMap jen do 500 uzlů, varování u 80 % stropu 2000 uzlů, hrany `straight` nad 1000 | `node-card/logic/block-drafts.ts` (+test), `CardBlocks.tsx`, `layer-nodes.ts` (konstanty), `Board.tsx`, `board-bar.css` | |
 | M1 | **Mapa projektu**: serverový přehled Graphify (komunity pojmenované podle společné cesty, velikost, vazby mezi komunitami, hlavní soubory) + vlastní lehká SVG mapa v Projektu; původní HTML jen na vyžádání | `backend/project/maps/graphify_overview.py` (+test), `graphify_routes.py` (`GET /api/graphify/overview`), `frontend/project/maps/project-map/*`, `GraphifyMap.tsx` | |
@@ -46,3 +49,9 @@ ani neupravují; commit obsahuje jen soubory této relace (`git add` po cestách
 | Čas | Krok | Stav |
 |---|---|---|
 | 23:10 | průzkum: kontrakt karty, výkon, mapy, pipeline, rozsah relace A | hotovo |
+| 23:40 | D1 kuličky procesu, P1 drafty + kreslení jen viditelných, kritik ChatGPT 6 nálezů → opraveno (c42a92f) | hotovo |
+| 23:55 | zadání člověka: pyramida, velín, mazat nepoužívané → měření na živých datech, `docs/pyramida.md` | hotovo |
+| 00:05 | M1 přehled komunit + lehká mapa (b3480c1); Hermes kritik k `rizeni-vyvoje-z-karty.md` 10 nálezů → §7 | hotovo |
+| 00:30 | R1 mazání (panel Postup/kritéria/kroky, fáze, scénář, fakta, design, stahování, procesy) + sirotci ProjectMemoryPanel a AgentPacketPanel (sloty v3 bez montáže) | hotovo, čeká na commit |
+| 00:35 | V1 Velín v módu Mapa; kritik ChatGPT 6 nálezů (hloubka, chybějící work overview, O(A·R·N), fronta nad 50, klíč oblasti, popisky) → opravy | běží |
+| 00:40 | A1 záměr oblasti na rámečku + inspektor + „Rozložit na sektory“ + `references/rozklad.md` (odkaz v SKILL.md, test skill docs 5/5); kritik Hermes | běží |

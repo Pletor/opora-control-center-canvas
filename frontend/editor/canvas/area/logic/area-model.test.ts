@@ -6,6 +6,8 @@ import {
   areaColorOf,
   areaLabel,
   areaOf,
+  areaRollup,
+  EMPTY_AREA_ROLLUP,
   isArea,
   isFreeSpot,
   membersOf,
@@ -189,5 +191,18 @@ describe("area-model", () => {
     expect(updated).not.toBe(a);
     expect(updated.color).toBe("rose");
     expect(a.color).toBeUndefined();
+  });
+
+  it("areaRollup ukáže jen nenulové části se skloňováním", () => {
+    expect(areaRollup({ sectors: 3, cards: 14, closed: 5 })).toBe("3 sektory · 14 karet · 5 hotovo");
+    expect(areaRollup({ sectors: 1, cards: 1, closed: 0 })).toBe("1 sektor · 1 karta");
+    expect(areaRollup({ sectors: 2, cards: 2, closed: 0 })).toBe("2 sektory · 2 karty");
+    expect(areaRollup({ sectors: 5, cards: 5, closed: 1 })).toBe("5 sektorů · 5 karet · 1 hotovo");
+    expect(areaRollup({ sectors: 0, cards: 4, closed: 0 })).toBe("4 karty");
+    expect(areaRollup({ sectors: 2, cards: 0, closed: 0 })).toBe("2 sektory");
+  });
+
+  it("areaRollup prázdné oblasti vyzve k záměru", () => {
+    expect(areaRollup({ sectors: 0, cards: 0, closed: 0 })).toBe(EMPTY_AREA_ROLLUP);
   });
 });

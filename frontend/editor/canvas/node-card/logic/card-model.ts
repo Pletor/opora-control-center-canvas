@@ -1,7 +1,7 @@
 // Čistý model karty: z uzlu grafu a stavu Desktop v3 odvodí, co karta zobrazí. Bez Reactu,
 // aby šel testovat samostatně a aby dílky karty (hlava, tělo, pata, porty) dostávaly hotová data.
 import type { CanvasNode } from "@/shared/types/logic/types";
-import type { BlockPortDef, BlockStatus, NodePhase, NodeWorkflowFull } from "@/shared/desktop-state/logic/types";
+import type { BlockPortDef, BlockStatus, NodeWorkflowFull } from "@/shared/desktop-state/logic/types";
 import { blockPorts } from "@/shared/desktop-state/logic/types";
 import { cardLayer, effectiveStatus, type EffectiveStatus } from "@/shared/card-context/logic/card-context";
 import { openIdeas } from "@/editor/node-detail/ideas/logic/ideas-model";
@@ -13,14 +13,6 @@ export const CARD_PORTS: CardPort[] = ["next", "action", "rule", "material", "pi
 export const PORT_LABEL: Record<CardPort, string> = { next: "další krok", action: "akce", rule: "pravidla", material: "podklady", pipeline: "pipeline" };
 /** Porty „podklady“ a „pipeline“ otevírají blok, ale vazbu na jinou kartu z nich táhnout nelze. */
 export const LINKABLE_PORTS: CardPort[] = ["next", "action", "rule"];
-
-export const PHASE_LABEL: Record<NodePhase, string> = {
-  discover: "objev",
-  define: "definice",
-  build: "build",
-  verify: "ověření",
-  live: "live",
-};
 
 /** Kolik štítků se vejde do paty karty; zbytek se sbalí do „+N“. */
 export const VISIBLE_TAGS = 3;
@@ -45,8 +37,6 @@ export type CardView = {
   kind: "node" | "sector";
   name: string;
   purpose: string;
-  phase: NodePhase;
-  phaseLabel: string;
   tags: string[];
   hiddenTags: number;
   children: number;
@@ -96,8 +86,6 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     kind: node.kind === "sector" ? "sector" : "node",
     name: node.name,
     purpose: node.purpose,
-    phase: workflow.phase,
-    phaseLabel: PHASE_LABEL[workflow.phase],
     tags: tags.slice(0, VISIBLE_TAGS),
     hiddenTags: Math.max(0, tags.length - VISIBLE_TAGS),
     children,
@@ -115,7 +103,6 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     round: roundNumber(workflow.round),
     cardLayer: node.kind === "node" ? cardLayer(node) : null,
     cardStatus: node.kind === "node" ? effectiveStatus(node, workflow.done.confirmed) : null,
-    design: node.design,
     checks: node.checks,
     goal_mode: node.goal_mode,
     cardModel: node.card?.model ?? null,

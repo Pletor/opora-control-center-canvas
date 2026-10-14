@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import CardHead from "./CardHead";
 
 it("shows layer, model and a human request directly on the card", () => {
-  const html = renderToStaticMarkup(createElement(CardHead, { view: { kind: "node", phase: "build", phaseLabel: "build",
+  const html = renderToStaticMarkup(createElement(CardHead, { view: { kind: "node",
     closed: false, doneProposed: false, cardLayer: "backend", cardModel: "sonnet", cardEffort: "high",
     waitingOnHuman: [{ blockId: "b", ask: "Doplň adresu projektu" }] } }));
   expect(html).toContain("BE");
@@ -13,23 +13,23 @@ it("shows layer, model and a human request directly on the card", () => {
 });
 
 it("does not show a human request on a confirmed card", () => {
-  const html = renderToStaticMarkup(createElement(CardHead, { view: { kind: "node", phase: "build", phaseLabel: "build",
+  const html = renderToStaticMarkup(createElement(CardHead, { view: { kind: "node",
     closed: true, doneProposed: false, waitingOnHuman: [{ blockId: "b", ask: "Old request" }] } }));
   expect(html).not.toContain("Old request");
 });
 import { createElement } from "react";
 
 it("shows open ideas as a quiet count and hides zero", () => {
-  const head = (openIdeas: number) => renderToStaticMarkup(createElement(CardHead, { view: { kind: "node", phase: "build",
-    phaseLabel: "build", closed: false, doneProposed: false, openIdeas } }));
+  const head = (openIdeas: number) => renderToStaticMarkup(createElement(CardHead, { view: { kind: "node",
+    closed: false, doneProposed: false, openIdeas } }));
   expect(head(2)).toContain("💡 2");
   expect(head(2)).toContain("Podněty k dalšímu vývoji: 2 otevřených");
   expect(head(0)).not.toContain("💡");
 });
 
 it("warns when the brief changed after the card was planned and hides zero", () => {
-  const head = (briefChanged: number) => renderToStaticMarkup(createElement(CardHead, { view: { kind: "node", phase: "build",
-    phaseLabel: "build", closed: false, doneProposed: false, briefChanged } }));
+  const head = (briefChanged: number) => renderToStaticMarkup(createElement(CardHead, { view: { kind: "node",
+    closed: false, doneProposed: false, briefChanged } }));
   expect(head(1)).toContain("⚠ zadání se změnilo");
   expect(head(1)).toContain("1 fragment schránky má novější revizi");
   expect(head(0)).not.toContain("zadání se změnilo");

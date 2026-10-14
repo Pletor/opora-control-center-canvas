@@ -58,7 +58,7 @@ export default function ScopeContext({
       : mode === "text"
         ? "Otevřete vrstvu, aby měl dokument svůj deník a souvislosti."
         : mode === "map"
-          ? "Klik vybere uzel nebo vazbu, dvojklik otevře vrstvu ve Struktuře."
+          ? "Velín: pyramida oblastí, sektorů a karet; klik na kartu nebo „Vstoupit“ přepne do Struktury."
           : modeInfo?.hint ?? "";
   return (
     <div className="scope-context" data-testid="scope-context">
