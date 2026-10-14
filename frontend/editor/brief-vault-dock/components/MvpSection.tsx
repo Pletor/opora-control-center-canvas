@@ -1,12 +1,12 @@
 // MVP a distribuce: výběr kapitol do MVP (agent navrhuje, člověk potvrzuje), „Vložit vybrané jako karty“
-// a „Rozdistribuovat zbytek plánu“. Obojí sestaví koncept canvas-plan a ukáže náhled (PlanPreview);
-// zapíše se až po potvrzení člověkem. Výběr drží tento dílek; kapitoly i karty jsou jen z vybrané stopy
+// a „Rozdistribuovat zbytek plánu“. Obojí pošle vybrané fragmenty serveru, ten složí plán struktury
+// (POST /api/brief-vault/plan) a PlanPreview ho ukáže; zapíše se až po potvrzení člověkem. Výběr drží tento dílek; kapitoly i karty jsou jen z vybrané stopy
 // (předek jiné stopy je cesta, ne řádek k výběru).
 import { useMemo, useState } from "react";
 import type { VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import type { CanvasPlanResult } from "@/editor/component-library/library-catalog/logic/catalog-plan";
 import { flatten } from "../logic/vault-dock-model";
-import { buildPlan, defaultSelection, distributeCandidates, selectionCandidates, type VaultPlan } from "../logic/vault-plan";
+import { defaultSelection, distributeCandidates, planRequest, selectionCandidates } from "../logic/vault-candidates";
 import { vaultOp, type VaultScope } from "../logic/vault-actions";
 import PlanPreview from "./PlanPreview";
 
@@ -19,20 +19,18 @@ function tagOf(node: VaultNode): { label: string; tone: string } {
   return { label: "uloženo", tone: "" };
 }
 
-export default function MvpSection({ scope, roots, query, readOnly, digest, parent, onApplied }: {
+export default function MvpSection({ scope, roots, query, readOnly, digest, onApplied }: {
   scope: VaultScope;
   roots: VaultNode[];
   query: string;
   readOnly: boolean;
   digest: string;
-  /** Kam se nové karty vloží (sektor, rodič karty, nebo kořen plátna). */
-  parent: string | null;
   onApplied: (result: CanvasPlanResult, message: string) => void;
 }) {
   const rows = useMemo(() => flatten(roots).filter((item) => item.node.kind === "brief" && !item.node.offTrack
     && (item.depth > 0 || !item.node.children.some((child) => child.kind === "brief"))), [roots]);
   const [selected, setSelected] = useState<Set<string>>(() => defaultSelection(roots));
-  const [preview, setPreview] = useState<{ title: string; plan: VaultPlan } | null>(null);
+  const [preview, setPreview] = useState<{ title: string; fragmentIds: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const shown = rows.filter((item) => !query.trim() || item.node.title.toLocaleLowerCase("cs").includes(query.trim().toLocaleLowerCase("cs")));
@@ -72,21 +70,21 @@ export default function MvpSection({ scope, roots, query, readOnly, digest, pare
         )}
       </section>
       {preview ? (
-        <PlanPreview scope={scope} digest={digest} plan={preview.plan} title={preview.title} onCancel={() => setPreview(null)}
-          onApplied={(result) => { setPreview(null); onApplied(result, `Vloženo ${preview.plan.cards.length} karet s odkazem na schránku.`); }} />
+        <PlanPreview scope={scope} digest={digest} fragmentIds={preview.fragmentIds} title={preview.title} onCancel={() => setPreview(null)}
+          onApplied={(result, cards) => { setPreview(null); onApplied(result, `Vloženo ${cards} karet s odkazem na schránku.`); }} />
       ) : (
         <div className="vault-grid">
           <section className="vault-panel" aria-label="Vložit vybrané jako karty">
             <h3 className="vault-panel__title">Vložit vybrané jako karty</h3>
-            <p className="vault-panel__text">{toInsert.length} {toInsert.length === 1 ? "kapitola" : "kapitol"} bez karty z výběru → karty s odkazem na kapitolu, podkapitoly jako bloky. Nejdřív náhled.</p>
+            <p className="vault-panel__text">{toInsert.length} {toInsert.length === 1 ? "kapitola" : "kapitol"} bez karty z výběru → oblast, sektor disciplíny a karty s odkazem na kapitolu (plán skládá server). Nejdřív náhled.</p>
             <button type="button" className="vault-button vault-button--primary" disabled={readOnly || !toInsert.length || !digest}
-              onClick={() => setPreview({ title: "Vložit vybrané jako karty", plan: buildPlan(roots, toInsert, parent) })}>Zobrazit náhled a vložit ({toInsert.length})</button>
+              onClick={() => setPreview({ title: "Vložit vybrané jako karty", ...planRequest(toInsert) })}>Zobrazit náhled a vložit ({toInsert.length})</button>
           </section>
           <section className="vault-panel" aria-label="Rozdistribuovat zbytek plánu">
             <h3 className="vault-panel__title">Rozdistribuovat zbytek plánu</h3>
             <p className="vault-panel__text">{rest.length} nevložených částí → návrh pracovních karet, podkapitoly jako bloky. Nic se nezapíše bez tvého potvrzení.</p>
             <button type="button" className="vault-button" disabled={readOnly || !rest.length || !digest}
-              onClick={() => setPreview({ title: "Rozdistribuovat zbytek plánu", plan: buildPlan(roots, rest, parent) })}>Připravit návrh ({rest.length})</button>
+              onClick={() => setPreview({ title: "Rozdistribuovat zbytek plánu", ...planRequest(rest) })}>Připravit návrh ({rest.length})</button>
           </section>
         </div>
       )}

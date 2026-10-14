@@ -11,10 +11,10 @@ import hashlib
 import json
 
 GATES = ("scoped", "weighed", "synthesized", "decided", "planned", "placed", "verified", "learned")
-# Brány, které payload nemají (návrh nepotřebují); `planned`/`placed` payload vypočítá server (K4).
+# Brány, které payload od klienta nemají (návrh nepotřebují); `planned`/`placed` payload vypočítá server.
 NO_PAYLOAD = ("scoped", "planned", "placed")
-# Brány zápisu na plátno: přijdou v K4, do té doby je server odmítá (400).
-LATER_GATES = ("planned", "placed")
+# Brány plánu struktury (§4, §9 body 1–2): payload skládá server (`brief_vault_placement`), ne klient.
+PLAN_GATES = ("planned", "placed")
 MICROSTEP_TYPES = ("PIPELINE", "RETRIEVAL", "MEMORY", "TOOL", "ROUTING", "EVAL", "ENCRYPTION", "SCHEMA", "UI", "FLOW",
                    "API", "DATA", "INFRA", "DOC")
 VERDICTS = ("yes", "other", "no")
@@ -25,8 +25,8 @@ HINTS = {
     "weighed": "Zapiš přínos a riziko: {benefit ≤280, risk ≤280}.",
     "synthesized": "Navrhni typovaný mikrokrok: {type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280}}.",
     "decided": "Rozhodni: {verdict: yes|other|no, reason ≤500}; other vrátí fragment k mikrokroku, no = slepá ulička.",
-    "planned": "Návrh struktury na plátně přijde v K4.",
-    "placed": "Založení karet přijde v K4.",
+    "planned": "Potvrď návrh struktury (brána bez payloadu): server sestaví oblast → sektor → karty, ověří je dryRun a uloží plán.",
+    "placed": "Vlož uložený plán na plátno (brána bez payloadu; zápis na plátno schvaluje člověk).",
     "verified": "Ověř výsledek proti předpovědi: {actual: {tests: pass|fail, criticRounds: 0–3, unexpected: bool}}.",
     "learned": "Zapiš poučení do paměti disciplíny: {lesson ≤500, kind: pattern|antipattern}.",
 }

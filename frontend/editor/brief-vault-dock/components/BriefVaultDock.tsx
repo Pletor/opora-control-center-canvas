@@ -13,7 +13,6 @@ import { filterByTrack, pickTrack, trackCounts, trackLabel, viewOf } from "../lo
 import { useVaultTrack } from "../logic/use-vault-track";
 import { hasUnsavedDraft, isDraftField, pruneDrafts } from "../logic/vault-drafts";
 import { createPoller } from "@/shared/hooks/logic/poller";
-import { planParent } from "../logic/vault-plan";
 import VaultNav from "./VaultNav";
 import TrackSwitch from "./TrackSwitch";
 import RootCreateForm from "./RootCreateForm";
@@ -100,7 +99,6 @@ export default function BriefVaultDock({ project, workspace, scope: vaultScope, 
   const sections = sectionCounts(roots, { feedback: feedback.length, decisions: linkedDecisions.size, materials: materials.length, ideas: ideas.length });
   const title = SECTIONS.find((item) => item.id === section)?.title ?? "";
   const editable = !readOnly && !vault.tree?.readOnly;
-  const parent = planParent(vaultScope, nodes);
   const create = editable ? <RootCreateForm scope={scope} vaultScope={vaultScope} track={track} onCreated={setTrack} /> : null;
   const content = () => {
     if (vault.error && !vault.tree) return <p className="vault-dock__error" role="alert">Schránku nelze načíst: {vault.error}</p>;
@@ -132,7 +130,7 @@ export default function BriefVaultDock({ project, workspace, scope: vaultScope, 
             )} />
         </>
       );
-      case "mvp": return <MvpSection key={track} scope={scope} roots={roots} query={query} readOnly={!editable} digest={digest} parent={parent}
+      case "mvp": return <MvpSection key={track} scope={scope} roots={roots} query={query} readOnly={!editable} digest={digest}
         onApplied={(_, message) => { setNotice(message); onPlanApplied(); }} />;
       case "research": return <ResearchSection scope={scope} roots={roots} query={query} feedback={feedback} readOnly={!editable} />;
       case "questions": return <QuestionsSection scope={scope} roots={roots} query={query} readOnly={!editable} />;

@@ -17,13 +17,13 @@ nikdy obsah bez karet (nová UUID nikdo jiný nezná).
 
 import json
 
+from backend.canvas.architecture_graph import ids, same_content, split
 from backend.canvas.canvas_plan_build import build
 from backend.canvas.canvas_plan_layout import layout
 from backend.canvas.canvas_plan_summary import plan_summary
-from backend.canvas.architecture_graph import ids, same_content, split
 from backend.canvas.canvas_service import now
-from backend.canvas.project_architecture import ARCHITECTURE_WID
 from backend.canvas.graph import validate_graph
+from backend.canvas.project_architecture import ARCHITECTURE_WID
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State, validate_state
 from backend.editor.node import node_specs, node_text
 
@@ -107,7 +107,9 @@ def _check_content(project, workspace, built):
             raise ValueError(_named(error, built.labels)) from error
 
 
-def apply_plan(service, payload, *, actor="system"):
+def apply_plan(service, payload, *, actor="system", after_write=None):
+    """`after_write(db, refs)` (volitelné) zapíše v téže transakci ještě něco dalšího, např. bránu `placed`
+    Schránky (docs/schranka-neurony.md §9 bod 1); výjimka v něm vrátí celou dávku (nic nezůstane)."""
     project, workspace, expected_digest, dry, plan = _request(payload)
     store = getattr(service, "desktop_v3_state", None) or DesktopV3State(service)
     with service.graph_lock_for(project):
@@ -168,7 +170,8 @@ def apply_plan(service, payload, *, actor="system"):
                   "summary": plan_summary(plan)}
         if dry:
             return {**result, "digest": view["digest"], "revision": stored["revision"]}
-        revision = _write(service, store, project, workspace, expected_digest, stored["revision"], built, wid_of)
+        revision = _write(service, store, project, workspace, expected_digest, stored["revision"], built, wid_of,
+                          after_write)
         return {**result, "digest": service.view(project, workspace)["digest"], "revision": revision}
 
 
@@ -189,7 +192,7 @@ def _check_main(service, project, view, built, owned):
                          "architekturu (domény a stránky) lze měnit i tady.")
 
 
-def _write(service, store, project, workspace, expected_digest, revision, built, wid_of):
+def _write(service, store, project, workspace, expected_digest, revision, built, wid_of, after_write=None):
     """Spec, text a stav v jedné transakci, graf poslední (viz docstring modulu)."""
     db = service.db_for(project)
     saved_at = now()
@@ -215,5 +218,7 @@ def _write(service, store, project, workspace, expected_digest, revision, built,
             revision += 1
             db.execute("INSERT OR REPLACE INTO desktop_v3_state VALUES(?,?,?,?,?)",
                        (project, workspace, revision, json.dumps(built.state, ensure_ascii=False), saved_at))
+        if after_write is not None:
+            after_write(db, built.refs)
         service.save_graph(project, workspace, built.new_graph(), expected_digest)
     return revision

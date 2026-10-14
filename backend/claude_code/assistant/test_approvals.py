@@ -326,3 +326,19 @@ def test_dry_run_outside_own_drafts_or_wrong_route_or_twice_is_denied(drafts, tm
     assert approvals.classify(bash(plan_command(drafts / "s2" / "plan.json") + " --dry-run"), own) == deny
     assert approvals.classify(bash(plan_command(path, "/api/graph") + " --dry-run"), own) == deny
     assert approvals.classify(bash(plan_command(path) + " --dry-run --dry-run"), own) == deny
+
+
+def test_brief_vault_placed_gate_asks_like_canvas_plan():
+    """Brána placed zapisuje na plátno: vždy dotaz člověka a souhrn to řekne (docs/schranka-neurony.md §9 bod 3)."""
+    def gate(name, value=True):
+        body = json.dumps({"op": "gate", "fragmentId": "f1", "expectedRevision": 6, "gate": name, "value": value,
+                           "note": "x"})
+        return approvals.classify(bash(f"python x/opora_write.py /api/brief-vault --project p --workspace w --json '{body}'"))
+    kind, parsed = gate("placed")
+    assert kind == "ask" and parsed["route"] == "/api/brief-vault"
+    assert parsed["payloadSummary"].startswith("Zápis na plátno: brána placed") and 'gate: "placed"' in parsed["payloadSummary"]
+    kind, parsed = gate("planned")
+    assert kind == "ask" and parsed["payloadSummary"].startswith("Jen návrh struktury")
+    kind, parsed = gate("placed", value=False)
+    assert kind == "ask" and parsed["payloadSummary"].startswith("op: ")
+    assert "/api/brief-vault" in approvals.WRITE_ROUTES and "/api/brief-vault" not in approvals.NO_PROMPT_ROUTES

@@ -4,7 +4,8 @@ Přeloží lokální `ref` na nová UUID a z dávky udělá nové uzly a vazby g
 Desktop v3 (bloky s porty a podmínkou, pravidla se scope node, rozhodnutí, `agentRole`), spec
 a text nových karet. Tvar a limity hlídají až stávající validátory (graf, stav, spec, text);
 tady se kontroluje jen to, co jednotlivé cesty poznat nemohou: neznámý `ref`, pole navíc
-a blok s portem zdroje vazby `block`.
+a blok s portem zdroje vazby `block`. Značky struktury Schránky (`briefGroup` u oblasti, `briefDiscipline`
+u sektoru) jdou do stavu uzlu a hlídá je `brief_vault_marks`.
 """
 
 import copy
@@ -17,7 +18,8 @@ from backend.editor.node.node_specs import EMPTY_FIELDS
 
 PLAN_KEYS = {"nodes", "edges", "decisions", "extend"}
 NODE_FIELDS = {"ref", "kind", "parent", "name", "purpose", "sourceRef", "size", "spec", "text",
-               "agentRole", "blocks", "rules", "card", "position", "criteria", "site", "design", "gateNodeId", "checks", "goal_mode", "factRefs", "scenario", "downloadsUrl", "color", "fragmentRef"}
+               "agentRole", "blocks", "rules", "card", "position", "criteria", "site", "design", "gateNodeId", "checks", "goal_mode", "factRefs", "scenario", "downloadsUrl", "color", "fragmentRef",
+               "briefGroup", "briefDiscipline"}
 RULE_FIELDS = {"kind", "text"}
 DECISION_FIELDS = {"node", "text", "pinned"}
 MAX_NODES, MAX_EDGES = 200, 600
@@ -96,6 +98,10 @@ def build(plan, graph, state):
             built.graph = arrange(built.graph, area, move["order"], move["columns"])
     for index, item in enumerate(edges_in):
         edge_of(built, item, f"edges[{index}]", resolve)
+    if any("briefGroup" in item or "briefDiscipline" in item for item in nodes_in):
+        # Značky struktury Schránky: nejvýš jedna oblast skupiny a jeden sektor disciplíny v kontejneru.
+        from backend.editor.brief_vault.brief_vault_marks import check_unique
+        check_unique(built.new_graph(), built.state, {node["id"] for node in built.nodes})
     for index, item in enumerate(decisions_in):
         label = f"decisions[{index}]"
         fields(item, DECISION_FIELDS, {"text"}, label)
@@ -170,3 +176,6 @@ def _node(built, item, parents, kinds, existing):
                 state_node["blocks"].append(security_block(len(state_node["blocks"]) + 1))
         built.state["nodes"][node_id] = state_node
         built.state_changed = True
+    if "briefGroup" in item or "briefDiscipline" in item:
+        from backend.editor.brief_vault.brief_vault_marks import plan_marks
+        plan_marks(built, item, node_id)

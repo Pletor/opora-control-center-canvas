@@ -133,11 +133,11 @@ def drop_lesson(w, payload, node_ids):
     return {"lesson": public(_insert(w, row["lesson_id"], row["revision"] + 1, {**data, "dropped": 1}))}
 
 
-def live_lessons(db, project, workspace, disciplines=None, limit=None, now=None):
-    """Živá poučení (nevyřazená, `w ≥ THRESHOLD`) seřazená podle platné váhy; `disciplines` = množina id nebo None."""
+def rank_lessons(rows, disciplines=None, limit=None, now=None):
+    """Živá poučení z posledních revizí `rows` (nevyřazená, `w ≥ THRESHOLD`) seřazená podle platné váhy."""
     now = now or utc_now()
     items = []
-    for row in _latest(db, project, workspace).values():
+    for row in rows:
         if row["dropped"] or not row["fragment_id"] or (disciplines is not None and row["discipline"] not in disciplines):
             continue
         weight = effective_weight(row["weight"], row["confirmed_at"], now)
@@ -145,6 +145,17 @@ def live_lessons(db, project, workspace, disciplines=None, limit=None, now=None)
             items.append((weight, row))
     items.sort(key=lambda item: (-item[0], item[1]["created_at"], item[1]["lesson_id"]))
     return [public(row, now) for _, row in items[:limit]]
+
+
+def live_lessons(db, project, workspace, disciplines=None, limit=None, now=None):
+    """Živá poučení prostoru; `disciplines` = množina id nebo None."""
+    return rank_lessons(_latest(db, project, workspace).values(), disciplines, limit, now)
+
+
+def snapshot_lessons(records, disciplines=None, now=None):
+    """Živá poučení uložené verze plátna (`records.briefLessons` snímku po `with_later_stores`) k času `now`."""
+    rows = [{"lesson_id": item["key"][0], "revision": item["revision"], **item["data"]} for item in records]
+    return rank_lessons(rows, disciplines, None, now)
 
 
 def card_lessons(db, project, workspace, fragment_items):

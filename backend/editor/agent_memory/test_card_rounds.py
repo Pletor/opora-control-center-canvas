@@ -173,7 +173,9 @@ def test_round_two_starts_clean(env):
     assert all(card["evidence"][key]["status"] == "pending" for key in ("tests", "review", "merge"))
     assert card["evidence"]["checksRun"] == []
     assert [idea["id"] for idea in card["ideas"]] == ["i1"]
-    assert card["fragmentRefs"] == [{"fragmentId": env["fragment"], "revision": 2}]
+    assert [{key: ref[key] for key in ("fragmentId", "revision")} for ref in card["fragmentRefs"]] == [
+        {"fragmentId": env["fragment"], "revision": 2}]
+    assert len(card["fragmentRefs"][0]["contentHash"]) == 64  # nové kolo nese otisk obsahu (§9 bod 6)
     assert card["round"]["number"] == 2 and card["round"]["reason"] == "Nové zadání 3.1" and card["round"]["by"] == "human"
     space = client.get("/api/desktop-v3/agent-workspace", params={**SCOPE, "nodeId": "c1"}).json()["workspace"]
     assert space["log"] == "" and space["failures"] == ""

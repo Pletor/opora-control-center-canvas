@@ -4,16 +4,16 @@
 dostane 409. Vrací živé fragmenty druhu `brief` s živými předky, platnou disciplínou a aspoň jednou nesplněnou
 (nebo zneplatněnou) branou; vylučuje slepé uličky (`decided = no`) a větve pokryté `placed` předka. Pořadí:
 číslo chybějící brány, hloubka, cesta `ord` od kořene, `fragmentId`. `needs` říká, zda brána čeká na návrh
-payloadu (`proposal`), nebo jen na potvrzení (`confirm`, s návrhem v `proposal`). `blocked` = počet fragmentů
-fronty, které samotné potvrzení neposune: čekají na návrh payloadu, nebo na bránu `planned`/`placed` (plán a
-schválení člověka, K4; do té doby je fronta nevrací).
+payloadu (`proposal`), nebo jen na potvrzení (`confirm`, s návrhem v `proposal`); `planned` je potvrzení bez
+návrhu (plán sestaví server). `blocked` = počet fragmentů fronty, které samotné potvrzení agenta neposune: čekají
+na návrh payloadu, nebo na bránu `placed` (zápis uloženého plánu na plátno schvaluje člověk; fronta je nevrací).
+`lessons(versionId=…)` čte poučení uložené verze plátna (snímek k času verze), ne živou tabulku.
 """
 
 from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_IDS
 from backend.editor.brief_vault.brief_vault_gate_rules import (
     GATES,
     HINTS,
-    LATER_GATES,
     NO_PAYLOAD,
     dead_end,
     gate_state,
@@ -24,6 +24,7 @@ from backend.editor.brief_vault.brief_vault_lessons import (
     NEXT_LIMIT,
     THRESHOLD,
     live_lessons,
+    snapshot_lessons,
 )
 from backend.editor.brief_vault.brief_vault_model import (
     bad_request,
@@ -62,8 +63,8 @@ def _queue(db, project, workspace, discipline):
         if state["next"] is None or dead_end(state) or covered(rows, fragment_id, states):
             continue
         gate = state["next"]
-        if gate in LATER_GATES:
-            blocked += 1
+        if gate == "placed":
+            blocked += 1  # zápis na plátno: uložený plán vkládá až schválení člověka
             continue
         proposal = None if gate in NO_PAYLOAD else usable_proposal(db, project, workspace, fragment_id, gate, state)
         needs = "confirm" if gate in NO_PAYLOAD or proposal else "proposal"
@@ -95,10 +96,24 @@ def next_work(canvas, project, workspace, discipline=None):
         return result
 
 
-def lessons(canvas, project, workspace, discipline=None):
-    """Živá poučení prostoru (volitelně jedné disciplíny) seřazená podle platné váhy."""
+def lessons(canvas, project, workspace, discipline=None, version_id=None):
+    """Živá poučení prostoru (volitelně jedné disciplíny) seřazená podle platné váhy.
+
+    `version_id` = uložená verze plátna: poučení se čtou ze snímku (`briefLessons`) a váha k času verze;
+    starý snímek bez poučení vrátí prázdný seznam. Main bez verze nemá poučení (je jen pro čtení)."""
     discipline = _discipline(discipline)
+    wanted = {discipline} if discipline else None
+    if version_id is not None:
+        from datetime import datetime
+
+        from backend.editor.canvas_versions.canvas_versions import CanvasVersions
+        from backend.editor.canvas_versions.version_content import with_later_stores
+        read = CanvasVersions(canvas).read(project, workspace, version_id)
+        records = with_later_stores((read["snapshot"] or {}).get("records") or {})["briefLessons"]
+        at = datetime.fromisoformat(read["version"]["createdAt"])
+        return {"lessons": snapshot_lessons(records, wanted, at), "threshold": THRESHOLD, "halfLifeDays": HALF_LIFE_DAYS,
+                "versionId": version_id, "asOf": read["version"]["createdAt"]}
     with canvas.reading(project):
         items = [] if canvas.view(project, workspace)["readOnly"] else live_lessons(
-            canvas.db_for(project), project, workspace, {discipline} if discipline else None)
+            canvas.db_for(project), project, workspace, wanted)
         return {"lessons": items, "threshold": THRESHOLD, "halfLifeDays": HALF_LIFE_DAYS}

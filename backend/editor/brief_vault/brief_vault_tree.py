@@ -1,8 +1,9 @@
 """Odvozené čtení schránky: strom, stav fragmentu, pokrytí podstromu a odkazy z karet.
 
 Nic se tu nepersistuje. `inserted` = některá karta nese `fragmentRefs` na fragment;
-`changedSinceInsert` = karta vznikla z revize starší, než je poslední změna TEXTU fragmentu
-(`text_revisions`; revize jen s metadaty jako propose-mvp nebo stage kartě zadání nemění).
+`changedSinceInsert` = otisk názvu a textu v odkazu karty (`contentHash`) se liší od fragmentu; starší odkaz
+bez otisku: karta vznikla z revize starší, než je poslední změna TEXTU (`text_revisions`). Zápis brány ani revize
+jen s metadaty (propose-mvp, stage) kartě zadání nemění (docs/schranka-neurony.md §9 bod 6).
 Pokrytí počítá listy druhu `brief` (research a question jsou poznámky k fragmentu, ne kus zadání).
 Strom se skládá bez rekurze a vnoření končí na `MAX_DEPTH` (hlubší větev = počet `hidden`).
 `effectiveDiscipline` = disciplína nejbližšího předka včetně sebe (`effective_disciplines`); filtr
@@ -14,7 +15,12 @@ Brány cyklu (`gates` jen booleany + `predictionError`, `gateStep`, `gatesStale`
 from backend.editor.brief_vault.brief_vault_details import details_summary
 from backend.editor.brief_vault.brief_vault_disciplines import track_from_discipline
 from backend.editor.brief_vault.brief_vault_gate_rules import detail, gate_state, summary
-from backend.editor.brief_vault.brief_vault_model import MAX_DEPTH, effective_disciplines, public
+from backend.editor.brief_vault.brief_vault_model import (
+    MAX_DEPTH,
+    effective_disciplines,
+    public,
+    ref_changed,
+)
 
 STATUSES = ("changed", "inserted", "research", "mvp", "proposed", "saved")
 
@@ -23,7 +29,10 @@ def refs_by_fragment(state):
     result = {}
     for node_id, node in (state or {}).get("nodes", {}).items():
         for ref in node.get("fragmentRefs", []):
-            result.setdefault(ref["fragmentId"], []).append({"nodeId": node_id, "revision": ref["revision"]})
+            item = {"nodeId": node_id, "revision": ref["revision"]}
+            if ref.get("contentHash"):
+                item["contentHash"] = ref["contentHash"]
+            result.setdefault(ref["fragmentId"], []).append(item)
     return result
 
 
@@ -52,10 +61,16 @@ def _research_open(child, details):
     return child["kind"] == "research" and child["stage"] != "ready" and not (research and research["status"] == "done")
 
 
-def status_of(row, children, refs, text_revision=None, details=None):
+def legacy_pairs(state):
+    """(fragmentId, revize) starších odkazů karet bez `contentHash` (pro `legacy_hashes`)."""
+    return {(ref["fragmentId"], ref["revision"]) for node in (state or {}).get("nodes", {}).values()
+            for ref in node.get("fragmentRefs", []) if not ref.get("contentHash")}
+
+
+def status_of(row, children, refs, text_revision=None, details=None, legacy=None):
     cards = refs.get(row["fragment_id"], [])
     latest_text = text_revision if text_revision is not None else row["revision"]
-    if cards and any(ref["revision"] < latest_text for ref in cards):
+    if cards and any(ref_changed(ref, row, latest_text, legacy) for ref in cards):
         return "changed"
     if cards:
         return "inserted"
@@ -117,7 +132,7 @@ def _discipline_kept(rows, disciplines, wanted):
     return kept
 
 
-def tree_of(rows, state, scope=None, text_revisions=None, details=None, feedback=None, discipline=None):
+def tree_of(rows, state, scope=None, text_revisions=None, details=None, feedback=None, discipline=None, legacy=None):
     """Stromy kořenů rozsahu; `details` = {id: fields}, `feedback` = {id: počet}.
 
     `discipline` (id | `none` = nezařazené) ponechá fragmenty dané platné disciplíny a jejich cestu ke kořeni.
@@ -136,7 +151,7 @@ def tree_of(rows, state, scope=None, text_revisions=None, details=None, feedback
         fragment_id = row["fragment_id"]
         cards = refs.get(fragment_id, [])
         text_revision = text_revisions.get(fragment_id, row["revision"])
-        status = status_of(row, children, refs, text_revision, details)
+        status = status_of(row, children, refs, text_revision, details, legacy)
         coverage: dict[str, int] = {key: 0 for key in ("leaves", "mvpInserted", *STATUSES)}
         briefs = [kid for kid in kids if kid["kind"] == "brief"]
         leaf = not any(kid["kind"] == "brief" for kid in children.get(fragment_id, []))
@@ -186,7 +201,7 @@ def path_of(rows, fragment_id):
     return list(reversed(path))
 
 
-def fragment_links(rows, state, fragment_id, text_revisions=None, details=None):
+def fragment_links(rows, state, fragment_id, text_revisions=None, details=None, legacy=None):
     refs, children = refs_by_fragment(state), _children(rows)
     text_revisions, details = text_revisions or {}, details or {}
     disciplines = effective_disciplines(rows)
@@ -195,12 +210,13 @@ def fragment_links(rows, state, fragment_id, text_revisions=None, details=None):
     gates = gate_state(rows[fragment_id], disciplines.get(fragment_id))
 
     def status(row):
-        return status_of(row, children, refs, text_revisions.get(row["fragment_id"]), details)
+        return status_of(row, children, refs, text_revisions.get(row["fragment_id"]), details, legacy)
 
     return {"path": path_of(rows, fragment_id), "scopeNodeId": rows[root]["scope_node_id"],
             "status": status(rows[fragment_id]), "textRevision": latest_text,
             **effective_fields(disciplines, fragment_id), **summary(gates), "gateDetail": detail(gates),
             "children": [{**public(row), **effective_fields(disciplines, row["fragment_id"]), "status": status(row), **details_summary(details.get(row["fragment_id"], {}))}
                          for row in children.get(fragment_id, [])],
-            "cards": [{**ref, "changedSinceInsert": ref["revision"] < latest_text} for ref in refs.get(fragment_id, [])],
+            "cards": [{**ref, "changedSinceInsert": ref_changed(ref, rows[fragment_id], latest_text, legacy)}
+                      for ref in refs.get(fragment_id, [])],
             "ideas": ideas_by_fragment(state).get(fragment_id, [])}

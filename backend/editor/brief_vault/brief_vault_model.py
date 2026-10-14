@@ -4,6 +4,8 @@ Revize je řádek `brief_fragment_revisions`; data revize jsou sloupce `COLUMNS`
 používá zápis služby (`brief_vault.py`) i uložená verze plátna (`version_content.STORES`).
 """
 
+import hashlib
+import json
 from typing import NoReturn
 
 from backend.canvas.graph import valid_id
@@ -122,6 +124,36 @@ def effective_disciplines(rows):
         for fragment_id in chain:
             result[fragment_id] = found
     return result
+
+
+def content_hash(title, text):
+    """Otisk obsahu fragmentu (název + text) v `fragmentRef` karty (docs/schranka-neurony.md §9 bod 6)."""
+    return hashlib.sha256(json.dumps([title, text], ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def ref_changed(ref, row, text_revision, legacy=None):
+    """Změnilo se zadání od vložení karty? Odkaz s `contentHash` porovná otisk obsahu (zápis brány ani revize
+    jen s metadaty nic nezmění). Starší odkaz bez otisku porovná otisk své historické revize (`legacy` =
+    {(fragmentId, revision): otisk}, viz `legacy_hashes`); bez ní revizi s poslední změnou textu jako dřív."""
+    current = content_hash(row["title"], row["text"])
+    if ref.get("contentHash"):
+        return ref["contentHash"] != current
+    old = (legacy or {}).get((row["fragment_id"], ref["revision"]))
+    if old is not None:
+        return old != current
+    return ref["revision"] < text_revision
+
+
+def legacy_hashes(db, project, workspace, pairs):
+    """Otisk obsahu historických revizí, na které míří starší odkazy bez `contentHash`: {(id, revize): otisk}."""
+    pairs = {(fid, revision) for fid, revision in pairs}
+    if not pairs:
+        return {}
+    ids = sorted({fid for fid, _ in pairs})
+    rows = db.execute("SELECT fragment_id, revision, title, text FROM brief_fragment_revisions WHERE project_id=?"
+                      f" AND workspace_id=? AND fragment_id IN ({','.join('?' for _ in ids)})", (project, workspace, *ids))
+    return {(row["fragment_id"], row["revision"]): content_hash(row["title"], row["text"]) for row in rows
+            if (row["fragment_id"], row["revision"]) in pairs}
 
 
 def data_of(row):

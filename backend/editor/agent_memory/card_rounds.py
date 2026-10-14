@@ -197,13 +197,18 @@ def fresh_node(node, refs, number, reason, at):
 
 
 def _current_refs(db, project, workspace, refs):
-    """Odkazy na poslední revizi živého fragmentu; smazaný fragment si drží původní revizi."""
-    from backend.editor.brief_vault.brief_vault_model import latest_rows
+    """Odkazy na poslední revizi živého fragmentu s otiskem obsahu; smazaný fragment si drží původní odkaz."""
+    from backend.editor.brief_vault.brief_vault_model import content_hash, latest_rows
     rows = latest_rows(db, project, workspace, [ref["fragmentId"] for ref in refs or []]) if refs else {}
-    return [{"fragmentId": ref["fragmentId"],
-             "revision": rows[ref["fragmentId"]]["revision"]
-             if ref["fragmentId"] in rows and not rows[ref["fragmentId"]]["deleted"] else ref["revision"]}
-            for ref in refs or []]
+    result = []
+    for ref in refs or []:
+        row = rows.get(ref["fragmentId"])
+        if row is None or row["deleted"]:
+            result.append(dict(ref))
+            continue
+        result.append({"fragmentId": ref["fragmentId"], "revision": row["revision"],
+                       "contentHash": content_hash(row["title"], row["text"])})
+    return result
 
 
 def open_round(store, payload, actor):

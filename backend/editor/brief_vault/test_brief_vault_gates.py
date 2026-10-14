@@ -1,5 +1,5 @@
 """Brány cyklu přes API (docs/schranka-neurony.md §3, §9 body 4 a 9): pořadí a kaskáda, CAS, append-only,
-otisk vstupů, návrh → potvrzení, decided no/other, brány K4 odmítnuté, souběh dvou zápisů."""
+otisk vstupů, návrh → potvrzení, decided no/other, payload planned/placed jen od serveru, souběh dvou zápisů."""
 import json
 import threading
 from contextlib import contextmanager
@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
-from backend.editor.brief_vault.brief_vault_gate_rules import GATES, encode_gates, input_hash
+from backend.editor.brief_vault.brief_vault_gate_rules import GATES
 from backend.editor.brief_vault.test_brief_vault_discipline import (
     AGENT,
     HEADERS,
@@ -50,7 +50,8 @@ def gate(client, fragment, name, value=True, expect=200, headers=AGENT, **extra)
 
 
 def walk(client, fragment, upto):
-    """Zapne brány od scoped po `upto` (včetně) s payloady z PAYLOADS; vrací poslední revizi fragmentu."""
+    """Zapne brány od scoped po `upto` (včetně) s payloady z PAYLOADS (planned a placed bez payloadu, plán
+    skládá server); vrací poslední revizi fragmentu."""
     for name in GATES[:GATES.index(upto) + 1]:
         extra = {"payload": PAYLOADS[name]} if name in PAYLOADS else {}
         fragment = gate(client, fragment, name, **extra)["fragment"]
@@ -61,24 +62,6 @@ def stored(client, fragment_id):
     db = client.app_state.service.db_for("draft")
     return [(row["revision"], row["text"], json.loads(row["gates"]) if row["gates"] else {}) for row in db.execute(
         "SELECT revision, text, gates FROM brief_fragment_revisions WHERE fragment_id=? ORDER BY revision", (fragment_id,))]
-
-
-def force(client, fragment_id, upto, discipline="be", **payloads):
-    """Zapíše revizi s platnými branami po `upto` mimo API (simulace K4 pro planned/placed)."""
-    db = client.app_state.service.db_for("draft")
-    row = dict(db.execute("SELECT * FROM brief_fragment_revisions WHERE fragment_id=? ORDER BY revision DESC LIMIT 1",
-                          (fragment_id,)).fetchone())
-    digest, revision = input_hash(row["title"], row["text"], discipline), row["revision"] + 1
-    entries = {name: {"value": True, "payload": {**PAYLOADS, **payloads}.get(name), "by": "k4", "actor": "agent", "at": "T",
-                      "inputHash": digest, "revision": revision} for name in GATES[:GATES.index(upto) + 1]}
-    with db:
-        db.execute("INSERT INTO brief_fragment_revisions(project_id,workspace_id,fragment_id,revision,parent_id,scope_node_id,ord,"
-                   "kind,title,text,stage,mvp,note,by,actor,deleted,saved_at,discipline,gates)"
-                   " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                   (row["project_id"], row["workspace_id"], fragment_id, revision, row["parent_id"], row["scope_node_id"],
-                    row["ord"], row["kind"], row["title"], row["text"], row["stage"], row["mvp"], "K4 simulace", "k4", "agent",
-                    0, row["saved_at"], row["discipline"], encode_gates(entries)))
-    return {"id": fragment_id, "revision": revision}
 
 
 def root(client, discipline="be"):
@@ -93,9 +76,10 @@ def test_order_cascade_and_tree(client):
     found = nodes(tree(client))[fragment["id"]]
     assert found["gateStep"] == 4 and found["gatesStale"] is False and found["gates"]["decided"] is True
     assert set(found["gates"]) == {*GATES, "predictionError"} and found["gates"]["predictionError"] is None
+    gate(client, fragment, "placed", expect=400)  # placed až po planned
     for name in ("planned", "placed"):
-        assert "K4" in gate(client, fragment, name, expect=400)["error"]
-        gate(client, fragment, name, value=False, expect=400)
+        gate(client, fragment, name, value=False, expect=409)  # není co vypnout
+        gate(client, fragment, name, expect=400, payload={"plan": []})  # payload skládá server
     off = gate(client, fragment, "weighed", value=False)
     assert off["gateStep"] == 1 and off["gates"]["synthesized"] is False and off["gates"]["decided"] is False
     history = stored(client, fragment["id"])
@@ -183,7 +167,7 @@ def test_decided_no_is_dead_end_and_other_returns_to_synthesized(client):
 
 
 def test_verified_stores_prediction_error(client):
-    fragment = force(client, root(client)["id"], "placed")
+    fragment = walk(client, root(client), "placed")
     done = gate(client, fragment, "verified", payload={"actual": {"tests": "fail", "criticRounds": 2, "unexpected": False}})
     assert done["gateStep"] == 7 and done["gates"]["predictionError"] == 0.5
     assert stored(client, fragment["id"])[-1][2]["verified"]["payload"]["predictionError"] == 0.5
@@ -200,7 +184,7 @@ def test_gates_need_a_brief_with_discipline_and_live_ancestors(client):
 
 def test_covered_fragment_gates_are_human_only(client):
     parent, (first, _) = split_root(client)
-    force(client, parent["id"], "placed")
+    walk(client, parent, "placed")
     response = client.post("/api/brief-vault", headers=AGENT, json={
         **SCOPE, "op": "gate", "fragmentId": first["id"], "expectedRevision": 1, "gate": "scoped", "value": True, "note": "x"})
     assert response.status_code == 403

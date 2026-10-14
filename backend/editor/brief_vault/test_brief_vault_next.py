@@ -9,8 +9,8 @@ from backend.editor.brief_vault.test_brief_vault_discipline import (
 )
 from backend.editor.brief_vault.test_brief_vault_gates import (
     WEIGHED,
-    force,
     gate,
+    root,
     vault_client,
     walk,
 )
@@ -69,18 +69,18 @@ def test_exclusions_and_discipline_filter(client):
     assert next_of(client, discipline="db") == {"fragment": None, "blocked": 0}
     dead = walk(client, first, "synthesized")
     gate(client, dead, "decided", payload={"verdict": "no", "reason": "Ne."})
-    force(client, parent["id"], "placed")  # rodič vložený na plátno: děti pokryté předkem
+    parent = walk(client, parent, "placed")  # rodič vložený na plátno: děti pokryté předkem
     assert next_of(client, discipline="ux") == {"fragment": None, "blocked": 0}
     found = next_of(client)
     assert found["fragment"]["id"] == parent["id"] and found["gate"] == "verified" and found["blocked"] == 1
-    post(client, headers=HEADERS, op="delete", fragmentId=parent["id"], expectedRevision=parent["revision"] + 1,
-         note="pryč")
+    post(client, headers=HEADERS, op="delete", fragmentId=parent["id"], expectedRevision=parent["revision"], note="pryč")
     assert next_of(client) == {"fragment": None, "blocked": 0}
 
 
-def test_k4_gates_count_as_blocked(client):
-    parent, _children = split_root(client)
-    force(client, parent["id"], "decided")
+def test_planned_is_a_confirm_and_placed_is_blocked(client):
+    fragment = walk(client, root(client), "decided")
     found = next_of(client)
-    assert found["fragment"]["id"] != parent["id"] and found["gate"] == "scoped"
-    assert found["blocked"] == 1  # rodič čeká na planned (K4)
+    assert found["fragment"]["id"] == fragment["id"] and found["gate"] == "planned"
+    assert found["needs"] == "confirm" and "proposal" not in found and found["blocked"] == 0
+    gate(client, fragment, "planned")
+    assert next_of(client) == {"fragment": None, "blocked": 1}  # placed čeká na schválení zápisu člověkem

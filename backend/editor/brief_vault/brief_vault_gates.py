@@ -5,7 +5,8 @@ fragmentu se stejným textem a povinnou `note` (append-only, CAS přes `expected
 (`propose`) revizi nemění: ukládá se append-only do `brief_gate_proposals` k aktuální revizi a otisku vstupů,
 aby čistě booleovský agent mohl bránu jen potvrdit (`gate` s `value: true` bez payloadu, §9 bod 9).
 Návrhy nejsou stav fragmentu, proto nejsou v revizi ani v uložené verzi plátna. Chybný tvar, brána, payload
-nebo pořadí = 400 (`BadRequest`); konflikt stavu (CAS, brána už zapnutá/vypnutá) = 409.
+nebo pořadí = 400 (`BadRequest`); konflikt stavu (CAS, brána už zapnutá/vypnutá) = 409. Payload bran `planned`
+a `placed` skládá server (`brief_vault_placement`) a předá ho v `w.prepared`.
 """
 
 import json
@@ -14,8 +15,8 @@ import uuid
 from backend.canvas.activity_log import require_human
 from backend.editor.brief_vault.brief_vault_gate_rules import (
     GATES,
-    LATER_GATES,
     NO_PAYLOAD,
+    PLAN_GATES,
     dead_end,
     encode_gates,
     gate_index,
@@ -151,8 +152,6 @@ def gate(w, payload, node_ids):
     index = gate_index(gate_name)
     if type(value) is not bool:
         bad_request("value musí být true nebo false.")
-    if gate_name in LATER_GATES:
-        bad_request(f"brána {gate_name} přijde v K4 (plán a zápis na plátno).")
     if "payload" in payload:
         if not value:
             bad_request("vypnutí brány payload nemá.")
@@ -174,6 +173,11 @@ def gate(w, payload, node_ids):
         if dead_end(state) and index > DECIDED:
             bad_request("fragment je slepá ulička (decided = no); brány 5–8 nejdou.")
         given = _gate_payload(w, payload, row, state, gate_name)
+        if gate_name in PLAN_GATES:
+            # Plán a jeho vložení skládá server před transakcí (brief_vault_placement); bez něj se nezapíná.
+            given = getattr(w, "prepared", None)
+            if given is None:
+                fail(f"bránu {gate_name} se nepodařilo připravit (plán); načtěte stav a zkuste to znovu.")
         if gate_name == "verified":
             prediction = state["entries"]["synthesized"]["payload"]["prediction"]
             given = {**given, "predictionError": prediction_error(prediction, given["actual"])}

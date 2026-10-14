@@ -5,7 +5,9 @@ jedna operace `op`; `set-mvp`, `delete`, `restore` a `feedback` patří člověk
 člověka také (služba volá `require_human`: agent 403, neznámý původce 428). Chybný tvar požadavku
 (`BadRequest`, např. kořen bez disciplíny nebo neznámý filtr `discipline`) je 400; konflikt stavu zůstává 409.
 `GET /brief-vault/disciplines` vrací tabulku disciplín s počty živých fragmentů (docs/schranka-neurony.md §2).
-`GET /brief-vault/next` je nezávazná fronta bran cyklu a `GET /brief-vault/lessons` živá poučení (§3, §5, §9).
+`GET /brief-vault/next` je nezávazná fronta bran cyklu a `GET /brief-vault/lessons` živá poučení (§3, §5, §9;
+s `versionId` poučení uložené verze plátna). `POST /brief-vault/plan {fragmentIds}` je jen čtení: plán struktury
+(oblast → sektor → karty) jako dávka canvas-plan ověřená dryRun, `{plan, summary, hash, skipped, …}` (§4, §9 bod 3).
 """
 
 from fastapi import APIRouter, Request
@@ -40,8 +42,8 @@ def create_brief_vault_router(service, desktop_state=None):
         return _bad_request(lambda: next_work(service, project, workspace, discipline))
 
     @router.get("/brief-vault/lessons")
-    def brief_vault_lessons(project: str, workspace: str, discipline: str | None = None):
-        return _bad_request(lambda: lessons(service, project, workspace, discipline))
+    def brief_vault_lessons(project: str, workspace: str, discipline: str | None = None, versionId: str | None = None):
+        return _bad_request(lambda: lessons(service, project, workspace, discipline, versionId))
 
     @router.get("/brief-vault/fragment")
     def brief_vault_fragment(project: str, workspace: str, id: str, revision: int | None = None):
@@ -54,6 +56,11 @@ def create_brief_vault_router(service, desktop_state=None):
     @router.get("/brief-vault/research-brief")
     def brief_vault_research_brief(project: str, workspace: str, fragment: str):
         return vault.research_brief(project, workspace, fragment)
+
+    @router.post("/brief-vault/plan")
+    def brief_vault_plan(payload: dict, request: Request):
+        # Jen čtení: dávka canvas-plan z fragmentů ověřená dryRun; zapisuje až /api/canvas-plan nebo brána placed.
+        return _bad_request(lambda: vault.plan(payload, actor=request.state.actor))
 
     @router.post("/brief-vault")
     def brief_vault_write(payload: dict, request: Request):

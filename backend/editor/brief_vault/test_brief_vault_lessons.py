@@ -13,7 +13,7 @@ from backend.editor.brief_vault.test_brief_vault_discipline import (
     post,
     split_root,
 )
-from backend.editor.brief_vault.test_brief_vault_gates import force, gate, root, vault_client
+from backend.editor.brief_vault.test_brief_vault_gates import gate, root, vault_client, walk
 
 ACTUAL = {"actual": {"tests": "pass", "criticRounds": 1, "unexpected": False}}
 LESSON = {"lesson": "Migraci piš idempotentně.", "kind": "pattern"}
@@ -39,8 +39,10 @@ def lessons(client, **params):
     return response.json()["lessons"]
 
 
-def learned(client, fragment_id, discipline="be"):
-    fragment = force(client, fragment_id, "verified", discipline, verified=ACTUAL)
+def learned(client, fragment_id):
+    """Celý cyklus nového kořene přes API (planned a placed vloží kartu na plátno), pak learned."""
+    fragment = walk(client, {"id": fragment_id, "revision": 1}, "placed")
+    fragment = gate(client, fragment, "verified", payload=ACTUAL)["fragment"]
     return gate(client, fragment, "learned", payload=LESSON)
 
 
@@ -111,7 +113,7 @@ def test_node_brief_carries_at_most_five_lessons_of_card_discipline(client, cloc
         clock["value"] = START + timedelta(days=index)
         learned(client, fragment["id"])
     other = post(client, op="create", scopeNodeId="s1", discipline="ux", title="UX", text="u")["fragment"]
-    learned(client, other["id"], "ux")
+    learned(client, other["id"])
     digest = client.get("/api/view", params=SCOPE).json()["digest"]
     current = client.get("/api/desktop-v3/state", params=SCOPE).json()["revision"]
     planned = client.post("/api/canvas-plan", headers=AGENT, json={**SCOPE, "digest": digest, "dryRun": False, "plan": {
@@ -138,3 +140,21 @@ def test_canvas_version_carries_gates_and_lessons(client, clock):
     assert [item["id"] for item in lessons(client)] == [done["lesson"]["id"]]
     from backend.editor.brief_vault.test_brief_vault_discipline import nodes, tree
     assert nodes(tree(client))[fragment["id"]]["gateStep"] == 8 and versions(client)["dirty"] is False
+
+
+def test_lessons_of_a_saved_version_come_from_its_snapshot(client):
+    """Historický snímek (verze plátna) čte svá `briefLessons`; starý snímek bez poučení = prázdný seznam."""
+    from backend.editor.brief_vault.brief_vault_lessons import snapshot_lessons
+    from backend.editor.canvas_versions.test_canvas_versions import save
+    from backend.editor.canvas_versions.version_content import with_later_stores
+    lesson = learned(client, root(client)["id"])["lesson"]
+    saved = save(client).json()["version"]
+    post(client, headers=HEADERS, op="drop-lesson", lessonId=lesson["id"], note="pryč")
+    assert lessons(client) == []
+    response = client.get("/api/brief-vault/lessons", params={**SCOPE, "versionId": saved["id"], "discipline": "be"})
+    assert response.status_code == 200, response.text
+    snapshot = response.json()
+    assert [item["id"] for item in snapshot["lessons"]] == [lesson["id"]] and snapshot["asOf"] == saved["createdAt"]
+    assert lessons(client, versionId=saved["id"], discipline="ux") == []
+    assert snapshot_lessons(with_later_stores({})["briefLessons"]) == []
+    assert client.get("/api/brief-vault/lessons", params={**SCOPE, "versionId": "spatne"}).status_code == 409

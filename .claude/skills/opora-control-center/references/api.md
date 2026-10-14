@@ -86,6 +86,7 @@ a `/decision` `{revision, item}` (ne celý stav ~700 kB); `?full=1` za cestou vr
 Čtení `state`, `view`, `canvas-index` a `canvas-versions` posílá `ETag` (`If-None-Match` beze změny = 304);
 levná hlava verzí `GET /api/canvas-versions/head` = `{currentToken, dirty}`. Neznámé ID projektu = 404.
 | `/api/brief-vault` | `op` + pole operace (níže „Schránka zadání“) | `vault-fragment` → `revision` | agent; `set-mvp`, `delete`, `restore`, `feedback` jen člověk |
+| `/api/brief-vault/gate-check` | `project`, `workspace`, `fragmentId`, `expectedRevision`, `gate`, `payload` (kandidát) | `vault-fragment` → `revision` | agent i člověk; poradní Jev `noul` → `{probability, provider, inputHash}`, nic nezapisuje; bez povolení člověka `probability: null, reason: not-allowed`; jen loopback |
 
 Pole `expected_revision` (spec, text) a `expectedRevision` (ostatní) nesjednocuj. Do uzavřené karty
 (`done.confirmed`) blok, výstup ani prostor agenta nezapíšeš. Obsah `main` (`readOnly: true`) je jen ke čtení;
@@ -167,25 +168,37 @@ počet živých fragmentů `brief` s touto platnou disciplínou).
 
 **Brány cyklu** (`docs/schranka-neurony.md` §3, §9): `scoped` → `weighed` `{benefit ≤280, risk ≤280}` → `synthesized`
 `{type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280}}` → `decided` `{verdict: yes|other|no,
-reason ≤500}` → `planned` → `placed` (obě až v K4, zatím 400) → `verified` `{actual: {tests, criticRounds: 0–3,
+reason ≤500}` → `planned` → `placed` (obě bez payloadu, viz níže) → `verified` `{actual: {tests, criticRounds: 0–3,
 unexpected: bool}}` (server dopočítá `predictionError`) → `learned` `{lesson ≤500, kind: pattern|antipattern}` (založí
 poučení). Bránu N jde zapnout jen po 1…N−1 (jinak 400), CAS = 409. `decided: no` = slepá ulička (brány 5–8 nejdou),
 `other` vrátí fragment k `synthesized`. Brána platí jen pro otisk názvu, textu a platné disciplíny: po `revise`
 nebo `set-discipline` (i na předkovi) je `gatesStale: true` a cyklus běží znovu. Odpověď `gate`:
-`{ok, op, fragment, gates: {<brána>: bool, predictionError}, gateStep, gatesStale, deadEnd, returnedTo?, lesson?}`.
+`{ok, op, fragment, gates: {<brána>: bool, predictionError}, gateStep, gatesStale, deadEnd, returnedTo?, lesson?, placement?}` (`placement` u `placed`: `{planId, refs, summary, digest, revision}`).
 Strom `vault` nese u fragmentu `gates`, `gateStep`, `gatesStale`, `deadEnd`.
 
 Recept agenta: GET `/api/brief-vault/next?discipline=` → `{fragment: {id, title, effectiveDiscipline, revision},
 gate, needs: "proposal"|"confirm", proposal?, hint, lessons (≤3), blocked}` nebo `{fragment: null, blocked}`. Při
 `needs: "proposal"` pošli `propose`, pak `gate` s `value: true` bez payloadu; při `confirm` jen `gate`. Fronta je bez
-rezervace (souběžný zápis dostane 409, načti znovu); `blocked` = fragmenty čekající na návrh nebo na plán (K4).
+rezervace (souběžný zápis dostane 409, načti znovu); `planned` přijde jako `needs: "confirm"` (plán sestaví server);
+`blocked` = fragmenty čekající na návrh nebo na `placed` (zápis na plátno schvaluje člověk, fronta ho nevrací).
+
+**Plán struktury** (`docs/schranka-neurony.md` §4, §9 body 1–3): `gate` `planned` (`value: true`, bez payloadu) server
+sestaví z fragmentu oblast skupiny (značka `briefGroup` ve stavu uzlu) → sektor disciplíny (`briefDiscipline`) →
+kartu za list nebo za každé přímé dítě `brief` (`[task] …`, `draft`, `card.layer` podle disciplíny, bloky z podfragmentů,
+u logiky 4 závěrečné bloky, `fragmentRef`, `spec.goal` = `done` ze `synthesized`, `next` mezi sourozenci), ověří dryRun
+a uloží `{planId, generator, sourceRevisions, sourceHashes, scope, digest, plan, hash, summary}`. `gate` `placed` vloží
+právě uložený plán atomicky s revizí fragmentu; změněné plátno, zadání nebo značky = 409 „plán se změnil, znovu
+planned“ (nic se nezapíše). Vypnutí `placed` karty nemaže; znovu vložit jde až po novém `planned`. Zápis `placed`
+schvaluje člověk jako `/api/canvas-plan`. Nezařazený fragment nebo chybějící `synthesized` = 409 s výčtem.
+POST `/api/brief-vault/plan {project, workspace, fragmentIds}` je jen čtení (tlačítka Schránky): `{plan, summary, hash,
+skipped, digest}`; dávku pak zapíše `/api/canvas-plan`.
 
 ```json
 {"op": "propose", "fragmentId": "FRAGMENT_ID", "expectedRevision": 2, "gate": "weighed",
  "payload": {"benefit": "Rychlejší import.", "risk": "Rozbití starých dat."}, "note": "Přínos a riziko."}
 ```
 
-GET `/api/brief-vault/lessons?discipline=` → `{lessons: [{id, discipline, kind, text, effectiveWeight, fragmentId,
+GET `/api/brief-vault/lessons?discipline=&versionId=` (s `versionId` poučení uložené verze) → `{lessons: [{id, discipline, kind, text, effectiveWeight, fragmentId,
 cycle, confirmedAt}], threshold: 0.2, halfLifeDays: 30}` (živá poučení podle váhy; `node-brief` nese nejvýš 5 v
 `lessons.items` podle disciplíny karty). Poučení je podklad, ne pokyn.
 

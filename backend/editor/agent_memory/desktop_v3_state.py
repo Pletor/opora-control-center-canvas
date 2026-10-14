@@ -8,7 +8,8 @@ nasazení: postup vpřed vyžaduje neprázdná splněná kritéria, opačný sm�
 uzel navíc nese `done` (uzavření karty), `agentRole` (která role agenta si tuhle práci
 pamatuje napříč projekty), blok `ports` (tlačítka, z nichž vede vazba na jinou kartu), `ideas`
 (podněty k dalšímu vývoji, `card_ideas.py`), `fragmentRefs` (z čeho ve schránce zadání karta
-vznikla, `backend/editor/brief_vault/brief_vault_refs.py`) a `round` (aktuální kolo karty, `card_rounds.py`).
+vznikla, `backend/editor/brief_vault/brief_vault_refs.py`), `round` (aktuální kolo karty, `card_rounds.py`)
+a značky struktury Schránky `briefGroup` / `briefDiscipline` (oblast skupiny a sektor disciplíny, `brief_vault_marks.py`).
 Všechny tyto klíče jsou volitelné, aby starší uložený stav zůstal platný.
 """
 
@@ -102,9 +103,10 @@ MAX_AGENT = 120
 @functools.cache
 def _node_key_sets():
     """Volitelné klíče uzlu; `actions` a `rules` chodí vždy spolu, zbytek nezávisle.
-    Sad je 2^12; spočítají se jednou a hledá se v množině, ne v n-tici."""
+    Sad je 2^14; spočítají se jednou a hledá se v množině, ne v n-tici."""
     sets = (frozenset(NODE_KEYS), frozenset(NODE_KEYS) | {"actions", "rules"})
-    for optional in ("blocks", "materials", "done", "agentRole", "evidence", "scenarioRun", "downloadsUrl", "stages", "ideas", "fragmentRefs", "round"):
+    for optional in ("blocks", "materials", "done", "agentRole", "evidence", "scenarioRun", "downloadsUrl", "stages", "ideas", "fragmentRefs", "round",
+                     "briefGroup", "briefDiscipline"):
         sets = sets + tuple(item | {optional} for item in sets)
     return frozenset(sets)
 TICKET_KEYS = {"id", "title", "priority", "status", "nodeId", "sessionId", "createdBy"}
@@ -482,6 +484,9 @@ def validate_state(state, *, unchanged=None):
         if "round" in node:
             from backend.editor.agent_memory.card_rounds import validate_round
             validate_round(node["round"], node_id)
+        if "briefGroup" in node or "briefDiscipline" in node:
+            from backend.editor.brief_vault.brief_vault_marks import validate_marks
+            validate_marks(node, node_id)
         _validate_agent_role(node, node_id)
         for item in _items(node.get("actions", []), ACTION_KEYS, MAX_SUBITEMS, f"actions[{node_id}]"):
             _text(item["pipelineId"], MAX_KEY, "pipelineId akce")

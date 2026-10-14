@@ -17,6 +17,7 @@ from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault import brief_vault_develop as develop
 from backend.editor.brief_vault import brief_vault_gates as gates
+from backend.editor.brief_vault import brief_vault_placement as placement
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_model import (
     COLUMNS,
@@ -26,6 +27,7 @@ from backend.editor.brief_vault.brief_vault_model import (
     MAX_TEXT,
     MAX_TITLE,
     STAGES,
+    bad_request,
     data_of,
     discipline_of,
     discipline_payload,
@@ -36,6 +38,7 @@ from backend.editor.brief_vault.brief_vault_model import (
     text_of,
     validate_record,
 )
+from backend.editor.brief_vault.brief_vault_plan import dry_plan
 from backend.editor.brief_vault.brief_vault_read import VaultReader
 from backend.editor.brief_vault.brief_vault_split import split_parts
 
@@ -313,8 +316,23 @@ class BriefVault(VaultReader):
             if view["readOnly"]:
                 fail("main je pouze pro čtení; schránka se mění v pracovním prostoru.")
             node_ids = {node["id"] for node in view["graph"]["nodes"]}
+
+            def make_write(db):
+                return _Write(db, project, workspace, actor, agent, self.state)
+
+            if placement.wants(payload):
+                # Brány plánu: plán a zápis na plátno skládá server mimo transakci schránky (§9 body 1–2).
+                return placement.run(self, payload, view, node_ids, make_write, actor)
             db = self.canvas.db_for(project)
             with self.canvas.lock_for(project), db:
                 db.execute("BEGIN IMMEDIATE")
-                return {"ok": True, "op": op,
-                        **HANDLERS[op](_Write(db, project, workspace, actor, agent, self.state), payload, node_ids)}
+                return {"ok": True, "op": op, **HANDLERS[op](make_write(db), payload, node_ids)}
+
+    def plan(self, payload, *, actor="unknown"):
+        """`POST /api/brief-vault/plan {project, workspace, fragmentIds}`: jen čtení, dávka ověřená dryRun."""
+        if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "fragmentIds"}:
+            bad_request("plan očekává project, workspace a fragmentIds.")
+        found = dry_plan(self.canvas, self.state, payload["project"], payload["workspace"], payload["fragmentIds"], actor)
+        return {"plan": found["plan"], "summary": found["summary"], "hash": found["hash"], "skipped": found["skipped"],
+                "digest": found["digest"], "scopes": found["scopes"], "generator": found["generator"],
+                "sourceRevisions": found["sourceRevisions"]}

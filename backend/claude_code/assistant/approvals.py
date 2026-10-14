@@ -111,9 +111,25 @@ def state_summary(payload):
     return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
 
 
+# Schránka (docs/schranka-neurony.md §3, §9 bod 3): brána `placed` zapisuje na plátno uložený plán struktury,
+# proto ji člověk schvaluje se stejným varováním jako dávku `/api/canvas-plan`. Cesta `/api/brief-vault` je ve
+# `WRITE_ROUTES` a nikdy v `NO_PROMPT_ROUTES`, takže každý zápis Schránky (i `placed`) jde přes dotaz člověka.
+def brief_vault_summary(payload):
+    """Souhrn zápisu Schránky; zapnutí brány `placed` (a `planned`) řekne, co udělá s plátnem."""
+    text = payload_summary(payload)
+    if payload.get("op") == "gate" and payload.get("value") is True and payload.get("gate") == "placed":
+        text = ("Zápis na plátno: brána placed vloží uložený plán struktury fragmentu (oblast, sektor, karty), "
+                "stejně jako /api/canvas-plan. " + text)
+    elif payload.get("op") == "gate" and payload.get("value") is True and payload.get("gate") == "planned":
+        text = "Jen návrh struktury (planned): server plán uloží k fragmentu, plátno nemění. " + text
+    return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
+
+
 def summary_of(route, payload):
     if route == "/api/canvas-plan":
         return plan_summary(payload)
+    if route == "/api/brief-vault":
+        return brief_vault_summary(payload)
     return state_summary(payload) if route == "/api/desktop-v3/state" else payload_summary(payload)
 
 
