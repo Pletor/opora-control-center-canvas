@@ -20,14 +20,10 @@ import {
   type Edge,
   type Connection,
   type Viewport,
-  type ReactFlowInstance,
 } from "@xyflow/react";
-import { CATALOG_DRAG_TYPE } from "@/editor/component-library/library-catalog/logic/library-catalog";
-import { AGENT_DRAG_TYPE } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
 import type { SurfaceSettings } from "@/shared/surface-settings/logic/workspace-settings";
 import type { Graph } from "@/shared/types/logic/types";
 import type { DesktopState, Rule } from "@/shared/desktop-state/logic/types";
-import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
 import { buildBoardIndex } from "@/editor/canvas/board/logic/board-index";
 import { layerEdges } from "@/editor/canvas/board/logic/board-edges";
 import { buildLayerNodes, movedKey, shouldCull } from "@/editor/canvas/board/logic/layer-nodes";
@@ -43,7 +39,7 @@ import SectorGateEditor from "@/editor/canvas/node-card/components/SectorGateEdi
 import SectorAutonomy from "@/editor/canvas/node-card/components/SectorAutonomy";
 import "@/editor/canvas/board/styles/board-bar.css";
 import { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
-import { estimateCardHeight, layerFootprints } from "@/editor/canvas/board/logic/layout-model";
+import { layerFootprints } from "@/editor/canvas/board/logic/layout-model";
 import { settleArea, settleCard } from "@/editor/canvas/board/logic/solid-bodies";
 import NodeCard, { type NodeCardData } from "@/editor/canvas/node-card/components/NodeCard";
 import type { UsageSummary } from "@/editor/canvas/node-card/logic/use-usage";
@@ -52,40 +48,13 @@ import AreaCard from "@/editor/canvas/area/components/AreaCard";
 import { membersOf } from "@/editor/canvas/area/logic/area-model";
 import { blockNodeTypes } from "@/editor/workflow/blocks/components/CanvasBlock";
 import { isBlockId, parseBlockId, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
-import { revealNodeCenter } from "../logic/reveal-node";
 import { isDeleteKey, reportsSelection, sameSelection, selectionIds } from "../logic/box-selection";
 import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
 import { indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
 
-/** Půlka karty: co uživatel pustí, má přistát pod kurzorem, ne rohem na něm. Stejné míry jako dvojklik. */
-const CARD_GRAB = { x: 136, y: 84 };
-
-/**
- * Ze kterého navbaru tažení přišlo: levý katalog knihovny (`CATALOG_DRAG_TYPE`), nebo pravý katalog
- * postupů (`AGENT_DRAG_TYPE`). Cizí tažení (soubor, text) plátno nebere a nechá ho projít beze změny.
- */
-const dropTypeOf = (types: readonly string[]): string | null =>
-  types.includes(CATALOG_DRAG_TYPE) ? CATALOG_DRAG_TYPE : types.includes(AGENT_DRAG_TYPE) ? AGENT_DRAG_TYPE : null;
-
-/**
- * Karta pod ukazatelem při puštění: id uzlu React Flow, na který se pustilo. Boční blok (Akce /
- * Pravidla / Podklady) patří své kartě, proto se přeloží na její id. Prázdné plátno vrací `null`.
- */
-function dropTargetOf(target: EventTarget | null): string | null {
-  const id = target instanceof Element ? target.closest(".react-flow__node")?.getAttribute("data-id") ?? null : null;
-  if (!id) return null;
-  return isBlockId(id) ? parseBlockId(id)?.nodeId ?? null : id;
-}
-
-/** Z celé instance React Flow potřebuje drop jedinou schopnost: přepočet obrazovky na souřadnice vrstvy. */
-type ScreenToFlow = Pick<ReactFlowInstance, "screenToFlowPosition" | "getNode" | "getZoom" | "setCenter">;
-
 export type { CardBlockEvent };
-
-/** Odhad rozměru karty, kterou React Flow ještě nezměřil (mimo obraz při kreslení jen viditelných). */
-const CARD_ESTIMATE = { width: CARD_GRAB.x * 2, height: CARD_GRAB.y * 2 };
 
 export default function Board({
   onUrlDownload,
@@ -137,10 +106,6 @@ export default function Board({
   tagFilter,
   onTagFilter,
   onCardBlock,
-  onCatalogDrop,
-  onAgentDrop,
-  reveal,
-  onRevealed,
   revision,
   digest,
 }: {
@@ -211,18 +176,6 @@ export default function Board({
   onTagFilter: (tag: string) => void;
   /** Bloky obsahu v kartě; ukládá rodič. */
   onCardBlock: (nodeId: string, event: CardBlockEvent) => void;
-  /**
-   * Prvek Knihovny puštěný na plátno: id z tažení, místo puštění v souřadnicích vrstvy a id uzlu pod
-   * ukazatelem (`null` = prázdné plátno). Co vznikne (blok v kartě, nebo nová karta), rozhoduje rodič.
-   */
-  onCatalogDrop: (itemId: string, x: number, y: number, targetId: string | null) => void;
-  /**
-   * Položka Agentů a Postupů puštěná na plátno: stejné místo i cíl. Co z ní vznikne — pravidlo, akce,
-   * nebo celý sektor s fázemi — rozhoduje rodič, ne plátno.
-   */
-  onAgentDrop: (itemId: string, x: number, y: number, targetId: string | null) => void;
-  reveal?: { id: string; scope: string; nonce: number } | null;
-  onRevealed?: (nonce: number) => void;
   /** Revize stavu (`desktop.revision`) a otisk grafu (`view.digest`): klíče pro obnovu overlayů. */
   revision?: number | null;
   digest?: string;
@@ -330,47 +283,7 @@ export default function Board({
       return { x: 60, y: 90, zoom: 1 };
     }
   });
-  // Puštěná položka knihovny potřebuje souřadnice vrstvy, ne obrazovky; přepočet umí jen živá instance
-  // React Flow, a ta se sem dostane jedinou cestou — přes onInit, protože plátno si ReactFlow vykresluje samo.
-  const flow = useRef<ScreenToFlow | null>(null);
   const surface = useRef<HTMLDivElement>(null);
-  const consumeReveal = useRef(onRevealed);
-  consumeReveal.current = onRevealed;
-  const estimateOf = useRef<(id: string) => number>(() => CARD_ESTIMATE.height);
-  estimateOf.current = (id: string) => fullHeights.current[id] ?? (state.nodes[id] ? estimateCardHeight(nodeWorkflowOf(state, id)) : CARD_ESTIMATE.height);
-  useEffect(() => {
-    if (!reveal || reveal.scope !== scope) return;
-    let frame = 0;
-    let attempts = 0;
-    const focus = () => {
-      const instance = flow.current;
-      const node = instance?.getNode(reveal.id);
-      const rect = surface.current?.getBoundingClientRect();
-      // Kreslí-li plátno jen viditelné, karta mimo obraz se nemusí změřit nikdy: po chvíli stačí odhad.
-      const size = node?.measured?.width && node.measured.height ? { width: node.measured.width, height: node.measured.height }
-        : node && attempts >= 20 ? { width: CARD_ESTIMATE.width, height: estimateOf.current(node.id) } : null;
-      if (!instance || !node || !size || !rect?.width) {
-        if (++attempts < 90) frame = requestAnimationFrame(focus);
-        else consumeReveal.current?.(reveal.nonce);
-        return;
-      }
-      const visible = { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
-      const editor = surface.current?.closest(".editor-frame") ?? surface.current?.parentElement?.parentElement;
-      const overlays = Array.from(editor?.querySelectorAll(".panel-drawer, .dock-rail, .inspector") ?? [])
-        .map((panel) => panel.getBoundingClientRect()).sort((left, right) => left.left - right.left);
-      for (const overlay of overlays) {
-        if (!overlay.width || overlay.bottom <= rect.top || overlay.top >= rect.bottom) continue;
-        if (overlay.left <= rect.left + 1 && overlay.right > visible.left) visible.left = Math.min(rect.right, overlay.right);
-        else if (overlay.left < visible.left + 1 && overlay.right > visible.left) visible.left = Math.min(rect.right, overlay.right);
-        else if (overlay.right >= rect.right - 1 && overlay.left < visible.right) visible.right = Math.max(rect.left, overlay.left);
-      }
-      const target = revealNodeCenter(rect, visible, { ...node.position, ...size }, instance.getZoom());
-      if (target) void instance.setCenter(target.x, target.y, { zoom: target.zoom });
-      consumeReveal.current?.(reveal.nonce);
-    };
-    frame = requestAnimationFrame(focus);
-    return () => cancelAnimationFrame(frame);
-  }, [reveal, scope]);
   // Sada vykreslených id se mění jen s přidáním nebo odebráním uzlu, ne v každém snímku tažení; klíč z id
   // drží memo vazeb stabilní, dokud se množina uzlů nezmění.
   const idsKey = nodes.map((n) => n.id).join("\n");
@@ -400,27 +313,6 @@ export default function Board({
           Math.round((event.clientY - rect.top - viewport.y) / viewport.zoom) - 84,
         );
       }}
-      /* Tažení z knihovny: bez preventDefault by prohlížeč drop vůbec nepustil. Kurzor „kopírovat“
-         dostane jen náš typ dat — cizí tažení (soubor, text) plátno nebere a projde dál nezměněné. */
-      onDragOver={(event) => {
-        if (disabled || !dropTypeOf(event.dataTransfer.types)) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-      }}
-      onDrop={(event) => {
-        const dragType = disabled ? null : dropTypeOf(event.dataTransfer.types);
-        if (!dragType) return;
-        event.preventDefault();
-        const itemId = event.dataTransfer.getData(dragType);
-        if (!itemId) return;
-        const rect = event.currentTarget.getBoundingClientRect();
-        const at = flow.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? {
-          x: (event.clientX - rect.left - viewport.x) / viewport.zoom,
-          y: (event.clientY - rect.top - viewport.y) / viewport.zoom,
-        };
-        const drop = dragType === AGENT_DRAG_TYPE ? onAgentDrop : onCatalogDrop;
-        drop(itemId, Math.round(at.x) - CARD_GRAB.x, Math.round(at.y) - CARD_GRAB.y, dropTargetOf(event.target));
-      }}
     >
       <div className="board-bar nodrag nopan" role="toolbar" aria-label="Stav sektoru">
         <WorkNow overview={work?.data} error={work?.error} sectorId={parent} open={onSelect} />
@@ -444,7 +336,6 @@ export default function Board({
         // Jen viditelné uzly: zatím vypnuto (`CULL_VISIBLE` v logic/layer-nodes.ts, docs/navrhy/2026-10-14-vykon-platna.md),
         // dokud drafty karet nežijí v úložišti, ze kterého se odmontovaná karta obnoví.
         onlyRenderVisibleElements={shouldCull(nodes.length)}
-        onInit={(instance) => { flow.current = instance; }}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}

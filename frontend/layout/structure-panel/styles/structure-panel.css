@@ -1,0 +1,191 @@
+/* Struktura (blok structure-panel): obsah sekce Struktura vedle lišty ikon (menu ☰ Editoru).
+   Uživatel tu vidí projekt shora, nebo kartu, kterou právě vybral — vždy jen jedno z toho. Nahoře
+   stojí přepínač dvou záložek „Struktura | Vybraná karta“ a pod ním jediná plocha s vlastním posunem,
+   takže se nic nepřekrývá ani netlačí do sebe. Výběr karty na plátně záložku nepřepíná: uživatel
+   si sám řekne, na co se dívá. Vlastní hlavičku ani křížek nemá — zavírá se ikonou v liště nebo ☰.
+   Základní písmo 14px, barvy jen z tokenů, proto drží světlý i tmavý režim. */
+.structure-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--surface);
+  border-radius: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+/* Záložky: dvě slova přes celou šířku, aktivní podtržená akcentem. Je to přepínač pohledu, ne
+   navigace pryč — proto tiché, v jedné řadě a pořád na stejném místě. */
+.structure-panel__tabs { flex: none; display: flex; border-bottom: 1px solid var(--line); }
+.structure-panel__tab {
+  flex: 1;
+  min-height: 40px;
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.structure-panel__tab:hover { color: var(--ink); }
+.structure-panel__tab--active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Plocha záložky: vyplní zbytek výšky. Strom si posouvá jen seznam (filtr a hledání stojí), zadání
+   vybrané karty se posouvá celé a má vlastní odsazení. */
+.structure-panel__pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.structure-panel__pane--card { display: block; overflow: auto; padding: 12px; }
+
+/* Hledání: pruh 36px vysoký, pole přes šířku a vpravo tiše počet nálezů.
+   Diakritika se pro hledání zahazuje, takže „formular“ najde „Formulář“ — číslo je na to důkaz. */
+.structure-panel__search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; margin-top: 8px; }
+.structure-panel__search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 8px;
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 14px;
+}
+.structure-panel__search-count { flex: none; color: var(--ink-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.structure-panel__empty { margin: 12px 0; color: var(--ink-muted); font-style: italic; }
+
+/* Strom vrstev: projekt shora, ne aktuální vrstva. Filtr a hledání drží místo nahoře a roluje
+   jen seznam pod nimi — kdo hledá vrstvu, nechce ztratit ovládání pod palcem. */
+.structure-panel__page { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.structure-panel__page-list { flex: 1; min-height: 0; overflow: auto; padding: 0 12px 12px; }
+
+/* Filtr Vše | Sektory | Uzly | Oblasti: čtyři pilulky, které se při úzkém panelu zalomí. Je to
+   výběr pohledu, ne akce, proto zvolená pilulka jen ztmavne plochou. */
+.structure-panel__filters { display: flex; flex-wrap: wrap; gap: 2px; margin: 10px 12px 0; padding: 2px; background: var(--bg); border-radius: 8px; }
+.structure-panel__filter {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 6px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.structure-panel__filter--active { background: var(--surface); border-color: var(--line-strong); color: var(--ink); font-weight: 600; }
+
+/* Skupina seznamu (Sektory / Uzly mimo sektor / Oblasti): hlavička je nadpis sekce — malá,
+   tučná, verzálky — a celá je tlačítko, takže sbalit jde odkudkoli z řádku. Znaménko vlevo
+   vypráví stav, číslo vpravo říká, kolik vrstev uvnitř zbylo po filtru. */
+.structure-panel__group { margin-top: 12px; }
+.structure-panel__group-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  padding: 6px 4px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.structure-panel__group-head:hover { color: var(--ink); }
+/* Znaménko skupiny: jedna šipka ve dvou polohách. Zavřená míří doprava („je tu ještě něco“),
+   otevřená se otočí o čtvrt kruhu dolů („koukáš dovnitř“) — stejný pohyb, jaký zná každý strom. */
+.structure-panel__group-sign { color: inherit; }
+.structure-panel__group-sign--open { transform: rotate(90deg); }
+.structure-panel__group-label { min-width: 0; overflow-wrap: anywhere; }
+.structure-panel__group-count { color: var(--ink-muted); font: inherit; font-variant-numeric: tabular-nums; }
+.structure-panel__group--collapsed .structure-panel__group-head { border-bottom-color: transparent; }
+
+/* Strom vrstev: řádky min. 40px, odsazení 24px na úroveň přes modifikátor `--depth-N` (data
+   o hloubce nese komponenta, CSS jen kreslí). Vodicí vlasová linka drží oko u sloupce rodiče.
+   Značka druhu je 24px žeton s kreslenou ikonou, domeček zůstává jen značkou. Skrytá karta ztlumí celý řádek —
+   nikdy jen text zvlášť, aby kontrast zůstal čitelný. */
+.structure-panel__rows { display: grid; gap: 1px; padding-top: 4px; }
+.structure-panel__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  padding: 4px 8px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+.structure-panel__row:hover { background: var(--accent-soft); color: var(--accent); }
+.structure-panel__row--hidden { opacity: 0.55; }
+.structure-panel__row-kind {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-muted);
+}
+.structure-panel__row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.structure-panel__row--root .structure-panel__row-name { font-weight: 600; }
+.structure-panel__row-home { flex: none; color: var(--ink-muted); }
+.structure-panel__row-flag { flex: none; color: var(--ink-muted); font-size: 11px; font-weight: 600; }
+.structure-panel__row--depth-0 { padding-left: 8px; }
+.structure-panel__row--depth-1 { padding-left: 32px; }
+.structure-panel__row--depth-2 { padding-left: 56px; }
+.structure-panel__row--depth-3 { padding-left: 80px; }
+.structure-panel__row--depth-4 { padding-left: 104px; }
+.structure-panel__row--nested::before { content: ""; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-strong); }
+.structure-panel__row--depth-1::before { left: 20px; }
+.structure-panel__row--depth-2::before { left: 44px; }
+.structure-panel__row--depth-3::before { left: 68px; }
+.structure-panel__row--depth-4::before { left: 92px; }
+
+/* Vazby: když hledání najde text ve zprávě na vazbě (souhrn, předání), objeví se pod stromem vlastní
+   skupina. Řádek má stejnou výšku a hover jako řádek vrstvy, aby se dal přečíst stejným okem, jen
+   místo žetonu druhu nese trasu „odkud → kam“ a pod ní tlumeně jeden řádek předání. Klik vede na
+   zdrojovou kartu — vazba patří tam, odkud vychází. */
+.structure-panel__edge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 40px;
+  padding: 4px 8px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+.structure-panel__edge:hover { background: var(--accent-soft); color: var(--accent); }
+.structure-panel__edge-route { min-width: 0; overflow-wrap: anywhere; }
+.structure-panel__edge-handoff { min-width: 0; font-size: 12px; color: var(--ink-muted); overflow-wrap: anywhere; }

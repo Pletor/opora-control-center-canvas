@@ -11,7 +11,7 @@ opora-canvas/
       top-bar/
       environment-switch/ # Projekt | Editor | OporaHub (Alt+1..3)
       mode-rail/        # módy plátna uvnitř Editoru (vodorovné záložky ve druhé řadě lišty)
-      panel-dock/       # tlačítka Knihovna | Agenti a postupy a panel zavěšený pod nimi (docs/rozvrzeni-editoru.md)
+      panel-dock/       # menu Editoru ☰: lišta Struktura | Schránka | Nastavení a panel sekce vedle ní
       account-corner/   # levý dolní roh: tlačítko Opora a popup menu
       shell/            # styly pracovní plochy
     project-setup/      # KROK 1: přiřazení repozitářů a složek, vytvoření projektu

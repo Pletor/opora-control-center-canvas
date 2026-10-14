@@ -1,5 +1,5 @@
-// Dílek Lišta ikon: svislý pás 56 px u levého okraje Editoru. Shora Knihovna, Agenti, Postupy,
-// oddělovač a Nastavení. Ikona aktivní sekce svítí (`aria-pressed`); klik hlásí `onSelect` a o tom,
+// Dílek Lišta ikon: svislý pás 56 px u levého okraje Editoru. Shora Struktura,
+// Schránka, oddělovač a Nastavení. Ikona aktivní sekce svítí (`aria-pressed`); klik hlásí `onSelect` a o tom,
 // jestli se panel otevře, přepne, nebo sbalí, rozhoduje rodič (pravidla v `logic/panel-dock.ts`).
 import DockIcon from "@/layout/panel-dock/components/DockIcon";
 import { DOCK_SECTIONS, type DockSection } from "@/layout/panel-dock/logic/panel-dock";

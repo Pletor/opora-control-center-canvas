@@ -14,7 +14,7 @@ export default function FragmentDetailView({ project, workspace, id, nodeNames, 
   onClose: () => void;
   /** Změna (nový strom) načte detail znovu. */
   refresh: unknown;
-  /** Akce nad fragmentem od rodiče (okno schránky). */
+  /** Akce nad fragmentem od rodiče (Schránka: stopa, výzkum, otázka). */
   actions?: ReactNode;
 }) {
   const [revision, setRevision] = useState<number | null>(null);

@@ -40,10 +40,6 @@
   .desktop-v2 .menu { position: fixed; left: 12px; right: 12px; top: 110px; width: auto; }
 }
 
-/* Police „Agenti a postupy“ (`agent-navbar`) už není sloupec rámu: v Editoru visí jako panel pod
-   svým tlačítkem ve druhé řadě lišty (`layout/panel-dock/`, docs/rozvrzeni-editoru.md). Plátno se
-   o ni proto nikde neodsazuje a nic pro ni nerezervuje místo. */
-
 /* Vazba uzlu/sektoru na zdroj: návrh nového vs. napojení na skutečný strom. */
 .source-badge { margin: 2px 0 0; font-size: 12px; color: var(--ink-muted); }
 .source-badge code { color: inherit; }

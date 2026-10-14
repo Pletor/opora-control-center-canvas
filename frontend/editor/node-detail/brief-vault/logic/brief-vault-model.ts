@@ -5,6 +5,8 @@
 export type FragmentRef = { fragmentId: string; revision: number };
 export type FragmentStatus = "changed" | "inserted" | "research" | "mvp" | "proposed" | "saved";
 export type FragmentKind = "brief" | "research" | "question";
+/** Stopa fragmentu (docs/navrh-schranka-zadani.md, „Dvě stopy a levé menu“): CX/UX/UI nebo Backend + DB. */
+export type Track = "ux" | "logic";
 export type Verdict = "feasible" | "dead_end" | "unrealistic" | "unverified";
 export type ResearchStatus = "assigned" | "running" | "done";
 /** Výtah výzkumu ve stromu (bez důkazů). */
@@ -28,6 +30,10 @@ export type FragmentRevision = {
   at: string;
   deleted: boolean;
   chars: number;
+  /** Vlastní stopa revize (`null` = dědí po předkovi); starší server pole nemá. */
+  track?: Track | null;
+  /** Platná stopa: `track` nejbližšího předka včetně sebe, jinak nezařazené (`null`). */
+  effectiveTrack?: Track | null;
 };
 
 /** Uzel stromu schránky s odvozeným stavem; `children` jsou podfragmenty, research i otázky. */
@@ -48,6 +54,8 @@ export type VaultNode = FragmentRevision & {
   decisions?: string[];
   /** Kolik potomků pod stropem hloubky server už nevnořil. */
   hidden?: number;
+  /** Pohled jedné stopy: uzel jiné stopy, který zůstal jen jako cesta ke kořeni (nepočítá se, nevkládá se). */
+  offTrack?: boolean;
   children: VaultNode[];
 };
 export type Feedback = { id: string; fragmentId: string; fragmentRevision: number; verdict: "agree" | "disagree" | "comment"; text: string; by: string; actor: string; at: string };
@@ -101,6 +109,7 @@ export function coverageOf(roots: VaultNode[]): Coverage {
     if (node.kind !== "brief") return;
     const briefs = node.children.filter((child) => child.kind === "brief");
     if (!briefs.length) {
+      if (node.offTrack) return;
       result.leaves += 1;
       result[coverageKey(node)] += 1;
       return;
@@ -119,7 +128,7 @@ export function countChangedMvp(roots: VaultNode[]): number {
     const node = stack.pop()!;
     if (node.kind !== "brief") continue;
     const briefs = node.children.filter((child) => child.kind === "brief");
-    if (!briefs.length) { if (node.status === "changed" && (node.mvp === "yes" || node.mvp === "proposed")) count += 1; }
+    if (!briefs.length) { if (!node.offTrack && node.status === "changed" && (node.mvp === "yes" || node.mvp === "proposed")) count += 1; }
     else stack.push(...briefs);
   }
   return count;

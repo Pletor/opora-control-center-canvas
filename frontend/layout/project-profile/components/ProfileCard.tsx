@@ -37,7 +37,7 @@ export default function ProfileCard({
       <div>
         <p className="project-profile__question">Jaký je projekt {name || "tento projekt"}?</p>
         <p className="project-profile__intro">
-          Dvě odpovědi stačí. Knihovna i postupy pak ukážou jen to, co k projektu sedí. Ostatní zůstane schované pod „Mimo profil“.
+          Dvě odpovědi stačí. Profil popisuje projekt pro celou aplikaci a ukládá se k projektu.
         </p>
       </div>
       <fieldset className="project-profile__group">

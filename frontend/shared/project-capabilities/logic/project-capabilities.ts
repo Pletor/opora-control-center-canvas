@@ -53,8 +53,3 @@ export function catalogProfile(settings: { architecture?: string; tenancy?: stri
   const platform = PLATFORMS.find((value) => value === settings?.platform) ?? "web";
   return { architecture, tenancy, platform };
 }
-
-/** Profil, který nic neříká: ani architektura, ani uživatelé. Šuplík pak nabídne kartu profilu. */
-export function profileUnset(profile: ProjectProfile): boolean {
-  return !profile.architecture && !profile.tenancy;
-}

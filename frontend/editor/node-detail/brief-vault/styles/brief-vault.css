@@ -36,6 +36,9 @@
 }
 .brief-vault__row:hover { background: var(--surface-2); }
 .brief-vault__row--selected { background: var(--accent-soft); }
+/* Předek z jiné stopy: zůstává ve stromu jen jako cesta ke kořeni, aby kapitola nevisela ve vzduchu.
+   Ztlumí se, aby oko poznalo, že sem práce vybrané stopy nepatří. */
+.brief-vault__row--path { opacity: 0.55; }
 .brief-vault__twist {
   flex: 0 0 14px;
   width: 14px;

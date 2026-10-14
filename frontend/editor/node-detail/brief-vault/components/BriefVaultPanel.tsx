@@ -1,5 +1,5 @@
 // Strom schránky: pruh pokrytí, strom fragmentů s kuličkou stavu a detail vybraného fragmentu (sekce Zadání
-// v okně schránky). Strom dodá rodič (useBriefVault), detail si dílek načte sám; klik na čip karty bublá přes
+// Schránky v levém menu). Uzel jiné stopy, který zůstal jen jako cesta ke kořeni, je ztlumený. Strom dodá rodič (useBriefVault), detail si dílek načte sám; klik na čip karty bublá přes
 // onOpenNode a akce nad fragmentem (výzkum, otázka) dodá rodič v `detailActions`.
 import { useMemo, useState, type ReactNode } from "react";
 import { countChangedMvp, coverageOf, statusDot, textRevisionOf, type VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
@@ -34,7 +34,7 @@ export default function BriefVaultPanel({
   onOpenNode: (id: string) => void;
   /** Fragment, který se má hned otevřít (klik na čip „Ze schránky“). */
   initialSelected?: string | null;
-  /** Akce nad vybraným fragmentem (okno schránky: výzkum, otázka); záložka je bez akcí. */
+  /** Akce nad vybraným fragmentem od rodiče (stopa, výzkum, otázka). */
   detailActions?: (id: string) => ReactNode;
   /** Vlastní text prázdného výsledku (např. hledání bez shody). */
   emptyHint?: ReactNode;
@@ -59,7 +59,7 @@ export default function BriefVaultPanel({
         <p><strong>Schránka {scopeLabel} je prázdná.</strong></p>
         <p>Sem se ukládá dlouhé zadání doslova a s historií verzí: agent nebo člověk ho vloží, rozdělí na kapitoly,
           vybere MVP a jen vybrané kapitoly vloží jako karty. Zbytek tu zůstane „uloženo“ na později a nic se neztratí.</p>
-        <p className="muted">Vložení a rozdělení dělá agent přes <code>/api/brief-vault</code> (recept ve skillu OPORA); výzkum, otázky, MVP a vložení jako karty jsou v okně schránky.</p>
+        <p className="muted">Vložení a rozdělení dělá agent přes <code>/api/brief-vault</code> (recept ve skillu OPORA); výzkum, otázky, MVP a vložení jako karty jsou v dalších sekcích Schránky.</p>
       </div>
     );
   }
@@ -95,7 +95,7 @@ function TreeRow({ node, depth, expanded, selected, onToggle, onSelect }: {
   const latestRef = node.cards.length ? Math.min(...node.cards.map((card) => card.revision)) : null;
   return (
     <li role="treeitem" aria-expanded={node.children.length ? open : undefined} aria-selected={selected === node.id}>
-      <div className={"brief-vault__row" + (selected === node.id ? " brief-vault__row--selected" : "")}
+      <div className={"brief-vault__row" + (selected === node.id ? " brief-vault__row--selected" : "") + (node.offTrack ? " brief-vault__row--path" : "")}
         style={{ paddingLeft: 4 + depth * 14 }}>
         {node.children.length ? (
           <button type="button" className="brief-vault__twist" aria-label={(open ? "Sbalit: " : "Rozbalit: ") + node.title}
@@ -108,7 +108,7 @@ function TreeRow({ node, depth, expanded, selected, onToggle, onSelect }: {
           {node.kind === "question" && <span className="brief-vault__kind">otázka: </span>}
           {node.title}
         </button>
-        <span className="brief-vault__state">{dot.label}</span>
+        <span className="brief-vault__state">{node.offTrack ? "jiná stopa · cesta" : dot.label}</span>
         {node.cards.length > 0 && <span className="brief-vault__meta" title="Karty vzniklé z fragmentu">→ {node.cards.length}</span>}
         {node.changedSinceInsert && (
           <span className="brief-vault__changed" title="Karta vznikla ze starší revize textu fragmentu">⚠ v{textRevisionOf(node)} &gt; v{latestRef}</span>
