@@ -151,6 +151,28 @@
 .tower-inbox__open { font-size: var(--fs-1); white-space: nowrap; }
 .tower-inbox__more { width: 100%; font-size: var(--fs-1); }
 
+/* PŘÍMÉ AKCE VE FRONTĚ (prvky `tower-inbox__action`, `tower-inbox__error`)
+   Příběh: návrh uzavření jde vyřídit přímo tady, bez cesty na kartu — ale uzavření je nevratné, takže
+   tlačítko „Potvrdit“ chce dva klidné kliky. První ho na čtyři vteřiny natáhne: dostane jantarový okraj a
+   nese „Opravdu potvrdit“, aby si člověk všiml, že teď to platí. Během ukládání je ztlumené
+   („ukládám…“) a nejde stisknout znovu; chyba zůstane drobným červeným textem hned pod ním, ne v
+   dialogu. Skupina sektoru se dvěma a víc návrhy má nahoře jedno tlačítko „Potvrdit vše v sektoru“. */
+.tower-inbox__actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-1); }
+.tower-inbox__confirm { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.tower-inbox__group-action { margin: 0 0 var(--sp-2); }
+.tower-inbox__group-action .tower-inbox__confirm { align-items: stretch; }
+.tower-inbox__action {
+  font-size: var(--fs-1);
+  white-space: nowrap;
+  border: 1px solid #4ade80;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+}
+.tower-inbox__action--armed { border-color: #f59e0b; background: var(--gold-soft, var(--surface-3)); font-weight: 600; }
+.tower-inbox__action--busy { opacity: 0.6; cursor: progress; }
+.tower-inbox__error { max-width: 200px; font-size: var(--fs-0); color: #f87171; text-align: right; overflow-wrap: anywhere; }
+
 /* PÁSMO OBLASTI (blok `tower-area`)
    Příběh: oblast je téma projektu a ve Velínu je to pásmo s barevným pruhem vlevo — stejnou barvou,
    jakou má její rámeček na plátně, aby člověk poznal „tohle je ta tyrkysová“ bez čtení. Hlava nese

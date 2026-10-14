@@ -93,6 +93,8 @@ brána = jedna podmínka, pravidla jen ta, která se liší od projektu.
 | smazání nepoužívaných formulářů karty | hotovo (7465a5a) |
 | velín místo módu Mapa | hotovo (7465a5a) |
 | záměr oblasti jako první věc v inspektoru a na rámečku, souhrn sektorů v oblasti, „Rozložit na sektory“ | hotovo (7465a5a) |
-| shrnutí podnětů sektoru jako jedno rozhodnutí | návrh, nestaví se dnes |
+| shrnutí podnětů sektoru jako jedno rozhodnutí („Shrnout podněty“ v inspektoru sektoru, zadání pro agenta) | hotovo |
+| předání karty agentovi jedním tlačítkem („Předat agentovi“ v inspektoru karty, s etapou na řadě) | hotovo |
+| potvrzení návrhů uzavření přímo z fronty velína (jednotlivě i za sektor) | hotovo |
 | role rozkladač ve skillu (`references/rozklad.md`) | hotovo (7465a5a) |
 | sektor → karty: „Rozložit na karty“ v inspektoru sektoru, oddíl v rozklad.md | hotovo |

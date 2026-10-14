@@ -12,7 +12,8 @@ import { useSourceStatus } from "@/editor/canvas/node-card/logic/use-source-stat
 import { confirmProposal } from "@/editor/canvas/node-card/logic/completion-proposals";
 import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, type BlockApi, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
-import { removeIdea, setIdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
+import { openIdeas, removeIdea, setIdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
+import { handoffStageHint } from "@/editor/node-detail/handoff/logic/handoff-prompt";
 import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, decideBlockPort, setPortSpawn, setDone, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
 import { edgeFromConnection, sameEdge, type BoardConnection } from "@/editor/canvas/board/logic/board-model";
 import { emptyHistory, record, recordRemoval, redo, sameGraph, undo, type GraphHistory } from "@/editor/canvas/history/logic/graph-history";
@@ -751,6 +752,12 @@ export default function App() {
     setParent(id);
     setSelection(emptySelection());
   }
+  // Potvrzení návrhů uzavření: tytéž handlery dostává plátno (Board) i Velín (ControlTower).
+  const confirmProposalNow = (id: string) => desktop.mutate(confirmProposal(id));
+  async function confirmSectorNow(sectorId: string, nodeIds: string[]) {
+    const fresh = await fetchState(project, workspace);
+    desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/confirm-proposals", { project, workspace, sectorId, nodeIds, expectedRevision: fresh.revision })));
+  }
   function selectProject(id: string, sourceKind?: string) {
     generation.current++;
     setView(null);
@@ -1103,7 +1110,7 @@ export default function App() {
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
               ) : mode === "map" ? (
-                <ControlTower key={project} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }} />
+                <ControlTower key={project} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }} onConfirmProposal={confirmProposalNow} onConfirmSector={confirmSectorNow} />
               ) : mode === "drawing" ? (
                 <WorkspaceBoundary
                   key={JSON.stringify([project, workspace, parent, mode])}
@@ -1141,7 +1148,7 @@ export default function App() {
                     await trackSaveWrite(project, workspace, api("/api/desktop-v3/realize-source", { project, workspace, nodeId, digest: view?.digest, commit, prUrl }));
                     reloadCanvas();
                   }}
-                  onConfirmProposal={(id) => desktop.mutate(confirmProposal(id))}
+                  onConfirmProposal={confirmProposalNow}
                   confirmError={desktop.error}
                   onAutonomy={async (sectorId, until, grantedBy, note) => {
                     // Revize až těsně před zápisem: stav mezitím mění agenti a stará revize by souhlas tiše odmítla.
@@ -1152,10 +1159,7 @@ export default function App() {
                     ...current.nodes, [id]: { ...nodeWorkflowOf(current, id), evidence },
                   } }))}
                   onSaveSector={updated => { void run(() => save({ ...graph, nodes: graph.nodes.map(n => n.id === updated.id ? updated : n) })); }}
-                  onConfirmSector={async (sectorId, nodeIds) => {
-                    const fresh = await fetchState(project, workspace);
-                    desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/confirm-proposals", { project, workspace, sectorId, nodeIds, expectedRevision: fresh.revision })));
-                  }}
+                  onConfirmSector={confirmSectorNow}
                   assignmentStatuses={assignmentStatuses}
                   onRuleWrite={(expected, item) => desktop.mutateItem("rule", expected, item)}
                   onRuleReview={desktop.reviewRule}
@@ -1334,6 +1338,8 @@ export default function App() {
                 onOpenNode={openNode}
                 graphNodes={linkTargets}
                 childCount={node.kind === "sector" ? graph.nodes.filter((child) => child.parentId === node.id && child.kind === "node").length : 0}
+                stageHint={node.kind === "node" ? handoffStageHint(desktop.state.nodes[node.id]?.stages) : ""}
+                openIdeasInSector={node.kind === "sector" ? graph.nodes.filter((child) => child.parentId === node.id).reduce((sum, child) => sum + openIdeas(desktop.state.nodes[child.id]?.ideas), 0) : 0}
                 done={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).done}
                 onDone={(patch) => { void desktop.mutate(setDone(node.id, patch)); }}
                 ideas={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).ideas ?? []}

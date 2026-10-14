@@ -1,0 +1,31 @@
+/* PŘEDÁNÍ KARTY AGENTOVI (blok `card-handoff`)
+   Příběh: karta má zadání a člověk ji chce dát agentovi do terminálu. Místo ručního skládání promptu
+   podle návodu leží pod zadáním složený oddíl se stejným rytmem jako rozklad oblasti a sektoru: jedna
+   věta o stavu (která etapa pipeline je na řadě), zadání jen ke čtení a jedno tlačítko na zkopírování.
+   Zadání je neproporcionálním písmem, aby bylo vidět, že jde o text pro stroj, ne o další pole formuláře;
+   tenký rámeček ho odděluje od editoru zadání nad ním, ať se nesplete s tím, co člověk sám píše. */
+.card-handoff {
+  margin: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.card-handoff__summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 2px 0;
+}
+.card-handoff__state {
+  margin: 4px 0;
+}
+.card-handoff__prompt {
+  width: 100%;
+  box-sizing: border-box;
+  font: 400 11px/1.4 var(--mono);
+  resize: vertical;
+}
+.card-handoff__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}

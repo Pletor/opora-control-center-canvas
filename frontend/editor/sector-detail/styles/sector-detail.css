@@ -1,30 +1,30 @@
-/* ROZKLAD SEKTORU NA KARTY (blok `sector-decompose`)
+/* SKLÁDANÉ ODDÍLY SEKTORU PRO AGENTA (blok `sector-fold`: „Rozložit na karty“, „Shrnout podněty“)
    Příběh: o patro níž než u oblasti — člověk potvrdil sektor s cílem a bránou a teď chce, aby z něj agent
-   navrhl karty. Pod zadáním sektoru proto leží složený oddíl se stejným rytmem jako rozklad oblasti: jedna
-   věta o stavu (kolik karet už sektor má), zadání pro agenta jen ke čtení a jedno tlačítko na zkopírování.
-   Zadání je neproporcionálním písmem, aby bylo vidět, že jde o text pro stroj, ne o další pole formuláře;
-   tenký rámeček ho odděluje od editoru zadání nad ním, ať se nesplete s tím, co člověk sám píše. */
-.sector-decompose {
+   navrhl karty, nebo aby mu nasbírané podněty agentů shrnul do jednoho rozhodnutí. Pod zadáním sektoru
+   proto leží složené oddíly se stejným rytmem jako rozklad oblasti: jedna věta o stavu, zadání pro agenta
+   jen ke čtení a jedno tlačítko na zkopírování. Zadání je neproporcionálním písmem, aby bylo vidět, že jde
+   o text pro stroj, ne o další pole formuláře; tenký rámeček ho odděluje od editoru zadání nad ním. */
+.sector-fold {
   margin: 8px 0;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 4px 8px;
 }
-.sector-decompose__summary {
+.sector-fold__summary {
   cursor: pointer;
   font-weight: 600;
   padding: 2px 0;
 }
-.sector-decompose__state {
+.sector-fold__state {
   margin: 4px 0;
 }
-.sector-decompose__prompt {
+.sector-fold__prompt {
   width: 100%;
   box-sizing: border-box;
   font: 400 11px/1.4 var(--mono);
   resize: vertical;
 }
-.sector-decompose__actions {
+.sector-fold__actions {
   display: flex;
   justify-content: flex-end;
   margin-top: 4px;

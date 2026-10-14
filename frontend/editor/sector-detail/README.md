@@ -15,4 +15,11 @@ chybí id sektoru. Název, podstata a počet karet jsou citovaná data („Sekto
 akceptaci a bránu si agent čte sám z `node-brief --raw` sektoru. Karty míří do sektoru přes
 `parent: "@<id sektoru>"`.
 
-`styles/sector-detail.css`: blok `sector-decompose` (stejný rytmus jako `area-decompose` u oblasti).
+`components/IdeasSummary.tsx` je složený oddíl „Shrnout podněty (N)“ pod rozkladem; `NodePanel` ho ukáže
+jen sektoru s N > 0 otevřenými podněty v jeho kartách (`openIdeasInSector`, spočítá App z `ideas` přímých
+dětí sektoru). Podněty se člověku neukazují jako seznam (`docs/pyramida.md` §1 bod 4): zadání z
+`logic/ideas-summary-prompt.ts` (testováno, `null` bez sektoru nebo bez podnětů) pošle agenta podle
+`references/rozklad.md`, oddíl „Podněty → jedno rozhodnutí“, shrnout je do nejvýš 3 témat a jednoho
+rozhodnutí; nic neodškrtává.
+
+`styles/sector-detail.css`: blok `sector-fold` pro oba oddíly (stejný rytmus jako `area-decompose` u oblasti).

@@ -7,6 +7,7 @@ import type { Graph } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { useWorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
 import { INBOX_LIMIT, inboxCardCount, inboxKinds, inboxPage, looseArea, towerFrom, towerStructure, type InboxFilter, type WorkState } from "../logic/tower-model";
+import { proposalsBySector } from "../logic/inbox-actions";
 import TowerArea from "./TowerArea";
 import TowerInbox from "./TowerInbox";
 import TowerSummary from "./TowerSummary";
@@ -15,9 +16,13 @@ import "../styles/control-tower.css";
 type Props = {
   project: string; workspace: string; graph: Graph; state: DesktopState;
   onOpenNode: (id: string) => void; onEnterLayer: (id: string) => void;
+  /** Potvrdit uzavření karty navržené agentem (tentýž handler jako na plátně). */
+  onConfirmProposal?: (nodeId: string) => Promise<boolean>;
+  /** Hromadně potvrdit návrhy v sektoru (tentýž handler jako na plátně). */
+  onConfirmSector?: (sectorId: string, ids: string[]) => Promise<void>;
 };
 
-export default function ControlTower({ project, workspace, graph, state, onOpenNode, onEnterLayer }: Props) {
+export default function ControlTower({ project, workspace, graph, state, onOpenNode, onEnterLayer, onConfirmProposal, onConfirmSector }: Props) {
   const revisionKey = JSON.stringify([graph.nodes.length, Object.keys(state.nodes).length]);
   const work = useWorkOverview(project, workspace, revisionKey);
   const workState: WorkState = !work ? "loading" : work.data ? "loaded" : "unavailable";
@@ -29,6 +34,7 @@ export default function ControlTower({ project, workspace, graph, state, onOpenN
   const loose = looseArea(tower);
   const areas = loose ? [...tower.areas, loose] : tower.areas;
   const page = inboxPage(tower.inbox, filter, limit);
+  const proposals = useMemo(() => proposalsBySector(tower.inbox), [tower.inbox]);
   const toggle = (id: string) => setExpanded((old) => {
     const next = new Set(old);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -46,7 +52,8 @@ export default function ControlTower({ project, workspace, graph, state, onOpenN
           {!areas.length && <p className="control-tower__empty">Plátno je prázdné. Velín ukáže oblasti, sektory a karty, jakmile vzniknou.</p>}
         </div>
         <TowerInbox items={page.items} total={page.total} more={page.more} kinds={inboxKinds(tower.inbox)} filter={filter}
-          workState={workState} workError={work?.error} onFilter={chooseFilter} onMore={() => setLimit((n) => n + INBOX_LIMIT)} onOpenNode={onOpenNode} />
+          workState={workState} workError={work?.error} proposals={proposals}
+          onConfirmProposal={onConfirmProposal} onConfirmSector={onConfirmSector} onFilter={chooseFilter} onMore={() => setLimit((n) => n + INBOX_LIMIT)} onOpenNode={onOpenNode} />
       </div>
     </section>
   );

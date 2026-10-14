@@ -43,13 +43,13 @@ export default function SectorDecompose({
   };
 
   return (
-    <details className="sector-decompose" data-testid="sector-decompose">
-      <summary className="sector-decompose__summary">Rozložit na karty</summary>
-      <p className="muted sector-decompose__state">{state}</p>
+    <details className="sector-fold" data-testid="sector-decompose">
+      <summary className="sector-fold__summary">Rozložit na karty</summary>
+      <p className="muted sector-fold__state">{state}</p>
       {prompt && (
         <>
           <textarea
-            className="sector-decompose__prompt"
+            className="sector-fold__prompt"
             aria-label="Zadání pro agenta-rozkladače sektoru"
             data-testid="sector-decompose-prompt"
             readOnly
@@ -57,7 +57,7 @@ export default function SectorDecompose({
             value={prompt}
             onFocus={(e) => e.currentTarget.select()}
           />
-          <div className="sector-decompose__actions">
+          <div className="sector-fold__actions">
             <button type="button" onClick={copy} data-testid="sector-decompose-copy">
               {copied ? "Zkopírováno" : "Kopírovat zadání"}
             </button>

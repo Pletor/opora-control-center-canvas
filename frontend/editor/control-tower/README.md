@@ -24,3 +24,12 @@ oblasti. `contentLabel` je popisek rozbalení („Obsah: 3 karty · 1 podsektor�
 kuličkami `CardProcess`), `TowerInbox` (fronta s čipy druhu, „Zobrazit dalších“ a hlášením, když stav práce chybí) a `TowerBar` (tenký pruh stavů; šířku nese jen CSS proměnná
 `--w`). Styl v `styles/control-tower.css` (BEM, bloky `control-tower`, `tower-bar`, `tower-summary`,
 `tower-inbox`, `tower-area`, `tower-sector`, `tower-card`); pod 1000 px šířky jde fronta nad pyramidu.
+
+Přímé akce fronty: `ControlTower` bere nepovinné `onConfirmProposal(nodeId)` a `onConfirmSector(sectorId,
+ids)` — App mu dává tytéž handlery jako plátnu (`confirmProposalNow`, `confirmSectorNow`). U položky „ke
+schválení“ je `ConfirmButton` „Potvrdit“, ve skupině sektoru se dvěma a víc návrhy „Potvrdit vše v sektoru
+(N)“; uvízlé procesy a otázky mají jen „Otevřít“, protože rozhodnutí potřebuje kontext karty. Potvrzení je
+nevratné, proto bez `confirm()` dialogu dvojí klik: `logic/inbox-actions.ts` (testováno) drží automat
+`confirmStep` (idle → armed na `ARM_MS` = 4 s → busy → idle / error, `tick` po vypršení vrací do klidu) a
+`proposalsBySector` (sektor → id návrhů z celé fronty, ne jen viditelné stránky). Úspěch nic nepřekresluje
+sám: položka zmizí, až přijde nový stav plátna.

@@ -4,6 +4,8 @@ import DetailFold from "./DetailFold";
 import ResultHistory from "@/editor/llm-control/editor-context/components/ResultHistory";
 import NodeSpecEditor from "@/editor/node-detail/assignment/components/NodeSpecEditor";
 import SectorDecompose from "@/editor/sector-detail/components/SectorDecompose";
+import IdeasSummary from "@/editor/sector-detail/components/IdeasSummary";
+import CardHandoff from "@/editor/node-detail/handoff/components/CardHandoff";
 import NodeTextEditor from "@/editor/node-detail/content/components/NodeTextEditor";
 import AgentWorkspace from "@/editor/node-detail/agent-workspace/components/AgentWorkspace";
 import NodeLinksPanel from "@/editor/node-detail/links/components/NodeLinksPanel";
@@ -61,6 +63,8 @@ export default function NodePanel({
   round,
   onOpenRound,
   childCount = 0,
+  stageHint = "",
+  openIdeasInSector = 0,
 }: {
   node: CanvasNode;
   project: string;
@@ -106,6 +110,10 @@ export default function NodePanel({
   onOpenRound?: (reason: string) => Promise<void>;
   /** Počet karet (`kind: "node"`) přímo v sektoru; spočítá rodič z grafu, čte ho jen rozklad sektoru. */
   childCount?: number;
+  /** Věta o etapě pipeline na řadě pro předání agentovi (`handoffStageHint`); spočítá rodič ze stavu karty. */
+  stageHint?: string;
+  /** Otevřené podněty v kartách sektoru; spočítá rodič, > 0 ukáže „Shrnout podněty“. */
+  openIdeasInSector?: number;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
@@ -187,6 +195,12 @@ export default function NodePanel({
           <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
           {node.kind === "sector" && (
             <SectorDecompose project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} purpose={node.purpose} cards={childCount} />
+          )}
+          {node.kind === "sector" && openIdeasInSector > 0 && (
+            <IdeasSummary project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} openIdeas={openIdeasInSector} />
+          )}
+          {node.kind === "node" && (
+            <CardHandoff project={project} workspace={workspace} nodeId={node.id} name={node.name} stageHint={stageHint} />
           )}
           <DetailFold title="Účel komponenty">
           <p className="muted">Dlouhodobý smysl této části. Konkrétní práci určuje zadání výše.</p>
