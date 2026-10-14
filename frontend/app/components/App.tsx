@@ -1,3 +1,4 @@
+import { saveCanvasGraph } from "@/editor/canvas/board/logic/graph-positions";
 import { fetchState } from "@/shared/desktop-state/logic/api";
 import type { StateResponse } from "@/shared/desktop-state/logic/types";
 import { useEffect, useMemo, useRef, useState, lazy, Suspense, type ReactNode } from "react";
@@ -459,7 +460,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     const scope = { project, workspace };
     let saved: View;
     try {
-      saved = await api<View>("/api/graph", {
+      saved = await saveCanvasGraph(view, {
         project,
         workspace,
         graph,

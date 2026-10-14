@@ -52,7 +52,7 @@ opora-canvas/
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
     project/            # PROSTŘEDÍ PROJEKT
       workspace/        # strom zdrojů, otevírání souborů, dokumentace k cestám
-      worktrees/        # worktree_manager: worktree z čistého main, fork, run_check, úklid
+      worktrees/        # workspace_domain (worktree ↔ doména), workspace_archive (skladiště uzavřených worktree)
       maps/             # graphify, archify, map_refresh, artefakty, snapshoty
     editor/             # PROSTŘEDÍ EDITOR: obsah uzlů a vše, co dostává agent
       node/             # node_text, node_specs, node_journal, node_links, drawings, wireframe_context, removals

@@ -86,8 +86,8 @@ def test_two_workspaces_are_isolated_and_main_is_read_only(tmp_path):
     managed.parent.mkdir(parents=True)
     subprocess.run(["git", "clone", str(upstream), str(managed)], check=True, capture_output=True)
     p = s.register_repository("fixture", "Fixture", str(managed), "fixture://local", "main")
-    a = s.create_workspace(p["id"], "node1", "Agent A")
-    b = s.create_workspace(p["id"], "node2", "Agent B")
+    a = s._add_worktree(p["id"], "node1", "Agent A")
+    b = s._add_worktree(p["id"], "node2", "Agent B")
     assert a["directory"] != b["directory"]
     Path(a["directory"], "README.md").write_text("agent A")
     assert Path(b["directory"], "README.md").read_text() == "base"
@@ -119,7 +119,7 @@ def managed_fixture(tmp_path):
 def test_worktree_folder_is_short_but_id_and_branch_stay_full(tmp_path):
     # Dlouhá cesta datové složky + hluboké soubory repozitáře nesmí přetéct limit Windows.
     s, p = managed_fixture(tmp_path)
-    w = s.create_workspace(p["id"], "node1", "Agent A")
+    w = s._add_worktree(p["id"], "node1", "Agent A")
     assert len(w["id"]) == 32
     assert Path(w["directory"]).name == w["id"][:8]
     assert w["branch"] == "work/" + w["id"]
@@ -137,7 +137,7 @@ def test_worktree_never_reuses_an_existing_folder(tmp_path, monkeypatch):
     (s.folder(p["id"]).worktrees / taken[:8]).mkdir(parents=True)
     ids = iter([uuid_module.UUID(taken), uuid_module.UUID(fresh)])
     monkeypatch.setattr(canvas_service.uuid, "uuid4", lambda: next(ids))
-    w = s.create_workspace(p["id"], "node1", "Agent A")
+    w = s._add_worktree(p["id"], "node1", "Agent A")
     assert w["id"] == fresh
     assert Path(w["directory"]).name == "bbbbbbbb"
 
@@ -152,4 +152,4 @@ def test_worktree_gives_up_when_every_folder_is_taken(tmp_path, monkeypatch):
     (s.folder(p["id"]).worktrees / taken[:8]).mkdir(parents=True)
     monkeypatch.setattr(canvas_service.uuid, "uuid4", lambda: uuid_module.UUID(taken))
     with pytest.raises(ValueError):
-        s.create_workspace(p["id"], "node1", "Agent A")
+        s._add_worktree(p["id"], "node1", "Agent A")

@@ -306,8 +306,8 @@ def test_main_and_other_workspaces_remain_unchanged(tmp_path):
     app = create_app(tmp_path / "data")
     service = app.state.service
     service.register_repository("p", "P", repo, "https://github.com/example/p", "main")
-    a = service.create_workspace("p", "sector", "A")["id"]
-    b = service.create_workspace("p", "sector", "B")["id"]
+    a = service._add_worktree("p", "sector", "A")["id"]
+    b = service._add_worktree("p", "sector", "B")["id"]
     with TestClient(app, base_url=ORIGIN) as client:
         main = {"project": "p", "workspace": "main", "kind": "node", "target": "sector"}
         assert client.get("/api/removal-preview", params=main).status_code == 409

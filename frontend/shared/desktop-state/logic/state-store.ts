@@ -2,11 +2,11 @@
 // proti zastaralým async odpovědím (scoped A->B->A). Interní modul, nikoli veřejný export.
 import { useEffect, useRef, useState } from "react";
 import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
-import { errorMessage, fetchState, saveState } from "@/shared/desktop-state/logic/api";
+import { errorMessage, fetchState, saveNode, saveState } from "@/shared/desktop-state/logic/api";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
 import type { Rule, Decision, StateResponse } from "@/shared/desktop-state/logic/types";
-import { appliesTo, withItem, type ItemWriteResponse } from "@/shared/desktop-state/logic/slim-writes";
+import { appliesTo, stateChange, withItem, withNode, type ItemWriteResponse } from "@/shared/desktop-state/logic/slim-writes";
 import { api } from "@/shared/types/logic/types";
 import { ruleReviewRequest, type RuleReviewDecision } from "@/shared/desktop-state/logic/agent-rule";
 
@@ -24,7 +24,10 @@ export type DesktopStateHandle = {
    * Když právě běží uložení, počká na jeho konec: rozpracovaná změna se nepřepíše ani nezahodí.
    */
   reload: () => void;
-  /** Aplikuje mutaci na aktuální stav a uloží ji s CAS ochranou. */
+  /**
+   * Aplikuje mutaci na aktuální stav a uloží ji s CAS ochranou. Změna jediné karty jde štíhle
+   * (POST /api/desktop-v3/node, oprava 8), jiná změna celým stavem, mutace beze změny nikam.
+   */
   mutate: (fn: (current: DesktopState) => DesktopState) => Promise<boolean>;
   /** Převezme stav z odpovědi adresného zápisu (autonomie, hromadné potvrzení) a pošle ho ostatním instancím. */
   apply: (value: StateResponse) => void;
@@ -115,12 +118,20 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     const previous = state;
     const previousRevision = revision;
     const next = fn(previous);
+    const change = stateChange(previous, next);
+    if (change.kind === "none") return true;
     // Apply immediately so controls (e.g. native checkboxes) reflect the user's action without
     // waiting on the round trip; reconciled with the server's exact saved state below, or rolled
     // back on failure/staleness.
     setState(next);
     saving.current++;
     try {
+      if (change.kind === "node") {
+        const slim = await trackSaveWrite(project, workspace, saveNode(project, workspace, previousRevision, change.nodeId, change.node));
+        if (ticket !== generation.current || scopeKey.current !== scope) return false;
+        settleSlim(scope, previousRevision, slim, (current) => withNode(current, slim.nodeId, slim.node));
+        return true;
+      }
       const value = await trackSaveWrite(project, workspace, saveState(project, workspace, previousRevision, next));
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
       setState(value.state);
@@ -149,6 +160,19 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     else load();
   };
 
+  // Štíhlá odpověď vlastního zápisu se vloží do posledního vykresleného stavu; jiná revize nebo změna
+  // grafu = stav se načte celý, až doběhnou všechny rozepsané zápisy.
+  const settleSlim = (scope: string, baseRevision: number, value: { revision: number; readOnly: boolean; graphChanged?: boolean }, patch: (current: DesktopState) => DesktopState) => {
+    if (appliesTo(baseRevision, value) && latest.current.revision === baseRevision) {
+      const next = patch(latest.current.state);
+      setState(next); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
+      publish(scope, { state: next, revision: value.revision, readOnly: value.readOnly }, self.current);
+    } else {
+      reloadQueued.current = true;
+    }
+    if (value.graphChanged) window.dispatchEvent(new CustomEvent("opora:spawned", { detail: { project, workspace } }));
+  };
+
   // Adresný zápis jedné položky (pravidlo, rozhodnutí, posouzení návrhu): odpověď nese jen revizi a
   // uloženou položku (karta P3), ne celý stav.
   const writeItem = async (kind: "rule" | "decision", id: string, url: string, body: object) => {
@@ -159,14 +183,7 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     try {
       const value = await trackSaveWrite(project, workspace, api<ItemWriteResponse>(url, body));
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
-      if (appliesTo(baseRevision, value) && latest.current.revision === baseRevision) {
-        const next = withItem(latest.current.state, kind, id, value.item);
-        setState(next); setRevision(value.revision); setReadOnly(value.readOnly); setError("");
-        publish(scope, { state: next, revision: value.revision, readOnly: value.readOnly }, self.current);
-      } else {
-        reloadQueued.current = true; // načte se celý stav, až doběhne tento i další rozepsaný zápis
-      }
-      if (value.graphChanged) window.dispatchEvent(new CustomEvent("opora:spawned", { detail: { project, workspace } }));
+      settleSlim(scope, baseRevision, value, (current) => withItem(current, kind, id, value.item));
       return true;
     } catch (e) {
       if (ticket === generation.current && scopeKey.current === scope) setError(errorMessage(e));

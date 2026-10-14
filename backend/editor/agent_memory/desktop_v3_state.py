@@ -115,6 +115,7 @@ AUTONOMY_KEYS = {"until", "grantedAt", "note"}
 AUTONOMY_SAVE_KEYS = {"project", "workspace", "expectedRevision", "sectorId", "until", "note"}
 MAX_AUTONOMY_DAYS = 30
 SAVE_KEYS = {"project", "workspace", "expectedRevision", "state"}
+NODE_SAVE_KEYS = {"project", "workspace", "expectedRevision", "nodeId", "node"}
 
 
 def default_done():
@@ -725,6 +726,40 @@ class DesktopV3State:
                 return {"revision": revision, "readOnly": False, **changed}
             with self.canvas.lock_for(project):
                 return {**self.current(project, workspace), "readOnly": False, **changed}
+
+    def save_node(self, payload, *, actor="system"):
+        """Štíhlý zápis jedné karty (`docs/navrhy/2026-10-14-vykon-platna.md`, oprava 8).
+
+        Tělo nese jen `nodes[nodeId]` (nebo `null` = stav karty odebrat) a odpověď jen revizi a
+        uložený uzel, ne megabajty celého stavu; velké plátno tak nenarazí na strop 2 MB. Revize se
+        hlídá stejně přísně jako u celého zápisu (`expectedRevision`), všechna pravidla uložení
+        (fáze, uzavření, zámek uzavřené karty, spawn portů, kola) provádí tentýž `save`; ostatní
+        karty jsou sdílené s uloženým stavem, takže se znovu neověřují."""
+        if not isinstance(payload, dict) or set(payload) != NODE_SAVE_KEYS:
+            raise ValueError("Zápis karty vyžaduje project, workspace, expectedRevision, nodeId a node.")
+        project, workspace, node_id, node = payload["project"], payload["workspace"], payload["nodeId"], payload["node"]
+        _scope_ids(project, workspace)
+        _ident(node_id, "klíč uzlu")
+        if node is not None and not isinstance(node, dict):
+            _fail("stav uzlu musí být objekt nebo null.")
+        with self.canvas.graph_lock_for(project):
+            stored = self.read(project, workspace)
+            if stored["readOnly"]:
+                raise ValueError("Main je pouze pro čtení; paměť projektu se ukládá v pracovním prostoru.")
+            if stored["revision"] != payload["expectedRevision"]:
+                raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
+            nodes = dict(stored["state"]["nodes"])
+            if node is None:
+                if nodes.pop(node_id, None) is None:
+                    raise ValueError(f"Karta {node_id} nemá uložený stav, není co odebrat.")
+            else:
+                if not any(item["id"] == node_id for item in self.canvas.view(project, workspace)["graph"]["nodes"]):
+                    raise ValueError(f"Karta {node_id} v tomto pracovním prostoru neexistuje.")
+                nodes[node_id] = node
+            saved = self.save({"project": project, "workspace": workspace, "expectedRevision": stored["revision"],
+                               "state": {**stored["state"], "nodes": nodes}},
+                              actor=actor, base=stored["state"], slim=True)
+        return {**saved, "nodeId": node_id, "node": node}
 
     def set_autonomy(self, payload):
         """Člověk svěří sektoru autonomii do času `until` (prázdné `until` ji odebere).

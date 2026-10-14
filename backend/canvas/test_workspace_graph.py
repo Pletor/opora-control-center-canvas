@@ -37,7 +37,7 @@ def repository(tmp_path, data):
 
 def workspace(service, managed, legacy=None):
     project = service.register_repository("fixture", "Fixture", str(managed), "fixture://local", "main")["id"]
-    created = service.create_workspace(project, "card", "Agent")
+    created = service._add_worktree(project, "card", "Agent")
     directory = Path(created["directory"])
     if legacy is not None:
         (directory / "opora-canvas.json").write_text(encode(legacy), encoding="utf-8")

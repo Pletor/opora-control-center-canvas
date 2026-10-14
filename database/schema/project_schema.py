@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS builtin_project_metadata(project_id TEXT PRIMARY KEY,
 CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, branch TEXT, node_id TEXT, actor TEXT, base_sha TEXT);
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, kind TEXT, status TEXT, message TEXT, project_id TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS archived_projects(project_id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, archived_at TEXT NOT NULL);
+-- backend/project/worktrees/workspace_archive.py: skladiště uzavřených worktree (docs/domeny-a-worktree.md §6, §13.3);
+-- větev work/<id> zůstává v repu, řádek z workspaces se sem přesune a jde jen číst
+CREATE TABLE IF NOT EXISTS archived_workspaces(
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL, node_id TEXT, branch TEXT, actor TEXT, base_sha TEXT,
+  directory TEXT, reason TEXT NOT NULL, archived_at TEXT NOT NULL);
 -- backend/memory/memory_service.py: nastavení platné pro celou aplikaci (nikdy per projekt).
 CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 -- backend/canvas/activity_log.py: záznam činnosti člověka a agentů (docs/zaznam-cinnosti.md).
@@ -34,6 +39,10 @@ CREATE TABLE IF NOT EXISTS project_architecture(
 CREATE TABLE IF NOT EXISTS project_architecture_revisions(
     project_id TEXT NOT NULL, revision INTEGER NOT NULL, graph TEXT NOT NULL, actor TEXT NOT NULL,
     workspace TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(project_id, revision));
+-- backend/canvas/migrate_architecture.py: stav jednorázové migrace architektury (fáze, záloha, report)
+CREATE TABLE IF NOT EXISTS architecture_migrations(
+    project_id TEXT PRIMARY KEY, phase TEXT NOT NULL, backup_id TEXT NOT NULL,
+    started_at TEXT NOT NULL, finished_at TEXT, report TEXT NOT NULL);
 -- backend/project_setup/project_hub.py: cíl a platforma projektu
 CREATE TABLE IF NOT EXISTS project_settings(project_id TEXT PRIMARY KEY, revision INTEGER NOT NULL, goal TEXT NOT NULL, platform TEXT NOT NULL);
 -- backend/project_setup/project_hub.py: profil projektu (architektura, uživatelé); revizi nese project_settings

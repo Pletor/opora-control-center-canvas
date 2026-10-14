@@ -36,6 +36,8 @@ from backend.editor.node.node_text import NodeTextStore
 from backend.editor.node.removals import RemovalService
 from backend.integrations.gitio import git, github_url
 from backend.project.workspace.workspace_sources import WorkspaceSources
+from backend.project.worktrees.workspace_archive import archived_workspaces
+from backend.project.worktrees.workspace_domain import require_domain
 from backend.project_setup.project_hub import ProjectHub
 from database.schema.project_schema import (
     PROJECT_SCHEMA,
@@ -507,7 +509,9 @@ class CanvasService:
             return [
                 dict(r)
                 for r in self.db.execute(
-                    "SELECT * FROM workspaces WHERE project_id=? ORDER BY id", (pid,)
+                    "SELECT * FROM workspaces WHERE project_id=? AND id NOT IN (SELECT id FROM archived_workspaces)"
+                    " ORDER BY id",
+                    (pid,),
                 )
             ]
 
@@ -682,6 +686,14 @@ class CanvasService:
                  for row in rows if row["node_id"] in removed]
         return hits
 
+    def archived_references(self, pid, removed):
+        """Worktree ze skladiště, které patřily odebíraným uzlům: jen informace, odebrání neblokují."""
+        removed = set(removed)
+        if not removed or pid == "draft":
+            return []
+        return [{"workspace": item["id"], "label": item["branch"] or item["id"], "reason": "worktree ve skladišti"}
+                for item in archived_workspaces(self, pid) if item["nodeId"] in removed]
+
     def document_workspace(self, pid, wid, node_id):
         """Prostor, pod kterým leží zadání a text uzlu: uzel architektury → `architecture`, jinak `wid`."""
         return ARCHITECTURE_WID if node_id in self.architecture.node_ids(pid) else wid
@@ -841,6 +853,39 @@ class CanvasService:
                     write_workspace_graph(self.graph_file(pid, wid), encode(new_content))
             return self.view(pid, wid)
 
+    def save_positions(self, pid, wid, positions, expected_digest, *, actor="system"):
+        """Posun karet bez celého grafu (`docs/navrhy/2026-10-14-vykon-platna.md`, oprava 8).
+
+        `positions` = [{id, x, y}] uzlů, které už v pohledu jsou; neznámé ID, duplicita nebo jiné
+        pole uložení odmítne. Graf se složí z uloženého pohledu a jde přes `save_graph`, takže
+        rozdělení na architekturu a obsah i pravidlo čistého mainu (jen architektura) platí beze
+        změny. Vrací pohled bez grafu a zaokrouhlené pozice, jak je server uložil."""
+        import math
+
+        if not isinstance(positions, list) or not 0 < len(positions) <= 2000:
+            raise ValueError("Pozice jsou neprázdný seznam nejvýše 2000 uzlů.")
+        moved = {}
+        for item in positions:
+            if (not isinstance(item, dict) or set(item) != {"id", "x", "y"} or not valid_id(item["id"])
+                    or any(type(item[k]) not in (int, float) or not math.isfinite(item[k]) for k in ("x", "y"))):
+                raise ValueError("Pozice uzlu je {id, x, y} s konečnými čísly.")
+            if item["id"] in moved:
+                raise ValueError("Pozice uzlu se v jednom zápisu opakuje.")
+            moved[item["id"]] = (round(item["x"]), round(item["y"]))
+        with self.graph_lock_for(pid):
+            current = self.view(pid, wid)
+            if current["digest"] != expected_digest:
+                raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
+            unknown = set(moved) - {node["id"] for node in current["graph"]["nodes"]}
+            if unknown:
+                raise ValueError("Pozice míří na neexistující uzel: " + ", ".join(sorted(unknown)[:5]))
+            graph = {"nodes": [{**node, "x": moved[node["id"]][0], "y": moved[node["id"]][1]} if node["id"] in moved
+                               else node for node in current["graph"]["nodes"]],
+                     "edges": current["graph"]["edges"]}
+            saved = self.save_graph(pid, wid, graph, expected_digest, actor=actor)
+        return {**{key: value for key, value in saved.items() if key != "graph"},
+                "positions": [{"id": key, "x": x, "y": y} for key, (x, y) in moved.items()]}
+
     def _content_only(self, architecture, graph):
         """Složený graf ze současné architektury a obsahu staršího snímku (krok zpět, obnova verze)."""
         _snapshot_architecture, snapshot_content = split(graph)
@@ -862,6 +907,11 @@ class CanvasService:
             or len(actor) > 120
         ):
             raise ValueError("Vyplňte uzel a označení vlastníka pracovního prostoru.")
+        require_domain(self, pid, node_id)
+        return self._add_worktree(pid, node_id, actor)
+
+    def _add_worktree(self, pid, node_id, actor):
+        """Git worktree z HEAD mainu + řádek `workspaces`; doménu ověřuje `create_workspace`."""
         with self.git_lock:
             with self.registry_lock:
                 project = self.row("projects", pid)

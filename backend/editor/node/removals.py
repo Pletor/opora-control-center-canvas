@@ -140,6 +140,8 @@ class RemovalService:
             "nodeCount": len(removed),
             "edgeCount": len(graph["edges"]) - len(remaining["edges"]),
             "blockedBy": blocked,
+            # Worktree ze skladiště odebrání neblokují; náhled je jen vyjmenuje (§13.3).
+            "archivedWorktrees": self.canvas.archived_references(project, removed & arch_nodes),
             "digest": digest(
                 {
                     "project": project,

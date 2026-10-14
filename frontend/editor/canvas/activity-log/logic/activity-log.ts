@@ -25,6 +25,7 @@ const ACTION_LABELS: Record<string, string> = {
   "/api/desktop-v3/agent-output": "Výstup agenta",
   "/api/desktop-v3/agent-workspace": "Prostor agenta",
   "/api/desktop-v3/block": "Blok karty",
+  "/api/desktop-v3/node": "Stav karty",
   "/api/desktop-v3/state": "Stav karet",
   "/api/node-spec": "Zadání karty",
   "/api/node-text": "Text karty",

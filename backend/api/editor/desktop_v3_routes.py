@@ -209,6 +209,23 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
             remembered(lambda node_id=node_id: _commit_card(payload, saved, node_id))
         return saved
 
+    @router.post("/node")
+    def save_node(payload: dict, request: Request):
+        """Štíhlý zápis jedné karty: tělo `nodes[nodeId]`, odpověď {revision, nodeId, node} (oprava 8)."""
+        _require_lease(payload, request)
+        before = set()
+        if memory_service is not None and isinstance(payload, dict):
+            try:
+                stored = state.read(payload["project"], payload["workspace"])["state"]["nodes"]
+                before = confirmed_nodes({"nodes": {payload["nodeId"]: stored.get(payload["nodeId"])}})
+            except Exception:  # noqa: BLE001 - neplatný rozsah vyřeší samo state.save_node
+                before = set()
+        saved = state.save_node(payload, actor=request.state.actor)
+        node_id, after = saved["nodeId"], {"nodes": {saved["nodeId"]: saved["node"]}}
+        if node_id in confirmed_nodes(after) - before:
+            remembered(lambda: _commit_card(payload, {"state": after}, node_id))
+        return saved
+
     def _commit_card(payload, saved, node_id):
         """Právě potvrzená karta jde do paměti role jako session; extrakci dělá OpenViking."""
         role = _node_role(saved["state"]["nodes"].get(node_id, {}))

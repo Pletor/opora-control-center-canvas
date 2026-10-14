@@ -67,6 +67,7 @@ from backend.paths import DIST_DIR, REPO_ROOT
 from backend.project.architecture.web_status import WebStatusService
 from backend.project.maps.map_refresh import MapRefresh
 from backend.project.workspace.workspace_sources import WorkspaceSources
+from backend.project.worktrees.workspace_archive import WorkspaceArchive
 from backend.semantic_retrieval.service import SemanticRetrieval
 
 
@@ -222,7 +223,9 @@ def create_app(data_root=None):
     # krok 1: nastavení projektu
     app.include_router(create_project_setup_router(service))
     # prostředí Projekt
-    app.include_router(create_project_workspace_router(service))
+    # skladiště čte hook bindingy až při přesunu: hook_control vzniká níž s routerem hooků
+    app.include_router(create_project_workspace_router(
+        service, WorkspaceArchive(service, assistant.registry, lambda: service.hook_control.store)))
     app.include_router(create_workspace_router(service))
     app.include_router(create_archify_router(service))
     app.include_router(create_graphify_router(service))

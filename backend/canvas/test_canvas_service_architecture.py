@@ -24,8 +24,8 @@ def node_ids(view):
 @pytest.fixture
 def project(tmp_path):
     s, p = managed_fixture(tmp_path)
-    a = s.create_workspace(p["id"], "project", "Agent A")
-    b = s.create_workspace(p["id"], "project", "Agent B")
+    a = s._add_worktree(p["id"], "project", "Agent A")
+    b = s._add_worktree(p["id"], "project", "Agent B")
     yield s, p["id"], a["id"], b["id"]
     s.close()
 
