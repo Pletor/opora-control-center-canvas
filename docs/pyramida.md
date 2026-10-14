@@ -96,5 +96,6 @@ brána = jedna podmínka, pravidla jen ta, která se liší od projektu.
 | shrnutí podnětů sektoru jako jedno rozhodnutí („Shrnout podněty“ v inspektoru sektoru, zadání pro agenta) | hotovo |
 | předání karty agentovi jedním tlačítkem („Předat agentovi“ v inspektoru karty, s etapou na řadě) | hotovo |
 | potvrzení návrhů uzavření přímo z fronty velína (jednotlivě i za sektor) | hotovo |
+| fronta velína hlídá vrchol pyramidy: oblast bez záměru, sektor bez podstaty; „Zadání pro router“ u sektoru s nenasměrovanými kartami | hotovo (ce530ca) |
 | role rozkladač ve skillu (`references/rozklad.md`) | hotovo (7465a5a) |
 | sektor → karty: „Rozložit na karty“ v inspektoru sektoru, oddíl v rozklad.md | hotovo |
