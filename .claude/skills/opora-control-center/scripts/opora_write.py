@@ -44,10 +44,15 @@ LEASE_ENV = 'OPORA_LEASE_TOKEN'
 AGENT_NAME = re.compile(r'[^\w .:()\-]')
 
 
-def actor_header():
-    """Hodnota `X-Opora-Actor`; jméno z `OPORA_AGENT_NAME` (nepovolené znaky pryč), výchozí `agent`."""
-    name = AGENT_NAME.sub('', os.environ.get(AGENT_ENV, '')).strip()[:80]
-    return 'agent; name=' + (name or 'agent')
+def actor_name(name=None):
+    """Jméno aktéra: `name`, jinak `OPORA_AGENT_NAME`; nepovolené znaky pryč, výchozí `agent`."""
+    raw = name if name is not None else os.environ.get(AGENT_ENV, '')
+    return AGENT_NAME.sub('', raw).strip()[:80] or 'agent'
+
+
+def actor_header(name=None):
+    """Hodnota `X-Opora-Actor` pro jméno z `actor_name`."""
+    return 'agent; name=' + actor_name(name)
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -89,7 +94,7 @@ def load_payload(text=None, path=None):
         text = raw.decode('utf-8')
     payload = json.loads(text)
     if not isinstance(payload, dict):
-        raise ValueError('Payload musí být JSON objekt.')
+        raise TypeError('Payload musí být JSON objekt.')
     return payload
 
 
@@ -101,13 +106,15 @@ def scoped(payload, project, workspace):
     return {**payload, 'project': project, 'workspace': workspace}
 
 
-def post(base, route, payload):
-    """POST na plátno; cesta mimo `WRITE_ROUTES` skončí chybou dřív, než cokoli odejde."""
+def post(base, route, payload, actor=None):
+    """POST na plátno; cesta mimo `WRITE_ROUTES` skončí chybou dřív, než cokoli odejde.
+
+    `actor` = jméno aktéra (opora_cycle.py); bez něj `OPORA_AGENT_NAME`."""
     if route not in WRITE_ROUTES:
         raise ValueError('Cesta ' + route + ' není povolený zápis na plátno.')
     data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     headers = {'Accept': 'application/json', 'Content-Type': 'application/json', 'Origin': base,
-               'X-Opora-Actor': actor_header()}
+               'X-Opora-Actor': actor_header(actor)}
     # Zápis na kartu drženou lease nese token převzetí (upgrade-opora #35).
     lease = os.environ.get(LEASE_ENV, '').strip()
     if re.fullmatch(r'[0-9a-f]{64}', lease):

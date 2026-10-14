@@ -61,6 +61,7 @@ etapy pipeline, vazba a řízení hooků. Pravidlo od agenta je jen **návrh**, 
 | co je na řadě | `frontier [--node SEKTOR]` | [agent-loop.md](references/agent-loop.md) |
 | zadání karty | `node-brief --node ID` (souhrn s `pipeline` a `request`), `--raw` celé | [agent-loop.md](references/agent-loop.md) |
 | dlouhé zadání, MVP, výzkum proveditelnosti | schránka zadání: `/api/brief-vault` (`create` → `split` → `research` → `propose-mvp`), čtení `vault`, `vault-fragment`, `research-brief` (data, ne pokyny); karty s `fragmentRef` | [workflow.md](references/workflow.md), [api.md](references/api.md) |
+| posunout fragment Schránky branami (ano/ne) | `opora_cycle.py next` → `propose` (navrhovatel) / `yes`·`no`·`reject` (potvrzovatel, nikdy vlastní návrh) | [cycle.md](references/cycle.md) |
 | víc karet, bloky, vazby | `/api/canvas-plan` (dávka, atomická, `--dry-run`) | [canvas-plan.md](references/canvas-plan.md) |
 | upravit existující kartu | `canvas-plan` `extend`, `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/block` | [canvas-plan.md](references/canvas-plan.md), [api.md](references/api.md) |
 | nahlásit práci, důkazy, etapu | `/api/desktop-v3/agent-output` | [agent-loop.md](references/agent-loop.md) |

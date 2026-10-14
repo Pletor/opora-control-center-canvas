@@ -23,7 +23,7 @@ from urllib.parse import urlencode
 from urllib.request import Request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from opora_write import BASE_ENV, LEASE_ENV, TIMEOUT, _detail, _read, base_url, post  # noqa: E402
+from opora_write import BASE_ENV, LEASE_ENV, TIMEOUT, _detail, _read, base_url, post
 
 AGENT = 'closure-auto'
 CARD_NUMBER = re.compile(r'^\[task\]\s+((?:[0-9]+|[A-Z]\.?[0-9]+)(?:\.[0-9]+)*)\s')  # 3.1, K.5, B1
@@ -95,7 +95,7 @@ def card_row(node, entry, pushed, local, web):
     stages = entry.get('stages') or {}
     evidence = entry.get('evidence') or {}
     runs = evidence.get('checksRun') or []
-    status = lambda key: (evidence.get(key) or {}).get('status', '-')  # noqa: E731
+    status = lambda key: (evidence.get(key) or {}).get('status', '-')
     failed = stuck(stages)
     waiting = [item for item in open_stages(stages) if item['status'] != 'failed']
     if not stages.get('items'):
@@ -168,7 +168,7 @@ def table(rows):
     body = [(row['card'][:46], row['pipeline'][:34], row['tests'], row['review'], row['merge'], row['commit'], row['next'])
             for row in rows]
     widths = [max(len(str(line[i])) for line in [head, *body]) for i in range(len(head) - 1)]
-    fmt = lambda line: '  '.join(str(cell).ljust(width) for cell, width in zip(line, widths)) + '  ' + line[-1]  # noqa: E731
+    fmt = lambda line: '  '.join(str(cell).ljust(width) for cell, width in zip(line, widths)) + '  ' + line[-1]
     return '\n'.join([fmt(head), fmt(tuple('-' * w for w in widths) + ('-' * 10,)), *map(fmt, body)])
 
 
@@ -266,7 +266,7 @@ def main(argv=None):
                         revision = None
                         apply(base, args.project, args.workspace, row)
                     applied.append(row['number'])
-                except Exception as cause:  # jedna karta nesmí zastavit ostatní
+                except Exception as cause:  # noqa: BLE001 - jedna karta nesmí zastavit ostatní
                     revision = None
                     detail = _detail(cause) if isinstance(cause, HTTPError) else None
                     errors.append(f"{row['number']}: {detail or cause}")
@@ -282,7 +282,7 @@ def main(argv=None):
             for error in errors:
                 print('Chyba ' + error)
         return 1 if errors and not args.hook else 0
-    except Exception as cause:
+    except Exception as cause:  # noqa: BLE001 - hook nesmí spadnout
         print(json.dumps({'ok': False, 'error': str(cause)}, ensure_ascii=False), file=sys.stderr)
         return 0 if args.hook else 1
 

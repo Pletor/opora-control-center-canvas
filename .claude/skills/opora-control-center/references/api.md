@@ -181,6 +181,7 @@ gate, needs: "proposal"|"confirm", proposal?, hint, lessons (≤3), blocked}` ne
 `needs: "proposal"` pošli `propose`, pak `gate` s `value: true` bez payloadu; při `confirm` jen `gate`. Fronta je bez
 rezervace (souběžný zápis dostane 409, načti znovu); `planned` přijde jako `needs: "confirm"` (plán sestaví server);
 `blocked` = fragmenty čekající na návrh nebo na `placed` (zápis na plátno schvaluje člověk, fronta ho nevrací).
+Role navrhovatel / potvrzovatel a CLI `opora_cycle.py`: [cycle.md](cycle.md).
 
 **Plán struktury** (`docs/schranka-neurony.md` §4, §9 body 1–3): `gate` `planned` (`value: true`, bez payloadu) server
 sestaví z fragmentu oblast skupiny (značka `briefGroup` ve stavu uzlu) → sektor disciplíny (`briefDiscipline`) →

@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 from urllib.request import Request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from opora_write import BASE_ENV, TIMEOUT, _read, actor_header, base_url  # noqa: E402
+from opora_write import BASE_ENV, TIMEOUT, _read, actor_header, base_url
 
 
 def get(base, route, params):
@@ -51,7 +51,7 @@ def main(argv=None):
         result = save(base_url(args.base_url), args.project, args.workspace, args.author, args.if_dirty)
         print(json.dumps(result, ensure_ascii=False))
         return 0
-    except Exception as cause:  # hook nesmí spadnout na nedostupné aplikaci
+    except Exception as cause:  # noqa: BLE001 - hook nesmí spadnout na nedostupné aplikaci
         print(json.dumps({'ok': False, 'error': str(cause)}, ensure_ascii=False), file=sys.stderr)
         return 0 if args.quiet_fail else 1
 
