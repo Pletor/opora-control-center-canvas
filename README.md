@@ -16,7 +16,7 @@ Nastavení běhu je v [opora.toml](opora.toml): port, adresář dat, sestavení 
 - `uv run opora --profile dev` – jen backend pro `npm run dev` (Vite proxuje `/api`).
 - `uv run opora --check` – vypíše výslednou konfiguraci bez spuštění.
 - `uv run opora --port 8791 --data .data/kopie --no-open --no-build` – jednorázové přepisy.
-- Lokální přepisy mimo git: `opora.local.toml` se stejnou strukturou. Tajemství (API klíče) patří do proměnných prostředí, ne do TOML.
+- Lokální přepisy mimo git: `opora.local.toml` se stejnou strukturou (např. `[app] data` mimo repozitář; přesun dat: `uv run python tools/move_data_root.py <starý> <nový> [--dry-run]`). Tajemství (API klíče) patří do proměnných prostředí, ne do TOML.
 
 ## Kde co je
 

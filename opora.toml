@@ -5,7 +5,8 @@
 [app]
 host = "127.0.0.1"
 port = 8740
-data = ".data/production"      # adresář s canvas.sqlite, projekty a snímky
+data = ".data/production"      # adresář s registry.sqlite, projekty a snímky; smí ležet mimo repo
+                               # (kratší cesty pro worktree): přesun přes tools/move_data_root.py, cíl v opora.local.toml
 open_browser = true            # po startu otevřít http://host:port
 title = "Opora Canvas"
 

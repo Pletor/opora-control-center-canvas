@@ -42,6 +42,9 @@ READER_POOL_SIZE = 8
 # Po checkpointu se soubor -wal zkrátí nejvýš na tuto velikost; bez meze zůstával na špičce
 # (velký obrázek kresby, dlouhý snímek) až do vypnutí serveru.
 JOURNAL_SIZE_LIMIT = 16 * 1024 * 1024
+# Složka worktree = prvních 8 znaků ID pracovního prostoru (celé ID zůstává v DB i ve větvi work/<id>).
+WORKTREE_FOLDER_LENGTH = 8
+WORKTREE_FOLDER_ATTEMPTS = 20
 
 
 class ProjectNotFound(ValueError):
@@ -737,10 +740,8 @@ class CanvasService:
                 if self.project_hub.source_info(project)["sourceKind"] != "git":
                     raise ValueError("Lokální a prázdné projekty nevytvářejí Git pracovní prostory.")
             base = git(project["repo"], "rev-parse", "HEAD")
-            wid = uuid.uuid4().hex
+            wid, directory = self._new_worktree_folder(pid)
             branch = "work/" + wid
-            directory = self.folder(pid).worktrees / wid
-            directory.parent.mkdir(parents=True, exist_ok=True)
             git(project["repo"], "worktree", "add", "-b", branch, str(directory), base, timeout=60)
             with self.registry_lock:
                 self.row("projects", pid)
@@ -750,6 +751,18 @@ class CanvasService:
                 )
                 self.db.commit()
                 return self.row("workspaces", wid)
+
+    def _new_worktree_folder(self, pid):
+        """(wid, složka) nového worktree. Složka nese jen prvních 8 znaků ID: cesta v datech plus
+        hluboké soubory repozitáře se tak vejdou pod limit Windows. Obsazenou složku nikdy nesdílí."""
+        root = self.folder(pid).worktrees
+        root.mkdir(parents=True, exist_ok=True)
+        for _ in range(WORKTREE_FOLDER_ATTEMPTS):
+            wid = uuid.uuid4().hex
+            directory = root / wid[:WORKTREE_FOLDER_LENGTH]
+            if not directory.exists():
+                return wid, directory
+        raise ValueError("Nepodařilo se najít volnou složku pro pracovní prostor; zkuste to znovu.")
 
     def job(self, kind, action, pid=None):
         with self.registry_lock, self.db:

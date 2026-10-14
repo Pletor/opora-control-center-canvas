@@ -17,7 +17,8 @@ def github_url(value):
 def git(root, *args, timeout=15, optional=False):
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env.update(GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="Never")
-    # Hooky a fsmonitor nesmí při pozorování spouštět projektový kód.
+    # Hooky a fsmonitor nesmí při pozorování spouštět projektový kód. Dlouhé cesty: worktree
+    # v datové složce + hluboké soubory repozitáře přesahují na Windows limit 260 znaků.
     command = [
         "git",
         "-c",
@@ -26,6 +27,8 @@ def git(root, *args, timeout=15, optional=False):
         "core.fsmonitor=false",
         "-c",
         "submodule.recurse=false",
+        "-c",
+        "core.longpaths=true",
     ]
     if root is not None:
         command += ["-C", str(root)]

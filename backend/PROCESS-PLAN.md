@@ -24,6 +24,8 @@ Schváleno 2026-09-14. Rozhodnutí uživatele: (1) klíčem je ID, frontend ukaz
 
 Mimo složku projektu zůstává jen `.data/production/registry.sqlite` (tabulky `projects` s cestou složky, `archived_projects`, `jobs`) a `claude-code-skills.json` (nastavení aplikace). Vestavěný projekt `draft` („Lokální návrh“) dostane vlastní složku `projects/draft/`.
 
+Datový kořen (`.data/production`) smí ležet i mimo repozitář, aby se worktree vešly do limitu cest Windows: `uv run python tools/move_data_root.py <starý> <nový>` (backend zastavený) ho přesune, přepíše uložené absolutní cesty a zapíše `[app] data` do `opora.local.toml`. Složka worktree pracovního prostoru je `worktrees/<prvních 8 znaků wid>/`; celé ID zůstává v DB a ve větvi `work/<wid>`.
+
 ## 2. Kontrakt procesu
 
 `shared/process.schema.json` a příklady `shared/examples/process-{draft,running,repair,done}.json`. Povinná pole: `id` (`prc-<12 hex>`), `projectId`, `nodeId` | `sectorId`, `title`, `state`, `createdAt`, `updatedAt`, `revision`, `owner` (human | agent | system), `inputs` (nodeText, spec, packet, worktree, references), `steps[]` (id `stp-<8 hex>`, state pending | running | done | failed, evidence), `outputs[]` (json | db | md | file + ref + digest), `failure` (reason, stepId, at, reportedBy, fix), `history[]` append-only.
