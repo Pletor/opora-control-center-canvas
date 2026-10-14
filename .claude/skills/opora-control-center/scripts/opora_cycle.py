@@ -63,6 +63,11 @@ class Cycle:
         found = self.next(discipline)
         if (found.get('fragment') or {}).get('id') == fragment_id and found.get('gate') == gate:
             return found
+        if discipline is None:
+            # Bez --discipline může hlavu globální fronty držet jiná disciplína: zkus frontu disciplíny fragmentu.
+            own = self.get(VAULT + '/fragment', id=fragment_id).get('effectiveDiscipline')
+            if own:
+                return self.head(fragment_id, gate, own)
         return None
 
     def revision(self, fragment_id, head=None, pinned=None):
