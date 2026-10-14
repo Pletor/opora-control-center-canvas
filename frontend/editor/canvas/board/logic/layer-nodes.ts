@@ -110,7 +110,8 @@ export function buildLayerNodes(input: LayerInput): Node[] {
       frontier: input.frontier?.[n.id],
       sectorProgress: input.sectors[n.id],
       evidence: own?.evidence,
-      process: n.kind === "node" ? processView(own?.stages) : undefined,
+      // Otevřená karta bez pipeline je „čeká na router“ (prázdná pipeline); uzavřená karta řádek procesu nemá.
+      process: n.kind === "node" && !view.closed ? processView(own?.stages ?? { profile: "custom", items: [] }) : undefined,
       work: input.work?.data?.nodes[n.id],
       workCounts: input.work?.data?.sectors[n.id],
       moved: input.moved.has(movedKey(n)),

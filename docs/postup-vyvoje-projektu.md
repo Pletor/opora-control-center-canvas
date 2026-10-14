@@ -27,6 +27,10 @@ Aplikace sama agenta nespustí ani nepushne. Agenty spouštíš ty.
 
 ### 1. Zadání v OPORA (Editor)
 
+> Od 2026-10-15 platí pyramida (`pyramida.md`): člověk napíše **záměr oblasti**, agent-rozkladač navrhne sektory a karty
+> jednou dávkou (tlačítka „Rozložit na sektory“ / „Rozložit na karty“ v inspektoru), člověk potvrdí dávku jedním rozhodnutím.
+> Ruční vyplňování karty níže je stále možné, ale není nutné.
+
 - Rozlož práci na **oblast → sektor → uzel**. Uzel je jedna doručitelná věc, kterou zvládne jeden agent.
 - Na kartě uzlu vyplň:
   - **cíl**: co má po dokončení platit;
@@ -39,7 +43,8 @@ Aplikace sama agenta nespustí ani nepushne. Agenty spouštíš ty.
 
 ### 2. Předání agentovi (VS Code)
 
-Jeden terminál je jeden uzel. Spusť `claude` v kořeni projektu a zadej:
+Jeden terminál je jeden uzel. Nejkratší cesta: v inspektoru karty otevři **Předat agentovi** a zkopíruj hotové zadání
+(nese projekt, workspace, id karty a etapu na řadě). Ručně vypadá takto – spusť `claude` v kořeni projektu a zadej:
 
 ```text
 /opora-control-center

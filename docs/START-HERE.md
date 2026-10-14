@@ -9,6 +9,14 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 - **Jak vyvíjet projekt (zadání v OPORA → agenti ve VS Code → GitHub):** [postup-vyvoje-projektu.md](postup-vyvoje-projektu.md).
 - Směr vývoje: konkrétní kroky vznikají při praktickém vývoji. Dřívější plány, koncepty a LLM/Hermes běhy byly odstraněny 2026-09-13; základ je funkční editor plátna s Podklady pro agenta (náhled, neměnný snímek, export pro externího agenta).
 
+## Nově (2026-10-15): pyramida a velín
+
+Člověk píše **záměr oblasti** a potvrzuje dávky; agenti rozkládají oblast → sektory → karty (`docs/pyramida.md`).
+Mód **Velín** (dřív Mapa) ukazuje celou pyramidu se stavem procesu a jednu frontu „Čeká na tebe“ s přímým
+potvrzením. Karta nese kuličky procesu; v inspektoru je „Předat agentovi“ (karta), „Rozložit na karty“ a
+„Shrnout podněty“ (sektor), „Rozložit na sektory“ (oblast). Kde co žije a odkud se řídí: `docs/rizeni-vyvoje-z-karty.md`.
+Nepoužívané formuláře karty (fáze, kritéria, kroky, scénář, fakta, design) jsou smazané podle měření na živých datech.
+
 ## Nově: pracovní módy
 
 Kresby jsou samostatné pro každou vrstvu a mají ruční ukládání; obrázky (screenshot Ctrl+V, přetažení, nástroj Obrázek) se ukládají s kresbou. Mapy projektu (Archify a Graphify-out v prostředí Projekt) se po mergi do main samy přepíšou na místě v `archify-out/` a `graphify-out/` hlavního projektu, viz [mapy-projektu.md](mapy-projektu.md). Nastavení je vlevo dole.
