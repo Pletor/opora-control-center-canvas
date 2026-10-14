@@ -52,4 +52,16 @@
 .domain-map__card-foot button:hover:not(:disabled){color:var(--ae-text);border-color:var(--ae-line)}
 .domain-map__card-foot .domain-map__danger:hover:not(:disabled){color:#ff8a8a;border-color:#ff8a8a}
 
-@media(max-width:760px){.domain-map{padding:14px 12px 100px}.domain-map__title{font-size:20px}.domain-map__grid{grid-template-columns:1fr}}
+/* Odznak „2 worktree“ pod ID stránky: tichá tyrkysová pilulka, ať je vidět, kde se pracuje, ale nepřebije
+   název. Stránky, kterých se dotýká vybraný worktree v pravém panelu, dostanou tyrkysový okraj. */
+.domain-map__work{display:inline-flex;margin-top:4px;padding:1px 6px;border-radius:999px;font-size:11px;font-weight:700;color:var(--ae-accent);background:color-mix(in srgb,var(--ae-accent) 16%,transparent)}
+.domain-map__card--highlighted{border-color:var(--ae-accent);box-shadow:0 0 0 1px var(--ae-accent)}
+
+/* Třetí sloupec vpravo: živý panel (web a worktree). Na širokém okně stojí vedle mapy jako zrcadlo
+   levého panelu; na úzkém sjede pod mapu přes celou šířku, aby mapa neztratila místo. */
+.domain-map__frame--live{grid-template-columns:280px minmax(0,1fr) 300px}
+.domain-map__live{overflow:auto;min-height:0;border-left:1px solid var(--ae-line);background:var(--ae-panel)}
+@media(max-width:1400px){.domain-map__frame--live{grid-template-columns:245px minmax(0,1fr) 270px}}
+@media(max-width:1050px){.domain-map__frame--live{grid-template-columns:220px minmax(0,1fr)}.domain-map__live{grid-column:1/-1;border-left:0;border-top:1px solid var(--ae-line)}}
+
+@media(max-width:760px){.domain-map__frame--live{grid-template-columns:190px minmax(0,1fr)}.domain-map{padding:14px 12px 100px}.domain-map__title{font-size:20px}.domain-map__grid{grid-template-columns:1fr}}

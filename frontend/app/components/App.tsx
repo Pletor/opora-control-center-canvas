@@ -68,6 +68,8 @@ import { appendSkeleton } from "@/editor/skeleton/logic/skeleton";
 import TopBar from "@/layout/top-bar/components/TopBar";
 import AssistantButton from "@/layout/assistant-panel/components/AssistantButton";
 import AssistantPanel from "@/layout/assistant-panel/components/AssistantPanel";
+import type { StartRequest } from "@/layout/assistant-panel/logic/use-start-request";
+import type { ArchitectureLiveProps } from "@/project/architecture-editor/components/ArchitectureEditor";
 import "@/layout/assistant-panel/styles/assistant-panel.css";
 import ModeRail from "@/layout/mode-rail/components/ModeRail";
 import EnvironmentSwitch from "@/layout/environment-switch/components/EnvironmentSwitch";
@@ -183,6 +185,10 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantBusy, setAssistantBusy] = useState(false);
+  // „Nová relace“ z živého panelu domény: panel Asistent založí úkol jednou podle pořadí, bez zprávy.
+  const [assistantStart, setAssistantStart] = useState<StartRequest | null>(null);
+  // Doména předvyplněná v modalu „Nový worktree“ z živého panelu; jinak se bere vybraný uzel.
+  const [worktreeDomain, setWorktreeDomain] = useState<string | null>(null);
   const [nodeTab, setNodeTab] = useState<NodeTab>("spec");
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
   const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
@@ -728,6 +734,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [createSequence, setCreateSequence] = useState(0);
   function open(kind: typeof modal) {
     setModal(kind);
+    setWorktreeDomain(null);
     setApproved(false);
     setCreateSequence((value) => value + 1);
   }
@@ -750,6 +757,18 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
       if (result.spec) await saveNodeSpec(submitScope.project, submitScope.workspace, result.node.id, 0, result.spec);
     });
   }
+  /** Přepnutí pracovního prostoru: TopBar i „Pracovat v tomto worktree“ v živém panelu domény. */
+  function selectWorkspace(id: string) {
+    setWorkspace(id);
+    enter(null);
+  }
+  const architectureLive: ArchitectureLiveProps = {
+    worktreeLive: capabilities.worktreeLive,
+    mainWorkspace: capabilities.defaultWorkspace,
+    onSwitchWorkspace: selectWorkspace,
+    onStartSession: (request) => { setAssistantStart((prior) => ({ ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); },
+    onCreateWorktree: (domainId) => { open("workspace"); setWorktreeDomain(domainId); },
+  };
   function enter(id: string | null) {
     setParent(id);
     setSelection(emptySelection());
@@ -1145,10 +1164,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
             enter(null);
           } else open("workspace");
         }}
-        onSelectWorkspace={(id) => {
-          setWorkspace(id);
-          enter(null);
-        }}
+        onSelectWorkspace={selectWorkspace}
       >
         <EnvironmentSwitch value={environment} onChange={changeEnvironment} disabled={busy || saveAllBusy} />
 
@@ -1193,7 +1209,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
           z levého okraje rámu vyjíždí šuplík (Knihovna nebo Agenti a postupy) nad plátnem, ne vedle
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
       environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
@@ -1735,8 +1751,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   <>
                     <p>
                       Nová větev a worktree vzniknou ze současného spravovaného
-                      mainu. Vybraný uzel:{" "}
-                      {node?.name ?? layer?.name ?? "kořen projektu"}.
+                      mainu. {worktreeDomain ? "Doména" : "Vybraný uzel"}:{" "}
+                      {worktreeDomain ? graph.nodes.find((n) => n.id === worktreeDomain)?.name ?? worktreeDomain : node?.name ?? layer?.name ?? "kořen projektu"}.
                     </p>
                     <label className="field">
                       Vlastník / označení agenta
@@ -1754,7 +1770,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                         run(async () => {
                           const w = await api<Workspace>("/api/workspaces", {
                             project,
-                            nodeId: node?.id ?? layer?.id ?? "project",
+                            nodeId: worktreeDomain ?? node?.id ?? layer?.id ?? "project",
                             actor,
                           });
                           setWorkspace(w.id);
@@ -1792,6 +1808,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         onClose={() => setAssistantOpen(false)}
         onBusyChange={setAssistantBusy}
         onCanvasWritten={reloadCanvas}
+        startRequest={assistantStart}
       />
     </div></SaveScopeProvider>
   );

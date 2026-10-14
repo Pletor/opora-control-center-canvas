@@ -5,6 +5,11 @@
 .arch-landing__title{font-size:28px;font-weight:700;margin:0}
 .arch-landing__lead{margin:8px 0 0;color:var(--ae-muted);font-size:14px}
 
+/* Vpravo v hlavičce stojí vedle „+ Doména“ tichá věta o hlavních relacích projektu („Hlavní relace:
+   1 čeká“) s tlačítkem nové relace: člověk hned vidí, jestli na něj někde čeká asistent. */
+.arch-landing__head-tools{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.arch-landing__sessions{display:flex;align-items:center;gap:8px;margin:0;color:var(--ae-muted);font-size:12px}
+
 /* Pruh prostředí: barevný štítek a krátká věta, aby bylo hned jasné, kde se kdo pohybuje. */
 .arch-landing__group{margin:34px 0 0}
 .arch-landing__group-title{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:14px;font-weight:400}
@@ -24,6 +29,13 @@
 .arch-landing__meta{margin:0;color:var(--ae-muted)}
 .arch-landing__id{color:var(--ae-muted);font-size:11px;overflow-wrap:anywhere}
 .arch-landing__env{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* Práce na doméně: pod popisem jedna věta s počty („3 worktree · 1 běží“), která se rozbalí do
+   stěsnaného stromu. Klidná doména to řekne tlumenou větou, aby karta nepůsobila rozbitě. */
+.arch-landing__work{display:flex;flex-direction:column;gap:6px;margin:4px 0 0;font-size:12px}
+.arch-landing__work--idle{color:var(--ae-muted)}
+.arch-landing__work-toggle{align-self:flex-start;padding:0;border:0;background:none;color:var(--ae-text);cursor:pointer;font:inherit}
+.arch-landing__work-toggle:hover{color:var(--al-tone)}
 
 /* Hlavní akce je odkaz na mapu; Upravit a Oddělit jsou tiché, aby nesoutěžily s otevřením. */
 .arch-landing__actions{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:8px}

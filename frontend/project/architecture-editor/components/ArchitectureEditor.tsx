@@ -20,9 +20,20 @@ import PageEditor from "../page-editor/components/PageEditor";
 import ComponentStructure from "../component-structure/components/ComponentStructure";
 import ElementDetail from "../element-detail/components/ElementDetail";
 import ArchitectureHeader from "./ArchitectureHeader";
+import { useDomainLive } from "../logic/use-domain-live";
+import { pageWork, panelViews } from "../logic/live-views";
+import LiveDomainPanel from "../live-status/components/LiveDomainPanel";
+import { staleNote } from "../live-status/logic/live-poll";
+import { sessionTitle, type SessionRequest } from "../live-status/logic/session-state";
 
-type Props = { project: string; workspace: string; projectName?: string; onGraphChanged: () => void; onOpenEditor: (id: string) => void };
-export default function ArchitectureEditor({ project, workspace, projectName, onGraphChanged, onOpenEditor }: Props) {
+/** Co editor architektury potřebuje vědět o živé práci: schopnost projektu (od App) a akce, které jdou nahoru do App. */
+export type ArchitectureLiveProps = {
+  worktreeLive: boolean; mainWorkspace: string;
+  onSwitchWorkspace: (id: string) => void; onStartSession: (request: SessionRequest) => void; onCreateWorktree: (domainId: string) => void;
+};
+
+type Props = { project: string; workspace: string; projectName?: string; onGraphChanged: () => void; onOpenEditor: (id: string) => void; live: ArchitectureLiveProps };
+export default function ArchitectureEditor({ project, workspace, projectName, onGraphChanged, onOpenEditor, live: liveProps }: Props) {
   const store = useArchitectureGraph(project, workspace, onGraphChanged);
   const desktop = useDesktopState(project, workspace);
   const [initial] = useState(() => { const route = new URLSearchParams(location.search); return (!route.has("project") || route.get("project") === project) && (!route.has("workspace") || route.get("workspace") === workspace) ? route : new URLSearchParams(); });
@@ -38,6 +49,8 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const [reveal, setReveal] = useState<string | null>(null);
   const [removal, setRemoval] = useState<RemovalPreview | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [worktreeId, setWorktreeId] = useState<string | null>(null);
+  const live = useDomainLive(project, domainId, liveProps.worktreeLive);
   const graph = store.view?.graph ?? { nodes: [], edges: [] };
   const closed = new Set(Object.entries(desktop.state.nodes).filter(([, value]) => value.done?.confirmed).map(([id]) => id));
   const editorId = architectureEditorId(project, workspace, domainId ?? undefined);
@@ -79,7 +92,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const inDomain = (id: string | null) => graph.nodes.find((node) => node.id === id && domainForNode(graph, node.id)?.id === domainId);
   const selected = inDomain(selectedId);
   const structure = inDomain(structureId);
-  function navigate(nextDomain: string | null, nextScope: string | null = null) { setDomainId(nextDomain); setScopeId(nextScope); setSelectedId(nextScope); setStructureId(null); setReveal(null); setError(""); }
+  function navigate(nextDomain: string | null, nextScope: string | null = null) { if (nextDomain !== domainId) setWorktreeId(null); setDomainId(nextDomain); setScopeId(nextScope); setSelectedId(nextScope); setStructureId(null); setReveal(null); setError(""); }
   function openScope(id: string) { try { editorScopeNode(graph, id); if (domainForNode(graph, id)?.id !== domainId) throw new Error("Prvek nepatří do této domény."); navigate(domainId, id === domainId ? null : id); } catch (cause) { setError(String(cause)); } }
   function openPage(nextDomain: string, pageId: string) { try { editorScopeNode(graph, pageId); if (domainForNode(graph, pageId)?.id !== nextDomain) throw new Error("Stránka nepatří k této doméně."); navigate(nextDomain, pageId); } catch (cause) { setError(String(cause)); } }
   function openStructure(id: string) { const node = inDomain(id); if (node && (node.kind === "node" || node.kind === "sector")) { setStructureId(id); setSelectedId(id); } }
@@ -139,8 +152,13 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onReload={() => eventAction(async () => { await store.reload(); desktop.reload(); })}
       onCopyId={() => { void navigator.clipboard.writeText(editorId).catch(() => setError("ID se nepodařilo zkopírovat.")); }}/>
     {(error || store.error || desktop.error) && <div className="ae-message" role="alert">{error || store.error || desktop.error}</div>}
-    {scopeError ? <div className="ae-route-error"><p role="alert">{scopeError}</p><button onClick={() => navigate(null)}>Zpět na domény</button></div> : !ready ? <p className="ae-loading">Načítám architekturu…</p> : !domain ? <ArchitectureLanding graph={graph} disabled={disabled} onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
-    : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} pages={pages} disabled={disabled} onOpen={openScope} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
+    {scopeError ? <div className="ae-route-error"><p role="alert">{scopeError}</p><button onClick={() => navigate(null)}>Zpět na domény</button></div> : !ready ? <p className="ae-loading">Načítám architekturu…</p> : !domain ? <ArchitectureLanding graph={graph} disabled={disabled}
+      live={{ hosts: live.web.data ?? [], webStale: staleNote(live.web), work: live.work.data, workStale: staleNote(live.work), worktreeLive: live.worktreeLive, onStartMainSession: () => liveProps.onStartSession({ workspace: liveProps.mainWorkspace, nodeId: null, title: sessionTitle("main") }) }}
+      onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
+    : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} pages={pages} disabled={disabled} onOpen={openScope}
+      work={pageWork(graph, live, domain.id, worktreeId)}
+      live={<LiveDomainPanel {...panelViews(live, domain.id)} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb}
+        actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/>} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
       onReorder={(id, direction) => eventAction(async () => { writable(id); const next = reorderDomainPage(graph, domain.id, id, direction); next.nodes.forEach((node, index) => { if (graph.nodes[index]?.id !== node.id) writable(node.id); }); await saveGraph(next); })}
       onReparent={(id, parentId) => execute(async () => { for (const child of subtreeIds(id)) writable(child); writable(parentId); await saveGraph(reparentDomainPage(graph, domain.id, id, parentId)); })}/>
     : <PageEditor key={domain.id + ":" + scope.id} graph={graph} domain={domain} scope={scope} projectName={projectName || "Projekt"} selectedId={selected?.id ?? null}

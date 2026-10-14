@@ -5,7 +5,7 @@ const project = (sourceKind?: string) => ({ id: "p1", name: "P", url: null, bran
 
 describe("projectCapabilities", () => {
   it("vestavěný draft je lokální s volnými uzly", () => {
-    expect(projectCapabilities("draft", undefined)).toEqual({ localProject: true, legacyFree: true, defaultWorkspace: "draft" });
+    expect(projectCapabilities("draft", undefined)).toEqual({ localProject: true, legacyFree: true, defaultWorkspace: "draft", worktreeLive: false });
   });
   it("draft s jiným druhem zdroje ztrácí volné uzly, ale zůstává lokální", () => {
     expect(projectCapabilities("draft", { ...project("local"), id: "draft" }).legacyFree).toBe(false);
@@ -14,7 +14,12 @@ describe("projectCapabilities", () => {
   it("lokální a prázdný projekt otevírají návrh, git projekt main", () => {
     expect(projectCapabilities("p1", project("local")).defaultWorkspace).toBe("draft");
     expect(projectCapabilities("p1", project("empty")).defaultWorkspace).toBe("draft");
-    expect(projectCapabilities("p1", project("git"))).toEqual({ localProject: false, legacyFree: false, defaultWorkspace: "main" });
+    expect(projectCapabilities("p1", project("git"))).toEqual({ localProject: false, legacyFree: false, defaultWorkspace: "main", worktreeLive: true });
+  });
+  it("živý stav worktree má jen git projekt", () => {
+    expect(projectCapabilities("p1", project("local")).worktreeLive).toBe(false);
+    expect(projectCapabilities("p1", project("empty")).worktreeLive).toBe(false);
+    expect(projectCapabilities("p1", project("git")).worktreeLive).toBe(true);
   });
   it("neznámý projekt bez druhu zdroje se chová jako git projekt", () => {
     expect(projectCapabilities("p1", undefined).localProject).toBe(false);
