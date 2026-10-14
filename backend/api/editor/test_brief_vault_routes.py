@@ -19,7 +19,7 @@ def post(client, headers=AGENT, **body):
 
 def test_agent_creates_splits_and_reads_tree_and_fragment(tmp_path):
     with client_with_sector(tmp_path) as client:
-        created = post(client, op="create", scopeNodeId="s1", title="Vrstva", text="A\n\n3.1 B")
+        created = post(client, op="create", scopeNodeId="s1", track="ux", title="Vrstva", text="A\n\n3.1 B")
         assert created.status_code == 200, created.text
         fragment = created.json()["fragment"]
         assert fragment["by"] == "work-b1" and fragment["actor"] == "agent"
@@ -34,7 +34,7 @@ def test_agent_creates_splits_and_reads_tree_and_fragment(tmp_path):
 
 def test_split_mismatch_and_stale_revision_are_409(tmp_path):
     with client_with_sector(tmp_path) as client:
-        fragment = post(client, op="create", scopeNodeId="s1", title="V", text="A\n\nB").json()["fragment"]
+        fragment = post(client, op="create", scopeNodeId="s1", track="ux", title="V", text="A\n\nB").json()["fragment"]
         mismatch = post(client, op="split", fragmentId=fragment["id"], expectedRevision=1,
                         parts=[{"title": "a", "text": "A"}, {"title": "b", "text": "X"}])
         assert mismatch.status_code == 409 and "ztratilo" in mismatch.json()["error"]
@@ -45,7 +45,7 @@ def test_split_mismatch_and_stale_revision_are_409(tmp_path):
 
 def test_human_only_ops_403_for_agent_428_for_unknown_200_for_human(tmp_path):
     with client_with_sector(tmp_path) as client:
-        fragment = post(client, op="create", scopeNodeId="s1", title="V", text="t").json()["fragment"]
+        fragment = post(client, op="create", scopeNodeId="s1", track="ux", title="V", text="t").json()["fragment"]
         body = {"op": "set-mvp", "fragmentIds": [fragment["id"]], "mvp": "yes"}
         assert post(client, **body).status_code == 403
         cookies = dict(client.cookies)

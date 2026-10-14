@@ -21,7 +21,14 @@ from backend.editor.brief_vault.brief_vault_details import (
     validate_research,
     write_details,
 )
-from backend.editor.brief_vault.brief_vault_model import MAX_TEXT, MAX_TITLE, fail, public, text_of
+from backend.editor.brief_vault.brief_vault_model import (
+    MAX_TEXT,
+    MAX_TITLE,
+    fail,
+    public,
+    text_of,
+    track_of,
+)
 
 OPS = {
     "research-update": ({"fragmentId", "expectedRevision", "note"}, RESEARCH_KEYS),
@@ -29,7 +36,7 @@ OPS = {
     "answer": ({"fragmentId", "expectedRevision", "answer"}, {"note"}),
     "feedback": ({"fragmentId", "verdict"}, {"text"}),
     "link-decisions": ({"fragmentId", "decisionIds"}, {"note"}),
-    "from-idea": ({"nodeId", "ideaId"}, {"parentId", "scopeNodeId", "title", "note"}),
+    "from-idea": ({"nodeId", "ideaId"}, {"parentId", "scopeNodeId", "title", "note", "track"}),
 }
 HUMAN_OPS = {"feedback": "Zpětnou vazbu k výzkumu dává člověk; agent ji čte v balíčku research-brief."}
 
@@ -141,8 +148,10 @@ def from_idea(w, payload, node_ids):
     elif scope != "" and scope not in node_ids:
         fail("scopeNodeId musí být \"\" (plátno) nebo id existující karty či sektoru.")
     title = text_of(payload.get("title") or idea["text"].strip().split("\n")[0][:MAX_TITLE], MAX_TITLE, "title", allow_empty=False)
+    # Nový kořen nese stopu vždy (jako create); dítě ji smí vynechat a dědí.
+    track = track_of(payload.get("track"), allow_null=parent is not None)
     row = w.new(parent=parent, scope=scope, title=title, text=idea["text"],
-                note=payload.get("note") or f"Z Podnětu karty {node_id}.")
+                note=payload.get("note") or f"Z Podnětu karty {node_id}.", track=track)
     idea["fragmentId"] = row["fragment_id"]
     from backend.editor.agent_memory.desktop_v3_state import validate_state
     validate_state(state)

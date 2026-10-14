@@ -2,6 +2,7 @@
 
 Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nevytváří. Vytváření je jen zde.
 """
+import sqlite3
 
 # .data/<root>/registry.sqlite – jen to, co musí být vidět napříč projekty.
 REGISTRY_SCHEMA = """
@@ -57,8 +58,9 @@ CREATE TABLE IF NOT EXISTS brief_fragment_revisions(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
     parent_id TEXT, scope_node_id TEXT, ord INTEGER NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
     text TEXT NOT NULL, stage TEXT NOT NULL, mvp TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL,
-    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL,
+    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL, track TEXT,
     PRIMARY KEY(project_id, workspace_id, fragment_id, revision));
+-- Sloupec track (stopa ux | logic | NULL = dědí) starší databáze dostanou v ensure_brief_fragment_columns.
 -- backend/editor/brief_vault/brief_vault_details.py: výzkum, otázka a odkazy na rozhodnutí fragmentu (JSON, jen přibývají revize)
 CREATE TABLE IF NOT EXISTS brief_fragment_details(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
@@ -220,11 +222,32 @@ CREATE INDEX IF NOT EXISTS canvas_versions_content
 """
 
 
+def _columns(db, table):
+    return {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
+
+
+def add_column(db, table, name):
+    """Idempotentní `ADD COLUMN … TEXT`: když sloupec mezitím přidal souběžný proces („duplicate column“),
+    ověří ho PRAGMA a chybu spolkne; jakákoli jiná chyba projde dál."""
+    try:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {name} TEXT")
+    except sqlite3.OperationalError:
+        if name not in _columns(db, table):
+            raise
+
+
 def ensure_canvas_version_columns(db):
     """Add full snapshot columns; existing graph/state versions remain explicitly partial."""
-    columns = {row[1] for row in db.execute("PRAGMA table_info(canvas_versions)")}
+    columns = _columns(db, "canvas_versions")
     for name in ("snapshot", "content_digest"):
         if name not in columns:
-            db.execute(f"ALTER TABLE canvas_versions ADD COLUMN {name} TEXT")
+            add_column(db, "canvas_versions", name)
     if {"project_id", "workspace_id"} <= columns:
         db.execute(CANVAS_VERSIONS_CONTENT_INDEX)
+
+
+def ensure_brief_fragment_columns(db):
+    """Doplní stopu fragmentu (Dvě stopy); stávající revize zůstanou NULL = „nezařazené“."""
+    columns = _columns(db, "brief_fragment_revisions")
+    if columns and "track" not in columns:
+        add_column(db, "brief_fragment_revisions", "track")

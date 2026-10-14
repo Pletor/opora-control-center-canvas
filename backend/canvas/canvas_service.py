@@ -42,6 +42,7 @@ from backend.project_setup.project_hub import ProjectHub
 from database.schema.project_schema import (
     PROJECT_SCHEMA,
     REGISTRY_SCHEMA,
+    ensure_brief_fragment_columns,
     ensure_canvas_version_columns,
 )
 
@@ -432,6 +433,7 @@ class CanvasService:
                 db = open_sqlite(folder.database)
                 db.executescript(PROJECT_SCHEMA)
                 ensure_canvas_version_columns(db)
+                ensure_brief_fragment_columns(db)
                 if pid == "draft":
                     db.execute("INSERT OR IGNORE INTO drafts VALUES('draft',?)", (encode(EMPTY),))
                 db.commit()

@@ -45,7 +45,7 @@ def put_state(client, nodes=None, decisions=None):
 
 
 def root(client, text="Verze se přepíná."):
-    return post(client, op="create", scopeNodeId="s1", title="3.37 Version activation", text=text)["fragment"]
+    return post(client, op="create", scopeNodeId="s1", track="ux", title="3.37 Version activation", text=text)["fragment"]
 
 
 def tree(client):
@@ -160,7 +160,7 @@ def test_from_idea_links_both_ways_atomically(client):
     put_state(client, nodes={"c1": {"phase": "discover", "criteria": [], "steps": [], "ideas": [
         {"id": "i1", "text": "Mazat cache i při změně URL.", "by": "review", "source": "review", "at": "T", "status": "open"}]}})
     before = state(client)["revision"]
-    made = post(client, op="from-idea", nodeId="c1", ideaId="i1", scopeNodeId="s1")
+    made = post(client, op="from-idea", nodeId="c1", ideaId="i1", scopeNodeId="s1", track="ux")
     fragment = made["fragment"]
     assert fragment["title"] == "Mazat cache i při změně URL." and made["stateRevision"] == before + 1
     assert state(client)["state"]["nodes"]["c1"]["ideas"][0]["fragmentId"] == fragment["id"]
@@ -188,7 +188,7 @@ def test_tree_of_1000_nodes_without_recursion(client):
     row = dict(db.execute("SELECT * FROM brief_fragment_revisions WHERE fragment_id=?", (first["id"],)).fetchone())
     parent = first["id"]
     for index in range(999):  # řetěz 1000 uzlů zapsaný mimo API (např. stará data nebo obnova verze)
-        db.execute("INSERT INTO brief_fragment_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        db.execute("INSERT INTO brief_fragment_revisions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)",
                    (row["project_id"], row["workspace_id"], f"deep{index}", 1, parent, None, 1, "brief", f"d{index}",
                     "x", "draft", "none", "", "t", "agent", 0, row["saved_at"]))
         parent = f"deep{index}"
@@ -227,7 +227,7 @@ def test_changed_since_insert_counts_only_text_revisions(client):
 def test_history_lists_revisions_of_scope(client):
     item = root(client)
     post(client, op="revise", fragmentId=item["id"], expectedRevision=1, text="v2", note="druhá")
-    post(client, op="create", scopeNodeId="", title="Plátno", text="p")
+    post(client, op="create", scopeNodeId="", track="ux", title="Plátno", text="p")
     items = client.get("/api/brief-vault/history", params={**SCOPE, "scope": "s1"}).json()["items"]
     assert [(entry["revision"], entry["note"]) for entry in items] == [(2, "druhá"), (1, "Vloženo do schránky.")]
     assert "text" not in items[0] and items[0]["chars"] == 2

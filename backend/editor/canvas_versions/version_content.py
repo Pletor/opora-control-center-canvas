@@ -12,7 +12,8 @@ STORES = {
     "agentWorkspaces": ("agent_workspace_revisions", ("node_id",), ("sections", "by")),
     "documents": ("workspace_documents", ("path",), ("fields", "node_id", "source_version")),
     "briefFragments": ("brief_fragment_revisions", ("fragment_id",), ("parent_id", "scope_node_id", "ord", "kind", "title",
-                                                                     "text", "stage", "mvp", "note", "by", "actor", "deleted")),
+                                                                     "text", "stage", "mvp", "note", "by", "actor", "deleted",
+                                                                     "track")),
     "briefDetails": ("brief_fragment_details", ("fragment_id",), ("fields",)),
     # Zamrazená kola karet (card_rounds.py); stav nese `nodes[].round`, záznamy kol tato část.
     "cardRounds": ("card_rounds", ("node_id", "round"), ("record",)),
@@ -21,6 +22,9 @@ STORES = {
 # prázdný seznam nemění digest obsahu (stará verze projde kontrolou integrity a není „změněná“).
 LATER_STORES = ("briefFragments", "briefDetails", "cardRounds")
 JSON_COLUMNS = {"fields", "scene", "sections", "record"}
+# Sloupce přidané do části až po verzích, které je neznají (hodnota „nic“). Starší snímek je při obnově
+# dostane s touto hodnotou a digest obsahu je s touto hodnotou vynechá, takže stará verze zůstane platná.
+LATER_COLUMNS = {"briefFragments": {"track": None}}
 SCHEMA = "opora.canvas-version/2"
 EXCLUDED = ["source-code", "git-history", "project-settings", "external-references", "immutable-agent-evidence"]
 
@@ -59,12 +63,22 @@ def empty_data(name):
 
 
 def with_later_stores(records):
-    """Snímek uložený před přidáním části ji dostane jako prázdnou (obnova pak skryje novější fragmenty)."""
-    return {**{name: [] for name in LATER_STORES}, **records}
+    """Snímek uložený před přidáním části ji dostane jako prázdnou (obnova pak skryje novější fragmenty)
+    a řádky bez později přidaného sloupce ho dostanou s výchozí hodnotou (`LATER_COLUMNS`)."""
+    records = {**{name: [] for name in LATER_STORES}, **records}
+    return {name: [{**row, "data": {**LATER_COLUMNS[name], **row["data"]}} for row in rows] if name in LATER_COLUMNS else rows
+            for name, rows in records.items()}
+
+
+def _digest_data(name, data):
+    """Data řádku pro digest bez později přidaných sloupců s výchozí hodnotou (stejný digest jako dřív)."""
+    later = LATER_COLUMNS.get(name, {})
+    return {key: value for key, value in data.items() if key not in later or value != later[key]}
 
 
 def content_digest(graph, state, snapshot):
-    records = {name: [{"key": row["key"], "data": row["data"]} for row in rows if row["data"] != empty_data(name)]
+    records = {name: [{"key": row["key"], "data": _digest_data(name, row["data"])} for row in rows
+                      if _digest_data(name, row["data"]) != _digest_data(name, empty_data(name))]
                for name, rows in snapshot["records"].items()}
     records = {name: rows for name, rows in records.items() if rows or name not in LATER_STORES}
     return digest({"graph": graph, "state": state, "records": records, "assets": snapshot["assets"]})

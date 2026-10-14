@@ -62,7 +62,7 @@ def env(tmp_path):
         install_graph(client, {"nodes": [node("s1", kind="sector"), node("c1", "s1"), node("c2", "s1")],
                                "edges": [{"id": "e1", "source": "c1", "target": "c2", "port": "next"}]})
         vault = BriefVault(app.state.service)
-        fragment = vault.apply({**SCOPE, "op": "create", "scopeNodeId": "s1", "title": "3.1 Zadání", "text": "Text v1."},
+        fragment = vault.apply({**SCOPE, "op": "create", "scopeNodeId": "s1", "track": "logic", "title": "3.1 Zadání", "text": "Text v1."},
                                actor="agent", agent="work-1")["fragment"]
         workspace = client.post("/api/desktop-v3/agent-workspace", headers=HEADERS, json={
             **SCOPE, "nodeId": "c1", "expectedRevision": 0, "by": "agent",

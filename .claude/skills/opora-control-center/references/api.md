@@ -133,13 +133,14 @@ nepřepisuje: každá změna je nová revize s `note`; CAS přes `expectedRevisi
 
 <!-- example: /api/brief-vault -->
 ```json
-{"op": "create", "scopeNodeId": "", "title": "Zadání platformy", "text": "1. VRSTVA — SBĚR DAT\n\n2. VRSTVA — INGESTION",
+{"op": "create", "scopeNodeId": "", "track": "logic", "title": "Zadání platformy", "text": "1. VRSTVA — SBĚR DAT\n\n2. VRSTVA — INGESTION",
  "note": "Doslovně od uživatele."}
 ```
 
 | `op` | Povinná pole | Volitelná | Poznámka |
 |---|---|---|---|
-| `create` | `title`, `text` + právě jedno z `scopeNodeId` (`""` plátno, id sektoru / karty = kořen) a `parentId` (dítě) | `stage`, `note` | `text` ≤ 64 000 znaků |
+| `create` | `title`, `text` + právě jedno z `scopeNodeId` (`""` plátno, id sektoru / karty = kořen) a `parentId` (dítě); kořen navíc `track` | `stage`, `note`, `track` (dítě; bez něj dědí) | `text` ≤ 64 000 znaků; kořen bez `track` = 400 |
+| `set-track` | `fragmentId`, `expectedRevision`, `track` (`ux\|logic\|null`), `note` | | přeřadí fragment i podstrom, který stopu dědí; text beze změny; kořen nesmí `null` (400) |
 | `revise` | `fragmentId`, `expectedRevision`, `note` | `text`, `title`, `stage` (`draft\|research\|ready`) | revize, která nic nemění = 409 |
 | `split` | `fragmentId`, `expectedRevision` + `splitter: "heading-number"` nebo `parts: [{title, text}]` (2–500) | `note` | spojení dětí (`\n\n`, nebo `\n` kde rodič prázdný řádek nemá) == text rodiče, jinak 409 |
 | `research` | `fragmentId`, `title`, `text` | `question`, `status`, `note` | dítě `kind: research`, verdikt `unverified` |
@@ -148,9 +149,14 @@ nepřepisuje: každá změna je nová revize s `note`; CAS přes `expectedRevisi
 | `question` | `fragmentId`, `title` | `text`, `askedFor` (`human\|agent`), `proposal`, `note` | otázku pro člověka zodpoví jen člověk |
 | `answer` | `fragmentId` (question), `expectedRevision`, `answer` | `note` | |
 | `link-decisions` | `fragmentId`, `decisionIds` | `note` | id rozhodnutí plátna; text se nekopíruje |
-| `from-idea` | `nodeId`, `ideaId` | `parentId` nebo `scopeNodeId`, `title`, `note` | Podnět karty → fragment |
+| `from-idea` | `nodeId`, `ideaId` | `parentId` nebo `scopeNodeId`, `title`, `note`, `track` | Podnět karty → fragment; nový kořen chce `track` |
 | `propose-mvp` | `fragmentIds` (≤ 500) | `note` | návrh; `yes`/`no` nastaví jen člověk |
 | `set-mvp`, `delete`, `restore`, `feedback` | — | — | **jen člověk** (agent 403) |
+
+Stopa (`track`): `ux` = CX/UX/UI (karty `layer: "frontend"`), `logic` = Backend + DB (karty `layer: "backend"`),
+`null` = dědí od rodiče. Každý fragment ve `vault` nese `track` (vlastní) a `effectiveTrack` (nejbližší předek včetně
+sebe; `null` = nezařazené); `vault` přijme filtr `track=ux|logic|none` (ponechá i cestu ke kořeni). `node-brief`
+uvádí `effectiveTrack` u `brief.fragments.items[]`.
 
 Odpověď: `{ok, op, fragment, children?, details?}`. Čtení: `vault`, `vault-fragment`, `research-brief` (výše) a
 GET `/api/brief-vault/history?scope=` (revize napříč schránkou). Karta na fragment odkazuje `fragmentRef`
