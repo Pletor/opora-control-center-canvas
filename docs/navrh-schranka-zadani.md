@@ -183,6 +183,8 @@ Ample (`cc5f34ec…`, workspace `draft`): text sektoru „3. VRSTVA — ÚLOŽI�
 
 ## Dvě stopy a levé menu (uživatel 2026-10-14)
 
+> Stopy `ux`/`logic` nahrazují disciplíny a brány cyklu v [schranka-neurony.md](schranka-neurony.md) (stopa `ux` → `ux`, `logic` → `be`). Levé menu a 4 závěrečné bloky logiky platí dál.
+
 Dnes se v jedné Schránce míchá vzhled s logikou. Jak věc vypadá a co dělá, se dá **nakreslit** (Claude Design, náčrt, podklady). Jak funguje, jak se počítá, jaké funkce a metody vzniknou a jak spolupracují, je hlavní know-how projektu a potřebuje vlastní péči. Proto má Schránka dvě oddělené stopy a jde otevřít z levého menu Editoru, ne z detailu karty.
 
 Princip vývoje plánu zůstává beze změny (fragment → rozdělení → výzkum → MVP → karty přes `/api/canvas-plan` s `fragmentRef`). Stopa jen určuje, do které části plánu fragment patří a jaké karty z něj vzniknou.
