@@ -22,7 +22,7 @@ ports: [{ id: string, label: string }]      // tlačítka bloku; z každého se 
 ```
 Nejvýš 8 portů na blok, `label` do 80 znaků. Prázdné pole je platné a je výchozí (starší zápis bez `ports` = `[]`).
 
-### Vazba (`graph.edges[]`, versovaný `opora-canvas.json`)
+### Vazba (`graph.edges[]`, graf v datech plátna `canvas/workspaces/<wid>/graph.json`)
 Stávající `{ id, source, target, port? }`, `port ∈ next | action | rule`. Přibývá hodnota `port: "block"` a s ní povinně:
 
 ```

@@ -8,7 +8,7 @@ Náhled balíčku, neměnný snímek a export zadání pro externího agenta (VS
 python "<SKILL_DIR>/scripts/opora_read.py" snapshot --project <projectId> --workspace <workspace> --id SNAPSHOT_ID
 ```
 
-Souhrn: `id`, `digest`, `createdAt`, `scope`, `warnings`, `sourceManifest`; `--raw` celý balíček včetně `packet.task.depends_on`. Snímek je neměnný; po změně zadání vzniká nový. Export zapíše do Git workspace projektu soubor `docs/opora-control-center/tasks/<node-id>.md`; asistent ho přečte nástrojem `Read`, když leží pod jeho cwd.
+Souhrn: `id`, `digest`, `createdAt`, `scope`, `warnings`, `sourceManifest`; `--raw` celý balíček včetně `packet.task.depends_on`. Snímek je neměnný; po změně zadání vzniká nový. Export zapíše soubor do dat plátna (`projects/<id>/packets/external-tasks/<workspace>/<node-id>.md`), ne do repa projektu; odpověď nese absolutní `path` a asistent ho přečte nástrojem `Read` z této cesty.
 
 ## Tickety externího agenta
 

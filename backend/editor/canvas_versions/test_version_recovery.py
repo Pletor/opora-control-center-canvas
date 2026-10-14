@@ -104,7 +104,9 @@ def test_git_file_and_database_roll_back_together_after_file_write_failure(tmp_p
     scope = {"project": "p", "workspace": "work"}
     with TestClient(app, base_url=ORIGIN):
         store = CanvasVersions(service)
-        path = work / "opora-canvas.json"
+        # Graf Git prostoru leží v datech plátna; worktree se nesmí změnit ani při selhání.
+        path = service.graph_file("p", "work")
+        path.parent.mkdir(parents=True)
         path.write_text(encode(graph("a")), encoding="utf-8")
         saved = store.save({**scope, "digest": service.view("p", "work")["digest"], "author": "test"})["version"]
         path.write_text(encode(graph("a", "b")), encoding="utf-8")
@@ -120,6 +122,7 @@ def test_git_file_and_database_roll_back_together_after_file_write_failure(tmp_p
         with pytest.raises(RuntimeError, match="file replace"):
             store.restore({**scope, "digest": service.view("p", "work")["digest"], "versionId": saved["id"], "author": "test", "expectedToken": token})
         assert path.read_bytes() == original_bytes and list(db.iterdump()) == before
+        assert list(work.iterdir()) == []
 
 
 def test_additive_migration_preserves_legacy_rows():

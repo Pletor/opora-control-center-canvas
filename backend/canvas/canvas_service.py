@@ -13,6 +13,11 @@ from backend.canvas.graph import EMPTY, digest, encode, valid_id, validate_graph
 from backend.canvas.migrate_to_project_folders import migrate
 from backend.canvas.project_folder import ProjectFolder
 from backend.canvas.read_cache import ReadCache
+from backend.canvas.workspace_graph import (
+    LEGACY_GRAPH_FILE,
+    read_workspace_graph,
+    write_workspace_graph,
+)
 from backend.editor.node.drawing_files import DrawingFileStore, parse_ids
 from backend.editor.node.drawings import DrawingStore
 from backend.editor.node.node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
@@ -27,7 +32,8 @@ from database.schema.project_schema import (
     ensure_canvas_version_columns,
 )
 
-GRAPH_FILE = "opora-canvas.json"
+# Verzovaný graf v cílovém repu se už jen čte (main = Git HEAD). Pracovní prostory mají graf v datech plátna.
+GRAPH_FILE = LEGACY_GRAPH_FILE
 # Zapisovatel počká na zámek SQLite (WAL checkpoint, jiný proces), místo aby hned spadl na „database is locked“.
 BUSY_TIMEOUT_MS = 5000
 # Volná čtecí spojení na projekt: nad tuto mez se vrácené spojení zavře. Spojení se půjčuje na blok
@@ -383,6 +389,10 @@ class CanvasService:
     def folder(self, pid):
         return ProjectFolder(self.root, pid)
 
+    def graph_file(self, pid, wid):
+        """Graf Git pracovního prostoru v datech plátna (projects/<id>/canvas/workspaces/<wid>/graph.json)."""
+        return self.folder(pid).workspace_graph(wid)
+
     def db_for(self, pid):
         """Databáze jednoho projektu: projects/<id>/project.sqlite. Schéma vznikne při prvním otevření."""
         if not isinstance(pid, str) or (pid != "draft" and not valid_id(pid)):
@@ -575,13 +585,9 @@ class CanvasService:
         dirty = bool(git(location, "status", "--porcelain"))
         if wid == "main":
             raw = git(location, "show", sha + ":" + GRAPH_FILE, optional=True)
+            origin = "git"
         else:
-            file = location / GRAPH_FILE
-            if file.is_symlink():
-                raise ValueError("Graf nesmí být symbolický odkaz.")
-            if file.exists() and file.stat().st_size > 2000000:
-                raise ValueError("Graf je příliš velký.")
-            raw = file.read_text(encoding="utf-8") if file.exists() else None
+            raw, origin = read_workspace_graph(self.graph_file(pid, wid), location)
         # Soubor a Git nekryje token dat: graf se znovu neparsuje jen při stejném surovém textu.
         graph, graph_digest = self._parsed_graph(pid, wid, lambda: raw or encode(EMPTY), check=validate_graph if raw else None)
         return {
@@ -590,7 +596,9 @@ class CanvasService:
             "readOnly": wid == "main",
             "source": "Git HEAD:" + GRAPH_FILE
             if wid == "main"
-            else "Pracovní soubor " + GRAPH_FILE,
+            else "Převzatý " + GRAPH_FILE + " z pracovního prostoru; první uložení ho převezme do dat plátna"
+            if origin == "legacy"
+            else "Graf pracovního prostoru v datech plátna",
             "sha": sha,
             "branch": branch,
             "dirty": dirty,
@@ -710,11 +718,9 @@ class CanvasService:
                     if _commit:
                         db.commit()
             else:
-                location, _ = self.location(pid, wid)
-                target = location / GRAPH_FILE
-                temp = location / (".canvas-" + uuid.uuid4().hex + ".tmp")
-                temp.write_text(encode(graph), encoding="utf-8")
-                os.replace(temp, target)
+                # Cílové repo zůstává čisté: graf jde do dat plátna, starý soubor ve worktree se nepíše.
+                self.location(pid, wid)
+                write_workspace_graph(self.graph_file(pid, wid), encode(graph))
             return self.view(pid, wid)
 
     def create_workspace(self, pid, node_id, actor):

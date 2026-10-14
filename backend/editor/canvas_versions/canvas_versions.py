@@ -225,9 +225,9 @@ class CanvasVersions:
             db = self.canvas.db_for(project)
             graph_file = None
             if project != "draft" and self.canvas.project_hub.source_info(project)["sourceKind"] == "git":
-                from backend.canvas.canvas_service import GRAPH_FILE
-                location, _ = self.canvas.location(project, workspace)
-                graph_file = location / GRAPH_FILE
+                # Graf Git pracovního prostoru leží v datech plátna; worktree se obnovou nemění.
+                self.canvas.location(project, workspace)
+                graph_file = self.canvas.graph_file(project, workspace)
             with db:
                 db.execute("BEGIN IMMEDIATE")
                 current, stored, captured = self._capture(db, project, workspace)

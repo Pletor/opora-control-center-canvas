@@ -42,3 +42,14 @@ def test_ids_are_validated(tmp_path):
         folder.read()
     with pytest.raises(ValueError):
         folder.create("x", "svn")
+
+
+def test_workspace_graph_and_external_task_stay_inside_project_data(tmp_path):
+    folder = ProjectFolder(tmp_path, "p1")
+    assert folder.workspace_graph("w1") == folder.path / "canvas" / "workspaces" / "w1" / "graph.json"
+    assert folder.external_task("w1", "n1") == folder.path / "packets" / "external-tasks" / "w1" / "n1.md"
+    for bad in ("../w", "", "a/b", None):
+        with pytest.raises(ValueError):
+            folder.workspace_graph(bad)
+        with pytest.raises(ValueError):
+            folder.external_task("w1", bad)
