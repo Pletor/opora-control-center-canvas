@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { ProductBranch } from "@/project/product-tree/logic/product-tree";
 
@@ -11,14 +12,15 @@ function rows(branches: ProductBranch[], onOpen: (id: string) => void, depth: nu
   </li>);
 }
 
-/** Left panel: which domain this is (environment · project, host, purpose, ID), the main add button and the list of pages. */
-export default function DomainPanel({ domain, pages, disabled, onOpen, onAdd }: {
-  domain: CanvasNode; pages: ProductBranch[]; disabled: boolean; onOpen: (id: string) => void; onAdd: () => void;
+/** Left panel: which domain this is (environment · project, host, optional web badge, purpose, ID), the main add button and the list of pages. */
+export default function DomainPanel({ domain, pages, disabled, badge, onOpen, onAdd }: {
+  domain: CanvasNode; pages: ProductBranch[]; disabled: boolean; badge?: ReactNode; onOpen: (id: string) => void; onAdd: () => void;
 }) {
   const environment = domain.site?.kind === "application" ? domain.site.environments[0] : undefined;
   return <aside className="ae-sidebar domain-map__panel">
     <p className="domain-map__env">{(environment?.name ?? "Sdílená struktura").toUpperCase()} · PROJEKT</p>
     <h3 className="domain-map__host">{environment?.host || domain.name}</h3>
+    {badge}
     <p className="domain-map__purpose">{domain.purpose}</p>
     <small className="domain-map__id">ID projektu: {domain.id}</small>
     <button type="button" className="domain-map__add" disabled={disabled} data-testid={"architecture-add-page-" + domain.id} onClick={onAdd}>+ Přidat stránku</button>

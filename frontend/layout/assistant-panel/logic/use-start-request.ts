@@ -4,6 +4,7 @@
 // `nodeId` váže úkol ke kartě; hlavní relace a relace worktree ho nemají.
 import { useEffect, useRef } from "react";
 import type { AssistantSession } from "./assistant-api";
+import { pendingSelection, type SelectRequest } from "./select-request";
 
 export type StartRequest = { seq: number; workspace: string; nodeId: string | null; title: string };
 
@@ -15,4 +16,15 @@ export function useStartRequest(request: StartRequest | null | undefined, availa
     handled.current = request.seq;
     void create({ workspace: request.workspace, title: request.title, ...(request.nodeId ? { nodeId: request.nodeId } : {}) });
   }, [request, available, create]);
+}
+
+/** Výběr existujícího úkolu zvenku (čip relace v živém panelu); počká, až je úkol v seznamu. */
+export function useSelectRequest(request: SelectRequest | null | undefined, sessions: AssistantSession[], select: (id: string) => void) {
+  const handled = useRef(0);
+  useEffect(() => {
+    const id = pendingSelection(request, handled.current, sessions.map((session) => session.id));
+    if (!id || !request) return;
+    handled.current = request.seq;
+    select(id);
+  }, [request, sessions, select]);
 }

@@ -23,13 +23,15 @@ import ArchitectureHeader from "./ArchitectureHeader";
 import { useDomainLive } from "../logic/use-domain-live";
 import { pageWork, panelViews } from "../logic/live-views";
 import LiveDomainPanel from "../live-status/components/LiveDomainPanel";
-import { staleNote } from "../live-status/logic/live-poll";
-import { sessionTitle, type SessionRequest } from "../live-status/logic/session-state";
+import WebStatusBadge from "../live-status/components/WebStatusBadge";
+import { sessionTitle, type CardRequest, type SessionRequest } from "../live-status/logic/session-state";
 
 /** Co editor architektury potřebuje vědět o živé práci: schopnost projektu (od App) a akce, které jdou nahoru do App. */
 export type ArchitectureLiveProps = {
   worktreeLive: boolean; mainWorkspace: string;
   onSwitchWorkspace: (id: string) => void; onStartSession: (request: SessionRequest) => void; onCreateWorktree: (domainId: string) => void;
+  /** Otevře kartu (App přepne prostor, je-li jiný) a relaci asistenta (panel Asistent). */
+  onOpenCard: (request: CardRequest) => void; onOpenSession: (id: string) => void;
 };
 
 type Props = { project: string; workspace: string; projectName?: string; onGraphChanged: () => void; onOpenEditor: (id: string) => void; live: ArchitectureLiveProps };
@@ -142,6 +144,9 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   }
   if (routeError) return <section className="architecture-editor ae-route-error" data-testid="architecture-route-error"><h2>Editor nelze otevřít</h2><p role="alert">{routeError}</p><button onClick={() => { setRouteError(""); setReady(true); navigate(null); }}>Otevřít seznam domén</button></section>;
   const env = domain ? environmentOf(domain) : null;
+  const views = domain ? panelViews(live, domain.id) : null;
+  const webBadge = views && <WebStatusBadge host={views.web.host} stale={views.web.stale}/>;
+  const nav = { onOpenCard: liveProps.onOpenCard, onOpenSession: liveProps.onOpenSession };
   const crumbs = domain ? [env?.name ?? SHARED_GROUP, env?.host || domain.name, ...(scope ? [scope.name] : [])] : [];
   const identity = (original: CanvasNode, name: string, purpose: string) => execute(async () => { writable(original.id); const current = graph.nodes.find((node) => node.id === original.id); if (!current || current.name !== original.name || current.purpose !== original.purpose) throw new Error("Název nebo účel se mezitím změnil. Zrušte koncept a otevřete aktuální hodnoty."); await saveGraph({ ...graph, nodes: graph.nodes.map((node) => node.id === original.id ? { ...node, name: name.trim(), purpose: purpose.trim() } : node) }); });
   return <section className="architecture-editor" data-testid="standalone-architecture-editor">
@@ -153,15 +158,16 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onCopyId={() => { void navigator.clipboard.writeText(editorId).catch(() => setError("ID se nepodařilo zkopírovat.")); }}/>
     {(error || store.error || desktop.error) && <div className="ae-message" role="alert">{error || store.error || desktop.error}</div>}
     {scopeError ? <div className="ae-route-error"><p role="alert">{scopeError}</p><button onClick={() => navigate(null)}>Zpět na domény</button></div> : !ready ? <p className="ae-loading">Načítám architekturu…</p> : !domain ? <ArchitectureLanding graph={graph} disabled={disabled}
-      live={{ hosts: live.web.data ?? [], webStale: staleNote(live.web), work: live.work.data, workStale: staleNote(live.work), worktreeLive: live.worktreeLive, onStartMainSession: () => liveProps.onStartSession({ workspace: liveProps.mainWorkspace, nodeId: null, title: sessionTitle("main") }) }}
+      live={{ web: live.web, work: live.work, worktreeLive: live.worktreeLive, nav, onCreateWorktree: liveProps.onCreateWorktree, onStartMainSession: () => liveProps.onStartSession({ workspace: liveProps.mainWorkspace, nodeId: null, title: sessionTitle("main") }) }}
       onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} pages={pages} disabled={disabled} onOpen={openScope}
       work={pageWork(graph, live, domain.id, worktreeId)}
-      live={<LiveDomainPanel {...panelViews(live, domain.id)} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb}
-        actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/>} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
+      webBadge={views && !views.work ? webBadge : null}
+      live={views?.work ? <LiveDomainPanel web={views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
+        actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
       onReorder={(id, direction) => eventAction(async () => { writable(id); const next = reorderDomainPage(graph, domain.id, id, direction); next.nodes.forEach((node, index) => { if (graph.nodes[index]?.id !== node.id) writable(node.id); }); await saveGraph(next); })}
       onReparent={(id, parentId) => execute(async () => { for (const child of subtreeIds(id)) writable(child); writable(parentId); await saveGraph(reparentDomainPage(graph, domain.id, id, parentId)); })}/>
-    : <PageEditor key={domain.id + ":" + scope.id} graph={graph} domain={domain} scope={scope} projectName={projectName || "Projekt"} selectedId={selected?.id ?? null}
+    : <PageEditor key={domain.id + ":" + scope.id} webBadge={webBadge} graph={graph} domain={domain} scope={scope} projectName={projectName || "Projekt"} selectedId={selected?.id ?? null}
       editorId={editorId} disabled={disabled} reveal={reveal} onOpenPage={openPage} onAddPage={(id) => { navigate(id); setDraftParent(id); }} onOpenScope={openScope}
       onSelect={setSelectedId} onOpenStructure={openStructure} onOpenEditor={onOpenEditor} onArea={() => createArea()} onSector={(id) => createSector(id)} onAddNode={createNode}
       onInsert={(id, target, point) => eventAction(() => insert(id, target, point))}

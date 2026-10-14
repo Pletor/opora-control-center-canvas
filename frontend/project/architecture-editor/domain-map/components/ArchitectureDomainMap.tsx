@@ -11,9 +11,12 @@ function flatten(branches: ProductBranch[]): CanvasNode[] {
   return branches.flatMap((branch) => [branch.node, ...flatten(branch.children)]);
 }
 
-/** Step 2: the only place where structure changes: pages, sub-pages, order, navigation. The parent saves; this part reports edits upward. */
-export default function ArchitectureDomainMap({ domain, pages, disabled, live, work, initialDraftParentId, onDraftOpened, onOpen, onSave, onReorder, onReparent, onRemove }: {
-  domain: CanvasNode; pages: ProductBranch[]; disabled: boolean; live?: ReactNode; work?: PageWork; initialDraftParentId?: string | null; onDraftOpened?: () => void; onOpen: (id: string) => void;
+/**
+ * Step 2: the only place where structure changes: pages, sub-pages, order, navigation. The parent saves; this part reports edits upward.
+ * `live` = third column (only projects with worktrees); `webBadge` = web state in the domain panel when there is no live column.
+ */
+export default function ArchitectureDomainMap({ domain, pages, disabled, live, webBadge, work, initialDraftParentId, onDraftOpened, onOpen, onSave, onReorder, onReparent, onRemove }: {
+  domain: CanvasNode; pages: ProductBranch[]; disabled: boolean; live?: ReactNode; webBadge?: ReactNode; work?: PageWork; initialDraftParentId?: string | null; onDraftOpened?: () => void; onOpen: (id: string) => void;
   onSave: (draft: ProductDraft) => Promise<void>; onReorder: (id: string, direction: -1 | 1) => void;
   onReparent: (id: string, parentId: string) => Promise<void>; onRemove: (id: string) => void;
 }) {
@@ -26,7 +29,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
   const actions = { disabled, onOpen, onAdd: add, onEdit: edit, onReorder, onMove: setMoving, onRemove };
   const host = domain.site?.kind === "application" ? domain.site.environments[0]?.host : "";
   return <div className={"ae-layout ae-layout--map" + (live ? " domain-map__frame--live" : "")} data-testid="architecture-domain-map">
-    <DomainPanel domain={domain} pages={pages} disabled={disabled} onOpen={onOpen} onAdd={() => add(domain.id)}/>
+    <DomainPanel domain={domain} pages={pages} disabled={disabled} badge={webBadge} onOpen={onOpen} onAdd={() => add(domain.id)}/>
     <main className="domain-map">
       <p className="domain-map__kicker">MAPA STRÁNEK · {host || domain.name}</p>
       <h2 className="domain-map__title">Navigace projektu</h2>

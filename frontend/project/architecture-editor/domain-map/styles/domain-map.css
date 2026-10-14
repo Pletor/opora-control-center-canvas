@@ -64,4 +64,8 @@
 @media(max-width:1400px){.domain-map__frame--live{grid-template-columns:245px minmax(0,1fr) 270px}}
 @media(max-width:1050px){.domain-map__frame--live{grid-template-columns:220px minmax(0,1fr)}.domain-map__live{grid-column:1/-1;border-left:0;border-top:1px solid var(--ae-line)}}
 
-@media(max-width:760px){.domain-map__frame--live{grid-template-columns:190px minmax(0,1fr)}.domain-map{padding:14px 12px 100px}.domain-map__title{font-size:20px}.domain-map__grid{grid-template-columns:1fr}}
+/* Na telefonu (do 760 px) je jeden sloupec a živý souhrn jde úplně nahoru: na malé obrazovce člověk
+   nejdřív potřebuje vědět, jestli web běží a kdo na doméně pracuje; panel domény a mapa jsou pod ním. */
+@media(max-width:760px){.domain-map{padding:14px 12px 100px}.domain-map__title{font-size:20px}.domain-map__grid{grid-template-columns:1fr}
+  .domain-map__frame--live{grid-template-columns:minmax(0,1fr)}
+  .domain-map__frame--live .domain-map__live{order:-1;grid-column:auto;border-top:0;border-bottom:1px solid var(--ae-line)}}

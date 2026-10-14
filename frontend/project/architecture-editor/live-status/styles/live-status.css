@@ -27,35 +27,51 @@
 .live-status__icon{font-size:10px;line-height:1}
 
 /* Čip stavu worktree a relace: malá pilulka se slovem. Běží svítí, čeká je zlaté (někdo má odpovědět),
-   stojí je tlumeně červené a „bez relace“ je jen obrys, protože nic nehlásí. */
+   stojí je tlumeně červené a „bez relace“ je jen obrys, protože nic nehlásí. Čip relace nese slovo
+   worktree, ne surový stav zdroje: hook, který dávno mlčí, nesmí svítit jako „běží“. Relaci asistenta
+   jde čipem otevřít, proto dostane ukazatel a při najetí obrys. */
 .live-status__chip{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid transparent}
 .live-status__chip--running{color:var(--ae-accent);background:color-mix(in srgb,var(--ae-accent) 16%,transparent)}
 .live-status__chip--waiting{color:var(--gold);background:var(--gold-soft)}
 .live-status__chip--stopped{color:var(--danger);background:var(--danger-soft)}
 .live-status__chip--none{color:var(--ae-muted);border-color:var(--ae-line)}
+.live-status__chip--action{cursor:pointer;font:inherit;font-size:11px;font-weight:700}
+.live-status__chip--action:hover{border-color:currentColor}
 
 /* Strom worktree: řádek na worktree (šipka, větev s aktérem pod ní, stav vpravo). Vybraný worktree má
-   tyrkysový okraj, protože na mapě se zvýrazní stránky, kterých se dotýká. Vnoření je jen o šipku. */
+   tyrkysový okraj, protože na mapě se zvýrazní stránky, kterých se dotýká. Vnoření je jen o šipku.
+   Klávesnicí se chodí šipkami po položkách; zaměřená položka má zřetelný tyrkysový obrys. */
 .live-status__tree{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.live-status__item{min-width:0}
-.live-status__row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;border:1px solid var(--ae-line);background:var(--ae-card)}
+.live-status__item{min-width:0;border-radius:10px}
+.live-status__item:focus-visible,.live-status__leaf:focus-visible{outline:2px solid var(--ae-accent);outline-offset:2px}
+.live-status__row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;border:1px solid var(--ae-line);background:var(--ae-card);cursor:pointer}
 .live-status__row--selected{border-color:var(--ae-accent)}
 .live-status__toggle{padding:0 2px;border:0;background:none;color:var(--ae-muted);cursor:pointer;font:inherit}
-.live-status__name{display:flex;flex-direction:column;align-items:flex-start;flex:1;min-width:0;padding:0;border:0;background:none;color:var(--ae-text);cursor:pointer;text-align:left;font:inherit}
+.live-status__name{display:flex;flex-direction:column;align-items:flex-start;flex:1;min-width:0;color:var(--ae-text)}
 .live-status__branch{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 .live-status__actor{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ae-muted);font-size:11px}
 
-/* Rozbalený worktree: relace jako řada čipů, pod nimi karty v práci, dole dvě akce. Svislá linka
-   vlevo říká, že vše patří k řádku nad ní. */
+/* Rozbalený worktree: relace a karty v práci jako podřízené položky pod ním. Svislá linka vlevo říká,
+   že vše patří k řádku nad ní. Název karty je odkaz: kliknutím se karta otevře v Editoru (ve svém
+   worktree), proto je tyrkysový a při najetí podtržený. Akce tu nejsou, aby strom zůstal krátký. */
 .live-status__group{list-style:none;margin:6px 0 0 10px;padding:0 0 0 10px;display:grid;gap:6px;border-left:1px solid var(--ae-line)}
-.live-status__sessions{display:flex;flex-wrap:wrap;gap:4px}
-.live-status__card{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.live-status__leaf{display:flex;align-items:center;gap:6px;min-width:0;border-radius:6px}
 .live-status__card-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.live-status__card-name--link{padding:0;border:0;background:none;color:var(--ae-cyan);font:inherit;text-align:left;cursor:pointer}
+.live-status__card-name--link:hover{text-decoration:underline}
+
+/* Detail vybraného worktree pod stromem: tady (a jen tady) jsou akce. Člověk vybere řádek a pod
+   stromem se ukáže, co s ním jde dělat: přepnout se do něj, založit relaci worktree nebo relaci pro
+   konkrétní kartu. Deska je tmavší, aby bylo vidět, že patří k vybranému řádku, ne k celému panelu. */
+.live-status__details{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:10px;border:1px solid var(--ae-accent);background:var(--ae-card)}
+.live-status__details-title{margin:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.live-status__details-label{margin:4px 0 0;color:var(--ae-muted)}
+.live-status__card-actions{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
 .live-status__actions{display:flex;flex-wrap:wrap;gap:6px;padding-top:2px}
 .live-status__idle{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
 .live-status__new{align-self:flex-start}
 
-/* Na přehledu domén je strom jen ke čtení a stěsnaný do karty: menší mezery, žádné akce. */
+/* Na přehledu domén je strom stěsnaný do karty: menší mezery, žádné akce; karty a relace jdou otevřít. */
 .live-status__tree--compact{gap:4px}
 .live-status__tree--compact .live-status__row{padding:4px 6px;background:transparent}
 
@@ -65,3 +81,6 @@
 .live-status__primary:disabled{border-color:var(--ae-line);color:var(--ae-muted);cursor:default}
 .live-status__quiet{padding:2px 8px;font-size:11px;border-radius:6px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-muted);cursor:pointer;white-space:nowrap}
 .live-status__quiet:hover:not(:disabled){color:var(--ae-text);border-color:var(--ae-muted)}
+
+/* Na telefonu stojí panel nad mapou, proto nepotřebuje velký dolní okraj, který jinak drží místo pro účet v rohu. */
+@media(max-width:760px){.live-status{padding-bottom:18px}}

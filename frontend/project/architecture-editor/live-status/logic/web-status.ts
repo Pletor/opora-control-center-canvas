@@ -34,14 +34,38 @@ export function normalizeWebStatus(raw: unknown): WebHost[] {
   }).filter((host) => host.host);
 }
 
-/** Nové výsledky přepíšou staré podle hostu; hosty, které tentokrát nepřišly (dotaz na jednu doménu), zůstanou. */
-export function mergeHosts(prev: WebHost[], next: WebHost[]): WebHost[] {
-  const fresh = new Map(next.map((host) => [host.host, host]));
-  return [...prev.filter((host) => !fresh.has(host.host)), ...next];
+/**
+ * Odpověď nahradí, co pokrývá: plná odpověď (`domainId = null`) celý seznam, odpověď jedné domény
+ * všechny záznamy té domény. Host, který z architektury zmizel, tak v seznamu nezůstane viset.
+ */
+export function applyHosts(prev: WebHost[], next: WebHost[], domainId: string | null): WebHost[] {
+  if (domainId === null) return next;
+  return [...prev.filter((host) => host.domainId !== domainId), ...next.filter((host) => host.domainId === domainId)];
 }
 
 export function hostOf(hosts: WebHost[], domainId: string): WebHost | null {
   return hosts.find((host) => host.domainId === domainId) ?? null;
+}
+
+/** Ruční obnovení nejdřív 30 s po poslední kontrole hostu (docs/domeny-a-worktree.md §8). */
+export const REFRESH_COOLDOWN_MS = 30_000;
+
+/** Kolik celých sekund zbývá do dalšího ručního ověření; bez času kontroly hned. */
+export function refreshWait(checkedAt: string | null | undefined, now: number): number {
+  const moment = checkedAt ? parseIso(checkedAt) : NaN;
+  if (Number.isNaN(moment)) return 0;
+  return Math.min(REFRESH_COOLDOWN_MS / 1000, Math.max(0, Math.ceil((moment + REFRESH_COOLDOWN_MS - now) / 1000)));
+}
+
+/** `title` tlačítka „Ověřit znovu“: proč je zakázané, nebo co udělá. */
+export function refreshTitle(wait: number): string {
+  return wait > 0 ? `Další ověření za ${wait} s` : "Ověří host znovu; backend drží výsledek 60 s.";
+}
+
+/** Zastaralý údaj webu: čas poslední kontroly hostu (`checkedAt`), jen když poslední čtení selhalo. */
+export function webStaleNote(host: WebHost | null, failed: boolean): string {
+  if (!failed || !host?.checkedAt) return "";
+  return `údaj z ${clockOf(host.checkedAt)}, nepodařilo se obnovit`;
 }
 
 /** Text žetonu: „běží · 120 ms“, „DNS neexistuje“. */
@@ -64,7 +88,12 @@ export function badgeTitle(host: WebHost | null): string {
 
 /** ISO čas → „12:03“ v místním čase; neplatný → původní text. */
 export function clockOf(iso: string): string {
-  const moment = new Date(iso);
+  const moment = new Date(parseIso(iso));
   if (Number.isNaN(moment.getTime())) return iso;
   return `${String(moment.getHours()).padStart(2, "0")}:${String(moment.getMinutes()).padStart(2, "0")}`;
+}
+
+/** ISO bez zóny backend posílá v UTC. */
+export function parseIso(iso: string): number {
+  return Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + "Z");
 }

@@ -4,15 +4,15 @@ import type { Graph } from "@/shared/types/logic/types";
 import type { DomainLive } from "./use-domain-live";
 import { domainLive, pagesTouched, pageWorkCounts } from "../live-status/logic/live-model";
 import { staleNote } from "../live-status/logic/live-poll";
-import { hostOf } from "../live-status/logic/web-status";
-import type { LiveWebView, LiveWorkView } from "../live-status/components/LiveDomainPanel";
+import { webView, type WebView } from "../live-status/logic/web-slots";
+import type { LiveWorkView } from "../live-status/components/LiveDomainPanel";
 import type { PageWork } from "../domain-map/components/PageCard";
 
 type Live = Pick<DomainLive, "worktreeLive" | "work" | "web">;
 
-/** Žeton webu a stav práce jedné domény pro pravý panel; `work` je `null` u projektu bez worktree. */
-export function panelViews(live: Live, domainId: string): { web: LiveWebView; work: LiveWorkView } {
-  const web = { host: hostOf(live.web.data ?? [], domainId), stale: staleNote(live.web), loading: live.web.loading, error: live.web.error };
+/** Žeton webu a stav práce jedné domény; `work` je `null` u projektu bez worktree (panel se pak nevykreslí). */
+export function panelViews(live: Live, domainId: string): { web: WebView; work: LiveWorkView | null } {
+  const web = webView(live.web, domainId);
   if (!live.worktreeLive) return { web, work: null };
   return { web, work: { domain: domainLive(live.work.data, domainId), loaded: live.work.data !== null, stale: staleNote(live.work), loading: live.work.loading, error: live.work.error } };
 }

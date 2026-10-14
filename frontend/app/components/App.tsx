@@ -69,6 +69,8 @@ import TopBar from "@/layout/top-bar/components/TopBar";
 import AssistantButton from "@/layout/assistant-panel/components/AssistantButton";
 import AssistantPanel from "@/layout/assistant-panel/components/AssistantPanel";
 import type { StartRequest } from "@/layout/assistant-panel/logic/use-start-request";
+import type { SelectRequest } from "@/layout/assistant-panel/logic/select-request";
+import type { CardRequest } from "@/project/architecture-editor/live-status/logic/session-state";
 import type { ArchitectureLiveProps } from "@/project/architecture-editor/components/ArchitectureEditor";
 import "@/layout/assistant-panel/styles/assistant-panel.css";
 import ModeRail from "@/layout/mode-rail/components/ModeRail";
@@ -79,7 +81,7 @@ import ProjectWorkspace from "@/project/workspace/components/ProjectWorkspace";
 import {ProjectMapNavigation, type ProjectMapKind} from "@/project/shell/components/ProjectLayout";
 import { readProjectView } from "@/project/shell/logic/project-view";
 import { architectureEditorId } from "@/project/architecture-editor/logic/editor-model";
-import { domainForNode } from "@/project/architecture-editor/logic/domain-model";
+import { domainForNode, worktreeDomainChoice } from "@/project/architecture-editor/logic/domain-model";
 import CreateDialog from "@/editor/canvas/create-dialog/components/CreateDialog";
 import type { CreateResult } from "@/editor/canvas/create-dialog/logic/create-form";
 import { useWorkspaceSelection } from "@/shared/selection/logic/workspace-selection";
@@ -187,6 +189,8 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
   const [assistantBusy, setAssistantBusy] = useState(false);
   // „Nová relace“ z živého panelu domény: panel Asistent založí úkol jednou podle pořadí, bez zprávy.
   const [assistantStart, setAssistantStart] = useState<StartRequest | null>(null);
+  // Klik na čip relace v živém panelu: panel Asistent vybere existující úkol.
+  const [assistantSelect, setAssistantSelect] = useState<SelectRequest | null>(null);
   // Doména předvyplněná v modalu „Nový worktree“ z živého panelu; jinak se bere vybraný uzel.
   const [worktreeDomain, setWorktreeDomain] = useState<string | null>(null);
   const [nodeTab, setNodeTab] = useState<NodeTab>("spec");
@@ -385,6 +389,13 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     setError("");
     if (screen === "canvas") refresh(); else generation.current++;
   }, [project, workspace, screen]);
+  // Karta z živého panelu v jiném worktree: otevře se až po přepnutí prostoru, tedy po úklidu výběru výše.
+  const [pendingCard, setPendingCard] = useState<CardRequest | null>(null);
+  useEffect(() => {
+    if (!pendingCard || pendingCard.workspace !== workspace) return;
+    setPendingCard(null);
+    openArchitectureNode(pendingCard.nodeId);
+  }, [pendingCard, workspace]);
   useEffect(() => {
     const q = new URLSearchParams({ project, workspace, mode, screen, environment });
     if (parent) q.set("layer", parent);
@@ -768,7 +779,17 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     onSwitchWorkspace: selectWorkspace,
     onStartSession: (request) => { setAssistantStart((prior) => ({ ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); },
     onCreateWorktree: (domainId) => { open("workspace"); setWorktreeDomain(domainId); },
+    onOpenCard: (request) => {
+      if (request.workspace === workspace) { openArchitectureNode(request.nodeId); return; }
+      setPendingCard(request);
+      selectWorkspace(request.workspace);
+    },
+    onOpenSession: (id) => { setAssistantSelect((prior) => ({ seq: (prior?.seq ?? 0) + 1, sessionId: id })); setAssistantOpen(true); },
   };
+  // Modal „Nový worktree“: worktree vždy patří doméně (uzlu `site.kind = "application"`). Předvolí se
+  // doména z živého panelu, jinak doména vybraného uzlu nebo vrstvy; bez domény nejde worktree založit.
+  const worktreeDomains = graph.nodes.filter((n) => n.site?.kind === "application");
+  const chosenDomain = worktreeDomainChoice(graph, worktreeDomain, selected ?? parent);
   function enter(id: string | null) {
     setParent(id);
     setSelection(emptySelection());
@@ -1751,9 +1772,22 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   <>
                     <p>
                       Nová větev a worktree vzniknou ze současného spravovaného
-                      mainu. {worktreeDomain ? "Doména" : "Vybraný uzel"}:{" "}
-                      {worktreeDomain ? graph.nodes.find((n) => n.id === worktreeDomain)?.name ?? worktreeDomain : node?.name ?? layer?.name ?? "kořen projektu"}.
+                      mainu. Worktree patří jedné doméně.
                     </p>
+                    {worktreeDomains.length ? (
+                      <label className="field">
+                        Doména
+                        <select aria-label="Doména worktree" data-testid="worktree-domain" value={chosenDomain} onChange={(e) => setWorktreeDomain(e.target.value || null)}>
+                          {!chosenDomain && <option value="">Vyberte doménu…</option>}
+                          {worktreeDomains.map((d) => {
+                            const host = d.site?.kind === "application" ? d.site.environments[0]?.host : "";
+                            return <option key={d.id} value={d.id}>{host ? `${host} · ${d.name}` : d.name}</option>;
+                          })}
+                        </select>
+                      </label>
+                    ) : (
+                      <p role="alert">Projekt zatím nemá žádnou doménu. Založte ji v Mapách architektury (+ Doména).</p>
+                    )}
                     <label className="field">
                       Vlastník / označení agenta
                       <input
@@ -1765,12 +1799,14 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                     </label>
                     <button
                       className="primary"
-                      disabled={busy || !actor.trim()}
+                      disabled={busy || !actor.trim() || !chosenDomain}
+                      title={chosenDomain ? undefined : "Nejdřív vyberte doménu."}
                       onClick={() =>
                         run(async () => {
+                          if (!chosenDomain) throw new Error("Worktree musí patřit doméně.");
                           const w = await api<Workspace>("/api/workspaces", {
                             project,
-                            nodeId: worktreeDomain ?? node?.id ?? layer?.id ?? "project",
+                            nodeId: chosenDomain,
                             actor,
                           });
                           setWorkspace(w.id);
@@ -1809,6 +1845,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
         onBusyChange={setAssistantBusy}
         onCanvasWritten={reloadCanvas}
         startRequest={assistantStart}
+        selectRequest={assistantSelect}
       />
     </div></SaveScopeProvider>
   );

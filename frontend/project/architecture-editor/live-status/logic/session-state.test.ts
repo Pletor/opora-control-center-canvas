@@ -1,18 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { normalizeWorkStatus } from "./live-model";
-import { mainSessionsSummary, relativeAge, sessionTitle, sessionView, stateChanges } from "./session-state";
+import { assistantTone, mainSessionsSummary, relativeAge, sessionTitle, sessionView, sourceDetail, stateChanges } from "./session-state";
 
 const NOW = Date.parse("2026-10-14T12:00:00Z");
 const s = (state: string) => ({ source: "assistant" as const, id: state, state, nodeId: null, lastSeenAt: null });
 
 describe("stavy relací", () => {
-  it("relace má zdroj, slovo, ikonu a title s posledním signálem", () => {
-    const view = sessionView({ source: "assistant", id: "s1", state: "waiting_approval", nodeId: null, lastSeenAt: "2026-10-14T11:57:00Z" }, NOW);
-    expect(view).toMatchObject({ source: "Asistent", label: "čeká na schválení", tone: "waiting", icon: "⏸" });
-    expect(view.title).toBe("Asistent: čeká na schválení · poslední signál před 3 min");
+  it("hlavní slovo je stav worktree od backendu, surový stav zdroje jen v title", () => {
+    const hook = { source: "hook" as const, id: "h1", state: "active", nodeId: null, lastSeenAt: "2026-10-14T11:56:00Z" };
+    const view = sessionView(hook, "stopped", NOW);
+    expect(view).toMatchObject({ source: "Hook", label: "stojí", tone: "stopped", icon: "■", openable: false });
+    expect(view.title).toBe("Hook hlásí „aktivní“ · naposledy před 4 min · stav worktree: stojí");
   });
-  it("neznámý stav se ukáže slovem a neutrálně", () => {
-    expect(sessionView({ source: "hook", id: "h", state: "odd", nodeId: null, lastSeenAt: null }, NOW)).toMatchObject({ label: "odd", tone: "none" });
+  it("převzatá karta nikdy nečeká sama od sebe, rozhoduje worktree", () => {
+    const lease = { source: "lease" as const, id: "w:n", state: "active", nodeId: "n", lastSeenAt: null };
+    expect(sessionView(lease, "none", NOW)).toMatchObject({ label: "bez relace", tone: "none" });
+    expect(sourceDetail(lease, NOW)).toBe("Karta hlásí „převzatá“");
+  });
+  it("otevřít jde jen relace asistenta; neznámý stav zdroje se ukáže slovem", () => {
+    expect(sessionView({ source: "assistant", id: "s1", state: "idle", nodeId: null, lastSeenAt: null }, "waiting", NOW).openable).toBe(true);
+    expect(sourceDetail({ source: "hook", id: "h", state: "odd", nodeId: null, lastSeenAt: null }, NOW)).toBe("Hook hlásí „odd“");
   });
   it("relativní čas i bez zóny (UTC)", () => {
     expect(relativeAge("2026-10-14T11:59:30", NOW)).toBe("před chvílí");
@@ -23,6 +30,8 @@ describe("stavy relací", () => {
     expect(mainSessionsSummary([s("idle"), s("running"), s("closed")])).toBe("Hlavní relace: 1 běží · 1 čeká");
     expect(mainSessionsSummary([s("closed")])).toBe("Hlavní relace: žádná");
     expect(mainSessionsSummary([])).toBe("Hlavní relace: žádná");
+    expect(mainSessionsSummary(null)).toBe("Hlavní relace: nenačteno");
+    expect(["running", "waiting_approval", "idle", "error", "closed"].map(assistantTone)).toEqual(["running", "waiting", "waiting", "stopped", "none"]);
   });
   it("aria-live hlásí jen změny stavu, první čtení mlčí", () => {
     const status = (state: string) => normalizeWorkStatus({ domains: [{ id: "d", name: "D", worktrees: [{ id: "w1", branch: "work/w1", state }] }] });

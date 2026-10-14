@@ -1,6 +1,6 @@
 // Rytmus a paměť živého čtení (docs/domeny-a-worktree.md §10): stav práce každých 10 s v detailu
 // domény a 30 s na přehledu, web každých 60 s (backend drží cache 60 s). Po chybě se čte s odstupem
-// 10 → 20 → 60 s a poslední data zůstávají s poznámkou „údaj z 12:03“.
+// 10 → 20 → 60 s a poslední data zůstávají s poznámkou „údaj z 12:03, nepodařilo se obnovit“.
 
 export const WORK_INTERVAL_MS = { detail: 10_000, landing: 30_000 } as const;
 export const WEB_INTERVAL_MS = 60_000;
@@ -25,9 +25,14 @@ export const slotFailed = <T>(slot: LiveSlot<T>, error: string): LiveSlot<T> => 
 
 export const isStale = (slot: LiveSlot<unknown>) => slot.failures > 0 && slot.data !== null;
 
-/** „údaj z 12:03“ u zastaralých dat, jinak prázdné. */
+/** „údaj z 12:03, nepodařilo se obnovit“ u zastaralých dat, jinak prázdné. */
 export function staleNote(slot: LiveSlot<unknown>): string {
   if (!isStale(slot) || slot.updatedAt === null) return "";
   const moment = new Date(slot.updatedAt);
-  return `údaj z ${String(moment.getHours()).padStart(2, "0")}:${String(moment.getMinutes()).padStart(2, "0")}`;
+  return `údaj z ${String(moment.getHours()).padStart(2, "0")}:${String(moment.getMinutes()).padStart(2, "0")}, nepodařilo se obnovit`;
+}
+
+/** První čtení selhalo a nic se neukazuje: věta s chybou, ať prázdná obrazovka nevypadá jako „nic se neděje“. */
+export function loadNotice(slot: LiveSlot<unknown>, what: string): string {
+  return slot.data === null && slot.error ? `${what} se nepodařilo načíst: ${slot.error}` : "";
 }

@@ -10,6 +10,12 @@
 .arch-landing__head-tools{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .arch-landing__sessions{display:flex;align-items:center;gap:8px;margin:0;color:var(--ae-muted);font-size:12px}
 
+/* Když se živý stav nepodařilo načíst ani jednou, řekne to věta pod hlavičkou: prázdné karty by jinak
+   lhaly, že se nikde nepracuje. Zastaralý údaj se jen tiše podepíše zlatým časem („údaj z 12:03,
+   nepodařilo se obnovit“) u hlavních relací, u karty domény i u Nepřiřazených. */
+.arch-landing__alert{margin:18px 0 0;padding:8px 12px;border-radius:8px;border:1px solid var(--danger);background:var(--danger-soft);color:var(--ae-text);font-size:12px}
+.arch-landing__stale{color:var(--gold);font-size:11px}
+
 /* Pruh prostředí: barevný štítek a krátká věta, aby bylo hned jasné, kde se kdo pohybuje. */
 .arch-landing__group{margin:34px 0 0}
 .arch-landing__group-title{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:14px;font-weight:400}
@@ -31,9 +37,12 @@
 .arch-landing__env{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 
 /* Práce na doméně: pod popisem jedna věta s počty („3 worktree · 1 běží“), která se rozbalí do
-   stěsnaného stromu. Klidná doména to řekne tlumenou větou, aby karta nepůsobila rozbitě. */
+   stěsnaného stromu. Klidná doména to řekne tlumenou větou a hned nabídne tichý „Nový worktree“,
+   aby karta nepůsobila rozbitě a bylo jasné, jak na doméně začít pracovat. */
 .arch-landing__work{display:flex;flex-direction:column;gap:6px;margin:4px 0 0;font-size:12px}
-.arch-landing__work--idle{color:var(--ae-muted)}
+.arch-landing__work--idle{color:var(--ae-muted);align-items:flex-start}
+.arch-landing__work-text{margin:0}
+.arch-landing__work-new{align-self:flex-start}
 .arch-landing__work-toggle{align-self:flex-start;padding:0;border:0;background:none;color:var(--ae-text);cursor:pointer;font:inherit}
 .arch-landing__work-toggle:hover{color:var(--al-tone)}
 

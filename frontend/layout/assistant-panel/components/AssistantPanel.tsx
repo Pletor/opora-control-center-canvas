@@ -8,7 +8,8 @@ import { useConversation } from "../logic/use-conversation";
 import { usePanelKeys } from "../logic/use-panel-keys";
 import { useTaskMemory } from "../logic/use-task-memory";
 import { useTaskOutline } from "../logic/use-task-outline";
-import { useStartRequest, type StartRequest } from "../logic/use-start-request";
+import { useSelectRequest, useStartRequest, type StartRequest } from "../logic/use-start-request";
+import type { SelectRequest } from "../logic/select-request";
 import Composer from "./Composer";
 import Conversation from "./Conversation";
 import MinimizedBar from "./MinimizedBar";
@@ -34,6 +35,7 @@ export default function AssistantPanel({
   onBusyChange,
   onCanvasWritten,
   startRequest,
+  selectRequest,
 }: {
   open: boolean;
   context: ViewContext;
@@ -42,6 +44,8 @@ export default function AssistantPanel({
   onCanvasWritten: () => void;
   /** Nový úkol zvenku (živý panel domény); založí se jednou, bez zprávy. */
   startRequest?: StartRequest | null;
+  /** Výběr existujícího úkolu zvenku (čip relace v živém panelu). */
+  selectRequest?: SelectRequest | null;
 }) {
   const [size, setSizeState] = useState<PanelSize>(() => readPrefs().size);
   const [scope, setScopeState] = useState<AssistantScope>(() => readPrefs().scope);
@@ -54,6 +58,7 @@ export default function AssistantPanel({
 
   const s = useAssistantSessions(open, watch, context.projectId, context.workspace);
   useStartRequest(startRequest, open && s.status?.available === true, s.create);
+  useSelectRequest(selectRequest, s.sessions, s.select);
   const c = useConversation(open && s.status?.available === true, context.projectId, s.activeId, s.setFailure, onCanvasWritten);
   const memory = useTaskMemory(s.sessions, s.activeId, c.conv, open);
   const { tasks } = memory;

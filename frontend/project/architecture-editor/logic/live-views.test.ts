@@ -3,6 +3,7 @@ import type { Graph } from "@/shared/types/logic/types";
 import { normalizeWorkStatus, type WorkStatus } from "../live-status/logic/live-model";
 import { emptySlot, slotFailed, slotLoaded } from "../live-status/logic/live-poll";
 import type { WebHost } from "../live-status/logic/web-status";
+import { emptyWeb, webLoaded } from "../live-status/logic/web-slots";
 import { pageWork, panelViews } from "./live-views";
 
 const graph = { nodes: [
@@ -16,7 +17,7 @@ const status = normalizeWorkStatus({ domains: [{ id: "d", name: "D", worktrees: 
   { id: "w2", state: "waiting", sessions: [{ source: "assistant", id: "s", state: "idle", nodeId: "p2" }] },
 ] }] });
 const host: WebHost = { domainId: "d", environment: "Produkce", host: "www.a.cz", state: "dns_missing", httpStatus: null, health: null, latencyMs: null, checkedAt: null, detail: "" };
-const live = { worktreeLive: true, work: slotLoaded(emptySlot<WorkStatus>(), status, 0), web: slotLoaded(emptySlot<WebHost[]>(), [host], 0) };
+const live = { worktreeLive: true, work: slotLoaded(emptySlot<WorkStatus>(), status, 0), web: webLoaded(emptyWeb(), "*", [host], 0) };
 
 describe("data pro živý panel a mapu", () => {
   it("panel dostane host domény a stav práce; bez worktree jen web", () => {
