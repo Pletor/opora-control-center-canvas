@@ -10,3 +10,11 @@ export function asHumanRule(rule: Rule, text = rule.text): Rule {
   const { by: _by, ...rest } = rule;
   return { ...rest, text };
 }
+
+/** Rozhodnutí člověka o návrhu agenta: schválit (pravidlo začne platit) nebo zamítnout (odebere se). */
+export type RuleReviewDecision = "approve" | "reject";
+
+/** Požadavek posouzení návrhu; `expected` je přečtený návrh, server ho porovná (CAS) a agentovi vrátí 403. */
+export function ruleReviewRequest(project: string, workspace: string, rule: Rule, decision: RuleReviewDecision) {
+  return { url: "/api/desktop-v3/rule-review", body: { project, workspace, id: rule.id, decision, expected: rule } };
+}

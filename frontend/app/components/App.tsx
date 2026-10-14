@@ -1286,6 +1286,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
                   }}
                   assignmentStatuses={assignmentStatuses}
                   onRuleWrite={(expected, item) => desktop.mutateItem("rule", expected, item)}
+                  onRuleReview={desktop.reviewRule}
                   sourceContext={{ project, workspace }}
                   key={project + workspace + parent}
                   scope={project + workspace + parent}

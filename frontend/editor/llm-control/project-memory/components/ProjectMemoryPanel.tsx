@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import type { Rule, RuleScope, Decision, Setting } from "@/shared/desktop-state/logic/types";
 import MemoryItemText from "./MemoryItemText";
+import RuleReview from "./RuleReview";
+import { asHumanRule, isAgentRule, type RuleReviewDecision } from "@/shared/desktop-state/logic/agent-rule";
 import { fromRoundLabel } from "@/editor/node-detail/rounds/logic/rounds-model";
 import { useDecisionRounds } from "@/editor/node-detail/rounds/logic/use-decision-rounds";
 
@@ -25,7 +27,7 @@ export function ProjectMemoryPanel({
   workspace: string;
   path: string;
 }) {
-  const { state, readOnly, loading, error, reload, mutate, mutateItem } = useDesktopState(project, workspace);
+  const { state, readOnly, loading, error, reload, mutate, mutateItem, reviewRule } = useDesktopState(project, workspace);
   const [newSettingKey, setNewSettingKey] = useState("");
   const [newSettingValue, setNewSettingValue] = useState("");
   const [newRuleText, setNewRuleText] = useState("");
@@ -103,6 +105,11 @@ export function ProjectMemoryPanel({
     itemWrite("rule", null, rule).then((ok) => {
       if (ok && ruleDraftVersion.current === submittedVersion) setNewRuleText("");
     });
+  }
+
+  // Schválení i zamítnutí návrhu agenta jde přes /rule-review (smí jen člověk, CAS na přečtený návrh).
+  function review(rule: Rule, decision: RuleReviewDecision) {
+    return runAction(() => reviewRule(rule, decision));
   }
 
   function removeRule(id: string) {
@@ -211,11 +218,14 @@ export function ProjectMemoryPanel({
             {state.rules.length === 0 && <p className="v3-empty">Zatím žádná pravidla.</p>}
             <ul className="v3-rule-list">
               {state.rules.map((rule) => (
-                <li key={rule.id} className={`v3-rule v3-rule-${rule.kind}`}>
+                <li key={rule.id} className={`v3-rule v3-rule-${rule.kind}`}
+                  style={isAgentRule(rule) ? { opacity: 0.6, fontStyle: "italic" } : undefined}>
+                  {/* Úprava textu člověkem pravidlo zároveň schválí (stejně jako na kartě). */}
                   <MemoryItemText id={`rule:${rule.id}`} text={rule.text} disabled={readOnly || busy}
-                    save={(text) => itemWrite("rule", rule, { ...rule, text })} />
+                    save={(text) => itemWrite("rule", rule, asHumanRule(rule, text))} />
                   <span className="v3-chip">{scopeLabel(rule)}</span>
                   <span className="v3-chip">{rule.kind === "must_not" ? "zákaz" : "pravidlo"}</span>
+                  <RuleReview rule={rule} disabled={readOnly || busy} review={(item, decision) => void review(item, decision)} />
                   <button type="button" disabled={readOnly || busy} onClick={() => removeRule(rule.id)}>
                     Odebrat
                   </button>

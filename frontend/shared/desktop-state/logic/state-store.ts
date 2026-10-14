@@ -8,9 +8,12 @@ import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
 import type { Rule, Decision, StateResponse } from "@/shared/desktop-state/logic/types";
 import { appliesTo, withItem, type ItemWriteResponse } from "@/shared/desktop-state/logic/slim-writes";
 import { api } from "@/shared/types/logic/types";
+import { ruleReviewRequest, type RuleReviewDecision } from "@/shared/desktop-state/logic/agent-rule";
 
 export type DesktopStateHandle = {
   mutateItem: (kind: "rule" | "decision", expected: Rule | Decision | null, item: Rule | Decision | null) => Promise<boolean>;
+  /** Člověk schválí nebo zamítne návrh pravidla od agenta (POST /api/desktop-v3/rule-review, agent dostane 403). */
+  reviewRule: (rule: Rule, decision: RuleReviewDecision) => Promise<boolean>;
   state: DesktopState;
   revision: number;
   readOnly: boolean;
@@ -146,19 +149,15 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     else load();
   };
 
-  const mutateItem: DesktopStateHandle["mutateItem"] = async (kind, expected, item) => {
-    if (readOnly || (!expected && !item)) return false;
+  // Adresný zápis jedné položky (pravidlo, rozhodnutí, posouzení návrhu): odpověď nese jen revizi a
+  // uloženou položku (karta P3), ne celý stav.
+  const writeItem = async (kind: "rule" | "decision", id: string, url: string, body: object) => {
     const ticket = generation.current;
     const scope = `${project}::${workspace}`;
-    const id = (item ?? expected)!.id;
     const baseRevision = revision;
     saving.current++;
     try {
-      // Odpověď nese jen revizi a uloženou položku (karta P3), ne celý stav.
-      const value = await trackSaveWrite(project, workspace, api<ItemWriteResponse>(`/api/desktop-v3/${kind}`, {
-        project, workspace, id, expected, item,
-        op: !expected ? "add" : !item ? "remove" : "update",
-      }));
+      const value = await trackSaveWrite(project, workspace, api<ItemWriteResponse>(url, body));
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
       if (appliesTo(baseRevision, value) && latest.current.revision === baseRevision) {
         const next = withItem(latest.current.state, kind, id, value.item);
@@ -177,6 +176,19 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
       if (saving.current === 0 && reloadQueued.current) { reloadQueued.current = false; load(); }
     }
   };
+  const mutateItem: DesktopStateHandle["mutateItem"] = async (kind, expected, item) => {
+    if (readOnly || (!expected && !item)) return false;
+    const id = (item ?? expected)!.id;
+    return writeItem(kind, id, `/api/desktop-v3/${kind}`, {
+      project, workspace, id, expected, item,
+      op: !expected ? "add" : !item ? "remove" : "update",
+    });
+  };
+  const reviewRule: DesktopStateHandle["reviewRule"] = async (rule, decision) => {
+    if (readOnly) return false;
+    const request = ruleReviewRequest(project, workspace, rule, decision);
+    return writeItem("rule", rule.id, request.url, request.body);
+  };
   const apply = (value: StateResponse) => {
     const scope = `${project}::${workspace}`;
     generation.current++;
@@ -190,5 +202,5 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     }
     apply({ state: patch(latest.current.state), revision: response.revision, readOnly: response.readOnly });
   };
-  return { state, revision, readOnly, loading, error, reload, mutate, mutateItem, apply, applySlim };
+  return { state, revision, readOnly, loading, error, reload, mutate, mutateItem, reviewRule, apply, applySlim };
 }

@@ -1,5 +1,5 @@
 import type { EffectiveRule } from "../logic/effective-rules";
-import { AGENT_RULE_LABEL, isAgentRule } from "../logic/agent-rule";
+import { AGENT_RULE_LABEL, isAgentRule } from "@/shared/desktop-state/logic/agent-rule";
 
 const labels = { project: "Projekt", path: "Cesta", sector: "Sektor", card: "Karta" };
 const icons = { project: "◉", path: "↳", sector: "▦", card: "▣" };
