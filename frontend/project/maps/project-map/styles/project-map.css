@@ -1,0 +1,186 @@
+/* MAPA KÓDU (blok `project-map`)
+   Příběh: místo tisíců drobných uzlů vidí člověk pár desítek oblastí projektu. Vlevo je velké plátno,
+   kde se dá rozhlížet, vpravo úzký panel, který odpovídá na „co to je a s čím to souvisí“. Plátno
+   dostane všechno zbylé místo, panel drží pevnou šířku, aby se seznam při výběru necukal. Na úzké
+   obrazovce panel sjede pod plátno. */
+.project-map {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  min-height: 0;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+}
+.project-map__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface-2);
+}
+.project-map__tools {
+  position: absolute;
+  top: var(--sp-3, 8px);
+  left: var(--sp-3, 8px);
+  display: flex;
+  gap: 4px;
+}
+.project-map__error {
+  grid-column: 1 / -1;
+}
+@media (max-width: 900px) {
+  .project-map { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(320px, 1fr) auto; }
+}
+
+/* PLÁTNO OBLASTÍ (blok `project-map-canvas`)
+   Příběh: každá bublina je jedna oblast; velikost prozradí, kde je kódu nejvíc, číslo uvnitř to řekne
+   přesně. Čáry jsou tiché, aby nepřekřičely bubliny. Když člověk oblast vybere, její vazby se
+   rozsvítí akcentem a ostatní ustoupí, takže je hned vidět, kam oblast sahá. Při hledání zešednou
+   bubliny, které neodpovídají. Barva jen odlišuje sousedy a bere se z kategoriálních tokenů. */
+.project-map-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.project-map-canvas:active { cursor: grabbing; }
+.project-map-canvas__line {
+  stroke: var(--line-strong);
+  stroke-linecap: round;
+  opacity: 0.55;
+  transition: opacity 120ms ease;
+}
+.project-map-canvas__line--muted { opacity: 0.12; }
+.project-map-canvas__line--active { stroke: var(--accent); opacity: 0.95; }
+.project-map-canvas__bubble { cursor: pointer; transition: opacity 120ms ease; }
+.project-map-canvas__bubble circle {
+  fill: color-mix(in srgb, var(--project-map-tone, var(--accent)) 30%, var(--surface));
+  stroke: var(--project-map-tone, var(--accent));
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.project-map-canvas__bubble:hover circle { fill: color-mix(in srgb, var(--project-map-tone, var(--accent)) 50%, var(--surface)); }
+.project-map-canvas__bubble--selected circle { stroke: var(--gold); stroke-width: 3; }
+.project-map-canvas__bubble--dim { opacity: 0.18; }
+.project-map-canvas__size,
+.project-map-canvas__name {
+  text-anchor: middle;
+  pointer-events: none;
+  font-family: var(--font, inherit);
+}
+.project-map-canvas__size { dominant-baseline: central; fill: var(--ink); font-weight: 600; }
+.project-map-canvas__name { fill: var(--ink-2); paint-order: stroke; stroke: var(--surface-2); stroke-width: 3px; }
+
+/* Barevné tóny: stejný index nese bublina na plátně i čtvereček v seznamu, aby člověk oblast
+   spároval očima bez čtení jména. */
+.project-map-canvas__bubble--tone-0, .project-map-sidebar__swatch--tone-0 { --project-map-tone: var(--cat-fe-components); }
+.project-map-canvas__bubble--tone-1, .project-map-sidebar__swatch--tone-1 { --project-map-tone: var(--cat-fe-logic); }
+.project-map-canvas__bubble--tone-2, .project-map-sidebar__swatch--tone-2 { --project-map-tone: var(--cat-fe-css); }
+.project-map-canvas__bubble--tone-3, .project-map-sidebar__swatch--tone-3 { --project-map-tone: var(--cat-backend); }
+.project-map-canvas__bubble--tone-4, .project-map-sidebar__swatch--tone-4 { --project-map-tone: var(--cat-database); }
+.project-map-canvas__bubble--tone-5, .project-map-sidebar__swatch--tone-5 { --project-map-tone: var(--cat-cache); }
+.project-map-canvas__bubble--tone-6, .project-map-sidebar__swatch--tone-6 { --project-map-tone: var(--cat-security); }
+.project-map-canvas__bubble--tone-7, .project-map-sidebar__swatch--tone-7 { --project-map-tone: var(--cat-cloud); }
+.project-map-canvas__bubble--tone-8, .project-map-sidebar__swatch--tone-8 { --project-map-tone: var(--cat-tests); }
+
+/* BOČNÍ PANEL (blok `project-map-sidebar`)
+   Příběh: nahoře hledání, protože člověk obvykle ví, jakou složku nebo soubor hledá. Pod ním, když
+   je něco vybrané, detail oblasti: nejpropojenější soubory s počtem vazeb a cestou jako text, a
+   sousední oblasti, na které jde kliknout a přeskočit. Úplně dole seznam všech oblastí od největší,
+   každá se svou barvou a hlavními složkami, aby se dal projít i bez myši na plátně. */
+.project-map-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2, 6px);
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-3, 8px);
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--fs-1, 12px);
+  color: var(--ink);
+}
+.project-map-sidebar__search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius, 6px);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.project-map-sidebar__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--sp-2, 6px);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius, 6px);
+  background: var(--accent-soft);
+}
+.project-map-sidebar__detail-head { display: flex; align-items: center; gap: 6px; }
+.project-map-sidebar__detail-name { flex: 1; overflow-wrap: anywhere; }
+.project-map-sidebar__close { border: 0; background: transparent; color: var(--ink-2); cursor: pointer; font-size: 16px; line-height: 1; }
+.project-map-sidebar__meta,
+.project-map-sidebar__count { margin: 0; color: var(--ink-muted); }
+.project-map-sidebar__heading { margin: 6px 0 0; font-size: var(--fs-1, 12px); color: var(--ink-2); }
+.project-map-sidebar__top,
+.project-map-sidebar__links,
+.project-map-sidebar__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.project-map-sidebar__top-item { display: grid; grid-template-columns: 1fr auto; gap: 0 6px; }
+.project-map-sidebar__top-label { overflow-wrap: anywhere; }
+.project-map-sidebar__degree,
+.project-map-sidebar__weight,
+.project-map-sidebar__item-size { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.project-map-sidebar__path { grid-column: 1 / -1; color: var(--ink-muted); font-family: var(--mono, monospace); font-size: 11px; overflow-wrap: anywhere; }
+.project-map-sidebar__link,
+.project-map-sidebar__item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 2px 6px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius, 6px);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.project-map-sidebar__link { grid-template-columns: 1fr auto; }
+.project-map-sidebar__link:hover,
+.project-map-sidebar__item:hover { background: var(--surface-2); border-color: var(--line); }
+.project-map-sidebar__item--selected { border-color: var(--gold-line, var(--accent-line)); background: var(--surface-2); }
+.project-map-sidebar__link-name,
+.project-map-sidebar__item-name { overflow-wrap: anywhere; }
+.project-map-sidebar__item-paths { grid-column: 2 / -1; color: var(--ink-muted); font-size: 11px; overflow-wrap: anywhere; }
+.project-map-sidebar__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--project-map-tone, var(--accent));
+}
+
+/* LEGENDA (blok `project-map-legend`)
+   Příběh: tři krátké řádky pod plátnem vysvětlí, jak mapu číst, ať člověk nemusí hádat, co je
+   velikost, co čára a že barva nic neznamená. Je drobná a tichá, aby neubírala místo plátnu. */
+.project-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 6px 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.project-map-legend__row { display: flex; align-items: center; gap: 6px; }
+.project-map-legend__row dd { margin: 0; }
+.project-map-legend__key { width: 14px; flex-shrink: 0; }
+.project-map-legend__key--size { height: 14px; border-radius: 50%; border: 1.5px solid var(--accent); background: var(--accent-soft); }
+.project-map-legend__key--line { height: 3px; border-radius: 2px; background: var(--line-strong); }
+.project-map-legend__key--tone { height: 10px; border-radius: 3px; background: linear-gradient(90deg, var(--cat-fe-logic), var(--cat-backend), var(--cat-cache)); }

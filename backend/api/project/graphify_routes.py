@@ -6,6 +6,7 @@ import subprocess
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
+from backend.project.maps.graphify_overview import overview
 from backend.project.maps.graphify_runtime import PUBLISH_LOCK, generate_graph
 from backend.project.maps.map_artifacts import ArtifactUnavailable, main_project_root
 from backend.project.workspace.workspace_sources import WorkspaceSources
@@ -29,23 +30,41 @@ def load_graph(service, project):
         return _load_graph(service, project)
 
 
-def _load_graph(service, project):
-    root = main_project_root(service, project)
-    html = read_output(service, root, 'graph.html')
+def _read_graph_json(service, root):
     raw = read_output(service, root, 'graph.json')
     graph = json.loads(raw)
     nodes, edges = graph.get('nodes'), graph.get('links', graph.get('edges'))
     if not isinstance(nodes, list) or not nodes or not isinstance(edges, list):
         raise ArtifactUnavailable('Graphify nevytvořil platný neprázdný graf.')
-    hashes = {name: hashlib.sha256(value).hexdigest() for name, value in (
-        ('graph.html', html), ('graph.json', raw))}
-    receipt = {}
+    return raw, graph, nodes, edges
+
+
+def _receipt(service, root, matches):
     try:
         candidate = json.loads(read_output(service, root, 'opora-receipt.json'))
-        if candidate.get('hashes') == hashes:
-            receipt = candidate
     except FileNotFoundError:
-        pass
+        return {}
+    return candidate if isinstance(candidate, dict) and matches(candidate.get('hashes')) else {}
+
+
+def load_overview(service, project):
+    """Přehled komunit jen z graph.json; graph.html se pro lehkou mapu nečte."""
+    with PUBLISH_LOCK:
+        root = main_project_root(service, project)
+        raw, graph, _, _ = _read_graph_json(service, root)
+        digest = hashlib.sha256(raw).hexdigest()
+        receipt = _receipt(service, root, lambda hashes: isinstance(hashes, dict) and hashes.get('graph.json') == digest)
+    return {'project': project, 'generatedAt': receipt.get('generatedAt'), 'version': receipt.get('version'),
+            **overview(graph)}
+
+
+def _load_graph(service, project):
+    root = main_project_root(service, project)
+    html = read_output(service, root, 'graph.html')
+    raw, _, nodes, edges = _read_graph_json(service, root)
+    hashes = {name: hashlib.sha256(value).hexdigest() for name, value in (
+        ('graph.html', html), ('graph.json', raw))}
+    receipt = _receipt(service, root, lambda candidate: candidate == hashes)
     return {
         'project': project, 'sourceRoot': str(root), 'sourcePath': 'graphify-out/graph.html',
         'html': html.decode('utf-8'), 'graphJson': raw.decode('utf-8'),
@@ -78,6 +97,17 @@ def create_graphify_router(service):
         except ArtifactUnavailable as exc:
             return JSONResponse({'error': str(exc)}, status_code=409)
         except (ValueError, KeyError, TypeError, AttributeError, OSError, RecursionError, subprocess.SubprocessError):
+            return JSONResponse({'error': 'Graf tohoto projektu nelze bezpečně načíst.'}, status_code=409)
+
+    @router.get('/overview')
+    def overview_route(project: str = Query(min_length=1, max_length=64)):
+        try:
+            return load_overview(service, project)
+        except FileNotFoundError:
+            return JSONResponse({'error': 'Graf projektu zatím není vytvořený.'}, status_code=404)
+        except ArtifactUnavailable as exc:
+            return JSONResponse({'error': str(exc)}, status_code=409)
+        except (ValueError, KeyError, TypeError, AttributeError, OSError, RecursionError):
             return JSONResponse({'error': 'Graf tohoto projektu nelze bezpečně načíst.'}, status_code=409)
 
     return router
