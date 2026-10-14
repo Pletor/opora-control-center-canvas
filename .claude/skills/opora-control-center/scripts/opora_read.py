@@ -339,6 +339,7 @@ def main():
     parser.add_argument('--project')
     parser.add_argument('--workspace')
     parser.add_argument('--node')
+    parser.add_argument('--discipline', help='vault: jen fragmenty této disciplíny (id nebo none)')
     parser.add_argument('--id')
     parser.add_argument('--query', help='search, rank, find, recall')
     parser.add_argument('--layer', help='search, index, rank: jen přímí potomci této karty či sektoru')
@@ -443,6 +444,8 @@ def main():
             params = {'project': args.project, 'workspace': args.workspace}
             if command == 'vault' and args.node:
                 params['scope'] = args.node
+            if command == 'vault' and args.discipline:
+                params['discipline'] = args.discipline
             elif command == 'vault-fragment':
                 params['id'] = args.id
             elif command == 'research-brief':
