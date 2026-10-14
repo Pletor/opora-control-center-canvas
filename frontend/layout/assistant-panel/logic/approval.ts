@@ -59,6 +59,7 @@ export const ROUTE_LABEL: Record<string, string> = {
   "/api/desktop-v3/rule": "Pravidlo projektu",
   "/api/desktop-v3/decision": "Rozhodnutí projektu",
   "/api/desktop-v3/realize-source": "Zdroj karty po merge (commit, PR)",
+  "/api/brief-vault": "Schránka zadání (podklady pro kartu)",
 };
 
 function str(value: unknown): string {

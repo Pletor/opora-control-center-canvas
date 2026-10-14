@@ -38,7 +38,7 @@ WRITE_ROUTES = frozenset({
     "/api/desktop-v3/rule", "/api/desktop-v3/decision",
     "/api/graph", "/api/node-spec", "/api/node-text", "/api/desktop-v3/state", "/api/desktop-v3/block",
     "/api/desktop-v3/agent-workspace", "/api/desktop-v3/agent-output", "/api/canvas-plan",
-    "/api/desktop-v3/pipeline",
+    "/api/desktop-v3/pipeline", "/api/brief-vault",
 })
 # Celý příkaz: python, skript `…opora_write.py`, cesta a volby. Žádný znak, který by v shellu
 # řetězil (`;`, `&`, `|`), přesměroval (`<`, `>`), substituoval (`` ` ``, `$`) nebo zalomil řádek.

@@ -59,7 +59,7 @@ describe("parseApproval", () => {
     const gate = ["/api/desktop-v3/lease", "/api/desktop-v3/realize-source", "/api/canvas-layout", "/api/desktop-v3/assignment-snapshot",
       "/api/canvas-versions", "/api/desktop-v3/rule", "/api/desktop-v3/decision", "/api/graph", "/api/node-spec", "/api/node-text",
       "/api/desktop-v3/state", "/api/desktop-v3/block", "/api/desktop-v3/agent-workspace", "/api/desktop-v3/agent-output",
-      "/api/canvas-plan", "/api/desktop-v3/pipeline"];
+      "/api/canvas-plan", "/api/desktop-v3/pipeline", "/api/brief-vault"];
     expect(Object.keys(ROUTE_LABEL).sort()).toEqual([...gate].sort());
     for (const route of ["/api/desktop-v3/node", "/api/graph/positions", "/api/project-architecture"]) expect(routeLabel(route)).toBe(route);
   });
