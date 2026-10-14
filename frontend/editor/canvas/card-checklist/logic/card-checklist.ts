@@ -46,12 +46,16 @@ export function areaSummary(lists: CheckItem[][]) {
   };
 }
 
+/** Druh uzlu podle id: plátno ho postaví jednou za graf a předá všem vazbám (`handoffMark`). */
+export const nodeKinds = (nodes: Pick<CanvasNode, "id" | "kind">[]): ReadonlyMap<string, CanvasNode["kind"]> =>
+  new Map(nodes.map((n) => [n.id, n.kind]));
+
 /** Obálka předávky na vazbě: zpráva je → „sent“; zdroj je hotový (navržen / uzavřen) a zpráva chybí → „missing“;
- *  jinak se nic nekreslí, aby plánovací vazby nebyly ukřičené. Jen vazby mezi kartami (`next`, `block`). */
-export function handoffMark(edge: GraphEdge, state: DesktopState, nodes: Pick<CanvasNode, "id" | "kind">[]): "sent" | "missing" | null {
+ *  jinak se nic nekreslí, aby plánovací vazby nebyly ukřičené. Jen vazby mezi kartami (`next`, `block`).
+ *  Druhy uzlů přicházejí hotové (`nodeKinds`), aby se mapa nestavěla znovu pro každou vazbu. */
+export function handoffMark(edge: GraphEdge, state: DesktopState, kinds: ReadonlyMap<string, CanvasNode["kind"]>): "sent" | "missing" | null {
   const port = edge.port ?? "next";
   if (port !== "next" && port !== "block") return null;
-  const kinds = new Map(nodes.map((n) => [n.id, n.kind]));
   if (kinds.get(edge.source) !== "node" && kinds.get(edge.source) !== "sector") return null;
   if (state.edges?.[edge.id]?.handoff?.trim()) return "sent";
   const done = state.nodes[edge.source]?.done;

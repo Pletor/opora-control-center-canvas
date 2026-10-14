@@ -2,11 +2,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CardChecklist from "@/editor/canvas/card-checklist/components/CardChecklist";
-import { areaSummary, handoffMark, type CheckItem, type CheckKey, type CheckState } from "@/editor/canvas/card-checklist/logic/card-checklist";
+import { areaSummary, handoffMark, nodeKinds, type CheckItem, type CheckKey, type CheckState } from "@/editor/canvas/card-checklist/logic/card-checklist";
 import { emptyDesktopState, type DesktopState } from "@/shared/desktop-state/logic/types";
 
 const item = (key: CheckKey, state: CheckState, hint = ""): CheckItem => ({ key, label: key, state, hint });
-const nodes = [{ id: "a", kind: "node" as const }, { id: "b", kind: "node" as const }, { id: "c", kind: "comment" as const }];
+const nodes = nodeKinds([{ id: "a", kind: "node" as const }, { id: "b", kind: "node" as const }, { id: "c", kind: "comment" as const }]);
 const edge = { id: "e", source: "a", target: "b", port: "next" as const };
 const done = (confirmed: boolean, by: "human" | "agent"): DesktopState => ({
   ...emptyDesktopState(), nodes: { a: { phase: "build", criteria: [], steps: [], done: { confirmed, at: "", by, note: "" } } },

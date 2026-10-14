@@ -26,10 +26,11 @@ import type { SurfaceSettings } from "@/shared/surface-settings/logic/workspace-
 import type { Graph } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
-import { edgeAppearance } from "@/editor/canvas/board/logic/board-model";
+import { buildBoardIndex, childCount, ownNodeRules } from "@/editor/canvas/board/logic/board-index";
+import { layerEdges } from "@/editor/canvas/board/logic/board-edges";
 import { upstreamRows } from "@/editor/canvas/node-card/logic/upstream";
 import { useFrontier } from "@/editor/canvas/node-card/logic/use-frontier";
-import { areaSummary, handoffMark, useCardChecklist } from "@/editor/canvas/card-checklist/logic/card-checklist";
+import { areaSummary, useCardChecklist } from "@/editor/canvas/card-checklist/logic/card-checklist";
 import { proposalCount, proposalsIn } from "@/editor/canvas/node-card/logic/completion-proposals";
 import ConfirmSectorProposals from "@/editor/canvas/node-card/components/ConfirmSectorProposals";
 import { evidenceReadiness } from "@/editor/canvas/node-card/logic/evidence-readiness";
@@ -235,9 +236,14 @@ export default function Board({
     [id, node.fragmentRefs ?? [], (node.ideas ?? []).map((idea) => idea.fragmentId ?? "")])), [state.nodes]);
   const vault = useBriefVault(sourceContext, vaultRefs);
   const vaultIndex = useMemo(() => indexVault(vault.tree?.roots ?? []), [vault.tree]);
-  const isSelected = (id: string) => id === selected || multiSelected.includes(id);
-  const sectors = useMemo(() => sectorViews(graph, state), [graph, state]);
+  // Jeden index grafu a stavu na přestavbu: karty z něj čtou místo procházení všech uzlů pro každou kartu.
+  // Závisí jen na grafu a stavu, takže výběr ani polling overlayů ho nepřestaví.
+  const index = useMemo(() => buildBoardIndex(graph, state), [graph, state]);
+  const multiSet = useMemo(() => new Set(multiSelected), [multiSelected]);
+  const isSelected = (id: string) => id === selected || multiSet.has(id);
+  const sectors = useMemo(() => sectorViews(graph, state, index), [graph, state, index]);
   const movedCards = useAddedPulse(graph.nodes.map(n => `${n.id}:${n.parentId}:${n.x}:${n.y}`));
+  const movedSet = useMemo(() => new Set(movedCards), [movedCards]);
   const workRevision = useMemo(() => ({ graph, state }), [graph, state]);
   const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workRevision);
   const scenarios = useScenarioHistory(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workRevision);
@@ -280,7 +286,7 @@ export default function Board({
           };
         }
         const workflow = nodeWorkflowOf(state, n.id);
-        const view = { ...cardView(n, workflow, graph.nodes.filter((c) => c.parentId === n.id).length),
+        const view = { ...cardView(n, workflow, childCount(index, n.id)),
           briefChanged: changedSinceInsert(workflow.fragmentRefs, vaultIndex) };
         return {
           id: n.id,
@@ -291,14 +297,14 @@ export default function Board({
             view,
             checklist: checklists?.[n.id],
             usage: (n.kind === "sector" ? usage?.sectors : usage?.nodes)?.[n.id],
-            upstream: { rows: upstreamRows(graph, state, n.id), open: onSelect },
+            upstream: { rows: upstreamRows(graph, state, n.id, index), open: onSelect },
             frontier: frontier.rows?.[n.id],
             sectorProgress: sectors[n.id],
             evidence: state.nodes[n.id]?.evidence,
             facts: resolveFacts(n.factRefs ?? [], state.settings),
             work: work?.data?.nodes[n.id],
             workCounts: work?.data?.sectors[n.id],
-            moved: movedCards.includes(`${n.id}:${n.parentId}:${n.x}:${n.y}`),
+            moved: movedSet.has(`${n.id}:${n.parentId}:${n.x}:${n.y}`),
             inputSecurity: onUrlDownload ? { enabled: !!state.nodes[n.id]?.downloadsUrl, save: (enabled: boolean) => onUrlDownload(n.id, enabled) } : undefined,
             scenario: n.scenario ? { command: n.scenario.command, history: scenarios?.nodes?.[n.id], error: scenarios?.error } : undefined,
             realization: n.sourceRef && onRealizeSource ? { value: n.realization, status: sourceStatuses?.[n.id], disabled,
@@ -309,11 +315,11 @@ export default function Board({
             releaseLease: leases?.[n.id] && sourceContext ? () => releaseLease(sourceContext.project, sourceContext.workspace, n.id) : undefined,
             completion: onConfirmProposal ? { confirm: () => onConfirmProposal(n.id), note: state.nodes[n.id]?.done?.note,
               readiness: evidenceReadiness(state.nodes[n.id]?.evidence, n), error: confirmError,
-              pending: n.kind === "sector" ? proposalCount(graph, state, n.id) : 0 } : undefined,
+              pending: n.kind === "sector" ? proposalCount(graph, state, n.id, index) : 0 } : undefined,
             assignmentWarning: assignmentStatuses?.[n.id]?.status === "changed" && sourceContext
               ? { ...sourceContext, nodeId: n.id, resultId: assignmentStatuses[n.id].resultId, source: assignmentStatuses[n.id].source } : undefined,
-            inheritedRules: effectiveRules(graph, state, n.id).filter((rule) => rule.inherited || rule.origin.storage === "node" || !onRuleWrite),
-            rules: onRuleWrite && onRuleReview ? { items: state.rules.filter((rule) => rule.scope === "node" && rule.target === n.id), write: onRuleWrite, review: onRuleReview } : undefined,
+            inheritedRules: effectiveRules(graph, state, n.id, index).filter((rule) => rule.inherited || rule.origin.storage === "node" || !onRuleWrite),
+            rules: onRuleWrite && onRuleReview ? { items: ownNodeRules(index, n.id), write: onRuleWrite, review: onRuleReview } : undefined,
             source: n.sourceRef && sourceContext ? { source: n.sourceRef, ...sourceContext } : undefined,
             dimmed: !matchesTagFilter(workflow, tagFilter),
             onTag: onTagFilter,
@@ -366,7 +372,7 @@ export default function Board({
         return old?.measured ? { ...n, measured: old.measured, width: old.width, height: old.height } : n;
       });
     });
-  }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project, sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, scenarios, confirmError, movedCards]);
+  }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project, sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, scenarios, confirmError, movedCards, checklists, vaultIndex]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);
@@ -440,20 +446,19 @@ export default function Board({
     frame = requestAnimationFrame(focus);
     return () => cancelAnimationFrame(frame);
   }, [reveal, scope]);
-  const ids = new Set(nodes.map((n) => n.id));
+  // Sada vykreslených id se mění jen s přidáním nebo odebráním uzlu, ne v každém snímku tažení; klíč z id
+  // drží memo vazeb stabilní, dokud se množina uzlů nezmění.
+  const idsKey = nodes.map((n) => n.id).join("\n");
+  const ids = useMemo(() => new Set(idsKey ? idsKey.split("\n") : []), [idsKey]);
   // Komentář nemá porty ani úchyty (nekreslí se), ale tah myší z jiné karty by na něj přesto mohl dopadnout.
-  const commentIds = new Set(graph.nodes.filter((n) => n.kind === "comment").map((n) => n.id));
+  const commentIds = useMemo(() => new Set(graph.nodes.filter((n) => n.kind === "comment").map((n) => n.id)), [graph.nodes]);
   // Oblast má jen úchyt toku (`flow`): smí se propojit jen s jinou oblastí, nikdy s kartou ani komentářem.
-  const areaIds = new Set(graph.nodes.filter((n) => n.kind === "area").map((n) => n.id));
-  // Vazba z portu `action`/`rule` vede z téhož úchytu jako blok, vazba z tlačítka bloku z úchytu
-  // `block:<blockId>:<portId>` uvnitř karty; starší vazba bez portu = `next`. Vzhled řeší board-model.
+  const areaIds = useMemo(() => new Set(graph.nodes.filter((n) => n.kind === "area").map((n) => n.id)), [graph.nodes]);
   const addedEdges = useAddedPulse(graph.edges.map(edge => edge.id));
-  const edges: Edge[] = graph.edges
-    .filter((e) => ids.has(e.source) && ids.has(e.target))
-    .map((e): Edge => ({ ...e, ...edgeAppearance(e, state.nodes[e.source]?.blocks?.find(b => b.id === e.sourceBlockId)?.ports?.find(p => p.id === e.sourcePortId)), animated: addedEdges.includes(e.id),
-      // Předávka jen barvou: zelená vazba = zpráva je předaná; malá jantarová obálka = hotová karta ji nenechala.
-      ...handoffLook(handoffMark(e, state, graph.nodes), edgeAppearance(e).style) }))
-    .concat(blocks.edges);
+  const addedSet = useMemo(() => new Set(addedEdges), [addedEdges]);
+  // Vazby se počítají jen při změně grafu, stavu, vykreslených uzlů, bloků, pulsu nebo výběru vazby.
+  const edges: Edge[] = useMemo(() => layerEdges({ graph, state, ids, kinds: index.kinds, added: addedSet, selectedEdge, blockEdges: blocks.edges }),
+    [graph, state, ids, index, addedSet, selectedEdge, blocks.edges]);
   return (
     <div
       ref={surface}
@@ -501,10 +506,10 @@ export default function Board({
           <SectorGateEditor sector={graph.nodes.find(n => n.id === parent)!} graph={graph} disabled={disabled} save={onSaveSector} />}
         {/* Počet ke schválení jen jednou: v sektoru ho nese souhrn hromadného potvrzení. */}
         {parent && graph.nodes.find(n => n.id === parent)?.kind === "sector" && onConfirmSector
-          ? <ConfirmSectorProposals key={scope + JSON.stringify(proposalsIn(graph, state, parent))}
-            proposals={proposalsIn(graph, state, parent).map(p => ({ ...p, readiness: evidenceReadiness(state.nodes[p.id]?.evidence, graph.nodes.find(n => n.id === p.id)) }))}
+          ? <ConfirmSectorProposals key={scope + JSON.stringify(proposalsIn(graph, state, parent, index))}
+            proposals={proposalsIn(graph, state, parent, index).map(p => ({ ...p, readiness: evidenceReadiness(state.nodes[p.id]?.evidence, graph.nodes.find(n => n.id === p.id)) }))}
             disabled={disabled} confirm={ids => onConfirmSector(parent, ids)} />
-          : <span className="board-bar__chip">Ke schválení: {proposalCount(graph, state, parent)}</span>}
+          : <span className="board-bar__chip">Ke schválení: {proposalCount(graph, state, parent, index)}</span>}
         <button type="button" aria-pressed={showFrontier} onClick={() => setShowFrontier(value => !value)}>Frontier · {showFrontier ? "zapnuto" : "vypnuto"}</button>
         {frontier.error && <p role="alert">{frontier.error}</p>}
       </div>
@@ -512,7 +517,7 @@ export default function Board({
         colorMode={useDesktopAppearance().theme}
         onInit={(instance) => { flow.current = instance; }}
         nodes={nodes}
-        edges={edges.map((e) => ({ ...e, selected: e.id === selectedEdge }))}
+        edges={edges}
         nodeTypes={nodeTypes}
         defaultViewport={viewport}
         minZoom={0.15}
@@ -631,19 +636,4 @@ export default function Board({
       )}
     </div>
   );
-}
-
-/** Vzhled vazby podle předávky: bez textu. Předáno = zelená čára, chybí = drobná jantarová obálka;
- *  plánovací vazby (zdroj ještě nehotový) zůstávají beze změny, aby plátno nebylo ukřičené. */
-function handoffLook(mark: "sent" | "missing" | null, style: Edge["style"]): Partial<Edge> {
-  if (mark === "sent") return { style: { ...style, stroke: "#22c55e", strokeWidth: 2 } };
-  if (mark !== "missing") return {};
-  return {
-    label: "✉",
-    labelStyle: { fill: "#f59e0b", fontSize: 12 },
-    labelBgStyle: { fill: "#111827", stroke: "#f59e0b" },
-    labelBgPadding: [4, 2] as [number, number],
-    labelBgBorderRadius: 4,
-    labelShowBg: true,
-  };
 }
