@@ -5,7 +5,9 @@
 // odebrání a „+ port“ má jen vybraná karta (`full`); nevybraná (`row`) kreslí popisek a kuličku, oddálená
 // (`far`) jen popisek a kuličku bez tlačítka. Kulička (`Handle`) zůstává ve všech úrovních, jinak by se
 // vazby z portu neměly kam připojit. Editor, který je po zrušení výběru rozepsaný (`data-dirty`) nebo má
-// fokus, zůstane namontovaný a vidět, dokud ho člověk neuloží nebo neopustí.
+// fokus, zůstane namontovaný a vidět, dokud ho člověk neuloží nebo neopustí. Rozepsaný popisek portu žije
+// i v `logic/block-drafts.ts` (pole `port:<portId>`): karta mimo obraz se odmontuje bez blur a po návratu
+// se editor s rozepsaným popiskem znovu otevře (bez krádeže fokusu); při odmontování se nic neukládá.
 import { useRef, useState } from "react";
 import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
 import { Handle, Position } from "@xyflow/react";
@@ -15,6 +17,7 @@ import PortDecisionEditor from "./PortDecisionEditor";
 import PortSpawnEditor from "./PortSpawnEditor";
 import { useAddedPulse } from "../logic/use-added-pulse";
 import { portEditorsShown } from "../logic/card-lod";
+import { clearDraft, draftKey, readDraft, writeDraft } from "../logic/block-drafts";
 
 export type CardPortHandlers = {
   configureSpawn?: (blockId: string, portId: string, action: BlockPortDef["onMet"]) => void;
@@ -25,29 +28,41 @@ export type CardPortHandlers = {
 };
 
 export default function CardBlockPorts({
+  nodeId = "",
   blockId,
   ports,
   disabled,
   handlers,
   detail = "full",
 }: {
+  /** Karta, do které blok patří: klíč rozepsaného popisku v úložišti draftů. */
+  nodeId?: string;
   blockId: string;
   ports: BlockPortDef[];
   disabled: boolean;
   handlers: CardPortHandlers;
   detail?: "full" | "row" | "far";
 }) {
-  const [editing, setEditing] = useState<string | null>(null);
+  const keyOf = (portId: string) => draftKey(nodeId, blockId, `port:${portId}`);
+  const [editing, setEditing] = useState<string | null>(() =>
+    ports.find((port) => readDraft(keyOf(port.id), port.label) !== undefined)?.id ?? null);
+  const restored = useRef(editing);
   const added = useAddedPulse(ports.map(port => port.id));
   const field = useRef<HTMLInputElement>(null);
   const [, changed] = useState(0);
-  const dirty = () => !!editing && !!field.current && field.current.value !== ports.find((port) => port.id === editing)?.label;
+  const dirty = () => ports.some((port) => readDraft(keyOf(port.id), port.label) !== undefined) ||
+    (!!editing && !!field.current && field.current.value !== ports.find((port) => port.id === editing)?.label);
   useScopedSaveParticipant({ id: `canvas-block-port:${blockId}`, label: "Popisek portu na plátně",
-    dirty: dirty(), isDirty: dirty, blocked: "Dokončete přejmenování portu a vyčkejte na uložení." });
+    dirty: dirty(), isDirty: dirty, retainOnUnmount: true, blocked: "Dokončete přejmenování portu a vyčkejte na uložení." });
   const commit = (portId: string, label: string, current: string) => {
     setEditing(null);
     const value = label.trim();
     if (value && value !== current) handlers.renamePort(blockId, portId, value);
+    clearDraft(keyOf(portId));
+  };
+  const cancel = (portId: string) => {
+    setEditing(null);
+    clearDraft(keyOf(portId));
   };
   const tools = detail === "full" && !disabled;
   // Porty, jejichž editor je rozepsaný nebo zaměřený: čte se z DOM jen při renderu (změna výběru, zoomu).
@@ -71,15 +86,15 @@ export default function CardBlockPorts({
                   ref={field}
                   className="nodrag node-card__block-port-input"
                   aria-label="Popisek portu"
-                  defaultValue={port.label}
-                  onInput={() => changed((value) => value + 1)}
-                  autoFocus
+                  defaultValue={readDraft(keyOf(port.id), port.label) ?? port.label}
+                  onInput={(e) => { writeDraft(keyOf(port.id), port.label, e.currentTarget.value); changed((value) => value + 1); }}
+                  autoFocus={restored.current !== port.id}
                   maxLength={80}
                   onFocus={(e) => e.currentTarget.select()}
                   onKeyDown={(e) => {
                     e.stopPropagation();
                     if (e.key === "Enter") commit(port.id, e.currentTarget.value, port.label);
-                    if (e.key === "Escape") setEditing(null);
+                    if (e.key === "Escape") cancel(port.id);
                   }}
                   onBlur={(e) => commit(port.id, e.currentTarget.value, port.label)}
                 />
@@ -90,8 +105,8 @@ export default function CardBlockPorts({
                   title="Tažením z kuličky vpravo vznikne vazba na jinou kartu · dvojklik přejmenuje port"
                   data-testid={"card-port-" + port.id}
                   onClick={(e) => e.stopPropagation()}
-                  onDoubleClick={(e) => { e.stopPropagation(); if (!disabled) setEditing(port.id); }}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !disabled) setEditing(port.id); }}
+                  onDoubleClick={(e) => { e.stopPropagation(); if (!disabled) { restored.current = null; setEditing(port.id); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !disabled) { restored.current = null; setEditing(port.id); } }}
                 >
                   {port.onMet ? "+ " : ""}{port.status === "chosen" ? "● " : port.status === "rejected" ? "⊗ " : ""}{port.label}
                 </button>

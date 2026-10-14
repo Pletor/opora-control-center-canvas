@@ -95,9 +95,11 @@ describe("stable layer nodes", () => {
     expect(next.find((n) => n.id === "n-40")!.measured).toBeDefined();
   });
 
-  it("keeps culling off until drafts live in a store", () => {
-    expect(CULL_VISIBLE).toBe(false);
-    expect(shouldCull(CULL_FROM * 10)).toBe(false);
+  it("culls only large layers now that drafts live in a store", () => {
+    expect(CULL_VISIBLE).toBe(true);
+    expect(shouldCull(CULL_FROM * 10)).toBe(true);
+    expect(shouldCull(CULL_FROM)).toBe(true);
+    expect(shouldCull(CULL_FROM - 1)).toBe(false);
     expect(shouldCull(20)).toBe(false);
   });
 });

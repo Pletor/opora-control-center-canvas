@@ -18,14 +18,26 @@ export type LayerEdgesInput = {
   selectedEdge: string | null;
   /** Šipky bočních bloků (nejsou v grafu); jdou na konec, beze změny kromě výběru. */
   blockEdges: Edge[];
+  /** Zjednodušené vedení: rovná čára místo pravoúhlé (velká vrstva, viz `simpleEdges`). */
+  simple?: boolean;
+};
+
+/** Od kolika vazeb ve vrstvě se kreslí rovně: pravoúhlé vedení na tisících vazeb zdržuje každý snímek. */
+export const SIMPLE_EDGES_FROM = 1000;
+/** Kreslit vazby vrstvy rovně? Rozhoduje počet vazeb mezi vykreslenými uzly, ne celý graf. */
+export const simpleEdges = (graph: Graph, ids: ReadonlySet<string>): boolean => {
+  let count = 0;
+  for (const e of graph.edges) if (ids.has(e.source) && ids.has(e.target) && ++count > SIMPLE_EDGES_FROM) return true;
+  return false;
 };
 
 /** Vazba z portu `action`/`rule` vede z téhož úchytu jako blok, vazba z tlačítka bloku z úchytu
  *  `block:<blockId>:<portId>` uvnitř karty; starší vazba bez portu = `next`. Vzhled řeší board-model. */
-export function layerEdges({ graph, state, ids, kinds, added, selectedEdge, blockEdges }: LayerEdgesInput): Edge[] {
+export function layerEdges({ graph, state, ids, kinds, added, selectedEdge, blockEdges, simple = false }: LayerEdgesInput): Edge[] {
   return graph.edges
     .filter((e) => ids.has(e.source) && ids.has(e.target))
     .map((e): Edge => ({ ...e, ...edgeAppearance(e, state.nodes[e.source]?.blocks?.find(b => b.id === e.sourceBlockId)?.ports?.find(p => p.id === e.sourcePortId)), animated: added.has(e.id),
+      ...(simple ? { type: "straight", pathOptions: undefined } : {}),
       // Předávka jen barvou: zelená vazba = zpráva je předaná; malá jantarová obálka = hotová karta ji nenechala.
       ...handoffLook(handoffMark(e, state, kinds), edgeAppearance(e).style), selected: e.id === selectedEdge }))
     .concat(blockEdges.map((e) => ({ ...e, selected: e.id === selectedEdge })));

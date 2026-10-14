@@ -29,9 +29,10 @@
 .node-card--sector { background: var(--sector-bg); border-color: var(--gold-line); }
 .node-card--selected { outline: 2px solid var(--accent); outline-offset: 3px; }
 .node-card--dimmed { opacity: 0.35; }
-/* Uzavřená karta zůstává plná (průhledná by prosvítala vazbami); ztlumí ji barvy a čárkovaný rámeček. */
-.node-card--closed { border-style: dashed; filter: saturate(0.55) brightness(0.9); }
-.node-card--closed.node-card--selected { filter: none; }
+/* Uzavřená karta zůstává plná (průhledná by prosvítala vazbami); ztlumí ji tlumené písmo a čárkovaný rámeček.
+   Barvou, ne filtrem: `filter` na stovkách karet nutí prohlížeč kreslit každou do vlastní vrstvy. */
+.node-card--closed { border-style: dashed; color: var(--ink-muted); }
+.node-card--closed.node-card--selected { color: var(--ink); }
 
 /* HLAVA: nalevo druh karty s kuličkou barvy svého druhu, napravo fáze jako plánovací stav člověka.
    Mezi ně se vklíní zámek, jakmile je karta uzavřená, nebo přesýpací hodiny, když uzavření navrhl agent
@@ -382,21 +383,33 @@
 .node-card__port-label--pipeline { top: 180px; }
 
 .node-card--frontier-frontier { outline: 3px solid #22c55e; box-shadow: 0 0 16px #22c55e55; }
-.node-card--frontier-blocked { outline: 2px solid #94a3b8; filter: saturate(0.6); }
+.node-card--frontier-blocked { outline: 2px solid #94a3b8; color: var(--ink-muted); }
 .node-card--frontier-waiting { outline: 3px solid #f59e0b; }
 .node-card--frontier-claimed { outline: 2px solid #60a5fa; }
-.node-card--frontier-closed { filter: saturate(0.55) brightness(0.9); }
+.node-card--frontier-closed { color: var(--ink-muted); }
 .node-card--proposed { border: 2px dashed #22c55e; }
 .node-card--source-missing { border: 2px solid #f59e0b; }
 .node-card--work-waiting { border-color: #94a3b8; }
-.node-card--work-claimed { border-color: #60a5fa; animation: opora-working 2s ease-in-out infinite; }
+.node-card--work-claimed { border-color: #60a5fa; }
 .node-card--work-waiting-human { border-color: #f59e0b; }
 .node-card--work-blocked { border-color: #f87171; }
 .node-card--work-proposed { border: 2px dashed #4ade80; }
 .node-card--work-done { border: 2px solid #22c55e; }
 .node-card--source-missing { outline: 2px solid #f59e0b; }
-@keyframes opora-working { 50% { box-shadow: 0 0 10px #60a5fa66; } }
-@media (prefers-reduced-motion: reduce) { .node-card--work-claimed { animation: none; } }
+/* Karta, na které agent právě pracuje, tiše dýchá modrou září. Záře je hotový stín na pseudo-elementu
+   a animuje se jen jeho průhlednost: kompozitor ji přelije bez nového kreslení stínu v každém snímku. */
+.node-card--work-claimed::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 0 10px #60a5fa66;
+  opacity: 0;
+  pointer-events: none;
+  animation: opora-working 2s ease-in-out infinite;
+}
+@keyframes opora-working { 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .node-card--work-claimed::after { animation: none; } }
 .node-card__added-pulse { animation: opora-added-pulse .8s ease-out 3; }
 @keyframes opora-added-pulse { 0%, 100% { outline: 2px solid transparent; } 40% { outline: 2px solid #38bdf8; box-shadow: 0 0 12px #38bdf866; } }
 @media (prefers-reduced-motion: reduce) { .node-card__added-pulse { animation: none; outline: 2px solid #38bdf8; } }
@@ -454,3 +467,122 @@
    a klikl jinam, nesmí o text přijít ani ho ztratit z očí. Editor zůstane vidět i na nevybrané kartě, dokud
    ho člověk neuloží, nezruší nebo neopustí. */
 .node-card--compact .node-card__port-row--held .node-card__port-editor { display: block; }
+
+/* PROCES KARTY: pod hlavou karty běží řada kuliček, jedna za každou etapu, kterou router kartě určil. Člověk
+   z ní pozná proces jedním pohledem, aniž by kartu otevřel, a pamatuje si ji podle tří pravidel: barva říká,
+   kdo pracuje (práce akcent, test zelená, review modrá, oprava jantar, kritik podle pohledu: hodný uživatel
+   tlumený teal jako port podkladů, aby se nepletl s prací, vyčuraný fialová, hacker červená), výplň říká, jak etapa dopadla (prázdný obrys čeká, pulsující běží,
+   plná prošla, plná s křížkem selhala, z dálky místo křížku hranatá
+   a červená, aby se selhání nespletlo s úspěchem, čárkovaná přeskočena), a kroužek kolem kuličky říká, kde proces právě
+   stojí (tenký akcent = na řadě, jantar = uvízl a čeká člověka). Kuličky spojuje tenká linka, aby se řada
+   četla jako cesta zleva doprava; vlevo je čip profilu, vpravo tiché „hotovo/celkem“. Karta bez procesu ukáže
+   jednu čárkovanou kuličku „čeká na router“; z dálky zůstanou jen menší kuličky bez pulsu. Návrhy etap,
+   které člověk ještě neschválil, kuličky nemají – jen tiché „+n ke schválení“. Čtečka dostane celou řadu
+   jednou větou, kuličky samotné jsou pro ni skryté. Řada se nezalamuje, aby spojnice seděla pod kuličkami. */
+.node-card__process {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 13px 5px;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.node-card__process--far { padding: 2px 13px 3px; }
+.node-card__process-profile {
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.node-card__process-profile--security {
+  border-color: var(--cat-security);
+  color: var(--cat-security);
+  font-weight: 700;
+}
+.node-card__process-dots {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px;
+}
+.node-card__process-dots::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  border-top: 1px solid var(--line-strong);
+}
+.node-card__process-count { margin-left: auto; white-space: nowrap; }
+.node-card__process-proposed { white-space: nowrap; font-style: italic; }
+.node-card__process-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.node-card__process-human {
+  padding: 1px 6px;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  color: #f59e0b;
+  white-space: nowrap;
+}
+
+.node-card__stage {
+  --dot: var(--accent);
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--dot);
+  border-radius: 50%;
+  background: var(--dot);
+}
+.node-card__process--far .node-card__stage { width: 6px; height: 6px; border-width: 1px; }
+.node-card__stage--kind-work { --dot: var(--accent); }
+.node-card__stage--kind-test { --dot: #22c55e; }
+.node-card__stage--kind-review { --dot: #60a5fa; }
+.node-card__stage--kind-fix { --dot: #f59e0b; }
+.node-card__stage--kind-critic { --dot: var(--accent); }
+.node-card__stage--lens-user { --dot: #5f947f; }
+.node-card__stage--lens-sly { --dot: #7c6bd6; }
+.node-card__stage--lens-hacker { --dot: var(--cat-security); }
+
+.node-card__stage--status-todo { background: var(--surface); }
+.node-card__stage--status-skipped { background: var(--surface); border-style: dashed; opacity: 0.7; }
+.node-card__stage--status-doing::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1.5px solid var(--dot);
+  border-radius: 50%;
+  animation: node-card-stage-pulse 1.4s ease-in-out infinite;
+}
+@keyframes node-card-stage-pulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.9; } }
+@media (prefers-reduced-motion: reduce) { .node-card__stage--status-doing::before { animation: none; opacity: 0.6; } }
+.node-card__stage--status-failed::after {
+  content: "×";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--surface);
+}
+.node-card__process--far .node-card__stage--status-failed::after { content: none; }
+.node-card__process--far .node-card__stage--status-failed { border-radius: 2px; border-color: #ef4444; background: #ef4444; }
+.node-card__process--far .node-card__stage--status-doing::before { animation: none; opacity: 0.6; }
+.node-card__stage--current { outline: 1px solid var(--accent); outline-offset: 2px; }
+.node-card__stage--stuck { outline: 2px solid #f59e0b; outline-offset: 2px; }
+.node-card__stage--unrouted { --dot: var(--line-strong); background: var(--surface); border-style: dashed; }

@@ -33,6 +33,8 @@ import CardBody from "@/editor/canvas/node-card/components/CardBody";
 import CardBlocks, { type CardBlockHandlers } from "@/editor/canvas/node-card/components/CardBlocks";
 import CardFoot from "@/editor/canvas/node-card/components/CardFoot";
 import CardPorts, { type BlockPort } from "@/editor/canvas/node-card/components/CardPorts";
+import CardProcess from "@/editor/canvas/node-card/components/CardProcess";
+import type { CardProcessView } from "@/editor/canvas/node-card/logic/card-process";
 import CardChecklist from "@/editor/canvas/card-checklist/components/CardChecklist";
 import type { CardView } from "@/editor/canvas/node-card/logic/card-model";
 import { useCardActions, type CardActions } from "@/editor/canvas/node-card/logic/card-actions";
@@ -41,6 +43,8 @@ import "@/editor/canvas/node-card/styles/node-card.css";
 
 /** Data karty: jen hodnoty (žádné funkce), aby šla porovnat se starou verzí (board/logic/stable-nodes.ts). */
 export type NodeCardData = {
+  /** Proces karty (pipeline etap) jako řada kuliček; jen uzel, sektor pipeline nemá. */
+  process?: CardProcessView;
   /** Kontrolní pás (deset polí ano / ne) ze serveru; chybí = pás se nekreslí. */
   checklist?: import("@/editor/canvas/card-checklist/logic/card-checklist").CheckItem[];
   moved?: boolean;
@@ -131,6 +135,7 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
     >
       <CardHead view={view} />
       <CardBody id={id} name={view.name} purpose={view.purpose} rename={{ ...on.rename, editing: data.rename.editing }} />
+      {data.process && <CardProcess view={data.process} detail={full ? "full" : "far"} kind={view.kind} />}
       {full && data.checklist && <CardChecklist items={data.checklist} />}
       {/* Přepínače a editory jen u vybrané karty (nebo když jsou zapnuté): plátno zůstane čitelné. */}
       {full && data.inputSecurity && (selected || data.inputSecurity.enabled) && <InputSecurity {...data.inputSecurity} save={on.urlDownload} disabled={blocks.disabled} />}

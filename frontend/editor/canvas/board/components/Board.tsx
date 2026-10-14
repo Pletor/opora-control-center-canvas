@@ -2,7 +2,9 @@
 // bloky Akce / Pravidla dodává rodič (App) už spočítané. Board jen mapuje data a bublá události nahoru.
 // Výkon (docs/navrhy/2026-10-14-vykon-platna.md, opravy 3 až 5): uzly vrstvy staví čistá funkce bez closures
 // (`logic/layer-nodes.ts`), nezměněné karty drží starý objekt (`logic/stable-nodes.ts`), akce jdou přes
-// kontext (`logic/use-board-actions.ts`). Kreslení jen viditelných uzlů je zatím vypnuté (`CULL_VISIBLE`).
+// kontext (`logic/use-board-actions.ts`). Od 80 uzlů se kreslí jen viditelné (`CULL_VISIBLE`); rozepsané texty
+// karet mimo obraz drží `node-card/logic/block-drafts.ts`. Velká vrstva: MiniMap do 500 uzlů, rovné vazby nad
+// 1000 vazbami (oprava 10) a čip u stropu grafu (`logic/graph-cap.ts`, oprava 8).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
 import WorkNow from "@/editor/canvas/node-card/components/WorkNow";
@@ -25,7 +27,8 @@ import type { SurfaceSettings } from "@/shared/surface-settings/logic/workspace-
 import type { Graph } from "@/shared/types/logic/types";
 import type { DesktopState, Rule } from "@/shared/desktop-state/logic/types";
 import { buildBoardIndex } from "@/editor/canvas/board/logic/board-index";
-import { layerEdges } from "@/editor/canvas/board/logic/board-edges";
+import { layerEdges, simpleEdges } from "@/editor/canvas/board/logic/board-edges";
+import { capWarning } from "@/editor/canvas/board/logic/graph-cap";
 import { buildLayerNodes, movedKey, shouldCull } from "@/editor/canvas/board/logic/layer-nodes";
 import { reuseNodes } from "@/editor/canvas/board/logic/stable-nodes";
 import { useBoardActions } from "@/editor/canvas/board/logic/use-board-actions";
@@ -53,6 +56,8 @@ import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-
 import { indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
+/** Nad tolika uzly vrstvy se MiniMap nekreslí: React Flow ji překresluje při každé změně uzlů. */
+const MINIMAP_MAX = 500;
 
 export type { CardBlockEvent };
 
@@ -295,8 +300,10 @@ export default function Board({
   const addedEdges = useAddedPulse(graph.edges.map(edge => edge.id));
   const addedSet = useMemo(() => new Set(addedEdges), [addedEdges]);
   // Vazby se počítají jen při změně grafu, stavu, vykreslených uzlů, bloků, pulsu nebo výběru vazby.
-  const edges: Edge[] = useMemo(() => layerEdges({ graph, state, ids, kinds: index.kinds, added: addedSet, selectedEdge, blockEdges: blocks.edges }),
-    [graph, state, ids, index, addedSet, selectedEdge, blocks.edges]);
+  const edges: Edge[] = useMemo(() => layerEdges({ graph, state, ids, kinds: index.kinds, added: addedSet, selectedEdge, blockEdges: blocks.edges,
+    simple: simpleEdges(graph, ids) }), [graph, state, ids, index, addedSet, selectedEdge, blocks.edges]);
+  const showMiniMap = useMemo(() => ids.size <= MINIMAP_MAX, [ids]);
+  const cap = useMemo(() => capWarning(graph, Object.keys(state.nodes).length), [graph, state.nodes]);
   return (
     <div
       ref={surface}
@@ -329,12 +336,13 @@ export default function Board({
           : <span className="board-bar__chip">Ke schválení: {proposalCount(graph, state, parent, index)}</span>}
         <button type="button" aria-pressed={showFrontier} onClick={() => setShowFrontier(value => !value)}>Frontier · {showFrontier ? "zapnuto" : "vypnuto"}</button>
         {frontier.error && <p role="alert">{frontier.error}</p>}
+        {cap && <span className="board-bar__chip board-bar__cap" title={cap.title} data-testid="board-cap">{cap.text}</span>}
       </div>
       <CardActionsContext.Provider value={actions}>
       <ReactFlow
         colorMode={useDesktopAppearance().theme}
-        // Jen viditelné uzly: zatím vypnuto (`CULL_VISIBLE` v logic/layer-nodes.ts, docs/navrhy/2026-10-14-vykon-platna.md),
-        // dokud drafty karet nežijí v úložišti, ze kterého se odmontovaná karta obnoví.
+        // Jen viditelné uzly od 80 uzlů vrstvy (`CULL_VISIBLE` v logic/layer-nodes.ts, docs/navrhy/2026-10-14-vykon-platna.md):
+        // odmontovaná karta si rozepsaný text vezme zpět z `node-card/logic/block-drafts.ts`.
         onlyRenderVisibleElements={shouldCull(nodes.length)}
         nodes={nodes}
         edges={edges}
@@ -433,7 +441,7 @@ export default function Board({
       >
         {settings.showGrid && <Background color="var(--canvas-dot)" gap={settings.gridSize} />}
         <Controls showInteractive={false} />
-        <MiniMap
+        {showMiniMap && <MiniMap
           nodeColor={(n) =>
             isBlockId(n.id)
               ? "#c98a1e"
@@ -446,7 +454,7 @@ export default function Board({
                     : "#526b89"
           }
           maskColor="rgba(15,19,24,.75)"
-        />
+        />}
       </ReactFlow>
       </CardActionsContext.Provider>
       {!disabled && (

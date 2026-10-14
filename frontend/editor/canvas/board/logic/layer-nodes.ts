@@ -18,6 +18,7 @@ import { evidenceReadiness } from "@/editor/canvas/node-card/logic/evidence-read
 import { effectiveRules } from "@/editor/canvas/node-card/logic/effective-rules";
 import type { UsageSummary } from "@/editor/canvas/node-card/logic/use-usage";
 import type { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
+import { processView } from "@/editor/canvas/node-card/logic/card-process";
 import { cardView, matchesTagFilter } from "@/editor/canvas/node-card/logic/card-model";
 import { commentView } from "@/editor/canvas/comment-card/logic/comment-model";
 import { areaColorOf, areaLabel, membersOf } from "@/editor/canvas/area/logic/area-model";
@@ -31,13 +32,14 @@ import type { SourceStatus } from "@/editor/canvas/node-card/logic/use-source-st
 import type { AssignmentStatuses } from "@/editor/canvas/node-card/logic/use-assignment-status";
 
 /**
- * Kreslit jen viditelné uzly (oprava 5 v docs/navrhy/2026-10-14-vykon-platna.md) je zatím vypnuté.
- * Karta mimo obraz se odmontuje bez `blur` a rozepsaný text v neřízené textarea by zmizel. Zapnout jde
- * až s drafty v úložišti s klíčem {project, workspace, nodeId, blockId, baseRevision}, ze kterého se
- * karta po návratu do obrazu obnoví (a které ukládá rodič, ne odmontování).
+ * Kreslit jen viditelné uzly (oprava 5 v docs/navrhy/2026-10-14-vykon-platna.md) je zapnuté. Karta mimo
+ * obraz se odmontuje bez `blur`; rozepsaný popis, název bloku i popisek portu proto žijí v úložišti draftů
+ * (`node-card/logic/block-drafts.ts`, klíč karta + blok + pole, s uloženým základem), odkud je karta po
+ * návratu převezme. Odmontování nic neukládá, ukládá dál jen rodič po blur. Nezměřená karta mimo obraz
+ * dostane pro „Srovnat“ i dosednutí tahu odhad výšky (`layerFootprints(..., estimate=true)`).
  */
-export const CULL_VISIBLE = false;
-/** Od kolika uzlů ve vrstvě by plátno kreslilo jen viditelné; malé plátno by na tom jen tratilo. */
+export const CULL_VISIBLE = true;
+/** Od kolika uzlů ve vrstvě plátno kreslí jen viditelné; malé plátno by na tom jen tratilo. */
 export const CULL_FROM = 80;
 export const shouldCull = (count: number) => CULL_VISIBLE && count >= CULL_FROM;
 
@@ -109,6 +111,7 @@ export function buildLayerNodes(input: LayerInput): Node[] {
       frontier: input.frontier?.[n.id],
       sectorProgress: input.sectors[n.id],
       evidence: own?.evidence,
+      process: n.kind === "node" ? processView(own?.stages) : undefined,
       facts: resolveFacts(n.factRefs ?? [], state.settings),
       work: input.work?.data?.nodes[n.id],
       workCounts: input.work?.data?.sectors[n.id],
