@@ -352,8 +352,9 @@ class NodeBrief:
             # Text karty (node-text): podklad, typicky výňatek zadání; prázdný je null.
             "content": card_content(self.canvas, project, workspace, node_id, read_only),
             "definitionOfDone": {
+                # Hotovo karty definují acceptance a podmínky bloků; fáze, kritéria a kroky
+                # jsou tolerovaná stará data stavu (měření 2026-10-15), brief je nenese.
                 "acceptance": fields["acceptance"],
-                "criteria": memory["criteria"],
                 "blockConditions": [
                     {"blockId": item["id"], "number": item["number"], "condition": item["state"]["condition"]}
                     for item in blocks if item["state"]["condition"]
@@ -400,10 +401,8 @@ class NodeBrief:
                 "roleMemory": {"nodeState": {"agentRole": node_state.get("agentRole")}, "goal": fields["goal"]},
             },
             "harness": {
-                "phase": memory["phase"],
                 # Pořadí akcí je výrobní linka; index drží pořadí i po přeskládání v klientu.
                 "actions": [{"index": index, **action} for index, action in enumerate(memory["actions"])],
-                "steps": memory["steps"],
                 "stopConditions": stop_conditions(
                     blocks, [], applied_rules, has_materials, done
                 ) + (["Pracovní prostor je jen ke čtení; výstup agenta zde nelze uložit."] if read_only else []),

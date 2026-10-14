@@ -26,7 +26,7 @@ Volitelně `touched: ["src/x.py"]` (cesty z git diff této práce; `[]` = beze z
 ## 3. Přečti zadání: `node-brief --raw`
 
 Nejdřív `checklist` (deset polí ano / ne s `hint`, kam co zapsat; frontier ho má jako `missing`).
-Pořadí čtení: `goal` → `definitionOfDone` (acceptance, kritéria, podmínky bloků) →
+Pořadí čtení: `goal` → `definitionOfDone` (acceptance, podmínky bloků) →
 `boundaries.effectiveRules` (zděděná pravidla předků; `proposedRules` jsou jen návrhy) →
 `pipeline` (`current`, předávky `stages[].note`) → `node.checks` / `goal_mode` → `blocks` s porty →
 `context.upstreamDecisions` (rozhodnutí a předávky předchůdců) → `harness.stopConditions` → `trust`.

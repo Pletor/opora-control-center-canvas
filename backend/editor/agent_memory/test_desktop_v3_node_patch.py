@@ -93,8 +93,6 @@ def test_invalid_payload_is_rejected(service, payload, message):
 def test_save_rules_still_apply_to_the_patched_node(service):
     store, pid = DesktopV3State(service), project(service)
     save(store, pid, 0, a="discover")
-    with pytest.raises(ValueError, match="kritéria"):
-        patch(store, pid, 1, "a", card("build"))
     done = {"confirmed": True, "at": now(), "by": "human", "note": ""}
     with pytest.raises(HumanRequired):
         patch(store, pid, 1, "a", card(done=done), actor="agent")

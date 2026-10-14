@@ -91,8 +91,8 @@ def test_undo_drops_the_node_from_the_graph_and_redo_brings_its_content_back(tmp
         assert restored["revision"] == 1
         brief = client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": "karta"})
         assert brief.status_code == 200, brief.text
-        assert brief.json()["harness"]["phase"] == "build"
-        assert brief.json()["harness"]["steps"][0]["text"] == "Napsat test"
+        assert set(brief.json()["harness"]) == {"actions", "stopConditions"}
+        assert client.get("/api/desktop-v3/state", params=SCOPE).json()["state"]["nodes"]["karta"]["steps"][0]["text"] == "Napsat test"
 
 
 def test_undo_snapshot_must_stay_consistent(tmp_path):

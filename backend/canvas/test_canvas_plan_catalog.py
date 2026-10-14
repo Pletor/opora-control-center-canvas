@@ -62,8 +62,8 @@ def test_catalog_creates_actual_child_with_spec_criteria_and_rules(tmp_path, par
         brief = client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": node_id}).json()
         assert brief["goal"] == {"goal": "Uživatel se přihlásí k účtu.", "nonGoals": "Registrace",
                                   "acceptance": component()["nodes"][0]["spec"]["acceptance"]}
-        assert [item["text"] for item in brief["definitionOfDone"]["criteria"]] == component()["nodes"][0]["criteria"]
-        assert all(item["checked"] is False for item in brief["definitionOfDone"]["criteria"])
+        # Kritéria z dávky stav dál přijme, brief je ale nenese (tolerovaná stará data).
+        assert "criteria" not in brief["definitionOfDone"]
         assert brief["blocks"][0]["text"] == "Předat přihlašovací údaje API"
         assert brief["boundaries"]["projectRules"][0]["text"] == "Neukládat heslo do logu."
         own = next(card for card in brief["specification"]["cards"] if card["nodeId"] == node_id)
@@ -98,7 +98,7 @@ def test_acceptance_without_optional_criteria_is_not_duplicated(tmp_path):
         brief = client.get("/api/desktop-v3/node-brief", params={
             **SCOPE, "nodeId": saved.json()["refs"]["component"],
         }).json()
-        assert brief["definitionOfDone"]["criteria"] == []
+        assert set(brief["definitionOfDone"]) == {"acceptance", "blockConditions"}
         assert brief["definitionOfDone"]["acceptance"] == plan["nodes"][0]["spec"]["acceptance"]
 
 

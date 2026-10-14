@@ -58,21 +58,6 @@ export function Kv({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Odškrtnutá položka: kritérium konce i krok harnessu. Je to obraz stavu, ne ovládání — proto ne checkbox. */
-export function Check({ text, checked }: { text: string; checked: boolean }) {
-  return (
-    <li className={"card-brief__check" + (checked ? " card-brief__check--done" : "")}>
-      <Icon
-        className="card-brief__check-box"
-        name={checked ? "check" : "circle"}
-        size={16}
-        label={checked ? "Splněno" : "Nesplněno"}
-      />
-      <span className="card-brief__check-text">{text}</span>
-    </li>
-  );
-}
-
 /** Soused nebo rodič: šipka podle směru předávky, jméno tučně a pod ním první věta jeho předávky. */
 export function Hand({ icon, name, handoff }: { icon: IconName; name: string; handoff: string }) {
   return (

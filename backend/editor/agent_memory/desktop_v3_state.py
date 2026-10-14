@@ -518,23 +518,6 @@ def validate_state(state, *, unchanged=None):
     return state
 
 
-def check_phase_transitions(previous, state):
-    """Postup existující karty vpřed jen s neprázdnými splněnými kritérii; zpět je vždy možný.
-    Nová karta (v `previous` ještě neexistuje) smí vzniknout v libovolné fázi bez brány."""
-    before = previous.get("nodes", {}) if isinstance(previous, dict) else {}
-    for node_id, node in state["nodes"].items():
-        if node_id not in before:
-            continue
-        old_phase = before[node_id].get("phase", PHASES[0])
-        if PHASES.index(node["phase"]) <= PHASES.index(old_phase):
-            continue
-        criteria = node["criteria"]
-        if not criteria or not all(item["checked"] for item in criteria):
-            raise ValueError(
-                f"Postup uzlu {node_id} do fáze {node['phase']} vyžaduje neprázdná a všechna splněná kritéria."
-            )
-
-
 def stamp_agent_rules(actor, previous, rules):
     """Nové nebo změněné pravidlo od ne-člověka je návrh agenta; lidské pravidlo agent nemění ani nemaže."""
     before = {rule["id"]: rule for rule in previous}
@@ -642,7 +625,6 @@ class DesktopV3State:
                 current = self.current(project, workspace)
                 if current["revision"] != expected:
                     raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
-                check_phase_transitions(current["state"], state)
                 # Číslo kola karty mění jen otevření nového kola člověkem (card_rounds.open_round).
                 from backend.editor.agent_memory import card_rounds
                 card_rounds.guard_state_write(actor, current["state"], state)

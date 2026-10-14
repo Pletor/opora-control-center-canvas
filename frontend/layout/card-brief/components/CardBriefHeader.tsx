@@ -1,6 +1,5 @@
-// Hlavička zadání: kdo je vybraná karta. Jméno na prvním řádku, pod ním tři tiché značky —
-// druh (uzel / sektor / oblast) v barvě kategorie bloků, fáze v barvě kategorie agentů, stav
-// otevřeno/uzavřeno neutrálně. Pod značkami stojí trvalá poznámka „Jen ke čtení“, zlatě jako
+// Hlavička zadání: kdo je vybraná karta. Jméno na prvním řádku, pod ním dvě tiché značky —
+// druh (uzel / sektor / oblast) v barvě kategorie bloků a stav otevřeno/uzavřeno neutrálně. Pod značkami stojí trvalá poznámka „Jen ke čtení“, zlatě jako
 // ostatní upozornění v aplikaci — tenhle blok žádný model nespouští a nic nezapisuje.
 // Dílek nic nenačítá; dostane hotová data z `briefSummary` a jen je vykreslí.
 import type { BriefSummary } from "@/layout/card-brief/logic/card-brief-view";
@@ -12,9 +11,6 @@ export default function CardBriefHeader({ header }: { header: BriefSummary["head
       <div className="card-brief__brief-meta">
         {header.kindLabel && (
           <span className="card-brief__brief-flag card-brief__brief-flag--kind">{header.kindLabel}</span>
-        )}
-        {header.phaseLabel && (
-          <span className="card-brief__brief-flag card-brief__brief-flag--phase">{header.phaseLabel}</span>
         )}
         <span
           className={

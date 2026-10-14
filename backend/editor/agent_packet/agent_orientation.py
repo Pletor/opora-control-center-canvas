@@ -22,7 +22,7 @@ def orientation_from_brief(brief, project=None, workspace=None):
     communication = brief.get("communication", {})
     communication_available = communication.get("status", "present") != "unavailable"
     done = brief.get("loop", {}).get("done", {})
-    has_definition = bool(goal["acceptance"] or brief["definitionOfDone"]["criteria"] or brief["definitionOfDone"]["blockConditions"])
+    has_definition = bool(goal["acceptance"] or brief["definitionOfDone"]["blockConditions"])
     effective_read_only = brief["readOnly"] or done.get("confirmed", False)
     workspace_hidden = brief["readOnly"]
     workspace_reading = {
@@ -47,11 +47,10 @@ def orientation_from_brief(brief, project=None, workspace=None):
     if not goal["goal"]:
         gaps.append(_item("goal", "Chybí cíl", "Doplňte cíl karty před samostatným pokračováním.", [{"source": "goal"}]))
     if not has_definition:
-        gaps.append(_item("acceptance", "Chybí definice hotovo", "Požádejte o kritéria dokončení nebo je doplňte v kartě.", [{"source": "definitionOfDone"}]))
+        gaps.append(_item("acceptance", "Chybí definice hotovo", "Doplňte acceptance karty nebo podmínku aspoň jednoho bloku.", [{"source": "definitionOfDone"}]))
     has_prior_work = bool(
         done.get("confirmed") or brief.get("loop", {}).get("lastReport")
         or brief.get("resultHistory", {}).get("items")
-        or any(step.get("done") for step in brief["harness"].get("steps", []))
         or any(block.get("state", {}).get("status", "open") != "open" for block in brief["blocks"])
     )
     if has_prior_work and not workspace_hidden and not any(agent_workspace.get(key) for key in ("frame", "log", "failures", "fixes", "handoff")):
@@ -68,7 +67,7 @@ def orientation_from_brief(brief, project=None, workspace=None):
     elif gaps:
         next_action = {"kind": "request-context", "label": gaps[0]["instruction"], "status": "recommendation", "sources": gaps[0]["sources"]}
     else:
-        next_action = {"kind": "follow-harness", "label": "Pokračujte prvním nehotovým krokem karty.", "status": "recommendation", "sources": [{"source": "harness.steps"}]}
+        next_action = {"kind": "follow-harness", "label": "Pokračujte prvním nesplněným blokem karty.", "status": "recommendation", "sources": [{"source": "blocks"}]}
     return {
         "schema": SCHEMA, "scope": {"project": project, "workspace": workspace, "nodeId": node["id"], "path": [*node["path"], node["name"]], "readOnly": effective_read_only},
         "goal": {**goal, "status": _status(goal["goal"])}, "definitionOfDone": {**brief["definitionOfDone"], "status": "present" if has_definition else "missing"},

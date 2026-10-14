@@ -56,3 +56,4 @@ ani neupravují; commit obsahuje jen soubory této relace (`git add` po cestách
 | 00:35 | V1 Velín v módu Mapa; kritik ChatGPT 6 nálezů (hloubka, chybějící work overview, O(A·R·N), fronta nad 50, klíč oblasti, popisky) → opravy | hotovo |
 | 00:40 | A1 záměr oblasti na rámečku + inspektor + „Rozložit na sektory“ + `references/rozklad.md` (odkaz v SKILL.md, test skill docs 5/5); kritik Hermes 8 nálezů → opraveno; commit 7465a5a | hotovo |
 | 01:20 | S1 sektor → karty (rozklad, ukázky ověřené proti backendu), D2 karta bez inline stylů (řádky 6/13, čipy, pruhy) | hotovo |
+| 02:30 | B1 štíhlý node-brief: bez `criteria`, `steps`, `phase`, brána fáze smazána; kontrakt `karta-pro-agenty.md` upraven; backend 2077 zelených (2 známé pády graphify), FE 1165, build OK | hotovo |

@@ -149,64 +149,17 @@ def test_malformed_payloads_are_rejected_without_persisting(tmp_path, mutate):
         assert _get(client).json() == {"revision": 0, "state": EMPTY, "readOnly": False}
 
 
-def test_phase_advance_requires_non_empty_checked_criteria_and_backward_is_free(tmp_path):
-    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
-        _seed_graph(client)
-        # Uzel musí nejdřív existovat v previous, jinak je to nová karta bez brány kritérií.
-        seeded = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
-        assert _post(client, seeded).status_code == 200
-        unchecked = _state(nodes={"focus": {"phase": "define", "criteria": [{"id": "c1", "text": "Cíl", "checked": False}], "steps": []}})
-        refused = _post(client, unchecked, expected=1)
-        assert refused.status_code == 409
-        assert "krit" in refused.json()["error"].lower()
-        empty = _state(nodes={"focus": {"phase": "define", "criteria": [], "steps": []}})
-        assert _post(client, empty, expected=1).status_code == 409
-        checked = _state(nodes={"focus": {"phase": "define", "criteria": [{"id": "c1", "text": "Cíl", "checked": True}], "steps": []}})
-        advanced = _post(client, checked, expected=1)
-        assert advanced.status_code == 200, advanced.text
-        assert advanced.json()["state"]["nodes"]["focus"]["phase"] == "define"
-        skip = _state(nodes={"focus": {"phase": "live", "criteria": [{"id": "c1", "text": "Cíl", "checked": True}], "steps": []}})
-        assert _post(client, skip, expected=2).status_code == 200
-        back = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
-        reverted = _post(client, back, expected=3)
-        assert reverted.status_code == 200, reverted.text
-        assert reverted.json()["state"]["nodes"]["focus"]["phase"] == "discover"
-        assert reverted.json()["revision"] == 4
-
-
-def test_new_node_may_be_saved_at_any_phase_without_criteria_gate(tmp_path):
-    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
-        _seed_graph(client)
-        state = _state(nodes={"focus": {"phase": "build", "criteria": [], "steps": []}})
-        created = _post(client, state)
-        assert created.status_code == 200, created.text
-        assert created.json()["state"]["nodes"]["focus"]["phase"] == "build"
-
-
-def test_existing_node_advance_without_criteria_is_still_rejected(tmp_path):
+def test_phase_is_tolerated_old_data_without_gate(tmp_path):
+    """Fáze, kritéria a kroky jsou tolerovaná stará data: uloží se, brána fáze neexistuje."""
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         _seed_graph(client)
         seeded = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
         assert _post(client, seeded).status_code == 200
-        advance = _state(nodes={"focus": {"phase": "build", "criteria": [], "steps": []}})
-        refused = _post(client, advance, expected=1)
-        assert refused.status_code == 409
-        assert "krit" in refused.json()["error"].lower()
-
-
-def test_existing_node_advance_with_all_criteria_checked_is_accepted(tmp_path):
-    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
-        _seed_graph(client)
-        seeded = _state(nodes={"focus": {"phase": "discover", "criteria": [], "steps": []}})
-        assert _post(client, seeded).status_code == 200
-        advance = _state(nodes={"focus": {
-            "phase": "build",
-            "criteria": [{"id": "c1", "text": "Hotovo", "checked": True}],
-            "steps": [],
-        }})
+        advance = _state(nodes={"focus": {"phase": "build", "criteria": [{"id": "c1", "text": "Cíl", "checked": False}], "steps": []}})
         advanced = _post(client, advance, expected=1)
         assert advanced.status_code == 200, advanced.text
         assert advanced.json()["state"]["nodes"]["focus"]["phase"] == "build"
+        assert advanced.json()["state"]["nodes"]["focus"]["criteria"][0]["checked"] is False
 
 
 def test_checking_criteria_does_not_touch_runs_or_other_stores(tmp_path):

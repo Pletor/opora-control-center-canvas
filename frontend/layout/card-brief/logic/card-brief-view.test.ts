@@ -7,7 +7,6 @@ import {
   firstLine,
   handoffLink,
   kindLabel,
-  phaseLabel,
   truncate,
 } from "./card-brief-view";
 
@@ -15,19 +14,9 @@ const brief = {
   schema: "opora.node-brief/1",
   node: { id: "n-1", name: "4 Záložka Agenti", kind: "node" },
   goal: { goal: "Ukázat, co agent dostane.", nonGoals: "", acceptance: "" },
-  definitionOfDone: {
-    criteria: [
-      { id: "c-1", text: "Panel ukazuje harness", checked: true },
-      { id: "c-2", text: "Kopírování funguje", checked: false },
-    ],
-  },
+  definitionOfDone: { acceptance: "", blockConditions: [] },
   harness: {
-    phase: "build",
     actions: [{ index: 0, id: "a-1", pipelineId: "ui.panel", label: "Postavit panel", params: { cesta: "frontend", model: "opus" } }],
-    steps: [
-      { id: "s-1", text: "Načíst balíček", assignee: "", done: true },
-      { id: "s-2", text: "Složit sekce", assignee: "", done: false },
-    ],
     stopConditions: ["Karta nemá podklad.", "   ", "Pravidlo must_not."],
   },
   graph: {
@@ -66,9 +55,7 @@ describe("card-brief-view – první řádka a ořez", () => {
     expect(truncate(undefined)).toBe("");
   });
 
-  it("fáze a druh karty mají české jméno, neznámé si nechá své id", () => {
-    expect(phaseLabel("build")).toBe("Build");
-    expect(phaseLabel("cizi")).toBe("cizi");
+  it("druh karty má české jméno, neznámý si nechá své id", () => {
     expect(kindLabel("sector")).toBe("sektor");
     expect(kindLabel("cizi")).toBe("cizi");
   });
@@ -77,24 +64,18 @@ describe("card-brief-view – první řádka a ořez", () => {
 describe("card-brief-view – pohled na balíček", () => {
   const view = briefSummary(brief);
 
-  it("hlavička nese jméno, druh, fázi a stav hotovo", () => {
+  it("hlavička nese jméno, druh a stav hotovo", () => {
     expect(view.header).toEqual({
       name: "4 Záložka Agenti",
       kind: "node",
       kindLabel: "uzel",
-      phase: "build",
-      phaseLabel: "Build",
       done: true,
       doneNote: "Ověřeno člověkem",
     });
   });
 
-  it("cíl, kritéria a stop podmínky; prázdná podmínka se zahodí", () => {
+  it("cíl a stop podmínky; prázdná podmínka se zahodí", () => {
     expect(view.goal.goal).toBe("Ukázat, co agent dostane.");
-    expect(view.goal.criteria).toEqual([
-      { id: "c-1", text: "Panel ukazuje harness", checked: true },
-      { id: "c-2", text: "Kopírování funguje", checked: false },
-    ]);
     expect(view.goal.stopConditions).toEqual(["Karta nemá podklad.", "Pravidlo must_not."]);
   });
 
@@ -109,10 +90,6 @@ describe("card-brief-view – pohled na balíček", () => {
           { key: "model", value: "opus" },
         ],
       },
-    ]);
-    expect(view.harness.steps).toEqual([
-      { id: "s-1", text: "Načíst balíček", done: true },
-      { id: "s-2", text: "Složit sekce", done: false },
     ]);
   });
 
@@ -148,13 +125,11 @@ describe("card-brief-view – prázdný a rozbitý balíček", () => {
       name: UNNAMED,
       kind: "",
       kindLabel: "",
-      phase: "",
-      phaseLabel: "",
       done: false,
       doneNote: "",
     });
-    expect(view.goal).toEqual({ goal: "", criteria: [], stopConditions: [] });
-    expect(view.harness).toEqual({ actions: [], steps: [] });
+    expect(view.goal).toEqual({ goal: "", stopConditions: [] });
+    expect(view.harness).toEqual({ actions: [] });
     expect(view.loop).toEqual({ openBlocks: 0, lastReport: "" });
     expect(view.handoffs).toEqual({ incoming: [], outgoing: [], parent: null, children: 0 });
     expect(view.workspace).toEqual({ frame: "", handoff: "" });
@@ -165,17 +140,14 @@ describe("card-brief-view – prázdný a rozbitý balíček", () => {
     expect(() => briefSummary("balíček")).not.toThrow();
     const view = briefSummary({
       node: null,
-      harness: { phase: 7, actions: "ne", steps: null, stopConditions: { a: 1 } },
-      definitionOfDone: { criteria: [null, 3] },
+      harness: { actions: "ne", stopConditions: { a: 1 } },
+      definitionOfDone: { acceptance: 3 },
       graph: { incoming: null, outgoing: undefined, parent: { name: "bez id" }, children: "ne" },
       loop: { done: null, openBlocks: "tři", lastReport: null },
       agentWorkspace: null,
     });
-    expect(view.header.phase).toBe("");
-    expect(view.goal.criteria).toEqual([
-      { id: "", text: "", checked: false },
-      { id: "", text: "", checked: false },
-    ]);
+    expect(view.harness.actions).toEqual([]);
+    expect(view.goal.stopConditions).toEqual([]);
     expect(view.handoffs.parent).toBeNull();
     expect(view.loop.openBlocks).toBe(0);
   });

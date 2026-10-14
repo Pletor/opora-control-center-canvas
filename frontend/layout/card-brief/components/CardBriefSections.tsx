@@ -8,40 +8,28 @@
 // žádné pole, žádný zápis, žádné spouštění. Dílek dostane hotový pohled z `briefSummary` a nic si
 // nedopočítává kromě drobných součtů pro tiché číslo v hlavičce sekce.
 //
-// Rámeček sekce, dvojice klíč–hodnota, odškrtnutí a soused jsou vlastní dílky (`CardBriefParts`);
+// Rámeček sekce, dvojice klíč–hodnota a soused jsou vlastní dílky (`CardBriefParts`);
 // tenhle soubor jen říká, co kam patří a v jakém pořadí se to čte.
-import { Check, Hand, Kv, Section } from "@/layout/card-brief/components/CardBriefParts";
+import { Hand, Kv, Section } from "@/layout/card-brief/components/CardBriefParts";
 import type { BriefSummary } from "@/layout/card-brief/logic/card-brief-view";
 
 export default function CardBriefSections({ summary }: { summary: BriefSummary }) {
   const { goal, harness, loop, handoffs, workspace } = summary;
-  const noGoal = !goal.goal && !goal.criteria.length && !goal.stopConditions.length;
-  const noHarness = !harness.actions.length && !harness.steps.length;
+  const noGoal = !goal.goal && !goal.stopConditions.length;
+  const noHarness = !harness.actions.length;
   const noHands = !handoffs.incoming.length && !handoffs.outgoing.length && !handoffs.parent && !handoffs.children;
   const noSpace = !workspace.frame && !workspace.handoff;
   // Tichá čísla do hlavičky sekce — jen součet toho, co sekce už stejně vypisuje, na první pohled.
-  const goalMeta = goal.criteria.length
-    ? `${goal.criteria.filter((c) => c.checked).length}/${goal.criteria.length} splněno`
-    : "";
   const harnessMeta = harness.actions.length
     ? `${harness.actions.length} ${harness.actions.length === 1 ? "akce" : "akcí"}`
-    : harness.steps.length
-      ? `${harness.steps.filter((s) => s.done).length}/${harness.steps.length} hotovo`
-      : "";
+    : "";
   const loopMeta = loop.openBlocks > 0 ? `${loop.openBlocks} ${loop.openBlocks === 1 ? "blok" : "bloky"}` : "";
   const handoffCount = handoffs.incoming.length + handoffs.outgoing.length + (handoffs.parent ? 1 : 0);
   const handoffMeta = handoffCount > 0 ? `${handoffCount} ${handoffCount === 1 ? "vazba" : "vazby"}` : "";
   return (
     <div className="card-brief__brief-body" data-testid="card-brief-sections">
-      <Section title="Cíl a konec" category="workflows" icon="target" meta={goalMeta} empty={noGoal}>
+      <Section title="Cíl a konec" category="workflows" icon="target" empty={noGoal}>
         {goal.goal && <p className="card-brief__section-text">{goal.goal}</p>}
-        {goal.criteria.length > 0 && (
-          <ul className="card-brief__checks">
-            {goal.criteria.map((criterion, index) => (
-              <Check key={criterion.id || index} text={criterion.text} checked={criterion.checked} />
-            ))}
-          </ul>
-        )}
         {goal.stopConditions.length > 0 && (
           <ul className="card-brief__lines">
             {goal.stopConditions.map((condition, index) => (
@@ -63,13 +51,6 @@ export default function CardBriefSections({ summary }: { summary: BriefSummary }
             ))}
           </div>
         ))}
-        {harness.steps.length > 0 && (
-          <ul className="card-brief__checks">
-            {harness.steps.map((step, index) => (
-              <Check key={step.id || index} text={step.text} checked={step.done} />
-            ))}
-          </ul>
-        )}
       </Section>
 
       <Section title="Smyčka" category="rules" icon="repeat" meta={loopMeta}>

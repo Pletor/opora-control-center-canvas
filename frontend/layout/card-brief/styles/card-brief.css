@@ -17,8 +17,8 @@
    zůstávají dvě tlačítka — jediná akce celého bloku je „vezmi si to s sebou“. */
 .card-brief__brief { display: flex; flex-direction: column; gap: 12px; }
 
-/* Hlavička: jméno karty jako titulek 15px a pod ním tři značky — druh v barvě kategorie bloků,
-   fáze v barvě kategorie agentů, otevřeno/uzavřeno neutrálně (uzavřeno zlatě, ať je vidět, že se
+/* Hlavička: jméno karty jako titulek 15px a pod ním dvě značky — druh v barvě kategorie bloků
+   a otevřeno/uzavřeno neutrálně (uzavřeno zlatě, ať je vidět, že se
    do karty už nepíše). Pod značkami stojí trvalá zlatá poznámka, že celý blok je jen ke čtení. */
 .card-brief__brief-head { display: flex; flex-direction: column; gap: 6px; }
 .card-brief__brief-name { font-size: 15px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
@@ -32,7 +32,6 @@
   letter-spacing: 0.04em;
 }
 .card-brief__brief-flag--kind { --c: var(--cat-fe-components); border-color: color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) var(--cat-soft), transparent); color: var(--c); }
-.card-brief__brief-flag--phase { --c: var(--cat-agents); border-color: color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) var(--cat-soft), transparent); color: var(--c); }
 .card-brief__brief-flag--done { border-color: var(--gold-line); background: var(--gold-soft); color: var(--gold); }
 .card-brief__brief-flag--open { border-color: var(--line-strong); color: var(--ink-2); }
 .card-brief__brief-note { margin: 0; color: var(--ink-muted); line-height: 1.45; overflow-wrap: anywhere; }
@@ -71,16 +70,6 @@
 .card-brief__kv { display: flex; gap: 6px; margin: 0; line-height: 1.45; }
 .card-brief__kv-key { flex: none; color: var(--ink-muted); font: 500 11px var(--mono); overflow-wrap: anywhere; }
 .card-brief__kv-value { flex: 1; min-width: 0; color: var(--ink-2); overflow-wrap: anywhere; }
-
-/* Odškrtnutí: kritérium konce i krok harnessu. Kolečko a fajfka jsou kreslené ikony 16px a jsou to
-   obrazy stavu, ne zaškrtávátko — tady se nic nepřepíná, mění se to v kartě. Značka drží barvu
-   akcentu a text zůstává tichý; hotová položka ztichne celá a přeškrtne se, aby oko sklouzlo na to,
-   co zbývá. */
-.card-brief__checks { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; }
-.card-brief__check { display: flex; gap: 6px; color: var(--ink-2); line-height: 1.45; }
-.card-brief__check--done { color: var(--ink-muted); text-decoration: line-through; }
-.card-brief__check-box { flex: none; margin-top: 1px; color: var(--accent); }
-.card-brief__check-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
 /* Stop podmínky: řádky s levým praporkem. Je to jediné místo zadání, které říká „a tady přestaň“,
    proto má vlastní barvu a nesplývá s ostatním seznamem. */

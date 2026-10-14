@@ -29,9 +29,9 @@ function brief(overrides: Record<string, unknown> = {}) {
     orientation: {
       scope: { nodeId: "focus", path: ["Sektor", "Ohnisko"], readOnly: false },
       goal: { goal: "Dodat UI", status: "present" },
-      definitionOfDone: { criteria: ["test je zelený"], blockConditions: [], status: "present" },
+      definitionOfDone: { acceptance: "Test je zelený.", blockConditions: [], status: "present" },
       contextGaps: [],
-      nextAction: { kind: "follow-harness", label: "Pokračujte prvním nehotovým krokem karty." },
+      nextAction: { kind: "follow-harness", label: "Pokračujte prvním nesplněným blokem karty." },
       safety: { readOnly: false, automaticModelInvocation: false, automaticAck: false, ownershipTransfer: false },
     },
     communication: {
@@ -75,7 +75,7 @@ describe("agent-overview – prázdný a chybějící brief", () => {
     expect(model.path).toEqual(["Sektor", "Ohnisko"]);
     expect(model.verification).toEqual({ goal: "present", dod: "present", gaps: 0 });
     expect(model.nextAction).toEqual({
-      kind: "follow-harness", label: "Pokračujte prvním nehotovým krokem karty.",
+      kind: "follow-harness", label: "Pokračujte prvním nesplněným blokem karty.",
     });
   });
 
@@ -84,7 +84,7 @@ describe("agent-overview – prázdný a chybějící brief", () => {
       orientation: {
         ...brief().orientation,
         goal: { goal: "", status: "missing" },
-        definitionOfDone: { criteria: [], blockConditions: [], status: "missing" },
+        definitionOfDone: { acceptance: "", blockConditions: [], status: "missing" },
         contextGaps: [{ id: "goal", label: "Chybí cíl" }, { id: "acceptance", label: "Chybí definice hotovo" }],
       },
     });

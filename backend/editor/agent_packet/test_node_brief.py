@@ -72,7 +72,7 @@ def full_state():
                        "createdAt": "2026-09-11T08:00:00+00:00", "by": "human"}],
         "nodes": {"focus": {
             "phase": "build",
-            # Fáze build vyžaduje neprázdná a splněná kritéria; jinak by stav neprošel uložením.
+            # Fáze, kritéria a kroky jsou tolerovaná stará data: stav je uloží, brief je nenese.
             "criteria": [{"id": "c1", "text": "Testy zelené", "checked": True}],
             "steps": [{"id": "s1", "text": "Napsat test", "assignee": "builder", "done": False}],
             "actions": [{"id": "a1", "pipelineId": "verify.run-tests", "label": "Testy", "params": {}}],
@@ -122,7 +122,7 @@ def test_brief_reads_top_down_from_graph_spec_and_state(tmp_path):
         assert data["goal"] == {"goal": "Dodat kartu.", "nonGoals": "Neřešit frontend.",
                                 "acceptance": "Testy zelené."}
         assert data["definitionOfDone"]["acceptance"] == "Testy zelené."
-        assert data["definitionOfDone"]["criteria"][0]["id"] == "c1"
+        assert set(data["definitionOfDone"]) == {"acceptance", "blockConditions"}
         assert data["definitionOfDone"]["blockConditions"] == [
             {"blockId": "b1", "number": "1", "condition": "Testy zelené"}
         ]
@@ -134,11 +134,10 @@ def test_brief_reads_top_down_from_graph_spec_and_state(tmp_path):
              "caption": "Spec", "url": "https://example.com/spec", "sourceNodeId": "focus"}
         ]
         assert [item["id"] for item in data["context"]["decisions"]] == ["d1"]
-        assert data["harness"]["phase"] == "build"
+        assert set(data["harness"]) == {"actions", "stopConditions"}
         assert data["harness"]["actions"] == [
             {"index": 0, "id": "a1", "pipelineId": "verify.run-tests", "label": "Testy", "params": {}}
         ]
-        assert data["harness"]["steps"][0]["id"] == "s1"
         assert data["outputContract"]["schema"] == "opora.agent-output/1"
         assert set(data["outputContract"]["fields"]) == {"blocks", "reports", "done", "decisions"}
 
@@ -277,7 +276,7 @@ def test_card_without_state_or_materials_still_builds_with_defaults(tmp_path):
         data = brief(client, "dalsi").json()
         assert data["blocks"] == [] and data["context"]["materials"] == []
         assert data["goal"] == {"goal": "", "nonGoals": "", "acceptance": ""}
-        assert data["harness"]["phase"] == "discover"
+        assert "phase" not in data["harness"]
         assert data["loop"]["lastReport"] is None and data["loop"]["done"]["confirmed"] is False
         assert not any("nemá žádný podklad" in text for text in data["harness"]["stopConditions"])
         assert any(item["id"] == "materials" for item in data["orientation"]["optionalContext"])

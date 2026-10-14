@@ -205,7 +205,7 @@ def test_round_two_does_not_carry_port_choices_or_checked_criteria(env):
                                    "rozhodnutí v1: port „Varianta B“ bloku 1 = rejected (Drahá.)",
                                    "rozhodnutí v1: kritérium splněno: Testy zelené.", "rozhodnutí v1: Rozhodnutí v1."]
     assert [(item["id"], item.get("fromRound")) for item in brief["context"]["decisions"]] == [("d1", 1)]
-    assert [item["checked"] for item in brief["definitionOfDone"]["criteria"]] == [False, False]
+    assert "criteria" not in brief["definitionOfDone"]
     assert "not carried over" in brief["rounds"]["policy"]
 
 
@@ -251,7 +251,7 @@ def test_node_brief_carries_previous_rounds_and_the_frozen_round_brief(env):
 def test_canvas_versions_carry_rounds_and_restore_appends_instead_of_rewriting(env):
     client, db = env["client"], env["db"]
     view = client.get("/api/view", params=SCOPE).json()
-    # v1 ve fázi build se všemi kritérii splněnými (jinak by obnova z v2 = discover narazila na bránu fáze)
+    # v1 se všemi kritérii splněnými (stará data; brána fáze už neexistuje, obnova je jen přenese)
     stored = client.get("/api/desktop-v3/state", params=SCOPE).json()
     state = copy.deepcopy(stored["state"])
     state["nodes"]["c1"]["criteria"][1]["checked"] = True
