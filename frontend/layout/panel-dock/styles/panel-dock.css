@@ -113,13 +113,11 @@
 @media (max-width: 899px) {
   .panel-drawer { width: calc(100% - 56px); }
 }
-/* Široký panel (Schránka): sekce s vlastním vnitřním menu potřebuje místo pro menu i jednu sekci
-   naplno, proto se roztáhne až na 1100 px. Pořád ale nechá vpravo pruh plátna, aby uživatel věděl,
-   že je stále v Editoru a karta, kterou otevře, je hned vedle. */
-.panel-drawer--wide { width: min(1100px, calc(100% - 56px - 48px)); }
-@media (max-width: 899px) {
-  .panel-drawer--wide { width: calc(100% - 56px); }
-}
+/* Široký panel (Schránka): práce se zadáním je samostatná činnost, ne pohled vedle karty. Proto
+   Schránka překryje celé plátno od lišty až k pravé hraně; lišta vlevo zůstává, takže jedním klikem
+   (nebo Esc / opětovnou zkratkou) se člověk vrátí na plátno přesně tam, kde byl. Stín do plátna
+   tu nemá co oddělovat, proto zmizí. */
+.panel-drawer--wide { width: auto; right: 0; border-right: 0; box-shadow: none; }
 /* Horní část panelu: název sekce a hlavička projektu s odsazením 16 px a mezerou 10 px — stejný
    rytmus jako hledání pod ní. Roluje se sama, kdyby se hlavička někdy nevešla, aby seznam pod ní
    nikdy nezmizel celý. */
