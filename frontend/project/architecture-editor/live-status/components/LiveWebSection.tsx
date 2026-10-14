@@ -16,8 +16,10 @@ export default function LiveWebSection({ web, onRefresh }: { web: WebView; onRef
         {web.loading ? "Ověřuji…" : "Ověřit znovu"}
       </button>
     </header>
-    <WebStatusBadge host={web.host} stale={web.stale}/>
-    {web.host && <code className="live-status__host">{web.host.host}</code>}
+    <div className="live-status__web-row">
+      <WebStatusBadge host={web.host} stale={web.stale}/>
+      {web.host && <code className="live-status__host">{web.host.host}</code>}
+    </div>
     {web.stale && <small className="live-status__stale">{web.stale}</small>}
     {web.error && !web.stale && <small className="live-status__stale" role="alert">Web se nepodařilo ověřit: {web.error}</small>}
   </section>;

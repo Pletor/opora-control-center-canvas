@@ -88,7 +88,9 @@ levná hlava verzí `GET /api/canvas-versions/head` = `{currentToken, dirty}`. N
 | `/api/brief-vault` | `op` + pole operace (níže „Schránka zadání“) | `vault-fragment` → `revision` | agent; `set-mvp`, `delete`, `restore`, `feedback` jen člověk |
 
 Pole `expected_revision` (spec, text) a `expectedRevision` (ostatní) nesjednocuj. Do uzavřené karty
-(`done.confirmed`) blok, výstup ani prostor agenta nezapíšeš. `main` (`readOnly: true`) je jen ke čtení.
+(`done.confirmed`) blok, výstup ani prostor agenta nezapíšeš. Obsah `main` (`readOnly: true`) je jen ke čtení;
+architektura (domény a stránky, `view.architectureEditable`) jde upravit i z mainu, `/api/graph` tam projde jen
+tehdy, když se obsah nemění.
 
 ### `op` pro `/api/desktop-v3/block`
 
@@ -153,6 +155,43 @@ nepřepisuje: každá změna je nová revize s `note`; CAS přes `expectedRevisi
 Odpověď: `{ok, op, fragment, children?, details?}`. Čtení: `vault`, `vault-fragment`, `research-brief` (výše) a
 GET `/api/brief-vault/history?scope=` (revize napříč schránkou). Karta na fragment odkazuje `fragmentRef`
 v `/api/canvas-plan` ([canvas-plan.md](canvas-plan.md)).
+
+## Architektura projektu, worktree a relace
+
+Kdy mě číst: hledáš domény a stránky projektu, kdo na které doméně pracuje, jestli běží web, nebo
+worktree a relace. Kontrakt: `docs/domeny-a-worktree.md`. Architektura (uzly se `site`: doména
+`site.kind="application"` s jedním prostředím `{name, host}`, stránka `site.kind="page"`) je jedna pro
+projekt nad všemi worktree; `/api/view` ji skládá s obsahem prostoru a vrací navíc `architectureEditable`
+a `architectureRevision`. Worktree patří jedné doméně (`nodeId`); `main`/`draft` je prostor hlavní relace.
+
+Tyto cesty nejsou v `opora_write.py` ani v `opora_read.py`: v okně OPORA je asistent nevolá (brána je
+zamítne), mimo okno je čti přímo HTTP GET. Zápisy dělá člověk v UI (Projekt → Architektura projektu);
+tabulka zápisů je tu, abys věděl, co se stalo a jak to ověřit.
+
+| Čtení (GET) | Odpověď |
+|---|---|
+| `/api/project-architecture?project=` | `{graph, revision, digest}` jen s uzly architektury |
+| `/api/project-architecture/work-status?project=` | `{domains:[{id, name, environment, counts, worktrees:[{id, branch, actor, state, reasons[], sessions[], cards[{nodeId, name}]}]}], unassigned[], mainSessions[]}`; `state` = `running` / `waiting` / `stopped` / `none` (prahy 120 s / 300 s, §7) |
+| `/api/project-architecture/web-status?project=&domain=&refresh=` | `{hosts:[{domainId, environment, host, state, httpStatus, health, latencyMs, checkedAt, detail}]}`; hosty jen z architektury, cache 60 s; `dns_missing` u nenasazené domény je normální stav |
+| `/api/project-workspaces?project=` | prostory projektu (u Gitu `main` + worktree) |
+| `/api/workspaces/archive?project=` | skladiště uzavřených worktree `{items:[{id, nodeId, branch, actor, reason, archivedAt}]}`, jen ke čtení |
+
+| Zápis (člověk, UI) | Payload → odpověď | Poznámka |
+|---|---|---|
+| POST `/api/project-architecture` | `{project, workspace, expectedRevision, graph}` → `{graph, revision, digest}` | jen domény, stránky a sektory mezi nimi; 409 při jiné revizi |
+| POST `/api/project-architecture/restore` | `{project, revision, digest}` → totéž | návrat k revizi; revize jen přibývají |
+| POST `/api/project-architecture/migrate` | `{project, dryRun}` | výchozí `dryRun: true`; ostře jen po schválení reportu |
+| POST `/api/workspaces` | `{project, nodeId, actor}` → řádek prostoru | `nodeId` musí být doména, jinak 400 |
+| PATCH `/api/workspaces/{wid}` | `{project, nodeId}` → řádek prostoru | přiřazení nepřiřazeného worktree k doméně |
+| POST `/api/workspaces/{wid}/archive` | `{project, reason, confirmed: true}` → `{archived, branch}` | odmítne worktree se změnami nebo živou relací; větev `work/<wid>` zůstane |
+| POST `/api/assistant/sessions` | `{project, workspace?, title?, model?, nodeId?}` → 201 `{session}` | relace worktree (`workspace`) nebo karty (`+ nodeId`); model běží až na zprávu člověka |
+
+Štíhlé zápisy plátna (UI je používá místo celého stavu a grafu; v bráně asistenta nejsou):
+
+| Cesta | Payload → odpověď | Poznámka |
+|---|---|---|
+| POST `/api/desktop-v3/node` | `{project, workspace, expectedRevision, nodeId, node}` → `{revision, nodeId, node}` | stav jedné karty, `node: null` ho odebere; lease jako u `/block`; stejná pravidla jako `/api/desktop-v3/state` |
+| POST `/api/graph/positions` | `{project, workspace, digest, positions:[{id, x, y}]}` → pohled bez grafu + uložené pozice | jen posun existujících uzlů (≤ 2000), 409 při jiném digestu |
 
 ## Chyby
 

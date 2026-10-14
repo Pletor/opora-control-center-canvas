@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { archivedDate, type ArchiveShelfState } from "@/project/architecture-editor/live-status/logic/worktree-archive";
 import { domainLabel, type DomainChoice } from "../logic/domain-choices";
+import { worktreeLabel, worktreeName } from "@/project/architecture-editor/live-status/logic/worktree-label";
 
 /**
- * Skladiště na konci přehledu: sbalený seznam uzavřených worktree (větev, doména, důvod, datum), jen
+ * Skladiště na konci přehledu: sbalený seznam uzavřených worktree (aktér · krátké ID, doména, důvod,
+ * datum; větev v `title`), jen
  * ke čtení. Načte se až při prvním rozbalení; obnova ze skladiště je pozdější kus.
  */
 export default function ArchiveShelf({ shelf, choices, onLoad }: { shelf: ArchiveShelfState; choices: DomainChoice[]; onLoad: () => void }) {
@@ -22,10 +24,10 @@ export default function ArchiveShelf({ shelf, choices, onLoad }: { shelf: Archiv
       {shelf.items !== null && !items.length && !shelf.error && <p className="arch-landing__empty">Skladiště je prázdné.</p>}
       {items.length > 0 && <ul className="arch-landing__shelf-list">
         {items.map((item) => <li key={item.id} className="arch-landing__shelf-item" data-testid={"archived-" + item.id}>
-          <code className="arch-landing__shelf-branch">{item.branch || item.id}</code>
+          <span className="arch-landing__shelf-branch" title={worktreeLabel(item).tooltip}>{worktreeName(item)}</span>
           <span className="arch-landing__shelf-domain">{domainLabel(choices, item.nodeId)}</span>
           <span className="arch-landing__shelf-reason">{item.reason || "bez důvodu"}</span>
-          <small className="arch-landing__shelf-date">{archivedDate(item.archivedAt)}{item.actor && ` · ${item.actor}`}</small>
+          <small className="arch-landing__shelf-date">{archivedDate(item.archivedAt)}</small>
         </li>)}
       </ul>}
     </div>}

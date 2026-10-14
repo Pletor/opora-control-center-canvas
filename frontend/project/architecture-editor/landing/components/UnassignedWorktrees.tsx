@@ -3,6 +3,7 @@ import type { WorktreeNav } from "@/project/architecture-editor/live-status/comp
 import type { LiveWorktree } from "@/project/architecture-editor/live-status/logic/live-model";
 import type { DomainChoice } from "../logic/domain-choices";
 import AssignDomainRow from "./AssignDomainRow";
+import { worktreeName } from "@/project/architecture-editor/live-status/logic/worktree-label";
 
 /**
  * Skupina Nepřiřazené: worktree bez domény (starší `node_id = "project"`). Strom ukáže jejich práci,
@@ -17,7 +18,7 @@ export default function UnassignedWorktrees({ worktrees, choices, stale, nav, on
       {stale && <small className="arch-landing__stale">{stale}</small>}</h3>
     <WorktreeTree worktrees={worktrees} label="Nepřiřazené worktree" compact nav={nav}/>
     {onAssign && <div className="arch-landing__assign-list">
-      {worktrees.map((item) => <AssignDomainRow key={item.id} worktreeId={item.id} name={item.branch || item.id} choices={choices} onAssign={onAssign}/>)}
+      {worktrees.map((item) => <AssignDomainRow key={item.id} worktreeId={item.id} name={worktreeName(item)} choices={choices} onAssign={onAssign}/>)}
     </div>}
   </section>;
 }

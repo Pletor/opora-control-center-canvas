@@ -37,7 +37,7 @@ describe("stavy relací", () => {
     const status = (state: string) => normalizeWorkStatus({ domains: [{ id: "d", name: "D", worktrees: [{ id: "w1", branch: "work/w1", state }] }] });
     expect(stateChanges(null, status("running"))).toBe("");
     expect(stateChanges(status("running"), status("running"))).toBe("");
-    expect(stateChanges(status("running"), status("waiting"), "d")).toBe("Worktree work/w1: čeká.");
+    expect(stateChanges(status("running"), status("waiting"), "d")).toBe("Worktree w1: čeká.");
     expect(stateChanges(status("running"), status("waiting"), "other")).toBe("");
   });
 });

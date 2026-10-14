@@ -1,26 +1,26 @@
-/* Mapa projektu: vlevo úzký panel domény (kde jsem, ID, hlavní tlačítko) a seznam stránek jako karty;
+/* Mapa domény: vlevo úzký panel domény (kde jsem, host s čipem ID, hlavní tlačítko) a seznam stránek jako karty;
    vpravo tečkovaná pracovní plocha s navigací nahoře a pod ní sloupce karet stránek. */
-.domain-map__panel{padding:18px 14px 90px;display:flex;flex-direction:column;gap:6px}
+.domain-map__panel{padding:18px 14px calc(var(--account-corner-safe) + 26px);display:flex;flex-direction:column;gap:6px}
 .domain-map__env,.domain-map__kicker{margin:0;font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--ae-accent)}
-.domain-map__host{margin:2px 0 0;font-size:17px}
+.domain-map__host-row{display:flex;align-items:center;gap:8px;min-width:0}
+.domain-map__host{margin:2px 0 0;font-size:17px;overflow-wrap:anywhere}
 .domain-map__purpose{margin:0;color:var(--ae-muted);font-size:12px}
-.domain-map__id{color:var(--ae-muted);font-size:10px;overflow-wrap:anywhere}
 
 /* Hlavní akce panelu je jediné plné tlačítko na obrazovce, aby bylo jasné, kudy přidat stránku. */
 .domain-map__add{margin:12px 0 8px;padding:10px;border-radius:10px;border:1px solid var(--ae-accent);background:color-mix(in srgb,var(--ae-accent) 78%,#000);color:#04201c;font-weight:700;cursor:pointer}
 .domain-map__add:hover:not(:disabled){background:var(--ae-accent)}
 
-/* Seznam stránek: každá stránka je karta s názvem a ID, podstránky ustoupí doprava se šipkou ↳. */
+/* Seznam stránek: každá stránka je karta s názvem a cestou (ID je v bublině), podstránky ustoupí doprava se šipkou ↳. */
 .domain-map__list-title{margin:14px 0 4px;font-size:13px}
 .domain-map__page-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .domain-map__page-list .domain-map__page-list{margin:8px 0 0 14px}
 .domain-map__page-link{display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:8px 10px;text-align:left;border-radius:10px;border:1px solid var(--ae-line);background:var(--ae-card);color:var(--ae-text);cursor:pointer}
 .domain-map__page-link:hover{border-color:var(--ae-accent)}
-.domain-map__page-link small{color:var(--ae-muted);font-size:10px}
+.domain-map__page-path{color:var(--ae-muted);font-size:10px}
 .domain-map__page-link--sub{font-size:12px}
 
 /* Pracovní plocha: tečkovaný podklad jako mapa, nadpis s malým štítkem hostu nad ním. */
-.domain-map{overflow:auto;flex:1;min-width:0;min-height:0;padding:28px 30px 100px;background-color:var(--ae-bg);background-image:radial-gradient(#294351 1px,transparent 1px);background-size:20px 20px}
+.domain-map{overflow:auto;flex:1;min-width:0;min-height:0;padding:28px 30px calc(var(--account-corner-safe) + 36px);background-color:var(--ae-bg);background-image:radial-gradient(#294351 1px,transparent 1px);background-size:20px 20px}
 .domain-map__title{margin:4px 0 8px;font-size:24px}
 .domain-map__lead{margin:0;color:var(--ae-muted)}
 .domain-map__empty{margin:0;color:var(--ae-muted);font-size:12px}
@@ -31,13 +31,13 @@
 .domain-map__navbar-item{padding:7px 14px;border-radius:9px;border:1px solid var(--ae-line);background:var(--ae-card);color:var(--ae-text);cursor:pointer}
 .domain-map__navbar-item:hover{border-color:var(--ae-accent)}
 
-/* Karty stránek: sloupce vedle sebe, název s ID nahoře, podstránky uvnitř, tiché akce v patičce. */
+/* Karty stránek: sloupce vedle sebe, název s tichým čipem ID nahoře, podstránky uvnitř, tiché akce v patičce. */
 .domain-map__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:16px;align-items:start}
 .domain-map__card{min-width:0;padding:14px;border-radius:12px;border:1px solid var(--ae-line);background:var(--ae-card);display:flex;flex-direction:column;gap:8px}
 .domain-map__card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
 .domain-map__card-title{padding:0;border:0;background:none;color:var(--ae-text);font-size:15px;font-weight:700;text-align:left;cursor:pointer}
 .domain-map__card-title:hover{color:var(--ae-cyan)}
-.domain-map__card-head small{display:block}
+.domain-map__title-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .domain-map__path{color:var(--ae-cyan);font-size:11px;overflow-wrap:anywhere}
 .domain-map__card-purpose{margin:0;color:var(--ae-muted);font-size:12px}
 .domain-map__sub-add{padding:3px 8px;font-size:11px;border-radius:7px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-text);cursor:pointer}
@@ -52,20 +52,22 @@
 .domain-map__card-foot button:hover:not(:disabled){color:var(--ae-text);border-color:var(--ae-line)}
 .domain-map__card-foot .domain-map__danger:hover:not(:disabled){color:#ff8a8a;border-color:#ff8a8a}
 
-/* Odznak „2 worktree“ pod ID stránky: tichá tyrkysová pilulka, ať je vidět, kde se pracuje, ale nepřebije
+/* Odznak „2 worktree“ pod názvem stránky: tichá tyrkysová pilulka, ať je vidět, kde se pracuje, ale nepřebije
    název. Stránky, kterých se dotýká vybraný worktree v pravém panelu, dostanou tyrkysový okraj. */
 .domain-map__work{display:inline-flex;margin-top:4px;padding:1px 6px;border-radius:999px;font-size:11px;font-weight:700;color:var(--ae-accent);background:color-mix(in srgb,var(--ae-accent) 16%,transparent)}
 .domain-map__card--highlighted{border-color:var(--ae-accent);box-shadow:0 0 0 1px var(--ae-accent)}
 
 /* Třetí sloupec vpravo: živý panel (web a worktree). Na širokém okně stojí vedle mapy jako zrcadlo
-   levého panelu; na úzkém sjede pod mapu přes celou šířku, aby mapa neztratila místo. */
+   levého panelu; na úzkém sjede pod mapu přes celou šířku jako nízký pruh (nejvýš 40 % výšky, dál se
+   posouvá sám), aby mapa neztratila místo a celá obrazovka se nezačala posouvat. */
 .domain-map__frame--live{grid-template-columns:280px minmax(0,1fr) 300px}
 .domain-map__live{overflow:auto;min-height:0;border-left:1px solid var(--ae-line);background:var(--ae-panel)}
 @media(max-width:1400px){.domain-map__frame--live{grid-template-columns:245px minmax(0,1fr) 270px}}
-@media(max-width:1050px){.domain-map__frame--live{grid-template-columns:220px minmax(0,1fr)}.domain-map__live{grid-column:1/-1;border-left:0;border-top:1px solid var(--ae-line)}}
+@media(max-width:1050px){.domain-map__frame--live{grid-template-columns:220px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.domain-map__live{grid-column:1/-1;max-height:40vh;border-left:0;border-top:1px solid var(--ae-line)}}
 
 /* Na telefonu (do 760 px) je jeden sloupec a živý souhrn jde úplně nahoru: na malé obrazovce člověk
    nejdřív potřebuje vědět, jestli web běží a kdo na doméně pracuje; panel domény a mapa jsou pod ním. */
-@media(max-width:760px){.domain-map{padding:14px 12px 100px}.domain-map__title{font-size:20px}.domain-map__grid{grid-template-columns:1fr}
-  .domain-map__frame--live{grid-template-columns:minmax(0,1fr)}
+@media(max-width:760px){.domain-map{padding:14px 12px calc(var(--account-corner-safe) + 36px)}.domain-map__title{font-size:20px}.domain-map__grid{grid-template-columns:1fr}
+  .domain-map__frame--live{grid-template-columns:minmax(0,1fr);grid-template-rows:none}
+  .domain-map__frame--live .domain-map__live{max-height:none}
   .domain-map__frame--live .domain-map__live{order:-1;grid-column:auto;border-top:0;border-bottom:1px solid var(--ae-line)}}

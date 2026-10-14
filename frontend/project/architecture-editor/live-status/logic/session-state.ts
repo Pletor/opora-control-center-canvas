@@ -1,4 +1,5 @@
 import type { LiveSession, WorkStatus, WorktreeState } from "./live-model";
+import { worktreeName } from "./worktree-label";
 
 // Slova, ikony a souhrny stavů relací a worktree. Stav se vždy čte slovem a ikonou, barva jen doplňuje.
 
@@ -78,7 +79,7 @@ export function stateChanges(prev: WorkStatus | null, next: WorkStatus, domainId
   const before = new Map(pick(prev).map((item) => [item.id, item.state]));
   return pick(next)
     .filter((item) => before.has(item.id) && before.get(item.id) !== item.state)
-    .map((item) => `Worktree ${item.branch || item.id}: ${WORKTREE_STATE[item.state].label}.`)
+    .map((item) => `Worktree ${worktreeName(item)}: ${WORKTREE_STATE[item.state].label}.`)
     .join(" ");
 }
 

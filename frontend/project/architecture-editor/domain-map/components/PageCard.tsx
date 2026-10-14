@@ -1,5 +1,6 @@
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { ProductBranch } from "@/project/product-tree/logic/product-tree";
+import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
 
 type Actions = {
   disabled: boolean; onOpen: (id: string) => void; onAdd: (parentId: string) => void; onEdit: (node: CanvasNode) => void;
@@ -9,7 +10,7 @@ type Actions = {
 /** Live work on pages: how many worktrees touch each page and which pages the selected worktree touches. */
 export type PageWork = { counts: Map<string, number>; highlighted: Set<string> };
 
-/** One page card with its ID, a worktree badge, sub-pages inside it and a quiet footer of structural actions; recursive for sub-pages. */
+/** One page card with a quiet ID chip, a worktree badge, sub-pages inside it and a quiet footer of structural actions; recursive for sub-pages. */
 export default function PageCard({ branch, index, count, actions, work }: { branch: ProductBranch; index: number; count: number; actions: Actions; work?: PageWork }) {
   const { node, children } = branch;
   const { disabled } = actions;
@@ -17,8 +18,10 @@ export default function PageCard({ branch, index, count, actions, work }: { bran
   return <article className={"domain-map__card" + (work?.highlighted.has(node.id) ? " domain-map__card--highlighted" : "")} data-testid={"architecture-page-card-" + node.id}>
     <header className="domain-map__card-head">
       <div>
-        <button type="button" className="domain-map__card-title" data-testid={"architecture-page-open-" + node.id} onClick={() => actions.onOpen(node.id)}>{node.name} ↗</button>
-        <small className="domain-map__id">ID: {node.id}</small>
+        <span className="domain-map__title-row">
+          <button type="button" className="domain-map__card-title" data-testid={"architecture-page-open-" + node.id} onClick={() => actions.onOpen(node.id)}>{node.name} ↗</button>
+          <CopyIdButton id={node.id} label="ID stránky"/>
+        </span>
         {workCount > 0 && <span className="domain-map__work" title="Worktree, které na této stránce nebo jejích podstránkách pracují">{workCount} worktree</span>}
       </div>
       <button type="button" className="domain-map__sub-add" disabled={disabled} data-testid={"architecture-add-page-" + node.id} onClick={() => actions.onAdd(node.id)}>+ Podstránka</button>

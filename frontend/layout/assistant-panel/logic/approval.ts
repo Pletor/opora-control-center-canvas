@@ -36,14 +36,29 @@ export type Approval = {
 
 export const NOTE_LIMIT = 2000;
 
-const ROUTE_LABEL: Record<string, string> = {
+/**
+ * Jména cest, o které může asistent požádat: přesně brána `WRITE_ROUTES` v
+ * `backend/claude_code/assistant/approvals.py` (shodná s `opora_write.py`). Jiné zápisy
+ * (architektura projektu, worktree PATCH/archive, štíhlé `/api/desktop-v3/node` a
+ * `/api/graph/positions`) brána nepustí a backend je zamítne automaticky bez cíle, proto tu jméno nemají.
+ */
+export const ROUTE_LABEL: Record<string, string> = {
   "/api/graph": "Plátno: karty a vazby",
+  "/api/canvas-plan": "Dávka plánu: nové karty, vazby a rozhodnutí",
+  "/api/canvas-layout": "Rozmístění karet v oblasti",
+  "/api/canvas-versions": "Uložená verze plátna",
   "/api/node-spec": "Zadání karty (goal, non-goals, acceptance)",
   "/api/node-text": "Text karty",
   "/api/desktop-v3/state": "Celý stav plátna (pravidla, rozhodnutí, karty)",
   "/api/desktop-v3/block": "Blok karty",
   "/api/desktop-v3/agent-workspace": "Prostor agenta na kartě",
   "/api/desktop-v3/agent-output": "Výstup agenta na kartě",
+  "/api/desktop-v3/lease": "Převzetí karty (lease)",
+  "/api/desktop-v3/assignment-snapshot": "Snímek zadání karty",
+  "/api/desktop-v3/pipeline": "Pipeline karty (etapy)",
+  "/api/desktop-v3/rule": "Pravidlo projektu",
+  "/api/desktop-v3/decision": "Rozhodnutí projektu",
+  "/api/desktop-v3/realize-source": "Zdroj karty po merge (commit, PR)",
 };
 
 function str(value: unknown): string {

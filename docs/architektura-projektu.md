@@ -8,11 +8,12 @@ Kód (`frontend/project/architecture-editor/`) tento kontrakt provádí, neměn�
 
 1. **Mapy architektury** – výběr prostředí a domény. Řádek *Produkce* (štítek „Produkce“, „Aktivní prostředí“)
    a řádek *Vývoj* (štítek „Vývoj“, „Oddělený prostor pro změny a ověření“). Každá doména je karta:
-   ikona druhu (web / aplikace / administrace), host, „druh · účel“, `ID`, odkaz **Otevřít mapu projektu**.
+   ikona druhu (web / aplikace / administrace), host, „druh · účel“, čip `ID` (plné ID v bublině, klik zkopíruje), odkaz **Otevřít mapu domény**.
+   Slovo „projekt“ patří jen celému projektu; jedna doména je vždy „doména“ (Mapa domény, Navigace domény).
    Doména = sektor `site.kind = "application"` s jedním prostředím; vše má vlastní ID, domény ani funkce se nemíchají.
-2. **Mapa projektu** (jedna doména) – jediné místo, kde se mění struktura: stránky, podstránky, pořadí, navigace,
-   přidání a odebrání. Vlevo karta domény (prostředí · projekt, host, účel, ID, **+ Přidat stránku**) a seznam
-   stránek s ID; uprostřed **NAVBAR** hlavních stránek a karty stránek s podstránkami (**+ Podstránka**).
+2. **Mapa domény** (jedna doména) – jediné místo, kde se mění struktura: stránky, podstránky, pořadí, navigace,
+   přidání a odebrání. Vlevo karta domény (prostředí · doména, host s čipem ID, účel, **+ Přidat stránku**) a seznam
+   stránek (ID v bublině); uprostřed **NAVBAR** hlavních stránek a karty stránek s podstránkami (**+ Podstránka**).
 3. **Editor stránky** (jedna stránka, vlastní ID) – rychlá infografika: co stránka obsahuje a jak spolu části souvisí.
    Čtyři sloupce:
    - **Strom projektu / Knihovna prvků** (vlevo). Strom: projekt → *Produkce LIVE* / *Vývoj DEV* (sbalitelné) → doména
@@ -32,7 +33,7 @@ Kód (`frontend/project/architecture-editor/`) tento kontrakt provádí, neměn�
 ## Pravidla
 
 - Žádné druhé úložiště: vše je projekce grafu (`/api/view`, `/api/graph`, `/api/canvas-plan`); zápis s digestem.
-- Strukturu stránek mění jen Mapa projektu; Editor stránky ji jen zobrazuje a odkazuje do ní (**+ Stránka** otevře formulář v Mapě projektu).
+- Strukturu stránek mění jen Mapa domény; Editor stránky ji jen zobrazuje a odkazuje do ní (**+ Stránka** otevře formulář v Mapě domény).
 - Pracovní zadání (`spec`) se v Detailu prvku jen čte a otevírá v Editoru; Detail smí měnit jen název a účel (stejně jako dnes).
 - Neznámé hodnoty se označí „nedostupné“ / „zatím nic“, nikdy se nevymýšlí (žádné ukázkové uzly).
 - Barvy vrstev: frontend zelená, backend fialová, databáze jantarová, security červená, infrastruktura modrá, cache levandulová, oblast jantarová přerušovaná.

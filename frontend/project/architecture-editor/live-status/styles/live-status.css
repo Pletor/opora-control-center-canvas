@@ -3,11 +3,14 @@
    právě pracuje. Proto pravý sloupec začíná žetonem webu a teprve pod ním je strom worktree, nejživější
    nahoře. Sloupec je klidný a hustý: tmavá deska jako levý panel, malé písmo, žádné velké plochy barvy.
    Stav se vždy čte slovem a ikonou; barva jen pomáhá oku najít, co běží a co čeká. */
-.live-status{display:flex;flex-direction:column;gap:18px;padding:18px 14px 90px;font-size:12px;color:var(--ae-text)}
+.live-status{display:flex;flex-direction:column;gap:18px;padding:18px 14px calc(var(--account-corner-safe) + 26px);font-size:12px;color:var(--ae-text)}
 .live-status__section{display:flex;flex-direction:column;gap:8px;min-width:0}
 .live-status__head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .live-status__title{margin:0;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ae-accent)}
 .live-status__counts{color:var(--ae-muted)}
+/* Žeton a host stojí na jednom řádku (host se zalomí pod žeton, když se nevejde): kolik místa web
+   zabere, tolik ho člověk přečte jedním pohledem. */
+.live-status__web-row{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;min-width:0}
 .live-status__host{font-size:11px}
 .live-status__empty{margin:0;color:var(--ae-muted)}
 /* Zastaralý údaj se jen tiše podepíše časem („údaj z 12:03“), aby nevyděsil, ale nelhal. */
@@ -38,7 +41,9 @@
 .live-status__chip--action{cursor:pointer;font:inherit;font-size:11px;font-weight:700}
 .live-status__chip--action:hover{border-color:currentColor}
 
-/* Strom worktree: řádek na worktree (šipka, větev s aktérem pod ní, stav vpravo). Vybraný worktree má
+/* Strom worktree: řádek na worktree (šipka, aktér tučně a vedle krátké ID, stav vpravo). Člověk worktree
+   poznává podle toho, kdo a proč na něm pracuje; čtyřicetiznaková větev by zabrala celý řádek, proto
+   je jen v bublině po najetí. Vybraný worktree má
    tyrkysový okraj, protože na mapě se zvýrazní stránky, kterých se dotýká. Vnoření je jen o šipku.
    Klávesnicí se chodí šipkami po položkách; zaměřená položka má zřetelný tyrkysový obrys. */
 .live-status__tree{list-style:none;margin:0;padding:0;display:grid;gap:6px}
@@ -47,9 +52,9 @@
 .live-status__row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;border:1px solid var(--ae-line);background:var(--ae-card);cursor:pointer}
 .live-status__row--selected{border-color:var(--ae-accent)}
 .live-status__toggle{padding:0 2px;border:0;background:none;color:var(--ae-muted);cursor:pointer;font:inherit}
-.live-status__name{display:flex;flex-direction:column;align-items:flex-start;flex:1;min-width:0;color:var(--ae-text)}
-.live-status__branch{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
-.live-status__actor{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ae-muted);font-size:11px}
+.live-status__name{display:flex;align-items:baseline;gap:6px;flex:1;min-width:0;color:var(--ae-text)}
+.live-status__label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.live-status__short-id{flex:none;color:var(--ae-muted);font-size:10px}
 
 /* Rozbalený worktree: relace a karty v práci jako podřízené položky pod ním. Svislá linka vlevo říká,
    že vše patří k řádku nad ní. Název karty je odkaz: kliknutím se karta otevře v Editoru (ve svém
@@ -65,6 +70,7 @@
    konkrétní kartu. Deska je tmavší, aby bylo vidět, že patří k vybranému řádku, ne k celému panelu. */
 .live-status__details{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:10px;border:1px solid var(--ae-accent);background:var(--ae-card)}
 .live-status__details-title{margin:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.live-status__details-branch{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ae-muted);font-size:10px}
 .live-status__details-label{margin:4px 0 0;color:var(--ae-muted)}
 .live-status__card-actions{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
 .live-status__actions{display:flex;flex-wrap:wrap;gap:6px;padding-top:2px}
@@ -95,5 +101,11 @@
 .live-status__danger{padding:3px 10px;font-size:11px;border-radius:7px;border:1px solid var(--danger);background:transparent;color:var(--ae-text);cursor:pointer}
 .live-status__danger:disabled{border-color:var(--ae-line);color:var(--ae-muted);cursor:default}
 
+/* Středně široké okno (761–1050 px): panel je nízký pruh pod mapou, proto web a worktree stojí vedle
+   sebe (web úzký vlevo, worktree vpravo) a pruh nezabere víc než pár řádků. Rezerva pro tlačítko Opora
+   je tu vlevo, protože pruh začíná u levého okraje obrazovky. */
+@media(min-width:761px) and (max-width:1050px){
+  .live-status{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,2fr);align-items:start;gap:10px 24px;padding:12px 16px 16px var(--account-corner-gutter)}
+}
 /* Na telefonu stojí panel nad mapou, proto nepotřebuje velký dolní okraj, který jinak drží místo pro účet v rohu. */
 @media(max-width:760px){.live-status{padding-bottom:18px}}

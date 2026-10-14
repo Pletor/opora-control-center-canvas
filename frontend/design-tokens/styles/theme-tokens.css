@@ -90,6 +90,10 @@
 :root[data-density="compact"] { --fs-1: 11.5px; --fs-2: 12px; --fs-3: 13px; --sp-2: 6px; --sp-3: 8px; --sp-4: 12px; --sp-5: 18px; --v3-toolbar-h: 36px; --v3-btn-h: 26px; }
 :root[data-density="airy"] { --fs-2: 13.5px; --fs-3: 14.5px; --sp-2: 10px; --sp-3: 14px; --sp-4: 20px; --sp-5: 30px; --v3-toolbar-h: 48px; --v3-btn-h: 34px; }
 :root { --v3-toolbar-h: 42px; --v3-btn-h: 30px; --shelf-w: 240px; --inspector-w: 320px; }
+/* Rezerva pro plovoucí tlačítko Opora v levém dolním rohu (layout/account-corner): posouvací plochy
+   ji dávají dole (`--account-corner-safe`) a široké plochy vlevo (`--account-corner-gutter`), aby
+   tlačítko nikdy neleželo na kartě ani na tlačítku. */
+:root { --account-corner-safe: 64px; --account-corner-gutter: 56px; }
 @media (min-width: 1600px) { :root { --shelf-w: 260px; --inspector-w: 360px; } }
 
 /* Shell: krátký topbar, kompaktní lišta režimu, dominantní plátno. */

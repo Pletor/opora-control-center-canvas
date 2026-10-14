@@ -32,7 +32,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
     <DomainPanel domain={domain} pages={pages} disabled={disabled} badge={webBadge} onOpen={onOpen} onAdd={() => add(domain.id)}/>
     <main className="domain-map">
       <p className="domain-map__kicker">MAPA STRÁNEK · {host || domain.name}</p>
-      <h2 className="domain-map__title">Navigace projektu</h2>
+      <h2 className="domain-map__title">Navigace domény</h2>
       <p className="domain-map__lead">Hlavní stránky se zobrazují v navigaci. Podstránky patří ke svému rodiči.</p>
       {draft && <ArchitectureProductForm key={draft.id ?? draft.parentId} initial={draft} disabled={disabled} onSave={onSave} onClose={() => setDraft(null)}/>}
       {moving && <MovePageForm key={moving} domainId={domain.id} candidates={flatten(pages).filter((node) => node.id !== moving)} disabled={disabled}

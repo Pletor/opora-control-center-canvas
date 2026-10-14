@@ -152,7 +152,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const crumbs = domain ? [env?.name ?? SHARED_GROUP, env?.host || domain.name, ...(scope ? [scope.name] : [])] : [];
   const identity = (original: CanvasNode, name: string, purpose: string) => execute(async () => { writable(original.id, original.site ? "structure" : "content"); const current = graph.nodes.find((node) => node.id === original.id); if (!current || current.name !== original.name || current.purpose !== original.purpose) throw new Error("Název nebo účel se mezitím změnil. Zrušte koncept a otevřete aktuální hodnoty."); await saveGraph({ ...graph, nodes: graph.nodes.map((node) => node.id === original.id ? { ...node, name: name.trim(), purpose: purpose.trim() } : node) }); });
   return <section className="architecture-editor" data-testid="standalone-architecture-editor">
-    <ArchitectureHeader crumbs={crumbs} step={scope ? "Editor stránky" : domain ? "Mapa projektu" : "Mapy architektury"} workspace={workspace} readOnly={!!store.view?.readOnly} editorId={editorId}
+    <ArchitectureHeader crumbs={crumbs} step={scope ? "Editor stránky" : domain ? "Mapa domény" : "Mapy architektury"} workspace={workspace} readOnly={!!store.view?.readOnly} editorId={editorId}
       back={domain ? { disabled: store.busy || removing, onClick: () => navigate(scope ? domain.id : null) } : null}
       pageTools={scope ? { disabled, onArea: () => createArea(), onSector: () => createSector() } : null}
       exportDisabled={!ready || !store.view} reloadDisabled={store.busy || removing} onExport={exportScope}
