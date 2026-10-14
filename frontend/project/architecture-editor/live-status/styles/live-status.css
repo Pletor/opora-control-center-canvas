@@ -82,5 +82,18 @@
 .live-status__quiet{padding:2px 8px;font-size:11px;border-radius:6px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-muted);cursor:pointer;white-space:nowrap}
 .live-status__quiet:hover:not(:disabled){color:var(--ae-text);border-color:var(--ae-muted)}
 
+/* Do skladiště: poslední, tichá řádka detailu, oddělená linkou, protože worktree tím končí. Potvrzení se
+   rozbalí na místě (ne v modálu), aby člověk viděl, který worktree zavírá; důvod je povinný a jediné
+   červeně orámované tlačítko říká, že jde o konec práce. Odmítnutí backendu stojí přímo pod polem. */
+.live-status__archive-row{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:4px;padding-top:6px;border-top:1px solid var(--ae-line)}
+.live-status__archive{display:flex;flex-direction:column;gap:6px;margin-top:4px;padding-top:6px;border-top:1px solid var(--ae-line)}
+.live-status__archive-title{margin:0;font-weight:700}
+.live-status__archive-note{margin:0;color:var(--ae-muted);font-size:11px}
+.live-status__archive-label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--ae-muted)}
+.live-status__archive-reason{width:100%;box-sizing:border-box;padding:4px 6px;border-radius:6px;border:1px solid var(--ae-line);background:var(--ae-bg);color:var(--ae-text);font:inherit;font-size:12px;resize:vertical}
+.live-status__archive-error{margin:0;color:var(--danger);font-size:11px}
+.live-status__danger{padding:3px 10px;font-size:11px;border-radius:7px;border:1px solid var(--danger);background:transparent;color:var(--ae-text);cursor:pointer}
+.live-status__danger:disabled{border-color:var(--ae-line);color:var(--ae-muted);cursor:default}
+
 /* Na telefonu stojí panel nad mapou, proto nepotřebuje velký dolní okraj, který jinak drží místo pro účet v rohu. */
 @media(max-width:760px){.live-status{padding-bottom:18px}}

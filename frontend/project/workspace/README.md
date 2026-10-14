@@ -1,1 +1,1 @@
-Pracovní plocha projektu: `ProjectWorkspace` skládá editor architektury, nebo strom skutečných souborů s mapou Archify / Graphify-out. `WorkspaceSelection.sourcePath` zůstává cestou dokumentu, nikoli identitou stránky.
+Pracovní plocha projektu: `ProjectWorkspace` skládá editor architektury, nebo strom skutečných souborů s mapou Archify / Graphify-out. `WorkspaceSelection.sourcePath` zůstává cestou dokumentu, nikoli identitou stránky. Editor architektury se klíčuje jen projektem (přepnutí worktree zachová otevřenou doménu a stránku); strom souborů projektem a prostorem.

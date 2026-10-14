@@ -20,7 +20,7 @@ export default function ArchitectureHeader(props: Props) {
     <nav className="ae-header__crumbs" aria-label="Kde jsem">
       <span className="ae-header__step">{step}</span>
       {crumbs.map((crumb, index) => <span key={index} className="ae-header__crumb">{crumb}</span>)}
-      <span className="ae-header__workspace">{workspace}{readOnly ? " · pouze čtení" : ""}</span>
+      <span className="ae-header__workspace" title={readOnly ? "Obsah stránek je zde jen pro čtení; domény a stránky jdou upravit." : undefined}>{workspace}{readOnly ? " · obsah jen pro čtení" : ""}</span>
     </nav>
     <div className="ae-header__actions">
       <button type="button" className="ae-header__id" data-testid="architecture-copy-id" title={`ID editoru: ${editorId} (kliknutím zkopírujete)`}

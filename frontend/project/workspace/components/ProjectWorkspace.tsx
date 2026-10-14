@@ -14,7 +14,8 @@ export default function ProjectWorkspace({project,workspace,selection,onChange,m
   /** Živý stav domén: schopnost projektu a akce (přepnout worktree, nová relace, nový worktree), které vyřizuje App. */
   architectureLive:ArchitectureLiveProps;
 }){
-  if (mapKind === 'architecture') return <ArchitectureEditor key={JSON.stringify([project,workspace])} project={project} workspace={workspace} projectName={projectName} onGraphChanged={onGraphChanged} onOpenEditor={onOpenEditor} live={architectureLive}/>;
+  // Editor architektury se klíčuje jen projektem: přepnutí worktree nechá otevřenou doménu i stránku a jen znovu načte obsah (docs/domeny-a-worktree.md §10).
+  if (mapKind === 'architecture') return <ArchitectureEditor key={JSON.stringify([project])} project={project} workspace={workspace} projectName={projectName} onGraphChanged={onGraphChanged} onOpenEditor={onOpenEditor} live={architectureLive}/>;
   return <ProjectLayout key={JSON.stringify([project,workspace])} project={project} workspace={workspace}
     selected={selection.sourcePath} onSelect={path=>onChange({sourcePath:path})}>
     {mapKind==='graphify'?<GraphifyMap key={project} project={project}/>:<ArchifyMap key={project} project={project}/>}

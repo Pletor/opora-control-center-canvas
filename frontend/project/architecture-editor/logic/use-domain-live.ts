@@ -22,6 +22,8 @@ export type DomainLive = {
   /** Věta pro `aria-live`: jen změny stavu worktree od minulého čtení. */
   announcement: string;
   refreshWeb: () => void;
+  /** Hned znovu přečte stav práce (po přiřazení worktree k doméně nebo přesunu do skladiště). */
+  refreshWork: () => void;
 };
 
 const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
@@ -50,7 +52,7 @@ export function useDomainLive(project: string, domainId: string | null, worktree
     setWork(emptySlot<WorkStatus>()); setWeb(emptyWeb()); setAnnouncement("");
   }, [project]);
 
-  usePolling(async () => {
+  const workPoll = usePolling(async () => {
     const asked = scope.current;
     const ticket = ++tickets.current.work;
     const current = () => ticket === tickets.current.work && scope.current.project === asked.project;
@@ -96,5 +98,6 @@ export function useDomainLive(project: string, domainId: string | null, worktree
   }, { intervalMs: () => liveDelay(WEB_INTERVAL_MS, failures.current.web), enabled: !!project, refreshKeys: [project, domainId] });
 
   const refreshWeb = useCallback(() => { forceWeb.current = true; void webPoll.refresh(); }, [webPoll]);
-  return { worktreeLive, work, web, announcement, refreshWeb };
+  const refreshWork = useCallback(() => { void workPoll.refresh(); }, [workPoll]);
+  return { worktreeLive, work, web, announcement, refreshWeb, refreshWork };
 }

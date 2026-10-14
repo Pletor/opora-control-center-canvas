@@ -3,13 +3,16 @@ import type { CanvasNode, Graph } from "@/shared/types/logic/types";
 import { productFingerprint, type ProductDraft } from "@/project/product-tree/logic/product-tree";
 import ArchitectureProductForm from "@/project/architecture-editor/domain-map/components/ArchitectureProductForm";
 import DomainCard, { type DomainCardLive } from "./DomainCard";
-import WorktreeTree from "@/project/architecture-editor/live-status/components/WorktreeTree";
 import type { WorktreeNav } from "@/project/architecture-editor/live-status/components/WorktreeRow";
 import { countsOf, domainLive, type WorkStatus } from "@/project/architecture-editor/live-status/logic/live-model";
 import { loadNotice, staleNote, type LiveSlot } from "@/project/architecture-editor/live-status/logic/live-poll";
 import { mainSessionsSummary } from "@/project/architecture-editor/live-status/logic/session-state";
 import { webLoadNotice, webView, type WebLive } from "@/project/architecture-editor/live-status/logic/web-slots";
+import type { ArchiveShelfState } from "@/project/architecture-editor/live-status/logic/worktree-archive";
+import { domainChoices } from "../logic/domain-choices";
 import SplitConfirm from "./SplitConfirm";
+import UnassignedWorktrees from "./UnassignedWorktrees";
+import ArchiveShelf from "./ArchiveShelf";
 import "../styles/architecture-landing.css";
 
 const LEGACY = "Původní sdílená struktura";
@@ -21,12 +24,16 @@ const NO_WORK = { counts: countsOf([]), worktrees: [] };
 export type LandingLive = {
   web: WebLive; work: LiveSlot<WorkStatus>; worktreeLive: boolean; nav: WorktreeNav;
   onStartMainSession: () => void; onCreateWorktree: (domainId: string) => void;
+  /** Přiřazení nepřiřazeného worktree k doméně a skladiště (jen ke čtení); obojí ukládá editor. */
+  onAssign: (worktreeId: string, domainId: string) => Promise<void>;
+  shelf: ArchiveShelfState; onLoadShelf: () => void;
 };
 const newDomain = (): ProductDraft => ({ parentId: null, name: "", purpose: "", site: { kind: "application", environments: [{ name: "Produkce", host: "" }] } });
 
 /** Step 1: pick an environment and a domain; Production and Development rows, one card per domain. */
-export default function ArchitectureLanding({ graph, disabled, live, onOpen, onSave, onSplit }: {
-  graph: Graph; disabled: boolean; live?: LandingLive; onOpen: (id: string) => void;
+/** `lockReason` = proč jsou úpravy domén zakázané (věta stojí v `DomainLockNote` pod hlavičkou editoru, tady jde do `title`). */
+export default function ArchitectureLanding({ graph, disabled, lockReason = "", live, onOpen, onSave, onSplit }: {
+  graph: Graph; disabled: boolean; lockReason?: string; live?: LandingLive; onOpen: (id: string) => void;
   onSave: (draft: ProductDraft) => Promise<void>; onSplit: (id: string, host: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<ProductDraft | null>(null);
@@ -46,6 +53,7 @@ export default function ArchitectureLanding({ graph, disabled, live, onOpen, onS
     nav: live.nav, onCreateWorktree: () => live.onCreateWorktree(node.id),
   };
   const notices = live ? [live.worktreeLive ? loadNotice(live.work, "Stav práce") : "", webLoadNotice(live.web)].filter(Boolean) : [];
+  const choices = domainChoices(graph);
   const confirmSplit = () => { if (split) void onSplit(split.id, split.host).then(() => setSplit(null)).catch((cause) => setError(String(cause))); };
   return <main className="arch-landing" data-testid="architecture-domain-landing">
     <header className="arch-landing__head">
@@ -58,7 +66,7 @@ export default function ArchitectureLanding({ graph, disabled, live, onOpen, onS
           <span>{mainSessionsSummary(work ? work.mainSessions : null)}</span>{workStale && <small className="arch-landing__stale"> · {workStale}</small>}
           <button type="button" className="arch-landing__quiet" onClick={live.onStartMainSession}>Nová hlavní relace</button>
         </p>}
-        <button type="button" disabled={disabled} data-testid="architecture-add-domain" onClick={() => setDraft(newDomain())}>+ Doména</button>
+        <button type="button" disabled={disabled} title={disabled ? lockReason : "Založit novou doménu (jeden host)"} data-testid="architecture-add-domain" onClick={() => setDraft(newDomain())}>+ Doména</button>
       </div>
     </header>
     {notices.map((text) => <p key={text} className="arch-landing__alert" role="alert">{text}</p>)}
@@ -74,11 +82,8 @@ export default function ArchitectureLanding({ graph, disabled, live, onOpen, onS
         {!items.length && <p className="arch-landing__empty">Zatím žádná doména.</p>}
       </section>;
     })}
-    {!!work?.unassigned.length && <section className="arch-landing__group" data-testid="architecture-unassigned">
-      <h3 className="arch-landing__group-title"><span className="arch-landing__tag arch-landing__tag--legacy">Nepřiřazené</span><span className="arch-landing__note">Worktree, které zatím nepatří žádné doméně.</span>
-        {workStale && <small className="arch-landing__stale">{workStale}</small>}</h3>
-      <WorktreeTree worktrees={work.unassigned} label="Nepřiřazené worktree" compact nav={live?.nav}/>
-    </section>}
+    {!!work?.unassigned.length && <UnassignedWorktrees worktrees={work.unassigned} choices={choices} stale={workStale} nav={live?.nav} onAssign={live?.onAssign}/>}
+    {live?.worktreeLive && <ArchiveShelf shelf={live.shelf} choices={choices} onLoad={live.onLoadShelf}/>}
     {split && <SplitConfirm host={split.host} error={error} disabled={disabled} onConfirm={confirmSplit} onCancel={() => setSplit(null)}/>}
   </main>;
 }

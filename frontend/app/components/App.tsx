@@ -406,7 +406,7 @@ export default function App({ v3 = {} }: { v3?: DesktopV3Slots } = {}) {
     const switchedScope = (currentRoute.has("project") && currentRoute.get("project") !== project) || (currentRoute.has("workspace") && currentRoute.get("workspace") !== workspace);
     // The standalone editor owns these fields. Preserve invalid explicit IDs for its validation.
     if (!switchedScope || currentRoute.get("editorId") === architectureEditorId(project, workspace, currentRoute.get("domainId") || undefined)) {
-      for (const name of ["editorId", "domainId", "pageId", "architectureNode"]) {
+      for (const name of ["editorId", "domainId", "pageId", "architectureNode", "structureNode"]) {
         if (currentRoute.has(name)) q.set(name, currentRoute.get(name)!);
       }
     }

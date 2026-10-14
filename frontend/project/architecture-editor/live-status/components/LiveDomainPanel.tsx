@@ -36,7 +36,7 @@ export default function LiveDomainPanel({ web, work, announcement, selectedWorkt
         <p className="live-status__empty">Na této doméně se teď nepracuje.</p>
         <button type="button" className="live-status__primary" data-testid="live-new-worktree" onClick={onCreateWorktree}>Nový worktree</button>
       </div>}
-      {selected ? <WorktreeDetails worktree={selected} actions={actions}/>
+      {selected ? <WorktreeDetails key={selected.id} worktree={selected} actions={actions}/>
         : worktrees.length > 0 && <p className="live-status__empty">Vyberte worktree a pod stromem se ukážou jeho akce.</p>}
       {worktrees.length > 0 && <button type="button" className="live-status__quiet live-status__new" onClick={onCreateWorktree}>+ Nový worktree</button>}
     </section>

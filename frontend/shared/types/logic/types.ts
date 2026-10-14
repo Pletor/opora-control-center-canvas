@@ -92,6 +92,11 @@ export type View = {
   graphStatus: string;
   workspaces: Workspace[];
   observedAt: string;
+  /** Architektura (domény a stránky) je nadřazená worktree a jde upravit i tam, kde je obsah jen pro čtení (docs/domeny-a-worktree.md §4). */
+  architectureEditable?: boolean;
+  architectureRevision?: number;
+  /** Uzly obsahu tohoto prostoru, které se liší od architektury projektu nebo z ní byly odstraněny. */
+  conflicts?: { id: string; name: string; reason: string }[];
 };
 export type Project = { id: string; name: string; url: string | null; branch: string | null; sourceKind?: string; sourcePath?: string | null };
 /** Cílová platforma projektu (`backend/project_setup/project_hub.py`, PLATFORMS). */
@@ -139,24 +144,26 @@ function ensureHumanSession(refresh = false): Promise<void> {
 }
 /** Poslední ETag a tělo čtení podle URL (karta P3): GET posílá If-None-Match, 304 se vezme z paměti. */
 const etags = createEtagCache();
-function send(url: string, body?: object, conditional = true): Promise<Response> {
+function send(url: string, body?: object, conditional = true, method: WriteMethod = "POST"): Promise<Response> {
   return fetch(
     url,
     body
       ? {
-          method: "POST",
+          method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         }
       : { headers: conditional ? etags.headers(url) : {}, cache: "no-store" },
   );
 }
-export async function api<T>(url: string, body?: object): Promise<T> {
+/** Zápis jde jako POST; `PATCH` jen tam, kde ho backend výslovně nabízí (přiřazení worktree k doméně). */
+export type WriteMethod = "POST" | "PATCH";
+export async function api<T>(url: string, body?: object, method: WriteMethod = "POST"): Promise<T> {
   if (body) await ensureHumanSession();
-  let response = await send(url, body);
+  let response = await send(url, body, true, method);
   if (response.status === 428 && body) {
     await ensureHumanSession(true);
-    response = await send(url, body);
+    response = await send(url, body, true, method);
   }
   // 304 = obsah se od posledního čtení nezměnil; bez uloženého těla se dotaz zopakuje bez podmínky.
   if (!body && response.status === 304) {
