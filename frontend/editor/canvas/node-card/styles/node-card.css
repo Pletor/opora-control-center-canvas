@@ -577,3 +577,64 @@
 .node-card__stage--current { outline: 1px solid var(--accent); outline-offset: 2px; }
 .node-card__stage--stuck { outline: 2px solid #f59e0b; outline-offset: 2px; }
 .node-card__stage--unrouted { --dot: var(--line-strong); background: var(--surface); border-style: dashed; }
+
+/* ŘÁDKY KARTY
+   Pod hlavičkou karty člověk čte seznam drobných řádků: kdo kartu drží, co ji blokuje,
+   jaké jsou kontroly a důkazy. Všechny mají stejný rytmus, 6px shora a zdola a 13px od
+   okraje, takže oko jde kartou dolů jako po seznamu a nezastavuje se na odsazení, které
+   by se řádek od řádku lišilo. Rozbalovací řádky (`fold`) mají stejný rám jako ploché,
+   rozdíl je jen v kurzoru na souhrnu. Barva nenese ozdobu, nese jen stav: zelená je
+   v pořádku, červená selhalo, šedá čeká, modrá se právě děje, oranžová chce člověka. */
+.node-card__row { padding: 6px 13px; font-size: 12px; }
+.node-card__row > p, .node-card__row > div, .node-card__row > progress { margin: 4px 0 0; }
+.node-card__row--muted { color: var(--ink-muted); }
+.node-card__row--live { color: #60a5fa; }
+.node-card__row--warn { border-left: 3px solid #f59e0b; }
+.node-card__row-title { font-weight: 700; }
+.node-card__row-title--muted { font-weight: 400; font-style: italic; color: var(--ink-muted); margin-right: 8px; }
+.node-card__row-note { display: block; margin-top: 4px; font-size: 11px; color: var(--ink-muted); }
+.node-card__row-note--warn { color: #f59e0b; }
+.node-card__row-note--ok { color: #22c55e; }
+.node-card__row-note--fail { color: #f87171; }
+.node-card__row-text { white-space: pre-wrap; margin: 0; }
+.node-card__fold { padding: 6px 13px; font-size: 12px; }
+.node-card__fold > summary { cursor: pointer; }
+.node-card__fold--proposal { opacity: 0.6; font-style: italic; }
+.node-card__scroll { max-height: 300px; overflow-y: auto; }
+.node-card__scroll--tall { max-height: 50vh; }
+.node-card__work { border-left: 3px solid #94a3b8; padding: 6px; margin: 8px 0; }
+.node-card__work--claimed { border-left-color: #60a5fa; }
+.node-card__work--waiting-human { border-left-color: #f59e0b; }
+.node-card__work--proposed { border-left-color: #4ade80; }
+.node-card__work--blocked { border-left-color: #f87171; }
+
+/* ČIPY SOUBORŮ A KONTROL
+   Soubory a kontroly se na kartě objeví jako drobné čipy vedle sebe: malé, neproporcionální
+   písmo značí strojový údaj (cesta, příkaz), rámeček je tichý. Stav čip jen obarví, aby
+   bylo na první pohled vidět, co prošlo, co spadlo a na co se ještě čeká. */
+.node-card__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.node-card__chip {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font: 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin-left: 4px;
+}
+.node-card__chips .node-card__chip { margin-left: 0; }
+.node-card__chip--ok { color: #22c55e; border-color: #22c55e; }
+.node-card__chip--fail { color: #f87171; border-color: #f87171; }
+.node-card__chip--wait { color: #94a3b8; }
+
+/* PRUH STAVŮ A POSTUP
+   Sektor ukazuje svůj stav jako tenký pruh rozdělený podle počtu karet v každém stavu:
+   kdo se podívá, vidí poměr hotového, rozdělaného a blokovaného bez čtení čísel. Šířku dílu
+   dodává proměnná `--w`, jediná hodnota, která se při vykreslení mění, zbytek je v třídách. */
+.node-card__bar { display: flex; height: 7px; }
+.node-card__bar-part { width: var(--w); background: #94a3b8; }
+.node-card__bar-part--claimed { background: #60a5fa; }
+.node-card__bar-part--waiting-human { background: #f59e0b; }
+.node-card__bar-part--proposed { background: #4ade80; }
+.node-card__bar-part--done { background: #22c55e; }
+.node-card__bar-part--blocked { background: #f87171; }
+.node-card__progress { width: 100%; height: 6px; accent-color: var(--accent); }

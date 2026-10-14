@@ -3,6 +3,7 @@ import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/log
 import DetailFold from "./DetailFold";
 import ResultHistory from "@/editor/llm-control/editor-context/components/ResultHistory";
 import NodeSpecEditor from "@/editor/node-detail/assignment/components/NodeSpecEditor";
+import SectorDecompose from "@/editor/sector-detail/components/SectorDecompose";
 import NodeTextEditor from "@/editor/node-detail/content/components/NodeTextEditor";
 import AgentWorkspace from "@/editor/node-detail/agent-workspace/components/AgentWorkspace";
 import NodeLinksPanel from "@/editor/node-detail/links/components/NodeLinksPanel";
@@ -59,6 +60,7 @@ export default function NodePanel({
   onOpenVault,
   round,
   onOpenRound,
+  childCount = 0,
 }: {
   node: CanvasNode;
   project: string;
@@ -102,6 +104,8 @@ export default function NodePanel({
   round?: CardRound;
   /** Člověk otevře uzavřenou kartu jako nové kolo; zapisuje rodič (App) přes POST /api/desktop-v3/card-round. */
   onOpenRound?: (reason: string) => Promise<void>;
+  /** Počet karet (`kind: "node"`) přímo v sektoru; spočítá rodič z grafu, čte ho jen rozklad sektoru. */
+  childCount?: number;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   const [confirmed, setConfirmed] = useState(false);
@@ -181,6 +185,9 @@ export default function NodePanel({
         <section role="tabpanel" id="node-panel-spec" aria-labelledby="node-tab-spec" hidden={tab !== "spec"}>
           <BriefChips refs={fragmentRefs} index={vaultIndex} onOpen={onOpenVault ? openFragment : undefined} />
           <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
+          {node.kind === "sector" && (
+            <SectorDecompose project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} purpose={node.purpose} cards={childCount} />
+          )}
           <DetailFold title="Účel komponenty">
           <p className="muted">Dlouhodobý smysl této části. Konkrétní práci určuje zadání výše.</p>
           <label className="field">

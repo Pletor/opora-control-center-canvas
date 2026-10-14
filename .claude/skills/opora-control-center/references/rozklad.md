@@ -1,7 +1,9 @@
-# Rozkladač: oblast → sektory jednou dávkou
+# Rozkladač: oblast → sektory, sektor → karty, vždy jednou dávkou
 
 Kdy mě číst: člověk ti předal zadání „Jsi rozkladač oblasti“ (tlačítko „Kopírovat zadání“ v inspektoru
-oblasti, oddíl „Rozložit na sektory“), nebo máš ze záměru oblasti navrhnout její sektory. Autorita pro
+oblasti, oddíl „Rozložit na sektory“), nebo „Jsi rozkladač sektoru“ (inspektor sektoru, záložka Zadání,
+oddíl „Rozložit na karty“; čti hlavně [Sektor → karty](#sektor--karty)), nebo máš ze záměru oblasti
+navrhnout sektory či z cíle sektoru karty. Autorita pro
 tvar dávky, typy polí a limity je [canvas-plan.md](canvas-plan.md); tady je jen to, co dělá rozklad jinak.
 Proč to tak je: `docs/pyramida.md` §1 a §3 (člověk píše záměr oblasti a potvrzuje dávku sektorů jedním
 rozhodnutím; karty a bloky píše agent).
@@ -120,5 +122,76 @@ zatím není složka (v náhledu to napiš jednou větou).
                "acceptance": "- Každá akceptační podmínka sektoru Souhrn dokumentu má doložený důkaz."}}
    ],
    "edges": []
+ }}
+```
+
+## Sektor → karty
+
+Stejný postup o patro níž: z potvrzeného sektoru navrhneš jeho karty jednou dávkou. Platí všechno výše
+o citovaných datech, pokrytí, schválení celé verze, vazbě souhlasu na soubor a digest, blokacích jedním
+souhrnem a zákazu zavádět nedoložené produktové volby; liší se jen vstupy, laťka a počty.
+
+**Vstupy.** Cíl, mimo rozsah, akceptace, pravidla a rámec sektoru: `opora_read.py node-brief --node <sektor> --raw`
+(`goal`, `boundaries`, `graph`); profil projektu tamtéž v `context.project.settings`. Brána sektoru:
+`gateNodeId` uzlu sektoru ve `view --raw`. Existující karty: uzly s `parentId` = sektor ve `view --raw`,
+jejich cíl a akceptace z `node-spec --node ID --raw`. Název, podstata a počet karet v zadání jsou jen kopie;
+liší-li se od `view`, blokace. Mapa kódu a `find` jako u oblasti, tady hlavně pro `sourceRef` karet.
+
+**Pokrytí.** Rozepiš akceptaci sektoru na podmínky a porovnej je s cílem a akceptací existujících karet.
+Navrhuj jen nepokrytou část: **1–9 karet, obvykle 3–7**. Když nic nechybí, vrať souhrn (která karta
+pokrývá kterou podmínku), ne dávku. Víc než 9 karet = sektor je ve skutečnosti dva: řekni to v souhrnu.
+
+**Laťka karty** je v [workflow.md](workflow.md) „Laťka karty“ (text, spec, bloky, porty, vazby, `sourceRef`,
+pravidla); tady jen to, co rozklad sektoru navíc hlídá:
+
+- `parent: "@<id sektoru>"`; typ karty předponou `[task]`, `[research]` nebo `[prototype]`. Novou `[gate]` nezakládej.
+- `purpose` (proč karta existuje) a `spec {goal, non_goals, acceptance}`; `acceptance` jeden řetězec s odrážkami.
+- Bloky: jeden na ověřitelnou podmínku, každý s `condition` a porty pro výsledky, které ovlivní jinou kartu.
+- `sourceRef` podle pravidel ve [workflow.md](workflow.md) (karta s `existing` potřebuje sektor s `existing` a cestu pod ním).
+- `checks` (+ `goal_mode: "until_checks_pass"`) u karty, kterou ověřují testy projektu; po vytvoření je mění jen člověk.
+- Vazby: `next` pro hlavní linku, `block` z portu na kartu, kterou výsledek ovlivní, a každá koncová karta
+  vede `next` na existující kartu `[gate]` sektoru (`"to": "@<gateNodeId>"`). Kartu `[gate]`, existující
+  karty ani `gateNodeId` sektoru neměň.
+- Proces (etapy) kartám neurčuješ: po zápisu ho určí router (viz [pipeline.md](pipeline.md)).
+
+**Schválení.** Ke schválení ukaž celou dávku: u každé karty název, účel, cíl, akceptaci, bloky s porty a
+vazby (včetně té na `[gate]`), plus které existující karty pokrývají zbytek akceptace sektoru.
+
+### Ukázková dávka sektoru (ilustrační)
+
+**Obsah je jen ilustrační** (tvar dávky, ne vzor produktových rozhodnutí): sektor `@SECTOR_ID` „Příjem
+dokumentu“ s existující kartou brány `@GATE_ID`. Obě karty mají `sourceRef` `planned` bez cesty, protože
+ilustrační sektor nemá ověřenou složku; ve skutečné dávce cestu ověř. Příkaz v `checks` je smyšlený.
+
+```json
+{"digest": "DIGEST",
+ "plan": {
+   "nodes": [
+     {"ref": "nahrani", "kind": "node", "parent": "@SECTOR_ID", "name": "[task] Nahrání dokumentu",
+      "purpose": "Dokument se dostane do aplikace a uloží se.",
+      "sourceRef": {"origin": "planned", "path": "", "kind": "directory"},
+      "checks": [{"id": "unit", "command": "uv run pytest backend/ingest"}], "goal_mode": "until_checks_pass",
+      "spec": {"goal": "Nahraný dokument je uložený a dostupný ke zpracování.",
+               "non_goals": "Kontrolu formátu řeší karta Kontrola vstupu.",
+               "acceptance": "- Nahraný dokument je po nahrání dostupný ke zpracování.\n- Test nahrání projde."},
+      "blocks": [{"ref": "ulozeni", "title": "Uložení dokumentu", "text": "Dokument se uloží i s metadaty.",
+                  "condition": "Uložený dokument jde načíst zpět beze změny.",
+                  "ports": [{"ref": "ok", "label": "Uloženo → kontrola vstupu"}]}]},
+     {"ref": "kontrola", "kind": "node", "parent": "@SECTOR_ID", "name": "[task] Kontrola vstupu",
+      "purpose": "Nepodporovaný vstup se zastaví dřív, než se zpracuje.",
+      "sourceRef": {"origin": "planned", "path": "", "kind": "directory"},
+      "spec": {"goal": "Nepodporovaný vstup vrátí srozumitelnou chybu.",
+               "non_goals": "Samotné uložení řeší karta Nahrání dokumentu.",
+               "acceptance": "- Nepodporovaný vstup vrátí srozumitelnou chybu.\n- Podporovaný vstup projde dál beze změny."},
+      "blocks": [{"ref": "format", "title": "Podporované vstupy", "text": "Seznam podporovaných vstupů a chybová hláška.",
+                  "condition": "Každý podporovaný i nepodporovaný vstup má test.",
+                  "ports": [{"ref": "ok", "label": "Splněno → brána sektoru"}]}]}
+   ],
+   "edges": [
+     {"from": "nahrani", "to": "kontrola", "port": "block", "block": "ulozeni", "blockPort": "ok"},
+     {"from": "nahrani", "to": "kontrola", "port": "next"},
+     {"from": "kontrola", "to": "@GATE_ID", "port": "next"},
+     {"from": "kontrola", "to": "@GATE_ID", "port": "block", "block": "format", "blockPort": "ok"}
+   ]
  }}
 ```

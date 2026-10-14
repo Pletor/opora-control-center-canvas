@@ -90,8 +90,9 @@ brána = jedna podmínka, pravidla jen ta, která se liší od projektu.
 | Krok | Stav 2026-10-15 |
 |---|---|
 | kuličky procesu na kartě | hotovo (c42a92f) |
-| smazání nepoužívaných formulářů karty | probíhá (R1) |
-| velín místo módu Mapa | probíhá (V1) |
-| záměr oblasti jako první věc v inspektoru a na rámečku, souhrn sektorů v oblasti | další kus (A1) |
+| smazání nepoužívaných formulářů karty | hotovo (7465a5a) |
+| velín místo módu Mapa | hotovo (7465a5a) |
+| záměr oblasti jako první věc v inspektoru a na rámečku, souhrn sektorů v oblasti, „Rozložit na sektory“ | hotovo (7465a5a) |
 | shrnutí podnětů sektoru jako jedno rozhodnutí | návrh, nestaví se dnes |
-| role rozkladač ve skillu (reference) | další kus (A1) |
+| role rozkladač ve skillu (`references/rozklad.md`) | hotovo (7465a5a) |
+| sektor → karty: „Rozložit na karty“ v inspektoru sektoru, oddíl v rozklad.md | hotovo |

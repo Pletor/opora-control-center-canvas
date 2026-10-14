@@ -10,7 +10,7 @@ it("counts down using server time and clamps expired ownership to zero", () => {
   const html = renderToStaticMarkup(createElement(CardLease, { lease: { ...lease, expiresAt: 0 } }));
   expect(html).toContain("Agent A");
   expect(html).toContain("převzetí vypršelo");
-  expect(html).toContain("#94a3b8");
+  expect(html).toContain("node-card__row--muted");
 });
 
 it("offers the human a release button only when a release callback is wired", () => {

@@ -1333,6 +1333,7 @@ export default function App() {
                 onWorkspace={() => open("workspace")}
                 onOpenNode={openNode}
                 graphNodes={linkTargets}
+                childCount={node.kind === "sector" ? graph.nodes.filter((child) => child.parentId === node.id && child.kind === "node").length : 0}
                 done={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).done}
                 onDone={(patch) => { void desktop.mutate(setDone(node.id, patch)); }}
                 ideas={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).ideas ?? []}

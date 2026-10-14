@@ -7,10 +7,10 @@ export type SectorProposal = { id: string; name: string; note: string; readiness
 export const selectableIds = (proposals: SectorProposal[]) =>
   proposals.filter(p => p.readiness && batchConfirmable(p.readiness)).map(p => p.id);
 
-function evidenceStatus(readiness?: EvidenceReadiness): { text: string; color: string } {
-  if (!readiness || !readiness.ready) return { text: readiness ? missingLabel(readiness) : "důkazy neznámé", color: "#b45309" };
-  if (readiness.notApplicable.length) return { text: `obsahuje N/A: ${readiness.notApplicable.join(", ")} · potvrďte jednotlivě`, color: "#b45309" };
-  return { text: "důkazy deklarovány", color: "#16a34a" };
+function evidenceStatus(readiness?: EvidenceReadiness): { text: string; ok: boolean } {
+  if (!readiness || !readiness.ready) return { text: readiness ? missingLabel(readiness) : "důkazy neznámé", ok: false };
+  if (readiness.notApplicable.length) return { text: `obsahuje N/A: ${readiness.notApplicable.join(", ")} · potvrďte jednotlivě`, ok: false };
+  return { text: "důkazy deklarovány", ok: true };
 }
 
 export default function ConfirmSectorProposals({ proposals, disabled, confirm }: {
@@ -32,16 +32,16 @@ export default function ConfirmSectorProposals({ proposals, disabled, confirm }:
   return <details className="nodrag nopan board-bar__pop">
     <summary className={"board-bar__chip" + (proposals.length ? " board-bar__chip--on" : "")}>Ke schválení: {proposals.length}</summary>
     <div className="board-bar__panel">
-    <div style={{ maxHeight: 300, overflowY: "auto" }}>
+    <div className="node-card__scroll">
       {proposals.map(p => {
         const status = evidenceStatus(p.readiness);
         const ok = allowed.includes(p.id);
-        return <label key={p.id} style={{ display: "block" }} title={ok ? p.note : `${status.text}. Kartu potvrďte jednotlivě.`}>
+        return <label key={p.id} className="node-card__row-note" title={ok ? p.note : `${status.text}. Kartu potvrďte jednotlivě.`}>
           <input type="checkbox" checked={ok && !excluded.includes(p.id)} disabled={!ok || busy || disabled || saved}
             onChange={event => setExcluded(value => event.target.checked ? value.filter(id => id !== p.id) : [...value, p.id])} />
           {p.name}
-          <small style={{ display: "block", color: status.color }}>{status.text}</small>
-          {p.note && <small style={{ display: "block" }}>{p.note}</small>}
+          <small className={`node-card__row-note node-card__row-note--${status.ok ? "ok" : "warn"}`}>{status.text}</small>
+          {p.note && <small className="node-card__row-note">{p.note}</small>}
         </label>;
       })}
     </div>

@@ -53,5 +53,6 @@ ani neupravují; commit obsahuje jen soubory této relace (`git add` po cestách
 | 23:55 | zadání člověka: pyramida, velín, mazat nepoužívané → měření na živých datech, `docs/pyramida.md` | hotovo |
 | 00:05 | M1 přehled komunit + lehká mapa (b3480c1); Hermes kritik k `rizeni-vyvoje-z-karty.md` 10 nálezů → §7 | hotovo |
 | 00:30 | R1 mazání (panel Postup/kritéria/kroky, fáze, scénář, fakta, design, stahování, procesy) + sirotci ProjectMemoryPanel a AgentPacketPanel (sloty v3 bez montáže) | hotovo, čeká na commit |
-| 00:35 | V1 Velín v módu Mapa; kritik ChatGPT 6 nálezů (hloubka, chybějící work overview, O(A·R·N), fronta nad 50, klíč oblasti, popisky) → opravy | běží |
-| 00:40 | A1 záměr oblasti na rámečku + inspektor + „Rozložit na sektory“ + `references/rozklad.md` (odkaz v SKILL.md, test skill docs 5/5); kritik Hermes | běží |
+| 00:35 | V1 Velín v módu Mapa; kritik ChatGPT 6 nálezů (hloubka, chybějící work overview, O(A·R·N), fronta nad 50, klíč oblasti, popisky) → opravy | hotovo |
+| 00:40 | A1 záměr oblasti na rámečku + inspektor + „Rozložit na sektory“ + `references/rozklad.md` (odkaz v SKILL.md, test skill docs 5/5); kritik Hermes 8 nálezů → opraveno; commit 7465a5a | hotovo |
+| 01:20 | S1 sektor → karty (rozklad, ukázky ověřené proti backendu), D2 karta bez inline stylů (řádky 6/13, čipy, pruhy) | hotovo |

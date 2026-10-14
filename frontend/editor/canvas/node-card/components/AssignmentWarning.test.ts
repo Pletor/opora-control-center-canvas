@@ -9,5 +9,5 @@ it("offers comparison on the canvas for a captured handoff", () => {
   }));
   expect(html).toContain("Zadání se změnilo");
   expect(html).toContain("porovnat");
-  expect(html).toContain("#fef3c7");
+  expect(html).toContain("node-card__row--warn");
 });

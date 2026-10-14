@@ -17,7 +17,7 @@ export default function AssignmentWarning({ project, workspace, nodeId, resultId
     } catch (e) { setError(String(e)); }
     finally { setBusy(false); }
   }
-  return <div className="nodrag nopan" style={{ padding: "6px 12px", background: "#fef3c7", color: "#78350f" }}>
+  return <div className="nodrag nopan node-card__row node-card__row--warn">
     <button type="button" onClick={() => void load()} disabled={busy}>⚠ Zadání se změnilo · porovnat</button>
     {error && <p role="alert">{error}</p>}
     {comparison && <SpecificationDiff {...comparison} />}

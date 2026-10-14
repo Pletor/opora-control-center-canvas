@@ -4,16 +4,15 @@ export type CompletionEvidence = { tests: Proof; review: Proof; merge: Proof;
   checksRun: { checkId: string; command: string; exitCode: number; logUrl: string; at: string }[] };
 
 export default function CardEvidence({ evidence, autonomous }: { evidence?: CompletionEvidence; autonomous?: boolean }) {
-  return <details className="nodrag nopan" style={{ padding: "6px 12px" }}>
-    <summary>{autonomous && <strong>✓ 🤖 Uzavřel agent · </strong>}
-      <span title="Důkazy hlásí agent nebo člověk; server je nespouští ani neověřuje." style={{ marginRight: 8, fontStyle: "italic", color: "#64748b" }}>deklarováno:</span>
+  return <details className="nodrag nopan node-card__fold">
+    <summary>{autonomous && <strong className="node-card__row-title">✓ Uzavřel agent · </strong>}
+      <span className="node-card__row-title node-card__row-title--muted" title="Důkazy hlásí agent nebo člověk; server je nespouští ani neověřuje.">deklarováno:</span>
       {(["tests", "review", "merge"] as const).map(kind => {
       const proof = evidence?.[kind];
       // Testy lze doložit i lokálním během bez odkazu (checksRun s exit 0), stejně jako na serveru.
       const localRun = kind === "tests" && !!evidence?.checksRun.length && evidence.checksRun.every(run => run.exitCode === 0);
       const passed = proof?.status === "passed" && (safeLinkUrl(proof.url) || localRun);
-      return <span key={kind} title={proof ? `${proof.note || kind} · deklarováno, neověřeno serverem` : "Důkaz nedoložen"} style={{ marginRight: 8,
-        color: passed ? "#16a34a" : proof?.status === "failed" ? "#dc2626" : "#64748b" }}>
+      return <span key={kind} className={`node-card__chip node-card__chip--${passed ? "ok" : proof?.status === "failed" ? "fail" : "wait"}`} title={proof ? `${proof.note || kind} · deklarováno, neověřeno serverem` : "Důkaz nedoložen"}>
         {passed ? "✓" : proof?.status === "failed" ? "✗" : "○"} {kind === "tests" ? "Testy" : kind === "review" ? "Review" : "Merge"}
       </span>;
     })}</summary>

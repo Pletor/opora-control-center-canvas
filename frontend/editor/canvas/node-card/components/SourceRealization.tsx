@@ -15,7 +15,7 @@ export default function SourceRealization({ nodeId, value, status, disabled, mer
   const dirty = commit !== (value?.commit ?? "") || prUrl !== (value?.prUrl ?? "");
   useScopedSaveParticipant({ id: `source-realization:${nodeId}`, label: "Ověření výstupu", dirty,
     blocked: "Dokončete ověření výstupu nebo zrušte rozepsanou stopu commitu/PR." });
-  return <details className="nodrag nopan" style={{ padding: "6px 12px" }}>
+  return <details className="nodrag nopan node-card__fold">
     <summary>{status?.status === "missing" ? "⚠ Cesta chybí · " : status?.status === "present" ? "✓ Cesta existuje · " : "Cesta neověřena · "}
       {value ? `Commit/PR ${value.commit ? value.commit.slice(0, 10) : ""}` : "Ověřit výstup po merge"}</summary>
     {value && <p>{value.commit && <code>{value.commit}</code>} {value.prUrl && safeLinkUrl(value.prUrl) && <a href={value.prUrl} target="_blank" rel="noopener noreferrer">PR</a>} · Ověření disku {value.verifiedAt}</p>}

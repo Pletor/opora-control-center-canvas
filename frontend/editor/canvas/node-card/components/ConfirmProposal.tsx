@@ -20,12 +20,12 @@ export default function ConfirmProposal({ disabled, confirm, note, readiness, se
   }
   const shown = error || (failed ? serverError || "Potvrzení se nepodařilo uložit. Obnovte stav karty." : "");
   const missing = readiness && blocked ? missingLabel(readiness) : "";
-  return <div className="nodrag nopan" style={{ padding: "6px 12px" }}>
+  return <div className="nodrag nopan node-card__row">
     <button type="button" disabled={disabled || busy || blocked}
       title={missing ? `Nelze potvrdit, ${missing}` : note || "Potvrdit návrh agenta jako člověk"}
       onClick={event => { event.stopPropagation(); void save(); }}>✓ {busy ? "Ukládám…" : "Potvrdit"}</button>
-    {missing && <small style={{ display: "block", color: "#b45309" }} title="Doplňte důkazy v editoru důkazů karty; server bez nich uzavření odmítne.">{missing}</small>}
-    {note && <small style={{ display: "block" }}>{note}</small>}
+    {missing && <small className="node-card__row-note node-card__row-note--warn" title="Doplňte důkazy v editoru důkazů karty; server bez nich uzavření odmítne.">{missing}</small>}
+    {note && <small className="node-card__row-note">{note}</small>}
     {shown && <p role="alert">{shown}</p>}
   </div>;
 }

@@ -129,7 +129,7 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
       <CardBody id={id} name={view.name} purpose={view.purpose} rename={{ ...on.rename, editing: data.rename.editing }} />
       {data.process && <CardProcess view={data.process} detail={full ? "full" : "far"} kind={view.kind} />}
       {full && data.checklist && <CardChecklist items={data.checklist} />}
-      {selected && data.work && <details className="nodrag nopan" style={{ padding: "6px 12px" }}><summary>{data.work.status === "claimed" ? "🔵 " : data.work.status === "done" ? "✓ " : ""}{workLabels[data.work.status]}{data.work.status === "claimed" ? ` · ${data.work.agent}` : ""}</summary><WorkDetails row={data.work} /></details>}
+      {selected && data.work && <details className="nodrag nopan node-card__fold"><summary>{data.work.status === "claimed" ? "● " : data.work.status === "done" ? "✓ " : ""}{workLabels[data.work.status]}{data.work.status === "claimed" ? ` · ${data.work.agent}` : ""}</summary><WorkDetails row={data.work} /></details>}
       {full && data.workCounts && <WorkProgress counts={data.workCounts} />}
       {/* Podrobnosti (kontroly, důkazy, vychází z, zdroj, pravidla) má nevybraná karta v kontrolním pásu;
           rozepsané jsou u vybrané karty a v panelu detailu. */}
@@ -138,7 +138,7 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
       {selected && data.saveEvidence && <div className="nodrag nopan"><EvidenceEditor nodeId={id} evidence={data.evidence} disabled={blocks.disabled} save={on.saveEvidence} /></div>}
       {full && data.sectorProgress && <SectorProgress value={data.sectorProgress} />}
       {full && view.doneProposed && data.completion && <ConfirmProposal confirm={on.confirm} note={data.completion.note} readiness={data.completion.readiness} serverError={data.completion.error} disabled={blocks.disabled} />}
-      {full && view.kind === "sector" && !!data.completion?.pending && <div style={{ padding: "6px 12px" }}>Ke schválení: {data.completion.pending}</div>}
+      {full && view.kind === "sector" && !!data.completion?.pending && <div className="node-card__row">Ke schválení: {data.completion.pending}</div>}
       {full && data.lease && <CardLease lease={data.lease} release={data.releaseLease ? on.release : undefined} />}
       {/* Stav frontier a práce nese barva rámečku; vypsané důvody jen u vybrané karty. */}
       {selected && data.frontier && <CardFrontier item={data.frontier} />}

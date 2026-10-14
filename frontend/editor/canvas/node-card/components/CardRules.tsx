@@ -24,7 +24,7 @@ export default function CardRules({ rules, disabled, write, review }: {
     {rules.map((rule) => {
       const proposal = isAgentRule(rule);
       const label = `${rule.kind === "must" ? "Pravidlo" : "Zákaz"}${proposal ? ` (${AGENT_RULE_LABEL})` : ""}: ${rule.text}`;
-      return <details key={rule.id} style={proposal ? { opacity: 0.6, fontStyle: "italic" } : undefined}>
+      return <details key={rule.id} className={proposal ? "node-card__fold--proposal" : undefined}>
         <summary title={proposal ? `🤖 ${AGENT_RULE_LABEL} · ${rule.text}` : rule.text} aria-label={label}>
           {proposal && "🤖 "}{rule.kind === "must" ? "✓" : "⊘"}
         </summary>
