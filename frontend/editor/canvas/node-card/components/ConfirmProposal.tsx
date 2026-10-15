@@ -24,7 +24,7 @@ export default function ConfirmProposal({ disabled, confirm, note, readiness, se
     <button type="button" disabled={disabled || busy || blocked}
       title={missing ? `Nelze potvrdit, ${missing}` : note || "Potvrdit návrh agenta jako člověk"}
       onClick={event => { event.stopPropagation(); void save(); }}>✓ {busy ? "Ukládám…" : "Potvrdit"}</button>
-    {missing && <small className="node-card__row-note node-card__row-note--warn" title="Doplňte důkazy v editoru důkazů karty; server bez nich uzavření odmítne.">{missing}</small>}
+    {missing && <small className="node-card__row-note node-card__row-note--warn" title="Důkazy hlásí agent přes agent-output.evidence; server bez nich uzavření odmítne.">{missing}</small>}
     {note && <small className="node-card__row-note">{note}</small>}
     {shown && <p role="alert">{shown}</p>}
   </div>;

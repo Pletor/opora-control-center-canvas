@@ -472,13 +472,14 @@
    jednou větou, kuličky samotné jsou pro ni skryté. Řada se nezalamuje, aby spojnice seděla pod kuličkami. */
 .node-card__process {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   padding: 3px 13px 5px;
   font-size: 11px;
   color: var(--ink-muted);
 }
-.node-card__process--far { padding: 2px 13px 3px; }
+.node-card__process--far { flex-wrap: nowrap; padding: 2px 13px 3px; }
 .node-card__process-profile {
   padding: 1px 6px;
   border: 1px solid var(--line-strong);
@@ -509,8 +510,7 @@
   top: 50%;
   border-top: 1px solid var(--line-strong);
 }
-.node-card__process-count { margin-left: auto; white-space: nowrap; }
-.node-card__process-proposed { white-space: nowrap; font-style: italic; }
+.node-card__process-count { white-space: nowrap; }
 .node-card__process-sr {
   position: absolute;
   width: 1px;
@@ -519,13 +519,112 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-.node-card__process-human {
-  padding: 1px 6px;
-  border: 1px solid #f59e0b;
-  border-radius: 999px;
-  color: #f59e0b;
+
+/* SLOTY DOKLADŮ: za kuličkami stojí vždy čtyři čtverečky na stejných místech, Testy · Security · Review · Merge
+   (docs/proces-karty.md §2). Čtverec, ne kulička, aby se doklad nepletl s etapou: etapa říká, kdo pracoval,
+   slot říká, co je doložené. Výplň vypráví skutečný stav: prázdný obrys nedoloženo, poloviční výplň
+   „deklarováno bez dokladu“ (agent napsal prošlo, ale odkaz ani běh kontroly nejsou), plný doloženo, plný
+   červený s křížkem selhalo, čárkovaný nevztahuje se, pulsující běží. Popisek je drobný a tlumený, z dálky
+   zůstanou jen čtverečky. Zblízka stojí sloty na vlastním řádku pod kuličkami (řada třinácti etap by je jinak
+   vytlačila), z dálky sedí za kuličkami u pravého kraje, oddělené tenkou svislou linkou. */
+.node-card__proofs {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0 0 4px;
+}
+.node-card__process--far .node-card__proofs { flex: none; gap: 4px; margin-left: auto; padding: 0 0 0 5px; border-left: 1px solid var(--line-strong); }
+.node-card__proof {
+  --slot: var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
+.node-card__proof-box {
+  position: relative;
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--slot);
+  border-radius: 2px;
+  background: var(--surface);
+}
+.node-card__process--far .node-card__proof-box { width: 6px; height: 6px; border-width: 1px; }
+.node-card__proof--proven { --slot: #22c55e; color: var(--ink-2); }
+.node-card__proof--proven .node-card__proof-box { background: var(--slot); }
+.node-card__proof--declared { --slot: #22c55e; }
+.node-card__proof--declared .node-card__proof-box { background: linear-gradient(90deg, var(--slot) 50%, var(--surface) 50%); }
+.node-card__proof--failed { --slot: #ef4444; color: #f87171; }
+.node-card__proof--failed .node-card__proof-box { background: var(--slot); }
+.node-card__proof--failed .node-card__proof-box::after {
+  content: "×";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--surface);
+}
+.node-card__process--far .node-card__proof--failed .node-card__proof-box::after { content: none; }
+.node-card__proof--na .node-card__proof-box { border-style: dashed; opacity: 0.7; }
+.node-card__proof--running { --slot: #60a5fa; }
+.node-card__proof--running .node-card__proof-box::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1.5px solid var(--slot);
+  border-radius: 3px;
+  animation: node-card-stage-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .node-card__proof--running .node-card__proof-box::before { animation: none; opacity: 0.6; } }
+.node-card__proof--security.node-card__proof--proven { --slot: var(--cat-security); }
+.node-card__proof--security.node-card__proof--running { --slot: var(--cat-security); }
+
+/* STAVOVÁ VĚTA: pod procesem je vždy právě jedna věta o tom, co se s kartou děje (docs/proces-karty.md §3):
+   značka a barva nesou tón (zelená hotovo, jantar čeká na člověka, červená blokováno, modrá pracuje, tlumená
+   klid), za větou tišší detail (otázka, kdo blokuje, doba práce) ořízlý na jeden řádek. Když agent navrhl
+   uzavření, věta nese tlačítko Potvrdit, aby rozhodnutí člověka bylo na jednom místě a ne v dalším řádku. */
+.node-card__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 2px 13px 6px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.node-card__state-mark { flex: none; }
+.node-card__state-text { font-weight: 700; color: var(--ink-2); }
+.node-card__state-detail { min-width: 0; flex: 1 1 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-card__state--ok .node-card__state-mark, .node-card__state--ok .node-card__state-text { color: #22c55e; }
+.node-card__state--warn .node-card__state-mark, .node-card__state--warn .node-card__state-text { color: #f59e0b; }
+.node-card__state--fail .node-card__state-mark, .node-card__state--fail .node-card__state-text { color: #f87171; }
+.node-card__state--run .node-card__state-mark, .node-card__state--run .node-card__state-text { color: #60a5fa; }
+.node-card__state > .node-card__row { flex-basis: 100%; padding: 0; }
+/* Z dálky zůstane z věty jen jantarová značka „potřebuje tebe“ v pravém horním rohu, aby řízení shora nepřišlo o signál. */
+.node-card__state-far { position: absolute; top: 4px; right: 26px; font-size: 12px; color: #f59e0b; }
+
+/* PODROBNOSTI: vybraná karta má pod bloky jeden fold se vším, co dřív stálo jako samostatné řádky
+   (doklady s odkazy, běhy kontrol, kdo kartu drží, proč stojí, z čeho vychází, pravidla, zdroj, realizace).
+   Oddíly jdou v pevném pořadí s drobným nadpisem, aby člověk hledal vždy na stejném místě. */
+.node-card__details { border-top: 1px dashed var(--line-strong); }
+.node-card__section { margin: 8px 0 0; }
+.node-card__section-title {
+  margin: 0 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.node-card__evidence p { margin: 3px 0 0; }
 
 .node-card__stage {
   --dot: var(--accent);

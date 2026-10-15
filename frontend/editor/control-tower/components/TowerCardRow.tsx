@@ -14,7 +14,7 @@ export default function TowerCardRow({ card, onOpenNode }: { card: TowerCard; on
       <button type="button" className="tower-card__open" onClick={() => onOpenNode(card.id)} title={card.purpose || card.name}>
         <span className="tower-card__name">{card.name}</span>
         <span className={"tower-card__status tower-card__status--" + (unknown ? "unknown" : cardBucket(card))}>{label}</span>
-        {card.process && <span className="tower-card__process"><CardProcess view={card.process} detail="far" kind="node" /></span>}
+        {card.process && <span className="tower-card__process"><CardProcess view={card.process} detail="far" /></span>}
         {card.ideas > 0 && <span className="tower-card__ideas">{card.ideas} {ideasWord(card.ideas)}</span>}
       </button>
     </li>

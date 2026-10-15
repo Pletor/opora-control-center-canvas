@@ -49,7 +49,6 @@ export function useBoardActions(props: BoardActionProps): CardActions {
     resizeArea: (id, w, h) => latest.current.onAreaResize(id, w, h),
     togglePort: (id, port) => { if (!latest.current.disabled) latest.current.onTogglePort(id, port); },
     cardBlock: (id, event) => latest.current.onCardBlock(id, event),
-    saveEvidence: (id, value) => latest.current.onSaveEvidence?.(id, value) ?? Promise.resolve(false),
     confirm: (id) => latest.current.onConfirmProposal?.(id) ?? Promise.resolve(false),
     realize: (id, commit, prUrl) => latest.current.onRealizeSource?.(id, commit, prUrl) ?? Promise.resolve(),
     releaseLease: (id) => {

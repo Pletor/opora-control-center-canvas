@@ -43,11 +43,12 @@ Pravidla pyramidy:
 |---|---|---|
 | Oblast | dashovaný rámeček s názvem a barvou; záměr v inspektoru | pásmo s názvem, záměrem na jeden řádek, pruhem stavů jejích sektorů |
 | Sektor | zlatá karta: název, podstata, souhrn (hotovo / celkem, brána, blokuje) | dlaždice: název, účel, pruh stavů, počet karet / běží / selhalo / čeká, „Vstoupit“ |
-| Karta | karta: název, podstata, **kuličky procesu**, kontrolní pás, bloky s porty | řádek: název, stav práce, kuličky z dálky, počet podnětů |
+| Karta | karta: název, podstata, **kuličky procesu + sloty dokladů + stavová věta** (`docs/proces-karty.md`), kontrolní pás, bloky s porty, fold Podrobnosti | řádek: název, stav práce, kuličky a sloty z dálky, počet podnětů |
 | Fronta | — | „Čeká na tebe (N)“: ke schválení, uvízlo, otázka; seskupeno podle sektoru |
 
 Mnemotechnika je stejná všude: zelená = hotovo, modrá = pracuje, jantar = čeká na člověka, červená = selhalo
-nebo blokováno, šedá = čeká; kulička procesu: barva = kdo, výplň = jak dopadl, kroužek = kde proces stojí.
+nebo blokováno, šedá = čeká; kulička procesu: barva = kdo, výplň = jak dopadl, kroužek = kde proces stojí;
+čtvereček dokladu: prázdný nedoloženo, poloviční deklarováno, plný doloženo, křížek selhalo.
 
 ## 3. Rozpad oblasti → sektory (další úroveň, kterou stavíme)
 
@@ -80,7 +81,7 @@ brána = jedna podmínka, pravidla jen ta, která se liší od projektu.
 |---|---|
 | Oblast, členství podle polohy | `frontend/editor/canvas/area/`, `backend/canvas/areas.py` |
 | Sektor, brána, souhrn | `frontend/editor/canvas/node-card/logic/sector-status.ts`, `backend/editor/agent_packet/sector_status.py` |
-| Kuličky procesu | `frontend/editor/canvas/node-card/logic/card-process.ts`, `components/CardProcess.tsx` |
+| Kuličky procesu, sloty dokladů, stavová věta | `frontend/editor/canvas/node-card/logic/card-process.ts`, `card-proofs.ts`, `card-state.ts`, `components/CardProcess.tsx`, `CardState.tsx`, `CardDetails.tsx` |
 | Velín | `frontend/editor/control-tower/` (mód „Velín“ v Editoru, dříve „Mapa“) |
 | Dávka rozpadu | `POST /api/canvas-plan` (`--dry-run` → digest → ostře), skill `references/canvas-plan.md` |
 | Větev shora dolů pro agenta | `backend/editor/agent_packet/node_brief.py` (`node.path`, `context.area`, `graph.parent`) |
@@ -90,6 +91,7 @@ brána = jedna podmínka, pravidla jen ta, která se liší od projektu.
 | Krok | Stav 2026-10-15 |
 |---|---|
 | kuličky procesu na kartě | hotovo (c42a92f) |
+| sloty dokladů Testy · Security · Review · Merge, stavová věta, fold Podrobnosti místo seznamu, editor důkazů pryč | hotovo (ranní směna 2026-10-15, `docs/proces-karty.md`) |
 | smazání nepoužívaných formulářů karty | hotovo (7465a5a) |
 | velín místo módu Mapa | hotovo (7465a5a) |
 | záměr oblasti jako první věc v inspektoru a na rámečku, souhrn sektorů v oblasti, „Rozložit na sektory“ | hotovo (7465a5a) |

@@ -32,7 +32,7 @@ it("labels evidence as declared, not server-verified, and accepts local test run
     checksRun: [{ checkId: "unit", command: "npm test", exitCode: 0, logUrl: "", at: "2026-10-07T12:00:00Z" }],
   };
   const html = renderToStaticMarkup(createElement(CardEvidence, { evidence }));
-  expect(html).toContain("deklarováno");
-  expect(html).toContain("neověřeno serverem");
+  expect(html).toContain("Deklarované důkazy");
+  expect(html).toContain("neověřuje");
   expect(html).toContain("node-card__chip--ok");
 });

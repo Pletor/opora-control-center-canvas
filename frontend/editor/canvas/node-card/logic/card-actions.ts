@@ -6,7 +6,6 @@ import { createContext, useContext } from "react";
 import type { BlockPortDef } from "@/shared/desktop-state/logic/types";
 import type { Rule } from "@/shared/desktop-state/logic/types";
 import type { RuleReviewDecision } from "@/shared/desktop-state/logic/agent-rule";
-import type { CompletionEvidence } from "@/editor/canvas/node-card/components/CardEvidence";
 import type { BlockPort } from "@/editor/canvas/node-card/components/CardPorts";
 
 /** Změna bloku nebo portu v kartě; tvar sdílí Board (`CardBlockEvent`) i App. */
@@ -34,7 +33,6 @@ export type CardActions = {
   resizeArea: (id: string, w: number, h: number) => void;
   togglePort: (id: string, port: BlockPort) => void;
   cardBlock: (id: string, event: CardBlockEvent) => void;
-  saveEvidence: (id: string, value: CompletionEvidence) => Promise<boolean>;
   confirm: (id: string) => Promise<boolean>;
   realize: (id: string, commit: string, prUrl: string) => Promise<void>;
   releaseLease: (id: string) => Promise<unknown>;
@@ -47,7 +45,7 @@ const no = async () => false;
 /** Výchozí akce mimo Board (testy, náhled): nic se nestane a nic se neuloží. */
 export const NO_CARD_ACTIONS: CardActions = {
   open: idle, tag: idle, renameStart: idle, renameCancel: idle, renameCommit: idle, renameNode: idle,
-  commentText: idle, resizeArea: idle, togglePort: idle, cardBlock: idle, saveEvidence: no, confirm: no,
+  commentText: idle, resizeArea: idle, togglePort: idle, cardBlock: idle, confirm: no,
   realize: async () => {}, releaseLease: async () => undefined, ruleWrite: no, ruleReview: no,
 };
 

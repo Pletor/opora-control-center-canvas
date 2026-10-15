@@ -18,6 +18,7 @@ import { effectiveRules } from "@/editor/canvas/node-card/logic/effective-rules"
 import type { UsageSummary } from "@/editor/canvas/node-card/logic/use-usage";
 import type { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
 import { processView } from "@/editor/canvas/node-card/logic/card-process";
+import { cardState } from "@/editor/canvas/node-card/logic/card-state";
 import { cardView, matchesTagFilter } from "@/editor/canvas/node-card/logic/card-model";
 import { commentView } from "@/editor/canvas/comment-card/logic/comment-model";
 import { areaColorOf, areaLabel, membersOf } from "@/editor/canvas/area/logic/area-model";
@@ -66,7 +67,7 @@ export type LayerInput = {
   confirmError?: string;
   sourceContext?: { project: string; workspace: string };
   /** Které akce rodič vůbec umí; karta podle toho ukáže editor, nebo ne. */
-  can: { realize: boolean; saveEvidence: boolean; confirm: boolean; rules: boolean };
+  can: { realize: boolean; confirm: boolean; rules: boolean };
 };
 
 /** Klíč pulsu přesunuté karty (`useAddedPulse` nad pozicemi). */
@@ -102,6 +103,9 @@ export function buildLayerNodes(input: LayerInput): Node[] {
     const view = { ...cardView(n, workflow, childCount(index, n.id)), briefChanged: changedSinceInsert(workflow.fragmentRefs, input.vaultIndex) };
     const own = state.nodes[n.id];
     const assignment = input.assignmentStatuses?.[n.id];
+    // Karta bez pipeline je „čeká na router“ (prázdná pipeline); uzavřená karta proces i sloty ponechá, aby doklady
+    // šly přečíst pohledem i po uzavření. Sloty se počítají z důkazů a kontrol karty (docs/proces-karty.md §2).
+    const process = n.kind === "node" ? processView(own?.stages ?? { profile: "custom", items: [] }, own?.evidence, n.checks) : undefined;
     const data: NodeCardData = {
       view,
       checklist: input.checklists?.[n.id],
@@ -110,15 +114,16 @@ export function buildLayerNodes(input: LayerInput): Node[] {
       frontier: input.frontier?.[n.id],
       sectorProgress: input.sectors[n.id],
       evidence: own?.evidence,
-      // Otevřená karta bez pipeline je „čeká na router“ (prázdná pipeline); uzavřená karta řádek procesu nemá.
-      process: n.kind === "node" && !view.closed ? processView(own?.stages ?? { profile: "custom", items: [] }) : undefined,
+      process,
       work: input.work?.data?.nodes[n.id],
       workCounts: input.work?.data?.sectors[n.id],
       moved: input.moved.has(movedKey(n)),
       realization: n.sourceRef && can.realize ? { value: n.realization, status: input.sourceStatuses?.[n.id], disabled } : undefined,
       autonomous: own?.done?.by === "autonomy" && own?.done?.confirmed,
-      saveEvidence: can.saveEvidence,
       lease: input.leases?.[n.id],
+      // Jedna stavová věta podle přednosti (docs/proces-karty.md §3); sektor má pruh stavů místo věty.
+      state: n.kind === "node" ? cardState({ closed: view.closed, doneProposed: view.doneProposed, process,
+        frontier: input.frontier?.[n.id], work: input.work?.data?.nodes[n.id], lease: input.leases?.[n.id] }) : undefined,
       releaseLease: !!input.leases?.[n.id] && !!sourceContext,
       // Potvrzení i chyba patří jen kartě s navrženým uzavřením; jinak by chyba překreslila všechny karty.
       completion: can.confirm ? { note: own?.done?.note,

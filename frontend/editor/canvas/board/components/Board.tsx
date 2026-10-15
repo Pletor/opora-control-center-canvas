@@ -64,7 +64,6 @@ export default function Board({
   sourceStatuses,
   onRealizeSource,
   onAutonomy,
-  onSaveEvidence,
   onSaveSector,
   onConfirmSector,
   onConfirmProposal,
@@ -121,7 +120,6 @@ export default function Board({
   onConfirmSector?: (sectorId: string, ids: string[]) => Promise<void>;
   onSaveSector?: (node: import("@/shared/types/logic/types").CanvasNode) => void;
   onAutonomy?: (sectorId: string, until: string, grantedBy: string, note: string) => Promise<void>;
-  onSaveEvidence?: (nodeId: string, value: import("@/editor/canvas/node-card/components/CardEvidence").CompletionEvidence) => Promise<boolean>;
   leases?: Record<string, import("@/editor/canvas/node-card/logic/use-leases").CardLease>;
   assignmentStatuses?: import("@/editor/canvas/node-card/logic/use-assignment-status").AssignmentStatuses;
   onRuleWrite?: (expected: Rule, item: Rule) => Promise<boolean>;
@@ -204,10 +202,10 @@ export default function Board({
   const movedSet = useMemo(() => new Set(movedCards), [movedCards]);
   const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workKey);
   const actions = useBoardActions({ disabled, nameOf: (id) => index.byId.get(id)?.name, onSelect, onTagFilter, onEditing, onRename,
-    onCommentText, onAreaResize, onTogglePort, onCardBlock, onSaveEvidence, onConfirmProposal, onRealizeSource,
+    onCommentText, onAreaResize, onTogglePort, onCardBlock, onConfirmProposal, onRealizeSource,
     onRuleWrite, onRuleReview, sourceContext });
   // Schopnosti rodiče jako booleany: nové inline callbacky v App vrstvu nepřestaví, jejich přítomnost ano.
-  const can = { realize: !!onRealizeSource, saveEvidence: !!onSaveEvidence, confirm: !!onConfirmProposal,
+  const can = { realize: !!onRealizeSource, confirm: !!onConfirmProposal,
     rules: !!onRuleWrite && !!onRuleReview };
   const make = (): Node[] => buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
     disabled, openBlocks, tagFilter, moved: movedSet, sectors, vaultIndex, checklists, usage, frontier: frontier.rows, work,
@@ -246,7 +244,7 @@ export default function Board({
     setNodes((previous) => reuseNodes(previous, make()));
   }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project,
     sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, confirmError, movedCards,
-    checklists, vaultIndex, can.realize, can.saveEvidence, can.confirm, can.rules]);
+    checklists, vaultIndex, can.realize, can.confirm, can.rules]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);

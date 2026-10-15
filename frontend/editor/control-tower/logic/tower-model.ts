@@ -220,7 +220,7 @@ function towerCard(node: CanvasNode, state: DesktopState, work: WorkOverview | u
     closed,
     proposed: !closed && flow?.done?.by === "agent",
     statusKnown: closed || workState === "loaded",
-    process: processView(flow?.stages),
+    process: processView(flow?.stages, flow?.evidence, node.checks),
     waiting: (row?.waitingOnHuman ?? []).map((w) => w.ask).filter((ask) => ask.trim()),
     ideas: openIdeas(flow?.ideas),
     ...(node.card?.layer ? { layer: node.card.layer } : {}),

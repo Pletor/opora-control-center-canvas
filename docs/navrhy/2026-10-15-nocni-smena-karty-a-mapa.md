@@ -62,6 +62,7 @@ ani neupravují; commit obsahuje jen soubory této relace (`git add` po cestách
 | 03:50 | V4: rozvržení Velínu, fronta hlídá záměry oblastí a podstatu sektorů, zadání pro router (ce530ca); snímek: Ample 143 karet, 23 položek fronty (5 ke schválení, 18 záměrů) | hotovo |
 | 04:30 | Ověření pyramidy naostro v pískovišti „Pyramida-test (noční směna B)“ (projekt b66069cc…): záměr oblasti → rozkladač (Opus) dry-run → 1 rozhodnutí → 3 sektory s [gate] uvnitř rámečku → rozklad sektoru Sklad → 4 karty, 4 bloky, 7 portů, 11 vazeb; `frontier` hlásí 5 needsRouting. Nálezy z běhu (prázdný projekt, pravidla, checks, vazby, závislosti mezi sektory) zapracované do `references/rozklad.md` | hotovo |
 | 05:45 | Router (Sonnet) nasměroval 5 karet pískoviště podle zadání z velína (code/security/design+test/testing); kuličky procesu na kartách ověřené snímkem; nálezy → `references/pipeline.md`; poslední kritika receptu (ChatGPT, 6 nálezů) → `rozklad.md` | hotovo |
+| 06:10 | **Ranní směna** (zadání: „karta a procesy na ní, vše má své místo, odráží reálný stav; úpravy důkazů a další věci se slévají v nekontrolovatelný seznam“): kontrakt `docs/proces-karty.md`; sloty dokladů Testy · Security · Review · Merge (`card-proofs.ts`), stavová věta (`card-state.ts`), fold Podrobnosti (`CardDetails.tsx`), editor důkazů smazán; snímek karty 4.2 na Ample před/po | hotovo |
 
 ## Ráno (co zbývá člověku)
 

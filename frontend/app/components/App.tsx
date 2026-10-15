@@ -1155,9 +1155,6 @@ export default function App() {
                     const fresh = await fetchState(project, workspace);
                     desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/autonomy", { project, workspace, sectorId, until, grantedBy, note, expectedRevision: fresh.revision })));
                   }}
-                  onSaveEvidence={(id, evidence) => desktop.mutate(current => ({ ...current, nodes: {
-                    ...current.nodes, [id]: { ...nodeWorkflowOf(current, id), evidence },
-                  } }))}
                   onSaveSector={updated => { void run(() => save({ ...graph, nodes: graph.nodes.map(n => n.id === updated.id ? updated : n) })); }}
                   onConfirmSector={confirmSectorNow}
                   assignmentStatuses={assignmentStatuses}

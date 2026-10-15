@@ -5,6 +5,8 @@ import {
   KIND_LABEL, LENS_LABEL, PROFILE_LABEL, STATUS_LABEL, pipelineSummary,
   type CardPipeline, type CriticLens, type PipelineProfile, type StageKind, type StageStatus,
 } from "@/editor/workflow/card-pipeline/logic/pipeline-model";
+import { proofSentence, proofSlots, type ProofSlot } from "./card-proofs";
+import type { CompletionEvidence } from "../components/CardEvidence";
 
 export type ProcessDot = {
   id: string;
@@ -32,11 +34,15 @@ export type CardProcessView = {
   waitingOnHuman: boolean;
   /** Etapy navržené agentem, které člověk ještě neschválil; kuličky nemají, jen tichý počet. */
   proposed: number;
+  /** Čtyři sloty dokladů Testy · Security · Review · Merge v pevném pořadí (docs/proces-karty.md §2). */
+  proofs: ProofSlot[];
 };
 
 /** Pohled na proces karty; `undefined`, když karta pipeline vůbec nemá. Bez schválených etap = nenasměrovaná.
- *  Kuličky staví ze stejné množiny jako `pipelineSummary` (jen schválené etapy), aby čísla seděla s řadou. */
-export function processView(pipeline: CardPipeline | undefined): CardProcessView | undefined {
+ *  Kuličky staví ze stejné množiny jako `pipelineSummary` (jen schválené etapy), aby čísla seděla s řadou.
+ *  Sloty dokladů se počítají z důkazů a kontrol karty i bez pipeline, aby měly vždy své místo. */
+export function processView(pipeline: CardPipeline | undefined, evidence?: CompletionEvidence,
+  checks?: { id: string; command: string }[]): CardProcessView | undefined {
   if (!pipeline) return undefined;
   const summary = pipelineSummary(pipeline);
   const stuck = new Set(summary.stuck.map((s) => s.id));
@@ -57,6 +63,7 @@ export function processView(pipeline: CardPipeline | undefined): CardProcessView
     total: summary.total,
     waitingOnHuman: stuck.size > 0,
     proposed: pipeline.items.length - active.length,
+    proofs: proofSlots(evidence, checks, pipeline),
   };
 }
 
@@ -67,14 +74,15 @@ const who = (dot: ProcessDot) => {
 
 /** Textový ekvivalent řady pro čtečku: „Proces: 3/6, na řadě Kritik: hacker, 1 selhalo“. */
 export function processSentence(view: CardProcessView): string {
-  if (!view.routed) return "Proces: čeká na router" + (view.proposed ? ", " + view.proposed + " ke schválení" : "");
+  const proofs = ". " + proofSentence(view.proofs);
+  if (!view.routed) return "Proces: čeká na router" + (view.proposed ? ", " + view.proposed + " ke schválení" : "") + proofs;
   const parts = ["Proces: " + view.finished + "/" + view.total];
   const current = view.dots.find((d) => d.current);
   if (current) parts.push("na řadě " + who(current));
   const stuck = view.dots.filter((d) => d.stuck).length;
   if (stuck) parts.push(stuck + " selhalo, čeká na člověka");
   if (view.proposed) parts.push(view.proposed + " ke schválení");
-  return parts.join(", ");
+  return parts.join(", ") + proofs;
 }
 
 /** Text tooltipu kuličky: „Kritik: hacker · selhalo · poznámka“. */

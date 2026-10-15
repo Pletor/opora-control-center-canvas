@@ -77,7 +77,7 @@ describe("processView", () => {
     expect(view.dots.map((d) => d.id)).toEqual(["w", "c"]);
     expect(view.total).toBe(2);
     expect(view.proposed).toBe(1);
-    expect(processSentence(view)).toBe("Proces: 1/2, na řadě Kritik: hacker, 1 ke schválení");
+    expect(processSentence(view)).toBe("Proces: 1/2, na řadě Kritik: hacker, 1 ke schválení. Doklady: Testy nedoloženo, Security nedoloženo, Review nedoloženo, Merge nedoloženo");
     const onlyProposed = processView(pipe([stage("x", { approved: false })]))!;
     expect(onlyProposed.routed).toBe(false);
     expect(onlyProposed.proposed).toBe(1);
@@ -89,7 +89,7 @@ describe("processView", () => {
       stage("c", { kind: "critic", lens: "hacker", status: "failed", note: "x" }),
       stage("r", { kind: "review" }),
     ]))!;
-    expect(processSentence(view)).toBe("Proces: 1/3, na řadě Review, 1 selhalo, čeká na člověka");
-    expect(processSentence(processView(pipe([]))!)).toBe("Proces: čeká na router");
+    expect(processSentence(view)).toMatch(/^Proces: 1\/3, na řadě Review, 1 selhalo, čeká na člověka\. Doklady: Testy nedoloženo, Security selhalo/);
+    expect(processSentence(processView(pipe([]))!)).toMatch(/^Proces: čeká na router\. Doklady: /);
   });
 });

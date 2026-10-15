@@ -60,20 +60,31 @@ spec + bloky + pravidla → lease + snímek zadání → prostor agenta → agen
 Nic z toho se nepředává chatem. Když si agent potřebuje něco poznamenat pro dalšího, jde to do prostoru
 agenta (`handoff`), do zprávy na vazbě nebo do adresované zprávy; všechno trojí je v `node-brief` dalšího.
 
-## 3. Kuličky procesu na kartě
+## 3. Kuličky procesu, sloty dokladů a stavová věta na kartě
 
-Pod hlavou karty uzlu je řádek procesu: čip profilu, řada kuliček a počet hotových etap. Mnemotechnika:
+Pod hlavou karty uzlu je proces: čip profilu, řada kuliček a počet hotových etap; pod nimi čtyři sloty dokladů
+Testy · Security · Review · Merge na pevných místech a jedna stavová věta (kontrakt `docs/proces-karty.md`).
+Mnemotechnika kuliček:
 
 | Prvek | Význam |
 |---|---|
 | **barva kuličky** = kdo pracuje | práce (akcent), test (zelená), review (modrá), oprava (jantar), kritik podle pohledu: hodný uživatel (teal), vyčuraný (fialová), **hacker = security (červená)** |
 | **výplň** = jak dopadla | obrys = čeká, plná = prošla, plná s křížkem = selhala, čárkovaná = přeskočil člověk, pulsující = běží |
-| **kroužek** = kde proces stojí | akcentový kroužek = etapa na řadě; jantarový kroužek = uvízlo, čeká na člověka (čip „👤 čeká“) |
+| **kroužek** = kde proces stojí | akcentový kroužek = etapa na řadě; jantarový kroužek = uvízlo, čeká na člověka (stavová věta „Uvízlo“) |
 | **čip profilu** | `Security` je zvýrazněný: karta má bezpečnostní pipeline (review + hacker kritik + test) |
 | **„čeká na router“** | karta bez pipeline; router ji ještě nenasměroval |
 
-V oddálení zůstanou jen tečky, takže z dálky je vidět, kde proces běží, kde selhal a kde čeká na člověka,
-aniž by se karta otevírala. Detail etap (zadání, poznámky, přeskočení) je v bloku Pipeline vedle karty.
+Sloty dokladů jsou čtverečky (etapy jsou kuličky): prázdný = nedoloženo, poloviční = deklarováno bez dokladu
+(agent napsal „prošlo“, ale odkaz ani běh kontroly nejsou), plný = doloženo, křížek = selhalo, čárkovaný =
+nevztahuje se. Počítají se z `evidence`, `checksRun` a kontrol karty, ne z poznámek. Stavová věta je jedna
+podle přednosti: Uzavřeno · Uvízlo · Čeká na tebe · Ke schválení (+ Potvrdit) · Blokuje · Pracuje · Na řadě ·
+Čeká na router · K převzetí. Všechny podrobnosti (odkazy, běhy kontrol, kdo drží, z čeho vychází, pravidla,
+zdroj, realizace) má vybraná karta v jednom foldu „Podrobnosti“ pod bloky; formulář důkazů pro člověka
+zmizel, důkazy hlásí agent přes `agent-output.evidence`.
+
+V oddálení zůstanou jen tečky a čtverečky, takže z dálky je vidět, kde proces běží, kde selhal, kde čeká na
+člověka a co je doložené, aniž by se karta otevírala. Detail etap (zadání, poznámky, přeskočení) je v bloku
+Pipeline vedle karty.
 
 ## 4. Jak tvořit detail karty
 
@@ -138,7 +149,8 @@ zpět. Co tam **nepatří**: zadání karty, kód, tajemství; paměť je popis 
 
 ## 8. Co se během noční směny 2026-10-15 změnilo
 
-- Kuličky procesu na kartě (§3), původně jen v bloku Pipeline.
+- Kuličky procesu na kartě (§3), původně jen v bloku Pipeline; ráno sloty dokladů, stavová věta a jeden fold
+  „Podrobnosti“ místo seznamu řádků (`docs/proces-karty.md`).
 - Velké plátno: drafty bloků v úložišti → kreslí se jen viditelné karty, MiniMap do 500 uzlů, varování
   u stropu.
 - Mapa projektu: serverový přehled komunit (`GET /api/graphify/overview`) a vlastní lehká mapa místo
