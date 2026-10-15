@@ -4,6 +4,7 @@ import {
   AREA_SIZE_MAX,
   AREA_SIZE_MIN,
   areaColorOf,
+  areaHost,
   areaLabel,
   areaOf,
   areaRollup,
@@ -204,5 +205,16 @@ describe("area-model", () => {
 
   it("areaRollup prázdné oblasti vyzve k záměru", () => {
     expect(areaRollup({ sectors: 0, cards: 0, closed: 0 })).toBe(EMPTY_AREA_ROLLUP);
+  });
+
+  it("areaHost najde sektor, v jehož vrstvě oblast leží; na kořeni nebo pod uzlem je null", () => {
+    const nodes = [
+      { id: "s4", kind: "sector", name: "4. VRSTVA" },
+      { id: "n1", kind: "node", name: "Karta" },
+    ];
+    expect(areaHost({ parentId: "s4" }, nodes)).toEqual({ id: "s4", name: "4. VRSTVA", kind: "sector" });
+    expect(areaHost({ parentId: null }, nodes)).toBeNull();
+    expect(areaHost({ parentId: "n1" }, nodes)).toEqual({ id: "n1", name: "Karta", kind: "node" });
+    expect(areaHost({ parentId: "chybí" }, nodes)).toEqual({ id: "chybí", name: "", kind: "missing" });
   });
 });

@@ -27,6 +27,12 @@ Pravidla pyramidy:
    znamená hotovo). Karta = jedna práce pro jednu relaci (jak). Blok = ověřitelná podmínka (ověřeno čím).
 3. **Rozpad je volba cest, ne čára.** Sektor má zpravidla 3–9 karet; karty v sektoru se větví porty bloků
    a vazbami `next`. Lineární řetěz 20 karet je signál, že chybí sektor uprostřed.
+   **Mezistupeň sektor → karta je oblast uvnitř sektoru (fáze).** Když sektor přeroste 9 karet (Ample:
+   sektory „VRSTVA“ mají 12–33 karet), karty se seskupí do oblastí ve vrstvě sektoru („① MVP — první
+   průchod“, „② Ladění podle měření“, „③ Další vývoj“, „④ Brána“). Je to stejný druh uzlu `area` se záměrem
+   a geometrickým členstvím, jen o patro níž; žádný nový typ ani migrace. Oblast na kořenové vrstvě se
+   rozpadá na sektory, oblast uvnitř sektoru na karty (inspektor nabídne „Rozložit na karty“ a zadání pro
+   rozkladače čte cíl, akceptaci a bránu ze sektoru, do kterého fáze patří).
 4. **Rozhodnutí člověka se agregují nahoru.** Co čeká na člověka, se sbírá do jedné fronty (velín,
    „Čeká na tebe“) seřazené podle oblasti a sektoru; potvrzuje se dávka sektoru, ne karta po kartě.
    Podněty agentů (`ideas`) jsou jen počet na sektoru; k člověku se dostane až jejich **shrnutí** jako jedno
@@ -101,3 +107,4 @@ brána = jedna podmínka, pravidla jen ta, která se liší od projektu.
 | fronta velína hlídá vrchol pyramidy: oblast bez záměru, sektor bez podstaty; „Zadání pro router“ u sektoru s nenasměrovanými kartami | hotovo (ce530ca) |
 | role rozkladač ve skillu (`references/rozklad.md`) | hotovo (7465a5a) |
 | sektor → karty: „Rozložit na karty“ v inspektoru sektoru, oddíl v rozklad.md | hotovo |
+| fáze sektoru (oblast uvnitř sektoru) → karty: inspektor oblasti pozná sektor nad sebou a nabídne „Rozložit na karty“ do rámečku fáze | hotovo (2026-10-15, relace B) |

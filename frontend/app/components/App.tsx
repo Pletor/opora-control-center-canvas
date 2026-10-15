@@ -113,6 +113,7 @@ import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import CommentPanel from "@/editor/canvas/comment-card/components/CommentPanel";
 import { newComment, nextCommentSpot } from "@/editor/canvas/comment-card/logic/comment-model";
 import AreaPanel from "@/editor/canvas/area/components/AreaPanel";
+import { areaHost } from "@/editor/canvas/area/logic/area-model";
 import { areaLabel, membersOf, moveWithMembers, newArea, nextAreaSpot, resizeArea } from "@/editor/canvas/area/logic/area-model";
 import BlockDrawerContent from "@/app/components/BlockDrawerContent";
 import RemovalDialog from "@/ui-kit/removal-dialog/components/RemovalDialog";
@@ -1383,6 +1384,7 @@ export default function App() {
                 closed={selectedClosed}
                 busy={busy}
                 members={membersOf(node, graph.nodes).map((m) => ({ id: m.id, name: m.name, kind: m.kind }))}
+                host={areaHost(node, graph.nodes)}
                 flows={graph.edges
                   .filter((e) => e.port === "flow" && (e.source === node.id || e.target === node.id))
                   .map((e) => {

@@ -253,6 +253,25 @@ protože vrstva a technologie tu známé nejsou.
  }}
 ```
 
+## Fáze sektoru → karty
+
+Sektor, který přerostl 9 karet, dělí karty do **oblastí uvnitř své vrstvy** (fáze: „① MVP“, „② Ladění“,
+„③ Další vývoj“, „④ Brána“); je to běžná oblast (`kind: area`) se záměrem, jen o patro níž
+(`docs/pyramida.md` §1 bod 3). Zadání z inspektoru takové oblasti přijde jako „Jsi rozkladač sektoru …
+sektor id S, fáze id F“ a platí celý oddíl „Sektor → karty“ s těmito rozdíly:
+
+- Cíl, mimo rozsah, akceptaci, pravidla a bránu čteš ze **sektoru S** (`node-brief --node S --raw`);
+  záměr fáze z datového bloku a z `view --raw` jen říká, **kterou část** akceptace sektoru fáze pokrývá.
+- Pokrytí porovnáváš se všemi kartami sektoru (ve fázi i v ostatních fázích), ne jen s kartami ve fázi.
+- Nejdřív z `view --raw` ověř, že F leží ve vrstvě S (`parentId`) a že název sektoru, název fáze, záměr fáze
+  a počet karet ve fázi sedí s kopií v zadání; jinak blokace. „Brána před návrhem“ platí beze změny
+  (`gateNodeId` sektoru musí ukazovat na existující `[gate]`).
+- Každá nová karta má `parent: "@F"` (backend ji položí do rámečku fáze ve vrstvě sektoru). Vazby zakládáš
+  jen **z nových karet**: `next` / `block` mezi nimi, na existující karty a na `[gate]` sektoru; vazby
+  existujících karet neměníš. Když by napojení do hlavní linky vyžadovalo změnit existující vazbu nebo kartu,
+  dávku nestav a uveď to v souhrnu blokací. Jiné fáze ani jejich karty neměníš.
+- Když se fáze do rámečku nevejde, dávka neprojde: uveď to v souhrnu blokací, oblast sám nezvětšuj.
+
 ## Podněty → jedno rozhodnutí
 
 Kdy: člověk ti předal zadání „Shrň podněty sektoru“ (inspektor sektoru, oddíl „Shrnout podněty (N)“).

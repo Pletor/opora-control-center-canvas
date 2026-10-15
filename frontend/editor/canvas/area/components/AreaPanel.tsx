@@ -7,6 +7,7 @@ import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-contex
 import type { CanvasNode } from "@/shared/types/logic/types";
 import { AREA_COLORS, areaColorOf, areaLabel, setAreaColor } from "@/editor/canvas/area/logic/area-model";
 import AreaDecompose from "@/editor/canvas/area/components/AreaDecompose";
+import type { AreaHost } from "@/editor/canvas/area/logic/area-model";
 import AgentWorkspace from "@/editor/node-detail/agent-workspace/components/AgentWorkspace";
 import "@/editor/canvas/area/styles/area.css";
 
@@ -25,6 +26,8 @@ export default function AreaPanel({
   busy,
   members,
   flows,
+  /** Uzel, v jehož vrstvě oblast leží (sektor = oblast je jeho fáze); `null` na kořenové vrstvě. */
+  host = null,
   onSave,
   onOpenNode,
   onDelete,
@@ -37,6 +40,7 @@ export default function AreaPanel({
   busy: boolean;
   members: AreaMember[];
   flows: AreaFlow[];
+  host?: AreaHost | null;
   onSave: (n: CanvasNode) => void;
   onOpenNode: (id: string) => void;
   onDelete: () => void;
@@ -84,6 +88,8 @@ export default function AreaPanel({
         areaName={areaLabel(node)}
         intent={node.purpose}
         sectors={members.filter((m) => m.kind === "sector").length}
+        cards={members.filter((m) => m.kind === "node").length}
+        host={host}
       />
       <div className="area-panel__swatches" role="group" aria-label="Barva oblasti">
         {AREA_COLORS.map((c) => (

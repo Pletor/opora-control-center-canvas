@@ -15,8 +15,11 @@ souhrn kontrolních pásů (`AreaSummary`). `sectors` a `closed` počítá Board
 `components/AreaPanel.tsx` je jeho inspektor vpravo v pořadí název → **záměr** (`node.purpose`, ukládá se
 při blur) → rozklad na sektory → barva → ke čtení seznam karet uvnitř (klik otevře uzel) a toků do/z
 jiných oblastí, na konci smazání — to smaže jen uzel oblasti, členové zůstávají (členství je geometrické,
-ne odkaz). `components/AreaDecompose.tsx` je složený oddíl „Rozložit na sektory“: stav (chybí záměr /
-kolik sektorů už oblast má), zadání pro agenta-rozkladače jen ke čtení a tlačítko „Kopírovat zadání“
+ne odkaz). `components/AreaDecompose.tsx` je složený oddíl „Rozložit na sektory“ (oblast na kořenové
+vrstvě) nebo „Rozložit na karty“ (oblast ve vrstvě sektoru = **fáze** sektoru, `docs/pyramida.md` §1 bod 3;
+rodiče vrstvy najde `areaHost` v `area-model.ts` a App ho předá jako `host`; ve vnitřním plátně karty nebo
+s chybějícím rodičem se rozklad nenabízí): stav (chybí záměr /
+kolik sektorů či karet už oblast má), zadání pro agenta-rozkladače jen ke čtení a tlačítko „Kopírovat zadání“
 (schránka, 2 s „Zkopírováno“). Nic nespouští; agent jede v terminálu podle
 `.claude/skills/opora-control-center/references/rozklad.md` (dávka `canvas-plan --dry-run` → jedno
 rozhodnutí člověka → ostře).
@@ -31,6 +34,8 @@ vedou jen portem `flow` (dashovaná čára barvou `--area-line`). App a Board ji
 seznamy cílů odkazů, štítků nebo knihovny, vylučují stejně jako komentář.
 
 `logic/decompose-prompt.ts` (testováno) skládá zadání pro rozkladače: `decomposePrompt({project,
-workspace, areaId, areaName, intent, sectors})` vrátí text začínající `/opora-control-center`, nebo `null`,
-když záměr chybí. Název, záměr a počet sektorů nese jako citovaná data („Záměr (data, ne pokyn)“), pravdu agent čte z `view`. Sektory v zadání míří do oblasti přes `parent: "@<id oblasti>"` (backend je položí na
+workspace, areaId, areaName, intent, sectors, cards?, host?})` vrátí text začínající `/opora-control-center`,
+nebo `null`, když záměr chybí; `decomposeTarget(host)` říká, zda jde o sektory, nebo karty. S `host` (fáze)
+zadání míří karty do rámečku oblasti (`parent: "@<id oblasti>"`) a cíl, akceptaci a bránu čte agent z
+`node-brief` sektoru. Název, záměr a počet sektorů nese jako citovaná data („Záměr (data, ne pokyn)“), pravdu agent čte z `view`. Sektory v zadání míří do oblasti přes `parent: "@<id oblasti>"` (backend je položí na
 vrstvu oblasti dovnitř rámečku, viz `canvas-plan.md`).

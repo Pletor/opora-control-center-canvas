@@ -49,6 +49,20 @@ export function newArea(parentId: string | null, x: number, y: number): CanvasNo
   };
 }
 
+/** Uzel, v jehož vrstvě oblast leží: `null` na kořenové vrstvě (oblast = téma, rozpadá se na sektory),
+ *  `kind: "sector"` = oblast je **fáze** sektoru (rozpadá se na karty), `kind: "node"` = vnitřní plátno
+ *  karty (rozklad se nenabízí). Rodič, který v grafu chybí, se hlásí jako `kind: "missing"`.
+ *  Stejné pravidlo čte `AreaDecompose` (`docs/pyramida.md` §1 bod 3). */
+export function areaHost(area: Pick<CanvasNode, "parentId">, nodes: { id: string; kind: string; name: string }[]): AreaHost | null {
+  if (!area.parentId) return null;
+  const host = nodes.find((n) => n.id === area.parentId);
+  if (!host) return { id: area.parentId, name: "", kind: "missing" };
+  return { id: host.id, name: host.name, kind: host.kind === "sector" ? "sector" : "node" };
+}
+
+/** Rodič vrstvy oblasti pro rozklad: sektor (fáze), karta, nebo chybějící uzel. */
+export type AreaHost = { id: string; name: string; kind: "sector" | "node" | "missing" };
+
 /** Popisek oblasti pro štítek na plátně i inspektor: jméno, nebo „Nepojmenovaná oblast“, když chybí. */
 export function areaLabel(area: Pick<CanvasNode, "name">): string {
   return area.name.trim() || UNNAMED_AREA_LABEL;
