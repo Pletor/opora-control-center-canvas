@@ -299,6 +299,31 @@ def test_synthesized_layer_travels_to_the_existing_card_only_when_present():
     assert vault.plan(["x"], graph, state, details=details)["plan"]["extend"][0]["layer"] == "backend"
 
 
+CHECKS = [{"id": "unit", "command": "uv run pytest backend/cart -q"}, {"id": "build", "command": "npm run build"}]
+
+
+def test_synthesized_checks_make_a_goal_card_only_for_the_lead_and_not_through_extend():
+    """Nová karta za fragment dostane checks + GOAL (docs/schranka-bunka.md §3 bod 2), extend existující karty ne.
+
+    Proč extend ne: `checks` a `goal_mode` jsou chráněná pole (backend/canvas/protected_fields.py) a `apply_plan` je
+    agentovi u existující karty odmítne (403) už v dryRun brány planned, takže by se smyčka zastavila. Nejde o ztrátu:
+    karta nese kontroly z kola 1 a `synthesized` dalších kol je musí nést beze změny (kontroly jsou měřítko napříč
+    koly, `brief_vault_cell.same_checks`; změnu dělá člověk)."""
+    vault, details = research_vault()
+    plain = by_ref(vault.plan(["x"], details=details)["plan"])["f1"]
+    assert "checks" not in plain and "goal_mode" not in plain  # bez checks beze změny
+    vault.add("x", "Uložení košíku", discipline="be", synth=True, payload={**SYNTH, "checks": CHECKS})
+    card = by_ref(vault.plan(["x"], details=details)["plan"])["f1"]
+    assert card["checks"] == CHECKS and card["checks"] is not CHECKS and card["goal_mode"] == "until_checks_pass"
+    # Karty za děti F kontroly nedědí (patří mikrokroku F).
+    parent = chunks()
+    parent.add("r", "3. VRSTVA", discipline="be", synth=True, payload={**SYNTH, "checks": CHECKS})
+    assert not any("checks" in node for node in parent.plan(["r"])["plan"]["nodes"])
+    # Existující karta: chráněná pole, extend je nepřenáší (viz docstring).
+    extend = vault.plan(["x"], card_graph(("K", "s1")), refs_state({"K": "x"}), details=details)["plan"]["extend"][0]
+    assert "checks" not in extend and "goal_mode" not in extend
+
+
 def test_siblings_link_only_when_one_card_is_new():
     vault = chunks()
     graph, state = card_graph(("K", "s1")), refs_state({"K": "a"})

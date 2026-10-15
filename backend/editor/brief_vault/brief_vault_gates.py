@@ -10,12 +10,19 @@ smí ho kdokoli včetně autora návrhu (stažení). Návrhy a zamítnutí čte 
 Návrhy nejsou stav fragmentu, proto nejsou v revizi ani v uložené verzi plátna. Chybný tvar, brána, payload
 nebo pořadí = 400 (`BadRequest`); konflikt stavu (CAS, brána už zapnutá/vypnutá) = 409. Payload bran `planned`
 a `placed` skládá server (`brief_vault_placement`) a předá ho v `w.prepared`.
+
+Spustitelná buňka (docs/schranka-bunka.md §3 body 1–4, `brief_vault_cell`) se hlídá už při `propose` i při zapnutí:
+- `synthesized` po dřívějším zapnutém musí nést stejné `checks`, včetně „žádné“ (měřítko napříč koly); změnu smí jen člověk;
+- `verified` proti `synthesized.checks` ze stavu (`check_run`); s `run` je autor payloadu (podatel návrhu, nebo zapisovatel
+  přímého payloadu) `run.verifier` a bránu nezapíná `run.executor`; server k payloadu přidá `runTrust: "reported"`;
+- `learned` buňky musí mít druh podle výsledku platného `verified` (`lesson_kind_rule`). Bez `checks` se nekontroluje.
 """
 
 import json
 import uuid
 
 from backend.canvas.activity_log import require_human
+from backend.editor.brief_vault.brief_vault_cell import check_run, earlier_checks, lesson_kind_rule, same_checks
 from backend.editor.brief_vault.brief_vault_gate_rules import (
     GATES,
     NO_PAYLOAD,
@@ -38,6 +45,7 @@ from backend.editor.brief_vault.brief_vault_model import (
     bad_request,
     effective_disciplines,
     fail,
+    history_rows,
     latest_rows,
     public,
 )
@@ -104,6 +112,23 @@ def _off_from(w, row, state, entries, index):
     return entries
 
 
+def _cell_rules(w, row, state, gate_name, given, author):
+    """Pravidla buňky vůči stavu a historii fragmentu; `author` = kdo payload podal (`by`). 400 = porušení."""
+    synthesized = (state["entries"].get("synthesized") or {}).get("payload") if "synthesized" in state["on"] else None
+    if gate_name == "synthesized" and w.actor != "human":
+        history = [item["gates"] for item in history_rows(w.db, w.project, w.workspace, row["fragment_id"])]
+        same_checks(earlier_checks(history), given)
+    if gate_name == "verified" and synthesized is not None:
+        check_run(synthesized, given["actual"])
+        run = given["actual"].get("run")
+        if run is not None and author != run["verifier"][:MAX_BY]:
+            bad_request("verified s run podává jen ověřovatel (run.verifier), který kontroly spustil.")
+        if run is not None and w.by == run["executor"]:
+            bad_request("verified s run nezapisuje vykonavatel (run.executor); ověřuje jiný aktér.")
+    if gate_name == "learned" and (synthesized or {}).get("checks") and "verified" in state["on"]:
+        lesson_kind_rule((state["entries"]["verified"].get("payload") or {}).get("actual"), given["kind"])
+
+
 def propose(w, payload, node_ids):
     gate = payload["gate"]
     index = gate_index(gate)
@@ -116,6 +141,7 @@ def propose(w, payload, node_ids):
         bad_request("fragment je slepá ulička (decided = no); brány 5–8 nejdou.")
     if gate in state["on"]:
         fail(f"brána {gate} je zapnutá; změna payloadu = vypnout a znovu zapnout.")
+    _cell_rules(w, row, state, gate, payload["payload"], w.by[:MAX_BY])
     seq = w.db.execute("SELECT COALESCE(MAX(seq), 0) + 1 FROM brief_gate_proposals WHERE project_id=? AND workspace_id=?",
                        (w.project, w.workspace)).fetchone()[0]
     proposal_id = uuid.uuid4().hex
@@ -145,15 +171,16 @@ def reject_proposal(w, payload, node_ids):
 
 
 def _gate_payload(w, payload, row, state, gate):
-    """Payload zapínané brány: z požadavku, jinak poslední návrh pro aktuální otisk (§9 bod 9)."""
+    """(payload, autor) zapínané brány: z požadavku (autor = zapisovatel), jinak poslední návrh pro aktuální otisk
+    (autor = podatel návrhu, §9 bod 9)."""
     if gate in NO_PAYLOAD:
-        return None
+        return None, None
     if "payload" in payload:
-        return payload["payload"]
+        return payload["payload"], w.by[:MAX_BY]
     proposal = usable_proposal(w.db, w.project, w.workspace, row["fragment_id"], gate, state)
     if proposal is None:
         bad_request(f"chybí návrh brány {gate}: pošlete op propose (nebo payload v op gate).")
-    return validate_payload(gate, proposal["payload"])
+    return validate_payload(gate, proposal["payload"]), proposal["by"]
 
 
 def gate(w, payload, node_ids):
@@ -181,15 +208,20 @@ def gate(w, payload, node_ids):
             bad_request(f"bránu {gate_name} jde zapnout až po bráně {GATES[len(state['on'])]} (pořadí §3).")
         if dead_end(state) and index > DECIDED:
             bad_request("fragment je slepá ulička (decided = no); brány 5–8 nejdou.")
-        given = _gate_payload(w, payload, row, state, gate_name)
+        given, author = _gate_payload(w, payload, row, state, gate_name)
         if gate_name in PLAN_GATES:
             # Plán a jeho vložení skládá server před transakcí (brief_vault_placement); bez něj se nezapíná.
             given = getattr(w, "prepared", None)
             if given is None:
                 fail(f"bránu {gate_name} se nepodařilo připravit (plán); načtěte stav a zkuste to znovu.")
+        if gate_name in ("synthesized", "verified", "learned"):
+            _cell_rules(w, row, state, gate_name, given, author)
         if gate_name == "verified":
             prediction = state["entries"]["synthesized"]["payload"]["prediction"]
             given = {**given, "predictionError": prediction_error(prediction, given["actual"])}
+            if "run" in given["actual"]:
+                # Bez nezávislé atestace je běh jen nahlášený (docs/schranka-bunka.md §3 bod 3); žádné právo na něm nevisí.
+                given["runTrust"] = "reported"
         if gate_name == "decided" and given["verdict"] == "other":
             # Vrátit k přepracování: synthesized a decided se v téže operaci vypnou, verdikt zůstane v záznamu.
             _off_from(w, row, state, entries, GATES.index("synthesized"))

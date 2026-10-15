@@ -27,6 +27,7 @@ class Server:
         self.calls = []
         self.proposals = []
         self.race = False
+        self.gate_detail = {}
         self.reject_supported = False  # backend op reject-proposal přijde v dalším kusu  # po čtení /next změní revizi (souběžný zápis jiného agenta)
         self.next = {'fragment': {'id': 'f1', 'title': 'Import', 'effectiveDiscipline': 'be', 'revision': 4},
                      'gate': 'weighed', 'needs': 'confirm', 'proposal': PROPOSAL, 'hint': 'x', 'lessons': [],
@@ -58,7 +59,8 @@ def handler_for(state):
                     state.revision += 1
                 return self.reply(200, body)
             if url.path == '/api/brief-vault/fragment':
-                return self.reply(200, {'fragment': {'id': params['id']}, 'latestRevision': state.revision})
+                return self.reply(200, {'fragment': {'id': params['id']}, 'latestRevision': state.revision,
+                                        'gateDetail': state.gate_detail})
             if url.path == '/api/brief-vault/lessons':
                 return self.reply(200, {'lessons': [{'id': 'l1', 'discipline': 'be', 'kind': 'pattern', 'text': 'T',
                                                      'effectiveWeight': 0.9, 'fragmentId': 'f1', 'by': 'x'}]})
@@ -240,3 +242,126 @@ def test_only_loopback_base(server, capsys, monkeypatch):
     monkeypatch.setenv('OPORA_BASE_URL', 'http://example.com:80')
     code, out = run(capsys, 'next')
     assert code == 1 and server.calls == []
+
+
+OK_CMD = 'python -c "import sys"'
+FAIL_CMD = 'python -c "raise SystemExit(3)"'
+
+
+def with_checks(state, *commands):
+    checks = [{'id': f'c{i}', 'command': command} for i, command in enumerate(commands, 1)]
+    state.gate_detail = {'synthesized': {'value': True, 'valid': True, 'payload': {'type': 'FLOW', 'checks': checks}}}
+
+
+def run_checks(capsys, tmp_path, *extra, executor='vykonavatel-1', root=None, tests=None):
+    if root is None:
+        root = tmp_path / 'work'
+        root.mkdir(exist_ok=True)
+    tests = tests or tmp_path / 'checks'
+    tests.mkdir(exist_ok=True)
+    return run(capsys, 'run-checks', 'f1', '--root', str(root), '--tests', str(tests), '--executor', executor, *extra)
+
+
+def test_run_checks_pass_proposes_verified_with_run(server, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv('OPORA_ACTOR', 'overovatel-1')
+    with_checks(server, OK_CMD, 'python -c "print(\'hotovo\')"')
+    code, out = run_checks(capsys, tmp_path, '--plan-score', '9', '--note', 'běh kontrol')
+    assert code == 0 and out['action'] == 'proposed' and out['tests'] == 'pass' and out['expectedRevision'] == 4
+    assert [c['exitCode'] for c in out['checks']] == [0, 0] and out['checks'][1]['tail'].strip() == 'hotovo'
+    body = server.proposals[0]
+    assert body['op'] == 'propose' and body['gate'] == 'verified' and body['note'] == 'běh kontrol'
+    actual = body['payload']['actual']
+    assert actual['tests'] == 'pass' and actual['criticRounds'] == 0 and actual['unexpected'] is False
+    assert actual['planApproved'] is True and actual['planScore'] == 9
+    run_ = actual['run']
+    assert run_['executor'] == 'vykonavatel-1' and run_['verifier'] == 'overovatel-1'
+    assert [c['checkId'] for c in run_['checks']] == ['c1', 'c2'] and run_['checks'][0]['command'] == OK_CMD
+    assert len(run_['checks'][0]['outputSha256']) == 64 and run_['checks'][0]['durationMs'] >= 0
+    assert run_['at'].endswith('+00:00')
+    assert 'tail' not in json.dumps(body)  # výstup kontrol na server nejde
+
+
+def test_run_checks_fail_when_any_exit_code_is_nonzero(server, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv('OPORA_ACTOR', 'overovatel-1')
+    with_checks(server, OK_CMD, FAIL_CMD)
+    code, out = run_checks(capsys, tmp_path, '--critic-rounds', '2', '--unexpected')
+    assert code == 0 and out['tests'] == 'fail' and out['checks'][1]['exitCode'] == 3
+    actual = server.proposals[0]['payload']['actual']
+    assert actual['tests'] == 'fail' and actual['criticRounds'] == 2 and actual['unexpected'] is True
+    assert 'planApproved' not in actual
+
+
+def test_run_checks_refuses_executor_equal_to_actor(server, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv('OPORA_ACTOR', 'overovatel-1')
+    with_checks(server, OK_CMD)
+    code, out = run_checks(capsys, tmp_path, executor='overovatel-1')
+    assert code == 2 and out['action'] == 'error' and server.proposals == []
+
+
+def test_run_checks_refuses_forbidden_program_and_chars_before_running_anything(server, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv('OPORA_ACTOR', 'overovatel-1')
+    for bad in ('rm -rf x', 'bash -c ls', 'python -c "pass" | cat', 'python a.py && python b.py', 'python ../x.py',
+                'python /etc/x.py', 'python x.py > out.txt', 'python a\\b.py', 'python --file=/etc/x'):
+        with_checks(server, OK_CMD, bad)
+        code, out = run_checks(capsys, tmp_path)
+        assert code == 2 and out['action'] == 'error', bad
+    assert server.proposals == []
+
+
+def test_run_checks_errors_without_checks_or_root(server, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv('OPORA_ACTOR', 'overovatel-1')
+    code, out = run_checks(capsys, tmp_path)
+    assert code == 1 and out['action'] == 'error' and 'checks' in out['error']
+    with_checks(server, OK_CMD)
+    code, out = run_checks(capsys, tmp_path, root=tmp_path / 'neni')
+    assert code == 1 and out['action'] == 'error' and server.proposals == []
+
+
+def test_run_checks_stale_revision_is_409(server, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv('OPORA_ACTOR', 'overovatel-1')
+    with_checks(server, OK_CMD)
+    code, out = run_checks(capsys, tmp_path, '--revision', '3')
+    assert code == 3 and out['action'] == 'error' and out['conflict'] is True and server.proposals == []
+
+
+CHECK_VECTORS = [
+    ('python -m pytest -q test_slug.py', True), ('python tests/test_a.py', True),
+    ('npm test -- --run src/a.test.ts', True), ('python tests\\test_a.py', False), ('python "C:probe.py"', False),
+    ('python C:/x.py', False), ('python /x.py', False), ('python ../x.py', False), ('python --file=/etc/x', False),
+    ('python "unterminated', False), ('bash x.sh', False), ('python a.py | cat', False),
+    ('python -c "import sys; sys.exit(0)"', False),
+]
+
+
+@pytest.mark.parametrize(('command', 'allowed'), CHECK_VECTORS)
+def test_check_vectors_match_backend_syntax(command, allowed):
+    if allowed:
+        assert opora_cycle.check_argv(command)
+    else:
+        with pytest.raises(opora_cycle.Refused):
+            opora_cycle.check_argv(command)
+
+
+def test_run_checks_uses_pinned_tests_not_executor_files(server, capsys, tmp_path, monkeypatch):
+    """Vykonavatel podstrčí test_slug.py s `assert True` a conftest; platí test z --tests, conftest se maže."""
+    monkeypatch.setenv('OPORA_ACTOR', 'overovatel-1')
+    with_checks(server, 'python -m pytest -q test_slug.py')
+    work, checks = tmp_path / 'work', tmp_path / 'checks'
+    work.mkdir()
+    checks.mkdir()
+    (work / 'test_slug.py').write_text('def test_x():\n    assert True\n', encoding='utf-8')
+    (work / 'conftest.py').write_text('collect_ignore_glob = ["*"]\n', encoding='utf-8')
+    (checks / 'test_slug.py').write_text('def test_x():\n    assert False\n', encoding='utf-8')
+    code, out = run_checks(capsys, tmp_path, root=work, tests=checks)
+    assert code == 0 and out['tests'] == 'fail' and len(out['testsSha256']) == 64
+    assert 'testsSha256' not in json.dumps(server.proposals[0])
+    assert (work / 'test_slug.py').read_text(encoding='utf-8').endswith('assert True\n')  # původní složka beze změny
+
+
+def test_run_checks_refuses_overlapping_tests_and_root(server, capsys, tmp_path, monkeypatch):
+    monkeypatch.setenv('OPORA_ACTOR', 'overovatel-1')
+    with_checks(server, OK_CMD)
+    inner = tmp_path / 'work' / 'checks'
+    inner.mkdir(parents=True)
+    code, out = run_checks(capsys, tmp_path, root=tmp_path / 'work', tests=inner)
+    assert code == 2 and out['action'] == 'error' and server.proposals == []

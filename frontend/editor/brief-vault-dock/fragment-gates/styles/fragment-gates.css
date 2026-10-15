@@ -53,3 +53,10 @@
 .fragment-gates__badge { font: 600 10px var(--mono); border-radius: 999px; padding: 0 8px; border: 1px solid var(--line); color: var(--ink-muted); }
 .fragment-gates__badge--pass { color: var(--accent); border-color: var(--accent-line); }
 .fragment-gates__badge--fail { color: var(--gold); border-color: var(--gold); }
+
+/* Nahlášený běh kontrol: štítek „neatestováno“ je tichý a stojí první, protože běh je tvrzení ověřovatele, ne
+   důkaz od serveru. Pod ním kdo vykonal a kdo ověřil a řádek na kontrolu; prošlá je klidná, neprošlá zlatá,
+   aby oko hned vidělo, která kontrola padla, aniž by se barvou tvrdilo, že je výsledek zaručený. */
+.fragment-gates__run { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.fragment-gates__run-check--pass { color: var(--accent); }
+.fragment-gates__run-check--fail { color: var(--gold); }

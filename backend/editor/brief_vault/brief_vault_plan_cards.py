@@ -14,6 +14,11 @@ nedostanou, kroky patří mikrokroku F); (b) přímé podfragmenty `brief`; (c) 
 výzkumu (`research` se `status: done`, poslední v pořadí `ord`): číslované řádky nebo odrážky (bez nich neprázdné
 řádky), nejvýš `MAX_STEPS`. U (a) i (c) nese poslední krok podmínku `done` ze `synthesized`. Závěrečné bloky logiky
 zůstávají za nimi. `card.layer` = `layer` ze `synthesized`, jinak vrstva disciplíny (§2).
+
+Spustitelná buňka (docs/schranka-bunka.md §3 bod 2): nese-li `synthesized` `checks`, karta za fragment s bránou
+(`lead`) dostane `checks` (kopie `{id, command}`) a `goal_mode: "until_checks_pass"`; bez `checks` beze změny.
+Existující kartě je `extend` nepřenáší: jsou to chráněná pole (`backend/canvas/protected_fields.py`), mění je jen
+člověk; karta drží kontroly z kola 1 a další kola je musí nést beze změny (`brief_vault_cell.same_checks`).
 """
 
 import re
@@ -114,7 +119,9 @@ def card_of(ref, parent, row, kids, path, discipline, text_revision, synthesized
     spec = {"goal": synthesized["done"], "acceptance": f"{synthesized['type']}: {synthesized['done']}"}
     if synthesized.get("nonGoals"):
         spec["non_goals"] = "\n".join(f"- {item}" for item in synthesized["nonGoals"])
+    checks = [{"id": item["id"], "command": item["command"]} for item in synthesized.get("checks") or []] if lead else []
     return {
+        **({"checks": checks, "goal_mode": "until_checks_pass"} if checks else {}),
         "ref": ref,
         "kind": "node",
         "parent": parent,

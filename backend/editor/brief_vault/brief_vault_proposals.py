@@ -61,8 +61,11 @@ def reject(db, project, workspace, proposal, note, by, actor, at):
     return rejection
 
 
+SERVER_FIELDS = ("predictionError", "runTrust")  # dopočítá server při zapnutí, v návrhu nejsou
+
+
 def _without_error(payload):
-    return {key: value for key, value in payload.items() if key != "predictionError"} if isinstance(payload, dict) else payload
+    return {key: value for key, value in payload.items() if key not in SERVER_FIELDS} if isinstance(payload, dict) else payload
 
 
 def _used(proposal, history):

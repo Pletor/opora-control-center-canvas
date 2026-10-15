@@ -8,6 +8,9 @@
 - `reject FRAGMENT GATE --note "…"` – `op: reject-proposal`: zamítne poslední čekající návrh brány.
 - `check FRAGMENT GATE [--json-file F]` – poradní `gate-check` (může vrátit `probability: null`).
 - `lessons [--discipline D]` – živá poučení.
+- `run-checks FRAGMENT --root DIR --tests DIR --executor A [--plan-score N] [--critic-rounds N] [--unexpected] [--note T]` –
+  ověřovatel (docs/schranka-bunka.md §3 bod 5): spustí `synthesized.checks` bez shellu v DIR a podá `propose verified`
+  s `actual.run`; vlastní aktér nesmí být `--executor`. Výstup kontrol na server nejde, do konzole jen posledních 2 000 znaků.
 
 `expectedRevision` si skript načte sám (hlava `/next`, jinak detail fragmentu); `--revision N` ji připne na
 revizi, kterou agent četl. Změní-li se mezitím, server vrátí 409 a nic se nezapíše.
@@ -18,9 +21,17 @@ každým `placed` (§11). Aktér: `--actor`, jinak `OPORA_ACTOR`, jinak `OPORA_A
 Kódy: 0 ok, 1 chyba, 2 odmítnuto skriptem, 3 konflikt (HTTP 409).
 """
 import argparse
+import hashlib
 import json
 import os
+import re
+import shlex
+import shutil
+import tempfile
+import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
@@ -36,6 +47,10 @@ NO_PAYLOAD = ('scoped', 'planned', 'placed')
 VAULT = '/api/brief-vault'
 CHECK_ROUTE = '/api/brief-vault/gate-check'
 EXIT_ERROR, EXIT_REFUSED, EXIT_CONFLICT = 1, 2, 3
+CHECK_PROGRAMS = ('python', 'py', 'uv', 'pytest', 'npm', 'npx', 'node')
+CHECK_FORBIDDEN = ('|', '&', ';', '>', '<', '`', '$(', '\\')
+STRIPPED_FILES = ('conftest.py', 'pytest.ini', 'tox.ini', 'setup.cfg', 'sitecustomize.py', 'usercustomize.py')
+CHECK_TIMEOUT, TAIL_CHARS = 600, 2000
 
 
 class Refused(Exception):
@@ -180,9 +195,114 @@ def cmd_check(cycle, args):
     return {'ok': True, 'fragmentId': args.fragment, 'gate': args.gate, 'expectedRevision': revision, **result}
 
 
+def check_argv(command):
+    """Příkaz kontroly -> argv. Stejná pravidla jako backend (program z allowlistu, žádné shellové znaky,
+    žádná absolutní cesta ani `..`); co by server odmítl, se nespustí."""
+    if not isinstance(command, str) or not command.strip() or len(command) > 300:
+        raise Refused('Příkaz kontroly je prázdný nebo delší než 300 znaků.')
+    if any(mark in command for mark in CHECK_FORBIDDEN):
+        raise Refused('Příkaz kontroly obsahuje zakázaný znak (| & ; > < ` $(): ' + command)
+    try:
+        argv = shlex.split(command, posix=True)
+    except ValueError:
+        raise Refused('Příkaz kontroly nejde rozdělit (neuzavřená uvozovka): ' + command) from None
+    if not argv or argv[0].lower() not in CHECK_PROGRAMS:
+        raise Refused('Příkaz kontroly musí začínat jedním z ' + ', '.join(CHECK_PROGRAMS) + ': ' + command)
+    for token in argv[1:]:
+        for part in [token] + re.split(r'[=,]', token):
+            if part.startswith('/') or re.match(r'^[A-Za-z]:', part) or '..' in part:
+                raise Refused('Příkaz kontroly nesmí mít absolutní cestu ani "..": ' + command)
+    return argv
+
+
+def tests_digest(tests):
+    """Otisk obsahu složky s kontrolami: seřazené relativní cesty + obsah."""
+    digest = hashlib.sha256()
+    for path in sorted(item for item in tests.rglob('*') if item.is_file()):
+        digest.update(path.relative_to(tests).as_posix().encode('utf-8') + b'\x00' + path.read_bytes() + b'\x00')
+    return digest.hexdigest()
+
+
+def prepare_copy(root, tests, target):
+    """Kopie složky vykonavatele bez souborů, které mění chování pytestu, a přes ni zdroje kontrol z `--tests`."""
+    shutil.copytree(root, target)
+    for path in list(target.rglob('*')):
+        if path.is_dir() and path.name == '.pytest_cache':
+            shutil.rmtree(path, ignore_errors=True)
+        elif path.is_file() and path.name in STRIPPED_FILES:
+            path.unlink()
+    shutil.copytree(tests, target, dirs_exist_ok=True)
+
+
+def run_check(argv, root):
+    """Jedna kontrola bez shellu: (exitCode, durationMs, výstup v bajtech). Timeout = 124, chybějící program = 127."""
+    program = shutil.which(argv[0])
+    started = time.monotonic()
+    if program is None:
+        return 127, 0, ('program nenalezen: ' + argv[0]).encode('utf-8')
+    try:
+        done = subprocess.run([program] + argv[1:], cwd=root, shell=False, capture_output=True, timeout=CHECK_TIMEOUT)
+        code, output = done.returncode, (done.stdout or b'') + (done.stderr or b'')
+    except subprocess.TimeoutExpired as error:
+        code = 124
+        output = (error.stdout or b'') + (error.stderr or b'') + b'\n[timeout]'
+    return code, int((time.monotonic() - started) * 1000), output
+
+
+def cmd_run_checks(cycle, args):
+    """Ověřovatel (docs/schranka-bunka.md §3 bod 5): spustí kontroly a podá `propose verified` s `actual.run`."""
+    if not args.fragment:
+        raise ValueError('run-checks vyžaduje FRAGMENT.')
+    if not args.root or not args.executor or not args.tests:
+        raise ValueError('run-checks vyžaduje --root, --tests a --executor.')
+    executor = opora_write.actor_name(args.executor)
+    if executor == cycle.actor:
+        raise Refused('Vykonavatel a ověřovatel nesmí být stejný aktér (' + executor + ').')
+    root = Path(args.root)
+    if not root.is_dir():
+        raise ValueError('--root musí být existující složka: ' + args.root)
+    tests_dir = Path(args.tests)
+    if not tests_dir.is_dir():
+        raise ValueError('--tests musí být existující složka: ' + args.tests)
+    real_root, real_tests = root.resolve(), tests_dir.resolve()
+    if real_root == real_tests or real_root in real_tests.parents or real_tests in real_root.parents:
+        raise Refused('--tests a --root se nesmí překrývat (kontroly nesmí ležet ve složce vykonavatele).')
+    found = cycle.get(VAULT + '/fragment', id=args.fragment)
+    synthesized = (found.get('gateDetail') or {}).get('synthesized') or {}
+    checks = (synthesized.get('payload') or {}).get('checks')
+    if not isinstance(checks, list) or not checks:
+        raise ValueError('Brána synthesized fragmentu nemá checks; není co spouštět.')
+    plan = [(item.get('id'), item.get('command'), check_argv(item.get('command'))) for item in checks]
+    revision = args.revision if args.revision is not None else found['latestRevision']
+    results, report = [], []
+    scratch = tempfile.TemporaryDirectory(prefix='opora-run-')
+    try:
+        work = Path(scratch.name) / 'work'
+        prepare_copy(root, tests_dir, work)
+        for check_id, command, argv in plan:
+            code, duration, output = run_check(argv, str(work))
+            results.append({'checkId': check_id, 'command': command, 'exitCode': code, 'durationMs': duration,
+                            'outputSha256': hashlib.sha256(output).hexdigest()})
+            report.append({'checkId': check_id, 'exitCode': code, 'durationMs': duration,
+                           'tail': output.decode('utf-8', 'replace')[-TAIL_CHARS:]})
+    finally:
+        scratch.cleanup()
+    tests = 'pass' if all(item['exitCode'] == 0 for item in results) else 'fail'
+    actual = {'tests': tests, 'criticRounds': args.critic_rounds, 'unexpected': bool(args.unexpected),
+              'run': {'executor': executor, 'verifier': cycle.actor, 'checks': results,
+                      'at': datetime.now(timezone.utc).isoformat(timespec='seconds')}}
+    if args.plan_score is not None:
+        actual['planScore'], actual['planApproved'] = args.plan_score, args.plan_score >= 8
+    note = (args.note or '').strip() or 'run-checks: ' + tests + ' (' + str(len(results)) + ' kontrol)'
+    cycle.write({'op': 'propose', 'fragmentId': args.fragment, 'expectedRevision': revision, 'gate': 'verified',
+                 'payload': {'actual': actual}, 'note': note})
+    return {'action': 'proposed', 'ok': True, 'fragmentId': args.fragment, 'expectedRevision': revision,
+            'tests': tests, 'testsSha256': tests_digest(tests_dir), 'checks': report}
+
+
 def parser_of():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('command', choices=['next', 'propose', 'yes', 'no', 'reject', 'check', 'lessons'])
+    parser.add_argument('command', choices=['next', 'propose', 'yes', 'no', 'reject', 'check', 'lessons', 'run-checks'])
     parser.add_argument('fragment', nargs='?')
     parser.add_argument('gate', nargs='?', choices=GATES)
     parser.add_argument('--project', required=True)
@@ -192,12 +312,20 @@ def parser_of():
     parser.add_argument('--json', dest='json_text')
     parser.add_argument('--json-file')
     parser.add_argument('--revision', type=int, help='připne expectedRevision na revizi, kterou agent četl')
+    parser.add_argument('--root', help='run-checks: pracovní složka vykonavatele')
+    parser.add_argument('--tests', help='run-checks: složka se zdroji kontrol (pevně daná před výkonem, mimo --root)')
+    parser.add_argument('--executor', help='run-checks: aktér, který artefakt vytvořil (nesmí být ověřovatel)')
+    parser.add_argument('--plan-score', type=int, choices=range(0, 11), metavar='0-10')
+    parser.add_argument('--critic-rounds', type=int, default=0, choices=range(0, 4), metavar='0-3')
+    parser.add_argument('--unexpected', action='store_true')
     parser.add_argument('--actor', help='jméno aktéra; výchozí ' + ACTOR_ENV + ', pak ' + opora_write.AGENT_ENV)
     parser.add_argument('--base-url', help='http://127.0.0.1:PORT; výchozí ' + opora_write.BASE_ENV)
     return parser
 
 
 def run(args):
+    if args.command == 'run-checks' and args.gate:
+        raise ValueError('run-checks nebere GATE.')
     if args.command in ('propose', 'yes', 'no', 'reject', 'check') and not (args.fragment and args.gate):
         raise ValueError(args.command + ' vyžaduje FRAGMENT a GATE.')
     if args.command in ('next', 'lessons') and args.fragment:
@@ -211,7 +339,7 @@ def run(args):
     if args.command in ('yes', 'no'):
         return cmd_gate(cycle, args, args.command == 'yes')
     handler = {'next': cmd_next, 'lessons': cmd_lessons, 'propose': cmd_propose, 'reject': cmd_reject,
-               'check': cmd_check}[args.command]
+               'check': cmd_check, 'run-checks': cmd_run_checks}[args.command]
     return 0, handler(cycle, args)
 
 
@@ -232,6 +360,8 @@ def main(argv=None):
             out['detail'] = detail
     except (URLError, TimeoutError, OSError, ValueError, TypeError, KeyError, UnicodeError) as error:
         code, out = EXIT_ERROR, {'ok': False, 'error': str(error)}
+    if args.command == 'run-checks' and code:
+        out = {'action': 'error', **out}
     print(json.dumps(out, ensure_ascii=True))
     return code
 

@@ -17,7 +17,7 @@ const VALUES: Record<string, string> = { pass: "projdou", fail: "selžou", yes: 
 export function payloadLines(payload: Record<string, unknown> | null | undefined): string[] {
   if (!payload) return [];
   return Object.entries(payload).flatMap(([key, value]) => {
-    if (key === "predictionError" || key === "steps" || key === "layer") return [];  // kroky a vrstva mají vlastní zobrazení
+    if (key === "predictionError" || key === "steps" || key === "layer" || key === "runTrust") return [];  // razítko běhu má vlastní štítek (cell-view); kroky a vrstva mají vlastní zobrazení
     if (value && typeof value === "object") {
       if (!["prediction", "actual"].includes(key)) return [];
       const inner = { ...(value as Record<string, unknown>) };

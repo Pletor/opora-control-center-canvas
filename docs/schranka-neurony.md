@@ -51,11 +51,11 @@ Osm bran v pevném pořadí. Uložené jsou na revizi fragmentu ve sloupci `gate
 |---|---|---|---|
 | 1 | `scoped` | fragment patří projektu a své disciplíně | – |
 | 2 | `weighed` | zapsán přínos a riziko | `{benefit ≤280, risk ≤280}` |
-| 3 | `synthesized` | typovaný mikrokrok s kritériem hotovo a předpovědí | `{type, done ≤500, prediction: {tests: "pass"\|"fail", criticRounds: 0–2, risk ≤280}, steps?, layer?, nonGoals?}` |
+| 3 | `synthesized` | typovaný mikrokrok s kritériem hotovo a předpovědí | `{type, done ≤500, prediction: {tests: "pass"\|"fail", criticRounds: 0–2, risk ≤280}, steps?, layer?, nonGoals?, checks?}` (`checks` viz docs/schranka-bunka.md) |
 | 4 | `decided` | rozhodnutí ano / jinak / ne | `{verdict: "yes"\|"other"\|"no", reason ≤500}` |
 | 5 | `planned` | návrh struktury na plátně (dryRun) | – (server vypočítá, §5) |
 | 6 | `placed` | karty založené | – (server zapíše uložený plán, §5) |
-| 7 | `verified` | výsledek ověřen proti předpovědi | `{actual: {tests: "pass"\|"fail"\|"untested", planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool}}` |
+| 7 | `verified` | výsledek ověřen proti předpovědi | `{actual: {tests: "pass"\|"fail"\|"untested", planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool, run?}}` (`run` viz docs/schranka-bunka.md) |
 | 8 | `learned` | poučení zapsáno do paměti | `{lesson ≤500, kind: "pattern"\|"antipattern"}` |
 
 `type` mikrokroku: `PIPELINE | RETRIEVAL | MEMORY | TOOL | ROUTING | EVAL | ENCRYPTION | SCHEMA | UI | FLOW | API | DATA | INFRA | DOC`.

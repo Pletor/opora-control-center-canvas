@@ -4,6 +4,7 @@
 import { formatError, GATE_TITLES, synthesizedView } from "@/editor/node-detail/brief-vault/logic/gate-bar";
 import { shortWhen } from "../../logic/vault-dock-model";
 import type { GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import { checkLines, runView } from "../logic/cell-view";
 import { payloadLines, proposalStatus, verifiedOutcome, whoLabel, type GateRow as Row } from "../logic/gate-view";
 
 export default function GateRow({ row, proposal }: { row: Row; proposal?: GateProposal }) {
@@ -13,6 +14,8 @@ export default function GateRow({ row, proposal }: { row: Row; proposal?: GatePr
   const synth = row.gate === "synthesized" && (row.on || row.stale) ? synthesizedView(entry?.payload) : null;
   const error = row.gate === "verified" && row.on ? entry?.payload?.predictionError as number | undefined : undefined;
   const outcome = row.gate === "verified" && (row.on || row.stale) ? verifiedOutcome(entry?.payload?.actual) : null;
+  const checks = row.gate === "synthesized" && (row.on || row.stale) ? checkLines(entry?.payload) : [];
+  const run = row.gate === "verified" && (row.on || row.stale) ? runView(entry?.payload) : null;
   const status = row.on ? `potvrdil ${whoLabel(entry?.by, entry?.actor)} · ${shortWhen(entry?.at ?? "")}`
     : row.stale ? `zneplatněno změnou vstupů (zapnul ${whoLabel(entry?.by, entry?.actor)})`
     : row.next ? (proposal?.status === "pending" ? "čeká na potvrzení návrhu" : "další na řadě, čeká na návrh") : "vypnuto";
@@ -31,6 +34,20 @@ export default function GateRow({ row, proposal }: { row: Row; proposal?: GatePr
             <span className={"fragment-gates__badge fragment-gates__badge--" + (outcome.plan.approved ? "pass" : "fail")} data-testid="outcome-plan">{outcome.plan.text}</span>
             <span className={"fragment-gates__badge fragment-gates__badge--" + outcome.tests.state} data-testid="outcome-tests">{outcome.tests.text}</span>
           </div>
+        )}
+        {run && (
+          <div className="fragment-gates__run" data-testid="verified-run">
+            <span className="fragment-gates__badge" title="Server běh nespouští; nahlásil ho ověřovatel, nikdo ho neatestoval" data-testid="run-badge">{run.badge}</span>
+            <span className="fragment-gates__state" data-testid="run-who">{run.who}</span>
+            {run.checks.length > 0 && (
+              <ul className="fragment-gates__payload" data-testid="run-checks">
+                {run.checks.map((c) => <li key={c.checkId} className={"fragment-gates__run-check--" + (c.passed ? "pass" : "fail")}>{c.text}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+        {checks.length > 0 && (
+          <ul className="fragment-gates__payload" aria-label="Kontroly plánu" data-testid="synth-checks">{checks.map((c) => <li key={c.id}>{c.text}</li>)}</ul>
         )}
         {lines.length > 0 && <ul className="fragment-gates__payload">{lines.map((line) => <li key={line}>{line}</li>)}</ul>}
         {synth && synth.steps.length > 0 && (

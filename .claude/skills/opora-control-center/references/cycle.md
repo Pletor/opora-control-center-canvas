@@ -19,6 +19,7 @@ Adresa jako u `opora_write.py` (`--base-url` / `OPORA_BASE_URL`, jen loopback). 
 | `reject F GATE --note "…"` | `op: reject-proposal`: zamítne poslední čekající návrh brány (revizi nepřidá), `next` pak vrátí `needs: proposal`; smí i autor (stažení vlastního návrhu); bez čekajícího návrhu 409 |
 | `check F GATE [--json-file p.json]` | poradní `gate-check` (Jev); bez payloadu bere návrh z hlavy `next`; `probability: null` = bez povolení / nedostupné |
 | `lessons [--discipline be]` | živá poučení disciplíny |
+| `run-checks F --root DIR --tests DIR --executor A [--plan-score N] [--critic-rounds N] [--unexpected] [--note "…"]` | role OVĚŘOVATEL: spustí `synthesized.checks` bez shellu v DIR, podá `propose verified` s `actual.run`; vypíše `{action: "proposed", tests, checks: [{checkId, exitCode, durationMs, tail}]}` (`tail` = posledních 2 000 znaků, na server výstup nejde); `executor == vlastní aktér` = kód 2 |
 
 Stav návrhů fragmentu (kdo navrhl, zda čeká, byl použit, nebo kdo ho zamítl a proč) je v detailu
 GET `/api/brief-vault/fragment` v `proposals`.
@@ -39,6 +40,20 @@ asistent posílá stejné operace přes `opora_write.py /api/brief-vault` a tam 
   (testy, `agent-output`, etapy kritika). Chybí doklad = návrh nepiš / nepotvrzuj.
 - Po zápisu ověř výstup (`gates`, `gateStep`, `deadEnd`, `returnedTo`); „ok“ není důkaz obsahu.
 
+## VYKONAVATEL a OVĚŘOVATEL (spustitelná buňka, `docs/schranka-bunka.md`)
+
+Má-li `synthesized` `checks` (karta po `placed` má `checks` a `goal_mode: until_checks_pass`), mezi `placed` a `verified` přibývá krok výkonu:
+
+1. **VYKONAVATEL** vytvoří artefakt (soubory) v pracovní složce `DIR` podle `done` a karty. Bránu `verified` nenavrhuje ani nezapíná; jeho jméno aktéra se předá ověřovateli jako `--executor`.
+2. **OVĚŘOVATEL** (jiný aktér než vykonavatel) spustí `run-checks F --root DIR --tests TESTS --executor <vykonavatel> [--plan-score N]`.
+   `--tests` = povinná složka se zdroji kontrol (např. `test_slug.py` napsaný při `synthesized`), pevně daná před výkonem a mimo `--root` (složky se nesmí překrývat). Skript zkopíruje `--root` do dočasné složky, odstraní z kopie `conftest.py`, `pytest.ini`, `tox.ini`, `setup.cfg`, `sitecustomize.py`, `usercustomize.py` a `.pytest_cache`, přes kopii nakopíruje obsah `--tests` (přepíše stejnojmenné soubory vykonavatele) a kontroly spustí v kopii; po běhu ji smaže. Vykonavatel tak nemůže podvrhnout test ani konfiguraci. Výstup nese navíc `testsSha256` (otisk obsahu `--tests`; na server nejde).
+   Příkazy běží přesně tak, jak je určila brána `synthesized` (první slovo `python|py|uv|pytest|npm|npx|node`, bez shellových znaků: svislítko, ampersand, středník, přesměrování, zpětný apostrof, dolar se závorkou, zpětné lomítko; `shlex` musí příkaz rozdělit; žádný argument, ani část za `=` nebo `,`, nezačíná `/` ani písmenem s dvojtečkou a neobsahuje `..`); skript nespustí nic, co by server odmítl.
+   Výsledek `tests` je `pass` jen když jsou všechny `exitCode` 0, jinak `fail`; `run` (executor, verifier, kontroly s otiskem výstupu, čas) je důkaz.
+3. POTVRZOVATEL dá `yes F verified` podle tabulky níže; `learned` pak podle výsledku (`fail` → `antipattern`, `pass` → `pattern`).
+
+Server odmítne (400) `tests: pass|fail` bez `run`, když `synthesized` má `checks`; bez `run` se smí jen `tests: "untested"`.
+`executor` nesmí být ověřovatel ani aktér, který bránu `verified` zapíná. Neúspěch (`fail`) otevře nové kolo jako dosud.
+
 ## NAVRHOVATEL
 
 1. `next` → bere jen `needs: "proposal"` (u `confirm` už návrh je, nech ho potvrzovateli).
@@ -52,7 +67,7 @@ asistent posílá stejné operace přes `opora_write.py /api/brief-vault` a tam 
 | `weighed` | `{benefit ≤280, risk ≤280}` | `{"benefit": "Umožní přihlášení e-mailem a heslem.", "risk": "Chybné ověření pustí cizího nebo odmítne oprávněného."}` | `{"benefit": "Konverze +30 %", "risk": "Žádné, máme bcrypt."}` (vymyšlená metrika, technologie, záruka) |
 | `synthesized` | `{type, done ≤500, prediction: {tests: pass\|fail, criticRounds: 0–2, risk ≤280}, steps?, layer?, nonGoals?}`; `type` z výčtu §3; navrhovatel uvádí `steps`: 3–8 konkrétních kroků (≤300 znaků) jen v rozsahu `done` (z nich vzniknou bloky karty, poslední krok = `done`; krok smí být i `{text, condition}` s vlastní podmínkou bloku ≤300; `nonGoals`: 0–6 × ≤200, co do rozsahu nepatří, jde do `spec.non_goals`); `layer: frontend\|backend\|database` jen když krok patří jiné vrstvě než disciplína | `{"type": "FLOW", "done": "Správná dvojice projde, špatné heslo i neznámý e-mail ne; každý případ má test.", "prediction": {"tests": "pass", "criticRounds": 1, "risk": "Zadání neříká, co s prázdným heslem."}}` | `{"type": "AUTH", "done": "Přihlášení, registrace, OAuth.", "prediction": {"tests": "ok", "criticRounds": 3, …}}` (typ mimo výčet, rozsah navíc, hodnoty mimo rozsah) |
 | `decided` | `{verdict: yes\|other\|no, reason ≤500}` | `{"verdict": "yes", "reason": "Krok ověřuje jen přihlášení a nepřidává registraci."}` | `{"verdict": "no", "reason": "Zákazník to zrušil."}` (nedoloženo fragmentem) |
-| `verified` | `{actual: {tests: pass\|fail\|untested, planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool}}` (`planApproved` = kritik schválil plán kola, skóre ≥ 8; `tests` jen z doloženého běhu testů, jinak `untested`; bez `planApproved` platí `tests == pass`) | `{"actual": {"tests": "untested", "planApproved": true, "planScore": 8, "criticRounds": 1, "unexpected": false}}` jen když to záznamy cyklu dokládají | cokoli s `predictionError` (počítá server) nebo hodnoty bez záznamu |
+| `verified` | `{actual: {tests: pass\|fail\|untested, planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool}}` (`planApproved` = kritik schválil plán kola, skóre ≥ 8; `tests` jen z doloženého běhu testů, jinak `untested`; při `synthesized.checks` s `pass`/`fail` povinné `run` (tvar a pravidla výše, píše ho `run-checks`, ne ručně); bez `planApproved` platí `tests == pass`) | `{"actual": {"tests": "untested", "planApproved": true, "planScore": 8, "criticRounds": 1, "unexpected": false}}` jen když to záznamy cyklu dokládají | cokoli s `predictionError` (počítá server) nebo hodnoty bez záznamu |
 | `learned` | `{lesson ≤500, kind: pattern\|antipattern}` | `{"lesson": "Test jen správných údajů nepokryl špatné heslo; kritik to odhalil, negativní test doplněn.", "kind": "antipattern"}` | `{"lesson": "JWT vždy zajistí bezpečnost.", "kind": "pattern"}` (nedoložená univerzální záruka) |
 
 `decided`: `other` = vrátit k mikrokroku (server po potvrzení vypne brány 3–4), `no` = slepá ulička (5–8 nejdou).

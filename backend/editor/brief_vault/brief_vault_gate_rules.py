@@ -11,10 +11,16 @@ od předchozího vypnutí předcházelo neúspěšné `verified` (`verified_outc
 podle své `revision`, opakované převzetí téhož záznamu se nepočítá dvakrát). Kolo se zvedne až začátkem nového
 kola, ne samotným neúspěšným `verified`: `learned` neúspěšného kola tak ještě patří do fronty. Po `MAX_ROUNDS`
 kolech je fragment vyčerpaný (`exhausted`) a čeká na člověka.
+
+Spustitelná buňka (docs/schranka-bunka.md §3): `synthesized.checks?` = 1–4 kontroly `{id, command}` pevně určené před
+výkonem, `verified.actual.run?` = doložený běh těchto kontrol od vnějšího ověřovatele. Tvar i pravidla buňky žijí
+v `brief_vault_cell`; `validate_payload` z něj volá kontrolu tvaru.
 """
 
 import hashlib
 import json
+
+from backend.editor.brief_vault.brief_vault_cell import validate_checks, validate_run
 
 MAX_ROUNDS = 3
 GATES = ("scoped", "weighed", "synthesized", "decided", "planned", "placed", "verified", "learned")
@@ -28,21 +34,25 @@ VERDICTS = ("yes", "other", "no")
 LESSON_KINDS = ("pattern", "antipattern")
 ENTRY_KEYS = {"value", "payload", "by", "actor", "at", "inputHash", "revision"}
 # Volitelné kroky mikrokroku (bloky karty, §12) a vrstva karty, která přebije vrstvu z disciplíny (§2, §3).
-SYNTH_REQUIRED, SYNTH_OPTIONAL = ("type", "done", "prediction"), ("steps", "layer", "nonGoals")
+SYNTH_REQUIRED, SYNTH_OPTIONAL = ("type", "done", "prediction"), ("steps", "layer", "nonGoals", "checks")
 MAX_SYNTH_STEPS, MAX_STEP_CHARS, MAX_NON_GOALS, MAX_NON_GOAL_CHARS = 12, 300, 6, 200
-VERIFIED_REQUIRED, VERIFIED_OPTIONAL = ("tests", "criticRounds", "unexpected"), ("planApproved", "planScore")
+VERIFIED_REQUIRED, VERIFIED_OPTIONAL = ("tests", "criticRounds", "unexpected"), ("planApproved", "planScore", "run")
 CARD_LAYERS = ("frontend", "backend", "database")
 HINTS = {
     "scoped": "Potvrď, že fragment patří projektu a své disciplíně (brána bez payloadu).",
     "weighed": "Zapiš přínos a riziko: {benefit ≤280, risk ≤280}.",
     "synthesized": "Navrhni typovaný mikrokrok: {type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280},"
-                   " steps?: [1–12 kroků: text ≤300 nebo {text ≤300, condition ≤300}, jen v rozsahu done], layer?: frontend|backend|database, nonGoals?: [0–6 × ≤200 mimo rozsah]}.",
+                   " steps?: [1–12 kroků: text ≤300 nebo {text ≤300, condition ≤300}, jen v rozsahu done], layer?: frontend|backend|database, nonGoals?: [0–6 × ≤200 mimo rozsah],"
+                   " checks?: [1–4 × {id, command ≤300}: python|py|uv|pytest|npm|npx|node bez shellu, cesty jen relativní s / a bez ..; určené před výkonem a v dalších kolech beze změny]}.",
     "decided": "Rozhodni: {verdict: yes|other|no, reason ≤500}; other vrátí fragment k mikrokroku, no = slepá ulička.",
     "planned": "Potvrď návrh struktury (brána bez payloadu): server sestaví oblast → sektor → karty, ověří je dryRun a uloží plán;"
                " po potvrzení planned hned potvrď placed (fronta placed nevrací).",
     "placed": "Vlož uložený plán na plátno (brána bez payloadu; zápis na plátno schvaluje člověk).",
-    "verified": "Ověř výsledek proti předpovědi: {actual: {tests: pass|fail|untested, planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool}}.",
-    "learned": "Zapiš poučení do paměti disciplíny: {lesson ≤500, kind: pattern|antipattern}.",
+    "verified": "Ověř výsledek proti předpovědi: {actual: {tests: pass|fail|untested, planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool,"
+                " run?: {executor, verifier, checks: [{checkId, command, exitCode, durationMs, outputSha256}], at}}};"
+                " má-li synthesized checks, tests pass/fail jen s run ze skutečného běhu (opora_cycle.py run-checks), jinak untested.",
+    "learned": "Zapiš poučení do paměti disciplíny: {lesson ≤500, kind: pattern|antipattern};"
+               " u buňky s checks po neúspěšném verified antipattern, po tests pass pattern.",
 }
 
 
@@ -99,7 +109,9 @@ def validate_payload(gate, payload):
         _text(payload["risk"], 280, "risk")
     elif gate == "synthesized":
         if not isinstance(payload, dict) or not set(SYNTH_REQUIRED) <= set(payload)                 or set(payload) - set(SYNTH_REQUIRED) - set(SYNTH_OPTIONAL):
-            _bad("payload synthesized musí být objekt s poli type, done, prediction a volitelně steps, layer, nonGoals.")
+            _bad("payload synthesized musí být objekt s poli type, done, prediction a volitelně steps, layer, nonGoals, checks.")
+        if "checks" in payload:
+            validate_checks(payload["checks"])
         if "steps" in payload:
             steps = payload["steps"]
             if not isinstance(steps, list) or not 1 <= len(steps) <= MAX_SYNTH_STEPS:
@@ -132,7 +144,9 @@ def validate_payload(gate, payload):
     elif gate == "verified":
         actual = _exact(payload, ("actual",), "payload verified")["actual"]
         if not isinstance(actual, dict) or not set(VERIFIED_REQUIRED) <= set(actual)                 or set(actual) - set(VERIFIED_REQUIRED) - set(VERIFIED_OPTIONAL):
-            _bad("actual musí být objekt s poli tests, criticRounds, unexpected a volitelně planApproved, planScore.")
+            _bad("actual musí být objekt s poli tests, criticRounds, unexpected a volitelně planApproved, planScore, run.")
+        if "run" in actual:
+            validate_run(actual["run"])
         _choice(actual["tests"], ("pass", "fail", "untested"), "actual.tests")
         if "planApproved" in actual and type(actual["planApproved"]) is not bool:
             _bad("actual.planApproved musí být true nebo false.")

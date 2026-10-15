@@ -197,3 +197,4 @@ def test_round_opens_after_unapproved_untested_but_not_after_approved():
 def test_prediction_error_for_untested(prediction, actual, error):
     assert prediction_error({"tests": prediction, "criticRounds": 1, "risk": "r"},
                             {"tests": "untested", "criticRounds": 1, "unexpected": False, **actual}) == error
+

@@ -224,3 +224,86 @@ def test_old_snapshot_without_gates_and_lessons_keeps_digest_and_validates():
     assert upgraded["briefLessons"] == [] and upgraded["briefFragments"][0]["data"]["gates"] is None
     assert content_digest({}, {}, {"records": records, "assets": []}) == content_digest({}, {}, {"records": upgraded, "assets": []})
     validate_records(upgraded, "draft", "main")
+
+
+CELL_CHECKS = [{"id": "unit", "command": "uv run pytest backend/cart -q"}]
+
+
+def cell_run(code, executor="builder", verifier="discipline-1"):
+    return {"executor": executor, "verifier": verifier, "at": "2026-10-15T08:00:00+02:00",
+            "checks": [{"checkId": "unit", "command": CELL_CHECKS[0]["command"], "exitCode": code, "durationMs": 40,
+                        "outputSha256": "0" * 64}]}
+
+
+def cell_actual(tests, run=None):
+    return {"actual": {"tests": tests, "criticRounds": 1, "unexpected": False, **({"run": run} if run else {})}}
+
+
+def test_cell_checks_reach_the_card_and_verified_needs_a_matching_run(client):
+    """docs/schranka-bunka.md §3 body 1–4: karta s GOAL, run proti synthesized.checks, oddělený ověřovatel, druh poučení."""
+    fragment = root(client)
+    for name in GATES[:GATES.index("placed") + 1]:
+        extra = {"payload": {**SYNTH, "checks": CELL_CHECKS}} if name == "synthesized" else (
+            {"payload": PAYLOADS[name]} if name in PAYLOADS else {})
+        fragment = gate(client, fragment, name, **extra)["fragment"]
+    cards = [item for item in client.get("/api/view", params=SCOPE).json()["graph"]["nodes"] if item.get("checks")]
+    assert len(cards) == 1 and cards[0]["checks"] == CELL_CHECKS and cards[0]["goal_mode"] == "until_checks_pass"
+
+    def propose(payload, expect=200, headers=AGENT, gate_name="verified"):
+        return post(client, expect=expect, headers=headers, op="propose", fragmentId=fragment["id"],
+                    expectedRevision=fragment["revision"], gate=gate_name, payload=payload, note="návrh")
+
+    assert "run" in propose(cell_actual("pass"), expect=400)["error"]  # tvrzení bez běhu
+    propose(cell_actual("pass", cell_run(1)), expect=400)  # pass s nenulovým kódem
+    propose(cell_actual("pass", cell_run(0, executor="discipline-1", verifier="x")), expect=400)  # navrhuje vykonavatel
+    gate(client, fragment, "verified", expect=400, payload=cell_actual("fail"))
+    builder = {**HEADERS, "X-Opora-Actor": "agent; name=builder"}
+    gate(client, fragment, "verified", expect=400, headers=builder, payload=cell_actual("pass", cell_run(0)))
+    forged = cell_actual("pass", cell_run(0, verifier="someone-else"))  # ručně zfalšovaný run: ověřovatel jiný než podatel
+    propose(forged, expect=400)
+    gate(client, fragment, "verified", expect=400, payload=forged)
+    propose(cell_actual("fail", cell_run(3)))
+    gate(client, fragment, "verified", expect=400, headers=builder)  # potvrzení návrhu vykonavatelem = 400
+    propose({**cell_actual("fail", cell_run(3)), "runTrust": "reported"}, expect=400)  # razítko počítá server
+    fragment = gate(client, fragment, "verified")["fragment"]
+    entry = stored(client, fragment["id"])[-1][2]["verified"]["payload"]
+    assert entry["runTrust"] == "reported" and "predictionError" in entry
+    detail = client.get("/api/brief-vault/fragment", params={**SCOPE, "id": fragment["id"]}).json()
+    assert detail["gateDetail"]["verified"]["payload"]["runTrust"] == "reported"
+    lesson = {"lesson": "Kontrola spadla na chybějící tabulce.", "kind": "pattern"}
+    propose(lesson, expect=400, gate_name="learned")  # po neúspěchu jen antipattern
+    gate(client, fragment, "learned", expect=400, payload=lesson)
+    done = gate(client, fragment, "learned", payload={**lesson, "kind": "antipattern"})
+    assert done["gateStep"] == 8
+    fragment = done["fragment"]
+    # Nové kolo: kontroly jsou měřítko napříč koly, agent je nezmění; člověk ano.
+    fragment = gate(client, fragment, "learned", value=False)["fragment"]
+    fragment = gate(client, fragment, "synthesized", value=False)["fragment"]
+    changed = {**SYNTH, "checks": [{"id": "unit", "command": "uv run pytest backend -q"}]}
+    assert "napříč koly" in propose(changed, expect=400, gate_name="synthesized")["error"]
+    gate(client, fragment, "synthesized", expect=400, payload=SYNTH)  # bez checks = změna
+    gate(client, fragment, "synthesized", expect=400, payload=changed)
+    propose({**SYNTH, "checks": CELL_CHECKS}, gate_name="synthesized")  # stejné kontroly projdou
+    assert gate(client, fragment, "synthesized", headers=HEADERS, payload=changed)["gateStep"] == 3
+
+
+def test_cell_untested_without_run_and_plain_fragment_unchanged(client):
+    fragment = root(client)
+    for name in GATES[:GATES.index("placed") + 1]:
+        extra = {"payload": {**SYNTH, "checks": CELL_CHECKS}} if name == "synthesized" else (
+            {"payload": PAYLOADS[name]} if name in PAYLOADS else {})
+        fragment = gate(client, fragment, name, **extra)["fragment"]
+    assert gate(client, fragment, "verified", payload=cell_actual("untested"))["gateStep"] == 7
+    plain = walk(client, post(client, op="create", scopeNodeId="s1", discipline="be", title="Jiný",
+                              text="Bez kontrol.")["fragment"], "placed")
+    gate(client, plain, "verified", expect=400, payload=cell_actual("pass", cell_run(0)))  # run bez checks
+    done = gate(client, plain, "verified", payload=cell_actual("pass"))
+    assert done["gateStep"] == 7 and "runTrust" not in stored(client, plain["id"])[-1][2]["verified"]["payload"]
+    # Kolo 2 nesmí kontroly přidat (kolo 1 je nemělo): měřítko napříč koly, změnu dělá člověk.
+    plain = gate(client, done["fragment"], "synthesized", value=False)["fragment"]
+    with_checks = {**SYNTH, "checks": CELL_CHECKS}
+    assert "napříč koly" in post(client, expect=400, op="propose", fragmentId=plain["id"],
+                                 expectedRevision=plain["revision"], gate="synthesized", payload=with_checks,
+                                 note="x")["error"]
+    gate(client, plain, "synthesized", expect=400, payload=with_checks)
+    assert gate(client, plain, "synthesized", payload=SYNTH)["gateStep"] == 3
