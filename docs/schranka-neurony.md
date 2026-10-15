@@ -51,7 +51,7 @@ Osm bran v pevném pořadí. Uložené jsou na revizi fragmentu ve sloupci `gate
 |---|---|---|---|
 | 1 | `scoped` | fragment patří projektu a své disciplíně | – |
 | 2 | `weighed` | zapsán přínos a riziko | `{benefit ≤280, risk ≤280}` |
-| 3 | `synthesized` | typovaný mikrokrok s kritériem hotovo a předpovědí | `{type, done ≤500, prediction: {tests: "pass"\|"fail", criticRounds: 0–2, risk ≤280}}` |
+| 3 | `synthesized` | typovaný mikrokrok s kritériem hotovo a předpovědí | `{type, done ≤500, prediction: {tests: "pass"\|"fail", criticRounds: 0–2, risk ≤280}, steps?, layer?}` |
 | 4 | `decided` | rozhodnutí ano / jinak / ne | `{verdict: "yes"\|"other"\|"no", reason ≤500}` |
 | 5 | `planned` | návrh struktury na plátně (dryRun) | – (server vypočítá, §5) |
 | 6 | `placed` | karty založené | – (server zapíše uložený plán, §5) |
@@ -59,6 +59,8 @@ Osm bran v pevném pořadí. Uložené jsou na revizi fragmentu ve sloupci `gate
 | 8 | `learned` | poučení zapsáno do paměti | `{lesson ≤500, kind: "pattern"\|"antipattern"}` |
 
 `type` mikrokroku: `PIPELINE | RETRIEVAL | MEMORY | TOOL | ROUTING | EVAL | ENCRYPTION | SCHEMA | UI | FLOW | API | DATA | INFRA | DOC`.
+
+Payload `synthesized` smí nést volitelné `steps: [text ≤300, 1–12 položek]` (konkrétní kroky mikrokroku jen v rozsahu `done`, z nich vzniknou bloky karty, §12) a `layer: "frontend"|"backend"|"database"`, které přebije `card.layer` z disciplíny (§2), např. backendový krok v disciplíně CX.
 
 Pravidla (hlídá server, ne UI):
 
@@ -88,7 +90,7 @@ Skládání pro fragment F s platnou disciplínou D ve skupině G, ve vrstvě sc
 3. **Uzly**: jedna karta za F (list) nebo za každého přímého potomka F druhu `brief`; tvar karty jako dosud (název `[task] …`, `card.status: draft`, `card.layer` podle §2, bloky z podfragmentů nejvýš 36, u disciplín s „ano“ v posledním sloupci §2 navíc 4 závěrečné bloky, `fragmentRef`). Karta nese `spec.goal` = `done` z brány `synthesized` a `spec.acceptance` = typ mikrokroku + `done`.
 4. **Vazby:** pořadí sourozenců `next`. Vazbu z portu `Komponenta hotová → frontend` plán sám nezakládá (fragment má jednu disciplínu, protějšek `fe` nejde určit spolehlivě); dotáhne ji agent nebo člověk.
 
-`planned` uloží souhrn dryRun a otisk plánu (sha256 kanonického JSON). `placed` plán znovu sestaví, a když se otisk liší (plátno nebo fragmenty se mezitím změnily), vrátí 409 „plán se změnil, znovu `planned`“. Jinak zapíše přes `apply_plan` s digestem aktuálního pohledu.
+`planned` uloží souhrn dryRun, otisk plánu (sha256 kanonického JSON) a `scopeDigest` kontejneru plánu (vrstva, použitá oblast a sektor, existující karta fragmentu: uzly grafu i jejich stav Desktop v3). `placed` plán znovu sestaví, a když se otisk nebo `scopeDigest` liší (kontejner plánu nebo fragmenty se mezitím změnily), vrátí 409 „plán se změnil, znovu `planned`“. Digest celého plátna ani revize celého stavu se neporovnávají, protože je mění i souběžné smyčky jiných disciplín (K12); otisk proto nenese `expectedRevision` položek `extend` a `placed` ji pod zámkem grafu doplní z aktuálního stavu. Jinak zapíše přes `apply_plan` s digestem aktuálního pohledu.
 
 ## 5. Paměť: poučení s vyhasínáním
 
@@ -131,8 +133,8 @@ Každý kus: subagent s tímto kontraktem, testy vedle modulů, kritik u změn d
 
 ## 9. Upřesnění po kritice (závazné, má přednost před §2–§7)
 
-1. **Atomický zápis plánu.** `placed` = v jedné operaci pod `graph_lock_for(pid)`: ověření CAS fragmentu, zdrojových revizí plánu, digestu plátna a jednoznačnosti značek `briefGroup`/`briefDiscipline` v kontejneru, `apply_plan` a revize fragmentu s `placed`. Konflikt = 409 bez vedlejších účinků; existující duplicitní značka = 409.
-2. **Neměnný plán.** `planned` uloží do payloadu `{planId, generator: 1, sourceRevisions: {fragmentId: revision}, scope, digest, plan, hash}`; `hash` = sha256 kanonického JSON dávky (klíče seřazené, kolekce v pořadí generátoru, bez ID od backendu a bez časů). `placed` aplikuje **právě uložený** plán, když se `sourceRevisions` a digest plátna nezměnily; jinak 409 „plán se změnil, znovu `planned`“. Zápis brány (nová revize s jinými branami) do `sourceRevisions` nevstupuje: porovnává se **otisk vstupů** (bod 4), ne číslo revize. Vypnutí `placed` karty nemaže; opětovné zapnutí po vložení vyžaduje nové `planned`.
+1. **Atomický zápis plánu.** `placed` = v jedné operaci pod `graph_lock_for(pid)`: ověření CAS fragmentu, zdrojových revizí plánu, `scopeDigest` kontejneru plánu (§4) a jednoznačnosti značek `briefGroup`/`briefDiscipline` v kontejneru, `apply_plan` a revize fragmentu s `placed`. Konflikt = 409 bez vedlejších účinků; existující duplicitní značka = 409.
+2. **Neměnný plán.** `planned` uloží do payloadu `{planId, generator: 2, sourceRevisions: {fragmentId: revision}, scope, digest, scopeDigest, plan, hash}`; `hash` = sha256 kanonického JSON dávky (klíče seřazené, kolekce v pořadí generátoru, bez ID od backendu, bez časů a bez revize celého stavu u `extend`), `digest` je jen informace. `placed` aplikuje **právě uložený** plán, když se `sourceRevisions` a `scopeDigest` nezměnily; jinak 409 „plán se změnil, znovu `planned`“. Zápis brány (nová revize s jinými branami) do `sourceRevisions` nevstupuje: porovnává se **otisk vstupů** (bod 4), ne číslo revize. Vypnutí `placed` karty nemaže; opětovné zapnutí po vložení vyžaduje nové `planned`.
 3. **Jedna zapisující cesta.** `POST /api/brief-vault/plan` je jen čtecí. Na plátno zapisuje Schránka jen brána `placed` (a dosavadní `/api/canvas-plan` z tlačítek UI); obě podléhají serverové kontrole schválení člověka v asistentovi i v `opora_write.py`.
 4. **Otisk vstupů a zneplatnění.** Každá zapnutá brána ukládá `inputHash` = sha256(název + text + `effectiveDiscipline` fragmentu). Při čtení i zápisu platí jen brány se shodným otiskem; jinak se hlásí jako zneplatněné (`gatesStale: true`) a chovají se jako vypnuté. Tím `revise`, `split`, `promote`, `set-discipline` (i na předkovi) cyklus zneplatní bez přepisu historie. Změna payloadu zapnuté brány = vypnout a znovu zapnout (kaskáda dalších bran). Karty a poučení zůstávají jako výstupy původního cyklu.
 5. **Migrace a NULL.** `NULL` v `discipline` = dědění; „nezařazený“ = bez disciplíny na celé cestě ke kořeni. Backfill z `track` se týká jen řádků s `track IS NOT NULL AND discipline IS NULL`; nový kód `track` nepíše (není v `COLUMNS`), takže záměrné `NULL` z `set-discipline` se nikdy nepřepíše. Staré snímky verzí dostanou prázdné `gates`; nové snímky nesou brány a poučení.
@@ -169,6 +171,6 @@ Automatické spouštění agentů na `/next`, vlastní hodnocení bran modelem b
 
 Pilot (BE, 3 kola, kritik 6/6/5) ukázal mezery; řešení (K11):
 - **Jedna karta na fragment napříč koly.** Má-li fragment ve vrstvě plánu živou kartu, jejíž první `fragmentRef` míří na něj, plán ji neduplikuje, ale aktualizuje přes `extend` dávky canvas-plan (spec goal/acceptance, `replaceBlocks`, nový `fragmentRef`). Víc karet fragmentu = 409 `duplicate-card`, uzavřená karta = 409 `card-closed` (smyčka se zastaví, rozhodne člověk).
-- **Konkrétní bloky:** bez přímých `brief` dětí vzniknou bloky z kroků `approach` posledního hotového výzkumu; název karty `[task] <název>: <první věta done>`.
+- **Konkrétní bloky:** název karty `[task] <název>: <první věta done>`. Zdroje bloků v pořadí (K12): (a) `steps` z `synthesized` (jen karta za fragment, který bránu nese; karty za jeho děti kroky nedědí), (b) přímé `brief` děti, (c) kroky `approach` posledního hotového výzkumu jako poslední záloha. U (a) i (c) nese poslední krok podmínku = `done`.
 - **Kola:** `round` = 1 + počet nových kol po `verified` s `tests: fail`; `exhausted` = `round > 3`; `/next` vyčerpané nevrací; `blockedBy: {proposal, confirm, plan, exhausted}`.
 - **Doklady z repa:** před `synthesized` má fragment research dítě „Doklady z repa“ s cestami `soubor:řádek` (průzkumník repa jen čte). Kritika každého kola se ukládá jako research dítě „Kritika kola“, aby ji navrhovatel v dalším kole četl celou (poznámka brány má limit 1000 znaků).

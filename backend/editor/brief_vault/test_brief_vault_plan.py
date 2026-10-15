@@ -31,14 +31,15 @@ class Vault:
     def __init__(self):
         self.rows = {}
 
-    def add(self, fid, title, parent=None, discipline=None, scope="s1", ord=1, synth=False, kind="brief", deleted=0):
+    def add(self, fid, title, parent=None, discipline=None, scope="s1", ord=1, synth=False, kind="brief", deleted=0,
+            payload=None):
         effective = discipline if discipline or parent is None else self.effective(parent)
         row = {"fragment_id": fid, "revision": 1, "parent_id": parent, "scope_node_id": None if parent else scope,
                "ord": ord, "kind": kind, "title": title, "text": f"text {title}", "deleted": deleted,
                "discipline": discipline, "gates": None}
         if synth:
             digest = input_hash(row["title"], row["text"], effective)
-            entries = {name: {"value": True, "payload": SYNTH if name == "synthesized" else None, "by": "t", "actor": "agent",
+            entries = {name: {"value": True, "payload": (payload or SYNTH) if name == "synthesized" else None, "by": "t", "actor": "agent",
                               "at": "T", "inputHash": digest, "revision": 1} for name in ("scoped", "weighed", "synthesized")}
             row["gates"] = encode_gates(entries)
         self.rows[fid] = row
@@ -270,7 +271,13 @@ def test_card_the_fragment_already_has_is_updated_not_duplicated():
                                         "spec": {"expectedRevision": 2, "fields": fresh["spec"]},
                                         "fragmentRef": fresh["fragmentRef"], "blocks": fresh["blocks"],
                                         "replaceBlocks": True}]
-    assert plan_hash(built["plan"]) != plan_hash(vault.plan(["x"], graph, state, details=details, revision=6)["plan"])
+    # Revize celého stavu do otisku nevstupuje (mění ji i souběžné smyčky, K12); stav karty ano přes scopeDigest.
+    later = vault.plan(["x"], graph, state, details=details, revision=6, spec_revision=lambda node_id: 2)
+    assert plan_hash(built["plan"]) == plan_hash(later["plan"]) and built["scopeDigest"] == later["scopeDigest"]
+    touched = {"nodes": {"K": {**state["nodes"]["K"], "phase": "define"}, "c1": {"phase": "build"}}}
+    assert vault.plan(["x"], graph, touched, details=details)["scopeDigest"] != built["scopeDigest"]
+    elsewhere = {"nodes": {**state["nodes"], "c1": {"phase": "build"}}}
+    assert vault.plan(["x"], graph, elsewhere, details=details)["scopeDigest"] == built["scopeDigest"]
     # Karta jiné vrstvy (mimo s1) ani karta, kde fragment není prvním odkazem, se neaktualizuje.
     assert by_ref(vault.plan(["x"], card_graph(("K", "s2")), state)["plan"])["f1"]["kind"] == "node"
     other = {"nodes": {"K": {"fragmentRefs": [{"fragmentId": "r", "revision": 1}, {"fragmentId": "x", "revision": 1}]}}}
@@ -291,3 +298,20 @@ def test_siblings_link_only_when_one_card_is_new():
     assert built["plan"]["edges"] == [{"from": "@K", "to": "f1", "port": "next"}]
     both = vault.plan(["r"], card_graph(("K", "s1"), ("L", "s1")), refs_state({"K": "a", "L": "b"}))
     assert both["plan"]["edges"] == [] and both["plan"]["nodes"] == []
+
+
+def test_synthesized_steps_come_first_and_layer_overrides_discipline():
+    """K12: bloky karty F podle kroků mikrokroku (ne podle širokého approach výzkumu), poslední krok = done."""
+    steps = ["Přidej sloupec cart_id", "Doplň test migrace"]
+    vault, details = research_vault()
+    vault.add("x", "Uložení košíku", discipline="be", synth=True, payload={**SYNTH, "steps": steps, "layer": "database"})
+    card = by_ref(vault.plan(["x"], details=details)["plan"])["f1"]
+    assert [(block["title"], block["condition"]) for block in card["blocks"][:2]] == [
+        (steps[0], "Krok proveden: " + steps[0]), (steps[1], SYNTH["done"])]
+    assert len(card["blocks"]) == 2 + len(LOGIC_BLOCKS) and card["card"]["layer"] == "database"
+    # Karty za děti F kroky F nedostanou: bloky z vlastních podfragmentů (b), jinak z výzkumu (c).
+    vault = chunks()
+    vault.add("r", "3. VRSTVA", discipline="be", synth=True, payload={**SYNTH, "steps": steps})
+    built = by_ref(vault.plan(["r"])["plan"])
+    assert [block["title"] for block in built["f1"]["blocks"][:2]] == ["3.12.1 Chunk id", "3.12.2 Overlap"]
+    assert built["f1"]["card"]["layer"] == "backend"

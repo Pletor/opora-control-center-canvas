@@ -168,7 +168,8 @@ předek včetně sebe; `null` = nezařazené); `vault` přijme filtr `discipline
 počet živých fragmentů `brief` s touto platnou disciplínou).
 
 **Brány cyklu** (`docs/schranka-neurony.md` §3, §9): `scoped` → `weighed` `{benefit ≤280, risk ≤280}` → `synthesized`
-`{type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280}}` → `decided` `{verdict: yes|other|no,
+`{type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280}, steps?: [1–12 × ≤300], layer?:
+frontend|backend|database}` → `decided` `{verdict: yes|other|no,
 reason ≤500}` → `planned` → `placed` (obě bez payloadu, viz níže) → `verified` `{actual: {tests, criticRounds: 0–3,
 unexpected: bool}}` (server dopočítá `predictionError`) → `learned` `{lesson ≤500, kind: pattern|antipattern}` (založí
 poučení). Bránu N jde zapnout jen po 1…N−1 (jinak 400), CAS = 409. `decided: no` = slepá ulička (brány 5–8 nejdou),
@@ -194,11 +195,12 @@ Role navrhovatel / potvrzovatel a CLI `opora_cycle.py`: [cycle.md](cycle.md).
 sestaví z fragmentu oblast skupiny (značka `briefGroup` ve stavu uzlu) → sektor disciplíny (`briefDiscipline`) →
 kartu za list nebo za každé přímé dítě `brief` (`[task] …`, `draft`, `card.layer` podle disciplíny, bloky z podfragmentů,
 u logiky 4 závěrečné bloky, `fragmentRef`, `spec.goal` = `done` ze `synthesized`, `next` mezi sourozenci; název
-`[task] <fragment>: <první věta done>`, list bez dětí bere bloky z číslovaných kroků `approach` posledního hotového
-`research`). Kartu, kterou fragment ve vrstvě už má, nezakládá znovu: plán ji aktualizuje položkou `extend`
+`[task] <fragment>: <první věta done>`; bloky v pořadí: `steps` ze `synthesized` (karta za F), přímé děti `brief`,
+nakonec číslované kroky `approach` posledního hotového `research`; `layer` ze `synthesized` přebije vrstvu disciplíny). Kartu, kterou fragment ve vrstvě už má, nezakládá znovu: plán ji aktualizuje položkou `extend`
 (spec, `replaceBlocks`, `fragmentRef`; víc karet = 409 `duplicate-card`, uzavřená = 409 `card-closed`), ověří dryRun
-a uloží `{planId, generator, sourceRevisions, sourceHashes, scope, digest, plan, hash, summary}`. `gate` `placed` vloží
-právě uložený plán atomicky s revizí fragmentu; změněné plátno, zadání nebo značky = 409 „plán se změnil, znovu
+a uloží `{planId, generator, sourceRevisions, sourceHashes, scope, digest, scopeDigest, plan, hash, summary}`. `gate`
+`placed` vloží právě uložený plán atomicky s revizí fragmentu; změněný kontejner plánu (vrstva, oblast, sektor, karta
+fragmentu a jejich stav), zadání nebo značky = 409 (změny jinde na plátně, např. souběžné smyčky, ne) „plán se změnil, znovu
 planned“ (nic se nezapíše). Vypnutí `placed` karty nemaže; znovu vložit jde až po novém `planned`. Zápis `placed`
 schvaluje člověk jako `/api/canvas-plan`. Nezařazený fragment nebo chybějící `synthesized` = 409 `{error, fragments:
 [{id, title, reason: "no-discipline"|"no-synthesized"|"not-live"|"duplicate-card"|"card-closed"}]}` (text `error` jmenuje první důvod, pole všechny).

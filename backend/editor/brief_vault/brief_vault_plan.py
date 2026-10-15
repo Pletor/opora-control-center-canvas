@@ -16,7 +16,9 @@ povinná a `done` bere karta z platné brány `synthesized` fragmentu F; chybí-
 (`fragments: [{id, title, reason}]`, reason `not-live | no-discipline | no-synthesized | duplicate-card | card-closed`). Duplicitní značka
 v kontejneru je 409. Dávka má nejvýš 200 uzlů; co se nevejde, ohlásí `skipped`. Otisk plánu = sha256
 kanonického JSON (klíče seřazené, kolekce v pořadí generátoru, jen refy dávky a id existujících uzlů, bez časů;
-položky `extend` nesou i revizi stavu a specu karty, takže změna karty mezi `planned` a `placed` = nové `planned`).
+položky `extend` nesou revizi specu karty, ne revizi celého stavu, viz `brief_vault_plan_update.fingerprint`).
+`scopeDigest` = otisk kontejneru plánu (vrstva, použitá oblast a sektor, existující karty, graf i stav), který
+`placed` porovná místo digestu celého plátna (K12).
 Nic nezapisuje: `dry_plan` dávku jen ověří přes `apply_plan` s `dryRun`.
 """
 
@@ -46,13 +48,15 @@ from backend.editor.brief_vault.brief_vault_model import (
 from backend.editor.brief_vault.brief_vault_plan_cards import card_of
 from backend.editor.brief_vault.brief_vault_plan_update import (
     existing_card,
+    fingerprint,
     live_cards,
     research_steps,
+    scope_digest,
     update_of,
 )
 from backend.editor.brief_vault.brief_vault_tree import live_ids, path_of
 
-GENERATOR = 1
+GENERATOR = 2  # 2 = otisk bez revize celého stavu a `scopeDigest` kontejneru (K12)
 MAX_IDS = 500
 MAX_PLAN_NODES = 200  # strop dávky `/api/canvas-plan` (canvas_plan_build.MAX_NODES)
 # Nová oblast pojme sektory všech disciplín své skupiny v mřížce: karta 360 × 240, mezera 96, okraj 48.
@@ -68,8 +72,8 @@ def area_size(group):
 
 
 def plan_hash(plan):
-    """sha256 kanonického JSON dávky."""
-    raw = json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    """sha256 kanonického JSON dávky bez revize celého stavu u položek `extend`."""
+    raw = json.dumps(fingerprint(plan), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -169,7 +173,7 @@ def build_plan(rows, graph, state, texts, fragment_ids, details=None, revision=0
     details, spec_revision = details or {}, spec_revision or (lambda node_id: 0)
     marks = marked(graph, state)
     nodes, edges, extend, skipped, scopes, cards = [], [], [], 0, [], {}
-    areas, sectors, sources = {}, {}, {}
+    areas, sectors, sources, touched = {}, {}, {}, set()
 
     def existing(key, layer, value):
         ids = marks.get((key, layer, value), [])
@@ -196,6 +200,8 @@ def build_plan(rows, graph, state, texts, fragment_ids, details=None, revision=0
         if layer not in scopes:
             scopes.append(layer)
             cards[layer] = live_cards(graph, state, layer)
+            if layer is not None:
+                touched.add(layer)
         previous = None
         for row in (rows[fid], *units, *(kid for unit in units for kid in kids.get(unit["fragment_id"], []))):
             sources[row["fragment_id"]] = row
@@ -204,14 +210,16 @@ def build_plan(rows, graph, state, texts, fragment_ids, details=None, revision=0
             discipline = disciplines[uid]
             unit_kids = kids.get(uid, [])
             steps = [] if unit_kids else research_steps(rows, uid, details)
+            lead = uid == fid  # kroky ze synthesized patří kartě za F (§12)
             path = [item["title"] for item in path_of(rows, uid)]
             current = existing_card(cards[layer], unit, state)
             if current is not None:
+                touched.add(current)
                 if len(extend) >= MAX_PLAN_NODES:
                     skipped, previous = skipped + 1, None
                     continue
                 card = card_of("u", "@" + current, unit, unit_kids, path, discipline,
-                               texts.get(uid, unit["revision"]), synthesized, steps)
+                               texts.get(uid, unit["revision"]), synthesized, steps, lead)
                 extend.append(update_of(card, current, revision, spec_revision(current)))
                 if previous is not None and not previous.startswith("@"):
                     edges.append({"from": previous, "to": "@" + current, "port": "next"})
@@ -221,6 +229,7 @@ def build_plan(rows, graph, state, texts, fragment_ids, details=None, revision=0
             # Nejdřív oblast skupiny, pak sektor disciplíny v ní (podle skutečného id oblasti, ne jen vrstvy).
             area = areas.get((layer, group)) or existing("briefGroup", layer, group)
             sector = sectors.get((layer, discipline)) or sector_in(area, layer, discipline)
+            touched.update(item[1:] for item in (area, sector) if item and item.startswith("@"))
             new = []
             if area is None:
                 area = f"a{len([n for n in nodes if n['kind'] == 'area']) + 1}"
@@ -239,12 +248,13 @@ def build_plan(rows, graph, state, texts, fragment_ids, details=None, revision=0
             nodes.extend(new)
             ref = f"f{len([n for n in nodes if n['kind'] == 'node']) + 1}"
             nodes.append(card_of(ref, sector, unit, unit_kids, path, discipline,
-                                 texts.get(uid, unit["revision"]), synthesized, steps))
+                                 texts.get(uid, unit["revision"]), synthesized, steps, lead))
             if previous is not None:
                 edges.append({"from": previous, "to": ref, "port": "next"})
             previous = ref
     plan = {"nodes": nodes, "edges": edges, **({"extend": extend} if extend else {})}
     return {"plan": plan, "skipped": skipped, "scopes": ["" if s is None else s for s in scopes],
+            "scopeDigest": scope_digest(graph, state, touched),
             "sourceRevisions": {fid: row["revision"] for fid, row in sources.items()},
             "sourceHashes": {fid: input_hash(row["title"], row["text"], disciplines.get(fid)) for fid, row in sources.items()}}
 

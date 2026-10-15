@@ -8,7 +8,16 @@ jsou podfragmenty). Takovou kartu plán nezakládá znovu: místo položky `node
 přepočítané stejně jako u nové karty (`replaceBlocks`), `fragmentRef` (přepíše se na poslední revizi a otisk obsahu)
 a `expectedRevision` = revize stavu. Víc takových karet ve vrstvě = 409 (`duplicate-card`); uzavřená karta = 409
 (`card-closed`), protože uzavřenou kartu dávka měnit nesmí: nejdřív ji otevřete.
+
+Kontejner plánu (K12): `expectedRevision` je revize **celého** stavu Desktop v3, kterou mění i souběžné smyčky jiných
+disciplín. Otisk plánu ji proto nenese (`fingerprint`) a `placed` ji před zápisem nastaví na aktuální revizi
+(`with_revisions`). Co plán čte a mění, hlídá `scope_digest`: sha256 uzlů grafu a jejich stavu pro vrstvu plánu,
+použitou oblast a sektor a existující kartu fragmentu. Změna mimo tyto uzly `placed` neshodí.
 """
+
+import copy
+import hashlib
+import json
 
 from backend.editor.brief_vault.brief_vault_model import blocked
 from backend.editor.brief_vault.brief_vault_plan_cards import approach_steps
@@ -66,3 +75,28 @@ def update_of(card, node_id, revision, spec_revision):
     return {"node": "@" + node_id, "expectedRevision": revision,
             "spec": {"expectedRevision": spec_revision, "fields": card["spec"]},
             "fragmentRef": card["fragmentRef"], "blocks": card["blocks"], "replaceBlocks": True}
+
+
+def fingerprint(plan):
+    """Dávka bez revize celého stavu u položek `extend` (vstup otisku plánu); revize specu karty zůstává."""
+    found = copy.deepcopy(plan)
+    for item in found.get("extend") or []:
+        item.pop("expectedRevision", None)
+    return found
+
+
+def with_revisions(plan, current):
+    """Uložená dávka s `expectedRevision` položek `extend` z právě sestavené dávky `current` (stejný otisk)."""
+    found = copy.deepcopy(plan)
+    for item, fresh in zip(found.get("extend") or [], current.get("extend") or [], strict=True):
+        item["expectedRevision"] = fresh["expectedRevision"]
+    return found
+
+
+def scope_digest(graph, state, node_ids):
+    """sha256 uzlů grafu a jejich stavu Desktop v3, které plán čte nebo mění (chybějící uzel = None)."""
+    by_id = {node["id"]: node for node in graph["nodes"]}
+    nodes = state.get("nodes") or {}
+    items = [[node_id, by_id.get(node_id), nodes.get(node_id)] for node_id in sorted(node_ids)]
+    raw = json.dumps(items, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()

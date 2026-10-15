@@ -75,9 +75,9 @@ def test_plan_endpoint_only_reads_and_feeds_canvas_plan(client):
 def test_planned_stores_immutable_plan_and_placed_inserts_it(client):
     fragment = walk(client, root(client), "planned")
     payload = stored(client, fragment["id"])[-1][2]["planned"]["payload"]
-    assert set(payload) == {"planId", "generator", "sourceRevisions", "sourceHashes", "scope", "digest", "plan", "hash",
-                            "summary"}
-    assert payload["generator"] == 1 and payload["scope"] == "s1" and payload["digest"] == view(client)["digest"]
+    assert set(payload) == {"planId", "generator", "sourceRevisions", "sourceHashes", "scope", "digest", "scopeDigest",
+                            "plan", "hash", "summary"}
+    assert payload["generator"] == 2 and len(payload["scopeDigest"]) == 64 and payload["scope"] == "s1" and payload["digest"] == view(client)["digest"]
     assert payload["hash"] == plan_hash(payload["plan"]) and kinds(client)["area"] == []
     done = gate(client, fragment, "placed")
     assert done["gates"]["placed"] is True and set(done["placement"]["refs"]) == {"a1", "s1", "f1"}
@@ -120,15 +120,19 @@ def test_changed_canvas_or_brief_is_409_without_side_effects(client):
     parent, (first, second) = split_root(client)
     parent = walk(client, parent, "planned")
     gate(client, first, "scoped")  # zápis brány dítěte (nová revize, stejný otisk) plán nezneplatní
-    revised = post(client, op="revise", fragmentId=second["id"], expectedRevision=1, text="jiné", note="změna")
     count = len(stored(client, parent["id"]))
+    graph = view(client)["graph"]
+    renamed = [{**item, "name": "Vrstva v2"} if item["id"] == "s1" else item for item in graph["nodes"]]
+    install_graph(client, {"nodes": renamed, "edges": graph["edges"]})  # vrstva plánu se změnila
+    assert "kontejner plánu na plátně" in gate(client, parent, "placed", expect=409)["error"]
+    install_graph(client, {"nodes": [*graph["nodes"], node("c2", "s1")], "edges": graph["edges"]})
+    # Vrstva zpět a nová karta mimo plán: kontejner plánu zase platí (dál ho shodí až změna zadání).
+    revised = post(client, op="revise", fragmentId=second["id"], expectedRevision=1, text="jiné", note="změna")
     conflict = gate(client, parent, "placed", expect=409)["error"]
     assert "plán se změnil, znovu planned" in conflict and second["id"] in conflict
     post(client, op="revise", fragmentId=second["id"], expectedRevision=revised["fragment"]["revision"],
-         text="3.2 Obrazovka\nseznam.", note="zpět")  # stejný otisk vstupů = plán zase platí
-    graph = view(client)["graph"]
-    install_graph(client, {"nodes": [*graph["nodes"], node("c2", "s1")], "edges": graph["edges"]})
-    assert "plátno" in gate(client, parent, "placed", expect=409)["error"]
+         text="3.2 Obrazovka\nseznam.", note="zpět")  # stejný otisk vstupů, ale karta by nesla jinou revizi textu
+    assert "plán by dnes vypadal jinak" in gate(client, parent, "placed", expect=409)["error"]
     assert len(stored(client, parent["id"])) == count and kinds(client)["area"] == []
     post(client, op="revise", fragmentId=parent["id"], expectedRevision=parent["revision"], title="3. VRSTVA v2",
          note="nový název")

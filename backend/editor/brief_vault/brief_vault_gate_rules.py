@@ -27,12 +27,18 @@ MICROSTEP_TYPES = ("PIPELINE", "RETRIEVAL", "MEMORY", "TOOL", "ROUTING", "EVAL",
 VERDICTS = ("yes", "other", "no")
 LESSON_KINDS = ("pattern", "antipattern")
 ENTRY_KEYS = {"value", "payload", "by", "actor", "at", "inputHash", "revision"}
+# Volitelné kroky mikrokroku (bloky karty, §12) a vrstva karty, která přebije vrstvu z disciplíny (§2, §3).
+SYNTH_REQUIRED, SYNTH_OPTIONAL = ("type", "done", "prediction"), ("steps", "layer")
+MAX_SYNTH_STEPS, MAX_STEP_CHARS = 12, 300
+CARD_LAYERS = ("frontend", "backend", "database")
 HINTS = {
     "scoped": "Potvrď, že fragment patří projektu a své disciplíně (brána bez payloadu).",
     "weighed": "Zapiš přínos a riziko: {benefit ≤280, risk ≤280}.",
-    "synthesized": "Navrhni typovaný mikrokrok: {type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280}}.",
+    "synthesized": "Navrhni typovaný mikrokrok: {type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280},"
+                   " steps?: [1–12 kroků ≤300 jen v rozsahu done], layer?: frontend|backend|database}.",
     "decided": "Rozhodni: {verdict: yes|other|no, reason ≤500}; other vrátí fragment k mikrokroku, no = slepá ulička.",
-    "planned": "Potvrď návrh struktury (brána bez payloadu): server sestaví oblast → sektor → karty, ověří je dryRun a uloží plán.",
+    "planned": "Potvrď návrh struktury (brána bez payloadu): server sestaví oblast → sektor → karty, ověří je dryRun a uloží plán;"
+               " po potvrzení planned hned potvrď placed (fronta placed nevrací).",
     "placed": "Vlož uložený plán na plátno (brána bez payloadu; zápis na plátno schvaluje člověk).",
     "verified": "Ověř výsledek proti předpovědi: {actual: {tests: pass|fail, criticRounds: 0–3, unexpected: bool}}.",
     "learned": "Zapiš poučení do paměti disciplíny: {lesson ≤500, kind: pattern|antipattern}.",
@@ -91,7 +97,16 @@ def validate_payload(gate, payload):
         _text(payload["benefit"], 280, "benefit")
         _text(payload["risk"], 280, "risk")
     elif gate == "synthesized":
-        _exact(payload, ("type", "done", "prediction"), "payload synthesized")
+        if not isinstance(payload, dict) or not set(SYNTH_REQUIRED) <= set(payload)                 or set(payload) - set(SYNTH_REQUIRED) - set(SYNTH_OPTIONAL):
+            _bad("payload synthesized musí být objekt s poli type, done, prediction a volitelně steps, layer.")
+        if "steps" in payload:
+            steps = payload["steps"]
+            if not isinstance(steps, list) or not 1 <= len(steps) <= MAX_SYNTH_STEPS:
+                _bad(f"steps musí být pole 1–{MAX_SYNTH_STEPS} kroků.")
+            for step in steps:
+                _text(step, MAX_STEP_CHARS, "krok ve steps")
+        if "layer" in payload:
+            _choice(payload["layer"], CARD_LAYERS, "layer")
         _choice(payload["type"], MICROSTEP_TYPES, "type")
         _text(payload["done"], 500, "done")
         prediction = _exact(payload["prediction"], ("tests", "criticRounds", "risk"), "prediction")

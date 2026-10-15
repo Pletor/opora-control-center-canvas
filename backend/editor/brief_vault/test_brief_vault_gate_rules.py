@@ -49,6 +49,14 @@ def test_prediction_error_table(prediction, actual, error):
     ("weighed", {"benefit": "b", "risk": ""}),
     ("weighed", {"benefit": "b", "risk": "r", "extra": 1}),
     ("synthesized", {**SYNTH, "type": "FOO"}),
+    ("synthesized", {**SYNTH, "steps": []}),
+    ("synthesized", {**SYNTH, "steps": ["krok"] * 13}),
+    ("synthesized", {**SYNTH, "steps": ["k" * 301]}),
+    ("synthesized", {**SYNTH, "steps": [" "]}),
+    ("synthesized", {**SYNTH, "steps": "1. krok"}),
+    ("synthesized", {**SYNTH, "layer": "infra"}),
+    ("synthesized", {**SYNTH, "extra": 1}),
+    ("synthesized", {"type": "SCHEMA", "done": "d", "steps": ["krok"]}),
     ("synthesized", {**SYNTH, "done": "d" * 501}),
     ("synthesized", {**SYNTH, "prediction": {**SYNTH["prediction"], "criticRounds": 3}}),
     ("synthesized", {**SYNTH, "prediction": {**SYNTH["prediction"], "criticRounds": True}}),
@@ -69,6 +77,8 @@ def test_invalid_payloads_are_bad_requests(gate, payload):
 def test_valid_payloads_pass_unchanged():
     assert validate_payload("scoped", None) is None
     assert validate_payload("synthesized", SYNTH) == SYNTH
+    full = {**SYNTH, "steps": ["Přidej tabulku", "k" * 300] + ["krok"] * 10, "layer": "backend"}
+    assert validate_payload("synthesized", full) == full
     assert validate_payload("decided", {"verdict": "no", "reason": "Mimo rozsah."})["verdict"] == "no"
     assert validate_payload("learned", {"lesson": "Menší kroky.", "kind": "antipattern"})["kind"] == "antipattern"
 

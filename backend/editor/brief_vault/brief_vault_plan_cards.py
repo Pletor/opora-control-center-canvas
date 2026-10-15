@@ -7,10 +7,12 @@ v posledním sloupci §2 navíc čtyři závěrečné bloky logiky, `fragmentRef
 Text zadání se do karty nekopíruje: agent ho dostane doslovně v node-brief. Nově karta nese `spec.goal` =
 `done` z brány `synthesized` a `spec.acceptance` = typ mikrokroku + `done`.
 
-Název karty je `[task] <název fragmentu>: <první věta done ≤ 80 znaků>`. Fragment bez přímých podfragmentů
-`brief` dostane bloky z kroků `approach` posledního hotového výzkumu (`research` se `status: done`, poslední v pořadí
-`ord`): číslované řádky nebo odrážky (bez nich neprázdné řádky), nejvýš `MAX_STEPS`; poslední krok nese podmínku
-`done` ze `synthesized`. Závěrečné bloky logiky zůstávají za nimi.
+Název karty je `[task] <název fragmentu>: <první věta done ≤ 80 znaků>`. Zdroje bloků v pořadí (§12, K12):
+(a) `steps` z brány `synthesized`, když je karta za fragment, který bránu nese (F jako list; karty za děti F ji
+nedostanou, kroky patří mikrokroku F); (b) přímé podfragmenty `brief`; (c) kroky `approach` posledního hotového
+výzkumu (`research` se `status: done`, poslední v pořadí `ord`): číslované řádky nebo odrážky (bez nich neprázdné
+řádky), nejvýš `MAX_STEPS`. U (a) i (c) nese poslední krok podmínku `done` ze `synthesized`. Závěrečné bloky logiky
+zůstávají za nimi. `card.layer` = `layer` ze `synthesized`, jinak vrstva disciplíny (§2).
 """
 
 import re
@@ -70,21 +72,27 @@ def _step_blocks(steps, synthesized, room):
             for number, step in enumerate(chosen, start=1)]
 
 
-def card_of(ref, parent, row, kids, path, discipline, text_revision, synthesized, steps=()):
+def card_of(ref, parent, row, kids, path, discipline, text_revision, synthesized, steps=(), lead=False):
     """Položka dávky pro jednu kartu; `kids` = přímé podfragmenty `brief` (řádky), `path` = názvy od kořene,
-    `steps` = kroky postupu posledního hotového výzkumu (použijí se jen bez `kids`)."""
+    `steps` = kroky postupu posledního hotového výzkumu (záloha), `lead` = karta za fragment s bránou `synthesized`
+    (jen ona bere `synthesized.steps`)."""
     closing = [dict(block, ports=[dict(port) for port in block["ports"]]) if "ports" in block else dict(block)
                for block in LOGIC_BLOCKS] if has_logic_blocks(discipline) else []
-    from_kids = [{"title": clip(kid["title"], 120),
-                  "text": "Podfragment ze schránky; doslovný text v node-brief.fragments.",
-                  "condition": clip(f"Splněno podle podfragmentu „{kid['title']}“.", 400)}
-                 for kid in kids[:MAX_BLOCKS - len(closing)]] if kids else _step_blocks(
-                     list(steps), synthesized, MAX_BLOCKS - len(closing))
+    room = MAX_BLOCKS - len(closing)
+    planned_steps = list(synthesized.get("steps") or []) if lead else []
+    use_kids = bool(kids) and not planned_steps
+    if use_kids:
+        from_kids = [{"title": clip(kid["title"], 120),
+                      "text": "Podfragment ze schránky; doslovný text v node-brief.fragments.",
+                      "condition": clip(f"Splněno podle podfragmentu „{kid['title']}“.", 400)} for kid in kids[:room]]
+    else:
+        from_kids = _step_blocks(planned_steps or list(steps), synthesized, room)
     card = {"status": "draft"}
-    if layer_of(discipline):
-        card["layer"] = layer_of(discipline)
+    layer = synthesized.get("layer") or layer_of(discipline)
+    if layer:
+        card["layer"] = layer
     text = (f"Zadání karty žije ve schránce zadání: fragment „{clip(row['title'], 120)}“ (revize textu r{text_revision})"
-            + (f" a {len(kids)} podfragmentů jako bloky" if kids else "")
+            + (f" a {len(kids)} podfragmentů jako bloky" if use_kids else "")
             + ". Doslovný text dostane agent v node-brief (sekce fragments); sem se nekopíruje.")
     return {
         "ref": ref,

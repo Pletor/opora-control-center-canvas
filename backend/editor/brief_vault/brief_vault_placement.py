@@ -1,14 +1,16 @@
 """Brány plánu struktury `planned` a `placed` (docs/schranka-neurony.md §4, §9 body 1 a 2).
 
 `planned` (zapnutí): server pro fragment sestaví plán (`brief_vault_plan`), ověří ho přes `/api/canvas-plan`
-s `dryRun` a uloží neměnný payload `{planId, generator, sourceRevisions, sourceHashes, scope, digest, plan, hash,
-summary}`. `sourceHashes` = otisk vstupů (název + text + platná disciplína) každého zdrojového fragmentu: zápis
+s `dryRun` a uloží neměnný payload `{planId, generator, sourceRevisions, sourceHashes, scope, digest, scopeDigest,
+plan, hash, summary}` (`digest` = celé plátno v okamžiku plánu, jen pro informaci). `sourceHashes` = otisk vstupů (název + text + platná disciplína) každého zdrojového fragmentu: zápis
 brány revizi zvedne, ale otisk nezmění, takže plán dál platí.
 
 `placed` (zapnutí) je jediná operace pod zámkem grafu: CAS fragmentu, platné `planned` (zneplatněné = 409),
-`planned` novější než poslední vypnutí `placed` (znovu vložit = nové `planned`), shodné otisky zdrojů, shodný
-digest plátna a znovu sestavený plán se stejným otiskem (to ověří i jednoznačnost značek). Pak `apply_plan`
-právě uloženého plánu a v téže transakci (`after_write`) revize fragmentu se zapnutou `placed`. Konflikt = 409
+`planned` novější než poslední vypnutí `placed` (znovu vložit = nové `planned`), shodné otisky zdrojů, stejný
+generátor, shodný `scopeDigest` kontejneru plánu a znovu sestavený plán se stejným otiskem (to ověří i jednoznačnost
+značek a to, že oblast či sektor mezitím nevznikly jinde). Digest **celého** plátna ani revize celého stavu se
+neporovnávají: mění je i souběžné smyčky jiných disciplín (K12). Pak `apply_plan` právě uloženého plánu s digestem
+aktuálního pohledu a `expectedRevision` položek `extend` z aktuálního stavu (vše pod týmž zámkem grafu) a v téže transakci (`after_write`) revize fragmentu se zapnutou `placed`. Konflikt = 409
 bez vedlejších účinků; selhání zápisu vrátí dávku i bránu. Vypnutí `placed` jde běžnou cestou a karty nemaže.
 Zápis na plátno schvaluje člověk v asistentovi stejně jako `/api/canvas-plan` (`approvals.summary_of`).
 Pojistka zápisu (§11): po ověření a **před** `apply_plan` se pod týmž zámkem grafu uloží verze plátna se štítkem
@@ -32,6 +34,7 @@ from backend.editor.brief_vault.brief_vault_model import (
     latest_rows,
 )
 from backend.editor.brief_vault.brief_vault_plan import GENERATOR, dry_plan, plan_hash, read_plan
+from backend.editor.brief_vault.brief_vault_plan_update import with_revisions
 from backend.editor.brief_vault.brief_vault_tree import live_ids
 from backend.editor.canvas_versions.canvas_versions import CanvasVersions
 
@@ -73,7 +76,7 @@ def _planned(vault, payload, actor):
         fail(f"plán fragmentu má víc než {len(checked['plan']['nodes'])} uzlů jedné dávky; rozdělte fragment.")
     return {"planId": uuid.uuid4().hex, "generator": GENERATOR, "sourceRevisions": checked["sourceRevisions"],
             "sourceHashes": checked["sourceHashes"], "scope": checked["scopes"][0], "digest": checked["digest"],
-            "plan": checked["plan"], "hash": checked["hash"], "summary": checked["summary"]}
+            "scopeDigest": checked["scopeDigest"], "plan": checked["plan"], "hash": checked["hash"], "summary": checked["summary"]}
 
 
 def _stored_plan(vault, payload, view):
@@ -107,12 +110,14 @@ def _stored_plan(vault, payload, view):
         if source is None or fragment_id not in live_ids(rows) or \
                 input_hash(source["title"], source["text"], disciplines.get(fragment_id)) != expected:
             fail(f"{CHANGED} (fragment {fragment_id} se od plánu změnil).")
-    if view["digest"] != stored["digest"]:
-        fail(f"{CHANGED} (plátno se od plánu změnilo).")
+    if stored.get("generator") != GENERATOR or "scopeDigest" not in stored:
+        fail(f"{CHANGED} (plán je ze starší verze generátoru).")
     rebuilt = read_plan(vault.canvas, vault.state, project, workspace, view, [row["fragment_id"]])
+    if rebuilt["scopeDigest"] != stored["scopeDigest"]:
+        fail(f"{CHANGED} (kontejner plánu na plátně se od plánu změnil).")
     if plan_hash(rebuilt["plan"]) != stored["hash"] or plan_hash(stored["plan"]) != stored["hash"]:
         fail(f"{CHANGED} (plán by dnes vypadal jinak).")
-    return stored, row["title"]
+    return stored, row["title"], with_revisions(stored["plan"], rebuilt["plan"])
 
 
 def run(vault, payload, view, node_ids, make_write, actor):
@@ -126,7 +131,7 @@ def run(vault, payload, view, node_ids, make_write, actor):
             w = make_write(db)
             w.prepared = prepared
             return {"ok": True, "op": "gate", **gates.gate(w, payload, node_ids)}
-    stored, title = _stored_plan(vault, payload, view)
+    stored, title, plan = _stored_plan(vault, payload, view)
     # Pojistka zápisu (§11): verze plátna před vložením; výjimka = placed se nezapíše (ValueError 409, jinak 500).
     CanvasVersions(canvas, vault.state).checkpoint(project, payload["workspace"], BEFORE_PLACED + title, actor=actor)
     done = {}
@@ -136,8 +141,8 @@ def run(vault, payload, view, node_ids, make_write, actor):
         w.prepared = {"planId": stored["planId"], "hash": stored["hash"], "refs": dict(refs)}
         done["result"] = gates.gate(w, payload, node_ids)
 
-    applied = apply_plan(canvas, {"project": project, "workspace": payload["workspace"], "digest": stored["digest"],
-                                  "plan": stored["plan"]}, actor=actor, after_write=after_write)
+    applied = apply_plan(canvas, {"project": project, "workspace": payload["workspace"], "digest": view["digest"],
+                                  "plan": plan}, actor=actor, after_write=after_write)
     return {"ok": True, "op": "gate", **done["result"],
             "placement": {"planId": stored["planId"], "refs": applied["refs"], "summary": applied["summary"],
                           "digest": applied["digest"], "revision": applied["revision"]}}
