@@ -33,4 +33,23 @@ Kontrakt → subagent s přesným zadáním → kritik (ChatGPT `codex exec`, He
 | noc | Prostředí: backend s Celeris (klíč z `.env`), služba Zrcadla 127.0.0.1:8750, pískoviště `cb1f8a93…` se 17 zadáními | běží |
 | noc | Výzkum: 17 výzkumníků (Claude + web) – všech 17 disciplín verdikt feasible, 5–8 důkazů, kořeny na revizi 2 | hotovo |
 | noc | Poznatek: souběžní agenti si přepisovali soubory ve sdíleném scratchpadu → pravidlo „vlastní složka na agenta“; `opora_read vault --discipline` doplněno (c32aa21) | opraveno |
-| noc | Fáze bran: pilot BE (Hermes navrhuje, ChatGPT hodnotí ≥8/10, Claude potvrzuje) | běží |
+| noc | Fáze bran: pilot BE (Hermes navrhuje, ChatGPT hodnotí ≥8/10, Claude potvrzuje) | hotovo |
+| noc | 1. běh všech 17 disciplín: 3 kola, kritik 4–6 → příčiny procesní (bloky z širokého approach, kritik viděl oříznutou kartu, 409 po planned, duplicitní karty) → K11 (bbe573e), K12 (fb1d19b) | opraveno |
+| ráno | Scratchpad relace se smazal i s navrhovatelem → obnova z přepisu relace, trvalá kopie v `~/.claude/projects/<projekt>/loop-tools/`, workflow ověří navrhovatele před startem | opraveno |
+| ráno | 2. běh: navrhovatel ořezával detail fragmentu (20 000 znaků) → payload synthesized vypadl a Hermes navrhoval `decided: other`; oprava: kompaktní detail (brány, návrhy, zamítnutí první), `layer` a zákaz meta-kroků v zadání, kritik zná povinné závěrečné bloky (§2) | opraveno |
+| ráno | K13 zobrazení kola N/3, vyčerpání, důvodu čekání, kroků a vrstvy (5ffd4db); extend přenese `layer` na existující kartu (c880087) | hotovo |
+| ráno | §13 plán schválen ≠ testy prošly: `planApproved`/`planScore`, `tests: untested` (43b9cff) – na žádost člověka | hotovo |
+| ráno | 3. běh (11 disciplín): výzkumník dodal doklady přesně podle výtek kritika (repo TO `soubor:řádek` + primární URL) → nový kořen → 8/10 a 9/10 napoprvé u 8 disciplín | hotovo |
+| ráno | K14 kroky s vlastní podmínkou, neořezané done, `nonGoals` → `spec.non_goals` (9a1517d); 4. běh fe a test → 9/10 v 1. kole | hotovo |
+
+## Výsledek smyčky
+
+| Stav | Disciplíny |
+|---|---|
+| kvalitní (plán schválen ≥ 8/10, `learned`) | be, cache, db, data, security, observability (2. běh); ai, api, cx, ui, ux (9/10), cloud, content, devops (8/10) (3. běh); fe, test (9/10, 4. běh) |
+| čeká na člověka | infra – chybí ID služeb v Coolify a URL obou API (v repu nejsou) |
+
+Poznatky:
+- Konvergenci přinesly **doklady na míru výtkám** (repo `soubor:řádek` + primární URL) a **nástroje, kterými navrhovatel umí výtku opravit** (layer, podmínky kroků, nonGoals). Kolo, ve kterém navrhovatel výtku opravit nemůže, je ztracené – kritikova výtka má být buď opravitelná payloadem, nebo otázka na člověka.
+- „Plán schválen“ není „testy prošly“: všech 16 kvalitních výstupů má `tests` neběžely (resp. starší payloady odvozené ze skóre). Implementace podle karet je další krok.
+- Starší poučení si v jedné věci odporují (zda fe potřebuje závěrečné bloky); pravidlo je v kódu (`brief_vault_disciplines.py`: jen be, api, db, cache, ai, security, data), staré antipatterny vyhasnou (poločas 30 dní).
