@@ -55,6 +55,14 @@ def test_prediction_error_table(prediction, actual, error):
     ("synthesized", {**SYNTH, "steps": ["k" * 301]}),
     ("synthesized", {**SYNTH, "steps": [" "]}),
     ("synthesized", {**SYNTH, "steps": "1. krok"}),
+    ("synthesized", {**SYNTH, "steps": [{"text": "k"}]}),
+    ("synthesized", {**SYNTH, "steps": [{"text": "k", "condition": ""}]}),
+    ("synthesized", {**SYNTH, "steps": [{"text": "k", "condition": "c" * 301}]}),
+    ("synthesized", {**SYNTH, "steps": [{"text": "k", "condition": "c", "x": 1}]}),
+    ("synthesized", {**SYNTH, "nonGoals": ["a"] * 7}),
+    ("synthesized", {**SYNTH, "nonGoals": ["n" * 201]}),
+    ("synthesized", {**SYNTH, "nonGoals": [" "]}),
+    ("synthesized", {**SYNTH, "nonGoals": "mimo"}),
     ("synthesized", {**SYNTH, "layer": "infra"}),
     ("synthesized", {**SYNTH, "extra": 1}),
     ("synthesized", {"type": "SCHEMA", "done": "d", "steps": ["krok"]}),
@@ -80,6 +88,10 @@ def test_valid_payloads_pass_unchanged():
     assert validate_payload("synthesized", SYNTH) == SYNTH
     full = {**SYNTH, "steps": ["Přidej tabulku", "k" * 300] + ["krok"] * 10, "layer": "backend"}
     assert validate_payload("synthesized", full) == full
+    mixed = {**SYNTH, "steps": ["text", {"text": "t" * 300, "condition": "c" * 300}], "nonGoals": [], "layer": "backend"}
+    assert validate_payload("synthesized", mixed) == mixed
+    goals = {**SYNTH, "nonGoals": ["n" * 200] * 6}
+    assert validate_payload("synthesized", goals) == goals
     assert validate_payload("decided", {"verdict": "no", "reason": "Mimo rozsah."})["verdict"] == "no"
     assert validate_payload("learned", {"lesson": "Menší kroky.", "kind": "antipattern"})["kind"] == "antipattern"
 

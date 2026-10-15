@@ -168,7 +168,7 @@ předek včetně sebe; `null` = nezařazené); `vault` přijme filtr `discipline
 počet živých fragmentů `brief` s touto platnou disciplínou).
 
 **Brány cyklu** (`docs/schranka-neurony.md` §3, §9): `scoped` → `weighed` `{benefit ≤280, risk ≤280}` → `synthesized`
-`{type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280}, steps?: [1–12 × ≤300], layer?:
+`{type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280}, steps?: [1–12 × (text ≤300 | {text ≤300, condition ≤300})], nonGoals?: [0–6 × ≤200] (→ spec.non_goals), layer?:
 frontend|backend|database}` → `decided` `{verdict: yes|other|no,
 reason ≤500}` → `planned` → `placed` (obě bez payloadu, viz níže) → `verified` `{actual: {tests: pass|fail|untested, planApproved?, planScore?: 0–10, criticRounds: 0–3,
 unexpected: bool}}` (server dopočítá `predictionError`) → `learned` `{lesson ≤500, kind: pattern|antipattern}` (založí

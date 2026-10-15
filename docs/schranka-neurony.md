@@ -51,7 +51,7 @@ Osm bran v pevném pořadí. Uložené jsou na revizi fragmentu ve sloupci `gate
 |---|---|---|---|
 | 1 | `scoped` | fragment patří projektu a své disciplíně | – |
 | 2 | `weighed` | zapsán přínos a riziko | `{benefit ≤280, risk ≤280}` |
-| 3 | `synthesized` | typovaný mikrokrok s kritériem hotovo a předpovědí | `{type, done ≤500, prediction: {tests: "pass"\|"fail", criticRounds: 0–2, risk ≤280}, steps?, layer?}` |
+| 3 | `synthesized` | typovaný mikrokrok s kritériem hotovo a předpovědí | `{type, done ≤500, prediction: {tests: "pass"\|"fail", criticRounds: 0–2, risk ≤280}, steps?, layer?, nonGoals?}` |
 | 4 | `decided` | rozhodnutí ano / jinak / ne | `{verdict: "yes"\|"other"\|"no", reason ≤500}` |
 | 5 | `planned` | návrh struktury na plátně (dryRun) | – (server vypočítá, §5) |
 | 6 | `placed` | karty založené | – (server zapíše uložený plán, §5) |
@@ -60,7 +60,7 @@ Osm bran v pevném pořadí. Uložené jsou na revizi fragmentu ve sloupci `gate
 
 `type` mikrokroku: `PIPELINE | RETRIEVAL | MEMORY | TOOL | ROUTING | EVAL | ENCRYPTION | SCHEMA | UI | FLOW | API | DATA | INFRA | DOC`.
 
-Payload `synthesized` smí nést volitelné `steps: [text ≤300, 1–12 položek]` (konkrétní kroky mikrokroku jen v rozsahu `done`, z nich vzniknou bloky karty, §12) a `layer: "frontend"|"backend"|"database"`, které přebije `card.layer` z disciplíny (§2), např. backendový krok v disciplíně CX.
+Payload `synthesized` smí nést volitelné `steps: [text ≤300, 1–12 položek]` (konkrétní kroky mikrokroku jen v rozsahu `done`, z nich vzniknou bloky karty, §12) a `layer: "frontend"|"backend"|"database"`, které přebije `card.layer` z disciplíny (§2), např. backendový krok v disciplíně CX. Položka `steps` je text ≤300, nebo objekt `{text ≤300, condition ≤300}`: `condition` se stane podmínkou bloku (bez ní dostane krok „Krok proveden: …“ a poslední krok celé `done`, nikdy oříznuté uprostřed slova). Volitelné `nonGoals: [text ≤200, 0–6 položek]` se zapíše do `spec.non_goals` karty (odrážky) a v dalším kole se aktualizuje jako `goal`; bez `nonGoals` zůstává stávající `non_goals` karty beze změny (K14).
 
 Pravidla (hlídá server, ne UI):
 

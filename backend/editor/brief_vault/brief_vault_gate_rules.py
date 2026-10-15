@@ -28,15 +28,15 @@ VERDICTS = ("yes", "other", "no")
 LESSON_KINDS = ("pattern", "antipattern")
 ENTRY_KEYS = {"value", "payload", "by", "actor", "at", "inputHash", "revision"}
 # Volitelné kroky mikrokroku (bloky karty, §12) a vrstva karty, která přebije vrstvu z disciplíny (§2, §3).
-SYNTH_REQUIRED, SYNTH_OPTIONAL = ("type", "done", "prediction"), ("steps", "layer")
-MAX_SYNTH_STEPS, MAX_STEP_CHARS = 12, 300
+SYNTH_REQUIRED, SYNTH_OPTIONAL = ("type", "done", "prediction"), ("steps", "layer", "nonGoals")
+MAX_SYNTH_STEPS, MAX_STEP_CHARS, MAX_NON_GOALS, MAX_NON_GOAL_CHARS = 12, 300, 6, 200
 VERIFIED_REQUIRED, VERIFIED_OPTIONAL = ("tests", "criticRounds", "unexpected"), ("planApproved", "planScore")
 CARD_LAYERS = ("frontend", "backend", "database")
 HINTS = {
     "scoped": "Potvrď, že fragment patří projektu a své disciplíně (brána bez payloadu).",
     "weighed": "Zapiš přínos a riziko: {benefit ≤280, risk ≤280}.",
     "synthesized": "Navrhni typovaný mikrokrok: {type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280},"
-                   " steps?: [1–12 kroků ≤300 jen v rozsahu done], layer?: frontend|backend|database}.",
+                   " steps?: [1–12 kroků: text ≤300 nebo {text ≤300, condition ≤300}, jen v rozsahu done], layer?: frontend|backend|database, nonGoals?: [0–6 × ≤200 mimo rozsah]}.",
     "decided": "Rozhodni: {verdict: yes|other|no, reason ≤500}; other vrátí fragment k mikrokroku, no = slepá ulička.",
     "planned": "Potvrď návrh struktury (brána bez payloadu): server sestaví oblast → sektor → karty, ověří je dryRun a uloží plán;"
                " po potvrzení planned hned potvrď placed (fronta placed nevrací).",
@@ -99,13 +99,24 @@ def validate_payload(gate, payload):
         _text(payload["risk"], 280, "risk")
     elif gate == "synthesized":
         if not isinstance(payload, dict) or not set(SYNTH_REQUIRED) <= set(payload)                 or set(payload) - set(SYNTH_REQUIRED) - set(SYNTH_OPTIONAL):
-            _bad("payload synthesized musí být objekt s poli type, done, prediction a volitelně steps, layer.")
+            _bad("payload synthesized musí být objekt s poli type, done, prediction a volitelně steps, layer, nonGoals.")
         if "steps" in payload:
             steps = payload["steps"]
             if not isinstance(steps, list) or not 1 <= len(steps) <= MAX_SYNTH_STEPS:
                 _bad(f"steps musí být pole 1–{MAX_SYNTH_STEPS} kroků.")
             for step in steps:
-                _text(step, MAX_STEP_CHARS, "krok ve steps")
+                if isinstance(step, dict):
+                    _exact(step, ("text", "condition"), "krok ve steps")
+                    _text(step["text"], MAX_STEP_CHARS, "text kroku ve steps")
+                    _text(step["condition"], MAX_STEP_CHARS, "condition kroku ve steps")
+                else:
+                    _text(step, MAX_STEP_CHARS, "krok ve steps")
+        if "nonGoals" in payload:
+            goals = payload["nonGoals"]
+            if not isinstance(goals, list) or len(goals) > MAX_NON_GOALS:
+                _bad(f"nonGoals musí být pole 0–{MAX_NON_GOALS} textů.")
+            for goal in goals:
+                _text(goal, MAX_NON_GOAL_CHARS, "položka nonGoals")
         if "layer" in payload:
             _choice(payload["layer"], CARD_LAYERS, "layer")
         _choice(payload["type"], MICROSTEP_TYPES, "type")

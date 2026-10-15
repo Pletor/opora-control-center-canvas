@@ -324,3 +324,35 @@ def test_synthesized_steps_come_first_and_layer_overrides_discipline():
     built = by_ref(vault.plan(["r"])["plan"])
     assert [block["title"] for block in built["f1"]["blocks"][:2]] == ["3.12.1 Chunk id", "3.12.2 Overlap"]
     assert built["f1"]["card"]["layer"] == "backend"
+
+
+def test_step_condition_from_object_and_done_is_never_cut_mid_word():
+    """K14: `{text, condition}` nese vlastní podmínku bloku; poslední blok nese celé `done` (≤500), ne oříznuté."""
+    done = " ".join(["Dlouhé kritérium hotovo"] * 22)[:500]
+    steps = [{"text": "Přidej sloupec", "condition": "Sloupec existuje v migraci."}, "Prostý krok",
+             {"text": "Poslední", "condition": "Vlastní podmínka posledního."}]
+    vault, details = research_vault()
+    vault.add("x", "Uložení košíku", discipline="be", synth=True, payload={**SYNTH, "done": done, "steps": steps})
+    blocks = by_ref(vault.plan(["x"], details=details)["plan"])["f1"]["blocks"]
+    assert [block["condition"] for block in blocks[:3]] == [
+        "Sloupec existuje v migraci.", "Krok proveden: Prostý krok", "Vlastní podmínka posledního."]
+    vault.add("x", "Uložení košíku", discipline="be", synth=True, payload={**SYNTH, "done": done, "steps": ["a", "b"]})
+    assert by_ref(vault.plan(["x"], details=details)["plan"])["f1"]["blocks"][1]["condition"] == done
+
+
+def test_clip_words_cuts_on_word_boundary_with_ellipsis():
+    from backend.editor.brief_vault.brief_vault_plan_cards import clip_words
+    assert clip_words("krátké", 10) == "krátké"
+    cut = clip_words("alpha beta gamma", 12)
+    assert cut == "alpha beta…" and len(cut) <= 12
+    assert clip_words("nesdělitelnéslovo dál", 8).endswith("…")
+
+
+def test_non_goals_go_to_spec_and_travel_through_extend():
+    vault, details = research_vault()
+    graph, state = card_graph(("K", "s1")), refs_state({"K": "x"})
+    assert "non_goals" not in by_ref(vault.plan(["x"], details=details)["plan"])["f1"]["spec"]
+    vault.add("x", "Uložení košíku", discipline="be", synth=True, payload={**SYNTH, "nonGoals": ["Bez UI", "Bez migrace dat"]})
+    assert by_ref(vault.plan(["x"], details=details)["plan"])["f1"]["spec"]["non_goals"] == "- Bez UI\n- Bez migrace dat"
+    extend = vault.plan(["x"], graph, state, details=details)["plan"]["extend"][0]
+    assert extend["spec"]["fields"]["non_goals"] == "- Bez UI\n- Bez migrace dat"
