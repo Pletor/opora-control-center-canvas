@@ -52,7 +52,7 @@ asistent posílá stejné operace přes `opora_write.py /api/brief-vault` a tam 
 | `weighed` | `{benefit ≤280, risk ≤280}` | `{"benefit": "Umožní přihlášení e-mailem a heslem.", "risk": "Chybné ověření pustí cizího nebo odmítne oprávněného."}` | `{"benefit": "Konverze +30 %", "risk": "Žádné, máme bcrypt."}` (vymyšlená metrika, technologie, záruka) |
 | `synthesized` | `{type, done ≤500, prediction: {tests: pass\|fail, criticRounds: 0–2, risk ≤280}, steps?, layer?}`; `type` z výčtu §3; navrhovatel uvádí `steps`: 3–8 konkrétních kroků (≤300 znaků) jen v rozsahu `done` (z nich vzniknou bloky karty, poslední krok = `done`); `layer: frontend\|backend\|database` jen když krok patří jiné vrstvě než disciplína | `{"type": "FLOW", "done": "Správná dvojice projde, špatné heslo i neznámý e-mail ne; každý případ má test.", "prediction": {"tests": "pass", "criticRounds": 1, "risk": "Zadání neříká, co s prázdným heslem."}}` | `{"type": "AUTH", "done": "Přihlášení, registrace, OAuth.", "prediction": {"tests": "ok", "criticRounds": 3, …}}` (typ mimo výčet, rozsah navíc, hodnoty mimo rozsah) |
 | `decided` | `{verdict: yes\|other\|no, reason ≤500}` | `{"verdict": "yes", "reason": "Krok ověřuje jen přihlášení a nepřidává registraci."}` | `{"verdict": "no", "reason": "Zákazník to zrušil."}` (nedoloženo fragmentem) |
-| `verified` | `{actual: {tests: pass\|fail, criticRounds: 0–3, unexpected: bool}}` | `{"actual": {"tests": "pass", "criticRounds": 1, "unexpected": false}}` jen když to záznamy cyklu dokládají | cokoli s `predictionError` (počítá server) nebo hodnoty bez záznamu |
+| `verified` | `{actual: {tests: pass\|fail\|untested, planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool}}` (`planApproved` = kritik schválil plán kola, skóre ≥ 8; `tests` jen z doloženého běhu testů, jinak `untested`; bez `planApproved` platí `tests == pass`) | `{"actual": {"tests": "untested", "planApproved": true, "planScore": 8, "criticRounds": 1, "unexpected": false}}` jen když to záznamy cyklu dokládají | cokoli s `predictionError` (počítá server) nebo hodnoty bez záznamu |
 | `learned` | `{lesson ≤500, kind: pattern\|antipattern}` | `{"lesson": "Test jen správných údajů nepokryl špatné heslo; kritik to odhalil, negativní test doplněn.", "kind": "antipattern"}` | `{"lesson": "JWT vždy zajistí bezpečnost.", "kind": "pattern"}` (nedoložená univerzální záruka) |
 
 `decided`: `other` = vrátit k mikrokroku (server po potvrzení vypne brány 3–4), `no` = slepá ulička (5–8 nejdou).
@@ -85,7 +85,7 @@ text, ne starý cyklus; payload má přesně tvar z tabulky výše; tvrzení ply
 
 Větve pokryté předkem s `placed` fronta nevrací a jejich brány přepíná jen člověk.
 
-**Kola.** Nové kolo = `no F synthesized` po `verified` s `fail`; server počítá `round` (strom, detail, `next`).
+**Kola.** Nové kolo = `no F synthesized` po `verified` s `planApproved: false` nebo `tests: fail` (§13; `tests: untested` s `planApproved: true` kolo neotevře); server počítá `round` (strom, detail, `next`).
 Po 3 kolech je fragment `exhausted`: fronta ho nevrací (`blockedBy.exhausted`), čeká na člověka. Před novým
 `synthesized` doporučeně „Doklady z repa“: `research` dítě s cestami k souborům v `approach` (číslované kroky,
 `status: done`); z nich vzniknou bloky karty a `placed` aktualizuje tutéž kartu (žádná druhá).

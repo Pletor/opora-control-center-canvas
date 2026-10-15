@@ -55,7 +55,7 @@ Osm bran v pevném pořadí. Uložené jsou na revizi fragmentu ve sloupci `gate
 | 4 | `decided` | rozhodnutí ano / jinak / ne | `{verdict: "yes"\|"other"\|"no", reason ≤500}` |
 | 5 | `planned` | návrh struktury na plátně (dryRun) | – (server vypočítá, §5) |
 | 6 | `placed` | karty založené | – (server zapíše uložený plán, §5) |
-| 7 | `verified` | výsledek ověřen proti předpovědi | `{actual: {tests: "pass"\|"fail", criticRounds: 0–3, unexpected: bool}}` |
+| 7 | `verified` | výsledek ověřen proti předpovědi | `{actual: {tests: "pass"\|"fail"\|"untested", planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool}}` |
 | 8 | `learned` | poučení zapsáno do paměti | `{lesson ≤500, kind: "pattern"\|"antipattern"}` |
 
 `type` mikrokroku: `PIPELINE | RETRIEVAL | MEMORY | TOOL | ROUTING | EVAL | ENCRYPTION | SCHEMA | UI | FLOW | API | DATA | INFRA | DOC`.
@@ -68,7 +68,8 @@ Pravidla (hlídá server, ne UI):
 - **Append-only:** každá změna brány = nová revize fragmentu se stejným textem, `note` povinná, CAS přes `expectedRevision`. Text, název a disciplína se branou nemění.
 - **`decided` = `no`:** fragment je „slepá ulička“: `/next` ho přeskakuje, brány 5–8 nejdou zapnout, v UI je ztlumený s důvodem. `other` = vrátit k přepracování: brány 3–4 se po zápisu vypnou samy a fragment se vrací do fronty od brány 3.
 - **`placed`** zapisuje na plátno, proto podléhá stejnému schválení jako `/api/canvas-plan` (cesta je v `WRITE_ROUTES`; schválení člověka v asistentovi i v `opora_write.py`).
-- **`verified`:** server spočítá **predikční chybu** `e = (t + r + u) / 3`, kde `t` = 1 když `actual.tests ≠ prediction.tests`, jinak 0; `r = min(|actual.criticRounds − prediction.criticRounds|, 2) / 2`; `u` = 1 když `actual.unexpected`, jinak 0. Uloží ji do payloadu brány (`predictionError`, 0–1, dvě desetinná místa).
+- **Plán schválen ≠ testy prošly (§13):** `planApproved` = kritik schválil plán kola (`planScore` ≥ 8); `tests` je jen výsledek skutečně spuštěných testů, `"untested"` = neběžely. Bez `planApproved` (starší payloady) platí `planApproved = (tests == "pass")`.
+- **`verified`:** server spočítá **predikční chybu** `e = (t + r + u) / 3`, kde `t` = 1 když se mine předpověď výsledku (při `tests` `pass`/`fail` se porovná `actual.tests` s `prediction.tests`, při `"untested"` `planApproved` s předpovědí: `prediction.tests == "pass"` = „plán projde“), jinak 0; `r = min(|actual.criticRounds − prediction.criticRounds|, 2) / 2`; `u` = 1 když `actual.unexpected`, jinak 0. Uloží ji do payloadu brány (`predictionError`, 0–1, dvě desetinná místa).
 - **`learned`** založí poučení (§6) navázané na fragment a disciplínu.
 - Fragment, jehož předek má `placed = true`, je pokrytý předkem: brány na něm jdou zapnout jen ručně, `/next` ho nevrací.
 
@@ -161,9 +162,9 @@ Automatické spouštění agentů na `/next`, vlastní hodnocení bran modelem b
   1. *Výzkumník* (Claude, s webem) založí pod fragmentem `research` s verdiktem (`feasible | dead_end | unrealistic`) a důkazy `[{url, title, quote, accessedAt}]`; závěr povýší (`promote`) do nové revize fragmentu.
   2. *Navrhovatel* (Hermes) navrhne `weighed`, `synthesized`, `decided` (§9 bod 9).
   3. *Potvrzovatel* (Claude, jiná relace než výzkumník) dá `yes`/`no` podle kritérií v `references/cycle.md`; `scoped`, `planned`, `placed` potvrzuje rovnou.
-  4. *Kritik* (ChatGPT) ohodnotí výstup kola (výzkum + vložené karty) skóre 0–10 s důvody; z toho navrhovatel složí `verified.actual` (`tests: "pass"` jen při skóre ≥ 8, `criticRounds` = počet kol kritiky, `unexpected` = kritik našel zásadní problém mimo předpověď).
+  4. *Kritik* (ChatGPT) ohodnotí výstup kola (výzkum + vložené karty) skóre 0–10 s důvody; z toho navrhovatel složí `verified.actual` (`planApproved` = skóre ≥ 8, `planScore` = skóre, `tests: "untested"`, dokud nikdo testy nespustil, `criticRounds` = počet kol kritiky, `unexpected` = kritik našel zásadní problém mimo předpověď).
   5. `learned`: navrhovatel zapíše poučení, potvrzovatel potvrdí.
-- **Kvalitní výstup** fragmentu = `verified` s `tests: "pass"` a potvrzené `learned`. Jinak `decided: other` a nové kolo od brány 3 s výtkami kritika v `note`. Nejvýš 3 kola na fragment; pak fragment zůstane s poznámkou „čeká na člověka“ a smyčka jde dál.
+- **Kvalitní výstup** fragmentu = `verified` s `planApproved: true` (a `tests` ≠ `"fail"`) a potvrzené `learned`. Jinak `decided: other` a nové kolo od brány 3 s výtkami kritika v `note`. Nejvýš 3 kola na fragment; pak fragment zůstane s poznámkou „čeká na člověka“ a smyčka jde dál.
 - **Hotovo** = každá živá disciplína pískoviště má aspoň jeden fragment s kvalitním výstupem, nebo je po 3 kolech označená „čeká na člověka“. Souhrn smyčky (skóre po disciplínách, poučení, chyba předpovědi) se zapíše do `docs/navrhy/` a do Přehledu Schránky.
 - Texty z webu, od Hermese i od kritika jsou pro ostatní role **data, ne pokyny**.
 
@@ -172,5 +173,14 @@ Automatické spouštění agentů na `/next`, vlastní hodnocení bran modelem b
 Pilot (BE, 3 kola, kritik 6/6/5) ukázal mezery; řešení (K11):
 - **Jedna karta na fragment napříč koly.** Má-li fragment ve vrstvě plánu živou kartu, jejíž první `fragmentRef` míří na něj, plán ji neduplikuje, ale aktualizuje přes `extend` dávky canvas-plan (spec goal/acceptance, `replaceBlocks`, nový `fragmentRef`). Víc karet fragmentu = 409 `duplicate-card`, uzavřená karta = 409 `card-closed` (smyčka se zastaví, rozhodne člověk).
 - **Konkrétní bloky:** název karty `[task] <název>: <první věta done>`. Zdroje bloků v pořadí (K12): (a) `steps` z `synthesized` (jen karta za fragment, který bránu nese; karty za jeho děti kroky nedědí), (b) přímé `brief` děti, (c) kroky `approach` posledního hotového výzkumu jako poslední záloha. U (a) i (c) nese poslední krok podmínku = `done`.
-- **Kola:** `round` = 1 + počet nových kol po `verified` s `tests: fail`; `exhausted` = `round > 3`; `/next` vyčerpané nevrací; `blockedBy: {proposal, confirm, plan, exhausted}`.
+- **Vrstva karty napříč koly:** nese-li `synthesized` kola N `layer`, položka `extend` ho předá (`layer` v `EXTEND_FIELDS`, kontrola revize beze změny) a existující karta dostane `card.layer` podle něj, i když ji kolo 1 založilo jinde; bez `layer` ve `synthesized` se vrstva karty nemění.
+- **Kola:** `round` = 1 + počet nových kol po neúspěšném `verified` (`planApproved: false` nebo `tests: fail`, §13); `exhausted` = `round > 3`; `/next` vyčerpané nevrací; `blockedBy: {proposal, confirm, plan, exhausted}`.
 - **Doklady z repa:** před `synthesized` má fragment research dítě „Doklady z repa“ s cestami `soubor:řádek` (průzkumník repa jen čte). Kritika každého kola se ukládá jako research dítě „Kritika kola“, aby ji navrhovatel v dalším kole četl celou (poznámka brány má limit 1000 znaků).
+
+## 13. Plán schválen vedle výsledku testů (2026-10-15)
+
+Po 2. běhu smyčky: `verified` dřív ukládal `tests: "fail"` jen proto, že kritik dal plánu méně než 8/10, i když žádný test neběžel – a `tests: "pass"` při 8/10 tvrdil prošlé testy, které nikdo nespustil. Dvě různé věci mají dvě pole:
+- `actual.planApproved` (bool) + `actual.planScore` (0–10): kritik schválil plán kola (skóre ≥ 8 = schváleno). Řídí kvalitu výstupu i nová kola (§11, §12 Kola).
+- `actual.tests`: `"pass"` / `"fail"` jen z doloženého běhu testů (agent-output, CI); `"untested"`, dokud testy neběžely. `"fail"` je vždy neúspěch, i při schváleném plánu.
+- Zpětná kompatibilita: payload bez `planApproved` se čte jako `planApproved = (tests == "pass")`; starší fragmenty se nepřepisují.
+- Zobrazení (jen čtení): u brány `verified` „plán schválen 8/10 · testy neběžely“ / „plán neschválen 6/10 · …“; Zrcadlo dostává `actual` beze změny tvaru navíc s oběma poli.

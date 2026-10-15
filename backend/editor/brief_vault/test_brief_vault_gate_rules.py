@@ -12,6 +12,7 @@ from backend.editor.brief_vault.brief_vault_gate_rules import (
     input_hash,
     prediction_error,
     round_fields,
+    verified_outcome,
     round_of,
     stored_gates_valid,
     summary,
@@ -132,3 +133,55 @@ def test_round_counts_new_synthesized_after_failed_verified():
     assert round_of([verified_fail, reset, again, _gates(synthesized=(False, None, 13))]) == 3
     assert round_fields({"f": 4}, "f") == {"round": 4, "exhausted": True} and MAX_ROUNDS == 3
     assert round_fields({}, "f") == {"round": 1, "exhausted": False}
+
+
+def _actual(tests, **extra):
+    return {"actual": {"tests": tests, "criticRounds": 1, "unexpected": False, **extra}}
+
+
+def test_verified_accepts_untested_and_plan_fields():
+    for payload in (_actual("untested"), _actual("untested", planApproved=True, planScore=8), _actual("pass", planScore=0),
+                    _actual("fail", planApproved=True, planScore=10)):
+        assert validate_payload("verified", payload) is payload
+
+
+@pytest.mark.parametrize("payload", [
+    _actual("untested", planScore=11), _actual("untested", planScore=-1), _actual("untested", planScore=7.5),
+    _actual("untested", planScore=True), _actual("untested", planApproved="yes"), _actual("untested", planApproved=1),
+    _actual("maybe"), _actual("untested", extra=1),
+])
+def test_verified_rejects_bad_plan_fields(payload):
+    with pytest.raises(BadRequest):
+        validate_payload("verified", payload)
+
+
+def test_verified_outcome_is_backward_compatible():
+    assert verified_outcome({"tests": "pass"}) == (True, False)  # starý payload bez planApproved
+    assert verified_outcome({"tests": "fail"}) == (False, True)
+    assert verified_outcome({"tests": "untested"}) == (False, True)
+    assert verified_outcome({"tests": "untested", "planApproved": True}) == (True, False)
+    assert verified_outcome({"tests": "untested", "planApproved": False}) == (False, True)
+    assert verified_outcome({"tests": "fail", "planApproved": True}) == (True, True)  # fail je vždy neúspěch
+    assert verified_outcome({"tests": "pass", "planApproved": False}) == (False, True)
+
+
+def test_round_opens_after_unapproved_untested_but_not_after_approved():
+    unapproved = {"actual": {"tests": "untested", "planApproved": False, "criticRounds": 1, "unexpected": False}}
+    approved = {"actual": {"tests": "untested", "planApproved": True, "planScore": 8, "criticRounds": 1, "unexpected": False}}
+    reset = _gates(synthesized=(False, None, 8), verified=(False, None, 8))
+    bad = _gates(synthesized=(True, {}, 3), verified=(True, unapproved, 7))
+    good = _gates(synthesized=(True, {}, 3), verified=(True, approved, 7))
+    assert round_of([bad, reset]) == 2
+    assert round_of([good, reset]) == 1
+
+
+@pytest.mark.parametrize("prediction, actual, error", [
+    ("pass", {"planApproved": True}, 0.0),
+    ("pass", {"planApproved": False}, 0.33),
+    ("fail", {"planApproved": False}, 0.0),
+    ("fail", {"planApproved": True}, 0.33),
+    ("pass", {}, 0.33),  # untested bez planApproved = plán neschválen
+])
+def test_prediction_error_for_untested(prediction, actual, error):
+    assert prediction_error({"tests": prediction, "criticRounds": 1, "risk": "r"},
+                            {"tests": "untested", "criticRounds": 1, "unexpected": False, **actual}) == error

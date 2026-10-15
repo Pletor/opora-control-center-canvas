@@ -160,7 +160,17 @@ class MirrorClient:
         if not isinstance(prediction_id, str) or not prediction_id or not isinstance(actual, dict):
             return None
         rounds = actual.get("criticRounds")
+        tests = actual.get("tests")
+        extra = {}
+        if tests == "untested":  # služba čeká pass/fail: pro neběžené testy odvodit z planApproved (§13)
+            approved = actual["planApproved"] if type(actual.get("planApproved")) is bool else False
+            tests = "pass" if approved else "fail"
+            extra["testsReported"] = "untested"
+        if type(actual.get("planApproved")) is bool:
+            extra["planApproved"] = actual["planApproved"]
+        if type(actual.get("planScore")) is int:
+            extra["planScore"] = actual["planScore"]
         body = {"predictionId": prediction_id[:MAX_ID],
-                "actual": {"tests": actual.get("tests"), "criticRounds": min(rounds, MAX_ROUNDS) if type(rounds) is int else rounds,
-                           "unexpected": bool(actual.get("unexpected"))}}
+                "actual": {"tests": tests, "criticRounds": min(rounds, MAX_ROUNDS) if type(rounds) is int else rounds,
+                           "unexpected": bool(actual.get("unexpected")), **extra}}
         return self._call("POST", "/observe", body, valid_observation)

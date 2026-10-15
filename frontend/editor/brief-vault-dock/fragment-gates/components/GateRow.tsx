@@ -4,7 +4,7 @@
 import { formatError, GATE_TITLES, synthesizedView } from "@/editor/node-detail/brief-vault/logic/gate-bar";
 import { shortWhen } from "../../logic/vault-dock-model";
 import type { GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
-import { payloadLines, proposalStatus, whoLabel, type GateRow as Row } from "../logic/gate-view";
+import { payloadLines, proposalStatus, verifiedOutcome, whoLabel, type GateRow as Row } from "../logic/gate-view";
 
 export default function GateRow({ row, proposal }: { row: Row; proposal?: GateProposal }) {
   const state = row.on ? "on" : row.stale ? "stale" : row.next ? "next" : "off";
@@ -12,6 +12,7 @@ export default function GateRow({ row, proposal }: { row: Row; proposal?: GatePr
   const lines = payloadLines(row.on || row.stale ? entry?.payload : null);
   const synth = row.gate === "synthesized" && (row.on || row.stale) ? synthesizedView(entry?.payload) : null;
   const error = row.gate === "verified" && row.on ? entry?.payload?.predictionError as number | undefined : undefined;
+  const outcome = row.gate === "verified" && (row.on || row.stale) ? verifiedOutcome(entry?.payload?.actual) : null;
   const status = row.on ? `potvrdil ${whoLabel(entry?.by, entry?.actor)} · ${shortWhen(entry?.at ?? "")}`
     : row.stale ? `zneplatněno změnou vstupů (zapnul ${whoLabel(entry?.by, entry?.actor)})`
     : row.next ? (proposal?.status === "pending" ? "čeká na potvrzení návrhu" : "další na řadě, čeká na návrh") : "vypnuto";
@@ -25,6 +26,12 @@ export default function GateRow({ row, proposal }: { row: Row; proposal?: GatePr
           {synth?.layer && <span className="fragment-gates__layer" title="Vrstva, do které mikrokrok patří" data-testid="synth-layer">{synth.layer}</span>}
           {error !== undefined && <span className="fragment-gates__error" title="Predikční chyba e = (testy + kola kritika + nečekané) / 3">chyba předpovědi {formatError(error)}</span>}
         </div>
+        {outcome && (
+          <div className="fragment-gates__outcome" data-testid="verified-outcome">
+            <span className={"fragment-gates__badge fragment-gates__badge--" + (outcome.plan.approved ? "pass" : "fail")} data-testid="outcome-plan">{outcome.plan.text}</span>
+            <span className={"fragment-gates__badge fragment-gates__badge--" + outcome.tests.state} data-testid="outcome-tests">{outcome.tests.text}</span>
+          </div>
+        )}
         {lines.length > 0 && <ul className="fragment-gates__payload">{lines.map((line) => <li key={line}>{line}</li>)}</ul>}
         {synth && synth.steps.length > 0 && (
           <ol className="fragment-gates__steps" aria-label="Kroky mikrokroku" data-testid="synth-steps">{synth.steps.map((step, i) => <li key={i}>{step}</li>)}</ol>

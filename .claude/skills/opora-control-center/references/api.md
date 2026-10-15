@@ -170,14 +170,14 @@ počet živých fragmentů `brief` s touto platnou disciplínou).
 **Brány cyklu** (`docs/schranka-neurony.md` §3, §9): `scoped` → `weighed` `{benefit ≤280, risk ≤280}` → `synthesized`
 `{type, done ≤500, prediction: {tests: pass|fail, criticRounds: 0–2, risk ≤280}, steps?: [1–12 × ≤300], layer?:
 frontend|backend|database}` → `decided` `{verdict: yes|other|no,
-reason ≤500}` → `planned` → `placed` (obě bez payloadu, viz níže) → `verified` `{actual: {tests, criticRounds: 0–3,
+reason ≤500}` → `planned` → `placed` (obě bez payloadu, viz níže) → `verified` `{actual: {tests: pass|fail|untested, planApproved?, planScore?: 0–10, criticRounds: 0–3,
 unexpected: bool}}` (server dopočítá `predictionError`) → `learned` `{lesson ≤500, kind: pattern|antipattern}` (založí
 poučení). Bránu N jde zapnout jen po 1…N−1 (jinak 400), CAS = 409. `decided: no` = slepá ulička (brány 5–8 nejdou),
 `other` vrátí fragment k `synthesized`. Brána platí jen pro otisk názvu, textu a platné disciplíny: po `revise`
 nebo `set-discipline` (i na předkovi) je `gatesStale: true` a cyklus běží znovu. Odpověď `gate`:
 `{ok, op, fragment, gates: {<brána>: bool, predictionError}, gateStep, gatesStale, deadEnd, returnedTo?, lesson?, placement?}` (`placement` u `placed`: `{planId, refs, summary, digest, revision}`).
 Strom `vault` nese u fragmentu `gates`, `gateStep`, `gatesStale`, `deadEnd`, `round`, `exhausted` (kolo = 1 + počet
-vypnutí `synthesized` po `verified` s `tests: "fail"`; `exhausted` = kolo > 3, čeká na člověka). Detail GET `/api/brief-vault/fragment`
+vypnutí `synthesized` po `verified` s `planApproved: false` nebo `tests: "fail"` (bez `planApproved` = `tests == pass`); `exhausted` = kolo > 3, čeká na člověka). Detail GET `/api/brief-vault/fragment`
 navíc `gateDetail` (záznamy bran) a `proposals: {<brána>: {…návrh, by, actor, at, note, status: pending|rejected|used,
 rejection}}` = poslední návrh každé brány s payloadem pro aktuální otisk vstupů. Zamítnutý návrh se pro `gate` nikdy
 nepoužije a starší návrh neoživí: `/next` pak vrátí `needs: "proposal"`.

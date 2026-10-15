@@ -7,7 +7,7 @@ shodným `inputHash` (sha256 názvu, textu a platné disciplíny, §9 bod 4) a s
 cokoli jiného se chová jako vypnuté a zapnutý záznam s jiným otiskem hlásí `gatesStale`.
 
 Kolo fragmentu (`round_of`, §11): 1 + počet nových kol, tj. vypnutí `synthesized` (záznam `value: false`), kterému
-od předchozího vypnutí předcházelo `verified` s `actual.tests == "fail"`. Počítá se z historie revizí (záznamy
+od předchozího vypnutí předcházelo neúspěšné `verified` (`verified_outcome`, §13: `planApproved` false nebo `tests` fail). Počítá se z historie revizí (záznamy
 podle své `revision`, opakované převzetí téhož záznamu se nepočítá dvakrát). Kolo se zvedne až začátkem nového
 kola, ne samotným neúspěšným `verified`: `learned` neúspěšného kola tak ještě patří do fronty. Po `MAX_ROUNDS`
 kolech je fragment vyčerpaný (`exhausted`) a čeká na člověka.
@@ -30,6 +30,7 @@ ENTRY_KEYS = {"value", "payload", "by", "actor", "at", "inputHash", "revision"}
 # Volitelné kroky mikrokroku (bloky karty, §12) a vrstva karty, která přebije vrstvu z disciplíny (§2, §3).
 SYNTH_REQUIRED, SYNTH_OPTIONAL = ("type", "done", "prediction"), ("steps", "layer")
 MAX_SYNTH_STEPS, MAX_STEP_CHARS = 12, 300
+VERIFIED_REQUIRED, VERIFIED_OPTIONAL = ("tests", "criticRounds", "unexpected"), ("planApproved", "planScore")
 CARD_LAYERS = ("frontend", "backend", "database")
 HINTS = {
     "scoped": "Potvrď, že fragment patří projektu a své disciplíně (brána bez payloadu).",
@@ -40,7 +41,7 @@ HINTS = {
     "planned": "Potvrď návrh struktury (brána bez payloadu): server sestaví oblast → sektor → karty, ověří je dryRun a uloží plán;"
                " po potvrzení planned hned potvrď placed (fronta placed nevrací).",
     "placed": "Vlož uložený plán na plátno (brána bez payloadu; zápis na plátno schvaluje člověk).",
-    "verified": "Ověř výsledek proti předpovědi: {actual: {tests: pass|fail, criticRounds: 0–3, unexpected: bool}}.",
+    "verified": "Ověř výsledek proti předpovědi: {actual: {tests: pass|fail|untested, planApproved?: bool, planScore?: 0–10, criticRounds: 0–3, unexpected: bool}}.",
     "learned": "Zapiš poučení do paměti disciplíny: {lesson ≤500, kind: pattern|antipattern}.",
 }
 
@@ -118,9 +119,14 @@ def validate_payload(gate, payload):
         _choice(payload["verdict"], VERDICTS, "verdict")
         _text(payload["reason"], 500, "reason")
     elif gate == "verified":
-        actual = _exact(_exact(payload, ("actual",), "payload verified")["actual"], ("tests", "criticRounds", "unexpected"),
-                        "actual")
-        _choice(actual["tests"], ("pass", "fail"), "actual.tests")
+        actual = _exact(payload, ("actual",), "payload verified")["actual"]
+        if not isinstance(actual, dict) or not set(VERIFIED_REQUIRED) <= set(actual)                 or set(actual) - set(VERIFIED_REQUIRED) - set(VERIFIED_OPTIONAL):
+            _bad("actual musí být objekt s poli tests, criticRounds, unexpected a volitelně planApproved, planScore.")
+        _choice(actual["tests"], ("pass", "fail", "untested"), "actual.tests")
+        if "planApproved" in actual and type(actual["planApproved"]) is not bool:
+            _bad("actual.planApproved musí být true nebo false.")
+        if "planScore" in actual:
+            _count(actual["planScore"], 10, "actual.planScore")
         _count(actual["criticRounds"], 3, "actual.criticRounds")
         if type(actual["unexpected"]) is not bool:
             _bad("actual.unexpected musí být true nebo false.")
@@ -131,9 +137,21 @@ def validate_payload(gate, payload):
     return payload
 
 
+def verified_outcome(actual):
+    """Výsledek `verified` (§13): `(planApproved, failed)`. Bez `planApproved` platí `tests == "pass"`;
+    neúspěch = plán neschválen nebo testy `fail`."""
+    actual = actual if isinstance(actual, dict) else {}
+    approved = actual["planApproved"] if type(actual.get("planApproved")) is bool else actual.get("tests") == "pass"
+    return approved, approved is False or actual.get("tests") == "fail"
+
+
 def prediction_error(prediction, actual):
-    """`e = (t + r + u) / 3` z §3, zaokrouhleno na dvě desetinná místa (0–1)."""
-    t = 1 if actual["tests"] != prediction["tests"] else 0
+    """`e = (t + r + u) / 3` z §3, zaokrouhleno na dvě desetinná místa (0–1).
+    `t`: při `untested` se `planApproved` porovná s předpovědí (`prediction.tests == "pass"` = plán projde)."""
+    if actual["tests"] == "untested":
+        t = 1 if verified_outcome(actual)[0] != (prediction["tests"] == "pass") else 0
+    else:
+        t = 1 if actual["tests"] != prediction["tests"] else 0
     r = min(abs(actual["criticRounds"] - prediction["criticRounds"]), 2) / 2
     u = 1 if actual["unexpected"] else 0
     return round((t + r + u) / 3, 2)
@@ -212,7 +230,7 @@ def round_of(history):
     for raw in history:
         entries = parse_gates(raw)
         verified, synthesized = entries.get("verified"), entries.get("synthesized")
-        if isinstance(verified, dict) and verified.get("value") is True and isinstance(verified.get("payload"), dict)                 and (verified["payload"].get("actual") or {}).get("tests") == "fail":
+        if isinstance(verified, dict) and verified.get("value") is True and isinstance(verified.get("payload"), dict)                 and verified_outcome(verified["payload"].get("actual"))[1]:
             events.add((verified.get("revision", 0), 0))
         if isinstance(synthesized, dict) and synthesized.get("value") is False:
             events.add((synthesized.get("revision", 0), 1))

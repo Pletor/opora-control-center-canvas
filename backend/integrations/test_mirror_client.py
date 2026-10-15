@@ -139,3 +139,20 @@ def test_unreachable_service_and_transport_error_never_raise():
 
     assert MirrorClient("http://127.0.0.1:8750", transport=broken).predict(
         fragment_id="f", discipline="be", title="T", text="x", microstep=None) is None
+
+
+def test_observe_maps_untested_to_pass_fail_and_keeps_plan_fields():
+    received = []
+
+    def transport(method, url, data, timeout):
+        received.append(json.loads(data))
+        return 200, json.dumps(OBSERVATION).encode()
+
+    client = MirrorClient("http://127.0.0.1:1", transport=transport)
+    client.observe(prediction_id="p1", actual={"tests": "untested", "planApproved": True, "planScore": 8,
+                                               "criticRounds": 1, "unexpected": False})
+    client.observe(prediction_id="p1", actual={"tests": "untested", "planApproved": False, "criticRounds": 1,
+                                               "unexpected": False})
+    assert received[0]["actual"] == {"tests": "pass", "criticRounds": 1, "unexpected": False, "testsReported": "untested",
+                                     "planApproved": True, "planScore": 8}
+    assert received[1]["actual"]["tests"] == "fail" and received[1]["actual"]["planApproved"] is False

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { FragmentDetail, GateFlags } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { GATES } from "@/editor/node-detail/brief-vault/logic/gate-bar";
 import type { GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
-import { blockReason, deadEndReason, gateRows, roundLine, payloadLines, proposalStatus, queueText, whoLabel } from "./gate-view";
+import { blockReason, deadEndReason, gateRows, roundLine, payloadLines, proposalStatus, queueText, verifiedOutcome, whoLabel } from "./gate-view";
 
 const flags = (count: number): GateFlags => ({
   ...Object.fromEntries(GATES.map((gate, index) => [gate, index < count])) as Record<(typeof GATES)[number], boolean>, predictionError: null,
@@ -18,7 +18,7 @@ describe("gate view", () => {
   it("reads payloads in Czech and skips the stored plan and the prediction error", () => {
     expect(payloadLines({ verdict: "no", reason: "Duplicitní." })).toEqual(["rozhodnutí: ne", "důvod: Duplicitní."]);
     expect(payloadLines({ actual: { tests: "pass", criticRounds: 1, unexpected: true }, predictionError: 0.33 }))
-      .toEqual(["skutečnost · testy: projdou", "skutečnost · kol kritika: 1", "skutečnost · nečekané: ano"]);
+      .toEqual(["skutečnost · kol kritika: 1", "skutečnost · nečekané: ano"]);
     expect(payloadLines({ plan: { nodes: [] }, hash: "abc" })).toEqual(["otisk plánu: abc"]);
     expect(payloadLines(null)).toEqual([]);
   });
@@ -76,5 +76,19 @@ describe("gate view", () => {
     expect(payloadLines({ type: "code", steps: ["A"], layer: "backend" })).toEqual(["typ: code"]);
     expect(queueText({ fragment: null, blocked: 3, blockedBy: { proposal: 2, exhausted: 1 } }, "f"))
       .toBe("Fronta agentů disciplíny je prázdná · 3 čeká (2× na návrh, 1× vyčerpáno, na člověka).");
+  });
+
+  it("verified outcome keeps plan approval and tests apart", () => {
+    expect(verifiedOutcome({ tests: "fail", planApproved: true, planScore: 8 }))
+      .toEqual({ plan: { approved: true, text: "plán schválen 8/10" }, tests: { state: "fail", text: "testy neprošly" } });
+    expect(verifiedOutcome({ tests: "pass", planApproved: false, planScore: 6 })?.plan.text).toBe("plán neschválen 6/10");
+    expect(verifiedOutcome({ tests: "untested", planApproved: true })).toMatchObject({ plan: { text: "plán schválen" }, tests: { state: "untested", text: "testy neběžely" } });
+  });
+
+  it("an old payload without planApproved derives it from the tests", () => {
+    expect(verifiedOutcome({ tests: "pass" })?.plan).toEqual({ approved: true, text: "plán schválen" });
+    expect(verifiedOutcome({ tests: "fail" })?.plan).toEqual({ approved: false, text: "plán neschválen" });
+    expect(verifiedOutcome({ tests: "untested" })?.plan.approved).toBe(false);
+    expect(verifiedOutcome(undefined)).toBeNull();
   });
 });

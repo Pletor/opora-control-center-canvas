@@ -20,10 +20,28 @@ export function payloadLines(payload: Record<string, unknown> | null | undefined
     if (key === "predictionError" || key === "steps" || key === "layer") return [];  // kroky a vrstva mají vlastní zobrazení
     if (value && typeof value === "object") {
       if (!["prediction", "actual"].includes(key)) return [];
-      return payloadLines(value as Record<string, unknown>).map((line) => `${LABELS[key] ?? key} · ${line}`);
+      const inner = { ...(value as Record<string, unknown>) };
+      if (key === "actual") for (const own of ["tests", "planApproved", "planScore"]) delete inner[own];  // mají vlastní štítky (verifiedOutcome)
+      return payloadLines(inner).map((line) => `${LABELS[key] ?? key} · ${line}`);
     }
     return [`${LABELS[key] ?? key}: ${VALUES[String(value)] ?? String(value)}`];
   });
+}
+
+export type VerifiedOutcome = { plan: { text: string; approved: boolean }; tests: { text: string; state: "pass" | "fail" | "untested" } };
+
+/** Dva oddělené údaje brány Ověřeno ze `skutečnosti`: plán (schválen/neschválen + skóre 0–10) a testy (prošly/neprošly/neběžely).
+ *  Bez `planApproved` (starší payload) platí `planApproved = tests == "pass"`. `null`, když skutečnost chybí. */
+export function verifiedOutcome(actual: unknown): VerifiedOutcome | null {
+  if (!actual || typeof actual !== "object") return null;
+  const a = actual as Record<string, unknown>;
+  const state = a.tests === "pass" || a.tests === "fail" ? a.tests : "untested";
+  const approved = typeof a.planApproved === "boolean" ? a.planApproved : state === "pass";
+  const score = typeof a.planScore === "number" ? `${a.planScore}/10` : "";
+  return {
+    plan: { approved, text: `plán ${approved ? "schválen" : "neschválen"}${score ? " " + score : ""}` },
+    tests: { state, text: state === "pass" ? "testy prošly" : state === "fail" ? "testy neprošly" : "testy neběžely" },
+  };
 }
 
 /** „agent Hermes“ / „člověk Martin“: kdo zápis udělal (`by`) a jaký aktér to byl (`actor`). */
