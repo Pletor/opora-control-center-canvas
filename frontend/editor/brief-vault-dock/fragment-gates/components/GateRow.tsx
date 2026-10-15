@@ -1,7 +1,7 @@
 // Jedna brána v detailu fragmentu, jen zobrazení: tečka stavu, titulek, kdo bránu zapnul a kdy, uložený payload
 // česky (u Ověřeno chyba předpovědi), poslední návrh brány s autorem a stavem (čeká / použit / zamítnut kým a proč)
 // a důvod, proč cyklus stojí. Použitý návrh se jen jmenuje; jeho payload je už v záznamu brány.
-import { formatError, GATE_TITLES } from "@/editor/node-detail/brief-vault/logic/gate-bar";
+import { formatError, GATE_TITLES, synthesizedView } from "@/editor/node-detail/brief-vault/logic/gate-bar";
 import { shortWhen } from "../../logic/vault-dock-model";
 import type { GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { payloadLines, proposalStatus, whoLabel, type GateRow as Row } from "../logic/gate-view";
@@ -10,6 +10,7 @@ export default function GateRow({ row, proposal }: { row: Row; proposal?: GatePr
   const state = row.on ? "on" : row.stale ? "stale" : row.next ? "next" : "off";
   const entry = row.entry;
   const lines = payloadLines(row.on || row.stale ? entry?.payload : null);
+  const synth = row.gate === "synthesized" && (row.on || row.stale) ? synthesizedView(entry?.payload) : null;
   const error = row.gate === "verified" && row.on ? entry?.payload?.predictionError as number | undefined : undefined;
   const status = row.on ? `potvrdil ${whoLabel(entry?.by, entry?.actor)} · ${shortWhen(entry?.at ?? "")}`
     : row.stale ? `zneplatněno změnou vstupů (zapnul ${whoLabel(entry?.by, entry?.actor)})`
@@ -21,9 +22,13 @@ export default function GateRow({ row, proposal }: { row: Row; proposal?: GatePr
         <div className="fragment-gates__head">
           <strong title={GATE_TITLES[row.gate].hint}>{row.title}</strong>
           <span className="fragment-gates__state">{status}</span>
+          {synth?.layer && <span className="fragment-gates__layer" title="Vrstva, do které mikrokrok patří" data-testid="synth-layer">{synth.layer}</span>}
           {error !== undefined && <span className="fragment-gates__error" title="Predikční chyba e = (testy + kola kritika + nečekané) / 3">chyba předpovědi {formatError(error)}</span>}
         </div>
         {lines.length > 0 && <ul className="fragment-gates__payload">{lines.map((line) => <li key={line}>{line}</li>)}</ul>}
+        {synth && synth.steps.length > 0 && (
+          <ol className="fragment-gates__steps" aria-label="Kroky mikrokroku" data-testid="synth-steps">{synth.steps.map((step, i) => <li key={i}>{step}</li>)}</ol>
+        )}
         {proposal && (
           <div className={"fragment-gates__proposal fragment-gates__proposal--" + proposal.status} aria-label="Poslední návrh brány"
             data-testid={"proposal-" + row.gate}>

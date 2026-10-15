@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GateFlags } from "./brief-vault-model";
-import { GATES, formatError, gateBarLabel, gateDots, gateTitle } from "./gate-bar";
+import { GATES, formatError, gateBarLabel, gateDots, gateTitle, roundLabel, synthesizedView } from "./gate-bar";
 
 const flags = (count: number): GateFlags => ({
   ...Object.fromEntries(GATES.map((gate, index) => [gate, index < count])) as Record<(typeof GATES)[number], boolean>,
@@ -32,5 +32,18 @@ describe("gate bar", () => {
     expect(gateBarLabel({ gateStep: 4, deadEnd: true })).toContain("slepá ulička");
     expect(formatError(0.333)).toBe("0,33");
     expect(formatError(null)).toBe("—");
+  });
+
+  it("labels the round and the exhausted state", () => {
+    expect(roundLabel({ round: 2, exhausted: false })).toEqual({ text: "kolo 2/3", exhausted: false });
+    expect(roundLabel({ round: 4, exhausted: true })).toEqual({ text: "vyčerpáno – čeká na člověka", exhausted: true });
+    expect(roundLabel({})).toBeNull();
+    expect(gateBarLabel({ gateStep: 3, round: 2 })).toBe("3/8 bran · kolo 2/3 · další: 4. Rozhodnuto");
+  });
+
+  it("reads steps and layer of a synthesized payload", () => {
+    expect(synthesizedView({ steps: ["A", "B"], layer: "database" })).toEqual({ steps: ["A", "B"], layer: "databáze" });
+    expect(synthesizedView({ type: "x" })).toEqual({ steps: [], layer: null });
+    expect(synthesizedView(null)).toEqual({ steps: [], layer: null });
   });
 });

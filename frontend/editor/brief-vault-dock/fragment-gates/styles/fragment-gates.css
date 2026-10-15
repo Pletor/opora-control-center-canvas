@@ -8,6 +8,10 @@
 .fragment-gates__title { margin: 0; font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .fragment-gates__dead { margin: 0; font-size: 12px; color: var(--ink-2); padding: 6px 8px; border-radius: 6px; background: var(--surface-3); }
 .fragment-gates__stale { margin: 0; font-size: 12px; color: var(--gold); }
+/* Kolo cyklu: malá věta pod titulkem říká, v kolikátém ze tří pokusů fragment je a na co právě čeká. Když se kola
+   vyčerpají, zbarví se do zlaté jako ostatní varování: agenti už fragment nevezmou a další krok je na člověku. */
+.fragment-gates__round { margin: 0; font: 500 11px var(--mono); color: var(--ink-2); }
+.fragment-gates__round--exhausted { color: var(--gold); font-weight: 600; }
 .fragment-gates__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 
 /* Řádek brány: tečka ve stejném jazyce jako pruh ve stromu, vpravo titulek, kdo a kdy, a payload. Vypnuté
@@ -36,3 +40,8 @@
 .fragment-gates__lesson { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; padding: 4px 0; border-top: 1px solid var(--line); }
 .fragment-gates__lesson-text { flex: 1; min-width: 160px; overflow-wrap: anywhere; }
 .fragment-gates__weight { font: 500 10px var(--mono); color: var(--ink-muted); }
+
+/* Kroky mikrokroku a vrstva: zapnutý Mikrokrok ukazuje své kroky jako číslovaný seznam ve čtecím pořadí (nejvýš dvanáct
+   krátkých vět) a vedle titulku malý štítek vrstvy, aby bylo na první pohled vidět, kam práce míří. */
+.fragment-gates__steps { margin: 0; padding-left: 20px; color: var(--ink-2); line-height: 1.5; overflow-wrap: anywhere; }
+.fragment-gates__layer { font: 600 10px var(--mono); color: var(--accent); border: 1px solid var(--accent-line); border-radius: 999px; padding: 0 6px; }

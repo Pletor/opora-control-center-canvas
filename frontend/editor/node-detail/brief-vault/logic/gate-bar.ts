@@ -40,12 +40,32 @@ export function gateDots(node: GateSummary): GateDot[] {
 /** Popisek pruhu pro čtečku a titulek řádku: „3/8 bran · další: 4. Rozhodnuto“. */
 export function gateBarLabel(node: GateSummary): string {
   const step = node.gateStep ?? 0;
+  const round = roundLabel(node);
   if (node.deadEnd) return `${step}/8 bran · slepá ulička (rozhodnuto: ne)`;
   const next = GATES[step];
-  return `${step}/8 bran` + (next ? ` · další: ${gateTitle(next)}` : " · cyklus uzavřen") + (node.gatesStale ? " · něco zneplatněno" : "");
+  return `${step}/8 bran` + (round ? ` · ${round.text}` : "") + (next ? ` · další: ${gateTitle(next)}` : " · cyklus uzavřen") + (node.gatesStale ? " · něco zneplatněno" : "");
 }
 
 /** Predikční chyba 0–1 jako text („0,33“), `null` = neověřeno. */
 export function formatError(value: number | null | undefined): string {
   return value == null ? "—" : value.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Nejvyšší počet kol cyklu (zrcadlí `MAX_ROUNDS` backendu, §11). */
+export const MAX_ROUNDS = 3;
+
+/** Štítek kola fragmentu: „kolo 2/3“, po vyčerpání „vyčerpáno – čeká na člověka“; `null` = server kolo neposlal. */
+export function roundLabel(node: { round?: number; exhausted?: boolean }): { text: string; exhausted: boolean } | null {
+  if (node.exhausted) return { text: "vyčerpáno – čeká na člověka", exhausted: true };
+  if (typeof node.round !== "number") return null;
+  return { text: `kolo ${Math.min(node.round, MAX_ROUNDS)}/${MAX_ROUNDS}`, exhausted: false };
+}
+
+const LAYERS: Record<string, string> = { frontend: "frontend", backend: "backend", database: "databáze" };
+
+/** Kroky mikrokroku (pole krátkých vět) a štítek vrstvy z payloadu brány `synthesized`; nic neznámého nevrací. */
+export function synthesizedView(payload: Record<string, unknown> | null | undefined): { steps: string[]; layer: string | null } {
+  const steps = Array.isArray(payload?.steps) ? payload.steps.filter((step): step is string => typeof step === "string" && step !== "") : [];
+  const layer = typeof payload?.layer === "string" ? LAYERS[payload.layer] ?? null : null;
+  return { steps, layer };
 }

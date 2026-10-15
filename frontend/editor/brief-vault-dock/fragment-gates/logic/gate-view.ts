@@ -2,7 +2,7 @@
 // brány, kdo ji zapnul (autor a druh aktéra), payload česky, proč cyklus stojí a stav fronty agentů (/next).
 // Schránku ovládají agenti přes API; UI nic nepřepíná. Bez Reactu.
 import type { FragmentDetail, GateEntry, GateName, GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
-import { GATES, gateTitle } from "@/editor/node-detail/brief-vault/logic/gate-bar";
+import { GATES, gateTitle, roundLabel } from "@/editor/node-detail/brief-vault/logic/gate-bar";
 
 const DECIDED = GATES.indexOf("decided");
 
@@ -17,7 +17,7 @@ const VALUES: Record<string, string> = { pass: "projdou", fail: "selžou", yes: 
 export function payloadLines(payload: Record<string, unknown> | null | undefined): string[] {
   if (!payload) return [];
   return Object.entries(payload).flatMap(([key, value]) => {
-    if (key === "predictionError") return [];
+    if (key === "predictionError" || key === "steps" || key === "layer") return [];  // kroky a vrstva mají vlastní zobrazení
     if (value && typeof value === "object") {
       if (!["prediction", "actual"].includes(key)) return [];
       return payloadLines(value as Record<string, unknown>).map((line) => `${LABELS[key] ?? key} · ${line}`);
@@ -82,14 +82,39 @@ export type NextWork = {
   needs?: "proposal" | "confirm";
   proposal?: { payload: Record<string, unknown>; by: string; actor: string; at: string; note: string };
   blocked: number;
+  /** Rozpad `blocked`: proč fragmenty čekají (návrh, potvrzení, plán, vyčerpaná kola). */
+  blockedBy?: Partial<Record<"proposal" | "confirm" | "plan" | "exhausted", number>>;
 };
+
+const BLOCK_WORDS: [keyof NonNullable<NextWork["blockedBy"]>, string][] = [["proposal", "na návrh"], ["confirm", "na schválení vložení"],
+  ["plan", "na nový plán"], ["exhausted", "vyčerpáno, na člověka"]];
 
 /** Věta o frontě agentů disciplíny z pohledu fragmentu. */
 export function queueText(next: NextWork | undefined, fragmentId: string): string {
   if (!next) return "";
-  const blocked = next.blocked ? ` · ${next.blocked} čeká na návrh nebo schválení člověka` : "";
+  const parts = BLOCK_WORDS.filter(([key]) => next.blockedBy?.[key]).map(([key, word]) => `${next.blockedBy?.[key]}× ${word}`);
+  const blocked = next.blocked ? ` · ${next.blocked} čeká` + (parts.length ? ` (${parts.join(", ")})` : " na návrh nebo schválení člověka") : "";
   if (!next.fragment || !next.gate) return `Fronta agentů disciplíny je prázdná${blocked}.`;
   const what = `${gateTitle(next.gate)} (${next.needs === "confirm" ? "čeká na potvrzení návrhu" : "čeká na návrh"})`;
   const who = next.fragment.id === fragmentId ? "tento fragment" : `„${next.fragment.title}“`;
   return `Fronta agentů: další na řadě ${who} · ${what}${blocked}.`;
+}
+
+/** Krátký důvod, proč fragment čeká (návrh / potvrzení / schválení vložení / vyčerpaná kola); `""` = nečeká. */
+export function blockReason(detail: FragmentDetail): string {
+  if (detail.deadEnd) return "";
+  if (detail.exhausted) return "čeká na člověka";
+  const gate = GATES[detail.gateStep ?? 0];
+  if (!gate || detail.fragment.kind !== "brief" || !detail.effectiveDiscipline) return "";
+  if (gate === "placed") return "čeká na schválení vložení";
+  if (detail.proposals?.[gate]?.status === "pending") return "čeká na potvrzení návrhu";
+  return "čeká na návrh";
+}
+
+/** Věta nad bránami: „kolo 2/3 · čeká na návrh“ nebo „vyčerpáno – čeká na člověka“. */
+export function roundLine(detail: FragmentDetail): { text: string; exhausted: boolean } | null {
+  const round = roundLabel(detail);
+  if (!round) return null;
+  const reason = round.exhausted ? "" : blockReason(detail);
+  return { text: reason ? `${round.text} · ${reason}` : round.text, exhausted: round.exhausted };
 }

@@ -45,6 +45,10 @@ export type GateSummary = {
   gatesStale?: boolean;
   /** `decided` = `no`: slepá ulička. */
   deadEnd?: boolean;
+  /** Kolo cyklu 1-3 (§11): každé vypnutí `synthesized` otevře další. */
+  round?: number;
+  /** Vyčerpaná kola (přes 3): fragment čeká na člověka, fronta agentů ho přeskakuje. */
+  exhausted?: boolean;
 };
 /** Záznam brány v detailu fragmentu (`gateDetail`): payload, kdo a kdy, a zda platí. */
 export type GateEntry = { value: boolean; payload: Record<string, unknown> | null; by: string; actor: string; at: string;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { FragmentDetail, GateFlags } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { GATES } from "@/editor/node-detail/brief-vault/logic/gate-bar";
 import type { GateProposal } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
-import { deadEndReason, gateRows, payloadLines, proposalStatus, queueText, whoLabel } from "./gate-view";
+import { blockReason, deadEndReason, gateRows, roundLine, payloadLines, proposalStatus, queueText, whoLabel } from "./gate-view";
 
 const flags = (count: number): GateFlags => ({
   ...Object.fromEntries(GATES.map((gate, index) => [gate, index < count])) as Record<(typeof GATES)[number], boolean>, predictionError: null,
@@ -63,5 +63,18 @@ describe("gate view", () => {
       .toBe("Fronta agentů: další na řadě tento fragment · 2. Zváženo (čeká na potvrzení návrhu) · 2 čeká na návrh nebo schválení člověka.");
     expect(queueText({ fragment: null, blocked: 0 }, "f")).toBe("Fronta agentů disciplíny je prázdná.");
     expect(queueText(undefined, "f")).toBe("");
+  });
+
+  it("shows the round and why a fragment waits", () => {
+    expect(roundLine(detail({ round: 2, exhausted: false }))).toEqual({ text: "kolo 2/3 · čeká na návrh", exhausted: false });
+    expect(roundLine(detail({ round: 4, exhausted: true }))).toEqual({ text: "vyčerpáno – čeká na člověka", exhausted: true });
+    expect(roundLine(detail())).toBeNull();
+    expect(blockReason(detail({ gateStep: 5, gates: flags(5) }))).toBe("čeká na schválení vložení");
+  });
+
+  it("keeps steps and layer out of the payload lines and breaks down the queue block", () => {
+    expect(payloadLines({ type: "code", steps: ["A"], layer: "backend" })).toEqual(["typ: code"]);
+    expect(queueText({ fragment: null, blocked: 3, blockedBy: { proposal: 2, exhausted: 1 } }, "f"))
+      .toBe("Fronta agentů disciplíny je prázdná · 3 čeká (2× na návrh, 1× vyčerpáno, na člověka).");
   });
 });

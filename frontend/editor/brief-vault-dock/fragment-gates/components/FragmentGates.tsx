@@ -4,7 +4,7 @@
 // přes API, proto tu není žádný přepínač ani formulář. Rodič (BriefVaultDock) dodá načtený detail.
 import type { FragmentDetail } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { useVaultGet, type VaultScope } from "../../logic/vault-actions";
-import { deadEndReason, gateRows, queueText, type NextWork } from "../logic/gate-view";
+import { deadEndReason, gateRows, queueText, roundLine, type NextWork } from "../logic/gate-view";
 import GateRow from "./GateRow";
 import DisciplineLessons from "./DisciplineLessons";
 import "../styles/fragment-gates.css";
@@ -14,9 +14,11 @@ export default function FragmentGates({ scope, detail }: { scope: VaultScope; de
   const discipline = detail.effectiveDiscipline ?? null;
   const next = useVaultGet<NextWork>(discipline ? "/api/brief-vault/next?" + new URLSearchParams({ ...scope, discipline }) : null, detail).data;
   const reason = detail.deadEnd ? deadEndReason(detail) : "";
+  const round = roundLine(detail);
   return (
     <section className="fragment-gates" aria-label="Brány cyklu" data-testid="fragment-gates">
       <h5 className="fragment-gates__title">Brány cyklu · {detail.gateStep ?? 0}/8</h5>
+      {round && <p className={"fragment-gates__round" + (round.exhausted ? " fragment-gates__round--exhausted" : "")} role="status" data-testid="fragment-round">{round.text}</p>}
       {detail.deadEnd && <p className="fragment-gates__dead" role="status">Slepá ulička (rozhodnuto: ne){reason ? `: ${reason}` : "."} Fronta agentů ji přeskakuje.</p>}
       {detail.gatesStale && <p className="fragment-gates__stale" role="status">Část bran byla zapnutá pro jiný název, text nebo disciplínu; platí znovu od první zneplatněné.</p>}
       <ol className="fragment-gates__list">
