@@ -132,3 +132,45 @@ Checkpoint B2 (10:15): `npm test -- --run` **1 225 zelených (176 souborů)**, t
 backend nedotčen. Commit jen vlastní cesty (`sector-detail`, `node-detail/{assignment,components}`, handoff).
 QUESTION pro Hermese: nadpis dialogu „Předat zadání · …“ v `frontend/editor/llm-control/editor-context/components/TaskHandoff.tsx`
 (mimo scope) přejmenovat na „Balíček karty · …“? Jinak čeká na další přidělený kus.
+
+## Dávka B3 (HERMES-B3-20261015-1020, 10:20–10:45) – NEcommitováno, připraveno
+
+Scope této dávky: `frontend/editor/llm-control/editor-context/components/TaskHandoff.tsx` + test vedle něj; důkaz B2.
+
+**Změny (vlastní, necommitované):**
+- `TaskHandoff.tsx`: `aria-label="Balíček karty"`, `<h2>Balíček karty · …</h2>`, zavření `aria-label="Zavřít balíček karty"`,
+  vysvětlující odstavec „Balíček obsahuje uložené zadání, souvislosti a kontrakt výsledku. Rozepsané neuložené
+  změny nejsou součástí balíčku.“ Chování, API ani další soubory llm-control beze změny.
+- nový `TaskHandoff.test.ts` (statický render: název dialogu, nadpis, zavření, odstavec, počáteční hláška; bez „Předat zadání“).
+- nový `frontend/editor/sector-detail/components/SectorDecompose.test.ts`: null = „Načítám…“ bez pole i tlačítka;
+  chybí jen cíl / jen akceptace / akceptace z mezer / obojí → právě ta hláška, bez pole, bez Kopírovat, bez textu
+  zadání; plné zadání → readonly pole s obsahem pro rozkladače + Kopírovat; nepovolený identifikátor → hláška bez pole.
+
+**Důkaz skutečné systémové schránky (bez monkeypatche `writeText`):** před každým kopírováním nastaven vlastní
+sentinel `Set-Clipboard` (cizí obsah se nečetl), po kliku v živé stránce (DevTools MCP) přečteno `Get-Clipboard -Raw`
+v PowerShellu a porovnán SHA-256 s textem pole v DOM:
+- „Předat agentovi“ (karta 4.2): pole 698 B, sha `3887cd87…9092`; schránka po normalizaci CRLF→LF 698 B, stejný
+  sha (Windows vrací CRLF, 10 řádků = +10 B). Stav „Zkopírováno“.
+- „Balíček karty“ → „Kopírovat celé zadání“: POST `assignment-snapshot` nahrazen v prohlížeči izolovaným mockem
+  (`initScript`, 1 zachycené volání, nic do P:/opora-data); JSON 5 593 310 B, sha `80a0b390…9c9d`; schránka
+  po normalizaci stejná délka i sha.
+- Tlačítko „Načíst balíček karty“ → dialog „Balíček karty · [task] 4.2 …“, aria i zavření sedí.
+
+**B2 scénáře:** null/loading, jen goal, jen acceptance, jen mezery – komponentové testy výše. Přepnutí uzlu v
+běžící aplikaci (klik na kartu sektoru, bez reloadu): sektor 1 (má cíl i akceptaci) ukazoval zadání + Kopírovat;
+hned po kliku na sektor 4 žádné pole ani tlačítko, po načtení hláška s chybějícími podklady. Přepnutí workspace
+se stejným id **BLOCKED v náhledu**: Ample je lokální projekt a má jen `draft` (API: „používají pouze pracovní
+prostor draft“); pokrývá to klíč `[project, workspace, nodeId]` v NodePanel (B2).
+
+**Kritik (ChatGPT přes Codex, 5 nálezů):** zapracováno 1 (odstavec), 3 (název/komentář testu), 4 a 5 (symetrické
+případy, obsah zadání, readonly, nepovolený identifikátor). Nezapracováno 2 (`aria-labelledby` s názvem karty
+místo `aria-label`): mění přístupný název nad rámec „minimálně nadpis“, návrh pro další dávku.
+
+**Ověření:** cílené testy 28 zelených, tsc čistý; plný `npm test` a `npm run build` viz řádek níže.
+Checkpoint B3 (10:45): `npm test -- --run` **1 237 zelených (179 souborů)**, `npm run build` OK, tsc čistý, backend nedotčen.
+Připraveno ke commitu (po pokynu Hermese), přesný seznam vlastních souborů:
+- `frontend/editor/llm-control/editor-context/components/TaskHandoff.tsx` (M)
+- `frontend/editor/llm-control/editor-context/components/TaskHandoff.test.ts` (nový)
+- `frontend/editor/sector-detail/components/SectorDecompose.test.ts` (nový)
+- `docs/navrhy/2026-10-15-relace-b-handoff.md` (M)
+Ostatní změněné soubory ve stromu patří relaci A a nebyly dotčeny.
