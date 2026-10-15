@@ -25,7 +25,15 @@ Pravdu čti z aplikace; když se liší od kopie v zadání, nic nezapisuj a vra
 
 Každý požadavek v sektoru (cíl, mimo rozsah, akceptace, pravidlo) musí jít odvodit ze záměru nebo z
 doloženého kontextu výše. Produktovou volbu, kterou záměr ani kontext nenese, nezaváděj jako fakt ani do
-akceptace: patří do oddílu **„Otázky pro člověka“** pod dávkou (krok 4 postupu).
+akceptace: patří mezi **„Otázky pro člověka“**, a ty jsou dvojí:
+
+- **Blokující**: bez odpovědi nejde dávku sestavit (např. záměr připouští dvě neslučitelná rozdělení). Pak
+  žádnou dávku nestavíš ani neukazuješ; vrátíš jen souhrn s těmito otázkami (oddíl Blokace).
+- **Odložené**: dávka je platná i bez odpovědi (např. formát, limity). Stojí pod dávkou; odpověď přijde
+  později jako rozhodnutí sektoru nebo karty, do dávky ani do akceptace se nevpisuje.
+
+Schválení je vždy jen potvrzení, nebo vrácení hotové dávky. Nikdy „potvrď a zároveň doplň“: když by
+odpověď měnila dávku, je otázka blokující.
 
 **Co blokace není** (dávku postav a v souhrnu to řekni jednou větou):
 
@@ -33,13 +41,14 @@ akceptace: patří do oddílu **„Otázky pro člověka“** pod dávkou (krok 
   mapa není povinná. Všechny `sourceRef` jsou `{"origin": "planned", "path": "", "kind": "directory"}`;
   souhrn: „Projekt zatím nemá kód (nebo mapu kódu); všechny sektory mají plánovaný zdroj bez cesty.“
 - **Prázdný seznam pravidel**: projekt pravidla nemá; sektorům žádná nevymýšlej.
-- **Prázdný `goal` v profilu**: do „Otázek pro člověka“ napiš „Projekt nemá cíl v profilu; sektory vycházejí
+- **Prázdný `goal` v profilu**: mezi odložené otázky napiš „Projekt nemá cíl v profilu; sektory vycházejí
   jen ze záměru oblasti.“
 
 ## Nejdřív pokrytí, pak počet
 
 1. Rozepiš záměr na výsledky, které má oblast přinést.
-2. Porovnej je s `purpose` a akceptací existujících sektorů. Pokrytý výsledek nenavrhuj znovu.
+2. Porovnej je s `purpose` a akceptací existujících sektorů. Pokrytý výsledek nenavrhuj znovu. Karty
+   `[gate]` do porovnání nepočítej: brána výsledek ověřuje, nezajišťuje ho.
 3. Navrhuj jen nepokrytou část: **1–7 sektorů, obvykle 2–5**. Víc než 7 znamená, že záměr pokrývá
    dvě oblasti: řekni to člověku v souhrnu.
 4. Když na nepokrytou část stačí 0–1 sektor a ten by byl jen přejmenováním existujícího, umělé sektory
@@ -72,28 +81,34 @@ v souhrnu blokací, oblast sám nezvětšuj. Karta `[gate]` leží ve vrstvě sv
 1. Načti vstupy podle tabulky. Kopie v zadání se liší od `view`, nebo nejde načíst `view`, `state` či profil
    (chyba čtení, ne prázdná hodnota) → blokace. Prázdný projekt, chybějící mapa, prázdná pravidla nebo prázdný
    `goal` blokace nejsou (viz „Co blokace není“).
-2. Koncept zapiš jednou do `<draftsDir>/plan.json` (bez `dryRun`).
-3. `opora_write.py /api/canvas-plan --project P --workspace W --json-file "<draftsDir>/plan.json" --dry-run`.
-4. Ke schválení ukaž **celou dávku**: u každého sektoru název, účel, cíl, mimo rozsah, akceptaci, bránu a
-   `sourceRef` (nebo větu proč žádný), plus které existující sektory pokrývají zbytek záměru. Nestačí
-   `digest` a `summary`. Pod dávkou oddíl **„Otázky pro člověka“**: produktové volby, které záměr ani
-   kontext nenese (např. formát, role, limity), každá jednou větou; v akceptaci sektorů nejsou. Sem patří
-   i věty z „Co blokace není“ (prázdný projekt, chybějící cíl profilu). Odpověď na ně je součást téhož
-   jednoho rozhodnutí. `--dry-run` nevrací pozice: že sektory leží v rámečku, ověříš až v kroku 7.
-5. **Jedno rozhodnutí** = potvrzení, nebo vrácení celé verze s poznámkou. Neptej se po sektorech ani
-   postupně. Po vrácení přepracuj koncept a ukaž novou celou verzi.
-6. Souhlas se váže k **přesnému obsahu souboru a digestu**, které člověk viděl. Změníš-li soubor, souhlas
-   neplatí a ukazuješ znovu. Odmítne-li backend digest jako zastaralý, znovu `view`, znovu `--dry-run`
-   a znovu náhled; starý souhlas nepoužívej.
-7. Po souhlasu tentýž příkaz bez `--dry-run` nad týmž souborem. Pak `view --raw`: každý nový sektor má
+2. Blokující otázka nebo jiná blokace → žádná dávka, jen souhrn (oddíl Blokace). Jinak koncept zapiš
+   jednou do **nového** souboru `<draftsDir>/plan-<id oblasti nebo sektoru>-<čas YYYYMMDDTHHMMSS>.json`
+   (bez `dryRun`). Existující soubor nikdy nepřepisuj; každá nová verze = nový soubor. Spočítej jeho sha256.
+3. `opora_write.py /api/canvas-plan --project P --workspace W --json-file "<soubor>" --dry-run`.
+4. Ke schválení ukaž **celou dávku**: u každé položky **všechna pole, která v souboru má** (u sektoru
+   `name`, `purpose`, `spec.goal`, `spec.non_goals`, `spec.acceptance`, `gateNodeId` a jeho karta `[gate]`,
+   `rules`, `sourceRef`, `position`; u karty navíc `blocks` s porty, `checks`, `goal_mode`, `card`, `text`)
+   a vazby. Nic, co je v souboru, nesmí v náhledu chybět. Přidej cestu k souboru a jeho sha256, aby šel
+   celý JSON otevřít; dál které existující položky pokrývají zbytek a větu „proč žádný `sourceRef`“, kde
+   chybí. Nestačí `digest` a `summary`. Pod dávkou **odložené otázky** (každá jednou větou) včetně vět z
+   „Co blokace není“. `--dry-run` nevrací pozice: že sektory leží v rámečku, ověříš až v kroku 7.
+5. **Jedno rozhodnutí** = potvrzení, nebo vrácení celé verze s poznámkou. Neptej se po položkách ani
+   postupně a nechtěj „potvrď a doplň“. Po vrácení přepracuj koncept do nového souboru a ukaž novou celou verzi.
+6. Souhlas se váže k **cestě souboru, jeho sha256 a digestu**, které člověk viděl. Jiný soubor nebo jiný
+   hash = souhlas neplatí. Odmítne-li backend digest jako zastaralý, zopakuj **celé načtení vstupů**
+   (`view`, `state`, profil, `node-spec` / `node-brief`) a kontrolu pokrytí; teprve pak nový soubor, nový
+   `--dry-run` a nový náhled. Starý souhlas nepoužívej.
+7. Po souhlasu ověř, že sha256 souboru je stále ten schválený, a spusť tentýž příkaz bez `--dry-run` nad
+   týmž souborem. Pak `view --raw`: každý nový sektor má
    `x, y` uvnitř rámečku oblasti (`area.x ≤ x`, `x + 360 ≤ area.x + w`, totéž pro `y` s výškou 240) a
    `gateNodeId` na svou kartu `[gate]`. Nesedí-li to, nic neopravuj sám a nahlas to člověku.
 
 ## Blokace: jeden souhrn místo otázek
 
 Když nejde sestavit platnou dávku bez změny vstupů (kopie se liší od `view`, záměr je rozporný nebo
-nejasný, `view` / `state` / profil nejde načíst, sektor se nevejde do rámečku, `existing` cesta neexistuje),
-nic nezapisuj a vrať **jeden** souhrn: co blokuje, co by člověk musel změnit a co ostatní by šlo navrhnout.
+nejasný, je tu blokující otázka, `view` / `state` / profil nejde načíst, sektor se nevejde do rámečku,
+`existing` cesta neexistuje, u sektoru chybí platná brána), nic nezapisuj a vrať **jeden** souhrn: co
+blokuje, blokující otázky, co by člověk musel změnit a co ostatní by šlo navrhnout. Žádnou dávku k němu nepřikládej.
 
 ## Co nedělat
 
@@ -155,7 +170,12 @@ Existující karty: uzly s `parentId` = sektor ve `view --raw`, jejich cíl a ak
 blokace. Mapa kódu a `find` slouží u sektoru **jen pro `sourceRef` karet**; `context.knowledgeGraph.available:
 false` (nebo 404 mapy) není blokace, karty pak mají `planned` zdroj bez cesty.
 
-**Pokrytí.** Rozepiš akceptaci sektoru na podmínky a porovnej je s cílem a akceptací existujících karet.
+**Brána před návrhem.** Sektor musí mít `gateNodeId` a ten musí ukazovat na existující kartu `[gate]` s
+`parentId` = sektor. Chybí-li brána nebo je neplatná, je to blokace: žádnou dávku nestav (novou `[gate]` ani
+`gateNodeId` nezakládáš, to je struktura člověka).
+
+**Pokrytí.** Rozepiš akceptaci sektoru na podmínky a porovnej je s cílem a akceptací existujících karet;
+kartu `[gate]` do porovnání nepočítej (ověřuje výsledek, nezajišťuje ho).
 Navrhuj jen nepokrytou část: **1–9 karet, obvykle 3–7**. Když nic nechybí, vrať souhrn (která karta
 pokrývá kterou podmínku), ne dávku. Víc než 9 karet = sektor je ve skutečnosti dva: řekni to v souhrnu.
 
@@ -181,8 +201,16 @@ pravidla); tady jen to, co rozklad sektoru navíc hlídá:
   „závislost na sektoru X“ a v `spec.non_goals` dotčené karty („… dodá sektor X“).
 - Proces (etapy) kartám neurčuješ: po zápisu ho určí router (viz [pipeline.md](pipeline.md)).
 
-**Schválení.** Ke schválení ukaž celou dávku: u každé karty název, účel, cíl, akceptaci, bloky s porty a
-vazby (včetně té na `[gate]`), plus které existující karty pokrývají zbytek akceptace sektoru.
+**Schválení.** Stejně jako u oblasti (soubor `plan-<id sektoru>-<čas>.json`, sha256, blokující a odložené
+otázky, při zastaralém digestu celé nové načtení). V náhledu u každé karty všechna pole ze souboru: `name`,
+`purpose`, `spec.goal`, `spec.non_goals`, `spec.acceptance`, `blocks` s `condition` a porty, `sourceRef`,
+`checks`, `goal_mode`, `card`, `text`, `rules`, a všechny vazby (včetně těch na `[gate]`); plus které
+existující karty pokrývají zbytek akceptace sektoru.
+
+**Ověření po zápisu.** `view --raw` a `node-brief --node <nová karta> --raw` každé nové karty: `parentId` =
+sektor; bloky a porty jsou ty ze schváleného souboru; každá vazba vede tam, kam v souboru (porty `block`
+z bloku a portu, `next` hlavní linka) a linka končí na kartě, na kterou ukazuje `gateNodeId` sektoru. Nesedí-li
+to, nic neopravuj sám a nahlas to člověku.
 
 ### Ukázková dávka sektoru (ilustrační)
 
