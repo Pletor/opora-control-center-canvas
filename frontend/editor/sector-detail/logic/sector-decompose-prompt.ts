@@ -32,3 +32,11 @@ export function sectorDecomposePrompt({ project, workspace, sectorId, sectorName
     "Nejdřív `--dry-run`; ke schválení ukaž celou dávku (u každé karty název, účel, cíl, akceptaci, bloky s porty a vazby). Souhlas platí jen pro přesně ten soubor a digest; ostře zapiš až po něm.",
   ].join("\n");
 }
+
+/** České názvy podkladů, které sektoru chybí v uloženém zadání (cíl práce, podmínky dokončení); prázdné = rozkladač má z čeho stavět. */
+export function missingSectorSpec(spec: { goal: string; acceptance: string } | null | undefined): string[] {
+  const missing: string[] = [];
+  if (!spec?.goal.trim()) missing.push("cíl práce");
+  if (!spec?.acceptance.trim()) missing.push("podmínky dokončení");
+  return missing;
+}

@@ -99,3 +99,36 @@ jako „disciplinární sektor bez brány“ a vyjmout ho z fronty velína („p
 - Snímky ve scratchpadu relace: `insp-card.png`, `insp-sector.png`, `insp-area.png` (před), `insp-area-after.png` (po), `map-project.png`.
 - Commit jen po vlastních cestách (area, App.tsx dva řádky, pyramida.md, rozklad.md, tento handoff); nic nepushnuto.
 - Pro Hermese: BLOCKED rozpor sektor=disciplína (návrh výše), dva nálezy mimo scope (§4).
+
+## Dávka B2 (HERMES-B2-20261015, 09:45–10:10) – dvě závady z §4
+
+Rozšířený scope: `frontend/editor/sector-detail/**`, `frontend/editor/node-detail/**` mimo brief-vault. App.tsx,
+shared types, backend, docs sdílených kontraktů nedotčeny (`docs/pyramida.md` se už dál nemění).
+
+1. **SectorDecompose bez cíle / akceptace** (subagent Sonnet podle zadání, zkontrolováno):
+   `NodeSpecEditor` hlásí **uložená** pole rodiči přes volitelný `onStored` (ne draft); `NodePanel` je drží
+   ve stavu (reset při změně uzlu) a předá `SectorDecompose` jako `spec`; čistá `missingSectorSpec(spec)`
+   (+4 testy) vrátí „cíl práce“ / „podmínky dokončení“. Chybí-li něco, dílek **nesestaví zadání ani
+   nenabídne Kopírovat** a napíše: „Sektor nemá uložený podklad: cíl práce a podmínky dokončení. Doplňte ho
+   v ‚Zadání pro práci‘ výše a uložte; rozkladač nemá z čeho stavět.“ Nic se nedoplňuje automaticky.
+   Žádný nový prop přes App.tsx nebyl potřeba (data jdou z editoru v témže inspektoru).
+2. **„Předat zadání“ → „Načíst balíček karty“** (`NodePanel.tsx`, jen popisek + tooltip, který odkáže na
+   fold „Předat agentovi“). Nadpis dialogu `TaskHandoff` („Předat zadání · …“) leží v `llm-control`
+   mimo scope: QUESTION pro Hermese, zda přejmenovat i ten (návrh „Balíček karty · …“).
+
+Ověření v běžícím náhledu (DevTools MCP, Ample, bez zápisu živých dat):
+- karta 4.2: tlačítko „Načíst balíček karty“; fold „Předat agentovi“ → klik na Kopírovat zadání zapsal do
+  `navigator.clipboard.writeText` přesně text z textarea (698 znaků, shoda), stav „Zkopírováno“, bez alertu;
+- sektor 4 (bez uloženého zadání): hláška s chybějícími podklady, žádná textarea ani tlačítko Kopírovat;
+  „Shrnout podněty (121)“ beze změny. Snímek `sector-missing-after.png`.
+- Rozšíření Claude v Chrome nebylo připojené; použit DevTools MCP.
+
+Kritik (ChatGPT přes Codex, 2 nálezy P2, oba zapracované): (1) uložené zadání jde s klíčem
+`[project, workspace, nodeId]` a NodePanel ho rozkladači předá jen pro právě vybraný uzel (přepnutí uzlu
+i workspace se stejným id → `null`); (2) `spec === null` už neznamená „chybí“, ale „Načítám uložené zadání
+sektoru…“ bez zadání a bez Kopírovat; chybějící pole se jmenují až po načtení. Ověřeno znovu v náhledu.
+
+Checkpoint B2 (10:15): `npm test -- --run` **1 225 zelených (176 souborů)**, tsc čistý, `npm run build` OK,
+backend nedotčen. Commit jen vlastní cesty (`sector-detail`, `node-detail/{assignment,components}`, handoff).
+QUESTION pro Hermese: nadpis dialogu „Předat zadání · …“ v `frontend/editor/llm-control/editor-context/components/TaskHandoff.tsx`
+(mimo scope) přejmenovat na „Balíček karty · …“? Jinak čeká na další přidělený kus.

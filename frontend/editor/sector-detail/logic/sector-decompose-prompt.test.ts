@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DATA_NOTE } from "@/shared/agent-prompt/logic/agent-prompt";
-import { sectorDecomposePrompt } from "./sector-decompose-prompt";
+import { missingSectorSpec, sectorDecomposePrompt } from "./sector-decompose-prompt";
 
 const base = { project: "ample", workspace: "main", sectorId: "sec-1", sectorName: "Příjem dokumentu", purpose: "Bez dokumentu není souhrn.", cards: 0 };
 
@@ -44,5 +44,22 @@ describe("sectorDecomposePrompt", () => {
     const prompt = sectorDecomposePrompt({ ...base, sectorName: "A\r\nB" })!;
     expect(prompt).toContain("--- data ---\n```text\nNázev sektoru: A B");
     expect(prompt).toContain("```\n--- konec dat ---\n" + DATA_NOTE);
+  });
+});
+
+describe("missingSectorSpec", () => {
+  it("bez zadání chybí obojí", () => {
+    expect(missingSectorSpec(null)).toEqual(["cíl práce", "podmínky dokončení"]);
+    expect(missingSectorSpec(undefined)).toEqual(["cíl práce", "podmínky dokončení"]);
+  });
+  it("chybí jen jedno", () => {
+    expect(missingSectorSpec({ goal: "", acceptance: "Hotovo, když..." })).toEqual(["cíl práce"]);
+    expect(missingSectorSpec({ goal: "Cíl", acceptance: "" })).toEqual(["podmínky dokončení"]);
+  });
+  it("nic nechybí", () => {
+    expect(missingSectorSpec({ goal: "Cíl", acceptance: "Hotovo" })).toEqual([]);
+  });
+  it("samé mezery se počítají jako chybějící", () => {
+    expect(missingSectorSpec({ goal: "   ", acceptance: " " })).toEqual(["cíl práce", "podmínky dokončení"]);
   });
 });

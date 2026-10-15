@@ -8,6 +8,9 @@ má), zadání pro agenta-rozkladače sektoru jen ke čtení a tlačítko „Kop
 `.claude/skills/opora-control-center/references/rozklad.md`, oddíl „Sektor → karty“ (dávka
 `canvas-plan --dry-run` → celá dávka ke schválení → ostře). Počet karet (`childCount` v `NodePanel`)
 spočítá App z grafu: přímé děti sektoru s `kind === "node"`.
+Bez uloženého cíle nebo podmínek dokončení (prop `spec`, hlásí ho `NodeSpecEditor` přes `onStored` s klíčem
+uzlu, NodePanel ho předá jen pro právě vybraný uzel) se zadání nesestaví ani nekopíruje; dílek pojmenuje
+chybějící podklad (`missingSectorSpec`); dokud zadání není načtené (`spec === null`), ukáže „Načítám…“.
 
 `logic/sector-decompose-prompt.ts` (testováno) skládá zadání: `sectorDecomposePrompt({project, workspace,
 sectorId, sectorName, purpose, cards})` vrátí text začínající `/opora-control-center`, nebo `null`, když

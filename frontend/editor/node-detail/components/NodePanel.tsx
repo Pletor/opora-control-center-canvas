@@ -24,7 +24,7 @@ import { changedSinceInsert, hasOwnVault, indexVault, scopeOfFragment, type Frag
 import RoundsPanel, { OpenRoundOffer, RoundSwitch } from "@/editor/node-detail/rounds/components/RoundsPanel";
 import { roundNumber, roundOffer, type CardRound } from "@/editor/node-detail/rounds/logic/rounds-model";
 import type { NodeDone } from "@/shared/desktop-state/logic/types";
-import type { CanvasNode, Workspace } from "@/shared/types/logic/types";
+import type { CanvasNode, SpecFields, Workspace } from "@/shared/types/logic/types";
 
 export type { NodeTab };
 
@@ -117,6 +117,9 @@ export default function NodePanel({
   openIdeasInSector?: number;
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
+  // Uložené zadání z editoru i s klíčem uzlu: rozkladač ho dostane jen pro právě vybraný uzel, jinak „načítám“.
+  const [storedSpec, setStoredSpec] = useState<{ key: string; fields: SpecFields | null } | null>(null);
+  const sectorSpec = storedSpec?.key === JSON.stringify([project, workspace, node.id]) ? storedSpec.fields : null;
   const [confirmed, setConfirmed] = useState(false);
   const [textRevision, setTextRevision] = useState(0);
   const storedPurpose = useRef(node.purpose);
@@ -171,8 +174,8 @@ export default function NodePanel({
           <button type="button" className="primary" onClick={onEnter}>
             Otevřít vnitřní plátno
           </button>
-          <button type="button" data-testid="agent-task-action" disabled={busy} onClick={onAgentTask} title="Načte uložené zadání a souvislosti pro předání agentovi.">
-            Předat zadání
+          <button type="button" data-testid="agent-task-action" disabled={busy} onClick={onAgentTask} title="Otevře uložené zadání, souvislosti a kontrakt výsledku jako balíček ke čtení. Zadání pro agenta v terminálu je níž ve foldu „Předat agentovi“.">
+            Načíst balíček karty
           </button>
           {showVault && onOpenVault && (
             <button type="button" data-testid="open-in-vault" onClick={() => onOpenVault(node.id)}
@@ -193,9 +196,9 @@ export default function NodePanel({
         </section>
         <section role="tabpanel" id="node-panel-spec" aria-labelledby="node-tab-spec" hidden={tab !== "spec"}>
           <BriefChips refs={fragmentRefs} index={vaultIndex} onOpen={onOpenVault ? openFragment : undefined} />
-          <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} />
+          <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} onStored={setStoredSpec} />
           {node.kind === "sector" && (
-            <SectorDecompose project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} purpose={node.purpose} cards={childCount} />
+            <SectorDecompose project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} purpose={node.purpose} cards={childCount} spec={sectorSpec} />
           )}
           {node.kind === "sector" && openIdeasInSector > 0 && (
             <IdeasSummary project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} openIdeas={openIdeasInSector} />

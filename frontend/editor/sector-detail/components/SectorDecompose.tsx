@@ -1,9 +1,10 @@
 // Složený oddíl „Rozložit na karty“ v inspektoru sektoru (záložka Zadání): ukáže zadání pro
 // agenta-rozkladače sektoru a tlačítko, které ho zkopíruje do schránky. Nic neukládá ani nespouští —
 // agenta spouští člověk v terminálu se skillem. Zadání skládá čistá funkce `sectorDecomposePrompt`;
+// bez uloženého cíle nebo podmínek dokončení se zadání nesestaví a dílek pojmenuje chybějící podklad;
 // kopírování a hlášky (úspěch / ruční kopie) obstará sdílený `useCopyText`.
 import { czechCount } from "@/editor/canvas/area/logic/area-model";
-import { sectorDecomposePrompt } from "@/editor/sector-detail/logic/sector-decompose-prompt";
+import { missingSectorSpec, sectorDecomposePrompt } from "@/editor/sector-detail/logic/sector-decompose-prompt";
 import { COPY_FAILED_TEXT, useCopyText } from "@/shared/hooks/logic/use-copy-text";
 import "@/editor/sector-detail/styles/sector-detail.css";
 
@@ -14,6 +15,7 @@ export default function SectorDecompose({
   sectorName,
   purpose,
   cards,
+  spec,
 }: {
   project: string;
   workspace: string;
@@ -22,9 +24,12 @@ export default function SectorDecompose({
   purpose: string;
   /** Počet karet (`kind: "node"`) přímo v sektoru; spočítá rodič z grafu. */
   cards: number;
+  /** Uložený cíl a akceptace sektoru (z editoru zadání); `null` = ještě nenačtené (zadání se nestaví, hláška „načítám“). */
+  spec: { goal: string; acceptance: string } | null;
 }) {
   const { status, copy, fieldRef } = useCopyText();
-  const prompt = sectorDecomposePrompt({ project, workspace, sectorId, sectorName, purpose, cards });
+  const missing = missingSectorSpec(spec);
+  const prompt = missing.length ? null : sectorDecomposePrompt({ project, workspace, sectorId, sectorName, purpose, cards });
   const state = !prompt
     ? "Zadání nejde sestavit: identifikátor projektu, workspace nebo sektoru obsahuje nepovolené znaky."
     : cards > 0
@@ -34,7 +39,15 @@ export default function SectorDecompose({
   return (
     <details className="sector-fold" data-testid="sector-decompose">
       <summary className="sector-fold__summary">Rozložit na karty</summary>
-      <p className="muted sector-fold__state">{state}</p>
+      {spec === null ? (
+        <p className="muted sector-fold__state" role="status" data-testid="sector-decompose-loading">Načítám uložené zadání sektoru…</p>
+      ) : missing.length > 0 ? (
+        <p className="muted sector-fold__state" role="status" data-testid="sector-decompose-missing">
+          Sektor nemá uložený podklad: {missing.join(" a ")}. Doplňte ho v „Zadání pro práci“ výše a uložte; rozkladač nemá z čeho stavět.
+        </p>
+      ) : (
+        <p className="muted sector-fold__state">{state}</p>
+      )}
       {prompt && (
         <>
           <textarea
