@@ -60,6 +60,7 @@ ani neupravují; commit obsahuje jen soubory této relace (`git add` po cestách
 | 03:00 | Z1 „Předat agentovi“ na kartě, „Shrnout podněty“ na sektoru; T2 potvrzení z fronty velína (dvojí klik, za sektor) | hotovo |
 | 03:40 | ověření v headless Chrome (karty, oblasti, Velín nad Ample 143 karet); opravy: karta bez pipeline „čeká na router“ (593a8ad), kontejnerové karty a oblasti ve vrstvách (09d763e), záměr oblasti dole (033db01), průchozí řetěz + bezpečné potvrzení + zadání s daty odděleně (0a4df39) | hotovo |
 | 03:50 | V4: rozvržení Velínu, fronta hlídá záměry oblastí a podstatu sektorů, zadání pro router (ce530ca); snímek: Ample 143 karet, 23 položek fronty (5 ke schválení, 18 záměrů) | hotovo |
+| 04:30 | Ověření pyramidy naostro v pískovišti „Pyramida-test (noční směna B)“ (projekt b66069cc…): záměr oblasti → rozkladač (Opus) dry-run → 1 rozhodnutí → 3 sektory s [gate] uvnitř rámečku → rozklad sektoru Sklad → 4 karty, 4 bloky, 7 portů, 11 vazeb; `frontier` hlásí 5 needsRouting. Nálezy z běhu (prázdný projekt, pravidla, checks, vazby, závislosti mezi sektory) zapracované do `references/rozklad.md` | hotovo |
 
 ## Ráno (co zbývá člověku)
 
@@ -67,7 +68,8 @@ ani neupravují; commit obsahuje jen soubory této relace (`git add` po cestách
    restartu `POST /api/memory/provision {"confirmed": true}` (Nastavení → paměť, nebo curl) a `GET /api/memory/status`.
 2. Prohlédnout v prohlížeči: Velín a plátno jsou ověřené headless snímky (scratchpad relace B); neověřené zůstává:
    inspektor (Předat agentovi, Rozložit, Shrnout podněty), kopírování do schránky, mapa kódu v Projektu.
-3. Vyzkoušet pyramidu na Ample: napsat záměr jedné oblasti → zkopírovat zadání → `claude` v kořeni Ample → dávku
-   potvrdit jedním rozhodnutím.
+3. Pyramida je ověřená v pískovišti (projekt „Pyramida-test (noční směna B)“ – můžeš ho smazat, nebo si na něm
+   prohlédnout Velín a vrstvu sektoru Sklad). Na Ample: napsat záměr oblasti (velín hlásí 18 oblastí/sektorů bez záměru)
+   → zkopírovat zadání → `claude` v kořeni Ample → dávku potvrdit jedním rozhodnutím.
 4. Nestaví se zatím: `previousRounds[].criteria`
    a `depends_on[].status` v balíčku (stará data).

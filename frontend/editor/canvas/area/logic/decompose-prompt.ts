@@ -29,7 +29,7 @@ export function decomposePrompt({ project, workspace, areaId, areaName, intent, 
       `Počet sektorů v oblasti: ${sectors}`,
     ]),
     "Aktuální název, záměr a sektory oblasti ber z `opora_read.py view --raw`; když se od kopie výše liší, nic nezapisuj a vrať blokaci.",
-    "Před návrhem načti profil a pravidla projektu a porovnej záměr s účelem a akceptací existujících sektorů; navrhuj jen nepokrytou část: 1–7 sektorů, obvykle 2–5. Když stačí 0–1 sektor, nebo chybí vstup (profil, pravidla, mapa kódu), dávku nestav a vrať jeden souhrn.",
+    "Před návrhem načti profil a pravidla projektu a porovnej záměr s účelem a akceptací existujících sektorů; navrhuj jen nepokrytou část: 1–7 sektorů, obvykle 2–5. Když stačí 0–1 sektor, nebo vstup nejde načíst, dávku nestav a vrať jeden souhrn; prázdný projekt, chybějící mapa kódu, prázdná pravidla ani prázdný cíl profilu blokace nejsou. Produktové volby, které záměr nenese, dej pod dávku do „Otázek pro člověka“, ne do akceptace.",
     `Dávka \`/api/canvas-plan\`: každý sektor s \`parent: "@${areaId}"\` (backend ho položí dovnitř rámečku oblasti) a jednou kartou [gate] s \`parent\` = ref sektoru; jiné karty nezakládej a existující sektory neměň.`,
     "Nejdřív `--dry-run`; ke schválení ukaž celou dávku (u každého sektoru název, účel, cíl, akceptaci a bránu). Souhlas platí jen pro přesně ten soubor a digest; ostře zapiš až po něm.",
   ].join("\n");

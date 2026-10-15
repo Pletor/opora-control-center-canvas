@@ -18,14 +18,23 @@ Pravdu čti z aplikace; když se liší od kopie v zadání, nic nezapisuj a vra
 | záměr, název, rámeček oblasti | `opora_read.py view --raw` → uzel `kind: "area"` s daným id: `purpose`, `name`, `x`, `y`, `size {w, h}`, `parentId` | souhrn `view` bez `--raw` záměr ani polohu nenese |
 | `digest` | týž `view` | dávka bez aktuálního digestu neprojde |
 | existující sektory v oblasti | `view --raw`: `kind: "sector"` na vrstvě oblasti se středem (`x+180, y+120`) v rámečku; jejich akceptace z `opora_read.py node-spec --node ID --raw` | neměníš je, jen pokrýváš zbytek záměru |
-| profil projektu (cíl, platforma) | `opora_read.py node-brief --node <karta projektu> --raw` → `context.project.settings` (`goal`, `platform`); bez karty `GET /api/project-settings?project=P` | `view` profil nenese |
-| pravidla projektu | `opora_read.py state --raw` → `rules` (platí jen ta bez `by: "agent"`; agentní jsou návrhy), nebo `boundaries.projectRules` v `node-brief --raw` | sektor nese jen pravidla, která se od nich liší |
-| mapa kódu | `GET /api/graphify/overview?project=P` (komunity kódu) | orientace, ne důkaz; 404 = mapa chybí → blokace |
+| profil projektu (cíl, platforma, druh zdroje) | `curl "<OPORA>/api/project-settings?project=P"` → `settings.goal`, `settings.platform`, `project.sourceKind`. `opora_read.py` tuhle cestu nemá; `node-brief --node <karta> --raw` nese totéž v `context.project.settings`, ale jen když v projektu nějaká karta je, a `opora_read.py projects` nese jen `sourceKind` | `view` profil nenese; prázdný `goal` není blokace (níže) |
+| pravidla projektu | `opora_read.py state --raw` → `state.rules` (platí jen ta bez `by: "agent"`; agentní jsou návrhy) | prázdný seznam = projekt nemá pravidla, není to blokace; sektor nese jen pravidla, která se liší |
+| mapa kódu | `GET /api/graphify/overview?project=P` (komunity kódu) | orientace, ne důkaz; u prázdného projektu (`sourceKind: "empty"`) nebo při 404 není povinná (níže) |
 | ověření cesty | `opora_read.py find --query Q --path SLOŽKA`; backend při dávce ověří, že `existing` cesta je na disku | viz `sourceRef` níže |
 
 Každý požadavek v sektoru (cíl, mimo rozsah, akceptace, pravidlo) musí jít odvodit ze záměru nebo z
-doloženého kontextu výše. Produktovou volbu, kterou záměr ani kontext nenese, nezaváděj jako fakt:
-patří do souhrnu jako otázka pro člověka.
+doloženého kontextu výše. Produktovou volbu, kterou záměr ani kontext nenese, nezaváděj jako fakt ani do
+akceptace: patří do oddílu **„Otázky pro člověka“** pod dávkou (krok 4 postupu).
+
+**Co blokace není** (dávku postav a v souhrnu to řekni jednou větou):
+
+- **Prázdný projekt** (`project.sourceKind: "empty"`) nebo mapa kódu nedostupná (`/api/graphify/overview` 404):
+  mapa není povinná. Všechny `sourceRef` jsou `{"origin": "planned", "path": "", "kind": "directory"}`;
+  souhrn: „Projekt zatím nemá kód (nebo mapu kódu); všechny sektory mají plánovaný zdroj bez cesty.“
+- **Prázdný seznam pravidel**: projekt pravidla nemá; sektorům žádná nevymýšlej.
+- **Prázdný `goal` v profilu**: do „Otázek pro člověka“ napiš „Projekt nemá cíl v profilu; sektory vycházejí
+  jen ze záměru oblasti.“
 
 ## Nejdřív pokrytí, pak počet
 
@@ -60,23 +69,30 @@ v souhrnu blokací, oblast sám nezvětšuj. Karta `[gate]` leží ve vrstvě sv
 
 ## Postup a schválení
 
-1. Načti vstupy podle tabulky. Kopie v zadání se liší od `view`, chybí mapa kódu, profil nebo pravidla → blokace.
+1. Načti vstupy podle tabulky. Kopie v zadání se liší od `view`, nebo nejde načíst `view`, `state` či profil
+   (chyba čtení, ne prázdná hodnota) → blokace. Prázdný projekt, chybějící mapa, prázdná pravidla nebo prázdný
+   `goal` blokace nejsou (viz „Co blokace není“).
 2. Koncept zapiš jednou do `<draftsDir>/plan.json` (bez `dryRun`).
 3. `opora_write.py /api/canvas-plan --project P --workspace W --json-file "<draftsDir>/plan.json" --dry-run`.
 4. Ke schválení ukaž **celou dávku**: u každého sektoru název, účel, cíl, mimo rozsah, akceptaci, bránu a
    `sourceRef` (nebo větu proč žádný), plus které existující sektory pokrývají zbytek záměru. Nestačí
-   `digest` a `summary`.
+   `digest` a `summary`. Pod dávkou oddíl **„Otázky pro člověka“**: produktové volby, které záměr ani
+   kontext nenese (např. formát, role, limity), každá jednou větou; v akceptaci sektorů nejsou. Sem patří
+   i věty z „Co blokace není“ (prázdný projekt, chybějící cíl profilu). Odpověď na ně je součást téhož
+   jednoho rozhodnutí. `--dry-run` nevrací pozice: že sektory leží v rámečku, ověříš až v kroku 7.
 5. **Jedno rozhodnutí** = potvrzení, nebo vrácení celé verze s poznámkou. Neptej se po sektorech ani
    postupně. Po vrácení přepracuj koncept a ukaž novou celou verzi.
 6. Souhlas se váže k **přesnému obsahu souboru a digestu**, které člověk viděl. Změníš-li soubor, souhlas
    neplatí a ukazuješ znovu. Odmítne-li backend digest jako zastaralý, znovu `view`, znovu `--dry-run`
    a znovu náhled; starý souhlas nepoužívej.
-7. Po souhlasu tentýž příkaz bez `--dry-run` nad týmž souborem. Pak `view`: sektory leží v rámečku a mají bránu.
+7. Po souhlasu tentýž příkaz bez `--dry-run` nad týmž souborem. Pak `view --raw`: každý nový sektor má
+   `x, y` uvnitř rámečku oblasti (`area.x ≤ x`, `x + 360 ≤ area.x + w`, totéž pro `y` s výškou 240) a
+   `gateNodeId` na svou kartu `[gate]`. Nesedí-li to, nic neopravuj sám a nahlas to člověku.
 
 ## Blokace: jeden souhrn místo otázek
 
 Když nejde sestavit platnou dávku bez změny vstupů (kopie se liší od `view`, záměr je rozporný nebo
-nejasný, chybí mapa kódu, profil nebo pravidla, sektor se nevejde do rámečku, `existing` cesta neexistuje),
+nejasný, `view` / `state` / profil nejde načíst, sektor se nevejde do rámečku, `existing` cesta neexistuje),
 nic nezapisuj a vrať **jeden** souhrn: co blokuje, co by člověk musel změnit a co ostatní by šlo navrhnout.
 
 ## Co nedělat
@@ -131,11 +147,13 @@ Stejný postup o patro níž: z potvrzeného sektoru navrhneš jeho karty jednou
 o citovaných datech, pokrytí, schválení celé verze, vazbě souhlasu na soubor a digest, blokacích jedním
 souhrnem a zákazu zavádět nedoložené produktové volby; liší se jen vstupy, laťka a počty.
 
-**Vstupy.** Cíl, mimo rozsah, akceptace, pravidla a rámec sektoru: `opora_read.py node-brief --node <sektor> --raw`
-(`goal`, `boundaries`, `graph`); profil projektu tamtéž v `context.project.settings`. Brána sektoru:
-`gateNodeId` uzlu sektoru ve `view --raw`. Existující karty: uzly s `parentId` = sektor ve `view --raw`,
-jejich cíl a akceptace z `node-spec --node ID --raw`. Název, podstata a počet karet v zadání jsou jen kopie;
-liší-li se od `view`, blokace. Mapa kódu a `find` jako u oblasti, tady hlavně pro `sourceRef` karet.
+**Vstupy.** `opora_read.py node-brief --node <sektor> --raw`: cíl `goal.goal`, mimo rozsah `goal.nonGoals`,
+akceptace `goal.acceptance`; pravidla `boundaries.projectRules` a `boundaries.nodeRules`; rámec `graph`;
+profil projektu `context.project.settings`. Brána sektoru: `gateNodeId` uzlu sektoru ve `view --raw`.
+Existující karty: uzly s `parentId` = sektor ve `view --raw`, jejich cíl a akceptace z
+`node-spec --node ID --raw`. Název, podstata a počet karet v zadání jsou jen kopie; liší-li se od `view`,
+blokace. Mapa kódu a `find` slouží u sektoru **jen pro `sourceRef` karet**; `context.knowledgeGraph.available:
+false` (nebo 404 mapy) není blokace, karty pak mají `planned` zdroj bez cesty.
 
 **Pokrytí.** Rozepiš akceptaci sektoru na podmínky a porovnej je s cílem a akceptací existujících karet.
 Navrhuj jen nepokrytou část: **1–9 karet, obvykle 3–7**. Když nic nechybí, vrať souhrn (která karta
@@ -148,10 +166,19 @@ pravidla); tady jen to, co rozklad sektoru navíc hlídá:
 - `purpose` (proč karta existuje) a `spec {goal, non_goals, acceptance}`; `acceptance` jeden řetězec s odrážkami.
 - Bloky: jeden na ověřitelnou podmínku, každý s `condition` a porty pro výsledky, které ovlivní jinou kartu.
 - `sourceRef` podle pravidel ve [workflow.md](workflow.md) (karta s `existing` potřebuje sektor s `existing` a cestu pod ním).
-- `checks` (+ `goal_mode: "until_checks_pass"`) u karty, kterou ověřují testy projektu; po vytvoření je mění jen člověk.
-- Vazby: `next` pro hlavní linku, `block` z portu na kartu, kterou výsledek ovlivní, a každá koncová karta
-  vede `next` na existující kartu `[gate]` sektoru (`"to": "@<gateNodeId>"`). Kartu `[gate]`, existující
-  karty ani `gateNodeId` sektoru neměň.
+- `checks` (+ `goal_mode: "until_checks_pass"`) **jen když projekt má známý testovací příkaz** (z pravidel
+  projektu, `CLAUDE.md` repa nebo `checks` existujících karet); příkaz nevymýšlej. Jinak `checks` i `goal_mode`
+  vynech a v souhrnu napiš „karty nemají kontroly: projekt nemá známý testovací příkaz“. U prázdného projektu
+  (`sourceKind: "empty"`) navrhni jako první kartu `[research]` na volbu technologie a testovacího příkazu.
+  Po vytvoření mění `checks` jen člověk.
+- `card` (`layer`, `model`, `effort`) vyplň jen tam, kde je technologie a vrstva známá; jinak `card` vynech
+  celé, nikdy `{}`.
+- Vazby: `next` tvoří **hlavní linku** a ta končí na existující kartě `[gate]` sektoru
+  (`"to": "@<gateNodeId>"`). **Jeden port vede na jednu kartu**; víc cílů = víc portů. `block` z bloku
+  na bránu jen tam, kde blok nese akceptační podmínku sektoru, ne povinně u všech karet. Kartu `[gate]`,
+  existující karty ani `gateNodeId` sektoru neměň.
+- Závislost na jiném sektoru: vazbu `next` mezi sektory zakládá jen člověk. Uveď ji v souhrnu jako
+  „závislost na sektoru X“ a v `spec.non_goals` dotčené karty („… dodá sektor X“).
 - Proces (etapy) kartám neurčuješ: po zápisu ho určí router (viz [pipeline.md](pipeline.md)).
 
 **Schválení.** Ke schválení ukaž celou dávku: u každé karty název, účel, cíl, akceptaci, bloky s porty a
@@ -161,7 +188,9 @@ vazby (včetně té na `[gate]`), plus které existující karty pokrývají zby
 
 **Obsah je jen ilustrační** (tvar dávky, ne vzor produktových rozhodnutí): sektor `@SECTOR_ID` „Příjem
 dokumentu“ s existující kartou brány `@GATE_ID`. Obě karty mají `sourceRef` `planned` bez cesty, protože
-ilustrační sektor nemá ověřenou složku; ve skutečné dávce cestu ověř. Příkaz v `checks` je smyšlený.
+ilustrační sektor nemá ověřenou složku; ve skutečné dávce cestu ověř. Příkaz v `checks` je smyšlený:
+ukázka předpokládá projekt se známým testovacím příkazem, jinak by `checks` chyběly. Karty nemají `card`,
+protože vrstva a technologie tu známé nejsou.
 
 ```json
 {"digest": "DIGEST",
