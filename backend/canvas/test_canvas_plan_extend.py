@@ -120,3 +120,31 @@ def test_replace_blocks_swaps_card_blocks_unless_a_block_edge_starts_there(tmp_p
         refused = send(client, done.json()["digest"], {"extend": [again]})
         assert refused.status_code == 409 and "vazba" in refused.json()["error"]
         assert snapshot(client, ["n0"]) == before
+
+
+def test_extend_layer_changes_card_layer_and_keeps_it_without_layer(tmp_path):
+    def layer_of(client):
+        nodes = client.get("/api/view", params=SCOPE).json()["graph"]["nodes"]
+        return next(n for n in nodes if n["id"] == "n0").get("card", {}).get("layer")
+
+    def revision(client):
+        return client.get("/api/desktop-v3/state", params=SCOPE).json()["revision"]
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        digest = seed(client)
+        blocks = [{"ref": "a", "title": "A"}]
+        first = {"node": "@n0", "expectedRevision": revision(client), "blocks": blocks, "replaceBlocks": True, "layer": "frontend"}
+        result = send(client, digest, {"extend": [first]})
+        assert result.status_code == 200, result.text
+        assert layer_of(client) == "frontend"
+        second = {"node": "@n0", "expectedRevision": revision(client), "blocks": blocks, "replaceBlocks": True, "layer": "backend"}
+        stale = send(client, result.json()["digest"], {"extend": [{**second, "expectedRevision": 0}]})
+        assert stale.status_code == 409 and layer_of(client) == "frontend"
+        bad = send(client, result.json()["digest"], {"extend": [{**second, "layer": "nonsense"}]})
+        assert bad.status_code == 409 and layer_of(client) == "frontend"
+        changed = send(client, result.json()["digest"], {"extend": [second]})
+        assert changed.status_code == 200, changed.text
+        assert layer_of(client) == "backend"
+        keep = {"node": "@n0", "expectedRevision": revision(client), "blocks": blocks, "replaceBlocks": True}
+        assert send(client, changed.json()["digest"], {"extend": [keep]}).status_code == 200
+        assert layer_of(client) == "backend"

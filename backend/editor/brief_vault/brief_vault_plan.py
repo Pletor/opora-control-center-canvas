@@ -220,7 +220,7 @@ def build_plan(rows, graph, state, texts, fragment_ids, details=None, revision=0
                     continue
                 card = card_of("u", "@" + current, unit, unit_kids, path, discipline,
                                texts.get(uid, unit["revision"]), synthesized, steps, lead)
-                extend.append(update_of(card, current, revision, spec_revision(current)))
+                extend.append(update_of(card, current, revision, spec_revision(current), synthesized.get("layer")))
                 if previous is not None and not previous.startswith("@"):
                     edges.append({"from": previous, "to": "@" + current, "port": "next"})
                 previous = "@" + current

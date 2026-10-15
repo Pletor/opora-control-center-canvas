@@ -6,7 +6,7 @@ jsou podfragmenty). Takovou kartu plán nezakládá znovu: místo položky `node
 `/api/canvas-plan`, tedy existující cestu zápisu specu, bloků a odkazů se stávající validací (`node_specs`,
 `validate_state`, `resolve_plan_refs`): `spec` (goal, acceptance z nového `synthesized`) s revizí specu, bloky
 přepočítané stejně jako u nové karty (`replaceBlocks`), `fragmentRef` (přepíše se na poslední revizi a otisk obsahu)
-a `expectedRevision` = revize stavu. Víc takových karet ve vrstvě = 409 (`duplicate-card`); uzavřená karta = 409
+a `expectedRevision` = revize stavu; `layer` (je-li) přepíše `card.layer` karty, bez něj vrstva zůstává. Víc takových karet ve vrstvě = 409 (`duplicate-card`); uzavřená karta = 409
 (`card-closed`), protože uzavřenou kartu dávka měnit nesmí: nejdřív ji otevřete.
 
 Kontejner plánu (K12): `expectedRevision` je revize **celého** stavu Desktop v3, kterou mění i souběžné smyčky jiných
@@ -70,11 +70,14 @@ def research_steps(rows, fragment_id, details):
     return approach_steps(details[last["fragment_id"]]["research"]["approach"])
 
 
-def update_of(card, node_id, revision, spec_revision):
-    """Položka `extend` dávky, která existující kartu převede na tvar `card` (spec, bloky, odkazy)."""
+def update_of(card, node_id, revision, spec_revision, layer=None):
+    """Položka `extend` dávky, která existující kartu převede na tvar `card` (spec, bloky, odkazy).
+
+    `layer` = vrstva ze `synthesized`; bez ní se vrstva existující karty nemění."""
     return {"node": "@" + node_id, "expectedRevision": revision,
             "spec": {"expectedRevision": spec_revision, "fields": card["spec"]},
-            "fragmentRef": card["fragmentRef"], "blocks": card["blocks"], "replaceBlocks": True}
+            "fragmentRef": card["fragmentRef"], "blocks": card["blocks"], "replaceBlocks": True,
+            **({"layer": layer} if layer else {})}
 
 
 def fingerprint(plan):

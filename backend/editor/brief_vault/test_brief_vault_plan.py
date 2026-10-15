@@ -290,6 +290,15 @@ def test_card_the_fragment_already_has_is_updated_not_duplicated():
     assert raised.value.fragments[0]["reason"] == "card-closed"
 
 
+def test_synthesized_layer_travels_to_the_existing_card_only_when_present():
+    vault, details = research_vault()
+    graph, state = card_graph(("K", "s1")), refs_state({"K": "x"})
+    plain = vault.plan(["x"], graph, state, details=details)["plan"]["extend"][0]
+    assert "layer" not in plain  # bez layer ve synthesized se vrstva karty nemění
+    vault.add("x", "Uložení košíku", discipline="be", synth=True, payload={**SYNTH, "layer": "backend"})
+    assert vault.plan(["x"], graph, state, details=details)["plan"]["extend"][0]["layer"] == "backend"
+
+
 def test_siblings_link_only_when_one_card_is_new():
     vault = chunks()
     graph, state = card_graph(("K", "s1")), refs_state({"K": "a"})

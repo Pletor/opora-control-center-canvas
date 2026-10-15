@@ -1,13 +1,16 @@
 """Append content to existing cards; document replacement requires explicit revisions.
 
 `replaceBlocks: true` (with `blocks`) replaces the card's blocks instead of appending; it is refused while
-a `block` edge still starts from one of the current blocks (the edge would point at nothing)."""
+a `block` edge still starts from one of the current blocks (the edge would point at nothing).
 
+`layer` (frontend|backend|database|library) přepíše `card.layer` existující karty; bez něj se vrstva nemění."""
+
+from backend.canvas.graph import CARD_VALUES
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref
 from backend.canvas.canvas_plan_links import PORT_FIELDS, blocks_of
 
 EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef",
-                 "replaceBlocks"}
+                 "replaceBlocks", "layer"}
 
 
 def extend_cards(built, extensions, existing):
@@ -50,8 +53,13 @@ def extend_cards(built, extensions, existing):
             if built.state["nodes"].get(cursor, {}).get("done", {}).get("confirmed"):
                 fail(label, "uzavřenou kartu ani její potomky nelze rozšířit.")
             cursor = existing[cursor]["parentId"]
-        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef"}):
+        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer"}):
             fail(label, "rozšíření neobsahuje žádný obsah.")
+        if "layer" in item:
+            if item["layer"] not in CARD_VALUES["layer"] or existing[node_id]["kind"] != "node":
+                fail(label, "layer je frontend / backend / database / library a patří uzlu.")
+            if (existing[node_id].get("card") or {}).get("layer") != item["layer"]:
+                existing[node_id]["card"] = {**(existing[node_id].get("card") or {}), "layer": item["layer"]}
         built.labels[node_id] = target
         workflow = built.state["nodes"].setdefault(node_id, {"phase": "discover", "criteria": [], "steps": []})
         if "fragmentRef" in item:
