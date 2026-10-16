@@ -1,5 +1,17 @@
 # Asistent: chat s Claude Code přímo v OPOŘE
 
+### Přehled spotřeby a výkonu (2026-10-16)
+
+Nad konverzací je stálý řádek **Spotřeba a výkon**; detail se otevře nad obsahem, aktualizace nemění jeho polohu. Existující polling session po 4 s přenáší `metrics`, které backend atomicky ukládá do `assistant/sessions.json`. Není potřeba další model ani modelový požadavek pro vizualizaci.
+
+- `system.init` a odpovědi hlavního asistenta poskytují skutečný model; do té doby UI ukazuje alias. Poslední pomocné směrování ukazuje nakonfigurovaného providera, čas a zda odpovědělo nebo bylo přeskočeno.
+- `result.modelUsage` a `total_cost_usd` jsou poslední kumulativní snapshot CLI relace, včetně pomocných agentů. Při dalším tahu ani obnovení se nesčítají. Nové CLI session ID zahájí nový snapshot. Starší spotřeba může být zahrnuta v součtu obnovené CLI relace.
+- `result.usage` se zobrazuje zvlášť jako poslední tah hlavního asistenta. Kontext je vstup + čtení/zápis cache z poslední hlavní odpovědi, nikoli součet spotřeby. Kapacita pochází z `modelUsage` odpovídajícího skutečného modelu; není napevno odvozena z aliasu. Po kompakci je kontext neznámý do další odpovědi.
+- Čas, dokončené tahy, jejich chyby, průchody modelem a zamítnutí se počítají od zavedení měření. Zastavený nebo havarovaný tah bez `result` nemá finální spotřebu. Dokončení bez chyby nedokládá splnění zadání; UI uvádí **Neověřeno**.
+- Odhad USD není faktura ani kvóta předplatného. Cena Jev/Celeris a kvóta nejsou nyní poskytovány. Chybějící údaje jsou `—` / „nedostupný“, nikoli nula. Měření neukládá obsah zpráv, nástrojů ani přihlašovací údaje.
+
+Implementace: `backend/claude_code/assistant/metrics.py`, `frontend/layout/assistant-panel/components/Metrics.tsx` a `logic/metrics.ts`. Ověření: testy kumulace, obnovy registru, kompakce, cache, chybějících hodnot a izolace kontextu hlavního modelu; prohlížeč se simulovanými metrikami bez modelového volání.
+
 Uživatel nemusí psát jen do terminálu ve VS Code. V aplikaci otevře okno s asistentem, který čte plátno, vede ho skilly `grill-me` (`grilling`), `wayfinder` a `opora-control-center` a na požádání připraví zadání pro model. Asistent je Claude Code spuštěný aplikací pod uživatelovým předplatným. Aplikace přitom nevolá API.
 
 Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě v aplikaci. **Fáze 2 postavena** (2026-10-02): zápis na plátno se schválením podle §5.1, ověřeno testy s falešným CLI; živě ověřeno 2026-10-02 (§10). Fáze 3 čeká na skutečnou potřebu. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md), pipeline v [workflow-opora.md](workflow-opora.md).
@@ -327,6 +339,8 @@ Ověření fáze 2 (2026-10-01, haiku, mimo `.claude`):
   - Další zpráva navázala přes `--resume`; model si pamatoval předchozí tah.
   - Windows job ukončil celý strom procesů, žádný `claude -p` nezůstal viset.
 - **Lomítkový příkaz:** `/grill-me …` spustil skill `grilling` a vrátil první kolo otázek s doporučenými odpověďmi.
+
+**Ověřeno 2026-10-16 (§14, Claude Code 2.1.301, sonnet):** po restartu backendu vznikly v adresáři konceptů nové session `instructions.md` a `agents.json`; asistent na dotaz vypsal mezi typy `Agent` i `opora-dohledavac`, `opora-hledac`, `opora-oponent`, `opora-zadavatel` a potvrdil sekci „Pokyny asistenta OPORA“ v systémovém promptu (citoval šablonu „Výstup tahu“). Příkazová řádka s oběma soubory prošla na Windows bez problému.
 
 ## 12. Neověřeno / otevřené
 
