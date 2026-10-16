@@ -114,9 +114,27 @@ def state_summary(payload):
 # Schránka (docs/schranka-neurony.md §3, §9 bod 3): brána `placed` zapisuje na plátno uložený plán struktury,
 # proto ji člověk schvaluje se stejným varováním jako dávku `/api/canvas-plan`. Cesta `/api/brief-vault` je ve
 # `WRITE_ROUTES` a nikdy v `NO_PROMPT_ROUTES`, takže každý zápis Schránky (i `placed`) jde přes dotaz člověka.
+def _duel_head(payload):
+    """Úvod souhrnu duelu (docs/asistent.md §14.3): o čem se rozhoduje a co stojí proti sobě."""
+    op = payload["op"]
+    if op != "duel-open":
+        return f"Duel ({op}): {payload.get('fragmentId', '?')}"
+    subject = payload.get("subject") if isinstance(payload.get("subject"), dict) else {}
+
+    def side(name):
+        item = payload.get(name)
+        return str(item.get("text", ""))[:80] if isinstance(item, dict) else ""
+
+    return (f"Duel ({op}): {subject.get('kind', '?')} {subject.get('id', '?')} · "
+            f"A: {side('incumbent')} · B: {side('challenger')}")
+
+
 def brief_vault_summary(payload):
     """Souhrn zápisu Schránky; zapnutí brány `placed` (a `planned`) řekne, co udělá s plátnem."""
     text = payload_summary(payload)
+    op = payload.get("op")
+    if isinstance(op, str) and op.startswith("duel-"):
+        text = _duel_head(payload) + " · " + text
     if payload.get("op") == "gate" and payload.get("value") is True and payload.get("gate") == "placed":
         text = ("Zápis na plátno: brána placed vloží uložený plán struktury fragmentu (oblast, sektor, karty), "
                 "stejně jako /api/canvas-plan. " + text)

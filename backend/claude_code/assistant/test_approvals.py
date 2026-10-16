@@ -342,3 +342,12 @@ def test_brief_vault_placed_gate_asks_like_canvas_plan():
     kind, parsed = gate("placed", value=False)
     assert kind == "ask" and parsed["payloadSummary"].startswith("op: ")
     assert "/api/brief-vault" in approvals.WRITE_ROUTES and "/api/brief-vault" not in approvals.NO_PROMPT_ROUTES
+
+
+def test_brief_vault_duel_summary_names_subject_and_both_sides():
+    opened = approvals.brief_vault_summary({"op": "duel-open", "subject": {"kind": "fragment", "id": "f1"},
+                                            "incumbent": {"text": "A" * 100}, "challenger": {"text": "Návrh B"}})
+    assert opened.startswith("Duel (duel-open): fragment f1 · A: " + "A" * 80 + " · B: Návrh B")
+    assert "A" * 81 not in opened
+    turn = approvals.brief_vault_summary({"op": "duel-turn", "fragmentId": "f1", "text": "x"})
+    assert turn.startswith("Duel (duel-turn): f1")

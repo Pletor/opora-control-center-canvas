@@ -17,6 +17,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from backend.canvas.activity_log import require_human
+from backend.claude_code.assistant.instructions import default_assistant_instructions
 from backend.claude_code.assistant.manager import AssistantError, SessionNotFound
 from backend.integrations.typesafe_client import DEFAULT_PROVIDER, PROVIDERS
 
@@ -82,6 +83,28 @@ def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.2
     @router.get("/status")
     def status():
         return {**manager.status(), "jev": _jev()}
+
+    def _instructions():
+        current = jev_settings.assistant_instructions()
+        return {**current, "defaultText": default_assistant_instructions()}
+
+    @router.get("/instructions")
+    def instructions_get():
+        """Pokyny asistenta (§14.1): uložené, jinak výchozí; platí pro nově spuštěný proces."""
+        if jev_settings is None:
+            return JSONResponse({"error": "Nastavení aplikace není dostupné."}, status_code=422)
+        return _instructions()
+
+    @router.post("/instructions")
+    def instructions_set(payload: dict):
+        """Uloží pokyny, nebo s `text: null` obnoví výchozí."""
+        if jev_settings is None or not isinstance(payload, dict) or set(payload) != {"text"}:
+            return JSONResponse({"error": "Tělo je přesně {text: text | null}."}, status_code=422)
+        try:
+            jev_settings.set_assistant_instructions(payload["text"])
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        return _instructions()
 
     @router.post("/jev-key")
     def jev_key(payload: dict):

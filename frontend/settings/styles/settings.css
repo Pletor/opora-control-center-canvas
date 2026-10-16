@@ -1,4 +1,4 @@
-/* Nastavení aplikace: dialog s levou navigací, sekce Obecné (vzhled a automatika map), Skills a Connectors. */
+/* Nastavení aplikace: dialog s levou navigací, sekce Obecné (vzhled a automatika map), Plátno, Asistent (pokyny jako systémový prompt), Skills a Connectors. */
 .settings-dialog { width: min(1000px, calc(100vw - 32px)); height: min(720px, calc(100vh - 32px)); padding: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden; }
 .settings-nav { padding: var(--sp-3) var(--sp-2); border-right: 1px solid var(--line); background: var(--surface); display: grid; align-content: start; gap: var(--sp-3); overflow: auto; }
 .settings-nav .menu-item { display: block; width: 100%; }
@@ -50,3 +50,14 @@
   .connector, .skill { flex-wrap: wrap; }
   .connector-body, .skill-body { flex-basis: 100%; }
 }
+
+/* Pokyny asistenta jsou dlouhý text, který člověk čte i upravuje po odstavcích, proto pole zabírá
+   celou šířku sekce, je vysoké aspoň na dvacet řádků a píše se neproporcionálním písmem. Pod ním
+   stojí věta o tom, jestli je to výchozí text, a počet znaků; přes limit zčervená, ať je jasné,
+   proč „Uložit“ nejde. Tlačítka jsou vlevo pod polem, chyba serveru hned pod nimi. */
+.assistant-instructions { display: grid; gap: 8px; margin-top: 12px; }
+.assistant-instructions__textarea { width: 100%; min-height: 260px; box-sizing: border-box; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.5; }
+.assistant-instructions__meta { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--ink-muted); }
+.assistant-instructions__count--over { color: var(--danger); }
+.assistant-instructions__actions { display: flex; align-items: center; gap: 8px; }
+.assistant-instructions__error { font-size: 12px; color: var(--danger); }

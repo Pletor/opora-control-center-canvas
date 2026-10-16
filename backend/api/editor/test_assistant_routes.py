@@ -227,6 +227,22 @@ def test_jev_key_is_stored_but_never_returned(tmp_path, monkeypatch):
         assert client.post("/api/assistant/jev-key", json={"key": None}).json()["jev"]["configured"] is False
 
 
+def test_assistant_instructions_store_read_and_reset(tmp_path, monkeypatch):
+    app, _settings = jev_app(tmp_path, monkeypatch)
+    with TestClient(app) as client:
+        first = client.get("/api/assistant/instructions").json()
+        assert first["isDefault"] is True and first["text"] == first["defaultText"]
+        saved = client.post("/api/assistant/instructions", json={"text": "Moje pokyny"}).json()
+        assert saved["text"] == "Moje pokyny" and saved["isDefault"] is False
+        assert saved["defaultText"] == first["defaultText"]
+        assert client.get("/api/assistant/instructions").json()["text"] == "Moje pokyny"
+        reset = client.post("/api/assistant/instructions", json={"text": None}).json()
+        assert reset["isDefault"] is True and reset["text"] == first["text"]
+        assert client.post("/api/assistant/instructions", json={"text": "x" * 12001}).status_code == 422
+        assert client.post("/api/assistant/instructions", json={"text": "  "}).status_code == 422
+        assert client.post("/api/assistant/instructions", json={"text": "a", "x": 1}).status_code == 422
+
+
 def test_celeris_key_is_separate_and_never_returned(tmp_path, monkeypatch):
     app, settings = jev_app(tmp_path, monkeypatch, provider="celeris")
     with TestClient(app) as client:

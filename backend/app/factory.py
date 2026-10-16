@@ -50,6 +50,7 @@ from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
 from backend.canvas.sync_report import SyncReport
+from backend.claude_code.assistant.agents import load_agents
 from backend.claude_code.assistant.manager import AssistantManager
 from backend.claude_code.assistant.router import route as route_message
 from backend.claude_code.assistant.workspace import project_locator
@@ -110,7 +111,9 @@ def create_app(data_root=None):
                              evaluate=lambda state, questions: jev_evaluate(state, questions, key=key))
 
     assistant = AssistantManager(service.root, project_locator(service), base_url=f"http://127.0.0.1:{port}",
-                                 route_hint=route_hint)
+                                 route_hint=route_hint,
+                                 instructions=lambda: app_settings.assistant_instructions()["text"],
+                                 agents=load_agents)
 
     @asynccontextmanager
     async def lifespan(app):

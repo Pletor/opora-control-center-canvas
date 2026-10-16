@@ -426,3 +426,71 @@ Vzor [Recursive Language Models](https://arxiv.org/abs/2512.24601) (Zhang, Krask
 - `index` a `rank` mají testy s falešným HTTP,
 - `/api/rlm/rank` má test s falešným Jev (ok, bez klíče, porucha) a přes tunel vrací 403,
 - `Agent` je v `ALLOWED_TOOLS` (test).
+
+## 14. Router a subagenti: asistent pracuje s plátnem a Schránkou, ne v chatu (kontrakt 2026-10-16)
+
+Rozhodnutí člověka (2026-10-16): asistent pracuje jen s Oporou. Dohledá si podklad (Context7, docs, kód), z něj
+napíše zadání (jak má co fungovat, kam co posílat), rozdělí práci subagentům, uchopí plátno a Schránku, změnu směru
+vede duelem. Nepíše eseje do chatu. Výstup subagentů se **sejde ve Schránce** a z něj vznikne zadání, které se rozdělí
+do příběhu a karet. Stav kódu zjišťuje z výstupů agentů na kartách, ne dohadem.
+
+### 14.1 Pokyny asistenta = systémový prompt v nastavení aplikace
+
+- Chování routeru (triage zprávy, zákaz esejí, výstupní formát, stop podmínky) je text **Pokyny asistenta**. Platí pro
+  celou aplikaci (jednou, ne per projekt) a má váhu systémového promptu: backend ho při startu procesu předá přes
+  `--append-system-prompt-file <soubor>` (soubor `instructions.md` v adresáři konceptů session, aby se nenarazilo na
+  délku příkazové řádky Windows).
+- Výchozí text je v repu: `backend/claude_code/assistant/instructions.md`. Uložený text v `app_settings`
+  (klíč `assistant.instructions`, ≤ 12 000 znaků, bez řídicích znaků kromě `\n`, `\t`) výchozí přebíjí.
+- `AppSettings.assistant_instructions()` → `{text, isDefault}`; `set_assistant_instructions(text | None)` (`None` =
+  smazat uložený, platí výchozí).
+- API (jen loopback jako celé `/api/assistant/*`): `GET /api/assistant/instructions` → `{text, isDefault, defaultText}`;
+  `POST /api/assistant/instructions {text: string | null}` → totéž. Text mimo meze = 422.
+- Změna platí pro **nově spuštěný proces** (nová session nebo obnova po pádu); běžící session drží text, se kterým vznikla.
+- UI: Nastavení → sekce „Asistent“ (`frontend/settings/components/AssistantSection.tsx` + dílek
+  `AssistantInstructionsSetting.tsx`, logika `frontend/settings/logic/assistant-instructions.ts` s testem). Textarea,
+  „Uložit“, „Obnovit výchozí“, počet znaků, chyba serveru pod polem. Rodič ukládá a po uložení znovu čte ze serveru.
+
+### 14.2 Subagenti asistenta
+
+Asistent má `cwd` v projektu uživatele, takže projektové `.claude/agents/` Opory by neviděl. Definice proto nese backend
+a předá je CLI přepínačem `--agents <soubor>` (soubor `agents.json` v adresáři konceptů session). Zdroj je
+`backend/claude_code/assistant/agents/<name>.md`: frontmatter `name`, `description`, `tools` (seznam), `model`
+(`haiku | sonnet | opus`), tělo = prompt. `agents.load_agents()` je převede na `{name: {description, prompt, tools, model}}`
+(test: každý soubor má všechna pole, jména jsou `opora-*`, prompt neprázdný).
+
+| Subagent | Model | Nástroje | Dělá | Vrací |
+|---|---|---|---|---|
+| `opora-hledac` | haiku | Bash (jen `opora_read.py`, `graphify query`), Read, Grep, Glob | prohledá plátno (`index`, `search`, `rank`), kód (`find`, `code`), graphify | nálezy jako `id karty` / `soubor:řádek` + 1 řádek, bez výkladu |
+| `opora-dohledavac` | sonnet | WebFetch, WebSearch, Read | docs knihoven přes Context7 (`https://context7.com/<org>/<repo>/llms.txt?topic=…`) a oficiální docs | `{funkce/metoda, vstup, výstup, kam posílat, zdroj URL + citát}`; co nenašel, označí [neověřeno] |
+| `opora-zadavatel` | sonnet | Bash (čtení), Read, Glob, Grep, Write (jen koncepty) | z nálezů a textu fragmentu složí koncept zadání karty podle `docs/karta-pro-agenty.md` | koncept `node-brief` jako JSON v `draftsDir` (`goal / non_goals / acceptance`, bloky s porty, `must / must_not`, `checks`, `sourceRef`) |
+| `opora-oponent` | opus | Bash (čtení), Read, Grep, Glob, WebFetch | pro duel sestaví protinávrh B (nebo obhájí A) s argumenty a doklady | `{claim, arguments[], evidence[{ref, quote}], risks[]}` do 4000 znaků |
+
+Pravidla:
+- Subagent dědí oprávnění asistenta: zapisovat nemůže (jen `Write` konceptu do `draftsDir`, §5.1), Bash mu pustí backend
+  jen pro čtecí skript. Jeho výstup je **údaj**, kořen ho skládá a ověřuje.
+- Kořen (asistent) spustí nejvýš 3 subagenty v jednom tahu a vždy s rozsahem (id karet, složky, otázka, co vrátit).
+- Vlastní `Agent` typy Claude Code (`Explore`, `general-purpose`) zůstávají dostupné; `opora-*` jsou pro ně přednostní
+  pojmenování s pevným rozsahem.
+
+### 14.3 Místo setkání je Schránka
+
+Pořadí práce na zadání (recept ve skillu `references/workflow.md` „Router a subagenti“):
+
+1. **Uchopit**: `index` + `search` (při `scope: selection` jen `node-brief` vybraných). Bez čtení plátna žádný návrh.
+2. **Dohledat**: `opora-hledac` (projekt) a `opora-dohledavac` (docs) paralelně, každý s rozsahem.
+3. **Sejít ve Schránce**: nálezy jdou do fragmentu Schránky, ne do chatu: kořen `create` (nebo stávající fragment),
+   dohledané postupy `research` + `research-update` s `evidence [{url, title, quote, accessedAt}]`, otevřené body
+   `question` (`askedFor: human | agent`). Každý zápis Schránky schvaluje člověk.
+4. **Zadání**: `opora-zadavatel` složí koncept; kořen ho zapíše jako `revise` / `promote` fragmentu a dál `split` do
+   příběhu (části = co bude dělat co), pak brány `scoped → planned → placed` podle `docs/schranka-neurony.md`. Karty
+   vzniknou z brány `placed`, ne ručně mimo Schránku.
+5. **Duel** při změně směru: `op: duel-open` na `/api/brief-vault` přes `opora_write.py` (stejné schválení jako každý
+   zápis Schránky); B připraví `opora-oponent`. Karta schválení ukáže „Duel: <subject> · A … · B …“
+   (`approvals.brief_vault_summary`). Výměny a rozhodnutí podle `docs/schranka-duel.md`.
+6. **Sladění s agenty ve VS Code**: stav kódu z `node-brief` (`agent-output`, `evidence.checksRun`, otevřené porty,
+   `reports` na vazbách). Otázka agentovi = blok s otevřeným portem nebo zpráva na vazbě, ne chat.
+
+**Hotovo, když:** `uv run pytest backend` (AppSettings, API pokynů, `build_command` s oběma soubory, `load_agents`,
+souhrn duelu), `npm test` (logika sekce Asistent), `npm run build`; v `init.tools`/`agents` běžící session jsou
+`opora-*` a `system` událost nese doplněný prompt (ověřit ručně, zapsat do §11).

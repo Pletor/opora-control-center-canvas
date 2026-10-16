@@ -121,3 +121,11 @@ def test_version_probe_never_runs_model_and_survives_timeout():
         raise subprocess.TimeoutExpired(args, 10)
 
     assert cli.claude_version("claude", run=slow) is None
+
+
+def test_command_adds_instruction_and_agent_files_only_when_given():
+    plain = cli.build_command("claude", "opus")
+    assert "--append-system-prompt-file" not in plain and "--agents" not in plain
+    full = cli.build_command("claude", "opus", system_prompt_file="d/instructions.md", agents_file="d/agents.json")
+    assert full[full.index("--append-system-prompt-file") + 1] == "d/instructions.md"
+    assert full[full.index("--agents") + 1] == "d/agents.json"

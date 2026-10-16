@@ -33,6 +33,7 @@ import os
 import re
 from datetime import UTC, datetime
 
+from backend.claude_code.assistant.instructions import default_assistant_instructions
 from backend.integrations.openviking_client import (
     ADMIN_KEY_ENV,
     DEFAULT_OPENVIKING_URL,
@@ -90,6 +91,10 @@ def _clean_role_keys(mapping):
             raise ValueError(f"Klíč role musí být neprázdný text do {MAX_ROLE_KEY} znaků.")
         clean[role_id] = key.strip()
     return clean
+
+
+ASSISTANT_INSTRUCTIONS_SETTING = "assistant.instructions"
+MAX_ASSISTANT_INSTRUCTIONS = 12000
 
 
 class AppSettings:
@@ -162,6 +167,26 @@ class AppSettings:
         else:
             self._write(setting, key.strip())
         return self.jev_key(provider) is not None
+
+    def assistant_instructions(self):
+        """Pokyny asistenta (docs/asistent.md §14.1): uložený text, jinak výchozí ze souboru v repu."""
+        stored = self._read(ASSISTANT_INSTRUCTIONS_SETTING)
+        if stored:
+            return {"text": stored, "isDefault": False}
+        return {"text": default_assistant_instructions(), "isDefault": True}
+
+    def set_assistant_instructions(self, text):
+        """Uloží pokyny, nebo je smaže (`None`, pak platí výchozí); vrací totéž co getter."""
+        if text is None:
+            with self.canvas.registry_lock, self.canvas.db:
+                self.canvas.db.execute("DELETE FROM app_settings WHERE key=?", (ASSISTANT_INSTRUCTIONS_SETTING,))
+        elif (not isinstance(text, str) or not text.strip() or len(text) > MAX_ASSISTANT_INSTRUCTIONS
+                or any(ord(c) < 32 and c not in "\n\t\r" for c in text)):
+            raise ValueError(f"Pokyny asistenta musí být neprázdný text do {MAX_ASSISTANT_INSTRUCTIONS} znaků "
+                             "bez řídicích znaků.")
+        else:
+            self._write(ASSISTANT_INSTRUCTIONS_SETTING, text)
+        return self.assistant_instructions()
 
     def typesafe_key(self):
         return self.jev_key("typesafe")

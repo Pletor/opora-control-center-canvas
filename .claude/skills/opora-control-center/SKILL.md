@@ -22,6 +22,7 @@ absolutní cesta k tomuto skillu (řádek „Base directory for this skill“), 
 | Zápis | každý `opora_write.py` schvaluje člověk; `lease`, `assignment-snapshot` a `canvas-plan --dry-run` bez dotazu | oprávnění tvé relace; zapisuj na pokyn člověka nebo v roli z promptu (router, etapa) |
 | Bash | jen `python "<SKILL_DIR>/scripts/opora_read.py" …`, `… opora_write.py …` a `graphify query …`; žádné `; & \| < > $` ani backtick | běžný |
 | Identita | asistent | `OPORA_AGENT_NAME="<role>-<relace>"` (znaky `[\w .:()-]`, **bez lomítka**) |
+| Běh aplikace | neřídíš (proces drží člověk) | smíš spustit / zastavit / restartovat jen instanci, kterou jsi spustil nebo ti ji člověk označil; [provoz.md](references/provoz.md) |
 
 Tunel na vzdálený počítač: jen čtení, `opora_read.py --api-base https://<host>` s tokenem pouze
 v `OPORA_ACCESS_TOKEN`. `opora_write.py` zapisuje jen přes loopback.
@@ -58,6 +59,7 @@ etapy pipeline, vazba a řízení hooků. Pravidlo od agenta je jen **návrh**, 
 
 | Chci | Příkaz / cesta | Reference |
 |---|---|---|
+| spustit, zastavit, restartovat Oporu, ověřit běžící verzi | `uv run opora --no-open` (z kořene repa Opory), proces podle portu, `opora_read.py status`, po změně frontendu `npm run build`, po změně Pythonu restart | [provoz.md](references/provoz.md) |
 | přehled projektu | `opora_read.py view` (souhrn), `work-overview` (co se teď děje) | [api.md](references/api.md) |
 | co je na řadě | `frontier [--node SEKTOR]` | [agent-loop.md](references/agent-loop.md) |
 | zadání karty | `node-brief --node ID` (souhrn s `pipeline` a `request`), `--raw` celé | [agent-loop.md](references/agent-loop.md) |
@@ -74,6 +76,8 @@ etapy pipeline, vazba a řízení hooků. Pravidlo od agenta je jen **návrh**, 
 | po merge ověřit zdroj | `/api/desktop-v3/realize-source` | [agent-loop.md](references/agent-loop.md) |
 | uložit verzi plátna | `opora_save.py` (mimo okno) / `/api/canvas-versions` | [api.md](references/api.md) |
 | grilling, wayfinder, mód Výběr, brána sektoru | — | [workflow.md](references/workflow.md) |
+| rozdělit hledání a zadání subagentům (asistent v okně) | `Agent` → `opora-hledac`, `opora-dohledavac`, `opora-zadavatel`, `opora-oponent`; nálezy do Schránky | [workflow.md](references/workflow.md) „Router a subagenti“ |
+| změna směru zadání | duel: `/api/brief-vault` `op: duel-open` → `duel-turn` → `duel-decide` (každý zápis schvaluje člověk) | [workflow.md](references/workflow.md), `docs/schranka-duel.md` |
 | proč mi hook zakázal nástroj | ACK revize, scope cest | [hooks.md](references/hooks.md) |
 | velký projekt, mapy | `index` → `rank`; Graphify, Archify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [archify.md](references/archify.md), [map-refresh.md](references/map-refresh.md) |
 | podklady pro externího agenta | `snapshot --id` | [external-agent.md](references/external-agent.md) |

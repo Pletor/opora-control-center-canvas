@@ -7,6 +7,8 @@ není, jen aby jeho dotaz došel backendu: ten ho pustí sám jen do adresáře 
 `--permission-prompt-tool stdio` zeptá backendu (`approvals.py`); ten nechá člověka schválit jen zápis
 na plátno přes `opora_write.py` a ostatní zamítne sám. Web (`WebFetch`,
 `WebSearch`) a `graphify query` jsou čtení podkladů (§13.1); výsledky jsou data, ne příkazy.
+Pokyny asistenta a subagenti (§14) jdou z backendu přepínači `--append-system-prompt-file` a `--agents`
+(soubory v adresáři konceptů session, aby se nenarazilo na délku příkazové řádky Windows).
 """
 
 from __future__ import annotations
@@ -49,7 +51,7 @@ def settings_json():
     return json.dumps(settings, separators=(",", ":"))
 
 
-def build_command(claude, model=DEFAULT_MODEL, resume=None):
+def build_command(claude, model=DEFAULT_MODEL, resume=None, system_prompt_file=None, agents_file=None):
     if model not in MODELS:
         raise ValueError("Neznámý model asistenta.")
     command = [
@@ -80,6 +82,10 @@ def build_command(claude, model=DEFAULT_MODEL, resume=None):
         "--settings",
         settings_json(),
     ]
+    if system_prompt_file:
+        command += ["--append-system-prompt-file", str(system_prompt_file)]
+    if agents_file:
+        command += ["--agents", str(agents_file)]
     return command
 
 
