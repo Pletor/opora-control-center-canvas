@@ -68,6 +68,26 @@ def test_environment_from_settings_never_overrides_existing():
     assert environ["OPORA_GRAPHIFY_PYTHON"] == "existing"
 
 
+def test_embed_origins_default_empty_and_local_override(tmp_path):
+    (tmp_path / "opora.toml").write_text(CONFIG, encoding="utf-8")
+    base = resolve(load_config(tmp_path / "opora.toml", tmp_path / "missing.local.toml"))
+    assert base["embed_origins"] == []
+    environ = {"OPORA_CANVAS_EMBED_ORIGINS": "http://stale.test"}
+    apply_environment(base, environ)
+    assert environ["OPORA_CANVAS_EMBED_ORIGINS"] == ""
+
+    (tmp_path / "opora.local.toml").write_text('[app]\nembed_origins = ["http://localhost:4600"]\n', encoding="utf-8")
+    local = resolve(load_config(tmp_path / "opora.toml", tmp_path / "opora.local.toml"))
+    assert local["embed_origins"] == ["http://localhost:4600"]
+    apply_environment(local, environ)
+    assert environ["OPORA_CANVAS_EMBED_ORIGINS"] == "http://localhost:4600"
+
+
+def test_invalid_embed_origin_fails_config():
+    with pytest.raises(ValueError, match="Neplatný původ v \\[app\\] embed_origins"):
+        resolve({"app": {"embed_origins": ["http://localhost:4600/*"]}})
+
+
 def test_frontend_stale_detects_missing_or_older_build(tmp_path):
     (tmp_path / "frontend").mkdir()
     source = tmp_path / "frontend/App.tsx"
