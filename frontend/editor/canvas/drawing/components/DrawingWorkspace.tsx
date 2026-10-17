@@ -20,10 +20,10 @@ import type { SurfaceSettings } from "@/shared/surface-settings/logic/workspace-
 import type { WireframeKind, WireframeMetadata } from "@/editor/canvas/wireframes/logic/wireframe-model";
 import { getWireframeTemplate, sanitizeWireframeMetadata } from "@/editor/canvas/wireframes/logic/wireframe-model";
 import WireframeInspector from "@/editor/canvas/wireframes/components/WireframeInspector";
-import { insertWireframeElements, inspectable } from "@/editor/canvas/drawing/components/wireframe-elements";
+import { insertWireframeElements, inspectable } from "@/editor/canvas/drawing/logic/wireframe-elements";
 import WireframePreview from "@/editor/canvas/wireframes/components/WireframePreview";
 import { dropIsBlocked, pasteIsAllowed } from "@/editor/canvas/drawing/logic/drawing-files";
-import { useDrawingFiles } from "@/editor/canvas/drawing/components/use-drawing-files";
+import { useDrawingFiles } from "@/editor/canvas/drawing/logic/use-drawing-files";
 import "@/editor/canvas/drawing/styles/drawing.css";
 
 export type WireframeInsert = { kind: WireframeKind; sequence: number };

@@ -1,7 +1,7 @@
 // Jeden blok stromu: hlavička (číslo, název, status, nástroje) a po rozbalení text, štítky, TODO, obrázky, stav.
 // Dílky nic neukládají; každá změna bublá nahoru jako událost se jménem bloku.
 import { useEffect, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import type { Block } from "@/shared/desktop-state/logic/types";
 import type { BranchTarget } from "@/editor/node-detail/tree/logic/tree-model";
 import type { TreeBlockEvents } from "@/editor/block-editor/logic/block-events";

@@ -3,7 +3,7 @@
 // ohlásí nahoru přes onSave(node), stejně jako NodePanel a CommentPanel. Členy a toky spočítá rodič
 // (App) z grafu — tenhle dílek je jen vypíše a klik na člena předá dál přes onOpenNode.
 import { useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import { AREA_COLORS, areaColorOf, areaLabel, setAreaColor } from "@/editor/canvas/area/logic/area-model";
 import AreaDecompose from "@/editor/canvas/area/components/AreaDecompose";

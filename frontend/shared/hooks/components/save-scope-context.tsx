@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import { useSaveParticipant, type SaveParticipant } from "./save-coordinator";
+import { useSaveParticipant, type SaveParticipant } from "@/shared/hooks/logic/save-coordinator";
 
 /** Scope metadata only; each editor keeps ownership of its draft and save operation. */
 const SaveScope = createContext<{ project: string; workspace: string } | null>(null);

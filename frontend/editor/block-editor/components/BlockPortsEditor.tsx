@@ -1,7 +1,7 @@
 // Porty bloku v Editoru: na rozdíl od karty na plátně je tu dost místa, takže popisek je rovnou vidět
 // jako vstup, ne skrytý za dvojklikem. Řádek se ukládá až po opuštění pole, ne po každém znaku.
 import { useEffect, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import { MAX_BLOCK_PORT_LABEL, MAX_BLOCK_PORTS, type BlockPortDef } from "@/shared/desktop-state/logic/types";
 
 function PortRow({

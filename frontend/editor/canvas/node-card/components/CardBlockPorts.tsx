@@ -9,7 +9,7 @@
 // i v `logic/block-drafts.ts` (pole `port:<portId>`): karta mimo obraz se odmontuje bez blur a po návratu
 // se editor s rozepsaným popiskem znovu otevře (bez krádeže fokusu); při odmontování se nic neukládá.
 import { useRef, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import { Handle, Position } from "@xyflow/react";
 import { blockHandleId } from "@/shared/types/logic/types";
 import { MAX_BLOCK_PORTS, type BlockPortDef } from "@/shared/desktop-state/logic/types";

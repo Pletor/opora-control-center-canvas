@@ -3,7 +3,7 @@
 // podle původu, jeden popis a sbalené nepovinné sekce (zadání sektoru / pro agenta). Rozepsaný
 // formulář drží u sebe; hotový uzel a zadání ohlásí přes onCreate. Nic neukládá — to dělá App.
 import { useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import AgentFields from "@/editor/canvas/create-dialog/components/AgentFields";
 import CreateSourceFields from "@/editor/canvas/create-dialog/components/CreateSourceFields";
 import FoldSection from "@/editor/canvas/create-dialog/components/FoldSection";

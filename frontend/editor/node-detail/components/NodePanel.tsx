@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import DetailFold from "./DetailFold";
 import ResultHistory from "@/editor/llm-control/editor-context/components/ResultHistory";
 import NodeSpecEditor from "@/editor/node-detail/assignment/components/NodeSpecEditor";

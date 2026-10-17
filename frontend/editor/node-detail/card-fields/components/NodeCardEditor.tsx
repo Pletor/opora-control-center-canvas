@@ -2,7 +2,7 @@
 // a pod ní pole pro agenta (stav, model, effort, termín). Rozepsanou kartu drží u sebe; „Uložit kartu“ ohlásí celý uzel nahoru přes onSave a rodič (App)
 // uloží graf. Prázdná karta klíč `card` z uzlu odstraní; ostatní pole uzlu zůstanou, jak byla.
 import { useEffect, useRef, useState } from "react";
-import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import AgentFields from "@/editor/canvas/create-dialog/components/AgentFields";
 import ChecksEditor from "./ChecksEditor";
 import LayerChips from "@/editor/canvas/create-dialog/components/LayerChips";

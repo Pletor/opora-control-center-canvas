@@ -1,7 +1,7 @@
 // Tělo karty: název (s přejmenováním přímo na kartě) a podstata do tří řádků.
 // Přejmenování probublává nahoru přes onCommit / onCancel / onStart; stav „edituje se“ drží rodič.
 import { useEffect, useRef, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 
 export type RenameHandlers = { editing: boolean; start: () => void; cancel: () => void; commit: (name: string) => void };
 

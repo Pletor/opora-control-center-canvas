@@ -9,7 +9,7 @@
 // v obraze, takže karta, která odjede, se odmontuje bez blur; po návratu pole draft převezme (nic se neukládá
 // při odmontování) a zámek ukládání o něm ví i mimo obraz (`retainOnUnmount` + `hasDrafts`).
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import { notifySaveParticipants } from "@/shared/hooks/logic/save-coordinator";
 import { useAddedPulse } from "../logic/use-added-pulse";
 import type { CardBlockRow } from "@/editor/canvas/node-card/logic/card-model";

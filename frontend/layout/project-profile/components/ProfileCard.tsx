@@ -3,7 +3,7 @@
 // volbu hlásí `onSave` nahoru a ukládá rodič (App) přes /api/project-settings. Chybu ze serveru
 // (například že se nastavení mezitím změnilo jinde) dostane hotovou a ukáže ji česky v kartě.
 import { useEffect, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import type { ProjectProfile } from "@/shared/project-capabilities/logic/project-capabilities";
 import { ARCHITECTURE_OPTIONS, TENANCY_OPTIONS } from "@/shared/project-capabilities/logic/project-profile";
 import { chooseArchitecture, chooseTenancy, draftChanged, draftOf, type ProfileDraft } from "@/layout/project-profile/logic/profile-card";
