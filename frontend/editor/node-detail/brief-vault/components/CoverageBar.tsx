@@ -1,5 +1,5 @@
 // Pruh pokrytí schránky s legendou: každý list zadání v právě jednom segmentu (MVP vloženo · vloženo ·
-// v researchu · uloženo · změněno). Sdílí ho záložka Schránka, vstup „Otevřít schránku“ i Přehled v okně.
+// v researchu · uloženo · změněno). Sdílí ho strom Zadání i Přehled Schránky.
 import { COVERAGE_SEGMENTS, coverageSegments, type Coverage } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import "@/editor/node-detail/brief-vault/styles/brief-vault.css";
 

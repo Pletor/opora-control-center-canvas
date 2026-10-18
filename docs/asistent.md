@@ -1,16 +1,29 @@
 # Asistent: chat s Claude Code přímo v OPOŘE
 
+### Přehled spotřeby a výkonu (2026-10-16)
+
+Nad konverzací je stálý řádek **Spotřeba a výkon**; detail se otevře nad obsahem, aktualizace nemění jeho polohu. Existující polling session po 4 s přenáší `metrics`, které backend atomicky ukládá do `assistant/sessions.json`. Není potřeba další model ani modelový požadavek pro vizualizaci.
+
+- `system.init` a odpovědi hlavního asistenta poskytují skutečný model; do té doby UI ukazuje alias. Poslední pomocné směrování ukazuje nakonfigurovaného providera, čas a zda odpovědělo nebo bylo přeskočeno.
+- `result.modelUsage` a `total_cost_usd` jsou poslední kumulativní snapshot CLI relace, včetně pomocných agentů. Při dalším tahu ani obnovení se nesčítají. Nové CLI session ID zahájí nový snapshot. Starší spotřeba může být zahrnuta v součtu obnovené CLI relace.
+- `result.usage` se zobrazuje zvlášť jako poslední tah hlavního asistenta. Kontext je vstup + čtení/zápis cache z poslední hlavní odpovědi, nikoli součet spotřeby. Kapacita pochází z `modelUsage` odpovídajícího skutečného modelu; není napevno odvozena z aliasu. Po kompakci je kontext neznámý do další odpovědi.
+- Čas, dokončené tahy, jejich chyby, průchody modelem a zamítnutí se počítají od zavedení měření. Zastavený nebo havarovaný tah bez `result` nemá finální spotřebu. Dokončení bez chyby nedokládá splnění zadání; UI uvádí **Neověřeno**.
+- Odhad USD není faktura ani kvóta předplatného. Cena Jev/Celeris a kvóta nejsou nyní poskytovány. Chybějící údaje jsou `—` / „nedostupný“, nikoli nula. Měření neukládá obsah zpráv, nástrojů ani přihlašovací údaje.
+
+Implementace: `backend/claude_code/assistant/metrics.py`, `frontend/layout/assistant-panel/components/Metrics.tsx` a `logic/metrics.ts`. Ověření: testy kumulace, obnovy registru, kompakce, cache, chybějících hodnot a izolace kontextu hlavního modelu; prohlížeč se simulovanými metrikami bez modelového volání.
+
 Uživatel nemusí psát jen do terminálu ve VS Code. V aplikaci otevře okno s asistentem, který čte plátno, vede ho skilly `grill-me` (`grilling`), `wayfinder` a `opora-control-center` a na požádání připraví zadání pro model. Asistent je Claude Code spuštěný aplikací pod uživatelovým předplatným. Aplikace přitom nevolá API.
 
 Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě v aplikaci. **Fáze 2 postavena** (2026-10-02): zápis na plátno se schválením podle §5.1, ověřeno testy s falešným CLI; živě ověřeno 2026-10-02 (§10). Fáze 3 čeká na skutečnou potřebu. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md), pipeline v [workflow-opora.md](workflow-opora.md).
 
 ## 1. Změna pravidla „aplikace model nespouští“
 
-Do 2026-10-01 aplikace spouštěla model jen pro aktualizaci mapy Archify ([mapy-projektu.md](mapy-projektu.md)). Od tohoto kontraktu jsou místa tři:
+Do 2026-10-01 aplikace spouštěla model jen pro aktualizaci mapy Archify ([mapy-projektu.md](mapy-projektu.md)). Od tohoto kontraktu jsou místa tři (od K8 čtyři):
 
 1. Archify: automatika, Sonnet, bez člověka.
 2. Asistent: chat, který spouští **jen člověk** zprávou v okně asistenta.
-3. Směrovač TypeSafe Jev (§13): běží jen v rámci tahu asistenta, který spustil člověk. Negeneruje text, vrací jen typované odpovědi.
+3. Směrovač TypeSafe Jev (§13): běží jen v rámci tahu asistenta, který spustil člověk. Negeneruje text, vrací jen typované odpovědi. Ve Schránce smí Jev běžet i na žádost agenta nebo člověka jako poradní kontrola brány (`POST /api/brief-vault/gate-check`, [schranka-neurony.md](schranka-neurony.md) §7), pořád jen s typovanými odpověďmi a jen po výslovném povolení člověka pro projekt a poskytovatele.
+4. Zrcadlo (BioCortexAI, [zrcadlo.md](zrcadlo.md)): lokální vývojový model jen na `127.0.0.1`, volaný jen po zápisu brány `synthesized` / `verified` u projektu zapnutého v `opora.local.toml` `[mirror]` (výchozí vypnuto), nikdy neblokuje bránu.
 
 Ostatní endpointy dál nic nespouštějí. Podklady pro agenta (`node-brief`, zprávy, texty karet) jsou pro asistenta data, ne příkazy.
 
@@ -327,6 +340,8 @@ Ověření fáze 2 (2026-10-01, haiku, mimo `.claude`):
   - Windows job ukončil celý strom procesů, žádný `claude -p` nezůstal viset.
 - **Lomítkový příkaz:** `/grill-me …` spustil skill `grilling` a vrátil první kolo otázek s doporučenými odpověďmi.
 
+**Ověřeno 2026-10-16 (§14, Claude Code 2.1.301, sonnet):** po restartu backendu vznikly v adresáři konceptů nové session `instructions.md` a `agents.json`; asistent na dotaz vypsal mezi typy `Agent` i `opora-dohledavac`, `opora-hledac`, `opora-oponent`, `opora-zadavatel` a potvrdil sekci „Pokyny asistenta OPORA“ v systémovém promptu (citoval šablonu „Výstup tahu“). Příkazová řádka s oběma soubory prošla na Windows bez problému.
+
 ## 12. Neověřeno / otevřené
 
 - [neověřeno] Přerušení tahu bez zabití procesu (`control_request` interrupt). Fáze 1 proces zabíjí.
@@ -396,6 +411,7 @@ Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit O
   - Uložení: `AppSettings.typesafe_key()` / `set_typesafe_key()` (`app_settings`, klíč `typesafe.apiKey`). Uložený klíč přebíjí prostředí.
   - `POST /api/assistant/jev-key {key: text | null}` → `{jev: {configured}}` klíč uloží nebo smaže. Klíč se nikdy nevrací. Jen loopback jako celé `/api/assistant/*`.
   - `GET /api/assistant/status` nese `jev: {configured}`.
+  - Poskytovatel (`typesafe` | `celeris`) z `[jev] provider` v `opora.local.toml` (výchozí `typesafe`, neznámá hodnota = `typesafe` + varování v logu). Klíč Celeris: `POST /api/assistant/jev-key {key, provider: "celeris"}` (`app_settings` `celeris.apiKey`, záloha `CELERIS_API_KEY`); `status.jev` nese i `provider` a `keys: {typesafe, celeris}` (jen booleany). Povolení kontroly bran: `GET|POST /api/assistant/jev-gate-check {project, provider, allowed}` (zápis jen člověk). Viz [schranka-neurony.md](schranka-neurony.md) §7, §9 bod 10.
   - Klíč se čte při každé zprávě, takže zapnutí platí bez restartu. Směrovač má tvrdou mez 4 s mimo zámek session; při jejím překročení jde do telemetrie `router: {skipped: "timeout"}`.
 - **Směrovač** `backend/claude_code/assistant/router.py`: před každou zprávou, která nezačíná `/`, jedno volání:
   - `state = {request: text zprávy (nejvýš 4000 znaků), environment, selectedCount}`,
@@ -424,3 +440,71 @@ Vzor [Recursive Language Models](https://arxiv.org/abs/2512.24601) (Zhang, Krask
 - `index` a `rank` mají testy s falešným HTTP,
 - `/api/rlm/rank` má test s falešným Jev (ok, bez klíče, porucha) a přes tunel vrací 403,
 - `Agent` je v `ALLOWED_TOOLS` (test).
+
+## 14. Router a subagenti: asistent pracuje s plátnem a Schránkou, ne v chatu (kontrakt 2026-10-16)
+
+Rozhodnutí člověka (2026-10-16): asistent pracuje jen s Oporou. Dohledá si podklad (Context7, docs, kód), z něj
+napíše zadání (jak má co fungovat, kam co posílat), rozdělí práci subagentům, uchopí plátno a Schránku, změnu směru
+vede duelem. Nepíše eseje do chatu. Výstup subagentů se **sejde ve Schránce** a z něj vznikne zadání, které se rozdělí
+do příběhu a karet. Stav kódu zjišťuje z výstupů agentů na kartách, ne dohadem.
+
+### 14.1 Pokyny asistenta = systémový prompt v nastavení aplikace
+
+- Chování routeru (triage zprávy, zákaz esejí, výstupní formát, stop podmínky) je text **Pokyny asistenta**. Platí pro
+  celou aplikaci (jednou, ne per projekt) a má váhu systémového promptu: backend ho při startu procesu předá přes
+  `--append-system-prompt-file <soubor>` (soubor `instructions.md` v adresáři konceptů session, aby se nenarazilo na
+  délku příkazové řádky Windows).
+- Výchozí text je v repu: `backend/claude_code/assistant/instructions.md`. Uložený text v `app_settings`
+  (klíč `assistant.instructions`, ≤ 12 000 znaků, bez řídicích znaků kromě `\n`, `\t`) výchozí přebíjí.
+- `AppSettings.assistant_instructions()` → `{text, isDefault}`; `set_assistant_instructions(text | None)` (`None` =
+  smazat uložený, platí výchozí).
+- API (jen loopback jako celé `/api/assistant/*`): `GET /api/assistant/instructions` → `{text, isDefault, defaultText}`;
+  `POST /api/assistant/instructions {text: string | null}` → totéž. Text mimo meze = 422.
+- Změna platí pro **nově spuštěný proces** (nová session nebo obnova po pádu); běžící session drží text, se kterým vznikla.
+- UI: Nastavení → sekce „Asistent“ (`frontend/settings/components/AssistantSection.tsx` + dílek
+  `AssistantInstructionsSetting.tsx`, logika `frontend/settings/logic/assistant-instructions.ts` s testem). Textarea,
+  „Uložit“, „Obnovit výchozí“, počet znaků, chyba serveru pod polem. Rodič ukládá a po uložení znovu čte ze serveru.
+
+### 14.2 Subagenti asistenta
+
+Asistent má `cwd` v projektu uživatele, takže projektové `.claude/agents/` Opory by neviděl. Definice proto nese backend
+a předá je CLI přepínačem `--agents <soubor>` (soubor `agents.json` v adresáři konceptů session). Zdroj je
+`backend/claude_code/assistant/agents/<name>.md`: frontmatter `name`, `description`, `tools` (seznam), `model`
+(`haiku | sonnet | opus`), tělo = prompt. `agents.load_agents()` je převede na `{name: {description, prompt, tools, model}}`
+(test: každý soubor má všechna pole, jména jsou `opora-*`, prompt neprázdný).
+
+| Subagent | Model | Nástroje | Dělá | Vrací |
+|---|---|---|---|---|
+| `opora-hledac` | haiku | Bash (jen `opora_read.py`, `graphify query`), Read, Grep, Glob | prohledá plátno (`index`, `search`, `rank`), kód (`find`, `code`), graphify | nálezy jako `id karty` / `soubor:řádek` + 1 řádek, bez výkladu |
+| `opora-dohledavac` | sonnet | WebFetch, WebSearch, Read | docs knihoven přes Context7 (`https://context7.com/<org>/<repo>/llms.txt?topic=…`) a oficiální docs | `{funkce/metoda, vstup, výstup, kam posílat, zdroj URL + citát}`; co nenašel, označí [neověřeno] |
+| `opora-zadavatel` | sonnet | Bash (čtení), Read, Glob, Grep, Write (jen koncepty) | z nálezů a textu fragmentu složí koncept zadání karty podle `docs/karta-pro-agenty.md` | koncept `node-brief` jako JSON v `draftsDir` (`goal / non_goals / acceptance`, bloky s porty, `must / must_not`, `checks`, `sourceRef`) |
+| `opora-oponent` | opus | Bash (čtení), Read, Grep, Glob, WebFetch | pro duel sestaví protinávrh B (nebo obhájí A) s argumenty a doklady | `{claim, arguments[], evidence[{ref, quote}], risks[]}` do 4000 znaků |
+
+Pravidla:
+- Subagent dědí oprávnění asistenta: zapisovat nemůže (jen `Write` konceptu do `draftsDir`, §5.1), Bash mu pustí backend
+  jen pro čtecí skript. Jeho výstup je **údaj**, kořen ho skládá a ověřuje.
+- Kořen (asistent) spustí nejvýš 3 subagenty v jednom tahu a vždy s rozsahem (id karet, složky, otázka, co vrátit).
+- Vlastní `Agent` typy Claude Code (`Explore`, `general-purpose`) zůstávají dostupné; `opora-*` jsou pro ně přednostní
+  pojmenování s pevným rozsahem.
+
+### 14.3 Místo setkání je Schránka
+
+Pořadí práce na zadání (recept ve skillu `references/workflow.md` „Router a subagenti“):
+
+1. **Uchopit**: `index` + `search` (při `scope: selection` jen `node-brief` vybraných). Bez čtení plátna žádný návrh.
+2. **Dohledat**: `opora-hledac` (projekt) a `opora-dohledavac` (docs) paralelně, každý s rozsahem.
+3. **Sejít ve Schránce**: nálezy jdou do fragmentu Schránky, ne do chatu: kořen `create` (nebo stávající fragment),
+   dohledané postupy `research` + `research-update` s `evidence [{url, title, quote, accessedAt}]`, otevřené body
+   `question` (`askedFor: human | agent`). Každý zápis Schránky schvaluje člověk.
+4. **Zadání**: `opora-zadavatel` složí koncept; kořen ho zapíše jako `revise` / `promote` fragmentu a dál `split` do
+   příběhu (části = co bude dělat co), pak brány `scoped → planned → placed` podle `docs/schranka-neurony.md`. Karty
+   vzniknou z brány `placed`, ne ručně mimo Schránku.
+5. **Duel** při změně směru: `op: duel-open` na `/api/brief-vault` přes `opora_write.py` (stejné schválení jako každý
+   zápis Schránky); B připraví `opora-oponent`. Karta schválení ukáže „Duel: <subject> · A … · B …“
+   (`approvals.brief_vault_summary`). Výměny a rozhodnutí podle `docs/schranka-duel.md`.
+6. **Sladění s agenty ve VS Code**: stav kódu z `node-brief` (`agent-output`, `evidence.checksRun`, otevřené porty,
+   `reports` na vazbách). Otázka agentovi = blok s otevřeným portem nebo zpráva na vazbě, ne chat.
+
+**Hotovo, když:** `uv run pytest backend` (AppSettings, API pokynů, `build_command` s oběma soubory, `load_agents`,
+souhrn duelu), `npm test` (logika sekce Asistent), `npm run build`; v `init.tools`/`agents` běžící session jsou
+`opora-*` a `system` událost nese doplněný prompt (ověřit ručně, zapsat do §11).

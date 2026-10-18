@@ -1,50 +1,25 @@
-// Dílek Panel sekce: rám vedle lišty ikon, ve kterém leží Knihovna, Agenti, Postupy nebo Nastavení.
-// Nahoře jediná hlavička panelu (název sekce a zkratka) a pod ní obsah (`children`). Projekt a jeho
-// profil tu nejsou: patří do sekce Nastavení, aby nebraly místo a pozornost obsahu sekce. O obsahu nic neví. Umí jednu věc, kterou obsah umět nemá:
-// při tažení položky zprůhlední a pustí myš skrz sebe, aby šlo položku pustit i na plátno pod ním.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+// Dílek Panel sekce: rám vedle lišty ikon, ve kterém leží Struktura, Schránka nebo Nastavení. Nahoře
+// jediná hlavička panelu (název sekce a zkratka) a pod ní obsah (`children`); o obsahu nic neví. Sekce
+// s vlastním vnitřním menu (Schránka) dostane široký panel. Skrytý panel (`kept`) zůstává v DOM jen
+// proto, aby se v něm neztratil rozepsaný text; nemá id ani přístupné jméno, nic neohlašuje.
+import type { ReactNode } from "react";
 import { sectionInfo, type DockSection } from "@/layout/panel-dock/logic/panel-dock";
 
-export default function PanelDrawer({
-  section,
-  children,
-}: {
+export default function PanelDrawer({ section, kept = false, children }: {
   section: DockSection;
+  /** Panel je skrytý, ale jeho obsah se drží (Schránka s rozepsaným textem). */
+  kept?: boolean;
   children: ReactNode;
 }) {
-  const [dragging, setDragging] = useState(false);
   const info = sectionInfo(section);
-
-  // Tažení: modifikátor přijde až v dalším snímku — kdyby panel přestal brát myš hned při
-  // `dragstart`, prohlížeč by tažení zrušil. Konec tažení se čte na `document`, protože `drop`
-  // obslouží plátno; panel po puštění zůstává otevřený pro další položku.
-  const frame = useRef(0);
-  useEffect(() => {
-    const end = () => {
-      cancelAnimationFrame(frame.current);
-      setDragging(false);
-    };
-    document.addEventListener("dragend", end, true);
-    document.addEventListener("drop", end, true);
-    return () => {
-      cancelAnimationFrame(frame.current);
-      document.removeEventListener("dragend", end, true);
-      document.removeEventListener("drop", end, true);
-    };
-  }, []);
-  const startDrag = () => {
-    cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => setDragging(true));
-  };
-
   return (
     <section
-      id="panel-dock"
-      className={"panel-drawer" + (dragging ? " panel-drawer--dragging" : "")}
-      aria-label={info.label}
-      data-testid="panel-dock"
+      id={kept ? undefined : "panel-dock"}
+      className={"panel-drawer" + (info.wide ? " panel-drawer--wide" : "") + (kept ? " panel-drawer--kept" : "")}
+      aria-label={kept ? undefined : info.label}
+      aria-hidden={kept || undefined}
+      data-testid={kept ? "panel-dock-kept" : "panel-dock"}
       data-section={section}
-      onDragStart={startDrag}
     >
       <div className="panel-drawer__top">
         <header className="panel-drawer__head">

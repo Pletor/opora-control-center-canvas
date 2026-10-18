@@ -58,12 +58,12 @@ export default function TaskHandoff({ request, onClose, onSaved }: { request: Ag
     setClipboardError("");
     } catch (e) { setClipboardError(String(e)); }
   }
-  return <dialog ref={dialog} className="modal handoff" aria-modal="true" aria-label="Předat zadání"
+  return <dialog ref={dialog} className="modal handoff" aria-modal="true" aria-label="Balíček karty"
     onCancel={(event) => { event.preventDefault(); onClose(); }}
     onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }}>
-    <button type="button" ref={close} className="close" onClick={onClose} aria-label="Zavřít předání">×</button>
-    <h2>Předat zadání · {request.nodeName}</h2>
-    <p>Uložené zadání, souvislosti a kontrakt výsledku. Rozepsané neuložené změny se nepředávají.</p>
+    <button type="button" ref={close} className="close" onClick={onClose} aria-label="Zavřít balíček karty">×</button>
+    <h2>Balíček karty · {request.nodeName}</h2>
+    <p>Balíček obsahuje uložené zadání, souvislosti a kontrakt výsledku. Rozepsané neuložené změny nejsou součástí balíčku.</p>
     <p className="handoff__scope">{project} / {workspace} / {summary.path.join(" / ") || request.nodeName}</p>
     {loading && <p role="status">Načítám uložené zadání…</p>}
     {error && <p role="alert">{error}</p>}

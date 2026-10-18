@@ -12,15 +12,24 @@ from backend.editor.brief_vault.brief_vault_details import (
     feedback_rows,
     latest_details,
 )
+from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_FILTERS, public_table
+from backend.editor.brief_vault.brief_vault_gate_rules import gate_state
 from backend.editor.brief_vault.brief_vault_model import (
+    bad_request,
+    effective_disciplines,
     fail,
+    gate_rounds,
     history_rows,
     latest_rows,
+    legacy_hashes,
     public,
     text_revisions,
 )
+from backend.editor.brief_vault.brief_vault_proposals import proposals_of
 from backend.editor.brief_vault.brief_vault_tree import (
+    discipline_counts,
     fragment_links,
+    legacy_pairs,
     path_of,
     refs_by_fragment,
     tree_of,
@@ -66,28 +75,45 @@ class VaultReader:
         if view["readOnly"]:
             return None
         db = self.canvas.db_for(project)
-        return {"db": db, "view": view, "rows": latest_rows(db, project, workspace),
-                "state": self.state.current(project, workspace)["state"],
-                "texts": text_revisions(db, project, workspace),
+        state = self.state.current(project, workspace)["state"]
+        return {"db": db, "view": view, "rows": latest_rows(db, project, workspace), "state": state,
+                "legacy": legacy_hashes(db, project, workspace, legacy_pairs(state)),
+                "texts": text_revisions(db, project, workspace), "rounds": gate_rounds(db, project, workspace),
                 "details": {key: value["fields"] for key, value in latest_details(db, project, workspace).items()}}
 
-    def tree(self, project, workspace, scope=None):
-        """Stromy schránek bez plných textů, s odvozeným stavem, pokrytím a výtahem výzkumu; jeden dotaz pro celé UI."""
+    def tree(self, project, workspace, scope=None, discipline=None):
+        """Stromy schránek bez plných textů, s odvozeným stavem, pokrytím a výtahem výzkumu; jeden dotaz pro celé UI.
+
+        `discipline` (id | `none`) ponechá fragmenty dané platné disciplíny a jejich cestu ke kořeni."""
         if scope is not None and scope != "" and not valid_id(scope):
             fail("scope má neplatný identifikátor.")
+        if discipline is not None and discipline not in DISCIPLINE_FILTERS:
+            bad_request("discipline filtruje id disciplíny (" + ", ".join(DISCIPLINE_FILTERS[:-1]) + ") nebo none (nezařazené).")
         with self.canvas.reading(project):
             read = self._read(project, workspace)
             if read is None:
                 return {"readOnly": True, "roots": [], "feedback": []}
             db = read["db"]
             roots = tree_of(read["rows"], read["state"], scope, read["texts"], read["details"],
-                            _feedback_counts(db, project, workspace))
+                            _feedback_counts(db, project, workspace), discipline, read["legacy"], read["rounds"])
             ids = set(_ids_of(roots))
             feedback = [item for item in feedback_rows(db, project, workspace) if item["fragmentId"] in ids]
             return {"readOnly": False, "roots": roots, "feedback": feedback}
 
+    def disciplines(self, project, workspace):
+        """Tabulka disciplín (docs/schranka-neurony.md §2) s počtem živých fragmentů `brief` na platnou disciplínu;
+        neuron je zapnutý, když `live > 0`. `unassigned` = živé fragmenty bez disciplíny na celé cestě ke kořeni."""
+        with self.canvas.reading(project):
+            view = self.canvas.view(project, workspace)
+            counts, unassigned = ({}, 0) if view["readOnly"] else discipline_counts(
+                latest_rows(self.canvas.db_for(project), project, workspace))
+            return {"disciplines": public_table(counts), "unassigned": unassigned}
+
     def fragment(self, project, workspace, fragment_id, revision=None):
-        """Plný text revize, historie, děti, cesta, karty, Podněty, podrobnosti a zpětná vazba fragmentu."""
+        """Plný text revize, historie, děti, cesta, karty, Podněty, podrobnosti a zpětná vazba fragmentu.
+
+        `proposals` = poslední návrh každé brány s payloadem pro aktuální otisk vstupů a jeho stav
+        (`pending | rejected | used`, viz brief_vault_proposals); jen u fragmentu druhu `brief`."""
         if not isinstance(fragment_id, str) or not valid_id(fragment_id):
             fail("id fragmentu je neplatné.")
         with self.canvas.reading(project):
@@ -101,11 +127,15 @@ class VaultReader:
             if chosen is None:
                 fail(f"fragment nemá revizi {revision}.")
             details = read["details"].get(fragment_id, {})
+            latest = rows[fragment_id]
+            proposals = proposals_of(db, project, workspace, fragment_id, gate_state(
+                latest, effective_disciplines(rows).get(fragment_id)), history) if latest["kind"] == "brief" else {}
             return {"fragment": public(chosen, with_text=True), "latestRevision": rows[fragment_id]["revision"],
                     "history": [public(row) for row in history], "details": details,
                     "decisions": decisions_of(read["state"], details.get("decisions", [])),
-                    "feedback": feedback_rows(db, project, workspace, [fragment_id]),
-                    **fragment_links(rows, read["state"], fragment_id, read["texts"], read["details"])}
+                    "feedback": feedback_rows(db, project, workspace, [fragment_id]), "proposals": proposals,
+                    **fragment_links(rows, read["state"], fragment_id, read["texts"], read["details"], read["legacy"],
+                                    read["rounds"])}
 
     def history(self, project, workspace, scope=None, limit=MAX_HISTORY):
         """Poslední revize fragmentů rozsahu napříč schránkou (bez textů), nejnovější první."""

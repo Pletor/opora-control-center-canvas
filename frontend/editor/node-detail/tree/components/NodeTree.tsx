@@ -28,7 +28,7 @@ export default function NodeTree({
 }) {
   const { state, readOnly, loading, error, reload, mutate } = useDesktopState(project, workspace);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  // Jeden zápis najednou za celý strom (stejný důvod jako NodeWorkflowPanel: jeden dokument, jedna revize).
+  // Jeden zápis najednou za celý strom: jeden dokument, jedna revize.
   const lock = useRef(false);
   const [busy, setBusy] = useState(false);
   const [settled, setSettled] = useState(0);

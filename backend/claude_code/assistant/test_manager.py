@@ -437,3 +437,32 @@ def test_write_outside_drafts_is_denied_without_ui(manager, tmp_path):
     approval = approvals_of(manager, sid)[0]
     assert approval["auto"] is True and approval["tool"] == "Write"
     assert not (tmp_path / "data" / "assistant-drafts" / "escape.json").exists()
+
+
+def test_create_binds_session_to_card(manager):
+    """Relace karty nese nodeId (živý panel domény); bez něj zůstává None."""
+    assert manager.create("p1", node_id="card-1")["nodeId"] == "card-1"
+    assert manager.create("p1")["nodeId"] is None
+    with pytest.raises(AssistantError):
+        manager.create("p1", node_id="")
+
+
+def test_instructions_and_agents_are_written_and_passed_to_builder(tmp_path):
+    seen = {}
+
+    def builder(claude, model, resume, **files):
+        seen.update(files)
+        return fake_builder(claude, model, resume)
+
+    manager = make(tmp_path, instructions=lambda: "Pokyny X", agents=lambda: {"opora-a": {"prompt": "č"}})
+    manager._build = builder
+    try:
+        record = manager.create("p")
+        manager.send(record["id"], "ahoj")
+        drafts = manager.drafts_dir(record["id"])
+        assert (drafts / "instructions.md").read_text(encoding="utf-8") == "Pokyny X"
+        assert json.loads((drafts / "agents.json").read_text(encoding="utf-8")) == {"opora-a": {"prompt": "č"}}
+        assert seen == {"system_prompt_file": str(drafts / "instructions.md"),
+                        "agents_file": str(drafts / "agents.json")}
+    finally:
+        manager.close_all()

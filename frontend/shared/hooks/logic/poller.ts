@@ -11,8 +11,9 @@ export type VisibilitySource = { hidden: () => boolean; subscribe: (listener: ()
 
 export type PollerOptions = {
   run: () => Promise<unknown>;
-  /** Pauza mezi koncem jednoho dotazu a začátkem dalšího (ms); 0 = jen ruční `refresh`. */
-  intervalMs: number;
+  /** Pauza mezi koncem jednoho dotazu a začátkem dalšího (ms); 0 = jen ruční `refresh`. Funkce se
+   *  ptá před každým kolem, takže volající může pauzu měnit (odstup po chybě) bez nového polleru. */
+  intervalMs: number | (() => number);
   /** Načíst hned při `start` (výchozí ano); `false` = první dotaz až po intervalu. */
   immediate?: boolean;
   visibility?: VisibilitySource;
@@ -56,15 +57,18 @@ export function createPoller(options: PollerOptions): Poller {
     timer = undefined;
   }
 
+  const pause = () => (typeof intervalMs === "function" ? intervalMs() : intervalMs);
+
   function schedule() {
     cancel();
-    if (stopped || intervalMs <= 0) return;
+    const ms = stopped ? 0 : pause();
+    if (ms <= 0) return;
     if (visibility.hidden()) { stale = true; return; }
     timer = setTimer(() => {
       timer = undefined;
       if (visibility.hidden()) stale = true;
       else void refresh();
-    }, intervalMs);
+    }, ms);
   }
 
   // Ruční refresh funguje i u zastaveného polleru (sdílený zdroj po vlastním zápisu); zastavený

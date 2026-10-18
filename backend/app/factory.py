@@ -12,6 +12,7 @@ from backend.api.app_routes import create_app_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
+from backend.api.editor.brief_vault_check_routes import create_brief_vault_check_router
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
@@ -30,6 +31,9 @@ from backend.api.editor.sync_routes import create_sync_router
 from backend.api.project.archify_routes import create_archify_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
+from backend.api.project.project_architecture_routes import create_project_architecture_router
+from backend.api.project.project_web_status_routes import create_project_web_status_router
+from backend.api.project.project_work_status_routes import create_project_work_status_router
 from backend.api.project.project_workspace_routes import create_project_workspace_router
 from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
@@ -48,6 +52,7 @@ from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
 from backend.canvas.sync_report import SyncReport
+from backend.claude_code.assistant.agents import load_agents
 from backend.claude_code.assistant.manager import AssistantManager
 from backend.claude_code.assistant.router import route as route_message
 from backend.claude_code.assistant.workspace import project_locator
@@ -60,11 +65,14 @@ from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_packet.desktop_v3_packets import DesktopV3Packets
 from backend.editor.agent_packet.node_brief import NodeBrief
 from backend.integrations.build_identity import build_identity
+from backend.integrations.typesafe_client import configured_provider
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
 from backend.memory.memory_service import AppSettings, MemoryService
 from backend.paths import DIST_DIR, REPO_ROOT
+from backend.project.architecture.web_status import WebStatusService
 from backend.project.maps.map_refresh import MapRefresh
 from backend.project.workspace.workspace_sources import WorkspaceSources
+from backend.project.worktrees.workspace_archive import WorkspaceArchive
 from backend.semantic_retrieval.service import SemanticRetrieval
 
 
@@ -95,13 +103,21 @@ def create_app(data_root=None):
     # Asistent: Claude Code pod předplatným, proces spouští jen zpráva člověka (docs/asistent.md).
     # Skill v jeho procesu čte plátno této instance, ne pevného portu 8740 (§13.1).
     # Směrovač Jev (§13.2): klíč se čte při každé zprávě, takže zapnutí platí bez restartu.
+    # Poskytovatel Jev (typesafe | celeris) z `[jev] provider` v opora.local.toml (docs/schranka-neurony.md §7).
+    jev_provider = configured_provider()
+
+    def jev_evaluate(state, questions, *, key):
+        return typesafe_evaluate(state, questions, key=key, provider=jev_provider)
+
     def route_hint(text, context):
-        key = app_settings.typesafe_key()
+        key = app_settings.jev_key(jev_provider)
         return route_message(text, context,
-                             evaluate=lambda state, questions: typesafe_evaluate(state, questions, key=key))
+                             evaluate=lambda state, questions: jev_evaluate(state, questions, key=key))
 
     assistant = AssistantManager(service.root, project_locator(service), base_url=f"http://127.0.0.1:{port}",
-                                 route_hint=route_hint)
+                                 route_hint=route_hint,
+                                 instructions=lambda: app_settings.assistant_instructions()["text"],
+                                 agents=load_agents)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -223,11 +239,14 @@ def create_app(data_root=None):
     # krok 1: nastavení projektu
     app.include_router(create_project_setup_router(service))
     # prostředí Projekt
-    app.include_router(create_project_workspace_router(service))
+    # skladiště čte hook bindingy až při přesunu: hook_control vzniká níž s routerem hooků
+    app.include_router(create_project_workspace_router(
+        service, WorkspaceArchive(service, assistant.registry, lambda: service.hook_control.store)))
     app.include_router(create_workspace_router(service))
     app.include_router(create_archify_router(service))
     app.include_router(create_graphify_router(service))
     app.include_router(create_map_refresh_router(map_refresh))
+    app.include_router(create_project_architecture_router(service))
     # prostředí Editor
     app.include_router(create_canvas_router(service))
     app.include_router(create_canvas_version_router(service, desktop_state))
@@ -235,16 +254,20 @@ def create_app(data_root=None):
     app.include_router(create_node_router(service))
     # Schránka zadání: doslovné verzované fragmenty a odkazy karet (docs/navrh-schranka-zadani.md)
     app.include_router(create_brief_vault_router(service, desktop_state))
+    # Poradní kontrola brány přes Jev; jen s povolením člověka pro projekt a poskytovatele (§9 bod 10)
+    app.include_router(create_brief_vault_check_router(service, settings=app_settings, provider=jev_provider))
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
     app.include_router(create_agent_message_router(agent_messages))
     app.include_router(create_claude_code_router(service))
-    app.include_router(create_assistant_router(assistant, jev_settings=app_settings))
+    app.include_router(create_assistant_router(assistant, jev_settings=app_settings, jev_provider=jev_provider))
     # RLM: řazení oddílů plátna přes Jev pro asistenta; jen loopback, klíč zůstává v backendu (§13.3)
-    app.include_router(create_rlm_router(key_source=app_settings.typesafe_key))
+    app.include_router(create_rlm_router(key_source=lambda: app_settings.jev_key(jev_provider), evaluate=jev_evaluate))
     app.include_router(create_process_router(service))
     # Hook control: karta a cesty, které agent na disku smí měnit (upgrade-opora #38, bez Live Run).
     app.include_router(create_hook_router(service, port=port))
     app.include_router(create_hook_install_router(service, binding_lookup=service.hook_control.public_binding))
+    app.include_router(create_project_work_status_router(service, assistant.registry, service.hook_control.store))
+    app.include_router(create_project_web_status_router(WebStatusService(service)))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)
     sync_report = SyncReport(service, check_runs=check_runs)

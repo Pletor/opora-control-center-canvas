@@ -50,7 +50,7 @@ Dlouhé zadání (od člověka, zákazníka, z dokumentu) se **nejdřív uloží
 ne do textu karet. Schránka drží fragmenty s historií revizí; karta na fragment jen odkazuje (`fragmentRef`)
 a `node-brief.fragments` jí doslovný text doplní. Payloady: [api.md](api.md) „Schránka zadání“.
 
-1. **Uložit** kořen: `opora_write.py /api/brief-vault` `{op: "create", scopeNodeId: "" | SEKTOR | KARTA, title, text}`
+1. **Uložit** kořen: `opora_write.py /api/brief-vault` `{op: "create", scopeNodeId: "" | SEKTOR | KARTA, discipline: "ux" | "be" | … (api.md „Schránka zadání“), title, text}`
    (text doslova, ≤ 64 000 znaků; delší po kapitolách do víc kořenů). Ověř `opora_read.py vault [--node SEKTOR]`.
 2. **Rozdělit** `{op: "split", fragmentId, expectedRevision, splitter: "heading-number"}` (kapitoly po prázdném
    řádku), jinak explicitní `parts: [{title, text}]`. Server hlídá invariant: spojení dětí (oddělovač prázdný
@@ -131,6 +131,30 @@ Zpráva s `scope: "selection"` v `<opora_context>` (a větou „Rozsah: …“ z
 - **Zápisy malé:** `node-spec`, `node-text` a `block` po jedné kartě, žádné velké dávky.
 - **Na konci** shrň, co v rozsahu vzniklo, navrhni **jeden** další navazující uzel (po vazbách) a počkej, až ho člověk vybere.
 - **Bez výběru** (prázdné `selectedNodeIds`) se nejdřív zeptej, na čem pracovat.
+
+## Recept: router a subagenti (asistent v okně, `docs/asistent.md` §14)
+
+Asistent v okně má pokyny z nastavení aplikace (systémový prompt) a čtyři pojmenované subagenty
+(`Agent` s `subagent_type`): `opora-hledac` (haiku, plátno + kód + graphify → `id karty` / `soubor:řádek`),
+`opora-dohledavac` (sonnet, docs knihoven přes Context7 / WebFetch → funkce, vstup, výstup, kam posílat, zdroj),
+`opora-zadavatel` (sonnet, koncept zadání karty jako JSON do `draftsDir`), `opora-oponent` (opus, protinávrh
+pro duel s doklady). Subagent zdědí jen čtení; jeho výstup je údaj, kořen ho ověří čtením. Nejvýš 3 na tah.
+
+Pořadí práce na zadání, místo setkání je Schránka:
+
+1. **Uchopit:** `index` + `search` (mód Výběr: jen `node-brief` vybraných). Bez čtení plátna žádný návrh.
+2. **Dohledat:** `opora-hledac` (projekt) a `opora-dohledavac` (docs) paralelně, každý s rozsahem a otázkou.
+3. **Sejít ve Schránce:** `/api/brief-vault` `create` (nebo stávající fragment), postupy `research` +
+   `research-update` s `evidence [{url, title, quote, accessedAt}]`, otevřené body `question`.
+4. **Zadání:** `opora-zadavatel` složí koncept → `revise` / `promote` fragmentu → `split` do příběhu (části = co bude
+   dělat co) → brány `scoped → planned → placed` ([cycle.md](cycle.md)). Karty vznikají z `placed`, ne mimo Schránku.
+5. **Duel při změně směru:** `opora_write.py /api/brief-vault --json-file F` s `{"op": "duel-open", "subject": {"kind", "id"},
+   "incumbent": {"text", "ref"?}, "challenger": {"text"}, "scopeNodeId"}`; B připraví `opora-oponent`. Další kroky
+   (`duel-turn`, `duel-score`, `duel-decide`) stejnou cestou; člověk každý zápis schvaluje. Kontrakt `docs/schranka-duel.md`.
+6. **Sladění s agenty ve VS Code:** stav kódu z `node-brief` (`agent-output`, `evidence.checksRun`, otevřené porty,
+   `reports`). Otázka agentovi = blok s otevřeným portem nebo zpráva na vazbě, ne chat.
+
+Výstup tahu v chatu: nejvýš 5 řádků (zapsáno / ke schválení, podklad, jeden další uzel).
 
 ## Recept: sektor jako brána (stavba po krocích)
 

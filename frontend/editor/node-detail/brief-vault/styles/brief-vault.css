@@ -36,6 +36,13 @@
 }
 .brief-vault__row:hover { background: var(--surface-2); }
 .brief-vault__row--selected { background: var(--accent-soft); }
+/* Předek z jiné disciplíny: zůstává ve stromu jen jako cesta ke kořeni, aby kapitola nevisela ve vzduchu.
+   Ztlumí se, aby oko poznalo, že sem práce vybrané disciplíny nepatří. */
+.brief-vault__row--path { opacity: 0.55; }
+/* Slepá ulička (rozhodnuto: ne): kapitola zůstává vidět kvůli historii, ale přeškrtnutý název a ztlumení
+   říkají „sem už práce nejde“; důvod je v detailu fragmentu. */
+.brief-vault__row--dead { opacity: 0.6; }
+.brief-vault__row--dead .brief-vault__title { text-decoration: line-through; text-decoration-color: var(--ink-muted); }
 .brief-vault__twist {
   flex: 0 0 14px;
   width: 14px;
@@ -151,3 +158,14 @@ button.brief-chip:hover { border-color: var(--accent-line); color: var(--accent)
 /* Akce nad fragmentem v okně schránky (výzkum, otázka) a širší pruh v Přehledu. */
 .brief-vault__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .brief-vault__bar--large { height: 14px; border-radius: 7px; }
+
+/* PRUH BRAN CYKLU (blok brief-gates)
+   Příběh: u každé kapitoly je vidět, kam v cyklu došla, aniž by člověk otvíral detail. Osm drobných teček
+   v řadě jako korálky: plná = brána splněná, obrysová akcentem = na tuhle se teď čeká, šedý kroužek =
+   ještě ne, přerušovaný zlatý = byla splněná, ale text nebo disciplína se pak změnily a platí znovu.
+   Tečky jsou menší než kulička stavu, aby stav kapitoly zůstal hlavní informací řádku. */
+.brief-gates { display: inline-flex; gap: 2px; align-items: center; flex: none; }
+.brief-gates__dot { display: inline-block; width: 6px; height: 6px; box-sizing: border-box; border-radius: 50%; border: 1px solid var(--line-strong); }
+.brief-gates__dot--on { background: var(--accent); border-color: var(--accent); }
+.brief-gates__dot--next { border: 1.5px solid var(--accent); }
+.brief-gates__dot--stale { border: 1px dashed var(--gold); }

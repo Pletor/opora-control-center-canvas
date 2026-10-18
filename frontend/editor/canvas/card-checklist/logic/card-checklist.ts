@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
+import { keepSame } from "@/shared/hooks/logic/same-response";
 import type { CanvasNode, GraphEdge } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 
@@ -23,12 +24,12 @@ export function useCardChecklist(scope: { project: string; workspace: string } |
     if (!scope) return;
     try {
       const result = await api<{ nodes: Checklists }>("/api/desktop-v3/card-checklist?" + new URLSearchParams({ ...scope, layer: parent ?? "" }));
-      setValue({ key, nodes: result.nodes });
+      setValue((current) => keepSame(current, { key, nodes: result.nodes }));
     } catch {
       // Pás je doplněk: bez něj karta funguje dál, jen bez souhrnu.
       setValue((current) => (current?.key === key ? null : current));
     }
-  }, { intervalMs: 20000, enabled: !!scope, refreshKeys: [key, revision] });
+  }, { intervalMs: 20000, enabled: !!scope, refreshKeys: [key], debouncedKeys: [revision] });
   return value?.key === key ? value.nodes : undefined;
 }
 
@@ -46,12 +47,16 @@ export function areaSummary(lists: CheckItem[][]) {
   };
 }
 
+/** Druh uzlu podle id: plátno ho postaví jednou za graf a předá všem vazbám (`handoffMark`). */
+export const nodeKinds = (nodes: Pick<CanvasNode, "id" | "kind">[]): ReadonlyMap<string, CanvasNode["kind"]> =>
+  new Map(nodes.map((n) => [n.id, n.kind]));
+
 /** Obálka předávky na vazbě: zpráva je → „sent“; zdroj je hotový (navržen / uzavřen) a zpráva chybí → „missing“;
- *  jinak se nic nekreslí, aby plánovací vazby nebyly ukřičené. Jen vazby mezi kartami (`next`, `block`). */
-export function handoffMark(edge: GraphEdge, state: DesktopState, nodes: Pick<CanvasNode, "id" | "kind">[]): "sent" | "missing" | null {
+ *  jinak se nic nekreslí, aby plánovací vazby nebyly ukřičené. Jen vazby mezi kartami (`next`, `block`).
+ *  Druhy uzlů přicházejí hotové (`nodeKinds`), aby se mapa nestavěla znovu pro každou vazbu. */
+export function handoffMark(edge: GraphEdge, state: DesktopState, kinds: ReadonlyMap<string, CanvasNode["kind"]>): "sent" | "missing" | null {
   const port = edge.port ?? "next";
   if (port !== "next" && port !== "block") return null;
-  const kinds = new Map(nodes.map((n) => [n.id, n.kind]));
   if (kinds.get(edge.source) !== "node" && kinds.get(edge.source) !== "sector") return null;
   if (state.edges?.[edge.id]?.handoff?.trim()) return "sent";
   const done = state.nodes[edge.source]?.done;

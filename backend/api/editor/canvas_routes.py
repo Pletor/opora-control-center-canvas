@@ -62,6 +62,14 @@ def create_canvas_router(service):
             actor=request.state.actor,
         )
 
+    @router.post("/graph/positions")
+    def graph_positions(payload: dict, request: Request):
+        # Posun karet (oprava 8): jen {id, x, y} a digest; odpověď je pohled bez grafu a uložené pozice.
+        if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "digest", "positions"}:
+            raise ValueError("Posun vyžaduje project, workspace, digest a positions.")
+        return service.save_positions(payload["project"], payload["workspace"], payload["positions"],
+                                      payload["digest"], actor=request.state.actor)
+
     @router.post("/canvas-plan")
     def canvas_plan(payload: dict, request: Request):
         # Dávka plánu (docs/davka-planu.md §3): jen přidává, atomicky; `dryRun` nic nezapíše.

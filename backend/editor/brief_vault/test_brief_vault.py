@@ -31,7 +31,7 @@ def rows(vault, fragment_id):
 
 
 def root(vault, text=CHAPTERS):
-    return op(vault, "create", scopeNodeId="s1", title="3. VRSTVA", text=text)["fragment"]
+    return op(vault, "create", scopeNodeId="s1", discipline="be", title="3. VRSTVA", text=text)["fragment"]
 
 
 def test_create_and_revise_append_revisions_with_cas(vault):
@@ -61,7 +61,7 @@ def test_create_validates_scope_parent_and_text(vault):
         op(vault, "create", scopeNodeId="", title="T", text="x" * 64001)
     with pytest.raises(ValueError):
         op(vault, "create", scopeNodeId="", title="T", text="t", extra=1)
-    canvas_root = op(vault, "create", scopeNodeId="", title="Plátno", text="")["fragment"]
+    canvas_root = op(vault, "create", scopeNodeId="", discipline="ux", title="Plátno", text="")["fragment"]
     child = op(vault, "create", parentId=canvas_root["id"], title="Dítě", text="d")["fragment"]
     assert child["parentId"] == canvas_root["id"] and child["scopeNodeId"] is None and child["ord"] == 1
 

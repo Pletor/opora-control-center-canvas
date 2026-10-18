@@ -13,6 +13,8 @@ export type ProjectCapabilities = {
   legacyFree: boolean;
   /** Pracovní prostor, do kterého se projekt otevírá. */
   defaultWorkspace: "draft" | "main";
+  /** Živý stav worktree (strom worktree a relací v editoru architektury); lokální projekt worktree nemá. */
+  worktreeLive: boolean;
 };
 
 const LOCAL_KINDS = ["local", "empty", "builtin"];
@@ -29,6 +31,7 @@ export function projectCapabilities(projectId: string, activeProject: Project | 
     localProject,
     legacyFree: isDraft && kind === "builtin",
     defaultWorkspace: localProject ? "draft" : "main",
+    worktreeLive: !localProject,
   };
 }
 
@@ -49,9 +52,4 @@ export function catalogProfile(settings: { architecture?: string; tenancy?: stri
   const tenancy = TENANCIES.find((value) => value === settings?.tenancy) ?? "";
   const platform = PLATFORMS.find((value) => value === settings?.platform) ?? "web";
   return { architecture, tenancy, platform };
-}
-
-/** Profil, který nic neříká: ani architektura, ani uživatelé. Šuplík pak nabídne kartu profilu. */
-export function profileUnset(profile: ProjectProfile): boolean {
-  return !profile.architecture && !profile.tenancy;
 }

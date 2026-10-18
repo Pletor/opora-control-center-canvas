@@ -1,4 +1,4 @@
-// Hlava karty: druh (uzel / sektor), fáze, u uzlu s kartou drobný štítek vrstvy (FE / BE / DB /
+// Hlava karty: druh (uzel / sektor), u uzlu s kartou drobný štítek vrstvy (FE / BE / DB /
 // Knihovna) a stavu, tichý počet otevřených podnětů k dalšímu vývoji, ⚠ „zadání se změnilo“ (schránka zadání), kola karty
 // „v1 ✓ · v2 ●“ (od v2) a — u uzavřené karty — zámek. Jen zobrazení; vrstvu a stav počítá `cardView`.
 import { CARD_STATUS_LABEL, type CardView } from "@/editor/canvas/node-card/logic/card-model";
@@ -8,7 +8,7 @@ import { roundChips } from "@/editor/node-detail/rounds/logic/rounds-model";
 export default function CardHead({
   view,
 }: {
-  view: Pick<CardView, "kind" | "phase" | "phaseLabel" | "closed" | "doneProposed"> & Partial<Pick<CardView, "cardLayer" | "cardStatus" | "cardModel" | "cardEffort" | "waitingOnHuman" | "openIdeas" | "briefChanged" | "round">>;
+  view: Pick<CardView, "kind" | "closed" | "doneProposed"> & Partial<Pick<CardView, "cardLayer" | "cardStatus" | "cardModel" | "cardEffort" | "waitingOnHuman" | "openIdeas" | "briefChanged" | "round">>;
 }) {
   return (
     <div className="node-card__head">
@@ -57,9 +57,6 @@ export default function CardHead({
           )}
         </span>
       )}
-      <span className={"node-card__phase" + (view.phase === "live" ? " node-card__phase--live" : "")} title="Fáze uzlu (plánovací stav člověka)">
-        {view.phaseLabel}
-      </span>
     </div>
   );
 }

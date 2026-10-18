@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Graph, type View } from "@/shared/types/logic/types";
 import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
+import { architectureEditable } from "./edit-locks";
 
 type Snapshot = { scope: string; view: View };
 export type ArchitecturePlanResult = { view: View; refs: Record<string, string> };
 
-/** Own editor lifecycle; mutations still use the existing atomic graph APIs. */
+/**
+ * Own editor lifecycle; mutations still use the existing atomic graph APIs. Structure writes go through
+ * even on a read-only (main) view when `architectureEditable`: the backend splits the composed graph and
+ * accepts only architecture changes there. Content writes on main are stopped by the editor (`contentLock`).
+ */
 export function useArchitectureGraph(project: string, workspace: string, onGraphChanged?: () => void) {
   const scope = JSON.stringify([project, workspace]);
   const lifecycle = useRef({ scope, generation: 0, mounted: true });
@@ -67,7 +72,7 @@ export function useArchitectureGraph(project: string, workspace: string, onGraph
       if (lock.current === generation) throw new Error("Počkejte na dokončení ukládání.");
       const loaded = current.current?.scope === scope ? current.current.view : null;
       if (!loaded) throw new Error("Nejprve načtěte plátno.");
-      if (loaded.readOnly) throw new Error("Tento pracovní prostor je pouze pro čtení.");
+      if (!architectureEditable(loaded)) throw new Error("Architekturu v tomto pracovním prostoru nelze upravovat.");
       if (!expectedDigest || expectedDigest !== loaded.digest) throw new Error("Plátno se změnilo. Obnovte je před dalším uložením.");
       lock.current = generation;
       acquired = true;

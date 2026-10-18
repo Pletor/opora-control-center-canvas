@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 /** Coordination only: content remains in each editor's existing draft owner. */
 export type SaveParticipant = {
@@ -49,7 +49,9 @@ export async function waitForSaveWrites(project: string, workspace: string) {
 }
 export function useSaveScope(project: string, workspace: string) {
   const currentRevision = useSyncExternalStore(subscribe, () => revision);
-  const entries = saveScopeEntries(project, workspace);
+  // Každá změna dirty / pending / zápisu volá notifySaveParticipants (revize), takže stačí přepočet po revizi;
+  // bez toho se při každém renderu Appu procházel DOM každé karty (`isDirty` → querySelectorAll).
+  const entries = useMemo(() => saveScopeEntries(project, workspace), [project, workspace, currentRevision]);
   return { revision: currentRevision, writeRevision: saveWriteRevision(project, workspace), entries, dirty: entries.some((entry) => entry.dirty), pending: entries.some((entry) => entry.pending) };
 }
 export async function flushSaveScope(project: string, workspace: string) {

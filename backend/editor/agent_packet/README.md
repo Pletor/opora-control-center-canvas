@@ -12,3 +12,5 @@ karty a všech jejích předků. Každé nese `origin {scope, nodeId, name, path
 `scope` rozlišuje projekt, cestu, sektor a kartu; `storage` rozlišuje projektovou a lokální
 kolekci (ID lokálních pravidel se mohou opakovat). Zákazy předků se zahrnují i do stop podmínek.
 Původní `nodeRules` a `projectRules` zůstávají kompatibilní. Plátno zobrazuje stejný původ ikonami.
+
+Odvozené pohledy (`sector_status`, `sector_blockers`, `frontier`, `work_overview`, `checklists`) počítají předky a vazby jednou za dotaz přes indexy (`sector_ancestry`, `SectorEdges`, `FrontierIndex`, `EdgeIndex`) a zadání s texty čtou dvěma hromadnými dotazy. Výstup je stejný jako dřívější procházení všech dvojic; hlídá to `test_derived_views_equivalence.py` (oprava 7 v docs/navrhy/2026-10-14-vykon-platna.md).

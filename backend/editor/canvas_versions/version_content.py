@@ -12,15 +12,27 @@ STORES = {
     "agentWorkspaces": ("agent_workspace_revisions", ("node_id",), ("sections", "by")),
     "documents": ("workspace_documents", ("path",), ("fields", "node_id", "source_version")),
     "briefFragments": ("brief_fragment_revisions", ("fragment_id",), ("parent_id", "scope_node_id", "ord", "kind", "title",
-                                                                     "text", "stage", "mvp", "note", "by", "actor", "deleted")),
+                                                                     "text", "stage", "mvp", "note", "by", "actor", "deleted",
+                                                                     "discipline", "gates")),
     "briefDetails": ("brief_fragment_details", ("fragment_id",), ("fields",)),
     # Zamrazená kola karet (card_rounds.py); stav nese `nodes[].round`, záznamy kol tato část.
     "cardRounds": ("card_rounds", ("node_id", "round"), ("record",)),
+    # Poučení Schránky (brief_vault_lessons.py, docs/schranka-neurony.md §5, §9 bod 5): stav poučení jako revize.
+    "briefLessons": ("brief_lessons", ("lesson_id",), ("fragment_id", "cycle_revision", "discipline", "kind", "text", "weight",
+                                                       "created_at", "confirmed_at", "dropped", "by", "actor")),
 }
 # Části přidané až po verzích, které je neznají: starší snímek je čte jako prázdné a jejich
 # prázdný seznam nemění digest obsahu (stará verze projde kontrolou integrity a není „změněná“).
-LATER_STORES = ("briefFragments", "briefDetails", "cardRounds")
+LATER_STORES = ("briefFragments", "briefDetails", "cardRounds", "briefLessons")
 JSON_COLUMNS = {"fields", "scene", "sections", "record"}
+# Sloupce přidané do části až po verzích, které je neznají (hodnota „nic“). Starší snímek je při obnově
+# dostane s touto hodnotou a digest obsahu je s touto hodnotou vynechá, takže stará verze zůstane platná.
+# `gates` (brány cyklu, JSON text) mají starší snímky prázdné = NULL.
+LATER_COLUMNS = {"briefFragments": {"discipline": None, "gates": None}}
+# Sloupce, které část už neukládá (snímky z doby před disciplínami nesou `track`). Při obnově se převedou
+# (`with_later_stores`, stejně jako backfill DB: ux → ux, logic → be) a digest uloženého snímku je s výchozí
+# hodnotou vynechá jako dřív, takže integrita starých verzí platí dál.
+RETIRED_COLUMNS = {"briefFragments": {"track": None}}
 SCHEMA = "opora.canvas-version/2"
 EXCLUDED = ["source-code", "git-history", "project-settings", "external-references", "immutable-agent-evidence"]
 
@@ -44,6 +56,7 @@ def read_records(db, project, workspace):
 
 def empty_data(name):
     from backend.editor.agent_memory.agent_workspace import SECTIONS
+    from backend.editor.brief_vault.brief_vault_lessons import TOMBSTONE as LESSON_TOMBSTONE
     from backend.editor.brief_vault.brief_vault_model import TOMBSTONE
     from backend.editor.node.node_specs import EMPTY_FIELDS
     from backend.project.workspace.workspace_documents import FIELDS
@@ -55,16 +68,39 @@ def empty_data(name):
         "briefFragments": dict(TOMBSTONE),
         "briefDetails": {"fields": {}},
         "cardRounds": {"record": {}},
+        "briefLessons": dict(LESSON_TOMBSTONE),
     }[name]
 
 
+def _upgraded_data(name, data):
+    """Data řádku staršího snímku v dnešním tvaru: vyřazená stopa → disciplína, chybějící sloupce s výchozí hodnotou."""
+    data = dict(data)
+    if name == "briefFragments" and "track" in data:
+        from backend.editor.brief_vault.brief_vault_disciplines import discipline_from_track
+        track = data.pop("track")
+        if data.get("discipline") is None:
+            data["discipline"] = discipline_from_track(track)
+    return {**LATER_COLUMNS.get(name, {}), **data}
+
+
 def with_later_stores(records):
-    """Snímek uložený před přidáním části ji dostane jako prázdnou (obnova pak skryje novější fragmenty)."""
-    return {**{name: [] for name in LATER_STORES}, **records}
+    """Snímek uložený před přidáním části ji dostane jako prázdnou (obnova pak skryje novější fragmenty),
+    řádky bez později přidaného sloupce ho dostanou s výchozí hodnotou (`LATER_COLUMNS`) a snímek se stopou
+    dostane disciplínu jako backfill databáze (`track` ux → `ux`, logic → `be`)."""
+    records = {**{name: [] for name in LATER_STORES}, **records}
+    return {name: [{**row, "data": _upgraded_data(name, row["data"])} for row in rows] if name in LATER_COLUMNS else rows
+            for name, rows in records.items()}
+
+
+def _digest_data(name, data):
+    """Data řádku pro digest bez později přidaných i vyřazených sloupců s výchozí hodnotou (stejný digest jako dřív)."""
+    skipped = {**LATER_COLUMNS.get(name, {}), **RETIRED_COLUMNS.get(name, {})}
+    return {key: value for key, value in data.items() if key not in skipped or value != skipped[key]}
 
 
 def content_digest(graph, state, snapshot):
-    records = {name: [{"key": row["key"], "data": row["data"]} for row in rows if row["data"] != empty_data(name)]
+    records = {name: [{"key": row["key"], "data": _digest_data(name, row["data"])} for row in rows
+                      if _digest_data(name, row["data"]) != _digest_data(name, empty_data(name))]
                for name, rows in snapshot["records"].items()}
     records = {name: rows for name, rows in records.items() if rows or name not in LATER_STORES}
     return digest({"graph": graph, "state": state, "records": records, "assets": snapshot["assets"]})
@@ -100,6 +136,7 @@ def validate_records(records, project, workspace):
     from backend.editor.agent_memory.agent_workspace import validate_save
     from backend.editor.agent_memory.card_rounds import validate_record as validate_round_record
     from backend.editor.brief_vault.brief_vault_details import validate_details
+    from backend.editor.brief_vault.brief_vault_lessons import validate_lesson_record
     from backend.editor.brief_vault.brief_vault_model import validate_record
     from backend.editor.node.drawings import validate_scene
     from backend.editor.node.node_journal import valid_day
@@ -128,6 +165,8 @@ def validate_records(records, project, workspace):
                 validate_save({"project": project, "workspace": workspace, "nodeId": key[0], "expectedRevision": 0, "sections": data["sections"], "by": data["by"]})
             elif name == "briefFragments":
                 validate_record(data)
+            elif name == "briefLessons":
+                validate_lesson_record(data)
             elif name == "briefDetails":
                 validate_details(data["fields"])
             elif name == "cardRounds":

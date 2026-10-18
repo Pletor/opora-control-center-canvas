@@ -182,7 +182,7 @@ def test_managed_workspace_and_main_history_keep_project_scope(tmp_path):
     service = app.state.service
     service.register_repository("p", "Project", repo, "https://github.com/example/project", "main")
     service.register_repository("other", "Other", repo, "https://github.com/example/other", "main")
-    workspace = service.create_workspace("p", "node-1", "Test")
+    workspace = service._add_worktree("p", "node-1", "Test")
     with TestClient(app, base_url=ORIGIN) as client:
         scope = {**SCOPE, "project": "p", "workspace": workspace["id"]}
         payload = {**scope, "expected_revision": 0, "fields": FIELDS}

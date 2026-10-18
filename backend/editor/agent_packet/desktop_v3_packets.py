@@ -144,16 +144,14 @@ def memory_for(stored, node_ids, paths, session_id):
         if (item["nodeId"] and item["nodeId"] == focus)
         or (item["sessionId"] and item["sessionId"] == session_id)
     ]
-    node_state = state["nodes"].get(focus, {"phase": "discover", "criteria": [], "steps": []})
+    # Fáze, kritéria a kroky jsou tolerovaná stará data stavu; balíček je nenese.
+    node_state = state["nodes"].get(focus, {})
     return redact_deep({
         "revision": stored["revision"],
         "settings": list(state["settings"]),
         "rules": rules,
         "decisions": decisions,
         "tickets": tickets,
-        "phase": node_state["phase"],
-        "criteria": node_state["criteria"],
-        "steps": node_state["steps"],
         # Bloky z portů karty: pořadí akcí je pořadí pipeline; starší uzel bez bloků má prázdné pole.
         "actions": node_state.get("actions", []),
         "nodeRules": node_state.get("rules", []),
@@ -351,7 +349,6 @@ class DesktopV3Packets:
                 "references": [{"path": item, "mode": "reference", "contentIncluded": False} for item in dict.fromkeys(references)],
                 "spec": {"revision": spec["revision"], "fields": spec["fields"]},
                 "text": {"revision": text["revision"], "text": text["text"]},
-                "phase": memory["phase"],
                 # Jen `next` určuje pořadí práce; rule/action/block/flow jsou jiné souvislosti.
                 # Neuložená fáze není důkaz discover ani dokončení: zůstává null.
                 "depends_on": [
@@ -360,8 +357,6 @@ class DesktopV3Packets:
                     for nid in sorted({edge["source"] for edge in graph["edges"]
                                        if edge["target"] == node and edge_port(edge) == "next"})
                 ],
-                "criteria": memory["criteria"],
-                "steps": memory["steps"],
                 # Co má agent na uzlu vykonat (pipeline v pořadí) a jaká pravidla pro uzel platí.
                 "actions": memory["actions"],
                 "rules": memory["nodeRules"],

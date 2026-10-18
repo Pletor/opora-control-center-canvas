@@ -201,7 +201,7 @@
   font-weight: 700;
 }
 
-/* Šest kolečkových přepínačů pod polem Účel: každé je plná ukázka barvy, kterou by rámeček dostal
+/* Šest kolečkových přepínačů pod záměrem a rozkladem: každé je plná ukázka barvy, kterou by rámeček dostal
    po kliknutí, takže autor vidí přímo výsledek, ne jméno odstínu. Vybrané kolečko dostane prstenec
    ve své barvě o kousek dál — stejný jazyk výběru jako `--selected` na kartě a na oblasti samotné. */
 .area-panel__swatches {
@@ -237,3 +237,83 @@
 :root[data-theme="light"] .area-panel__swatch[data-color="violet"] { --swatch-color: #8047b8; }
 :root[data-theme="dark"] .area-panel__swatch[data-color="slate"] { --swatch-color: #9aa6b8; }
 :root[data-theme="light"] .area-panel__swatch[data-color="slate"] { --swatch-color: #5c6a7a; }
+
+/* HLAVA RÁMEČKU (`area-card__head`, `__intent`, `__rollup`)
+   Příběh: oblast je vrchol pyramidy — člověk do ní píše záměr a agent z něj navrhne sektory. Proto hned
+   pod štítkem jména stojí záměr sám, v inkoustu oblasti, aby rámeček z dálky říkal „proč tu jsem“, ne jen
+   „jak se jmenuji“. Záměr má 2–5 vět, ale na plátně dostane nejvýš dva řádky a šířku do 520 px: čte se
+   jako podtitulek, celý text je v bublině a v inspektoru. Pod ním tichý souhrn drobným písmem (kolik
+   sektorů, karet, co je hotovo) — ztlumený, protože je to stav, ne výzva; prázdná oblast tu místo čísel
+   napoví první krok. Záměr sedí u spodní hrany rámečku: karty se v oblasti skládají odshora pod štítek,
+   takže u horní hrany by text schovaly; dole bývá volno a oko ho najde jako popisek pod obrázkem.
+   Hlava nechytá myš, aby tažení i výběr rámečku fungovaly jako dřív. */
+.area-card__head {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  right: 12px;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+.area-card__intent {
+  margin: 0;
+  color: var(--area-ink);
+  font: 500 13px/1.35 var(--font);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.area-card__rollup {
+  margin: 0;
+  color: var(--ink-muted);
+  font: 500 11px var(--mono);
+}
+
+/* ROZKLAD NA SEKTORY (blok `area-decompose`)
+   Příběh: pod záměrem v inspektoru leží složený oddíl, který z napsaného záměru udělá hotové zadání pro
+   agenta-rozkladače. Člověk nic nevyplňuje: přečte si jednu větu o stavu (chybí záměr / kolik sektorů už
+   je), zkopíruje zadání jedním tlačítkem a vloží ho do terminálu se skillem. Zadání je jen ke čtení a
+   neproporcionálním písmem, aby bylo vidět, že jde o text pro stroj, ne o další pole formuláře. */
+.area-decompose {
+  margin: 2px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.area-decompose__summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 2px 0;
+}
+.area-decompose__state {
+  margin: 4px 0;
+}
+.area-decompose__prompt {
+  width: 100%;
+  box-sizing: border-box;
+  font: 400 11px/1.4 var(--mono);
+  resize: vertical;
+}
+.area-decompose__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+/* Hlášky po kopírování: tiché „Zkopírováno“ vedle tlačítka (a jen na chvíli), aby člověk věděl, že může
+   vložit; když schránka nejde, výrazná červená výzva pod polem a text v poli je už označený k ruční kopii. */
+.area-decompose__status {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.area-decompose__alert {
+  margin: 4px 0 0;
+  color: var(--danger);
+  font-size: 12px;
+}

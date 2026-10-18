@@ -5,24 +5,38 @@ Tvar hlídá `validate_refs` (čistá funkce pro `validate_state`). Existenci fr
 a prostoru hlídá `check_new_references` při uložení stavu a `resolve_plan_refs` v dávce plánu.
 """
 
+import re
+
 from backend.canvas.graph import valid_id
-from backend.editor.brief_vault.brief_vault_model import latest_rows, text_revisions
+from backend.editor.brief_vault.brief_vault_model import (
+    content_hash,
+    effective_disciplines,
+    history_rows,
+    latest_rows,
+    legacy_hashes,
+    ref_changed,
+    text_revisions,
+)
 from backend.editor.brief_vault.brief_vault_tree import path_of
 
 REF_KEYS = {"fragmentId", "revision"}
+# `contentHash` = otisk názvu a textu při vložení (§9 bod 6); starší odkazy ho nemají.
+STATE_REF_KEYS = (REF_KEYS, REF_KEYS | {"contentHash"})
 PLAN_REF_KEYS = (REF_KEYS, {"fragmentId"})
+HASH = re.compile(r"[0-9a-f]{64}")
 MAX_REFS = 50
 
 
 def validate_refs(value, label="fragmentRefs"):
-    """`[{fragmentId, revision}]`, nejvýše `MAX_REFS`, každý fragment jednou."""
+    """`[{fragmentId, revision, contentHash?}]`, nejvýše `MAX_REFS`, každý fragment jednou."""
     if not isinstance(value, list) or len(value) > MAX_REFS:
         raise ValueError(f"Neplatný stav Desktop v3: {label} musí být pole nejvýše {MAX_REFS} odkazů.")
     seen = set()
     for ref in value:
-        if (not isinstance(ref, dict) or set(ref) != REF_KEYS or not valid_id(ref["fragmentId"])
-                or type(ref["revision"]) is not int or ref["revision"] < 1 or ref["fragmentId"] in seen):
-            raise ValueError(f"Neplatný stav Desktop v3: {label} má odkaz {{fragmentId, revision ≥ 1}} bez opakování.")
+        if (not isinstance(ref, dict) or set(ref) not in STATE_REF_KEYS or not valid_id(ref["fragmentId"])
+                or type(ref["revision"]) is not int or ref["revision"] < 1 or ref["fragmentId"] in seen
+                or ("contentHash" in ref and not (isinstance(ref["contentHash"], str) and HASH.fullmatch(ref["contentHash"])))):
+            raise ValueError(f"Neplatný stav Desktop v3: {label} má odkaz {{fragmentId, revision ≥ 1, contentHash?}} bez opakování.")
         seen.add(ref["fragmentId"])
     return value
 
@@ -54,8 +68,16 @@ def check_new_references(db, project, workspace, previous, state):
         _check(rows, fragment_id, revision, f"karta {node_id}")
 
 
+def _state_ref(db, project, workspace, row, revision):
+    """Odkaz stavu karty s otiskem obsahu té revize, ze které karta vzniká."""
+    source = row if revision == row["revision"] else next(
+        (item for item in history_rows(db, project, workspace, row["fragment_id"]) if item["revision"] == revision), row)
+    return {"fragmentId": row["fragment_id"], "revision": revision, "contentHash": content_hash(source["title"], source["text"])}
+
+
 def resolve_plan_refs(db, project, workspace, built):
-    """`fragmentRef` z dávky (objekt nebo pole) → `fragmentRefs` stavu karty; bez `revision` poslední."""
+    """`fragmentRef` z dávky (objekt nebo pole) → `fragmentRefs` stavu karty; bez `revision` poslední.
+    Odkaz nese i otisk obsahu (`contentHash`), podle kterého se hlásí „zadání se změnilo“."""
     if not built.fragment_refs:
         return
     wanted = {}
@@ -77,7 +99,7 @@ def resolve_plan_refs(db, project, workspace, built):
         refs = {ref["fragmentId"]: ref for ref in node.get("fragmentRefs", [])}
         for ref in items:
             row = _check(rows, ref["fragmentId"], ref.get("revision"), label)
-            refs[ref["fragmentId"]] = {"fragmentId": ref["fragmentId"], "revision": ref.get("revision", row["revision"])}
+            refs[ref["fragmentId"]] = _state_ref(db, project, workspace, row, ref.get("revision", row["revision"]))
         node["fragmentRefs"] = list(refs.values())
     built.state_changed = True
 
@@ -87,6 +109,9 @@ def brief_section(db, project, workspace, refs):
     refs = refs or []
     rows = latest_rows(db, project, workspace) if refs else {}
     texts = text_revisions(db, project, workspace, [ref["fragmentId"] for ref in refs]) if refs else {}
+    disciplines = effective_disciplines(rows) if refs else {}
+    legacy = legacy_hashes(db, project, workspace, [(ref["fragmentId"], ref["revision"]) for ref in refs
+                                                    if not ref.get("contentHash")])
     items = []
     for ref in refs:
         row = rows.get(ref["fragmentId"])
@@ -94,13 +119,14 @@ def brief_section(db, project, workspace, refs):
             items.append({"fragmentId": ref["fragmentId"], "insertedRevision": ref["revision"], "available": False})
             continue
         items.append({"fragmentId": ref["fragmentId"], "title": row["title"], "kind": row["kind"], "stage": row["stage"],
+                      "effectiveDiscipline": disciplines.get(ref["fragmentId"]),
                       "path": [item["title"] for item in path_of(rows, ref["fragmentId"])],
                       "insertedRevision": ref["revision"], "revision": row["revision"],
                       "textRevision": texts.get(ref["fragmentId"], row["revision"]),
-                      "changedSinceInsert": ref["revision"] < texts.get(ref["fragmentId"], row["revision"]),
+                      "changedSinceInsert": ref_changed(ref, row, texts.get(ref["fragmentId"], row["revision"]), legacy),
                       "deleted": bool(row["deleted"]),
                       "available": True, "text": row["text"]})
     return {"items": items, "changed": sum(1 for item in items if item.get("changedSinceInsert")),
-            "policy": "verbatim brief text from the brief vault (latest revision); changedSinceInsert = the TEXT changed "
-                      "after the card was planned (metadata-only revisions do not count); read GET /api/brief-vault/fragment "
+            "policy": "verbatim brief text from the brief vault (latest revision); changedSinceInsert = the title or TEXT "
+                      "changed after the card was planned (gate and metadata-only revisions do not count); read GET /api/brief-vault/fragment "
                       "for history and GET /api/brief-vault/research-brief for research"}

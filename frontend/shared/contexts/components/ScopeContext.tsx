@@ -15,7 +15,6 @@ export default function ScopeContext({
   jobs,
   localProject,
   tools,
-  vault,
   onWorkspace,
 }: {
   mode: WorkspaceMode;
@@ -27,8 +26,6 @@ export default function ScopeContext({
   localProject: boolean;
   /** Nástroje módu (mapa, kreslení) patří před obecný kontext. */
   tools?: ReactNode;
-  /** Schránka zadání plátna nebo otevřené vrstvy (jen čtení). */
-  vault?: ReactNode;
   onWorkspace: () => void;
 }) {
   const modeInfo = WORKSPACE_MODES.find((m) => m.key === mode);
@@ -61,7 +58,7 @@ export default function ScopeContext({
       : mode === "text"
         ? "Otevřete vrstvu, aby měl dokument svůj deník a souvislosti."
         : mode === "map"
-          ? "Klik vybere uzel nebo vazbu, dvojklik otevře vrstvu ve Struktuře."
+          ? "Velín: pyramida oblastí, sektorů a karet; klik na kartu nebo „Vstoupit“ přepne do Struktury."
           : modeInfo?.hint ?? "";
   return (
     <div className="scope-context" data-testid="scope-context">
@@ -94,12 +91,6 @@ export default function ScopeContext({
           </>
         )}
       </dl>
-      {vault && (
-        <details className="scope-context__vault" data-testid="scope-vault">
-          <summary>Schránka zadání</summary>
-          {vault}
-        </details>
-      )}
       <h3>Operace</h3>
       {jobs.length ? (
         <ul className="job-list">

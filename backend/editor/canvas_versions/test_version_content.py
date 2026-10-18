@@ -8,7 +8,15 @@ from backend.app.factory import create_app
 from backend.canvas.graph import digest as graph_digest
 from backend.editor.canvas_versions.test_canvas_versions import digest, graph, save, versions
 from backend.editor.canvas_versions.version_content import STORES, empty_data, read_records
-from backend.editor.node.test_removals import HEADERS, ORIGIN, SCOPE, desktop_state, install_desktop_state, install_graph, state_node
+from backend.editor.node.test_removals import (
+    HEADERS,
+    ORIGIN,
+    SCOPE,
+    desktop_state,
+    install_desktop_state,
+    install_graph,
+    state_node,
+)
 
 
 def seed(db, name, data, revision=1, key=None, workspace="draft"):
@@ -32,6 +40,8 @@ def contents(marker):
     items["briefFragments"].update(text=marker, title=marker, deleted=0, scope_node_id="")
     items["briefDetails"]["fields"] = {"decisions": [marker]}
     items["cardRounds"]["record"] = {"schema": "opora.card-round/1", "nodeId": "a", "round": 1, "openReason": marker}
+    items["briefLessons"].update(text=marker, fragment_id="f", cycle_revision=3, discipline="be", weight=1.0, dropped=0,
+                                 created_at="2026-10-05T10:00:00+00:00", confirmed_at="2026-10-05T10:00:00+00:00")
     items["drawings"]["scene"]["elements"] = [{"id": "rect", "type": "rectangle", "x": 0, "y": 0,
                                                 "width": 10 if marker == "before" else 20, "height": 10}]
     return items

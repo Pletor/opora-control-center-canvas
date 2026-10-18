@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { domainForNode, domainNode, domainPageTree, reparentDomainPage, reorderDomainPage, splitDomainHost } from "./domain-model";
+import { domainForNode, domainNode, domainPageTree, reparentDomainPage, reorderDomainPage, splitDomainHost, worktreeDomainChoice } from "./domain-model";
 
 const node = (id: string, parentId: string | null = null): CanvasNode => ({ id, parentId, name: id, purpose: "Účel", kind: "node", x: 10, y: 20 });
 const app = (id: string, parentId: string | null = null): CanvasNode => ({ ...node(id, parentId), kind: "sector", site: { kind: "application", environments: [{ name: "Produkce", host: `${id}.example.cz` }] } });
@@ -81,5 +81,15 @@ describe("page structure mutations", () => {
     expect(reorderDomainPage(reordered, "app", "about", 1)).toEqual(original);
     expect(reorderDomainPage(original, "app", "child", 1)).toBe(original);
     expect(() => reorderDomainPage(original, "app", "foreign", -1)).toThrow();
+  });
+});
+
+describe("doména nového worktree", () => {
+  it("předvolba vyhrává, jinak doména vybraného uzlu, jinak nic", () => {
+    expect(worktreeDomainChoice(graph(), "other", "component")).toBe("other");
+    expect(worktreeDomainChoice(graph(), null, "component")).toBe("app");
+    expect(worktreeDomainChoice(graph(), null, null)).toBe("");
+    expect(worktreeDomainChoice(graph(), null, "chybí")).toBe("");
+    expect(worktreeDomainChoice(graph(), "home", null)).toBe("");
   });
 });

@@ -5,7 +5,7 @@ import CardEvidence, { type CompletionEvidence } from "./CardEvidence";
 
 it("never shows missing evidence as passed", () => {
   const html = renderToStaticMarkup(createElement(CardEvidence, {}));
-  expect(html).not.toContain("#16a34a");
+  expect(html).not.toContain("node-card__chip--ok");
   expect(html).toContain("Důkaz nedoložen");
 });
 
@@ -17,8 +17,8 @@ it("shows links and commands while distinguishing failed and inapplicable proofs
     checksRun: [{ checkId: "unit", command: "uv run pytest", exitCode: 0, logUrl: "https://ci.example/log", at: "2026-10-07T12:00:00Z" }],
   };
   const html = renderToStaticMarkup(createElement(CardEvidence, { evidence }));
-  expect(html).toContain("#16a34a");
-  expect(html).toContain("#dc2626");
+  expect(html).toContain("node-card__chip--ok");
+  expect(html).toContain("node-card__chip--fail");
   expect(html).toContain("Nevztahuje se");
   expect(html).toContain("uv run pytest");
   expect(html).toContain('href="https://ci.example/log"');
@@ -32,7 +32,7 @@ it("labels evidence as declared, not server-verified, and accepts local test run
     checksRun: [{ checkId: "unit", command: "npm test", exitCode: 0, logUrl: "", at: "2026-10-07T12:00:00Z" }],
   };
   const html = renderToStaticMarkup(createElement(CardEvidence, { evidence }));
-  expect(html).toContain("deklarováno");
-  expect(html).toContain("neověřeno serverem");
-  expect(html).toContain("#16a34a");
+  expect(html).toContain("Deklarované důkazy");
+  expect(html).toContain("neověřuje");
+  expect(html).toContain("node-card__chip--ok");
 });

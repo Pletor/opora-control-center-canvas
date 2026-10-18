@@ -28,10 +28,39 @@ export type FragmentRevision = {
   at: string;
   deleted: boolean;
   chars: number;
+  /** Vlastní disciplína revize (`null` = dědí po předkovi; docs/schranka-neurony.md §2). Id z `brief-vault-dock/logic/disciplines.ts`. */
+  discipline?: string | null;
 };
 
+/** Brány cyklu ve stromu a v detailu (docs/schranka-neurony.md §3): jen booleany a `predictionError` u `verified`. */
+export type GateFlags = Record<GateName, boolean> & { predictionError: number | null };
+export type GateName = "scoped" | "weighed" | "synthesized" | "decided" | "planned" | "placed" | "verified" | "learned";
+/** Platná disciplína (nejbližší předek včetně sebe, `null` = nezařazené) a stav bran fragmentu. */
+export type GateSummary = {
+  effectiveDiscipline?: string | null;
+  gates?: GateFlags;
+  /** Počet platně zapnutých bran 0–8 (prefix v pořadí cyklu). */
+  gateStep?: number;
+  /** Některá zapnutá brána má jiný otisk vstupů (název, text, disciplína): chová se jako vypnutá. */
+  gatesStale?: boolean;
+  /** `decided` = `no`: slepá ulička. */
+  deadEnd?: boolean;
+  /** Kolo cyklu 1-3 (§11): každé vypnutí `synthesized` otevře další. */
+  round?: number;
+  /** Vyčerpaná kola (přes 3): fragment čeká na člověka, fronta agentů ho přeskakuje. */
+  exhausted?: boolean;
+};
+/** Záznam brány v detailu fragmentu (`gateDetail`): payload, kdo a kdy, a zda platí. */
+export type GateEntry = { value: boolean; payload: Record<string, unknown> | null; by: string; actor: string; at: string;
+  inputHash: string; revision: number; valid: boolean };
+/** Poslední návrh brány pro aktuální otisk vstupů (`proposals` v detailu): kdo navrhl a co se s návrhem stalo.
+ *  `rejected` = zamítnutý op reject-proposal (`rejection` s autorem a poznámkou), nebo brána vypnutá po návrhu (`gateOff`). */
+export type GateProposal = { id: string; revision: number; gate: GateName; payload: Record<string, unknown>; note: string;
+  by: string; actor: string; at: string; status: "pending" | "rejected" | "used";
+  rejection: { id: string | null; note: string; by: string; actor: string; at: string; gateOff?: boolean } | null };
+
 /** Uzel stromu schránky s odvozeným stavem; `children` jsou podfragmenty, research i otázky. */
-export type VaultNode = FragmentRevision & {
+export type VaultNode = FragmentRevision & GateSummary & {
   status: FragmentStatus;
   inserted: boolean;
   cards: { nodeId: string; revision: number }[];
@@ -48,6 +77,8 @@ export type VaultNode = FragmentRevision & {
   decisions?: string[];
   /** Kolik potomků pod stropem hloubky server už nevnořil. */
   hidden?: number;
+  /** Pohled jedné disciplíny: uzel jiné disciplíny, který zůstal jen jako cesta ke kořeni (nepočítá se, nevkládá se). */
+  offPath?: boolean;
   children: VaultNode[];
 };
 export type Feedback = { id: string; fragmentId: string; fragmentRevision: number; verdict: "agree" | "disagree" | "comment"; text: string; by: string; actor: string; at: string };
@@ -56,7 +87,7 @@ export type Evidence = { url: string; title: string; quote: string; accessedAt: 
 export type ResearchDetails = Omit<ResearchSummary, "evidence"> & { approach: string; evidence: Evidence[] };
 export type QuestionDetails = { askedFor: "human" | "agent"; proposal: string; answer: string; answeredBy: string; answeredAt: string };
 
-export type FragmentDetail = {
+export type FragmentDetail = GateSummary & {
   fragment: FragmentRevision & { text: string };
   latestRevision: number;
   history: FragmentRevision[];
@@ -70,6 +101,10 @@ export type FragmentDetail = {
   details?: { research?: ResearchDetails; question?: QuestionDetails; decisions?: string[] };
   decisions?: ({ id: string; available: true; text: string; nodeId: string; pinned: boolean } | { id: string; available: false })[];
   feedback?: Feedback[];
+  /** Uložené záznamy bran (i vypnuté a zneplatněné) s payloadem; chybějící brána = nikdy nezapnutá. */
+  gateDetail?: Partial<Record<GateName, GateEntry>>;
+  /** Poslední návrh každé brány s payloadem pro aktuální otisk vstupů a jeho stav. */
+  proposals?: Partial<Record<GateName, GateProposal>>;
 };
 
 /** Segmenty pruhu pokrytí v pevném pořadí (zleva): hotové vlevo, varování vpravo. */
@@ -101,6 +136,7 @@ export function coverageOf(roots: VaultNode[]): Coverage {
     if (node.kind !== "brief") return;
     const briefs = node.children.filter((child) => child.kind === "brief");
     if (!briefs.length) {
+      if (node.offPath) return;
       result.leaves += 1;
       result[coverageKey(node)] += 1;
       return;
@@ -119,7 +155,7 @@ export function countChangedMvp(roots: VaultNode[]): number {
     const node = stack.pop()!;
     if (node.kind !== "brief") continue;
     const briefs = node.children.filter((child) => child.kind === "brief");
-    if (!briefs.length) { if (node.status === "changed" && (node.mvp === "yes" || node.mvp === "proposed")) count += 1; }
+    if (!briefs.length) { if (!node.offPath && node.status === "changed" && (node.mvp === "yes" || node.mvp === "proposed")) count += 1; }
     else stack.push(...briefs);
   }
   return count;

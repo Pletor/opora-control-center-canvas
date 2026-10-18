@@ -1,6 +1,6 @@
 // Čipy „Ze schránky: 3.36 · 3.37 v1 ⚠ …“ v záložce Zadání: z kterých fragmentů karta vznikla a zda se
 // TEXT fragmentu od vložení změnil. Data dodá rodič (fragmentRefs ze stavu karty + rejstřík stromu); klik
-// na čip otevře okno schránky na fragmentu (onOpen).
+// na čip otevře Schránku v levém menu na fragmentu a v jeho disciplíně (onOpen).
 import { briefChips, type FragmentRef, type VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import "@/editor/node-detail/brief-vault/styles/brief-vault.css";
 

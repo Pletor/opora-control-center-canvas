@@ -1,0 +1,10 @@
+/* Rozdíly proti architektuře (blok `view-conflicts`): zlatý pruh pod hlavičkou editoru. Zlatá, ne
+   červená, protože nic není rozbité: architektura projektu má přednost a worktree jen nese starší
+   kopii uzlu. Věta jmenuje uzel i ID, aby ho člověk našel; delší seznam se rozbalí tichým odkazem,
+   takže pruh nikdy nezakryje mapu. */
+.view-conflicts{padding:8px 16px;border-bottom:1px solid var(--gold);background:color-mix(in srgb,var(--gold) 10%,var(--ae-bg));font-size:12px}
+.view-conflicts__title{margin:0;color:var(--ae-text)}
+.view-conflicts__icon{margin-right:6px;color:var(--gold)}
+.view-conflicts__list{margin:4px 0 0;padding-left:22px;color:var(--ae-muted)}
+.view-conflicts__item{overflow-wrap:anywhere}
+.view-conflicts__more{margin-top:4px;padding:0;border:0;background:none;color:var(--gold);cursor:pointer;font:inherit;text-decoration:underline}

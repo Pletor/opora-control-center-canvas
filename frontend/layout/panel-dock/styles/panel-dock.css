@@ -26,10 +26,13 @@
 /* Menu (blok panel-dock): obal lišty ikon a panelu sekce. Sám nic nekreslí ani nezabírá místo —
    lišta i panel leží přímo v rámu pracovní plochy nad plátnem, obal je jen jedno místo v DOM. */
 .panel-dock { display: contents; }
+/* Zavřené menu, ve kterém čeká rozepsaný text Schránky: lišta ani panel nejsou vidět, ale Schránka
+   zůstává v DOM, aby se text neztratil — po otevření je tam, kde ho uživatel nechal. */
+.panel-dock--closed > * { display: none; }
 
 /* Lišta ikon (blok dock-rail): úzký pás 56 px u levého okraje přes celou výšku rámu. Je to rejstřík,
-   ne obsah: jen ikony 20 px na čtvercích 40 px, nad sebou v rytmu 4 px — Knihovna, Agenti, Postupy,
-   pak tenký oddělovač a Nastavení, které nejsou „odkud beru“, ale „jak to platí“. Aktivní ikona dostane
+   ne obsah: jen ikony 20 px na čtvercích 40 px, nad sebou v rytmu 4 px — Struktura a Schránka,
+   pak tenký oddělovač a Nastavení, které nejsou „na čem pracuji“, ale „jak to platí“. Aktivní ikona dostane
    měkký podklad v akcentu a proužek u levé hrany, jako záložka v šanonu: je vidět, který panel je
    otevřený, i když je sbalený. Pravá hrana nese linku, aby se lišta četla jako okraj, ne jako plovák. */
 .dock-rail {
@@ -87,11 +90,10 @@
 }
 
 /* Panel sekce (blok panel-drawer): hned vedle lišty ikon vyjede pás 380 px přes celou výšku rámu.
-   Je to jedno stálé místo — oko ho najde vždy vlevo, ať je otevřená Knihovna, Agenti, Postupy, nebo
+   Je to jedno stálé místo — oko ho najde vždy vlevo, ať je otevřená Struktura, Schránka, nebo
    Nastavení. Panel leží nad plátnem (vrstva 20: nad plátnem i šuplíkem knihovny uzlu 6/7, pod horní
    lištou 30 a rohem účtu 60), ale plátno vpravo zůstává volné: pravá hrana nese linku a stín do
-   plátna, který říká „ležím nad ním, nejsem jeho sloupec“. Přetečení je viditelné, protože z Knihovny
-   vyjíždí vpravo sloupec náhledů. Na úzkém okně (pod 900 px) zabere zbytek šířky vedle lišty. */
+   plátna, který říká „ležím nad ním, nejsem jeho sloupec“. Na úzkém okně (pod 900 px) zabere zbytek šířky vedle lišty. */
 .panel-drawer {
   position: absolute;
   top: 0;
@@ -111,6 +113,11 @@
 @media (max-width: 899px) {
   .panel-drawer { width: calc(100% - 56px); }
 }
+/* Široký panel (Schránka): práce se zadáním je samostatná činnost, ne pohled vedle karty. Proto
+   Schránka překryje celé plátno od lišty až k pravé hraně; lišta vlevo zůstává, takže jedním klikem
+   (nebo Esc / opětovnou zkratkou) se člověk vrátí na plátno přesně tam, kde byl. Stín do plátna
+   tu nemá co oddělovat, proto zmizí. */
+.panel-drawer--wide { width: auto; right: 0; border-right: 0; box-shadow: none; }
 /* Horní část panelu: název sekce a hlavička projektu s odsazením 16 px a mezerou 10 px — stejný
    rytmus jako hledání pod ní. Roluje se sama, kdyby se hlavička někdy nevešla, aby seznam pod ní
    nikdy nezmizel celý. */
@@ -145,16 +152,11 @@
   position: relative;
   padding-bottom: 52px;
 }
-/* Tažení položky z panelu: panel zprůsvitní a přestane brát myš, aby šlo položku pustit i na
-   plátno přímo pod ním. Po puštění se vrátí celý a zůstává otevřený pro další položku. */
-.panel-drawer--dragging {
-  opacity: 0.4;
-  pointer-events: none;
-}
+/* Schránka s rozepsaným textem, zatímco uživatel kouká do jiné sekce: panel je skrytý, ne zničený. */
+.panel-drawer--kept { display: none; }
 
-/* Nastavení (blok dock-settings): dvě skupiny pod sebou, každá s tichým verzálkovým nadpisem —
-   profil projektu (karta je tu vždy rozbalená, protože sem uživatel přišel právě kvůli ní) a filtr
-   katalogu. Obsah se roluje uvnitř panelu se stejným odsazením 16 px jako hlavička nad ním. */
+/* Nastavení (blok dock-settings): profil projektu pod tichým verzálkovým nadpisem — karta je tu
+   vždy rozbalená, protože sem uživatel přišel právě kvůli ní. Obsah se roluje uvnitř panelu se stejným odsazením 16 px jako hlavička nad ním. */
 .dock-settings {
   height: 100%;
   box-sizing: border-box;
@@ -173,50 +175,5 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-.dock-settings__group .catalog-scope { padding: 0; }
 .dock-settings__hint { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.5; }
 
-/* Filtr katalogu (blok catalog-scope): pod hledáním dvě pilulky „Pro tento projekt N“ a „Vše M“.
-   Výchozí je projekt — výběr ze stovky věcí se zúží na to, co projekt opravdu potřebuje, a číslo
-   u „Vše“ poctivě říká, kolik toho zůstalo stranou. Aktivní pilulka nese akcent, druhá je tichá. */
-.catalog-scope {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 12px 8px;
-}
-.catalog-scope__pill {
-  min-height: 0;
-  padding: 2px 10px;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--ink-muted);
-  font-size: 12px;
-  cursor: pointer;
-}
-.catalog-scope__pill:hover { color: var(--ink); }
-.catalog-scope__pill--active,
-.catalog-scope__pill--active:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
-  color: var(--accent);
-}
-.catalog-scope__count { font-weight: 600; }
-/* Řádek „Mimo profil“: čárkovaný rámeček na konci seznamu je pozvánka, ne další položka. Říká, kolik
-   prvků profil schoval a pro jaké projekty jsou, a jedním klikem je ukáže — ztlumené, aby bylo
-   vidět, že k projektu nepatří. */
-.catalog-scope__outside {
-  width: 100%;
-  margin-top: 12px;
-  padding: 12px;
-  background: transparent;
-  border: 1px dashed var(--line-strong);
-  border-radius: 8px;
-  color: var(--ink-muted);
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-}
-.catalog-scope__outside:hover { color: var(--ink); border-color: var(--accent-line); }
-.catalog-scope__outside-action { color: var(--accent); font-weight: 600; }

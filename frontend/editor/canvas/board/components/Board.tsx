@@ -1,11 +1,14 @@
 // Plátno: React Flow nad grafem. Kartu skládá NodeCard z modelu karty (editor/canvas/node-card),
 // bloky Akce / Pravidla dodává rodič (App) už spočítané. Board jen mapuje data a bublá události nahoru.
+// Výkon (docs/navrhy/2026-10-14-vykon-platna.md, opravy 3 až 5): uzly vrstvy staví čistá funkce bez closures
+// (`logic/layer-nodes.ts`), nezměněné karty drží starý objekt (`logic/stable-nodes.ts`), akce jdou přes
+// kontext (`logic/use-board-actions.ts`). Od 80 uzlů se kreslí jen viditelné (`CULL_VISIBLE`); rozepsané texty
+// karet mimo obraz drží `node-card/logic/block-drafts.ts`. Velká vrstva: MiniMap do 500 uzlů, rovné vazby nad
+// 1000 vazbami (oprava 10) a čip u stropu grafu (`logic/graph-cap.ts`, oprava 8).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
-import { resolveFacts } from "@/editor/canvas/node-card/components/CardFacts";
 import WorkNow from "@/editor/canvas/node-card/components/WorkNow";
 import { useWorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
-import { useScenarioHistory } from "@/editor/canvas/node-card/logic/use-scenario-history";
 import { useAddedPulse } from "@/editor/canvas/node-card/logic/use-added-pulse";
 import {
   ReactFlow,
@@ -18,22 +21,22 @@ import {
   type Edge,
   type Connection,
   type Viewport,
-  type ReactFlowInstance,
 } from "@xyflow/react";
-import { CATALOG_DRAG_TYPE } from "@/editor/component-library/library-catalog/logic/library-catalog";
-import { AGENT_DRAG_TYPE } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
 import type { SurfaceSettings } from "@/shared/surface-settings/logic/workspace-settings";
 import type { Graph } from "@/shared/types/logic/types";
-import type { DesktopState } from "@/shared/desktop-state/logic/types";
-import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
-import { edgeAppearance } from "@/editor/canvas/board/logic/board-model";
-import { upstreamRows } from "@/editor/canvas/node-card/logic/upstream";
+import type { DesktopState, Rule } from "@/shared/desktop-state/logic/types";
+import { buildBoardIndex } from "@/editor/canvas/board/logic/board-index";
+import { layerEdges, simpleEdges } from "@/editor/canvas/board/logic/board-edges";
+import { capWarning } from "@/editor/canvas/board/logic/graph-cap";
+import { buildLayerNodes, movedKey, shouldCull } from "@/editor/canvas/board/logic/layer-nodes";
+import { reuseNodes } from "@/editor/canvas/board/logic/stable-nodes";
+import { useBoardActions } from "@/editor/canvas/board/logic/use-board-actions";
+import { CardActionsContext, type CardBlockEvent } from "@/editor/canvas/node-card/logic/card-actions";
 import { useFrontier } from "@/editor/canvas/node-card/logic/use-frontier";
-import { areaSummary, handoffMark, useCardChecklist } from "@/editor/canvas/card-checklist/logic/card-checklist";
+import { useCardChecklist } from "@/editor/canvas/card-checklist/logic/card-checklist";
 import { proposalCount, proposalsIn } from "@/editor/canvas/node-card/logic/completion-proposals";
 import ConfirmSectorProposals from "@/editor/canvas/node-card/components/ConfirmSectorProposals";
 import { evidenceReadiness } from "@/editor/canvas/node-card/logic/evidence-readiness";
-import { releaseLease } from "@/editor/canvas/node-card/logic/release-lease";
 import SectorGateEditor from "@/editor/canvas/node-card/components/SectorGateEditor";
 import SectorAutonomy from "@/editor/canvas/node-card/components/SectorAutonomy";
 import "@/editor/canvas/board/styles/board-bar.css";
@@ -41,63 +44,26 @@ import { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
 import { layerFootprints } from "@/editor/canvas/board/logic/layout-model";
 import { settleArea, settleCard } from "@/editor/canvas/board/logic/solid-bodies";
 import NodeCard, { type NodeCardData } from "@/editor/canvas/node-card/components/NodeCard";
-import { effectiveRules } from "@/editor/canvas/node-card/logic/effective-rules";
 import type { UsageSummary } from "@/editor/canvas/node-card/logic/use-usage";
-import { cardView, matchesTagFilter } from "@/editor/canvas/node-card/logic/card-model";
-import CommentCard, { type CommentCardData } from "@/editor/canvas/comment-card/components/CommentCard";
-import { commentView } from "@/editor/canvas/comment-card/logic/comment-model";
-import AreaCard, { type AreaCardData } from "@/editor/canvas/area/components/AreaCard";
-import { areaColorOf, areaLabel, membersOf } from "@/editor/canvas/area/logic/area-model";
+import CommentCard from "@/editor/canvas/comment-card/components/CommentCard";
+import AreaCard from "@/editor/canvas/area/components/AreaCard";
+import { membersOf } from "@/editor/canvas/area/logic/area-model";
 import { blockNodeTypes } from "@/editor/workflow/blocks/components/CanvasBlock";
 import { isBlockId, parseBlockId, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
-import { revealNodeCenter } from "../logic/reveal-node";
 import { isDeleteKey, reportsSelection, sameSelection, selectionIds } from "../logic/box-selection";
 import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
-import { changedSinceInsert, indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import { indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
+/** Nad tolika uzly vrstvy se MiniMap nekreslí: React Flow ji překresluje při každé změně uzlů. */
+const MINIMAP_MAX = 500;
 
-/** Půlka karty: co uživatel pustí, má přistát pod kurzorem, ne rohem na něm. Stejné míry jako dvojklik. */
-const CARD_GRAB = { x: 136, y: 84 };
-
-/**
- * Ze kterého navbaru tažení přišlo: levý katalog knihovny (`CATALOG_DRAG_TYPE`), nebo pravý katalog
- * postupů (`AGENT_DRAG_TYPE`). Cizí tažení (soubor, text) plátno nebere a nechá ho projít beze změny.
- */
-const dropTypeOf = (types: readonly string[]): string | null =>
-  types.includes(CATALOG_DRAG_TYPE) ? CATALOG_DRAG_TYPE : types.includes(AGENT_DRAG_TYPE) ? AGENT_DRAG_TYPE : null;
-
-/**
- * Karta pod ukazatelem při puštění: id uzlu React Flow, na který se pustilo. Boční blok (Akce /
- * Pravidla / Podklady) patří své kartě, proto se přeloží na její id. Prázdné plátno vrací `null`.
- */
-function dropTargetOf(target: EventTarget | null): string | null {
-  const id = target instanceof Element ? target.closest(".react-flow__node")?.getAttribute("data-id") ?? null : null;
-  if (!id) return null;
-  return isBlockId(id) ? parseBlockId(id)?.nodeId ?? null : id;
-}
-
-/** Z celé instance React Flow potřebuje drop jedinou schopnost: přepočet obrazovky na souřadnice vrstvy. */
-type ScreenToFlow = Pick<ReactFlowInstance, "screenToFlowPosition" | "getNode" | "getZoom" | "setCenter">;
-
-export type CardBlockEvent =
-  | { type: "configure-spawn"; blockId: string; portId: string; action: import("@/shared/desktop-state/logic/types").PortSpawn | undefined }
-  | { type: "add" }
-  | { type: "move"; blockId: string; delta: -1 | 1 }
-  | { type: "remove"; blockId: string }
-  | { type: "rename"; blockId: string; title: string }
-  | { type: "text"; blockId: string; text: string }
-  | { type: "add-port"; blockId: string }
-  | { type: "rename-port"; blockId: string; portId: string; label: string }
-  | { type: "remove-port"; blockId: string; portId: string }
-  | { type: "decide-port"; blockId: string; portId: string; status: "chosen" | "rejected" | ""; reason: string };
+export type { CardBlockEvent };
 
 export default function Board({
-  onUrlDownload,
   sourceStatuses,
   onRealizeSource,
   onAutonomy,
-  onSaveEvidence,
   onSaveSector,
   onConfirmSector,
   onConfirmProposal,
@@ -142,13 +108,10 @@ export default function Board({
   tagFilter,
   onTagFilter,
   onCardBlock,
-  onCatalogDrop,
-  onAgentDrop,
-  reveal,
-  onRevealed,
+  revision,
+  digest,
 }: {
   usage?: UsageSummary | null;
-  onUrlDownload?: (nodeId: string, enabled: boolean) => Promise<boolean>;
   sourceStatuses?: Record<string, import("@/editor/canvas/node-card/logic/use-source-status").SourceStatus>;
   onRealizeSource?: (nodeId: string, commit: string, prUrl: string) => Promise<void>;
   onConfirmProposal?: (nodeId: string) => Promise<boolean>;
@@ -157,11 +120,10 @@ export default function Board({
   onConfirmSector?: (sectorId: string, ids: string[]) => Promise<void>;
   onSaveSector?: (node: import("@/shared/types/logic/types").CanvasNode) => void;
   onAutonomy?: (sectorId: string, until: string, grantedBy: string, note: string) => Promise<void>;
-  onSaveEvidence?: (nodeId: string, value: import("@/editor/canvas/node-card/components/CardEvidence").CompletionEvidence) => Promise<boolean>;
   leases?: Record<string, import("@/editor/canvas/node-card/logic/use-leases").CardLease>;
   assignmentStatuses?: import("@/editor/canvas/node-card/logic/use-assignment-status").AssignmentStatuses;
-  onRuleWrite?: NonNullable<NodeCardData["rules"]>["write"];
-  onRuleReview?: NonNullable<NodeCardData["rules"]>["review"];
+  onRuleWrite?: (expected: Rule, item: Rule) => Promise<boolean>;
+  onRuleReview?: (rule: Rule, decision: import("@/shared/desktop-state/logic/agent-rule").RuleReviewDecision) => Promise<boolean>;
   sourceContext?: { project: string; workspace: string };
   /** Naměřené výšky karet vrstvy pro „Srovnat“ v App (karta s bloky je vyšší než výchozí otisk). */
   heightsRef?: { current: Record<string, number> };
@@ -214,159 +176,75 @@ export default function Board({
   onTagFilter: (tag: string) => void;
   /** Bloky obsahu v kartě; ukládá rodič. */
   onCardBlock: (nodeId: string, event: CardBlockEvent) => void;
-  /**
-   * Prvek Knihovny puštěný na plátno: id z tažení, místo puštění v souřadnicích vrstvy a id uzlu pod
-   * ukazatelem (`null` = prázdné plátno). Co vznikne (blok v kartě, nebo nová karta), rozhoduje rodič.
-   */
-  onCatalogDrop: (itemId: string, x: number, y: number, targetId: string | null) => void;
-  /**
-   * Položka Agentů a Postupů puštěná na plátno: stejné místo i cíl. Co z ní vznikne — pravidlo, akce,
-   * nebo celý sektor s fázemi — rozhoduje rodič, ne plátno.
-   */
-  onAgentDrop: (itemId: string, x: number, y: number, targetId: string | null) => void;
-  reveal?: { id: string; scope: string; nonce: number } | null;
-  onRevealed?: (nonce: number) => void;
+  /** Revize stavu (`desktop.revision`) a otisk grafu (`view.digest`): klíče pro obnovu overlayů. */
+  revision?: number | null;
+  digest?: string;
 }) {
   const [showFrontier, setShowFrontier] = useState(true);
-  const frontier = useFrontier(sourceContext, parent, showFrontier, state);
-  const checklists = useCardChecklist(sourceContext, parent, state);
+  // Overlaye se obnovují podle čísel (revize stavu a otisk grafu), ne podle objektů: debounce v pollingu
+  // tak sloučí víc změn jedné editace. Když je rodič nepředá, poslouží počítadlo změn grafu a stavu.
+  const changes = useChangeCount(graph, state);
+  const stateKey = revision ?? `local:${changes}`;
+  const workKey = `${digest ?? ""}:${stateKey}`;
+  const frontier = useFrontier(sourceContext, parent, showFrontier, stateKey);
+  const checklists = useCardChecklist(sourceContext, parent, stateKey);
   // Strom schránky se obnoví jen při změně odkazů karet a Podnětů do schránky, ne při každé změně stavu.
   const vaultRefs = useMemo(() => JSON.stringify(Object.entries(state.nodes).map(([id, node]) =>
     [id, node.fragmentRefs ?? [], (node.ideas ?? []).map((idea) => idea.fragmentId ?? "")])), [state.nodes]);
   const vault = useBriefVault(sourceContext, vaultRefs);
   const vaultIndex = useMemo(() => indexVault(vault.tree?.roots ?? []), [vault.tree]);
-  const isSelected = (id: string) => id === selected || multiSelected.includes(id);
-  const sectors = useMemo(() => sectorViews(graph, state), [graph, state]);
-  const movedCards = useAddedPulse(graph.nodes.map(n => `${n.id}:${n.parentId}:${n.x}:${n.y}`));
-  const workRevision = useMemo(() => ({ graph, state }), [graph, state]);
-  const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workRevision);
-  const scenarios = useScenarioHistory(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workRevision);
-  const make = (): Node[] =>
-    (graph.nodes
-      .filter((n) => n.parentId === parent)
-      .map((n): Node<NodeCardData> | Node<CommentCardData> | Node<AreaCardData> => {
-        if (n.kind === "comment") {
-          return {
-            id: n.id,
-            type: "comment",
-            position: { x: n.x, y: n.y },
-            selected: isSelected(n.id),
-            connectable: false,
-            data: {
-              view: commentView(n),
-              disabled,
-              onRename: (title: string) => onRename(n.id, title),
-              onText: (text: string) => onCommentText(n.id, text),
-            },
-          };
-        }
-        if (n.kind === "area") {
-          const size = n.size ?? { w: 720, h: 480 };
-          return {
-            id: n.id,
-            type: "area",
-            position: { x: n.x, y: n.y },
-            selected: isSelected(n.id),
-            // Oblast musí zůstat pod kartami vždy, i vybraná — proto vlastní z-index i mimo CSS.
-            zIndex: -1,
-            style: { width: size.w, height: size.h },
-            data: {
-              view: { label: areaLabel(n), unnamed: !n.name.trim(), members: membersOf(n, graph.nodes).length, w: size.w, h: size.h, color: areaColorOf(n),
-                summary: checklists ? areaSummary(membersOf(n, graph.nodes).flatMap((m) => checklists[m.id] ? [checklists[m.id]] : [])) : undefined },
-              disabled,
-              onRename: (name: string) => onRename(n.id, name),
-              onResize: (w: number, h: number) => onAreaResize(n.id, w, h),
-            },
-          };
-        }
-        const workflow = nodeWorkflowOf(state, n.id);
-        const view = { ...cardView(n, workflow, graph.nodes.filter((c) => c.parentId === n.id).length),
-          briefChanged: changedSinceInsert(workflow.fragmentRefs, vaultIndex) };
-        return {
-          id: n.id,
-          type: "canvas",
-          position: { x: n.x, y: n.y },
-          selected: isSelected(n.id),
-          data: {
-            view,
-            checklist: checklists?.[n.id],
-            usage: (n.kind === "sector" ? usage?.sectors : usage?.nodes)?.[n.id],
-            upstream: { rows: upstreamRows(graph, state, n.id), open: onSelect },
-            frontier: frontier.rows?.[n.id],
-            sectorProgress: sectors[n.id],
-            evidence: state.nodes[n.id]?.evidence,
-            facts: resolveFacts(n.factRefs ?? [], state.settings),
-            work: work?.data?.nodes[n.id],
-            workCounts: work?.data?.sectors[n.id],
-            moved: movedCards.includes(`${n.id}:${n.parentId}:${n.x}:${n.y}`),
-            inputSecurity: onUrlDownload ? { enabled: !!state.nodes[n.id]?.downloadsUrl, save: (enabled: boolean) => onUrlDownload(n.id, enabled) } : undefined,
-            scenario: n.scenario ? { command: n.scenario.command, history: scenarios?.nodes?.[n.id], error: scenarios?.error } : undefined,
-            realization: n.sourceRef && onRealizeSource ? { value: n.realization, status: sourceStatuses?.[n.id], disabled,
-              save: (commit: string, prUrl: string) => onRealizeSource(n.id, commit, prUrl) } : undefined,
-            autonomous: state.nodes[n.id]?.done?.by === "autonomy" && state.nodes[n.id]?.done?.confirmed,
-            saveEvidence: onSaveEvidence ? value => onSaveEvidence(n.id, value) : undefined,
-            lease: leases?.[n.id],
-            releaseLease: leases?.[n.id] && sourceContext ? () => releaseLease(sourceContext.project, sourceContext.workspace, n.id) : undefined,
-            completion: onConfirmProposal ? { confirm: () => onConfirmProposal(n.id), note: state.nodes[n.id]?.done?.note,
-              readiness: evidenceReadiness(state.nodes[n.id]?.evidence, n), error: confirmError,
-              pending: n.kind === "sector" ? proposalCount(graph, state, n.id) : 0 } : undefined,
-            assignmentWarning: assignmentStatuses?.[n.id]?.status === "changed" && sourceContext
-              ? { ...sourceContext, nodeId: n.id, resultId: assignmentStatuses[n.id].resultId, source: assignmentStatuses[n.id].source } : undefined,
-            inheritedRules: effectiveRules(graph, state, n.id).filter((rule) => rule.inherited || rule.origin.storage === "node" || !onRuleWrite),
-            rules: onRuleWrite && onRuleReview ? { items: state.rules.filter((rule) => rule.scope === "node" && rule.target === n.id), write: onRuleWrite, review: onRuleReview } : undefined,
-            source: n.sourceRef && sourceContext ? { source: n.sourceRef, ...sourceContext } : undefined,
-            dimmed: !matchesTagFilter(workflow, tagFilter),
-            onTag: onTagFilter,
-            // Vybraný blok patří jen kartě svého uzlu; jinou kartu jeho výběr nezvýrazní.
-            selectedBlockId: n.id === selected ? (selectedBlock ?? undefined) : undefined,
-            ports: {
-              open: openBlocks[n.id] ?? [],
-              toggle: (port) => { if (!disabled) onTogglePort(n.id, port); },
-            },
-            blocks: {
-              // Uzavřená karta má bloky i porty jen ke čtení; do hloubky se jít dál smí.
-              disabled: disabled || view.closed,
-              add: () => onCardBlock(n.id, { type: "add" }),
-              move: (blockId, delta) => onCardBlock(n.id, { type: "move", blockId, delta }),
-              remove: (blockId) => onCardBlock(n.id, { type: "remove", blockId }),
-              rename: (blockId, title) => onCardBlock(n.id, { type: "rename", blockId, title }),
-              text: (blockId, text) => onCardBlock(n.id, { type: "text", blockId, text }),
-              addPort: (blockId) => onCardBlock(n.id, { type: "add-port", blockId }),
-              renamePort: (blockId, portId, label) => onCardBlock(n.id, { type: "rename-port", blockId, portId, label }),
-              removePort: (blockId, portId) => onCardBlock(n.id, { type: "remove-port", blockId, portId }),
-              decidePort: (blockId, portId, status, reason) => onCardBlock(n.id, { type: "decide-port", blockId, portId, status, reason }),
-              configureSpawn: (blockId, portId, action) => onCardBlock(n.id, { type: "configure-spawn", blockId, portId, action }),
-            },
-            rename: {
-              editing: editing === n.id,
-              start: () => { if (!disabled) onEditing(n.id); },
-              cancel: () => onEditing(null),
-              commit: (name: string) => {
-                onEditing(null);
-                if (name.trim() && name.trim() !== n.name) onRename(n.id, name.trim());
-              },
-            },
-          },
-        };
-      }) as Node[]).concat(blocks.nodes);
+  // Jeden index grafu a stavu na přestavbu: karty z něj čtou místo procházení všech uzlů pro každou kartu.
+  // Závisí jen na grafu a stavu, takže výběr ani polling overlayů ho nepřestaví.
+  const index = useMemo(() => buildBoardIndex(graph, state), [graph, state]);
+  const multiSet = useMemo(() => new Set(multiSelected), [multiSelected]);
+  const sectors = useMemo(() => sectorViews(graph, state, index), [graph, state, index]);
+  const movedCards = useAddedPulse(graph.nodes.map(movedKey));
+  const movedSet = useMemo(() => new Set(movedCards), [movedCards]);
+  const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workKey);
+  const actions = useBoardActions({ disabled, nameOf: (id) => index.byId.get(id)?.name, onSelect, onTagFilter, onEditing, onRename,
+    onCommentText, onAreaResize, onTogglePort, onCardBlock, onConfirmProposal, onRealizeSource,
+    onRuleWrite, onRuleReview, sourceContext });
+  // Schopnosti rodiče jako booleany: nové inline callbacky v App vrstvu nepřestaví, jejich přítomnost ano.
+  const can = { realize: !!onRealizeSource, confirm: !!onConfirmProposal,
+    rules: !!onRuleWrite && !!onRuleReview };
+  const make = (): Node[] => buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
+    disabled, openBlocks, tagFilter, moved: movedSet, sectors, vaultIndex, checklists, usage, frontier: frontier.rows, work,
+    leases, sourceStatuses, assignmentStatuses, confirmError, sourceContext,
+    can }).concat(blocks.nodes);
   const [nodes, setNodes] = useState<Node[]>(make);
+  // Výšky pro „Srovnat“ v App a pro dosednutí tažené karty: jen změření v plném detailu. Karta z dálky
+  // (`data-detail="far"`) je nižší; její míra se nikdy nebere jako plná a do první plné míry platí odhad.
+  const measuredAt = useRef(new Map<string, { measured: object; height?: number }>());
+  const fullHeights = useRef<Record<string, number>>({});
   useEffect(() => {
-    if (!heightsRef) return;
+    const before = measuredAt.current;
+    const changed = nodes.some((n) => !isBlockId(n.id) && n.measured?.height && before.get(n.id)?.measured !== n.measured);
+    // Úroveň detailu karet se čte z DOM jednou za změnu měření, ne pro každou kartu zvlášť.
+    const detail = new Map<string, string>();
+    if (changed) for (const card of Array.from(surface.current?.querySelectorAll<HTMLElement>(".node-card[data-detail]") ?? []))
+      detail.set((card.dataset.testid ?? "").slice("node-card-".length), card.dataset.detail ?? "");
+    const next = new Map<string, { measured: object; height?: number }>();
     const heights: Record<string, number> = {};
-    for (const n of nodes) if (!isBlockId(n.id) && n.measured?.height) heights[n.id] = n.measured.height;
-    heightsRef.current = heights;
+    for (const n of nodes) {
+      if (isBlockId(n.id) || !n.measured?.height) continue;
+      const kept = before.get(n.id);
+      const entry = kept?.measured === n.measured ? kept
+        : { measured: n.measured, height: n.type !== "canvas" || detail.get(n.id) === "full" ? n.measured.height : kept?.height };
+      next.set(n.id, entry);
+      if (entry.height !== undefined) heights[n.id] = entry.height;
+    }
+    measuredAt.current = next;
+    fullHeights.current = heights;
+    if (heightsRef) heightsRef.current = heights;
   }, [nodes, heightsRef]);
-  // Nově postavené uzly dostanou změřené rozměry z předchozí verze: React Flow by je jinak do přeměření
-  // skryl (visibility: hidden) a rozepsaná textarea v kartě by při každé změně výběru ztratila fokus.
+  // Přestavba vrací starý objekt každé karty, které se data nezměnila (React Flow i memo ji přeskočí), a nově
+  // postaveným uzlům přenese změřené rozměry: React Flow by je jinak do přeměření skryl (visibility: hidden)
+  // a rozepsaná textarea v kartě by při každé změně výběru ztratila fokus.
   useEffect(() => {
-    setNodes((previous) => {
-      const measured = new Map(previous.map((n) => [n.id, n]));
-      return make().map((n) => {
-        const old = measured.get(n.id);
-        return old?.measured ? { ...n, measured: old.measured, width: old.width, height: old.height } : n;
-      });
-    });
-  }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project, sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, scenarios, confirmError, movedCards]);
+    setNodes((previous) => reuseNodes(previous, make()));
+  }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project,
+    sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, confirmError, movedCards,
+    checklists, vaultIndex, can.realize, can.confirm, can.rules]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);
@@ -404,56 +282,22 @@ export default function Board({
       return { x: 60, y: 90, zoom: 1 };
     }
   });
-  // Puštěná položka knihovny potřebuje souřadnice vrstvy, ne obrazovky; přepočet umí jen živá instance
-  // React Flow, a ta se sem dostane jedinou cestou — přes onInit, protože plátno si ReactFlow vykresluje samo.
-  const flow = useRef<ScreenToFlow | null>(null);
   const surface = useRef<HTMLDivElement>(null);
-  const consumeReveal = useRef(onRevealed);
-  consumeReveal.current = onRevealed;
-  useEffect(() => {
-    if (!reveal || reveal.scope !== scope) return;
-    let frame = 0;
-    let attempts = 0;
-    const focus = () => {
-      const instance = flow.current;
-      const node = instance?.getNode(reveal.id);
-      const rect = surface.current?.getBoundingClientRect();
-      if (!instance || !node?.measured?.width || !node.measured.height || !rect?.width) {
-        if (++attempts < 90) frame = requestAnimationFrame(focus);
-        else consumeReveal.current?.(reveal.nonce);
-        return;
-      }
-      const visible = { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
-      const editor = surface.current?.closest(".editor-frame") ?? surface.current?.parentElement?.parentElement;
-      const overlays = Array.from(editor?.querySelectorAll(".panel-drawer, .dock-rail, .inspector") ?? [])
-        .map((panel) => panel.getBoundingClientRect()).sort((left, right) => left.left - right.left);
-      for (const overlay of overlays) {
-        if (!overlay.width || overlay.bottom <= rect.top || overlay.top >= rect.bottom) continue;
-        if (overlay.left <= rect.left + 1 && overlay.right > visible.left) visible.left = Math.min(rect.right, overlay.right);
-        else if (overlay.left < visible.left + 1 && overlay.right > visible.left) visible.left = Math.min(rect.right, overlay.right);
-        else if (overlay.right >= rect.right - 1 && overlay.left < visible.right) visible.right = Math.max(rect.left, overlay.left);
-      }
-      const target = revealNodeCenter(rect, visible, { ...node.position, width: node.measured.width, height: node.measured.height }, instance.getZoom());
-      if (target) void instance.setCenter(target.x, target.y, { zoom: target.zoom });
-      consumeReveal.current?.(reveal.nonce);
-    };
-    frame = requestAnimationFrame(focus);
-    return () => cancelAnimationFrame(frame);
-  }, [reveal, scope]);
-  const ids = new Set(nodes.map((n) => n.id));
+  // Sada vykreslených id se mění jen s přidáním nebo odebráním uzlu, ne v každém snímku tažení; klíč z id
+  // drží memo vazeb stabilní, dokud se množina uzlů nezmění.
+  const idsKey = nodes.map((n) => n.id).join("\n");
+  const ids = useMemo(() => new Set(idsKey ? idsKey.split("\n") : []), [idsKey]);
   // Komentář nemá porty ani úchyty (nekreslí se), ale tah myší z jiné karty by na něj přesto mohl dopadnout.
-  const commentIds = new Set(graph.nodes.filter((n) => n.kind === "comment").map((n) => n.id));
+  const commentIds = useMemo(() => new Set(graph.nodes.filter((n) => n.kind === "comment").map((n) => n.id)), [graph.nodes]);
   // Oblast má jen úchyt toku (`flow`): smí se propojit jen s jinou oblastí, nikdy s kartou ani komentářem.
-  const areaIds = new Set(graph.nodes.filter((n) => n.kind === "area").map((n) => n.id));
-  // Vazba z portu `action`/`rule` vede z téhož úchytu jako blok, vazba z tlačítka bloku z úchytu
-  // `block:<blockId>:<portId>` uvnitř karty; starší vazba bez portu = `next`. Vzhled řeší board-model.
+  const areaIds = useMemo(() => new Set(graph.nodes.filter((n) => n.kind === "area").map((n) => n.id)), [graph.nodes]);
   const addedEdges = useAddedPulse(graph.edges.map(edge => edge.id));
-  const edges: Edge[] = graph.edges
-    .filter((e) => ids.has(e.source) && ids.has(e.target))
-    .map((e): Edge => ({ ...e, ...edgeAppearance(e, state.nodes[e.source]?.blocks?.find(b => b.id === e.sourceBlockId)?.ports?.find(p => p.id === e.sourcePortId)), animated: addedEdges.includes(e.id),
-      // Předávka jen barvou: zelená vazba = zpráva je předaná; malá jantarová obálka = hotová karta ji nenechala.
-      ...handoffLook(handoffMark(e, state, graph.nodes), edgeAppearance(e).style) }))
-    .concat(blocks.edges);
+  const addedSet = useMemo(() => new Set(addedEdges), [addedEdges]);
+  // Vazby se počítají jen při změně grafu, stavu, vykreslených uzlů, bloků, pulsu nebo výběru vazby.
+  const edges: Edge[] = useMemo(() => layerEdges({ graph, state, ids, kinds: index.kinds, added: addedSet, selectedEdge, blockEdges: blocks.edges,
+    simple: simpleEdges(graph, ids) }), [graph, state, ids, index, addedSet, selectedEdge, blocks.edges]);
+  const showMiniMap = useMemo(() => ids.size <= MINIMAP_MAX, [ids]);
+  const cap = useMemo(() => capWarning(graph, Object.keys(state.nodes).length), [graph, state.nodes]);
   return (
     <div
       ref={surface}
@@ -470,27 +314,6 @@ export default function Board({
           Math.round((event.clientY - rect.top - viewport.y) / viewport.zoom) - 84,
         );
       }}
-      /* Tažení z knihovny: bez preventDefault by prohlížeč drop vůbec nepustil. Kurzor „kopírovat“
-         dostane jen náš typ dat — cizí tažení (soubor, text) plátno nebere a projde dál nezměněné. */
-      onDragOver={(event) => {
-        if (disabled || !dropTypeOf(event.dataTransfer.types)) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-      }}
-      onDrop={(event) => {
-        const dragType = disabled ? null : dropTypeOf(event.dataTransfer.types);
-        if (!dragType) return;
-        event.preventDefault();
-        const itemId = event.dataTransfer.getData(dragType);
-        if (!itemId) return;
-        const rect = event.currentTarget.getBoundingClientRect();
-        const at = flow.current?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? {
-          x: (event.clientX - rect.left - viewport.x) / viewport.zoom,
-          y: (event.clientY - rect.top - viewport.y) / viewport.zoom,
-        };
-        const drop = dragType === AGENT_DRAG_TYPE ? onAgentDrop : onCatalogDrop;
-        drop(itemId, Math.round(at.x) - CARD_GRAB.x, Math.round(at.y) - CARD_GRAB.y, dropTargetOf(event.target));
-      }}
     >
       <div className="board-bar nodrag nopan" role="toolbar" aria-label="Stav sektoru">
         <WorkNow overview={work?.data} error={work?.error} sectorId={parent} open={onSelect} />
@@ -501,18 +324,22 @@ export default function Board({
           <SectorGateEditor sector={graph.nodes.find(n => n.id === parent)!} graph={graph} disabled={disabled} save={onSaveSector} />}
         {/* Počet ke schválení jen jednou: v sektoru ho nese souhrn hromadného potvrzení. */}
         {parent && graph.nodes.find(n => n.id === parent)?.kind === "sector" && onConfirmSector
-          ? <ConfirmSectorProposals key={scope + JSON.stringify(proposalsIn(graph, state, parent))}
-            proposals={proposalsIn(graph, state, parent).map(p => ({ ...p, readiness: evidenceReadiness(state.nodes[p.id]?.evidence, graph.nodes.find(n => n.id === p.id)) }))}
+          ? <ConfirmSectorProposals key={scope + JSON.stringify(proposalsIn(graph, state, parent, index))}
+            proposals={proposalsIn(graph, state, parent, index).map(p => ({ ...p, readiness: evidenceReadiness(state.nodes[p.id]?.evidence, graph.nodes.find(n => n.id === p.id)) }))}
             disabled={disabled} confirm={ids => onConfirmSector(parent, ids)} />
-          : <span className="board-bar__chip">Ke schválení: {proposalCount(graph, state, parent)}</span>}
+          : <span className="board-bar__chip">Ke schválení: {proposalCount(graph, state, parent, index)}</span>}
         <button type="button" aria-pressed={showFrontier} onClick={() => setShowFrontier(value => !value)}>Frontier · {showFrontier ? "zapnuto" : "vypnuto"}</button>
         {frontier.error && <p role="alert">{frontier.error}</p>}
+        {cap && <span className="board-bar__chip board-bar__cap" title={cap.title} data-testid="board-cap">{cap.text}</span>}
       </div>
+      <CardActionsContext.Provider value={actions}>
       <ReactFlow
         colorMode={useDesktopAppearance().theme}
-        onInit={(instance) => { flow.current = instance; }}
+        // Jen viditelné uzly od 80 uzlů vrstvy (`CULL_VISIBLE` v logic/layer-nodes.ts, docs/navrhy/2026-10-14-vykon-platna.md):
+        // odmontovaná karta si rozepsaný text vezme zpět z `node-card/logic/block-drafts.ts`.
+        onlyRenderVisibleElements={shouldCull(nodes.length)}
         nodes={nodes}
-        edges={edges.map((e) => ({ ...e, selected: e.id === selectedEdge }))}
+        edges={edges}
         nodeTypes={nodeTypes}
         defaultViewport={viewport}
         minZoom={0.15}
@@ -554,9 +381,8 @@ export default function Board({
           }
           // Pevná tělesa: karta i oblast mají pevnou hranu, takže se při dosednutí počítá s plochou celé
           // vrstvy — s otisky karet (i jejich viditelných bloků) a s rámečky oblastí.
-          const heights: Record<string, number> = {};
-          for (const n of nodes) if (!isBlockId(n.id) && n.measured?.height) heights[n.id] = n.measured.height;
-          const footprints = layerFootprints(graph, parent, state, openBlocks, heights);
+          // Skutečné výšky (ne zjednodušené z oddálení); nezměřená karta mimo obraz dostane odhad.
+          const footprints = layerFootprints(graph, parent, state, openBlocks, fullHeights.current, true);
           const layerAreas = graph.nodes.filter((n) => n.parentId === parent && n.kind === "area" && !!n.size);
           const stored = graph.nodes.find((n) => n.id === dragged.id);
           if (areaIds.has(dragged.id)) {
@@ -609,7 +435,7 @@ export default function Board({
       >
         {settings.showGrid && <Background color="var(--canvas-dot)" gap={settings.gridSize} />}
         <Controls showInteractive={false} />
-        <MiniMap
+        {showMiniMap && <MiniMap
           nodeColor={(n) =>
             isBlockId(n.id)
               ? "#c98a1e"
@@ -622,8 +448,9 @@ export default function Board({
                     : "#526b89"
           }
           maskColor="rgba(15,19,24,.75)"
-        />
+        />}
       </ReactFlow>
+      </CardActionsContext.Provider>
       {!disabled && (
         <p className="board-hint" data-testid="board-hint">
           Tah po plátně = výběr · Delete = smazat vybrané · prostřední tlačítko nebo mezerník + tah = posun · dvojklik na prázdné plátno = nový uzel · dvojklik na kartu = do hloubky · z portu bloku se táhne vazba na jinou kartu
@@ -633,17 +460,10 @@ export default function Board({
   );
 }
 
-/** Vzhled vazby podle předávky: bez textu. Předáno = zelená čára, chybí = drobná jantarová obálka;
- *  plánovací vazby (zdroj ještě nehotový) zůstávají beze změny, aby plátno nebylo ukřičené. */
-function handoffLook(mark: "sent" | "missing" | null, style: Edge["style"]): Partial<Edge> {
-  if (mark === "sent") return { style: { ...style, stroke: "#22c55e", strokeWidth: 2 } };
-  if (mark !== "missing") return {};
-  return {
-    label: "✉",
-    labelStyle: { fill: "#f59e0b", fontSize: 12 },
-    labelBgStyle: { fill: "#111827", stroke: "#f59e0b" },
-    labelBgPadding: [4, 2] as [number, number],
-    labelBgBorderRadius: 4,
-    labelShowBg: true,
-  };
+/** Počítadlo změn referencí (náhradní klíč obnovy, když rodič nepředá revizi ani otisk). */
+function useChangeCount(...values: unknown[]): number {
+  const seen = useRef<{ values: unknown[]; count: number }>({ values, count: 0 });
+  if (values.length !== seen.current.values.length || values.some((value, i) => !Object.is(value, seen.current.values[i])))
+    seen.current = { values, count: seen.current.count + 1 };
+  return seen.current.count;
 }

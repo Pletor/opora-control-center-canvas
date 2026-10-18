@@ -12,7 +12,7 @@ export default function MenuButton({ open, onToggle }: { open: boolean; onToggle
       aria-label="Menu Editoru"
       aria-expanded={open}
       aria-controls="panel-dock-rail"
-      title="Menu Editoru: Knihovna, Agenti, Postupy, Nastavení"
+      title="Menu Editoru: Struktura, Schránka, Nastavení"
       data-panel-anchor="menu"
       data-testid="dock-menu"
       onClick={onToggle}

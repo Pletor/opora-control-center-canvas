@@ -1,0 +1,7 @@
+/* Čip ID: technický identifikátor nemá v textu karty co dělat, člověk ho chce jen občas zkopírovat
+   agentovi. Proto je to drobná obrysová pilulka „ID“ v rohu, tlumená jako poznámka; plné ID ukáže
+   bublina a klik ho zkopíruje. Po zkopírování pilulka na chvíli zezelená a řekne to slovem. */
+.copy-id { display: inline-flex; align-items: center; flex: none; padding: 0 6px; min-height: 18px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-muted); font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
+.copy-id:hover, .copy-id:focus-visible { color: var(--ink); border-color: var(--accent); }
+.copy-id--copied { color: var(--accent); border-color: var(--accent); }
+.copy-id--failed { color: var(--danger); border-color: var(--danger); }

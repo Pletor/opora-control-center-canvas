@@ -170,8 +170,7 @@ def test_preview_scopes_rules_decisions_tickets_documents_and_keeps_references_u
         assert [rule["id"] for rule in memory["rules"]] == ["r1", "r2", "r4"]
         assert [item["id"] for item in memory["decisions"]] == ["d1", "d2"]
         assert [item["id"] for item in memory["tickets"]] == ["t1", "t2"]
-        assert memory["phase"] == "discover" and memory["criteria"][0]["checked"] is True
-        assert memory["steps"][0]["assignee"] == "builder"
+        assert not {"phase", "criteria", "steps"} & set(memory)
         assert {item["key"]: item["value"] for item in memory["settings"]}["framework"] == "React"
         documents = {item["path"]: item for item in packet["context"]["documents"]}
         assert documents["src/app.py"]["fields"]["notes"] == "DOKUMENTACE_APP"

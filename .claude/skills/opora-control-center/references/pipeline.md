@@ -27,7 +27,17 @@ Každou etapu dělá **nová relace** (karta + jedna etapa); kontext mezi relace
    | ostatní kód | `code` |
 
    Kombinace → přísnější profil a chybějící etapy přes `stages` (např. kritik hacker do design karty s přihlášením).
-3. Zapiš (`expectedRevision` = `revision` ze `state`):
+   Karta bez `checks` a bez textu: profil volíš podle `goal.goal` a `goal.acceptance` v briefu. Brána `[gate]`
+   → `testing`, nebo `goal`, když má `checks`.
+
+   **Etapa `test`:** profily `goal`, `code`, `security` a `testing` ji mají; `design` a `research` ne. Karta
+   `[task]` (a karta s `checks`) ji ale vyžaduje, takže u `design` / `research` pro takovou kartu přidej při
+   `route` `stages: [{"kind": "test", "lens": "", "title": "…", "brief": "…"}]`, jinak server vrátí 409
+   „chybí: test“. Každá nová etapa má všechna čtyři pole `kind`, `lens`, `title`, `brief`; u ne-kritika
+   `"lens": ""`.
+3. Zapiš. `expectedRevision` je **globální revize plátna** (`revision` z `opora_read.py state`) a roste
+   po každém zápisu kohokoli, proto ji čti znovu před každým `route`. `node-brief` ji v souhrnu nevrací
+   (`outputContract.request.expectedRevision` v `--raw` je jen snímek z chvíle briefu a po dalším zápisu už neplatí).
 
 <!-- example: /api/desktop-v3/pipeline -->
 ```json

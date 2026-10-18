@@ -1,7 +1,7 @@
 // Katalog Knihovny: data a čisté funkce nad nimi. Prvek je know-how pro silný model: k čemu je
 // (`purpose`), s čím v projektu souvisí (`relates`), kdy je hotovo (`done`) a které tvrdé hranice nesmí
 // překročit (`invariants`, 0–2). Obecné rady sem nepatří. Prvek nemá druh karta/blok — co z něj na
-// plátně vznikne, určí místo puštění (catalog-insert.ts). Kontrakt: docs/menu-a-katalog.md §B.
+// plátně vznikne, určí místo puštění (catalog-plan.ts). Kontrakt: docs/menu-a-katalog.md §B.
 // Bez Reactu a bez API; testuje se vedle v library-catalog.test.ts a catalog-lint.test.ts.
 import { frontendComponentItems } from "./catalog-frontend-components";
 import { frontendStyleItems } from "./catalog-frontend-style";

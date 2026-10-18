@@ -10,8 +10,7 @@ export default function InheritedRules({ rules }: { rules: (EffectiveRule & { by
       const source = `${labels[rule.origin.scope]}: ${rule.origin.name || rule.origin.path || "celý projekt"}`;
       const proposal = isAgentRule(rule);
       const title = `${source}${proposal ? ` · 🤖 ${AGENT_RULE_LABEL}` : ""} · ${rule.text}`;
-      return <details key={`${rule.origin.storage}:${rule.origin.nodeId}:${rule.id}`}
-        style={proposal ? { opacity: 0.6, fontStyle: "italic" } : undefined}>
+      return <details key={`${rule.origin.storage}:${rule.origin.nodeId}:${rule.id}`} className={proposal ? "node-card__fold--proposal" : undefined}>
         <summary title={title} aria-label={title}>
           {proposal && "🤖 "}{icons[rule.origin.scope]} {rule.kind === "must_not" ? "⊘" : "✓"}
         </summary>

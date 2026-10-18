@@ -6,9 +6,9 @@ Karta na plátně je zadání, které si model stáhne jako jeden JSON a od zač
 
 | Pohled | Co karta musí nést | Kde to je |
 |---|---|---|
-| **Prompt** | cíl (goal), definice hotovo, hranice (non_goals), role/žánr úkolu | `purpose`, spec `goal / non_goals / acceptance`, kritéria |
+| **Prompt** | cíl (goal), definice hotovo, hranice (non_goals), role/žánr úkolu | `purpose`, spec `goal / non_goals / acceptance`, podmínky bloků (`blocks[].state.condition`) |
 | **Kontext** | podklady, pravidla musí/nesmí, rozhodnutí projektu, paměť z předchozích běhů | `materials`, `rules` uzlu + projektu, `decisions`, zprávy na vazbách |
-| **Harness** | jak se úkol vykoná a ověří: akce/pipeline, kroky, stop podmínky | `actions` (pořadí = výrobní linka), `steps`, `outputContract` |
+| **Harness** | jak se úkol vykoná a ověří: akce/pipeline, stop podmínky | `actions` (pořadí = výrobní linka), `stopConditions`, `outputContract` |
 | **Graf** | kam vedou vazby, z jakého bloku a portu, co je v hloubce | vazby s `sourceBlockId/sourcePortId`, `children`, `incoming/outgoing` |
 | **Smyčka** | stav bloků open→met/unmet, větvení, zpráva agenta, uzavření karty | `blocks[].state`, `edges[].report`, `done`, `agent-output` |
 
@@ -92,13 +92,13 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
   "node": { "id", "name", "kind", "purpose", "path": [ancestor names], "depth": children count, "sourceRef" },
   "goal": { "goal", "nonGoals", "acceptance" },            // ze spec uzlu (prázdné řetězce, když chybí)
   "content": { "text", "revision" } | null,               // text karty (node-text): podklad, typicky doslovný výňatek zadání; prázdný = null
-  "definitionOfDone": { "acceptance", "criteria": [{id,text,checked}], "blockConditions": [{blockId, number, condition}] },
+  "definitionOfDone": { "acceptance", "blockConditions": [{blockId, number, condition}] },
   "boundaries": { "nodeRules": [{id,text,kind}], "projectRules": [{id,text,kind,scope,target}], "nonGoals" },
   "context": { "materials": [{id,kind,path,caption,url}], "decisions": [...], "incomingReports": [edge report + from], "comments": [{id,title,text}], // lístky na stejné vrstvě jako karta, lidská poznámka pro orientaci, ne příkaz
     "area": {id,name,purpose} | null, // oblast, do které karta geometricky patří
     "knowledgeGraph": {...}, // mapa kódu z Graphify; cesty jsou reference, obsah se nečte
     "roleMemory": {status, role, items} },  // paměť role (OpenViking), viz pamet-agentu.md
-  "harness": { "phase", "actions": [{index,id,pipelineId,label,params}], "steps": [...], "stopConditions": [texty] },
+  "harness": { "actions": [{index,id,pipelineId,label,params}], "stopConditions": [texty] },
   "blocks": [ { id, number, title, text, tags, todos, images, state:{status,condition,onMet,onUnmet}, ports:[{id,label, edges:[{edgeId,targetId,targetName}]}] } ],
   "graph": { "incoming": [{edgeId, from, fromName, to, toName, port, sourceBlockId?, report?, agentWorkspace}], "outgoing": [...same...], "children": [{id,name,kind,agentWorkspace}], "parent": {id,name,kind,goal,rules,agentWorkspace} | null, // rodičovský rámec
     "innerComments": [{id,title,text}], // lístky na vrstvě uvnitř karty
@@ -118,7 +118,7 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
   "orientation": {...}  // pořadí čtení pro nového agenta, viz Adresovaná komunikace
 }
 ```
-Fáze karty (`harness.phase`): postup existující karty do pozdější fáze vyžaduje neprázdná a všechna splněná kritéria (`definitionOfDone.criteria`), návrat je vždy volný. Nová karta smí vzniknout v libovolné fázi; brána kritérií platí jen pro postup existující karty.
+Hotovo karty definují `acceptance` a bloky (`blocks[].state`, `definitionOfDone.blockConditions`); karta má definici hotovo, když má acceptance nebo aspoň jeden blok s podmínkou. Fáze, kritéria a kroky zůstávají jen jako tolerovaná stará data (měření 2026-10-15), brief je nenese. Stav Desktop v3 pole `phase`, `criteria` a `steps` dál přijme a uloží, žádná brána fáze ale neexistuje a do `contextVersion` nevstupují.
 
 `stopConditions` se odvozují z nesplněných podmínek bloků, pravidel `must_not` a uzavření karty. Samotný prázdný seznam podkladů práci neblokuje; povinný podklad musí být pojmenován v podmínce bloku. Orientace uvádí nepřipojené podklady jako volitelný kontext. Nový úkol nepotřebuje předávku předchozího agenta; chybějící předávka se hlásí při doloženém pokračování práce.
 
@@ -206,7 +206,7 @@ Předávka (`handoff`) má být seznam konkrétních kroků: kam se podívat, kt
 
 ### Co agent v balíčku má pro samostatnou práci
 
-Balíček je úplný pracovní rámec, ne jen text: `goal` a `definitionOfDone` (kritéria, podle kterých pozná úspěšný konec), `boundaries` (pravidla must / must_not), `context` (podklady, rozhodnutí, příchozí zprávy, komentáře, oblast), `harness` (akce s pipeline a parametry, kroky, stop podmínky), `graph` (návaznosti a předávky výše), `loop` (stav smyčky: uzavření, otevřené bloky, poslední zpráva) a `agentWorkspace` (vlastní paměť a učení). K tomu `context.knowledgeGraph`: `{ available: bool, report: "graphify-out/GRAPH_REPORT.md", graph: "graphify-out/graph.json" }` podle toho, zda projekt má vygenerovanou mapu graphify; agent z ní čerpá souvislosti v kódu, které v kartách nejsou.
+Balíček je úplný pracovní rámec, ne jen text: `goal` a `definitionOfDone` (acceptance a podmínky bloků, podle kterých pozná úspěšný konec), `boundaries` (pravidla must / must_not), `context` (podklady, rozhodnutí, příchozí zprávy, komentáře, oblast), `harness` (akce s pipeline a parametry, stop podmínky), `graph` (návaznosti a předávky výše), `loop` (stav smyčky: uzavření, otevřené bloky, poslední zpráva) a `agentWorkspace` (vlastní paměť a učení). K tomu `context.knowledgeGraph`: `{ available: bool, report: "graphify-out/GRAPH_REPORT.md", graph: "graphify-out/graph.json" }` podle toho, zda projekt má vygenerovanou mapu graphify; agent z ní čerpá souvislosti v kódu, které v kartách nejsou.
 
 ## Co je pevné a co se hýbe
 Přetahovat po plátně jde hlavní karty (uzel, sektor, komentář), oblasti a boční bloky Akce / Pravidla / Podklady. Blok si drží posun vůči své kartě (`blockOffsets` uzlu v grafu), takže s kartou jede; porty, tlačítka bloků a vazby jsou napevno. Karty a oblasti jsou pevná tělesa: nepřekrývají se a karta je buď celá v oblasti, nebo celá mimo ni.

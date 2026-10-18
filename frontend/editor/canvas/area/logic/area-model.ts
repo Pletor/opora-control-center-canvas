@@ -49,6 +49,20 @@ export function newArea(parentId: string | null, x: number, y: number): CanvasNo
   };
 }
 
+/** Uzel, v jehož vrstvě oblast leží: `null` na kořenové vrstvě (oblast = téma, rozpadá se na sektory),
+ *  `kind: "sector"` = oblast je **fáze** sektoru (rozpadá se na karty), `kind: "node"` = vnitřní plátno
+ *  karty (rozklad se nenabízí). Rodič, který v grafu chybí, se hlásí jako `kind: "missing"`.
+ *  Stejné pravidlo čte `AreaDecompose` (`docs/pyramida.md` §1 bod 3). */
+export function areaHost(area: Pick<CanvasNode, "parentId">, nodes: { id: string; kind: string; name: string }[]): AreaHost | null {
+  if (!area.parentId) return null;
+  const host = nodes.find((n) => n.id === area.parentId);
+  if (!host) return { id: area.parentId, name: "", kind: "missing" };
+  return { id: host.id, name: host.name, kind: host.kind === "sector" ? "sector" : "node" };
+}
+
+/** Rodič vrstvy oblasti pro rozklad: sektor (fáze), karta, nebo chybějící uzel. */
+export type AreaHost = { id: string; name: string; kind: "sector" | "node" | "missing" };
+
 /** Popisek oblasti pro štítek na plátně i inspektor: jméno, nebo „Nepojmenovaná oblast“, když chybí. */
 export function areaLabel(area: Pick<CanvasNode, "name">): string {
   return area.name.trim() || UNNAMED_AREA_LABEL;
@@ -176,4 +190,25 @@ export function moveWithMembers(nodes: CanvasNode[], areaId: string, dx: number,
 export function resizeArea(node: CanvasNode, w: number, h: number): CanvasNode {
   const clamp = (value: number) => Math.min(AREA_SIZE_MAX, Math.max(AREA_SIZE_MIN, Math.round(value)));
   return { ...node, size: { w: clamp(w), h: clamp(h) } };
+}
+
+/** Text prázdné oblasti: co má člověk udělat jako první krok pyramidy (záměr → sektory od agenta). */
+export const EMPTY_AREA_ROLLUP = "Prázdná oblast: napište záměr a nechte agenta navrhnout sektory";
+
+/** České skloňování počtu: 1 → první tvar, 2–4 → druhý, jinak (0, 5+) třetí. */
+export function czechCount(count: number, one: string, few: string, many: string): string {
+  return `${count} ${count === 1 ? one : count >= 2 && count <= 4 ? few : many}`;
+}
+
+/**
+ * Tichý souhrn pod záměrem na rámečku oblasti: „3 sektory · 14 karet · 5 hotovo“. Ukáže jen
+ * nenulové části; oblast bez sektorů i karet dostane výzvu k napsání záměru.
+ */
+export function areaRollup({ sectors, cards, closed }: { sectors: number; cards: number; closed: number }): string {
+  const parts: string[] = [];
+  if (sectors > 0) parts.push(czechCount(sectors, "sektor", "sektory", "sektorů"));
+  if (cards > 0) parts.push(czechCount(cards, "karta", "karty", "karet"));
+  if (closed > 0) parts.push(`${closed} hotovo`);
+  if (!sectors && !cards) return EMPTY_AREA_ROLLUP;
+  return parts.join(" · ");
 }

@@ -3,7 +3,7 @@
 // volbu hlásí `onSave` nahoru a ukládá rodič (App) přes /api/project-settings. Chybu ze serveru
 // (například že se nastavení mezitím změnilo jinde) dostane hotovou a ukáže ji česky v kartě.
 import { useEffect, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import type { ProjectProfile } from "@/shared/project-capabilities/logic/project-capabilities";
 import { ARCHITECTURE_OPTIONS, TENANCY_OPTIONS } from "@/shared/project-capabilities/logic/project-profile";
 import { chooseArchitecture, chooseTenancy, draftChanged, draftOf, type ProfileDraft } from "@/layout/project-profile/logic/profile-card";
@@ -37,7 +37,7 @@ export default function ProfileCard({
       <div>
         <p className="project-profile__question">Jaký je projekt {name || "tento projekt"}?</p>
         <p className="project-profile__intro">
-          Dvě odpovědi stačí. Knihovna i postupy pak ukážou jen to, co k projektu sedí. Ostatní zůstane schované pod „Mimo profil“.
+          Dvě odpovědi stačí. Profil popisuje projekt pro celou aplikaci a ukládá se k projektu.
         </p>
       </div>
       <fieldset className="project-profile__group">

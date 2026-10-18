@@ -2,7 +2,6 @@
 from backend.canvas.graph import validate_graph
 from backend.editor.agent_memory.desktop_v3_state import (
     check_node_branches,
-    check_phase_transitions,
     validate_state,
 )
 
@@ -14,10 +13,6 @@ def preflight(canvas, db, project, workspace, graph, state, snapshot, current, s
     validate_graph(graph)
     validate_state(state)
     check_node_branches(state, {node["id"] for node in graph["nodes"]})
-    try:
-        check_phase_transitions(stored["state"], state)
-    except ValueError as error:
-        raise ValueError("Verzi nelze obnovit kvůli pravidlům pracovního postupu: " + str(error)) from error
     canvas._verify_source_refs(project, workspace, current["graph"], graph)
     # Same closed-card rule as DesktopV3State.save, before any graph or recovery write.
     for node_id, previous in stored["state"]["nodes"].items():

@@ -1,1 +1,1 @@
-Rozhraní prostředí Projekt: pracovní větve a sync mainu (project_workspace_routes), strom zdrojů a dokumentace (workspace_routes), Archify a Graphify artefakty, obnova map (map_refresh_routes).
+Rozhraní prostředí Projekt: pracovní větve a sync mainu (project_workspace_routes), strom zdrojů a dokumentace (workspace_routes), Archify a Graphify artefakty, obnova map (map_refresh_routes), architektura projektu: čtení, přímý zápis, návrat k revizi a ruční migrace `POST /api/project-architecture/migrate` (project_architecture_routes).

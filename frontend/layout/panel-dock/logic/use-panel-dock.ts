@@ -7,6 +7,7 @@ import {
   closedDock,
   dismissDock,
   isDismissKey,
+  openSection,
   readDockSection,
   sectionForShortcut,
   selectSection,
@@ -26,6 +27,8 @@ export type PanelDockApi = {
   toggleMenu: () => void;
   /** Ikona v liště ikon (a odkaz „Nastavit“ v hlavičce projektu). */
   select: (section: DockSection) => void;
+  /** Otevře lištu rovnou na sekci (odkaz z detailu karty do Schránky); otevřenou sekci nesbalí. */
+  open: (section: DockSection) => void;
   /** Zavře lištu i panel: klik do horní lišty, přepnutí módu, odchod z Editoru. */
   close: () => void;
 };
@@ -58,6 +61,7 @@ export function usePanelDock(enabled: boolean): PanelDockApi {
   }, []);
   const menu = useCallback(() => setState(toggleMenu), []);
   const select = useCallback((section: DockSection) => setState((current) => selectSection(current, section)), []);
+  const open = useCallback((section: DockSection) => setState((current) => openSection(current, section)), []);
   const close = useCallback(() => setState((current) => (current.rail ? closedDock(current.last) : current)), []);
-  return { rail: state.rail, section: state.section, toggleMenu: menu, select, close };
+  return { rail: state.rail, section: state.section, toggleMenu: menu, select, open, close };
 }

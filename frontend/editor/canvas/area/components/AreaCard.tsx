@@ -1,28 +1,37 @@
 // Oblast na plátně: dashovaný rámeček, ne karta uzlu — beze bloků, jen jméno ve štítku a dva úchyty
 // toku (in/out). Rodič (Board) dodá hotová data přes props; velikost nese `style` samotného React
 // Flow uzlu (nastavuje Board z `data.view.w/h`), tenhle dílek jen kreslí rámeček a tahadlo změny
-// velikosti. Přejmenování a změna velikosti bublají nahoru přes onRename / onResize.
+// velikosti. Přejmenování a změna velikosti bublají nahoru přes kontext akcí plátna (`renameNode`,
+// `resizeArea`); data nenesou funkce, aby šla oblast při přestavbě znovu použít beze změny.
 import { memo, useEffect, useRef, useState } from "react";
 import { Handle, NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
-import { AREA_SIZE_MAX, AREA_SIZE_MIN } from "@/editor/canvas/area/logic/area-model";
+import { AREA_SIZE_MAX, AREA_SIZE_MIN, areaRollup } from "@/editor/canvas/area/logic/area-model";
 import type { AreaColor } from "@/shared/types/logic/types";
 import "@/editor/canvas/area/styles/area.css";
+import { useCardActions } from "@/editor/canvas/node-card/logic/card-actions";
 import AreaSummary from "@/editor/canvas/card-checklist/components/AreaSummary";
 import type { areaSummary } from "@/editor/canvas/card-checklist/logic/card-checklist";
 
 export type AreaCardView = { label: string; unnamed: boolean; members: number; w: number; h: number; color: AreaColor;
+  /** Záměr oblasti (`node.purpose`): 2–5 vět od člověka, na rámečku nejvýš dva řádky. */
+  purpose: string;
+  /** Kolik členů oblasti je sektor (`kind === "sector"`). */
+  sectors: number;
+  /** Kolik členů oblasti je uzavřených (`done.confirmed`). */
+  closed: number;
   /** Souhrn kontrolních pásů karet v oblasti (pipeline, důkazy, předávky, čeká na člověka). */
   summary?: ReturnType<typeof areaSummary> };
 
 export type AreaCardData = {
   view: AreaCardView;
   disabled: boolean;
-  onRename: (name: string) => void;
-  onResize: (w: number, h: number) => void;
 };
 
 const AreaCard = memo(function AreaCard({ id, data, selected }: NodeProps<Node<AreaCardData>>) {
-  const { view, disabled, onRename, onResize } = data;
+  const { view, disabled } = data;
+  const actions = useCardActions();
+  const onRename = (name: string) => actions.renameNode(id, name);
+  const onResize = (w: number, h: number) => actions.resizeArea(id, w, h);
   const [editing, setEditing] = useState(false);
   const nameField = useRef<HTMLInputElement>(null);
 
@@ -95,7 +104,13 @@ const AreaCard = memo(function AreaCard({ id, data, selected }: NodeProps<Node<A
           {view.label}
         </div>
       )}
-      {view.summary && <AreaSummary summary={view.summary} />}
+      <div className="area-card__head">
+        {view.purpose.trim() && <p className="area-card__intent" title={view.purpose}>{view.purpose}</p>}
+        <p className="area-card__rollup" data-testid={"area-rollup-" + id}>
+          {areaRollup({ sectors: view.sectors, cards: view.members - view.sectors, closed: view.closed })}
+        </p>
+        {view.summary && <AreaSummary summary={view.summary} />}
+      </div>
     </div>
   );
 });

@@ -18,6 +18,11 @@ Odpověď je štíhlá (karta P3): `{revision, readOnly, item}`, u `/pipeline` `
 `?full=1` přidá celý stav. Zápis staví na mělké kopii uloženého stavu a `save(base=...)` znovu
 neověřuje uzly, které se nezměnily (totožné objekty). `DesktopV3State.current` drží stav v cache
 podle tokenu dat a revize (`backend/canvas/read_cache.py`); vrácený stav je jen ke čtení.
+Štíhlý zápis jedné karty (oprava 8, `docs/navrhy/2026-10-14-vykon-platna.md`): `DesktopV3State.save_node`
+přes `POST /api/desktop-v3/node` `{project, workspace, expectedRevision, nodeId, node}` (`node: null` stav karty
+odebere; nový stav jen pro kartu, která je v grafu). Revize se hlídá přísně jako u celého zápisu a všechna pravidla
+provádí tentýž `save(base=..., slim=True)`; odpověď `{revision, readOnly, nodeId, node}`, `graphChanged` po spawnu.
+Route hlídá lease karty a právě uzavřenou kartu předá paměti role stejně jako `/state`.
 Návrh pravidla od agenta (`by: "agent"`, karta, projekt i cesta) posoudí člověk přes
 `/api/desktop-v3/rule-review` `{project, workspace, id, decision: approve|reject, expected}`:
 schválení uloží pravidlo bez `by` (od té doby platí v `node-brief`), zamítnutí ho odebere.

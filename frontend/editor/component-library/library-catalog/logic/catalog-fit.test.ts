@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ProjectProfile } from "@/shared/project-capabilities/logic/project-capabilities";
 import { fitReason, fitWords, fitsProfile, outsideSummary, splitByProfile, type Fittable } from "./catalog-fit";
 import { CATALOG_ITEMS } from "./library-catalog";
-import { AGENT_ITEMS } from "@/editor/component-library/agent-catalog/logic/agent-catalog";
 import { ARCHITECTURE_OPTIONS, TENANCY_OPTIONS } from "@/shared/project-capabilities/logic/project-profile";
 
 const profile = (architecture: ProjectProfile["architecture"], tenancy: ProjectProfile["tenancy"]): ProjectProfile => ({ architecture, tenancy, platform: "web" });
@@ -52,16 +51,11 @@ describe("catalog-fit – kam prvek patří", () => {
 describe("catalog-fit – vydané katalogy", () => {
   const modularMulti = profile("modular", "multi");
   const library = splitByProfile(CATALOG_ITEMS, modularMulti);
-  const agents = splitByProfile(AGENT_ITEMS, modularMulti);
 
   it("Knihovna: multitenance a hranice modulu jsou ve výběru, API gateway ne", () => {
     const fitting = library.fitting.map((item) => item.id);
     expect(fitting).toEqual(expect.arrayContaining(["tenant-request-context", "tenant-data-isolation", "tenant-config-limits", "be-module-boundary"]));
     expect(library.outside.map((item) => item.id)).toContain("ms-api-gateway");
-  });
-
-  it("Agenti: saga přes služby je mimo profil modulárního monolitu", () => {
-    expect(agents.outside.map((item) => item.id)).toEqual(["wf-saga-across-services"]);
   });
 
   it("architektonická pravidla jsou invarianty prvků Knihovny, ke kterým patří", () => {
@@ -72,7 +66,7 @@ describe("catalog-fit – vydané katalogy", () => {
 
   it("každé fits míří na známou hodnotu profilu a nikdy není prázdné", () => {
     const known = new Set([...ARCHITECTURE_OPTIONS, ...TENANCY_OPTIONS].map((option) => option.word));
-    for (const item of [...CATALOG_ITEMS, ...AGENT_ITEMS]) {
+    for (const item of CATALOG_ITEMS) {
       if (!item.fits) continue;
       expect(fitWords(item).length, item.id).toBeGreaterThan(0);
       expect(fitWords(item).filter((word) => !known.has(word)), item.id).toEqual([]);

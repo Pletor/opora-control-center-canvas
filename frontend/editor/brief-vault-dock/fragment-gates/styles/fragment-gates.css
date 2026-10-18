@@ -1,0 +1,62 @@
+/* BRÁNY CYKLU V DETAILU FRAGMENTU (blok fragment-gates)
+   Příběh: pod doslovným textem fragmentu člověk vidí, jak daleko došel cyklus, který řídí agenti. Osm bran
+   pod sebou jako kontrolní seznam: u splněné brány je vidět, kdo ji potvrdil a co do ní zapsal (přínos,
+   mikrokrok, verdikt, chyba předpovědi), u další na řadě případný návrh a jeho autor. Nic se tu nemačká;
+   je to výpis, ne ovladač. Brány dál v pořadí jsou tiché, aby oko neskákalo dopředu. Slepá ulička
+   a zneplatnění mají vlastní větu nahoře, protože mění, co dává smysl čekat. */
+.fragment-gates { display: flex; flex-direction: column; gap: 8px; flex-basis: 100%; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.fragment-gates__title { margin: 0; font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.fragment-gates__dead { margin: 0; font-size: 12px; color: var(--ink-2); padding: 6px 8px; border-radius: 6px; background: var(--surface-3); }
+.fragment-gates__stale { margin: 0; font-size: 12px; color: var(--gold); }
+/* Kolo cyklu: malá věta pod titulkem říká, v kolikátém ze tří pokusů fragment je a na co právě čeká. Když se kola
+   vyčerpají, zbarví se do zlaté jako ostatní varování: agenti už fragment nevezmou a další krok je na člověku. */
+.fragment-gates__round { margin: 0; font: 500 11px var(--mono); color: var(--ink-2); }
+.fragment-gates__round--exhausted { color: var(--gold); font-weight: 600; }
+.fragment-gates__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* Řádek brány: tečka ve stejném jazyce jako pruh ve stromu, vpravo titulek, kdo a kdy, a payload. Vypnuté
+   brány dál v pořadí jsou ztlumené; další na řadě má jemný podklad, aby bylo jasné, kde cyklus stojí. */
+.fragment-gates__row { display: flex; gap: 8px; align-items: flex-start; padding: 6px; border-radius: 6px; font-size: 12px; }
+.fragment-gates__row .brief-gates__dot { margin-top: 4px; width: 8px; height: 8px; flex: none; }
+.fragment-gates__row--off { opacity: 0.6; }
+.fragment-gates__row--next { background: var(--accent-soft); }
+.fragment-gates__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fragment-gates__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.fragment-gates__state { font: 500 10px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; }
+.fragment-gates__error { font: 600 10px var(--mono); color: var(--gold); }
+.fragment-gates__waiting { font-size: 11px; color: var(--ink-muted); }
+.fragment-gates__payload { margin: 0; padding-left: 14px; color: var(--ink-2); line-height: 1.5; overflow-wrap: anywhere; }
+/* Návrh čekající na potvrzení: přerušovaná linka vlevo říká „ještě neplatí“, ale obsah je čitelný celý. */
+.fragment-gates__proposal { display: flex; flex-direction: column; gap: 2px; padding-left: 8px; border-left: 2px dashed var(--accent-line); }
+/* Zamítnutý návrh zůstává vidět, aby bylo jasné, kdo ho odmítl a proč, ale je přeškrtnutě tichý: cyklus na něm
+   nestojí a čeká na nový. Použitý návrh se jen jmenuje plnou linkou; jeho obsah už nese záznam brány výš. */
+.fragment-gates__proposal--rejected { border-left-color: var(--line); opacity: 0.7; }
+.fragment-gates__proposal--rejected .fragment-gates__payload { text-decoration: line-through; }
+.fragment-gates__proposal--used { border-left-style: solid; border-left-color: var(--line); }
+.fragment-gates__queue { margin: 0; font-size: 12px; color: var(--ink-2); }
+
+/* Poučení disciplíny: řádek = druh, text, platná váha a autor; váha v procentech ukazuje, jak poučení vyhasíná. */
+.fragment-gates__lessons { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.fragment-gates__lesson { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; padding: 4px 0; border-top: 1px solid var(--line); }
+.fragment-gates__lesson-text { flex: 1; min-width: 160px; overflow-wrap: anywhere; }
+.fragment-gates__weight { font: 500 10px var(--mono); color: var(--ink-muted); }
+
+/* Kroky mikrokroku a vrstva: zapnutý Mikrokrok ukazuje své kroky jako číslovaný seznam ve čtecím pořadí (nejvýš dvanáct
+   krátkých vět) a vedle titulku malý štítek vrstvy, aby bylo na první pohled vidět, kam práce míří. */
+.fragment-gates__steps { margin: 0; padding-left: 20px; color: var(--ink-2); line-height: 1.5; overflow-wrap: anywhere; }
+.fragment-gates__layer { font: 600 10px var(--mono); color: var(--accent); border: 1px solid var(--accent-line); border-radius: 999px; padding: 0 6px; }
+
+/* Výsledek Ověřeno: dva malé štítky vedle sebe, protože „plán je dobrý“ a „testy prošly“ jsou dvě různé zprávy. Plán
+   schválený se skóre je klidný, neschválený zlatý; testy, které neprošly, jsou zlaté a neběžely jsou tiché, aby
+   chybějící testy nevypadaly jako selhání. Oko tak hned vidí, co se povedlo a co ne, bez čtení payloadu. */
+.fragment-gates__outcome { display: flex; flex-wrap: wrap; gap: 6px; }
+.fragment-gates__badge { font: 600 10px var(--mono); border-radius: 999px; padding: 0 8px; border: 1px solid var(--line); color: var(--ink-muted); }
+.fragment-gates__badge--pass { color: var(--accent); border-color: var(--accent-line); }
+.fragment-gates__badge--fail { color: var(--gold); border-color: var(--gold); }
+
+/* Nahlášený běh kontrol: štítek „neatestováno“ je tichý a stojí první, protože běh je tvrzení ověřovatele, ne
+   důkaz od serveru. Pod ním kdo vykonal a kdo ověřil a řádek na kontrolu; prošlá je klidná, neprošlá zlatá,
+   aby oko hned vidělo, která kontrola padla, aniž by se barvou tvrdilo, že je výsledek zaručený. */
+.fragment-gates__run { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.fragment-gates__run-check--pass { color: var(--accent); }
+.fragment-gates__run-check--fail { color: var(--gold); }

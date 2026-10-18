@@ -9,3 +9,5 @@ Kontrakt: `docs/verze-platna.md`. Router: `backend/api/editor/canvas_version_rou
 Obnova vyžaduje token aktuálního pracovního prostoru, používá společnou databázovou transakci a při výjimce vrací souborové změny. Uchová záchrannou verzi odlišného současného obsahu. Neobnovuje společný cíl/nastavení projektu, zdrojový kód, Git historii, externí reference ani neměnné důkazy agentů. Kontext cíle zůstává ve snapshotu pro orientaci a kontrolu souběhu.
 
 Výpis verzí nečte sloupce graph/state/snapshot do Pythonu (`LIST_SQL`, `SNAPSHOT_SQL`): počet uzlů a metadata snímku spočítá SQLite (`json_array_length`, `json_extract`, `json_each`) a metadata neměnného řádku verze si instance pamatuje, takže další výpis sahá jen na nové verze. Dotaz „je obsah už uložený“ (`SAME_CONTENT_SQL`) jde přes index `canvas_versions_content`.
+
+`checkpoint` je pojistná verze serveru před bránou `placed` (docs/schranka-neurony.md §11): stejný snímek jako uložení, autor „před placed <fragment>“; když stejný obsah už v nějaké verzi je, neukládá nic.

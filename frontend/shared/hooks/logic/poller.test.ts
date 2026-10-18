@@ -102,6 +102,28 @@ describe("sdílený poller", () => {
     expect(run).toHaveBeenCalledTimes(2);
   });
 
+  it("interval jako funkce se čte před každým kolem (odstup po chybě bez nového polleru)", async () => {
+    let pause = 10_000;
+    const run = vi.fn(async () => {});
+    const poller = createPoller({ run, intervalMs: () => pause, visibility: visibility().source });
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(run).toHaveBeenCalledTimes(1);
+    pause = 20_000;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(run).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(run).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(run).toHaveBeenCalledTimes(3);
+    pause = 0;
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(run).toHaveBeenCalledTimes(4);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(run).toHaveBeenCalledTimes(4);
+    poller.stop();
+  });
+
   it("klíče obnovy porovnává jako závislosti efektu", () => {
     const revision = { a: 1 };
     expect(sameKeys(["p", revision], ["p", revision])).toBe(true);
@@ -145,12 +167,12 @@ describe("žádný poller mimo vzor", () => {
       "editor/canvas/node-card/logic/use-leases.ts",
       "editor/canvas/node-card/logic/use-frontier.ts",
       "editor/canvas/node-card/logic/use-work-overview.ts",
-      "editor/canvas/node-card/logic/use-scenario-history.ts",
       "editor/canvas/node-card/logic/use-assignment-status.ts",
       "editor/canvas/node-card/logic/use-source-status.ts",
       "editor/canvas/card-checklist/logic/card-checklist.ts",
       "project/maps/components/MapUpdateMenu.tsx",
       "layout/assistant-panel/logic/use-assistant-sessions.ts",
+      "project/architecture-editor/logic/use-domain-live.ts",
     ];
     for (const path of pollers) expect(files.find((file) => file.path === path)?.text, path).toMatch(/usePolling\(/);
     expect(files.find((file) => file.path === "editor/node-detail/brief-vault/logic/brief-vault-store.ts")?.text).toMatch(/createPoller\(/);

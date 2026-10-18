@@ -62,7 +62,7 @@ def env(tmp_path):
         install_graph(client, {"nodes": [node("s1", kind="sector"), node("c1", "s1"), node("c2", "s1")],
                                "edges": [{"id": "e1", "source": "c1", "target": "c2", "port": "next"}]})
         vault = BriefVault(app.state.service)
-        fragment = vault.apply({**SCOPE, "op": "create", "scopeNodeId": "s1", "title": "3.1 Zadání", "text": "Text v1."},
+        fragment = vault.apply({**SCOPE, "op": "create", "scopeNodeId": "s1", "discipline": "be", "title": "3.1 Zadání", "text": "Text v1."},
                                actor="agent", agent="work-1")["fragment"]
         workspace = client.post("/api/desktop-v3/agent-workspace", headers=HEADERS, json={
             **SCOPE, "nodeId": "c1", "expectedRevision": 0, "by": "agent",
@@ -173,7 +173,9 @@ def test_round_two_starts_clean(env):
     assert all(card["evidence"][key]["status"] == "pending" for key in ("tests", "review", "merge"))
     assert card["evidence"]["checksRun"] == []
     assert [idea["id"] for idea in card["ideas"]] == ["i1"]
-    assert card["fragmentRefs"] == [{"fragmentId": env["fragment"], "revision": 2}]
+    assert [{key: ref[key] for key in ("fragmentId", "revision")} for ref in card["fragmentRefs"]] == [
+        {"fragmentId": env["fragment"], "revision": 2}]
+    assert len(card["fragmentRefs"][0]["contentHash"]) == 64  # nové kolo nese otisk obsahu (§9 bod 6)
     assert card["round"]["number"] == 2 and card["round"]["reason"] == "Nové zadání 3.1" and card["round"]["by"] == "human"
     space = client.get("/api/desktop-v3/agent-workspace", params={**SCOPE, "nodeId": "c1"}).json()["workspace"]
     assert space["log"] == "" and space["failures"] == ""
@@ -203,7 +205,7 @@ def test_round_two_does_not_carry_port_choices_or_checked_criteria(env):
                                    "rozhodnutí v1: port „Varianta B“ bloku 1 = rejected (Drahá.)",
                                    "rozhodnutí v1: kritérium splněno: Testy zelené.", "rozhodnutí v1: Rozhodnutí v1."]
     assert [(item["id"], item.get("fromRound")) for item in brief["context"]["decisions"]] == [("d1", 1)]
-    assert [item["checked"] for item in brief["definitionOfDone"]["criteria"]] == [False, False]
+    assert "criteria" not in brief["definitionOfDone"]
     assert "not carried over" in brief["rounds"]["policy"]
 
 
@@ -249,7 +251,7 @@ def test_node_brief_carries_previous_rounds_and_the_frozen_round_brief(env):
 def test_canvas_versions_carry_rounds_and_restore_appends_instead_of_rewriting(env):
     client, db = env["client"], env["db"]
     view = client.get("/api/view", params=SCOPE).json()
-    # v1 ve fázi build se všemi kritérii splněnými (jinak by obnova z v2 = discover narazila na bránu fáze)
+    # v1 se všemi kritérii splněnými (stará data; brána fáze už neexistuje, obnova je jen přenese)
     stored = client.get("/api/desktop-v3/state", params=SCOPE).json()
     state = copy.deepcopy(stored["state"])
     state["nodes"]["c1"]["criteria"][1]["checked"] = True

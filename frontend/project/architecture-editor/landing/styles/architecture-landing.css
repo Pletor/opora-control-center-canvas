@@ -1,9 +1,26 @@
 /* Přehled domén: tmavá plocha s jemnou září nahoře, jako rozcestník. Nahoře nadpis a věta,
-   pod ním dva pruhy (Produkce, Vývoj) s kartami domén. Padding dole nechává místo účtu v rohu. */
-.arch-landing{--al-prod:#38d6c2;--al-dev:#f0a63c;--al-legacy:#8fa3b8;overflow:auto;flex:1;min-width:0;min-height:0;padding:40px clamp(14px,5vw,72px) 100px;background:radial-gradient(ellipse at 50% 0,#14304a 0,transparent 55%),var(--ae-bg)}
+   pod ním dva pruhy (Produkce, Vývoj) s kartami domén. Vlevo a dole drží plocha rezervu pro
+   plovoucí tlačítko Opora v rohu, aby při posouvání nikdy neleželo na kartě ani na jejím tlačítku. */
+.arch-landing{--al-prod:#38d6c2;--al-dev:#f0a63c;--al-legacy:#8fa3b8;overflow:auto;flex:1;min-width:0;min-height:0;padding:40px clamp(14px,5vw,72px) calc(var(--account-corner-safe) + 36px) max(var(--account-corner-gutter),clamp(14px,5vw,72px));background:radial-gradient(ellipse at 50% 0,#14304a 0,transparent 55%),var(--ae-bg)}
 .arch-landing__head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .arch-landing__title{font-size:28px;font-weight:700;margin:0}
 .arch-landing__lead{margin:8px 0 0;color:var(--ae-muted);font-size:14px}
+/* Pod větou jedna tichá řádka, jak se na doméně začíná pracovat: worktree, v něm relace, pak karta.
+   Kroky jsou o odstín světlejší než spojovací šipky, aby se daly přečíst jedním pohledem, ale řádka
+   nesoutěží s nadpisem ani s kartami. */
+.arch-landing__flow{margin:6px 0 0;color:var(--ae-muted);font-size:12px}
+.arch-landing__flow-step{color:var(--ae-text);font-weight:600}
+
+/* Vpravo v hlavičce stojí vedle „+ Doména“ tichá věta o hlavních relacích projektu („Hlavní relace:
+   1 čeká“) s tlačítkem nové relace: člověk hned vidí, jestli na něj někde čeká asistent. */
+.arch-landing__head-tools{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.arch-landing__sessions{display:flex;align-items:center;gap:8px;margin:0;color:var(--ae-muted);font-size:12px}
+
+/* Když se živý stav nepodařilo načíst ani jednou, řekne to věta pod hlavičkou: prázdné karty by jinak
+   lhaly, že se nikde nepracuje. Zastaralý údaj se jen tiše podepíše zlatým časem („údaj z 12:03,
+   nepodařilo se obnovit“) u hlavních relací, u karty domény i u Nepřiřazených. */
+.arch-landing__alert{margin:18px 0 0;padding:8px 12px;border-radius:8px;border:1px solid var(--danger);background:var(--danger-soft);color:var(--ae-text);font-size:12px}
+.arch-landing__stale{color:var(--gold);font-size:11px}
 
 /* Pruh prostředí: barevný štítek a krátká věta, aby bylo hned jasné, kde se kdo pohybuje. */
 .arch-landing__group{margin:34px 0 0}
@@ -19,11 +36,22 @@
 .arch-landing__card{--al-tone:var(--al-prod);display:flex;flex-direction:column;gap:6px;min-width:0;padding:18px;border-radius:14px;background:var(--ae-panel);border:1px solid color-mix(in srgb,var(--al-tone) 45%,var(--ae-line));box-shadow:0 0 18px color-mix(in srgb,var(--al-tone) 12%,transparent)}
 .arch-landing__card--dev{--al-tone:var(--al-dev)}
 .arch-landing__card--legacy{--al-tone:var(--al-legacy)}
+/* Horní řádek karty: ikona druhu vlevo, tichý čip ID vpravo; ID je pro agenta, ne pro čtení. */
+.arch-landing__card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .arch-landing__icon{color:var(--al-tone);margin-bottom:6px}
 .arch-landing__host{margin:0;font-size:17px;font-weight:700;overflow-wrap:anywhere}
 .arch-landing__meta{margin:0;color:var(--ae-muted)}
-.arch-landing__id{color:var(--ae-muted);font-size:11px;overflow-wrap:anywhere}
 .arch-landing__env{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* Práce na doméně: pod popisem jedna věta s počty („3 worktree · 1 běží“), která se rozbalí do
+   stěsnaného stromu. Klidná doména to řekne tlumenou větou a hned nabídne tichý „Nový worktree“,
+   aby karta nepůsobila rozbitě a bylo jasné, jak na doméně začít pracovat. */
+.arch-landing__work{display:flex;flex-direction:column;gap:6px;margin:4px 0 0;font-size:12px}
+.arch-landing__work--idle{color:var(--ae-muted);align-items:flex-start}
+.arch-landing__work-text{margin:0}
+.arch-landing__work-new{align-self:flex-start}
+.arch-landing__work-toggle{align-self:flex-start;padding:0;border:0;background:none;color:var(--ae-text);cursor:pointer;font:inherit}
+.arch-landing__work-toggle:hover{color:var(--al-tone)}
 
 /* Hlavní akce je odkaz na mapu; Upravit a Oddělit jsou tiché, aby nesoutěžily s otevřením. */
 .arch-landing__actions{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:8px}
@@ -33,4 +61,32 @@
 .arch-landing__quiet:hover:not(:disabled){color:var(--ae-text);border-color:var(--ae-muted)}
 .arch-landing__split{margin-top:24px}
 
-@media(max-width:760px){.arch-landing{padding:20px 12px 100px}.arch-landing__title{font-size:22px}.arch-landing__grid{grid-template-columns:1fr}}
+/* Zámek úprav: když „+ Doména“ nebo jiná úprava nejde, řekne to jedna řádka pod hlavičkou editoru
+   (ukládám, načítám, chyba, uzavřená karta, obsah mainu jen pro čtení). Trvalý důvod má zlatý okraj,
+   protože člověk musí něco udělat; přechodný je tlumený a zmizí sám, aby při každém uložení nekřičel. */
+.arch-landing__lock{display:flex;align-items:center;gap:8px;margin:0;padding:6px 16px;border-bottom:1px solid var(--gold);background:color-mix(in srgb,var(--gold) 8%,var(--ae-bg));color:var(--ae-text);font-size:12px}
+.arch-landing__lock--transient{border-bottom-color:var(--ae-line);background:transparent;color:var(--ae-muted)}
+.arch-landing__lock-icon{flex:none}
+
+/* Nepřiřazené worktree: pod stromem jedna řádka na worktree s výběrem domény a tichým „Přiřadit“.
+   Chyba (třeba endpoint ještě neběží) stojí hned pod řádkou, ať je jasné, co se nepovedlo. */
+.arch-landing__assign-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.arch-landing__assign{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;font-size:12px}
+.arch-landing__assign-label{display:flex;flex-direction:column;gap:4px;color:var(--ae-muted)}
+.arch-landing__assign-select{min-width:220px;padding:3px 6px;border-radius:6px;border:1px solid var(--ae-line);background:var(--ae-panel);color:var(--ae-text);font:inherit}
+.arch-landing__assign-error{flex-basis:100%;margin:0;color:var(--danger);font-size:11px}
+.arch-landing__assign-empty{margin:8px 0 0;color:var(--ae-muted);font-size:12px}
+
+/* Skladiště: úplně dole a sbalené, protože jde o uzavřenou práci; rozbalený seznam má na řádce větev,
+   doménu, důvod a datum, aby se dalo dohledat, proč nápad skončil. Nic v něm nejde měnit. */
+.arch-landing__shelf-toggle{padding:0;border:0;background:none;color:var(--ae-text);cursor:pointer;font:inherit;font-size:14px}
+.arch-landing__shelf-body{margin-top:10px}
+.arch-landing__shelf-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.arch-landing__shelf-item{display:grid;grid-template-columns:minmax(120px,1fr) minmax(140px,1fr) 2fr auto;gap:10px;align-items:baseline;padding:6px 10px;border-radius:8px;background:var(--ae-panel);border:1px solid var(--ae-line);font-size:12px}
+.arch-landing__shelf-branch{overflow-wrap:anywhere}
+.arch-landing__shelf-domain{color:var(--ae-muted)}
+.arch-landing__shelf-reason{overflow-wrap:anywhere}
+.arch-landing__shelf-date{color:var(--ae-muted);white-space:nowrap}
+.arch-landing__retry{margin-left:8px}
+
+@media(max-width:760px){.arch-landing{padding:20px 12px calc(var(--account-corner-safe) + 36px) var(--account-corner-gutter)}.arch-landing__title{font-size:22px}.arch-landing__grid{grid-template-columns:1fr}.arch-landing__shelf-item{grid-template-columns:1fr}}

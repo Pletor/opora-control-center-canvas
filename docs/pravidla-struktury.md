@@ -11,7 +11,7 @@ opora-canvas/
       top-bar/
       environment-switch/ # Projekt | Editor | OporaHub (Alt+1..3)
       mode-rail/        # módy plátna uvnitř Editoru (vodorovné záložky ve druhé řadě lišty)
-      panel-dock/       # tlačítka Knihovna | Agenti a postupy a panel zavěšený pod nimi (docs/rozvrzeni-editoru.md)
+      panel-dock/       # menu Editoru ☰: lišta Struktura | Schránka | Nastavení a panel sekce vedle ní
       account-corner/   # levý dolní roh: tlačítko Opora a popup menu
       shell/            # styly pracovní plochy
     project-setup/      # KROK 1: přiřazení repozitářů a složek, vytvoření projektu
@@ -52,7 +52,7 @@ opora-canvas/
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
     project/            # PROSTŘEDÍ PROJEKT
       workspace/        # strom zdrojů, otevírání souborů, dokumentace k cestám
-      worktrees/        # worktree_manager: worktree z čistého main, fork, run_check, úklid
+      worktrees/        # workspace_domain (worktree ↔ doména), workspace_archive (skladiště uzavřených worktree)
       maps/             # graphify, archify, map_refresh, artefakty, snapshoty
     editor/             # PROSTŘEDÍ EDITOR: obsah uzlů a vše, co dostává agent
       node/             # node_text, node_specs, node_journal, node_links, drawings, wireframe_context, removals
@@ -115,145 +115,18 @@ Když se má chování lišit, liší se podle **druhu projektu**, ne podle konk
 
 Audit stavu k 2026-09-15: `docs/ux-central-audit.md`.
 
-## Skutečný stav
+## Kontrola struktury
 
-```
-backend
-backend/api
-backend/api/editor
-backend/api/project
-backend/api/project_setup
-backend/app
-backend/canvas
-backend/claude_code
-backend/editor
-backend/editor/agent_handoff
-backend/editor/agent_memory
-backend/editor/agent_packet
-backend/editor/node
-backend/editor/sector
-backend/editor/task_execution
-backend/integrations
-backend/library
-backend/memory
-backend/project
-backend/project/maps
-backend/project/workspace
-backend/project_setup
-database
-database/repositories
-database/schema
-database/seeds
-frontend
-frontend/app
-frontend/app/components
-frontend/app/logic
-frontend/app/styles
-frontend/design-tokens
-frontend/design-tokens/styles
-frontend/editor
-frontend/editor/canvas
-frontend/editor/canvas/board
-frontend/editor/canvas/board/components
-frontend/editor/canvas/drawing
-frontend/editor/canvas/drawing/components
-frontend/editor/canvas/drawing/logic
-frontend/editor/canvas/drawing/styles
-frontend/editor/canvas/node-card
-frontend/editor/canvas/sector-card
-frontend/editor/canvas/settings
-frontend/editor/canvas/settings/components
-frontend/editor/canvas/wireframes
-frontend/editor/canvas/wireframes/components
-frontend/editor/canvas/wireframes/logic
-frontend/editor/component-library
-frontend/editor/component-library/palette
-frontend/editor/llm-control
-frontend/editor/llm-control/agent-packet
-frontend/editor/llm-control/agent-packet/components
-frontend/editor/llm-control/editor-context
-frontend/editor/llm-control/editor-context/components
-frontend/editor/llm-control/project-memory
-frontend/editor/llm-control/project-memory/components
-frontend/editor/node-detail
-frontend/editor/node-detail/agent-summary
-frontend/editor/node-detail/agent-summary/components
-frontend/editor/node-detail/agent-summary/logic
-frontend/editor/node-detail/agent-summary/styles
-frontend/editor/node-detail/agent-workspace
-frontend/app/access-gate
-frontend/app/access-gate/components
-frontend/app/access-gate/logic
-frontend/app/access-gate/styles
-frontend/editor/node-detail/agent-workspace/memory
-frontend/editor/node-detail/agent-workspace/memory/components
-frontend/editor/node-detail/agent-workspace/memory/logic
-frontend/editor/node-detail/agent-workspace/memory/styles
-frontend/editor/node-detail/assignment
-frontend/editor/node-detail/assignment/components
-frontend/editor/node-detail/components
-frontend/editor/node-detail/content
-frontend/editor/node-detail/content/components
-frontend/editor/node-detail/content/logic
-frontend/editor/node-detail/content/styles
-frontend/editor/node-detail/journal
-frontend/editor/node-detail/journal/components
-frontend/editor/node-detail/links
-frontend/editor/node-detail/links/components
-frontend/editor/sector-detail
-frontend/editor/workflow
-frontend/editor/workflow/components
-frontend/hub
-frontend/hub/oporahub-workspace
-frontend/hub/oporahub-workspace/components
-frontend/hub/oporahub-workspace/logic
-frontend/hub/oporahub-workspace/styles
-frontend/layout
-frontend/layout/environment-switch
-frontend/layout/environment-switch/components
-frontend/layout/mode-rail
-frontend/layout/mode-rail/components
-frontend/layout/panel-dock
-frontend/layout/panel-dock/components
-frontend/layout/panel-dock/logic
-frontend/layout/panel-dock/styles
-frontend/layout/shell
-frontend/layout/shell/styles
-frontend/layout/top-bar
-frontend/layout/top-bar/components
-frontend/project
-frontend/project-setup
-frontend/project-setup/components
-frontend/project-setup/styles
-frontend/project/maps
-frontend/project/maps/components
-frontend/project/maps/styles
-frontend/project/shell
-frontend/project/shell/components
-frontend/project/shell/styles
-frontend/project/source-tree
-frontend/project/source-tree/components
-frontend/project/workspace
-frontend/project/workspace/components
-frontend/shared
-frontend/shared/api
-frontend/shared/contexts
-frontend/shared/contexts/components
-frontend/shared/desktop-state
-frontend/shared/desktop-state/logic
-frontend/shared/hooks
-frontend/shared/hooks/logic
-frontend/shared/selection
-frontend/shared/selection/logic
-frontend/shared/surface-settings
-frontend/shared/surface-settings/logic
-frontend/shared/types
-frontend/shared/types/logic
-frontend/ui-kit
-frontend/ui-kit/panel-frame
-frontend/ui-kit/panel-frame/styles
-frontend/ui-kit/removal-dialog
-frontend/ui-kit/removal-dialog/components
-frontend/ui-kit/workspace-boundary
-frontend/ui-kit/workspace-boundary/components
-```
+Skutečný stav se nepíše ručně: strom ukáže Glob nebo průzkumník a pravidla výše hlídá
+`tools/structure_check.py`. Seznam porušení vypíše `uv run python tools/structure_check.py`
+(řádek = pravidlo, cesta, důvod); `npm run verify` z něj dělá ráčnu `STRUCTURE_BASELINE`
+v `tools/verify.py`: počet nálezů pravidla smí jen klesat a pravidlo, které v ráčně chybí, má nulu.
+
+| Pravidlo | Co hlídá |
+|---|---|
+| `supliky` | `.tsx` v `components/`, `.ts` v `logic/` (test `.test.ts` i vedle komponenty), `.css` ve `styles/` |
+| `testy-vedle` | žádné složky `tests/`, `test/`, `__tests__/` ve `frontend/`, `backend/`, `database/`, `tools/` |
+| `router-v-api` | `APIRouter(` jen v `backend/api/` |
+| `nazev` | žádné složky ani soubory `utils`, `misc`, `common`, `helpers` |
+| `readme` | feature složka frontendu (má `components/`, `logic/` nebo `styles/`) a balíček backendu či databáze mají `README.md` |
+| `delka` | zdrojový soubor mimo testy má nejvýš 200 řádků; dnes ráčna, dělí se při další změně souboru |

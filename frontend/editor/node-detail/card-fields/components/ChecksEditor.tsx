@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CanvasNode } from "@/shared/types/logic/types";
-import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 
 const draftOf = (node: CanvasNode) => ({ checks: node.checks ?? [], goal_mode: node.goal_mode ?? "manual" });
 export default function ChecksEditor({ node, disabled, onSave }: { node: CanvasNode; disabled: boolean; onSave: (node: CanvasNode) => void }) {

@@ -5,6 +5,8 @@ Fragment má stálé `fragment_id` a řadu revizí v `brief_fragment_revisions` 
 nová revize s poznámkou. Kořen schránky je připnutý k plátnu (`scopeNodeId: ""`), sektoru nebo
 kartě; dítě má jen rodiče (fraktál do libovolné hloubky). `split` hlídá, že se zadání neztratí.
 `mvp: yes|no`, smazání a obnova staré revize patří člověku (`HUMAN_OPS`, 403 / 428).
+Disciplína (`discipline`: id z docs/schranka-neurony.md §2 | null = dědí) jde s fragmentem do každé další
+revize; kořen ji nese vždy a přeřadí ji jen `set-discipline` (nová revize se stejným textem).
 """
 
 import uuid
@@ -14,6 +16,9 @@ from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault import brief_vault_develop as develop
+from backend.editor.brief_vault import brief_vault_gates as gates
+from backend.editor.brief_vault import brief_vault_mirror as vault_mirror
+from backend.editor.brief_vault import brief_vault_placement as placement
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_model import (
     COLUMNS,
@@ -23,7 +28,9 @@ from backend.editor.brief_vault.brief_vault_model import (
     MAX_TEXT,
     MAX_TITLE,
     STAGES,
+    bad_request,
     data_of,
+    discipline_of,
     fail,
     history_rows,
     latest_rows,
@@ -31,13 +38,15 @@ from backend.editor.brief_vault.brief_vault_model import (
     text_of,
     validate_record,
 )
+from backend.editor.brief_vault.brief_vault_plan import dry_plan
 from backend.editor.brief_vault.brief_vault_read import VaultReader
 from backend.editor.brief_vault.brief_vault_split import split_parts
+from backend.integrations import mirror_client
 
 SCOPE_KEYS = {"project", "workspace", "op"}
 # Pole každé operace: (povinná, volitelná).
 OPS = {
-    "create": ({"title", "text"}, {"scopeNodeId", "parentId", "stage", "note"}),
+    "create": ({"title", "text"}, {"scopeNodeId", "parentId", "stage", "note", "discipline"}),
     "revise": ({"fragmentId", "expectedRevision", "note"}, {"text", "title", "stage"}),
     "split": ({"fragmentId", "expectedRevision"}, {"parts", "splitter", "note"}),
     "research": ({"fragmentId", "title", "text"}, {"note", "question", "status"}),
@@ -46,12 +55,14 @@ OPS = {
     "set-mvp": ({"fragmentIds", "mvp"}, {"note"}),
     "delete": ({"fragmentId", "expectedRevision", "note"}, set()),
     "restore": ({"fragmentId", "expectedRevision", "revision", "note"}, set()),
+    "set-discipline": ({"fragmentId", "expectedRevision", "discipline", "note"}, set()),
     **develop.OPS,
+    **gates.OPS,
 }
 HUMAN_OPS = {"set-mvp": "MVP potvrzuje nebo zamítá jen člověk; agent ho navrhuje přes propose-mvp.",
              "delete": "Fragment zadání maže jen člověk.",
              "restore": "Starou revizi fragmentu obnovuje jen člověk.",
-             **develop.HUMAN_OPS}
+             **develop.HUMAN_OPS, **gates.HUMAN_OPS}
 MAX_IDS = 500
 
 
@@ -142,10 +153,12 @@ class _Write:
     def revise(self, row, note, **changes):
         return self.insert(row["fragment_id"], row["revision"] + 1, {**data_of(row), **changes}, note)
 
-    def new(self, *, parent, scope, title, text, kind="brief", stage="draft", note=""):
+    def new(self, *, parent, scope, title, text, kind="brief", stage="draft", note="", discipline=None):
+        """Nový fragment; `discipline` None = dědí od rodiče (kořen ji dostane vždy, hlídá volající)."""
         siblings = self.children(parent) if parent is not None else []
         data = {"parent_id": parent, "scope_node_id": scope, "ord": max((row["ord"] for row in siblings), default=0) + 1,
-                "kind": kind, "title": title, "text": text, "stage": stage, "mvp": "none", "deleted": 0}
+                "kind": kind, "title": title, "text": text, "stage": stage, "mvp": "none", "deleted": 0, "discipline": discipline,
+                "gates": None}
         return self.insert(uuid.uuid4().hex, 1, data, note)
 
 
@@ -172,8 +185,9 @@ def _create(w, payload, node_ids):
         w.check_depth(parent)
     elif scope != "" and scope not in node_ids:
         fail("scopeNodeId musí být \"\" (plátno) nebo id existující karty či sektoru.")
+    discipline = discipline_of(payload.get("discipline"), allow_null=parent is not None)
     row = w.new(parent=parent, scope=scope, title=title, text=text, stage=_stage(payload.get("stage", "draft")),
-                note=payload.get("note") or "Vloženo do schránky.")
+                note=payload.get("note") or "Vloženo do schránky.", discipline=discipline)
     return {"fragment": public(row)}
 
 
@@ -262,21 +276,47 @@ def _restore(w, payload, node_ids):
     if old is None or old["deleted"]:
         fail("obnovit lze jen existující nesmazanou revizi fragmentu.")
     note = f"Obnovena revize r{old['revision']}: {payload['note']}"
-    return {"fragment": public(w.insert(row["fragment_id"], row["revision"] + 1, data_of(old), note))}
+    # Disciplína je zařazení a brány jsou stav cyklu, ne obsah: obnova vrátí text a metadata, disciplínu a brány nechá
+    # aktuální (brány s jiným otiskem vstupů se pak hlásí jako zneplatněné, §9 bod 4).
+    data = {**data_of(old), "discipline": row["discipline"], "gates": row["gates"]}
+    return {"fragment": public(w.insert(row["fragment_id"], row["revision"] + 1, data, note))}
+
+
+def _set_discipline(w, payload, node_ids):
+    """Přeřazení fragmentu (a s ním podstromu, který disciplínu dědí) do jiné disciplíny; text beze změny."""
+    row = w.checked(payload)
+    discipline = discipline_of(payload["discipline"], allow_null=row["parent_id"] is not None)
+    if row["discipline"] == discipline:
+        fail("set-discipline nic nemění; fragment už má tuto disciplínu.")
+    return {"fragment": public(w.revise(row, payload["note"], discipline=discipline))}
 
 
 HANDLERS = {"create": _create, "revise": _revise, "split": _split, "research": develop.research, "promote": _promote,
-            "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore, **develop.HANDLERS}
+            "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore, "set-discipline": _set_discipline,
+            **develop.HANDLERS, **gates.HANDLERS}
 
 
 class BriefVault(VaultReader):
     """Zápis jedné operace schránky; čtení (strom, fragment, balíček pro LLM, historie) dědí z `VaultReader`."""
 
-    def __init__(self, canvas, state_store=None):
+    def __init__(self, canvas, state_store=None, mirror=None):
         super().__init__(canvas, state_store or getattr(canvas, "desktop_v3_state", None) or DesktopV3State(canvas))
+        # Zrcadlo (docs/zrcadlo.md): `mirror(project)` vrací klienta, nebo None; výchozí čte prostředí při každém volání.
+        self.mirror = mirror or (lambda project: mirror_client.client_for(project))
 
     def apply(self, payload, *, actor="unknown", agent=""):
-        """Jedna operace schránky v jedné transakci; ValueError = nic se nezapsalo (HTTP 409)."""
+        """Jedna operace schránky v jedné transakci; ValueError = nic se nezapsalo (HTTP 409).
+
+        Po potvrzení transakce (mimo zámek) volá Zrcadlo; jeho výsledek ani porucha odpověď nemění."""
+        result = self._apply(payload, actor=actor, agent=agent)
+        vault_mirror.after_gate(self.canvas, payload, result, self.mirror)
+        return result
+
+    def mirror_overview(self, project, workspace):
+        """Přesnost Zrcadla po disciplínách a poslední hormony pro Přehled Schránky (docs/zrcadlo.md)."""
+        return vault_mirror.overview(self.canvas, project, workspace, self.mirror(project))
+
+    def _apply(self, payload, *, actor, agent):
         op = _payload(payload)
         if op in HUMAN_OPS:
             require_human(actor, HUMAN_OPS[op])
@@ -286,8 +326,23 @@ class BriefVault(VaultReader):
             if view["readOnly"]:
                 fail("main je pouze pro čtení; schránka se mění v pracovním prostoru.")
             node_ids = {node["id"] for node in view["graph"]["nodes"]}
+
+            def make_write(db):
+                return _Write(db, project, workspace, actor, agent, self.state)
+
+            if placement.wants(payload):
+                # Brány plánu: plán a zápis na plátno skládá server mimo transakci schránky (§9 body 1–2).
+                return placement.run(self, payload, view, node_ids, make_write, actor)
             db = self.canvas.db_for(project)
             with self.canvas.lock_for(project), db:
                 db.execute("BEGIN IMMEDIATE")
-                return {"ok": True, "op": op,
-                        **HANDLERS[op](_Write(db, project, workspace, actor, agent, self.state), payload, node_ids)}
+                return {"ok": True, "op": op, **HANDLERS[op](make_write(db), payload, node_ids)}
+
+    def plan(self, payload, *, actor="unknown"):
+        """`POST /api/brief-vault/plan {project, workspace, fragmentIds}`: jen čtení, dávka ověřená dryRun."""
+        if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "fragmentIds"}:
+            bad_request("plan očekává project, workspace a fragmentIds.")
+        found = dry_plan(self.canvas, self.state, payload["project"], payload["workspace"], payload["fragmentIds"], actor)
+        return {"plan": found["plan"], "summary": found["summary"], "hash": found["hash"], "skipped": found["skipped"],
+                "digest": found["digest"], "scopes": found["scopes"], "generator": found["generator"],
+                "sourceRevisions": found["sourceRevisions"]}

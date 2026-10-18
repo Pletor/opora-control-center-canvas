@@ -41,11 +41,13 @@ class NodeTextStore:
             view = self.canvas.view(project, workspace)
             if not valid_id(node) or not any(n["id"] == node for n in view["graph"]["nodes"]):
                 raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
-            if view["readOnly"]:
+            # Text uzlu architektury leží pod `architecture` (docs/domeny-a-worktree.md §4), i na mainu.
+            scope_wid = self.canvas.document_workspace(project, workspace, node)
+            if view["readOnly"] and scope_wid == workspace:
                 if payload is not None:
                     raise ValueError("Main je pouze pro čtení.")
                 return {"revision": 0, "text": "", "saved_at": None, "readOnly": True, "available": False}
-            scope = (project, workspace, node)
+            scope = (project, scope_wid, node)
             with self.canvas.lock_for(project):
                 if payload is not None:
                     db = self.canvas.db_for(project)

@@ -6,10 +6,12 @@ Dotaz CLI na oprávnění (`control_request` can_use_tool, §5.1) backend buď s
 ukáže v UI jako `approval` a čeká na rozhodnutí člověka (`decide`); bez odpovědi do 10 min zamítne.
 Každá session má adresář konceptů `<data>/assistant-drafts/<id>/` (docs/davka-planu.md §2): vznikne se
 spuštěním procesu, proces ho zná z `OPORA_DRAFTS_DIR` a z `<opora_context>`, zaniká se `close`.
+Do něj se při startu procesu zapíše `instructions.md` a `agents.json` (docs/asistent.md §14).
 """
 
 from __future__ import annotations
 
+import json
 import shutil
 import threading
 import time
@@ -60,7 +62,7 @@ class _Live:
 class AssistantManager:
     def __init__(self, data_root, locate, *, which=shutil.which, command_builder=cli.build_command,
                  environ=None, limits=None, clock=time.monotonic, home=None, version_probe=cli.claude_version,
-                 base_url=None, route_hint=None, route_timeout=4.0):
+                 base_url=None, route_hint=None, route_timeout=4.0, instructions=None, agents=None):
         self.registry = SessionRegistry(data_root)
         self._drafts_root = Path(data_root) / "assistant-drafts"
         self.locate = locate
@@ -70,6 +72,8 @@ class AssistantManager:
         self._base_url = base_url  # adresa vlastní instance pro skill (OPORA_BASE_URL, §13.1)
         # Směrovač Jev (§13.2): `route_hint(text, context)` → hint | None; bez něj zpráva jde beze změny.
         self._route_hint, self._route_timeout = route_hint, route_timeout
+        # Pokyny a subagenti (§14): callable → text | None, callable → dict | None; čtou se při každém startu procesu.
+        self._instructions, self._agents = instructions, agents
         self._versions = {}
         self._lock = threading.RLock()
         self._live = {}
@@ -122,14 +126,16 @@ class AssistantManager:
         return read_transcript(self._record(session_id).get("claudeSessionId"), self._home)
 
     # --- zápis -----------------------------------------------------------------------
-    def create(self, project, workspace=None, title=None, model=None):
+    def create(self, project, workspace=None, title=None, model=None, node_id=None):
         model = model or cli.DEFAULT_MODEL
         if model not in cli.MODELS:
             raise AssistantError("Model asistenta je opus, sonnet nebo fable.")
         if title is not None and (not isinstance(title, str) or len(title) > 120):
             raise AssistantError("Název session může mít nejvýše 120 znaků.")
+        if node_id is not None and (not isinstance(node_id, str) or not 0 < len(node_id) <= 200):
+            raise AssistantError("Karta session musí být platné ID uzlu.")
         chosen, _root = self.locate(project, workspace)
-        return self._public(self.registry.create(project, chosen, model, title))
+        return self._public(self.registry.create(project, chosen, model, title, node_id))
 
     def _route(self, text, context):
         """Hint a telemetrie směrovače mimo zámek, s tvrdou mezí; porucha = bez hintu."""
@@ -198,13 +204,14 @@ class AssistantManager:
         if not claude:
             raise AssistantUnavailable("Claude Code (`claude`) není nainstalovaný nebo není v PATH.")
         _workspace, root = self.locate(record["projectId"], record["workspace"])
-        command = self._build(claude, record["model"], record["claudeSessionId"])
         sid = record["id"]
         drafts = self.drafts_dir(sid)
         try:
             drafts.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             raise AssistantUnavailable("Adresář konceptů asistenta nejde založit.") from exc
+        extra = self._write_session_files(drafts)
+        command = self._build(claude, record["model"], record["claudeSessionId"], **extra)
         process = SessionProcess(command, cwd=root, env=cli.child_env(self._environ, self._base_url, drafts),
                                  on_line=lambda proc, line: self._on_line(sid, proc, line),
                                  on_exit=lambda proc: self._on_exit(sid, proc))
@@ -222,6 +229,22 @@ class AssistantManager:
             raise AssistantUnavailable("Proces Claude Code nepřijal úvodní initialize.") from exc
         self._watchdog.ensure()
         return live
+
+    def _write_session_files(self, drafts):
+        """Pokyny a subagenti do adresáře konceptů (§14); klíčové argumenty jen pro soubory, které vznikly."""
+        extra = {}
+        try:
+            text = self._instructions() if self._instructions else None
+            if text:
+                (drafts / "instructions.md").write_text(text, encoding="utf-8")
+                extra["system_prompt_file"] = str(drafts / "instructions.md")
+            agents = self._agents() if self._agents else None
+            if agents:
+                (drafts / "agents.json").write_text(json.dumps(agents, ensure_ascii=False), encoding="utf-8")
+                extra["agents_file"] = str(drafts / "agents.json")
+        except (OSError, ValueError) as exc:
+            raise AssistantUnavailable("Pokyny nebo subagenty asistenta nejde zapsat do adresáře konceptů.") from exc
+        return extra
 
     def _end_turn(self, session_id, message=None):
         if message:

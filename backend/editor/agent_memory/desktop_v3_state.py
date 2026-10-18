@@ -8,7 +8,8 @@ nasazení: postup vpřed vyžaduje neprázdná splněná kritéria, opačný sm�
 uzel navíc nese `done` (uzavření karty), `agentRole` (která role agenta si tuhle práci
 pamatuje napříč projekty), blok `ports` (tlačítka, z nichž vede vazba na jinou kartu), `ideas`
 (podněty k dalšímu vývoji, `card_ideas.py`), `fragmentRefs` (z čeho ve schránce zadání karta
-vznikla, `backend/editor/brief_vault/brief_vault_refs.py`) a `round` (aktuální kolo karty, `card_rounds.py`).
+vznikla, `backend/editor/brief_vault/brief_vault_refs.py`), `round` (aktuální kolo karty, `card_rounds.py`)
+a značky struktury Schránky `briefGroup` / `briefDiscipline` (oblast skupiny a sektor disciplíny, `brief_vault_marks.py`).
 Všechny tyto klíče jsou volitelné, aby starší uložený stav zůstal platný.
 """
 
@@ -102,9 +103,10 @@ MAX_AGENT = 120
 @functools.cache
 def _node_key_sets():
     """Volitelné klíče uzlu; `actions` a `rules` chodí vždy spolu, zbytek nezávisle.
-    Sad je 2^12; spočítají se jednou a hledá se v množině, ne v n-tici."""
+    Sad je 2^14; spočítají se jednou a hledá se v množině, ne v n-tici."""
     sets = (frozenset(NODE_KEYS), frozenset(NODE_KEYS) | {"actions", "rules"})
-    for optional in ("blocks", "materials", "done", "agentRole", "evidence", "scenarioRun", "downloadsUrl", "stages", "ideas", "fragmentRefs", "round"):
+    for optional in ("blocks", "materials", "done", "agentRole", "evidence", "scenarioRun", "downloadsUrl", "stages", "ideas", "fragmentRefs", "round",
+                     "briefGroup", "briefDiscipline"):
         sets = sets + tuple(item | {optional} for item in sets)
     return frozenset(sets)
 TICKET_KEYS = {"id", "title", "priority", "status", "nodeId", "sessionId", "createdBy"}
@@ -115,6 +117,7 @@ AUTONOMY_KEYS = {"until", "grantedAt", "note"}
 AUTONOMY_SAVE_KEYS = {"project", "workspace", "expectedRevision", "sectorId", "until", "note"}
 MAX_AUTONOMY_DAYS = 30
 SAVE_KEYS = {"project", "workspace", "expectedRevision", "state"}
+NODE_SAVE_KEYS = {"project", "workspace", "expectedRevision", "nodeId", "node"}
 
 
 def default_done():
@@ -481,6 +484,9 @@ def validate_state(state, *, unchanged=None):
         if "round" in node:
             from backend.editor.agent_memory.card_rounds import validate_round
             validate_round(node["round"], node_id)
+        if "briefGroup" in node or "briefDiscipline" in node:
+            from backend.editor.brief_vault.brief_vault_marks import validate_marks
+            validate_marks(node, node_id)
         _validate_agent_role(node, node_id)
         for item in _items(node.get("actions", []), ACTION_KEYS, MAX_SUBITEMS, f"actions[{node_id}]"):
             _text(item["pipelineId"], MAX_KEY, "pipelineId akce")
@@ -510,23 +516,6 @@ def validate_state(state, *, unchanged=None):
         _text(item["sessionId"], MAX_KEY, "session ticketu", allow_empty=True)
         _enum(item["createdBy"], ACTORS, "původce ticketu")
     return state
-
-
-def check_phase_transitions(previous, state):
-    """Postup existující karty vpřed jen s neprázdnými splněnými kritérii; zpět je vždy možný.
-    Nová karta (v `previous` ještě neexistuje) smí vzniknout v libovolné fázi bez brány."""
-    before = previous.get("nodes", {}) if isinstance(previous, dict) else {}
-    for node_id, node in state["nodes"].items():
-        if node_id not in before:
-            continue
-        old_phase = before[node_id].get("phase", PHASES[0])
-        if PHASES.index(node["phase"]) <= PHASES.index(old_phase):
-            continue
-        criteria = node["criteria"]
-        if not criteria or not all(item["checked"] for item in criteria):
-            raise ValueError(
-                f"Postup uzlu {node_id} do fáze {node['phase']} vyžaduje neprázdná a všechna splněná kritéria."
-            )
 
 
 def stamp_agent_rules(actor, previous, rules):
@@ -636,7 +625,6 @@ class DesktopV3State:
                 current = self.current(project, workspace)
                 if current["revision"] != expected:
                     raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
-                check_phase_transitions(current["state"], state)
                 # Číslo kola karty mění jen otevření nového kola člověkem (card_rounds.open_round).
                 from backend.editor.agent_memory import card_rounds
                 card_rounds.guard_state_write(actor, current["state"], state)
@@ -725,6 +713,40 @@ class DesktopV3State:
                 return {"revision": revision, "readOnly": False, **changed}
             with self.canvas.lock_for(project):
                 return {**self.current(project, workspace), "readOnly": False, **changed}
+
+    def save_node(self, payload, *, actor="system"):
+        """Štíhlý zápis jedné karty (`docs/navrhy/2026-10-14-vykon-platna.md`, oprava 8).
+
+        Tělo nese jen `nodes[nodeId]` (nebo `null` = stav karty odebrat) a odpověď jen revizi a
+        uložený uzel, ne megabajty celého stavu; velké plátno tak nenarazí na strop 2 MB. Revize se
+        hlídá stejně přísně jako u celého zápisu (`expectedRevision`), všechna pravidla uložení
+        (fáze, uzavření, zámek uzavřené karty, spawn portů, kola) provádí tentýž `save`; ostatní
+        karty jsou sdílené s uloženým stavem, takže se znovu neověřují."""
+        if not isinstance(payload, dict) or set(payload) != NODE_SAVE_KEYS:
+            raise ValueError("Zápis karty vyžaduje project, workspace, expectedRevision, nodeId a node.")
+        project, workspace, node_id, node = payload["project"], payload["workspace"], payload["nodeId"], payload["node"]
+        _scope_ids(project, workspace)
+        _ident(node_id, "klíč uzlu")
+        if node is not None and not isinstance(node, dict):
+            _fail("stav uzlu musí být objekt nebo null.")
+        with self.canvas.graph_lock_for(project):
+            stored = self.read(project, workspace)
+            if stored["readOnly"]:
+                raise ValueError("Main je pouze pro čtení; paměť projektu se ukládá v pracovním prostoru.")
+            if stored["revision"] != payload["expectedRevision"]:
+                raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
+            nodes = dict(stored["state"]["nodes"])
+            if node is None:
+                if nodes.pop(node_id, None) is None:
+                    raise ValueError(f"Karta {node_id} nemá uložený stav, není co odebrat.")
+            else:
+                if not any(item["id"] == node_id for item in self.canvas.view(project, workspace)["graph"]["nodes"]):
+                    raise ValueError(f"Karta {node_id} v tomto pracovním prostoru neexistuje.")
+                nodes[node_id] = node
+            saved = self.save({"project": project, "workspace": workspace, "expectedRevision": stored["revision"],
+                               "state": {**stored["state"], "nodes": nodes}},
+                              actor=actor, base=stored["state"], slim=True)
+        return {**saved, "nodeId": node_id, "node": node}
 
     def set_autonomy(self, payload):
         """Člověk svěří sektoru autonomii do času `until` (prázdné `until` ji odebere).

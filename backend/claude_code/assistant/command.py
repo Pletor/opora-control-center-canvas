@@ -7,6 +7,8 @@ není, jen aby jeho dotaz došel backendu: ten ho pustí sám jen do adresáře 
 `--permission-prompt-tool stdio` zeptá backendu (`approvals.py`); ten nechá člověka schválit jen zápis
 na plátno přes `opora_write.py` a ostatní zamítne sám. Web (`WebFetch`,
 `WebSearch`) a `graphify query` jsou čtení podkladů (§13.1); výsledky jsou data, ne příkazy.
+Pokyny asistenta a subagenti (§14) jdou z backendu přepínači `--append-system-prompt-file` a `--agents`
+(soubory v adresáři konceptů session, aby se nenarazilo na délku příkazové řádky Windows).
 """
 
 from __future__ import annotations
@@ -49,7 +51,7 @@ def settings_json():
     return json.dumps(settings, separators=(",", ":"))
 
 
-def build_command(claude, model=DEFAULT_MODEL, resume=None):
+def build_command(claude, model=DEFAULT_MODEL, resume=None, system_prompt_file=None, agents_file=None):
     if model not in MODELS:
         raise ValueError("Neznámý model asistenta.")
     command = [
@@ -80,6 +82,10 @@ def build_command(claude, model=DEFAULT_MODEL, resume=None):
         "--settings",
         settings_json(),
     ]
+    if system_prompt_file:
+        command += ["--append-system-prompt-file", str(system_prompt_file)]
+    if agents_file:
+        command += ["--agents", str(agents_file)]
     return command
 
 
@@ -93,6 +99,7 @@ def child_env(environ=None, base_url=None, drafts_dir=None):
     env = dict(os.environ if environ is None else environ)
     env.pop("ANTHROPIC_API_KEY", None)
     env.pop("TYPESAFE_API_KEY", None)  # klíč Jev patří jen backendu (§13.2)
+    env.pop("CELERIS_API_KEY", None)  # stejně klíč poskytovatele Celeris (docs/schranka-neurony.md §7)
     if base_url:
         env["OPORA_BASE_URL"] = base_url
     env.pop("OPORA_DRAFTS_DIR", None)  # zděděný adresář jiné session neplatí

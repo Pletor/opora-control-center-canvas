@@ -23,7 +23,7 @@ it("marks agent-written rules as muted proposals awaiting approval", () => {
   }));
   expect(html).toContain("🤖");
   expect(html).toContain("návrh agenta – čeká na schválení");
-  expect(html).toContain("opacity:0.6");
+  expect(html).toContain("node-card__fold--proposal");
   expect(html.match(/Schválit/g)).toHaveLength(1);
   expect(html.match(/Zamítnout/g)).toHaveLength(1);
 });

@@ -90,3 +90,14 @@ export function reorderDomainPage(graph: Graph, domainId: string, pageId: string
   [nodes[from], nodes[to]] = [nodes[to], nodes[from]];
   return { ...graph, nodes };
 }
+
+/**
+ * Doména pro nový worktree (modal „Nový worktree“): předvolba z živého panelu, jinak doména uzlu,
+ * odkud člověk přišel. Vrací jen ID existující domény; neznámý nebo rozbitý uzel = žádná předvolba.
+ */
+export function worktreeDomainChoice(graph: Graph, preset: string | null, fromId: string | null): string {
+  const domains = graph.nodes.filter((node) => node.site?.kind === "application");
+  let fallback: string | null = null;
+  try { fallback = fromId ? domainForNode(graph, fromId)?.id ?? null : null; } catch { fallback = null; }
+  return domains.find((node) => node.id === (preset ?? fallback))?.id ?? "";
+}

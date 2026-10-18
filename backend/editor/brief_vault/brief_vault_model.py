@@ -4,11 +4,16 @@ Revize je řádek `brief_fragment_revisions`; data revize jsou sloupce `COLUMNS`
 používá zápis služby (`brief_vault.py`) i uložená verze plátna (`version_content.STORES`).
 """
 
+import hashlib
+import json
 from typing import NoReturn
 
 from backend.canvas.graph import valid_id
+from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_IDS
 
-COLUMNS = ("parent_id", "scope_node_id", "ord", "kind", "title", "text", "stage", "mvp", "note", "by", "actor", "deleted")
+# `gates` = JSON bran cyklu (docs/schranka-neurony.md §3, brief_vault_gate_rules.py), NULL = žádná brána.
+COLUMNS = ("parent_id", "scope_node_id", "ord", "kind", "title", "text", "stage", "mvp", "note", "by", "actor", "deleted",
+           "discipline", "gates")
 # `research` = ověření proveditelnosti, `question` = otázka K upřesnění; obojí je poznámka k fragmentu, ne kus zadání.
 KINDS = ("brief", "research", "question")
 STAGES = ("draft", "research", "ready")
@@ -21,11 +26,33 @@ MAX_DEPTH = 32
 # Revize, kterou obnova verze plátna zapíše fragmentu vzniklému až po verzi: měkce smazaný
 # a prázdný. Starší revize s doslovným textem v tabulce zůstávají.
 TOMBSTONE = {"parent_id": None, "scope_node_id": None, "ord": 0, "kind": "brief", "title": "", "text": "",
-             "stage": "draft", "mvp": "none", "note": "", "by": "", "actor": "", "deleted": 1}
+             "stage": "draft", "mvp": "none", "note": "", "by": "", "actor": "", "deleted": 1, "discipline": None,
+             "gates": None}
+
+
+class BadRequest(ValueError):
+    """Chybný tvar požadavku (např. kořen bez disciplíny): router ho vrací jako 400, ne 409 (konflikt stavu)."""
+
+
+class Blocked(ValueError):
+    """Konflikt s výčtem dotčených fragmentů (plán struktury, brána planned): router vrací 409
+    `{error, fragments: [{id, title, reason}]}`; `error` je tentýž text jako u `fail`."""
+
+    def __init__(self, message, fragments):
+        super().__init__(message)
+        self.fragments = fragments
+
+
+def blocked(message, fragments) -> NoReturn:
+    raise Blocked("Schránka zadání: " + message, fragments)
 
 
 def fail(message) -> NoReturn:
     raise ValueError("Schránka zadání: " + message)
+
+
+def bad_request(message) -> NoReturn:
+    raise BadRequest("Schránka zadání: " + message)
 
 
 def text_of(value, limit, label, allow_empty=True):
@@ -56,7 +83,76 @@ def validate_record(data):
     text_of(data["by"], MAX_BY, "by")
     if data["deleted"] not in (0, 1) or type(data["deleted"]) is not int:
         fail("deleted musí být 0 nebo 1.")
+    if data["discipline"] is not None and data["discipline"] not in DISCIPLINE_IDS:
+        fail("discipline musí být id disciplíny nebo null.")
+    from backend.editor.brief_vault.brief_vault_gate_rules import stored_gates_valid
+    if not stored_gates_valid(data["gates"]):
+        fail("gates musí být null nebo JSON bran cyklu.")
     return data
+
+
+def discipline_of(value, *, allow_null):
+    """Disciplína z požadavku: id z tabulky §2, u dítěte i null (dědí)."""
+    if value is None and allow_null:
+        return None
+    if not isinstance(value, str) or value not in DISCIPLINE_IDS:
+        bad_request("discipline musí být jedna z " + ", ".join(DISCIPLINE_IDS)
+                    + (" nebo null (dědí od rodiče)." if allow_null else "; kořen schránky disciplínu nese vždy."))
+    return value
+
+
+def effective_disciplines(rows):
+    """Platná disciplína každého fragmentu {id: id|None}: `discipline` nejbližšího předka včetně sebe.
+
+    Bez rekurze: každý fragment jde nahoru jen k první známé odpovědi (memo), cyklus nebo chybějící
+    rodič končí jako „nezařazené“. Celkem O(n) kroků i pro strom hlubší než `MAX_DEPTH`.
+    """
+    result = {}
+    for start in rows:
+        chain, cursor, seen, found = [], start, set(), None
+        while cursor in rows and cursor not in seen:
+            if cursor in result:
+                found = result[cursor]
+                break
+            seen.add(cursor)
+            chain.append(cursor)
+            if rows[cursor].get("discipline") is not None:
+                found = rows[cursor]["discipline"]
+                break
+            cursor = rows[cursor]["parent_id"]
+        for fragment_id in chain:
+            result[fragment_id] = found
+    return result
+
+
+def content_hash(title, text):
+    """Otisk obsahu fragmentu (název + text) v `fragmentRef` karty (docs/schranka-neurony.md §9 bod 6)."""
+    return hashlib.sha256(json.dumps([title, text], ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def ref_changed(ref, row, text_revision, legacy=None):
+    """Změnilo se zadání od vložení karty? Odkaz s `contentHash` porovná otisk obsahu (zápis brány ani revize
+    jen s metadaty nic nezmění). Starší odkaz bez otisku porovná otisk své historické revize (`legacy` =
+    {(fragmentId, revision): otisk}, viz `legacy_hashes`); bez ní revizi s poslední změnou textu jako dřív."""
+    current = content_hash(row["title"], row["text"])
+    if ref.get("contentHash"):
+        return ref["contentHash"] != current
+    old = (legacy or {}).get((row["fragment_id"], ref["revision"]))
+    if old is not None:
+        return old != current
+    return ref["revision"] < text_revision
+
+
+def legacy_hashes(db, project, workspace, pairs):
+    """Otisk obsahu historických revizí, na které míří starší odkazy bez `contentHash`: {(id, revize): otisk}."""
+    pairs = {(fid, revision) for fid, revision in pairs}
+    if not pairs:
+        return {}
+    ids = sorted({fid for fid, _ in pairs})
+    rows = db.execute("SELECT fragment_id, revision, title, text FROM brief_fragment_revisions WHERE project_id=?"
+                      f" AND workspace_id=? AND fragment_id IN ({','.join('?' for _ in ids)})", (project, workspace, *ids))
+    return {(row["fragment_id"], row["revision"]): content_hash(row["title"], row["text"]) for row in rows
+            if (row["fragment_id"], row["revision"]) in pairs}
 
 
 def data_of(row):
@@ -68,7 +164,8 @@ def public(row, *, with_text=False):
     item = {"id": row["fragment_id"], "revision": row["revision"], "parentId": row["parent_id"],
             "scopeNodeId": row["scope_node_id"], "ord": row["ord"], "kind": row["kind"], "title": row["title"],
             "stage": row["stage"], "mvp": row["mvp"], "note": row["note"], "by": row["by"], "actor": row["actor"],
-            "at": row["saved_at"], "deleted": bool(row["deleted"]), "chars": len(row["text"])}
+            "at": row["saved_at"], "deleted": bool(row["deleted"]), "chars": len(row["text"]),
+            "discipline": row["discipline"]}
     if with_text:
         item["text"] = row["text"]
     return item
@@ -115,3 +212,13 @@ def text_revisions(db, project, workspace, fragment_ids=None):
         params.extend(ids)
     return {row["fragment_id"]: row["revision"] for row in db.execute(query.format(only=only), params)}
 
+
+
+def gate_rounds(db, project, workspace):
+    """Kolo každého fragmentu prostoru s nějakou branou v historii, {id: kolo} (`round_of`, §11)."""
+    from backend.editor.brief_vault.brief_vault_gate_rules import round_of
+    history = {}
+    for row in db.execute("SELECT fragment_id, gates FROM brief_fragment_revisions WHERE project_id=? AND workspace_id=?"
+                          " AND gates IS NOT NULL ORDER BY fragment_id, revision", (project, workspace)):
+        history.setdefault(row["fragment_id"], []).append(row["gates"])
+    return {fragment_id: round_of(items) for fragment_id, items in history.items()}

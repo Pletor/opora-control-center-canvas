@@ -216,6 +216,23 @@ class CanvasVersions:
                 return {"version": version, "dirty": False, "currentToken": current_token(view["graph"], stored, snapshot),
                         "binding": "workspace-token" if "expectedToken" in payload else "legacy-unbound"}
 
+    def checkpoint(self, project, workspace, author, *, actor):
+        """Pojistná verze před zápisem serveru (brána `placed`, docs/schranka-neurony.md §11): stejný snímek jako `save`.
+
+        Když už stejný obsah v nějaké verzi je (nebo je plátno prázdné bez verzí), nic neukládá a vrací None:
+        vrátit se jde k té verzi. Chyba (jen pro čtení, selhání zápisu) vyletí a volající nezapíše nic dalšího."""
+        author = _payload({"project": project, "workspace": workspace, "digest": "", "author": author[:MAX_AUTHOR]}, SAVE_KEYS)
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
+            db = self.canvas.db_for(project)
+            with db:
+                db.execute("BEGIN IMMEDIATE")
+                view, stored, snapshot = self._capture(db, project, workspace)
+                if view["readOnly"]:
+                    raise ValueError(READ_ONLY)
+                if not self._dirty(db, project, workspace, view, stored, snapshot):
+                    return None
+                return self._insert(db, project, workspace, author, view["graph"], stored["state"], snapshot, actor)
+
     def restore(self, payload):
         author = _payload(payload, RESTORE_KEYS)
         if "expectedToken" not in payload:

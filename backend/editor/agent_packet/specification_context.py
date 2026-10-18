@@ -29,16 +29,12 @@ def _node(node, nodes):
 def _instructions(node_state):
     """Keep task content, discard check marks and agent-reported progress."""
     result = {key: copy.deepcopy(node_state.get(key, []))
-              for key in ("criteria", "steps", "actions", "rules", "blocks", "materials")}
+              for key in ("actions", "rules", "blocks", "materials")}
     if "downloadsUrl" in node_state:
         result["downloadsUrl"] = node_state["downloadsUrl"]
     # Kolo karty je součást zadání: výstup ke kolu v1 se nezapíše do čisté v2 (card_rounds.py).
     if "round" in node_state:
         result["round"] = node_state["round"]["number"]
-    for criterion in result["criteria"]:
-        criterion.pop("checked", None)
-    for step in result["steps"]:
-        step.pop("done", None)
     for block in result["blocks"]:
         block["state"].pop("status", None)
         block["state"].pop("note", None)

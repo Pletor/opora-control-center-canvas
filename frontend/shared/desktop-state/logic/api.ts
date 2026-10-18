@@ -4,12 +4,14 @@ import type {
   AgentWorkspaceSummaries,
   DesktopState,
   NodeBrief,
+  NodeWorkflowState,
   StateResponse,
   PacketPreviewResponse,
   PacketSnapshotResponse,
   PipelineLibrary,
   SyncReport,
 } from "@/shared/desktop-state/logic/types";
+import type { NodeWriteResponse } from "@/shared/desktop-state/logic/slim-writes";
 
 /** Knihovna předloh pipeline pro blok Akce; verzovaná v library/, jen ke čtení. */
 export function fetchPipelines(): Promise<PipelineLibrary> {
@@ -48,6 +50,17 @@ export function saveState(
   state: DesktopState,
 ): Promise<StateResponse> {
   return api<StateResponse>("/api/desktop-v3/state", { project, workspace, expectedRevision, state });
+}
+
+/** Štíhlý zápis jedné karty (oprava 8): tělo i odpověď nesou jen `nodes[nodeId]`, ne celý stav. */
+export function saveNode(
+  project: string,
+  workspace: string,
+  expectedRevision: number,
+  nodeId: string,
+  node: NodeWorkflowState | null,
+): Promise<NodeWriteResponse> {
+  return api<NodeWriteResponse>("/api/desktop-v3/node", { project, workspace, expectedRevision, nodeId, node });
 }
 
 export type PacketPreviewInput = {

@@ -2,7 +2,7 @@
    Příběh: karta je 360 široká a nejméně 168 vysoká. Užší karta (272) měla pole bloků tak úzká, že se zadání
    nedalo číst, proto je karta širší a písmo v ní o stupeň větší; vedle sebe se jich vejde méně, ale každá se
    dá přečíst bez otevírání detailu. Shora dolů jde vždy stejný sled: pruh hlavy 34 (kdo jsem
-   a v jaké jsem fázi), tělo aspoň 104 (jméno a podstata), pásmo bloků, které roste s obsahem, a pata 30 s počty.
+   a jak na tom jsem), tělo aspoň 104 (jméno a podstata), pásmo bloků, které roste s obsahem, a pata 30 s počty.
    Rytmus odsazení je 13 / 8 / 5, stejný jako v knihovně uzlu, aby oko mezi panely nepřeskakovalo.
    Přetahovat po plátně jde jen karta; všechno, co se dá zmáčknout, nese třídu `nodrag`. */
 .node-card {
@@ -29,9 +29,10 @@
 .node-card--sector { background: var(--sector-bg); border-color: var(--gold-line); }
 .node-card--selected { outline: 2px solid var(--accent); outline-offset: 3px; }
 .node-card--dimmed { opacity: 0.35; }
-/* Uzavřená karta zůstává plná (průhledná by prosvítala vazbami); ztlumí ji barvy a čárkovaný rámeček. */
-.node-card--closed { border-style: dashed; filter: saturate(0.55) brightness(0.9); }
-.node-card--closed.node-card--selected { filter: none; }
+/* Uzavřená karta zůstává plná (průhledná by prosvítala vazbami); ztlumí ji tlumené písmo a čárkovaný rámeček.
+   Barvou, ne filtrem: `filter` na stovkách karet nutí prohlížeč kreslit každou do vlastní vrstvy. */
+.node-card--closed { border-style: dashed; color: var(--ink-muted); }
+.node-card--closed.node-card--selected { color: var(--ink); }
 
 /* HLAVA: nalevo druh karty s kuličkou barvy svého druhu, napravo fáze jako plánovací stav člověka.
    Mezi ně se vklíní zámek, jakmile je karta uzavřená, nebo přesýpací hodiny, když uzavření navrhl agent
@@ -57,20 +58,11 @@
 .node-card__lock--proposed { opacity: 0.7; }
 /* Kola karty „v1 ✓ · v2 ●“: tichý údaj, že karta má zamrazenou historii (detail, Historie kol). */
 .node-card__rounds { font: 500 10px var(--mono); color: var(--ink-muted); white-space: nowrap; }
-.node-card__phase {
-  font: 500 10px var(--mono);
-  color: var(--ink-muted);
-  background: var(--surface-2);
-  padding: 2px 8px;
-  border-radius: 8px;
-}
-.node-card__phase--live { color: var(--accent); background: var(--accent-soft); }
-
-/* Štítky karty: vrstva (FE, BE, DB, Knihovna) a stav sedí v hlavě hned vedle fáze, drobně a bez barvy
+/* Štítky karty: vrstva (FE, BE, DB, Knihovna) a stav sedí na pravém konci hlavy, drobně a bez barvy
    navíc — je to poznámka na okraji, ne nový nadpis. Objeví se jen u uzlu, který vrstvu nebo stav má, takže
    karta bez nich vypadá přesně jako dřív. Připravená karta dostane akcent (může se na ní začít),
    hotová zeslábne spolu s celou uzavřenou kartou. */
-.node-card__badges { display: flex; gap: 5px; margin-left: auto; margin-right: 5px; min-width: 0; }
+.node-card__badges { display: flex; gap: 5px; margin-left: auto; min-width: 0; }
 .node-card__badge {
   font: 500 10px var(--mono);
   color: var(--ink-muted);
@@ -382,21 +374,33 @@
 .node-card__port-label--pipeline { top: 180px; }
 
 .node-card--frontier-frontier { outline: 3px solid #22c55e; box-shadow: 0 0 16px #22c55e55; }
-.node-card--frontier-blocked { outline: 2px solid #94a3b8; filter: saturate(0.6); }
+.node-card--frontier-blocked { outline: 2px solid #94a3b8; color: var(--ink-muted); }
 .node-card--frontier-waiting { outline: 3px solid #f59e0b; }
 .node-card--frontier-claimed { outline: 2px solid #60a5fa; }
-.node-card--frontier-closed { filter: saturate(0.55) brightness(0.9); }
+.node-card--frontier-closed { color: var(--ink-muted); }
 .node-card--proposed { border: 2px dashed #22c55e; }
 .node-card--source-missing { border: 2px solid #f59e0b; }
 .node-card--work-waiting { border-color: #94a3b8; }
-.node-card--work-claimed { border-color: #60a5fa; animation: opora-working 2s ease-in-out infinite; }
+.node-card--work-claimed { border-color: #60a5fa; }
 .node-card--work-waiting-human { border-color: #f59e0b; }
 .node-card--work-blocked { border-color: #f87171; }
 .node-card--work-proposed { border: 2px dashed #4ade80; }
 .node-card--work-done { border: 2px solid #22c55e; }
 .node-card--source-missing { outline: 2px solid #f59e0b; }
-@keyframes opora-working { 50% { box-shadow: 0 0 10px #60a5fa66; } }
-@media (prefers-reduced-motion: reduce) { .node-card--work-claimed { animation: none; } }
+/* Karta, na které agent právě pracuje, tiše dýchá modrou září. Záře je hotový stín na pseudo-elementu
+   a animuje se jen jeho průhlednost: kompozitor ji přelije bez nového kreslení stínu v každém snímku. */
+.node-card--work-claimed::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 0 10px #60a5fa66;
+  opacity: 0;
+  pointer-events: none;
+  animation: opora-working 2s ease-in-out infinite;
+}
+@keyframes opora-working { 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .node-card--work-claimed::after { animation: none; } }
 .node-card__added-pulse { animation: opora-added-pulse .8s ease-out 3; }
 @keyframes opora-added-pulse { 0%, 100% { outline: 2px solid transparent; } 40% { outline: 2px solid #38bdf8; box-shadow: 0 0 12px #38bdf866; } }
 @media (prefers-reduced-motion: reduce) { .node-card__added-pulse { animation: none; outline: 2px solid #38bdf8; } }
@@ -440,3 +444,296 @@
 .node-card__port-editor > summary::-webkit-details-marker { display: none; }
 .node-card__port-editor > summary:hover { background: var(--surface-2); color: var(--ink); }
 .node-card--compact .node-card__port-editor { display: none; }
+
+/* KARTA Z DÁLKY (zoom pod 0,45, nevybraná): z dálky člověk hledá, kde co je, ne co v kartě stojí. Karta
+   proto ukáže jen hlavu, název a stav a z bloků jen číslo s názvem a popisky portů; kuličky portů zůstanou na
+   hraně, aby vazby dál vedly tam, kam patří. Rozměr drží výchozí výška karty, takže se mapa při oddálení
+   nerozsype. Rozepsaný blok zůstane celý, dokud ho člověk neopustí. */
+.node-card--far .node-card__purpose { -webkit-line-clamp: 1; }
+.node-card__block--far { padding-bottom: 2px; }
+.node-card__block--far .node-card__block-ports { margin-top: 1px; margin-bottom: 1px; }
+.node-card__block-port--far { cursor: default; pointer-events: none; }
+
+/* ROZEPSANÝ EDITOR PORTU PO ZRUŠENÍ VÝBĚRU: kdo začal psát důvod rozhodnutí nebo šablonu navazující karty
+   a klikl jinam, nesmí o text přijít ani ho ztratit z očí. Editor zůstane vidět i na nevybrané kartě, dokud
+   ho člověk neuloží, nezruší nebo neopustí. */
+.node-card--compact .node-card__port-row--held .node-card__port-editor { display: block; }
+
+/* PROCES KARTY: pod hlavou karty běží řada kuliček, jedna za každou etapu, kterou router kartě určil. Člověk
+   z ní pozná proces jedním pohledem, aniž by kartu otevřel, a pamatuje si ji podle tří pravidel: barva říká,
+   kdo pracuje (práce akcent, test zelená, review modrá, oprava jantar, kritik podle pohledu: hodný uživatel
+   tlumený teal jako port podkladů, aby se nepletl s prací, vyčuraný fialová, hacker červená), výplň říká, jak etapa dopadla (prázdný obrys čeká, pulsující běží,
+   plná prošla, plná s křížkem selhala, z dálky místo křížku hranatá
+   a červená, aby se selhání nespletlo s úspěchem, čárkovaná přeskočena), a kroužek kolem kuličky říká, kde proces právě
+   stojí (tenký akcent = na řadě, jantar = uvízl a čeká člověka). Kuličky spojuje tenká linka, aby se řada
+   četla jako cesta zleva doprava; vlevo je čip profilu, vpravo tiché „hotovo/celkem“. Karta bez procesu ukáže
+   jednu čárkovanou kuličku „čeká na router“; z dálky zůstanou jen menší kuličky bez pulsu. Návrhy etap,
+   které člověk ještě neschválil, kuličky nemají – jen tiché „+n ke schválení“. Čtečka dostane celou řadu
+   jednou větou, kuličky samotné jsou pro ni skryté. Řada se nezalamuje, aby spojnice seděla pod kuličkami. */
+.node-card__process {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 3px 13px 5px;
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.node-card__process--far { flex-wrap: nowrap; padding: 2px 13px 3px; }
+.node-card__process-profile {
+  padding: 1px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.node-card__process-profile--security {
+  border-color: var(--cat-security);
+  color: var(--cat-security);
+  font-weight: 700;
+}
+.node-card__process-dots {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px;
+}
+.node-card__process-dots::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  border-top: 1px solid var(--line-strong);
+}
+.node-card__process-count { white-space: nowrap; }
+.node-card__process-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* SLOTY DOKLADŮ: za kuličkami stojí vždy čtyři čtverečky na stejných místech, Testy · Security · Review · Merge
+   (docs/proces-karty.md §2). Čtverec, ne kulička, aby se doklad nepletl s etapou: etapa říká, kdo pracoval,
+   slot říká, co je doložené. Výplň vypráví skutečný stav: prázdný obrys nedoloženo, poloviční výplň
+   „deklarováno bez dokladu“ (agent napsal prošlo, ale odkaz ani běh kontroly nejsou), plný doloženo, plný
+   červený s křížkem selhalo, čárkovaný nevztahuje se, pulsující běží. Popisek je drobný a tlumený, z dálky
+   zůstanou jen čtverečky. Zblízka stojí sloty na vlastním řádku pod kuličkami (řada třinácti etap by je jinak
+   vytlačila), z dálky sedí za kuličkami u pravého kraje, oddělené tenkou svislou linkou. */
+.node-card__proofs {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0 0 4px;
+}
+.node-card__process--far .node-card__proofs { flex: none; gap: 4px; margin-left: auto; padding: 0 0 0 5px; border-left: 1px solid var(--line-strong); }
+.node-card__proof {
+  --slot: var(--line-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.node-card__proof-box {
+  position: relative;
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--slot);
+  border-radius: 2px;
+  background: var(--surface);
+}
+.node-card__process--far .node-card__proof-box { width: 6px; height: 6px; border-width: 1px; }
+.node-card__proof--proven { --slot: #22c55e; color: var(--ink-2); }
+.node-card__proof--proven .node-card__proof-box { background: var(--slot); }
+.node-card__proof--declared { --slot: #22c55e; }
+.node-card__proof--declared .node-card__proof-box { background: linear-gradient(90deg, var(--slot) 50%, var(--surface) 50%); }
+.node-card__proof--failed { --slot: #ef4444; color: #f87171; }
+.node-card__proof--failed .node-card__proof-box { background: var(--slot); }
+.node-card__proof--failed .node-card__proof-box::after {
+  content: "×";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--surface);
+}
+.node-card__process--far .node-card__proof--failed .node-card__proof-box::after { content: none; }
+.node-card__proof--na .node-card__proof-box { border-style: dashed; opacity: 0.7; }
+.node-card__proof--running { --slot: #60a5fa; }
+.node-card__proof--running .node-card__proof-box::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1.5px solid var(--slot);
+  border-radius: 3px;
+  animation: node-card-stage-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .node-card__proof--running .node-card__proof-box::before { animation: none; opacity: 0.6; } }
+.node-card__proof--security.node-card__proof--proven { --slot: var(--cat-security); }
+.node-card__proof--security.node-card__proof--running { --slot: var(--cat-security); }
+
+/* STAVOVÁ VĚTA: pod procesem je vždy právě jedna věta o tom, co se s kartou děje (docs/proces-karty.md §3):
+   značka a barva nesou tón (zelená hotovo, jantar čeká na člověka, červená blokováno, modrá pracuje, tlumená
+   klid), za větou tišší detail (otázka, kdo blokuje, doba práce) ořízlý na jeden řádek. Když agent navrhl
+   uzavření, věta nese tlačítko Potvrdit, aby rozhodnutí člověka bylo na jednom místě a ne v dalším řádku. */
+.node-card__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 2px 13px 6px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.node-card__state-mark { flex: none; }
+.node-card__state-text { font-weight: 700; color: var(--ink-2); }
+.node-card__state-detail { min-width: 0; flex: 1 1 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-card__state--ok .node-card__state-mark, .node-card__state--ok .node-card__state-text { color: #22c55e; }
+.node-card__state--warn .node-card__state-mark, .node-card__state--warn .node-card__state-text { color: #f59e0b; }
+.node-card__state--fail .node-card__state-mark, .node-card__state--fail .node-card__state-text { color: #f87171; }
+.node-card__state--run .node-card__state-mark, .node-card__state--run .node-card__state-text { color: #60a5fa; }
+.node-card__state > .node-card__row { flex-basis: 100%; padding: 0; }
+/* Z dálky zůstane z věty jen jantarová značka „potřebuje tebe“ v pravém horním rohu, aby řízení shora nepřišlo o signál. */
+.node-card__state-far { position: absolute; top: 4px; right: 26px; font-size: 12px; color: #f59e0b; }
+
+/* PODROBNOSTI: vybraná karta má pod bloky jeden fold se vším, co dřív stálo jako samostatné řádky
+   (doklady s odkazy, běhy kontrol, kdo kartu drží, proč stojí, z čeho vychází, pravidla, zdroj, realizace).
+   Oddíly jdou v pevném pořadí s drobným nadpisem, aby člověk hledal vždy na stejném místě. */
+.node-card__details { border-top: 1px dashed var(--line-strong); }
+.node-card__section { margin: 8px 0 0; }
+.node-card__section-title {
+  margin: 0 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.node-card__evidence p { margin: 3px 0 0; }
+
+.node-card__stage {
+  --dot: var(--accent);
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--dot);
+  border-radius: 50%;
+  background: var(--dot);
+}
+.node-card__process--far .node-card__stage { width: 6px; height: 6px; border-width: 1px; }
+.node-card__stage--kind-work { --dot: var(--accent); }
+.node-card__stage--kind-test { --dot: #22c55e; }
+.node-card__stage--kind-review { --dot: #60a5fa; }
+.node-card__stage--kind-fix { --dot: #f59e0b; }
+.node-card__stage--kind-critic { --dot: var(--accent); }
+.node-card__stage--lens-user { --dot: #5f947f; }
+.node-card__stage--lens-sly { --dot: #7c6bd6; }
+.node-card__stage--lens-hacker { --dot: var(--cat-security); }
+
+.node-card__stage--status-todo { background: var(--surface); }
+.node-card__stage--status-skipped { background: var(--surface); border-style: dashed; opacity: 0.7; }
+.node-card__stage--status-doing::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1.5px solid var(--dot);
+  border-radius: 50%;
+  animation: node-card-stage-pulse 1.4s ease-in-out infinite;
+}
+@keyframes node-card-stage-pulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.9; } }
+@media (prefers-reduced-motion: reduce) { .node-card__stage--status-doing::before { animation: none; opacity: 0.6; } }
+.node-card__stage--status-failed::after {
+  content: "×";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--surface);
+}
+.node-card__process--far .node-card__stage--status-failed::after { content: none; }
+.node-card__process--far .node-card__stage--status-failed { border-radius: 2px; border-color: #ef4444; background: #ef4444; }
+.node-card__process--far .node-card__stage--status-doing::before { animation: none; opacity: 0.6; }
+.node-card__stage--current { outline: 1px solid var(--accent); outline-offset: 2px; }
+.node-card__stage--stuck { outline: 2px solid #f59e0b; outline-offset: 2px; }
+.node-card__stage--unrouted { --dot: var(--line-strong); background: var(--surface); border-style: dashed; }
+
+/* ŘÁDKY KARTY
+   Pod hlavičkou karty člověk čte seznam drobných řádků: kdo kartu drží, co ji blokuje,
+   jaké jsou kontroly a důkazy. Všechny mají stejný rytmus, 6px shora a zdola a 13px od
+   okraje, takže oko jde kartou dolů jako po seznamu a nezastavuje se na odsazení, které
+   by se řádek od řádku lišilo. Rozbalovací řádky (`fold`) mají stejný rám jako ploché,
+   rozdíl je jen v kurzoru na souhrnu. Barva nenese ozdobu, nese jen stav: zelená je
+   v pořádku, červená selhalo, šedá čeká, modrá se právě děje, oranžová chce člověka. */
+.node-card__row { padding: 6px 13px; font-size: 12px; }
+.node-card__row > p, .node-card__row > div, .node-card__row > progress { margin: 4px 0 0; }
+.node-card__row--muted { color: var(--ink-muted); }
+.node-card__row--live { color: #60a5fa; }
+.node-card__row--warn { border-left: 3px solid #f59e0b; }
+.node-card__row-title { font-weight: 700; }
+.node-card__row-title--muted { font-weight: 400; font-style: italic; color: var(--ink-muted); margin-right: 8px; }
+.node-card__row-note { display: block; margin-top: 4px; font-size: 11px; color: var(--ink-muted); }
+.node-card__row-note--warn { color: #f59e0b; }
+.node-card__row-note--ok { color: #22c55e; }
+.node-card__row-note--fail { color: #f87171; }
+.node-card__row-text { white-space: pre-wrap; margin: 0; }
+.node-card__fold { padding: 6px 13px; font-size: 12px; }
+.node-card__fold > summary { cursor: pointer; }
+.node-card__fold--proposal { opacity: 0.6; font-style: italic; }
+.node-card__scroll { max-height: 300px; overflow-y: auto; }
+.node-card__scroll--tall { max-height: 50vh; }
+.node-card__work { border-left: 3px solid #94a3b8; padding: 6px; margin: 8px 0; }
+.node-card__work--claimed { border-left-color: #60a5fa; }
+.node-card__work--waiting-human { border-left-color: #f59e0b; }
+.node-card__work--proposed { border-left-color: #4ade80; }
+.node-card__work--blocked { border-left-color: #f87171; }
+
+/* ČIPY SOUBORŮ A KONTROL
+   Soubory a kontroly se na kartě objeví jako drobné čipy vedle sebe: malé, neproporcionální
+   písmo značí strojový údaj (cesta, příkaz), rámeček je tichý. Stav čip jen obarví, aby
+   bylo na první pohled vidět, co prošlo, co spadlo a na co se ještě čeká. */
+.node-card__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.node-card__chip {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font: 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin-left: 4px;
+}
+.node-card__chips .node-card__chip { margin-left: 0; }
+.node-card__chip--ok { color: #22c55e; border-color: #22c55e; }
+.node-card__chip--fail { color: #f87171; border-color: #f87171; }
+.node-card__chip--wait { color: #94a3b8; }
+
+/* PRUH STAVŮ A POSTUP
+   Sektor ukazuje svůj stav jako tenký pruh rozdělený podle počtu karet v každém stavu:
+   kdo se podívá, vidí poměr hotového, rozdělaného a blokovaného bez čtení čísel. Šířku dílu
+   dodává proměnná `--w`, jediná hodnota, která se při vykreslení mění, zbytek je v třídách. */
+.node-card__bar { display: flex; height: 7px; }
+.node-card__bar-part { width: var(--w); background: #94a3b8; }
+.node-card__bar-part--claimed { background: #60a5fa; }
+.node-card__bar-part--waiting-human { background: #f59e0b; }
+.node-card__bar-part--proposed { background: #4ade80; }
+.node-card__bar-part--done { background: #22c55e; }
+.node-card__bar-part--blocked { background: #f87171; }
+.node-card__progress { width: 100%; height: 6px; accent-color: var(--accent); }

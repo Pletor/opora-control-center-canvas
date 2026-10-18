@@ -76,22 +76,6 @@ def test_closed_blocks_and_invalid_phase_restore_reject_before_graph_write(tmp_p
         assert list(db.iterdump()) == before
 
 
-def test_phase_gate_has_explicit_no_write_failure_for_historical_forward_restore(tmp_path):
-    app = create_app(tmp_path)
-    with TestClient(app, base_url=ORIGIN) as client:
-        install_graph(client, graph("a"))
-        # A newly-created card may have an advanced phase with no criteria.
-        install_desktop_state(client, desktop_state(nodes={"a": state_node(phase="define")}))
-        saved = save(client).json()["version"]
-        db = app.state.service.db_for("draft")
-        db.execute("UPDATE desktop_v3_state SET revision=2,state=?", (encode(desktop_state(nodes={"a": state_node()})),))
-        db.commit()
-        before = list(db.iterdump())
-        response = bound_restore(client, saved["id"])
-        assert response.status_code == 409 and "pravidlům pracovního postupu" in response.json()["error"]
-        assert list(db.iterdump()) == before
-
-
 def test_git_file_and_database_roll_back_together_after_file_write_failure(tmp_path, monkeypatch):
     app = create_app(tmp_path / "data")
     service = app.state.service

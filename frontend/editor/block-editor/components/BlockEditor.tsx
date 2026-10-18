@@ -1,7 +1,7 @@
 // Editor jednoho bloku v levé zásuvce: název, popis, porty, stav a větvení, štítky, checklist, obrázky
 // a podbloky. Dílek nic neukládá; každá změna bublá nahoru přes `events`, ukládá rodič (App / NodeTree).
 import { useEffect, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import { blockPorts, type Block } from "@/shared/desktop-state/logic/types";
 import type { BranchTarget } from "@/editor/node-detail/tree/logic/tree-model";
 import type { BlockEditorEvents } from "@/editor/block-editor/logic/block-events";

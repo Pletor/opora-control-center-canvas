@@ -10,9 +10,12 @@ import "../styles/page-editor.css";
 
 type Props = {
   graph: Graph; domain: CanvasNode; scope: CanvasNode; projectName: string; selectedId: string | null;
-  editorId: string; disabled: boolean; reveal: string | null;
+  /** `disabled` = page content (inserts, moves, links); `structureDisabled` = page structure (+ Stránka in the tree), writable even on main. */
+  editorId: string; disabled: boolean; structureDisabled?: boolean; reveal: string | null;
   /** Hierarchical editor and element detail are composed by the parent and dropped into their columns. */
   structure: ReactNode | null; detail: ReactNode | null;
+  /** Web state badge of the domain host in the map header (docs/domeny-a-worktree.md §10.3). */
+  webBadge?: ReactNode;
   onOpenPage: (domainId: string, pageId: string) => void; onAddPage: (domainId: string) => void; onOpenScope: (id: string) => void;
   onSelect: (id: string | null) => void; onOpenStructure: (id: string) => void; onOpenEditor: (id: string) => void;
   onInsert: (id: string, target?: string | null, point?: { x: number; y: number }) => void;
@@ -33,7 +36,7 @@ export default function PageEditor(props: Props) {
     <button type="button" className="page-editor__switch-button" aria-pressed={focus === "structure"} onClick={() => setFocus("structure")}>Struktura</button>
   </div>;
   return <div className={pageLayoutClass({ structure: !!structure, detail: !!detail, focus })} data-testid="architecture-page-editor">
-    <PageSidebar projectName={props.projectName} groups={groups} scopeName={scope.name} disabled={disabled}
+    <PageSidebar projectName={props.projectName} groups={groups} scopeName={scope.name} disabled={disabled} treeDisabled={props.structureDisabled ?? disabled}
       onOpenPage={props.onOpenPage} onAddPage={props.onAddPage} onInsert={(id) => props.onInsert(id)}/>
     <main className="page-editor__map" aria-label="Mapa architektury">
       <header className="page-editor__map-head">
@@ -42,6 +45,7 @@ export default function PageEditor(props: Props) {
           <h2 className="page-editor__map-title">Mapa architektury — {scope.name}</h2>
           <p className="page-editor__map-lead">Přehled komponent a jejich propojení na stránce</p>
         </div>
+        {props.webBadge}
         {structure && toggle}
       </header>
       {path.length > 1 && <nav className="page-editor__crumbs" aria-label="Cesta mapou">

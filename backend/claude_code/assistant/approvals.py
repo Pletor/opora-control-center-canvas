@@ -38,7 +38,7 @@ WRITE_ROUTES = frozenset({
     "/api/desktop-v3/rule", "/api/desktop-v3/decision",
     "/api/graph", "/api/node-spec", "/api/node-text", "/api/desktop-v3/state", "/api/desktop-v3/block",
     "/api/desktop-v3/agent-workspace", "/api/desktop-v3/agent-output", "/api/canvas-plan",
-    "/api/desktop-v3/pipeline",
+    "/api/desktop-v3/pipeline", "/api/brief-vault",
 })
 # Celý příkaz: python, skript `…opora_write.py`, cesta a volby. Žádný znak, který by v shellu
 # řetězil (`;`, `&`, `|`), přesměroval (`<`, `>`), substituoval (`` ` ``, `$`) nebo zalomil řádek.
@@ -111,9 +111,43 @@ def state_summary(payload):
     return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
 
 
+# Schránka (docs/schranka-neurony.md §3, §9 bod 3): brána `placed` zapisuje na plátno uložený plán struktury,
+# proto ji člověk schvaluje se stejným varováním jako dávku `/api/canvas-plan`. Cesta `/api/brief-vault` je ve
+# `WRITE_ROUTES` a nikdy v `NO_PROMPT_ROUTES`, takže každý zápis Schránky (i `placed`) jde přes dotaz člověka.
+def _duel_head(payload):
+    """Úvod souhrnu duelu (docs/asistent.md §14.3): o čem se rozhoduje a co stojí proti sobě."""
+    op = payload["op"]
+    if op != "duel-open":
+        return f"Duel ({op}): {payload.get('fragmentId', '?')}"
+    subject = payload.get("subject") if isinstance(payload.get("subject"), dict) else {}
+
+    def side(name):
+        item = payload.get(name)
+        return str(item.get("text", ""))[:80] if isinstance(item, dict) else ""
+
+    return (f"Duel ({op}): {subject.get('kind', '?')} {subject.get('id', '?')} · "
+            f"A: {side('incumbent')} · B: {side('challenger')}")
+
+
+def brief_vault_summary(payload):
+    """Souhrn zápisu Schránky; zapnutí brány `placed` (a `planned`) řekne, co udělá s plátnem."""
+    text = payload_summary(payload)
+    op = payload.get("op")
+    if isinstance(op, str) and op.startswith("duel-"):
+        text = _duel_head(payload) + " · " + text
+    if payload.get("op") == "gate" and payload.get("value") is True and payload.get("gate") == "placed":
+        text = ("Zápis na plátno: brána placed vloží uložený plán struktury fragmentu (oblast, sektor, karty), "
+                "stejně jako /api/canvas-plan. " + text)
+    elif payload.get("op") == "gate" and payload.get("value") is True and payload.get("gate") == "planned":
+        text = "Jen návrh struktury (planned): server plán uloží k fragmentu, plátno nemění. " + text
+    return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
+
+
 def summary_of(route, payload):
     if route == "/api/canvas-plan":
         return plan_summary(payload)
+    if route == "/api/brief-vault":
+        return brief_vault_summary(payload)
     return state_summary(payload) if route == "/api/desktop-v3/state" else payload_summary(payload)
 
 

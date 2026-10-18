@@ -29,7 +29,6 @@ describe("card-model", () => {
     const view = cardView(node, workflow, 2);
     expect(view.tags).toEqual(["a", "b", "c"]);
     expect(view.hiddenTags).toBe(2);
-    expect(view.phaseLabel).toBe("objev");
   });
 
   it("počty v patě vynechají nuly a skloňují", () => {

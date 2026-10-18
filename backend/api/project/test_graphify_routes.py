@@ -117,3 +117,39 @@ def test_manual_generate_writes_the_same_stable_set_atomically(tmp_path, monkeyp
     assert (root / 'graphify-out/graph.html').read_text() == '<html>new</html>'
     receipt = json.loads((root / 'graphify-out/opora-receipt.json').read_text())
     assert receipt['hashes']['graph.html'] == hashlib.sha256(b'<html>new</html>').hexdigest()
+
+
+def test_graphify_overview_reads_only_graph_json(tmp_path, monkeypatch):
+    import backend.api.project.graphify_routes as routes
+    source = tmp_path / 'source'
+    out = source / 'graphify-out'
+    out.mkdir(parents=True)
+    raw = json.dumps({'nodes': [
+        {'id': 'a', 'label': 'a.ts', 'community': 0, 'source_file': 'frontend/map/a.ts', 'file_type': 'code'},
+        {'id': 'b', 'label': 'b.ts', 'community': 0, 'source_file': 'frontend/map/b.ts', 'file_type': 'code'},
+        {'id': 'c', 'label': 'c.py', 'community': 1, 'source_file': 'backend/c.py', 'file_type': 'code'},
+    ], 'links': [{'source': 'a', 'target': 'b', 'weight': 1}, {'source': 'a', 'target': 'c', 'weight': 3}]})
+    (out / 'graph.json').write_text(raw, encoding='utf-8')
+    digest = hashlib.sha256(raw.encode('utf-8')).hexdigest()
+    (out / 'opora-receipt.json').write_text(json.dumps({'hashes': {'graph.json': digest, 'graph.html': 'x'},
+                                                        'generatedAt': '2026-10-14T10:00:00Z', 'version': '0.9.24'}))
+    read = routes.read_output
+    names = []
+    monkeypatch.setattr(routes, 'read_output', lambda service, root, name: names.append(name) or read(service, root, name))
+    app = create_app(tmp_path / 'state')
+    app.state.service.project_hub.settings = lambda project: {'project': {'sourcePath': str(source)}}
+    with TestClient(app, base_url='http://127.0.0.1:8740') as client:
+        response = client.get('/api/graphify/overview?project=mine')
+        assert response.status_code == 200, response.text
+        value = response.json()
+        assert 'graph.html' not in names
+        assert value['project'] == 'mine' and value['version'] == '0.9.24'
+        assert value['generatedAt'] == '2026-10-14T10:00:00Z'
+        assert value['counts'] == {'nodes': 3, 'edges': 2, 'communities': 2}
+        assert [item['name'] for item in value['communities']] == ['frontend/map', 'backend/c.py']
+        assert value['edges'] == [{'source': 0, 'target': 1, 'weight': 3.0, 'count': 1}]
+        assert value['truncated'] is False
+        (out / 'graph.json').unlink()
+        assert client.get('/api/graphify/overview?project=mine').status_code == 404
+        (out / 'graph.json').write_text('{"nodes": [], "links": []}')
+        assert client.get('/api/graphify/overview?project=mine').status_code == 409

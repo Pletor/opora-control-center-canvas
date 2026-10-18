@@ -2,6 +2,7 @@
 
 Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nevytváří. Vytváření je jen zde.
 """
+import sqlite3
 
 # .data/<root>/registry.sqlite – jen to, co musí být vidět napříč projekty.
 REGISTRY_SCHEMA = """
@@ -11,6 +12,11 @@ CREATE TABLE IF NOT EXISTS builtin_project_metadata(project_id TEXT PRIMARY KEY,
 CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, branch TEXT, node_id TEXT, actor TEXT, base_sha TEXT);
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, kind TEXT, status TEXT, message TEXT, project_id TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS archived_projects(project_id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, archived_at TEXT NOT NULL);
+-- backend/project/worktrees/workspace_archive.py: skladiště uzavřených worktree (docs/domeny-a-worktree.md §6, §13.3);
+-- větev work/<id> zůstává v repu, řádek z workspaces se sem přesune a jde jen číst
+CREATE TABLE IF NOT EXISTS archived_workspaces(
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL, node_id TEXT, branch TEXT, actor TEXT, base_sha TEXT,
+  directory TEXT, reason TEXT NOT NULL, archived_at TEXT NOT NULL);
 -- backend/memory/memory_service.py: nastavení platné pro celou aplikaci (nikdy per projekt).
 CREATE TABLE IF NOT EXISTS app_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 -- backend/canvas/activity_log.py: záznam činnosti člověka a agentů (docs/zaznam-cinnosti.md).
@@ -25,6 +31,19 @@ CREATE INDEX IF NOT EXISTS activity_log_scope ON activity_log(project_id, worksp
 PROJECT_SCHEMA = """
 -- backend/canvas/canvas_service.py: graf plátna ne-git projektu
 CREATE TABLE IF NOT EXISTS drafts(id TEXT PRIMARY KEY, graph TEXT);
+-- backend/canvas/project_architecture.py: architektura projektu (domény, stránky, sektory mezi nimi), jedna nad všemi worktree;
+-- removed = ID uzlů a hran, které architektura smazala (skryjí se i ve starých kopiích grafu)
+CREATE TABLE IF NOT EXISTS project_architecture(
+    project_id TEXT PRIMARY KEY, revision INTEGER NOT NULL, graph TEXT NOT NULL,
+    updated_at TEXT NOT NULL, actor TEXT NOT NULL, removed TEXT NOT NULL);
+-- backend/canvas/project_architecture.py: historie a návrat architektury; jen přibývají revize
+CREATE TABLE IF NOT EXISTS project_architecture_revisions(
+    project_id TEXT NOT NULL, revision INTEGER NOT NULL, graph TEXT NOT NULL, actor TEXT NOT NULL,
+    workspace TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(project_id, revision));
+-- backend/canvas/migrate_architecture.py: stav jednorázové migrace architektury (fáze, záloha, report)
+CREATE TABLE IF NOT EXISTS architecture_migrations(
+    project_id TEXT PRIMARY KEY, phase TEXT NOT NULL, backup_id TEXT NOT NULL,
+    started_at TEXT NOT NULL, finished_at TEXT, report TEXT NOT NULL);
 -- backend/project_setup/project_hub.py: cíl a platforma projektu
 CREATE TABLE IF NOT EXISTS project_settings(project_id TEXT PRIMARY KEY, revision INTEGER NOT NULL, goal TEXT NOT NULL, platform TEXT NOT NULL);
 -- backend/project_setup/project_hub.py: profil projektu (architektura, uživatelé); revizi nese project_settings
@@ -39,8 +58,49 @@ CREATE TABLE IF NOT EXISTS brief_fragment_revisions(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
     parent_id TEXT, scope_node_id TEXT, ord INTEGER NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
     text TEXT NOT NULL, stage TEXT NOT NULL, mvp TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL,
-    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL,
+    actor TEXT NOT NULL, deleted INTEGER NOT NULL, saved_at TEXT NOT NULL, track TEXT, discipline TEXT, gates TEXT,
     PRIMARY KEY(project_id, workspace_id, fragment_id, revision));
+-- Sloupce track (historická stopa, kód ji už nečte ani nepíše), discipline (docs/schranka-neurony.md §2,
+-- NULL = dědí) a gates (§3, JSON bran cyklu, NULL = žádná) starší databáze dostanou v ensure_brief_fragment_columns;
+-- tam je i backfill track → discipline.
+-- backend/editor/brief_vault/brief_vault_gates.py: návrhy payloadu bran (§9 bod 9), jen přibývají; platí pro otisk vstupů
+CREATE TABLE IF NOT EXISTS brief_gate_proposals(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL, fragment_id TEXT NOT NULL,
+    fragment_revision INTEGER NOT NULL, gate TEXT NOT NULL, input_hash TEXT NOT NULL, payload TEXT NOT NULL,
+    note TEXT NOT NULL, by TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL, seq INTEGER NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+CREATE INDEX IF NOT EXISTS brief_gate_proposals_fragment
+    ON brief_gate_proposals(project_id, workspace_id, fragment_id, gate, seq);
+-- backend/editor/brief_vault/brief_vault_proposals.py: zamítnutí návrhu brány (op reject-proposal), jen přibývají,
+-- nejvýš jedno na návrh; zamítnutý návrh se pro potvrzení brány nikdy nepoužije
+CREATE TABLE IF NOT EXISTS brief_gate_proposal_rejections(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL, proposal_id TEXT NOT NULL,
+    fragment_id TEXT NOT NULL, fragment_revision INTEGER NOT NULL, gate TEXT NOT NULL, note TEXT NOT NULL,
+    by TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+CREATE UNIQUE INDEX IF NOT EXISTS brief_gate_proposal_rejections_proposal
+    ON brief_gate_proposal_rejections(project_id, workspace_id, proposal_id);
+-- backend/editor/brief_vault/brief_vault_lessons.py: poučení z brány learned (§5, §9 bod 12); stav poučení jako revize
+-- (verze plátna je nese), lesson_id je otisk původu (fragment, cyklus) = unikátní původ
+CREATE TABLE IF NOT EXISTS brief_lessons(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, lesson_id TEXT NOT NULL, revision INTEGER NOT NULL,
+    fragment_id TEXT NOT NULL, cycle_revision INTEGER NOT NULL, discipline TEXT NOT NULL, kind TEXT NOT NULL,
+    text TEXT NOT NULL, weight REAL NOT NULL, created_at TEXT NOT NULL, confirmed_at TEXT NOT NULL,
+    dropped INTEGER NOT NULL, by TEXT NOT NULL, actor TEXT NOT NULL, saved_at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, lesson_id, revision));
+-- backend/editor/brief_vault/brief_vault_lessons.py: potvrzení a vyřazení poučení (append-only události)
+CREATE TABLE IF NOT EXISTS brief_lesson_events(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL, lesson_id TEXT NOT NULL,
+    kind TEXT NOT NULL, note TEXT NOT NULL, by TEXT NOT NULL, actor TEXT NOT NULL, at TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+-- backend/editor/brief_vault/brief_vault_mirror.py: provozní log Zrcadla (docs/zrcadlo.md), append-only, mimo verze plátna;
+-- event_id = sha256(projekt, workspace, fragment, cyklus, druh), takže opakované volání se nezapíše dvakrát
+CREATE TABLE IF NOT EXISTS brief_mirror_events(
+    event_id TEXT NOT NULL PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL,
+    revision INTEGER NOT NULL, cycle INTEGER NOT NULL, kind TEXT NOT NULL, request TEXT NOT NULL, result TEXT NOT NULL,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS brief_mirror_events_scope
+    ON brief_mirror_events(project_id, workspace_id, kind, created_at);
 -- backend/editor/brief_vault/brief_vault_details.py: výzkum, otázka a odkazy na rozhodnutí fragmentu (JSON, jen přibývají revize)
 CREATE TABLE IF NOT EXISTS brief_fragment_details(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, fragment_id TEXT NOT NULL, revision INTEGER NOT NULL,
@@ -202,11 +262,41 @@ CREATE INDEX IF NOT EXISTS canvas_versions_content
 """
 
 
+def _columns(db, table):
+    return {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
+
+
+def add_column(db, table, name):
+    """Idempotentní `ADD COLUMN … TEXT`: když sloupec mezitím přidal souběžný proces („duplicate column“),
+    ověří ho PRAGMA a chybu spolkne; jakákoli jiná chyba projde dál."""
+    try:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {name} TEXT")
+    except sqlite3.OperationalError:
+        if name not in _columns(db, table):
+            raise
+
+
 def ensure_canvas_version_columns(db):
     """Add full snapshot columns; existing graph/state versions remain explicitly partial."""
-    columns = {row[1] for row in db.execute("PRAGMA table_info(canvas_versions)")}
+    columns = _columns(db, "canvas_versions")
     for name in ("snapshot", "content_digest"):
         if name not in columns:
-            db.execute(f"ALTER TABLE canvas_versions ADD COLUMN {name} TEXT")
+            add_column(db, "canvas_versions", name)
     if {"project_id", "workspace_id"} <= columns:
         db.execute(CANVAS_VERSIONS_CONTENT_INDEX)
+
+
+def ensure_brief_fragment_columns(db):
+    """Doplní historickou stopu, disciplínu a brány fragmentu (docs/schranka-neurony.md §2 „Migrace“, §3, §9 bod 5).
+
+    Backfill je doplnění schématu, ne nová revize: jen řádky s `track IS NOT NULL AND discipline IS NULL`
+    (`ux` → `ux`, `logic` → `be`). Nový kód `track` nepíše, takže záměrné NULL z `set-discipline` se
+    opakovaným otevřením nepřepíše. Řádky bez stopy zůstanou NULL = dědí / nezařazené."""
+    columns = _columns(db, "brief_fragment_revisions")
+    if not columns:
+        return
+    for name in ("track", "discipline", "gates"):
+        if name not in columns:
+            add_column(db, "brief_fragment_revisions", name)
+    db.execute("UPDATE brief_fragment_revisions SET discipline=CASE track WHEN 'ux' THEN 'ux' WHEN 'logic' THEN 'be' END"
+               " WHERE track IN ('ux','logic') AND discipline IS NULL")

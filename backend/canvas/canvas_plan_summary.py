@@ -66,6 +66,9 @@ def plan_summary(plan):
     result = ("Přidá " + ", ".join(parts) + ".") if parts else ""
     if extensions:
         result += (" " if result else "") + f"Rozšíří {len(extensions)} existujících karet; spec {sum('spec' in item for item in extensions)}, text {sum('text' in item for item in extensions)}."
+        replaced = sum(item.get("replaceBlocks") is True for item in extensions)
+        if replaced:
+            result += f" Bloky nahradí u {replaced}."
         moved = sum("parent" in item for item in extensions)
         recolored = sum("color" in item for item in extensions)
         if moved or recolored:

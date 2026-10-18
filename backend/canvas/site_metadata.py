@@ -59,8 +59,11 @@ def validate_sites(nodes):
         if not isinstance(site, dict):
             raise ValueError(f"{label}: site musí být objekt aplikace nebo stránky.")
         if site.get("kind") == "application":
-            if node["kind"] != "sector" or set(site) != {"kind", "environments"}:
-                raise ValueError(f"{label}: aplikace je sektor se site.kind a environments.")
+            if node["kind"] != "sector" or set(site) not in ({"kind", "environments"}, {"kind", "environments", "healthPath"}):
+                raise ValueError(f"{label}: aplikace je sektor se site.kind, environments a volitelným healthPath.")
+            if "healthPath" in site:
+                # Cesta, na které web hlásí zdraví (např. /api/v1/health); stejná pravidla jako cesta stránky.
+                route_key(site["healthPath"])
             environments = site["environments"]
             if not isinstance(environments, list) or len(environments) > 20:
                 raise ValueError(f"{label}: aplikace má nejvýše 20 prostředí.")

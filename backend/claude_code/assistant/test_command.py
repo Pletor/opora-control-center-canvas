@@ -52,7 +52,7 @@ def test_unknown_model_is_rejected():
 
 
 def test_env_drops_api_key_and_keeps_the_rest():
-    env = cli.child_env({"ANTHROPIC_API_KEY": "sk-x", "TYPESAFE_API_KEY": "ts", "CLAUDE_CODE_OAUTH_TOKEN": "t",
+    env = cli.child_env({"ANTHROPIC_API_KEY": "sk-x", "TYPESAFE_API_KEY": "ts", "CELERIS_API_KEY": "c", "CLAUDE_CODE_OAUTH_TOKEN": "t",
                          "PATH": "p"})
     assert "ANTHROPIC_API_KEY" not in env and "TYPESAFE_API_KEY" not in env
     assert env == {"CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "p"}
@@ -121,3 +121,11 @@ def test_version_probe_never_runs_model_and_survives_timeout():
         raise subprocess.TimeoutExpired(args, 10)
 
     assert cli.claude_version("claude", run=slow) is None
+
+
+def test_command_adds_instruction_and_agent_files_only_when_given():
+    plain = cli.build_command("claude", "opus")
+    assert "--append-system-prompt-file" not in plain and "--agents" not in plain
+    full = cli.build_command("claude", "opus", system_prompt_file="d/instructions.md", agents_file="d/agents.json")
+    assert full[full.index("--append-system-prompt-file") + 1] == "d/instructions.md"
+    assert full[full.index("--agents") + 1] == "d/agents.json"

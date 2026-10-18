@@ -59,6 +59,12 @@ class HookStore:
             json.loads(row["data"])["project"], json.loads(row["data"])["workspace"], json.loads(row["data"])["nodeId"]
         ) == (project, workspace, node_id)]
 
+    def for_project(self, project):
+        """Jen čtení: všechny bindingy projektu (veřejná data bez tokenu), pro přehled stavu práce."""
+        with self.lock:
+            rows = self.db.execute("SELECT data FROM hook_bindings").fetchall()
+        return [data for data in (json.loads(row["data"]) for row in rows) if data.get("project") == project]
+
     def active_at_root(self, root):
         return self.db.execute(
             "SELECT data FROM hook_bindings WHERE root=?", (str(root),)

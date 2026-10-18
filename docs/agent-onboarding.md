@@ -9,6 +9,14 @@ Toto je návod k obsluze Canvasu, nikoli zadání měnit libovolný projekt. Kon
 - V Text → Agenti použij Start pro nového agenta. Čti uvedenou cestu karty a její rodiče; rodič není automaticky předchůdce pracovní předávky.
 - Kopie balíčku je snímek. Před každým zápisem načti aktuální rozsah a revizi.
 
+### Doména, worktree a relace
+
+- Projekt má jednu **architekturu**: domény (`site.kind="application"`, jeden host, skupina Produkce / Vývoj) a jejich stránky. Čti ji `GET /api/project-architecture?project=`; `/api/view` ji skládá s obsahem prostoru a říká `architectureEditable` (architektura jde měnit i z mainu) a `readOnly` (obsah).
+- **Worktree patří jedné doméně** (`nodeId`). Kdo na které doméně pracuje a v jakém stavu (`running` / `waiting` / `stopped` / `none`, s `reasons[]`) vrací `GET /api/project-architecture/work-status?project=`; jestli web domény odpovídá, `GET /api/project-architecture/web-status?project=[&domain=]`. Chybějící DNS u nenasazené domény je normální stav, ne chyba.
+- Práce začíná v tomto pořadí: **1) nový worktree na doméně** (`POST /api/workspaces {project, nodeId, actor}`) → **2) nová relace** ve worktree (`POST /api/assistant/sessions {project, workspace, title}`, pro kartu navíc `nodeId`) → **3) karta**. Hlavní relace projektu běží v prostoru `main` / `draft`. Worktree zakládá, přiřazuje (`PATCH /api/workspaces/{wid}`) a uzavírá do skladiště (`POST /api/workspaces/{wid}/archive`, čtení `GET /api/workspaces/archive`) člověk; větev `work/<wid>` po uzavření zůstává.
+- Worktree poznáš podle aktéra a krátkého ID (prvních 8 znaků), ne podle celé větve. Pracuj jen ve worktree, které ti člověk určil; přepnutí prostoru je jeho rozhodnutí.
+- Štíhlé zápisy UI: `POST /api/desktop-v3/node` (stav jedné karty, `{revision, nodeId, node}`) a `POST /api/graph/positions` (jen pozice uzlů). Asistent v okně OPORA je nepoužívá; jeho zápisy jdou jen přes `opora_write.py` (`.claude/skills/opora-control-center/references/api.md`).
+
 ## 2. Přečti v tomto pořadí
 
 1. Cíl karty, ne-cíle, pravidla a podmínky dokončení. Prázdné pole je mezera, ne volná ruka.

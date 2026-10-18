@@ -39,6 +39,10 @@
 }
 .board-bar__chip--on { border-color: #22c55e; color: #22c55e; }
 .board-bar__chip--warn { border-color: #f59e0b; color: #f59e0b; }
+/* ČIP U STROPU: objeví se, až když projekt přeroste 80 % stropu serveru. Mluví potichu (tlumené písmo,
+   čárkovaný jantarový okraj, bez ručičky), protože nic nerozbil: jen říká, kolik místa zbývá, a v titulku,
+   že nad stropem server změnu odmítne a je čas projekt rozdělit. Kliknout na něj není na co. */
+.board-bar__cap { border-style: dashed; border-color: #f59e0b; color: var(--ink-muted); cursor: default; }
 .board-bar > button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 .board-bar__gate { display: inline-flex; align-items: center; gap: 6px; font: 500 12px var(--font); color: var(--ink-muted); }
 .board-bar__gate select { max-width: 220px; }

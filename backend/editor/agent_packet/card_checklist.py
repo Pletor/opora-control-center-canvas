@@ -6,9 +6,12 @@ i `node-brief` (`checklist`). Stav pole: `yes` (je / prošlo), `no` (chybí), `r
 Nic se neukládá; pás se počítá z grafu, stavu Desktop v3, zadání (spec) a textu karty.
 """
 
+import json
+
 from backend.canvas.card_checks import checks_passed
 from backend.editor.agent_memory import card_pipeline
 from backend.editor.agent_memory.completion_evidence import evidence_ready
+from backend.editor.node.node_specs import EMPTY_FIELDS
 
 KEYS = ("goal", "done", "text", "blocks", "links", "source", "checks", "pipeline", "evidence", "handoff")
 LABELS = {"goal": "cíl", "done": "hotovo", "text": "text", "blocks": "bloky", "links": "vazby", "source": "zdroj",
@@ -19,14 +22,29 @@ def _item(key, state, hint=""):
     return {"key": key, "label": LABELS[key], "state": state, "hint": hint}
 
 
+class EdgeIndex:
+    """Vazby grafu podle uzlu: odchozí `next` / `block` a všechny, které se uzlu dotýkají. Jeden průchod O(E)."""
+
+    def __init__(self, edges):
+        self.outgoing, self.touching = {}, {}
+        for e in edges:
+            source, target = e["source"], e["target"]
+            self.touching.setdefault(source, []).append(e)
+            if target != source:
+                self.touching.setdefault(target, []).append(e)
+            if e.get("port", "next") in ("next", "block"):
+                self.outgoing.setdefault(source, []).append(e)
+
+
 def card_items(node, node_state, spec, text, edges, reports):
-    """Pás jedné karty; `edges` jsou vazby grafu, `reports` zprávy na vazbách (`state.edges`)."""
+    """Pás jedné karty; `edges` jsou vazby grafu (seznam nebo hotový `EdgeIndex`), `reports` zprávy na vazbách (`state.edges`)."""
     node_id = node["id"]
     blocks = node_state.get("blocks", [])
     evidence = node_state.get("evidence")
     stages = node_state.get("stages")
-    outgoing = [e for e in edges if e["source"] == node_id and e.get("port", "next") in ("next", "block")]
-    touching = [e for e in edges if node_id in (e["source"], e["target"])]
+    index = edges if isinstance(edges, EdgeIndex) else EdgeIndex(edges)
+    outgoing = index.outgoing.get(node_id, [])
+    touching = index.touching.get(node_id, [])
     items = [
         _item("goal", "yes" if spec.get("goal", "").strip() else "no", "" if spec.get("goal", "").strip() else "cíl práce → /api/node-spec fields.goal"),
         _item("done", "yes" if spec.get("acceptance", "").strip() or any(b["state"]["condition"] for b in blocks) else "no",
@@ -82,17 +100,33 @@ def card_items(node, node_state, spec, text, edges, reports):
     return items
 
 
+def _latest(canvas, project, workspace, table, column):
+    """Poslední revize sloupce pro každý uzel prostoru jedním dotazem (místo dotazu na kartu).
+
+    Stejný výsledek jako `NodeSpecStore.read` / `NodeTextStore.read` (`ORDER BY revision DESC LIMIT 1`):
+    SQLite u `MAX()` s `GROUP BY` vrací ostatní sloupce z řádku s maximem.
+    """
+    rows = canvas.db_for(project).execute(
+        f"SELECT node_id,{column},MAX(revision) FROM {table} WHERE project_id=? AND workspace_id=? GROUP BY node_id",
+        (project, workspace)).fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
 def checklists(canvas, project, workspace, graph, state, node_ids=None):
     """Pás pro karty a sektory grafu (volitelně jen `node_ids`); čte zadání a text z úložiště."""
     reports = state.get("edges", {})
+    selected = [node for node in graph["nodes"]
+                if node.get("kind") in ("node", "sector") and (node_ids is None or node["id"] in node_ids)]
+    if not selected:
+        return {}
+    specs = _latest(canvas, project, workspace, "node_spec_revisions", "fields")
+    texts = _latest(canvas, project, workspace, "node_text_revisions", "text")
+    index = EdgeIndex(graph["edges"])
     out = {}
-    for node in graph["nodes"]:
-        if node.get("kind") not in ("node", "sector") or (node_ids is not None and node["id"] not in node_ids):
-            continue
-        scope = (project, workspace, node["id"])
-        spec = canvas.specs.read(scope)["fields"]
-        text = canvas.texts.read(scope)["text"]
-        out[node["id"]] = card_items(node, state.get("nodes", {}).get(node["id"], {}), spec, text, graph["edges"], reports)
+    for node in selected:
+        raw = specs.get(node["id"])
+        spec = json.loads(raw) if raw is not None else dict(EMPTY_FIELDS)
+        out[node["id"]] = card_items(node, state.get("nodes", {}).get(node["id"], {}), spec, texts.get(node["id"], ""), index, reports)
     return out
 
 

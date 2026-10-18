@@ -36,7 +36,7 @@ export default function ProjectTree({ title, groups, disabled, onOpenPage, onAdd
         </li>)}
         {!item.pages.length && <li className="project-tree__empty">Zatím žádná stránka.</li>}
         <li><button type="button" className="project-tree__add" disabled={disabled} data-testid={"architecture-tree-add-page-" + item.id}
-          aria-label={`Přidat stránku do ${item.host ?? item.name} v Mapě projektu`} onClick={() => onAddPage(item.id)}>+ Stránka</button></li>
+          aria-label={`Přidat stránku do ${item.host ?? item.name} v Mapě domény`} onClick={() => onAddPage(item.id)}>+ Stránka</button></li>
       </ul>}
     </li>;
   }
@@ -57,6 +57,6 @@ export default function ProjectTree({ title, groups, disabled, onOpenPage, onAdd
           : <p className="project-tree__empty">Zatím žádná doména.</p>)}
       </section>;
     })}
-    <p className="project-tree__note">Stránky a jejich pořadí se mění v Mapě projektu.</p>
+    <p className="project-tree__note">Stránky a jejich pořadí se mění v Mapě domény.</p>
   </nav>;
 }

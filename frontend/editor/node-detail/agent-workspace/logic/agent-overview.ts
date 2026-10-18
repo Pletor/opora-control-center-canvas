@@ -96,7 +96,7 @@ export function overviewModel(
     communication: communicationOf(brief),
     verification: {
       goal: presenceOf(goal, text(goal.goal).trim().length > 0),
-      dod: presenceOf(dod, list(dod.criteria).length > 0 || list(dod.blockConditions).length > 0),
+      dod: presenceOf(dod, text(dod.acceptance).trim().length > 0 || list(dod.blockConditions).length > 0),
       gaps: list(orientation.contextGaps).length,
     },
     nextAction: { label: text(nextAction.label), kind: text(nextAction.kind) },

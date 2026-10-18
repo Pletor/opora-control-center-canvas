@@ -1,7 +1,7 @@
 // Detail fragmentu schránky: cesta ve stromu, doslovný text vybrané revize (jen ke čtení, zachované řádky),
 // historie revizí s výběrem, čipy karet vzniklých z fragmentu a jeho Podněty. Nic nezapisuje.
 import { useState, type ReactNode } from "react";
-import { revisionLabel, statusDot } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
+import { revisionLabel, statusDot, type FragmentDetail } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import { useFragmentDetail } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
 import "@/editor/node-detail/ideas/styles/ideas.css";
 
@@ -14,8 +14,8 @@ export default function FragmentDetailView({ project, workspace, id, nodeNames, 
   onClose: () => void;
   /** Změna (nový strom) načte detail znovu. */
   refresh: unknown;
-  /** Akce nad fragmentem od rodiče (okno schránky). */
-  actions?: ReactNode;
+  /** Akce nad fragmentem od rodiče (Schránka: disciplína, brány, výzkum, otázka) nad načteným detailem. */
+  actions?: (detail: FragmentDetail) => ReactNode;
 }) {
   const [revision, setRevision] = useState<number | null>(null);
   const { detail, error } = useFragmentDetail(project, workspace, id, revision, refresh);
@@ -38,7 +38,7 @@ export default function FragmentDetailView({ project, workspace, id, nodeNames, 
       </header>
       {old && <p className="brief-vault__old" role="status">Prohlížíte starší revizi r{fragment.revision}; poslední je r{detail.latestRevision}.</p>}
       <pre className="brief-vault__text" tabIndex={0} aria-label="Doslovný text fragmentu">{fragment.text || "(prázdný text)"}</pre>
-      {actions && <div className="brief-vault__actions">{actions}</div>}
+      {actions && <div className="brief-vault__actions">{actions(detail)}</div>}
 
       <h5>Karty ze schránky</h5>
       {detail.cards.length ? (

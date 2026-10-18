@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
+from backend.editor.brief_vault.brief_vault_model import content_hash, ref_changed
 from backend.editor.brief_vault.brief_vault_refs import validate_refs
 from backend.editor.node.test_removals import HEADERS, ORIGIN, SCOPE, install_graph, node
 
@@ -33,12 +34,46 @@ def state(client):
 
 
 def fragment(client, text="3.37 Version activation"):
-    return vault(client, op="create", scopeNodeId="s1", title="3.37", text=text)["fragment"]
+    return vault(client, op="create", scopeNodeId="s1", discipline="ux", title="3.37", text=text)["fragment"]
+
+
+def test_ref_changed_compares_content_hash_and_old_refs_keep_revisions():
+    row = {"fragment_id": "f", "title": "T", "text": "t"}
+    assert ref_changed({"revision": 1, "contentHash": content_hash("T", "t")}, row, 5) is False  # jen brány / metadata
+    assert ref_changed({"revision": 9, "contentHash": content_hash("T2", "t")}, row, 1) is True  # jiný název
+    # Starý odkaz bez otisku: otisk jeho historické revize, bez ní (neznámá revize) revize jako dřív.
+    assert ref_changed({"revision": 1}, row, 3, {("f", 1): content_hash("T", "t")}) is False
+    assert ref_changed({"revision": 1}, row, 1, {("f", 1): content_hash("T0", "t")}) is True
+    assert ref_changed({"revision": 1}, row, 2) is True and ref_changed({"revision": 2}, row, 2) is False
+
+
+def test_old_ref_without_hash_compares_its_historical_revision(client):
+    item = fragment(client)
+    current = state(client)
+    old = {"phase": "discover", "criteria": [], "steps": [], "fragmentRefs": [{"fragmentId": item["id"], "revision": 1}]}
+    saved = client.post("/api/desktop-v3/state", headers=HEADERS, json={
+        **SCOPE, "expectedRevision": current["revision"], "state": {**current["state"], "nodes": {"c1": old}}})
+    assert saved.status_code == 200, saved.text
+
+    def changed():
+        root = client.get("/api/brief-vault", params=SCOPE).json()["roots"][0]
+        brief = client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": "c1"}).json()["fragments"]
+        detail = client.get("/api/brief-vault/fragment", params={**SCOPE, "id": item["id"]}).json()
+        flags = {root["changedSinceInsert"], brief["items"][0]["changedSinceInsert"], detail["cards"][0]["changedSinceInsert"]}
+        assert len(flags) == 1
+        return flags.pop()
+
+    assert changed() is False
+    vault(client, op="revise", fragmentId=item["id"], expectedRevision=1, title="3.37 nový", note="přejmenování")
+    assert changed() is True  # přejmenování je změna zadání
+    vault(client, op="revise", fragmentId=item["id"], expectedRevision=2, title="3.37", note="zpět")
+    assert changed() is False  # návrat k původnímu obsahu změnou není
 
 
 def test_state_refs_shape():
     validate_refs([{"fragmentId": "a", "revision": 1}])
-    for broken in ([{"fragmentId": "a"}], [{"fragmentId": "a", "revision": 0}], [{"fragmentId": "../x", "revision": 1}],
+    validate_refs([{"fragmentId": "a", "revision": 1, "contentHash": "0" * 64}])
+    for broken in ([{"fragmentId": "a"}], [{"fragmentId": "a", "revision": 1, "contentHash": "x"}], [{"fragmentId": "a", "revision": 0}], [{"fragmentId": "../x", "revision": 1}],
                    [{"fragmentId": "a", "revision": 1}] * 2, [{"fragmentId": str(n), "revision": 1} for n in range(51)]):
         with pytest.raises(ValueError):
             validate_refs(broken)
@@ -56,9 +91,11 @@ def test_plan_fragment_ref_missing_is_409_and_valid_lands_in_state(client):
                                   "fragmentRef": {"fragmentId": item["id"]}}]})
     assert ok.status_code == 200, ok.text
     card = ok.json()["refs"]["k"]
-    assert state(client)["state"]["nodes"][card]["fragmentRefs"] == [{"fragmentId": item["id"], "revision": 1}]
+    stamp = content_hash("3.37", "3.37 Version activation")  # otisk obsahu při vložení (§9 bod 6)
+    assert state(client)["state"]["nodes"][card]["fragmentRefs"] == [{"fragmentId": item["id"], "revision": 1,
+                                                                      "contentHash": stamp}]
     tree = client.get("/api/brief-vault", params=SCOPE).json()["roots"][0]
-    assert tree["inserted"] is True and tree["cards"] == [{"nodeId": card, "revision": 1}]
+    assert tree["inserted"] is True and tree["cards"] == [{"nodeId": card, "revision": 1, "contentHash": stamp}]
 
 
 def test_extend_adds_refs_to_existing_card_and_deleted_fragment_is_rejected(client):

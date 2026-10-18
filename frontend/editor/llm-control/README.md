@@ -1,1 +1,1 @@
-Pravá strana Editoru: ovládání Claude Code a LLM (hooky, skills, commandy, agenti, paměť). Dnes: project-memory, editor-context, agent-packet; ostatní sloty čekají na kód.
+Pravá strana Editoru: ovládání Claude Code a LLM (hooky, skills, commandy, agenti, paměť). Dnes: project-memory (dílky pro kartu), editor-context. Panel agent-packet (podklady pro agenta) byl sirotek bez montáže v App a je smazaný (2026-10-15); podklady pro agenta dává node-brief a skill.
