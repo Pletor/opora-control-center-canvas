@@ -206,3 +206,101 @@ def test_human_rejects_agent_rule_proposal(tmp_path):
         assert rejected.status_code == 200, rejected.text
         assert rejected.json()['item'] is None
         assert client.get('/api/desktop-v3/rule', params={**SCOPE, 'id': 'p'}).json()['item'] is None
+
+
+def review_batch(client, proposals, decision, headers=HEADERS, scope=SCOPE):
+    return client.post('/api/desktop-v3/rule-review-batch', headers=headers, json={
+        **scope, 'decision': decision, 'items': [{'id': p['id'], 'expected': p} for p in proposals]})
+
+
+def propose(client, items, scope=SCOPE):
+    out = []
+    for item in items:
+        written = client.post('/api/desktop-v3/rule', headers=AGENT, json={
+            **scope, 'id': item['id'], 'op': 'add', 'expected': None, 'item': item})
+        assert written.status_code == 200, written.text
+        out.append(written.json()['item'])
+    return out
+
+
+def test_human_approves_a_batch_of_project_path_and_card_proposals_in_one_revision(tmp_path):
+    """Hromadné schválení: všechny vybrané návrhy (projekt, cesta, karta) platí v node-brief, jedna revize."""
+    with TestClient(create_app(tmp_path / 'data'), base_url=ORIGIN) as client:
+        scope = source_project(client, tmp_path)
+        proposals = propose(client, [
+            rule('proj', 'Projekt: testy u každé změny'),
+            {**rule('cesta', 'Cesta: src jen s testem'), 'scope': 'path', 'target': 'src'},
+            {**rule('karta', 'Karta: jen čtení'), 'scope': 'node', 'target': 'deep'},
+        ], scope)
+        before = client.get('/api/desktop-v3/state', params=scope).json()['revision']
+        approved = review_batch(client, proposals, 'approve', scope=scope)
+        assert approved.status_code == 200, approved.text
+        body = approved.json()
+        assert body['revision'] == before + 1 and 'state' not in body
+        assert body['items'] == [{'id': p['id'], 'item': {k: v for k, v in p.items() if k != 'by'}} for p in proposals]
+        brief = client.get('/api/desktop-v3/node-brief', params={**scope, 'nodeId': 'deep'}).json()
+        assert {'proj', 'cesta', 'karta'} <= {r['id'] for r in brief['boundaries']['effectiveRules']}
+        assert {'proj', 'cesta'} <= {r['id'] for r in brief['boundaries']['projectRules']}
+        assert brief['boundaries']['proposedRules'] == []
+
+
+def test_batch_review_is_human_only_all_or_nothing_and_names_the_conflicts(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        install_graph(client, nested_graph())
+        proposals = propose(client, [rule('a', 'A'), rule('b', 'B'), rule('c', 'C')])
+        before = client.get('/api/desktop-v3/state', params=SCOPE).json()
+        for decision in ('approve', 'reject'):
+            assert review_batch(client, proposals, decision, AGENT).status_code == 403
+        cookies = dict(client.cookies)
+        client.cookies.clear()
+        assert review_batch(client, proposals, 'approve').status_code == 428
+        for key, value in cookies.items():
+            client.cookies.set(key, value)
+        # `b` se mezitím změnil, `c` zmizel: dávka neprojde a nic se neuloží.
+        changed = client.post('/api/desktop-v3/rule', headers=AGENT, json={
+            **SCOPE, 'id': 'b', 'op': 'update', 'expected': proposals[1], 'item': {**proposals[1], 'text': 'Jiný'}})
+        assert changed.status_code == 200, changed.text
+        removed = client.post('/api/desktop-v3/rule', headers=AGENT, json={
+            **SCOPE, 'id': 'c', 'op': 'remove', 'expected': proposals[2], 'item': None})
+        assert removed.status_code == 200, removed.text
+        after_changes = client.get('/api/desktop-v3/state', params=SCOPE).json()
+        assert after_changes['revision'] == before['revision'] + 2
+        stale = review_batch(client, proposals, 'approve')
+        assert stale.status_code == 409, stale.text
+        assert stale.json()['conflicts'] == ['b', 'c']
+        assert client.get('/api/desktop-v3/state', params=SCOPE).json() == after_changes
+        # Lidské pravidlo není návrh: celá dávka se odmítne.
+        human = rule('h', 'Člověk')
+        assert write(client, 'rule', 'add', None, human).status_code == 200
+        assert review_batch(client, [proposals[0], human], 'approve').status_code == 409
+        assert client.get('/api/desktop-v3/rule', params={**SCOPE, 'id': 'a'}).json()['item']['by'] == 'agent'
+
+
+def test_human_rejects_a_batch_and_only_the_selection_is_removed(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        install_graph(client, nested_graph())
+        proposals = propose(client, [rule('a', 'A'), rule('b', 'B'), rule('keep', 'Nechat')])
+        rejected = review_batch(client, proposals[:2], 'reject')
+        assert rejected.status_code == 200, rejected.text
+        assert rejected.json()['items'] == [{'id': 'a', 'item': None}, {'id': 'b', 'item': None}]
+        rules = client.get('/api/desktop-v3/state', params=SCOPE).json()['state']['rules']
+        assert [r['id'] for r in rules] == ['keep'] and rules[0]['by'] == 'agent'
+
+
+def test_batch_review_limits_and_shape(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        install_graph(client, nested_graph())
+        [proposal] = propose(client, [rule('a', 'A')])
+        too_many = [{**proposal, 'id': f'x{i}'} for i in range(501)]
+        assert review_batch(client, too_many, 'approve').status_code == 409
+        assert 'až 500' in review_batch(client, too_many, 'approve').json()['error']
+        assert review_batch(client, [], 'approve').status_code == 409
+        assert review_batch(client, [proposal, proposal], 'approve').status_code == 409
+        assert review_batch(client, [proposal], 'maybe').status_code == 409
+        bad = client.post('/api/desktop-v3/rule-review-batch', headers=HEADERS, json={
+            **SCOPE, 'decision': 'approve', 'items': [{'id': 'a'}]})
+        assert bad.status_code == 409
+        assert client.get('/api/desktop-v3/rule', params={**SCOPE, 'id': 'a'}).json()['item']['by'] == 'agent'
+        # 500 položek projde (strop je včetně); neexistující návrhy jsou kolize, ne chyba serveru.
+        limit = review_batch(client, [{**proposal, 'id': f'x{i}'} for i in range(500)], 'reject')
+        assert limit.status_code == 409 and len(limit.json()['conflicts']) == 500

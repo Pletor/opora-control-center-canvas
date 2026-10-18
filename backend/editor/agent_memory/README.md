@@ -27,6 +27,11 @@ Návrh pravidla od agenta (`by: "agent"`, karta, projekt i cesta) posoudí člov
 `/api/desktop-v3/rule-review` `{project, workspace, id, decision: approve|reject, expected}`:
 schválení uloží pravidlo bez `by` (od té doby platí v `node-brief`), zamítnutí ho odebere.
 Smí jen člověk (cookie `opora_ui`; agent 403, neznámý 428); `expected` je přečtený návrh (CAS).
+Víc návrhů naráz: `/api/desktop-v3/rule-review-batch` `{project, workspace, items: [{id, expected}],
+decision}` (1 až 500 různých ID). Stejná cesta jako jedna položka, jen jedno uložení (jedna
+revize): když kterákoli položka neprojde CAS nebo cílová karta zmizela, neuloží se nic a 409 nese
+`conflicts` (ID kolidujících položek). Odpověď `{revision, readOnly, items: [{id, item}]}`.
+Agentní klient skillu tuto cestu nemá: schvalování je lidská akce.
 
 `port_spawn.py` vytváří následníka z `port.onMet` při přechodu bloku do `met` ve společném
 ukládání stavu (UI, adresný blok i agent-output). Zamítnutý port přeskočí. Tabulka
