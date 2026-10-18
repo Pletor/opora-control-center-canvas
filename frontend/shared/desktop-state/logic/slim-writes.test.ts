@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appliesTo, stateChange, withItem, withNode, withStages } from "@/shared/desktop-state/logic/slim-writes";
+import { appliesTo, stateChange, withItem, withItems, withNode, withStages } from "@/shared/desktop-state/logic/slim-writes";
 import { emptyDesktopState, type Decision, type Rule } from "@/shared/desktop-state/logic/types";
 import type { CardPipeline } from "@/editor/workflow/card-pipeline/logic/pipeline-model";
 
@@ -62,4 +62,11 @@ describe("slim write responses", () => {
     expect(Object.keys(withNode(base, "b", null).nodes)).toEqual(["a"]);
     expect(base.nodes.a).toBe(a); // původní stav zůstal beze změny
   });
+});
+
+it("applies a whole batch review of one revision: approved stay in place, rejected disappear", () => {
+  const proposal = (id: string): Rule => ({ ...rule(id), by: "agent" });
+  const base = { ...emptyDesktopState(), rules: [proposal("a"), proposal("b"), proposal("c")] };
+  const next = withItems(base, "rule", [{ id: "a", item: rule("a") }, { id: "c", item: null }]);
+  expect(next.rules).toEqual([rule("a"), proposal("b")]);
 });

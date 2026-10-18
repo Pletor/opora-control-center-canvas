@@ -6,14 +6,16 @@ import { errorMessage, fetchState, saveNode, saveState } from "@/shared/desktop-
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
 import type { Rule, Decision, StateResponse } from "@/shared/desktop-state/logic/types";
-import { appliesTo, stateChange, withItem, withNode, type ItemWriteResponse } from "@/shared/desktop-state/logic/slim-writes";
+import { appliesTo, stateChange, withItem, withItems, withNode, type BatchReviewResponse, type ItemWriteResponse, type ItemWriteSlim } from "@/shared/desktop-state/logic/slim-writes";
 import { api } from "@/shared/types/logic/types";
-import { ruleReviewRequest, type RuleReviewDecision } from "@/shared/desktop-state/logic/agent-rule";
+import { ruleReviewBatchRequest, ruleReviewRequest, type RuleReviewDecision } from "@/shared/desktop-state/logic/agent-rule";
 
 export type DesktopStateHandle = {
   mutateItem: (kind: "rule" | "decision", expected: Rule | Decision | null, item: Rule | Decision | null) => Promise<boolean>;
   /** Člověk schválí nebo zamítne návrh pravidla od agenta (POST /api/desktop-v3/rule-review, agent dostane 403). */
   reviewRule: (rule: Rule, decision: RuleReviewDecision) => Promise<boolean>;
+  /** Člověk posoudí vybrané návrhy jedním krokem, všechno nebo nic (POST /api/desktop-v3/rule-review-batch). */
+  reviewRules: (rules: Rule[], decision: RuleReviewDecision) => Promise<boolean>;
   state: DesktopState;
   revision: number;
   readOnly: boolean;
@@ -175,15 +177,18 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
 
   // Adresný zápis jedné položky (pravidlo, rozhodnutí, posouzení návrhu): odpověď nese jen revizi a
   // uloženou položku (karta P3), ne celý stav.
-  const writeItem = async (kind: "rule" | "decision", id: string, url: string, body: object) => {
+  const writeItem = (kind: "rule" | "decision", id: string, url: string, body: object) =>
+    writeSlim<ItemWriteResponse>(url, body, (current, value) => withItem(current, kind, id, value.item));
+  // Hromadné posouzení vrací totéž pro každou položku dávky; vloží se všechny jednou revizí.
+  const writeSlim = async <R extends ItemWriteSlim>(url: string, body: object, patch: (current: DesktopState, value: R) => DesktopState) => {
     const ticket = generation.current;
     const scope = `${project}::${workspace}`;
     const baseRevision = revision;
     saving.current++;
     try {
-      const value = await trackSaveWrite(project, workspace, api<ItemWriteResponse>(url, body));
+      const value = await trackSaveWrite(project, workspace, api<R>(url, body));
       if (ticket !== generation.current || scopeKey.current !== scope) return false;
-      settleSlim(scope, baseRevision, value, (current) => withItem(current, kind, id, value.item));
+      settleSlim(scope, baseRevision, value, (current) => patch(current, value));
       return true;
     } catch (e) {
       if (ticket === generation.current && scopeKey.current === scope) setError(errorMessage(e));
@@ -206,6 +211,11 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     const request = ruleReviewRequest(project, workspace, rule, decision);
     return writeItem("rule", rule.id, request.url, request.body);
   };
+  const reviewRules: DesktopStateHandle["reviewRules"] = async (rules, decision) => {
+    if (readOnly || !rules.length) return false;
+    const request = ruleReviewBatchRequest(project, workspace, rules, decision);
+    return writeSlim<BatchReviewResponse>(request.url, request.body, (current, value) => withItems(current, "rule", value.items));
+  };
   const apply = (value: StateResponse) => {
     const scope = `${project}::${workspace}`;
     generation.current++;
@@ -219,5 +229,5 @@ export function useDesktopState(project: string, workspace: string): DesktopStat
     }
     apply({ state: patch(latest.current.state), revision: response.revision, readOnly: response.readOnly });
   };
-  return { state, revision, readOnly, loading, error, reload, mutate, mutateItem, reviewRule, apply, applySlim };
+  return { state, revision, readOnly, loading, error, reload, mutate, mutateItem, reviewRule, reviewRules, apply, applySlim };
 }

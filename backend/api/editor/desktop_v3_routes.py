@@ -19,7 +19,7 @@ from backend.editor.agent_memory.assignment_status import assignment_status
 from backend.editor.agent_memory.card_leases import CardLeases
 from backend.editor.agent_memory.card_rounds import open_round, read_rounds
 from backend.editor.agent_memory.confirm_proposals import confirm_proposals
-from backend.editor.agent_memory.memory_items import MemoryItems
+from backend.editor.agent_memory.memory_items import BatchConflict, MemoryItems
 from backend.editor.agent_memory.pipeline_routing import PipelineRouting
 from backend.editor.agent_memory.pipeline_routing import profiles as pipeline_profiles
 from backend.editor.agent_memory.scenario_history import scenario_history
@@ -154,6 +154,14 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
     def review_rule(payload: dict, request: Request, full: bool = False):
         """Člověk schválí (`approve`) nebo zamítne (`reject`) návrh pravidla od agenta; agent 403."""
         return items.review_rule(payload, actor=request.state.actor, full=full)
+
+    @router.post("/rule-review-batch")
+    def review_rules(payload: dict, request: Request, full: bool = False):
+        """Člověk posoudí víc návrhů agenta naráz: všechno, nebo nic; 409 nese `conflicts` (ID kolizí)."""
+        try:
+            return items.review_rules(payload, actor=request.state.actor, full=full)
+        except BatchConflict as conflict:
+            return JSONResponse({"error": str(conflict), "conflicts": conflict.conflicts}, status_code=409)
 
     @router.get("/decision")
     def read_decision(project: str, workspace: str, id: str):

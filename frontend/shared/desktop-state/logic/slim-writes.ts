@@ -6,8 +6,12 @@
 import type { CardPipeline } from "@/editor/workflow/card-pipeline/logic/pipeline-model";
 import type { Decision, DesktopState, NodeWorkflowState, Rule } from "@/shared/desktop-state/logic/types";
 
+/** Společné jádro štíhlé odpovědi: nová revize a zda zápis změnil graf. */
+export type ItemWriteSlim = { revision: number; readOnly: boolean; graphChanged?: boolean };
 /** Odpověď POST /api/desktop-v3/rule a /decision. */
-export type ItemWriteResponse = { revision: number; readOnly: boolean; item: Rule | Decision | null; graphChanged?: boolean };
+export type ItemWriteResponse = ItemWriteSlim & { item: Rule | Decision | null };
+/** Odpověď POST /api/desktop-v3/rule-review-batch: každá posouzená položka, jak ji server uložil (null = odebrána). */
+export type BatchReviewResponse = ItemWriteSlim & { items: Array<{ id: string; item: Rule | null }> };
 /** Odpověď POST /api/desktop-v3/pipeline. */
 export type PipelineWriteResponse = { revision: number; readOnly: boolean; nodeId: string; stages: CardPipeline; graphChanged?: boolean };
 
@@ -29,6 +33,11 @@ export function withItem(state: DesktopState, kind: "rule" | "decision", id: str
   else if (index < 0) next = [...items, item];
   else next = items.map((x, i) => (i === index ? item : x));
   return { ...state, [key]: next } as DesktopState;
+}
+
+/** Stav po dávce zápisů jedné revize: totéž co `withItem` pro každou položku v pořadí dávky. */
+export function withItems(state: DesktopState, kind: "rule" | "decision", items: Array<{ id: string; item: Rule | Decision | null }>): DesktopState {
+  return items.reduce((current, { id, item }) => withItem(current, kind, id, item), state);
 }
 
 /** Stav po směrování pipeline (`PipelineRouting.apply`): uzel dostane nové etapy; chybějící uzel vznikne jako na serveru. */
