@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 
 export default function MemoryItemText({ id, text, disabled, save, actionLabel = "Upravit" }: {
   id: string; text: string; disabled: boolean; save: (text: string) => Promise<boolean>; actionLabel?: string;

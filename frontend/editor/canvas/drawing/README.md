@@ -1,8 +1,8 @@
 Kreslicí nástroje a stav kresby na plátně (DrawingTools, DrawingWorkspace).
 
 - `components/DrawingWorkspace.tsx` skládá Excalidraw, stav uložení a postranní wireframe panel.
-- `components/wireframe-elements.ts` vytváří prvky wireframu vložené do kresby a jejich podobu pro inspektor.
-- `components/use-drawing-files.ts` načítá obrázky k otevřené scéně a nahrává je před uložením scény.
+- `logic/wireframe-elements.ts` vytváří prvky wireframu vložené do kresby a jejich podobu pro inspektor.
+- `logic/use-drawing-files.ts` načítá obrázky k otevřené scéně a nahrává je před uložením scény.
 - `logic/drawing-state.ts` drží drafty, rozpracovaná uložení, mezipaměť obrázků a seznam nástrojů.
 - `logic/drawing-files.ts` (+ test) říká bez Reactu, které obrázky scéna potřebuje, co nahrát a co se smí vložit.
 

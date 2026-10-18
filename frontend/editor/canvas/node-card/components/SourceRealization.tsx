@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import { safeLinkUrl } from "../logic/safe-url";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { SourceStatus } from "../logic/use-source-status";

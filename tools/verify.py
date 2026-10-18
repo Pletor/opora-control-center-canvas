@@ -1,4 +1,4 @@
-"""Jeden příkaz, který ověří repozitář: lint, testy backendu, testy frontendu a odkazy v dokumentaci.
+"""Jeden příkaz, který ověří repozitář: lint, testy backendu, testy frontendu, odkazy v dokumentaci a strukturu.
 
 Odkazy v dokumentaci jsou ráčna, ne brána: dnešní stav je v `DOC_BASELINE` a smí jen klesat.
 Když nálezů přibude, příkaz selže a řekne o kolik; když jich ubude, řekne, že je čas ráčnu utáhnout.
@@ -17,6 +17,10 @@ DOC_BASELINE = 89
 # Kolik nálezů má dnes ruff ve starším kódu. Také ráčna: nové soubory musí být čisté,
 # staré se uklízejí postupně a číslo smí jen klesat.
 RUFF_BASELINE = 21
+
+# Kolik porušení pravidel struktury (docs/pravidla-struktury.md) dnes existuje, po pravidlech.
+# Pravidlo, které tu chybí, smí mít nula nálezů. Čísla smí jen klesat.
+STRUCTURE_BASELINE = {"delka": 79}
 
 STEPS = (
     ("pytest", ["uv", "run", "pytest", "backend", "-q"]),
@@ -73,6 +77,22 @@ def check_docs():
     return True, f"rozbitých odkazů je {found}, stejně jako povoluje ráčna"
 
 
+def check_structure():
+    """Ráčna nad pravidly struktury po pravidlech: vrátí (stav, věta)."""
+    from tools.structure_check import check_repo, counts
+
+    found = counts(check_repo(REPO_ROOT))
+    grown = [f"{rule} {n}/{STRUCTURE_BASELINE.get(rule, 0)}" for rule, n in sorted(found.items())
+             if n > STRUCTURE_BASELINE.get(rule, 0)]
+    if grown:
+        return False, ("porušení struktury přibylo: " + ", ".join(grown)
+                       + "; seznam ukáže uv run python tools/structure_check.py")
+    shrunk = [rule for rule, limit in sorted(STRUCTURE_BASELINE.items()) if found.get(rule, 0) < limit]
+    if shrunk:
+        return True, "porušení struktury ubylo (" + ", ".join(shrunk) + "); utáhni STRUCTURE_BASELINE v tools/verify.py"
+    return True, "porušení struktury je stejně, jak povoluje ráčna"
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     only = set(argv)
@@ -100,6 +120,11 @@ def main(argv=None):
         print(f"[{'ok' if passed else 'chyba'}] docs: {message}")
         if not passed:
             failures.append("docs")
+    if not only or "structure" in only:
+        passed, message = check_structure()
+        print(f"[{'ok' if passed else 'chyba'}] structure: {message}")
+        if not passed:
+            failures.append("structure")
     print("hotovo" if not failures else "selhalo: " + ", ".join(failures))
     return 1 if failures else 0
 

@@ -1,7 +1,7 @@
 // Inspektor komentáře: titulek, text lístku a smazání. Dílek nic neukládá — rozepsané pole drží
 // u sebe a po opuštění (blur) hotovou hodnotu ohlásí nahoru přes onSave(node), stejně jako NodePanel.
 import { useState } from "react";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import "@/editor/canvas/comment-card/styles/comment-card.css";
 

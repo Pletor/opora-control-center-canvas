@@ -161,6 +161,8 @@ def apply_environment(settings: dict, environ=os.environ) -> list[str]:
     mirror = settings["mirror"]
     environ["OPORA_MIRROR_URL"] = mirror["url"] if mirror["enabled"] else ""
     environ["OPORA_MIRROR_PROJECTS"] = ",".join(mirror["projects"]) if mirror["enabled"] else ""
+    # Rámování v <iframe> je nastavení aplikace, ne integrace: opora.toml vždy přebije prostředí.
+    environ["OPORA_CANVAS_EMBED_ORIGINS"] = " ".join(settings.get("embed_origins", []))
     applied = []
     for key, value in settings["integrations"].items():
         name = ENV_BY_KEY.get(key)

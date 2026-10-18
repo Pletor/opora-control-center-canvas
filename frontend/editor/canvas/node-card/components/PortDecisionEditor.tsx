@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { BlockPortDef } from "@/shared/desktop-state/logic/types";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 
 export default function PortDecisionEditor({ port, blockId, disabled, onSave }: {
   port: BlockPortDef; blockId: string; disabled: boolean;

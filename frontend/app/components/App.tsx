@@ -18,7 +18,7 @@ import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, rename
 import { edgeFromConnection, sameEdge, type BoardConnection } from "@/editor/canvas/board/logic/board-model";
 import { emptyHistory, record, recordRemoval, redo, sameGraph, undo, type GraphHistory } from "@/editor/canvas/history/logic/graph-history";
 import HistoryButtons from "@/editor/canvas/history/components/HistoryButtons";
-import { SaveScopeProvider } from "@/shared/hooks/logic/save-scope-context";
+import { SaveScopeProvider } from "@/shared/hooks/components/save-scope-context";
 import { useSaveScope, useSaveParticipant, flushSaveScope, invalidateSavedScope, trackSaveWrite, waitForSaveWrites, saveScopeEntries } from "@/shared/hooks/logic/save-coordinator";
 import { orphanedPendingEdits, flushOrphanedPendingEdits } from "@/shared/hooks/logic/use-pending-edits";
 import { usePolling } from "@/shared/hooks/logic/use-polling";

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import type { CanvasNode } from "@/shared/types/logic/types";
 
 type Props = {

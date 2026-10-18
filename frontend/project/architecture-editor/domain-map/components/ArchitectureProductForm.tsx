@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ProductDraft } from "@/project/product-tree/logic/product-tree";
 import { normalizePagePath } from "@/project/product-tree/logic/page-path";
-import { useScopedSaveParticipant } from "@/shared/hooks/logic/save-scope-context";
+import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 
 /** Structural identity belongs to the domain map; working specifications stay in Editor. */
 export default function ArchitectureProductForm({ initial, disabled, onSave, onClose }: {
