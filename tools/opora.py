@@ -62,12 +62,16 @@ def resolve(config: dict, profile: str | None = None, **overrides) -> dict:
     port = int(app.get("port", 8740))
     if not 1 <= port <= 65535:
         raise ValueError("Port musí být 1–65535.")
+    from backend.app.embed_origins import parse_embed_origins
+
+    embed_origins = list(parse_embed_origins(app.get("embed_origins", [])))
     return {
         "host": str(app.get("host", "127.0.0.1")),
         "port": port,
         "data": str(app.get("data", ".data/production")),
         "open_browser": bool(app.get("open_browser", False)),
         "title": str(app.get("title", "Opora Canvas")),
+        "embed_origins": embed_origins,
         "frontend": str(build.get("frontend", "auto")),
         "build_command": str(build.get("command", "npm run build")),
         "integrations": {k: str(v) for k, v in config.get("integrations", {}).items() if v},
@@ -155,6 +159,8 @@ def apply_environment(settings: dict, environ=os.environ) -> list[str]:
     mirror = settings["mirror"]
     environ["OPORA_MIRROR_URL"] = mirror["url"] if mirror["enabled"] else ""
     environ["OPORA_MIRROR_PROJECTS"] = ",".join(mirror["projects"]) if mirror["enabled"] else ""
+    # Rámování v <iframe> je nastavení aplikace, ne integrace: opora.toml vždy přebije prostředí.
+    environ["OPORA_CANVAS_EMBED_ORIGINS"] = " ".join(settings.get("embed_origins", []))
     applied = []
     for key, value in settings["integrations"].items():
         name = ENV_BY_KEY.get(key)
@@ -190,7 +196,7 @@ def main(argv=None) -> int:
 
     print(f"[opora] profil: {settings['profile']} | {url} | data: {data}")
     if args.check:
-        for key in ("frontend", "build_command", "open_browser", "integrations", "jev_provider", "mirror"):
+        for key in ("frontend", "build_command", "open_browser", "embed_origins", "integrations", "jev_provider", "mirror"):
             print(f"[opora] {key}: {settings[key]}")
         return 0
     if not port_free(settings["host"], settings["port"]):

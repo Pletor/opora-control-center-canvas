@@ -37,6 +37,8 @@ from backend.api.project.project_work_status_routes import create_project_work_s
 from backend.api.project.project_workspace_routes import create_project_workspace_router
 from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
+from backend.app.embed_origins import ENV_NAME as EMBED_ORIGINS_ENV
+from backend.app.embed_origins import frame_policy, parse_embed_origins
 from backend.app.human_session import HumanSession
 from backend.app.remote_access import (
     COOKIE_NAME,
@@ -96,6 +98,8 @@ def create_app(data_root=None):
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
+    # Rámování jen pro původy z [app] embed_origins; prázdné = DENY jako dřív (backend/app/embed_origins.py).
+    frame_options, frame_ancestors = frame_policy(parse_embed_origins(os.environ.get(EMBED_ORIGINS_ENV, "")))
     # Asistent: Claude Code pod předplatným, proces spouští jen zpráva člověka (docs/asistent.md).
     # Skill v jeho procesu čte plátno této instance, ne pevného portu 8740 (§13.1).
     # Směrovač Jev (§13.2): klíč se čte při každé zprávě, takže zapnutí platí bez restartu.
@@ -187,10 +191,11 @@ def create_app(data_root=None):
         if request.method not in ("GET", "HEAD") and request.url.path.startswith("/api"):
             _log_activity(request, response.status_code)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        if frame_options:
+            response.headers["X-Frame-Options"] = frame_options
         response.headers["Referrer-Policy"] = "no-referrer"
         # Obrázky jen z vlastního původu, data:/blob: a https (upgrade-opora #42); http beacon ani <object> ne.
-        baseline_csp = "img-src 'self' data: blob: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        baseline_csp = "img-src 'self' data: blob: https:; object-src 'none'; base-uri 'self'; " + frame_ancestors
         route_csp = response.headers.get("Content-Security-Policy")
         response.headers["Content-Security-Policy"] = (route_csp + ", " + baseline_csp) if route_csp else baseline_csp
         if request.url.path.startswith("/api"):
