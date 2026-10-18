@@ -213,10 +213,12 @@ def test_real_graphify_refresh_publishes_only_selected_project(tmp_path):
     from backend.api.project.graphify_routes import load_graph
     app, service, (a, pa), (b, pb) = two_projects(tmp_path, with_maps=False)
     manager = app.state.map_refresh
+    untouched = manager.status(pb)
+    assert untouched['status'] == 'unavailable'  # The disabled worker has not observed B.
     manager.retry(pa, 'graphify')
     manager.run_one()
     assert manager.status(pa)['status'] == 'succeeded', manager.status(pa)
-    assert manager.status(pb)['status'] == 'watching'
+    assert manager.status(pb) == untouched
     value = load_graph(service, pa)
     assert 'alpha' in value['graphJson']
     assert 'beta' not in value['graphJson']
