@@ -14,6 +14,7 @@ type Props = {
   onSelect: (id: string | null) => void; onOpenStructure: (id: string) => void; onOpenEditor: (id: string) => void;
   onAddNode: (parentId: string) => void; onSector: (areaId: string) => void;
   onMove: (id: string, x: number, y: number) => Promise<void>; onConnect: (source: string, target: string) => void;
+  onResize: (id: string, w: number, h: number) => Promise<void>;
   onInsert: (id: string, targetId: string | null, point: { x: number; y: number }) => void;
 };
 
@@ -34,6 +35,7 @@ export default function ArchitectureCanvas(props: Props) {
   const actions = useMemo<CardActions>(() => ({
     select: (id) => latest.current.onSelect(id), openStructure: (id) => latest.current.onOpenStructure(id),
     openEditor: (id) => latest.current.onOpenEditor(id), addNode: (id) => latest.current.onAddNode(id), addSector: (id) => latest.current.onSector(id),
+    resizeArea: (id, w, h) => { void latest.current.onResize(id, w, h).catch(() => setNodes(make())); },
   }), []);
   const make = (): ArchitectureNode[] => graph.nodes.filter((node) => node.parentId === scopeId).map((node) => {
     const area = node.kind === "area";
@@ -44,11 +46,19 @@ export default function ArchitectureCanvas(props: Props) {
     };
   });
   const [nodes, setNodes] = useState<ArchitectureNode[]>(make);
+  const nodeSource = useRef({ graph, scopeId });
   const viewportKey = `opora:architecture-viewport:${editorId}:${scopeId}`;
   const [viewport] = useState<Viewport | null>(() => readViewport(viewportKey));
-  // Carry measured sizes across rebuilds; without them React Flow remounts cards and inputs lose focus.
+  // UI changes (selection / save lock) must not reset a dragged node to the last saved position.
+  // A new graph still supplies authoritative positions; failed moves are restored by onNodeDragStop.
   useEffect(() => {
-    setNodes((old) => make().map((next) => { const prior = old.find((item) => item.id === next.id); return prior?.measured ? { ...next, measured: prior.measured } : next; }));
+    const sameSource = nodeSource.current.graph === graph && nodeSource.current.scopeId === scopeId;
+    nodeSource.current = { graph, scopeId };
+    setNodes((old) => make().map((next) => {
+      const prior = old.find((item) => item.id === next.id);
+      return { ...next, ...(prior?.measured ? { measured: prior.measured } : {}),
+        ...(sameSource && prior ? { position: prior.position } : {}) };
+    }));
   }, [graph, scopeId, selected, disabled]);
   useEffect(() => {
     if (!revealId) return;

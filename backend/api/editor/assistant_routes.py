@@ -21,7 +21,7 @@ from backend.claude_code.assistant.instructions import default_assistant_instruc
 from backend.claude_code.assistant.manager import AssistantError, SessionNotFound
 from backend.integrations.typesafe_client import DEFAULT_PROVIDER, PROVIDERS
 
-CREATE_KEYS = {"project", "workspace", "title", "model", "nodeId"}
+CREATE_KEYS = {"project", "workspace", "title", "model", "nodeId", "sectorId"}
 MESSAGE_KEYS = {"text", "context"}
 APPROVAL_KEYS = {"decision", "note"}
 
@@ -149,8 +149,11 @@ def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.2
     @router.post("/sessions", status_code=201)
     def create(payload: dict):
         body = _body(payload, CREATE_KEYS, {"project"})
+        sector_id = body.get("sectorId")
+        if sector_id is not None and (not isinstance(sector_id, str) or len(sector_id) > 128):
+            return JSONResponse({"error": "sectorId musí být řetězec do 128 znaků nebo null."}, status_code=400)
         try:
-            session = manager.create(body["project"], body.get("workspace"), body.get("title"), body.get("model"), body.get("nodeId"))
+            session = manager.create(body["project"], body.get("workspace"), body.get("title"), body.get("model"), body.get("nodeId"), sector_id)
         except AssistantError as exc:
             return _error(exc)
         return {"session": session}

@@ -225,9 +225,12 @@ export function scopeOfFragment(index: Map<string, VaultNode>, fragmentId: strin
   return node && !node.parentId ? node.scopeNodeId ?? "" : null;
 }
 
-/** Karta má vlastní schránku, když některý kořen je připnutý k ní. */
+/** Druhy fragmentů, které nejsou zadání: duel o směr a představa (docs/schranka-duel.md); patří jen sekci Duel. */
+export const NOT_BRIEF_KINDS: ReadonlySet<string> = new Set(["duel", "vision"]);
+
+/** Karta má vlastní schránku, když k ní je připnutý kořen zadání (samotný duel nebo představa schránku nedělá). */
 export function hasOwnVault(roots: VaultNode[], nodeId: string): boolean {
-  return roots.some((root) => root.scopeNodeId === nodeId);
+  return roots.some((root) => root.scopeNodeId === nodeId && !NOT_BRIEF_KINDS.has(root.kind as string));
 }
 
 /** Kořeny schránky jednoho rozsahu (`""` = plátno). */

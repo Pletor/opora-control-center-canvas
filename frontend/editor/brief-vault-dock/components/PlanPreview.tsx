@@ -5,6 +5,7 @@
 // (klik bublá přes onOpenFragment k rodiči, který přepne na Zadání a fragment otevře).
 import { useEffect, useState } from "react";
 import { api } from "@/shared/types/logic/types";
+import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import type { CanvasPlanResult } from "@/editor/component-library/library-catalog/logic/catalog-plan";
 import { fetchPlan, planBlocker, previewOf, type ServerPlan } from "../logic/vault-plan-preview";
 import type { VaultScope } from "../logic/vault-actions";
@@ -36,7 +37,8 @@ export default function PlanPreview({ scope, digest, fragmentIds, title, onAppli
     if (!plan || !preview) return;
     setBusy(true); setError(null);
     try {
-      const result = await api<CanvasPlanResult>("/api/canvas-plan", { ...scope, digest, plan: plan.plan });
+      // Vlastní zápis plátna: koordinátor ho zná, lišta verzí ho neukáže jako změnu mimo okno.
+      const result = await trackSaveWrite(scope.project, scope.workspace, api<CanvasPlanResult>("/api/canvas-plan", { ...scope, digest, plan: plan.plan }));
       if (!result.ok || result.dryRun) throw new Error("Server dávku nepotvrdil.");
       onApplied(result, preview.cards.length);
     } catch (e: unknown) { setError(e ?? "Vložení se nezdařilo."); }

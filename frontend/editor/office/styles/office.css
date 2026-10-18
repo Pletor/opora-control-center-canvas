@@ -1,0 +1,208 @@
+/* KANCELÁŘ (blok `office`)
+   Příběh: člověk sem přichází zjistit, kdo kde pracuje a kdo na něj čeká — jako by prošel budovou.
+   Nahoře hlavička s frontou čekajících a obsazeností, pod ní patro, které se posouvá samo: oddělení
+   (oblasti) pod sebou jako pásma, dole recepce. Barvy stavů jsou tytéž jako na kartě a ve velínu
+   (zelená hotovo, modrá pracuje, jantar čeká na člověka, červená selhalo, šedá čeká), aby se je
+   člověk nemusel učit znovu; definuje je jen tento blok a dílky je čtou. */
+.office {
+  --office-ok: #22c55e;
+  --office-run: #60a5fa;
+  --office-warn: #f59e0b;
+  --office-fail: #f87171;
+  --office-idle: #94a3b8;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+}
+.office__floor {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.office__empty { margin: 0; color: var(--ink-muted); font-size: var(--fs-2); }
+
+/* HLAVIČKA (blok `office-header`)
+   Příběh: jedna řádka, která odpoví „čeká na mě někdo?“. Počet čekajících se rozsvítí jantarově jen
+   tehdy, když opravdu někdo čeká, aby klid vypadal jako klid; tlačítko vedle skočí na nejstaršího
+   čekajícího. Vpravo obsazenost „běží 2 / 3“ — když je plno, zčervená, protože další agent se už
+   neposadí (tlačítka „Posadit agenta“ jsou v tu chvíli vypnutá s důvodem). */
+.office-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.office-header__title { margin: 0; font-size: var(--fs-4); }
+.office-header__waiting { font-size: var(--fs-2); color: var(--ink-muted); }
+.office-header__waiting--on { color: var(--office-warn); font-weight: 600; }
+.office-header__next { font-size: var(--fs-2); }
+.office-header__occupancy { margin-left: auto; font-size: var(--fs-2); color: var(--ink-2); white-space: nowrap; }
+.office-header__occupancy--full { color: var(--danger); font-weight: 600; }
+
+/* ODDĚLENÍ (blok `office-department`)
+   Příběh: oblast je křídlo budovy — vodorovné pásmo s barevným pruhem vlevo ve stejné barvě, jakou má
+   její rámeček na plátně, aby člověk poznal „tohle je ta tyrkysová“ bez čtení (odstíny jsou tytéž jako
+   ve velínu). Místnosti stojí vedle sebe v mřížce, nejméně 300 px, aby se do dlaždice vešel řádek
+   stolu s čipem pracovníka. Hala (sektory mimo oblast) má neutrální šedý pruh. */
+.office-department {
+  --office-stripe: var(--accent);
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--office-stripe);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.office-department--hall { --office-stripe: var(--line-strong); }
+:root[data-theme="dark"] .office-department[data-color="teal"] { --office-stripe: #4fd8c9; }
+:root[data-theme="light"] .office-department[data-color="teal"] { --office-stripe: #1f9084; }
+:root[data-theme="dark"] .office-department[data-color="amber"] { --office-stripe: #f0b955; }
+:root[data-theme="light"] .office-department[data-color="amber"] { --office-stripe: #b8791a; }
+:root[data-theme="dark"] .office-department[data-color="rose"] { --office-stripe: #f087a4; }
+:root[data-theme="light"] .office-department[data-color="rose"] { --office-stripe: #c3467a; }
+:root[data-theme="dark"] .office-department[data-color="violet"] { --office-stripe: #b98af0; }
+:root[data-theme="light"] .office-department[data-color="violet"] { --office-stripe: #8047b8; }
+:root[data-theme="dark"] .office-department[data-color="slate"] { --office-stripe: #9aa6b8; }
+:root[data-theme="light"] .office-department[data-color="slate"] { --office-stripe: #5c6a7a; }
+.office-department__name { margin: 0; font-size: var(--fs-4); }
+.office-department__rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-3); }
+.office-department__empty { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+
+/* MÍSTNOST (blok `office-room`)
+   Příběh: sektor je místnost s cedulkou — název a „Vstoupit“ nahoře, podstata na jeden řádek (víc
+   by rozbilo rytmus mřížky), pod ní tenký pruh stavů karet, který oko přečte dřív než text. Pak
+   společný stůl: kdo pracuje na sektoru jako celku (rozklad, shrnutí, kritika) a tlačítko, kterým
+   tam člověk někoho posadí. Pod ním řádky stolů, jeden na kartu. */
+.office-room {
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.office-room__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.office-room__name { margin: 0; font-size: var(--fs-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.office-room__enter { font-size: var(--fs-1); }
+.office-room__purpose { margin: 0; font-size: var(--fs-1); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.office-room__bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--surface-3); }
+.office-room__part { width: var(--w); background: var(--office-idle); }
+.office-room__part--ok { background: var(--office-ok); }
+.office-room__part--run { background: var(--office-run); }
+.office-room__part--warn { background: var(--office-warn); }
+.office-room__part--fail { background: var(--office-fail); }
+.office-room__common {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+}
+.office-room__label { font-size: var(--fs-0); color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.office-room__hire { margin-left: auto; font-size: var(--fs-1); }
+.office-room__desks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); }
+.office-room__empty { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+
+/* STŮL (blok `office-desk`)
+   Příběh: karta je stůl v místnosti — jeden řádek: vlevo název (klik kartu otevře), za ním stavová
+   věta stejnými slovy i barvou jako na kartě, vpravo kdo u stolu sedí, nebo tlačítko „Posadit
+   agenta“. Uzavřená karta je ztlumená a místo pro agenta nenabízí, práce na ní skončila. */
+.office-desk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name seat" "state seat";
+  align-items: center;
+  column-gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.office-desk--closed { opacity: 0.6; }
+.office-desk__name {
+  grid-area: name;
+  justify-self: start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-size: var(--fs-2);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.office-desk__name:hover { color: var(--accent); }
+.office-desk__state { grid-area: state; font-size: var(--fs-1); color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.office-desk__state--ok { color: var(--office-ok); }
+.office-desk__state--run { color: var(--office-run); }
+.office-desk__state--warn { color: var(--office-warn); }
+.office-desk__state--fail { color: var(--office-fail); }
+.office-desk__seat { grid-area: seat; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-1); }
+.office-desk__hire { font-size: var(--fs-1); }
+
+/* PRACOVNÍK (blok `office-worker`)
+   Příběh: relace asistenta je malý čip se jménem a modelem, jako jmenovka na stole. Tečka vlevo říká
+   stav: modrá pracuje, šedá je v klidu, červená narazila na chybu. Kdo čeká na tvé schválení, má
+   jantarový maják, který pulzuje — jediná věc v kanceláři, která se hýbe, aby ji oko našlo samo.
+   Klik přepne panel asistenta vpravo na tuhle relaci. */
+.office-worker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  max-width: 220px;
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink);
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+.office-worker__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--office-idle); }
+.office-worker__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.office-worker__model { flex: none; color: var(--ink-muted); font-size: var(--fs-0); }
+.office-worker--running .office-worker__dot { background: var(--office-run); }
+.office-worker--error .office-worker__dot { background: var(--office-fail); }
+.office-worker--waiting_approval { border-color: var(--office-warn); }
+.office-worker--waiting_approval .office-worker__dot { background: var(--office-warn); animation: office-beacon 1.2s ease-in-out infinite; }
+@keyframes office-beacon {
+  0%, 100% { box-shadow: 0 0 0 0 var(--office-warn); }
+  50% { box-shadow: 0 0 0 5px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .office-worker--waiting_approval .office-worker__dot { animation: none; }
+}
+
+/* RECEPCE (blok `office-reception`)
+   Příběh: dole u vchodu sedí ti, kdo nepatří k žádnému stolu ani místnosti — hlavní relace projektu
+   a relace, jejichž karta nebo sektor už v budově není. Pásmo je tišší než oddělení (bez barevného
+   pruhu), aby nepřebíjelo práci v místnostech. */
+.office-reception {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.office-reception__name { margin: 0; font-size: var(--fs-3); }
+.office-reception__workers { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.office-reception__empty { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }

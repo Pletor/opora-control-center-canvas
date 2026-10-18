@@ -96,22 +96,26 @@ export function deadEndReason(detail: FragmentDetail): string {
 /** Odpověď `GET /api/brief-vault/next` (fronta agentů, nezávazná). */
 export type NextWork = {
   fragment: { id: string; title: string; effectiveDiscipline: string; revision: number } | null;
-  gate?: GateName;
-  needs?: "proposal" | "confirm";
+  /** `null` u otevřeného duelu (hlava fronty, docs/schranka-duel.md §4). */
+  gate?: GateName | null;
+  needs?: "proposal" | "confirm" | "duel";
+  hint?: string;
   proposal?: { payload: Record<string, unknown>; by: string; actor: string; at: string; note: string };
   blocked: number;
-  /** Rozpad `blocked`: proč fragmenty čekají (návrh, potvrzení, plán, vyčerpaná kola). */
-  blockedBy?: Partial<Record<"proposal" | "confirm" | "plan" | "exhausted", number>>;
+  /** Rozpad `blocked`: proč fragmenty čekají (návrh, potvrzení, plán, vyčerpaná kola, otevřený duel o směru). */
+  blockedBy?: Partial<Record<"proposal" | "confirm" | "plan" | "exhausted" | "duel", number>>;
 };
 
 const BLOCK_WORDS: [keyof NonNullable<NextWork["blockedBy"]>, string][] = [["proposal", "na návrh"], ["confirm", "na schválení vložení"],
-  ["plan", "na nový plán"], ["exhausted", "vyčerpáno, na člověka"]];
+  ["plan", "na nový plán"], ["exhausted", "vyčerpáno, na člověka"], ["duel", "čeká na duel"]];
 
 /** Věta o frontě agentů disciplíny z pohledu fragmentu. */
 export function queueText(next: NextWork | undefined, fragmentId: string): string {
   if (!next) return "";
-  const parts = BLOCK_WORDS.filter(([key]) => next.blockedBy?.[key]).map(([key, word]) => `${next.blockedBy?.[key]}× ${word}`);
+  const parts = BLOCK_WORDS.filter(([key]) => next.blockedBy?.[key])
+    .map(([key, word]) => (key === "duel" ? `${word} ${next.blockedBy?.duel}` : `${next.blockedBy?.[key]}× ${word}`));
   const blocked = next.blocked ? ` · ${next.blocked} čeká` + (parts.length ? ` (${parts.join(", ")})` : " na návrh nebo schválení člověka") : "";
+  if (next.needs === "duel" && next.fragment) return `Na řadě duel: ${(next.hint || next.fragment.title).replace(/^Duel:\s*/, "").replace(/\.$/, "")}${blocked}.`;
   if (!next.fragment || !next.gate) return `Fronta agentů disciplíny je prázdná${blocked}.`;
   const what = `${gateTitle(next.gate)} (${next.needs === "confirm" ? "čeká na potvrzení návrhu" : "čeká na návrh"})`;
   const who = next.fragment.id === fragmentId ? "tento fragment" : `„${next.fragment.title}“`;

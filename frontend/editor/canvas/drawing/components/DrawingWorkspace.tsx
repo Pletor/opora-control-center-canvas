@@ -24,6 +24,7 @@ import { insertWireframeElements, inspectable } from "@/editor/canvas/drawing/co
 import WireframePreview from "@/editor/canvas/wireframes/components/WireframePreview";
 import { dropIsBlocked, pasteIsAllowed } from "@/editor/canvas/drawing/logic/drawing-files";
 import { useDrawingFiles } from "@/editor/canvas/drawing/components/use-drawing-files";
+import { withFreshBackdrop } from "@/editor/storyboard/logic/sketch-backdrop";
 import "@/editor/canvas/drawing/styles/drawing.css";
 
 export type WireframeInsert = { kind: WireframeKind; sequence: number };
@@ -40,6 +41,9 @@ export default function DrawingWorkspace({
   onReady,
   wireframeMode = false,
   wireframeInsert,
+  initialBackdrop,
+  onApi,
+  onSaved,
 }: {
   project: string;
   workspace: string;
@@ -51,6 +55,12 @@ export default function DrawingWorkspace({
   onReady: (ready: boolean) => void;
   wireframeMode?: boolean;
   wireframeInsert?: WireframeInsert;
+  /** Skica momentu storyboardu: podkladové prvky se při načtení scény vymění za čerstvé (jinak se nepoužije). */
+  initialBackdrop?: ExcalidrawElement[];
+  /** Editor Excalidraw po připojení (a null po odpojení); pro export skici mimo kreslení. */
+  onApi?: (api: ExcalidrawImperativeAPI | null) => void;
+  /** Scéna byla právě uložena na server (nová revize). */
+  onSaved?: (revision: number) => void;
 }) {
   const { theme } = useDesktopAppearance();
   const key = JSON.stringify([project, workspace, layer]);
@@ -85,7 +95,7 @@ export default function DrawingWorkspace({
       }
       const value = await api<DrawingSnapshot>("/api/drawing?" + new URLSearchParams({ project, workspace, layer }));
       if (ticket !== generation.current) return;
-      const restored = { elements: restoreElements(value.scene.elements, null, { repairBindings: true }) };
+      const restored = { elements: restoreElements(initialBackdrop ? withFreshBackdrop(value.scene.elements, initialBackdrop) : value.scene.elements, null, { repairBindings: true }) };
       const baseline = sceneSignature(restored);
       const cached = drawingDrafts.get(key);
       const dirty = cached && sceneSignature(cached.scene) !== cached.savedSignature;
@@ -107,7 +117,7 @@ export default function DrawingWorkspace({
       onReady(false);
     };
   }, [project, workspace, layer, reload]);
-  const captureAPI = useCallback((value: ExcalidrawImperativeAPI) => setEditor(value), []);
+  const captureAPI = useCallback((value: ExcalidrawImperativeAPI) => { setEditor(value); onApi?.(value); }, []);
   useEffect(() => {
     onReady(!!editor && !!snapshot && !snapshot.readOnly && !saving);
   }, [editor, snapshot?.readOnly, saving]);
@@ -158,6 +168,7 @@ export default function DrawingWorkspace({
     drawingSaves.set(key, write); notifySaveParticipants();
     try {
       const saved = await write;
+      onSaved?.(saved.revision);
       const current = drawingDrafts.get(key);
       drawingDrafts.set(key, { scene: current?.scene ?? cached.scene, revision: saved.revision, savedSignature: signature });
       setReload((value) => value + 1);

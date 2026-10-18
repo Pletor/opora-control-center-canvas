@@ -12,6 +12,8 @@
   ověřovatel (docs/schranka-bunka.md §3 bod 5): spustí `synthesized.checks` bez shellu v DIR a podá `propose verified`
   s `actual.run`; vlastní aktér nesmí být `--executor`. Výstup kontrol na server nejde, do konzole jen posledních 2 000 znaků.
 
+- `duel open|show|turn|score|decide|align …` – duel změny směru (docs/schranka-duel.md §5), vlastní parser (`duel -h`).
+
 `expectedRevision` si skript načte sám (hlava `/next`, jinak detail fragmentu); `--revision N` ji připne na
 revizi, kterou agent četl. Změní-li se mezitím, server vrátí 409 a nic se nezapíše.
 Zápisy jdou přes `opora_write.post` (stejný allowlist, loopback, hlavička aktéra a lease, bez opakování).
@@ -300,6 +302,196 @@ def cmd_run_checks(cycle, args):
             'tests': tests, 'testsSha256': tests_digest(tests_dir), 'checks': report}
 
 
+DUEL_KINDS = ('claim', 'grill', 'answer', 'concede', 'synthesis', 'note')
+DUEL_SIDES = ('A', 'B', 'judge', 'human')
+DUEL_SUBJECTS = ('fragment', 'node', 'project')
+DUEL_ROUTE = VAULT + '/duel'
+
+
+def text_of(inline, path, label):
+    """Text z `--x` nebo `--x-file` (právě jedno z nich)."""
+    if (inline is None) == (path is None):
+        raise ValueError(label + ': zadej právě jedno z --' + label + ' a --' + label + '-file.')
+    return inline if inline is not None else Path(path).read_text(encoding='utf-8')
+
+
+def duel_state(found):
+    """Duel z odpovědi GET; toleruje obal `fields.duel`."""
+    duel = found.get('duel') or {}
+    return (duel.get('fields') or {}).get('duel') or duel
+
+
+def duel_authors(found):
+    """Aktéři, kteří jsou autory některé výměny nebo challengeru duelu."""
+    duel = duel_state(found)
+    people = [duel.get('challenger') or {}] + [t for t in (duel.get('turns') or []) if isinstance(t, dict)]
+    return {item.get('by') for item in people} - {None, ''}
+
+
+def short_turn(turn):
+    text = ' '.join(str(turn.get('text') or '').split())
+    return {'id': turn.get('id'), 'side': turn.get('side'), 'kind': turn.get('kind'),
+            'by': turn.get('by'), 'text': text[:117] + '...' if len(text) > 120 else text}
+
+
+def duel_result(result, *keys):
+    return {key: result[key] for key in keys if key in result}
+
+
+def derived(result):
+    """Krátký stav po tahu: p, n, onTurn, rounds, canDecide."""
+    probability = result.get('probability') or {}
+    return {'p': probability.get('p'), 'n': probability.get('n'), 'onTurn': result.get('onTurn'),
+            'rounds': result.get('rounds'), 'canDecide': result.get('canDecide')}
+
+
+def duel_revision(cycle, args):
+    return cycle.revision(args.id, None, args.revision)
+
+
+def cmd_duel_open(cycle, args):
+    incumbent = {'text': text_of(args.incumbent, args.incumbent_file, 'incumbent')}
+    if args.incumbent_ref:
+        fragment, _, revision = args.incumbent_ref.rpartition(':')
+        if not fragment or not revision.isdigit():
+            raise ValueError('--incumbent-ref musí mít tvar FRAGMENT:REVIZE.')
+        incumbent['ref'] = {'fragmentId': fragment, 'revision': int(revision)}
+    body = {'op': 'duel-open', 'subject': {'kind': args.subject_kind, 'id': args.subject}, 'incumbent': incumbent,
+            'challenger': {'text': text_of(args.challenger, args.challenger_file, 'challenger')},
+            'scopeNodeId': args.scope}
+    if args.discipline:
+        body['discipline'] = args.discipline
+    if args.note:
+        body['note'] = args.note
+    result = cycle.write(body)
+    fragment = result.get('fragment') or {}
+    return {'ok': True, 'op': 'duel-open', 'id': fragment.get('id'), 'revision': fragment.get('revision'),
+            'status': (result.get('duel') or {}).get('status')}
+
+
+def cmd_duel_show(cycle, args):
+    found = cycle.get(DUEL_ROUTE, id=args.id)
+    duel = duel_state(found)
+    probability = found.get('probability') or {}
+    trajectory = found.get('trajectory') or {}
+    return {'ok': True, 'id': args.id, 'status': duel.get('status'), 'revision': (duel.get('fragment') or {}).get('revision'), 'p': probability.get('p'),
+            'n': probability.get('n'), 'onTurn': found.get('onTurn'), 'rounds': found.get('rounds'),
+            'canDecide': found.get('canDecide'), 'trajectory': trajectory.get('state'),
+            'turns': [short_turn(t) for t in (duel.get('turns') or [])[-6:]]}
+
+
+def cmd_duel_turn(cycle, args):
+    body = {'op': 'duel-turn', 'fragmentId': args.id, 'expectedRevision': duel_revision(cycle, args),
+            'side': args.side, 'kind': args.kind, 'text': text_of(args.text, args.text_file, 'text')}
+    if args.ref:
+        body['refs'] = list(args.ref)
+    if args.evidence:
+        evidence = []
+        for item in args.evidence:
+            source, sep, quote = item.partition('|')
+            if not sep or not source.strip() or not quote.strip():
+                raise ValueError('--evidence musí mít tvar "zdroj|citát": ' + item)
+            evidence.append({'source': source.strip(), 'quote': quote.strip()})
+        body['evidence'] = evidence
+    result = cycle.write(body)
+    return {'ok': True, 'op': 'duel-turn', 'fragmentId': args.id, 'expectedRevision': body['expectedRevision'],
+            'turnId': (result.get('turn') or {}).get('id'), 'revision': (result.get('fragment') or {}).get('revision'),
+            **derived(result)}
+
+
+def cmd_duel_score(cycle, args):
+    authors = duel_authors(cycle.get(DUEL_ROUTE, id=args.id))
+    if cycle.actor in authors:
+        raise Refused('Soudce (' + cycle.actor + ') je autorem výměny nebo challengeru duelu; hodnotí jiný aktér.')
+    body = {'op': 'duel-score', 'fragmentId': args.id, 'expectedRevision': duel_revision(cycle, args),
+            'turnId': args.turn, 'strength': args.strength, 'supports': args.supports}
+    if args.rebutted_by:
+        body['rebuttedBy'] = args.rebutted_by
+    if args.evidence_ok:
+        body['evidenceOk'] = True
+    result = cycle.write(body)
+    return {'ok': True, 'op': 'duel-score', 'fragmentId': args.id, 'expectedRevision': body['expectedRevision'],
+            'scoreId': (result.get('score') or {}).get('id'), 'revision': (result.get('fragment') or {}).get('revision'),
+            **derived(result)}
+
+
+def cmd_duel_decide(cycle, args):
+    body = {'op': 'duel-decide', 'fragmentId': args.id, 'expectedRevision': duel_revision(cycle, args)}
+    if args.synthesis_turn:
+        body['synthesisTurnId'] = args.synthesis_turn
+    result = cycle.write(body)
+    decision = result.get('decision') or {}
+    applied = {'applied': bool(result.get('applied')), 'appliedRevision': decision.get('appliedRevision')}
+    if decision.get('reason'):
+        applied['appliedReason'] = decision['reason']  # proč se vítězný směr neuplatnil (karta, změna mezitím, keep)
+    return {'ok': True, 'op': 'duel-decide', 'fragmentId': args.id, 'expectedRevision': body['expectedRevision'],
+            'revision': (result.get('fragment') or {}).get('revision'), 'outcome': decision.get('outcome'),
+            'p': (result.get('probability') or {}).get('p'), **applied,
+            **duel_result(result, 'decision', 'lesson', 'lessonSkipped')}
+
+
+def cmd_duel_align(cycle, args):
+    body = {'op': 'vision-align', 'score': args.score, 'note': args.note, 'scopeNodeId': args.scope,
+            'duelId': args.duel}
+    result = cycle.write(body)
+    return {'ok': True, 'op': 'vision-align', **duel_result(result, 'point', 'trajectory')}
+
+
+def duel_parser():
+    parser = argparse.ArgumentParser(prog='opora_cycle.py duel', description='Duel změny směru (docs/schranka-duel.md).')
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument('--project', required=True)
+    common.add_argument('--workspace', required=True)
+    common.add_argument('--actor', help='jméno aktéra; výchozí ' + ACTOR_ENV + ', pak ' + opora_write.AGENT_ENV)
+    common.add_argument('--base-url', help='http://127.0.0.1:PORT; výchozí ' + opora_write.BASE_ENV)
+    common.add_argument('--revision', type=int, help='připne expectedRevision na revizi, kterou agent četl')
+    sub = parser.add_subparsers(dest='action', required=True)
+    opened = sub.add_parser('open', parents=[common])
+    opened.add_argument('--subject-kind', required=True, choices=DUEL_SUBJECTS)
+    opened.add_argument('--subject', required=True)
+    opened.add_argument('--incumbent')
+    opened.add_argument('--incumbent-file')
+    opened.add_argument('--incumbent-ref', help='FRAGMENT:REVIZE platného směru')
+    opened.add_argument('--challenger')
+    opened.add_argument('--challenger-file')
+    opened.add_argument('--scope', required=True, help='scopeNodeId')
+    opened.add_argument('--discipline')
+    opened.add_argument('--note')
+    sub.add_parser('show', parents=[common]).add_argument('id')
+    turn = sub.add_parser('turn', parents=[common])
+    turn.add_argument('id')
+    turn.add_argument('--side', required=True, choices=DUEL_SIDES)
+    turn.add_argument('--kind', required=True, choices=DUEL_KINDS)
+    turn.add_argument('--text')
+    turn.add_argument('--text-file')
+    turn.add_argument('--ref', action='append', help='id výměny, na kterou navazuje (opakovatelné)')
+    turn.add_argument('--evidence', action='append', help='"zdroj|citát" (opakovatelné)')
+    score = sub.add_parser('score', parents=[common])
+    score.add_argument('id')
+    score.add_argument('--turn', required=True)
+    score.add_argument('--strength', required=True, type=int, choices=range(0, 11), metavar='0-10')
+    score.add_argument('--supports', required=True, choices=('A', 'B'))
+    score.add_argument('--rebutted-by')
+    score.add_argument('--evidence-ok', action='store_true', help='soudce ověřil doložení výměny (bonus ×1.5)')
+    decide = sub.add_parser('decide', parents=[common])
+    decide.add_argument('id')
+    decide.add_argument('--synthesis-turn', help='id výměny synthesis ohodnocené soudcem (nutné při výsledku synthesis)')
+    align = sub.add_parser('align', parents=[common])
+    align.add_argument('--score', required=True, type=int, choices=range(0, 11), metavar='0-10')
+    align.add_argument('--note', required=True)
+    align.add_argument('--scope', required=True, help='scopeNodeId')
+    align.add_argument('--duel', required=True, help='id rozhodnutého duelu (jeden bod na duel)')
+    return parser
+
+
+def run_duel(args):
+    base = opora_write.base_url(args.base_url or os.environ.get(opora_write.BASE_ENV, '').strip())
+    cycle = Cycle(base, args.project, args.workspace, actor_of(args.actor))
+    handler = {'open': cmd_duel_open, 'show': cmd_duel_show, 'turn': cmd_duel_turn, 'score': cmd_duel_score,
+               'decide': cmd_duel_decide, 'align': cmd_duel_align}[args.action]
+    return 0, handler(cycle, args)
+
+
 def parser_of():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('command', choices=['next', 'propose', 'yes', 'no', 'reject', 'check', 'lessons', 'run-checks'])
@@ -344,9 +536,11 @@ def run(args):
 
 
 def main(argv=None):
-    args = parser_of().parse_args(argv)
+    argv = sys.argv[1:] if argv is None else list(argv)
+    is_duel = bool(argv) and argv[0] == 'duel'
+    args = duel_parser().parse_args(argv[1:]) if is_duel else parser_of().parse_args(argv)
     try:
-        code, out = run(args)
+        code, out = run_duel(args) if is_duel else run(args)
     except Refused as error:
         code, out = EXIT_REFUSED, {'ok': False, 'refused': True, 'error': str(error)}
     except HTTPError as error:
@@ -360,7 +554,7 @@ def main(argv=None):
             out['detail'] = detail
     except (URLError, TimeoutError, OSError, ValueError, TypeError, KeyError, UnicodeError) as error:
         code, out = EXIT_ERROR, {'ok': False, 'error': str(error)}
-    if args.command == 'run-checks' and code:
+    if not is_duel and args.command == 'run-checks' and code:
         out = {'action': 'error', **out}
     print(json.dumps(out, ensure_ascii=True))
     return code

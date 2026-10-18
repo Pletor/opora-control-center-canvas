@@ -77,7 +77,7 @@ def test_every_contract_route_is_allowed():
         '/api/desktop-v3/rule', '/api/desktop-v3/decision',
         '/api/graph', '/api/node-spec', '/api/node-text', '/api/desktop-v3/state', '/api/desktop-v3/block',
         '/api/desktop-v3/agent-workspace', '/api/desktop-v3/agent-output', '/api/canvas-plan',
-        '/api/desktop-v3/pipeline', '/api/brief-vault'}
+        '/api/desktop-v3/pipeline', '/api/brief-vault', '/api/storyboard', '/api/drawing'}
 
 
 def test_brief_vault_op_is_posted_with_scope_and_lease(net, monkeypatch):

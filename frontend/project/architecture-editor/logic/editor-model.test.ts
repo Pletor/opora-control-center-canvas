@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, moveEditorNode, validateEditorRoute } from "./editor-model";
+import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, moveEditorNode, resizeEditorNode, validateEditorRoute } from "./editor-model";
 
 const node = (id: string, parentId: string | null = null, kind: CanvasNode["kind"] = "node"): CanvasNode => ({ id, parentId, kind, name: id, purpose: "Účel", x: 20, y: 40 });
 const graph = (): Graph => ({ nodes: [
@@ -65,6 +65,19 @@ describe("whole graph patches", () => {
     expect(moved.nodes[1]).toBe(original.nodes[1]);
     expect(moved.nodes[2]).toBe(original.nodes[2]);
     expect(original.nodes[0].x).toBe(20);
+  });
+  it("resizes only an area, clamped to the canvas limits, and keeps other nodes by reference", () => {
+    const original = graph();
+    const resized = resizeEditorNode(original, "area", 1368.4, 900);
+    expect(resized.nodes[5]).toEqual({ ...original.nodes[5], size: { w: 1368, h: 900 } });
+    expect(resized.nodes[0]).toBe(original.nodes[0]);
+    expect(resized.edges).toBe(original.edges);
+    expect(original.nodes[5].size).toEqual({ w: 720, h: 480 });
+    expect(resizeEditorNode(original, "area", 10, 50_000).nodes[5].size).toEqual({ w: 120, h: 20000 });
+    expect(resizeEditorNode(original, "area", 720, 480)).toBe(original);
+    expect(() => resizeEditorNode(original, "page", 500, 500)).toThrow("jen oblasti");
+    expect(() => resizeEditorNode(original, "missing", 500, 500)).toThrow();
+    for (const value of [NaN, Infinity, 0, -5]) expect(() => resizeEditorNode(original, "area", value, 400)).toThrow();
   });
   it("adds a next edge while preserving existing rules and the full node array", () => {
     const original = graph();

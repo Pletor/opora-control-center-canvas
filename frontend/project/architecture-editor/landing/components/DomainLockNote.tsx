@@ -3,7 +3,7 @@ import "../styles/architecture-landing.css";
 
 /**
  * Proč jsou úpravy (např. „+ Doména“) zakázané: ukládání, načítání, chyba, uzavřená karta, obsah
- * mainu jen pro čtení. Žádné tiché zašednutí; přechodný důvod je tlumený, trvalý zlatý.
+ * mainu jen pro čtení. Přechodný důvod pluje v rohu bez posunu obsahu; trvalý stojí pod hlavičkou.
  */
 export default function DomainLockNote({ lock }: { lock: EditLock }) {
   if (!lock) return null;

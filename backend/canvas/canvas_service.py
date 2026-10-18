@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import threading
@@ -46,6 +47,8 @@ from database.schema.project_schema import (
     ensure_canvas_version_columns,
 )
 
+# Vrstva kresby skici momentu storyboardu: sb/<nodeId>/<momentId>.
+_SKETCH_LAYER = re.compile(r"sb/(?P<node>[A-Za-z0-9_-]{1,80})/(?P<moment>m-[0-9a-f]{8})")
 # Verzovaný graf v cílovém repu se už jen čte (main = Git HEAD). Pracovní prostory mají graf v datech plátna.
 GRAPH_FILE = LEGACY_GRAPH_FILE
 # Zapisovatel počká na zámek SQLite (WAL checkpoint, jiný proces), místo aby hned spadl na „database is locked“.
@@ -122,6 +125,9 @@ class CanvasService:
         # Sondy PRAGMA data_version (karta P3): {pid: (uid, spojení, zámek)}; registr pod klíčem None.
         self._probes = {}
         self.read_cache = ReadCache()
+        # Skici momentů storyboardu (factory.py nastaví po vzniku StoryboardService; bez cyklu importů).
+        self.sketch_layers_provider = None
+        self.sketch_stale_callback = None
         self.architecture = ProjectArchitecture(self)
         self.drawings = DrawingStore(self)
         self.drawing_files = DrawingFileStore(self)
@@ -136,7 +142,8 @@ class CanvasService:
         self.workspace_sources = WorkspaceSources(self)
 
     def drawing(self, pid, wid, layer, payload=None):
-        if not isinstance(layer, str) or len(layer) > 80 or (layer and not valid_id(layer)):
+        sketch = _SKETCH_LAYER.fullmatch(layer) if isinstance(layer, str) else None
+        if not sketch and (not isinstance(layer, str) or len(layer) > 80 or (layer and not valid_id(layer))):
             raise ValueError("Neplatná vrstva kresby.")
         if payload is not None and set(payload) != {
             "project",
@@ -148,7 +155,14 @@ class CanvasService:
             raise ValueError("Neplatný formát uložení kresby.")
         with self.reading(pid) if payload is None else self.graph_lock_for(pid):
             view = self.view(pid, wid)
-            if layer and not any(node["id"] == layer for node in view["graph"]["nodes"]):
+            if sketch:
+                # Skica momentu storyboardu: uzel existuje a moment je ve storyboardu karty.
+                if not any(node["id"] == sketch["node"] for node in view["graph"]["nodes"]) or (
+                    self.sketch_layers_provider is None
+                    or layer not in self.sketch_layers_provider(pid, wid, sketch["node"])
+                ):
+                    raise ValueError("Skica momentu neexistuje.")
+            elif layer and not any(node["id"] == layer for node in view["graph"]["nodes"]):
                 raise ValueError("Vrstva kresby v tomto pracovním prostoru neexistuje.")
             if view["readOnly"]:
                 if payload is not None:
@@ -170,12 +184,14 @@ class CanvasService:
                         scope, payload["expected_revision"], payload["scene"], now()
                     )
                 )
-            return {
-                **result,
-                "readOnly": False,
-                "available": True,
-                "source": "Lokální kresba v SQLite; není součástí Git commitů.",
-            }
+        if sketch and payload is not None and self.sketch_stale_callback is not None:
+            self.sketch_stale_callback(pid, wid, sketch["node"], sketch["moment"])
+        return {
+            **result,
+            "readOnly": False,
+            "available": True,
+            "source": "Lokální kresba v SQLite; není součástí Git commitů.",
+        }
 
     def drawing_file(self, payload):
         """Nahraje obrázek kresby; stejné hlídání projektu a prostoru jako `drawing`."""

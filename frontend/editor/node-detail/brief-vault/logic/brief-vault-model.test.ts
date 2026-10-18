@@ -119,6 +119,7 @@ describe("scopes", () => {
     expect(rootsOf([canvas, card], "")).toEqual([canvas]);
     expect(hasOwnVault([canvas, card], "card")).toBe(true);
     expect(hasOwnVault([canvas], "card")).toBe(false);
+    expect(hasOwnVault([canvas, node({ scopeNodeId: "card", kind: "duel" as never }), node({ scopeNodeId: "card", kind: "vision" as never })], "card")).toBe(false);
   });
 });
 

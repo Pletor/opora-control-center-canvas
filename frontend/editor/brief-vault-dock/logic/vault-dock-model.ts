@@ -3,7 +3,7 @@
 // přehled „čeká na tebe“, rozsah a vlastník schránky. Bez Reactu; data přicházejí ze stromu GET /api/brief-vault.
 import { coverageOf, type Coverage, type Feedback, type Verdict, type VaultNode } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
-export type SectionId = "overview" | "tree" | "mvp" | "research" | "questions" | "feedback" | "decisions" | "materials" | "ideas" | "history";
+export type SectionId = "overview" | "tree" | "mvp" | "research" | "questions" | "feedback" | "decisions" | "materials" | "ideas" | "history" | "duel";
 export type SectionDef = { id: SectionId; label: string; title: string; icon: string };
 
 // Ikony: tahy 24×24 z návrhu (stroke, bez výplně), aby menu mluvilo stejným jazykem jako artboard Main.
@@ -17,6 +17,9 @@ export const SECTION_GROUPS: { label: string; items: SectionDef[] }[] = [
     { id: "research", label: "Výzkum", title: "Výzkum a ověřování", icon: "M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3" },
     { id: "questions", label: "K upřesnění", title: "K upřesnění", icon: "M9.5 9a2.5 2.5 0 115 .5c0 1.5-2.5 2-2.5 3.5M12 17h.01M12 21a9 9 0 100-18 9 9 0 000 18z" },
     { id: "feedback", label: "Zpětná vazba", title: "Zpětná vazba", icon: "M4 5h16v11H9l-5 4z" },
+  ] },
+  { label: "Směr", items: [
+    { id: "duel", label: "Duel", title: "Duel o směr", icon: "M4 20l7-7M20 20l-7-7M4 4l9 9M20 4l-9 9M3 17l4 4M21 17l-4 4" },
   ] },
   { label: "Know-how", items: [
     { id: "decisions", label: "Rozhodnutí", title: "Rozhodnutí", icon: "M12 3v18M5 7h14M5 7l-2 6h4zM19 7l-2 6h4z" },

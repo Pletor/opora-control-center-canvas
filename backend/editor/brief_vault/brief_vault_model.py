@@ -15,7 +15,8 @@ from backend.editor.brief_vault.brief_vault_disciplines import DISCIPLINE_IDS
 COLUMNS = ("parent_id", "scope_node_id", "ord", "kind", "title", "text", "stage", "mvp", "note", "by", "actor", "deleted",
            "discipline", "gates")
 # `research` = ověření proveditelnosti, `question` = otázka K upřesnění; obojí je poznámka k fragmentu, ne kus zadání.
-KINDS = ("brief", "research", "question")
+# `duel` = spor o změnu směru, `vision` = představa rozsahu (docs/schranka-duel.md); stav nesou podrobnosti fragmentu.
+KINDS = ("brief", "research", "question", "duel", "vision")
 STAGES = ("draft", "research", "ready")
 # `proposed` navrhuje agent; `yes` / `no` rozhoduje jen člověk.
 MVP_VALUES = ("none", "proposed", "yes", "no")

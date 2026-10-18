@@ -5,6 +5,7 @@ Fragment má stálé `fragment_id` a řadu revizí v `brief_fragment_revisions` 
 nová revize s poznámkou. Kořen schránky je připnutý k plátnu (`scopeNodeId: ""`), sektoru nebo
 kartě; dítě má jen rodiče (fraktál do libovolné hloubky). `split` hlídá, že se zadání neztratí.
 `mvp: yes|no`, smazání a obnova staré revize patří člověku (`HUMAN_OPS`, 403 / 428).
+Duel o změnu směru a představa rozsahu (`duel-*`, `vision-*`) jsou v `brief_vault_duel` (docs/schranka-duel.md).
 Disciplína (`discipline`: id z docs/schranka-neurony.md §2 | null = dědí) jde s fragmentem do každé další
 revize; kořen ji nese vždy a přeřadí ji jen `set-discipline` (nová revize se stejným textem).
 """
@@ -16,6 +17,7 @@ from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault import brief_vault_develop as develop
+from backend.editor.brief_vault import brief_vault_duel as duel
 from backend.editor.brief_vault import brief_vault_gates as gates
 from backend.editor.brief_vault import brief_vault_mirror as vault_mirror
 from backend.editor.brief_vault import brief_vault_placement as placement
@@ -58,11 +60,12 @@ OPS = {
     "set-discipline": ({"fragmentId", "expectedRevision", "discipline", "note"}, set()),
     **develop.OPS,
     **gates.OPS,
+    **duel.OPS,
 }
 HUMAN_OPS = {"set-mvp": "MVP potvrzuje nebo zamítá jen člověk; agent ho navrhuje přes propose-mvp.",
              "delete": "Fragment zadání maže jen člověk.",
              "restore": "Starou revizi fragmentu obnovuje jen člověk.",
-             **develop.HUMAN_OPS, **gates.HUMAN_OPS}
+             **develop.HUMAN_OPS, **gates.HUMAN_OPS, **duel.HUMAN_OPS}
 MAX_IDS = 500
 
 
@@ -168,6 +171,14 @@ def _stage(value):
     return value
 
 
+def _not_vision(row):
+    """Představu (kind vision) mění jen duel o projektu (docs/schranka-duel.md §3.3); ruční zásah by obešel jeho
+    obsahovou verzi (`directionRevision`), na kterou se duely a body trajektorie váží."""
+    if row["kind"] == "vision":
+        fail("představu mění jen duel se subject project; revise, split, restore ani set-discipline na ni nejdou.")
+    return row
+
+
 def _ids(value):
     if not isinstance(value, list) or not value or len(value) > MAX_IDS or len(set(map(str, value))) != len(value):
         fail(f"fragmentIds musí být neprázdné pole nejvýše {MAX_IDS} různých id.")
@@ -192,7 +203,7 @@ def _create(w, payload, node_ids):
 
 
 def _revise(w, payload, node_ids):
-    row = w.checked(payload)
+    row = _not_vision(w.checked(payload))
     changes = {}
     if "text" in payload:
         changes["text"] = text_of(payload["text"], MAX_TEXT, "text")
@@ -206,7 +217,7 @@ def _revise(w, payload, node_ids):
 
 
 def _split(w, payload, node_ids):
-    row = w.checked(payload)
+    row = _not_vision(w.checked(payload))
     if w.children(row["fragment_id"]):
         fail("fragment už má podfragmenty; rozdělte některý z nich, nebo je nejdřív smaže člověk.")
     parts = split_parts(payload, row["text"])
@@ -268,7 +279,7 @@ def _delete(w, payload, node_ids):
 
 
 def _restore(w, payload, node_ids):
-    row = w.latest(payload["fragmentId"], live=False)
+    row = _not_vision(w.latest(payload["fragmentId"], live=False))
     if row["revision"] != payload["expectedRevision"]:
         fail("fragment se změnil; načtěte ho znovu.")
     old = next((item for item in history_rows(w.db, w.project, w.workspace, row["fragment_id"])
@@ -284,7 +295,7 @@ def _restore(w, payload, node_ids):
 
 def _set_discipline(w, payload, node_ids):
     """Přeřazení fragmentu (a s ním podstromu, který disciplínu dědí) do jiné disciplíny; text beze změny."""
-    row = w.checked(payload)
+    row = _not_vision(w.checked(payload))
     discipline = discipline_of(payload["discipline"], allow_null=row["parent_id"] is not None)
     if row["discipline"] == discipline:
         fail("set-discipline nic nemění; fragment už má tuto disciplínu.")
@@ -293,7 +304,7 @@ def _set_discipline(w, payload, node_ids):
 
 HANDLERS = {"create": _create, "revise": _revise, "split": _split, "research": develop.research, "promote": _promote,
             "propose-mvp": _propose, "set-mvp": _set_mvp, "delete": _delete, "restore": _restore, "set-discipline": _set_discipline,
-            **develop.HANDLERS, **gates.HANDLERS}
+            **develop.HANDLERS, **gates.HANDLERS, **duel.HANDLERS}
 
 
 class BriefVault(VaultReader):

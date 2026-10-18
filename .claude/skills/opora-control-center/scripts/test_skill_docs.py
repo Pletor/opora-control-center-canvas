@@ -131,3 +131,30 @@ def test_brief_vault_example_creates_a_verbatim_root(tmp_path):
                                                                      "expectedRevision": 1, "parts": [
             {"title": "1", "text": payload["text"].split("\n\n")[0]}, {"title": "2", "text": payload["text"].split("\n\n")[1]}]})
         assert split.status_code == 200, split.text
+
+
+def test_drawing_sketch_example_passes_backend_and_marks_stale(tmp_path):
+    """Příklad skici momentu z api.md projde backendem; zápis nastaví imageStale (docs/storyboard-karty.md)."""
+    from fastapi.testclient import TestClient
+
+    from backend.app.factory import create_app
+
+    assert "/api/drawing" in opora_write.WRITE_ROUTES
+    agent = {"origin": ORIGIN, "X-Opora-Actor": "agent; name=worker-7f3a"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        digest = client.get("/api/view", params=SCOPE).json()["digest"]
+        card = {"id": "karta", "parentId": None, "kind": "node", "name": "Karta", "purpose": "", "x": 0, "y": 0}
+        assert client.post("/api/graph", headers=agent, json={**SCOPE, "graph": {"nodes": [card], "edges": []},
+                                                                "digest": digest}).status_code == 200
+        png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        assert client.post("/api/drawing-file", headers=agent, json={**SCOPE, "file": {"id": "a1", "mimeType": "image/png", "dataURL": png}}).status_code == 200
+        board = {"animation": "kulicka", "duration": 12, "moments": [{"t": 1, "id": "m-3f9a1c2e",
+                 "sketch": {"layer": "sb/karta/m-3f9a1c2e", "fileId": "a1"}}]}
+        saved = client.post("/api/storyboard", headers=agent, json={**SCOPE, "nodeId": "karta", "expected_revision": 0,
+                                                                   "storyboard": board})
+        assert saved.status_code == 200, saved.text
+        payload = {**SCOPE, **json.loads(examples()["/api/drawing"].replace("NODE_ID", "karta"))}
+        response = client.post("/api/drawing", headers=agent, json=payload)
+        assert response.status_code == 200, response.text
+        stored = client.get("/api/storyboard", params={**SCOPE, "nodeId": "karta"}).json()
+        assert stored["storyboard"]["moments"][0]["sketch"]["imageStale"] is True and stored["revision"] == 2

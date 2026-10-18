@@ -9,6 +9,8 @@ jedna operace `op`; `set-mvp`, `delete`, `restore` a `feedback` patří člověk
 s `versionId` poučení uložené verze plátna). `POST /brief-vault/plan {fragmentIds}` je jen čtení: plán struktury
 (oblast → sektor → karty) jako dávka canvas-plan ověřená dryRun, `{plan, summary, hash, skipped, …}` (§4, §9 bod 3).
 Odmítnutý plán (i brána `planned`) je 409 `{error, fragments: [{id, title, reason}]}` (`Blocked`).
+`GET /brief-vault/duel?id` vrací stav duelu s `probability`, `onTurn`, `rounds`, `canDecide` a `trajectory`;
+`GET /brief-vault/vision?scopeNodeId` představu rozsahu s trendem (docs/schranka-duel.md §5).
 `GET /brief-vault/mirror` je orientační přehled Zrcadla (docs/zrcadlo.md): `{enabled, health?, byDiscipline, hormones?}`.
 """
 
@@ -16,6 +18,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from backend.editor.brief_vault.brief_vault import BriefVault
+from backend.editor.brief_vault.brief_vault_duel import duel_view, vision_view
 from backend.editor.brief_vault.brief_vault_model import BadRequest, Blocked
 from backend.editor.brief_vault.brief_vault_next import lessons, next_work
 
@@ -48,6 +51,14 @@ def create_brief_vault_router(service, desktop_state=None, mirror=None):
     @router.get("/brief-vault/lessons")
     def brief_vault_lessons(project: str, workspace: str, discipline: str | None = None, versionId: str | None = None):
         return _bad_request(lambda: lessons(service, project, workspace, discipline, versionId))
+
+    @router.get("/brief-vault/duel")
+    def brief_vault_duel(project: str, workspace: str, id: str):
+        return _bad_request(lambda: duel_view(service, project, workspace, id))
+
+    @router.get("/brief-vault/vision")
+    def brief_vault_vision(project: str, workspace: str, scopeNodeId: str = ""):
+        return _bad_request(lambda: vision_view(service, project, workspace, scopeNodeId))
 
     @router.get("/brief-vault/mirror")
     def brief_vault_mirror(project: str, workspace: str):

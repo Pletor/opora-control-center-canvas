@@ -219,10 +219,36 @@ def test_failing_graph_write_rolls_back_state_spec_and_text(tmp_path, monkeypatc
     service.close()
 
 
-def test_card_inside_area_that_does_not_fit_is_an_error(tmp_path):
+def test_full_area_grows_to_take_more_cards(tmp_path):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         digest = seed(client)
         body = {"nodes": [{"ref": f"k{i}", "kind": "node", "parent": "@a0", "name": f"Karta {i}"} for i in range(3)]}
         response = send(client, digest, copy.deepcopy(body))
+        assert response.status_code == 200, response.text
+        nodes = {n["id"]: n for n in client.get("/api/view", params=SCOPE).json()["graph"]["nodes"]}
+        area = nodes["a0"]
+        # 600 × 400 bere jednu kartu; pro tři vyroste do šířky na tři sloupce, výška stačí.
+        assert area["size"] == {"w": 2 * 48 + 3 * 360 + 2 * 96, "h": 400}
+        for ref in ("k0", "k1", "k2"):
+            card = nodes[response.json()["refs"][ref]]
+            assert card["parentId"] is None
+            assert area["x"] <= card["x"] and card["x"] + 360 <= area["x"] + area["size"]["w"]
+            assert area["y"] <= card["y"] and card["y"] + 240 <= area["y"] + area["size"]["h"]
+
+
+def test_card_inside_hemmed_in_area_is_an_error(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        digest = seed(client)
+        # Sousedi těsně vpravo a dole: oblast 600 × 400 nemá kam vyrůst.
+        fence = {"nodes": [
+            {"ref": "vpravo", "kind": "sector", "parent": None, "name": "Vpravo", "purpose": "Plot vpravo od oblasti.",
+             "position": {"x": 500 + 600 + 96, "y": 0}},
+            {"ref": "dole", "kind": "sector", "parent": None, "name": "Dole", "purpose": "Plot pod oblastí.",
+             "position": {"x": 500, "y": 400 + 96}},
+        ]}
+        fenced = send(client, digest, fence)
+        assert fenced.status_code == 200, fenced.text
+        body = {"nodes": [{"ref": f"k{i}", "kind": "node", "parent": "@a0", "name": f"Karta {i}"} for i in range(2)]}
+        response = send(client, fenced.json()["digest"], copy.deepcopy(body))
         assert response.status_code == 409
         assert "k1: karta se nevejde do oblasti" in response.json()["error"]

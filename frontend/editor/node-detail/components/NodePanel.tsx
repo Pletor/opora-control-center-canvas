@@ -118,8 +118,10 @@ export default function NodePanel({
 }) {
   const [purpose, setPurpose] = useState(node.purpose);
   // Uložené zadání z editoru i s klíčem uzlu: rozkladač ho dostane jen pro právě vybraný uzel, jinak „načítám“.
-  const [storedSpec, setStoredSpec] = useState<{ key: string; fields: SpecFields | null } | null>(null);
-  const sectorSpec = storedSpec?.key === JSON.stringify([project, workspace, node.id]) ? storedSpec.fields : null;
+  const [storedSpec, setStoredSpec] = useState<{ key: string; fields: SpecFields | null; error: string } | null>(null);
+  const specForNode = storedSpec?.key === JSON.stringify([project, workspace, node.id]) ? storedSpec : null;
+  const sectorSpec = specForNode?.fields ?? null;
+  const sectorSpecError = specForNode?.error ?? "";
   const [confirmed, setConfirmed] = useState(false);
   const [textRevision, setTextRevision] = useState(0);
   const storedPurpose = useRef(node.purpose);
@@ -198,7 +200,7 @@ export default function NodePanel({
           <BriefChips refs={fragmentRefs} index={vaultIndex} onOpen={onOpenVault ? openFragment : undefined} />
           <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} onStored={setStoredSpec} />
           {node.kind === "sector" && (
-            <SectorDecompose project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} purpose={node.purpose} cards={childCount} spec={sectorSpec} />
+            <SectorDecompose project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} purpose={node.purpose} cards={childCount} spec={sectorSpec} specError={sectorSpecError} />
           )}
           {node.kind === "sector" && openIdeasInSector > 0 && (
             <IdeasSummary project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} openIdeas={openIdeasInSector} />

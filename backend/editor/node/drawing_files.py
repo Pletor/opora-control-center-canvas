@@ -41,7 +41,22 @@ def decode_file(file):
         raise ValueError("Obrázek kresby je prázdný.")
     if len(data) > MAX_FILE_BYTES:
         raise ValueError("Obrázek kresby je větší než 10 MB.")
+    if not looks_like(mime_type, data):
+        raise ValueError("Obsah souboru neodpovídá udanému typu obrázku (PNG, JPEG, WebP, GIF).")
     return file_id, mime_type, data
+
+
+def looks_like(mime_type, data):
+    """Hlavička souboru odpovídá typu: base64 sám o sobě obrázek nedokazuje."""
+    if mime_type == "image/png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if mime_type == "image/jpeg":
+        return data.startswith(b"\xff\xd8\xff")
+    if mime_type == "image/webp":
+        return data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    if mime_type == "image/gif":
+        return data.startswith((b"GIF87a", b"GIF89a"))
+    return False
 
 
 def parse_ids(value):
@@ -64,6 +79,10 @@ class DrawingFileStore:
         file_id, mime_type, data = decode_file(file)
         db = self.canvas.db_for(pid)
         # Stejné ID znovu je v pořádku: Excalidraw ID odvozuje z obsahu, druhé nahrání nic nezdvojí.
+        # Stejné ID s jiným obsahem je chyba: tiché ponechání starých bajtů by podvrhlo obrázek pod cizí ID.
+        row = db.execute("SELECT data FROM drawing_files WHERE project_id=? AND file_id=?", (pid, file_id)).fetchone()
+        if row is not None and bytes(row[0]) != data:
+            raise ValueError("Obrázek s tímto ID už v projektu existuje s jiným obsahem.")
         db.execute(
             "INSERT OR IGNORE INTO drawing_files VALUES(?,?,?,?,?)",
             (pid, file_id, mime_type, data, datetime.now(UTC).isoformat()),

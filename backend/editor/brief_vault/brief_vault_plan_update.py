@@ -9,6 +9,11 @@ přepočítané stejně jako u nové karty (`replaceBlocks`), `fragmentRef` (př
 a `expectedRevision` = revize stavu; `layer` (je-li) přepíše `card.layer` karty, bez něj vrstva zůstává. Víc takových karet ve vrstvě = 409 (`duplicate-card`); uzavřená karta = 409
 (`card-closed`), protože uzavřenou kartu dávka měnit nesmí: nejdřív ji otevřete.
 
+Kontroly karty (docs/schranka-bunka.md §3 bod 2): `checks`/`goal_mode` jsou chráněná pole a `extend` je nepřenáší.
+Liší-li se `checks` existující karty za F (`[{id, command}]`; neplatná struktura = nesoulad) od `synthesized.checks`,
+nebo `goal_mode: "until_checks_pass"` karty neodpovídá tomu, zda `synthesized` kontroly nese (`checks_mismatch`), plán je 409
+(`checks-mismatch`, fail-closed) pro každého aktéra; kontroly karty upraví člověk ručně, pak se plánuje znovu.
+
 Kontejner plánu (K12): `expectedRevision` je revize **celého** stavu Desktop v3, kterou mění i souběžné smyčky jiných
 disciplín. Otisk plánu ji proto nenese (`fingerprint`) a `placed` ji před zápisem nastaví na aktuální revizi
 (`with_revisions`). Co plán čte a mění, hlídá `scope_digest`: sha256 uzlů grafu a jejich stavu pro vrstvu plánu,
@@ -57,6 +62,28 @@ def existing_card(cards, row, state):
         blocked(f"karta {ids[0]} fragmentu „{row['title']}“ je uzavřená; nejdřív ji otevřete, pak plánujte znovu.",
                 [{"id": row["fragment_id"], "title": row["title"], "reason": "card-closed"}])
     return ids[0]
+
+
+def _card_checks(value):
+    """Kontroly karty jako `[{id, command}]`; chybějící = `[]`, neplatná struktura = None (fail-closed)."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        return None
+    valid = all(isinstance(item, dict) and set(item) == {"id", "command"}
+                and isinstance(item["id"], str) and isinstance(item["command"], str) for item in value)
+    return [dict(item) for item in value] if valid else None
+
+
+def checks_mismatch(node, synthesized):
+    """True, když kontroly karty `node` neodpovídají `synthesized.checks` (id, příkaz, pořadí; neplatná struktura
+    kontrol karty = nesoulad) nebo `goal_mode` karty neodpovídá: s očekávanými kontrolami musí být
+    `"until_checks_pass"`, bez nich nesmí být. Karta bez kontrol a bez `goal_mode` (i `checks: []`) při
+    `synthesized` bez kontrol nesoulad není."""
+    expected = [{"id": item["id"], "command": item["command"]} for item in (synthesized or {}).get("checks") or []]
+    card = _card_checks(node.get("checks"))
+    goal = node.get("goal_mode") == "until_checks_pass"
+    return card is None or card != expected or goal != bool(expected)
 
 
 def research_steps(rows, fragment_id, details):

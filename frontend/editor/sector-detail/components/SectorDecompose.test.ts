@@ -41,6 +41,18 @@ describe("SectorDecompose", () => {
     expect(html).not.toContain("Sektor nemá uložený podklad");
   });
 
+  it("selhání načtení zadání: chyba místo „načítám“, bez pole i bez Kopírovat; úspěšné načtení chybu nahradí zadáním", () => {
+    const failed = renderToStaticMarkup(createElement(SectorDecompose, { ...base, spec: null, specError: "ApiError: 500" }));
+    expect(failed).toContain('data-testid="sector-decompose-error"');
+    expect(failed).toContain("Uložené zadání sektoru se nepodařilo načíst: ApiError: 500.");
+    expect(failed).not.toContain("Načítám uložené zadání sektoru");
+    expect(failed).not.toContain("sector-decompose-prompt");
+    expect(failed).not.toContain("sector-decompose-copy");
+    const recovered = renderToStaticMarkup(createElement(SectorDecompose, { ...base, spec: { goal: "Cíl", acceptance: "Hotovo" }, specError: "" }));
+    expect(recovered).not.toContain("sector-decompose-error");
+    expect(recovered).toContain("sector-decompose-copy");
+  });
+
   it("nepovolený identifikátor: hláška o identifikátoru, bez pole i bez Kopírovat", () => {
     const html = renderToStaticMarkup(createElement(SectorDecompose, { ...base, sectorId: "sec 4", spec: { goal: "Cíl", acceptance: "Hotovo" } }));
     expect(html).toContain("Zadání nejde sestavit");

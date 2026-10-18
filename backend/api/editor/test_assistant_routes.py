@@ -337,3 +337,13 @@ def test_factory_registers_approval_route(tmp_path):
         missing = client.post("/api/assistant/approvals/nope", json={"decision": "deny"},
                               headers={"origin": "http://127.0.0.1:8740"})
         assert missing.status_code == 404
+
+
+def test_session_sector_id_round_trip_and_validation(setup):
+    client, _manager, _ = setup
+    created = client.post("/api/assistant/sessions", json={"project": "p1", "sectorId": "sektor-1"})
+    assert created.status_code == 201 and created.json()["session"]["sectorId"] == "sektor-1"
+    listed = client.get("/api/assistant/sessions", params={"project": "p1"}).json()["sessions"]
+    assert [item["sectorId"] for item in listed] == ["sektor-1"]
+    assert client.post("/api/assistant/sessions", json={"project": "p1", "sectorId": "x" * 200}).status_code == 400
+    assert client.post("/api/assistant/sessions", json={"project": "p1", "sectorId": 5}).status_code == 400

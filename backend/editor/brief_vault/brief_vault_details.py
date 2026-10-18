@@ -8,6 +8,8 @@ aby doslovný text a jeho revize (`brief_fragment_revisions`) zůstaly beze změ
   jiný verdikt než `unverified` vyžaduje aspoň jeden důkaz s URL (jinak 409).
 - `question`: {askedFor, proposal, answer, answeredBy, answeredAt} u fragmentu druhu `question`.
 - `decisions`: [id rozhodnutí plátna]; text rozhodnutí se nekopíruje, čte se ze stavu plátna.
+- `duel`: stav duelu u fragmentu druhu `duel`, `vision`: body trajektorie u fragmentu druhu `vision`
+  (docs/schranka-duel.md, tvar hlídá `brief_vault_duel_shape`).
 
 Zpětná vazba (`brief_fragment_feedback`) je append-only: souhlas / nesouhlas / komentář, autor a čas.
 """
@@ -17,6 +19,8 @@ import uuid
 from urllib.parse import urlsplit
 
 from backend.canvas.graph import valid_id
+from backend.editor.brief_vault.brief_vault_duel_shape import summary as duel_summary
+from backend.editor.brief_vault.brief_vault_duel_shape import validate_duel, validate_vision
 from backend.editor.brief_vault.brief_vault_model import fail, text_of
 
 VERDICTS = ("feasible", "dead_end", "unrealistic", "unverified")
@@ -95,14 +99,18 @@ def validate_decisions(value):
 
 def validate_details(fields):
     """Celé podrobnosti jedné revize; používá zápis i obnova verze plátna."""
-    if not isinstance(fields, dict) or not set(fields) <= {"research", "question", "decisions"}:
-        fail("podrobnosti fragmentu mají jen research, question a decisions.")
+    if not isinstance(fields, dict) or not set(fields) <= {"research", "question", "decisions", "duel", "vision"}:
+        fail("podrobnosti fragmentu mají jen research, question, decisions, duel a vision.")
     if "research" in fields:
         validate_research(fields["research"])
     if "question" in fields:
         validate_question(fields["question"])
     if "decisions" in fields:
         validate_decisions(fields["decisions"])
+    if "duel" in fields:
+        validate_duel(fields["duel"])
+    if "vision" in fields:
+        validate_vision(fields["vision"])
     return fields
 
 
@@ -144,6 +152,12 @@ def details_summary(fields):
         summary["question"] = {"askedFor": question["askedFor"], "answered": bool(question["answer"].strip())}
     if fields.get("decisions"):
         summary["decisions"] = list(fields["decisions"])
+    if fields.get("duel"):
+        summary["duel"] = duel_summary(fields["duel"])
+    vision = fields.get("vision")
+    if vision is not None:
+        points = vision["points"]
+        summary["vision"] = {"points": len(points), "last": points[-1]["score"] if points else None}
     return summary
 
 

@@ -1,6 +1,6 @@
 // Schránka v levém menu Editoru (docs/schranka-neurony.md §6): v širokém panelu vedle lišty nahoře přepínač
 // disciplín (Kreslení · Logika · Provoz, jen zapnuté neurony s počty, vpravo Nezařazené), pod ním vnitřní menu
-// (Plán · Vývoj · Know-how · Historie) a jedna sekce naplno. Všechno se počítá nad vybranou disciplínou, jen
+// (Plán · Vývoj · Směr · Know-how · Historie) a jedna sekce naplno. Všechno se počítá nad vybranou disciplínou, jen
 // přehled po disciplínách nad celým rozsahem. Strom bere ze sdíleného zdroje schránky; rozsah, fokus a obnovu
 // plátna po vložení karet drží rodič (App). „Otevřít fragment“ z odmítnutého plánu přepne na Zadání tady.
 // Rozepsaný text hlásí nahoru (`onDirty`), aby ho rodič při zavření panelu nezahodil (nechá Schránku skrytou).
@@ -11,10 +11,14 @@ import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-
 import BriefVaultPanel from "@/editor/node-detail/brief-vault/components/BriefVaultPanel";
 import { SECTIONS, filterTree, flatten, scopeIds, sectionCounts, type SectionId } from "../logic/vault-dock-model";
 import { disciplineCounts, disciplineLabel, filterByDiscipline, liveDisciplines, pickDiscipline, viewOf } from "../logic/disciplines";
+import { waitingByDiscipline } from "../logic/discipline-groups";
 import { useServerDisciplines, useVaultDiscipline } from "../logic/use-vault-discipline";
 import { disciplineStats } from "../logic/discipline-stats";
 import { hasUnsavedDraft, isDraftField, pruneDrafts } from "../logic/vault-drafts";
 import { createPoller } from "@/shared/hooks/logic/poller";
+import { duelItemOf, openDuelCount, splitVault } from "../duel/logic/duel-tree";
+import { sortDuelItems } from "../duel/logic/duel-view";
+import DuelSection from "../duel/components/DuelSection";
 import VaultNav from "./VaultNav";
 import DisciplineSwitch from "./DisciplineSwitch";
 import RootCreateForm from "./RootCreateForm";
@@ -77,11 +81,17 @@ export default function BriefVaultDock({ project, workspace, scope: vaultScope, 
   const scope = useMemo(() => ({ project, workspace }), [project, workspace]);
   const vault = useBriefVault(scope, null);
   const server = useServerDisciplines(scope, vault.tree);
-  const all = useMemo(() => rootsOf(vault.tree?.roots ?? [], vaultScope), [vault.tree, vaultScope]);
+  // Duely a představy (kind duel/vision) patří jen sekci Duel; ostatní sekce dostanou strom bez nich.
+  const split = useMemo(() => splitVault(rootsOf(vault.tree?.roots ?? [], vaultScope)), [vault.tree, vaultScope]);
+  const all = split.roots;
+  const duels = useMemo(() => sortDuelItems(split.duels.map(duelItemOf)), [split.duels]);
+  const visionKey = split.visions.map((node) => node.id + ":" + node.revision).join(",");
   const index = useMemo(() => indexVault(all), [all]);
   const counts = useMemo(() => disciplineCounts(all), [all]);
   const live = useMemo(() => liveDisciplines(server, counts), [server, counts]);
   const view = pickDiscipline(stored, live, counts);
+  // Odznaky „čeká na tebe“ v přepínači: přes celý rozsah, ne jen vybranou disciplínu.
+  const waiting = useMemo(() => waitingByDiscipline(all, live, vault.tree?.feedback ?? []), [all, live, vault.tree]);
   // „Otevřít fragment“ uvnitř Schránky (odmítnutý plán): stejný tvar jako fokus od rodiče, přednost má novější.
   const [jump, setJump] = useState<VaultFocus | null>(null);
   const shown = jump ?? focus;
@@ -113,7 +123,8 @@ export default function BriefVaultDock({ project, workspace, scope: vaultScope, 
   const materials = useMemo(() => Object.entries(state.nodes).filter(([nodeId]) => inScope.has(nodeId))
     .flatMap(([nodeId, node]) => (node.materials ?? []).map((item) => ({ nodeId, item }))), [state.nodes, inScope]);
   const linkedDecisions = new Set(flatten(roots).flatMap((item) => item.node.decisions ?? []));
-  const sections = sectionCounts(roots, { feedback: feedback.length, decisions: linkedDecisions.size, materials: materials.length, ideas: ideas.length });
+  const sections = { ...sectionCounts(roots, { feedback: feedback.length, decisions: linkedDecisions.size, materials: materials.length, ideas: ideas.length }), duel: openDuelCount(duels) };
+  const focusNode = shown ? index.get(shown.id) : undefined;
   const title = SECTIONS.find((item) => item.id === section)?.title ?? "";
   const editable = !readOnly && !vault.tree?.readOnly;
   const create = editable ? <RootCreateForm scope={scope} vaultScope={vaultScope} view={view} onCreated={setView} /> : null;
@@ -121,7 +132,7 @@ export default function BriefVaultDock({ project, workspace, scope: vaultScope, 
     if (vault.error && !vault.tree) return <p className="vault-dock__error" role="alert">Schránku nelze načíst: {vault.error}</p>;
     if (!vault.tree) return <p className="vault-dock__notice" role="status">Načítám schránku…</p>;
     if (vault.tree.readOnly) return <div className="vault-dock__empty">Main je jen ke čtení. Schránka zadání žije v pracovním prostoru; přepněte do něj.</div>;
-    if (!roots.length && section !== "history" && section !== "ideas" && section !== "decisions" && section !== "materials") {
+    if (!roots.length && section !== "history" && section !== "ideas" && section !== "decisions" && section !== "materials" && section !== "duel") {
       return (
         <div className="vault-dock__empty" data-testid="vault-dock-empty">
           <p><strong>{all.length ? `V disciplíně ${disciplineLabel(view)} schránka ${owner} zatím nic nemá.` : `Schránka ${owner} je prázdná.`}</strong></p>
@@ -158,12 +169,15 @@ export default function BriefVaultDock({ project, workspace, scope: vaultScope, 
       case "materials": return <MaterialsSection materials={materials} nodeNames={nodeNames} query={query} />;
       case "ideas": return <IdeasSection scope={scope} roots={roots} ideas={ideas} nodeNames={nodeNames} vaultScope={vaultScope} view={view} query={query} readOnly={!editable} onLinked={onStateChanged} />;
       case "history": return <HistorySection scope={scope} vaultScope={vaultScope} roots={roots} query={query} />;
+      case "duel": return <DuelSection scope={scope} vaultScope={vaultScope} items={duels} visionKey={visionKey} readOnly={!editable}
+        focus={focusNode ? { id: focusNode.id, title: focusNode.title, discipline: focusNode.effectiveDiscipline ?? null } : null} />;
     }
   };
   return (
     <div className="vault-dock" data-testid="brief-vault-dock" data-dirty={dirty || undefined}
       onInput={(event) => { if (isDraftField(event.target)) { drafts.current.add(event.target as HTMLInputElement); recheck(); } }}>
-      <DisciplineSwitch view={view} live={live} counts={counts} onView={setView} />
+      <DisciplineSwitch view={view} live={live} counts={counts} waiting={waiting} onView={setView}
+        onWaiting={(next) => { setView(next); setSection("overview"); }} />
       <div className="vault-dock__frame">
         <VaultNav section={section} counts={sections} query={query} owner={owner} onSection={setSection} onQuery={setQuery} />
         <main className="vault-dock__main">

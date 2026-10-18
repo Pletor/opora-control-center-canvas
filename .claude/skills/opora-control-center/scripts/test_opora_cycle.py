@@ -29,6 +29,11 @@ class Server:
         self.race = False
         self.gate_detail = {}
         self.reject_supported = False  # backend op reject-proposal přijde v dalším kusu  # po čtení /next změní revizi (souběžný zápis jiného agenta)
+        self.duel = {'duel': {'status': 'grill', 'challenger': {'text': 'B', 'by': 'vyzyvatel-1', 'actor': 'agent'},
+                              'turns': [{'id': 't%d' % i, 'side': 'A', 'kind': 'claim', 'text': 'x' * 200,
+                                         'by': 'obhajce-1', 'actor': 'agent'} for i in range(1, 9)]},
+                     'probability': {'p': 0.42, 'logit': -0.3, 'n': 3, 'contributions': []}, 'onTurn': 'B',
+                     'rounds': {'A': 1, 'B': 0}, 'canDecide': False, 'trajectory': {'state': 'unclear'}}
         self.next = {'fragment': {'id': 'f1', 'title': 'Import', 'effectiveDiscipline': 'be', 'revision': 4},
                      'gate': 'weighed', 'needs': 'confirm', 'proposal': PROPOSAL, 'hint': 'x', 'lessons': [],
                      'blocked': 1}
@@ -61,6 +66,8 @@ def handler_for(state):
             if url.path == '/api/brief-vault/fragment':
                 return self.reply(200, {'fragment': {'id': params['id']}, 'latestRevision': state.revision,
                                         'gateDetail': state.gate_detail})
+            if url.path == '/api/brief-vault/duel':
+                return self.reply(200, state.duel)
             if url.path == '/api/brief-vault/lessons':
                 return self.reply(200, {'lessons': [{'id': 'l1', 'discipline': 'be', 'kind': 'pattern', 'text': 'T',
                                                      'effectiveWeight': 0.9, 'fragmentId': 'f1', 'by': 'x'}]})
@@ -72,10 +79,14 @@ def handler_for(state):
             if self.path == '/api/brief-vault/gate-check':
                 return self.reply(200, {'probability': None, 'provider': 'typesafe', 'inputHash': 'h',
                                         'reason': 'not-allowed'})
+            if body['op'] in ('duel-open', 'vision-align'):
+                return self.reply(200, {'ok': True, 'fragment': {'id': 'd1', 'revision': 1}})
             if body['expectedRevision'] != state.revision:
                 return self.reply(409, {'error': f'fragment má revizi {state.revision}; načtěte nový stav.'})
             if body['op'] == 'reject-proposal' and not state.reject_supported:
                 return self.reply(400, {'error': 'neznámá operace reject-proposal.'})
+            if body['op'].startswith('duel-'):
+                return self.reply(200, {'ok': True, 'probability': {'p': 0.5}, 'canDecide': False, 'status': 'grill'})
             by = self.headers['X-Opora-Actor'].split('name=', 1)[1]
             if body['op'] == 'reject-proposal':
                 return self.reply(200, {'ok': True, 'rejected': {'id': 'pr1', 'by': by}})
@@ -365,3 +376,97 @@ def test_run_checks_refuses_overlapping_tests_and_root(server, capsys, tmp_path,
     inner.mkdir(parents=True)
     code, out = run_checks(capsys, tmp_path, root=tmp_path / 'work', tests=inner)
     assert code == 2 and out['action'] == 'error' and server.proposals == []
+
+
+def duel_run(capsys, *argv):
+    code = opora_cycle.main(['duel', *argv, *SCOPE])
+    return code, json.loads(capsys.readouterr().out)
+
+
+def test_duel_open_sends_body_with_ref_and_files(server, capsys, tmp_path):
+    inc = tmp_path / 'inc.txt'
+    inc.write_text('Platný směr č.', encoding='utf-8')
+    code, out = duel_run(capsys, 'open', '--subject-kind', 'fragment', '--subject', 'f1', '--incumbent-file', str(inc),
+                         '--challenger', 'Změna', '--scope', 'n1', '--discipline', 'be', '--incumbent-ref', 'f1:4')
+    assert code == 0 and out['op'] == 'duel-open'
+    assert posts(server)[0][3] == {'op': 'duel-open', 'subject': {'kind': 'fragment', 'id': 'f1'},
+                                   'incumbent': {'text': 'Platný směr č.', 'ref': {'fragmentId': 'f1', 'revision': 4}},
+                                   'challenger': {'text': 'Změna'}, 'scopeNodeId': 'n1', 'discipline': 'be',
+                                   'project': 'p1', 'workspace': 'draft'}
+
+
+def test_duel_open_needs_exactly_one_text_source(server, capsys):
+    code, out = duel_run(capsys, 'open', '--subject-kind', 'node', '--subject', 'n', '--challenger', 'B', '--scope', 'n1')
+    assert code == 1 and posts(server) == []
+    code, _ = duel_run(capsys, 'open', '--subject-kind', 'node', '--subject', 'n', '--incumbent', 'A', '--challenger', 'B',
+                       '--incumbent-ref', 'bad', '--scope', 'n1')
+    assert code == 1 and posts(server) == []
+
+
+def test_duel_show_is_short(server, capsys):
+    code, out = duel_run(capsys, 'show', 'd1')
+    assert code == 0 and out['p'] == 0.42 and out['n'] == 3 and out['onTurn'] == 'B' and out['canDecide'] is False
+    assert out['rounds'] == {'A': 1, 'B': 0} and out['trajectory'] == 'unclear'
+    assert [t['id'] for t in out['turns']] == ['t3', 't4', 't5', 't6', 't7', 't8'] and len(out['turns'][0]['text']) <= 120
+    assert server.calls[0][1:3] == ('/api/brief-vault/duel', {'project': 'p1', 'workspace': 'draft', 'id': 'd1'})
+
+
+def test_duel_turn_body_revision_refs_and_evidence(server, capsys):
+    code, out = duel_run(capsys, 'turn', 'd1', '--side', 'B', '--kind', 'answer', '--text', 'Odpověď', '--ref', 't1',
+                         '--ref', 't2', '--evidence', 'docs/a.md:3|citát')
+    assert code == 0 and out['expectedRevision'] == 4
+    assert posts(server)[0][3] == {'op': 'duel-turn', 'fragmentId': 'd1', 'expectedRevision': 4, 'side': 'B',
+                                   'kind': 'answer', 'text': 'Odpověď', 'refs': ['t1', 't2'],
+                                   'evidence': [{'source': 'docs/a.md:3', 'quote': 'citát'}], 'project': 'p1',
+                                   'workspace': 'draft'}
+    assert duel_run(capsys, 'turn', 'd1', '--side', 'A', '--kind', 'claim', '--text', 'x', '--evidence', 'bez')[0] == 1
+
+
+def test_duel_turn_stale_revision_is_409_and_text_file(server, capsys, tmp_path):
+    path = tmp_path / 't.txt'
+    path.write_text('Z souboru', encoding='utf-8')
+    code, out = duel_run(capsys, 'turn', 'd1', '--side', 'A', '--kind', 'claim', '--text-file', str(path), '--revision', '3')
+    assert code == 3 and out['conflict'] is True and posts(server)[0][3]['text'] == 'Z souboru'
+
+
+def test_duel_score_by_judge_sends_body(server, capsys, monkeypatch):
+    monkeypatch.setenv('OPORA_ACTOR', 'soudce-1')
+    code, out = duel_run(capsys, 'score', 'd1', '--turn', 't2', '--strength', '7', '--supports', 'B', '--rebutted-by', 't5',
+                         '--evidence-ok')
+    assert code == 0 and out['p'] == 0.5
+    assert posts(server)[0][3] == {'op': 'duel-score', 'fragmentId': 'd1', 'expectedRevision': 4, 'turnId': 't2',
+                                   'strength': 7, 'supports': 'B', 'rebuttedBy': 't5', 'evidenceOk': True, 'project': 'p1', 'workspace': 'draft'}
+
+
+@pytest.mark.parametrize('actor', ['obhajce-1', 'vyzyvatel-1'])
+def test_duel_score_refused_for_author_of_turn_or_challenger(server, capsys, monkeypatch, actor):
+    monkeypatch.setenv('OPORA_ACTOR', actor)
+    code, out = duel_run(capsys, 'score', 'd1', '--turn', 't2', '--strength', '7', '--supports', 'A')
+    assert code == 2 and out['refused'] is True and posts(server) == []
+
+
+def test_duel_score_rejects_strength_out_of_range(server, capsys):
+    with pytest.raises(SystemExit):
+        duel_run(capsys, 'score', 'd1', '--turn', 't2', '--strength', '11', '--supports', 'A')
+    assert server.calls == []
+
+
+def test_duel_decide_has_no_override_and_sends_synthesis_turn(server, capsys):
+    code, _ = duel_run(capsys, 'decide', 'd1', '--synthesis-turn', 't9')
+    assert code == 0
+    body = posts(server)[0][3]
+    assert body == {'op': 'duel-decide', 'fragmentId': 'd1', 'expectedRevision': 4, 'synthesisTurnId': 't9',
+                    'project': 'p1', 'workspace': 'draft'} and 'override' not in body
+    code, _ = duel_run(capsys, 'decide', 'd1')
+    assert code == 0 and 'synthesisTurnId' not in posts(server)[1][3]
+
+
+def test_duel_align_body_without_revision_read(server, capsys):
+    with pytest.raises(SystemExit):
+        duel_run(capsys, 'align', '--score', '8', '--note', 'x', '--scope', 'n1')
+    assert server.calls == []
+    code, out = duel_run(capsys, 'align', '--score', '8', '--note', 'blíž', '--scope', 'n1', '--duel', 'd1')
+    assert code == 0 and out['op'] == 'vision-align'
+    assert posts(server)[0][3] == {'op': 'vision-align', 'score': 8, 'note': 'blíž', 'scopeNodeId': 'n1', 'duelId': 'd1',
+                                   'project': 'p1', 'workspace': 'draft'}
+    assert [c[1] for c in server.calls] == ['/api/brief-vault']

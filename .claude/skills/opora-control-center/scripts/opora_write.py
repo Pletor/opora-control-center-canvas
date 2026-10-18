@@ -36,6 +36,10 @@ WRITE_ROUTES = frozenset({
     '/api/desktop-v3/pipeline',
     # Schránka zadání: doslovné verzované fragmenty, split, výzkum, propose-mvp (references/workflow.md).
     '/api/brief-vault',
+    # Storyboard karty (docs/storyboard-karty.md): momenty, komentáře a šipky člověka.
+    '/api/storyboard',
+    # Skica momentu storyboardu: kresba ve vrstvě sb/<nodeId>/<momentId> (docs/storyboard-karty.md).
+    '/api/drawing',
 })
 EXIT_CONFLICT = 3
 # Záznam činnosti (docs/zaznam-cinnosti.md): každý zápis skriptu se hlásí jako agent.

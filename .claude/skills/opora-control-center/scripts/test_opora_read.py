@@ -343,3 +343,14 @@ def test_get_waits_sixty_seconds_and_timeout_is_not_retried(monkeypatch, capsys)
     assert opora_read.GET_TIMEOUT == 60
     assert code == 1 and out is None and json.loads(err)['writesPerformed'] == 0
     assert seen == [60]
+
+
+def test_drawing_reads_sketch_layer_and_summarizes(net, monkeypatch, capsys):
+    calls, answers = net
+    answers['/api/drawing'] = {'scene': {'elements': [{'type': 'arrow'}, {'type': 'text', 'text': 'tady zrychlit'},
+                                                      {'type': 'text', 'text': 'x', 'isDeleted': True}]}, 'revision': 2}
+    code, out, _ = run(monkeypatch, capsys, 'drawing', *SCOPE, '--layer', 'sb/n1/m-3f9a1c2e')
+    assert code == 0 and out['elementCount'] == 2 and out['types'] == {'arrow': 1, 'text': 1} and out['texts'] == ['tady zrychlit']
+    assert calls[-1]['method'] == 'GET' and calls[-1]['query']['layer'] == ['sb/n1/m-3f9a1c2e']
+    code, _, err = run(monkeypatch, capsys, 'drawing', *SCOPE)
+    assert code == 1 and '--layer' in err

@@ -174,3 +174,113 @@ Připraveno ke commitu (po pokynu Hermese), přesný seznam vlastních souborů:
 - `frontend/editor/sector-detail/components/SectorDecompose.test.ts` (nový)
 - `docs/navrhy/2026-10-15-relace-b-handoff.md` (M)
 Ostatní změněné soubory ve stromu patří relaci A a nebyly dotčeny.
+
+## Dávka B4 (HERMES-B4-20261015-1055, 10:55–11:20) – důkaz životního cyklu, NEcommitováno
+
+B3 commitnuto jako **f44f326** (index byl prázdný, staged přesně 4 soubory). B4 nemění kód, jen přidává důkaz
+do tohoto handoffu.
+
+**Důkaz v běžící aplikaci (DevTools MCP, fetch mock bez zápisů, Ample):** odpověď `GET /api/node-spec` pro
+sektor 1 (`d0056159`, má cíl i akceptaci) zpožděna o 6 s; vše ostatní pass-through; žádný požadavek jiné metody
+než GET (`writes: []`). Klikání na karty sektorů na plátně bez reloadu, inspektor zůstává namontovaný:
+
+| krok | t | inspektor | Načítám | pole zadání | Kopírovat | chybí podklad |
+|---|---|---|---|---|---|---|
+| start na sektoru 4 (bez zadání) | 1,5 s | 4. VRSTVA | ne | ne | ne | ano |
+| klik sektor 1: zpožděný request běží | 1,8 s | 1. VRSTVA | **ano** | ne | ne | ne |
+| klik sektor 4, request sektoru 1 stále běží | 2,0 s | 4. VRSTVA | ne | ne | ne | ano |
+| sektor 4 usazen, sektor 1 stále běží | 4,3 s | 4. VRSTVA | ne | ne | ne | ano |
+| **po doručení opožděné odpovědi sektoru 1** | 8,9 s | 4. VRSTVA | ne | **ne** | **ne** | ano |
+| návrat na sektor 1 | 9,2 s | 1. VRSTVA | **ano** | ne | ne | ne |
+| sektor 1 usazen | 15,7 s | 1. VRSTVA | ne | ano (`sektor id d0056159`) | ano | ne |
+
+Opožděná odpověď dřívějšího uzlu tedy po přepnutí nikdy neukáže starý rozklad ani Kopírovat; návrat prochází
+stavem „Načítám“ a zadání se sestaví až z vlastní odpovědi. Mechanismus: ticket/generation guard v effectu
+`NodeSpecEditor` (deps `project, workspace, nodeId, reload`) a klíč `[project, workspace, nodeId]` v `NodePanel`.
+
+**Varianta „stejný nodeId, dva workspaces, bez reloadu“ – BLOCKED v aplikaci, ne v logice:**
+- Ample je lokální projekt: TopBar přepínač větve/worktree se u lokálního projektu nerenderuje a backend vrací
+  pro jiný workspace 400 („používají pouze pracovní prostor draft“).
+- Přepnutí workspace (`selectWorkspace`) volá `enter(null)`, což vyprázdní výběr: inspektor se odmontuje, takže
+  „stejný vybraný uzel přes přepnutí workspace“ v aplikaci nenastane; po novém výběru jde o tentýž kód jako
+  přepnutí uzlu (klíč i guard obsahují workspace).
+- Stavový komponentový test bez DOM není možný: v repu není jsdom / happy-dom / react-test-renderer /
+  testing-library (ověřeno v `node_modules`), vitest běží `environment: "node"`, nové závislosti zakázané.
+  QUESTION: smí příští dávka přidat devDependency `jsdom` (nebo `happy-dom`) pro stavové testy dílků?
+
+**Nález z čtení kódu (neopraveno, mimo limit B4 „jen důkaz“):** když fetch zadání nového uzlu selže (`catch`),
+`stored` zůstane z předchozího uzlu a klíč nesedí → rozkladač ukazuje trvale „Načítám…“ místo chyby; kopírování
+zůstává blokované (bezpečné). Návrh: `onStored({key, fields: null, error})` a hláška s chybou.
+
+**Kritik důkazu (ChatGPT přes Codex, 5 nálezů) a druhý průchod (korekce 1 z 2):** nálezy 1, 2, 5 zapracované
+druhým během s ručně uvolňovanými odpověďmi (`release("s1"|"s4")` místo pevného čekání), mockovanou odpovědí
+sektoru 4 s odlišnými poli (`ONLY_S4`, jen v prohlížeči, žádný zápis: `writes: []`) a `MutationObserver`em,
+který zapisuje každou změnu dvojice „pole zadání / Kopírovat“ a id sektoru v zadání:
+
+| krok | stav rozkladače |
+|---|---|
+| A: sektor 1 po uvolnění odpovědi | zadání + Kopírovat, `sektor id d0056159` |
+| B: z plně načteného sektoru 1 klik na sektor 4, jeho odpověď držena 1,5 s | **okamžitě** „Načítám“, bez pole, bez Kopírovat (nález 2) |
+| B: uvolnění sektoru 4 | zadání `sektor id fda2fd0c` |
+| C: klik sektor 1 (držen) → klik sektor 4 (držen) → **uvolněna opožděná odpověď sektoru 1** | stále „Načítám“ pro sektor 4, bez pole |
+| C: uvolněn sektor 4 | zadání `fda2fd0c` (obsah patří sektoru 4, nález 3 v mezích mocku) |
+| D: návrat na sektor 1 (držen) → uvolněn | „Načítám“ → zadání `d0056159` |
+
+Posloupnost z observeru (bez mezer mezi měřeními): `PC:d0056159 → --:null → PC:fda2fd0c → --:null → PC:fda2fd0c
+→ --:null → PC:d0056159`; nikdy se neobjevilo pole ani tlačítko s id jiného sektoru, než který byl v inspektoru.
+Nález 3 (dva sektory s reálně odlišnými poli): bez zápisu živých dat jen mockem, hotovo výše. Nález 4
+(workspace): zůstává BLOCKED/QUESTION výše; nález 5 druhá část (vypnout guard a ukázat selhání) nedělán, vyžadoval
+by změnu kódu nad rámec „jen důkaz“.
+
+Checkpoint B4 (11:25): žádná změna kódu; `npm test -- --run` exit 0 (**1 237 zelených, 179 souborů**),
+`npm run build` exit 0; backend nedotčen (koordinačně 2112 passed, 4 skipped, 2 známé graphify). Necommitováno
+(jen tento handoff je změněný vlastní soubor).
+
+## Dávka B5 (HERMES-B5-20261015-1120, 11:21–11:24 podle hodin nástroje) – fail-closed po selhání GET node-spec, NEcommitováno, nic ve stage
+
+**Reprodukce před opravou (prohlížeč, DevTools MCP, fetch mock: každá ne-GET metoda vrací 409 a zapíše se do
+`blocked`, GET node-spec sektoru 4 vrací 500):** načtený sektor 1 → klik sektor 4:
+- editor zadání: status „Zadání zatím nebylo uloženo“, alert `ApiError: … selhal`, pole prázdná a **disabled**,
+  tlačítko Uložit **není** → podezření „zůstanou pole/revize z A a jde uložit pod B“ se **nepotvrdilo**:
+  NodePanel je v App keyovaný `project:workspace:node.id`, při přepnutí se inspektor i editor remountují, takže
+  editace ani uložení starého zadání pod jiným uzlem není možné (`blocked: []`, žádný pokus o mutaci);
+- rozkladač sektoru: trvale „Načítám uložené zadání sektoru…“ → **potvrzená závada** (chyba se k rodiči nedostala).
+
+**Minimální oprava (vlastní cesty):**
+- `NodeSpecEditor.tsx`: `onStored({key, fields, error})`, `error` jen když není nic uložené (chyba uložení
+  při načteném zadání rozkladač neblokuje); v bloku chyby nové tlačítko **„Načíst zadání znovu“** (jen
+  `setReload`, drafty zůstávají) vedle stávajícího „Zahodit rozepsané a načíst uložené“; žádný automatický pokus.
+- `NodePanel.tsx`: klíčovaný záznam nese i `error`; `SectorDecompose` dostane `specError`.
+- `SectorDecompose.tsx`: při `specError` hláška „Uložené zadání sektoru se nepodařilo načíst: … Načtěte ho
+  znovu tlačítkem v ‚Zadání pro práci‘ výše.“ (role=alert), bez pole a bez Kopírovat; test; README.
+
+**Důkaz po opravě (stejný mock, `blocked: []`, log: fail s4 → pass s4 → hold s1 → fail s4 → release s1 → respond s1 → pass s4):**
+
+| krok | editor | rozkladač |
+|---|---|---|
+| 1 sektor 1 načten | Uloženo · verze 1, pole editovatelná | zadání `d0056159` + Kopírovat |
+| 2 klik sektor 4, GET 500 | alert, tlačítko „Načíst zadání znovu“, pole disabled, bez Uložit | **chyba** (alert), bez pole, bez Kopírovat, bez „Načítám“ |
+| 3–4 „Načíst zadání znovu“, GET prochází | bez alertu, pole editovatelná | „chybí cíl a podmínky“ (sektor 4 má prázdné zadání) |
+| 5 klik sektor 1, odpověď držená | Načítám zadání… | Načítám… |
+| 6 klik sektor 4, GET 500, sektor 1 stále držen | alert | chyba |
+| 7 uvolněna opožděná odpověď sektoru 1 | **beze změny** (alert) | **beze změny** (chyba), žádný starý rozklad |
+| 8 „Načíst zadání znovu“ | bez alertu | „chybí cíl a podmínky“ |
+| 9 návrat na sektor 1 | Uloženo · verze 1 | zadání `d0056159` + Kopírovat |
+
+**Ověření:** cílené testy 260 zelených (exit 0), tsc exit 0, `npm run build` exit 0, `npm test -- --run` exit 0
+(**1 238 zelených, 179 souborů**). Backend nedotčen. Kritik: viz níže.
+
+**Ponecháno (mimo minimum):** status editoru při chybě říká „Zadání zatím nebylo uloženo“ vedle alertu; přesnější by
+bylo „Zadání se nepodařilo načíst“. Návrh na další dávku, nemění fail-closed chování.
+**Kritik B5 (ChatGPT přes Codex, 3 nálezy):** 1 bez blokujícího nálezu; 3 (jednoznačný odkaz na tlačítko)
+zapracováno jako korekce 2/2: hláška rozkladače teď říká „Použijte tlačítko ‚Načíst zadání znovu‘ v části
+‚Zadání pro práci‘ výše.“; 2 (stavový regresní test chyba → klik → úspěch, zachování draftu, chyba uložení)
+**BLOCKED**: bez DOM prostředí (jsdom/happy-dom zakázány) nejde v tomto repu napsat; v prohlížeči doloženo
+chyba → klik → úspěch (tabulka výše), zachování neprázdného draftu a chyba uložení při načteném zadání
+v prohlížeči neověřeny (limit 2 korekcí) – návrh na další dávku.
+
+Checkpoint B5 (11:25 podle hodin nástroje): po korekci 2 cílené testy 260 (exit 0), tsc exit 0, build exit 0,
+`npm test -- --run` exit 0 (**1 238 zelených, 179 souborů**). NEcommitováno, nic ve stage. Vlastní změněné soubory:
+`frontend/editor/node-detail/assignment/components/NodeSpecEditor.tsx`, `frontend/editor/node-detail/components/NodePanel.tsx`,
+`frontend/editor/sector-detail/components/SectorDecompose.tsx`, `frontend/editor/sector-detail/components/SectorDecompose.test.ts`,
+`frontend/editor/sector-detail/README.md`, tento handoff.

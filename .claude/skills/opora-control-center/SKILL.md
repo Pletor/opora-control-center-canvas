@@ -78,6 +78,9 @@ etapy pipeline, vazba a řízení hooků. Pravidlo od agenta je jen **návrh**, 
 | grilling, wayfinder, mód Výběr, brána sektoru | — | [workflow.md](references/workflow.md) |
 | rozdělit hledání a zadání subagentům (asistent v okně) | `Agent` → `opora-hledac`, `opora-dohledavac`, `opora-zadavatel`, `opora-oponent`; nálezy do Schránky | [workflow.md](references/workflow.md) „Router a subagenti“ |
 | změna směru zadání | duel: `/api/brief-vault` `op: duel-open` → `duel-turn` → `duel-decide` (každý zápis schvaluje člověk) | [workflow.md](references/workflow.md), `docs/schranka-duel.md` |
+| storyboard karty (momenty, komentáře a šipky člověka) | číst z `node-brief.storyboard`; měnit jen `/api/storyboard` (`expected_revision`, zápis schvaluje člověk) | [storyboard.md](references/storyboard.md) |
+| skica momentu storyboardu (Excalidraw) | číst `opora_read.py drawing --layer sb/<nodeId>/<momentId>`; měnit jen `/api/drawing` (zápis schvaluje člověk) | [storyboard.md](references/storyboard.md) |
+| vytvořit nebo upravit animaci (vlastní kód) | `/api/storyboard` s `animation: "kod"` a `code.source`; nový komentář člověka je tvůj další tah | [storyboard.md](references/storyboard.md) |
 | proč mi hook zakázal nástroj | ACK revize, scope cest | [hooks.md](references/hooks.md) |
 | velký projekt, mapy | `index` → `rank`; Graphify, Archify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [archify.md](references/archify.md), [map-refresh.md](references/map-refresh.md) |
 | podklady pro externího agenta | `snapshot --id` | [external-agent.md](references/external-agent.md) |
@@ -88,7 +91,7 @@ Zápisové cesty `opora_write.py` (jiné skript nepustí): `/api/canvas-plan`, `
 `/api/graph`, `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/block`, `/api/desktop-v3/agent-output`,
 `/api/desktop-v3/agent-workspace`, `/api/desktop-v3/lease`, `/api/desktop-v3/assignment-snapshot`,
 `/api/desktop-v3/pipeline`, `/api/desktop-v3/rule`, `/api/desktop-v3/decision`, `/api/desktop-v3/realize-source`,
-`/api/desktop-v3/state`, `/api/canvas-versions`, `/api/brief-vault`. Payloady: [api.md](references/api.md).
+`/api/desktop-v3/state`, `/api/canvas-versions`, `/api/brief-vault`, `/api/storyboard`, `/api/drawing`. Payloady: [api.md](references/api.md).
 
 ## Pravidla efektivity
 

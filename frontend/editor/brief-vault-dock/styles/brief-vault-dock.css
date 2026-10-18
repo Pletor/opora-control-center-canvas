@@ -2,20 +2,52 @@
    Příběh: schránka není úzká záložka karty, ale místo, kde se zadání vyvíjí, a proto má vlastní položku
    v menu a široký panel vedle lišty. Nahoře stojí přepínač disciplín, protože kreslení, logika a provoz
    se vyvíjejí odděleně a člověk má vždy vidět, ve které disciplíně je. Pod ním vlevo klidné
-   menu se skupinami Plán · Vývoj · Know-how · Historie a počty (kde je práce), vpravo jedna sekce naplno.
+   menu se skupinami Plán · Vývoj · Směr · Know-how · Historie a počty (kde je práce), vpravo jedna sekce naplno.
    Člověk se zorientuje podle menu, ne podle scrollu; plátno vpravo od panelu zůstává vidět. */
 .vault-dock { display: flex; flex-direction: column; height: 100%; min-height: 0; color: var(--ink); }
 .vault-dock__frame { flex: 1; display: flex; min-height: 0; }
 
-/* Přepínač disciplín: tři skupiny vedle sebe (Kreslení · Logika · Provoz), každá s tichým nadpisem
-   a pilulkami jen těch disciplín, které už mají živý fragment; spící skupina řekne „spí“ a nezabírá místo.
-   „Nezařazené“ stojí vpravo stranou, protože to není disciplína, ale dluh z doby před disciplínami. Vybraná
-   pilulka je plná akcentem, v každé tichý počet fragmentů. Řada má stejné odsazení jako menu pod ní. */
+/* Přepínač disciplín: tři hlavičky vedle sebe (Kreslení · Logika · Provoz) jako záložky. Rozbalená je jen
+   skupina vybrané disciplíny – člověk vidí jen to, co si vybral, ne sedmnáct pilulek najednou; ostatní
+   hlavičky nesou tichý počet zapnutých neuronů (spící „spí“) a červený odznak, kolik věcí tam čeká na něj.
+   Pilulka „Čeká na tebe“ vpravo proklikává disciplíny s čekající věcí; „Nezařazené“ stojí úplně vpravo,
+   protože to není disciplína, ale dluh z doby před disciplínami. Vybraná pilulka je plná akcentem, v každé
+   tichý počet fragmentů. Řada má stejné odsazení jako menu pod ní. */
 .vault-dock__disciplines { flex: none; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
 .vault-dock__discipline-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .vault-dock__discipline-group--end { margin-left: auto; }
 .vault-dock__discipline-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
-.vault-dock__discipline-sleep { font-size: 11px; color: var(--ink-muted); font-style: italic; }
+.vault-dock__discipline-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.vault-dock__discipline-head:hover:not(:disabled) { color: var(--ink); }
+.vault-dock__discipline-head[aria-expanded="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.vault-dock__discipline-head:disabled { cursor: default; font-style: italic; text-transform: none; letter-spacing: 0; }
+.vault-dock__waiting-badge {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--danger, #c23);
+  color: #fff;
+  font: 600 10px var(--mono);
+  line-height: 16px;
+  text-align: center;
+}
+.vault-dock__discipline--waiting { border-color: var(--danger, #c23); color: var(--ink); }
 .vault-dock__discipline {
   display: inline-flex;
   align-items: center;

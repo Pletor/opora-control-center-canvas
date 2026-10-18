@@ -81,7 +81,8 @@ def test_everything_else_is_denied_without_ui(command):
 def test_other_tools_are_denied_without_ui():
     for tool in ("Edit", "Write", "NotebookEdit", "PowerShell", "WebFetch"):
         request = {"subtype": "can_use_tool", "tool_name": tool, "input": {"command": WRITE}}
-        assert approvals.classify(request) == ("auto_deny", approvals.AUTO_DENY_MESSAGE)
+        kind, message = approvals.classify(request)
+        assert kind == "auto_deny" and message.startswith(approvals.AUTO_DENY_MESSAGE)
     assert approvals.classify(None)[0] == "auto_deny"
     assert approvals.classify({"tool_name": "Bash", "input": "x"})[0] == "auto_deny"
 
@@ -179,7 +180,8 @@ def plan_command(path, route="/api/canvas-plan"):
 
 
 def deny_write(path, drafts_dir, content="{}"):
-    return approvals.classify(write(path, content), drafts_dir) == ("auto_deny", approvals.AUTO_DENY_MESSAGE)
+    kind, message = approvals.classify(write(path, content), drafts_dir)
+    return kind == "auto_deny" and message.startswith(approvals.AUTO_DENY_MESSAGE) and "*.json" in message
 
 
 def test_plan_summary_counts_what_the_batch_adds():
@@ -351,3 +353,40 @@ def test_brief_vault_duel_summary_names_subject_and_both_sides():
     assert "A" * 81 not in opened
     turn = approvals.brief_vault_summary({"op": "duel-turn", "fragmentId": "f1", "text": "x"})
     assert turn.startswith("Duel (duel-turn): f1")
+
+
+def test_storyboard_write_is_asked_with_moment_count_and_delete_summary():
+    assert "/api/storyboard" in approvals.WRITE_ROUTES and "/api/storyboard" not in approvals.NO_PROMPT_ROUTES
+    saved = approvals.summary_of("/api/storyboard", {"nodeId": "n1", "expected_revision": 2,
+                                                     "storyboard": {"title": "Odraz", "moments": [{}, {}, {}]}})
+    assert saved == "Storyboard n1 · 3 momentů · Odraz"
+    assert approvals.summary_of("/api/storyboard", {"nodeId": "n1", "expected_revision": 2, "storyboard": None}) == "Storyboard n1 · smazat"
+
+
+def test_drawing_write_is_asked_and_sketch_is_named():
+    assert "/api/drawing" in approvals.WRITE_ROUTES and "/api/drawing" not in approvals.NO_PROMPT_ROUTES
+    scene = {"elements": [{}, {}, {}]}
+    assert approvals.summary_of("/api/drawing", {"layer": "sb/n1/m-3f9a1c2e", "scene": scene}) == "Skica sb/n1/m-3f9a1c2e · 3 prvků"
+    assert approvals.summary_of("/api/drawing", {"layer": "n1", "scene": scene}) == "Kresba n1 · 3 prvků"
+    assert approvals.summary_of("/api/drawing", {"layer": "", "scene": {"elements": []}}) == "Kresba kořen · 0 prvků"
+
+
+def test_storyboard_summary_code_lines_and_answered():
+    text = approvals.summary_of("/api/storyboard", {"nodeId": "n1", "expected_revision": 0, "storyboard": {
+        "animation": "kod", "title": "T", "code": {"source": "a\nb\nc"}, "moments": [{"answered": True}, {}, {"answered": True}]}})
+    assert text.endswith("· kód animace: 3 řádků · odpovězeno: 2")
+
+
+def test_storyboard_summary_names_web_scene():
+    from backend.claude_code.assistant.approvals import storyboard_summary
+
+    text = storyboard_summary({"nodeId": "n1", "storyboard": {"animation": "scena", "title": "Web", "moments": [{}, {}],
+                                                              "scene": {"html": "<html>" * 3000, "layers": [{"id": "a"}, {"id": "b"}]}}})
+    assert "webová scéna: 18 kB, 2 vrstev" in text and "2 momentů" in text
+
+
+def test_non_json_write_denial_names_drafts_dir(tmp_path):
+    from backend.claude_code.assistant.approvals import classify
+
+    kind, message = classify({"tool_name": "Write", "input": {"file_path": str(tmp_path / "scene.html"), "content": "<html>"}}, str(tmp_path))
+    assert kind == "auto_deny" and str(tmp_path) in message and "*.json" in message and "--json-file" in message

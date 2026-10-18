@@ -10,7 +10,7 @@ Brány cyklu v detailu fragmentu Schránky, **jen zobrazení** (kontrakt `docs/s
 
 **Logika** (`logic/`, test vedle)
 
-- `gate-view.ts` — `roundLine` / `blockReason` (kolo N/3, „vyčerpáno – čeká na člověka“, krátký důvod čekání), rozpad `blockedBy` ve `queueText`, `payloadLines`, `whoLabel`, `proposalStatus`, `gateRows` (zapnutá / zneplatněná / další na řadě / proč stojí), `deadEndReason`, tvar odpovědi `/next` a `queueText`.
+- `gate-view.ts` — `roundLine` / `blockReason` (kolo N/3, „vyčerpáno – čeká na člověka“, krátký důvod čekání), rozpad `blockedBy` ve `queueText` (otevřený duel jako hlava fronty: „Na řadě duel: …“, blokace „čeká na duel N“), `payloadLines`, `whoLabel`, `proposalStatus`, `gateRows` (zapnutá / zneplatněná / další na řadě / proč stojí), `deadEndReason`, tvar odpovědi `/next` a `queueText`.
 
 Titulky bran a pruh teček ve stromu jsou sdílené v `frontend/editor/node-detail/brief-vault/logic/gate-bar.ts`. Jednorázové nastavení „Povolit kontrolu bran Jev pro projekt“ je mimo tok, v Přehledu Schránky (`../components/JevGateCheckSetting.tsx`).
 

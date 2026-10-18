@@ -1,4 +1,5 @@
 import os
+import re
 import sqlite3
 from contextlib import asynccontextmanager
 
@@ -14,6 +15,8 @@ from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
 from backend.api.editor.brief_vault_check_routes import create_brief_vault_check_router
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
+from backend.api.editor.storyboard_routes import create_storyboard_router
+from backend.editor.storyboard.storyboard import StoryboardService
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
 from backend.api.editor.claude_code_routes import create_claude_code_router
@@ -37,6 +40,8 @@ from backend.api.project.project_work_status_routes import create_project_work_s
 from backend.api.project.project_workspace_routes import create_project_workspace_router
 from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
+from backend.app.embed_origins import ENV_NAME as EMBED_ORIGINS_ENV
+from backend.app.embed_origins import frame_policy, parse_embed_origins
 from backend.app.human_session import HumanSession
 from backend.app.remote_access import (
     COOKIE_NAME,
@@ -74,6 +79,9 @@ from backend.project.worktrees.workspace_archive import WorkspaceArchive
 from backend.semantic_retrieval.service import SemanticRetrieval
 
 
+WORKER_SCRIPT = re.compile(r"/assets/code-animation\.worker-[A-Za-z0-9_-]+\.js")
+
+
 def create_app(data_root=None):
     service = CanvasService(data_root or os.environ.get("OPORA_CANVAS_DATA", ".data/production"))
 
@@ -86,7 +94,10 @@ def create_app(data_root=None):
     service.memory_service = memory_service
     desktop_packets = DesktopV3Packets(service, desktop_state)
     agent_messages = MessageStore(service, desktop_state)
-    node_briefs = NodeBrief(service, desktop_state, agent_messages, memory_service=memory_service)
+    storyboards = StoryboardService(service)
+    service.sketch_layers_provider = storyboards.sketch_layers
+    service.sketch_stale_callback = storyboards.mark_sketch_stale
+    node_briefs = NodeBrief(service, desktop_state, agent_messages, memory_service=memory_service, storyboard=storyboards)
     agent_output = AgentOutput(service, desktop_state)
     block_access = BlockAccess(service, desktop_state)
     agent_workspace = AgentWorkspace(service, desktop_state)
@@ -96,6 +107,8 @@ def create_app(data_root=None):
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
+    # Rámování jen pro původy z [app] embed_origins; prázdné = DENY jako dřív (backend/app/embed_origins.py).
+    frame_options, frame_ancestors = frame_policy(parse_embed_origins(os.environ.get(EMBED_ORIGINS_ENV, "")))
     # Asistent: Claude Code pod předplatným, proces spouští jen zpráva člověka (docs/asistent.md).
     # Skill v jeho procesu čte plátno této instance, ne pevného portu 8740 (§13.1).
     # Směrovač Jev (§13.2): klíč se čte při každé zprávě, takže zapnutí platí bez restartu.
@@ -111,7 +124,7 @@ def create_app(data_root=None):
                              evaluate=lambda state, questions: jev_evaluate(state, questions, key=key))
 
     assistant = AssistantManager(service.root, project_locator(service), base_url=f"http://127.0.0.1:{port}",
-                                 route_hint=route_hint,
+                                 route_hint=route_hint, route_provider=jev_provider,
                                  instructions=lambda: app_settings.assistant_instructions()["text"],
                                  agents=load_agents)
 
@@ -187,11 +200,16 @@ def create_app(data_root=None):
         if request.method not in ("GET", "HEAD") and request.url.path.startswith("/api"):
             _log_activity(request, response.status_code)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        if frame_options:
+            response.headers["X-Frame-Options"] = frame_options
         response.headers["Referrer-Policy"] = "no-referrer"
         # Obrázky jen z vlastního původu, data:/blob: a https (upgrade-opora #42); http beacon ani <object> ne.
-        baseline_csp = "img-src 'self' data: blob: https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        baseline_csp = "img-src 'self' data: blob: https:; object-src 'none'; base-uri 'self'; " + frame_ancestors
         route_csp = response.headers.get("Content-Security-Policy")
+        if WORKER_SCRIPT.fullmatch(request.url.path):
+            # Worker kódu animace (docs/storyboard-karty.md): převzatý modul smí importovat jen z blob:, vnořený Worker
+            # jen z blob: (dědí tuto CSP) a nemá síť. Vypnuté fetch v kódu je jen druhá pojistka; tohle hlídá prohlížeč.
+            route_csp = "default-src 'none'; script-src blob:; worker-src blob:; connect-src 'none'"
         response.headers["Content-Security-Policy"] = (route_csp + ", " + baseline_csp) if route_csp else baseline_csp
         if request.url.path.startswith("/api"):
             response.headers["Cache-Control"] = "no-store"
@@ -244,6 +262,7 @@ def create_app(data_root=None):
     app.include_router(create_project_architecture_router(service))
     # prostředí Editor
     app.include_router(create_canvas_router(service))
+    app.include_router(create_storyboard_router(storyboards))
     app.include_router(create_canvas_version_router(service, desktop_state))
     app.include_router(create_activity_log_router(activity_log))
     app.include_router(create_node_router(service))

@@ -119,6 +119,16 @@
   box-shadow: none;
 }
 .map-card__area-add { flex-shrink: 0; padding: 3px 8px; color: var(--tone); font-size: 11px; }
+/* Vybraná oblast ukáže tahadla: tenká jantarová linka po obvodu a malé kulaté úchyty v rozích
+   a na hranách, aby šel rámeček roztáhnout, když se do něj další sektory už nevejdou. */
+.map-card__resize-line { border-color: var(--ae-tone-area); border-width: 1px; }
+.map-card__resize-handle {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--ae-tone-area);
+  border-radius: 50%;
+  background: #101d29;
+}
 
 /* Komentář je jen poznámka bez portů, šedá, aby nesoupeřil s kartami. */
 .map-card--comment { --tone: var(--ae-line); min-height: 60px; }

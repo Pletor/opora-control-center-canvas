@@ -1,0 +1,111 @@
+/* DUEL O SMĚR (blok duel, docs/schranka-duel.md §4)
+   Příběh: člověk tu nevyplňuje formulář, ale vstupuje do rozhovoru agentů jako do terminálu. Sekce je proto
+   jeden sloupec od shora dolů: co se rozhoduje (představa, nebo dvojice A a B), pod tím výměny v čase jako
+   výpis konverzace a úplně dole jediný vstup s výzvou ›. Písmo stopy je klidné, čísla a id ve strojovém písmu,
+   aby se na #id dalo odkázat přesně tím, co je vidět. Vstup drží dno panelu, ať je vždy po ruce. */
+.duel { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.duel__body { flex: 1; min-height: 0; }
+.duel__empty { color: var(--ink-muted); font-size: 13px; }
+.duel__error { margin: 4px 0 0; color: var(--danger); font-size: 12px; }
+/* Hlášení po zápisu (poučení z rozhodnutého duelu, nebo proč se nezapsalo): tichý řádek nad stopou. */
+.duel__notice { margin: 0; color: var(--ink-2); font-size: 12px; }
+
+/* Představa nad seznamem: jedna věta toho, kam projekt míří, a pod ní tichý řádek trendu, jestli se k ní
+   přibližujeme. Stojí nahoře, protože každý duel se nakonec měří proti ní. */
+.duel__vision { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); font-size: 13px; }
+.duel__vision-trend { margin-top: 4px; color: var(--ink-muted); font-size: 12px; }
+
+/* Seznam duelů: řádek na duel, název vlevo, stav a P vpravo ve strojovém písmu, aby se procenta pod sebou
+   dala porovnat. Rozhodnuté duely jsou ztlumené, otevřené nahoře. */
+.duel__list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.duel__list-item { display: flex; gap: 12px; align-items: baseline; width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.duel__list-item:hover { border-color: var(--accent-line); }
+.duel__list-item--decided { color: var(--ink-muted); }
+.duel__list-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.duel__list-status { color: var(--ink-muted); font-size: 12px; }
+.duel__list-p { font: 600 12px var(--mono); }
+
+/* Lišta otevřeného duelu: návrat k seznamu a název; nic dalšího, rozhodování jde slovem ve vstupu. */
+.duel__bar { display: flex; gap: 10px; align-items: center; }
+.duel__back { padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--ink-2); font: inherit; font-size: 12px; cursor: pointer; }
+.duel__bar-title { font-size: 14px; }
+
+/* Stopa vlevo, ukazatel vpravo: oko čte rozhovor a na okraji vidí, kam se váhy zrovna naklánějí.
+   Na úzkém panelu se ukazatel přesune nad stopu. */
+.duel__layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 14px; align-items: start; }
+@media (max-width: 900px) { .duel__layout { grid-template-columns: 1fr; } .duel__odds { order: -1; } }
+.duel__stream { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+/* A a B jako dvě karty vedle sebe: A má tichý okraj (platí), B akcent (chce změnu). Důkazní břemeno
+   nese B, proto je vizuálně ta, která „vstupuje“. */
+.duel__sides { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.duel__side { padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 8px; }
+.duel__side--b { border-color: var(--accent-line); background: var(--accent-soft); }
+.duel__side-head { font: 600 11px var(--mono); color: var(--ink-muted); letter-spacing: 0.04em; }
+.duel__side-text { margin: 4px 0 0; font-size: 13px; white-space: pre-wrap; }
+/* Výsledek duelu: první řádek tučně řekne, kdo vyhrál a zda to už platí. „Platí od teď“ zazní jen po skutečném
+   uplatnění; když se nový směr neuplatnil, věta nese důvod serveru a zčervená, aby si člověk nemyslel, že agenti
+   už jedou novým směrem. Druhý řádek „uplatněno“ jen při skutečném zápisu, třetí drobně sílu argumentů a případné
+   přebití člověkem. Nový směr má akcentní linku, protože mění práci agentů; zůstává-li A, linka je tichá. */
+.duel__decision { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 6px 10px; border-left: 3px solid var(--gold);
+  background: var(--gold-soft); font-size: 13px; }
+.duel__decision--adopt { border-left-color: var(--accent); }
+.duel__decision--keep { border-left-color: var(--line-strong); }
+.duel__decision-outcome { white-space: pre-wrap; }
+.duel__decision-outcome--unapplied { color: var(--danger); }
+.duel__decision-applied { font-size: 12px; color: var(--ink-2); }
+.duel__decision-detail { font-size: 11px; color: var(--ink-muted); }
+
+/* Výměny jako výpis terminálu: hlavička řádku (#id, strana, druh, autor, čas) drobně a strojově, text pod ní.
+   Barevná linka vlevo řekne stranu dřív, než člověk přečte písmeno: A tichá, B akcent, člověk a soudce zlatá. */
+.duel__trail { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.duel__turn { padding: 4px 0 4px 10px; border-left: 2px solid var(--line-strong); }
+.duel__turn--B { border-left-color: var(--accent); }
+.duel__turn--human, .duel__turn--judge { border-left-color: var(--gold); }
+.duel__turn-head { display: flex; flex-wrap: wrap; gap: 8px; font: 11px var(--mono); color: var(--ink-muted); }
+.duel__turn-id { color: var(--ink-2); }
+.duel__turn-who { margin-left: auto; }
+.duel__turn-text { margin: 2px 0 0; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.duel__evidence { margin: 4px 0 0; padding-left: 16px; font-size: 12px; color: var(--ink-2); }
+.duel__turn-score { margin-top: 2px; font: 11px var(--mono); color: var(--ink-muted); }
+
+/* Ukazatel síly argumentů pro B: velké číslo je nekalibrovaná heuristika ze skóre soudců, ne pravděpodobnost,
+   proto popisek říká „nekalibrovaná“ a vysvětlení je v title. Pod ním pruh se dvěma ryskami (40 % a 75 %), aby bylo vidět, jak daleko je
+   každý práh. Barva pruhu říká, kam duel míří: zůstává A (tichá), syntéza (zlatá), platí B (akcent). Rozpad
+   pod tím řadí výměny podle vlivu, každá s důvodem, takže výsledek jde obhájit. */
+.duel__odds { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.duel__odds-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--ink-muted); }
+.duel__odds-p { font: 700 22px var(--mono); color: var(--ink); }
+.duel__odds-p--adopt { color: var(--accent); }
+.duel__odds-p--synthesis { color: var(--gold); }
+.duel__meter { position: relative; height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.duel__meter-fill { height: 100%; background: var(--ink-muted); }
+.duel__meter-fill--adopt { background: var(--accent); }
+.duel__meter-fill--synthesis { background: var(--gold); }
+.duel__meter-mark { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink); opacity: 0.6; }
+.duel__odds-line { font-size: 12px; color: var(--ink-2); }
+/* „Na tahu“ je pokyn, co napsat dál, proto je v plné barvě písma, ne ztlumený jako ostatní čísla. */
+.duel__odds-line--turn { color: var(--ink); }
+.duel__odds-line--trend { padding-top: 6px; border-top: 1px solid var(--line); color: var(--ink-muted); }
+.duel__contributions { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.duel__contribution { display: flex; flex-wrap: wrap; gap: 4px 8px; font: 11px var(--mono); color: var(--ink-2); }
+.duel__contribution-delta { font-weight: 700; }
+.duel__contribution-delta--b { color: var(--accent); }
+.duel__contribution-delta--a { color: var(--ink); }
+.duel__contribution-reason { flex-basis: 100%; font-family: inherit; color: var(--ink-muted); }
+
+/* Vstup jako příkazová řádka: výzva › vlevo, pole přes celou šířku, pod ním chyba a jeden tichý řádek nápovědy.
+   Žádná tlačítka: Enter odešle, Shift+Enter zalomí. */
+.duel__input { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.duel__prompt { padding-top: 6px; font: 700 14px var(--mono); color: var(--accent); }
+.duel__field { width: 100%; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field);
+  color: var(--ink); font: 13px var(--mono); resize: vertical; }
+.duel__input .duel__error, .duel__input .duel__help { grid-column: 2; }
+.duel__help { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 0; font-size: 11px; color: var(--ink-muted); }
+
+/* „Další příkazy“: méně častá slova se schovají pod rozbalení, aby řádek nápovědy zůstal krátký. Je to
+   jen odhalení textu, ne akce, proto vypadá jako tichý odkaz. */
+.duel__more { font-size: 11px; }
+.duel__more-toggle { cursor: pointer; color: var(--ink-2); text-decoration: underline dotted; }
+.duel__more-list { margin: 4px 0 0; padding-left: 16px; font-family: var(--mono); }

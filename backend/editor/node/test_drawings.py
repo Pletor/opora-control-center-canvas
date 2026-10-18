@@ -99,7 +99,7 @@ def test_invalid_scene_does_not_create_revision(tmp_path, scene):
 
 
 IMAGE = {**ELEMENT, "id": "image-1", "type": "image", "fileId": "file-1", "status": "saved", "scale": [1, -1], "crop": None}
-PNG_URL = "data:image/png;base64," + base64.b64encode(b"png-bytes").decode()
+PNG_URL = "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"png-bytes").decode()
 
 
 def test_image_element_saves_after_its_file_is_uploaded_and_reloads(tmp_path):

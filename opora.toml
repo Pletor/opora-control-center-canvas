@@ -9,6 +9,8 @@ data = ".data/production"      # adresář s registry.sqlite, projekty a snímky
                                # (kratší cesty pro worktree): přesun přes tools/move_data_root.py, cíl v opora.local.toml
 open_browser = true            # po startu otevřít http://host:port
 title = "Opora Canvas"
+embed_origins = []             # přesné původy, které smí Oporu vložit do <iframe>; prázdné = zakázáno (DENY)
+                               # příklad pro agent-office (v opora.local.toml): ["http://localhost:4600"]
 
 [build]
 frontend = "auto"              # auto = sestavit, když dist/ chybí nebo je starší než frontend/; always; never

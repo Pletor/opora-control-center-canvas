@@ -53,6 +53,21 @@ def test_invalid_upload_is_rejected(tmp_path, file):
         assert upload(client, file).status_code == 409
 
 
+def test_content_must_match_mime_and_same_id_with_other_bytes_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="neodpovídá udanému typu"):
+        decode_file(image(data=b"\x00" * 24))
+    with pytest.raises(ValueError, match="neodpovídá udanému typu"):
+        decode_file(image(mime="image/jpeg", data=PNG))
+    assert decode_file(image(mime="image/webp", data=b"RIFF\x00\x00\x00\x00WEBPVP8 "))[1] == "image/webp"
+    assert decode_file(image(mime="image/jpeg", data=b"\xff\xd8\xff\xe0" + b"\x00" * 8))[1] == "image/jpeg"
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        assert upload(client, image()).status_code == 200
+        other = upload(client, image(data=PNG + b"\x01"))
+        assert other.status_code == 409 and "jiným obsahem" in other.json()["error"]
+        files = client.get("/api/drawing-files", params={"project": "draft", "workspace": "draft", "ids": "img-1"}).json()["files"]
+        assert base64.b64decode(files[0]["dataURL"].split(",", 1)[1]) == PNG
+
+
 def test_oversized_file_is_rejected_before_storage():
     with pytest.raises(ValueError):
         decode_file(image(data=b"\x00" * (MAX_FILE_BYTES + 1)))
@@ -60,7 +75,7 @@ def test_oversized_file_is_rejected_before_storage():
 
 def test_large_but_allowed_body_passes_the_request_boundary(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
-        assert upload(client, image(data=b"\x01" * (5 * 1024 * 1024))).status_code == 200
+        assert upload(client, image(data=PNG + b"\x01" * (5 * 1024 * 1024))).status_code == 200
 
 
 def test_id_list_is_limited_and_validated():

@@ -13,6 +13,8 @@ Dostaneš: `draftsDir`, projekt a workspace, text fragmentu Schránky (cíl člo
 2. Přečti stávající kartu (`opora_read.py node-brief --raw`), aby zadání navazovalo a nic nepřepisovalo.
 3. Slož koncept. Každé tvrzení má `sourceRef` (karta, soubor:řádek, URL). Co nejde doložit, patří do `open_questions`, ne do `goal`.
 
+Zadání animace má odkazovat na storyboard karty (`node-brief.storyboard`) a nepřepisovat momenty do textu.
+
 Koncept ulož jako `<draftsDir>/zadani-<nodeId|new>-<čas>.json`:
 
 ```json

@@ -1,13 +1,16 @@
 // Zápisy a doplňková čtení Schránky. Každý zápis jde přes POST /api/brief-vault (op), server hlídá
 // guardy člověka (set-mvp, feedback, odpověď pro člověka) a po zápisu se obnoví sdílený strom pro všechna místa.
+// Zápis se hlásí koordinátoru ukládání jako vlastní (`trackSaveWrite`): Schránka je součástí otisku uložené verze,
+// takže bez toho by lišta verzí po každém zápisu ukázala „Změna mimo toto okno · načíst“.
 import { useEffect, useState } from "react";
 import { api } from "@/shared/types/logic/types";
+import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import { reloadBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
 
 export type VaultScope = { project: string; workspace: string };
 
 export async function vaultOp<T = Record<string, unknown>>(scope: VaultScope, body: Record<string, unknown>): Promise<T> {
-  const result = await api<T>("/api/brief-vault", { ...scope, ...body });
+  const result = await trackSaveWrite(scope.project, scope.workspace, api<T>("/api/brief-vault", { ...scope, ...body }));
   await reloadBriefVault(scope.project, scope.workspace);
   return result;
 }

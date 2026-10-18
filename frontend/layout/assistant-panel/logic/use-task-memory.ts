@@ -5,12 +5,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AssistantSession } from "./assistant-api";
 import type { Conversation } from "./assistant-events";
 import type { PastedBlock } from "./pasted-blocks";
+import { applyStartDraft } from "./start-draft";
 import { buildTasks, nextSeen, previewOf, type SeenMap, type TaskView } from "./task-overview";
 
 export type TaskMemory = {
   tasks: TaskView[];
   draft: string;
   setDraft: (id: string, text: string) => void;
+  /** Předvyplní koncept jen tam, kde je prázdný. */
+  prefillDraft: (id: string, text: string) => void;
   /** Po přijetí zprávy smaže koncept, jen pokud ho uživatel mezitím nepřepsal. */
   clearDraft: (id: string, sent: string) => void;
   pasted: PastedBlock[];
@@ -51,6 +54,7 @@ export function useTaskMemory(sessions: AssistantSession[], activeId: string | n
   }, [sessions, activeId, conv.state, conv.items, live, seen, previews, now]);
 
   const setDraft = useCallback((id: string, text: string) => setDrafts((d) => ({ ...d, [id]: text })), []);
+  const prefillDraft = useCallback((id: string, text: string) => setDrafts((d) => ({ ...d, [id]: applyStartDraft(d[id], text) })), []);
   const clearDraft = useCallback(
     (id: string, sent: string) => setDrafts((d) => ((d[id] ?? "").trim() === sent ? { ...d, [id]: "" } : d)),
     [],
@@ -68,6 +72,7 @@ export function useTaskMemory(sessions: AssistantSession[], activeId: string | n
     tasks,
     draft: activeId ? drafts[activeId] ?? "" : "",
     setDraft,
+    prefillDraft,
     clearDraft,
     pasted: activeId ? pastes[activeId] ?? NO_BLOCKS : NO_BLOCKS,
     setPasted,
