@@ -83,6 +83,7 @@ def test_full_turn_maps_events_and_stores_session(manager):
     accepted = manager.send(sid, "Co dál s kartou?", context)
     assert accepted == {"seq": 1, "type": "message", "role": "user", "text": "Co dál s kartou?"}
     idle_after_turn(manager, sid)
+    assert manager.session(sid)["metrics"]["completed"] == 1
     assert types(manager, sid) == ["message", "status", "text_delta", "message", "turn_end", "status"]
     events = manager.events(sid)[0]
     assert [event["seq"] for event in events] == [1, 2, 3, 4, 5, 6]
@@ -257,7 +258,7 @@ def test_router_hint_reaches_cli_and_telemetry_has_no_text(tmp_path):
         seen.append(text)
         return {"sources": ["code"], "needsLookup": 0.9}
 
-    manager = make(tmp_path, route_hint=route_hint)
+    manager = make(tmp_path, route_hint=route_hint, route_provider="celeris")
     try:
         sid = manager.create("p1")["id"]
         manager.send(sid, "Kde je login?", {"projectId": "p1"})
@@ -266,6 +267,9 @@ def test_router_hint_reaches_cli_and_telemetry_has_no_text(tmp_path):
         router = [e["router"] for e in events if e["type"] == "status" and "router" in e]
         assert router[0]["sources"] == ["code"] and "ms" in router[0]
         assert "Kde je login" not in str(router)
+        stored = manager.session(sid)["metrics"]["router"]
+        assert stored["provider"] == "celeris"
+        assert stored["sources"] == ["code"]
         reply = assistant_texts(manager, sid)[0]
         assert '"hint":{"sources":["code"],"needsLookup":0.9}' in reply and "Relevantní podklad: code." in reply
         manager.send(sid, "/grill-me plán")
@@ -433,7 +437,7 @@ def test_write_outside_drafts_is_denied_without_ui(manager, tmp_path):
     sid = manager.create("p1")["id"]
     manager.send(sid, "ESCAPE")
     idle_after_turn(manager, sid)
-    assert assistant_texts(manager, sid)[-1] == "write denied: Asistent zapisuje jen na plátno přes opora_write.py."
+    assert assistant_texts(manager, sid)[-1].startswith("write denied: Asistent zapisuje jen na plátno přes opora_write.py. Soubor smí být jen koncept *.json")
     approval = approvals_of(manager, sid)[0]
     assert approval["auto"] is True and approval["tool"] == "Write"
     assert not (tmp_path / "data" / "assistant-drafts" / "escape.json").exists()
@@ -466,3 +470,11 @@ def test_instructions_and_agents_are_written_and_passed_to_builder(tmp_path):
                         "agents_file": str(drafts / "agents.json")}
     finally:
         manager.close_all()
+
+
+def test_create_carries_sector_id(manager):
+    """Relace může patřit do sektoru (Kancelář); bez něj None, příliš dlouhé ID je chyba."""
+    assert manager.create("p1", sector_id="sektor-1")["sectorId"] == "sektor-1"
+    assert manager.create("p1")["sectorId"] is None
+    with pytest.raises(AssistantError):
+        manager.create("p1", sector_id="x" * 200)

@@ -19,6 +19,7 @@ import uuid
 from pathlib import Path
 
 from backend.claude_code.assistant import approvals
+from backend.claude_code.assistant.metrics import observe
 from backend.claude_code.assistant import command as cli
 from backend.claude_code.assistant.approval_book import ApprovalBook, ApprovalNotFound, Pending
 from backend.claude_code.assistant.context import (
@@ -62,7 +63,7 @@ class _Live:
 class AssistantManager:
     def __init__(self, data_root, locate, *, which=shutil.which, command_builder=cli.build_command,
                  environ=None, limits=None, clock=time.monotonic, home=None, version_probe=cli.claude_version,
-                 base_url=None, route_hint=None, route_timeout=4.0, instructions=None, agents=None):
+                 base_url=None, route_hint=None, route_timeout=4.0, instructions=None, agents=None, route_provider=None):
         self.registry = SessionRegistry(data_root)
         self._drafts_root = Path(data_root) / "assistant-drafts"
         self.locate = locate
@@ -72,6 +73,7 @@ class AssistantManager:
         self._base_url = base_url  # adresa vlastní instance pro skill (OPORA_BASE_URL, §13.1)
         # Směrovač Jev (§13.2): `route_hint(text, context)` → hint | None; bez něj zpráva jde beze změny.
         self._route_hint, self._route_timeout = route_hint, route_timeout
+        self._route_provider = route_provider
         # Pokyny a subagenti (§14): callable → text | None, callable → dict | None; čtou se při každém startu procesu.
         self._instructions, self._agents = instructions, agents
         self._versions = {}
@@ -126,7 +128,7 @@ class AssistantManager:
         return read_transcript(self._record(session_id).get("claudeSessionId"), self._home)
 
     # --- zápis -----------------------------------------------------------------------
-    def create(self, project, workspace=None, title=None, model=None, node_id=None):
+    def create(self, project, workspace=None, title=None, model=None, node_id=None, sector_id=None):
         model = model or cli.DEFAULT_MODEL
         if model not in cli.MODELS:
             raise AssistantError("Model asistenta je opus, sonnet nebo fable.")
@@ -134,8 +136,10 @@ class AssistantManager:
             raise AssistantError("Název session může mít nejvýše 120 znaků.")
         if node_id is not None and (not isinstance(node_id, str) or not 0 < len(node_id) <= 200):
             raise AssistantError("Karta session musí být platné ID uzlu.")
+        if sector_id is not None and (not isinstance(sector_id, str) or len(sector_id) > 128):
+            raise AssistantError("Sektor session může mít nejvýše 128 znaků.")
         chosen, _root = self.locate(project, workspace)
-        return self._public(self.registry.create(project, chosen, model, title, node_id))
+        return self._public(self.registry.create(project, chosen, model, title, node_id, sector_id))
 
     def _route(self, text, context):
         """Hint a telemetrie směrovače mimo zámek, s tvrdou mezí; porucha = bez hintu."""
@@ -177,6 +181,9 @@ class AssistantManager:
             event = self._log(session_id).append({"type": "message", "role": "user", "text": text}, MAX_USER_MESSAGE_BYTES)
             if telemetry is not None:
                 self._log(session_id).append({"type": "status", "router": telemetry})
+                metrics = dict(self._record(session_id).get("metrics") or {})
+                metrics["router"] = {**telemetry, "provider": self._route_provider}
+                self.registry.update(session_id, metrics=metrics)
             live.turn_started = live.last_activity = self._clock()
             try:
                 live.process.send(compose(text, context, hint, drafts_dir=str(self.drafts_dir(session_id))))
@@ -266,6 +273,14 @@ class AssistantManager:
                 return
             known = live.stream.get("sessionId")
             events, live.stream = map_line(line, live.stream)
+            try:
+                raw = json.loads(line)
+            except (ValueError, TypeError):
+                raw = None
+            previous = self._record(session_id).get("metrics")
+            metrics = observe(previous, raw)
+            if metrics is not previous:
+                self.registry.update(session_id, metrics=metrics)
             live.last_activity = self._clock()
             if live.stream.get("sessionId") and live.stream["sessionId"] != known:
                 self.registry.update(session_id, claudeSessionId=live.stream["sessionId"])

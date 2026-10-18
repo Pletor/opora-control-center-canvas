@@ -19,7 +19,7 @@ DEFAULT_TITLE = "Nový úkol"
 PLACEHOLDER_TITLES = frozenset({DEFAULT_TITLE, "Nová session"})
 TITLE_LIMIT = 60
 FIELDS = ("id", "projectId", "workspace", "title", "model", "claudeSessionId",
-          "createdAt", "updatedAt", "state", "nodeId")
+          "createdAt", "updatedAt", "state", "nodeId", "sectorId", "metrics")
 
 
 def now_iso():
@@ -65,7 +65,7 @@ class SessionRegistry:
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, self.path)
 
-    def create(self, project, workspace, model, title=None, node_id=None):
+    def create(self, project, workspace, model, title=None, node_id=None, sector_id=None):
         stamp = now_iso()
         record = {
             "id": uuid.uuid4().hex,
@@ -78,6 +78,7 @@ class SessionRegistry:
             "updatedAt": stamp,
             "state": "idle",
             "nodeId": node_id,
+            "sectorId": sector_id,
         }
         with self._lock:
             self._sessions[record["id"]] = record

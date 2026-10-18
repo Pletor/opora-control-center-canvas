@@ -11,6 +11,7 @@ import { useTaskOutline } from "../logic/use-task-outline";
 import { useSelectRequest, useStartRequest, type StartRequest } from "../logic/use-start-request";
 import type { SelectRequest } from "../logic/select-request";
 import Composer from "./Composer";
+import Metrics from "./Metrics";
 import Conversation from "./Conversation";
 import MinimizedBar from "./MinimizedBar";
 import Outline from "./Outline";
@@ -57,11 +58,12 @@ export default function AssistantPanel({
   const root = useRef<HTMLElement>(null);
 
   const s = useAssistantSessions(open, watch, context.projectId, context.workspace);
-  useStartRequest(startRequest, open && s.status?.available === true, s.create);
   useSelectRequest(selectRequest, s.sessions, s.select);
   const c = useConversation(open && s.status?.available === true, context.projectId, s.activeId, s.setFailure, onCanvasWritten);
   const memory = useTaskMemory(s.sessions, s.activeId, c.conv, open);
   const { tasks } = memory;
+  const prefill = useCallback((session: { id: string }, text: string) => memory.prefillDraft(session.id, text), [memory.prefillDraft]);
+  useStartRequest(startRequest, open && s.status?.available === true, s.create, prefill);
   const working = anyWorking(tasks);
   const outline = useTaskOutline(c.conv.items, s.activeId);
 
@@ -186,6 +188,7 @@ export default function AssistantPanel({
             <TasksEmpty withCreate={size !== "full"} model={s.model} onModel={s.setModel} onCreate={() => void createWith("")} onExample={(text) => void createWith(text)} />
           ) : (
             <>
+              <Metrics key={activeId} session={s.sessions.find((session) => session.id === activeId)} />
               <Conversation conv={c.conv} turns={outline.turns} loading={c.loading} sessionKey={activeId ?? ""} onActiveTurn={outline.setActiveTurn} onDecide={(id, decision, note) => void c.decide(id, decision, note)} />
               <Composer
                 value={memory.draft}

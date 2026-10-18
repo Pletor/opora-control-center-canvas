@@ -15,9 +15,9 @@ const research = (title: string, verdict: "feasible" | "dead_end" | "unrealistic
 
 describe("vault dock model", () => {
   it("has the menu groups of the design in order", () => {
-    expect(SECTION_GROUPS.map((group) => group.label)).toEqual(["Plán", "Vývoj", "Know-how", "Historie"]);
+    expect(SECTION_GROUPS.map((group) => group.label)).toEqual(["Plán", "Vývoj", "Směr", "Know-how", "Historie"]);
     expect(SECTIONS.map((section) => section.label)).toEqual(["Přehled", "Zadání", "MVP a distribuce", "Výzkum", "K upřesnění",
-      "Zpětná vazba", "Rozhodnutí", "Podklady", "Podněty", "Revize"]);
+      "Zpětná vazba", "Duel", "Rozhodnutí", "Podklady", "Podněty", "Revize"]);
   });
 
   it("filters the tree by title ignoring case and diacritics and keeps the path", () => {

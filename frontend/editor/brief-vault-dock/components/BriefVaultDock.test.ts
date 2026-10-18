@@ -50,10 +50,18 @@ describe("brief vault dock", () => {
     const live = DISCIPLINES.filter((item) => ["ux", "be"].includes(item.id));
     const html = render(DisciplineSwitch, { view: "be", live, counts: { ux: 4, be: 7, none: 2 }, onView: () => {} });
     expect(html).toMatch(/aria-pressed="true"[^>]*data-testid="vault-discipline-be"[^>]*>Backend<span[^>]*>7</);
-    expect(html).toContain('data-testid="vault-discipline-ux"');
+    // Rozbalená je jen skupina vybrané disciplíny; ostatní hlavičky nesou počet neuronů, spící „spí“.
+    expect(html).not.toContain('data-testid="vault-discipline-ux"');
+    expect(html).toMatch(/aria-expanded="false"[^>]*data-testid="vault-group-kresleni"[^>]*>Kreslení<span[^>]*>1</);
+    expect(html).toMatch(/aria-expanded="true"[^>]*data-testid="vault-group-logika"/);
     expect(html).not.toContain('data-testid="vault-discipline-cache"');
-    expect(html).toContain("spí");
+    expect(html).toMatch(/disabled=""[^>]*data-testid="vault-group-provoz"[^>]*>Provoz<span[^>]*>spí</);
+    expect(html).not.toContain('data-testid="vault-waiting-next"');
     expect(html).toMatch(/data-testid="vault-discipline-none"[^>]*>Nezařazené<span[^>]*>2</);
+    // S čekajícími věcmi se objeví odznak na hlavičce i pilulka „Čeká na tebe“ s celkovým počtem.
+    const busy = render(DisciplineSwitch, { view: "be", live, counts: { ux: 4, be: 7, none: 2 }, waiting: { ux: 2, be: 0 }, onView: () => {} });
+    expect(busy).toMatch(/data-testid="vault-group-kresleni"[^>]*>Kreslení<span[^>]*>1<\/span><span class="vault-dock__waiting-badge"[^>]*>2</);
+    expect(busy).toMatch(/data-testid="vault-waiting-next"[^>]*>Čeká na tebe<span[^>]*>2</);
   });
 
   it("fragment detail shows its discipline, own or inherited, without controls", () => {

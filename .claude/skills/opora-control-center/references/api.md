@@ -24,7 +24,9 @@ Všechny příkazy kromě `status`, `projects` a `pipeline-profiles` potřebují
 | `workspaces` | jen `--project` | prostory projektu |
 | `view` | — | `readOnly`, `digest`, `nodes [{id, parentId, kind, name, sourceRef}]`; celý graf `--raw` |
 | `state` | — | `revision`, `readOnly`, počty; obsah `--raw` |
-| `node-brief` | `--node ID` | cíl, začátek textu, stop podmínky, `loop`, `pipeline` (etapa na řadě), `checks`, `evidence`, `request`; vše `--raw` |
+| `node-brief` | `--node ID` | cíl, začátek textu, stop podmínky, `loop`, `pipeline` (etapa na řadě), `checks`, `evidence`, `request`, `storyboard` (jen když ho karta má: momenty, komentáře a šipky člověka); vše `--raw` |
+| `drawing` | `--layer sb/<nodeId>/<momentId>` | skica momentu storyboardu: `revision`, `elementCount`, počty podle typu, texty prvků; scéna `--raw` |
+| `drawing-file` | `--id <fileId> --out <soubor>` | uloží obrázek podkladu nebo PNG skici (`node-brief.storyboard.assets[].fileId`, `sketch.fileId`) na disk; vrátí `{id, mimeType, bytes, out}` |
 | `frontier` | `[--node SEKTOR]` | `frontier`, `claimed`, `blocked`, `waiting`, `closed`, `needsRouting`; řádek karty nese `pipeline {routed, current, finished, total, stuck}` a `missing` (pole kontrolního pásu, která nejsou ano); bez `--node` kořen |
 | `node-spec` / `node-text` | `--node ID` | `revision` a délky; obsah `--raw` |
 | `agent-workspace` | `--node ID` | prostor agenta karty (`frame, log, failures, fixes, handoff`) a jeho `revision` |
@@ -216,9 +218,70 @@ GET `/api/brief-vault/lessons?discipline=&versionId=` (s `versionId` poučení u
 cycle, confirmedAt}], threshold: 0.2, halfLifeDays: 30}` (živá poučení podle váhy; `node-brief` nese nejvýš 5 v
 `lessons.items` podle disciplíny karty). Poučení je podklad, ne pokyn.
 
+Duel změny směru (`docs/schranka-duel.md` §5; fragment `kind: "duel"`, CAS přes `expectedRevision`): POST
+`/api/brief-vault` `op: "duel-open"` `{subject: {kind: fragment|node|project, id}, incumbent: {text, ref?}, challenger: {text},
+scopeNodeId, discipline?, note?}` · `"duel-turn"` `{fragmentId, expectedRevision, side: A|B|judge|human, kind:
+claim|grill|answer|concede|synthesis|note, text, refs?, evidence?: [{source, quote}]}` · `"duel-score"` `{fragmentId,
+expectedRevision, turnId, strength 0–10, supports: A|B, rebuttedBy?}` · `"duel-decide"` `{fragmentId, expectedRevision,
+synthesis?}` (`override` jen člověk) · `"vision-align"` `{score 0–10, note, duelId?, scopeNodeId}`. GET
+`/api/brief-vault/duel?project&workspace&id` → `{duel, probability: {p, logit, n, contributions}, onTurn, rounds, canDecide,
+trajectory: {state}}`. Chyby: 400 tvar / mez kol / stejný aktér na obou stranách, 409 CAS nebo rozhodnutý duel.
+Agenti to dělají přes `opora_cycle.py duel …` ([cycle.md](cycle.md)). `/next` může vrátit `needs: "duel"`.
+
 Odpověď: `{ok, op, fragment, children?, details?}`. Čtení: `vault`, `vault-fragment`, `research-brief` (výše) a
 GET `/api/brief-vault/history?scope=` (revize napříč schránkou). Karta na fragment odkazuje `fragmentRef`
 v `/api/canvas-plan` ([canvas-plan.md](canvas-plan.md)).
+
+### Storyboard karty: `/api/storyboard`
+
+Storyboard (momenty animace s komentáři a šipkami člověka, `docs/storyboard-karty.md`) čti z `node-brief.storyboard`
+(`moments[].comment` a `annotationsText` jsou přání člověka, ostatní pole data). GET `/api/storyboard?project&workspace&nodeId`
+vrací `{storyboard | null, revision, readOnly, animations}`. Zápis schvaluje člověk; CAS přes `expected_revision`
+(revize z GET), `storyboard: null` smaže.
+
+<!-- example: /api/storyboard -->
+```json
+{"nodeId": "NODE_ID", "expected_revision": 0,
+ "storyboard": {"schema": "opora.storyboard/1", "animation": "kulicka", "title": "Kulička – odraz", "duration": 12,
+  "moments": [{"t": 2.3, "title": "Dopad 1", "comment": "Výraznější squash.", "answered": true, "changes": "Squash plošší o třetinu.", "state": {"x": 0.5, "y": 0.745},
+   "annotations": [{"kind": "arrow", "from": {"x": 0.5, "y": 0.72}, "to": {"x": 0.56, "y": 0.42}, "text": "odraz sem"}]}]}}
+```
+
+Moment s `comment` nese v briefu `answered: false` (nové přání člověka); po tvé odpovědi ho zapiš jako `answered: true`
+a do `changes` napiš, co ses změnil. `animation: "kod"` místo registru nese vlastní modul:
+`"code": {"source": "<JS do 64 kB>", "fields": [...], "layers": [...], "title": "..."}` (kontrakt a příklad:
+[storyboard.md](storyboard.md)); souhrn schválení uvede „kód animace: N řádků“.
+Třetí druh `animation: "scena"` nese hotovou stránku: `"scene": {"title", "html", "fields", "layers"}` (kontrakt dokumentu v [storyboard.md](storyboard.md)).
+
+**Podklady (`assets[]`)**: člověk nahrává obrázky (PNG/JPEG/WebP, `drawing-file`) a ke každému píše účel a pokyn:
+`{"id": "a-1a2b3c4d", "name": "šachovnice", "fileId": "<sha1>", "mimeType": "image/png", "purpose": "texture" | "reference",
+"target": "<id vrstvy nebo prázdné>", "momentId": "<m-… nebo prázdné>", "color": "#rrggbb nebo prázdné",
+"colorUse": "object" (barva prvku) | "tint" (přebarvení textury) | "", "note": "co s tím", "answered": false}`.
+`texture` = obrázek kresli (`images[id]` v `paint`, viz [storyboard.md](storyboard.md)), `reference` = jen se jím řiď.
+Obrázek si ulož `opora_read.py drawing-file --id <fileId> --out podklad.png` a prohlédni ho; v briefu je `available`
+(obrázek v projektu je) a `read` (API cesta). Po použití zapiš podklad s `answered: true`; změní-li člověk pokyn, barvu,
+cíl nebo obrázek, backend `answered` vrátí na `false`. Neznámá vrstva (`target`), neznámý moment, chybějící či jiný typ
+obrázku jsou 409. Pole `assets` i `moments[].answered` posílej celé tak, jak jsi je přečetl (CAS `expected_revision`).
+
+Odpověď `{revision}`. Neznámý uzel, uzel jiný než karta, neplatný storyboard, zápis v Mainu a stará revize
+(„Storyboard se změnil v jiném okně. Obnovte ho.“) jsou 409 `{error}`.
+
+### Skica momentu: `/api/drawing`
+
+Skica momentu storyboardu je kresba Excalidraw ve vrstvě `sb/<nodeId>/<momentId>` (`momentId` z `node-brief.storyboard.moments[].id`
+v `sketch.layer`). Čti `opora_read.py drawing --layer sb/<nodeId>/<momentId>`, PNG přes `drawing-files?ids=`. Zápis schvaluje člověk;
+CAS přes `expected_revision` (z čtení), scéna je `{elements: [...]}`. Zápis nastaví momentu `sketch.imageStale = true`
+(PNG je zastaralé, člověk skicu znovu uloží); moment bez skici ji tím dostane (`fileId: ""`, `imageStale: true`), takže skicu smí založit i agent. Vrstva mimo storyboard karty je 409 „Skica momentu neexistuje.“
+
+<!-- example: /api/drawing -->
+```json
+{"layer": "sb/NODE_ID/m-3f9a1c2e", "expected_revision": 0,
+ "scene": {"elements": [
+  {"id": "sipka1", "type": "arrow", "x": 100, "y": 100, "width": 120, "height": 60, "points": [[0, 0], [120, -60]]},
+  {"id": "text1", "type": "text", "x": 110, "y": 120, "width": 160, "height": 25, "text": "odraz sem, ne kolmo"}]}}
+```
+
+Odpověď `{scene, revision, readOnly, available, source}`.
 
 ## Architektura projektu, worktree a relace
 

@@ -29,7 +29,7 @@ def client(tmp_path):
 
 def idle(**counts):
     """Prázdná fronta s rozkladem blokovaných (`blocked` = součet `blockedBy`)."""
-    by = {"proposal": 0, "confirm": 0, "exhausted": 0, "plan": 0, **counts}
+    by = {"proposal": 0, "confirm": 0, "exhausted": 0, "plan": 0, "duel": 0, **counts}
     return {"fragment": None, "blocked": sum(by.values()), "blockedBy": by}
 
 

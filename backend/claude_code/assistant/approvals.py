@@ -38,7 +38,7 @@ WRITE_ROUTES = frozenset({
     "/api/desktop-v3/rule", "/api/desktop-v3/decision",
     "/api/graph", "/api/node-spec", "/api/node-text", "/api/desktop-v3/state", "/api/desktop-v3/block",
     "/api/desktop-v3/agent-workspace", "/api/desktop-v3/agent-output", "/api/canvas-plan",
-    "/api/desktop-v3/pipeline", "/api/brief-vault",
+    "/api/desktop-v3/pipeline", "/api/brief-vault", "/api/storyboard", "/api/drawing",
 })
 # Celý příkaz: python, skript `…opora_write.py`, cesta a volby. Žádný znak, který by v shellu
 # řetězil (`;`, `&`, `|`), přesměroval (`<`, `>`), substituoval (`` ` ``, `$`) nebo zalomil řádek.
@@ -143,7 +143,42 @@ def brief_vault_summary(payload):
     return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
 
 
+def storyboard_summary(payload):
+    """Souhrn zápisu storyboardu karty: počet momentů a název, nebo smazání."""
+    node = str(payload.get("nodeId", "?"))[:80]
+    board = payload.get("storyboard")
+    if not isinstance(board, dict):
+        return f"Storyboard {node} · smazat"
+    moments = board.get("moments")
+    count = len(moments) if isinstance(moments, list) else 0
+    text = f"Storyboard {node} · {count} momentů · {str(board.get('title', ''))[:80]}"
+    code = board.get("code")
+    if board.get("animation") == "kod" and isinstance(code, dict) and isinstance(code.get("source"), str):
+        text += f" · kód animace: {len(code['source'].splitlines())} řádků"
+    scene = board.get("scene")
+    if board.get("animation") == "scena" and isinstance(scene, dict) and isinstance(scene.get("html"), str):
+        text += f" · webová scéna: {len(scene['html']) // 1000} kB, {len(scene.get('layers', []) or [])} vrstev"
+    answered = sum(1 for m in moments if isinstance(m, dict) and m.get("answered") is True) if isinstance(moments, list) else 0
+    if answered:
+        text += f" · odpovězeno: {answered}"
+    return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
+
+
+def drawing_summary(payload):
+    """Souhrn zápisu kresby: vrstva a počet prvků; skica momentu storyboardu (sb/…) se pojmenuje."""
+    layer = str(payload.get("layer") or "")[:130]
+    scene = payload.get("scene")
+    elements = scene.get("elements") if isinstance(scene, dict) else None
+    count = len(elements) if isinstance(elements, list) else 0
+    text = f"{'Skica' if layer.startswith('sb/') else 'Kresba'} {layer or 'kořen'} · {count} prvků"
+    return text if len(text) <= SUMMARY_LIMIT else text[: SUMMARY_LIMIT - 1] + "…"
+
+
 def summary_of(route, payload):
+    if route == "/api/drawing":
+        return drawing_summary(payload)
+    if route == "/api/storyboard":
+        return storyboard_summary(payload)
     if route == "/api/canvas-plan":
         return plan_summary(payload)
     if route == "/api/brief-vault":
@@ -276,6 +311,10 @@ def classify(request, drafts_dir=None):
     tool_input = data.get("input") if isinstance(data.get("input"), dict) else {}
     if data.get("tool_name") == "Write" and is_draft_write(tool_input, drafts_dir):
         return "auto_allow", None
+    if data.get("tool_name") == "Write":
+        where = f"{drafts_dir}" if drafts_dir else "adresáře konceptů session (draftsDir)"
+        return "auto_deny", (f"{AUTO_DENY_MESSAGE} Soubor smí být jen koncept *.json do 2 MiB v {where}; "
+                             "celý payload (i s HTML scény) ulož tam jako JSON a pošli ho přes --json-file.")
     if data.get("tool_name") != "Bash":
         return "auto_deny", AUTO_DENY_MESSAGE
     if is_read(tool_input.get("command")):

@@ -1,5 +1,5 @@
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { moveWithMembers } from "@/editor/canvas/area/logic/area-model";
+import { moveWithMembers, resizeArea } from "@/editor/canvas/area/logic/area-model";
 
 const GRAPH_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
@@ -51,6 +51,17 @@ export function moveEditorNode(graph: Graph, id: string, x: number, y: number): 
     : graph.nodes.map((node) => node.id === id ? { ...node, x, y } : node);
   if (nodes.some((node) => ![node.x, node.y].every((value) => Number.isFinite(value) && Math.abs(value) <= 1_000_000))) throw new Error("Prvek by se přesunul mimo povolené souřadnice.");
   return { ...graph, nodes };
+}
+
+/** Tahadlo rámečku oblasti: nový rozměr ohraničený na 120..20000 (`resizeArea`), ostatní uzly beze změny. */
+export function resizeEditorNode(graph: Graph, id: string, w: number, h: number): Graph {
+  if (![w, h].every((value) => Number.isFinite(value) && value > 0)) throw new Error("Neplatný rozměr oblasti.");
+  const area = graph.nodes.find((node) => node.id === id);
+  if (!area) throw new Error("Prvek již neexistuje.");
+  if (area.kind !== "area") throw new Error("Velikost lze měnit jen oblasti.");
+  const resized = resizeArea(area, w, h);
+  if (resized.size!.w === area.size?.w && resized.size!.h === area.size?.h) return graph;
+  return { ...graph, nodes: graph.nodes.map((node) => node.id === id ? resized : node) };
 }
 
 export function connectEditorNodes(graph: Graph, source: string, target: string, id: string): Graph {

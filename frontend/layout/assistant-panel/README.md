@@ -6,6 +6,8 @@ Celá plocha má tři sloupce: úkoly (288 px) | konverzace (sloupec až 920 px,
 
 Dílky (`components/`):
 
+- `Metrics`: stálý řádek spotřeby nad konverzací; rozbalovací detail překrývá obsah bez posunu. Bere trvalý snapshot `session.metrics` z existujícího čtyřsekundového pollingu. Skutečný model, tokeny podle modelů/cache, odhad USD, kontext, čas, počty výsledků/chyb a poslední směrování. `logic/metrics.ts` odděluje neznámé hodnoty od nuly a nesčítá kontext se spotřebou.
+
 - `AssistantButton`: tlačítko v pravém rohu horní lišty, tečka když nějaký úkol pracuje.
 - `AssistantPanel`: rodič. Drží velikost, spojení, koncepty zpráv a zkratky (`Esc` zmenší, `Alt+↑/↓` přepíná úkoly, na celé ploše v pořadí skupin) a skládá ostatní dílky. Zůstává připojený i zavřený, aby tečka na tlačítku věděla, kdy práce doběhla.
 - `PanelHead`, `SizeSwitch`: hlavička (na celé ploše i název a model úkolu) a tři ikony velikosti.
@@ -32,7 +34,7 @@ Logika (`logic/`), čisté funkce s testem vedle:
 - `work-scope.ts`: jména rozsahů a „Výběr: 2 uzly“ / „nic nevybráno“.
 - `canvas-write.ts`: hlídač proudu událostí, který pozná doběhlý povolený zápis (`approval` Bash → `approval_resolved allow` → `tool_result ok`, párování podle id nástroje); přehrané staré události nespustí nic (§6.2).
 
-React vazby (bez testu, jen skládají logiku a síť): `use-assistant-sessions.ts` (status, seznam session s pollingem 4 s, založit / přejmenovat / zavřít), `use-start-request.ts` (úkol založený zvenku, „Nová relace“ z živého panelu domény: jednou podle pořadí, s workspace a názvem, bez zprávy; `useSelectRequest` vybere existující úkol po kliku na čip relace, jakmile je v seznamu, pravidlo v `select-request.ts` s testem), `use-conversation.ts` (přepis, pak EventSource od `lastSeq`, u úkolu čekajícího na schválení od začátku bufferu; odeslání, Stop, rozhodnutí o žádosti), `use-task-memory.ts` (koncepty, „viděno“, náhledy), `use-task-outline.ts` (tahy, otázky, odeslaný kontext, posun), `use-active-turn.ts` (IntersectionObserver: který tah se čte), `use-panel-keys.ts` (zkratky). Volání API je v `assistant-api.ts`.
+React vazby (bez testu, jen skládají logiku a síť): `use-assistant-sessions.ts` (status, seznam session s pollingem 4 s, založit / přejmenovat / zavřít), `start-draft.ts` (předvyplněná zpráva `draft` z žádosti o úkol jde do prázdného kompozéru nové relace, nikdy se neposílá a nepřepíše rozepsaný text), `use-start-request.ts` (úkol založený zvenku, „Nová relace“ z živého panelu domény: jednou podle pořadí, s workspace a názvem, bez zprávy; `useSelectRequest` vybere existující úkol po kliku na čip relace, jakmile je v seznamu, pravidlo v `select-request.ts` s testem), `use-conversation.ts` (přepis, pak EventSource od `lastSeq`, u úkolu čekajícího na schválení od začátku bufferu; odeslání, Stop, rozhodnutí o žádosti), `use-task-memory.ts` (koncepty, „viděno“, náhledy), `use-task-outline.ts` (tahy, otázky, odeslaný kontext, posun), `use-active-turn.ts` (IntersectionObserver: který tah se čte), `use-panel-keys.ts` (zkratky). Volání API je v `assistant-api.ts`.
 
 Kontext plátna (projekt, workspace, vrstva, výběr, prostředí) dodá App; panel k němu přidá `scope` z preferencí, ke každé zprávě ho přiloží a osnova ukazuje ten naposledy odeslaný (nebo ten, který se pošle).
 

@@ -28,6 +28,9 @@ def test_restore_requires_token_even_with_fresh_graph_digest(tmp_path):
         assert list(db.iterdump()) == before
 
 
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"drawing-image"  # obsah musi mit hlavicku PNG (drawing_files.looks_like)
+
+
 def test_attachment_and_drawing_bytes_survive_removal_and_restore(tmp_path):
     app = create_app(tmp_path)
     with TestClient(app, base_url=ORIGIN) as client:
@@ -42,7 +45,7 @@ def test_attachment_and_drawing_bytes_survive_removal_and_restore(tmp_path):
             "id": "material", "kind": "upload", "path": filename, "caption": "reference"}])}))
         scene = {"elements": [{"id": "image", "type": "image", "fileId": "file1", "x": 0, "y": 0, "width": 10, "height": 10}]}
         seed(db, "drawings", {"scene": scene})
-        db.execute("INSERT INTO drawing_files VALUES('draft','file1','image/png',?,'now')", (b"drawing-image",))
+        db.execute("INSERT INTO drawing_files VALUES('draft','file1','image/png',?,'now')", (PNG_BYTES,))
         db.commit()
         saved = save(client).json()["version"]
         path.unlink()
@@ -52,7 +55,7 @@ def test_attachment_and_drawing_bytes_survive_removal_and_restore(tmp_path):
         response = bound_restore(client, saved["id"])
         assert response.status_code == 200, response.text
         assert path.read_bytes() == b"uploaded-image"
-        assert db.execute("SELECT data FROM drawing_files").fetchone()[0] == b"drawing-image"
+        assert db.execute("SELECT data FROM drawing_files").fetchone()[0] == PNG_BYTES
         assert versions(client)["dirty"] is False
 
 

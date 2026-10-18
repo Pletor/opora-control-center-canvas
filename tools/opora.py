@@ -155,6 +155,8 @@ def port_free(host: str, port: int) -> bool:
 def apply_environment(settings: dict, environ=os.environ) -> list[str]:
     environ["OPORA_CANVAS_PORT"] = str(settings["port"])
     environ["OPORA_CANVAS_DATA"] = settings["data"]
+    # Rámování v <iframe> je nastavení aplikace, ne integrace: opora.toml vždy přebije prostředí.
+    environ["OPORA_CANVAS_EMBED_ORIGINS"] = " ".join(settings.get("embed_origins", []))
     environ["OPORA_JEV_PROVIDER"] = settings["jev_provider"]
     mirror = settings["mirror"]
     environ["OPORA_MIRROR_URL"] = mirror["url"] if mirror["enabled"] else ""

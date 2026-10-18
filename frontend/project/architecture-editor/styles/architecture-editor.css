@@ -4,6 +4,7 @@
    Barvy vrstev jsou závazné z kontraktu: frontend zelená, backend fialová, databáze jantarová,
    security červená, infrastruktura modrá, cache levandulová, oblast jantarová přerušovaná. */
 .architecture-editor {
+  position: relative;
   --ae-bg: #0c1723;
   --ae-panel: #0f1c29;
   --ae-card: #1b2e3b;

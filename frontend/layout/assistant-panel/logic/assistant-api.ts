@@ -1,5 +1,6 @@
 import { api } from "@/shared/types/logic/types";
 import type { SessionState } from "./assistant-events";
+import type { AssistantMetrics } from "./metrics";
 
 export type AssistantModel = "opus" | "sonnet" | "fable";
 export const MODELS: AssistantModel[] = ["opus", "sonnet", "fable"];
@@ -17,7 +18,9 @@ export type AssistantSession = {
   updatedAt: string;
   state: SessionState;
   nodeId: string | null;
+  sectorId: string | null;
   lastSeq: number;
+  metrics?: AssistantMetrics | null;
 };
 
 /** Rozsah práce (docs/asistent.md §6.1): celý obraz, nebo jen vybrané uzly do hloubky. */
@@ -44,7 +47,7 @@ export const fetchStatus = () => api<AssistantStatus>(`${base}/status`);
 export const fetchSessions = (project: string) =>
   api<{ sessions: AssistantSession[] }>(`${base}/sessions?project=${encodeURIComponent(project)}`).then((r) => r.sessions);
 
-export const createSession = (body: { project: string; workspace?: string; title?: string; model?: AssistantModel; nodeId?: string }) =>
+export const createSession = (body: { project: string; workspace?: string; title?: string; model?: AssistantModel; nodeId?: string; sectorId?: string }) =>
   api<{ session: AssistantSession }>(`${base}/sessions`, body).then((r) => r.session);
 
 export const sendMessage = (id: string, text: string, context: AssistantContext) =>

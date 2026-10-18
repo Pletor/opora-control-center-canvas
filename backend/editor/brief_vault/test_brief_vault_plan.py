@@ -319,9 +319,15 @@ def test_synthesized_checks_make_a_goal_card_only_for_the_lead_and_not_through_e
     parent = chunks()
     parent.add("r", "3. VRSTVA", discipline="be", synth=True, payload={**SYNTH, "checks": CHECKS})
     assert not any("checks" in node for node in parent.plan(["r"])["plan"]["nodes"])
-    # Existující karta: chráněná pole, extend je nepřenáší (viz docstring).
-    extend = vault.plan(["x"], card_graph(("K", "s1")), refs_state({"K": "x"}), details=details)["plan"]["extend"][0]
+    # Existující karta se stejnými kontrolami: chráněná pole, extend je nepřenáší (viz docstring).
+    graph = card_graph(("K", "s1"))
+    graph["nodes"][-1].update(checks=CHECKS, goal_mode="until_checks_pass")
+    extend = vault.plan(["x"], graph, refs_state({"K": "x"}), details=details)["plan"]["extend"][0]
     assert "checks" not in extend and "goal_mode" not in extend
+    # Existující karta s jinými (zde žádnými) kontrolami = 409 checks-mismatch (fail-closed, upraví člověk).
+    with pytest.raises(Blocked, match="jiné kontroly než synthesized") as raised:
+        vault.plan(["x"], card_graph(("K", "s1")), refs_state({"K": "x"}), details=details)
+    assert raised.value.fragments[0]["reason"] == "checks-mismatch"
 
 
 def test_siblings_link_only_when_one_card_is_new():

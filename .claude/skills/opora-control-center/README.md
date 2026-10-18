@@ -16,7 +16,8 @@ Do skillu nepatří nic specifického pro jeden projekt.
 - `references/` (načítá se jen podle potřeby, každá začíná „Kdy mě číst“):
   `api.md` (čtecí příkazy, zápisové cesty, chyby), `canvas-plan.md` (dávka, extend, graf, rozmístění),
   `agent-loop.md` (lease, brief, výstup, důkazy), `pipeline.md` (router, etapy, kritici),
-  `workflow.md` (grilling, wayfinder, laťka karty, brány), `hooks.md`, a mapy / orientace
+  `workflow.md` (grilling, wayfinder, laťka karty, brány), `cycle.md` (brány Schránky, buňka, duel),
+  `provoz.md` (spuštění, zastavení, restart, build, ověření běžící verze), `hooks.md`, a mapy / orientace
   (`navigation.md`, `rlm.md`, `graphify.md`, `archify.md`, `map-refresh.md`, `external-agent.md`).
 - `scripts/opora_read.py`: čtení a hledání (loopback i tunel); jen standardní Python 3.
 - `scripts/opora_write.py`: zápis na pevný seznam cest (`WRITE_ROUTES`), jen loopback.

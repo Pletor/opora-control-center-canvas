@@ -33,8 +33,10 @@ function sameFields(a: SpecFields, b: SpecFields) {
 export default function NodeSpecEditor({ project, workspace, nodeId, disabled, onStored }: {
   project: string; workspace: string; nodeId: string; disabled: boolean;
   /** Hlásí uložená pole zadání (ne rozepsaný draft) i s klíčem `[project, workspace, nodeId]`, aby rodič
-   *  po přepnutí uzlu nepřijal zadání předchozího; `fields: null`, dokud nejsou načtená. */
-  onStored?: (stored: { key: string; fields: SpecFields | null }) => void;
+   *  po přepnutí uzlu nepřijal zadání předchozího; `fields: null`, dokud nejsou načtená. Když načtení selže
+   *  a nic uložené není, nese `error` (rodič ukáže chybu místo věčného „načítám“); obnova jen vědomým
+   *  tlačítkem, žádný automatický pokus. */
+  onStored?: (stored: { key: string; fields: SpecFields | null; error: string }) => void;
 }) {
   const key = JSON.stringify([project, workspace, nodeId]);
   const [baseRevision, setBaseRevision] = useState(0);
@@ -64,7 +66,7 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled, o
       .finally(() => { if (ticket === generation.current) setLoading(false); });
     return () => { generation.current++; };
   }, [project, workspace, nodeId, reload]);
-  useEffect(() => { onStored?.({ key, fields: stored ? stored.fields : null }); }, [stored]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onStored?.({ key, fields: stored ? stored.fields : null, error: !stored && error ? error : "" }); }, [stored, error]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirty = !!stored && !sameFields(fields, stored.fields);
   useSaveParticipant({ id: "spec:" + key, project, workspace, label: "Zadání uzlu " + nodeId, dirty, pending: saving, retainOnUnmount: true, isDirty: () => drafts.has(key), isPending: () => pendingSaves.has(key), flush: async () => { await persistSpec(key); setReload((value) => value + 1); }, discard: () => { drafts.delete(key); setReload((value) => value + 1); } });
   async function save(propagate = false) {
@@ -101,6 +103,7 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled, o
     </label>)}
     {stored && !stored.readOnly && <button className="primary wide" disabled={!dirty || loading || saving || disabled} onClick={() => void save()}>Uložit zadání</button>}
     {error && <div className="spec-error" role="alert"><p>{error}</p>
+      {!stored && <button disabled={saving || loading} data-testid="spec-reload" onClick={() => setReload(reload + 1)}>Načíst zadání znovu</button>}
       <button disabled={saving || loading} onClick={() => { drafts.delete(key); setReload(reload + 1); }}>Zahodit rozepsané a načíst uložené</button>
     </div>}
     <p className="muted spec-source">{stored?.source}</p>

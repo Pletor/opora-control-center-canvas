@@ -7,12 +7,14 @@ POST jde jen na pevný seznam čtecích dotazů `POST_ROUTES`; skript nic nezapi
 `OPORA_ACCESS_TOKEN` (nikdy v příkazu ani v logu) a posílá `Authorization: Bearer` a `Origin`.
 """
 import argparse
+import base64
 import hashlib
 import json
 import os
 import re
 import sys
 import unicodedata
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -177,6 +179,18 @@ def pick(value, keys):
     return {key: value[key] for key in keys if key in value}
 
 
+def storyboard_summary(section):
+    if not isinstance(section, dict):
+        return None
+    moments = section.get('moments', [])
+    return {'animation': section.get('animation'), 'duration': section.get('duration'), 'layers': section.get('layers'),
+            'momentCount': len(moments), 'revision': section.get('revision'), 'updatedAt': section.get('updatedAt'), 'workflow': section.get('workflow'),
+            'openMoments': [pick(m, ['id', 't', 'title', 'comment']) for m in moments
+                            if not m.get('answered', False) and (m.get('comment') or m.get('annotations') or m.get('sketch'))][:10],
+            'assets': [pick(a, ['id', 'name', 'purpose', 'target', 'momentId', 'color', 'colorUse', 'note', 'answered', 'available', 'fileId', 'mimeType']) for a in section.get('assets', [])],
+            'note': 'Obrázek podkladu uloží `drawing-file --id <fileId> --out <soubor>`; celé momenty a kód animace vypíše --raw.'}
+
+
 def summary(command, data, args, base):
     if command == 'projects':
         return {'draft': data.get('draft'), 'projects': [pick(p, ['id', 'name', 'sourceKind']) for p in data.get('projects', [])], 'jobsCount': len(data.get('jobs', []))}
@@ -192,6 +206,14 @@ def summary(command, data, args, base):
     if command == 'state':
         state = data.get('state', {})
         return {**pick(data, ['revision', 'readOnly']), 'counts': {k: len(state.get(k, [])) for k in ['settings', 'rules', 'decisions', 'nodes', 'tickets']}, 'note': 'Obsah vynechán; --raw jej vypíše v daném scope.'}
+    if command == 'drawing':
+        elements = [e for e in data.get('scene', {}).get('elements', []) if not e.get('isDeleted')]
+        types = {}
+        for element in elements:
+            types[element.get('type')] = types.get(element.get('type'), 0) + 1
+        return {**pick(data, ['revision', 'readOnly', 'saved_at']), 'layer': args.layer, 'elementCount': len(elements), 'types': types,
+                'texts': [str(e.get('text', ''))[:80] for e in elements if e.get('type') == 'text'][:10],
+                'note': 'Scéna vynechána; --raw ji vypíše. PNG skici přes drawing-files?ids=.'}
     if command == 'snapshot':
         packet = data.get('packet', {})
         return {**pick(data, ['id', 'digest', 'createdAt']), 'scope': packet.get('scope'), 'warnings': packet.get('warnings'), 'sourceManifest': packet.get('sourceManifest')}
@@ -213,6 +235,8 @@ def summary(command, data, args, base):
                 'checks': data.get('node', {}).get('checks'), 'goalMode': data.get('node', {}).get('goal_mode'),
                 'evidence': data.get('evidence'),
                 'request': (data.get('outputContract') or {}).get('request'),
+                # Storyboard karty: co čeká na agenta a podklady s cestou k obrázku; momenty a kód vypíše --raw.
+                'storyboard': storyboard_summary(data.get('storyboard')),
                 'note': 'Souhrn; celý balíček pro model vypíše --raw.'}
     if command == 'vault':
         return {'readOnly': data.get('readOnly'), 'roots': [vault_root(root) for root in data.get('roots', [])],
@@ -335,14 +359,15 @@ def main():
     parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'snapshot', 'node-text', 'node-spec', 'node-brief', 'frontier',
                                             'search', 'index', 'rank', 'code', 'find', 'recall', 'rule', 'decision', 'versions', 'leases', 'source-status', 'work-overview', 'scenario-history', 'layout-preview',
                                             'pipeline-profiles', 'agent-workspace', 'agent-results', 'assignment-status', 'usage-summary',
-                                            'vault', 'vault-fragment', 'research-brief'])
+                                            'vault', 'vault-fragment', 'research-brief', 'drawing', 'drawing-file'])
     parser.add_argument('--project')
     parser.add_argument('--workspace')
     parser.add_argument('--node')
     parser.add_argument('--discipline', help='vault: jen fragmenty této disciplíny (id nebo none)')
     parser.add_argument('--id')
+    parser.add_argument('--out', help='drawing-file: cesta, kam uložit obrázek (PNG/JPEG/WebP) podle --id')
     parser.add_argument('--query', help='search, rank, find, recall')
-    parser.add_argument('--layer', help='search, index, rank: jen přímí potomci této karty či sektoru')
+    parser.add_argument('--layer', help='search, index, rank: jen přímí potomci této karty či sektoru; drawing: vrstva sb/<nodeId>/<momentId>')
     parser.add_argument('--top', type=int, default=10, help='rank: 1–50')
     parser.add_argument('--path', help='code: soubor; find: podstrom (výchozí .)')
     parser.add_argument('--operation', choices=['definition', 'references', 'hover', 'documentSymbols'])
@@ -377,6 +402,19 @@ def main():
             required(args, 'project', 'workspace')
             svg = fetch('/api/layout-preview', {'project': args.project, 'workspace': args.workspace, 'layer': args.node or ''}, binary=True)
             print(svg.decode('utf-8'))
+            return 0
+        if command == 'drawing-file':
+            # Obrázek podkladu nebo skici (node-brief.storyboard.assets[].fileId, sketch.fileId) uložený na disk, aby ho šlo prohlédnout.
+            required(args, 'project', 'workspace', 'id', 'out')
+            files = fetch('/api/drawing-files', {'project': args.project, 'workspace': args.workspace, 'ids': args.id}).get('files', [])
+            if not files:
+                raise ValueError('Obrázek s tímto id v projektu není (nebo je workspace jen pro čtení).')
+            header, _, encoded = files[0].get('dataURL', '').partition(',')
+            if not header.startswith('data:image/') or not encoded:
+                raise ValueError('Server nevrátil obrázek jako data URL.')
+            data = base64.b64decode(encoded)
+            Path(args.out).write_bytes(data)
+            print(json.dumps({'id': files[0].get('id'), 'mimeType': files[0].get('mimeType'), 'bytes': len(data), 'out': args.out}, ensure_ascii=True))
             return 0
         if command == 'status':
             data = {'health': health, 'baseUrl': base, 'writesPerformed': 0}
@@ -438,6 +476,10 @@ def main():
         elif command in ('rule', 'decision'):
             required(args, 'project', 'workspace', 'id')
             data = fetch('/api/desktop-v3/' + command, {'project': args.project, 'workspace': args.workspace, 'id': args.id})
+        elif command == 'drawing':
+            # Skica momentu storyboardu: scéna Excalidraw ve vrstvě sb/<nodeId>/<momentId> (--layer).
+            required(args, 'project', 'workspace', 'layer')
+            data = fetch('/api/drawing', {'project': args.project, 'workspace': args.workspace, 'layer': args.layer})
         elif command in VAULT_ROUTES:
             # Schránka zadání: strom (--node = sektor nebo karta, bez něj vše), fragment a balíček výzkumu (--id).
             required(args, 'project', 'workspace', *(() if command == 'vault' else ('id',)))

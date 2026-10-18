@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render storyboardu</title>
+<style>
+  html, body { margin: 0; background: #000; }
+  #stage { display: block; }
+</style>
+</head>
+<body>
+<canvas id="stage" width="1920" height="1080"></canvas>
+<script type="module">
+// Render stránka: jediná funkce window.seek(t) nakreslí přesně jeden snímek storyboardu v čase t.
+// Žádné časovače ani requestAnimationFrame. animation.js je ES modul s exporty fields, layers, paint (a defaults);
+// paint dostává jako 8. parametr obrázky podkladů podle assets[].id (stejně jako ve Workeru editoru);
+// storyboard.json dodá render.py přes window.STORYBOARD_DATA, ručně se načte ze souboru vedle stránky.
+import * as animation from "./animation.js";
+
+const board = window.STORYBOARD_DATA || (await (await fetch("storyboard.json")).json());
+const canvas = document.getElementById("stage");
+canvas.width = board.size.w;
+canvas.height = board.size.h;
+const ctx = canvas.getContext("2d");
+const layerIds = new Set((animation.layers || []).map((layer) => layer.id));
+
+const EASES = { linear: (u) => u, in: (u) => u * u, out: (u) => 1 - (1 - u) * (1 - u), inout: (u) => (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2), hold: () => 0 };
+const HEX = /^#[0-9a-f]{6}$/i;
+const lerp = (a, b, u) => a + (b - a) * u;
+function lerpColor(a, b, u) {
+  const ca = parseInt(a.slice(1), 16), cb = parseInt(b.slice(1), 16);
+  const ch = (shift) => Math.round(lerp((ca >> shift) & 255, (cb >> shift) & 255, u)).toString(16).padStart(2, "0");
+  return "#" + ch(16) + ch(8) + ch(0);
+}
+
+// Stav animace v čase t: mezi momenty a→b podle ease momentu a; čísla a barvy se míchají, ostatní drží stav a.
+function stateAt(t) {
+  const ms = board.moments;
+  let i = 0, u = 0;
+  if (t > ms[0].t) {
+    i = ms.length - 1; u = 1;
+    for (let k = 0; k < ms.length - 1; k++) if (t < ms[k + 1].t) { i = k; u = (t - ms[k].t) / (ms[k + 1].t - ms[k].t); break; }
+  }
+  const a = ms[i], b = ms[i + 1];
+  if (!b || u === 0) return { ...a.state };
+  const e = (EASES[a.ease] || EASES.linear)(u);
+  const out = { ...a.state };
+  for (const key of Object.keys(a.state)) {
+    const x = a.state[key], y = b.state[key];
+    if (typeof x === "number" && typeof y === "number") out[key] = lerp(x, y, e);
+    else if (typeof x === "string" && typeof y === "string" && HEX.test(x) && HEX.test(y)) out[key] = lerpColor(x, y, e);
+  }
+  return out;
+}
+
+// Podklady: obrázky `asset-<id>.<ext>` vedle stránky (storyboard.json: assets[].file). Načtou se všechny před prvním
+// snímkem; chybějící soubor je chyba a stránka se nikdy nestane READY (render.py skončí chybou, žádný tichý fallback).
+const images = {};
+for (const asset of board.assets || []) {
+  if (!asset.file) throw new Error(`Podklad „${asset.name}“ nemá soubor (assets[].file).`);
+  images[asset.id] = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Chybí soubor podkladu ${asset.file} („${asset.name}“).`));
+    image.src = asset.file;
+  });
+}
+Object.freeze(images);
+
+window.seek = (t) => {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  animation.paint(ctx, canvas.width, canvas.height, stateAt(t), t, board, layerIds, images);
+};
+window.STORYBOARD_READY = true;
+window.seek(0);
+</script>
+</body>
+</html>

@@ -10,7 +10,7 @@ import { editProductNode, sitePlan, type ProductDraft } from "@/project/product-
 import RemovalDialog from "@/ui-kit/removal-dialog/components/RemovalDialog";
 import { discardSpecDrafts } from "@/editor/node-detail/assignment/components/NodeSpecEditor";
 import { discardDrawingDrafts } from "@/editor/canvas/drawing/logic/drawing-state";
-import { architectureEditorId, editorScopeNode, isEditorScopeClosed, moveEditorNode, connectEditorNodes, createEditorAreaPlan } from "../logic/editor-model";
+import { architectureEditorId, editorScopeNode, isEditorScopeClosed, moveEditorNode, resizeEditorNode, connectEditorNodes, createEditorAreaPlan } from "../logic/editor-model";
 import { domainNode, domainForNode, domainPageTree, splitDomainHost, reorderDomainPage, reparentDomainPage } from "../logic/domain-model";
 import { useArchitectureGraph } from "../logic/use-architecture-graph";
 import { resolveEditorRoute } from "../logic/editor-route";
@@ -87,7 +87,9 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   // Struktura (domény, stránky) a obsah stránky mají vlastní zámek: na mainu jde měnit jen struktura (docs/domeny-a-worktree.md §4).
   const lockInput: LockInput = { loaded: !!store.view, loadError: store.error ?? "", ready, busy: store.busy, loading: store.loading, removing, removalOpen: !!removal, scopeError,
     architectureEditable: architectureEditable(store.view), readOnly: !!store.view?.readOnly, desktopLoading: desktop.loading, desktopError: desktop.error ?? "", desktopReadOnly: desktop.readOnly,
-    scopeClosed: isEditorScopeClosed(graph, scopeId ?? domainId, closed) };
+    // Jen nad ověřeným rozsahem: při přepnutí prostoru se graf načítá znovu a doména v něm chvíli chybí;
+    // `isEditorScopeClosed` by na ni vyhodil výjimku uprostřed renderu a shodil celý editor (černá obrazovka).
+    scopeClosed: !scopeError && domain !== null && isEditorScopeClosed(graph, scopeId ?? domainId, closed) };
   const locks = { structure: structureLock(lockInput), content: contentLock(lockInput) };
   const structureDisabled = !!locks.structure; const disabled = !!locks.content;
   const pages = domain ? domainPageTree(graph, domain.id) : [];
@@ -176,6 +178,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onInsert={(id, target, point) => eventAction(() => insert(id, target, point))}
       onMove={(id, x, y) => execute(async () => { writable(id); const next = moveEditorNode(graph, id, x, y); for (const moved of next.nodes) { const prior = graph.nodes.find((node) => node.id === moved.id); if (prior && (prior.x !== moved.x || prior.y !== moved.y)) writable(moved.id); } await saveGraph(next); })}
       onConnect={(source, target) => eventAction(async () => { writable(source); writable(target); await saveGraph(connectEditorNodes(graph, source, target, crypto.randomUUID())); })}
+      onResize={(id, w, h) => execute(async () => { writable(id); const next = resizeEditorNode(graph, id, w, h); if (next !== graph) await saveGraph(next); })}
       structure={structure ? <ComponentStructure graph={graph} rootId={structure.id} selectedId={selected?.id ?? null} phaseOf={phaseOf} isDone={isDone} disabled={disabled}
         onSelect={setSelectedId} onOpen={openStructure} onAddNode={createNode} onAddSector={(id) => createSector(id)} onAddArea={(id) => createArea(id)} onClose={() => setStructureId(null)}/> : null}
       detail={selected ? <ElementDetail project={project} workspace={workspace} graph={graph} nodeId={selected.id} domainId={domain.id} phase={phaseOf(selected.id)} done={isDone(selected.id)}

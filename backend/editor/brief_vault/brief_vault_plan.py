@@ -7,13 +7,14 @@ jinak nový) → karta za F (list) nebo za každého přímého potomka F druhu 
 `brief_vault_plan_cards`). Každá karta jde do sektoru své disciplíny (dítě s přepsanou disciplínou do svého).
 Sourozenci z jednoho F se spojí vazbou `next`; vazbu na `fe` plán nezakládá. Karta, kterou fragment ve vrstvě
 už má (první `fragmentRef` míří na něj), se nezakládá znovu: plán ji aktualizuje položkou `extend`
-(`brief_vault_plan_update`), vazbu `next` mezi dvěma existujícími kartami nepřidává.
+(`brief_vault_plan_update`), vazbu `next` mezi dvěma existujícími kartami nepřidává. Kontroly existující karty
+za F, které se liší od `synthesized.checks`, jsou 409 `checks-mismatch` (chráněná pole upraví člověk ručně).
 Sektor se hledá v oblasti skupiny podle jejího id (členství v oblasti je geometrické, `areas.area_of`);
 označený sektor mimo oblast své skupiny je 409 (druhý sektor by byl duplicitní značkou).
 
 Výběr se normalizuje (potomci vybraných předků vypadnou) a řadí v pořadí stromu. Disciplína je pro strukturu
 povinná a `done` bere karta z platné brány `synthesized` fragmentu F; chybí-li, 409 s výčtem v textu i strukturovaně
-(`fragments: [{id, title, reason}]`, reason `not-live | no-discipline | no-synthesized | duplicate-card | card-closed`). Duplicitní značka
+(`fragments: [{id, title, reason}]`, reason `not-live | no-discipline | no-synthesized | duplicate-card | card-closed | checks-mismatch`). Duplicitní značka
 v kontejneru je 409. Dávka má nejvýš 200 uzlů; co se nevejde, ohlásí `skipped`. Otisk plánu = sha256
 kanonického JSON (klíče seřazené, kolekce v pořadí generátoru, jen refy dávky a id existujících uzlů, bez časů;
 položky `extend` nesou revizi specu karty, ne revizi celého stavu, viz `brief_vault_plan_update.fingerprint`).
@@ -47,6 +48,7 @@ from backend.editor.brief_vault.brief_vault_model import (
 )
 from backend.editor.brief_vault.brief_vault_plan_cards import card_of
 from backend.editor.brief_vault.brief_vault_plan_update import (
+    checks_mismatch,
     existing_card,
     fingerprint,
     live_cards,
@@ -80,6 +82,11 @@ def plan_hash(plan):
 def _listed(rows):
     names = [f"„{row['title']}“ ({row['fragment_id']})" for row in rows[:MAX_LISTED]]
     return ", ".join(names) + (f" a dalších {len(rows) - MAX_LISTED}" if len(rows) > MAX_LISTED else "")
+
+
+def _checks_text(items):
+    found = [f"{item.get('id')}: {item.get('command')}" for item in items or [] if isinstance(item, dict)]
+    return "; ".join(found) if found else "žádné"
 
 
 def _blockers(rows, reason):
@@ -215,6 +222,12 @@ def build_plan(rows, graph, state, texts, fragment_ids, details=None, revision=0
             current = existing_card(cards[layer], unit, state)
             if current is not None:
                 touched.add(current)
+                if lead and checks_mismatch(by_id[current], synthesized):
+                    blocked(f"karta {current} fragmentu „{unit['title']}“ má jiné kontroly než synthesized "
+                            f"(karta: {_checks_text(by_id[current].get('checks'))}, "
+                            f"synthesized: {_checks_text(synthesized.get('checks'))}); kontroly karty jsou chráněné – "
+                            "upravte je na kartě ručně (člověk), pak plánujte znovu.",
+                            [{"id": uid, "title": unit["title"], "reason": "checks-mismatch"}])
                 if len(extend) >= MAX_PLAN_NODES:
                     skipped, previous = skipped + 1, None
                     continue

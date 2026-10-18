@@ -20,6 +20,7 @@ type Props = {
   onSelect: (id: string | null) => void; onOpenStructure: (id: string) => void; onOpenEditor: (id: string) => void;
   onInsert: (id: string, target?: string | null, point?: { x: number; y: number }) => void;
   onMove: (id: string, x: number, y: number) => Promise<void>; onConnect: (source: string, target: string) => void;
+  onResize: (id: string, w: number, h: number) => Promise<void>;
   onSector: (parentId: string) => void; onArea: () => void; onAddNode: (parentId: string) => void;
 };
 
@@ -55,7 +56,7 @@ export default function PageEditor(props: Props) {
       <div className="page-editor__stage">
         <ArchitectureCanvas key={props.editorId + ":" + scope.id} graph={graph} scopeId={scope.id} editorId={props.editorId} selected={selectedId}
           disabled={disabled} revealId={props.reveal} onSelect={props.onSelect} onOpenStructure={props.onOpenStructure} onOpenEditor={props.onOpenEditor}
-          onAddNode={props.onAddNode} onSector={props.onSector} onMove={props.onMove} onConnect={props.onConnect}
+          onAddNode={props.onAddNode} onSector={props.onSector} onMove={props.onMove} onConnect={props.onConnect} onResize={props.onResize}
           onInsert={(id, target, point) => props.onInsert(id, target, point)}/>
         {empty && <div className="page-editor__empty">
           <h3 className="page-editor__empty-title">{scope.name}</h3>

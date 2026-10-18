@@ -642,3 +642,19 @@ def test_brief_carries_card_text_as_content_or_null(tmp_path):
         client.post("/api/node-text", headers=HEADERS,
                     json={**SCOPE, "node": "focus", "expected_revision": 2, "text": "  "})
         assert brief(client).json()["content"] is None
+
+
+def test_storyboard_section_only_for_cards_with_a_storyboard(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        seed_graph(client)
+        assert "storyboard" not in brief(client).json()
+        board = {"animation": "kulicka", "duration": 10, "moments": [
+            {"t": 1, "comment": "Plošší.", "annotations": [{"kind": "note", "at": {"x": 0.5, "y": 0.8}, "text": "stín"}]}]}
+        saved = client.post("/api/storyboard", headers=HEADERS, json={
+            **SCOPE, "nodeId": "focus", "expected_revision": 0, "storyboard": board})
+        assert saved.status_code == 200, saved.text
+        result = brief(client).json()
+        moment = result["storyboard"]["moments"][0]
+        assert moment["comment"] == "Plošší." and moment["annotationsText"] == ["poznámka u (0.50, 0.80): stín"]
+        assert "storyboard.moments[].comment" in result["trust"]["instructions"]
+        assert "storyboard" not in brief(client, "dalsi").json()

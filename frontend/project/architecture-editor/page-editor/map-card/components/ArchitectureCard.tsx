@@ -1,5 +1,6 @@
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
 import type { CanvasNode } from "@/shared/types/logic/types";
+import { AREA_SIZE_MAX, AREA_SIZE_MIN } from "@/editor/canvas/area/logic/area-model";
 import { toneOf, type CardSummary } from "../../logic/canvas-model";
 import CardMenu from "./CardMenu";
 import PageIcon from "../../components/PageIcon";
@@ -9,6 +10,8 @@ import "../styles/map-card.css";
 export type CardActions = {
   select: (id: string) => void; openStructure: (id: string) => void; openEditor: (id: string) => void;
   addNode: (parentId: string) => void; addSector: (areaId: string) => void;
+  /** Ustálený rozměr rámečku po tažení tahadla oblasti. */
+  resizeArea: (areaId: string, w: number, h: number) => void;
 };
 export type CardData = { node: CanvasNode; summary: CardSummary | null; areaLabel: string | null; disabled: boolean; actions: CardActions };
 export type ArchitectureNode = Node<CardData>;
@@ -16,6 +19,9 @@ export type ArchitectureNode = Node<CardData>;
 function AreaFrame({ data, selected }: { data: CardData; selected: boolean }) {
   const { node, actions } = data;
   return <article className={"map-card map-card--area" + (selected ? " map-card--selected" : "")} data-testid={"architecture-card-" + node.id}>
+    <NodeResizer isVisible={selected && !data.disabled} minWidth={AREA_SIZE_MIN} minHeight={AREA_SIZE_MIN} maxWidth={AREA_SIZE_MAX} maxHeight={AREA_SIZE_MAX}
+      lineClassName="map-card__resize-line" handleClassName="map-card__resize-handle"
+      onResizeEnd={(_, params) => actions.resizeArea(node.id, params.width, params.height)}/>
     <Handle type="target" position={Position.Left} className="map-card__port"/>
     <Handle type="source" position={Position.Right} className="map-card__port"/>
     <header className="map-card__head">

@@ -25,7 +25,7 @@ export function clearSelection(): Selection {
 }
 
 /** Režimy plátna, pro které panelsFor umí odvodit panely; „kreslení" má vlastní inspektor mimo tento model. */
-export type PanelsMode = "structure" | "text" | "map";
+export type PanelsMode = "structure" | "text" | "map" | "office" | "storyboard";
 
 export type Panels = {
   drawer: "node" | "block" | null;
@@ -36,7 +36,7 @@ export type Panels = {
  * Který panel se má otevřít pro daný výběr a režim. Struktura: blok vede do knihovny bez inspektoru,
  * uzel jen do pravého inspektoru, vazba jen do inspektoru, nic vybraného = žádný panel. Komentář i
  * oblast nemají knihovnu (nenesou bloky) a otevřou jen svůj vlastní inspektor. Text: inspektor ukazuje
- * deník vrstvy, pokud vrstva existuje, jinak obecný kontext. Mapa panely nepoužívá.
+ * deník vrstvy, pokud vrstva existuje, jinak obecný kontext. Mapa (Velín) a Kancelář panely nepoužívají.
  */
 export function panelsFor(sel: Selection, mode: PanelsMode, hasLayer: boolean, selectedKind?: "node" | "sector" | "comment" | "area"): Panels {
   if (mode === "structure") {

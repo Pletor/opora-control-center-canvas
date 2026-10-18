@@ -76,6 +76,9 @@ describe("gate view", () => {
     expect(payloadLines({ type: "code", steps: ["A"], layer: "backend" })).toEqual(["typ: code"]);
     expect(queueText({ fragment: null, blocked: 3, blockedBy: { proposal: 2, exhausted: 1 } }, "f"))
       .toBe("Fronta agentů disciplíny je prázdná · 3 čeká (2× na návrh, 1× vyčerpáno, na člověka).");
+    expect(queueText({ fragment: { id: "d", title: "Duel: X", effectiveDiscipline: "be", revision: 2 }, gate: null, needs: "duel",
+      hint: "Duel: na tahu A", blocked: 2, blockedBy: { duel: 2 } }, "f"))
+      .toBe("Na řadě duel: na tahu A · 2 čeká (čeká na duel 2).");
   });
 
   it("verified outcome keeps plan approval and tests apart", () => {

@@ -10,7 +10,9 @@ má), zadání pro agenta-rozkladače sektoru jen ke čtení a tlačítko „Kop
 spočítá App z grafu: přímé děti sektoru s `kind === "node"`.
 Bez uloženého cíle nebo podmínek dokončení (prop `spec`, hlásí ho `NodeSpecEditor` přes `onStored` s klíčem
 uzlu, NodePanel ho předá jen pro právě vybraný uzel) se zadání nesestaví ani nekopíruje; dílek pojmenuje
-chybějící podklad (`missingSectorSpec`); dokud zadání není načtené (`spec === null`), ukáže „Načítám…“.
+chybějící podklad (`missingSectorSpec`); dokud zadání není načtené (`spec === null`), ukáže „Načítám…“; když
+načtení selhalo (`specError` z editoru), ukáže chybu a odkáže na tlačítko „Načíst zadání znovu“ v editoru
+(žádný automatický pokus).
 
 `logic/sector-decompose-prompt.ts` (testováno) skládá zadání: `sectorDecomposePrompt({project, workspace,
 sectorId, sectorName, purpose, cards})` vrátí text začínající `/opora-control-center`, nebo `null`, když

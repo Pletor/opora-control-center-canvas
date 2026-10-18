@@ -73,8 +73,9 @@ odpověď měnila dávku, je otázka blokující.
 Oblast není rodičem v grafu, členství je geometrické. Dávka to řeší sama: nový uzel s
 `parent: "@<id oblasti>"` backend položí na vrstvu oblasti (`parentId` oblasti) dovnitř jejího rámečku
 a najde volné místo bez kolizí. `position {x, y}` je volitelná (absolutní souřadnice plátna); backend ji
-stáhne do rámečku a při kolizi posune vedle. Když se sektor do rámečku nevejde, dávka neprojde: uveď to
-v souhrnu blokací, oblast sám nezvětšuj. Karta `[gate]` leží ve vrstvě svého sektoru (bez `position`).
+stáhne do rámečku a při kolizi posune vedle. Plný rámeček backend sám zvětší (do šířky na tři sloupce, pak
+po řádcích); jen když oblast nemá kam růst (sousedi těsně u rámečku), dávka neprojde: uveď to v souhrnu
+blokací, oblast sám nezvětšuj. Karta `[gate]` leží ve vrstvě svého sektoru (bez `position`).
 
 ## Postup a schválení
 
@@ -270,7 +271,8 @@ sektor id S, fáze id F“ a platí celý oddíl „Sektor → karty“ s těmit
   jen **z nových karet**: `next` / `block` mezi nimi, na existující karty a na `[gate]` sektoru; vazby
   existujících karet neměníš. Když by napojení do hlavní linky vyžadovalo změnit existující vazbu nebo kartu,
   dávku nestav a uveď to v souhrnu blokací. Jiné fáze ani jejich karty neměníš.
-- Když se fáze do rámečku nevejde, dávka neprojde: uveď to v souhrnu blokací, oblast sám nezvětšuj.
+- Rámeček fáze vyroste sám; jen když nemá kam (sousedi těsně u něj), dávka neprojde: uveď to v souhrnu
+  blokací, oblast sám nezvětšuj.
 
 ## Podněty → jedno rozhodnutí
 

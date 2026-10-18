@@ -61,11 +61,11 @@
 .arch-landing__quiet:hover:not(:disabled){color:var(--ae-text);border-color:var(--ae-muted)}
 .arch-landing__split{margin-top:24px}
 
-/* Zámek úprav: když „+ Doména“ nebo jiná úprava nejde, řekne to jedna řádka pod hlavičkou editoru
-   (ukládám, načítám, chyba, uzavřená karta, obsah mainu jen pro čtení). Trvalý důvod má zlatý okraj,
-   protože člověk musí něco udělat; přechodný je tlumený a zmizí sám, aby při každém uložení nekřičel. */
+/* Trvalý zámek stojí pod hlavičkou a má zlatý okraj, protože člověk musí něco udělat.
+   Ukládání a načítání se ukáže tiše v rohu editoru: nevkládá řádek do plátna, nemění jeho
+   rozměry a nebere kliknutí. Po dokončení zmizí samo. */
 .arch-landing__lock{display:flex;align-items:center;gap:8px;margin:0;padding:6px 16px;border-bottom:1px solid var(--gold);background:color-mix(in srgb,var(--gold) 8%,var(--ae-bg));color:var(--ae-text);font-size:12px}
-.arch-landing__lock--transient{border-bottom-color:var(--ae-line);background:transparent;color:var(--ae-muted)}
+.arch-landing__lock--transient{position:absolute;inset:auto 16px 16px auto;z-index:10;max-width:calc(100% - 32px);padding:6px 10px;border:1px solid var(--ae-line);border-radius:7px;background:var(--ae-panel);color:var(--ae-muted);box-shadow:0 2px 8px #0003;pointer-events:none;overflow-wrap:anywhere}
 .arch-landing__lock-icon{flex:none}
 
 /* Nepřiřazené worktree: pod stromem jedna řádka na worktree s výběrem domény a tichým „Přiřadit“.

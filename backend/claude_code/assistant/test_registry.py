@@ -11,8 +11,9 @@ def test_create_persists_atomically(tmp_path):
     assert path.exists() and not path.with_suffix(".json.tmp").exists()
     saved = json.loads(path.read_text(encoding="utf-8"))["sessions"][0]
     assert set(saved) == {"id", "projectId", "workspace", "title", "model", "claudeSessionId",
-                          "createdAt", "updatedAt", "state", "nodeId"}
+                          "createdAt", "updatedAt", "state", "nodeId", "sectorId"}
     assert saved["title"] == DEFAULT_TITLE and saved["state"] == "idle" and saved["nodeId"] is None
+    assert saved["sectorId"] is None
     assert registry.create("p1", "draft", "opus", title="  Plán  ")["title"] == "Plán"
     assert record["id"] == saved["id"]
 
@@ -66,3 +67,14 @@ def test_broken_file_starts_empty(tmp_path):
     path.parent.mkdir()
     path.write_text("{nejde", encoding="utf-8")
     assert SessionRegistry(tmp_path).list() == []
+
+
+def test_sector_id_round_trips_and_legacy_record_reads_none(tmp_path):
+    registry = SessionRegistry(tmp_path)
+    created = registry.create("p1", "main", "opus", sector_id="sektor-1")
+    assert [item["sectorId"] for item in SessionRegistry(tmp_path).list("p1")] == ["sektor-1"]
+    path = tmp_path / "assistant" / "sessions.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    del data["sessions"][0]["sectorId"]  # starý záznam bez pole
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert SessionRegistry(tmp_path).get(created["id"])["sectorId"] is None

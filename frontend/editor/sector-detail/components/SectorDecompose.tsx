@@ -16,6 +16,7 @@ export default function SectorDecompose({
   purpose,
   cards,
   spec,
+  specError = "",
 }: {
   project: string;
   workspace: string;
@@ -26,10 +27,12 @@ export default function SectorDecompose({
   cards: number;
   /** Uložený cíl a akceptace sektoru (z editoru zadání); `null` = ještě nenačtené (zadání se nestaví, hláška „načítám“). */
   spec: { goal: string; acceptance: string } | null;
+  /** Chyba načtení uloženého zadání (z editoru zadání); zadání se nestaví, dílek ukáže chybu místo „načítám“. */
+  specError?: string;
 }) {
   const { status, copy, fieldRef } = useCopyText();
   const missing = missingSectorSpec(spec);
-  const prompt = missing.length ? null : sectorDecomposePrompt({ project, workspace, sectorId, sectorName, purpose, cards });
+  const prompt = missing.length || specError ? null : sectorDecomposePrompt({ project, workspace, sectorId, sectorName, purpose, cards });
   const state = !prompt
     ? "Zadání nejde sestavit: identifikátor projektu, workspace nebo sektoru obsahuje nepovolené znaky."
     : cards > 0
@@ -39,7 +42,9 @@ export default function SectorDecompose({
   return (
     <details className="sector-fold" data-testid="sector-decompose">
       <summary className="sector-fold__summary">Rozložit na karty</summary>
-      {spec === null ? (
+      {specError ? (
+        <p className="sector-fold__alert" role="alert" data-testid="sector-decompose-error">Uložené zadání sektoru se nepodařilo načíst: {specError}. Použijte tlačítko „Načíst zadání znovu“ v části „Zadání pro práci“ výše.</p>
+      ) : spec === null ? (
         <p className="muted sector-fold__state" role="status" data-testid="sector-decompose-loading">Načítám uložené zadání sektoru…</p>
       ) : missing.length > 0 ? (
         <p className="muted sector-fold__state" role="status" data-testid="sector-decompose-missing">

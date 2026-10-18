@@ -52,6 +52,7 @@ import { withStages, type PipelineWriteResponse } from "@/shared/desktop-state/l
 import "@/editor/component-library/node-library/styles/node-library.css";
 import TagFilter from "@/editor/canvas/tag-filter/components/TagFilter";
 import ProjectHome from "@/project-setup/components/ProjectHome";
+import StoryboardWorkspace from "@/editor/storyboard/components/StoryboardWorkspace";
 import TextWorkspace, { type TextSubtab } from "@/editor/node-detail/content/components/TextWorkspace";
 import type { AgentTaskRequest } from "@/editor/llm-control/editor-context/components/context-actions";
 import TaskHandoff from "@/editor/llm-control/editor-context/components/TaskHandoff";
@@ -88,6 +89,7 @@ import DrawingTools from "@/editor/canvas/drawing/components/DrawingTools";
 import { discardDrawingDrafts, type DrawingTool } from "@/editor/canvas/drawing/logic/drawing-state";
 const DrawingWorkspace = lazy(() => import("@/editor/canvas/drawing/components/DrawingWorkspace"));
 import ControlTower from "@/editor/control-tower/components/ControlTower";
+import OfficeWorkspace from "@/editor/office/components/OfficeWorkspace";
 import WorkspaceBoundary from "@/ui-kit/workspace-boundary/components/WorkspaceBoundary";
 import {
   readMode,
@@ -208,6 +210,7 @@ export default function App() {
   // panel sekce (Struktura, Schránka, Nastavení), jen v Editoru. Otevřenost je jen v paměti
   // sezení, poslední sekce se pamatuje jednou pro aplikaci; zkratky Ctrl+Shift+, / Ctrl+Shift+.
   // a Esc drží hook. Úvodní obrazovka menu nekreslí, proto tam zkratky nic nepřepínají.
+  const loadsCanvas = screen === "canvas";
   const dock = usePanelDock(environment === "editor" && screen === "canvas");
   // Profil patří projektu: načte se z /api/project-settings při otevření sekce a ukládá ho jen App
   // s očekávanou revizí.
@@ -312,7 +315,7 @@ export default function App() {
     if (savingGraph.current > 0) { canvasReloadQueued.current = true; return; }
     canvasReloadQueued.current = false;
     desktop.reload();
-    if (screen !== "canvas") return;
+    if (!loadsCanvas) return;
     const scope = { ...activeScope.current };
     const g = ++generation.current;
     api<View>(`/api/view?project=${encodeURIComponent(scope.project)}&workspace=${encodeURIComponent(scope.workspace)}`)
@@ -364,7 +367,7 @@ export default function App() {
       setRemoval(null); lastLoadedScope.current = nextScope;
     }
     setError("");
-    if (screen === "canvas") refresh(); else generation.current++;
+    if (loadsCanvas) refresh(); else generation.current++;
   }, [project, workspace, screen]);
   // Karta z živého panelu v jiném worktree: otevře se až po přepnutí prostoru, tedy po úklidu výběru výše.
   const [pendingCard, setPendingCard] = useState<CardRequest | null>(null);
@@ -394,7 +397,7 @@ export default function App() {
     .map((j) => j.id)
     .join(",");
   useEffect(() => {
-    if (completed && screen === "canvas") refresh();
+    if (completed && loadsCanvas) refresh();
   }, [completed]);
   async function run(action: () => Promise<void>) {
     const ticket = ++operationGeneration.current;
@@ -736,7 +739,7 @@ export default function App() {
     worktreeLive: capabilities.worktreeLive,
     mainWorkspace: capabilities.defaultWorkspace,
     onSwitchWorkspace: selectWorkspace,
-    onStartSession: (request) => { setAssistantStart((prior) => ({ ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); },
+    onStartSession: (request) => { setAssistantStart((prior) => ({ sectorId: null, ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); },
     onCreateWorktree: (domainId) => { open("workspace"); setWorktreeDomain(domainId); },
     onOpenCard: (request) => {
       if (request.workspace === workspace) { openArchitectureNode(request.nodeId); return; }
@@ -961,9 +964,9 @@ export default function App() {
     <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
     {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
   </>;
-  const artifactMapOpen = mode === "map";
+  const artifactMapOpen = mode === "map" || mode === "office" || mode === "storyboard";
   const inspectorTools =
-    mode === "map" ? (
+    mode === "map" || mode === "office" || mode === "storyboard" ? (
       null
     ) : mode === "drawing" ? (
       <DrawingTools
@@ -1074,7 +1077,7 @@ export default function App() {
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
       environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} /> :
-      <div className={"workspace-shell " + mode + "-mode" + (mode === "map" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
+      <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
             <nav aria-label="Cesta plátnem" className="crumbs">
@@ -1112,6 +1115,12 @@ export default function App() {
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
               ) : mode === "map" ? (
                 <ControlTower key={project} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }} onConfirmProposal={confirmProposalNow} onConfirmSector={confirmSectorNow} />
+              ) : mode === "office" ? (
+                <OfficeWorkspace key={`${project}:${workspace}`} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }}
+                  onStartSession={(request) => { setAssistantStart((prior) => ({ ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); }}
+                  onSelectSession={(id) => { setAssistantSelect((prior) => ({ seq: (prior?.seq ?? 0) + 1, sessionId: id })); setAssistantOpen(true); }} />
+              ) : mode === "storyboard" ? (
+                <StoryboardWorkspace key={JSON.stringify([project, workspace])} project={project} workspace={workspace} graph={graph} selectedNode={selected} readOnly={!!view?.readOnly} onOpenNode={(id) => { openNode(id); }} onDraw={(id) => { enter(id); setMode("drawing"); }} />
               ) : mode === "drawing" ? (
                 <WorkspaceBoundary
                   key={JSON.stringify([project, workspace, parent, mode])}

@@ -1,0 +1,196 @@
+/* storyboard: celá plocha módu Storyboard vedle Velína.
+   Člověk vidí nahoře lištu s ovládáním, pod ní pás momentů s miniaturami, vlevo úzký pás vrstev, uprostřed snímek
+   s osou času a vpravo formulář vybraného momentu. Poměr drží oko: vrstvy 120 px, momenty 110 px, formulář 360 px,
+   snímek dostane zbytek. Vzhled je v barvách aplikace, tmavé je jen samotné plátno. */
+.storyboard {
+  display: grid; height: 100%; min-height: 0; min-width: 0; gap: 8px; padding: 8px 12px; box-sizing: border-box; overflow: hidden; color: var(--ink);
+  grid-template-columns: 120px minmax(0, 1fr) 360px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "bar bar bar" "layers strip strip" "layers stage form" "layers timeline form";
+}
+.storyboard > .storyboard__bar { grid-area: bar; }
+.storyboard__empty { grid-column: 1 / -1; grid-row: 2 / -1; margin: 0; color: var(--ink-muted); }
+
+/* __bar: jedna zalamovaná řada: výběr karty, tlačítka a stav na konci. Uložit je zvýrazněné, Smazat storyboard je
+   červené, stav je vždy vidět, aby člověk hned věděl, jestli je rozepsané nebo uložené. */
+.storyboard__bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.storyboard__picker { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; font-size: 0.85em; color: var(--ink-muted); }
+.storyboard__tools { display: inline-flex; gap: 2px; margin-right: 6px; }
+.storyboard__tools button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+
+/* __start: karta bez storyboardu: krátké vysvětlení, roletka animace a velké tlačítko Založit uprostřed volné plochy. */
+.storyboard__start { display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
+
+/* __strip: pás momentů nahoře jako záložky. Každá položka je malý snímek se jménem pod sebou; vybraná má zlatý rámeček,
+   aby bylo hned vidět, o kterém momentu se píše. Plus na konci přidá moment v aktuálním čase. */
+.storyboard__strip { grid-area: strip; display: flex; gap: 6px; align-items: stretch; height: 110px; overflow-x: auto; min-width: 0; }
+.storyboard__strip-item { display: grid; grid-template-rows: auto auto auto; gap: 2px; flex: 0 0 auto; padding: 3px; text-align: left; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
+.storyboard__strip-item--selected { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn); }
+/* __thumb: miniatura webové scény. Vespod je zmenšená živá stránka, nahoře průhledné plátno se skicou a šipkami, takže
+   miniatura vypadá stejně jako u kreslené animace; výchozí rozměr dává dílek, pás a rail ho přepíšou svým. */
+.storyboard__thumb { position: relative; display: block; width: var(--thumb-w); height: var(--thumb-h); overflow: hidden; }
+.storyboard__thumb > .scene-frame { position: absolute; left: 0; top: 0; }
+.storyboard__thumb > .storyboard__thumb-canvas { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; }
+.storyboard__layer-thumb .storyboard__thumb { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+
+.storyboard__strip-thumb, .storyboard__layer-thumb canvas { display: block; background: repeating-conic-gradient(#2a2d31 0% 25%, #202327 0% 50%) 0 0 / 12px 12px; border-radius: 3px; }
+.storyboard__strip-thumb { width: 142px; height: 80px; }
+.storyboard__strip-time { font-family: var(--mono); font-size: 0.72em; color: var(--ink-muted); }
+.storyboard__strip-title { max-width: 142px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78em; }
+.storyboard__strip-add { flex: 0 0 auto; width: 36px; font-size: 1.4em; }
+
+/* __layers: svislý pás vrstev vlevo. Každá vrstva má miniaturu jen sama o sobě na šachovnici průhlednosti a pod ní
+   jméno s přepínačem; schovaná vrstva zešedne, aby bylo poznat, co na plátně chybí. Poslední jsou šipky a poznámky. */
+.storyboard__layers { grid-area: layers; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; }
+.storyboard__layer { display: flex; flex-direction: column; gap: 2px; font-size: 0.78em; }
+.storyboard__layer--hidden { opacity: 0.45; }
+.storyboard__layer-thumb { padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; cursor: pointer; line-height: 0; }
+.storyboard__layer-thumb canvas { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.storyboard__layer-name { display: flex; gap: 4px; align-items: center; }
+
+/* __stage-area: prostor pod pásem momentů; snímek se do něj vejde celý ve svém poměru stran a malý náhled celku
+   sedí v pravém dolním rohu, aby nezakrýval střed. */
+.storyboard__stage-area { grid-area: stage; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
+
+/* __mini: malý náhled celku (240 px, po kliku 420 px) se všemi vrstvami, i když jsou na plátně některé schované. */
+.storyboard__mini { position: absolute; right: 8px; bottom: 8px; padding: 0; line-height: 0; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; cursor: zoom-in; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); background: #101418; }
+.storyboard__mini--large { cursor: zoom-out; }
+.storyboard__mini canvas { display: block; }
+
+/* __status: popisek stavu uložení na konci lišty. Storyboard se ukládá sám, takže v klidu je šedý a tichý:
+   „Uloženo 14:07“ a za ním, kolik komentářů čeká na agenta – člověk ví, že agent jeho přání už vidí.
+   Krátce po psaní svítí oranžově „Neuloženo · ukládám za chvíli“, aby bylo jasné, že změna ještě není na serveru.
+   Při konfliktu, chybě nebo chybném konceptu je varovný a tučný a zůstane vidět, dokud to člověk nevyřeší. */
+.storyboard__status { margin-left: auto; font-size: 0.85em; color: var(--ink-muted); }
+.storyboard__status--dirty { color: var(--warn); }
+.storyboard__status--conflict { color: var(--warn); font-weight: 600; }
+
+/* __stage: snímek animace se vejde do volné plochy ve svém poměru stran; kde je vrstva schovaná, prosvítá šachovnice
+   průhlednosti. Kurzor říká, co klik udělá (křížek pro umísťování a kreslení, šipka pro výběr). */
+.storyboard__stage { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; background: repeating-conic-gradient(#14171a 0% 25%, #0c0e10 0% 50%) 0 0 / 16px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+/* __stage--scene: u webové scény je plátno jen průhledná fólie na šipky, poznámky a skicu; šachovnice by zakryla
+   stránku pod ním. __stage-scene je místo stránky: přesně pod plochou plátna, kliky propadají na plátno. */
+.storyboard__stage--scene { position: relative; z-index: 1; background: transparent; }
+.storyboard__stage-scene { position: absolute; z-index: 0; line-height: 0; }
+.storyboard__stage--place, .storyboard__stage--arrow, .storyboard__stage--note { cursor: crosshair; }
+
+/* __timeline: osa času pod snímkem (grid-area timeline): nahoře přehrávání a čas, pod tím dráha s markery a nakonec posuvník. */
+.storyboard__timeline { grid-area: timeline; display: flex; flex-direction: column; gap: 6px; }
+.storyboard__timeline-row { display: flex; gap: 8px; align-items: center; }
+.storyboard__time { font-family: var(--mono); font-size: 0.85em; color: var(--ink-muted); }
+.storyboard__track { position: relative; height: 24px; background: var(--field); border: 1px solid var(--line); border-radius: var(--radius); }
+
+/* __marker: klíčový moment na ose, malý kosočtverec. Vybraný je zlatý a větší, moment s přáním má plný okraj,
+   dotek podlahy (--contact) je oranžový, aby bylo vidět, kde se kulička rozplácne. */
+.storyboard__marker { position: absolute; top: 4px; width: 14px; height: 14px; margin-left: -7px; padding: 0; transform: rotate(45deg); background: var(--ink-muted); border: 1px solid var(--line-strong); border-radius: 2px; cursor: pointer; }
+.storyboard__marker--wish { border-color: var(--accent); }
+.storyboard__marker--contact { background: #e08a3a; }
+.storyboard__marker--selected { background: var(--warn); width: 18px; height: 18px; margin-left: -9px; top: 2px; }
+
+/* __playhead: tenká svislá čára v čase t; neblokuje klikání na markery. */
+.storyboard__playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); pointer-events: none; }
+
+/* __form: sloupec polí vybraného momentu. Nejdůležitější je nahoře přání člověka, zbytek je popis a hodnoty stavu. */
+.storyboard__form { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; overflow-y: auto; }
+.storyboard__field { display: flex; flex-direction: column; gap: 2px; font-size: 0.85em; color: var(--ink-muted); }
+.storyboard__field input[type="checkbox"] { align-self: flex-start; }
+.storyboard__form-actions { display: flex; gap: 6px; }
+
+/* __comment: přání k momentu je důvod, proč storyboard existuje, proto je zvýrazněné zlatým rámem a velkým polem.
+   Prázdné je šedé s textem „bez přání“, aby bylo poznat, že moment je zatím jen klíčový snímek. */
+.storyboard__comment { display: flex; flex-direction: column; gap: 4px; padding: 8px; font-weight: 600; background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: var(--radius); }
+.storyboard__comment textarea { font-weight: 400; resize: vertical; }
+.storyboard__comment--empty { background: transparent; border-color: var(--line); color: var(--ink-muted); }
+
+/* __annotations: šipky a poznámky momentu jako řádky: věta se souřadnicemi, editovatelný text a Smazat;
+   vybraná anotace (zlatý okraj) odpovídá zvýrazněné šipce na snímku. */
+.storyboard__annotations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.storyboard__annotation { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; padding: 2px 4px; border: 1px solid transparent; border-radius: var(--radius); }
+.storyboard__annotation--selected { border-color: var(--warn); }
+.storyboard__annotation-pick { font-size: 0.8em; text-align: left; }
+.storyboard__annotations-empty { font-size: 0.85em; color: var(--ink-muted); }
+
+/* __sketch: skica momentu je okno přes celé plátno. Nahoře úzká lišta s názvem momentu a časem, vpravo Uložit skicu
+   a Zavřít; pod ní běží běžné kreslení a v něm pod čarami leží snímek animace, takže člověk kreslí přesně na to,
+   co divák vidí. Lišta má vlastní řádek nad kreslením (kreslení je jinak absolutní přes celou plochu a překrývalo by
+   její tlačítka); „Uložit kresbu“ zůstává ve stavovém řádku kreslení. Překryv zakryje plátno i malý náhled. */
+.storyboard__sketch { position: absolute; inset: 0; z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; background: var(--bg, #14171a); border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
+.storyboard__sketch > .drawing-workspace { position: relative; inset: auto; min-height: 0; }
+.storyboard__sketch-view { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.storyboard__sketch-view img { max-width: 100%; max-height: 100%; }
+
+/* __sketch-bar: lišta překryvu; stav (ukládám, uloženo, chyba) je tichý šedý text uprostřed, aby tlačítka zůstala vpravo. */
+.storyboard__sketch-bar { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.storyboard__sketch-bar [role="status"] { flex: 1 1 auto; font-size: 0.85em; color: var(--ink-muted); }
+
+/* __stale: malý oranžový štítek „Náhled neaktuální“ pod miniaturou momentu a u vrstvy Skica. Říká, že scénu skici
+   změnil někdo bez nového exportu (agent), takže PNG v náhledu už nemusí odpovídat kresbě. */
+.storyboard__stale { display: inline-block; padding: 0 5px; font-size: 0.7em; font-weight: 600; color: #1b1205; background: var(--warn); border-radius: 3px; }
+
+
+/* __new-comment: štítek „nový komentář“ pod miniaturou momentu v pásu; stejný tvar jako oranžový štítek neaktuálního
+   náhledu, ale zlatý rámeček, aby bylo jasné, že jde o přání člověka, ne o stav skici. */
+.storyboard__new-comment { display: inline-block; padding: 0 5px; font-size: 0.7em; font-weight: 600; color: var(--accent); border: 1px solid var(--accent-line); border-radius: 3px; background: var(--accent-soft); }
+
+/* __answered: přepínač „Odpovězeno“ pod polem komentáře. Zaškrtne ho člověk, když agent přání splnil; jakmile člověk
+   komentář přepíše, odškrtne se samo, protože odpověď už platí na starý text. */
+.storyboard__answered { display: flex; gap: 6px; align-items: center; font-size: 0.85em; font-weight: 400; color: var(--ink-muted); }
+
+/* __layers-error: červenooranžová věta nad vrstvami, když kód animace spadl. Plátno je v tu chvíli prázdné, takže věta
+   říká proč a co opravit v záložce Kód animace. */
+.storyboard__layers-error { padding: 4px 6px; font-size: 0.78em; font-weight: 600; color: var(--warn); border: 1px solid var(--warn); border-radius: var(--radius); overflow-wrap: anywhere; }
+
+/* __side: pravý sloupec (grid-area form). Nahoře záložky Moment / Kód animace nebo tlačítko „Použít jako vlastní kód“
+   u šablony, pod nimi formulář momentu nebo editor kódu, který dostane zbytek výšky a posouvá se sám. */
+.storyboard__side { grid-area: form; display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+.storyboard__tabs { display: flex; gap: 2px; }
+.storyboard__tabs button { flex: 1 1 0; }
+.storyboard__tabs button[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+.storyboard__use-code { align-self: flex-start; }
+
+/* code-panel: editor kódu animace. Zdroj je velké neproporcionální pole (aspoň 24 řádků), aby šel číst jako program;
+   JSON polí a vrstev je menší, protože se mění zřídka. Chyba pod tlačítkem Použít je červeně, pomalé kreslení jen
+   tiše upozorní. */
+.code-panel { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; }
+.code-panel__field { display: flex; flex-direction: column; gap: 2px; font-size: 0.85em; color: var(--ink-muted); }
+.code-panel__source, .code-panel__json { font-family: var(--mono); font-size: 0.85em; line-height: 1.4; tab-size: 2; white-space: pre; overflow: auto; resize: vertical; }
+.code-panel__source { min-height: 24lh; }
+.code-panel__error { margin: 0; font-size: 0.85em; font-weight: 600; color: var(--warn); overflow-wrap: anywhere; white-space: pre-wrap; }
+.code-panel__slow { margin: 0; font-size: 0.85em; color: var(--ink-muted); }
+
+/* asset-panel: obrázky, které člověk dává agentovi. Nahoře nahrání a pod ním jedna věta, když soubor nejde vzít;
+   níž karty podkladů pod sebou, vlevo náhled 96×54 (poměr plátna 16:9), vpravo pokyn: název, účel, cíl, moment,
+   barva a text. Podklad, který agent ještě nepoužil, má zlatý levý okraj stejně jako nevyřízené přání u momentu,
+   takže člověk na první pohled vidí, co čeká. Seznam se posouvá sám a nahrání zůstává nahoře. */
+.asset-panel { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.asset-panel__upload { display: flex; flex-direction: column; gap: 4px; }
+.asset-panel__field { display: flex; flex-direction: column; gap: 2px; font-size: 0.85em; color: var(--ink-muted); }
+.asset-panel__hint { margin: 0; font-size: 0.8em; color: var(--ink-muted); }
+.asset-panel__message { margin: 0; font-size: 0.85em; font-weight: 600; color: var(--warn); overflow-wrap: anywhere; }
+.asset-panel__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; }
+.asset-panel__item { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; padding: 6px; border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--radius); }
+.asset-panel__item--open { border-left-color: var(--accent); background: var(--accent-soft); }
+.asset-panel__thumb { width: 96px; height: 54px; object-fit: contain; background: var(--line); border-radius: 3px; }
+.asset-panel__thumb--loading { display: flex; align-items: center; justify-content: center; font-size: 0.7em; color: var(--ink-muted); }
+.asset-panel__fields { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.asset-panel__fields textarea { resize: vertical; }
+.asset-panel__color { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.asset-panel__foot { display: flex; gap: 6px; align-items: center; justify-content: space-between; }
+.asset-panel__state { display: inline-block; padding: 0 5px; font-size: 0.7em; font-weight: 600; color: var(--accent); border: 1px solid var(--accent-line); border-radius: 3px; }
+.asset-panel__state--done { color: var(--ink-muted); border-color: var(--line); }
+.asset-panel__empty { font-size: 0.85em; color: var(--ink-muted); }
+
+/* scene-frame: okno do webové scény. Stránka se vykresluje ve skutečné velikosti storyboardu a jen se zmenší
+   do plochy náhledu (scale od levého horního rohu), takže člověk vidí přesně to, co se nasadí, jen menší.
+   Okno nebere kliky ani fokus: na scénu se ukazuje šipkami na plátně nad ní, ne klikáním do stránky. */
+.scene-frame { overflow: hidden; pointer-events: none; }
+.scene-frame__view { display: block; border: 0; transform-origin: 0 0; pointer-events: none; background: transparent; }
+
+/* scene-panel: editor webové scény. Dokument je stránka, kterou člověk schvaluje, proto dostává stejně velké
+   neproporcionální pole jako kód animace (aspoň 24 řádků); pole stavu a vrstvy jsou menší JSON pod ním a chyba
+   (externí zdroj, výjimka v seek) svítí varovně pod tlačítkem Použít. */
+.scene-panel { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; }
+.scene-panel__field { display: flex; flex-direction: column; gap: 2px; font-size: 0.85em; color: var(--ink-muted); }
+.scene-panel__html, .scene-panel__json { font-family: var(--mono); font-size: 0.85em; line-height: 1.4; tab-size: 2; white-space: pre; overflow: auto; resize: vertical; }
+.scene-panel__html { min-height: 24lh; }
+.scene-panel__error { margin: 0; font-size: 0.85em; font-weight: 600; color: var(--warn); overflow-wrap: anywhere; white-space: pre-wrap; }

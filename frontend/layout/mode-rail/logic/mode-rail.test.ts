@@ -9,6 +9,7 @@ describe("mode-rail – ikony módů plátna", () => {
     expect(modeIcon("text")).toBe("type");
     expect(modeIcon("drawing")).toBe("pencil");
     expect(modeIcon("map")).toBe("map");
+    expect(modeIcon("storyboard")).toBe("play");
   });
 
   it("neznámé nebo prázdné id dostane náhradní ikonu, ne pád", () => {

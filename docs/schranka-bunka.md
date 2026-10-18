@@ -36,7 +36,8 @@ ani příkazy neprovádí (§10 a „model jen na 4 místech“ platí beze změ
    `synthesized` žádné neměl), změnu dělá člověk.
 2. **Karta:** `card_of` z `checks` zapíše `checks` (stejná id a příkazy) a `goal_mode: "until_checks_pass"`; bez
    `checks` beze změny. `extend` je na existující kartu nepřenáší (`checks`/`goal_mode` jsou chráněná pole, zápis
-   agentem = 403); díky bodu 1 zůstávají kontroly karty z kola 1 shodné s fragmentem.
+   agentem = 403). Liší-li se kontroly existující karty od `synthesized` (i když je změnil člověk), `planned` vrátí
+   409 `checks-mismatch` (fail-closed); kontroly karty upraví člověk ručně, pak se plánuje znovu.
 3. **`verified.actual.run?`**: `{executor ≤80, verifier ≤80, checks: [{checkId, command, exitCode: int, durationMs: int ≥0,
    outputSha256: 64 hex}], at: ISO 8601 se zónou}`. Pravidla serveru (400 při porušení):
    - má-li `synthesized` `checks` a `tests` je `pass`/`fail`, je `run` povinný a jeho `checks` přesně odpovídají
