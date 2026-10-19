@@ -18,7 +18,7 @@ from backend.editor.node.node_specs import EMPTY_FIELDS
 
 PLAN_KEYS = {"nodes", "edges", "decisions", "extend"}
 NODE_FIELDS = {"ref", "kind", "parent", "name", "purpose", "sourceRef", "size", "spec", "text",
-               "agentRole", "blocks", "rules", "card", "position", "criteria", "site", "design", "gateNodeId", "checks", "goal_mode", "factRefs", "scenario", "downloadsUrl", "color", "fragmentRef",
+               "agentRole", "blocks", "rules", "card", "position", "criteria", "site", "design", "gateNodeId", "checks", "goal_mode", "factRefs", "scenario", "downloadsUrl", "color", "fragmentRef", "memberOf",
                "briefGroup", "briefDiscipline"}
 RULE_FIELDS = {"kind", "text"}
 DECISION_FIELDS = {"node", "text", "pinned"}
@@ -91,6 +91,8 @@ def build(plan, graph, state):
     for item, node in zip(nodes_in, built.nodes, strict=True):
         if "gateNodeId" in item:
             node["gateNodeId"] = resolve(item["gateNodeId"], item["ref"])
+        if "memberOf" in item:
+            node["memberOf"] = resolve(item["memberOf"], item["ref"])
     extend_cards(built, extensions, existing)
     if built.layout_moves:
         from backend.canvas.canvas_layout import arrange

@@ -38,3 +38,4 @@ embed_origins = ["http://localhost:4600"]
 
 - Pravidla umístění nového souboru: [docs/pravidla-struktury.md](docs/pravidla-struktury.md).
 - Produktový kontrakt: [docs/PRODUCT-CONTRACT.md](docs/PRODUCT-CONTRACT.md).
+- Kontrakt identity a logického členství v oblasti (pro Agent Office a Harness): [docs/kontrakt-identity.md](docs/kontrakt-identity.md).
