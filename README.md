@@ -52,7 +52,13 @@ API `/api/oporahub/changesets` poskytuje kontext, neměnné návrhy a jejich př
 odmítají, agent může navrhovat, nemůže přijímat. Historické snímky uložených zadání
 z `/api/oporahub/proposals` a původní Oracle dashboard zůstávají pod novým panelem.
 
-Druhá etapa verzuje pouze zadání existujících karet. Panel **GitHub důkazy** navíc
+Panel návrhů grafu vytváří nové karty, sektory, oblasti a vazby včetně prvního
+plánu na prázdném plátně. Člověk před přijetím prohlédne neměnný návrh a při
+prvním převzetí výslovně potvrdí základ grafu. Přijetí uloží graf i zadání v jedné
+databázové transakci; agent může následně převzít přijatou kartu. Postup a omezení:
+[návrhy grafu](docs/oporahub-graph-proposals.md).
+
+Panel **GitHub důkazy** navíc
 načítá review a kontroly přímo z GitHubu a váže je na konkrétní přijatou revizi a SHA.
 Odděluje review kódu, review zadání a pozorované kontroly; neposkytuje automatické
 povolení k merge. Soukromý repozitář vyžaduje token v prostředí serveru
@@ -66,7 +72,7 @@ ověření. Nasazení, API a omezení: [vykonávání zadání](docs/oporahub-ex
 Pravidla rezervací mají také [omezený TLA+ model](tools/formal/oporahub-execution/README.md)
 s reprodukovatelnou kontrolou a záměrně porušenou variantou.
 
-Přidávání karet do přijatého grafu, politika povinných kontrol, automatická obnova
+Úpravy a odstraňování přijatých uzlů přes návrhy, politika povinných kontrol, automatická obnova
 synchronizace, rozpočty běhů a obecné spouštění Lean/TLA+ zůstávají další prací.
 Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).

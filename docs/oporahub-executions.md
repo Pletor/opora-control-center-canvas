@@ -82,6 +82,16 @@ nikoli doklad nezávislé identity člověka. Lokální session není ochrana pr
 
 ## Zavedení a omezení
 
+Má-li přijatá revize manifest grafu, nové převzetí vyžaduje shodu pracovního
+sémantického grafu s manifestem. Rozložení na plátně samo práci neblokuje;
+neschválená změna struktury ji blokuje i mimo přebíranou kartu. Starší revize bez
+manifestu zachovávají původní kontrolu zadání. Podrobnosti: [návrhy grafu](oporahub-graph-proposals.md).
+
+Obnova zálohy migrace architektury je po uložení návrhu grafu, přijetí plánu, zařazení do řízeného vykonávání nebo
+zavedení databázové autority grafu odmítnuta: stará záloha nesmí obnovit zaniklé
+oprávnění ani odstranit přijatou historii. Běžná obnova pracovní verze plátna
+nevrací přijatou revizi ani historii vykonávání.
+
 Nové tabulky se přidávají bez mazání původních rezervací a historie. Nasazení
 Canvasu musí předcházet zapnutí nového vykonavatele; kancelář při chybějícím API
 odmítne převzetí. Nevytváří náhradní rezervaci starým protokolem.

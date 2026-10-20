@@ -28,6 +28,13 @@ Po úspěšné obnově se načte graf, Desktop i obsah editorů znovu a vyprázd
 
 ## API a vlastnictví
 
+Po přijetí prvního návrhu grafu OporaHubu je graf prostoru autoritativně v SQLite.
+Obnova jej zapisuje ve stejné databázové transakci; původní soubor grafu nepřepisuje.
+Obnovuje pracovní stav, nikoli přijatou revizi OporaHubu, zařazení do řízeného
+vykonávání nebo historii výsledků. Neshoda obnoveného pracovního grafu s přijatým
+manifestem blokuje nové převzetí práce. Omezení společné obnovy ostatních souborů
+a databáze při pádu procesu zůstává.
+
 Existující modul `backend/editor/canvas_versions/` vlastní verze v projektové databázi. Nové sloupce `snapshot` a `content_digest` se přidávají kompatibilně, staré řádky zůstávají čitelné.
 
 - `GET /api/canvas-versions?project&workspace` vrací `versions`, `dirty` a `currentToken` (s `ETag`; beze změny `If-None-Match` → 304).

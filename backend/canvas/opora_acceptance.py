@@ -2,6 +2,7 @@
 from backend.canvas.opora_change_validation import identifier, scope
 from backend.canvas.opora_changesets import OporaChangesets, stamp
 from backend.canvas.opora_commit_validation import _author
+from backend.canvas.opora_graph_records import preserved_manifest
 
 
 class OporaAcceptance:
@@ -48,6 +49,7 @@ class OporaAcceptance:
                 result = repo.insert({"project": pid, "workspace": wid, "kind": "acceptance",
                                       "parentRevision": expected, "proposalId": proposal_id,
                                       "subject": proposal["subject"], "by": by, "createdAt": stamp(),
-                                      "documents": [accepted[key] for key in sorted(accepted)]})
+                                      "documents": [accepted[key] for key in sorted(accepted)],
+                                      **preserved_manifest(repo, expected)})
                 repo.advance(expected, result["id"])
             return result

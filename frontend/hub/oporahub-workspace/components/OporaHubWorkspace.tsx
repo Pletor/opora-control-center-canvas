@@ -1,3 +1,5 @@
+import GraphProposals from "@/hub/graph-proposals/components/GraphProposals";
+import type { GraphProposalsView } from "@/hub/graph-proposals/logic/use-graph-proposals";
 // App owns the data and actions; this environment composes independent features.
 import GitEvidence from "@/hub/git-evidence/components/GitEvidence";
 import ExecutionReceipts from "@/hub/execution-receipts/components/ExecutionReceipts";
@@ -11,8 +13,8 @@ import ProposalHistory from "@/hub/proposal-history/components/ProposalHistory";
 import type { OporaProposalsView } from "@/hub/proposal-history/logic/use-opora-proposals";
 import "@/hub/oporahub-workspace/styles/oporahub-workspace.css";
 
-export default function OporaHubWorkspace({ view, onRefresh, proposals, changes, evidence, executions }: {
-  view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView; changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView;
+export default function OporaHubWorkspace({ view, onRefresh, proposals, changes, evidence, executions, graphProposals }: {
+  view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView; changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; graphProposals: GraphProposalsView;
 }) {
   return <section className="oporahub-workspace" aria-label="OporaHub" data-testid="oporahub-workspace">
     <header className="oporahub-workspace__head">
@@ -20,6 +22,7 @@ export default function OporaHubWorkspace({ view, onRefresh, proposals, changes,
       <p className="oporahub-workspace__lead">Plán a jeho historie v Canvasu. Kód a jeho ověření v GitHubu.</p>
     </header>
     <div className="oporahub-workspace__body">
+      <GraphProposals model={graphProposals} />
       <PlanChanges model={changes} />
       <ExecutionReceipts model={executions} />
       <GitEvidence model={evidence} />

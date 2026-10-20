@@ -22,7 +22,11 @@ from backend.canvas.architecture_graph import (
 )
 from backend.canvas.graph import EMPTY, digest, encode, valid_id, validate_graph
 from backend.canvas.migrate_to_project_folders import migrate
-from backend.canvas.project_architecture import ARCHITECTURE_WID, ProjectArchitecture, blocked_message
+from backend.canvas.project_architecture import (
+    ARCHITECTURE_WID,
+    ProjectArchitecture,
+    blocked_message,
+)
 from backend.canvas.project_folder import ProjectFolder
 from backend.canvas.read_cache import ReadCache
 from backend.canvas.workspace_graph import (
@@ -30,6 +34,7 @@ from backend.canvas.workspace_graph import (
     read_workspace_graph,
     write_workspace_graph,
 )
+from backend.canvas.workspace_graph_storage import authoritative_raw, save_authoritative
 from backend.editor.node.drawing_files import DrawingFileStore, parse_ids
 from backend.editor.node.drawings import DrawingStore
 from backend.editor.node.node_specs import EMPTY_FIELDS, NodeSpecStore, validate_payload
@@ -40,12 +45,8 @@ from backend.project.workspace.workspace_sources import WorkspaceSources
 from backend.project.worktrees.workspace_archive import archived_workspaces
 from backend.project.worktrees.workspace_domain import require_domain
 from backend.project_setup.project_hub import ProjectHub
-from database.schema.project_schema import (
-    PROJECT_SCHEMA,
-    REGISTRY_SCHEMA,
-    ensure_brief_fragment_columns,
-    ensure_canvas_version_columns,
-)
+from database.schema.project_initialization import initialize_project_schema
+from database.schema.project_schema import REGISTRY_SCHEMA
 
 # Vrstva kresby skici momentu storyboardu: sb/<nodeId>/<momentId>.
 _SKETCH_LAYER = re.compile(r"sb/(?P<node>[A-Za-z0-9_-]{1,80})/(?P<moment>m-[0-9a-f]{8})")
@@ -447,9 +448,7 @@ class CanvasService:
                     folder.create("Lokální návrh", "empty")
                 folder.path.mkdir(parents=True, exist_ok=True)
                 db = open_sqlite(folder.database)
-                db.executescript(PROJECT_SCHEMA)
-                ensure_canvas_version_columns(db)
-                ensure_brief_fragment_columns(db)
+                initialize_project_schema(db)
                 if pid == "draft":
                     db.execute("INSERT OR IGNORE INTO drafts VALUES('draft',?)", (encode(EMPTY),))
                 db.commit()
@@ -638,6 +637,9 @@ class CanvasService:
         """(surový obsah, původ) Git prostoru: main = HEAD:opora-canvas.json, worktree = data plátna."""
         if wid == "main":
             return git(location, "show", (sha or "HEAD") + ":" + GRAPH_FILE, optional=True), "git"
+        authoritative = authoritative_raw(self, pid, wid)
+        if authoritative is not None:
+            return authoritative, "sqlite"
         return read_workspace_graph(self.graph_file(pid, wid), location)
 
     def _composed_view(self, pid, wid, architecture, content, content_digest, legacy, fields):
@@ -855,6 +857,11 @@ class CanvasService:
             else:
                 # Cílové repo zůstává čisté: graf jde do dat plátna, starý soubor ve worktree se nepíše.
                 self.location(pid, wid)
+                if not current["readOnly"] and save_authoritative(
+                    self, pid, wid, new_content, new_arch, architecture["revision"],
+                    arch_changed, actor, kept, commit=_commit,
+                ):
+                    return self.view(pid, wid)
                 if arch_changed:
                     # Architektura před obsahem: selže-li pak zápis souboru, kopie se při skládání skryjí.
                     with self.lock_for(pid):

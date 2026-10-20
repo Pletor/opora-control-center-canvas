@@ -27,6 +27,12 @@ class ChangesetRepository:
                 or (record.get("project"), record.get("workspace")) != self.scope
                 or content_id({key: value for key, value in record.items() if key != "id"}) != identifier):
             raise ValueError("Otisk uložené revize zadání nesouhlasí.")
+        if not proposal:
+            from backend.canvas.opora_graph_records import validate_accepted
+            validate_accepted(record, self.scope)
+            if record.get("graphManifestId") is not None:
+                from database.repositories.opora_graph_proposals import GraphProposals
+                GraphProposals(self.db, *self.scope).read(record["graphManifestId"], manifest=True)
         return record
 
     def insert(self, content, *, proposal=False):
