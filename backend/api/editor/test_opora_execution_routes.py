@@ -1,0 +1,66 @@
+"""HTTP capability scope, actor attribution and non-authoritative receipts."""
+import pytest
+from fastapi.testclient import TestClient
+
+from backend.api.editor.opora_execution_routes import create_opora_execution_router
+from backend.api.editor.test_opora_changeset_routes import AGENT, baseline_payload
+from backend.app.factory import create_app
+from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed
+from database.schema.opora_execution_schema import SCHEMA
+
+BASE = "/api/oporahub/executions"
+
+
+@pytest.fixture
+def client(tmp_path):
+    app = create_app(tmp_path / "data")
+    app.state.service.db_for("draft").executescript(SCHEMA)
+    if not any(getattr(route, "path", "") == BASE + "/claim" for route in app.routes):
+        app.router.routes[0:0] = create_opora_execution_router(app.state.service).routes
+    with TestClient(app, base_url=ORIGIN) as instance:
+        seed(instance)
+        assert instance.post("/api/oporahub/baselines", headers=HEADERS, json=baseline_payload(instance)).status_code == 200
+        yield instance
+
+
+def payload(client):
+    context = client.get(BASE + "/context", params={**SCOPE, "nodeId": "n0"}).json()
+    assert context["available"], context
+    return {**SCOPE, "nodeId": "n0", "expectedAcceptedHead": context["acceptedHead"],
+            "expectedContextVersion": context["contextVersion"], "requestId": "claim1", "ttlSeconds": 60}
+
+
+def test_identity_scope_credential_and_receipt(client):
+    data = payload(client)
+    client.cookies.clear()
+    unknown = {"Origin": ORIGIN}
+    response = client.post(BASE + "/claim", headers=unknown, json=data)
+    assert response.status_code == 428
+    response = client.post(BASE + "/claim", headers=AGENT, json=data)
+    assert response.status_code == 200, response.text
+    record = response.json()
+    assert isinstance(record["expiresAt"], (int, float))
+    endpoint = BASE + "/" + record["executionId"]
+    assert client.get(endpoint + "/assignment", params=SCOPE, headers=AGENT).status_code == 409
+    headers = {**AGENT, "X-Opora-Execution-Token": record["token"]}
+    read = client.get(endpoint + "/assignment", params=SCOPE, headers=headers)
+    assert read.status_code == 200 and "token" not in read.json()
+    assert client.get(endpoint + "/assignment", params={**SCOPE, "workspace": "other"}, headers=headers).status_code == 409
+    result = {**SCOPE, "token": record["token"], "epoch": record["epoch"], "requestId": "r1", "result": {"summary": "Prepared"}}
+    receipt = client.post(endpoint + "/results", headers=AGENT, json=result)
+    assert receipt.status_code == 200, receipt.text
+    assert client.post(endpoint + "/results", headers=AGENT, json=result).json() == receipt.json()
+    assert "token" not in receipt.json()
+    history = client.get(BASE, params={**SCOPE, "nodeId": "n0"}, headers=AGENT)
+    assert history.status_code == 200 and record["token"] not in history.text
+    assert history.json()["executions"][0]["state"] == "reported"
+    results = client.get(endpoint + "/results", params=SCOPE, headers=AGENT)
+    assert results.json()["results"] == [receipt.json()]
+    assert client.get(endpoint + "/results", params={**SCOPE, "workspace": "other"}, headers=AGENT).status_code == 409
+
+
+@pytest.mark.parametrize("key,value", [("ttlSeconds", True), ("requestId", ""), ("nodeId", []), ("ttlSeconds", 0)])
+def test_bad_claim_is_safe_conflict(client, key, value):
+    response = client.post(BASE + "/claim", headers=AGENT, json={**payload(client), key: value})
+    assert response.status_code == 409
+    assert response.json()["code"] == "execution_conflict"

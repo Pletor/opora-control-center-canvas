@@ -48,12 +48,15 @@ def source_status(canvas, project, workspace):
         return {"nodes": result, "checkedAt": datetime.now(UTC).isoformat()}
 
 
-def realize_source(state, payload):
+def realize_source(state, payload, *, actor="system"):
     if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "nodeId", "digest", "commit", "prUrl"}:
         raise ValueError("Realizace vyžaduje project, workspace, nodeId, digest, commit a prUrl.")
     canvas = state.canvas
     project, workspace = payload["project"], payload["workspace"]
     with canvas.graph_lock_for(project), canvas.lock_for(project):
+        if actor != "human":
+            from backend.canvas.opora_execution_guard import legacy_lease
+            legacy_lease(canvas.db_for(project), project, workspace, payload["nodeId"])
         view = canvas.view(project, workspace)
         if view["readOnly"] or view["digest"] != payload["digest"]:
             raise ValueError("Plátno je pouze ke čtení nebo se změnilo. Obnovte ho.")

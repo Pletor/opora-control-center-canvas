@@ -113,6 +113,7 @@ import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-re
 import { notifyCurrentPlanScope } from "@/hub/plan-changes/logic/plan-changes";
 import { usePlanChanges } from "@/hub/plan-changes/logic/use-plan-changes";
 import { useGitEvidence } from "@/hub/git-evidence/logic/use-git-evidence";
+import { useExecutionReceipts } from "@/hub/execution-receipts/logic/use-execution-receipts";
 import { useOporaProposals } from "@/hub/proposal-history/logic/use-opora-proposals";
 import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
 import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
@@ -288,6 +289,7 @@ export default function App() {
   const [view, setView] = useState<View | null>(null);
   const proposals = useOporaProposals(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly);
   const gitEvidence = useGitEvidence(project, workspace, environment === "hub", planAppliedRevision);
+  const executionReceipts = useExecutionReceipts(project, workspace, view?.graph.nodes ?? [], environment === "hub", planAppliedRevision);
   const planChanges = usePlanChanges(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly,
     () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
       setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); proposals.refresh();
@@ -1087,7 +1089,7 @@ export default function App() {
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} evidence={gitEvidence} /> :
+      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} evidence={gitEvidence} executions={executionReceipts} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">

@@ -1,5 +1,7 @@
 // App owns the data and actions; this environment composes independent features.
 import GitEvidence from "@/hub/git-evidence/components/GitEvidence";
+import ExecutionReceipts from "@/hub/execution-receipts/components/ExecutionReceipts";
+import type { ExecutionReceiptsView } from "@/hub/execution-receipts/logic/use-execution-receipts";
 import type { GitEvidenceView } from "@/hub/git-evidence/logic/use-git-evidence";
 import PlanChanges from "@/hub/plan-changes/components/PlanChanges";
 import type { PlanChangesView } from "@/hub/plan-changes/logic/use-plan-changes";
@@ -9,8 +11,8 @@ import ProposalHistory from "@/hub/proposal-history/components/ProposalHistory";
 import type { OporaProposalsView } from "@/hub/proposal-history/logic/use-opora-proposals";
 import "@/hub/oporahub-workspace/styles/oporahub-workspace.css";
 
-export default function OporaHubWorkspace({ view, onRefresh, proposals, changes, evidence }: {
-  view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView; changes: PlanChangesView; evidence: GitEvidenceView;
+export default function OporaHubWorkspace({ view, onRefresh, proposals, changes, evidence, executions }: {
+  view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView; changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView;
 }) {
   return <section className="oporahub-workspace" aria-label="OporaHub" data-testid="oporahub-workspace">
     <header className="oporahub-workspace__head">
@@ -19,6 +21,7 @@ export default function OporaHubWorkspace({ view, onRefresh, proposals, changes,
     </header>
     <div className="oporahub-workspace__body">
       <PlanChanges model={changes} />
+      <ExecutionReceipts model={executions} />
       <GitEvidence model={evidence} />
       <ProposalHistory model={proposals} />
       <SyncDashboard view={view} onRefresh={onRefresh} />

@@ -84,6 +84,10 @@ class CardLeases:
             expires = stamp + payload.get("ttlSeconds", 0)
             db = self.canvas.db_for(project)
             with db:
+                db.execute("BEGIN IMMEDIATE")
+                if op in ("claim", "heartbeat"):
+                    from backend.canvas.opora_execution_guard import legacy_lease
+                    legacy_lease(db, project, workspace, node_id)
                 if op == "claim":
                     held = db.execute(
                         "SELECT COUNT(*) FROM card_leases WHERE project_id=? AND workspace_id=? AND owner=? AND expires_at>? AND node_id<>?",

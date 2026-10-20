@@ -108,5 +108,5 @@ class PipelineRouting:
             state["nodes"][node_id] = node
             saved = self.state.save({"project": project, "workspace": workspace,
                                      "expectedRevision": payload["expectedRevision"], "state": state},
-                                    base=stored["state"], slim=not full)
+                                    base=stored["state"], slim=not full, execution_actor=actor)
             return saved if full else {**saved, "nodeId": node_id, "stages": value}

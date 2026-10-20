@@ -4,6 +4,8 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 """
 import sqlite3
 
+from database.schema.opora_execution_schema import SCHEMA as EXECUTION_SCHEMA
+
 # .data/<root>/registry.sqlite – jen to, co musí být vidět napříč projekty.
 REGISTRY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, name TEXT, repo TEXT, url TEXT, branch TEXT);
@@ -250,6 +252,7 @@ CREATE TABLE IF NOT EXISTS opora_review_evidence(
 CREATE INDEX IF NOT EXISTS opora_review_evidence_history
     ON opora_review_evidence(project_id, workspace_id, pr_number, observed_at);
 """
+PROJECT_SCHEMA += EXECUTION_SCHEMA
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -274,6 +277,9 @@ PROJECT_TABLES = {
     "opora_spec_revisions": "project_id",
     "opora_spec_refs": "project_id",
     "opora_review_evidence": "project_id",
+    "opora_execution_epochs": "project_id",
+    "opora_executions": "project_id",
+    "opora_execution_results": "project_id",
 }
 REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects")
 

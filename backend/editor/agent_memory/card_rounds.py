@@ -262,7 +262,7 @@ def open_round(store, payload, actor):
                                      json.dumps(dict.fromkeys(SECTIONS, ""), ensure_ascii=False), "human", at))
 
         saved = store.save({"project": project, "workspace": workspace, "expectedRevision": payload["expectedRevision"],
-                            "state": state}, after_write=after_write, actor="system")
+                            "state": state}, after_write=after_write, actor="system", execution_actor=actor)
         return {**saved, "round": number + 1, "frozen": number}
 
 

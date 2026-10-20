@@ -59,7 +59,14 @@ povolení k merge. Soukromý repozitář vyžaduje token v prostředí serveru
 (`OPORA_GITHUB_TOKEN`, případně `GH_TOKEN`/`GITHUB_TOKEN`). Podrobnosti a postup:
 [GitHub důkazy](docs/oporahub-github.md).
 
+Agent-office přebírá neměnné zadání přes nové execution API. Rostoucí číslo
+převzetí brání starému běhu odevzdat výsledek po ztrátě rezervace; opakované
+odeslání stejného výsledku se neduplikuje. Historie běhů odlišuje odevzdání od
+ověření. Nasazení, API a omezení: [vykonávání zadání](docs/oporahub-executions.md).
+Pravidla rezervací mají také [omezený TLA+ model](tools/formal/oporahub-execution/README.md)
+s reprodukovatelnou kontrolou a záměrně porušenou variantou.
+
 Přidávání karet do přijatého grafu, politika povinných kontrol, automatická obnova
-synchronizace, plná automatizace agent-office a spouštění Lean/TLA+ zůstávají další
-prací. Historie se nemaže. Přesné API, migrace a omezení:
+synchronizace, rozpočty běhů a obecné spouštění Lean/TLA+ zůstávají další prací.
+Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).

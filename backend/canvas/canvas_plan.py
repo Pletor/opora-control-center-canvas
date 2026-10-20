@@ -171,7 +171,7 @@ def apply_plan(service, payload, *, actor="system", after_write=None):
         if dry:
             return {**result, "digest": view["digest"], "revision": stored["revision"]}
         revision = _write(service, store, project, workspace, expected_digest, stored["revision"], built, wid_of,
-                          after_write)
+                          after_write, actor=actor)
         return {**result, "digest": service.view(project, workspace)["digest"], "revision": revision}
 
 
@@ -192,12 +192,15 @@ def _check_main(service, project, view, built, owned):
                          "architekturu (domény a stránky) lze měnit i tady.")
 
 
-def _write(service, store, project, workspace, expected_digest, revision, built, wid_of, after_write=None):
+def _write(service, store, project, workspace, expected_digest, revision, built, wid_of, after_write=None, *, actor="system"):
     """Spec, text a stav v jedné transakci, graf poslední (viz docstring modulu)."""
     db = service.db_for(project)
     saved_at = now()
     with service.lock_for(project), db:
         db.execute("BEGIN IMMEDIATE")
+        from backend.canvas.opora_execution_guard import state_write
+        state_write(db, project, workspace, store.current(project, workspace)["state"],
+                    built.state, built.new_graph(), actor)
         if store.current(project, workspace)["revision"] != revision:
             raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
         for node_id, fields in built.specs.items():

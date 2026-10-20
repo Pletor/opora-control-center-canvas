@@ -138,6 +138,21 @@ zatím není nastavena (`policyVerified: false`); samotné pozorované úspěšn
 neznamenají úplné ověření. Automatická synchronizace po merge ani vykonávání agentů
 se tímto krokem nespouští.
 
+## Vykonávání přijatých zadání a model protokolu
+
+Nové execution API propojuje přijatou revizi s neměnným zadáním, sdílenou
+rezervací a rostoucí epochou. Výsledek přijme jen od platného běhu; totožné
+opakování vrací původní potvrzení. Agent-office hlídá termín i při výpadku sítě
+a před obnovením uloženého pracovníka znovu ověřuje oprávnění. Odevzdání se
+zobrazuje jako tvrzení agenta, nikoli automatické ověření nebo dokončení karty.
+Podrobný provozní kontrakt a omezení jsou ve
+[vykonávání zadání](oporahub-executions.md).
+
+[TLA+ model rezervací](../tools/formal/oporahub-execution/README.md) prošel
+úplným průchodem konečného stavového prostoru popsaného v jeho dokumentaci.
+Záměrné vypnutí ochrany odhalí souběžné oprávnění a opožděný výsledek starého
+běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
+
 ## Zbývající implementační etapy
 
 | Etapa | Výsledek | Podmínka dokončení |
@@ -145,9 +160,9 @@ se tímto krokem nespouští.
 | 2b. Celý graf návrhů | Rozšíření existujících změn zadání na karty, vazby, texty a sparse kontext | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
 | 3b. Review před přijetím | Připomínky k rozdílu a politika přijetí návrhu podle rizika | Pozorované GitHub review se nepovažuje za automatické oprávnění přijímat jiný návrh |
 | 4. Důkazy a GitHub | Politika povinných kontrol, opakované doručení a obnova synchronizace | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
-| 5. Vykonavatelé | API pro agent-office/CI, rezervace s expirací, rostoucí fencing token, idempotency klíče a rozpočty | Starý agent po převzetí práce nástupcem nezapíše výsledek; opakovaný požadavek nezpůsobí dvojí akci |
+| 5b. Rozpočty vykonavatelů | Rozšíření execution API o celkový čas, náklady a limit opravných kol | Vyčerpaný rozpočet ukončí běh bez nekonečného prodlužování heartbeatů |
 | 6. Rozhraní | Canvas pro cíle a OporaHub pro rozdíly, review, konflikty a důkazy | Člověk dohledá od cíle přes změnu až k ověření; UI používá stejné API jako agent |
-| 7. Formální ověřování | Oddělené vykonávání TLA+/Lean a dohledatelné artefakty | Kontrola uvádí model, tvrzení, předpoklady, verze nástrojů, výstup a vazbu na konkrétní kód |
+| 7b. Formální ověřování úloh | Obecné oddělené vykonávání TLA+/Lean a dohledatelné artefakty nad rámec přiloženého modelu rezervací | Kontrola uvádí model, tvrzení, předpoklady, verze nástrojů, výstup a vazbu na konkrétní kód |
 
 Nezávislé lidské review vyžaduje rozlišitelné ověřené identity reviewerů. Současná lokální session „Člověk“ nedokládá dva různé lidi; jméno zaslané klientem to nenahradí. Důkazy musí rozlišovat výsledek potvrzený vykonavatelem od tvrzení samotného autora.
 

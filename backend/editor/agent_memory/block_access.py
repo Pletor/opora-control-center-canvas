@@ -252,7 +252,7 @@ class BlockAccess:
             "parent": parent,
         }
 
-    def apply(self, payload):
+    def apply(self, payload, *, actor="system"):
         """Zapíše jednu operaci nad blokem a vrátí novou StateResponse + `block`; při chybě nezapíše nic."""
         validate_block_op(payload)
         project, workspace, node_id = payload["project"], payload["workspace"], payload["nodeId"]
@@ -286,7 +286,7 @@ class BlockAccess:
             result = self.state.save({
                 "project": project, "workspace": workspace,
                 "expectedRevision": expected, "state": state,
-            })
+            }, execution_actor=actor)
             block = None
             if affected_id is not None:
                 saved_blocks = result["state"]["nodes"].get(node_id, {}).get("blocks", [])

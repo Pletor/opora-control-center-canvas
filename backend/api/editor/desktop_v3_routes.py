@@ -65,8 +65,8 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         return source_status(state.canvas, project, workspace)
 
     @router.post("/realize-source")
-    def write_source_realization(payload: dict):
-        return realize_source(state, payload)
+    def write_source_realization(payload: dict, request: Request):
+        return realize_source(state, payload, actor=request.state.actor)
 
     @router.post("/autonomy")
     def grant_autonomy(payload: dict, request: Request):
@@ -294,7 +294,7 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
     def write_block(payload: dict, request: Request):
         """Operace nad jedním blokem (add/update/remove/todo) pod CAS revizí; vrací StateResponse + block."""
         _require_lease(payload, request)
-        return block_access.apply(payload)
+        return block_access.apply(payload, actor=request.state.actor)
 
     @router.get("/agent-workspace")
     def read_agent_workspace(project: str, workspace: str, nodeId: str):

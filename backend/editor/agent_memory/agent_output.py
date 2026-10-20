@@ -305,6 +305,8 @@ class AgentOutput:
                 })
             record = result_record(payload, captured)
             def after_write(db):
+                from backend.canvas.opora_execution_guard import legacy_lease
+                legacy_lease(db, project, workspace, node_id)
                 self.results.insert(db, project, workspace, record)
                 record_activity(db, project, workspace, node_id, payload["agent"], stamp, touched=output.get("touched"))
             saved = self.state.save({
