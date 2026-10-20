@@ -38,3 +38,21 @@ embed_origins = ["http://localhost:4600"]
 
 - Pravidla umístění nového souboru: [docs/pravidla-struktury.md](docs/pravidla-struktury.md).
 - Produktový kontrakt: [docs/PRODUCT-CONTRACT.md](docs/PRODUCT-CONTRACT.md).
+
+## OporaHub a práce agentů
+
+Canvas s OporaHubem drží plán, GitHub kód; agent-office je připojený vykonavatel.
+V Alt+3 otevřete **Změny zadání**, prohlédněte uložená zadání a jednou přijměte jejich
+výchozí základ. Pak upravte cíl, omezení a akceptace vybrané karty v návrhu. Uložení
+návrhu Canvas nemění; po prohlídce rozdílu ho může člověk výslovně přijmout do zadání.
+Náhled rozlišuje přijaté, pracovní a navržené hodnoty. Přijetí není ověření kódu.
+
+API `/api/oporahub/changesets` poskytuje kontext, neměnné návrhy a jejich přijetí;
+`/api/oporahub/baselines` zakládá počáteční přijatou revizi. Zastaralá očekávání se
+odmítají, agent může navrhovat, nemůže přijímat. Historické snímky uložených zadání
+z `/api/oporahub/proposals` a původní Oracle dashboard zůstávají pod novým panelem.
+
+Druhá etapa verzuje pouze zadání existujících karet; přidávání karet do přijatého
+grafu, nezávislé review, GitHub reconciliation, plná automatizace agent-office a
+spouštění Lean/TLA+ zůstávají další prací. Historie se nemaže. Přesné API, migrace
+a omezení: [kontrakt OporaHubu](docs/oporahub.md).

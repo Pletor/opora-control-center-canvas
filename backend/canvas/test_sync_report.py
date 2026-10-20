@@ -293,9 +293,9 @@ def test_agent_may_not_commit_the_spec(tmp_path):
         pid = attach(client, source)
         save_graph(client, pid)
         save_spec(client, pid)
-        refused = client.post("/api/opora-commit", headers=HEADERS, json={
+        refused = client.post("/api/opora-commit", headers={**HEADERS, "X-Opora-Actor": "agent; name=Claude"}, json={
             "project": pid, "workspace": "draft", "scope": "node-1",
             "subject": "zkusím to sám", "by": {"kind": "agent", "name": "Claude"}})
-        assert refused.status_code == 409
+        assert refused.status_code == 403
         assert client.get("/api/opora-commits", params={
             "project": pid, "workspace": "draft", "scope": "node-1"}).json()["items"] == []

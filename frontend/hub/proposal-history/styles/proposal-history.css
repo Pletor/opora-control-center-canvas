@@ -1,0 +1,26 @@
+﻿/* Člověk vybere rozsah a zachytí uložené zadání; historie je čitelná i bez Oracle reportu.
+   Ovládání a stav zůstávají nad tabulkou, aby bylo jasné, k jakému kontextu zápis patří. */
+.proposal-history { padding: var(--sp-4); border: 1px solid var(--border, #677380); border-radius: 12px; }
+.proposal-history__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.proposal-history__head h2 { margin: 0; font-size: 20px; }
+.proposal-history__head p, .proposal-history__hint, .proposal-history__context { color: var(--ink-muted); font-size: 13px; }
+.proposal-history__controls { display: flex; gap: 16px; align-items: end; flex-wrap: wrap; margin-top: 16px; }
+.proposal-history__field { display: flex; flex-direction: column; gap: 8px; min-width: 200px; }
+.proposal-history__field--subject { flex: 1; }
+.proposal-history__field input, .proposal-history__field select { padding: 10px; border: 1px solid var(--border, #677380); border-radius: 6px; color: var(--ink); background: var(--bg); }
+.proposal-history__submit { padding: 10px 16px; }
+.proposal-history__error { border-left: 3px solid #c45b4c; padding: 10px; }
+/* Historie se při úzkém okně posouvá samostatně; žádný sloupec nezmizí bez vysvětlení. */
+.proposal-history__table-wrap { overflow-x: auto; }
+.proposal-history__table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.proposal-history__table caption { text-align: left; padding: 14px 0; }
+.proposal-history__table th, .proposal-history__table td { text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--border, #677380); vertical-align: top; }
+.proposal-history__status { display: inline-block; padding: 4px 8px; border: 1px solid var(--border, #677380); border-radius: 20px; white-space: nowrap; }
+/* Rozdíl používá dvě označené hodnoty, aby význam nezávisel jen na barvě. Dlouhý obsah se zalomí. */
+.proposal-history__diff { margin-top: 24px; }
+.proposal-history__change { border-top: 1px solid var(--border, #677380); padding: 12px 0; }
+.proposal-history__change h4 { overflow-wrap: anywhere; margin: 0 0 10px; }
+.proposal-history__values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.proposal-history__values h5 { margin: 0; }
+.proposal-history__values pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-height: 360px; overflow: auto; }
+@media (max-width: 650px) { .proposal-history__values { grid-template-columns: 1fr; } }

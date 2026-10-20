@@ -230,6 +230,18 @@ CREATE TABLE IF NOT EXISTS opora_commits(
     PRIMARY KEY(project_id, workspace_id, id));
 CREATE INDEX IF NOT EXISTS opora_commits_scope
     ON opora_commits(project_id, workspace_id, scope_id, created_at);
+-- Specifications-only changesets: immutable SQLite content and transactional accepted reference.
+CREATE TABLE IF NOT EXISTS opora_spec_proposals(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+    parent_id TEXT NOT NULL, created_at TEXT NOT NULL, content TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+CREATE TABLE IF NOT EXISTS opora_spec_revisions(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+    parent_id TEXT, proposal_id TEXT, created_at TEXT NOT NULL, content TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id), UNIQUE(project_id, workspace_id, proposal_id));
+CREATE TABLE IF NOT EXISTS opora_spec_refs(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, accepted_id TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id));
 """
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
@@ -251,6 +263,9 @@ PROJECT_TABLES = {
     "workspace_documents": "project",
     "check_runs": "project_id",
     "opora_commits": "project_id",
+    "opora_spec_proposals": "project_id",
+    "opora_spec_revisions": "project_id",
+    "opora_spec_refs": "project_id",
 }
 REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects")
 

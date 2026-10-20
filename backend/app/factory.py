@@ -15,8 +15,6 @@ from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
 from backend.api.editor.brief_vault_check_routes import create_brief_vault_check_router
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
-from backend.api.editor.storyboard_routes import create_storyboard_router
-from backend.editor.storyboard.storyboard import StoryboardService
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
 from backend.api.editor.claude_code_routes import create_claude_code_router
@@ -26,10 +24,13 @@ from backend.api.editor.hook_install_routes import create_hook_install_router
 from backend.api.editor.hook_routes import create_hook_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
+from backend.api.editor.opora_changeset_routes import create_opora_changeset_router
+from backend.api.editor.opora_proposal_routes import create_opora_proposal_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
 from backend.api.editor.process_routes import create_process_router
 from backend.api.editor.rlm_routes import create_rlm_router
 from backend.api.editor.semantic_routes import create_semantic_router
+from backend.api.editor.storyboard_routes import create_storyboard_router
 from backend.api.editor.sync_routes import create_sync_router
 from backend.api.project.archify_routes import create_archify_router
 from backend.api.project.graphify_routes import create_graphify_router
@@ -67,6 +68,7 @@ from backend.editor.agent_memory.block_access import BlockAccess
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_packet.desktop_v3_packets import DesktopV3Packets
 from backend.editor.agent_packet.node_brief import NodeBrief
+from backend.editor.storyboard.storyboard import StoryboardService
 from backend.integrations.build_identity import build_identity
 from backend.integrations.typesafe_client import configured_provider
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
@@ -77,7 +79,6 @@ from backend.project.maps.map_refresh import MapRefresh
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from backend.project.worktrees.workspace_archive import WorkspaceArchive
 from backend.semantic_retrieval.service import SemanticRetrieval
-
 
 WORKER_SCRIPT = re.compile(r"/assets/code-animation\.worker-[A-Za-z0-9_-]+\.js")
 
@@ -288,6 +289,8 @@ def create_app(data_root=None):
     app.include_router(create_sync_router(sync_report, check_runs))
     # OporaHub: commity zadání a jejich merge; merge pustí jen zelený verdikt Oracle
     app.include_router(create_oporahub_router(service, OporaHub(service), sync_report))
+    app.include_router(create_opora_proposal_router(service, OporaHub(service)))
+    app.include_router(create_opora_changeset_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)

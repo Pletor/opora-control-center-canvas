@@ -30,8 +30,9 @@ function sameFields(a: SpecFields, b: SpecFields) {
   return FIELDS.every(({ key }) => a[key] === b[key]);
 }
 
-export default function NodeSpecEditor({ project, workspace, nodeId, disabled, onStored }: {
+export default function NodeSpecEditor({ project, workspace, nodeId, disabled, onStored, refreshRevision = 0 }: {
   project: string; workspace: string; nodeId: string; disabled: boolean;
+  refreshRevision?: number;
   /** Hlásí uložená pole zadání (ne rozepsaný draft) i s klíčem `[project, workspace, nodeId]`, aby rodič
    *  po přepnutí uzlu nepřijal zadání předchozího; `fields: null`, dokud nejsou načtená. Když načtení selže
    *  a nic uložené není, nese `error` (rodič ukáže chybu místo věčného „načítám“); obnova jen vědomým
@@ -39,6 +40,8 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled, o
   onStored?: (stored: { key: string; fields: SpecFields | null; error: string }) => void;
 }) {
   const key = JSON.stringify([project, workspace, nodeId]);
+  const activeSpecKey = useRef(key);
+  activeSpecKey.current = key;
   const [baseRevision, setBaseRevision] = useState(0);
   const [stored, setStored] = useState<NodeSpec | null>(null);
   const [fields, setFields] = useState<SpecFields>({ ...EMPTY });
@@ -65,7 +68,7 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled, o
       .catch((e) => { if (ticket === generation.current) setError(String(e)); })
       .finally(() => { if (ticket === generation.current) setLoading(false); });
     return () => { generation.current++; };
-  }, [project, workspace, nodeId, reload]);
+  }, [project, workspace, nodeId, reload, refreshRevision]);
   useEffect(() => { onStored?.({ key, fields: stored ? stored.fields : null, error: !stored && error ? error : "" }); }, [stored, error]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirty = !!stored && !sameFields(fields, stored.fields);
   useSaveParticipant({ id: "spec:" + key, project, workspace, label: "Zadání uzlu " + nodeId, dirty, pending: saving, retainOnUnmount: true, isDirty: () => drafts.has(key), isPending: () => pendingSaves.has(key), flush: async () => { await persistSpec(key); setReload((value) => value + 1); }, discard: () => { drafts.delete(key); setReload((value) => value + 1); } });
@@ -81,7 +84,11 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled, o
       if (ticket === generation.current) setError(e instanceof Error ? e.message : String(e));
       if (propagate) throw e;
     } finally {
-      if (ticket === generation.current) setSaving(false);
+      // External refresh may supersede the read generation while this same-scope write settles.
+      if (activeSpecKey.current === key) {
+        setSaving(false);
+        if (ticket !== generation.current) setReload(value => value + 1);
+      }
     }
   }
   return <section className="node-spec" aria-label="Zadání uzlu">

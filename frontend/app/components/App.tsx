@@ -110,6 +110,9 @@ import { keepVaultMounted } from "@/editor/brief-vault-dock/logic/vault-drafts";
 import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
 import { commitSpec, saveNodeSpec } from "@/shared/desktop-state/logic/api";
 import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-report";
+import { notifyCurrentPlanScope } from "@/hub/plan-changes/logic/plan-changes";
+import { usePlanChanges } from "@/hub/plan-changes/logic/use-plan-changes";
+import { useOporaProposals } from "@/hub/proposal-history/logic/use-opora-proposals";
 import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
 import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import CommentPanel from "@/editor/canvas/comment-card/components/CommentPanel";
@@ -186,6 +189,7 @@ export default function App() {
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
   const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
   const [textRevision, setTextRevision] = useState(0);
+  const [planAppliedRevision, setPlanAppliedRevision] = useState(0);
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
   const initialNode = initial.get("node");
   const [selection, setSelection] = useState<Selection>(() => (initialNode ? selectNode(initialNode) : emptySelection()));
@@ -281,6 +285,11 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [view, setView] = useState<View | null>(null);
+  const proposals = useOporaProposals(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly);
+  const planChanges = usePlanChanges(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly,
+    () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
+      setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); proposals.refresh();
+    }));
   const sourceStatuses = useSourceStatus(project, workspace, view?.digest ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -1076,7 +1085,7 @@ export default function App() {
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} /> :
+      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
@@ -1315,6 +1324,7 @@ export default function App() {
             {panels.inspector === "node" && node ? (<>
               <NodePanel
                 key={project + ":" + workspace + ":" + node.id}
+                specRefreshRevision={planAppliedRevision}
                 node={node}
                 project={project}
                 workspace={workspace}

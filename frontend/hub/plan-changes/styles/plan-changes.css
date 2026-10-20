@@ -1,0 +1,21 @@
+/* Změna zadání začíná pojmenovaným záměrem. Editor a náhled přijetí jsou oddělené,
+   aby uložený návrh nebyl zaměněn za okamžitou změnu Canvasu. */
+.plan-changes { padding: var(--sp-4); border: 1px solid var(--border, #677380); border-radius: 12px; }
+.plan-changes__head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.plan-changes__head h2 { margin: 0; }
+.plan-changes__head p { color: var(--ink-muted); }
+.plan-changes__field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.plan-changes__field input, .plan-changes__field select, .plan-changes__field textarea { padding: 10px; border: 1px solid var(--border, #677380); border-radius: 6px; color: var(--ink); background: var(--bg); font: inherit; }
+.plan-changes__field textarea { resize: vertical; }
+.plan-changes__baseline, .plan-changes__editor, .plan-changes__inspection { margin-top: 20px; }
+.plan-changes__document { padding: 12px; border-bottom: 1px solid var(--border, #677380); }
+.plan-changes__document pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.plan-changes__warning, .plan-changes__error { border-left: 3px solid #bd8245; padding: 12px; }
+/* Každý návrh má samostatnou volbu náhledu. Tři sloupce ukazují přijatý, pracovní a navržený obsah změny,
+   nikoli aktuální text z Canvasu; na malém displeji se skládají pod sebe. */
+.plan-changes__list { list-style: none; padding: 0; }
+.plan-changes__list li { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border, #677380); }
+.plan-changes__list span { font-size: 13px; color: var(--ink-muted); }
+.plan-changes__comparison { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.plan-changes__comparison pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+@media (max-width: 650px) { .plan-changes__comparison { grid-template-columns: 1fr; } }
