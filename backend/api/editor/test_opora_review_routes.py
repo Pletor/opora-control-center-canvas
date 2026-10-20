@@ -53,5 +53,3 @@ def test_http_unknown_identity_forged_verdict_and_local_project(client):
     assert not reader.calls
     local = client.get("/api/oporahub/github-evidence", params={"project": "draft", "workspace": "draft"})
     assert local.status_code == 200 and local.json()["available"] is False
-
-

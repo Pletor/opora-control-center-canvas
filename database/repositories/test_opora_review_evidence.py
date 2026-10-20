@@ -60,5 +60,3 @@ def test_additive_schema_reopens_old_database_without_changing_accepted_revision
         assert value["acceptedHead"] == payload["expectedAcceptedHead"] and value["items"] == []
     finally:
         reopened.close()
-
-

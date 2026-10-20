@@ -182,4 +182,3 @@ def test_recreated_remote_identity_invalidates_older_approval(evidence_project, 
     old = domain.read(payload["project"], payload["workspace"], first["snapshot"]["id"])
     assert old["evaluation"]["codeReview"]["status"] == "unknown"
     assert "github-repository-or-pr-identity-changed" in old["evaluation"]["blockers"]
-

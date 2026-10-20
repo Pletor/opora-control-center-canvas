@@ -57,5 +57,3 @@ class Reader:
         self.calls.append((repository, number))
         self.before_read()
         return deepcopy(self.result)
-
-

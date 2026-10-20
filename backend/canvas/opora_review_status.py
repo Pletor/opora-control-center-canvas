@@ -121,4 +121,3 @@ def evaluate(snapshot, current_revision, current_head_sha=None):
     return {"codeReview": code, "planReview": plan, "checks": checks,
             "freshness": {"status": freshness, "observedAt": snapshot.get("observedAt"), "remoteFreshness": "historical-observation"},
             "blockers": blockers}
-
