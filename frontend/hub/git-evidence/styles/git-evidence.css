@@ -1,0 +1,24 @@
+/* Pozorování GitHubu má vlastní místo vedle změn zadání. Plné revize zůstávají čitelné,
+   aby člověk vždy viděl, ke kterému plánu a commitu důkazy patří. */
+.git-evidence { padding: var(--sp-4); border: 1px solid var(--border, #677380); border-radius: 12px; min-width: 0; }
+.git-evidence__head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.git-evidence__head h2 { margin: 0; }
+.git-evidence__head p, .git-evidence__import p, .git-evidence__marker p { color: var(--ink-muted); }
+.git-evidence__field { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.git-evidence__field input { padding: 10px; border: 1px solid var(--border, #677380); border-radius: 6px; color: var(--ink); background: var(--bg); font: inherit; min-width: 0; }
+.git-evidence__marker input { font-family: monospace; }
+.git-evidence__warning { border-left: 3px solid #bd8245; padding: 12px; }
+.git-evidence__hash, .git-evidence__identity code { overflow-wrap: anywhere; }
+/* Historie nesplývá s aktuálním pokusem. Tři samostatné sloupce oddělují review kódu,
+   review zadání a kontroly; na užším plátně se skládají pod sebe. */
+.git-evidence__list { list-style: none; padding: 0; }
+.git-evidence__list li { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border, #677380); }
+.git-evidence__list span { color: var(--ink-muted); font-size: 13px; }
+.git-evidence__details { margin-top: 24px; }
+.git-evidence__identity { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; }
+.git-evidence__identity dd { margin: 0; }
+.git-evidence__verdicts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.git-evidence__verdicts article { padding: 12px; border: 1px solid var(--border, #677380); border-radius: 8px; }
+.git-evidence__verdicts h4 { margin-top: 0; }
+.git-evidence__reasons { padding-left: 20px; }
+@media (max-width: 750px) { .git-evidence__verdicts { grid-template-columns: 1fr; } .git-evidence__identity { grid-template-columns: 1fr; } }

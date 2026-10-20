@@ -52,7 +52,14 @@ API `/api/oporahub/changesets` poskytuje kontext, neměnné návrhy a jejich př
 odmítají, agent může navrhovat, nemůže přijímat. Historické snímky uložených zadání
 z `/api/oporahub/proposals` a původní Oracle dashboard zůstávají pod novým panelem.
 
-Druhá etapa verzuje pouze zadání existujících karet; přidávání karet do přijatého
-grafu, nezávislé review, GitHub reconciliation, plná automatizace agent-office a
-spouštění Lean/TLA+ zůstávají další prací. Historie se nemaže. Přesné API, migrace
-a omezení: [kontrakt OporaHubu](docs/oporahub.md).
+Druhá etapa verzuje pouze zadání existujících karet. Panel **GitHub důkazy** navíc
+načítá review a kontroly přímo z GitHubu a váže je na konkrétní přijatou revizi a SHA.
+Odděluje review kódu, review zadání a pozorované kontroly; neposkytuje automatické
+povolení k merge. Soukromý repozitář vyžaduje token v prostředí serveru
+(`OPORA_GITHUB_TOKEN`, případně `GH_TOKEN`/`GITHUB_TOKEN`). Podrobnosti a postup:
+[GitHub důkazy](docs/oporahub-github.md).
+
+Přidávání karet do přijatého grafu, politika povinných kontrol, automatická obnova
+synchronizace, plná automatizace agent-office a spouštění Lean/TLA+ zůstávají další
+prací. Historie se nemaže. Přesné API, migrace a omezení:
+[kontrakt OporaHubu](docs/oporahub.md).

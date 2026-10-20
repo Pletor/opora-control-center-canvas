@@ -242,6 +242,13 @@ CREATE TABLE IF NOT EXISTS opora_spec_revisions(
 CREATE TABLE IF NOT EXISTS opora_spec_refs(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, accepted_id TEXT NOT NULL,
     PRIMARY KEY(project_id, workspace_id));
+-- GitHub observations are immutable evidence, never accepted-plan pointers or merge authority.
+CREATE TABLE IF NOT EXISTS opora_review_evidence(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+    pr_number INTEGER NOT NULL, observed_at TEXT NOT NULL, content TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+CREATE INDEX IF NOT EXISTS opora_review_evidence_history
+    ON opora_review_evidence(project_id, workspace_id, pr_number, observed_at);
 """
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
@@ -266,6 +273,7 @@ PROJECT_TABLES = {
     "opora_spec_proposals": "project_id",
     "opora_spec_revisions": "project_id",
     "opora_spec_refs": "project_id",
+    "opora_review_evidence": "project_id",
 }
 REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects")
 

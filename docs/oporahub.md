@@ -119,13 +119,32 @@ vazeb a dalších druhů obsahu jsou další etapa; jejich konzervativní kontro
 vyžadovat nový návrh i při nezávislé změně struktury. Starší snímky uložených zadání
 z první etapy mají vlastní panel a historii, nejsou automaticky přijatými changesety.
 
-## Další implementační etapy — zatím nejsou hotové
+## Třetí etapa: pozorování GitHub review a kontrol
+
+Panel **GitHub důkazy** a `/api/oporahub/github-evidence` zaznamenávají skutečně
+načtený PR, jeho SHA, review a kontroly ve vztahu k přijaté revizi zadání. Odděleně
+vyhodnocují review kódu a review zadání: druhé navíc vyžaduje přesný revizní odkaz
+v samotném schvalujícím review. Identita a oprávnění reviewera se ověřují na GitHubu.
+Nejde o lokální jméno člověka či agenta ani o klientem zaslaný zelený stav.
+
+Historie je neměnná a seznam načítá jen stručné záznamy. Změna přijaté revize,
+posledního známého SHA nebo cílové větve zneplatní použitelnost starého hodnocení.
+Neúspěšná obnova je také dohledatelná; žádné pozorování netvrdí neustálou shodu
+se vzdáleným GitHubem. Podrobný postup, konfigurace tokenu, API a význam výsledků
+jsou v [GitHub důkazech](oporahub-github.md).
+
+Tato etapa není merge brána. Politika povinných kontrol a důvěryhodných CI aplikací
+zatím není nastavena (`policyVerified: false`); samotné pozorované úspěšné kontroly
+neznamenají úplné ověření. Automatická synchronizace po merge ani vykonávání agentů
+se tímto krokem nespouští.
+
+## Zbývající implementační etapy
 
 | Etapa | Výsledek | Podmínka dokončení |
 |---|---|---|
 | 2b. Celý graf návrhů | Rozšíření existujících změn zadání na karty, vazby, texty a sparse kontext | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
-| 3. Nezávislé review | Připomínky k rozdílu, role autora/reviewera, schválení revize plánu a Git SHA | Autor se nemůže sám nezávisle schválit; změna dotčeného zadání či SHA zneplatní odpovídající kontrolu |
-| 4. Důkazy a GitHub | Záznam revize plánu + SHA + PR + kontrol, opakované doručení a obnova synchronizace | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
+| 3b. Review před přijetím | Připomínky k rozdílu a politika přijetí návrhu podle rizika | Pozorované GitHub review se nepovažuje za automatické oprávnění přijímat jiný návrh |
+| 4. Důkazy a GitHub | Politika povinných kontrol, opakované doručení a obnova synchronizace | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
 | 5. Vykonavatelé | API pro agent-office/CI, rezervace s expirací, rostoucí fencing token, idempotency klíče a rozpočty | Starý agent po převzetí práce nástupcem nezapíše výsledek; opakovaný požadavek nezpůsobí dvojí akci |
 | 6. Rozhraní | Canvas pro cíle a OporaHub pro rozdíly, review, konflikty a důkazy | Člověk dohledá od cíle přes změnu až k ověření; UI používá stejné API jako agent |
 | 7. Formální ověřování | Oddělené vykonávání TLA+/Lean a dohledatelné artefakty | Kontrola uvádí model, tvrzení, předpoklady, verze nástrojů, výstup a vazbu na konkrétní kód |
@@ -146,7 +165,7 @@ Formální ověřování není povinná kontrola každé úpravy UI.
 
 ## Migrace a ověření
 
-Obě etapy jsou aditivní: nemaže soubory historie, `main.log`, index `opora_commits`
+Dosavadní etapy jsou aditivní: nemažou soubory historie, `main.log`, index `opora_commits`
 ani identifikátory karet. Staré záznamy zůstávají čitelné; nově zachycený snímek
 nepředstírá znalost jejich původního obsahu. Existující čtečky a dashboard pokračují.
 Žádný běžící vykonavatel se při tomto kroku automaticky nevypíná. Úložiště zapisuje nejprve soubor, potom SQLite index; nejde o společnou atomickou transakci. Při pádu indexu může trvalý soubor zůstat a index se obnoví funkcí `rebuild_index`.
