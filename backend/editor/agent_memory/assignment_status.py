@@ -3,6 +3,7 @@
 import json
 
 from backend.editor.agent_packet.specification_context import capture_specification
+from backend.editor.agent_packet.specification_scope import same_assignment
 
 
 def assignment_status(canvas, project, workspace):
@@ -46,7 +47,7 @@ def _assignment_status(canvas, project, workspace):
                 nodes[node_id] = {"status": "unbound", "resultId": record["id"]}
                 continue
             current = capture_specification(canvas, project, workspace, node_id)
-            nodes[node_id] = {"status": "current" if current["contextVersion"] == record["contextVersion"] else "changed",
+            nodes[node_id] = {"status": "current" if same_assignment(record, current) else "changed",
                               "resultId": record["id"]}
             if source == "handoff":
                 nodes[node_id]["source"] = source

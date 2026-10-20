@@ -2,6 +2,10 @@
 
 Plátno projekt → sektor → uzel pro řízení agentů: struktura práce, zadání uzlů, podklady a běhy na jednom místě.
 
+Změny zadání se porovnávají v kontextu konkrétní karty; nesouvisející poznámka na plátně
+nezneplatňuje její výsledek. Počet rozdílů není počet přepsání zadání. Podrobnosti a
+kompatibilita rozpracovaných předávek: [karta pro agenty](docs/karta-pro-agenty.md#porovnávání-zadání-bez-falešných-změn).
+
 ## Spuštění jedním příkazem
 
 ```sh

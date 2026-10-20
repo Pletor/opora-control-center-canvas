@@ -5,6 +5,7 @@ export default function SpecificationDiff({ before, after }: { before: unknown; 
   const { changes, truncated } = specificationDiff(before, after);
   return <details>
     <summary>Rozdíly zadání ({changes.length}{truncated ? "+" : ""})</summary>
+    <p>Počet označuje rozdílná pole nebo přidané či odebrané položky, nikoli počet úprav v čase.</p>
     {changes.length === 0 && <p>Zachycené zadání se nezměnilo.</p>}
     {changes.map(change => <section key={change.path}>
       <strong>{change.path}</strong>

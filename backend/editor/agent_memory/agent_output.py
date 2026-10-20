@@ -228,7 +228,10 @@ class AgentOutput:
             if stored["revision"] != expected:
                 raise ValueError("Stav se změnil (revize nesouhlasí); načtěte kartu znovu.")
             captured = capture_specification(self.canvas, project, workspace, node_id) if "contextVersion" in payload else None
-            if captured and captured["contextVersion"] != payload["contextVersion"]:
+            from backend.editor.agent_packet.specification_scope import compatible_capture
+            if captured:
+                captured = compatible_capture(self.canvas, project, workspace, node_id, payload["contextVersion"], captured)
+            if "contextVersion" in payload and captured is None:
                 raise ValueError("Zadání nebo jeho kontext se změnily (contextVersion nesouhlasí). "
                                  "Výsledek nebyl uložen; zachovejte rozepsaný výstup a načtěte nové zadání.")
             state = copy.deepcopy(stored["state"])

@@ -70,7 +70,7 @@ def test_brief_version_tracks_page_order_but_not_ordinary_node_order(tmp_path):
         assert reordered["specification"]["navigation"][0]["pages"][0]["nodeId"] == "contact"
 
 
-def test_context_version_is_identical_to_the_pre_cache_algorithm(tmp_path):
+def test_legacy_context_versions_compare_without_rewriting_originals(tmp_path):
     """Karta P3: projekce grafu se počítá jednou na digest grafu, ale contextVersion zůstává bit
     po bitu stejný jako před cache (hodnoty spočítané kódem 4bdec60 nad stejným plátnem); jinak by
     všechny uložené výsledky agentů vypadaly jako „změněné zadání“. Hodnoty přepočteny 2026-10-15
@@ -82,8 +82,20 @@ def test_context_version_is_identical_to_the_pre_cache_algorithm(tmp_path):
         value["nodes"] += pages()
         response = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": value, "digest": current["digest"]})
         assert response.status_code == 200, response.text
-        versions = [client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": node}).json()["contextVersion"]
-                    for node in ("focus", "app", "home")]
+        from backend.canvas.graph import digest
+        from backend.editor.agent_packet.specification_context import _graph_part
+        from backend.editor.agent_packet.specification_scope import same_assignment
+        canvas = client.app.state.service
+        shared = _graph_part(canvas, "draft", "draft", canvas.view("draft", "draft"))
+        versions = []
+        for identifier in ("focus", "app", "home"):
+            current = client.get("/api/desktop-v3/node-brief", params={**SCOPE, "nodeId": identifier}).json()
+            legacy = {**current["specification"], **shared}
+            original = copy.deepcopy(legacy)
+            version = digest(legacy)
+            versions.append(version)
+            assert same_assignment({"contextVersion": version, "specification": legacy}, current)
+            assert legacy == original
         assert versions == ["1f209cbba29e48b8c126150087c763a4b44d1d505bb0ecd087ec0510622721be",
                             "0777a75333ca9444e92ca87f6750ef306b3eb6d01e0a91a90d75eec1ce0f28a9",
                             "612d0b7318f3d14a525eb33e01eae94203ab9d5201f8ac324f1997a28d423c99"]

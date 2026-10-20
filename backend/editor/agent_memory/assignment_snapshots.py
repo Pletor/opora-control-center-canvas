@@ -6,6 +6,11 @@ import uuid
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import encode, valid_id
 from backend.editor.agent_packet.specification_context import capture_specification
+from backend.editor.agent_packet.specification_scope import (
+    compatible_capture,
+    same_assignment,
+    scoped_specification,
+)
 
 
 def save_assignment(canvas, payload):
@@ -16,7 +21,8 @@ def save_assignment(canvas, payload):
         captured = capture_specification(canvas, project, workspace, node)
         if canvas.view(project, workspace)["readOnly"]:
             raise ValueError("Pracovní prostor je pouze ke čtení.")
-        if payload["contextVersion"] != captured["contextVersion"]:
+        captured = compatible_capture(canvas, project, workspace, node, payload["contextVersion"], captured)
+        if captured is None:
             raise ValueError("Zadání se od načtení změnilo. Načtěte je znovu před předáním.")
         return _insert(canvas, project, workspace, node, captured)
 
@@ -48,6 +54,6 @@ def assignment_comparison(canvas, project, workspace, node_id, identifier, sourc
         if row is None:
             raise ValueError("Původní zadání v tomto rozsahu neexistuje.")
         original = json.loads(row["record"])
-        return {"before": original.get("specification"), "after": current["specification"],
+        return {"before": scoped_specification(original.get("specification")), "after": current["specification"],
                 "status": "unbound" if not original.get("contextVersion") else
-                    "current" if original["contextVersion"] == current["contextVersion"] else "changed"}
+                    "current" if same_assignment(original, current) else "changed"}

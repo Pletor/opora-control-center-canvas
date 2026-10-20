@@ -11,6 +11,7 @@ from backend.canvas.areas import area_of
 from backend.canvas.graph import digest, valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_packet.desktop_v3_packets import ancestor_ids, memory_for, redact_deep
+from backend.editor.agent_packet.specification_scope import scoped_specification
 
 SCHEMA = "opora.specification-context/1"
 PRESENTATION = {"x", "y", "size", "color", "blockOffsets"}
@@ -159,4 +160,5 @@ def capture_specification(canvas, project, workspace, node_id):
             "drawings": drawings,
             "referencesPolicy": "reference-only; external content is not captured or verified",
         })}
+        specification = scoped_specification(specification)
         return {"contextVersion": digest(specification), "specification": specification}
