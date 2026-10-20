@@ -33,7 +33,7 @@ class AgentResults:
             (record["id"], project, workspace, record["nodeId"], encode(record)),
         )
 
-    def history(self, project, workspace, node_id, before=None):
+    def history(self, project, workspace, node_id, before=None, *, current=None):
         if not all(valid_id(value) for value in (project, workspace, node_id)):
             raise ValueError("Neplatný rozsah výsledků agenta.")
         if before is not None and (type(before) is not int or before < 1):
@@ -47,7 +47,14 @@ class AgentResults:
                 " AND node_id=? AND (? IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?",
                 (project, workspace, node_id, before, before, PAGE_SIZE + 1),
             ).fetchall()
+            from backend.editor.agent_packet.specification_context import capture_specification
+            if rows and current is None:
+                current = capture_specification(self.canvas, project, workspace, node_id)
         page = rows[:PAGE_SIZE]
-        return {"items": [redact_deep(json.loads(row["record"])) for row in page],
+        from backend.editor.agent_packet.assignment_scope import same_assignment
+        items = [redact_deep(json.loads(row["record"])) for row in page]
+        return {"items": items,
+                "assignmentStatus": {item["id"]: ("unbound" if item.get("binding") != "bound" else
+                                     "current" if same_assignment(item, current) else "changed") for item in items},
                 "hasMore": len(rows) > PAGE_SIZE,
                 "nextBefore": page[-1]["sequence"] if len(rows) > PAGE_SIZE else None}
