@@ -2,6 +2,20 @@
 
 Karta na plátně je zadání, které si model stáhne jako jeden JSON a od začátku do konce vypracuje. Vše v kartě je pojmenované a čitelné; nic se nedovozuje z pozice na obrazovce. Tento dokument je autorita pro datový model; kód (backend `desktop_v3_state`, `graph.py`, frontend `shared/desktop-state`) ho jen provádí.
 
+## Vykonávání přes OporaHub
+
+Pro kartu převzatou přes `/api/oporahub/executions/claim` platí
+[kontrakt vykonávání přijatého zadání](oporahub-executions.md). Agent dostane
+neměnný snímek přijaté revize a odevzdává výsledek přes execution API. Živý
+`node-brief` zůstává čtecím podkladem, nenahrazuje zadání tohoto běhu.
+
+Níže popsané zápisy `agent-output`, stavu, bloků, pipeline a navázaných procesních
+výsledků jsou pro takto zařazenou kartu chráněné proti agentímu zápisu i po
+uvolnění rezervace. Nelze jimi obejít expiraci nebo novou epochu. Výslovné lidské
+operace zůstávají dostupné. U nezařazených karet se zachovává dosavadní protokol.
+Execution potvrzení dokládá přijetí agentova tvrzení, nikoli splnění všech
+podmínek, nezávislé review nebo dokončení karty.
+
 ## Pět pohledů, které karta odráží
 
 | Pohled | Co karta musí nést | Kde to je |
@@ -295,4 +309,3 @@ Jeden výpočet (`backend/editor/agent_packet/card_checklist.py`) pro plátno (p
 oblasti), `GET /api/desktop-v3/card-checklist?layer=`, `node-brief.checklist` a `frontier` (`missing` = klíče,
 které nejsou `yes`). Relace začne tím, co chybí, a na konci ověří, že po jejím výstupu pole zezelenala.
 Obálka na vazbě mezi kartami ukazuje předávku: „předáno“ = `state.edges[id].handoff`, „chybí“ = zdroj je hotový bez zprávy.
-
