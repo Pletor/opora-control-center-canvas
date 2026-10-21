@@ -6,6 +6,9 @@ from backend.canvas.opora_commit_validation import _author
 from backend.canvas.opora_reconciliation_observation import observation, semantic
 from backend.canvas.opora_review_policy_validation import configuration, github_id, timestamp
 
+# Deterministic server enrollment for a PR linked to an accepted execution (oporahub-executions.md).
+AUTO_ENROLL_AUTHOR = {"kind": "system", "name": "Execution PR link"}
+
 
 def validate(kind, record):
     fields = {"schemaVersion", "project", "workspace", "createdAt"}
@@ -37,7 +40,8 @@ def validate(kind, record):
         if (record["intervalSeconds"] != 300 or set(record["configuration"]) != {"repository", "branch", "repoPath", "sourcePath"}
                 or record["configuration"]["repository"] != repo["fullName"] or record["configuration"]["branch"] != repo["baseBranch"]):
             raise ValueError("Invalid bound configuration.")
-        if (not isinstance(record["by"], dict) or set(record["by"]) != {"kind", "name"}
+        if record["by"] != AUTO_ENROLL_AUTHOR and (
+                not isinstance(record["by"], dict) or set(record["by"]) != {"kind", "name"}
                 or _author(record["by"])["kind"] != "human"):
             raise ValueError("Human subscription authority required.")
     elif kind == "control":
@@ -46,19 +50,20 @@ def validate(kind, record):
         identifier(record["bindingId"])
         identifier(record["parentControlId"], nullable=True)
         if (type(record["generation"]) is not int or record["generation"] < 1 or type(record["enabled"]) is not bool
-                or record["action"] not in {"enroll", "pause", "resume", "retry", "system-pause"}):
+                or record["action"] not in {"enroll", "pause", "resume", "retry", "system-pause", "auto-enroll"}):
             raise ValueError("Invalid reconciliation control.")
-        if record["action"] != "system-pause" and _author(record["by"])["kind"] != "human":
+        system = {"system-pause": {"kind": "system", "name": "Reconciliation"}, "auto-enroll": AUTO_ENROLL_AUTHOR}
+        if record["action"] not in system and _author(record["by"])["kind"] != "human":
             raise ValueError("Human subscription authority required.")
-        if record["action"] == "system-pause":
+        if record["action"] in system:
             if (record["requestId"] is not None or record["requestDigest"] is not None
-                    or record["by"] != {"kind": "system", "name": "Reconciliation"}):
-                raise ValueError("Invalid automatic pause authority.")
+                    or record["by"] != system[record["action"]]):
+                raise ValueError("Invalid automatic subscription authority.")
         else:
             if not isinstance(record["requestId"], str) or re.fullmatch(r"[A-Za-z0-9_-]{1,80}", record["requestId"]) is None:
                 raise ValueError("Invalid control request identity.")
             identifier(record["requestDigest"])
-        if record["enabled"] != (record["action"] in {"enroll", "resume", "retry"}):
+        if record["enabled"] != (record["action"] in {"enroll", "resume", "retry", "auto-enroll"}):
             raise ValueError("Control action disagrees with enabled state.")
     elif kind in {"observation", "event"}:
         identifier(record["bindingId"])

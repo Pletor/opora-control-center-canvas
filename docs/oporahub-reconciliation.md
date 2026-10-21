@@ -19,6 +19,11 @@ polem v JSON. Změny používají očekávanou generaci a jedinečné
 ID požadavku: souběžná změna vyvolá konflikt, přesné opakování stejného požadavku
 neprovádí akci znovu. Po nejistém síťovém výsledku nejprve obnovte seznam.
 
+Výjimkou je PR připojené k běhu přijatého zadání: sledování pak zapne server sám
+(řízení `auto-enroll`, autor `system / Execution PR link`), viz
+[uzavření smyčky](oporahub-executions.md#uzavření-smyčky-běh--pr--merge--plán).
+Pozastavení a obnovení takové vazby zůstávají lidskými kroky.
+
 Pro jedno PR může být v prostoru zapnuté jedno sledování. Jiná PR mají vlastní
 úlohy. Chcete-li stejné PR přiřadit k jiné revizi plánu, původní sledování nejprve
 výslovně pozastavte a vytvořte nové z aktuálního důkazu. Historie se nemaže.

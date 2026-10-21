@@ -29,6 +29,7 @@ from backend.api.editor.opora_content_routes import CONTENT_BODY_LIMIT, create_o
 from backend.api.editor.opora_execution_budget_routes import create_execution_budget_router
 from backend.api.editor.opora_execution_observer_routes import BODY_LIMIT as OBSERVER_BODY_LIMIT
 from backend.api.editor.opora_execution_observer_routes import create_execution_observer_router
+from backend.api.editor.opora_execution_pull_request_routes import create_execution_pull_request_router
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
 from backend.api.editor.opora_process_routes import create_opora_process_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
@@ -68,6 +69,7 @@ from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
+from backend.canvas.opora_execution_pr_manager import ExecutionPullRequestManager
 from backend.canvas.opora_reconciliation_manager import ReconciliationManager
 from backend.canvas.sync_report import SyncReport
 from backend.claude_code.assistant.agents import load_agents
@@ -120,6 +122,7 @@ def create_app(data_root=None):
     identity = build_identity(service.root)
     map_refresh = MapRefresh(service)
     reconciliation = ReconciliationManager(service)
+    execution_prs = ExecutionPullRequestManager(service)
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -148,10 +151,12 @@ def create_app(data_root=None):
     async def lifespan(app):
         map_refresh.start()
         reconciliation.start()
+        execution_prs.start()
         yield
         assistant.close_all()
         map_refresh.close()
         reconciliation.close()
+        execution_prs.close()
         service.close()
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -316,6 +321,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_review_policy_router(service))
     app.include_router(create_opora_reconciliation_router(service))
     app.include_router(create_opora_execution_router(service))
+    app.include_router(create_execution_pull_request_router(service))
     app.include_router(create_opora_process_router(service))
     app.include_router(create_execution_observer_router(service))
     app.include_router(create_opora_verification_router(service))
