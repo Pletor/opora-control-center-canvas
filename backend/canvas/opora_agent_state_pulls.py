@@ -6,7 +6,8 @@ and `plan_writeback` stages; when it is absent those stages report `not_connecte
 Nothing here writes or guesses a link: no module means no link, never an empty success.
 
 Accepted shapes: a list of items or `{"items": [...]}`. Item keys read: `executionId`,
-`state` (`open` | `merged` | `closed`, alias `prState`) and optional `planWrittenBack`.
+`state` (`open` | `merged` | `closed`, alias `prState`) and optional `planWrittenBack`,
+`cardId`, `mergeSha` and `awaitingHumanClose` (a merged card a human still has to close).
 """
 import inspect
 
@@ -30,7 +31,8 @@ def source():
 
 
 def read(canvas, project, workspace):
-    """Normalized `[{executionId, state, planWrittenBack?}]` or None when not connected."""
+    """Normalized `[{executionId, state, planWrittenBack?, cardId?, mergeSha?, awaitingHumanClose?}]`
+    or None when not connected."""
     reader = source()
     if reader is None:
         return None
@@ -46,5 +48,10 @@ def read(canvas, project, workspace):
                  "state": state if state in {"open", "merged", "closed"} else "open"}
         if "planWrittenBack" in item:
             value["planWrittenBack"] = item["planWrittenBack"] is True
+        for key in ("cardId", "mergeSha"):
+            if isinstance(item.get(key), str):
+                value[key] = item[key]
+        if item.get("awaitingHumanClose") is True and isinstance(item.get("cardId"), str):
+            value["awaitingHumanClose"] = True
         result.append(value)
     return sorted(result, key=lambda value: (value["executionId"], value["state"]))

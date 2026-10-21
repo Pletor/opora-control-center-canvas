@@ -185,6 +185,15 @@ class AgentState:
                 actions.append(_action("link_pull_request", "POST", f"/api/oporahub/executions/{item['id']}/pull-request",
                                        item["id"], item["acceptedRevision"], {"acceptedRevision": item["acceptedRevision"]},
                                        "not_implemented" if links is None else None))
+        for item in linked or []:
+            # Merge write-back never closes a card: done.confirmed stays a human action (oporahub-executions.md).
+            if not item.get("awaitingHumanClose") or cards.get(item["cardId"], {}).get("doneConfirmed"):
+                continue
+            action = _action("close_card", "POST", "/api/desktop-v3/state", item["cardId"], item.get("mergeSha"),
+                             {"executionId": item["executionId"], "mergeSha": item.get("mergeSha")}, "human_only")
+            actions.append(action)
+            name = cards.get(item["cardId"], {}).get("name") or item["cardId"]
+            decide("close_card", item["cardId"], f"Uzavřít kartu po merge PR: {name}", action)
         actions.sort(key=lambda value: (rules.VERB_ORDER.index(value["verb"]), value["targetId"] or ""))
         decisions.sort(key=lambda value: value[0])
         return actions, [value for _, value in decisions[:rules.DECISION_LIMIT]]

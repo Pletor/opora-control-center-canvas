@@ -134,6 +134,11 @@ Odpověď obsahuje `executionId`, `cardId`, `acceptedRevision`, `repository`, `n
 `headSha`, `state` (`open` / `merged` / `closed`), `bindingId` a provozní údaje
 `enrollment`, `mergeSha`, `awaitingHumanClose` a `attention`.
 
+Přesný požadavek, který posílá agent-office (`PullRequestHandoff.link`: `project`,
+`workspace`, `token`, `epoch`, `requestId`, `repository`, `number`, `headRef`, `headSha`
+a hlavička `X-Opora-Actor: agent; name=…`), drží kontraktní test
+`backend/api/editor/test_opora_execution_pull_request_contract.py`.
+
 Oprávnění: agent se prokazuje tokenem a epochou **tohoto** běhu, stejně jako
 u heartbeatu a výsledků. Platí aktivní rezervace běžícího běhu, nebo běh, který
 už odevzdal výsledek – kancelář PR připojuje po odevzdání, často po uvolnění

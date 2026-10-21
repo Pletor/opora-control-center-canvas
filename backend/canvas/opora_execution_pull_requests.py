@@ -165,11 +165,14 @@ class ExecutionPullRequestLinks:
         return {**self._decorate(project, workspace, [public(row)])[0], "events": events}
 
     def list_execution_pull_requests(self, project_id, workspace_id):
-        """Link rows with PR state for consumers such as the agent-state endpoint."""
+        """Link rows with PR state for consumers such as the agent-state endpoint.
+
+        A pure snapshot read (no BEGIN IMMEDIATE): agent-state composes it under its own project
+        locks and promises a read-only document, so this must never open a write transaction."""
         from database.repositories.opora_execution_pull_requests import list_execution_pull_requests
         validate({"project": project_id, "workspace": workspace_id}, set())
-        with self.transaction(project_id, workspace_id) as repo:
-            rows = list_execution_pull_requests(repo.db, project_id, workspace_id)
+        with self.guard(), self.service.reading(project_id):
+            rows = list_execution_pull_requests(self.service.db_for(project_id), project_id, workspace_id)
         return self._decorate(project_id, workspace_id, rows)
 
     def _decorate(self, project, workspace, rows):
