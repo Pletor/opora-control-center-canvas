@@ -89,6 +89,9 @@ jednu stránku nedávných PR kvůli trailerům `Opora-Execution` a `Opora-Revis
 Používá stejný transport s pevným originem, bez přesměrování, s limity velikosti
 a s respektem k rate limitu. Bez GitHub repozitáře projektu nečte nic. Ani tato
 čtení nevytvářejí review důkaz, nepřijímají plán a nic na GitHub nezapisují.
+U otevřených připojených PR server stejně čte také check run `formal/tlc` na head SHA
+a převádí ho na záznam formálního ověření
+([automatické ověřování v CI](oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b)).
 
 Podklady API: [review](https://docs.github.com/en/rest/pulls/reviews),
 [oprávnění](https://docs.github.com/en/rest/collaborators/collaborators),

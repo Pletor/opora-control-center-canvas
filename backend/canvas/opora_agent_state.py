@@ -8,6 +8,7 @@ import time
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 
+from backend.canvas import opora_agent_state_formal as formal
 from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_reviews as reviews
 from backend.canvas import opora_agent_state_rules as rules
@@ -108,12 +109,14 @@ class AgentState:
             claims = self.claims(project, workspace, process["items"])
             linked = pulls.read(canvas, project, workspace)
             reviewing = reviews.read(canvas, project, workspace, now)
+            attention = formal.attention(db, project, workspace)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
         to_review = [item for item in reported if item["acceptedRevision"] == accepted
                      and not cards.get(item["nodeId"], {}).get("doneConfirmed")]
         actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards,
                                           reviewing)
+        actions, decisions = formal.merge(actions, decisions, attention, project, workspace)
         heads = {"acceptedHead": accepted, "acceptedRevision": accepted, "graphDigest": context["graphDigest"],
                  "workingDiffers": context["workingDiffers"], "contextVersion": context["specificationsVersion"],
                  "budgetPolicyHead": {item["nodeId"]: item["budget"]["policyHead"]
