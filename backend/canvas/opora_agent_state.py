@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 from backend.canvas import opora_agent_state_pulls as pulls
+from backend.canvas import opora_agent_state_reviews as reviews
 from backend.canvas import opora_agent_state_rules as rules
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import OporaChangesets
@@ -106,11 +107,13 @@ class AgentState:
             latest = self.executions(db, project, workspace)
             claims = self.claims(project, workspace, process["items"])
             linked = pulls.read(canvas, project, workspace)
+            reviewing = reviews.read(canvas, project, workspace, now)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
         to_review = [item for item in reported if item["acceptedRevision"] == accepted
                      and not cards.get(item["nodeId"], {}).get("doneConfirmed")]
-        actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards)
+        actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards,
+                                          reviewing)
         heads = {"acceptedHead": accepted, "acceptedRevision": accepted, "graphDigest": context["graphDigest"],
                  "workingDiffers": context["workingDiffers"], "contextVersion": context["specificationsVersion"],
                  "budgetPolicyHead": {item["nodeId"]: item["budget"]["policyHead"]
@@ -118,8 +121,9 @@ class AgentState:
         stages = [rules.plan_stage(context), rules.proposal_stage(pending),
                   rules.acceptance_stage(context, fresh, now), rules.claim_stage(claims),
                   rules.work_stage(latest, now), rules.evidence_stage(reported, accepted),
-                  rules.review_stage(to_review), *rules.pull_stages(reported, linked)]
+                  rules.review_stage(to_review, reviewing), *rules.pull_stages(reported, linked)]
         gaps = [*rules.GAPS, *([rules.PULL_GAP] if linked is None else [])]
+        gaps = [gap for gap in gaps if reviewing is None or gap[0] != "ai_review"]
         return {"schemaVersion": SCHEMA_VERSION,
                 "generatedAt": datetime.fromtimestamp(now, UTC).isoformat(timespec="seconds"),
                 "projectId": project, "workspaceId": workspace, "heads": heads, "stages": stages,
@@ -131,7 +135,7 @@ class AgentState:
                 "truncated": process["truncated"]}
 
     @staticmethod
-    def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards):
+    def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None):
         accepted, graph, actions, decisions = context["acceptedHead"], context["graphDigest"], [], []
         query = urlencode({"project": project, "workspace": workspace})
 
@@ -194,6 +198,9 @@ class AgentState:
             actions.append(action)
             name = cards.get(item["cardId"], {}).get("name") or item["cardId"]
             decide("close_card", item["cardId"], f"Uzavřít kartu po merge PR: {name}", action)
+        for job in (reviewing or {}).get("claimable", []):
+            actions.append(_action("review.claim", "POST", "/api/oporahub/review-jobs/claim", job["reviewJobId"],
+                                   job["headSha"], {"role": job["role"], "headSha": job["headSha"]}))
         actions.sort(key=lambda value: (rules.VERB_ORDER.index(value["verb"]), value["targetId"] or ""))
         decisions.sort(key=lambda value: value[0])
         return actions, [value for _, value in decisions[:rules.DECISION_LIMIT]]

@@ -13,7 +13,8 @@ DECISION_LIMIT = 3
 RISK = {"standard": "low", "elevated": "elevated", "critical": "critical"}
 DECISION_PRIORITY = {"accept_baseline": 0, "accept_critical": 1, "accept_elevated": 2,
                      "accept_low": 3, "review_result": 4, "close_card": 5}
-VERB_ORDER = ("accept_baseline", "accept", "rebase", "claim", "review", "link_pull_request", "close_card")
+VERB_ORDER = ("accept_baseline", "accept", "rebase", "claim", "review", "review.claim", "link_pull_request",
+              "close_card")
 GAPS = (("ai_review", "review", "Nezávislé AI review výsledků není napojeno; kontrolu dělá člověk."),
         ("lean_verification", "evidence", "Lean ověření úloh se zatím nespouští automaticky."),
         ("auto_rebase", "proposal", "Zastaralé návrhy se nepřevádějí automaticky; rebase je výslovný."))
@@ -75,7 +76,14 @@ def evidence_stage(reported, accepted):
     return stage("evidence", len(reported), "ok", "evidence_reported" if reported else "no_evidence")
 
 
-def review_stage(pending_review):
+def review_stage(pending_review, reviewing=None):
+    """With automated review enabled, merge gates of open linked PRs come first."""
+    gates = [item["reviewGate"] for item in (reviewing or {}).get("gates", [])]
+    open_gates = [item for item in gates if item["status"] != "ready"]
+    if any(item["status"] == "blocked" for item in gates):
+        return stage("review", len(open_gates), "blocking", "review_gate_blocked")
+    if open_gates:
+        return stage("review", len(open_gates), "waiting", "review_gate_pending")
     if pending_review:
         return stage("review", len(pending_review), "waiting", "human_review_required")
     return stage("review", 0, "ok", "nothing_to_review")

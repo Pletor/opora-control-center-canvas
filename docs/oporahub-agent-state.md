@@ -45,7 +45,7 @@ Pravidla platí v uvedeném pořadí; konstanty jsou v `opora_agent_state_rules.
 | `claim` | Počítá karty `ready`; vyčerpané pokusy nebo opravy → `blocking/budget_exhausted` |
 | `work` | Poslední běh karty ve stavu `running` s termínem (pronájem nebo pevný konec rozpočtu) v minulosti → `blocking/lease_past_deadline` |
 | `evidence` | Nahlášený výsledek patří jiné přijaté revizi → `waiting/stale_evidence` |
-| `review` | Nahlášený výsledek aktuální revize na nepotvrzené kartě → `waiting/human_review_required` |
+| `review` | Se zapnutým [automatickým review](oporahub-review-jobs.md): brána otevřeného PR `blocked` → `blocking/review_gate_blocked`, ne-`ready` → `waiting/review_gate_pending`; pak nahlášený výsledek aktuální revize na nepotvrzené kartě → `waiting/human_review_required` |
 | `pull_request` | Bez modulu vazby → `not_connected`; výsledek bez PR → `blocking/results_without_pull_request` |
 | `merge` | Bez modulu → `not_connected`; otevřené PR → `waiting/pull_requests_open` |
 | `plan_writeback` | Bez modulu nebo bez hlášení `planWrittenBack` → `not_connected`; mergnuté PR bez zápisu do plánu → `waiting/merged_without_plan_writeback` |
@@ -65,6 +65,7 @@ Rozhodnutí řadí pevná priorita: přijetí základu, přijetí návrhu `criti
 | `rebase` | `…/{id}/rebase` zastaralého návrhu | `ready` (výslovný převod, ne automatický) |
 | `claim` | `POST /api/oporahub/executions/claim` | `ready`, nebo `blocked/budget_exhausted` či `budget_policy_required`; `budget` nese zbývající pokusy a opravy |
 | `review` | `GET /api/oporahub/executions/{id}/results` | `blocked/human_only` (AI review chybí) |
+| `review.claim` | `POST /api/oporahub/review-jobs/claim` | `ready` u úlohy review s volným slotem (jen se zapnutým automatickým review); `preconditions` `{role, headSha}` |
 | `link_pull_request` | `POST /api/oporahub/executions/{id}/pull-request` | `ready` s modulem vazby, jinak `blocked/not_implemented` |
 | `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | vždy `blocked/human_only`; jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `preconditions` = `{executionId, mergeSha}` |
 
@@ -96,7 +97,7 @@ zůstává jen ke čtení i se skutečným modulem. Bez modulu jsou tři PR etap
 
 ## Mezery
 
-Vždy přítomné: `ai_review` (kontrolu výsledku dělá člověk), `lean_verification`
+Vždy přítomné: `ai_review` (kontrolu výsledku dělá člověk; chybí, když je zapnuté [automatické review](oporahub-review-jobs.md)), `lean_verification`
 (Lean se nespouští automaticky, viz [ověřování](oporahub-verification.md)) a
 `auto_rebase` (převod návrhu je výslovný). `pull_request_link` dokud chybí modul výše.
 

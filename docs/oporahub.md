@@ -17,6 +17,8 @@ a review jako původní plán.
 Agent nemusí skládat stav z mnoha endpointů: [stav pro agenty](oporahub-agent-state.md)
 (`GET /api/oporahub/agent-state`) vrací jeden deterministický dokument s hlavami pro CAS,
 zdravím etap, rozhodnutími člověka a připravenými či blokovanými akcemi; podporuje `ETag`.
+[Automatické review kódu](oporahub-review-jobs.md) zařazuje deterministické úlohy hledačů
+a ověřovatelů pro PR běhů, vede nálezy přes kola a počítá bránu merge.
 
 Tento kontrakt nahrazuje předchozí rozhodnutí z 2026-10-04 o GitHubu jako jediném
 zdroji pravdy pro plány, včetně požadavku zrušit historii OporaHubu. Při rozporu
