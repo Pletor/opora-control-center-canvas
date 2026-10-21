@@ -8,6 +8,7 @@ import time
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 
+from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
 from backend.canvas import opora_agent_state_formal as formal
 from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_review_gates as review_gates
@@ -113,6 +114,7 @@ class AgentState:
             reviewing = reviews.read(canvas, project, workspace, now)
             attention = formal.attention(db, project, workspace)
             promotions = recurring.actions(db, project)  # Recurring misses → checks.
+            rebasing = rebasing_state.read(canvas, project, workspace)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
         to_review = [item for item in reported if item["acceptedRevision"] == accepted
@@ -120,17 +122,18 @@ class AgentState:
         actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards,
                                           reviewing)
         actions, decisions = formal.merge(actions, decisions, attention, project, workspace)
-        actions = rules.ordered([*actions, *promotions])  # one priority list (rules.VERB_ORDER)
+        # One priority list (rules.VERB_ORDER) over core, gate, formal, recurring and auto-rebase actions.
+        actions = rules.ordered([*actions, *promotions, *rebasing_state.actions(project, workspace, rebasing)])
         heads = {"acceptedHead": accepted, "acceptedRevision": accepted, "graphDigest": context["graphDigest"],
                  "workingDiffers": context["workingDiffers"], "contextVersion": context["specificationsVersion"],
                  "budgetPolicyHead": {item["nodeId"]: item["budget"]["policyHead"]
                                       for item in claims if item["budget"].get("policyHead")}}
-        stages = [rules.plan_stage(context), rules.proposal_stage(pending),
+        stages = [rules.plan_stage(context), rebasing_state.proposal_stage(pending, rebasing),
                   rules.acceptance_stage(context, fresh, now), rules.claim_stage(claims),
                   rules.work_stage(latest, now), rules.evidence_stage(reported, accepted),
                   rules.review_stage(to_review, reviewing), *rules.pull_stages(reported, linked)]
         gaps = [*rules.GAPS, *([rules.PULL_GAP] if linked is None else [])]
-        gaps = [gap for gap in gaps if reviewing is None or gap[0] != "ai_review"]
+        gaps = [gap for gap in rebasing_state.gaps(gaps, rebasing) if reviewing is None or gap[0] != "ai_review"]
         return {"schemaVersion": SCHEMA_VERSION,
                 "generatedAt": datetime.fromtimestamp(now, UTC).isoformat(timespec="seconds"),
                 "projectId": project, "workspaceId": workspace, "heads": heads, "stages": stages,

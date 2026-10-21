@@ -25,6 +25,7 @@ from backend.api.editor.hook_routes import create_hook_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.opora_agent_state_routes import create_opora_agent_state_router
+from backend.api.editor.opora_auto_rebase_routes import create_opora_auto_rebase_router
 from backend.api.editor.opora_changeset_routes import create_opora_changeset_router
 from backend.api.editor.opora_content_routes import CONTENT_BODY_LIMIT, create_opora_content_router
 from backend.api.editor.opora_execution_budget_routes import create_execution_budget_router
@@ -37,6 +38,7 @@ from backend.api.editor.opora_review_self_check_routes import create_review_self
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
 from backend.api.editor.opora_process_routes import create_opora_process_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
+from backend.api.editor.opora_history_routes import create_opora_history_router
 from backend.api.editor.opora_proposal_review_routes import create_proposal_review_router
 from backend.api.editor.opora_proposal_routes import create_opora_proposal_router
 from backend.api.editor.opora_reconciliation_routes import create_opora_reconciliation_router
@@ -72,6 +74,7 @@ from backend.app.remote_access import (
 from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
+from backend.canvas.opora_auto_rebase_manager import AutoRebaseManager
 from backend.canvas.opora_hub import OporaHub
 from backend.canvas.opora_execution_pr_manager import ExecutionPullRequestManager
 from backend.canvas.opora_reconciliation_manager import ReconciliationManager
@@ -127,6 +130,7 @@ def create_app(data_root=None):
     map_refresh = MapRefresh(service)
     reconciliation = ReconciliationManager(service)
     execution_prs = ExecutionPullRequestManager(service)
+    auto_rebase = AutoRebaseManager(service)
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -156,11 +160,13 @@ def create_app(data_root=None):
         map_refresh.start()
         reconciliation.start()
         execution_prs.start()
+        auto_rebase.start()
         yield
         assistant.close_all()
         map_refresh.close()
         reconciliation.close()
         execution_prs.close()
+        auto_rebase.close()
         service.close()
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -337,6 +343,8 @@ def create_app(data_root=None):
     app.include_router(create_opora_graph_router(service))
     app.include_router(create_opora_content_router(service))
     app.include_router(create_proposal_review_router(service))
+    app.include_router(create_opora_auto_rebase_router(service))
+    app.include_router(create_opora_history_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)

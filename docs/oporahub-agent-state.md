@@ -40,7 +40,7 @@ Pravidla platí v uvedeném pořadí; konstanty jsou v `opora_agent_state_rules.
 | Etapa | Pravidlo |
 |---|---|
 | `plan` | Žádná karta → `waiting/empty_plan`; bez přijatého základu → `blocking/no_accepted_baseline`; pracovní zadání se liší → `waiting/working_differs_from_accepted`; jinak `ok` |
-| `proposal` | Nepřijatý a nenahrazený návrh s jiným rodičem než přijatou hlavou → `waiting/stale_proposals` |
+| `proposal` | Se zapnutým [automatickým rebase](oporahub-auto-rebase.md): otevřený konflikt → `waiting/auto_rebase_conflicts`; zastaralý návrh, který smyčka nevyřídila (ne redundantní, bez vyřešeného konfliktu) → `waiting/stale_proposals`. S `OPORA_AUTO_REBASE=0`: nepřijatý a nenahrazený návrh s jiným rodičem než přijatou hlavou → `waiting/stale_proposals` |
 | `acceptance` | Chybějící základ → `waiting/baseline_awaiting_human`; čerstvý návrh starší než `ACCEPTANCE_WAIT_SECONDS` (24 h) → `waiting/acceptance_overdue`; mladší → `ok/awaiting_human_within_window` |
 | `claim` | Počítá karty `ready`; vyčerpané pokusy nebo opravy → `blocking/budget_exhausted` |
 | `work` | Poslední běh karty ve stavu `running` s termínem (pronájem nebo pevný konec rozpočtu) v minulosti → `blocking/lease_past_deadline` |
@@ -60,7 +60,7 @@ jdou vždy první. Modul `opora_agent_state_formal.py` je odvodí z úložiště
 řadí pevná priorita ostatní rozhodnutí: přijetí základu, přijetí návrhu `critical`, `elevated`,
 `low` (uvnitř podle stáří), kontrola nahlášeného výsledku, uzavření karty po merge PR. Každé ukazuje na akci.
 
-Akce ze všech zdrojů (základní pravidla, brána review, formální pozornost, opakované nálezy)
+Akce ze všech zdrojů (základní pravidla, konflikty auto-rebase, brána review, formální pozornost, opakované nálezy)
 řadí jeden seznam priorit `VERB_ORDER` v `opora_agent_state_rules.py` v pořadí tabulky níže,
 uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhlasí.
 
@@ -68,7 +68,8 @@ uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhl
 |---|---|---|
 | `accept_baseline` | `POST /api/oporahub/baselines` | vždy `blocked/human_only` |
 | `accept` | `…/{id}/accept` podle druhu návrhu | vždy `blocked/human_only` |
-| `rebase` | `…/{id}/rebase` zastaralého návrhu | `ready` (výslovný převod, ne automatický) |
+| `rebase` | `…/{id}/rebase` zastaralého návrhu | `ready` (výslovný převod; automatický běží na serveru) |
+| `proposal.resolve_conflict` | `POST /api/oporahub/auto-rebase/conflicts/{id}/resolve` | `ready` u otevřeného konfliktu auto-rebase; řešením je běžný nový návrh nad aktuální hlavou |
 | `claim` | `POST /api/oporahub/executions/claim` | `ready`, nebo `blocked/budget_exhausted` či `budget_policy_required`; `budget` nese zbývající pokusy a opravy |
 | `review` | `GET /api/oporahub/executions/{id}/results` | `blocked/human_only` (AI review chybí) |
 | `review.claim` | `POST /api/oporahub/review-jobs/claim` | `ready` u úlohy review s volným slotem (jen se zapnutým automatickým review); `preconditions` `{role, headSha}` |
@@ -110,7 +111,7 @@ zůstává jen ke čtení i se skutečným modulem. Bez modulu jsou tři PR etap
 
 Vždy přítomné: `ai_review` (kontrolu výsledku dělá člověk; chybí, když je zapnuté [automatické review](oporahub-review-jobs.md)), `lean_verification`
 (Lean v CI dokazuje jen čisté jádro OporaHubu, ne kód karet, viz [ověřování](oporahub-verification.md)) a
-`auto_rebase` (převod návrhu je výslovný). `pull_request_link` dokud chybí modul výše.
+`auto_rebase` jen s `OPORA_AUTO_REBASE=0` (jinak převádí server, viz [automatický rebase](oporahub-auto-rebase.md)). `pull_request_link` dokud chybí modul výše.
 
 ## Ověření
 

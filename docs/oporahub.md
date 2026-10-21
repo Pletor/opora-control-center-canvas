@@ -42,7 +42,10 @@ pravdy. Export plánu do repozitáře může sloužit jako artefakt, nikoli jako
 přepis platného plánu při rozporu.
 
 Ze [Scionu](https://www.anthropic.com/research/redesigning-source-control) přebíráme
-serverové operace přes API, neměnné changesety s rodičem a načítání potřebného rozsahu.
+serverové operace přes API, neměnné changesety s rodičem a načítání potřebného rozsahu,
+serverový [automatický rebase](oporahub-auto-rebase.md) s třícestným slučováním po polích
+(člověk vidí jen skutečné konflikty), historii a blame odvozené z changesetů přes API
+a kontext v2 jako výchozí pro nové karty.
 Z Antique přebíráme oddělené rozhraní review. [Článek o review Claude Code](https://claude.dev/blog/solving-code-review-at-anthropic/)
 je další podklad pro průběžné nezávislé kontroly; není specifikací Antique.
 Níže uvedené etapy jsou návrh Opory, nikoli tvrzení o totožné implementaci Anthropic.
@@ -224,6 +227,7 @@ běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
 
 | Etapa | Výsledek | Podmínka dokončení |
 |---|---|---|
+| 2c. Scion principy pro plány | [Automatický rebase](oporahub-auto-rebase.md) všech čtyř druhů návrhů po posunu přijaté hlavy (čisté → nový návrh autora `system`, shodné → `redundant`, stejné pole → záznam konfliktu `base/ours/theirs`), odvozená historie a blame karty z changesetů s přepočitatelnou cache, kontext v2 výchozí pro nové karty a backfill s `--dry-run`; agent-state hlásí konflikty jako `waiting` s akcí `proposal.resolve_conflict` | Přijetí zůstává lidské; opakovaný průchod nic nezmění; konflikt stejného pole se nikdy nesloučí automaticky; v1 zůstává dostupná jako fallback |
 | 2b. Celý graf a obsah návrhů | Grafové návrhy a [kontext v2](oporahub-sparse-context.md) doplňují [texty, kresby a konfigurace](oporahub-content-changes.md). Dokončeno v rozsahu kontraktu; ověření má jeden známý baseline dluh `test_map_refresh.py:219` (Graphify unavailable vs. watching). | Konflikt stejné položky se neztratí; API, browser, rollback a execution dokazují výsledné chování |
 | 3b. Review před přijetím | Dokončeny [připomínky, riziková policy a doklady](oporahub-proposal-review.md); ověřeny API a skutečným browserem | Všechny čtyři native acceptory atomicky ověří přesnou policy/review; GitHub review neopravňuje přijmout jiný návrh |
 | 4. Důkazy a GitHub | Pravidla kontrol/review a trvalé sledování stavu PR s obnovou po pádu jsou implementovány; další typy vzdálených událostí lze doplnit stejnou frontou. Fáze 1B [uzavírá smyčku](oporahub-executions.md#uzavření-smyčky-běh--pr--merge--plán): PR připojené k běhu (API nebo trailery) samo zapne sledování a merge zapíše `execution.merged` a značku `awaitingHumanClose`; uzavření karty zůstává lidské | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
