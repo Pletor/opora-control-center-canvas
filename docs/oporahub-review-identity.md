@@ -76,7 +76,8 @@ tato PR. Čtení bez zápisu, stejný stav a čas dají stejný dokument.
 | `findingOutcomes` | `fixed`, `resolvedWithoutFix`, `rejectedByVoters` (kandidát bez potřebných hlasů), `open` |
 | `findingAcceptanceRate` | `fixed / (fixed + resolvedWithoutFix)` – reakce autora; zbytek je šum |
 | `voterRejectionRate` | `rejected / (rejected + zveřejněné)` – co odfiltrovalo hlasování |
-| `roundsPerPr` | `{mean, max}` dokončených kol |
+| `roundsPerPr` | `{mean, max}` dokončených kol review kódu (`kind: "code"`); `rejectedByVoters` také jen z nich |
+| `securityRounds` | `{mean, max}` dokončených kol [bezpečnostního review](oporahub-review-jobs.md) (`kind: "security"`), zvlášť; řádek PR nese `securityRounds` |
 | `humanApprovalsPerPr` | Průměr schválení přesné hlavy v nejnovějším úplném snímku (bez agentů) |
 | `timeToHumanDecisionSeconds` | `{samples, median, mean}` od první úlohy po první lidské rozhodnutí (approve / changes requested z GitHub důkazů nebo rozhodnutí za stropem kol) |
 | `guardrails` | `revertRate` a `incidentRate` = podíl PR s revertem / incidentem |

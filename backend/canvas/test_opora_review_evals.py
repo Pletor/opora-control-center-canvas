@@ -45,7 +45,7 @@ def test_parse_revert_trailer():
 def test_revert_and_incident_create_one_case_each_idempotently(world):  # noqa: F811
     service, scope, _ = world
     project = scope["project"]
-    seed_pr(service, scope, 7, rounds=2, rejected=1,
+    seed_pr(service, scope, 7, rounds=2, rejected=1, security=1,
             findings=[("src/a.py:null-deref:user", "important", "fixed"), ("src/b.py:style:x", "nit", "resolved")])
     reader = Recent([revert_pr(9, "Opora-Revert-Of: #7"),            # Merged revert of a reviewed PR.
                      revert_pr(10, "Opora-Revert-Of: #7", "open"),   # Not merged yet.

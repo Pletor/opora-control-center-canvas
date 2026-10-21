@@ -41,9 +41,9 @@ def parse_revert(body, configured_repository):
 
 
 def reviewed(db, project, repo, pr_number):
-    """Jobs of one PR across every workspace, oldest first."""
+    """Code review jobs of one PR across every workspace, oldest first (security rounds are not code rounds)."""
     rows = db.execute("SELECT workspace_id,base_sha,head_sha,phase,round,candidates FROM opora_review_jobs WHERE "
-                      "project_id=? AND repository=? AND number=? ORDER BY created_at,job_id",
+                      "project_id=? AND repository=? AND number=? AND kind='code' ORDER BY created_at,job_id",
                       (project, repo, pr_number)).fetchall()
     return [dict(zip(("workspace", "baseSha", "headSha", "phase", "round", "candidates"), row)) for row in rows]
 

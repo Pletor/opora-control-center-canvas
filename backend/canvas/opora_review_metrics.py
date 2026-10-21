@@ -47,16 +47,22 @@ def _rows(db, sql, parameters):
 
 
 def collect(db, project, workspace):
-    """{(repository, number): pr facts} for every PR with at least one review job."""
+    """{(repository, number): pr facts} for every PR with at least one review job.
+
+    Rounds and voter rejections count only `kind='code'` jobs; security review rounds are
+    reported separately as `securityRounds` (docs/oporahub-review-jobs.md, "Bezpečnostní review")."""
     where, parameters = " WHERE project_id=?" + (" AND workspace_id=?" if workspace else ""), (
         (project, workspace) if workspace else (project,))
     prs = {}
-    for ws, repo, number, phase, created, candidates in _rows(
-            db, "SELECT workspace_id,repository,number,phase,created_at,candidates FROM opora_review_jobs" + where
+    for ws, repo, number, phase, created, candidates, kind in _rows(
+            db, "SELECT workspace_id,repository,number,phase,created_at,candidates,kind FROM opora_review_jobs" + where
             + " ORDER BY created_at,job_id", parameters):
         pr = prs.setdefault((repo, number), {"workspace": ws, "repository": repo, "number": number, "start": created,
-                                             "rounds": 0, "findings": [], "rejected": 0, "decisions": []})
-        if phase == "completed":
+                                             "rounds": 0, "securityRounds": 0, "findings": [], "rejected": 0,
+                                             "decisions": []})
+        if phase == "completed" and kind != "code":
+            pr["securityRounds"] += 1
+        elif phase == "completed":
             pr["rounds"] += 1
             pr["rejected"] += sum(item.get("kind") == "finding" and item.get("accepted") is False
                                   for item in json.loads(candidates))
@@ -107,7 +113,7 @@ def compute(db, project, workspace, window, now, agent_ids, insights):
                 evidence[pr["workspace"]] = []  # Corrupt evidence never yields approvals.
         approvals, decision = human_facts(evidence[pr["workspace"]], pr, set(agent_ids))
         rows.append({"repository": pr["repository"], "number": pr["number"], "rounds": pr["rounds"],
-                     "findings": len(pr["findings"]), "humanApprovals": approvals,
+                     "securityRounds": pr["securityRounds"], "findings": len(pr["findings"]), "humanApprovals": approvals,
                      "timeToHumanDecisionSeconds": decision, "reverted": key in reverted,
                      "incidents": sum((item["repository"], item["number"]) == key for item in incidents),
                      "_findings": pr["findings"], "_rejected": pr["rejected"]})
@@ -126,6 +132,8 @@ def compute(db, project, workspace, window, now, agent_ids, insights):
             "voterRejectionRate": rate(rejected, rejected + len(findings)),
             "roundsPerPr": {"mean": rate(sum(row["rounds"] for row in rows), count),
                             "max": max((row["rounds"] for row in rows), default=0)},
+            "securityRounds": {"mean": rate(sum(row["securityRounds"] for row in rows), count),
+                               "max": max((row["securityRounds"] for row in rows), default=0)},
             "humanApprovalsPerPr": rate(sum(row["humanApprovals"] for row in rows), count),
             "timeToHumanDecisionSeconds": {"samples": len(decisions),
                                            "median": statistics.median(decisions) if decisions else None,

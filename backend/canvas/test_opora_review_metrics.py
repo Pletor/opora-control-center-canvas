@@ -22,8 +22,9 @@ def head(number, round_):
     return f"{number:02d}{round_:02d}".ljust(40, "a")
 
 
-def seed_pr(service, scope, number, *, rounds=1, started=10, findings=(), rejected=0, open_round=False):
-    """`findings` = [(fingerprint, severity, status)]; rounds are completed jobs, one hour apart."""
+def seed_pr(service, scope, number, *, rounds=1, started=10, findings=(), rejected=0, open_round=False, security=0):
+    """`findings` = [(fingerprint, severity, status)]; rounds are completed code jobs, one hour apart;
+    `security` completed security jobs (with one rejected candidate each) must not count as code rounds."""
     project, workspace = scope["project"], scope["workspace"]
     with writing(service, project) as (db, _):
         store = ReviewJobs(db, project, workspace)
@@ -38,6 +39,14 @@ def seed_pr(service, scope, number, *, rounds=1, started=10, findings=(), reject
                 "finders": 3, "voters": 3, "required_votes": 2, "phase": "completed" if done else "find",
                 "candidates": candidates, "created_at": iso(started - index + 1), "updated_at": iso(started),
                 "completed_at": iso(started) if done else None})
+        for index in range(1, security + 1):
+            store.insert_job({
+                "job_id": f"rj_{number}_sec{index}", "kind": "security", "execution_id": f"e{number}", "node_id": "card",
+                "repository": "owner/repo", "number": number, "base_sha": "b" * 40, "head_sha": head(number, index),
+                "round": index, "since_sha": None, "risk_tier": "low", "risk": {}, "required_approvals": 0,
+                "finders": 3, "voters": 3, "required_votes": 2, "phase": "completed",
+                "candidates": [{"kind": "finding", "fingerprint": f"x:sec{index}", "accepted": False}],
+                "created_at": iso(started - 0.5), "updated_at": iso(started), "completed_at": iso(started)})
         for fingerprint, severity, status in findings:
             store.insert_finding({
                 "finding_id": f"rf_{number}_{fingerprint}", "repository": "owner/repo", "number": number,
@@ -72,7 +81,7 @@ def test_window_validation():
 def test_metrics_math_is_deterministic(world):  # noqa: F811
     service, scope, _ = world
     # PR 1: two rounds, one important fixed, one nit resolved without fix, one rejected candidate, two approvals.
-    seed_pr(service, scope, 1, rounds=2, started=10, rejected=1,
+    seed_pr(service, scope, 1, rounds=2, started=10, rejected=1, security=1,
             findings=[("a.py:null:x", "important", "fixed"), ("a.py:style:y", "nit", "resolved")])
     # PR 2: one round, one open pre_existing finding, one approval, a revert and an incident.
     seed_pr(service, scope, 2, rounds=1, started=20, findings=[("b.py:old:z", "pre_existing", "open")])
@@ -92,6 +101,8 @@ def test_metrics_math_is_deterministic(world):  # noqa: F811
     assert metrics["findingOutcomes"] == {"fixed": 1, "resolvedWithoutFix": 1, "rejectedByVoters": 1, "open": 1}
     assert metrics["findingAcceptanceRate"] == 0.5 and metrics["voterRejectionRate"] == 0.25
     assert metrics["roundsPerPr"] == {"mean": 1.5, "max": 2}
+    assert metrics["securityRounds"] == {"mean": 0.5, "max": 1}
+    assert [row["securityRounds"] for row in metrics["prs"]] == [1, 0]
     assert metrics["humanApprovalsPerPr"] == 1.0  # PR1: 2 (agent 99 excluded), PR2: 0.
     # PR1 first job 10 h ago, first human decision 7 h ago → 3 h; PR2 job 20 h ago, decision 19 h ago → 1 h.
     assert metrics["timeToHumanDecisionSeconds"] == {"samples": 2, "median": 7200.0, "mean": 7200.0}
