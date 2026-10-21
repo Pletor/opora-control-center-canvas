@@ -77,7 +77,7 @@ class ReviewJobs:
                           (repository, number, kind))
 
     def insert_job(self, row):
-        return self._insert("job", row)
+        return self._insert("job", {"kind": "code", **row})  # Older callers omit kind; NULL would be ignored.
 
     def update_job(self, job_id, **fields):
         return self._update("job", job_id, fields)
