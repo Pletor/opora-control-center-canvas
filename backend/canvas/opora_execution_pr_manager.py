@@ -55,12 +55,12 @@ class ExecutionPullRequestManager:
         self.thread.start()
 
     def _loop(self):
-        while not self.stop.is_set():
+        # First tick waits too: startup never races the app into a GitHub read.
+        while not self.stop.wait(self.tick):
             try:
                 self.run_once()
             except Exception:
                 LOGGER.exception("Execution PR loop unavailable; retrying safely.")
-            self.stop.wait(self.tick)
 
     def close(self):
         self.stop.set()

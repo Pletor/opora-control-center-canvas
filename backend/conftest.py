@@ -5,6 +5,8 @@ Fronta se v testech řídí ručně přes `claim()` a `run_one()`; viz docs/mapy
 import os
 
 os.environ['OPORA_MAP_REFRESH_WORKER'] = '0'
+# Smyčku uzavření běhů (PR → merge) testy řídí ručně přes run_once(); nikdy nečte GitHub sama.
+os.environ['OPORA_EXECUTION_PR_WORKER'] = '0'
 # Sdílené hodnoty cache čtení (karta P3) se nesmí měnit na místě: v testech to hlídá otisk
 # hodnoty při každém čtení z cache (backend/canvas/read_cache.py).
 os.environ['OPORA_READ_CACHE_GUARD'] = '1'
