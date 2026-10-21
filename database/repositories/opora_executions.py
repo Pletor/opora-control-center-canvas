@@ -47,9 +47,9 @@ class Executions:
     def history(self, node=None):
         condition = " AND node_id=?" if node is not None else ""
         parameters = (*self.scope, node) if node is not None else self.scope
-        rows = self.db.execute("SELECT record FROM opora_executions WHERE project_id=? AND workspace_id=?"
+        rows = self.db.execute("SELECT owner,record FROM opora_executions WHERE project_id=? AND workspace_id=?"
                                + condition + " ORDER BY rowid DESC LIMIT 100", parameters).fetchall()
-        return [json.loads(row[0]) for row in rows]
+        return [json.loads(row[1]) | {"owner": row[0]} for row in rows]
 
     def receipts(self, identifier):
         self.read(identifier)

@@ -40,6 +40,12 @@ class ExecutionResults(OporaExecutions):
                        "acceptedRevision": record["acceptedRevision"], "assignmentDigest": record["assignmentDigest"],
                        "verification": "agent-reported; not independently verified", "createdAt": now()}
             self.lease_valid(repo, record)
+            import time
+
+            from backend.canvas.opora_execution_budget_runtime import check
+            check(repo.db, repo.scope, record, time.time())
+            if record.get("executionProtocolVersion") == 2:
+                receipt.update(executionProtocolVersion=2, budget=record["budget"])
             repo.insert_receipt(identifier, payload["requestId"], fingerprint, receipt)
             self.finish(repo, record, "reported")
             return receipt

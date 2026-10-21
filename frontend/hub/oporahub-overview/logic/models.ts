@@ -1,0 +1,12 @@
+import type { GithubReconciliationView } from "@/hub/github-reconciliation/logic/use-github-reconciliation";
+import type { ReviewPolicyView } from "@/hub/review-policy/logic/use-review-policy";
+import type { GraphProposalsView } from "@/hub/graph-proposals/logic/use-graph-proposals";
+import type { ExecutionBudgetsView } from "@/hub/execution-budgets/logic/use-execution-budgets";
+import type { ExecutionReceiptsView } from "@/hub/execution-receipts/logic/use-execution-receipts";
+import type { GitEvidenceView } from "@/hub/git-evidence/logic/use-git-evidence";
+import type { PlanChangesView } from "@/hub/plan-changes/logic/use-plan-changes";
+import type { DashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
+import type { OporaProposalsView } from "@/hub/proposal-history/logic/use-opora-proposals";
+export type OverviewModels = { view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView;
+  changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; budgets: ExecutionBudgetsView;
+  graphProposals: GraphProposalsView; reviewPolicy: ReviewPolicyView; reconciliation: GithubReconciliationView };

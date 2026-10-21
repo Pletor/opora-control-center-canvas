@@ -23,7 +23,7 @@ def create_opora_execution_router(service):
 
     @router.get("")
     def history(project: str, workspace: str, request: Request, nodeId: str | None = None):
-        return call(request, lambda: executions.history(project, workspace, nodeId))
+        return call(request, lambda: executions.history(project, workspace, nodeId) | {"canCancel": request.state.actor == "human"})
 
     @router.get("/{identifier}/results")
     def receipts(identifier: str, project: str, workspace: str, request: Request):

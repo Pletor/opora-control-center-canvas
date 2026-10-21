@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OporaHub: přehled provozu (návrh rozhraní, ukázková data)</title>
+<!--
+DESIGN RATIONALE (plan, review, critique)
+
+Subject and job
+  A person supervises several autonomous coding agents. Within five seconds the page must answer four questions:
+  what is happening, what needs me, who is working, what comes next.
+  Ownership is shown in the layout: Canvas owns plans, GitHub owns code (read-only here), Agent Office executes,
+  the human reviews. Nothing in the page claims that any of Anthropic's tools is embedded.
+
+Plan
+  Color   paper #EDF0EF (cool grey-teal), surface #FAFBFA, ink #172124, muted #526064,
+          teal #176a70 (identity, running work), amber #F2A33A (ONLY actions that need the human),
+          red #A3281D (ONLY observed failures). Green is never used, so nothing can look like unearned success.
+  Type    One system family (Bahnschrift, then Segoe UI, then system sans), tabular numerals, weights 400/600/700,
+          sentence case, no tracked caps. Monospace appears only for hashes and API examples in the drawer.
+  Layout  Left-aligned. Wireframe at 1440x900:
+            | OPORA  [projekt]  Projekt Editor OporaHub        label  Obnovit  Pro agenty |
+            | Rezervace a platby   [rev 10 11 12 13 [14] (pracovní +2)]     [Zkontrolovat 3] |
+            | PLAN > PRACE > DUKAZ > KONTROLA   one continuous band, four stages, owners named |
+            | Potřebuje rozhodnutí (amber edge)        | Co se stane dál (who acts)          |
+            | Práce agentů (table, real distinctions)  | Poslední aktivita (audit)           |
+            | Pro agenty: 1 číst, 2 navrhnout, 3 převzít, 4 odevzdat      secondary links     |
+  Principles
+    1. The memorable element is the plan > work > evidence > review band, with the accepted-revision rail above it.
+       Immutable revisions are solid blocks and the unaccepted working version is a dashed block, so "accepted vs working"
+       is visible without reading.
+    2. Amber means "the human must act". Teal means "in progress or identity". Red means "observed failure".
+       Every state also has a distinct shape and a text label, so color is never the only signal.
+    3. "Nahlášeno" (reported) is a separate state from "ověřeno" and is never green. Missing data reads
+       "neznámé" or "nezjištěno", never zero-as-success.
+    4. IDs and hashes live only in the drawer under "Technické údaje".
+
+Review against the brief (what I changed after the first plan)
+  - First plan: a row of five equal KPI cards plus one card per section. This is the SaaS kit and a wall of
+    equal metrics. Replaced by one band of four stages with the counts inside it, and a single amber primary action.
+  - First plan: an eyebrow label over every panel and numbered markers everywhere. Removed. Numbers appear only
+    in the "Pro agenty" protocol, because that content really is a sequence.
+  - First plan: separate Activity and Next-step lists that repeated each other. Next-step items now name who acts
+    (Vy, Agent, GitHub) and open the related detail.
+  - Avoided the cream/terracotta, dark/acid and broadsheet defaults. The palette is cool neutral with teal, and
+    amber is reserved for action.
+
+Critique
+  - Boldness is spent in one place (the band). Everything else is quiet tables and lists.
+  - Reduced motion is respected. The only motion is the drawer sliding in as an answer to a click.
+  - Keyboard: visible two-ring focus, Escape and the X close the drawer, focus is restored, the page behind is inert while the drawer is open.
+  - Demo boundary: no network, no storage. Every acceptance or action explains that nothing was sent or saved.
+  - Responsive: two columns above 1100px, a single column at 768px, table rows turn into labeled blocks at 390px.
+-->
+<style>
+:root{
+  --paper:#EDF0EF; --surface:#FAFBFA; --ink:#172124; --muted:#526064;
+  --rule:#C9D2D2; --rule-soft:#DDE3E3;
+  --teal:#176a70; --teal-deep:#0E4A4F; --teal-wash:#DCEAE9;
+  --amber:#F2A33A; --amber-edge:#B97508; --amber-deep:#7E4700; --amber-wash:#FBEBD0;
+  --red:#A3281D; --red-wash:#F8E2DF;
+  --font:"Bahnschrift","Segoe UI Variable Text","Segoe UI","Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 14px/1.4 var(--font);font-variant-numeric:tabular-nums}
+h1,h2,h3,h4,p,ol,ul,dl,dd{margin:0}
+ol,ul{padding:0;list-style:none}
+button,select,input{font:inherit;color:inherit}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:8px;top:-60px;background:var(--surface);color:var(--ink);padding:8px 12px;border-radius:4px;z-index:50}
+.skip:focus{top:8px}
+
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px;box-shadow:0 0 0 2px #fff}
+.stretch:focus-visible{outline:none;box-shadow:none}
+.stretch:focus-visible::after{outline:3px solid var(--ink);outline-offset:-3px;box-shadow:inset 0 0 0 5px #fff}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 12px;border:1px solid #8FA0A2;background:var(--surface);border-radius:4px;cursor:pointer;font-weight:600;white-space:nowrap}
+.btn:hover{background:#F0F4F3}
+.btn:disabled{cursor:not-allowed;color:#6B787B;background:#E8ECEB;border-color:var(--rule)}
+.btn-primary{background:var(--amber);border-color:var(--amber-edge);color:var(--ink);font-weight:700}
+.btn-primary:hover{background:#F7B658}
+.btn-primary:disabled{background:#EBD9B8;border-color:#CDB98F;color:#6B5A36}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--teal);color:#fff;padding:0 20px;min-height:50px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;letter-spacing:.08em}
+.proj select{height:32px;min-width:200px;padding:0 10px;border:1px solid var(--teal-deep);border-radius:4px;background:#F4F8F7;color:var(--ink);font-weight:600}
+.topbar nav{display:flex;gap:2px}
+.topbar nav a{display:inline-block;padding:14px 12px 11px;border-bottom:3px solid transparent;color:#fff;text-decoration:none;font-weight:600}
+.topbar nav a:hover{border-bottom-color:rgba(255,255,255,.55)}
+.topbar nav a[aria-current="page"]{border-bottom-color:var(--amber)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.demo-label{font-size:12px;border:1px solid rgba(255,255,255,.7);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.topbar .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.75)}
+.topbar .btn:hover{background:rgba(255,255,255,.14)}
+.topbar :focus-visible{outline-color:#fff;box-shadow:0 0 0 2px var(--teal-deep)}
+
+.banner{margin:10px 20px 0;padding:8px 12px;border:1px solid var(--amber-edge);background:var(--amber-wash);color:#4A2A00;border-radius:4px;font-size:13px}
+.banner.is-error{border-color:var(--red);background:var(--red-wash);color:#5E140C}
+
+/* page */
+main{display:grid;gap:10px;padding:10px 20px 6px;max-width:1600px;margin:0 auto}
+main:focus{outline:none}
+
+.ident{display:flex;align-items:center;gap:22px;flex-wrap:wrap;min-height:44px}
+h1{font-size:22px;line-height:1.2;font-weight:600;letter-spacing:-.01em}
+h1:focus{outline:none}
+.id-sub{font-size:13px;color:var(--muted);margin-top:1px}
+.rail-wrap{display:flex;align-items:center;gap:10px}
+.rail-cap{font-size:12.5px;color:var(--muted)}
+.rail{display:flex;gap:4px}
+.rail li{min-width:28px;height:24px;display:grid;place-items:center;padding:0 4px;border:1px solid var(--rule);background:var(--surface);border-radius:3px;font-size:12px;color:var(--muted)}
+.rail li.cur{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:700}
+.rail li.work{padding:0 8px;border:1px dashed var(--amber-deep);background:var(--amber-wash);color:var(--amber-deep);font-weight:600}
+.rail li.unk{border-style:dashed;border-color:var(--muted)}
+.ident .btn-primary{margin-left:auto;min-height:38px;padding:0 18px;font-size:14px}
+
+/* spine */
+.spine{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);border:1px solid var(--rule);border-radius:6px}
+.stage{position:relative;padding:9px 16px 9px 22px;border-left:1px solid var(--rule)}
+.stage:first-child{border-left:0;padding-left:16px}
+.stage+.stage::before{content:"";position:absolute;left:-7px;top:50%;width:12px;height:12px;background:var(--surface);border-top:1px solid var(--rule);border-right:1px solid var(--rule);transform:translateY(-50%) rotate(45deg)}
+.st-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.st-h strong{color:var(--ink);font-size:13px}
+.st-main{font-size:17px;font-weight:600;line-height:1.25;margin-top:2px}
+.st-sub{font-size:12.5px;color:var(--muted);margin-top:1px}
+.stage.need .st-main{color:var(--amber-deep)}
+.stage.unknown .st-main{color:var(--muted);font-weight:500}
+.stage.unknown{background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(82,96,100,.06) 8px 9px)}
+
+/* board */
+.board{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:10px;align-items:start}
+.col{display:grid;gap:10px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.panel.act{border-left:4px solid var(--amber)}
+.panel-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 14px;border-bottom:1px solid var(--rule-soft)}
+h2{font-size:15px;font-weight:600}
+.count{font-size:12.5px;color:var(--muted)}
+.panel.act .count{color:var(--amber-deep);font-weight:600}
+
+.empty,.err{padding:14px;font-size:13.5px}
+.empty strong,.err strong{display:block;font-size:14px;margin-bottom:2px}
+.err{background:var(--red-wash);color:#4D120B;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.err .btn{background:var(--surface)}
+
+/* queue */
+.q-item{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 14px;border-top:1px solid var(--rule-soft)}
+.q-item:first-child{border-top:0}
+.q-item:hover{background:#F2F6F5}
+.q-title{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-weight:600;font-size:14px}
+.q-meta{font-size:12.5px;color:var(--muted);margin-top:1px}
+.chip{display:inline-block;border:1px solid var(--rule);border-radius:3px;padding:0 6px;font-size:11.5px;font-weight:600;color:var(--muted);background:#fff;line-height:18px}
+.chip.warn{border-color:var(--amber-deep);color:var(--amber-deep);background:var(--amber-wash)}
+.stretch::after{content:"";position:absolute;inset:0}
+button.stretch{background:none;border:0;padding:0;text-align:left;cursor:pointer;color:inherit}
+.q-item .btn{position:static}
+
+/* agents table */
+table{width:100%;border-collapse:collapse}
+th{padding:6px 10px;text-align:left;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--rule-soft);background:#F4F7F6}
+th:first-child,td:first-child{padding-left:14px}
+td{padding:6px 10px;vertical-align:top;border-top:1px solid var(--rule-soft);font-size:13px}
+tbody tr:first-child td{border-top:0}
+tbody tr{position:relative}
+tbody tr:hover{background:#F2F6F5}
+td strong{font-size:13.5px}
+td .who,td .sub{display:block;font-size:12px;color:var(--muted)}
+td .sub.limit{color:var(--red);font-weight:600}
+td.att{white-space:nowrap}
+td.att.limit{color:var(--red);font-weight:700}
+.mk{display:inline-block;width:10px;height:10px;margin-right:7px;vertical-align:-1px;flex:none}
+.mk-running{border-radius:50%;background:var(--teal)}
+.mk-reported{border:2px solid var(--amber-deep);background:var(--amber-wash);transform:rotate(45deg) scale(.82)}
+.mk-revoked{border:2px solid var(--muted);background:linear-gradient(135deg,transparent 40%,var(--muted) 40% 60%,transparent 60%)}
+.mk-pass{background:var(--teal);border-radius:1px}
+.mk-fail{background:var(--red);clip-path:polygon(50% 0,100% 100%,0 100%)}
+.mk-unk{border:2px dashed var(--muted);border-radius:50%}
+
+/* right column */
+.next li{border-top:1px solid var(--rule-soft)}
+.next li:first-child{border-top:0}
+.nx{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:start;padding:7px 14px;font-size:13px}
+button.nx{width:100%;background:none;border:0;text-align:left;cursor:pointer}
+button.nx:hover{background:#F2F6F5}
+.who-pill{display:inline-block;text-align:center;border-radius:3px;padding:1px 0;font-size:11.5px;font-weight:700;line-height:18px}
+.who-you{background:var(--amber-wash);color:var(--amber-deep);border:1px solid var(--amber-deep)}
+.who-agent{background:var(--teal-wash);color:var(--teal-deep);border:1px solid var(--teal)}
+.who-gh{background:#E6E9E9;color:var(--muted);border:1px solid var(--rule)}
+.act-list li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;padding:6px 14px;border-top:1px solid var(--rule-soft);font-size:12.5px}
+.act-list li:first-child{border-top:0}
+.act-list time{color:var(--muted)}
+.act-list b{font-weight:600}
+
+/* agent API strip */
+.proto{display:grid;grid-template-columns:auto repeat(4,minmax(0,1fr)) auto;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:8px 14px}
+.proto h2{white-space:nowrap}
+.pstep{display:grid;grid-template-columns:20px minmax(0,1fr);gap:6px;align-items:start;font-size:12.5px;color:var(--muted)}
+.pstep b{display:block;color:var(--ink);font-size:13px}
+.pnum{width:20px;height:20px;border-radius:50%;background:var(--teal-wash);color:var(--teal-deep);font-size:12px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.links{display:flex;gap:18px;flex-wrap:wrap;padding:0 2px 8px;font-size:12.5px}
+.links a{color:var(--teal-deep);text-underline-offset:2px}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(23,33,36,.45);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(660px,100vw);background:var(--surface);z-index:30;display:flex;flex-direction:column;box-shadow:-8px 0 24px rgba(23,33,36,.25);animation:slide .18s ease-out}
+@keyframes slide{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+.d-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:14px 16px 12px 20px;border-bottom:1px solid var(--rule);background:#F4F7F6}
+.d-head h2{font-size:18px;line-height:1.25;font-weight:600}
+.d-head h2:focus{outline:none}
+.d-sub{font-size:13px;color:var(--muted);margin-top:2px}
+.x{flex:none;width:36px;height:36px;display:grid;place-items:center;border:1px solid #8FA0A2;border-radius:4px;background:var(--surface);cursor:pointer}
+.x:hover{background:#E9EEED}
+.d-body{overflow:auto;padding:4px 20px 28px;flex:1}
+.d-sec{padding:14px 0;border-top:1px solid var(--rule-soft)}
+.d-sec:first-child{border-top:0}
+.d-sec h3{font-size:14px;font-weight:700;margin-bottom:6px}
+.d-sec p{font-size:13.5px;max-width:62ch}
+.d-sec p+p{margin-top:6px}
+.lede{font-size:14.5px}
+.notice{border:1px solid var(--amber-deep);background:var(--amber-wash);border-radius:4px;padding:8px 10px;font-size:13px;color:#4A2A00;margin-top:8px}
+.chg{border:1px solid var(--rule);border-radius:4px;margin-top:10px;background:#fff}
+.chg h4{font-size:13.5px;padding:7px 10px;background:#F4F7F6;border-bottom:1px solid var(--rule-soft)}
+.chg dl{display:grid;grid-template-columns:92px minmax(0,1fr)}
+.chg dt,.chg dd{padding:6px 10px;font-size:13px;border-top:1px solid var(--rule-soft)}
+.chg dt:first-of-type,.chg dd:first-of-type{border-top:0}
+.chg dt{color:var(--muted);font-weight:600}
+.chg dd.new{background:var(--teal-wash);font-weight:600}
+.plus{display:inline-block;width:14px;font-weight:700;color:var(--teal-deep)}
+.tag{display:inline-block;margin-left:6px;border-radius:3px;padding:0 6px;font-size:11.5px;font-weight:700;line-height:18px;border:1px solid var(--amber-deep);color:var(--amber-deep);background:var(--amber-wash)}
+.list{margin-top:4px}
+.list li{padding:5px 0;border-top:1px solid var(--rule-soft);font-size:13.5px}
+.list li:first-child{border-top:0}
+.list span{color:var(--muted)}
+.tl li{display:grid;grid-template-columns:48px minmax(0,1fr);gap:10px;padding:5px 0;font-size:13.5px}
+.tl time{color:var(--muted)}
+.check{display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:13.5px;cursor:pointer}
+.check input{width:20px;height:20px;margin:0;flex:none;accent-color:var(--teal)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.boundary{font-size:12.5px;color:var(--muted);margin-top:8px}
+.note{margin-top:10px;min-height:20px;font-size:13px;border-left:3px solid var(--teal);padding-left:10px}
+.note:empty{display:none}
+#acc-box:focus{outline:none}
+.done{border:1px solid var(--teal);background:var(--teal-wash);border-radius:4px;padding:10px 12px}
+.done h3{margin-bottom:4px}
+details{margin-top:14px;border-top:1px solid var(--rule-soft);padding-top:10px}
+summary{cursor:pointer;font-weight:700;font-size:13.5px}
+.tech{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 12px;margin-top:8px;font-size:12.5px}
+.tech dt{color:var(--muted)}
+.tech dd{font-family:var(--mono);word-break:break-all}
+pre{margin:6px 0 0;padding:10px 12px;background:#10282B;color:#E6F1F0;border-radius:4px;overflow:auto;font:12.5px/1.5 var(--mono);white-space:pre}
+.api-step{padding:14px 0;border-top:1px solid var(--rule-soft)}
+.api-step:first-of-type{border-top:0}
+.api-step h3{display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:4px}
+.verb{font:700 12px var(--mono);background:var(--teal-wash);color:var(--teal-deep);border-radius:3px;padding:1px 6px}
+
+.toast{position:fixed;left:20px;bottom:20px;max-width:min(460px,calc(100vw - 40px));background:var(--ink);color:#fff;padding:10px 14px;border-radius:4px;font-size:13px;z-index:40;opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .15s,transform .15s}
+.toast.on{opacity:1;transform:none}
+
+/* responsive */
+@media (max-width:1180px){
+  .board{grid-template-columns:minmax(0,1fr)}
+  .proto{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .proto h2,.proto .btn{grid-column:1/-1;justify-self:start}
+}
+@media (max-width:900px){
+  .spine{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stage:nth-child(3){border-left:0;padding-left:16px}
+  .stage:nth-child(n+3){border-top:1px solid var(--rule)}
+  .stage:nth-child(3)::before{display:none}
+  .stage:nth-child(2)::before{display:block}
+  .ident .btn-primary{margin-left:0}
+}
+@media (max-width:820px){
+  .topbar{padding:6px 14px;gap:8px}
+  .tb-right{margin-left:0;width:100%}
+  main{padding:10px 14px 6px}
+  .banner{margin:10px 14px 0}
+  table,tbody,tr,td{display:block}
+  thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  tbody tr{padding:8px 14px;border-top:1px solid var(--rule-soft)}
+  tbody tr:first-child{border-top:0}
+  td,th:first-child,td:first-child{padding:2px 0;border:0}
+  td[data-label]::before{content:attr(data-label) ": ";font-size:12px;color:var(--muted)}
+  td:first-child::before{content:none}
+  td .sub{display:inline;margin-left:6px}
+  .proto{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+}
+@media (max-width:520px){
+  .topbar nav{overflow-x:auto;max-width:100%}
+  .proj{flex:1 1 100%}
+  .proj select{width:100%}
+  .spine{grid-template-columns:minmax(0,1fr)}
+  .stage,.stage:first-child,.stage:nth-child(3){padding-left:16px;border-left:0}
+  .stage+.stage{border-top:1px solid var(--rule)}
+  .stage+.stage::before{display:none}
+  .ident{gap:12px}
+  .ident .btn-primary{width:100%}
+  .rail-wrap{flex-wrap:wrap}
+  .q-item{grid-template-columns:minmax(0,1fr)}
+  .q-item .btn{justify-self:start}
+  .proto{grid-template-columns:minmax(0,1fr)}
+  .chg dl{grid-template-columns:minmax(0,1fr)}
+  .chg dt{padding-bottom:0;border-top:1px solid var(--rule-soft)}
+  .chg dd{border-top:0}
+  .tech{grid-template-columns:minmax(0,1fr)}
+  .d-head{padding-left:14px}
+  .d-body{padding:4px 14px 28px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Přeskočit na obsah</a>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M3 20V10a8 8 0 0 1 16 0v10" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="9" y="11" width="4" height="9" fill="currentColor"/></svg>
+      OPORA
+    </div>
+    <label class="proj"><span class="sr-only">Projekt</span>
+      <select id="proj">
+        <option>Penzion Lipno</option>
+        <option>Knihovna Sever</option>
+        <option>Interní nástroje</option>
+      </select>
+    </label>
+    <nav aria-label="Hlavní navigace">
+      <a href="#" data-act="nav" data-id="Projekt">Projekt</a>
+      <a href="#" data-act="nav" data-id="Editor">Editor</a>
+      <a href="#" aria-current="page">OporaHub</a>
+    </nav>
+    <div class="tb-right">
+      <span class="demo-label">Návrh rozhraní · ukázková data</span>
+      <button class="btn" id="refresh" type="button" title="Přepíná mezi ukázkovými daty, prázdným stavem a chybou načtení">Obnovit (ukázka)</button>
+      <button class="btn" type="button" data-act="api">Pro agenty</button>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main id="main" tabindex="-1">
+    <section class="ident" id="ident" aria-label="Přijatý plán"></section>
+    <section class="spine" id="spine" aria-label="Vztah plánu, práce, důkazů a kontroly"></section>
+
+    <div class="board">
+      <div class="col">
+        <section class="panel" id="queue" aria-labelledby="h-queue"></section>
+        <section class="panel" id="agents" aria-labelledby="h-agents"></section>
+      </div>
+      <div class="col">
+        <section class="panel" id="next" aria-labelledby="h-next"></section>
+        <section class="panel" id="activity" aria-labelledby="h-act"></section>
+      </div>
+    </div>
+
+    <section class="proto" aria-labelledby="h-proto">
+      <h2 id="h-proto">Pro agenty</h2>
+      <div class="pstep"><span class="pnum" aria-hidden="true">1</span><span><b>Číst</b>Přijatý plán a jeho revizi.</span></div>
+      <div class="pstep"><span class="pnum" aria-hidden="true">2</span><span><b>Navrhnout</b>Změna čeká na vaše přijetí.</span></div>
+      <div class="pstep"><span class="pnum" aria-hidden="true">3</span><span><b>Převzít</b>Karta, pokus a limity autority.</span></div>
+      <div class="pstep"><span class="pnum" aria-hidden="true">4</span><span><b>Odevzdat</b>Výsledek je jen nahlášený, ne ověřený.</span></div>
+      <button class="btn" type="button" data-act="api">Ukázat příklady API</button>
+    </section>
+
+    <nav class="links" aria-label="Další části">
+      <a href="#" data-act="info" data-id="settings">Pravidla kontroly a limity karet</a>
+      <a href="#" data-act="info" data-id="history">Starší historie a původní formuláře</a>
+      <a href="#" data-act="info" data-id="apidocs">Dokumentace API</a>
+    </nav>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="d-title" hidden>
+  <div class="d-head">
+    <div>
+      <h2 id="d-title" tabindex="-1"></h2>
+      <p class="d-sub" id="d-sub"></p>
+    </div>
+    <button class="x" type="button" data-act="close" aria-label="Zavřít podrobnosti">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2l12 12M14 2L2 14" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    </button>
+  </div>
+  <div class="d-body" id="d-body"></div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s)};
+  var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+
+  /* ---------- illustrative data (not live telemetry) ---------- */
+  var P=[
+    {id:'p1',kind:'Změna grafu',title:'Rozdělit platbu na zálohu a doplatek',author:'Agent Plánovač',base:14,stale:false,
+     impact:'Dotkne se 3 karet, z toho 1 běžící práce.',
+     lede:'Jedna karta platby se nahradí dvěma a závislosti se přesměrují.',
+     impacts:[['Platební brána','nahradí se dvěma kartami; práce agenta Brána právě běží'],['Potvrzení rezervace','změní se závislost'],['Formulář rezervace','bude zobrazovat dvě částky']],
+     changes:[
+      {what:'Karta „Platební brána“',acc:'Jedna karta: zaplatit celou částku při rezervaci',work:'',prop:'Nahradit dvěma kartami: Záloha při rezervaci a Doplatek před příjezdem'},
+      {what:'Závislost karty „Potvrzení rezervace“',acc:'Závisí na kartě Platební brána',work:'',prop:'Závisí na kartě Záloha při rezervaci'},
+      {what:'Nová závislost',acc:'Neexistuje',work:'',prop:'Doplatek před příjezdem závisí na kartě Záloha při rezervaci'}],
+     ids:[['ID návrhu','prop_0c71a9'],['Základní revize','rev_14'],['Hash revize','sha256:9be4d2c7f1a8…']]},
+    {id:'p3',kind:'Změna specifikace',title:'Storno zdarma jen do 48 hodin před příjezdem',author:'Agent Testy',base:14,stale:false,
+     impact:'Mění 1 kartu, na které právě běží práce. Koliduje s pracovní verzí.',
+     lede:'Zpřesňuje pravidlo storna a podmínku, kdy je karta hotová.',
+     impacts:[['Testy storna','právě na ní pracuje Agent Testy (pokus 2 ze 3)']],
+     changes:[
+      {what:'Karta „Testy storna“, popis',acc:'Storno zdarma kdykoli před příjezdem',work:'Storno zdarma do 7 dní před příjezdem',prop:'Storno zdarma do 48 hodin před příjezdem',conflict:true},
+      {what:'Karta „Testy storna“, kritérium hotovo',acc:'Test pokrývá storno před příjezdem',work:'',prop:'Test pokrývá storno 47 a 49 hodin před příjezdem'}],
+     ids:[['ID návrhu','prop_5d02be'],['Základní revize','rev_14'],['Hash revize','sha256:9be4d2c7f1a8…']]},
+    {id:'p2',kind:'Změna grafu',title:'Odeslat potvrzení rezervace e-mailem',author:'Agent Plánovač',base:13,stale:true,
+     impact:'Přidá 1 kartu, žádná práce neběží.',
+     lede:'Přidává novou kartu, která po úspěšné platbě odešle potvrzení.',
+     impacts:[['Odeslat potvrzení e-mailem','nová karta, zatím bez přiděleného agenta']],
+     changes:[
+      {what:'Nová karta',acc:'Neexistuje',work:'',prop:'Odeslat potvrzení e-mailem po úspěšné platbě'},
+      {what:'Nová závislost',acc:'Neexistuje',work:'',prop:'Nová karta závisí na kartě Platební brána'}],
+     ids:[['ID návrhu','prop_a83f10'],['Základní revize','rev_13 (přijatá je rev_14)'],['Hash revize','sha256:41c7e09b55d3…']]}
+  ];
+
+  var A=[
+    {id:'a1',agent:'Agent Brána',card:'Platební brána',state:'running',stateText:'Běží',since:'od 12 minut',
+     ev:{k:'unk',t:'Zatím žádný výsledek ani kontrola'},next:'Odevzdá výsledek, potom se čeká na kontroly.',att:1,lim:3,
+     summary:'Agent pracuje na kartě podle přijaté revize 14. Zatím nenahlásil výsledek, takže není co ověřovat.',
+     authority:'Smí měnit kód ve své větvi. Nesmí slučovat ani měnit plán.',
+     pr:{track:'off',text:'Žádné PR zatím neexistuje. Sledování je vypnuté.'},
+     rules:[['Prošlé kontroly build a testy','nezjištěno'],['Jedno schválení člověkem','čeká']],
+     hist:[['10:30','Přidělení: Agent Brána převzal kartu (pokus 1)'],['10:30','Práce běží']],
+     actions:[['Odvolat práci','Odvolání by agentovi zrušilo přidělení. Výsledky nahlášené po odvolání by se přestaly počítat.']],
+     tech:[['ID karty','card_7a1e'],['ID přidělení','claim_3c90'],['Přesný commit','—'],['Revize plánu','rev_14']]},
+    {id:'a2',agent:'Agent Rozhraní',card:'Formulář rezervace',state:'reported',stateText:'Nahlášeno, neověřeno',since:'',
+     ev:{k:'pass',t:'Kontroly prošly pro přesný commit'},next:'Čeká na vaše schválení.',att:1,lim:3,
+     summary:'Agent hlásí hotovo. Samo o sobě to nic nedokazuje: kontroly na GitHubu pro přesný commit prošly, ale pravidlo vyžaduje i vaše schválení.',
+     authority:'Smí měnit kód ve své větvi. Nesmí slučovat ani měnit plán.',
+     pr:{track:'on',text:'Sledování zapnuto. PR je otevřené, nesloučené a nezavřené.'},
+     rules:[['Prošlé kontroly build a testy','splněno'],['Jedno schválení člověkem','čeká na vás']],
+     hist:[['09:52','Přidělení: Agent Rozhraní převzal kartu (pokus 1)'],['10:31','Výsledek nahlášen. Je to tvrzení agenta, ne ověření.'],['10:36','GitHub (jen čtení): kontroly build a testy prošly pro přesný commit'],['teď','Čeká na schválení podle pravidla kontroly']],
+     actions:[['Schválit výsledek','Schválení by splnilo pravidlo „Jedno schválení člověkem“ pro tento commit a tuto revizi plánu.']],
+     tech:[['ID karty','card_b402'],['ID přidělení','claim_91d4'],['Přesný commit','3e9a4c1d07b2'],['Revize plánu','rev_14']]},
+    {id:'a3',agent:'Agent Testy',card:'Testy storna',state:'running',stateText:'Běží, oprava 2',since:'od 4 minut',
+     ev:{k:'fail',t:'Poslední kontrola testů selhala'},next:'Opravuje podle výsledku kontroly.',att:2,lim:3,
+     summary:'Agent opravuje po neúspěšné kontrole. Je to druhý pokus ze tří; třetí vyčerpá limit.',
+     authority:'Smí měnit kód ve své větvi. Nesmí slučovat ani měnit plán.',
+     pr:{track:'paused',text:'Sledování je pozastavené. Stav PR se neaktualizuje, dokud sledování neobnovíte.'},
+     rules:[['Prošlé kontroly build a testy','nesplněno'],['Jedno schválení člověkem','čeká']],
+     hist:[['09:20','Přidělení: Agent Testy převzal kartu (pokus 1)'],['09:58','Výsledek nahlášen (pokus 1)'],['10:05','GitHub (jen čtení): kontrola testů selhala'],['10:38','Přidělení: oprava, pokus 2'],['10:38','Práce běží']],
+     actions:[['Odvolat práci','Odvolání by agentovi zrušilo přidělení. Počet pokusů by zůstal zachován.']],
+     tech:[['ID karty','card_e118'],['ID přidělení','claim_a7b6'],['Přesný commit','c51f88e2a9d0'],['Revize plánu','rev_14']]},
+    {id:'a4',agent:'Agent Brána',card:'Import ceníku',state:'revoked',stateText:'Odvoláno',since:'v 09:55',
+     ev:{k:'unk',t:'Výsledek se nepočítá'},next:'Nikdo nepracuje. Kartu můžete znovu přidělit.',att:1,lim:3,
+     summary:'Práci jste odvolali. Případný dřívější výsledek se nepočítá a na kartě nikdo nepracuje.',
+     authority:'Smí měnit kód ve své větvi. Nesmí slučovat ani měnit plán.',
+     pr:{track:'off',text:'Sledování je vypnuté.'},
+     rules:[['Prošlé kontroly build a testy','nezjištěno'],['Jedno schválení člověkem','nelze, práce je odvolána']],
+     hist:[['09:10','Přidělení: Agent Brána převzal kartu (pokus 1)'],['09:55','Odvoláno vámi']],
+     actions:[['Znovu přidělit','Znovu přidělení by vytvořilo nové přidělení; dosavadní počet pokusů (1 ze 3) by se zachoval.']],
+     tech:[['ID karty','card_2f6d'],['ID přidělení','claim_0e55 (odvoláno)'],['Přesný commit','—'],['Revize plánu','rev_14']]},
+    {id:'a5',agent:'Agent Rozhraní',card:'Přehled obsazenosti',state:'reported',stateText:'Nahlášeno, neověřeno',since:'',
+     ev:{k:'fail',t:'Kontrola build selhala'},next:'Limit pokusů vyčerpán. Čeká na vaše rozhodnutí.',att:3,lim:3,
+     summary:'Agent hlásí hotovo, ale kontrola build na GitHubu selhala. Pokusy jsou vyčerpané, další pokus vyžaduje vaše rozhodnutí.',
+     authority:'Smí měnit kód ve své větvi. Nesmí slučovat ani měnit plán. Limit pokusů: 3.',
+     pr:{track:'on',text:'Sledování zapnuto. PR je otevřené, nesloučené a nezavřené.'},
+     rules:[['Prošlé kontroly build a testy','nesplněno'],['Jedno schválení člověkem','nelze, kontroly selhaly']],
+     hist:[['Včera','Pokusy 1 a 2: výsledek nahlášen, kontroly selhaly'],['08:40','Přidělení: pokus 3'],['09:48','Výsledek nahlášen (pokus 3)'],['09:53','GitHub (jen čtení): kontrola build selhala pro přesný commit'],['teď','Limit pokusů vyčerpán']],
+     actions:[['Zvýšit limit pokusů','Zvýšení limitu by umožnilo další pokus. Limit je vaše rozhodnutí pro tuto kartu, agent si ho nemůže změnit sám.'],['Odvolat práci','Odvolání by uzavřelo přidělení a výsledek by se přestal počítat.']],
+     tech:[['ID karty','card_91ac'],['ID přidělení','claim_d2f8'],['Přesný commit','8b02f6d4e1c7'],['Revize plánu','rev_14']]}
+  ];
+
+  var ACT=[
+    ['10:42','<b>Agent Brána</b> začal pracovat na kartě „Platební brána“.'],
+    ['10:38','<b>Agent Testy</b> převzal kartu „Testy storna“ k opravě (pokus 2).'],
+    ['10:36','<b>GitHub</b> (jen čtení): kontroly u „Formulář rezervace“ prošly.'],
+    ['10:31','<b>Agent Rozhraní</b> nahlásil výsledek „Formulář rezervace“ (neověřeno).'],
+    ['09:55','<b>Vy</b> jste odvolali práci na kartě „Import ceníku“.'],
+    ['09:40','<b>Agent Plánovač</b> navrhl změnu „Rozdělit platbu na zálohu a doplatek“.']
+  ];
+
+  var scenario='sample';
+  var SCN=['sample','empty','error'];
+  var SCN_NAME={sample:'ukázková data',empty:'prázdný stav',error:'chyba načtení'};
+
+  /* ---------- rendering ---------- */
+  function identHTML(){
+    if(scenario==='sample') return ''+
+      '<div><h1 id="h1" tabindex="-1">Rezervace a platby</h1><p class="id-sub">Přijatá revize 14, přijata před 2 dny</p></div>'+
+      '<div class="rail-wrap"><span class="rail-cap">Přijaté revize</span>'+
+      '<ol class="rail" aria-label="Poslední přijaté revize 10 až 14. Pracovní verze má 2 nepřijaté změny.">'+
+      '<li>10</li><li>11</li><li>12</li><li>13</li><li class="cur">14</li><li class="work">pracovní verze, 2 změny</li></ol></div>'+
+      '<button class="btn btn-primary" type="button" data-act="primary">Zkontrolovat 3 návrhy</button>';
+    if(scenario==='empty') return ''+
+      '<div><h1 id="h1" tabindex="-1">Projekt bez přijatého plánu</h1><p class="id-sub">Zatím nebyla přijata žádná revize</p></div>'+
+      '<div class="rail-wrap"><span class="rail-cap">Přijaté revize</span><ol class="rail" aria-label="Žádná přijatá revize"><li class="work">pracovní verze, bez revize</li></ol></div>'+
+      '<button class="btn btn-primary" type="button" data-act="primary">Otevřít Editor</button>';
+    return ''+
+      '<div><h1 id="h1" tabindex="-1">Plán se nepodařilo načíst</h1><p class="id-sub">Přijatá revize je neznámá</p></div>'+
+      '<div class="rail-wrap"><span class="rail-cap">Přijaté revize</span><ol class="rail" aria-label="Revize nejsou známé"><li class="unk">?</li></ol></div>'+
+      '<button class="btn btn-primary" type="button" data-act="retry">Zkusit znovu</button>';
+  }
+
+  function stage(t,own,main,sub,cls){
+    return '<div class="stage '+(cls||'')+'"><div class="st-h"><strong>'+t+'</strong><span>'+own+'</span></div><div class="st-main">'+main+'</div><div class="st-sub">'+sub+'</div></div>';
+  }
+  function spineHTML(){
+    if(scenario==='sample') return ''+
+      stage('Plán','Canvas vlastní plány','3 návrhy čekají','V pracovní verzi jsou 2 nepřijaté změny.','need')+
+      stage('Práce','Agent Office provádí','5 karet','2 běží, 2 nahlášeno, 1 odvoláno.')+
+      stage('Důkaz','GitHub vlastní kód, jen čtení','1 prošla, 2 selhaly','2 karty bez kontrol. Platí jen pro přesný commit.')+
+      stage('Kontrola','rozhoduje člověk','1 čeká na vás','3 sledovaná PR, 1 pozastaveno. Nic není sloučeno.','need');
+    if(scenario==='empty') return ''+
+      stage('Plán','Canvas vlastní plány','Bez přijaté revize','Agenti nemají co číst.','unknown')+
+      stage('Práce','Agent Office provádí','Nic nepřiděleno','Žádný agent nepracuje.')+
+      stage('Důkaz','GitHub vlastní kód, jen čtení','Nezjištěno','Bez plánu a commitu nelze kontroly přiřadit.','unknown')+
+      stage('Kontrola','rozhoduje člověk','Pravidla nejsou nastavena','Není co kontrolovat.','unknown');
+    return ''+
+      stage('Plán','Canvas vlastní plány','Neznámé','Data se nepodařilo načíst.','unknown')+
+      stage('Práce','Agent Office provádí','Neznámé','Nevíme, kdo pracuje.','unknown')+
+      stage('Důkaz','GitHub vlastní kód, jen čtení','Neznámé','Chybějící údaj neznamená úspěch.','unknown')+
+      stage('Kontrola','rozhoduje člověk','Neznámé','Nevíme, co čeká na vás.','unknown');
+  }
+
+  function queueHTML(){
+    var h2='<h2 id="h-queue">Potřebuje rozhodnutí</h2>';
+    if(scenario==='error') return '<div class="panel-h">'+h2+'<span class="count">neznámo</span></div>'+
+      '<div class="err" role="alert"><div><strong>Návrhy se nepodařilo načíst.</strong>Nevíme, zda něco čeká na rozhodnutí. Prázdná plocha tu neznamená, že je vše vyřízeno.</div><button class="btn" type="button" data-act="retry">Zkusit znovu</button></div>';
+    if(scenario==='empty') return '<div class="panel-h">'+h2+'<span class="count">0 návrhů</span></div>'+
+      '<div class="empty"><strong>Žádný návrh nečeká.</strong>Agenti zatím nic nenavrhli. Až navrhnou změnu plánu nebo specifikace, objeví se tady s přesným rozdílem.</div>';
+    var rows=P.map(function(p){
+      var chip=p.stale?'<span class="chip warn">Zastaralé, vychází z revize '+p.base+'</span>':'<span class="chip">'+esc(p.kind)+'</span>';
+      var meta='Navrhl '+esc(p.author)+(p.stale?'.':', vychází z revize '+p.base+'.')+' '+esc(p.impact);
+      return '<li class="q-item"><div><div class="q-title">'+esc(p.title)+chip+'</div><div class="q-meta">'+meta+'</div></div>'+
+        '<button class="btn stretch" type="button" data-act="proposal" data-id="'+p.id+'" aria-label="Zkontrolovat změnu: '+esc(p.title)+'">Zkontrolovat změnu</button></li>';
+    }).join('');
+    return '<div class="panel-h">'+h2+'<span class="count">3 návrhy</span></div><ul>'+rows+'</ul>';
+  }
+
+  function agentsHTML(){
+    var h2='<h2 id="h-agents">Práce agentů</h2>';
+    if(scenario==='error') return '<div class="panel-h">'+h2+'<span class="count">neznámo</span></div>'+
+      '<div class="err" role="alert"><div><strong>Práci agentů se nepodařilo načíst.</strong>Nevíme, kdo pracuje, ani co agenti nahlásili.</div><button class="btn" type="button" data-act="retry">Zkusit znovu</button></div>';
+    if(scenario==='empty') return '<div class="panel-h">'+h2+'<span class="count">0 karet</span></div>'+
+      '<div class="empty"><strong>Zatím nepracuje žádný agent.</strong>Agent začne tím, že přečte přijatý plán a převezme kartu. Postup najdete v části Pro agenty.</div>';
+    var rows=A.map(function(a){
+      var lim=a.att>=a.lim;
+      return '<tr>'+
+        '<td><button class="stretch" type="button" data-act="agent" data-id="'+a.id+'" aria-label="Podrobnosti: '+esc(a.card)+', '+esc(a.agent)+'"><strong>'+esc(a.card)+'</strong></button><span class="who">'+esc(a.agent)+'</span></td>'+
+        '<td data-label="Stav"><span class="mk mk-'+a.state+'" aria-hidden="true"></span>'+esc(a.stateText)+(a.since?'<span class="sub">'+esc(a.since)+'</span>':'')+'</td>'+
+        '<td data-label="Důkaz z GitHubu"><span class="mk mk-'+a.ev.k+'" aria-hidden="true"></span>'+esc(a.ev.t)+'</td>'+
+        '<td data-label="Další krok">'+esc(a.next)+'</td>'+
+        '<td class="att'+(lim?' limit':'')+'" data-label="Pokusy">'+a.att+' z '+a.lim+(lim?'<span class="sub limit">limit</span>':'')+'</td></tr>';
+    }).join('');
+    return '<div class="panel-h">'+h2+'<span class="count">2 běží, 2 nahlášeno, 1 odvoláno</span></div>'+
+      '<table><colgroup><col style="width:25%"><col style="width:16%"><col style="width:23%"><col style="width:27%"><col style="width:9%"></colgroup>'+
+      '<thead><tr><th scope="col">Karta a agent</th><th scope="col">Stav</th><th scope="col">Důkaz z GitHubu</th><th scope="col">Další krok</th><th scope="col">Pokusy</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+
+  function nextHTML(){
+    var h2='<h2 id="h-next">Co se stane dál</h2>';
+    var body;
+    if(scenario==='error') body='<div class="empty"><strong>Pořadí dalších kroků nelze určit.</strong>Dokud se data nenačtou, nevíme, kdo má teď tah.</div>';
+    else if(scenario==='empty') body='<ul class="next"><li><div class="nx"><span class="who-pill who-you">Vy</span><span>Přijměte první revizi plánu v Editoru. Teprve potom mohou agenti plán číst a navrhovat změny.</span></div></li></ul>';
+    else {
+      var items=[
+        ['you','Vy','Rozhodnout o 3 návrzích plánu. Jeden je zastaralý.','proposal','p1'],
+        ['you','Vy','Schválit „Formulář rezervace“. Kontroly prošly, chybí schválení.','agent','a2'],
+        ['you','Vy','„Přehled obsazenosti“ vyčerpal pokusy. Rozhodněte o dalším pokusu.','agent','a5'],
+        ['agent','Agent','Brána dokončí „Platební brána“ a odevzdá výsledek.','agent','a1']
+      ];
+      body='<ol class="next">'+items.map(function(i){
+        return '<li><button class="nx" type="button" data-act="'+i[3]+'" data-id="'+i[4]+'"><span class="who-pill who-'+i[0]+'">'+i[1]+'</span><span>'+esc(i[2])+'</span></button></li>';
+      }).join('')+'</ol>';
+    }
+    return '<div class="panel-h">'+h2+'</div>'+body;
+  }
+
+  function activityHTML(){
+    var h2='<h2 id="h-act">Poslední aktivita</h2>';
+    var body;
+    if(scenario==='error') body='<div class="empty"><strong>Auditní záznam je nedostupný.</strong>Chybějící záznam neznamená, že se nic nestalo.</div>';
+    else if(scenario==='empty') body='<div class="empty"><strong>Zatím žádný zaznamenaný zásah.</strong>Přijetí revizí, návrhy i práce agentů se budou zapisovat sem.</div>';
+    else body='<ul class="act-list">'+ACT.map(function(a){return '<li><time>'+a[0]+'</time><span>'+a[1]+'</span></li>'}).join('')+'</ul>';
+    return '<div class="panel-h">'+h2+'<span class="count">dnes</span></div>'+body;
+  }
+
+  function render(){
+    $('#ident').innerHTML=identHTML();
+    $('#spine').innerHTML=spineHTML();
+    var q=$('#queue'); q.innerHTML=queueHTML(); q.classList.toggle('act',scenario==='sample');
+    $('#agents').innerHTML=agentsHTML();
+    $('#next').innerHTML=nextHTML();
+    $('#activity').innerHTML=activityHTML();
+    var b=$('#banner');
+    if(scenario==='sample'){b.hidden=true;b.className='banner';b.textContent=''}
+    else{
+      b.hidden=false;
+      b.className='banner'+(scenario==='error'?' is-error':'');
+      b.textContent=scenario==='empty'
+        ? 'Ukázka prázdného stavu: projekt nemá přijatý plán, návrhy ani agenty. Prázdno se zde nikdy nezobrazuje jako úspěch.'
+        : 'Ukázka chyby načtení: API neodpovědělo. Všechny hodnoty jsou neznámé, ne nulové ani v pořádku.';
+    }
+  }
+
+  /* ---------- drawer ---------- */
+  var app=$('#app'),drawer=$('#drawer'),scrim=$('#scrim'),dBody=$('#d-body'),dTitle=$('#d-title'),dSub=$('#d-sub');
+  var lastFocus=null,toastTimer=null;
+
+  function openDrawer(title,sub,html,trigger){
+    lastFocus=trigger||document.activeElement;
+    dTitle.textContent=title; dSub.textContent=sub||''; dBody.innerHTML=html; dBody.scrollTop=0;
+    drawer.hidden=false; scrim.hidden=false; app.inert=true;
+    dTitle.focus();
+  }
+  function closeDrawer(){
+    if(drawer.hidden) return;
+    drawer.hidden=true; scrim.hidden=true; app.inert=false;
+    var f=lastFocus;
+    if(f && document.contains(f)) f.focus(); else { var h=$('#h1'); if(h) h.focus(); }
+  }
+  function toast(msg){
+    var t=$('#toast'); clearTimeout(toastTimer);
+    t.textContent=msg; t.classList.add('on');
+    toastTimer=setTimeout(function(){t.classList.remove('on')},6500);
+  }
+  function note(msg){var n=$('#d-note'); if(n) n.textContent=msg;}
+
+  function changeHTML(c){
+    var w=c.work
+      ? esc(c.work)+'<span class="tag">liší se od přijatého</span>'
+      : 'Shodná s přijatou';
+    return '<div class="chg"><h4>'+esc(c.what)+(c.conflict?'<span class="tag">kolize s pracovní verzí</span>':'')+'</h4><dl>'+
+      '<dt>Přijato</dt><dd>'+esc(c.acc)+'</dd>'+
+      '<dt>Pracovní</dt><dd>'+w+'</dd>'+
+      '<dt>Navrhováno</dt><dd class="new"><span class="plus" aria-hidden="true">+</span>'+esc(c.prop)+'</dd></dl></div>';
+  }
+
+  function openProposal(id,trigger){
+    var p=P.filter(function(x){return x.id===id})[0]; if(!p) return;
+    var html='';
+    html+='<section class="d-sec"><p class="lede">'+esc(p.lede)+'</p>'+
+      (p.stale?'<div class="notice"><b>Zastaralý návrh.</b> Vznikl nad revizí '+p.base+', přijatá je ale revize 14. Zobrazený rozdíl nemusí odpovídat tomu, co by se přijalo, proto nejde přijmout.</div>':'')+'</section>';
+    html+='<section class="d-sec"><h3>Dopad</h3><ul class="list">'+p.impacts.map(function(i){return '<li>'+esc(i[0])+' <span>'+esc(i[1])+'</span></li>'}).join('')+'</ul></section>';
+    html+='<section class="d-sec"><h3>Přesný rozdíl: přijato, pracovní verze, navrhováno</h3>'+p.changes.map(changeHTML).join('')+'</section>';
+    if(p.stale){
+      html+='<section class="d-sec" id="acc-box" tabindex="-1"><h3>Přijetí změny</h3><p>Agent musí návrh přepracovat nad revizí 14. Teprve potom půjde zkontrolovat a přijmout.</p>'+
+        '<div class="btn-row"><button class="btn" type="button" data-act="demo" data-msg="Ukázka: agent by dostal požadavek na aktualizaci návrhu nad revizí 14. Nic se neodeslalo.">Požádat agenta o aktualizaci</button></div>'+
+        '<p class="boundary">Ukázka: žádné tlačítko neposílá požadavek ani nic neukládá.</p></section>';
+    } else {
+      html+='<section class="d-sec" id="acc-box" tabindex="-1"><h3>Přijetí změny</h3>'+
+        '<p>Po přijetí vznikne nová neměnná revize 15. Revize 14 zůstane beze změny.</p>'+
+        '<label class="check"><input type="checkbox" id="ack" aria-describedby="ack-hint"><span>Prošel jsem přesný rozdíl výše a souhlasím s ním.</span></label>'+
+        '<div class="btn-row"><button class="btn btn-primary" type="button" id="accept" data-act="accept" data-id="'+p.id+'" disabled>Přijmout změnu (ukázka)</button>'+
+        '<button class="btn" type="button" data-act="demo" data-msg="Ukázka: návrh by se vrátil agentovi s vaším komentářem. Nic se neodeslalo.">Vrátit agentovi</button></div>'+
+        '<p class="boundary" id="ack-hint">Tlačítko se odemkne po zaškrtnutí. V této ukázce se nic neodesílá ani neukládá.</p></section>';
+    }
+    html+='<p class="note" id="d-note" role="status"></p>';
+    html+='<details><summary>Technické údaje (ukázkové hodnoty)</summary><dl class="tech">'+p.ids.map(function(i){return '<dt>'+esc(i[0])+'</dt><dd>'+esc(i[1])+'</dd>'}).join('')+'</dl></details>';
+    openDrawer(p.title,p.kind+', navrhl '+p.author+', vychází z revize '+p.base,html,trigger);
+  }
+
+  function openAgent(id,trigger){
+    var a=A.filter(function(x){return x.id===id})[0]; if(!a) return;
+    var html='';
+    html+='<section class="d-sec"><p class="lede">'+esc(a.summary)+'</p></section>';
+    html+='<section class="d-sec"><h3>Historie provádění</h3><ol class="tl">'+a.hist.map(function(h){return '<li><time>'+esc(h[0])+'</time><span>'+esc(h[1])+'</span></li>'}).join('')+'</ol></section>';
+    html+='<section class="d-sec"><h3>Důkaz z GitHubu (jen čtení)</h3><p><span class="mk mk-'+a.ev.k+'" aria-hidden="true"></span>'+esc(a.ev.t)+'.</p><p>Kontroly a schválení se vážou k přijaté revizi plánu a k přesnému commitu. Nahlášený výsledek agenta se za ověřený nepovažuje.</p></section>';
+    html+='<section class="d-sec"><h3>Pravidla kontroly</h3><ul class="list">'+a.rules.map(function(r){return '<li>'+esc(r[0])+': <span>'+esc(r[1])+'</span></li>'}).join('')+'</ul></section>';
+    html+='<section class="d-sec"><h3>Sledování PR</h3><p>'+esc(a.pr.text)+'</p><p>Sloučení a zavření PR se hlásí zvlášť.</p></section>';
+    html+='<section class="d-sec"><h3>Autorita a pokusy</h3><p>'+esc(a.authority)+'</p><p>Pokus '+a.att+' z '+a.lim+(a.att>=a.lim?'. Limit je vyčerpán.':'.')+'</p></section>';
+    var btns=a.actions.map(function(x){return '<button class="btn" type="button" data-act="demo" data-msg="Ukázka: '+esc(x[1])+' Nic se neodeslalo.">'+esc(x[0])+'</button>'});
+    if(a.pr.track==='on') btns.push('<button class="btn" type="button" data-act="demo" data-msg="Ukázka: sledování PR by se pozastavilo a šlo by obnovit. Nic se neodeslalo.">Pozastavit sledování PR</button>');
+    if(a.pr.track==='paused'){
+      btns.push('<button class="btn" type="button" data-act="demo" data-msg="Ukázka: sledování PR by se obnovilo. Nic se neodeslalo.">Obnovit sledování PR</button>');
+      btns.push('<button class="btn" type="button" data-act="demo" data-msg="Ukázka: načtení stavu PR by se zkusilo znovu. Nic se neodeslalo.">Zkusit PR znovu</button>');
+    }
+    if(a.pr.track==='off') btns.push('<button class="btn" type="button" data-act="demo" data-msg="Ukázka: sledování PR je volitelné a zapínáte ho vy. Nic se neodeslalo.">Zapnout sledování PR</button>');
+    html+='<section class="d-sec"><h3>Akce</h3><div class="btn-row">'+btns.join('')+'</div><p class="boundary">Ukázka: tlačítka jen vysvětlují, co by udělala. Nic se neodesílá ani neukládá.</p><p class="note" id="d-note" role="status"></p></section>';
+    html+='<details><summary>Technické údaje (ukázkové hodnoty)</summary><dl class="tech">'+a.tech.map(function(i){return '<dt>'+esc(i[0])+'</dt><dd>'+esc(i[1])+'</dd>'}).join('')+'</dl></details>';
+    openDrawer(a.card,a.agent+', '+a.stateText.toLowerCase(),html,trigger);
+  }
+
+  function openApi(trigger){
+    var s1='GET /api/v1/plan/accepted\n\n200 OK\n{\n  "revision": 14,\n  "acceptedAt": "2026-10-19T14:02:00Z",\n  "workingDiffersFromAccepted": true,\n  "cards": [\n    { "id": "card_b402",\n      "title": "Formulář rezervace",\n      "authority": { "mayEditCode": true, "mayMerge": false },\n      "attemptLimit": 3 }\n  ]\n}';
+    var s2='POST /api/v1/proposals\n{\n  "baseRevision": 14,\n  "kind": "graph",\n  "title": "Odeslat potvrzení rezervace e-mailem",\n  "changes": [\n    { "op": "addCard", "title": "Odeslat potvrzení e-mailem" },\n    { "op": "addDependency", "from": "card_7a1e", "to": "new_card" }\n  ]\n}\n\n202 Accepted\n{ "status": "pending-human-decision" }';
+    var s3='POST /api/v1/work/claim\n{ "cardId": "card_b402", "planRevision": 14 }\n\n200 OK\n{\n  "claimId": "claim_91d4",\n  "attempt": 1,\n  "attemptLimit": 3,\n  "authority": { "mayEditCode": true, "mayMerge": false }\n}';
+    var s4='POST /api/v1/work/result\n{\n  "claimId": "claim_91d4",\n  "status": "reported",\n  "commitSha": "3e9a4c1d07b2",\n  "summary": "Formulář hotový, doplněny testy."\n}\n\n200 OK\n{ "status": "reported", "verified": false }';
+    var html=''+
+      '<section class="d-sec"><p class="lede">Agenti i toto rozhraní používají stejné strukturované API. Níže je ilustrativní tvar čtyř kroků, ne skutečný kontrakt.</p>'+
+      '<div class="notice">Přihlašovací údaje se zde nikdy nezobrazují. V této ukázce se neodesílá žádný požadavek.</div></section>'+
+      '<div class="api-step"><h3><span class="verb">1</span>Číst přijatý plán</h3><p>Agent vždy vychází z poslední přijaté revize, ne z pracovní verze.</p><pre>'+esc(s1)+'</pre></div>'+
+      '<div class="api-step"><h3><span class="verb">2</span>Navrhnout změnu</h3><p>Návrh nic nemění. Plán se změní, až člověk zkontroluje přesný rozdíl a změnu přijme.</p><pre>'+esc(s2)+'</pre></div>'+
+      '<div class="api-step"><h3><span class="verb">3</span>Převzít kartu</h3><p>Přidělení nese číslo pokusu a limity autority nastavené člověkem.</p><pre>'+esc(s3)+'</pre></div>'+
+      '<div class="api-step"><h3><span class="verb">4</span>Odevzdat výsledek</h3><p>„reported“ znamená, že agent hlásí hotovo. Ověření vychází z kontrol na GitHubu a z rozhodnutí člověka.</p><pre>'+esc(s4)+'</pre></div>';
+    openDrawer('Pro agenty: čtení, návrh, převzetí, výsledek','Ilustrativní příklady strukturovaného API',html,trigger);
+  }
+
+  var INFO={
+    settings:['Pravidla kontroly a limity karet','Tady by člověk nastavoval pravidla kontroly (například požadovaná schválení a prošlé kontroly) a limity autority a pokusů pro jednotlivé karty.'],
+    history:['Starší historie a původní formuláře','Tady by byly dosavadní dlouhé formuláře a úplná historie provádění pro případ, že potřebujete detail, který přehled schválně nezobrazuje.'],
+    apidocs:['Dokumentace API','Tady by byl úplný popis strukturovaného API, které používají agenti i toto rozhraní.']
+  };
+  function openInfo(id,trigger){
+    var i=INFO[id]; if(!i) return;
+    openDrawer(i[0],'Mimo tuto ukázku','<section class="d-sec"><p class="lede">'+esc(i[1])+'</p><div class="notice">V této ukázce odkaz nic neotevírá. Vedlejší nastavení je schválně mimo přehled, aby ho nezahlcovalo.</div></section>',trigger);
+  }
+
+  function setScenario(name,fromContent){
+    scenario=name; render();
+    var msg='Zobrazeno: '+SCN_NAME[name]+'.';
+    toast(msg);
+    if(fromContent){ var h=$('#h1'); if(h) h.focus(); }
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click',function(e){
+    if(e.target===scrim){closeDrawer();return;}
+    var t=e.target.closest('[data-act]'); if(!t) return;
+    var act=t.dataset.act,id=t.dataset.id;
+    if(t.tagName==='A') e.preventDefault();
+    switch(act){
+      case 'proposal': openProposal(id,t);break;
+      case 'agent': openAgent(id,t);break;
+      case 'api': openApi(t);break;
+      case 'info': openInfo(id,t);break;
+      case 'close': closeDrawer();break;
+      case 'demo': note(t.dataset.msg);break;
+      case 'nav': toast('Ukázka: odkaz „'+id+'“ by otevřel jiný pohled. Tento návrh obsahuje jen OporaHub.');break;
+      case 'retry': setScenario('sample',true);break;
+      case 'primary':
+        if(scenario==='sample') openProposal('p1',t);
+        else toast('Ukázka: tady by se otevřel Editor, kde se přijímá první revize. Tento návrh obsahuje jen přehled OporaHub.');
+        break;
+      case 'accept':
+        var box=$('#acc-box');
+        box.innerHTML='<div class="done"><h3>Ukázka dokončena: nic nebylo přijato</h3><p>Nic se neodeslalo ani neuložilo. V ostrém provozu by po vašem přijetí vznikla nová neměnná revize 15 a revize 14 by zůstala beze změny.</p></div>';
+        box.focus();
+        break;
+    }
+  });
+  document.addEventListener('change',function(e){
+    if(e.target.id==='ack'){ var b=$('#accept'); if(b) b.disabled=!e.target.checked; }
+  });
+  $('#refresh').addEventListener('click',function(){
+    setScenario(SCN[(SCN.indexOf(scenario)+1)%SCN.length],false);
+  });
+  $('#proj').addEventListener('change',function(){
+    toast('Ukázka: přepnutí projektu nemění zobrazená data.');
+  });
+  document.addEventListener('keydown',function(e){
+    if(drawer.hidden) return;
+    if(e.key==='Escape'){e.preventDefault();closeDrawer();return;}
+    if(e.key==='Tab'){
+      var f=[].slice.call(drawer.querySelectorAll('button,a[href],input,summary,select,textarea,[tabindex]')).filter(function(x){
+        return !x.disabled && x.tabIndex>=0 && x.offsetParent!==null;
+      });
+      if(!f.length) return;
+      var first=f[0],last=f[f.length-1];
+      if(e.shiftKey && (document.activeElement===first||document.activeElement===dTitle)){e.preventDefault();last.focus();}
+      else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

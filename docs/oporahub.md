@@ -2,6 +2,12 @@
 
 Rozhodnutí 2026-10-20: **Canvas s OporaHubem drží platný plán, GitHub drží kód.**
 Agent-office vykonává práci přes API; OporaHub funguje i bez spuštěné 3D kanceláře.
+
+Výchozí prostředí je [jednostránkový přehled](oporahub-overview.md), navržený
+podle [klikacího artefaktu Claude Code](design/README.md). Člověk vidí konkrétní
+rozhodnutí, práci a další kroky; detail otevře přesnou položku, uchová explicitní
+potvrzení a původní API. Ukázková data artefaktu nejsou stavem aplikace.
+
 Tento kontrakt nahrazuje předchozí rozhodnutí z 2026-10-04 o GitHubu jako jediném
 zdroji pravdy pro plány, včetně požadavku zrušit historii OporaHubu. Při rozporu
 má pro plány přednost i před `docs/synchronizace-pravdy.md`. Existující kontroly
@@ -167,6 +173,12 @@ zobrazuje jako tvrzení agenta, nikoli automatické ověření nebo dokončení 
 Podrobný provozní kontrakt a omezení jsou ve
 [vykonávání zadání](oporahub-executions.md).
 
+Lidská [pravidla běhů](oporahub-execution-budgets.md) vážou počet pokusů a oprav
+na kartu a přijatou revizi a ukládají pevný konec oprávnění každého běhu.
+Heartbeat nemůže tento konec prodloužit. Spotřeba přežívá uvolnění, restart
+i změnu policy; zrušení člověkem odebere oprávnění bez vrácení pokusu.
+Office vyžádá zastavení, ale neprokazuje ukončení celého procesového stromu.
+
 [TLA+ model rezervací](../tools/formal/oporahub-execution/README.md) prošel
 úplným průchodem konečného stavového prostoru popsaného v jeho dokumentaci.
 Záměrné vypnutí ochrany odhalí souběžné oprávnění a opožděný výsledek starého
@@ -179,7 +191,7 @@ běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
 | 2b. Celý graf návrhů | Přidávání, úpravy a odstranění karet a vazeb jsou implementovány; zbývají další druhy obsahu a sparse kontext | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
 | 3b. Review před přijetím | Připomínky k rozdílu a politika přijetí návrhu podle rizika | Pozorované GitHub review se nepovažuje za automatické oprávnění přijímat jiný návrh |
 | 4. Důkazy a GitHub | Pravidla kontrol/review a trvalé sledování stavu PR s obnovou po pádu jsou implementovány; další typy vzdálených událostí lze doplnit stejnou frontou | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
-| 5b. Rozpočty vykonavatelů | Rozšíření execution API o celkový čas, náklady a limit opravných kol | Vyčerpaný rozpočet ukončí běh bez nekonečného prodlužování heartbeatů |
+| 5b. Rozpočty vykonavatelů | Pevný konec oprávnění a trvalý limit pokusů/oprav; zbývá vynucená izolace procesu a důvěryhodné účtování nákladů | Vyčerpané oprávnění nelze prodlužovat heartbeatem; tvrdý nákladový limit se nezaměňuje za odhad spotřeby |
 | 6. Rozhraní | Canvas pro cíle a OporaHub pro rozdíly, review, konflikty a důkazy | Člověk dohledá od cíle přes změnu až k ověření; UI používá stejné API jako agent |
 | 7b. Formální ověřování úloh | Obecné oddělené vykonávání TLA+/Lean a dohledatelné artefakty nad rámec přiloženého modelu rezervací | Kontrola uvádí model, tvrzení, předpoklady, verze nástrojů, výstup a vazbu na konkrétní kód |
 

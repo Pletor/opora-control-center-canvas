@@ -51,10 +51,12 @@ def save_authoritative(service, project, workspace, content, architecture, previ
 
 def refuse_authority_restore(db):
     """Historical architecture backups cannot discard immutable OporaHub history."""
+    from backend.canvas.opora_execution_budget_restore import refuse_budget_restore
     from backend.canvas.opora_reconciliation_restore import refuse_reconciliation_restore
     from backend.canvas.opora_review_policy_restore import refuse_policy_restore
     refuse_policy_restore(db)
     refuse_reconciliation_restore(db)
+    refuse_budget_restore(db)
     if db.execute("SELECT 1 FROM workspace_graph_authority LIMIT 1").fetchone():
         raise ValueError("Architecture backup restore is unavailable after workspace graph enrollment.")
     if db.execute("SELECT 1 FROM opora_execution_epochs LIMIT 1").fetchone():

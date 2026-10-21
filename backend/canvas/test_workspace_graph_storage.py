@@ -12,6 +12,7 @@ from backend.canvas.workspace_graph_storage import (
     save_authoritative,
 )
 from database.repositories.workspace_graph_authority import WorkspaceGraphAuthority
+from database.schema.opora_execution_budget_schema import BUDGET_SCHEMA
 from database.schema.opora_execution_schema import SCHEMA as EXECUTION_SCHEMA
 from database.schema.opora_graph_schema import SCHEMA as GRAPH_SCHEMA
 from database.schema.opora_reconciliation_jobs import JOB_SCHEMA
@@ -28,6 +29,7 @@ def service(tmp_path):
     db.executescript(GRAPH_SCHEMA)
     db.executescript(POLICY_SCHEMA)
     db.executescript(RECONCILIATION_SCHEMA + JOB_SCHEMA)
+    db.executescript(BUDGET_SCHEMA)
     db.execute("CREATE TABLE opora_spec_refs(project_id,workspace_id,accepted_id)")
     db.execute("CREATE TABLE architecture(value)")
     service = SimpleNamespace(db_for=lambda pid: db, lock_for=lambda pid: nullcontext())

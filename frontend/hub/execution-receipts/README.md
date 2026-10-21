@@ -23,3 +23,11 @@ hodin. Zobrazení je stav při načtení, nikoli živé potvrzení oprávnění.
 
 Ověření: sousední testy přípravy GET/session, izolace požadavků, stavů a bezpečného
 textu; integrační headless screenshot nad izolovanými daty, npm test a npm run build.
+
+Veřejná historie ukazuje uloženého vlastníka a volitelný neměnný budget protokolu v2:
+pokus, opravné kolo a pevný deadline. Starý v1 nemá zpětně vymyšlený pevný limit.
+Lidské `canCancel` je oddělené od možnosti konfigurovat archivovaný prostor.
+Zrušení vyžaduje kontrolu konkrétní execution a epochy, výslovné potvrzení a stabilní
+requestId. Nemá automatický retry, nevrací pokusy a neodstraňuje reported receipt.
+Přepnutí scope/běhu nebo zavření detailu ruší potvrzení. Odebrání oprávnění není
+důkaz zastavení všech procesů.

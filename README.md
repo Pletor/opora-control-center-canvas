@@ -42,7 +42,13 @@ embed_origins = ["http://localhost:4600"]
 ## OporaHub a práce agentů
 
 Canvas s OporaHubem drží plán, GitHub kód; agent-office je připojený vykonavatel.
-V Alt+3 otevřete **Změny zadání**, prohlédněte uložená zadání a jednou přijměte jejich
+V Alt+3 se otevře [jednostránkový přehled](docs/oporahub-overview.md): přijatý plán,
+návrhy čekající na rozhodnutí, práce agentů, důkazy a další kroky. Konkrétní položka
+otevře svůj detail; ✕ nebo Esc vrátí přehled. Výchozí obrazovka nezobrazuje dlouhé
+formuláře. [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
+klikací ukázka; aplikace používá skutečná data a stejné API jako agenti.
+
+Přes **Upravit zadání karty** otevřete změny zadání, prohlédněte uložená zadání a jednou přijměte jejich
 výchozí základ. Pak upravte cíl, omezení a akceptace vybrané karty v návrhu. Uložení
 návrhu Canvas nemění; po prohlídce rozdílu ho může člověk výslovně přijmout do zadání.
 Náhled rozlišuje přijaté, pracovní a navržené hodnoty. Přijetí není ověření kódu.
@@ -87,6 +93,13 @@ odeslání stejného výsledku se neduplikuje. Historie běhů odlišuje odevzd�
 ověření. Nasazení, API a omezení: [vykonávání zadání](docs/oporahub-executions.md).
 Pravidla rezervací mají také [omezený TLA+ model](tools/formal/oporahub-execution/README.md)
 s reprodukovatelnou kontrolou a záměrně porušenou variantou.
+
+[Pravidla běhů](docs/oporahub-execution-budgets.md) přidávají lidsky nastavený
+pevný konec oprávnění a trvalý počet pokusů a oprav pro kartu a přijatou revizi.
+Změna vlastníka, restart, uvolnění rezervace ani nová pravidla nevracejí spotřebu.
+Po zařazení karty musí vykonavatel používat budget protokol v2; starší Office
+se zastaví při převzetí. Jde o oprávnění a počet spuštění, nikoli peněžní limit
+nebo záruku ukončení všech potomků procesu.
 
 Verzované změny dalších druhů obsahu, řídký kontext podle závislostí,
 rozpočty běhů a obecné spouštění Lean/TLA+ zůstávají další prací.

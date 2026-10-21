@@ -98,9 +98,14 @@ odmítne převzetí. Nevytváří náhradní rezervaci starým protokolem.
 Zálohujte databázi před nasazením. Návrat na starý server by odstranil kontrolu
 trvalého zařazení karet, proto před takovým návratem zastavte dotčené vykonavatele.
 
-Tato vrstva zatím neurčuje rozpočet peněz ani celkový počet opravných kol,
-neověřuje artefakty a nesynchronizuje merge či nasazení. Heartbeat je krátkodobé
-oprávnění, nikoli celkový časový rozpočet úkolu. Atomické databázové přechody
+Volitelná lidská [pravidla běhů](oporahub-execution-budgets.md) omezují počet
+pokusů i opravných kol a dávají každému běhu pevný konec oprávnění. Jejich v2
+protokol se po zařazení karty nedá obejít v1 claimem; nová přijatá revize vyžaduje
+nové lidské nastavení. Nezařazené karty zachovávají výše uvedené v1 lease.
+Tato vrstva neurčuje rozpočet peněz ani tokenů, neověřuje artefakty a nepotvrzuje
+nasazení. Stop adaptér Office není izolace celého procesového stromu. Bez v2
+pravidel je heartbeat krátkodobé oprávnění, nikoli celkový časový limit úkolu.
+Atomické databázové přechody
 nenahrazují distribuovanou transakci mezi Canvasem, GitHubem a procesem agenta.
 Provoz předpokládá jeden serverový proces Canvasu: zámky grafu a souborů nejsou
 sdílené mezi procesy. Test souběžných převzetí se dvěma SQLite spojeními dokládá
