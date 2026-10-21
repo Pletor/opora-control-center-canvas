@@ -10,7 +10,13 @@
   --gold: #e4c788;
   --gold-soft: #33291a;
   --gold-line: #7a6433;
+  --ok: #a3cfa4;
   --ok-soft: #1e3324;
+  --ok-line: #4d7a50;
+  --warn-soft: #33291a;
+  --warn-line: #7a6433;
+  --info-soft: #1a2a36;
+  --code-bg: #10161b;
   --canvas-dot: #303a43;
   --map-contains: #687b8d;
   --sector-bg: #223229;
@@ -60,7 +66,13 @@
   --danger-line: #dca29c;
   --danger-soft: #f9e8e6;
   --info: #1f5f86;
+  --ok: #3b6d3f;
   --ok-soft: #e3f1e6;
+  --ok-line: #9cc4a0;
+  --warn-soft: #f6ecd8;
+  --warn-line: #d8bb7e;
+  --info-soft: #e1edf5;
+  --code-bg: #f1eee7;
   --canvas-dot: #cfcabf;
   --map-contains: #9a958a;
   --sector-bg: #f7f3e8;

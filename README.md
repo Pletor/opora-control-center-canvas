@@ -42,10 +42,12 @@ embed_origins = ["http://localhost:4600"]
 ## OporaHub a práce agentů
 
 Canvas s OporaHubem drží plán, GitHub kód; agent-office je připojený vykonavatel.
-V Alt+3 se otevře [jednostránkový přehled](docs/oporahub-overview.md): přijatý plán,
-návrhy čekající na rozhodnutí, práce agentů, důkazy a další kroky. Konkrétní položka
-otevře svůj detail; ✕ nebo Esc vrátí přehled. Výchozí obrazovka nezobrazuje dlouhé
-formuláře. [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
+V Alt+3 se otevře [OporaHub](docs/oporahub-ui.md) nad jediným dokumentem
+`GET /api/oporahub/agent-state`: záložka **Přehled** (přijatá hlava, drift, riziko, nejvýše
+3 rozhodnutí a smyčka deseti etap plán → kód → plán), **Karta** (cesta jedné karty v draweru)
+a **Pro agenty** (fronta akcí, hlavy pro CAS, kopírovatelný JSON, kontrakt `data-oh-*`).
+Konkrétní položka otevře svůj detail; ✕ nebo Esc vrátí přehled. Původní formuláře jsou
+v patě stránky. Přímé odkazy: `?environment=hub&ohView=agents` nebo `&ohCard=<nodeId>`. [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
 klikací ukázka; aplikace používá skutečná data a stejné API jako agenti.
 
 Přes **Upravit zadání karty** otevřete změny zadání, prohlédněte uložená zadání a jednou přijměte jejich

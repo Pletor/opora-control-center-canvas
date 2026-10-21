@@ -12,6 +12,8 @@ import type { PlanChangesView } from "@/hub/plan-changes/logic/use-plan-changes"
 import type { DashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import type { OporaProposalsView } from "@/hub/proposal-history/logic/use-opora-proposals";
 export type OverviewModels = { view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView;
+  /** Hlásí App, že je otevřený detail; starší periodická čtení běží jen tehdy (přehled čte agent-state). */
+  onDetailOpenChange?: (open: boolean) => void;
   contentChanges?: ContentChangesView;
   proposalReview?: ProposalReviewModels;
   changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; executionObservations?: ExecutionObservationsView; budgets: ExecutionBudgetsView; formalVerification: FormalVerificationView;

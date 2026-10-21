@@ -1,54 +1,37 @@
-﻿import { useState } from "react";
-import GraphProposals from "@/hub/graph-proposals/components/GraphProposals";
-import { useEffect } from "react";
-import ContentChanges from "@/hub/content-changes/components/ContentChanges";
-import AcceptancePolicy from "@/hub/proposal-review/components/AcceptancePolicy";
-import ReviewPolicy from "@/hub/review-policy/components/ReviewPolicy";
-import GithubReconciliation from "@/hub/github-reconciliation/components/GithubReconciliation";
-import GitEvidence from "@/hub/git-evidence/components/GitEvidence";
-import ExecutionReceipts from "@/hub/execution-receipts/components/ExecutionReceipts";
-import ExecutionObservations from "@/hub/execution-observations/components/ExecutionObservations";
-import FormalVerification from "@/hub/formal-verification/components/FormalVerification";
+﻿import { useEffect, useState } from "react";
 import { acceptedPlan } from "@/hub/oporahub-overview/logic/overview";
-import ExecutionBudgets from "@/hub/execution-budgets/components/ExecutionBudgets";
-import PlanChanges from "@/hub/plan-changes/components/PlanChanges";
-import SyncDashboard from "@/project/sync-dashboard/components/SyncDashboard";
-import ProposalHistory from "@/hub/proposal-history/components/ProposalHistory";
-import OporaHubOverview from "@/hub/oporahub-overview/components/OporaHubOverview";
+import OporaHubOverview, { type HubTab } from "@/hub/oporahub-overview/components/OporaHubOverview";
 import OverviewDrawer from "@/hub/oporahub-overview/components/OverviewDrawer";
-import AgentApi from "@/hub/oporahub-overview/components/AgentApi";
-import FocusedDetail from "@/hub/oporahub-overview/components/FocusedDetail";
-import ExactDetail from "@/hub/oporahub-overview/components/ExactDetail";
-import GraphProposalDetails from "@/hub/graph-proposals/components/GraphProposalDetails";
+import CardDetail from "@/hub/oporahub-card/components/CardDetail";
+import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
 import type { OverviewModels } from "@/hub/oporahub-overview/logic/models";
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
+import { initialHubLink, defaultCard } from "../logic/hub-link";
+import DetailContent from "./DetailContent";
 import "@/hub/oporahub-workspace/styles/oporahub-workspace.css";
 
-export function ExecutionDrawerContent({ models, executionId, onSelect }: {
-  models: OverviewModels; executionId: string; onSelect: (executionId: string, title: string) => void;
-}) {
-  const intentId = models.executionObservations?.items.find(item => item.intent.executionId === executionId)?.intent.id;
-  return <>
-    <ExactDetail requestedId={executionId} selectedId={models.executions.selected?.executionId} busy={models.executions.busy} error={models.executions.error}>
-      <FocusedDetail selector={executionId ? ".execution-receipts__details" : ":not(*)"} revision={`${executionId}:${models.executions.selected?.executionId ?? ""}`}><ExecutionReceipts model={models.executions} /></FocusedDetail>
-    </ExactDetail>
-    {models.executionObservations && <ExecutionObservations model={models.executionObservations} selectedExecutionId={executionId} selectedIntentId={intentId}
-      onSelect={(id) => onSelect(id, `Pozorování běhu · ${models.executionObservations?.items.find(item => item.intent.executionId === id)?.intent.nodeId ?? id}`)} />}
-  </>;
-}
+export { ExecutionDrawerContent } from "./DetailContent";
 
-// App owns all data, requests and mutations. This environment only composes its features.
+// App vlastní data a mutace. Prostředí čte jediný dokument agent-state a skládá dílky;
+// starší hooky se probouzejí až s otevřeným detailem (onDetailOpenChange).
 export default function OporaHubWorkspace(models: OverviewModels) {
+  const project = models.executions.project ?? "", workspace = models.executions.workspace ?? "";
+  const agent = useAgentState(project, workspace);
   const plan = acceptedPlan(models.graphProposals.context, models.changes.context);
   const currentAcceptedHead = !models.graphProposals.busy && !models.changes.busy && !models.graphProposals.error && !models.changes.error && plan.basisKnown ? plan.head : null;
-  const scope = JSON.stringify([models.executions.project, models.executions.workspace]);
-  const [selection, setSelection] = useState<{ scope: string; target: DetailTarget } | null>(null);
+  const scope = JSON.stringify([project, workspace]);
+  const [link] = useState(() => initialHubLink(typeof location === "undefined" ? "" : location.search));
+  const [tab, setTab] = useState<HubTab>(link.tab);
+  const [selection, setSelection] = useState<{ scope: string; target: DetailTarget } | null>(() => link.card ? { scope, target: { kind: "card", id: link.card, title: "Detail karty" } } : null);
   const detail = selection?.scope === scope ? selection.target : null;
+  const onDetailOpenChange = models.onDetailOpenChange;
+  useEffect(() => { onDetailOpenChange?.(!!detail); }, [!!detail, onDetailOpenChange]);
   useEffect(() => {
     const id = models.contentChanges?.selectedId;
     if (detail?.kind === "content" && detail.id && id && id !== detail.id && models.contentChanges?.detail?.proposal.id === id)
       setSelection({ scope, target: { kind: "content", id, title: "Změny obsahu · nový návrh" } });
   }, [scope, detail, models.contentChanges?.selectedId, models.contentChanges?.detail?.proposal.id]);
+  useEffect(() => { if (detail?.kind === "card" && detail.id) models.budgets.select(detail.id); }, [detail?.kind, detail?.id]);
   function open(target: DetailTarget) {
     if (target.id) {
       if (target.kind === "graph") models.graphProposals.inspect(target.id);
@@ -59,36 +42,24 @@ export default function OporaHubWorkspace(models: OverviewModels) {
       if (target.kind === "content") models.contentChanges?.select(target.id);
     }
     if (target.kind === "content" && !target.id) models.contentChanges?.cancel();
-    setSelection({ scope, target });
+    const card = target.kind === "card" ? target.id || defaultCard(agent.state, models.executions.choices) : "";
+    if (target.kind === "card" && !card) return;
+    setSelection({ scope, target: target.kind === "card" ? { ...target, id: card } : target });
   }
   function close() { models.proposalReview?.reset(); models.contentChanges?.cancel(); models.budgets.cancel(); models.executions.dismissCancel(); models.reviewPolicy.cancel(); models.reconciliation.cancel(); models.graphProposals.acknowledge(false); setSelection(null); }
+  function refresh() {
+    agent.refresh(); models.graphProposals.refresh(); models.changes.refresh(); models.executions.refresh(); models.executionObservations?.refresh();
+    models.evidence.refresh(); models.reconciliation.refresh(); models.reviewPolicy.refresh(); models.formalVerification.refresh(); models.onRefresh();
+  }
+  const cards = models.executions.choices.map(item => ({ id: item.id, name: item.name }));
   return <section className="oporahub-workspace" aria-label="OporaHub" data-testid="oporahub-workspace">
-    <OporaHubOverview models={models} open={open} />
-    {detail && <OverviewDrawer title={detail.title} onClose={close}>
-      {detail.kind === "graph" && (detail.id ? <section className="graph-proposals">
-        {models.graphProposals.detailBusy && <p role="status">Načítám přesný obsah vybraného návrhu…</p>}
-        {models.graphProposals.detailError && <p role="alert">{models.graphProposals.detailError}</p>}
-        {models.graphProposals.inspected?.id === detail.id ? <GraphProposalDetails model={models.graphProposals} review={models.proposalReview?.graph} /> : !models.graphProposals.detailBusy && !models.graphProposals.detailError && <p>Vybraný návrh není dostupný. Nebyl nahrazen jiným návrhem.</p>}
-      </section> : <GraphProposals model={models.graphProposals} review={models.proposalReview?.graph} />)}
-      {detail.kind === "changes" && <ExactDetail requestedId={detail.id} selectedId={models.changes.inspected?.id} busy={models.changes.busy} error={models.changes.error}>
-        <FocusedDetail selector={detail.id ? ".plan-changes__inspection" : ":not(*)"} revision={`${detail.id ?? ""}:${models.changes.inspected?.id ?? ""}`}><PlanChanges model={models.changes} review={models.proposalReview?.spec} acceptancePolicy={models.proposalReview?.policy} /></FocusedDetail>
-      </ExactDetail>}
-      {detail.kind === "executions" && <ExecutionDrawerContent models={models} executionId={detail.id ?? ""}
-        onSelect={(id, title) => open({ kind: "executions", id, title })} />}
-      {detail.kind === "evidence" && <ExactDetail requestedId={detail.id} selectedId={models.evidence.selected?.snapshot.id} busy={models.evidence.busy || models.evidence.detailBusy} error={models.evidence.error || models.evidence.detailError}>
-        <GitEvidence model={models.evidence} />
-      </ExactDetail>}
-      {detail.kind === "policy" && <ReviewPolicy model={models.reviewPolicy} />}
-      {detail.kind === "tracking" && <GithubReconciliation model={models.reconciliation} />}
-      {detail.kind === "budgets" && <ExecutionBudgets model={models.budgets} />}
-      {detail.kind === "formal" && <FormalVerification model={models.formalVerification} currentAcceptedHead={currentAcceptedHead} />}
-      {detail.kind === "content" && <ContentChanges model={models.contentChanges} requestedId={detail.id} currentAcceptedHead={currentAcceptedHead} review={models.proposalReview?.content} />}
-      {detail.kind === "acceptance-policy" && <AcceptancePolicy model={models.proposalReview?.policy} />}
-      {detail.kind === "api" && <AgentApi project={models.executions.project} workspace={models.executions.workspace} />}
-      {detail.kind === "history" && <div className="oporahub-workspace__body">
-        <GraphProposals model={models.graphProposals} review={models.proposalReview?.graph} /><PlanChanges model={models.changes} review={models.proposalReview?.spec} acceptancePolicy={models.proposalReview?.policy} />
-        <ProposalHistory model={models.proposals} /><SyncDashboard view={models.view} onRefresh={models.onRefresh} />
-      </div>}
+    <OporaHubOverview agent={agent} tab={tab} onTab={setTab} open={open} onRefresh={refresh}
+      onOpenCard={() => open({ kind: "card", title: "Detail karty" })} />
+    {detail && <OverviewDrawer title={detail.kind === "card" ? `Karta · ${cards.find(item => item.id === detail.id)?.name ?? detail.id}` : detail.title} onClose={close} wide={detail.kind === "card"}>
+      {detail.kind === "card" && detail.id ? <CardDetail nodeId={detail.id} cards={cards} state={agent.state} changesets={models.changes.items}
+        executions={models.executions.executions} budget={models.budgets.context} busy={models.changes.busy || models.executions.busy}
+        onSelect={id => open({ kind: "card", id, title: "Detail karty" })} open={open} />
+        : <DetailContent models={models} detail={detail} open={open} currentAcceptedHead={currentAcceptedHead} />}
     </OverviewDrawer>}
   </section>;
 }

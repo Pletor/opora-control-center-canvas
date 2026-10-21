@@ -1,5 +1,9 @@
 # Jednostránkový přehled OporaHubu
 
+> Fáze 2: výchozí stránku nahradilo rozhraní nad jedním dokumentem agent-state
+> (smyčka, karta, pro agenty) popsané v [oporahub-ui.md](oporahub-ui.md). Pravidla níže
+> (přesný výběr, ✕/Esc, žádné vymyšlené stavy) platí dál pro všechny detaily.
+
 Uživatel potřebuje na jedné stránce poznat, co se děje, co čeká na člověka
 a co udělají agenti dál. Výchozí obrazovka proto nesmí být dlouhá řada formulářů.
 Claude Code s dovedností frontend-design vytvořil [klikací HTML artefakt](design/README.md);

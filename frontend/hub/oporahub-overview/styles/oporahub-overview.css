@@ -1,69 +1,48 @@
-/* The accepted plan and continuous stage band make ownership visible before the compact work lists. */
-.oporahub-overview { --hub-paper:#edf0ef; --hub-surface:#fafbfa; --hub-ink:#172124; --hub-muted:#526064; --hub-rule:#c9d2d2; --hub-teal:#176a70; display:grid; gap:10px; color:var(--hub-ink); font:14px/1.4 "Bahnschrift","Segoe UI",sans-serif; min-width:0; }
-.oporahub-overview * { box-sizing:border-box; }
-.oporahub-overview h1,.oporahub-overview h2,.oporahub-overview p { margin:0; }
-.oporahub-overview h1 { font-size:23px; }
-.oporahub-overview h2 { font-size:15px; font-weight:600; }
-.oporahub-overview button { color:inherit; font:inherit; cursor:pointer; }
-.oporahub-overview button:focus-visible,.oporahub-overview__drawer button:focus-visible { outline:3px solid #176a70; outline-offset:2px; }
-.oporahub-overview__identity { display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
-.oporahub-overview__identity p,.oporahub-overview__identity small { font-size:12px; color:var(--hub-muted); }
-.oporahub-overview__revision { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:12px; }
-.oporahub-overview__revision code { background:var(--hub-teal); color:white; padding:4px 8px; border-radius:3px; }
-.oporahub-overview__working { border:1px dashed #7e4700; padding:3px 8px; background:#fbebd0; }
-.oporahub-overview__primary { margin-left:auto; background:#f2a33a; border:1px solid #b97508; padding:9px 14px; border-radius:4px; font-weight:600!important; }
-.oporahub-overview__warning { padding:8px 12px; background:#fbebd0; border:1px solid #b97508; border-radius:4px; font-size:12px; }
-.oporahub-overview__stages { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border:1px solid var(--hub-rule); border-radius:5px; background:var(--hub-surface); }
-.oporahub-overview__stages button { display:grid; gap:3px; text-align:left; padding:10px 15px; background:transparent; border:0; border-right:1px solid var(--hub-rule); }
-.oporahub-overview__stages button:last-child { border-right:0; }
-.oporahub-overview__stages small { color:var(--hub-teal); font-weight:400; margin-left:5px; }
-.oporahub-overview__stages b { font-size:15px; }
-.oporahub-overview__stages span { font-size:12px; color:var(--hub-muted); }
-/* Decisions use the single amber edge; work stays quiet, with states written in words. */
-.oporahub-overview__columns { display:grid; grid-template-columns:minmax(0,2.7fr) minmax(280px,1fr); gap:10px; align-items:start; }
-.oporahub-overview__main,.oporahub-overview__aside { display:grid; gap:10px; min-width:0; }
-.oporahub-overview__panel { border:1px solid var(--hub-rule); border-radius:5px; background:var(--hub-surface); overflow:hidden; min-width:0; }
-.oporahub-overview__panel--decisions { border-left:3px solid #f2a33a; }
-.oporahub-overview__panel header { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 14px; border-bottom:1px solid #dde3e3; }
-.oporahub-overview__panel header>span { font-size:11px; color:var(--hub-muted); text-align:right; }
-.oporahub-overview__decision { display:flex; gap:12px; align-items:center; padding:9px 14px; border-bottom:1px solid #dde3e3; }
-.oporahub-overview__decision>div { flex:1; min-width:0; }
-.oporahub-overview__decision p { font-size:12px; color:var(--hub-muted); margin-top:3px; }
-.oporahub-overview__decision button { flex:none; background:transparent; border:0; font-size:12px; font-weight:600; }
-.oporahub-overview__tag { display:inline-block; border:1px solid var(--hub-rule); border-radius:2px; font-size:10px; padding:1px 5px; }
-.oporahub-overview__tag--warning { background:#fbebd0; border-color:#b97508; color:#7e4700; }
-.oporahub-overview__empty { padding:15px; color:var(--hub-muted); }
-.oporahub-overview__table-head,.oporahub-overview__work { display:grid; grid-template-columns:1.15fr 1fr 1.5fr .5fr; gap:12px; padding:8px 14px; }
-.oporahub-overview__table-head { background:#f4f7f6; font-size:11px; color:var(--hub-muted); }
-.oporahub-overview__work { width:100%; text-align:left; border:0; border-top:1px solid #dde3e3; background:transparent; font-size:12px!important; }
-.oporahub-overview__work:hover,.oporahub-overview__decision:hover { background:#edf4f3; }
-.oporahub-overview__work span { min-width:0; overflow-wrap:anywhere; }
-.oporahub-overview__work small { display:block; color:var(--hub-muted); font-size:11px; margin-top:3px; }
-.oporahub-overview__more { border:0; background:transparent; padding:7px 14px; font-size:11px!important; color:var(--hub-teal)!important; text-decoration:underline; }
-/* The narrow rail names the next actor and keeps audit events distinct from instructions. */
-.oporahub-overview__next,.oporahub-overview__activity { list-style:none; padding:0; margin:0; }
-.oporahub-overview__next li,.oporahub-overview__activity li { display:flex; gap:10px; padding:8px 14px; border-bottom:1px solid #dde3e3; font-size:12px; }
-.oporahub-overview__next li>span { flex:none; align-self:start; min-width:51px; text-align:center; border:1px solid #b97508; background:#fbebd0; color:#7e4700; border-radius:3px; }
-.oporahub-overview__next button,.oporahub-overview__activity button { background:transparent; border:0; padding:0; text-align:left; font-size:12px; }
-.oporahub-overview__activity time { color:var(--hub-muted); flex:none; font-size:11px; }
-.oporahub-overview__activity small { display:block; color:var(--hub-muted); font-size:10px; margin-top:3px; }
-.oporahub-overview__api { display:flex; align-items:center; gap:18px; flex-wrap:wrap; border:1px solid var(--hub-rule); border-radius:5px; padding:10px 14px; background:var(--hub-surface); }
-.oporahub-overview__api>span { display:flex; gap:7px; align-items:center; font-size:12px; flex:1; }
-.oporahub-overview__api b { border-radius:50%; background:#dceae9; color:#176a70; padding:1px 6px; }
-.oporahub-overview__api button { background:transparent; border:1px solid #8fa0a2; border-radius:3px; padding:5px 10px; }
-.oporahub-overview__footer { display:flex; flex-wrap:wrap; gap:16px; }
-.oporahub-overview__footer button { border:0; padding:0; color:var(--hub-teal); background:transparent; text-decoration:underline; font-size:12px; }
-/* The detail slides over the overview, with one persistent close control and readable form widths. */
-.oporahub-overview__overlay { position:fixed; inset:0; z-index:1000; background:#17212477; display:flex; justify-content:flex-end; }
-.oporahub-overview__drawer { width:min(1000px,94vw); height:100%; background:#edf0ef; color:#172124; display:flex; flex-direction:column; box-shadow:-8px 0 30px #17212433; min-width:0; }
-.oporahub-overview__drawer-head { display:flex; gap:16px; align-items:center; justify-content:space-between; padding:16px 20px; background:#fafbfa; border-bottom:1px solid #c9d2d2; }
-.oporahub-overview__drawer-head h2 { margin:0; font-size:18px; overflow-wrap:anywhere; }
-.oporahub-overview__drawer-head button { align-self:start; border:1px solid #8fa0a2; background:transparent; padding:5px 10px; border-radius:4px; font-size:20px; cursor:pointer; }
-.oporahub-overview__drawer-body { overflow:auto; padding:20px; min-width:0; }
-.oporahub-overview__drawer-body>* { min-width:0; overflow-wrap:anywhere; }
-.oporahub-overview__drawer-body pre { white-space:pre-wrap; overflow-wrap:anywhere; }
-.oporahub-overview__api-detail ol { display:grid; gap:18px; padding-left:22px; }
-.oporahub-overview__api-detail pre { background:#fafbfa; padding:12px; font-size:12px; border:1px solid #c9d2d2; }
-/* On a phone the same information becomes stacked labeled work rows, never a horizontal canvas. */
-@media(max-width:1100px) { .oporahub-overview__columns { grid-template-columns:minmax(0,1fr); } .oporahub-overview__aside { grid-template-columns:repeat(2,minmax(0,1fr)); } .oporahub-overview__stages { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:600px) { .oporahub-overview__identity { gap:10px; } .oporahub-overview__primary { margin:0; width:100%; } .oporahub-overview__stages,.oporahub-overview__aside { grid-template-columns:minmax(0,1fr); } .oporahub-overview__stages button { border-right:0; border-bottom:1px solid #c9d2d2; } .oporahub-overview__decision { align-items:start; flex-direction:column; gap:7px; } .oporahub-overview__table-head { display:none; } .oporahub-overview__work { grid-template-columns:minmax(0,1fr); gap:6px; } .oporahub-overview__work>span:nth-child(2)::before { content:"Stav: "; font-weight:600; } .oporahub-overview__work>span:nth-child(3)::before { content:"Další krok: "; font-weight:600; } .oporahub-overview__work>span:nth-child(4)::before { content:"Pokus: "; font-weight:600; } .oporahub-overview__api { gap:10px; } .oporahub-overview__api>span { flex-basis:100%; } .oporahub-overview__drawer { width:100%; } .oporahub-overview__drawer-body { padding:10px; } }
+/* RÁM OPORAHUBU (blok `oporahub-overview`)
+   Příběh: po přepnutí do OporaHubu uživatel vidí jednu klidnou stránku. Nahoře jméno, kde je
+   (projekt, prostor, čas snímku) a tři záložky: Přehled pro člověka, Karta pro detail a Pro agenty pro
+   stroj. Pod nimi jeden pohled; úplně dole tiché odkazy na původní formuláře, aby nic nezmizelo.
+   Barvy jsou jen z tokenů, takže světlý i tmavý režim drží stejný příběh. */
+.oporahub-overview { display: grid; gap: 14px; max-width: 1440px; margin: 0 auto; min-width: 0; width: 100%; color: var(--ink); font-size: 14px; line-height: 1.4; }
+.oporahub-overview__top { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.oporahub-overview__brand { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.oporahub-overview__crumb { font-size: 12px; color: var(--ink-muted); }
+
+/* Záložky jsou segmentový přepínač vpravo; zvolená je bílá „karta“ na šedém podkladu. */
+.oporahub-overview__tabs { display: flex; gap: 2px; margin-left: auto; padding: 3px; border-radius: 7px; background: var(--surface-3); }
+.oporahub-overview__tab { padding: 5px 11px; border: 0; border-radius: 5px; background: transparent; color: var(--ink-2); font: inherit; font-size: 12px; cursor: pointer; }
+.oporahub-overview__tab[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.oporahub-overview__tab:focus-visible, .oporahub-overview__footer button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.oporahub-overview__warning { margin: 0; padding: 8px 12px; border: 1px solid var(--warn-line); border-radius: 4px; background: var(--warn-soft); color: var(--warn); font-size: 12px; }
+.oporahub-overview__empty { margin: 0; padding: 15px; color: var(--ink-muted); }
+
+/* Sdílené panely pro starší dílky v detailech (přijímání návrhů): stejný papír jako nový přehled. */
+.oporahub-overview__panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.oporahub-overview__more { padding: 7px 14px; border: 0; background: transparent; color: var(--accent); font-size: 11px; text-decoration: underline; cursor: pointer; }
+
+/* Pata s původními formuláři: řada tichých odkazů, aby šly najít, ale neodváděly od smyčky. */
+.oporahub-overview__footer { display: flex; flex-wrap: wrap; gap: 8px 16px; padding-top: 10px; border-top: 1px solid var(--line); }
+.oporahub-overview__footer button { padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 12px; text-decoration: underline; cursor: pointer; }
+
+/* Detail vyjíždí zprava přes přehled; ✕ je vždy vpravo nahoře, Escape zavírá. Na telefonu přes celou šířku. */
+.oporahub-overview__overlay { position: fixed; inset: 0; z-index: 1000; display: flex; justify-content: flex-end; background: var(--backdrop); }
+.oporahub-overview__drawer { display: flex; flex-direction: column; width: min(1000px, 94vw); height: 100%; min-width: 0; background: var(--bg); color: var(--ink); box-shadow: var(--shadow-pop); }
+.oporahub-overview__drawer--wide { width: min(1320px, 96vw); }
+.oporahub-overview__drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.oporahub-overview__drawer-title { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.oporahub-overview__close { align-self: start; width: 32px; height: 32px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 16px; cursor: pointer; }
+.oporahub-overview__close:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.oporahub-overview__drawer-body { min-width: 0; overflow: auto; padding: 20px; }
+/* Starší obsah detailu (předformátované API, dlouhé hashe) se láme, nikdy nevytlačí šířku draweru. */
+.oporahub-overview__drawer-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.oporahub-overview__api-detail { display: grid; gap: 12px; }
+.oporahub-overview__api-detail ol { display: grid; gap: 18px; padding-left: 22px; }
+.oporahub-overview__api-detail pre { padding: 12px; border: 1px solid var(--line); background: var(--code-bg); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .oporahub-overview__tabs { margin-left: 0; width: 100%; }
+  .oporahub-overview__tab { flex: 1; }
+  .oporahub-overview__drawer, .oporahub-overview__drawer--wide { width: 100%; }
+  .oporahub-overview__drawer-body { padding: 10px; }
+}
