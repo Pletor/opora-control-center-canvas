@@ -76,6 +76,11 @@ přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schvál
 důkazů. Změna pravidel vyžaduje nové načtení; novější nedokončený nebo neúspěšný
 pokus zneplatní aktuální použitelnost starého úspěchu. Historie zůstává dostupná.
 
+[Trvalé sledování PR](docs/oporahub-reconciliation.md) po zapnutí člověkem obnovuje
+úlohy i po restartu a zaznamená merge k původní revizi plánu. Odděluje stav úlohy,
+pozorovaný stav PR a review; neslouží jako automatické dokončení karty. Sledování
+běží v backendu i se zavřeným prohlížečem.
+
 Agent-office přebírá neměnné zadání přes nové execution API. Rostoucí číslo
 převzetí brání starému běhu odevzdat výsledek po ztrátě rezervace; opakované
 odeslání stejného výsledku se neduplikuje. Historie běhů odlišuje odevzdání od
@@ -83,7 +88,7 @@ ověření. Nasazení, API a omezení: [vykonávání zadání](docs/oporahub-ex
 Pravidla rezervací mají také [omezený TLA+ model](tools/formal/oporahub-execution/README.md)
 s reprodukovatelnou kontrolou a záměrně porušenou variantou.
 
-Verzované změny dalších druhů obsahu, automatická obnova
-synchronizace, rozpočty běhů a obecné spouštění Lean/TLA+ zůstávají další prací.
+Verzované změny dalších druhů obsahu, řídký kontext podle závislostí,
+rozpočty běhů a obecné spouštění Lean/TLA+ zůstávají další prací.
 Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).

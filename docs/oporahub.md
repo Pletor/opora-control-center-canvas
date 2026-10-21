@@ -147,8 +147,15 @@ Trvalé pořadí pokusů brání tomu, aby pozdní odpověď staršího načít�
 novější výsledek. Nový pending nebo neúspěšný pokus zneplatní aktuální použitelnost
 starého úspěchu. Aktivace pravidel vyžaduje nové načtení; historické snímky bez
 pořadí a intervalu se nepovažují za nové důkazy. Ani splnění místních pravidel
-neprovádí merge, automatické dokončení nebo nasazení. Automatické dorovnání stavu
-po merge zůstává další etapou.
+neprovádí merge, automatické dokončení nebo nasazení.
+
+[Trvalé sledování PR](oporahub-reconciliation.md) přidává člověkem zapnuté úlohy,
+které obnoví čtení po pádu serveru a atomicky uchovají pozorování merge i posun
+fronty. Každá vazba ukazuje původní přijatou revizi; novější plán ji nepřepíše.
+PR mergnuté během výpadku se dohledá po obnovení, opakované načtení téhož merge
+nevytvoří další přechod. Jde o stav publikace PR, oddělený od pravidel review,
+ověření výsledného merge SHA a nasazení. Provozní a datový kontrakt popisuje
+[trvalé dorovnávání GitHubu](oporahub-reconciliation-contract.md).
 
 ## Vykonávání přijatých zadání a model protokolu
 
@@ -171,7 +178,7 @@ běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
 |---|---|---|
 | 2b. Celý graf návrhů | Přidávání, úpravy a odstranění karet a vazeb jsou implementovány; zbývají další druhy obsahu a sparse kontext | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
 | 3b. Review před přijetím | Připomínky k rozdílu a politika přijetí návrhu podle rizika | Pozorované GitHub review se nepovažuje za automatické oprávnění přijímat jiný návrh |
-| 4. Důkazy a GitHub | Pravidla povinných kontrol a review jsou implementována; zbývá opakované doručení a obnova synchronizace | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
+| 4. Důkazy a GitHub | Pravidla kontrol/review a trvalé sledování stavu PR s obnovou po pádu jsou implementovány; další typy vzdálených událostí lze doplnit stejnou frontou | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
 | 5b. Rozpočty vykonavatelů | Rozšíření execution API o celkový čas, náklady a limit opravných kol | Vyčerpaný rozpočet ukončí běh bez nekonečného prodlužování heartbeatů |
 | 6. Rozhraní | Canvas pro cíle a OporaHub pro rozdíly, review, konflikty a důkazy | Člověk dohledá od cíle přes změnu až k ověření; UI používá stejné API jako agent |
 | 7b. Formální ověřování úloh | Obecné oddělené vykonávání TLA+/Lean a dohledatelné artefakty nad rámec přiloženého modelu rezervací | Kontrola uvádí model, tvrzení, předpoklady, verze nástrojů, výstup a vazbu na konkrétní kód |

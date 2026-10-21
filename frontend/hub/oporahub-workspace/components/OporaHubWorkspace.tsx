@@ -1,5 +1,7 @@
 import GraphProposals from "@/hub/graph-proposals/components/GraphProposals";
 import ReviewPolicy from "@/hub/review-policy/components/ReviewPolicy";
+import GithubReconciliation from "@/hub/github-reconciliation/components/GithubReconciliation";
+import type { GithubReconciliationView } from "@/hub/github-reconciliation/logic/use-github-reconciliation";
 import type { ReviewPolicyView } from "@/hub/review-policy/logic/use-review-policy";
 import type { GraphProposalsView } from "@/hub/graph-proposals/logic/use-graph-proposals";
 // App owns the data and actions; this environment composes independent features.
@@ -15,8 +17,8 @@ import ProposalHistory from "@/hub/proposal-history/components/ProposalHistory";
 import type { OporaProposalsView } from "@/hub/proposal-history/logic/use-opora-proposals";
 import "@/hub/oporahub-workspace/styles/oporahub-workspace.css";
 
-export default function OporaHubWorkspace({ view, onRefresh, proposals, changes, evidence, executions, graphProposals, reviewPolicy }: {
-  view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView; changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; graphProposals: GraphProposalsView; reviewPolicy: ReviewPolicyView;
+export default function OporaHubWorkspace({ view, onRefresh, proposals, changes, evidence, executions, graphProposals, reviewPolicy, reconciliation }: {
+  view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView; changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; graphProposals: GraphProposalsView; reviewPolicy: ReviewPolicyView; reconciliation: GithubReconciliationView;
 }) {
   return <section className="oporahub-workspace" aria-label="OporaHub" data-testid="oporahub-workspace">
     <header className="oporahub-workspace__head">
@@ -29,6 +31,7 @@ export default function OporaHubWorkspace({ view, onRefresh, proposals, changes,
       <ExecutionReceipts model={executions} />
       <GitEvidence model={evidence} />
       <ReviewPolicy model={reviewPolicy} />
+      <GithubReconciliation model={reconciliation} />
       <ProposalHistory model={proposals} />
       <SyncDashboard view={view} onRefresh={onRefresh} />
     </div>

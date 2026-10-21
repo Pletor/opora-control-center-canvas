@@ -28,6 +28,7 @@ from backend.api.editor.opora_changeset_routes import create_opora_changeset_rou
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
 from backend.api.editor.opora_proposal_routes import create_opora_proposal_router
+from backend.api.editor.opora_reconciliation_routes import create_opora_reconciliation_router
 from backend.api.editor.opora_review_policy_routes import create_opora_review_policy_router
 from backend.api.editor.opora_review_routes import create_opora_review_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
@@ -59,6 +60,7 @@ from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
+from backend.canvas.opora_reconciliation_manager import ReconciliationManager
 from backend.canvas.sync_report import SyncReport
 from backend.claude_code.assistant.agents import load_agents
 from backend.claude_code.assistant.manager import AssistantManager
@@ -109,6 +111,7 @@ def create_app(data_root=None):
     service.agent_workspace = agent_workspace
     identity = build_identity(service.root)
     map_refresh = MapRefresh(service)
+    reconciliation = ReconciliationManager(service)
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -136,14 +139,17 @@ def create_app(data_root=None):
     @asynccontextmanager
     async def lifespan(app):
         map_refresh.start()
+        reconciliation.start()
         yield
         assistant.close_all()
         map_refresh.close()
+        reconciliation.close()
         service.close()
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.service = service
     app.state.map_refresh = map_refresh
+    app.state.reconciliation = reconciliation
 
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
     remote = RemoteAccess.from_env()
@@ -297,6 +303,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_changeset_router(service))
     app.include_router(create_opora_review_router(service))
     app.include_router(create_opora_review_policy_router(service))
+    app.include_router(create_opora_reconciliation_router(service))
     app.include_router(create_opora_execution_router(service))
     app.include_router(create_opora_graph_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací

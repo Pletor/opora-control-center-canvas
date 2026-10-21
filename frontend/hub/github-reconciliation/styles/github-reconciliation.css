@@ -1,0 +1,28 @@
+/* Sledování má vlastní obrys, aby se neslévalo se schválením plánu či review. */
+.github-reconciliation { min-width: 0; padding: var(--sp-4); border: 1px solid var(--border, #677380); border-radius: 12px; }
+/* Akce jsou vedle názvu, ale na menší ploše se zalomí. */
+.github-reconciliation__head, .github-reconciliation__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+/* Každá číselná identita zůstává čitelná i při dlouhém SHA. */
+.github-reconciliation__identity { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; }
+.github-reconciliation__identity dd { margin: 0; }
+.github-reconciliation code, .github-reconciliation__record { overflow-wrap: anywhere; white-space: pre-wrap; }
+/* Volba serverového podkladu má plnou šířku a explicitní popisek. */
+.github-reconciliation__field { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.github-reconciliation__field select { min-width: 0; width: 100%; padding: 9px; color: var(--ink); background: var(--bg); border: 1px solid var(--border, #677380); border-radius: 6px; font: inherit; }
+/* Nastavení a jeho potvrzení jsou dva samostatné kroky na stejné ploše. */
+.github-reconciliation__enrollment, .github-reconciliation__confirmation, .github-reconciliation__details { min-width: 0; padding: 16px; margin: 16px 0; border: 1px solid var(--border, #677380); border-radius: 8px; }
+.github-reconciliation__ack { display: block; margin: 16px 0; }
+.github-reconciliation__ack input { margin-right: 8px; }
+/* Tři roviny nepoužívají společnou zelenou známku úspěchu. */
+.github-reconciliation__planes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.github-reconciliation__planes article { min-width: 0; border-top: 1px solid var(--border, #677380); padding: 8px 0; }
+/* Historické vazby i selhání mají vysvětlení bez překrytí jiných panelů. */
+.github-reconciliation__warning { border-left: 3px solid #bd8245; padding: 12px; }
+.github-reconciliation__list { list-style: none; padding: 0; }
+.github-reconciliation__list li { display: flex; gap: 12px; flex-wrap: wrap; padding: 8px 0; }
+/* Historie se rozbaluje po jednotlivých záznamech a načítá po stránkách. */
+.github-reconciliation__history-entry { padding: 12px 0; border-bottom: 1px solid var(--border, #677380); }
+.github-reconciliation__record dt { font-weight: 600; }
+.github-reconciliation__record dd { margin: 4px 0 12px 8px; }
+/* Na úzké ploše mají identity a každá rovina svůj řádek. */
+@media (max-width: 1050px) { .github-reconciliation__planes, .github-reconciliation__identity { grid-template-columns: minmax(0, 1fr); } }

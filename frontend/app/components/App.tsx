@@ -115,6 +115,7 @@ import { useGraphProposals } from "@/hub/graph-proposals/logic/use-graph-proposa
 import { usePlanChanges } from "@/hub/plan-changes/logic/use-plan-changes";
 import { useGitEvidence } from "@/hub/git-evidence/logic/use-git-evidence";
 import { useReviewPolicy } from "@/hub/review-policy/logic/use-review-policy";
+import { useGithubReconciliation } from "@/hub/github-reconciliation/logic/use-github-reconciliation";
 import { useExecutionReceipts } from "@/hub/execution-receipts/logic/use-execution-receipts";
 import { useOporaProposals } from "@/hub/proposal-history/logic/use-opora-proposals";
 import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
@@ -292,6 +293,7 @@ export default function App() {
   const proposals = useOporaProposals(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly);
   const gitEvidence = useGitEvidence(project, workspace, environment === "hub", planAppliedRevision);
   const reviewPolicy = useReviewPolicy(project, workspace, environment === "hub", planAppliedRevision, gitEvidence);
+  const reconciliation = useGithubReconciliation(project, workspace, environment === "hub", planAppliedRevision, gitEvidence);
   const executionReceipts = useExecutionReceipts(project, workspace, view?.graph.nodes ?? [], environment === "hub", planAppliedRevision);
   const planChanges = usePlanChanges(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly,
     () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
@@ -1096,7 +1098,7 @@ export default function App() {
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} evidence={gitEvidence} executions={executionReceipts} graphProposals={graphProposals} reviewPolicy={reviewPolicy} /> :
+      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} evidence={gitEvidence} executions={executionReceipts} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
