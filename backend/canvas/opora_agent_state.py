@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
+from backend.canvas import opora_agent_state_cards as card_stages
 from backend.canvas import opora_agent_state_formal as formal
 from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_review_gates as review_gates
@@ -142,6 +143,7 @@ class AgentState:
                 "decisions": decisions, "actions": actions,
                 "gaps": sorted(({"id": key, "stage": stage, "reason": reason} for key, stage, reason in gaps),
                                key=lambda item: item["id"]),
+                "cards": card_stages.project(cards, accepted, latest, claims, linked, reviewing, now),
                 "truncated": process["truncated"]}
 
     @staticmethod

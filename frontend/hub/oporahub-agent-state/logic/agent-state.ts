@@ -11,7 +11,11 @@ export type AgentBudget = { remainingAttempts: number | null; remainingRepairRou
 export type AgentAction = {
   id: string; verb: string; method: string; path: string; targetId: string | null;
   preconditions: Record<string, unknown>; status: "ready" | "blocked"; blockReason?: string; budget?: AgentBudget;
+  /** Akce, která potřebuje pozornost (opakovaný nález → kontrola). */
+  attention?: boolean;
 };
+/** Etapa jedné karty (`cards[]`): kde ve smyčce karta stojí; plátno z ní kreslí odznak. */
+export type AgentCardStage = { nodeId: string; stage: StageId; health: Health; reason: string; executionId: string | null };
 export type AgentDecision = { id: string; kind: string; targetId: string | null; title: string; actionId: string };
 export type AgentGap = { id: string; stage: string; reason: string };
 export type AgentHeads = {
@@ -22,6 +26,8 @@ export type AgentState = {
   schemaVersion: 1; generatedAt: string; projectId: string; workspaceId: string; heads: AgentHeads;
   stages: AgentStage[]; riskMix: { low: number; elevated: number; critical: number };
   decisions: AgentDecision[]; actions: AgentAction[]; gaps: AgentGap[]; truncated: boolean;
+  /** Chybí u serveru před vlnou 5; UI pak odznaky na plátně nekreslí. */
+  cards?: AgentCardStage[];
 };
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -38,12 +44,16 @@ function action(value: unknown): value is AgentAction {
   if (!nullableText(value.targetId) || !object(value.preconditions)) return false;
   if (value.status !== "ready" && value.status !== "blocked") return false;
   if (value.blockReason !== undefined && !text(value.blockReason)) return false;
+  if (value.attention !== undefined && typeof value.attention !== "boolean") return false;
   return value.budget === undefined || (object(value.budget)
     && (value.budget.remainingAttempts === null || count(value.budget.remainingAttempts))
     && (value.budget.remainingRepairRounds === null || count(value.budget.remainingRepairRounds)));
 }
 const decision = (value: unknown): value is AgentDecision => object(value) && text(value.id) && text(value.kind)
   && nullableText(value.targetId) && text(value.title) && text(value.actionId);
+const cardStage = (value: unknown): value is AgentCardStage => object(value) && text(value.nodeId)
+  && STAGE_IDS.includes(value.stage as StageId) && HEALTHS.includes(value.health as Health) && text(value.reason)
+  && nullableText(value.executionId);
 const gap = (value: unknown): value is AgentGap => object(value) && text(value.id) && text(value.stage) && text(value.reason);
 
 /** Ověří tvar a rozsah; dokument jiného projektu nebo prostoru se nikdy nezobrazí. */
@@ -61,6 +71,7 @@ export function parseAgentState(raw: unknown, project: string, workspace: string
   if (!Array.isArray(actions) || !actions.every(action)) throw new Error("Stav pro agenty má neplatné akce.");
   if (!Array.isArray(decisions) || !decisions.every(decision) || decisions.length > 3) throw new Error("Stav pro agenty má neplatná rozhodnutí.");
   if (!Array.isArray(gaps) || !gaps.every(gap)) throw new Error("Stav pro agenty má neplatné mezery.");
+  if (raw.cards !== undefined && (!Array.isArray(raw.cards) || !raw.cards.every(cardStage))) throw new Error("Stav pro agenty má neplatné etapy karet.");
   if (!text(raw.generatedAt) || typeof raw.truncated !== "boolean") throw new Error("Stav pro agenty je neúplný.");
   return raw as unknown as AgentState;
 }

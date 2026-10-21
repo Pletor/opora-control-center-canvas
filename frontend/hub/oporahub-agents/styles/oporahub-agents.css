@@ -65,3 +65,8 @@
   .oporahub-agents__map-row { grid-template-columns: minmax(0, 1fr); padding: 4px 0; }
   .oporahub-agents__map-row--head { display: none; }
 }
+
+/* Skupina slovesa a pozornost: brána review, ověření a auto-rebase mají vlastní tichý štítek, aby agent
+   i člověk ve frontě hned viděl, které akce patří k merge bráně; „pozornost“ nese značku i slovo. */
+.oporahub-agents__group { padding: 0 5px; border: 1px solid var(--line); border-radius: 3px; color: var(--ink-muted); font-size: 10px; }
+.oporahub-agents__attention { margin-left: 4px; padding: 0 5px; border: 1px solid var(--warn-line); border-radius: 3px; background: var(--warn-soft); color: var(--warn); font-size: 10px; }

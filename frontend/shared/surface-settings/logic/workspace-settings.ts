@@ -5,6 +5,8 @@ export type SurfaceSettings = {
   snap: boolean;
   gridSize: number;
   drawingGrid: boolean;
+  /** Odznaky etap OporaHubu nad kartami plátna (Editor). Starší uložené preference ho nemají → zapnuto. */
+  loopBadges: boolean;
 };
 export const SETTINGS_KEY = "opora:surface-settings:v1";
 export const DEFAULT_SETTINGS: SurfaceSettings = {
@@ -12,6 +14,7 @@ export const DEFAULT_SETTINGS: SurfaceSettings = {
   snap: false,
   gridSize: 20,
   drawingGrid: false,
+  loopBadges: true,
 };
 export function readSettings(): SurfaceSettings {
   try {
@@ -21,9 +24,10 @@ export function readSettings(): SurfaceSettings {
       typeof value.showGrid === "boolean" &&
       typeof value.snap === "boolean" &&
       [10, 20, 40].includes(value.gridSize) &&
-      typeof value.drawingGrid === "boolean"
+      typeof value.drawingGrid === "boolean" &&
+      (value.loopBadges === undefined || typeof value.loopBadges === "boolean")
     )
-      return value;
+      return { ...value, loopBadges: value.loopBadges !== false };
   } catch {
     /* Poškozené preference nejsou projektová data. */
   }

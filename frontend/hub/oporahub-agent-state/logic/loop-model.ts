@@ -1,6 +1,7 @@
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 import { STAGE_IDS, type AgentState, type Health, type StageId } from "./agent-state";
 import { REVIEW_GATE_REASONS } from "./review-gate-labels";
+import { stageExtra, type StageExtra } from "./stage-extras";
 
 // Promítnutí smyčky etap do infografiky: pořadí, popisky, kdo krok dělá a poloha v „hadovi“.
 export type Tone = "ok" | "warn" | "bad" | "gap";
@@ -41,12 +42,15 @@ export const reasonText: Record<string, string> = {
   no_pull_requests: "Zatím žádné PR.", pull_requests_open: "PR čekají na merge.", merged: "PR sloučeno.",
   nothing_to_merge: "Nic ke sloučení.", writeback_not_reported: "Zápis do plánu se nehlásí.",
   merged_without_plan_writeback: "Sloučeno bez zápisu do plánu.", plan_written_back: "Plán aktualizován.",
-  nothing_to_write_back: "Nic k zápisu.", ...REVIEW_GATE_REASONS,
+  nothing_to_write_back: "Nic k zápisu.", auto_rebase_conflicts: "Auto-rebase našel konflikt stejného pole.",
+  card_closed: "Karta uzavřena člověkem.", awaiting_human_close: "PR sloučeno; kartu uzavírá člověk.",
+  card_in_plan: "Karta je v přijatém plánu.", budget_policy_required: "Karta potřebuje pravidla běhů.",
+  ...REVIEW_GATE_REASONS,
 };
 
 export type StageView = {
   id: StageId; n: number; label: string; unit: string; actor: Actor; count: number; health: Health; tone: Tone;
-  reason: string; reasonText: string; row: number; col: number; target: DetailTarget;
+  reason: string; reasonText: string; row: number; col: number; target: DetailTarget; extra: StageExtra | null;
 };
 export type Direction = "right" | "down" | "left" | "up";
 export type ConnectorView = { from: StageId; to: StageId; label: string; dir: Direction; tone: "plain" | "warn" | "broken"; row: number; col: number };
@@ -68,8 +72,10 @@ export type LoopItem = { kind: "stage"; stage: StageView } | { kind: "connector"
 export function loopModel(state: AgentState): LoopItem[] {
   const stages = STAGE_IDS.map((id, index): StageView => {
     const value = state.stages.find(item => item.id === id)!;
+    const extra = stageExtra(state, id);
     return { id, n: index + 1, ...META[id], count: value.count, health: value.health, tone: toneOf[value.health],
-      reason: value.reason, reasonText: reasonText[value.reason] ?? value.reason, ...place(index) };
+      reason: value.reason, reasonText: reasonText[value.reason] ?? value.reason, ...place(index), extra,
+      target: extra?.target ?? META[id].target };
   });
   return stages.flatMap((stage, index): LoopItem[] => {
     const next = stages[(index + 1) % stages.length];

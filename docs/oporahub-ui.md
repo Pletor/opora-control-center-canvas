@@ -21,6 +21,26 @@ návrhy grafu, změny obsahu, přijímání návrhů, pravidla přijetí, běhy,
 důkazy a sledování GitHubu, pravidla review, formální podklady, rozhraní pro agenty a starší historii.
 Každý drawer má ✕ vpravo nahoře; ✕ i Escape ho zavřou a vrátí focus.
 
+## Vlna 5: brána review, lidé, metriky, auto-rebase, důkazy a plátno
+
+| Kde | Co ukazuje | Zdroj |
+|---|---|---|
+| Přehled · etapa **Review** | Stav brány merge (`✕ blokuje` / `◷ čeká` / `✓ žádná brána nedrží` / `◌ automatické review vypnuto`) a kód pravidla, které ji drží; lidské znění je důvod etapy | `stages[review]` + `gaps` |
+| Přehled · etapa **Návrh změny** | Počet otevřených konfliktů auto-rebase; klik otevře drawer konfliktů | `actions[verb=proposal.resolve_conflict]` |
+| Pro agenty · fronta | Skupina slovesa (`brána review`, `ověření`, `auto-rebase`, `smyčka`) a `◷ pozornost`; česká jména pro `review.claim`, `review.self_checks`, `pr.update_branch`, `review.promote_to_check`, `verification.*`, `proposal.resolve_conflict` | `actions[]` |
+| Karta · krok **Review · brána merge** | Na ose etapa karty (`cards[]`); pod osou panel brány: stav, pravidlo, které drží, všechny důvody, otevřené důležité nálezy, bezpečnostní review, požadovaná schválení proti **různým ověřeným lidem na hlavě** (`reviewGate.humans`), neověřená schválení, vlastní kontroly, `stale_against_main` (o kolik commitů), `template_incomplete` (chybějící sekce) a související akce | `GET /api/oporahub/review-jobs/gates` |
+| Karta · **Formální důkazy** | Lean, TLC a shoda s implementací (`formal/conformance` zatím jen v CI → `◌ nenapojeno`), výsledek, důvěra `nahlášeno agentem` / `ověřeno CI`, historický podklad; rozhodnutí `verification.fix` jako tlačítko „Založit návrh opravy“ (přijímá člověk) | `GET …/verifications?nodeId=` + `actions[]` |
+| Karta · **Historie a blame** | Přijaté revize karty (i „auto-rebase z … · původně …“) a pro každý klíč poslední revize a autor | `GET …/history/card/{id}`, `…/blame/card/{id}` |
+| Pata · **Konflikty auto-rebase** | Seznam konfliktů, tabulka `base / ours / theirs` po polích, volba strany, kopírovatelný návrh řešení, připojení nového návrhu (`…/resolve`) a „Spustit auto-rebase teď“ | `GET/POST …/auto-rebase/*` |
+| Pata · **Metriky review** | Malá infografika: nálezy podle závažnosti, co se s nálezy stalo, přijetí a šum, odfiltrováno hlasováním, kola na PR, čas do rozhodnutí člověka, pojistky revertů a incidentů, počet eval případů a odkaz na `export.jsonl` | `GET …/review-metrics`, `…/review-evals` |
+| Pata · **Kniha důkazů** | Počty podle stavu, filtr nástroje, řádky s důvěrou, commitem a axiomy (axiom mimo povolené je zvýrazněn) | `GET …/verifications/ledger` |
+| Pata · **Lidé v review (jen člověk)** | Nárok identity → řádek `Opora-Identity: <id> <nonce>` ke zkopírování a vložení jako samostatný řádek komentáře na GitHub, ověření číslem PR/issue, registr (ověřeno / čeká / zrušeno, operátor), zrušení s potvrzením | `…/review-identities*` |
+| **Plátno Editoru** | Nad pravým horním rohem každé karty odznak `značka · etapa · slovo`; klik přepne do OporaHubu s otevřeným drawerem karty. Vypínač: Nastavení → Plátno → „Odznaky etap OporaHubu na kartách“ (výchozí zapnuto) | `cards[]` agent-state |
+
+**Nonce nikdy nejde agentovi.** Řádek `Opora-Identity` vrací server jen lidské session a UI ho ukazuje
+jen jako text v draweru: není v žádném `data-oh-*` atributu ani v zrcadle `oh-review-identities`
+(funkce `publicIdentities` ho odstraní, hlídá test).
+
 ## Zdraví, tvar a role
 
 | `health` | Tón | Značka | Vzhled |
@@ -36,8 +56,12 @@ zlatý zaoblený štítek, kroky agenta (převzetí, práce, důkazy, PR) tyrkys
 
 ## Data a obnova
 
-- Jediné periodické čtení přehledu: `useAgentState` (sdílený `createPoller`, 10 s po dokončení
-  čtení, jen ve viditelném okně). Posílá `If-None-Match`; `304` jen potvrdí čerstvost snímku.
+- Jediné periodické čtení agent-state: `useAgentState` nad sdíleným `agentStateStore`
+  (`frontend/hub/oporahub-agent-state/logic/agent-state-store.ts`): přehled OporaHubu i odznaky na plátně odebírají
+  **jeden** poller na prostor (10 s po dokončení čtení, jen ve viditelném okně); poslední odběratel ho
+  zastaví. Posílá `If-None-Match`; `304` jen potvrdí čerstvost snímku.
+- Detaily vlny 5 (brána, důkazy, historie, konflikty, metriky, kniha, identity) čtou jednou při otevření
+  a po „Obnovit“ (`frontend/hub/oporahub-mirror/logic/use-hub-read.ts`); nic z nich nepolluje.
 - Starší hooky zůstávají pro detaily, které agent-state nenese (řetěz změnových sad karty, běhy,
   rozpočet, obsah). Periodická čtení změn obsahu, formálních podkladů, sledování GitHubu a review
   návrhů běží jen s otevřeným detailem (`onDetailOpenChange` → `App`).
@@ -65,6 +89,16 @@ document.querySelectorAll('[data-oh-action-status="ready"]')      // připraven�
 | Mezera | `data-oh-gap`, `data-oh-health="not_connected"` | `gaps[]` |
 | Karta | `data-oh-view="card"`, `data-oh-node-id`; kroky `data-oh-step`, `data-oh-revision`, `data-oh-changeset`, `data-oh-parent`, `data-oh-stale`, `data-oh-accepted`, `data-oh-execution`, `data-oh-epoch`, `data-oh-execution-state`, `data-oh-evidence-for`, `data-oh-pr-link`, `data-oh-writeback` (`awaiting_human_close` + `data-oh-merge-sha` u `close_card`) | agent-state + `…/changesets`, `…/executions` |
 | Pata | `data-oh-detail` (druh původního detailu) | — |
+| Etapa Review / Návrh | `data-oh-gate-status` (`blocked`/`pending`/`clear`/`off`), `data-oh-gate-rule`; `data-oh-conflicts` | `stages[review]`, `actions[verb=proposal.resolve_conflict]` |
+| Akce (doplněk) | `data-oh-group`, `data-oh-attention` | `actions[].verb`, `.attention` |
+| Odznak na plátně | `data-oh-view="canvas-badges"` + `data-oh-etag`; `data-oh-card-badge`, `data-oh-stage`, `data-oh-health`, `data-oh-reason`, `data-oh-execution`; zrcadlo `script#oh-card-stages` | `cards[]` |
+| Krok Review karty | `data-oh-step="review"`, `data-oh-card-stage`; panel `data-oh-review-gate` (executionId), `data-oh-gate-status`, `data-oh-gate-rule`, `data-oh-gate-reason`, `data-oh-open-important`, `data-oh-security`, `data-oh-approvals-required`, `data-oh-approvals-verified`, `data-oh-humans-mode`, `data-oh-self-checks`, `data-oh-stale-against-main`, `data-oh-template-incomplete`; zrcadlo `script#oh-review-gates` | `…/review-jobs/gates` |
+| Formální důkazy karty | `data-oh-proof-kind`, `data-oh-proof-status`, `data-oh-trust`, `data-oh-verification`; tlačítko `data-oh-verb="verification.fix"` + `data-oh-action-id`; zrcadlo `script#oh-card-proofs` | `…/verifications?nodeId` |
+| Historie karty | `data-oh-view="card-history"`, `data-oh-history-revision`, `data-oh-proposal`, `data-oh-blame-key`, `data-oh-revision`; zrcadlo `script#oh-card-history` | `…/history/card`, `…/blame/card` |
+| Konflikty | `data-oh-view="conflicts"`, `data-oh-conflict`, `data-oh-conflict-status`, `data-oh-proposal`, `data-oh-proposal-kind`, `data-oh-field-key`, `data-oh-choice`; zrcadlo `script#oh-auto-rebase-conflicts` | `…/auto-rebase/conflicts` |
+| Lidé v review | `data-oh-view="identity"`, `data-oh-identity`, `data-oh-identity-state`, `data-oh-operator`, `data-oh-github-login`; zrcadlo `script#oh-review-identities` **bez `marker`** | `…/review-identities` |
+| Metriky review | `data-oh-view="review-metrics"`, `data-oh-window`, `data-oh-metric` + `data-oh-value`; zrcadlo `script#oh-review-metrics` | `…/review-metrics`, `…/review-evals` |
+| Kniha důkazů | `data-oh-view="proof-ledger"`, `data-oh-ledger-entry`, `data-oh-ledger-status`, `data-oh-trust`, `data-oh-metric` + `data-oh-value`; zrcadlo `script#oh-proof-ledger` | `…/verifications/ledger` |
 
 Zdroj pravdy pro tabulku v aplikaci je `frontend/hub/oporahub-agents/logic/contract.ts`.
 Atributy jsou jen ke čtení; každý zápis dál ověří původní API a akce `human_only` zůstávají člověku.
@@ -75,6 +109,9 @@ Atributy jsou jen ke čtení; každý zápis dál ověří původní API a akce 
 `oporahub-card` (detail karty, test `card-timeline.test.ts`), `oporahub-agents` (Pro agenty),
 `oporahub-health` (značky), `oporahub-overview` (rám, záložky, zrcadlo, pata, drawer),
 `oporahub-workspace` (skládání, přímé odkazy `?ohView=agents` / `?ohCard=<nodeId>`).
+Vlna 5: `oporahub-review-gate` (krok Review karty), `oporahub-proofs` (důkazy karty, kniha důkazů),
+`oporahub-card-history`, `oporahub-conflicts`, `oporahub-review-metrics`, `oporahub-identity`,
+`oporahub-mirror` (jednorázové čtení a zrcadla `oh-*`) a na plátně `editor/canvas/loop-badges`.
 
 ## Ověření
 

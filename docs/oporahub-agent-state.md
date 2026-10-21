@@ -28,6 +28,7 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `decisions[]` | Nejvýše 3 rozhodnutí člověka `{id, kind, targetId, title, actionId}` |
 | `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?}` |
 | `gaps[]` | Známé nenapojené schopnosti `{id, stage, reason}` |
+| `cards[]` | Etapa každé karty `{nodeId, stage, health, reason, executionId}` seřazená podle `nodeId` (viz [Etapa karty](#etapa-karty-cards)) |
 | `truncated` | Projekce karet narazila na limit 100 (`ProcessSync`) |
 
 `health` je `ok`, `waiting`, `blocking` nebo `not_connected`. `reason` je strojový kód.
@@ -52,6 +53,27 @@ Pravidla platí v uvedeném pořadí; konstanty jsou v `opora_agent_state_rules.
 
 Počítá se jen poslední běh každé karty (jako v [procesu Control Center](oporahub-process-sync.md));
 starší běhy jsou historie, ne nová blokace.
+
+## Etapa karty (`cards[]`)
+
+Plátno Editoru ukazuje u každé karty malý odznak etapy ze stejného čtení jako přehled
+(`backend/canvas/opora_agent_state_cards.py`, čistá funkce nad už sebranými fakty). Karta stojí
+v nejvzdálenější dosažené etapě; platí první pravidlo:
+
+| Podmínka | `stage` / `health` / `reason` |
+|---|---|
+| karta potvrzena (`done.confirmed`) | `plan_writeback` / `ok` / `card_closed` |
+| PR sloučeno a čeká na uzavření člověkem | `merge` / `waiting` / `awaiting_human_close` |
+| PR sloučeno se zápisem / bez zápisu do plánu | `plan_writeback` / `ok` / `plan_written_back`, jinak `waiting` / `merged_without_plan_writeback` |
+| otevřené PR s bránou review | `review` se zdravím brány (`blocked` → `blocking`, `pending` → `waiting`, `ready` → `ok`) a důvodem pravidla, které bránu drží (stejné pořadí jako etapa `review`), jinak `review_gate_ready` |
+| otevřené PR bez brány | `pull_request` / `waiting` / `pull_requests_open` |
+| poslední běh `running` | `work` / `ok` / `runs_active`, po termínu `blocking` / `lease_past_deadline` |
+| poslední běh s výsledkem | jiná přijatá revize → `evidence` / `waiting` / `stale_evidence`, jinak `review` / `waiting` / `human_review_required` |
+| akce `claim` karty | `claim` / `ok` / `cards_ready`, blokovaná → `blocking` / `budget_exhausted` či `budget_policy_required` |
+| jinak | `plan` / `ok` / `card_in_plan` (bez přijatého základu `blocking` / `no_accepted_baseline`) |
+
+`executionId` je běh, ke kterému etapa patří (u PR běh vazby), jinak `null`. Seznam má stejný limit
+jako projekce karet (`truncated`).
 
 ## Rozhodnutí a akce
 

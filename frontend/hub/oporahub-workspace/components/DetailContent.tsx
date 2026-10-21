@@ -18,6 +18,10 @@ import AgentApi from "@/hub/oporahub-overview/components/AgentApi";
 import FocusedDetail from "@/hub/oporahub-overview/components/FocusedDetail";
 import ExactDetail from "@/hub/oporahub-overview/components/ExactDetail";
 import GraphProposalDetails from "@/hub/graph-proposals/components/GraphProposalDetails";
+import IdentityPanel from "@/hub/oporahub-identity/components/IdentityPanel";
+import ReviewMetrics from "@/hub/oporahub-review-metrics/components/ReviewMetrics";
+import ProofLedger from "@/hub/oporahub-proofs/components/ProofLedger";
+import ConflictDrawer from "@/hub/oporahub-conflicts/components/ConflictDrawer";
 import type { OverviewModels } from "@/hub/oporahub-overview/logic/models";
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 
@@ -35,10 +39,11 @@ export function ExecutionDrawerContent({ models, executionId, onSelect }: {
 }
 
 /** Původní detaily OporaHubu beze změny chování; nový přehled je jen otevírá. */
-export default function DetailContent({ models, detail, open, currentAcceptedHead }: {
-  models: OverviewModels; detail: DetailTarget; open: (target: DetailTarget) => void; currentAcceptedHead: string | null;
+export default function DetailContent({ models, detail, open, currentAcceptedHead, onChanged }: {
+  models: OverviewModels; detail: DetailTarget; open: (target: DetailTarget) => void; currentAcceptedHead: string | null; onChanged?: () => void;
 }) {
   const graph = models.graphProposals;
+  const project = models.executions.project ?? "", workspace = models.executions.workspace ?? "";
   switch (detail.kind) {
     case "graph": return detail.id ? <section className="graph-proposals">
       {graph.detailBusy && <p role="status">Načítám přesný obsah vybraného návrhu…</p>}
@@ -61,6 +66,10 @@ export default function DetailContent({ models, detail, open, currentAcceptedHea
     case "acceptance": return <AcceptanceOverview model={models.proposalReview} open={open} />;
     case "process": return <ProcessSync project={models.executions.project ?? ""} workspace={models.executions.workspace ?? ""} open={open}
       onImprove={(nodeId, name) => proposeProcessImprovement(nodeId, name, models.changes.selectDocument, open)} />;
+    case "identity": return <IdentityPanel project={project} />;
+    case "review-metrics": return <ReviewMetrics project={project} workspace={workspace} />;
+    case "proof-ledger": return <ProofLedger project={project} workspace={workspace} />;
+    case "conflicts": return <ConflictDrawer project={project} workspace={workspace} requestedId={detail.id} onResolved={() => onChanged?.()} />;
     case "api": return <AgentApi project={models.executions.project} workspace={models.executions.workspace} />;
     case "history": return <div className="oporahub-workspace__body">
       <GraphProposals model={graph} review={models.proposalReview?.graph} /><PlanChanges model={models.changes} review={models.proposalReview?.spec} acceptancePolicy={models.proposalReview?.policy} />

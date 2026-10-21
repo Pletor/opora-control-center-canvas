@@ -1,11 +1,11 @@
-import type { AgentAction, AgentState, Health } from "@/hub/oporahub-agent-state/logic/agent-state";
+import type { AgentAction, AgentCardStage, AgentState, Health } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { reasonText, type Tone } from "@/hub/oporahub-agent-state/logic/loop-model";
 import type { PlanChangeset } from "@/hub/plan-changes/logic/plan-changes";
 import type { ExecutionSummary } from "@/hub/execution-receipts/logic/execution-receipts";
 
 // Cesta jedné karty: základ → změny zadání → převzetí → důkazy → PR → zápis do plánu.
 // Každý krok je neměnný záznam; nic se nedomýšlí (chybějící vazba = mezera, ne „v pořádku“).
-export type StepKind = "baseline" | "changeset" | "claim" | "evidence" | "pr" | "writeback";
+export type StepKind = "baseline" | "changeset" | "claim" | "evidence" | "review" | "pr" | "writeback";
 export type TimelineStep = {
   key: string; kind: StepKind; title: string; id: string; lines: string[]; tone: Tone; status: string;
   actor: "human" | "agent" | null; when: string; attrs: Record<string, string>;
@@ -45,6 +45,15 @@ function claimStep(latest: ExecutionSummary | null, claim: AgentAction | null, e
   return { ...base, id: "", when: "", tone: "gap", status: "bez běhu", lines: ["Karta nemá běh ani připravené převzetí."], attrs: {} };
 }
 
+/** Review: etapa karty z agent-state (`cards[]`); u otevřeného PR nese důvod pravidla brány merge. */
+function reviewStep(card: AgentCardStage | undefined): TimelineStep {
+  const base = { key: "review", kind: "review" as const, title: "Review · brána merge", actor: "human" as const, when: "", id: card?.executionId ?? "" };
+  if (card?.stage !== "review") return { ...base, tone: "gap", status: "zatím bez review", lines: ["Brána se počítá až pro PR navázané na běh."],
+    attrs: { "data-oh-card-stage": card?.stage ?? "" } };
+  return { ...base, tone: healthTone[card.health], status: reasonText[card.reason] ?? card.reason, lines: ["Podrobnosti brány jsou pod osou."],
+    attrs: { "data-oh-card-stage": "review", "data-oh-health": card.health, "data-oh-reason": card.reason } };
+}
+
 /** Merge → plán: po merge kartu uzavírá jen člověk (`close_card`, human_only); jinak zdraví etapy nebo mezera. */
 function writebackStep(close: AgentAction | null, stage: AgentState["stages"][number] | undefined): TimelineStep {
   const base = { key: "writeback", kind: "writeback" as const, title: "Merge → plán", when: "" };
@@ -81,6 +90,7 @@ export function cardTimeline({ nodeId, state, changesets, executions, elapsedSec
       lines: latest ? [`výsledek pro revizi ${short(latest.acceptedRevision)}`] : ["Žádný nahlášený výsledek."],
       tone: latest?.state === "reported" ? "warn" : "gap", status: latest?.state === "reported" ? "nahlášeno, ne ověřeno" : "bez výsledku",
       attrs: latest ? { "data-oh-evidence-for": latest.executionId } : {} },
+    reviewStep(state?.cards?.find(item => item.nodeId === nodeId)),
     { key: "pr", kind: "pr", title: "PR / GitHub", id: link?.id ?? "", actor: "agent", when: "", tone: prTone,
       status: link ? link.status === "ready" ? "PR nenavázáno" : "vazba PR nenapojena" : prStage?.health === "not_connected" ? "nenapojeno" : "bez PR",
       lines: [link ? `${link.method} …/pull-request` : "Vazba běh → PR se zobrazí po napojení."],

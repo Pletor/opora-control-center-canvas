@@ -5,11 +5,20 @@ import { REVIEW_GATE_VERBS } from "./review-gate-labels";
 export type ActionRow = {
   id: string; verb: string; verbLabel: string; targetId: string | null; method: string; path: string;
   preconditions: { key: string; value: string }[]; budget: string; status: "ready" | "blocked";
-  statusLabel: string; blockReason: string; human: boolean;
+  statusLabel: string; blockReason: string; human: boolean; attention: boolean; group: string;
 };
+/** Skupina slovesa pro frontu: brána review a ověření mají vlastní štítek, aby šly najít očima. */
+export function verbGroup(verb: string) {
+  if (verb.startsWith("review.") || verb === "pr.update_branch") return "brána review";
+  if (verb.startsWith("verification.")) return "ověření";
+  if (verb.startsWith("proposal.")) return "auto-rebase";
+  return "smyčka";
+}
 export const VERB_LABEL: Record<string, string> = {
   accept_baseline: "Přijmout základ", accept: "Přijmout návrh", rebase: "Převést návrh", claim: "Převzít kartu",
   review: "Zkontrolovat výsledek", link_pull_request: "Navázat PR", close_card: "Uzavřít kartu", ...REVIEW_GATE_VERBS,
+  "proposal.resolve_conflict": "Vyřešit konflikt auto-rebase", "verification.investigate": "Prošetřit formální ověření",
+  "verification.fix": "Založit návrh opravy ověření",
 };
 const show = (value: unknown) => value === null ? "null" : typeof value === "string" ? value : JSON.stringify(value);
 export function budgetText(action: AgentAction) {
@@ -25,6 +34,7 @@ export function actionRows(state: AgentState): ActionRow[] {
     budget: budgetText(action), status: action.status,
     statusLabel: action.status === "ready" ? "ready" : `blocked:${action.blockReason ?? "?"}`,
     blockReason: action.blockReason ?? "", human: action.blockReason === "human_only",
+    attention: action.attention === true, group: verbGroup(action.verb),
   }));
 }
 /** Fakta pro CAS: přesné hodnoty, které agent opakuje v těle zápisu. */

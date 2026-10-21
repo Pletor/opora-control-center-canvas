@@ -18,5 +18,6 @@ export default function StageNode({ stage, onOpen }: { stage: StageView; onOpen:
       : <span className="oporahub-loop__count">{stage.count}<small className="oporahub-loop__unit">{stage.unit}</small></span>}
     <HealthMark health={stage.health} />
     <span className="oporahub-loop__reason">{stage.reasonText}</span>
+    {stage.extra && <span className={`oporahub-loop__extra oporahub-loop__extra--${stage.extra.tone}`} {...stage.extra.attrs}>{stage.extra.text}</span>}
   </button>;
 }

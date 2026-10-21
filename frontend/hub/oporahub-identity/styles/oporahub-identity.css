@@ -1,0 +1,44 @@
+/* LIDÉ V REVIEW (blok `oporahub-identity`)
+   Příběh: člověk otevře z paty OporaHubu registr lidí. Nahoře jedna věta, proč na tom záleží (agent není
+   člověk), pod ní formulář nároku a u každého čekajícího nároku řádek k vložení na GitHub s tlačítkem
+   kopírovat a polem pro číslo PR. Dole tabulka registru: zeleně ověření, zlatě čekající, šedě zrušení,
+   vždy se značkou a slovem. Ověřovací řádek je jen text na obrazovce, nikdy strojový atribut. */
+.oporahub-identity { display: grid; gap: 14px; min-width: 0; color: var(--ink); font-size: 13px; }
+.oporahub-identity__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.oporahub-identity__title { margin: 0; font-size: 16px; font-weight: 600; }
+.oporahub-identity__subtitle { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+.oporahub-identity__note { color: var(--ink-muted); font-size: 11px; }
+.oporahub-identity__lead { margin: 0; color: var(--ink-2); }
+.oporahub-identity__error { margin: 0; padding: 8px 12px; border: 1px solid var(--danger-line); border-radius: 4px; background: var(--danger-soft); color: var(--danger); }
+.oporahub-identity__mono { font: 11px var(--mono); overflow-wrap: anywhere; }
+
+/* Panel: stejný papír jako ostatní detaily OporaHubu, aby drawer působil jako jeden celek. */
+.oporahub-identity__panel { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+
+/* Formuláře: pole se na telefonu zalamují pod sebe, tlačítko je vždy na konci řádku. */
+.oporahub-identity__claim, .oporahub-identity__verify { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.oporahub-identity__field { display: grid; flex: 1 1 180px; gap: 4px; color: var(--ink-muted); font-size: 11px; }
+.oporahub-identity__field input { min-width: 0; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--field); color: var(--ink); font: inherit; font-size: 13px; }
+.oporahub-identity__check { display: flex; flex-basis: 100%; align-items: center; gap: 6px; font-size: 12px; }
+.oporahub-identity__button { padding: 5px 11px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); color: var(--ink); font-size: 12px; cursor: pointer; }
+.oporahub-identity__button:disabled { opacity: .55; cursor: default; }
+.oporahub-identity__button--primary { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.oporahub-identity__button--danger { border-color: var(--danger-line); color: var(--danger); }
+.oporahub-identity__button:focus-visible, .oporahub-identity__field input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Čekající nárok: zlatý okraj říká „krok je na vás“; řádek je v kódovém písmu, aby se nepřepsal. */
+.oporahub-identity__pending { display: grid; gap: 8px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--gold-line); border-radius: 8px; background: var(--gold-soft); }
+.oporahub-identity__step { margin: 0; }
+.oporahub-identity__marker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.oporahub-identity__marker-line { flex: 1 1 260px; min-width: 0; padding: 6px 8px; border-radius: 4px; background: var(--code-bg); font: 600 12px var(--mono); overflow-wrap: anywhere; user-select: all; }
+
+/* Registr: tabulka, která se na úzké obrazovce rozpadne na dvousloupcové kartičky po řádcích. */
+.oporahub-identity__table { display: grid; gap: 2px; }
+.oporahub-identity__row { display: grid; grid-template-columns: 1.4fr 1fr 1.2fr 1.1fr .7fr 1.4fr; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.oporahub-identity__row--head { color: var(--ink-muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.oporahub-identity__confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.oporahub-identity__empty { padding: 8px 4px; }
+@media (max-width: 720px) {
+  .oporahub-identity__row { grid-template-columns: 1fr 1fr; }
+  .oporahub-identity__row--head { display: none; }
+}
