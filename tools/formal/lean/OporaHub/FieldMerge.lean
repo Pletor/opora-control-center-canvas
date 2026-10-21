@@ -2,9 +2,9 @@
 Field-level three-way merge for rebasing a stale proposal.
 
 Implementation: backend/canvas/opora_field_merge.py `merge_fields(base, ours, theirs)`.
-A record maps field → value; `none` means the field is absent. The core is not yet
-wired to an automatic rebase endpoint (agent-state gap `auto_rebase` stays open); it is
-the proved decision rule a future auto-rebase must call.
+A record maps field → value; `none` means the field is absent. Server-side auto-rebase
+(backend/canvas/opora_auto_rebase_merge.py) decides every field with `merge_field`, so this
+is the proved decision rule of the automatic rebase.
 
 Specification:
 * Per field: unchanged on one side → take the other side; same change on both → take it;

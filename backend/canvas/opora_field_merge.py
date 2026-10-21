@@ -3,8 +3,9 @@
 Pure and deterministic; mirrors tools/formal/lean/OporaHub/FieldMerge.lean, whose theorems
 prove it commutative and that disjoint field changes merge without conflict while keeping
 both sides. `backend/canvas/test_opora_lean_differential.py` compares this function with
-the Lean model on the exported vectors. Not yet wired to an automatic rebase endpoint;
-agent-state keeps the `auto_rebase` gap until it is (docs/oporahub-verification.md).
+the Lean model on the exported vectors. Server-side auto-rebase decides every field with
+`merge_field` (opora_auto_rebase_merge.py, docs/oporahub-auto-rebase.md); with it enabled the
+agent-state `auto_rebase` gap disappears.
 """
 
 ABSENT = object()

@@ -13,10 +13,10 @@ DECISION_LIMIT = 3
 RISK = {"standard": "low", "elevated": "elevated", "critical": "critical"}
 DECISION_PRIORITY = {"accept_baseline": 0, "accept_critical": 1, "accept_elevated": 2,
                      "accept_low": 3, "review_result": 4, "close_card": 5}
-# One priority list for every action source (core rules, review gates, formal attention, recurring
-# checks); the agent-state action table in docs/oporahub-agent-state.md follows this order.
-VERB_ORDER = ("accept_baseline", "accept", "rebase", "claim", "review", "review.claim", "review.self_checks",
-              "pr.update_branch", "link_pull_request", "close_card", "verification.investigate", "verification.fix",
+# One priority list for every action source (core rules, auto-rebase conflicts, review gates, formal
+# attention, recurring checks); the agent-state action table in docs/oporahub-agent-state.md follows this order.
+VERB_ORDER = ("accept_baseline", "accept", "rebase", "proposal.resolve_conflict", "claim", "review", "review.claim",
+              "review.self_checks", "pr.update_branch", "link_pull_request", "close_card", "verification.investigate", "verification.fix",
               "review.promote_to_check")
 GAPS = (("ai_review", "review", "Nezávislé AI review výsledků není napojeno; kontrolu dělá člověk."),
         ("lean_verification", "evidence", "Lean v CI dokazuje jen čisté jádro OporaHubu (tools/formal/lean); kód karet nedokazuje."),

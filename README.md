@@ -124,6 +124,10 @@ na aktuální cílové větvi (jinak `stale_against_main`) a vyplněnou [šablon
 doplňují ověřené lidské reviewery (identita přes komentář `Opora-Identity:` na GitHubu), metriky
 review, eval sadu z revertů (`Opora-Revert-Of: #<n>`) a incidentů a povyšování opakovaných nálezů
 na kontroly; konvence review jsou v [`REVIEW.md`](REVIEW.md).
+Server sám převádí zastaralé návrhy na novou přijatou hlavu ([automatický rebase](docs/oporahub-auto-rebase.md),
+vypnutí `OPORA_AUTO_REBASE=0`); člověk vidí jen skutečné konflikty stejného pole. Historie a blame karty
+(`/api/oporahub/history/card/{id}`, `/api/oporahub/blame/card/{id}`) se odvozují z changesetů a nové karty
+se samy zapisují do kontextu v2; existující doplní `uv run python -m backend.canvas.opora_sparse_backfill --dry-run`.
 
 Člověk může nastavit verzovaná [pravidla review a kontrol](docs/oporahub-review-policy.md):
 přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schválení a stáří

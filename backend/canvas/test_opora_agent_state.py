@@ -56,7 +56,7 @@ def test_shape_snapshot_and_stage_order(service):
     assert all(list(item) == ["id", "count", "health", "reason"] for item in document["stages"])
     assert all(item["health"] in {"ok", "waiting", "blocking", "not_connected"} for item in document["stages"])
     assert document["riskMix"] == {"low": 0, "elevated": 0, "critical": 0}
-    assert [item["id"] for item in document["gaps"]] == ["ai_review", "auto_rebase", "lean_verification", "pull_request_link"]
+    assert [item["id"] for item in document["gaps"]] == ["ai_review", "lean_verification", "pull_request_link"]
 
 
 def test_empty_project_is_waiting_without_actions(tmp_path):
