@@ -19,6 +19,9 @@ Agent nemusí skládat stav z mnoha endpointů: [stav pro agenty](oporahub-agent
 zdravím etap, rozhodnutími člověka a připravenými či blokovanými akcemi; podporuje `ETag`.
 [Automatické review kódu](oporahub-review-jobs.md) zařazuje deterministické úlohy hledačů
 a ověřovatelů pro PR běhů, vede nálezy přes kola a počítá bránu merge.
+[Lidé v review](oporahub-review-identity.md) propojují lidi s ověřenými GitHub účty (brána
+počítá různé lidi), měří review (`/review-metrics`), z revertů a incidentů tvoří eval sadu
+a opakované nálezy mění v kontroly podle [`REVIEW.md`](../REVIEW.md).
 
 Tento kontrakt nahrazuje předchozí rozhodnutí z 2026-10-04 o GitHubu jako jediném
 zdroji pravdy pro plány, včetně požadavku zrušit historii OporaHubu. Při rozporu

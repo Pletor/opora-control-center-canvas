@@ -42,9 +42,9 @@ Opora-Plan: <project>/<workspace>@<acceptedRevision>
 
 Řádek pouze v editovatelném popisu PR nestačí. OporaHub review za člověka neodesílá.
 Přijatá revize zahrnuje zadání a při přijetí grafu také jeho verzovaný manifest.
-Lokální autor zadání zatím není propojen s ověřeným GitHub účtem. Výsledek tedy
-dokládá schválení přesné revize reviewerem odlišným od autora PR, nikoli prokázanou
-nezávislost reviewera na autorovi původního zadání.
+Tento snímek sám neprokazuje nezávislost reviewera na autorovi původního zadání.
+Propojení lidí Canvasu s ověřenými GitHub účty a počítání různých lidí v bráně
+automatického review popisuje [registr identit](oporahub-review-identity.md).
 
 **Pozorované kontroly:** jde o výsledky načtených check runs a commit statuses.
 Jejich úspěch není potvrzením úplnosti povinných kontrol ani důvěryhodnosti všech

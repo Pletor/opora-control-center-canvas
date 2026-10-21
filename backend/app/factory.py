@@ -31,6 +31,7 @@ from backend.api.editor.opora_execution_budget_routes import create_execution_bu
 from backend.api.editor.opora_execution_observer_routes import BODY_LIMIT as OBSERVER_BODY_LIMIT
 from backend.api.editor.opora_execution_observer_routes import create_execution_observer_router
 from backend.api.editor.opora_execution_pull_request_routes import create_execution_pull_request_router
+from backend.api.editor.opora_review_insight_routes import create_review_insight_router
 from backend.api.editor.opora_review_job_routes import create_review_job_router
 from backend.api.editor.opora_review_self_check_routes import create_review_self_check_router
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
@@ -327,6 +328,7 @@ def create_app(data_root=None):
     app.include_router(create_execution_pull_request_router(service))
     app.include_router(create_review_self_check_router(service))  # before /{job}/… review job paths
     app.include_router(create_review_job_router(service))
+    app.include_router(create_review_insight_router(service))
     app.include_router(create_opora_process_router(service))
     app.include_router(create_opora_agent_state_router(service))
     app.include_router(create_execution_observer_router(service))

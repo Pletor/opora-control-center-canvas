@@ -39,7 +39,7 @@ def attention(db, project, workspace, limit=200):
 
 
 def merge(actions, decisions, items, project, workspace):
-    """Formal attention leads the decisions (safety signal); actions keep their stable order."""
+    """Formal attention leads the decisions (safety signal); actions take their place in rules.VERB_ORDER."""
     query = urlencode({"project": project, "workspace": workspace})
     extra_actions, extra_decisions = [], []
     for item in items:

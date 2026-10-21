@@ -29,6 +29,8 @@ from database.schema.opora_review_gate_schema import SCHEMA as REVIEW_GATE_SCHEM
 from database.schema.opora_review_gate_schema import TABLES as REVIEW_GATE_TABLES
 from database.schema.opora_review_job_schema import SCHEMA as REVIEW_JOB_SCHEMA
 from database.schema.opora_review_job_schema import TABLES as REVIEW_JOB_TABLES
+from database.schema.opora_review_insight_schema import SCHEMA as REVIEW_INSIGHT_SCHEMA
+from database.schema.opora_review_insight_schema import TABLES as REVIEW_INSIGHT_TABLES
 from database.schema.opora_review_policy_schema import SCHEMA as REVIEW_POLICY_SCHEMA
 from database.schema.opora_verification_schema import SCHEMA as VERIFICATION_SCHEMA
 from database.schema.opora_verification_schema import TABLES as VERIFICATION_TABLES
@@ -283,7 +285,8 @@ CREATE INDEX IF NOT EXISTS opora_review_evidence_history
 PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEMA + REVIEW_POLICY_SCHEMA
                    + RECONCILIATION_SCHEMA + JOB_SCHEMA + BUDGET_SCHEMA + VERIFICATION_SCHEMA + CONTEXT_SCHEMA
                    + EXECUTION_CONTEXT_SCHEMA + CONTENT_SCHEMA + PROPOSAL_REVIEW_SCHEMA + OBSERVER_SCHEMA
-                   + EXECUTION_PR_SCHEMA + REVIEW_JOB_SCHEMA + REVIEW_GATE_SCHEMA)
+                   + EXECUTION_PR_SCHEMA + REVIEW_JOB_SCHEMA + REVIEW_GATE_SCHEMA
+                   + REVIEW_INSIGHT_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -333,6 +336,7 @@ PROJECT_TABLES.update({table: "project_id" for table in OBSERVER_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in EXECUTION_PR_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in REVIEW_JOB_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in REVIEW_GATE_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in REVIEW_INSIGHT_TABLES})
 
 
 # CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).

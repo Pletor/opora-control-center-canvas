@@ -13,6 +13,7 @@ from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_review_gates as review_gates
 from backend.canvas import opora_agent_state_reviews as reviews
 from backend.canvas import opora_agent_state_rules as rules
+from backend.canvas import opora_review_recurring as recurring
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_content_changes import OporaContentChanges
@@ -111,6 +112,7 @@ class AgentState:
             linked = pulls.read(canvas, project, workspace)
             reviewing = reviews.read(canvas, project, workspace, now)
             attention = formal.attention(db, project, workspace)
+            promotions = recurring.actions(db, project)  # Recurring misses → checks.
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
         to_review = [item for item in reported if item["acceptedRevision"] == accepted
@@ -118,6 +120,7 @@ class AgentState:
         actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards,
                                           reviewing)
         actions, decisions = formal.merge(actions, decisions, attention, project, workspace)
+        actions = rules.ordered([*actions, *promotions])  # one priority list (rules.VERB_ORDER)
         heads = {"acceptedHead": accepted, "acceptedRevision": accepted, "graphDigest": context["graphDigest"],
                  "workingDiffers": context["workingDiffers"], "contextVersion": context["specificationsVersion"],
                  "budgetPolicyHead": {item["nodeId"]: item["budget"]["policyHead"]
@@ -206,6 +209,6 @@ class AgentState:
             actions.append(_action("review.claim", "POST", "/api/oporahub/review-jobs/claim", job["reviewJobId"],
                                    job["headSha"], {"role": job["role"], "headSha": job["headSha"]}))
         actions += review_gates.actions(reviewing)  # pr.update_branch, review.self_checks
-        actions.sort(key=lambda value: (rules.VERB_ORDER.index(value["verb"]), value["targetId"] or ""))
+        actions = rules.ordered(actions)
         decisions.sort(key=lambda value: value[0])
         return actions, [value for _, value in decisions[:rules.DECISION_LIMIT]]

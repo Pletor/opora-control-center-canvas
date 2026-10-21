@@ -60,6 +60,10 @@ jdou vždy první. Modul `opora_agent_state_formal.py` je odvodí z úložiště
 řadí pevná priorita ostatní rozhodnutí: přijetí základu, přijetí návrhu `critical`, `elevated`,
 `low` (uvnitř podle stáří), kontrola nahlášeného výsledku, uzavření karty po merge PR. Každé ukazuje na akci.
 
+Akce ze všech zdrojů (základní pravidla, brána review, formální pozornost, opakované nálezy)
+řadí jeden seznam priorit `VERB_ORDER` v `opora_agent_state_rules.py` v pořadí tabulky níže,
+uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhlasí.
+
 | `verb` | Cíl | Stav |
 |---|---|---|
 | `accept_baseline` | `POST /api/oporahub/baselines` | vždy `blocked/human_only` |
@@ -74,6 +78,7 @@ jdou vždy první. Modul `opora_agent_state_formal.py` je odvodí z úložiště
 | `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | vždy `blocked/human_only`; jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `preconditions` = `{executionId, mergeSha}` |
 | `verification.investigate` | `GET /api/oporahub/verifications/{id}` | `ready`; nejnovější CI check (`formal/tlc`, `formal/lean`, `formal-trusted/*`) běhu skončil `counterexample`, `failed` nebo `inconclusive` (viz [ověřování](oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b)) |
 | `verification.fix` | `POST /api/oporahub/verifications/{id}/fix-proposal` (`{project, workspace}`) | `ready` u `counterexample` a u `failed`, které není jen `runner_error`; idempotentně založí návrh karty „Opravit formální ověření“, přijímá člověk |
+| `review.promote_to_check` | `POST /api/oporahub/review-recurring/promote` | `ready`, `attention: true`; třída nálezu se opakuje v ≥ N PR projektu a ještě není povýšená na kontrolu (viz [lidé v review](oporahub-review-identity.md)) |
 
 `preconditions` obsahují přesné hodnoty k opakování v těle požadavku (`expectedAcceptedHead`,
 `expectedGraphDigest`, `expectedContextVersion`, u protokolu v2 `expectedBudgetPolicyHead`
