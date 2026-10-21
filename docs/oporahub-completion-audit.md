@@ -4,10 +4,11 @@ Audit zachovává původní rozsah: Canvas drží přijatý plán, GitHub kód a
 vykonává práci. Kontrolovány byly publikované produktové revize Canvas
 `90f72b4838a554a53f255e039eb20efae93dc1a3` a Office
 `bc25ebb2cb034725bbc79fe397f1aa545cae2b4a`, skutečné dokončené logy a vykreslený
-náhled. Tento audit není nové spuštění testů ani prohlášení o dokončení cíle.
+náhled. Tento audit shrnuje dokončené kontroly; testy kvůli dokumentaci neopakuje.
 
-**11 hotovo / 1 rozpracováno / 0 nezačato.** Skutečný provozní průchod je doložen;
-zbývá publikovat závěrečnou dokumentaci a dokončit read-only náhled jeho dat.
+**12 hotovo / 0 rozpracováno / 0 zbývá.** Schválený implementační rozsah je
+dokončený v obou PR, včetně skutečného provozního průchodu a read-only náhledu
+jeho dat. Níže uvedené meze a známá selhání celých sad zůstávají výslovné.
 
 ## Požadavky a odpovídající důkazy
 
@@ -27,7 +28,7 @@ dokončené běhy. Pouhá existence testu se zde nepovažuje za úspěšný výs
 | 9 | Verze textu, kresby a konfigurace | [Obsah 2b](oporahub-content-changes.md); `backend/canvas/test_opora_content_sources.py`, `backend/canvas/test_opora_content_durability.py`; backendová sada a dřívější browser důkaz. První přijetí výslovně přebírá celý základ. | Hotovo |
 | 10 | Komentáře, riziko, přesné potvrzení přijetí | [Review 3b](oporahub-proposal-review.md); `backend/canvas/test_opora_proposal_review_service.py`, `backend/canvas/test_opora_proposal_acceptance_guard.py`; API a browser všech čtyř druhů návrhů. Lokální jméno není nezávislá lidská identita. | Hotovo |
 | 11 | Izolovaný vykonavatel a podepsaná spotřeba | [Kontrakt 5b](oporahub-isolated-execution.md), [Office nastavení](https://github.com/Pletor/agent-office/blob/bc25ebb2cb034725bbc79fe397f1aa545cae2b4a/docs/opora-isolated-execution.md), [skutečný průchod](oporahub-live-staging.md) a jeho sanitizovaný záznam. Context v2: 1 receipt, ukončení, autentická usage, zachované mappingy při replay. První živý context v1 zůstává negativní případ s 0 receipt; nic nebylo nahrazeno ani zpětně odesláno. | Hotovo |
-| 12 | Závěrečný audit, docs, testy, vizuální důkaz, PR | Tento audit, propojené kontrakty a oba PR. Implementační i provozní důkazy jsou hotové; dokončuje se publikace dokumentace a read-only náhled skutečných dat. | Rozpracováno |
+| 12 | Závěrečný audit, docs, testy, vizuální důkaz, PR | Tento audit, propojené kontrakty, [Canvas PR](https://github.com/Pletor/opora-control-center-canvas/pull/10) a [Office PR](https://github.com/Pletor/agent-office/pull/26). Read-only náhled skutečné historie: oba ukončené běhy, 0/1 native receipt, light/dark/mobil, Esc/fokus, bez JS chyb a vodorovného přesahu. | Hotovo |
 
 ## Co skutečně proběhlo
 
@@ -59,6 +60,13 @@ dokončené běhy. Pouhá existence testu se zde nepovažuje za úspěšný výs
   případy zachovaného filtru A → jiný observer B bez cizího native detailu.
 - Root Ruff má 56 shodných výchozích nálezů; nové backendové moduly jsou čisté.
   Dřívější porovnání docs/struktury nepřidalo dluh ani nezvýšilo limity.
+- [Náhled skutečné historie](http://127.0.0.1:18775/?screen=canvas&project=draft&workspace=draft&environment=hub)
+  na portu 18775 používá uzavřenou kopii stagingových dat a zmrazenou revizi
+  `91cf5a8cb953a939a2e8a5c44fd60ec0a256ded4`. Produktové soubory odpovídají výše
+  testované revizi; závěrečné změny jsou pouze dokumentace. Browser potvrdil
+  dva ukončené běhy za 1 a 2 centy, první bez receipt a druhý právě s jedním,
+  správný detail, light/dark/mobil, Esc/fokus a žádné JS chyby či cizí požadavky.
+  Sedm zápisových POST vrací 403. Klíče ani aktivní broker v náhledu nejsou.
 
 ## Identita lokálních důkazů
 
@@ -75,9 +83,10 @@ jsou v přibaleném výsledku. Tato kontrola je četla, model znovu nespouštěl
 | oporahub-managed-wire-focused-final.log | `422799b395b09e42e2b67c3fa466a13c6e1780a40a2c0834c215705c3fb9d8b5` |
 | oporahub-managed-wire-typecheck.log | `8854337b462f5c784fc146dc10ba5450f6e5feee9cc40f99d2082b9996758a14` |
 | oporahub-managed-wire-root-build.log | `9adb6f202e23c7f9c686532db9184a8834552a6f020b7edf998720f7f34f3603` |
-| oporahub-managed-wire-root-bounded-comparison.json | `f2a93c045b6c0c2328cc0b08ccc9d12a8260ac16c50c89778b633ad6492d7792` |
+| oporahub-managed-wire-root-bounded-comparison.json | `5a65912e012a962d07b4304d15a2075f68a91649c157763931a930bcf62038c0` |
 | oporahub-isolated-real-canvas-smoke-result.json | `ace5fba802189cebb9a4504bb92fc273bffa869fa91da6d6446ad85a369550ed` |
 | oporahub-observer-readonly-preview-result.json | `d02327f1b6a9b3d183796d75afc31663e811a789ca9a92184e75a17896818a1e` |
+| oporahub-managed-readonly-browser-result.json | `0597d6333598d35b55603cfa1527758b5c891268934f7062d6b6eb7d85189bff` |
 
 ## Dokončený provozní průchod a jeho meze
 

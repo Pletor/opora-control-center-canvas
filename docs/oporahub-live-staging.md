@@ -65,3 +65,11 @@ nebyl prováděn penetrační test firewallu. Lean runtime nebyl součástí pr�
 Původní soukromé journaly a data zůstaly zachované. Po ukončení obou sessions byl
 vlastní zapisovatelný testovací server zastaven a jeho data zkopírována pro
 read-only vizuální náhled. Produkce, globální ochrany, merge ani nasazení se neměnily.
+
+Náhled je na [lokálním portu 18775](http://127.0.0.1:18775/?screen=canvas&project=draft&workspace=draft&environment=hub).
+Zmrazený runtime odpovídá publikované revizi
+`91cf5a8cb953a939a2e8a5c44fd60ec0a256ded4`; její produktové soubory odpovídají
+testované revizi `90f72b4838a554a53f255e039eb20efae93dc1a3`.
+Sedm reprezentativních zápisových POST vrací 403. Náhled nemá přístupové klíče
+ani nakonfigurovaného brokera: zobrazuje uložená podepsaná pozorování, nikoli
+nové ověření přístupu poskytovatele. Obě původní sessions zůstávají ukončené.

@@ -99,7 +99,7 @@ nepřenese. Jména agentů ani lokální session se nepočítají jako nezávisl
 Nastavení GitHub PR kontrol zůstává oddělené. [Kontrakt a API review návrhu](docs/oporahub-proposal-review.md)
 popisují také legacy přijetí při neaktivní policy, doklady a bootstrap výjimku.
 Etapa 3b je dokončena v rozsahu kontraktu: API, atomické přijetí a skutečný browser
-ověřují přesný návrh i zneplatnění starých potvrzení. Celý goal ještě dokončen není;
+ověřují přesný návrh i zneplatnění starých potvrzení. Schválený rozsah je dokončen;
 volitelný izolovaný broker a podepsaná evidence spotřeby jsou implementované a
 mají [skutečný provozní průchod](docs/oporahub-live-staging.md). [Audit dokončení](docs/oporahub-completion-audit.md)
 mapuje všech 12 požadavků na konkrétní důkazy a meze jejich platnosti.
