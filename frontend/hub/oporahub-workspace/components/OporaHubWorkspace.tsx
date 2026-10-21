@@ -7,6 +7,7 @@ import ReviewPolicy from "@/hub/review-policy/components/ReviewPolicy";
 import GithubReconciliation from "@/hub/github-reconciliation/components/GithubReconciliation";
 import GitEvidence from "@/hub/git-evidence/components/GitEvidence";
 import ExecutionReceipts from "@/hub/execution-receipts/components/ExecutionReceipts";
+import ExecutionObservations from "@/hub/execution-observations/components/ExecutionObservations";
 import FormalVerification from "@/hub/formal-verification/components/FormalVerification";
 import { acceptedPlan } from "@/hub/oporahub-overview/logic/overview";
 import ExecutionBudgets from "@/hub/execution-budgets/components/ExecutionBudgets";
@@ -22,6 +23,19 @@ import GraphProposalDetails from "@/hub/graph-proposals/components/GraphProposal
 import type { OverviewModels } from "@/hub/oporahub-overview/logic/models";
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 import "@/hub/oporahub-workspace/styles/oporahub-workspace.css";
+
+export function ExecutionDrawerContent({ models, executionId, onSelect }: {
+  models: OverviewModels; executionId: string; onSelect: (executionId: string, title: string) => void;
+}) {
+  const intentId = models.executionObservations?.items.find(item => item.intent.executionId === executionId)?.intent.id;
+  return <>
+    <ExactDetail requestedId={executionId} selectedId={models.executions.selected?.executionId} busy={models.executions.busy} error={models.executions.error}>
+      <FocusedDetail selector={executionId ? ".execution-receipts__details" : ":not(*)"} revision={`${executionId}:${models.executions.selected?.executionId ?? ""}`}><ExecutionReceipts model={models.executions} /></FocusedDetail>
+    </ExactDetail>
+    {models.executionObservations && <ExecutionObservations model={models.executionObservations} selectedExecutionId={executionId} selectedIntentId={intentId}
+      onSelect={(id) => onSelect(id, `Pozorování běhu · ${models.executionObservations?.items.find(item => item.intent.executionId === id)?.intent.nodeId ?? id}`)} />}
+  </>;
+}
 
 // App owns all data, requests and mutations. This environment only composes its features.
 export default function OporaHubWorkspace(models: OverviewModels) {
@@ -59,9 +73,8 @@ export default function OporaHubWorkspace(models: OverviewModels) {
       {detail.kind === "changes" && <ExactDetail requestedId={detail.id} selectedId={models.changes.inspected?.id} busy={models.changes.busy} error={models.changes.error}>
         <FocusedDetail selector={detail.id ? ".plan-changes__inspection" : ":not(*)"} revision={`${detail.id ?? ""}:${models.changes.inspected?.id ?? ""}`}><PlanChanges model={models.changes} review={models.proposalReview?.spec} acceptancePolicy={models.proposalReview?.policy} /></FocusedDetail>
       </ExactDetail>}
-      {detail.kind === "executions" && <ExactDetail requestedId={detail.id} selectedId={models.executions.selected?.executionId} busy={models.executions.busy} error={models.executions.error}>
-        <FocusedDetail selector={detail.id ? ".execution-receipts__details" : ":not(*)"} revision={`${detail.id ?? ""}:${models.executions.selected?.executionId ?? ""}`}><ExecutionReceipts model={models.executions} /></FocusedDetail>
-      </ExactDetail>}
+      {detail.kind === "executions" && <ExecutionDrawerContent models={models} executionId={detail.id ?? ""}
+        onSelect={(id, title) => open({ kind: "executions", id, title })} />}
       {detail.kind === "evidence" && <ExactDetail requestedId={detail.id} selectedId={models.evidence.selected?.snapshot.id} busy={models.evidence.busy || models.evidence.detailBusy} error={models.evidence.error || models.evidence.detailError}>
         <GitEvidence model={models.evidence} />
       </ExactDetail>}

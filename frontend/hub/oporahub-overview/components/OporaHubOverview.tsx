@@ -4,6 +4,7 @@ import { acceptedPlan, pendingDecisions, observedExecutionLabel, nextExecutionSt
 import { checkLabels } from "@/hub/git-evidence/logic/git-evidence";
 import "../styles/oporahub-overview.css";
 import AcceptanceOverview from "@/hub/proposal-review/components/AcceptanceOverview";
+import ExecutionObservations from "@/hub/execution-observations/components/ExecutionObservations";
 
 export default function OporaHubOverview({ models, open }: { models: OverviewModels; open: (target: DetailTarget) => void }) {
   const { graphProposals: graph, changes, executions, evidence, reconciliation, reviewPolicy } = models;
@@ -43,6 +44,10 @@ export default function OporaHubOverview({ models, open }: { models: OverviewMod
       <button onClick={() => open({ kind: "policy", title: "Pravidla nezávislé kontroly" })}><strong>Kontrola <small>Rozhoduje člověk</small></strong><b>{reviewPolicy.busy ? "Načítám pravidla…" : reviewPolicy.error ? "Pravidla nejsou dostupná" : reviewPolicy.context?.policy ? "Pravidla review nastavena" : "Pravidla review nedoložena"}</b><span>{reconciliation.context ? `${reconciliation.context.items.length} načtených vazeb sledování` : "Sledování není doloženo"} · merge není nasazení.</span></button>
     </section>
     <div className="oporahub-overview__columns"><div className="oporahub-overview__main">
+      {models.executionObservations && <ExecutionObservations model={models.executionObservations} compact cards={executions.choices} onViewAll={() => open({ kind: "executions", title: "Všechny načtené běhy a výsledky" })} onSelect={(executionId) => {
+        const item = models.executionObservations?.items.find(value => value.intent.executionId === executionId);
+        open({ kind: "executions", id: executionId, title: `Pozorování běhu · ${item?.intent.nodeId ?? executionId}` });
+      }} />}
       <AcceptanceOverview model={models.proposalReview} open={open} />
       <section className="oporahub-overview__panel"><header><h2>Změny obsahu</h2><span>{!content || content.error || !content.list ? "Podklady nedostupné" : `${contentPending} čeká na kontrolu`}</span></header>
         <p className="oporahub-overview__empty">Texty, kresby a konfigurace karet mají vlastní návrhy a přijatou historii. První přijetí výslovně přebírá celý výchozí obsah.</p>
@@ -72,6 +77,6 @@ export default function OporaHubOverview({ models, open }: { models: OverviewMod
       <section className="oporahub-overview__panel"><header><h2>Poslední aktivita</h2><span>Načtené zdroje</span></header><ul className="oporahub-overview__activity">{events.map(item => <li key={item.key}><time dateTime={item.time}>{new Date(item.time).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" })}</time><button onClick={() => open(item.target)}>{item.text}<small>{item.source} · {new Date(item.time).toLocaleDateString("cs-CZ")}</small></button></li>)}</ul>{!events.length && <p className="oporahub-overview__empty">V načtených zdrojích nejsou doložené časové události.</p>}</section>
     </aside></div>
     <section className="oporahub-overview__api"><strong>Pro agenty</strong>{["Číst přijatý plán", "Navrhnout změnu", "Převzít zadání a limity", "Odevzdat nahlášený výsledek"].map((text, index) => <span key={text}><b>{index + 1}</b>{text}</span>)}<button onClick={() => open({ kind: "api", title: "Rozhraní pro agenty" })}>Ukázat API</button></section>
-    <footer className="oporahub-overview__footer"><button onClick={() => open({ kind: "changes", title: "Návrh změny zadání" })}>Upravit zadání karty</button><button onClick={() => open({ kind: "budgets", title: "Pravidla kontroly a limity karet" })}>Limity běhů</button><button onClick={() => open({ kind: "policy", title: "Pravidla review" })}>Pravidla review</button><button type="button" onClick={() => open({ kind: "formal", title: "Formální podklady" })}>Formální podklady</button><button onClick={() => open({ kind: "history", title: "Starší historie a původní formuláře" })}>Starší historie a původní formuláře</button><button onClick={() => { graph.refresh(); changes.refresh(); executions.refresh(); evidence.refresh(); reconciliation.refresh(); reviewPolicy.refresh(); models.formalVerification.refresh(); models.onRefresh(); }}>Obnovit podklady</button></footer>
+    <footer className="oporahub-overview__footer"><button onClick={() => open({ kind: "changes", title: "Návrh změny zadání" })}>Upravit zadání karty</button><button onClick={() => open({ kind: "budgets", title: "Pravidla kontroly a limity karet" })}>Limity běhů</button><button onClick={() => open({ kind: "policy", title: "Pravidla review" })}>Pravidla review</button><button type="button" onClick={() => open({ kind: "formal", title: "Formální podklady" })}>Formální podklady</button><button onClick={() => open({ kind: "history", title: "Starší historie a původní formuláře" })}>Starší historie a původní formuláře</button><button onClick={() => { graph.refresh(); changes.refresh(); executions.refresh(); models.executionObservations?.refresh(); evidence.refresh(); reconciliation.refresh(); reviewPolicy.refresh(); models.formalVerification.refresh(); models.onRefresh(); }}>Obnovit podklady</button></footer>
   </div>;
 }

@@ -111,3 +111,9 @@ Provoz předpokládá jeden serverový proces Canvasu: zámky grafu a souborů n
 sdílené mezi procesy. Test souběžných převzetí se dvěma SQLite spojeními dokládá
 databázové rozhodování o rezervaci, nikoli bezpečnost souběžných změn grafu
 z několika serverových procesů.
+
+## Pozorování běhů
+
+OporaHub může navíc číst nejvýše 100 neměnných záznamů z API poskytovatele doložených brokerem přes GET /api/oporahub/execution-observers?project&workspace&limit=100. Čtení vyžaduje identifikovaného člověka nebo agenta a přesný scope projektu i workspace; browser používá UI session. Zobrazení je samostatné od běžné execution historie: intent svazuje neměnnou revizi, commit, agenta a prostředí s původním execution; doložené čtení session nese poslední kumulativní tokeny, aktivní sekundy a ceníkovou spotřebu.
+
+Nezkonfigurovaný pozorovatel, nakonfigurovaný ale neověřený provider přístup, prázdná historie a chyba čtení jsou odlišné stavy. Samotná konfigurace nepředstavuje přístup poskytovatele. Zobrazená ceníková spotřeba pochází z čtení brokera přes API poskytovatele, nikoli z faktury nebo tvrdého limitu. Sentinelské nuly bez ID session a provider statusu se nezobrazují jako nulová spotřeba. Stav idle znamená pouze nečinný provider readback; ukončení ukazuje jen odpovídající provider readback terminated. Ani opožděná spotřeba nemění platnost lease nebo povolení běhu. UI nic nespouští, nezastavuje ani neobnovuje automaticky.

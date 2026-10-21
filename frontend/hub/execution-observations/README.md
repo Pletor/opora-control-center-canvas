@@ -1,0 +1,5 @@
+# Pozorování izolovaných běhů
+
+Samostatný read-only dílek čte nejvýše 100 veřejných, neměnných záznamů z API poskytovatele doložených brokerem pro přesný projekt a workspace z /api/oporahub/execution-observers. Čtení nejprve obnoví identifikovanou UI session. Hook useExecutionObservations(project, workspace) vystavuje explicitní refresh; nic se nepolluje a pozdní odpověď starého scope, obnovy nebo odmountované komponenty se zahodí.
+
+Parser odmítne jiný scope, překročené limity, neočekávaná pole, neplatné obálky, vazbu pozorování na jiný běh nebo serverem nesouladné označení překročení rozpočtu. UI nečte lease ani klíče, neobnovuje oprávnění a nevytváří ani neukončuje běhy. Nečinný stav neznamená ukončení; ukončení ukazuje pouze výslovné provider readback terminated. Tokeny, čas a ceníková spotřeba jsou kumulativní údaje z čtení brokera přes API poskytovatele. Nulové sentinelské hodnoty bez konkrétní session se zobrazují jako nedoložená spotřeba. Ceníková spotřeba není faktura ani tvrdý limit.

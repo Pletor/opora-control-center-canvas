@@ -144,3 +144,4 @@ bez změny grafu. Git/file fallback ani externí obsah referencí nejsou pokryt�
 Postup a meze: [napojení v2](docs/oporahub-context-v2-integration.md).
 Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).
+Pozorování izolovaných běhů v OporaHubu zobrazuje záznamy z API poskytovatele doložené brokerem pro právě vybraný projekt a workspace. U doložené session ukazuje kumulativní tokeny a ceníkovou spotřebu (nikoli fakturu); nulové sentinelské hodnoty bez session označuje jako nedoloženou spotřebu. Stav nečinný nepotvrzuje ukončení. Nejde o povolení běhu ani o důkaz tvrdého finančního limitu. Podrobnosti: [vykonávání a pozorování](docs/oporahub-executions.md).
