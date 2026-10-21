@@ -1,10 +1,11 @@
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
+import type { ProposalReviewView } from "@/hub/proposal-review/logic/use-proposal-review";
 import GraphProposalForm from "./GraphProposalForm";
 import GraphProposalDetails from "./GraphProposalDetails";
 import GraphEditForm from "./GraphEditForm";
 import "../styles/graph-proposals.css";
 
-export default function GraphProposals({ model }: { model: GraphProposalsView }) {
+export default function GraphProposals({ model, review }: { model: GraphProposalsView; review?: ProposalReviewView }) {
   return <section className="graph-proposals" aria-label="Rozšíření plánu">
     <header className="graph-proposals__head"><div><h2>Rozšíření plánu</h2>
       <p>Přidání, úpravy a odstranění karet, oblastí a vazeb jako neměnné návrhy ke kontrole před zápisem na plátno.</p></div>
@@ -26,6 +27,6 @@ export default function GraphProposals({ model }: { model: GraphProposalsView })
     </li>)}</ul>
     {model.detailBusy && <p role="status">Načítám přesný obsah návrhu…</p>}
     {model.detailError && <p role="alert">{model.detailError}</p>}
-    <GraphProposalDetails model={model} />
+    <GraphProposalDetails model={model} review={review} />
   </section>;
 }

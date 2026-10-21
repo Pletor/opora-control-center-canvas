@@ -7,6 +7,7 @@ from backend.canvas.opora_graph_build import merge, validate_application
 from backend.canvas.opora_graph_proposals import OporaGraphProposals
 from backend.canvas.opora_graph_records import accepted_record, combined, preserved_content_manifest
 from backend.canvas.opora_hub_store import canonical
+from backend.canvas.opora_proposal_acceptance_guard import guard, seal
 from database.repositories.workspace_graph_authority import WorkspaceGraphAuthority
 
 
@@ -57,6 +58,7 @@ class OporaGraphAcceptance:
                 architecture, content = split(updated)
                 if architecture != split(graph)[0]:
                     raise ValueError("Graph additions cannot mutate shared architecture.")
+                authorization = guard(repo.db, project, workspace, "graph-addition", proposal_id)
                 self.write_graph(repo.db, project, workspace, content)
                 documents = {item["nodeId"]: item for item in context["acceptedDocuments"]}
                 for item in proposal["adoptionDocuments"]:
@@ -77,6 +79,7 @@ class OporaGraphAcceptance:
                                        **preserved_content_manifest(specs, context["acceptedHead"]),
                                        "documents": [documents[key] for key in sorted(documents)]})
                 specs.advance(context["acceptedHead"], result["id"])
+                seal(repo.db, project, workspace, authorization, result)
             return result
 
     def write_graph(self, db, project, workspace, content):

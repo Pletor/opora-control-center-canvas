@@ -1,9 +1,10 @@
 import type { ContentChangesView } from "../logic/use-content-changes";
 import ContentDetail from "./ContentDetail";
+import type { ProposalReviewView } from "@/hub/proposal-review/logic/use-proposal-review";
 import "../styles/content-changes.css";
 
-export default function ContentChanges({ model, requestedId, currentAcceptedHead }: {
-  model?: ContentChangesView; requestedId?: string; currentAcceptedHead: string | null }) {
+export default function ContentChanges({ model, requestedId, currentAcceptedHead, review }: {
+  model?: ContentChangesView; requestedId?: string; currentAcceptedHead: string | null; review?: ProposalReviewView }) {
   if (!model) return <p role="status">Změny obsahu nejsou dostupné. Obnovte podklady.</p>;
   const { list } = model;
   const superseded = new Set(model.items.map(item => item.supersedes).filter(Boolean));
@@ -24,7 +25,7 @@ export default function ContentChanges({ model, requestedId, currentAcceptedHead
     {selectedId && <div className="content-changes__inspection">
       {model.detailBusy && <p role="status">Načítám přesné ID návrhu…</p>}
       {model.detailError && <p role="alert">{model.detailError}</p>}
-      {model.detail?.proposal.id === selectedId ? <ContentDetail model={model} currentAcceptedHead={currentAcceptedHead} />
+      {model.detail?.proposal.id === selectedId ? <ContentDetail model={model} currentAcceptedHead={currentAcceptedHead} review={review} />
         : !model.detailBusy && !model.detailError && <p>Vybraný návrh není dostupný. Nebyl nahrazen jiným návrhem.</p>}
     </div>}
     <details className="content-changes__recipe"><summary>Pro agenty · vytvoření návrhu přes API</summary><p>Nejprve načtěte přijatou hlavu. Agent pouze navrhuje; přijímá člověk.</p>

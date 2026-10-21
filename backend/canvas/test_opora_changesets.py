@@ -111,7 +111,11 @@ def test_concurrent_acceptance_advances_once(service):
 
     with ThreadPoolExecutor(max_workers=2) as workers:
         result = list(workers.map(run, range(2)))
-    assert sum(item is not None for item in result) == 1
+    assert len({item for item in result if item is not None}) == 1
+    assert service.db_for("draft").execute(
+        "SELECT COUNT(*) FROM opora_spec_revisions WHERE project_id='draft' AND workspace_id='draft' AND proposal_id=?",
+        (proposed["id"],),
+    ).fetchone()[0] == 1
     assert service.node_spec("draft", "draft", "a")["revision"] == 1
 
 

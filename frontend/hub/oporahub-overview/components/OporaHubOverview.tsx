@@ -3,6 +3,7 @@ import type { OverviewModels } from "../logic/models";
 import { acceptedPlan, pendingDecisions, observedExecutionLabel, nextExecutionStep, type DetailTarget } from "../logic/overview";
 import { checkLabels } from "@/hub/git-evidence/logic/git-evidence";
 import "../styles/oporahub-overview.css";
+import AcceptanceOverview from "@/hub/proposal-review/components/AcceptanceOverview";
 
 export default function OporaHubOverview({ models, open }: { models: OverviewModels; open: (target: DetailTarget) => void }) {
   const { graphProposals: graph, changes, executions, evidence, reconciliation, reviewPolicy } = models;
@@ -42,6 +43,7 @@ export default function OporaHubOverview({ models, open }: { models: OverviewMod
       <button onClick={() => open({ kind: "policy", title: "Pravidla nezávislé kontroly" })}><strong>Kontrola <small>Rozhoduje člověk</small></strong><b>{reviewPolicy.busy ? "Načítám pravidla…" : reviewPolicy.error ? "Pravidla nejsou dostupná" : reviewPolicy.context?.policy ? "Pravidla review nastavena" : "Pravidla review nedoložena"}</b><span>{reconciliation.context ? `${reconciliation.context.items.length} načtených vazeb sledování` : "Sledování není doloženo"} · merge není nasazení.</span></button>
     </section>
     <div className="oporahub-overview__columns"><div className="oporahub-overview__main">
+      <AcceptanceOverview model={models.proposalReview} open={open} />
       <section className="oporahub-overview__panel"><header><h2>Změny obsahu</h2><span>{!content || content.error || !content.list ? "Podklady nedostupné" : `${contentPending} čeká na kontrolu`}</span></header>
         <p className="oporahub-overview__empty">Texty, kresby a konfigurace karet mají vlastní návrhy a přijatou historii. První přijetí výslovně přebírá celý výchozí obsah.</p>
         {content && !contentBasis && <p className="oporahub-overview__warning" role="status">Obsah nemá doložený společný základ s přehledem. Před rozhodnutím obnovte podklady.</p>}

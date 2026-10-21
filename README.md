@@ -75,8 +75,8 @@ a konfigurace karet. Ukazuje přijatou, pracovní a navrženou hodnotu. První p
 vyžaduje kontrolu celého výchozího obsahu a může zneplatnit běžící úlohy založené
 na revizi bez obsahového manifestu. Další návrhy mění konkrétní pole; souběh řeší
 rebase s explicitními konflikty a přijetí člověkem. Postup, API a omezení:
-[verzovaný obsah plánu](docs/oporahub-content-changes.md). Závěrečné ověření etapy
-2b ještě probíhá.
+[verzovaný obsah plánu](docs/oporahub-content-changes.md). Etapa 2b prošla závěrečným
+ověřením; celý projekt OporaHub tím ještě není dokončen.
 
 **Upgrade již používaného kontextu v2:** přidání obsahových SQL tabulek změní DDL
 generaci a zneplatní dřívější sparse coverage. Historie a původní soukromé piny
@@ -90,6 +90,17 @@ Odděluje review kódu, review zadání a pozorované kontroly; neposkytuje auto
 povolení k merge. Soukromý repozitář vyžaduje token v prostředí serveru
 (`OPORA_GITHUB_TOKEN`, případně `GH_TOKEN`/`GITHUB_TOKEN`). Podrobnosti a postup:
 [GitHub důkazy](docs/oporahub-github.md).
+
+**Pravidla přijetí plánů** jsou samostatný vstup na přehledu OporaHubu. U každého
+návrhu zadání, přidání grafu, změny grafu nebo obsahu zobrazí review serverové
+riziko, diskusi a nálezy. Člověk vypořádá blokující nález s důvodem a případně
+potvrdí přesné riziko, policy a hlavu diskuse. Změna nebo rebase staré potvrzení
+nepřenese. Jména agentů ani lokální session se nepočítají jako nezávislé hlasy.
+Nastavení GitHub PR kontrol zůstává oddělené. [Kontrakt a API review návrhu](docs/oporahub-proposal-review.md)
+popisují také legacy přijetí při neaktivní policy, doklady a bootstrap výjimku.
+Etapa 3b je dokončena v rozsahu kontraktu: API, atomické přijetí a skutečný browser
+ověřují přesný návrh i zneplatnění starých potvrzení. Celý goal ještě dokončen není;
+zbývá izolace vykonavatelů, důvěryhodná spotřeba a závěrečný audit.
 
 Člověk může nastavit verzovaná [pravidla review a kontrol](docs/oporahub-review-policy.md):
 přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schválení a stáří

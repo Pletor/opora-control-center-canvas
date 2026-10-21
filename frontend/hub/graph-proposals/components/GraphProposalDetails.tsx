@@ -3,6 +3,9 @@ import { fieldKeys, fieldLabels } from "@/hub/plan-changes/logic/plan-changes";
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
 import { graphProposalStale } from "../logic/graph-proposals";
 import GraphChangeReview from "./GraphChangeReview";
+import ProposalReview from "@/hub/proposal-review/components/ProposalReview";
+import { reviewReady } from "@/hub/proposal-review/logic/proposal-review";
+import type { ProposalReviewView } from "@/hub/proposal-review/logic/use-proposal-review";
 
 function GraphContents({ graph }: { graph: Graph }) {
   return <><ul className="graph-proposals__nodes">{graph.nodes.map(node => <li key={node.id}>
@@ -24,7 +27,7 @@ function Documents({ documents }: { documents: { nodeId: string; fields: SpecFie
     </div>)}
   </article>)}</>;
 }
-export default function GraphProposalDetails({ model }: { model: GraphProposalsView }) {
+export default function GraphProposalDetails({ model, review }: { model: GraphProposalsView; review?: ProposalReviewView }) {
   const proposal = model.inspected;
   if (!proposal) return null;
   const stale = !model.context || graphProposalStale(model.context, proposal);
@@ -45,6 +48,7 @@ export default function GraphProposalDetails({ model }: { model: GraphProposalsV
     <GraphContents graph={proposal.additions} />
     <Documents documents={proposal.specifications} />
     <GraphChangeReview proposal={proposal} />
+    <ProposalReview model={review} proposalKind={changes ? "graph-change" : "graph-addition"} proposalId={proposal.id} acceptedHead={model.context?.acceptedHead ?? null} />
     {!!proposal.architectureDocuments?.length && <section aria-label="Přebíraná zadání architektury"><h4>Přebíraná zadání kontextu architektury</h4>
       <p>Tyto přesné revize a texty budou součástí přijatého kontextu. Sdílená zadání se nepřepisují.</p><Documents documents={proposal.architectureDocuments} /></section>}
     {changes && !proposal.accepted && <label className="graph-proposals__ack"><input type="checkbox" checked={model.acknowledged}
@@ -66,7 +70,7 @@ export default function GraphProposalDetails({ model }: { model: GraphProposalsV
       <p>{changes ? "Přijetí provede pouze uvedené změny a odstranění v přijatém plánu i pracovním Canvasu." : "Přijetí přidá uvedené prvky, vazby a zadání do Canvasu."} Nepotvrzuje implementaci ani dokončení práce.</p>
       <div className="graph-proposals__actions">
         <button type="button" disabled={model.disabled || (!stale && !changes)} onClick={model.rebase}>Vytvořit návrh nad aktuálním základem</button>
-        <button type="button" disabled={model.disabled || stale || incomplete || ((changes || proposal.requiresBaseAdoption) && !model.acknowledged)} onClick={model.accept}>{changes ? "Přijmout úpravy plánu" : "Přijmout rozšíření plánu"}</button>
+        <button type="button" disabled={model.disabled || stale || incomplete || ((changes || proposal.requiresBaseAdoption) && !model.acknowledged) || !reviewReady(review, { proposalKind: changes ? "graph-change" : "graph-addition", proposalId: proposal.id }, model.context?.acceptedHead ?? null)} onClick={model.accept}>{changes ? "Přijmout úpravy plánu" : "Přijmout rozšíření plánu"}</button>
       </div>
     </>}
   </section>;

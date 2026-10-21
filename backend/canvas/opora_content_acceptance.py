@@ -10,6 +10,7 @@ from backend.canvas.opora_content_changes import (
 )
 from backend.canvas.opora_content_sources import capture_content, write_changes_in_transaction
 from backend.canvas.opora_graph_records import preserved_manifest
+from backend.canvas.opora_proposal_acceptance_guard import guard, seal
 from database.repositories.opora_changesets import ChangesetRepository
 from database.repositories.opora_content_records import ContentRecords
 
@@ -44,6 +45,7 @@ class OporaContentAcceptance:
                     raise ValueError("Explicit adoption of the complete displayed base content is required.")
                 if proposal["requiresBaseContentAdoption"] and current["entries"] != proposal["baseContent"]:
                     raise ValueError("Complete base content changed; explicitly rebase the proposal.")
+                authorization = guard(db, project, workspace, "content", identifier)
                 entries = index(proposal["baseContent"] if adoption else current["acceptedEntries"])
                 write_changes_in_transaction(self.canvas, db, project, workspace, proposal["changes"], author["kind"], current["graph"])
                 updated, _ = capture_content(self.canvas, project, workspace, current["graph"])
@@ -59,4 +61,5 @@ class OporaContentAcceptance:
                     "by": author, "createdAt": stamp(), "documents": parent["documents"],
                     **preserved_manifest(specs, current["acceptedHead"]), "contentManifestId": manifest["id"]})
                 specs.advance(current["acceptedHead"], result["id"])
+                seal(db, project, workspace, authorization, result)
                 return result

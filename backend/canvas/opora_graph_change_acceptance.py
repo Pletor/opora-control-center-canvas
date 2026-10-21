@@ -7,6 +7,7 @@ from backend.canvas.opora_graph_acceptance import OporaGraphAcceptance
 from backend.canvas.opora_graph_change_state import persist_state
 from backend.canvas.opora_graph_changes import OporaGraphChanges
 from backend.canvas.opora_graph_records import accepted_record, preserved_content_manifest
+from backend.canvas.opora_proposal_acceptance_guard import guard, seal
 
 
 class OporaGraphChangeAcceptance(OporaGraphAcceptance):
@@ -41,6 +42,7 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
                 derived = self.proposals.derive(project, workspace, graph, manifest, proposal["plan"], previous=proposal)
                 if any(derived[key] != proposal[key] for key in derived):
                     raise ValueError("Reviewed graph or state changed; rebase the proposal.")
+                authorization = guard(repo.db, project, workspace, "graph-change", proposal_id)
                 self.write_graph(repo.db, project, workspace, split(proposal["resultGraph"])[1])
                 persist_state(self.service, repo.db, project, workspace, proposal["stateEffects"], proposal["resultGraph"], actor=author["kind"])
                 removed = set(proposal["plan"]["removeNodes"])
@@ -61,4 +63,5 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
                     **preserved_content_manifest(specs, context["acceptedHead"]),
                     "documents": [documents[key] for key in sorted(documents)]})
                 specs.advance(context["acceptedHead"], result["id"])
+                seal(repo.db, project, workspace, authorization, result)
                 return result

@@ -10,6 +10,7 @@ from backend.canvas.opora_change_validation import (
     subject,
 )
 from backend.canvas.opora_commit_validation import _author
+from backend.canvas.opora_proposal_acceptance_guard import bootstrap, seal
 from database.repositories.opora_changesets import ChangesetRepository
 
 
@@ -58,10 +59,12 @@ class OporaChangesets:
             repo = self.repository(pid, wid)
             with repo.db:
                 repo.db.execute("BEGIN IMMEDIATE")
+                authorization = bootstrap(repo.db, pid, wid)
                 result = repo.insert({"project": pid, "workspace": wid, "kind": "baseline",
                                       "parentRevision": None, "proposalId": None, "subject": label,
                                       "by": by, "createdAt": stamp(), "documents": current["documents"]})
                 repo.advance(None, result["id"])
+                seal(repo.db, pid, wid, authorization, result)
             return result
 
     def create(self, payload, by):

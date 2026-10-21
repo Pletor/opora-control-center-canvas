@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import ContentChanges from "./ContentChanges";
 import { contentDetail, contentList, contentProposal } from "../logic/content-fixtures";
 import type { ContentChangesView } from "../logic/use-content-changes";
+import { reviewModel } from "@/hub/proposal-review/logic/review-fixtures";
 
 function model(patch: Partial<ContentChangesView> = {}): ContentChangesView {
   return { project: "project", workspace: "work", list: contentList(), items: contentList().items,
@@ -20,7 +21,7 @@ describe("visible content review", () => {
     expect(html).toMatch(/disabled="">Přijmout přesný návrh/);
   });
   it("enables acceptance only after exact consent and fresh common head", () => {
-    const ready = renderToStaticMarkup(createElement(ContentChanges, { model: model({ acknowledged: true }), currentAcceptedHead: contentList().acceptedHead }));
+    const ready = renderToStaticMarkup(createElement(ContentChanges, { model: model({ acknowledged: true }), currentAcceptedHead: contentList().acceptedHead, review: reviewModel() }));
     expect(ready).not.toMatch(/disabled="">Přijmout přesný návrh/);
     const stale = renderToStaticMarkup(createElement(ContentChanges, { model: model({ acknowledged: true }), currentAcceptedHead: "e".repeat(40) }));
     expect(stale).toMatch(/disabled="">Přijmout přesný návrh/);

@@ -1,8 +1,12 @@
 import type { PlanChangesView } from "../logic/use-plan-changes";
+import ProposalReview from "@/hub/proposal-review/components/ProposalReview";
+import { reviewReady } from "@/hub/proposal-review/logic/proposal-review";
+import type { ProposalReviewView } from "@/hub/proposal-review/logic/use-proposal-review";
+import type { AcceptancePolicyView } from "@/hub/proposal-review/logic/use-acceptance-policy";
 import { changedFields, inspectedFields, fieldKeys, fieldLabels, fieldLimits } from "../logic/plan-changes";
 import "../styles/plan-changes.css";
 
-export default function PlanChanges({ model }: { model: PlanChangesView }) {
+export default function PlanChanges({ model, review, acceptancePolicy }: { model: PlanChangesView; review?: ProposalReviewView; acceptancePolicy?: AcceptancePolicyView }) {
   const disabled = model.busy || model.readOnly || !model.context;
   const accepted = model.context?.acceptedDocuments.find(item => item.nodeId === model.document?.nodeId);
   const changed = !!accepted && !!model.document && !!model.fields && (changedFields(model.document.fields, model.fields).length > 0 || changedFields(accepted.fields, model.fields).length > 0);
@@ -22,6 +26,7 @@ export default function PlanChanges({ model }: { model: PlanChangesView }) {
           onChange={event => model.setSubject(event.target.value)} placeholder="Proč má být zadání změněno?" />
       </label>
       {!model.context.acceptedHead ? <div className="plan-changes__baseline">
+        {acceptancePolicy?.context?.policy?.enabled && <p>Aktivní pravidla: první základ může použít pouze výslovnou bootstrap výjimku bez dřívější přijaté historie. Uloží vlastní doklad; nejde o schválení pozdějších návrhů.</p>}
         <h3>Výchozí zadání</h3><p>První přijetí zahrne všechna níže uvedená uložená zadání tohoto prostoru. Prohlédněte jejich obsah.</p>
         {!model.context.documents.length && <p>Nejprve vytvořte v Canvasu oblast, sektor nebo uzel. Prázdný základ nelze založit.</p>}
         {model.context.documents.map(document => <details key={document.nodeId} className="plan-changes__document">
@@ -68,7 +73,8 @@ export default function PlanChanges({ model }: { model: PlanChangesView }) {
       </article>)}
       <p>Přijetí zapíše právě tento návrh do zadání Canvasu. Nejde o nezávislé review ani ověření kódu.</p>
       {model.context?.acceptedHead && model.inspected.parentRevision !== model.context.acceptedHead && !model.inspected.accepted && <button type="button" disabled={disabled} onClick={model.rebase}>Vytvořit nový návrh nad aktuální přijatou revizí</button>}
-      <button type="button" disabled={disabled || !model.context?.acceptedHead || model.inspected.accepted || model.inspected.parentRevision !== model.context.acceptedHead} onClick={model.accept}>Přijmout zobrazený návrh do zadání</button>
+      <ProposalReview model={review} proposalKind="spec" proposalId={model.inspected.id} acceptedHead={model.context?.acceptedHead ?? null} />
+      <button type="button" disabled={disabled || !model.context?.acceptedHead || model.inspected.accepted || model.inspected.parentRevision !== model.context.acceptedHead || !reviewReady(review, { proposalKind: "spec", proposalId: model.inspected.id }, model.context?.acceptedHead ?? null)} onClick={model.accept}>Přijmout zobrazený návrh do zadání</button>
     </section>}
   </section>;
 }

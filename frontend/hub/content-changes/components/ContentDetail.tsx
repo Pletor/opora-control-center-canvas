@@ -1,16 +1,19 @@
 import { contentValue } from "../logic/content-changes";
 import type { ContentChangesView } from "../logic/use-content-changes";
+import ProposalReview from "@/hub/proposal-review/components/ProposalReview";
+import { reviewReady } from "@/hub/proposal-review/logic/proposal-review";
+import type { ProposalReviewView } from "@/hub/proposal-review/logic/use-proposal-review";
 
 function Value({ title, value }: { title: string; value: unknown }) {
   return <div className="content-changes__value"><h4>{title}</h4><pre>{contentValue(value).preview}</pre></div>;
 }
-export default function ContentDetail({ model, currentAcceptedHead }: { model: ContentChangesView; currentAcceptedHead: string | null }) {
+export default function ContentDetail({ model, currentAcceptedHead, review }: { model: ContentChangesView; currentAcceptedHead: string | null; review?: ProposalReviewView }) {
   const detail = model.detail!;
   const item = detail.proposal;
   const headKnown = !!currentAcceptedHead && currentAcceptedHead === model.list?.acceptedHead && currentAcceptedHead === detail.acceptedHead;
   const stale = !headKnown || item.parentRevision !== currentAcceptedHead;
   const canAccept = !model.disabled && !stale && !detail.accepted && detail.canAccept && !!model.list?.canAccept
-    && (!item.requiresBaseContentAdoption || model.acknowledged);
+    && (!item.requiresBaseContentAdoption || model.acknowledged) && reviewReady(review, { proposalKind: "content", proposalId: item.id }, currentAcceptedHead);
   const json = JSON.stringify(item, null, 2);
   function download() {
     const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
@@ -37,6 +40,7 @@ export default function ContentDetail({ model, currentAcceptedHead }: { model: C
     </section>}
     {model.conflicts.length > 0 && <section className="content-changes__conflicts" role="alert"><h4>Konflikty · původní návrh zůstává</h4><ul>{model.conflicts.map((conflict, index) => <li key={index}>{conflict.kind} · {conflict.target || "kořen"} · {conflict.field}: {conflict.reason}</li>)}</ul></section>}
     {model.notice && <p role="status">{model.notice}</p>}{model.actionError && <p role="alert">{model.actionError}</p>}
+    <ProposalReview model={review} proposalKind="content" proposalId={item.id} acceptedHead={currentAcceptedHead} />
     <div className="content-changes__actions"><button type="button" disabled={model.disabled || !headKnown || !!detail.accepted} onClick={model.rebase}>Převést na aktuální základ</button>
       <button type="button" className="content-changes__accept" disabled={!canAccept} onClick={model.accept}>{model.pending ? "Ukládám…" : "Přijmout přesný návrh"}</button></div>
     {!detail.canAccept && !detail.accepted && <p>Přijetí je dostupné pouze identifikovanému člověku v zapisovatelném prostoru.</p>}

@@ -29,6 +29,7 @@ from backend.api.editor.opora_content_routes import CONTENT_BODY_LIMIT, create_o
 from backend.api.editor.opora_execution_budget_routes import create_execution_budget_router
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
+from backend.api.editor.opora_proposal_review_routes import create_proposal_review_router
 from backend.api.editor.opora_proposal_routes import create_opora_proposal_router
 from backend.api.editor.opora_reconciliation_routes import create_opora_reconciliation_router
 from backend.api.editor.opora_review_policy_routes import create_opora_review_policy_router
@@ -315,6 +316,7 @@ def create_app(data_root=None):
     app.include_router(create_execution_budget_router(service))
     app.include_router(create_opora_graph_router(service))
     app.include_router(create_opora_content_router(service))
+    app.include_router(create_proposal_review_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)

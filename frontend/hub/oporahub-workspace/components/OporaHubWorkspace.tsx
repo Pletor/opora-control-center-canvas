@@ -2,6 +2,7 @@
 import GraphProposals from "@/hub/graph-proposals/components/GraphProposals";
 import { useEffect } from "react";
 import ContentChanges from "@/hub/content-changes/components/ContentChanges";
+import AcceptancePolicy from "@/hub/proposal-review/components/AcceptancePolicy";
 import ReviewPolicy from "@/hub/review-policy/components/ReviewPolicy";
 import GithubReconciliation from "@/hub/github-reconciliation/components/GithubReconciliation";
 import GitEvidence from "@/hub/git-evidence/components/GitEvidence";
@@ -46,17 +47,17 @@ export default function OporaHubWorkspace(models: OverviewModels) {
     if (target.kind === "content" && !target.id) models.contentChanges?.cancel();
     setSelection({ scope, target });
   }
-  function close() { models.contentChanges?.cancel(); models.budgets.cancel(); models.executions.dismissCancel(); models.reviewPolicy.cancel(); models.reconciliation.cancel(); models.graphProposals.acknowledge(false); setSelection(null); }
+  function close() { models.proposalReview?.reset(); models.contentChanges?.cancel(); models.budgets.cancel(); models.executions.dismissCancel(); models.reviewPolicy.cancel(); models.reconciliation.cancel(); models.graphProposals.acknowledge(false); setSelection(null); }
   return <section className="oporahub-workspace" aria-label="OporaHub" data-testid="oporahub-workspace">
     <OporaHubOverview models={models} open={open} />
     {detail && <OverviewDrawer title={detail.title} onClose={close}>
       {detail.kind === "graph" && (detail.id ? <section className="graph-proposals">
         {models.graphProposals.detailBusy && <p role="status">Načítám přesný obsah vybraného návrhu…</p>}
         {models.graphProposals.detailError && <p role="alert">{models.graphProposals.detailError}</p>}
-        {models.graphProposals.inspected?.id === detail.id ? <GraphProposalDetails model={models.graphProposals} /> : !models.graphProposals.detailBusy && !models.graphProposals.detailError && <p>Vybraný návrh není dostupný. Nebyl nahrazen jiným návrhem.</p>}
-      </section> : <GraphProposals model={models.graphProposals} />)}
+        {models.graphProposals.inspected?.id === detail.id ? <GraphProposalDetails model={models.graphProposals} review={models.proposalReview?.graph} /> : !models.graphProposals.detailBusy && !models.graphProposals.detailError && <p>Vybraný návrh není dostupný. Nebyl nahrazen jiným návrhem.</p>}
+      </section> : <GraphProposals model={models.graphProposals} review={models.proposalReview?.graph} />)}
       {detail.kind === "changes" && <ExactDetail requestedId={detail.id} selectedId={models.changes.inspected?.id} busy={models.changes.busy} error={models.changes.error}>
-        <FocusedDetail selector={detail.id ? ".plan-changes__inspection" : ":not(*)"} revision={`${detail.id ?? ""}:${models.changes.inspected?.id ?? ""}`}><PlanChanges model={models.changes} /></FocusedDetail>
+        <FocusedDetail selector={detail.id ? ".plan-changes__inspection" : ":not(*)"} revision={`${detail.id ?? ""}:${models.changes.inspected?.id ?? ""}`}><PlanChanges model={models.changes} review={models.proposalReview?.spec} acceptancePolicy={models.proposalReview?.policy} /></FocusedDetail>
       </ExactDetail>}
       {detail.kind === "executions" && <ExactDetail requestedId={detail.id} selectedId={models.executions.selected?.executionId} busy={models.executions.busy} error={models.executions.error}>
         <FocusedDetail selector={detail.id ? ".execution-receipts__details" : ":not(*)"} revision={`${detail.id ?? ""}:${models.executions.selected?.executionId ?? ""}`}><ExecutionReceipts model={models.executions} /></FocusedDetail>
@@ -68,10 +69,11 @@ export default function OporaHubWorkspace(models: OverviewModels) {
       {detail.kind === "tracking" && <GithubReconciliation model={models.reconciliation} />}
       {detail.kind === "budgets" && <ExecutionBudgets model={models.budgets} />}
       {detail.kind === "formal" && <FormalVerification model={models.formalVerification} currentAcceptedHead={currentAcceptedHead} />}
-      {detail.kind === "content" && <ContentChanges model={models.contentChanges} requestedId={detail.id} currentAcceptedHead={currentAcceptedHead} />}
+      {detail.kind === "content" && <ContentChanges model={models.contentChanges} requestedId={detail.id} currentAcceptedHead={currentAcceptedHead} review={models.proposalReview?.content} />}
+      {detail.kind === "acceptance-policy" && <AcceptancePolicy model={models.proposalReview?.policy} />}
       {detail.kind === "api" && <AgentApi project={models.executions.project} workspace={models.executions.workspace} />}
       {detail.kind === "history" && <div className="oporahub-workspace__body">
-        <GraphProposals model={models.graphProposals} /><PlanChanges model={models.changes} />
+        <GraphProposals model={models.graphProposals} review={models.proposalReview?.graph} /><PlanChanges model={models.changes} review={models.proposalReview?.spec} acceptancePolicy={models.proposalReview?.policy} />
         <ProposalHistory model={models.proposals} /><SyncDashboard view={models.view} onRefresh={models.onRefresh} />
       </div>}
     </OverviewDrawer>}

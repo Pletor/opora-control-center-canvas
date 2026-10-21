@@ -59,7 +59,12 @@ def test_api_baseline_propose_read_accept_and_identity(client):
     assert client.get(BASE + "/revisions/" + baseline.json()["id"], params=SCOPE).json() == baseline.json()
     assert client.get(BASE + "/revisions/" + baseline.json()["id"],
                       params={**SCOPE, "workspace": "other"}).status_code == 409
-    assert client.post(endpoint, headers=HEADERS, json=acceptance).status_code == 409
+    replay = client.post(endpoint, headers=HEADERS, json=acceptance)
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == accepted.json()
+    assert client.post(endpoint, headers=AGENT, json=acceptance).status_code == 403
+    assert client.post(endpoint, headers=HEADERS,
+                       json={**acceptance, "workspace": "other"}).status_code == 409
     assert client.get(BASE + "/changesets/" + proposal["id"], params=SCOPE).json()["accepted"]
 
 

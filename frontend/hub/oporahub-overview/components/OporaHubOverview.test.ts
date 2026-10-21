@@ -14,6 +14,8 @@ describe("overview evidence entry point", () => {
       contentChanges: { ...empty, list: contentList(), items: contentList().items } } as unknown as OverviewModels;
     const html = renderToStaticMarkup(createElement(OporaHubOverview, { models, open: vi.fn() }));
     expect(html).toContain("Otevřít změny obsahu");
+    expect(html).toContain("Pravidla přijetí plánů");
+    expect(html).toContain("Pravidla nedoložena");
     expect(html).toContain("Změna obsahu · 1 položek textu, kresby nebo konfigurace.");
     expect(html).toContain("Návrh obsahu");
     expect(html).not.toContain("<script>");
