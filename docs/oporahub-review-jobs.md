@@ -120,7 +120,9 @@ pravidly jako hodnocení důkazů (účet typu User s oprávněním write/mainta
 ne autor PR, rozhoduje poslední rozhodnutí reviewera, schválení musí mít `commitId`
 = hlava). Účty z `agent_account_ids` a boti se nepočítají. Schválení starší hlavy
 se po novém commitu nepočítá. Důkazy se nenačítají automaticky; načtěte je
-v OporaHubu (GitHub důkazy) po schválení.
+v OporaHubu (GitHub důkazy) po schválení. Jakmile má projekt ověřené lidské identity,
+brána počítá **různé ověřené lidi** včetně člověka, který řídil běh
+([lidé v review](oporahub-review-identity.md)); pak přibude `reviewGate.humans`.
 
 | Důvod | Stav |
 |---|---|

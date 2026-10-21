@@ -13,8 +13,11 @@ DECISION_LIMIT = 3
 RISK = {"standard": "low", "elevated": "elevated", "critical": "critical"}
 DECISION_PRIORITY = {"accept_baseline": 0, "accept_critical": 1, "accept_elevated": 2,
                      "accept_low": 3, "review_result": 4, "close_card": 5}
+# One priority list for every action source (core rules, review gates, formal attention, recurring
+# checks); the agent-state action table in docs/oporahub-agent-state.md follows this order.
 VERB_ORDER = ("accept_baseline", "accept", "rebase", "claim", "review", "review.claim", "review.self_checks",
-              "pr.update_branch", "link_pull_request", "close_card")
+              "pr.update_branch", "link_pull_request", "close_card", "verification.investigate", "verification.fix",
+              "review.promote_to_check")
 GAPS = (("ai_review", "review", "Nezávislé AI review výsledků není napojeno; kontrolu dělá člověk."),
         ("lean_verification", "evidence", "Lean v CI dokazuje jen čisté jádro OporaHubu (tools/formal/lean); kód karet nedokazuje."),
         ("auto_rebase", "proposal", "Zastaralé návrhy se nepřevádějí automaticky; rebase je výslovný."))
@@ -24,6 +27,11 @@ PULL_GAP = ("pull_request_link", "pull_request", "Modul vazby execution → PR n
 def stable_id(prefix, *parts):
     raw = json.dumps(parts, ensure_ascii=False, separators=(",", ":"))
     return prefix + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+
+
+def ordered(actions):
+    """Actions in VERB_ORDER, then by targetId; equal keys keep their order (stable sort)."""
+    return sorted(actions, key=lambda value: (VERB_ORDER.index(value["verb"]), value["targetId"] or ""))
 
 
 def stage(identifier, count, health, reason):

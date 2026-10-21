@@ -16,8 +16,9 @@ Repozitář a cílová větev pocházejí ze serverové konfigurace a uloženéh
 Kontrola je určena dvojicí **ID aplikace a přesný název kontroly**. Pouhá shoda
 názvu nestačí. Jméno účtu reviewera slouží pro orientaci; rozhoduje číselné ID.
 Reviewer musí mít při načtení serverově doložené oprávnění k zápisu a nesmí být
-bot ani autor PR. Různé účty neprokazují různé fyzické osoby. Lokální autor plánu
-zatím není propojený s ověřeným GitHub účtem.
+bot ani autor PR. Různé účty neprokazují různé fyzické osoby; tato pravidla to
+neřeší. Různé ověřené lidi počítá brána automatického review přes
+[registr identit](oporahub-review-identity.md).
 
 Každá změna pravidel vytváří neměnnou revizi. Souběžná změna jiným operátorem
 vyvolá konflikt a vyžaduje novou kontrolu. Vypnutí také vytvoří revizi; historii

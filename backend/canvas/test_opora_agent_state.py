@@ -199,3 +199,17 @@ def test_read_has_no_sql_writes(planned, service):
     finally:
         db.set_trace_callback(None)
     assert not any(command.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE", "BEGIN", "CREATE")) for command in sql)
+
+
+def test_action_priority_is_one_list_matching_the_documented_table():
+    import re
+    from pathlib import Path
+
+    from backend.canvas import opora_agent_state_rules as rules
+    doc = (Path(__file__).resolve().parents[2] / "docs" / "oporahub-agent-state.md").read_text(encoding="utf-8")
+    section = doc.split("## Rozhodnutí a akce", 1)[1].split("\n## ", 1)[0]
+    verbs = re.findall(r"^\| `([a-z_.]+)` \|", section, flags=re.MULTILINE)
+    assert tuple(verb for verb in verbs if verb != "verb") == rules.VERB_ORDER
+    shuffled = [{"verb": verb, "targetId": target} for verb in reversed(rules.VERB_ORDER) for target in ("b", "a")]
+    assert [(item["verb"], item["targetId"]) for item in rules.ordered(shuffled)] == [
+        (verb, target) for verb in rules.VERB_ORDER for target in ("a", "b")]

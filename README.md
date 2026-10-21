@@ -120,7 +120,10 @@ Volitelné [automatické review kódu](docs/oporahub-review-jobs.md) (`OPORA_REV
 úlohy hledačů a ověřovatelů pro každou novou hlavu PR běhu a počítá bránu merge; pracovníci
 agent-office je přebírají přes `/api/oporahub/review-jobs`. Brána navíc vyžaduje bezpečnostní review
 citlivých změn (`kind: "security"`), důkaz vlastních kontrol agenta pro aktuální hlavu, hlavu postavenou
-na aktuální cílové větvi (jinak `stale_against_main`) a vyplněnou [šablonu PR](.github/pull_request_template.md).
+na aktuální cílové větvi (jinak `stale_against_main`) a vyplněnou [šablonu PR](.github/pull_request_template.md). [Lidé v review](docs/oporahub-review-identity.md)
+doplňují ověřené lidské reviewery (identita přes komentář `Opora-Identity:` na GitHubu), metriky
+review, eval sadu z revertů (`Opora-Revert-Of: #<n>`) a incidentů a povyšování opakovaných nálezů
+na kontroly; konvence review jsou v [`REVIEW.md`](REVIEW.md).
 
 Člověk může nastavit verzovaná [pravidla review a kontrol](docs/oporahub-review-policy.md):
 přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schválení a stáří

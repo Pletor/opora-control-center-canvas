@@ -5,6 +5,7 @@ humanApprovalsAtHead, reasons[]}`. Human approvals come only from stored GitHub 
 the exact current head SHA (reusing the evidence review rules: User accounts with write
 permission, not the PR author); configured agent accounts never count. Nothing is written."""
 from backend.canvas import opora_review_gate_rules as gate_rules
+from backend.canvas import opora_review_humans as review_humans
 from backend.canvas.opora_review_jobs import capped
 from backend.canvas.opora_review_status import _reviews
 from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
@@ -54,6 +55,9 @@ def gate(store, link, evidence, config, now=None):
     if important:
         reasons.append("open_important_findings")
     approvals, rejected, notes = human_approvals(evidence, repository, number, head, set(config["agentAccountIds"]))
+    # Verified-identity registry in use: count distinct people, director included (opora_review_humans).
+    humans = review_humans.count(store.db, *store.scope, link, evidence, config["agentAccountIds"])
+    approvals = approvals if humans is None else humans["count"]
     if rejected:
         reasons.append("changes_requested")
     if approvals < required:
@@ -63,12 +67,15 @@ def gate(store, link, evidence, config, now=None):
     extra, readiness = gate_rules.evaluate(store, link, evidence, config, now)  # security, self-checks, queue
     reasons += extra
     status = ("blocked" if any(reason in BLOCKING for reason in reasons) else "pending" if reasons else "ready")
-    return {"executionId": link["execution_id"], "cardId": link["node_id"], "repository": repository,
+    result = {"executionId": link["execution_id"], "cardId": link["node_id"], "repository": repository,
             "number": number, "headSha": head, "prState": link["state"],
             "reviewJobId": job["job_id"] if job else None, "round": job["round"] if job else None,
             "riskTier": job["risk_tier"] if job else None, "mergeReadiness": readiness,
             "reviewGate": {"status": status, "openImportant": important, "requiredHumanApprovals": required,
                            "humanApprovalsAtHead": approvals, "reasons": reasons}}
+    if humans is not None:
+        result["reviewGate"]["humans"] = humans
+    return result
 
 
 def review_gates(db, project, workspace, config, now=None):
