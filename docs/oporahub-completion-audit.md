@@ -104,5 +104,17 @@ zůstala ukončená bez receipt, obnova nevytvořila náhradu. Celkem dvě sessi
 obě ukončené, 3 USD centy list cost. Ceníková cena není faktura ani peněžní hard cap;
 omezený test není formální důkaz bezpečnosti poskytovatele či přesného SLA.
 
-Merge, deploy, produkční migrace ani změna globálních ochran neproběhly.
+Při výše uvedených ověřovacích bězích neproběhl merge, deploy, produkční migrace
+ani změna globálních ochran.
 Není žádný nevyřízený požadavek na obecný souhlas.
+
+## Následné zapojení do běžného procesu
+
+Na výslovný pokyn uživatele byly následně squash-merged
+[Canvas PR 10](https://github.com/Pletor/opora-control-center-canvas/pull/10)
+do `70334335a1f85dbdbd487b1d83af5c938ea3633e` a
+[Office PR 26](https://github.com/Pletor/agent-office/pull/26)
+do `09d9b08497ac58d7160d7addcc4548336e3ce192`.
+[Procesové propojení](oporahub-process-sync.md) přidává společnou čtecí projekci,
+odkazy v běžném node-brief a agentím CLI a návrat zlepšení do nativních návrhů.
+Nemění vlastnictví stavů ani nepřevádí nahlášení na nezávislé ověření.
