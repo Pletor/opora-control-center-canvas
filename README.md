@@ -112,6 +112,8 @@ Zjištění z práce se vracejí jako návrhy zlepšení do stávajícího revie
 Podklady se průběžně obnovují bez spouštění modelu nebo dalšího běhu.
 [Kontrakt synchronizace procesu](docs/oporahub-process-sync.md) popisuje zdroje
 pravdy, API a hranice vůči starším procesům.
+Agent místo dotazování mnoha endpointů čte jeden [stav pro agenty](docs/oporahub-agent-state.md)
+(`GET /api/oporahub/agent-state`, s `ETag`): hlavy pro CAS, zdraví etap a další akce.
 
 Člověk může nastavit verzovaná [pravidla review a kontrol](docs/oporahub-review-policy.md):
 přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schválení a stáří
