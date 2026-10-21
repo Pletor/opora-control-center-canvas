@@ -12,6 +12,8 @@ def initialize_project_schema(db):
     db.executescript(PROJECT_SCHEMA)
     ensure_canvas_version_columns(db)
     ensure_brief_fragment_columns(db)
+    from database.repositories.opora_context_events import install
+    install(db)
 
 
 def restore_project_backup(db, path):

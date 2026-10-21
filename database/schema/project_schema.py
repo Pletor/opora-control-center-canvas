@@ -4,6 +4,8 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 """
 import sqlite3
 
+from database.schema.opora_context_event_schema import SCHEMA as CONTEXT_SCHEMA
+from database.schema.opora_context_event_schema import TABLES as CONTEXT_TABLES
 from database.schema.opora_execution_budget_schema import BUDGET_SCHEMA, BUDGET_TABLES
 from database.schema.opora_execution_schema import SCHEMA as EXECUTION_SCHEMA
 from database.schema.opora_graph_schema import SCHEMA as OPORA_GRAPH_SCHEMA
@@ -261,7 +263,7 @@ CREATE INDEX IF NOT EXISTS opora_review_evidence_history
     ON opora_review_evidence(project_id, workspace_id, pr_number, observed_at);
 """
 PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEMA + REVIEW_POLICY_SCHEMA
-                   + RECONCILIATION_SCHEMA + JOB_SCHEMA + BUDGET_SCHEMA + VERIFICATION_SCHEMA)
+                   + RECONCILIATION_SCHEMA + JOB_SCHEMA + BUDGET_SCHEMA + VERIFICATION_SCHEMA + CONTEXT_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -270,6 +272,9 @@ PROJECT_TABLES = {
     "workspace_graph_authority": "project_id",
     "drafts": "id",
     "project_settings": "project_id",
+    "project_profile": "project_id",
+    "project_architecture": "project_id",
+    "project_architecture_revisions": "project_id",
     "node_text_revisions": "project_id",
     "brief_fragment_revisions": "project_id",
     "brief_fragment_details": "project_id",
@@ -300,6 +305,7 @@ REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "w
 PROJECT_TABLES.update({table: "project_id" for table in (*RECONCILIATION_TABLES, *JOB_TABLES)})
 PROJECT_TABLES.update({table: "project_id" for table in BUDGET_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in VERIFICATION_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in CONTEXT_TABLES})
 
 
 # CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).

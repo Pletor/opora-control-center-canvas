@@ -188,7 +188,7 @@ běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
 
 | Etapa | Výsledek | Podmínka dokončení |
 |---|---|---|
-| 2b. Celý graf návrhů | Přidávání, úpravy a odstranění karet a vazeb jsou implementovány; zbývají další druhy obsahu a sparse kontext | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
+| 2b. Celý graf návrhů | Přidávání, úpravy a odstranění karet a vazeb jsou implementovány; [selektor a SQL journal](oporahub-sparse-context.md) připravují sparse kontext, který zatím není zapnutý. Zbývají další druhy obsahu | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
 | 3b. Review před přijetím | Připomínky k rozdílu a politika přijetí návrhu podle rizika | Pozorované GitHub review se nepovažuje za automatické oprávnění přijímat jiný návrh |
 | 4. Důkazy a GitHub | Pravidla kontrol/review a trvalé sledování stavu PR s obnovou po pádu jsou implementovány; další typy vzdálených událostí lze doplnit stejnou frontou | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
 | 5b. Rozpočty vykonavatelů | Pevný konec oprávnění a trvalý limit pokusů/oprav; zbývá vynucená izolace procesu a důvěryhodné účtování nákladů | Vyčerpané oprávnění nelze prodlužovat heartbeatem; tvrdý nákladový limit se nezaměňuje za odhad spotřeby |

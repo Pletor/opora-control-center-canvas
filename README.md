@@ -109,5 +109,9 @@ nebo záruku ukončení všech potomků procesu.
 Verzované změny dalších druhů obsahu, řídký kontext podle závislostí,
 důvěryhodné účtování nákladů a nezávislé izolované spouštění Lean/TLA+
 zůstávají další prací.
+Pro [kontext podle závislostí](docs/oporahub-sparse-context.md) je rozpracovaný
+samostatný selektor, kontrola přijaté historie a transakční SQL journal.
+Journal je bez automatického enrollmentu; existující běhy používají dosavadní kontext v1. Samotné sledování
+SQL řádků nepokrývá souborové zdroje a registry a nezapíná nový execution režim.
 Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).
