@@ -3,7 +3,9 @@
 Etapa 5b je implementována jako výslovně zapínaný serverový broker v Agent Office
 a samostatná neměnná evidence v Canvasu. Deterministické HTTP testy a skutečný
 Office → Canvas průchod se syntetickým poskytovatelem ověřují integrační chování.
-Placený běh na živém Managed Agents účtu zatím neproběhl; bod 11 zůstává rozpracovaný.
+[Skutečný průchod](oporahub-live-staging.md) na nakonfigurovaném Managed Agents účtu
+proběhl 2026-10-21: context v2 skončil native výsledkem a potvrzeným ukončením;
+původní context v1 zůstává zaznamenaným negativním případem bez receipt.
 Dosavadní [časové rozpočty](oporahub-execution-budgets.md) a rezervace fungují;
 návrat `pty.kill()` ani lokální přepis tokenů neprokazuje izolaci nebo fakturovanou
 spotřebu. Rozhraní plánu a jeho přijetí zůstává v Canvasu.
@@ -23,7 +25,8 @@ název prostředí nebo pouhá přítomnost klíče nejsou důkazem aktivní izo
 Tato etapa nezakládá účet, nemění globální ochrany Windows, nespouští Docker/WSL
 ani nezadává placenou práci automaticky. Bez nakonfigurovaného prostředí a
 ověřené capability vrací izolovaný režim nedostupnost. V aktuálním vývojovém
-prostředí není dostupný Docker server ani nakonfigurovaný API klíč/agenta/prostředí.
+prostředí byl pro průchod výslovně nakonfigurován API přístup a vyhrazený cloudový
+agent/prostředí. Pro toto cloudové vykonávání lokální Docker server není potřeba.
 
 ## Neměnný intent a obnova
 
@@ -76,7 +79,8 @@ adaptér ji musí odmítnout jako nepodporovanou, nikoli ji nahradit odhadem.
   unavailable/unknown se nezobrazí jako ověřené.
 - Samostatný provozní průchod na výslovně nakonfigurovaném účtu: izolovaná práce
   nad připnutým kódem, doložené ukončení a autentické provider usage. Bez něj
-  nelze bod 11 označit za dokončený ani tvrdit provozní SLA či ověřenou fakturaci.
+  nelze bod 11 označit za dokončený. Omezený živý průchod je nyní doložen výše;
+  stále neopravňuje tvrdit přesné provozní SLA ani ověřenou fakturu.
 
 Kontrakt zachovává meze poskytovatele. Nezmenšuje cílový rozsah goalu ani
 nevydává hostitelský proces za izolovaný běh.

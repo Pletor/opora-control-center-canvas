@@ -3,11 +3,11 @@
 Audit zachovává původní rozsah: Canvas drží přijatý plán, GitHub kód a Office
 vykonává práci. Kontrolovány byly publikované produktové revize Canvas
 `90f72b4838a554a53f255e039eb20efae93dc1a3` a Office
-`7bc75faa4a9f02c30778efa63915ff601627d9fa`, skutečné dokončené logy a vykreslený
+`bc25ebb2cb034725bbc79fe397f1aa545cae2b4a`, skutečné dokončené logy a vykreslený
 náhled. Tento audit není nové spuštění testů ani prohlášení o dokončení cíle.
 
-**10 hotovo / 2 rozpracováno / 0 nezačato.** Skutečný provozní průchod
-nakonfigurovaným poskytovatelem chybí, proto nelze uzavřít body 11 a 12.
+**11 hotovo / 1 rozpracováno / 0 nezačato.** Skutečný provozní průchod je doložen;
+zbývá publikovat závěrečnou dokumentaci a dokončit read-only náhled jeho dat.
 
 ## Požadavky a odpovídající důkazy
 
@@ -26,8 +26,8 @@ dokončené běhy. Pouhá existence testu se zde nepovažuje za úspěšný výs
 | 8 | Sparse context v2 | [Kontrakt](oporahub-sparse-context.md); `backend/canvas/test_opora_execution_context_edges.py`, `database/repositories/test_opora_execution_contexts_replay.py`; skutečný HTTP průchod v2. Vnější soubory a obsah síťových referencí nejsou skrytě vydávány za zachycený kontext. | Hotovo |
 | 9 | Verze textu, kresby a konfigurace | [Obsah 2b](oporahub-content-changes.md); `backend/canvas/test_opora_content_sources.py`, `backend/canvas/test_opora_content_durability.py`; backendová sada a dřívější browser důkaz. První přijetí výslovně přebírá celý základ. | Hotovo |
 | 10 | Komentáře, riziko, přesné potvrzení přijetí | [Review 3b](oporahub-proposal-review.md); `backend/canvas/test_opora_proposal_review_service.py`, `backend/canvas/test_opora_proposal_acceptance_guard.py`; API a browser všech čtyř druhů návrhů. Lokální jméno není nezávislá lidská identita. | Hotovo |
-| 11 | Izolovaný vykonavatel a podepsaná spotřeba | [Kontrakt 5b](oporahub-isolated-execution.md), [Office provozní nastavení](https://github.com/Pletor/agent-office/blob/7bc75faa4a9f02c30778efa63915ff601627d9fa/docs/opora-isolated-execution.md); 43 cílených Office testů a skutečný Office→Canvas HTTP průchod se syntetickým providerem. Provozní izolace, autentická usage a ukončení u živého poskytovatele nejsou ověřené. | Rozpracováno |
-| 12 | Závěrečný audit, docs, testy, vizuální důkaz, PR | Tento audit, propojené kontrakty, oba otevřené PR a read-only náhled. Implementační důkazy jsou hotové; provozní důkaz bodu 11 chybí. | Rozpracováno |
+| 11 | Izolovaný vykonavatel a podepsaná spotřeba | [Kontrakt 5b](oporahub-isolated-execution.md), [Office nastavení](https://github.com/Pletor/agent-office/blob/bc25ebb2cb034725bbc79fe397f1aa545cae2b4a/docs/opora-isolated-execution.md), [skutečný průchod](oporahub-live-staging.md) a jeho sanitizovaný záznam. Context v2: 1 receipt, ukončení, autentická usage, zachované mappingy při replay. První živý context v1 zůstává negativní případ s 0 receipt; nic nebylo nahrazeno ani zpětně odesláno. | Hotovo |
+| 12 | Závěrečný audit, docs, testy, vizuální důkaz, PR | Tento audit, propojené kontrakty a oba PR. Implementační i provozní důkazy jsou hotové; dokončuje se publikace dokumentace a read-only náhled skutečných dat. | Rozpracováno |
 
 ## Co skutečně proběhlo
 
@@ -37,11 +37,12 @@ dokončené běhy. Pouhá existence testu se zde nepovažuje za úspěšný výs
 - Finální frontend: **229 souborů / 1 595 PASS**. TypeScript, Vite i kopie fontů
   dokončeny. PowerShell obal vrátil 1 kvůli stderr varování Vite; není vydáván za
   čistý exit ani za zaznamenanou chybu sestavovacích fází.
-- Office: **43 cílených PASS**, typecheck a build PASS. Standardní celý test
-  překročil 150 sekund. Omezená diagnostika: 750 PASS / 23 fail / 7 cancel / 1 skip.
-  Z 30 neúspěšných položek je 28 sdílených s baseline. Dvě kandidátní file timeout
-  odchylky samostatně prošly na kandidátovi i čistém baseline (20/20 na každém).
-  To neprokazuje zelenou celou sadu ani příčinu odchylek.
+- Office: **46 cílených PASS**, typecheck a build PASS. Standardní celý test
+  překročil 150 sekund. Omezená diagnostika: 785 testů / 755 PASS / 24 fail /
+  5 cancel / 1 skip. Všech 29 neúspěšných záznamů odpovídá e93 baseline ve jménu
+  a kritických polích failureType/error/code/operator/expected/actual po normalizaci
+  známých cest, dočasných ID a CRLF. Timing, stack a location byly vyloučeny.
+  To neprokazuje zelenou celou sadu.
 - Skutečné Office služby a routy volaly skutečný Canvas přes HTTP pro context v1
   i v2 a budget v2: podpis, 187 centů / 342,5 aktivní sekundy, následný heartbeat,
   přesný native receipt, ukončovací readback a obnova bez nového běhu. Jen provider
@@ -71,26 +72,28 @@ jsou v přibaleném výsledku. Tato kontrola je četla, model znovu nespouštěl
 | oporahub-observer-root-backend-full.log | `5a6c439b5d6d513d828ace82c9966c8dab8b8eebe2b0486868f04e70c1a7a34b` |
 | oporahub-observer-final-frontend.log | `8cf5c5fc5f0862f086a434d56e00047a2e45a30ab03621ea3795b927f77d7778` |
 | oporahub-observer-final-build.log | `f24e7c61e13f84c0dd2427c5788f0fcfe78bfc276bcf9ee0c225007f13e4dacf` |
-| oporahub-executors-focused-final.log | `12e57a3f9b4109785fc65042c72e4d8bb91892aa77dcbc5dfc5f8fcaa5ac6771` |
-| oporahub-executors-typecheck-final.log | `8854337b462f5c784fc146dc10ba5450f6e5feee9cc40f99d2082b9996758a14` |
-| oporahub-executors-root-build.log | `4d4aab00cbae670e95dd4850394adde431be88e9292399e566cac3288c41bbfb` |
-| oporahub-executors-bounded-comparison.json | `31ae15ca71eb4720ae40db97a86abccc1211d97d450b826fcfd1006e5bbd3989` |
+| oporahub-managed-wire-focused-final.log | `422799b395b09e42e2b67c3fa466a13c6e1780a40a2c0834c215705c3fb9d8b5` |
+| oporahub-managed-wire-typecheck.log | `8854337b462f5c784fc146dc10ba5450f6e5feee9cc40f99d2082b9996758a14` |
+| oporahub-managed-wire-root-build.log | `9adb6f202e23c7f9c686532db9184a8834552a6f020b7edf998720f7f34f3603` |
+| oporahub-managed-wire-root-bounded-comparison.json | `f2a93c045b6c0c2328cc0b08ccc9d12a8260ac16c50c89778b633ad6492d7792` |
 | oporahub-isolated-real-canvas-smoke-result.json | `ace5fba802189cebb9a4504bb92fc273bffa869fa91da6d6446ad85a369550ed` |
 | oporahub-observer-readonly-preview-result.json | `d02327f1b6a9b3d183796d75afc31663e811a789ca9a92184e75a17896818a1e` |
 
-## Zbývající provozní průchod
+## Dokončený provozní průchod a jeho meze
 
-Kontrola přítomnosti nastavení v Process/User/Machine prostředí nenašla žádnou
-z 11 požadovaných Office proměnných ani Canvas `OPORA_EXECUTION_OBSERVERS`.
-Žádné hodnoty tajemství se nečetly. Existující CLI přihlášení tento účet nenahrazuje.
+Uživatel dodal dva samostatné přístupy lokálním souborem. Serverový broker je
+načetl jen v paměti; provider/GitHub klíče nebyly předány Canvasu nebo agentovu
+zadání. Vyhrazené prostředí a agent byly vytvořeny a jejich skutečné konfigurace
+připnuty. Nepoužilo se předplatné CLI ani přepsání globálních proměnných.
 
-Další krok je nastavit dokumentovanou služební konfiguraci v serverovém prostředí
-a provést omezený průchod na živém provideru: připnutý kód/agent/prostředí,
-ověřená izolovaná session, práce pod původním oprávněním, odebrání oprávnění,
-doložené ukončení a autentické kumulativní API usage včetně pozdního odečtu.
-Zachovat intent, původní mapping a receipt; obnova nesmí vytvořit náhradní běh.
-Bez tohoto důkazu zůstává goal aktivní a nelze tvrdit provozní izolaci ani SLA.
-Ceníková spotřeba se ani pak nesmí vydávat za fakturu či přesný finanční hard cap.
+[Živý průchod](oporahub-live-staging.md) doložil připnutý soukromý commit,
+cloudové vykonání, přesný native receipt context v2 a skutečný sedmipolový context
+proof, potvrzené ukončení a kumulativní API usage i po reconcile. První negativní
+běh odhalil skutečný wire problém `types[]` a Markdown formát výsledku; oprava
+prošla regresí RED→GREEN a nezávislým review před druhým během. Původní session
+zůstala ukončená bez receipt, obnova nevytvořila náhradu. Celkem dvě sessions,
+obě ukončené, 3 USD centy list cost. Ceníková cena není faktura ani peněžní hard cap;
+omezený test není formální důkaz bezpečnosti poskytovatele či přesného SLA.
 
-Audit neprovedl merge, deploy, placené provider volání, produkční migraci ani
-změnu globálních ochran. Není žádný nevyřízený požadavek na obecný souhlas.
+Merge, deploy, produkční migrace ani změna globálních ochran neproběhly.
+Není žádný nevyřízený požadavek na obecný souhlas.

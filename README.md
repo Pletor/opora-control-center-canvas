@@ -100,9 +100,9 @@ Nastavení GitHub PR kontrol zůstává oddělené. [Kontrakt a API review návr
 popisují také legacy přijetí při neaktivní policy, doklady a bootstrap výjimku.
 Etapa 3b je dokončena v rozsahu kontraktu: API, atomické přijetí a skutečný browser
 ověřují přesný návrh i zneplatnění starých potvrzení. Celý goal ještě dokončen není;
-volitelný izolovaný broker a podepsaná evidence spotřeby jsou implementované,
-ale chybí skutečný provider průchod. [Audit dokončení](docs/oporahub-completion-audit.md)
-mapuje všech 12 požadavků na důkazy a zbývající provozní ověření.
+volitelný izolovaný broker a podepsaná evidence spotřeby jsou implementované a
+mají [skutečný provozní průchod](docs/oporahub-live-staging.md). [Audit dokončení](docs/oporahub-completion-audit.md)
+mapuje všech 12 požadavků na konkrétní důkazy a meze jejich platnosti.
 
 Člověk může nastavit verzovaná [pravidla review a kontrol](docs/oporahub-review-policy.md):
 přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schválení a stáří
@@ -135,8 +135,8 @@ nebo záruku ukončení všech potomků procesu.
 
 Připomínky a politika přijetí podle rizika jsou implementované v etapě 3b.
 [Izolovaný broker a podepsaná spotřeba](docs/oporahub-isolated-execution.md)
-mají integrační důkazy se syntetickým providerem; provozní izolace a autentické
-provider usage zbývají ověřit. Nezávislé izolované spouštění Lean/TLA+ tato
+mají syntetické integrační důkazy i skutečný cloudový běh s potvrzeným ukončením
+a autentickým provider usage. Nezávislé izolované spouštění Lean/TLA+ tato
 přípravná vrstva netvrdí.
 [Kontext podle závislostí](docs/oporahub-sparse-context.md) má výslovný protokol v2:
 POST příprava → claim → heartbeat → výsledek. Soukromý pin, přijatá historie,
