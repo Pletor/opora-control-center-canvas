@@ -246,3 +246,6 @@ Ověření změn: `uv run pytest backend`, `npm test`, `npm run build` a dostupn
 TypeScriptu podle `package.json`. Změny vzhledu navíc vyžadují screenshot v headless
 prohlížeči. API testy mají prokazovat odmítnutí zastaralého kontextu i hlavy,
 serverový původ obsahu, neměnný historický diff a zákaz merge pro agenta.
+
+[Audit dokončení](oporahub-completion-audit.md) mapuje kanonických 12 požadavků
+na skutečné důkazy, známé testovací dluhy a dosud chybějící provider průchod.

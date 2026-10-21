@@ -100,7 +100,9 @@ Nastavení GitHub PR kontrol zůstává oddělené. [Kontrakt a API review návr
 popisují také legacy přijetí při neaktivní policy, doklady a bootstrap výjimku.
 Etapa 3b je dokončena v rozsahu kontraktu: API, atomické přijetí a skutečný browser
 ověřují přesný návrh i zneplatnění starých potvrzení. Celý goal ještě dokončen není;
-zbývá izolace vykonavatelů, důvěryhodná spotřeba a závěrečný audit.
+volitelný izolovaný broker a podepsaná evidence spotřeby jsou implementované,
+ale chybí skutečný provider průchod. [Audit dokončení](docs/oporahub-completion-audit.md)
+mapuje všech 12 požadavků na důkazy a zbývající provozní ověření.
 
 Člověk může nastavit verzovaná [pravidla review a kontrol](docs/oporahub-review-policy.md):
 přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schválení a stáří
@@ -131,9 +133,11 @@ Po zařazení karty musí vykonavatel používat budget protokol v2; starší Of
 se zastaví při převzetí. Jde o oprávnění a počet spuštění, nikoli peněžní limit
 nebo záruku ukončení všech potomků procesu.
 
-Připomínky a politika přijetí podle rizika,
-důvěryhodné účtování nákladů a nezávislé izolované spouštění Lean/TLA+
-zůstávají další prací.
+Připomínky a politika přijetí podle rizika jsou implementované v etapě 3b.
+[Izolovaný broker a podepsaná spotřeba](docs/oporahub-isolated-execution.md)
+mají integrační důkazy se syntetickým providerem; provozní izolace a autentické
+provider usage zbývají ověřit. Nezávislé izolované spouštění Lean/TLA+ tato
+přípravná vrstva netvrdí.
 [Kontext podle závislostí](docs/oporahub-sparse-context.md) má výslovný protokol v2:
 POST příprava → claim → heartbeat → výsledek. Soukromý pin, přijatá historie,
 transakční SQL journal a registry fence kontrolují i relevantní změnu vrácenou
