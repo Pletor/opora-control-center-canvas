@@ -94,6 +94,11 @@ ověření. Nasazení, API a omezení: [vykonávání zadání](docs/oporahub-ex
 Pravidla rezervací mají také [omezený TLA+ model](tools/formal/oporahub-execution/README.md)
 s reprodukovatelnou kontrolou a záměrně porušenou variantou.
 
+[Formální podklady](docs/oporahub-verification.md) uchovávají přesné vstupy,
+tvrzení a výstupy TLC/Lean u přijaté revize a běhu agenta. Soubory mají ověřené
+SHA256 a jsou dostupné z historie. Nahlášené `passed` zůstává tvrzením agenta;
+nezávislý ověřovač, shoda s implementací a automatické schválení se tím neudělují.
+
 [Pravidla běhů](docs/oporahub-execution-budgets.md) přidávají lidsky nastavený
 pevný konec oprávnění a trvalý počet pokusů a oprav pro kartu a přijatou revizi.
 Změna vlastníka, restart, uvolnění rezervace ani nová pravidla nevracejí spotřebu.
@@ -102,6 +107,7 @@ se zastaví při převzetí. Jde o oprávnění a počet spuštění, nikoli pen
 nebo záruku ukončení všech potomků procesu.
 
 Verzované změny dalších druhů obsahu, řídký kontext podle závislostí,
-rozpočty běhů a obecné spouštění Lean/TLA+ zůstávají další prací.
+důvěryhodné účtování nákladů a nezávislé izolované spouštění Lean/TLA+
+zůstávají další prací.
 Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).

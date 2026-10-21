@@ -31,7 +31,7 @@ try {
         if ($code -ne $case.Exit -or -not $log.Contains($case.Expected)) {
             throw ('Unexpected TLC result for ' + $case.Config + ': ' + $code)
         }
-        if ($case.Name -eq 'positive' -and -not $log.Contains('0 states left on queue.')) {
+        if ($case.Name -eq 'positive' -and $log -notmatch '(?m)(?:^|,\s*)0 states left on queue\.[ \t]*\r?$') {
             throw 'Positive run did not exhaust the bounded state space.'
         }
         Write-Output ($case.Name + ': expected result confirmed; ' + $logPath)

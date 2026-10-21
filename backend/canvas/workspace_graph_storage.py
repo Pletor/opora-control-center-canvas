@@ -54,6 +54,8 @@ def refuse_authority_restore(db):
     from backend.canvas.opora_execution_budget_restore import refuse_budget_restore
     from backend.canvas.opora_reconciliation_restore import refuse_reconciliation_restore
     from backend.canvas.opora_review_policy_restore import refuse_policy_restore
+    from backend.canvas.opora_verification_restore import refuse_verification_restore
+    refuse_verification_restore(db)
     refuse_policy_restore(db)
     refuse_reconciliation_restore(db)
     refuse_budget_restore(db)

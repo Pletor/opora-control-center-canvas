@@ -79,3 +79,46 @@ nejsou přibalené do repozitáře. `.gitattributes` zachovává přesné ověř
 a konfigurací i při checkoutu na Windows. Historický běh použil fingerprint38 a
 seed z `result.json`; runner používá pevné fp0/seed1. Pořadí průchodu a generované
 statistiky se mohou lišit, definovaný konečný prostor a kontrolované vlastnosti jsou stejné.
+
+## Přenosný balíček pro evidenci v OporaHubu
+
+`run_bundle.py` vytváří pro každý z pevných profilů `verification.json`,
+`report.json`, manifest, přesné vstupy a log. Příklad z kořene repozitáře:
+
+```powershell
+python tools/formal/oporahub-execution/run_bundle.py --jar C:/cache/tla2tools-1.7.4.jar --repository owner/repo --commit 0123456789012345678901234567890123456789 --output C:/temp/new-tlc-run --mode all --timeout-seconds 900
+```
+
+Výstupní adresář musí být nový. Nástroj neinstaluje Java ani TLC a neposílá nic
+do API. JSON jsou vnitřní objekty verification/report dle
+[kontraktu evidence](../../../docs/oporahub-verification.md); autorizovaný klient
+je musí obalit aktuálním scope, execution identitou a capability. Token se nikdy
+nevkládá do souborů runneru. Commit a repozitář jsou nahlášený původ, ne ověření
+shody modelu s implementací. Veškeré balíčky mají důvěru pouze agent-reported.
+
+Výstupní artefakt `run-metadata.json` přenáší také skutečný UTC začátek/konec,
+exit code, důvod ukončení, limity, úplnost výstupu, hashe přesných souborů runneru
+a manifest vstupů/logů. Nemá vlastní descriptor uvnitř sebe; finální lokální
+manifest obsahuje i jeho hash. Metadata zůstávají nahlášeným podkladem,
+nikoli nezávislým potvrzením skutečného běhu.
+
+Runner ověří pinned distribuci TLC 2.19 z vydání 1.7.4 a před spuštěním ji zkopíruje.
+Povoluje pouze přibalený model a tři konfigurace s pevným hashem; profilové piny
+normalizují CRLF na LF, ale artefakty a jejich manifesty zachovávají původní bajty.
+Žádné uživatelské modely, Java argumenty ani příkazy repozitáře nespouští.
+Odstraňuje zděděné Java options/classpath, používá jeden worker a 768 MiB Java heap.
+
+Sloučený stdout/stderr je omezen na 2 MiB, nástěnný čas na nejvýše 900 sekund
+na případ. Při timeoutu či překročení výstupu je přímý vlastněný proces ukončen;
+ponechaný prefix logu je označen neúplný a výsledek inconclusive. Nejde o izolaci
+procesového stromu, pevnou diskovou kvótu ani bezpečný sandbox cizího kódu.
+Lean adaptér ani nezávisle důvěryhodné spouštění tato cesta neposkytuje.
+
+Passed vyžaduje exit0, dokončený model checking a přesně nulovou frontu.
+Simulace nemůže projít. Negativní profily vyžadují exit12, konkrétní pojmenovaný
+invariant a stopu; výsledkem je counterexample, nikdy passed. Log protipříkladu
+zůstává samostatným artefaktem. Návratový kód CLI0 znamená očekávané výsledky
+zvolených profilů, nikoli zelený výsledek negativního modelu.
+
+Regrese: `python -m pytest tools/formal/oporahub-execution/test_run_bundle.py -q`.
+Testy používají malé řízené podprocesy; nespouštějí model ani neinstalují nástroje.

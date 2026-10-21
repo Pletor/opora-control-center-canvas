@@ -1,3 +1,4 @@
+import type { FormalVerificationView } from "@/hub/formal-verification/logic/use-formal-verification";
 import type { GithubReconciliationView } from "@/hub/github-reconciliation/logic/use-github-reconciliation";
 import type { ReviewPolicyView } from "@/hub/review-policy/logic/use-review-policy";
 import type { GraphProposalsView } from "@/hub/graph-proposals/logic/use-graph-proposals";
@@ -8,5 +9,5 @@ import type { PlanChangesView } from "@/hub/plan-changes/logic/use-plan-changes"
 import type { DashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import type { OporaProposalsView } from "@/hub/proposal-history/logic/use-opora-proposals";
 export type OverviewModels = { view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView;
-  changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; budgets: ExecutionBudgetsView;
+  changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; budgets: ExecutionBudgetsView; formalVerification: FormalVerificationView;
   graphProposals: GraphProposalsView; reviewPolicy: ReviewPolicyView; reconciliation: GithubReconciliationView };

@@ -193,7 +193,7 @@ běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
 | 4. Důkazy a GitHub | Pravidla kontrol/review a trvalé sledování stavu PR s obnovou po pádu jsou implementovány; další typy vzdálených událostí lze doplnit stejnou frontou | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
 | 5b. Rozpočty vykonavatelů | Pevný konec oprávnění a trvalý limit pokusů/oprav; zbývá vynucená izolace procesu a důvěryhodné účtování nákladů | Vyčerpané oprávnění nelze prodlužovat heartbeatem; tvrdý nákladový limit se nezaměňuje za odhad spotřeby |
 | 6. Rozhraní | Canvas pro cíle a OporaHub pro rozdíly, review, konflikty a důkazy | Člověk dohledá od cíle přes změnu až k ověření; UI používá stejné API jako agent |
-| 7b. Formální ověřování úloh | Obecné oddělené vykonávání TLA+/Lean a dohledatelné artefakty nad rámec přiloženého modelu rezervací | Kontrola uvádí model, tvrzení, předpoklady, verze nástrojů, výstup a vazbu na konkrétní kód |
+| 7b. Formální ověřování úloh | [Evidence vstupů a výsledků](oporahub-verification.md) připravuje TLC/Lean; nezávislé izolované vykonávání zůstává další prací | Kontrola uvádí model, tvrzení, předpoklady, verze nástrojů, výstup a vazbu na konkrétní kód; nahlášený výsledek se nezaměňuje za nezávislé ověření |
 
 Nezávislé lidské review vyžaduje rozlišitelné ověřené identity reviewerů. Současná lokální session „Člověk“ nedokládá dva různé lidi; jméno zaslané klientem to nenahradí. Důkazy musí rozlišovat výsledek potvrzený vykonavatelem od tvrzení samotného autora.
 

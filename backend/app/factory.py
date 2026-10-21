@@ -32,6 +32,8 @@ from backend.api.editor.opora_proposal_routes import create_opora_proposal_route
 from backend.api.editor.opora_reconciliation_routes import create_opora_reconciliation_router
 from backend.api.editor.opora_review_policy_routes import create_opora_review_policy_router
 from backend.api.editor.opora_review_routes import create_opora_review_router
+from backend.api.editor.opora_verification_routes import BODY_LIMIT as VERIFICATION_BODY_LIMIT
+from backend.api.editor.opora_verification_routes import create_opora_verification_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
 from backend.api.editor.process_routes import create_process_router
 from backend.api.editor.rlm_routes import create_rlm_router
@@ -200,13 +202,14 @@ def create_app(data_root=None):
                 )
             # Obrázek kresby (do 10 MB, v base64 o třetinu víc) má vlastní strop; ostatní zápisy 2 MB.
             # Dávka plánu (docs/davka-planu.md §3) smí mít celé 2 MiB.
-            limit = (14_500_000 if request.url.path == "/api/drawing-file"
+            limit = (VERIFICATION_BODY_LIMIT if request.url.path.startswith("/api/oporahub/verifications/")
+                     else 14_500_000 if request.url.path == "/api/drawing-file"
                      else 2 * 1024 * 1024 if request.url.path == "/api/canvas-plan" else 2000000)
             body = bytearray()
             async for chunk in request.stream():
-                body.extend(chunk)
-                if len(body) > limit:
+                if len(body) + len(chunk) > limit:
                     return JSONResponse({"error": "Požadavek je příliš velký."}, status_code=413)
+                body.extend(chunk)
             request._body = bytes(body)
         response = await call_next(request)
         if request.method not in ("GET", "HEAD") and request.url.path.startswith("/api"):
@@ -306,6 +309,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_review_policy_router(service))
     app.include_router(create_opora_reconciliation_router(service))
     app.include_router(create_opora_execution_router(service))
+    app.include_router(create_opora_verification_router(service))
     app.include_router(create_execution_budget_router(service))
     app.include_router(create_opora_graph_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací

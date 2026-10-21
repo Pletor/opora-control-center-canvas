@@ -22,6 +22,9 @@ Ukázková data v návrhu nejsou živá telemetrie.
   Nedostupné zdroje nesmějí vytvářet události ani zelené souhrny.
 - Nový návrh, pravidla běhů, historie a rozhraní pro agenty jsou dostupné jako
   cílené akce. Obsah se zobrazí v detailu, ne jako výchozí nekonečný formulář.
+- Formální podklady otevřou [historii TLC/Lean](oporahub-verification.md):
+  konkrétní tvrzení, předpoklady, meze a původní soubory. Nahlášený úspěch
+  neuděluje nezávislé ověření; chybějící podklady a neznámý základ jsou viditelné.
 
 ## Význam souhrnů
 

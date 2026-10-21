@@ -3,7 +3,7 @@ import type { PlanContext, PlanChangeset } from "@/hub/plan-changes/logic/plan-c
 import type { ExecutionSummary } from "@/hub/execution-receipts/logic/execution-receipts";
 import type { Graph } from "@/shared/types/logic/types";
 
-export type DetailKind = "graph" | "changes" | "executions" | "evidence" | "policy" | "tracking" | "budgets" | "history" | "api";
+export type DetailKind = "graph" | "changes" | "executions" | "evidence" | "policy" | "tracking" | "budgets" | "formal" | "history" | "api";
 export type DetailTarget = { kind: DetailKind; title: string; id?: string };
 export type Decision = DetailTarget & { author: string; stale: boolean | null; impact: string; createdAt: string };
 function graphSnapshot(graph: Graph) {

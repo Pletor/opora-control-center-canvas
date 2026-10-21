@@ -4,6 +4,8 @@ import ReviewPolicy from "@/hub/review-policy/components/ReviewPolicy";
 import GithubReconciliation from "@/hub/github-reconciliation/components/GithubReconciliation";
 import GitEvidence from "@/hub/git-evidence/components/GitEvidence";
 import ExecutionReceipts from "@/hub/execution-receipts/components/ExecutionReceipts";
+import FormalVerification from "@/hub/formal-verification/components/FormalVerification";
+import { acceptedPlan } from "@/hub/oporahub-overview/logic/overview";
 import ExecutionBudgets from "@/hub/execution-budgets/components/ExecutionBudgets";
 import PlanChanges from "@/hub/plan-changes/components/PlanChanges";
 import SyncDashboard from "@/project/sync-dashboard/components/SyncDashboard";
@@ -20,6 +22,8 @@ import "@/hub/oporahub-workspace/styles/oporahub-workspace.css";
 
 // App owns all data, requests and mutations. This environment only composes its features.
 export default function OporaHubWorkspace(models: OverviewModels) {
+  const plan = acceptedPlan(models.graphProposals.context, models.changes.context);
+  const currentAcceptedHead = !models.graphProposals.busy && !models.changes.busy && !models.graphProposals.error && !models.changes.error && plan.basisKnown ? plan.head : null;
   const scope = JSON.stringify([models.executions.project, models.executions.workspace]);
   const [selection, setSelection] = useState<{ scope: string; target: DetailTarget } | null>(null);
   const detail = selection?.scope === scope ? selection.target : null;
@@ -29,6 +33,7 @@ export default function OporaHubWorkspace(models: OverviewModels) {
       if (target.kind === "changes") models.changes.inspect(target.id);
       if (target.kind === "executions") models.executions.selectExecution(target.id);
       if (target.kind === "evidence") models.evidence.select(target.id);
+      if (target.kind === "formal") models.formalVerification.select(target.id);
     }
     setSelection({ scope, target });
   }
@@ -53,6 +58,7 @@ export default function OporaHubWorkspace(models: OverviewModels) {
       {detail.kind === "policy" && <ReviewPolicy model={models.reviewPolicy} />}
       {detail.kind === "tracking" && <GithubReconciliation model={models.reconciliation} />}
       {detail.kind === "budgets" && <ExecutionBudgets model={models.budgets} />}
+      {detail.kind === "formal" && <FormalVerification model={models.formalVerification} currentAcceptedHead={currentAcceptedHead} />}
       {detail.kind === "api" && <AgentApi project={models.executions.project} workspace={models.executions.workspace} />}
       {detail.kind === "history" && <div className="oporahub-workspace__body">
         <GraphProposals model={models.graphProposals} /><PlanChanges model={models.changes} />
