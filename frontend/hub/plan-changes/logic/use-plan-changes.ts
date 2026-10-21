@@ -86,7 +86,7 @@ export function usePlanChanges(project: string, workspace: string, nodes: Canvas
   return { ...shown, documents, document, fields, inspected, subject, readOnly: readOnly || !!context?.readOnly,
     name: (nodeId: string) => nodes.find(node => node.id === nodeId)?.name ?? nodeId,
     setSubject: (text: string) => setTitle({ key, text }),
-    selectDocument: (node: string) => { setDraft(null); setSelection({ ...selection, key, node }); },
+    selectDocument: (node: string) => { setDraft(null); setSelection({ key, node, proposal: "" }); },
     inspect: (proposal: string) => setSelection({ ...selection, key, proposal }),
     edit: (field: keyof SpecFields, value: string) => {
       if (document && fields) setDraft({ key, node: document.nodeId, fields: { ...fields, [field]: value } });

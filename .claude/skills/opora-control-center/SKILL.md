@@ -40,6 +40,16 @@ v `OPORA_ACCESS_TOKEN`. `opora_write.py` zapisuje jen přes loopback.
 
 ## Smyčka relace na kartě
 
+Nejprve `process-sync --project P --workspace W` (volitelně `--node ID`): živá
+projekce ukáže přijatou revizi, pipeline, nahlášenou práci a další krok.
+Postup pro OporaHub je v [workflow.md](references/workflow.md#živý-proces-control-center)
+a [kontraktu procesu](../../../docs/oporahub-process-sync.md).
+U karty zařazené do execution protokolu použij execution context → claim →
+neměnné assignment → results/release; starší `lease` ani `agent-output`
+jej nenahrazují. Nález z práce vrať jako návrh změny s aktuálním základem,
+nikoli jako automatické přijetí plánu. Následující smyčka platí pro starší,
+nezařazené karty.
+
 1. `frontier` → vyber kartu z `frontier` (u pipeline řádek `pipeline.current` = tvoje etapa).
 2. `lease` `{op: "claim", owner, ttlSeconds}` → ulož `token` do `OPORA_LEASE_TOKEN`. 409 = kartu drží jiný, vezmi jinou.
 3. `node-brief --raw`: `goal`, `definitionOfDone`, `boundaries.effectiveRules`, `pipeline`, `node.checks`, `outputContract.request`.

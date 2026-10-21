@@ -356,13 +356,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base-url', help='domácí adresa http://127.0.0.1:PORT')
     parser.add_argument('--api-base', help='vzdálená adresa tunelu https://HOST; vyžaduje ' + TOKEN_ENV)
-    parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'snapshot', 'node-text', 'node-spec', 'node-brief', 'frontier',
+    parser.add_argument('command', choices=['status', 'projects', 'workspaces', 'view', 'state', 'snapshot', 'node-text', 'node-spec', 'node-brief', 'process-sync', 'frontier',
                                             'search', 'index', 'rank', 'code', 'find', 'recall', 'rule', 'decision', 'versions', 'leases', 'source-status', 'work-overview', 'scenario-history', 'layout-preview',
                                             'pipeline-profiles', 'agent-workspace', 'agent-results', 'assignment-status', 'usage-summary',
                                             'vault', 'vault-fragment', 'research-brief', 'drawing', 'drawing-file'])
     parser.add_argument('--project')
     parser.add_argument('--workspace')
-    parser.add_argument('--node')
+    parser.add_argument('--node', help='node-brief, process-sync nebo jiný příkaz: ID karty')
     parser.add_argument('--discipline', help='vault: jen fragmenty této disciplíny (id nebo none)')
     parser.add_argument('--id')
     parser.add_argument('--out', help='drawing-file: cesta, kam uložit obrázek (PNG/JPEG/WebP) podle --id')
@@ -435,6 +435,12 @@ def main():
         elif command in ('node-brief', 'agent-workspace', 'agent-results'):
             required(args, 'project', 'workspace', 'node')
             data = fetch('/api/desktop-v3/' + command, {'project': args.project, 'workspace': args.workspace, 'nodeId': args.node})
+        elif command == 'process-sync':
+            required(args, 'project', 'workspace')
+            params = {'project': args.project, 'workspace': args.workspace}
+            if args.node:
+                params['nodeId'] = args.node
+            data = fetch('/api/oporahub/process', params)
         elif command == 'frontier':
             # Bez --node je to kořen plátna (karty bez rodiče); router tak vidí needsRouting celého prostoru.
             required(args, 'project', 'workspace')

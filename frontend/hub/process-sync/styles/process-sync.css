@@ -1,0 +1,26 @@
+﻿/* Proces mĂˇ vlastnĂ­ ÄŤitelnĂ˝ rytmus: identita vlevo, podklady uprostĹ™ed a dalĹˇĂ­ krok vpravo. Na mobilu se sklĂˇdĂˇ do jednĂ© osy. */
+.process-sync { min-width: 0; padding: 16px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--ink); }
+.process-sync__header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.process-sync__header h2 { margin: 0 0 5px; }
+.process-sync__header p, .process-sync__observation, .process-sync__limits { margin: 6px 0; color: var(--ink-muted); }
+.process-sync button { color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 6px; padding: 7px 10px; cursor: pointer; font: inherit; }
+.process-sync button:disabled { cursor: wait; opacity: .65; }
+.process-sync button:focus-visible, .process-sync textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.process-sync__cards { display: grid; gap: 10px; margin: 12px 0; }
+.process-sync__card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 14px; border-top: 1px solid var(--line-strong); padding-top: 12px; }
+.process-sync__identity, .process-sync__progress { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.process-sync__identity code, .process-sync__action, .process-sync__progress, .process-sync__observation code { overflow-wrap: anywhere; }
+.process-sync__identity code { font-size: .8em; color: var(--ink-muted); }
+.process-sync__progress { font-size: .88em; color: var(--ink-muted); }
+.process-sync__state { align-self: flex-start; padding: 4px 7px; border-radius: 5px; background: var(--surface-3); font-size: .84em; }
+.process-sync__state--attention { color: var(--ink); background: var(--accent-soft); }
+.process-sync__state--warning, .process-sync__error { color: var(--ink); background: var(--gold-soft); }
+.process-sync__error { border-left: 3px solid var(--gold); padding: 10px; }
+.process-sync__action p { margin: 5px 0 8px; font-size: .9em; }
+.process-sync__action button, .process-sync__tracking button { margin: 0 6px 6px 0; }
+.process-sync__tracking { color: var(--ink-muted); font-size: .88em; }
+.process-sync__tracking button { margin-left: 7px; }
+.process-sync__api { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line-strong); }
+.process-sync__api label { flex: 1 1 280px; min-width: 0; font-size: .85em; }
+.process-sync__api textarea { display: block; box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; margin-top: 5px; padding: 7px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 5px; }
+@media (max-width: 760px) { .process-sync__card { grid-template-columns: minmax(0, 1fr); gap: 10px; } }

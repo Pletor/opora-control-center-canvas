@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from backend.api.http_etag import conditional, etag_of
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import payload_project
+from backend.canvas.opora_process_links import brief_metadata
 from backend.canvas.source_realization import realize_source, source_status
 from backend.editor.agent_handoff.external_agent_tasks import ExternalAgentTasks
 from backend.editor.agent_memory import pipeline_library
@@ -267,7 +268,7 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
     @router.get("/node-brief")
     def read_node_brief(project: str, workspace: str, nodeId: str):
         """Karta jako jeden JSON pro model (opora.node-brief/1); popis stavu, ne příkazy."""
-        return briefs.build(project, workspace, nodeId)
+        return {**briefs.build(project, workspace, nodeId), "processSync": brief_metadata(project, workspace, nodeId)}
 
     @router.post("/agent-output")
     def write_agent_output(payload: dict, request: Request):

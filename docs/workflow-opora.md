@@ -51,6 +51,15 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 
 ## 2. Pipeline
 
+Aktuální stav napříč plánem a vykonáním poskytuje
+[Proces Control Center v OporaHubu](oporahub-process-sync.md). Člověk jej vidí
+na přehledu, agent přes `/api/oporahub/process` a odkaz z `node-brief`.
+Čtení používá stejný projekt a workspace; změna přijaté revize zachová historii
+a oddělí starý výsledek od aktuální práce. Zjištění z vykonání a kontroly se
+vracejí jako verzovaný návrh změny zadání, grafu nebo obsahu. Po lidském přijetí
+se další práce řídí novým přijatým základem. Projekce nepřepisuje stav starších
+`/api/processes`, jejichž projektové soubory nemají workspace ani vazbu na revizi.
+
 ```mermaid
 flowchart LR
   I[Myšlenka] --> G["/grill-me<br/>jádro zadání"]
