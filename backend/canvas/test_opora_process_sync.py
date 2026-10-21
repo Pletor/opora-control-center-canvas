@@ -133,3 +133,18 @@ def test_explicit_card_limit_does_not_claim_full_coverage(service):
     assert output["truncated"] and output["totalCards"] == 103
     single = ProcessSync(service).read(**SCOPE, node="card-100")
     assert single["items"][0]["nodeId"] == "card-100" and not single["truncated"]
+
+
+def test_full_read_builds_the_canvas_view_once(planned, service, monkeypatch):
+    # Under the project lock `view` does not memoize, and each card's availability rebuilt it for every node:
+    # on a Git project that was thousands of git subprocesses while the lock stalled every save.
+    built = []
+    original = service._view
+    monkeypatch.setattr(service, "_view", lambda pid, wid: built.append(wid) or original(pid, wid))
+    ProcessSync(service).read(**SCOPE)
+    assert built == [SCOPE["workspace"]]
+    built.clear()
+    service.view(SCOPE["project"], SCOPE["workspace"])
+    with service.lock_for(SCOPE["project"]):
+        service.view(SCOPE["project"], SCOPE["workspace"])
+    assert len(built) == 2  # outside a steady block nothing is held over

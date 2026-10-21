@@ -42,7 +42,7 @@ class OporaExecutions:
                     raise
 
     def context(self, project, workspace, node):
-        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project), self.canvas.steady_reads(project):
             try:
                 value = assignment(self.canvas, project, workspace, node)
                 budget = budget_status(self.canvas.db_for(project), project, workspace, node, value["acceptedRevision"])

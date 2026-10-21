@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
 from backend.editor.agent_memory.test_agent_output import HEADERS, ORIGIN, SCOPE, prepared
-from backend.editor.agent_packet.specification_context import _navigation
+from backend.editor.agent_packet.specification_context import _navigation, capture_specification
 
 
 def node(identifier, parent=None, site=None, kind="node"):
@@ -87,3 +87,21 @@ def test_context_version_is_identical_to_the_pre_cache_algorithm(tmp_path):
         assert versions == ["1f209cbba29e48b8c126150087c763a4b44d1d505bb0ecd087ec0510622721be",
                             "0777a75333ca9444e92ca87f6750ef306b3eb6d01e0a91a90d75eec1ce0f28a9",
                             "612d0b7318f3d14a525eb33e01eae94203ab9d5201f8ac324f1997a28d423c99"]
+
+
+def test_capture_under_the_project_lock_builds_the_view_once(tmp_path, monkeypatch):
+    """Every related card's spec and drawing read the view again, and under the project lock `view` does not
+    memoize: on a Git project that was hundreds of git subprocesses per OporaHub context read."""
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        prepared(client)
+        service = client.app.state.service
+        current = client.get("/api/view", params=SCOPE).json()
+        value = copy.deepcopy(current["graph"])
+        value["nodes"] += pages()
+        client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": value, "digest": current["digest"]})
+        built, original = [], service._view
+        monkeypatch.setattr(service, "_view", lambda pid, wid: built.append(wid) or original(pid, wid))
+        with service.graph_lock_for(SCOPE["project"]), service.lock_for(SCOPE["project"]):
+            captured = capture_specification(service, SCOPE["project"], SCOPE["workspace"], "app")
+        assert len(captured["specification"]["cards"]) > 2
+        assert built == [SCOPE["workspace"]]

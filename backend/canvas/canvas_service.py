@@ -425,6 +425,23 @@ class CanvasService:
             self._local.views.pop(pid, None)
             self.release_reader(pid, db)
 
+    @contextmanager
+    def steady_reads(self, pid):
+        """Čtecí blok pod zámkem dat projektu: `view` se v něm spočítá jednou na pracovní prostor.
+
+        Pod zámkem `view` necachuje (zápisové spojení vidí vlastní změny), takže čtení, které drží
+        zámek a projde všechny karty, pouštělo Git a parsování grafu pro každou kartu znovu. Volající
+        zámek drží (nikdo jiný nezapisuje) a v bloku sám nezapisuje. Vnořené bloky sdílejí vnější."""
+        steady = self._local.__dict__.setdefault("steady", {})
+        if pid in steady:
+            yield
+            return
+        steady[pid] = {}
+        try:
+            yield
+        finally:
+            steady.pop(pid, None)
+
     def folder(self, pid):
         return ProjectFolder(self.root, pid)
 
@@ -579,7 +596,8 @@ class CanvasService:
         """Graf plátna a jeho zdroj. Uvnitř jednoho `reading` bloku se počítá jednou (snímek se
         nemění) a vrací se mělká kopie; graf je sdílený, jen ke čtení."""
         with self.reading(pid):
-            memo = None if self.lock_for(pid)._is_owned() else self._local.views.get(pid)
+            steady = getattr(self._local, "steady", {}).get(pid)
+            memo = steady if steady is not None else None if self.lock_for(pid)._is_owned() else self._local.views.get(pid)
             if memo is not None and wid in memo:
                 return dict(memo[wid])
             result = self._view(pid, wid)
