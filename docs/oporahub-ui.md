@@ -13,6 +13,8 @@ z `frontend/design-tokens`). Ukázková čísla návrhu se nepřebírají; vše 
 | **Karta** | záložka Karta, klik na cíl `claim`, nebo `?ohCard=<nodeId>` | Drawer s cestou karty: přijatý základ → změny zadání → převzetí (lease, epocha) → důkazy → PR → zápis do plánu. Zastaralé návrhy visí na červené přerušované větvi nad osou. Pod osou rozpočet běhu, přijetí vázaná na revizi a druhy důkazů. Výběr karty v hlavičce. |
 | **Pro agenty** | záložka Pro agenty, nebo `?ohView=agents` | Protokol (GET → preconditions → zápis s requestId → 409 znovu GET), hlavy pro CAS, fronta akcí (id, sloveso, metoda, cesta, preconditions, rozpočet, stav), přesný JSON s tlačítkem „kopírovat JSON“ a tabulka kontraktu `data-oh-*`. |
 
+Rozhodnutí `close_card` (PR sloučeno, karta čeká na potvrzení člověkem) otevře detail karty, kde krok
+Merge → plán ukazuje „čeká na uzavření člověkem“ a merge SHA; kartu uzavírá jen člověk (`human_only`).
 Klik na etapu, rozhodnutí nebo cíl akce otevře **existující** detail (návrh zadání/grafu/obsahu,
 běh, důkazy, pravidla…). Pata „Podrobné formuláře“ dál otevírá všechny původní drawery: zadání karty,
 návrhy grafu, změny obsahu, přijímání návrhů, pravidla přijetí, běhy, limity, proces Control Center,
@@ -61,7 +63,7 @@ document.querySelectorAll('[data-oh-action-status="ready"]')      // připraven�
 | Akce | `data-oh-action-id`, `data-oh-action-status`, `data-oh-verb`, `data-oh-method`, `data-oh-path`, `data-oh-target`, `data-oh-block-reason` | `actions[]` |
 | Fakt CAS | `data-oh-field` + `data-oh-value` (`acceptedHead`, `graphDigest`, `contextVersion`, `workingDiffers`, `budgetPolicyHead`) | `heads.*` |
 | Mezera | `data-oh-gap`, `data-oh-health="not_connected"` | `gaps[]` |
-| Karta | `data-oh-view="card"`, `data-oh-node-id`; kroky `data-oh-step`, `data-oh-revision`, `data-oh-changeset`, `data-oh-parent`, `data-oh-stale`, `data-oh-accepted`, `data-oh-execution`, `data-oh-epoch`, `data-oh-execution-state`, `data-oh-evidence-for`, `data-oh-pr-link`, `data-oh-writeback` | agent-state + `…/changesets`, `…/executions` |
+| Karta | `data-oh-view="card"`, `data-oh-node-id`; kroky `data-oh-step`, `data-oh-revision`, `data-oh-changeset`, `data-oh-parent`, `data-oh-stale`, `data-oh-accepted`, `data-oh-execution`, `data-oh-epoch`, `data-oh-execution-state`, `data-oh-evidence-for`, `data-oh-pr-link`, `data-oh-writeback` (`awaiting_human_close` + `data-oh-merge-sha` u `close_card`) | agent-state + `…/changesets`, `…/executions` |
 | Pata | `data-oh-detail` (druh původního detailu) | — |
 
 Zdroj pravdy pro tabulku v aplikaci je `frontend/hub/oporahub-agents/logic/contract.ts`.

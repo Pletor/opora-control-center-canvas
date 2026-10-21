@@ -16,6 +16,7 @@ const KIND: Record<string, { label: string; tone: Tone; button: string }> = {
   accept_elevated: { label: "zvýšené", tone: "warn", button: "Rozhodnout" },
   accept_low: { label: "nízké", tone: "ok", button: "Zkontrolovat" },
   review_result: { label: "výsledek", tone: "warn", button: "Zkontrolovat" },
+  close_card: { label: "uzavření", tone: "warn", button: "Uzavřít kartu" },
 };
 export const GAP_LABEL: Record<string, string> = {
   ai_review: "AI review", lean_verification: "Lean", auto_rebase: "auto-rebase", pull_request_link: "PR ↔ běh",
@@ -27,7 +28,7 @@ export function actionTarget(action: Pick<AgentAction, "path" | "targetId">, tit
   if (action.path.includes("/changesets/")) return { kind: "changes", id, title };
   if (action.path.includes("/graph-proposals/")) return { kind: "graph", id, title };
   if (action.path.includes("/content-changes/")) return { kind: "content", id, title };
-  if (action.path.includes("/executions/claim")) return { kind: "card", id, title };
+  if (action.path.includes("/executions/claim") || action.path.includes("/desktop-v3/state")) return { kind: "card", id, title };
   if (action.path.includes("/executions/")) return { kind: "executions", id, title };
   return { kind: "graph", title };
 }

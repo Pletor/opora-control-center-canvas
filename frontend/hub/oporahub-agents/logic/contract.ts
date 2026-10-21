@@ -15,5 +15,5 @@ export const CONTRACT: ContractRow[] = [
   { element: "Karta (detail)", attribute: "data-oh-view=\"card\" · data-oh-node-id", jsonPath: "actions[verb=claim].targetId", source: "GET …/agent-state + …/executions" },
   { element: "Změnová sada karty", attribute: "data-oh-changeset · data-oh-parent · data-oh-stale · data-oh-accepted", jsonPath: "—", source: "GET …/changesets" },
   { element: "Běh karty", attribute: "data-oh-execution · data-oh-epoch · data-oh-execution-state", jsonPath: "—", source: "GET …/executions" },
-  { element: "PR a zápis do plánu", attribute: "data-oh-pr-link · data-oh-writeback", jsonPath: "stages[pull_request|plan_writeback].health", source: "GET …/agent-state" },
+  { element: "PR a zápis do plánu", attribute: "data-oh-pr-link · data-oh-writeback · data-oh-merge-sha", jsonPath: "stages[pull_request|plan_writeback].health · actions[verb=close_card]", source: "GET …/agent-state" },
 ];

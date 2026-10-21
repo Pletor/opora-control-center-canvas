@@ -45,6 +45,15 @@ describe("card timeline", () => {
     expect(view.steps.find(item => item.kind === "writeback")).toMatchObject({ tone: "gap", attrs: { "data-oh-writeback": "not_connected" } });
     expect(view.steps.find(item => item.kind === "evidence")?.status).toBe("nahlášeno, ne ověřeno");
   });
+  it("shows the merged card awaiting human closure (close_card) in the writeback step", () => {
+    const close = { id: "act_c", verb: "close_card", method: "POST", path: "/api/desktop-v3/state", targetId: "task_a",
+      preconditions: { executionId: "e".repeat(32), mergeSha: "m".repeat(40) }, status: "blocked" as const, blockReason: "human_only" };
+    const state = agentStateFixture({ actions: [...agentStateFixture().actions, close] });
+    expect(cardTimeline({ nodeId: "task_a", state, changesets: [], executions: [] }).steps.at(-1)).toMatchObject({
+      tone: "warn", actor: "human", status: "čeká na uzavření člověkem",
+      attrs: { "data-oh-writeback": "awaiting_human_close", "data-oh-action-id": "act_c", "data-oh-merge-sha": "m".repeat(40) } });
+    expect(cardTimeline({ nodeId: "task_b", state, changesets: [], executions: [] }).steps.at(-1)?.attrs["data-oh-writeback"]).toBe("not_connected");
+  });
   it("marks a missing accepted head as a gap instead of inventing one", () => {
     const state = agentStateFixture({ heads: { ...agentStateFixture().heads, acceptedHead: null } });
     expect(cardTimeline({ nodeId: "task_a", state, changesets: [], executions: [] }).steps[0]).toMatchObject({ tone: "gap", status: "základ chybí" });

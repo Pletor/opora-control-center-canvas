@@ -45,6 +45,20 @@ function claimStep(latest: ExecutionSummary | null, claim: AgentAction | null, e
   return { ...base, id: "", when: "", tone: "gap", status: "bez běhu", lines: ["Karta nemá běh ani připravené převzetí."], attrs: {} };
 }
 
+/** Merge → plán: po merge kartu uzavírá jen člověk (`close_card`, human_only); jinak zdraví etapy nebo mezera. */
+function writebackStep(close: AgentAction | null, stage: AgentState["stages"][number] | undefined): TimelineStep {
+  const base = { key: "writeback", kind: "writeback" as const, title: "Merge → plán", when: "" };
+  if (close) {
+    const sha = String(close.preconditions.mergeSha ?? "");
+    return { ...base, id: close.id, actor: "human", tone: "warn", status: "čeká na uzavření člověkem",
+      lines: [`merge ${sha ? short(sha) : "bez SHA"}`, "PR je sloučené; kartu potvrdí člověk (done.confirmed)."],
+      attrs: { "data-oh-writeback": "awaiting_human_close", "data-oh-action-id": close.id, "data-oh-merge-sha": sha } };
+  }
+  return { ...base, id: "", actor: null, tone: stage && stage.health !== "ok" ? healthTone[stage.health] : "gap",
+    status: stage?.health === "not_connected" ? "nenapojeno" : stage ? reasonText[stage.reason] ?? stage.reason : "neznámé",
+    lines: ["Po merge se nová revize plánu nevytváří automaticky; kartu uzavírá člověk."], attrs: { "data-oh-writeback": stage?.health ?? "not_connected" } };
+}
+
 export function cardTimeline({ nodeId, state, changesets, executions, elapsedSeconds = 0 }: CardInputs): CardTimeline {
   const head = state?.heads.acceptedHead ?? null;
   const touching = changesets.filter(item => item.changes.some(change => change.nodeId === nodeId))
@@ -71,10 +85,7 @@ export function cardTimeline({ nodeId, state, changesets, executions, elapsedSec
       status: link ? link.status === "ready" ? "PR nenavázáno" : "vazba PR nenapojena" : prStage?.health === "not_connected" ? "nenapojeno" : "bez PR",
       lines: [link ? `${link.method} …/pull-request` : "Vazba běh → PR se zobrazí po napojení."],
       attrs: { "data-oh-pr-link": link ? `${link.status}${link.blockReason ? `:${link.blockReason}` : ""}` : prStage?.health ?? "" } },
-    { key: "writeback", kind: "writeback", title: "Merge → plán", id: "", actor: null, when: "",
-      tone: writeStage && writeStage.health !== "ok" ? healthTone[writeStage.health] : "gap",
-      status: writeStage?.health === "not_connected" ? "nenapojeno" : writeStage ? reasonText[writeStage.reason] ?? writeStage.reason : "neznámé",
-      lines: ["Po merge se nová revize plánu nevytváří automaticky; kartu uzavírá člověk."], attrs: { "data-oh-writeback": writeStage?.health ?? "not_connected" } },
+    writebackStep(state?.actions.find(item => item.verb === "close_card" && item.targetId === nodeId) ?? null, writeStage),
   ];
   return { steps, forks: changes.filter(item => item.tone === "bad"), latest, claim };
 }

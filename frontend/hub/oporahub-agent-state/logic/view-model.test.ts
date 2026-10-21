@@ -54,6 +54,14 @@ describe("agent-state → horní pás", () => {
     expect(actionTarget({ path: "/api/oporahub/changesets/x/rebase", targetId: "x" }, "t")).toEqual({ kind: "changes", id: "x", title: "t" });
     expect(actionTarget({ path: "/api/oporahub/executions/claim", targetId: "task_a" }, "t").kind).toBe("card");
   });
+  it("routes a close_card decision to the card detail, labelled as a human closure", () => {
+    const close = { id: "act_c", verb: "close_card", method: "POST", path: "/api/desktop-v3/state", targetId: "task_a",
+      preconditions: { executionId: "e".repeat(32), mergeSha: "m".repeat(40) }, status: "blocked" as const, blockReason: "human_only" };
+    const state = agentStateFixture({ actions: [...agentStateFixture().actions, close],
+      decisions: [{ id: "dec_c", kind: "close_card", targetId: "task_a", title: "Uzavřít kartu po merge PR: A", actionId: "act_c" }] });
+    expect(stripModel(state).decisions[0]).toMatchObject({ kindLabel: "uzavření", button: "Uzavřít kartu", target: { kind: "card", id: "task_a" } });
+    expect(actionRows(state).at(-1)).toMatchObject({ verbLabel: "Uzavřít kartu", human: true });
+  });
   it("counts an empty risk mix as zero percent", () => {
     expect(stripModel(agentStateFixture({ riskMix: { low: 0, elevated: 0, critical: 0 } })).risk.pct).toEqual({ low: 0, elevated: 0, critical: 0 });
   });
