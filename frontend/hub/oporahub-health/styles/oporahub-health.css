@@ -1,0 +1,51 @@
+/* ZDRAVÍ ETAPY (blok `oporahub-health`)
+   Příběh: uživatel jedním pohledem pozná, jestli krok jde, čeká, blokuje, nebo ještě vůbec není napojený.
+   Barva nikdy nenese význam sama: každý stav má vlastní značku (✓ ◷ ✕ ◌) a slovo, a „nenapojeno“ je
+   šedé s přerušovaným okrajem, protože jde o mezeru v systému, ne o chybu práce. */
+.oporahub-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.oporahub-health__glyph { font-size: 11px; line-height: 1; }
+.oporahub-health--ok { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.oporahub-health--waiting { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+.oporahub-health--blocking { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.oporahub-health--not_connected { color: var(--ink-muted); background: transparent; border-color: var(--line-strong); border-style: dashed; font-weight: 500; }
+
+/* Kdo krok dělá. Člověk je zlatý a zaoblený jako osoba, agent tyrkysový a hranatý jako stroj. */
+.oporahub-health__actor {
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.oporahub-health__actor--human { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); border-radius: 999px; }
+.oporahub-health__actor--agent { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); border-radius: 2px; }
+.oporahub-health__actor--both { color: var(--ink-2); background: var(--surface-3); border-color: var(--line-strong); border-radius: 4px; }
+.oporahub-health__actor--system { display: none; }
+
+/* Tónové čipy rizika a stavů: stejný jazyk jako zdraví, aby se „kritické“ četlo jako „blokuje“. */
+.oporahub-health__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.oporahub-health__chip--ok { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.oporahub-health__chip--warn { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+.oporahub-health__chip--bad { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.oporahub-health__chip--gap { color: var(--ink-muted); border-color: var(--line-strong); border-style: dashed; font-weight: 500; }
+.oporahub-health__chip--acc { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }

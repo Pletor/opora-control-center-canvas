@@ -3,7 +3,7 @@
 Rozhodnutí 2026-10-20: **Canvas s OporaHubem drží platný plán, GitHub drží kód.**
 Agent-office vykonává práci přes API; OporaHub funguje i bez spuštěné 3D kanceláře.
 
-Výchozí prostředí je [jednostránkový přehled](oporahub-overview.md), navržený
+Výchozí prostředí je [přehled nad agent-state](oporahub-ui.md) (dříve [jednostránkový přehled](oporahub-overview.md)), navržený
 podle [klikacího artefaktu Claude Code](design/README.md). Člověk vidí konkrétní
 rozhodnutí, práci a další kroky; detail otevře přesnou položku, uchová explicitní
 potvrzení a původní API. Ukázková data artefaktu nejsou stavem aplikace.

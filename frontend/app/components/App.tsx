@@ -295,15 +295,18 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [view, setView] = useState<View | null>(null);
+  // OporaHub přehled čte jen agent-state; periodická čtení starších dílků běží, jen když je otevřený detail.
+  const [hubDetailOpen, setHubDetailOpen] = useState(false);
+  const hubDetail = environment === "hub" && hubDetailOpen;
   const proposals = useOporaProposals(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly);
   const gitEvidence = useGitEvidence(project, workspace, environment === "hub", planAppliedRevision);
   const reviewPolicy = useReviewPolicy(project, workspace, environment === "hub", planAppliedRevision, gitEvidence);
-  const reconciliation = useGithubReconciliation(project, workspace, environment === "hub", planAppliedRevision, gitEvidence);
+  const reconciliation = useGithubReconciliation(project, workspace, hubDetail, planAppliedRevision, gitEvidence);
   const executionReceipts = useExecutionReceipts(project, workspace, view?.graph.nodes ?? [], environment === "hub", planAppliedRevision);
   const executionObservations = useExecutionObservations(project, workspace, planAppliedRevision, environment === "hub");
   const executionBudgets = useExecutionBudgets(project, workspace, view?.graph.nodes ?? [], environment === "hub", planAppliedRevision);
-  const formalVerification = useFormalVerification(project, workspace, environment === "hub", planAppliedRevision);
-  const contentChanges = useContentChanges(project, workspace, environment === "hub", !!view?.readOnly, planAppliedRevision,
+  const formalVerification = useFormalVerification(project, workspace, hubDetail, planAppliedRevision);
+  const contentChanges = useContentChanges(project, workspace, hubDetail, !!view?.readOnly, planAppliedRevision,
     () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
       setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); planChanges.refresh(); reloadCanvas();
     }));
@@ -316,7 +319,7 @@ export default function App() {
       setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); proposals.refresh(); planChanges.refresh(); reloadCanvas();
     }));
   const sourceStatuses = useSourceStatus(project, workspace, view?.digest ?? "");
-  const proposalReview = useProposalReviewModels({ project, workspace }, environment === "hub", planAppliedRevision,
+  const proposalReview = useProposalReviewModels({ project, workspace }, hubDetail, planAppliedRevision,
     { spec: planChanges.inspected, graph: graphProposals.inspected, content: contentChanges.detail?.proposal });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -1112,7 +1115,7 @@ export default function App() {
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
+      environment === "hub" ? <OporaHubWorkspace onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">

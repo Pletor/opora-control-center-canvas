@@ -1,7 +1,7 @@
-﻿import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-export default function OverviewDrawer({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export default function OverviewDrawer({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const panel = useRef<HTMLDivElement>(null);
   const latestClose = useRef(onClose);
   latestClose.current = onClose;
@@ -47,8 +47,8 @@ export default function OverviewDrawer({ title, onClose, children }: { title: st
     };
   }, []);
   return createPortal(<div className="oporahub-overview__overlay" ref={panel} onMouseDown={event => { if (event.target === event.currentTarget) latestClose.current(); }}>
-    <section className="oporahub-overview__drawer" role="dialog" aria-modal="true" aria-labelledby="hub-detail-title" tabIndex={-1}>
-      <header className="oporahub-overview__drawer-head"><h2 id="hub-detail-title">{title}</h2><button type="button" aria-label="Zavřít detail" onClick={onClose}>✕</button></header>
+    <section className={wide ? "oporahub-overview__drawer oporahub-overview__drawer--wide" : "oporahub-overview__drawer"} role="dialog" aria-modal="true" aria-labelledby="hub-detail-title" tabIndex={-1}>
+      <header className="oporahub-overview__drawer-head"><h2 id="hub-detail-title" className="oporahub-overview__drawer-title">{title}</h2><button type="button" className="oporahub-overview__close" aria-label="Zavřít detail" onClick={onClose}>✕</button></header>
       <div className="oporahub-overview__drawer-body">{children}</div>
     </section>
   </div>, document.body);

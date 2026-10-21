@@ -1,9 +1,5 @@
-# Přehled OporaHubu
+# Rám OporaHubu
 
-Jedna výchozí stránka skládá přijatý plán, rozhodnutí, práci agentů, další kroky a doloženou aktivitu. Vychází z Claude Code návrhu v `docs/design/oporahub-overview.html`; ukázkové názvy, počty ani revize nepřebírá.
+`OporaHubOverview` je rám prostředí: hlavička se záložkami (Přehled · Karta · Pro agenty), jeden dokument agent-state, jeho zrcadlo `<script type="application/json" id="oh-agent-state">` a pata `LegacyLinks`, která otevírá všechny původní drawery a formuláře. Návrh: Claude Design „OporaHub — přehled“ (`01-prehled`, `02-karta`, `03-agenti`).
 
-Rodič vlastní všechny existující hooky a mutace. Přehled pouze promítá dodaná data a otevírá konkrétní návrh, execution nebo důkaz v cíleném detailu. Drawer má ✕, Escape, focus trap, inertní pozadí a návrat focusu. Změna scope detail zavře. Zavření ruší rozepsaná potvrzení limitů a cancellation.
-
-Počty popisují načtené historie s limitem 100; nikdy globální počet úloh. Nahrazené grafové návrhy se nepočítají znovu. Jiný rodič je zastaralý. Nedostupné podklady a rozporné přijaté hlavy zůstávají viditelné. Aktivní stav běhu se lokálně zneplatní po uplynutí načteného oprávnění; reported, review, pozorovaný merge a nasazení jsou oddělené pojmy.
-
-Čisté projekce a jejich hranice ověřuje `logic/overview.test.ts`. Pravidla rozhraní jsou v `docs/oporahub-overview.md`.
+`OverviewDrawer` má ✕ vpravo nahoře, Escape, focus trap, inertní pozadí a návrat focusu; varianta `wide` slouží detailu karty. `ExactDetail` a `FocusedDetail` drží přesný vybraný záznam ve starších detailech. `logic/overview.ts` zůstává pro starší detaily (přijatá hlava pro formální podklady). Pravidla rozhraní: `docs/oporahub-ui.md`.

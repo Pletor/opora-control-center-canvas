@@ -4,7 +4,7 @@ import type { ExecutionSummary } from "@/hub/execution-receipts/logic/execution-
 import type { Graph } from "@/shared/types/logic/types";
 import type { ContentSummary } from "@/hub/content-changes/logic/content-changes";
 
-export type DetailKind = "graph" | "changes" | "content" | "acceptance-policy" | "executions" | "evidence" | "policy" | "tracking" | "budgets" | "formal" | "history" | "api";
+export type DetailKind = "graph" | "changes" | "content" | "acceptance-policy" | "acceptance" | "executions" | "evidence" | "policy" | "tracking" | "budgets" | "formal" | "history" | "api" | "process" | "card";
 export type DetailTarget = { kind: DetailKind; title: string; id?: string };
 export type Decision = DetailTarget & { author: string; stale: boolean | null; impact: string; createdAt: string };
 function graphSnapshot(graph: Graph) {

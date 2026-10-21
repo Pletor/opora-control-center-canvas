@@ -1,0 +1,67 @@
+/* POHLED PRO AGENTY (blok `oporahub-agents`)
+   Příběh: tahle stránka je pro stroj i pro člověka, který chce vidět, co stroj vidí. Nahoře pět
+   pravidel protokolu v jedné lince, pod nimi přesné hlavy pro CAS, pak fronta akcí s cestou a
+   preconditions a nakonec surový JSON vedle tabulky, která říká, kde v DOM leží totéž. Vše strojové je
+   neproporcionálním písmem, aby šlo kopírovat znak po znaku. */
+.oporahub-agents { display: grid; gap: 14px; min-width: 0; }
+.oporahub-agents__note { font-size: 11px; color: var(--ink-muted); }
+
+/* Protokol: krok za krokem v jedné lince; první buňka je štítek v barvě agenta. */
+.oporahub-agents__protocol { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: 11px var(--mono); }
+.oporahub-agents__protocol-step { flex: 1 1 160px; padding: 8px 12px; border-left: 1px solid var(--line); }
+.oporahub-agents__protocol-step--lead { flex: none; border-left: 0; color: var(--accent); font-weight: 700; }
+
+/* Fakta pro CAS: pět buněk vedle sebe; dlouhé hashe se zkrátí výpustkou, plná hodnota je v title a data-oh-value. */
+.oporahub-agents__facts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.oporahub-agents__fact { display: grid; gap: 3px; min-width: 0; padding: 9px 12px; border-left: 1px solid var(--line); }
+.oporahub-agents__fact:first-child { border-left: 0; }
+.oporahub-agents__fact-name { font: 10px var(--mono); color: var(--ink-muted); }
+.oporahub-agents__fact-value { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px var(--mono); }
+
+/* Panely mají stejnou hlavičku jako přehled, aby oba pohledy působily jako jedna aplikace. */
+.oporahub-agents__panel { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.oporahub-agents__panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.oporahub-agents__title { margin: 0; font-size: 13px; font-weight: 600; }
+.oporahub-agents__title--mono { font: 600 12px var(--mono); overflow-wrap: anywhere; }
+
+/* Fronta: šest sloupců; zablokované řádky jsou ztlumené, aby oko padlo na to, co jde provést. */
+.oporahub-agents__queue { font: 11px var(--mono); }
+.oporahub-agents__queue-row { display: grid; grid-template-columns: 150px 130px minmax(0, 1.3fr) minmax(0, 1.7fr) 110px 170px; border-top: 1px solid var(--line); }
+.oporahub-agents__queue-row > span { min-width: 0; padding: 7px 9px; overflow-wrap: anywhere; line-height: 1.35; }
+.oporahub-agents__queue-row--head { border-top: 0; background: var(--surface-2); color: var(--ink-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.oporahub-agents__queue-row--blocked { background: var(--surface-2); color: var(--ink-muted); }
+.oporahub-agents__id { font-weight: 600; }
+.oporahub-agents__verb { font-weight: 700; text-transform: uppercase; }
+.oporahub-agents__target { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; overflow-wrap: anywhere; text-align: left; }
+.oporahub-agents__method { display: inline-block; margin-right: 4px; padding: 0 4px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); font-size: 10px; font-weight: 700; }
+.oporahub-agents__pre { color: var(--ink-2); }
+.oporahub-agents__empty { margin: 0; padding: 12px 14px; }
+
+/* Stav akce: ready zeleně plně, „jen člověk“ zlatě (barva člověka), chybějící funkce červeně přerušovaně. */
+.oporahub-agents__status { display: inline-flex; padding: 1px 6px; border: 1px solid; border-radius: 3px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.oporahub-agents__status--ready { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.oporahub-agents__status--human { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); border-style: dashed; }
+.oporahub-agents__status--blocked { color: var(--ink-muted); border-color: var(--line-strong); border-style: dashed; }
+.oporahub-agents__status--missing { color: var(--danger); border-color: var(--danger-line); border-style: dashed; }
+
+/* JSON a kontrakt vedle sebe: vlevo co agent dostane, vpravo kde to najde v DOM. */
+.oporahub-agents__pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 10px; align-items: start; }
+.oporahub-agents__copy { padding: 3px 9px; border: 1px solid var(--accent); border-radius: 4px; background: var(--accent); color: var(--accent-ink); font: 600 11px var(--mono); cursor: pointer; }
+.oporahub-agents__code { max-height: 560px; overflow: auto; margin: 0; padding: 12px 14px; border-radius: 0 0 8px 8px; background: var(--code-bg); color: var(--ink); font: 11px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.oporahub-agents__map { font-size: 11px; }
+.oporahub-agents__map-row { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 1fr); border-top: 1px solid var(--line); }
+.oporahub-agents__map-row > span { min-width: 0; padding: 6px 10px; overflow-wrap: anywhere; }
+.oporahub-agents__map-row--head { border-top: 0; background: var(--surface-2); color: var(--ink-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.oporahub-agents__snippet { margin: 0; padding: 10px 14px; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; background: var(--code-bg); color: var(--ink-2); font: 11px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Úzký displej: fakta pod sebou, řádek fronty jako karta (hlavička sloupců zmizí), JSON pod kontraktem. */
+@media (max-width: 1100px) { .oporahub-agents__pair { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) {
+  .oporahub-agents__facts { grid-template-columns: minmax(0, 1fr); }
+  .oporahub-agents__fact { border-left: 0; border-top: 1px solid var(--line); }
+  .oporahub-agents__queue-row { grid-template-columns: minmax(0, 1fr); padding: 4px 0; }
+  .oporahub-agents__queue-row > span { padding: 2px 10px; }
+  .oporahub-agents__queue-row--head { display: none; }
+  .oporahub-agents__map-row { grid-template-columns: minmax(0, 1fr); padding: 4px 0; }
+  .oporahub-agents__map-row--head { display: none; }
+}

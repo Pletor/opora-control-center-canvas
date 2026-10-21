@@ -1,56 +1,48 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { OverviewModels } from "../logic/models";
+import { agentStateFixture } from "@/hub/oporahub-agent-state/logic/fixtures";
 import OporaHubOverview from "./OporaHubOverview";
-import { contentList } from "@/hub/content-changes/logic/content-fixtures";
+import { LEGACY_LINKS } from "./LegacyLinks";
 
-describe("overview evidence entry point", () => {
-  it("renders the content entry point and real pending content in decisions and activity", () => {
-    const refresh = vi.fn(), empty = { context: null, items: [], busy: false, error: "", refresh };
-    const models = { graphProposals: empty, changes: empty, evidence: empty,
-      executions: { ...empty, executions: [], choices: [], nodeId: "" }, reconciliation: empty, reviewPolicy: empty,
-      formalVerification: { refresh }, onRefresh: refresh,
-      contentChanges: { ...empty, list: contentList(), items: contentList().items } } as unknown as OverviewModels;
-    const html = renderToStaticMarkup(createElement(OporaHubOverview, { models, open: vi.fn() }));
-    expect(html).toContain("Otevřít změny obsahu");
-    expect(html).toContain("Pravidla přijetí plánů");
-    expect(html).toContain("Pravidla nedoložena");
-    expect(html).toContain("Změna obsahu · 1 položek textu, kresby nebo konfigurace.");
-    expect(html).toContain("Návrh obsahu");
-    expect(html).not.toContain("<script>");
+const render = (tab: "overview" | "agents", state = agentStateFixture()) => renderToStaticMarkup(createElement(OporaHubOverview, {
+  agent: { state, etag: '"v1"', error: "", loadedAt: 1 }, tab, onTab: vi.fn(), onOpenCard: vi.fn(), open: vi.fn(), onRefresh: vi.fn() }));
+
+describe("OporaHub overview reads one agent-state document", () => {
+  it("renders the ten-stage loop with data-oh contract attributes", () => {
+    const html = render("overview");
+    expect(html.match(/data-oh-stage="/g)).toHaveLength(10);
+    expect(html).toContain('data-oh-stage="work" data-oh-health="blocking" data-oh-reason="lease_past_deadline"');
+    expect(html).toContain('data-oh-view="overview"');
+    expect(html).toContain(`data-oh-accepted-head="${"a".repeat(40)}"`);
+    expect(html).toContain('data-oh-etag="&quot;v1&quot;"');
+    expect(html).toContain('data-oh-decision="dec_1" data-oh-action-id="act_1"');
+    expect(html).toContain('data-oh-gap="pull_request_link"');
   });
-  it("renders the formal evidence button in the actual overview", () => {
-    const refresh = vi.fn();
-    const empty = { context: null, items: [], busy: false, error: "", refresh };
-    const models = {
-      graphProposals: empty, changes: empty, evidence: empty,
-      executions: { ...empty, executions: [], choices: [], nodeId: "" },
-      reconciliation: empty, reviewPolicy: empty,
-      formalVerification: { refresh }, onRefresh: refresh,
-    } as unknown as OverviewModels;
-
-    const html = renderToStaticMarkup(createElement(OporaHubOverview, { models, open: vi.fn() }));
-
-    expect(html).toMatch(/<button[^>]*>Formální podklady<\/button>/);
+  it("mirrors the exact document in a JSON script for agents", () => {
+    const html = render("overview");
+    const json = html.match(/<script type="application\/json" id="oh-agent-state">(.*?)<\/script>/)?.[1] ?? "";
+    expect(JSON.parse(json)).toEqual(agentStateFixture());
   });
-});
-
-it("shows scoped provider observations in the overview without treating idle as termination", () => {
-  const refresh = vi.fn(), empty = { context: null, items: [], busy: false, error: "", refresh };
-  const executionId = "c".repeat(32);
-  const models = { graphProposals: empty, changes: empty, evidence: empty,
-    executions: { ...empty, executions: [], choices: [], nodeId: "" }, reconciliation: empty, reviewPolicy: empty,
-    formalVerification: { refresh }, onRefresh: refresh,
-    executionObservations: { items: [{ intent: { id: "a".repeat(40), executionId, nodeId: "task_1", epoch: 2, createdAt: "2026-10-21T10:00:00Z" },
-      observation: { status: "running", providerStatus: "idle", sessionId: "session:1", cumulative: { listCostCents: "187" }, observedAt: "2026-10-21T10:01:00Z", source: "provider-api" }, listBudgetExceeded: false }],
-      readOnly: false, observerConfigured: true, providerAccessVerified: false, usageBasis: "observer-attested-provider-list-cost-not-invoice", busy: false, error: "", project: "project", workspace: "workspace", loadedAt: Date.now(), refresh },
-  } as unknown as OverviewModels;
-  const html = renderToStaticMarkup(createElement(OporaHubOverview, { models, open: vi.fn() }));
-  expect(html).toContain("Pozorování běhů");
-  expect(html).toContain(executionId.slice(0, 8));
-  expect(html).toContain("Překročený rozpočet: 0 · nedoložená spotřeba: 0");
-  expect(html).toContain("1,87 USD podle ceníku");
-  expect(html).toContain("Poskytovatel hlásí nečinný stav; běh není potvrzen jako ukončený");
-  expect(html).toContain("API poskytovatele doložené brokerem");
+  it("renders the agent view with action rows carrying id and status", () => {
+    const html = render("agents");
+    expect(html).toContain('data-oh-view="agent"');
+    expect(html).toContain('data-oh-action-id="act_4" data-oh-action-status="ready" data-oh-verb="claim"');
+    expect(html).toContain('data-oh-block-reason="human_only"');
+    expect(html).toContain("kopírovat JSON");
+    expect(html).toContain('data-oh-field="contextVersion"');
+  });
+  it("keeps every legacy drawer reachable from the footer", () => {
+    const html = render("overview");
+    for (const link of LEGACY_LINKS) expect(html).toContain(`data-oh-detail="${link.kind}"`);
+    expect(html).toContain("Formální podklady");
+    expect(html).toContain("Změny obsahu");
+  });
+  it("says it is loading instead of inventing a state", () => {
+    const html = renderToStaticMarkup(createElement(OporaHubOverview, { agent: { state: null, etag: "", error: "", loadedAt: 0 },
+      tab: "overview", onTab: vi.fn(), onOpenCard: vi.fn(), open: vi.fn(), onRefresh: vi.fn() }));
+    expect(html).toContain("Načítám stav OporaHubu");
+    expect(html).not.toContain("data-oh-stage");
+    expect(html).toContain('id="oh-agent-state">null</script>');
+  });
 });
