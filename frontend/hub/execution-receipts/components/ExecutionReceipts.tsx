@@ -5,33 +5,37 @@ import "../styles/execution-receipts.css";
 export default function ExecutionReceipts({ model }: { model: ExecutionReceiptsView }) {
   const selected = model.selected;
   const stale = !!selected && !!model.context?.acceptedHead && selected.acceptedRevision !== model.context.acceptedHead;
+  const cardName = (id: string) => model.choices.find(node => node.id === id)?.name ?? "Odstraněná nebo nedostupná karta";
   return <section className="execution-receipts" aria-label="Běhy agentů a nahlášené výsledky" aria-busy={model.busy}>
     <header className="execution-receipts__head"><div><h2>Běhy agentů a nahlášené výsledky</h2>
       <p>Nahlášený výsledek není nezávislé ověření ani dokončení karty.</p></div>
-      <button type="button" onClick={model.refresh} disabled={model.busy || !model.nodeId}>Obnovit běhy a výsledky</button>
+      <button type="button" onClick={model.refresh} disabled={model.busy}>Obnovit běhy a výsledky</button>
     </header>
-    {!model.choices.length ? <p>Vytvořte kartu nebo sektor v Canvasu. Zde se zobrazí jejich běhy.</p> : <>
+    <>
       <label className="execution-receipts__field">Karta pro historii běhů
-        <select value={model.nodeId} onChange={event => model.selectCard(event.target.value)}>
+        <select aria-label="Karta pro historii běhů" value={model.nodeId} onChange={event => model.selectCard(event.target.value)}>
+          <option value="">Všechny karty včetně odstraněných</option>
           {model.choices.map(node => <option key={node.id} value={node.id}>{node.name}</option>)}
         </select>
       </label>
-      <p>Projekt <code>{model.project}</code> · prostor <code>{model.workspace}</code>. Nejvýše 100 posledních běhů vybrané karty.</p>
+      <p>Projekt <code>{model.project}</code> · prostor <code>{model.workspace}</code>. Nejvýše 100 posledních běhů {model.nodeId ? "vybrané karty" : "všech karet v tomto prostoru"}.</p>
+      {!model.nodeId && <p>Historické výsledky patří původní přijaté revizi každého běhu. Nepotvrzují aktuální zadání ani jeho nezávislé ověření.</p>}
       {model.context && !model.context.available && <p className="execution-receipts__warning">Nové vykonávání není dostupné: {model.context.unavailableReason}. Historie zůstává podkladem k původnímu zadání.</p>}
       {model.busy && <p role="status">Načítám běhy…</p>}
       {model.error && <p className="execution-receipts__warning" role="alert">{model.error} Obnovte historii pro další pokus.</p>}
-      {!model.busy && !model.error && !model.executions.length && <p>Zatím žádné běhy této karty.</p>}
+      {!model.busy && !model.error && !model.executions.length && <p>Zatím žádné běhy v tomto výběru.</p>}
       <ul className="execution-receipts__list">{model.executions.map(item => <li key={item.executionId}>
         <button type="button" onClick={() => model.selectExecution(item.executionId)} aria-pressed={selected?.executionId === item.executionId}>
           Epocha {item.epoch} · {executionLabel(item)}
-        </button><span>{item.createdAt ? new Date(item.createdAt).toLocaleString("cs-CZ") : "Čas založení není dostupný"}</span>
+        </button><span>{cardName(item.nodeId)} · <code>{item.nodeId}</code></span><span>{item.createdAt ? new Date(item.createdAt).toLocaleString("cs-CZ") : "Čas založení není dostupný"}</span>
       </li>)}</ul>
-    </>}
+    </>
     {selected && <section className="execution-receipts__details" aria-label="Podrobnosti běhu">
       <h3>{executionLabel(selected)} · epocha {selected.epoch}</h3>
       {stale && <p className="execution-receipts__warning">Běh patří starší přijaté revizi. Výsledek nepotvrzuje aktuální zadání.</p>}
       <dl className="execution-receipts__identity">
         <dt>Běh</dt><dd><code>{selected.executionId}</code></dd>
+        <dt>Karta</dt><dd>{cardName(selected.nodeId)} · <code>{selected.nodeId}</code></dd>
         <dt>Přijatá revize</dt><dd><code>{selected.acceptedRevision}</code></dd>
         <dt>Otisk zadání</dt><dd><code>{selected.assignmentDigest}</code></dd>
         <dt>Platnost rezervace do</dt><dd>{unixTime(selected.expiresAt)}</dd>

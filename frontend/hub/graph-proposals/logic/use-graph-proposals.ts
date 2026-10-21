@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { api, type CanvasNode } from "@/shared/types/logic/types";
 import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import { postGraphProposal } from "./graph-api";
+import { graphEditPayload } from "./graph-edits";
+import { useGraphEdits } from "./use-graph-edits";
 import { adoptionKey, GraphRequests, graphActionPayload, graphPayload, graphReadState, newDraftNode,
   type DraftEdge, type DraftNode, type GraphContext, type GraphProposal, type GraphSummary } from "./graph-proposals";
 
@@ -24,6 +26,7 @@ export function useGraphProposals(project: string, workspace: string, existing: 
   const [draft, setDraft] = useState({ scope, subject: "", nodes: [newDraftNode("new1")], edges: [] as DraftEdge[] });
   const form = draft.scope === scope ? draft : { scope, subject: "", nodes: [newDraftNode("new1")], edges: [] as DraftEdge[] };
   const shown = state.key === key ? state : empty(key);
+  const edits = useGraphEdits(JSON.stringify([key, attempt, shown.context?.graphDigest, shown.context?.acceptedHead]), shown.context);
   const selectedId = selection.key === key ? selection.id : "";
   const detailKey = JSON.stringify([key, selectedId, attempt]);
   const detailActive = useRef(detailKey);
@@ -76,7 +79,7 @@ export function useGraphProposals(project: string, workspace: string, existing: 
         ? "Rozšíření plánu přijato. Canvas se obnovuje; nejde o ověření implementace."
         : "Neměnný návrh uložen. Před dalším krokem obnovte kontext a prohlédněte jeho obsah." });
       setDetail({ key: detailKey, item: null, busy: false, error: "" });
-      if (action === "create") setDraft({ scope, subject: "", nodes: [newDraftNode("new1")], edges: [] });
+      if (action === "create") { setDraft({ scope, subject: "", nodes: [newDraftNode("new1")], edges: [] }); edits.reset(); }
       setSelection({ key, id: action === "accept" ? selectedId : result.id });
       setAttempt(value => value + 1);
     } catch (error) {
@@ -92,7 +95,18 @@ export function useGraphProposals(project: string, workspace: string, existing: 
         graphActionPayload(project, workspace, shown.context, inspected, kind, acknowledgement), kind);
     } catch (error) { setState({ ...shown, error: message(error) }); }
   }
-  return { ...shown, busy: shown.busy || writePending, form, existing, inspected, disabled,
+  function createChanges(adoptionOnly = false) {
+    if (disabled || !shown.context) return;
+    try {
+      const payload = adoptionOnly
+        ? { project, workspace, subject: form.subject.trim() || "Převzetí stávajícího grafu", parentRevision: shown.context.acceptedHead,
+          expectedGraphDigest: shown.context.graphDigest, plan: { nodes: [], edges: [] } }
+        : graphEditPayload(project, workspace, form.subject, shown.context, edits.draft);
+      void write(ROOT, payload, "create");
+    } catch (error) { setState({ ...shown, error: message(error) }); }
+  }
+  return { ...shown, busy: shown.busy || writePending, form, existing, inspected, disabled, edits,
+    createChanges: () => createChanges(), adoptExisting: () => createChanges(true),
     detailBusy: detail.key !== detailKey ? !!selectedId : detail.busy,
     detailError: detail.key === detailKey ? detail.error : "",
     acknowledged: !!inspected && acknowledgement === adoptionKey(inspected),

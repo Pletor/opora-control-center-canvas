@@ -10,7 +10,7 @@ export function useExecutionReceipts(project: string, workspace: string, nodes: 
   const choices = nodes.filter(node => node.kind === "node" || node.kind === "sector");
   const scope = JSON.stringify([project, workspace]);
   const [card, setCard] = useState({ scope, id: "" });
-  const nodeId = card.scope === scope && choices.some(node => node.id === card.id) ? card.id : choices[0]?.id ?? "";
+  const nodeId = card.scope === scope && choices.some(node => node.id === card.id) ? card.id : "";
   const [attempt, setAttempt] = useState(0);
   const key = JSON.stringify([scope, nodeId, enabled, refreshRevision, attempt]);
   const active = useRef(key);
@@ -30,7 +30,7 @@ export function useExecutionReceipts(project: string, workspace: string, nodes: 
 
   useEffect(() => {
     const valid = requests.current.next();
-    if (!enabled || !nodeId) { setState(empty(key)); return; }
+    if (!enabled) { setState(empty(key)); return; }
     setState({ ...empty(key), busy: true });
     readExecutionHistory(api, project, workspace, nodeId).then(data => {
       if (valid()) setState({ ...empty(key), ...data });

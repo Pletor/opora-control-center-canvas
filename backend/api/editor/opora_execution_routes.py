@@ -22,7 +22,7 @@ def create_opora_execution_router(service):
         return executions.context(project, workspace, nodeId)
 
     @router.get("")
-    def history(project: str, workspace: str, nodeId: str, request: Request):
+    def history(project: str, workspace: str, request: Request, nodeId: str | None = None):
         return call(request, lambda: executions.history(project, workspace, nodeId))
 
     @router.get("/{identifier}/results")

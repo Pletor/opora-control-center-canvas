@@ -116,8 +116,9 @@ UI zatím vytváří návrh pro jednu kartu.
 
 Nové karty, sektory, oblasti a vazby přidává samostatný [návrh grafu](oporahub-graph-proposals.md),
 který umí založit i první plán na prázdném plátně. Přijaté změny zadání zachovávají
-odkaz na přijatý manifest grafu. Úpravy a odstraňování existujících uzlů přes návrhy
-a další druhy obsahu zůstávají další etapou. Konzervativní kontrola může vyžadovat
+odkaz na přijatý manifest grafu. [Změny přijatého grafu](oporahub-graph-changes.md)
+umožňují upravit nebo výslovně odstranit existující prvky a převzít změněný kontext
+sdílené architektury. Další druhy obsahu zůstávají další etapou. Konzervativní kontrola může vyžadovat
 nový návrh i při nezávislé změně struktury. Starší snímky uložených zadání
 z první etapy mají vlastní panel a historii, nejsou automaticky přijatými changesety.
 
@@ -159,7 +160,7 @@ běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
 
 | Etapa | Výsledek | Podmínka dokončení |
 |---|---|---|
-| 2b. Celý graf návrhů | Přidávání karet a vazeb je implementováno; zbývají úpravy, odstranění, texty a sparse kontext | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
+| 2b. Celý graf návrhů | Přidávání, úpravy a odstranění karet a vazeb jsou implementovány; zbývají další druhy obsahu a sparse kontext | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
 | 3b. Review před přijetím | Připomínky k rozdílu a politika přijetí návrhu podle rizika | Pozorované GitHub review se nepovažuje za automatické oprávnění přijímat jiný návrh |
 | 4. Důkazy a GitHub | Politika povinných kontrol, opakované doručení a obnova synchronizace | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
 | 5b. Rozpočty vykonavatelů | Rozšíření execution API o celkový čas, náklady a limit opravných kol | Vyčerpaný rozpočet ukončí běh bez nekonečného prodlužování heartbeatů |

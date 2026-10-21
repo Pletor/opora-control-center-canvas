@@ -72,7 +72,7 @@ zvoleného projektu v kanceláři nepřesměruje existující běh.
 | `POST /{id}/heartbeat` | Scope, token, epocha a nové TTL |
 | `POST /{id}/release` | Scope, token a epocha; uvolnění vlastního běhu |
 | `POST /{id}/results` | Scope, token, epocha, `requestId` a `result` |
-| `GET /?project&workspace&nodeId` | Nejvýše 100 souhrnů běhů bez tokenů |
+| `GET /?project&workspace` (volitelně `nodeId`) | Nejvýše 100 souhrnů běhů bez tokenů; bez filtru také běhy odstraněných karet |
 | `GET /{id}/results?project&workspace` | Odevzdané výsledky konkrétního běhu |
 
 TTL je celé číslo 30–3600 sekund. Chybějící identita vrací 428; konflikt

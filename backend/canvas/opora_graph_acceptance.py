@@ -16,6 +16,12 @@ class OporaGraphAcceptance:
         self.proposals = OporaGraphProposals(service)
 
     def accept(self, proposal_id, payload, by):
+        from backend.canvas.opora_graph_change_acceptance import OporaGraphChangeAcceptance
+        project, workspace = scope(payload)
+        with self.service.lock_for(project):
+            kind = self.proposals.repository(project, workspace).read(proposal_id)["kind"]
+        if kind == "graph-changes":
+            return OporaGraphChangeAcceptance(self.service).accept(proposal_id, payload, by)
         if set(payload) != {"project", "workspace", "expectedAcceptedHead", "expectedGraphDigest", "adoptBaseGraphDigest"}:
             raise ValueError("Invalid graph acceptance fields.")
         project, workspace = scope(payload)

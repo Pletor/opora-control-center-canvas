@@ -24,15 +24,17 @@ export function executionQuery(project: string, workspace: string, nodeId?: stri
   return new URLSearchParams({ project, workspace, ...(nodeId ? { nodeId } : {}) }).toString();
 }
 
-export async function readExecutionHistory(read: ReadApi, project: string, workspace: string, nodeId: string) {
+export async function readExecutionHistory(read: ReadApi, project: string, workspace: string, nodeId = "") {
   // These GET endpoints require identified UI even before the first write in a fresh browser.
   await read("/api/access/ui-session");
   const query = executionQuery(project, workspace, nodeId);
-  const [context, history] = await Promise.all([
-    read<ExecutionContext>(`/api/oporahub/executions/context?${query}`),
+  const [context, history] = await Promise.allSettled([
+    nodeId ? read<ExecutionContext>(`/api/oporahub/executions/context?${query}`) : Promise.resolve(null),
     read<ExecutionHistory>(`/api/oporahub/executions?${query}`),
   ]);
-  return { context, executions: history.executions };
+  if (history.status === "rejected") throw history.reason;
+  return { context: context.status === "fulfilled" ? context.value : null, executions: history.value.executions,
+    error: context.status === "rejected" ? `Kontext karty není dostupný; historie zůstává přístupná. ${context.reason instanceof Error ? context.reason.message : String(context.reason)}` : "" };
 }
 
 export async function readExecutionReceipts(read: ReadApi, project: string, workspace: string, id: string) {

@@ -2,6 +2,7 @@ import type { Graph, SpecFields } from "@/shared/types/logic/types";
 import { fieldKeys, fieldLabels } from "@/hub/plan-changes/logic/plan-changes";
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
 import { graphProposalStale } from "../logic/graph-proposals";
+import GraphChangeReview from "./GraphChangeReview";
 
 function GraphContents({ graph }: { graph: Graph }) {
   return <><ul className="graph-proposals__nodes">{graph.nodes.map(node => <li key={node.id}>
@@ -27,6 +28,8 @@ export default function GraphProposalDetails({ model }: { model: GraphProposalsV
   const proposal = model.inspected;
   if (!proposal) return null;
   const stale = !model.context || graphProposalStale(model.context, proposal);
+  const changes = proposal.schemaVersion === 2;
+  const incomplete = changes && (!proposal.changes || !proposal.stateEffects);
   return <section className="graph-proposals__details" aria-label="Obsah návrhu rozšíření">
     <h3>{proposal.subject}</h3>
     <dl className="graph-proposals__identity">
@@ -41,6 +44,13 @@ export default function GraphProposalDetails({ model }: { model: GraphProposalsV
     <h4>Přidávaný graf · {proposal.additions.nodes.length} prvků, {proposal.additions.edges.length} vazeb</h4>
     <GraphContents graph={proposal.additions} />
     <Documents documents={proposal.specifications} />
+    <GraphChangeReview proposal={proposal} />
+    {!!proposal.architectureDocuments?.length && <section aria-label="Přebíraná zadání architektury"><h4>Přebíraná zadání kontextu architektury</h4>
+      <p>Tyto přesné revize a texty budou součástí přijatého kontextu. Sdílená zadání se nepřepisují.</p><Documents documents={proposal.architectureDocuments} /></section>}
+    {changes && !proposal.accepted && <label className="graph-proposals__ack"><input type="checkbox" checked={model.acknowledged}
+      disabled={model.disabled || stale || incomplete} onChange={event => model.acknowledge(event.target.checked)} />
+      Zkontroloval/a jsem všechny úpravy, odstranění a jejich dopady a výslovně přijímám změny návrhu <code>{proposal.id}</code>.
+    </label>}
     {proposal.requiresBaseAdoption ? <section className="graph-proposals__adoption" aria-label="Převzetí výchozího grafu">
       <h4>První převzetí existujícího grafu a zadání</h4>
       <p>Přijetí zahrne také následující výchozí graf a uložená zadání. Zkontrolujte celý obsah, nikoli jen nové prvky.</p>
@@ -53,10 +63,10 @@ export default function GraphProposalDetails({ model }: { model: GraphProposalsV
     </section> : <details><summary>Výchozí graf návrhu</summary><GraphContents graph={proposal.baseGraph} /></details>}
     {proposal.accepted ? <p role="status">Tento návrh byl přijat.</p> : <>
       {stale && model.context && <p className="graph-proposals__warning">Návrh vznikl nad jiným kontextem. Převod vytvoří nový neměnný návrh, který je nutné znovu zkontrolovat.</p>}
-      <p>Přijetí přidá uvedené prvky, vazby a zadání do Canvasu. Nepotvrzuje implementaci ani dokončení práce.</p>
+      <p>{changes ? "Přijetí provede pouze uvedené změny a odstranění v přijatém plánu i pracovním Canvasu." : "Přijetí přidá uvedené prvky, vazby a zadání do Canvasu."} Nepotvrzuje implementaci ani dokončení práce.</p>
       <div className="graph-proposals__actions">
-        <button type="button" disabled={model.disabled || !stale} onClick={model.rebase}>Vytvořit návrh nad aktuálním základem</button>
-        <button type="button" disabled={model.disabled || stale || (proposal.requiresBaseAdoption && !model.acknowledged)} onClick={model.accept}>Přijmout rozšíření plánu</button>
+        <button type="button" disabled={model.disabled || (!stale && !changes)} onClick={model.rebase}>Vytvořit návrh nad aktuálním základem</button>
+        <button type="button" disabled={model.disabled || stale || incomplete || ((changes || proposal.requiresBaseAdoption) && !model.acknowledged)} onClick={model.accept}>{changes ? "Přijmout úpravy plánu" : "Přijmout rozšíření plánu"}</button>
       </div>
     </>}
   </section>;

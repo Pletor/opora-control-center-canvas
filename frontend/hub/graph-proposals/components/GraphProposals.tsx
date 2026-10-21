@@ -1,12 +1,13 @@
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
 import GraphProposalForm from "./GraphProposalForm";
 import GraphProposalDetails from "./GraphProposalDetails";
+import GraphEditForm from "./GraphEditForm";
 import "../styles/graph-proposals.css";
 
 export default function GraphProposals({ model }: { model: GraphProposalsView }) {
   return <section className="graph-proposals" aria-label="Rozšíření plánu">
     <header className="graph-proposals__head"><div><h2>Rozšíření plánu</h2>
-      <p>Nové karty, sektory, oblasti a vazby jako návrh ke kontrole před zápisem na plátno.</p></div>
+      <p>Přidání, úpravy a odstranění karet, oblastí a vazeb jako neměnné návrhy ke kontrole před zápisem na plátno.</p></div>
       <button type="button" disabled={model.busy} onClick={model.refresh}>Obnovit rozšíření plánu</button>
     </header>
     {model.busy && <p role="status">Načítám nebo ukládám rozšíření plánu…</p>}
@@ -16,7 +17,7 @@ export default function GraphProposals({ model }: { model: GraphProposalsView })
     {model.context && <>{model.context.acceptedHead ? <p>Přijatá revize: <code>{model.context.acceptedHead}</code></p>
       : <p>První plán — přijmete zobrazený základ a nové karty.</p>}
       {model.context.readOnly && <p>Pracovní prostor je pouze ke čtení.</p>}
-      <GraphProposalForm model={model} /></>}
+      <GraphProposalForm model={model} /><GraphEditForm model={model} /></>}
     <h3>Historie návrhů rozšíření</h3>
     {!model.items.length && <p>Zatím žádné návrhy rozšíření.</p>}
     <ul className="graph-proposals__history">{model.items.map(item => <li key={item.id}>

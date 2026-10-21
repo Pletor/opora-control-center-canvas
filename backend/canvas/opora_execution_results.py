@@ -8,8 +8,11 @@ from backend.canvas.opora_executions import OporaExecutions
 
 
 class ExecutionResults(OporaExecutions):
-    def history(self, project, workspace, node):
-        scope({"project": project, "workspace": workspace})
+    def history(self, project, workspace, node=None):
+        fields = {"project": project, "workspace": workspace}
+        if node is not None:
+            fields["nodeId"] = node
+        validate(fields, {"nodeId"} if node is not None else set())
         with self.transaction(project, workspace) as repo:
             rows = repo.history(node)
             return {"executions": [{key: value for key, value in self.response(repo, record).items()

@@ -1,14 +1,18 @@
 import type { CanvasNode, Graph, GraphEdge, SpecFields } from "@/shared/types/logic/types";
 import type { PlanDocument } from "@/hub/plan-changes/logic/plan-changes";
+import type { GraphChanges } from "./graph-edits";
 
 export type GraphContext = { acceptedHead: string | null; graphDigest: string; graphManifestId: string | null;
-  readOnly: boolean; requiresBaseAdoption: boolean; adoptionDocuments: PlanDocument[] };
+  readOnly: boolean; requiresBaseAdoption: boolean; adoptionDocuments: PlanDocument[]; acceptedGraph?: Graph | null; workingGraph?: Graph;
+  architectureContext?: { accepted: Graph | null; working: Graph; differs: boolean }; stateRevision?: number };
 export type GraphSummary = { id: string; parentRevision: string | null; subject: string; by: { kind: string; name: string };
   createdAt: string; supersedes: string | null; requiresBaseAdoption: boolean; accepted: boolean; nodeCount: number; edgeCount: number };
-export type GraphProposal = GraphSummary & { graphDigest: string; baseGraph: Graph; parentGraphManifestId: string | null;
+export type GraphProposal = GraphSummary & { schemaVersion?: 1 | 2; kind?: "graph-additions" | "graph-changes"; graphDigest: string; baseGraph: Graph; parentGraphManifestId: string | null;
   additions: { nodes: CanvasNode[]; edges: GraphEdge[] }; refs: Record<string, string>; adoptionDocuments: PlanDocument[];
   specifications: { nodeId: string; fields: SpecFields }[]; positions: Record<string, { x: number; y: number }>;
-  inside: Record<string, string> };
+  inside: Record<string, string>; changes?: GraphChanges; architectureDocuments?: PlanDocument[]; acceptedGraph?: Graph; resultGraph?: Graph; acceptedResultGraph?: Graph;
+  stateEffects?: { revision: number; before: unknown; after: unknown; beforeDigest: string; affectedDigest: string; effects: Record<string, unknown>;
+    removedNodeIds: string[]; removedEdgeIds: string[]; rewiredEdgeIds: string[]; checkedNodeIds: string[] } };
 export type DraftNode = { ref: string; kind: "node" | "sector" | "area"; name: string; parent: string;
   goal: string; non_goals: string; acceptance: string; width: string; height: string };
 export type DraftEdge = { from: string; to: string };
@@ -35,13 +39,14 @@ export function graphPayload(project: string, workspace: string, subject: string
       edges: edges.map(edge => ({ from: edge.from, to: edge.to, port: "next" as const })) } };
 }
 
-export function adoptionKey(proposal: GraphProposal) { return JSON.stringify([proposal.id, proposal.graphDigest]); }
+export function adoptionKey(proposal: GraphProposal) { return proposal.schemaVersion === 2 ? proposal.id : JSON.stringify([proposal.id, proposal.graphDigest]); }
 function adoptionFingerprint(documents: PlanDocument[]) {
   return JSON.stringify([...documents].sort((left, right) => left.nodeId.localeCompare(right.nodeId)).map(document => [document.nodeId,
     document.ownerWorkspace, document.revision, document.fields.goal, document.fields.non_goals, document.fields.acceptance]));
 }
 export function graphProposalStale(context: GraphContext, proposal: GraphProposal) {
   return proposal.parentRevision !== context.acceptedHead || proposal.graphDigest !== context.graphDigest
+    || (proposal.schemaVersion === 2 && context.stateRevision !== undefined && proposal.stateEffects?.revision !== context.stateRevision)
     || (proposal.requiresBaseAdoption && adoptionFingerprint(proposal.adoptionDocuments) !== adoptionFingerprint(context.adoptionDocuments));
 }
 export function graphReadState(loaded: PromiseSettledResult<GraphContext>, history: PromiseSettledResult<{ items: GraphSummary[]; acceptedHead: string | null }>) {
@@ -62,6 +67,11 @@ export function graphActionPayload(project: string, workspace: string, context: 
   if (action === "rebase") return payload;
   if (graphProposalStale(context, proposal))
     throw new Error("Kontext návrhu je zastaralý. Obnovte data a výslovně vytvořte nový návrh nad aktuálním základem.");
+  if (proposal.schemaVersion === 2) {
+    if (!proposal.changes || !proposal.stateEffects) throw new Error("Chybí úplné podklady pro kontrolu změn.");
+    if (acknowledgement !== proposal.id) throw new Error("Výslovně potvrďte kontrolu všech změn a dopadů odstranění tohoto návrhu.");
+    return { ...payload, adoptBaseGraphDigest: null, reviewedChangesId: proposal.id };
+  }
   if (proposal.requiresBaseAdoption && acknowledgement !== adoptionKey(proposal))
     throw new Error("Nejprve zkontrolujte a potvrďte převzetí přesného výchozího grafu a zadání.");
   return { ...payload, adoptBaseGraphDigest: proposal.requiresBaseAdoption ? proposal.graphDigest : null };

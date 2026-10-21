@@ -62,9 +62,15 @@ Seznam vrací nejvýše 100 souhrnů; plný graf a zadání se načítají až v
 Podporované volitelné údaje uzlu zahrnují účel, rozměry, polohu a zdrojový odkaz.
 Server odmítá neznámá pole; klient nepředává vypočtená ID ani odvozený výsledek.
 
-Jeden návrh je omezen na 200 nových uzlů a 600 vazeb. Tato etapa nepodporuje
-mazání, změny existujících uzlů, sdílené architektury, bran, kontrol, bloků
-nebo procesního stavu. Tyto operace vyžadují další typy verzovaných změn.
+Starší neprázdný graf bez přijatého manifestu lze výslovně převzít návrhem
+s prázdnými `nodes` a `edges`. Po vzniku manifestu se prázdný přírůstek odmítá;
+prázdné plátno potřebuje skutečný první prvek. Kontrola a potvrzení přebíraného
+základu i zadání zůstávají povinné.
+
+Jeden přírůstkový návrh je omezen na 200 nových uzlů a 600 vazeb. Pro úpravy
+a odstranění existujících uzlů slouží [druhá verze návrhu grafu](oporahub-graph-changes.md).
+Přímé změny sdílené architektury, bran, kontrol a procesního stavu tento
+přírůstkový protokol neposkytuje.
 
 ## Uložení, migrace a obnova
 

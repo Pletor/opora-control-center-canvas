@@ -85,8 +85,9 @@ def validate_application(service, project, workspace, base, proposal, accepted):
     if split(combined)[0] != split(base)[0]:
         raise ValueError("Graph additions cannot mutate shared architecture.")
     service._verify_source_refs(project, workspace, base, combined)
-    if accepted is not None:
-        merge(accepted, proposal["additions"])
+    approved = merge(accepted, proposal["additions"]) if accepted is not None else combined
+    from backend.canvas.opora_graph_addition_safety import validate_additions
+    validate_additions(service, project, workspace, base, combined, accepted if accepted is not None else base, approved)
     return combined
 
 

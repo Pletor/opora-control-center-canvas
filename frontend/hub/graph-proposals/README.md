@@ -1,6 +1,6 @@
 # Rozšíření plánu
 
-Samostatný modul OporaHubu pro aditivní návrhy grafu. App vlastní
+Samostatný modul OporaHubu pro aditivní návrhy a výslovné změny grafu. App vlastní
 `useGraphProposals`; komponenty dostávají stav a callbacky. Strukturovaný formulář
 vytváří karty, sektory, oblasti, rodičovské vztahy, zadání a volitelné vazby.
 Existující prvky mají reference `@id`. Server vytváří stabilní ID a souřadnice;
@@ -26,3 +26,26 @@ Veškerý obsah návrhu se vykresluje jako text, nikoli HTML. UI ukazuje ID,
 souřadnice, vazby, zdrojové reference a všechna přidávaná/přebíraná zadání.
 Přijetí plánu nepotvrzuje implementaci ani dokončení karty. Styl má BEM prefix
 `graph-proposals`; čistá logika a transport mají sousední testy.
+
+`GraphEditForm` a `GraphNodeEdit` vytvářejí v2 návrhy úprav a odstranění nad
+`acceptedGraph` a `workingGraph` z právě načteného kontextu. `graph-edits.ts`
+odesílá pouze označená pole (`name`, `purpose`, `parentId`, `sourceRef`, `x`,
+`y`, `size`); pracovní rozdíly jiných polí nepřebírá. Vazby mají explicitní
+ID, oba konce a port `next`. Odstranění vyžaduje samostatný výběr všech potomků
+a dotčených vazeb. Server hlásí chybějící identity; klient rozsah nerozšiřuje.
+Prvek chybějící v pracovním grafu zůstává dostupný pro výslovné odstranění
+z přijatého plánu. Nové prvky z původního formuláře tvoří samostatný v1 návrh.
+
+`GraphChangeReview` ukazuje přijatý a pracovní stav před změnou i oba navržené
+výsledky, všechny dopady na aktuální stavy, pravidla, rozhodnutí, autonomii,
+reporty vazeb a přiřazení ticketů. Checkbox je svázaný s přesným ID v2 návrhu;
+POST přijetí posílá `reviewedChangesId` a `adoptBaseGraphDigest: null`.
+Neúplný detail nelze přijmout. Rebase je dostupný i při stejném otisku grafu,
+protože se mohl změnit související stav. Server rozhoduje o jeho slučitelnosti.
+
+Rozpracované úpravy i potvrzení se ruší při obnově kontextu nebo změně prostoru.
+Před první úpravou lze převzít existující neprázdný graf bez pomocné karty:
+adopční v1 návrh projde původní úplnou kontrolou grafu a zadání. Změněný
+kontext sdílené architektury se přebírá pouze samostatně označeným checkboxem,
+včetně možnosti návrhu obsahujícího jen tento krok. Review ukáže všechny
+hranice před a po převzetí; sdílená architektura se tím nepřepisuje.

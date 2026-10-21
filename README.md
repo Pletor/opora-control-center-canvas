@@ -58,6 +58,12 @@ prvním převzetí výslovně potvrdí základ grafu. Přijetí uloží graf i z
 databázové transakci; agent může následně převzít přijatou kartu. Postup a omezení:
 [návrhy grafu](docs/oporahub-graph-proposals.md).
 
+Existující prvky lze upravit nebo výslovně odstranit v návrhu se zobrazením
+přijatého, pracovního a navrženého stavu. Starší neprázdné plátno lze nejprve
+převzít bez přidávání pomocné karty. Historie odstraněných karet a výsledků se
+zachovává; nesouvisející pracovní změny se neschvalují. Postup:
+[změny přijatého grafu](docs/oporahub-graph-changes.md).
+
 Panel **GitHub důkazy** navíc
 načítá review a kontroly přímo z GitHubu a váže je na konkrétní přijatou revizi a SHA.
 Odděluje review kódu, review zadání a pozorované kontroly; neposkytuje automatické
@@ -72,7 +78,7 @@ ověření. Nasazení, API a omezení: [vykonávání zadání](docs/oporahub-ex
 Pravidla rezervací mají také [omezený TLA+ model](tools/formal/oporahub-execution/README.md)
 s reprodukovatelnou kontrolou a záměrně porušenou variantou.
 
-Úpravy a odstraňování přijatých uzlů přes návrhy, politika povinných kontrol, automatická obnova
+Verzované změny dalších druhů obsahu, politika povinných kontrol, automatická obnova
 synchronizace, rozpočty běhů a obecné spouštění Lean/TLA+ zůstávají další prací.
 Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).

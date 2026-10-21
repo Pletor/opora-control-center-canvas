@@ -12,6 +12,18 @@ const receipt: ExecutionReceipt = { receiptId: "receipt1", executionId: "exec1",
   state: "reported", acceptedRevision: "accepted", assignmentDigest: "digest", verification: "agent-reported; not independently verified", createdAt: "2026-10-20T12:00:00Z" };
 
 describe("execution receipt reads", () => {
+  it("reads all scoped history without a live-card context request, including an empty Canvas", async () => {
+    const urls: string[] = [];
+    const read = (async (url: string) => { urls.push(url); return { executions: [run] }; }) as ReadApi;
+    const result = await readExecutionHistory(read, "project", "workspace");
+    expect(urls).toEqual(["/api/access/ui-session", "/api/oporahub/executions?project=project&workspace=workspace"]);
+    expect(result.context).toBeNull(); expect(result.executions).toEqual([run]);
+  });
+  it("keeps readable history when a deleted card context fails", async () => {
+    const read = (async (url: string) => { if (url.includes("/context?")) throw new Error("Card missing"); return { executions: [run] }; }) as ReadApi;
+    const result = await readExecutionHistory(read, "project", "workspace", "deleted");
+    expect(result.context).toBeNull(); expect(result.executions).toEqual([run]); expect(result.error).toContain("Card missing");
+  });
   it("establishes human UI session before identified history and context GETs", async () => {
     const urls: string[] = [];
     const read = (async (url: string) => { urls.push(url); return url.includes("/context?")
@@ -73,4 +85,13 @@ it("renders untrusted results as escaped text without links, scripts or executab
   expect(html).toContain("Nahlášený výsledek není nezávislé ověření");
   expect(receiptDetails(receipt)).toContain("javascript:alert(1)");
   expect(receiptDetails(receipt)).not.toContain("summary");
+});
+
+it("shows deleted-card history and receipt detail even with no remaining Canvas cards", () => {
+  const model = { choices: [], nodeId: "", project: "project", workspace: "workspace", selected: { ...run, state: "reported" },
+    receipts: [{ ...receipt, result: { summary: "Preserved result" } }], executions: [run], context: null, busy: false,
+    detailBusy: false, detailError: "", error: "", refresh() {}, selectCard() {}, selectExecution() {} } as unknown as ExecutionReceiptsView;
+  const html = renderToStaticMarkup(createElement(ExecutionReceipts, { model }));
+  for (const value of ["Všechny karty včetně odstraněných", "Odstraněná nebo nedostupná karta", "node", "Preserved result", "receipt1", "accepted"]) expect(html).toContain(value);
+  expect(html).not.toContain('disabled=""');
 });

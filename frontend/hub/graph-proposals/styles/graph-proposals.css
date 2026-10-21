@@ -18,4 +18,16 @@
 .graph-proposals__ack { display: block; margin: 16px 0; }
 .graph-proposals__ack input { margin-right: 8px; }
 .graph-proposals__details { margin-top: 20px; }
+.graph-proposals__editor, .graph-proposals__edit-row { min-width: 0; border: 1px solid var(--border, #677380); border-radius: 8px; padding: 16px; margin: 16px 0; }
+.graph-proposals__editor label { display: block; margin: 10px 0; }
+.graph-proposals__editor input:not([type="checkbox"]), .graph-proposals__editor select { display: block; width: 100%; box-sizing: border-box; padding: 8px; background: var(--bg); color: var(--ink); border: 1px solid var(--border, #677380); border-radius: 6px; font: inherit; }
+.graph-proposals__comparison { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.graph-proposals__comparison > section { min-width: 0; border: 1px solid var(--border, #677380); padding: 10px; border-radius: 6px; }
+.graph-proposals__evidence { margin: 6px 0; }
+.graph-proposals__evidence dt { font-weight: 600; overflow-wrap: anywhere; }
+.graph-proposals__evidence dd { margin: 4px 0 12px 8px; }
+.graph-proposals__value { white-space: pre-wrap; overflow-wrap: anywhere; }
+.graph-proposals__effect { padding: 8px 0; border-bottom: 1px solid var(--border, #677380); }
+@media (max-width: 1050px) { .graph-proposals__comparison { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .graph-proposals__comparison { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 850px) { .graph-proposals__columns, .graph-proposals__identity { grid-template-columns: minmax(0, 1fr); } }
