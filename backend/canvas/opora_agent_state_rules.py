@@ -12,8 +12,8 @@ ACCEPTANCE_WAIT_SECONDS = 24 * 3600  # Fresh proposal pending longer than this �
 DECISION_LIMIT = 3
 RISK = {"standard": "low", "elevated": "elevated", "critical": "critical"}
 DECISION_PRIORITY = {"accept_baseline": 0, "accept_critical": 1, "accept_elevated": 2,
-                     "accept_low": 3, "review_result": 4}
-VERB_ORDER = ("accept_baseline", "accept", "rebase", "claim", "review", "link_pull_request")
+                     "accept_low": 3, "review_result": 4, "close_card": 5}
+VERB_ORDER = ("accept_baseline", "accept", "rebase", "claim", "review", "link_pull_request", "close_card")
 GAPS = (("ai_review", "review", "Nezávislé AI review výsledků není napojeno; kontrolu dělá člověk."),
         ("lean_verification", "evidence", "Lean ověření úloh se zatím nespouští automaticky."),
         ("auto_rebase", "proposal", "Zastaralé návrhy se nepřevádějí automaticky; rebase je výslovný."))

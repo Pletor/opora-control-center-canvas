@@ -56,7 +56,7 @@ starší běhy jsou historie, ne nová blokace.
 ## Rozhodnutí a akce
 
 Rozhodnutí řadí pevná priorita: přijetí základu, přijetí návrhu `critical`, `elevated`,
-`low` (uvnitř podle stáří), kontrola nahlášeného výsledku. Každé ukazuje na akci.
+`low` (uvnitř podle stáří), kontrola nahlášeného výsledku, uzavření karty po merge PR. Každé ukazuje na akci.
 
 | `verb` | Cíl | Stav |
 |---|---|---|
@@ -66,6 +66,7 @@ Rozhodnutí řadí pevná priorita: přijetí základu, přijetí návrhu `criti
 | `claim` | `POST /api/oporahub/executions/claim` | `ready`, nebo `blocked/budget_exhausted` či `budget_policy_required`; `budget` nese zbývající pokusy a opravy |
 | `review` | `GET /api/oporahub/executions/{id}/results` | `blocked/human_only` (AI review chybí) |
 | `link_pull_request` | `POST /api/oporahub/executions/{id}/pull-request` | `ready` s modulem vazby, jinak `blocked/not_implemented` |
+| `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | vždy `blocked/human_only`; jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `preconditions` = `{executionId, mergeSha}` |
 
 `preconditions` obsahují přesné hodnoty k opakování v těle požadavku (`expectedAcceptedHead`,
 `expectedGraphDigest`, `expectedContextVersion`, u protokolu v2 `expectedBudgetPolicyHead`
@@ -88,7 +89,9 @@ Modul `backend/canvas/opora_execution_pull_requests.py` vzniká samostatně. Pok
 importovat, `opora_agent_state_pulls.py` zavolá jeho `list_execution_pull_requests`
 (s `(project, workspace)` nebo `(canvas, project, workspace)` podle počtu parametrů)
 a čte položky `executionId`, `state` (`open`/`merged`/`closed`) a volitelně
-`planWrittenBack`. Bez modulu jsou tři PR etapy `not_connected` a `gaps` obsahuje
+`planWrittenBack`, `cardId`, `mergeSha` a `awaitingHumanClose` (z té vzniká rozhodnutí
+`close_card`). Výpis vazeb je čisté čtení snímku bez `BEGIN IMMEDIATE`, takže dokument
+zůstává jen ke čtení i se skutečným modulem. Bez modulu jsou tři PR etapy `not_connected` a `gaps` obsahuje
 `pull_request_link`. Testy podstrčí zdroj přes `register(...)`; žádná vazba se nevymýšlí.
 
 ## Mezery
@@ -99,6 +102,6 @@ Vždy přítomné: `ai_review` (kontrolu výsledku dělá člověk), `lean_verif
 
 ## Ověření
 
-`uv run pytest backend/canvas/test_opora_agent_state.py backend/api/editor/test_opora_agent_state_routes.py`
+`uv run pytest backend/canvas/test_opora_agent_state.py backend/canvas/test_opora_agent_state_pull_integration.py backend/api/editor/test_opora_agent_state_routes.py`
 pokrývá tvar, prázdný projekt, každé pravidlo zdraví, `human_only` u přijetí,
 deterministická ID, vyčerpaný rozpočet, vazbu PR, čtení bez SQL zápisů a `304`.
