@@ -1,3 +1,5 @@
+import type { PolicyEvaluation } from "@/hub/review-policy/logic/review-policy";
+
 export type GitEvidenceEvaluation = {
   codeReview: { status: "approved" | "changes_requested" | "unknown"; reviewIds: number[] };
   planReview: { status: "approved" | "changes_requested" | "unknown"; reviewIds: number[] };
@@ -6,6 +8,7 @@ export type GitEvidenceEvaluation = {
   blockers: string[];
 };
 export type GitEvidenceSnapshot = {
+  schemaVersion?: 1 | 2; attemptSequence?: number; observedFrom?: string; observedUntil?: string;
   id: string; project: string; workspace: string; acceptedRevision: string; observedAt: string; complete: boolean;
   configuredRepository: string;
   repository?: { id?: number; fullName: string } | null;
@@ -13,9 +16,10 @@ export type GitEvidenceSnapshot = {
   prNumber?: number; errorCode?: string;
   counts?: { reviews: number; checks: number; statuses: number };
   checks?: { id: number; appId: number; name: string; headSha: string; status: string; conclusion: string | null }[];
+  reviews?: { id: number; userId: number; login: string; userType: string }[];
   statuses?: { id: number; context: string; sha: string; state: string }[];
 };
-export type GitEvidenceItem = { snapshot: GitEvidenceSnapshot; evaluation: GitEvidenceEvaluation };
+export type GitEvidenceItem = { snapshot: GitEvidenceSnapshot; evaluation: GitEvidenceEvaluation; policyEvaluation?: PolicyEvaluation };
 export type GitEvidenceContext = {
   acceptedHead: string | null; repository: string | null; available: boolean; unavailableReason: string; items: GitEvidenceItem[];
 };
@@ -48,7 +52,7 @@ const reasons: Record<string, string> = {
   "invalid-review-evidence": "Identitu, oprávnění nebo údaje review se nepodařilo ověřit.",
   "independent-code-review-missing-or-blocked": "Chybí platné nezávislé schválení kódu nebo reviewer požaduje změny.",
   "revision-bound-plan-review-missing-or-blocked": "Chybí schválení s přesnou značkou této revize zadání nebo reviewer požaduje změny.",
-  "required-checks-and-trusted-provider-policy-not-configured": "Politika povinných kontrol a důvěryhodných poskytovatelů zatím není nastavena.",
+  "required-checks-and-trusted-provider-policy-not-configured": "Toto pozorované vyhodnocení samo neposuzuje místní pravidla povinných kontrol. Jejich stav je v samostatném panelu.",
 };
 export function evidenceReason(code: string) { return reasons[code] ?? "Tento podklad zatím nelze považovat za ověřený."; }
 export const reviewLabels = { approved: "Schválení doloženo", changes_requested: "Požadovány změny", unknown: "Schválení nedoloženo" };

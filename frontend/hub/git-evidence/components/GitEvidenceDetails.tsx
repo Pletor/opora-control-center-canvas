@@ -1,4 +1,5 @@
 import { checkLabels, evidenceReason, planReviewMarker, pullRequestLink, reviewLabels, type GitEvidenceItem } from "../logic/git-evidence";
+import HistoricalPolicyAssessment from "@/hub/review-policy/components/HistoricalPolicyAssessment";
 
 export default function GitEvidenceDetails({ item, historical }: { item: GitEvidenceItem; historical: boolean }) {
   const { snapshot, evaluation } = item;
@@ -22,9 +23,9 @@ export default function GitEvidenceDetails({ item, historical }: { item: GitEvid
           <p>Schválení musí v samotném review obsahovat přesnou značku této revize.</p>
           <p>Identita autora zadání zatím není propojena s GitHub účtem.</p></article>
         <article><h4>Pozorované kontroly</h4><strong>{checkLabels[evaluation.checks.status]}</strong>
-          <p>Počet vyhodnocených kontrol: {evaluation.checks.observedCount ?? 0}. Politika povinných kontrol není ověřena.</p></article>
+          <p>Počet vyhodnocených kontrol: {evaluation.checks.observedCount ?? 0}. Zde je pouze souhrn pozorovaných výsledků.</p></article>
       </div>
-      <p className="git-evidence__warning">Celkové ověření implementace není potvrzeno. Politika povinných kontrol a důvěryhodných poskytovatelů zatím není nastavena.</p>
+      <p className="git-evidence__warning">Pozorované kontroly samy nepotvrzují celkové ověření implementace. Místní pravidla mají samostatné vyhodnocení.</p>
       <details><summary>Jednotlivé výsledky z GitHubu</summary>
         {snapshot.checks === undefined || snapshot.statuses === undefined ? <p>Podrobné výsledky nejsou načteny. Přehled uvádí {snapshot.counts?.checks ?? "—"} kontrol a {snapshot.counts?.statuses ?? "—"} commit statusů.</p>
           : !(snapshot.checks.length || snapshot.statuses.length) && <p>Žádné kontroly ani commit statusy nebyly nalezeny.</p>}
@@ -32,6 +33,7 @@ export default function GitEvidenceDetails({ item, historical }: { item: GitEvid
           {snapshot.statuses?.map(status => <li key={`status-${status.id}`}>{status.context} · {status.state}</li>)}</ul>
       </details>
     </>}
+    <HistoricalPolicyAssessment evaluation={item.policyEvaluation} schemaVersion={snapshot.schemaVersion} />
     <label className="git-evidence__field">Značka zadání tohoto pozorování
       <input readOnly value={planReviewMarker(snapshot.project, snapshot.workspace, snapshot.acceptedRevision)} onFocus={event => event.currentTarget.select()} />
     </label>

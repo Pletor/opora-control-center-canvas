@@ -11,21 +11,25 @@ from backend.canvas.test_opora_review_fixtures import (
 from backend.integrations.github_review_transport import GitHubReadError
 
 
-def test_observe_is_immutable_deduplicated_and_does_not_advance_accepted_plan(evidence_project):
+def test_each_observe_is_immutable_attempt_and_does_not_advance_accepted_plan(evidence_project):
     service, payload = evidence_project
     reader = Reader(payload)
     reader.before_read = lambda: assert_unlocked(service, payload["project"])
     domain = OporaReviewEvidence(service, reader)
     before = service.node_spec(payload["project"], payload["workspace"], "card")
     first = domain.observe(payload, AGENT)
-    assert domain.observe(payload, AGENT) == first
+    second = domain.observe(payload, AGENT)
+    assert second["snapshot"]["id"] != first["snapshot"]["id"]
+    assert second["snapshot"]["attemptSequence"] == first["snapshot"]["attemptSequence"] + 1
     history = domain.list(payload["project"], payload["workspace"])
     assert history["acceptedHead"] == payload["expectedAcceptedHead"]
-    assert len(history["items"]) == 1
+    assert len(history["items"]) == 2
     assert first["snapshot"]["initiatedBy"] == AGENT
     assert first["evaluation"]["planReview"]["status"] == "approved"
     assert service.node_spec(payload["project"], payload["workspace"], "card") == before
-    assert domain.read(payload["project"], payload["workspace"], first["snapshot"]["id"]) == first
+    read = domain.read(payload["project"], payload["workspace"], first["snapshot"]["id"])
+    assert read["snapshot"] == first["snapshot"] and read["evaluation"] == first["evaluation"]
+    assert read["policyEvaluation"]["status"] == "not_configured"
 
 
 def assert_unlocked(service, pid):

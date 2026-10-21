@@ -39,7 +39,9 @@ def test_http_list_import_full_read_and_actor_attribution(client):
     assert summary["id"] == record["id"] and summary["counts"]["reviews"] == 1
     assert "reviews" not in summary and "body" not in summary["pr"]
     read = client.get("/api/oporahub/github-evidence/" + record["id"], params=scope)
-    assert read.json() == response.json()
+    assert read.json()["snapshot"] == response.json()["snapshot"]
+    assert read.json()["evaluation"] == response.json()["evaluation"]
+    assert read.json()["policyEvaluation"]["status"] == "not_configured"
     foreign = client.get("/api/oporahub/github-evidence/" + record["id"], params={**scope, "workspace": "main"})
     assert foreign.status_code == 409
 

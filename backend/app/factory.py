@@ -28,6 +28,7 @@ from backend.api.editor.opora_changeset_routes import create_opora_changeset_rou
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
 from backend.api.editor.opora_proposal_routes import create_opora_proposal_router
+from backend.api.editor.opora_review_policy_routes import create_opora_review_policy_router
 from backend.api.editor.opora_review_routes import create_opora_review_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
 from backend.api.editor.process_routes import create_process_router
@@ -295,6 +296,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_proposal_router(service, OporaHub(service)))
     app.include_router(create_opora_changeset_router(service))
     app.include_router(create_opora_review_router(service))
+    app.include_router(create_opora_review_policy_router(service))
     app.include_router(create_opora_execution_router(service))
     app.include_router(create_opora_graph_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací

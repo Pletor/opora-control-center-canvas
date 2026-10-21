@@ -6,6 +6,7 @@ import sqlite3
 
 from database.schema.opora_execution_schema import SCHEMA as EXECUTION_SCHEMA
 from database.schema.opora_graph_schema import SCHEMA as OPORA_GRAPH_SCHEMA
+from database.schema.opora_review_policy_schema import SCHEMA as REVIEW_POLICY_SCHEMA
 from database.schema.workspace_graph_authority_schema import SCHEMA as GRAPH_AUTHORITY_SCHEMA
 
 # .data/<root>/registry.sqlite – jen to, co musí být vidět napříč projekty.
@@ -254,7 +255,7 @@ CREATE TABLE IF NOT EXISTS opora_review_evidence(
 CREATE INDEX IF NOT EXISTS opora_review_evidence_history
     ON opora_review_evidence(project_id, workspace_id, pr_number, observed_at);
 """
-PROJECT_SCHEMA += EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEMA
+PROJECT_SCHEMA += EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEMA + REVIEW_POLICY_SCHEMA
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -282,6 +283,9 @@ PROJECT_TABLES = {
     "opora_spec_revisions": "project_id",
     "opora_spec_refs": "project_id",
     "opora_review_evidence": "project_id",
+    "opora_review_policies": "project_id",
+    "opora_review_policy_refs": "project_id",
+    "opora_review_attempts": "project_id",
     "opora_execution_epochs": "project_id",
     "opora_executions": "project_id",
     "opora_execution_results": "project_id",

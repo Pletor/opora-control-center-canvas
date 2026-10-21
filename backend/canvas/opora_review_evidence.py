@@ -1,11 +1,9 @@
 ﻿"""Import immutable read-only GitHub evidence without holding locks across the network."""
-from datetime import UTC, datetime
-
-from backend.canvas.opora_commit_validation import _author
-from backend.canvas.opora_review_scope import context, validate_request
+from backend.canvas.opora_review_observation_attempt import PolicyObservation
+from backend.canvas.opora_review_policy_observation import policy_evaluation
+from backend.canvas.opora_review_scope import context
 from backend.canvas.opora_review_status import evaluate
 from backend.integrations.github_review_reader import GitHubReviewReader
-from backend.integrations.github_review_transport import GitHubReadError
 from database.repositories.opora_review_evidence import ReviewEvidenceRepository
 
 
@@ -25,43 +23,9 @@ class OporaReviewEvidence:
             raise ValueError("Přijatá revize se změnila. Obnovte kontext.")
 
     def observe(self, payload, by):
-        pid, wid = validate_request(payload)
-        by = _author(by, allow_agent=True)
-        with self.service.graph_lock_for(pid), self.service.lock_for(pid):
-            before = context(self.service, pid, wid)
-            self._check(before, payload)
-        # No graph/project/registry locks are held during any remote request.
-        try:
-            data = self.reader.read(before["repository"], payload["prNumber"])
-        except GitHubReadError:
-            data = {"complete": False, "errorCode": "github-observation-unavailable",
-                    "observedAt": datetime.now(UTC).isoformat()}
-        if data.get("complete") is True and (
-                    data["repository"]["fullName"].casefold() != before["repository"]
-                    or data["pr"]["number"] != payload["prNumber"]
-                    or data["pr"]["baseRef"] != before["config"]["branch"]
-                    or ("expectedHeadSha" in payload and data["pr"]["headSha"] != payload["expectedHeadSha"])):
-            raise ValueError("PR, cílová větev nebo SHA neodpovídá požadovanému projektu.")
-        content = {**data, "schemaVersion": 1, "project": pid, "workspace": wid,
-                   "acceptedRevision": before["acceptedHead"], "initiatedBy": by,
-                   "configuredRepository": before["repository"],
-                   "configuredBaseBranch": before["config"]["branch"], "prNumber": payload["prNumber"]}
-        with self.service.graph_lock_for(pid), self.service.lock_for(pid):
-            current = context(self.service, pid, wid)
-            self._check(current, payload)
-            if current["config"] != before["config"]:
-                raise ValueError("Konfigurace projektu se během načítání změnila.")
-            repo = self.repository(pid, wid)
-            with repo.db:
-                repo.db.execute("BEGIN IMMEDIATE")
-                # Recheck the accepted pointer inside the write transaction as well.
-                current = context(self.service, pid, wid)
-                self._check(current, payload)
-                record = repo.insert(content)
-            return self._item(record, current, repo)
+        return PolicyObservation(self).observe(payload, by)
 
-    @staticmethod
-    def _item(snapshot, current, repo, cache=None):
+    def _item(self, snapshot, current, repo, cache=None):
         cache = {} if cache is None else cache
         key = (snapshot["prNumber"], snapshot["configuredRepository"], snapshot["configuredBaseBranch"])
         if key not in cache:
@@ -81,7 +45,8 @@ class OporaReviewEvidence:
             result["blockers"].append("repository-configuration-changed")
         if identity_changed:
             result["blockers"].append("github-repository-or-pr-identity-changed")
-        return {"snapshot": snapshot, "evaluation": result}
+        policy = policy_evaluation(self.service, *repo.scope, snapshot["prNumber"], current, snapshot, cache)
+        return {"snapshot": snapshot, "evaluation": result, "policyEvaluation": policy}
 
     def list(self, pid, wid):
         with self.service.graph_lock_for(pid), self.service.lock_for(pid):

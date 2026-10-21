@@ -14,6 +14,7 @@ from backend.canvas.workspace_graph_storage import (
 from database.repositories.workspace_graph_authority import WorkspaceGraphAuthority
 from database.schema.opora_execution_schema import SCHEMA as EXECUTION_SCHEMA
 from database.schema.opora_graph_schema import SCHEMA as GRAPH_SCHEMA
+from database.schema.opora_review_policy_schema import SCHEMA as POLICY_SCHEMA
 from database.schema.workspace_graph_authority_schema import SCHEMA
 
 
@@ -23,6 +24,7 @@ def service(tmp_path):
     db.executescript(SCHEMA)
     db.executescript(EXECUTION_SCHEMA)
     db.executescript(GRAPH_SCHEMA)
+    db.executescript(POLICY_SCHEMA)
     db.execute("CREATE TABLE opora_spec_refs(project_id,workspace_id,accepted_id)")
     db.execute("CREATE TABLE architecture(value)")
     service = SimpleNamespace(db_for=lambda pid: db, lock_for=lambda pid: nullcontext())

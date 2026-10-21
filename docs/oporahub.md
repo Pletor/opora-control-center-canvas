@@ -136,10 +136,19 @@ Neúspěšná obnova je také dohledatelná; žádné pozorování netvrdí neus
 se vzdáleným GitHubem. Podrobný postup, konfigurace tokenu, API a význam výsledků
 jsou v [GitHub důkazech](oporahub-github.md).
 
-Tato etapa není merge brána. Politika povinných kontrol a důvěryhodných CI aplikací
-zatím není nastavena (`policyVerified: false`); samotné pozorované úspěšné kontroly
-neznamenají úplné ověření. Automatická synchronizace po merge ani vykonávání agentů
-se tímto krokem nespouští.
+Samotné pozorované kontroly zůstávají informativní (`policyVerified: false`).
+Oddělené [pravidlo review a kontrol](oporahub-review-policy.md) může člověk nastavit
+pro konkrétní repozitář a prostor: povinné dvojice ID aplikace a názvu kontroly,
+povolené GitHub účty, počty schválení kódu a plánu a maximální stáří pozorování.
+Pravidla mají neměnnou historii a mění se s kontrolou očekávané předchozí revize.
+Jejich splnění je vázané na přesnou revizi pravidel, přijatou revizi a SHA.
+
+Trvalé pořadí pokusů brání tomu, aby pozdní odpověď staršího načítání přepsala
+novější výsledek. Nový pending nebo neúspěšný pokus zneplatní aktuální použitelnost
+starého úspěchu. Aktivace pravidel vyžaduje nové načtení; historické snímky bez
+pořadí a intervalu se nepovažují za nové důkazy. Ani splnění místních pravidel
+neprovádí merge, automatické dokončení nebo nasazení. Automatické dorovnání stavu
+po merge zůstává další etapou.
 
 ## Vykonávání přijatých zadání a model protokolu
 
@@ -162,7 +171,7 @@ běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
 |---|---|---|
 | 2b. Celý graf návrhů | Přidávání, úpravy a odstranění karet a vazeb jsou implementovány; zbývají další druhy obsahu a sparse kontext | Dva nezávislé návrhy lze přijmout; rozpor stejného zadání se neztratí a vyžádá řešení |
 | 3b. Review před přijetím | Připomínky k rozdílu a politika přijetí návrhu podle rizika | Pozorované GitHub review se nepovažuje za automatické oprávnění přijímat jiný návrh |
-| 4. Důkazy a GitHub | Politika povinných kontrol, opakované doručení a obnova synchronizace | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
+| 4. Důkazy a GitHub | Pravidla povinných kontrol a review jsou implementována; zbývá opakované doručení a obnova synchronizace | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
 | 5b. Rozpočty vykonavatelů | Rozšíření execution API o celkový čas, náklady a limit opravných kol | Vyčerpaný rozpočet ukončí běh bez nekonečného prodlužování heartbeatů |
 | 6. Rozhraní | Canvas pro cíle a OporaHub pro rozdíly, review, konflikty a důkazy | Člověk dohledá od cíle přes změnu až k ověření; UI používá stejné API jako agent |
 | 7b. Formální ověřování úloh | Obecné oddělené vykonávání TLA+/Lean a dohledatelné artefakty nad rámec přiloženého modelu rezervací | Kontrola uvádí model, tvrzení, předpoklady, verze nástrojů, výstup a vazbu na konkrétní kód |

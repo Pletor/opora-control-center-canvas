@@ -41,15 +41,16 @@ Opora-Plan: <project>/<workspace>@<acceptedRevision>
 ```
 
 Řádek pouze v editovatelném popisu PR nestačí. OporaHub review za člověka neodesílá.
-V této etapě revize zahrnuje zadání existujících karet; nejde o review celého grafu.
+Přijatá revize zahrnuje zadání a při přijetí grafu také jeho verzovaný manifest.
 Lokální autor zadání zatím není propojen s ověřeným GitHub účtem. Výsledek tedy
 dokládá schválení přesné revize reviewerem odlišným od autora PR, nikoli prokázanou
 nezávislost reviewera na autorovi původního zadání.
 
 **Pozorované kontroly:** jde o výsledky načtených check runs a commit statuses.
 Jejich úspěch není potvrzením úplnosti povinných kontrol ani důvěryhodnosti všech
-poskytovatelů CI. Politika povinných kontrol a důvěryhodných aplikací zatím není
-nastavena, proto API vždy vrací `policyVerified: false`. Žádné kontroly nebo pouze
+poskytovatelů CI. Toto pozorované hodnocení nadále vrací `policyVerified: false`.
+Samostatné [vyhodnocení pravidel](oporahub-review-policy.md) používá člověkem
+nastavené povinné kontroly a identity aplikací. Žádné kontroly nebo pouze
 skipped/neutral výsledek neznamenají úspěšné ověření.
 
 **Stáří:** změna přijaté revize, konfigurace cílové větve nebo posledního známého
@@ -71,7 +72,9 @@ Síťové požadavky probíhají mimo projektové zámky. Před zápisem se znov
 revize a konfigurace. Změněný kontext vrací konflikt bez přepsání historie.
 Nedostupné či neúplné GitHub odpovědi se zaznamenají jako `complete: false`, nikoli
 jako kladný výsledek. Obsah a rozsah uloženého snímku chrání kontrola otisku.
-Stejný záznam se nezdvojí; nové pozorování v jiném čase je nový historický záznam.
+Každé nové načtení má vlastní trvalé pořadí pokusu a vytvoří nový historický záznam,
+i když vzdálené výsledky zůstaly stejné. Novější pokus určuje aktuální použitelnost
+důkazů podle nastavených pravidel.
 
 Transport používá pevný GitHub API origin, nepovoluje přesměrování a omezuje
 velikost odpovědí, počet dotazů a stránek. Překročení limitu znamená neúplné
