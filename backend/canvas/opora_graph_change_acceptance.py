@@ -6,7 +6,7 @@ from backend.canvas.opora_commit_validation import _author
 from backend.canvas.opora_graph_acceptance import OporaGraphAcceptance
 from backend.canvas.opora_graph_change_state import persist_state
 from backend.canvas.opora_graph_changes import OporaGraphChanges
-from backend.canvas.opora_graph_records import accepted_record
+from backend.canvas.opora_graph_records import accepted_record, preserved_content_manifest
 
 
 class OporaGraphChangeAcceptance(OporaGraphAcceptance):
@@ -58,6 +58,7 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
                 result = specs.insert({"project": project, "workspace": workspace, "kind": "graph-acceptance",
                     "parentRevision": context["acceptedHead"], "proposalId": proposal_id, "subject": proposal["subject"],
                     "by": author, "createdAt": stamp(), "graphManifestId": accepted_manifest["id"],
+                    **preserved_content_manifest(specs, context["acceptedHead"]),
                     "documents": [documents[key] for key in sorted(documents)]})
                 specs.advance(context["acceptedHead"], result["id"])
                 return result

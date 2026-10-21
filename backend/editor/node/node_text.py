@@ -34,6 +34,21 @@ class NodeTextStore:
         ).fetchall()
         return {row["node_id"]: row["text"] for row in rows}
 
+    def save_in_transaction(self, scope, expected_revision, text):
+        """Append a validated text revision to the caller's existing SQL transaction."""
+        project, workspace, node = scope
+        text = validate_payload({"project": project, "workspace": workspace, "node": node,
+                                 "expected_revision": expected_revision, "text": text})
+        current = self.read(scope)
+        if current["revision"] != expected_revision:
+            raise ValueError("Text source revision changed.")
+        revision = expected_revision + 1
+        self.canvas.db_for(project).execute(
+            "INSERT INTO node_text_revisions VALUES(?,?,?,?,?,?)",
+            (*scope, revision, text, datetime.now(UTC).isoformat()),
+        )
+        return {"revision": revision, "text": text}
+
     def access(self, project, workspace, node, payload=None):
         if payload is not None:
             text = validate_payload(payload)

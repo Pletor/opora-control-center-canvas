@@ -2,6 +2,7 @@
 import re
 
 from backend.canvas.graph import digest
+from backend.canvas.opora_content_execution import selected_content
 from backend.canvas.opora_graph_records import combined
 from backend.editor.agent_packet.specification_scope import project_graph, select_scope
 from database.repositories.opora_changesets import ChangesetRepository
@@ -33,6 +34,7 @@ def _read_revision_projection(db, repo, project, workspace, revision_id, node_id
             "graph": project_graph(graph, selection, redact=False),
             "documents": sorted((by_node[card_id] for card_id in selected_ids),
                                  key=lambda item: item["nodeId"]),
+            "content": selected_content(db, project, workspace, record, selected_ids),
         }
         return record, digest(projection)
     except ValueError:

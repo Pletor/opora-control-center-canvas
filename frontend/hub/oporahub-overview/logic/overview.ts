@@ -2,8 +2,9 @@ import type { GraphContext, GraphSummary } from "@/hub/graph-proposals/logic/gra
 import type { PlanContext, PlanChangeset } from "@/hub/plan-changes/logic/plan-changes";
 import type { ExecutionSummary } from "@/hub/execution-receipts/logic/execution-receipts";
 import type { Graph } from "@/shared/types/logic/types";
+import type { ContentSummary } from "@/hub/content-changes/logic/content-changes";
 
-export type DetailKind = "graph" | "changes" | "executions" | "evidence" | "policy" | "tracking" | "budgets" | "formal" | "history" | "api";
+export type DetailKind = "graph" | "changes" | "content" | "executions" | "evidence" | "policy" | "tracking" | "budgets" | "formal" | "history" | "api";
 export type DetailTarget = { kind: DetailKind; title: string; id?: string };
 export type Decision = DetailTarget & { author: string; stale: boolean | null; impact: string; createdAt: string };
 function graphSnapshot(graph: Graph) {
@@ -11,9 +12,13 @@ function graphSnapshot(graph: Graph) {
     node.purpose, node.parentId, node.sourceRef?.origin, node.sourceRef?.kind, node.sourceRef?.path, node.x, node.y, node.size?.w, node.size?.h]),
     edges: [...graph.edges].sort((a, b) => a.id.localeCompare(b.id)).map(edge => [edge.id, edge.source, edge.target, edge.port ?? "next", edge.sourceBlockId, edge.sourcePortId]) });
 }
-export function pendingDecisions(graph: GraphSummary[], changes: PlanChangeset[], acceptedHead: string | null, basisKnown = true): Decision[] {
+export function pendingDecisions(graph: GraphSummary[], changes: PlanChangeset[], acceptedHead: string | null, basisKnown = true, content: ContentSummary[] = []): Decision[] {
   const superseded = new Set(graph.map(item => item.supersedes).filter(Boolean));
+  const replacedContent = new Set(content.map(item => item.supersedes).filter(Boolean));
   return [
+    ...content.filter(item => !item.accepted && !replacedContent.has(item.id)).map(item => ({ kind: "content" as const, id: item.id,
+      title: item.subject, author: item.by.name, stale: basisKnown ? item.parentRevision !== acceptedHead : null, createdAt: item.createdAt,
+      impact: `Změna obsahu · ${item.changeCount} položek textu, kresby nebo konfigurace.` })),
     ...graph.filter(item => !item.accepted && !superseded.has(item.id)).map(item => ({ kind: "graph" as const, id: item.id,
       title: item.subject, author: item.by.name, stale: basisKnown ? item.parentRevision !== acceptedHead : null, createdAt: item.createdAt,
       impact: "Změna grafu · přesný dopad zobrazí kontrola návrhu." })),

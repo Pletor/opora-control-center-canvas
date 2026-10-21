@@ -70,6 +70,20 @@ převzít bez přidávání pomocné karty. Historie odstraněných karet a výs
 zachovává; nesouvisející pracovní změny se neschvalují. Postup:
 [změny přijatého grafu](docs/oporahub-graph-changes.md).
 
+Panel **Změny obsahu** na stejném přehledu otevírá přesné návrhy textů, kreseb
+a konfigurace karet. Ukazuje přijatou, pracovní a navrženou hodnotu. První přijetí
+vyžaduje kontrolu celého výchozího obsahu a může zneplatnit běžící úlohy založené
+na revizi bez obsahového manifestu. Další návrhy mění konkrétní pole; souběh řeší
+rebase s explicitními konflikty a přijetí člověkem. Postup, API a omezení:
+[verzovaný obsah plánu](docs/oporahub-content-changes.md). Závěrečné ověření etapy
+2b ještě probíhá.
+
+**Upgrade již používaného kontextu v2:** přidání obsahových SQL tabulek změní DDL
+generaci a zneplatní dřívější sparse coverage. Historie a původní soukromé piny
+zůstanou zachované, běžný kontext v1 pokračuje. V2 se automaticky neopraví ani
+znovu nezařadí; tento upgrade zatím nemá API pro bezpečné obnovení coverage.
+Podrobnosti: [provozní omezení](docs/oporahub-content-changes.md#upgrade-projektu-s-dřívějším-kontextem-v2).
+
 Panel **GitHub důkazy** navíc
 načítá review a kontroly přímo z GitHubu a váže je na konkrétní přijatou revizi a SHA.
 Odděluje review kódu, review zadání a pozorované kontroly; neposkytuje automatické
@@ -106,7 +120,7 @@ Po zařazení karty musí vykonavatel používat budget protokol v2; starší Of
 se zastaví při převzetí. Jde o oprávnění a počet spuštění, nikoli peněžní limit
 nebo záruku ukončení všech potomků procesu.
 
-Verzované změny dalších druhů obsahu, připomínky/politika přijetí podle rizika,
+Připomínky a politika přijetí podle rizika,
 důvěryhodné účtování nákladů a nezávislé izolované spouštění Lean/TLA+
 zůstávají další prací.
 [Kontext podle závislostí](docs/oporahub-sparse-context.md) má výslovný protokol v2:

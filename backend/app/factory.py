@@ -25,6 +25,7 @@ from backend.api.editor.hook_routes import create_hook_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.opora_changeset_routes import create_opora_changeset_router
+from backend.api.editor.opora_content_routes import CONTENT_BODY_LIMIT, create_opora_content_router
 from backend.api.editor.opora_execution_budget_routes import create_execution_budget_router
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
@@ -203,6 +204,7 @@ def create_app(data_root=None):
             # Obrázek kresby (do 10 MB, v base64 o třetinu víc) má vlastní strop; ostatní zápisy 2 MB.
             # Dávka plánu (docs/davka-planu.md §3) smí mít celé 2 MiB.
             limit = (VERIFICATION_BODY_LIMIT if request.url.path.startswith("/api/oporahub/verifications/")
+                     else CONTENT_BODY_LIMIT if request.url.path == "/api/oporahub/content-changes" or request.url.path.startswith("/api/oporahub/content-changes/")
                      else 14_500_000 if request.url.path == "/api/drawing-file"
                      else 2 * 1024 * 1024 if request.url.path == "/api/canvas-plan" else 2000000)
             body = bytearray()
@@ -312,6 +314,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_verification_router(service))
     app.include_router(create_execution_budget_router(service))
     app.include_router(create_opora_graph_router(service))
+    app.include_router(create_opora_content_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)

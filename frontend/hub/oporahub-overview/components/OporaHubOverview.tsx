@@ -7,7 +7,10 @@ import "../styles/oporahub-overview.css";
 export default function OporaHubOverview({ models, open }: { models: OverviewModels; open: (target: DetailTarget) => void }) {
   const { graphProposals: graph, changes, executions, evidence, reconciliation, reviewPolicy } = models;
   const plan = acceptedPlan(graph.context, changes.context);
-  const decisions = pendingDecisions(graph.items, changes.items, plan.head, plan.basisKnown);
+  const content = models.contentChanges;
+  const contentBasis = !!content?.list && !content.error && !content.busy && content.list.acceptedHead === plan.head;
+  const contentPending = content?.items.filter(item => !item.accepted && !content.items.some(next => next.supersedes === item.id)).length ?? 0;
+  const decisions = pendingDecisions(graph.items, changes.items, plan.head, plan.basisKnown && contentBasis, content?.items);
   const uncertain = graph.busy || changes.busy || !!graph.error || !!changes.error || !!plan.warning;
   const loaded = `${graph.items.length} návrhů grafu · ${changes.items.length} zadání · limit 100 na historii`;
   const [clock, setClock] = useState(() => performance.now());
@@ -18,6 +21,7 @@ export default function OporaHubOverview({ models, open }: { models: OverviewMod
   const work = executions.executions.slice(0, 6);
   const items = evidence.items;
   const events = [
+    ...(content?.items ?? []).map(item => ({ key: item.id, time: item.createdAt, text: `${item.by.name}: ${item.subject}`, target: { kind: "content" as const, id: item.id, title: item.subject }, source: "Návrh obsahu" })),
     ...graph.items.map(item => ({ key: item.id, time: item.createdAt, text: `${item.by.name}: ${item.subject}`, target: { kind: "graph" as const, id: item.id, title: item.subject }, source: "Návrh grafu" })),
     ...changes.items.map(item => ({ key: item.id, time: item.createdAt, text: `${item.by.name}: ${item.subject}`, target: { kind: "changes" as const, id: item.id, title: item.subject }, source: "Návrh zadání" })),
     ...executions.executions.filter(item => item.createdAt).map(item => ({ key: item.executionId, time: item.createdAt!, text: `${item.owner ?? "Neznámý vlastník"}: vytvořen běh`, target: { kind: "executions" as const, id: item.executionId, title: "Podrobnosti běhu" }, source: "Execution" })),
@@ -38,6 +42,11 @@ export default function OporaHubOverview({ models, open }: { models: OverviewMod
       <button onClick={() => open({ kind: "policy", title: "Pravidla nezávislé kontroly" })}><strong>Kontrola <small>Rozhoduje člověk</small></strong><b>{reviewPolicy.busy ? "Načítám pravidla…" : reviewPolicy.error ? "Pravidla nejsou dostupná" : reviewPolicy.context?.policy ? "Pravidla review nastavena" : "Pravidla review nedoložena"}</b><span>{reconciliation.context ? `${reconciliation.context.items.length} načtených vazeb sledování` : "Sledování není doloženo"} · merge není nasazení.</span></button>
     </section>
     <div className="oporahub-overview__columns"><div className="oporahub-overview__main">
+      <section className="oporahub-overview__panel"><header><h2>Změny obsahu</h2><span>{!content || content.error || !content.list ? "Podklady nedostupné" : `${contentPending} čeká na kontrolu`}</span></header>
+        <p className="oporahub-overview__empty">Texty, kresby a konfigurace karet mají vlastní návrhy a přijatou historii. První přijetí výslovně přebírá celý výchozí obsah.</p>
+        {content && !contentBasis && <p className="oporahub-overview__warning" role="status">Obsah nemá doložený společný základ s přehledem. Před rozhodnutím obnovte podklady.</p>}
+        <button type="button" className="oporahub-overview__more" onClick={() => open({ kind: "content", title: "Změny obsahu" })}>Otevřít změny obsahu{contentBasis ? ` (${contentPending})` : ""}</button>
+      </section>
       <section className="oporahub-overview__panel oporahub-overview__panel--decisions"><header><h2>Potřebuje rozhodnutí</h2><span>{uncertain ? "Neúplné podklady" : `${decisions.length} v načtené historii`}</span></header>
         {decisions.slice(0, 3).map(item => <article className="oporahub-overview__decision" key={item.id}><div><strong>{item.title}</strong> <span className={item.stale ? "oporahub-overview__tag oporahub-overview__tag--warning" : "oporahub-overview__tag"}>{item.stale === null ? "Základ neověřen" : item.stale ? "Zastaralé · jiný základ" : item.kind === "graph" ? "Změna grafu" : "Změna zadání"}</span><p>{item.author} · {item.impact}</p></div><button type="button" onClick={() => open(item)}>Zkontrolovat změnu</button></article>)}
         {!decisions.length && <p className="oporahub-overview__empty">{uncertain ? "Před rozhodnutím načtěte úplné podklady." : "V načtené historii nejsou nové nepřijaté návrhy."}</p>}

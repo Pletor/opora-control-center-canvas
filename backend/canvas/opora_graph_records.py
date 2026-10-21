@@ -80,6 +80,7 @@ def validate_accepted(record, record_scope):
     identifier(record.get("parentRevision"), nullable=record["kind"] in ("baseline", "graph-baseline"))
     validate_documents(record.get("documents"), *record_scope)
     identifier(record.get("graphManifestId"), nullable=True)
+    identifier(record.get("contentManifestId"), nullable=True)
     if record["kind"] in ("graph-acceptance", "graph-baseline"):
         identifier(record.get("graphManifestId"))
     if record["kind"] == "graph-baseline" and record.get("parentRevision") is not None:
@@ -95,8 +96,21 @@ def preserved_manifest(repo, record_id):
     """Spec-only acceptance carries verified graph authority without adopting live edits."""
     record = accepted_record(repo, record_id)
     manifest_id = record.get("graphManifestId")
-    if manifest_id is None:
+    result = preserved_content_manifest(repo, record_id)
+    if manifest_id is not None:
+        from database.repositories.opora_graph_proposals import GraphProposals
+        GraphProposals(repo.db, *repo.scope).read(manifest_id, manifest=True)
+        result["graphManifestId"] = manifest_id
+    return result
+
+
+def preserved_content_manifest(repo, record_id):
+    if record_id is None:
         return {}
-    from database.repositories.opora_graph_proposals import GraphProposals
-    GraphProposals(repo.db, *repo.scope).read(manifest_id, manifest=True)
-    return {"graphManifestId": manifest_id}
+    record = accepted_record(repo, record_id)
+    identifier = record.get("contentManifestId")
+    if identifier is not None:
+        from database.repositories.opora_content_records import ContentRecords
+        ContentRecords(repo.db, *repo.scope).read(identifier, manifest=True)
+        return {"contentManifestId": identifier}
+    return {}

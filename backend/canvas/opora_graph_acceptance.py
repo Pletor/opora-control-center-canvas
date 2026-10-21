@@ -5,7 +5,7 @@ from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_commit_validation import _author
 from backend.canvas.opora_graph_build import merge, validate_application
 from backend.canvas.opora_graph_proposals import OporaGraphProposals
-from backend.canvas.opora_graph_records import accepted_record, combined
+from backend.canvas.opora_graph_records import accepted_record, combined, preserved_content_manifest
 from backend.canvas.opora_hub_store import canonical
 from database.repositories.workspace_graph_authority import WorkspaceGraphAuthority
 
@@ -74,6 +74,7 @@ class OporaGraphAcceptance:
                                        "parentRevision": context["acceptedHead"], "proposalId": proposal_id,
                                        "subject": proposal["subject"], "by": author, "createdAt": stamp(),
                                        "graphManifestId": graph_manifest["id"],
+                                       **preserved_content_manifest(specs, context["acceptedHead"]),
                                        "documents": [documents[key] for key in sorted(documents)]})
                 specs.advance(context["acceptedHead"], result["id"])
             return result

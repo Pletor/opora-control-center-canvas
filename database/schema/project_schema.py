@@ -4,6 +4,8 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 """
 import sqlite3
 
+from database.schema.opora_content_schema import SCHEMA as CONTENT_SCHEMA
+from database.schema.opora_content_schema import TABLES as CONTENT_TABLES
 from database.schema.opora_context_binding_schema import SCHEMA as CONTEXT_BINDING_SCHEMA
 from database.schema.opora_context_event_schema import SCHEMA as CONTEXT_SCHEMA
 from database.schema.opora_context_event_schema import TABLES as CONTEXT_TABLES
@@ -267,7 +269,7 @@ CREATE INDEX IF NOT EXISTS opora_review_evidence_history
 """
 PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEMA + REVIEW_POLICY_SCHEMA
                    + RECONCILIATION_SCHEMA + JOB_SCHEMA + BUDGET_SCHEMA + VERIFICATION_SCHEMA + CONTEXT_SCHEMA
-                   + EXECUTION_CONTEXT_SCHEMA)
+                   + EXECUTION_CONTEXT_SCHEMA + CONTENT_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -311,6 +313,7 @@ PROJECT_TABLES.update({table: "project_id" for table in BUDGET_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in VERIFICATION_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in CONTEXT_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in EXECUTION_CONTEXT_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in CONTENT_TABLES})
 
 
 # CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).

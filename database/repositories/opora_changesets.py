@@ -33,6 +33,9 @@ class ChangesetRepository:
             if record.get("graphManifestId") is not None:
                 from database.repositories.opora_graph_proposals import GraphProposals
                 GraphProposals(self.db, *self.scope).read(record["graphManifestId"], manifest=True)
+            if record.get("contentManifestId") is not None:
+                from database.repositories.opora_content_records import ContentRecords
+                ContentRecords(self.db, *self.scope).read(record["contentManifestId"], manifest=True)
         return record
 
     def insert(self, content, *, proposal=False):

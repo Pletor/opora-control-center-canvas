@@ -5,6 +5,7 @@ import json
 
 from backend.canvas.graph import digest
 from backend.canvas.opora_changesets import OporaChangesets
+from backend.canvas.opora_content_execution import require_accepted_content
 from backend.canvas.opora_execution_budget_status import status as budget_status
 from backend.canvas.opora_execution_lineage import validate_accepted_lineage
 from backend.canvas.opora_execution_validation import validate
@@ -71,6 +72,7 @@ def _collect(canvas, db, project, workspace, node):
     head = context["acceptedHead"]
     validate_accepted_lineage(db, project, workspace, node, head, head)
     require_accepted_graph(canvas, project, workspace, head, graph)
+    require_accepted_content(canvas, project, workspace, head, projection["selection"]["cardIds"], graph)
     accepted = {item["nodeId"]: item for item in context["acceptedDocuments"]}
     selected = []
     owners = {item["nodeId"]: item["specWorkspace"] for item in projection["owners"]}

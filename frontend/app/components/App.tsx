@@ -118,6 +118,7 @@ import { useReviewPolicy } from "@/hub/review-policy/logic/use-review-policy";
 import { useGithubReconciliation } from "@/hub/github-reconciliation/logic/use-github-reconciliation";
 import { useExecutionReceipts } from "@/hub/execution-receipts/logic/use-execution-receipts";
 import { useFormalVerification } from "@/hub/formal-verification/logic/use-formal-verification";
+import { useContentChanges } from "@/hub/content-changes/logic/use-content-changes";
 import { useExecutionBudgets } from "@/hub/execution-budgets/logic/use-execution-budgets";
 import { useOporaProposals } from "@/hub/proposal-history/logic/use-opora-proposals";
 import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
@@ -299,6 +300,10 @@ export default function App() {
   const executionReceipts = useExecutionReceipts(project, workspace, view?.graph.nodes ?? [], environment === "hub", planAppliedRevision);
   const executionBudgets = useExecutionBudgets(project, workspace, view?.graph.nodes ?? [], environment === "hub", planAppliedRevision);
   const formalVerification = useFormalVerification(project, workspace, environment === "hub", planAppliedRevision);
+  const contentChanges = useContentChanges(project, workspace, environment === "hub", !!view?.readOnly, planAppliedRevision,
+    () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
+      setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); planChanges.refresh(); reloadCanvas();
+    }));
   const planChanges = usePlanChanges(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly,
     () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
       setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); proposals.refresh();
@@ -1102,7 +1107,7 @@ export default function App() {
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} evidence={gitEvidence} executions={executionReceipts} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
+      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} evidence={gitEvidence} executions={executionReceipts} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">

@@ -1,5 +1,7 @@
 ﻿import { useState } from "react";
 import GraphProposals from "@/hub/graph-proposals/components/GraphProposals";
+import { useEffect } from "react";
+import ContentChanges from "@/hub/content-changes/components/ContentChanges";
 import ReviewPolicy from "@/hub/review-policy/components/ReviewPolicy";
 import GithubReconciliation from "@/hub/github-reconciliation/components/GithubReconciliation";
 import GitEvidence from "@/hub/git-evidence/components/GitEvidence";
@@ -27,6 +29,11 @@ export default function OporaHubWorkspace(models: OverviewModels) {
   const scope = JSON.stringify([models.executions.project, models.executions.workspace]);
   const [selection, setSelection] = useState<{ scope: string; target: DetailTarget } | null>(null);
   const detail = selection?.scope === scope ? selection.target : null;
+  useEffect(() => {
+    const id = models.contentChanges?.selectedId;
+    if (detail?.kind === "content" && detail.id && id && id !== detail.id && models.contentChanges?.detail?.proposal.id === id)
+      setSelection({ scope, target: { kind: "content", id, title: "Změny obsahu · nový návrh" } });
+  }, [scope, detail, models.contentChanges?.selectedId, models.contentChanges?.detail?.proposal.id]);
   function open(target: DetailTarget) {
     if (target.id) {
       if (target.kind === "graph") models.graphProposals.inspect(target.id);
@@ -34,10 +41,12 @@ export default function OporaHubWorkspace(models: OverviewModels) {
       if (target.kind === "executions") models.executions.selectExecution(target.id);
       if (target.kind === "evidence") models.evidence.select(target.id);
       if (target.kind === "formal") models.formalVerification.select(target.id);
+      if (target.kind === "content") models.contentChanges?.select(target.id);
     }
+    if (target.kind === "content" && !target.id) models.contentChanges?.cancel();
     setSelection({ scope, target });
   }
-  function close() { models.budgets.cancel(); models.executions.dismissCancel(); models.reviewPolicy.cancel(); models.reconciliation.cancel(); models.graphProposals.acknowledge(false); setSelection(null); }
+  function close() { models.contentChanges?.cancel(); models.budgets.cancel(); models.executions.dismissCancel(); models.reviewPolicy.cancel(); models.reconciliation.cancel(); models.graphProposals.acknowledge(false); setSelection(null); }
   return <section className="oporahub-workspace" aria-label="OporaHub" data-testid="oporahub-workspace">
     <OporaHubOverview models={models} open={open} />
     {detail && <OverviewDrawer title={detail.title} onClose={close}>
@@ -59,6 +68,7 @@ export default function OporaHubWorkspace(models: OverviewModels) {
       {detail.kind === "tracking" && <GithubReconciliation model={models.reconciliation} />}
       {detail.kind === "budgets" && <ExecutionBudgets model={models.budgets} />}
       {detail.kind === "formal" && <FormalVerification model={models.formalVerification} currentAcceptedHead={currentAcceptedHead} />}
+      {detail.kind === "content" && <ContentChanges model={models.contentChanges} requestedId={detail.id} currentAcceptedHead={currentAcceptedHead} />}
       {detail.kind === "api" && <AgentApi project={models.executions.project} workspace={models.executions.workspace} />}
       {detail.kind === "history" && <div className="oporahub-workspace__body">
         <GraphProposals model={models.graphProposals} /><PlanChanges model={models.changes} />

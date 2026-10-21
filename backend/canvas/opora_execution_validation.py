@@ -5,6 +5,7 @@ import re
 from backend.canvas.graph import digest, valid_id
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import OporaChangesets
+from backend.canvas.opora_content_execution import require_accepted_content
 from backend.canvas.opora_graph_execution import require_accepted_graph
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_packet.sector_status import sector_blockers
@@ -57,6 +58,7 @@ def assignment(canvas, project, workspace, node):
     accepted = {item["nodeId"]: item for item in context["acceptedDocuments"]}
     live = {item["nodeId"]: item for item in context["documents"]}
     relevant = [item["nodeId"] for item in captured["specification"]["cards"]]
+    require_accepted_content(canvas, project, workspace, context["acceptedHead"], relevant, view["graph"])
     if any(key not in accepted or digest(accepted[key]) != digest(live.get(key)) for key in relevant):
         raise ValueError("Relevant specifications differ from their accepted revision.")
     return {"acceptedRevision": context["acceptedHead"], "documents": [accepted[key] for key in relevant], **captured}
