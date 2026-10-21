@@ -30,7 +30,7 @@ export default function FormalDetail({ record, currentAcceptedHead }: { record: 
     <FormalFiles record={record} artifacts={verification.artifacts} title="Vstupní soubory a manifest" />
     <section><h4>Nahlášený výsledek</h4>{report ? <>
       <p><strong>{formalOutcome(record)}</strong> · nahlášeno {new Date(report.createdAt).toLocaleString("cs-CZ")}</p>
-      <p className="formal-verification__trust">agent-reported · independentlyVerified: false</p><p>{report.summary}</p>
+      <p className="formal-verification__trust">{report.trust} · independentlyVerified: false</p><p>{report.summary}</p>
       <p>Digest výsledku: <code>{report.reportDigest}</code></p><p>Kontrolovaná tvrzení: {report.checkedClaims.join(", ") || "žádná"}</p>
       <FormalFiles record={record} artifacts={report.artifacts} title="Výstupní soubory" />
     </> : <p>Výsledek nebyl nahlášen. Přijetí požadavku samo nespustilo nástroj ani ověřovač.</p>}</section>

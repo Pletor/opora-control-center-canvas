@@ -1,6 +1,8 @@
 # Machine-run formal evidence (docs/oporahub-verification.md, "Automatické ověřování v CI").
 # Check run `formal/tlc` = every positive TLC config passes AND every negative config
-# produces its declared violation. Canvas reads this check on linked PRs automatically.
+# produces its declared violation. `formal/lean` = proofs kernel-checked, axiom audit clean,
+# vectors in sync. Canvas reads both on linked PRs automatically. This workflow is the PR's
+# own code, so its evidence is `agent-reported`; formal-trusted.yml is the ci-verified twin.
 name: formal
 
 on:
@@ -10,10 +12,16 @@ on:
       - "backend/canvas/opora_executions.py"
       - "backend/canvas/opora_execution_*.py"
       - "backend/canvas/test_opora_execution_conformance.py"
+      - "backend/canvas/opora_review_aggregation.py"
+      - "backend/canvas/opora_review_job*.py"
+      - "backend/canvas/opora_field_merge.py"
+      - "backend/canvas/test_opora_lean_differential.py"
+      - "database/repositories/opora_changesets.py"
       - "backend/editor/agent_memory/card_leases.py"
       - "database/repositories/opora_executions.py"
       - "database/schema/opora_execution_schema.py"
       - ".github/workflows/formal.yml"
+      - ".github/workflows/formal-trusted.yml"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +32,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  ELAN_INIT_URL: https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh
+  ELAN_INIT_SHA256: a620ff1641616222c8d37c54845492004bb84d6877cdbc944dd65c1aa685bf53
   TLA_RELEASE: v1.7.4
   TLA_SHA256: 936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
 
@@ -72,20 +82,41 @@ jobs:
       - run: uv run pytest backend/canvas/test_opora_execution_conformance.py -q
 
   lean:
-    # Placeholder: Lean proofs are not connected yet. Disabled unless the repository
-    # variable OPORA_LEAN_ENABLED is "true"; Canvas never maps `formal/lean` to evidence.
+    # Proofs of OporaHub's pure core: kernel-checked, `#print axioms` on every theorem (only
+    # propext / Classical.choice / Quot.sound; sorry never), and the exported test vectors must
+    # equal the committed ones that the Python differential test runs against.
     name: formal/lean
-    if: ${{ vars.OPORA_LEAN_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Require a Lean project
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cache Lean toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.elan
+          key: elan-${{ hashFiles('tools/formal/lean/lean-toolchain') }}
+      - name: Install elan (pinned installer, toolchain from lean-toolchain)
         run: |
-          test -f tools/formal/lean/lakefile.lean -o -f tools/formal/lean/lakefile.toml || {
-            echo "::error title=formal/lean not_connected::No Lean project in tools/formal/lean."; exit 1; }
-      - name: lake build (stub; a build is not a checked proof)
-        working-directory: tools/formal/lean
+          curl -sSfL "$ELAN_INIT_URL" -o elan-init.sh
+          echo "$ELAN_INIT_SHA256  elan-init.sh" | sha256sum -c -
+          sh elan-init.sh -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Audit parsing tests
         run: |
-          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
-          "$HOME/.elan/bin/lake" build
+          python -m pip install --disable-pip-version-check "pytest>=8,<9"
+          python -m pytest tools/formal/lean/test_lean_audit.py -q
+      - name: Build, axiom audit, vectors
+        run: python tools/formal/lean/audit.py --summary lean-summary.json
+      - uses: astral-sh/setup-uv@v6
+      - name: Differential test (real Python vs Lean vectors)
+        run: uv run pytest backend/canvas/test_opora_lean_differential.py -q
+      - name: Upload machine-readable summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-lean-summary
+          path: lean-summary.json
+          if-no-files-found: warn

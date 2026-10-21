@@ -1,0 +1,12 @@
+# Data-only Lake config (no Lean code runs at configure time). The trusted CI job
+# overwrites this file and lean-toolchain with the base branch copies before building.
+name = "oporahub-formal"
+version = "0.1.0"
+defaultTargets = ["OporaHub", "vectors"]
+
+[[lean_lib]]
+name = "OporaHub"
+
+[[lean_exe]]
+name = "vectors"
+root = "Vectors"

@@ -1,0 +1,9 @@
+{
+  "spec": "PrLoop.tla",
+  "cases": [
+    {"name": "positive", "config": "PrLoop.cfg", "expect": "pass"},
+    {"name": "double-merge-write-back", "config": "Mutant_double_merge.cfg", "expect": "violation", "invariant": "MergeOnce"},
+    {"name": "close-without-attention", "config": "Mutant_no_attention.cfg", "expect": "violation", "invariant": "ClosedAttention"},
+    {"name": "no-relink", "config": "Mutant_no_relink.cfg", "expect": "violation", "invariant": "temporal-property"}
+  ]
+}

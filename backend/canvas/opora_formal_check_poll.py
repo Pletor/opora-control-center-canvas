@@ -1,4 +1,8 @@
-"""Execution-PR loop step: read `formal/tlc` on every open linked PR head and record it.
+"""Execution-PR loop step: read the formal checks on every open linked PR head and record them.
+
+Lean checks always bring their axiom-audit annotation; `formal-trusted/*` checks bring their
+workflow-run provenance. A recorded counterexample or failure proposes a fix card
+(opora_formal_followup.py) after the recording transaction.
 
 Registered in ExecutionPullRequestManager.run_once. Network never holds Canvas or
 SQLite locks; a rate-limit or forbidden answer pauses the whole loop like other reads.
@@ -7,7 +11,8 @@ SQLite locks; a rate-limit or forbidden answer pauses the whole loop like other 
 import os
 import weakref
 
-from backend.canvas.opora_formal_checks import known, record_check
+from backend.canvas.opora_formal_checks import CHECKS, known, needs_annotations, record_check
+from backend.canvas.opora_formal_followup import propose_quietly
 from backend.integrations.github_formal_check_reader import GitHubFormalCheckReader
 from backend.integrations.github_pr_link_reader import GitHubPullRequestLinkReader
 from backend.integrations.github_review_transport import GitHubReadError
@@ -57,7 +62,9 @@ def poll(manager, project):
                     checks = [check for check in checks if not known(repo.db, project, workspace,
                                                                      row["execution_id"], check)]
                 notes = {check["id"]: reader.annotations(row["repository"], check["id"])
-                         for check in checks if check["conclusion"] != "success"}
+                         for check in checks if needs_annotations(check)}
+                origins = {check["id"]: reader.provenance(row["repository"], check)
+                           for check in checks if CHECKS[check["name"]][1]}
             except GitHubReadError as error:
                 if error.status in (403, 429):
                     manager.cooldown_until = max(manager.cooldown_until, manager.clock() + RATE_LIMIT_PAUSE)
@@ -65,8 +72,10 @@ def poll(manager, project):
                 continue
             for check in checks:
                 with manager.links.transaction(project, workspace) as repo:
-                    if record_check(repo.db, project, workspace, check, repository=row["repository"],
-                                    number=row["number"], annotations=notes.get(check["id"]),
-                                    via="execution-pr-loop"):
-                        stored += 1
+                    record = record_check(repo.db, project, workspace, check, repository=row["repository"],
+                                          number=row["number"], annotations=notes.get(check["id"]),
+                                          via="execution-pr-loop", provenance=origins.get(check["id"]))
+                if record:
+                    stored += 1
+                    propose_quietly(manager.service, project, workspace, record)
     return stored

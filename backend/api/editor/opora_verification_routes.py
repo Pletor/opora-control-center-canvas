@@ -5,6 +5,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
+from backend.canvas.opora_formal_followup import propose
+from backend.canvas.opora_formal_ledger import ledger
 from backend.canvas.opora_verifications import OporaVerifications
 
 BODY_LIMIT = 12 * 1024 * 1024
@@ -55,6 +57,21 @@ def create_opora_verification_router(service):
     @router.get("")
     def history(project: str, workspace: str, request: Request, nodeId: str | None = None):
         return call(request, lambda: verifications.history(project, workspace, nodeId))
+
+    @router.get("/ledger")
+    def proof_ledger(project: str, workspace: str, request: Request):
+        return call(request, lambda: ledger(service, project, workspace))
+
+    @router.post("/{identifier}/fix-proposal")
+    async def fix_proposal(identifier: str, request: Request):
+        def create(payload):
+            if not isinstance(payload, dict) or set(payload) != {"project", "workspace"}:
+                raise ValueError("Fix proposal takes exactly project and workspace.")
+            result = propose(service, payload["project"], payload["workspace"], identifier)
+            if result is None:
+                raise ValueError("Only a counterexample or a real check failure gets a fix proposal.")
+            return result
+        return await write(request, create)
 
     @router.get("/{identifier}")
     def detail(identifier: str, project: str, workspace: str, request: Request):

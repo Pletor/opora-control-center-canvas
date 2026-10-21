@@ -1,0 +1,165 @@
+# Trusted twin of formal.yml (threat model: docs/oporahub-verification.md "Důvěryhodné CI").
+# pull_request_target always runs THIS file as it exists on the base branch, so a PR cannot
+# change what runs here. PR files are read only as data: TLA+ models/configs and Lean proof
+# sources. The runner (run.py), the Lean audit, toolchain pin and lakefile come from the base
+# commit. The verify job has a read-only token and no secrets; the publish job never checks
+# out or executes PR content, it only parses the summary JSON and creates the check runs
+# `formal-trusted/tlc` and `formal-trusted/lean` on the PR head, with external_id = run id.
+# Canvas records them as `ci-verified` only after binding the run (workflow path, event and
+# the artifact `formal-trusted-<headSha>`) through the Actions API.
+name: formal-trusted
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "tools/formal/**"
+      - "backend/canvas/opora_executions.py"
+      - "backend/canvas/opora_execution_*.py"
+      - "backend/canvas/opora_review_aggregation.py"
+      - "backend/canvas/opora_review_job*.py"
+      - "backend/canvas/opora_field_merge.py"
+      - "backend/editor/agent_memory/card_leases.py"
+      - "database/repositories/opora_executions.py"
+      - "database/repositories/opora_changesets.py"
+      - "database/schema/opora_execution_schema.py"
+
+permissions: {}
+
+concurrency:
+  group: formal-trusted-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  ELAN_INIT_URL: https://raw.githubusercontent.com/leanprover/elan/v4.2.4/elan-init.sh
+  ELAN_INIT_SHA256: a620ff1641616222c8d37c54845492004bb84d6877cdbc944dd65c1aa685bf53
+
+jobs:
+  verify:
+    name: formal-trusted/verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout base commit (trusted runner, pins, lakefile)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+      - name: Checkout PR head as data only
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Assemble work tree (PR data + base tooling)
+        run: |
+          set -euo pipefail
+          if find pr/tools/formal -type l | grep -q .; then echo "::error::symlinks are not accepted"; exit 1; fi
+          mkdir -p work/formal
+          cp base/tools/formal/run.py work/formal/run.py
+          for dir in pr/tools/formal/*/; do
+            name=$(basename "$dir")
+            [ -f "$dir/cases.json" ] || continue
+            mkdir -p "work/formal/$name"
+            find "$dir" -maxdepth 1 -type f \( -name '*.tla' -o -name '*.cfg' -o -name cases.json \) \
+              -exec cp --no-dereference {} "work/formal/$name/" \;
+          done
+          if [ -f base/tools/formal/lean/audit.py ] && [ -d pr/tools/formal/lean/OporaHub ]; then
+            mkdir -p work/formal/lean
+            cp -R --no-dereference pr/tools/formal/lean/OporaHub pr/tools/formal/lean/OporaHub.lean work/formal/lean/
+            cp base/tools/formal/lean/lean-toolchain base/tools/formal/lean/lakefile.toml base/tools/formal/lean/audit.py work/formal/lean/
+          fi
+      - name: TLC on every positive and negative config (base runner, pinned jar)
+        continue-on-error: true
+        env:
+          OPORA_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python work/formal/run.py --download --cache-dir "$RUNNER_TEMP/opora-tla" --workers auto --summary trusted-tlc.json
+      - name: Install elan (pinned installer; toolchain from the base lean-toolchain)
+        if: hashFiles('work/formal/lean/audit.py') != ''
+        run: |
+          curl -sSfL "$ELAN_INIT_URL" -o "$RUNNER_TEMP/elan-init.sh"
+          echo "$ELAN_INIT_SHA256  $RUNNER_TEMP/elan-init.sh" | sha256sum -c -
+          sh "$RUNNER_TEMP/elan-init.sh" -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Lean source scan, kernel check and axiom audit (no PR executable runs)
+        if: hashFiles('work/formal/lean/audit.py') != ''
+        continue-on-error: true
+        env:
+          OPORA_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python work/formal/lean/audit.py --trusted --summary trusted-lean.json
+      - name: Upload head-bound summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-trusted-${{ github.event.pull_request.head.sha }}
+          path: |
+            trusted-tlc.json
+            trusted-lean.json
+          if-no-files-found: warn
+
+  publish:
+    name: formal-trusted/publish
+    needs: verify
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      checks: write
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: formal-trusted-${{ github.event.pull_request.head.sha }}
+          path: summaries
+      - name: Create formal-trusted/* check runs on the PR head
+        uses: actions/github-script@v7
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const fs = require("fs");
+            const read = name => { try { return JSON.parse(fs.readFileSync(`summaries/${name}`, "utf8")); } catch { return null; } };
+            const text = (value, limit) => String(value ?? "").slice(0, limit);
+            const json = value => JSON.stringify(value).slice(0, 60000);
+            const note = (level, title, message) => ({ path: ".github/workflows/formal-trusted.yml", start_line: 1, end_line: 1,
+              annotation_level: level, title: text(title, 255), message: text(message, 60000) });
+            const tlc = read("trusted-tlc.json"), lean = read("trusted-lean.json");
+            const runs = [];
+            if (tlc && Array.isArray(tlc.cases)) {
+              const failed = tlc.cases.filter(item => item && item.ok !== true).slice(0, 49);
+              runs.push({ name: "formal-trusted/tlc", ok: tlc.ok === true && tlc.cases.length > 0,
+                annotations: failed.map(item => note("failure", `formal/tlc ${text(item.kind, 40)}`, json({
+                  model: item.model, case: item.case, config: item.config, expect: item.expect,
+                  expectedInvariant: item.expectedInvariant, kind: item.kind,
+                  violated: item.observed && item.observed.violated })))) });
+            } else {
+              runs.push({ name: "formal-trusted/tlc", ok: false, annotations: [note("failure", "formal/tlc runner_error", json({ kind: "runner_error" }))] });
+            }
+            if (lean && Array.isArray(lean.theorems)) {
+              const audit = { toolchain: text(lean.tool && lean.tool.toolchain, 80), trusted: true, ok: lean.ok === true,
+                theorems: lean.theorems.slice(0, 400).map(item => [text(item.name, 200), Array.isArray(item.axioms) ? item.axioms.map(a => text(a, 100)) : null]) };
+              const failures = (Array.isArray(lean.failures) ? lean.failures : []).slice(0, 48);
+              runs.push({ name: "formal-trusted/lean", ok: lean.ok === true,
+                annotations: [note("notice", "formal/lean audit", json(audit)),
+                  ...failures.map(item => note("failure", `formal/lean ${text(item.kind, 40)}`,
+                    json({ kind: item.kind, theorem: item.theorem, axioms: item.axioms, found: item.found })))] });
+            }
+            for (const run of runs) {
+              await github.rest.checks.create({ owner: context.repo.owner, repo: context.repo.repo, name: run.name,
+                head_sha: process.env.HEAD_SHA, external_id: String(context.runId), status: "completed",
+                conclusion: run.ok ? "success" : "failure",
+                output: { title: `${run.name}: ${run.ok ? "ok" : "failed"}`,
+                  summary: `Base-branch workflow run ${context.runId} on ${process.env.HEAD_SHA}.`,
+                  annotations: run.annotations.slice(0, 50) } });
+            }

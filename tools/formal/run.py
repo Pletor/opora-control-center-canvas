@@ -168,7 +168,7 @@ def summary(results, commit=None):
     return {"schemaVersion": SCHEMA_VERSION, "check": CHECK_NAME, "commitSha": commit,
             "tool": {"name": "tlc", **{k: PINNED[k] for k in ("release", "tlc", "sha256")}},
             "ok": bool(results) and all(item["ok"] for item in results), "cases": results,
-            "evidenceKinds": {"tlc": "connected", "lean": "not_connected"}}
+            "evidenceKinds": {"tlc": "connected", "lean": "connected"}}
 
 
 def markdown(document):

@@ -20,6 +20,15 @@ describe("formal evidence remains untrusted and scoped", () => {
     const record = formalFixture();
     expect(() => parseFormalRecord({ ...record, report: { ...record.report, ...patch } }, formalScope)).toThrow();
   });
+  it("accepts consistent ci-verified trust but never a mixed or eligible one", () => {
+    const record = formalFixture(), ci = { trust: "ci-verified", sourceBinding: "ci-verified" };
+    const parsed = parseFormalRecord({ ...record, ...ci, report: { ...record.report, ...ci } }, formalScope);
+    expect(parsed.trust).toBe("ci-verified");
+    expect(parsed.report!.trust).toBe("ci-verified");
+    expect(parsed.independentlyVerified).toBe(false);
+    expect(() => parseFormalRecord({ ...record, trust: "ci-verified" }, formalScope)).toThrow(/důvěry/);
+    expect(() => parseFormalRecord({ ...record, ...ci, currentEligibility: true }, formalScope)).toThrow(/důvěry/);
+  });
   it("accepts reported run metadata without upgrading trust", () => {
     const record = formalFixture();
     record.report!.artifacts.push({ path: "run-metadata.json", role: "run-metadata", sha256: "7".repeat(64), bytes: 240, available: true });

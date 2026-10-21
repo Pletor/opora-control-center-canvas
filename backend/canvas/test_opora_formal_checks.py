@@ -1,4 +1,5 @@
-"""Observed `formal/tlc` check runs become execution-bound evidence and agent-state attention."""
+"""Observed formal check runs become execution-bound evidence and agent-state attention."""
+import json
 import re
 from pathlib import Path
 
@@ -53,13 +54,20 @@ def history(service, scope):
     return OporaVerifications(service).history(**scope)["requests"]
 
 
-def test_claims_mirror_the_positive_config_and_lean_is_not_connected():
-    cfg = (ROOT / "tools/formal/oporahub-execution/ExecutionAuthority.cfg").read_text(encoding="utf-8")
-    invariants = re.search(r"^INVARIANTS (.+)$", cfg, re.MULTILINE).group(1).split()
-    properties = re.search(r"^PROPERTY (.+)$", cfg, re.MULTILINE).group(1).split()
-    assert sorted(CLAIMS) == sorted([(name, "invariant") for name in invariants]
-                                    + [(name, "temporal-property") for name in properties])
-    assert EVIDENCE_KINDS["lean"]["status"] == "not_connected"
+def test_claims_mirror_every_positive_config_and_both_kinds_are_connected():
+    expected = []
+    for manifest in sorted((ROOT / "tools/formal").glob("*/cases.json")):
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        spec = data["spec"].removesuffix(".tla")
+        [positive] = [case for case in data["cases"] if case["expect"] == "pass"]
+        cfg = (manifest.parent / positive["config"]).read_text(encoding="utf-8")
+        invariants = re.search(r"^INVARIANTS (.+)$", cfg, re.MULTILINE).group(1).split()
+        properties = (re.search(r"^PROPERT(?:Y|IES) (.+)$", cfg, re.MULTILINE) or re.match("()", "")).group(1).split()
+        prefix = "" if spec == "ExecutionAuthority" else spec + "-"
+        expected += [(prefix + name, "invariant") for name in invariants]
+        expected += [(prefix + name, "temporal-property") for name in properties]
+    assert sorted(CLAIMS) == sorted(expected) and len(CLAIMS) <= 32
+    assert {kind["status"] for kind in EVIDENCE_KINDS.values()} == {"connected"}
 
 
 def test_outcome_mapping_from_conclusion_and_runner_annotations():

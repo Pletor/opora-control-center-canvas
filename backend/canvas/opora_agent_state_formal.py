@@ -4,7 +4,9 @@ Read-only, derived on every agent-state read from the verification store: for ea
 execution the newest CI-observed `formal/tlc` record counts; a later pass on a newer
 head clears it. Every non-passing outcome yields the ready agent action
 `verification.investigate` (read the stored evidence) and a human decision that points
-to it. Contract: docs/oporahub-agent-state.md, docs/oporahub-verification.md.
+to it. Counterexamples and real failures (not `runner_error` alone) also get
+`verification.fix`: an idempotent POST that proposes a "fix verification" card for a human
+to accept (opora_formal_followup.py). Contract: docs/oporahub-agent-state.md, docs/oporahub-verification.md.
 """
 import json
 from urllib.parse import urlencode
@@ -12,6 +14,7 @@ from urllib.parse import urlencode
 from backend.canvas import opora_agent_state_rules as rules
 
 VERB = "verification.investigate"
+FIX = "verification.fix"
 ATTENTION = {"counterexample": "verification_counterexample", "failed": "verification_failed",
              "inconclusive": "verification_failed"}
 TITLES = {"verification_counterexample": "Formální model našel protipříklad: {}",
@@ -48,6 +51,17 @@ def merge(actions, decisions, items, project, workspace):
                                     "outcome": item["outcome"], "failureKinds": item["kinds"]},
                   "status": "ready"}
         extra_actions.append(action)
+        if item["outcome"] == "counterexample" or (item["outcome"] == "failed" and set(item["kinds"]) != {"runner_error"}):
+            extra_actions.append(fix_action(item, project, workspace))
         extra_decisions.append({"id": "dec_" + action["id"][4:], "kind": kind, "targetId": item["executionId"],
                                 "title": TITLES[kind].format(item["nodeId"]), "actionId": action["id"]})
     return actions + extra_actions, (extra_decisions + decisions)[:rules.DECISION_LIMIT]
+
+
+def fix_action(item, project, workspace):
+    return {"id": rules.stable_id("act_", FIX, item["verificationId"], item["headSha"]), "verb": FIX, "method": "POST",
+            "path": f"/api/oporahub/verifications/{item['verificationId']}/fix-proposal",
+            "targetId": item["executionId"],
+            "preconditions": {"project": project, "workspace": workspace, "verificationId": item["verificationId"],
+                              "headSha": item["headSha"], "outcome": item["outcome"]},
+            "status": "ready"}
