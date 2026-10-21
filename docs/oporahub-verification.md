@@ -191,8 +191,8 @@ ji má porovnat se záměrem:
 | `OporaHub/AcceptedHead.lean` | `ChangesetRepository.advance` + `insert(parentRevision=expected)` | zastaralá očekávaná hlava nikdy neposune (`stale_never_advances`); rodič přijaté revize je předchozí hlava (`advance_parent_is_previous_head`); každá dosažitelná historie je lineární (`reachable_linear`); log roste přesně o úspěšné posuny (`run_log_length`) |
 | `OporaHub/FieldMerge.lean` | `opora_field_merge.merge_fields` | 3-way merge polí je komutativní (`merged_comm`, `conflicts_comm`); disjunktní změny nemají konflikt (`disjoint_no_conflict`) a zachovají obě strany (`disjoint_preserves_both`) |
 
-`opora_field_merge` je dokázané rozhodovací pravidlo pro budoucí automatický rebase; zatím
-na něj nevede žádný endpoint a mezera `auto_rebase` trvá.
+`opora_field_merge` je dokázané rozhodovací pravidlo [automatického rebase](oporahub-auto-rebase.md):
+`opora_auto_rebase_merge.py` jím rozhoduje každé pole, a se zapnutým auto-rebase mezera `auto_rebase` mizí.
 
 `python tools/formal/lean/audit.py` (job `formal/lean`, výchozí zapnutý) provede a do
 souhrnu `lean-summary.json` zapíše:

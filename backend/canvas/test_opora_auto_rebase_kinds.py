@@ -73,3 +73,18 @@ def test_content_disjoint_redundant_and_conflict(sparse):
     accepted(sparse, moved)
     assert canvas.texts.read(("draft", "draft", refs["b"]))["text"] == "B"
     assert rebase.run("draft", "draft")["rebased"] == []
+
+
+def test_item_verdict_is_the_lean_proved_field_merge():
+    """Every base/ours/theirs combination: conflict exactly when merge_field conflicts (FieldMerge.lean)."""
+    from itertools import product
+
+    from backend.canvas.opora_auto_rebase_merge import ABSENT, verdict
+    from backend.canvas.opora_field_merge import merge_field
+    for base, ours, theirs in product((ABSENT, 1, 2, 3), repeat=3):
+        ok, value = merge_field(base, ours, theirs)
+        outcome = verdict("k", base, ours, theirs)
+        assert isinstance(outcome, dict) is (not ok)
+        if ok:
+            assert outcome == ("clean" if theirs == base else "redundant")
+            assert value == (ours if outcome == "clean" else theirs)

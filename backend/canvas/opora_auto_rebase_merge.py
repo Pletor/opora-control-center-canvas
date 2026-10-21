@@ -1,10 +1,14 @@
 """Pure three-way merge of one stale proposal against the accepted line (base/ours/theirs).
 
 base = accepted value the proposal saw at its parent revision, ours = proposed value,
-theirs = value at the current accepted head. Per field or item:
-  theirs == base  -> clean (ours applies), theirs == ours -> redundant, otherwise -> conflict.
-No model is consulted; the same records always produce the same verdict."""
+theirs = value at the current accepted head. Each field or item is decided by the Lean-proved
+rule `opora_field_merge.merge_field` (tools/formal/lean/OporaHub/FieldMerge.lean); a merge is
+`clean` when theirs is still the base (our value applies), `redundant` when the merged value is
+already theirs (same change, or our side left it unchanged), otherwise a conflict. No model is
+consulted; the same records always produce the same verdict."""
 from copy import deepcopy
+
+from backend.canvas.opora_field_merge import merge_field
 
 ABSENT = {"$absent": True}
 
@@ -15,11 +19,10 @@ def _value(mapping, key):
 
 def verdict(key, base, ours, theirs):
     """One item: `clean`, `redundant` or a conflict dict with all three sides."""
-    if theirs == base:
-        return "clean"
-    if theirs == ours:
-        return "redundant"
-    return {"key": key, "base": base, "ours": ours, "theirs": theirs}
+    merged, _ = merge_field(base, ours, theirs)
+    if not merged:
+        return {"key": key, "base": base, "ours": ours, "theirs": theirs}
+    return "clean" if theirs == base else "redundant"
 
 
 def summarize(results):

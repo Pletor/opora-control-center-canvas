@@ -25,8 +25,12 @@ Po polích (zadání: `goal`, `non_goals`, `acceptance`; graf: vybraná pole uzl
 přidání/odstranění prvku; obsah: klíč `(kind, target, field)`):
 
 - `theirs == base` → čisté, platí naše hodnota;
-- `theirs == ours` → redundantní;
+- `theirs == ours`, nebo naše strana pole nezměnila (`ours == base`) → redundantní, platí jejich hodnota;
 - jinak → **skutečný konflikt stejného pole**.
+
+Pravidlo je `merge_field` z `opora_field_merge.py`, jehož komutativitu a zachování
+disjunktních změn dokazuje Lean (`tools/formal/lean/OporaHub/FieldMerge.lean`, viz
+[ověřování](oporahub-verification.md)); diferenciální test hlídá shodu s modelem.
 
 Výsledek celého návrhu:
 
