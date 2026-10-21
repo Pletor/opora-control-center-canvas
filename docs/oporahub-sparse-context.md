@@ -15,6 +15,24 @@ mít manifest, správný otisk a nezměněnou projekci; výchozí limit je 256 r
 Výsledek `acceptedScopeUnchanged` neuděluje execution oprávnění a nedokládá
 živé instrukce, texty, kresby, lease ani rozpočet. Ty kontroluje navazující vrstva.
 
+Soukromý `opora_context_snapshot.capture` pořizuje v transakci úplné řádky osmi
+SQL zdrojů včetně starších revizí, nejvýše 8 192 řádků a 8 MiB. `opora_context_replay.replay`
+čte ověřený journal, porovná sémantickou projekci po každém přechodu a nakonec
+porovná celý přehrávaný stav s novým SQL snímkem. Výchozí a maximální limit
+jedné kontroly je 256 přechodů; překročení odmítne, nic se potichu nezkrátí.
+Raw snímek ani raw digest nejsou veřejný podklad nebo capability. Výsledek
+`liveScopeUnchanged` sám neověřuje přijatou historii, registry, soubory ani lease.
+
+Čistá `project_sql_context` převádí soukromé řádky na skutečně čtené zadání,
+instrukce, texty, scény kreseb, projektová pravidla/nastavení a stav překážek.
+Vyžaduje SQL graph authority, ověří její otisk a složí sdílenou architekturu;
+legacy souborový či Git fallback nepoužije. Texty a zadání uzlů architektury čte
+z jejich vlastníka `architecture`; tuto volbu zachová v dokladu. To je výslovný
+kontrakt připravované v2, nikoli změna dnešního v1 zachycení textu. Název a identita
+projektu jsou dodané zmrazené vstupy; jejich původ a životní cyklus ověřuje volající.
+Citlivé hodnoty zůstávají v interní projekci rozlišitelné před redakcí. Projekce
+ani její SHA256 nesmějí samy sloužit jako veřejný kontextový token.
+
 ## Verze a neměnné oprávnění
 
 `contextProtocolVersion: 2` je samostatné vyjednávání kontextu, nikoli číslo

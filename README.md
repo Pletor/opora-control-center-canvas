@@ -111,6 +111,8 @@ důvěryhodné účtování nákladů a nezávislé izolované spouštění Lean
 zůstávají další prací.
 Pro [kontext podle závislostí](docs/oporahub-sparse-context.md) je rozpracovaný
 samostatný selektor, kontrola přijaté historie a transakční SQL journal.
+Soukromý omezený SQL snímek, projekce zadání a přehrání každého přechodu
+kontrolují i relevantní změnu vrácenou na původní hodnotu.
 Journal je bez automatického enrollmentu; existující běhy používají dosavadní kontext v1. Samotné sledování
 SQL řádků nepokrývá souborové zdroje a registry a nezapíná nový execution režim.
 Historie se nemaže. Přesné API, migrace a omezení:
