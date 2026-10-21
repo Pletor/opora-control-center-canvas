@@ -80,6 +80,9 @@ class OporaGraphAcceptance:
 
     def write_graph(self, db, project, workspace, content):
         if project == "draft" or self.service.project_hub.source_info(self.service.row("projects", project))["sourceKind"] != "git":
+            from backend.canvas.opora_context_graph_storage import save_sql_draft
+            if save_sql_draft(self.service, project, workspace, content):
+                return
             changed = db.execute("UPDATE drafts SET graph=? WHERE id=?", (canonical(content), project))
             if changed.rowcount != 1:
                 raise ValueError("Workspace graph no longer exists.")

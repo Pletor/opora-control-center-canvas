@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from backend.canvas.opora_execution_context import prepare
 from backend.canvas.opora_execution_results import ExecutionResults
 
 
@@ -20,6 +21,15 @@ def create_opora_execution_router(service):
     @router.get("/context")
     def context(project: str, workspace: str, nodeId: str):
         return executions.context(project, workspace, nodeId)
+
+    @router.post("/context")
+    def prepare_context(payload: dict, request: Request):
+        def create():
+            name = getattr(request.state, "agent", None)
+            if request.state.actor == "agent" and (not isinstance(name, str) or not name.strip()):
+                raise ValueError("An identified execution owner is required.")
+            return prepare(executions, payload)
+        return call(request, create)
 
     @router.get("")
     def history(project: str, workspace: str, request: Request, nodeId: str | None = None):

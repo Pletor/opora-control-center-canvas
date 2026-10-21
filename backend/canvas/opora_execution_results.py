@@ -46,6 +46,10 @@ class ExecutionResults(OporaExecutions):
             check(repo.db, repo.scope, record, time.time())
             if record.get("executionProtocolVersion") == 2:
                 receipt.update(executionProtocolVersion=2, budget=record["budget"])
+            if record.get("contextProtocolVersion") == 2:
+                from database.repositories.opora_execution_contexts import read_proof
+                receipt.update(contextProtocolVersion=2,
+                               contextValidation=read_proof(repo.db, *repo.scope, identifier))
             repo.insert_receipt(identifier, payload["requestId"], fingerprint, receipt)
             self.finish(repo, record, "reported")
             return receipt

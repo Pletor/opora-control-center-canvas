@@ -243,8 +243,14 @@ def _strip_workspaces(service, pid, report):
         with db:
             db.execute("BEGIN IMMEDIATE")
             if "draft" in targets:
-                graph = json.loads(db.execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()[0])
-                db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(_strip(graph, moved)), pid))
+                from backend.canvas.opora_context_graph_storage import (
+                    draft_authoritative_raw,
+                    save_sql_draft,
+                )
+                raw = draft_authoritative_raw(service, pid)
+                graph = json.loads(raw if raw is not None else db.execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()[0])
+                if not save_sql_draft(service, pid, "draft", _strip(graph, moved)):
+                    db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(_strip(graph, moved)), pid))
             for wid in sorted(targets - {"draft"}):
                 authority = WorkspaceGraphAuthority(db, pid, wid)
                 stored = authority.read()

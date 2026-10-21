@@ -5,6 +5,7 @@ import uuid
 from contextlib import contextmanager
 
 from backend.canvas import opora_execution_budget_runtime as budget_runtime
+from backend.canvas import opora_execution_context as sparse_context
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import digest
 from backend.canvas.opora_execution_budget_clock import (
@@ -55,6 +56,7 @@ class OporaExecutions:
 
     def claim(self, payload, owner):
         extra = budget_runtime.V2_FIELDS if isinstance(payload, dict) and budget_runtime.V2_FIELDS.intersection(payload) else set()
+        extra = extra | sparse_context.claim_fields(payload)
         project, workspace = validate(payload, CLAIM | extra)
         if not isinstance(owner, str) or not owner.strip() or len(owner) > 160:
             raise ValueError("An identified execution owner is required.")
@@ -67,7 +69,11 @@ class OporaExecutions:
                 return self.response(repo, replay[1])
             node = payload["nodeId"]
             preliminary = budget_runtime.before_claim(repo.db, repo.scope, node, payload, payload["expectedAcceptedHead"], time.time())
-            captured = assignment(self.canvas, project, workspace, node)
+            pin = None
+            if payload.get("contextProtocolVersion") == 2:
+                captured, pin = sparse_context.collect(self.canvas, repo.db, project, workspace, node)
+            else:
+                captured = assignment(self.canvas, project, workspace, node)
             if (captured["acceptedRevision"] != payload["expectedAcceptedHead"]
                     or captured["contextVersion"] != payload["expectedContextVersion"]):
                 raise ValueError("Accepted assignment changed before claim.")
@@ -93,8 +99,12 @@ class OporaExecutions:
                 record["expiresAt"] = min(record["expiresAt"], record["budget"]["runDeadlineAt"])
             repo.db.execute("INSERT OR REPLACE INTO card_leases VALUES(?,?,?,?,?,?)",
                             (project, workspace, node, owner, record["token"], record["expiresAt"]))
+            if pin is not None:
+                record["contextProtocolVersion"] = 2
             repo.insert(record, owner, payload["requestId"], request_digest)
-            return {**record, "serverNow": stamp}
+            if pin is not None:
+                sparse_context.persist(repo, record, pin)
+            return {**record, **sparse_context.public_proof(repo, record), "serverNow": stamp}
 
     @staticmethod
     def authenticate(record, token, epoch=None):
@@ -117,9 +127,15 @@ class OporaExecutions:
     def active(self, repo, record):
         budget_runtime.check(repo.db, repo.scope, record, time.time())
         self.lease_valid(repo, record)
-        current = assignment(self.canvas, *repo.scope, record["nodeId"])
-        if digest(current) != record["assignmentDigest"]:
-            raise ValueError("Execution assignment changed; claim a new execution.")
+        if record.get("contextProtocolVersion") == 2:
+            from backend.canvas.opora_execution_context_validation import validate_context
+            validate_context(self.canvas, repo, record)
+        else:
+            if "contextProtocolVersion" in record:
+                raise ValueError("Unsupported persisted execution context protocol version.")
+            current = assignment(self.canvas, *repo.scope, record["nodeId"])
+            if digest(current) != record["assignmentDigest"]:
+                raise ValueError("Execution assignment changed; claim a new execution.")
         # Capturing context can be slow; authority must still exist after that work.
         self.lease_valid(repo, record)
         budget_runtime.check(repo.db, repo.scope, record, time.time())
@@ -134,6 +150,10 @@ class OporaExecutions:
                 value["state"] = "revoked"
             except ValueError:
                 value["state"] = "revoked"
+        try:
+            value.update(sparse_context.public_proof(repo, record))
+        except ValueError:
+            value.update(contextValidation=None, state="revoked")
         return value
 
     def read_assignment(self, identifier, project, workspace, token):
@@ -141,7 +161,7 @@ class OporaExecutions:
             record = repo.read(identifier)
             self.authenticate(record, token)
             keys = ("executionId", "project", "workspace", "nodeId", "epoch", "acceptedRevision", "assignmentDigest", "assignment")
-            return {key: record[key] for key in keys} | {key: record[key] for key in ("executionProtocolVersion", "budget") if key in record}
+            return {key: record[key] for key in keys} | {key: record[key] for key in ("executionProtocolVersion", "budget", "contextProtocolVersion") if key in record}
 
     def heartbeat(self, identifier, payload):
         project, workspace = validate(payload, {"token", "epoch", "ttlSeconds"})
@@ -160,7 +180,7 @@ class OporaExecutions:
             if changed != 1:
                 raise ValueError("Execution expired before renewal.")
             repo.save(record)
-            return {**record, "serverNow": stamp}
+            return {**record, **sparse_context.public_proof(repo, record), "serverNow": stamp}
 
     @staticmethod
     def finish(repo, record, state):

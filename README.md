@@ -106,14 +106,16 @@ Po zařazení karty musí vykonavatel používat budget protokol v2; starší Of
 se zastaví při převzetí. Jde o oprávnění a počet spuštění, nikoli peněžní limit
 nebo záruku ukončení všech potomků procesu.
 
-Verzované změny dalších druhů obsahu, řídký kontext podle závislostí,
+Verzované změny dalších druhů obsahu, připomínky/politika přijetí podle rizika,
 důvěryhodné účtování nákladů a nezávislé izolované spouštění Lean/TLA+
 zůstávají další prací.
-Pro [kontext podle závislostí](docs/oporahub-sparse-context.md) je rozpracovaný
-samostatný selektor, kontrola přijaté historie a transakční SQL journal.
-Soukromý omezený SQL snímek, projekce zadání a přehrání každého přechodu
-kontrolují i relevantní změnu vrácenou na původní hodnotu.
-Journal je bez automatického enrollmentu; existující běhy používají dosavadní kontext v1. Samotné sledování
-SQL řádků nepokrývá souborové zdroje a registry a nezapíná nový execution režim.
+[Kontext podle závislostí](docs/oporahub-sparse-context.md) má výslovný protokol v2:
+POST příprava → claim → heartbeat → výsledek. Soukromý pin, přijatá historie,
+transakční SQL journal a registry fence kontrolují i relevantní změnu vrácenou
+na původní hodnotu. Nesouvisející změna nemění původní zadání ani rozpočet.
+Office jej zapne jen s `AGENT_OFFICE_OPORA_CONTEXT_VERSION=2`; běžné požadavky
+nadále používají v1. Příprava může převést přijatý SQL draft na SQL authority
+bez změny grafu. Git/file fallback ani externí obsah referencí nejsou pokryté.
+Postup a meze: [napojení v2](docs/oporahub-context-v2-integration.md).
 Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).

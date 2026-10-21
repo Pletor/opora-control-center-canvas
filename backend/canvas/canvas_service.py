@@ -45,6 +45,7 @@ from backend.project.workspace.workspace_sources import WorkspaceSources
 from backend.project.worktrees.workspace_archive import archived_workspaces
 from backend.project.worktrees.workspace_domain import require_domain
 from backend.project_setup.project_hub import ProjectHub
+from database.repositories.opora_context_bindings import install as install_context_bindings
 from database.schema.project_initialization import initialize_project_schema
 from database.schema.project_schema import REGISTRY_SCHEMA
 
@@ -114,6 +115,7 @@ class CanvasService:
         # registry.sqlite: jen seznam projektů, workspaces, jobs a archiv; vše ostatní má projekt ve své složce
         self.db = open_sqlite(self.root / "registry.sqlite")
         self.db.executescript(REGISTRY_SCHEMA)
+        install_context_bindings(self.db)
         self._project_dbs = {}
         # Rozpracované snímky vlákna ({pid: spojení}); volná čtecí spojení po projektech (pod _locks_guard)
         # a seznam všech otevřených čtecích spojení kvůli close().
@@ -562,6 +564,10 @@ class CanvasService:
 
     def _draft_graph(self, pid):
         def raw():
+            from backend.canvas.opora_context_graph_storage import draft_authoritative_raw
+            authoritative = draft_authoritative_raw(self, pid)
+            if authoritative is not None:
+                return authoritative
             row = self.db_for(pid).execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()
             if row is None:
                 raise ValueError("Projektový draft nebyl nalezen.")
@@ -840,6 +846,10 @@ class CanvasService:
                     raise ValueError(blocked_message(hits))
             kept = ids(new_content)
             if pid == "draft" or self.project_hub.source_info(self.row("projects", pid))["sourceKind"] != "git":
+                from backend.canvas.opora_context_graph_storage import save_sql_draft
+                if save_sql_draft(self, pid, wid, new_content, new_arch, architecture["revision"],
+                                  arch_changed, actor, kept, commit=_commit):
+                    return self.view(pid, wid)
                 with self.lock_for(pid):
                     db = self.db_for(pid)
                     if not _commit and not db.in_transaction:

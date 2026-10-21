@@ -21,7 +21,7 @@ PRIMARY_KEYS = {
 
 
 def _validate_rows(project, rows):
-    if not isinstance(rows, dict) or tuple(rows) != tuple(SOURCES):
+    if not isinstance(rows, dict) or set(rows) != set(SOURCES):
         raise ValueError("Malformed SQL context snapshot sources.")
     count = 0
     for table, columns in SOURCES.items():
@@ -31,7 +31,7 @@ def _validate_rows(project, rows):
         seen = set()
         previous = None
         for row in values:
-            if not isinstance(row, dict) or tuple(row) != columns:
+            if not isinstance(row, dict) or set(row) != set(columns):
                 raise ValueError("Malformed SQL context snapshot row.")
             for name, value in row.items():
                 expected = int if name == "revision" else str
@@ -55,8 +55,8 @@ def _validate_rows(project, rows):
 
 
 def validate_snapshot(snapshot):
-    if (not isinstance(snapshot, dict) or tuple(snapshot) !=
-            ("version", "schema", "project", "checkpoint", "rows")):
+    if (not isinstance(snapshot, dict) or set(snapshot) !=
+            {"version", "schema", "project", "checkpoint", "rows"}):
         raise ValueError("Malformed SQL context snapshot.")
     if type(snapshot["version"]) is not int or snapshot["version"] != VERSION:
         raise ValueError("Unsupported SQL context snapshot version.")
@@ -66,7 +66,7 @@ def validate_snapshot(snapshot):
     if not isinstance(project, str) or not project:
         raise ValueError("Malformed SQL context snapshot project.")
     point = snapshot["checkpoint"]
-    if (not isinstance(point, dict) or tuple(point) != ("coverageId", "sequence")
+    if (not isinstance(point, dict) or set(point) != {"coverageId", "sequence"}
             or not isinstance(point["coverageId"], str)
             or re.fullmatch(r"[0-9a-f]{32}", point["coverageId"]) is None
             or type(point["sequence"]) is not int

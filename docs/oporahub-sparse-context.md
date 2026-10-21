@@ -1,13 +1,16 @@
 # Kontext execution podle závislostí
 
-Tato navazující etapa je rozpracovaná. Kontext v1 nadále používá konzervativní
-kontrolu celého přijatého grafu. Níže je cílový kontrakt v2; samotný nový journal
-nebo selektor neopravňuje server inzerovat hotové v2.
+Kontext v1 nadále používá konzervativní kontrolu celého přijatého grafu. Kontext
+v2 se výslovně připraví přes POST `/api/oporahub/executions/context` s poli
+`project`, `workspace`, `nodeId`, `contextProtocolVersion: 2`. Stejná verze se
+přidá do claimu vedle očekávané přijaté hlavy a vráceného opaque kontextového
+tokenu. Neúspěch nikdy nevede k tichému přepnutí na v1. Samotný journal nebo
+selektor neopravňuje pokračovat v běhu; rozhoduje celá execution kontrola.
 
 Implementovaný základ: `select_scope` a `project_graph` v modulu
 `backend/editor/agent_packet/specification_scope.py` a explicitně aktivovaný
-journal `database/repositories/opora_context_events.py`. Tyto funkce zatím
-nejsou novou verzí veřejného execution API. Journal sleduje osm deklarovaných
+journal `database/repositories/opora_context_events.py`. Execution API je spojuje
+se soukromým původním pinem a registry fence. Journal sleduje osm deklarovaných
 SQL zdrojů; selektor rozlišuje grafový kontext, čtení obsahu a stav pro překážky.
 `validate_accepted_lineage` v `backend/canvas/opora_execution_lineage.py`
 ověřuje zvlášť přijatou historii grafu a vybraných zadání. Všechny kroky musí
@@ -77,6 +80,14 @@ kontrolou. Relevantní A→B→A nebo odstranění a znovuvytvoření zneplatní
 oprávnění; shodný konečný JSON nestačí. Chybějící, cizí, nesouvislá nebo příliš
 dlouhá historie se odmítne, nikoli zkrátí. Původní accepted manifest je nutný.
 
+Po výslovné přípravě v2 chrání SQL triggery i ukazatel přijaté hlavy projektu:
+smí postoupit jen na existující revizi stejného scope, jejíž rodič odpovídá původní
+hlavě. Přímý SQL rewind, delete/reinsert, REPLACE a přesun identity se odmítnou;
+nový workspace může začít vlastním kořenem. Nezměněný ukazatel je povolený.
+Tím se mezirevize neschová prostým vrácením pointeru. Celý obsah revize a manifestu
+nadále ověřují repository hashe; samotný SQL trigger kontroluje strukturální
+identitu a rodiče. Bez přípravy v2 se chování starších projektů nemění.
+
 Pro živá data se přidává transakční journal s původním a novým obsahem řádku.
 SQLite triggery pokryjí i přímé SQL writery, import a obnovu; rollback vrátí
 i journal. Enrollment je výslovné, uvnitř transakce, a před ním nevznikají nové
@@ -101,20 +112,25 @@ a vyhodnotit uzavřený selektor. Události rollbacknuté transakce se nepočít
 relevantní přechody zapsané v úspěšné transakci se posuzují konzervativně i při
 následném návratu hodnoty v téže transakci. Čtení a validace mají konečné limity.
 
-Pokrytí zahrne pracovní graph authority, stav, specifikace/texty/kresby,
-projektové nastavení a skutečně čtené změny zdrojů či resolverů. Registry a
-souborové zdroje nelze vydávat za pokryté projektovým SQL journalem. Neověřený
+Pokrytí zahrnuje pracovní graph authority, stav, specifikace/texty/kresby,
+projektové nastavení a skutečně čtené změny zdrojů či resolverů. Registry mají
+samostatný monotónní fence s kontrolou zdrojů, generace a lifecycle; nejsou
+pokryté projektovým SQL journalem. Souborové zdroje pokryté nejsou. Neověřený
 writer nebo změněná instalace triggerů znamená nedostupnost v2. Záznam bez
 pokrytí nepovolí tvrzení „ABA bezpečné“. V1 zůstává funkční.
 
 ## Office a dokončení
 
-Office musí buď zachytit task-affecting vstupy `prepareTask` / `withReaBrief`
-v claimu, nebo je pro sparse dispatch vypnout. Statické pokyny vykonavatele jsou
-zvlášť verzované; cesty, token a result endpoint jsou metadata oprávnění.
+Office se zapíná proměnnou `AGENT_OFFICE_OPORA_CONTEXT_VERSION=2`; jiná nastavená
+hodnota se odmítne a nenahrazuje se v1. Pro sparse dispatch vypíná dynamické
+`prepareTask` / `withReaBrief`; zadání bere z neměnného assignmentu.
+Statické pokyny vykonavatele jsou zvlášť verzované jako `opora-office-execution/2`;
+cesty, token a result endpoint jsou metadata oprávnění.
 Restart ověří přesné uložené piny a nesmí přepnout verzi ani rozpočet.
 
 Dokončení etapy vyžaduje skutečný průchod claim→nesouvisející změna→heartbeat
 →výsledek, relevantní accepted/live ABA, negativní predikáty, souběhy, rollback,
 restore a Office HTTP test se zachováním v1. Samostatný journal či hash nestačí.
-README a přehled implementace se aktualizují až podle ověřeného chování.
+Skutečný Office HTTP průchod je ověřený pro budget-v1 i budget-v2 a relevantní
+živé ABA. Piny, klíč a registry binding přežívají reopen; archivace oprávnění
+odmítne. Ani tento režim není OS sandbox nebo důkaz ukončení procesů.
