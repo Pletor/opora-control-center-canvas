@@ -5,7 +5,7 @@ from backend.canvas.opora_hub_store import canonical
 
 JOB = ("job_id", "execution_id", "node_id", "repository", "number", "base_sha", "head_sha", "round", "since_sha",
        "risk_tier", "risk", "required_approvals", "finders", "voters", "required_votes", "phase", "candidates",
-       "created_at", "updated_at", "completed_at")
+       "created_at", "updated_at", "completed_at", "kind")
 TASK = ("task_id", "job_id", "role", "slot", "state", "owner", "token", "epoch", "expires_at", "request_id",
         "digest", "submission", "submitted_at")
 FINDING = ("finding_id", "repository", "number", "fingerprint", "job_id", "round", "head_sha", "severity", "status",
@@ -71,9 +71,10 @@ class ReviewJobs:
     def jobs(self, limit=200):
         return self._rows("job", " ORDER BY created_at DESC, job_id LIMIT ?", (limit,))
 
-    def jobs_for_pr(self, repository, number):
-        return self._rows("job", " AND repository=? AND number=? ORDER BY round, created_at, job_id",
-                          (repository, number))
+    def jobs_for_pr(self, repository, number, kind="code"):
+        """Jobs of one kind (`code` by default; `security` is its own round sequence)."""
+        return self._rows("job", " AND repository=? AND number=? AND kind=? ORDER BY round, created_at, job_id",
+                          (repository, number, kind))
 
     def insert_job(self, row):
         return self._insert("job", row)
@@ -149,7 +150,7 @@ class ReviewJobs:
 
 def public_job(row, tasks=()):
     """Worker/consumer DTO; tokens never leave the claim/heartbeat responses."""
-    return {"reviewJobId": row["job_id"], "executionId": row["execution_id"], "cardId": row["node_id"],
+    return {"reviewJobId": row["job_id"], "kind": row["kind"], "executionId": row["execution_id"], "cardId": row["node_id"],
             "repository": row["repository"], "number": row["number"], "baseSha": row["base_sha"],
             "headSha": row["head_sha"], "round": row["round"], "sinceSha": row["since_sha"],
             "riskTier": row["risk_tier"], "risk": row["risk"], "requiredHumanApprovals": row["required_approvals"],

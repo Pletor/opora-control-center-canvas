@@ -12,6 +12,8 @@ def initialize_project_schema(db):
     db.executescript(PROJECT_SCHEMA)
     ensure_canvas_version_columns(db)
     ensure_brief_fragment_columns(db)
+    from database.schema.opora_review_gate_schema import ensure_review_job_kind
+    ensure_review_job_kind(db)
     from database.repositories.opora_context_events import install
     install(db)
 

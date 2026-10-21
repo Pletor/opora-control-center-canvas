@@ -36,3 +36,41 @@ high = 2
 sensitive_minimum = 1
 # Číselná GitHub ID účtů agentů: jejich schválení se nikdy nepočítá jako lidské.
 agent_account_ids = []
+
+# Pravidla brány nad review kódu (docs/oporahub-review-jobs.md, „Pravidla brány“).
+# Chybějící sekce pravidlo vypne; tento soubor zapíná všechna.
+[security]
+enabled = true
+min_tier = "medium"  # bezpečnostní review pro hlavy s rizikem aspoň medium
+# Bezpečnostně citlivé cesty (vždy bezpečnostní review); prázdné = risk.sensitive.
+paths = [
+  ".github/workflows/**",
+  ".github/actions/**",
+  "**/auth/**",
+  "**/*auth*.*",
+  "**/*secret*",
+  "**/*token*",
+  "**/*.pem",
+  "backend/app/**",
+  "backend/integrations/**",
+  "database/schema/**",
+  "**/migrations/**",
+  "pyproject.toml",
+  "package.json",
+  "uv.lock",
+  "package-lock.json",
+]
+
+[self_checks]
+# Jména kontrol, které musí agent doložit pro aktuální hlavu (výsledek běhu nebo /self-checks).
+required = ["tests", "build"]
+
+[merge_queue]
+enabled = true                 # ready jen pro hlavu postavenou na AKTUÁLNÍ hlavě cílové větve
+required_checks = []           # názvy povinných CI kontrol (check run / status context) na hlavě PR
+base_max_age_seconds = 900     # starší pozorování porovnání s cílovou větví se nepočítá
+observe_interval_seconds = 60  # nejkratší odstup dvou čtení compare API pro jedno PR
+
+[template]
+# Sekce popisu PR podle .github/pull_request_template.md; chybějící = template_incomplete (čeká).
+sections = ["Testing", "Risk", "Revert plan"]

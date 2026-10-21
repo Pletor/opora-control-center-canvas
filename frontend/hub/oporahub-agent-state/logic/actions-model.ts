@@ -1,4 +1,5 @@
 import type { AgentAction, AgentState } from "./agent-state";
+import { REVIEW_GATE_VERBS } from "./review-gate-labels";
 
 // Fronta akcí pro pohled „Pro agenty“: stejné pořadí jako API (sloveso, cíl), jen čitelně rozložené.
 export type ActionRow = {
@@ -8,7 +9,7 @@ export type ActionRow = {
 };
 export const VERB_LABEL: Record<string, string> = {
   accept_baseline: "Přijmout základ", accept: "Přijmout návrh", rebase: "Převést návrh", claim: "Převzít kartu",
-  review: "Zkontrolovat výsledek", link_pull_request: "Navázat PR", close_card: "Uzavřít kartu",
+  review: "Zkontrolovat výsledek", link_pull_request: "Navázat PR", close_card: "Uzavřít kartu", ...REVIEW_GATE_VERBS,
 };
 const show = (value: unknown) => value === null ? "null" : typeof value === "string" ? value : JSON.stringify(value);
 export function budgetText(action: AgentAction) {

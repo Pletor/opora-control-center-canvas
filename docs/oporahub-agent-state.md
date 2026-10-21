@@ -45,7 +45,7 @@ Pravidla platí v uvedeném pořadí; konstanty jsou v `opora_agent_state_rules.
 | `claim` | Počítá karty `ready`; vyčerpané pokusy nebo opravy → `blocking/budget_exhausted` |
 | `work` | Poslední běh karty ve stavu `running` s termínem (pronájem nebo pevný konec rozpočtu) v minulosti → `blocking/lease_past_deadline` |
 | `evidence` | Nahlášený výsledek patří jiné přijaté revizi → `waiting/stale_evidence` |
-| `review` | Se zapnutým [automatickým review](oporahub-review-jobs.md): brána otevřeného PR `blocked` → `blocking/review_gate_blocked`, ne-`ready` → `waiting/review_gate_pending`; pak nahlášený výsledek aktuální revize na nepotvrzené kartě → `waiting/human_review_required` |
+| `review` | Se zapnutým [automatickým review](oporahub-review-jobs.md): brána otevřeného PR `blocked` → `blocking/review_gate_blocked`, ne-`ready` → `waiting/review_gate_pending`; když bránu drží [pravidlo brány](oporahub-review-jobs.md#pravidla-brány), důvodem etapy je přímo jeho kód (blokující v pořadí `open_security_findings`, `self_checks_failed`, `required_checks_failed`; čekající v pořadí `stale_against_main`, `self_checks_missing`, `security_review_not_enqueued`, `security_review_in_progress`, `required_checks_pending`, `base_freshness_unobserved`, `template_unobserved`, `template_incomplete`); pak nahlášený výsledek aktuální revize na nepotvrzené kartě → `waiting/human_review_required` |
 | `pull_request` | Bez modulu vazby → `not_connected`; výsledek bez PR → `blocking/results_without_pull_request` |
 | `merge` | Bez modulu → `not_connected`; otevřené PR → `waiting/pull_requests_open` |
 | `plan_writeback` | Bez modulu nebo bez hlášení `planWrittenBack` → `not_connected`; mergnuté PR bez zápisu do plánu → `waiting/merged_without_plan_writeback` |
@@ -68,6 +68,8 @@ jdou vždy první. Modul `opora_agent_state_formal.py` je odvodí z úložiště
 | `claim` | `POST /api/oporahub/executions/claim` | `ready`, nebo `blocked/budget_exhausted` či `budget_policy_required`; `budget` nese zbývající pokusy a opravy |
 | `review` | `GET /api/oporahub/executions/{id}/results` | `blocked/human_only` (AI review chybí) |
 | `review.claim` | `POST /api/oporahub/review-jobs/claim` | `ready` u úlohy review s volným slotem (jen se zapnutým automatickým review); `preconditions` `{role, headSha}` |
+| `review.self_checks` | `POST /api/oporahub/review-jobs/self-checks` | `ready`, když brána hlásí `self_checks_missing`; `targetId` = `executionId`, `preconditions` `{executionId, headSha, required}` |
+| `pr.update_branch` | `PUT github:/repos/{owner}/{repo}/pulls/{n}/update-branch` (provede údržba PR v agent-office rebasem) | `ready`, když brána hlásí `stale_against_main`; `targetId` = `executionId`, `preconditions` `{repository, number, expectedHeadSha, baseRef, baseSha}` |
 | `link_pull_request` | `POST /api/oporahub/executions/{id}/pull-request` | `ready` s modulem vazby, jinak `blocked/not_implemented` |
 | `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | vždy `blocked/human_only`; jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `preconditions` = `{executionId, mergeSha}` |
 | `verification.investigate` | `GET /api/oporahub/verifications/{id}` | `ready`; nejnovější CI check (`formal/tlc`, `formal/lean`, `formal-trusted/*`) běhu skončil `counterexample`, `failed` nebo `inconclusive` (viz [ověřování](oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b)) |

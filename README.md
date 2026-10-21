@@ -118,7 +118,9 @@ Agent místo dotazování mnoha endpointů čte jeden [stav pro agenty](docs/opo
 (`GET /api/oporahub/agent-state`, s `ETag`): hlavy pro CAS, zdraví etap a další akce.
 Volitelné [automatické review kódu](docs/oporahub-review-jobs.md) (`OPORA_REVIEW_JOBS=1`) zařazuje
 úlohy hledačů a ověřovatelů pro každou novou hlavu PR běhu a počítá bránu merge; pracovníci
-agent-office je přebírají přes `/api/oporahub/review-jobs`.
+agent-office je přebírají přes `/api/oporahub/review-jobs`. Brána navíc vyžaduje bezpečnostní review
+citlivých změn (`kind: "security"`), důkaz vlastních kontrol agenta pro aktuální hlavu, hlavu postavenou
+na aktuální cílové větvi (jinak `stale_against_main`) a vyplněnou [šablonu PR](.github/pull_request_template.md).
 
 Člověk může nastavit verzovaná [pravidla review a kontrol](docs/oporahub-review-policy.md):
 přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schválení a stáří

@@ -6,7 +6,9 @@ only read (changed files, outside every lock); nothing here posts to GitHub."""
 import time
 from contextlib import contextmanager
 
+from backend.canvas import opora_review_merge_queue as merge_queue
 from backend.canvas import opora_review_risk as risk
+from backend.canvas import opora_review_security as security
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_execution_validation import validate
 from backend.canvas.opora_executions import OporaExecutions
@@ -36,12 +38,14 @@ def needs_job(jobs, link, config):
                                                 for job in jobs)
 
 
-def enqueue(store, link, change, config, now):
-    """Insert the job for the link's current head once; returns the job ID or None (exists or capped)."""
+def enqueue(store, link, change, config, now, kind="code"):
+    """Insert the job for the link's current head once; returns the job ID or None (exists or capped).
+
+    `kind="security"` is a separate round sequence without the round cap (opora_review_security)."""
     repository, number, head = link["repository"], link["number"], link["head_sha"]
-    prior = store.jobs_for_pr(repository, number)
+    prior = store.jobs_for_pr(repository, number, kind)
     existing = next((job for job in prior if job["head_sha"] == head), None)
-    if (existing is not None and existing["phase"] != "superseded") or capped(prior, config):
+    if (existing is not None and existing["phase"] != "superseded") or (kind == "code" and capped(prior, config)):
         return None
     for job in prior:
         if job["phase"] in ACTIVE:  # A newer push makes an unfinished review of an older head moot.
@@ -54,14 +58,14 @@ def enqueue(store, link, change, config, now):
     if existing is not None:
         return revive(store, existing, len(done) + 1, since, now)
     tier = risk.classify(change, config)
-    job_id = short_id("rj_", *store.scope, repository, number, head)
+    job_id = short_id("rj_", *store.scope, repository, number, head, *([kind] if kind != "code" else []))
     store.insert_job({
         "job_id": job_id, "execution_id": link["execution_id"], "node_id": link["node_id"],
         "repository": repository, "number": number, "base_sha": (change or {}).get("baseSha"), "head_sha": head,
         "round": len(done) + 1, "since_sha": since, "risk_tier": tier["tier"],
         "risk": tier, "required_approvals": tier["requiredApprovals"], "finders": config["finders"],
         "voters": config["voters"], "required_votes": config["requiredVotes"], "phase": "find", "candidates": [],
-        "created_at": now, "updated_at": now, "completed_at": None})
+        "created_at": now, "updated_at": now, "completed_at": None, "kind": kind})
     for slot in range(1, config["finders"] + 1):
         store.insert_task({"task_id": f"{job_id}-finder-{slot}", "job_id": job_id, "role": "finder", "slot": slot,
                            "state": "open", "epoch": 0})
@@ -120,7 +124,8 @@ class ReviewJobService:
         validate({"project": project, "workspace": workspace}, set())
         with self.transaction(project, workspace) as store:
             due = [link for link in ExecutionPullRequests(store.db, project, workspace).listing()
-                   if link["state"] == "open" and needs_job(store.jobs_for_pr(link["repository"], link["number"]), link, config)]
+                   if link["state"] == "open" and (needs_job(store.jobs_for_pr(link["repository"], link["number"]), link, config)
+                                                   or security.due(store, link, config))]
         changes = [(link, self.observe(link)) for link in due]
         created = []
         with self.transaction(project, workspace) as store:
@@ -130,8 +135,9 @@ class ReviewJobService:
                 if current is None or current["state"] != "open" or current["head_sha"] != link["head_sha"]:
                     continue  # Head moved while reading GitHub; the next sync observes the new head.
                 job_id = enqueue(store, current, change, config, stamp())
-                if job_id:
-                    created.append(job_id)
+                created += [job_id] if job_id else []
+                created += security.enqueue_security(store, current, change, config, stamp())
+        merge_queue.observe_bases(self, project, workspace, config)
         return created
 
     def list(self, project, workspace):
