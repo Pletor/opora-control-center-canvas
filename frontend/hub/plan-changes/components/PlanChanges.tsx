@@ -50,7 +50,7 @@ export default function PlanChanges({ model, review, acceptancePolicy }: { model
               disabled={disabled} onChange={event => model.edit(field, event.target.value)} />
           </label>)}
           <button type="button" disabled={disabled || !changed || !model.subject.trim()} onClick={model.propose}>Uložit návrh změny</button>
-        </div> : <p>Tento prostor neobsahuje zadání karet.</p>}
+        </div> : model.missingDocument ? <p role="alert" className="plan-changes__warning">Vybraná karta <code>{model.missingDocument}</code> není v načteném kontextu zadání. Obnovte podklady tlačítkem výše; jiná karta se místo ní nevybere.</p> : <p>Tento prostor neobsahuje zadání karet.</p>}
       </>}
     </>}
     <h3>Návrhy změn</h3>

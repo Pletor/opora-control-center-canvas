@@ -104,6 +104,15 @@ volitelný izolovaný broker a podepsaná evidence spotřeby jsou implementovan�
 mají [skutečný provozní průchod](docs/oporahub-live-staging.md). [Audit dokončení](docs/oporahub-completion-audit.md)
 mapuje všech 12 požadavků na konkrétní důkazy a meze jejich platnosti.
 
+**Proces Control Center** propojuje přijatý plán, pipeline karty a execution
+historii v jednom přehledu. U každé karty ukáže doložený stav a další krok;
+výsledek starší revize se nevydává za aktuální dokončení. Agenti mají stejný
+výřez přes `GET /api/oporahub/process` a odkazy v běžném `node-brief`.
+Zjištění z práce se vracejí jako návrhy zlepšení do stávajícího review.
+Podklady se průběžně obnovují bez spouštění modelu nebo dalšího běhu.
+[Kontrakt synchronizace procesu](docs/oporahub-process-sync.md) popisuje zdroje
+pravdy, API a hranice vůči starším procesům.
+
 Člověk může nastavit verzovaná [pravidla review a kontrol](docs/oporahub-review-policy.md):
 přesné aplikace a názvy povinných kontrol, účty reviewerů, počty schválení a stáří
 důkazů. Změna pravidel vyžaduje nové načtení; novější nedokončený nebo neúspěšný

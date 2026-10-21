@@ -281,6 +281,18 @@ def test_card_scoped_reads_send_node_id(net, monkeypatch, capsys, command, route
     assert code == 0 and out['revision'] == 4 and calls[-1]['route'] == route
 
 
+def test_process_sync_reads_project_workspace_and_optional_node(net, monkeypatch, capsys):
+    calls, answers = net
+    answers['/api/oporahub/process'] = {'schema': 'opora.process-sync/1', 'scope': {'project': 'p1', 'workspace': 'draft'}, 'items': []}
+    code, out, _ = run(monkeypatch, capsys, 'process-sync', *SCOPE)
+    assert code == 0 and out['schema'] == 'opora.process-sync/1'
+    assert calls[-1]['method'] == 'GET' and calls[-1]['route'] == '/api/oporahub/process'
+    assert calls[-1]['query'] == {'project': ['p1'], 'workspace': ['draft']}
+    code, _, _ = run(monkeypatch, capsys, 'process-sync', *SCOPE, '--node', 'node-7')
+    assert code == 0 and calls[-1]['query'] == {'project': ['p1'], 'workspace': ['draft'], 'nodeId': ['node-7']}
+    assert all(call['method'] == 'GET' for call in calls)
+
+
 def test_frontier_without_node_reads_the_canvas_root_and_profiles_need_no_scope(net, monkeypatch, capsys):
     calls, answers = net
     answers['/api/desktop-v3/frontier'] = {'needsRouting': [{'id': 'n1'}]}

@@ -25,6 +25,7 @@ Všechny příkazy kromě `status`, `projects` a `pipeline-profiles` potřebují
 | `view` | — | `readOnly`, `digest`, `nodes [{id, parentId, kind, name, sourceRef}]`; celý graf `--raw` |
 | `state` | — | `revision`, `readOnly`, počty; obsah `--raw` |
 | `node-brief` | `--node ID` | cíl, začátek textu, stop podmínky, `loop`, `pipeline` (etapa na řadě), `checks`, `evidence`, `request`, `storyboard` (jen když ho karta má: momenty, komentáře a šipky člověka); vše `--raw` |
+| `process-sync` | `[--node ID]` | živý read-only přehled přijatého procesu, pipeline, execution a nahlášených výsledků; bez `--node` celý workspace, s ním jedna karta |
 | `drawing` | `--layer sb/<nodeId>/<momentId>` | skica momentu storyboardu: `revision`, `elementCount`, počty podle typu, texty prvků; scéna `--raw` |
 | `drawing-file` | `--id <fileId> --out <soubor>` | uloží obrázek podkladu nebo PNG skici (`node-brief.storyboard.assets[].fileId`, `sketch.fileId`) na disk; vrátí `{id, mimeType, bytes, out}` |
 | `frontier` | `[--node SEKTOR]` | `frontier`, `claimed`, `blocked`, `waiting`, `closed`, `needsRouting`; řádek karty nese `pipeline {routed, current, finished, total, stuck}` a `missing` (pole kontrolního pásu, která nejsou ano); bez `--node` kořen |

@@ -9,6 +9,13 @@ Pro kartu převzatou přes `/api/oporahub/executions/claim` platí
 neměnný snímek přijaté revize a odevzdává výsledek přes execution API. Živý
 `node-brief` zůstává čtecím podkladem, nenahrazuje zadání tohoto běhu.
 
+Živá orientace v `node-brief` odkazuje na [společný proces Control Center](oporahub-process-sync.md):
+`GET /api/oporahub/process?project=…&workspace=…&nodeId=…`.
+Před další prací agent ověří přijatou revizi, stav oprávnění a doporučený krok.
+Tato čtecí projekce není claim ani neměnné zadání a neuděluje token.
+Nález pro další vývoj se odevzdá jako nativní návrh změny plánu s aktuálním
+základem; nahlášený výsledek sám nepřijímá plán ani nepotvrzuje dokončení.
+
 Níže popsané zápisy `agent-output`, stavu, bloků, pipeline a navázaných procesních
 výsledků jsou pro takto zařazenou kartu chráněné proti agentímu zápisu i po
 uvolnění rezervace. Nelze jimi obejít expiraci nebo novou epochu. Výslovné lidské

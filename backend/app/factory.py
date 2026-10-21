@@ -30,6 +30,7 @@ from backend.api.editor.opora_execution_budget_routes import create_execution_bu
 from backend.api.editor.opora_execution_observer_routes import BODY_LIMIT as OBSERVER_BODY_LIMIT
 from backend.api.editor.opora_execution_observer_routes import create_execution_observer_router
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
+from backend.api.editor.opora_process_routes import create_opora_process_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
 from backend.api.editor.opora_proposal_review_routes import create_proposal_review_router
 from backend.api.editor.opora_proposal_routes import create_opora_proposal_router
@@ -315,6 +316,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_review_policy_router(service))
     app.include_router(create_opora_reconciliation_router(service))
     app.include_router(create_opora_execution_router(service))
+    app.include_router(create_opora_process_router(service))
     app.include_router(create_execution_observer_router(service))
     app.include_router(create_opora_verification_router(service))
     app.include_router(create_execution_budget_router(service))

@@ -5,6 +5,8 @@ import { checkLabels } from "@/hub/git-evidence/logic/git-evidence";
 import "../styles/oporahub-overview.css";
 import AcceptanceOverview from "@/hub/proposal-review/components/AcceptanceOverview";
 import ExecutionObservations from "@/hub/execution-observations/components/ExecutionObservations";
+import ProcessSync from "@/hub/process-sync/components/ProcessSync";
+import { proposeProcessImprovement } from "@/hub/process-sync/logic/process-sync";
 
 export default function OporaHubOverview({ models, open }: { models: OverviewModels; open: (target: DetailTarget) => void }) {
   const { graphProposals: graph, changes, executions, evidence, reconciliation, reviewPolicy } = models;
@@ -44,6 +46,8 @@ export default function OporaHubOverview({ models, open }: { models: OverviewMod
       <button onClick={() => open({ kind: "policy", title: "Pravidla nezávislé kontroly" })}><strong>Kontrola <small>Rozhoduje člověk</small></strong><b>{reviewPolicy.busy ? "Načítám pravidla…" : reviewPolicy.error ? "Pravidla nejsou dostupná" : reviewPolicy.context?.policy ? "Pravidla review nastavena" : "Pravidla review nedoložena"}</b><span>{reconciliation.context ? `${reconciliation.context.items.length} načtených vazeb sledování` : "Sledování není doloženo"} · merge není nasazení.</span></button>
     </section>
     <div className="oporahub-overview__columns"><div className="oporahub-overview__main">
+      <ProcessSync project={executions.project ?? ""} workspace={executions.workspace ?? ""} open={open}
+        onImprove={(nodeId, name) => proposeProcessImprovement(nodeId, name, changes.selectDocument, open)} />
       {models.executionObservations && <ExecutionObservations model={models.executionObservations} compact cards={executions.choices} onViewAll={() => open({ kind: "executions", title: "Všechny načtené běhy a výsledky" })} onSelect={(executionId) => {
         const item = models.executionObservations?.items.find(value => value.intent.executionId === executionId);
         open({ kind: "executions", id: executionId, title: `Pozorování běhu · ${item?.intent.nodeId ?? executionId}` });

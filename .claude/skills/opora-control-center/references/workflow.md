@@ -37,6 +37,15 @@ Revize pro zápisy:
 - `/api/desktop-v3/agent-output`: celý `request` (`project, workspace, nodeId, expectedRevision`) je v `node-brief --raw` → `outputContract.request`; `reports` jen na odchozí vazby karty (`graph.outgoing[].edgeId`).
 - `/api/desktop-v3/agent-workspace`: revize z `opora_read.py agent-workspace --node ID` (prázdný prostor 0).
 
+## Živý proces Control Center
+
+Před prací načti `opora_read.py process-sync --project P --workspace W` (nebo `--node ID` pro jednu kartu).
+Projekce propojuje aktuálně přijatý proces, pipeline, oprávnění k převzetí a nahlášené execution výsledky.
+Odkaz z `node-brief` je orientační; nenahrazuje neměnné přiřazení této relace ani nedává lease token.
+Po práci se zlepšení vracejí přes nativní návrhy spec, grafu nebo obsahu. Návrh sám nic nepřijímá:
+vyžaduje lidské review a aktuální revizi (CAS). Výsledky execution nejsou automatickým potvrzením karty,
+merge ani nasazením. Podrobnosti: [Proces Control Center](../../../../docs/oporahub-process-sync.md).
+
 ## Grilling na kartě
 
 - Kde: karta `[grilling] …` v sektoru mapy, při malém zadání karta nebo sektor, kterého se rozhovor týká. Neexistuje-li, navrhni ji a založ až po souhlasu.

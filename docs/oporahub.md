@@ -8,6 +8,12 @@ podle [klikacího artefaktu Claude Code](design/README.md). Člověk vidí konkr
 rozhodnutí, práci a další kroky; detail otevře přesnou položku, uchová explicitní
 potvrzení a původní API. Ukázková data artefaktu nejsou stavem aplikace.
 
+[Proces Control Center](oporahub-process-sync.md) spojuje tento přehled s běžnou
+pipeline karty a agentím `node-brief`. Stav se odvozuje z původních úložišť;
+není to další stavový automat. Nahlášená práce, nezávislá kontrola, merge a
+nasazení zůstávají oddělené. Zlepšení procházejí stejnými verzovanými návrhy
+a review jako původní plán.
+
 Tento kontrakt nahrazuje předchozí rozhodnutí z 2026-10-04 o GitHubu jako jediném
 zdroji pravdy pro plány, včetně požadavku zrušit historii OporaHubu. Při rozporu
 má pro plány přednost i před `docs/synchronizace-pravdy.md`. Existující kontroly
