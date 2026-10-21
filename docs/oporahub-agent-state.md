@@ -70,7 +70,8 @@ jdou vždy první. Modul `opora_agent_state_formal.py` je odvodí z úložiště
 | `review.claim` | `POST /api/oporahub/review-jobs/claim` | `ready` u úlohy review s volným slotem (jen se zapnutým automatickým review); `preconditions` `{role, headSha}` |
 | `link_pull_request` | `POST /api/oporahub/executions/{id}/pull-request` | `ready` s modulem vazby, jinak `blocked/not_implemented` |
 | `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | vždy `blocked/human_only`; jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `preconditions` = `{executionId, mergeSha}` |
-| `verification.investigate` | `GET /api/oporahub/verifications/{id}` | `ready`; nejnovější CI check `formal/tlc` běhu skončil `counterexample`, `failed` nebo `inconclusive` (viz [ověřování](oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b)) |
+| `verification.investigate` | `GET /api/oporahub/verifications/{id}` | `ready`; nejnovější CI check (`formal/tlc`, `formal/lean`, `formal-trusted/*`) běhu skončil `counterexample`, `failed` nebo `inconclusive` (viz [ověřování](oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b)) |
+| `verification.fix` | `POST /api/oporahub/verifications/{id}/fix-proposal` (`{project, workspace}`) | `ready` u `counterexample` a u `failed`, které není jen `runner_error`; idempotentně založí návrh karty „Opravit formální ověření“, přijímá člověk |
 
 `preconditions` obsahují přesné hodnoty k opakování v těle požadavku (`expectedAcceptedHead`,
 `expectedGraphDigest`, `expectedContextVersion`, u protokolu v2 `expectedBudgetPolicyHead`
@@ -101,7 +102,7 @@ zůstává jen ke čtení i se skutečným modulem. Bez modulu jsou tři PR etap
 ## Mezery
 
 Vždy přítomné: `ai_review` (kontrolu výsledku dělá člověk; chybí, když je zapnuté [automatické review](oporahub-review-jobs.md)), `lean_verification`
-(Lean se nespouští automaticky, viz [ověřování](oporahub-verification.md)) a
+(Lean v CI dokazuje jen čisté jádro OporaHubu, ne kód karet, viz [ověřování](oporahub-verification.md)) a
 `auto_rebase` (převod návrhu je výslovný). `pull_request_link` dokud chybí modul výše.
 
 ## Ověření

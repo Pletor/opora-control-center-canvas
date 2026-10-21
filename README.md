@@ -141,6 +141,13 @@ s reprodukovatelnou kontrolou a záměrně porušenou variantou.
 tvrzení a výstupy TLC/Lean u přijaté revize a běhu agenta. Soubory mají ověřené
 SHA256 a jsou dostupné z historie. Nahlášené `passed` zůstává tvrzením agenta;
 nezávislý ověřovač, shoda s implementací a automatické schválení se tím neudělují.
+CI na každé změně spouští TLC (`formal/tlc`: execution lease, review jobs, smyčka PR,
+pozitivní i negativní konfigurace) a Lean důkazy čistého jádra (`formal/lean`: agregace
+hlasů, CAS přijaté hlavy, 3-way merge polí; audit axiomů, žádné `sorry`, diferenciální test
+proti Pythonu). `formal-trusted.yml` běží z definice základní větve a jeho výsledek má důvěru
+`ci-verified`. Protipříklad založí návrh karty „Opravit formální ověření“ k lidskému přijetí;
+`GET /api/oporahub/verifications/ledger` vypíše, co je už dokázáno. Lokálně:
+`python tools/formal/lean/audit.py` (elan + Lean) a `python tools/formal/run.py --download`.
 
 [Pravidla běhů](docs/oporahub-execution-budgets.md) přidávají lidsky nastavený
 pevný konec oprávnění a trvalý počet pokusů a oprav pro kartu a přijatou revizi.

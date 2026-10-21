@@ -2,15 +2,16 @@ export type FormalArtifact = { path: string; role: string; sha256: string; bytes
 export type FormalClaim = { id: string; kind: "invariant" | "temporal-property" | "theorem"; statement: string; statementDigest: string };
 export type FormalOutcome = "passed" | "counterexample" | "failed" | "inconclusive" | "cancelled";
 export type FormalReport = { requestId: string; reportDigest: string; outcome: FormalOutcome; checkedClaims: string[];
-  summary: string; artifacts: FormalArtifact[]; createdAt: string; trust: "agent-reported";
-  sourceBinding: "agent-reported"; currentEligibility: false; independentlyVerified: false };
+  summary: string; artifacts: FormalArtifact[]; createdAt: string; trust: FormalTrust;
+  sourceBinding: FormalTrust; currentEligibility: false; independentlyVerified: false };
 export type FormalRecord = { id: string; project: string; workspace: string; nodeId: string; executionId: string; epoch: number;
   acceptedRevision: string; assignmentDigest: string; requestId: string; requestDigest: string; manifestDigest: string;
   verification: { tool: { name: "tlc" | "lean"; version: string; distributionSha256: string };
     source: { repository: string; commitSha: string }; claims: FormalClaim[]; assumptions: string[];
     configuration: Record<string, unknown>; artifacts: FormalArtifact[] };
-  createdAt: string; trust: "agent-reported"; sourceBinding: "agent-reported"; currentEligibility: false;
+  createdAt: string; trust: FormalTrust; sourceBinding: FormalTrust; currentEligibility: false;
   independentlyVerified: false; report: FormalReport | null };
+export type FormalTrust = "agent-reported" | "ci-verified";
 export type FormalScope = { project: string; workspace: string };
 export const FORMAL_ROOT = "/api/oporahub/verifications";
 export const formalOutcomes: Record<FormalOutcome, string> = { passed: "Nahlášeno: prošlo · neověřeno", counterexample: "Nahlášen protipříklad",

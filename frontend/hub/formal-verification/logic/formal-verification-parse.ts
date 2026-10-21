@@ -1,4 +1,4 @@
-import { formalSourceUrl, type FormalArtifact, type FormalClaim, type FormalRecord, type FormalReport, type FormalScope } from "./formal-verification";
+import { formalSourceUrl, type FormalArtifact, type FormalClaim, type FormalRecord, type FormalReport, type FormalScope, type FormalTrust } from "./formal-verification";
 
 type ObjectValue = Record<string, unknown>;
 const reject = (): never => { throw new Error("Formální podklad má neplatný obsah nebo hranici důvěry."); };
@@ -9,9 +9,11 @@ const hash = (value: unknown, size = 64) => pattern(value, new RegExp(`^[a-f0-9]
 const identity = (value: unknown) => pattern(value, /^[A-Za-z0-9_.-]{1,80}$/);
 const list = (value: unknown, limit = 32): unknown[] => Array.isArray(value) && value.length <= limit ? value : reject();
 const time = (value: unknown) => typeof value === "string" && value.length <= 50 && /(?:Z|[+-]\d\d:\d\d)$/.test(value) && Number.isFinite(Date.parse(value)) ? value : reject();
+/** `ci-verified` = run by the base-branch workflow on this head; never independent, never eligible. */
 function trust(value: ObjectValue) {
-  if (value.trust !== "agent-reported" || value.sourceBinding !== "agent-reported" || value.currentEligibility !== false || value.independentlyVerified !== false) reject();
-  return { trust: "agent-reported" as const, sourceBinding: "agent-reported" as const, currentEligibility: false as const, independentlyVerified: false as const };
+  const level = value.trust;
+  if ((level !== "agent-reported" && level !== "ci-verified") || value.sourceBinding !== level || value.currentEligibility !== false || value.independentlyVerified !== false) reject();
+  return { trust: level as FormalTrust, sourceBinding: level as FormalTrust, currentEligibility: false as const, independentlyVerified: false as const };
 }
 function artifacts(value: unknown, roles: string[]): FormalArtifact[] {
   const paths = new Set<string>();

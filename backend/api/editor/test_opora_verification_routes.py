@@ -74,3 +74,16 @@ def test_large_bounded_artifact_passes_former_two_mb_body_limit(client):
     bad["requestId"] = "bad"
     bad["verification"]["tool"]["name"] = {}
     assert client.post(BASE + "/requests", headers=AGENT, json=bad).status_code == 409
+
+
+def test_proof_ledger_route_and_fix_proposal_refuses_non_failures(client):
+    response = client.get(BASE + "/ledger", params=SCOPE, headers=AGENT)
+    assert response.status_code == 200, response.text
+    entries = response.json()["entries"]
+    assert any(row["id"] == "lean:OporaHub.Votes.no_repost" and row["status"] == "unchecked" for row in entries)
+    _, body = imported(client)
+    saved = client.post(BASE + "/requests", headers=AGENT, json=body).json()
+    refused = client.post(BASE + "/" + saved["id"] + "/fix-proposal", headers=AGENT, json=SCOPE)
+    assert refused.status_code == 409 and "counterexample" in refused.json()["error"]
+    assert client.post(BASE + "/" + saved["id"] + "/fix-proposal", headers=AGENT,
+                       json={**SCOPE, "extra": 1}).status_code == 409

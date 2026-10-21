@@ -1,0 +1,10 @@
+{
+  "spec": "ReviewJobs.tla",
+  "cases": [
+    {"name": "positive", "config": "ReviewJobs.cfg", "expect": "pass"},
+    {"name": "no-round-cap", "config": "Mutant_no_cap.cfg", "expect": "violation", "invariant": "RoundsCap"},
+    {"name": "repost-known", "config": "Mutant_repost.cfg", "expect": "violation", "invariant": "NoRepost"},
+    {"name": "threshold-off-by-one", "config": "Mutant_threshold.cfg", "expect": "violation", "invariant": "VoteThreshold"},
+    {"name": "stale-approval", "config": "Mutant_stale_approval.cfg", "expect": "violation", "invariant": "ApprovalBoundToHead"}
+  ]
+}

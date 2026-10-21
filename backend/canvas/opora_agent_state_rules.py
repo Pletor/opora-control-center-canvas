@@ -16,7 +16,7 @@ DECISION_PRIORITY = {"accept_baseline": 0, "accept_critical": 1, "accept_elevate
 VERB_ORDER = ("accept_baseline", "accept", "rebase", "claim", "review", "review.claim", "link_pull_request",
               "close_card")
 GAPS = (("ai_review", "review", "Nezávislé AI review výsledků není napojeno; kontrolu dělá člověk."),
-        ("lean_verification", "evidence", "Lean ověření úloh se zatím nespouští automaticky."),
+        ("lean_verification", "evidence", "Lean v CI dokazuje jen čisté jádro OporaHubu (tools/formal/lean); kód karet nedokazuje."),
         ("auto_rebase", "proposal", "Zastaralé návrhy se nepřevádějí automaticky; rebase je výslovný."))
 PULL_GAP = ("pull_request_link", "pull_request", "Modul vazby execution → PR není nainstalován.")
 

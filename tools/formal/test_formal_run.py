@@ -65,7 +65,7 @@ def test_summary_and_annotation_are_machine_readable():
     passed = run.case_result({"model": "m"}, NEGATIVE, parsed, 1.0)
     document = run.summary([passed, failed], "a" * 40)
     assert document["ok"] is False and document["check"] == "formal/tlc"
-    assert document["evidenceKinds"] == {"tlc": "connected", "lean": "not_connected"}
+    assert document["evidenceKinds"] == {"tlc": "connected", "lean": "connected"}
     json.dumps(document)
     line = run.annotation(failed)
     assert line.startswith("::error title=formal/tlc positive_violation::")
