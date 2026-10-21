@@ -8,6 +8,8 @@ import tomllib
 from functools import lru_cache
 from pathlib import Path
 
+from backend.canvas import opora_review_gate_config as gate_config
+
 DEFAULT_PATH = Path(__file__).with_name("opora_review_jobs.toml")
 TIERS = ("low", "medium", "high")
 
@@ -40,6 +42,7 @@ def parse(raw):
         raise ValueError("Invalid sensitive path glob.")
     if not all(type(item) is int and item > 0 for item in config["agentAccountIds"]):
         raise ValueError("agent_account_ids must be positive GitHub account IDs.")
+    config.update(gate_config.parse(raw))  # security, selfChecks, mergeQueue, template
     return config
 
 

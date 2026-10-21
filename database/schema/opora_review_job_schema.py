@@ -2,7 +2,7 @@
 
 Contract: docs/oporahub-review-jobs.md. One job per (PR, headSha); tasks are leased slots
 (finder/voter) with their own token and monotonic epoch; findings are deduplicated per PR
-by fingerprint across rounds."""
+by fingerprint across rounds. `kind` (code|security) is migrated in opora_review_gate_schema."""
 TABLES = ("opora_review_jobs", "opora_review_tasks", "opora_review_task_requests",
           "opora_review_findings", "opora_review_decisions")
 SCHEMA = """
@@ -13,9 +13,9 @@ CREATE TABLE IF NOT EXISTS opora_review_jobs(
  risk_tier TEXT NOT NULL, risk TEXT NOT NULL, required_approvals INTEGER NOT NULL,
  finders INTEGER NOT NULL, voters INTEGER NOT NULL, required_votes INTEGER NOT NULL,
  phase TEXT NOT NULL, candidates TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
- completed_at TEXT,
+ completed_at TEXT, kind TEXT NOT NULL DEFAULT 'code',
  PRIMARY KEY(project_id,workspace_id,job_id),
- UNIQUE(project_id,workspace_id,repository,number,head_sha));
+ UNIQUE(project_id,workspace_id,repository,number,kind,head_sha));
 CREATE TABLE IF NOT EXISTS opora_review_tasks(
  project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, job_id TEXT NOT NULL,
  role TEXT NOT NULL, slot INTEGER NOT NULL, state TEXT NOT NULL, owner TEXT, token TEXT,

@@ -1,5 +1,6 @@
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 import { STAGE_IDS, type AgentState, type Health, type StageId } from "./agent-state";
+import { REVIEW_GATE_REASONS } from "./review-gate-labels";
 
 // Promítnutí smyčky etap do infografiky: pořadí, popisky, kdo krok dělá a poloha v „hadovi“.
 export type Tone = "ok" | "warn" | "bad" | "gap";
@@ -40,7 +41,7 @@ export const reasonText: Record<string, string> = {
   no_pull_requests: "Zatím žádné PR.", pull_requests_open: "PR čekají na merge.", merged: "PR sloučeno.",
   nothing_to_merge: "Nic ke sloučení.", writeback_not_reported: "Zápis do plánu se nehlásí.",
   merged_without_plan_writeback: "Sloučeno bez zápisu do plánu.", plan_written_back: "Plán aktualizován.",
-  nothing_to_write_back: "Nic k zápisu.",
+  nothing_to_write_back: "Nic k zápisu.", ...REVIEW_GATE_REASONS,
 };
 
 export type StageView = {

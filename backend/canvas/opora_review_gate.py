@@ -4,13 +4,15 @@
 humanApprovalsAtHead, reasons[]}`. Human approvals come only from stored GitHub evidence of
 the exact current head SHA (reusing the evidence review rules: User accounts with write
 permission, not the PR author); configured agent accounts never count. Nothing is written."""
+from backend.canvas import opora_review_gate_rules as gate_rules
 from backend.canvas.opora_review_jobs import capped
 from backend.canvas.opora_review_status import _reviews
 from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
 from database.repositories.opora_review_evidence import ReviewEvidenceRepository
 from database.repositories.opora_review_jobs import ReviewJobs
 
-BLOCKING = ("review_round_cap_reached", "open_important_findings", "changes_requested", "invalid_review_evidence")
+BLOCKING = ("review_round_cap_reached", "open_important_findings", "changes_requested", "invalid_review_evidence",
+            *gate_rules.BLOCKING)
 
 
 def human_approvals(evidence, repository, number, head, agent_ids):
@@ -33,7 +35,7 @@ def human_approvals(evidence, repository, number, head, agent_ids):
     return 0, False, ["github_evidence_stale_head" if newest_any else "github_evidence_missing"]
 
 
-def gate(store, link, evidence, config):
+def gate(store, link, evidence, config, now=None):
     repository, number, head = link["repository"], link["number"], link["head_sha"]
     jobs = store.jobs_for_pr(repository, number)
     job = next((item for item in jobs if item["head_sha"] == head and item["phase"] != "superseded"), None)
@@ -58,16 +60,18 @@ def gate(store, link, evidence, config):
         reasons += ["human_approvals_missing", *notes]
     elif "invalid_review_evidence" in notes:
         reasons.append("invalid_review_evidence")
+    extra, readiness = gate_rules.evaluate(store, link, evidence, config, now)  # security, self-checks, queue
+    reasons += extra
     status = ("blocked" if any(reason in BLOCKING for reason in reasons) else "pending" if reasons else "ready")
     return {"executionId": link["execution_id"], "cardId": link["node_id"], "repository": repository,
             "number": number, "headSha": head, "prState": link["state"],
             "reviewJobId": job["job_id"] if job else None, "round": job["round"] if job else None,
-            "riskTier": job["risk_tier"] if job else None,
+            "riskTier": job["risk_tier"] if job else None, "mergeReadiness": readiness,
             "reviewGate": {"status": status, "openImportant": important, "requiredHumanApprovals": required,
                            "humanApprovalsAtHead": approvals, "reasons": reasons}}
 
 
-def review_gates(db, project, workspace, config):
+def review_gates(db, project, workspace, config, now=None):
     """Gates for every linked PR; callers hold the project locks (read-only, no transaction)."""
     store = ReviewJobs(db, project, workspace)
     links = ExecutionPullRequests(db, project, workspace).listing()
@@ -77,7 +81,7 @@ def review_gates(db, project, workspace, config):
             evidence = ReviewEvidenceRepository(db, project, workspace).list(100)
         except ValueError:
             evidence = None  # Corrupt stored evidence never yields approvals.
-    return sorted((gate(store, link, evidence, config) for link in links),
+    return sorted((gate(store, link, evidence, config, now) for link in links),
                   key=lambda item: (item["repository"], item["number"], item["executionId"]))
 
 

@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 from backend.canvas import opora_agent_state_formal as formal
 from backend.canvas import opora_agent_state_pulls as pulls
+from backend.canvas import opora_agent_state_review_gates as review_gates
 from backend.canvas import opora_agent_state_reviews as reviews
 from backend.canvas import opora_agent_state_rules as rules
 from backend.canvas.opora_change_validation import scope
@@ -204,6 +205,7 @@ class AgentState:
         for job in (reviewing or {}).get("claimable", []):
             actions.append(_action("review.claim", "POST", "/api/oporahub/review-jobs/claim", job["reviewJobId"],
                                    job["headSha"], {"role": job["role"], "headSha": job["headSha"]}))
+        actions += review_gates.actions(reviewing)  # pr.update_branch, review.self_checks
         actions.sort(key=lambda value: (rules.VERB_ORDER.index(value["verb"]), value["targetId"] or ""))
         decisions.sort(key=lambda value: value[0])
         return actions, [value for _, value in decisions[:rules.DECISION_LIMIT]]

@@ -22,7 +22,7 @@ def read(canvas, project, workspace, now):
     if not config["enabled"]:
         return None
     db = canvas.db_for(project)
-    gates = [item for item in review_gates(db, project, workspace, config) if item["prState"] == "open"]
+    gates = [item for item in review_gates(db, project, workspace, config, now) if item["prState"] == "open"]
     store = ReviewJobs(db, project, workspace)
     claimable = {}
     for task_id in store.claimable(now):

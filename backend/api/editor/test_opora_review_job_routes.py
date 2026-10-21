@@ -5,6 +5,7 @@ from backend.app.factory import create_app
 from backend.canvas.opora_execution_results import ExecutionResults
 from backend.canvas.test_opora_execution_pull_requests import SHA, pr
 from backend.canvas.test_opora_review_fixtures import setup
+from backend.integrations.github_pr_base_reader import GitHubPullRequestBaseReader
 from backend.integrations.github_pr_change_reader import GitHubPullRequestChangeReader
 from backend.integrations.github_pr_link_reader import GitHubPullRequestLinkReader
 from database.schema.opora_review_job_schema import TABLES
@@ -25,6 +26,7 @@ def test_worker_contract_over_http(tmp_path, monkeypatch):
     monkeypatch.setenv("OPORA_REVIEW_JOBS", "0")
     monkeypatch.setattr(GitHubPullRequestLinkReader, "pull_request", lambda self, repository, number: pr(number))
     monkeypatch.setattr(GitHubPullRequestChangeReader, "change", change)
+    monkeypatch.setattr(GitHubPullRequestBaseReader, "base", lambda self, *_: {"complete": False, "error": "offline"})
     from backend.canvas.test_canvas_service import managed_fixture
     fixture, project = managed_fixture(tmp_path)
     fixture.close()
@@ -76,7 +78,8 @@ def test_worker_contract_over_http(tmp_path, monkeypatch):
                                          "submission": {"votes": votes}})
             assert response.status_code == 200, response.text
         listing = client.get(BASE, headers=AGENT, params=scope).json()
-        assert listing["jobs"][0]["phase"] == "completed" and task["token"] not in str(listing)
+        code = next(job for job in listing["jobs"] if job["kind"] == "code")  # + security `not_required` marker
+        assert code["phase"] == "completed" and task["token"] not in str(listing)
         [posted] = listing["findings"]
         gates = client.get(BASE + "/gates", headers=AGENT, params=scope).json()["items"]
         assert gates[0]["reviewGate"]["status"] == "blocked" and gates[0]["reviewGate"]["openImportant"] == 1
