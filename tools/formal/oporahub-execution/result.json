@@ -1,0 +1,84 @@
+﻿{
+    "tool":  {
+                 "publishedSha1":  "bee4a54f3ee3d4afc347c3240ec2d9e93b075104",
+                 "version":  "TLC2 2.19 (08 August 2024), revision 5a47802",
+                 "java":  "Temurin OpenJDK21.0.12.1+1-LTS",
+                 "sha256":  "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+                 "release":  "v1.7.4",
+                 "jarUrl":  "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+             },
+    "staleNegative":  {
+                          "exitCode":  12,
+                          "trace":  [
+                                        "Init",
+                                        "Claim epoch1",
+                                        "ForceRelease",
+                                        "Claim epoch2",
+                                        "Result epoch1 creates receipt with grantEpoch2"
+                                    ],
+                          "distinct":  1147,
+                          "generated":  4307,
+                          "invariant":  "NoStaleEpochReceipt",
+                          "depth":  5
+                      },
+    "negative":  {
+                     "exitCode":  12,
+                     "trace":  [
+                                   "Init",
+                                   "Claim epoch1",
+                                   "ForceRelease",
+                                   "Claim epoch2"
+                               ],
+                     "distinct":  160,
+                     "generated":  437,
+                     "invariant":  "OneActiveOwner",
+                     "depth":  4
+                 },
+    "checkedAt":  "2026-10-20T23:43:22+02:00",
+    "schemaVersion":  1,
+    "scope":  "bounded protocol model; not implementation proof",
+    "bounds":  {
+                   "time":  [
+                                0,
+                                2
+                            ],
+                   "resultIdsPerExecution":  1,
+                   "context":  [
+                                   0,
+                                   1
+                               ],
+                   "epochs":  2,
+                   "payloads":  2,
+                   "cards":  1,
+                   "revision":  [
+                                    0,
+                                    1
+                                ],
+                   "claimIds":  2,
+                   "ttls":  [
+                                1,
+                                2
+                            ],
+                   "owners":  2
+               },
+    "artifacts":  {
+                      "ExecutionAuthority.cfg":  "e8bea279eed9a99ea838484d28d33b684f574ae8243e3aa2df88ed0d34410a7b",
+                      "NoFence.cfg":  "6c8fb0290bc20c96d858bc818c2e90c66102ccf1115467c8ce49b1fd2efb3696",
+                      "NoEpochReceipt.cfg":  "7a86ddaefc782e3182a7e9e1c748dc6421b01fab65d0ccc5a642540a5e3f08e3",
+                      "positive.log":  "0eb187bd29997435b838f4a9bca616cf3c01aa08ea2c50e1db5016c7a189eab1",
+                      "negative.log":  "a2f3fc6e747eb8b392b4e2a36103d6c545c4bd6c37bdcb8df73fd05802e7355b",
+                      "stale-negative.log":  "6d154ef0b91ca66354d395ebf14f74b17297cbac2b5fe4a36a171edb755bedfd",
+                      "ExecutionAuthority.tla":  "d9893a4a25eeb2ea86d3264d01801cdea5b19a73698d0cba1f2af33a9722d3f5"
+                  },
+    "positive":  {
+                     "queue":  0,
+                     "fingerprint":  38,
+                     "depth":  12,
+                     "distinct":  1484052,
+                     "elapsedSeconds":  192,
+                     "seed":  "-3960249377399747984",
+                     "generated":  53959661,
+                     "workers":  1,
+                     "exitCode":  0
+                 }
+}

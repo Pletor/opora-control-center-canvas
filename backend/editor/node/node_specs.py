@@ -61,17 +61,30 @@ class NodeSpecStore:
 
     def save(self, scope, expected_revision, fields):
         db = self.canvas.db_for(scope[0])
-        with db:
+        with self.canvas.lock_for(scope[0]), db:
             db.execute("BEGIN IMMEDIATE")
-            current = self.read(scope)
-            if current["revision"] != expected_revision:
-                raise ValueError(
-                    "Konflikt: zadání se změnilo v jiném okně. Rozepsaný text zůstal zachován."
-                )
-            revision = current["revision"] + 1
-            saved_at = datetime.now(UTC).isoformat()
-            db.execute(
-                "INSERT INTO node_spec_revisions VALUES(?,?,?,?,?,?)",
-                (*scope, revision, json.dumps(fields, ensure_ascii=False), saved_at),
+            return self.save_in_transaction(scope, expected_revision, fields)
+
+    def save_in_transaction(self, scope, expected_revision, fields):
+        """Append within a caller-owned transaction; scope already resolves document ownership.
+
+        The caller holds the project lock and owns commit/rollback, allowing several
+        specifications and their accepted plan reference to change atomically.
+        """
+        db = self.canvas.db_for(scope[0])
+        if not self.canvas.lock_for(scope[0])._is_owned() or not db.in_transaction:
+            raise RuntimeError("Specification write requires a locked caller transaction.")
+        validate_payload({"project": scope[0], "workspace": scope[1], "node": scope[2],
+                          "expected_revision": expected_revision, "fields": fields})
+        current = self.read(scope)
+        if current["revision"] != expected_revision:
+            raise ValueError(
+                "Konflikt: zadání se změnilo v jiném okně. Rozepsaný text zůstal zachován."
             )
+        revision = current["revision"] + 1
+        saved_at = datetime.now(UTC).isoformat()
+        db.execute(
+            "INSERT INTO node_spec_revisions VALUES(?,?,?,?,?,?)",
+            (*scope, revision, json.dumps(fields, ensure_ascii=False), saved_at),
+        )
         return {"revision": revision, "fields": fields, "saved_at": saved_at}

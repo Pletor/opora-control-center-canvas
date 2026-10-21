@@ -15,8 +15,6 @@ from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
 from backend.api.editor.brief_vault_check_routes import create_brief_vault_check_router
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
-from backend.api.editor.storyboard_routes import create_storyboard_router
-from backend.editor.storyboard.storyboard import StoryboardService
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
 from backend.api.editor.claude_code_routes import create_claude_code_router
@@ -26,10 +24,25 @@ from backend.api.editor.hook_install_routes import create_hook_install_router
 from backend.api.editor.hook_routes import create_hook_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
+from backend.api.editor.opora_changeset_routes import create_opora_changeset_router
+from backend.api.editor.opora_content_routes import CONTENT_BODY_LIMIT, create_opora_content_router
+from backend.api.editor.opora_execution_budget_routes import create_execution_budget_router
+from backend.api.editor.opora_execution_observer_routes import BODY_LIMIT as OBSERVER_BODY_LIMIT
+from backend.api.editor.opora_execution_observer_routes import create_execution_observer_router
+from backend.api.editor.opora_execution_routes import create_opora_execution_router
+from backend.api.editor.opora_graph_routes import create_opora_graph_router
+from backend.api.editor.opora_proposal_review_routes import create_proposal_review_router
+from backend.api.editor.opora_proposal_routes import create_opora_proposal_router
+from backend.api.editor.opora_reconciliation_routes import create_opora_reconciliation_router
+from backend.api.editor.opora_review_policy_routes import create_opora_review_policy_router
+from backend.api.editor.opora_review_routes import create_opora_review_router
+from backend.api.editor.opora_verification_routes import BODY_LIMIT as VERIFICATION_BODY_LIMIT
+from backend.api.editor.opora_verification_routes import create_opora_verification_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
 from backend.api.editor.process_routes import create_process_router
 from backend.api.editor.rlm_routes import create_rlm_router
 from backend.api.editor.semantic_routes import create_semantic_router
+from backend.api.editor.storyboard_routes import create_storyboard_router
 from backend.api.editor.sync_routes import create_sync_router
 from backend.api.project.archify_routes import create_archify_router
 from backend.api.project.graphify_routes import create_graphify_router
@@ -54,6 +67,7 @@ from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
+from backend.canvas.opora_reconciliation_manager import ReconciliationManager
 from backend.canvas.sync_report import SyncReport
 from backend.claude_code.assistant.agents import load_agents
 from backend.claude_code.assistant.manager import AssistantManager
@@ -67,6 +81,7 @@ from backend.editor.agent_memory.block_access import BlockAccess
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_packet.desktop_v3_packets import DesktopV3Packets
 from backend.editor.agent_packet.node_brief import NodeBrief
+from backend.editor.storyboard.storyboard import StoryboardService
 from backend.integrations.build_identity import build_identity
 from backend.integrations.typesafe_client import configured_provider
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
@@ -77,7 +92,6 @@ from backend.project.maps.map_refresh import MapRefresh
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from backend.project.worktrees.workspace_archive import WorkspaceArchive
 from backend.semantic_retrieval.service import SemanticRetrieval
-
 
 WORKER_SCRIPT = re.compile(r"/assets/code-animation\.worker-[A-Za-z0-9_-]+\.js")
 
@@ -104,6 +118,7 @@ def create_app(data_root=None):
     service.agent_workspace = agent_workspace
     identity = build_identity(service.root)
     map_refresh = MapRefresh(service)
+    reconciliation = ReconciliationManager(service)
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -131,14 +146,17 @@ def create_app(data_root=None):
     @asynccontextmanager
     async def lifespan(app):
         map_refresh.start()
+        reconciliation.start()
         yield
         assistant.close_all()
         map_refresh.close()
+        reconciliation.close()
         service.close()
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.service = service
     app.state.map_refresh = map_refresh
+    app.state.reconciliation = reconciliation
 
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
     remote = RemoteAccess.from_env()
@@ -188,13 +206,16 @@ def create_app(data_root=None):
                 )
             # Obrázek kresby (do 10 MB, v base64 o třetinu víc) má vlastní strop; ostatní zápisy 2 MB.
             # Dávka plánu (docs/davka-planu.md §3) smí mít celé 2 MiB.
-            limit = (14_500_000 if request.url.path == "/api/drawing-file"
+            limit = (OBSERVER_BODY_LIMIT if request.url.path.startswith("/api/oporahub/execution-observers/")
+                     else VERIFICATION_BODY_LIMIT if request.url.path.startswith("/api/oporahub/verifications/")
+                     else CONTENT_BODY_LIMIT if request.url.path == "/api/oporahub/content-changes" or request.url.path.startswith("/api/oporahub/content-changes/")
+                     else 14_500_000 if request.url.path == "/api/drawing-file"
                      else 2 * 1024 * 1024 if request.url.path == "/api/canvas-plan" else 2000000)
             body = bytearray()
             async for chunk in request.stream():
-                body.extend(chunk)
-                if len(body) > limit:
+                if len(body) + len(chunk) > limit:
                     return JSONResponse({"error": "Požadavek je příliš velký."}, status_code=413)
+                body.extend(chunk)
             request._body = bytes(body)
         response = await call_next(request)
         if request.method not in ("GET", "HEAD") and request.url.path.startswith("/api"):
@@ -288,6 +309,18 @@ def create_app(data_root=None):
     app.include_router(create_sync_router(sync_report, check_runs))
     # OporaHub: commity zadání a jejich merge; merge pustí jen zelený verdikt Oracle
     app.include_router(create_oporahub_router(service, OporaHub(service), sync_report))
+    app.include_router(create_opora_proposal_router(service, OporaHub(service)))
+    app.include_router(create_opora_changeset_router(service))
+    app.include_router(create_opora_review_router(service))
+    app.include_router(create_opora_review_policy_router(service))
+    app.include_router(create_opora_reconciliation_router(service))
+    app.include_router(create_opora_execution_router(service))
+    app.include_router(create_execution_observer_router(service))
+    app.include_router(create_opora_verification_router(service))
+    app.include_router(create_execution_budget_router(service))
+    app.include_router(create_opora_graph_router(service))
+    app.include_router(create_opora_content_router(service))
+    app.include_router(create_proposal_review_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)

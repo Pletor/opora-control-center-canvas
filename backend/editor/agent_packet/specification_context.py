@@ -121,7 +121,7 @@ def capture_specification(canvas, project, workspace, node_id):
         cards = []
         for identifier in sorted(related):
             spec = canvas.node_spec(project, workspace, identifier)
-            text = canvas.texts.read((project, workspace, identifier)) if not view["readOnly"] else {}
+            text = canvas.texts.read((project, canvas.document_workspace(project, workspace, identifier), identifier)) if not view["readOnly"] else {}
             cards.append({
                 "nodeId": identifier,
                 "spec": {"revision": spec["revision"], "fields": spec["fields"],

@@ -79,12 +79,12 @@ project_architecture_revisions(project_id TEXT, revision INTEGER, graph TEXT, ac
 
 Modul `backend/canvas/migrate_architecture.py` + `test_migrate_architecture.py`, vzor `migrate_to_project_folders.py`.
 
-1. Zdroje: `drafts.graph`, všechny `canvas/workspaces/<wid>/graph.json`, u Gitu `HEAD:opora-canvas.json` jen čtením.
+1. Zdroje: `drafts.graph`, všechny `canvas/workspaces/<wid>/graph.json`, u Gitu `HEAD:opora-canvas.json` jen čtením. Pro prostor převedený návrhem grafu OporaHubu se místo souboru čte autoritativní graf z SQLite; odstranění uzlů architektury se zapisuje tamtéž.
 2. Vybrat uzly se `site`, jejich předky ke kořeni domény a hrany mezi nimi. ID zůstávají.
 3. Stejné ID se stejným obsahem → jeden záznam. Stejné ID s rozdílným obsahem → **žádné slučování**: projekt se přeskočí a vrátí se `conflicts[]`.
 4. Záloha před zápisem do `projects/<id>/canvas/backups/architecture-<čas>/`.
 5. Zapsat revizi 1, uzly architektury odebrat z grafů prostorů, zkopírovat (ne přesunout) jejich `node_spec_revisions` a `node_text_revisions` pod `wid = "architecture"` i s historií.
-6. Idempotentní (existuje-li `project_architecture`, nic nedělá), `dryRun` vrací report, `down()` vrátí stav ze zálohy bajtově.
+6. Idempotentní (existuje-li `project_architecture`, nic nedělá), `dryRun` vrací report. `down()` odmítne obnovu po uložení návrhu grafu nebo přijetí plánu OporaHubu, zavedení databázové autority grafu nebo řízeného vykonávání, aby nevrátil stará oprávnění a nezahodil přijaté plány. Při povolené obnově starší zálohy znovu doplní kompatibilní schéma i na již otevřeném spojení; databáze proto nemusí být bajtově shodná se zálohou.
 7. Spouští se ručně přes API/nástroj, nejdřív `dryRun`, s backendem nad zálohovanými daty. Nad `P:\opora-data` se pouští až po schválení reportu.
 
 ## 6. Worktree a doména
@@ -95,6 +95,10 @@ Modul `backend/canvas/migrate_architecture.py` + `test_migrate_architecture.py`,
 - `backend/project/worktrees/worktree_manager.py` a jeho test se smažou (mrtvý kód, jiné schéma ID, volají ho jen jeho testy); upravit `backend/project/worktrees/README.md` a odkaz v `docs/pravidla-struktury.md`.
 
 ## 7. Stav práce
+
+Archivace se serializuje se změnami grafu a projektu. Databázové záznamy grafu,
+přijatých plánů a vykonávání zůstávají zachovány pod původním ID prostoru;
+samotná složka archivu není úplnou zálohou. Záloha musí zahrnovat také databázi projektu.
 
 Logika `backend/project/architecture/work_status.py`, router `backend/api/project/project_architecture_routes.py`.
 
@@ -192,6 +196,11 @@ Každý kus: kontrakt, seznam souborů, `uv run pytest backend tools`, `npm test
 Ovládání relací z panelu, push/SSE, historie dostupnosti a grafy, nasazování a DNS, export architektury do gitu, automatické slučování konfliktů migrace, merge/úklid worktree.
 
 ## 13. Rozhodnutí člověka (2026-10-14)
+
+Pozdější kontrakt [OporaHubu](oporahub.md) rozděluje autoritu: přijaté plány jsou
+v Canvasu, kód a jeho review v GitHubu. Níže uvedený plán exportu do Gitu je
+historické rozhodnutí, nikoli současný předpoklad vykonávání. Manifest grafu
+zachycuje kontext sdílené architektury; její samostatné workflow tím není nahrazeno.
 
 1. **Vývoj je jiný než Produkce.** Šest samostatných domén s vlastními stromy. Ve Vývoji vznikají nové věci; do Produkce se převádějí, až mají kvalitu. Převod Vývoj → Produkce je pozdější kus (zde se jen nesmí znemožnit: ID se nesdílejí, převod bude kopie s vazbou `promotedFrom`).
 2. **Architekturu lze měnit odkudkoli.** Pravda je to, co projde workflow a mergne se do mainu (`docs/oporahub.md`: „co není v gitu, není hotové“). Architektura projektu v OPORA je pracovní kopie; každá revize nese `actor` a `workspace`, odkud přišla. Export domén a stránek do plánu v repu dělá OporaHub (pozdější kus).

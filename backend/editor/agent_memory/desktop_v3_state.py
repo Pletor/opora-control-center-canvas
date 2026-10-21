@@ -595,7 +595,8 @@ class DesktopV3State:
             return ("state", 0, "") if head is None else ("state", head["revision"], head["saved_at"])
 
     def save(self, payload, *, after_write=None, autonomy_close=frozenset(), autonomy=None, actor="system",
-             base=None, slim=False):
+             base=None, slim=False, execution_actor=None):
+        # execution_actor is an internal verified request identity, never an HTTP payload field.
         """Uloží celý stav. Interní parametry (nikdy z HTTP): `autonomy_close` = karty, které smí
         uzavřít agent ve svěřené autonomii (jen `AgentOutput`); `autonomy` = nová mapa svěřené
         autonomie (jen `set_autonomy`). Jinak se uložená autonomie přenáší beze změny.
@@ -623,6 +624,9 @@ class DesktopV3State:
             with self.canvas.lock_for(project), db:
                 db.execute("BEGIN IMMEDIATE")
                 current = self.current(project, workspace)
+                from backend.canvas.opora_execution_guard import state_write
+                state_write(db, project, workspace, current["state"], state, view["graph"],
+                            actor if execution_actor is None else execution_actor)
                 if current["revision"] != expected:
                     raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
                 # Číslo kola karty mění jen otevření nového kola člověkem (card_rounds.open_round).

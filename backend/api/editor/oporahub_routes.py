@@ -2,26 +2,27 @@
 
 Commit zapisuje revizi zadání a otisk grafu; obsah bere z aplikace, ne z těla požadavku,
 aby zápis nemohl tvrdit něco jiného, než co je uložené. Merge projde jen rozsahu, kterému
-to Oracle dovolí (`canMerge`). Agent nesmí ani jedno — hlídá to `OporaHub`.
+to Oracle dovolí (`canMerge`) a snímek odpovídá aktuálnímu zadání i hlavě historie.
+Agent nesmí ani jedno; původce ověřuje session middleware, nikoli tělo požadavku.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
+from backend.canvas.activity_log import require_human
 from backend.editor.agent_packet.specification_context import capture_specification
 
 
 def create_oporahub_router(service, hub, report):
     router = APIRouter(prefix="/api", tags=["oporahub"])
 
-    def author(payload):
-        by = payload.get("by")
-        if not isinstance(by, dict):
-            raise ValueError("Chybí autor zápisu (by).")  # noqa: TRY004 — API mapuje na 409
-        return {"kind": by.get("kind"), "name": by.get("name")}
+    def author(request):
+        require_human(request.state.actor, "Commit a přijetí do mainu vyžadují člověka v UI.")
+        return {"kind": "human", "name": "Člověk"}
 
     @router.post("/opora-commit")
-    def commit(payload: dict):
+    def commit(payload: dict, request: Request):
+        by = author(request)
         pid = payload.get("project")
         wid = payload.get("workspace") or "draft"
         scope_id = payload.get("scope")
@@ -38,7 +39,7 @@ def create_oporahub_router(service, hub, report):
                 "specRevision": spec["revision"],
                 "graphDigest": view["digest"],
                 "subject": payload.get("subject") or f"zadání revize {spec['revision']}",
-                "by": author(payload),
+                "by": by,
                 "pair": None,
                 "specificationSnapshot": snapshot,
             })
@@ -64,11 +65,24 @@ def create_oporahub_router(service, hub, report):
                 "main": hub.main_of((project, workspace, scope))}
 
     @router.post("/opora-merge")
-    def merge(payload: dict):
+    def merge(payload: dict, request: Request):
+        by = author(request)
         pid = payload.get("project")
         wid = payload.get("workspace") or "draft"
         scope_id = payload.get("scope")
-        by = author(payload)
+        with service.graph_lock_for(pid), service.lock_for(pid):
+            head = hub.head((pid, wid, scope_id))
+            if head is None or head["id"] != payload.get("id"):
+                raise ValueError("Přijmout lze jen aktuální hlavu historie OporaHubu.")
+            snapshot = hub.read((pid, wid, scope_id), payload.get("id")).get("specificationSnapshot")
+            if snapshot is None:
+                raise ValueError("Starší commit nemá snímek zadání; vytvořte nový commit před přijetím.")
+            current = capture_specification(service, pid, wid, scope_id)
+            if snapshot["contextVersion"] != current["contextVersion"]:
+                raise ValueError("Zadání se změnilo; tento commit nelze přijmout do mainu.")
+            return merge_verified(pid, wid, scope_id, payload.get("id"), by)
+
+    def merge_verified(pid, wid, scope_id, commit_id, by):
         verdict = _verdict_of(report.report(pid, wid), scope_id)
         if verdict is None:
             return JSONResponse({"error": "Rozsah nemá verdikt; merge nelze posoudit."},
@@ -79,7 +93,7 @@ def create_oporahub_router(service, hub, report):
                 "blocking": verdict["blocking"],
                 "nextSteps": verdict["nextSteps"],
             }, status_code=409)
-        return hub.merge((pid, wid, scope_id), payload.get("id"), by=by)
+        return hub.merge((pid, wid, scope_id), commit_id, by=by)
 
     return router
 

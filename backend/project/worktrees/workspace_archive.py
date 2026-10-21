@@ -76,7 +76,7 @@ class WorkspaceArchive:
     def archive(self, wid, payload):
         pid, reason = self._validate(wid, payload)
         service = self.service
-        with service.git_lock:
+        with service.git_lock, service.graph_lock_for(pid), service.lock_for(pid):
             row = service.row("workspaces", wid)
             if row["project_id"] != pid:
                 raise ValueError("Pracovní prostor patří jinému projektu.")

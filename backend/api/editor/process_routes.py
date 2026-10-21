@@ -1,7 +1,8 @@
 """Rozhraní Editoru: procesy uzlu (návrh → proces → hotovo → oprava) a odpovědi agentů."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
+from backend.canvas.opora_execution_process_guard import process_mutation_guard
 from backend.canvas.project_folder import ProjectFolder
 from backend.editor.process.process_lifecycle import allowed_targets, mark_step, set_fix, transition
 from backend.editor.process.process_reports import ProcessReports
@@ -10,6 +11,7 @@ from backend.editor.process.process_store import ProcessStore
 
 def create_process_router(service):
     router = APIRouter(prefix="/api/processes", tags=["processes"])
+    guard = process_mutation_guard(service)
 
     def store(project: str) -> ProcessStore:
         return ProcessStore(ProjectFolder(service.root, project).path)
@@ -31,7 +33,8 @@ def create_process_router(service):
         return {"processes": [{**item, "allowed": {kind: allowed_targets(item, kind) for kind in ("human", "agent", "system")}} for item in items]}
 
     @router.post("")
-    def create_process(payload: dict):
+    @guard
+    def create_process(payload: dict, request: Request):
         project = payload.get("project")
         if not isinstance(project, str) or not project:
             raise ValueError("Chybí project.")
@@ -55,7 +58,8 @@ def create_process_router(service):
         return {"process": process, "reports": reports[-20:], "allowed": {kind: allowed_targets(process, kind) for kind in ("human", "agent", "system")}}
 
     @router.post("/{process_id}/transition")
-    def transition_process(process_id: str, payload: dict):
+    @guard
+    def transition_process(process_id: str, payload: dict, request: Request):
         current, process = find(process_id, payload.get("project", ""))
         if payload.get("revision") != process["revision"]:
             raise ValueError("Proces se mezitím změnil; načtěte ho znovu.")
@@ -66,7 +70,8 @@ def create_process_router(service):
         return {"process": current.save(updated, expected_revision=process["revision"])}
 
     @router.post("/{process_id}/steps/{step_id}")
-    def update_step(process_id: str, step_id: str, payload: dict):
+    @guard
+    def update_step(process_id: str, step_id: str, payload: dict, request: Request):
         current, process = find(process_id, payload.get("project", ""))
         if payload.get("revision") != process["revision"]:
             raise ValueError("Proces se mezitím změnil; načtěte ho znovu.")
@@ -74,7 +79,8 @@ def create_process_router(service):
         return {"process": current.save(updated, expected_revision=process["revision"])}
 
     @router.post("/{process_id}/reports")
-    def submit_report(process_id: str, payload: dict):
+    @guard
+    def submit_report(process_id: str, payload: dict, request: Request):
         current, _ = find(process_id, payload.get("project", ""))
         return ProcessReports(current).submit(process_id, payload)
 

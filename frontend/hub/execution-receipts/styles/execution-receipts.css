@@ -1,0 +1,20 @@
+﻿/* Historie běhů zůstává oddělená od schválení plánu i důkazů GitHubu. Rozsah a časy
+   ukazují, k jakému zadání agent výsledek nahlásil a kdy byl stav naposledy načten. */
+.execution-receipts { min-width: 0; padding: var(--sp-4); border: 1px solid var(--border, #677380); border-radius: 12px; }
+.execution-receipts__head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+.execution-receipts__head h2 { margin: 0; }
+.execution-receipts__head p { color: var(--ink-muted); }
+.execution-receipts__field { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.execution-receipts__field select { padding: 10px; border: 1px solid var(--border, #677380); border-radius: 6px; color: var(--ink); background: var(--bg); font: inherit; min-width: 0; }
+.execution-receipts__warning { border-left: 3px solid #bd8245; padding: 12px; }
+.execution-receipts__list { list-style: none; padding: 0; }
+.execution-receipts__list li { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border, #677380); }
+.execution-receipts__list span { color: var(--ink-muted); }
+/* Výsledky se zobrazují jako prostý text. Odkazy ani příkazy dodané agentem se zde
+   nespouštějí; dlouhé revize a JSON se zalamují i na úzkém panelu. */
+.execution-receipts__identity { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; }
+.execution-receipts__identity dd { margin: 0; }
+.execution-receipts code { overflow-wrap: anywhere; }
+.execution-receipts__receipt { margin-top: 20px; padding: 16px; border: 1px solid var(--border, #677380); border-radius: 8px; }
+.execution-receipts__receipt pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+@media (max-width: 750px) { .execution-receipts__identity { grid-template-columns: 1fr; } }

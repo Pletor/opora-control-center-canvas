@@ -16,6 +16,9 @@ import sqlite3
 import uuid
 from datetime import UTC, datetime
 
+from backend.canvas.workspace_graph_storage import refuse_authority_restore
+from database.schema.project_initialization import restore_project_backup
+
 BACKUP_ID = re.compile(r"^architecture-\d{8}T\d{6}Z-[0-9a-f]{8}$")
 MANIFEST = "manifest.json"
 DATABASE = "project.sqlite"
@@ -153,6 +156,8 @@ def changes_since_migration(service, pid, manifest):
 def down(service, pid, backup_id, force=False):
     """Vrátí projekt do stavu zálohy. Bez `force` jen tehdy, když se po migraci nic nezměnilo."""
     with service.graph_lock_for(pid):
+        with service.lock_for(pid):
+            refuse_authority_restore(service.db_for(pid))
         manifest = read_manifest(service, pid, backup_id)
         target = backup_dir(service, pid, backup_id)
         if not force:
@@ -176,11 +181,7 @@ def down(service, pid, backup_id, force=False):
         folder = service.folder(pid)
         with service.lock_for(pid):
             db = service.db_for(pid)
-            source = sqlite3.connect(target / DATABASE)
-            try:
-                source.backup(db)
-            finally:
-                source.close()
+            restore_project_backup(db, target / DATABASE)
         for item in manifest["files"]:
             path = _inside(folder, item["path"])
             if item["existed"]:

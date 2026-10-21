@@ -1,0 +1,6 @@
+*.jar
+*.log
+*.exit
+run-*/
+states*/
+*_TTrace_*

@@ -1,0 +1,25 @@
+/* Pravidla mají vlastní panel, aby se jejich závaznost neslévala s pozorovanými výsledky. */
+.review-policy { min-width: 0; padding: var(--sp-4); border: 1px solid var(--border, #677380); border-radius: 12px; }
+/* Název a obnova zůstávají vedle sebe, na úzké obrazovce přejdou na další řádek. */
+.review-policy__head, .review-policy__row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; justify-content: space-between; }
+/* Každý vstup má čitelný popisek a dost místa i pro přesný název dlouhé kontroly. */
+.review-policy__field { display: flex; flex-direction: column; flex: 1 1 220px; gap: 8px; margin: 12px 0; min-width: 0; }
+.review-policy__field input, .review-policy__field select, .review-policy__field textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 9px; color: var(--ink); background: var(--bg); border: 1px solid var(--border, #677380); border-radius: 6px; font: inherit; }
+/* Oddělené části umožňují porovnat aktivní pravidla, stav a připravovanou změnu bez modalu. */
+.review-policy__editor, .review-policy__status, .review-policy__confirmation { min-width: 0; margin: 20px 0; padding: 16px; border: 1px solid var(--border, #677380); border-radius: 8px; }
+/* Potvrzení zůstává nápadné a jeho popisek se může zalomit na malé obrazovce. */
+.review-policy__ack { display: block; margin: 16px 0; }
+.review-policy__ack input { margin-right: 8px; }
+/* Zelená patří výhradně právě platnému místnímu vyhodnocení, nikoli historickému review. */
+.review-policy__verdict { display: block; padding: 10px; border-left: 3px solid var(--border, #677380); }
+.review-policy__verdict--satisfied { color: #176642; border-color: #24835b; }
+/* Při nejistotě se vysvětlení zobrazí u pravidel, bez překrytí ostatních pracovních panelů. */
+.review-policy__warning { border-left: 3px solid #bd8245; padding: 12px; }
+/* Dlouhá SHA a obsahová ID se vždy zalamují místo roztažení pracovní plochy. */
+.review-policy code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-policy__identity { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; }
+.review-policy__identity dd { margin: 0; }
+/* Historie ukazuje neměnné revize v pořadí, s jasným předělem mezi změnami. */
+.review-policy__history { border-bottom: 1px solid var(--border, #677380); padding: 12px 0; }
+/* Na mobilu dostane každý údaj vlastní řádek, aby zůstala viditelná celá identita. */
+@media (max-width: 700px) { .review-policy__identity { grid-template-columns: minmax(0, 1fr); } }

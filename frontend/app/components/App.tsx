@@ -110,6 +110,19 @@ import { keepVaultMounted } from "@/editor/brief-vault-dock/logic/vault-drafts";
 import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
 import { commitSpec, saveNodeSpec } from "@/shared/desktop-state/logic/api";
 import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-report";
+import { notifyCurrentPlanScope } from "@/hub/plan-changes/logic/plan-changes";
+import { useGraphProposals } from "@/hub/graph-proposals/logic/use-graph-proposals";
+import { usePlanChanges } from "@/hub/plan-changes/logic/use-plan-changes";
+import { useGitEvidence } from "@/hub/git-evidence/logic/use-git-evidence";
+import { useReviewPolicy } from "@/hub/review-policy/logic/use-review-policy";
+import { useGithubReconciliation } from "@/hub/github-reconciliation/logic/use-github-reconciliation";
+import { useExecutionReceipts } from "@/hub/execution-receipts/logic/use-execution-receipts";
+import { useExecutionObservations } from "@/hub/execution-observations/logic/use-execution-observations";
+import { useFormalVerification } from "@/hub/formal-verification/logic/use-formal-verification";
+import { useContentChanges } from "@/hub/content-changes/logic/use-content-changes";
+import { useProposalReviewModels } from "@/hub/proposal-review/logic/use-proposal-review-models";
+import { useExecutionBudgets } from "@/hub/execution-budgets/logic/use-execution-budgets";
+import { useOporaProposals } from "@/hub/proposal-history/logic/use-opora-proposals";
 import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
 import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import CommentPanel from "@/editor/canvas/comment-card/components/CommentPanel";
@@ -186,6 +199,7 @@ export default function App() {
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
   const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
   const [textRevision, setTextRevision] = useState(0);
+  const [planAppliedRevision, setPlanAppliedRevision] = useState(0);
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
   const initialNode = initial.get("node");
   const [selection, setSelection] = useState<Selection>(() => (initialNode ? selectNode(initialNode) : emptySelection()));
@@ -281,7 +295,29 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [view, setView] = useState<View | null>(null);
+  const proposals = useOporaProposals(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly);
+  const gitEvidence = useGitEvidence(project, workspace, environment === "hub", planAppliedRevision);
+  const reviewPolicy = useReviewPolicy(project, workspace, environment === "hub", planAppliedRevision, gitEvidence);
+  const reconciliation = useGithubReconciliation(project, workspace, environment === "hub", planAppliedRevision, gitEvidence);
+  const executionReceipts = useExecutionReceipts(project, workspace, view?.graph.nodes ?? [], environment === "hub", planAppliedRevision);
+  const executionObservations = useExecutionObservations(project, workspace, planAppliedRevision, environment === "hub");
+  const executionBudgets = useExecutionBudgets(project, workspace, view?.graph.nodes ?? [], environment === "hub", planAppliedRevision);
+  const formalVerification = useFormalVerification(project, workspace, environment === "hub", planAppliedRevision);
+  const contentChanges = useContentChanges(project, workspace, environment === "hub", !!view?.readOnly, planAppliedRevision,
+    () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
+      setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); planChanges.refresh(); reloadCanvas();
+    }));
+  const planChanges = usePlanChanges(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly,
+    () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
+      setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); proposals.refresh();
+    }));
+  const graphProposals = useGraphProposals(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly, planAppliedRevision,
+    () => notifyCurrentPlanScope({ project, workspace }, activeScope.current, () => {
+      setPlanAppliedRevision(value => value + 1); setTextRevision(value => value + 1); sync.refresh(); proposals.refresh(); planChanges.refresh(); reloadCanvas();
+    }));
   const sourceStatuses = useSourceStatus(project, workspace, view?.digest ?? "");
+  const proposalReview = useProposalReviewModels({ project, workspace }, environment === "hub", planAppliedRevision,
+    { spec: planChanges.inspected, graph: graphProposals.inspected, content: contentChanges.detail?.proposal });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [modal, setModal] = useState<
@@ -1076,7 +1112,7 @@ export default function App() {
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} /> :
+      environment === "hub" ? <OporaHubWorkspace view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
@@ -1315,6 +1351,7 @@ export default function App() {
             {panels.inspector === "node" && node ? (<>
               <NodePanel
                 key={project + ":" + workspace + ":" + node.id}
+                specRefreshRevision={planAppliedRevision}
                 node={node}
                 project={project}
                 workspace={workspace}

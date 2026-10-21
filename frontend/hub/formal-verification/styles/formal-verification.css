@@ -1,0 +1,30 @@
+﻿/* The reader separates the immutable request, reported outcome and explicit trust boundary in a quiet drawer. */
+.formal-verification { display:grid; gap:14px; color:var(--hub-ink,#172124); font:14px/1.5 "Segoe UI",sans-serif; min-width:0; }
+.formal-verification__header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.formal-verification h2,.formal-verification h3,.formal-verification h4,.formal-verification p { margin:0; }
+.formal-verification__header button,.formal-verification__row { color:inherit; font:inherit; cursor:pointer; border:1px solid #b5c2c4; border-radius:5px; background:#fafbfa; padding:9px 12px; }
+.formal-verification button:focus-visible,.formal-verification a:focus-visible { outline:3px solid #176a70; outline-offset:3px; }
+.formal-verification__trust,.formal-verification__warning { background:#fbebd0; border-left:4px solid #a87323; padding:10px 12px; }
+.formal-verification__note { color:#526064; font-size:13px; }
+/* Rows keep the exact request identity visible; selection is navigation and never a verified result badge. */
+.formal-verification__list { display:grid; gap:6px; max-height:300px; overflow:auto; }
+.formal-verification__row { display:grid; grid-template-columns:minmax(150px,1fr) minmax(180px,1fr); gap:4px 12px; text-align:left; }
+.formal-verification__row--selected { border-color:#176a70; background:#e4eeee; }
+.formal-verification code { overflow-wrap:anywhere; word-break:break-word; font-size:12px; }
+.formal-verification__detail { display:grid; gap:18px; border-top:1px solid #b5c2c4; padding-top:18px; }
+.formal-verification__detail header,.formal-verification__detail section { display:grid; gap:8px; }
+.formal-verification__identity { display:grid; grid-template-columns:180px minmax(0,1fr); gap:8px 14px; margin:0; }
+.formal-verification__identity dt { color:#526064; }
+.formal-verification__identity dd { margin:0; min-width:0; }
+.formal-verification__identity dd p { font-size:12px; }
+.formal-verification__claims { display:grid; gap:12px; padding-left:22px; margin:0; }
+.formal-verification__claims li { padding:10px; border:1px solid #c9d2d2; border-radius:4px; }
+.formal-verification__claims li p { white-space:pre-wrap; }
+.formal-verification__claims li span { display:block; color:#526064; font-size:13px; }
+/* Configuration remains readable as inert JSON, and file links download the exact server-scoped bytes. */
+.formal-verification pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:360px; overflow:auto; padding:12px; background:#edf0ef; border:1px solid #c9d2d2; border-radius:4px; font-size:12px; }
+.formal-verification__files ul { list-style:none; display:grid; gap:10px; padding:0; margin:0; }
+.formal-verification__files li { display:grid; gap:4px; padding:10px; border:1px solid #c9d2d2; border-radius:4px; }
+.formal-verification__files li span { color:#526064; font-size:12px; }
+.formal-verification a { color:#165b67; text-underline-offset:3px; }
+@media(max-width:650px) { .formal-verification__identity,.formal-verification__row { grid-template-columns:1fr; } .formal-verification__identity dd { margin-bottom:7px; } }

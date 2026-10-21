@@ -43,4 +43,4 @@ def confirm_proposals(state_store, payload):
                 raise ValueError("Některá karta už nemá návrh agenta. Obnovte seznam.")
             done.update(confirmed=True, by="human", at=now())
         return state_store.save({"project": project, "workspace": workspace,
-                                 "expectedRevision": payload["expectedRevision"], "state": state})
+                                 "expectedRevision": payload["expectedRevision"], "state": state}, execution_actor="human")

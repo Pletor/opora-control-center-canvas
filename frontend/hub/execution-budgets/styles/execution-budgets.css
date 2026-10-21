@@ -1,0 +1,13 @@
+/* Budget authority is reviewed alongside immutable plan and execution history. */
+.execution-budgets { margin-top: 24px; padding: 20px; border: 1px solid var(--border); border-radius: 12px; }
+.execution-budgets__head { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.execution-budgets__field { display: grid; gap: 6px; margin: 12px 0; }
+.execution-budgets__form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.execution-budgets__identity { display: grid; grid-template-columns: minmax(160px, 1fr) 2fr; gap: 10px; }
+.execution-budgets__identity dd { margin: 0; }
+.execution-budgets code { overflow-wrap: anywhere; }
+.execution-budgets__confirmation, .execution-budgets__history { padding: 16px; border: 1px solid var(--border); margin: 12px 0; }
+.execution-budgets__confirmation button { margin: 12px 12px 0 0; }
+.execution-budgets__warning { font-weight: 600; }
+/* Narrow panes retain readable field labels and complete identifiers. */
+@media (max-width: 1000px) { .execution-budgets__form { grid-template-columns: 1fr; } .execution-budgets__head { flex-direction: column; } }

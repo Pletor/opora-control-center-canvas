@@ -60,6 +60,7 @@ export default function NodePanel({
   syncView,
   onCommitSpec,
   resultRevision,
+  specRefreshRevision,
   onOpenVault,
   round,
   onOpenRound,
@@ -103,6 +104,8 @@ export default function NodePanel({
   /** Zapíše commit zadání v OporaHubu; bez něj brána 1:1 zůstane zavřená. */
   onCommitSpec?: () => void;
   resultRevision: number;
+  /** Refresh only saved specification after external acceptance; preserve other editor drafts. */
+  specRefreshRevision?: number;
   /** Otevře Schránku v levém menu (rozsah = vlastník kořene, volitelně rovnou na fragmentu a v jeho disciplíně). */
   onOpenVault?: (scope: string, focus?: string) => void;
   /** Aktuální kolo karty ze stavu Desktop v3 (chybí = kolo 1). */
@@ -198,7 +201,7 @@ export default function NodePanel({
         </section>
         <section role="tabpanel" id="node-panel-spec" aria-labelledby="node-tab-spec" hidden={tab !== "spec"}>
           <BriefChips refs={fragmentRefs} index={vaultIndex} onOpen={onOpenVault ? openFragment : undefined} />
-          <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} onStored={setStoredSpec} />
+          <NodeSpecEditor project={project} workspace={workspace} nodeId={node.id} disabled={busy} onStored={setStoredSpec} refreshRevision={specRefreshRevision} />
           {node.kind === "sector" && (
             <SectorDecompose project={project} workspace={workspace} sectorId={node.id} sectorName={node.name} purpose={node.purpose} cards={childCount} spec={sectorSpec} specError={sectorSpecError} />
           )}

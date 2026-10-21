@@ -155,6 +155,9 @@ def from_idea(w, payload, node_ids):
     idea["fragmentId"] = row["fragment_id"]
     from backend.editor.agent_memory.desktop_v3_state import validate_state
     validate_state(state)
+    from backend.canvas.opora_execution_guard import state_write
+    graph = w.state_store.canvas.view(w.project, w.workspace)["graph"]
+    state_write(w.db, w.project, w.workspace, current["state"], state, graph, w.actor)
     w.db.execute("INSERT OR REPLACE INTO desktop_v3_state VALUES(?,?,?,?,?)",
                  (w.project, w.workspace, current["revision"] + 1, json.dumps(state, ensure_ascii=False), w.at))
     return {"fragment": public(row), "idea": {"nodeId": node_id, "ideaId": idea_id, "fragmentId": row["fragment_id"]},

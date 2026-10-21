@@ -1,17 +1,18 @@
-from types import SimpleNamespace
-
+import pytest
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
 from backend.api.editor.process_routes import create_process_router
+from backend.canvas.canvas_service import CanvasService
 from backend.canvas.project_folder import ProjectFolder
 
 HUMAN = {"kind": "human", "name": "Pletor"}
 AGENT = {"kind": "agent", "name": "claude-code"}
 
 
-def client_for(tmp_path):
+@pytest.fixture
+def client(tmp_path):
     ProjectFolder(tmp_path, "p1").create("Projekt", "empty")
     app = FastAPI()
 
@@ -19,12 +20,16 @@ def client_for(tmp_path):
     async def invalid(request, exc):
         return JSONResponse({"error": str(exc)}, status_code=409)
 
-    app.include_router(create_process_router(SimpleNamespace(root=tmp_path)))
-    return TestClient(app)
+    service = CanvasService(tmp_path)
+    app.include_router(create_process_router(service))
+    try:
+        with TestClient(app) as instance:
+            yield instance
+    finally:
+        service.close()
 
 
-def test_full_lifecycle_through_api(tmp_path):
-    client = client_for(tmp_path)
+def test_full_lifecycle_through_api(client):
     created = client.post("/api/processes", json={"project": "p1", "title": "Reranker", "nodeId": "n1", "steps": ["a", "b"], "inputs": {"worktree": "wt-a"}, "by": HUMAN}).json()["process"]
     pid = created["id"]
     assert created["state"] == "draft" and created["projectId"] == "p1"
@@ -54,8 +59,7 @@ def test_full_lifecycle_through_api(tmp_path):
     assert finished["state"] == "done" and [h["to"] for h in finished["history"]] == ["draft", "running", "repair", "running", "done"]
 
 
-def test_conflicts_and_forbidden_transitions_are_409(tmp_path):
-    client = client_for(tmp_path)
+def test_conflicts_and_forbidden_transitions_are_409(client):
     pid = client.post("/api/processes", json={"project": "p1", "title": "T", "by": HUMAN}).json()["process"]["id"]
     assert client.post(f"/api/processes/{pid}/transition", json={"project": "p1", "revision": 99, "to": "running", "by": HUMAN}).status_code == 409
     forbidden = client.post(f"/api/processes/{pid}/transition", json={"project": "p1", "revision": 1, "to": "done", "by": HUMAN})

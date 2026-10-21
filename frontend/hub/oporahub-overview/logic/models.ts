@@ -1,0 +1,18 @@
+import type { FormalVerificationView } from "@/hub/formal-verification/logic/use-formal-verification";
+import type { ContentChangesView } from "@/hub/content-changes/logic/use-content-changes";
+import type { ProposalReviewModels } from "@/hub/proposal-review/logic/use-proposal-review-models";
+import type { GithubReconciliationView } from "@/hub/github-reconciliation/logic/use-github-reconciliation";
+import type { ReviewPolicyView } from "@/hub/review-policy/logic/use-review-policy";
+import type { GraphProposalsView } from "@/hub/graph-proposals/logic/use-graph-proposals";
+import type { ExecutionBudgetsView } from "@/hub/execution-budgets/logic/use-execution-budgets";
+import type { ExecutionReceiptsView } from "@/hub/execution-receipts/logic/use-execution-receipts";
+import type { ExecutionObservationsView } from "@/hub/execution-observations/logic/use-execution-observations";
+import type { GitEvidenceView } from "@/hub/git-evidence/logic/use-git-evidence";
+import type { PlanChangesView } from "@/hub/plan-changes/logic/use-plan-changes";
+import type { DashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
+import type { OporaProposalsView } from "@/hub/proposal-history/logic/use-opora-proposals";
+export type OverviewModels = { view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView;
+  contentChanges?: ContentChangesView;
+  proposalReview?: ProposalReviewModels;
+  changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; executionObservations?: ExecutionObservationsView; budgets: ExecutionBudgetsView; formalVerification: FormalVerificationView;
+  graphProposals: GraphProposalsView; reviewPolicy: ReviewPolicyView; reconciliation: GithubReconciliationView };

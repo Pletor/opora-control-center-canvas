@@ -32,6 +32,7 @@ from backend.canvas.migrate_architecture_backup import new_backup_id, now, seal,
 from backend.canvas.project_architecture import ARCHITECTURE_WID
 from backend.canvas.site_metadata import host_key
 from backend.canvas.workspace_graph import read_graph_file, write_workspace_graph
+from database.repositories.workspace_graph_authority import WorkspaceGraphAuthority
 
 ACTOR = "system"
 LABEL = "migrace"
@@ -117,7 +118,7 @@ def _strip(graph, moved):
 
 
 def _strip_action(source):
-    if source["origin"] in ("draft", "data"):
+    if source["origin"] in ("draft", "data", "sqlite"):
         return "stripped"
     if source["origin"] == "git":
         return "read-only"  # HEAD se nemění; kopie skryje složený pohled
@@ -240,10 +241,22 @@ def _strip_workspaces(service, pid, report):
     with service.lock_for(pid):
         db = service.db_for(pid)
         with db:
+            db.execute("BEGIN IMMEDIATE")
             if "draft" in targets:
-                graph = json.loads(db.execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()[0])
-                db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(_strip(graph, moved)), pid))
+                from backend.canvas.opora_context_graph_storage import (
+                    draft_authoritative_raw,
+                    save_sql_draft,
+                )
+                raw = draft_authoritative_raw(service, pid)
+                graph = json.loads(raw if raw is not None else db.execute("SELECT graph FROM drafts WHERE id=?", (pid,)).fetchone()[0])
+                if not save_sql_draft(service, pid, "draft", _strip(graph, moved)):
+                    db.execute("UPDATE drafts SET graph=? WHERE id=?", (encode(_strip(graph, moved)), pid))
             for wid in sorted(targets - {"draft"}):
+                authority = WorkspaceGraphAuthority(db, pid, wid)
+                stored = authority.read()
+                if stored is not None:
+                    authority.write(_strip(stored["graph"], moved), stored["revision"])
+                    continue
                 path = service.graph_file(pid, wid)
                 raw = read_graph_file(path)
                 if raw is None:

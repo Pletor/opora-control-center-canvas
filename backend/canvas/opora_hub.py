@@ -5,21 +5,22 @@ Commit patří vždy jednomu rozsahu (oblast, sektor, uzel), ukazuje na rodiče 
 a jeho `id` je otiskem vlastního obsahu. Pravda leží v souborech (`opora_hub_store.py`),
 tabulka `opora_commits` je jen index a `rebuild_index` ji z těch souborů kdykoli postaví znovu.
 
-Agenti do OporaHubu nezapisují: commit i merge dělá orchestrátor nebo člověk.
+Agenti zapisují hlídané návrhy; běžný commit i merge dělá orchestrátor nebo člověk.
 """
 
-import json
 import re
 from datetime import UTC, datetime, timedelta
 
-from backend.canvas.graph import digest as graph_digest
 from backend.canvas.graph import valid_id
+from backend.canvas.opora_commit_validation import (
+    AUTHORS as AUTHORS,  # noqa: PLC0414 — preserve public re-export
+)
+from backend.canvas.opora_commit_validation import (
+    WRITERS as WRITERS,  # noqa: PLC0414 — preserve public re-export
+)
+from backend.canvas.opora_commit_validation import _author, _content
 from backend.canvas.opora_hub_store import OporaHubStore, content_id
 
-AUTHORS = ("human", "orchestrator", "agent")
-WRITERS = ("human", "orchestrator")  # agent má svůj prostor a důkazy, historii nepíše
-SCOPE_KINDS = ("area", "sector", "node")
-SUBJECT_LIMIT = 200
 INSERT = "INSERT INTO opora_commits VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"
 COLUMNS = ("id,parent,scope_id,scope_kind,spec_revision,subject,"
            "author_kind,author_name,created_at,in_main")
@@ -35,55 +36,6 @@ def _scope(scope):
     if not valid_id(scope_id):
         raise ValueError("Neplatný rozsah commitu.")
     return pid, wid, scope_id
-
-
-def _author(by):
-    """Kdo smí psát historii. Zámek proti omylu agenta, ne proti člověku."""
-    if not isinstance(by, dict):
-        raise ValueError("Autor commitu musí být objekt s druhem a jménem.")  # noqa: TRY004
-    kind, name = by.get("kind"), by.get("name")
-    if kind == "agent":
-        raise ValueError(
-            "Agent do OporaHubu nezapisuje; commit a merge dělá orchestrátor nebo člověk.")
-    if kind not in WRITERS:
-        raise ValueError("Druh autora je jen člověk (human), nebo orchestrátor (orchestrator).")
-    if not isinstance(name, str) or not name.strip() or len(name) > 120 or "\0" in name:
-        raise ValueError("Jméno autora musí mít 1 až 120 znaků.")
-    return {"kind": kind, "name": name.strip()}
-
-
-def _content(payload):
-    """Ověřený obsah commitu bez rodiče a času; co projde, to se otiskne a uloží."""
-    if not isinstance(payload, dict):
-        raise ValueError("Obsah commitu musí být objekt.")  # noqa: TRY004
-    kind, revision = payload.get("kind"), payload.get("specRevision")
-    digest, subject, pair = payload.get("graphDigest"), payload.get("subject"), payload.get("pair")
-    if kind not in SCOPE_KINDS:
-        raise ValueError("Commit patří oblasti (area), sektoru (sector), nebo uzlu (node).")
-    if type(revision) is not int or revision < 0:
-        raise ValueError("Revize zadání musí být nezáporné celé číslo.")
-    if not isinstance(digest, str) or not 8 <= len(digest) <= 128:
-        raise ValueError("Digest grafu musí mít 8 až 128 znaků.")
-    if not isinstance(subject, str) or not subject.strip() or "\0" in subject:
-        raise ValueError("Předmět commitu je text 1 až 200 znaků bez nulového bajtu.")
-    if len(subject) > SUBJECT_LIMIT:
-        raise ValueError("Předmět commitu smí mít nejvýše 200 znaků.")
-    if pair is not None and not isinstance(pair, dict):
-        raise ValueError("Pár commitu je objekt s vazbou na git, nebo nic.")
-    fields = {"kind": kind, "specRevision": revision, "graphDigest": digest,
-              "subject": subject.strip(), "by": _author(payload.get("by")), "pair": pair}
-    if "specificationSnapshot" in payload:
-        snapshot = payload["specificationSnapshot"]
-        if (not isinstance(snapshot, dict) or set(snapshot) != {"contextVersion", "specification"}
-                or not isinstance(snapshot["contextVersion"], str)
-                or not re.fullmatch(r"[a-f0-9]{64}", snapshot["contextVersion"])
-                or not isinstance(snapshot["specification"], dict)
-                or snapshot["specification"].get("schema") != "opora.specification-context/1"
-                or graph_digest(snapshot["specification"]) != snapshot["contextVersion"]):
-            raise ValueError("Snímek zadání neodpovídá své verzi kontextu.")
-        # Detached JSON content: subsequent edits to a caller's dict cannot alter the commit.
-        fields["specificationSnapshot"] = json.loads(json.dumps(snapshot, ensure_ascii=False))
-    return fields
 
 
 def _record(row):
@@ -128,12 +80,28 @@ class OporaHub:
 
     def commit(self, scope, payload):
         """Zapíše commit rozsahu: nejdřív soubor (pravda), pak index. Vrací uložený commit."""
+        return self._commit(scope, payload)
+
+    def propose(self, scope, payload, *, expected_head):
+        """Agent může navrhnout snímek, ale nepřijímá ho do mainu; rodič musí souhlasit."""
+        if not isinstance(payload, dict):
+            raise ValueError("Obsah návrhu musí být objekt.")  # noqa: TRY004 — API maps validation to HTTP 409
+        if expected_head is not None and (
+                not isinstance(expected_head, str) or not re.fullmatch(r"[a-f0-9]{40}", expected_head)):
+            raise ValueError("Neplatná výchozí revize OporaHubu.")
+        if "specificationSnapshot" not in payload:
+            raise ValueError("Návrh vyžaduje neměnný snímek zadání.")
+        return self._commit(scope, payload, guarded=True, expected_head=expected_head)
+
+    def _commit(self, scope, payload, *, guarded=False, expected_head=None):
         pid, wid, scope_id = _scope(scope)
-        fields = _content(payload)
+        fields = _content(payload, allow_agent=guarded)
         db = self.canvas.db_for(pid)
-        with db:
+        with self.canvas.lock_for(pid), db:
             db.execute("BEGIN IMMEDIATE")
             head = self.head(scope)
+            if guarded and (head["id"] if head else None) != expected_head:
+                raise ValueError("Historie OporaHubu se změnila. Načtěte nový kontext návrhu.")
             content = {"project": pid, "workspace": wid,
                        "scope": {"kind": fields.pop("kind"), "id": scope_id},
                        "parent": head["id"] if head else None,
@@ -175,7 +143,7 @@ class OporaHub:
         pid, wid, scope_id = _scope(scope)
         _author(by)
         db = self.canvas.db_for(pid)
-        with db:
+        with self.canvas.lock_for(pid), db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 f"SELECT {COLUMNS} FROM opora_commits"
@@ -193,10 +161,10 @@ class OporaHub:
 
     def rebuild_index(self, pid, wid):
         """Zahodí index prostoru a postaví ho znovu ze souborů; vrací počet commitů."""
-        records = self.store.records(pid, wid)
-        main = self.store.main_ids(pid)
         db = self.canvas.db_for(pid)
-        with db:
+        with self.canvas.lock_for(pid), db:
+            records = self.store.records(pid, wid)
+            main = self.store.main_ids(pid)
             db.execute("BEGIN IMMEDIATE")
             db.execute("DELETE FROM opora_commits WHERE project_id=? AND workspace_id=?",
                        (pid, wid))

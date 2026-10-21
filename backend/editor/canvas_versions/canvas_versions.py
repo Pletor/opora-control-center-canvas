@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from backend.canvas.graph import digest, encode
+from database.repositories.workspace_graph_authority import WorkspaceGraphAuthority
 
 from .version_assets import capture_assets, file_rollback, unavailable_assets
 from .version_content import (
@@ -244,7 +245,8 @@ class CanvasVersions:
             if project != "draft" and self.canvas.project_hub.source_info(project)["sourceKind"] == "git":
                 # Graf Git pracovního prostoru leží v datech plátna; worktree se obnovou nemění.
                 self.canvas.location(project, workspace)
-                graph_file = self.canvas.graph_file(project, workspace)
+                if not WorkspaceGraphAuthority(db, project, workspace).enrolled():
+                    graph_file = self.canvas.graph_file(project, workspace)
             with db:
                 db.execute("BEGIN IMMEDIATE")
                 current, stored, captured = self._capture(db, project, workspace)

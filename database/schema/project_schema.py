@@ -4,6 +4,30 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 """
 import sqlite3
 
+from database.schema.opora_content_schema import SCHEMA as CONTENT_SCHEMA
+from database.schema.opora_content_schema import TABLES as CONTENT_TABLES
+from database.schema.opora_context_binding_schema import SCHEMA as CONTEXT_BINDING_SCHEMA
+from database.schema.opora_context_event_schema import SCHEMA as CONTEXT_SCHEMA
+from database.schema.opora_context_event_schema import TABLES as CONTEXT_TABLES
+from database.schema.opora_execution_budget_schema import BUDGET_SCHEMA, BUDGET_TABLES
+from database.schema.opora_execution_context_schema import SCHEMA as EXECUTION_CONTEXT_SCHEMA
+from database.schema.opora_execution_context_schema import TABLES as EXECUTION_CONTEXT_TABLES
+from database.schema.opora_execution_observer_schema import (
+    REGISTRY_SCHEMA as OBSERVER_REGISTRY_SCHEMA,
+)
+from database.schema.opora_execution_observer_schema import SCHEMA as OBSERVER_SCHEMA
+from database.schema.opora_execution_observer_schema import TABLES as OBSERVER_TABLES
+from database.schema.opora_execution_schema import SCHEMA as EXECUTION_SCHEMA
+from database.schema.opora_graph_schema import SCHEMA as OPORA_GRAPH_SCHEMA
+from database.schema.opora_proposal_review_schema import SCHEMA as PROPOSAL_REVIEW_SCHEMA
+from database.schema.opora_proposal_review_schema import TABLES as PROPOSAL_REVIEW_TABLES
+from database.schema.opora_reconciliation_jobs import JOB_SCHEMA, JOB_TABLES
+from database.schema.opora_reconciliation_schema import RECONCILIATION_SCHEMA, RECONCILIATION_TABLES
+from database.schema.opora_review_policy_schema import SCHEMA as REVIEW_POLICY_SCHEMA
+from database.schema.opora_verification_schema import SCHEMA as VERIFICATION_SCHEMA
+from database.schema.opora_verification_schema import TABLES as VERIFICATION_TABLES
+from database.schema.workspace_graph_authority_schema import SCHEMA as GRAPH_AUTHORITY_SCHEMA
+
 # .data/<root>/registry.sqlite – jen to, co musí být vidět napříč projekty.
 REGISTRY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, name TEXT, repo TEXT, url TEXT, branch TEXT);
@@ -25,7 +49,7 @@ CREATE TABLE IF NOT EXISTS activity_log(
   method TEXT NOT NULL, path TEXT NOT NULL, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
   node_ids TEXT NOT NULL, status INTEGER NOT NULL, summary TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS activity_log_scope ON activity_log(project_id, workspace_id, actor, id);
-"""
+""" + CONTEXT_BINDING_SCHEMA + ";" + OBSERVER_REGISTRY_SCHEMA
 
 # projects/<id>/project.sqlite – vše o jednom projektu; vlastník tabulky v komentáři.
 PROJECT_SCHEMA = """
@@ -230,12 +254,40 @@ CREATE TABLE IF NOT EXISTS opora_commits(
     PRIMARY KEY(project_id, workspace_id, id));
 CREATE INDEX IF NOT EXISTS opora_commits_scope
     ON opora_commits(project_id, workspace_id, scope_id, created_at);
+-- Specifications-only changesets: immutable SQLite content and transactional accepted reference.
+CREATE TABLE IF NOT EXISTS opora_spec_proposals(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+    parent_id TEXT NOT NULL, created_at TEXT NOT NULL, content TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+CREATE TABLE IF NOT EXISTS opora_spec_revisions(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+    parent_id TEXT, proposal_id TEXT, created_at TEXT NOT NULL, content TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id), UNIQUE(project_id, workspace_id, proposal_id));
+CREATE TABLE IF NOT EXISTS opora_spec_refs(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, accepted_id TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id));
+-- GitHub observations are immutable evidence, never accepted-plan pointers or merge authority.
+CREATE TABLE IF NOT EXISTS opora_review_evidence(
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+    pr_number INTEGER NOT NULL, observed_at TEXT NOT NULL, content TEXT NOT NULL,
+    PRIMARY KEY(project_id, workspace_id, id));
+CREATE INDEX IF NOT EXISTS opora_review_evidence_history
+    ON opora_review_evidence(project_id, workspace_id, pr_number, observed_at);
 """
+PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEMA + REVIEW_POLICY_SCHEMA
+                   + RECONCILIATION_SCHEMA + JOB_SCHEMA + BUDGET_SCHEMA + VERIFICATION_SCHEMA + CONTEXT_SCHEMA
+                   + EXECUTION_CONTEXT_SCHEMA + CONTENT_SCHEMA + PROPOSAL_REVIEW_SCHEMA + OBSERVER_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
+    "opora_graph_proposals": "project_id",
+    "opora_graph_manifests": "project_id",
+    "workspace_graph_authority": "project_id",
     "drafts": "id",
     "project_settings": "project_id",
+    "project_profile": "project_id",
+    "project_architecture": "project_id",
+    "project_architecture_revisions": "project_id",
     "node_text_revisions": "project_id",
     "brief_fragment_revisions": "project_id",
     "brief_fragment_details": "project_id",
@@ -251,8 +303,26 @@ PROJECT_TABLES = {
     "workspace_documents": "project",
     "check_runs": "project_id",
     "opora_commits": "project_id",
+    "opora_spec_proposals": "project_id",
+    "opora_spec_revisions": "project_id",
+    "opora_spec_refs": "project_id",
+    "opora_review_evidence": "project_id",
+    "opora_review_policies": "project_id",
+    "opora_review_policy_refs": "project_id",
+    "opora_review_attempts": "project_id",
+    "opora_execution_epochs": "project_id",
+    "opora_executions": "project_id",
+    "opora_execution_results": "project_id",
 }
-REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects")
+REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects", "opora_context_bindings", "opora_execution_observer_sessions")
+PROJECT_TABLES.update({table: "project_id" for table in (*RECONCILIATION_TABLES, *JOB_TABLES)})
+PROJECT_TABLES.update({table: "project_id" for table in BUDGET_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in VERIFICATION_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in CONTEXT_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in EXECUTION_CONTEXT_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in CONTENT_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in PROPOSAL_REVIEW_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in OBSERVER_TABLES})
 
 
 # CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).
