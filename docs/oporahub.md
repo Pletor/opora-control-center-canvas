@@ -14,6 +14,10 @@ není to další stavový automat. Nahlášená práce, nezávislá kontrola, me
 nasazení zůstávají oddělené. Zlepšení procházejí stejnými verzovanými návrhy
 a review jako původní plán.
 
+Agent nemusí skládat stav z mnoha endpointů: [stav pro agenty](oporahub-agent-state.md)
+(`GET /api/oporahub/agent-state`) vrací jeden deterministický dokument s hlavami pro CAS,
+zdravím etap, rozhodnutími člověka a připravenými či blokovanými akcemi; podporuje `ETag`.
+
 Tento kontrakt nahrazuje předchozí rozhodnutí z 2026-10-04 o GitHubu jako jediném
 zdroji pravdy pro plány, včetně požadavku zrušit historii OporaHubu. Při rozporu
 má pro plány přednost i před `docs/synchronizace-pravdy.md`. Existující kontroly

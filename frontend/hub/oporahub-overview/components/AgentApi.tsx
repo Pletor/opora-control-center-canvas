@@ -2,6 +2,7 @@ export default function AgentApi({ project, workspace }: { project: string; work
   const scope = { project, workspace };
   return <section className="oporahub-overview__api-detail"><p>Stejné rozhraní pro člověka a agenty. Čtení kontextu předchází každému zápisu. Přijetí plánu a nastavení limitů náleží člověku.</p>
     <ol>
+      <li><strong>Číst stav pro agenty</strong><pre>GET /api/oporahub/agent-state?{new URLSearchParams(scope).toString()}</pre><p>Jeden deterministický dokument: hlavy pro CAS, zdraví etap, rozhodnutí člověka a akce. Posílejte If-None-Match; nezměněný stav vrátí 304.</p></li>
       <li><strong>Číst aktuální proces Control Center</strong><pre>GET /api/oporahub/process?{new URLSearchParams(scope).toString()}</pre><p>Živá orientace pro aktuální prostor; nenahrazuje neměnné assignment ani execution oprávnění.</p></li>
       <li><strong>Číst přijatý plán</strong><pre>GET /api/oporahub/graph-proposals/context?{new URLSearchParams(scope).toString()}</pre></li>
       <li><strong>Navrhnout změnu</strong><pre>{`POST /api/oporahub/changesets\n${JSON.stringify({ ...scope, subject: "Důvod změny", parentRevision: "<acceptedHead>", expectedGraphDigest: "<graphDigest>", changes: [{ nodeId: "<nodeId>", expectedRevision: "<revision>", fields: { goal: "…", non_goals: "…", acceptance: "…" } }] }, null, 2)}`}</pre><p>Návrh čeká na lidské přijetí; nemění sám přijatý plán.</p></li>

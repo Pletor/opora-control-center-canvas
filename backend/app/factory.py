@@ -24,6 +24,7 @@ from backend.api.editor.hook_install_routes import create_hook_install_router
 from backend.api.editor.hook_routes import create_hook_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
+from backend.api.editor.opora_agent_state_routes import create_opora_agent_state_router
 from backend.api.editor.opora_changeset_routes import create_opora_changeset_router
 from backend.api.editor.opora_content_routes import CONTENT_BODY_LIMIT, create_opora_content_router
 from backend.api.editor.opora_execution_budget_routes import create_execution_budget_router
@@ -323,6 +324,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_execution_router(service))
     app.include_router(create_execution_pull_request_router(service))
     app.include_router(create_opora_process_router(service))
+    app.include_router(create_opora_agent_state_router(service))
     app.include_router(create_execution_observer_router(service))
     app.include_router(create_opora_verification_router(service))
     app.include_router(create_execution_budget_router(service))
