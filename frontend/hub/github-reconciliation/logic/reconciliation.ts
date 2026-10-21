@@ -2,7 +2,7 @@ export type ReconciliationBinding = { id: string; schemaVersion: 1; project: str
   identityEvidenceId: string; repository: { id: number; fullName: string; baseBranch: string }; pr: { id: number; number: number; headRepoId: number };
   enrolledHeadSha: string; intervalSeconds: number; by: { kind: string; name: string }; createdAt: string };
 export type ReconciliationControl = { id: string; bindingId: string; parentControlId: string | null; generation: number;
-  action: "enroll" | "pause" | "resume" | "retry" | "system-pause"; enabled: boolean; requestId: string | null; by: { kind: string; name: string }; createdAt: string };
+  action: "enroll" | "pause" | "resume" | "retry" | "system-pause" | "auto-enroll"; enabled: boolean; requestId: string | null; by: { kind: string; name: string }; createdAt: string };
 export type ReconciliationJob = { state: "scheduled" | "checking" | "retrying" | "paused" | "reconciled";
   bindingId: string; generation: number; nextAttemptAt: string | null; leaseUntil: string | null; consecutiveFailures: number;
   lastErrorCode: string | null; providerRetryUntil?: string | null; lastAttemptId: string | null; lastObservationId: string | null; lastEventId: string | null };

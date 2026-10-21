@@ -81,6 +81,15 @@ velikost odpovědí, počet dotazů a stránek. Překročení limitu znamená ne
 pozorování. PR se kontroluje před a po načtení souvisejících kolekcí; nejde však
 o distribuovanou transakci s GitHubem.
 
+## Automatické čtení pro uzavření smyčky
+
+PR připojené k běhu ([uzavření smyčky](oporahub-executions.md#uzavření-smyčky-běh--pr--merge--plán))
+server čte sám: jednou kvůli číselné identitě PR při zapnutí sledování a pravidelně
+jednu stránku nedávných PR kvůli trailerům `Opora-Execution` a `Opora-Revision`.
+Používá stejný transport s pevným originem, bez přesměrování, s limity velikosti
+a s respektem k rate limitu. Bez GitHub repozitáře projektu nečte nic. Ani tato
+čtení nevytvářejí review důkaz, nepřijímají plán a nic na GitHub nezapisují.
+
 Podklady API: [review](https://docs.github.com/en/rest/pulls/reviews),
 [oprávnění](https://docs.github.com/en/rest/collaborators/collaborators),
 [check runs](https://docs.github.com/en/rest/checks/runs).

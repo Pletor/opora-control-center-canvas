@@ -117,3 +117,71 @@ z několika serverových procesů.
 OporaHub může navíc číst nejvýše 100 neměnných záznamů z API poskytovatele doložených brokerem přes GET /api/oporahub/execution-observers?project&workspace&limit=100. Čtení vyžaduje identifikovaného člověka nebo agenta a přesný scope projektu i workspace; browser používá UI session. Zobrazení je samostatné od běžné execution historie: intent svazuje neměnnou revizi, commit, agenta a prostředí s původním execution; doložené čtení session nese poslední kumulativní tokeny, aktivní sekundy a ceníkovou spotřebu.
 
 Nezkonfigurovaný pozorovatel, nakonfigurovaný ale neověřený provider přístup, prázdná historie a chyba čtení jsou odlišné stavy. Samotná konfigurace nepředstavuje přístup poskytovatele. Zobrazená ceníková spotřeba pochází z čtení brokera přes API poskytovatele, nikoli z faktury nebo tvrdého limitu. Sentinelské nuly bez ID session a provider statusu se nezobrazují jako nulová spotřeba. Stav idle znamená pouze nečinný provider readback; ukončení ukazuje jen odpovídající provider readback terminated. Ani opožděná spotřeba nemění platnost lease nebo povolení běhu. UI nic nespouští, nezastavuje ani neobnovuje automaticky.
+
+## Uzavření smyčky: běh → PR → merge → plán
+
+Po odevzdání běhu se k němu připojí právě jedno PR. Backend pak bez modelu a bez
+ručního přepojování sám zapne trvalé sledování PR, zapíše merge nebo zavření bez
+merge a označí kartu k lidskému uzavření. Zadání karty (`goal`, `non_goals`,
+`acceptance`) se nikdy nemění.
+
+| Cesta | Účel |
+|---|---|
+| `POST /{id}/pull-request` | `project`, `workspace` (nebo `projectId`, `workspaceId`), `requestId`, `repository` (`owner/name`), `number`, `headRef`, `headSha`; agent navíc `token` a `epoch` |
+| `GET /{id}/pull-request?project&workspace` | Stejný tvar jako odpověď zápisu, navíc `events`; bez vazby 404 |
+
+Odpověď obsahuje `executionId`, `cardId`, `acceptedRevision`, `repository`, `number`,
+`headSha`, `state` (`open` / `merged` / `closed`), `bindingId` a provozní údaje
+`enrollment`, `mergeSha`, `awaitingHumanClose` a `attention`.
+
+Oprávnění: agent se prokazuje tokenem a epochou **tohoto** běhu, stejně jako
+u heartbeatu a výsledků. Platí aktivní rezervace běžícího běhu, nebo běh, který
+už odevzdal výsledek – kancelář PR připojuje po odevzdání, často po uvolnění
+rezervace. Jiná epocha, token jiného běhu a běh bez rezervace i bez výsledku
+(uvolněný, vypršelý) vrací 409. Člověk připojuje přes session bez tokenu.
+Běh musí patřit k existující přijaté revizi a repozitář musí odpovídat projektu.
+
+Opakování: stejné `requestId` se stejným obsahem vrátí stav bez další akce, jiný
+obsah pod stejným `requestId` je 409. Totéž PR s novým `headSha` a novým
+`requestId` jen aktualizuje SHA. Jiné PR (číslo nebo repozitář) pro běh, který
+už vazbu má, je 409.
+
+**Automatické zapnutí sledování.** Po uložení vazby server mimo zámky jednou
+přečte GitHub (GET) kvůli číselné identitě repozitáře a PR a v jedné transakci
+vytvoří vazbu [trvalého sledování](oporahub-reconciliation.md) pro přijatou
+revizi běhu a aktuální SHA (`by: system / Execution PR link`, řízení
+`auto-enroll`). Existuje-li už zapnuté sledování téhož PR, použije se. Tato cesta
+nepřijímá plán ani review; lidské brány přijetí zůstávají. Při výpadku GitHubu
+zůstane `enrollment: pending` a smyčka zkouší znovu s rostoucím odstupem (30 s
+až 1 h). Bez GitHub repozitáře v projektu je `enrollment: unavailable`
+a GitHub se nečte vůbec.
+
+**Zápis výsledku.** Smyčka uzavření (vedle pracovníka sledování) čte neměnná
+pozorování vazby. Mergnuté PR zapíše jednou událost `execution.merged`
+(`mergeSha`, `prNumber`, klíč běh + merge SHA), vazbu označí `merged`, ještě
+běžící běh ukončí stavem `released` (uvolní rezervaci) a nastaví
+`awaitingHumanClose: true`. Potvrzení `done.confirmed` karty totiž podle
+[kontraktu karty](karta-pro-agenty.md) zapisuje jen člověk s doloženými důkazy;
+značka zmizí, jakmile člověk kartu uzavře. Zavření bez merge zapíše
+`execution.pr_closed` a `attention: pr-closed-unmerged`; znovuotevření značku
+zruší a další zavření je nová událost. Opakované čtení, restart ani souběh
+nevytvoří druhou událost.
+
+**Objevení podle trailerů.** Bez ručního volání API smyčka najde PR, jehož popis
+obsahuje přesně jednu dvojici řádků:
+
+```text
+Opora-Execution: <executionId>
+Opora-Revision: <acceptedRevision>
+```
+
+Čte jednu stránku (20) naposledy změněných PR repozitáře projektu, jen pokud
+projekt má GitHub repozitář a nepřipojený běh. Revize, repozitář a cílová větev
+musí odpovídat; nejednoznačný trailer se ignoruje. Výsledek je stejná vazba
+(`source: discovery`) včetně automatického sledování.
+
+Konfigurace prostředí: `OPORA_EXECUTION_PR_WORKER=0` smyčku vypne,
+`OPORA_EXECUTION_PR_DISCOVERY_SECONDS` mění interval objevování na projekt
+(výchozí 300, `0` vypne). Rate limit GitHubu zastaví další čtení do uvedeného
+času. Pro další služby (např. stav agentů) slouží čtecí funkce
+`list_execution_pull_requests(project_id, workspace_id)`.

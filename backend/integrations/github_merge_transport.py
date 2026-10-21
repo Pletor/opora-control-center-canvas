@@ -43,7 +43,8 @@ class GitHubMergeTransport:
         self._opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
 
     def __call__(self, path, *, timeout):
-        if (not isinstance(path, str) or not re.fullmatch(r'/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/pulls/[1-9][0-9]*)?', path)
+        if (not isinstance(path, str) or not re.fullmatch(r'/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/pulls/[1-9][0-9]*'
+                                                         r'|/pulls\?state=all&sort=updated&direction=desc&per_page=[1-9][0-9]?)?', path)
                 or '..' in path or timeout <= 0):
             raise GitHubMergeError('invalid-read-request', action_required=True)
         headers = {'Accept': 'application/vnd.github+json', 'User-Agent': 'OporaHub',
