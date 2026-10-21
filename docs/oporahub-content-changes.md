@@ -1,7 +1,7 @@
 # Verzovaný obsah plánu — implementační kontrakt 2b
 
 Implementace etapy rozšiřuje přijaté revize o texty, scény kreseb a konfiguraci
-zadání karet; závěrečné ověření celé etapy zatím probíhá. Navazuje na [grafové návrhy](oporahub-graph-changes.md)
+zadání karet; výsledky dokončeného ověření jsou uvedeny níže. Navazuje na [grafové návrhy](oporahub-graph-changes.md)
 a [kontext execution](oporahub-sparse-context.md). Nezahrnuje komentáře/rizikové
 schvalování ani izolaci/účtování zbývajících etap.
 
@@ -160,7 +160,8 @@ odmítne přepsat databázi s jakýmkoli uloženým obsahovým záznamem, i osi�
 Přijetí drží projektový scope a jednu transakci: chyba vrátí native historii,
 obsahový manifest, přijatou hlavu i navázané SQL události před zápis.
 
-Podmínky závěrečného ověření (bod 9 checklistu zatím rozpracován): dva nezávislé návrhy → přijetí/rebase/přijetí, konflikt stejné položky,
-architektura/owner, konfigurace bez ztráty pokroku, skutečný API/browser průchod,
-scoped context-v2 po nesouvisejícím i souvisejícím přijetí, rollback/reopen/restore,
-hash/quóty a všechny požadované repo kontroly. Data se nemazají.
+## Závěrečné ověření etapy 2b
+
+Etapa 2b (bod 9 checklistu) je dokončena v rozsahu tohoto kontraktu: texty, kresby a konfigurace mají neměnné návrhy, konflikty a explicitní lidské přijetí; přijatý obsah je svázán s manifestem a execution context v2; adopce základu je výslovná. Ověřeny byly dva nezávislé návrhy s přijetím/rebase/přijetím, konflikt stejné položky, owner architektury, zachování pokroku konfigurace, HTTP/browser průchod, související i nesouvisející změny context-v2 a rollback/restore.
+
+Závěrečný backend běh skončil s 3 213 úspěšnými testy, 4 přeskočenými a jedním známým selháním z historického baseline: `test_map_refresh.py:219` očekává "watching", ale prostředí hlásí Graphify jako nedostupné; celý běh trval 1 520,14 s. Samostatný test upgradu databáze prošel (1 test). Frontend sada prošla v počtu 1 567 testů a build i headless-browser ověření proběhly. Sada tedy není zcela zelená kvůli uvedenému známému dluhu; změna ho nepovažuje za novou regresi. Data se nemazají.

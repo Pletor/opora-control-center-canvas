@@ -137,7 +137,7 @@ může zneplatnit běhy nad revizí bez obsahového manifestu. Další přijetí
 vybraná pole a zachovává pracovní pokrok. Agent vytváří návrhy přes stejné API,
 rebase vrací nové přesné ID nebo explicitní konflikty. [Kontrakt a API](oporahub-content-changes.md)
 popisují také kvóty, owner/revision/round preconditions a návaznost na execution
-v1/v2. Implementace je dodaná ve worktree; závěrečné důkazy etapy 2b se ještě sbírají.
+v1/v2. Implementace i ověření etapy 2b jsou dokončeny v rozsahu [kontraktu](oporahub-content-changes.md). Backend běh: 3 213 passed, 4 skipped a jedno známé baseline selhání `test_map_refresh.py:219` (Graphify unavailable vs. watching); upgrade test, frontend sada (1 567), build a headless-browser kontrola prošly. Sada proto není zcela zelená.
 
 ## Třetí etapa: pozorování GitHub review a kontrol
 
@@ -199,7 +199,7 @@ běhu. Jde o kontrolu omezeného modelu protokolu, nikoli důkaz implementace.
 
 | Etapa | Výsledek | Podmínka dokončení |
 |---|---|---|
-| 2b. Celý graf a obsah návrhů | Grafové návrhy a [kontext v2](oporahub-sparse-context.md) doplňují [texty, kresby a konfigurace](oporahub-content-changes.md). Rozpracováno: závěrečné ověření obsahu a UI | Dva nezávislé návrhy lze přijmout; rozpor stejné položky se neztratí; API, browser, rollback a execution dokazují výsledné chování |
+| 2b. Celý graf a obsah návrhů | Grafové návrhy a [kontext v2](oporahub-sparse-context.md) doplňují [texty, kresby a konfigurace](oporahub-content-changes.md). Dokončeno v rozsahu kontraktu; ověření má jeden známý baseline dluh `test_map_refresh.py:219` (Graphify unavailable vs. watching). | Konflikt stejné položky se neztratí; API, browser, rollback a execution dokazují výsledné chování |
 | 3b. Review před přijetím | Připomínky k rozdílu a politika přijetí návrhu podle rizika | Pozorované GitHub review se nepovažuje za automatické oprávnění přijímat jiný návrh |
 | 4. Důkazy a GitHub | Pravidla kontrol/review a trvalé sledování stavu PR s obnovou po pádu jsou implementovány; další typy vzdálených událostí lze doplnit stejnou frontou | Výpadek mezi merge PR a zápisem do Canvasu neztratí výsledek; „schváleno“, „implementováno“, „ověřeno“ a „nasazeno“ jsou různé stavy |
 | 5b. Rozpočty vykonavatelů | Pevný konec oprávnění a trvalý limit pokusů/oprav; zbývá vynucená izolace procesu a důvěryhodné účtování nákladů | Vyčerpané oprávnění nelze prodlužovat heartbeatem; tvrdý nákladový limit se nezaměňuje za odhad spotřeby |
