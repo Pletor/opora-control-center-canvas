@@ -55,7 +55,9 @@ starší běhy jsou historie, ne nová blokace.
 
 ## Rozhodnutí a akce
 
-Rozhodnutí řadí pevná priorita: přijetí základu, přijetí návrhu `critical`, `elevated`,
+Rozhodnutí formální pozornosti (`verification_counterexample`, `verification_failed`)
+jdou vždy první. Modul `opora_agent_state_formal.py` je odvodí z úložiště ověření. Za nimi
+řadí pevná priorita ostatní rozhodnutí: přijetí základu, přijetí návrhu `critical`, `elevated`,
 `low` (uvnitř podle stáří), kontrola nahlášeného výsledku, uzavření karty po merge PR. Každé ukazuje na akci.
 
 | `verb` | Cíl | Stav |
@@ -68,6 +70,7 @@ Rozhodnutí řadí pevná priorita: přijetí základu, přijetí návrhu `criti
 | `review.claim` | `POST /api/oporahub/review-jobs/claim` | `ready` u úlohy review s volným slotem (jen se zapnutým automatickým review); `preconditions` `{role, headSha}` |
 | `link_pull_request` | `POST /api/oporahub/executions/{id}/pull-request` | `ready` s modulem vazby, jinak `blocked/not_implemented` |
 | `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | vždy `blocked/human_only`; jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `preconditions` = `{executionId, mergeSha}` |
+| `verification.investigate` | `GET /api/oporahub/verifications/{id}` | `ready`; nejnovější CI check `formal/tlc` běhu skončil `counterexample`, `failed` nebo `inconclusive` (viz [ověřování](oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b)) |
 
 `preconditions` obsahují přesné hodnoty k opakování v těle požadavku (`expectedAcceptedHead`,
 `expectedGraphDigest`, `expectedContextVersion`, u protokolu v2 `expectedBudgetPolicyHead`

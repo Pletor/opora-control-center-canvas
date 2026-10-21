@@ -2,6 +2,7 @@
 from datetime import UTC, datetime
 
 from backend.canvas.opora_commit_validation import _author
+from backend.canvas.opora_formal_checks import ingest_snapshot
 from backend.canvas.opora_review_scope import context, validate_request
 from backend.integrations.github_review_transport import GitHubReadError
 from database.repositories.opora_review_attempts import Attempts
@@ -77,6 +78,7 @@ class PolicyObservation:
                                "observedAt": finished, "observedFrom": attempt["startedAt"], "observedUntil": finished,
                                "attemptSequence": attempt["sequence"]}
                     record = repo.insert(content)
+                    ingest_snapshot(repo.db, pid, wid, content)
                     state = "complete" if data.get("complete") is True else "failed"
                     attempts.finish(attempt["sequence"], state, record["id"], finished,
                                     None if state == "complete" else "github-observation-unavailable")

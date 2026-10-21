@@ -92,6 +92,88 @@ Timeout, nedokončený průchod, simulace nebo useknutý potřebný výstup nema
 výsledek passed. Kontrola negativních mutantů dokládá citlivost modelu,
 nikoli správnost Pythonu nebo TypeScriptu.
 
+## Automatické ověřování v CI (etapa 3b)
+
+Důkazy a kontroly modelů spouští stroj při každé změně, nikdo je nehlásí ručně.
+
+**Workflow.** `.github/workflows/formal.yml` běží na PR, které mění `tools/formal/**`
+nebo modelované moduly (`backend/canvas/opora_executions.py`, `opora_execution_*.py`,
+`card_leases.py`, repozitář a schéma executions). Job s názvem `formal/tlc` vytvoří
+stejnojmenný check run. Stáhne jen připnutý `tla2tools.jar` v1.7.4 (SHA256
+`936a2620…0e88`); jiný soubor runner odmítne. Pak spustí TLC na **každé** konfiguraci
+z `tools/formal/*/cases.json`:
+
+- pozitivní konfigurace (`expect: pass`) musí vyčerpat konečný prostor bez chyby
+  (exit 0, nulová fronta),
+- negativní konfigurace (`expect: violation`) musí selhat **přesně** deklarovaným
+  invariantem. Negativ, který projde, znamená prázdnou (vacuous) specifikaci a check
+  selže s druhem `negative_not_detected`.
+
+Výsledkem je strojově čitelný artefakt `formal-tlc-summary` (`formal-summary.json`:
+`schemaVersion`, `check`, `commitSha`, `tool`, `ok`, `cases[]` s `expect`, `observed`,
+`kind`, statistikami a stopou akcí, `evidenceKinds`). Každé selhání je navíc anotace
+`::error title=formal/tlc <druh>::<JSON případu>`. Druhy: `positive_violation`
+(protipříklad v pozitivní konfiguraci), `negative_not_detected`, `wrong_violation`,
+`runner_error`. Job také spustí testy parsování na uložených výstupech TLC
+(`tools/formal/fixtures/`).
+
+**Místní běh.** Stejný skript běží i lokálně (Java 21 na PATH):
+
+```powershell
+python tools/formal/run.py --jar C:/cache/tla2tools-1.7.4.jar --summary formal-summary.json
+python tools/formal/run.py --download --cache-dir C:/cache/opora-tla --case negative
+```
+
+Exit 0 = všechna očekávání splněna, 1 = některé selhalo, 2 = chybí Java nebo připnutý
+jar. Testy: `python -m pytest tools/formal/test_formal_run.py -q` (TLC nespouští).
+
+**Příjem v Canvasu.** Server čte check `formal/tlc` sám, dvěma cestami:
+
+1. Import [GitHub důkazů](oporahub-github.md) (`POST /api/oporahub/github-evidence`)
+   už check runs načítá. Ve stejné transakci `opora_formal_checks.ingest_snapshot`
+   převede dokončený `formal/tlc` na záznam ve `/api/oporahub/verifications`.
+2. Smyčka uzavření běhů (`ExecutionPullRequestManager`) každých
+   `OPORA_FORMAL_CHECK_SECONDS` (výchozí 300, `0` vypne) přečte pro každé otevřené PR
+   připojené k běhu check `formal/tlc` na jeho head SHA. U neúspěchu načte i anotace.
+   Čte jen GET s pevným originem; rate limit nebo 403 pozastaví smyčku.
+
+Záznam vzniká jen tehdy, když je PR připojené k běhu (execution → PR). Jen tak má
+execution ID, kartu, epochu a přijatou revizi. PR bez vazby se nezapíše. Jeden check
+run (`requestId = gh-check-<id>`) dá nejvýše jeden záznam, opakované čtení nic nepřidá.
+Záznam nese `source.commitSha` = head SHA checku a pole `origin` (`github-check-run`,
+`checkRunId`, `conclusion`, `observedVia`, `failureKinds`). Výsledek:
+`success` → `passed` (všechna tvrzení z `ExecutionAuthority.cfg`), anotace
+`positive_violation` → `counterexample` (s artefaktem `counterexample.json`),
+jiné selhání → `failed`, `timed_out` a další → `inconclusive`, `cancelled` → `cancelled`.
+Vstupní bajty modelu se neimportují. Model leží v repozitáři na uvedeném commitu.
+
+Důvěra zůstává `agent-reported` a `independentlyVerified: false`. Workflow je kód
+právě posuzovaného PR, takže zelený check je pozorování, ne nezávislý ověřovač.
+
+**Protipříklad → pozornost.** `GET /api/oporahub/agent-state` z nejnovějšího
+CI záznamu každého běhu odvodí pozornost. Výsledky `counterexample`, `failed` a
+`inconclusive` dají připravenou akci `verification.investigate` (`GET` na detail
+ověření, `preconditions` s `headSha`, `outcome`, `failureKinds`). Dají také rozhodnutí
+`verification_counterexample` nebo `verification_failed`, které jde před ostatní
+rozhodnutí. Pozdější úspěšný check na novějším SHA pozornost zruší. Nic se nezapisuje.
+
+**Shoda implementace (konformní most, ne důkaz).** Model ≠ implementace.
+`backend/canvas/test_opora_execution_conformance.py` spouští skutečnou službu
+`opora_executions` na SQLite s injektovanými hodinami. Náhodné scénáře se seedem
+obsahují claim, heartbeat, release, lidské vynucené uvolnění, výsledek, zastaralé
+pověření a posun času. Záznam událostí kontrolují Python predikáty
+`OneActiveOwner`, `NoStaleEpochReceipt`, `OneReceiptPerExecution` a `MonotonicEpoch`
+(`opora_execution_conformance.py`). Predikáty musí odmítnout ručně pokažené logy, aby
+nemohly projít naprázdno. Test dokládá jen to, že zkoumané běhy neporušily vlastnosti.
+Nejde o refinement ani o úplné pokrytí. V CI běží jako check `formal/conformance`.
+
+**Lean: `not_connected`.** Druh důkazu `lean` je jen deklarovaný zástupný druh
+(`EVIDENCE_KINDS` v `opora_formal_checks.py`, `evidenceKinds` v souhrnu). Job
+`formal/lean` (`lake build`) je ve workflow vypnutý, dokud repozitářová proměnná
+`OPORA_LEAN_ENABLED` nemá hodnotu `true`. Ani potom Canvas check `formal/lean`
+nepřevádí na důkaz, protože sestavení není kontrolou důkazu (viz níže). Agent-state
+dál uvádí mezeru `lean_verification`.
+
 Důvěryhodný Lean adaptér zatím není k dispozici. Vyžaduje izolované sestavení,
 nezávisle zadané očekávané tvrzení, kontrolu proof termů a tranzitivních axiomů;
 `sorryAx` a neschválené axiomy se nesmějí přijmout. Samotný log autora ani

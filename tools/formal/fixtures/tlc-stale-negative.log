@@ -1,0 +1,143 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed 1 with 1 worker on 16 cores with 1820MB heap and 64MB offheap memory [pid: 73424] (Windows 11 10.0 amd64, Eclipse Adoptium 21.0.12.1 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /work/ExecutionAuthority.tla
+Parsing file /work/Naturals.tla
+Parsing file /work/FiniteSets.tla
+Parsing file /work/TLC.tla
+Parsing file /work/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module ExecutionAuthority
+Starting... (2026-10-21 21:25:16)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-21 21:25:16.
+Error: Invariant NoStaleEpochReceipt is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ epoch = 0
+/\ runs = << [ owner |-> "none",
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 0,
+     ttl |-> 0,
+     state |-> "unused" ],
+   [ owner |-> "none",
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 0,
+     ttl |-> 0,
+     state |-> "unused" ] >>
+/\ now = 0
+/\ claims = (C1 :> 0 @@ C2 :> 0)
+/\ lease = 0
+/\ audit = [kind |-> "other", before |-> 0, after |-> 0]
+/\ receipts = {}
+/\ context = 0
+/\ revision = 0
+
+State 2: <Claim line 26, col 5 to line 33, col 53 of module ExecutionAuthority>
+/\ epoch = 1
+/\ runs = << [ owner |-> A,
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 1,
+     ttl |-> 1,
+     state |-> "running" ],
+   [ owner |-> "none",
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 0,
+     ttl |-> 0,
+     state |-> "unused" ] >>
+/\ now = 0
+/\ claims = (C1 :> 1 @@ C2 :> 0)
+/\ lease = 1
+/\ audit = [kind |-> "other", before |-> 0, after |-> 0]
+/\ receipts = {}
+/\ context = 0
+/\ revision = 0
+
+State 3: <ForceRelease line 57, col 5 to line 59, col 74 of module ExecutionAuthority>
+/\ epoch = 1
+/\ runs = << [ owner |-> A,
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 1,
+     ttl |-> 1,
+     state |-> "running" ],
+   [ owner |-> "none",
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 0,
+     ttl |-> 0,
+     state |-> "unused" ] >>
+/\ now = 0
+/\ claims = (C1 :> 1 @@ C2 :> 0)
+/\ lease = 0
+/\ audit = [kind |-> "other", before |-> 0, after |-> 0]
+/\ receipts = {}
+/\ context = 0
+/\ revision = 0
+
+State 4: <Claim line 26, col 5 to line 33, col 53 of module ExecutionAuthority>
+/\ epoch = 2
+/\ runs = << [ owner |-> A,
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 1,
+     ttl |-> 1,
+     state |-> "running" ],
+   [ owner |-> A,
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 1,
+     ttl |-> 1,
+     state |-> "running" ] >>
+/\ now = 0
+/\ claims = (C1 :> 1 @@ C2 :> 2)
+/\ lease = 2
+/\ audit = [kind |-> "other", before |-> 0, after |-> 0]
+/\ receipts = {}
+/\ context = 0
+/\ revision = 0
+
+State 5: <Result line 62, col 5 to line 73, col 58 of module ExecutionAuthority>
+/\ epoch = 2
+/\ runs = << [ owner |-> A,
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 1,
+     ttl |-> 1,
+     state |-> "done" ],
+   [ owner |-> A,
+     rev |-> 0,
+     ctx |-> 0,
+     expires |-> 1,
+     ttl |-> 1,
+     state |-> "running" ] >>
+/\ now = 0
+/\ claims = (C1 :> 1 @@ C2 :> 2)
+/\ lease = 2
+/\ audit = [kind |-> "other", before |-> 0, after |-> 1]
+/\ receipts = { [ owner |-> A,
+    rev |-> 0,
+    ctx |-> 0,
+    e |-> 1,
+    q |-> Q1,
+    body |-> P1,
+    grantedOwner |-> A,
+    grantEpoch |-> 2,
+    grantLease |-> 2,
+    at |-> 0,
+    expiry |-> 1,
+    liveRev |-> 0,
+    liveCtx |-> 0 ] }
+/\ context = 0
+/\ revision = 0
+
+4307 states generated, 1147 distinct states found, 986 states left on queue.
+The depth of the complete state graph search is 5.
+The average outdegree of the complete state graph is 7 (minimum is 0, the maximum 12 and the 95th percentile is 12).
+Finished in 00s at (2026-10-21 21:25:16)

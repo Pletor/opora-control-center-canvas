@@ -1,0 +1,8 @@
+{
+  "spec": "ExecutionAuthority.tla",
+  "cases": [
+    {"name": "positive", "config": "ExecutionAuthority.cfg", "expect": "pass"},
+    {"name": "negative", "config": "NoFence.cfg", "expect": "violation", "invariant": "OneActiveOwner"},
+    {"name": "stale-negative", "config": "NoEpochReceipt.cfg", "expect": "violation", "invariant": "NoStaleEpochReceipt"}
+  ]
+}

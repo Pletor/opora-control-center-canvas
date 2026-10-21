@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from backend.canvas.opora_execution_pr_closure import close_loop
 from backend.canvas.opora_execution_pr_discovery import discover
 from backend.canvas.opora_execution_pull_requests import ExecutionPullRequestLinks
+from backend.canvas.opora_formal_check_poll import poll as poll_formal_checks
 from backend.integrations.github_merge_transport import GitHubMergeError
 from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
 
@@ -119,6 +120,7 @@ class ExecutionPullRequestManager:
                 self._close(project)
                 self._enroll(project)
                 self._discover(project)
+                poll_formal_checks(self, project)
             except Stopped:
                 return
             except (ValueError, GitHubMergeError):

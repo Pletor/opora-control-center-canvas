@@ -122,3 +122,9 @@ zvolených profilů, nikoli zelený výsledek negativního modelu.
 
 Regrese: `python -m pytest tools/formal/oporahub-execution/test_run_bundle.py -q`.
 Testy používají malé řízené podprocesy; nespouštějí model ani neinstalují nástroje.
+
+## Spouštění v CI
+
+Pozitivní a negativní konfigurace jsou deklarované v `cases.json`. Spouští je
+`tools/formal/run.py`, lokálně i v GitHub Actions jako check `formal/tlc`. Viz
+[automatické ověřování v CI](../../../docs/oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b).

@@ -1,0 +1,91 @@
+# Machine-run formal evidence (docs/oporahub-verification.md, "Automatické ověřování v CI").
+# Check run `formal/tlc` = every positive TLC config passes AND every negative config
+# produces its declared violation. Canvas reads this check on linked PRs automatically.
+name: formal
+
+on:
+  pull_request:
+    paths:
+      - "tools/formal/**"
+      - "backend/canvas/opora_executions.py"
+      - "backend/canvas/opora_execution_*.py"
+      - "backend/canvas/test_opora_execution_conformance.py"
+      - "backend/editor/agent_memory/card_leases.py"
+      - "database/repositories/opora_executions.py"
+      - "database/schema/opora_execution_schema.py"
+      - ".github/workflows/formal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: formal-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TLA_RELEASE: v1.7.4
+  TLA_SHA256: 936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
+
+jobs:
+  tlc:
+    name: formal/tlc
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cache pinned tla2tools.jar
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/opora-tla
+          key: tla2tools-${{ env.TLA_RELEASE }}-${{ env.TLA_SHA256 }}
+      - name: Runner parsing tests (canned TLC outputs)
+        run: |
+          python -m pip install --disable-pip-version-check "pytest>=8,<9"
+          python -m pytest tools/formal/test_formal_run.py -q
+      - name: TLC on every positive and negative config
+        # Downloads only the pinned release; run.py refuses any jar whose SHA256 differs.
+        run: python tools/formal/run.py --download --cache-dir ~/.cache/opora-tla --workers auto --summary formal-summary.json
+      - name: Upload machine-readable summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-tlc-summary
+          path: formal-summary.json
+          if-no-files-found: warn
+
+  conformance:
+    # Conformance bridge, not a proof: real lease service vs TLA+ invariants as Python predicates.
+    name: formal/conformance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run pytest backend/canvas/test_opora_execution_conformance.py -q
+
+  lean:
+    # Placeholder: Lean proofs are not connected yet. Disabled unless the repository
+    # variable OPORA_LEAN_ENABLED is "true"; Canvas never maps `formal/lean` to evidence.
+    name: formal/lean
+    if: ${{ vars.OPORA_LEAN_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require a Lean project
+        run: |
+          test -f tools/formal/lean/lakefile.lean -o -f tools/formal/lean/lakefile.toml || {
+            echo "::error title=formal/lean not_connected::No Lean project in tools/formal/lean."; exit 1; }
+      - name: lake build (stub; a build is not a checked proof)
+        working-directory: tools/formal/lean
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          "$HOME/.elan/bin/lake" build
