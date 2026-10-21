@@ -108,6 +108,7 @@ def test_agent_link_auto_enrolls_and_is_idempotent(world):
     with pytest.raises(ValueError, match="different PR link"):
         links.link(record["executionId"], body(record, "link", headRef="changed"), "agent")
     assert links.read(**scope, execution_id=record["executionId"])["bindingId"] == linked["bindingId"]
+    assert linked["planWrittenBack"] is False and linked["mergeSha"] is None
     assert list_execution_pull_requests(db, *scope.values())[0]["executionId"] == record["executionId"]
 
 
@@ -144,7 +145,9 @@ def test_merge_write_back_is_idempotent_and_keeps_spec(world):
     assert close(service, links, scope) == []
     result = links.read(**scope, execution_id=record["executionId"])
     assert result["state"] == "merged" and result["mergeSha"] == MERGE_SHA and result["headSha"] == NEXT_SHA
-    assert result["awaitingHumanClose"] is True
+    assert result["awaitingHumanClose"] is True and result["planWrittenBack"] is True
+    item = list_execution_pull_requests(service.db_for(scope["project"]), *scope.values())[0]
+    assert {"executionId", "cardId", "state", "number", "repository", "headSha", "mergeSha", "planWrittenBack"} <= set(item)
     assert [event["kind"] for event in result["events"]] == ["execution.merged"]
     assert result["events"][0]["mergeSha"] == MERGE_SHA and result["events"][0]["prNumber"] == 7
     assert executions.history(**scope)["executions"][0]["state"] == "released"

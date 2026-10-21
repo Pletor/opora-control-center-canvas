@@ -18,6 +18,8 @@ def public(row):
             "enrollment": row["enrollment"], "enrollmentError": row["enrollment_error"],
             "mergeSha": row["merge_sha"], "mergedAt": row["merged_at"],
             "awaitingHumanClose": bool(row["awaiting_human_close"]), "attention": row["attention"],
+            # Merge write-back applied (execution.merged recorded, execution finished, card marked for human close).
+            "planWrittenBack": row["state"] == "merged" and bool(row["awaiting_human_close"]),
             "source": row["source"], "createdAt": row["created_at"], "updatedAt": row["updated_at"]}
 
 

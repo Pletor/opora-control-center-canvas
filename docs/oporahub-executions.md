@@ -184,4 +184,5 @@ Konfigurace prostředí: `OPORA_EXECUTION_PR_WORKER=0` smyčku vypne,
 `OPORA_EXECUTION_PR_DISCOVERY_SECONDS` mění interval objevování na projekt
 (výchozí 300, `0` vypne). Rate limit GitHubu zastaví další čtení do uvedeného
 času. Pro další služby (např. stav agentů) slouží čtecí funkce
-`list_execution_pull_requests(project_id, workspace_id)`.
+`list_execution_pull_requests(project_id, workspace_id)`: seznam vazeb se stejnými
+poli včetně `mergeSha` a `planWrittenBack` (merge byl do běhu a karty zapsán).
