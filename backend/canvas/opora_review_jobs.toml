@@ -1,0 +1,38 @@
+# Automatické review kódu (docs/oporahub-review-jobs.md). Přepis: OPORA_REVIEW_JOBS_CONFIG=<cesta k TOML>,
+# zapnutí bez úpravy souboru: OPORA_REVIEW_JOBS=1. Hodnoty jsou deterministická pravidla, ne model.
+enabled = false
+
+[jobs]
+finders = 3          # nezávislí hledači v čerstvém kontextu na jedno kolo
+voters = 3           # oddělení ověřovatelé každého kandidáta
+required_votes = 2   # kandidát se stane nálezem až s tolika potvrzeními
+max_rounds = 3       # další kola po stropu rozhoduje člověk
+
+[risk]
+medium_lines = 200   # přidané + odebrané řádky celé změny PR
+high_lines = 1000
+medium_files = 10
+high_files = 40
+# Citlivé cesty: vždy aspoň jedno lidské schválení (úroveň aspoň medium).
+sensitive = [
+  ".github/workflows/**",
+  ".github/actions/**",
+  "**/auth/**",
+  "**/*auth*.*",
+  "**/migrations/**",
+  "database/schema/**",
+  "**/*secret*",
+  "**/*.pem",
+  "pyproject.toml",
+  "package.json",
+  "uv.lock",
+  "package-lock.json",
+]
+
+[approvals]
+low = 0
+medium = 1
+high = 2
+sensitive_minimum = 1
+# Číselná GitHub ID účtů agentů: jejich schválení se nikdy nepočítá jako lidské.
+agent_account_ids = []
