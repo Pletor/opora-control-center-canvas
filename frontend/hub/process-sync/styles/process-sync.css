@@ -5,6 +5,7 @@
 .process-sync__header p, .process-sync__observation, .process-sync__limits { margin: 6px 0; color: var(--ink-muted); }
 .process-sync button { color: var(--ink); background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 6px; padding: 7px 10px; cursor: pointer; font: inherit; }
 .process-sync button:disabled { cursor: wait; opacity: .65; }
+.process-sync button[aria-disabled="true"] { cursor: not-allowed; opacity: .65; }
 .process-sync button:focus-visible, .process-sync textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .process-sync__cards { display: grid; gap: 10px; margin: 12px 0; }
 .process-sync__card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 14px; border-top: 1px solid var(--line-strong); padding-top: 12px; }

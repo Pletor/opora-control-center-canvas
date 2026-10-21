@@ -33,6 +33,11 @@ Přehled OporaHubu obsahuje modul „Proces Control Center“ s kartami, stavem,
 dalším krokem a vstupem do existujících detailů. Pravidelně obnovuje uložené
 podklady a po změně projektu zahodí předchozí výsledek; pozdní odpověď nesmí
 přepsat nový scope. Chyba se zobrazí, starý stav se nevydává za aktuální.
+Při obnově nebo chybě může zůstat zobrazené poslední pozorování s výslovným
+označením; akce karet jsou do získání čerstvých podkladů zablokované. Tím se
+zachová prvek pro návrat fokusu po zavření detailu. Výslovně zvolená karta,
+která chybí ve starším zadání, nikdy není nahrazena první jinou kartou;
+editor vyžádá obnovu podkladů a výběr karty přitom zachová.
 Návrh zlepšení otevře existující editor návrhů; žádný nový model se nespouští.
 
 ## Ověření a meze

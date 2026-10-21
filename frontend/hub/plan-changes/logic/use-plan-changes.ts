@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type CanvasNode, type SpecFields } from "@/shared/types/logic/types";
 import { ProposalRequests } from "@/hub/proposal-history/logic/proposals";
-import { changesetPayload, type PlanContext, type PlanChangeset } from "./plan-changes";
+import { changesetPayload, type PlanContext, type PlanChangeset, type PlanDocument } from "./plan-changes";
 
 type State = { key: string; context: PlanContext | null; items: PlanChangeset[]; busy: boolean; error: string; notice: string };
 const empty = (key: string): State => ({ key, context: null, items: [], busy: false, error: "", notice: "" });
 const message = (e: unknown) => e instanceof Error ? e.message : String(e);
+export function selectedPlanDocument(documents: PlanDocument[], selection: { key: string; node: string }, key: string) {
+  return selection.key === key && selection.node ? documents.find(item => item.nodeId === selection.node) : documents[0];
+}
+export function refreshedPlanSelection(selection: { key: string; node: string }, key: string) {
+  return { key, node: selection.key === key ? selection.node : "", proposal: "" };
+}
 
 export function usePlanChanges(project: string, workspace: string, nodes: CanvasNode[], enabled: boolean,
   readOnly: boolean, onApplied: () => void) {
@@ -23,7 +29,8 @@ export function usePlanChanges(project: string, workspace: string, nodes: Canvas
   const subject = title.key === key ? title.text : "";
   const context = shown.context;
   const documents = context?.documents ?? [];
-  const document = documents.find(d => selection.key === key && d.nodeId === selection.node) ?? documents[0];
+  const document = selectedPlanDocument(documents, selection, key);
+  const missingDocument = selection.key === key && selection.node && !document ? selection.node : null;
   const fields = draft?.key === key && draft.node === document?.nodeId ? draft.fields : document?.fields;
   const inspected = shown.items.find(item => selection.key === key && item.id === selection.proposal);
   const query = new URLSearchParams({ project, workspace }).toString();
@@ -83,7 +90,7 @@ export function usePlanChanges(project: string, workspace: string, nodes: Canvas
     void write(`/api/oporahub/changesets/${encodeURIComponent(inspected.id)}/rebase`,
       { project, workspace, expectedAcceptedHead: context.acceptedHead }, false);
   }
-  return { ...shown, documents, document, fields, inspected, subject, readOnly: readOnly || !!context?.readOnly,
+  return { ...shown, documents, document, missingDocument, fields, inspected, subject, readOnly: readOnly || !!context?.readOnly,
     name: (nodeId: string) => nodes.find(node => node.id === nodeId)?.name ?? nodeId,
     setSubject: (text: string) => setTitle({ key, text }),
     selectDocument: (node: string) => { setDraft(null); setSelection({ key, node, proposal: "" }); },
@@ -91,7 +98,7 @@ export function usePlanChanges(project: string, workspace: string, nodes: Canvas
     edit: (field: keyof SpecFields, value: string) => {
       if (document && fields) setDraft({ key, node: document.nodeId, fields: { ...fields, [field]: value } });
     },
-    refresh: () => { if (!writing.current) { requests.current.invalidate(); setDraft(null); setSelection({ key, node: "", proposal: "" }); setAttempt(n => n + 1); } },
+    refresh: () => { if (!writing.current) { requests.current.invalidate(); setDraft(null); setSelection(previous => refreshedPlanSelection(previous, key)); setAttempt(n => n + 1); } },
     baseline, propose, accept, rebase };
 }
 export type PlanChangesView = ReturnType<typeof usePlanChanges>;

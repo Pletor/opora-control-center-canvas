@@ -55,12 +55,13 @@ describe("useProcessSync scoped read lifetime", () => {
     await vi.advanceTimersByTimeAsync(14999); expect(f.read).toHaveBeenCalledTimes(2);
     await vi.advanceTimersByTimeAsync(1); expect(f.read).toHaveBeenCalledTimes(3); f.watcher.close();
   });
-  it("clears the last snapshot while refreshing and on failure instead of advertising it as current", async () => {
-    const f = fixture(); f.pending[0].resolve(processFixture()); await settle();
+  it("retains the same scoped snapshot for stable opener DOM while marking refresh or error", async () => {
+    const f = fixture(), snapshot = processFixture(); f.pending[0].resolve(snapshot); await settle();
     expect(f.commits.at(-1)?.snapshot).not.toBeNull(); f.watcher.refresh();
-    expect(f.commits.at(-1)).toEqual({ snapshot: null, busy: true, error: "" });
+    expect(f.commits.at(-1)).toEqual({ snapshot, busy: true, error: "" });
+    expect(f.commits.at(-1)?.snapshot).toBe(snapshot);
     f.pending[1].reject(new Error("unavailable")); await settle();
-    expect(f.commits.at(-1)?.snapshot).toBeNull(); expect(f.commits.at(-1)?.error).not.toBe(""); f.watcher.close();
+    expect(f.commits.at(-1)?.snapshot).toBe(snapshot); expect(f.commits.at(-1)?.error).not.toBe(""); f.watcher.close();
   });
   it("returning before an aborted transport settles queues one fresh read without overlapping", async () => {
     const f = fixture(); f.visible(false); f.events.get("visibilitychange")!();

@@ -59,7 +59,7 @@ export const processEndpoint = (project: string, workspace: string) => "/api/opo
 const labels: Record<ProcessStatus, string> = {
   "needs-plan": "Chybí přijatý plán", "needs-acceptance": "Zadání čeká na přijetí", "needs-routing": "Chybí směrování",
   ready: "Připraveno k převzetí", running: "Evidovaný běh · ověřit oprávnění", reported: "Nahlášeno · vyžaduje kontrolu",
-  stale: "Historický běh · jiná revize", closed: "Lidsky dokončeno", blocked: "Blokováno", unavailable: "Podklady nedostupné",
+  stale: "Historický běh · jiná revize", closed: "Potvrzené dokončení", blocked: "Blokováno", unavailable: "Podklady nedostupné",
 };
 export function processPresentation(card: ProcessCard): { label: string; tone: string; target: DetailTarget } {
   const kind = card.status === "needs-plan" || card.status === "needs-routing" ? "graph"

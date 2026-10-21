@@ -25,15 +25,16 @@ export function browserProcessEnvironment(): ProcessEnvironment {
 export function watchProcess(project: string, workspace: string, publish: (state: ProcessState) => void,
   environment: ProcessEnvironment, read = readProcess) {
   let generation = 0, closed = false, controller: AbortController | undefined;
+  let latest: ProcessSnapshot | null = null;
   const invalidate = () => { generation++; controller?.abort(); controller = undefined; };
   const run = async () => {
     if (closed || !project || !workspace || !environment.visible()) return;
     invalidate(); const current = generation;
-    controller = new AbortController(); publish({ ...emptyProcess(), busy: true });
+    controller = new AbortController(); publish({ snapshot: latest, busy: true, error: "" });
     await read(project, workspace, controller.signal).then(snapshot => {
-      if (!closed && current === generation) publish({ snapshot, busy: false, error: "" });
+      if (!closed && current === generation) { latest = snapshot; publish({ snapshot, busy: false, error: "" }); }
     }).catch(() => {
-      if (!closed && current === generation) publish({ ...emptyProcess(), error: "Proces se nepodařilo načíst. Obnovte podklady." });
+      if (!closed && current === generation) publish({ snapshot: latest, busy: false, error: "Proces se nepodařilo načíst. Obnovte podklady." });
     });
   };
   const poller = createPoller({ run, intervalMs: 15000, visibility: {
