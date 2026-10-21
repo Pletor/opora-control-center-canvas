@@ -1,7 +1,6 @@
 """Merge gate read model: approvals bound to the exact head, agents never count, agent-state integration."""
 import pytest
 
-from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_reviews as reviews
 from backend.canvas.opora_agent_state import AgentState
 from backend.canvas.opora_review_gate import read_review_gates
@@ -131,9 +130,8 @@ def test_unobserved_change_fails_closed_to_two_approvals(review):  # noqa: F811
 
 
 def test_agent_state_with_review_jobs_stays_write_free(sensitive):
-    """The review seam adds only SELECTs (the link seam is stubbed: its own reads are PR #15's concern)."""
+    """With review jobs enabled and a real PR link, the document is still built from SELECTs only."""
     review = sensitive
-    pulls.register(lambda project, workspace: [])
     db = review["service"].db_for(review["scope"]["project"])
     sql = []
     reviews.register(CONFIG)
@@ -144,6 +142,5 @@ def test_agent_state_with_review_jobs_stays_write_free(sensitive):
     finally:
         db.set_trace_callback(None)
         reviews.register(None)
-        pulls.register(None)
     assert not any(command.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE", "BEGIN", "CREATE"))
                    for command in sql)
