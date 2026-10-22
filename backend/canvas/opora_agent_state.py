@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
 from backend.canvas import opora_agent_state_cards as card_stages
 from backend.canvas import opora_agent_state_dag as dag_state
+from backend.canvas import opora_agent_state_events as outbox
 from backend.canvas import opora_agent_state_lease as lease_state
 from backend.canvas import opora_agent_state_formal as formal
 from backend.canvas import opora_agent_state_pulls as pulls
@@ -125,6 +126,7 @@ class AgentState:
             dag = dag_state.facts(canvas, project, workspace, linked)  # Card DAG: blockedBy, topoIndex
             # Merged PRs too; None = review jobs disabled, GitHub branch protection is the gate.
             gates = card_done.gates_by_execution(db, project, workspace) if linked else {}
+            cursor, last_events = outbox.read(db, project, workspace)  # Same lock + connection = same snapshot.
         dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
@@ -154,10 +156,10 @@ class AgentState:
                 "decisions": decisions, "actions": actions,
                 "gaps": sorted(({"id": key, "stage": stage, "reason": reason} for key, stage, reason in gaps),
                                key=lambda item: item["id"]),
-                "cards": lease_state.attach(plan_steps.attach(dag_state.enrich(
+                "cards": outbox.attach(lease_state.attach(plan_steps.attach(dag_state.enrich(
                     card_stages.project(cards, accepted, latest, claims, linked, reviewing, now), dag, actions, reviewing),
-                    cards, linked, gates), latest, now),
-                "truncated": process["truncated"]}
+                    cards, linked, gates), latest, now), last_events),
+                "truncated": process["truncated"], "eventsCursor": cursor}
 
     @staticmethod
     def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None,

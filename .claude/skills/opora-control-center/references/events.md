@@ -9,11 +9,14 @@ dál řídí jen akcemi z agent-state; události jsou pro zobrazení a pozorová
 
 ## API
 
-- `GET /api/oporahub/events?project&workspace&since=<cursor>&limit=` (`limit` 1–500, výchozí 100) →
+- Start bez mezery: přečti `agent-state` a sleduj od jeho `eventsCursor` (kurzor ve stejném snímku);
+  `cards[].lastEventAt` je čas nejnovější události karty (`null` bez události).
+- `GET /api/oporahub/events?project&workspace&since=<cursor>&limit=[&nodeId=]` (`limit` 1–500, výchozí 100) →
   `{events: [...], cursor, head, gap}`; další čtení s `since` = vrácený `cursor`. `gap: true` = server
   starší události po `since` už smazal: přečti znovu `agent-state` a pokračuj od `head`.
 - `GET /api/oporahub/events/stream` (SSE, stejné události); po výpadku pokračuj hlavičkou
   `Last-Event-ID` = poslední `id` (nebo `?since=`).
+- `nodeId` (oba endpointy) = dráha jedné karty; neplatné ID → `409`.
 
 ```bash
 python "<SKILL_DIR>/scripts/opora_hub.py" events --project P --workspace W [--since CURSOR] [--limit 100]

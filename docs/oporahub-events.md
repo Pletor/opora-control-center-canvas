@@ -1,8 +1,8 @@
 # Tok událostí OporaHubu
 
 [Stav pro agenty](oporahub-agent-state.md) je **snímek**; tok událostí je **delta** mezi snímky.
-Živá vizualizace procesu si načte `agent-state`, zapamatuje si `head` toku a dál jen přijímá
-události. Každá událost vzniká **v místě změny** (ve službě nebo repozitáři, který změnu zapisuje)
+Živá vizualizace procesu si načte `agent-state`, vezme jeho `eventsCursor` (kurzor toku ve stejném
+snímku) a dál jen přijímá události po něm. Každá událost vzniká **v místě změny** (ve službě nebo repozitáři, který změnu zapisuje)
 a zapisuje se do tabulky `opora_events` ve **stejné SQLite transakci** jako změna: zrušená změna
 nezanechá událost a potvrzená změna má právě jednu. Nic se neodvozuje porovnáváním snímků.
 
@@ -75,7 +75,7 @@ nikdy událost nevytváří.
 
 ## API (jen čtení, pro agenty i lidi)
 
-`GET /api/oporahub/events?project=<id>&workspace=<id>&since=<cursor>&limit=<1–500>`
+`GET /api/oporahub/events?project=<id>&workspace=<id>&since=<cursor>&limit=<1–500>[&nodeId=<id>]`
 
 ```json
 {"events": [...], "cursor": 57, "head": 60, "gap": false}
@@ -84,12 +84,16 @@ nikdy událost nevytváří.
 - `since` (výchozí `0`) je výlučný kurzor; `cursor` je `id` poslední vrácené události, bez událostí
   zůstává `since`. Další stránka: `since=cursor`.
 - `workspace` je volitelný filtr; bez něj jdou události všech prostorů projektu.
-- `head` je nejvyšší `id` v outboxu: konzument, který právě načetl `agent-state`, začne sledovat
-  od `head`.
+- `nodeId` je volitelný filtr na jednu kartu (dráha karty; včetně odvozených `stage.changed` /
+  `gate.changed`). Neplatné ID (`[A-Za-z0-9_-]{1,80}`) → `409`, `code: "events_unavailable"`.
+  `cursor` se posouvá jen po vrácených událostech; `head` a `gap` platí pro celý outbox.
+- `head` je nejvyšší `id` v outboxu. Konzument, který právě načetl `agent-state`, začne sledovat od
+  jeho `eventsCursor` (přečteného ve stejném snímku); `head` z pozdějšího čtení by mohl přeskočit
+  událost zapsanou mezi oběma čteními.
 - `gap: true` znamená, že retence smazala události po `since`; konzument znovu načte `agent-state`
   a pokračuje od `head`.
 
-`GET /api/oporahub/events/stream?project=<id>&workspace=<id>[&since=<cursor>]` (SSE)
+`GET /api/oporahub/events/stream?project=<id>&workspace=<id>[&since=<cursor>][&nodeId=<id>]` (SSE, filtr `nodeId` jako výše)
 
 - Obnova: hlavička `Last-Event-ID` (prohlížečový `EventSource` ji posílá sám), jinak `since`, jinak `0`.
 - Rámec: `id: <id>` + `data: <událost JSON>`; pole `event:` se neposílá, vše chodí do `onmessage`.
@@ -122,7 +126,9 @@ emit_event(conn_or_service, *, project_id, workspace_id, kind, node_id=None, exe
 
 ## Ověření
 
-`uv run pytest backend/canvas/test_opora_events.py backend/canvas/test_opora_events_pull_requests.py backend/canvas/test_card_dag.py backend/api/editor/test_opora_event_routes.py`
+`uv run pytest backend/canvas/test_opora_events.py backend/canvas/test_opora_events_pull_requests.py backend/canvas/test_card_dag.py backend/api/editor/test_opora_event_routes.py backend/canvas/test_opora_agent_state_events.py`
 pokrývá právě jednu událost na změnu (i při replay), `stage.changed` jen při změně, žádné události
 při čtení, návrat s transakcí, retenci, stránkování kurzorem, mezeru po retenci, obnovu SSE
-přes `Last-Event-ID`, heartbeat, limit proudů, odmítnutí cyklu a `blockedBy` / `topoIndex`.
+přes `Last-Event-ID`, heartbeat, limit proudů, odmítnutí cyklu a `blockedBy` / `topoIndex`,
+filtr `nodeId`, `eventsCursor` ve stejném snímku jako agent-state (i proti souběžnému zápisu)
+a `cards[].lastEventAt`.
