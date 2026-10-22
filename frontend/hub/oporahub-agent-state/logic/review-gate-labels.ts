@@ -13,9 +13,10 @@ export const REVIEW_GATE_REASONS: Record<string, string> = {
   base_freshness_unobserved: "Neznámo, zda PR stojí na aktuální cílové větvi.",
   template_unobserved: "Popis PR ještě nebyl přečten.",
   template_incomplete: "Popis PR nemá všechny sekce šablony.",
+  review_gate_ready: "Brána merge je splněna.",
 };
 
 export const REVIEW_GATE_VERBS: Record<string, string> = {
   "review.claim": "Převzít review", "review.self_checks": "Doložit vlastní kontroly",
-  "pr.update_branch": "Aktualizovat větev PR",
+  "pr.update_branch": "Aktualizovat větev PR", "review.promote_to_check": "Povýšit opakovaný nález na kontrolu",
 };

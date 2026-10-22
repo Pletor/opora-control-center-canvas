@@ -83,3 +83,11 @@
   .oporahub-loop__link--broken .oporahub-loop__line { background: repeating-linear-gradient(180deg, var(--oh-link) 0 5px, transparent 5px 9px); }
   .oporahub-loop__link .oporahub-loop__line::after { top: auto; right: auto; bottom: -1px; left: -4px; border: 5px solid transparent; border-top: 7px solid var(--oh-link); border-bottom: 0; }
 }
+
+/* Doplněk etapy: u Review stav brány merge a pravidlo, které ji drží; u Návrhu počet konfliktů auto-rebase.
+   Tichý řádek pod důvodem, se značkou na začátku, aby se nečetl jen podle barvy. */
+.oporahub-loop__extra { font-size: 11px; line-height: 1.3; }
+.oporahub-loop__extra--ok { color: var(--ok); }
+.oporahub-loop__extra--warn { color: var(--warn); }
+.oporahub-loop__extra--bad { color: var(--danger); }
+.oporahub-loop__extra--gap { color: var(--ink-muted); }

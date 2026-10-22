@@ -1,0 +1,43 @@
+/* METRIKY REVIEW (blok `oporahub-review-metrics`)
+   Příběh: člověk chce jedním pohledem vědět, zda automatické review pomáhá. Nahoře výběr okna a počet PR,
+   pod tím dlaždice „jak review funguje“ (přijetí, šum, kola, čas do rozhodnutí člověka), pak dva grafy
+   nálezů a nakonec pojistky: reverty a incidenty jsou zelené jen na nule, jinak zlaté „pozor“. Dole eval
+   sada a odkaz na export. Každé číslo nese slovo a značku; barva je jen třetí nápověda. */
+.oporahub-review-metrics { display: grid; gap: 14px; min-width: 0; color: var(--ink); font-size: 13px; }
+.oporahub-review-metrics__head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.oporahub-review-metrics__title { margin: 0; font-size: 16px; font-weight: 600; }
+.oporahub-review-metrics__window { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-muted); font-size: 12px; }
+.oporahub-review-metrics__note { color: var(--ink-muted); font-size: 11px; }
+.oporahub-review-metrics__error { margin: 0; padding: 8px 12px; border: 1px solid var(--danger-line); border-radius: 4px; background: var(--danger-soft); color: var(--danger); }
+.oporahub-review-metrics__panel { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.oporahub-review-metrics__subtitle { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+
+/* Dlaždice: mřížka, která se na telefonu skládá do dvou sloupců; tón nese horní pruh i značka se slovem. */
+.oporahub-review-metrics__tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.oporahub-review-metrics__tile { display: grid; gap: 3px; align-content: start; padding: 10px 11px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 7px; background: var(--surface-2); }
+.oporahub-review-metrics__tile--ok { border-top-color: var(--ok); }
+.oporahub-review-metrics__tile--warn { border-top-color: var(--warn); background: var(--warn-soft); }
+.oporahub-review-metrics__tile--bad { border-top-color: var(--danger); background: var(--danger-soft); }
+.oporahub-review-metrics__tile--gap { border-top-style: dashed; border-top-color: var(--ink-muted); }
+.oporahub-review-metrics__tile--acc { border-top-color: var(--accent); }
+.oporahub-review-metrics__tile-label { color: var(--ink-2); font-size: 11px; }
+.oporahub-review-metrics__tile-value { font: 600 20px var(--mono); letter-spacing: -.02em; }
+.oporahub-review-metrics__tile-state { font-size: 11px; color: var(--ink-2); }
+
+/* Grafy nálezů vedle sebe, na úzké obrazovce pod sebou; pruh roste zleva podle --oh-pct. */
+.oporahub-review-metrics__charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.oporahub-review-metrics__bars { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.oporahub-review-metrics__bar-row { display: grid; grid-template-columns: minmax(90px, 9em) 1fr 3em; align-items: center; gap: 8px; }
+.oporahub-review-metrics__bar-label { font-size: 12px; color: var(--ink-2); }
+.oporahub-review-metrics__bar-track { height: 10px; border-radius: 5px; background: var(--surface-3); overflow: hidden; }
+.oporahub-review-metrics__bar { display: block; width: var(--oh-pct); height: 100%; border-radius: 5px; background: var(--accent); }
+.oporahub-review-metrics__bar--ok { background: var(--ok); }
+.oporahub-review-metrics__bar--warn { background: var(--warn); }
+.oporahub-review-metrics__bar--bad { background: var(--danger); }
+.oporahub-review-metrics__bar--gap { background: var(--ink-muted); }
+.oporahub-review-metrics__bar-value { text-align: right; font: 600 12px var(--mono); }
+
+/* Eval sada: tichý řádek s počtem případů a odkazem na export pro regresní běh promptů. */
+.oporahub-review-metrics__evals { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border: 1px dashed var(--line-strong); border-radius: 8px; }
+.oporahub-review-metrics__link { color: var(--accent); font-size: 12px; }
+.oporahub-review-metrics__link:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }

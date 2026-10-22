@@ -124,6 +124,7 @@ import { useProposalReviewModels } from "@/hub/proposal-review/logic/use-proposa
 import { useExecutionBudgets } from "@/hub/execution-budgets/logic/use-execution-budgets";
 import { useOporaProposals } from "@/hub/proposal-history/logic/use-opora-proposals";
 import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
+import LoopBadgeLayer from "@/editor/canvas/loop-badges/components/LoopBadgeLayer";
 import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import CommentPanel from "@/editor/canvas/comment-card/components/CommentPanel";
 import { newComment, nextCommentSpot } from "@/editor/canvas/comment-card/logic/comment-model";
@@ -177,7 +178,14 @@ export default function App() {
     setEnvironment("editor");
   }
   function changeEnvironment(next: Environment) {
+    setHubCardRequest(undefined);
     setEnvironment(next);
+  }
+  // Klik na odznak etapy na plátně: OporaHub otevře drawer té karty (nový nonce = nový požadavek).
+  const [hubCardRequest, setHubCardRequest] = useState<{ id: string; nonce: number } | undefined>(undefined);
+  function openHubCard(id: string) {
+    setHubCardRequest(current => ({ id, nonce: (current?.nonce ?? 0) + 1 }));
+    setEnvironment("hub");
   }
   const [editingName, setEditingName] = useState<string | null>(null);
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
@@ -1115,7 +1123,7 @@ export default function App() {
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      environment === "hub" ? <OporaHubWorkspace onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
+      environment === "hub" ? <OporaHubWorkspace cardRequest={hubCardRequest} onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
@@ -1214,6 +1222,7 @@ export default function App() {
                   scope={project + workspace + parent}
                   graph={graph}
                   settings={settings}
+                  overlay={settings.loopBadges && project && workspace ? <LoopBadgeLayer project={project} workspace={workspace} onOpen={openHubCard} /> : null}
                   parent={parent}
                   selected={selected}
                   multiSelected={multiSelected}

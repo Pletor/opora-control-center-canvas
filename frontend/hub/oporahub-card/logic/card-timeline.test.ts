@@ -14,7 +14,7 @@ const run = (extra: Partial<ExecutionSummary> = {}): ExecutionSummary => ({ exec
 describe("card timeline", () => {
   it("orders the journey baseline → changes → claim → evidence → PR → writeback", () => {
     const view = cardTimeline({ nodeId: "task_a", state: agentStateFixture(), changesets: [change("b", { accepted: true })], executions: [run()] });
-    expect(view.steps.map(item => item.kind)).toEqual(["baseline", "changeset", "claim", "evidence", "pr", "writeback"]);
+    expect(view.steps.map(item => item.kind)).toEqual(["baseline", "changeset", "claim", "evidence", "review", "pr", "writeback"]);
   });
   it("moves stale proposals into the fork lane and never onto the main track", () => {
     const view = cardTimeline({ nodeId: "task_a", state: agentStateFixture(), changesets: [change("old", { parentRevision: "z".repeat(40) }), change("fresh")], executions: [] });
@@ -57,5 +57,12 @@ describe("card timeline", () => {
   it("marks a missing accepted head as a gap instead of inventing one", () => {
     const state = agentStateFixture({ heads: { ...agentStateFixture().heads, acceptedHead: null } });
     expect(cardTimeline({ nodeId: "task_a", state, changesets: [], executions: [] }).steps[0]).toMatchObject({ tone: "gap", status: "základ chybí" });
+  });
+  it("shows the review step from the card stage, with the gate rule as its reason", () => {
+    const cards = [{ nodeId: "task_a", stage: "review" as const, health: "waiting" as const, reason: "stale_against_main", executionId: "e1" }];
+    const state = agentStateFixture({ cards });
+    expect(cardTimeline({ nodeId: "task_a", state, changesets: [], executions: [] }).steps.find(item => item.kind === "review")).toMatchObject({
+      tone: "warn", attrs: { "data-oh-card-stage": "review", "data-oh-reason": "stale_against_main" } });
+    expect(cardTimeline({ nodeId: "task_b", state, changesets: [], executions: [] }).steps.find(item => item.kind === "review")?.tone).toBe("gap");
   });
 });

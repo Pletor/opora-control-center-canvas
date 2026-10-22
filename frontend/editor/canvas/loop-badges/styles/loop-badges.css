@@ -1,0 +1,24 @@
+/* ODZNAKY ETAP NA PLÁTNĚ (blok `loop-badges`)
+   Příběh: v Editoru uživatel nepotřebuje přepínat do OporaHubu, aby věděl, kde karta ve smyčce stojí.
+   Nad pravým horním rohem každé karty sedí malý štítek: značka zdraví, etapa a slovo („✕ Review blokuje“).
+   Je nízký a úzký, aby nezakryl hlavu karty, a tón nese levý proužek i značka, nikdy jen barva.
+   Klik otevře kartu v OporaHubu; tah plátna přes štítek nezačne (nodrag/nopan). */
+.loop-badges { position: absolute; top: 0; left: 0; pointer-events: none; }
+.loop-badges__badge {
+  position: absolute; top: -4px; left: 0; display: inline-flex; align-items: center; gap: 4px; max-width: 220px;
+  padding: 2px 7px 2px 6px; border: 1px solid var(--line-strong); border-left-width: 3px; border-radius: 4px;
+  background: var(--surface); color: var(--ink); font-size: 11px; font-weight: 600; line-height: 1.3; white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .12); cursor: pointer; pointer-events: all;
+}
+.loop-badges__badge:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.loop-badges__glyph { font-size: 12px; }
+.loop-badges__word { font-weight: 400; color: var(--ink-muted); }
+
+/* Tón: zelený, zlatý a červený proužek se značkou ✓ / ◷ / ✕; nenapojeno je přerušované a šedé. */
+.loop-badges__badge--ok { border-left-color: var(--ok); }
+.loop-badges__badge--ok .loop-badges__glyph { color: var(--ok); }
+.loop-badges__badge--warn { border-left-color: var(--warn); background: var(--warn-soft); }
+.loop-badges__badge--warn .loop-badges__glyph { color: var(--warn); }
+.loop-badges__badge--bad { border-color: var(--danger-line); border-left-color: var(--danger); background: var(--danger-soft); }
+.loop-badges__badge--bad .loop-badges__glyph { color: var(--danger); }
+.loop-badges__badge--gap { border-style: dashed; color: var(--ink-muted); }

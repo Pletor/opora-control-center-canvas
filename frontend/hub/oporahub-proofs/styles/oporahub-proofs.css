@@ -1,0 +1,38 @@
+/* FORMÁLNÍ DŮKAZY (blok `oporahub-proofs`)
+   Příběh: v detailu karty člověk vidí tři řádky — důkaz v Leanu, model v TLC a shodu s implementací.
+   Každý řádek říká výsledek značkou a slovem a vedle něj, kdo ho tvrdí: „nahlášeno agentem“ (zlatě)
+   nebo „ověřeno CI“ (zeleně). Chybějící druh je šedý přerušovaný řádek, ne prázdné místo. */
+.oporahub-proofs { min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.oporahub-proofs__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.oporahub-proofs__title { margin: 0; font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+.oporahub-proofs__head .oporahub-proofs__button { margin-left: auto; }
+.oporahub-proofs__body { display: grid; gap: 8px; padding: 12px 14px; }
+.oporahub-proofs__note { font-size: 11px; color: var(--ink-muted); }
+.oporahub-proofs__mono { font: 600 11px var(--mono); color: var(--ink-2); overflow-wrap: anywhere; }
+.oporahub-proofs__button { padding: 3px 9px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); color: var(--ink); font-size: 12px; cursor: pointer; }
+.oporahub-proofs__button:focus-visible, .oporahub-proofs__tile:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Řádek druhu důkazu: jméno, výsledek, důvěra, check a commit; tón nese levý okraj i čip. */
+.oporahub-proofs__row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 10px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 6px; background: var(--surface-2); }
+.oporahub-proofs__row--ok { border-left-color: var(--ok); }
+.oporahub-proofs__row--warn { border-left-color: var(--warn); }
+.oporahub-proofs__row--bad { border-left-color: var(--danger); }
+.oporahub-proofs__row--gap { border-style: dashed; border-left-color: var(--ink-muted); }
+.oporahub-proofs__kind { min-width: 150px; font-size: 12px; }
+.oporahub-proofs__action, .oporahub-proofs__fix { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Kniha důkazů: nahoře dlaždice počtů (klik = filtr stavu), pod nimi tabulka tvrzení. */
+.oporahub-proofs--ledger { display: grid; gap: 12px; padding: 14px; }
+.oporahub-proofs__tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.oporahub-proofs__tile { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 6px; background: var(--surface-2); color: var(--ink); text-align: left; font-size: 12px; cursor: pointer; }
+.oporahub-proofs__tile[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
+.oporahub-proofs__tile--ok { border-top-color: var(--ok); }
+.oporahub-proofs__tile--warn { border-top-color: var(--warn); }
+.oporahub-proofs__tile--bad { border-top-color: var(--danger); }
+.oporahub-proofs__tile--gap { border-top-style: dashed; border-top-color: var(--ink-muted); }
+.oporahub-proofs__count { font-size: 20px; font-weight: 600; }
+.oporahub-proofs__filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; }
+.oporahub-proofs__table { display: grid; min-width: 0; overflow-x: auto; font-size: 12px; }
+.oporahub-proofs__trow { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) 110px 150px minmax(120px, 1fr); gap: 8px; align-items: center; min-width: 860px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.oporahub-proofs__trow--head { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+.oporahub-proofs__source { display: block; }

@@ -1,0 +1,76 @@
+"""Per-card loop stage for the agent-state document (docs/oporahub-agent-state.md, "Etapa karty").
+
+The Editor canvas shows one small badge per card node; it reads the same agent-state poll as the
+OporaHub overview, so the card's position in the loop is derived here from facts the document
+already collected (process cards, latest executions, claims, PR links, review gates). Pure and
+deterministic: the same facts and clock give the same list. A card is placed at the furthest stage
+it has reached; the first matching rule below wins.
+"""
+from backend.canvas import opora_agent_state_review_gates as review_gates
+
+_GATE_HEALTH = {"blocked": "blocking", "pending": "waiting", "ready": "ok"}
+
+
+def _entry(node, stage, health, reason, execution=None):
+    return {"nodeId": node, "stage": stage, "health": health, "reason": reason, "executionId": execution}
+
+
+def _gate(gate, node, execution):
+    status = gate["reviewGate"]["status"]
+    fallback = {"blocked": "review_gate_blocked", "pending": "review_gate_pending"}.get(status, "review_gate_ready")
+    reason = review_gates.stage_reason([gate], status, fallback) if status in ("blocked", "pending") else fallback
+    return _entry(node, "review", _GATE_HEALTH.get(status, "waiting"), reason, execution)
+
+
+def card_stage(card, accepted, latest, claim, link, gate, now):
+    """Stage of one card; `latest`, `claim`, `link` and `gate` are None when the card has none."""
+    node = card["nodeId"]
+    execution = latest["id"] if latest else None
+    if card.get("doneConfirmed"):
+        return _entry(node, "plan_writeback", "ok", "card_closed", execution)
+    if link and link.get("state") == "merged":
+        if link.get("awaitingHumanClose"):
+            return _entry(node, "merge", "waiting", "awaiting_human_close", link["executionId"])
+        if link.get("planWrittenBack") is True:
+            return _entry(node, "plan_writeback", "ok", "plan_written_back", link["executionId"])
+        return _entry(node, "plan_writeback", "waiting", "merged_without_plan_writeback", link["executionId"])
+    if link and link.get("state") == "open":
+        if gate:
+            return _gate(gate, node, link["executionId"])
+        return _entry(node, "pull_request", "waiting", "pull_requests_open", link["executionId"])
+    if latest and latest["state"] == "running":
+        if latest["deadline"] <= now:
+            return _entry(node, "work", "blocking", "lease_past_deadline", execution)
+        return _entry(node, "work", "ok", "runs_active", execution)
+    if latest and latest["results"]:
+        if latest["acceptedRevision"] != accepted:
+            return _entry(node, "evidence", "waiting", "stale_evidence", execution)
+        return _entry(node, "review", "waiting", "human_review_required", execution)
+    if claim:
+        if claim["status"] == "ready":
+            return _entry(node, "claim", "ok", "cards_ready")
+        return _entry(node, "claim", "blocking", claim["blockReason"])
+    if accepted is None:
+        return _entry(node, "plan", "blocking", "no_accepted_baseline")
+    return _entry(node, "plan", "ok", "card_in_plan")
+
+
+def project(cards, accepted, latest, claims, linked, reviewing, now):
+    """`cards[]` sorted by nodeId; one entry per card of the process projection (limit as `truncated`)."""
+    runs = {item["nodeId"]: item for item in latest}
+    offered = {item["nodeId"]: item for item in claims}
+    links, gates = {}, {}
+    for item in linked or []:
+        if item.get("cardId"):
+            current = links.get(item["cardId"])
+            # An open PR is the live one; otherwise keep the newest merged/closed link reported.
+            if current is None or item.get("state") == "open" or current.get("state") != "open":
+                links[item["cardId"]] = item
+    for gate in (reviewing or {}).get("gates", []):
+        gates[gate["executionId"]] = gate
+    result = []
+    for node in sorted(cards):
+        link = links.get(node)
+        gate = gates.get(link["executionId"]) if link else None
+        result.append(card_stage(cards[node], accepted, runs.get(node), offered.get(node), link, gate, now))
+    return result

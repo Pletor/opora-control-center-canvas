@@ -110,7 +110,10 @@ export default function Board({
   onCardBlock,
   revision,
   digest,
+  overlay,
 }: {
+  /** Vrstva nad kartami uvnitř React Flow (odznaky etap OporaHubu); skládá ji App. */
+  overlay?: import("react").ReactNode;
   usage?: UsageSummary | null;
   sourceStatuses?: Record<string, import("@/editor/canvas/node-card/logic/use-source-status").SourceStatus>;
   onRealizeSource?: (nodeId: string, commit: string, prUrl: string) => Promise<void>;
@@ -435,6 +438,7 @@ export default function Board({
       >
         {settings.showGrid && <Background color="var(--canvas-dot)" gap={settings.gridSize} />}
         <Controls showInteractive={false} />
+        {overlay}
         {showMiniMap && <MiniMap
           nodeColor={(n) =>
             isBlockId(n.id)

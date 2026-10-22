@@ -71,3 +71,8 @@
   .oporahub-card__when { text-align: left; }
   .oporahub-card__gauge-row { grid-template-columns: 80px minmax(0, 1fr) auto; }
 }
+
+/* Druhá řada pod osou: brána review a formální důkazy vedle sebe, na telefonu pod sebou; historie
+   a blame karty jsou poslední, protože odpovídají na „kdo to změnil“, ne „co dál“. */
+.oporahub-card__more { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; min-width: 0; }
+@media (max-width: 720px) { .oporahub-card__more { grid-template-columns: 1fr; } }

@@ -14,6 +14,10 @@ export const LEGACY_LINKS: DetailTarget[] = [
   { kind: "tracking", title: "Sledování GitHubu" },
   { kind: "policy", title: "Pravidla review" },
   { kind: "formal", title: "Formální podklady" },
+  { kind: "conflicts", title: "Konflikty auto-rebase" },
+  { kind: "review-metrics", title: "Metriky review" },
+  { kind: "proof-ledger", title: "Kniha důkazů" },
+  { kind: "identity", title: "Lidé v review (jen člověk)" },
   { kind: "api", title: "Rozhraní pro agenty" },
   { kind: "history", title: "Starší historie a původní formuláře" },
 ];

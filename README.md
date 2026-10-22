@@ -49,6 +49,12 @@ a **Pro agenty** (fronta akcí, hlavy pro CAS, kopírovatelný JSON, kontrakt `d
 Konkrétní položka otevře svůj detail; ✕ nebo Esc vrátí přehled. Původní formuláře jsou
 v patě stránky. Přímé odkazy: `?environment=hub&ohView=agents` nebo `&ohCard=<nodeId>`. [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
 klikací ukázka; aplikace používá skutečná data a stejné API jako agenti.
+Na plátně Editoru nese každá karta odznak své etapy smyčky (etapa + ✓/◷/✕/◌ + slovo) ze stejného
+čtení agent-state; klik otevře její drawer v OporaHubu, vypíná se v Nastavení → Plátno. Detail karty
+ukazuje bránu review (pravidlo, které drží merge, ověření lidé, vlastní kontroly), formální důkazy
+s úrovní důvěry a historii/blame. Pata OporaHubu otevírá konflikty auto-rebase, metriky review,
+knihu důkazů a **Lidé v review** (jen člověk: nárok identity, řádek `Opora-Identity` k vložení na
+GitHub, ověření, zrušení).
 
 Přes **Upravit zadání karty** otevřete změny zadání, prohlédněte uložená zadání a jednou přijměte jejich
 výchozí základ. Pak upravte cíl, omezení a akceptace vybrané karty v návrhu. Uložení

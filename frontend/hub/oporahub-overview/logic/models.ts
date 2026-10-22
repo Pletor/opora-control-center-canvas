@@ -14,6 +14,8 @@ import type { OporaProposalsView } from "@/hub/proposal-history/logic/use-opora-
 export type OverviewModels = { view: DashboardView | null; onRefresh: () => void; proposals: OporaProposalsView;
   /** Hlásí App, že je otevřený detail; starší periodická čtení běží jen tehdy (přehled čte agent-state). */
   onDetailOpenChange?: (open: boolean) => void;
+  /** Požadavek z plátna Editoru: otevřít drawer této karty (nový `nonce` = nový požadavek). */
+  cardRequest?: { id: string; nonce: number };
   contentChanges?: ContentChangesView;
   proposalReview?: ProposalReviewModels;
   changes: PlanChangesView; evidence: GitEvidenceView; executions: ExecutionReceiptsView; executionObservations?: ExecutionObservationsView; budgets: ExecutionBudgetsView; formalVerification: FormalVerificationView;

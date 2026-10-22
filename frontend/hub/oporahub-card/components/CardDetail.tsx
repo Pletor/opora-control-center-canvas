@@ -7,16 +7,19 @@ import { cardTimeline, type TimelineStep } from "../logic/card-timeline";
 import { ToneChip } from "@/hub/oporahub-health/components/HealthMark";
 import CardTimeline from "./CardTimeline";
 import { CardApprovals, CardBudget, CardEvidence } from "./CardPanels";
+import CardReviewGate from "@/hub/oporahub-review-gate/components/CardReviewGate";
+import CardProofs from "@/hub/oporahub-proofs/components/CardProofs";
+import CardHistory from "@/hub/oporahub-card-history/components/CardHistory";
 import "../styles/oporahub-card.css";
 
 type Props = {
-  nodeId: string; cards: { id: string; name: string }[]; state: AgentState | null; changesets: PlanChangeset[];
+  project: string; workspace: string; nodeId: string; cards: { id: string; name: string }[]; state: AgentState | null; changesets: PlanChangeset[];
   executions: ExecutionSummary[]; budget: BudgetContext | null; busy: boolean;
   onSelect: (nodeId: string) => void; open: (target: DetailTarget) => void;
 };
 
 /** Detail karty: kdo s kartou co dělal, na jaké revizi, a co ji dělí od zápisu zpět do plánu. */
-export default function CardDetail({ nodeId, cards, state, changesets, executions, budget, busy, onSelect, open }: Props) {
+export default function CardDetail({ project, workspace, nodeId, cards, state, changesets, executions, budget, busy, onSelect, open }: Props) {
   const view = cardTimeline({ nodeId, state, changesets, executions });
   const name = cards.find(item => item.id === nodeId)?.name ?? nodeId;
   const mine = changesets.filter(item => item.changes.some(change => change.nodeId === nodeId));
@@ -47,5 +50,10 @@ export default function CardDetail({ nodeId, cards, state, changesets, execution
       <CardApprovals changesets={mine} />
       <CardEvidence latest={view.latest} gaps={state?.gaps ?? []} />
     </div>
+    <div className="oporahub-card__more">
+      <CardReviewGate project={project} workspace={workspace} nodeId={nodeId} state={state} />
+      <CardProofs project={project} workspace={workspace} nodeId={nodeId} state={state} onOpenLedger={() => open({ kind: "proof-ledger", title: "Kniha důkazů" })} />
+    </div>
+    <CardHistory project={project} workspace={workspace} nodeId={nodeId} />
   </div>;
 }
