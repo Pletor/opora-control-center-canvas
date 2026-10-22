@@ -1,18 +1,19 @@
-# Feed událostí pro pozorovatele (od PR card-dag-events)
+# Feed událostí pro pozorovatele
 
 Kdy mě číst: stavíš živou vizualizaci, monitor nebo pozorovatele běhů a nechceš opakovaně porovnávat
-snímky agent-state. Kontrakt noční směny §4. **Dokud PR card-dag-events není na serveru, cesty
-vrací 404**; `opora_hub.py events` pak skončí kódem 5 a ty čti `agent-state` (snímek).
+snímky agent-state. Kontrakt noční směny §4. Starší server bez feedu vrací 404; `opora_hub.py events`
+pak skončí kódem 5 a ty čti `agent-state` (snímek).
 
 `agent-state` zůstává snímkem stavu, události jsou **delta**. Rozhodování agenta (co dělat) se
 dál řídí jen akcemi z agent-state; události jsou pro zobrazení a pozorování.
 
 ## API
 
-- `GET /api/oporahub/events?project&workspace&since=<cursor>&limit=` → `{events: [...], cursor}`;
-  další čtení s `since` = vrácený `cursor`.
+- `GET /api/oporahub/events?project&workspace&since=<cursor>&limit=` (`limit` 1–500, výchozí 100) →
+  `{events: [...], cursor, head, gap}`; další čtení s `since` = vrácený `cursor`. `gap: true` = server
+  starší události po `since` už smazal: přečti znovu `agent-state` a pokračuj od `head`.
 - `GET /api/oporahub/events/stream` (SSE, stejné události); po výpadku pokračuj hlavičkou
-  `Last-Event-ID` = poslední `id`.
+  `Last-Event-ID` = poslední `id` (nebo `?since=`).
 
 ```bash
 python "<SKILL_DIR>/scripts/opora_hub.py" events --project P --workspace W [--since CURSOR] [--limit 100]

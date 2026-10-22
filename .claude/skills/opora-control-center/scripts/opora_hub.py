@@ -3,7 +3,7 @@
 `opora_hub.py <příkaz> --project P --workspace W [--base-url http://127.0.0.1:PORT]`
 
 Čtení:  `state` (GET agent-state s `If-None-Match`; 304 vrátí uloženou kopii), `actions`, `pick`,
-        `events` (feed událostí, od PR card-dag-events).
+        `events` (feed událostí).
 Běh:    `claim --action-id ID` (čerstvý agent-state → akce `claim` ve stavu `ready` → kontext v2 → claim),
         `assignment`, `heartbeat`, `results --result-file F`, `release`.
 Review: `review-claim`, `review-heartbeat`, `review-submit --submission-file F`, `review-release`.
@@ -182,7 +182,7 @@ def assignment(base, execution, out=None):
 
 
 def steps_of(value):
-    """`spec.steps` přijatého zadání ze snímku (od PR plan-steps); jinak prázdný seznam."""
+    """`spec.steps` přijatého zadání ze snímku; jinak prázdný seznam."""
     found = []
 
     def walk(item):
@@ -218,7 +218,7 @@ def release(base, execution):
 
 
 def check_result(result):
-    """Tvar výsledku podle execution-prompt agent-office; `stepResults` od PR plan-steps."""
+    """Tvar výsledku podle execution-prompt agent-office; `stepResults` volitelně."""
     if not isinstance(result, dict) or not isinstance(result.get('summary'), str) or not result['summary'].strip():
         raise ValueError('Výsledek potřebuje neprázdné summary.')
     steps = result.get('stepResults', [])
@@ -305,7 +305,7 @@ def events(base, project, workspace, since=None, limit=100):
         return _call(base, 'GET', HUB + '/events', params=params)[1]
     except HTTPError as error:
         if error.code in (404, 405):
-            raise Refused('Feed událostí na tomto serveru ještě není (od PR card-dag-events); čti agent-state.')
+            raise Refused('Feed událostí na tomto (starším) serveru není; čti agent-state.')
         raise
 
 

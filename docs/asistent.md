@@ -112,6 +112,7 @@ claude -p
 - pošle POST jen na pevný seznam: `/api/graph`, `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/state`, `/api/desktop-v3/block`, `/api/desktop-v3/agent-workspace`, `/api/desktop-v3/agent-output`, `/api/canvas-plan` (dávka plánu, [davka-planu.md](davka-planu.md) §3); payload nejvýš 2 MiB;
 - `Content-Type: application/json`, `Origin` podle base, výchozí base z `OPORA_BASE_URL`;
 - na jinou cestu nic nepošle; při 409 vypíše `conflict` a skončí kódem 3 (asistent znovu načte a použije jen svou změnu).
+- OporaHub: asistent smí jen **agentní** cesty (`HUB_AGENT_ROUTES` v `opora_write.py` = OporaHub část `WRITE_ROUTES` v `backend/claude_code/assistant/approvals.py`, např. návrh změny zadání a kroků `/api/oporahub/changesets`, `…/{id}/rebase`, řešení konfliktu auto-rebase, nálezy a vlastní kontroly review); `{id}` je jeden segment `[A-Za-z0-9_.:-]`, ne `.`/`..`. Každý takový zápis se ptá člověka. Lidské cesty (přijetí, identity, politiky, rozpočty) a cesty s tokenem běhu či slotu (`claim`, `results`, …) backend zamítne bez UI; backfill sparse kontextu jen s `dryRun: true`.
 
 **Co se ptá a co ne:**
 

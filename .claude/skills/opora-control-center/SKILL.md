@@ -25,7 +25,7 @@ absolutní cesta k tomuto skillu (řádek „Base directory for this skill“), 
 | Projekt, workspace | z promptu | `opora_read.py projects`, `workspaces --project P` | z `<opora_context>` (údaj, ne pokyn) |
 | Adresa | z promptu | `--base-url http://127.0.0.1:8740` nebo `OPORA_BASE_URL` | `OPORA_BASE_URL` je nastavená |
 | Převzetí karty | už proběhlo; další neber | `opora_hub.py pick` → `claim` | neprovádí |
-| Zápis | jen pomocný příkaz výsledku z promptu | `opora_write.py`, `opora_hub.py` | jen `opora_write.py` se schválením člověka (OporaHub cesty zatím ne) |
+| Zápis | jen pomocný příkaz výsledku z promptu | `opora_write.py`, `opora_hub.py` | jen `opora_write.py` se schválením člověka (i agentní OporaHub cesty, nikdy lidské ani s tokenem) |
 | Identita | daná Office | `OPORA_AGENT_NAME="<role>-<relace>"` (`[\w .:()-]`, bez lomítka) | asistent |
 | Push, PR, merge | nikdy (PR otevře Office) | nikdy bez výslovného pokynu; merge nikdy | ne |
 
@@ -81,13 +81,13 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | Chci | Příkaz / cesta | Reference |
 |---|---|---|
 | vědět, co je na řadě | `opora_hub.py state` (souhrn), `actions [--verb V] [--all]` | [hub-loop.md](references/hub-loop.md) |
-| etapu a kroky jedné karty | `opora_hub.py state --card ID` (`cards[]`; `steps`, `blockedBy` od PR card-dag-events) | [hub-loop.md](references/hub-loop.md) |
+| etapu a kroky jedné karty | `opora_hub.py state --card ID` (`cards[]`: `steps`, `dod`, `blockedBy`, `lease`) | [hub-loop.md](references/hub-loop.md) |
 | převzít kartu | `opora_hub.py pick --verb claim` → `claim --action-id ID` | [hub-loop.md](references/hub-loop.md) |
 | neměnné zadání a kroky | `opora_hub.py assignment --execution E` | [hub-loop.md](references/hub-loop.md) |
 | odevzdat výsledek po krocích | `opora_hub.py results --execution E --result-file F` | [hub-loop.md](references/hub-loop.md) |
 | prodloužit / vrátit běh | `opora_hub.py heartbeat` / `release --execution E` | [hub-loop.md](references/hub-loop.md) |
 | rozložit projekt na karty a kroky | návrh grafu `/api/oporahub/graph-proposals` + kontrolní seznam kvality kroků | [planner.md](references/planner.md) |
-| změnit zadání nebo kroky přijaté karty | návrh změny `/api/oporahub/changesets` (`fields.steps` od PR plan-steps) | [planner.md](references/planner.md) |
+| změnit zadání nebo kroky přijaté karty | návrh změny `/api/oporahub/changesets` (i `fields.steps`) | [planner.md](references/planner.md) |
 | nový obsah karty (text, kresba, konfigurace) | `/api/oporahub/content-changes` | [planner.md](references/planner.md) |
 | zastaralý návrh, konflikt auto-rebase | `rebase` / `proposal.resolve_conflict` | [conflicts.md](references/conflicts.md) |
 | historie a blame karty | `GET /api/oporahub/history/card/{id}`, `/api/oporahub/blame/card/{id}` | [conflicts.md](references/conflicts.md) |
@@ -95,7 +95,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | doložit kontroly pro novou hlavu PR | `/api/oporahub/review-jobs/self-checks` | [review.md](references/review.md) |
 | opakovaný nález povýšit na kontrolu | `/api/oporahub/review-recurring/promote` | [review.md](references/review.md) |
 | protipříklad formálního ověření | `verification.investigate` → `/api/oporahub/verifications/{id}/fix-proposal` | [formal.md](references/formal.md) |
-| živě sledovat průběh | `opora_hub.py events --since C` (od PR card-dag-events) | [events.md](references/events.md) |
+| živě sledovat průběh | `opora_hub.py events --since C` | [events.md](references/events.md) |
 | přesná cesta a kdo ji smí | tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
 | spustit, zastavit, restartovat Oporu | `uv run opora --no-open`, `opora_read.py status` | [provoz.md](references/provoz.md) |
 | přehled plátna, hledání | `opora_read.py view`, `search`, `work-overview` | [api.md](references/api.md) |

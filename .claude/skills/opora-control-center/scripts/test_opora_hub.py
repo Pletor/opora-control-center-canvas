@@ -71,15 +71,12 @@ def backend(tmp_path, monkeypatch):
     with TestClient(create_app(tmp_path / 'data'), base_url=ORIGIN) as client:
         seed(client)
         scope = {'project': 'draft', 'workspace': 'draft'}
-        fields = {'goal': 'Načíst DOCX', 'non_goals': 'PDF', 'acceptance': 'test projde'}
+        # Readiness = přijaté zadání s ≥ 1 krokem plánu (docs/oporahub-plan-steps.md), ne stará pipeline.
+        steps = [{'id': 's1', 'order': 1, 'title': 'Parser DOCX', 'acceptance': ['test projde'], 'dependsOn': []}]
+        fields = {'goal': 'Načíst DOCX', 'non_goals': 'PDF', 'acceptance': 'test projde', 'steps': steps}
         spec = client.post('/api/node-spec', headers=HEADERS, json={**scope, 'node': 'n0', 'expected_revision': 0,
                                                                      'fields': fields})
         assert spec.status_code == 200, spec.text
-        # Readiness dnes ještě čte starou pipeline; od PR plan-steps ji nahradí přijaté kroky.
-        revision = client.get('/api/desktop-v3/state', params=scope).json()['revision']
-        routed = client.post('/api/desktop-v3/pipeline', headers=HEADERS, json={
-            **scope, 'nodeId': 'n0', 'expectedRevision': revision, 'op': 'route', 'profile': 'code', 'reason': 'test'})
-        assert routed.status_code == 200, routed.text
         assert client.post('/api/oporahub/baselines', headers=HEADERS,
                            json=baseline_payload(client)).status_code == 200
         monkeypatch.setattr(opora_write, '_open', bridge(client))
@@ -149,7 +146,7 @@ def test_blocked_action_is_never_sent(monkeypatch, tmp_path, capsys):
     assert code == 4
 
 
-def test_events_feed_missing_is_reported_as_pending(monkeypatch, tmp_path, capsys):
+def test_events_feed_missing_on_an_older_server_is_refused(monkeypatch, tmp_path, capsys):
     def fake_open(req, timeout):
         raise HTTPError(req.full_url, 404, 'x', Message(), io.BytesIO(b'{"error": "Nezn\\u00e1m\\u00e1 cesta API."}'))
 
@@ -157,7 +154,7 @@ def test_events_feed_missing_is_reported_as_pending(monkeypatch, tmp_path, capsy
     monkeypatch.setenv(opora_hub.STATE_DIR_ENV, str(tmp_path))
     monkeypatch.setenv(opora_write.BASE_ENV, ORIGIN)
     code, _, err = run(capsys, 'events')
-    assert code == 5 and 'card-dag-events' in err
+    assert code == 5 and 'agent-state' in err
 
 
 @pytest.mark.parametrize('result,message', [

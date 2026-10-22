@@ -14,11 +14,11 @@ Kontrakty: `docs/oporahub.md` (změny zadání), `docs/oporahub-graph-proposals.
 2. **Vrstvy a sektory.** Rozděl projekt na vrstvy (např. `db`, `be`, `fe`, `infra`, `docs`)
    a uvnitř na sektory (uzel `kind: "sector"`); sektor = jedna odpovědnost s vlastním cílem.
 3. **Karty.** Karta = uzel `kind: "node"` s rodičem `parent` (sektor). Druh i vrstvu uváděj výslovně:
-   `kind` uzlu vždy; `layer` karty **(od PR card-dag-events)**, do té doby vrstvu nese rodičovský sektor.
+   `kind` uzlu vždy; vrstvu karty (`cards[].layer`) server odvodí z rodičovského sektoru.
 4. **Zadání karty.** `spec: {goal, non_goals, acceptance}`: jeden cíl, co výslovně ne, testovatelné
-   podmínky hotovo. Plus `spec.steps` **(od PR plan-steps)**, viz níže.
-5. **Závislosti.** Vazby `{from, to, port: "next"}` tvoří **DAG**: cyklus server odmítne (409,
-   od PR card-dag-events). Karta se odblokuje až po merge a zápisu do plánu všech předchůdců.
+   podmínky hotovo. Plus `spec.steps`, viz níže.
+5. **Závislosti.** Vazby `{from, to, port: "next"}` tvoří **DAG**: cyklus server odmítne (409
+   `card_cycle` s `cycle` = uzavřená cesta karet). Karta se odblokuje až po merge a zápisu do plánu všech předchůdců.
 6. **Návrh.** Nové uzly a vazby: `POST /api/oporahub/graph-proposals` (`parentRevision`,
    `expectedGraphDigest`, `subject`, `plan: {nodes, edges}`; ≤ 200 uzlů, 600 vazeb). Změna
    zadání existujících karet: `POST /api/oporahub/changesets` (`parentRevision`,
@@ -31,7 +31,7 @@ Kontrakty: `docs/oporahub.md` (změny zadání), `docs/oporahub-graph-proposals.
 python "<SKILL_DIR>/scripts/opora_write.py" /api/oporahub/graph-proposals --project P --workspace W --json-file plan.json
 ```
 
-## `spec.steps` (od PR plan-steps)
+## `spec.steps`
 
 ```json
 {"steps": [

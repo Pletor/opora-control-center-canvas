@@ -15,15 +15,15 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 |---|---|---|
 | `GET /api/oporahub/agent-state` | read | ETag / `If-None-Match` → 304; jen čtení |
 | `GET /api/oporahub/process` | read | starší projekce procesu (`opora_read.py process-sync`) |
-| `GET /api/oporahub/events` | read | **pending** (od PR card-dag-events), [events.md](events.md) |
-| `GET /api/oporahub/events/stream` | read | **pending** (od PR card-dag-events), SSE |
+| `GET /api/oporahub/events` | read | feed událostí (`since`, `limit`), [events.md](events.md) |
+| `GET /api/oporahub/events/stream` | read | SSE, `Last-Event-ID` |
 
 ## Plán: návrhy a přijetí
 
 | Cesta | Čím | Poznámka |
 |---|---|---|
 | `GET /api/oporahub/changesets/context` | read | hlava, `graphDigest`, pracovní i přijaté dokumenty |
-| `POST /api/oporahub/changesets` | write | návrh změny zadání (`fields.steps` od PR plan-steps) |
+| `POST /api/oporahub/changesets` | write | návrh změny zadání (včetně `fields.steps`) |
 | `POST /api/oporahub/changesets/{id}/rebase` | write | výslovný převod na aktuální hlavu |
 | `POST /api/oporahub/changesets/{id}/accept` | člověk | |
 | `POST /api/oporahub/baselines` | člověk | první přijetí základu |
@@ -54,7 +54,7 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 | `POST /api/oporahub/executions/claim` | hub | `opora_hub.py claim --action-id` |
 | `GET /api/oporahub/executions/{id}/assignment` | hub | hlavička `X-Opora-Execution-Token` |
 | `POST /api/oporahub/executions/{id}/heartbeat` | hub | |
-| `POST /api/oporahub/executions/{id}/results` | hub | `stepResults` od PR plan-steps; GET = potvrzení |
+| `POST /api/oporahub/executions/{id}/results` | hub | `stepResults` volitelně; GET = potvrzení |
 | `POST /api/oporahub/executions/{id}/release` | hub | uvolnění vlastního běhu |
 | `POST /api/oporahub/executions/{id}/pull-request` | hub | připojuje agent-office; agent ručně ne |
 | `GET /api/oporahub/executions` | read | ≤ 100 souhrnů běhů bez tokenů |

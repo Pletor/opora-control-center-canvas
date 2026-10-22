@@ -390,3 +390,18 @@ def test_non_json_write_denial_names_drafts_dir(tmp_path):
 
     kind, message = classify({"tool_name": "Write", "input": {"file_path": str(tmp_path / "scene.html"), "content": "<html>"}}, str(tmp_path))
     assert kind == "auto_deny" and str(tmp_path) in message and "*.json" in message and "--json-file" in message
+
+
+def test_oporahub_agent_routes_ask_human_and_human_routes_stay_denied():
+    command = "python x/opora_write.py {} --project p --workspace w --json '{{\"subject\": \"s\"}}'"
+    for route in ("/api/oporahub/changesets", "/api/oporahub/changesets/cs_01J.x:1/rebase",
+                  "/api/oporahub/auto-rebase/conflicts/c1/resolve", "/api/oporahub/review-jobs/findings/F-2/resolve"):
+        kind, parsed = approvals.classify(bash(command.format(route)))
+        assert kind == "ask" and parsed["route"] == route, route
+    for route in ("/api/oporahub/changesets/cs1/accept", "/api/oporahub/baselines", "/api/oporahub/executions/claim",
+                  "/api/oporahub/executions/e1/results", "/api/oporahub/changesets/../rebase",
+                  "/api/oporahub/changesets/a/b/rebase", "/api/oporahub/review-identities/claim"):
+        assert approvals.classify(bash(command.format(route))) == ("auto_deny", approvals.AUTO_DENY_MESSAGE), route
+    backfill = "python x/opora_write.py /api/oporahub/sparse-context/backfill --project p --workspace w --json '{}'"
+    assert approvals.classify(bash(backfill.format('{"dryRun": true}')))[0] == "ask"
+    assert approvals.classify(bash(backfill.format('{"dryRun": false}')))[0] == "auto_deny"

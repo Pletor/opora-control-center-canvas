@@ -11,7 +11,7 @@ Po posunu přijaté hlavy server třícestně sloučí každý zastaralý návrh
 obsah) po polích (`base` = co návrh viděl, `ours` = návrh, `theirs` = aktuální hlava):
 čistý → nový návrh nad hlavou (autor `system`, `supersedes` = původní); redundantní → jen označí;
 **stejné pole změněné oběma stranami → konflikt**; přeskočený → čeká na výslovný `rebase`.
-Kroky `spec.steps` se porovnávají po `id` kroku **(od PR plan-steps)**.
+Kroky `spec.steps` se porovnávají po `id` kroku.
 
 ## Akce `rebase` (přeskočený návrh)
 

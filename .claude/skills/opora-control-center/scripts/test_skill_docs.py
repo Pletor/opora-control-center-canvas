@@ -162,10 +162,8 @@ def test_drawing_sketch_example_passes_backend_and_marks_stale(tmp_path):
 
 
 # Cesty, které skill popisuje dopředu podle kontraktu noční směny; po nasazení PR z pending zmizí.
-PENDING_ROUTES = {
-    "/api/oporahub/events": "od PR card-dag-events",
-    "/api/oporahub/events/stream": "od PR card-dag-events",
-}
+# Feed událostí (`/api/oporahub/events*`) už je v běžné tabulce (PR card-dag-events je v zásobníku).
+PENDING_ROUTES = {}
 # Zmíněné záměrně jako neexistující (provoz.md: „Cesta /api/status neexistuje“).
 NOT_ROUTES = {"/api/status"}
 MENTION = re.compile(r"/api/[A-Za-z0-9_./{}<>-]*[A-Za-z0-9}>]")
@@ -221,6 +219,24 @@ def test_pending_routes_are_marked_in_the_docs_and_still_missing(backend_routes)
         assert f"`GET {route}` | read | **pending** ({source})" in hub_api
         # Až PR přistane, přesuň cestu z PENDING_ROUTES do běžné tabulky.
         assert not _exists(_segments(route), backend_routes, "GET"), route
+
+
+def test_events_feed_is_a_real_route(backend_routes):
+    hub_api = (SKILL / "references" / "hub-api.md").read_text("utf-8")
+    for route in ("/api/oporahub/events", "/api/oporahub/events/stream"):
+        assert _exists(_segments(route), backend_routes, "GET"), route
+        row = next(line for line in hub_api.splitlines() if line.startswith(f"| `GET {route}` |"))
+        assert "pending" not in row, route
+
+
+def test_assistant_approvals_allow_exactly_the_agent_hub_routes():
+    """In-app asistent (approvals.WRITE_ROUTES) smí stejné OporaHub cesty jako agent, žádnou lidskou."""
+    from backend.claude_code.assistant import approvals
+
+    hub = {route for route in approvals.WRITE_ROUTES if route.startswith("/api/oporahub/")}
+    assert hub == set(opora_write.HUB_AGENT_ROUTES)
+    assert not hub & set(opora_write.HUB_HUMAN_ROUTES + opora_write.HUB_TOKEN_ROUTES)
+    assert approvals.WRITE_ROUTES - hub == opora_write.WRITE_ROUTES
 
 
 def test_hub_write_templates_are_documented_and_exist_as_post(backend_routes):
