@@ -47,6 +47,8 @@ from backend.api.editor.opora_review_policy_routes import create_opora_review_po
 from backend.api.editor.opora_review_routes import create_opora_review_router
 from backend.api.editor.opora_verification_routes import BODY_LIMIT as VERIFICATION_BODY_LIMIT
 from backend.api.editor.opora_verification_routes import create_opora_verification_router
+from backend.api.editor.oporahub_process_event_routes import INGEST_PATH as PROCESS_INGEST_PATH
+from backend.api.editor.oporahub_process_event_routes import create_process_event_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
 from backend.api.editor.process_routes import create_process_router
 from backend.api.editor.rlm_routes import create_rlm_router
@@ -79,6 +81,7 @@ from backend.canvas.opora_auto_rebase_manager import AutoRebaseManager
 from backend.canvas.opora_hub import OporaHub
 from backend.canvas.opora_execution_pr_manager import ExecutionPullRequestManager
 from backend.canvas.opora_reconciliation_manager import ReconciliationManager
+from backend.canvas.process_activity_bridge import bridge as bridge_activity
 from backend.canvas.sync_report import SyncReport
 from backend.claude_code.assistant.agents import load_agents
 from backend.claude_code.assistant.manager import AssistantManager
@@ -184,11 +187,16 @@ def create_app(data_root=None):
 
     def _log_activity(request, status):
         """Záznam činnosti (docs/zaznam-cinnosti.md); jeho selhání nikdy neshodí požadavek."""
+        if request.url.path == PROCESS_INGEST_PATH:
+            return  # příjem živého procesu má vlastní tok (outbox); v záznamu činnosti by jen spamoval
         try:
             actor, agent = request.state.actor, request.state.agent
             described = describe(getattr(request, "_body", b""), dict(request.query_params))
             activity_log.record(actor=actor, agent=agent, method=request.method, path=request.url.path,
                                 described=described, status=status)
+            # Živý proces: paměť a starý commit zadání nemají událost v outboxu (docs/zivy-proces.md §4).
+            bridge_activity(service, method=request.method, path=request.url.path, status=status, actor=actor,
+                            agent=agent, described=described)
         except Exception:  # noqa: BLE001 - záznam je doplněk, ne podmínka zápisu
             return
 
@@ -340,6 +348,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_agent_state_router(service))
     # Živý tok událostí OporaHubu (outbox, kurzor + SSE), jen čtení (docs/oporahub-events.md)
     app.include_router(create_opora_event_router(service))
+    app.include_router(create_process_event_router(service, memory_status=memory_service.status))
     app.include_router(create_execution_observer_router(service))
     app.include_router(create_opora_verification_router(service))
     app.include_router(create_execution_budget_router(service))

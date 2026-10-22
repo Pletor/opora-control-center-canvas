@@ -17,14 +17,20 @@ the event is committed on its own. Returns the event cursor id.
 import os
 from datetime import UTC, datetime, timedelta
 
+from backend.canvas.process_signal import PROCESS_SIGNAL
 from database.repositories import opora_events as store
 
 KINDS = ("stage.changed", "step.started", "step.done", "step.failed", "lease.claimed", "lease.heartbeat",
          "lease.expired", "result.reported", "pr.linked", "review.round", "review.finding", "gate.changed",
          "formal.result", "decision.created", "decision.resolved", "changeset.proposed", "changeset.accepted",
-         "autorebase.done", "autorebase.conflict", "merge.done", "writeback.done", "card.closed")
+         "autorebase.done", "autorebase.conflict", "merge.done", "writeback.done", "card.closed",
+         "memory.recall", "memory.write", "plan.commit")
 # Derived kinds never trigger a refresh themselves; step progress is not a loop stage.
 DERIVED = {"stage.changed", "gate.changed", "step.started", "step.done", "step.failed"}
+# Live process (docs/zivy-proces.md): memory and legacy plan commits come from the activity bridge and
+# never move a card's stage; events of external sources (office, github) never refresh a card either.
+QUIET = DERIVED | {"memory.recall", "memory.write", "plan.commit"}
+EXTERNAL_SOURCES = ("office", "github")
 SYSTEM = {"kind": "system", "name": "opora"}
 ACTOR_KINDS = ("human", "agent", "system")
 RETENTION_DAYS = 14
@@ -64,8 +70,11 @@ def connection(conn_or_service, project_id):
 
 
 def emit_event(conn_or_service, *, project_id, workspace_id, kind, node_id=None, execution_id=None, step_id=None,
-               pr_number=None, stage=None, health=None, actor=None, data=None):
-    if kind not in KINDS:
+               pr_number=None, stage=None, health=None, actor=None, data=None, process=None):
+    """`process` (live process): {source, phase, state, title, detail, refs, tool, external_id}. Only accepted
+    office/GitHub events that already passed `process_event_validation` may carry their own `kind`."""
+    external = bool(process) and process.get("source") in EXTERNAL_SOURCES
+    if kind not in KINDS and not external:
         raise ValueError(f"Unknown OporaHub event kind: {kind}")
     if not isinstance(project_id, str) or not isinstance(workspace_id, str):
         raise TypeError("An event needs project_id and workspace_id.")
@@ -73,22 +82,26 @@ def emit_event(conn_or_service, *, project_id, workspace_id, kind, node_id=None,
     event = {"at": stamp(), "projectId": project_id, "workspaceId": workspace_id, "kind": kind, "nodeId": node_id,
              "executionId": execution_id, "stepId": step_id,
              "prNumber": pr_number if isinstance(pr_number, int) else None, "stage": stage, "health": health,
-             "actor": actor_of(actor), "data": dict(data or {})}
+             "actor": actor_of(actor), "data": dict(data or {}), "process": process}
 
     def write():
         identifier = store.insert(db, event)
         if identifier % PRUNE_EVERY == 0:
             days, rows = retention()
             store.prune(db, stamp(datetime.now(UTC) - timedelta(days=days)), rows)
-        if node_id is not None and kind not in DERIVED:
+        if node_id is not None and kind not in QUIET and not external:
             from backend.canvas.opora_event_stage import refresh_card
             refresh_card(db, project_id, workspace_id, node_id, actor=event["actor"])
         return identifier
 
     if db.in_transaction:
-        return write()
+        identifier = write()
+        PROCESS_SIGNAL.notify()  # visible after the caller commits; the stream's poll is the safety net
+        return identifier
     with db:
-        return write()
+        identifier = write()
+    PROCESS_SIGNAL.notify()
+    return identifier
 
 
 def refresh(conn_or_service, project_id, workspace_id, node_id, actor=None):

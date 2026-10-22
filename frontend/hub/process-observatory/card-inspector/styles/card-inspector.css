@@ -1,0 +1,59 @@
+/* INSPEKTOR KARTY (blok `card-inspector`)
+   Příběh: vpravo vedle mapy (384 px, přes mapu i proud) stojí detail vybrané karty. Nahoře kdo je na tahu,
+   jantarově, když čeká člověk; pod tím odkazy na běh, větev, PR a commit, kontroly a časová osa karty.
+   Panel drží pozici při rolování, aby zůstal vedle řádku, který uživatel čte. Pod 1180 px se přesune pod
+   mapu a rozdělí na dva sloupce: vlevo tah, odkazy a kontroly, vpravo časová osa. */
+.card-inspector { grid-area: insp; position: sticky; top: 14px; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.card-inspector__panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.card-inspector__heading { margin: 0; font-size: 13px; font-weight: 600; }
+.card-inspector__muted { color: var(--ink-muted); font-size: 11px; }
+.card-inspector__label { font-size: 11px; color: var(--ink-muted); letter-spacing: .02em; }
+.card-inspector__mono { font: 11px var(--mono); }
+.card-inspector__grow { flex: 1; min-width: 0; }
+.card-inspector__empty { display: grid; gap: 6px; place-items: center; padding: 28px 16px; color: var(--ink-muted); text-align: center; font-size: 12px; }
+.card-inspector__empty-title { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+
+/* Hlava: číslo karty v akcentu, stav jako čip vpravo, název, fáze a tlačítko do jednotného detailu karty. */
+.card-inspector__head { display: grid; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.card-inspector__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.card-inspector__title { margin: 0; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.card-inspector__open { padding: 3px 9px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.card-inspector__open:hover { border-color: var(--accent); color: var(--accent); }
+.card-inspector__open:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Na tahu: šedý rámeček, když táhne agent; jantarový, když se čeká na člověka. */
+.card-inspector__turn { display: grid; gap: 3px; margin: 12px 14px 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); font-size: 12px; }
+.card-inspector__turn--human { border-color: var(--warn-line); background: var(--warn-soft); }
+.card-inspector__turn--human .card-inspector__label { color: var(--warn); font-weight: 600; }
+.card-inspector__who { font-size: 13px; font-weight: 600; }
+.card-inspector__section { display: grid; gap: 6px; padding: 12px 14px 4px; }
+.card-inspector__refs { display: grid; grid-template-columns: 74px minmax(0, 1fr); align-items: baseline; gap: 5px 10px; margin: 0; font-size: 12px; }
+.card-inspector__key { color: var(--ink-muted); }
+.card-inspector__value { overflow: hidden; min-width: 0; margin: 0; text-overflow: ellipsis; white-space: nowrap; }
+.card-inspector__link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.card-inspector__check { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 12px; }
+.card-inspector__check-name { overflow: hidden; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Časová osa: svislá linka spojuje tvary stavů, nejnovější nahoře; selhání je červené a tučné. */
+.card-inspector__grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+.card-inspector__col { display: grid; align-content: start; min-width: 0; padding-bottom: 12px; }
+.card-inspector__timeline { display: grid; max-height: 340px; margin: 0; padding: 4px 14px 14px; overflow: auto; list-style: none; }
+.card-inspector__item { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 0 10px; padding-bottom: 10px; }
+.card-inspector__item::before { content: ""; position: absolute; top: 12px; bottom: 0; left: 6px; width: 2px; background: var(--line); }
+.card-inspector__item:last-child::before { display: none; }
+.card-inspector__item-body { display: grid; gap: 2px; min-width: 0; }
+.card-inspector__item-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-muted); }
+.card-inspector__item-title { font-size: 12.5px; color: var(--ink); overflow-wrap: anywhere; }
+.card-inspector__item--fail .card-inspector__item-title { color: var(--danger); font-weight: 600; }
+.card-inspector__item-detail { font: 11.5px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; }
+
+@media (max-width: 1180px) {
+  .card-inspector { position: static; }
+  .card-inspector__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
+  .card-inspector__col + .card-inspector__col { border-left: 1px solid var(--line); }
+  .card-inspector__timeline { max-height: 420px; }
+}
+@media (max-width: 760px) {
+  .card-inspector__grid { grid-template-columns: minmax(0, 1fr); }
+  .card-inspector__col + .card-inspector__col { border-left: 0; border-top: 1px solid var(--line); }
+}

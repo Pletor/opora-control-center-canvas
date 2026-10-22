@@ -5,6 +5,7 @@ import { defaultCard, initialHubLink } from "./hub-link";
 describe("hub deep link", () => {
   it("reads the tab from the URL (the card deep link belongs to the card drawer) and defaults to the overview", () => {
     expect(initialHubLink("?environment=hub&ohView=agents")).toEqual({ tab: "agents" });
+    expect(initialHubLink("?environment=hub&ohView=process")).toEqual({ tab: "process" });
     expect(initialHubLink("?ohView=other&ohCard=task_a")).toEqual({ tab: "overview" });
   });
   it("prefers the card offered for claim, then the first card", () => {

@@ -1,0 +1,103 @@
+/* MAPA TOKU (blok `flow-map`)
+   Příběh: uživatel čte tabulku, kde řádek je karta a sloupce jsou sedm fází toku od Zadání po Paměť.
+   Levý popisek má pevných 236 px, aby se název karty i pracovník vešli bez zalamování; fáze si dělí zbytek
+   rovným dílem, takže stejná fáze je ve všech řádcích pod sebou. Barva nese jen stav (běží, potvrzeno,
+   čeká na člověka, selhalo, bez události), tvar ho opakuje pro ty, kdo barvy nerozliší. */
+.flow-map { --flow-map-label: 236px; grid-area: map; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.flow-map__panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.flow-map__heading { margin: 0; font-size: 13px; font-weight: 600; }
+.flow-map__meta { font-size: 11px; color: var(--ink-muted); }
+
+/* Ticho kanceláře je červený proužek nad řádky: říká, že data jsou poslední potvrzená, ne živá. */
+.flow-map__note { display: flex; gap: 10px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--danger-line); background: var(--danger-soft); color: var(--danger); font-size: 12px; }
+.flow-map__note-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--danger); }
+
+/* Hlavička fází zůstává nahoře i při rolování; číslo v kroužku dává pořadí, počet vpravo kolik značek ve fázi stojí. */
+.flow-map__head, .flow-map__row { display: grid; grid-template-columns: var(--flow-map-label) repeat(7, minmax(0, 1fr)); }
+.flow-map__head { position: sticky; top: 0; z-index: 2; padding: 8px 14px 6px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.flow-map__head-label { align-self: center; font-size: 11px; color: var(--ink-muted); }
+.flow-map__phase { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.flow-map__phase-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flow-map__num { display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--surface-3); color: var(--ink-2); font: 600 10px var(--mono); }
+.flow-map__count { padding: 0 5px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font: 600 10px/16px var(--mono); }
+
+/* Řádek má dvě patra: nahoře 30 px pro značku a stopu, pod tím poslední událost jedním řádkem. Vybraný řádek
+   se podbarví akcentem, řádek z odpojeného zdroje zešedne, aby nevypadal živě. */
+.flow-map__body { max-height: 548px; overflow: auto; }
+.flow-map__row { grid-template-rows: 30px auto; row-gap: 2px; padding: 6px 14px 7px; border-bottom: 1px solid var(--line); cursor: pointer; transition: opacity .3s; }
+.flow-map__row:hover { background: var(--surface-2); }
+.flow-map__row:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.flow-map__row--selected, .flow-map__row--selected:hover { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.flow-map__row--stale { opacity: .55; }
+.flow-map__label { grid-row: 1 / 3; display: grid; gap: 3px; align-content: center; min-width: 0; padding-right: 10px; }
+.flow-map__title { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.flow-map__who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.flow-map__worker { overflow: hidden; font-size: 11px; color: var(--ink-muted); text-overflow: ellipsis; white-space: nowrap; }
+
+/* Buňka fáze: vodorovná linka spojuje fáze; za značkou je silnější (kudy karta prošla), před ní slabá. */
+.flow-map__cell { position: relative; display: grid; place-items: center; min-width: 0; }
+.flow-map__cell::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px; margin-top: -1px; background: var(--line); }
+.flow-map__cell--first::before { left: 50%; }
+.flow-map__cell--last::before { right: 50%; }
+.flow-map__cell--past::before { background: var(--line-strong); }
+.flow-map__cell--current::before { background: linear-gradient(90deg, var(--line-strong) 50%, var(--line) 50%); }
+.flow-map__cell--first.flow-map__cell--current::before { background: var(--line); }
+
+/* Stopa: plný kruh = potvrzeno, kosočtverec = selhalo, dutý kroužek = čeká, šedý kruh = proběhlo bez
+   potvrzení, čárkovaný kroužek = ve fázi nepřišla žádná událost. Stopa před značkou je jen průhledná předzvěst. */
+.flow-map__trail { position: relative; z-index: 1; display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.flow-map__trail--ok { background: var(--ok); }
+.flow-map__trail--fail { width: 9px; height: 9px; border-radius: 1px; background: var(--danger); transform: rotate(45deg); }
+.flow-map__trail--wait { border: 2px solid var(--warn); background: var(--surface); }
+.flow-map__trail--seen { background: var(--ink-muted); }
+.flow-map__trail--none { border: 1.5px dashed var(--ink-muted); background: var(--surface); }
+.flow-map__trail--ahead { opacity: .45; }
+
+/* Značka pracovníka: kruh s iniciálami v aktuální fázi. Akcent = běží, zelená = potvrzeno, jantar = čeká,
+   červená = selhalo, „!“ = blokováno na člověku, čárkovaná = bez události, šedá = zdroj odpojen. */
+.flow-map__marker { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--bg); font: 600 10px/1 var(--mono); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent); }
+.flow-map__marker--ok { background: var(--ok); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ok); }
+.flow-map__marker--wait { background: var(--warn); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--warn); }
+.flow-map__marker--fail { background: var(--danger); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--danger); }
+.flow-map__marker--blocked { background: var(--danger-soft); color: var(--danger); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--danger); }
+.flow-map__marker--none { border: 1.5px dashed var(--ink-muted); background: var(--surface); color: var(--ink-muted); box-shadow: 0 0 0 1.5px var(--line-strong); }
+.flow-map__marker--stale { background: var(--surface-3); color: var(--ink-muted); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--line-strong); }
+.flow-map__bang { position: absolute; top: -5px; right: -6px; width: 14px; height: 14px; border-radius: 50%; background: var(--danger); color: var(--bg); font: 700 10px/14px var(--font, inherit); text-align: center; }
+
+/* Pohyb jen na událost: tool.use jednou pulzuje kroužkem, selhání se jednou zatřese. Kdo pohyb nechce,
+   dostane místo pulzu statický kroužek a žádné třesení; selhání nese barva a kosočtverec. */
+@keyframes flow-map-pulse { 0% { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent), 0 0 0 3.5px var(--accent-line); } 100% { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent), 0 0 0 13px transparent; } }
+@keyframes flow-map-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-3px); } 40%, 80% { transform: translateX(3px); } }
+@media (prefers-reduced-motion: no-preference) {
+  .flow-map__marker--pulse { animation: flow-map-pulse .9s ease-out 1; }
+  .flow-map__marker--shake { animation: flow-map-shake .4s ease-in-out 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-map__marker--pulse { outline: 2px solid var(--accent-line); outline-offset: 3px; }
+  .flow-map__row { transition: none; }
+}
+
+/* Poslední událost pod buňkami: čas, druh a lidský text; selhání červeně, čekání na člověka jantarově. */
+.flow-map__last { grid-column: 2 / -1; display: flex; align-items: baseline; gap: 8px; min-width: 0; padding-left: 4px; font-size: 11px; color: var(--ink-2); }
+.flow-map__time { flex: none; font: 11px var(--mono); color: var(--ink-muted); }
+.flow-map__kind { flex: none; font: 10.5px var(--mono); color: var(--ink-muted); }
+.flow-map__text { overflow: hidden; min-width: 0; text-overflow: ellipsis; white-space: nowrap; }
+.flow-map__last--fail .flow-map__text { color: var(--danger); font-weight: 600; }
+.flow-map__last--wait .flow-map__text, .flow-map__last--blocked .flow-map__text { color: var(--warn); font-weight: 600; }
+
+/* Prázdná mapa řekne pravdu: nic nepřišlo. Žádná ukázková data. */
+.flow-map__empty { display: grid; gap: 6px; place-items: center; padding: 48px 20px; color: var(--ink-muted); text-align: center; font-size: 12px; }
+.flow-map__empty-title { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+
+/* Pata: legenda tvarů vlevo, připomínka vpravo, že se nic nehýbe samo. */
+.flow-map__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px 10px; }
+.flow-map__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; font-size: 11px; color: var(--ink-muted); }
+.flow-map__legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.flow-map__legend-marker { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }
+
+/* Na užší ploše se popisek zúží a čísla fází zmizí, aby názvy fází zůstaly čitelné. */
+@media (max-width: 1000px) {
+  .flow-map { --flow-map-label: 184px; }
+  .flow-map__num { display: none; }
+  .flow-map__phase { gap: 4px; font-size: 11.5px; }
+}

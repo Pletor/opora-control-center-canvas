@@ -129,6 +129,10 @@ Zjištění z práce se vracejí jako návrhy zlepšení do stávajícího revie
 Podklady se průběžně obnovují bez spouštění modelu nebo dalšího běhu.
 [Kontrakt synchronizace procesu](docs/oporahub-process-sync.md) popisuje zdroje
 pravdy, API a hranice vůči starším procesům.
+[Živý proces](docs/zivy-proces.md) rozšiřuje tok událostí OporaHubu o `opora.process-event/1`:
+agent-office posílá své události `POST /api/oporahub/process-events` do stejného outboxu a vše
+chodí jedním tokem `GET /api/oporahub/events` / SSE `/events/stream` (fáze, stav, titulek u každé
+události); zdraví zdrojů ukáže `GET /api/oporahub/process-health`.
 Agent místo dotazování mnoha endpointů čte jeden [stav pro agenty](docs/oporahub-agent-state.md)
 (`GET /api/oporahub/agent-state`, s `ETag`): hlavy pro CAS, zdraví etap a další akce.
 Změny mezi snímky nese [tok událostí](docs/oporahub-events.md) (`GET /api/oporahub/events`,

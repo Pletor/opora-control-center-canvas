@@ -125,6 +125,19 @@ emit_event(conn_or_service, *, project_id, workspace_id, kind, node_id=None, exe
 - Událost s `node_id`, která není `stage.changed`, `gate.changed` ani `step.*`, spustí přepočet
   etapy karty. `refresh(conn, project, workspace, node)` přepočítá kartu bez vlastní události.
 
+## Živý proces (`opora.process-event/1`)
+
+Outbox nese i [živý proces](zivy-proces.md). Tabulka má nullable sloupce `source`, `phase`, `state`,
+`title`, `detail`, `refs` (JSON), `tool` (JSON) a `external_id` (aditivní migrace
+`ensure_process_columns`). Každá událost toku proto za původními poli nese navíc `source`,
+`phase`, `state`, `title`, `detail`, `refs`, `tool`, `externalId`, `schema` a `eventId`; u událostí
+Opory (sloupce NULL) je čtení dopočítá z `kind` (`backend/canvas/opora_event_process.py`).
+Kancelář (agent-office) zapisuje přes `POST /api/oporahub/process-events` vlastní druhy
+(`tool.use`, `worker.status` …) se `source: "office"`; ty nikdy nespouštějí přepočet etapy.
+Druhy `memory.recall`, `memory.write` a `plan.commit` přidává most ze záznamu činnosti, protože
+paměť role a starý commit zadání vlastní událost nemají. `emit_event` i příjem budí SSE proud
+signálem, takže nová událost odchází hned, ne po dalším pollu.
+
 ## Ověření
 
 `uv run pytest backend/canvas/test_opora_events.py backend/canvas/test_opora_events_pull_requests.py backend/canvas/test_card_dag.py backend/api/editor/test_opora_event_routes.py backend/canvas/test_opora_agent_state_events.py`

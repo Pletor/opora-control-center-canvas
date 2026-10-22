@@ -5,11 +5,12 @@ OporaHub (Alt+3) je jedna stránka nad jedním dokumentem
 „OporaHub — přehled“ (`01-prehled`, `02-karta`, `03-agenti`, tokeny `oh-tokens.css` převzaté
 z `frontend/design-tokens`). Ukázková čísla návrhu se nepřebírají; vše je ze serverového snímku.
 
-## Tři pohledy
+## Pohledy
 
 | Pohled | Kde | Co ukazuje |
 |---|---|---|
 | **Přehled** (výchozí) | záložka Přehled | Horní pás: přijatá hlava, drift pracovní verze (a počet návrhů na starém základu), mix rizika čekajících návrhů, nejvýše 3 rozhodnutí člověka. Pod ním smyčka deseti etap `plan → … → plan_writeback` jako „had“ (1–5 zleva doprava, 6–10 zpět) se spojkami a pata se známými mezerami. |
+| **Živý proces** | záložka Živý proces, nebo `?ohView=process` | Zdroje, blokace, mapa toku sedmi fází, proud událostí a inspektor karty nad sdíleným tokem událostí ([živý proces §8](zivy-proces.md#8-pohled-záložka-živý-proces-v-oporahubu)). |
 | **Karta** | záložka Karta, klik na cíl `claim`, nebo `?ohCard=<nodeId>&ohTab=<záložka>` | Otevře [jednotný detail karty](#jednotný-detail-karty) (stejný drawer jako na plátně a ve Velínu). |
 | **Pro agenty** | záložka Pro agenty, nebo `?ohView=agents` | Protokol (GET → preconditions → zápis s requestId → 409 znovu GET), hlavy pro CAS, fronta akcí (id, sloveso, metoda, cesta, preconditions, rozpočet, stav), přesný JSON s tlačítkem „kopírovat JSON“ a tabulka kontraktu `data-oh-*`. |
 
