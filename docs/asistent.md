@@ -99,7 +99,7 @@ claude -p
 - Dotaz mimo `ALLOWED_TOOLS` jde přes `--permission-prompt-tool stdio` jako `control_request` `can_use_tool` přímo backendu (`approvals.py`, §5.1), bez MCP serveru. Backend ho drží v knize schválení a čeká na rozhodnutí v UI.
   - Bez odpovědi do 10 min platí zamítnutí.
   - Odpověď je `{"behavior": "allow", "updatedInput": …}` nebo `{"behavior": "deny", "message": …}`.
-- Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST podle referencí skillu `.claude/skills/opora-control-center/references/` (`api.md` cesty a payloady, `canvas-plan.md` dávky, `agent-loop.md` výstup agenta, `pipeline.md` router). Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
+- Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST podle referencí skillu `.claude/skills/opora-control-center/references/` (`api.md` cesty a payloady, `canvas-plan.md` dávky, `hub-api.md` cesty OporaHubu; starý výstup agenta a router jsou v `legacy.md`). Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
 - Změny v kódu projektu (`Edit`/`Write`/libovolný `Bash`) asistent nedělá. To je práce agenta, který dostane kartu.
 - Jediná výjimka je **koncept zápisu** ([davka-planu.md](davka-planu.md) §2): `Write` souboru `*.json` do adresáře konceptů vlastní session `<data>/assistant-drafts/<sessionId>/` (mimo repo projektu, v datech Opory mimo git). Koncept nic nemění; mění až zápis na plátno, který schvaluje člověk.
 
@@ -112,6 +112,7 @@ claude -p
 - pošle POST jen na pevný seznam: `/api/graph`, `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/state`, `/api/desktop-v3/block`, `/api/desktop-v3/agent-workspace`, `/api/desktop-v3/agent-output`, `/api/canvas-plan` (dávka plánu, [davka-planu.md](davka-planu.md) §3); payload nejvýš 2 MiB;
 - `Content-Type: application/json`, `Origin` podle base, výchozí base z `OPORA_BASE_URL`;
 - na jinou cestu nic nepošle; při 409 vypíše `conflict` a skončí kódem 3 (asistent znovu načte a použije jen svou změnu).
+- OporaHub: asistent smí jen **agentní** cesty (`HUB_AGENT_ROUTES` v `opora_write.py` = OporaHub část `WRITE_ROUTES` v `backend/claude_code/assistant/approvals.py`, např. návrh změny zadání a kroků `/api/oporahub/changesets`, `…/{id}/rebase`, řešení konfliktu auto-rebase, nálezy a vlastní kontroly review); `{id}` je jeden segment `[A-Za-z0-9_.:-]`, ne `.`/`..`. Každý takový zápis se ptá člověka. Lidské cesty (přijetí, identity, politiky, rozpočty) a cesty s tokenem běhu či slotu (`claim`, `results`, …) backend zamítne bez UI; backfill sparse kontextu jen s `dryRun: true`.
 
 **Co se ptá a co ne:**
 

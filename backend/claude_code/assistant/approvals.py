@@ -39,7 +39,23 @@ WRITE_ROUTES = frozenset({
     "/api/graph", "/api/node-spec", "/api/node-text", "/api/desktop-v3/state", "/api/desktop-v3/block",
     "/api/desktop-v3/agent-workspace", "/api/desktop-v3/agent-output", "/api/canvas-plan",
     "/api/desktop-v3/pipeline", "/api/brief-vault", "/api/storyboard", "/api/drawing",
+    # OporaHub: jen cesty, které smí agent (shodně s `HUB_AGENT_ROUTES` v `opora_write.py`); `{id}` = jeden
+    # segment ID. Lidské cesty (přijetí, identity, politiky) a cesty s tokenem běhu sem nepatří.
+    "/api/oporahub/changesets", "/api/oporahub/changesets/{id}/rebase",
+    "/api/oporahub/graph-proposals", "/api/oporahub/graph-proposals/{id}/rebase",
+    "/api/oporahub/content-changes", "/api/oporahub/content-changes/{id}/rebase",
+    "/api/oporahub/proposals", "/api/oporahub/proposal-reviews/events",
+    "/api/oporahub/auto-rebase/run", "/api/oporahub/auto-rebase/conflicts/{id}/resolve",
+    "/api/oporahub/executions/context",
+    "/api/oporahub/review-jobs/sync", "/api/oporahub/review-jobs/self-checks",
+    "/api/oporahub/review-jobs/findings/{id}/resolve",
+    "/api/oporahub/review-incidents", "/api/oporahub/review-evals/sync", "/api/oporahub/review-recurring/promote",
+    "/api/oporahub/verifications/{id}/fix-proposal", "/api/oporahub/github-evidence",
+    "/api/oporahub/sparse-context/backfill",
 })
+ID_SEGMENT = re.compile(r"[A-Za-z0-9_.:-]{1,160}")
+# Backfill sparse kontextu smí agent jen nanečisto (`dryRun: true`); zápis spouští člověk.
+DRY_RUN_ONLY = frozenset({"/api/oporahub/sparse-context/backfill"})
 # Celý příkaz: python, skript `…opora_write.py`, cesta a volby. Žádný znak, který by v shellu
 # řetězil (`;`, `&`, `|`), přesměroval (`<`, `>`), substituoval (`` ` ``, `$`) nebo zalomil řádek.
 # Cesta ke skriptu s mezerou musí být v uvozovkách; jméno souboru je vždy přesně `opora_write.py`.
@@ -47,7 +63,7 @@ COMMAND = re.compile(
     r"^python3?(?:\.exe)? +"
     r"(?:\"(?P<quoted>(?:[^\"$`;&|<>\r\n]*[/\\])?opora_write\.py)\""
     r"|(?P<plain>(?:[A-Za-z0-9_.:~/\\-]*[/\\])?opora_write\.py))"
-    r" +(?P<route>/api/[a-z0-9/-]+)(?P<rest>(?: +[^;&|<>`$\r\n]*)?)$"
+    r" +(?P<route>/api/[A-Za-z0-9_.:/-]+)(?P<rest>(?: +[^;&|<>`$\r\n]*)?)$"
 )
 # Čtení bez dotazu (§5.1): backend je pustí sám místo volného vzoru v `--allowedTools`. Vzor
 # `Bash(python *opora_read.py*)` by pustil i `python -c "…" x/opora_read.py`, tedy libovolný kód.
@@ -239,6 +255,21 @@ def draft_digest(value, drafts_dir):
     return draft[1] if draft else None
 
 
+def route_template(route):
+    """Povolená šablona pro konkrétní cestu (`/api/oporahub/changesets/cs_1/rebase` →
+    `…/changesets/{id}/rebase`), nebo None. ID segment nesmí být `.` ani `..`."""
+    if route in WRITE_ROUTES:
+        return route
+    parts = route.split("/")
+    for template in WRITE_ROUTES:
+        expected = template.split("/")
+        if "{id}" in expected and len(expected) == len(parts) and all(
+                want == got or (want == "{id}" and ID_SEGMENT.fullmatch(got) and got not in (".", ".."))
+                for want, got in zip(expected, parts)):
+            return template
+    return None
+
+
 def parse_write(command, drafts_dir=None):
     """`python …opora_write.py <cesta> --project P --workspace W (--json J | --json-file F)` → dict | None.
 
@@ -248,7 +279,8 @@ def parse_write(command, drafts_dir=None):
     if not isinstance(command, str):
         return None
     match = COMMAND.match(command.strip())
-    if not match or match["route"] not in WRITE_ROUTES:
+    template = route_template(match["route"]) if match else None
+    if template is None:
         return None
     try:
         tokens = shlex.split(match["rest"] or "", posix=True)
@@ -285,6 +317,8 @@ def parse_write(command, drafts_dir=None):
             return None
         if not isinstance(payload, dict):
             return None
+    if template in DRY_RUN_ONLY and payload.get("dryRun") is not True:
+        return None
     node = payload.get("nodeId", payload.get("node"))
     parsed["node"] = node if isinstance(node, str) else None
     if dry_run:

@@ -2,11 +2,11 @@
 
 Kdy mě číst: běží `/grill-me` nebo `/wayfinder`, z dlouhého zadání stavíš strom karet, pracuješ
 v módu Výběr, stavíš aplikaci sektor po sektoru přes brány, nebo ukládáš zadání do schránky zadání. Výsledek patří na plátno, ne do chatu.
-Tvar dávky: [canvas-plan.md](canvas-plan.md); práce na kartě: [agent-loop.md](agent-loop.md).
+Tvar dávky: [canvas-plan.md](canvas-plan.md); práce na kartě: [hub-loop.md](hub-loop.md); plán kroků: [planner.md](planner.md).
 
 ## Od myšlenky ke kartě
 
-Myšlenka → **grilling** (jádro zadání) → malé a jasné: rovnou karta / velké a v mlze: **wayfinder** (sektor = mapa) → karta k vykonání (spec, bloky, pravidla, `sourceRef` nebo vazba na existující uzel) → router určí pipeline ([pipeline.md](pipeline.md)) → relace po etapách → `agent-output` → člověk potvrdí `done`.
+Myšlenka → **grilling** (jádro zadání) → malé a jasné: rovnou karta / velké a v mlze: **wayfinder** (sektor = mapa) → karta k vykonání (spec, bloky, pravidla, `sourceRef` nebo vazba na existující uzel) → návrh změny se `spec.steps` → člověk přijme → běh po krocích ([hub-loop.md](hub-loop.md)) → PR → merge → člověk uzavře kartu (`close_card`).
 
 Karta k vykonání vzniká jen tehdy, když **zapadá**: má rodiče a vazbu nebo `sourceRef` na existující komponentu, v `goal` říká, čemu v cíli projektu nebo sektoru slouží, a odkazuje na rozhodnutí, ze kterého vzešla.
 
@@ -23,9 +23,9 @@ Karta k vykonání vzniká jen tehdy, když **zapadá**: má rodiče a vazbu neb
 | Otázka | spec karty: `goal` = otázka, `acceptance` = co je odpověď | v dávce `spec`, jinak `/api/node-spec` |
 | Blokace | vazba `next` z blokující karty na blokovanou; vliv varianty rozhodnutí = vazba `block` z jejího portu | `edges` v dávce (`ref` nebo `@id`) |
 | Frontier | otevřené, neblokované, nepřevzaté karty sektoru v pořadí grafu; `waiting` = bloky čekající na zásah člověka, `fog` = komentáře v sektoru | `opora_read.py frontier --project P --workspace W --node SEKTOR` |
-| Claim | lease karty přes `/api/desktop-v3/lease` | [agent-loop.md](agent-loop.md) §2 |
-| Resolve | `agent-output` karty: `decisions: [odpověď]`, `done: {proposed: true, note}`, zpráva na odchozí vazbě (`summary`, `handoff`) | POST `/api/desktop-v3/agent-output` |
-| Zavření | `done.confirmed: true` zapíše člověk v UI; agent jen ve svěřené autonomii sektoru: bloky `met` už z předchozího výstupu, karta s `checks`, tests/review/merge `passed` (žádné N/A) | `agent-output` s `done.confirmed` (autonomie) |
+| Claim | akce `claim` z agent-state → `opora_hub.py claim` | [hub-loop.md](hub-loop.md) |
+| Resolve | OporaHub: výsledek běhu se `stepResults` ([hub-loop.md](hub-loop.md)); jen stará karta: `agent-output` karty: `decisions: [odpověď]`, `done: {proposed: true, note}`, zpráva na odchozí vazbě (`summary`, `handoff`) | POST `/api/desktop-v3/agent-output` |
+| Zavření | jen člověk (`close_card` po merge, OporaHub); stará karta: `done.confirmed: true` zapíše člověk v UI; agent jen ve svěřené autonomii sektoru: bloky `met` už z předchozího výstupu, karta s `checks`, tests/review/merge `passed` (žádné N/A) | `agent-output` s `done.confirmed` (autonomie) |
 | Nálezy | text karty (podklad pro agenta) | POST `/api/node-text` (přepíše celý text: načti, připoj, pošli) |
 | Mimo rozsah (existující karta) | uzavření navrhne agent s poznámkou „mimo rozsah: …“, do `non_goals` sektoru jeden řádek | `agent-output.done`, `/api/node-spec` |
 
@@ -193,7 +193,7 @@ Použij, když se aplikace staví sektor po sektoru a další sektor nesmí zač
   (shodné `checkId` i `command`), u `[gate]` úspěšný `scenarioRun`, hotová pipeline. `[task]` a karta
   s `checks` nesmí mít tests ani merge N/A.
 - **Autonomie:** člověk svěří sektoru autonomii na čas (≤ 30 dní). Agent pak smí kartu uzavřít sám
-  (`done.confirmed` v `agent-output`), bránu nikdy. Podmínky: [agent-loop.md](agent-loop.md) §5.
+  (`done.confirmed` v `agent-output`), bránu nikdy. Podmínky: [legacy.md](legacy.md) (zastaralé).
 - **Spotřeba:** `agent-output.usage` jen z měření (přírůstek, neznámé `null`); součty ukazuje karta i sektor.
 
 ## Hranice

@@ -205,14 +205,17 @@ def test_dry_run_flag_on_other_route_fails_without_sending(net, capsys):
 
 
 def test_documented_write_routes_match_the_allowlist():
-    """Kritika #39: SKILL.md a api.md uvádějí přesně ty cesty, které skript pustí."""
+    """Kritika #39: api.md uvádí cesty plátna, hub-api.md cesty OporaHubu; SKILL.md odkazuje na oba seznamy."""
     import pathlib
     import opora_write
     skill = pathlib.Path(__file__).resolve().parent.parent
-    for doc in (skill / "SKILL.md", skill / "references" / "api.md"):
-        text = doc.read_text(encoding="utf-8")
-        missing = sorted(route for route in opora_write.WRITE_ROUTES if f"`{route}`" not in text)
-        assert not missing, (doc.name, missing)
+    text = (skill / "references" / "api.md").read_text(encoding="utf-8")
+    missing = sorted(route for route in opora_write.WRITE_ROUTES if f"`{route}`" not in text)
+    assert not missing, missing
+    hub = (skill / "references" / "hub-api.md").read_text(encoding="utf-8")
+    assert [route for route in opora_write.HUB_AGENT_ROUTES if route not in hub] == []
+    router = (skill / "SKILL.md").read_text(encoding="utf-8")
+    assert "WRITE_ROUTES" in router and "HUB_AGENT_ROUTES" in router
 
 
 def test_lease_token_from_environment_is_sent_as_header(monkeypatch):
@@ -244,3 +247,38 @@ def test_write_waits_ninety_seconds_and_timeout_is_not_retried(monkeypatch, caps
     assert code == 1 and 'timed out' in capsys.readouterr().err
     assert seen == [('POST', 90)]
     assert opora_write.TIMEOUT == 90 and opora_save.TIMEOUT == 90
+
+
+def test_hub_agent_route_is_posted_with_scope(net):
+    calls, _ = net
+    code = opora_write.main(['/api/oporahub/changesets/cs_1a2b/rebase', *SCOPE, '--json', '{"expectedAcceptedHead": "h"}'])
+    assert code == 0 and calls[0]['route'] == '/api/oporahub/changesets/cs_1a2b/rebase'
+    assert calls[0]['body'] == {'expectedAcceptedHead': 'h', 'project': 'p1', 'workspace': 'draft'}
+
+
+@pytest.mark.parametrize('route,reason', [
+    ('/api/oporahub/changesets/cs_1/accept', 'člověku'),
+    ('/api/oporahub/baselines', 'člověku'),
+    ('/api/oporahub/review-identities/ri_1/verify', 'člověku'),
+    ('/api/oporahub/review-jobs/decisions', 'člověku'),
+    ('/api/oporahub/executions/claim', 'opora_hub.py'),
+    ('/api/oporahub/executions/e1/results', 'opora_hub.py'),
+    ('/api/oporahub/review-jobs/rj_1/tasks/t1/submit', 'opora_hub.py'),
+    ('/api/oporahub/changesets/../accept', 'není povolený'),
+    ('/api/oporahub/agent-state', 'není povolený'),
+])
+def test_hub_human_and_token_routes_are_refused_before_sending(net, capsys, route, reason):
+    calls, _ = net
+    assert opora_write.main([route, *SCOPE, '--json', '{}']) == 1
+    assert calls == [] and reason in json.loads(capsys.readouterr().err)['error']
+
+
+def test_backfill_only_as_dry_run_and_project_only_routes(net):
+    calls, _ = net
+    assert opora_write.main(['/api/oporahub/sparse-context/backfill', *SCOPE, '--json', '{"dryRun": false}']) == 1
+    assert opora_write.main(['/api/oporahub/sparse-context/backfill', *SCOPE, '--json', '{"dryRun": true}']) == 0
+    assert opora_write.main(['/api/oporahub/review-recurring/promote', '--project', 'p1',
+                             '--json', '{"bugClass": "null-deref", "checkRef": "tests/test_x.py"}']) == 0
+    assert calls[-1]['body'] == {'bugClass': 'null-deref', 'checkRef': 'tests/test_x.py', 'project': 'p1'}
+    assert opora_write.main(['/api/node-spec', '--project', 'p1', '--json', '{}']) == 1
+    assert len(calls) == 2

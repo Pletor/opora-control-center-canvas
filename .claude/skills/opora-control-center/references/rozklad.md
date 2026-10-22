@@ -200,7 +200,7 @@ pravidla); tady jen to, co rozklad sektoru navíc hlídá:
   existující karty ani `gateNodeId` sektoru neměň.
 - Závislost na jiném sektoru: vazbu `next` mezi sektory zakládá jen člověk. Uveď ji v souhrnu jako
   „závislost na sektoru X“ a v `spec.non_goals` dotčené karty („… dodá sektor X“).
-- Proces (etapy) kartám neurčuješ: po zápisu ho určí router (viz [pipeline.md](pipeline.md)).
+- Proces (etapy) kartám neurčuješ: plán kroků patří do `spec.steps` (viz [planner.md](planner.md)); router je zastaralý ([legacy.md](legacy.md)).
 
 **Schválení.** Stejně jako u oblasti (soubor `plan-<id sektoru>-<čas>.json`, sha256, blokující a odložené
 otázky, při zastaralém digestu celé nové načtení). V náhledu u každé karty všechna pole ze souboru: `name`,
@@ -288,7 +288,7 @@ Podněty (`ideas`) jsou nálezy agentů k dalšímu vývoji; člověk je nečte 
 4. Navrhni člověku **jedno** rozhodnutí: jeden odstavec („v sektoru X se nasbíralo 14 podnětů, 3 mění cíl:
    …; navrhuji …“). Potvrdit, nebo vrátit s poznámkou; žádné postupné otázky.
 5. Po souhlasu zapiš rozhodnutí k sektoru jednou položkou (`decisions` v `agent-output` sektoru podle
-   [agent-loop.md](agent-loop.md), nebo adresně `/api/desktop-v3/decision`, viz [api.md](api.md)
+   [hub-loop.md](hub-loop.md), nebo adresně `/api/desktop-v3/decision`, viz [api.md](api.md)
    „Pravidlo a rozhodnutí adresně“). Bez souhlasu nic nezapisuj.
 6. Žádný podnět neodškrtávej ani nemaž: stav podnětů mění jen člověk. Změnu záměru nebo cíle sektoru
    nezapisuj sám; rozhodnutí ji jen navrhne.

@@ -47,7 +47,8 @@ def test_api_reference_covers_every_write_route_and_read_command():
 
 def test_skill_md_is_a_short_router_linking_every_reference():
     skill = (SKILL / "SKILL.md").read_text("utf-8")
-    assert len(skill.splitlines()) <= 160
+    assert len(skill.splitlines()) <= 200
+    assert "allowed-tools: Read, Grep, Glob, Bash" in skill and "router" not in skill.split("---")[1]
     linked = set(re.findall(r"\]\((references/[a-z-]+\.md|assets/[a-z-]+\.md)\)", skill))
     assert all((SKILL / link).is_file() for link in linked)
     references = {f"references/{p.name}" for p in (SKILL / "references").glob("*.md")} - {"references/source-map.md"}
@@ -158,3 +159,93 @@ def test_drawing_sketch_example_passes_backend_and_marks_stale(tmp_path):
         assert response.status_code == 200, response.text
         stored = client.get("/api/storyboard", params={**SCOPE, "nodeId": "karta"}).json()
         assert stored["storyboard"]["moments"][0]["sketch"]["imageStale"] is True and stored["revision"] == 2
+
+
+# Cesty, které skill popisuje dopředu podle kontraktu noční směny; po nasazení PR z pending zmizí.
+# Feed událostí (`/api/oporahub/events*`) už je v běžné tabulce (PR card-dag-events je v zásobníku).
+PENDING_ROUTES = {}
+# Zmíněné záměrně jako neexistující (provoz.md: „Cesta /api/status neexistuje“).
+NOT_ROUTES = {"/api/status"}
+MENTION = re.compile(r"/api/[A-Za-z0-9_./{}<>-]*[A-Za-z0-9}>]")
+PLACEHOLDER = re.compile(r"^(\{[^}]*\}|<[^>]*>|[A-Z][A-Z0-9_]*)$")
+
+
+def _segments(path):
+    return ["{}" if PLACEHOLDER.match(part) else part for part in path.rstrip("/").split("/")]
+
+
+@pytest.fixture(scope="module")
+def backend_routes(tmp_path_factory):
+    """(metoda, segmenty) každé cesty skutečné aplikace, včetně cest mimo schéma."""
+    from backend.app.factory import create_app
+
+    app = create_app(tmp_path_factory.mktemp("routes") / "data")
+    routes = set()
+    for path, methods in app.openapi()["paths"].items():
+        for method in methods:
+            routes.add((method.upper(), tuple(_segments(path))))
+    return routes
+
+
+def _exists(segments, routes, method=None):
+    for verb, known in routes:
+        if method and verb != method:
+            continue
+        if len(known) >= len(segments) and all(
+                want == got or want == "{}" or (got == "{}" and want != "{}")
+                for want, got in zip(known, segments)):
+            if len(known) == len(segments) or method is None:
+                return True
+    return False
+
+
+def test_every_endpoint_in_the_skill_exists_in_the_backend(backend_routes):
+    """Každá cesta v SKILL.md a references/ je v tabulce cest backendu, nebo výslovně pending."""
+    files = [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md"))]
+    missing = {}
+    for path in files:
+        for mention in set(MENTION.findall(path.read_text("utf-8"))):
+            route = mention.rstrip(".")
+            if route in PENDING_ROUTES or route in NOT_ROUTES:
+                continue
+            if not _exists(_segments(route), backend_routes):
+                missing.setdefault(route, []).append(path.name)
+    assert missing == {}
+
+
+def test_pending_routes_are_marked_in_the_docs_and_still_missing(backend_routes):
+    hub_api = (SKILL / "references" / "hub-api.md").read_text("utf-8")
+    for route, source in PENDING_ROUTES.items():
+        assert f"`GET {route}` | read | **pending** ({source})" in hub_api
+        # Až PR přistane, přesuň cestu z PENDING_ROUTES do běžné tabulky.
+        assert not _exists(_segments(route), backend_routes, "GET"), route
+
+
+def test_events_feed_is_a_real_route(backend_routes):
+    hub_api = (SKILL / "references" / "hub-api.md").read_text("utf-8")
+    for route in ("/api/oporahub/events", "/api/oporahub/events/stream"):
+        assert _exists(_segments(route), backend_routes, "GET"), route
+        row = next(line for line in hub_api.splitlines() if line.startswith(f"| `GET {route}` |"))
+        assert "pending" not in row, route
+
+
+def test_assistant_approvals_allow_exactly_the_agent_hub_routes():
+    """In-app asistent (approvals.WRITE_ROUTES) smí stejné OporaHub cesty jako agent, žádnou lidskou."""
+    from backend.claude_code.assistant import approvals
+
+    hub = {route for route in approvals.WRITE_ROUTES if route.startswith("/api/oporahub/")}
+    assert hub == set(opora_write.HUB_AGENT_ROUTES)
+    assert not hub & set(opora_write.HUB_HUMAN_ROUTES + opora_write.HUB_TOKEN_ROUTES)
+    assert approvals.WRITE_ROUTES - hub == opora_write.WRITE_ROUTES
+
+
+def test_hub_write_templates_are_documented_and_exist_as_post(backend_routes):
+    hub_api = (SKILL / "references" / "hub-api.md").read_text("utf-8")
+    templates = opora_write.HUB_AGENT_ROUTES + opora_write.HUB_HUMAN_ROUTES + opora_write.HUB_TOKEN_ROUTES
+    assert len(set(templates)) == len(templates)
+    for template in templates:
+        assert _exists(_segments(template), backend_routes, "POST"), template
+        assert template in hub_api, template
+    for template in opora_write.HUB_HUMAN_ROUTES:
+        row = next(line for line in hub_api.splitlines() if template in line)
+        assert "člověk" in row, template

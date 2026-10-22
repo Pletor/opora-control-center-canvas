@@ -1,6 +1,8 @@
 """Zapisovací klient OPORA pro asistenta: jeden POST na plátno, jen na pevný seznam cest.
 
 `opora_write.py <cesta> --project P --workspace W (--json '<json>' | --json-file soubor) [--dry-run]`.
+OporaHub (`/api/oporahub/*`): jen cesty, které smí agent (`HUB_AGENT_ROUTES`); lidské (`HUB_HUMAN_ROUTES`)
+skript odmítne dřív, než cokoli odejde, a cesty s tokenem běhu či slotu patří `opora_hub.py`.
 `--dry-run` (bez hodnoty) u `/api/canvas-plan` a `/api/canvas-layout`: nastaví `dryRun: true` (přepíše hodnotu
 z konceptu), dávka se jen ověří a nic se nezapíše; koncept se kvůli tomu nepřepisuje.
 Adresa je jen loopback (`--base-url http://127.0.0.1:PORT`, jinak `OPORA_BASE_URL`), bez proxy
@@ -41,6 +43,73 @@ WRITE_ROUTES = frozenset({
     # Skica momentu storyboardu: kresba ve vrstvě sb/<nodeId>/<momentId> (docs/storyboard-karty.md).
     '/api/drawing',
 })
+# OporaHub: šablony cest (`{id}` = jeden segment ID). Agent smí jen tyto POST (references/hub-api.md).
+HUB_AGENT_ROUTES = (
+    '/api/oporahub/changesets', '/api/oporahub/changesets/{id}/rebase',
+    '/api/oporahub/graph-proposals', '/api/oporahub/graph-proposals/{id}/rebase',
+    '/api/oporahub/content-changes', '/api/oporahub/content-changes/{id}/rebase',
+    '/api/oporahub/proposals', '/api/oporahub/proposal-reviews/events',
+    '/api/oporahub/auto-rebase/run', '/api/oporahub/auto-rebase/conflicts/{id}/resolve',
+    '/api/oporahub/executions/context',
+    '/api/oporahub/review-jobs/sync', '/api/oporahub/review-jobs/self-checks',
+    '/api/oporahub/review-jobs/findings/{id}/resolve',
+    '/api/oporahub/review-incidents', '/api/oporahub/review-evals/sync', '/api/oporahub/review-recurring/promote',
+    '/api/oporahub/verifications/{id}/fix-proposal', '/api/oporahub/github-evidence',
+    '/api/oporahub/sparse-context/backfill',
+)
+# Jen člověk v UI (server vrátí 403/428); skript je odmítne předem a nic neodešle.
+HUB_HUMAN_ROUTES = (
+    '/api/oporahub/baselines', '/api/oporahub/changesets/{id}/accept',
+    '/api/oporahub/graph-proposals/{id}/accept', '/api/oporahub/content-changes/{id}/accept',
+    '/api/oporahub/review-identities/claim', '/api/oporahub/review-identities/{id}/verify',
+    '/api/oporahub/review-identities/{id}/revoke', '/api/oporahub/review-jobs/decisions',
+    '/api/oporahub/history/rebuild', '/api/oporahub/execution-budgets', '/api/oporahub/execution-budgets/{id}/cancel',
+    '/api/oporahub/review-policy', '/api/oporahub/review-policy/disable',
+    '/api/oporahub/proposal-reviews/policy', '/api/oporahub/proposal-reviews/policy/disable',
+    '/api/oporahub/reconciliation/bindings', '/api/oporahub/reconciliation/{id}/control',
+)
+# Nesou token běhu nebo slotu: jen přes `opora_hub.py`, token nesmí do příkazu ani do konceptu.
+HUB_TOKEN_ROUTES = (
+    '/api/oporahub/executions/claim', '/api/oporahub/executions/{id}/heartbeat',
+    '/api/oporahub/executions/{id}/release', '/api/oporahub/executions/{id}/results',
+    '/api/oporahub/executions/{id}/pull-request', '/api/oporahub/review-jobs/claim',
+    '/api/oporahub/review-jobs/{id}/tasks/{id}/heartbeat', '/api/oporahub/review-jobs/{id}/tasks/{id}/release',
+    '/api/oporahub/review-jobs/{id}/tasks/{id}/submit', '/api/oporahub/verifications/requests',
+    '/api/oporahub/verifications/{id}/report',
+)
+# Tyto cesty berou jen `project` (bez `workspace`); server neznámé pole odmítne.
+HUB_PROJECT_ONLY = frozenset({'/api/oporahub/review-evals/sync', '/api/oporahub/review-recurring/promote'})
+ID_SEGMENT = re.compile(r'[A-Za-z0-9_.:-]{1,160}')
+
+
+def hub_template(route):
+    """Šablona OporaHub cesty pro `route`, nebo None; ID segment nesmí být `.` ani `..`."""
+    parts = route.split('/')
+    for template in HUB_AGENT_ROUTES + HUB_HUMAN_ROUTES + HUB_TOKEN_ROUTES:
+        expected = template.split('/')
+        if len(expected) == len(parts) and all(
+                want == got or (want == '{id}' and ID_SEGMENT.fullmatch(got) and got not in ('.', '..'))
+                for want, got in zip(expected, parts)):
+            return template
+    return None
+
+
+def check_route(route, payload=None):
+    """Povolí cestu ze `WRITE_ROUTES` nebo agentní OporaHub cestu; jinak ValueError s důvodem."""
+    if route in WRITE_ROUTES:
+        return route
+    template = hub_template(route)
+    if template in HUB_HUMAN_ROUTES:
+        raise ValueError('Cesta ' + route + ' patří člověku v UI (403); napiš to člověku, neobcházej.')
+    if template in HUB_TOKEN_ROUTES:
+        raise ValueError('Cesta ' + route + ' nese token běhu nebo slotu; použij opora_hub.py.')
+    if template is None:
+        raise ValueError('Cesta ' + route + ' není povolený zápis na plátno.')
+    if template == '/api/oporahub/sparse-context/backfill' and (payload or {}).get('dryRun') is not True:
+        raise ValueError('Backfill sparse kontextu smí agent jen s dryRun: true; zápis spouští člověk.')
+    return template
+
+
 EXIT_CONFLICT = 3
 # Záznam činnosti (docs/zaznam-cinnosti.md): každý zápis skriptu se hlásí jako agent.
 AGENT_ENV = 'OPORA_AGENT_NAME'
@@ -103,19 +172,21 @@ def load_payload(text=None, path=None):
 
 
 def scoped(payload, project, workspace):
-    """Payload s `project` a `workspace` z argumentů; rozpor s payloadem se nepřepíše potichu."""
-    for key, value in (('project', project), ('workspace', workspace)):
+    """Payload s `project` a `workspace` z argumentů; rozpor s payloadem se nepřepíše potichu.
+
+    `workspace=None` = cesta jen s projektem (`HUB_PROJECT_ONLY`)."""
+    pairs = (('project', project),) if workspace is None else (('project', project), ('workspace', workspace))
+    for key, value in pairs:
         if key in payload and payload[key] != value:
             raise ValueError('Payload má jiné pole ' + key + ' než --' + key + '.')
-    return {**payload, 'project': project, 'workspace': workspace}
+    return {**payload, **dict(pairs)}
 
 
 def post(base, route, payload, actor=None):
     """POST na plátno; cesta mimo `WRITE_ROUTES` skončí chybou dřív, než cokoli odejde.
 
     `actor` = jméno aktéra (opora_cycle.py); bez něj `OPORA_AGENT_NAME`."""
-    if route not in WRITE_ROUTES:
-        raise ValueError('Cesta ' + route + ' není povolený zápis na plátno.')
+    check_route(route, payload)
     data = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     headers = {'Accept': 'application/json', 'Content-Type': 'application/json', 'Origin': base,
                'X-Opora-Actor': actor_header(actor)}
@@ -126,7 +197,7 @@ def post(base, route, payload, actor=None):
     return _read(Request(base + route, data=data, headers=headers, method='POST'), TIMEOUT)
 
 
-MSYS_PATH = re.compile(r'^[A-Za-z]:[/\\].*?(?P<route>[/\\]api[/\\][a-z0-9/\\-]+)$')
+MSYS_PATH = re.compile(r'^[A-Za-z]:[/\\].*?(?P<route>[/\\]api[/\\][A-Za-z0-9_.:/\\-]+)$')
 
 
 def route_of(value):
@@ -146,9 +217,9 @@ def _detail(error):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('route', help='jedna z: ' + ', '.join(sorted(WRITE_ROUTES)))
+    parser.add_argument('route', help='jedna z: ' + ', '.join(sorted(WRITE_ROUTES)) + '; OporaHub viz HUB_AGENT_ROUTES')
     parser.add_argument('--project', required=True)
-    parser.add_argument('--workspace', required=True)
+    parser.add_argument('--workspace', help='povinné kromě ' + ', '.join(sorted(HUB_PROJECT_ONLY)))
     parser.add_argument('--json', dest='json_text')
     parser.add_argument('--json-file')
     parser.add_argument('--dry-run', action='store_true', help='jen ověření dávky nebo rozmístění; /api/canvas-plan a /api/canvas-layout')
@@ -156,12 +227,15 @@ def main(argv=None):
     args = parser.parse_args(argv)
     args.route = route_of(args.route)
     try:
-        if args.route not in WRITE_ROUTES:
-            raise ValueError('Cesta ' + args.route + ' není povolený zápis na plátno.')
+        template = check_route(args.route, {'dryRun': True})
+        project_only = template in HUB_PROJECT_ONLY
+        if not project_only and not args.workspace:
+            raise ValueError('Chybí --workspace.')
         if args.dry_run and args.route not in ('/api/canvas-plan', '/api/canvas-layout'):
             raise ValueError('--dry-run platí jen pro /api/canvas-plan a /api/canvas-layout.')
         base = base_url(args.base_url or os.environ.get(BASE_ENV, '').strip())
-        payload = scoped(load_payload(args.json_text, args.json_file), args.project, args.workspace)
+        payload = scoped(load_payload(args.json_text, args.json_file), args.project,
+                         None if project_only else args.workspace)
         if args.dry_run:
             payload = {**payload, 'dryRun': True}
         result = post(base, args.route, payload)
