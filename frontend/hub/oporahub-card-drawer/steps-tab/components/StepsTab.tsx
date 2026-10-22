@@ -58,7 +58,7 @@ export default function StepsTab({ data, onEditSteps }: { data: CardData; onEdit
         <span className="steps-tab__muted steps-tab__legend">dependsOn →</span>
       </div>
       <ol className="steps-tab__list">{rows.map(row => <StepItem key={row.id} row={row} />)}</ol>
-      {!data.receipts.length && <p className="steps-tab__muted">Stav kroků vychází z výsledků nejnovějšího běhu; karta zatím žádný výsledek nemá.</p>}
+      {!data.card?.steps?.items.length && !data.receipts.length && <p className="steps-tab__muted">Stav kroků se skládá z výsledků všech běhů karty; karta zatím žádný výsledek nemá.</p>}
     </>}
     <div className="steps-tab__foot">
       <span><b>{progress.current ? `Další: ${progress.current.id} ${progress.current.title}` : progress.total && progress.done === progress.total ? "Všechny kroky hotové" : "Žádný aktivní krok"}</b>

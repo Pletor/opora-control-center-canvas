@@ -9,7 +9,7 @@ import type { PlanChangeset, PlanContext } from "@/hub/plan-changes/logic/plan-c
 import { cardGates, gatesEndpoint, parseGates } from "@/hub/oporahub-review-gate/logic/review-gate";
 import { latestExecution } from "../run-tab/logic/run-view";
 import { parseFindings, reviewJobsUrl } from "../review-tab/logic/review-view";
-import { collectStepResults } from "../steps-tab/logic/step-status";
+import { collectStepResults, withBackendSteps } from "../steps-tab/logic/step-status";
 import { cardEntry } from "./card-header";
 import { useCardEvents } from "./use-card-events";
 
@@ -63,7 +63,9 @@ export function useCardData(project: string, workspace: string, nodeId: string) 
   const working = context.data?.documents.find(item => item.nodeId === nodeId) ?? null;
   const mine = (changesets.data?.items ?? []).filter(item => item.changes.some(change => change.nodeId === nodeId));
   const gate = cardGates(gates.data ?? [], nodeId)[0] ?? null;
-  const stepResults = useMemo(() => collectStepResults(receipts.data?.results ?? []), [receipts.data]);
+  // Stav kroků: agent-state přes všechny běhy; důkazy z výsledků nejnovějšího běhu.
+  const backendSteps = card?.steps?.items;
+  const stepResults = useMemo(() => withBackendSteps(collectStepResults(receipts.data?.results ?? []), backendSteps), [receipts.data, backendSteps]);
   // 409 u review = automatické review je vypnuté (review_jobs_disabled); záložka to řekne sama, není to chyba.
   const reviewError = (error: string) => error.includes("HTTP 409") ? "" : error;
   const errors = [context.error, changesets.error, executions.error, receipts.error, budget.error, reviewError(gates.error), reviewError(findings.error),

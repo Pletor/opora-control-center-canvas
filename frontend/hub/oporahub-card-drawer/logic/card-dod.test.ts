@@ -43,6 +43,14 @@ describe("definition of done segments", () => {
     expect(view.source).toBe("backend");
     expect(states(view)).toEqual(["done", "done", "todo", "todo", "todo", "todo"]);
   });
+  it("reads the agent-state dod with gate kind", () => {
+    const dod = { steps: true, card_acceptance: true, gate_ready: true, merged: true, plan_written_back: false, human_close: false,
+      gate: "external", done: false, missing: ["plan_written_back", "human_close"] };
+    const view = dodView({ card: cardEntry(stateWith({ dod, steps: { total: 2, done: 2, current: null, items: [] } }), "c1") });
+    expect(view).toMatchObject({ source: "backend", gate: "external", done: false });
+    expect(states(view)).toEqual(["done", "done", "done", "done", "todo", "todo"]);
+    expect(view.segments[2].detail).toBe("GitHub");
+  });
 });
 
 describe("header status and next action", () => {

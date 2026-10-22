@@ -5,7 +5,9 @@ import { healthGlyph, healthLabel, reasonText } from "@/hub/oporahub-agent-state
 // Hlavička detailu karty: jeden stavový řádek a jedna další akce, obojí jen ze snímku agent-state.
 // Pole `cards[]` z vlny DAG (kind, blockedBy, nextActionId, gate, steps, dod) parser agent-state nehlídá,
 // proto se čtou tolerantně: chybějící pole je „neznámé“, nikdy „v pořádku“.
-export type CardSteps = { total: number; done: number; current: string | null };
+/** Postup kroku z agent-state (`cards[].steps.items`, souhrn přes všechny běhy karty). */
+export type CardStepItem = { id: string; status: string; executionId: string | null };
+export type CardSteps = { total: number; done: number; current: string | null; items: CardStepItem[] };
 export type CardGate = { status: string; rule: string | null };
 export type CardEntry = AgentCardStage & {
   kind: string | null; layer: string | null; blockedBy: string[]; topoIndex: number | null;
@@ -16,11 +18,18 @@ const obj = (value: unknown): value is Record<string, unknown> => !!value && typ
 const str = (value: unknown) => typeof value === "string" ? value : null;
 const int = (value: unknown) => Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : null;
 
+function stepItems(value: unknown): CardStepItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap(item => obj(item) && str(item.id) && str(item.status)
+    ? [{ id: item.id as string, status: item.status as string, executionId: str(item.executionId) }] : []);
+}
+
 export function cardEntry(state: AgentState | null, nodeId: string): CardEntry | null {
   const raw = (state?.cards ?? []).find(item => item.nodeId === nodeId) as (AgentCardStage & Record<string, unknown>) | undefined;
   if (!raw) return null;
   const steps = obj(raw.steps) && int(raw.steps.total) !== null && int(raw.steps.done) !== null
-    ? { total: int(raw.steps.total) as number, done: int(raw.steps.done) as number, current: str(raw.steps.current) } : null;
+    ? { total: int(raw.steps.total) as number, done: int(raw.steps.done) as number, current: str(raw.steps.current),
+      items: stepItems(raw.steps.items) } : null;
   const gate = obj(raw.gate) && str(raw.gate.status) ? { status: raw.gate.status as string, rule: str(raw.gate.rule) } : null;
   return { ...raw, kind: str(raw.kind), layer: str(raw.layer), topoIndex: int(raw.topoIndex),
     blockedBy: Array.isArray(raw.blockedBy) ? raw.blockedBy.filter((id): id is string => typeof id === "string") : [],

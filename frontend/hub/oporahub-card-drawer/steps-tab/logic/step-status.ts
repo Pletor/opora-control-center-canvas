@@ -1,7 +1,7 @@
 import type { PlanStep } from "../../spec-tab/logic/spec-diff";
 
 // Postup kroků plánu: definice kroků jsou v přijatém zadání, průběh v `stepResults` výsledků běhů
-// (docs/oporahub-plan-steps.md). Pro každý krok platí nejnovější hlášení; `current` je první nehotový
+// (docs/oporahub-plan-steps.md). Bez `cards[].steps.items` platí pro každý krok nejnovější hlášení; `current` je první nehotový
 // krok v topologickém pořadí, pokud ho agent-state (`cards[].steps.current`) neurčí sám.
 export type StepEvidence = { notes: string; checks: string[]; commits: string[] };
 export type StepResult = { stepId: string; status: "done" | "failed" | "skipped"; evidence: StepEvidence; at: string; executionId: string };
@@ -14,6 +14,21 @@ const STATUSES = ["done", "failed", "skipped"] as const;
 const texts = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
 /** Výsledky kroků ze všech potvrzení; novější potvrzení přepíše starší hlášení téhož kroku. */
+/** Stav kroků z agent-state (`cards[].steps.items`) má přednost: skládá se ze všech běhů karty a krok
+ *  hotový v dřívějším běhu zůstává hotový. Důkazy kroku se berou z výsledků nejnovějšího běhu, když
+ *  hlásí tentýž stav; jinak řádek nese jen stav a běh, ze kterého pochází. */
+export function withBackendSteps(results: Map<string, StepResult>, items: { id: string; status: string; executionId: string | null }[] | undefined): Map<string, StepResult> {
+  if (!items?.length) return results;
+  const merged = new Map<string, StepResult>();
+  for (const item of items) {
+    if (!STATUSES.includes(item.status as never)) continue;
+    const local = results.get(item.id);
+    merged.set(item.id, local && local.status === item.status ? local
+      : { stepId: item.id, status: item.status as StepResult["status"], evidence: { notes: "", checks: [], commits: [] }, at: "", executionId: item.executionId ?? "" });
+  }
+  return merged;
+}
+
 export function collectStepResults(receipts: ReceiptLike[]): Map<string, StepResult> {
   const latest = new Map<string, StepResult>();
   const ordered = [...receipts].sort((a, b) => a.createdAt.localeCompare(b.createdAt));

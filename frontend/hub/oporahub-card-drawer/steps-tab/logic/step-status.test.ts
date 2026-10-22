@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanStep } from "../../spec-tab/logic/spec-diff";
-import { collectStepResults, stepColumns, stepDepths, stepProgress, stepRows } from "./step-status";
+import { collectStepResults, stepColumns, stepDepths, stepProgress, stepRows, withBackendSteps } from "./step-status";
 
 const step = (id: string, order: number, dependsOn: string[] = [], acceptance = ["a", "b"]): PlanStep =>
   ({ id, order, title: id, acceptance, dependsOn, kind: "code", files: [] });
@@ -35,5 +35,18 @@ describe("step status", () => {
     const rows = stepRows(steps, results, "s1");
     expect(rows[0]).toMatchObject({ status: "failed", isCurrent: true });
     expect(stepRows(steps, new Map(), "s4").find(row => row.isCurrent)?.id).toBe("s4");
+  });
+});
+
+describe("backend step progress", () => {
+  it("prefers agent-state step items over the newest run and keeps matching evidence", () => {
+    const local = collectStepResults([receipt("t2", [{ stepId: "s1", status: "failed", evidence: { notes: "retry" } }, { stepId: "s2", status: "done", evidence: { notes: "n2" } }])]);
+    const merged = withBackendSteps(local, [{ id: "s1", status: "done", executionId: "ex0" }, { id: "s2", status: "done", executionId: "ex1" },
+      { id: "s3", status: "current", executionId: null }]);
+    expect(merged.get("s1")).toMatchObject({ status: "done", executionId: "ex0", evidence: { notes: "" } });
+    expect(merged.get("s2")?.evidence.notes).toBe("n2");
+    expect(merged.has("s3")).toBe(false);
+    expect(stepRows(steps, merged).map(row => row.status)).toEqual(["done", "done", "current", "waiting", "waiting"]);
+    expect(withBackendSteps(local, [])).toBe(local);
   });
 });

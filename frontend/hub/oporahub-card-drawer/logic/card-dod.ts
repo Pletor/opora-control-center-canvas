@@ -1,14 +1,16 @@
 import type { CardEntry } from "./card-header";
 
 // Jediná definice hotovo (kontrakt §3) jako šest dílků v hlavičce: kroky · akceptace karty · brána ·
-// sloučeno · plán zapsán · uzavřel člověk. Přednost má backendové `cards[].dod`; dokud ho agent-state
-// nenese, dílky se počítají tady z faktů, které klient má (snímek karty, brána, PR, události).
-// TODO(dod): až agent-state vydá `cards[].dod`, smazat `computeDod` a číst jen `backendDod`.
+// sloučeno · plán zapsán · uzavřel člověk. Zdrojem je backendové `cards[].dod` (opora_card_done, šest
+// booleanů + druh brány). Výpočet na klientovi (`computeDod`) je jen náhrada pro starší server bez `dod`;
+// z něj se u backendového stavu bere jen odstín „rozpracováno“ u nesplněných dílků.
 export const DOD_KEYS = ["steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "human_close"] as const;
 export type DodKey = typeof DOD_KEYS[number];
 export type DodState = "done" | "active" | "todo" | "unknown";
 export type DodSegment = { key: DodKey; label: string; state: DodState; detail: string; progress: number };
-export type DodView = { source: "backend" | "computed"; done: boolean; segments: DodSegment[] };
+export type DodView = { source: "backend" | "computed"; done: boolean; segments: DodSegment[];
+  /** Druh brány z backendu: `review` (brána OporaHubu) nebo `external` (ochrana větve na GitHubu). */
+  gate: "review" | "external" | null };
 
 const LABEL: Record<DodKey, string> = {
   steps: "Kroky", card_acceptance: "Akceptace karty", gate_ready: "Brána", merged: "Sloučeno",
@@ -29,16 +31,22 @@ export type DodFacts = {
   closed?: boolean;
 };
 
-/** Backendové `dod`: buď `{done, missing: [klíč]}` (opora_card_done), nebo objekt šesti booleanů. */
+/** Backendové `dod`: šest booleanů pod jmény požadavků (agent-state), nebo jen `{done, missing: [klíč]}`. */
 export function backendDod(raw: unknown): Record<DodKey, boolean> | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const value = raw as Record<string, unknown>;
+  if (DOD_KEYS.every(key => typeof value[key] === "boolean"))
+    return Object.fromEntries(DOD_KEYS.map(key => [key, value[key]])) as Record<DodKey, boolean>;
   if (Array.isArray(value.missing)) {
     const missing = new Set(value.missing.filter(item => typeof item === "string"));
     return Object.fromEntries(DOD_KEYS.map(key => [key, !missing.has(key)])) as Record<DodKey, boolean>;
   }
-  if (DOD_KEYS.every(key => typeof value[key] === "boolean")) return value as Record<DodKey, boolean>;
   return null;
+}
+
+function backendGate(raw: unknown): DodView["gate"] {
+  const gate = raw && typeof raw === "object" ? (raw as Record<string, unknown>).gate : null;
+  return gate === "review" || gate === "external" ? gate : null;
 }
 
 function stepsSegment(facts: DodFacts): Omit<DodSegment, "key" | "label"> {
@@ -67,13 +75,15 @@ export function computeDod(facts: DodFacts): Record<DodKey, DodState> {
 /** Šest dílků definice hotovo v pevném pořadí kontraktu. */
 export function dodView(facts: DodFacts): DodView {
   const fromBackend = backendDod(facts.card?.dod);
+  const gate = fromBackend ? backendGate(facts.card?.dod) : null;
   const computed = computeDod(facts);
   const steps = stepsSegment(facts);
   const segments = DOD_KEYS.map(key => {
     const state: DodState = fromBackend ? (fromBackend[key] ? "done" : computed[key] === "active" ? "active" : "todo") : computed[key];
     const progress = key === "steps" ? (state === "done" ? 1 : steps.progress) : state === "done" ? 1 : 0;
-    const detail = key === "steps" ? steps.detail : state === "unknown" ? "nenapojeno" : "";
+    const detail = key === "steps" ? steps.detail : key === "gate_ready" && gate === "external" ? "GitHub"
+      : state === "unknown" ? "nenapojeno" : "";
     return { key, label: LABEL[key], state, detail, progress };
   });
-  return { source: fromBackend ? "backend" : "computed", done: segments.every(item => item.state === "done"), segments };
+  return { source: fromBackend ? "backend" : "computed", done: segments.every(item => item.state === "done"), segments, gate };
 }
