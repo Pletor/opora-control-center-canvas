@@ -1,8 +1,8 @@
-"""Counterexample -> attention: failing `formal/tlc` evidence becomes a decision and an action.
+"""Counterexample -> attention: failing formal check evidence becomes a decision and an action.
 
 Read-only, derived on every agent-state read from the verification store: for each
-execution the newest CI-observed `formal/tlc` record counts; a later pass on a newer
-head clears it. Every non-passing outcome yields the ready agent action
+execution and evidence kind (tlc, lean, conformance) the newest CI-observed record counts;
+a later pass of the same kind on a newer head clears it, a pass of another kind does not. Every non-passing outcome yields the ready agent action
 `verification.investigate` (read the stored evidence) and a human decision that points
 to it. Counterexamples and real failures (not `runner_error` alone) also get
 `verification.fix`: an idempotent POST that proposes a "fix verification" card for a human
@@ -29,12 +29,14 @@ def attention(db, project, workspace, limit=200):
     latest = {}
     for request, report in rows:
         record = json.loads(request)
-        if record["executionId"] in latest or report is None:
+        key = (record["executionId"], record.get("origin", {}).get("evidenceKind")
+               or record["verification"]["tool"]["name"])
+        if key in latest or report is None:
             continue
-        latest[record["executionId"]] = {"verificationId": record["id"], "executionId": record["executionId"],
-                                         "nodeId": record["nodeId"], "outcome": json.loads(report)["outcome"],
-                                         "headSha": record["verification"]["source"]["commitSha"],
-                                         "kinds": record.get("origin", {}).get("failureKinds", [])}
+        latest[key] = {"verificationId": record["id"], "executionId": record["executionId"],
+                       "nodeId": record["nodeId"], "outcome": json.loads(report)["outcome"],
+                       "headSha": record["verification"]["source"]["commitSha"],
+                       "kinds": record.get("origin", {}).get("failureKinds", [])}
     return [item for _, item in sorted(latest.items()) if item["outcome"] in ATTENTION]
 
 

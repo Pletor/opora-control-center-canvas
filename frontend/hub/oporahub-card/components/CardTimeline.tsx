@@ -14,7 +14,7 @@ function Step({ step, onOpen }: { step: TimelineStep; onOpen?: () => void }) {
       {step.actor && <span className={`oporahub-card__avatar oporahub-card__avatar--${step.actor}`} aria-label={step.actor === "human" ? "člověk" : "agent"}>{step.actor === "human" ? "Č" : "A"}</span>}</h3>
     {step.id && <code className="oporahub-card__id" title={step.id}>{step.id.slice(0, 16)}</code>}
     {step.lines.map(line => <span key={line} className="oporahub-card__line">{line}</span>)}
-    <ToneChip tone={step.tone}>{glyph[step.tone]} {step.status}</ToneChip>
+    <span className="oporahub-card__status" title={step.status} data-oh-step-status={step.status}><ToneChip tone={step.tone}>{glyph[step.tone]} {step.status}</ToneChip></span>
     {onOpen && <button type="button" className="oporahub-card__ghost" onClick={onOpen}>{step.tone === "bad" ? "Převést (rebase)" : "Otevřít"}</button>}
   </article>;
 }

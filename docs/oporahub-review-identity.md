@@ -59,9 +59,11 @@ jedna, `humanApprovalsAtHead` znamená **počet různých ověřených lidí**:
 
 Brána pak přidá `reviewGate.humans = {mode: "verified_humans", count, identityIds, directorId,
 unverifiedApprovals}`. Tím se uzavírá mezera „lokální lidská session nedokáže doložit dva
-reviewery“: úroveň `high` (2 schválení) splní operátor plus jeden další ověřený člověk.
-Důsledek principu: úroveň `medium` (1 schválení) splní sám ověřený operátor, který přijal plán;
-kdo chce u `medium` druhý pár očí, zvýší `approvals.medium` v konfiguraci review úloh.
+reviewery“: úroveň se 2 schváleními splní operátor plus jeden další ověřený člověk.
+Důsledek principu: úroveň s 1 schválením splní sám ověřený operátor, který přijal plán.
+Dodaná konfigurace žádá 1 schválení u `medium` i `high` – rozhodnutí vlastníka sólo projektu
+([Schválení pro riziko high](oporahub-review-jobs.md#schválení-pro-riziko-high)). Kdo chce
+druhý pár očí, zvýší `approvals.high` (případně `approvals.medium`) na 2 v konfiguraci review úloh.
 
 ## Metriky
 

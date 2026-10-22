@@ -29,7 +29,8 @@ export default function ProofLedger({ project, workspace }: { project: string; w
       </div>
       <div className="oporahub-proofs__filters">
         <label>Nástroj <select value={filter.tool} onChange={event => setFilter({ ...filter, tool: event.target.value as LedgerFilter["tool"] })}>
-          <option value="all">vše</option><option value="lean">Lean</option><option value="tlc">TLC</option></select></label>
+          <option value="all">vše</option><option value="lean">Lean</option><option value="tlc">TLC</option>
+          <option value="conformance">Shoda</option></select></label>
         <span className="oporahub-proofs__note">Povolené axiomy: {ledger.allowedAxioms.join(", ") || "—"}</span>
         <button type="button" className="oporahub-proofs__button" onClick={read.reload} disabled={read.busy}>Obnovit</button>
       </div>
@@ -41,11 +42,11 @@ export default function ProofLedger({ project, workspace }: { project: string; w
           data-oh-ledger-entry={row.id} data-oh-ledger-status={row.status} data-oh-trust={row.trust ?? ""}>
           <span role="cell"><code className="oporahub-proofs__mono">{row.id}</code>{!row.declared && <small className="oporahub-proofs__note"> (mimo katalog)</small>}
             {row.source && <small className="oporahub-proofs__note oporahub-proofs__source">{row.source}</small>}</span>
-          <span role="cell"><ToneChip tone={row.tone}>{row.glyph} {row.word}</ToneChip></span>
-          <span role="cell">{row.trust ? <ToneChip tone={row.trust === "ci-verified" ? "ok" : "warn"}>{row.trustLabel}</ToneChip> : "—"}</span>
-          <span role="cell"><code className="oporahub-proofs__mono">{row.commit}</code></span>
-          <span role="cell">{when(row.lastChecked)}</span>
-          <span role="cell">{row.axioms === null ? "—" : row.axioms.join(", ") || "žádné"}
+          <span role="cell" data-label="stav"><ToneChip tone={row.tone}>{row.glyph} {row.word}</ToneChip></span>
+          <span role="cell" data-label="důvěra">{row.trust ? <ToneChip tone={row.trust === "ci-verified" ? "ok" : "warn"}>{row.trustLabel}</ToneChip> : "—"}</span>
+          <span role="cell" data-label="commit"><code className="oporahub-proofs__mono">{row.commit}</code></span>
+          <span role="cell" data-label="naposledy">{when(row.lastChecked)}</span>
+          <span role="cell" data-label="axiomy">{row.axioms === null ? "—" : row.axioms.join(", ") || "žádné"}
             {row.foreignAxioms.length > 0 && <ToneChip tone="bad">✕ nepovolené: {row.foreignAxioms.join(", ")}</ToneChip>}</span>
         </div>)}
         {!ledgerRows(ledger, filter).length && <p className="oporahub-proofs__note">Filtru nic neodpovídá.</p>}

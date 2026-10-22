@@ -33,7 +33,7 @@ je chyba, nikdy tiché oslabení.
 | `risk.medium_lines` / `high_lines` | 200 / 1000 | Přidané + odebrané řádky celé změny PR |
 | `risk.medium_files` / `high_files` | 10 / 40 | Počet změněných souborů |
 | `risk.sensitive` | `.github/workflows/**`, `**/auth/**`, `**/migrations/**`, `database/schema/**`, … | Citlivé cesty (glob: `*` uvnitř segmentu, `**` přes adresáře) |
-| `approvals.low/medium/high` | 0 / 1 / 2 | Požadovaná lidská schválení |
+| `approvals.low/medium/high` | 0 / 1 / 1 | Požadovaná lidská schválení (`high = 1` je rozhodnutí vlastníka, viz níže) |
 | `approvals.sensitive_minimum` | 1 | Citlivá změna vždy aspoň tolik schválení |
 | `approvals.agent_account_ids` | `[]` | Číselná GitHub ID účtů agentů; jejich schválení se nepočítají |
 | `security.enabled` / `min_tier` | `true` / `medium` | Bezpečnostní review (`kind: "security"`) pro hlavy s rizikem aspoň `min_tier` |
@@ -47,6 +47,19 @@ je chyba, nikdy tiché oslabení.
 Chybějící sekce `[security]`, `[self_checks]`, `[merge_queue]` nebo `[template]` své pravidlo
 vypne (starší soubory si zachovají význam); dodaný soubor zapíná všechna.
 
+### Schválení pro riziko high
+
+Dodaná konfigurace žádá u `high` **jedno** lidské schválení (dříve 2). Je to vědomé
+rozhodnutí vlastníka: projekt vede jeden vývojář, druhého ověřeného člověka nemá,
+a `high` by tak nešlo nikdy splnit. Úroveň rizika se dál počítá a zobrazuje stejně,
+bezpečnostní review, vlastní kontroly i merge fronta platí beze změny a citlivé cesty
+žádají vždy aspoň `sensitive_minimum` (≥ 1, menší hodnotu konfigurace odmítne).
+
+Jakmile na projektu pracuje víc lidí, vraťte druhý pár očí: v `opora_review_jobs.toml`
+(nebo ve vlastním souboru z `OPORA_REVIEW_JOBS_CONFIG`) nastavte `[approvals] high = 2`
+a restartujte server. Dvě schválení pak musí dát dva různí ověření lidé
+([identity reviewerů](oporahub-review-identity.md)).
+
 ## Riziko ze změny
 
 Při zařazení úlohy server mimo zámky přečte (jen GET) PR a jeho soubory
@@ -54,7 +67,7 @@ Při zařazení úlohy server mimo zámky přečte (jen GET) PR a jeho soubory
 je přesně SHA úlohy. Přejmenování počítá starou i novou cestu.
 
 1. Změnu nejde přečíst, je neúplná, hlava se pohnula, nebo projekt nemá GitHub
-   → `high` (`change_unobserved`), tj. 2 schválení. Selhání nikdy nesnižuje riziko.
+   → `high` (`change_unobserved`), tj. `approvals.high` schválení (dodáno 1). Selhání nikdy nesnižuje riziko.
 2. Řádky ≥ `high_lines` nebo soubory ≥ `high_files` → `high` (`large_change`);
    ≥ medium prahy → `medium` (`medium_change`); jinak `low` (`small_change`).
 3. Zásah do citlivé cesty zvedne úroveň aspoň na `medium` a přidá důvod

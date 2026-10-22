@@ -4,7 +4,9 @@
 declared; claims mirror the positive configs (test-enforced). `lean`: the proof library in
 tools/formal/lean kernel-checked and every theorem's `#print axioms` within the standard
 three; claims are the proof modules, the per-theorem axiom audit rides in the configuration.
-A green `formal/lean` without a complete clean audit is never `passed`. Used by
+A green `formal/lean` without a complete clean audit is never `passed`. `conformance`: the
+real `opora_executions` service run against ExecutionAuthority.tla invariants written as Python
+predicates (backend/canvas/opora_execution_conformance.py); a bridge, not a proof. Used by
 backend/canvas/opora_formal_checks.py; contract: docs/oporahub-verification.md.
 """
 import hashlib
@@ -29,6 +31,9 @@ TLC_MODELS = (
 CLAIMS = tuple((name if spec == "ExecutionAuthority" else f"{spec}-{name}", kind, folder, spec)
                for folder, spec, names in TLC_MODELS for name, kind in names)
 LEAN_MODULES = ("AcceptedHead", "FieldMerge", "Votes")
+# Mirrors opora_execution_conformance.INVARIANTS (test-enforced); each is an ExecutionAuthority.tla invariant.
+CONFORMANCE_INVARIANTS = ("OneActiveOwner", "NoStaleEpochReceipt", "OneReceiptPerExecution", "MonotonicEpoch")
+CONFORMANCE_TEST = "backend/canvas/test_opora_execution_conformance.py"
 TLC_FAILURES = {"positive_violation": "counterexample", "negative_not_detected": "failed",
                 "wrong_violation": "failed", "runner_error": "failed"}
 LEAN_FAILURES = {"forbidden_construct", "build_failed", "nonstandard_axiom", "audit_incomplete", "vectors_drift"}
@@ -41,6 +46,8 @@ def _claim(identifier, kind, statement):
 
 def failures(tool, annotations):
     """Failure payloads the runners emitted as `::error title=formal/<tool> <kind>::<json>`."""
+    if tool not in ("tlc", "lean"):
+        return []  # The conformance job is plain pytest: its verdict is the check conclusion alone.
     prefix, kinds, result = f"formal/{tool} ", TLC_FAILURES if tool == "tlc" else LEAN_FAILURES, []
     for note in annotations or []:
         title = str(note.get("title") or "")
@@ -101,6 +108,20 @@ def outcome(tool, check, cases, audit=None):
 def describe(tool, check, audit=None):
     """(tool, claims, assumptions, configuration) for the verification record."""
     sha = check["headSha"]
+    if tool == "conformance":
+        claims = [_claim(name, "invariant", f"{name} (tools/formal/oporahub-execution/ExecutionAuthority.tla) holds as "
+                                            f"a predicate over one recorded run of the real opora_executions service "
+                                            f"({CONFORMANCE_TEST}) at commit {sha}.") for name in CONFORMANCE_INVARIANTS]
+        command = f"uv run pytest {CONFORMANCE_TEST} -q"
+        return ({"name": "conformance", "version": "pytest via uv, run by GitHub Actions (formal.yml job "
+                                                   "formal/conformance); distributionSha256 is the SHA-256 of the "
+                                                   "test command line, not of a binary",
+                 "distributionSha256": hashlib.sha256(command.encode()).hexdigest()}, claims,
+                [("Conformance bridge, not a proof and not a refinement mapping: one driven scenario of the real "
+                  "service, checked against the model's invariants as Python predicates."),
+                 "Inputs are the files at the reported commit; bytes are not imported."],
+                {"mode": "implementation-conformance-test", "test": CONFORMANCE_TEST, "command": command,
+                 "model": "tools/formal/oporahub-execution/ExecutionAuthority.tla", "fairness": [], "axioms": []})
     if tool == "tlc":
         claims = [_claim(identifier, kind, f"{identifier.split('-')[-1]} as defined in tools/formal/{folder}/{spec}.tla "
                                            f"at commit {sha}.") for identifier, kind, folder, spec in CLAIMS]

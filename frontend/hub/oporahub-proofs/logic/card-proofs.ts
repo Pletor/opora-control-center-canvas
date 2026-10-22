@@ -41,7 +41,7 @@ export const proofsEndpoint = (project: string, workspace: string, nodeId: strin
   `/api/oporahub/verifications?${new URLSearchParams({ project, workspace, nodeId })}`;
 
 export const kindOf = (item: ProofRecord): ProofKind | null =>
-  item.checkName.includes("conformance") ? "conformance" : item.tool === "lean" ? "lean" : item.tool === "tlc" ? "tlc" : null;
+  item.checkName.includes("conformance") || item.tool === "conformance" ? "conformance" : item.tool === "lean" ? "lean" : item.tool === "tlc" ? "tlc" : null;
 
 export type ProofRow = {
   kind: ProofKind; label: string; status: string; tone: "ok" | "warn" | "bad" | "gap"; glyph: string; word: string;
@@ -55,8 +55,8 @@ export function proofRows(records: ProofRecord[], acceptedHead: string | null): 
     const latest = records.filter(item => kindOf(item) === kind)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     if (!latest) return { kind, label: KIND_LABEL[kind], status: "not_connected", tone: "gap", glyph: "◌",
-      word: kind === "conformance" ? "nenapojeno" : "bez záznamu", trust: null, trustLabel: "—", verificationId: "", checkName: "", commit: "",
-      historical: false, note: kind === "conformance" ? "Check formal/conformance běží jen v CI; do karty se zatím nepřenáší." : "Pro kartu zatím nikdo nenahlásil ověření." };
+      word: "bez záznamu", trust: null, trustLabel: "—", verificationId: "", checkName: "", commit: "",
+      historical: false, note: kind === "conformance" ? "Check formal/conformance zatím na PR této karty nedoběhl." : "Pro kartu zatím nikdo nenahlásil ověření." };
     const outcome = latest.outcome ? OUTCOME[latest.outcome] ?? { tone: "warn" as const, glyph: "◷", word: latest.outcome } : { tone: "gap" as const, glyph: "◌", word: "bez výsledku" };
     const historical = !!acceptedHead && !!latest.acceptedRevision && latest.acceptedRevision !== acceptedHead;
     return { kind, label: KIND_LABEL[kind], status: latest.outcome ?? "pending", ...outcome, trust: latest.trust, trustLabel: TRUST_LABEL[latest.trust],

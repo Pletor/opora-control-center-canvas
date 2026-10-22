@@ -1,8 +1,9 @@
 """Observed formal check runs -> execution-bound verification evidence.
 
-Proofs and model checks run by machine (.github/workflows/formal.yml, formal-trusted.yml);
-nobody reports them by hand. Whenever the server itself reads a completed `formal/tlc`,
-`formal/lean` or `formal-trusted/*` check run (GitHub evidence import or the execution-PR
+Proofs, model checks and the implementation conformance test run by machine
+(.github/workflows/formal.yml, formal-trusted.yml); nobody reports them by hand. Whenever the
+server itself reads a completed `formal/tlc`, `formal/lean`, `formal/conformance` or
+`formal-trusted/*` check run (GitHub evidence import or the execution-PR
 loop), this module maps conclusion + head SHA into the verification store, bound through
 the execution -> PR link to execution and card. A PR without a linked execution has no
 execution identity and is not recorded. What each kind claims: opora_formal_profiles.py.
@@ -10,7 +11,9 @@ execution identity and is not recorded. What each kind claims: opora_formal_prof
 Trust: `formal/*` stays `agent-reported` (the workflow is code of the PR under review).
 `formal-trusted/*` becomes `ci-verified` only with verified provenance (base-branch
 workflow run bound to this head, see github_formal_check_reader.provenance); otherwise it
-is recorded as `agent-reported` with the failed provenance in `origin`. Contract:
+is recorded as `agent-reported` with the failed provenance in `origin`. `formal/conformance`
+has no trusted twin (it must execute the PR's Python, which the base-branch workflow never
+does), so it is always `agent-reported`. Contract:
 docs/oporahub-verification.md. Callers own locks and the SQLite transaction.
 """
 import hashlib
@@ -27,11 +30,14 @@ from database.repositories.opora_verifications import Verifications
 
 LOGGER = logging.getLogger(__name__)
 CHECK_NAME = "formal/tlc"
+# Checks the evidence import maps itself: no annotation audit or provenance needed.
+SNAPSHOT_CHECKS = (CHECK_NAME, "formal/conformance")
 # check name -> (evidence kind, from the trusted base-branch workflow)
-CHECKS = {"formal/tlc": ("tlc", False), "formal/lean": ("lean", False),
+CHECKS = {"formal/tlc": ("tlc", False), "formal/lean": ("lean", False), "formal/conformance": ("conformance", False),
           "formal-trusted/tlc": ("tlc", True), "formal-trusted/lean": ("lean", True)}
 EVIDENCE_KINDS = {"tlc": {"check": "formal/tlc", "trustedCheck": "formal-trusted/tlc", "status": "connected"},
-                  "lean": {"check": "formal/lean", "trustedCheck": "formal-trusted/lean", "status": "connected"}}
+                  "lean": {"check": "formal/lean", "trustedCheck": "formal-trusted/lean", "status": "connected"},
+                  "conformance": {"check": "formal/conformance", "trustedCheck": None, "status": "connected"}}
 CLAIMS = tuple((identifier, kind) for identifier, kind, _, _ in profiles.CLAIMS)
 TRUST = {"trust": "agent-reported", "independentlyVerified": False,
          "sourceBinding": "agent-reported", "currentEligibility": False}
@@ -60,8 +66,9 @@ def outcome(check, cases, tool="tlc", audit=None):
 
 
 def needs_annotations(check):
-    """Lean always carries its axiom audit as an annotation; TLC only explains failures."""
-    return CHECKS.get(check.get("name"), ("tlc",))[0] == "lean" or check.get("conclusion") != "success"
+    """Lean always carries its axiom audit as an annotation; TLC only explains failures; conformance never."""
+    tool = CHECKS.get(check.get("name"), ("tlc",))[0]
+    return tool == "lean" or (tool == "tlc" and check.get("conclusion") != "success")
 
 
 def _blob(path, role, value):
@@ -146,7 +153,7 @@ def record_check(db, project, workspace, check, *, repository, number, annotatio
 
 
 def ingest_snapshot(db, project, workspace, snapshot):
-    """GitHub evidence import hook: map observed `formal/tlc` checks; never fails the import.
+    """GitHub evidence import hook: map observed `formal/tlc` and `formal/conformance` checks; never fails the import.
 
     Lean needs its audit annotation and trusted checks need provenance; both are read only by
     the execution-PR loop (opora_formal_check_poll.py), so this path leaves them alone."""
@@ -156,7 +163,7 @@ def ingest_snapshot(db, project, workspace, snapshot):
     db.execute("SAVEPOINT formal_checks")
     try:
         for check in sorted(snapshot.get("checks", []), key=lambda item: item.get("id", 0)):
-            if check.get("name") != CHECK_NAME:
+            if check.get("name") not in SNAPSHOT_CHECKS:
                 continue
             link = _linked(db, project, workspace, snapshot["configuredRepository"], snapshot["prNumber"])
             if link is None or "id" not in check or known(db, project, workspace, link["execution_id"], check):

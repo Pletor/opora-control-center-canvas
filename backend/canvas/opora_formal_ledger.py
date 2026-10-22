@@ -4,7 +4,7 @@
 proved or model-checked (and on which SHA, with which axioms and trust) before they start
 proving or modelling the same thing again. Rows come from two read-only sources:
 the declared catalog in this checkout (Lean theorems under tools/formal/lean/OporaHub,
-TLC claims from opora_formal_profiles) and the newest CI-observed verification records.
+TLC claims and conformance invariants from opora_formal_profiles) and the newest CI-observed verification records.
 A declared row without evidence is `unchecked`; a row seen only in evidence is
 `declared: false` (renamed or removed since). Nothing here writes.
 """
@@ -17,7 +17,7 @@ from backend.canvas.opora_verifications import OporaVerifications
 
 LEAN_ROOT = Path(__file__).resolve().parents[2] / "tools" / "formal" / "lean"
 SCHEMA_VERSION = 1
-PASSED = {"lean": "proved", "tlc": "checked"}
+PASSED = {"lean": "proved", "tlc": "checked", "conformance": "checked"}
 
 
 def _lean_catalog(root=LEAN_ROOT):
@@ -36,6 +36,8 @@ def catalog(root=LEAN_ROOT):
     rows = _lean_catalog(root)
     rows += [{"id": f"tlc:{identifier}", "tool": "tlc", "kind": kind, "name": identifier,
               "source": f"tools/formal/{folder}/{spec}.tla"} for identifier, kind, folder, spec in profiles.CLAIMS]
+    rows += [{"id": f"conformance:{name}", "tool": "conformance", "kind": "invariant", "name": name,
+              "source": profiles.CONFORMANCE_TEST} for name in profiles.CONFORMANCE_INVARIANTS]
     return rows
 
 
@@ -59,8 +61,8 @@ def _evidence(record):
         return [(f"lean:{name}", {**base, "axioms": axioms, "status": _status("lean", outcome, True, axioms or [])
                                   if axioms is not None else "unverified"})
                 for name, axioms in audit.items()]
-    checked = set(report["checkedClaims"])
-    return [(f"tlc:{claim['id']}", {**base, "axioms": [], "status": _status("tlc", outcome, claim["id"] in checked)})
+    checked, tool = set(report["checkedClaims"]), tool if tool == "conformance" else "tlc"
+    return [(f"{tool}:{claim['id']}", {**base, "axioms": [], "status": _status(tool, outcome, claim["id"] in checked)})
             for claim in verification["claims"]]
 
 

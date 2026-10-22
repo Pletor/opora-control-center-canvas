@@ -12,6 +12,8 @@ from backend.canvas import opora_review_gate_config as gate_config
 
 DEFAULT_PATH = Path(__file__).with_name("opora_review_jobs.toml")
 TIERS = ("low", "medium", "high")
+# Owner decision for a solo project: high needs one human, like medium. Raise `approvals.high` to require more.
+DEFAULT_APPROVALS = {"low": 0, "medium": 1, "high": 1}
 
 
 def _int(value, low, high, name):
@@ -33,7 +35,7 @@ def parse(raw):
               "mediumFiles": _int(risk.get("medium_files", 10), 0, 10**5, "medium_files"),
               "highFiles": _int(risk.get("high_files", 40), 0, 10**5, "high_files"),
               "sensitive": list(risk.get("sensitive", [])),
-              "approvals": {tier: _int(approvals.get(tier, index), 0, 10, tier) for index, tier in enumerate(TIERS)},
+              "approvals": {tier: _int(approvals.get(tier, DEFAULT_APPROVALS[tier]), 0, 10, tier) for tier in TIERS},
               "sensitiveMinimum": _int(approvals.get("sensitive_minimum", 1), 1, 10, "sensitive_minimum"),
               "agentAccountIds": list(approvals.get("agent_account_ids", []))}
     if config["requiredVotes"] > config["voters"]:
