@@ -83,6 +83,7 @@ testy vedle kódu a záznam do `docs/brain/pamet/kratka.md`. Výsledek hlásí d
 - Větve si dělá agent nebo ty ve VS Code. Bez worktree pracují všichni v jedné pracovní kopii, proto drž úkoly malé a nepřekrývající se.
 - **Orchestrátor** je volitelná další relace Claude, třeba v repu Opory se stejným skillem. Čte plátno, rozkládá velké zadání na uzly
   a připravuje text karet. Agenty nespouští a nemerguje.
+- Jak vznikají, slučují, nasazují a uklízí PR, když pracuje víc sessions naráz (ohlášení záměru, malé PR z čerstvého main bez řetězů, fronta slučování, nasazení server+klient, úklid vlastníkem): [cista-linie.md](cista-linie.md).
 
 ## Co když
 
@@ -102,4 +103,4 @@ Pravidelně tu složku kopíruj mimo disk, třeba před větší změnou. Kód j
 ## Vývoj samotné Opory
 
 Opravy Opory dělej až při skutečném nedostatku a nejmenší změnou. Každá jde do vlastní větve nebo worktree
-a do `main` až po `uv run pytest backend`, `npm test` a `npm run build`. Podrobná pravidla: [START-HERE.md](START-HERE.md), [pravidla-struktury.md](pravidla-struktury.md).
+a do `main` až po `uv run pytest backend`, `npm test` a `npm run build`. Podrobná pravidla: [START-HERE.md](START-HERE.md), [pravidla-struktury.md](pravidla-struktury.md), linie PR a nasazení: [cista-linie.md](cista-linie.md).
