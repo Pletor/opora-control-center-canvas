@@ -109,14 +109,6 @@ def drawing_layers(by_id, node_id):
     return list(dict.fromkeys(layers))
 
 
-def drawing_chain(canvas, project, workspace, node_id, by_id):
-    """Uložené kresby uzlu, všech předků a kořene, každá s vlastní revizí; redigované."""
-    return [
-        redact_deep(project_drawing(layer, canvas.drawing(project, workspace, layer)))
-        for layer in drawing_layers(by_id, node_id)
-    ]
-
-
 def _path_matches(target, paths):
     return any(path == target or path.startswith(target + "/") for path in paths)
 

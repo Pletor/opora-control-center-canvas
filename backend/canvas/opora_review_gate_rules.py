@@ -8,9 +8,6 @@ from backend.canvas import opora_review_self_checks as self_checks
 from database.repositories.opora_review_gate_facts import ReviewGateFacts
 
 BLOCKING = ("open_security_findings", "self_checks_failed", "required_checks_failed")
-PENDING = ("security_review_not_enqueued", "security_review_in_progress", "self_checks_missing",
-           "required_checks_pending", "base_freshness_unobserved", "stale_against_main", "template_unobserved",
-           "template_incomplete")
 
 
 def evaluate(store, link, evidence, config, now=None):

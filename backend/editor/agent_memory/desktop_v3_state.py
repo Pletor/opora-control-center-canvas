@@ -47,9 +47,6 @@ RULE_KEYS = {"id", "text", "kind", "scope", "target"}
 RULE_AUTHORS = ("human", "agent")
 DECISION_KEYS = {"id", "text", "pinned", "path", "nodeId", "createdAt", "by"}
 NODE_KEYS = {"phase", "criteria", "steps"}
-# Bloky uzlu z portů karty: akce (pipeline z knihovny) a pravidla uzlu. Starší stav je nemá;
-# oba klíče přicházejí vždy spolu, aby klient nemohl uložit půlku bloku.
-NODE_KEYS_WITH_BLOCKS = NODE_KEYS | {"actions", "rules"}
 CRITERION_KEYS = {"id", "text", "checked"}
 STEP_KEYS = {"id", "text", "assignee", "done"}
 ACTION_KEYS = {"id", "pipelineId", "label", "params"}
