@@ -10,7 +10,7 @@ const rec = (id: string, tool: string, extra: Record<string, unknown> = {}) => (
   report: { outcome: "passed", createdAt: "2026-10-21T10:00:00Z" }, ...extra });
 
 describe("card proofs", () => {
-  it("shows newest lean/tlc record with trust and an honest conformance gap", () => {
+  it("shows newest lean/tlc record with trust and an empty conformance row", () => {
     const records = parseProofs({ requests: [
       rec("l1", "lean", { trust: "ci-verified", origin: { checkName: "formal-trusted/lean" } }),
       rec("t1", "tlc", { report: { outcome: "counterexample", createdAt: "2026-10-20T10:00:00Z" }, acceptedRevision: "b".repeat(40) }),
@@ -19,12 +19,16 @@ describe("card proofs", () => {
     expect(rows.map(row => [row.kind, row.status, row.trust])).toEqual([["lean", "passed", "ci-verified"], ["tlc", "counterexample", "agent-reported"], ["conformance", "not_connected", null]]);
     expect(rows[0]).toMatchObject({ trustLabel: "ověřeno CI", checkName: "formal-trusted/lean", glyph: "✓" });
     expect(rows[1]).toMatchObject({ historical: true, glyph: "✕", trustLabel: "nahlášeno agentem" });
-    expect(rows[2].word).toBe("nenapojeno");
+    expect(rows[2].word).toBe("bez záznamu");
   });
   it("classifies a conformance check by its name", () => {
     const rows = proofRows(parseProofs({ requests: [rec("x", "tlc", { origin: { checkName: "formal/conformance" } })] }), head);
     expect(rows.find(row => row.kind === "conformance")?.verificationId).toBe("x");
     expect(rows.find(row => row.kind === "tlc")?.status).toBe("not_connected");
+  });
+  it("classifies a recorded conformance tool as conformance with its trust", () => {
+    const rows = proofRows(parseProofs({ requests: [rec("c", "conformance", { origin: { checkName: "formal/conformance" } })] }), head);
+    expect(rows.find(row => row.kind === "conformance")).toMatchObject({ verificationId: "c", status: "passed", trustLabel: "nahlášeno agentem" });
   });
   it("keeps only verification actions targeting this card's records", () => {
     const action = (verb: string, targetId: string): AgentAction => ({ id: `act_${verb}_${targetId}`, verb, method: "POST",

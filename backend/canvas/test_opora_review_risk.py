@@ -19,7 +19,7 @@ def test_size_rules_map_to_tiers_and_required_approvals():
     assert (medium["tier"], medium["requiredApprovals"], medium["reasons"]) == ("medium", 1, ["medium_change"])
     files = [(f"src/f{index}.py", 1, 0) for index in range(40)]
     large = classify(change(*files), CONFIG)
-    assert (large["tier"], large["requiredApprovals"], large["reasons"]) == ("high", 2, ["large_change"])
+    assert (large["tier"], large["requiredApprovals"], large["reasons"]) == ("high", 1, ["large_change"])
     assert classify(change(("src/a.py", 999, 1)), CONFIG)["tier"] == "high"
 
 
@@ -36,7 +36,15 @@ def test_sensitive_paths_always_need_a_human():
 def test_unobserved_or_incomplete_change_fails_closed():
     for value in (None, change(("src/a.py", 1, 0), complete=False)):
         result = classify(value, CONFIG)
-        assert result["tier"] == "high" and result["requiredApprovals"] == 2 and result["reasons"] == ["change_unobserved"]
+        assert result["tier"] == "high" and result["requiredApprovals"] == 1 and result["reasons"] == ["change_unobserved"]
+
+
+def test_high_tier_approvals_can_be_raised_back():
+    team = parse({"approvals": {"high": 2}})
+    assert classify(change(("src/a.py", 999, 1)), team)["requiredApprovals"] == 2
+    assert classify(None, team)["requiredApprovals"] == 2
+    with pytest.raises(ValueError, match="sensitive_minimum"):
+        parse({"approvals": {"sensitive_minimum": 0}})
 
 
 def test_glob_semantics():
@@ -58,6 +66,8 @@ def test_config_is_validated_and_shipped_default_is_disabled(monkeypatch):
     monkeypatch.delenv("OPORA_REVIEW_JOBS_CONFIG", raising=False)
     shipped = load()
     assert shipped["enabled"] is False and shipped["finders"] == 3 and shipped["maxRounds"] == 3
-    assert shipped["approvals"] == {"low": 0, "medium": 1, "high": 2} and DEFAULT_PATH.exists()
+    # Owner decision (solo project): high needs one human; sensitive paths still need at least one.
+    assert shipped["approvals"] == {"low": 0, "medium": 1, "high": 1} and DEFAULT_PATH.exists()
+    assert shipped["sensitiveMinimum"] >= 1
     monkeypatch.setenv("OPORA_REVIEW_JOBS", "1")
     assert load()["enabled"] is True

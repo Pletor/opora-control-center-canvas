@@ -7,7 +7,7 @@ import re
 from backend.integrations import github_review_normalize as normalize
 from backend.integrations.github_review_transport import GitHubReviewTransport
 
-CHECK_NAMES = ("formal/tlc", "formal/lean", "formal-trusted/tlc", "formal-trusted/lean")
+CHECK_NAMES = ("formal/tlc", "formal/lean", "formal/conformance", "formal-trusted/tlc", "formal-trusted/lean")
 TRUSTED_WORKFLOW = ".github/workflows/formal-trusted.yml"
 TRUSTED_EVENTS = ("pull_request_target", "workflow_run")
 REPOSITORY = re.compile(r"[A-Za-z0-9-]+/[A-Za-z0-9_.-]+")

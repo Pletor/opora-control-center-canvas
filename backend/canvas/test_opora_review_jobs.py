@@ -11,7 +11,9 @@ from backend.canvas.test_opora_execution_pull_requests import world_fixture as w
 
 THIRD_SHA = "f" * 40
 CONFIG = parse({"enabled": True, "jobs": {"finders": 3, "voters": 3, "required_votes": 2, "max_rounds": 3},
-                "risk": {"sensitive": [".github/workflows/**"]}})
+                "risk": {"sensitive": [".github/workflows/**"]},
+                # Explicit high = 2 keeps the multi-approval gate paths covered (shipped default is 1).
+                "approvals": {"high": 2}})
 
 
 class ChangeReader:

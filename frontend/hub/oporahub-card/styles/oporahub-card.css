@@ -42,6 +42,9 @@
 .oporahub-card__step--ok { border-top: 3px solid var(--ok); }
 .oporahub-card__step--warn { border-top: 3px solid var(--warn); }
 .oporahub-card__step-title { text-transform: none; letter-spacing: 0; display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+/* Stav kroku: dlouhý český důvod (např. pravidlo brány review) se zalomí uvnitř karty kroku, nikdy nepřeteče; celý text je i v title. */
+.oporahub-card__status { display: block; min-width: 0; }
+.oporahub-card__status > .oporahub-health__chip { display: inline-block; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
 .oporahub-card__id { overflow: hidden; text-overflow: ellipsis; font: 600 11px var(--mono); }
 .oporahub-card__line { overflow-wrap: anywhere; color: var(--ink-2); }
 .oporahub-card__avatar { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1px solid; font-size: 9px; font-weight: 700; }

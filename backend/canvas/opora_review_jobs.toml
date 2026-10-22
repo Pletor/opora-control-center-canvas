@@ -32,7 +32,9 @@ sensitive = [
 [approvals]
 low = 0
 medium = 1
-high = 2
+# Rozhodnutí vlastníka (sólo vývojář): high = 1. Pro tým zvyšte zpět na 2
+# (docs/oporahub-review-jobs.md, „Schválení pro riziko high“).
+high = 1
 sensitive_minimum = 1
 # Číselná GitHub ID účtů agentů: jejich schválení se nikdy nepočítá jako lidské.
 agent_account_ids = []

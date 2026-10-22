@@ -22,7 +22,7 @@
 .oporahub-proofs__action, .oporahub-proofs__fix { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
 /* Kniha důkazů: nahoře dlaždice počtů (klik = filtr stavu), pod nimi tabulka tvrzení. */
-.oporahub-proofs--ledger { display: grid; gap: 12px; padding: 14px; }
+.oporahub-proofs--ledger { display: grid; gap: 12px; padding: 14px; container-type: inline-size; }
 .oporahub-proofs__tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
 .oporahub-proofs__tile { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: 6px; background: var(--surface-2); color: var(--ink); text-align: left; font-size: 12px; cursor: pointer; }
 .oporahub-proofs__tile[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
@@ -36,3 +36,14 @@
 .oporahub-proofs__trow { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) 110px 150px minmax(120px, 1fr); gap: 8px; align-items: center; min-width: 860px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 .oporahub-proofs__trow--head { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
 .oporahub-proofs__source { display: block; }
+
+/* Úzká kniha (telefon, úzký drawer): žádné vodorovné posouvání; každé tvrzení je karta,
+   kde jméno jde přes celou šířku a stav, důvěra, commit, čas a axiomy jsou řádky „popisek: hodnota“. */
+@container (max-width: 700px) {
+  .oporahub-proofs__table { overflow-x: visible; }
+  .oporahub-proofs__trow { grid-template-columns: minmax(0, 1fr); gap: 4px; min-width: 0; padding: 10px 4px; }
+  .oporahub-proofs__trow--head { display: none; }
+  .oporahub-proofs__trow > [role="cell"] { min-width: 0; }
+  .oporahub-proofs__trow > [role="cell"][data-label] { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .oporahub-proofs__trow > [role="cell"][data-label]::before { content: attr(data-label); flex: 0 0 84px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+}

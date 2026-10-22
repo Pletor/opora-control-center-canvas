@@ -10,6 +10,10 @@ neuzavírá kartu, nemerguje kód a nenasazuje aplikaci.
 Nejprve načtěte [GitHub důkazy](oporahub-github.md) příslušného PR. Člověk pak
 nastaví povinné kontroly, povolené účty reviewerů, požadovaný počet schválení kódu
 a plánu a maximální stáří pozorování. Před aktivací prohlédne přesný souhrn.
+Tato politika je samostatná od brány automatického review: její minima zadává člověk
+při aktivaci (aspoň 1). Výchozí počet schválení brány podle rizika je v
+[review úlohách](oporahub-review-jobs.md#schválení-pro-riziko-high); u `high` je dodáno 1
+jako rozhodnutí vlastníka sólo projektu a zvyšuje se tam (`approvals.high = 2`).
 Repozitář a cílová větev pocházejí ze serverové konfigurace a uloženého pozorování.
 Číselná identita repozitáře chrání před záměnou novým repozitářem stejného jména.
 

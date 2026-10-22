@@ -167,7 +167,9 @@ CI záznamu každého běhu odvodí pozornost. Výsledky `counterexample`, `fail
 ověření, `preconditions` s `headSha`, `outcome`, `failureKinds`). Protipříklad a skutečné selhání
 dají i akci `verification.fix` (viz níže). Dají také rozhodnutí
 `verification_counterexample` nebo `verification_failed`, které jde před ostatní
-rozhodnutí. Pozdější úspěšný check na novějším SHA pozornost zruší. Nic se nezapisuje.
+rozhodnutí. Počítá se nejnovější záznam každého druhu (`tlc`, `lean`, `conformance`) zvlášť:
+pozornost zruší až pozdější úspěšný check **stejného druhu** na novějším SHA; úspěch jiného
+druhu (např. TLC po selhané shodě) ji nezruší. Nic se nezapisuje.
 
 **Shoda implementace (konformní most, ne důkaz).** Model ≠ implementace.
 `backend/canvas/test_opora_execution_conformance.py` spouští skutečnou službu
@@ -178,6 +180,17 @@ pověření a posun času. Záznam událostí kontrolují Python predikáty
 (`opora_execution_conformance.py`). Predikáty musí odmítnout ručně pokažené logy, aby
 nemohly projít naprázdno. Test dokládá jen to, že zkoumané běhy neporušily vlastnosti.
 Nejde o refinement ani o úplné pokrytí. V CI běží jako check `formal/conformance`.
+
+**Příjem shody (`formal/conformance`).** Server ho čte stejně jako `formal/tlc`: import GitHub
+důkazů i smyčka uzavření běhů převedou dokončený check připojeného PR na záznam druhu
+`conformance` (`verification.tool.name = "conformance"`, `origin.evidenceKind = "conformance"`),
+vázaný na head SHA, běh (`executionId`, `epoch`, `acceptedRevision`) a kartu. Tvrzení jsou čtyři
+invarianty výše (`kind: "invariant"`, test hlídá shodu s `INVARIANTS`), výsledek bere jen ze
+závěru checku (`success` → `passed`, `failure` → `failed`, jinak `inconclusive`/`cancelled`);
+anotace se nečtou. Důvěra je vždy `agent-reported`: job běží v `formal.yml`, tedy jako kód
+posuzovaného PR, a důvěryhodné dvojče nemá, protože `formal-trusted.yml` nikdy nespouští
+Python z PR (jen čte modely a důkazy jako data). `ci-verified` proto pro shodu nevzniká.
+Ruční `POST /requests` dál přijímá jen `tlc` a `lean`.
 
 **Lean: důkazy čistého jádra (`formal/lean`).** `tools/formal/lean/` je Lake projekt
 (`lakefile.toml` jen jako data, toolchain připnutý v `lean-toolchain`, dnes
@@ -283,11 +296,12 @@ která návrh idempotentně založí nebo vrátí; pro jiné výsledky vrací 40
 ## Kniha důkazů (ledger)
 
 `GET /api/oporahub/verifications/ledger?project=…&workspace=…` vrací
-`{schemaVersion, allowedAxioms, counts, entries[]}`. Řádek má `id` (`lean:<teorém>` nebo
-`tlc:<tvrzení>`), `tool`, `kind`, `name`, `source`, `declared`, `status` (`proved`,
+`{schemaVersion, allowedAxioms, counts, entries[]}`. Řádek má `id` (`lean:<teorém>`,
+`tlc:<tvrzení>` nebo `conformance:<invariant>`), `tool`, `kind`, `name`, `source`, `declared`, `status` (`proved`,
 `checked`, `counterexample`, `failed`, `unverified`, `unchecked`), `commitSha`, `axioms`,
 `trust`, `lastChecked`, `verificationId`, `checkName`. Katalog bere z tohoto checkoutu
-(teorémy `tools/formal/lean/OporaHub`, tvrzení pozitivních TLC konfigurací), stav
+(teorémy `tools/formal/lean/OporaHub`, tvrzení pozitivních TLC konfigurací, invarianty
+testu shody), stav
 z nejnovějšího CI záznamu, který dané tvrzení pokrývá. Agent si před psaním důkazu nebo
 modelu ověří, že totéž už není `proved`/`checked`. Endpoint nic nezapisuje.
 

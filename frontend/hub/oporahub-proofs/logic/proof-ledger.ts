@@ -36,7 +36,7 @@ export function parseLedger(raw: unknown): Ledger {
 export const ledgerEndpoint = (project: string, workspace: string) =>
   `/api/oporahub/verifications/ledger?${new URLSearchParams({ project, workspace })}`;
 
-export type LedgerFilter = { tool: "all" | "lean" | "tlc"; status: "all" | string };
+export type LedgerFilter = { tool: "all" | "lean" | "tlc" | "conformance"; status: "all" | string };
 export type LedgerRow = LedgerEntry & { glyph: string; word: string; tone: "ok" | "warn" | "bad" | "gap";
   commit: string; trustLabel: string; foreignAxioms: string[] };
 
