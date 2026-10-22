@@ -142,7 +142,7 @@ jobs:
                 annotations: failed.map(item => note("failure", `formal/tlc ${text(item.kind, 40)}`, json({
                   model: item.model, case: item.case, config: item.config, expect: item.expect,
                   expectedInvariant: item.expectedInvariant, kind: item.kind,
-                  violated: item.observed && item.observed.violated })))) });
+                  violated: item.observed && item.observed.violated }))) });
             } else {
               runs.push({ name: "formal-trusted/tlc", ok: false, annotations: [note("failure", "formal/tlc runner_error", json({ kind: "runner_error" }))] });
             }
