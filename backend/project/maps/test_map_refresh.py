@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
@@ -76,6 +77,40 @@ def test_snapshot_uses_committed_main_and_ignores_other_project_and_secrets(tmp_
     assert 'committed_symbol' in (target / 'module.py').read_text()
     assert 'dirty_symbol' not in (target / 'module.py').read_text()
     assert not (target / '.env').exists()
+
+
+def committed(root, files):
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text)
+    git(root, 'add', '-A')
+    git(root, 'commit', '-m', 'fixture files')
+    return git(root, 'rev-parse', 'refs/heads/main')
+
+
+def test_snapshot_honours_graphifyignore_from_the_same_revision(tmp_path):
+    from backend.project.maps.map_refresh_snapshot import snapshot_main
+    root = repository(tmp_path / 'repo', 'kept')
+    revision = committed(root, {
+        '.graphifyignore': '# Graphify rozsah\nassets/\n*.generated.ts\ndocs/*.md\n!docs/keep.md\n',
+        'assets/sprites/data.json': '{}', 'src/app.ts': 'export const a = 1\n',
+        'src/api.generated.ts': 'export const b = 2\n', 'docs/drop.md': '# drop\n', 'docs/keep.md': '# keep\n'})
+    # Pozdější rozepsaná změna ignore souboru snapshot neovlivní; platí revize.
+    (root / '.graphifyignore').write_text('')
+    files = snapshot_main(root, revision, tmp_path / 'snapshot')
+    assert sorted(files) == ['.graphifyignore', 'docs/keep.md', 'module.py', 'src/app.ts']
+    assert (tmp_path / 'snapshot/.graphifyignore').read_text().startswith('# Graphify rozsah')
+
+
+def test_snapshot_graphifyignore_lets_large_project_fit_the_limit(tmp_path):
+    from backend.project.maps.map_refresh_snapshot import snapshot_main
+    root = repository(tmp_path / 'repo', 'kept')
+    bulk = {f'vendor-data/f{index}.json': '{}' for index in range(801)}
+    revision = committed(root, bulk)
+    with pytest.raises(ValueError, match='graphifyignore'):
+        snapshot_main(root, revision, tmp_path / 'too-many')
+    revision = committed(root, {'.graphifyignore': 'vendor-data/\n'})
+    assert sorted(snapshot_main(root, revision, tmp_path / 'snapshot')) == ['.graphifyignore', 'module.py']
 
 
 def test_menu_preferences_are_separate_for_each_project_and_tool(tmp_path):

@@ -26,6 +26,7 @@ kopie souborů: když běh selže, nic se nepřepíše.
 - V projektu lze automatiku vypnout pro každý nástroj zvlášť („Pouze ručně“). Tlačítko „Aktualizovat teď“ funguje i tehdy.
 - Nejvýše jeden běh v celé instanci. Starý výsledek se nepublikuje, pokud se `main` mezitím změnil.
 - Snapshot čte jen commit, nikdy rozepsaný worktree, a vynechává `graphify-out/` i `archify-out/`.
+- Snapshot respektuje `.graphifyignore` ze stejného commitu (sémantika `.gitignore`), takže limit 800 souborů / 8 MiB platí až po zúžení rozsahu; samotný `.graphifyignore` ve snapshotu zůstává.
 
 ## Čtení
 
