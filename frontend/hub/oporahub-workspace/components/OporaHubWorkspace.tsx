@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { acceptedPlan } from "@/hub/oporahub-overview/logic/overview";
 import OporaHubOverview, { type HubTab } from "@/hub/oporahub-overview/components/OporaHubOverview";
 import OverviewDrawer from "@/hub/oporahub-overview/components/OverviewDrawer";
@@ -8,6 +8,7 @@ import type { OverviewModels } from "@/hub/oporahub-overview/logic/models";
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 import { initialHubLink, defaultCard } from "../logic/hub-link";
 import DetailContent from "./DetailContent";
+import ProcessObservatory from "@/hub/process-observatory/components/ProcessObservatory";
 import "@/hub/oporahub-workspace/styles/oporahub-workspace.css";
 
 export { ExecutionDrawerContent } from "./DetailContent";
@@ -22,6 +23,9 @@ export default function OporaHubWorkspace(models: OverviewModels) {
   const scope = JSON.stringify([project, workspace]);
   const [link] = useState(() => initialHubLink(typeof location === "undefined" ? "" : location.search));
   const [tab, setTab] = useState<HubTab>(link.tab);
+  // Jména karet pro Živý proces; klíč drží stejný objekt, dokud se jména v grafu nezmění.
+  const nameKey = JSON.stringify(models.executions.choices.map(node => [node.id, node.name]));
+  const names = useMemo(() => Object.fromEntries(JSON.parse(nameKey) as [string, string][]), [nameKey]);
   const [selection, setSelection] = useState<{ scope: string; target: DetailTarget } | null>(null);
   const detail = selection?.scope === scope ? selection.target : null;
   const onDetailOpenChange = models.onDetailOpenChange;
@@ -52,7 +56,8 @@ export default function OporaHubWorkspace(models: OverviewModels) {
   }
   return <section className="oporahub-workspace" aria-label="OporaHub" data-testid="oporahub-workspace">
     <OporaHubOverview agent={agent} tab={tab} onTab={setTab} open={open} onRefresh={refresh}
-      onOpenCard={() => open({ kind: "card", title: "Detail karty" })} />
+      onOpenCard={() => open({ kind: "card", title: "Detail karty" })}
+      process={tab === "process" && <ProcessObservatory project={project} workspace={workspace} state={agent.state} refreshAgentState={agent.refresh} names={names} />} />
     {detail && <OverviewDrawer title={detail.title} onClose={close}>
       <DetailContent models={models} detail={detail} open={open} currentAcceptedHead={currentAcceptedHead} onChanged={agent.refresh} />
     </OverviewDrawer>}

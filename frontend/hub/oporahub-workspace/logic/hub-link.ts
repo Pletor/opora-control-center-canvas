@@ -1,10 +1,10 @@
 import type { AgentState } from "@/hub/oporahub-agent-state/logic/agent-state";
 
-/** Přímý odkaz do OporaHubu: `?environment=hub&ohView=agents`. Detail karty (`?ohCard=<id>&ohTab=`) čte
+/** Přímý odkaz do OporaHubu: `?environment=hub&ohView=agents` (nebo `ohView=process` pro Živý proces). Detail karty (`?ohCard=<id>&ohTab=`) čte
  *  jednotný drawer `hub/oporahub-card-drawer` sám, v jakémkoli prostředí. */
-export function initialHubLink(search: string): { tab: "overview" | "agents" } {
-  const params = new URLSearchParams(search);
-  return { tab: params.get("ohView") === "agents" ? "agents" : "overview" };
+export function initialHubLink(search: string): { tab: "overview" | "process" | "agents" } {
+  const view = new URLSearchParams(search).get("ohView");
+  return { tab: view === "agents" || view === "process" ? view : "overview" };
 }
 /** Výchozí karta pro tlačítko Karta: první karta, kterou agent-state nabízí k převzetí, jinak první karta plánu. */
 export function defaultCard(state: AgentState | null, choices: { id: string }[]) {

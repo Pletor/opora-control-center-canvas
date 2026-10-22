@@ -32,6 +32,15 @@ describe("OporaHub overview reads one agent-state document", () => {
     expect(html).toContain("kopírovat JSON");
     expect(html).toContain('data-oh-field="contextVersion"');
   });
+  it("offers the Živý proces tab and renders the composed process view in its place", () => {
+    const html = renderToStaticMarkup(createElement(OporaHubOverview, {
+      agent: { state: null, etag: "", error: "", loadedAt: 0 }, tab: "process", onTab: vi.fn(), onOpenCard: vi.fn(), open: vi.fn(), onRefresh: vi.fn(),
+      process: createElement("p", { id: "process-slot" }, "proces") }));
+    expect(html).toContain('data-oh-view="process"');
+    expect(html).toContain('aria-pressed="true">Živý proces</button>');
+    expect(html).toContain('id="process-slot"');
+    expect(html).not.toContain("Načítám stav OporaHubu");
+  });
   it("keeps every legacy drawer reachable from the footer", () => {
     const html = render("overview");
     for (const link of LEGACY_LINKS) expect(html).toContain(`data-oh-detail="${link.kind}"`);

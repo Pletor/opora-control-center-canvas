@@ -3,7 +3,7 @@
 Cíl: vidět, jak skutečná práce běží, bez zpoždění (push, ne polling), v 3D kanceláři
 (agent-office) i v Opoře. Žádná demo data: když zdroj nic nehlásí, pohled to řekne
 („bez dat“, „odpojeno“, stáří zdroje), nikdy nevymýšlí. Tento dokument popisuje backend
-Opory; podoba pohledu přijde v samostatném kroku.
+Opory (§1–7) a záložku „Živý proces“ v OporaHubu (§8).
 
 **Jeden tok.** Živý proces je rozšíření [toku událostí OporaHubu](oporahub-events.md): události
 kanceláře se zapisují do stejného outboxu `opora_events` jako změny Opory, mají stejný kurzor
@@ -163,3 +163,38 @@ Neznámý projekt `404`.
 `uv run pytest backend/canvas/test_process_event_validation.py backend/canvas/test_opora_event_process.py
 backend/canvas/test_process_ingest.py backend/canvas/test_process_signal.py
 backend/api/editor/test_oporahub_process_event_routes.py backend/canvas/test_opora_events.py`
+
+## 8. Pohled: záložka „Živý proces“ v OporaHubu
+
+OporaHub (Alt+3) → záložka **Živý proces** vedle Přehled / Karta / Pro agenty; přímý odkaz
+`?environment=hub&ohView=process`. Kód `frontend/hub/process-observatory/` (README tam), návrh Claude Design
+„Opora Hub — Živý proces“. Záložka se mountuje jen otevřená v prostředí OporaHub, takže odběr toku i čtení
+zdraví běží jen tehdy.
+
+- **Data.** Snímek `GET /api/oporahub/agent-state` (karty, `lastEventAt`) a sdílený klient toku
+  `frontend/editor/live-strip/logic/events-client.ts` (posledních až 300 událostí, SSE od kurzoru s obnovou
+  přes Last-Event-ID, po chybě dočtení `/events?since=`, `gap` → nové čtení agent-state, polling jako pojistka).
+  Zdraví `GET /api/oporahub/process-health` po 15 s přes sdílený poller. Dedupe podle `eventId`.
+- **Zdroje.** Čipy Kancelář (živě / odpojeno / bez událostí podle `officeConnected`), Opora, GitHub (stáří
+  poslední události) a OpenViking (`memory.status`); vpravo způsob doručení (push · SSE, nebo polling).
+- **Blokace.** Pás nahoře: karty, jejichž poslední událost je `needs.input`, selhané CI (`pr.checks` fail),
+  požadované změny (`pr.review` wait), červený `guard`, selhání nástroje, jiný `blocked`/`fail`, nebo karta
+  s blokujícím zdravím ve snímku. „Detail“ kartu vybere.
+- **Mapa toku.** Řádek = karta (s událostí v okně, nebo s během / lease / `lastEventAt` ve snímku), sloupce =
+  sedm fází §1. Značka pracovníka (iniciály) stojí ve fázi poslední události (`memory.recall` fázi nemění);
+  karta bez události v okně stojí ve fázi podle etapy snímku s čárkovanou značkou. Barva = jen stav přes
+  tokeny tématu (`--accent` běží, `--ok` potvrzeno, `--warn` čeká na člověka, `--danger` selhalo/blokováno,
+  `--ink-muted` bez události); tvar ho opakuje (kruh, kosočtverec, dutý kroužek, čárkovaný kroužek, „!“).
+  Pořadí: nejdřív blokace, pak čerstvost poslední události; během hoveru myši se řádky nepřeřazují.
+  Mlčící kancelář (`officeConnected=false`) ztlumí její řádky a nad mapou řekne, od kdy je odpojená.
+- **Proud událostí.** Nejnovější nahoře; filtr karty a pracovníka; „Pozastavit čtení“ zastaví seznam,
+  data se dál bufferují a tlačítko ukazuje jejich počet; „Pokračovat“ je přidá najednou.
+- **Inspektor.** Vybraná karta (výchozí první řádek): kdo je na tahu (jantarově „Čeká na člověka“), běh,
+  větev, PR (odkaz jen na `https://…/pull/…` od zdroje), commit, patro, kontroly z fáze Kontroly, časová osa
+  karty a tlačítko „Otevřít detail karty“ (`openCardDrawer`, jednotný drawer karty).
+- **Pohyb.** Nic se nehýbe samo: přesun značky jen při změně fáze (450 ms), `tool.use` jednou pulzuje,
+  `fail` se jednou zatřese, nový řádek proudu sjede o 8 px. `prefers-reduced-motion: reduce` = skok,
+  statický kroužek místo pulzu, bez třesení a bez sjíždění.
+- **Rozvržení.** Mřížka `minmax(0,1fr) 384px` (mapa a proud vlevo, inspektor vpravo přes oba řádky);
+  pod 1180 px jeden sloupec (mapa, inspektor, proud). Popisek řádku 236 px (pod 1000 px 184 px).
+- **Prázdný stav.** „Zatím žádná událost — kancelář ani Opora nic nehlásí“.
