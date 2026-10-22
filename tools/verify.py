@@ -29,22 +29,10 @@ STEPS = (
 
 RUFF = ["uv", "run", "ruff", "check", "backend", "tools", "database"]
 
-# Testy, které padají z prostředí, ne z kódu: chybí volitelný balíček graphify.
-KNOWN_FAILURES = (
-    "test_generate_uses_official_graphify_and_persists_output",
-    "test_real_graphify_refresh_publishes_only_selected_project",
-)
-
-
 def run(command):
     result = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True,
                             encoding="utf-8", errors="replace", check=False)
     return result.returncode, (result.stdout or "") + (result.stderr or "")
-
-
-def only_known_failures(output):
-    failed = [line for line in output.splitlines() if line.startswith("FAILED ")]
-    return bool(failed) and all(any(known in line for known in KNOWN_FAILURES) for line in failed)
 
 
 def check_ruff():
@@ -103,9 +91,6 @@ def main(argv=None):
         code, output = run(command)
         if code == 0:
             print(f"[ok] {name}")
-            continue
-        if name == "pytest" and only_known_failures(output):
-            print(f"[ok] {name} (jen známá selhání kvůli chybějícímu balíčku graphify)")
             continue
         print(f"[chyba] {name}")
         print(output[-2000:])

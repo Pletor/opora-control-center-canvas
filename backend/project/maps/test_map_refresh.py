@@ -209,14 +209,16 @@ def test_incomplete_output_does_not_overwrite_previous_set(tmp_path):
     assert sorted(p.name for p in (root / 'archify-out').iterdir()) == ['SPEC.md']
 
 
-def test_real_graphify_refresh_publishes_only_selected_project(tmp_path):
+def test_real_graphify_refresh_publishes_only_selected_project(tmp_path, real_graphify):
     from backend.api.project.graphify_routes import load_graph
     app, service, (a, pa), (b, pb) = two_projects(tmp_path, with_maps=False)
     manager = app.state.map_refresh
     manager.retry(pa, 'graphify')
     manager.run_one()
     assert manager.status(pa)['status'] == 'succeeded', manager.status(pa)
-    assert manager.status(pb)['status'] == 'watching'
+    # Ruční běh A projekt B nepozoruje ani nezařadí: bez scan() nemá B řádek, proto 'unavailable'.
+    # ('watching' by B mít nemohl ani po scan(): bez stabilní sady by šel do počátečního běhu.)
+    assert manager.status(pb)['status'] == 'unavailable'
     value = load_graph(service, pa)
     assert 'alpha' in value['graphJson']
     assert 'beta' not in value['graphJson']
