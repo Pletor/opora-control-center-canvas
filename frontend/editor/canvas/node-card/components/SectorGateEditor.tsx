@@ -4,7 +4,7 @@ import { nearestSector } from "../logic/sector-status";
 export default function SectorGateEditor({ sector, graph, disabled, save }: {
   sector: CanvasNode; graph: Graph; disabled: boolean; save: (node: CanvasNode) => void;
 }) {
-  return <label className="board-bar__gate">Brána: <select aria-label="Brána sektoru" disabled={disabled}
+  return <label className="board-bar__gate">Závěrečná karta: <select aria-label="Závěrečná karta sektoru" disabled={disabled}
     value={sector.gateNodeId ?? ""} onChange={event => {
       const { gateNodeId: _previous, ...node } = sector;
       save(event.target.value ? { ...node, gateNodeId: event.target.value } : node);

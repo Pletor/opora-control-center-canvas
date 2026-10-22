@@ -6,6 +6,7 @@ import type { CanvasNode, Graph } from "@/shared/types/logic/types";
 import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { edgeAppearance } from "./board-model";
 import { handoffMark } from "@/editor/canvas/card-checklist/logic/card-checklist";
+import { dagLook } from "./dag-edges";
 
 export type LayerEdgesInput = {
   graph: Graph;
@@ -20,6 +21,8 @@ export type LayerEdgesInput = {
   blockEdges: Edge[];
   /** Zjednodušené vedení: rovná čára místo pravoúhlé (velká vrstva, viz `simpleEdges`). */
   simple?: boolean;
+  /** Karty, které už nikoho neblokují (tvář `done`); vazby `next` z nich jsou plné, ostatní přerušované. */
+  finished?: ReadonlySet<string>;
 };
 
 /** Od kolika vazeb ve vrstvě se kreslí rovně: pravoúhlé vedení na tisících vazeb zdržuje každý snímek. */
@@ -33,13 +36,15 @@ export const simpleEdges = (graph: Graph, ids: ReadonlySet<string>): boolean => 
 
 /** Vazba z portu `action`/`rule` vede z téhož úchytu jako blok, vazba z tlačítka bloku z úchytu
  *  `block:<blockId>:<portId>` uvnitř karty; starší vazba bez portu = `next`. Vzhled řeší board-model. */
-export function layerEdges({ graph, state, ids, kinds, added, selectedEdge, blockEdges, simple = false }: LayerEdgesInput): Edge[] {
+export function layerEdges({ graph, state, ids, kinds, added, selectedEdge, blockEdges, simple = false, finished }: LayerEdgesInput): Edge[] {
+  const cards = new Set([...kinds].filter(([, kind]) => kind === "node" || kind === "sector").map(([id]) => id));
   return graph.edges
     .filter((e) => ids.has(e.source) && ids.has(e.target))
     .map((e): Edge => ({ ...e, ...edgeAppearance(e, state.nodes[e.source]?.blocks?.find(b => b.id === e.sourceBlockId)?.ports?.find(p => p.id === e.sourcePortId)), animated: added.has(e.id),
       ...(simple ? { type: "straight", pathOptions: undefined } : {}),
       // Předávka jen barvou: zelená vazba = zpráva je předaná; malá jantarová obálka = hotová karta ji nenechala.
-      ...handoffLook(handoffMark(e, state, kinds), edgeAppearance(e).style), selected: e.id === selectedEdge }))
+      ...handoffLook(handoffMark(e, state, kinds), edgeAppearance(e).style),
+      ...(finished ? dagLook(e, cards, finished) : null), selected: e.id === selectedEdge }))
     .concat(blockEdges.map((e) => ({ ...e, selected: e.id === selectedEdge })));
 }
 

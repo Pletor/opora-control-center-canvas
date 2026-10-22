@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WORKSPACE_MODES } from "@/shared/surface-settings/logic/workspace-settings";
 import { iconPath } from "@/ui-kit/icon/logic/icon-paths";
-import { MODE_ICONS, modeIcon } from "./mode-rail";
+import { MODE_ICONS, OVERFLOW_MODES, PRIMARY_MODES, isOverflowMode, modeIcon } from "./mode-rail";
 
 describe("mode-rail – ikony módů plátna", () => {
   it("každý mód z kontraktu má svou ikonu", () => {
@@ -27,5 +27,12 @@ describe("mode-rail – ikony módů plátna", () => {
     for (const name of Object.values(MODE_ICONS)) {
       expect(iconPath(name), name).not.toBe("");
     }
+  });
+
+  it("lean lišta: Struktura, Velín, Text vpředu, každý další mód v nabídce ⋯", () => {
+    expect([...PRIMARY_MODES]).toEqual(["structure", "map", "text"]);
+    expect(WORKSPACE_MODES.map((mode) => mode.key).sort()).toEqual([...PRIMARY_MODES, ...OVERFLOW_MODES].sort());
+    expect(isOverflowMode("drawing")).toBe(true);
+    expect(isOverflowMode("map")).toBe(false);
   });
 });

@@ -65,11 +65,33 @@ starého `agent-output` (nahrazuje ji Běh s výsledky exekucí). Inspektor uzlu
 | Pata · **Metriky review** | Malá infografika: nálezy podle závažnosti, co se s nálezy stalo, přijetí a šum, odfiltrováno hlasováním, kola na PR, čas do rozhodnutí člověka, pojistky revertů a incidentů, počet eval případů a odkaz na `export.jsonl` | `GET …/review-metrics`, `…/review-evals` |
 | Pata · **Kniha důkazů** | Počty podle stavu, filtr nástroje (Lean, TLC, Shoda), řádky s důvěrou, commitem a axiomy (axiom mimo povolené je zvýrazněn); v úzkém panelu (< 700 px) je každé tvrzení karta s řádky „stav / důvěra / commit / naposledy / axiomy“ bez vodorovného posouvání | `GET …/verifications/ledger` |
 | Pata · **Lidé v review (jen člověk)** | Nárok identity → řádek `Opora-Identity: <id> <nonce>` ke zkopírování a vložení jako samostatný řádek komentáře na GitHub, ověření číslem PR/issue, registr (ověřeno / čeká / zrušeno, operátor), zrušení s potvrzením | `…/review-identities*` |
-| **Plátno Editoru** | Nad pravým horním rohem každé karty odznak `značka · etapa · slovo`; klik otevře jednotný detail karty přímo nad plátnem. Vypínač: Nastavení → Plátno → „Odznaky etap OporaHubu na kartách“ (výchozí zapnuto) | `cards[]` agent-state |
+| **Plátno Editoru** | Stavový řádek tváře karty (viz [Editor lean](#editor-lean-tvář-karty-velín-a-živý-pás)); samostatný odznak nad kartou zrušen | `cards[]` agent-state |
 
 **Nonce nikdy nejde agentovi.** Řádek `Opora-Identity` vrací server jen lidské session a UI ho ukazuje
 jen jako text v draweru: není v žádném `data-oh-*` atributu ani v zrcadle `oh-review-identities`
 (funkce `publicIdentities` ho odstraní, hlídá test).
+
+## Editor lean: tvář karty, Velín a živý pás
+
+Návrh Claude Design „Opora Editor — lean“ (rámy 1a/1b, 2a/2b, 4a/4b, 5a/5b). Jediný zdroj stavu je
+agent-state; tok událostí je delta. Starší pipeline router/kritici, kontrolní pás, sloty dokladů a
+návrhy uzavření z plátna zmizely (backend zůstává do pozdějšího PR).
+
+| Kde | Co ukazuje | Zdroj |
+|---|---|---|
+| **Lišta Editoru** | Struktura · Velín · Text; `⋯` = Kreslení, Kancelář, Storyboard (aktivní mód z nabídky nese ⋯ jeho jméno); zpět/vpřed; jedno `+ Přidat` (Sektor, Uzel, Komentář, Oblast); jedno `Srovnat` (sloupce podle vazeb, ve sloupci podle `topoIndex`, pak původní místo) | `layout/mode-rail`, `editor/canvas/add-menu`, `ui-kit/toolbar-menu` |
+| **Tvář karty** | Druh (`kind`, jinak vrstva) a kdo drží (A agent z `lease.holder`, H člověk u rozhodnutí); název; **jeden** stavový řádek `značka slovo · etapa · důvod` (u běžící karty odpočet lease); segmenty kroků `done/total · current Název`; nejvýš jedna patička: rozhodnutí > na koho čeká (`blockedBy`) > brána (`gate.rule`). Okraj: tyrkysový = agent běží, zlatý = čeká na tebe, čárkovaný = blokováno předchůdcem. Přednost stavu: hotovo > rozhodnutí > lease > blokováno > brána > zdraví. Pod 45 % zoomu glyf (značka, název, lišta postupu); nevybraná karta má z bloků jen číslo, název a úchyty, porty se ukážou najetím | `cards[]` (`stage`, `health`, `reason`, `kind`, `layer`, `blockedBy`, `gate`, `steps`, `lease`), `decisions[]` |
+| **Hlava vrstvy** | `SEKTOR jméno` + počty karet podle tónu (✓ ▸ ◷ ● ✕ ○), `N karet · M vazeb next`, autonomie a závěrečná karta sektoru (dříve „Brána“, přejmenováno, aby se nepletlo s bránou merge) | tváře karet vrstvy |
+| **Vazby `next`** | Z hotové karty (`card_closed` / `plan_written_back`) plná zelená, jinak přerušovaná. Uložení, které by uzavřelo cyklus, vrátí 409 `card_cycle`; lišta chyb vypíše cestu jmény karet a nic se neuloží | `cards[]`, `POST /api/graph` |
+| **Velín** | Filtry Vše / Na tebe / Problémy / Běží; projekt (složený pruh tónů a počty) → vrstva → sektor → pilulky karet podle `topoIndex`; vpravo nejvýš 3 rozhodnutí pro tebe a 5 dalších připravených akcí; „Teď běží“ s agentem, krokem, postupem a odpočtem lease (prošlý červeně s ✕). Klik otevře detail karty | agent-state |
+| **Živý pás** | Sbalený: poslední 4 události `čas značka karta · co`. Rozbalená Časová osa (5 / 15 / 60 min): dráha = karta vrstvy v pořadí `topoIndex`, značky událostí, pás pronájmu (claim → výsledek/vypršení/teď), čárky heartbeatu, čára „teď“; vpravo posledních 30 událostí. Klik otevře detail karty na záložce podle druhu události. Na telefonu jen seznam | `GET /api/oporahub/events`, SSE `…/events/stream` |
+
+**Jeden klient událostí** (`frontend/editor/live-strip/logic/events-client.ts`): na prostor jedno spojení sdílené všemi
+odběrateli. Start: `head`, posledních až 200 událostí, pak SSE od kurzoru. Po chybě spojení dočte
+`/events?since=<kurzor>` (pozná `gap`) a připojí se znovu; po třech selháních zůstane u pollingu po 5 s.
+Nová událost nebo `gap` po 400 ms znovu načte agent-state (sdílený poller), takže tváře karet, Velín i pás
+drží snímek + deltu. **Detail karty** se otevírá jen přes `openCardDrawer(nodeId, tab?)`
+(`frontend/hub/oporahub-card-drawer/logic/open.ts`); dokud jednotný drawer chybí, App přepne do OporaHubu s kartou.
 
 ## Zdraví, tvar a role
 
@@ -126,8 +148,10 @@ document.querySelectorAll('[data-oh-action-status="ready"]')      // připraven�
 | Pata | `data-oh-detail` (druh původního detailu) | — |
 | Etapa Review / Návrh | `data-oh-gate-status` (`blocked`/`pending`/`clear`/`off`), `data-oh-gate-rule`; `data-oh-conflicts` | `stages[review]`, `actions[verb=proposal.resolve_conflict]` |
 | Akce (doplněk) | `data-oh-group`, `data-oh-attention` | `actions[].verb`, `.attention` |
-| Odznak na plátně | `data-oh-view="canvas-badges"` + `data-oh-etag`; `data-oh-card-badge`, `data-oh-stage`, `data-oh-health`, `data-oh-reason`, `data-oh-execution`; zrcadlo `script#oh-card-stages` | `cards[]` |
-| Krok Review karty | `data-oh-step="review"`, `data-oh-card-stage`, `data-oh-step-status` (celý text stavu; čip se zalamuje, plný text i v `title` a v panelu brány pod osou); panel `data-oh-review-gate` (executionId), `data-oh-gate-status`, `data-oh-gate-rule`, `data-oh-gate-reason`, `data-oh-open-important`, `data-oh-security`, `data-oh-approvals-required`, `data-oh-approvals-verified`, `data-oh-humans-mode`, `data-oh-self-checks`, `data-oh-stale-against-main`, `data-oh-template-incomplete`; zrcadlo `script#oh-review-gates` | `…/review-jobs/gates` |
+| Tvář karty | `data-oh-card-face` (nodeId), `data-oh-face-state` (`blocked`/`ready`/`working`/`review`/`decision`/`done`/`problem`/`plan`), `data-oh-stage`, `data-oh-health`, `data-oh-reason`, `data-oh-execution`, `data-oh-steps-total`, `data-oh-steps-done`, `data-oh-lease-holder`, `data-oh-lease-epoch`, `data-oh-lease-expires`; patička `data-oh-gate-status` + `data-oh-gate-rule` / `data-oh-blocked-by` / `data-oh-decision` + `data-oh-action-id`; hlava vrstvy `data-oh-view="layer-summary"` + `data-oh-tone`/`data-oh-value`; zrcadlo `script#oh-card-stages` | `cards[]`, `decisions[]` |
+| Velín | `data-oh-view="velin"` + `data-oh-etag`; `data-oh-layer`, `data-oh-sector`, pilulka `data-oh-node-id` + `data-oh-tone` + `data-oh-stage` + `data-oh-reason`; `data-oh-decision`, `data-oh-action-id`, `data-oh-verb`; Teď běží `data-oh-lease-holder`, `data-oh-lease-expires`; zrcadlo `script#oh-velin` | agent-state |
+| Živý pás | `data-oh-view="live-strip"`, `data-oh-transport` (`connecting`/`sse`/`poll`), `data-oh-cursor`; `data-oh-lane` (nodeId), `data-oh-event` (id) + `data-oh-kind` | `…/events`, `…/events/stream` |
+| Krok Review karty | `data-oh-step="review"`, `data-oh-card-stage`; panel `data-oh-review-gate` (executionId), `data-oh-gate-status`, `data-oh-gate-rule`, `data-oh-gate-reason`, `data-oh-open-important`, `data-oh-security`, `data-oh-approvals-required`, `data-oh-approvals-verified`, `data-oh-humans-mode`, `data-oh-self-checks`, `data-oh-stale-against-main`, `data-oh-template-incomplete`; zrcadlo `script#oh-review-gates` | `…/review-jobs/gates` |
 | Formální důkazy karty | `data-oh-proof-kind`, `data-oh-proof-status`, `data-oh-trust`, `data-oh-verification`; tlačítko `data-oh-verb="verification.fix"` + `data-oh-action-id`; zrcadlo `script#oh-card-proofs` | `…/verifications?nodeId` |
 | Historie karty | `data-oh-view="card-history"`, `data-oh-history-revision`, `data-oh-proposal`, `data-oh-blame-key`, `data-oh-revision`; zrcadlo `script#oh-card-history` | `…/history/card`, `…/blame/card` |
 | Konflikty | `data-oh-view="conflicts"`, `data-oh-conflict`, `data-oh-conflict-status`, `data-oh-proposal`, `data-oh-proposal-kind`, `data-oh-field-key`, `data-oh-choice`; zrcadlo `script#oh-auto-rebase-conflicts` | `…/auto-rebase/conflicts` |
@@ -146,7 +170,10 @@ Atributy jsou jen ke čtení; každý zápis dál ověří původní API a akce 
 `oporahub-workspace` (skládání, přímý odkaz `?ohView=agents`; `?ohCard=` čte detail karty sám).
 Vlna 5: `oporahub-review-gate` (krok Review karty), `oporahub-proofs` (důkazy karty, kniha důkazů),
 `oporahub-card-history`, `oporahub-conflicts`, `oporahub-review-metrics`, `oporahub-identity`,
-`oporahub-mirror` (jednorázové čtení a zrcadla `oh-*`) a na plátně `editor/canvas/loop-badges`.
+`oporahub-mirror` (jednorázové čtení a zrcadla `oh-*`). Editor lean: `editor/canvas/card-face` (tvář, glyf,
+hlava vrstvy, tóny), `frontend/editor/canvas/board/logic/dag-edges.ts` a `card-cycle.ts`, `editor/control-tower` (Velín),
+`editor/live-strip` (klient událostí, dráhy), `editor/canvas/add-menu`, `ui-kit/toolbar-menu`,
+`hub/oporahub-card-drawer` (šev detailu karty).
 
 ## Ověření
 

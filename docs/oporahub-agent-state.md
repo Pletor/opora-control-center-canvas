@@ -28,7 +28,7 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `decisions[]` | Nejvýše 3 rozhodnutí člověka `{id, kind, targetId, title, actionId}` |
 | `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?}` |
 | `gaps[]` | Známé nenapojené schopnosti `{id, stage, reason}` |
-| `cards[]` | Etapa každé karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate}` seřazená podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)) |
+| `cards[]` | Etapa každé karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease}` seřazená podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)) |
 | `truncated` | Projekce karet narazila na limit 100 (`ProcessSync`) |
 
 `health` je `ok`, `waiting`, `blocking` nebo `not_connected`. `reason` je strojový kód.
@@ -95,6 +95,7 @@ Pole karty v `cards[]` (`backend/canvas/opora_agent_state_dag.py`):
 | `topoIndex` | Pořadí v topologickém řazení všech karet prostoru (Kahn, remízy podle id) |
 | `nextActionId` | `id` první akce (v pořadí `actions[]`), jejíž `targetId` je karta nebo běh její etapy; jinak `null` |
 | `gate` | `{status, rule}` brány review otevřeného PR karty (`rule` = kód pravidla podle priority etapy `review`, jinak první důvod brány), bez brány `null` |
+| `lease` | `{holder, expiresAt, epoch}` posledního běhu karty ve stavu `running` s termínem (pronájem nebo pevný konec rozpočtu) v budoucnosti; jinak `null`. `holder` = vlastník claimu, `expiresAt` ISO UTC (`backend/canvas/opora_agent_state_lease.py`) |
 
 Karta s neprázdným `blockedBy` má akci `claim` blokovanou důvodem `blocked_by_predecessor`
 (rozpočtové důvody mají přednost) a nezapočítává se do `count` etapy `claim`. Endpoint claim

@@ -1,1 +1,0 @@
-Karta sektoru na plátně.

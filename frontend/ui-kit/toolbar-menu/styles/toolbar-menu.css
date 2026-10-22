@@ -1,0 +1,23 @@
+/* NABÍDKA LIŠTY (blok `toolbar-menu`)
+   Příběh: lišta Editoru má jen pár tlačítek; vzácnější pohledy a tvorba žijí o jedno kliknutí hlouběji.
+   Nabídka visí těsně pod tlačítkem, má tichý nadpis a položky s ikonou vlevo a zkratkou vpravo, aby se dala
+   naučit klávesnicí. Aktivní položka (třeba právě otevřené Kreslení) svítí akcentem. */
+.toolbar-menu { position: relative; display: inline-flex; }
+.toolbar-menu__button--active { color: var(--accent); border-color: var(--accent-line); }
+.toolbar-menu__list {
+  position: absolute; top: calc(100% + 6px); z-index: 60; min-width: 200px; padding: 6px;
+  display: flex; flex-direction: column; gap: 2px; background: var(--surface); border: 1px solid var(--line-strong);
+  border-radius: 8px; box-shadow: var(--shadow-pop);
+}
+.toolbar-menu__list--start { left: 0; }
+.toolbar-menu__list--end { right: 0; }
+.toolbar-menu__heading { padding: 6px 10px 4px; font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.toolbar-menu__item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px;
+  background: none; color: var(--ink); font: 500 13px var(--font); text-align: left; cursor: pointer;
+}
+.toolbar-menu__item:hover, .toolbar-menu__item:focus-visible { background: var(--surface-3); }
+.toolbar-menu__item--active { color: var(--accent); background: var(--accent-soft); }
+.toolbar-menu__glyph { width: 16px; display: inline-grid; place-items: center; color: var(--ink-2); }
+.toolbar-menu__label { flex: 1; }
+.toolbar-menu__shortcut { font: 500 11px var(--mono); color: var(--ink-muted); background: none; border: 0; }

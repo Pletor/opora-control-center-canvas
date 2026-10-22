@@ -5,7 +5,7 @@ export type SurfaceSettings = {
   snap: boolean;
   gridSize: number;
   drawingGrid: boolean;
-  /** Odznaky etap OporaHubu nad kartami plátna (Editor). Starší uložené preference ho nemají → zapnuto. */
+  /** Starší přepínač odznaků etap; odznak je teď stavový řádek tváře karty, hodnota se jen zachovává. */
   loopBadges: boolean;
 };
 export const SETTINGS_KEY = "opora:surface-settings:v1";

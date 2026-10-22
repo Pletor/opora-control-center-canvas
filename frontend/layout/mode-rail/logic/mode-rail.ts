@@ -19,3 +19,8 @@ export const MODE_ICONS: Record<string, IconName> = {
 export function modeIcon(id: string): IconName {
   return MODE_ICONS[id] ?? "layout-grid";
 }
+
+/** Lean lišta (návrh „Opora Editor — lean“, 1a): tři hlavní pohledy, ostatní v nabídce ⋯. */
+export const PRIMARY_MODES = ["structure", "map", "text"] as const;
+export const OVERFLOW_MODES = ["drawing", "office", "storyboard"] as const;
+export const isOverflowMode = (mode: string): boolean => (OVERFLOW_MODES as readonly string[]).includes(mode);

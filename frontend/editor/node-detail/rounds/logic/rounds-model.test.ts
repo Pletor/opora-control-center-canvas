@@ -1,7 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import CardHead from "@/editor/canvas/node-card/components/CardHead";
 import { cardView } from "@/editor/canvas/node-card/logic/card-model";
 import { cardsWithRoundDecisions, decisionRounds, fromRoundLabel, openRoundLabel, roundChips, roundDecisions, roundDigest, roundNumber, roundOffer, type RoundRecord } from "@/editor/node-detail/rounds/logic/rounds-model";
 import { emptyNodeWorkflow } from "@/shared/desktop-state/logic/types";
@@ -65,14 +64,13 @@ describe("kola karty", () => {
     expect(roundDecisions(older)).toEqual([]);
   });
 
-  it("hlava karty na plátně ukazuje kola od v2", () => {
+  it("model karty nese číslo kola (tvář na plátně kola neukazuje, žijí v detailu)", () => {
     const node = { id: "c1", parentId: null, kind: "node", name: "Karta", purpose: "", x: 0, y: 0 } as unknown as CanvasNode;
     const first = cardView(node, emptyNodeWorkflow(), 0);
     expect(first.round).toBe(1);
-    expect(renderToStaticMarkup(createElement(CardHead, { view: first }))).not.toContain("card-rounds");
     const second = cardView(node, { ...emptyNodeWorkflow(), round: { number: 2, openedAt: "", by: "human", reason: "nové zadání" } }, 0);
     expect(second.round).toBe(2);
-    expect(renderToStaticMarkup(createElement(CardHead, { view: second }))).toContain("v1 ✓ · v2 ●");
+    expect(roundChips(2, false).map((chip) => chip.label + " " + chip.mark).join(" · ")).toBe("v1 ✓ · v2 ●");
   });
 
   it("rozhodnutí karty z dřívějšího kola nese štítek „z v1“ podle nejstaršího zamrazeného kola", () => {

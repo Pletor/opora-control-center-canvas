@@ -12,7 +12,8 @@ import {
   type OpenBlocks,
 } from "@/editor/workflow/blocks/logic/block-model";
 
-export type Footprint = { id: string; x: number; y: number; w: number; h: number };
+/** `order` = pořadí karty v grafu závislostí (`topoIndex` z agent-state); při shodě těžiště řadí sloupec. */
+export type Footprint = { id: string; x: number; y: number; w: number; h: number; order?: number };
 
 const CARD_W = 360;
 const CARD_H_DEFAULT = 240;
@@ -176,7 +177,7 @@ function boundsOf(placed: Placed[]): Rect {
 
 /** Stabilní pořadí podle původního místa na plátně (odshora, zleva) a nakonec podle id: dvakrát totéž. */
 function byOriginalPlace(a: Footprint, b: Footprint): number {
-  return a.y - b.y || a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  return (a.order ?? Infinity) - (b.order ?? Infinity) || a.y - b.y || a.x - b.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
 
 /**

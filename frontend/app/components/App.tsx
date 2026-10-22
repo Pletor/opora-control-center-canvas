@@ -6,7 +6,6 @@ import "@/ui-kit/panel-frame/styles/panels.css";
 import Board from "@/editor/canvas/board/components/Board";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import { useUsage } from "@/editor/canvas/node-card/logic/use-usage";
-import { useAssignmentStatus } from "@/editor/canvas/node-card/logic/use-assignment-status";
 import { useLeases } from "@/editor/canvas/node-card/logic/use-leases";
 import { useSourceStatus } from "@/editor/canvas/node-card/logic/use-source-status";
 import { confirmProposal } from "@/editor/canvas/node-card/logic/completion-proposals";
@@ -29,7 +28,7 @@ import { useSaveShortcut } from "@/editor/canvas/save-versions/logic/use-save-sh
 import { versionAuthor } from "@/editor/canvas/save-versions/logic/save-versions";
 import { deletableSelection, selectionPlan } from "@/editor/canvas/board/logic/box-selection";
 import { useUndoShortcut } from "@/editor/canvas/history/logic/undo-shortcut";
-import { arrangeGraph, arrangeLayer as arrangeFootprints, layerFootprints, type ArrangeOptions } from "@/editor/canvas/board/logic/layout-model";
+import { arrangeLayer as arrangeFootprints, layerFootprints, type ArrangeOptions } from "@/editor/canvas/board/logic/layout-model";
 /** Rozestupy „Srovnat“: dost místa na obálky předávek na vazbách a oblasti se odpuzují jako magnety. */
 const ARRANGE_SPACING: ArrangeOptions = { gapX: 160, gapY: 72, areaGap: 160 };
 import { clampAreaResize } from "@/editor/canvas/board/logic/solid-bodies";
@@ -87,6 +86,10 @@ import DrawingTools from "@/editor/canvas/drawing/components/DrawingTools";
 import { discardDrawingDrafts, type DrawingTool } from "@/editor/canvas/drawing/logic/drawing-state";
 const DrawingWorkspace = lazy(() => import("@/editor/canvas/drawing/components/DrawingWorkspace"));
 import ControlTower from "@/editor/control-tower/components/ControlTower";
+import AddMenu from "@/editor/canvas/add-menu/components/AddMenu";
+import LiveStrip from "@/editor/live-strip/components/LiveStrip";
+import { cardCycleError } from "@/editor/canvas/board/logic/card-cycle";
+import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
 import OfficeWorkspace from "@/editor/office/components/OfficeWorkspace";
 import WorkspaceBoundary from "@/ui-kit/workspace-boundary/components/WorkspaceBoundary";
 import {
@@ -123,7 +126,6 @@ import { useProposalReviewModels } from "@/hub/proposal-review/logic/use-proposa
 import { useExecutionBudgets } from "@/hub/execution-budgets/logic/use-execution-budgets";
 import { useOporaProposals } from "@/hub/proposal-history/logic/use-opora-proposals";
 import OporaHubWorkspace from "@/hub/oporahub-workspace/components/OporaHubWorkspace";
-import LoopBadgeLayer from "@/editor/canvas/loop-badges/components/LoopBadgeLayer";
 import { dashboardView } from "@/project/sync-dashboard/logic/sync-dashboard";
 import CommentPanel from "@/editor/canvas/comment-card/components/CommentPanel";
 import { newComment, nextCommentSpot } from "@/editor/canvas/comment-card/logic/comment-model";
@@ -179,6 +181,9 @@ export default function App() {
   function changeEnvironment(next: Environment) {
     setEnvironment(next);
   }
+  // Pořadí karet v grafu závislostí pro „Srovnat“ (sdílené čtení agent-state, žádný další poller).
+  const agentCards = useAgentState(project, workspace).state?.cards;
+  const topoOrder = useMemo(() => new Map((agentCards ?? []).flatMap((card) => card.topoIndex == null ? [] : [[card.nodeId, card.topoIndex] as const])), [agentCards]);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
   // Schránka v levém menu: bez požadavku ukazuje schránku otevřené vrstvy (nebo plátna); openVault z detailu
@@ -236,7 +241,6 @@ export default function App() {
   const desktop = useDesktopState(project, workspace);
   const usage = useUsage(project, workspace, desktop.revision);
   const leases = useLeases(project, workspace);
-  const assignmentStatuses = useAssignmentStatus(project, workspace, desktop.revision, textRevision);
   // Echo Oracle nad projektem: jeden dotaz na otevřený projekt, přepočet jen na vyžádání.
   const sync = useSyncReport(project, workspace);
   // Vybraný blok zmizel ze stavu (smazán jinde): výběr spadne zpět na uzel, aby zásuvka i inspektor zůstaly platné.
@@ -488,7 +492,7 @@ export default function App() {
       });
     } catch (e) {
       historyRef.current = historyBefore;
-      throw e;
+      throw cardCycleError(e, (id) => view.graph.nodes.find((n) => n.id === id)?.name) ?? e;
     }
     if (
       ticket === generation.current &&
@@ -800,18 +804,8 @@ export default function App() {
     const target = graph.nodes.find((n) => n.id === id);
     if (target?.kind === "node" && !target.site) { openNode(id); openCardDrawer(id); return; }
     enter(id);
-  }
-  /** Velín: karta → detail karty (a výběr na plátně), sektor → výběr ve Struktuře. */
-  function openNodeDetail(id: string) {
-    openNode(id); setMode("structure");
-    if (graph.nodes.find((n) => n.id === id)?.kind === "node") openCardDrawer(id);
-  }
-  // Potvrzení návrhů uzavření: tytéž handlery dostává plátno (Board) i Velín (ControlTower).
+  // Potvrzení navrženého uzavření karty (starší desktop-v3 tok, akce karty `confirm`).
   const confirmProposalNow = (id: string) => desktop.mutate(confirmProposal(id));
-  async function confirmSectorNow(sectorId: string, nodeIds: string[]) {
-    const fresh = await fetchState(project, workspace);
-    desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/confirm-proposals", { project, workspace, sectorId, nodeIds, expectedRevision: fresh.revision })));
-  }
   function selectProject(id: string, sourceKind?: string) {
     generation.current++;
     setView(null);
@@ -899,8 +893,10 @@ export default function App() {
   function arrangeLayer() {
     if (!editable) return;
     const layerAreas = graph.nodes.filter((n) => n.parentId === parent && n.kind === "area");
+    // Uvnitř sloupce toku rozhoduje pořadí v grafu závislostí (`topoIndex` z agent-state), pak původní místo.
     const arranged = arrangeFootprints(
-      layerFootprints(graph, parent, desktop.state, openBlocks, cardHeights.current, true),
+      layerFootprints(graph, parent, desktop.state, openBlocks, cardHeights.current, true)
+        .map((f) => ({ ...f, order: topoOrder.get(f.id) })),
       graph.edges,
       layerAreas,
       ARRANGE_SPACING,
@@ -916,12 +912,6 @@ export default function App() {
       const to = moved.get(n.id);
       return to && (to.x !== n.x || to.y !== n.y) ? { ...n, x: to.x, y: to.y } : n;
     });
-    if (nodes.some((n, i) => n !== graph.nodes[i])) run(() => save({ ...graph, nodes }));
-  }
-  /** „Srovnat vše“: každá vrstva grafu stejným pravidlem jako „Srovnat“, uloženo jedním zápisem. */
-  function arrangeAllLayers() {
-    if (!editable) return;
-    const nodes = arrangeGraph(graph, desktop.state, openBlocks, cardHeights.current, ARRANGE_SPACING);
     if (nodes.some((n, i) => n !== graph.nodes[i])) run(() => save({ ...graph, nodes }));
   }
   /** Text komentáře opuštěný na plátně nebo v inspektoru. */
@@ -1105,17 +1095,13 @@ export default function App() {
             onUndo={() => stepHistory("undo")} onRedo={() => stepHistory("redo")} />}
         </div>
         {(mode === "structure" || mode === "text") && <div className="v3-tool-group" role="group" aria-label="Tvorba">
-          <button type="button" disabled={!editable} onClick={() => open("sector")}>+ Sektor</button>
-          <button type="button" className="primary" disabled={!editable} onClick={() => open("node")}>+ Uzel</button>
-          <button type="button" disabled={!editable} onClick={createComment}>+ Komentář</button>
-          <button type="button" disabled={!editable} onClick={createArea}>+ Oblast</button>
+          <AddMenu disabled={!editable} onAdd={(kind) => kind === "sector" || kind === "node" ? open(kind) : kind === "comment" ? createComment() : createArea()} />
         </div>}
         {mode === "structure" && <div className="v3-tool-group v3-tool-group--shrink" role="group" aria-label="Filtr štítků">
           <TagFilter graph={graph} parent={parent} state={desktop.state} value={tagFilter} onChange={setTagFilter} />
         </div>}
         {mode === "structure" && <div className="v3-tool-group" role="group" aria-label="Rozložení">
-          <button type="button" disabled={!editable} onClick={arrangeLayer}>Srovnat</button>
-          <button type="button" disabled={!editable} onClick={arrangeAllLayers} title="Srovná všechny vrstvy projektu najednou; nezměřené karty podle odhadu výšky">Srovnat vše</button>
+          <button type="button" disabled={!editable} onClick={arrangeLayer} title="Srovná vrstvu do sloupců podle vazeb; ve sloupci podle pořadí v grafu závislostí">Srovnat</button>
         </div>}
         {/* Se skrytým inspektorem zůstávají nástroje kreslení a mapy dosažitelné v liště. */}
         {!inspectorShown && inspectorTools && <div className="v3-tool-group v3-mode-tools" role="group" aria-label="Nástroje pohledu">{inspectorTools}</div>}
@@ -1164,7 +1150,7 @@ export default function App() {
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
               ) : mode === "map" ? (
-                <ControlTower key={project} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={openNodeDetail} onEnterLayer={(id) => { enter(id); setMode("structure"); }} onConfirmProposal={confirmProposalNow} onConfirmSector={confirmSectorNow} />
+                <ControlTower key={project} project={project} workspace={workspace} graph={graph} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpen={(id) => { openCardDrawer(id); }} />
               ) : mode === "office" ? (
                 <OfficeWorkspace key={`${project}:${workspace}`} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }}
                   onStartSession={(request) => { setAssistantStart((prior) => ({ ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); }}
@@ -1209,15 +1195,12 @@ export default function App() {
                     reloadCanvas();
                   }}
                   onConfirmProposal={confirmProposalNow}
-                  confirmError={desktop.error}
                   onAutonomy={async (sectorId, until, grantedBy, note) => {
                     // Revize až těsně před zápisem: stav mezitím mění agenti a stará revize by souhlas tiše odmítla.
                     const fresh = await fetchState(project, workspace);
                     desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/autonomy", { project, workspace, sectorId, until, grantedBy, note, expectedRevision: fresh.revision })));
                   }}
                   onSaveSector={updated => { void run(() => save({ ...graph, nodes: graph.nodes.map(n => n.id === updated.id ? updated : n) })); }}
-                  onConfirmSector={confirmSectorNow}
-                  assignmentStatuses={assignmentStatuses}
                   onRuleWrite={(expected, item) => desktop.mutateItem("rule", expected, item)}
                   onRuleReview={desktop.reviewRule}
                   sourceContext={{ project, workspace }}
@@ -1225,7 +1208,6 @@ export default function App() {
                   scope={project + workspace + parent}
                   graph={graph}
                   settings={settings}
-                  overlay={settings.loopBadges && project && workspace ? <LoopBadgeLayer project={project} workspace={workspace} onOpen={(id) => openCardDrawer(id)} /> : null}
                   parent={parent}
                   selected={selected}
                   multiSelected={multiSelected}
@@ -1352,6 +1334,7 @@ export default function App() {
               </div>
             )}
           </div>
+          {view && project && workspace && (mode === "structure" || mode === "map") && <LiveStrip key={project + ":" + workspace} project={project} workspace={workspace} graph={graph} parent={parent} />}
           {!artifactMapOpen && <footer className="statusline">
             <span>
               {visible.length} uzlů v této vrstvě · {graph.nodes.length} v grafu

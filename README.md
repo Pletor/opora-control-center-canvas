@@ -49,8 +49,17 @@ a **Pro agenty** (fronta akcí, hlavy pro CAS, kopírovatelný JSON, kontrakt `d
 Konkrétní položka otevře svůj detail; ✕ nebo Esc vrátí přehled. Původní formuláře jsou
 v patě stránky. Přímé odkazy: `?environment=hub&ohView=agents`; detail karty `?ohCard=<nodeId>&ohTab=spec|steps|run|review|history` v kterémkoli prostředí. Detail karty je jeden drawer pro celou aplikaci (dvojklik na kartu, odznak, Velín, OporaHub) se záložkami Zadání · Kroky · Běh · Review & PR · Historie a definicí hotovo v hlavičce ([docs/oporahub-ui.md](docs/oporahub-ui.md#jednotný-detail-karty)). [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
 klikací ukázka; aplikace používá skutečná data a stejné API jako agenti.
-Na plátně Editoru nese každá karta odznak své etapy smyčky (etapa + ✓/◷/✕/◌ + slovo) ze stejného
-čtení agent-state; klik otevře její drawer v OporaHubu, vypíná se v Nastavení → Plátno. Detail karty
+Editor je štíhlý ([docs/oporahub-ui.md](docs/oporahub-ui.md#editor-lean-tvář-karty-velín-a-živý-pás)): lišta
+**Struktura · Velín · Text**, vzácnější Kreslení / Kancelář / Storyboard pod **⋯**, jedno **+ Přidat**
+(Sektor, Uzel, Komentář, Oblast) a jedno **Srovnat** (sloupce podle vazeb, ve sloupci podle `topoIndex`).
+Tvář karty ukazuje jen druh, kdo ji drží, název, jeden stavový řádek (zdraví · etapa · důvod), postup kroků
+a nejvýš jednu patičku (brána / na koho čeká / rozhodnutí); okraj nese stav (tyrkysový běží s odpočtem
+lease, zlatý čeká na tebe, čárkovaný blokováno). Vazby `next` z hotové karty jsou plné zelené, jinak
+přerušované; vazba, která by uzavřela cyklus, se neuloží a lišta chyb vypíše cestu cyklu jmény karet.
+**Velín** je projekt → vrstva → sektor → karta nad agent-state s rozhodnutími, dalšími akcemi a „Teď běží“.
+Dole běží **živý pás** ze sdíleného toku `GET /api/oporahub/events/stream` (záložně polling `/events?since=`);
+rozbalená **Časová osa** kreslí dráhy karet vrstvy. Detail karty se otevírá přes jediný šev
+`openCardDrawer` (zatím v OporaHubu). Detail karty
 ukazuje bránu review (pravidlo, které drží merge, ověření lidé, vlastní kontroly), formální důkazy
 s úrovní důvěry a historii/blame. Pata OporaHubu otevírá konflikty auto-rebase, metriky review,
 knihu důkazů a **Lidé v review** (jen člověk: nárok identity, řádek `Opora-Identity` k vložení na

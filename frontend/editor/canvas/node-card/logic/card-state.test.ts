@@ -7,7 +7,7 @@ const dot = (id: string, over: Partial<ProcessDot> = {}): ProcessDot => ({
   id, kind: "work", lens: "", status: "todo", current: false, stuck: false, retry: false, title: id, note: "", doneBy: "", ...over,
 });
 const process = (dots: ProcessDot[], over: Partial<CardProcessView> = {}): CardProcessView => ({
-  routed: dots.length > 0, profile: "code", profileLabel: "Kód", dots, finished: 0, total: dots.length, waitingOnHuman: false, proposed: 0, proofs: [], ...over,
+  routed: dots.length > 0, profile: "code", profileLabel: "Kód", dots, finished: 0, total: dots.length, waitingOnHuman: false, proposed: 0, ...over,
 });
 const work = (over: Partial<WorkRow> = {}): WorkRow => ({
   id: "n", name: "Karta", status: "waiting", agent: "", startedAt: null, lastActivity: null, touched: null, waitingOnHuman: [], blockedBy: [], ...over,
