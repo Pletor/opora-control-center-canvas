@@ -22,9 +22,10 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("useProcessSync scoped read lifetime", () => {
-  it("aborts prior refresh and ignores a late success/error even when transport ignores abort", async () => {
+  it("refresh supersedes without aborting, so the server never computes two reads at once", async () => {
     const f = fixture();
-    f.watcher.refresh(); expect(f.pending[0].signal.aborted).toBe(true);
+    // An aborted fetch would free the poller while the server still computes the read under the project lock.
+    f.watcher.refresh(); expect(f.pending[0].signal.aborted).toBe(false);
     expect(f.read).toHaveBeenCalledTimes(1); // Canonical poller never overlaps requests.
     f.pending[0].resolve(processFixture("obsolete")); await settle();
     f.pending[1].resolve(processFixture()); await settle();
@@ -44,9 +45,9 @@ describe("useProcessSync scoped read lifetime", () => {
     next.pending[0].resolve(processFixture("second")); await settle();
     expect(next.commits.at(-1)?.snapshot?.project).toBe("second"); next.watcher.close();
   });
-  it("polls/focuses only while visible and invalidates in-flight work when hidden", async () => {
+  it("polls/focuses only while visible and supersedes in-flight work when hidden", async () => {
     const f = fixture(); f.visible(false); f.events.get("visibilitychange")!();
-    expect(f.pending[0].signal.aborted).toBe(true);
+    expect(f.pending[0].signal.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(60000); f.events.get("focus")!(); expect(f.read).toHaveBeenCalledTimes(1);
     f.pending[0].resolve(processFixture()); await settle(); expect(f.commits.at(-1)?.snapshot).toBeNull();
     f.visible(true); f.events.get("visibilitychange")!(); expect(f.read).toHaveBeenCalledTimes(2);
@@ -63,7 +64,7 @@ describe("useProcessSync scoped read lifetime", () => {
     f.pending[1].reject(new Error("unavailable")); await settle();
     expect(f.commits.at(-1)?.snapshot).toBe(snapshot); expect(f.commits.at(-1)?.error).not.toBe(""); f.watcher.close();
   });
-  it("returning before an aborted transport settles queues one fresh read without overlapping", async () => {
+  it("returning before a superseded read settles queues one fresh read without overlapping", async () => {
     const f = fixture(); f.visible(false); f.events.get("visibilitychange")!();
     f.visible(true); f.events.get("visibilitychange")!(); f.events.get("focus")!();
     expect(f.read).toHaveBeenCalledTimes(1);

@@ -90,7 +90,8 @@ def capture_specification(canvas, project, workspace, node_id):
     """Return the version and frozen canonical data under the existing reentrant locks."""
     if not all(valid_id(value) for value in (project, workspace, node_id)):
         raise ValueError("Neplatný rozsah specifikace.")
-    with canvas.reading(project):
+    # Each related card's spec and drawing reads the view again; under the project lock that rebuilt it per card.
+    with canvas.reading(project), canvas.steady_reads(project):
         view = canvas.view(project, workspace)
         graph = view["graph"]
         by_id = {node["id"]: node for node in graph["nodes"]}

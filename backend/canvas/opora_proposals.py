@@ -16,7 +16,7 @@ class OporaProposals:
 
     def context(self, scope):
         pid, _, _ = _scope(scope)
-        with self.service.graph_lock_for(pid), self.service.lock_for(pid):
+        with self.service.graph_lock_for(pid), self.service.lock_for(pid), self.service.steady_reads(pid):
             return self._context(scope)
 
     def _context(self, scope):

@@ -75,7 +75,7 @@ class ProcessSync:
         validate({"project": project, "workspace": workspace, **({"nodeId": node} if node is not None else {})},
                  {"nodeId"} if node is not None else set())
         canvas = self.canvas
-        with canvas.graph_lock_for(project), canvas.lock_for(project):
+        with canvas.graph_lock_for(project), canvas.lock_for(project), canvas.steady_reads(project):
             view = canvas.view(project, workspace)
             cards = [item for item in view["graph"]["nodes"] if item["kind"] in {"node", "sector"}]
             selected = [item for item in cards if node is None or item["id"] == node]

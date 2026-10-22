@@ -27,7 +27,7 @@ class OporaChangesets:
 
     def context(self, pid, wid):
         scope({"project": pid, "workspace": wid})
-        with self.service.graph_lock_for(pid), self.service.lock_for(pid):
+        with self.service.graph_lock_for(pid), self.service.lock_for(pid), self.service.steady_reads(pid):
             view = self.service.view(pid, wid)
             repo = self.repository(pid, wid)
             head = repo.head()

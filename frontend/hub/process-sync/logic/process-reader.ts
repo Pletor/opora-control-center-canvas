@@ -21,12 +21,16 @@ export function browserProcessEnvironment(): ProcessEnvironment {
     target.addEventListener(event, callback); return () => target.removeEventListener(event, callback);
   } };
 }
-/** One scoped read lifetime. Aborted or superseded responses cannot publish, even if transport ignores abort. */
+/** One scoped read lifetime. Aborted or superseded responses cannot publish, even if transport ignores abort.
+ *  Only closing the scope aborts the transport: an aborted fetch frees the poller at once while the server
+ *  keeps computing the read under the project lock, so aborting on refresh or hide stacked server work. */
 export function watchProcess(project: string, workspace: string, publish: (state: ProcessState) => void,
   environment: ProcessEnvironment, read = readProcess) {
   let generation = 0, closed = false, controller: AbortController | undefined;
   let latest: ProcessSnapshot | null = null;
-  const invalidate = () => { generation++; controller?.abort(); controller = undefined; };
+  // Superseded: the reply still arrives (keeping one read per scope on the server) but cannot publish.
+  const supersede = () => { generation++; };
+  const invalidate = () => { supersede(); controller?.abort(); controller = undefined; };
   const run = async () => {
     if (closed || !project || !workspace || !environment.visible()) return;
     invalidate(); const current = generation;
@@ -40,7 +44,7 @@ export function watchProcess(project: string, workspace: string, publish: (state
   const poller = createPoller({ run, intervalMs: 15000, visibility: {
     hidden: () => !environment.visible(), subscribe: changed => environment.listen("visibilitychange", () => {
       const inflight = poller.running();
-      if (!environment.visible()) invalidate();
+      if (!environment.visible()) supersede();
       changed();
       // A request invalidated while hidden is not a fresh read on return.
       if (environment.visible() && inflight) void poller.refresh();
@@ -52,6 +56,6 @@ export function watchProcess(project: string, workspace: string, publish: (state
   poller.start();
   return { refresh: () => {
     if (closed || !environment.visible()) return;
-    invalidate(); void poller.refresh();
+    supersede(); void poller.refresh();
   }, close: () => { closed = true; invalidate(); poller.stop(); unlisten(); } };
 }

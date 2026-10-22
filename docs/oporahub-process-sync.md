@@ -52,6 +52,27 @@ merge/deploy. Browser ověří přehled, detail a mobil; změnu scope kontroluj�
 regrese čtecího cyklu. Samotná projekce neprovádí produkční migraci, merge PR,
 automatické přijetí ani placené spuštění.
 
+## Čtení pod zámkem projektu
+
+Projekce drží zámek grafu i dat projektu, aby karty, přijatá revize a ledger
+běhů pocházely z jednoho stavu. Pod zámkem `CanvasService.view` necachuje
+(zápisové spojení vidí vlastní změny), a dostupnost každé karty přitom čte
+zadání všech uzlů, z nichž každé si pohled skládá znovu. U Git projektu to
+byly tři procesy `git` na jedno složení: 44 karet znamenalo 7 971 procesů
+a pět minut, po které čekalo i „Uložit vše“ a editor zůstal neaktivní.
+
+Čtení, která drží zámek a nezapisují, proto běží v `canvas.steady_reads(pid)`:
+pohled se v bloku složí jednou na pracovní prostor a vnořená čtení ho sdílejí.
+Platí pro projekci procesu, `OporaChangesets.context`, `OporaExecutions.context`, kontext návrhu
+(`/api/oporahub/context`) a `capture_specification`. Na stejném projektu trvá
+projekce 0,2 s se třemi procesy `git` a uložení se uvolní do jedné sekundy.
+Do bloku nepatří zápis: viděl by pohled z doby před ním.
+
+Klient čte proces přes sdílený poller, který nikdy nepustí dva dotazy najednou.
+„Obnovit“ ani skrytí záložky proto běžící dotaz neruší: zrušený fetch by
+uvolnil poller, zatímco server pod zámkem dál počítá, a dotazy by se na serveru
+hromadily. Starší odpověď se jen nezveřejní; transport ruší až změna rozsahu.
+
 Ověřená produktová revize `2cc68d1df23a4d5f74eb4ebb5d9cd0e63cf03e7c`:
 frontend **234 souborů / 1 612 PASS**, TypeScript a produkční build PASS;
 38 cílených kontrol výběru, obnovování a fokusu PASS. Backendové cílené
