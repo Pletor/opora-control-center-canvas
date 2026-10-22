@@ -40,7 +40,7 @@ from backend.canvas.graph import valid_id
 from backend.canvas.project_facts import resolve_facts
 from backend.editor.agent_memory.agent_output import SCHEMA as OUTPUT_SCHEMA
 from backend.editor.agent_memory.agent_output import output_json_schema
-from backend.editor.agent_memory.agent_results import AgentResults
+from backend.editor.agent_memory.agent_results import AgentResults, brief_history
 from backend.editor.agent_memory.agent_workspace import AgentWorkspace, empty_workspace, handoff_of
 from backend.editor.agent_memory.autonomy import sector_of
 from backend.editor.agent_memory.card_ideas import brief_of as ideas_brief
@@ -496,7 +496,8 @@ class NodeBrief:
         brief["orientation"] = orientation_from_brief(brief, project, workspace)
         # Hranice důvěry (upgrade-opora #37): pokyny píše člověk, text jiných agentů je jen podklad.
         brief["trust"] = TRUST
-        brief["resultHistory"] = AgentResults(self.canvas).history(project, workspace, node_id, current=captured)
+        brief["resultHistory"] = brief_history(AgentResults(self.canvas).history(project, workspace, node_id, current=captured),
+                                               project, workspace, node_id)
         usage = usage_summary(self.canvas, project, workspace)
         brief["usage"] = {"own": usage["nodes"][node_id], "sector": usage["sectors"].get(node_id),
                           "source": usage["source"], "mode": usage["mode"]}
