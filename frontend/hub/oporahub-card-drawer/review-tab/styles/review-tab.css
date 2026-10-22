@@ -1,0 +1,31 @@
+/* ZÁLOŽKA REVIEW & PR (blok `review-tab`)
+   Příběh: „proč to ještě nejde sloučit?“ Nahoře PR s hlavou a čerstvostí vůči main, pod ním brána jako
+   kontrolní seznam: splněné pravidlo ✓ zeleně, čekající ◷ zlatě, blokující ✕ červeně, vypnuté ◌ šedě.
+   Pak nálezy (otevřené nahoře), ověření lidé proti počtu požadovaných a formální důkazy s důvěrou. */
+.review-tab { display: grid; gap: 14px; font-size: 13px; }
+.review-tab__muted { color: var(--ink-muted); font-size: 12px; font-weight: 400; }
+.review-tab__empty { margin: 0; padding: 12px 14px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--ink-muted); }
+.review-tab__pr { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.review-tab__pr-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; overflow-wrap: anywhere; }
+.review-tab__pr-number { padding: 2px 7px; border-radius: 4px; background: var(--surface-3); font: 600 12px var(--mono); }
+.review-tab__chip { display: inline-block; margin-left: auto; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 4px; font-size: 11.5px; font-weight: 600; }
+.review-tab__chip--ok { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok); }
+.review-tab__chip--warn { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+.review-tab__chip--bad { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); }
+.review-tab__chip--gap { border-style: dashed; color: var(--ink-muted); }
+
+.review-tab__section { display: grid; gap: 8px; }
+.review-tab__heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0; font-size: 13px; letter-spacing: 0; text-transform: none; }
+.review-tab__list { margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); list-style: none; }
+.review-tab__rule, .review-tab__finding { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: baseline; padding: 9px 14px; border-top: 1px solid var(--line); }
+.review-tab__rule:first-child, .review-tab__finding:first-child { border-top: 0; }
+.review-tab__rule--ok > span:first-child, .review-tab__finding--closed > span:first-child { color: var(--ok); }
+.review-tab__rule--pending > span:first-child { color: var(--warn); }
+.review-tab__rule--blocked > span:first-child, .review-tab__finding--open > span:first-child { color: var(--danger); }
+.review-tab__rule--off { color: var(--ink-muted); }
+.review-tab__finding .review-tab__chip { margin-left: 0; }
+
+/* Na telefonu se strojový kód pravidla schová; lidská věta a značka stačí, kód zůstává v data-oh-gate-reason. */
+@media (max-width: 560px) {
+  .review-tab__rule > code { display: none; }
+}

@@ -1,0 +1,23 @@
+/* ZÁLOŽKA HISTORIE (blok `history-tab`)
+   Příběh: co se s kartou dělo, od nejnovějšího. Každá událost je jeden řádek: čas, barevná tečka
+   (zelená hotovo, tyrkys průběh, zlatá člověk/zadání, červená selhání), lidský nadpis a strojový druh
+   s aktérem drobně za ním. Filtr nahoře zúží osu; pod ní historie přijatých revizí a blame zadání. */
+.history-tab { display: grid; gap: 12px; font-size: 13px; }
+.history-tab__muted { color: var(--ink-muted); font-size: 11.5px; font-weight: 400; }
+.history-tab__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.history-tab__filters { display: inline-flex; padding: 3px; border-radius: 8px; background: var(--surface-3); }
+.history-tab__filter { padding: 5px 12px; border: 0; border-radius: 6px; background: none; color: var(--ink-2); font-size: 12.5px; cursor: pointer; }
+.history-tab__filter[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 650; box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+
+.history-tab__list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.history-tab__event { display: grid; grid-template-columns: 46px 12px 1fr; gap: 8px; align-items: baseline; padding: 6px 0; }
+.history-tab__time { font: 12px var(--mono); color: var(--ink-muted); }
+.history-tab__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.history-tab__dot--ok { background: var(--ok); }
+.history-tab__dot--warn { background: var(--gold); }
+.history-tab__dot--bad { background: var(--danger); }
+.history-tab__text { min-width: 0; overflow-wrap: anywhere; }
+
+.history-tab__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 4px; }
+.history-tab__button { padding: 7px 14px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font-weight: 600; cursor: pointer; }
+.history-tab__button:disabled { opacity: .5; cursor: default; }

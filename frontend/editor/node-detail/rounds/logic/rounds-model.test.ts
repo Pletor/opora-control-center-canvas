@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CardHead from "@/editor/canvas/node-card/components/CardHead";
 import { cardView } from "@/editor/canvas/node-card/logic/card-model";
-import { OpenRoundOffer, RoundRecordView, RoundSwitch } from "@/editor/node-detail/rounds/components/RoundsPanel";
 import { cardsWithRoundDecisions, decisionRounds, fromRoundLabel, openRoundLabel, roundChips, roundDecisions, roundDigest, roundNumber, roundOffer, type RoundRecord } from "@/editor/node-detail/rounds/logic/rounds-model";
 import { emptyNodeWorkflow } from "@/shared/desktop-state/logic/types";
 import type { CanvasNode } from "@/shared/types/logic/types";
@@ -38,11 +37,6 @@ describe("kola karty", () => {
     expect(roundChips(2, false).map((chip) => chip.label + " " + chip.mark)).toEqual(["v1 ✓", "v2 ●"]);
     expect(roundChips(3, true).map((chip) => chip.mark)).toEqual(["✓", "✓", "✓"]);
     expect(roundChips(2, false).filter((chip) => chip.current).map((chip) => chip.round)).toEqual([2]);
-    expect(renderToStaticMarkup(createElement(RoundSwitch, { current: 1, closed: false }))).toBe("");
-    const markup = renderToStaticMarkup(createElement(RoundSwitch, { current: 2, closed: false, selected: 1, onSelect: () => {} }));
-    expect(markup).toContain("v1 ✓");
-    expect(markup).toContain("v2 ●");
-    expect(markup).toContain('aria-pressed="true"');
   });
 
   it("nové kolo nabídne jen u uzavřené karty; výrazně při změně zadání", () => {
@@ -51,27 +45,14 @@ describe("kola karty", () => {
     expect(roundOffer(true, false, 0)).toBe("manual");
     expect(roundOffer(true, false, 1)).toBe("prominent");
     expect(openRoundLabel(1)).toBe("Otevřít v2 podle nového zadání");
-    const offer = (closed: boolean, briefChanged: number) => renderToStaticMarkup(createElement(OpenRoundOffer, {
-      current: 1, closed, readOnly: false, busy: false, briefChanged, onOpenRound: async () => {} }));
-    expect(offer(false, 1)).toBe("");
-    expect(offer(true, 1)).toContain("rounds-offer--prominent");
-    expect(offer(true, 1)).toContain("⚠ Zadání ve schránce se po uzavření změnilo");
-    expect(offer(true, 0)).toContain("rounds-offer--manual");
-    expect(offer(true, 0)).toContain("Otevřít v2 podle nového zadání");
   });
 
-  it("historie kola jen ke čtení: postup, chyby, nálezy, commity, Podněty a doslovné zadání", () => {
+  it("souhrn kola (data pro hlavu karty): postup, chyby, commity a Podněty", () => {
     const digest = roundDigest(record);
     expect([digest.stagesPassed, digest.stages.length, digest.blocksMet, digest.blocks]).toEqual([2, 3, 1, 2]);
     expect(digest.errorCount).toBe(2);
     expect([digest.commit, digest.prUrl, digest.touched]).toEqual(["abc1234", "https://x/pr/1", ["src/a.py"]]);
     expect([digest.ideasOpen, digest.ideasDone]).toEqual([1, 1]);
-    const markup = renderToStaticMarkup(createElement(RoundRecordView, { record }));
-    for (const text of ["pipeline 2/3", "bloky 1/2", "chyby 2", "Předávka práce.", "Chybí test.", "Padal import.", "abc1234", "src/a.py", "Text v1.", "navrhl uzavření"]) {
-      expect(markup).toContain(text);
-    }
-    expect(markup).not.toContain("<input");
-    expect(markup).not.toContain("<textarea");
   });
 
   it("rozhodnutí kola zůstávají v historii jako kontext; starší záznam bez nich nic neukáže", () => {
@@ -80,12 +61,8 @@ describe("kola karty", () => {
       { kind: "criterion", text: "Testy zelené." },
       { kind: "decision", text: "Originál vedle textu." },
     ]);
-    const markup = renderToStaticMarkup(createElement(RoundRecordView, { record }));
-    expect(markup).toContain("Rozhodnutí v1 (3)");
-    expect(markup).toContain("Další kolo je nepřebírá");
     const older = { ...record, blocks: [{ id: "b1", number: "1", title: "Blok", state: { status: "met" } }], criteria: undefined, decisions: undefined };
     expect(roundDecisions(older)).toEqual([]);
-    expect(renderToStaticMarkup(createElement(RoundRecordView, { record: older }))).not.toContain("Rozhodnutí v1");
   });
 
   it("hlava karty na plátně ukazuje kola od v2", () => {

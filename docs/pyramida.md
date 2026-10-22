@@ -102,7 +102,7 @@ brána = jedna podmínka, pravidla jen ta, která se liší od projektu.
 | velín místo módu Mapa | hotovo (7465a5a) |
 | záměr oblasti jako první věc v inspektoru a na rámečku, souhrn sektorů v oblasti, „Rozložit na sektory“ | hotovo (7465a5a) |
 | shrnutí podnětů sektoru jako jedno rozhodnutí („Shrnout podněty“ v inspektoru sektoru, zadání pro agenta) | hotovo |
-| předání karty agentovi jedním tlačítkem („Předat agentovi“ v inspektoru karty, s etapou na řadě) | hotovo |
+| předání karty agentovi (dřív „Předat agentovi“; nahrazeno převzetím `claim` z agent-state a jednotným detailem karty) | nahrazeno |
 | potvrzení návrhů uzavření přímo z fronty velína (jednotlivě i za sektor) | hotovo |
 | fronta velína hlídá vrchol pyramidy: oblast bez záměru, sektor bez podstaty; „Zadání pro router“ u sektoru s nenasměrovanými kartami | hotovo (ce530ca) |
 | role rozkladač ve skillu (`references/rozklad.md`) | hotovo (7465a5a) |

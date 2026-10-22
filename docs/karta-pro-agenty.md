@@ -292,7 +292,7 @@ Stav uzlu `stages = {profile, items, routedBy, reason}`; etapa
 `ideas = [{id, text, by, source: human|agent|review|work|test|fix|critic:user|sly|hacker, stageId?, at, status: open|done}]`.
 Agent je přidává jen přes `agent-output.output.ideas` (nejvýš 20 na výstup, text do 1000 znaků, bez duplicit podle
 textu, nejvýš 200 na kartě; `stageId` = etapa uzavřená stejným výstupem). `node-brief.ideas` = `{open, done, policy}`.
-Odškrtnout (`done`) a smazat smí jen člověk (detail karty, záložka Podněty); obecný zápis stavu od agenta 403.
+Odškrtnout (`done`) a smazat smí jen člověk (UI člověka; záložka Podněty v detailu karty je zrušená); obecný zápis stavu od agenta 403.
 
 **Kola karty** (`backend/editor/agent_memory/card_rounds.py`): uzavřenou kartu otevře jako nové kolo jen člověk
 (`POST /api/desktop-v3/card-round {project, workspace, nodeId, expectedRevision, reason}`; agent 403, neznámý 428).

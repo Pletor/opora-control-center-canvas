@@ -7,7 +7,7 @@ import { api, ApiError } from "@/shared/types/logic/types";
 import { parseProofs, proofActions, proofRows, proofsEndpoint, type ProofAction } from "../logic/card-proofs";
 import "../styles/oporahub-proofs.css";
 
-type Props = { project: string; workspace: string; nodeId: string; state: AgentState | null; onOpenLedger: () => void };
+type Props = { project: string; workspace: string; nodeId: string; state: AgentState | null; onOpenLedger?: () => void };
 
 /** Rozhodnutí `verification.fix`: člověk založí (idempotentně) návrh karty „Opravit formální ověření“. */
 function FixButton({ action, project, workspace }: { action: ProofAction; project: string; workspace: string }) {
@@ -39,7 +39,7 @@ export default function CardProofs({ project, workspace, nodeId, state, onOpenLe
   return <section className="oporahub-proofs" aria-label="Formální důkazy karty">
     <header className="oporahub-proofs__head"><h2 className="oporahub-proofs__title">Formální důkazy</h2>
       <span className="oporahub-proofs__note">model není důkaz implementace</span>
-      <button type="button" className="oporahub-proofs__button" onClick={onOpenLedger}>Kniha důkazů</button></header>
+      {onOpenLedger && <button type="button" className="oporahub-proofs__button" onClick={onOpenLedger}>Kniha důkazů</button>}</header>
     <JsonMirror id="oh-card-proofs" value={{ nodeId, rows, actions }} />
     <div className="oporahub-proofs__body">
       {read.busy && !read.data && <p className="oporahub-proofs__note" role="status">Načítám formální podklady…</p>}

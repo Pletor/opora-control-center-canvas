@@ -43,8 +43,8 @@ Aplikace sama agenta nespustí ani nepushne. Agenty spouštíš ty.
 
 ### 2. Předání agentovi (VS Code)
 
-Jeden terminál je jeden uzel. Nejkratší cesta: v inspektoru karty otevři **Předat agentovi** a zkopíruj hotové zadání
-(nese projekt, workspace, id karty a etapu na řadě). Ručně vypadá takto – spusť `claude` v kořeni projektu a zadej:
+Jeden terminál je jeden uzel. Agent kartu převezme akcí `claim` ze snímku agent-state (OporaHub); balíček karty ke čtení
+dá v inspektoru **Načíst balíček karty** a stav práce ukazuje jednotný detail karty (dvojklik na kartu). Ručně vypadá takto – spusť `claude` v kořeni projektu a zadej:
 
 ```text
 /opora-control-center
