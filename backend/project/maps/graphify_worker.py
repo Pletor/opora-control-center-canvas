@@ -15,6 +15,21 @@ def original_cli(arguments):
             raise
 
 
+# Změřeno 2026-10-22: 875 souborů (agent-office) = 53 s a graph.json 14 MB. 1200 souborů se tak
+# vejde do 120 s běhu (graphify_runtime) i 32 MiB výstupu s rezervou.
+MAX_CODE_FILES = 1200
+MAX_CODE_BYTES = 32 * 1024 * 1024
+
+
+def corpus_error(count, size):
+    """Proč korpus nelze poslat do Graphify, nebo None."""
+    if not count or count > MAX_CODE_FILES:
+        return f'Pro UI běh je potřeba 1–{MAX_CODE_FILES} zdrojových souborů; upravte .graphifyignore.'
+    if size > MAX_CODE_BYTES:
+        return 'Zdrojový kód překračuje 32 MiB.'
+    return None
+
+
 def main():
     from graphify.detect import detect
 
@@ -25,10 +40,9 @@ def main():
     corpus = detect(root, follow_symlinks=False, google_workspace=False)
     code = corpus.get('files', {}).get('code', [])
     print(json.dumps({'codeFiles': len(code), 'sensitiveSkipped': len(corpus.get('skipped_sensitive', []))}), flush=True)
-    if not code or len(code) > 500:
-        raise SystemExit('Pro UI běh je potřeba 1–500 zdrojových souborů; upravte .graphifyignore.')
-    if sum(Path(path).stat().st_size for path in code) > 32 * 1024 * 1024:
-        raise SystemExit('Zdrojový kód překračuje 32 MiB.')
+    error = corpus_error(len(code), sum(Path(path).stat().st_size for path in code))
+    if error:
+        raise SystemExit(error)
     original_cli(['extract', str(root), '--code-only', '--max-workers', '2', '--out', str(output)])
     original_cli(['cluster-only', str(output), '--no-label'])
 

@@ -32,3 +32,5 @@ kopie souborů: když běh selže, nic se nepřepíše.
 - `GET /api/graphify/artifact` čte `graphify-out/`. `GET /api/archify/artifact` čte `archify-out/`. Obě čtou jedinou sadu, bez výběru verze.
 - Archify: HTML a JSON se musí shodovat s `deliver-receipt.json`. `visual-check-receipt.json` je volitelný důkaz. `SPEC.md` nese `Revize repa`.
 - Ruční Graphify (`POST /api/graphify/generate`) zapisuje do stejných souborů stejným atomickým způsobem.
+- Meze Graphify: 1–1200 zdrojových souborů a 32 MiB kódu (`graphify_worker.py`), běh nejvýše 120 s (`graphify_runtime.py`). Změřeno 2026-10-22: 875 souborů agent-office = 46 s extrakce + 7 s shlukování a `graph.json` 14 MB. Větší projekt zúží `.graphifyignore` v kořeni projektu.
+- `graphify-out/` se vyloučí z gitu (`.git/info/exclude`) dřív, než vznikne první soubor. Běh, který selže, tak nenechá v mainu nesledovanou složku, která by zastavila synchronizaci mainu.

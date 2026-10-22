@@ -24,7 +24,7 @@ je zamítne.
 ## Jak číst výsledek
 
 - Názvy komunit typu `Community N` jsou záměrné, ne chyba.
-- Graf není živý ani úplný: jen kód, nejvýše 500 zdrojových souborů,
+- Graf není živý ani úplný: jen kód, nejvýše 1200 zdrojových souborů,
   `.graphifyignore` vyřazuje vendor, cache a generované soubory. Soubor, který
   v grafu chybí, tím neprokazuješ neexistující.
 - Nesedí-li výsledek s kódem, platí kód (Read/Grep).

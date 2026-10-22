@@ -85,7 +85,7 @@ def run_original(root, output):
                 job.assign_and_resume(process)
             process.wait(timeout=120)
             if process.returncode:
-                raise ArtifactUnavailable('Graphify nedokončil analýzu. Zkontrolujte .graphifyignore a limit 500 souborů / 32 MiB.')
+                raise ArtifactUnavailable('Graphify nedokončil analýzu. Zkontrolujte .graphifyignore a limit 1200 souborů / 32 MiB.')
         except subprocess.TimeoutExpired as exc:
             raise ArtifactUnavailable('Graphify překročil limit 120 sekund; předchozí graf zůstává uložený.') from exc
         finally:
@@ -99,13 +99,24 @@ def run_original(root, output):
                 process.wait(timeout=5)
 
 
+def prepare_output(root):
+    """Složka `graphify-out` připravená k běhu, už vyloučená z gitu.
+
+    Vyloučení musí přijít dřív než první soubor (zámek, cache): běh, který selže, by jinak
+    nechal v mainu nesledovanou složku a synchronizace mainu (`git status` čistý) by se zastavila.
+    """
+    folder = writable(root, 'graphify-out')
+    folder.mkdir(exist_ok=True)
+    ensure_excluded(root, 'graphify-out')
+    return folder
+
+
 def generate_graph(service, project):
     if not GATE.acquire(blocking=False):
         raise ArtifactUnavailable('Graphify právě vytváří graf. Počkejte na dokončení a zkuste načíst výsledek.')
     try:
         root = main_project_root(service, project)
-        folder = writable(root, 'graphify-out')
-        folder.mkdir(exist_ok=True)
+        prepare_output(root)
         # Zámek OS se uvolní i po pádu; dva procesy nemohou publikovat současně.
         lock_path = writable(root, 'graphify-out/opora-build.lock')
         with lock_path.open('a+b') as lock:
