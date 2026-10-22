@@ -13,6 +13,8 @@ pipeline karty a agentím `node-brief`. Stav se odvozuje z původních úložiš
 není to další stavový automat. Nahlášená práce, nezávislá kontrola, merge a
 nasazení zůstávají oddělené. Zlepšení procházejí stejnými verzovanými návrhy
 a review jako původní plán.
+[Živý proces](zivy-proces.md) k tomu přidává proud událostí v reálném čase: události kanceláře
+(agent-office) a outbox Opory jako `opora.process-event/1` jedním SSE tokem.
 
 Agent nemusí skládat stav z mnoha endpointů: [stav pro agenty](oporahub-agent-state.md)
 (`GET /api/oporahub/agent-state`) vrací jeden deterministický dokument s hlavami pro CAS,

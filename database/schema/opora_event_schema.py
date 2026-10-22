@@ -16,3 +16,21 @@ CREATE TABLE IF NOT EXISTS opora_event_card_state(
  health TEXT NOT NULL, reason TEXT NOT NULL, gate_status TEXT, gate_rule TEXT, updated_at TEXT NOT NULL,
  PRIMARY KEY(project_id, workspace_id, node_id));
 """
+
+
+# Živý proces (docs/zivy-proces.md): rozšíření outboxu o `opora.process-event/1`. Sloupce jsou nullable
+# a doplňují se aditivní migrací; NULL = událost Opory, jejíž fáze/stav/titulek se odvodí z `kind`.
+PROCESS_COLUMNS = ("source", "phase", "state", "title", "detail", "refs", "tool", "external_id")
+PROCESS_INDEX = ("CREATE UNIQUE INDEX IF NOT EXISTS opora_events_external ON opora_events(project_id, external_id)"
+                 " WHERE external_id IS NOT NULL")
+
+
+def ensure_process_columns(db):
+    """Doplní sloupce živého procesu do starší i nové tabulky `opora_events` (idempotentní)."""
+    columns = {row[1] for row in db.execute("PRAGMA table_info(opora_events)")}
+    if not columns:
+        return
+    for name in PROCESS_COLUMNS:
+        if name not in columns:
+            db.execute(f"ALTER TABLE opora_events ADD COLUMN {name} TEXT")
+    db.execute(PROCESS_INDEX)

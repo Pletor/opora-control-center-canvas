@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from backend.canvas.graph import valid_id
 from backend.canvas.opora_change_validation import scope
+from backend.canvas.process_signal import PROCESS_SIGNAL
 from database.repositories import opora_events as store
 
 PAGE_LIMIT = 500
@@ -64,6 +65,7 @@ def create_opora_event_router(service, *, poll_seconds=0.5, heartbeat_seconds=15
             while time.monotonic() - started < lifetime:
                 if await request.is_disconnected():
                     return
+                generation = PROCESS_SIGNAL.generation  # before reading: a write meanwhile wakes at once
                 page = await asyncio.to_thread(read, project, workspace, cursor, STREAM_BATCH, node)
                 for event in page["events"]:
                     cursor = event["id"]
@@ -72,7 +74,8 @@ def create_opora_event_router(service, *, poll_seconds=0.5, heartbeat_seconds=15
                     beat = time.monotonic()
                     yield ": heartbeat\n\n"
                 if len(page["events"]) < STREAM_BATCH:
-                    await asyncio.sleep(poll_seconds)
+                    # Woken by emit_event / process ingest (docs/zivy-proces.md); the poll stays the safety net.
+                    await PROCESS_SIGNAL.wait(generation, poll_seconds)
         finally:
             with guard:
                 streams[0] -= 1

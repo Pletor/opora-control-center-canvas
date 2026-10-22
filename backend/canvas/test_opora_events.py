@@ -52,8 +52,12 @@ def test_claim_heartbeat_result_each_emit_once_and_stage_only_on_change(planned,
     assert claimed[0]["nodeId"] == "a" and claimed[0]["executionId"] == record["executionId"]
     assert claimed[0]["actor"] == {"kind": "agent", "name": "agent:worker"}
     assert (claimed[1]["stage"], claimed[1]["health"], claimed[1]["data"]["reason"]) == ("work", "ok", "runs_active")
-    assert list(claimed[1]) == ["id", "at", "kind", "projectId", "workspaceId", "nodeId", "executionId", "stepId",
-                                "prNumber", "stage", "health", "actor", "data"]
+    assert list(claimed[1])[:13] == ["id", "at", "kind", "projectId", "workspaceId", "nodeId", "executionId",
+                                     "stepId", "prNumber", "stage", "health", "actor", "data"]
+    # Live-process extension (docs/zivy-proces.md) follows the original fields; Opora events derive it from kind.
+    assert list(claimed[1])[13:] == ["source", "phase", "state", "title", "detail", "refs", "tool", "externalId",
+                                     "schema", "eventId"]
+    assert (claimed[0]["source"], claimed[0]["phase"], claimed[0]["state"]) == ("opora", "work", "start")
     mark = head(service)
     claim(planned)  # Replay of the same request: no new fact.
     planned.heartbeat(record["executionId"], {**credentials(record), "ttlSeconds": 60})
