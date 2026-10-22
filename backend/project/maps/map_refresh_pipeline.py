@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 from types import SimpleNamespace
 
-from backend.project.maps.graphify_runtime import generate_graph, writable
+from backend.project.maps.graphify_runtime import generate_graph, prepare_output, writable
 from backend.project.maps.map_artifacts import publish
 from backend.project.maps.map_refresh_archify import build_archify
 from backend.project.maps.map_refresh_snapshot import snapshot_main
@@ -15,8 +15,7 @@ def build_maps(job, manager):
     root = Path(job['root'])
     if not manager.current(job):
         raise ValueError('Revize main se změnila; starý běh nebyl spuštěn.')
-    output = writable(root, 'graphify-out')
-    output.mkdir(exist_ok=True)
+    prepare_output(root)
     with writable(root, 'graphify-out/opora-build.lock').open('a+b') as lock:
         lock.seek(0)
         import os
