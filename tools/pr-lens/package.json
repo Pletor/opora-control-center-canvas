@@ -1,0 +1,15 @@
+{
+  "name": "opora-pr-lens-pin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Připnutá, reprodukovatelná instalace PR Lens CLI",
+  "dependencies": {
+    "@coldtea/pr-lens-cli": "0.13.2",
+    "@coldtea/pr-lens-renderer": "0.3.2",
+    "@coldtea/pr-lens-schema": "0.7.0"
+  },
+  "overrides": {
+    "@coldtea/pr-lens-renderer": "0.3.2",
+    "@coldtea/pr-lens-schema": "0.7.0"
+  }
+}

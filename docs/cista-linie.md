@@ -70,6 +70,7 @@ karta + záměr → worktree z main (vlastní npm ci) → práce → self-checks
 - **V Opoře je zdrojem pravdy spec, ne obrázek:** validovaný graf s kartami, cestami a řádky, vazbami, toky a payloady. Pracovník ho během běhu pošle s lease tokenem svého běhu (`POST /api/oporahub/review-jobs/lens`, tělo do 64 KiB): nejdřív **mapu oblasti** podle přijatého plánu (`kind: area`, bez hlavy), po otevření PR **graf změny** pro aktuální hlavu (`kind: pr`). Agenti čtou spec jako data (`GET /api/oporahub/review-lens?project&workspace&nodeId`, ~2–3 tisíce tokenů místo celého diffu), ne SVG.
 - **Lens v detailu karty:** záložka **Lens** (mezi Kroky a Běh, odkaz `?ohCard=<id>&ohTab=lens`, z Živého procesu tlačítko „Lens“) kreslí spec v prohlížeči: architektura / tok dat, přiblížení a posun, průvodce změnou (`W`/→, ←, Esc), klik na část ukáže soubory s řádky a vazby, klik na krok toku payload s rozdílem před/po; „Kopírovat spec pro agenta“ předá přesná data. Odznak záložky je krátká hlava PR, nebo „plán“. U PR je spec důkaz review (`evidence.review.lens`), zatím **volitelný a neblokuje** bránu. Opravy pojmenování patří do `.github/pr-lens.yml`, ne do SVG.
 - **Proč tam:** review dnes čte diff naslepo. Diagram ukáže dosah změny (nové, změněné a odebrané části) a tok dat, takže review najde špatné napojení dřív, než se PR dostane do fronty.
+- **Instalace CLI:** připnutá verze s lockfilem je v [`tools/pr-lens`](../tools/pr-lens/README.md) (`npm ci --ignore-scripts`).
 
 ## 5. Tabule „Čistá linie“ v Boss Office
 
