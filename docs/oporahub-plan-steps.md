@@ -92,8 +92,10 @@ v tomto pořadí.
 - Lidské potvrzení `done.confirmed` karty s přijatými kroky projde jen při splnění všeho kromě
   `human_close`; starší brána uzavření (doložené testy, `checks_passed`, hotová pipeline, scénář)
   pro takovou kartu neplatí. Karty bez kroků se dál uzavírají po staru a stará data zůstávají čitelná.
-- Brána review se čte pro všechny vazby PR (i sloučené); s vypnutým automatickým review brána
-  neexistuje a `gate_ready` chybí.
+- `gate_ready` má dva režimy a výstup je nese v poli `gate`: se zapnutými úlohami review
+  (`OPORA_REVIEW_JOBS`) je to `"review"` a platí jen brána OporaHubu `ready` (čte se pro všechny
+  vazby PR, i sloučené); s vypnutými úlohami review je to `"external"` a branou je ochrana větve
+  na GitHubu, takže `gate_ready` = PR je sloučený. Akce `close_card` nese `preconditions.gate`.
 
 ## Migrace
 

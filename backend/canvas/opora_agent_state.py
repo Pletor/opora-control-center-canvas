@@ -121,7 +121,8 @@ class AgentState:
             promotions = recurring.actions(db, project)  # Recurring misses → checks.
             rebasing = rebasing_state.read(canvas, project, workspace)
             dag = dag_state.facts(canvas, project, workspace, linked)  # Card DAG: blockedBy, topoIndex
-            gates = card_done.gates_by_execution(db, project, workspace) if linked else {}  # merged PRs too
+            # Merged PRs too; None = review jobs disabled, GitHub branch protection is the gate.
+            gates = card_done.gates_by_execution(db, project, workspace) if linked else {}
         dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
@@ -218,11 +219,13 @@ class AgentState:
                 continue
             # Precondition = the single definition of done minus the human close (opora_card_done).
             done = card_done.card_done_state(card_done.facts(cards.get(item["cardId"], {}), item,
-                                                             (gates or {}).get(item["executionId"])))
+                                                             (gates or {}).get(item["executionId"]),
+                                                             external=gates is None))
             ready = card_done.closable(done)
             action = _action("close_card", "POST", "/api/desktop-v3/state", item["cardId"], item.get("mergeSha"),
                              {"executionId": item["executionId"], "mergeSha": item.get("mergeSha"),
-                              "missing": [name for name in done["missing"] if name != "human_close"]},
+                              "missing": [name for name in done["missing"] if name != "human_close"],
+                              "gate": done["gate"]},
                              "human_only" if ready else "done_state_incomplete")
             actions.append(action)
             name = cards.get(item["cardId"], {}).get("name") or item["cardId"]
