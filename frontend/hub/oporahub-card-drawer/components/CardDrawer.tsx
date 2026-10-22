@@ -20,6 +20,9 @@ import StepsTab from "../steps-tab/components/StepsTab";
 import RunTab from "../run-tab/components/RunTab";
 import ReviewTab from "../review-tab/components/ReviewTab";
 import HistoryTab from "../history-tab/components/HistoryTab";
+import LensTab from "../lens-tab/components/LensTab";
+import { lensBadge, lensSummary, shownLens } from "@/hub/review-lens/logic/lens-read";
+import { useReviewLens } from "@/hub/review-lens/logic/use-review-lens";
 import "../styles/card-drawer.css";
 
 type Props = {
@@ -33,13 +36,14 @@ function LeaseClock({ data }: { data: CardData }) {
   return <>{lease.state === "active" ? lease.label : data.latest ? data.latest.state : "—"}</>;
 }
 
-/** Jednotný detail karty: hlavička s definicí hotovo, pět záložek a jedna další akce v patičce. */
+/** Jednotný detail karty: hlavička s definicí hotovo, šest záložek a jedna další akce v patičce. */
 export default function CardDrawer({ project, workspace, nodeId, tab, node, parentName, editor, onTab, onClose }: Props) {
   const dialog = useRef<HTMLElement>(null);
   useDrawerFocus(dialog, onClose);
   const data = useCardData(project, workspace, nodeId);
   const sector = node?.kind === "sector";
-  const available: CardTab[] = sector ? ["spec", "history"] : ["spec", "steps", "run", "review", "history"];
+  const available: CardTab[] = sector ? ["spec", "history"] : ["spec", "steps", "lens", "run", "review", "history"];
+  const lens = useReviewLens(project, workspace, nodeId, !sector);
   const shown = available.includes(tab) ? tab : "spec";
   const steps = readSteps(data.accepted?.fields ?? null);
   const progress = steps ? stepProgress(stepRows(steps, data.stepResults, data.card?.steps?.current ?? null)) : null;
@@ -53,28 +57,30 @@ export default function CardDrawer({ project, workspace, nodeId, tab, node, pare
   const trail = [parentName, data.card?.topoIndex != null ? `pořadí ${data.card.topoIndex + 1}` : ""].filter(Boolean).join(" · ");
   const workspaceAction = () => { onClose(); editor?.onWorkspace(); };
   return createPortal(<div className="card-drawer__overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <section ref={dialog} className="card-drawer" role="dialog" aria-modal="true" aria-labelledby="card-drawer-title" tabIndex={-1}
+    <section ref={dialog} className={`card-drawer${shown === "lens" ? " card-drawer--wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby="card-drawer-title" tabIndex={-1}
       data-oh-view="card-drawer" data-oh-node-id={nodeId} data-oh-tab={shown} data-oh-stage={data.card?.stage ?? ""} data-oh-health={status.health}
       data-oh-accepted-head={data.agent?.heads.acceptedHead ?? ""} data-oh-execution={data.latest?.executionId ?? ""}>
       <JsonMirror id="oh-card-drawer" value={{ nodeId, tab: shown, card: data.card, status, dod, nextAction: action,
         steps: progress && { total: progress.total, done: progress.done, current: progress.current?.id ?? null },
         execution: data.latest && { executionId: data.latest.executionId, epoch: data.latest.epoch, state: data.latest.state, assignmentDigest: data.latest.assignmentDigest },
+        lens: lensSummary(shownLens(lens.read)),
         gate: data.gate && { pr: data.gate.number, headSha: data.gate.headSha, status: data.gate.reviewGate.status, reasons: data.gate.reviewGate.reasons },
         eventsFilter: "client" }} />
       <DrawerHeader title={title} nodeId={nodeId} kind={kind} trail={trail} status={status} holder={data.latest?.state === "running" ? data.latest.owner ?? "" : ""}
         lease={data.latest?.state === "running" ? <LeaseClock data={data} /> : null} dod={dod} onClose={onClose} />
       <DrawerTabs tab={shown} available={available} onTab={onTab} badges={{
-        spec: data.working ? `v${data.working.revision}` : "", steps: stepsBadge, run: <LeaseClock data={data} />, review: gateGlyph,
+        spec: data.working ? `v${data.working.revision}` : "", steps: stepsBadge, lens: lensBadge(lens.read), run: <LeaseClock data={data} />, review: gateGlyph,
       }} />
       <div className="card-drawer__body" role="tabpanel" id={`card-drawer-panel-${shown}`} aria-labelledby={`card-drawer-tab-${shown}`}>
         {data.errors.length > 0 && <p className="card-drawer__warning" role="alert">{data.errors[0]}{data.errors.length > 1 ? ` (+${data.errors.length - 1})` : ""}</p>}
         {shown === "spec" && <SpecTab project={project} workspace={workspace} nodeId={nodeId} node={node} data={data} editor={editor} />}
         {shown === "steps" && <StepsTab data={data} onEditSteps={() => onTab("spec")} />}
+        {shown === "lens" && <LensTab nodeId={nodeId} lens={lens} />}
         {shown === "run" && <RunTab project={project} workspace={workspace} nodeId={nodeId} data={data} editor={editor} onWorkspace={workspaceAction} />}
         {shown === "review" && <ReviewTab project={project} workspace={workspace} nodeId={nodeId} data={data} />}
         {shown === "history" && <HistoryTab project={project} workspace={workspace} nodeId={nodeId} events={data.events} />}
       </div>
-      <DrawerFooter action={action} busy={data.busy} onRefresh={data.reload} />
+      <DrawerFooter action={action} busy={data.busy} onRefresh={() => { data.reload(); lens.reload(); }} />
     </section>
   </div>, document.body);
 }

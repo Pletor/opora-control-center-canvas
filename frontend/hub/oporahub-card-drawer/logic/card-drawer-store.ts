@@ -1,7 +1,7 @@
 // Jediný detail karty v celé aplikaci: kdo ho chce otevřít (odznak na plátně, dvojklik, Velín, OporaHub),
 // zavolá `openCardDrawer(nodeId, tab?)`. Stav drží tento malý obchod mimo React a zrcadlí ho do URL
 // (`?ohCard=<id>&ohTab=<záložka>`), aby šel detail sdílet odkazem i obnovit po načtení stránky.
-export const CARD_TABS = ["spec", "steps", "run", "review", "history"] as const;
+export const CARD_TABS = ["spec", "steps", "lens", "run", "review", "history"] as const;
 export type CardTab = typeof CARD_TABS[number];
 export type DrawerState = { nodeId: string; tab: CardTab; nonce: number } | null;
 export type DrawerLocation = { read(): string; write(search: string): void };

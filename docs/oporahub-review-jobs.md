@@ -243,25 +243,45 @@ kterým je skutečný text; komentáře, prázdné odrážky a zaškrtávátka n
 
 ### Diagram PR Lens (volitelný důkaz)
 
-Pracovník, který změnu udělal, ji nakreslí lokálně přes PR Lens (`docs/cista-linie.md` §4):
-**spec** (validovaný graf: pruhy, karty s cestami a řádky, hrany, kroky toků s payloady) je
-zdroj pravdy, který čtou agenti jako data; SVG je jen pro lidi. Agent Office spec i SVG vystaví
-na vedlejší větvi `pr-lens/<větev PR>` a pošle
-`POST /api/oporahub/review-jobs/lens` s `{project, workspace, executionId, lens: {url, prNumber,
-headSha, validatedAt, specUrl?, specSha256?, specBytes?, spec?}}`. `url` a `specUrl` jsou jen
-`https` na `github.com` (i `github.com/user-attachments/…`) nebo `raw.githubusercontent.com`;
-`spec` je graf (`kind: graph`) do 64 KiB, `specBytes` nejvýš 512 KiB. Platí jen pro otevřený
-propojený PR a jeho aktuální hlavu (`prNumber` a `headSha` musí sedět, jinak 409); první zápis
-na hlavu vyhrává, stejný obsah je idempotentní. Nevyžaduje zapnuté review úlohy.
+Pracovník, který změnu dělá, ji nakreslí lokálně přes PR Lens (`docs/cista-linie.md` §4).
+Zdrojem pravdy je **spec** (validovaný graf: pruhy, karty s cestami a řádky, hrany, kroky toků
+s payloady), ne obrázky: agenti ho čtou jako data, lidem ho kreslí záložka **Lens** v detailu
+karty (`frontend/hub/review-lens`). Hlavní cesta je spec poslaný inline.
 
-Brána ho jen ukazuje: u PR s diagramem pro aktuální hlavu má položka brány
+**Zápis jen z běžícího běhu.** `POST /api/oporahub/review-jobs/lens` s
+`{project, workspace, executionId, token, epoch, lens}` vyžaduje lease token a epochu běhu
+(stejné ověření jako `stepResults` ve výsledku běhu: shodný token a epocha, běh `running`,
+platný lease, rozpočet); samotná identita agenta nestačí (409). Tělo požadavku má nejvýš
+**64 KiB** a kontroluje se před parsováním JSON (`Content-Length` i skutečně přečtené bajty;
+víc → 413 `payload_too_large`, neplatný JSON → 400). `lens` je jedno z:
+
+- **graf změny PR** `{kind?: "pr", prNumber, headSha, validatedAt, spec?, url?, specUrl?,
+  specSha256?, specBytes?}`, kde je potřeba `spec` nebo `url` (`url`/`specUrl` jsou volitelné,
+  jen `https` na `github.com` nebo `raw.githubusercontent.com`). Platí jen pro otevřený propojený
+  PR běhu a jeho aktuální hlavu (`prNumber` a `headSha` musí sedět, jinak **409**); první zápis
+  na hlavu vyhrává, stejný obsah je idempotentní, jiný obsah 409.
+- **mapa oblasti před kódem** `{kind: "area", validatedAt, spec}`: vázaná na přijatou revizi
+  plánu běhu (`acceptedRevision` doplní server), `headSha` je `null`, PR nepotřebuje a během běhu
+  ji jde překreslit (nahradí se). Jakmile existuje graf PR, člověk vidí ten; mapa zůstává
+  dostupná agentům.
+
+`spec` je graf PR Lens (`kind: graph`) do 64 KiB, `specBytes` nejvýš 512 KiB. Server spec ukládá
+jako nedůvěryhodná data a jinak ho neinterpretuje; prohlížeč ho před kreslením ověří schématem
+`@coldtea/pr-lens-schema` (0.7.0), SVG z rendereru (`@coldtea/pr-lens-renderer` 0.3.2, text
+escapuje) ukazuje jen jako `<img>` z Blob URL (žádné `innerHTML`) a cesty souborů jen jako text
+nebo jako odkaz `https://github.com/<repo>/blob/<sha>/<cesta>#L<od>-L<do>`, který skládá sám po
+validaci cesty. Nevyžaduje zapnuté review úlohy.
+
+Brána ho jen ukazuje: u PR s grafem pro aktuální hlavu má položka brány
 `evidence.review.lens`, ale **nepřidává žádný důvod** a pořadí pravidel (self_checks →
-security → findings → humans → freshness → template) se nemění. Agenti čtou spec karty přes
-`GET /api/oporahub/review-lens?project&workspace&nodeId` (nejnovější diagram běhů karty,
-`current` říká, zda je pro aktuální hlavu PR). Kód `backend/canvas/opora_review_lens.py`,
-router `opora_review_lens_routes.py`, tabulka `opora_review_lens`
-(`database/schema/opora_review_gate_schema.py`), testy `test_opora_review_lens.py` a
-`test_opora_review_lens_routes.py`.
+security → findings → humans → freshness → template) se nemění; mapa oblasti do brány nevstupuje.
+Agenti čtou spec karty přes `GET /api/oporahub/review-lens?project&workspace&nodeId`:
+`{nodeId, lens, executionId?, repository?, number?, prState?, current?, by?, createdAt?, area}`,
+kde `lens` je nejnovější graf PR (`current` říká, zda je pro aktuální hlavu) a `area`
+nejnovější mapa oblasti (`{executionId, acceptedRevision, by, createdAt, lens}`), obojí může být
+`null`. Kód `backend/canvas/opora_review_lens.py`, router `opora_review_lens_routes.py`, tabulka
+`opora_review_lens` (`database/schema/opora_review_gate_schema.py`, slot = hlava PR nebo `area`),
+testy `test_opora_review_lens.py` a `test_opora_review_lens_routes.py`.
 
 ## Stav pro agenty
 

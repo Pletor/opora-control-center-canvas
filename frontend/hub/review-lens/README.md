@@ -1,0 +1,10 @@
+# Lens (PR Lens v detailu karty)
+
+Prostor mezi plánem a kódem: člověk vidí, co změna dělá (části, vazby, toky dat s payloady, cesty a řádky v kódu), agent čte tentýž **spec** jako data přes `GET /api/oporahub/review-lens`, ne obrázky. Kontrakt: `docs/oporahub-review-jobs.md` („Diagram PR Lens“) a `docs/cista-linie.md` §4. Připojuje ho záložka `oporahub-card-drawer/lens-tab/`.
+
+- `components/ReviewLensPanel.tsx` — vstup: vizitka (`LensHeader`), prázdný stav (jak spec přichází) a líně načtené plátno `LensStage` (`React.lazy`), takže renderer `@coldtea/pr-lens-renderer` a schéma `@coldtea/pr-lens-schema` (se zod) jsou v samostatném chunku.
+- `components/LensStage.tsx` — ověří spec schématem PR Lens, přepínač čoček a pohledů (`views`, jinak čočky), průvodce (`W`/→ další, ← zpět, Esc stop; zachytávací fáze, takže Esc nezavře detail), boční panel.
+- `components/LensViewport.tsx` — obrázek jako `<img src=blob:…>` (žádné `innerHTML`, skripty v SVG neběží, SMIL animace ano), přiblížení kolečkem a tlačítky, posun tažením, React překryv z rámečků atlasu (terče karet a kroků toku, zlatý okraj kroku průvodce).
+- `components/CardPanel.tsx` — část: změna (nové/změněné/odebrané), popis, soubory s řádky a odkazy do GitHubu, příchozí a odchozí vazby. `components/PayloadPanel.tsx` — krok toku: request/response, tvar a ukázka s rozdílem před/po.
+- Logika bez Reactu (test vedle): `logic/lens-read.ts` (obálka odpovědi, odznak, souhrn do zrcadla, fakta specu), `logic/overlay.ts` (atlas → pixely, kamera), `logic/walkthrough.ts` (plátna, krok → plátno a rámečky, přehrávač), `logic/payload-diff.ts`, `logic/code-links.ts` (validace cesty, odkaz `github.com/<repo>/blob/<sha>/<cesta>#Lod-Ldo` skládaný námi), `logic/stage-render.ts` (jediné místo s rendererem; spec je nedůvěryhodný, proto `safeParseGraphDoc` před kreslením).
+- Renderer importuje `node:crypto` jen kvůli hashům manifestu; `vite.config.ts` ho v prohlížeči nahrazuje malým `logic/node-crypto-shim.ts`. Verze jsou připnuté přesně (renderer 0.3.2, schéma 0.7.0; 0.3.3–0.3.5 jsou rozbité).

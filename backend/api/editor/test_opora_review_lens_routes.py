@@ -1,4 +1,6 @@
 """`POST /api/oporahub/review-jobs/lens` and `GET /api/oporahub/review-lens`: identity, conflicts, the card read."""
+import json
+
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
@@ -28,7 +30,8 @@ def client_for(review):  # noqa: F811
 
 
 def body(review, head=SHA):  # noqa: F811
-    return {**review["scope"], "executionId": review["record"]["executionId"],
+    record = review["record"]
+    return {**review["scope"], "executionId": record["executionId"], "token": record["token"], "epoch": record["epoch"],
             "lens": {"url": "https://github.com/owner/repo/raw/" + "e" * 40 + "/.pr-lens/o.svg", "prNumber": 7,
                      "headSha": head, "validatedAt": "2026-10-22T11:50:00Z", "spec": {"kind": "graph", "nodes": []}}}
 
@@ -38,7 +41,9 @@ def test_lens_route_contract(review):  # noqa: F811
     query = {**review["scope"], "nodeId": "card"}
     assert client.post(POST, json=body(review)).status_code == 428
     assert client.get(GET, params=query).status_code == 428
-    assert client.get(GET, headers=AGENT, params=query).json() == {"nodeId": "card", "lens": None}
+    assert client.get(GET, headers=AGENT, params=query).json() == {"nodeId": "card", "lens": None, "area": None}
+    tokenless = {key: value for key, value in body(review).items() if key not in ("token", "epoch")}
+    assert client.post(POST, headers=AGENT, json=tokenless).status_code == 409  # identity alone is not enough
     wrong = client.post(POST, headers=AGENT, json=body(review, "d" * 40))
     assert wrong.status_code == 409 and wrong.json()["code"] == "review_conflict"
     done = client.post(POST, headers=AGENT, json=body(review))
@@ -46,6 +51,15 @@ def test_lens_route_contract(review):  # noqa: F811
     read = client.get(GET, headers=AGENT, params=query).json()
     assert read["current"] is True and read["by"] == "agent:worker" and read["lens"]["spec"] == {"kind": "graph", "nodes": []}
     assert client.get(GET, headers=AGENT, params={**query, "nodeId": "bad id!"}).status_code == 400
+
+
+def test_lens_body_is_capped_before_parsing(review):  # noqa: F811
+    client = client_for(review)
+    big = json.dumps(body(review)).replace('"nodes": []', '"nodes": [], "pad": "' + "x" * 70_000 + '"')
+    too_big = client.post(POST, headers={**AGENT, "content-type": "application/json"}, content=big)
+    assert too_big.status_code == 413 and too_big.json()["code"] == "payload_too_large"
+    broken = client.post(POST, headers={**AGENT, "content-type": "application/json"}, content=b"{not json")
+    assert broken.status_code == 400
 
 
 def test_routes_are_registered_in_the_app(tmp_path, monkeypatch):

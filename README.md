@@ -51,7 +51,7 @@ V Alt+3 se otevře [OporaHub](docs/oporahub-ui.md) nad jediným dokumentem
 3 rozhodnutí a smyčka deseti etap plán → kód → plán), **Karta** (otevře jednotný detail karty)
 a **Pro agenty** (fronta akcí, hlavy pro CAS, kopírovatelný JSON, kontrakt `data-oh-*`).
 Konkrétní položka otevře svůj detail; ✕ nebo Esc vrátí přehled. Původní formuláře jsou
-v patě stránky. Přímé odkazy: `?environment=hub&ohView=agents`; detail karty `?ohCard=<nodeId>&ohTab=spec|steps|run|review|history` v kterémkoli prostředí. Detail karty je jeden drawer pro celou aplikaci (dvojklik na kartu, odznak, Velín, OporaHub) se záložkami Zadání · Kroky · Běh · Review & PR · Historie a definicí hotovo v hlavičce ([docs/oporahub-ui.md](docs/oporahub-ui.md#jednotný-detail-karty)). [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
+v patě stránky. Přímé odkazy: `?environment=hub&ohView=agents`; detail karty `?ohCard=<nodeId>&ohTab=spec|steps|lens|run|review|history` v kterémkoli prostředí. Detail karty je jeden drawer pro celou aplikaci (dvojklik na kartu, odznak, Velín, OporaHub) se záložkami Zadání · Kroky · Lens (PR Lens: co změna dělá, [docs/cista-linie.md](docs/cista-linie.md#4-pr-lens-v-procesu-opory)) · Běh · Review & PR · Historie a definicí hotovo v hlavičce ([docs/oporahub-ui.md](docs/oporahub-ui.md#jednotný-detail-karty)). [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
 klikací ukázka; aplikace používá skutečná data a stejné API jako agenti.
 Editor je štíhlý ([docs/oporahub-ui.md](docs/oporahub-ui.md#editor-lean-tvář-karty-velín-a-živý-pás)): lišta
 **Struktura · Velín · Text**, vzácnější Kreslení / Kancelář / Storyboard pod **⋯**, jedno **+ Přidat**

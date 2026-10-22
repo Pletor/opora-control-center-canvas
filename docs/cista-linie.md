@@ -63,11 +63,12 @@ karta + záměr → worktree z main (vlastní npm ci) → práce → self-checks
 
 ## 4. PR Lens v procesu Opory
 
-**Kde:** etapa **Revize**, hned po otevření PR. Je to vstup pro review (agent i člověk), ne kontrola kvality.
+**Kde:** prostor **mezi plánem a kódem**: mapa oblasti už během běhu před kódem a graf změny hned po otevření PR. Je to vstup pro review (agent i člověk) a způsob, jak se člověk učí kód a jeho změny, ne kontrola kvality.
 
 - **Kdo kreslí:** pracovník, který změnu udělal, přes **lokální skill** `coldteadotai/pr-lens` (Claude Code v předplatném). Diagram ověří `pr-lens validate`, vykreslí lokálně (`pr-lens render`) a Agent Office spec i SVG vystaví na vedlejší větvi `pr-lens/<větev PR>` a obrázek dá do popisu PR (`gh api`, bez další služby; `gh pr create --attach` z gh 2.99 by šlo také).
 - **Bez hostované aplikace a bez API klíče:** nepoužíváme GitHub App, `analyze` s cizím modelem ani `canvas push`. Kód zůstává lokálně a platí pravidlo Opory „předplatné, ne API“.
-- **V Opoře:** diagram je důkaz u review (`evidence.review.lens`): odkaz na SVG a hlavně **spec** (validovaný graf s kartami, cestami a řádky, toky a payloady), který agenti čtou jako data místo obrázků (`GET /api/oporahub/review-lens`). Review karta a Živý proces ho ukazují u PR. Zatím je **volitelný a neblokuje** bránu. Opravy pojmenování patří do `.github/pr-lens.yml`, ne do SVG.
+- **V Opoře je zdrojem pravdy spec, ne obrázek:** validovaný graf s kartami, cestami a řádky, vazbami, toky a payloady. Pracovník ho během běhu pošle s lease tokenem svého běhu (`POST /api/oporahub/review-jobs/lens`, tělo do 64 KiB): nejdřív **mapu oblasti** podle přijatého plánu (`kind: area`, bez hlavy), po otevření PR **graf změny** pro aktuální hlavu (`kind: pr`). Agenti čtou spec jako data (`GET /api/oporahub/review-lens?project&workspace&nodeId`, ~2–3 tisíce tokenů místo celého diffu), ne SVG.
+- **Lens v detailu karty:** záložka **Lens** (mezi Kroky a Běh, odkaz `?ohCard=<id>&ohTab=lens`, z Živého procesu tlačítko „Lens“) kreslí spec v prohlížeči: architektura / tok dat, přiblížení a posun, průvodce změnou (`W`/→, ←, Esc), klik na část ukáže soubory s řádky a vazby, klik na krok toku payload s rozdílem před/po; „Kopírovat spec pro agenta“ předá přesná data. Odznak záložky je krátká hlava PR, nebo „plán“. U PR je spec důkaz review (`evidence.review.lens`), zatím **volitelný a neblokuje** bránu. Opravy pojmenování patří do `.github/pr-lens.yml`, ne do SVG.
 - **Proč tam:** review dnes čte diff naslepo. Diagram ukáže dosah změny (nové, změněné a odebrané části) a tok dat, takže review najde špatné napojení dřív, než se PR dostane do fronty.
 
 ## 5. Tabule „Čistá linie“ v Boss Office

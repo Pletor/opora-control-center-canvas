@@ -4,7 +4,7 @@ import { CardHash, Chip, PhaseChip, StateDot } from "../../components/Marks";
 import { checksOf, refsOf, turnOf } from "../logic/inspector-model";
 import "../styles/card-inspector.css";
 
-type Props = { lane: Lane | null; onOpenCard: (nodeId: string) => void };
+type Props = { lane: Lane | null; onOpenCard: (nodeId: string, tab?: "lens") => void };
 const STATE_WORD: Record<string, [string, string]> = {
   fail: ["selhalo", "bad"], blocked: ["čeká na člověka", "bad"], wait: ["čeká", "warn"], ok: ["potvrzeno", "ok"],
   progress: ["běží", "acc"], start: ["začalo", "acc"], info: ["info", "gap"],
@@ -27,6 +27,7 @@ export default function CardInspector({ lane, onOpenCard }: Props) {
       <h3 className="card-inspector__title">{lane.title}</h3>
       <div className="card-inspector__row"><PhaseChip phase={lane.phase} /><span className="card-inspector__muted">{lane.workerName || "bez pracovníka"}</span>
         <span className="card-inspector__grow" />
+        <button type="button" className="card-inspector__open" data-oh-open-lens={lane.nodeId} onClick={() => onOpenCard(lane.nodeId, "lens")}>Lens</button>
         <button type="button" className="card-inspector__open" onClick={() => onOpenCard(lane.nodeId)}>Otevřít detail karty</button></div>
     </div>
     <div className="card-inspector__grid">

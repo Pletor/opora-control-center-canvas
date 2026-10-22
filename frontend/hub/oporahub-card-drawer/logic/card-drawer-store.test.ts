@@ -9,6 +9,7 @@ function memoryLocation(search: string) {
 describe("card drawer deep link", () => {
   it("reads card and tab, falling back to Zadání for unknown tabs", () => {
     expect(parseDrawerLink("?ohCard=c1&ohTab=run")).toEqual({ nodeId: "c1", tab: "run" });
+    expect(parseDrawerLink("?ohCard=c1&ohTab=lens")).toEqual({ nodeId: "c1", tab: "lens" });
     expect(parseDrawerLink("?ohCard=c1&ohTab=bogus")).toEqual({ nodeId: "c1", tab: "spec" });
     expect(parseDrawerLink("?environment=hub")).toBeNull();
   });
@@ -33,10 +34,12 @@ describe("card drawer store", () => {
     expect(store.get()).toMatchObject({ nodeId: "c2", tab: "spec" });
     store.open("c2", "run");
     expect(store.get()?.tab).toBe("run");
+    store.open("c2", "lens");
+    expect(box.search).toBe("?ohCard=c2&ohTab=lens");
     store.close();
     expect(store.get()).toBeNull();
     expect(box.search).toBe("");
-    expect(calls).toBe(5);
+    expect(calls).toBe(6);
   });
   it("ignores empty ids and every open bumps the nonce", () => {
     const store = createCardDrawerStore();
