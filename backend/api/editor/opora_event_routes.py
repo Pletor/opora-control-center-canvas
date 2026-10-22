@@ -77,7 +77,10 @@ def create_opora_event_router(service, *, poll_seconds=0.5, heartbeat_seconds=15
             scope({"project": project, "workspace": workspace or "draft"})
         except ValueError as error:
             return JSONResponse({"error": str(error), "code": "events_unavailable"}, status_code=409)
-        cursor = _cursor(request.headers.get("last-event-id")) if since is None else since
+        # Last-Event-ID wins over `since`: a browser EventSource reconnects to the same URL (still carrying
+        # the `since` it was opened with) and sends the last id it saw, so the header is the newer cursor.
+        resume = request.headers.get("last-event-id")
+        cursor = _cursor(resume) if resume is not None or since is None else since
         with guard:
             if streams[0] >= max_streams:  # Bounded: each stream holds a poll loop for up to `lifetime`.
                 return JSONResponse({"error": "Too many event streams.", "code": "events_busy"}, status_code=429)

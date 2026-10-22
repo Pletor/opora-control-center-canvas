@@ -92,6 +92,7 @@ nikdy událost nevytváří.
 `GET /api/oporahub/events/stream?project=<id>&workspace=<id>[&since=<cursor>]` (SSE)
 
 - Obnova: hlavička `Last-Event-ID` (prohlížečový `EventSource` ji posílá sám), jinak `since`, jinak `0`.
+  Hlavička má přednost i před `since` v URL: `EventSource` se po výpadku připojuje na tutéž adresu.
 - Rámec: `id: <id>` + `data: <událost JSON>`; pole `event:` se neposílá, vše chodí do `onmessage`.
 - Na začátku `retry: 2000`, každých 15 s komentář `: heartbeat`.
 - Omezení: nejvýš 200 událostí na jedno čtení, spojení končí po `OPORA_EVENTS_STREAM_SECONDS`

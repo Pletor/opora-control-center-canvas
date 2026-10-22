@@ -72,6 +72,17 @@ def test_sse_resumes_after_last_event_id_and_beats(service):
         assert again == []
 
 
+def test_last_event_id_wins_over_since_on_reconnect(service):
+    """An EventSource opened with `?since=` reconnects to the same URL with Last-Event-ID: resume after it."""
+    ids = seed(service, 4)
+    app = FastAPI()
+    app.include_router(create_opora_event_router(service, poll_seconds=0.01, heartbeat_seconds=60.0, stream_seconds=0.2))
+    with TestClient(app) as client:
+        response = client.get("/api/oporahub/events/stream", params={**PARAMS, "since": 0}, headers={"Last-Event-ID": str(ids[2])})
+        received, _ = frames(response.text)
+        assert [identifier for identifier, _ in received] == ids[3:]
+
+
 def test_stream_count_is_bounded(service):
     app = FastAPI()
     app.include_router(create_opora_event_router(service, stream_seconds=0.05, max_streams=0))
