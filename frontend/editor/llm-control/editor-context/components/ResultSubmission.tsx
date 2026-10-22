@@ -24,7 +24,7 @@ export default function ResultSubmission({ brief, project, workspace, nodeId, on
     lock.current = true; setBusy(true); setError("");
     try {
       const payload = parseResult(draft, { project, workspace, nodeId });
-      if (payload.contextVersion !== brief.contextVersion) throw new Error("Výsledek odkazuje na jinou verzi kontextu než načtené zadání. Původní verzi nepřepisujte; ověřte změny zadání.");
+      // Only the server can validate legacy snapshots. Preserve the submitted version.
       const saved = await api<{ acceptedResult: AcceptedResult }>("/api/desktop-v3/agent-output", payload);
       setAccepted(saved.acceptedResult);
       onSaved();

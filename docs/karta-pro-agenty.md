@@ -310,6 +310,31 @@ plné texty v `detail`. Verze plátna nesou kola (část `cardRounds`).
 
 ## Kontrolní pás karty
 
+### Porovnávání zadání bez falešných změn
+
+Otisk zadání zahrnuje kartu, její předky, potomky a přímo napojené karty, jejich
+specifikace, instrukce, obsah a příslušné oblasti. Nesouvisející uzly a vazby grafu
+do otisku nevstupují. Projektová pravidla, nastavení, kořenová kresba a pořadí navigace
+stránek zůstávají společným kontextem; jejich skutečná změna může ovlivnit více karet.
+
+Porovnání uzlů a vazeb používá stabilní `id`, obsahu karet `nodeId` a kreseb `layer`.
+Přidání jedné položky tedy neposune porovnání všech dalších. Počítadlo znamená počet
+rozdílných polí nebo položek mezi dvěma snímky, nikoli počet editací v čase.
+
+Staré snímky obsahující celý graf se při porovnávání promítnou do stejného výřezu;
+uložené originály a historie se nepřepisují. Rozpracovaný výstup se starým otiskem lze
+přijmout pouze tehdy, když server najde původní snímek ve stejném projektu, workspace
+a kartě, ověří jeho otisk a shodu relevantního zadání. Neznámá verze nebo skutečná
+změna požadavků zůstává konfliktem. Kontrola revize stavu, oprávnění, testů, review,
+merge a lidského potvrzení se nemění. `agent-results.assignmentStatus` poskytuje stav
+jednotlivých historických výsledků bez přepisování jejich původních `contextVersion`.
+
+Nasazení nevyžaduje migraci databáze. Návrat ke starší verzi kódu zachová záznamy,
+ale může znovu zobrazovat falešné rozdíly a odmítat starší verze zadání; nic automaticky
+nepřepracovávat ani znovu odesílat, nejprve porovnat relevantní obsah.
+
+### Význam polí kontrolního pásu
+
 Deset polí ano / ne: `goal, done, text, blocks, links, source, checks, pipeline, evidence, handoff`, stav
 `yes` (je) / `no` (chybí) / `run` (rozpracováno) / `fail` (selhalo nebo čeká na člověka) a `hint` (co doplnit a kam).
 Jeden výpočet (`backend/editor/agent_packet/card_checklist.py`) pro plátno (pás pod hlavičkou karty, souhrn

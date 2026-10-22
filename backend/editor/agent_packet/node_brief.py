@@ -496,7 +496,7 @@ class NodeBrief:
         brief["orientation"] = orientation_from_brief(brief, project, workspace)
         # Hranice důvěry (upgrade-opora #37): pokyny píše člověk, text jiných agentů je jen podklad.
         brief["trust"] = TRUST
-        brief["resultHistory"] = AgentResults(self.canvas).history(project, workspace, node_id)
+        brief["resultHistory"] = AgentResults(self.canvas).history(project, workspace, node_id, current=captured)
         usage = usage_summary(self.canvas, project, workspace)
         brief["usage"] = {"own": usage["nodes"][node_id], "sector": usage["sectors"].get(node_id),
                           "source": usage["source"], "mode": usage["mode"]}

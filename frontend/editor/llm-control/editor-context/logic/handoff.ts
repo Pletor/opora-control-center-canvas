@@ -3,7 +3,7 @@ import type { NodeBrief } from "@/shared/desktop-state/logic/types";
 export const asRecord = (value: unknown): Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 export type ResultEnvelope = { project: string; workspace: string; nodeId: string; expectedRevision: number; contextVersion: string; agent: string; output: Record<string, unknown> };
 export type AcceptedResult = { id: string; nodeId: string; contextVersion: string | null; binding: string; agent: string; createdAt: string; output: unknown; specification?: unknown };
-export type ResultHistory = { items: AcceptedResult[]; hasMore: boolean };
+export type ResultHistory = { items: AcceptedResult[]; hasMore: boolean; assignmentStatus?: Record<string, string> };
 
 export function resultTemplate(brief: NodeBrief): string {
   const request = asRecord(asRecord(brief.outputContract).request);
