@@ -1,5 +1,4 @@
 Kola karty (přepínač kol v hlavičce karty na plátně; záložka Historie kol v detailu je zrušená, viz `hub/oporahub-card-drawer`): uzavřená v1 se zamrazí do historie jen ke čtení, v2 začíná načisto podle nového zadání. Server: `backend/editor/agent_memory/card_rounds.py`, kontrakt `docs/karta-pro-agenty.md` → Kola karty.
 
 - `logic/rounds-model.ts` — typy `CardRound` (stav uzlu `round`) a `RoundRecord` (`opora.card-round/1`), přepínač `roundChips` (v1 ✓ · v2 ●), nabídka `roundOffer` (výrazná při ⚠ změně fragmentu) výtah kola `roundDigest` a `roundDecisions` (volby portů, splněná kritéria a rozhodnutí kola; další kolo je nepřebírá); původ rozhodnutí karty `decisionRounds` + `fromRoundLabel` („z v1“).
-- `logic/use-decision-rounds.ts` — mapa id rozhodnutí → kolo vzniku pro štítek „z vN“ v Paměti projektu (`ProjectMemoryPanel`); čte kola jen karet v kole ≥ 2.
 - Komponenty záložky (`RoundsPanel`, `RoundSwitch`, `OpenRoundOffer`, `RoundRecordView`) byly odebrány s jednotným detailem karty; zůstává čistá logika.
