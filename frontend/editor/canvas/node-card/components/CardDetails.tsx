@@ -10,7 +10,6 @@ import InheritedRules from "./InheritedRules";
 import CardRules from "./CardRules";
 import CardSource from "./CardSource";
 import SourceRealization from "./SourceRealization";
-import CardUsage from "./CardUsage";
 import { WorkDetails } from "./WorkNow";
 import type { NodeCardData } from "./NodeCard";
 import type { CardActions } from "../logic/card-actions";
@@ -40,7 +39,7 @@ export default function CardDetails({ id, data, actions, release, realize }: {
     <details className="nodrag nopan node-card__fold node-card__details">
       <summary>Podrobnosti</summary>
       <Section title="Doklady">
-        <CardEvidence evidence={evidence} autonomous={data.autonomous} proofs={data.process?.proofs} />
+        <CardEvidence evidence={evidence} autonomous={data.autonomous} />
         <CardChecks checks={view.checks} goal_mode={view.goal_mode} evidence={evidence} />
       </Section>
       {(data.work || data.lease) && (
@@ -74,7 +73,6 @@ export default function CardDetails({ id, data, actions, release, realize }: {
           )}
         </Section>
       )}
-      <CardUsage usage={data.usage} sector={view.kind === "sector"} />
     </details>
   );
 }

@@ -89,8 +89,8 @@ aby schvalování nezakrylo nesplněnou závislost.
 
 | Prvek | Kód |
 |---|---|
-| sloty dokladů | `frontend/editor/canvas/node-card/logic/card-proofs.ts` (+ test), kreslí `components/CardProcess.tsx` |
-| stavová věta | `logic/card-state.ts` (+ test), `components/CardState.tsx` (s `ConfirmProposal`) |
+| tvář karty (nahrazuje sloty dokladů, kuličky a stavovou větu na plátně) | `frontend/editor/canvas/card-face/` z `cards[]` agent-state, viz [oporahub-ui.md](oporahub-ui.md#editor-lean-tvář-karty-velín-a-živý-pás) |
+| stavová věta (jen Kancelář) | `logic/card-state.ts` (+ test) |
 | podrobnosti | `components/CardDetails.tsx` (skládá CardEvidence, CardChecks, WorkDetails, CardLease, CardFrontier, CardUpstream, pravidla, zdroj, realizaci) |
-| data karty | `board/logic/layer-nodes.ts` (`process` nese i sloty, `state` větu) |
+| data karty | `board/logic/layer-nodes.ts` (`face` = tvář karty z agent-state) |
 | styl | blok „PROCES KARTY“ a „SLOTY DOKLADŮ“ v `styles/node-card.css` |

@@ -7,7 +7,7 @@
 // 1000 vazbami (oprava 10) a čip u stropu grafu (`logic/graph-cap.ts`, oprava 8).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
-import WorkNow from "@/editor/canvas/node-card/components/WorkNow";
+import FaceSummary from "@/editor/canvas/card-face/components/FaceSummary";
 import { useWorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
 import { useAddedPulse } from "@/editor/canvas/node-card/logic/use-added-pulse";
 import {
@@ -34,13 +34,11 @@ import { useBoardActions } from "@/editor/canvas/board/logic/use-board-actions";
 import { CardActionsContext, type CardBlockEvent } from "@/editor/canvas/node-card/logic/card-actions";
 import { useFrontier } from "@/editor/canvas/node-card/logic/use-frontier";
 import { useCardChecklist } from "@/editor/canvas/card-checklist/logic/card-checklist";
-import { proposalCount, proposalsIn } from "@/editor/canvas/node-card/logic/completion-proposals";
-import ConfirmSectorProposals from "@/editor/canvas/node-card/components/ConfirmSectorProposals";
-import { evidenceReadiness } from "@/editor/canvas/node-card/logic/evidence-readiness";
 import SectorGateEditor from "@/editor/canvas/node-card/components/SectorGateEditor";
 import SectorAutonomy from "@/editor/canvas/node-card/components/SectorAutonomy";
 import "@/editor/canvas/board/styles/board-bar.css";
-import { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
+import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
+import JsonMirror from "@/hub/oporahub-mirror/components/JsonMirror";
 import { layerFootprints } from "@/editor/canvas/board/logic/layout-model";
 import { settleArea, settleCard } from "@/editor/canvas/board/logic/solid-bodies";
 import NodeCard, { type NodeCardData } from "@/editor/canvas/node-card/components/NodeCard";
@@ -65,11 +63,8 @@ export default function Board({
   onRealizeSource,
   onAutonomy,
   onSaveSector,
-  onConfirmSector,
   onConfirmProposal,
-  confirmError,
   leases,
-  assignmentStatuses,
   usage,
   onRuleWrite,
   onRuleReview,
@@ -118,13 +113,9 @@ export default function Board({
   sourceStatuses?: Record<string, import("@/editor/canvas/node-card/logic/use-source-status").SourceStatus>;
   onRealizeSource?: (nodeId: string, commit: string, prUrl: string) => Promise<void>;
   onConfirmProposal?: (nodeId: string) => Promise<boolean>;
-  /** Poslední chyba uložení stavu (text ze serveru); karta ji ukáže, když potvrzení selže. */
-  confirmError?: string;
-  onConfirmSector?: (sectorId: string, ids: string[]) => Promise<void>;
   onSaveSector?: (node: import("@/shared/types/logic/types").CanvasNode) => void;
   onAutonomy?: (sectorId: string, until: string, grantedBy: string, note: string) => Promise<void>;
   leases?: Record<string, import("@/editor/canvas/node-card/logic/use-leases").CardLease>;
-  assignmentStatuses?: import("@/editor/canvas/node-card/logic/use-assignment-status").AssignmentStatuses;
   onRuleWrite?: (expected: Rule, item: Rule) => Promise<boolean>;
   onRuleReview?: (rule: Rule, decision: import("@/shared/desktop-state/logic/agent-rule").RuleReviewDecision) => Promise<boolean>;
   sourceContext?: { project: string; workspace: string };
@@ -183,13 +174,12 @@ export default function Board({
   revision?: number | null;
   digest?: string;
 }) {
-  const [showFrontier, setShowFrontier] = useState(true);
   // Overlaye se obnovují podle čísel (revize stavu a otisk grafu), ne podle objektů: debounce v pollingu
   // tak sloučí víc změn jedné editace. Když je rodič nepředá, poslouží počítadlo změn grafu a stavu.
   const changes = useChangeCount(graph, state);
   const stateKey = revision ?? `local:${changes}`;
   const workKey = `${digest ?? ""}:${stateKey}`;
-  const frontier = useFrontier(sourceContext, parent, showFrontier, stateKey);
+  const frontier = useFrontier(sourceContext, parent, true, stateKey);
   const checklists = useCardChecklist(sourceContext, parent, stateKey);
   // Strom schránky se obnoví jen při změně odkazů karet a Podnětů do schránky, ne při každé změně stavu.
   const vaultRefs = useMemo(() => JSON.stringify(Object.entries(state.nodes).map(([id, node]) =>
@@ -200,7 +190,12 @@ export default function Board({
   // Závisí jen na grafu a stavu, takže výběr ani polling overlayů ho nepřestaví.
   const index = useMemo(() => buildBoardIndex(graph, state), [graph, state]);
   const multiSet = useMemo(() => new Set(multiSelected), [multiSelected]);
-  const sectors = useMemo(() => sectorViews(graph, state, index), [graph, state, index]);
+  // Jediný zdroj stavu karet: sdílené čtení agent-state (stejný poller jako OporaHub a Velín).
+  const agentState = useAgentState(sourceContext?.project ?? "", sourceContext?.workspace ?? "").state;
+  const agent = useMemo(() => ({ cards: new Map((agentState?.cards ?? []).map((card) => [card.nodeId, card])),
+    decisions: agentState?.decisions ?? [] }), [agentState]);
+  const finished = useMemo(() => new Set((agentState?.cards ?? []).filter((card) =>
+    card.reason === "card_closed" || card.reason === "plan_written_back").map((card) => card.nodeId)), [agentState]);
   const movedCards = useAddedPulse(graph.nodes.map(movedKey));
   const movedSet = useMemo(() => new Set(movedCards), [movedCards]);
   const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workKey);
@@ -208,12 +203,10 @@ export default function Board({
     onCommentText, onAreaResize, onTogglePort, onCardBlock, onConfirmProposal, onRealizeSource,
     onRuleWrite, onRuleReview, sourceContext });
   // Schopnosti rodiče jako booleany: nové inline callbacky v App vrstvu nepřestaví, jejich přítomnost ano.
-  const can = { realize: !!onRealizeSource, confirm: !!onConfirmProposal,
-    rules: !!onRuleWrite && !!onRuleReview };
+  const can = { realize: !!onRealizeSource, rules: !!onRuleWrite && !!onRuleReview };
   const make = (): Node[] => buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
-    disabled, openBlocks, tagFilter, moved: movedSet, sectors, vaultIndex, checklists, usage, frontier: frontier.rows, work,
-    leases, sourceStatuses, assignmentStatuses, confirmError, sourceContext,
-    can }).concat(blocks.nodes);
+    disabled, openBlocks, tagFilter, moved: movedSet, vaultIndex, checklists, usage, frontier: frontier.rows, work,
+    leases, sourceStatuses, agent, sourceContext, can }).concat(blocks.nodes);
   const [nodes, setNodes] = useState<Node[]>(make);
   // Výšky pro „Srovnat“ v App a pro dosednutí tažené karty: jen změření v plném detailu. Karta z dálky
   // (`data-detail="far"`) je nižší; její míra se nikdy nebere jako plná a do první plné míry platí odhad.
@@ -246,8 +239,8 @@ export default function Board({
   useEffect(() => {
     setNodes((previous) => reuseNodes(previous, make()));
   }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project,
-    sourceContext?.workspace, usage, assignmentStatuses, frontier.rows, leases, sourceStatuses, work, confirmError, movedCards,
-    checklists, vaultIndex, can.realize, can.confirm, can.rules]);
+    sourceContext?.workspace, usage, frontier.rows, leases, sourceStatuses, work, movedCards,
+    checklists, vaultIndex, agent, can.realize, can.rules]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);
@@ -298,7 +291,7 @@ export default function Board({
   const addedSet = useMemo(() => new Set(addedEdges), [addedEdges]);
   // Vazby se počítají jen při změně grafu, stavu, vykreslených uzlů, bloků, pulsu nebo výběru vazby.
   const edges: Edge[] = useMemo(() => layerEdges({ graph, state, ids, kinds: index.kinds, added: addedSet, selectedEdge, blockEdges: blocks.edges,
-    simple: simpleEdges(graph, ids) }), [graph, state, ids, index, addedSet, selectedEdge, blocks.edges]);
+    simple: simpleEdges(graph, ids), finished: agentState?.cards ? finished : undefined }), [graph, state, ids, index, addedSet, selectedEdge, blocks.edges, finished, agentState]);
   const showMiniMap = useMemo(() => ids.size <= MINIMAP_MAX, [ids]);
   const cap = useMemo(() => capWarning(graph, Object.keys(state.nodes).length), [graph, state.nodes]);
   return (
@@ -319,22 +312,19 @@ export default function Board({
       }}
     >
       <div className="board-bar nodrag nopan" role="toolbar" aria-label="Stav sektoru">
-        <WorkNow overview={work?.data} error={work?.error} sectorId={parent} open={onSelect} />
+        <FaceSummary title={parent ? index.byId.get(parent)?.name ?? "" : ""}
+          faces={nodes.flatMap((n) => n.type === "canvas" && (n.data as NodeCardData).face ? [(n.data as NodeCardData).face!] : [])}
+          nextEdges={edges.filter((e) => e.className?.includes("edge-port-next")).length} />
+        <span className="board-bar__grow" />
         {parent && onAutonomy && graph.nodes.find(n => n.id === parent)?.kind === "sector" &&
           <SectorAutonomy key={scope + parent} sectorId={parent} name={graph.nodes.find(n => n.id === parent)!.name}
             grant={state.autonomy?.[parent]} disabled={disabled} save={(until, who, note) => onAutonomy(parent, until, who, note)} />}
         {parent && onSaveSector && graph.nodes.find(n => n.id === parent)?.kind === "sector" &&
           <SectorGateEditor sector={graph.nodes.find(n => n.id === parent)!} graph={graph} disabled={disabled} save={onSaveSector} />}
-        {/* Počet ke schválení jen jednou: v sektoru ho nese souhrn hromadného potvrzení. */}
-        {parent && graph.nodes.find(n => n.id === parent)?.kind === "sector" && onConfirmSector
-          ? <ConfirmSectorProposals key={scope + JSON.stringify(proposalsIn(graph, state, parent, index))}
-            proposals={proposalsIn(graph, state, parent, index).map(p => ({ ...p, readiness: evidenceReadiness(state.nodes[p.id]?.evidence, graph.nodes.find(n => n.id === p.id)) }))}
-            disabled={disabled} confirm={ids => onConfirmSector(parent, ids)} />
-          : <span className="board-bar__chip">Ke schválení: {proposalCount(graph, state, parent, index)}</span>}
-        <button type="button" aria-pressed={showFrontier} onClick={() => setShowFrontier(value => !value)}>Frontier · {showFrontier ? "zapnuto" : "vypnuto"}</button>
         {frontier.error && <p role="alert">{frontier.error}</p>}
         {cap && <span className="board-bar__chip board-bar__cap" title={cap.title} data-testid="board-cap">{cap.text}</span>}
       </div>
+      <JsonMirror id="oh-card-stages" value={agentState?.cards ?? null} />
       <CardActionsContext.Provider value={actions}>
       <ReactFlow
         colorMode={useDesktopAppearance().theme}

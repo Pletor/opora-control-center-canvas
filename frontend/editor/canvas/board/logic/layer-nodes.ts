@@ -12,14 +12,11 @@ import type { CommentCardData } from "@/editor/canvas/comment-card/components/Co
 import type { AreaCardData } from "@/editor/canvas/area/components/AreaCard";
 import { upstreamRows } from "@/editor/canvas/node-card/logic/upstream";
 import { areaSummary, type Checklists } from "@/editor/canvas/card-checklist/logic/card-checklist";
-import { proposalCount } from "@/editor/canvas/node-card/logic/completion-proposals";
-import { evidenceReadiness } from "@/editor/canvas/node-card/logic/evidence-readiness";
 import { effectiveRules } from "@/editor/canvas/node-card/logic/effective-rules";
 import type { UsageSummary } from "@/editor/canvas/node-card/logic/use-usage";
-import type { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
-import { processView } from "@/editor/canvas/node-card/logic/card-process";
-import { cardState } from "@/editor/canvas/node-card/logic/card-state";
 import { cardView, matchesTagFilter } from "@/editor/canvas/node-card/logic/card-model";
+import { cardFace } from "@/editor/canvas/card-face/logic/card-face";
+import type { AgentCardStage, AgentDecision } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { commentView } from "@/editor/canvas/comment-card/logic/comment-model";
 import { areaColorOf, areaLabel, membersOf } from "@/editor/canvas/area/logic/area-model";
 import type { OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
@@ -28,7 +25,6 @@ import type { FrontierItem } from "@/editor/canvas/node-card/logic/use-frontier"
 import type { WorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
 import type { CardLease } from "@/editor/canvas/node-card/logic/use-leases";
 import type { SourceStatus } from "@/editor/canvas/node-card/logic/use-source-status";
-import type { AssignmentStatuses } from "@/editor/canvas/node-card/logic/use-assignment-status";
 
 /**
  * Kreslit jen viditelné uzly (oprava 5 v docs/navrhy/2026-10-14-vykon-platna.md) je zapnuté. Karta mimo
@@ -55,7 +51,6 @@ export type LayerInput = {
   openBlocks: OpenBlocks;
   tagFilter: string;
   moved: ReadonlySet<string>;
-  sectors: ReturnType<typeof sectorViews>;
   vaultIndex: ReturnType<typeof indexVault>;
   checklists?: Checklists;
   usage?: UsageSummary | null;
@@ -63,11 +58,11 @@ export type LayerInput = {
   work?: { data?: WorkOverview } | null;
   leases?: Record<string, CardLease>;
   sourceStatuses?: Record<string, SourceStatus>;
-  assignmentStatuses?: AssignmentStatuses;
-  confirmError?: string;
+  /** Snímek agent-state: tvář každé karty (`cards[]`) a rozhodnutí člověka (`decisions[]`). */
+  agent?: { cards: ReadonlyMap<string, AgentCardStage>; decisions: readonly AgentDecision[] };
   sourceContext?: { project: string; workspace: string };
   /** Které akce rodič vůbec umí; karta podle toho ukáže editor, nebo ne. */
-  can: { realize: boolean; confirm: boolean; rules: boolean };
+  can: { realize: boolean; rules: boolean };
 };
 
 /** Klíč pulsu přesunuté karty (`useAddedPulse` nad pozicemi). */
@@ -102,36 +97,21 @@ export function buildLayerNodes(input: LayerInput): Node[] {
     const workflow = nodeWorkflowOf(state, n.id);
     const view = { ...cardView(n, workflow, childCount(index, n.id)), briefChanged: changedSinceInsert(workflow.fragmentRefs, input.vaultIndex) };
     const own = state.nodes[n.id];
-    const assignment = input.assignmentStatuses?.[n.id];
-    // Karta bez pipeline je „čeká na router“ (prázdná pipeline); uzavřená karta proces i sloty ponechá, aby doklady
-    // šly přečíst pohledem i po uzavření. Sloty se počítají z důkazů a kontrol karty (docs/proces-karty.md §2).
-    const process = n.kind === "node" ? processView(own?.stages ?? { profile: "custom", items: [] }, own?.evidence, n.checks) : undefined;
+    const face = cardFace({ nodeId: n.id, card: input.agent?.cards.get(n.id), sector: n.kind === "sector", layer: view.cardLayer ?? undefined,
+      decisions: input.agent?.decisions ?? [], nameOf: (id) => index.byId.get(id)?.name ?? id });
     const data: NodeCardData = {
       view,
-      checklist: input.checklists?.[n.id],
+      face,
       usage: (n.kind === "sector" ? input.usage?.sectors : input.usage?.nodes)?.[n.id],
       upstream: { rows: upstreamRows(graph, state, n.id, index) },
       frontier: input.frontier?.[n.id],
-      sectorProgress: input.sectors[n.id],
       evidence: own?.evidence,
-      process,
       work: input.work?.data?.nodes[n.id],
-      workCounts: input.work?.data?.sectors[n.id],
       moved: input.moved.has(movedKey(n)),
       realization: n.sourceRef && can.realize ? { value: n.realization, status: input.sourceStatuses?.[n.id], disabled } : undefined,
       autonomous: own?.done?.by === "autonomy" && own?.done?.confirmed,
       lease: input.leases?.[n.id],
-      // Jedna stavová věta podle přednosti (docs/proces-karty.md §3); sektor má pruh stavů místo věty.
-      state: n.kind === "node" ? cardState({ closed: view.closed, doneProposed: view.doneProposed, process,
-        frontier: input.frontier?.[n.id], work: input.work?.data?.nodes[n.id], lease: input.leases?.[n.id] }) : undefined,
       releaseLease: !!input.leases?.[n.id] && !!sourceContext,
-      // Potvrzení i chyba patří jen kartě s navrženým uzavřením; jinak by chyba překreslila všechny karty.
-      completion: can.confirm ? { note: own?.done?.note,
-        readiness: view.doneProposed ? evidenceReadiness(own?.evidence, n) : undefined,
-        error: view.doneProposed ? input.confirmError : undefined,
-        pending: n.kind === "sector" ? proposalCount(graph, state, n.id, index) : 0 } : undefined,
-      assignmentWarning: assignment?.status === "changed" && sourceContext
-        ? { ...sourceContext, nodeId: n.id, resultId: assignment.resultId, source: assignment.source } : undefined,
       inheritedRules: effectiveRules(graph, state, n.id, index).filter((rule) => rule.inherited || rule.origin.storage === "node" || !can.rules),
       rules: can.rules ? { items: ownNodeRules(index, n.id) } : undefined,
       source: n.sourceRef && sourceContext ? { source: n.sourceRef, ...sourceContext } : undefined,

@@ -15,7 +15,18 @@ export type AgentAction = {
   attention?: boolean;
 };
 /** Etapa jedné karty (`cards[]`): kde ve smyčce karta stojí; plátno z ní kreslí odznak. */
-export type AgentCardStage = { nodeId: string; stage: StageId; health: Health; reason: string; executionId: string | null };
+export type AgentCardStage = {
+  nodeId: string; stage: StageId; health: Health; reason: string; executionId: string | null;
+  /** Graf karet a postup (vlna DAG / kroky plánu / lease); starší server pole nemá, UI je bere jako volitelná. */
+  kind?: string | null; layer?: string | null; blockedBy?: string[]; topoIndex?: number | null; nextActionId?: string | null;
+  gate?: { status: string; rule: string | null } | null;
+  steps?: { total: number; done: number; current: string | null; currentTitle?: string | null;
+    /** Postup po krocích přes všechny běhy (`[{id, status, executionId}]`); čte ho detail karty. */
+    items?: unknown };
+  /** Jediná definice hotovo (šest booleanů + `gate`, `done`, `missing`); čte ji detail karty. */
+  dod?: unknown;
+  lease?: { holder: string | null; expiresAt: string; epoch: number | null } | null;
+};
 export type AgentDecision = { id: string; kind: string; targetId: string | null; title: string; actionId: string };
 export type AgentGap = { id: string; stage: string; reason: string };
 export type AgentHeads = {
@@ -51,9 +62,16 @@ function action(value: unknown): value is AgentAction {
 }
 const decision = (value: unknown): value is AgentDecision => object(value) && text(value.id) && text(value.kind)
   && nullableText(value.targetId) && text(value.title) && text(value.actionId);
+const optional = (value: unknown, check: (item: unknown) => boolean) => value === undefined || value === null || check(value);
+const cardExtras = (value: Record<string, unknown>) => optional(value.kind, text) && optional(value.layer, text)
+  && (value.blockedBy === undefined || (Array.isArray(value.blockedBy) && value.blockedBy.every(text)))
+  && optional(value.topoIndex, count) && optional(value.nextActionId, text)
+  && optional(value.gate, item => object(item) && text(item.status) && nullableText(item.rule))
+  && (value.steps === undefined || (object(value.steps) && count(value.steps.total) && count(value.steps.done) && nullableText(value.steps.current)))
+  && optional(value.lease, item => object(item) && nullableText(item.holder) && text(item.expiresAt));
 const cardStage = (value: unknown): value is AgentCardStage => object(value) && text(value.nodeId)
   && STAGE_IDS.includes(value.stage as StageId) && HEALTHS.includes(value.health as Health) && text(value.reason)
-  && nullableText(value.executionId);
+  && nullableText(value.executionId) && cardExtras(value);
 const gap = (value: unknown): value is AgentGap => object(value) && text(value.id) && text(value.stage) && text(value.reason);
 
 /** Ověří tvar a rozsah; dokument jiného projektu nebo prostoru se nikdy nezobrazí. */

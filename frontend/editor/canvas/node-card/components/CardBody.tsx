@@ -1,11 +1,11 @@
-// Tělo karty: název (s přejmenováním přímo na kartě) a podstata do tří řádků.
+// Tělo karty: název (s přejmenováním přímo na kartě) a — jen u vybrané karty — podstata do tří řádků.
 // Přejmenování probublává nahoru přes onCommit / onCancel / onStart; stav „edituje se“ drží rodič.
 import { useEffect, useRef, useState } from "react";
 import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 
 export type RenameHandlers = { editing: boolean; start: () => void; cancel: () => void; commit: (name: string) => void };
 
-export default function CardBody({ id, name, purpose, rename }: { id: string; name: string; purpose: string; rename?: RenameHandlers }) {
+export default function CardBody({ id, name, purpose, rename }: { id: string; name: string; purpose?: string; rename?: RenameHandlers }) {
   const field = useRef<HTMLInputElement>(null);
   const [, changed] = useState(0);
   const dirty = () => !!rename?.editing && !!field.current && field.current.value !== name;
@@ -62,7 +62,7 @@ export default function CardBody({ id, name, purpose, rename }: { id: string; na
           {name}
         </h3>
       )}
-      <p className={"node-card__purpose" + (purpose ? "" : " node-card__purpose--empty")}>{purpose || "Podstata zatím není popsána."}</p>
+      {purpose !== undefined && <p className={"node-card__purpose" + (purpose ? "" : " node-card__purpose--empty")}>{purpose || "Podstata zatím není popsána."}</p>}
     </div>
   );
 }

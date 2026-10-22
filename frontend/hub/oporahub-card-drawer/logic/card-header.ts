@@ -9,7 +9,7 @@ import { healthGlyph, healthLabel, reasonText } from "@/hub/oporahub-agent-state
 export type CardStepItem = { id: string; status: string; executionId: string | null };
 export type CardSteps = { total: number; done: number; current: string | null; items: CardStepItem[] };
 export type CardGate = { status: string; rule: string | null };
-export type CardEntry = AgentCardStage & {
+export type CardEntry = Omit<AgentCardStage, "kind" | "layer" | "blockedBy" | "topoIndex" | "nextActionId" | "gate" | "steps"> & {
   kind: string | null; layer: string | null; blockedBy: string[]; topoIndex: number | null;
   nextActionId: string | null; gate: CardGate | null; steps: CardSteps | null; dod: unknown;
 };

@@ -1,0 +1,97 @@
+/* TVÁŘ KARTY (blok `card-face`)
+   Příběh: člověk přeletí plátno a z každé karty přečte tři věci shora dolů — co to je a kdo ji drží, jak na tom
+   je (jediný řádek: značka a slovo zdraví, etapa, důvod) a kolik kroků plánu je hotovo. Nic dalšího: kontrolní
+   seznamy, sloty dokladů a kuličky pipeline žijí v detailu karty. Barva nikdy nenese význam sama, vždy je
+   u ní značka a slovo. Rytmus 8 px mezi řádky, název 17 px, aby šel číst i při 60 % zoomu. */
+.card-face { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; min-width: 0; }
+.card-face__top { display: flex; align-items: center; gap: 8px; min-height: 18px; }
+.card-face__grow { flex: 1; }
+.card-face__kind {
+  font: 600 11px/1 var(--mono); letter-spacing: 0.02em; color: var(--ink-2);
+  background: var(--surface-3); border-radius: 4px; padding: 3px 6px;
+}
+:root[data-theme="dark"] .card-face__kind { background: var(--surface-2); }
+
+/* Kdo kartu drží: agent tyrkysový kruh s A, člověk zlatý s H — stejné značky jako v OporaHubu. */
+.card-face__who { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+.card-face__who i {
+  width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center;
+  font: 700 10px/1 var(--font); font-style: normal;
+}
+.card-face__who--agent { color: var(--accent); }
+.card-face__who--agent i { background: var(--accent); color: var(--accent-ink); }
+.card-face__who--human { color: var(--gold); }
+.card-face__who--human i { background: var(--gold); color: var(--surface); }
+
+/* Jediný stavový řádek: čip zdraví (značka + slovo) a za ním etapa · důvod nebo odpočet pronájmu. */
+.card-face__status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 4px; font-size: 13px; color: var(--ink-2); min-width: 0; }
+.card-face__chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border: 1px solid; border-radius: 4px;
+  font-size: 12px; font-weight: 600; line-height: 1.3; white-space: nowrap;
+}
+.card-face__chip--ok { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.card-face__chip--warn { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+.card-face__chip--bad { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.card-face__chip--gap { color: var(--ink-muted); background: transparent; border-color: var(--line-strong); border-style: dashed; font-weight: 500; }
+.card-face__chip--hum { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+.card-face__lease { font-variant-numeric: tabular-nums; }
+
+/* Postup kroků: segment = krok, zelený hotový, tyrkysový právě běží; pod ním „3/7 · s4 Název kroku“. */
+.card-face__progress { display: flex; flex-direction: column; gap: 5px; }
+.card-face__segments { display: flex; gap: 3px; }
+.card-face__segments b { flex: 1; height: 6px; border-radius: 2px; background: var(--line); }
+.card-face__segments .card-face__segment--done { background: var(--ok); }
+.card-face__segments .card-face__segment--cur { background: var(--accent); }
+.card-face__steps { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-face__steps b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Patička — nejvýš jedna: brána merge, na koho karta čeká, nebo otázka na člověka (zlatá, klikací). */
+.card-face__foot {
+  display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: 2px; padding-top: 8px;
+  border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-2);
+}
+.card-face__foot-label { flex: none; font-size: 11px; color: var(--ink-muted); }
+.card-face__foot-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.card-face__foot--decision {
+  width: 100%; background: none; border: 0; border-top: 1px solid var(--gold-line); border-radius: 0;
+  color: var(--gold); font: 600 13px var(--font); text-align: left; cursor: pointer; padding-left: 0; padding-right: 0;
+}
+
+/* Glyf pod 45 % zoomu: značka, název a tenká lišta postupu u spodní hrany. */
+.card-face--glyph { flex-direction: row; align-items: center; gap: 10px; padding: 14px 16px; position: relative; }
+.card-face__mark { font-size: 18px; font-weight: 700; }
+.card-face__mark--ok { color: var(--ok); }
+.card-face__mark--warn, .card-face__mark--hum { color: var(--gold); }
+.card-face__mark--bad { color: var(--danger); }
+.card-face__mark--gap { color: var(--ink-muted); }
+.card-face__glyph-title { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-face__glyph-bar { position: absolute; left: 0; bottom: 0; height: 4px; width: var(--share); background: var(--ok); border-radius: 0 2px 2px 0; }
+.card-face--working .card-face__glyph-bar { background: var(--accent); }
+
+/* Okraj karty nese stav, ne dekoraci: tyrkysový = agent běží, zlatý = čeká na tebe, čárkovaný = blokováno. */
+.node-card.node-card--lean { width: 300px; min-height: 0; grid-template-rows: auto; border-width: 1.5px; border-radius: 10px; }
+.node-card--lean .node-card__body { padding: 0; gap: 4px; }
+.node-card--lean .node-card__title { font-size: 17px; line-height: 1.2; margin: 0; padding: 0; text-transform: none; letter-spacing: -0.005em; color: var(--ink); }
+.node-card--lean .node-card__purpose { font-size: 12px; }
+/* Porty jsou úchyty pro tah vazby, ne informace: v klidu neviditelné, ukážou se najetím nebo na vybrané kartě. */
+.node-card--lean:not(:hover):not(.node-card--selected) .node-card__port { opacity: 0; }
+.node-card--lean.node-card--face-working { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.node-card--lean.node-card--face-ready { border-color: var(--accent-line); }
+.node-card--lean.node-card--face-decision { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+.node-card--lean.node-card--face-problem { border-color: var(--danger-line); }
+.node-card--lean.node-card--face-blocked { border-style: dashed; background: var(--surface-2); }
+.node-card--lean.node-card--face-done { background: var(--surface-2); }
+.node-card--lean.node-card--face-blocked .node-card__title { color: var(--ink-2); }
+
+/* Hlava vrstvy: jméno sektoru a počty karet podle tónu (stejné značky jako Velín), vpravo kolik vazeb next
+   vrstvu řadí. Tichá, aby nesoutěžila s kartami. */
+.card-face-summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.card-face-summary__eyebrow { font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.card-face-summary__title { font-size: 15px; }
+.card-face-summary__count { border: 1px solid; border-radius: 4px; padding: 0 6px; font-size: 12px; font-weight: 600; }
+.card-face-summary__count--ok { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.card-face-summary__count--run { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.card-face-summary__count--gate, .card-face-summary__count--human { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+.card-face-summary__count--bad { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.card-face-summary__count--blocked { color: var(--ink-muted); border-color: var(--line-strong); border-style: dashed; }
+.card-face-summary__meta { color: var(--ink-muted); font-size: 12px; }

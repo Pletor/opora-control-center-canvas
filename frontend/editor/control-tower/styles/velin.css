@@ -1,0 +1,101 @@
+/* VELÍN (blok `velin`)
+   Příběh: člověk otevře Velín a během pár vteřin ví, kde projekt stojí. Shora projekt s jedním pruhem stavů,
+   pod ním vrstvy, v nich sektory a v sektorech karty jako pilulky v pořadí grafu závislostí. Vpravo jen to,
+   co chce jeho ruku: rozhodnutí (zlatá, nahoře) a další akce. Dole „Teď běží“ s odpočtem pronájmu. Tón
+   pilulky vždy nese značku (✓ ▸ ◷ ● ✕ ○), barva jen pomáhá. Na úzkém displeji jde pravý sloupec pod hlavní. */
+.velin { height: 100%; overflow: auto; padding: 16px; box-sizing: border-box; background: var(--bg); color: var(--ink); font-family: var(--font); }
+.velin__bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.velin__filters { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--surface-3); }
+.velin__filter { border: 0; background: none; padding: 6px 12px; border-radius: 6px; color: var(--ink-2); font: 500 13px var(--font); cursor: pointer; }
+.velin__filter--active { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.velin__source { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
+.velin__grid { display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 16px; align-items: start; }
+.velin__main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.velin__grow { flex: 1; }
+.velin__muted { color: var(--ink-muted); }
+.velin__empty { color: var(--ink-muted); padding: 24px; }
+.velin__eyebrow { display: block; font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.velin__title { margin: 2px 0 0; font-size: 20px; }
+.velin__layer-title, .velin__title { text-transform: none; letter-spacing: 0; color: var(--ink); }
+
+/* Projekt: jméno, jeden složený pruh tónů a počty — celé plátno jedním pohledem. */
+.velin__project, .velin__layer, .velin__running, .velin__panel {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+}
+.velin__project { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 24px; align-items: center; padding: 14px 16px; }
+.velin__project-bar { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.velin__project-bar small { color: var(--ink-2); }
+.velin__stack { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--surface-3); gap: 2px; }
+.velin__stack-part { display: block; flex-basis: 0; }
+.velin__stack-part--ok { background: var(--ok); }
+.velin__stack-part--run { background: var(--accent); }
+.velin__stack-part--gate { background: var(--gold-line); }
+.velin__stack-part--human { background: var(--gold); }
+.velin__stack-part--bad { background: var(--danger); }
+.velin__stack-part--blocked { background: var(--line-strong); }
+.velin__counts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Tóny pilulek a počtů: stejné značky a barvy jako stavový řádek karty na plátně. */
+.velin__count, .velin__pill { border: 1px solid; border-radius: 5px; font-size: 13px; white-space: nowrap; }
+.velin__count { padding: 1px 7px; font-weight: 600; }
+.velin__count--ok, .velin__pill--ok { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.velin__count--run, .velin__pill--run { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.velin__count--gate, .velin__pill--gate { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+.velin__count--human, .velin__pill--human { color: var(--gold); background: var(--gold-soft); border-color: var(--gold); font-weight: 600; }
+.velin__count--bad, .velin__pill--bad { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.velin__count--blocked, .velin__pill--blocked { color: var(--ink-muted); background: transparent; border-color: var(--line-strong); border-style: dashed; }
+.velin__pill { padding: 4px 9px; cursor: pointer; font-family: var(--font); }
+.velin__pill:hover { filter: brightness(0.97); outline: 1px solid currentColor; }
+
+/* Vrstva: vlevo jméno a počty, vpravo sektory vedle sebe; sektor je jemný zlatý rámeček jako na plátně. */
+.velin__layer { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 16px; padding: 14px 16px; }
+.velin__layer-title { margin: 2px 0 8px; font-size: 17px; }
+.velin__sectors { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.velin__sector { border: 1px solid var(--gold-line); background: var(--sector-bg); border-radius: 8px; padding: 10px 12px; }
+.velin__sector-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.velin__sector-head .velin__eyebrow { display: inline; }
+.velin__sector-head small { color: var(--ink-muted); font-family: var(--mono); }
+.velin__pills { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Panely vpravo: rozhodnutí mají zlatou hlavu, akce tyrkysové avatary agenta. */
+.velin__side { display: flex; flex-direction: column; gap: 12px; }
+.velin__panel-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.velin__panel--human { border-color: var(--gold-line); }
+.velin__panel--human .velin__panel-head { background: var(--gold-soft); }
+.velin__panel-row { padding: 12px 14px; border-bottom: 1px solid var(--line); margin: 0; }
+.velin__panel-row:last-child { border-bottom: 0; }
+.velin__decision { margin: 4px 0 8px; font-weight: 600; }
+.velin__badge { border: 1px solid var(--gold-line); border-radius: 4px; padding: 0 7px; font-size: 12px; }
+.velin__avatar {
+  flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); font: 700 10px var(--font);
+}
+.velin__avatar--human { background: var(--gold); color: var(--surface); }
+.velin__action { display: flex; align-items: center; gap: 10px; }
+.velin__action-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.velin__button { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 6px; padding: 5px 12px; cursor: pointer; font: 500 13px var(--font); color: var(--ink); }
+.velin__button--human { background: var(--gold-soft); border-color: var(--gold-line); color: var(--gold); font-weight: 600; }
+
+/* Teď běží: řádek = agent, karta, krok, pruh postupu a odpočet; prošlý pronájem červeně s ✕. */
+.velin__run {
+  display: grid; grid-template-columns: 20px minmax(120px, 200px) minmax(0, 220px) minmax(60px, 1fr) 70px; align-items: center; gap: 12px;
+  width: 100%; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink);
+  font: 13px var(--font); text-align: left; cursor: pointer;
+}
+.velin__run:last-child { border-bottom: 0; }
+.velin__run-who { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.velin__run-bar { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.velin__run-bar i { display: block; height: 100%; width: var(--share); background: var(--accent); }
+.velin__run-left { font: 600 14px var(--mono); color: var(--accent); text-align: right; }
+.velin__run--late .velin__run-bar i { background: var(--danger); width: 100%; }
+.velin__run--late .velin__run-left { color: var(--danger); }
+.velin__legend { font-size: 12px; color: var(--ink-muted); margin: 0; }
+
+@media (max-width: 900px) {
+  .velin { padding: 10px; }
+  .velin__grid { grid-template-columns: minmax(0, 1fr); }
+  .velin__project, .velin__layer { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .velin__sectors { grid-template-columns: minmax(0, 1fr); }
+  .velin__run { grid-template-columns: 20px minmax(0, 1fr) 70px; }
+  .velin__run-who, .velin__run-bar { display: none; }
+}

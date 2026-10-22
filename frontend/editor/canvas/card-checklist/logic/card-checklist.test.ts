@@ -1,7 +1,4 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import CardChecklist from "@/editor/canvas/card-checklist/components/CardChecklist";
 import { areaSummary, handoffMark, nodeKinds, type CheckItem, type CheckKey, type CheckState } from "@/editor/canvas/card-checklist/logic/card-checklist";
 import { emptyDesktopState, type DesktopState } from "@/shared/desktop-state/logic/types";
 
@@ -13,13 +10,6 @@ const done = (confirmed: boolean, by: "human" | "agent"): DesktopState => ({
 });
 
 describe("kontrolní pás karty", () => {
-  it("políčko nese značku stavu a tooltip s tím, co doplnit", () => {
-    const html = renderToStaticMarkup(createElement(CardChecklist, { items: [item("goal", "yes"), item("text", "no", "výňatek → /api/node-text")] }));
-    expect(html).toContain("card-checklist__cell--yes");
-    expect(html).toContain("text: chybí · výňatek → /api/node-text");
-    expect(html).toContain('aria-label="Kontrolní pás: 1 z 2"');
-  });
-
   it("souhrn oblasti počítá jen hotová pole a karty čekající na člověka", () => {
     const summary = areaSummary([[item("pipeline", "yes"), item("evidence", "no")], [item("pipeline", "run"), item("blocks", "fail")]]);
     expect(summary.total).toBe(2);

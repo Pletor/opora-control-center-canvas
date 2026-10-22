@@ -1,23 +1,24 @@
-/* LIŠTA PLÁTNA: jedna neprůhledná řada čipů vpravo nahoře (zadání stránky, mapa architektury, Teď se děje,
-   autonomie, brána, ke schválení, frontier). Čip je souhrn na první pohled; klik otevře panel pod ním, který kreslí vlastní plné pozadí
-   a stín, takže se nemíchá s kartami pod sebou. Lišta sama karty nepřekrývá víc než o jeden řádek. */
+/* LIŠTA PLÁTNA: hlava vrstvy přes celou šířku nahoře — vlevo jméno sektoru s počty karet podle tónu tváře
+   a kolik vazeb next vrstvu řadí, vpravo nastavení sektoru (autonomie, závěrečná karta). Starší čipy (Teď se děje,
+   ke schválení, frontier) zmizely: děj nese živý pás dole, stav karet jejich tvář. */
 .board-bar {
   position: absolute;
   top: 10px;
+  left: 12px;
   right: 12px;
   z-index: 20;
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
   gap: 6px;
-  max-width: calc(100% - 24px);
-  padding: 5px 6px;
+  padding: 6px 12px;
   border-radius: 12px;
   background: var(--surface-2);
   border: 1px solid var(--line-strong);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
 }
+.board-bar__grow { flex: 1; }
 .board-bar__pop { position: relative; }
 .board-bar__pop > summary { list-style: none; }
 .board-bar__pop > summary::-webkit-details-marker { display: none; }

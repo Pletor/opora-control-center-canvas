@@ -2,7 +2,6 @@ import { expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { sectorViews } from "./sector-status";
-import SectorProgress from "../components/SectorProgress";
 import SectorGateEditor from "../components/SectorGateEditor";
 import type { Graph } from "@/shared/types/logic/types";
 import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
@@ -33,7 +32,6 @@ it("unlocks the next sector only after its predecessor's human gate and all card
   const views = sectorViews(graph, state);
   expect(views.a.verified).toBe(true);
   expect(views.b.blockedBy).toEqual([]);
-  expect(renderToStaticMarkup(createElement(SectorProgress, { value: views.a }))).toContain("Ověřeno");
   const html = renderToStaticMarkup(createElement(SectorGateEditor, { sector: graph.nodes[0], graph, disabled: false, save: () => {} }));
   expect(html).toContain('value="gate"');
   expect(html).not.toContain('value="b"');

@@ -5,7 +5,6 @@ import { emptyDesktopState, type DesktopState } from "@/shared/desktop-state/log
 import { buildBoardIndex } from "./board-index";
 import { buildLayerNodes, CULL_FROM, CULL_VISIBLE, shouldCull, type LayerInput } from "./layer-nodes";
 import { changedNodes, reuseNodes, sameShell, sameValue } from "./stable-nodes";
-import { sectorViews } from "@/editor/canvas/node-card/logic/sector-status";
 import { indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
 /** Vrstva s `cards` kartami po třech blocích se dvěma porty, pár sektory, komentář a oblast. */
@@ -30,8 +29,8 @@ function board(cards = 300): { graph: Graph; state: DesktopState } {
 function inputFor(graph: Graph, state: DesktopState, patch: Partial<LayerInput> = {}): LayerInput {
   const index = buildBoardIndex(graph, state);
   return { graph, state, index, parent: null, selected: null, multiSelected: new Set(), selectedBlock: null, editing: null, disabled: false,
-    openBlocks: {}, tagFilter: "", moved: new Set(), sectors: sectorViews(graph, state, index), vaultIndex: indexVault([]),
-    sourceContext: { project: "p", workspace: "w" }, can: { realize: true, confirm: true, rules: true },
+    openBlocks: {}, tagFilter: "", moved: new Set(), vaultIndex: indexVault([]),
+    sourceContext: { project: "p", workspace: "w" }, can: { realize: true, rules: true },
     ...patch };
 }
 
@@ -73,10 +72,12 @@ describe("stable layer nodes", () => {
     expect(changedNodes(first, next)).toEqual(["n-20"]);
   });
 
-  it("a confirm error re-renders only cards with a proposed closing", () => {
-    const next = reuseNodes(first, buildLayerNodes(inputFor(graph, state, { confirmError: "konflikt revize" })));
-    const proposed = first.filter((n) => (n.data as { view?: { doneProposed?: boolean } }).view?.doneProposed).map((n) => n.id);
-    expect(changedNodes(first, next).sort()).toEqual(proposed.sort());
+  it("a new agent-state snapshot re-renders only cards whose face changed", () => {
+    const card = (nodeId: string, reason: string) => ({ nodeId, stage: "plan" as const, health: "ok" as const, reason, executionId: null });
+    const agent = (reason: string) => ({ cards: new Map([["n-30", card("n-30", reason)], ["n-31", card("n-31", "card_in_plan")]]), decisions: [] });
+    const before = reuseNodes(first, buildLayerNodes(inputFor(graph, state, { agent: agent("card_in_plan") })));
+    const after = reuseNodes(before, buildLayerNodes(inputFor(graph, state, { agent: agent("card_closed") })));
+    expect(changedNodes(before, after)).toEqual(["n-30"]);
   });
 
   it("keeps measured on reused nodes and carries it over to rebuilt nodes (inputs keep focus)", () => {

@@ -6,8 +6,7 @@ import { NodeCardView, type NodeCardData } from "./NodeCard";
 import { cardView } from "../logic/card-model";
 import { emptyDesktopState, nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
 import type { CardDetail } from "../logic/card-lod";
-import { processView } from "../logic/card-process";
-import { cardState } from "../logic/card-state";
+import { cardFace } from "@/editor/canvas/card-face/logic/card-face";
 
 const state = emptyDesktopState();
 state.nodes.n = { phase: "build", criteria: [], steps: [], rules: [],
@@ -16,7 +15,10 @@ state.nodes.n = { phase: "build", criteria: [], steps: [], rules: [],
     ports: [{ id: "p1", label: "Ano" }, { id: "p2", label: "Ne" }] }] };
 const node = { id: "n", parentId: null, kind: "node" as const, name: "Karta", purpose: "Účel", x: 0, y: 0 };
 const data: NodeCardData = { view: cardView(node, nodeWorkflowOf(state, "n"), 0), dimmed: false, rename: { editing: false },
-  ports: { open: [] }, blocks: { disabled: false }, checklist: [{ key: "goal", label: "Cíl", state: "yes", hint: "" }] };
+  ports: { open: [] }, blocks: { disabled: false },
+  face: cardFace({ nodeId: "n", sector: false, nameOf: String, decisions: [],
+    card: { nodeId: "n", stage: "work", health: "ok", reason: "runs_active", executionId: "e1",
+      lease: { holder: "agent:codex-2", expiresAt: "2099-01-01T00:00:00Z", epoch: 2 }, steps: { total: 7, done: 3, current: "s4" } } }) };
 
 const render = (selected: boolean, detail: CardDetail) =>
   renderToStaticMarkup(createElement(ReactFlowProvider, null, createElement(NodeCardView, { id: "n", data, selected, detail })));
@@ -31,19 +33,19 @@ describe("NodeCard level of detail", () => {
     expect(idle).not.toContain("node-card__port-editor");
     expect(idle).not.toContain("Odebrat port");
     expect(idle).not.toContain("Posunout blok výš");
-    // Text bloku jde dál psát i v nevybrané kartě.
-    expect(idle).toContain("Popis bloku");
+    // Nevybraná karta má z bloků jen číslo, název a úchyty; psát se dá po výběru karty.
+    expect(idle).not.toContain("<textarea");
+    expect(picked).toContain("Popis bloku");
     expect(idle.length).toBeLessThan(picked.length);
   });
 
-  it("drops textareas and extras when zoomed out but keeps every handle so edges stay attached", () => {
+  it("draws only the glyph when zoomed out but keeps every handle so edges stay attached", () => {
     const near = render(false, "full");
     const far = render(false, "far");
     expect(far).toContain('data-detail="far"');
-    expect(far).not.toContain("<textarea");
-    expect(far).not.toContain("node-card__foot");
-    expect(near).toContain("card-checklist");
-    expect(far).not.toContain("card-checklist");
+    expect(far).toContain("card-face--glyph");
+    expect(far).not.toContain("card-face__status");
+    expect(near).toContain("card-face__status");
     for (const handle of ["card-port-handle-p1", "card-port-handle-p2", "port-next-n", "port-action-n"]) {
       expect(near).toContain(handle);
       expect(far).toContain(handle);
@@ -52,24 +54,18 @@ describe("NodeCard level of detail", () => {
     expect(far.length).toBeLessThan(near.length);
   });
 
-  it("keeps the process, state line and one details fold in their places", () => {
-    const process = processView({ profile: "code", items: [] }, undefined, []);
-    const line = cardState({ closed: false, doneProposed: true, process, work: { id: "n", name: "Karta", status: "proposed", agent: "", startedAt: null,
-      lastActivity: null, touched: null, waitingOnHuman: [], blockedBy: [{ id: "x", name: "Jiná" }] } });
-    const withState: NodeCardData = { ...data, process, state: line, completion: { note: "hotovo", pending: 0 }, evidence: undefined };
-    const picked = renderToStaticMarkup(createElement(ReactFlowProvider, null, createElement(NodeCardView, { id: "n", data: withState, selected: true, detail: "full" })));
-    const idle = renderToStaticMarkup(createElement(ReactFlowProvider, null, createElement(NodeCardView, { id: "n", data: withState, selected: false, detail: "full" })));
+  it("shows one status line from agent-state and nothing of the legacy pipeline", () => {
+    const picked = render(true, "full");
+    const idle = render(false, "full");
     for (const html of [picked, idle]) {
-      expect(html.indexOf("node-card__process")).toBeLessThan(html.indexOf("node-card__state"));
-      expect(html.indexOf("node-card__state")).toBeLessThan(html.indexOf("card-checklist"));
-      expect(html).toContain("Ke schválení");
-      expect(html).toContain("Potvrdit");
-      expect(html.match(/node-card__proof-box/g)?.length).toBe(4);
+      expect(html.match(/card-face__status/g)?.length).toBe(1);
+      expect(html).toContain('data-oh-card-face="n"');
+      expect(html).toContain('data-oh-lease-holder="agent:codex-2"');
+      expect(html).toContain("node-card--face-working");
+      expect(html).toContain("3/7");
+      for (const legacy of ["card-checklist", "node-card__process", "node-card__state", "node-card__proof-box", "čeká na router"]) expect(html).not.toContain(legacy);
     }
     expect(picked.match(/node-card__details/g)?.length).toBe(1);
-    expect(picked.indexOf("node-card__blocks")).toBeLessThan(picked.indexOf("node-card__details"));
-    expect(picked).toContain("Podrobnosti");
     expect(idle).not.toContain("node-card__details");
-    expect(picked).not.toContain("Upravit důkazy");
   });
 });

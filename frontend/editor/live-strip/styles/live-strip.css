@@ -1,0 +1,80 @@
+/* ŽIVÝ PÁS (blok `live-strip`)
+   Příběh: na spodní hraně Editoru běží děj projektu jako titulky — čas, značka a „karta · co se stalo“. Kdo
+   chce víc, rozbalí Časovou osu: každá karta vrstvy má dráhu, události jsou značky na čase, pronájem je pás
+   a heartbeat jemná čárka; svislá čára vpravo je „teď“. Značky nesou tvar i barvu (▸ ✓ ! ◆ ● ⇥), nikdy jen barvu. */
+.live-strip { flex-shrink: 0; border-top: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 13px var(--font); }
+/* Vlevo dole visí kulatý roh účtu (fixed), proto pás začíná až za ním. */
+.live-strip__bar { display: flex; align-items: center; gap: 12px; height: 36px; padding: 0 14px 0 64px; min-width: 0; }
+.live-strip__label { font-weight: 600; }
+.live-strip__ticker { display: flex; gap: 18px; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.live-strip__tick, .live-strip__recent-row, .live-strip__name, .live-strip__mark {
+  border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 0;
+}
+.live-strip__tick time, .live-strip__recent-row time { font-family: var(--mono); font-size: 12px; color: var(--ink-muted); }
+.live-strip__muted { color: var(--ink-muted); }
+.live-strip__toggle { border: 0; background: none; color: var(--ink); font: 500 13px var(--font); cursor: pointer; white-space: nowrap; }
+.live-strip__dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--line-strong); }
+.live-strip__dot--sse { background: var(--ok); }
+.live-strip__dot--poll { background: var(--gold); }
+.live-strip__glyph--run { color: var(--accent); }
+.live-strip__glyph--ok { color: var(--ok); }
+.live-strip__glyph--bad { color: var(--danger); }
+.live-strip__glyph--gate, .live-strip__glyph--human { color: var(--gold); }
+.live-strip__glyph--merge { color: var(--ok); }
+
+/* Rozbalená osa: hlavička s oknem 5 / 15 / 60 min a mřížka drah + seznam událostí vpravo. */
+.live-strip--open { height: 320px; display: flex; flex-direction: column; }
+.live-strip__head { display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.live-strip__context { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.live-strip__grow { flex: 1; }
+.live-strip__transport { font-family: var(--mono); font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.live-strip__windows { display: inline-flex; padding: 3px; border-radius: 8px; background: var(--surface-3); }
+.live-strip__windows button { border: 0; background: none; padding: 4px 12px; border-radius: 6px; font: 500 13px var(--font); color: var(--ink-2); cursor: pointer; }
+.live-strip__windows button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; }
+.live-strip__body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
+.live-strip__grid { overflow: auto; min-width: 0; }
+.live-strip__axis-row, .live-strip__lane { display: grid; grid-template-columns: 220px minmax(0, 1fr); border-bottom: 1px solid var(--line); }
+.live-strip__axis { position: relative; height: 26px; font: 12px var(--mono); color: var(--ink-2); }
+.live-strip__axis span { position: absolute; top: 6px; transform: translateX(-50%); }
+.live-strip__axis .live-strip__now-label { right: 4px; left: auto; transform: none; font-weight: 600; color: var(--accent); }
+.live-strip__name { text-align: left; padding: 0 14px; height: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-strip__track { position: relative; height: 40px; border-left: 1px solid var(--line); }
+.live-strip__span { position: absolute; top: 15px; height: 10px; border-radius: 5px; background: var(--accent-soft); border: 1px solid var(--accent-line); }
+.live-strip__heartbeat { position: absolute; top: 14px; width: 1px; height: 12px; background: var(--accent); }
+.live-strip__now { position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+.live-strip__mark {
+  position: absolute; top: 9px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; border: 1.5px solid currentColor; background: var(--surface);
+}
+.live-strip__mark--run { color: var(--accent); }
+.live-strip__mark--ok { color: var(--ok); background: var(--ok-soft); }
+.live-strip__mark--bad { color: var(--danger); background: var(--danger-soft); }
+.live-strip__mark--gate { color: var(--gold); background: var(--gold-soft); border-radius: 4px; }
+.live-strip__mark--human { color: var(--surface); background: var(--gold); border-color: var(--gold); }
+.live-strip__mark--merge { color: var(--surface); background: var(--ok); border-color: var(--ok); border-radius: 4px; }
+/* Změna etapy je jen tichá tečka: nese ji stavový řádek karty, na ose by přebíjela důležitější značky. */
+.live-strip__mark--plain { color: var(--ink-muted); width: 10px; height: 10px; margin-left: -5px; top: 15px; font-size: 0; background: var(--ink-muted); border: 0; z-index: 0; }
+.live-strip__mark:not(.live-strip__mark--plain) { z-index: 1; }
+.live-strip__recent { border-left: 1px solid var(--line); overflow: auto; }
+.live-strip__recent-head { padding: 8px 14px; font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); border-bottom: 1px solid var(--line); }
+.live-strip__recent-row { display: grid; grid-template-columns: 64px 14px minmax(0, 1fr); gap: 8px; width: 100%; padding: 7px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+.live-strip__recent-text { display: flex; flex-direction: column; min-width: 0; }
+.live-strip__recent-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-strip__recent-text code { font-size: 11px; color: var(--ink-muted); }
+.live-strip__empty { padding: 12px 14px; margin: 0; }
+
+@media (max-width: 900px) {
+  .live-strip__ticker .live-strip__tick:nth-child(n + 2) { display: none; }
+  .live-strip--open { height: 360px; }
+  .live-strip__body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 120px; }
+  .live-strip__axis-row, .live-strip__lane { grid-template-columns: 120px minmax(0, 1fr); }
+  .live-strip__recent { border-left: 0; border-top: 1px solid var(--line); }
+}
+/* Telefon: dráhy by byly nečitelné, zůstává jen seznam posledních událostí a přepínač okna. */
+@media (max-width: 600px) {
+  .live-strip__context, .live-strip__grid { display: none; }
+  .live-strip__head { gap: 8px; }
+  .live-strip__body { grid-template-rows: minmax(0, 1fr); }
+  .live-strip__recent { border-top: 0; }
+}
+

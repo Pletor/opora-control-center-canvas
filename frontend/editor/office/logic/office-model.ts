@@ -46,7 +46,7 @@ function deskOf(card: CanvasNode, input: OfficeInput): Omit<Desk, "workers"> {
   const state = cardState({
     closed,
     doneProposed: !closed && flow.done?.by === "agent",
-    process: processView(own?.stages ?? { profile: "custom", items: [] }, own?.evidence, card.checks),
+    process: processView(own?.stages ?? { profile: "custom", items: [] }),
     work: input.workRows?.[card.id],
     lease: input.leases?.[card.id],
   });

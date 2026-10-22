@@ -23,10 +23,6 @@ export default function CanvasSection({ value, onChange }: { value: SurfaceSetti
           ))}
         </select>
       </label>
-      <label className="check">
-        <input type="checkbox" checked={value.loopBadges} onChange={(e) => onChange({ ...value, loopBadges: e.target.checked })} />
-        Odznaky etap OporaHubu na kartách
-      </label>
       <h4>Kreslení</h4>
       <label className="check">
         <input type="checkbox" checked={value.drawingGrid} onChange={(e) => onChange({ ...value, drawingGrid: e.target.checked })} />
