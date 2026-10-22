@@ -4,8 +4,10 @@ Progress is not part of the spec (night contract §1). An execution result may c
 `stepResults: [{stepId, status: done|failed|skipped, evidence: {checks?, commits?, notes}}]`;
 it is validated against the steps pinned in that execution's assignment and stored inside
 the idempotent result receipt (same requestId → same receipt). The read model per card is
-derived from those receipts: a step counts only while its pinned definition still equals
-the accepted one, and the newest report of a step wins. docs/oporahub-plan-steps.md.
+derived from those receipts over every execution of the card: a report counts only while
+its pinned step definition still equals the accepted one; a step reported `done` by any run
+stays done (a later failed/skipped run does not undo it), otherwise the newest report wins.
+docs/oporahub-plan-steps.md.
 """
 import re
 
@@ -83,17 +85,36 @@ def _same(pinned, current):
     return pinned is not None and digest(pinned) in (digest(current), digest(redact_deep(current)))
 
 
-def statuses(db, project, workspace, node, steps):
-    """`{stepId: status}` for the accepted `steps`, newest valid report first."""
+def reports(db, project, workspace, node, steps):
+    """`{stepId: {status, executionId}}` for the accepted `steps`, aggregated over all executions.
+
+    Only reports whose pinned definition equals the accepted one count. `done` sticks: the newest
+    valid `done` report wins; a step never reported done takes its newest valid report."""
     repo, current, found = Executions(db, project, workspace), {item["id"]: item for item in steps}, {}
     for record in repo.history(node):  # newest execution first
         pinned = {item["id"]: item for item in (record.get("assignment") or {}).get("steps", [])}
         for receipt in reversed(repo.receipts(record["executionId"])):
             for item in (receipt.get("result") or {}).get("stepResults", []):
                 step = item.get("stepId")
-                if step in current and step not in found and _same(pinned.get(step), current[step]):
-                    found[step] = item.get("status")
+                if step not in current or not _same(pinned.get(step), current[step]):
+                    continue
+                if step not in found or (item.get("status") == "done" and found[step]["status"] != "done"):
+                    found[step] = {"status": item.get("status"), "executionId": record["executionId"]}
     return found
+
+
+def statuses(db, project, workspace, node, steps):
+    """`{stepId: status}` for the accepted `steps` (see `reports`)."""
+    return {key: value["status"] for key, value in reports(db, project, workspace, node, steps).items()}
+
+
+def step_items(steps, found):
+    """Per-step progress in topological order: `[{id, status, executionId}]`; `status` is
+    done/failed/skipped from `reports`, else `current` (the summary's current step) or `waiting`."""
+    current = summary(steps, {key: value["status"] for key, value in found.items()})["current"]
+    order = topological(steps) or [item["id"] for item in ordered(steps)]
+    return [{"id": step, "status": found[step]["status"] if step in found else "current" if step == current else "waiting",
+             "executionId": found[step]["executionId"] if step in found else None} for step in order]
 
 
 def summary(steps, found):
@@ -119,10 +140,18 @@ def acceptance_evidence(db, project, workspace, node, document):
 
 def progress(db, project, workspace, node, document):
     """Read model for one card: `{total, done, current}` plus `acceptanceEvidence`."""
+    value, evidence, _ = progress_detail(db, project, workspace, node, document)
+    return value, evidence
+
+
+def progress_detail(db, project, workspace, node, document):
+    """`progress` plus the per-step items (`step_items`) from one read of the receipts."""
     steps = steps_of((document or {}).get("fields"))
-    value = summary(steps, statuses(db, project, workspace, node, steps)) if steps else \
-        {"total": 0, "done": 0, "current": None}
-    return value, acceptance_evidence(db, project, workspace, node, document)
+    if not steps:
+        return {"total": 0, "done": 0, "current": None}, acceptance_evidence(db, project, workspace, node, document), []
+    found = reports(db, project, workspace, node, steps)
+    value = summary(steps, {key: item["status"] for key, item in found.items()})
+    return value, acceptance_evidence(db, project, workspace, node, document), step_items(steps, found)
 
 
 def plan_view(service, project, workspace, node, result):

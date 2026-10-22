@@ -118,3 +118,31 @@ def test_step_events_on_claim_and_result(stepped, service):
     rows, _, _ = page(service.db_for("draft"), "draft", "draft", 0, 500)
     events = [(item["kind"], item["stepId"]) for item in rows if item["kind"].startswith("step.")]
     assert events == [("step.started", "s1"), ("step.done", "s1"), ("step.failed", "s2")]
+
+
+def test_done_step_stays_done_across_runs_and_items_list_every_step(stepped, service):
+    authority, _ = stepped
+    first = claim(authority)
+    submit(authority, first, "r1", done("s1"))
+    second = claim(authority, "second")
+    submit(authority, second, "r2", done("s1", "failed"), done("s2", "failed"))
+    item = card(service)
+    assert item["steps"] == {"total": 3, "done": 1, "current": "s2"}
+    assert item["stepItems"] == [{"id": "s1", "status": "done", "executionId": first["executionId"]},
+                                 {"id": "s2", "status": "failed", "executionId": second["executionId"]},
+                                 {"id": "s3", "status": "waiting", "executionId": None}]
+
+
+def test_agent_state_cards_carry_dod_and_step_items(stepped, service):
+    from backend.canvas.opora_agent_state import AgentState
+    from backend.canvas.opora_card_done import REQUIREMENTS
+    authority, _ = stepped
+    submit(authority, claim(authority), "r1", done("s1"), done("s2"), done("s3"))
+    entry = next(item for item in AgentState(service).read("draft", "draft")["cards"] if item["nodeId"] == "a")
+    assert [step["status"] for step in entry["steps"]["items"]] == ["done", "done", "done"]
+    dod = entry["dod"]
+    assert {key: dod[key] for key in REQUIREMENTS} == {
+        "steps": True, "card_acceptance": True, "gate_ready": False, "merged": False,
+        "plan_written_back": False, "human_close": False}
+    assert dod["gate"] == "review" and dod["done"] is False
+    assert dod["missing"] == ["gate_ready", "merged", "plan_written_back", "human_close"]

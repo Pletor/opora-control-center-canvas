@@ -154,7 +154,7 @@ class AgentState:
                                key=lambda item: item["id"]),
                 "cards": plan_steps.attach(dag_state.enrich(card_stages.project(cards, accepted, latest, claims, linked,
                                                                                 reviewing, now), dag, actions, reviewing),
-                                           cards),
+                                           cards, linked, gates),
                 "truncated": process["truncated"]}
 
     @staticmethod

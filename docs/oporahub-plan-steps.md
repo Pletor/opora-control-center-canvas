@@ -61,10 +61,14 @@ nebo `skipped`; `evidence.notes` je povinný text do 4000 znaků, `checks` nejv�
 `commits` nejvýše 50 SHA (7–40 hex). Výsledky se ukládají v potvrzení výsledku běhu, takže jsou
 idempotentní podle `requestId` (stejný obsah vrací stejné potvrzení, jiný obsah se odmítne).
 
-Čtený model karty `{total, done, current}` (`backend/canvas/opora_step_results.py`): pro každý
-přijatý krok platí nejnovější hlášení, ale jen pokud se definice kroku ve snímku běhu rovná
-aktuálně přijaté definici (změněný krok začíná znovu). `current` je první nehotový krok
-v topologickém pořadí, `null` když je vše hotové nebo karta kroky nemá.
+Čtený model karty `{total, done, current}` (`backend/canvas/opora_step_results.py`) se skládá
+ze **všech běhů** karty, ne jen z posledního. Hlášení kroku platí, jen pokud se definice kroku ve
+snímku běhu rovná aktuálně přijaté definici (změněný krok začíná znovu). Krok, který některý běh
+nahlásil `done`, zůstává hotový i když pozdější běh tentýž krok nahlásí `failed` nebo `skipped`;
+krok bez `done` nese nejnovější platné hlášení. `current` je první nehotový krok v topologickém
+pořadí, `null` když je vše hotové nebo karta kroky nemá. Process-sync a agent-state k tomu vydávají
+seznam po krocích `[{id, status, executionId}]` (`stepItems`, resp. `cards[].steps.items`;
+`status` = `done`/`failed`/`skipped`/`current`/`waiting`, `executionId` = běh, jehož hlášení platí).
 
 Události (tok [událostí](oporahub-events.md)): převzetí emituje `step.started` pro první nehotový
 krok, výsledek `step.done` / `step.failed` pro každý hlášený krok (v téže transakci).
@@ -85,7 +89,9 @@ Totéž vynucuje endpoint `POST /api/oporahub/executions/claim`: odmítne `409` 
 Hotovo = všechny kroky `done` (alespoň jeden) + přijetí karty doložené během nad aktuálním přijatým
 zadáním (`card_acceptance`) + brána review `ready` (`gate_ready`) + PR `merged` + plán zapsán zpět
 (`plan_written_back`) + lidské `close_card` (`human_close`). `missing` vypisuje chybějící části
-v tomto pořadí.
+v tomto pořadí. Agent-state ji vydává u každé karty jako `cards[].dod`: šest booleanů pod jmény
+požadavků (`steps`, `card_acceptance`, `gate_ready`, `merged`, `plan_written_back`, `human_close`),
+druh brány `gate` (`review` / `external`), `done` a `missing`. Detail karty kreslí dílky z něj.
 
 - Akce `close_card` v agent-state je `blocked/human_only` jen když chybí pouze `human_close`; jinak
   `blocked/done_state_incomplete` s `preconditions.missing` a bez rozhodnutí pro člověka.

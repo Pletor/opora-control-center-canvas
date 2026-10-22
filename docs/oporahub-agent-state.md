@@ -102,9 +102,12 @@ totéž vynucuje sám (`409 blocked_by_predecessor`).
 
 ### Kroky plánu v kartě
 
-Každá položka `cards[]` nese `steps: {total, done, current}` (`opora_agent_state_steps.py`):
-počet přijatých [kroků plánu](oporahub-plan-steps.md), počet hotových podle `stepResults`
-a ID prvního nehotového kroku (`null`). Akce `claim` vzniká jen pro kartu s přijatými kroky;
+Každá položka `cards[]` nese `steps: {total, done, current, items}` (`opora_agent_state_steps.py`):
+počet přijatých [kroků plánu](oporahub-plan-steps.md), počet hotových podle `stepResults` všech
+běhů (hotový krok zůstává hotový), ID prvního nehotového kroku (`null`) a `items`
+`[{id, status, executionId}]` po krocích v topologickém pořadí. Dále `dod` = [jediná definice
+hotovo](oporahub-plan-steps.md#jediná-definice-hotovo): `{steps, card_acceptance, gate_ready, merged,
+plan_written_back, human_close}` (booleany), `gate` (`review` / `external`), `done`, `missing`. Akce `claim` vzniká jen pro kartu s přijatými kroky;
 stará pipeline `stages` připravenost neovlivňuje.
 
 ## Rozhodnutí a akce

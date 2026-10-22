@@ -115,7 +115,7 @@ class ProcessSync:
                                            "passedCount": sum(item["status"] == "passed" for item in stages.get("items", [])),
                                            "failedCount": sum(item["status"] == "failed" for item in stages.get("items", [])),
                                            "currentStage": stage["title"] if stage else None},
-                              "steps": plan["steps"], "acceptanceEvidence": plan["acceptanceEvidence"],
+                              "steps": plan["steps"], "stepItems": plan["stepItems"], "acceptanceEvidence": plan["acceptanceEvidence"],
                               "blockedBy": plan["blockedBy"],
                               "workingMatchesAccepted": matches, "doneConfirmed": bool(stored.get("done", {}).get("confirmed")),
                               "openIdeas": sum(item["status"] == "open" for item in stored.get("ideas", [])),
