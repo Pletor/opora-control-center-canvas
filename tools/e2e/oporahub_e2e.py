@@ -20,20 +20,33 @@ script answers the one-time folder-trust prompt of a fresh floor through the off
 
 ``start`` launches Canvas (``--canvas-port``, default 8791) with ``OPORA_REVIEW_JOBS=1`` and a small
 review config, connects the sandbox repo as a git project, creates a domain, a work workspace and
-one card with a tiny spec, routes its pipeline and accepts the baseline as a human (``opora_ui``
-session cookie, the same proof the UI uses). Then it launches agent-office (``--office-port``,
+two cards joined by a ``next`` edge, accepts the baseline as a human (``opora_ui`` session cookie,
+the same proof the UI uses), then has a planner propose the cards' plan steps (``spec.steps``: card 1
+gets s1 → s2 → s3 with testable acceptance and ``files`` globs) and accepts that changeset as the
+human. It checks that closing the edge into a cycle is refused (``409 card_cycle``) and that card 2
+is ``blockedBy`` card 1 with its claim ``blocked_by_predecessor``. Then it launches agent-office (``--office-port``,
 default 4691) on a fresh clone of the sandbox with the autopilot on, AUTO_PR on, self-checks,
 review workers (PARALLEL=1, a small PER_HOUR) and a cheap model.
 
-``run`` then waits for each stage of the loop and stores every ``agent-state`` snapshot as JSON,
-the timings and the failures in ``<out>/report.json``. Nothing here merges anything outside the
-sandbox repository.
+``run`` then waits for each stage of the loop and stores every ``agent-state`` snapshot, with the
+events written since the previous one, as JSON, plus the timings and failures in
+``<out>/report.json``: the claim, the result's ``stepResults`` (all ``done``, SHAs equal to the PR's
+``step sN:`` commits), ``cards[].steps`` / ``cards[].dod``, the PR body (``## Kroky plánu`` with the
+SHAs, ``## Testing``, trailers), self-checks and a review round, the gate, the merge (skipped when
+already merged by hand) with plan write-back and card 2 unblocked (``blockedBy`` empty, claim
+``ready``; the office is stopped first so it doesn't take card 2), the events feed (every kind of
+the loop via ``/events?since=`` and the SSE stream, resumed by ``Last-Event-ID``) and headless
+screenshots of the real app (``--shots``; needs a Python with Playwright, e.g.
+``python tools/e2e/oporahub_e2e.py run --only 9-shots-merged ...``). A sandbox PR its owner opened
+can't get that owner's approval, so its gate may stay ``pending`` (``human_approvals_missing``).
+Nothing here merges anything outside the sandbox repository.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import secrets
 import shutil
 import signal
@@ -48,13 +61,38 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REPO = "Pletor/oporahub-e2e-sandbox"
-CARD_ID = "e2ecard1"
+CARD_ID = "e2estep1"
+NEXT_CARD_ID = "e2estep2"
 DOMAIN_ID = "e2eapp"
 SPEC = {
-    "goal": "Add an exported function `multiply(a, b)` to src/math.js that returns a * b, with a node:test test in test/math.test.js.",
-    "non_goals": "Do not change add(), package.json, the build script or anything outside src/math.js and test/math.test.js.",
-    "acceptance": "`npm test` and `npm run build` pass; the new test covers multiply(3, 4) === 12.",
+    "goal": "Add an exported function `subtract(a, b)` to src/math.js that returns a - b, test it and document it in README.md.",
+    "non_goals": "Do not change add(), multiply(), package.json, the build script or anything outside src/math.js, test/math.test.js and README.md.",
+    "acceptance": "`npm test` and `npm run build` pass; the new test covers subtract(5, 3) === 2; README.md documents subtract.",
 }
+# Accepted through a human-accepted changeset (not the baseline): three steps in a chain, each with
+# a testable acceptance and its files, so the worker makes one `step sN: …` commit per step.
+STEPS = [
+    {"id": "s1", "order": 1, "title": "subtract() in src/math.js", "kind": "code", "dependsOn": [], "files": ["src/math.js"],
+     "acceptance": ["src/math.js exports subtract(a, b) returning a - b",
+                    "`node -e \"import('./src/math.js').then(m => process.exit(m.subtract(5, 3) === 2 ? 0 : 1))\"` exits 0"]},
+    {"id": "s2", "order": 2, "title": "node:test for subtract()", "kind": "test", "dependsOn": ["s1"], "files": ["test/math.test.js"],
+     "acceptance": ["test/math.test.js asserts subtract(5, 3) === 2", "`npm test` passes"]},
+    {"id": "s3", "order": 3, "title": "Document subtract() in README.md", "kind": "docs", "dependsOn": ["s2"], "files": ["README.md"],
+     "acceptance": ["README.md has an `## API` section listing `subtract(a, b)`", "`npm run build` passes"]},
+]
+NEXT_SPEC = {
+    "goal": "Add an exported function `divide(a, b)` to src/math.js that returns a / b, with a node:test test.",
+    "non_goals": "Do not change any other function.",
+    "acceptance": "`npm test` passes; the new test covers divide(6, 3) === 2.",
+}
+NEXT_STEPS = [
+    {"id": "s1", "order": 1, "title": "divide() in src/math.js", "kind": "code", "dependsOn": [], "files": ["src/math.js"],
+     "acceptance": ["src/math.js exports divide(a, b) returning a / b"]},
+    {"id": "s2", "order": 2, "title": "node:test for divide()", "kind": "test", "dependsOn": ["s1"], "files": ["test/math.test.js"],
+     "acceptance": ["`npm test` passes and covers divide(6, 3) === 2"]},
+]
+EVENT_KINDS = ("lease.claimed", "step.started", "step.done", "result.reported", "pr.linked", "review.round",
+               "gate.changed", "merge.done", "writeback.done")
 REVIEW_CONFIG = """enabled = true
 [jobs]
 finders = 2
@@ -202,8 +240,16 @@ class Run:
         for key, path in (("reviewJobs", "/api/oporahub/review-jobs"), ("gates", "/api/oporahub/review-jobs/gates")):
             status, value = h.call("GET", path, params=scope)
             snap[key] = value if status == 200 else {"status": status, "body": value}
+        # The events written since the previous snapshot (the delta between the two agent-states).
+        since = self.state.get("eventsCursor", 0)
+        try:
+            snap["events"] = read_events(h, scope, since)
+            self.state["eventsCursor"] = snap["events"][-1]["id"] if snap["events"] else since
+        except Exception as error:  # noqa: BLE001 - an older Canvas without the outbox still snapshots
+            snap["events"] = {"error": str(error)}
         index = len(list((self.out / "snapshots").glob("*.json"))) + 1
         (self.out / "snapshots" / f"{index:02d}-{label}.json").write_text(json.dumps(snap, indent=2))
+        self.save()
         return snap
 
     def step(self, name, fn):
@@ -225,6 +271,61 @@ class Run:
 
 def stage(agent_state, stage_id):
     return next((s for s in agent_state["stages"] if s["id"] == stage_id), {})
+
+
+def card(agent_state, node_id):
+    return next((c for c in agent_state.get("cards", []) if c["nodeId"] == node_id), {})
+
+
+def claim_action(agent_state, node_id):
+    return next((a for a in agent_state.get("actions", []) if a["verb"] == "claim" and a.get("targetId") == node_id), None)
+
+
+def expect(condition, message):
+    if not condition:
+        raise AssertionError(message)
+
+
+def read_events(h, scope, since=0):
+    """Every event after `since` through `GET /api/oporahub/events`, page by page."""
+    events = []
+    while True:
+        page = h.get("/api/oporahub/events", **scope, since=since, limit=500)
+        expect(not page.get("gap"), f"events gap after {since}")
+        events += page["events"]
+        if not page["events"] or page["cursor"] >= page["head"]:
+            return events
+        since = page["cursor"]
+
+
+def read_stream(r, scope, last_event_id=None, since=None, want=5, timeout=10.0):
+    """Up to `want` events from the SSE stream (resuming from `Last-Event-ID` when given)."""
+    import http.client
+    params = dict(scope, **({"since": since} if since is not None else {}))
+    conn = http.client.HTTPConnection("127.0.0.1", r.state["canvasPort"], timeout=timeout)
+    headers = {"Accept": "text/event-stream", "Cookie": "opora_ui=" + r.state["uiSecret"]}
+    if last_event_id is not None:
+        headers["Last-Event-ID"] = str(last_event_id)
+    conn.request("GET", "/api/oporahub/events/stream?" + urllib.parse.urlencode(params), headers=headers)
+    response = conn.getresponse()
+    expect(response.status == 200, f"SSE stream -> {response.status}")
+    frames, frame = [], {}
+    try:
+        while len(frames) < want:
+            line = response.fp.readline().decode("utf-8").rstrip("\r\n")
+            if not line:
+                if "data" in frame:
+                    frames.append(frame)
+                frame = {}
+                continue
+            key, _, value = line.partition(":")
+            if key in ("id", "data", "retry"):
+                frame[key] = value.lstrip(" ")
+    except OSError:  # socket timeout: the stream has nothing more right now
+        pass
+    finally:
+        conn.close()
+    return [{"id": int(f["id"]), **json.loads(f["data"])} for f in frames]
 
 
 def gh_token():
@@ -276,24 +377,51 @@ def setup_project(r: Run, args):
     workspace = h.ok("POST", "/api/workspaces", {"project": pid, "nodeId": DOMAIN_ID, "actor": "E2E"})["id"]
     scope = {"project": pid, "workspace": workspace}
     view = h.get("/api/view", **scope)
-    card = {"id": CARD_ID, "parentId": DOMAIN_ID, "kind": "node", "name": "[task] multiply()", "purpose": "Add multiply with a test",
-            "x": 40, "y": 40}
-    graph = {"nodes": [*view["graph"]["nodes"], card], "edges": view["graph"]["edges"]}
+    cards = [{"id": CARD_ID, "parentId": DOMAIN_ID, "kind": "node", "name": "[task] subtract()", "purpose": "Add subtract step by step",
+              "x": 40, "y": 40},
+             {"id": NEXT_CARD_ID, "parentId": DOMAIN_ID, "kind": "node", "name": "[task] divide()", "purpose": "Add divide after subtract",
+              "x": 420, "y": 40}]
+    follows = {"id": "e2e-next", "source": CARD_ID, "target": NEXT_CARD_ID}  # `next` edge: card 2 waits for card 1
+    graph = {"nodes": [*view["graph"]["nodes"], *cards], "edges": [*view["graph"]["edges"], follows]}
     h.ok("POST", "/api/graph", {**scope, "graph": graph, "digest": view["digest"]})
-    spec = h.get("/api/node-spec", **scope, node=CARD_ID)
-    h.ok("POST", "/api/node-spec", {**scope, "node": CARD_ID, "expected_revision": spec["revision"], "fields": SPEC})
-    state = h.get("/api/desktop-v3/state", **scope)
-    h.ok("POST", "/api/desktop-v3/pipeline", {**scope, "nodeId": CARD_ID, "expectedRevision": state["revision"], "op": "route",
-                                               "profile": "custom", "stages": [{"kind": "work", "lens": "", "title": "Implementation", "brief": "Implement the spec with its test."}],
-                                               "reason": "E2E: one implementation session, the office reviews the PR."})
+    for node, fields in ((CARD_ID, SPEC), (NEXT_CARD_ID, NEXT_SPEC)):
+        spec = h.get("/api/node-spec", **scope, node=node)
+        h.ok("POST", "/api/node-spec", {**scope, "node": node, "expected_revision": spec["revision"], "fields": fields})
     context = h.get("/api/oporahub/changesets/context", **scope)
     baseline = h.ok("POST", "/api/oporahub/baselines", {**scope, "subject": "E2E baseline", "expectedAcceptedHead": None,
                                                          "expectedGraphDigest": context["graphDigest"],
                                                          "expectedSpecificationsVersion": context["specificationsVersion"]})
     r.state.update(project=pid, workspace=workspace, baseline=baseline["id"])
     r.save()
-    r.snapshot("01-accepted")
-    return {"project": pid, "workspace": workspace, "baseline": baseline["id"], "cloneSeconds": clone_seconds}
+    r.snapshot("01a-baseline")
+    # The plan steps arrive as a changeset (planner agent) that a human accepts.
+    context = h.get("/api/oporahub/changesets/context", **scope)
+    documents = {d["nodeId"]: d for d in context["documents"]}
+    changes = [{"nodeId": node, "expectedRevision": documents[node]["revision"], "fields": {**documents[node]["fields"], "steps": steps}}
+               for node, steps in ((CARD_ID, STEPS), (NEXT_CARD_ID, NEXT_STEPS))]
+    proposal = h.ok("POST", "/api/oporahub/changesets", {**scope, "subject": "E2E plan steps", "parentRevision": context["acceptedHead"],
+                                                         "expectedGraphDigest": context["graphDigest"], "changes": changes},
+                    actor="e2e-planner")
+    h.ok("POST", f"/api/oporahub/changesets/{proposal['id']}/accept", {**scope, "expectedAcceptedHead": context["acceptedHead"],
+                                                                       "by": {"kind": "human"}})
+    accepted = h.get("/api/node-spec", **scope, node=CARD_ID).get("plan", {}).get("accepted") or []
+    expect([s["id"] for s in accepted] == ["s1", "s2", "s3"], f"accepted steps of {CARD_ID}: {accepted}")
+    # A `next` edge back from card 2 to card 1 would close a cycle: the save must be refused.
+    view = h.get("/api/view", **scope)
+    looped = {"nodes": view["graph"]["nodes"], "edges": [*view["graph"]["edges"], {"id": "e2e-loop", "source": NEXT_CARD_ID, "target": CARD_ID}]}
+    status, refused = h.call("POST", "/api/graph", {**scope, "graph": looped, "digest": view["digest"]})
+    expect(status == 409 and isinstance(refused, dict) and refused.get("code") == "card_cycle", f"cycle save -> {status} {refused}")
+    snap = r.snapshot("01b-steps-accepted")
+    first, second = card(snap["agentState"], CARD_ID), card(snap["agentState"], NEXT_CARD_ID)
+    expect(second.get("blockedBy") == [CARD_ID], f"{NEXT_CARD_ID}.blockedBy = {second.get('blockedBy')}")
+    blocked = claim_action(snap["agentState"], NEXT_CARD_ID) or {}
+    expect(blocked.get("status") == "blocked" and blocked.get("blockReason") == "blocked_by_predecessor", f"claim of {NEXT_CARD_ID}: {blocked}")
+    expect((claim_action(snap["agentState"], CARD_ID) or {}).get("status") == "ready", f"claim of {CARD_ID} not ready")
+    expect(first.get("steps", {}).get("total") == 3, f"{CARD_ID}.steps = {first.get('steps')}")
+    return {"project": pid, "workspace": workspace, "baseline": baseline["id"], "stepsProposal": proposal["id"], "cloneSeconds": clone_seconds,
+            "cycle": refused.get("cycle"), "card2": {"blockedBy": second.get("blockedBy"), "claim": blocked.get("blockReason"),
+                                                      "topoIndex": [first.get("topoIndex"), second.get("topoIndex")]},
+            "card1Steps": first.get("steps"), "card1Dod": first.get("dod")}
 
 
 def start_office(r: Run, args):
@@ -360,7 +488,8 @@ def unblock_trust(r: Run):
         worker = f.stem
         if worker in done:
             continue
-        tail = f.read_bytes()[-4000:].decode("utf-8", errors="replace").replace(" ", "")
+        # Claude Code may draw the gaps between words as cursor moves (ESC[1C), not spaces.
+        tail = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", f.read_bytes()[-4000:].decode("utf-8", errors="replace")).replace(" ", "")
         if "Itrustthisfolder" in tail or "trustthisfolder" in tail:
             run(["node", str(Path(__file__).with_name("office_term.mjs")), f"http://127.0.0.1:{r.state['officePort']}",
                  r.state["officePassword"], worker, json.dumps(["\x1b[B", "\r"])], cwd=r.state["office"], check=False)
@@ -370,11 +499,25 @@ def unblock_trust(r: Run):
 
 
 def step_claim(r: Run, timeout):
-    item, seconds = wait_for("office claims the card", lambda: next(iter(executions(r)), None), timeout)
+    def claimed():
+        return next((e for e in executions(r) if e.get("nodeId", CARD_ID) == CARD_ID), None)
+    item, seconds = wait_for("office claims the card", claimed, timeout)
     r.state["execution"] = item["executionId"] if "executionId" in item else item["id"]
     r.save()
-    r.snapshot("02-claimed")
-    return {"execution": r.state["execution"], "secondsToClaim": seconds}
+    snap = r.snapshot("02-claimed")
+    pinned = [s["id"] for s in (item.get("assignment") or {}).get("steps") or []]
+    others = [e for e in executions(r) if e.get("nodeId") == NEXT_CARD_ID]
+    expect(not others, f"{NEXT_CARD_ID} was claimed while blocked: {others}")
+    return {"execution": r.state["execution"], "secondsToClaim": seconds, "pinnedSteps": pinned,
+            "card1": {k: card(snap["agentState"], CARD_ID).get(k) for k in ("stage", "steps", "lease")}}
+
+
+def result_step_items(items):
+    for item in items:
+        result = item.get("result") or item
+        if isinstance(result, dict) and result.get("stepResults"):
+            return result["stepResults"]
+    return []
 
 
 def step_result(r: Run, timeout):
@@ -387,8 +530,19 @@ def step_result(r: Run, timeout):
         items = value.get("results", [])
         return items or None
     items, seconds = wait_for("worker result", results, timeout, 10)
-    r.snapshot("03-result")
-    return {"secondsToResult": seconds, "summary": str(items[0].get("result", {}).get("summary", ""))[:300]}
+    snap = r.snapshot("03-result")
+    step_results = result_step_items(items)
+    r.state["stepResults"] = step_results
+    r.save()
+    statuses = {s["stepId"]: s["status"] for s in step_results}
+    expect(statuses == {"s1": "done", "s2": "done", "s3": "done"}, f"stepResults statuses: {statuses}")
+    expect(all(s["evidence"].get("commits") for s in step_results), "a step without office-derived commits")
+    progress = card(snap["agentState"], CARD_ID).get("steps") or {}
+    expect(progress.get("total") == 3 and progress.get("done") == 3 and progress.get("current") is None, f"cards[].steps = {progress}")
+    return {"secondsToResult": seconds, "summary": str((items[0].get("result") or {}).get("summary", ""))[:300],
+            "stepResults": [{"stepId": s["stepId"], "status": s["status"], "commits": s["evidence"].get("commits"),
+                             "checks": s["evidence"].get("checks")} for s in step_results],
+            "cardSteps": progress, "dod": card(snap["agentState"], CARD_ID).get("dod")}
 
 
 def step_pull_request(r: Run, timeout):
@@ -401,11 +555,30 @@ def step_pull_request(r: Run, timeout):
     value, seconds = wait_for("PR link on Canvas", link, timeout, 10)
     r.state.update(pr=value["number"], headSha=value["headSha"])
     r.save()
-    body = run(["gh", "pr", "view", str(value["number"]), "-R", r.state["repo"], "--json", "body,headRefName,url"])
+    body = run(["gh", "pr", "view", str(value["number"]), "-R", r.state["repo"], "--json", "body,headRefName,url,commits"])
     pr = json.loads(body)
+    r.state["prUrl"] = pr["url"]
+    r.save()
     trailers = {k: (f"{k}: " in pr["body"]) for k in ("Opora-Execution", "Opora-Revision", "Opora-Card")}
+    # One commit per step, and Canvas stores exactly the SHAs the office read from those commits.
+    by_step = {}
+    for commit in pr["commits"]:
+        headline = commit.get("messageHeadline", "")
+        if headline.startswith("step ") and ":" in headline:
+            by_step.setdefault(headline[5:].split(":", 1)[0].strip(), []).append(commit["oid"])
+    expect(sorted(by_step) == ["s1", "s2", "s3"], f"step commits on the PR: {by_step}")
+    stored = {s["stepId"]: s["evidence"].get("commits") or [] for s in r.state.get("stepResults", [])}
+    mismatched = {k: (stored.get(k), v) for k, v in by_step.items()
+                  if len(stored.get(k) or []) != len(v) or not all(any(o.startswith(c) for o in v) for c in stored.get(k) or [])}
+    expect(not mismatched, f"stepResults commits differ from the PR's step commits: {mismatched}")
+    section = pr["body"].split("## Kroky plánu", 1)[1].split("\n## ", 1)[0] if "## Kroky plánu" in pr["body"] else ""
+    expect(section, "PR body has no `## Kroky plánu` section")
+    expect(all(any(oid[:7] in section for oid in oids) for oids in by_step.values()), "`## Kroky plánu` lacks a step SHA")
+    expect("## Testing" in pr["body"], "PR body has no `## Testing` section")
+    expect(all(trailers.values()), f"trailers: {trailers}")
     r.snapshot("04-pr-linked")
     return {"number": value["number"], "url": pr["url"], "branch": pr["headRefName"], "trailers": trailers,
+            "stepCommits": by_step, "krokyPlanu": section.strip()[:800],
             "source": value.get("source"), "enrollment": value.get("enrollment"), "secondsToLink": seconds}
 
 
@@ -451,11 +624,21 @@ def step_gate(r: Run):
             "gate": g.get("reviewGate"), "reviewStage": stage(snap["agentState"], "review")}
 
 
+def step_stop_office(r: Run):
+    """Card 2 unblocks once card 1 merges; stop the office first so the autopilot doesn't spend a run on it."""
+    kill_tree(r.state.get("officePid"))
+    r.state["officePid"] = None
+    r.save()
+    return {"stopped": True}
+
+
 def step_merge(r: Run, timeout):
-    merge = subprocess.run(["gh", "pr", "merge", str(r.state["pr"]), "-R", r.state["repo"], "--squash", "--delete-branch"],
-                           capture_output=True, text=True)
-    if merge.returncode:
-        raise RuntimeError(f"gh pr merge failed: {merge.stderr.strip()[-400:]}")
+    state = json.loads(run(["gh", "pr", "view", str(r.state["pr"]), "-R", r.state["repo"], "--json", "state"]))["state"]
+    if state != "MERGED":  # merged by hand when the agent's auto mode refuses `gh pr merge`
+        merge = subprocess.run(["gh", "pr", "merge", str(r.state["pr"]), "-R", r.state["repo"], "--squash", "--delete-branch"],
+                               capture_output=True, text=True)
+        if merge.returncode:
+            raise RuntimeError(f"gh pr merge failed: {merge.stderr.strip()[-400:]}")
     h = r.http()
     scope = {"project": r.state["project"], "workspace": r.state["workspace"]}
 
@@ -467,10 +650,98 @@ def step_merge(r: Run, timeout):
     events = [e.get("kind") or e.get("type") for e in value.get("events", [])]
     decisions = [d["kind"] for d in snap["agentState"]["decisions"]]
     actions = [a["verb"] for a in snap["agentState"]["actions"]]
+    first, second = card(snap["agentState"], CARD_ID), card(snap["agentState"], NEXT_CARD_ID)
+    unblocked = claim_action(snap["agentState"], NEXT_CARD_ID) or {}
+    expect(value.get("planWrittenBack") is True, f"planWrittenBack = {value.get('planWrittenBack')}")
+    expect(second.get("blockedBy") == [], f"{NEXT_CARD_ID}.blockedBy after merge = {second.get('blockedBy')}")
+    expect(unblocked.get("status") == "ready", f"claim of {NEXT_CARD_ID} after merge: {unblocked}")
+    dod = first.get("dod") or {}
+    # A sandbox PR its owner opened can't get that owner's approval, so its gate may merge still pending.
+    gate = next((g for g in snap["gates"].get("items", []) if g.get("number") == r.state["pr"]), {}).get("reviewGate") or {}
+    expected = ["human_close"] if gate.get("status") == "ready" else ["gate_ready", "human_close"]
+    expect(dod.get("missing") == expected, f"{CARD_ID}.dod.missing = {dod.get('missing')}, gate {gate.get('status')}")
     return {"secondsToMerged": seconds, "mergeSha": value.get("mergeSha"), "events": events,
             "awaitingHumanClose": value.get("awaitingHumanClose"), "planWrittenBack": value.get("planWrittenBack"),
             "planWritebackStage": stage(snap["agentState"], "plan_writeback"), "decisions": decisions,
-            "closeCardAction": "close_card" in actions}
+            "closeCardAction": "close_card" in actions, "gateAtMerge": gate, "card1": {k: first.get(k) for k in ("stage", "reason", "steps", "dod")},
+            "card2": {"blockedBy": second.get("blockedBy"), "claim": unblocked.get("status"), "stage": second.get("stage")}}
+
+
+def step_events(r: Run):
+    """The outbox carries the whole loop, and the SSE stream replays it and resumes after `Last-Event-ID`."""
+    h = r.http()
+    scope = {"project": r.state["project"], "workspace": r.state["workspace"]}
+    events = read_events(h, scope, 0)
+    (r.out / "events.json").write_text(json.dumps(events, indent=2))
+    mine = [e for e in events if e.get("nodeId") in (CARD_ID, None) or e.get("executionId") == r.state.get("execution")]
+    kinds = sorted({e["kind"] for e in mine})
+    missing = [k for k in EVENT_KINDS if k not in kinds]
+    done_steps = sorted(e["stepId"] for e in mine if e["kind"] == "step.done" and e.get("executionId") == r.state.get("execution"))
+    ids = [e["id"] for e in events]
+    expect(ids == sorted(set(ids)), "event ids are not strictly increasing")
+    streamed = read_stream(r, scope, since=0, want=len(events))
+    expect([e["id"] for e in streamed] == ids[:len(streamed)] and streamed, f"SSE replay ids {[e['id'] for e in streamed][:10]} vs {ids[:10]}")
+    middle = ids[len(ids) // 2]
+    after = ids[ids.index(middle) + 1]
+    resumed = read_stream(r, scope, last_event_id=middle, want=3)
+    expect(resumed and resumed[0]["id"] == after, f"Last-Event-ID {middle} resumed at {resumed[:1]}")
+    # An EventSource reconnects to the URL it was opened with (`?since=`) plus Last-Event-ID: the header wins.
+    reconnect = read_stream(r, scope, last_event_id=middle, since=0, want=1)
+    expect(not missing, f"missing event kinds {missing}")
+    expect(done_steps == ["s1", "s2", "s3"], f"step.done events: {done_steps}")
+    expect(reconnect and reconnect[0]["id"] == after, f"Last-Event-ID {middle} with ?since=0 resumed at {[e["id"] for e in reconnect[:1]]}")
+    return {"count": len(events), "head": ids[-1] if ids else None, "kinds": kinds, "missing": missing,
+            "stepDone": done_steps, "leaseKinds": sorted({k for k in kinds if k.startswith("lease.")}),
+            "reviewKinds": sorted({k for k in kinds if k.startswith("review.")}),
+            "sse": {"replayed": len(streamed), "resumeFrom": middle, "resumedAt": [e["id"] for e in resumed],
+                    "reconnectWithSince": [e["id"] for e in reconnect]}}
+
+
+def step_shots(r: Run, out_dir, prefix=""):
+    """Headless screenshots of the real app on the isolated Canvas: the editor canvas with both cards,
+    card 1's drawer tabs Kroky / Běh / Review & PR, Velín and the live strip (light, 1440×900)."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as error:
+        raise RuntimeError("screenshots need Playwright: run this step with a Python that has it "
+                           "(`python tools/e2e/oporahub_e2e.py run --only 9-shots-merged ...`)") from error
+
+    out = Path(out_dir or r.out / "shots")
+    out.mkdir(parents=True, exist_ok=True)
+    base = f"http://127.0.0.1:{r.state['canvasPort']}"
+    scope = f"project={r.state['project']}&workspace={r.state['workspace']}"
+    editor = f"{base}/?{scope}&environment=editor&screen=canvas&layer={DOMAIN_ID}"
+    shots = {
+        "editor-canvas": (editor, None),
+        "drawer-kroky": (f"{editor}&ohCard={CARD_ID}&ohTab=steps", None),
+        "drawer-beh": (f"{editor}&ohCard={CARD_ID}&ohTab=run", None),
+        "drawer-review-pr": (f"{editor}&ohCard={CARD_ID}&ohTab=review", None),
+        "velin": (editor, '[aria-label="Mód: Velín"]'),
+        "live-strip": (editor, 'button:has-text("Časová osa")'),
+    }
+    taken, problems = [], {}
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        for name, (url, click) in shots.items():
+            context = browser.new_context(viewport={"width": 1440, "height": 900}, color_scheme="light")
+            context.add_cookies([{"name": "opora_ui", "value": r.state["uiSecret"], "url": base}])
+            page = context.new_page()
+            errors = []
+            page.on("pageerror", lambda error, errors=errors: errors.append(str(error)[:300]))
+            page.goto(url)
+            page.wait_for_timeout(3500)
+            if click:
+                page.click(click)
+                page.wait_for_timeout(2000)
+            target = out / f"{prefix}{name}.png"
+            page.screenshot(path=str(target))
+            alerts = page.evaluate("[...document.querySelectorAll('[role=alert]')].map(e => e.textContent).join(' | ')")
+            if errors or alerts:
+                problems[name] = {"pageErrors": errors, "alerts": alerts[:400]}
+            taken.append(str(target))
+            context.close()
+        browser.close()
+    return {"shots": taken, "problems": problems}
 
 
 def step_auto_rebase(r: Run, timeout):
@@ -562,8 +833,12 @@ def cmd_run(args):
         ("3-pr-and-link", lambda: step_pull_request(r, t)),
         ("4-self-checks-and-review", lambda: step_review(r, 2 * t)),
         ("5-gate-and-human", lambda: step_gate(r)),
+        ("5b-shots-in-review", lambda: step_shots(r, args.shots, "a-review-")),
+        ("5c-stop-office", lambda: step_stop_office(r)),
         ("6-merge-and-writeback", lambda: step_merge(r, t)),
         ("7a-auto-rebase", lambda: step_auto_rebase(r, 120)),
+        ("8-events-and-stream", lambda: step_events(r)),
+        ("9-shots-merged", lambda: step_shots(r, args.shots, "b-merged-")),
     ]
     if args.upkeep:
         steps.append(("7b-upkeep-conflict", lambda: step_upkeep_conflict(r, t)))
@@ -598,6 +873,7 @@ def main(argv=None):
     parser.add_argument("--timeout", type=int, default=900, help="seconds per waiting step (some steps get 2x)")
     parser.add_argument("--upkeep", action="store_true", help="also turn PR upkeep on and probe a conflicting PR")
     parser.add_argument("--only", help="comma-separated step names for `run`")
+    parser.add_argument("--shots", help="screenshot directory (default <out>/shots)")
     parser.add_argument("--keep-going", action="store_true")
     args = parser.parse_args(argv)
     if args.canvas_port in (8740,) or args.office_port in (4600,):
