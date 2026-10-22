@@ -69,6 +69,7 @@ karta + záměr → worktree z main (vlastní npm ci) → práce → self-checks
 - **Bez hostované aplikace a bez API klíče:** nepoužíváme GitHub App, `analyze` s cizím modelem ani `canvas push`. Kód zůstává lokálně a platí pravidlo Opory „předplatné, ne API“.
 - **V Opoře:** odkaz na diagram je důkaz u review (`evidence.review.lens`). Review karta a Živý proces ho ukazují u PR. Pro profil `code` je to podmínka vstupu do review. Opravy pojmenování patří do `.github/pr-lens.yml`, ne do SVG.
 - **Proč tam:** review dnes čte diff naslepo. Diagram ukáže dosah změny (nové, změněné a odebrané části) a tok dat, takže review najde špatné napojení dřív, než se PR dostane do fronty.
+- **Instalace CLI:** připnutá verze s lockfilem je v [`tools/pr-lens`](../tools/pr-lens/README.md) (`npm ci --ignore-scripts`).
 
 ## 5. Tabule „Čistá linie“ v Boss Office
 
