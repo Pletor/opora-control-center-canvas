@@ -24,7 +24,7 @@ from backend.editor.agent_memory.memory_items import BatchConflict, MemoryItems
 from backend.editor.agent_memory.pipeline_routing import PipelineRouting
 from backend.editor.agent_memory.pipeline_routing import profiles as pipeline_profiles
 from backend.editor.agent_memory.scenario_history import scenario_history
-from backend.editor.agent_memory.trace import tags_index, trace
+from backend.editor.agent_memory.trace import trace
 from backend.editor.agent_memory.usage import usage_summary
 from backend.editor.agent_packet.card_checklist import checklists, missing
 from backend.editor.agent_packet.frontier import frontier
@@ -255,10 +255,6 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         if found is None:
             return JSONResponse({"error": f"Entita {id} v tomto pracovním prostoru neexistuje."}, status_code=404)
         return found
-
-    @router.get("/tags")
-    def read_tags(project: str, workspace: str):
-        return tags_index(state.read(project, workspace)["state"])
 
     @router.get("/pipelines")
     def read_pipelines():

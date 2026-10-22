@@ -214,7 +214,7 @@ class CanvasService:
                 return {"files": []}
             return {"files": self.drawing_files.get(pid, wanted)}
 
-    def node_spec(self, pid, wid, node_id, payload=None, history=False):
+    def node_spec(self, pid, wid, node_id, payload=None):
         if payload is not None:
             validate_payload(payload)
         # Čtení zadání jde snímkem bez zámků; zápis drží zámek grafu a dat projektu.
@@ -228,11 +228,9 @@ class CanvasService:
                 if payload is not None:
                     raise ValueError("Main je pouze pro čtení.")
                 return {
-                    **(
-                        {"items": [], "has_more": False}
-                        if history
-                        else {"revision": 0, "fields": dict(EMPTY_FIELDS), "saved_at": None}
-                    ),
+                    "revision": 0,
+                    "fields": dict(EMPTY_FIELDS),
+                    "saved_at": None,
                     "readOnly": True,
                     "available": False,
                     "source": "Import zadání z Git mainu zatím není podporovaný.",
@@ -240,9 +238,7 @@ class CanvasService:
             with nullcontext() if payload is None else self.lock_for(pid):
                 scope = (pid, scope_wid, node_id)
                 result = (
-                    self.specs.history(scope)
-                    if history
-                    else self.specs.read(scope)
+                    self.specs.read(scope)
                     if payload is None
                     else self.specs.save(scope, payload["expected_revision"], payload["fields"])
                 )
