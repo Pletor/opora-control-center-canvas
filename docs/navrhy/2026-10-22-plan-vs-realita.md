@@ -152,7 +152,7 @@ Rozhodnutí se `scope: "area"` dostanou všechny karty oblasti. `memory_for` dne
 4. sousedé z Graphify u souborů mé karty, top N podle vah, přednostně vazby přes hranici oblasti (dnes brief nese jen cesty k Graphify, `node_brief.py:141`),
 5. rozhodnutí oblasti.
 
-**Rozpočet:** celý balíček nejvýš 8 kB a každá sekce má limit položek. Co se nevejde, je v `omitted` s počtem a odkazem na endpoint, odkud si to agent dotáhne. Dnes má node-brief jen limity po polích a žádný celkový (493 kB při 1600 kartách, `docs/navrhy/2026-10-14-vykon-platna.md`).
+**Rozpočet:** celý balíček nejvýš 16 kB (rozhodnuto podle měření, viz G) a každá sekce má limit položek. Co se nevejde, je v `omitted` s počtem a odkazem na endpoint, odkud si to agent dotáhne. Dnes má node-brief jen limity po polích a žádný celkový (493 kB při 1600 kartách, `docs/navrhy/2026-10-14-vykon-platna.md`).
 
 ## G) Hluboké plátno bez zahlcení
 
@@ -173,17 +173,46 @@ Rozhodnutí se `scope: "area"` dostanou všechny karty oblasti. `memory_for` dne
 2. **Server počítá souhrny** projekt → oblast → karta inkrementálně podle revize a digestu, s ETag (už je u stavu, `desktop_v3_routes.py:203`). Plán vs. realita se počítá po oblastech a cachuje, ne při každém pollingu.
 3. **Agent nikdy nedostane celý graf.** Čte hierarchicky: souhrn projektu (oblasti, procenta, toky, počty nálezů) → souhrn oblasti → brief karty. Zbytek dohledá přes `canvas-index` (`search`) a `rlm rank`.
 
-**Měřitelné cíle** (návrh k potvrzení):
+**Změřeno 22. 10. 2026** na živé Opoře (jen čtení; headless Chromium, CDP, 5 běhů, medián):
 
-| Co | Cíl |
-|---|---|
-| Heap prohlížeče, projekt s 2000 kartami | ≤ 150 MB |
-| Přepnutí vrstvy | ≤ 200 ms |
-| Payload jedné vrstvy | ≤ 300 kB |
-| Nečinnost / tah | dle §6 z 14. 10.: 0–2 commity za 60 s, ≥ 45 fps |
-| Node-brief / signální balíček / souhrn projektu | ≤ 64 kB / ≤ 8 kB / ≤ 16 kB |
+| | ample (184 uzlů, 142 karet) | OPORA (89 / 53) | agent-office (58 / 42) |
+|---|---|---|---|
+| `desktop-v3/state` | 1427 kB | 292 kB | 390 kB |
+| Data při otevření vrstvy | 17 požadavků / 1,92 MB (karty otevřené vrstvy ≈ 70 kB) | 0,46 MB | 0,54 MB |
+| Heap po GC (60 s) | 15,7 MB | 9,8 MB | 8,2 MB |
+| Nečinnost 60 s | 40 React commitů, 50 požadavků, 1,45 MB, 0 long tasks | 38 / 49 / 0,94 MB | 34 / 49 / 0,34 MB |
+| Přepnutí vrstvy | 198 ms (long task 133 ms) | — | 59 ms |
+| Zoom/posun | 58 fps, nejhorší snímek 67 ms | 60 fps | 60 fps |
+| `node-brief` (3 největší karty) | **2,5–3,4 MB**, 383–488 ms; `resultHistory` = 3,18 z 3,46 MB | 0,5–0,74 MB | 0,54–0,62 MB |
+| `sync-report` | **4,2 s**, 405 kB | **5,9 s**, 691 kB | 3,2 s, 128 kB |
+| `oporahub/agent-state` | 1,0 s, 60 kB | 0,7 s, 45 kB | 1,0 s, 28 kB |
 
-**Jak se to změří:** syntetický generátor se přesune do `tools/perf/`; heap přes Playwright a CDP; velikosti payloadů přes `bench_gets.py`.
+Na nečinnosti se `bootstrap` dotazuje 24× za minutu a `sync-report` jednou za minutu. Odhad pro 2000 karet (extrapolace, ne měření): stav 3–17 MB, heap 100–150 MB a přepnutí vrstvy ≥ 5 s, pokud se bude dál načítat celý projekt.
+
+**Co z měření plyne:**
+- Prohlížeč je dnes v pořádku: heap je malý, žádné long tasks a ~60 fps.
+- Úzká místa jsou **data**: stav celého projektu při každém otevření, 3,4 MB node-brief a `sync-report` za 4–6 s v pollingu.
+- Pro agenta je nejhorší node-brief. 92 % tvoří historie výsledků, kterou agent v plné podobě nepotřebuje.
+
+**Cíle (rozhodnuto podle měření):**
+
+| Co | Cíl | Dnes |
+|---|---|---|
+| Heap po GC | ≤ 40 MB u dnešního největšího projektu, ≤ 120 MB při 2000 kartách, bez růstu při nečinnosti | 15,7 MB |
+| Data jedné vrstvy | ≤ 300 kB u vrstvy s 50 kartami; žádná odpověď > 1 MB | 1,92 MB |
+| Nečinnost / min | 0 long tasks, ≤ 2 React commity, ≤ 6 požadavků a ≤ 50 kB (s 304) | 34–40 commitů, 49 požadavků |
+| Přepnutí vrstvy | ≤ 200 ms při 50 kartách, ≤ 500 ms při 500; žádný long task > 100 ms | 59–198 ms |
+| Node-brief | ≤ 300 kB a ≤ 300 ms; historie výsledků jen jako souhrn + stránkování na požádání; později ≤ 150 kB | 0,5–3,4 MB |
+| Signální balíček | ≤ 16 kB, ≤ 200 ms | — |
+| `sync-report` | mimo polling nečinnosti, nebo ≤ 500 ms a ≤ 100 kB s cache podle digestu | 3–6 s, 128–691 kB |
+| Zoom/posun | ≥ 50 fps, nejhorší snímek ≤ 50 ms | 58–60 fps, 67 ms |
+
+**Jak se to měří:** skripty `server_bench.py` a `browser_bench.js` (Playwright 1.47.2 + CDP, zápisy blokované) se přesunou do `tools/perf/` jako read-only měření živé instance. Pro 2000 karet přibude syntetický generátor nad kopií dat.
+
+**Rychlé výhry podle měření**, každá jako samostatné malé PR:
+1. `resultHistory` v node-brief jen jako souhrn posledních kol plus stránkování (3,4 MB → ~0,3 MB).
+2. `sync-report` z pollingu nečinnosti ven, s cache podle digestu.
+3. Polling `bootstrap` z 24×/min na změnu nebo ETag.
 
 ## H) Graphify pro agent-office
 
@@ -194,7 +223,8 @@ Rozhodnutí se `scope: "area"` dostanou všechny karty oblasti. `memory_for` dne
 
 ## Pořadí PR (nahrazuje předchozí)
 
-1. **Graphify pro agent-office:** sloučit agent-office#47; v Opoře navýšit limit souborů; synchronizovat checkout; obnovit mapu.
+1. **Graphify pro agent-office:** Opora #41 (limit 1200 souborů a `graphify-out` vyloučený z gitu před prvním zápisem), agent-office#47 (`.graphifyignore`). Checkout agent-office v Opoře je synchronizovaný (22. 10., `74cc3ec`). Po nasazení #41 se spustí „Aktualizovat teď“.
+1b. **Rychlé výhry výkonu** z kapitoly G (`resultHistory` souhrnem, `sync-report` mimo polling, `bootstrap` na ETag).
 2. **Jednorázový návrh `sourceRef`** pro existující karty (`graph-changes` k lidskému přijetí).
 3. **Rozhodnutí jako objekt** (text nebo objekt, zpětně kompatibilní) a rozhodnutí oblasti v kontextu karet.
 4. **Oblast jako sekvence:** kontroly oblasti (princip, plán, funguje, předávka), `scenario` na oblasti, `report` v `areaFlows`, `card.scope: "samostatne"`.
@@ -240,9 +270,10 @@ Pořadí PR je v kapitole „Pořadí PR (nahrazuje předchozí)“ výše.
 
 ## Otevřené otázky pro člověka
 
-Otázky z 22. 10. rozhodl člověk (kapitola „Rozhodnutí člověka“). Nové:
+Rozhodnuto 22. 10. (druhé kolo):
+- limit Graphify navýšit: **ano**, zvoleno 1200 podle měření (#41);
+- synchronizace checkoutu agent-office: **ano**, provedena;
+- cíle výkonu: „otestuj a rozhodni podle reality“, proto výše uvedené cíle z měření;
+- `scenario` na oblasti: **ano**.
 
-1. **Limit Graphify v Opoře:** navýšit z 500 na 1500 souborů (bez modelu, jen čas běhu), aby agent-office dostal mapu?
-2. **Synchronizace checkoutu agent-office v Opoře** (stojí na 18. 10.): smím ji spustit před obnovou mapy?
-3. **Rozpočty a cíle v kapitole G:** sedí čísla (heap ≤ 150 MB, vrstva ≤ 300 kB, signály ≤ 8 kB), nebo je chceš jinak?
-4. **`scenario` na oblasti** jako spustitelná definice „funguje“: souhlas?
+Žádné otevřené otázky.
