@@ -22,8 +22,15 @@ class AutoRebaseStore:
             raise RuntimeError("Auto-rebase outcomes require a caller transaction.")
         if kind not in KINDS or outcome not in OUTCOMES:
             raise ValueError("Invalid auto-rebase outcome.")
-        self.db.execute("INSERT OR IGNORE INTO opora_auto_rebase_outcomes VALUES(?,?,?,?,?,?,?,?,?)",
-                        (*self.scope, kind, proposal_id, head, outcome, result_id, reason, at))
+        inserted = self.db.execute("INSERT OR IGNORE INTO opora_auto_rebase_outcomes VALUES(?,?,?,?,?,?,?,?,?)",
+                                   (*self.scope, kind, proposal_id, head, outcome, result_id, reason, at)).rowcount == 1
+        if inserted and outcome != "skipped":
+            # Exactly once per (proposal, accepted head).
+            from backend.canvas.opora_events import emit_event
+            emit_event(self.db, project_id=self.scope[0], workspace_id=self.scope[1],
+                       kind="autorebase.conflict" if outcome == "conflict" else "autorebase.done",
+                       data={"proposalKind": kind, "proposalId": proposal_id, "acceptedHead": head,
+                             "outcome": outcome, "resultId": result_id, "reason": reason})
 
     def redundant(self):
         rows = self.db.execute("SELECT DISTINCT proposal_id FROM opora_auto_rebase_outcomes WHERE project_id=?"

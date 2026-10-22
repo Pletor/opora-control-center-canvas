@@ -52,4 +52,6 @@ class ExecutionResults(OporaExecutions):
                                contextValidation=read_proof(repo.db, *repo.scope, identifier))
             repo.insert_receipt(identifier, payload["requestId"], fingerprint, receipt)
             self.finish(repo, record, "reported")
+            from backend.canvas.opora_lease_events import reported
+            reported(repo, record, receipt)
             return receipt

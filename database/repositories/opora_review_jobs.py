@@ -77,10 +77,34 @@ class ReviewJobs:
                           (repository, number, kind))
 
     def insert_job(self, row):
-        return self._insert("job", {"kind": "code", **row})  # Older callers omit kind; NULL would be ignored.
+        inserted = self._insert("job", {"kind": "code", **row})  # Older callers omit kind; NULL would be ignored.
+        if inserted:
+            self._round(self.job(row["job_id"]))
+        return inserted
 
     def update_job(self, job_id, **fields):
-        return self._update("job", job_id, fields)
+        before = self.job(job_id) if "phase" in fields or "round" in fields else None
+        after = self._update("job", job_id, fields)
+        if before is not None and after is not None and (before["phase"], before["round"]) != (after["phase"], after["round"]):
+            self._round(after)
+        return after
+
+    def _emit(self, kind, node, execution, number, data):
+        # Outbox row in the caller's transaction.
+        from backend.canvas.opora_events import emit_event
+        emit_event(self.db, project_id=self.scope[0], workspace_id=self.scope[1], kind=kind, node_id=node,
+                   execution_id=execution, pr_number=number, data=data)
+
+    def _round(self, job):
+        self._emit("review.round", job["node_id"], job["execution_id"], job["number"],
+                   {"reviewJobId": job["job_id"], "kind": job["kind"], "round": job["round"], "phase": job["phase"],
+                    "headSha": job["head_sha"], "riskTier": job["risk_tier"], "repository": job["repository"]})
+
+    def _finding(self, finding):
+        job = self.job(finding["job_id"]) or {}
+        self._emit("review.finding", job.get("node_id"), job.get("execution_id"), finding["number"],
+                   {"findingId": finding["finding_id"], "severity": finding["severity"], "status": finding["status"],
+                    "round": finding["round"], "headSha": finding["head_sha"], "repository": finding["repository"]})
 
     # Tasks
     def task(self, task_id):
@@ -129,10 +153,17 @@ class ReviewJobs:
         return self._rows("finding", " ORDER BY created_at DESC, finding_id LIMIT ?", (limit,))
 
     def insert_finding(self, row):
-        return self._insert("finding", row)
+        inserted = self._insert("finding", row)
+        if inserted:
+            self._finding(self.finding(row["finding_id"]))
+        return inserted
 
     def update_finding(self, finding_id, **fields):
-        return self._update("finding", finding_id, fields)
+        before = self.finding(finding_id) if "status" in fields else None
+        after = self._update("finding", finding_id, fields)
+        if before is not None and after is not None and before["status"] != after["status"]:
+            self._finding(after)
+        return after
 
     # Human decisions at the round cap
     def decision(self, repository, number, head_sha):
@@ -143,9 +174,16 @@ class ReviewJobs:
 
     def insert_decision(self, repository, number, head_sha, decision, reason, by, created_at):
         self._transaction()
-        return self.db.execute("INSERT OR IGNORE INTO opora_review_decisions VALUES(?,?,?,?,?,?,?,?,?)",
-                               (*self.scope, repository, number, head_sha, decision, reason, by,
-                                created_at)).rowcount == 1
+        inserted = self.db.execute("INSERT OR IGNORE INTO opora_review_decisions VALUES(?,?,?,?,?,?,?,?,?)",
+                                   (*self.scope, repository, number, head_sha, decision, reason, by,
+                                    created_at)).rowcount == 1
+        if inserted:
+            from backend.canvas.opora_event_stage import nodes_of_pull_request
+            for node in nodes_of_pull_request(self.db, *self.scope, number) or [None]:
+                self._emit("decision.resolved", node, None, number,
+                           {"decision": "review_round_cap", "resolution": decision, "headSha": head_sha,
+                            "repository": repository})
+        return inserted
 
 
 def public_job(row, tasks=()):

@@ -9,6 +9,7 @@ import time
 from contextlib import contextmanager, nullcontext
 
 from backend.canvas.opora_changesets import stamp
+from backend.canvas.opora_events import emit_event, refresh
 from backend.canvas.opora_execution_pr_closure import close_loop
 from backend.canvas.opora_execution_pr_enrollment import apply_enrollment, configured, fail
 from backend.canvas.opora_execution_validation import validate
@@ -111,6 +112,7 @@ class ExecutionPullRequestLinks:
                     # Same PR, new pushed head: update the link, never a conflict.
                     row = links.update(execution_id, head_sha=payload["headSha"], head_ref=payload["headRef"],
                                        updated_at=stamp())
+                    refresh(repo.db, project, workspace, row["node_id"], actor)
                 if row is None:
                     ChangesetRepository(repo.db, project, workspace).read(record["acceptedRevision"])
                     config = configured(self.service, project)
@@ -126,6 +128,9 @@ class ExecutionPullRequestLinks:
                         "enrollment_failures": 0, "merge_sha": None, "merged_at": None, "awaiting_human_close": 0,
                         "attention": None, "source": source or actor, "linked_by": actor,
                         "created_at": now, "updated_at": now})
+                    emit_event(repo.db, project_id=project, workspace_id=workspace, kind="pr.linked",
+                               node_id=row["node_id"], execution_id=execution_id, pr_number=number, actor=actor,
+                               data={"repository": repository, "headSha": row["head_sha"], "headRef": row["head_ref"]})
                 links.remember(payload["requestId"], execution_id, digest)
         if row["enrollment"] == "pending" and row["enrollment_retry_at"] is None:
             self.enroll(project, workspace, execution_id)
@@ -152,6 +157,8 @@ class ExecutionPullRequestLinks:
                 return fail(links, row, error.code, self.clock(), retry=not error.action_required)
             row = apply_enrollment(self.service, links, row, observed, self.clock())
             close_loop(repo.db, project, workspace)
+            if row is not None:
+                refresh(repo.db, project, workspace, row["node_id"])
             return links.read(execution_id)
 
     def read(self, project, workspace, execution_id):

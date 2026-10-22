@@ -16,13 +16,18 @@ def register(config):
     _override = config
 
 
+def config():
+    """The review job config in force (test override first)."""
+    return _override if _override is not None else risk.load()
+
+
 def read(canvas, project, workspace, now):
     """`{gates, claimable}` or None when automated review is disabled. Read-only."""
-    config = _override if _override is not None else risk.load()
-    if not config["enabled"]:
+    config_ = config()
+    if not config_["enabled"]:
         return None
     db = canvas.db_for(project)
-    gates = [item for item in review_gates(db, project, workspace, config, now) if item["prState"] == "open"]
+    gates = [item for item in review_gates(db, project, workspace, config_, now) if item["prState"] == "open"]
     store = ReviewJobs(db, project, workspace)
     claimable = {}
     for task_id in store.claimable(now):

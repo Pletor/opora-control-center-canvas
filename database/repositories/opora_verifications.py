@@ -64,3 +64,15 @@ class Verifications:
     def insert_report(self, identifier, record):
         self.db.execute("INSERT INTO opora_verification_reports VALUES(?,?,?,?,?,?)",
                         (identifier, *self.scope, record["requestId"], record["reportDigest"], json.dumps(record, ensure_ascii=False)))
+        # formal.result in the report's transaction
+        from backend.canvas.opora_events import emit_event
+        row = self.db.execute("SELECT node_id,execution_id FROM opora_verification_requests WHERE id=? AND project_id=?"
+                              " AND workspace_id=?", (identifier, *self.scope)).fetchone()
+        node, execution = (row[0], row[1]) if row else (None, None)
+        outcome = record.get("outcome")
+        emit_event(self.db, project_id=self.scope[0], workspace_id=self.scope[1], kind="formal.result", node_id=node,
+                   execution_id=execution, data={"verificationId": identifier, "outcome": outcome})
+        if outcome in ("counterexample", "failed"):
+            emit_event(self.db, project_id=self.scope[0], workspace_id=self.scope[1], kind="decision.created",
+                       node_id=node, execution_id=execution,
+                       data={"decision": "verification_" + outcome, "verificationId": identifier})

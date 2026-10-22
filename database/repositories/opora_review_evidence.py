@@ -35,9 +35,13 @@ class ReviewEvidenceRepository:
             raise ValueError("Pozorování nepatří do tohoto prostoru.")
         identifier = content_id(content)
         record = {**content, "id": identifier}
-        self.db.execute("INSERT OR IGNORE INTO opora_review_evidence "
-                        "(project_id,workspace_id,id,pr_number,observed_at,content) VALUES(?,?,?,?,?,?)",
-                        (*self.scope, identifier, content["prNumber"], content["observedAt"], canonical(record)))
+        inserted = self.db.execute("INSERT OR IGNORE INTO opora_review_evidence "
+                                   "(project_id,workspace_id,id,pr_number,observed_at,content) VALUES(?,?,?,?,?,?)",
+                                   (*self.scope, identifier, content["prNumber"], content["observedAt"],
+                                    canonical(record))).rowcount == 1
+        if inserted:  # Human approvals feed the merge gate (docs/oporahub-events.md, gate.changed).
+            from backend.canvas.opora_events import refresh_targets
+            refresh_targets(self.db, *self.scope, pr_number=content["prNumber"])
         return self.read(identifier)
 
     def iterate(self, limit=100):

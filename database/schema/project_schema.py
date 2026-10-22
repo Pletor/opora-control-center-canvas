@@ -11,6 +11,7 @@ from database.schema.opora_content_schema import TABLES as CONTENT_TABLES
 from database.schema.opora_context_binding_schema import SCHEMA as CONTEXT_BINDING_SCHEMA
 from database.schema.opora_context_event_schema import SCHEMA as CONTEXT_SCHEMA
 from database.schema.opora_context_event_schema import TABLES as CONTEXT_TABLES
+from database.schema.opora_event_schema import SCHEMA as EVENT_SCHEMA
 from database.schema.opora_execution_budget_schema import BUDGET_SCHEMA, BUDGET_TABLES
 from database.schema.opora_execution_context_schema import SCHEMA as EXECUTION_CONTEXT_SCHEMA
 from database.schema.opora_execution_context_schema import TABLES as EXECUTION_CONTEXT_TABLES
@@ -288,7 +289,7 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
                    + RECONCILIATION_SCHEMA + JOB_SCHEMA + BUDGET_SCHEMA + VERIFICATION_SCHEMA + CONTEXT_SCHEMA
                    + EXECUTION_CONTEXT_SCHEMA + CONTENT_SCHEMA + PROPOSAL_REVIEW_SCHEMA + OBSERVER_SCHEMA
                    + EXECUTION_PR_SCHEMA + REVIEW_JOB_SCHEMA + REVIEW_GATE_SCHEMA
-                   + REVIEW_INSIGHT_SCHEMA + AUTO_REBASE_SCHEMA)
+                   + REVIEW_INSIGHT_SCHEMA + AUTO_REBASE_SCHEMA + EVENT_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {

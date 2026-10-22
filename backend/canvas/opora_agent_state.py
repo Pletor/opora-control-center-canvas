@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
 from backend.canvas import opora_agent_state_cards as card_stages
+from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas import opora_agent_state_formal as formal
 from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_review_gates as review_gates
@@ -116,6 +117,8 @@ class AgentState:
             attention = formal.attention(db, project, workspace)
             promotions = recurring.actions(db, project)  # Recurring misses → checks.
             rebasing = rebasing_state.read(canvas, project, workspace)
+            dag = dag_state.facts(canvas, project, workspace, linked)  # Card DAG: blockedBy, topoIndex
+        dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
         to_review = [item for item in reported if item["acceptedRevision"] == accepted
@@ -125,6 +128,7 @@ class AgentState:
         actions, decisions = formal.merge(actions, decisions, attention, project, workspace)
         # One priority list (rules.VERB_ORDER) over core, gate, formal, recurring and auto-rebase actions.
         actions = rules.ordered([*actions, *promotions, *rebasing_state.actions(project, workspace, rebasing)])
+        actions = dag_state.retag(actions, dag)
         heads = {"acceptedHead": accepted, "acceptedRevision": accepted, "graphDigest": context["graphDigest"],
                  "workingDiffers": context["workingDiffers"], "contextVersion": context["specificationsVersion"],
                  "budgetPolicyHead": {item["nodeId"]: item["budget"]["policyHead"]
@@ -143,7 +147,8 @@ class AgentState:
                 "decisions": decisions, "actions": actions,
                 "gaps": sorted(({"id": key, "stage": stage, "reason": reason} for key, stage, reason in gaps),
                                key=lambda item: item["id"]),
-                "cards": card_stages.project(cards, accepted, latest, claims, linked, reviewing, now),
+                "cards": dag_state.enrich(card_stages.project(cards, accepted, latest, claims, linked, reviewing, now),
+                                          dag, actions, reviewing),
                 "truncated": process["truncated"]}
 
     @staticmethod

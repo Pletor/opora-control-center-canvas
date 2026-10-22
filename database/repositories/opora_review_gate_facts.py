@@ -23,9 +23,13 @@ class ReviewGateFacts:
     def insert_self_checks(self, execution_id, head_sha, record, by, created_at):
         """First write per (execution, head) wins; returns False when a record already exists."""
         self._transaction()
-        return self.db.execute("INSERT OR IGNORE INTO opora_review_self_checks VALUES(?,?,?,?,?,?,?)",
-                               (*self.scope, execution_id, head_sha, canonical(record), by,
-                                created_at)).rowcount == 1
+        inserted = self.db.execute("INSERT OR IGNORE INTO opora_review_self_checks VALUES(?,?,?,?,?,?,?)",
+                                   (*self.scope, execution_id, head_sha, canonical(record), by,
+                                    created_at)).rowcount == 1
+        if inserted:  # The merge gate may change: recompute the card's gate (docs/oporahub-events.md).
+            from backend.canvas.opora_events import refresh_targets
+            refresh_targets(self.db, *self.scope, execution_id=execution_id)
+        return inserted
 
     # Latest read-only observation of a PR head against the base branch head and of the PR body.
     def base_observation(self, repository, number):
@@ -40,3 +44,5 @@ class ReviewGateFacts:
                         "workspace_id,repository,number) DO UPDATE SET head_sha=excluded.head_sha,"
                         "observation=excluded.observation,observed_at=excluded.observed_at",
                         (*self.scope, repository, number, head_sha, canonical(observation), observed_at))
+        from backend.canvas.opora_events import refresh_targets
+        refresh_targets(self.db, *self.scope, pr_number=number)

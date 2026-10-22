@@ -1,12 +1,13 @@
 """Rozhraní Editoru: graf plátna, dávka plánu, index karet, kresby, wireframe kontext a odstraňování."""
 
 from fastapi import APIRouter, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from backend.api.http_etag import conditional, etag_of
 from backend.canvas.canvas_index import DEFAULT_LIMIT, build_index, search
 from backend.canvas.canvas_layout import apply_layout, layout_preview
 from backend.canvas.canvas_plan import apply_plan
+from backend.canvas.card_dag import CardCycleError
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.node.wireframe_context import wireframe_context
 
@@ -53,14 +54,17 @@ def create_canvas_router(service):
     @router.post("/graph")
     def graph(payload: dict, request: Request):
         # `undo` je krok zpět plátna (Ctrl+Z): snímek smí uzel nebo vazbu vypustit, ale nic nemaže.
-        return service.save_graph(
-            payload.get("project"),
-            payload.get("workspace"),
-            payload.get("graph"),
-            payload.get("digest"),
-            undo=payload.get("undo") is True,
-            actor=request.state.actor,
-        )
+        try:
+            return service.save_graph(
+                payload.get("project"),
+                payload.get("workspace"),
+                payload.get("graph"),
+                payload.get("digest"),
+                undo=payload.get("undo") is True,
+                actor=request.state.actor,
+            )
+        except CardCycleError as error:  # Cesta cyklu pro UI i agenta (docs/oporahub-agent-state.md).
+            return JSONResponse({"error": str(error), "code": "card_cycle", "cycle": error.cycle}, status_code=409)
 
     @router.post("/graph/positions")
     def graph_positions(payload: dict, request: Request):

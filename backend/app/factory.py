@@ -25,6 +25,7 @@ from backend.api.editor.hook_routes import create_hook_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.opora_agent_state_routes import create_opora_agent_state_router
+from backend.api.editor.opora_event_routes import create_opora_event_router
 from backend.api.editor.opora_auto_rebase_routes import create_opora_auto_rebase_router
 from backend.api.editor.opora_changeset_routes import create_opora_changeset_router
 from backend.api.editor.opora_content_routes import CONTENT_BODY_LIMIT, create_opora_content_router
@@ -337,6 +338,8 @@ def create_app(data_root=None):
     app.include_router(create_review_insight_router(service))
     app.include_router(create_opora_process_router(service))
     app.include_router(create_opora_agent_state_router(service))
+    # Živý tok událostí OporaHubu (outbox, kurzor + SSE), jen čtení (docs/oporahub-events.md)
+    app.include_router(create_opora_event_router(service))
     app.include_router(create_execution_observer_router(service))
     app.include_router(create_opora_verification_router(service))
     app.include_router(create_execution_budget_router(service))
