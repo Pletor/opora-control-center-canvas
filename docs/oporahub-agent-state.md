@@ -98,7 +98,17 @@ Pole karty v `cards[]` (`backend/canvas/opora_agent_state_dag.py`):
 
 Karta s neprázdným `blockedBy` má akci `claim` blokovanou důvodem `blocked_by_predecessor`
 (rozpočtové důvody mají přednost) a nezapočítává se do `count` etapy `claim`. Endpoint claim
-samotný předchůdce zatím nevynucuje; připravenost hlídá agent-state.
+totéž vynucuje sám (`409 blocked_by_predecessor`).
+
+### Kroky plánu v kartě
+
+Každá položka `cards[]` nese `steps: {total, done, current, items}` (`opora_agent_state_steps.py`):
+počet přijatých [kroků plánu](oporahub-plan-steps.md), počet hotových podle `stepResults` všech
+běhů (hotový krok zůstává hotový), ID prvního nehotového kroku (`null`) a `items`
+`[{id, status, executionId}]` po krocích v topologickém pořadí. Dále `dod` = [jediná definice
+hotovo](oporahub-plan-steps.md#jediná-definice-hotovo): `{steps, card_acceptance, gate_ready, merged,
+plan_written_back, human_close}` (booleany), `gate` (`review` / `external`), `done`, `missing`. Akce `claim` vzniká jen pro kartu s přijatými kroky;
+stará pipeline `stages` připravenost neovlivňuje.
 
 ## Rozhodnutí a akce
 
@@ -123,7 +133,7 @@ uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhl
 | `review.self_checks` | `POST /api/oporahub/review-jobs/self-checks` | `ready`, když brána hlásí `self_checks_missing`; `targetId` = `executionId`, `preconditions` `{executionId, headSha, required}` |
 | `pr.update_branch` | `PUT github:/repos/{owner}/{repo}/pulls/{n}/update-branch` (provede údržba PR v agent-office rebasem) | `ready`, když brána hlásí `stale_against_main`; `targetId` = `executionId`, `preconditions` `{repository, number, expectedHeadSha, baseRef, baseSha}` |
 | `link_pull_request` | `POST /api/oporahub/executions/{id}/pull-request` | `ready` s modulem vazby, jinak `blocked/not_implemented` |
-| `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | vždy `blocked/human_only`; jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `preconditions` = `{executionId, mergeSha}` |
+| `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `blocked/human_only`, když [definici hotovo](oporahub-plan-steps.md#jediná-definice-hotovo) chybí jen lidské uzavření, jinak `blocked/done_state_incomplete` bez rozhodnutí; `preconditions` = `{executionId, mergeSha, missing, gate}` (`gate` = `review` / `external`) |
 | `verification.investigate` | `GET /api/oporahub/verifications/{id}` | `ready`; nejnovější CI check daného druhu (`formal/tlc`, `formal/lean`, `formal/conformance`, `formal-trusted/*`) běhu skončil `counterexample`, `failed` nebo `inconclusive` (viz [ověřování](oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b)) |
 | `verification.fix` | `POST /api/oporahub/verifications/{id}/fix-proposal` (`{project, workspace}`) | `ready` u `counterexample` a u `failed`, které není jen `runner_error`; idempotentně založí návrh karty „Opravit formální ověření“, přijímá člověk |
 | `review.promote_to_check` | `POST /api/oporahub/review-recurring/promote` | `ready`, `attention: true`; třída nálezu se opakuje v ≥ N PR projektu a ještě není povýšená na kontrolu (viz [lidé v review](oporahub-review-identity.md)) |

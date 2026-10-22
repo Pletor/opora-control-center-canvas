@@ -1,6 +1,7 @@
 """Idempotent reported evidence; never a card-completion mutation."""
 import uuid
 
+from backend.canvas import opora_step_results as step_results
 from backend.canvas.canvas_service import now
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_execution_validation import result_digest, validate
@@ -35,6 +36,7 @@ class ExecutionResults(OporaExecutions):
                     raise ValueError("Result request identity was already used for different content.")
                 return prior[1]
             self.active(repo, record)
+            steps = step_results.validate_step_results(payload["result"], record["assignment"].get("steps"))
             receipt = {"receiptId": uuid.uuid4().hex, "executionId": identifier,
                        "requestId": payload["requestId"], "result": payload["result"], "state": "reported",
                        "acceptedRevision": record["acceptedRevision"], "assignmentDigest": record["assignmentDigest"],
@@ -51,6 +53,7 @@ class ExecutionResults(OporaExecutions):
                 receipt.update(contextProtocolVersion=2,
                                contextValidation=read_proof(repo.db, *repo.scope, identifier))
             repo.insert_receipt(identifier, payload["requestId"], fingerprint, receipt)
+            step_results.emit_step_events(repo.db, record, steps)  # same transaction as the receipt
             self.finish(repo, record, "reported")
             from backend.canvas.opora_lease_events import reported
             reported(repo, record, receipt)

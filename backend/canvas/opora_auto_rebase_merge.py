@@ -9,6 +9,7 @@ consulted; the same records always produce the same verdict."""
 from copy import deepcopy
 
 from backend.canvas.opora_field_merge import merge_field
+from backend.canvas.opora_plan_steps import merge_steps
 
 ABSENT = {"$absent": True}
 
@@ -50,6 +51,12 @@ def spec(proposal, accepted_documents):
             base, ours = _value(base_doc["fields"], name), _value(change["fields"], name)
             theirs = _value(theirs_doc["fields"], name)
             if ours == base:
+                continue
+            if name == "steps":  # Plan steps merge per step id (docs/oporahub-plan-steps.md).
+                outcomes, value = merge_steps(f"spec:{node}:steps", base, ours, theirs)
+                card.extend(outcomes)
+                if value is not None and (value or "steps" in fields):
+                    fields["steps"] = value
                 continue
             outcome = verdict(f"spec:{node}:{name}", base, ours, theirs)
             card.append(outcome)

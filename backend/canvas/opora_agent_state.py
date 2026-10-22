@@ -16,6 +16,8 @@ from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_review_gates as review_gates
 from backend.canvas import opora_agent_state_reviews as reviews
 from backend.canvas import opora_agent_state_rules as rules
+from backend.canvas import opora_agent_state_steps as plan_steps
+from backend.canvas import opora_card_done as card_done
 from backend.canvas import opora_review_recurring as recurring
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import OporaChangesets
@@ -92,7 +94,8 @@ class AgentState:
             context = authority.context(project, workspace, card["nodeId"])
             budget = context.get("budget") or {}
             reason = budget.get("blockedReason")
-            if card["status"] == "blocked" and not reason:
+            # A predecessor-blocked card keeps its claim action; dag_state.block_claims blocks it.
+            if card["status"] == "blocked" and not reason and not card.get("blockedBy"):
                 continue
             result.append({"nodeId": card["nodeId"], "context": context, "budget": budget,
                            "status": "blocked" if reason else "ready",
@@ -118,13 +121,15 @@ class AgentState:
             promotions = recurring.actions(db, project)  # Recurring misses → checks.
             rebasing = rebasing_state.read(canvas, project, workspace)
             dag = dag_state.facts(canvas, project, workspace, linked)  # Card DAG: blockedBy, topoIndex
+            # Merged PRs too; None = review jobs disabled, GitHub branch protection is the gate.
+            gates = card_done.gates_by_execution(db, project, workspace) if linked else {}
         dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
         to_review = [item for item in reported if item["acceptedRevision"] == accepted
                      and not cards.get(item["nodeId"], {}).get("doneConfirmed")]
         actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards,
-                                          reviewing)
+                                          reviewing, gates)
         actions, decisions = formal.merge(actions, decisions, attention, project, workspace)
         # One priority list (rules.VERB_ORDER) over core, gate, formal, recurring and auto-rebase actions.
         actions = rules.ordered([*actions, *promotions, *rebasing_state.actions(project, workspace, rebasing)])
@@ -147,12 +152,14 @@ class AgentState:
                 "decisions": decisions, "actions": actions,
                 "gaps": sorted(({"id": key, "stage": stage, "reason": reason} for key, stage, reason in gaps),
                                key=lambda item: item["id"]),
-                "cards": dag_state.enrich(card_stages.project(cards, accepted, latest, claims, linked, reviewing, now),
-                                          dag, actions, reviewing),
+                "cards": plan_steps.attach(dag_state.enrich(card_stages.project(cards, accepted, latest, claims, linked,
+                                                                                reviewing, now), dag, actions, reviewing),
+                                           cards, linked, gates),
                 "truncated": process["truncated"]}
 
     @staticmethod
-    def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None):
+    def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None,
+                gates=None):
         accepted, graph, actions, decisions = context["acceptedHead"], context["graphDigest"], [], []
         query = urlencode({"project": project, "workspace": workspace})
 
@@ -210,11 +217,20 @@ class AgentState:
             # Merge write-back never closes a card: done.confirmed stays a human action (oporahub-executions.md).
             if not item.get("awaitingHumanClose") or cards.get(item["cardId"], {}).get("doneConfirmed"):
                 continue
+            # Precondition = the single definition of done minus the human close (opora_card_done).
+            done = card_done.card_done_state(card_done.facts(cards.get(item["cardId"], {}), item,
+                                                             (gates or {}).get(item["executionId"]),
+                                                             external=gates is None))
+            ready = card_done.closable(done)
             action = _action("close_card", "POST", "/api/desktop-v3/state", item["cardId"], item.get("mergeSha"),
-                             {"executionId": item["executionId"], "mergeSha": item.get("mergeSha")}, "human_only")
+                             {"executionId": item["executionId"], "mergeSha": item.get("mergeSha"),
+                              "missing": [name for name in done["missing"] if name != "human_close"],
+                              "gate": done["gate"]},
+                             "human_only" if ready else "done_state_incomplete")
             actions.append(action)
             name = cards.get(item["cardId"], {}).get("name") or item["cardId"]
-            decide("close_card", item["cardId"], f"Uzavřít kartu po merge PR: {name}", action)
+            if ready:
+                decide("close_card", item["cardId"], f"Uzavřít kartu po merge PR: {name}", action)
         for job in (reviewing or {}).get("claimable", []):
             actions.append(_action("review.claim", "POST", "/api/oporahub/review-jobs/claim", job["reviewJobId"],
                                    job["headSha"], {"role": job["role"], "headSha": job["headSha"]}))

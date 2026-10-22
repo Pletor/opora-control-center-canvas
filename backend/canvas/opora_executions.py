@@ -9,6 +9,7 @@ from backend.canvas import opora_execution_context as sparse_context
 from backend.canvas import opora_lease_events as lease_events
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import digest
+from backend.canvas.opora_agent_state_steps import require_ready
 from backend.canvas.opora_execution_budget_clock import (
     BudgetClockConflict,
     freeze,
@@ -17,6 +18,7 @@ from backend.canvas.opora_execution_budget_clock import (
 from backend.canvas.opora_execution_budget_status import status as budget_status
 from backend.canvas.opora_execution_budget_status import unavailable as unavailable_budget
 from backend.canvas.opora_execution_validation import assignment, validate
+from backend.canvas.opora_step_results import emit_step_started
 from backend.editor.agent_memory.card_leases import MAX_PER_OWNER
 from database.repositories.opora_executions import Executions
 
@@ -78,6 +80,7 @@ class OporaExecutions:
             if (captured["acceptedRevision"] != payload["expectedAcceptedHead"]
                     or captured["contextVersion"] != payload["expectedContextVersion"]):
                 raise ValueError("Accepted assignment changed before claim.")
+            require_ready(self.canvas, project, workspace, node, captured)  # steps + no blockedBy
             stamp = time.time()
             lease = repo.db.execute("SELECT expires_at FROM card_leases"
                                     " WHERE project_id=? AND workspace_id=? AND node_id=?",
@@ -108,6 +111,7 @@ class OporaExecutions:
             if pin is not None:
                 sparse_context.persist(repo, record, pin)
             lease_events.claimed(repo, record, owner)
+            emit_step_started(repo.db, record)
             return {**record, **sparse_context.public_proof(repo, record), "serverNow": stamp}
 
     @staticmethod

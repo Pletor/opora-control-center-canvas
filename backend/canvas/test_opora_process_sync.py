@@ -26,9 +26,23 @@ def row(service, node="a"):
 
 
 def route(service):
+    """Legacy pipeline (reported only) plus accepted plan steps, which are what makes a card ready."""
+    pipeline(service)
+    add_steps(service)
+
+
+def pipeline(service):
     current = DesktopV3State(service).read(**SCOPE)
     PipelineRouting(service).apply({**SCOPE, "nodeId": "a", "expectedRevision": current["revision"],
                                     "op": "route", "profile": "code", "reason": "Native process"}, actor="human")
+
+
+def add_steps(service, node="a"):
+    from backend.canvas.opora_changesets import OporaChangesets
+    from backend.canvas.test_opora_auto_rebase import propose as propose_fields
+    from backend.canvas.test_opora_plan_steps import PLAN
+    head = OporaChangesets(service).context("draft", "draft")["acceptedHead"]
+    accept(service, propose_fields(service, node, steps=PLAN), head)
 
 
 def save_node(service, change):
@@ -44,7 +58,7 @@ def test_missing_plan_acceptance_and_pipeline_are_distinct(service):
     legacy_save(service)
     assert row(service)["status"] == "needs-acceptance"
     baseline(service)
-    assert row(service)["status"] == "needs-routing"
+    assert row(service)["status"] == "needs-steps"
     route(service)
     item = row(service)
     assert item["status"] == "ready"
@@ -104,13 +118,23 @@ def test_expired_lease_is_never_presented_as_active(planned, service):
     assert item["status"] != "running"
 
 
-def test_failed_and_finished_pipeline_require_control(planned, service):
+def test_legacy_pipeline_is_reported_but_never_gates_readiness(planned, service):
     from backend.editor.agent_memory.test_completion_evidence import evidence
     route(service)
     save_node(service, lambda node: node["stages"]["items"][-1].update(status="failed", note="Blocker"))
-    assert row(service)["status"] == "blocked"
+    item = row(service)
+    assert item["status"] == "ready" and item["pipeline"]["failedCount"] == 1
     save_node(service, lambda node: [item.update(status="passed") for item in node["stages"]["items"]])
-    assert row(service)["status"] == "blocked"
+    assert row(service)["status"] == "ready"
+    # A stepped card closes by the single definition of done, not by legacy evidence and pipeline.
+    with pytest.raises(ValueError, match="definice hotovo"):
+        save_node(service, lambda node: node.update(evidence=evidence(), done={"confirmed": True, "by": "human", "at": "", "note": "Human confirmation"}))
+
+
+def test_card_without_steps_keeps_legacy_closure(planned, service):
+    from backend.editor.agent_memory.test_completion_evidence import evidence
+    pipeline(service)
+    save_node(service, lambda node: [item.update(status="passed") for item in node["stages"]["items"]])
     save_node(service, lambda node: node.update(evidence=evidence(), done={"confirmed": True, "by": "human", "at": "", "note": "Human confirmation"}))
     item = row(service)
     assert item["status"] == "closed" and item["doneConfirmed"]

@@ -16,7 +16,8 @@ def create_opora_execution_router(service):
         try:
             return action()
         except ValueError as exc:
-            return JSONResponse({"error": str(exc), "code": "execution_conflict"}, status_code=409)
+            # Claim readiness refusals carry their own code (plan_steps_missing, blocked_by_predecessor).
+            return JSONResponse({"error": str(exc), "code": getattr(exc, "code", "execution_conflict")}, status_code=409)
 
     @router.get("/context")
     def context(project: str, workspace: str, nodeId: str):

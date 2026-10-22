@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 from fastapi.responses import FileResponse, JSONResponse
 
+from backend.canvas.opora_step_results import plan_view
 from backend.editor.node.node_journal import NodeJournal
 from backend.editor.node.node_links import NodeLinks
 from backend.editor.node.node_materials import NodeMaterials
@@ -36,9 +37,13 @@ def create_node_router(service):
             payload.get("project"), payload.get("workspace"), payload.get("node"), payload.get("day"), payload
         )
 
+    def with_plan(project, workspace, node, result):
+        # Working vs accepted plan steps (docs/oporahub-plan-steps.md); read-only main has none.
+        return plan_view(service, project, workspace, node, result) if result.get("available") else result
+
     @router.get("/node-spec")
     def node_spec(project: str, workspace: str, node: str):
-        return service.node_spec(project, workspace, node)
+        return with_plan(project, workspace, node, service.node_spec(project, workspace, node))
 
     @router.get("/node-spec/history")
     def node_spec_history(project: str, workspace: str, node: str):
@@ -46,9 +51,8 @@ def create_node_router(service):
 
     @router.post("/node-spec")
     def save_node_spec(payload: dict):
-        return service.node_spec(
-            payload.get("project"), payload.get("workspace"), payload.get("node"), payload
-        )
+        result = service.node_spec(payload.get("project"), payload.get("workspace"), payload.get("node"), payload)
+        return with_plan(payload["project"], payload["workspace"], payload["node"], result)
 
     @router.post("/node-materials/upload")
     def upload_material(payload: dict):
