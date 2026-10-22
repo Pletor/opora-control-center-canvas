@@ -1,6 +1,6 @@
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 
-export const PROCESS_STATES = ["needs-plan", "needs-acceptance", "needs-routing", "ready", "running", "reported", "stale", "closed", "blocked", "unavailable"] as const;
+export const PROCESS_STATES = ["needs-plan", "needs-acceptance", "needs-steps", "needs-routing", "ready", "running", "reported", "stale", "closed", "blocked", "unavailable"] as const;
 export type ProcessStatus = typeof PROCESS_STATES[number];
 export type ProcessCard = {
   nodeId: string; name: string; status: ProcessStatus; openIdeas: number;
@@ -57,13 +57,13 @@ export function parseProcess(value: unknown, project: string, workspace: string)
 }
 export const processEndpoint = (project: string, workspace: string) => "/api/oporahub/process?" + new URLSearchParams({ project, workspace });
 const labels: Record<ProcessStatus, string> = {
-  "needs-plan": "Chybí přijatý plán", "needs-acceptance": "Zadání čeká na přijetí", "needs-routing": "Chybí směrování",
+  "needs-plan": "Chybí přijatý plán", "needs-acceptance": "Zadání čeká na přijetí", "needs-steps": "Chybí kroky plánu", "needs-routing": "Chybí směrování",
   ready: "Připraveno k převzetí", running: "Evidovaný běh · ověřit oprávnění", reported: "Nahlášeno · vyžaduje kontrolu",
   stale: "Historický běh · jiná revize", closed: "Potvrzené dokončení", blocked: "Blokováno", unavailable: "Podklady nedostupné",
 };
 export function processPresentation(card: ProcessCard): { label: string; tone: string; target: DetailTarget } {
   const kind = card.status === "needs-plan" || card.status === "needs-routing" ? "graph"
-    : card.status === "needs-acceptance" ? "changes" : card.status === "closed" ? "tracking" : "executions";
+    : card.status === "needs-acceptance" || card.status === "needs-steps" ? "changes" : card.status === "closed" ? "tracking" : "executions";
   return { label: labels[card.status], tone: card.status === "reported" || card.status === "ready" ? "attention"
     : card.status === "stale" || card.status === "blocked" || card.status === "unavailable" ? "warning" : "neutral",
   target: { kind, title: `${card.name} · ${card.nodeId}`, ...(kind === "executions" && card.currentExecution ? { id: card.currentExecution.id } : {}) } };

@@ -665,7 +665,11 @@ class DesktopV3State:
                         from backend.canvas.activity_log import HumanRequired
                         raise HumanRequired(actor, "Uzavření karty potvrzuje nebo ruší jen člověk v UI; agent ho navrhuje přes agent-output.")
                     previous_scenario = current["state"]["nodes"].get(node_id, {}).get("scenarioRun")
-                    if done["confirmed"] and (not previous_done["confirmed"] or node.get("evidence") != previous_evidence or node.get("scenarioRun") != previous_scenario):
+                    # OporaHub cards with accepted plan steps close by the single definition of done
+                    # (opora_card_done.closure_gate raises when incomplete); the legacy gate below stays for the rest.
+                    from backend.canvas.opora_card_done import closure_gate
+                    if (done["confirmed"] and (not previous_done["confirmed"] or node.get("evidence") != previous_evidence or node.get("scenarioRun") != previous_scenario)
+                            and closure_gate(self.canvas, project, workspace, node_id) is None):
                         from backend.canvas.card_checks import checks_passed
                         from backend.editor.agent_memory.completion_evidence import evidence_ready
                         graph_node = next(item for item in view["graph"]["nodes"] if item["id"] == node_id)

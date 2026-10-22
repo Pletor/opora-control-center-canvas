@@ -18,11 +18,16 @@ def validate_payload(payload):
         raise ValueError("Neplatná očekávaná revize.")
     fields = payload["fields"]
     limits = {"goal": 4000, "non_goals": 8000, "acceptance": 12000}
-    if not isinstance(fields, dict) or set(fields) != set(limits):
+    # `steps` is the optional versioned plan (docs/oporahub-plan-steps.md); older specs omit it.
+    if not isinstance(fields, dict) or not set(limits) <= set(fields) <= {*limits, "steps"}:
         raise ValueError("Zadání vyžaduje cíl, omezení a podmínky dokončení.")
     for key, limit in limits.items():
         if not isinstance(fields[key], str) or len(fields[key]) > limit or "\0" in fields[key]:
             raise ValueError("Neplatný text nebo překročený limit zadání.")
+    if "steps" in fields:
+        from backend.canvas.opora_plan_steps import validate_steps
+
+        validate_steps(fields["steps"])
 
 
 class NodeSpecStore:

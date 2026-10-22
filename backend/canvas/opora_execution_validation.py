@@ -7,6 +7,7 @@ from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_content_execution import require_accepted_content
 from backend.canvas.opora_graph_execution import require_accepted_graph
+from backend.canvas.opora_plan_steps import ordered, steps_of
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_packet.sector_status import sector_blockers
 from backend.editor.agent_packet.specification_context import capture_specification
@@ -61,4 +62,7 @@ def assignment(canvas, project, workspace, node):
     require_accepted_content(canvas, project, workspace, context["acceptedHead"], relevant, view["graph"])
     if any(key not in accepted or digest(accepted[key]) != digest(live.get(key)) for key in relevant):
         raise ValueError("Relevant specifications differ from their accepted revision.")
-    return {"acceptedRevision": context["acceptedHead"], "documents": [accepted[key] for key in relevant], **captured}
+    # Accepted plan steps of the claimed card are pinned in the immutable snapshot (oporahub-plan-steps.md).
+    steps = ordered(steps_of(accepted.get(node, {}).get("fields")))
+    return {"acceptedRevision": context["acceptedHead"], "documents": [accepted[key] for key in relevant],
+            **captured, "steps": steps}

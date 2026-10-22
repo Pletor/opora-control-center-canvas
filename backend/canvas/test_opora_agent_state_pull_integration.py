@@ -70,10 +70,14 @@ def test_agent_state_reads_real_links_through_merge_and_human_close(world):
                                                "reason": "plan_written_back"}
     assert "pull_request_link" not in [gap["id"] for gap in merged["gaps"]]
     [action] = [item for item in merged["actions"] if item["verb"] == "close_card"]
-    assert action["targetId"] == "card" and action["status"] == "blocked" and action["blockReason"] == "human_only"
-    assert action["preconditions"] == {"executionId": record["executionId"], "mergeSha": MERGE_SHA}
-    [decision] = [item for item in merged["decisions"] if item["kind"] == "close_card"]
-    assert decision["targetId"] == "card" and decision["actionId"] == action["id"]
+    # The card has no accepted plan steps, so the single definition of done is incomplete:
+    # close_card stays blocked and no human decision is offered (docs/oporahub-plan-steps.md).
+    assert action["targetId"] == "card" and action["status"] == "blocked"
+    assert action["blockReason"] == "done_state_incomplete"
+    assert action["preconditions"]["executionId"] == record["executionId"]
+    assert action["preconditions"]["mergeSha"] == MERGE_SHA
+    assert "steps" in action["preconditions"]["missing"] and "merged" not in action["preconditions"]["missing"]
+    assert not [item for item in merged["decisions"] if item["kind"] == "close_card"]
     assert record["token"] not in str(merged)
 
     # A human confirms the card: the derived marker clears and the decision disappears.

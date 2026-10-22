@@ -2,18 +2,19 @@
 import time
 
 from backend.canvas.canvas_service import now
+from backend.canvas.opora_agent_state_steps import blocked_by, card_plan
 from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_execution_validation import validate
 from backend.canvas.opora_executions import OporaExecutions
 from backend.canvas.opora_process_links import links
 from backend.canvas.opora_process_tracking import tracking
-from backend.editor.agent_memory.card_pipeline import current_stage, stuck
+from backend.editor.agent_memory.card_pipeline import current_stage
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from database.repositories.opora_executions import Executions
 
 CARD_LIMIT = 100
 LABELS = {"needs-plan": "Doplnit zadání", "needs-acceptance": "Předložit návrh k přijetí",
-          "needs-routing": "Sestavit pipeline", "ready": "Převzít kartu", "running": "Sledovat běh",
+          "needs-steps": "Doplnit kroky plánu", "ready": "Převzít kartu", "running": "Sledovat běh",
           "reported": "Zkontrolovat nahlášený výsledek", "stale": "Porovnat s aktuálním zadáním",
           "closed": "Karta uzavřena", "blocked": "Vyřešit blokaci", "unavailable": "Prověřit dostupnost"}
 
@@ -41,7 +42,7 @@ def _latest(repo, node, accepted):
             "matchesCurrentRevision": record["acceptedRevision"] == accepted, "results": count}
 
 
-def _status(document, accepted, matches, stored, execution, availability, read_only, context_valid):
+def _status(document, accepted, matches, stored, execution, availability, read_only, context_valid, plan):
     if stored.get("done", {}).get("confirmed"):
         return "closed", "Dokončení karty je potvrzeno v Canvasu; není to důkaz merge ani nasazení."
     if read_only:
@@ -58,12 +59,12 @@ def _status(document, accepted, matches, stored, execution, availability, read_o
         return "running", "Ledger eviduje běh s platným pronájmem; autoritu znovu ověří heartbeat nebo zápis výsledku."
     if not availability["available"]:
         return "blocked", availability["unavailableReason"] or "Převzetí není dostupné."
-    if not stored.get("stages", {}).get("items"):
-        return "needs-routing", "Karta zatím nemá sestavenou pipeline práce a kontroly."
-    if stuck(stored["stages"]):
-        return "blocked", "Pipeline má selhanou etapu bez pokračování; je nutná oprava nebo rozhodnutí člověka."
-    if current_stage(stored["stages"]) is None:
-        return "blocked", "Pipeline je uzavřena; zkontrolujte důkazy a samostatně potvrďte dokončení karty."
+    # Readiness = accepted spec with >=1 plan step + budget (availability) + no blockedBy; legacy
+    # desktop-v3 `stages` are only reported, never a gate (docs/oporahub-plan-steps.md).
+    if not plan["steps"]["total"]:
+        return "needs-steps", "Přijaté zadání karty nemá žádný krok plánu."
+    if plan["blockedBy"]:
+        return "blocked", "Karta čeká na předchůdce: " + ", ".join(plan["blockedBy"]) + "."
     return "ready", "Přijaté podklady jsou dostupné; claim jejich aktuálnost znovu ověří."
 
 
@@ -88,6 +89,7 @@ class ProcessSync:
             state = DesktopV3State(canvas).read(project, workspace)["state"]
             repo = Executions(canvas.db_for(project), project, workspace)
             executions = OporaExecutions(canvas)
+            blocked = blocked_by(canvas, project, workspace)
             items = []
             for card in selected[:CARD_LIMIT]:
                 identifier = card["id"]
@@ -100,8 +102,10 @@ class ProcessSync:
                 if availability["available"] and lease and lease[0] > time.time():
                     availability = {"available": False, "unavailableReason": "Card already has an active lease."}
                 matches = identifier in approved and approved[identifier] == live.get(identifier)
+                plan = card_plan(repo.db, project, workspace, identifier, approved.get(identifier), blocked)
                 status, reason = _status(live.get(identifier), accepted, matches, stored, execution, availability,
-                                         view["readOnly"], available["acceptedHead"] == accepted and accepted is not None)
+                                         view["readOnly"], available["acceptedHead"] == accepted and accepted is not None,
+                                         plan)
                 stages = stored.get("stages", {})
                 stage = current_stage(stages) if stages.get("items") else None
                 items.append({"nodeId": identifier, "name": card["name"], "status": status,
@@ -111,6 +115,8 @@ class ProcessSync:
                                            "passedCount": sum(item["status"] == "passed" for item in stages.get("items", [])),
                                            "failedCount": sum(item["status"] == "failed" for item in stages.get("items", [])),
                                            "currentStage": stage["title"] if stage else None},
+                              "steps": plan["steps"], "acceptanceEvidence": plan["acceptanceEvidence"],
+                              "blockedBy": plan["blockedBy"],
                               "workingMatchesAccepted": matches, "doneConfirmed": bool(stored.get("done", {}).get("confirmed")),
                               "openIdeas": sum(item["status"] == "open" for item in stored.get("ideas", [])),
                               "currentExecution": execution, "executionAvailability": availability,

@@ -10,6 +10,7 @@ from backend.canvas.opora_execution_budget_status import status as budget_status
 from backend.canvas.opora_execution_lineage import validate_accepted_lineage
 from backend.canvas.opora_execution_validation import validate
 from backend.canvas.opora_graph_execution import require_accepted_graph
+from backend.canvas.opora_plan_steps import ordered, steps_of
 from backend.editor.agent_packet.desktop_v3_packets import redact_deep
 from backend.editor.agent_packet.specification_sql_context import project_sql_context
 from backend.editor.agent_packet.specification_sql_rows import composed_graph
@@ -86,8 +87,9 @@ def _collect(canvas, db, project, workspace, node):
     if before != after:
         raise ValueError("Registry source binding changed during context capture.")
     opaque = token(private.key(db, project), projection, head, before)
+    steps = ordered(steps_of((accepted.get(node) or {}).get("fields")))  # pinned plan (oporahub-plan-steps.md)
     assignment = {"acceptedRevision": head, "documents": redact_deep(selected), "contextVersion": opaque,
-                  "contextProtocolVersion": 2,
+                  "contextProtocolVersion": 2, "steps": redact_deep(steps),
                   "specification": {**redact_deep(projection), "schema": "opora.specification-context/2"}}
     pin = {"schemaVersion": 1, "snapshot": snapshot, "metadata": metadata, "binding": before,
            "nodeId": node, "acceptedRevision": head, "contextVersion": opaque,
