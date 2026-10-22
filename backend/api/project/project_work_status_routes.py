@@ -5,11 +5,11 @@ from fastapi import APIRouter
 from backend.project.architecture.work_status import work_status
 
 
-def create_project_work_status_router(service, registry, hook_store):
+def create_project_work_status_router(service, registry):
     router = APIRouter(prefix="/api", tags=["project-work-status"])
 
     @router.get("/project-architecture/work-status")
     def project_work_status(project: str):
-        return work_status(service, registry, hook_store, project)
+        return work_status(service, registry, project)
 
     return router

@@ -72,7 +72,7 @@ Detail a tvar výsledku: [hub-loop.md](references/hub-loop.md).
 - Pravidla běhů a review (`execution-budgets`, `review-policy`, `proposal-reviews/policy`),
   sledování PR (`reconciliation`), přepočet historie, zápis backfillu sparse kontextu.
 - Starší plátno: svěření autonomie, obnova verze, `gateNodeId` / `checks` / `goal_mode`
-  existující karty, vazba `next` mezi sektory, mazání sektoru, brány nebo > 20 uzlů, hooky.
+  existující karty, vazba `next` mezi sektory, mazání sektoru, brány nebo > 20 uzlů.
 
 Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 
@@ -102,7 +102,6 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | stavět strom karet na pracovním plátně | `/api/canvas-plan` (dávka, `--dry-run`), pak návrh grafu k přijetí | [canvas-plan.md](references/canvas-plan.md) |
 | grilling, wayfinder, schránka zadání | `/api/brief-vault`, `opora_cycle.py` | [workflow.md](references/workflow.md), [cycle.md](references/cycle.md) |
 | storyboard a skica momentu | `/api/storyboard`, `/api/drawing` | [storyboard.md](references/storyboard.md) |
-| proč mi hook zakázal nástroj | ACK revize, scope cest | [hooks.md](references/hooks.md) |
 | velký projekt, mapy | `index` → `rank`; Graphify, Archify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [archify.md](references/archify.md), [map-refresh.md](references/map-refresh.md) |
 | podklady pro externího agenta | `snapshot --id` | [external-agent.md](references/external-agent.md) |
 | návrh karty pro člověka | šablona | [assets/task-brief.md](assets/task-brief.md) |

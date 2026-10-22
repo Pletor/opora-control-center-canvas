@@ -171,7 +171,7 @@ def test_open_file_is_loopback_only():
     assert not is_loopback_only("/api/workspace/open-files") and not is_loopback_only("/api/workspace/file")
 
 
-def test_hook_event_and_ack_are_loopback_only():
-    """Hook rozhoduje o souborech na tomto stroji; přes tunel ne (upgrade-opora #38)."""
-    assert is_loopback_only("/api/agent-hooks/event") and is_loopback_only("/api/agent-hooks/ack")
-    assert not is_loopback_only("/api/agent-hooks/events")
+def test_brief_vault_gate_check_is_loopback_only():
+    """Kontrola brány volá placené API klíčem aplikace; přes tunel ne (docs/schranka-neurony.md §7)."""
+    assert is_loopback_only("/api/brief-vault/gate-check")
+    assert not is_loopback_only("/api/brief-vault/gate-checks")

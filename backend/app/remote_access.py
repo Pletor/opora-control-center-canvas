@@ -25,10 +25,8 @@ ASSISTANT_PREFIX = "/api/assistant"
 RLM_PREFIX = "/api/rlm"
 # Otevření souboru spouští VS Code / os.startfile na tomto stroji; přes tunel ne (upgrade-opora #42).
 OPEN_FILE_PATH = "/api/workspace/open-file"
-# Hooky běží na tomto počítači: událost i ACK mluví do živého agenta tady a rozhodují,
-# jestli smí sáhnout na soubory. Z veřejného hosta je nepustíme ani s platným tokenem.
 # Kontrola brány Schránky volá placené API (Jev) klíčem aplikace; zvenčí ne (docs/schranka-neurony.md §7).
-LOOPBACK_ONLY_PATHS = frozenset({"/api/agent-hooks/event", "/api/agent-hooks/ack", "/api/brief-vault/gate-check"})
+LOOPBACK_ONLY_PATHS = frozenset({"/api/brief-vault/gate-check"})
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
 OPEN_PATHS = frozenset({"/api/access/status", "/api/access/login", "/api/access/logout"})
 

@@ -15,8 +15,6 @@ Aplikace není stateless web. Drží se čtyř věcí, které jsou fyzicky na to
    stroji (`OPORA_CANVAS_DATA`, `backend/project/workspace`). Bez nich není co číst ani co větvit.
 3. **Asistent a RLM.** `/api/assistant*` a `/api/rlm*` spouštějí Claude Code na **tomto** počítači
    pod jeho předplatným a s přístupem k jeho souborům. To se nedá provozovat z cizího datacentra.
-   Stejně tak **Hook control**: `/api/agent-hooks/*` mluví do agentů, kteří běží **tady** — rozhoduje,
-   jestli nástroj smí sáhnout na soubor.
 4. **Lokální modely.** Sémantika (ONNX), Ollama a OpenViking běží na loopbacku tohoto počítače.
 
 Proto aplikace běží dál doma a veřejnou adresu jí dá **tunel**.
@@ -57,10 +55,6 @@ v `backend/app/factory.py`.
 - **Asistent a RLM jsou zvenčí zakázané.** `/api/assistant*` a `/api/rlm*` vrací 403
   „Tohle běží jen na tomto počítači.“ i s platným tokenem. Tyhle routy spouští agenta na tomto
   počítači; token otevírá aplikaci, ne řízení procesů na stroji.
-- **Hook control je zvenčí zakázaný.** `/api/agent-hooks/event` a `/api/agent-hooks/ack` vrací 403
-  i s platným tokenem. Tyhle dvě routy rozhodují o chování agenta běžícího na tomto počítači.
-  Čtení `/api/agent-hooks/events` je běžná routa pod tokenem. Vazbu, řízení a instalaci do VS Code
-  smí jen člověk v UI (agentovi 403, bez lidské session 428).
 - **Loopback se nemění.** Doma nic token nepotřebuje.
 
 ### Přihlášení prohlížeče
@@ -104,8 +98,8 @@ a v logu agenta.
 
 Čtení (`view`, `state`, `node-text`, `snapshot`) je stejné jako doma. Zápisy jdou přes
 stejné API jako z prohlížeče, se stejnými revizemi a digesty; přes tunel je navíc potřeba hlavička
-`Origin: https://<host>` a `Content-Type: application/json`. Asistent, RLM, Hook control a
-`tools/opora_hook.py` zůstávají loopback-only — agenta obsluhuje počítač, na kterém skutečně běží.
+`Origin: https://<host>` a `Content-Type: application/json`. Asistent a RLM
+zůstávají loopback-only — agenta obsluhuje počítač, na kterém skutečně běží.
 
 ## Na co si dát pozor
 

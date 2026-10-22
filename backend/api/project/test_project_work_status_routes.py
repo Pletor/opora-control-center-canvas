@@ -17,11 +17,6 @@ class FakeRegistry:
                  "updatedAt": "2026-10-14T12:00:00Z"}]
 
 
-class FakeHooks:
-    def for_project(self, project):
-        return []
-
-
 def make_client():
     db = sqlite3.connect(":memory:", check_same_thread=False)
     db.row_factory = sqlite3.Row
@@ -46,7 +41,7 @@ def make_client():
                                     {"id": "w2", "node_id": "project", "branch": "work/w2", "actor": "b"}],
     )
     app = FastAPI()
-    app.include_router(create_project_work_status_router(service, FakeRegistry(), FakeHooks()))
+    app.include_router(create_project_work_status_router(service, FakeRegistry()))
     return TestClient(app)
 
 

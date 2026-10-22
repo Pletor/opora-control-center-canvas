@@ -7,10 +7,10 @@ const s = (state: string) => ({ source: "assistant" as const, id: state, state, 
 
 describe("stavy relací", () => {
   it("hlavní slovo je stav worktree od backendu, surový stav zdroje jen v title", () => {
-    const hook = { source: "hook" as const, id: "h1", state: "active", nodeId: null, lastSeenAt: "2026-10-14T11:56:00Z" };
-    const view = sessionView(hook, "stopped", NOW);
-    expect(view).toMatchObject({ source: "Hook", label: "stojí", tone: "stopped", icon: "■", openable: false });
-    expect(view.title).toBe("Hook hlásí „aktivní“ · naposledy před 4 min · stav worktree: stojí");
+    const lease = { source: "lease" as const, id: "w:n", state: "active", nodeId: "n", lastSeenAt: "2026-10-14T11:56:00Z" };
+    const view = sessionView(lease, "stopped", NOW);
+    expect(view).toMatchObject({ source: "Karta", label: "stojí", tone: "stopped", icon: "■", openable: false });
+    expect(view.title).toBe("Karta hlásí „převzatá“ · naposledy před 4 min · stav worktree: stojí");
   });
   it("převzatá karta nikdy nečeká sama od sebe, rozhoduje worktree", () => {
     const lease = { source: "lease" as const, id: "w:n", state: "active", nodeId: "n", lastSeenAt: null };
@@ -19,7 +19,7 @@ describe("stavy relací", () => {
   });
   it("otevřít jde jen relace asistenta; neznámý stav zdroje se ukáže slovem", () => {
     expect(sessionView({ source: "assistant", id: "s1", state: "idle", nodeId: null, lastSeenAt: null }, "waiting", NOW).openable).toBe(true);
-    expect(sourceDetail({ source: "hook", id: "h", state: "odd", nodeId: null, lastSeenAt: null }, NOW)).toBe("Hook hlásí „odd“");
+    expect(sourceDetail({ source: "lease", id: "h", state: "odd", nodeId: null, lastSeenAt: null }, NOW)).toBe("Karta hlásí „odd“");
   });
   it("relativní čas i bez zóny (UTC)", () => {
     expect(relativeAge("2026-10-14T11:59:30", NOW)).toBe("před chvílí");

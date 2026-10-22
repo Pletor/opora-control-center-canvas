@@ -20,8 +20,6 @@ from backend.api.editor.canvas_version_routes import create_canvas_version_route
 from backend.api.editor.claude_code_routes import create_claude_code_router
 from backend.api.editor.code_intelligence_routes import create_code_intelligence_router
 from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
-from backend.api.editor.hook_install_routes import create_hook_install_router
-from backend.api.editor.hook_routes import create_hook_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.opora_agent_state_routes import create_opora_agent_state_router
@@ -299,9 +297,7 @@ def create_app(data_root=None):
     # krok 1: nastavení projektu
     app.include_router(create_project_setup_router(service))
     # prostředí Projekt
-    # skladiště čte hook bindingy až při přesunu: hook_control vzniká níž s routerem hooků
-    app.include_router(create_project_workspace_router(
-        service, WorkspaceArchive(service, assistant.registry, lambda: service.hook_control.store)))
+    app.include_router(create_project_workspace_router(service, WorkspaceArchive(service, assistant.registry)))
     app.include_router(create_workspace_router(service))
     app.include_router(create_archify_router(service))
     app.include_router(create_graphify_router(service))
@@ -324,10 +320,7 @@ def create_app(data_root=None):
     # RLM: řazení oddílů plátna přes Jev pro asistenta; jen loopback, klíč zůstává v backendu (§13.3)
     app.include_router(create_rlm_router(key_source=lambda: app_settings.jev_key(jev_provider), evaluate=jev_evaluate))
     app.include_router(create_process_router(service))
-    # Hook control: karta a cesty, které agent na disku smí měnit (upgrade-opora #38, bez Live Run).
-    app.include_router(create_hook_router(service, port=port))
-    app.include_router(create_hook_install_router(service, binding_lookup=service.hook_control.public_binding))
-    app.include_router(create_project_work_status_router(service, assistant.registry, service.hook_control.store))
+    app.include_router(create_project_work_status_router(service, assistant.registry))
     app.include_router(create_project_web_status_router(WebStatusService(service)))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)

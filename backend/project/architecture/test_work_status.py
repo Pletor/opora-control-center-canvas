@@ -4,7 +4,6 @@ import pytest
 
 from backend.project.architecture.work_status import (
     CARD_ACTIVITY_SECONDS,
-    HOOK_SIGNAL_SECONDS,
     STOPPED_WINDOW_SECONDS,
     compose_work_status,
     worktree_state,
@@ -21,12 +20,6 @@ def session(state):
     return {"id": "s", "workspace": "w1", "state": state}
 
 
-def binding(state="active", expires_in=600, seen_ago=10):
-    return {"id": "h", "workspace": "w1", "state": state,
-            "expiresAt": (NOW + timedelta(seconds=expires_in)).isoformat(),
-            "lastSeenAt": None if seen_ago is None else ago(seen_ago)}
-
-
 def lease(expires_in=600):
     return {"workspace_id": "w1", "node_id": "c1", "expires_at": NOW.timestamp() + expires_in}
 
@@ -36,53 +29,40 @@ def act(seconds):
 
 
 CASES = [
-    ("nic", [], [], [], {}, "none"),
-    ("asistent běží", [session("running")], [], [], {}, "running"),
-    ("asistent čeká na schválení", [session("waiting_approval")], [], [], {}, "waiting"),
-    ("asistent idle (i po restartu)", [session("idle")], [], [], {}, "waiting"),
-    ("asistent error", [session("error")], [], [], {}, "stopped"),
-    ("zavřená relace se nepočítá", [session("closed")], [], [], {}, "none"),
-    ("hook čerstvý", [], [binding()], [], {}, "running"),
-    ("hook na hraně signálu", [], [binding(seen_ago=HOOK_SIGNAL_SECONDS)], [], {}, "running"),
-    ("hook po prahu signálu", [], [binding(seen_ago=HOOK_SIGNAL_SECONDS + 1)], [], {}, "stopped"),
-    ("hook prošlý", [], [binding(expires_in=-1)], [], {}, "stopped"),
-    ("hook prošlý i s čerstvým signálem", [], [binding(expires_in=-1, seen_ago=1)], [], {}, "stopped"),
-    ("hook pozastaven", [], [binding("paused")], [], {}, "waiting"),
-    ("hook zastaven se nepočítá", [], [binding("stopped")], [], {}, "none"),
-    ("hook bez prvního signálu", [], [binding(seen_ago=None)], [], {}, "waiting"),
-    ("lease + čerstvá aktivita", [], [], [lease()], act(CARD_ACTIVITY_SECONDS), "running"),
-    ("lease + stará aktivita", [], [], [lease()], act(CARD_ACTIVITY_SECONDS + 1), "waiting"),
-    ("lease bez aktivity", [], [], [lease()], {}, "waiting"),
-    ("prošlá lease s aktivitou < 24 h", [], [], [lease(-5)], act(3600), "stopped"),
-    ("prošlá lease s aktivitou na hraně", [], [], [lease(-5)], act(STOPPED_WINDOW_SECONDS), "stopped"),
-    ("prošlá lease se starou aktivitou", [], [], [lease(-5)], act(STOPPED_WINDOW_SECONDS + 1), "none"),
-    ("prošlá lease bez aktivity", [], [], [lease(-5)], {}, "none"),
-    ("přednost: běží přebije stojí", [session("error")], [binding()], [], {}, "running"),
-    ("přednost: čeká přebije stojí", [session("idle")], [binding(expires_in=-1)], [], {}, "waiting"),
-    ("přednost: stojí přebije bez relace", [], [], [lease(-5)], act(10), "stopped"),
-    ("přednost: lease běží přebije čeká", [session("idle")], [], [lease()], act(5), "running"),
+    ("nic", [], [], {}, "none"),
+    ("asistent běží", [session("running")], [], {}, "running"),
+    ("asistent čeká na schválení", [session("waiting_approval")], [], {}, "waiting"),
+    ("asistent idle (i po restartu)", [session("idle")], [], {}, "waiting"),
+    ("asistent error", [session("error")], [], {}, "stopped"),
+    ("zavřená relace se nepočítá", [session("closed")], [], {}, "none"),
+    ("lease + čerstvá aktivita", [], [lease()], act(CARD_ACTIVITY_SECONDS), "running"),
+    ("lease + stará aktivita", [], [lease()], act(CARD_ACTIVITY_SECONDS + 1), "waiting"),
+    ("lease bez aktivity", [], [lease()], {}, "waiting"),
+    ("prošlá lease s aktivitou < 24 h", [], [lease(-5)], act(3600), "stopped"),
+    ("prošlá lease s aktivitou na hraně", [], [lease(-5)], act(STOPPED_WINDOW_SECONDS), "stopped"),
+    ("prošlá lease se starou aktivitou", [], [lease(-5)], act(STOPPED_WINDOW_SECONDS + 1), "none"),
+    ("prošlá lease bez aktivity", [], [lease(-5)], {}, "none"),
+    ("přednost: běží přebije stojí", [session("error")], [lease()], act(5), "running"),
+    ("přednost: čeká přebije stojí", [session("idle")], [lease(-5)], act(10), "waiting"),
+    ("přednost: stojí přebije bez relace", [], [lease(-5)], act(10), "stopped"),
+    ("přednost: lease běží přebije čeká", [session("idle")], [lease()], act(5), "running"),
 ]
 
 
-@pytest.mark.parametrize("label,sessions,bindings,leases,activity,expected", CASES, ids=[c[0] for c in CASES])
-def test_worktree_state_table(label, sessions, bindings, leases, activity, expected):
-    state, reasons = worktree_state(sessions, bindings, leases, activity, NOW)
+@pytest.mark.parametrize("label,sessions,leases,activity,expected", CASES, ids=[c[0] for c in CASES])
+def test_worktree_state_table(label, sessions, leases, activity, expected):
+    state, reasons = worktree_state(sessions, leases, activity, NOW)
     assert state == expected
     assert bool(reasons) == (expected != "none")
 
 
 def test_reasons_come_from_winning_level_only():
-    state, reasons = worktree_state([session("running"), session("error")], [], [], {}, NOW)
+    state, reasons = worktree_state([session("running"), session("error")], [], {}, NOW)
     assert (state, reasons) == ("running", ["asistent běží"])
 
 
-def test_stale_hook_reason_names_minutes():
-    _, reasons = worktree_state([], [binding(seen_ago=240)], [], {}, NOW)
-    assert reasons == ["hook bez signálu 4 min"]
-
-
 def test_missing_session_is_none_never_stopped():
-    assert worktree_state([], [], [], {}, NOW) == ("none", [])
+    assert worktree_state([], [], {}, NOW) == ("none", [])
 
 
 DOMAINS = [
@@ -105,7 +85,6 @@ def test_domain_grouping_counts_and_unassigned():
             {"id": "s2", "workspace": "main", "state": "idle", "nodeId": None, "updatedAt": ago(5)},
             {"id": "s3", "workspace": "draft", "state": "running", "nodeId": None, "updatedAt": ago(5)},
         ],
-        "bindings": [],
         "leases": [{"workspace_id": "w2", "node_id": "c9", "owner": "x", "expires_at": NOW.timestamp() + 60}],
         "activity": [],
     }
@@ -124,6 +103,6 @@ def test_domain_grouping_counts_and_unassigned():
 
 
 def test_created_at_is_passed_through_when_stored():
-    sources = {"sessions": [], "bindings": [], "leases": [], "activity": []}
+    sources = {"sessions": [], "leases": [], "activity": []}
     result = compose_work_status(DOMAINS, [{"id": "w1", "node_id": "dev", "created_at": "2026-10-01"}], sources, NOW)
     assert result["domains"][1]["worktrees"][0]["createdAt"] == "2026-10-01"
