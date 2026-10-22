@@ -36,6 +36,7 @@ from backend.api.editor.opora_execution_pull_request_routes import create_execut
 from backend.api.editor.opora_review_insight_routes import create_review_insight_router
 from backend.api.editor.opora_review_job_routes import create_review_job_router
 from backend.api.editor.opora_review_self_check_routes import create_review_self_check_router
+from backend.api.editor.opora_review_lens_routes import create_review_lens_router
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
 from backend.api.editor.opora_process_routes import create_opora_process_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
@@ -342,6 +343,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_execution_router(service))
     app.include_router(create_execution_pull_request_router(service))
     app.include_router(create_review_self_check_router(service))  # before /{job}/… review job paths
+    app.include_router(create_review_lens_router(service))  # POST /review-jobs/lens, GET /review-lens
     app.include_router(create_review_job_router(service))
     app.include_router(create_review_insight_router(service))
     app.include_router(create_opora_process_router(service))

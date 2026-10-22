@@ -3,8 +3,9 @@
 `opora_review_self_checks` holds per-head self-check evidence an agent adds after its execution
 result (rebase or review fixes move the head). `opora_review_base_observations` holds the latest
 read-only GitHub observation of a PR head against the current base branch head and of the PR body.
+`opora_review_lens` holds optional PR Lens evidence per execution and head (backend/canvas/opora_review_lens.py).
 `ensure_review_job_kind` upgrades review job tables created before the `kind` column existed."""
-TABLES = ("opora_review_self_checks", "opora_review_base_observations")
+TABLES = ("opora_review_self_checks", "opora_review_base_observations", "opora_review_lens")
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS opora_review_self_checks(
  project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, execution_id TEXT NOT NULL, head_sha TEXT NOT NULL,
@@ -14,6 +15,10 @@ CREATE TABLE IF NOT EXISTS opora_review_base_observations(
  project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, repository TEXT NOT NULL, number INTEGER NOT NULL,
  head_sha TEXT NOT NULL, observation TEXT NOT NULL, observed_at REAL NOT NULL,
  PRIMARY KEY(project_id,workspace_id,repository,number));
+CREATE TABLE IF NOT EXISTS opora_review_lens(
+ project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, execution_id TEXT NOT NULL, head_sha TEXT NOT NULL,
+ record TEXT NOT NULL, by TEXT NOT NULL, created_at TEXT NOT NULL,
+ PRIMARY KEY(project_id,workspace_id,execution_id,head_sha));
 """
 
 _JOBS = "opora_review_jobs"

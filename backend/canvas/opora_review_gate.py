@@ -6,6 +6,7 @@ the exact current head SHA (reusing the evidence review rules: User accounts wit
 permission, not the PR author); configured agent accounts never count. Nothing is written."""
 from backend.canvas import opora_review_gate_rules as gate_rules
 from backend.canvas import opora_review_humans as review_humans
+from backend.canvas import opora_review_lens as review_lens
 from backend.canvas.opora_review_jobs import capped
 from backend.canvas.opora_review_status import _reviews
 from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
@@ -75,6 +76,8 @@ def gate(store, link, evidence, config, now=None):
                            "humanApprovalsAtHead": approvals, "reasons": reasons}}
     if humans is not None:
         result["reviewGate"]["humans"] = humans
+    if lens := review_lens.for_link(store.db, *store.scope, link):  # optional evidence, never a reason
+        result["evidence"] = {"review": {"lens": lens}}
     return result
 
 

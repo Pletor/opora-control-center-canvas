@@ -35,7 +35,7 @@ Platí pro agent-office i Opora Canvas, pro lidi, hlavní sessions i subagenty. 
 - Jedna session = jeden worktree = jedna větev = jeden PR.
 
 ### 2.4 Fronta slučování
-- Sloučit lze jen **zelené** PR: typecheck/testy/build, review a diagram PR Lens. Slučuje se v pořadí fronty, squash, jeden vlastník fronty na repozitář.
+- Sloučit lze jen **zelené** PR: typecheck/testy/build a review (diagram PR Lens je zatím volitelný, neblokuje). Slučuje se v pořadí fronty, squash, jeden vlastník fronty na repozitář.
 - Člověk slučuje **jedním tlačítkem v Boss Office** (tabule Čistá linie ukazuje, který PR je na řadě a proč). Vlastník fronty pak další PR přeskládá na nový `main`.
 - GitHub: **Automatically delete head branches** zapnuto v obou repozitářích.
 
@@ -65,9 +65,9 @@ karta + záměr → worktree z main (vlastní npm ci) → práce → self-checks
 
 **Kde:** etapa **Revize**, hned po otevření PR. Je to vstup pro review (agent i člověk), ne kontrola kvality.
 
-- **Kdo kreslí:** pracovník, který změnu udělal, přes **lokální skill** `coldteadotai/pr-lens` (Claude Code v předplatném). Diagram ověří `npx @coldtea/pr-lens-cli validate`, vykreslí lokálně a přiloží k PR (`gh pr create --attach`).
+- **Kdo kreslí:** pracovník, který změnu udělal, přes **lokální skill** `coldteadotai/pr-lens` (Claude Code v předplatném). Diagram ověří `pr-lens validate`, vykreslí lokálně (`pr-lens render`) a Agent Office spec i SVG vystaví na vedlejší větvi `pr-lens/<větev PR>` a obrázek dá do popisu PR (`gh api`, bez další služby; `gh pr create --attach` z gh 2.99 by šlo také).
 - **Bez hostované aplikace a bez API klíče:** nepoužíváme GitHub App, `analyze` s cizím modelem ani `canvas push`. Kód zůstává lokálně a platí pravidlo Opory „předplatné, ne API“.
-- **V Opoře:** odkaz na diagram je důkaz u review (`evidence.review.lens`). Review karta a Živý proces ho ukazují u PR. Pro profil `code` je to podmínka vstupu do review. Opravy pojmenování patří do `.github/pr-lens.yml`, ne do SVG.
+- **V Opoře:** diagram je důkaz u review (`evidence.review.lens`): odkaz na SVG a hlavně **spec** (validovaný graf s kartami, cestami a řádky, toky a payloady), který agenti čtou jako data místo obrázků (`GET /api/oporahub/review-lens`). Review karta a Živý proces ho ukazují u PR. Zatím je **volitelný a neblokuje** bránu. Opravy pojmenování patří do `.github/pr-lens.yml`, ne do SVG.
 - **Proč tam:** review dnes čte diff naslepo. Diagram ukáže dosah změny (nové, změněné a odebrané části) a tok dat, takže review najde špatné napojení dřív, než se PR dostane do fronty.
 
 ## 5. Tabule „Čistá linie“ v Boss Office

@@ -241,6 +241,28 @@ kterým je skutečný text; komentáře, prázdné odrážky a zaškrtávátka n
 → `template_incomplete`, nepřečtený popis → `template_unobserved`; obojí jen `pending`
 (čeká, neblokuje).
 
+### Diagram PR Lens (volitelný důkaz)
+
+Pracovník, který změnu udělal, ji nakreslí lokálně přes PR Lens (`docs/cista-linie.md` §4):
+**spec** (validovaný graf: pruhy, karty s cestami a řádky, hrany, kroky toků s payloady) je
+zdroj pravdy, který čtou agenti jako data; SVG je jen pro lidi. Agent Office spec i SVG vystaví
+na vedlejší větvi `pr-lens/<větev PR>` a pošle
+`POST /api/oporahub/review-jobs/lens` s `{project, workspace, executionId, lens: {url, prNumber,
+headSha, validatedAt, specUrl?, specSha256?, specBytes?, spec?}}`. `url` a `specUrl` jsou jen
+`https` na `github.com` (i `github.com/user-attachments/…`) nebo `raw.githubusercontent.com`;
+`spec` je graf (`kind: graph`) do 64 KiB, `specBytes` nejvýš 512 KiB. Platí jen pro otevřený
+propojený PR a jeho aktuální hlavu (`prNumber` a `headSha` musí sedět, jinak 409); první zápis
+na hlavu vyhrává, stejný obsah je idempotentní. Nevyžaduje zapnuté review úlohy.
+
+Brána ho jen ukazuje: u PR s diagramem pro aktuální hlavu má položka brány
+`evidence.review.lens`, ale **nepřidává žádný důvod** a pořadí pravidel (self_checks →
+security → findings → humans → freshness → template) se nemění. Agenti čtou spec karty přes
+`GET /api/oporahub/review-lens?project&workspace&nodeId` (nejnovější diagram běhů karty,
+`current` říká, zda je pro aktuální hlavu PR). Kód `backend/canvas/opora_review_lens.py`,
+router `opora_review_lens_routes.py`, tabulka `opora_review_lens`
+(`database/schema/opora_review_gate_schema.py`), testy `test_opora_review_lens.py` a
+`test_opora_review_lens_routes.py`.
+
 ## Stav pro agenty
 
 Při zapnuté funkci [agent-state](oporahub-agent-state.md) etapa `review` čte brány
