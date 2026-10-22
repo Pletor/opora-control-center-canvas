@@ -17,6 +17,8 @@ a review jako původní plán.
 Agent nemusí skládat stav z mnoha endpointů: [stav pro agenty](oporahub-agent-state.md)
 (`GET /api/oporahub/agent-state`) vrací jeden deterministický dokument s hlavami pro CAS,
 zdravím etap, rozhodnutími člověka a připravenými či blokovanými akcemi; podporuje `ETag`.
+Živou vizualizaci procesu krmí [tok událostí](oporahub-events.md): outbox zapisovaný ve stejné
+transakci jako změna, stránkování kurzorem a SSE s obnovou přes `Last-Event-ID`.
 [Automatické review kódu](oporahub-review-jobs.md) zařazuje deterministické úlohy hledačů
 a ověřovatelů pro PR běhů, vede nálezy přes kola a počítá bránu merge.
 [Lidé v review](oporahub-review-identity.md) propojují lidi s ověřenými GitHub účty (brána

@@ -28,7 +28,7 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `decisions[]` | Nejvýše 3 rozhodnutí člověka `{id, kind, targetId, title, actionId}` |
 | `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?}` |
 | `gaps[]` | Známé nenapojené schopnosti `{id, stage, reason}` |
-| `cards[]` | Etapa každé karty `{nodeId, stage, health, reason, executionId}` seřazená podle `nodeId` (viz [Etapa karty](#etapa-karty-cards)) |
+| `cards[]` | Etapa každé karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate}` seřazená podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)) |
 | `truncated` | Projekce karet narazila na limit 100 (`ProcessSync`) |
 
 `health` je `ok`, `waiting`, `blocking` nebo `not_connected`. `reason` je strojový kód.
@@ -69,11 +69,36 @@ v nejvzdálenější dosažené etapě; platí první pravidlo:
 | otevřené PR bez brány | `pull_request` / `waiting` / `pull_requests_open` |
 | poslední běh `running` | `work` / `ok` / `runs_active`, po termínu `blocking` / `lease_past_deadline` |
 | poslední běh s výsledkem | jiná přijatá revize → `evidence` / `waiting` / `stale_evidence`, jinak `review` / `waiting` / `human_review_required` |
-| akce `claim` karty | `claim` / `ok` / `cards_ready`, blokovaná → `blocking` / `budget_exhausted` či `budget_policy_required` |
+| akce `claim` karty | `claim` / `ok` / `cards_ready`, blokovaná → `blocking` / `budget_exhausted`, `budget_policy_required` či `blocked_by_predecessor` |
 | jinak | `plan` / `ok` / `card_in_plan` (bez přijatého základu `blocking` / `no_accepted_baseline`) |
 
 `executionId` je běh, ke kterému etapa patří (u PR běh vazby), jinak `null`. Seznam má stejný limit
 jako projekce karet (`truncated`).
+
+## Graf karet (DAG)
+
+Vazby `next` (port chybí nebo je `next`) mezi kartami (uzel, sektor) tvoří orientovaný acyklický
+graf: cílová karta navazuje na zdrojovou. `backend/canvas/card_dag.py` hlídá ukládání grafu
+(`save_graph`, tedy i `POST /api/graph`, dávku plánu, krok zpět a obnovu verze): uložení, které
+**přidá** vazbu uzavírající cyklus, skončí `409` s tělem
+`{"error", "code": "card_cycle", "cycle": ["b", "a", "b"]}` (uzavřená cesta id karet). Cyklus už
+uložený ve starých datech se toleruje, aby šel projekt otevřít a opravit; jeho karty dostanou
+`topoIndex` až za acyklickou částí.
+
+Pole karty v `cards[]` (`backend/canvas/opora_agent_state_dag.py`):
+
+| Pole | Význam |
+|---|---|
+| `kind` | Typ workflow z předpony názvu (`research`, `prototype`, `grilling`, `task`, `gate`), jinak `null` |
+| `layer` | Uložená vrstva `card.layer` (`frontend` / `backend` / `database` / `library`), jinak `null` |
+| `blockedBy` | Seřazení předchůdci po `next`, kteří ještě nejsou hotoví: hotový = vazba PR `merged` s `planWrittenBack: true`, u starých dat `done.confirmed` |
+| `topoIndex` | Pořadí v topologickém řazení všech karet prostoru (Kahn, remízy podle id) |
+| `nextActionId` | `id` první akce (v pořadí `actions[]`), jejíž `targetId` je karta nebo běh její etapy; jinak `null` |
+| `gate` | `{status, rule}` brány review otevřeného PR karty (`rule` = kód pravidla podle priority etapy `review`, jinak první důvod brány), bez brány `null` |
+
+Karta s neprázdným `blockedBy` má akci `claim` blokovanou důvodem `blocked_by_predecessor`
+(rozpočtové důvody mají přednost) a nezapočítává se do `count` etapy `claim`. Endpoint claim
+samotný předchůdce zatím nevynucuje; připravenost hlídá agent-state.
 
 ## Rozhodnutí a akce
 
@@ -92,7 +117,7 @@ uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhl
 | `accept` | `…/{id}/accept` podle druhu návrhu | vždy `blocked/human_only` |
 | `rebase` | `…/{id}/rebase` zastaralého návrhu | `ready` (výslovný převod; automatický běží na serveru) |
 | `proposal.resolve_conflict` | `POST /api/oporahub/auto-rebase/conflicts/{id}/resolve` | `ready` u otevřeného konfliktu auto-rebase; řešením je běžný nový návrh nad aktuální hlavou |
-| `claim` | `POST /api/oporahub/executions/claim` | `ready`, nebo `blocked/budget_exhausted` či `budget_policy_required`; `budget` nese zbývající pokusy a opravy |
+| `claim` | `POST /api/oporahub/executions/claim` | `ready`, nebo `blocked/budget_exhausted`, `budget_policy_required` či `blocked_by_predecessor` (nedokončený předchůdce v grafu karet; ID akce se mění se sadou blokujících karet); `budget` nese zbývající pokusy a opravy |
 | `review` | `GET /api/oporahub/executions/{id}/results` | `blocked/human_only` (AI review chybí) |
 | `review.claim` | `POST /api/oporahub/review-jobs/claim` | `ready` u úlohy review s volným slotem (jen se zapnutým automatickým review); `preconditions` `{role, headSha}` |
 | `review.self_checks` | `POST /api/oporahub/review-jobs/self-checks` | `ready`, když brána hlásí `self_checks_missing`; `targetId` = `executionId`, `preconditions` `{executionId, headSha, required}` |
@@ -112,6 +137,9 @@ přijatá revize. Stejné ID znamená stejný úmysl; agent blokovanou akci se s
 neopakuje a po změně hlavy dostane nové ID.
 
 ## Podmíněné čtení
+
+Dokument je snímek; změny mezi snímky nese [tok událostí](oporahub-events.md)
+(`GET /api/oporahub/events`, SSE `…/events/stream`). Čtení agent-state žádnou událost nevytváří.
 
 Odpověď nese silný `ETag` z těla bez `generatedAt` (`backend/api/http_etag.py`).
 Agent posílá `If-None-Match` a při nezměněném stavu dostane `304` bez těla.

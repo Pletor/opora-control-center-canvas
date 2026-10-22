@@ -45,6 +45,8 @@ class ChangesetRepository:
         if proposal:
             self.db.execute("INSERT INTO opora_spec_proposals VALUES(?,?,?,?,?,?)",
                             (*self.scope, record["id"], content["parentRevision"], content["createdAt"], canonical(record)))
+            from backend.canvas.opora_changeset_events import proposed
+            proposed(self.db, self.scope, record)
         else:
             self.db.execute("INSERT INTO opora_spec_revisions VALUES(?,?,?,?,?,?,?)",
                             (*self.scope, record["id"], content["parentRevision"], content["proposalId"],
@@ -62,6 +64,8 @@ class ChangesetRepository:
                                      (identifier, *self.scope, expected))
             if result.rowcount != 1:
                 raise ValueError("Přijatá revize se změnila.")
+        from backend.canvas.opora_changeset_events import advanced
+        advanced(self.db, self.scope, identifier)
 
     def accepted(self, identifier):
         return self.db.execute("SELECT 1 FROM opora_spec_revisions WHERE project_id=? AND workspace_id=? AND proposal_id=?",

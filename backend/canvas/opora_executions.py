@@ -6,6 +6,7 @@ from contextlib import contextmanager
 
 from backend.canvas import opora_execution_budget_runtime as budget_runtime
 from backend.canvas import opora_execution_context as sparse_context
+from backend.canvas import opora_lease_events as lease_events
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import digest
 from backend.canvas.opora_execution_budget_clock import (
@@ -83,6 +84,8 @@ class OporaExecutions:
                                     (project, workspace, node)).fetchone()
             if lease and lease[0] > stamp:
                 raise ValueError("Card already has an active lease.")
+            if lease:  # The expired lease is replaced now: that is the point the expiry is recorded.
+                lease_events.expired(repo, node, owner)
             count = repo.db.execute("SELECT COUNT(*) FROM card_leases"
                                     " WHERE project_id=? AND workspace_id=? AND owner=? AND expires_at>?",
                                     (project, workspace, owner, stamp)).fetchone()[0]
@@ -104,6 +107,7 @@ class OporaExecutions:
             repo.insert(record, owner, payload["requestId"], request_digest)
             if pin is not None:
                 sparse_context.persist(repo, record, pin)
+            lease_events.claimed(repo, record, owner)
             return {**record, **sparse_context.public_proof(repo, record), "serverNow": stamp}
 
     @staticmethod
@@ -180,6 +184,7 @@ class OporaExecutions:
             if changed != 1:
                 raise ValueError("Execution expired before renewal.")
             repo.save(record)
+            lease_events.heartbeat(repo, record)
             return {**record, **sparse_context.public_proof(repo, record), "serverNow": stamp}
 
     @staticmethod
@@ -196,4 +201,5 @@ class OporaExecutions:
             self.authenticate(record, payload["token"], payload["epoch"])
             if record["state"] == "running":
                 self.finish(repo, record, "released")
+                lease_events.released(repo, record)
             return {"executionId": identifier, "state": record["state"], "serverNow": time.time()}

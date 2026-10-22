@@ -825,6 +825,8 @@ class CanvasService:
             current = self.view(pid, wid)
             if current["digest"] != expected_digest:
                 raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
+            from backend.canvas.card_dag import check_save
+            check_save(current["graph"], graph)  # 409 CardCycleError: `next` edges stay a DAG
             architecture = self.architecture.read(pid)
             arch_nodes, arch_edges = ids(architecture["graph"])
             if undo:

@@ -707,6 +707,9 @@ class DesktopV3State:
                     "INSERT OR REPLACE INTO desktop_v3_state VALUES(?,?,?,?,?)",
                     (project, workspace, revision, json.dumps(state, ensure_ascii=False), now()),
                 )
+                # card.closed in this transaction
+                from backend.canvas.opora_card_events import closures
+                closures(db, project, workspace, current["state"], state, actor)
                 # Internal hook: result provenance commits or rolls back with the state.
                 # It is never accepted from an HTTP payload.
                 if after_write is not None:

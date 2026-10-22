@@ -122,6 +122,8 @@ Podklady se průběžně obnovují bez spouštění modelu nebo dalšího běhu.
 pravdy, API a hranice vůči starším procesům.
 Agent místo dotazování mnoha endpointů čte jeden [stav pro agenty](docs/oporahub-agent-state.md)
 (`GET /api/oporahub/agent-state`, s `ETag`): hlavy pro CAS, zdraví etap a další akce.
+Změny mezi snímky nese [tok událostí](docs/oporahub-events.md) (`GET /api/oporahub/events`,
+SSE `/api/oporahub/events/stream` s `Last-Event-ID`); vazby `next` mezi kartami musí tvořit DAG.
 Volitelné [automatické review kódu](docs/oporahub-review-jobs.md) (`OPORA_REVIEW_JOBS=1`) zařazuje
 úlohy hledačů a ověřovatelů pro každou novou hlavu PR běhu a počítá bránu merge; pracovníci
 agent-office je přebírají přes `/api/oporahub/review-jobs`. Brána navíc vyžaduje bezpečnostní review
