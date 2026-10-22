@@ -32,3 +32,26 @@ def effective_rules(graph, state, node_id):
         for rule in state["nodes"].get(owner, {}).get("rules", []):
             rows.append({**rule, "origin": origin(owner, "node"), "inherited": owner != node_id})
     return rows
+
+
+STATE_ENDPOINT = "/api/desktop-v3/state"
+
+
+def proposed_rules(scoped_rules, all_rules, project, workspace):
+    """Návrhy pravidel agentů pro brief: jen ty v rozsahu karty, zbytek odkazem.
+
+    Rozsah je stejný jako u schválených pravidel (`memory_for`): `scope: project`, `scope: path`
+    nad cestou karty a `scope: node` s cílem na kartě nebo předkovi. Dřív brief nesl všechny
+    návrhy prostoru (měřeno 23. 10.: 115 ze 115 patřilo jiným kartám, 25,6 kB). Nic se nemaže:
+    úplný seznam je ve stavu prostoru, `proposedRulesElsewhere` nese počet a kde ho přečíst.
+    """
+    proposed = [rule for rule in scoped_rules if rule.get("by") == "agent"]
+    total = sum(1 for rule in all_rules if rule.get("by") == "agent")
+    return {
+        "proposedRules": proposed,
+        "proposedRulesElsewhere": {
+            "count": total - len(proposed), "endpoint": STATE_ENDPOINT,
+            "params": {"project": project, "workspace": workspace}, "select": "state.rules[by=agent]",
+            "note": "Návrhy pravidel jiných karet; nedopadají na tuto kartu a neplatí, dokud je neschválí člověk.",
+        },
+    }

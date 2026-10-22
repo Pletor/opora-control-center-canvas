@@ -5,6 +5,8 @@ vidí stejný autoritativní stav karty a orientace nepředstírá existenci ž�
 """
 
 SCHEMA = "opora.agent-orientation/1"
+# Hranice jsou v briefu jednou: orientace na ně odkazuje, místo aby nesla bajtově shodnou kopii.
+BOUNDARIES_REF = {"ref": "boundaries"}
 
 
 def _status(value):
@@ -71,7 +73,7 @@ def orientation_from_brief(brief, project=None, workspace=None):
     return {
         "schema": SCHEMA, "scope": {"project": project, "workspace": workspace, "nodeId": node["id"], "path": [*node["path"], node["name"]], "readOnly": effective_read_only},
         "goal": {**goal, "status": _status(goal["goal"])}, "definitionOfDone": {**brief["definitionOfDone"], "status": "present" if has_definition else "missing"},
-        "boundaries": brief["boundaries"], "materials": materials, "readingOrder": reading, "contextGaps": gaps, "optionalContext": optional,
+        "boundaries": BOUNDARIES_REF, "materials": materials, "readingOrder": reading, "contextGaps": gaps, "optionalContext": optional,
         "nextAction": next_action, "blocks": brief["blocks"], "harness": brief["harness"],
         "safety": {"readOnly": effective_read_only, "automaticModelInvocation": False, "automaticAck": False, "ownershipTransfer": False},
     }

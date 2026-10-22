@@ -57,7 +57,7 @@ from backend.editor.agent_packet.desktop_v3_packets import (
     memory_for,
     redact_deep,
 )
-from backend.editor.agent_packet.effective_rules import effective_rules
+from backend.editor.agent_packet.effective_rules import effective_rules, proposed_rules
 from backend.editor.agent_packet.sector_status import sector_status
 from backend.editor.agent_packet.specification_context import capture_specification
 from backend.editor.agent_packet.upstream_context import upstream_context
@@ -367,7 +367,9 @@ class NodeBrief:
                 "nodeRules": memory["nodeRules"],
                 "projectRules": [rule for rule in memory["rules"] if rule.get("by") != "agent"],
                 # Návrhy pravidel od agentů: neplatí, dokud je neschválí člověk (upgrade-opora #37).
-                "proposedRules": [rule for rule in stored["state"]["rules"] if rule.get("by") == "agent"],
+                # Jen ty, které by na kartu dopadly (projekt, cesta nad kartou, karta a předci);
+                # ostatní zůstávají ve stavu a odkaz říká, kde je přečíst.
+                **proposed_rules(memory["rules"], stored["state"]["rules"], project, workspace),
                 "nonGoals": fields["non_goals"],
             },
             "context": {

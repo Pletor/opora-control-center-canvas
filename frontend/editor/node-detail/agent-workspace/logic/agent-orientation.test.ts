@@ -20,6 +20,14 @@ describe("agent-orientation", () => {
     expect(orientationSummary(brief).readOnly).toBe(true);
   });
 
+  it("hranice z odkazu orientace čte z horního pole briefu, starší kopii ponechá", () => {
+    const boundaries = { effectiveRules: [], proposedRules: [{ id: "r1" }], nonGoals: "Bez zápisu" };
+    const linked = { ...brief, boundaries, orientation: { ...brief.orientation, boundaries: { ref: "boundaries" } } };
+    expect(orientationSummary(linked).boundaries).toEqual(boundaries);
+    const copied = { ...brief, orientation: { ...brief.orientation, boundaries: { nonGoals: "Kopie" } } };
+    expect(orientationSummary(copied).boundaries).toEqual({ nonGoals: "Kopie" });
+  });
+
   it("vyhledává pouze ve skutečně načteném briefu včetně zpráv", () => {
     expect(orientationSearch(brief, "specifikace")).toEqual([
       { id: "material:m1", label: "Specifikace", source: "Podklad · sektor" },
