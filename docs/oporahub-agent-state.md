@@ -28,8 +28,9 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `decisions[]` | Nejvýše 3 rozhodnutí člověka `{id, kind, targetId, title, actionId}` |
 | `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?}` |
 | `gaps[]` | Známé nenapojené schopnosti `{id, stage, reason}` |
-| `cards[]` | Etapa každé karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease}` seřazená podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)) |
+| `cards[]` | Etapa každé karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease, lastEventAt}` seřazená podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)); `lastEventAt` je čas (`at`, ISO) nejnovější události karty v prostoru, `null` bez události |
 | `truncated` | Projekce karet narazila na limit 100 (`ProcessSync`) |
+| `eventsCursor` | Kurzor [toku událostí](oporahub-events.md) (`id` poslední události outboxu, `0` bez událostí) přečtený ve **stejném snímku** jako zbytek dokumentu (viz [Podmíněné čtení](#podmíněné-čtení)) |
 
 `health` je `ok`, `waiting`, `blocking` nebo `not_connected`. `reason` je strojový kód.
 Pořadí polí, etap, akcí (podle slovesa a `targetId`) i mezer je stabilní.
@@ -152,7 +153,16 @@ neopakuje a po změně hlavy dostane nové ID.
 Dokument je snímek; změny mezi snímky nese [tok událostí](oporahub-events.md)
 (`GET /api/oporahub/events`, SSE `…/events/stream`). Čtení agent-state žádnou událost nevytváří.
 
-Odpověď nese silný `ETag` z těla bez `generatedAt` (`backend/api/http_etag.py`).
+`eventsCursor` a `cards[].lastEventAt` čte `backend/canvas/opora_agent_state_events.py` jedním
+`SELECT MAX(id)` a jedním seskupeným `SELECT` na stejném spojení a pod stejným zámkem projektu
+jako ostatní fakta dokumentu (zapisovatelé událostí drží tentýž zámek). Snímek tedy odráží právě
+události do `eventsCursor` včetně: konzument přečte `agent-state`, otevře
+`GET /api/oporahub/events/stream` s `Last-Event-ID: <eventsCursor>` a nic nezmešká ani nedostane dvakrát.
+
+Odpověď nese silný `ETag` z těla bez `generatedAt` (`backend/api/http_etag.py`). `eventsCursor`
+**v ETagu je**: nová událost znamená zápis, po kterém se snímek může lišit, a `304` tak vždy
+vrací dvojici snímek + kurzor, která k sobě patří. Bez nových událostí a bez změny stavu dál
+platí `304`.
 Agent posílá `If-None-Match` a při nezměněném stavu dostane `304` bez těla.
 Pravidla závislá na čase (`acceptance_overdue`, `lease_past_deadline`) změní tělo
 i ETag, jakmile hranici překročí.

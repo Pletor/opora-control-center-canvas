@@ -32,12 +32,27 @@ def prune(db, cutoff_at, max_rows):
     db.execute("DELETE FROM opora_events WHERE id<=(SELECT MAX(id) FROM opora_events)-?", (max_rows,))
 
 
-def page(db, project, workspace, since, limit):
+def page(db, project, workspace, since, limit, node=None):
     """Events after `since` in cursor order, plus the outbox bounds needed to detect a retention gap."""
     condition, parameters = "project_id=? AND id>?", [project, since]
     if workspace is not None:
         condition, parameters = condition + " AND workspace_id=?", [*parameters, workspace]
+    if node is not None:
+        condition, parameters = condition + " AND node_id=?", [*parameters, node]
     rows = db.execute("SELECT " + ",".join(COLUMNS) + " FROM opora_events WHERE " + condition
                       + " ORDER BY id LIMIT ?", (*parameters, limit)).fetchall()
     bounds = db.execute("SELECT MIN(id), MAX(id) FROM opora_events").fetchone()
     return [public(tuple(row)) for row in rows], bounds[0], bounds[1]
+
+
+def head(db):
+    """Highest event id in the outbox (0 when empty): the cursor of the snapshot read on `db`."""
+    return db.execute("SELECT COALESCE(MAX(id), 0) FROM opora_events").fetchone()[0]
+
+
+def last_event_at(db, project, workspace):
+    """`{nodeId: at}` of each card's newest event in the scope (one grouped SELECT)."""
+    rows = db.execute("SELECT node_id, at FROM opora_events WHERE id IN (SELECT MAX(id) FROM opora_events"
+                      " WHERE project_id=? AND workspace_id=? AND node_id IS NOT NULL GROUP BY node_id)",
+                      (project, workspace)).fetchall()
+    return {row[0]: row[1] for row in rows}
