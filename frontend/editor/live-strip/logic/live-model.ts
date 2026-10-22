@@ -1,23 +1,23 @@
 // Živý proces (návrh „Opora Editor — lean“, rámy 5a/5b): události toku jako značky na drahách karet. Dráha =
 // karta vrstvy v pořadí `topoIndex`, poloha značky = čas v okně (5 / 15 / 60 min), pronájem = pás od převzetí
 // do konce (výsledek, vypršení, nebo „teď“, když karta lease drží), heartbeat = čárka. Čistá data.
-import type { CardDrawerTab } from "@/hub/oporahub-card-drawer/logic/open";
+import type { CardTab } from "@/hub/oporahub-card-drawer/open";
 import { STAGE_WORD, gateWord, shortReason } from "@/editor/canvas/card-face/logic/face-labels";
 import type { OporaEvent } from "./events-client";
 
 export type MarkTone = "run" | "ok" | "bad" | "gate" | "human" | "merge" | "plain";
-const KIND: Record<string, [string, MarkTone, CardDrawerTab]> = {
-  "step.started": ["▸", "run", "kroky"], "step.done": ["✓", "ok", "kroky"], "step.failed": ["!", "bad", "kroky"],
-  "lease.claimed": ["▸", "run", "beh"], "lease.heartbeat": ["|", "plain", "beh"], "lease.expired": ["✕", "bad", "beh"],
-  "result.reported": ["✓", "ok", "beh"], "pr.linked": ["#", "plain", "review"], "review.round": ["↻", "gate", "review"],
+const KIND: Record<string, [string, MarkTone, CardTab]> = {
+  "step.started": ["▸", "run", "steps"], "step.done": ["✓", "ok", "steps"], "step.failed": ["!", "bad", "steps"],
+  "lease.claimed": ["▸", "run", "run"], "lease.heartbeat": ["|", "plain", "run"], "lease.expired": ["✕", "bad", "run"],
+  "result.reported": ["✓", "ok", "run"], "pr.linked": ["#", "plain", "review"], "review.round": ["↻", "gate", "review"],
   "review.finding": ["!", "bad", "review"], "gate.changed": ["◆", "gate", "review"], "formal.result": ["∴", "plain", "review"],
-  "decision.created": ["●", "human", "zadani"], "decision.resolved": ["●", "ok", "zadani"],
-  "changeset.proposed": ["✎", "plain", "zadani"], "changeset.accepted": ["✎", "ok", "zadani"],
-  "autorebase.done": ["↻", "ok", "zadani"], "autorebase.conflict": ["↻", "bad", "zadani"],
-  "merge.done": ["⇥", "merge", "review"], "writeback.done": ["⇥", "merge", "historie"], "card.closed": ["✓", "ok", "historie"],
-  "stage.changed": ["·", "plain", "beh"],
+  "decision.created": ["●", "human", "spec"], "decision.resolved": ["●", "ok", "spec"],
+  "changeset.proposed": ["✎", "plain", "spec"], "changeset.accepted": ["✎", "ok", "spec"],
+  "autorebase.done": ["↻", "ok", "spec"], "autorebase.conflict": ["↻", "bad", "spec"],
+  "merge.done": ["⇥", "merge", "review"], "writeback.done": ["⇥", "merge", "history"], "card.closed": ["✓", "ok", "history"],
+  "stage.changed": ["·", "plain", "run"],
 };
-export const markOf = (kind: string) => { const [glyph, tone, tab] = KIND[kind] ?? ["·", "plain" as MarkTone, "historie" as CardDrawerTab]; return { glyph, tone, tab }; };
+export const markOf = (kind: string) => { const [glyph, tone, tab] = KIND[kind] ?? ["·", "plain" as MarkTone, "history" as CardTab]; return { glyph, tone, tab }; };
 
 const text = (value: unknown) => typeof value === "string" ? value : value == null ? "" : String(value);
 /** Krátký popis události do jednoho řádku („s4 zahájen“, „brána CI běží“); neznámý druh doslova. */
@@ -52,7 +52,7 @@ export function eventText(event: OporaEvent): string {
 }
 
 export type Lane = { nodeId: string; name: string; glyph: string;
-  marks: { id: number; x: number; glyph: string; tone: MarkTone; title: string; tab: CardDrawerTab }[];
+  marks: { id: number; x: number; glyph: string; tone: MarkTone; title: string; tab: CardTab }[];
   ticks: number[]; spans: { from: number; to: number }[] };
 export type LaneCard = { nodeId: string; name: string; glyph: string; leased: boolean };
 

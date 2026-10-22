@@ -5,7 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { CardFace as Face } from "../logic/card-face";
 import { countdown } from "../logic/face-labels";
 import { useNow } from "../logic/use-now";
-import { openCardDrawer } from "@/hub/oporahub-card-drawer/logic/open";
+import { openCardDrawer } from "@/hub/oporahub-card-drawer/open";
 import "../styles/card-face.css";
 
 function LeaseCountdown({ expiresAt }: { expiresAt: string }) {
@@ -19,7 +19,7 @@ function Footer({ face }: { face: Face }) {
   if (!footer) return null;
   if (footer.kind === "decision") return (
     <button type="button" className="card-face__foot card-face__foot--decision nodrag" data-oh-decision={footer.id}
-      data-oh-action-id={footer.actionId} onClick={() => openCardDrawer(face.nodeId)} title={footer.text}>
+      data-oh-action-id={footer.actionId} onClick={() => openCardDrawer(face.nodeId, "spec")} title={footer.text}>
       <span className="card-face__foot-text">● {footer.text}</span><span aria-hidden="true">→</span>
     </button>);
   if (footer.kind === "blocked") return (

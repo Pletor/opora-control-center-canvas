@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import type { Graph } from "@/shared/types/logic/types";
 import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
-import { openCardDrawer } from "@/hub/oporahub-card-drawer/logic/open";
+import { openCardDrawer } from "@/hub/oporahub-card-drawer/open";
 import { cardFace } from "@/editor/canvas/card-face/logic/card-face";
 import { TONE_GLYPH, toneOf } from "@/editor/canvas/card-face/logic/face-tones";
 import { useNow } from "@/editor/canvas/card-face/logic/use-now";

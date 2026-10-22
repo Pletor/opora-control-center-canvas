@@ -91,7 +91,7 @@ odběrateli. Start: `head`, posledních až 200 událostí, pak SSE od kurzoru. 
 `/events?since=<kurzor>` (pozná `gap`) a připojí se znovu; po třech selháních zůstane u pollingu po 5 s.
 Nová událost nebo `gap` po 400 ms znovu načte agent-state (sdílený poller), takže tváře karet, Velín i pás
 drží snímek + deltu. **Detail karty** se otevírá jen přes `openCardDrawer(nodeId, tab?)`
-(`frontend/hub/oporahub-card-drawer/logic/open.ts`); dokud jednotný drawer chybí, App přepne do OporaHubu s kartou.
+(`frontend/hub/oporahub-card-drawer/open.ts`); stejné API jako drawer W3b (`oporahub/card-drawer`), který soubor při sloučení nahradí; do té doby App otevře kartu v OporaHubu.
 
 ## Zdraví, tvar a role
 

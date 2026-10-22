@@ -2,7 +2,7 @@
 // a čárkami heartbeatu, svislá čára „teď“ vpravo; zcela vpravo seznam posledních událostí. Klik na značku
 // nebo řádek otevře detail karty na záložce, kam událost patří.
 import type { CSSProperties } from "react";
-import { openCardDrawer } from "@/hub/oporahub-card-drawer/logic/open";
+import { openCardDrawer } from "@/hub/oporahub-card-drawer/open";
 import type { OporaEvent } from "../logic/events-client";
 import { axis, type Lane, type markOf } from "../logic/live-model";
 
