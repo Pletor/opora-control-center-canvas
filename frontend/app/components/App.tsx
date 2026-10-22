@@ -804,6 +804,7 @@ export default function App() {
     const target = graph.nodes.find((n) => n.id === id);
     if (target?.kind === "node" && !target.site) { openNode(id); openCardDrawer(id); return; }
     enter(id);
+  }
   // Potvrzení navrženého uzavření karty (starší desktop-v3 tok, akce karty `confirm`).
   const confirmProposalNow = (id: string) => desktop.mutate(confirmProposal(id));
   function selectProject(id: string, sourceKind?: string) {

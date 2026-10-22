@@ -20,7 +20,11 @@ export type AgentCardStage = {
   /** Graf karet a postup (vlna DAG / kroky plánu / lease); starší server pole nemá, UI je bere jako volitelná. */
   kind?: string | null; layer?: string | null; blockedBy?: string[]; topoIndex?: number | null; nextActionId?: string | null;
   gate?: { status: string; rule: string | null } | null;
-  steps?: { total: number; done: number; current: string | null; currentTitle?: string | null };
+  steps?: { total: number; done: number; current: string | null; currentTitle?: string | null;
+    /** Postup po krocích přes všechny běhy (`[{id, status, executionId}]`); čte ho detail karty. */
+    items?: unknown };
+  /** Jediná definice hotovo (šest booleanů + `gate`, `done`, `missing`); čte ji detail karty. */
+  dod?: unknown;
   lease?: { holder: string | null; expiresAt: string; epoch: number | null } | null;
 };
 export type AgentDecision = { id: string; kind: string; targetId: string | null; title: string; actionId: string };
