@@ -99,7 +99,7 @@ claude -p
 - Dotaz mimo `ALLOWED_TOOLS` jde přes `--permission-prompt-tool stdio` jako `control_request` `can_use_tool` přímo backendu (`approvals.py`, §5.1), bez MCP serveru. Backend ho drží v knize schválení a čeká na rozhodnutí v UI.
   - Bez odpovědi do 10 min platí zamítnutí.
   - Odpověď je `{"behavior": "allow", "updatedInput": …}` nebo `{"behavior": "deny", "message": …}`.
-- Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST podle referencí skillu `.claude/skills/opora-control-center/references/` (`api.md` cesty a payloady, `canvas-plan.md` dávky, `agent-loop.md` výstup agenta, `pipeline.md` router). Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
+- Schválit jde jen **zápis na plátno přes HTTP API OPORA**, tedy POST podle referencí skillu `.claude/skills/opora-control-center/references/` (`api.md` cesty a payloady, `canvas-plan.md` dávky, `hub-api.md` cesty OporaHubu; starý výstup agenta a router jsou v `legacy.md`). Zápis se váže na revizi (`expectedRevision` / `digest`). Na 409 asistent znovu načte stav a nepřepisuje práci člověka.
 - Změny v kódu projektu (`Edit`/`Write`/libovolný `Bash`) asistent nedělá. To je práce agenta, který dostane kartu.
 - Jediná výjimka je **koncept zápisu** ([davka-planu.md](davka-planu.md) §2): `Write` souboru `*.json` do adresáře konceptů vlastní session `<data>/assistant-drafts/<sessionId>/` (mimo repo projektu, v datech Opory mimo git). Koncept nic nemění; mění až zápis na plátno, který schvaluje člověk.
 

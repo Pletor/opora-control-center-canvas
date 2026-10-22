@@ -110,5 +110,5 @@ Náhled vrstvy: `opora_read.py layout-preview [--node SEKTOR]`.
 
 - `design: {artifactUrl, version, previewUrl?}`: odkaz na návrh obrazovky; `previewUrl` jen https na veřejný host.
 - `factRefs: [settingId]`: odkaz na fakta projektu (`state.settings`); hodnoty brief rozliší v `context.usedFacts`.
-- `scenario: {command}` u `[gate]` karty: uzavření brány chce úspěšný `scenarioRun` (viz [agent-loop.md](agent-loop.md)).
+- `scenario: {command}` u `[gate]` karty: uzavření brány chce úspěšný `scenarioRun` (viz [legacy.md](legacy.md)).
 - `downloadsUrl: true`: karta stahuje obsah z URL; vznikne blok „Bezpečnost vstupu“ (SSRF, DNS, limity), který musí být `met`.

@@ -65,6 +65,10 @@ python "<SKILL_DIR>/scripts/opora_write.py" <cesta> --project P --workspace W (-
 - Delší payload: v okně OPORA nástrojem `Write` jako `*.json` do `draftsDir` z `<opora_context>`
   (≤ 2 MiB); mimo okno kamkoli mimo repo. Po schválení soubor neměň.
 - Kód 0 = zapsáno (`{ok, route, result}`), 3 = HTTP 409, 1 = jiná chyba.
+- OporaHub (`/api/oporahub/*`): agentní zápisy (`HUB_AGENT_ROUTES`), lidské cesty a cesty s tokenem
+  běhu skript odmítne předem; přehled a „kdo smí“ v [hub-api.md](hub-api.md), stav a běh přes `opora_hub.py`.
+- Řádky `lease`, `agent-output`, `pipeline`, `assignment-snapshot` níže jsou **zastaralé** (stará karta mimo
+  OporaHub, [legacy.md](legacy.md)).
 
 | Cesta | Payload (bez project, workspace) | Revize odkud | Kdo |
 |---|---|---|---|
@@ -78,7 +82,7 @@ python "<SKILL_DIR>/scripts/opora_write.py" <cesta> --project P --workspace W (-
 | `/api/desktop-v3/agent-workspace` | `nodeId`, `expectedRevision`, `sections {frame?, log?, failures?, fixes?, handoff?}` (≤ 12 000 každá), `by: "agent"` | `agent-workspace` (prázdný 0) | agent |
 | `/api/desktop-v3/lease` | `nodeId`, `op: claim\|heartbeat\|release`, `owner`, `ttlSeconds`, `token`, `touched?` | — | agent |
 | `/api/desktop-v3/assignment-snapshot` | `nodeId`, `contextVersion` | `node-brief` | agent (claim ho dělá sám) |
-| `/api/desktop-v3/pipeline` | `nodeId`, `expectedRevision`, `op: route\|add`, `reason`, `profile?`, `stages?` | `state` / `frontier` | router, agent; viz [pipeline.md](pipeline.md) |
+| `/api/desktop-v3/pipeline` | `nodeId`, `expectedRevision`, `op: route\|add`, `reason`, `profile?`, `stages?` | `state` / `frontier` | router, agent; viz [legacy.md](legacy.md) (zastaralé) |
 | `/api/desktop-v3/rule`, `/api/desktop-v3/decision` | `id`, `op: add\|update\|remove`, `expected`, `item` | položka z `rule` / `decision` | agent (pravidlo = návrh) |
 | `/api/desktop-v3/realize-source` | `nodeId`, `digest`, `commit`, `prUrl` | `view` | agent po merge |
 | `/api/desktop-v3/state` | `expectedRevision`, `state` (celý dokument) | `state --raw` | agent jen aditivně; raději adresné cesty |
