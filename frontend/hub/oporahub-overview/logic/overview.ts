@@ -5,7 +5,7 @@ import type { Graph } from "@/shared/types/logic/types";
 import type { ContentSummary } from "@/hub/content-changes/logic/content-changes";
 
 export type DetailKind = "graph" | "changes" | "content" | "acceptance-policy" | "acceptance" | "executions" | "evidence" | "policy" | "tracking" | "budgets" | "formal" | "history" | "api" | "process" | "card"
-  | "identity" | "review-metrics" | "proof-ledger" | "conflicts";
+  | "identity" | "review-metrics" | "proof-ledger" | "conflicts" | "plan-lens";
 export type DetailTarget = { kind: DetailKind; title: string; id?: string };
 export type Decision = DetailTarget & { author: string; stale: boolean | null; impact: string; createdAt: string };
 function graphSnapshot(graph: Graph) {

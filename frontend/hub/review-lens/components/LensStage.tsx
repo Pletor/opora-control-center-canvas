@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LensRecord } from "../logic/lens-read";
+import type { LensSource } from "../logic/lens-read";
 import { parseSpec, renderStage } from "../logic/stage-render";
 import { useAppTheme } from "../logic/use-review-lens";
 import { focusBoxes, stageFlow, stagesOf, stepStage, walkKey, walkReducer, type Stage, type WalkAction } from "../logic/walkthrough";
@@ -10,8 +10,8 @@ import PayloadPanel from "./PayloadPanel";
 
 const typing = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 
-/** Plátno Lens (líně načtené): ověří spec schématem, vykreslí zvolené plátno a vede průvodce. */
-export default function LensStage({ record }: { record: LensRecord }) {
+/** Plátno Lens (líně načtené): ověří spec schématem, vykreslí zvolené plátno a vede průvodce. Bere jen spec a hlavu, takže slouží PR i plánu. */
+export default function LensStage({ record }: { record: LensSource }) {
   const parsed = useMemo(() => parseSpec(record.spec), [record.spec]);
   const doc = parsed.doc;
   const stages = useMemo(() => doc ? stagesOf(doc) : [], [doc]);

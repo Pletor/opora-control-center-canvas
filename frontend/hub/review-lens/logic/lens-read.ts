@@ -8,6 +8,8 @@ export type LensRecord = {
   kind: LensKind; headSha: string | null; prNumber: number | null; repository: string; validatedAt: string;
   current: boolean | null; createdAt: string; by: string; acceptedRevision: string | null; spec: Record<string, unknown> | null;
 };
+/** Co plátno potřebuje: spec a hlava pro odkazy do kódu. Kreslí z toho Lens karty i Lens plánu (`hub/plan-lens`). */
+export type LensSource = Pick<LensRecord, "spec" | "headSha">;
 export type LensRead = { nodeId: string; pr: LensRecord | null; area: LensRecord | null };
 export type LensSummary = { kind: LensKind; headSha: string | null; nodes: number; edges: number };
 

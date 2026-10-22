@@ -9,6 +9,7 @@ import { AREA_COLORS, areaColorOf, areaLabel, setAreaColor } from "@/editor/canv
 import AreaDecompose from "@/editor/canvas/area/components/AreaDecompose";
 import type { AreaHost } from "@/editor/canvas/area/logic/area-model";
 import AgentWorkspace from "@/editor/node-detail/agent-workspace/components/AgentWorkspace";
+import PlanLensButton from "@/hub/plan-lens/components/PlanLensButton";
 import "@/editor/canvas/area/styles/area.css";
 
 const KIND_LABEL: Record<string, string> = { node: "Uzel", sector: "Sektor", comment: "Komentář" };
@@ -91,6 +92,7 @@ export default function AreaPanel({
         cards={members.filter((m) => m.kind === "node").length}
         host={host}
       />
+      <PlanLensButton project={project} workspace={workspace} area={node.id} areaName={areaLabel(node)} />
       <div className="area-panel__swatches" role="group" aria-label="Barva oblasti">
         {AREA_COLORS.map((c) => (
           <button

@@ -22,6 +22,7 @@ import IdentityPanel from "@/hub/oporahub-identity/components/IdentityPanel";
 import ReviewMetrics from "@/hub/oporahub-review-metrics/components/ReviewMetrics";
 import ProofLedger from "@/hub/oporahub-proofs/components/ProofLedger";
 import ConflictDrawer from "@/hub/oporahub-conflicts/components/ConflictDrawer";
+import PlanLensView from "@/hub/plan-lens/components/PlanLensView";
 import type { OverviewModels } from "@/hub/oporahub-overview/logic/models";
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 
@@ -70,6 +71,7 @@ export default function DetailContent({ models, detail, open, currentAcceptedHea
     case "review-metrics": return <ReviewMetrics project={project} workspace={workspace} />;
     case "proof-ledger": return <ProofLedger project={project} workspace={workspace} />;
     case "conflicts": return <ConflictDrawer project={project} workspace={workspace} requestedId={detail.id} onResolved={() => onChanged?.()} />;
+    case "plan-lens": return <PlanLensView project={project} workspace={workspace} area={null} />;
     case "api": return <AgentApi project={models.executions.project} workspace={models.executions.workspace} />;
     case "history": return <div className="oporahub-workspace__body">
       <GraphProposals model={graph} review={models.proposalReview?.graph} /><PlanChanges model={models.changes} review={models.proposalReview?.spec} acceptancePolicy={models.proposalReview?.policy} />

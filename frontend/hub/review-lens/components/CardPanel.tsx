@@ -21,6 +21,7 @@ export default function CardPanel({ doc, nodeId, repo, headSha, onSelect, onClos
   return <section className="review-lens__panel" data-oh-lens-card={nodeId} data-oh-lens-delta={node.delta}>
     <div className="review-lens__panel-head">
       <span className={`review-lens__chip review-lens__chip--${node.delta}`}>{DELTA_WORD[node.delta] ?? node.delta}</span>
+      {node.badges.map(badge => <span key={badge} className={`review-lens__chip${badge === "plán" ? " review-lens__chip--plan" : ""}`} data-oh-lens-badge={badge}>{badge}</span>)}
       <code className="review-lens__muted">{node.kind}{lane ? ` · ${lane}` : ""}</code>
       <span className="review-lens__grow" />
       <button type="button" className="review-lens__close" aria-label="Zavřít detail části" onClick={onClose}>✕</button>
