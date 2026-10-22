@@ -1,9 +1,9 @@
 import type { KeyboardEvent, ReactNode } from "react";
 import { CARD_TABS, type CardTab } from "../logic/card-drawer-store";
 
-export const TAB_LABEL: Record<CardTab, string> = { spec: "Zadání", steps: "Kroky", run: "Běh", review: "Review & PR", history: "Historie" };
+export const TAB_LABEL: Record<CardTab, string> = { spec: "Zadání", steps: "Kroky", lens: "Lens", run: "Běh", review: "Review & PR", history: "Historie" };
 
-/** Pět záložek detailu (ARIA tablist, šipky); každá nese malý stavový údaj (verze, postup, odpočet, brána). */
+/** Šest záložek detailu (ARIA tablist, šipky); každá nese malý stavový údaj (verze, postup, hlava Lens, odpočet, brána). */
 export default function DrawerTabs({ tab, badges, available, onTab }: {
   tab: CardTab; badges: Partial<Record<CardTab, ReactNode>>; available: CardTab[]; onTab: (tab: CardTab) => void;
 }) {

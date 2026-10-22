@@ -11,6 +11,8 @@
     "verify": "uv run python tools/verify.py"
   },
   "dependencies": {
+    "@coldtea/pr-lens-renderer": "0.3.2",
+    "@coldtea/pr-lens-schema": "0.7.0",
     "@excalidraw/excalidraw": "0.18.1",
     "@xyflow/react": "12.11.6",
     "react": "19.2.8",

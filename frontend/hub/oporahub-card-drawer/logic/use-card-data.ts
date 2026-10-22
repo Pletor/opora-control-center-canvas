@@ -27,7 +27,7 @@ type ProcessItem = { nodeId: string; acceptanceEvidence?: unknown; doneConfirmed
 const parseProcess = shape<{ items: ProcessItem[] }>("Proces karet", raw => Array.isArray(raw.items));
 
 /** Prohlížeč potřebuje lidskou UI session i pro čtení běhů a rozpočtů; jednou na otevření detailu. */
-function useUiSession() {
+export function useUiSession() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let live = true;

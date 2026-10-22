@@ -42,7 +42,7 @@ export default function ProcessObservatory({ project, workspace, state, refreshA
     <BlockersStrip lanes={lanes} now={now} onSelect={setPicked} />
     <div className="process-observatory__main">
       <FlowMap lanes={lanes} selected={selected?.nodeId ?? null} now={now} onSelect={setPicked} officeSilence={officeSilence} />
-      <CardInspector lane={selected} onOpenCard={(nodeId) => openCardDrawer(nodeId)} />
+      <CardInspector lane={selected} onOpenCard={(nodeId, tab) => openCardDrawer(nodeId, tab)} />
       <EventStream rows={rows} total={stream.buffer.shown.length} paused={stream.buffer.paused} buffered={stream.buffer.pending.length}
         anyEvent={stream.events.length > 0} cards={lanes.map((lane) => ({ id: lane.nodeId, name: lane.title }))}
         workers={workerOptions(stream.events)} card={filter.card} worker={filter.worker}

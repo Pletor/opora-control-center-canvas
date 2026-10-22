@@ -17,6 +17,10 @@ import RunTab from "../run-tab/components/RunTab";
 import ReviewTab from "../review-tab/components/ReviewTab";
 import HistoryTab from "../history-tab/components/HistoryTab";
 import SpecTab from "../spec-tab/components/SpecTab";
+import LensTab from "../lens-tab/components/LensTab";
+import DrawerTabs from "./DrawerTabs";
+import { LENS_READ } from "@/hub/review-lens/logic/lens-fixture";
+import { lensBadge, lensSummary, parseLensRead, shownLens } from "@/hub/review-lens/logic/lens-read";
 
 const api = cardFixtureResponses() as Record<string, any>;
 const agent = parseAgentState(api["/api/oporahub/agent-state"], "draft", "draft");
@@ -73,6 +77,27 @@ describe("card drawer rendering", () => {
     expect(markup).toContain('data-oh-pr-number="145"');
     for (const code of ["open_important_findings", "required_checks_pending", "human_approvals_missing", "stale_against_main"]) expect(markup).toContain(`data-oh-gate-reason="${code}"`);
     expect(markup).toContain('data-oh-finding="f1" data-oh-severity="important" data-oh-finding-status="open"');
+  });
+  it("tabs put Lens after Kroky with the short head sha as its badge", () => {
+    const read = parseLensRead(LENS_READ);
+    const markup = html(DrawerTabs, { tab: "lens", available: ["spec", "steps", "lens", "run", "review", "history"], onTab: () => {},
+      badges: { lens: lensBadge(read) } });
+    expect(markup.indexOf('data-oh-tab="steps"')).toBeLessThan(markup.indexOf('data-oh-tab="lens"'));
+    expect(markup.indexOf('data-oh-tab="lens"')).toBeLessThan(markup.indexOf('data-oh-tab="run"'));
+    expect(markup).toContain(">Lens<span class=\"card-drawer__tab-badge\">373909b</span>");
+    expect(lensSummary(shownLens(read))).toEqual({ kind: "pr", headSha: LENS_READ.lens.headSha, nodes: 3, edges: 2 });
+  });
+  it("Lens shows the header facts and lazy-loads the canvas; without a spec it explains how one arrives", () => {
+    const markup = html(LensTab, { nodeId: "card-lease", lens: { read: parseLensRead(LENS_READ), busy: false, error: "", reload: () => {} } });
+    expect(markup).toContain('data-oh-view="card-lens" data-oh-node-id="card-lease" data-oh-lens-kind="pr"');
+    expect(markup).toContain("PR #44");
+    expect(markup).toMatch(/spec \d KB · 3 části · 2 vazby/);
+    expect(markup).toContain("Kopírovat spec pro agenta");
+    expect(markup).toContain('data-oh-lens-loading=""');
+    expect(markup).not.toContain("<svg");
+    const empty = html(LensTab, { nodeId: "card-lease", lens: { read: parseLensRead({ nodeId: "card-lease", lens: null, area: null }), busy: false, error: "", reload: () => {} } });
+    expect(empty).toContain('data-oh-lens-empty=""');
+    expect(empty).toContain("POST /api/oporahub/review-jobs/lens");
   });
   it("Historie lists the card events newest first and says the filter is client-side", () => {
     const markup = html(HistoryTab, { project: "draft", workspace: "draft", nodeId: "card-lease", events: data.events });

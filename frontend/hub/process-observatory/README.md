@@ -12,7 +12,7 @@ Skládání (rodič `components/ProcessObservatory.tsx`, mountuje ho `oporahub-w
 | `components/BlockersStrip.tsx` | pás blokací: needs.input, CI selhalo, požadované změny, guard, selhání nástroje, blokující zdraví karty |
 | `flow-map/` | mapa toku: řádek = karta, 7 fází, značka pracovníka, stopa minulých fází, poslední událost |
 | `event-stream/` | proud událostí s filtrem karty a pracovníka a „Pozastavit čtení“ s počítadlem |
-| `card-inspector/` | vybraná karta: kdo je na tahu, běh, větev, PR, commit, patro, kontroly, časová osa, „Otevřít detail karty“ (`openCardDrawer`) |
+| `card-inspector/` | vybraná karta: kdo je na tahu, běh, větev, PR, commit, patro, kontroly, časová osa, „Otevřít detail karty“ (`openCardDrawer`) a „Lens“ (detail rovnou na záložce Lens, `openCardDrawer(nodeId, "lens")`) |
 
 Data: snímek `agent-state` (karty, `lastEventAt`) + sdílený klient toku `editor/live-strip/logic/events-client.ts`
 (stejné spojení jako živý pás Editoru; obnova od kurzoru, `gap` → nové čtení agent-state, polling jako pojistka).

@@ -1,0 +1,106 @@
+/* PROSTOR LENS (blok `review-lens`)
+   Příběh: mezi plánem a kódem stojí jeden obraz změny. Nahoře krátká vizitka (PR, hlava, kdy byl spec
+   ověřen, kolik má částí a vazeb) a tlačítko, které agentovi předá přesná data. Pod ní plátno, které
+   zabírá většinu místa, a vpravo úzký sloupec s tím, na co člověk právě ukázal: část se soubory a
+   vazbami, nebo krok toku s payloadem. Průvodce leží jako pruh nad plátnem a plátno samo zaostří. */
+.review-lens { display: grid; gap: 10px; font-size: 13px; min-width: 0; }
+.review-lens__muted { color: var(--ink-muted); font-size: 12px; font-weight: 400; }
+.review-lens__grow { flex: 1; }
+.review-lens__warning { margin: 0; padding: 8px 12px; border: 1px solid var(--danger-line); border-radius: 8px; background: var(--danger-soft); color: var(--danger); overflow-wrap: anywhere; }
+.review-lens__loading { margin: 0; padding: 24px; color: var(--ink-muted); text-align: center; }
+
+/* Prázdný stav vysvětluje cestu specu, ne jen „nic tu není“: kdo kreslí, kdy a kam to agent pošle. */
+.review-lens__empty { display: grid; gap: 8px; padding: 16px 18px; border: 1px dashed var(--line-strong); border-radius: 10px; color: var(--ink-2); }
+.review-lens__empty p { margin: 0; }
+.review-lens__empty-title { font-size: 14px; color: var(--ink); }
+.review-lens__empty-list { display: grid; gap: 6px; margin: 0; padding-left: 20px; }
+
+/* Vizitka: první řádek identita (PR, hlava, čerstvost), druhý fakta drobným písmem. */
+.review-lens__head { display: grid; gap: 4px; }
+.review-lens__head-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.review-lens__pr { font: 700 13px var(--mono); }
+.review-lens__sha { padding: 1px 6px; border-radius: 4px; background: var(--surface-3); font: 12px var(--mono); }
+.review-lens__chip { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: 11.5px; white-space: nowrap; }
+.review-lens__chip--ok, .review-lens__chip--added { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok); }
+.review-lens__chip--warn, .review-lens__chip--modified, .review-lens__chip--plan { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+.review-lens__chip--removed { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); }
+.review-lens__copy, .review-lens__play { padding: 5px 12px; border: 1px solid var(--accent-line); border-radius: 6px; background: var(--accent-soft); color: var(--ink); font: inherit; cursor: pointer; }
+.review-lens__copy:hover, .review-lens__play:hover { border-color: var(--accent); }
+
+/* Lišta: přepínač čoček jako segmenty (architektura ◫, tok dat ⇄) a vpravo spuštění průvodce. */
+.review-lens__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.review-lens__switch { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line-strong); border-radius: 7px; overflow: hidden; }
+.review-lens__switch-item { display: inline-flex; gap: 6px; align-items: center; padding: 5px 12px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--ink-2); font: inherit; cursor: pointer; }
+.review-lens__switch-item:first-child { border-left: 0; }
+.review-lens__switch-item[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.review-lens__switch-lens { color: var(--ink-muted); }
+.review-lens__kbd { padding: 0 5px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; font: 11px var(--mono); }
+
+/* Plátno a boční sloupec: plátno bere zbytek šířky a výšku, která unese celý diagram na 1440×900. */
+.review-lens__grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 10px; min-height: 0; }
+.review-lens__viewport { position: relative; height: clamp(300px, calc(100vh - 400px), 640px); overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); cursor: grab; touch-action: none; user-select: none; }
+.review-lens__viewport:active { cursor: grabbing; }
+/* Během průvodce zabírá pruh kroku místo nad plátnem; plátno se o ně zkrátí, aby zůstalo celé na obrazovce. */
+.review-lens__stage--walking .review-lens__viewport { height: clamp(260px, calc(100vh - 500px), 560px); }
+.review-lens__layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.review-lens__image { display: block; max-width: none; pointer-events: none; }
+
+/* Překryv: neviditelné terče přesně na kartách a krocích; najetí je obtáhne, výběr obtáhne akcentem. */
+.review-lens__hit { position: absolute; padding: 0; border: 2px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; }
+.review-lens__hit:hover, .review-lens__hit:focus-visible { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent) 8%, transparent); outline: none; }
+.review-lens__hit--message { border-radius: 4px; }
+.review-lens__hit--selected { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+/* Okraj kroku průvodce: zlatý lem, který krok „ukazuje prstem“; terčům nepřekáží. */
+.review-lens__rim { position: absolute; border: 3px solid var(--gold); border-radius: 12px; box-shadow: 0 0 0 4px var(--gold-soft), 0 0 24px var(--gold-line); pointer-events: none; animation: review-lens-rim 1.6s ease-in-out infinite; }
+@keyframes review-lens-rim { 50% { box-shadow: 0 0 0 7px var(--gold-soft), 0 0 30px var(--gold-line); } }
+@media (prefers-reduced-motion: reduce) { .review-lens__rim { animation: none; } }
+
+.review-lens__zoom { position: absolute; right: 10px; bottom: 10px; display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-pop); }
+.review-lens__zoom-button { width: 28px; height: 26px; border: 0; border-radius: 5px; background: transparent; color: var(--ink); font: 600 14px var(--font); cursor: pointer; }
+.review-lens__zoom-button:hover { background: var(--surface-3); }
+.review-lens__zoom-value { min-width: 46px; text-align: center; font: 11px var(--mono); color: var(--ink-muted); }
+
+/* Průvodce: tečky postupu, nadpis změny tučně, řádek o chování; šipky vpravo, aby šly mačkat bez hledání. */
+.review-lens__walk { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--gold-line); border-radius: 10px; background: var(--gold-soft); }
+.review-lens__walk-dots { display: grid; gap: 4px; }
+.review-lens__walk-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); }
+.review-lens__walk-dot--done { background: var(--ink-muted); }
+.review-lens__walk-dot--on { background: var(--gold); box-shadow: 0 0 0 2px var(--gold-line); }
+.review-lens__walk-text { display: grid; gap: 2px; min-width: 0; }
+.review-lens__walk-heading { font-size: 14px; }
+.review-lens__walk-controls { display: flex; gap: 4px; }
+.review-lens__walk-button { width: 32px; height: 30px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font: 600 14px var(--font); cursor: pointer; }
+.review-lens__walk-button:disabled { opacity: .4; cursor: default; }
+
+/* Boční panel: název části velký, pod ním změna, soubory jako cesty s řádky a vazby jako odkazy na sousedy. */
+.review-lens__side { min-width: 0; max-height: clamp(300px, calc(100vh - 400px), 640px); overflow: auto; }
+.review-lens__hint, .review-lens__panel { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.review-lens__hint p { margin: 0; }
+.review-lens__panel-head { display: flex; align-items: center; gap: 8px; }
+.review-lens__panel-title { margin: 0; font-size: 15px; text-transform: none; letter-spacing: 0; overflow-wrap: anywhere; }
+.review-lens__panel-text { margin: 0; color: var(--ink-2); }
+.review-lens__panel-label code { text-transform: none; letter-spacing: 0; }
+.review-lens__panel-label { margin: 6px 0 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); }
+.review-lens__close { width: 26px; height: 26px; border: 0; border-radius: 5px; background: transparent; color: var(--ink-muted); cursor: pointer; }
+.review-lens__close:hover { background: var(--surface-3); color: var(--ink); }
+.review-lens__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.review-lens__file, .review-lens__edge { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
+.review-lens__path { font: 12px var(--mono); overflow-wrap: anywhere; }
+.review-lens__ext { font-size: 12px; color: var(--info); }
+.review-lens__link-button { padding: 0; border: 0; background: none; color: var(--info); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.review-lens__delta { font: 600 12px var(--mono); }
+.review-lens__delta--added { color: var(--ok); }
+.review-lens__delta--modified { color: var(--warn); }
+.review-lens__delta--removed { color: var(--danger); }
+
+/* Payload: tvar jako kód, ukázka jako tabulka cest; přidané zeleně, odebrané červeně, změněné zlatě. */
+.review-lens__payload { display: grid; gap: 6px; }
+.review-lens__code { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--code-bg, var(--surface-2)); font: 11.5px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-lens__diff { width: 100%; border-collapse: collapse; font-size: 11.5px; table-layout: fixed; }
+.review-lens__diff th { padding: 3px 6px; text-align: left; color: var(--ink-muted); font-weight: 600; border-bottom: 1px solid var(--line); }
+.review-lens__diff td { padding: 3px 6px; vertical-align: top; overflow-wrap: anywhere; font-family: var(--mono); }
+.review-lens__diff-row--added { background: var(--ok-soft); color: var(--ok); }
+.review-lens__diff-row--removed { background: var(--danger-soft); color: var(--danger); }
+.review-lens__diff-row--changed { background: var(--warn-soft); color: var(--warn); }
+
+@media (max-width: 900px) { .review-lens__grid { grid-template-columns: minmax(0, 1fr); } .review-lens__side { max-height: none; } }
