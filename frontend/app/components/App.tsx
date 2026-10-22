@@ -12,9 +12,8 @@ import { useSourceStatus } from "@/editor/canvas/node-card/logic/use-source-stat
 import { confirmProposal } from "@/editor/canvas/node-card/logic/completion-proposals";
 import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, type BlockApi, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
-import { openIdeas, removeIdea, setIdeaStatus } from "@/editor/node-detail/ideas/logic/ideas-model";
-import { handoffStage } from "@/editor/node-detail/handoff/logic/handoff-prompt";
-import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, decideBlockPort, setPortSpawn, setDone, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
+import { openIdeas } from "@/editor/node-detail/ideas/logic/ideas-model";
+import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, decideBlockPort, setPortSpawn, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
 import { edgeFromConnection, sameEdge, type BoardConnection } from "@/editor/canvas/board/logic/board-model";
 import { emptyHistory, record, recordRemoval, redo, sameGraph, undo, type GraphHistory } from "@/editor/canvas/history/logic/graph-history";
 import HistoryButtons from "@/editor/canvas/history/components/HistoryButtons";
@@ -80,7 +79,6 @@ import type { CreateResult } from "@/editor/canvas/create-dialog/logic/create-fo
 import { useWorkspaceSelection } from "@/shared/selection/logic/workspace-selection";
 import { clearSelection, emptySelection, panelsFor, selectBlock, selectEdge, selectNode, type Panels, type Selection } from "@/app/logic/selection-model";
 import "@/layout/shell/styles/desktop-workspaces.css";
-import "@/editor/node-detail/sync-badge/styles/sync-badge.css";
 
 import ScopeContext from "@/shared/contexts/components/ScopeContext";
 import LayerContext from "@/editor/node-detail/components/LayerContext";
@@ -103,12 +101,13 @@ import "@/layout/shell/styles/workspace-modes.css";
 import AccountCorner from "@/layout/account-corner/components/AccountCorner";
 import SettingsDialog from "@/settings/components/SettingsDialog";
 import "@/design-tokens/styles/theme-tokens.css";
-import NodePanel, { type NodeTab } from "@/editor/node-detail/components/NodePanel";
+import NodePanel from "@/editor/node-detail/components/NodePanel";
+import CardDrawerHost from "@/hub/oporahub-card-drawer/components/CardDrawerHost";
+import { openCardDrawer } from "@/hub/oporahub-card-drawer/open";
 import BriefVaultDock, { type VaultFocus } from "@/editor/brief-vault-dock/components/BriefVaultDock";
 import { ownerLabel } from "@/editor/brief-vault-dock/logic/vault-dock-model";
 import { keepVaultMounted } from "@/editor/brief-vault-dock/logic/vault-drafts";
-import { badgeView, pickVerdict } from "@/editor/node-detail/sync-badge/logic/sync-badge";
-import { commitSpec, saveNodeSpec } from "@/shared/desktop-state/logic/api";
+import { saveNodeSpec } from "@/shared/desktop-state/logic/api";
 import { useSyncReport } from "@/editor/node-detail/sync-badge/logic/use-sync-report";
 import { notifyCurrentPlanScope } from "@/hub/plan-changes/logic/plan-changes";
 import { useGraphProposals } from "@/hub/graph-proposals/logic/use-graph-proposals";
@@ -178,14 +177,7 @@ export default function App() {
     setEnvironment("editor");
   }
   function changeEnvironment(next: Environment) {
-    setHubCardRequest(undefined);
     setEnvironment(next);
-  }
-  // Klik na odznak etapy na plátně: OporaHub otevře drawer té karty (nový nonce = nový požadavek).
-  const [hubCardRequest, setHubCardRequest] = useState<{ id: string; nonce: number } | undefined>(undefined);
-  function openHubCard(id: string) {
-    setHubCardRequest(current => ({ id, nonce: (current?.nonce ?? 0) + 1 }));
-    setEnvironment("hub");
   }
   const [editingName, setEditingName] = useState<string | null>(null);
   const [agentTask, setAgentTask] = useState<AgentTaskRequest | null>(null);
@@ -203,7 +195,6 @@ export default function App() {
   const [assistantSelect, setAssistantSelect] = useState<SelectRequest | null>(null);
   // Doména předvyplněná v modalu „Nový worktree“ z živého panelu; jinak se bere vybraný uzel.
   const [worktreeDomain, setWorktreeDomain] = useState<string | null>(null);
-  const [nodeTab, setNodeTab] = useState<NodeTab>("spec");
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
   const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
   const [textRevision, setTextRevision] = useState(0);
@@ -437,6 +428,8 @@ export default function App() {
         if (currentRoute.has(name)) q.set(name, currentRoute.get(name)!);
       }
     }
+    // Otevřený detail karty (`openCardDrawer`) si drží vlastní parametry; v tomtéž prostoru je nepřepisujeme.
+    if (!switchedScope) for (const name of ["ohCard", "ohTab"]) if (currentRoute.has(name)) q.set(name, currentRoute.get(name)!);
     history.replaceState(null, "", "/?" + q);
   }, [project, workspace, parent, selected, mode, screen, wireframeMode, environment, projectMapKind]);
   const completed = jobs
@@ -508,7 +501,6 @@ export default function App() {
   }
   const graph = view?.graph ?? { nodes: [], edges: [] };
   const node = graph.nodes.find((n) => n.id === selected);
-  const syncView = badgeView(pickVerdict(sync.report, node?.id ?? null));
   // Dashboard procesu na úvodní obrazovce: jména rozsahů bere z grafu, zbytek z echa.
   const syncBoard = dashboardView(sync.report, Object.fromEntries(graph.nodes.map((n) => [n.id, n.name])));
   const edge = graph.edges.find((e) => e.id === selectedEdge);
@@ -734,7 +726,7 @@ export default function App() {
       generation.current++;
       historyRef.current = emptyHistory(); setView(fresh); desktop.reload();
       setMode("structure"); setParent(target.site?.kind === "page" ? target.id : target.parentId); setSelection(selectNode(id));
-      setNodeTab("spec"); setTagFilter(""); dock.close();
+      setTagFilter(""); dock.close();
     });
   }
   async function addSkeleton(parentId: string | null, names: string[], kind: "node" | "sector") {
@@ -802,6 +794,17 @@ export default function App() {
   function enter(id: string | null) {
     setParent(id);
     setSelection(emptySelection());
+  }
+  /** Dvojklik na kartu otevře jednotný detail; sektor a stránka dál vedou do vnitřního plátna. */
+  function enterOrDetail(id: string) {
+    const target = graph.nodes.find((n) => n.id === id);
+    if (target?.kind === "node" && !target.site) { openNode(id); openCardDrawer(id); return; }
+    enter(id);
+  }
+  /** Velín: karta → detail karty (a výběr na plátně), sektor → výběr ve Struktuře. */
+  function openNodeDetail(id: string) {
+    openNode(id); setMode("structure");
+    if (graph.nodes.find((n) => n.id === id)?.kind === "node") openCardDrawer(id);
   }
   // Potvrzení návrhů uzavření: tytéž handlery dostává plátno (Board) i Velín (ControlTower).
   const confirmProposalNow = (id: string) => desktop.mutate(confirmProposal(id));
@@ -1123,7 +1126,7 @@ export default function App() {
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
-      environment === "hub" ? <OporaHubWorkspace cardRequest={hubCardRequest} onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
+      environment === "hub" ? <OporaHubWorkspace onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
@@ -1161,7 +1164,7 @@ export default function App() {
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
               ) : mode === "map" ? (
-                <ControlTower key={project} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }} onConfirmProposal={confirmProposalNow} onConfirmSector={confirmSectorNow} />
+                <ControlTower key={project} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={openNodeDetail} onEnterLayer={(id) => { enter(id); setMode("structure"); }} onConfirmProposal={confirmProposalNow} onConfirmSector={confirmSectorNow} />
               ) : mode === "office" ? (
                 <OfficeWorkspace key={`${project}:${workspace}`} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }}
                   onStartSession={(request) => { setAssistantStart((prior) => ({ ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); }}
@@ -1222,7 +1225,7 @@ export default function App() {
                   scope={project + workspace + parent}
                   graph={graph}
                   settings={settings}
-                  overlay={settings.loopBadges && project && workspace ? <LoopBadgeLayer project={project} workspace={workspace} onOpen={openHubCard} /> : null}
+                  overlay={settings.loopBadges && project && workspace ? <LoopBadgeLayer project={project} workspace={workspace} onOpen={(id) => openCardDrawer(id)} /> : null}
                   parent={parent}
                   selected={selected}
                   multiSelected={multiSelected}
@@ -1245,7 +1248,7 @@ export default function App() {
                   onSelectBlock={(nodeId, blockId) => setSelection(selectBlock(nodeId, blockId))}
                   onClear={() => { setSelection(clearSelection()); setMultiSelected([]); }}
                   onSelectEdge={(id) => setSelection(selectEdge(id))}
-                  onEnter={enter}
+                  onEnter={enterOrDetail}
                   editing={editingName}
                   onEditing={setEditingName}
                   onRename={(id, name) =>
@@ -1369,52 +1372,15 @@ export default function App() {
                 workspace={workspace}
                 readOnly={!!view?.readOnly}
                 busy={busy}
-                syncView={syncView}
-                onCommitSpec={() => run(async () => {
-                  await commitSpec(project, workspace, node.id, "zadání " + node.name);
-                  sync.refresh();
-                })}
-                workspaces={view?.workspaces ?? []}
-                tab={nodeTab}
-                onTab={setNodeTab}
                 onEnter={() => {
                   enter(node.id);
                   if (mode === "map") setMode("structure");
                 }}
                 onDelete={() => requestRemoval("node", node.id)}
-                onSave={(n) =>
-                  run(() =>
-                    save({
-                      ...graph,
-                      nodes: graph.nodes.map((old) => (old.id === n.id ? n : old)),
-                    }),
-                  )
-                }
-                onWorkspace={() => open("workspace")}
-                onOpenNode={openNode}
-                graphNodes={linkTargets}
                 childCount={node.kind === "sector" ? graph.nodes.filter((child) => child.parentId === node.id && child.kind === "node").length : 0}
-                stageOnTurn={node.kind === "node" ? handoffStage(desktop.state.nodes[node.id]?.stages) : null}
                 openIdeasInSector={node.kind === "sector" ? graph.nodes.filter((child) => child.parentId === node.id).reduce((sum, child) => sum + openIdeas(desktop.state.nodes[child.id]?.ideas), 0) : 0}
-                done={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).done}
-                onDone={(patch) => { void desktop.mutate(setDone(node.id, patch)); }}
-                ideas={(selectedWorkflow ?? nodeWorkflowOf(desktop.state, node.id)).ideas ?? []}
-                fragmentRefs={desktop.state.nodes[node.id]?.fragmentRefs}
-                onIdeaStatus={(id, status) => { void desktop.mutate(setIdeaStatus(node.id, id, status)); }}
-                onIdeaRemove={(id) => { void desktop.mutate(removeIdea(node.id, id)); }}
-                onPickTag={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
-                onSelectBlock={(id) => setSelection(selectBlock(node.id, id))}
                 onAgentTask={() => requestAgentTask(node.id, "", "canvas")}
-                resultRevision={desktop.revision}
                 onOpenVault={openVault}
-                round={desktop.state.nodes[node.id]?.round}
-                onOpenRound={async (reason) => {
-                  // Nové kolo potvrzuje člověk: revize těsně před zápisem, server zamrazí kolo a vrátí nový stav.
-                  const fresh = await fetchState(project, workspace);
-                  desktop.apply(await trackSaveWrite(project, workspace, api<StateResponse>("/api/desktop-v3/card-round",
-                    { project, workspace, nodeId: node.id, expectedRevision: fresh.revision, reason })));
-                  setNodeTab("work");
-                }}
               />
             </>) : panels.inspector === "comment" && node ? (
               <CommentPanel
@@ -1549,6 +1515,12 @@ export default function App() {
           }}
         />
       )}
+      <CardDrawerHost project={project} workspace={workspace} nodes={graph.nodes} editor={{
+        readOnly: !view || view.readOnly, busy, workspaces: view?.workspaces ?? [], resultRevision: desktop.revision, specRefreshRevision: planAppliedRevision,
+        onSave: (n) => run(() => save({ ...graph, nodes: graph.nodes.map((old) => (old.id === n.id ? n : old)) })),
+        onWorkspace: () => open("workspace"), onOpenNode: openNode, onOpenVault: openVault,
+        fragmentRefs: (id) => desktop.state.nodes[id]?.fragmentRefs,
+      }} />
       <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
       {appSettingsOpen && <SettingsDialog
         onClose={() => setAppSettingsOpen(false)}

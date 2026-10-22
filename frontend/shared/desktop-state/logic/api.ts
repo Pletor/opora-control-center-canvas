@@ -165,16 +165,6 @@ export function fetchSyncReport(project: string, workspace: string): Promise<Syn
 }
 
 /**
- * Commit zadání v OporaHubu. Obsah si backend vezme ze svého stavu, tělo nese jen rozsah,
- * popisek a autora; agent tudy zapsat nesmí, hlídá si to úložiště samo.
- */
-export function commitSpec(project: string, workspace: string, scope: string, subject: string) {
-  return api<{ id: string; specRevision: number }>("/api/opora-commit", {
-    project, workspace, scope, subject, by: { kind: "human", name: "Člověk" },
-  });
-}
-
-/**
  * Uloží zadání karty (cíl, co není součástí, podmínky dokončení) přes `POST /api/node-spec` —
  * totéž API, kterým ukládá záložka Zadání. `expectedRevision` hlídá souběh; nová karta má 0.
  */

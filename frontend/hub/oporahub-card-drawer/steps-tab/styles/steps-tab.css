@@ -1,0 +1,46 @@
+/* ZÁLOŽKA KROKY (blok `steps-tab`)
+   Příběh: uživatel vidí plán jako jízdní řád. Nahoře pruh postupu (hotové zeleně, běžící tyrkysově),
+   pod ním malý náhled DAG po sloupcích hloubky, aby bylo vidět, co na čem závisí. Seznam kroků má
+   aktuální krok rozbalený a podbarvený, s akceptací jako zaškrtávacím seznamem. */
+.steps-tab { display: grid; gap: 12px; font-size: 13px; }
+.steps-tab__muted { color: var(--ink-muted); font-size: 12px; font-weight: 400; }
+.steps-tab__empty { margin: 0; padding: 12px 14px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--ink-muted); }
+.steps-tab__head { display: flex; justify-content: space-between; gap: 10px; }
+
+.steps-tab__bar { display: flex; gap: 3px; }
+.steps-tab__seg { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-3); }
+.steps-tab__seg--done, .steps-tab__seg--skipped { background: var(--ok); }
+.steps-tab__seg--current { background: var(--accent); }
+.steps-tab__seg--failed { background: var(--danger); }
+
+/* Náhled DAG: sloupec = hloubka závislosti; uzel nese stav tvarem okraje i barvou. */
+.steps-tab__dag { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.steps-tab__col { display: grid; gap: 6px; }
+.steps-tab__node { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); font: 600 12px var(--mono); }
+.steps-tab__node--done, .steps-tab__node--skipped { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok); }
+.steps-tab__node--current { border: 2px solid var(--accent); color: var(--accent); }
+.steps-tab__node--failed { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); }
+.steps-tab__legend { margin-left: auto; font-family: var(--mono); }
+
+.steps-tab__list { margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); list-style: none; }
+.steps-tab__step { border-top: 1px solid var(--line); }
+.steps-tab__step:first-child { border-top: 0; }
+.steps-tab__step--current { background: var(--accent-soft); }
+.steps-tab__summary { display: grid; grid-template-columns: 18px 26px 1fr auto auto; gap: 2px 8px; align-items: baseline; padding: 10px 14px; cursor: pointer; list-style: none; }
+.steps-tab__summary::-webkit-details-marker { display: none; }
+.steps-tab__glyph { color: var(--ink-muted); }
+.steps-tab__step--done .steps-tab__glyph { color: var(--ok); }
+.steps-tab__step--current .steps-tab__glyph { color: var(--accent); }
+.steps-tab__step--failed .steps-tab__glyph { color: var(--danger); }
+.steps-tab__id { font: 12px var(--mono); color: var(--ink-muted); }
+.steps-tab__title { min-width: 0; overflow-wrap: anywhere; }
+.steps-tab__kind { padding: 0 6px; border-radius: 4px; background: var(--surface-3); font: 600 11px var(--mono); }
+.steps-tab__count { font: 600 12px var(--mono); }
+.steps-tab__deps { grid-column: 3 / -1; font-size: 11.5px; color: var(--ink-muted); }
+.steps-tab__checks { display: grid; gap: 4px; margin: 0; padding: 0 14px 10px 58px; list-style: none; font-size: 12px; }
+.steps-tab__check { display: flex; gap: 8px; color: var(--ink-2); }
+.steps-tab__check--met span { color: var(--ok); }
+.steps-tab__evidence, .steps-tab__files { margin: 0; padding: 0 14px 10px 58px; font-size: 11.5px; color: var(--ink-muted); overflow-wrap: anywhere; }
+
+.steps-tab__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 4px; }
+.steps-tab__button { padding: 7px 14px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font-weight: 600; cursor: pointer; }

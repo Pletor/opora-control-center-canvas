@@ -1,0 +1,68 @@
+/* JEDNOTNÝ DETAIL KARTY (blok `card-drawer`)
+   Příběh: ať uživatel přijde z plátna, Velínu nebo OporaHubu, vyjede zprava vždy stejný panel. Nahoře
+   ví, o jakou kartu jde a v jakém je stavu (jeden řádek), pod tím vidí šest dílků definice hotovo jako
+   pruhy, které se plní zleva. Pak pět záložek a dole jediná další akce: co je na řadě a kdo ji udělá. */
+.card-drawer__overlay { position: fixed; inset: 0; z-index: 1100; display: flex; justify-content: flex-end; background: var(--backdrop); }
+.card-drawer { display: flex; flex-direction: column; width: min(600px, 100vw); height: 100%; min-width: 0; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-pop); outline: none; }
+
+/* Hlavička: drobný druh a cesta, velký název, stavový řádek a pruhy hotovo; nikdy se nescrolluje pryč. */
+.card-drawer__head { display: grid; gap: 8px; padding: 14px 20px 10px; }
+.card-drawer__topline { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; color: var(--ink-muted); }
+.card-drawer__kind { padding: 1px 7px; border-radius: 4px; background: var(--surface-3); color: var(--ink-2); font: 600 11px var(--mono); }
+.card-drawer__trail { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-drawer__esc { padding: 1px 6px; border: 1px solid var(--line); border-radius: 4px; font: 10px var(--mono); color: var(--ink-muted); }
+.card-drawer__close { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 16px; cursor: pointer; }
+.card-drawer__close:focus-visible, .card-drawer__tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card-drawer__title { margin: 2px 0 0; font-size: 21px; font-weight: 650; letter-spacing: -.01em; overflow-wrap: anywhere; }
+
+/* Stav: značka + slovo (nikdy jen barva), etapa a důvod; vpravo agent, který kartu právě drží. */
+.card-drawer__status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; }
+.card-drawer__health { padding: 1px 7px; border: 1px solid var(--line-strong); border-radius: 4px; font-weight: 650; }
+.card-drawer__health--ok { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok); }
+.card-drawer__health--waiting { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+.card-drawer__health--blocking { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); }
+.card-drawer__health--not_connected { border-style: dashed; color: var(--ink-muted); }
+.card-drawer__status-text { flex: 1; min-width: 0; color: var(--ink-2); }
+.card-drawer__holder { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; color: var(--accent); }
+.card-drawer__avatar { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 10px; }
+
+/* Definice hotovo: šest stejně širokých pruhů; plný = splněno, částečný = rozpracováno, čárkovaný = nenapojeno.
+   Poslední dílek (uzavřel člověk) je zlatý, protože ho nikdy neudělá agent. */
+.card-drawer__dod { display: grid; gap: 5px; }
+.card-drawer__dod-label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+.card-drawer__dod-bars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.card-drawer__dod-seg { display: grid; gap: 4px; min-width: 0; }
+.card-drawer__dod-track { display: block; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.card-drawer__dod-fill { display: block; height: 100%; background: var(--accent); }
+.card-drawer__dod-seg--done .card-drawer__dod-fill { background: var(--ok); }
+.card-drawer__dod-seg--active .card-drawer__dod-track { background: var(--accent-soft); }
+.card-drawer__dod-seg--unknown .card-drawer__dod-track { background: repeating-linear-gradient(90deg, var(--line-strong) 0 4px, transparent 4px 7px); }
+.card-drawer__dod-seg--human .card-drawer__dod-track { background: var(--gold-soft); box-shadow: inset 0 0 0 1px var(--gold-line); }
+.card-drawer__dod-seg--human.card-drawer__dod-seg--done .card-drawer__dod-fill { background: var(--gold); }
+.card-drawer__dod-name { overflow: hidden; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+
+/* Záložky: jedna řada s malým údajem za názvem; vybraná má tyrkysovou linku a nikdy se nezalomí. */
+.card-drawer__tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.card-drawer__tab { display: inline-flex; align-items: baseline; gap: 8px; padding: 11px 10px 10px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--ink-2); font-size: 13px; white-space: nowrap; cursor: pointer; }
+.card-drawer__tab[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--ink); font-weight: 650; }
+.card-drawer__tab-badge { font: 600 11px var(--mono); color: var(--ink-muted); }
+
+/* Tělo: jediná část, která se scrolluje; patička s další akcí zůstává vždy vidět. */
+.card-drawer__body { flex: 1; min-height: 0; overflow: auto; padding: 14px 20px 20px; background: var(--bg); }
+.card-drawer__warning { margin: 0 0 10px; padding: 6px 10px; border: 1px dashed var(--warn-line); border-radius: 6px; background: var(--warn-soft); color: var(--warn); font-size: 12px; }
+.card-drawer__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.card-drawer__foot-text { display: grid; gap: 2px; min-width: 0; font-size: 13px; }
+.card-drawer__foot-note { overflow: hidden; font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-muted); }
+.card-drawer__actor { padding: 0 5px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+.card-drawer__actor--human { border-radius: 8px; background: var(--gold-soft); color: var(--gold); }
+.card-drawer__mono { font: 11px var(--mono); }
+.card-drawer__button { padding: 7px 14px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font-weight: 600; cursor: pointer; }
+.card-drawer__button:disabled { opacity: .6; cursor: default; }
+
+@media (max-width: 560px) {
+  .card-drawer__head { padding: 12px 16px 8px; }
+  .card-drawer__body { padding: 12px 16px 16px; }
+  .card-drawer__foot { padding: 10px 16px; }
+  .card-drawer__dod-name { font-size: 9.5px; }
+  .card-drawer__esc { display: none; }
+}

@@ -13,7 +13,8 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 
 Člověk píše **záměr oblasti** a potvrzuje dávky; agenti rozkládají oblast → sektory → karty (`docs/pyramida.md`).
 Mód **Velín** (dřív Mapa) ukazuje celou pyramidu se stavem procesu a jednu frontu „Čeká na tebe“ s přímým
-potvrzením. Karta nese kuličky procesu; v inspektoru je „Předat agentovi“ (karta), „Rozložit na karty“ a
+potvrzením. Karta nese kuličky procesu; dvojklik na ni otevře jednotný detail karty (Zadání · Kroky · Běh · Review & PR · Historie),
+v inspektoru je „Rozložit na karty“ a
 „Shrnout podněty“ (sektor), „Rozložit na sektory“ (oblast). Kde co žije a odkud se řídí: `docs/rizeni-vyvoje-z-karty.md`.
 Nepoužívané formuláře karty (fáze, kritéria, kroky, scénář, fakta, design) jsou smazané podle měření na živých datech.
 

@@ -1,0 +1,47 @@
+/* ZÁLOŽKA BĚH (blok `run-tab`)
+   Příběh: první, co uživatel u běžící karty chce vědět, je „kolik času agentovi zbývá“. Proto nahoře
+   velký odpočet lease v tyrkysovém poli s ubývajícím pruhem; vypršelá lease zčervená. Pod tím fakta
+   běhu (kdo, od kdy, jaký snímek zadání), rozpočet jako tři pruhy, výsledky kroků a samokontroly. */
+.run-tab { display: grid; gap: 14px; font-size: 13px; }
+.run-tab__muted { color: var(--ink-muted); font-size: 12px; font-weight: 400; }
+.run-tab__lease { display: grid; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.run-tab__lease--active { border-color: var(--accent-line); background: var(--accent-soft); }
+.run-tab__lease--expired { border-color: var(--danger-line); background: var(--danger-soft); }
+.run-tab__label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+.run-tab__clock { font: 700 30px var(--mono); color: var(--accent); }
+.run-tab__lease--expired .run-tab__clock { color: var(--danger); }
+.run-tab__track { display: block; height: 5px; border-radius: 3px; background: var(--surface); overflow: hidden; }
+.run-tab__track i { display: block; height: 100%; background: var(--accent); }
+
+/* Fakta: dvousloupcová tabulka, štítek vlevo šedě, hodnota vpravo s hashi v neproporcionálním písmu. */
+.run-tab__facts { display: grid; grid-template-columns: 90px 1fr; gap: 6px 12px; margin: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.run-tab__facts dt { color: var(--ink-muted); }
+.run-tab__facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.run-tab__section { display: grid; gap: 8px; }
+.run-tab__heading { margin: 0; font-size: 13px; letter-spacing: 0; text-transform: none; }
+
+.run-tab__meters { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.run-tab__meter { display: grid; grid-template-columns: 80px 1fr auto; gap: 10px; align-items: center; }
+.run-tab__meter b { font: 600 12px var(--mono); }
+.run-tab__bar { display: block; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.run-tab__fill { display: block; height: 100%; background: var(--accent); }
+.run-tab__fill--warn { background: var(--gold); }
+.run-tab__fill--bad { background: var(--danger); }
+.run-tab__fill--gap { background: transparent; }
+
+.run-tab__list { margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); list-style: none; }
+.run-tab__result { display: grid; grid-template-columns: 16px 30px auto 1fr; gap: 8px; align-items: baseline; padding: 8px 14px; border-top: 1px solid var(--line); }
+.run-tab__result:first-child { border-top: 0; }
+.run-tab__result > :last-child { text-align: right; font-family: var(--mono); }
+.run-tab__result--done > span:first-child { color: var(--ok); }
+.run-tab__result--failed > span:first-child { color: var(--danger); }
+
+.run-tab__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.run-tab__chip { padding: 2px 8px; border: 1px solid var(--ok-line); border-radius: 4px; background: var(--ok-soft); color: var(--ok); font-size: 12px; font-weight: 600; }
+.run-tab__chip--missing { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+.run-tab__chip--failed { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); }
+
+.run-tab__fold { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.run-tab__fold > summary { padding: 9px 12px; font-weight: 600; cursor: pointer; }
+.run-tab__fold > :not(summary) { margin: 10px 12px; }
+.run-tab__button { padding: 7px 14px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); cursor: pointer; }

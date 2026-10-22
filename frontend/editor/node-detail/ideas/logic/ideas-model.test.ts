@@ -1,8 +1,5 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { emptyDesktopState, type DesktopState } from "@/shared/desktop-state/logic/types";
-import IdeasPanel, { IdeasCount } from "@/editor/node-detail/ideas/components/IdeasPanel";
 import { ideasOf, openIdeas, removeIdea, setIdeaStatus, sortedIdeas, sourceLabel, type CardIdea } from "@/editor/node-detail/ideas/logic/ideas-model";
 
 const idea = (id: string, extra: Partial<CardIdea> = {}): CardIdea => ({
@@ -11,9 +8,6 @@ const idea = (id: string, extra: Partial<CardIdea> = {}): CardIdea => ({
 const withIdeas = (ideas: CardIdea[]): DesktopState => ({
   ...emptyDesktopState(), nodes: { n: { phase: "discover" as const, criteria: [], steps: [], ideas } },
 });
-const panel = (ideas: CardIdea[], readOnly = false) => renderToStaticMarkup(createElement(IdeasPanel, {
-  ideas, readOnly, busy: false, onStatus: () => {}, onRemove: () => {},
-}));
 
 describe("podněty k dalšímu vývoji", () => {
   it("počítá jen otevřené a řadí je nahoru", () => {
@@ -33,18 +27,7 @@ describe("podněty k dalšímu vývoji", () => {
     expect(ideasOf(state, "jiny")).toEqual([]);
   });
 
-  it("seznam ukáže text, původ a mazání jen u odškrtnutého", () => {
-    const html = panel([idea("a"), idea("b", { status: "done", source: "review" })]);
-    expect(html).toContain("Podnět a");
-    expect(html).toContain("kritik: vyčuraný · kritik-sly-2");
-    expect(html.match(/Smazat podnět/g)?.length).toBe(1);
-    expect(panel([idea("b", { status: "done" })], true)).not.toContain("Smazat podnět");
-    expect(panel([])).toContain("Zatím žádné podněty");
+  it("neznámý původ podnětu se ukáže doslova", () => {
     expect(sourceLabel("neznamy")).toBe("neznamy");
-  });
-
-  it("odznak počtu se při nule neukáže", () => {
-    expect(renderToStaticMarkup(createElement(IdeasCount, { count: 3 }))).toContain(">3<");
-    expect(renderToStaticMarkup(createElement(IdeasCount, { count: 0 }))).toBe("");
   });
 });

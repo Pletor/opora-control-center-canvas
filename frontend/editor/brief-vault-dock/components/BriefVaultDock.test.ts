@@ -20,7 +20,6 @@ import ResearchSection from "./ResearchSection";
 import QuestionsSection from "./QuestionsSection";
 import FeedbackSection from "./FeedbackSection";
 import { DecisionsSection, IdeasSection, MaterialsSection } from "./KnowHowSections";
-import IdeasPanel from "@/editor/node-detail/ideas/components/IdeasPanel";
 
 let seq = 0;
 const node = (title: string, extra: Partial<VaultNode> = {}): VaultNode => ({
@@ -154,15 +153,12 @@ describe("brief vault dock", () => {
       .toContain("Žádné Podněty v rozsahu schránky.");
   });
 
-  it("idea and fragment link both ways: chip in the vault and in the Podněty tab", () => {
+  it("idea and fragment link: chip in the vault", () => {
     const fragment = node("3.41 Retrieval Cache");
     const idea = { id: "i1", text: "Mazat cache i při změně URL.", by: "review", source: "review", at: "", status: "open" as const, fragmentId: fragment.id };
     const vaultHtml = render(IdeasSection, { scope, roots: [node("V", { children: [fragment] })], ideas: [{ nodeId: "c", idea }, { nodeId: "c", idea: { ...idea, id: "i2", fragmentId: undefined } }],
       nodeNames: { c: "3.4 Cache" }, vaultScope: "s", view: "none", query: "", readOnly: false, onLinked: () => {} });
     expect(vaultHtml).toContain("3.41 Retrieval Cache");
     expect(vaultHtml).toContain("Udělat z toho fragment");
-    const tabHtml = render(IdeasPanel, { ideas: [idea], readOnly: false, busy: false, onStatus: () => {}, onRemove: () => {},
-      fragmentTitles: { [fragment.id]: fragment.title }, onOpenFragment: () => {} });
-    expect(tabHtml).toContain("Ze schránky: 3.41 Retrieval Cache");
   });
 });

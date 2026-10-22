@@ -88,8 +88,8 @@ Pipeline vedle karty.
 
 ## 4. Jak tvořit detail karty
 
-Detail karty je **inspektor vpravo** (záložky Zadání, Vazby, Práce, Podněty, Historie kol) a **bloky na
-kartě**. Člověk ho zpravidla nevyplňuje (viz [pyramida.md](pyramida.md): píše záměr oblasti a potvrzuje
+Detail karty je **jednotný drawer** (dvojklik na kartu, odznak etapy, Velín i OporaHub; záložky Zadání, Kroky, Běh,
+Review & PR, Historie, viz [oporahub-ui.md](oporahub-ui.md#jednotný-detail-karty)) a **bloky na kartě**. Člověk ho zpravidla nevyplňuje (viz [pyramida.md](pyramida.md): píše záměr oblasti a potvrzuje
 dávky); karty plní agent-rozkladač. Dvě cesty, jeden výsledek:
 
 | Krok | Z Opory | Z terminálu (skill `opora-control-center`) |

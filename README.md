@@ -44,10 +44,10 @@ embed_origins = ["http://localhost:4600"]
 Canvas s OporaHubem drží plán, GitHub kód; agent-office je připojený vykonavatel.
 V Alt+3 se otevře [OporaHub](docs/oporahub-ui.md) nad jediným dokumentem
 `GET /api/oporahub/agent-state`: záložka **Přehled** (přijatá hlava, drift, riziko, nejvýše
-3 rozhodnutí a smyčka deseti etap plán → kód → plán), **Karta** (cesta jedné karty v draweru)
+3 rozhodnutí a smyčka deseti etap plán → kód → plán), **Karta** (otevře jednotný detail karty)
 a **Pro agenty** (fronta akcí, hlavy pro CAS, kopírovatelný JSON, kontrakt `data-oh-*`).
 Konkrétní položka otevře svůj detail; ✕ nebo Esc vrátí přehled. Původní formuláře jsou
-v patě stránky. Přímé odkazy: `?environment=hub&ohView=agents` nebo `&ohCard=<nodeId>`. [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
+v patě stránky. Přímé odkazy: `?environment=hub&ohView=agents`; detail karty `?ohCard=<nodeId>&ohTab=spec|steps|run|review|history` v kterémkoli prostředí. Detail karty je jeden drawer pro celou aplikaci (dvojklik na kartu, odznak, Velín, OporaHub) se záložkami Zadání · Kroky · Běh · Review & PR · Historie a definicí hotovo v hlavičce ([docs/oporahub-ui.md](docs/oporahub-ui.md#jednotný-detail-karty)). [Návrhový artefakt Claude Code](docs/design/README.md) je samostatná
 klikací ukázka; aplikace používá skutečná data a stejné API jako agenti.
 Na plátně Editoru nese každá karta odznak své etapy smyčky (etapa + ✓/◷/✕/◌ + slovo) ze stejného
 čtení agent-state; klik otevře její drawer v OporaHubu, vypíná se v Nastavení → Plátno. Detail karty
