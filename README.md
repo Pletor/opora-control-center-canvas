@@ -124,6 +124,8 @@ Agent místo dotazování mnoha endpointů čte jeden [stav pro agenty](docs/opo
 (`GET /api/oporahub/agent-state`, s `ETag`): hlavy pro CAS, zdraví etap a další akce.
 Změny mezi snímky nese [tok událostí](docs/oporahub-events.md) (`GET /api/oporahub/events`,
 SSE `/api/oporahub/events/stream` s `Last-Event-ID`); vazby `next` mezi kartami musí tvořit DAG.
+Plán karty tvoří verzované [kroky plánu](docs/oporahub-plan-steps.md) (`spec.steps`); převzít lze jen
+kartu s přijatými kroky a bez nedokončených předchůdců, hotovo určuje jediná definice.
 Volitelné [automatické review kódu](docs/oporahub-review-jobs.md) (`OPORA_REVIEW_JOBS=1`) zařazuje
 úlohy hledačů a ověřovatelů pro každou novou hlavu PR běhu a počítá bránu merge; pracovníci
 agent-office je přebírají přes `/api/oporahub/review-jobs`. Brána navíc vyžaduje bezpečnostní review

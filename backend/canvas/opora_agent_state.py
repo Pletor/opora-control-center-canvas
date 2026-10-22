@@ -94,7 +94,8 @@ class AgentState:
             context = authority.context(project, workspace, card["nodeId"])
             budget = context.get("budget") or {}
             reason = budget.get("blockedReason")
-            if card["status"] == "blocked" and not reason:
+            # A predecessor-blocked card keeps its claim action; dag_state.block_claims blocks it.
+            if card["status"] == "blocked" and not reason and not card.get("blockedBy"):
                 continue
             result.append({"nodeId": card["nodeId"], "context": context, "budget": budget,
                            "status": "blocked" if reason else "ready",

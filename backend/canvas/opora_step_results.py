@@ -54,17 +54,29 @@ def validate_step_results(result, pinned_steps):
 
 
 def emit_step_events(db, record, items):
-    """`step.done` / `step.failed` into the events outbox when that module is installed."""
-    try:
-        from backend.canvas.opora_events import emit_event
-    except ImportError:
-        return
+    """`step.done` / `step.failed` into the events outbox, in the result transaction."""
+    from backend.canvas.opora_events import emit_event
+
     for item in items:
         if item["status"] in ("done", "failed"):
-            emit_event(db, kind="step." + item["status"], projectId=record["project"],
-                       workspaceId=record["workspace"], nodeId=record["nodeId"],
-                       executionId=record["executionId"], stepId=item["stepId"],
-                       actor={"kind": "agent", "name": "execution"}, data={"status": item["status"]})
+            emit_event(db, project_id=record["project"], workspace_id=record["workspace"],
+                       kind="step." + item["status"], node_id=record["nodeId"], execution_id=record["executionId"],
+                       step_id=item["stepId"], actor=None, data={"status": item["status"]})
+
+
+def emit_step_started(db, record):
+    """`step.started` for the first not-done pinned step when a claim starts an execution."""
+    from backend.canvas.opora_events import emit_event
+
+    steps = record["assignment"].get("steps") or []
+    if not steps:
+        return
+    document = {"fields": {"steps": steps}}
+    current = progress(db, record["project"], record["workspace"], record["nodeId"], document)[0]["current"]
+    if current is not None:
+        emit_event(db, project_id=record["project"], workspace_id=record["workspace"], kind="step.started",
+                   node_id=record["nodeId"], execution_id=record["executionId"], step_id=current, actor=None,
+                   data={"epoch": record["epoch"]})
 
 
 def _same(pinned, current):

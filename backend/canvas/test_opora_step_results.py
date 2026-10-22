@@ -1,7 +1,4 @@
 """Accepted steps are pinned in the assignment; stepResults are validated, idempotent progress."""
-import sys
-import types
-
 import pytest
 
 from backend.canvas.opora_execution_results import ExecutionResults
@@ -14,6 +11,7 @@ from backend.canvas.test_opora_plan_steps import PLAN
 from database.schema.opora_execution_schema import SCHEMA
 
 __all__ = ["service"]
+pytestmark = pytest.mark.plan_steps_claim
 
 
 @pytest.fixture
@@ -43,12 +41,12 @@ def accepted_a(service):
     return next(item for item in documents if item["nodeId"] == "a")
 
 
-def test_assignment_snapshot_pins_accepted_steps(stepped):
+def test_assignment_snapshot_pins_accepted_steps(stepped, service):
     authority, _ = stepped
     record = claim(authority)
     assert record["assignment"]["steps"] == PLAN
-    other = claim(authority, "other", node="b")
-    assert other["assignment"]["steps"] == []
+    from backend.canvas.opora_execution_validation import assignment
+    assert assignment(service, "draft", "draft", "b")["steps"] == []
 
 
 def test_step_results_validated_and_idempotent(stepped, service):
@@ -90,15 +88,33 @@ def test_readiness_from_accepted_steps_not_stages(service):
     assert item["blockedBy"] == []
 
 
-def test_blocked_by_from_card_dag_module(stepped, service, monkeypatch):
-    module = types.ModuleType("backend.canvas.opora_card_dag")
-    module.blocked_by = lambda canvas, project, workspace: {"a": ["b"]}
-    monkeypatch.setitem(sys.modules, "backend.canvas.opora_card_dag", module)
-    item = card(service)
-    assert item["status"] == "blocked" and item["blockedBy"] == ["b"]
-
-
 def test_node_spec_plan_view_shows_working_and_accepted(stepped, service):
     result = plan_view(service, "draft", "draft", "a", service.node_spec("draft", "draft", "a"))
     assert result["plan"]["working"] == PLAN and result["plan"]["accepted"] == PLAN
     assert result["plan"]["workingDiffers"] is False
+
+
+def test_claim_refuses_card_without_steps_or_with_blocked_predecessor(stepped, service, monkeypatch):
+    from backend.canvas.opora_agent_state_steps import ClaimRefused
+    authority, _ = stepped
+    with pytest.raises(ClaimRefused) as refused:
+        claim(authority, "nosteps", node="b")
+    assert refused.value.code == "plan_steps_missing"
+    from backend.canvas import opora_agent_state_dag
+    real = opora_agent_state_dag.facts
+    monkeypatch.setattr(opora_agent_state_dag, "facts",
+                        lambda *args: {**real(*args), "blockedBy": {"a": ["b"]}})
+    with pytest.raises(ClaimRefused) as refused:
+        claim(authority, "blocked")
+    assert refused.value.code == "blocked_by_predecessor"
+    assert card(service)["status"] == "blocked" and card(service)["blockedBy"] == ["b"]
+
+
+def test_step_events_on_claim_and_result(stepped, service):
+    authority, _ = stepped
+    record = claim(authority)
+    submit(authority, record, "r1", done("s1"), done("s2", "failed"), done("s3", "skipped"))
+    from database.repositories.opora_events import page
+    rows, _, _ = page(service.db_for("draft"), "draft", "draft", 0, 500)
+    events = [(item["kind"], item["stepId"]) for item in rows if item["kind"].startswith("step.")]
+    assert events == [("step.started", "s1"), ("step.done", "s1"), ("step.failed", "s2")]

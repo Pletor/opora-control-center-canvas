@@ -10,11 +10,14 @@ Karta musí patřit do zapisovatelného workspace s přijatou revizí zadání. 
 relevantní zadání i zadání souvisejících karet musí odpovídat přijaté verzi.
 Uzavřenou kartu ani kartu blokovanou předchůdcem nelze převzít. Pracovní návrh
 nejprve přijměte v OporaHubu; pracovník nesmí automaticky přijmout vlastní změnu.
+Převzít lze jen kartu, jejíž přijaté zadání má alespoň jeden [krok plánu](oporahub-plan-steps.md)
+a nemá nedokončené předchůdce; jinak claim skončí `409` s kódem `plan_steps_missing`
+nebo `blocked_by_predecessor`.
 
 Převzetí zachytí přijatou revizi a kontext zadání v neměnném snímku. Pracovník
 pracuje z tohoto snímku, nikoli z opakovaně načítaného živého briefu. Zachycení
 kontextu nezahrnuje obsah externích odkazů ani bajty obrázků; jejich neměnnost
-tato verze nezaručuje.
+tato verze nezaručuje. Snímek nese i `steps`: přijaté kroky plánu karty seřazené podle `order`.
 
 Jediným zdrojem rezervace zůstává `card_leases`. V téže SQLite transakci se uloží
 běh, snímek, klíč požadavku a rostoucí číslo převzetí (`epoch`). Číslo se po
@@ -52,6 +55,10 @@ Server atomicky uloží potvrzení o přijetí, uzavře běh a uvolní rezervaci
 Stejný klíč a stejný obsah vrátí stejné potvrzení i při opakování po expiraci.
 Jiný obsah pod stejným klíčem se odmítne. Nové odevzdání do uzavřeného běhu
 neprojde. Odevzdané tvrzení ani odkaz na artefakt se automaticky nespouští.
+
+Výsledek může nést `stepResults` (průběh kroků plánu: `stepId`, `status` `done|failed|skipped`,
+`evidence {notes, checks?, commits?}`); server je ověří proti krokům ve snímku běhu, uloží
+v potvrzení a emituje `step.done` / `step.failed`. Podrobně v [krocích plánu](oporahub-plan-steps.md).
 
 Historie v OporaHubu umožňuje dohledat běh a jeho odevzdané výsledky. Token
 nepatří do historie, veřejného stavu kanceláře, promptu, logů ani GitHubu.
