@@ -10,6 +10,8 @@ from database.schema.opora_content_schema import SCHEMA as CONTENT_SCHEMA
 from database.schema.opora_content_schema import TABLES as CONTENT_TABLES
 from database.schema.opora_context_binding_schema import SCHEMA as CONTEXT_BINDING_SCHEMA
 from database.schema.opora_context_event_schema import SCHEMA as CONTEXT_SCHEMA
+from database.schema.opora_design_preview_schema import SCHEMA as DESIGN_PREVIEW_SCHEMA
+from database.schema.opora_design_preview_schema import TABLES as DESIGN_PREVIEW_TABLES
 from database.schema.opora_context_event_schema import TABLES as CONTEXT_TABLES
 from database.schema.opora_event_schema import SCHEMA as EVENT_SCHEMA
 from database.schema.opora_execution_budget_schema import BUDGET_SCHEMA, BUDGET_TABLES
@@ -289,7 +291,7 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
                    + RECONCILIATION_SCHEMA + JOB_SCHEMA + BUDGET_SCHEMA + VERIFICATION_SCHEMA + CONTEXT_SCHEMA
                    + EXECUTION_CONTEXT_SCHEMA + CONTENT_SCHEMA + PROPOSAL_REVIEW_SCHEMA + OBSERVER_SCHEMA
                    + EXECUTION_PR_SCHEMA + REVIEW_JOB_SCHEMA + REVIEW_GATE_SCHEMA
-                   + REVIEW_INSIGHT_SCHEMA + AUTO_REBASE_SCHEMA + EVENT_SCHEMA)
+                   + REVIEW_INSIGHT_SCHEMA + AUTO_REBASE_SCHEMA + EVENT_SCHEMA + DESIGN_PREVIEW_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -342,6 +344,7 @@ PROJECT_TABLES.update({table: "project_id" for table in AUTO_REBASE_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in REVIEW_JOB_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in REVIEW_GATE_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in REVIEW_INSIGHT_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in DESIGN_PREVIEW_TABLES})
 
 
 # CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).

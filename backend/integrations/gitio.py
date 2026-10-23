@@ -14,7 +14,7 @@ def github_url(value):
     return value
 
 
-def git(root, *args, timeout=15, optional=False):
+def git(root, *args, timeout=15, optional=False, raw=False):
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env.update(GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="Never")
     # Hooky a fsmonitor nesmí při pozorování spouštět projektový kód. Dlouhé cesty: worktree
@@ -47,4 +47,6 @@ def git(root, *args, timeout=15, optional=False):
         raise ValueError(
             "Git operace selhala. Ověřte přístup, čistotu pracovního stromu a dostupnost zdroje."
         )
+    if raw:  # přesné bajty (otisk souboru z revize), bez dekódování a ořezu
+        return result.stdout
     return result.stdout.decode("utf-8", errors="replace").strip()

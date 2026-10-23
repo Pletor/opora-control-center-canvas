@@ -4,6 +4,7 @@
 humanApprovalsAtHead, reasons[]}`. Human approvals come only from stored GitHub evidence of
 the exact current head SHA (reusing the evidence review rules: User accounts with write
 permission, not the PR author); configured agent accounts never count. Nothing is written."""
+from backend.canvas import opora_design_preview as design_preview
 from backend.canvas import opora_review_gate_rules as gate_rules
 from backend.canvas import opora_review_humans as review_humans
 from backend.canvas import opora_review_lens as review_lens
@@ -78,6 +79,8 @@ def gate(store, link, evidence, config, now=None):
         result["reviewGate"]["humans"] = humans
     if lens := review_lens.for_link(store.db, *store.scope, link):  # optional evidence, never a reason
         result["evidence"] = {"review": {"lens": lens}}
+    if shots := design_preview.for_link(store.db, *store.scope, link):  # screenshots + human look, never a reason
+        result.setdefault("evidence", {})["preview"] = shots
     return result
 
 

@@ -36,6 +36,9 @@ from backend.api.editor.opora_review_job_routes import create_review_job_router
 from backend.api.editor.opora_review_self_check_routes import create_review_self_check_router
 from backend.api.editor.opora_plan_lens_routes import create_plan_lens_router
 from backend.api.editor.opora_review_lens_routes import create_review_lens_router
+from backend.api.editor.opora_design_preview_routes import MAX_BODY as PREVIEW_BODY_LIMIT
+from backend.api.editor.opora_design_preview_routes import create_design_preview_router
+from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
 from backend.api.editor.opora_process_routes import create_opora_process_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
@@ -235,6 +238,7 @@ def create_app(data_root=None):
                      else VERIFICATION_BODY_LIMIT if request.url.path.startswith("/api/oporahub/verifications/")
                      else CONTENT_BODY_LIMIT if request.url.path == "/api/oporahub/content-changes" or request.url.path.startswith("/api/oporahub/content-changes/")
                      else 14_500_000 if request.url.path == "/api/drawing-file"
+                     else PREVIEW_BODY_LIMIT if request.url.path == "/api/oporahub/review-jobs/preview"
                      else 2 * 1024 * 1024 if request.url.path == "/api/canvas-plan" else 2000000)
             body = bytearray()
             async for chunk in request.stream():
@@ -338,6 +342,8 @@ def create_app(data_root=None):
     app.include_router(create_execution_pull_request_router(service))
     app.include_router(create_review_self_check_router(service))  # before /{job}/… review job paths
     app.include_router(create_review_lens_router(service))  # POST /review-jobs/lens, GET /review-lens
+    app.include_router(create_design_preview_router(service))  # evidence.preview, Potvrdit vzhled, design-mode
+    app.include_router(create_design_system_router(service))  # GET /design-system (DESIGN.md z HEAD)
     app.include_router(create_plan_lens_router(service, desktop_state))  # GET /plan-lens (docs/plan-lens.md)
     app.include_router(create_review_job_router(service))
     app.include_router(create_review_insight_router(service))

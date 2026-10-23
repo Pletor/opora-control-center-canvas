@@ -287,6 +287,10 @@ modelu a jen ke čtení: [Lens plánu](plan-lens.md) (`GET /api/oporahub/plan-le
 Brána ho jen ukazuje: u PR s grafem pro aktuální hlavu má položka brány
 `evidence.review.lens`, ale **nepřidává žádný důvod** a pořadí pravidel (self_checks →
 security → findings → humans → freshness → template) se nemění; mapa oblasti do brány nevstupuje.
+
+Stejně se chová **design náhled** karty (`evidence.preview`: screenshoty na hlavu PR, „Potvrdit vzhled“
+člověkem, režim `brand` / `explore` a DESIGN.md projektu): jen doklad, žádný důvod. Kontrakt je
+[Design náhled karty](design-nahled.md).
 Agenti čtou spec karty přes `GET /api/oporahub/review-lens?project&workspace&nodeId`:
 `{nodeId, lens, executionId?, repository?, number?, prState?, current?, by?, createdAt?, area}`,
 kde `lens` je nejnovější graf PR (`current` říká, zda je pro aktuální hlavu) a `area`
