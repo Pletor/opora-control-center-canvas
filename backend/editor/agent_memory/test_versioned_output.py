@@ -90,7 +90,15 @@ def test_export_and_saved_result_keep_exact_specification_after_live_edit(tmp_pa
         current = brief(client)
         assert current["contextVersion"] != record["contextVersion"]
         history = client.get("/api/desktop-v3/agent-results", params={**SCOPE, "nodeId": "focus"}).json()
-        assert history["items"] == [record] == current["resultHistory"]["items"]
+        assert history["items"] == [record]
+        # Brief nese úplný výstup; snímek zadání jen odkazem, úplný záznam vrací `full`.
+        briefed = current["resultHistory"]["items"][0]
+        assert {k: v for k, v in briefed.items() if k != "specification"} == {k: v for k, v in record.items() if k != "specification"}
+        assert briefed["specification"]["omitted"] is True
+        assert briefed["specification"]["contextVersion"] == record["contextVersion"]
+        assert briefed["specification"]["bytes"] > 0
+        full = current["resultHistory"]["full"]
+        assert client.get(full["endpoint"], params=full["params"]).json()["items"] == [record]
 
 
 def test_layout_only_change_keeps_version_and_accepts_result(tmp_path):
