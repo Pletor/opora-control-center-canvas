@@ -1,5 +1,5 @@
 // Editor jednoho bloku v levé zásuvce: název, popis, porty, stav a větvení, štítky, checklist, obrázky
-// a podbloky. Dílek nic neukládá; každá změna bublá nahoru přes `events`, ukládá rodič (App / NodeTree).
+// a podbloky. Dílek nic neukládá; každá změna bublá nahoru přes `events`, ukládá rodič (App).
 import { useEffect, useState } from "react";
 import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import { blockPorts, type Block } from "@/shared/desktop-state/logic/types";
@@ -10,6 +10,7 @@ import BlockState from "@/editor/node-detail/tree/components/BlockState";
 import BlockTags from "@/editor/node-detail/tree/components/BlockTags";
 import BlockTodos from "@/editor/node-detail/tree/components/BlockTodos";
 import BlockImages from "@/editor/node-detail/tree/components/BlockImages";
+import "@/editor/node-detail/tree/styles/tree.css";
 import "@/editor/block-editor/styles/block-editor.css";
 
 export default function BlockEditor({

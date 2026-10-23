@@ -63,7 +63,8 @@
 }
 .tree-id { font: 10px var(--mono); color: var(--ink-muted); }
 .tree-part h5 { margin: 0 0 5px; font: 600 10px var(--mono); letter-spacing: 0.08em; color: var(--ink-muted); text-transform: uppercase; }
-.tree-form { display: grid; grid-template-columns: 1fr auto auto; gap: 5px; }
+.tree-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 6.5rem) auto; gap: 5px; }
+.tree-form input { min-width: 0; }
 .tree-form input, .tree-condition input, .tree-branch select, .tree-branch input {
   min-width: 0;
   font-size: 12px;
