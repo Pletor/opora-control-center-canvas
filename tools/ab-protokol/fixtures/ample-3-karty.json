@@ -1,0 +1,356 @@
+{
+ "source": "GET http://127.0.0.1:8740 (projekt ample cc5f34ec…, workspace draft), 2026-10-23, jen čtení; URL vypuštěné",
+ "sector": {
+  "id": "d0056159-55a5-483a-9b8e-a8ea28178fc4",
+  "name": "1. VRSTVA — VSTUPY / DATA SOURCES",
+  "purpose": "Zajišťovat příjem, identifikaci a evidenci všech datových zdrojů projektu bez ztráty původních dat. Aby systém vždy dokázal určit původ znalosti a zpětně dohledat, z jakého zdroje vznikl konkrétní chunk, evidence nebo odpověď."
+ },
+ "cards": [
+  {
+   "id": "6cc0991f-7a0d-4f03-8cce-3ab4c6aed12d",
+   "name": "[task] 1.3 RAW store — neměnné originály",
+   "purpose": "Zajišťuje, že každý originál zdroje existuje beze změny a navždy, aby šlo každý chunk, důkaz a citaci zpětně dovést až k originálu.",
+   "parentId": "d0056159-55a5-483a-9b8e-a8ea28178fc4",
+   "spec": {
+    "goal": "Každá verze zdroje má originál uložený beze změny v úložišti vybraném v 1.1, odkazovaný ze source_versions.raw_ref a ověřitelný přes SHA-256. Předchozí verze se nikdy nepřepíší. Slouží příjmu zdroje (1.5) a crawleru (1.14).",
+    "non_goals": "Detekce typu (1.4), deduplikace a verzování (1.5), API (1.6), jakákoli extrakce nebo převod (vrstva 2 · 2.1 Extractory).",
+    "acceptance": "GOAL: pracuj, dokud nejsou splněné a spuštěním ověřené všechny body níže; teprve potom navrhni uzavření.\n\n- Port backend/core/ports/raw_store_port.py: put(key, bytes, content_type) → RawRef, get(ref) → bytes, exists(key); put na existující klíč vyhodí doménovou chybu.\n- Adaptér pro paměť (testy) a adaptér vybrané varianty z 1.1; výběr v app/wiring.py podle Settings.\n- Klíč objektu podle 1.1 začíná organization_id/project_id; test: dva projekty se stejným souborem mají různé klíče.\n- get ověří SHA-256 proti uložené hodnotě; nesoulad = chyba, ne tichý návrat.\n- Test proti skutečnému úložišti Knowledge_base (označený marker, přeskočený bez přístupu) uloží a přečte malý soubor.\n\nKontroly projektu zelené (z kořene repa): uv run pytest · uv run ruff check · uv run pyright · uv run lint-imports.\nNové testy leží vedle modulu (test_<modul>.py); žádný existující test se nemaže ani neoslabuje.\nDo karty zapsán agent-output: co vzniklo (soubory), otevřené problémy, rozhodnutí; uzavření jen navrženo (done.proposed)."
+   },
+   "blocks": [
+    {
+     "title": "RawStorePort",
+     "text": "Protokol v core/ports, frozen dataclass RawRef (key, sha256, size, content_type).",
+     "condition": "Port nezná IO knihovny (lint-imports zelený)."
+    },
+    {
+     "title": "Adaptéry paměť + vybraná varianta",
+     "text": "Paměťový adaptér pro testy, produkční adaptér podle rozhodnutí 1.1, výběr v app/wiring.py.",
+     "condition": "Oba adaptéry projdou stejnou sadou testů kontraktu."
+    },
+    {
+     "title": "Neměnnost a kontrolní součet",
+     "text": "Přepis existujícího klíče selže; čtení ověřuje SHA-256.",
+     "condition": "Testy přepisu a poškozeného obsahu padají správnou doménovou chybou."
+    }
+   ]
+  },
+  {
+   "id": "ffec9322-724e-4ea2-b4f5-828fe9d6f63a",
+   "name": "[task] 1.5 Příjem zdroje: checksum, deduplikace, verze",
+   "purpose": "Jednotná ingestion brána: každý vstup, ať přijde odkudkoli, skončí jako stejný objekt InputSource s verzí a originálem. Deduplikace podle obsahu šetří LLM, embeddingy, úložiště i čas.",
+   "parentId": "d0056159-55a5-483a-9b8e-a8ea28178fc4",
+   "spec": {
+    "goal": "Služba backend/core/sources/source_intake_service.py přijme bajty a metadata vstupu pro projekt a vrátí jednotný InputSource: spočítá SHA-256, zavolá detekci (1.4), stejný obsah v projektu přeskočí (stav skipped, bez nového RAW), změněný obsah stejného původu uloží jako novou verzi a nový zdroj jako verzi 1. Originál uloží přes RawStorePort (1.3). Slouží API (1.6), manuálním vstupům (1.7), souborům (1.8), crawleru (1.14) a feedům (1.15).",
+    "non_goals": "HTTP routy (1.6), stahování z webu (1.11–1.14), úlohy na pozadí (1.10), extrakce a chunking (vrstva 2).",
+    "acceptance": "GOAL: pracuj, dokud nejsou splněné a spuštěním ověřené všechny body níže; teprve potom navrhni uzavření.\n\n- InputSource obsahuje: source_id, organization_id, project_id, source_type, source_name, origin, original_url, original_filename, mime_type, size, checksum, version, status, created_at, imported_at, updated_at, last_processed_at.\n- Stavy a povolené přechody: uploaded → detected → processing → processed | failed; skipped pro duplicitu. Přechody hlídá čistá funkce s testem.\n- Test: stejný soubor podruhé ve stejném projektu → skipped a RAW úložiště nedostane druhý zápis.\n- Test: stejný soubor v jiném projektu → nový zdroj (izolace projektů).\n- Test: změněný obsah stejného původu (URL nebo název souboru v rámci zdroje) → verze 2, verze 1 i její RAW zůstávají.\n- Služba dostává porty v konstruktoru (vzor knowledge_service.py), testy běží s paměťovými adaptéry.\n\nKontroly projektu zelené (z kořene repa): uv run pytest · uv run ruff check · uv run pyright · uv run lint-imports.\nNové testy leží vedle modulu (test_<modul>.py); žádný existující test se nemaže ani neoslabuje.\nDo karty zapsán agent-output: co vzniklo (soubory), otevřené problémy, rozhodnutí; uzavření jen navrženo (done.proposed)."
+   },
+   "blocks": [
+    {
+     "title": "Kontrakt InputSource",
+     "text": "Frozen dataclass se všemi poli ze spec; mapování na tabulky z 1.2.",
+     "condition": "Typ je jediný výstup brány pro všechny typy vstupů."
+    },
+    {
+     "title": "Deduplikace podle SHA-256",
+     "text": "Hash se počítá z bajtů originálu; vyhledá se verze se stejným checksum v projektu.",
+     "condition": "Test duplicity zelený, RAW nedostane druhý zápis."
+    },
+    {
+     "title": "Verzování",
+     "text": "Změna obsahu stejného zdroje = nová source_version a nový RAW objekt.",
+     "condition": "Test verze 2 zelený, verze 1 nedotčená."
+    },
+    {
+     "title": "Stavový automat",
+     "text": "Povolené přechody stavů a zápis last_processed_at a chyby.",
+     "condition": "Nepovolený přechod vyhodí doménovou chybu."
+    }
+   ]
+  },
+  {
+   "id": "9ce1174c-b2f8-4603-8fe6-61426e65c82c",
+   "name": "[task] 1.6 API zdrojů projektu",
+   "purpose": "Jediná cesta, kterou se zdroje dostanou do projektu a kterou je správce vidí. Backend tu vynucuje, že nikdo nesáhne na zdroje cizího projektu.",
+   "parentId": "d0056159-55a5-483a-9b8e-a8ea28178fc4",
+   "spec": {
+    "goal": "HTTP API /api/v1/projects/{projectId}/sources umožní nahrát soubor, zadat URL nebo sitemap, vložit manuální text, vypsat zdroje se stavem, poslední změnou a chybami, zobrazit detail s verzemi a technickými metadaty a zdroj měkce smazat. Volá bránu 1.5. Slouží UI (1.16) a ověření sektoru (1.17).",
+    "non_goals": "Stahování webu a crawler (1.11–1.14 běží na pozadí přes 1.10), UI (1.16), extrakce (vrstva 2), statistiky (vrstva 6).",
+    "acceptance": "GOAL: pracuj, dokud nejsou splněné a spuštěním ověřené všechny body níže; teprve potom navrhni uzavření.\n\n- backend/api/source_routes.py + test_source_routes.py podle vzoru knowledge_routes.py (pydantic vstup s camelCase aliasy, to_json výstup, doménové chyby přes http_errors).\n- POST …/sources/files (multipart, limit velikosti ze Settings), POST …/sources/url ({url} — web, sitemap nebo API), POST …/sources/manual; GET …/sources, GET …/sources/{sourceId}, DELETE …/sources/{sourceId} nastaví deleted_at.\n- project_id se bere z cesty a ověří proti oprávnění aktéra (get_actor, require_can); test: člen projektu A dostane u projektu B 403/404.\n- Typy odpovědí doplněné do frontend/shared/types/logic/api-types.ts.\n- URL zdroj jen založí zdroj a naplánuje úlohu (1.10); odpověď nečeká na stažení.\n\nKontroly projektu zelené (z kořene repa): uv run pytest · uv run ruff check · uv run pyright · uv run lint-imports.\nNové testy leží vedle modulu (test_<modul>.py); žádný existující test se nemaže ani neoslabuje.\nDo karty zapsán agent-output: co vzniklo (soubory), otevřené problémy, rozhodnutí; uzavření jen navrženo (done.proposed)."
+   },
+   "blocks": [
+    {
+     "title": "Zápisové endpointy",
+     "text": "Soubor, URL, manuální text; každý volá bránu 1.5.",
+     "condition": "Testy rout pro každý typ vstupu zelené."
+    },
+    {
+     "title": "Seznam a detail",
+     "text": "Seznam se stavem, poslední změnou, počtem verzí a chybou; detail s verzemi a technickými metadaty.",
+     "condition": "Smazané zdroje se v seznamu neukazují."
+    },
+    {
+     "title": "Izolace projektu",
+     "text": "project_id z cesty + oprávnění aktéra; nikdy z těla požadavku.",
+     "condition": "Test cizího projektu zelený."
+    }
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "id": "df6aa766-9d03-4619-b19c-59e4bdb1d072",
+   "source": "6cc0991f-7a0d-4f03-8cce-3ab4c6aed12d",
+   "target": "ffec9322-724e-4ea2-b4f5-828fe9d6f63a",
+   "port": "next"
+  },
+  {
+   "id": "d4c77053-2882-4c54-a42f-b1106eb8d15a",
+   "source": "ffec9322-724e-4ea2-b4f5-828fe9d6f63a",
+   "target": "9ce1174c-b2f8-4603-8fe6-61426e65c82c",
+   "port": "next"
+  }
+ ],
+ "decisions": [
+  {
+   "text": "DB pro znalostní bázi = Supabase projekt Knowledge_base (<url> Hierarchie organization_id → project_id → zdroje a RAW per projekt; každý dotaz se filtruje podle ID (rozhodnutí uživatele 2026-10-05).",
+   "nodeId": "5b0cb125-8879-4c26-9b66-8f4374c1ef1c",
+   "pinned": true
+  },
+  {
+   "text": "Vrstva 1 ukládá originál jako RAW už při příjmu (výstup vrstvy 1 = SOURCE + ORIGINAL DATA + TECHNICAL METADATA podle zadání uživatele 2026-10-05). Fáze 3 projektu pak řeší jen odvozená data a indexy.",
+   "nodeId": "6cc0991f-7a0d-4f03-8cce-3ab4c6aed12d",
+   "pinned": true
+  },
+  {
+   "text": "Brána sektorů: sektor 2. VRSTVA začíná až po uzavření karty 1.17 člověkem. Hotovo dokládají testy, review, merge a end-to-end scénář, ne barva karty (pokyn uživatele 2026-10-05).",
+   "nodeId": "e767044c-5ffe-4694-8976-6c463aac531e",
+   "pinned": true
+  },
+  {
+   "text": "Při návrhu UI se vždy přizve Claude Design a vychází se z brandu a design systému AmpleLab (pokyn uživatele 2026-10-05).",
+   "nodeId": "366a3abe-187b-420b-bd40-a5001b8ddbec",
+   "pinned": true
+  },
+  {
+   "text": "1.3: RawStorePort + adaptéry memory/supabase (bucket `raw` privátní, zakládá se při prvním zápisu); integrita přes sha256 v RawRef, nesoulad = IntegrityError.",
+   "nodeId": "6cc0991f-7a0d-4f03-8cce-3ab4c6aed12d",
+   "pinned": false
+  },
+  {
+   "text": "Dva režimy znalostí: SIMPLE (chunk cesta) a SEMANTIC (entity → události → vztahy → epizody → graf). Semantic Router rozhoduje před zpracováním; drahé LLM jen nad SEMANTIC.",
+   "nodeId": "e27f0bf7-25a1-429b-a5a5-fa4884323112",
+   "pinned": true
+  },
+  {
+   "text": "Primární KPI celé platformy: Accuracy, Latency, Cost + Tokens/answer. Optimalizační pravidlo: nejlevnější cesta, která ještě dá dostatečně přesný důkaz.",
+   "nodeId": "b8036553-5867-42b4-b9a2-023799e41b0d",
+   "pinned": true
+  },
+  {
+   "text": "Navigace projektu: Přehled · 1 Sběr dat · 2 Zpracování · 3 Sémantika · 4 Znalostní báze · 5 Ladění · 6 Chatbot · 7 Provoz · Nastavení; podsekce jako záložky; hierarchie Projekt → Zdroj → Stránka → Znalost.",
+   "nodeId": "4f5eb68e-48fc-44d8-8153-10b9456a2f0b",
+   "pinned": true
+  },
+  {
+   "text": "2.x: SIMPLE pipeline běží jako úlohy ve stávající frontě source_jobs (worker 1.10), bez LangGraph; LangGraph jen pro SEMANTIC workflow podle rozhodnutí S.0 (zadání 2.27).",
+   "nodeId": "e094fd93-a709-4a8b-b4a2-77a39dc45883",
+   "pinned": true
+  },
+  {
+   "text": "2.11 nahrazuje S.1 Semantic Router: router vrstvy 2 rozhoduje SIMPLE / HYBRID / SEMANTIC (flagy simple_index + semantic_processing); HYBRID je výchozí architektura pro smlouvy a oznámení (zadání 2.10).",
+   "nodeId": "c36a53e1-41fc-4315-8bb4-282cbea464e7",
+   "pinned": true
+  },
+  {
+   "text": "Sémantické kroky (entity, události, vztahy, časová osa, epizody, cross-document linking, konflikty) implementuje sektor S (S.2–S.7) za portem SemanticStage z 2.15; vrstva 2 dodává vstup, schéma a validaci důkazů, aby sémantika nevznikla dvakrát.",
+   "nodeId": "cfbc0c32-7063-4bb5-87d0-b0d20bf7e15f",
+   "pinned": true
+  },
+  {
+   "text": "Porovnání s AmpleLab 2026-10-07: datová sada Vysočina přechází do pipeline vrstvy 2 jako zdroj typu datová sada (jedna cesta do indexu, One-Pattern Rule); lokalita a kategorie jsou first-class metadata.",
+   "nodeId": "f0d4b2be-fd7d-452f-a54a-9134a47fcae8",
+   "pinned": true
+  },
+  {
+   "text": "2026-10-07 rozhodnutí uživatele: UI a API vrstvy 2 průběžně po oblastech (2.26 Extrakce, 2.27 Struktura a klasifikace, 2.28 SIMPLE větev, 2.29 Cena, změny a validace), každá před další oblastí; 2.18 a 2.19 na konci dodělají Frontu, Chyby, Sémantiku, kurátora 2.24 a ověří úplnost proti návrhu.",
+   "nodeId": "d7027cd4-b74c-4a9b-bb12-e400728a1f1d",
+   "pinned": true
+  },
+  {
+   "text": "2026-10-07 požadavek uživatele: datové sady univerzálně (mapování polí a pravidlo pro provoz jako data, Vysočina = předvolba); karanténa = Opravit → Otestovat → Pustit do provozu pro každou sadu a důvod (2.25).",
+   "nodeId": "1381ad36-9c55-404c-90ce-d249455a9530",
+   "pinned": true
+  },
+  {
+   "text": "2026-10-09 rozhodnutí uživatele: skrytý obsah zdroje do odpovědí nejde, ale ukládá se označený s přehledem (co a kde) – princip jako karanténa. XLSX hotové v 2.12, ostatní formáty a UI v 2.42.",
+   "nodeId": "85ea0150-f6bb-499f-b26e-f04df2f91d9e",
+   "pinned": true
+  },
+  {
+   "text": "2026-10-09: obří mřížka / sloučené oblasti XLSX řeší samostatná karta 2.43 (kód 2.7); potřeba pro funkční aplikaci – jeden sešit nesmí zastavit worker.",
+   "nodeId": "8f58edcf-7f4a-46f2-92f0-4281d10f1515",
+   "pinned": true
+  },
+  {
+   "text": "2026-10-09 rozhodnutí uživatele: prezentace za 3 dny (reálné vyhledávání nad Vysočina pečuje, přesnost/latence/cena). Vrstvy 3–7 jen s kartami MVP, ostatní body zadání jako rozsah budoucích karet v textu sektoru; nálezy mimo MVP do Podnětů karet. Vrstva 3 MVP = most do existujícího v1 indexu (kb_documents/kb_chunks) bez migrace DB.",
+   "nodeId": "9fc8945d-aa10-4f01-8dd0-ec943ed488b1",
+   "pinned": true
+  },
+  {
+   "text": "Hybrid BM25 + RRF je ladění: dělá se, jen když měření K.5 ukáže hit@5 < 90 %.",
+   "nodeId": "e268995c-e868-49d6-b1d3-382d485b6fd6",
+   "pinned": true
+  },
+  {
+   "text": "Na otázky „Kde najdu…“ chatbot rovnou vypíše nalezené služby s kontakty (název, obec, telefon, e-mail, odkaz), bez doptávání (uživatel 2026-10-09).",
+   "nodeId": "d5dd6afb-f51f-4f8b-aea3-13a6ea34b926",
+   "pinned": true
+  },
+  {
+   "text": "Rozsah chatbota = sociální péče a služby s ní spojené (poskytovatelé, typy služeb, kontakty z DB). Úřady, dávky a obecné rady mimo DB jsou mimo rozsah — nedomýšlí je (riziko halucinace). Doptává se JEN na údaje, které zpřesní vyhledávání ve vlastní DB (obec/okres, cílová skupina, typ služby). Pořadí: nejdřív nalezené služby s kontakty, pak případná doplňující otázka a 2–3 návrhy dalšího dotazu. Fakta ≥ 95 % se počítá jako fakt v odpovědi nebo v odkazu pod ní; pokles contact_phone-09 = nejednoznačná otázka sady; odkazy smí být <a href> se sanitací (uživatel 2026-10-10).",
+   "nodeId": "d5dd6afb-f51f-4f8b-aea3-13a6ea34b926",
+   "pinned": true
+  },
+  {
+   "text": "Persona = Pan Jeřábek (projekt Vysočina); krizovou lištu neřešit. Tón: nepůsobí jako stroj — lidsky, nápomocně, věcně správně; nejdřív služby s kontakty, pak doptání jen na obec/okres, pro koho, typ služby. Závazný návrh vykreslení odpovědi (bloky intro, services, steps, callout, followUp, suggestions + 🔊): <url> (uživatel 2026-10-10).",
+   "nodeId": "97cc644b-bba8-40a2-add3-257525c7781f",
+   "pinned": true
+  },
+  {
+   "text": "Persona = Pan Jeřábek (projekt Vysočina); krizovou lištu neřešit. Tón: nepůsobí jako stroj — lidsky, nápomocně, věcně správně; nejdřív služby s kontakty, pak doptání jen na obec/okres, pro koho, typ služby. Závazný návrh vykreslení odpovědi (bloky intro, services, steps, callout, followUp, suggestions + 🔊): <url> (uživatel 2026-10-10).",
+   "nodeId": "8202e441-c001-44e6-b460-1c56af33f450",
+   "pinned": true
+  },
+  {
+   "text": "Persona = Pan Jeřábek (projekt Vysočina); krizovou lištu neřešit. Tón: nepůsobí jako stroj — lidsky, nápomocně, věcně správně; nejdřív služby s kontakty, pak doptání jen na obec/okres, pro koho, typ služby. Závazný návrh vykreslení odpovědi (bloky intro, services, steps, callout, followUp, suggestions + 🔊): <url> (uživatel 2026-10-10).",
+   "nodeId": "7104c8bf-e9b3-419a-b5f4-c81840d9c5e2",
+   "pinned": true
+  },
+  {
+   "text": "ZÁVAZNÝ NÁVRH (uživatel schválil 2026-10-10, verze 11): <url> — artboard „Widget – odpověď a funkce“ (interaktivní, Play). Nahrazuje dřívější rozhodnutí o návrhu.\nVýstup odpovědi (pořadí): 1) empatický úvod (1–2 věty, lidsky, ne strojově) + 🔊; 2) „Jakou pomoc jsem našel“ = dlaždice podle druhu služby s počtem — fungují jako PŘEPÍNAČ (vždy jedna vybraná, výchozí první), karty pod nimi ukazují jen služby vybraného druhu (šetří místo); 3) „Kdo vám pomůže“ = karty poskytovatelů (barevný pruh + ikona druhu, jméno, štítek zdroje, druh · obec, 1 věta co dělá, tlačítka Zavolat / e-mail / detail); 4) „",
+   "nodeId": "97cc644b-bba8-40a2-add3-257525c7781f",
+   "pinned": true
+  },
+  {
+   "text": "ZÁVAZNÝ NÁVRH (uživatel schválil 2026-10-10, verze 11): <url> — artboard „Widget – odpověď a funkce“ (interaktivní, Play). Nahrazuje dřívější rozhodnutí o návrhu.\nVýstup odpovědi (pořadí): 1) empatický úvod (1–2 věty, lidsky, ne strojově) + 🔊; 2) „Jakou pomoc jsem našel“ = dlaždice podle druhu služby s počtem — fungují jako PŘEPÍNAČ (vždy jedna vybraná, výchozí první), karty pod nimi ukazují jen služby vybraného druhu (šetří místo); 3) „Kdo vám pomůže“ = karty poskytovatelů (barevný pruh + ikona druhu, jméno, štítek zdroje, druh · obec, 1 věta co dělá, tlačítka Zavolat / e-mail / detail); 4) „",
+   "nodeId": "8202e441-c001-44e6-b460-1c56af33f450",
+   "pinned": true
+  },
+  {
+   "text": "ZÁVAZNÝ NÁVRH (uživatel schválil 2026-10-10, verze 11): <url> — artboard „Widget – odpověď a funkce“ (interaktivní, Play). Nahrazuje dřívější rozhodnutí o návrhu.\nVýstup odpovědi (pořadí): 1) empatický úvod (1–2 věty, lidsky, ne strojově) + 🔊; 2) „Jakou pomoc jsem našel“ = dlaždice podle druhu služby s počtem — fungují jako PŘEPÍNAČ (vždy jedna vybraná, výchozí první), karty pod nimi ukazují jen služby vybraného druhu (šetří místo); 3) „Kdo vám pomůže“ = karty poskytovatelů (barevný pruh + ikona druhu, jméno, štítek zdroje, druh · obec, 1 věta co dělá, tlačítka Zavolat / e-mail / detail); 4) „",
+   "nodeId": "7104c8bf-e9b3-419a-b5f4-c81840d9c5e2",
+   "pinned": true
+  },
+  {
+   "text": "Orchestr (plná autonomie od uživatele 2026-10-10): 1) Závazný návrh v11 má přednost před staršími bloky 2 a 4 karty 6.9 (jeden rámeček „Hned teď“, otázka s tlačítky odpovědí, bez řádku dalších návrhů). 2) 🔊 druhým klikem čtení ZASTAVÍ (úprava speech.ts povolena v 6.9). 3) services[].sourceIndex je číslo zdroje od 1 (0/chybí = bez štítku) — 5.9 to musí dodržet. 4) Dokud 5.9 neposílá blocks, náhled builderu ukáže strukturovanou ukázku z fixture (živý chat beze změny).",
+   "nodeId": "8202e441-c001-44e6-b460-1c56af33f450",
+   "pinned": true
+  },
+  {
+   "text": "Orchestr (plná autonomie od uživatele 2026-10-10): 1) Závazný návrh v11 má přednost před staršími bloky 2 a 4 karty 6.9 (jeden rámeček „Hned teď“, otázka s tlačítky odpovědí, bez řádku dalších návrhů). 2) 🔊 druhým klikem čtení ZASTAVÍ (úprava speech.ts povolena v 6.9). 3) services[].sourceIndex je číslo zdroje od 1 (0/chybí = bez štítku) — 5.9 to musí dodržet. 4) Dokud 5.9 neposílá blocks, náhled builderu ukáže strukturovanou ukázku z fixture (živý chat beze změny).",
+   "nodeId": "97cc644b-bba8-40a2-add3-257525c7781f",
+   "pinned": true
+  },
+  {
+   "text": "Uživatel 2026-10-11: tři cesty (ví co chce / příběh / kombinace) místo jedné šablony; lokalita vždy první; víc možností naráz v kroku Doma; slovo demence nepoužívat přímo; pomůcky přes pečovatelské služby stačí; chatbot vede ke službě, poradenství nedává.",
+   "nodeId": "d88486c4-51d3-44b8-8b68-f597c47ef712",
+   "pinned": true
+  },
+  {
+   "text": "Výstup služeb podle image.png: akordeon podle druhu, řádky od nejbližší, pak nejbližší okresy; víc výsledků na menší ploše.",
+   "nodeId": "d88486c4-51d3-44b8-8b68-f597c47ef712",
+   "pinned": true
+  },
+  {
+   "text": "Náklady: klik 0 USD (strom + DB), volný text 1 volání Haiku ≤ 0,0015 USD; cíl 1000 konverzací ~1–2 USD.",
+   "nodeId": "d88486c4-51d3-44b8-8b68-f597c47ef712",
+   "pinned": true
+  }
+ ],
+ "live": {
+  "6cc0991f-7a0d-4f03-8cce-3ab4c6aed12d": {
+   "nodeBriefBytes": 258276,
+   "sections": {
+    "specification": 81352,
+    "context": 78491,
+    "orientation": 34857,
+    "boundaries": 28317,
+    "graph": 11835,
+    "outputContract": 7597,
+    "resultHistory": 2059,
+    "content": 1952,
+    "blocks": 1721,
+    "definitionOfDone": 1583
+   },
+   "contextSections": {
+    "ancestors": 25495,
+    "decisions": 20432,
+    "upstreamDecisions": 13058,
+    "sectorVerification": 1020,
+    "incomingReports": 2697,
+    "layoutPreview": 14712
+   },
+   "decisions": 31,
+   "agentResults": 1,
+   "resultBinding": [
+    "legacy-unbound"
+   ]
+  },
+  "ffec9322-724e-4ea2-b4f5-828fe9d6f63a": {
+   "nodeBriefBytes": 310213,
+   "sections": {
+    "specification": 129154,
+    "context": 76385,
+    "orientation": 35592,
+    "boundaries": 27619,
+    "graph": 15019,
+    "outputContract": 7597,
+    "resultHistory": 3031,
+    "content": 2733,
+    "blocks": 2552,
+    "goal": 1934
+   },
+   "contextSections": {
+    "ancestors": 25495,
+    "decisions": 20473,
+    "upstreamDecisions": 10489,
+    "sectorVerification": 1020,
+    "incomingReports": 3119,
+    "layoutPreview": 14712
+   },
+   "decisions": 31,
+   "agentResults": 1,
+   "resultBinding": [
+    "legacy-unbound"
+   ]
+  },
+  "9ce1174c-b2f8-4603-8fe6-61426e65c82c": {
+   "nodeBriefBytes": 286074,
+   "sections": {
+    "specification": 116149,
+    "context": 71310,
+    "orientation": 34553,
+    "boundaries": 27742,
+    "graph": 11693,
+    "outputContract": 7597,
+    "content": 2714,
+    "resultHistory": 2513,
+    "goal": 1702,
+    "definitionOfDone": 1624
+   },
+   "contextSections": {
+    "ancestors": 25495,
+    "decisions": 21037,
+    "upstreamDecisions": 5879,
+    "sectorVerification": 1020,
+    "incomingReports": 2090,
+    "layoutPreview": 14712
+   },
+   "decisions": 33,
+   "agentResults": 1,
+   "resultBinding": [
+    "legacy-unbound"
+   ]
+  }
+ }
+}
