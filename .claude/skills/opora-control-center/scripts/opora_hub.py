@@ -29,6 +29,7 @@ HUB = '/api/oporahub'
 STATE_DIR_ENV = 'OPORA_HUB_STATE_DIR'
 EXIT_CONFLICT, EXIT_NONE, EXIT_REFUSED = 3, 4, 5
 STEP_STATUSES = ('done', 'failed', 'skipped')
+SLIM = {'assignment': 'omit'}
 
 
 class Refused(Exception):
@@ -161,7 +162,8 @@ def claim(base, project, workspace, action_id, ttl, context_version=2):
                     'previousExecutionId': budget.get('latestExecutionId')}
     if context_version == 2:
         payload['contextProtocolVersion'] = 2
-    _, lease, _ = _call(base, 'POST', HUB + '/executions/claim', payload)
+    # `assignment=omit`: zadání se čte jednou přes `assignment`, claim a heartbeat ho nevracejí.
+    _, lease, _ = _call(base, 'POST', HUB + '/executions/claim', payload, params=SLIM)
     bundle = {'executionId': lease['executionId'], 'project': project, 'workspace': workspace, 'nodeId': node,
               'actionId': action_id, 'token': lease['token'], 'epoch': lease['epoch'],
               'expiresAt': lease['expiresAt'], 'acceptedRevision': lease['acceptedRevision'],
@@ -207,7 +209,8 @@ def _token_body(bundle, **extra):
 
 def heartbeat(base, execution, ttl):
     bundle = load_bundle('execution', execution)
-    _, value, _ = _call(base, 'POST', f'{HUB}/executions/{execution}/heartbeat', _token_body(bundle, ttlSeconds=ttl))
+    _, value, _ = _call(base, 'POST', f'{HUB}/executions/{execution}/heartbeat', _token_body(bundle, ttlSeconds=ttl),
+                        params=SLIM)
     return {k: v for k, v in (value or {}).items() if k != 'token'}
 
 

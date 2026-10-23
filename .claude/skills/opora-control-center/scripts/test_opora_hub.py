@@ -111,7 +111,7 @@ def test_full_agent_loop_against_the_real_backend(backend, capsys, tmp_path):
     code, assigned, _ = run(capsys, 'assignment', '--execution', execution)
     assert code == 0 and Path(assigned['file']).is_file() and bundle['token'] not in Path(assigned['file']).read_text('utf-8')
     code, beat, _ = run(capsys, 'heartbeat', '--execution', execution, '--ttl', '120')
-    assert code == 0 and beat['epoch'] == bundle['epoch']
+    assert code == 0 and beat['epoch'] == bundle['epoch'] and 'assignment' not in beat  # jen oprávnění
 
     result = tmp_path / 'result.json'
     result.write_text(json.dumps({'summary': 'Hotovo', 'stepResults': [

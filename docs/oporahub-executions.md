@@ -112,6 +112,14 @@ zvoleného projektu v kanceláři nepřesměruje existující běh.
 | `GET /?project&workspace` (volitelně `nodeId`) | Nejvýše 100 souhrnů běhů bez tokenů; bez filtru také běhy odstraněných karet |
 | `GET /{id}/results?project&workspace` | Odevzdané výsledky konkrétního běhu |
 
+`POST /claim` a `POST /{id}/heartbeat` berou nepovinný dotaz `?assignment=include|omit`.
+Výchozí `include` vrací jako dosud celé neměnné zadání v poli `assignment` (kancelář ho dnes
+při claimu i heartbeatu kontroluje). `omit` vrátí jen oprávnění běhu (`executionId`, token, epocha,
+`expiresAt`, revize, `assignmentDigest`, rozpočet, doklad kontextu) a `contextVersion` zadání;
+zadání si klient přečte jednou přes `GET /{id}/assignment`. Zadání tvořilo 82 % bajtů,
+které agent v B čte (A/B protokol, nález N4). Skill posílá `omit`; po přechodu kanceláře
+(M5) se výchozí hodnota přepne na `omit`. Neznámá hodnota je 409 ještě před převzetím.
+
 TTL je celé číslo 30–3600 sekund. Chybějící identita vrací 428; konflikt
 oprávnění nebo zastaralé očekávání 409. Token je oprávnění konkrétního běhu,
 nikoli doklad nezávislé identity člověka. Lokální session není ochrana proti

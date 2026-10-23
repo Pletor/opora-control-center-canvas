@@ -64,3 +64,25 @@ def test_bad_claim_is_safe_conflict(client, key, value):
     response = client.post(BASE + "/claim", headers=AGENT, json={**payload(client), key: value})
     assert response.status_code == 409
     assert response.json()["code"] == "execution_conflict"
+
+
+def test_claim_and_heartbeat_can_omit_assignment(client):
+    data = payload(client)
+    assert client.post(BASE + "/claim", headers=AGENT, params={"assignment": "all"}, json=data).status_code == 409
+    assert client.get(BASE, params={**SCOPE, "nodeId": "n0"}, headers=AGENT).json()["executions"] == []
+    slim = client.post(BASE + "/claim", headers=AGENT, params={"assignment": "omit"}, json=data)
+    assert slim.status_code == 200, slim.text
+    lease = slim.json()
+    assert "assignment" not in lease and lease["contextVersion"] == data["expectedContextVersion"]
+    full = client.post(BASE + "/claim", headers=AGENT, json=data).json()  # replay, default view
+    assert full["assignment"]["contextVersion"] == lease["contextVersion"]
+    assert {key: value for key, value in full.items() if key not in ("assignment", "serverNow")} == {
+        key: value for key, value in lease.items() if key not in ("contextVersion", "serverNow")}
+    endpoint = BASE + "/" + lease["executionId"] + "/heartbeat"
+    body = {**SCOPE, "token": lease["token"], "epoch": lease["epoch"], "ttlSeconds": 60}
+    beat = client.post(endpoint, headers=AGENT, params={"assignment": "omit"}, json=body)
+    assert beat.status_code == 200 and "assignment" not in beat.json() and beat.json()["state"] == "running"
+    assert len(beat.content) * 2 < len(client.post(endpoint, headers=AGENT, json=body).content)
+    read = client.get(BASE + "/" + lease["executionId"] + "/assignment", params=SCOPE,
+                      headers={**AGENT, "X-Opora-Execution-Token": lease["token"]})
+    assert read.json()["assignment"] == full["assignment"]

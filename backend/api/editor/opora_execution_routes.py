@@ -5,14 +5,30 @@ from fastapi.responses import JSONResponse
 from backend.canvas.opora_execution_context import prepare
 from backend.canvas.opora_execution_results import ExecutionResults
 
+ASSIGNMENT_VIEWS = ("include", "omit")
+
+
+def lease_view(record, view):
+    """`assignment=omit`: claim/heartbeat without the immutable assignment (read it once from /assignment).
+
+    The default stays `include` until every client sends `omit` (agent-office M5); `contextVersion`
+    is lifted to the top level so a slim client can still check the claimed context.
+    """
+    if view == "include" or not isinstance(record, dict) or "assignment" not in record:
+        return record
+    value = {key: item for key, item in record.items() if key != "assignment"}
+    return value | {"contextVersion": record["assignment"].get("contextVersion")}
+
 
 def create_opora_execution_router(service):
     router = APIRouter(prefix="/api/oporahub/executions", tags=["oporahub"])
     executions = ExecutionResults(service)
 
-    def call(request, action):
+    def call(request, action, view="include"):
         if request.state.actor not in ("human", "agent"):
             return JSONResponse({"error": "Execution identity is required.", "code": "identity_required"}, status_code=428)
+        if view not in ASSIGNMENT_VIEWS:  # Refused before any claim or renewal happens.
+            return JSONResponse({"error": "assignment must be include or omit.", "code": "execution_conflict"}, status_code=409)
         try:
             return action()
         except ValueError as exc:
@@ -41,13 +57,13 @@ def create_opora_execution_router(service):
         return call(request, lambda: executions.receipts(identifier, project, workspace))
 
     @router.post("/claim")
-    def claim(payload: dict, request: Request):
+    def claim(payload: dict, request: Request, assignment: str = "include"):
         def create():
             name = getattr(request.state, "agent", None)
             if request.state.actor == "agent" and (not isinstance(name, str) or not name.strip()):
                 raise ValueError("An identified execution owner is required.")
-            return executions.claim(payload, "agent:" + name if request.state.actor == "agent" else "human")
-        return call(request, create)
+            return lease_view(executions.claim(payload, "agent:" + name if request.state.actor == "agent" else "human"), assignment)
+        return call(request, create, assignment)
 
     @router.get("/{identifier}/assignment")
     def assignment(identifier: str, project: str, workspace: str, request: Request):
@@ -55,8 +71,8 @@ def create_opora_execution_router(service):
                                                                request.headers.get("x-opora-execution-token")))
 
     @router.post("/{identifier}/heartbeat")
-    def heartbeat(identifier: str, payload: dict, request: Request):
-        return call(request, lambda: executions.heartbeat(identifier, payload))
+    def heartbeat(identifier: str, payload: dict, request: Request, assignment: str = "include"):
+        return call(request, lambda: lease_view(executions.heartbeat(identifier, payload), assignment), assignment)
 
     @router.post("/{identifier}/release")
     def release(identifier: str, payload: dict, request: Request):
