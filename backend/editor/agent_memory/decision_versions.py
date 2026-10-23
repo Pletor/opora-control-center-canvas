@@ -42,6 +42,6 @@ def preserve_versions(previous, current):
     before = {item["id"]: item for item in previous}
     for item in current:
         old = before.get(item["id"])
-        if old and item["id"] in protected:
-            if {k: v for k, v in old.items() if k != "pinned"} != {k: v for k, v in item.items() if k != "pinned"}:
-                raise ValueError("Verzované rozhodnutí nelze přepsat; vytvořte další opravu.")
+        if (old and item["id"] in protected
+                and {k: v for k, v in old.items() if k != "pinned"} != {k: v for k, v in item.items() if k != "pinned"}):
+            raise ValueError("Verzované rozhodnutí nelze přepsat; vytvořte další opravu.")

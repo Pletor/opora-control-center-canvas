@@ -22,7 +22,12 @@ import json
 import uuid
 
 from backend.canvas.activity_log import require_human
-from backend.editor.brief_vault.brief_vault_cell import check_run, earlier_checks, lesson_kind_rule, same_checks
+from backend.editor.brief_vault.brief_vault_cell import (
+    check_run,
+    earlier_checks,
+    lesson_kind_rule,
+    same_checks,
+)
 from backend.editor.brief_vault.brief_vault_gate_rules import (
     GATES,
     NO_PAYLOAD,

@@ -5,9 +5,9 @@ a `block` edge still starts from one of the current blocks (the edge would point
 
 `layer` (frontend|backend|database|library) přepíše `card.layer` existující karty; bez něj se vrstva nemění."""
 
-from backend.canvas.graph import CARD_VALUES
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref
 from backend.canvas.canvas_plan_links import PORT_FIELDS, blocks_of
+from backend.canvas.graph import CARD_VALUES
 
 EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef",
                  "replaceBlocks", "layer"}

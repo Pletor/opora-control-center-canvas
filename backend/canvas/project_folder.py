@@ -98,13 +98,6 @@ class ProjectFolder:
                 raise ValueError("Neplatné ID pracovního prostoru nebo uzlu.")
         return self.canvas / "workspaces" / workspace_id / "storyboards" / f"{node_id}.json"
 
-    def storyboard(self, workspace_id: str, node_id: str) -> Path:
-        """Storyboard karty (momenty, komentáře a šipky člověka); patří do dat plátna."""
-        for value in (workspace_id, node_id):
-            if not isinstance(value, str) or not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", value):
-                raise ValueError("Neplatné ID pracovního prostoru nebo uzlu.")
-        return self.canvas / "workspaces" / workspace_id / "storyboards" / f"{node_id}.json"
-
     def sector(self, sector_id: str) -> Path:
         if not isinstance(sector_id, str) or not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", sector_id):
             raise ValueError("Neplatné ID sektoru.")

@@ -218,7 +218,7 @@ class SemanticRetrieval:
         while pending and len(files) < MAX_FILES:
             directory = pending.pop()
             try:
-                entries = sorted(list(os.scandir(directory)), key=lambda entry: (entry.name.casefold(), entry.name))
+                entries = sorted(os.scandir(directory), key=lambda entry: (entry.name.casefold(), entry.name))
             except OSError as exc:
                 raise ValueError("Vybraný podstrom nelze bezpečně přečíst.") from exc
             directories = []

@@ -51,7 +51,6 @@ import secrets
 import shutil
 import signal
 import subprocess
-import sys
 import tempfile
 import time
 import urllib.error
@@ -169,7 +168,7 @@ class Http:
 
 def run(cmd, cwd=None, check=True, env=None, timeout=600):
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8",
-                            errors="replace", env=env, timeout=timeout)
+                            errors="replace", env=env, timeout=timeout, check=False)
     if check and result.returncode:
         raise RuntimeError(f"{cmd!r} failed ({result.returncode}): {result.stderr[-1500:]}{result.stdout[-500:]}")
     return result.stdout.strip()
@@ -200,7 +199,7 @@ def kill_tree(pid):
     if not pid:
         return
     if os.name == "nt":
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True)
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, check=False)
     else:
         try:
             os.killpg(pid, signal.SIGTERM)
@@ -612,7 +611,7 @@ def step_gate(r: Run):
     scope = {"project": r.state["project"], "workspace": r.state["workspace"]}
     attempt = subprocess.run(["gh", "pr", "review", str(r.state["pr"]), "-R", r.state["repo"], "--approve", "-b",
                               f"Opora-Plan: {r.state['project']}/{r.state['workspace']}@{r.state['baseline']}"],
-                             capture_output=True, text=True)
+                             capture_output=True, text=True, check=False)
     approval = {"exit": attempt.returncode, "stderr": attempt.stderr.strip()[-400:]}
     context = h.get("/api/oporahub/github-evidence", **scope)
     status, evidence = h.call("POST", "/api/oporahub/github-evidence", {**scope, "expectedAcceptedHead": context.get("acceptedHead"),
@@ -636,7 +635,7 @@ def step_merge(r: Run, timeout):
     state = json.loads(run(["gh", "pr", "view", str(r.state["pr"]), "-R", r.state["repo"], "--json", "state"]))["state"]
     if state != "MERGED":  # merged by hand when the agent's auto mode refuses `gh pr merge`
         merge = subprocess.run(["gh", "pr", "merge", str(r.state["pr"]), "-R", r.state["repo"], "--squash", "--delete-branch"],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, check=False)
         if merge.returncode:
             raise RuntimeError(f"gh pr merge failed: {merge.stderr.strip()[-400:]}")
     h = r.http()
@@ -689,7 +688,7 @@ def step_events(r: Run):
     reconnect = read_stream(r, scope, last_event_id=middle, since=0, want=1)
     expect(not missing, f"missing event kinds {missing}")
     expect(done_steps == ["s1", "s2", "s3"], f"step.done events: {done_steps}")
-    expect(reconnect and reconnect[0]["id"] == after, f"Last-Event-ID {middle} with ?since=0 resumed at {[e["id"] for e in reconnect[:1]]}")
+    expect(reconnect and reconnect[0]["id"] == after, f"Last-Event-ID {middle} with ?since=0 resumed at {[e['id'] for e in reconnect[:1]]}")
     return {"count": len(events), "head": ids[-1] if ids else None, "kinds": kinds, "missing": missing,
             "stepDone": done_steps, "leaseKinds": sorted({k for k in kinds if k.startswith("lease.")}),
             "reviewKinds": sorted({k for k in kinds if k.startswith("review.")}),

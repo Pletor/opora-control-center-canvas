@@ -17,7 +17,12 @@
 
 from backend.editor.brief_vault.brief_vault_details import write_details
 from backend.editor.brief_vault.brief_vault_gate_rules import GATES, encode_gates, input_hash
-from backend.editor.brief_vault.brief_vault_model import MAX_BY, effective_disciplines, latest_rows, text_revisions
+from backend.editor.brief_vault.brief_vault_model import (
+    MAX_BY,
+    effective_disciplines,
+    latest_rows,
+    text_revisions,
+)
 from backend.editor.brief_vault.brief_vault_tree import live_ids
 
 NODE_REASON = "kartu upraví člověk nebo agent podle decision.text"

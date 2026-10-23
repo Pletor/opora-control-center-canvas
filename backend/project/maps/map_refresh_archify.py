@@ -339,9 +339,9 @@ def _agent_payload(raw):
         or not isinstance(payload["specification"], str)
         or not isinstance(payload["evidence"], list)
     ):
-        diagnostics = ["[agent/json] Odpověď nebyla jeden JSON objekt s klíči candidate, specification, "
-                       f"evidence (candidate objekt, specification text, evidence seznam); začátek odpovědi: "
-                       f"{_preview(content, 120)!r}"]
+        diagnostics = [("[agent/json] Odpověď nebyla jeden JSON objekt s klíči candidate, specification, "
+                        f"evidence (candidate objekt, specification text, evidence seznam); začátek odpovědi: "
+                        f"{_preview(content, 120)!r}")]
         raise ArchifyValidationError(_with_first("Claude neposkytl platný návrh Archify", diagnostics),
                                      diagnostics)
     if len(payload["specification"].encode("utf-8")) > MAX_SPEC_BYTES:
@@ -402,8 +402,8 @@ def _validate_evidence(source_root, candidate, evidence):
         if item["line"] > len(lines) or item["identifier"] not in lines[item["line"] - 1]:
             found = ("řádek neexistuje" if item["line"] > len(lines)
                      else f"řádek je {lines[item['line'] - 1].strip()[:160]!r}")
-            diagnostics = [f"[evidence/mismatch] {item['path']}:{item['line']} neobsahuje "
-                           f"identifikátor {item['identifier'][:120]!r} ({found})."]
+            diagnostics = [(f"[evidence/mismatch] {item['path']}:{item['line']} neobsahuje "
+                            f"identifikátor {item['identifier'][:120]!r} ({found}).")]
             raise ArchifyValidationError(
                 _with_first("Důkaz Archify neodpovídá cestě, řádku nebo identifikátoru", diagnostics),
                 diagnostics)
@@ -421,8 +421,8 @@ def _validate_evidence(source_root, candidate, evidence):
             ):
                 where = (f"{source.get('path')}:{source.get('line')}" if isinstance(source, dict)
                          else "neplatný zdroj")
-                diagnostics = [f"[evidence/component-source] Komponenta {str(component.get('id'))[:80]!r} "
-                               f"odkazuje na {where[:200]}, které v evidence chybí."]
+                diagnostics = [(f"[evidence/component-source] Komponenta {str(component.get('id'))[:80]!r} "
+                                f"odkazuje na {where[:200]}, které v evidence chybí.")]
                 raise ArchifyValidationError(
                     _with_first("Zdroj komponenty Archify nemá ověřený důkaz", diagnostics), diagnostics)
 

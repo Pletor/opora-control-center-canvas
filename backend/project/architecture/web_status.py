@@ -8,7 +8,7 @@ ruční obnovení je možné nejdřív po 30 s od poslední kontroly. Žádná h
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from backend.integrations.web_probe_client import probe_host
 
@@ -45,7 +45,7 @@ class WebStatusService:
         self.service = service
         self.probe = probe
         self.clock = clock
-        self.wall_clock = wall_clock or (lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        self.wall_clock = wall_clock or (lambda: datetime.now(UTC).isoformat(timespec="seconds"))
         self.cache = {}
         self.lock = threading.Lock()
         self.pool = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PROBES, thread_name_prefix="web-probe")

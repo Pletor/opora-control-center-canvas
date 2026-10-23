@@ -153,7 +153,7 @@ class ProjectArchitecture:
     def _replace(self, pid, wid, graph, expected, actor, label):
         canvas = self.canvas
         validate_graph(graph)
-        arch, content = split(graph)
+        _arch, content = split(graph)
         if content["nodes"] or content["edges"]:
             raise ValueError("Do architektury patří jen domény, stránky a sektory mezi nimi.")
         with canvas.graph_lock_for(pid):

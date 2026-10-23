@@ -97,7 +97,7 @@ def probe_host(host, health_path=None, resolver=default_resolver, connection_fac
             status, location, _ = _fetch(connection, "/")
         except ssl.SSLError as error:
             return _result("unreachable", f"chyba TLS: {error}", started=started)
-        except (ConnectionRefusedError, socket.timeout, TimeoutError) as error:
+        except (ConnectionRefusedError, TimeoutError) as error:
             if connection.sock is None:
                 return _result("dns_no_web", "port 443 odmítnut nebo bez odpovědi", started=started)
             return _result("unreachable", f"vypršelo čtení: {error}", started=started)
@@ -116,7 +116,6 @@ def probe_host(host, health_path=None, resolver=default_resolver, connection_fac
 
 
 def _apply_health(result, host, ip, health_path, connection_factory):
-    started = time.monotonic()
     connection = connection_factory(host, ip, TOTAL_TIMEOUT_SECONDS)
     try:
         status, _, body = _fetch(connection, health_path)

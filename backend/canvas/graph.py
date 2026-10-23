@@ -280,9 +280,10 @@ def validate_graph(value):
             raise ValueError("Komentář nemá vazby.")
         # Tok (`flow`) smí spojovat jen dvě oblasti; jiný port mezi oblastmi stejně jako
         # `flow` mimo oblasti je vždy chyba.
-        if source_kind == "area" or target_kind == "area" or edge.get("port") == "flow":
-            if source_kind != "area" or target_kind != "area" or edge.get("port") != "flow":
-                raise ValueError("Tok vede jen mezi oblastmi.")
+        if (source_kind == "area" or target_kind == "area" or edge.get("port") == "flow") and (
+            source_kind != "area" or target_kind != "area" or edge.get("port") != "flow"
+        ):
+            raise ValueError("Tok vede jen mezi oblastmi.")
         # Blok a port zdroje patří jen k portu `block` a naopak: půlka zápisu je vždy chyba.
         from_block = edge.get("port") == "block"
         if from_block != ("sourceBlockId" in edge):

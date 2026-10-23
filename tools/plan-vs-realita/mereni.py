@@ -349,7 +349,7 @@ def gh_pr_states(urls):
     for u in urls:
         try:
             p = subprocess.run(["gh", "pr", "view", u, "--json", "state,mergedAt"], capture_output=True, text=True,
-                               timeout=30, encoding="utf-8")
+                               timeout=30, encoding="utf-8", check=False)
             out[u] = json.loads(p.stdout) if p.returncode == 0 else {"error": p.stderr.strip()[:200]}
         except Exception as ex:  # noqa: BLE001
             out[u] = {"error": str(ex)}
