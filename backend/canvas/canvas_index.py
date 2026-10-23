@@ -23,7 +23,6 @@ from backend.canvas.card_context import (
 )
 
 INDEXED_KINDS = ("sector", "node", "area")
-ENTRY_KINDS = (*INDEXED_KINDS, "edge")
 DEFAULT_LIMIT = 200
 MAX_LIMIT = 2000
 MAX_QUERY = 1000

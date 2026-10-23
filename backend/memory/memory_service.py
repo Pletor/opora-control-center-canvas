@@ -197,9 +197,6 @@ class AppSettings:
     def celeris_key(self):
         return self.jev_key("celeris")
 
-    def set_celeris_key(self, key):
-        return self.set_jev_key(key, "celeris")
-
     def gate_check_permissions(self):
         """Povolení kontroly bran `{projekt: [poskytovatel…]}`; poškozený zápis = nic povoleno."""
         try:

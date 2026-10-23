@@ -195,6 +195,3 @@ def write_changes_in_transaction(canvas, db, project, workspace, changes, actor,
         db.execute("INSERT OR REPLACE INTO desktop_v3_state VALUES(?,?,?,?,?)",
                    (project, workspace, state_revision + 1,
                     json.dumps(state, ensure_ascii=False, allow_nan=False), datetime.now(UTC).isoformat()))
-
-
-apply_content = write_changes_in_transaction
