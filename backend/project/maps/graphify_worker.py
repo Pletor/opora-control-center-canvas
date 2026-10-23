@@ -30,6 +30,17 @@ def corpus_error(count, size):
     return None
 
 
+def ensure_html(output):
+    """Doplní `graph.html`, který `cluster-only` nad 5000 uzlů vynechá.
+
+    Původní CLI pak vytvoří souhrnný pohled po komunitách (`export html`, výchozí --node-limit 5000);
+    menší grafy zůstávají beze změny.
+    """
+    produced = output / 'graphify-out'
+    if not (produced / 'graph.html').is_file():
+        original_cli(['export', 'html', '--graph', str(produced / 'graph.json'), '--node-limit', '5000'])
+
+
 def main():
     from graphify.detect import detect
 
@@ -45,6 +56,7 @@ def main():
         raise SystemExit(error)
     original_cli(['extract', str(root), '--code-only', '--max-workers', '2', '--out', str(output)])
     original_cli(['cluster-only', str(output), '--no-label'])
+    ensure_html(output)
 
 
 if __name__ == '__main__':

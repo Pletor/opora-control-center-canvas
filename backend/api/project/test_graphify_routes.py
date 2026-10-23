@@ -109,7 +109,8 @@ def test_manual_generate_writes_the_same_stable_set_atomically(tmp_path, monkeyp
         (produced / 'graph.json').write_text(json.dumps({'nodes': [{'id': 'a'}], 'links': []}))
         (produced / 'graph.html').write_text('<html>new</html>')
         (produced / 'GRAPH_REPORT.md').write_text('# report')
-        (output / 'graphify.log').write_text('{"codeFiles": 1}\n')
+        (output / 'graphify.log').write_text('{"codeFiles": 1}\nSkipped graph.html: too large\n'
+                                             'graph.html written (aggregated: 3 community nodes, 2 cross-community edges)\n')
     monkeypatch.setattr(runtime, 'run_original', fake)
     runtime.generate_graph(service, 'mine')
     names = sorted(p.name for p in (root / 'graphify-out').iterdir())
@@ -117,6 +118,8 @@ def test_manual_generate_writes_the_same_stable_set_atomically(tmp_path, monkeyp
     assert (root / 'graphify-out/graph.html').read_text() == '<html>new</html>'
     receipt = json.loads((root / 'graphify-out/opora-receipt.json').read_text())
     assert receipt['hashes']['graph.html'] == hashlib.sha256(b'<html>new</html>').hexdigest()
+    # Souhrnný pohled velkého grafu UI ukáže jako upozornění původního Graphify.
+    assert receipt['warnings'] == ['graph.html written (aggregated: 3 community nodes, 2 cross-community edges)']
 
 
 def test_graphify_overview_reads_only_graph_json(tmp_path, monkeypatch):
