@@ -2,7 +2,7 @@
 
 Prostor mezi plánem a kódem: člověk vidí, co změna dělá (části, vazby, toky dat s payloady, cesty a řádky v kódu), agent čte tentýž **spec** jako data přes `GET /api/oporahub/review-lens`, ne obrázky. Kontrakt: `docs/oporahub-review-jobs.md` („Diagram PR Lens“) a `docs/cista-linie.md` §4. Připojuje ho záložka `oporahub-card-drawer/lens-tab/`.
 
-- `components/ReviewLensPanel.tsx` — vstup: vizitka (`LensHeader`), prázdný stav (jak spec přichází) a líně načtené plátno `LensStage` (`React.lazy`), takže renderer `@coldtea/pr-lens-renderer` a schéma `@coldtea/pr-lens-schema` (se zod) jsou v samostatném chunku.
+- `components/ReviewLensPanel.tsx` — vstup: vizitka (`LensHeader`), prázdný stav (jak spec přichází), poznámka místo specu („Lens je příliš velký / ze starší verze, viz PR #n“) a líně načtené plátno `LensStage` (`React.lazy`), takže renderer `@coldtea/pr-lens-renderer` a schéma `@coldtea/pr-lens-schema` (se zod) jsou v samostatném chunku.
 - `components/LensStage.tsx` — ověří spec schématem PR Lens, přepínač čoček a pohledů (`views`, jinak čočky), průvodce (`W`/→ další, ← zpět, Esc stop; zachytávací fáze, takže Esc nezavře detail), boční panel.
 - `components/LensViewport.tsx` — obrázek jako `<img src=blob:…>` (žádné `innerHTML`, skripty v SVG neběží, SMIL animace ano), přiblížení kolečkem a tlačítky, posun tažením, React překryv z rámečků atlasu (terče karet a kroků toku, zlatý okraj kroku průvodce).
 - `components/CardPanel.tsx` — část: změna (nové/změněné/odebrané), popis, soubory s řádky a odkazy do GitHubu, příchozí a odchozí vazby. `components/PayloadPanel.tsx` — krok toku: request/response, tvar a ukázka s rozdílem před/po.
