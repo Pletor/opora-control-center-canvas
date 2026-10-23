@@ -171,7 +171,11 @@ class OporaExecutions:
             record = repo.read(identifier)
             self.authenticate(record, token)
             keys = ("executionId", "project", "workspace", "nodeId", "epoch", "acceptedRevision", "assignmentDigest", "assignment")
-            return {key: record[key] for key in keys} | {key: record[key] for key in ("executionProtocolVersion", "budget", "contextProtocolVersion") if key in record}
+            from backend.canvas.opora_execution_steps import assignment_progress
+            # `progress` is live (steps already done by this or an earlier run), outside the immutable digest.
+            return ({key: record[key] for key in keys}
+                    | {key: record[key] for key in ("executionProtocolVersion", "budget", "contextProtocolVersion") if key in record}
+                    | {"progress": assignment_progress(repo.db, record)})
 
     def heartbeat(self, identifier, payload):
         project, workspace = validate(payload, {"token", "epoch", "ttlSeconds"})

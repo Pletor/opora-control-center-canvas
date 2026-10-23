@@ -112,6 +112,10 @@ def test_full_agent_loop_against_the_real_backend(backend, capsys, tmp_path):
     assert code == 0 and Path(assigned['file']).is_file() and bundle['token'] not in Path(assigned['file']).read_text('utf-8')
     code, beat, _ = run(capsys, 'heartbeat', '--execution', execution, '--ttl', '120')
     assert code == 0 and beat['epoch'] == bundle['epoch'] and 'assignment' not in beat  # jen oprávnění
+    step = ('step', '--execution', execution, '--step-id', 's1', '--status', 'done', '--notes', 'ok', '--check', 'pytest')
+    code, checkpoint, out = run(capsys, *step)
+    assert code == 0 and checkpoint['stepId'] == 's1' and bundle['token'] not in out
+    assert run(capsys, *step)[1] == checkpoint  # stejný krok a stav → stejné potvrzení
 
     result = tmp_path / 'result.json'
     result.write_text(json.dumps({'summary': 'Hotovo', 'stepResults': [

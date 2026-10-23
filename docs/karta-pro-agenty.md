@@ -25,6 +25,9 @@ uvolnění rezervace. Nelze jimi obejít expiraci nebo novou epochu. Výslovné 
 operace zůstávají dostupné. U nezařazených karet se zachovává dosavadní protokol.
 Execution potvrzení dokládá přijetí agentova tvrzení, nikoli splnění všech
 podmínek, nezávislé review nebo dokončení karty.
+Rozhodnutí běhu (`result.decisions`) se ukládají do `decisions` s `by: "agent"`
+a navíc s `executionId` běhu; kroky se hlásí průběžně (`POST /executions/{id}/steps`).
+Rozhodnutí v `decisions` tak má volitelný klíč `executionId` vedle volitelného `supersedes`.
 
 ## Pět pohledů, které karta odráží
 

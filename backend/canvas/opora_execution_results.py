@@ -1,9 +1,11 @@
 """Idempotent reported evidence; never a card-completion mutation."""
 import uuid
 
+from backend.canvas import opora_execution_decisions as execution_decisions
 from backend.canvas import opora_step_results as step_results
 from backend.canvas.canvas_service import now
 from backend.canvas.opora_change_validation import scope
+from backend.canvas.opora_execution_steps import reported_pairs
 from backend.canvas.opora_execution_validation import result_digest, validate
 from backend.canvas.opora_executions import OporaExecutions
 
@@ -37,6 +39,7 @@ class ExecutionResults(OporaExecutions):
                 return prior[1]
             self.active(repo, record)
             steps = step_results.validate_step_results(payload["result"], record["assignment"].get("steps"))
+            decisions = execution_decisions.validate_decisions(payload["result"])
             receipt = {"receiptId": uuid.uuid4().hex, "executionId": identifier,
                        "requestId": payload["requestId"], "result": payload["result"], "state": "reported",
                        "acceptedRevision": record["acceptedRevision"], "assignmentDigest": record["assignmentDigest"],
@@ -52,8 +55,13 @@ class ExecutionResults(OporaExecutions):
                 from database.repositories.opora_execution_contexts import read_proof
                 receipt.update(contextProtocolVersion=2,
                                contextValidation=read_proof(repo.db, *repo.scope, identifier))
+            if decisions:  # stored as card decisions with this executionId (opora_execution_decisions.py)
+                receipt["decisionIds"] = execution_decisions.store(self.canvas, repo.db, record, decisions)
             repo.insert_receipt(identifier, payload["requestId"], fingerprint, receipt)
-            step_results.emit_step_events(repo.db, record, steps)  # same transaction as the receipt
+            # Same transaction as the receipt; steps already announced by a checkpoint are not repeated.
+            announced = reported_pairs(repo, identifier)
+            step_results.emit_step_events(repo.db, record, [item for item in steps
+                                                            if (item["stepId"], item["status"]) not in announced])
             self.finish(repo, record, "reported")
             from backend.canvas.opora_lease_events import reported
             reported(repo, record, receipt)

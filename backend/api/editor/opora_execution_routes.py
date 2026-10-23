@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from backend.canvas.opora_execution_context import prepare
 from backend.canvas.opora_execution_results import ExecutionResults
+from backend.canvas.opora_execution_steps import checkpoint
 
 ASSIGNMENT_VIEWS = ("include", "omit")
 
@@ -77,6 +78,10 @@ def create_opora_execution_router(service):
     @router.post("/{identifier}/release")
     def release(identifier: str, payload: dict, request: Request):
         return call(request, lambda: executions.release(identifier, payload))
+
+    @router.post("/{identifier}/steps")
+    def steps(identifier: str, payload: dict, request: Request):
+        return call(request, lambda: checkpoint(executions, identifier, payload))
 
     @router.post("/{identifier}/results")
     def results(identifier: str, payload: dict, request: Request):

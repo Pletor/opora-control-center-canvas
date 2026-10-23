@@ -1,4 +1,4 @@
-"""Additive execution enrollment, immutable assignments and result receipts."""
+"""Additive execution enrollment, immutable assignments, result receipts and step checkpoints."""
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS opora_execution_epochs (
  project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
@@ -12,4 +12,8 @@ CREATE TABLE IF NOT EXISTS opora_execution_results (
  project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
  execution_id TEXT NOT NULL, request_id TEXT NOT NULL, digest TEXT NOT NULL,
  record TEXT NOT NULL, PRIMARY KEY(execution_id,request_id));
+CREATE TABLE IF NOT EXISTS opora_execution_steps (
+ project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
+ execution_id TEXT NOT NULL, request_id TEXT NOT NULL, step_id TEXT NOT NULL,
+ digest TEXT NOT NULL, record TEXT NOT NULL, PRIMARY KEY(execution_id,request_id));
 """

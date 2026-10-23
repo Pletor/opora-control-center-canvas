@@ -108,6 +108,7 @@ zvoleného projektu v kanceláři nepřesměruje existující běh.
 | `GET /{id}/assignment?project&workspace` | Neměnné zadání včetně `handoff` předchůdců (do 8 kB); token v `X-Opora-Execution-Token` |
 | `POST /{id}/heartbeat` | Scope, token, epocha a nové TTL |
 | `POST /{id}/release` | Scope, token a epocha; uvolnění vlastního běhu |
+| `POST /{id}/steps` | Scope, token, epocha, `requestId`, `stepId`, `status`, `evidence`; průběžný krok ([kroky plánu](oporahub-plan-steps.md)) |
 | `POST /{id}/results` | Scope, token, epocha, `requestId` a `result` |
 | `GET /?project&workspace` (volitelně `nodeId`) | Nejvýše 100 souhrnů běhů bez tokenů; bez filtru také běhy odstraněných karet |
 | `GET /{id}/results?project&workspace` | Odevzdané výsledky konkrétního běhu |
@@ -119,6 +120,18 @@ při claimu i heartbeatu kontroluje). `omit` vrátí jen oprávnění běhu (`ex
 zadání si klient přečte jednou přes `GET /{id}/assignment`. Zadání tvořilo 82 % bajtů,
 které agent v B čte (A/B protokol, nález N4). Skill posílá `omit`; po přechodu kanceláře
 (M5) se výchozí hodnota přepne na `omit`. Neznámá hodnota je 409 ještě před převzetím.
+
+`GET /{id}/assignment` vrací vedle neměnného `assignment` i živé `progress`: které kroky snímku už
+hotově ohlásil tento nebo dřívější běh karty a který je `current`. Nový běh po pádu tak navazuje
+prvním nehotovým krokem.
+
+`result.decisions` (nepovinné) je seznam nejvýše 20 neprázdných textů. V transakci výsledku se uloží
+jako rozhodnutí karty ve stavu (`state.decisions`):
+`{id, text, pinned: false, path: "", nodeId, createdAt, by: "agent", executionId}`; potvrzení nese
+`decisionIds`. Opakované odeslání výsledku je nezduplikuje. `executionId` je nepovinný klíč rozhodnutí
+(starší rozhodnutí bez něj platí dál) a člověk ho opravuje jako každé jiné rozhodnutí. Zápis zvýší
+revizi stavu; běh jiné karty, jejíž snímek rozhodnutí této karty nese (vazba, předek), tím
+oprávnění může ztratit jako po lidské změně.
 
 TTL je celé číslo 30–3600 sekund. Chybějící identita vrací 428; konflikt
 oprávnění nebo zastaralé očekávání 409. Token je oprávnění konkrétního běhu,

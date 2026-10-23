@@ -54,7 +54,8 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 | `POST /api/oporahub/executions/claim` | hub | `opora_hub.py claim --action-id`; `?assignment=omit` = bez zadání |
 | `GET /api/oporahub/executions/{id}/assignment` | hub | hlavička `X-Opora-Execution-Token`; nese `handoff` předchůdců (do 8 kB) |
 | `POST /api/oporahub/executions/{id}/heartbeat` | hub | `?assignment=omit` = jen oprávnění |
-| `POST /api/oporahub/executions/{id}/results` | hub | `stepResults` volitelně; GET = potvrzení |
+| `POST /api/oporahub/executions/{id}/steps` | hub | `opora_hub.py step`; průběžný krok `{requestId, stepId, status, evidence}` |
+| `POST /api/oporahub/executions/{id}/results` | hub | `stepResults`, `decisions` volitelně; GET = potvrzení |
 | `POST /api/oporahub/executions/{id}/release` | hub | uvolnění vlastního běhu |
 | `POST /api/oporahub/executions/{id}/pull-request` | hub | připojuje agent-office; agent ručně ne |
 | `GET /api/oporahub/executions` | read | ≤ 100 souhrnů běhů bez tokenů |
