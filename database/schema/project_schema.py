@@ -10,9 +10,9 @@ from database.schema.opora_content_schema import SCHEMA as CONTENT_SCHEMA
 from database.schema.opora_content_schema import TABLES as CONTENT_TABLES
 from database.schema.opora_context_binding_schema import SCHEMA as CONTEXT_BINDING_SCHEMA
 from database.schema.opora_context_event_schema import SCHEMA as CONTEXT_SCHEMA
+from database.schema.opora_context_event_schema import TABLES as CONTEXT_TABLES
 from database.schema.opora_design_preview_schema import SCHEMA as DESIGN_PREVIEW_SCHEMA
 from database.schema.opora_design_preview_schema import TABLES as DESIGN_PREVIEW_TABLES
-from database.schema.opora_context_event_schema import TABLES as CONTEXT_TABLES
 from database.schema.opora_event_schema import SCHEMA as EVENT_SCHEMA
 from database.schema.opora_execution_budget_schema import BUDGET_SCHEMA, BUDGET_TABLES
 from database.schema.opora_execution_context_schema import SCHEMA as EXECUTION_CONTEXT_SCHEMA
