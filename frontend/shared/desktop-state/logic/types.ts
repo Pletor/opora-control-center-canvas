@@ -116,7 +116,7 @@ export type NodeWorkflowState = {
   ideas?: import("@/editor/node-detail/ideas/logic/ideas-model").CardIdea[];
   /** Odkud karta vznikla ve schránce zadání: fragment a revize při vložení (zapisuje canvas-plan). */
   fragmentRefs?: import("@/editor/node-detail/brief-vault/logic/brief-vault-model").FragmentRef[];
-  /** Aktuální kolo karty (chybí = kolo 1); mění ho jen otevření nového kola člověkem (POST /api/desktop-v3/card-round). */
+  /** Zrušené kolo karty (rozhodnutí 23. 10.): server ho nepřijímá, čte ho jen model karty (kolo 1). */
   round?: import("@/editor/node-detail/rounds/logic/rounds-model").CardRound;
 };
 /** Stav uzlu se všemi bloky vyplněnými; oba bloky se ukládají vždy spolu. */

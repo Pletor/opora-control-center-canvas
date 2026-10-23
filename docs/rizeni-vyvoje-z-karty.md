@@ -20,7 +20,7 @@ průběh etap je `desktop_v3_state.stages`; soubory procesů (`processes/`) jsou
 | Stav karty Desktop v3 (fáze, bloky s porty, pipeline etap `stages`, důkazy, podněty `ideas`, kolo `round`, `done`, pravidla, rozhodnutí, zprávy na vazbách `edges`) | tabulka `desktop_v3_state` (jeden revizovaný dokument per workspace) | člověk z inspektoru, agent přes `agent-output` a `block` | každý zápis je CAS na `expectedRevision` |
 | Text karty, zadání (`goal / non_goals / acceptance`), deník, odkazy | `node_text_revisions`, `node_spec_revisions`, `node_journal_revisions`, `workspace_documents` | člověk, agent přes `node-text` / `node-spec` | revize se nemažou |
 | Prostor agenta (`frame / log / failures / fixes / handoff`) | `agent_workspace_revisions` | agent; člověk smí číst i psát | paměť karty, ne zadání |
-| Snímek zadání při převzetí, lease, výsledky agentů, kola karty | `assignment_snapshots`, `card_leases`, `agent_result_records`, `card_rounds` | server při `lease claim`, `agent-output`, `card-round` | append-only evidence; `contextVersion` váže výsledek na verzi zadání |
+| Snímek zadání při převzetí, lease, výsledky agentů | `assignment_snapshots`, `card_leases`, `agent_result_records` | server při `lease claim`, `agent-output` | append-only evidence; `contextVersion` váže výsledek na verzi zadání |
 | Adresované zprávy mezi kartami a potvrzení | `agent_messages`, `agent_message_receipts` | agenti | `identityVerified: false` je záměrné |
 | Podklady (obrázky, soubory ke kartě), kresby vrstvy | `nodes/<id>/`, `drawing_revisions`, `drawing_files` | člověk | kresba je per vrstva, obrázky s ní |
 | Procesy (návrh → běh → hotovo ⇄ oprava) a odpovědi agentů | `processes/<prc-id>/*.json` | člověk, agent | `shared/process.schema.json` |
@@ -54,7 +54,7 @@ spec + bloky + pravidla → lease + snímek zadání → prostor agenta → agen
 4. **Kritici** (`review`, `critic` s pohledy hodný uživatel / vyčuraný / hacker) dají `failed` jen pro
    blokátor; jinak `passed` + podnět do `ideas`. Selhání samo vloží `fix` a opakování; po dvou smyčkách
    karta čeká na člověka (jantar na plátně).
-5. **Uzavření**: agent `done` jen navrhne, člověk potvrdí. Kolo se zamrazí do `card_rounds`, prostor agenta
+5. **Uzavření**: agent `done` jen navrhne, člověk potvrdí. Prostor agenta
    se zrcadlí do paměti role, mapy se po mergi přepíší.
 
 Nic z toho se nepředává chatem. Když si agent potřebuje něco poznamenat pro dalšího, jde to do prostoru
