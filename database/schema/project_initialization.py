@@ -18,6 +18,8 @@ def initialize_project_schema(db):
     ensure_process_columns(db)
     from database.repositories.opora_context_events import install
     install(db)
+    from database.schema.dead_tables import drop_dead_tables
+    drop_dead_tables(db)
 
 
 def restore_project_backup(db, path):
