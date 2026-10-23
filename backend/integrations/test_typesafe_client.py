@@ -97,7 +97,9 @@ def test_opener_does_not_follow_redirect():
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
-            hits.append(self.path)
+            # Drain the request before closing: unread POST bytes can reset a Windows socket.
+            body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            hits.append((self.path, body))
             if self.path == "/start":
                 self.send_response(307)
                 self.send_header("Location", "/elsewhere")
@@ -120,11 +122,13 @@ def test_opener_does_not_follow_redirect():
         request = urllib.request.Request(url, data=b"{}", headers={"Authorization": "Bearer secret"}, method="POST")
         with pytest.raises(urllib.error.HTTPError) as caught:
             build_opener().open(request, timeout=5)
-        assert caught.value.code == 307
-        assert hits == ["/start"]
+        with caught.value:
+            assert caught.value.code == 307
+            assert hits == [("/start", b"{}")]
     finally:
         server.shutdown()
         server.server_close()
+        thread.join(timeout=5)
 
 
 def test_failures_return_none():
