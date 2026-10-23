@@ -14,4 +14,6 @@ Schéma a přístup k datům. Data leží ve složce každého projektu; centrá
 
 Tabulky vytváří jen `CanvasService` (`db_for(project)` otevře `project.sqlite` a aplikuje `PROJECT_SCHEMA`); vlastnící moduly je čtou a píší. Stará `canvas.sqlite` se při prvním startu jednorázově rozdělí (`backend/canvas/migrate_to_project_folders.py`) a přejmenuje na `canvas.sqlite.migrated-<čas>`.
 
+Mrtvé tabulky `node_sessions`, `agent_bindings`, `agent_binding_scopes` a `agent_activity_entries` (po odstraněném vázání agentů na uzly) maže při otevření projektu `database/schema/dead_tables.py` (audit sirotků B8): jen prázdné a jen v projektu, který není zapsaný do SQL kontextu (`opora_context_coverage`), protože každé DDL posune `PRAGMA schema_version`. Před nasazením zálohuj `projects/*/project.sqlite`.
+
 Podsložky `repositories/` a `seeds/` jsou sloty.
