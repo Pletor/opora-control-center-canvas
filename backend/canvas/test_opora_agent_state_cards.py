@@ -1,5 +1,5 @@
 """Per-card loop stage (docs/oporahub-agent-state.md, "Etapa karty"): first matching rule wins."""
-from backend.canvas.opora_agent_state_cards import card_stage, project
+from backend.canvas.opora_agent_state_cards import card_stage, page, project
 
 HEAD = "a" * 40
 
@@ -55,3 +55,16 @@ def test_project_is_sorted_and_prefers_the_open_link():
     assert [row["nodeId"] for row in rows] == ["a", "b"]
     assert rows[0] == {"nodeId": "a", "stage": "review", "health": "waiting", "reason": "self_checks_missing", "executionId": "e1"}
     assert list(rows[1]) == ["nodeId", "stage", "health", "reason", "executionId"]
+
+
+def test_page_orders_by_relevance_and_caps_closed_cards_first():
+    def entry(node, stage_, reason):
+        return {"nodeId": node, "stage": stage_, "reason": reason}
+    rows = [entry("a", "plan_writeback", "card_closed"), entry("b", "plan", "card_in_plan"),
+            entry("c", "claim", "blocked_by_predecessor"), entry("d", "claim", "cards_ready"),
+            entry("e", "work", "runs_active"), entry("f", "plan_writeback", "plan_written_back"),
+            entry("g", "plan_writeback", "merged_without_plan_writeback")]
+    shown, total, following = page(rows, 0, 5)
+    assert [row["nodeId"] for row in shown] == ["e", "g", "d", "c", "b"] and total == 7 and following == 5
+    rest, _, done = page(rows, following, 5)
+    assert [row["nodeId"] for row in rest] == ["a", "f"] and done is None

@@ -1,7 +1,7 @@
 # Stav pro agenty: jeden deterministický dokument
 
 Agent dosud skládal obraz OporaHubu z přibližně čtrnácti endpointů a sám usuzoval,
-co dál. `GET /api/oporahub/agent-state?project=<id>&workspace=<id>` vrací jeden
+co dál. `GET /api/oporahub/agent-state?project=<id>&workspace=<id>[&cardsOffset=<n>]` vrací jeden
 strojově čitelný dokument: přesné hlavy pro CAS, zdraví každé etapy smyčky,
 rozhodnutí čekající na člověka a seznam připravených či blokovaných akcí. Další
 krok počítá backend podle pevných pravidel, ne jazykový model. Stejná data budou
@@ -28,8 +28,10 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `decisions[]` | Nejvýše 3 rozhodnutí člověka `{id, kind, targetId, title, actionId}` |
 | `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?}` |
 | `gaps[]` | Známé nenapojené schopnosti `{id, stage, reason}` |
-| `cards[]` | Etapa každé karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease, lastEventAt}` seřazená podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)); `lastEventAt` je čas (`at`, ISO) nejnovější události karty v prostoru, `null` bez události |
-| `truncated` | Projekce karet narazila na limit 100 (`ProcessSync`) |
+| `cards[]` | Etapa karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease, lastEventAt}`, nejvýše 100 na stránku, seřazené podle [důležitosti](#strop-a-stránkování-karet) a uvnitř podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)); `lastEventAt` je čas (`at`, ISO) nejnovější události karty v prostoru, `null` bez události |
+| `truncated` | `cards[]` neobsahuje všechny karty prostoru (další stránka existuje nebo `cardsOffset > 0`); `actions`, `decisions`, `stages` a `heads` jsou přesto vždy úplné |
+| `cardsTotal` | Počet všech karet (uzel, sektor) prostoru |
+| `cardsNextOffset` | Hodnota `cardsOffset` pro další stránku `cards[]`, `null` na poslední stránce |
 | `eventsCursor` | Kurzor [toku událostí](oporahub-events.md) (`id` poslední události outboxu, `0` bez událostí) přečtený ve **stejném snímku** jako zbytek dokumentu (viz [Podmíněné čtení](#podmíněné-čtení)) |
 
 `health` je `ok`, `waiting`, `blocking` nebo `not_connected`. `reason` je strojový kód.
@@ -73,8 +75,27 @@ v nejvzdálenější dosažené etapě; platí první pravidlo:
 | akce `claim` karty | `claim` / `ok` / `cards_ready`, blokovaná → `blocking` / `budget_exhausted`, `budget_policy_required` či `blocked_by_predecessor` |
 | jinak | `plan` / `ok` / `card_in_plan` (bez přijatého základu `blocking` / `no_accepted_baseline`) |
 
-`executionId` je běh, ke kterému etapa patří (u PR běh vazby), jinak `null`. Seznam má stejný limit
-jako projekce karet (`truncated`).
+`executionId` je běh, ke kterému etapa patří (u PR běh vazby), jinak `null`.
+
+### Strop a stránkování karet
+
+Akce, rozhodnutí a etapy se počítají ze **všech** karet prostoru (`ProcessSync.read(..., limit=None)`);
+strop 100 (`CARD_LIMIT` v `opora_agent_state_cards.py`) platí jen pro výpis `cards[]`. Dřív se karty
+ořízly už v projekci procesu v pořadí vzniku, takže karta za stou nedostala ani akci `claim`
+a autopilot ji nikdy nepřevzal. Výpis je seřazený podle důležitosti, takže strop ubírá nejdřív
+uzavřené karty:
+
+| Pořadí | Karty |
+|---|---|
+| 0 | rozjeté: běh, důkazy, review, PR, merge, sloučené bez zápisu do plánu |
+| 1 | `claim` / `cards_ready` |
+| 2 | blokovaný `claim` (`blocked_by_predecessor`, rozpočet) |
+| 3 | `plan` (v plánu, bez akce) |
+| 4 | uzavřené (`card_closed`, `plan_written_back`) |
+
+Zbytek agent dočte parametrem `cardsOffset=<cardsNextOffset>` (celé číslo `>= 0`, záporné → `422`):
+stejný snímek akcí, jen další okno `cards[]`. Každá stránka má vlastní ETag (tělo se liší), takže
+`If-None-Match` platí per stránka. Mezi stránkami se může stav změnit; rozhoduje vždy `actions[]`.
 
 ## Graf karet (DAG)
 
@@ -186,6 +207,7 @@ Vždy přítomné: `ai_review` (kontrolu výsledku dělá člověk; chybí, kdy�
 
 ## Ověření
 
-`uv run pytest backend/canvas/test_opora_agent_state.py backend/canvas/test_opora_agent_state_pull_integration.py backend/api/editor/test_opora_agent_state_routes.py`
+`uv run pytest backend/canvas/test_opora_agent_state.py backend/canvas/test_opora_agent_state_card_page.py backend/canvas/test_opora_agent_state_pull_integration.py backend/api/editor/test_opora_agent_state_routes.py`
 pokrývá tvar, prázdný projekt, každé pravidlo zdraví, `human_only` u přijetí,
-deterministická ID, vyčerpaný rozpočet, vazbu PR, čtení bez SQL zápisů a `304`.
+deterministická ID, vyčerpaný rozpočet, vazbu PR, čtení bez SQL zápisů, `304` a plán nad 100 karet
+(akce `claim` za starým řezem, uzavřené karty až na konci, `cardsOffset`).

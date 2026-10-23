@@ -13,7 +13,7 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 
 | Cesta | Čím | Poznámka |
 |---|---|---|
-| `GET /api/oporahub/agent-state` | read | ETag / `If-None-Match` → 304; jen čtení |
+| `GET /api/oporahub/agent-state` | read | ETag / `If-None-Match` → 304; jen čtení; `cards[]` max 100 po důležitosti, zbytek `cardsOffset=<cardsNextOffset>` (akce vždy úplné) |
 | `GET /api/oporahub/process` | read | starší projekce procesu (`opora_read.py process-sync`) |
 | `GET /api/oporahub/events` | read | feed událostí (`since`, `limit`), [events.md](events.md) |
 | `GET /api/oporahub/events/stream` | read | SSE, `Last-Event-ID` |
