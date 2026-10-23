@@ -70,6 +70,12 @@ Frontend to obsluhuje v `frontend/app/access-gate/`: při startu se zeptá na st
 volání `api()` dostane 401, pošle událost okna `opora:access-required` a brána se vrátí — i uprostřed
 práce. Token se nikdy neukládá do `localStorage` ani do URL; drží ho jen cookie prohlížeče.
 
+Venku s platným přihlášením stojí dole uprostřed obrazovky malá pilulka „Vzdálený přístup · <host>“
+s tlačítkem **Odhlásit**. To pošle `POST /api/access/logout`, cookie `opora_access` zmizí a brána
+se hned zamkne zpátky na přihlašovací formulář s větou „Odhlášeno…“; aplikace se znovu otevře jen
+tokenem. Hodí se na cizím nebo sdíleném počítači, kde se nechce čekat, až cookie vyprší. Doma
+(loopback) se pilulka ani tlačítko neukážou.
+
 ## Postup (tři kroky)
 
 ```powershell

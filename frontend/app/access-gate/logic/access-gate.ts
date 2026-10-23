@@ -45,3 +45,10 @@ export function tokenHint(value: string): string {
   if (value.length === 0) return "";
   return tokenIsUsable(value) ? "" : `Token má nejméně ${MIN_TOKEN_LENGTH} znaků.`;
 }
+
+/** Odhlásit jde jen venku s platným přihlášením; doma (loopback) žádná brána ani odhlášení není. */
+export const canLogout = (status: AccessStatus | null): boolean =>
+  status !== null && status.remote && status.authenticated;
+
+/** Věta na bráně po vlastním odhlášení (není to chyba, proto ne `role="alert"`). */
+export const LOGGED_OUT_NOTICE = "Odhlášeno. Cookie přístupu je pryč; pro návrat zadejte token.";

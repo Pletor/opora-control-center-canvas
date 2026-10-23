@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { api } from "@/shared/types/logic/types";
 import {
   ACCESS_REQUIRED_EVENT,
+  canLogout,
+  LOGGED_OUT_NOTICE,
   LOCAL_STATUS,
   lockedOut,
   needsGate,
@@ -21,6 +23,7 @@ export default function AccessGate({ children }: { children: ReactNode }) {
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -38,6 +41,7 @@ export default function AccessGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     const relock = () => {
       setStatus((current) => lockedOut(current));
+      setNotice("");
       setError("Přístup vypršel. Přihlaste se znovu.");
     };
     window.addEventListener(ACCESS_REQUIRED_EVENT, relock);
@@ -49,6 +53,7 @@ export default function AccessGate({ children }: { children: ReactNode }) {
     if (busy || !tokenIsUsable(token)) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       await api<{ ok: boolean }>("/api/access/login", { token: token.trim() });
       setToken("");
@@ -60,8 +65,41 @@ export default function AccessGate({ children }: { children: ReactNode }) {
     }
   }
 
+  /** `POST /api/access/logout` smaže cookie `opora_access`; brána se zamkne hned, bez dalšího dotazu. */
+  async function logout() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api<{ ok: boolean }>("/api/access/logout", {});
+      setStatus((current) => lockedOut(current));
+      setError("");
+      setNotice(LOGGED_OUT_NOTICE);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Odhlášení se nezdařilo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (status === null) return null;
-  if (!needsGate(status)) return <>{children}</>;
+  if (!needsGate(status)) {
+    return (
+      <>
+        {children}
+        {canLogout(status) ? (
+          <div className="access-gate__session" role="group" aria-label="Vzdálený přístup">
+            <span className="access-gate__session-host" title={status.host}>
+              Vzdálený přístup · {status.host}
+            </span>
+            <button type="button" className="access-gate__logout" disabled={busy} onClick={() => void logout()}>
+              {busy ? "Odhlašuji…" : "Odhlásit"}
+            </button>
+            {error ? <span className="access-gate__session-error" role="alert">{error}</span> : null}
+          </div>
+        ) : null}
+      </>
+    );
+  }
   const hint = tokenHint(token);
   return (
     <div className="access-gate">
@@ -86,6 +124,7 @@ export default function AccessGate({ children }: { children: ReactNode }) {
           onChange={(event) => setToken(event.target.value)}
         />
         {hint ? <p className="access-gate__hint">{hint}</p> : null}
+        {notice && !error ? <p className="access-gate__notice">{notice}</p> : null}
         {error ? (
           <p className="access-gate__error" role="alert">
             {error}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AssistantInstructionsSetting from "@/settings/components/AssistantInstructionsSetting";
+import JevKeySetting from "@/settings/components/JevKeySetting";
 import { instructionsPayload, parseAssistantInstructions, type AssistantInstructions } from "@/settings/logic/assistant-instructions";
 import { api } from "@/shared/types/logic/types";
 
@@ -62,6 +63,7 @@ export default function AssistantSection() {
         onSave={() => void write(draft)}
         onReset={() => void write(null)}
       />
+      <JevKeySetting />
     </section>
   );
 }
