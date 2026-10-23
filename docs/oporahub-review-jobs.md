@@ -259,16 +259,22 @@ oblasti už ne. Běh uvolněný, odvolaný nebo zrušený bez výsledku dostane 
 víc → 413 `payload_too_large`, neplatný JSON → 400). `lens` je jedno z:
 
 - **graf změny PR** `{kind?: "pr", prNumber, headSha, validatedAt, spec?, url?, specUrl?,
-  specSha256?, specBytes?}`, kde je potřeba `spec` nebo `url` (`url`/`specUrl` jsou volitelné,
-  jen `https` na `github.com` nebo `raw.githubusercontent.com`). Platí jen pro otevřený propojený
+  specSha256?, specBytes?, stale?, note?}`, kde je potřeba `spec`, `url` nebo `note` (`url`/`specUrl`
+  jsou volitelné, jen `https` na `github.com` nebo `raw.githubusercontent.com`). `note` je prostý
+  text (oříznutý, 1–500 znaků, bez řídicích znaků), `stale` boolean. Záznam jen s `note` (bez
+  `spec` i `url`) je **ohlášení bez specu**: office ho posílá, když je spec větší než 64 KiB
+  (`note: "spec too large"`) nebo nakreslený pro starší hlavu (`stale: true`), vždy se
+  `specSha256` a `specBytes`; záložka Lens pak řekne „Lens je příliš velký, viz PR #n“ (resp.
+  „ze starší verze“) místo prázdného stavu. Platí jen pro otevřený propojený
   PR běhu a jeho aktuální hlavu (`prNumber` a `headSha` musí sedět, jinak **409**); první zápis
-  na hlavu vyhrává, stejný obsah je idempotentní, jiný obsah 409.
+  na hlavu vyhrává, stejný obsah je idempotentní, jiný obsah 409; jedinou výjimkou je ohlášení
+  bez specu, které pozdější `spec`/`url` pro stejnou hlavu nahradí (obráceně ne).
 - **mapa oblasti před kódem** `{kind: "area", validatedAt, spec}`: vázaná na přijatou revizi
   plánu běhu (`acceptedRevision` doplní server), `headSha` je `null`, PR nepotřebuje a během běhu
   ji jde překreslit (nahradí se). Jakmile existuje graf PR, člověk vidí ten; mapa zůstává
   dostupná agentům.
 
-`spec` je graf PR Lens (`kind: graph`) do 64 KiB, `specBytes` nejvýš 512 KiB. Server spec ukládá
+`spec` je graf PR Lens (`kind: graph`) do 64 KiB, `specBytes` nejvýš 8 MiB (strop office). Server spec ukládá
 jako nedůvěryhodná data a jinak ho neinterpretuje; prohlížeč ho před kreslením ověří schématem
 `@coldtea/pr-lens-schema` (0.7.0), SVG z rendereru (`@coldtea/pr-lens-renderer` 0.3.2, text
 escapuje) ukazuje jen jako `<img>` z Blob URL (žádné `innerHTML`) a cesty souborů jen jako text

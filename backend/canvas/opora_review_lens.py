@@ -23,9 +23,10 @@ from database.repositories.opora_execution_pull_requests import ExecutionPullReq
 SHA, SHA256 = re.compile(r"[0-9a-f]{40}"), re.compile(r"[0-9a-f]{64}")
 EXECUTION = re.compile(r"[A-Za-z0-9_-]{1,80}")
 HOSTS = ("github.com", "raw.githubusercontent.com")
-PR_FIELDS = {"kind", "prNumber", "headSha", "validatedAt", "url", "specUrl", "specSha256", "specBytes", "spec"}
+PR_FIELDS = {"kind", "prNumber", "headSha", "validatedAt", "url", "specUrl", "specSha256", "specBytes", "spec",
+             "stale", "note"}
 AREA_FIELDS = {"kind", "validatedAt", "spec"}
-MAX_URL, MAX_SPEC_BYTES, MAX_INLINE_SPEC = 2000, 512 * 1024, 64 * 1024
+MAX_URL, MAX_SPEC_BYTES, MAX_INLINE_SPEC, MAX_NOTE = 2000, 8 * 1024 * 1024, 64 * 1024, 500
 AREA = "area"  # the storage slot of an execution's pre-code map (a PR lens uses its head SHA)
 
 
@@ -55,16 +56,30 @@ def _spec(spec):
     return spec
 
 
+def _note(value):
+    """Plain text from the sender (e.g. "spec too large"), trimmed; no control characters."""
+    text = value.strip() if isinstance(value, str) else ""
+    if not 0 < len(text) <= MAX_NOTE or re.search(r"[\x00-\x1f\x7f]", text):
+        raise ValueError(f"lens.note must be plain text of at most {MAX_NOTE} characters.")
+    return text
+
+
+def placeholder(lens):
+    """A PR lens announced only by `note` (spec too large or drawn for an older head): no spec, no url."""
+    return lens.get("kind") == "pr" and "spec" not in lens and "url" not in lens
+
+
 def validate_lens(value):
-    """PR lens `{kind?: pr, prNumber, headSha, validatedAt, spec?, url?, specUrl?, specSha256?, specBytes?}`
-    (spec or url required) or area map `{kind: area, validatedAt, spec}` → normalized with `kind`."""
+    """PR lens `{kind?: pr, prNumber, headSha, validatedAt, spec?, url?, specUrl?, specSha256?, specBytes?,
+    stale?, note?}` (spec, url or note required; note alone = the spec was omitted, e.g. too large) or
+    area map `{kind: area, validatedAt, spec}` → normalized with `kind`."""
     kind = value.get("kind", "pr") if isinstance(value, dict) else None
     if kind == AREA:
         if set(value) != AREA_FIELDS:
             raise ValueError("An area lens needs exactly kind, validatedAt and spec.")
         return {"kind": AREA, "headSha": None, "validatedAt": _stamp(value["validatedAt"]), "spec": _spec(value["spec"])}
     if kind != "pr" or not {"prNumber", "headSha", "validatedAt"} <= set(value) or set(value) - PR_FIELDS \
-            or not {"spec", "url"} & set(value):
+            or not {"spec", "url", "note"} & set(value):
         raise ValueError("Invalid lens fields.")
     number = value["prNumber"]
     if type(number) is not int or not 0 < number < 10**9:
@@ -85,6 +100,12 @@ def validate_lens(value):
         result["specBytes"] = value["specBytes"]
     if "spec" in value:
         result["spec"] = _spec(value["spec"])
+    if "stale" in value:
+        if type(value["stale"]) is not bool:
+            raise ValueError("Invalid lens stale.")
+        result["stale"] = value["stale"]
+    if "note" in value:
+        result["note"] = _note(value["note"])
     return result
 
 
@@ -168,6 +189,9 @@ class LensAddenda:
             if not inserted:
                 existing = next(item for item in records(repo.db, project, workspace, execution_id)
                                 if item["headSha"] == value["headSha"])
+                if placeholder(existing["lens"]) and not placeholder(value):  # a drawn spec replaces a note
+                    repo.db.execute("INSERT OR REPLACE INTO opora_review_lens VALUES(?,?,?,?,?,?,?,?,?,?,?)", row)
+                    return {"executionId": execution_id, "kind": "pr", "headSha": value["headSha"], "recorded": True}
                 if existing["lens"] != value:
                     raise ValueError("Lens evidence for this head was already recorded with different content.")
             return {"executionId": execution_id, "kind": "pr", "headSha": value["headSha"], "recorded": inserted}

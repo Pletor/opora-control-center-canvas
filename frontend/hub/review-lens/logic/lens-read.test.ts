@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LENS_READ, LENS_SPEC } from "./lens-fixture";
-import { lensBadge, lensSummary, lensUrl, parseLensRead, shownLens, specFacts } from "./lens-read";
+import { lensBadge, lensSummary, lensUrl, omittedLens, omittedText, parseLensRead, shownLens, specFacts } from "./lens-read";
 
 describe("lens read", () => {
   it("parses the PR lens and summarises it for the mirror and the tab badge", () => {
@@ -22,6 +22,16 @@ describe("lens read", () => {
     expect(parseLensRead({ nodeId: "c", lens: { headSha: "abc" } }).pr).toBeNull();
     expect(parseLensRead({ nodeId: "c", lens: { ...LENS_READ.lens, spec: { kind: "patch" } } }).pr?.spec).toBeNull();
     expect(lensBadge(parseLensRead({ nodeId: "c", lens: null, area: null }))).toBe("");
+  });
+  it("keeps a PR lens without a spec as a note: too large or from an older head", () => {
+    const { spec: _spec, ...bare } = LENS_READ.lens;
+    const big = parseLensRead({ ...LENS_READ, lens: { ...bare, note: "spec too large" } });
+    expect(big.pr).toMatchObject({ spec: null, note: "spec too large", stale: false });
+    expect(omittedText(omittedLens(big)!)).toBe("Lens je příliš velký, viz PR #44.");
+    const old = parseLensRead({ ...LENS_READ, lens: { ...bare, stale: true, note: "spec is from an older head" } });
+    expect(omittedText(omittedLens(old)!)).toBe("Lens je ze starší verze, viz PR #44.");
+    expect(omittedLens(parseLensRead(LENS_READ))).toBeNull();
+    expect(parseLensRead({ ...LENS_READ, lens: { ...bare, note: 7 } }).pr?.note).toBeNull();
   });
   it("states size, parts and links in Czech", () => {
     expect(specFacts(LENS_SPEC)).toMatch(/^spec \d KB · 3 části · 2 vazby$/);

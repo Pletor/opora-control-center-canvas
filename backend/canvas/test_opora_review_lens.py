@@ -43,7 +43,7 @@ def test_valid_lens_is_normalized_with_its_optional_spec():
     lens(url="https://github.com.evil.example/x.svg"), lens(url="https://user@github.com/o/r/x.svg"),
     lens(url="https://github.com:8443/o/r/x.svg"), lens(url="https://github.com/"), lens(url="https://github.com/o r"),
     lens(url="javascript:alert(1)"), lens(head="C" * 40), lens(number=0), lens(number=True),
-    lens(validatedAt="yesterday"), lens(specSha256="xyz"), lens(specBytes=0), lens(specBytes=600 * 1024),
+    lens(validatedAt="yesterday"), lens(specSha256="xyz"), lens(specBytes=0), lens(specBytes=9 * 1024 * 1024),
     lens(spec={"kind": "patch"}), lens(spec={"kind": "graph", "pad": "x" * 70_000}), lens(specUrl="ftp://github.com/x"),
     {"kind": "area", "validatedAt": "2026-10-22T11:50:00Z"}, {"kind": "area", "validatedAt": "x", "spec": SPEC},
     {"kind": "area", "validatedAt": "2026-10-22T11:50:00Z", "spec": SPEC, "headSha": SHA},
@@ -51,6 +51,41 @@ def test_valid_lens_is_normalized_with_its_optional_spec():
 def test_invalid_lens_is_rejected(value):
     with pytest.raises(ValueError):
         validate_lens(value)
+
+
+def office(**extra):
+    """What the office (agent-office pr-lens.ts) sends when it does not inline the spec: no spec, no url."""
+    return {**{k: v for k, v in lens().items() if k != "url"}, "specSha256": "b" * 64, "specBytes": 700_000, **extra}
+
+
+def test_office_note_records_without_a_spec_are_accepted():
+    too_large = office(note="  spec too large ")
+    assert validate_lens(too_large) == {"kind": "pr", **too_large, "note": "spec too large"}
+    stale = office(stale=True, note="spec is from an older head")
+    assert validate_lens(stale) == {"kind": "pr", **stale}
+    assert validate_lens(lens(spec=SPEC, stale=False))["stale"] is False
+    for bad in (office(), office(stale=True), office(note=""), office(note="   "), office(note="x" * 501),
+                office(note="a\nb"), office(note=7), office(note="x", stale="yes"), office(note="x", stale=1)):
+        with pytest.raises(ValueError):
+            validate_lens(bad)
+    assert review_lens.placeholder(validate_lens(too_large)) and not review_lens.placeholder(validate_lens(lens()))
+
+
+def test_a_drawn_spec_replaces_a_note_for_the_same_head(review):  # noqa: F811
+    addenda, payload = LensAddenda(review["jobs"]), credential(review)
+    assert addenda.submit({**payload, "lens": office(note="spec too large")}, "agent:w")["recorded"] is True
+    assert addenda.submit({**payload, "lens": office(note="spec too large")}, "agent:w")["recorded"] is False
+    with pytest.raises(ValueError, match="different content"):
+        addenda.submit({**payload, "lens": office(note="other")}, "agent:w")
+    db = review["service"].db_for(review["scope"]["project"])
+    read = review_lens.for_node(db, review["scope"]["project"], review["scope"]["workspace"], "card")
+    assert read["lens"]["note"] == "spec too large" and "spec" not in read["lens"] and read["current"] is True
+    assert addenda.submit({**payload, "lens": lens(spec=SPEC)}, "agent:w")["recorded"] is True
+    read = review_lens.for_node(db, review["scope"]["project"], review["scope"]["workspace"], "card")
+    assert read["lens"]["spec"] == SPEC and len(review_lens.records(db, review["scope"]["project"],
+                                                               review["scope"]["workspace"], read["executionId"])) == 1
+    with pytest.raises(ValueError, match="different content"):  # but a spec is never downgraded to a note
+        addenda.submit({**payload, "lens": office(note="spec too large")}, "agent:w")
 
 
 def test_lens_is_stored_per_head_read_by_card_and_never_blocks_the_gate(review):  # noqa: F811

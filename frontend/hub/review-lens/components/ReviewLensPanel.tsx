@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { shownLens } from "../logic/lens-read";
+import { omittedLens, omittedText, shownLens, type LensRecord } from "../logic/lens-read";
 import type { LensState } from "../logic/use-review-lens";
 import LensHeader from "./LensHeader";
 import "../styles/review-lens.css";
@@ -9,17 +9,26 @@ const LensStage = lazy(() => import("./LensStage"));
 
 /** Prostor Lens: hlavička s fakty o specu, plátno s průvodcem a panely; bez specu poctivé vysvětlení. */
 export default function ReviewLensPanel({ nodeId, state }: { nodeId: string; state: LensState }) {
-  const shown = shownLens(state.read);
+  const shown = shownLens(state.read), omitted = omittedLens(state.read);
   return <div className="review-lens" data-oh-view="card-lens" data-oh-node-id={nodeId} data-oh-lens-kind={shown?.kind ?? "none"}
     data-oh-head-sha={shown?.headSha ?? ""}>
     {state.error && <p className="review-lens__warning" role="alert">{state.error}</p>}
+    {omitted && <LensOmitted record={omitted} />}
     {shown?.spec ? <>
       <LensHeader record={shown} hasArea={!!state.read?.area} />
       <Suspense fallback={<p className="review-lens__loading" data-oh-lens-loading="">Načítám plátno…</p>}>
         <LensStage key={`${shown.kind}:${shown.headSha ?? shown.createdAt}`} record={shown} />
       </Suspense>
-    </> : <LensEmpty busy={state.busy} />}
+    </> : !omitted && <LensEmpty busy={state.busy} />}
   </div>;
+}
+
+/** Spec do Canvasu nedorazil (příliš velký, ze starší hlavy): jen poznámka, souhrn je v popisu PR. */
+function LensOmitted({ record }: { record: LensRecord }) {
+  return <section className="review-lens__empty" data-oh-lens-omitted={record.stale ? "stale" : "note"}>
+    <b className="review-lens__empty-title">{omittedText(record)}</b>
+    <p>Hlava <code>{(record.headSha ?? "").slice(0, 12)}</code>{record.current === false ? " (už není aktuální)" : ""} · poznámka: {record.note}</p>
+  </section>;
 }
 
 function LensEmpty({ busy }: { busy: boolean }) {
