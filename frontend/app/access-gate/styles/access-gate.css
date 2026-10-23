@@ -20,3 +20,14 @@
 .access-gate__submit:disabled{opacity:.55;cursor:not-allowed}
 .access-gate__submit:focus-visible{outline:2px solid var(--accent,#1d6b70);outline-offset:2px}
 .access-gate__footnote{margin:6px 0 0;font-size:11px;line-height:1.5;color:var(--ink-muted,#66625a)}
+.access-gate__notice{margin:0;padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.5;color:var(--ink-2,#45423b);background:var(--surface-2,#faf8f4);border:1px solid var(--line,#e4e0d7)}
+/* Odhlášení venku: kdo přišel tunelem, musí umět odejít, aniž by čekal na vypršení cookie
+   (cizí počítač, sdílený prohlížeč). Malá pilulka dole uprostřed (vlevo dole je menu Opora) říká,
+   že plátno je teď otevřené zvenku a odkud, a jedním klikem ho zamkne zpátky. Doma se neukáže. */
+.access-gate__session{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:8px;max-width:min(420px,calc(100vw - 16px));padding:4px 4px 4px 10px;border:1px solid var(--line,#e4e0d7);border-radius:999px;background:var(--surface,#fff);box-shadow:0 4px 14px rgba(0,0,0,.1);font-size:11px;color:var(--ink-muted,#66625a)}
+.access-gate__session-host{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.access-gate__logout{flex:none;padding:4px 10px;border:1px solid var(--accent,#1d6b70);border-radius:999px;background:transparent;color:var(--accent,#1d6b70);font:inherit;font-weight:600;cursor:pointer}
+.access-gate__logout:hover{background:var(--accent,#1d6b70);color:#fff}
+.access-gate__logout:disabled{opacity:.55;cursor:not-allowed}
+.access-gate__logout:focus-visible{outline:2px solid var(--accent,#1d6b70);outline-offset:2px}
+.access-gate__session-error{color:var(--danger,#a3362f);padding-right:8px}

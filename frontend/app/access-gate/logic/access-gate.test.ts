@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ACCESS_REQUIRED_EVENT,
+  canLogout,
   LOCAL_STATUS,
   MIN_TOKEN_LENGTH,
   lockedOut,
@@ -56,5 +57,19 @@ describe("brána vzdáleného přístupu", () => {
 
   it("drží jediný název události pro celou aplikaci", () => {
     expect(ACCESS_REQUIRED_EVENT).toBe("opora:access-required");
+  });
+
+  it("nabídne odhlášení jen venku s platným přihlášením", () => {
+    expect(canLogout(null)).toBe(false);
+    expect(canLogout(LOCAL_STATUS)).toBe(false);
+    expect(canLogout({ remote: true, authenticated: false, host: "a.trycloudflare.com" })).toBe(false);
+    expect(canLogout({ remote: true, authenticated: true, host: "a.trycloudflare.com" })).toBe(true);
+  });
+
+  it("po odhlášení je brána zase zamčená pro stejný host", () => {
+    const after = lockedOut({ remote: true, authenticated: true, host: "a.trycloudflare.com" });
+    expect(needsGate(after)).toBe(true);
+    expect(canLogout(after)).toBe(false);
+    expect(after.host).toBe("a.trycloudflare.com");
   });
 });
