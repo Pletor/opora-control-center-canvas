@@ -1,0 +1,37 @@
+/* KE SCHVÁLENÍ V HLAVĚ SEKTORU: člověk vejde do sektoru a hned vpravo nahoře vidí, kolik karet mu agenti
+   navrhli uzavřít. Bez návrhů je to tichý vypnutý čip, ať je jasné, že tu tlačítko je, jen nemá co dělat.
+   S návrhy zezelená; rozbalený panel vypíše karty jednu pod druhou se zeleným „důkazy deklarovány“ nebo
+   jantarovým důvodem, proč ji musí potvrdit jednotlivě, a dole jedno široké tlačítko pro celou dávku. */
+.sector-proposals__idle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  color: var(--ink-muted);
+  font: 500 12px var(--font);
+  white-space: nowrap;
+  cursor: default;
+}
+.sector-proposals__list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.sector-proposals__item { display: grid; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); }
+.sector-proposals__name { font-weight: 600; }
+.sector-proposals__why,
+.sector-proposals__note { font-size: 11px; color: var(--ink-muted); }
+.sector-proposals__why--ok { color: #22c55e; }
+.sector-proposals__why--warn { color: #f59e0b; }
+.sector-proposals__confirm {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 8px;
+  border: 1px solid #22c55e;
+  background: var(--surface-2);
+  color: #22c55e;
+  font: 600 13px var(--font);
+  cursor: pointer;
+}
+.sector-proposals__confirm:disabled { border-color: var(--line-strong); color: var(--ink-muted); cursor: default; }
+.sector-proposals__done { margin-top: 8px; color: #22c55e; }
+.sector-proposals__error { margin-top: 8px; color: var(--danger); }

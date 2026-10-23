@@ -1,5 +1,6 @@
 import { saveCanvasGraph } from "@/editor/canvas/board/logic/graph-positions";
 import { fetchState } from "@/shared/desktop-state/logic/api";
+import { confirmSector } from "@/editor/canvas/sector-proposals/logic/sector-proposals";
 import type { StateResponse } from "@/shared/desktop-state/logic/types";
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import "@/ui-kit/panel-frame/styles/panels.css";
@@ -1196,6 +1197,12 @@ export default function App() {
                     reloadCanvas();
                   }}
                   onConfirmProposal={confirmProposalNow}
+                  onConfirmSector={async (sectorId, ids) => {
+                    desktop.apply(await trackSaveWrite(project, workspace, confirmSector(project, workspace, sectorId, ids, {
+                      fetchRevision: async () => (await fetchState(project, workspace)).revision,
+                      post: (body) => api<StateResponse>("/api/desktop-v3/confirm-proposals", body),
+                    })));
+                  }}
                   onAutonomy={async (sectorId, until, grantedBy, note) => {
                     // Revize až těsně před zápisem: stav mezitím mění agenti a stará revize by souhlas tiše odmítla.
                     const fresh = await fetchState(project, workspace);

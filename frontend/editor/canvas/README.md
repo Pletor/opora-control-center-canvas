@@ -1,3 +1,5 @@
 Plátno Editoru: board (React Flow uzly a hrany, `logic/board-model.ts` skládá vazbu z tahu a říká, jak vypadá), node-card (karta uzlu / sektoru rozpadlá do dílků, zlatý řez, tlačítka portů u bloků), edge-report (inspektor vybrané vazby: From / To / Sent / Date a zpráva agenta v pěti pojmenovaných polích), create-dialog (pop-up tvorby sektoru a uzlu: název, cílový sektor, vrstva jako čipy, původ jako segment, popis, sbalené „Pro agenta“ nebo „Zadání sektoru“, výpis toho, co chybí), tag-filter (filtr štítků v liště), drawing (Excalidraw), wireframes, settings (mřížka, přichytávání).
 
 save-versions: uložené verze plátna (ULOŽIT, Historie uložení, obnova verze; kontrakt `docs/verze-platna.md`). history: Zpět / Vpřed v liště Editoru. activity-log: Záznam činnosti v liště vedle Historie uložení (záložky Já / Agenti; kontrakt `docs/zaznam-cinnosti.md`).
+
+sector-proposals: čip „Ke schválení: N“ v hlavě sektoru a „✓ Potvrdit návrhy“, hromadné potvrzení návrhů uzavření od agentů jedním zápisem `POST /api/desktop-v3/confirm-proposals` (vráceno po #30).
