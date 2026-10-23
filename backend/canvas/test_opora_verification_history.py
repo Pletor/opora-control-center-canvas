@@ -16,7 +16,7 @@ from backend.canvas.test_opora_review_fixtures import (
 )
 from backend.canvas.test_opora_verifications import artifact, verification
 from backend.canvas.workspace_graph_storage import refuse_authority_restore
-from backend.project.worktrees.test_workspace_archive import Hooks, Sessions
+from backend.project.worktrees.test_workspace_archive import Sessions
 from backend.project.worktrees.workspace_archive import WorkspaceArchive
 from database.schema.opora_verification_schema import TABLES
 from database.schema.project_initialization import initialize_project_schema
@@ -43,7 +43,7 @@ def test_real_archive_and_v2_human_cancellation(reconciliation_project):
             "outcome": "passed", "checkedClaims": ["identity"], "summary": "Late report",
             "artifacts": [artifact("stdout", "stdout")]}})
     assert ledger.create(request)["id"] == saved["id"]
-    archived = WorkspaceArchive(service, Sessions(), Hooks()).archive(scope["workspace"],
+    archived = WorkspaceArchive(service, Sessions()).archive(scope["workspace"],
         {"project": scope["project"], "reason": "Formal archive proof", "confirmed": True})
     assert archived["archived"] == scope["workspace"]
     detail = ledger.read(saved["id"], **scope)

@@ -44,13 +44,12 @@ def archived_workspaces(service, pid):
              "reason": r["reason"], "archivedAt": r["archived_at"]} for r in rows]
 
 
-def live_state(service, registry, hook_store, pid, wid, now=None):
+def live_state(service, registry, pid, wid, now=None):
     """(stav, důvody) jednoho worktree podle zdrojů stavu práce (§7)."""
     now = now or datetime.fromtimestamp(time.time(), UTC)
-    sources = collect_sources(service, registry, hook_store, pid)
+    sources = collect_sources(service, registry, pid)
     return worktree_state(
         [s for s in sources["sessions"] if s.get("workspace") == wid],
-        [b for b in sources["bindings"] if b.get("workspace") == wid],
         [lease for lease in sources["leases"] if lease["workspace_id"] == wid],
         {a["node_id"]: a for a in sources["activity"] if a["workspace_id"] == wid},
         now,
@@ -58,15 +57,9 @@ def live_state(service, registry, hook_store, pid, wid, now=None):
 
 
 class WorkspaceArchive:
-    def __init__(self, service, registry, hook_store):
-        """`hook_store` = úložiště hook bindingů, nebo funkce, která ho vrátí (vzniká až s routerem hooků)."""
+    def __init__(self, service, registry):
         self.service = service
         self.registry = registry
-        self._hook_store = hook_store
-
-    @property
-    def hook_store(self):
-        return self._hook_store() if callable(self._hook_store) else self._hook_store
 
     def items(self, pid):
         if pid != "draft" and not valid_id(pid):
@@ -124,7 +117,7 @@ class WorkspaceArchive:
         reasons = []
         if directory is not None and git(directory, "status", "--porcelain"):
             reasons.append("worktree má neuložené změny")
-        state, signals = live_state(self.service, self.registry, self.hook_store, pid, wid)
+        state, signals = live_state(self.service, self.registry, pid, wid)
         if state in LIVE_STATES:
             reasons.append(f"na worktree se pracuje ({LIVE_STATES[state]}: " + ", ".join(signals) + ")")
         if reasons:

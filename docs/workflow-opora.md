@@ -32,12 +32,11 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 | Tickety | `{id, title, priority, status open/doing/done, nodeId, sessionId, createdBy}` | jen uvnitř stavu Desktop v3 | agent zapisuje | **jen backend, UI chybí** |
 | Trace, pipeline akcí | dohledání ID, knihovna akcí | `/api/desktop-v3/trace`, `/pipelines` | UI, agent | hotovo |
 | Procesy | `draft → running → done ⇄ repair`, kroky s důkazem, reporty | `/api/processes/*` | UI + agent | hotovo |
-| Agent hooks | Claude Code hooky: povolené cesty, limity, TTL, pauza/stop, ACK revize zadání; bind, control a instalaci smí jen člověk (upgrade-opora #38) | `/api/agent-hooks/*` | člověk nastaví | hotovo |
 | Paměť role | OpenViking: recall, remember, lend; zrcadlí prostor agenta | `/api/memory/*` | automatika + člověk | hotovo (volitelné) |
 | Mapy | Archify (jediný model: Claude Code Sonnet), Graphify (bez modelu), automatika po mergi | `/api/archify/*`, `/api/graphify/*`, `/api/map-refresh/*` | UI, automatika | hotovo |
 | Pravda a dokončení | echo, verdikt Oracle (`canCommit/canMerge/blocking`), commit specu, párování commitů | `/api/sync-report`, `/api/opora-commit(s)`, `/api/opora-merge` | člověk, orchestrátor | jádro hotovo |
 | Linear | jen kontrakt | — | — | nezačato |
-| Vzdálený přístup | tunel s tokenem, asistent, RLM a hooky jen z loopbacku | `/api/access/*` | člověk | hotovo |
+| Vzdálený přístup | tunel s tokenem, asistent a RLM jen z loopbacku | `/api/access/*` | člověk | hotovo |
 | Ostatní | seznam skillů Claude Code, LSP, sémantické hledání, strom a soubory workspace | `/api/claude-code/*`, `/api/code-intelligence/*`, `/api/semantic-search/*`, `/api/workspace/*` | UI | hotovo |
 
 ### Rozpory mezi skillem, dokumenty a kódem (opraveno 2026-10-01)
@@ -89,7 +88,7 @@ flowchart LR
 | 3 | **Wayfinding** | cíl (Destination) | sektor = mapa, karty-rozhodnutí, vazby `next` jako blokace, komentáře na plátně jako mlha | model + člověk | žádná otevřená karta-rozhodnutí v sektoru |
 | 4 | **Zadání karty** | rozhodnutí z mapy | spec (`goal / non_goals / acceptance`), bloky s podmínkami, pravidla, `sourceRef` nebo vazba na existující uzel, `agentRole`, fáze `define` | model navrhne, člověk upraví | kontrola zapadnutí (viz níže) a kritéria nejsou prázdná |
 | 5 | **Proces a balíček** | karta | ROUTER nasměruje kartu z `frontier.needsRouting` (`/api/desktop-v3/pipeline`); `node-brief` s `pipeline.current` | router + automatika | pipeline splňuje podlahu, `harness.stopConditions` neobsahuje chybějící podklad |
-| 6 | **Vykonání po etapách** | `node-brief` | každá etapa = nová relace: lease → práce → `agent-output` (`stages` s předávkou, `evidence`, `checksRun`) → release; review a kritiky jiná relace; hooky (povolené cesty, ACK) | agenti | všechny etapy prošly, důkazy a kontroly zelené, `done.proposed` |
+| 6 | **Vykonání po etapách** | `node-brief` | každá etapa = nová relace: lease → práce → `agent-output` (`stages` s předávkou, `evidence`, `checksRun`) → release; review a kritiky jiná relace | agenti | všechny etapy prošly, důkazy a kontroly zelené, `done.proposed` |
 | 7 | **Pravda** | commity | párování (`Opora-Node` trailer, cesty), echo, verdikt Oracle | OporaHub | `canMerge` |
 | 8 | **Uzavření** | verdikt + výstup | `done.confirmed`, fáze `verify → live` | člověk | — |
 | 9 | **Mapy** | merge do main | Archify, Graphify, které jsou kontextem pro další kroky 1 a 4 | automatika | — |

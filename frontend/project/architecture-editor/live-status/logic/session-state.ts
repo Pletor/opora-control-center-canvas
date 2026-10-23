@@ -10,14 +10,14 @@ export const WORKTREE_STATE: Record<WorktreeState, { label: string; icon: string
   none: { label: "bez relace", icon: "○" },
 };
 
-const SOURCE_LABEL: Record<LiveSession["source"], string> = { assistant: "Asistent", hook: "Hook", lease: "Karta" };
+const SOURCE_LABEL: Record<LiveSession["source"], string> = { assistant: "Asistent", lease: "Karta" };
 
 // Surová slova zdrojů. Jsou jen podrobností v `title`: o tom, jestli se pracuje, rozhoduje stav, který
-// spočítal backend z prahů §7 (hook `active` po 120 s ticha nebo lease bez aktivity už neběží).
+// spočítal backend z prahů §7 (lease bez aktivity už neběží).
 const RAW_STATE: Record<string, string> = {
   "assistant:running": "běží", "assistant:waiting_approval": "čeká na schválení", "assistant:idle": "čeká na zprávu",
   "assistant:error": "chyba", "assistant:closed": "zavřená",
-  "hook:active": "aktivní", "hook:paused": "pozastaveno", "lease:active": "převzatá", "lease:expired": "převzetí vypršelo",
+  "lease:active": "převzatá", "lease:expired": "převzetí vypršelo",
 };
 
 /** Stav relace asistenta podle §7; jen u asistenta je surový stav sám o sobě platný (nezávisí na čase). */
@@ -30,7 +30,7 @@ export function assistantTone(state: string | null): WorktreeState {
 
 export type SessionView = { source: string; label: string; tone: WorktreeState; icon: string; title: string; openable: boolean };
 
-/** „Hook hlásí „aktivní“ · naposledy před 4 min“: surový stav zdroje s časem posledního signálu. */
+/** „Asistent hlásí „běží“ · naposledy před 4 min“: surový stav zdroje s časem posledního signálu. */
 export function sourceDetail(session: LiveSession, now = Date.now()): string {
   const raw = RAW_STATE[`${session.source}:${session.state}`] ?? (session.state || "neznámý stav");
   const seen = session.lastSeenAt ? ` · naposledy ${relativeAge(session.lastSeenAt, now)}` : "";

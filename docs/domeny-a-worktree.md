@@ -16,7 +16,7 @@ Cíl: **architektura je nadřazená worktree.** Je jedna pro projekt, jde upravi
 | **Doména** | Sektor `site.kind="application"` s **právě jedním** prostředím `{name, host}` (platí už dnes, `docs/architektura-projektu.md`). Skupina na přehledu = `name` prostředí (Produkce / Vývoj). |
 | **Obsah stránky** | Všechno pod stránkou, co nemá `site` (karty, sektory práce, oblasti). Patří pracovnímu prostoru. |
 | **Worktree** | Řádek `workspaces` + Git worktree. Patří jedné doméně přes `workspaces.node_id = id domény`. |
-| **Relace** | Živá práce ve worktree: relace asistenta, hook binding, lease karty. |
+| **Relace** | Živá práce ve worktree: relace asistenta, lease karty. |
 
 ## 3. Domény Tajemstvi-opory
 
@@ -102,13 +102,13 @@ samotná složka archivu není úplnou zálohou. Záloha musí zahrnovat také d
 
 Logika `backend/project/architecture/work_status.py`, router `backend/api/project/project_architecture_routes.py`.
 
-Zdroje: relace asistenta (`backend/claude_code/assistant/registry.py`), hook bindings (`backend/agent_control/hook_control.py`), `card_leases` + `card_work_activity`.
+Zdroje: relace asistenta (`backend/claude_code/assistant/registry.py`), `card_leases` + `card_work_activity`.
 
 | Stav worktree | Kdy (vyhrává vyšší řádek) |
 |---|---|
-| **běží** | relace asistenta `running`; NEBO binding `active`, neprošlý `expiresAt` a `lastSeenAt` ≤ 120 s; NEBO platná lease a aktivita ≤ 300 s |
-| **čeká** | relace `waiting_approval` nebo `idle`; NEBO binding `paused`; NEBO platná lease bez aktivity v posledních 300 s |
-| **stojí** | relace `error`; NEBO binding `active` po `expiresAt` nebo s `lastSeenAt` > 120 s; NEBO prošlá lease s aktivitou mladší 24 h |
+| **běží** | relace asistenta `running`; NEBO platná lease a aktivita ≤ 300 s |
+| **čeká** | relace `waiting_approval` nebo `idle`; NEBO platná lease bez aktivity v posledních 300 s |
+| **stojí** | relace `error`; NEBO prošlá lease s aktivitou mladší 24 h |
 | **bez relace** | nic z výše uvedeného (nikdy se nehlásí jako „stojí“) |
 
 Doména = počty stavů jejích worktree + karty v práci (`nodeId` z leases a relací). Odpověď nese `reasons[]`, aby UI umělo říct proč.

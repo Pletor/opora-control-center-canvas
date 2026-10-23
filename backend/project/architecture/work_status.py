@@ -1,6 +1,6 @@
 """Stav práce na worktree a doménách (docs/domeny-a-worktree.md §7, §9).
 
-Čisté funkce nad už načtenými zdroji (relace asistenta, hook bindingy, lease a aktivita karet)
+Čisté funkce nad už načtenými zdroji (relace asistenta, lease a aktivita karet)
 s vloženým `now`; čtení zdrojů je odděleně v `collect_sources` a `work_status`.
 Chybějící relace není „stojí“: worktree bez jakéhokoli signálu je „bez relace“.
 """
@@ -10,7 +10,6 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 
-HOOK_SIGNAL_SECONDS = 120      # binding bez signálu delší dobu už neběží
 CARD_ACTIVITY_SECONDS = 300    # aktivita karty mladší než toto = práce běží
 STOPPED_WINDOW_SECONDS = 24 * 3600  # prošlá lease s čerstvější aktivitou = stojí
 
@@ -35,10 +34,6 @@ def _age(value, now):
     return None if moment is None else (now - moment).total_seconds()
 
 
-def _minutes(seconds):
-    return max(1, round(seconds / 60))
-
-
 def _assistant_signal(session):
     state = session.get("state")
     if state == "running":
@@ -52,23 +47,6 @@ def _assistant_signal(session):
     return None
 
 
-def _hook_signal(binding, now):
-    state = binding.get("state")
-    if state == "paused":
-        return WAITING, "hook pozastaven"
-    if state != "active":
-        return None
-    expires = parse_time(binding.get("expiresAt"))
-    if expires is not None and now >= expires:
-        return STOPPED, "hook vypršel"
-    seen = _age(binding.get("lastSeenAt"), now)
-    if seen is None:
-        return WAITING, "hook ještě bez signálu"
-    if seen > HOOK_SIGNAL_SECONDS:
-        return STOPPED, f"hook bez signálu {_minutes(seen)} min"
-    return RUNNING, "hook hlásí práci"
-
-
 def _lease_signal(lease, activity, now):
     idle = _age(activity.get("updated_at"), now) if activity else None
     if lease["expires_at"] > now.timestamp():
@@ -80,12 +58,11 @@ def _lease_signal(lease, activity, now):
     return None
 
 
-def worktree_state(sessions, bindings, leases, activity, now):
+def worktree_state(sessions, leases, activity, now):
     """Stav jednoho worktree: nejvyšší signál ze všech zdrojů; `reasons` jen od vítězného stavu.
 
     `activity` je slovník node_id → řádek `card_work_activity`."""
     signals = [_assistant_signal(item) for item in sessions]
-    signals += [_hook_signal(item, now) for item in bindings]
     signals += [_lease_signal(lease, activity.get(lease["node_id"]), now) for lease in leases]
     signals = [signal for signal in signals if signal]
     if not signals:
@@ -102,12 +79,10 @@ def _session_view(source, item_id, state, node_id, last_seen):
 def _worktree_entry(workspace, sources, now, card_name):
     wid = workspace["id"]
     sessions = [s for s in sources["sessions"] if s.get("workspace") == wid]
-    bindings = [b for b in sources["bindings"] if b.get("workspace") == wid]
     leases = [lease for lease in sources["leases"] if lease["workspace_id"] == wid]
     activity = {a["node_id"]: a for a in sources["activity"] if a["workspace_id"] == wid}
-    state, reasons = worktree_state(sessions, bindings, leases, activity, now)
+    state, reasons = worktree_state(sessions, leases, activity, now)
     views = ([_session_view("assistant", s["id"], s["state"], s.get("nodeId"), s.get("updatedAt")) for s in sessions]
-             + [_session_view("hook", b["id"], b.get("state"), b.get("nodeId"), b.get("lastSeenAt")) for b in bindings]
              + [_session_view("lease", f"{lease['workspace_id']}:{lease['node_id']}",
                               "active" if lease["expires_at"] > now.timestamp() else "expired",
                               lease["node_id"], (activity.get(lease["node_id"]) or {}).get("updated_at"))
@@ -159,21 +134,20 @@ def architecture_domains(service, project):
     return domains
 
 
-def collect_sources(service, registry, hook_store, project):
+def collect_sources(service, registry, project):
     with service.reading(project):
         db = service.db_for(project)
         leases = [dict(r) for r in db.execute(
             "SELECT workspace_id,node_id,owner,expires_at FROM card_leases WHERE project_id=?", (project,))]
         activity = [dict(r) for r in db.execute(
             "SELECT workspace_id,node_id,agent,updated_at FROM card_work_activity WHERE project_id=?", (project,))]
-    return {"sessions": registry.list(project), "bindings": hook_store.for_project(project),
-            "leases": leases, "activity": activity}
+    return {"sessions": registry.list(project), "leases": leases, "activity": activity}
 
 
-def work_status(service, registry, hook_store, project, now=None):
+def work_status(service, registry, project, now=None):
     now = now or datetime.fromtimestamp(time.time(), UTC)
     domains = architecture_domains(service, project)
-    sources = collect_sources(service, registry, hook_store, project)
+    sources = collect_sources(service, registry, project)
     names = {}
 
     def card_name(wid, node_id):

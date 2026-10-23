@@ -21,11 +21,6 @@ class Sessions:
         return self.items
 
 
-class Hooks:
-    def for_project(self, project):
-        return []
-
-
 @pytest.fixture
 def project(tmp_path):
     s, p = managed_fixture(tmp_path)
@@ -36,7 +31,7 @@ def project(tmp_path):
     graph = {"nodes": [*current["graph"]["nodes"], node("card", parent_id="page")], "edges": []}
     s.save_graph(pid, w["id"], graph, current["digest"], actor="human")
     sessions = Sessions()
-    yield s, pid, w, sessions, WorkspaceArchive(s, sessions, lambda: Hooks())
+    yield s, pid, w, sessions, WorkspaceArchive(s, sessions)
     s.close()
 
 
@@ -69,7 +64,7 @@ def test_archived_worktree_leaves_view_and_work_status(project):
     assert [row["id"] for row in s.view(pid, "main")["workspaces"]] == [w["id"]]
     archive.archive(w["id"], request(pid))
     assert s.view(pid, "main")["workspaces"] == []
-    status = work_status(s, sessions, Hooks(), pid)
+    status = work_status(s, sessions, pid)
     assert status["domains"][0]["worktrees"] == [] and status["unassigned"] == []
 
 

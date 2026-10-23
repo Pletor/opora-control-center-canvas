@@ -11,7 +11,7 @@ from backend.canvas.test_opora_review_fixtures import (
 from backend.canvas.test_opora_review_fixtures import (
     evidence_project as evidence_project,  # noqa: PLC0414 - shared pytest fixture.
 )
-from backend.project.worktrees.test_workspace_archive import Hooks, Sessions
+from backend.project.worktrees.test_workspace_archive import Sessions
 from backend.project.worktrees.workspace_archive import WorkspaceArchive
 
 
@@ -27,7 +27,7 @@ def test_real_archive_preserves_budget_history_and_cancellation(reconciliation_p
         'expectedContextVersion':context['contextVersion'],'expectedBudgetPolicyHead':policy['policyHead'],
         'previousExecutionId':None,'requestId':'claim','ttlSeconds':60},'agent:archived')
     authority.release(execution['executionId'],{**scope,'token':execution['token'],'epoch':execution['epoch']})
-    result=WorkspaceArchive(service,Sessions(),Hooks()).archive(scope['workspace'],
+    result=WorkspaceArchive(service,Sessions()).archive(scope['workspace'],
         {'project':scope['project'],'reason':'Budget archive proof','confirmed':True})
     assert result['archived']==scope['workspace']
     current=budgets.context(**scope,nodeId='card',actor='human')

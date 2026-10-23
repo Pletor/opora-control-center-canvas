@@ -205,7 +205,7 @@ Události SSE (`{seq, type, …}`):
 
 Backend drží posledních 2000 událostí session v paměti. Starší historie se čte z přepisu.
 
-Všechny `/api/assistant/*` jsou **jen pro loopback**. Přes tunel ([vzdaleny-pristup.md](vzdaleny-pristup.md)) vrací 403 i s tokenem, chybou „Tohle běží jen na tomto počítači.“ (totéž platí pro `/api/rlm*`), stejně jako `/api/agent-hooks/event`. Kdo má URL tunelu, nesmí ovládat agenta na tomto počítači.
+Všechny `/api/assistant/*` jsou **jen pro loopback**. Přes tunel ([vzdaleny-pristup.md](vzdaleny-pristup.md)) vrací 403 i s tokenem, chybou „Tohle běží jen na tomto počítači.“ (totéž platí pro `/api/rlm*`). Kdo má URL tunelu, nesmí ovládat agenta na tomto počítači.
 
 ## 9. UI (`frontend/layout/assistant-panel/`)
 

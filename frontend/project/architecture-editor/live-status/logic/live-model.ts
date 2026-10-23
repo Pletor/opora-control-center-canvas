@@ -4,7 +4,7 @@ import type { Graph } from "@/shared/types/logic/types";
 // pro dílky: pořadí „nejživější nahoře“, věta s počty, stránky, kterých se worktree dotýká.
 
 export type WorktreeState = "running" | "waiting" | "stopped" | "none";
-export type LiveSession = { source: "assistant" | "hook" | "lease"; id: string; state: string | null; nodeId: string | null; lastSeenAt: string | null };
+export type LiveSession = { source: "assistant" | "lease"; id: string; state: string | null; nodeId: string | null; lastSeenAt: string | null };
 export type LiveCard = { nodeId: string; name: string };
 export type LiveWorktree = { id: string; branch: string; actor: string; createdAt?: string; state: WorktreeState; reasons: string[]; sessions: LiveSession[]; cards: LiveCard[] };
 export type LiveCounts = Record<WorktreeState, number> & { total: number };
@@ -19,7 +19,7 @@ const record = (value: unknown): Record<string, unknown> => (value && typeof val
 
 function session(raw: unknown): LiveSession {
   const item = record(raw);
-  const source = item.source === "hook" || item.source === "lease" ? item.source : "assistant";
+  const source = item.source === "lease" ? "lease" : "assistant";
   return { source, id: text(item.id), state: text(item.state) || null, nodeId: text(item.nodeId) || null, lastSeenAt: text(item.lastSeenAt) || null };
 }
 
