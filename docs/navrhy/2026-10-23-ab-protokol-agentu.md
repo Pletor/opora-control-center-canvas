@@ -76,7 +76,7 @@ mají dvě věci: co člověk může ověřit (K2) a co se stane, když se něco
 
 ## 4. Výsledky
 
-Běh je deterministický, opakované spuštění dá stejná čísla.
+Běh je deterministický. Opakované spuštění dá stejné skóre a počty volání; bajty se liší o jednotky bajtů kvůli časovým razítkům v odpovědích.
 
 | Kritérium | Váha | A: starý protokol | B: OporaHub v2 | B+ (agent dočte předchůdce) |
 |---|---:|---:|---:|---:|
