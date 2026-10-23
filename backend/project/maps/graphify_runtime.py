@@ -150,7 +150,9 @@ def generate_graph(service, project):
                            'scope': 'Původní Graphify --code-only; lokální AST, bez modelu; respektuje .graphifyignore.',
                            'hashes': {name: hashlib.sha256(payloads[name]).hexdigest() for name in ('graph.html', 'graph.json')}}
                 log = (output / 'graphify.log').read_text(encoding='utf-8', errors='replace')
-                receipt['warnings'] = re.findall(r'^\s*warning: \d+ source file\(s\) produced zero nodes[^\n]*', log, re.MULTILINE)[:10]
+                # Souhrnný graph.html po komunitách (graf nad 5000 uzlů, graphify_worker.ensure_html) UI ohlásí.
+                receipt['warnings'] = re.findall(r'^\s*(?:warning: \d+ source file\(s\) produced zero nodes|graph\.html written \(aggregated:)[^\n]*',
+                                                 log, re.MULTILINE)[:10]
                 receipt['corpus'] = json.loads(log.splitlines()[0])
                 payloads['opora-receipt.json'] = json.dumps(receipt, ensure_ascii=False).encode('utf-8')
                 # Veřejné bajty zůstávají přesně tak, jak je vygenerovalo původní CLI.
