@@ -22,7 +22,7 @@ from backend.editor.node.test_removals import (
 def seed(db, name, data, revision=1, key=None, workspace="draft"):
     table, keys, columns = STORES[name]
     key = key or (["a", "2026-10-05"] if name == "journals" else [""] if name == "documents"
-                  else ["a", 1] if name == "cardRounds" else ["a"])
+                  else ["a"])
     p, w = ("project", "workspace") if name == "documents" else ("project_id", "workspace_id")
     names = (p, w, *keys, "revision", *columns, "saved_at")
     values = [json.dumps(data[col]) if col in {"fields", "scene", "sections", "record"} else data[col] for col in columns]
@@ -39,7 +39,6 @@ def contents(marker):
     items["documents"]["fields"]["purpose"] = marker
     items["briefFragments"].update(text=marker, title=marker, deleted=0, scope_node_id="")
     items["briefDetails"]["fields"] = {"decisions": [marker]}
-    items["cardRounds"]["record"] = {"schema": "opora.card-round/1", "nodeId": "a", "round": 1, "openReason": marker}
     items["briefLessons"].update(text=marker, fragment_id="f", cycle_revision=3, discipline="be", weight=1.0, dropped=0,
                                  created_at="2026-10-05T10:00:00+00:00", confirmed_at="2026-10-05T10:00:00+00:00")
     items["drawings"]["scene"]["elements"] = [{"id": "rect", "type": "rectangle", "x": 0, "y": 0,
@@ -152,3 +151,14 @@ def test_snapshot_integrity_failure_precedes_all_writes(tmp_path):
         before = list(db.iterdump())
         result = bound_restore(client, saved["id"])
         assert result.status_code == 409 and list(db.iterdump()) == before
+
+
+def test_old_snapshot_with_retired_card_rounds_keeps_digest_and_restores_without_them():
+    """Kola karet zrušená 23. 10.: starší snímek nese prázdné `cardRounds`; digest se nemění, obnova je zahodí."""
+    from backend.editor.canvas_versions.version_content import content_digest, validate_records, with_later_stores
+    records = {name: [] for name in STORES}
+    old = {"records": {**records, "cardRounds": []}, "assets": []}
+    assert content_digest({}, {}, old) == content_digest({}, {}, {"records": records, "assets": []})
+    upgraded = with_later_stores(old["records"])
+    assert "cardRounds" not in upgraded
+    validate_records(upgraded, "draft", "main")

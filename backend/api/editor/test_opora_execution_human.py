@@ -2,18 +2,7 @@
 from backend.api.editor.test_opora_execution_enrollment import enroll
 from backend.api.editor.test_opora_execution_routes import AGENT, SCOPE, client  # noqa: F401
 from backend.canvas.test_canvas_plan import HEADERS
-from backend.editor.agent_memory.test_card_rounds import env, open_round  # noqa: F401
 from backend.editor.agent_memory.test_completion_evidence import evidence
-from database.schema.opora_execution_schema import SCHEMA
-
-
-def test_human_round_can_reopen_an_enrolled_closed_card(env):
-    env["db"].executescript(SCHEMA)
-    with env["db"]:
-        env["db"].execute("INSERT INTO opora_execution_epochs VALUES('draft','draft','c1',1)")
-    assert open_round(env["client"], headers=AGENT).status_code == 403
-    response = open_round(env["client"])
-    assert response.status_code == 200, response.text
 
 
 def test_human_confirmation_of_enrolled_card_is_not_blocked(client):

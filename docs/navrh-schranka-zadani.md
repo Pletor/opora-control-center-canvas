@@ -66,6 +66,8 @@ internetu a zapíše výsledek `op: research` (verdikt + důkazy); obsah balíč
 (`instructions: ["report"]`, `untrustedData` = všechny texty balíčku, `note`) ho ohraničí jako `node-brief.trust` (B4).
 
 ## Kola karty: uzavřená v1 → čistá v2 (uživatel 2026-10-09, karta B5)
+> Zrušeno rozhodnutím vlastníka 23. 10.: kola se neotevírají, historii pokusů nese `resultHistory` v node-brief.
+
 - Vylepšení hotové karty nezačíná v zaplněné kartě: člověk zvolí „Otevřít v2 podle nového zadání“
   (nabídne se při ⚠ změně fragmentu nebo ručně). Otevření kola potvrzuje vždy člověk.
 - Kolo v1 se zamrazí do historie karty jen ke čtení: zadání v revizi, pipeline s předávkami, důkazy,

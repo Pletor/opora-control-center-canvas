@@ -33,7 +33,7 @@ def _instructions(node_state):
               for key in ("actions", "rules", "blocks", "materials")}
     if "downloadsUrl" in node_state:
         result["downloadsUrl"] = node_state["downloadsUrl"]
-    # Kolo karty je součást zadání: výstup ke kolu v1 se nezapíše do čisté v2 (card_rounds.py).
+    # Starší číslo kola karty je součást zadání (kola jsou zrušená, klíč se nemění; card_round_legacy.py).
     if "round" in node_state:
         result["round"] = node_state["round"]["number"]
     for block in result["blocks"]:

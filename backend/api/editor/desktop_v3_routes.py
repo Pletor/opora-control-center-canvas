@@ -18,7 +18,6 @@ from backend.editor.agent_memory import pipeline_library
 from backend.editor.agent_memory.assignment_snapshots import assignment_comparison, save_assignment
 from backend.editor.agent_memory.assignment_status import assignment_status
 from backend.editor.agent_memory.card_leases import CardLeases
-from backend.editor.agent_memory.card_rounds import open_round, read_rounds
 from backend.editor.agent_memory.confirm_proposals import confirm_proposals
 from backend.editor.agent_memory.memory_items import BatchConflict, MemoryItems
 from backend.editor.agent_memory.pipeline_routing import PipelineRouting
@@ -80,16 +79,6 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
     def confirm_sector_proposals(payload: dict, request: Request):
         require_human(request.state.actor, "Hromadné potvrzení provádí člověk v UI.")
         return confirm_proposals(state, payload)
-
-    @router.post("/card-round")
-    def write_card_round(payload: dict, request: Request):
-        """Člověk otevře uzavřenou kartu jako nové kolo: kolo N se zamrazí, N+1 začíná načisto."""
-        return open_round(state, payload, request.state.actor)
-
-    @router.get("/card-rounds")
-    def read_card_rounds(project: str, workspace: str, nodeId: str, round: int | None = None):
-        """Historie kol karty jen ke čtení (zamrazené záznamy `opora.card-round/1`)."""
-        return read_rounds(state, project, workspace, nodeId, round)
 
     @router.get("/leases")
     def read_leases(project: str, workspace: str):

@@ -15,15 +15,17 @@ STORES = {
                                                                      "text", "stage", "mvp", "note", "by", "actor", "deleted",
                                                                      "discipline", "gates")),
     "briefDetails": ("brief_fragment_details", ("fragment_id",), ("fields",)),
-    # Zamrazená kola karet (card_rounds.py); stav nese `nodes[].round`, záznamy kol tato část.
-    "cardRounds": ("card_rounds", ("node_id", "round"), ("record",)),
     # Poučení Schránky (brief_vault_lessons.py, docs/schranka-neurony.md §5, §9 bod 5): stav poučení jako revize.
     "briefLessons": ("brief_lessons", ("lesson_id",), ("fragment_id", "cycle_revision", "discipline", "kind", "text", "weight",
                                                        "created_at", "confirmed_at", "dropped", "by", "actor")),
 }
 # Části přidané až po verzích, které je neznají: starší snímek je čte jako prázdné a jejich
 # prázdný seznam nemění digest obsahu (stará verze projde kontrolou integrity a není „změněná“).
-LATER_STORES = ("briefFragments", "briefDetails", "cardRounds", "briefLessons")
+LATER_STORES = ("briefFragments", "briefDetails", "briefLessons")
+# Části, které verze už neukládá. Kola karet (`cardRounds`, tabulka `card_rounds`) zrušil vlastník 23. 10.;
+# tabulka nemá v žádném projektu řádek, takže je starší snímky nesou prázdné. Digest uložené verze je
+# prázdné vynechá jako dřív (integrita platí dál) a obnova je zahodí (`with_later_stores`).
+RETIRED_STORES = {"cardRounds": {"record": {}}}
 JSON_COLUMNS = {"fields", "scene", "sections", "record"}
 # Sloupce přidané do části až po verzích, které je neznají (hodnota „nic“). Starší snímek je při obnově
 # dostane s touto hodnotou a digest obsahu je s touto hodnotou vynechá, takže stará verze zůstane platná.
@@ -67,7 +69,6 @@ def empty_data(name):
         "documents": {"fields": dict.fromkeys(sorted(FIELDS), ""), "node_id": None, "source_version": None},
         "briefFragments": dict(TOMBSTONE),
         "briefDetails": {"fields": {}},
-        "cardRounds": {"record": {}},
         "briefLessons": dict(LESSON_TOMBSTONE),
     }[name]
 
@@ -86,8 +87,8 @@ def _upgraded_data(name, data):
 def with_later_stores(records):
     """Snímek uložený před přidáním části ji dostane jako prázdnou (obnova pak skryje novější fragmenty),
     řádky bez později přidaného sloupce ho dostanou s výchozí hodnotou (`LATER_COLUMNS`) a snímek se stopou
-    dostane disciplínu jako backfill databáze (`track` ux → `ux`, logic → `be`)."""
-    records = {**{name: [] for name in LATER_STORES}, **records}
+    dostane disciplínu jako backfill databáze (`track` ux → `ux`, logic → `be`). Vyřazené části (`RETIRED_STORES`) zahodí."""
+    records = {**{name: [] for name in LATER_STORES}, **{name: rows for name, rows in records.items() if name not in RETIRED_STORES}}
     return {name: [{**row, "data": _upgraded_data(name, row["data"])} for row in rows] if name in LATER_COLUMNS else rows
             for name, rows in records.items()}
 
@@ -98,17 +99,21 @@ def _digest_data(name, data):
     return {key: value for key, value in data.items() if key not in skipped or value != skipped[key]}
 
 
+def _empty(name):
+    return RETIRED_STORES[name] if name in RETIRED_STORES else empty_data(name)
+
+
 def content_digest(graph, state, snapshot):
     records = {name: [{"key": row["key"], "data": _digest_data(name, row["data"])} for row in rows
-                      if _digest_data(name, row["data"]) != _digest_data(name, empty_data(name))]
+                      if _digest_data(name, row["data"]) != _digest_data(name, _empty(name))]
                for name, rows in snapshot["records"].items()}
-    records = {name: rows for name, rows in records.items() if rows or name not in LATER_STORES}
+    records = {name: rows for name, rows in records.items() if rows or (name not in LATER_STORES and name not in RETIRED_STORES)}
     return digest({"graph": graph, "state": state, "records": records, "assets": snapshot["assets"]})
 
 
 def current_token(graph, stored, snapshot):
     revisions = {name: [[row["key"], row["revision"]] for row in rows] for name, rows in snapshot["records"].items()
-                 if rows or name not in LATER_STORES}
+                 if rows or (name not in LATER_STORES and name not in RETIRED_STORES)}
     return digest({"content": content_digest(graph, stored["state"], snapshot), "stateRevision": stored["revision"], "revisions": revisions,
                    "projectGoalContext": snapshot["projectGoal"]})
 
@@ -134,7 +139,6 @@ def restore_records(db, project, workspace, target, current, timestamp):
 def validate_records(records, project, workspace):
     from backend.canvas.graph import valid_id
     from backend.editor.agent_memory.agent_workspace import validate_save
-    from backend.editor.agent_memory.card_rounds import validate_record as validate_round_record
     from backend.editor.brief_vault.brief_vault_details import validate_details
     from backend.editor.brief_vault.brief_vault_lessons import validate_lesson_record
     from backend.editor.brief_vault.brief_vault_model import validate_record
@@ -169,10 +173,6 @@ def validate_records(records, project, workspace):
                 validate_lesson_record(data)
             elif name == "briefDetails":
                 validate_details(data["fields"])
-            elif name == "cardRounds":
-                if type(key[1]) is not int or key[1] < 1:
-                    raise ValueError("Neplatné kolo karty v uložené verzi.")
-                validate_round_record(data["record"], key[0], key[1])
             elif name == "documents":
                 relative_path(key[0])
                 if set(data["fields"]) != FIELDS or any(not isinstance(value, str) or len(value) > 16000 for value in data["fields"].values()):

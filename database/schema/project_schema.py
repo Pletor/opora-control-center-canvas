@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS port_spawns(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL,
     block_id TEXT NOT NULL, port_id TEXT NOT NULL, target_id TEXT NOT NULL, created_at TEXT NOT NULL,
     PRIMARY KEY(project_id, workspace_id, node_id, block_id, port_id));
--- backend/editor/agent_memory/card_rounds.py: zamrazená kola karty (v1, v2, …); jen přibývají revize
+-- zrušená kola karty (rozhodnutí vlastníka 23. 10.): nic do ní nepíše, zůstává do migrace DROP
 CREATE TABLE IF NOT EXISTS card_rounds(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT NOT NULL, round INTEGER NOT NULL,
     revision INTEGER NOT NULL, record TEXT NOT NULL, saved_at TEXT NOT NULL,

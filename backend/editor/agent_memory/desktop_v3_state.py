@@ -8,7 +8,7 @@ nasazení: postup vpřed vyžaduje neprázdná splněná kritéria, opačný sm�
 uzel navíc nese `done` (uzavření karty), `agentRole` (která role agenta si tuhle práci
 pamatuje napříč projekty), blok `ports` (tlačítka, z nichž vede vazba na jinou kartu), `ideas`
 (podněty k dalšímu vývoji, `card_ideas.py`), `fragmentRefs` (z čeho ve schránce zadání karta
-vznikla, `backend/editor/brief_vault/brief_vault_refs.py`), `round` (aktuální kolo karty, `card_rounds.py`)
+vznikla, `backend/editor/brief_vault/brief_vault_refs.py`), `round` (starší číslo kola karty, jen ke čtení; kola jsou zrušená, `card_round_legacy.py`)
 a značky struktury Schránky `briefGroup` / `briefDiscipline` (oblast skupiny a sektor disciplíny, `brief_vault_marks.py`).
 Všechny tyto klíče jsou volitelné, aby starší uložený stav zůstal platný.
 """
@@ -484,7 +484,7 @@ def validate_state(state, *, unchanged=None):
             from backend.editor.brief_vault.brief_vault_refs import validate_refs
             validate_refs(node["fragmentRefs"], f"fragmentRefs[{node_id}]")
         if "round" in node:
-            from backend.editor.agent_memory.card_rounds import validate_round
+            from backend.editor.agent_memory.card_round_legacy import validate_round
             validate_round(node["round"], node_id)
         if "briefGroup" in node or "briefDiscipline" in node:
             from backend.editor.brief_vault.brief_vault_marks import validate_marks
@@ -631,9 +631,9 @@ class DesktopV3State:
                             actor if execution_actor is None else execution_actor)
                 if current["revision"] != expected:
                     raise ValueError("Stav se změnil v jiném okně (revize nesouhlasí). Obnovte jej.")
-                # Číslo kola karty mění jen otevření nového kola člověkem (card_rounds.open_round).
-                from backend.editor.agent_memory import card_rounds
-                card_rounds.guard_state_write(actor, current["state"], state)
+                # Kola karty jsou zrušená: starší číslo kola se zápisem stavu nemění (card_round_legacy.py).
+                from backend.editor.agent_memory import card_round_legacy
+                card_round_legacy.guard_state_write(actor, current["state"], state)
                 # Nový odkaz do schránky zadání (karta i Podnět) míří na živý fragment tohoto prostoru.
                 from backend.editor.brief_vault.brief_vault_refs import check_new_references
                 check_new_references(db, project, workspace, current["state"], state)
