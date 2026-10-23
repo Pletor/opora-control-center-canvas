@@ -241,8 +241,6 @@ export default function App() {
   const desktop = useDesktopState(project, workspace);
   const usage = useUsage(project, workspace, desktop.revision);
   const leases = useLeases(project, workspace);
-  // Echo Oracle nad projektem: jeden dotaz na otevřený projekt, přepočet jen na vyžádání.
-  const sync = useSyncReport(project, workspace);
   // Vybraný blok zmizel ze stavu (smazán jinde): výběr spadne zpět na uzel, aby zásuvka i inspektor zůstaly platné.
   useEffect(() => {
     if (!selected || !selectedBlock) return;
@@ -301,6 +299,9 @@ export default function App() {
   // OporaHub přehled čte jen agent-state; periodická čtení starších dílků běží, jen když je otevřený detail.
   const [hubDetailOpen, setHubDetailOpen] = useState(false);
   const hubDetail = environment === "hub" && hubDetailOpen;
+  // Echo Oracle (3–6 s na serveru) čte jen dashboard procesu v detailu OporaHubu: načte se při jeho otevření,
+  // přepočet jen na vyžádání. Editor ani přehled na něj nečekají.
+  const sync = useSyncReport(project, workspace, hubDetail);
   const proposals = useOporaProposals(project, workspace, view?.graph.nodes ?? [], environment === "hub", !!view?.readOnly);
   const gitEvidence = useGitEvidence(project, workspace, environment === "hub", planAppliedRevision);
   const reviewPolicy = useReviewPolicy(project, workspace, environment === "hub", planAppliedRevision, gitEvidence);
