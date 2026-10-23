@@ -9,6 +9,11 @@ def test_slow_git_view_does_not_block_bootstrap(tmp_path, monkeypatch):
     service.register_repository(
         "fixture", "Fixture", str(tmp_path / "repo"), "fixture://local", "main"
     )
+    # Schémata SQLite (draft pro bootstrap, projekt pro view) vznikají líně při prvním otevření
+    # a na vytíženém stroji to trvá stovky ms. Test měří jen to, zda pomalý Git blokuje bootstrap,
+    # proto je založíme předem a do časových oken se nezapočítají.
+    service.bootstrap()
+    service.db_for("fixture")
     entered = threading.Event()
     release = threading.Event()
 
