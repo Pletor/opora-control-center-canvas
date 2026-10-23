@@ -61,7 +61,7 @@ Plán jako diagram PR Lens, stejné plátno jako záložka Lens detailu karty (`
 
 | Kde | Co ukazuje |
 |---|---|
-| OporaHub · pata **Lens plánu** (detail `plan-lens`) | Celý projekt: oblasti a předávky mezi nimi. |
+| OporaHub · hlavička přehledu · **◫ Lens plánu** (detail `plan-lens`) | Celý projekt: oblasti a předávky mezi nimi. |
 | Editor · inspektor oblasti · **◫ Lens oblasti** | Jedna oblast: její karty, vazby z plánu a šedé vazby „kód“ z Graphify; okno vyjede zprava, ✕ vpravo nahoře, Escape a klik vedle ho zavřou a vrátí fokus. |
 
 Nad plátnem pruh čísel (oblasti, karty, s kódem, v plánu, samostatné, nezařazené; nula je bledá), stav

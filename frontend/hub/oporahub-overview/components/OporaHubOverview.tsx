@@ -7,6 +7,9 @@ import type { DetailTarget } from "../logic/overview";
 import LegacyLinks from "./LegacyLinks";
 import "../styles/oporahub-overview.css";
 
+/** Lens plánu celého projektu: hlavní akce v hlavičce, ne položka v patě. */
+export const PLAN_LENS_TARGET: DetailTarget = { kind: "plan-lens", title: "Lens plánu" };
+
 export type HubTab = "overview" | "process" | "agents";
 type Props = {
   agent: Pick<AgentStateView, "state" | "etag" | "error" | "loadedAt">; tab: HubTab; onTab: (tab: HubTab) => void;
@@ -29,6 +32,8 @@ export default function OporaHubOverview({ agent, tab, onTab, onOpenCard, open, 
     <header className="oporahub-overview__top">
       <h1 className="oporahub-overview__brand">OporaHub</h1>
       <span className="oporahub-overview__crumb">projekt <b>{state?.projectId ?? "—"}</b> · prostor <b>{state?.workspaceId ?? "—"}</b> · {freshness(agent.loadedAt, state?.generatedAt)}</span>
+      <button type="button" className="oporahub-overview__lens" data-oh-detail="plan-lens" data-oh-plan-lens-open="project"
+        title="Oblasti a předávky celého plánu jako diagram" onClick={() => open(PLAN_LENS_TARGET)}>◫ Lens plánu</button>
       <nav className="oporahub-overview__tabs" aria-label="Pohled OporaHubu">
         <button type="button" className="oporahub-overview__tab" aria-pressed={tab === "overview"} onClick={() => onTab("overview")}>Přehled</button>
         <button type="button" className="oporahub-overview__tab" aria-pressed={tab === "process"} onClick={() => onTab("process")}>Živý proces</button>
