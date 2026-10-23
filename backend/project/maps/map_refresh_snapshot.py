@@ -6,6 +6,8 @@ import subprocess
 import zipfile
 from pathlib import Path, PurePosixPath
 
+from pathspec import GitIgnoreSpec
+
 from backend.integrations.gitio import git
 
 # Mapy samotné do snapshotu nepatří: `graphify-out/` ani `archify-out/` nejsou zdroj.
@@ -29,9 +31,17 @@ def safe_relative(name):
     return PurePosixPath(name)
 
 
+def graphify_ignore(root, revision):
+    """`.graphifyignore` ze stejné revize (gitignore sémantika); chybějící soubor = bez vzorů."""
+    content = git(root, 'show', f'{revision}:.graphifyignore', timeout=15, optional=True)
+    return GitIgnoreSpec.from_lines((content or '').splitlines())
+
+
 def snapshot_main(root, revision, target):
     if not re.fullmatch(r'[a-f0-9]{40}', revision):
         raise ValueError('Neplatná revize main.')
+    # Graphify `.graphifyignore` respektuje; snapshot musí zúžit rozsah stejně, jinak limit selže dřív.
+    ignored = graphify_ignore(root, revision)
     records = git(root, 'ls-tree', '-r', '-l', '-z', revision, timeout=15)
     selected, total = [], 0
     for record in records.split('\0'):
@@ -48,13 +58,15 @@ def snapshot_main(root, revision, target):
             continue
         if path.suffix.lower() not in EXTENSIONS and path.name not in ('.gitignore', '.graphifyignore', 'Dockerfile'):
             continue
+        if name != '.graphifyignore' and ignored.match_file(name):
+            continue
         size = int(size)
         if size > 1024 * 1024:
             raise ValueError('Zdrojový soubor překračuje 1 MiB; upravte rozsah projektu.')
         total += size
         selected.append(name)
     if not selected or len(selected) > 800 or total > 8 * 1024 * 1024:
-        raise ValueError('Snapshot vyžaduje 1–800 textových souborů a nejvýše 8 MiB.')
+        raise ValueError('Snapshot vyžaduje 1–800 textových souborů a nejvýše 8 MiB; rozsah zúží .graphifyignore.')
     # Shell se nepoužívá; každý název je samostatný argument až za --.
     env = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
     command = ['git', '-c', 'core.hooksPath=' + str(Path(__file__).with_name('disabled-hooks')),
