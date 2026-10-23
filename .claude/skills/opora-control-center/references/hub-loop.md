@@ -70,6 +70,8 @@ Skript: čerstvý agent-state → ověří, že akce je `claim` a `ready` → `P
 (`contextProtocolVersion: 2`) → `POST /api/oporahub/executions/claim` s `expectedAcceptedHead`,
 `expectedContextVersion` (a u rozpočtu v2 `expectedBudgetPolicyHead`, `previousExecutionId`),
 novým `requestId` a `ttlSeconds` (30–3600). Vypíše `executionId`, `epoch`, `expiresAt`; token ne.
+Claim i heartbeat posílá s `?assignment=omit`: odpověď nese jen oprávnění (a `contextVersion`),
+zadání si přečteš jednou v kroku 4.
 Nedostupný kontext v2 je konec, **ne tichý přechod na v1** (`--context-version 1` jen na pokyn člověka).
 Readiness počítá backend: přijaté zadání s ≥ 1 krokem, rozpočet, prázdné `blockedBy`. Karta bez kroků
 má v process-sync stav `needs-steps`; claim odmítne `409` s `code` `plan_steps_missing` (chybí kroky)
