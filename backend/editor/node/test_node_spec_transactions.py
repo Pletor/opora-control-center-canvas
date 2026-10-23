@@ -9,6 +9,11 @@ SECOND = ("draft", "architecture", "second")
 FIELDS = {**EMPTY_FIELDS, "goal": "Accepted assignment"}
 
 
+def revisions(service, scope):
+    return [row[0] for row in service.db_for(scope[0]).execute(
+        "SELECT revision FROM node_spec_revisions WHERE project_id=? AND workspace_id=? AND node_id=?", scope)]
+
+
 @pytest.fixture
 def service(tmp_path):
     canvas = CanvasService(tmp_path / "data")
@@ -51,8 +56,8 @@ def test_failure_after_two_writes_rolls_back_both_histories(service):
             service.specs.save_in_transaction(FIRST, 0, FIELDS)
             service.specs.save_in_transaction(SECOND, 0, FIELDS)
             raise RuntimeError("Failed accepted reference update")
-    assert service.specs.history(FIRST)["items"] == []
-    assert service.specs.history(SECOND)["items"] == []
+    assert revisions(service, FIRST) == []
+    assert revisions(service, SECOND) == []
 
 
 @pytest.mark.parametrize("revision,fields", [(1, FIELDS), (0, {"goal": "Incomplete"}),
@@ -75,4 +80,4 @@ def test_public_save_still_commits_and_preserves_prior_revision_on_conflict(serv
     with pytest.raises(ValueError, match="Konflikt"):
         service.specs.save(FIRST, 0, {**FIELDS, "goal": "Stale"})
     assert service.specs.read(FIRST) == saved
-    assert service.specs.history(FIRST)["items"] == [saved]
+    assert revisions(service, FIRST) == [1]

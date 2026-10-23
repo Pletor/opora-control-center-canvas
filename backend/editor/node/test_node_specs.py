@@ -81,11 +81,8 @@ def test_stale_save_is_rejected_and_history_preserved(tmp_path):
             ).status_code
             == 200
         )
-        history = client.get("/api/node-spec/history", params=SCOPE)
-        assert history.status_code == 200
-        assert [i["revision"] for i in history.json()["items"]] == [2, 1]
-        assert history.json()["items"][1]["fields"] == FIELDS
-        assert history.json()["has_more"] is False
+        latest = client.get("/api/node-spec", params=SCOPE).json()
+        assert latest["revision"] == 2 and latest["fields"]["goal"] == "Novější zadání"
 
 
 @pytest.mark.parametrize(
@@ -132,7 +129,7 @@ def test_two_connections_cannot_both_commit_same_revision(tmp_path):
                 )
             )
         assert sorted(results) == [200, 409]
-        assert len(first.get("/api/node-spec/history", params=SCOPE).json()["items"]) == 1
+        assert first.get("/api/node-spec", params=SCOPE).json()["revision"] == 1
 
 
 def test_unknown_node_origin_and_main_scope_are_rejected(tmp_path):
@@ -204,7 +201,6 @@ def test_managed_workspace_and_main_history_keep_project_scope(tmp_path):
         )
         value = client.get("/api/node-spec", params=main).json()
         assert value["readOnly"] is True and value["available"] is False
-        assert client.get("/api/node-spec/history", params=main).json()["items"] == []
 
 
 def test_database_failure_is_safe_and_does_not_create_revision(tmp_path):

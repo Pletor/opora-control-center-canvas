@@ -47,23 +47,6 @@ class NodeSpecStore:
             "saved_at": row["saved_at"],
         }
 
-    def history(self, scope):
-        rows = self.canvas.db_for(scope[0]).execute(
-            "SELECT revision,fields,saved_at FROM node_spec_revisions WHERE project_id=? AND workspace_id=? AND node_id=? ORDER BY revision DESC LIMIT 21",
-            scope,
-        ).fetchall()
-        return {
-            "items": [
-                {
-                    "revision": row["revision"],
-                    "fields": json.loads(row["fields"]),
-                    "saved_at": row["saved_at"],
-                }
-                for row in rows[:20]
-            ],
-            "has_more": len(rows) > 20,
-        }
-
     def save(self, scope, expected_revision, fields):
         db = self.canvas.db_for(scope[0])
         with self.canvas.lock_for(scope[0]), db:

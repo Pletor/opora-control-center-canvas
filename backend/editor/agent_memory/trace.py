@@ -82,14 +82,3 @@ def trace(state, graph, entity_id):
             if rule["id"] == entity_id:
                 return {"id": entity_id, "kind": "rule", "nodeId": node_id, "label": rule["text"], "ruleKind": rule["kind"]}
     return None
-
-
-def tags_index(state):
-    """Štítek → počet a bloky, kde se vyskytuje; pořadí štítků podle prvního výskytu."""
-    index = {}
-    for node_id, block in _blocks(state):
-        for tag in block["tags"]:
-            entry = index.setdefault(tag, {"count": 0, "blocks": []})
-            entry["count"] += 1
-            entry["blocks"].append({"nodeId": node_id, "blockId": block["id"]})
-    return index

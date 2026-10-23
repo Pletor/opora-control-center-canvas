@@ -45,10 +45,6 @@ def create_node_router(service):
     def node_spec(project: str, workspace: str, node: str):
         return with_plan(project, workspace, node, service.node_spec(project, workspace, node))
 
-    @router.get("/node-spec/history")
-    def node_spec_history(project: str, workspace: str, node: str):
-        return service.node_spec(project, workspace, node, history=True)
-
     @router.post("/node-spec")
     def save_node_spec(payload: dict):
         result = service.node_spec(payload.get("project"), payload.get("workspace"), payload.get("node"), payload)

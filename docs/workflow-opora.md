@@ -14,7 +14,7 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 | Odstranění | náhled s digestem a potvrzení | `/api/removal-preview`, `/api/remove` | UI, agent | hotovo |
 | sourceRef | `{origin: existing\|planned, path, kind}`, kontrola proti disku | `graph.py`, `canvas_service.py` | UI, agent | hotovo |
 | Kresba | Excalidraw na vrstvu, obrázky (PNG/JPEG/WebP/GIF do 10 MB), kontext wireframu | `/api/drawing`, `/api/drawing-file(s)`, `/api/wireframe-context` | UI | hotovo |
-| Spec, text, deník, odkazy, podklady | `goal / non_goals / acceptance` s historií; text; deník po dnech; obrázky | `/api/node-spec(+history)`, `/api/node-text`, `/api/node-journal`, `/api/node-links`, `/api/node-materials/*` | UI + agent | hotovo |
+| Spec, text, deník, odkazy, podklady | `goal / non_goals / acceptance` s historií; text; deník po dnech; obrázky | `/api/node-spec`, `/api/node-text`, `/api/node-journal`, `/api/node-links`, `/api/node-materials/*` | UI + agent | hotovo |
 | Stav Desktop v3 | jeden revizovaný dokument `{settings, rules, decisions, nodes, tickets, edges}` | `/api/desktop-v3/state` | UI + agent | hotovo |
 | Pravidla | projekt `must/must_not` se scope `project/path/node`; pravidla karty | stav Desktop v3 | UI, agent | hotovo |
 | Rozhodnutí | `{id, text, pinned, path, nodeId, createdAt, by}` | stav Desktop v3, `agent-output.decisions` | UI + agent | hotovo |
@@ -30,7 +30,7 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 | Zprávy na vazbách | `log / summary / handoff / improvements / errors` | `state.edges` | agent | hotovo |
 | Adresované zprávy | `handoff / question / answer / blocker / result / correction` + potvrzení | `/api/desktop-v3/agent-messages`, `/agent-message-receipt` | agent + UI | hotovo (v1) |
 | Tickety | `{id, title, priority, status open/doing/done, nodeId, sessionId, createdBy}` | jen uvnitř stavu Desktop v3 | agent zapisuje | **jen backend, UI chybí** |
-| Trace, tagy, pipeline akcí | dohledání ID, index tagů, knihovna akcí | `/api/desktop-v3/trace`, `/tags`, `/pipelines` | UI, agent | hotovo |
+| Trace, pipeline akcí | dohledání ID, knihovna akcí | `/api/desktop-v3/trace`, `/pipelines` | UI, agent | hotovo |
 | Procesy | `draft → running → done ⇄ repair`, kroky s důkazem, reporty | `/api/processes/*` | UI + agent | hotovo |
 | Agent hooks | Claude Code hooky: povolené cesty, limity, TTL, pauza/stop, ACK revize zadání; bind, control a instalaci smí jen člověk (upgrade-opora #38) | `/api/agent-hooks/*` | člověk nastaví | hotovo |
 | Paměť role | OpenViking: recall, remember, lend; zrcadlí prostor agenta | `/api/memory/*` | automatika + člověk | hotovo (volitelné) |
@@ -44,7 +44,7 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 
 1. (Zrušeno: vazba session ↔ uzel zanikla spolu s Live Runem.)
 2. (Zrušeno: pohled Live Run zanikl spolu s prostředím.)
-3. Skill (`references/`) dodnes nepopisuje adresované zprávy, `trace/tags/pipelines` (knihovnu akcí), zakládání a přechody procesů, zápisy `/api/memory/*`, `node-materials` a `packet/preview.blockId`. Zbytek pokrývá a hlídá `scripts/test_skill_docs.py` (2026-10-08).
+3. Skill (`references/`) dodnes nepopisuje adresované zprávy, `trace/pipelines` (knihovnu akcí), zakládání a přechody procesů, zápisy `/api/memory/*`, `node-materials` a `packet/preview.blockId`. Zbytek pokrývá a hlídá `scripts/test_skill_docs.py` (2026-10-08).
 4. `pamet-agentu.md` zmiňuje `context.memory.rules` v `node-brief`. Takový klíč neexistuje, pravidla jsou v `boundaries`.
 5. `agent-output.blocks[].note` se ověří a zahodí. Dokumentace to neuvádí.
 6. `postup-vyvoje-projektu.md` (bez worktree, lokální složka) a `PRODUCT-CONTRACT.md` (worktree na WorkUnit) popisují dva režimy. Oba v kódu existují a rozhoduje druh projektu.

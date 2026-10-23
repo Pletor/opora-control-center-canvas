@@ -2,7 +2,7 @@
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
-from backend.editor.agent_memory.trace import tags_index, trace
+from backend.editor.agent_memory.trace import trace
 
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}
@@ -71,14 +71,7 @@ def test_trace_resolves_every_kind_with_owner_and_links():
     assert trace(STATE, GRAPH, "ghost") is None
 
 
-def test_tags_index_counts_blocks_per_tag():
-    assert tags_index(STATE) == {
-        "auth": {"count": 2, "blocks": [{"nodeId": "login", "blockId": "b1"}, {"nodeId": "login", "blockId": "b2"}]},
-        "ui": {"count": 1, "blocks": [{"nodeId": "login", "blockId": "b1"}]},
-    }
-
-
-def test_endpoints_serve_trace_and_tags(tmp_path):
+def test_endpoint_serves_trace(tmp_path):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         view = client.get("/api/view", params=SCOPE).json()
         assert client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": GRAPH, "digest": view["digest"]}).status_code == 200
@@ -87,5 +80,3 @@ def test_endpoints_serve_trace_and_tags(tmp_path):
         assert found.status_code == 200 and found.json()["kind"] == "todo"
         missing = client.get("/api/desktop-v3/trace", params={**SCOPE, "id": "ghost"})
         assert missing.status_code == 404
-        tags = client.get("/api/desktop-v3/tags", params=SCOPE)
-        assert tags.status_code == 200 and tags.json()["auth"]["count"] == 2
