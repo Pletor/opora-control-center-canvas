@@ -74,6 +74,11 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 | `POST /api/oporahub/review-jobs/findings/{id}/resolve` | write | agent jen `nit` / `pre_existing` |
 | `POST /api/oporahub/review-jobs/decisions` | člověk | za stropem kol |
 | `GET /api/oporahub/review-jobs/gates` | read | brána merge |
+| `POST /api/oporahub/review-jobs/preview` | běh (token + epocha) | screenshoty `evidence.preview` na hlavu PR, `docs/design-nahled.md` |
+| `GET /api/oporahub/review-preview` | read | režim, DESIGN.md odkaz, skica, screenshoty; i `/file` (PNG) |
+| `POST /api/oporahub/review-preview/confirm` | člověk | Potvrdit vzhled pro hlavu |
+| `POST /api/oporahub/design-mode` | člověk | `brand` / `explore` |
+| `GET /api/oporahub/design-system` | read | DESIGN.md z `HEAD`, ETag |
 | `GET /api/oporahub/review-identities` | read | |
 | `POST /api/oporahub/review-identities/claim` | člověk | i `/api/oporahub/review-identities/{id}/verify`, `/api/oporahub/review-identities/{id}/revoke` |
 | `GET /api/oporahub/review-metrics` | read | |

@@ -145,6 +145,9 @@ Plán karty tvoří verzované [kroky plánu](docs/oporahub-plan-steps.md) (`spe
 kartu s přijatými kroky a bez nedokončených předchůdců, hotovo určuje jediná definice.
 [Lens plánu](docs/plan-lens.md) (`GET /api/oporahub/plan-lens`) ukazuje plán z plátna jako graf PR Lens
 (oblasti, karty, předávky a vazby v kódu z Graphify, plán proti realitě main), deterministicky a bez modelu.
+[Design náhled karty](docs/design-nahled.md) drží screenshoty design karty na hlavě PR (`evidence.preview`),
+lidské „Potvrdit vzhled“, režim karty `brand` / `explore` a DESIGN.md projektu z commitnuté revize
+(`GET /api/oporahub/design-system`); v bráně merge je to jen doklad.
 Volitelné [automatické review kódu](docs/oporahub-review-jobs.md) (`OPORA_REVIEW_JOBS=1`) zařazuje
 úlohy hledačů a ověřovatelů pro každou novou hlavu PR běhu a počítá bránu merge; pracovníci
 agent-office je přebírají přes `/api/oporahub/review-jobs`. Brána navíc vyžaduje bezpečnostní review
