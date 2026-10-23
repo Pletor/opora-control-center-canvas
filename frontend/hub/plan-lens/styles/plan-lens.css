@@ -1,0 +1,50 @@
+/* LENS PLÁNU (blok `plan-lens`)
+   Příběh: člověk chce vidět plán jako obraz, ne jako seznam karet. Nahoře je proto tichý pruh čísel
+   (kolik oblastí, karet, kolik z nich už má kód a kolik je jen v plánu), vpravo poctivě řečeno, jestli
+   Graphify dodal vazby v kódu. Pod čísly malá legenda, která naučí číst diagram jedním pohledem: plná
+   část je kód, odznak „plán“ je slib, šedá vazba „kód“ je to, co našel Graphify. Plátno pod tím je
+   stejné jako Lens karty, takže se ovládá stejně. */
+.plan-lens { gap: 12px; }
+.plan-lens__grow { flex: 1; }
+
+/* Pruh čísel: čísla jako drobné štítky v řadě; nula je bledší, aby oko šlo rovnou k tomu, co v plánu je. */
+.plan-lens__strip { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.plan-lens__stats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.plan-lens__stat { padding: 2px 9px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface-2); color: var(--ink); font-size: 12px; white-space: nowrap; }
+.plan-lens__stat--zero { color: var(--ink-muted); border-style: dashed; }
+
+/* Graphify je zelený, když dodal vazby v kódu; když chybí, je to šedé a přerušované, ne poplach. */
+.plan-lens__graphify { padding: 2px 9px; border: 1px solid var(--ok-line); border-radius: 6px; background: var(--ok-soft); color: var(--ok); font-size: 12px; white-space: nowrap; }
+.plan-lens__graphify--off { border: 1px dashed var(--line-strong); background: transparent; color: var(--ink-muted); }
+.plan-lens__reload, .plan-lens__open { padding: 5px 12px; border: 1px solid var(--accent-line); border-radius: 6px; background: var(--accent-soft); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.plan-lens__reload:hover, .plan-lens__open:hover { border-color: var(--accent); }
+.plan-lens__reload:disabled, .plan-lens__open:disabled { opacity: .6; cursor: default; }
+.plan-lens__open { justify-self: start; }
+
+/* Legenda: tři ukázky stejné řeči, jakou mluví plátno — plný obdélník, odznak a šedá čárkovaná čára. */
+.plan-lens__legend { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: 12px; }
+.plan-lens__legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.plan-lens__swatch { display: inline-block; width: 18px; height: 11px; border-radius: 3px; }
+.plan-lens__swatch--code { border: 1px solid var(--line-strong); background: var(--ink-2); }
+.plan-lens__swatch--link { height: 0; border-top: 2px dashed var(--ink-muted); border-radius: 0; }
+.plan-lens__badge { padding: 0 7px; border: 1px solid var(--warn-line); border-radius: 999px; background: var(--warn-soft); color: var(--warn); font-size: 11px; }
+
+/* Starší server bez endpointu: klidná věta s cestou dál, ne červená chyba. */
+.plan-lens__calm { display: grid; gap: 8px; justify-items: start; padding: 16px 18px; border: 1px dashed var(--line-strong); border-radius: 10px; color: var(--ink-2); }
+.plan-lens__calm-title { color: var(--ink); font-size: 14px; }
+.plan-lens__calm-text { margin: 0; }
+
+/* Okno vyjíždí zprava přes plátno jako detail karty; je široké, aby se vešlo plátno i boční sloupec.
+   ✕ je vždy vpravo nahoře, klik vedle okna ho zavře. Na telefonu jde přes celou šířku. */
+.plan-lens__overlay { position: fixed; inset: 0; z-index: 1000; display: flex; justify-content: flex-end; background: var(--backdrop); }
+.plan-lens__dialog { display: flex; flex-direction: column; width: min(1320px, 96vw); height: 100%; min-width: 0; background: var(--bg); color: var(--ink); box-shadow: var(--shadow-pop); outline: none; }
+.plan-lens__dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.plan-lens__dialog-title { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.plan-lens__close { align-self: start; width: 32px; height: 32px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 16px; cursor: pointer; }
+.plan-lens__close:focus-visible, .plan-lens__open:focus-visible, .plan-lens__reload:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.plan-lens__dialog-body { min-width: 0; overflow: auto; padding: 16px 20px; }
+
+@media (max-width: 760px) {
+  .plan-lens__dialog { width: 100%; }
+  .plan-lens__dialog-body { padding: 10px; }
+}

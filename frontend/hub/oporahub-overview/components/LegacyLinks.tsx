@@ -2,6 +2,7 @@ import type { DetailTarget } from "../logic/overview";
 
 /** Původní drawery a formuláře zůstávají dosažitelné: každá položka otevře stávající detail beze změny. */
 export const LEGACY_LINKS: DetailTarget[] = [
+  { kind: "plan-lens", title: "Lens plánu" },
   { kind: "changes", title: "Upravit zadání karty" },
   { kind: "graph", title: "Návrhy grafu" },
   { kind: "content", title: "Změny obsahu" },

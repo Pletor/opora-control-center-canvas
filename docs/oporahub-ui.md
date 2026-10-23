@@ -53,6 +53,25 @@ verdiktu Oracle, uzavření karty `DoneControl`, „Zacommitovat zadání“ (`/
 starého `agent-output` (nahrazuje ji Běh s výsledky exekucí). Inspektor uzlu v Editoru je jen štíhlý rozcestník
 (vnitřní plátno, balíček karty, Schránka, rozklad sektoru, smazání).
 
+## Lens plánu
+
+Plán jako diagram PR Lens, stejné plátno jako záložka Lens detailu karty (`frontend/hub/plan-lens`, kreslí
+`hub/review-lens/LensStage`). Data: `GET /api/oporahub/plan-lens?project&workspace[&area=<id oblasti>]` →
+`{kind: "plan", area, digest, spec, stats, graphify}`; obnova posílá `If-None-Match`, 304 drží zobrazená data.
+
+| Kde | Co ukazuje |
+|---|---|
+| OporaHub · pata **Lens plánu** (detail `plan-lens`) | Celý projekt: oblasti a předávky mezi nimi. |
+| Editor · inspektor oblasti · **◫ Lens oblasti** | Jedna oblast: její karty, vazby z plánu a šedé vazby „kód“ z Graphify; okno vyjede zprava, ✕ vpravo nahoře, Escape a klik vedle ho zavřou a vrátí fokus. |
+
+Nad plátnem pruh čísel (oblasti, karty, s kódem, v plánu, samostatné, nezařazené; nula je bledá), stav
+Graphify (`✓ · revize abc1234`, nebo „nedostupný · vazby „kód“ chybí“), legenda (plná část = kód existuje,
+odznak „plán“ = plánováno, šedá vazba „kód“ = vazba z Graphify) a „Obnovit“. Panel části ukazuje i odznaky
+uzlu. Starší server bez endpointu (404) dostane klidný stav „Lens plánu není na serveru k dispozici“ s
+„Zkusit znovu“, ne chybu. Kořen nese `data-oh-view="plan-lens"`, `data-oh-plan-status`
+(`idle`/`loading`/`ok`/`unavailable`/`error`) a `data-oh-plan-scope` (`project`/`area`); pruh
+`data-oh-plan-digest`, `data-oh-plan-area`, `data-oh-plan-stat` a `data-oh-plan-graphify`.
+
 ## Vlna 5: brána review, lidé, metriky, auto-rebase, důkazy a plátno
 
 | Kde | Co ukazuje | Zdroj |
@@ -175,7 +194,7 @@ Vlna 5: `oporahub-review-gate` (krok Review karty), `oporahub-proofs` (důkazy k
 `oporahub-mirror` (jednorázové čtení a zrcadla `oh-*`). Editor lean: `editor/canvas/card-face` (tvář, glyf,
 hlava vrstvy, tóny), `frontend/editor/canvas/board/logic/dag-edges.ts` a `card-cycle.ts`, `editor/control-tower` (Velín),
 `editor/live-strip` (klient událostí, dráhy), `editor/canvas/add-menu`, `ui-kit/toolbar-menu`,
-`hub/oporahub-card-drawer` (šev detailu karty).
+`hub/oporahub-card-drawer` (šev detailu karty), `hub/review-lens` (plátno PR Lens), `hub/plan-lens` (Lens plánu).
 
 ## Ověření
 

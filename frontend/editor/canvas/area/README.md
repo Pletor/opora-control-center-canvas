@@ -20,7 +20,7 @@ vrstvě) nebo „Rozložit na karty“ (oblast ve vrstvě sektoru = **fáze** se
 rodiče vrstvy najde `areaHost` v `area-model.ts` a App ho předá jako `host`; ve vnitřním plátně karty nebo
 s chybějícím rodičem se rozklad nenabízí): stav (chybí záměr /
 kolik sektorů či karet už oblast má), zadání pro agenta-rozkladače jen ke čtení a tlačítko „Kopírovat zadání“
-(schránka, 2 s „Zkopírováno“). Nic nespouští; agent jede v terminálu podle
+(schránka, 2 s „Zkopírováno“). Pod ním tlačítko **◫ Lens oblasti** (`hub/plan-lens/PlanLensButton`) otevře oblast jako diagram PR Lens (karty, vazby z plánu, vazby v kódu z Graphify). Nic nespouští; agent jede v terminálu podle
 `.claude/skills/opora-control-center/references/rozklad.md` (dávka `canvas-plan --dry-run` → jedno
 rozhodnutí člověka → ostře).
 
