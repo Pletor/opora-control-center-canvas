@@ -5,7 +5,9 @@ graph document, the spec (lanes, cards with files and lines, edges, flow steps w
 spec is the source of truth agents read as data; pictures are optional. The worker posts it during
 its run with its execution lease (`POST /api/oporahub/review-jobs/lens`), either as an **area map**
 before code exists (`kind: area`, keyed to the execution's accepted plan revision, `headSha` null) or
-for the current head of its open linked PR (`kind: pr`). It is optional and NEVER blocking: the merge
+for the current head of its open linked PR (`kind: pr`). The office opens the PR only after the
+result, so a PR lens is also accepted for a `reported` execution with the same token and epoch.
+It is optional and NEVER blocking: the merge
 gate only shows it and adds no reason. Agents read it through `GET /api/oporahub/review-lens`.
 Validation is pure; invalid evidence is refused, never repaired."""
 import json
@@ -122,11 +124,23 @@ def for_node(db, project, workspace, node_id):
 
 
 class LensAddenda:
-    """`POST /lens`: lens evidence from the running execution itself (its lease token and epoch, the
-    same credential and checks as `stepResults`); a PR lens only for the current head of its open PR."""
+    """`POST /lens`: lens evidence from the execution itself (its lease token and epoch, the same
+    credential as `stepResults`), while it runs or, for a PR lens, after its reported result; a PR lens
+    only for the current head of its open PR."""
 
     def __init__(self, jobs):
         self.executions = jobs.executions
+
+    def authorize(self, repo, record, value):
+        """A running execution with a valid lease draws either kind. After its own result (`reported`, the
+        lease already released) the office still posts the PR lens it drew for the PR it opened, so that
+        execution's token + epoch stay the credential for a PR lens only; the open-PR and same-head checks
+        in `submit` still apply. Released, revoked or cancelled runs are refused."""
+        if record["state"] == "reported":
+            if value["kind"] != "pr":
+                raise ValueError("After the result only a PR lens for the open linked pull request is accepted.")
+            return
+        self.executions.active(repo, record)  # running, valid lease, within budget
 
     def submit(self, payload, by):
         project, workspace = validate(payload, {"executionId", "token", "epoch", "lens"})
@@ -137,7 +151,7 @@ class LensAddenda:
         with self.executions.transaction(project, workspace) as repo:
             record = repo.read(execution_id)
             self.executions.authenticate(record, payload["token"], payload["epoch"])
-            self.executions.active(repo, record)  # running, valid lease, within budget
+            self.authorize(repo, record, value)
             if value["kind"] == "pr":
                 link = ExecutionPullRequests(repo.db, project, workspace).read(execution_id)
                 if link is None or link["state"] != "open":
