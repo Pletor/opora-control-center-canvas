@@ -2,12 +2,14 @@
 import pytest
 
 from backend.canvas import opora_review_lens as review_lens
+from backend.canvas.opora_execution_results import ExecutionResults
 from backend.canvas.opora_review_lens import LensAddenda, validate_lens
 from backend.canvas.test_opora_execution_pull_requests import NEXT_SHA, SHA
 from backend.canvas.test_opora_execution_pull_requests import world_fixture as world  # noqa: F401
 from backend.canvas.test_opora_review_gate_fixtures import config, gate_item, run_round, use
 from backend.canvas.test_opora_review_jobs import push
 from backend.canvas.test_opora_review_jobs import review_fixture as review  # noqa: F401
+from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
 
 URL = f"https://github.com/owner/repo/raw/{'e' * 40}/.pr-lens/overview-light-0123.svg"
 SPEC = {"kind": "graph", "title": "Batch sends", "nodes": [{"id": "n", "files": [{"path": "src/a.ts", "startLine": 1, "endLine": 9}]}]}
@@ -111,3 +113,29 @@ def test_lens_needs_the_running_lease_and_an_open_linked_pull_request(review):  
         **review["scope"], "token": review["record"]["token"], "epoch": review["record"]["epoch"]})
     with pytest.raises(ValueError, match="no longer authoritative"):
         addenda.submit({**credential(review), "lens": lens()}, "agent:w")
+
+
+def test_pr_lens_after_the_reported_result_needs_the_runs_credential_open_pr_and_same_head(review):  # noqa: F811
+    """N1 (Opora #61): the office opens the PR after the result, so a reported run may still post its PR lens."""
+    record, scope = review["record"], review["scope"]
+    ExecutionResults(review["service"]).submit(record["executionId"], {
+        **scope, "token": record["token"], "epoch": record["epoch"], "requestId": "result",
+        "result": {"summary": "Done"}})
+    addenda = LensAddenda(review["jobs"])
+    with pytest.raises(ValueError, match="credential"):
+        addenda.submit({**credential(review), "token": "0" * 64, "lens": lens()}, "agent:w")
+    with pytest.raises(ValueError, match="credential"):
+        addenda.submit({**credential(review), "epoch": record["epoch"] + 1, "lens": lens()}, "agent:w")
+    area = {"kind": "area", "validatedAt": "2026-10-22T11:50:00Z", "spec": SPEC}
+    with pytest.raises(ValueError, match="only a PR lens"):
+        addenda.submit({**credential(review), "lens": area}, "agent:w")
+    with pytest.raises(ValueError, match="current head"):
+        addenda.submit({**credential(review), "lens": lens(NEXT_SHA)}, "agent:w")
+    receipt = addenda.submit({**credential(review), "lens": lens(spec=SPEC)}, "agent:w")
+    assert receipt == {"executionId": record["executionId"], "kind": "pr", "headSha": SHA, "recorded": True}
+    db = review["service"].db_for(scope["project"])
+    assert review_lens.for_node(db, scope["project"], scope["workspace"], "card")["lens"]["spec"] == SPEC
+    with review["jobs"].executions.transaction(scope["project"], scope["workspace"]) as repo:
+        ExecutionPullRequests(repo.db, *repo.scope).update(record["executionId"], state="closed")
+    with pytest.raises(ValueError, match="no open linked pull request"):
+        addenda.submit({**credential(review), "lens": lens(spec=SPEC)}, "agent:w")

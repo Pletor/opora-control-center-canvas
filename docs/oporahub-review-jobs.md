@@ -248,10 +248,13 @@ Zdrojem pravdy je **spec** (validovaný graf: pruhy, karty s cestami a řádky, 
 s payloady), ne obrázky: agenti ho čtou jako data, lidem ho kreslí záložka **Lens** v detailu
 karty (`frontend/hub/review-lens`). Hlavní cesta je spec poslaný inline.
 
-**Zápis jen z běžícího běhu.** `POST /api/oporahub/review-jobs/lens` s
+**Zápis jen od vlastního běhu.** `POST /api/oporahub/review-jobs/lens` s
 `{project, workspace, executionId, token, epoch, lens}` vyžaduje lease token a epochu běhu
 (stejné ověření jako `stepResults` ve výsledku běhu: shodný token a epocha, běh `running`,
-platný lease, rozpočet); samotná identita agenta nestačí (409). Tělo požadavku má nejvýš
+platný lease, rozpočet); samotná identita agenta nestačí (409). Kancelář otevírá PR až po
+výsledku, proto běh ve stavu `reported` (výsledek odevzdán, lease uvolněn) smí se svým tokenem
+a epochou poslat ještě **graf změny PR** pro otevřený propojený PR a jeho aktuální hlavu; mapu
+oblasti už ne. Běh uvolněný, odvolaný nebo zrušený bez výsledku dostane 409. Tělo požadavku má nejvýš
 **64 KiB** a kontroluje se před parsováním JSON (`Content-Length` i skutečně přečtené bajty;
 víc → 413 `payload_too_large`, neplatný JSON → 400). `lens` je jedno z:
 
