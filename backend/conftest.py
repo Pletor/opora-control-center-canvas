@@ -49,3 +49,29 @@ def _legacy_claims_without_plan_steps(request, monkeypatch):
     if request.node.get_closest_marker("plan_steps_claim") is None:
         from backend.canvas import opora_agent_state_steps
         monkeypatch.setattr(opora_agent_state_steps, "REQUIRE_STEPS", False)
+
+
+@pytest.fixture
+def real_graphify(monkeypatch):
+    """Interpret s graphifyy==0.9.24 nalezený stejně jako spouštěč `uv run opora`.
+
+    Spouštěč (tools/opora.py) bere `[integrations] graphify_python` z opora.toml + opora.local.toml
+    a předá ho backendu jako OPORA_GRAPHIFY_PYTHON; pytest ty soubory sám nečte. Proměnná
+    z prostředí má přednost. Bez interpretu se test výslovně přeskočí, nikdy tiše neprojde."""
+    from backend.project.maps import graphify_runtime
+    from backend.project.maps.map_artifacts import ArtifactUnavailable
+    from tools.opora import ENV_BY_KEY, load_config
+
+    if not os.environ.get('OPORA_GRAPHIFY_PYTHON'):
+        configured = load_config().get('integrations', {}).get('graphify_python')
+        if configured:
+            monkeypatch.setenv(ENV_BY_KEY['graphify_python'], str(configured))
+    graphify_runtime.runtime.cache_clear()
+    try:
+        interpreter = graphify_runtime.runtime()
+    except ArtifactUnavailable as exc:
+        graphify_runtime.runtime.cache_clear()
+        pytest.skip(f'Původní Graphify není k dispozici: {exc} '
+                    '(graphify_python v opora.local.toml nebo OPORA_GRAPHIFY_PYTHON).')
+    yield interpreter
+    graphify_runtime.runtime.cache_clear()

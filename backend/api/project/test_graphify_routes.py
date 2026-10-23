@@ -11,7 +11,7 @@ from backend.project.maps.graphify_runtime import clean_environment, writable
 from backend.project.maps.map_artifacts import ArtifactUnavailable
 
 
-def test_generate_uses_official_graphify_and_persists_output(tmp_path):
+def test_generate_uses_official_graphify_and_persists_output(tmp_path, real_graphify):
     root = tmp_path / 'source'
     root.mkdir()
     (root / 'hello.py').write_text('def hello():\n    return "hello"\n\nhello()\n')
