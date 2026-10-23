@@ -86,6 +86,13 @@ a je potřeba nové převzetí (ne oprava snímku).
 `spec.steps`: `[{id, order, title, acceptance: [..], dependsOn: [..], kind?, files?}]`.
 Kroky jsou součástí přijaté revize; měnit je smí jen návrh změny ([planner.md](planner.md)).
 
+`handoff` ve snímku je předávka předchůdců: `predecessors[]` (karty na vazbě `next`: `summary`,
+`stepResults`, `checks`, `decisions`, `pr` {number, state, mergeSha, url}, `lens`) a u první karty
+oblasti `areaFlows[]` (zprávy toků `flow`). Než začneš, přečti ji: na co navázat, co bylo rozhodnuto
+a proč. Běhy předchůdců už nedočítej. Jen když je pole v `trimmed[]` nebo karta v `omitted[]`,
+dočti ho z `full` (GET s `fullParams.params`). Strop je 8 kB a pořadí je od nejbližšího
+a nejnovějšího. Podrobně v `docs/oporahub-executions.md` („Předávka v zadání“).
+
 ## 5. Pracuj krok po kroku ve worktree
 
 1. Worktree z čerstvého `origin/main` (pod Office už ho máš); sdílený checkout neměň.

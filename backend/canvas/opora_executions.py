@@ -6,6 +6,7 @@ from contextlib import contextmanager
 
 from backend.canvas import opora_execution_budget_runtime as budget_runtime
 from backend.canvas import opora_execution_context as sparse_context
+from backend.canvas import opora_execution_handoff as handoff
 from backend.canvas import opora_lease_events as lease_events
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import digest
@@ -81,6 +82,7 @@ class OporaExecutions:
                     or captured["contextVersion"] != payload["expectedContextVersion"]):
                 raise ValueError("Accepted assignment changed before claim.")
             require_ready(self.canvas, project, workspace, node, captured)  # steps + no blockedBy
+            captured = handoff.attach(captured, pin, handoff.handoff_for(self.canvas, repo.db, project, workspace, node))
             stamp = time.time()
             lease = repo.db.execute("SELECT expires_at FROM card_leases"
                                     " WHERE project_id=? AND workspace_id=? AND node_id=?",
@@ -141,7 +143,7 @@ class OporaExecutions:
         else:
             if "contextProtocolVersion" in record:
                 raise ValueError("Unsupported persisted execution context protocol version.")
-            current = assignment(self.canvas, *repo.scope, record["nodeId"])
+            current = handoff.pinned(assignment(self.canvas, *repo.scope, record["nodeId"]), record)
             if digest(current) != record["assignmentDigest"]:
                 raise ValueError("Execution assignment changed; claim a new execution.")
         # Capturing context can be slow; authority must still exist after that work.

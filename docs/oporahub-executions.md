@@ -19,6 +19,36 @@ pracuje z tohoto snímku, nikoli z opakovaně načítaného živého briefu. Zac
 kontextu nezahrnuje obsah externích odkazů ani bajty obrázků; jejich neměnnost
 tato verze nezaručuje. Snímek nese i `steps`: přijaté kroky plánu karty seřazené podle `order`.
 
+### Předávka v zadání (`assignment.handoff`)
+
+Snímek nese i `handoff`: co zanechali předchůdci, aby další karta nezačínala naslepo
+(A/B protokol, nález N2; signální balíček z plánu vs. reality). Agent kvůli tomu nic dalšího nečte.
+
+- **Předchůdci** (`predecessors`): každá karta, ze které vede vazba `next` do claimované karty.
+  Z jejích běhů se vezme poslední přijatý výsledek: běh se sloučeným PR, jinak nejnovější
+  ohlášený výsledek. Položka nese `cardId`, `title`, `executionId`, `resultStatus`
+  (`merged` / `reported` / `none`), `summary`, `stepResults` (`id`, `status`, krátký důkaz
+  `notes` / `checks` / `commits`), `checks` ze `selfChecks`, `decisions` (z `result.decisions`,
+  text nebo objekt s `why` / `alternatives` / `evidence`, za nimi rozhodnutí karty z plochy),
+  `pr` {`number`, `state`, `mergeSha`, `url`}, `lens` {`endpoint` na `GET /review-lens`, `stored`,
+  případně `title`} a `edgeReport` (zpráva na vazbě ze starého protokolu).
+- **Toky do oblasti** (`areaFlows`): jen pro první kartu oblasti (žádný předchůdce `next` ze stejné
+  oblasti). Jsou to zprávy vazeb `flow`, které do oblasti vedou: `edgeId`, `fromArea`, `handoff`,
+  `summary`, `sentAt`.
+- **Strop 8 kB** (`capBytes` 8192; `bytes` je skutečná velikost kompaktního JSON). Pořadí je
+  pevné: předchůdci od nejnovějšího výsledku, při shodě podle id, toky za nimi. Zkracuje se
+  deterministicky po kolech od konce seznamu (nejvzdálenější a nejstarší první): méně textu
+  v `summary`, důkazech a rozhodnutích, nakonec jen počty kroků. Teprve potom jdou celé položky
+  do `omitted` (`{id, kind}`); u stovek předchůdců zbude zbytek jen jako počet `omittedMore`.
+- **Bez ztráty dat:** `trimmed[]` říká, která pole položky (`id`) se zkrátila, a `full` ukazuje,
+  odkud je dočíst (`/executions/{id}/results`, `/executions/{id}/pull-request`, `/review-lens?nodeId=`,
+  `/api/desktop-v3/state`). Parametry `project` a `workspace` jsou ve `fullParams.params`.
+  Vynechané karty najdeš šablonou `fullParams.executions`.
+- **Snímek v otisku:** `handoff` je součástí `assignmentDigest`, takže otisk se mění jen se změnou
+  předchůdce. Běžící běh tím ale oprávnění neztratí: heartbeat a výsledek porovnávají živé
+  zadání s předávkou zachycenou při claimu. Nový claim dostane novou předávku. Běhy převzaté
+  před zavedením `handoff` ho nemají a fungují dál.
+
 Jediným zdrojem rezervace zůstává `card_leases`. V téže SQLite transakci se uloží
 běh, snímek, klíč požadavku a rostoucí číslo převzetí (`epoch`). Číslo se po
 uvolnění ani expiraci nevrací zpět. Platí dosavadní limit karet na vlastníka.
@@ -75,7 +105,7 @@ zvoleného projektu v kanceláři nepřesměruje existující běh.
 |---|---|
 | `GET /context?project&workspace&nodeId` | Dostupnost, přijatá revize a verze kontextu |
 | `POST /claim` | Scope, karta, očekávaná revize/kontext, `requestId`, `ttlSeconds` |
-| `GET /{id}/assignment?project&workspace` | Neměnné zadání; token v `X-Opora-Execution-Token` |
+| `GET /{id}/assignment?project&workspace` | Neměnné zadání včetně `handoff` předchůdců (do 8 kB); token v `X-Opora-Execution-Token` |
 | `POST /{id}/heartbeat` | Scope, token, epocha a nové TTL |
 | `POST /{id}/release` | Scope, token a epocha; uvolnění vlastního běhu |
 | `POST /{id}/results` | Scope, token, epocha, `requestId` a `result` |
