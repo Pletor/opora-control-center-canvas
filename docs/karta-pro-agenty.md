@@ -8,6 +8,9 @@ Pro kartu převzatou přes `/api/oporahub/executions/claim` platí
 [kontrakt vykonávání přijatého zadání](oporahub-executions.md). Agent dostane
 neměnný snímek přijaté revize a odevzdává výsledek přes execution API. Živý
 `node-brief` zůstává čtecím podkladem, nenahrazuje zadání tohoto běhu.
+Předávku od předchůdců na vazbách `next` (souhrn, výsledky kroků, rozhodnutí, PR, Lens)
+a u první karty oblasti i zprávy toků `flow` nese snímek sám v `assignment.handoff`
+(do 8 kB; co se nevejde, má ukazatel `full`). Viz [předávka v zadání](oporahub-executions.md#předávka-v-zadání-assignmenthandoff).
 
 Živá orientace v `node-brief` odkazuje na [společný proces Control Center](oporahub-process-sync.md):
 `GET /api/oporahub/process?project=…&workspace=…&nodeId=…`.
