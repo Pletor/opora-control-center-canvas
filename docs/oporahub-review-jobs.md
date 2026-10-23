@@ -299,6 +299,24 @@ nejnovější mapa oblasti (`{executionId, acceptedRevision, by, createdAt, lens
 `opora_review_lens` (`database/schema/opora_review_gate_schema.py`, slot = hlava PR nebo `area`),
 testy `test_opora_review_lens.py` a `test_opora_review_lens_routes.py`.
 
+### Doklady kroků (`evidence.steps`)
+
+Když běh napojeného PR má v neměnném snímku zadání kroky plánu ([Kroky plánu](oporahub-plan-steps.md)),
+položka brány nese `evidence.steps = {items, verdict, decisions}`. Pro každý připnutý krok
+(v topologickém pořadí) je v `items` `{id, title, status, reported, executionId, source, at,
+evidence: {checks, commits, notes}, evidenced}`: `status` je `done`, `blocked` (hlášeno `failed`
+nebo `skipped`) nebo `missing` (nikdo nehlásil), `source` je `result` (`result.stepResults`) nebo
+`checkpoint` (`POST /executions/{id}/steps`) a doklad je z nejnovějšího hlášení. Počítají se i
+hlášení dřívějších běhů téže karty, pokud připnuly stejnou definici kroku; hlášení `done` drží
+(stejné pravidlo jako čtený model kroků). `evidenced` je false, když hlášení nemá kontroly, commity
+ani neprázdnou poznámku. `verdict = {status: evidenced|incomplete, total, done, blocked[], missing[],
+withoutEvidence[]}` označí kroky bez dokladu; `decisions` je počet `result.decisions` běhu.
+Výpočet je deterministický a jen ke čtení. Stejně jako Lens je to **jen doklad, žádný důvod**:
+stav brány se nemění. Běh bez kroků položku `evidence.steps` nemá. Kód
+`backend/canvas/opora_review_step_evidence.py` (test `test_opora_review_step_evidence.py`),
+frontend `frontend/hub/oporahub-review-gate/logic/step-evidence.ts` (`ReviewGate.stepEvidence`,
+`GateView.steps`: titulek, příznaky a řádek na krok).
+
 ## Stav pro agenty
 
 Při zapnuté funkci [agent-state](oporahub-agent-state.md) etapa `review` čte brány

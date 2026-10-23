@@ -1,4 +1,5 @@
 import { isCount, isObject, isText } from "@/hub/oporahub-mirror/logic/hub-read";
+import { parseStepEvidence, type StepEvidence } from "./step-evidence";
 
 // Drátový tvar `GET /api/oporahub/review-jobs/gates` (docs/oporahub-review-jobs.md, „Brána merge“).
 // Parser bere jen to, co krok Review promítá; neznámá pole snese, neplatné jádro brány vynechá.
@@ -18,6 +19,8 @@ export type ReviewGate = {
     status: GateStatus; openImportant: number; requiredHumanApprovals: number; humanApprovalsAtHead: number;
     reasons: string[]; humans?: GateHumans;
   };
+  /** Doklady po krocích plánu (`evidence.steps`); null, když běh nemá kroky. */
+  stepEvidence?: StepEvidence | null;
 };
 
 const texts = (value: unknown): string[] => Array.isArray(value) ? value.filter(item => isText(item)) as string[] : [];
@@ -54,6 +57,7 @@ function gate(raw: unknown): ReviewGate | null {
     mergeReadiness: readiness(isObject(raw.mergeReadiness) ? raw.mergeReadiness : {}),
     reviewGate: { status: rg.status as GateStatus, openImportant: num(rg.openImportant), requiredHumanApprovals: num(rg.requiredHumanApprovals),
       humanApprovalsAtHead: num(rg.humanApprovalsAtHead), reasons: texts(rg.reasons), ...(humans ? { humans } : {}) },
+    stepEvidence: parseStepEvidence(isObject(raw.evidence) ? raw.evidence.steps : undefined),
   };
 }
 

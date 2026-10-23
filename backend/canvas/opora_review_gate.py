@@ -8,6 +8,7 @@ from backend.canvas import opora_design_preview as design_preview
 from backend.canvas import opora_review_gate_rules as gate_rules
 from backend.canvas import opora_review_humans as review_humans
 from backend.canvas import opora_review_lens as review_lens
+from backend.canvas import opora_review_step_evidence as step_evidence
 from backend.canvas.opora_review_jobs import capped
 from backend.canvas.opora_review_status import _reviews
 from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
@@ -81,6 +82,8 @@ def gate(store, link, evidence, config, now=None):
         result["evidence"] = {"review": {"lens": lens}}
     if shots := design_preview.for_link(store.db, *store.scope, link):  # screenshots + human look, never a reason
         result.setdefault("evidence", {})["preview"] = shots
+    if steps := step_evidence.for_link(store.db, *store.scope, link):  # per plan step, never a reason
+        result.setdefault("evidence", {})["steps"] = steps
     return result
 
 

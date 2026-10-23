@@ -97,6 +97,9 @@ krok. Průběžné hlášení emituje `step.done` / `step.failed` (s `data.check
 `step.started` dalšího nehotového kroku. Výsledek emituje `step.done` / `step.failed` pro hlášené
 kroky, které běh ještě neohlásil průběžně se stejným stavem (vše v transakci zápisu).
 
+Brána merge ukazuje doklady po krocích (stav, kontroly, commity, poznámka a kroky bez dokladu)
+v `evidence.steps`, viz [Doklady kroků](oporahub-review-jobs.md#doklady-kroků-evidencesteps).
+
 ## Připravenost k převzetí
 
 Karta je připravená (`process-sync` stav `ready`, akce `claim` v agent-state), když má přijaté
