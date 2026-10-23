@@ -125,7 +125,8 @@ které agent v B čte (A/B protokol, nález N4). Skill posílá `omit`; po přec
 hotově ohlásil tento nebo dřívější běh karty a který je `current`. Nový běh po pádu tak navazuje
 prvním nehotovým krokem.
 
-`result.decisions` (nepovinné) je seznam nejvýše 20 neprázdných textů. V transakci výsledku se uloží
+`result.decisions` (nepovinné) je seznam nejvýše 20 neprázdných textů, nebo objektů
+`{text, why?, alternatives?, evidence?}` (do stavu jde `text`, předávka nese celý objekt). V transakci výsledku se uloží
 jako rozhodnutí karty ve stavu (`state.decisions`):
 `{id, text, pinned: false, path: "", nodeId, createdAt, by: "agent", executionId}`; potvrzení nese
 `decisionIds`. Opakované odeslání výsledku je nezduplikuje. `executionId` je nepovinný klíč rozhodnutí

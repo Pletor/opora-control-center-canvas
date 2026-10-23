@@ -94,8 +94,11 @@ def test_result_decisions_are_card_decisions_with_execution(stepped, service):
                                                  "result": {"summary": "Work", "decisions": ["ok", ""]}})
     before = DesktopV3State(service).read(**SCOPE)
     assert before["state"]["decisions"] == []
-    payload = {**credentials(record), "requestId": "r1",
-               "result": {"summary": "Work", "decisions": ["Webhook, ne polling", "Klíč sha256"]}}
+    with pytest.raises(ValueError, match="decisions"):
+        authority.submit(record["executionId"], {**credentials(record), "requestId": "bad2",
+                                                 "result": {"summary": "Work", "decisions": [{"why": "bez textu"}]}})
+    payload = {**credentials(record), "requestId": "r1", "result": {"summary": "Work", "decisions": [
+        "Webhook, ne polling", {"text": "Klíč sha256", "why": "audit"}]}}  # the handoff keeps the object
     receipt = authority.submit(record["executionId"], payload)
     assert authority.submit(record["executionId"], payload) == receipt  # replay adds nothing
     after = DesktopV3State(service).read(**SCOPE)
