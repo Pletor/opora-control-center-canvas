@@ -244,6 +244,36 @@ def test_human_approves_a_batch_of_project_path_and_card_proposals_in_one_revisi
         assert brief['boundaries']['proposedRules'] == []
 
 
+def test_brief_carries_only_proposals_in_card_scope_and_points_to_the_rest(tmp_path):
+    """Audit #45 (položka 7): brief nenese návrhy cizích karet; ostatní najde agent odkazem, nic se neztratí."""
+    with TestClient(create_app(tmp_path / 'data'), base_url=ORIGIN) as client:
+        scope = source_project(client, tmp_path)
+        propose(client, [
+            rule('proj', 'Projekt: testy u každé změny'),
+            {**rule('cesta', 'Cesta: src jen s testem'), 'scope': 'path', 'target': 'src'},
+            {**rule('predek', 'Předek: jen čtení'), 'scope': 'node', 'target': 'child'},
+            {**rule('karta', 'Karta: malé PR'), 'scope': 'node', 'target': 'deep'},
+            {**rule('cizi-cesta', 'Docs: česky'), 'scope': 'path', 'target': 'docs'},
+            {**rule('soused', 'Soused: bez UI'), 'scope': 'node', 'target': 'child2'},
+            {**rule('jinde', 'Jinde: nic'), 'scope': 'node', 'target': 'keep'},
+        ], scope)
+        brief = client.get('/api/desktop-v3/node-brief', params={**scope, 'nodeId': 'deep'}).json()
+        boundaries = brief['boundaries']
+        assert {r['id'] for r in boundaries['proposedRules']} == {'proj', 'cesta', 'predek', 'karta'}
+        elsewhere = boundaries['proposedRulesElsewhere']
+        assert elsewhere['count'] == 3
+        assert elsewhere['endpoint'] == '/api/desktop-v3/state' and elsewhere['params'] == scope
+        assert elsewhere['select'] == 'state.rules[by=agent]'
+        # Odkaz vede na úplný seznam: všech sedm návrhů je dál ve stavu prostoru.
+        state = client.get(elsewhere['endpoint'], params=elsewhere['params']).json()['state']
+        assert len([r for r in state['rules'] if r.get('by') == 'agent']) == 7
+        # Hranice jsou v briefu jednou; orientace na ně odkazuje.
+        assert brief['orientation']['boundaries'] == {'ref': 'boundaries'}
+        neighbour = client.get('/api/desktop-v3/node-brief', params={**scope, 'nodeId': 'child2'}).json()
+        assert {r['id'] for r in neighbour['boundaries']['proposedRules']} == {'proj', 'soused'}
+        assert neighbour['boundaries']['proposedRulesElsewhere']['count'] == 5
+
+
 def test_batch_review_is_human_only_all_or_nothing_and_names_the_conflicts(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         install_graph(client, nested_graph())

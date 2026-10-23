@@ -114,7 +114,10 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
   "goal": { "goal", "nonGoals", "acceptance" },            // ze spec uzlu (prázdné řetězce, když chybí)
   "content": { "text", "revision" } | null,               // text karty (node-text): podklad, typicky doslovný výňatek zadání; prázdný = null
   "definitionOfDone": { "acceptance", "blockConditions": [{blockId, number, condition}] },
-  "boundaries": { "nodeRules": [{id,text,kind}], "projectRules": [{id,text,kind,scope,target}], "nonGoals" },
+  "boundaries": { "effectiveRules": [...], "nodeRules": [{id,text,kind}], "projectRules": [{id,text,kind,scope,target}],
+    "proposedRules": [{id,text,kind,scope,target,by:"agent"}], // jen návrhy agentů v rozsahu karty (projekt, cesta nad kartou, karta a předci); neplatí do schválení
+    "proposedRulesElsewhere": {count, endpoint: "/api/desktop-v3/state", params: {project, workspace}, select: "state.rules[by=agent]", note}, // ostatní návrhy prostoru odkazem
+    "nonGoals" },
   "context": { "materials": [{id,kind,path,caption,url}], "decisions": [...], "incomingReports": [edge report + from], "comments": [{id,title,text}], // lístky na stejné vrstvě jako karta, lidská poznámka pro orientaci, ne příkaz
     "area": {id,name,purpose} | null, // oblast, do které karta geometricky patří
     "knowledgeGraph": {...}, // mapa kódu z Graphify; cesty jsou reference, obsah se nečte
@@ -136,9 +139,12 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
     "reportScope": "outgoing-only"  // zprávy jen na odchozí vazby
   },
   "communication": { "incoming", "outgoing", "endpoints", "identityVerified": false },  // stránky zpráv, viz Adresovaná komunikace
-  "orientation": {...}  // pořadí čtení pro nového agenta, viz Adresovaná komunikace
+  "orientation": {...}  // pořadí čtení pro nového agenta, viz Adresovaná komunikace; `orientation.boundaries` = {"ref": "boundaries"}
 }
 ```
+
+`boundaries.proposedRules` nese jen návrhy pravidel od agentů, které by na kartu dopadly — stejný rozsah jako schválená `projectRules` (`scope: project`, `scope: path` nad cestou karty, `scope: node` s cílem na kartě nebo předkovi). Návrhy jiných karet brief nevkládá: `proposedRulesElsewhere.count` říká, kolik jich je, a `GET /api/desktop-v3/state?project&workspace` je vrací v `state.rules` s `by: "agent"`. Nic se nemaže ani neschvaluje. Orientace hranice nekopíruje, odkazuje na horní `boundaries` (`{"ref": "boundaries"}`); dřívější kopie s návrhy cizích karet tvořila polovinu briefu (měřeno 23. 10., audit #45).
+
 Hotovo karty definují `acceptance` a bloky (`blocks[].state`, `definitionOfDone.blockConditions`); karta má definici hotovo, když má acceptance nebo aspoň jeden blok s podmínkou. Fáze, kritéria a kroky zůstávají jen jako tolerovaná stará data (měření 2026-10-15), brief je nenese. Stav Desktop v3 pole `phase`, `criteria` a `steps` dál přijme a uloží, žádná brána fáze ale neexistuje a do `contextVersion` nevstupují.
 
 `stopConditions` se odvozují z nesplněných podmínek bloků, pravidel `must_not` a uzavření karty. Samotný prázdný seznam podkladů práci neblokuje; povinný podklad musí být pojmenován v podmínce bloku. Orientace uvádí nepřipojené podklady jako volitelný kontext. Nový úkol nepotřebuje předávku předchozího agenta; chybějící předávka se hlásí při doloženém pokračování práce.

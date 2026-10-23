@@ -11,6 +11,12 @@ const indexed = (value: unknown, needle: string): boolean => {
   return typeof serialized === "string" && serialized.toLocaleLowerCase("cs-CZ").includes(needle);
 };
 
+/** Orientace nese hranice odkazem `{ref: "boundaries"}` na horní pole briefu; starší brief je měl kopií. */
+const boundariesOf = (brief: UnknownRecord, orientation: UnknownRecord): UnknownRecord => {
+  const own = record(orientation.boundaries);
+  return own.ref === "boundaries" ? record(brief.boundaries) : own;
+};
+
 export type OrientationSummary = { goal: string; reading: ReadingItem[]; gaps: { id: string; label: string; instruction: string }[]; optionalContext: { id: string; label: string; instruction: string }[]; nextAction: string; readOnly: boolean; path: string[]; definitionOfDone: UnknownRecord; boundaries: UnknownRecord; available: boolean };
 
 /** Krátké údaje do čtyř karet; chybějící hodnota je přiznaná prázdným stavem, ne domyšlená. */
@@ -22,7 +28,7 @@ export function orientationSummary(value: unknown): OrientationSummary {
   return {
     goal: text(goal.goal), reading: list(orientation.readingOrder).map((item) => { const entry = record(item); return { id: text(entry.id), label: text(entry.label), source: text(entry.source), status: text(entry.status) }; }),
     gaps: gapsOf(orientation.contextGaps), optionalContext: gapsOf(orientation.optionalContext), nextAction: text(record(orientation.nextAction).label), readOnly: scope.readOnly === true,
-    path: list(scope.path).map(text), definitionOfDone: record(orientation.definitionOfDone), boundaries: record(orientation.boundaries), available: true,
+    path: list(scope.path).map(text), definitionOfDone: record(orientation.definitionOfDone), boundaries: boundariesOf(brief, orientation), available: true,
   };
 }
 

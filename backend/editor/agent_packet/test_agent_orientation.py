@@ -26,6 +26,8 @@ def test_orientation_keeps_actual_ids_empty_blocks_and_marks_context_gaps():
         "caption": "Spec", "url": "https://example.test/spec", "status": "present",
     }]
     assert orientation["blocks"] == []
+    # Hranice nejsou v briefu dvakrát: orientace odkazuje na horní `boundaries`.
+    assert orientation["boundaries"] == {"ref": "boundaries"}
     assert {item["id"] for item in orientation["contextGaps"]} == {"goal", "acceptance"}
     assert {item["id"] for item in orientation["optionalContext"]} == {"knowledge-graph"}
     assert all(item["sources"] for item in orientation["contextGaps"])
