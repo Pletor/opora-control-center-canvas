@@ -1,6 +1,7 @@
 import type { AgentAction } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { REVIEW_GATE_REASONS } from "@/hub/oporahub-agent-state/logic/review-gate-labels";
 import type { GateStatus, ReviewGate } from "./review-gate";
+import { stepEvidenceView, type StepEvidenceView } from "./step-evidence";
 
 // Krok Review v detailu karty: co bránu drží, kolik lidí ji schválilo a co má udělat agent.
 export const GATE_REASON_TEXT: Record<string, string> = {
@@ -38,6 +39,7 @@ export type GateView = {
   approvals: { required: number; counted: number; mode: string; label: string; notes: string[] };
   selfChecks: { status: string; detail: string }; stale: { on: boolean; text: string }; template: { on: boolean; text: string };
   actions: { id: string; verb: string; status: string; blockReason: string }[];
+  steps: StepEvidenceView | null;
 };
 
 function securityView(gate: ReviewGate) {
@@ -80,5 +82,6 @@ export function gateView(gate: ReviewGate, actions: AgentAction[]): GateView {
     actions: actions.filter(item => (item.verb === "review.claim" && !!gate.reviewJobId && item.targetId === gate.reviewJobId)
       || ((item.verb === "review.self_checks" || item.verb === "pr.update_branch") && item.targetId === gate.executionId))
       .map(item => ({ id: item.id, verb: item.verb, status: item.status, blockReason: item.blockReason ?? "" })),
+    steps: gate.stepEvidence ? stepEvidenceView(gate.stepEvidence) : null,
   };
 }
