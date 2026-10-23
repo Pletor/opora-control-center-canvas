@@ -272,6 +272,9 @@ escapuje) ukazuje jen jako `<img>` z Blob URL (žádné `innerHTML`) a cesty sou
 nebo jako odkaz `https://github.com/<repo>/blob/<sha>/<cesta>#L<od>-L<do>`, který skládá sám po
 validaci cesty. Nevyžaduje zapnuté review úlohy.
 
+Celý plán bez PR (oblasti, karty, vazby plánu i kódu) kreslí stejným formátem server sám, bez
+modelu a jen ke čtení: [Lens plánu](plan-lens.md) (`GET /api/oporahub/plan-lens`).
+
 Brána ho jen ukazuje: u PR s grafem pro aktuální hlavu má položka brány
 `evidence.review.lens`, ale **nepřidává žádný důvod** a pořadí pravidel (self_checks →
 security → findings → humans → freshness → template) se nemění; mapa oblasti do brány nevstupuje.
