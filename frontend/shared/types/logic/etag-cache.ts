@@ -1,4 +1,4 @@
-// Podmíněné GET (karta P3): server u stavu, grafu, indexu a výpisu verzí posílá ETag. Klient si
+// Podmíněné GET (karta P3): server u stavu, grafu, indexu, výpisu verzí a bootstrapu posílá ETag. Klient si
 // k URL pamatuje poslední ETag a surové tělo, další dotaz pošle s If-None-Match a odpověď 304
 // (beze změny, bez těla) obslouží z paměti. Prohlížeč nic neukládá (server posílá no-store), proto
 // hlavičku posíláme výslovně. Drží se jen odpovědi s ETagem; paměť má strop a nejstarší URL vypadne.
