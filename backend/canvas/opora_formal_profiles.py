@@ -143,8 +143,8 @@ def describe(tool, check, audit=None):
     return ({"name": "lean", "version": f"{toolchain} via elan, run by GitHub Actions; distributionSha256 is the "
                                         "SHA-256 of the pinned lean-toolchain line, not of a binary",
              "distributionSha256": hashlib.sha256(f"{toolchain}\n".encode()).hexdigest()}, claims,
-            ["Lean models of the pure core are separate from the Python implementation; agreement is the "
-             "differential test on exported vectors, not a refinement proof.",
+            [("Lean models of the pure core are separate from the Python implementation; agreement is the "
+              "differential test on exported vectors, not a refinement proof."),
              "Proof files are restricted to a metaprogram-free subset (source scan before elaboration)."],
             {"mode": "kernel-checked-proofs", "toolchain": toolchain, "allowedAxioms": list(ALLOWED_AXIOMS),
              "axiomAudit": theorems, "auditComplete": audit_clean(audit), "fairness": [], "axioms": []})

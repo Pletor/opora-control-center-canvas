@@ -21,9 +21,9 @@ from database.schema.opora_execution_observer_schema import (
     REGISTRY_SCHEMA as OBSERVER_REGISTRY_SCHEMA,
 )
 from database.schema.opora_execution_observer_schema import SCHEMA as OBSERVER_SCHEMA
+from database.schema.opora_execution_observer_schema import TABLES as OBSERVER_TABLES
 from database.schema.opora_execution_pull_request_schema import SCHEMA as EXECUTION_PR_SCHEMA
 from database.schema.opora_execution_pull_request_schema import TABLES as EXECUTION_PR_TABLES
-from database.schema.opora_execution_observer_schema import TABLES as OBSERVER_TABLES
 from database.schema.opora_execution_schema import SCHEMA as EXECUTION_SCHEMA
 from database.schema.opora_graph_schema import SCHEMA as OPORA_GRAPH_SCHEMA
 from database.schema.opora_proposal_review_schema import SCHEMA as PROPOSAL_REVIEW_SCHEMA
@@ -32,10 +32,10 @@ from database.schema.opora_reconciliation_jobs import JOB_SCHEMA, JOB_TABLES
 from database.schema.opora_reconciliation_schema import RECONCILIATION_SCHEMA, RECONCILIATION_TABLES
 from database.schema.opora_review_gate_schema import SCHEMA as REVIEW_GATE_SCHEMA
 from database.schema.opora_review_gate_schema import TABLES as REVIEW_GATE_TABLES
-from database.schema.opora_review_job_schema import SCHEMA as REVIEW_JOB_SCHEMA
-from database.schema.opora_review_job_schema import TABLES as REVIEW_JOB_TABLES
 from database.schema.opora_review_insight_schema import SCHEMA as REVIEW_INSIGHT_SCHEMA
 from database.schema.opora_review_insight_schema import TABLES as REVIEW_INSIGHT_TABLES
+from database.schema.opora_review_job_schema import SCHEMA as REVIEW_JOB_SCHEMA
+from database.schema.opora_review_job_schema import TABLES as REVIEW_JOB_TABLES
 from database.schema.opora_review_policy_schema import SCHEMA as REVIEW_POLICY_SCHEMA
 from database.schema.opora_verification_schema import SCHEMA as VERIFICATION_SCHEMA
 from database.schema.opora_verification_schema import TABLES as VERIFICATION_TABLES

@@ -23,31 +23,32 @@ from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.opora_agent_state_routes import create_opora_agent_state_router
-from backend.api.editor.opora_event_routes import create_opora_event_router
 from backend.api.editor.opora_auto_rebase_routes import create_opora_auto_rebase_router
 from backend.api.editor.opora_changeset_routes import create_opora_changeset_router
 from backend.api.editor.opora_content_routes import CONTENT_BODY_LIMIT, create_opora_content_router
+from backend.api.editor.opora_design_preview_routes import MAX_BODY as PREVIEW_BODY_LIMIT
+from backend.api.editor.opora_design_preview_routes import create_design_preview_router
+from backend.api.editor.opora_event_routes import create_opora_event_router
 from backend.api.editor.opora_execution_budget_routes import create_execution_budget_router
 from backend.api.editor.opora_execution_observer_routes import BODY_LIMIT as OBSERVER_BODY_LIMIT
 from backend.api.editor.opora_execution_observer_routes import create_execution_observer_router
-from backend.api.editor.opora_execution_pull_request_routes import create_execution_pull_request_router
-from backend.api.editor.opora_review_insight_routes import create_review_insight_router
-from backend.api.editor.opora_review_job_routes import create_review_job_router
-from backend.api.editor.opora_review_self_check_routes import create_review_self_check_router
-from backend.api.editor.opora_plan_lens_routes import create_plan_lens_router
-from backend.api.editor.opora_review_lens_routes import create_review_lens_router
-from backend.api.editor.opora_design_preview_routes import MAX_BODY as PREVIEW_BODY_LIMIT
-from backend.api.editor.opora_design_preview_routes import create_design_preview_router
-from backend.api.project.design_system_routes import create_design_system_router
+from backend.api.editor.opora_execution_pull_request_routes import (
+    create_execution_pull_request_router,
+)
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
-from backend.api.editor.opora_process_routes import create_opora_process_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
 from backend.api.editor.opora_history_routes import create_opora_history_router
+from backend.api.editor.opora_plan_lens_routes import create_plan_lens_router
+from backend.api.editor.opora_process_routes import create_opora_process_router
 from backend.api.editor.opora_proposal_review_routes import create_proposal_review_router
 from backend.api.editor.opora_proposal_routes import create_opora_proposal_router
 from backend.api.editor.opora_reconciliation_routes import create_opora_reconciliation_router
+from backend.api.editor.opora_review_insight_routes import create_review_insight_router
+from backend.api.editor.opora_review_job_routes import create_review_job_router
+from backend.api.editor.opora_review_lens_routes import create_review_lens_router
 from backend.api.editor.opora_review_policy_routes import create_opora_review_policy_router
 from backend.api.editor.opora_review_routes import create_opora_review_router
+from backend.api.editor.opora_review_self_check_routes import create_review_self_check_router
 from backend.api.editor.opora_verification_routes import BODY_LIMIT as VERIFICATION_BODY_LIMIT
 from backend.api.editor.opora_verification_routes import create_opora_verification_router
 from backend.api.editor.oporahub_process_event_routes import INGEST_PATH as PROCESS_INGEST_PATH
@@ -58,6 +59,7 @@ from backend.api.editor.semantic_routes import create_semantic_router
 from backend.api.editor.storyboard_routes import create_storyboard_router
 from backend.api.editor.sync_routes import create_sync_router
 from backend.api.project.archify_routes import create_archify_router
+from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
 from backend.api.project.project_architecture_routes import create_project_architecture_router
@@ -80,8 +82,8 @@ from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_auto_rebase_manager import AutoRebaseManager
-from backend.canvas.opora_hub import OporaHub
 from backend.canvas.opora_execution_pr_manager import ExecutionPullRequestManager
+from backend.canvas.opora_hub import OporaHub
 from backend.canvas.opora_reconciliation_manager import ReconciliationManager
 from backend.canvas.process_activity_bridge import bridge as bridge_activity
 from backend.canvas.sync_report import SyncReport

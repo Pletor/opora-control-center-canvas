@@ -1,6 +1,6 @@
 """Přehled komunit Graphify pro lehkou mapu: čistá funkce nad načteným grafem, bez I/O."""
-from collections import Counter, defaultdict
 import math
+from collections import Counter, defaultdict
 
 MAX_COMMUNITIES = 300
 MAX_EDGES = 2000
@@ -76,7 +76,7 @@ def _disambiguate(communities):
         if repeated[item['name']] > 1:
             seen[item['name']] += 1
             if seen[item['name']] > 1:
-                item['name'] = '%s (%d)' % (item['name'], seen[item['name']])
+                item['name'] = f"{item['name']} ({seen[item['name']]:d})"
 
 
 def overview(graph):

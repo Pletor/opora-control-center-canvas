@@ -16,7 +16,10 @@ DOC_BASELINE = 89
 
 # Kolik nálezů má dnes ruff ve starším kódu. Také ráčna: nové soubory musí být čisté,
 # staré se uklízejí postupně a číslo smí jen klesat.
-RUFF_BASELINE = 21
+# 27 = co zbylo po mechanickém úklidu (bylo 58, ráčna 21 se mezitím nehlídala): 20× TRY004
+# (ValueError → TypeError mění, co volající chytá), 3× BLE001, 1× S110, 2× SIM115 v e2e skriptu
+# a 1× I001 v backend/canvas/opora_agent_state.py, který je teď vyhrazený jiné práci.
+RUFF_BASELINE = 27
 
 # Kolik porušení pravidel struktury (docs/pravidla-struktury.md) dnes existuje, po pravidlech.
 # Pravidlo, které tu chybí, smí mít nula nálezů. Čísla smí jen klesat.

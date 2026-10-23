@@ -376,9 +376,8 @@ def _validate_blocks(node, node_id):
         _branch(state["onUnmet"], "onUnmet", block_ids, action_ids)
         _validate_ports(item)
         parent = item["parentBlockId"]
-        if parent != "":
-            if parent == item["id"] or parent not in block_ids:
-                _fail(f"{label}: rodič bloku {item['id']} musí být jiný existující blok.")
+        if parent != "" and (parent == item["id"] or parent not in block_ids):
+            _fail(f"{label}: rodič bloku {item['id']} musí být jiný existující blok.")
         parents[item["id"]] = parent
     for start in parents:
         seen, cursor = set(), start

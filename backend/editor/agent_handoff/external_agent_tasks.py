@@ -115,12 +115,12 @@ class ExternalAgentTasks:
             current = current / part
             if create:
                 current.mkdir(exist_ok=True)
-            if current.exists() or current.is_symlink():
-                if reparse(current) or not current.is_dir():
-                    raise ValueError("Export nesmí procházet odkazy nebo soubory místo složek.")
-        if target.exists() or target.is_symlink():
-            if reparse(target) or not target.is_file() or target.stat().st_nlink != 1:
-                raise ValueError("Export vyžaduje běžný soubor bez odkazů.")
+            if (current.exists() or current.is_symlink()) and (reparse(current) or not current.is_dir()):
+                raise ValueError("Export nesmí procházet odkazy nebo soubory místo složek.")
+        if (target.exists() or target.is_symlink()) and (
+            reparse(target) or not target.is_file() or target.stat().st_nlink != 1
+        ):
+            raise ValueError("Export vyžaduje běžný soubor bez odkazů.")
         if not target.resolve().is_relative_to(root.resolve()):
             raise ValueError("Export opouští data projektu.")
         return str(target), target
@@ -135,7 +135,7 @@ class ExternalAgentTasks:
                 content = markdown_task(snapshot).encode("utf-8")
                 if len(content) > MAX_EXPORT_BYTES:
                     raise ValueError("Markdown export překročil bezpečný limit.")
-                path, target = self._target(payload, create=True)
+                _path, target = self._target(payload, create=True)
                 # Výhradní vytvoření: nikdy nepřepisujeme rozepsané TODO/Result ani cizí zadání.
                 try:
                     with target.open("xb") as stream:
