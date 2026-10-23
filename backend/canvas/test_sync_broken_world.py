@@ -114,22 +114,6 @@ def commit_for(source, path, scope):
     run(source, "commit", "-q", "-m", "prace", "-m", f"Opora-Node: {scope}@1", "--date", later)
     return run(source, "rev-parse", "HEAD")
 
-def finish_process(client, pid, scope):
-    """Proces rozsahu od návrhu po hotovo; důkaz u kroku vyžaduje životní cyklus sám."""
-    process = post(client, "/api/processes", {"project": pid, "title": "Prace", "nodeId": scope,
-                                              "steps": ["Napsat kod"], "by": ACTOR})["process"]
-    step, path = process["steps"][0]["id"], f"/api/processes/{process['id']}"
-    running = post(client, path + "/transition", {
-        "project": pid, "revision": process["revision"], "to": "running",
-        "by": ACTOR, "note": "bez worktree"})  # spuštění bez worktree chce výslovnou poznámku
-    marked = post(client, f"{path}/steps/{step}", {
-        "project": pid, "revision": running["process"]["revision"], "state": "done",
-        "evidence": {"summary": "kód napsán", "at": "2026-09-17T10:00:00Z", "by": ACTOR}})
-    done = post(client, path + "/transition", {
-        "project": pid, "revision": marked["process"]["revision"], "to": "done",
-        "by": ACTOR, "note": "hotovo"})
-    assert done["process"]["state"] == "done"
-
 def test_c1_corrupted_graph_in_the_database_answers_with_an_error(tmp_path):
     source = source_repo(tmp_path)
     with client_for(tmp_path) as client:
@@ -210,11 +194,10 @@ def test_c5_deep_nesting_counts_the_deepest_floor(tmp_path):
         save_graph(client, pid, [area, *[dict(item, parentId=item["parentId"] or "area-1")
                                          for item in chain]], expect=409)
         save_graph(client, pid, [area, *chain])
-        # Celá cesta k zelené pro uzel na dně: zadání → commit → důkaz → zelený běh.
+        # Celá cesta k zelené pro uzel na dně: zadání → commit → zelený běh.
         save_spec(client, pid, "node-deep")
         commit_spec(client, pid, "node-deep")
         sha = commit_for(source, deep, "node-deep")
-        finish_process(client, pid, "node-deep")
         record_run(client, pid, "node-deep", sha)
         payload = report(client, pid)
     assert len(payload["verdicts"]) == 7  # oblast, pět pater sektorů a uzel na dně
@@ -253,7 +236,6 @@ def test_c7_the_newer_check_run_decides_and_a_foreign_one_shuts_the_gate(tmp_pat
         save_spec(client, pid, "node-1")
         commit_spec(client, pid, "node-1")
         sha = commit_for(source, "src/hello.py", "node-1")
-        finish_process(client, pid, "node-1")
         record_run(client, pid, "node-1", sha, status="red")
         red = report(client, pid)
         # Opravný běh je nový záznam, ne přepis staršího; rozhoduje ten novější.

@@ -4,11 +4,10 @@ from backend.canvas.sync_signals import collect, evaluate
 
 
 def scope(scope_id, kind="node", parent=None, path=None, origin="existing", path_kind="file",
-          revision=0, saved=None, evidence=True, checks=True, closed=False):
+          revision=0, saved=None, checks=True, closed=False):
     ref = {"origin": origin, "path": path, "kind": path_kind} if path else None
     return {"kind": kind, "id": scope_id, "name": scope_id, "parentId": parent, "sourceRef": ref,
-            "specRevision": revision, "specSavedAt": saved, "evidenceComplete": evidence,
-            "checksGreen": checks, "closed": closed}
+            "specRevision": revision, "specSavedAt": saved, "checksGreen": checks, "closed": closed}
 
 
 def state(**over):
@@ -55,8 +54,6 @@ CASES = [
         pairs={"n1": pair(revision=None, last="2026-09-16T08:00:00")})),
     ("code-unclaimed", "medium", state(
         unclaimedCommits=[{"sha": "deadbee", "paths": ["backend/a.py"], "date": "2026-09-16"}])),
-    ("evidence-missing", "high", state(
-        scopes=[scope("n1", evidence=False)], pairs={"n1": pair()})),
     ("checks-unknown", "high", state(
         scopes=[scope("n1", checks=False)], pairs={"n1": pair()})),
     ("base-stale", "medium", state(
@@ -109,10 +106,10 @@ def test_pair_that_holds_the_current_revision_is_quiet():
     assert collect(world) == []
 
 
-def test_missing_evidence_without_a_merged_pair_is_quiet():
-    world = state(scopes=[scope("n1", evidence=False, checks=False)])
+def test_missing_checks_without_a_merged_pair_is_quiet():
+    world = state(scopes=[scope("n1", checks=False)])
     assert collect(world) == []
-    world = state(scopes=[scope("n1", evidence=False, checks=False)],
+    world = state(scopes=[scope("n1", checks=False)],
                   pairs={"n1": pair(merged=False)})
     assert collect(world) == []
 
@@ -132,7 +129,7 @@ def test_one_signal_per_doc_issue_even_on_the_same_path():
 
 def test_closed_scope_never_echoes():
     broken = {"backend/a.py": missing()}
-    world = state(scopes=[scope("n1", path="backend/a.py", revision=3, evidence=False,
+    world = state(scopes=[scope("n1", path="backend/a.py", revision=3,
                                 checks=False, closed=True)], paths=broken,
                   pairs={"n1": pair(revision=1)})
     assert collect(world) == []

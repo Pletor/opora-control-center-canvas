@@ -1,1 +1,1 @@
-JSON schémata kontraktů mezi frontendem, backendem a agenty: process.schema.json (proces uvnitř složky projektu, stavy návrh → proces → hotovo → oprava), process-report.schema.json (odpověď agenta do běžícího procesu); příklady v examples/.
+JSON schémata kontraktů mezi frontendem, backendem a agenty: agent-message.schema.json (adresovaná zpráva mezi kartami).

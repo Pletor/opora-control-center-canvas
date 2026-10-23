@@ -5,9 +5,9 @@ rozsahy z grafu, revize zadání, stav cest na disku, páry z `commit_pairs`, co
 mainu bez páru, pracovní prostory a rozbité odkazy v dokumentaci. Kontrakt je
 `docs/synchronizace-pravdy.md`, části 4, 6, 7 a 8.
 
-Důkaz kroku a zelený běh testů už report čte (kroky 7 a 11 kontraktu): `evidenceComplete`
-stojí na hotovém procesu rozsahu, `checksGreen` na zaznamenaném zeleném běhu u commitu
-z páru. Rozsah bez obojího dál dostane echo `evidence-missing` a `checks-unknown`.
+Zelený běh testů report čte (krok 11 kontraktu): `checksGreen` stojí na zaznamenaném
+zeleném běhu u commitu z páru; rozsah bez něj dostane echo `checks-unknown`. Důkaz kroku
+ze starších procesů (`/api/processes`) report nečte, procesy jsou odstraněné (rozhodnutí 23. 10.).
 """
 
 from datetime import UTC, datetime
@@ -15,9 +15,7 @@ from datetime import UTC, datetime
 from backend.canvas import areas, commit_pairs, sync_evidence
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_hub import OporaHub
-from backend.canvas.project_folder import ProjectFolder
 from backend.canvas.sync_signals import evaluate
-from backend.editor.process.process_store import ProcessStore
 
 LINKABLE = ("area", "sector", "node")
 
@@ -49,9 +47,8 @@ class SyncReport:
             ).fetchall()
         workspaces = sync_evidence.workspaces_from(rows, root, main_head)
         by_node = {row["nodeId"]: row for row in workspaces if row["nodeId"]}
-        done = self._done_scopes(pid)
         with self.service.reading(pid):
-            scopes = [self._scope(pid, wid, node, done, nodes)
+            scopes = [self._scope(pid, wid, node, nodes)
                       for node in nodes if node["kind"] in LINKABLE]
         pairs, owned_all = self._pairs(scopes, nodes, commits, by_node)
         with self.service.reading(pid):
@@ -86,7 +83,7 @@ class SyncReport:
 
 
 
-    def _scope(self, pid, wid, node, done, nodes):
+    def _scope(self, pid, wid, node, nodes):
         spec = self.service.specs.read((pid, wid, node["id"]))
         return {
             "kind": node["kind"],
@@ -98,7 +95,6 @@ class SyncReport:
             "sourceRef": node.get("sourceRef"),
             "specRevision": spec["revision"],
             "specSavedAt": spec.get("saved_at"),
-            "evidenceComplete": node["id"] in done,
             "checksGreen": False,  # doplní `_mark_checks`, až jsou známé páry
             "specCommitted": self._committed(pid, wid, node["id"], spec["revision"]),
             "closed": False,
@@ -116,20 +112,6 @@ class SyncReport:
         except (ValueError, OSError):
             return False
         return bool(head and head.get("specRevision", 0) >= revision)
-
-    def _done_scopes(self, pid):
-        """Rozsahy, které mají aspoň jeden proces ve stavu `done`.
-
-        Uzavření procesu do `done` už dnes vyžaduje důkaz u každého kroku
-        (`backend/editor/process/process_lifecycle.py:12-18`), takže hotový proces je
-        sám o sobě důkazem; report jednotlivé kroky znovu nekontroluje a o ten invariant
-        se opírá. Chybějící nebo nečitelná složka projektu report neshodí, jen nedá nic.
-        """
-        try:
-            items = ProcessStore(ProjectFolder(self.service.root, pid).path).list("done")
-        except (ValueError, OSError):
-            return set()
-        return {item.get("nodeId") for item in items if item.get("nodeId")}
 
     def _mark_checks(self, pid, wid, scopes, pairs):
         """Zelený běh platí jen u rozsahu, jehož pár nese commit se stejným SHA.

@@ -40,7 +40,7 @@ Scénáře jdou od poslušného průchodu po někoho, kdo proces chce rozbít. K
 | S8 | Pracovní prostor mimo main | `base-stale` | hotovo |
 | S9 | Pracovní prostor bez uzlu | `workspace-orphan` | hotovo |
 | S10 | Rozbitý odkaz v dokumentaci | `doc-path-missing` u dotčeného rozsahu | hotovo |
-| S11 | Celá cesta k zelené | zadání → commit OporaHubu → kód → důkaz → zelený běh → `canMerge` | hotovo |
+| S11 | Celá cesta k zelené | zadání → commit OporaHubu → kód → zelený běh → `canMerge` | hotovo |
 | S12 | Prázdná oblast a sektor | prázdný rozsah není zelený | hotovo |
 | A1 | Vazba na neexistující cestu | API uložení odmítne | hotovo |
 | A2 | Souběžný zápis zadání | druhý zápis selže, text nezmizí | hotovo |
@@ -70,7 +70,7 @@ Scénáře jdou od poslušného průchodu po někoho, kdo proces chce rozbít. K
 |---|---|---|---|
 | N1 | Prázdná oblast vycházela zeleně, protože oblast nesmí mít potomky a kontrola „vše pod ní je zelené“ procházela naprázdno | všech 8 oblastí skutečného projektu hlásilo hotovo | opraveno 2026-09-17, test v `backend/canvas/test_sync_verdicts.py` |
 | N2 | `backend/memory/test_roles.py::test_reload_picks_up_a_changed_file` je nestabilní: dva rychlé zápisy dostanou na Windows stejný čas, protože hodiny tikají po zhruba 16 ms | brána na testech by padala náhodně | opraveno 2026-09-17: `backend/memory/roles.py` drží v mezipaměti otisk obsahu místo času úpravy |
-| N3 | Důkaz kroku a zelený běh testů nikdo nezaznamenával, takže `evidenceComplete` a `checksGreen` byly vždy nepravda | žádný rozsah nemohl zezelenat | uzavřeno 2026-09-18: důkazem je proces ve stavu `done`, běh kontrol se zapisuje přes `POST /api/check-run` (`backend/canvas/check_runs.py`); scénář S11 projde celou cestu k zelené |
+| N3 | Důkaz kroku a zelený běh testů nikdo nezaznamenával, takže `evidenceComplete` a `checksGreen` byly vždy nepravda | žádný rozsah nemohl zezelenat | uzavřeno 2026-09-18: důkazem je proces ve stavu `done`, běh kontrol se zapisuje přes `POST /api/check-run` (`backend/canvas/check_runs.py`); scénář S11 projde celou cestu k zelené; 23. 10. procesy i `evidenceComplete` odstraněny (audit sirotků B5) |
 | N4 | OporaHub neexistoval, takže `opora-uncommitted` se nepočítalo a kontrola `spec` koukala jen na revizi | „zacommitované zadání“ se nedalo ověřit | uzavřeno 2026-09-18: `backend/canvas/opora_hub.py` + `POST /api/opora-commit`; brána 1:1 teď vyžaduje commit zadání a merge pustí jen zelený verdikt (`POST /api/opora-merge`) |
 | N6 | `code-unclaimed` podle původního znění nemohlo nikdy vzniknout: commit nad vlastněnou cestou se párováním podle cest rovnou spáruje | echo o kódu bez zadání by mlčelo | opraveno 2026-09-17, význam změněn na „commit sáhl do kódu, který nikdo nevlastní“, kontrakt část 7 upraven |
 | N7 | Pár postavený jen na traileru ve zprávě commitu otevíral bránu, aniž by se kód vůbec dotkl vlastněné cesty | stačilo napsat `Opora-Node: <uzel>@2` a rozsah mohl zezelenat bez řádky kódu | opraveno 2026-09-17: pár nese `touchesOwned` a brána ho uzná, jen když commit v mainu sáhl na vlastněnou cestu |

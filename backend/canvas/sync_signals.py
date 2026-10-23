@@ -26,7 +26,6 @@ TYPES = {
     "source-renamed": ("medium", "potvrď přesun"),
     "planned-exists": ("low", "přepni návrh na existující zdroj"),
     "duplicate-path": ("medium", "sluč nebo zpřesni"),
-    "evidence-missing": ("high", "doplň důkaz, nebo fázi otevři"),
     "checks-unknown": ("high", "spusť testy a zapiš výsledek"),
     "doc-path-missing": ("medium", "oprav odkaz nebo dokument zruš"),
     "base-stale": ("medium", "rebase, nebo nové zadání"),
@@ -59,14 +58,11 @@ def collect(state):
                              _subject(scope["kind"], scope["id"], None, scope["specRevision"]),
                              f"revize {scope['specRevision']} má commit OporaHubu",
                              "zadání je jen rozepsané", "OporaHub", state))
-        # Důkaz kroku a běh testů se ptá jen uzlu: sektor a oblast mají podle části 4
+        # Běh testů se ptá jen uzlu: sektor a oblast mají podle části 4
         # kontrakt postavený na rozsazích pod sebou, ne na vlastním důkazu.
         if scope["kind"] != "node" or not (pair or {}).get("mergedToMain"):
             continue
         subject = _subject(scope["kind"], scope["id"], None, scope.get("specRevision"))
-        if not scope.get("evidenceComplete"):
-            out.append(_echo("evidence-missing", subject, "každý krok procesu má důkaz",
-                             "u některého kroku důkaz chybí", "proces rozsahu", state))
         if not scope.get("checksGreen"):
             out.append(_echo("checks-unknown", subject, "zelený běh testů u páru",
                              "běh testů není zaznamenaný", "pár rozsahu", state))

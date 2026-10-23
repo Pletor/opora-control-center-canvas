@@ -54,7 +54,7 @@ OporaHub se chová jako GitHub, jen pro zadání a práci. Každý projekt otev�
 - **Uložení** je append-only soubor ve složce projektu. SQLite je jen index, který jde z těch souborů kdykoli znovu postavit. Nová složka projektu se přidává v `backend/canvas/project_folder.py:16`.
 - **Verze zadání** (`v1`, `v2`) je pojmenovaný ukazatel na commit, ne kopie obsahu.
 
-Na čem to stojí už dnes: revize s porovnáním očekávané revize v `BEGIN IMMEDIATE` (`backend/editor/node/node_specs.py:62-77`), digest grafu a neměnné snímky (`backend/editor/agent_packet/desktop_v3_packets.py:51`, `:463-485`), append-only procesy s důkazem u každého kroku (`backend/editor/process/process_store.py:102-113`).
+Na čem to stojí už dnes: revize s porovnáním očekávané revize v `BEGIN IMMEDIATE` (`backend/editor/node/node_specs.py:62-77`), digest grafu a neměnné snímky (`backend/editor/agent_packet/desktop_v3_packets.py:51`, `:463-485`).
 
 ## 4. Brána 1:1
 
@@ -68,7 +68,7 @@ Do mainu OporaHubu jde jen rozsah, který projde všemi kontrolami. Kontroly jso
 | 2 | Uzel má aspoň jednu vazbu na kód a každá cesta v gitu existuje ve správném druhu | `source-missing`, `source-renamed` |
 | 3 | Existuje pár: commity plnící tuto revizi zadání jsou v `main` repozitáře kódu | `spec-ahead` |
 | 4 | U páru je zaznamenaný zelený běh testů | `checks-unknown` |
-| 5 | Každý krok procesu má důkaz | `evidence-missing` |
+| 5 | ~~Každý krok procesu má důkaz~~ (zrušeno 23. 10. spolu se staršími procesy) | – |
 | 6 | Dokumentace dotčených cest nemá rozbitý odkaz | `doc-path-missing` |
 | 7 | Uzel nemá otevřené echo s vysokou závažností | podle typu |
 
@@ -131,7 +131,6 @@ Echo je zpráva z dat, ne věta pro člověka. Vzniká deterministicky z OPORA, 
 | `source-renamed` | cesta chybí a `git log --follow` najde nový název | střední | potvrď přesun |
 | `planned-exists` | navrhovaná cesta už v gitu existuje | nízká | přepni návrh na existující zdroj |
 | `duplicate-path` | dvě karty na téže cestě | střední | sluč nebo zpřesni |
-| `evidence-missing` | rozsah je hotový bez důkazu u kroku | vysoká | doplň důkaz, nebo fázi otevři |
 | `checks-unknown` | pár nemá zaznamenaný zelený běh testů | vysoká | spusť testy a zapiš výsledek |
 | `task-desync` | Linear hlásí hotovo, rozsah má otevřené `spec-ahead`, nebo opačně | střední | srovnej stav úlohy |
 | `doc-path-missing` | dokumentace v gitu odkazuje na neexistující cestu | střední | oprav odkaz nebo dokument zruš |
@@ -158,7 +157,7 @@ Oracle drží přehled nad celým procesem: nad párováním, nad OporaHubem i n
 ```
 
 - Verdikt je vždy odvozený z echa a párů, nikdy z odhadu. Každá nesplněná kontrola nese typ echa a jednu konkrétní další akci.
-- Práci ve větvi blokuje jen echo o vazbě rozsahu (`source-missing`, `source-renamed`, `closed-area-touched`). Echo o hotovosti (`spec-ahead`, `evidence-missing`, `checks-unknown`) blokuje merge, nikdy commit.
+- Práci ve větvi blokuje jen echo o vazbě rozsahu (`source-missing`, `source-renamed`, `closed-area-touched`). Echo o hotovosti (`spec-ahead`, `checks-unknown`) blokuje merge, nikdy commit.
 - Je vidět vizuálně: barva na kartě a sloupec Brána na dashboardu. Zelená smí, žlutá čeká a říká na co, červená nesmí a říká proč.
 - Orchestrátor dostane verdikt jako zprávu k rozsahu. Rozhodnutí tak nestojí na tom, co si pamatuje z rozhovoru; kontext mu může utéct, verdikt zůstává.
 - Stejný verdikt vidí i člověk, takže kontrola nad procesem nezávisí na tom, jestli zrovna běží agent.
@@ -215,7 +214,7 @@ Linear zatím není koupený. Integrace se postaví tak, aby stačilo doplnit kl
 |---|---|---|---|---|
 | Zadání v1 | commit rozsahu, revize 1 | – | úloha založena | rozsah bez páru → `spec-ahead` |
 | Práce agenta | pracovní prostor, průběh, rozhodnutí | větev, commity | úloha běží | pár se skládá z větve |
-| Důkaz | shrnutí kroku a odkaz na výstup | testy v commitu | – | chybí důkaz → `evidence-missing` |
+| Důkaz | – (procesy zrušené 23. 10.) | testy v commitu | – | zelený běh, jinak `checks-unknown` |
 | Brána | kontroly 1 až 7 | merge do `main` | úloha hotová | co neprošlo, jde jako echo |
 | Merge | commit rozsahu v mainu OporaHubu | – | – | rozsah zezelená |
 | Sektor a oblast | commit sektoru, pak oblasti | – | – | sektor zezelená, oblast smí být uzavřena |
@@ -237,7 +236,6 @@ Pravidla, která platí vždy:
 | Bezpečná cesta a stav cesty | `backend/project/workspace/workspace_sources.py:107-136`; `backend/editor/agent_packet/desktop_v3_packets.py:263-278` | převzít beze změny |
 | Kontrola vazeb | `backend/canvas/canvas_service.py:327-378`, volaná z `:403` | běží jen při uložení změněného odkazu; při čtení se nekontroluje nic |
 | Revize a snímky | `node_specs.py:62-77`; `desktop_v3_packets.py:51`, `:463-485`, `:501-504` | commit, který revize sváže do jednoho neměnného celku |
-| Důkaz kroku | `backend/editor/process/process_store.py:102-113`; `process_lifecycle.py:55-60` | vazba na commit a na běh testů; `outputs[].digest` nikdo neověřuje |
 | Zprávy k rozsahu | `backend/editor/agent_handoff/message_store.py` | typ zprávy pro echo a jeho stav |
 | Periodická práce | `backend/project/maps/map_refresh.py:55-155`; start z `backend/app/factory.py:73-78` | vzor je přenositelný beze změny |
 | Ochrana zápisu | shodný Origin a JSON (`factory.py:112-117`), loopback (`:105-108`), token (`remote_access.py:19`) | autor zápisu, odmítnutí agenta, zámek uzavřené oblasti |
@@ -278,7 +276,7 @@ Nuly u chybějících a přejmenovaných zdrojů jsou zavádějící: vycházej�
 | 8 | Dashboard projektu: main, větve, commity, proklik na GitHub | `frontend/project/` | M | celkový pohled | jedno rozhraní pro všechny projekty |
 | 9 | Brána merge, zelené stavy, uzavření a otevření oblasti | `backend/canvas/`, `frontend/editor/` | M | barvy a zámky | nic se nezavírá samo |
 | 10 | Přepočet echa po změně `main` podle vzoru obnovy map | `backend/canvas/sync_refresh.py` | M | běh na pozadí | nový datový adresář zůstává vypnutý |
-| 11 | Zaznamenaný běh testů u páru | `backend/editor/process/` | M | `checks-unknown` | aplikace nespouští model |
+| 11 | Zaznamenaný běh testů u páru | `backend/canvas/check_runs.py` | M | `checks-unknown` | aplikace nespouští model |
 | 12 | Linear jen pro čtení, vypnutý bez klíče | `backend/integrations/linear_client.py` + test vedle | M | `task-desync` | stav úloh se nekopíruje |
 
 Pořadí: kroky 1 až 5 dají první echo a první kontrolu dokumentace během několika dnů, protože stojí na tom, co se už dnes zapisuje. Krok 6 zabezpečí historii dřív, než začne vznikat. Kroky 7 až 9 postaví OporaHub a dashboard. Kroky 10 až 12 doplní běh na pozadí, testy a Linear.

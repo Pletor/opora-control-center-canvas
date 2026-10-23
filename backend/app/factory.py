@@ -53,7 +53,6 @@ from backend.api.editor.opora_verification_routes import create_opora_verificati
 from backend.api.editor.oporahub_process_event_routes import INGEST_PATH as PROCESS_INGEST_PATH
 from backend.api.editor.oporahub_process_event_routes import create_process_event_router
 from backend.api.editor.oporahub_routes import create_oporahub_router
-from backend.api.editor.process_routes import create_process_router
 from backend.api.editor.rlm_routes import create_rlm_router
 from backend.api.editor.semantic_routes import create_semantic_router
 from backend.api.editor.storyboard_routes import create_storyboard_router
@@ -324,7 +323,6 @@ def create_app(data_root=None):
     app.include_router(create_assistant_router(assistant, jev_settings=app_settings, jev_provider=jev_provider))
     # RLM: řazení oddílů plátna přes Jev pro asistenta; jen loopback, klíč zůstává v backendu (§13.3)
     app.include_router(create_rlm_router(key_source=lambda: app_settings.jev_key(jev_provider), evaluate=jev_evaluate))
-    app.include_router(create_process_router(service))
     app.include_router(create_project_work_status_router(service, assistant.registry))
     app.include_router(create_project_web_status_router(WebStatusService(service)))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští

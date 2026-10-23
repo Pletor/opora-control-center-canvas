@@ -13,7 +13,7 @@ from pathlib import Path
 
 PROJECT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 SOURCE_KINDS = ("git", "local", "empty")
-SUBFOLDERS = ("main", "worktrees", "canvas", "nodes", "sectors", "processes", "memory", "packets", "maps", "runs", "oporahub")
+SUBFOLDERS = ("main", "worktrees", "canvas", "nodes", "sectors", "memory", "packets", "maps", "runs", "oporahub")
 
 
 def valid_project_id(value: str) -> str:
@@ -48,10 +48,6 @@ class ProjectFolder:
     @property
     def canvas(self) -> Path:
         return self.path / "canvas"
-
-    @property
-    def processes(self) -> Path:
-        return self.path / "processes"
 
     @property
     def memory(self) -> Path:
