@@ -1,6 +1,7 @@
 /* LIŠTA PLÁTNA: hlava vrstvy přes celou šířku nahoře — vlevo jméno sektoru s počty karet podle tónu tváře
-   a kolik vazeb next vrstvu řadí, vpravo nastavení sektoru (autonomie, závěrečná karta). Starší čipy (Teď se děje,
-   ke schválení, frontier) zmizely: děj nese živý pás dole, stav karet jejich tvář. */
+   a kolik vazeb next vrstvu řadí, vpravo nastavení sektoru (autonomie, závěrečná karta) a „Ke schválení“, kterým
+   člověk jedním klikem potvrdí návrhy agentů v sektoru (`sector-proposals`). Starší čipy (Teď se děje, frontier)
+   zmizely: děj nese živý pás dole, stav karet jejich tvář. */
 .board-bar {
   position: absolute;
   top: 10px;

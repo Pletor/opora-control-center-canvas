@@ -60,6 +60,8 @@ Tvář karty ukazuje jen druh, kdo ji drží, název, jeden stavový řádek (zd
 a nejvýš jednu patičku (brána / na koho čeká / rozhodnutí); okraj nese stav (tyrkysový běží s odpočtem
 lease, zlatý čeká na tebe, čárkovaný blokováno). Vazby `next` z hotové karty jsou plné zelené, jinak
 přerušované; vazba, která by uzavřela cyklus, se neuloží a lišta chyb vypíše cestu cyklu jmény karet.
+V hlavě sektoru čip **Ke schválení: N** rozbalí návrhy uzavření od agentů a **✓ Potvrdit návrhy** je potvrdí
+jedním zápisem (jen karty s hotovými důkazy bez N/A; ostatní se potvrzují na kartě).
 **Velín** je projekt → vrstva → sektor → karta nad agent-state s rozhodnutími, dalšími akcemi a „Teď běží“.
 Dole běží **živý pás** ze sdíleného toku `GET /api/oporahub/events/stream` (záložně polling `/events?since=`);
 rozbalená **Časová osa** kreslí dráhy karet vrstvy. Detail karty se otevírá přes jediný šev

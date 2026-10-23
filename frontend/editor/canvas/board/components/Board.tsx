@@ -36,6 +36,8 @@ import { useFrontier } from "@/editor/canvas/node-card/logic/use-frontier";
 import { useCardChecklist } from "@/editor/canvas/card-checklist/logic/card-checklist";
 import SectorGateEditor from "@/editor/canvas/node-card/components/SectorGateEditor";
 import SectorAutonomy from "@/editor/canvas/node-card/components/SectorAutonomy";
+import SectorProposals from "@/editor/canvas/sector-proposals/components/SectorProposals";
+import { sectorProposals } from "@/editor/canvas/sector-proposals/logic/sector-proposals";
 import "@/editor/canvas/board/styles/board-bar.css";
 import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
 import JsonMirror from "@/hub/oporahub-mirror/components/JsonMirror";
@@ -63,6 +65,7 @@ export default function Board({
   onRealizeSource,
   onAutonomy,
   onSaveSector,
+  onConfirmSector,
   onConfirmProposal,
   leases,
   usage,
@@ -115,6 +118,8 @@ export default function Board({
   onConfirmProposal?: (nodeId: string) => Promise<boolean>;
   onSaveSector?: (node: import("@/shared/types/logic/types").CanvasNode) => void;
   onAutonomy?: (sectorId: string, until: string, grantedBy: string, note: string) => Promise<void>;
+  /** Hromadně potvrdit návrhy uzavření v sektoru (`sector-proposals`); ukládá App. */
+  onConfirmSector?: (sectorId: string, ids: string[]) => Promise<void>;
   leases?: Record<string, import("@/editor/canvas/node-card/logic/use-leases").CardLease>;
   onRuleWrite?: (expected: Rule, item: Rule) => Promise<boolean>;
   onRuleReview?: (rule: Rule, decision: import("@/shared/desktop-state/logic/agent-rule").RuleReviewDecision) => Promise<boolean>;
@@ -189,6 +194,8 @@ export default function Board({
   // Jeden index grafu a stavu na přestavbu: karty z něj čtou místo procházení všech uzlů pro každou kartu.
   // Závisí jen na grafu a stavu, takže výběr ani polling overlayů ho nepřestaví.
   const index = useMemo(() => buildBoardIndex(graph, state), [graph, state]);
+  const sectorProposalList = useMemo(() => parent && index.byId.get(parent)?.kind === "sector" ? sectorProposals(graph, state, parent, index) : null,
+    [graph, state, parent, index]);
   const multiSet = useMemo(() => new Set(multiSelected), [multiSelected]);
   // Jediný zdroj stavu karet: sdílené čtení agent-state (stejný poller jako OporaHub a Velín).
   const agentState = useAgentState(sourceContext?.project ?? "", sourceContext?.workspace ?? "").state;
@@ -321,6 +328,8 @@ export default function Board({
             grant={state.autonomy?.[parent]} disabled={disabled} save={(until, who, note) => onAutonomy(parent, until, who, note)} />}
         {parent && onSaveSector && graph.nodes.find(n => n.id === parent)?.kind === "sector" &&
           <SectorGateEditor sector={graph.nodes.find(n => n.id === parent)!} graph={graph} disabled={disabled} save={onSaveSector} />}
+        {parent && onConfirmSector && sectorProposalList &&
+          <SectorProposals key={scope + parent} proposals={sectorProposalList} disabled={disabled} confirm={(ids) => onConfirmSector(parent, ids)} />}
         {frontier.error && <p role="alert">{frontier.error}</p>}
         {cap && <span className="board-bar__chip board-bar__cap" title={cap.title} data-testid="board-cap">{cap.text}</span>}
       </div>
