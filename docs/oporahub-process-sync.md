@@ -22,9 +22,8 @@ a workspace; čtení nevolá model, GitHub ani poskytovatele vykonavatele.
 - Nahlášený výsledek žádá nezávislou kontrolu. PR merge, lidské dokončení karty,
   ověření a nasazení jsou samostatné skutečnosti. Historický výsledek se při
   změně přijaté revize nepřepíše ani nevydává za výsledek aktuální revize.
-- Procesové soubory `/api/processes` nemají workspace ani vazbu na přijatou
-  revizi. Mohou být odkázané jako projektová historie, nesmějí měnit execution
-  ani se automaticky synchronizovat do `done`.
+- Starší procesové soubory `/api/processes` jsou odstraněné (rozhodnutí
+  vlastníka 23. 10.); historické `process.json` ve složce projektu nic nečte.
 - Běžný `node-brief` doplní odkaz na tuto projekci a execution/proposal API.
   Jde o živou orientaci; nenahrazuje neměnné assignment ani neposkytuje token.
 - Zlepšení z práce a kontroly se vracejí jako nativní návrhy zadání, grafu nebo

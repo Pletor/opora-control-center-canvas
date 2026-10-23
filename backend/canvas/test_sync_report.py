@@ -62,7 +62,7 @@ def verdict_of(payload, scope_id):
     return next(item for item in payload["verdicts"] if item["scope"]["id"] == scope_id)
 
 
-def test_report_pairs_existing_sources_and_blocks_merge_without_evidence(tmp_path):
+def test_report_pairs_existing_sources_and_blocks_merge_without_checks(tmp_path):
     source = source_repo(tmp_path)
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         pid = attach(client, source)
@@ -73,8 +73,8 @@ def test_report_pairs_existing_sources_and_blocks_merge_without_evidence(tmp_pat
     assert {item["scope"]["id"] for item in payload["verdicts"]} == {"sector-1", "node-1"}
     # Zdroje existují, takže echo o vazbě nevzniká.
     assert "source-missing" not in types(payload) and "source-renamed" not in types(payload)
-    # Commit se spáruje podle cest, ale bez důkazu a bez zeleného běhu testů se nemerguje.
-    assert {"evidence-missing", "checks-unknown"} <= types(payload)
+    # Commit se spáruje podle cest, ale bez zeleného běhu testů se nemerguje.
+    assert "checks-unknown" in types(payload)
     node = verdict_of(payload, "node-1")
     assert node["canMerge"] is False
     assert node["state"] in ("draft", "waiting")
@@ -134,33 +134,6 @@ def commit_for_node(source):
     return run(source, "rev-parse", "HEAD")
 
 
-def finish_process(client, pid):
-    """Proces uzlu od návrhu až po hotovo; důkaz u kroku vyžaduje životní cyklus sám."""
-    created = client.post("/api/processes", headers=HEADERS, json={
-        "project": pid, "title": "Pozdrav", "nodeId": "node-1",
-        "steps": ["Napsat pozdrav"], "by": ACTOR,
-    })
-    assert created.status_code == 200, created.text
-    process = created.json()["process"]
-    step = process["steps"][0]["id"]
-    running = client.post(f"/api/processes/{process['id']}/transition", headers=HEADERS, json={
-        "project": pid, "revision": process["revision"], "to": "running",
-        "by": ACTOR, "note": "bez worktree",
-    })
-    assert running.status_code == 200, running.text
-    marked = client.post(f"/api/processes/{process['id']}/steps/{step}", headers=HEADERS, json={
-        "project": pid, "revision": running.json()["process"]["revision"], "state": "done",
-        "evidence": {"summary": "hello.py napsán", "at": "2026-09-17T10:00:00Z", "by": ACTOR},
-    })
-    assert marked.status_code == 200, marked.text
-    done = client.post(f"/api/processes/{process['id']}/transition", headers=HEADERS, json={
-        "project": pid, "revision": marked.json()["process"]["revision"], "to": "done",
-        "by": ACTOR, "note": "hotovo",
-    })
-    assert done.status_code == 200, done.text
-    assert done.json()["process"]["state"] == "done"
-
-
 def commit_spec(client, pid, scope="node-1"):
     """Commit zadání v OporaHubu; bez něj je zadání jen rozepsané a brána zůstane zavřená."""
     response = client.post("/api/opora-commit", headers=HEADERS, json={
@@ -181,7 +154,7 @@ def record_run(client, pid, sha, status="green"):
 
 
 def test_whole_way_to_green_opens_the_gate_for_the_node(tmp_path):
-    """S11 z `docs/scenare-vrstvy.md`: zadání → commit → důkaz → zelený běh → `canMerge`."""
+    """S11 z `docs/scenare-vrstvy.md`: zadání → commit → zelený běh → `canMerge`."""
     source = source_repo(tmp_path)
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         pid = attach(client, source)
@@ -189,7 +162,6 @@ def test_whole_way_to_green_opens_the_gate_for_the_node(tmp_path):
         save_spec(client, pid)
         commit_spec(client, pid)
         sha = commit_for_node(source)
-        finish_process(client, pid)
         written = record_run(client, pid, sha)
         assert written["sha"] == sha and written["status"] == "green"
         stored = client.get("/api/check-run", params={
@@ -225,13 +197,10 @@ def test_green_run_on_an_unpaired_commit_keeps_the_gate_closed(tmp_path):
         save_graph(client, pid)
         save_spec(client, pid)
         commit_for_node(source)
-        finish_process(client, pid)
         record_run(client, pid, "0" * 40)
         payload = report(client, pid)
 
     assert "checks-unknown" in types(payload)
-    assert "evidence-missing" not in {signal["type"] for signal in payload["signals"]
-                                      if signal["subject"]["id"] == "node-1"}
     assert verdict_of(payload, "node-1")["canMerge"] is False
 
 
@@ -251,7 +220,6 @@ def test_uncommitted_spec_keeps_the_gate_closed_and_says_why(tmp_path):
         save_graph(client, pid)
         save_spec(client, pid)
         sha = commit_for_node(source)
-        finish_process(client, pid)
         record_run(client, pid, sha)
         payload = report(client, pid)
 
@@ -274,7 +242,6 @@ def test_merge_is_refused_while_the_gate_is_closed_and_passes_when_it_opens(tmp_
         assert refused.json()["nextSteps"]
 
         sha = commit_for_node(source)
-        finish_process(client, pid)
         record_run(client, pid, sha)
         merged = client.post("/api/opora-merge", headers=HEADERS, json={
             "project": pid, "workspace": "draft", "scope": "node-1", "id": head["id"], "by": ACTOR})

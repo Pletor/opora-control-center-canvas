@@ -23,7 +23,6 @@ průběh etap je `desktop_v3_state.stages`; soubory procesů (`processes/`) jsou
 | Snímek zadání při převzetí, lease, výsledky agentů, kola karty | `assignment_snapshots`, `card_leases`, `agent_result_records`, `card_rounds` | server při `lease claim`, `agent-output`, `card-round` | append-only evidence; `contextVersion` váže výsledek na verzi zadání |
 | Adresované zprávy mezi kartami a potvrzení | `agent_messages`, `agent_message_receipts` | agenti | `identityVerified: false` je záměrné |
 | Podklady (obrázky, soubory ke kartě), kresby vrstvy | `nodes/<id>/`, `drawing_revisions`, `drawing_files` | člověk | kresba je per vrstva, obrázky s ní |
-| Procesy (návrh → běh → hotovo ⇄ oprava) a odpovědi agentů | `processes/<prc-id>/*.json` | člověk, agent | `shared/process.schema.json` |
 | Verze plátna (uložené snímky) | `canvas_versions` | člověk (Uložit) | obnova vrací graf i stav |
 | OporaHub (commit specu, párování commitů, verdikt) | `oporahub/<id>.json`, `oporahub/main.log`, index `opora_commits` | člověk, orchestrátor | pravda je v souborech, index se přestaví |
 | Mapy projektu (Graphify, Archify) | **v kořeni hlavního worktree projektu**: `graphify-out/`, `archify-out/` | automatika po mergi do `main` | git-ignorované přes `.git/info/exclude`; jediná sada, bez verzí |

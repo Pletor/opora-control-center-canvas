@@ -93,7 +93,7 @@ describe("dashboardView", () => {
     const types = [
       ...Array(5).fill("spec-ahead"),
       ...Array(4).fill("source-missing"),
-      ...Array(2).fill("evidence-missing"),
+      ...Array(2).fill("duplicate-path"),
       ...Array(2).fill("checks-unknown"),
       "doc-path-missing",
       "base-stale",
@@ -104,7 +104,7 @@ describe("dashboardView", () => {
       { type: "spec-ahead", count: 5 },
       { type: "source-missing", count: 4 },
       { type: "checks-unknown", count: 2 },
-      { type: "evidence-missing", count: 2 },
+      { type: "duplicate-path", count: 2 },
       { type: "base-stale", count: 1 },
     ]);
   });

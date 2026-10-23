@@ -21,7 +21,7 @@ def green_world(**over):
 def test_green_node_passes_every_check_in_the_order_from_part_four():
     verdict = verdicts(green_world())["n1"]
     assert [check["id"] for check in verdict["checks"]] == [
-        "spec", "source", "pair", "checks", "evidence", "docs", "noHighEcho"]
+        "spec", "source", "pair", "checks", "docs", "noHighEcho"]
     assert all(check["passed"] for check in verdict["checks"])
     assert verdict["state"] == "green"
     assert verdict["canCommit"] and verdict["canMerge"]
@@ -41,9 +41,6 @@ FAILING = [
     ("checks", "checks-unknown", "spusť testy a zapiš výsledek",
      green_world(scopes=[scope("n1", path="backend/a.py", revision=2,
                                saved="2026-09-16T08:00:00", checks=False)])),
-    ("evidence", "evidence-missing", "doplň důkaz, nebo fázi otevři",
-     green_world(scopes=[scope("n1", path="backend/a.py", revision=2,
-                               saved="2026-09-16T08:00:00", evidence=False)])),
     ("docs", "doc-path-missing", "oprav odkaz nebo dokument zruš",
      green_world(docIssues=[{"doc": "backend/a.py", "line": 3, "path": "backend/pryc.py"}])),
 ]
@@ -61,7 +58,7 @@ def test_failed_check_names_its_signal_and_its_step(check_id, signal, step, worl
 
 
 def test_closed_scope_gets_a_verdict_but_no_checks():
-    world = green_world(scopes=[scope("n1", path="backend/a.py", revision=3, evidence=False,
+    world = green_world(scopes=[scope("n1", path="backend/a.py", revision=3,
                                       closed=True)], paths={"backend/a.py": missing()})
     result = evaluate(world)
     assert result["signals"] == []

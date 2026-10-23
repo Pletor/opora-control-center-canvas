@@ -22,7 +22,6 @@ CHECKS = {
     "source": "Vazba na kód existuje ve správném druhu",
     "pair": "Pár s touto revizí zadání je v mainu kódu",
     "checks": "U páru je zaznamenaný zelený běh testů",
-    "evidence": "Každý krok procesu má důkaz",
     "docs": "Dokumentace dotčených cest nemá rozbitý odkaz",
     "noHighEcho": "Rozsah nemá otevřené echo s vysokou závažností",
     "children": "Všechny rozsahy pod ním jsou zelené",
@@ -106,7 +105,6 @@ def _checks_for(scope, kinds, merged, kids_green):
         _source_check(scope, kinds),
         _check("pair", merged and "spec-ahead" not in kinds, "spec-ahead"),
         _check("checks", scope.get("checksGreen"), "checks-unknown"),
-        _check("evidence", scope.get("evidenceComplete"), "evidence-missing"),
         _check("docs", "doc-path-missing" not in kinds, "doc-path-missing"),
     ]
 

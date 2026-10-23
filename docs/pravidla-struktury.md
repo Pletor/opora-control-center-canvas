@@ -47,7 +47,7 @@ opora-canvas/
     api/                # ROBUSTNÍ API: tenké routery podle prostředí; app_routes = zdraví, identita, bootstrap
       project_setup/    # project_routes: nastavení, lokální/prázdný projekt, connect
       project/          # project_workspace_routes, workspace_routes, archify_routes, graphify_routes, map_refresh_routes
-      editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes, process_routes
+      editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes
     canvas/             # základ plátna: canvas_service (registr + db_for(projekt), git sync, graf), graph, project_folder (projects/<id>/), project_registry, migrate_to_project_folders
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
     project/            # PROSTŘEDÍ PROJEKT
@@ -60,7 +60,6 @@ opora-canvas/
       agent_memory/     # desktop_v3_state: pravidla, rozhodnutí, fáze uzlu
       agent_packet/     # desktop_v3_packets, redact: podklady pro agenta
       agent_handoff/    # external_agent_tasks: předání úkolu externímu agentovi
-      process/          # process_store, process_lifecycle (návrh → proces → hotovo → oprava), process_reports (odpovědi agentů)
       task_execution/   # slot: vykonání úkolu z uzlu podle ID
     memory/             # paměť agenta podle role napříč projekty (OpenViking): roles, memory_service
     integrations/       # platforma: gitio, windows_job, build_identity, openviking_client

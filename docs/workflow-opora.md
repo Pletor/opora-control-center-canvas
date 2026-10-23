@@ -31,7 +31,6 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 | Adresované zprávy | `handoff / question / answer / blocker / result / correction` + potvrzení | `/api/desktop-v3/agent-messages`, `/agent-message-receipt` | agent + UI | hotovo (v1) |
 | Tickety | `{id, title, priority, status open/doing/done, nodeId, sessionId, createdBy}` | jen uvnitř stavu Desktop v3 | agent zapisuje | **jen backend, UI chybí** |
 | Trace, pipeline akcí | dohledání ID, knihovna akcí | `/api/desktop-v3/trace`, `/pipelines` | UI, agent | hotovo |
-| Procesy | `draft → running → done ⇄ repair`, kroky s důkazem, reporty | `/api/processes/*` | UI + agent | hotovo |
 | Paměť role | OpenViking: recall, remember, lend; zrcadlí prostor agenta | `/api/memory/*` | automatika + člověk | hotovo (volitelné) |
 | Mapy | Archify (jediný model: Claude Code Sonnet), Graphify (bez modelu), automatika po mergi | `/api/archify/*`, `/api/graphify/*`, `/api/map-refresh/*` | UI, automatika | hotovo |
 | Pravda a dokončení | echo, verdikt Oracle (`canCommit/canMerge/blocking`), commit specu, párování commitů | `/api/sync-report`, `/api/opora-commit(s)`, `/api/opora-merge` | člověk, orchestrátor | jádro hotovo |
@@ -56,8 +55,8 @@ na přehledu, agent přes `/api/oporahub/process` a odkaz z `node-brief`.
 Čtení používá stejný projekt a workspace; změna přijaté revize zachová historii
 a oddělí starý výsledek od aktuální práce. Zjištění z vykonání a kontroly se
 vracejí jako verzovaný návrh změny zadání, grafu nebo obsahu. Po lidském přijetí
-se další práce řídí novým přijatým základem. Projekce nepřepisuje stav starších
-`/api/processes`, jejichž projektové soubory nemají workspace ani vazbu na revizi.
+se další práce řídí novým přijatým základem. Starší procesy `/api/processes` jsou
+odstraněné (rozhodnutí vlastníka 23. 10.).
 
 ```mermaid
 flowchart LR
