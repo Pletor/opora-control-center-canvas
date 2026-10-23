@@ -58,16 +58,17 @@ def test_both_protocols_carry_three_cards_to_human_acceptance(runs):
         assert len(cards) == 3 and all(c["accepted"] == 200 for c in cards), runs[name]["outcome"]
 
 
-def test_legacy_brief_carries_handoff_and_hub_assignment_does_not(runs):
+def test_legacy_brief_and_hub_assignment_both_carry_handoff(runs):
+    """Simulace našla, že zadání v2 předávku nenese (N1); M3 (assignment.handoff) to opravilo, B je teď B+."""
     assert all(row["found"]["předávka"] and row["found"]["rozhodnutí"] for row in runs["A"]["transfer"])
-    assert all(row["score"] == 0 for row in runs["B"]["transfer"])
+    assert all(row["score"] >= 5 / 6 for row in runs["B"]["transfer"])
     assert all(row["score"] >= 5 / 6 for row in runs["B+"]["transfer"])
 
 
-def test_hub_lens_after_result_is_refused(runs):
-    """Office posílá Lens až po výsledku; server ho odmítne, protože běh už nemá oprávnění."""
+def test_hub_lens_after_result_is_accepted(runs):
+    """Office posílá Lens až po výsledku; simulace to našla jako 409, oprava #70 ho přijme (PR na téže hlavě)."""
     first = next(v for v in runs["B"]["outcome"].values() if isinstance(v, dict) and "lens" in v)
-    assert first["lens"] == 409 and "no longer authoritative" in first["lensDetail"]
+    assert first["lens"] == 200
 
 
 def test_legacy_step_todos_invalidate_the_agents_own_context(runs):
