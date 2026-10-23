@@ -57,7 +57,8 @@ def test_project_view_has_areas_flows_and_unassigned():
     assert nodes["nezarazeno:database"]["delta"] == "added" and nodes["nezarazeno:database"]["lane"] == "database"
     flow = by_id(spec["edges"])["flow:f1"]
     assert flow["kind"] == "data" and flow["label"] == "Předá data okraji." and flow["to"] == "area:a2"
-    assert result["stats"] == {"areas": 2, "cards": 5, "withCode": 3, "planned": 2, "standalone": 1, "unassigned": 1}
+    assert result["stats"] == {"areas": 2, "cards": 5, "withCode": 3, "planned": 2, "standalone": 1, "unassigned": 1,
+                               "inherited": 0, "crossAreaWithoutHandoff": 0}
     assert spec["provenance"]["head"] == spec["provenance"]["base"] == {"sha": "b" * 40}
     assert "pullRequest" not in spec["provenance"]
 

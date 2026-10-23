@@ -7,9 +7,9 @@ Bez `area` je to pohled projektu (oblasti, toky, „Nezařazeno“), s `area` po
 řazením podle id a ořezem, o kterém mluví souhrn i čip."""
 import hashlib
 
-from backend.canvas.areas import area_of
 from backend.canvas.opora_hub_store import canonical
 from backend.canvas.plan_lens_cards import done_ids, is_card, label, lanes_for, lens_id, realized
+from backend.canvas.plan_lens_membership import INHERITED, MARKED, crossings, missing_pairs, resolve
 from backend.canvas.plan_lens_views import area_view, project_view, standalone
 
 SCHEMA_VERSION = "0.2.0"
@@ -26,13 +26,12 @@ def context(graph, state, reality):
     nodes = sorted(graph.get("nodes") or [], key=lambda node: node["id"])
     cards = [node for node in nodes if is_card(node)]
     areas = [node for node in nodes if node.get("kind") == "area"]
-    member = {}
-    for card in cards:
-        home = area_of(card, nodes)
-        if home is not None:
-            member[card["id"]] = home["id"]
-    return {"cards": cards, "areas": areas, "member": member, "state": state or {},
-            "edges": sorted(graph.get("edges") or [], key=lambda item: item["id"]),
+    membership = resolve(cards, nodes, areas)
+    member = {key: home for key, (home, _) in membership.items() if home is not None}
+    source = {key: how for key, (_, how) in membership.items() if how is not None}
+    edges = sorted(graph.get("edges") or [], key=lambda item: item["id"])
+    return {"cards": cards, "areas": areas, "member": member, "source": source, "state": state or {},
+            "crossings": crossings(cards, membership, edges), "edges": edges,
             "existing": frozenset(reality.get("existing") or ()), "done": done_ids(state),
             "links": reality.get("links") or []}
 
@@ -52,11 +51,15 @@ def _provenance(reality, project):
     return {"repo": repo, "base": {"sha": sha}, "head": {"sha": sha}, "generator": dict(GENERATOR)}
 
 
-def _stats(ctx, scope_cards):
+def _stats(ctx, scope_cards, area=None):
     real = sum(1 for card in scope_cards if realized(card, ctx["existing"]))
+    missing = [pair for pair in missing_pairs(ctx["crossings"]) if area is None or area in pair]
     return {"areas": len(ctx["areas"]), "cards": len(scope_cards), "withCode": real,
             "planned": len(scope_cards) - real, "standalone": standalone(scope_cards, ctx["edges"]),
-            "unassigned": sum(1 for card in ctx["cards"] if card["id"] not in ctx["member"])}
+            "unassigned": sum(1 for card in ctx["cards"]
+                              if card["id"] not in ctx["member"] and ctx["source"].get(card["id"]) != MARKED),
+            "inherited": sum(1 for card in scope_cards if ctx["source"].get(card["id"]) == INHERITED),
+            "crossAreaWithoutHandoff": len(missing)}
 
 
 def _chips(stats, cut_nodes, cut_edges):
@@ -81,7 +84,7 @@ def build(graph, state, reality, area=None, project=None, workspace=None):
         nodes, edges = area_view(ctx, found)
         scope_cards = [card for card in ctx["cards"] if ctx["member"].get(card["id"]) == area]
         title = "Oblast " + label(found, "bez názvu")
-    stats = _stats(ctx, scope_cards)
+    stats = _stats(ctx, scope_cards, area)
     if area is not None:
         stats["areas"] = 1
     if not nodes:  # PR Lens chce aspoň jeden uzel: prázdný plán řekne, že je prázdný
