@@ -46,6 +46,9 @@ RULE_KEYS = {"id", "text", "kind", "scope", "target"}
 # do effectiveRules a stopConditions jde až po schválení člověkem (upgrade-opora #37).
 RULE_AUTHORS = ("human", "agent")
 DECISION_KEYS = {"id", "text", "pinned", "path", "nodeId", "createdAt", "by"}
+# Volitelné klíče rozhodnutí: `supersedes` (oprava) a `executionId` (zapsal ho výsledek běhu OporaHubu).
+DECISION_KEY_SETS = tuple(DECISION_KEYS | set(extra) for extra in ((), ("supersedes",), ("executionId",),
+                                                                   ("supersedes", "executionId")))
 NODE_KEYS = {"phase", "criteria", "steps"}
 CRITERION_KEYS = {"id", "text", "checked"}
 STEP_KEYS = {"id", "text", "assignee", "done"}
@@ -437,8 +440,10 @@ def validate_state(state, *, unchanged=None):
         _enum(item["kind"], RULE_KINDS, "druh pravidla")
         _enum(item["scope"], RULE_SCOPES, "rozsah pravidla")
         _rule_target(item)
-    for item in _items(state["decisions"], (DECISION_KEYS, DECISION_KEYS | {"supersedes"}), MAX_ITEMS, "decisions"):
+    for item in _items(state["decisions"], DECISION_KEY_SETS, MAX_ITEMS, "decisions"):
         _text(item["text"], MAX_TEXT, "text rozhodnutí")
+        if "executionId" in item:
+            _ident(item["executionId"], "běh rozhodnutí")
         _bool(item["pinned"], "pinned")
         try:
             relative_path(item["path"])

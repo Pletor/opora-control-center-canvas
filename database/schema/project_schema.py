@@ -326,6 +326,7 @@ PROJECT_TABLES = {
     "opora_execution_epochs": "project_id",
     "opora_executions": "project_id",
     "opora_execution_results": "project_id",
+    "opora_execution_steps": "project_id",
 }
 REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects", "opora_context_bindings", "opora_execution_observer_sessions")
 PROJECT_TABLES.update({table: "project_id" for table in (*RECONCILIATION_TABLES, *JOB_TABLES)})

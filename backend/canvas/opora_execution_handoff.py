@@ -54,7 +54,9 @@ def _decisions(receipt, state, node):
     """Rozhodnutí z výsledku (text nebo objekt s why/alternatives/evidence), pak rozhodnutí karty z plochy."""
     result = (receipt or {}).get("result") or {}
     own = [item for item in result.get("decisions") or [] if isinstance(item, (str, dict))]
-    desk = [item for item in state.get("decisions") or [] if isinstance(item, dict) and item.get("nodeId") == node]
+    stored = set((receipt or {}).get("decisionIds") or [])  # M4 copies result decisions to the desk; list them once
+    desk = [item for item in state.get("decisions") or []
+            if isinstance(item, dict) and item.get("nodeId") == node and item.get("id") not in stored]
     desk.sort(key=lambda item: str(item.get("id", "")))
     desk.sort(key=lambda item: str(item.get("createdAt", "")), reverse=True)
     return own + [{"text": item.get("text"), **({"agent": item["by"]} if isinstance(item.get("by"), str) else {})}

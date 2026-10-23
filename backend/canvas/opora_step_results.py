@@ -3,8 +3,9 @@
 Progress is not part of the spec (night contract §1). An execution result may carry
 `stepResults: [{stepId, status: done|failed|skipped, evidence: {checks?, commits?, notes}}]`;
 it is validated against the steps pinned in that execution's assignment and stored inside
-the idempotent result receipt (same requestId → same receipt). The read model per card is
-derived from those receipts over every execution of the card: a report counts only while
+the idempotent result receipt (same requestId → same receipt); a running execution may also send
+each step as it finishes (`POST /executions/{id}/steps`, opora_execution_steps.py). The read model
+per card is derived from those receipts and checkpoints over every execution of the card: a report counts only while
 its pinned step definition still equals the accepted one; a step reported `done` by any run
 stays done (a later failed/skipped run does not undo it), otherwise the newest report wins.
 docs/oporahub-plan-steps.md.
@@ -93,13 +94,16 @@ def reports(db, project, workspace, node, steps):
     repo, current, found = Executions(db, project, workspace), {item["id"]: item for item in steps}, {}
     for record in repo.history(node):  # newest execution first
         pinned = {item["id"]: item for item in (record.get("assignment") or {}).get("steps", [])}
-        for receipt in reversed(repo.receipts(record["executionId"])):
-            for item in (receipt.get("result") or {}).get("stepResults", []):
-                step = item.get("stepId")
-                if step not in current or not _same(pinned.get(step), current[step]):
-                    continue
-                if step not in found or (item.get("status") == "done" and found[step]["status"] != "done"):
-                    found[step] = {"status": item.get("status"), "executionId": record["executionId"]}
+        # Newest first: the final result, then the run's per-step checkpoints (opora_execution_steps.py).
+        reported = [item for receipt in reversed(repo.receipts(record["executionId"]))
+                    for item in (receipt.get("result") or {}).get("stepResults", [])]
+        reported += reversed(repo.steps(record["executionId"]))
+        for item in reported:
+            step = item.get("stepId")
+            if step not in current or not _same(pinned.get(step), current[step]):
+                continue
+            if step not in found or (item.get("status") == "done" and found[step]["status"] != "done"):
+                found[step] = {"status": item.get("status"), "executionId": record["executionId"]}
     return found
 
 

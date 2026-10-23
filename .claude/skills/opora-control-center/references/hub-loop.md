@@ -103,7 +103,11 @@ a nejnovějšího. Podrobně v `docs/oporahub-executions.md` („Předávka v za
 3. V kroku dělej **jen** jeho výsledek; soubory drž v jeho `files` (glob). Potřebuješ jinam,
    je to nález: zapiš ho do `notes` a navrhni změnu plánu, neopravuj potichu.
 4. Ověř každou `acceptance` kroku příkazem nebo pozorováním; bez důkazu není `done`.
-5. Commit po kroku; SHA patří do `evidence.commits` kroku.
+5. Commit po kroku; SHA patří do `evidence.commits` kroku. Hned po commitu krok ohlas:
+   `opora_hub.py step --execution E --step-id s1 --status done --notes "…" [--commit SHA] [--check "…"]`
+   (`POST /api/oporahub/executions/{id}/steps`, stejný token a epocha jako výsledek; opakování téhož
+   příkazu je idempotentní). Pád běhu pak hotové kroky neztratí: agent-state je ukazuje a nový běh
+   karty začne prvním nehotovým krokem (`progress.current` v odpovědi `assignment`).
 6. Krok selže → `failed` s důvodem, kroky, které na něm závisí, `skipped`; nezávislé smíš dokončit.
 7. Heartbeat (samostatný režim) po ⅓ TTL; pevný konec rozpočtu (`budget.runDeadlineAt`) prodloužit nejde.
 
@@ -117,6 +121,7 @@ Na **posledním** commitu spusť povinné kontroly (`self_checks.required`, výc
 {"summary": "Ingest DOCX hotový; 3/3 kroky.",
  "artifacts": [], "evidence": [{"name": "tests", "status": "passed"}],
  "risk": "nízké", "revert": "git revert <sha>",
+ "decisions": ["DOCX čteme přes python-docx, ne přes převod do PDF"],
  "selfChecks": {"headSha": "<40 hex>", "checks": [
    {"name": "tests", "command": "uv run pytest backend/ingest", "exitCode": 0, "status": "passed", "summary": "14 passed"},
    {"name": "build", "command": "npm run build", "exitCode": 0, "status": "passed", "summary": "built"}]},
@@ -127,7 +132,10 @@ Na **posledním** commitu spusť povinné kontroly (`self_checks.required`, výc
 ```
 
 `stepResults`: nejvýše jeden záznam na krok, `status` `done|failed|skipped`;
-backend je ukládá k běhu idempotentně podle `requestId`. Odevzdej
+backend je ukládá k běhu idempotentně podle `requestId`. Kroky už ohlášené průběžně smíš vynechat
+nebo zopakovat. `decisions` (nepovinné): seznam textů, nejvýše 20; každé rozhodnutí, které mění jinou
+kartu, odchyluje se od plánu nebo vybírá mezi alternativami. Uloží se jako rozhodnutí karty
+s `executionId` běhu (`receipt.decisionIds`). Odevzdej
 `opora_hub.py results --execution E --result-file vysledek.json` (`POST /api/oporahub/executions/{id}/results`).
 Při nejistém doručení pošli **stejný soubor** znovu (stejné `requestId`); jiný obsah = 409.
 

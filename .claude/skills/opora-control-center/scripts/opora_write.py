@@ -72,6 +72,7 @@ HUB_HUMAN_ROUTES = (
 HUB_TOKEN_ROUTES = (
     '/api/oporahub/executions/claim', '/api/oporahub/executions/{id}/heartbeat',
     '/api/oporahub/executions/{id}/release', '/api/oporahub/executions/{id}/results',
+    '/api/oporahub/executions/{id}/steps',
     '/api/oporahub/executions/{id}/pull-request', '/api/oporahub/review-jobs/claim',
     '/api/oporahub/review-jobs/{id}/tasks/{id}/heartbeat', '/api/oporahub/review-jobs/{id}/tasks/{id}/release',
     '/api/oporahub/review-jobs/{id}/tasks/{id}/submit', '/api/oporahub/verifications/requests',

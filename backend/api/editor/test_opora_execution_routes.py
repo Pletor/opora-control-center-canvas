@@ -86,3 +86,17 @@ def test_claim_and_heartbeat_can_omit_assignment(client):
     read = client.get(BASE + "/" + lease["executionId"] + "/assignment", params=SCOPE,
                       headers={**AGENT, "X-Opora-Execution-Token": lease["token"]})
     assert read.json()["assignment"] == full["assignment"]
+
+
+def test_step_checkpoint_route_shares_result_authority(client):
+    """HTTP shape only; progress across runs is in backend/canvas/test_opora_execution_steps.py."""
+    record = client.post(BASE + "/claim", headers=AGENT, json=payload(client)).json()
+    endpoint = BASE + "/" + record["executionId"] + "/steps"
+    body = {**SCOPE, "token": record["token"], "epoch": record["epoch"], "requestId": "step1",
+            "stepId": "s1", "status": "done", "evidence": {"notes": "hotovo", "commits": ["abc1234"]}}
+    client.cookies.clear()
+    assert client.post(endpoint, headers={"Origin": ORIGIN}, json=body).status_code == 428
+    wrong = client.post(endpoint, headers=AGENT, json={**body, "epoch": record["epoch"] + 1})
+    assert wrong.status_code == 409 and record["token"] not in wrong.text
+    outside = client.post(endpoint, headers=AGENT, json=body)  # this seeded card pins no steps
+    assert outside.status_code == 409 and "stepResults" in outside.json()["error"]

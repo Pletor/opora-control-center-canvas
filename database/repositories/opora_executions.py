@@ -56,3 +56,19 @@ class Executions:
         rows = self.db.execute("SELECT record FROM opora_execution_results WHERE project_id=? AND workspace_id=?"
                                " AND execution_id=? ORDER BY rowid", (*self.scope, identifier)).fetchall()
         return [json.loads(row[0]) for row in rows]
+
+    def step(self, identifier, request):
+        row = self.db.execute("SELECT digest,record FROM opora_execution_steps WHERE execution_id=? AND request_id=?",
+                              (identifier, request)).fetchone()
+        return (row[0], json.loads(row[1])) if row else None
+
+    def insert_step(self, identifier, request, digest, checkpoint):
+        self.db.execute("INSERT INTO opora_execution_steps VALUES(?,?,?,?,?,?,?)",
+                        (*self.scope, identifier, request, checkpoint["stepId"], digest,
+                         json.dumps(checkpoint, ensure_ascii=False)))
+
+    def steps(self, identifier):
+        """Per-step checkpoints of one execution, oldest first (docs/oporahub-plan-steps.md)."""
+        rows = self.db.execute("SELECT record FROM opora_execution_steps WHERE project_id=? AND workspace_id=?"
+                               " AND execution_id=? ORDER BY rowid", (*self.scope, identifier)).fetchall()
+        return [json.loads(row[0]) for row in rows]

@@ -2,7 +2,8 @@
 
 Kroky plánu jsou verzované pole přijatého zadání karty. Leží v `fields` zadání vedle `goal`,
 `non_goals` a `acceptance`, takže se mění jen návrhem změny zadání (changeset) a přijetím člověkem.
-Průběh práce (které kroky jsou hotové) do zadání nepatří; nese ho výsledek běhu (`stepResults`).
+Průběh práce (které kroky jsou hotové) do zadání nepatří; nese ho výsledek běhu (`stepResults`)
+a průběžná hlášení kroků (`POST /executions/{id}/steps`).
 
 ## Tvar a validace
 
@@ -70,8 +71,31 @@ pořadí, `null` když je vše hotové nebo karta kroky nemá. Process-sync a ag
 seznam po krocích `[{id, status, executionId}]` (`stepItems`, resp. `cards[].steps.items`;
 `status` = `done`/`failed`/`skipped`/`current`/`waiting`, `executionId` = běh, jehož hlášení platí).
 
+## Průběžné hlášení kroku (`POST /executions/{id}/steps`)
+
+Běžící běh smí ohlásit krok hned, jak ho dokončí, ještě před výsledkem:
+
+```json
+{"project": "P", "workspace": "W", "token": "…", "epoch": 3, "requestId": "step-s1-done",
+ "stepId": "s1", "status": "done", "evidence": {"notes": "…", "checks": ["pytest"], "commits": ["abc1234"]}}
+```
+
+Oprávnění je stejné jako u výsledku (token, epocha, platný pronájem, nezměněné zadání, rozpočet);
+`stepId`, `status` a `evidence` se validují stejně jako položka `stepResults`. Hlášení se ukládá do
+`opora_execution_steps` (aditivní tabulka projektu) idempotentně podle `requestId`: stejný obsah
+vrátí stejné potvrzení i po vypršení pronájmu, jiný obsah se odmítne (409). Hlášení je tvrzení agenta
+(`verification: agent-reported`), kartu nemění.
+
+Čtený model výše počítá průběžná hlášení stejně jako `stepResults` (výsledek běhu je novější než
+jeho průběžná hlášení). Když agent spadne po dvou ze čtyř kroků, agent-state ukazuje 2/4,
+`current` je třetí krok a nový běh karty začne jím: `step.started` při převzetí i `progress`
+v `GET /executions/{id}/assignment` (`{total, done, current, steps: [{id, status, executionId}]}`,
+živé, mimo neměnný snímek a jeho otisk). Výsledek pak smí kroky už ohlášené vynechat.
+
 Události (tok [událostí](oporahub-events.md)): převzetí emituje `step.started` pro první nehotový
-krok, výsledek `step.done` / `step.failed` pro každý hlášený krok (v téže transakci).
+krok. Průběžné hlášení emituje `step.done` / `step.failed` (s `data.checkpoint: true`) a po `done`
+`step.started` dalšího nehotového kroku. Výsledek emituje `step.done` / `step.failed` pro hlášené
+kroky, které běh ještě neohlásil průběžně se stejným stavem (vše v transakci zápisu).
 
 ## Připravenost k převzetí
 

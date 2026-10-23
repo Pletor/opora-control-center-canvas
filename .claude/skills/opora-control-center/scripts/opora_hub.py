@@ -5,7 +5,8 @@
 Čtení:  `state` (GET agent-state s `If-None-Match`; 304 vrátí uloženou kopii), `actions`, `pick`,
         `events` (feed událostí).
 Běh:    `claim --action-id ID` (čerstvý agent-state → akce `claim` ve stavu `ready` → kontext v2 → claim),
-        `assignment`, `heartbeat`, `results --result-file F`, `release`.
+        `assignment`, `heartbeat`, `step --step-id S --status done|failed|skipped --notes T`
+        (průběžný krok hned po jeho commitu), `results --result-file F`, `release`.
 Review: `review-claim`, `review-heartbeat`, `review-submit --submission-file F`, `review-release`.
 
 Token běhu i slotu review se nikdy nevypisuje: leží v soukromém souboru (0600) ve složce
@@ -220,6 +221,24 @@ def release(base, execution):
     return {k: v for k, v in (value or {}).items() if k != 'token'}
 
 
+def step(base, execution, step_id, status, notes, commits=(), checks=()):
+    """Průběžný krok (`POST /executions/{id}/steps`) hned po jeho commitu; pád běhu ho neztratí.
+
+    `requestId` je odvozené z kroku a stavu: opakování téhož příkazu vrátí totéž potvrzení."""
+    if status not in STEP_STATUSES:
+        raise ValueError('Stav kroku je done, failed nebo skipped.')
+    bundle = load_bundle('execution', execution)
+    evidence = {'notes': notes}
+    if commits:
+        evidence['commits'] = list(commits)
+    if checks:
+        evidence['checks'] = list(checks)
+    request = ('step-' + ''.join(ch for ch in step_id if ch.isalnum() or ch in '_-') + '-' + status)[:80]
+    _, value, _ = _call(base, 'POST', f'{HUB}/executions/{execution}/steps',
+                        _token_body(bundle, requestId=request, stepId=step_id, status=status, evidence=evidence))
+    return value
+
+
 def check_result(result):
     """Tvar výsledku podle execution-prompt agent-office; `stepResults` volitelně."""
     if not isinstance(result, dict) or not isinstance(result.get('summary'), str) or not result['summary'].strip():
@@ -236,6 +255,9 @@ def check_result(result):
         seen.add(item['stepId'])
         if not isinstance(item.get('evidence', {}), dict):
             raise TypeError('evidence kroku je objekt {checks?, commits?, notes}.')
+    decisions = result.get('decisions', [])
+    if not isinstance(decisions, list) or not all(isinstance(item, str) and item.strip() for item in decisions):
+        raise ValueError('decisions je seznam neprázdných textů (rozhodnutí karty).')
     checks = (result.get('selfChecks') or {}).get('checks', [])
     for check in checks:
         if check.get('status') == 'passed' and check.get('exitCode') != 0:
@@ -336,6 +358,8 @@ def run(args, base):
         return heartbeat(base, args.execution, args.ttl)
     if args.command == 'release':
         return release(base, args.execution)
+    if args.command == 'step':
+        return step(base, args.execution, args.step_id, args.status, args.notes or '', args.commit, args.check)
     if args.command == 'results':
         return results(base, args.execution, args.result_file)
     if args.command == 'review-claim':
@@ -349,7 +373,7 @@ def run(args, base):
     return events(base, *scope, args.since, args.limit)
 
 
-COMMANDS = ['state', 'actions', 'pick', 'claim', 'assignment', 'heartbeat', 'results', 'release',
+COMMANDS = ['state', 'actions', 'pick', 'claim', 'assignment', 'heartbeat', 'step', 'results', 'release',
             'review-claim', 'review-heartbeat', 'review-submit', 'review-release', 'events']
 
 
@@ -371,6 +395,11 @@ def main(argv=None):
     parser.add_argument('--ttl', type=int, default=900, help='claim/heartbeat: 30–3600 s')
     parser.add_argument('--execution', help='ID běhu z claim')
     parser.add_argument('--out', help='assignment: kam uložit neměnné zadání')
+    parser.add_argument('--step-id', help='step: ID kroku ze zadání')
+    parser.add_argument('--status', choices=list(STEP_STATUSES), help='step: stav kroku')
+    parser.add_argument('--notes', help='step: co krok udělal (povinné, do 4000 znaků)')
+    parser.add_argument('--commit', action='append', default=[], help='step: SHA commitu kroku (opakovatelné)')
+    parser.add_argument('--check', action='append', default=[], help='step: spuštěná kontrola (opakovatelné)')
     parser.add_argument('--result-file', help='results: JSON výsledku')
     parser.add_argument('--role', choices=['finder', 'voter'])
     parser.add_argument('--slot', help='review-*: slot z review-claim (reviewJobId.taskId)')
