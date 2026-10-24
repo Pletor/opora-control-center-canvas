@@ -56,7 +56,7 @@ def card_stage(card, accepted, latest, claim, link, gate, now):
 
 
 def project(cards, accepted, latest, claims, linked, reviewing, now):
-    """`cards[]` sorted by nodeId; one entry per card of the process projection (limit as `truncated`)."""
+    """One entry per card of the workspace, sorted by nodeId; `page` then orders and caps them."""
     runs = {item["nodeId"]: item for item in latest}
     offered = {item["nodeId"]: item for item in claims}
     links, gates = {}, {}
@@ -74,3 +74,26 @@ def project(cards, accepted, latest, claims, linked, reviewing, now):
         gate = gates.get(link["executionId"]) if link else None
         result.append(card_stage(cards[node], accepted, runs.get(node), offered.get(node), link, gate, now))
     return result
+
+
+CARD_LIMIT = 100
+_CLOSED = {"card_closed", "plan_written_back"}
+
+
+def relevance(entry):
+    """0 in flight (run, evidence, review, PR, merge), 1 ready, 2 blocked claim, 3 in plan, 4 closed."""
+    if entry["reason"] in _CLOSED:
+        return 4
+    if entry["stage"] == "plan":
+        return 3
+    if entry["stage"] == "claim":
+        return 1 if entry["reason"] == "cards_ready" else 2
+    return 0
+
+
+def page(entries, offset=0, limit=CARD_LIMIT):
+    """`(cards, total, nextOffset)`: by relevance then nodeId, so a cap drops closed cards first."""
+    ordered = sorted(entries, key=lambda entry: (relevance(entry), entry["nodeId"]))
+    window = ordered[offset:offset + limit]
+    following = offset + len(window)
+    return window, len(ordered), following if following < len(ordered) else None

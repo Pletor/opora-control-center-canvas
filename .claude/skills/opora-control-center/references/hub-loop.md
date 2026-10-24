@@ -37,6 +37,9 @@ nextActionId, gate: {status, rule}|null, steps, dod, lease}`.
 - `dod`: jediná definice hotovo, booleany `steps`, `card_acceptance`, `gate_ready`, `merged`,
   `plan_written_back`, `human_close` + `gate` (`review` / `external`), `done`, `missing`.
 - `lease: {holder, expiresAt, epoch}|null`: živý běh karty; cizí lease nepřebírej.
+- `cards[]` má nejvýše 100 položek seřazených podle důležitosti (rozjeté, `ready`, blokované, v plánu,
+  uzavřené až nakonec). `actions[]` pokrývá vždy celý plán; když chybí karta pro `--card`, dočti ji
+  přes `GET …/agent-state?…&cardsOffset=<cardsNextOffset>` (`truncated`, `cardsTotal`).
 
 Karta s neprázdným `blockedBy` čeká na sloučení a zápis do plánu předchůdců (`next` hrany);
 nezačínej ji, ani když ji vidíš.

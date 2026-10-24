@@ -12,8 +12,8 @@ from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
 from backend.canvas import opora_agent_state_cards as card_stages
 from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas import opora_agent_state_events as outbox
-from backend.canvas import opora_agent_state_lease as lease_state
 from backend.canvas import opora_agent_state_formal as formal
+from backend.canvas import opora_agent_state_lease as lease_state
 from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_review_gates as review_gates
 from backend.canvas import opora_agent_state_reviews as reviews
@@ -106,14 +106,14 @@ class AgentState:
                            "budget_exhausted" if "exhausted" in reason else "budget_policy_required"})
         return result
 
-    def read(self, project, workspace):
+    def read(self, project, workspace, cards_offset=0):
         scope({"project": project, "workspace": workspace})
         canvas, now = self.canvas, self.clock()
         with canvas.graph_lock_for(project), canvas.lock_for(project):
             db = canvas.db_for(project)
             context = OporaChangesets(canvas).context(project, workspace)
             accepted = context["acceptedHead"]
-            process = ProcessSync(canvas).read(project, workspace)
+            process = ProcessSync(canvas).read(project, workspace, limit=None)  # actions see every card
             cards = {item["nodeId"]: item for item in process["items"]}
             pending = self.proposals(db, project, workspace, accepted)
             latest = self.executions(db, project, workspace)
@@ -148,6 +148,10 @@ class AgentState:
                   rules.review_stage(to_review, reviewing), *rules.pull_stages(reported, linked)]
         gaps = [*rules.GAPS, *([rules.PULL_GAP] if linked is None else [])]
         gaps = [gap for gap in rebasing_state.gaps(gaps, rebasing) if reviewing is None or gap[0] != "ai_review"]
+        entries = outbox.attach(lease_state.attach(plan_steps.attach(dag_state.enrich(
+            card_stages.project(cards, accepted, latest, claims, linked, reviewing, now), dag, actions, reviewing),
+            cards, linked, gates), latest, now), last_events)
+        shown, total, next_offset = card_stages.page(entries, cards_offset)  # cap only cards[], never actions
         return {"schemaVersion": SCHEMA_VERSION,
                 "generatedAt": datetime.fromtimestamp(now, UTC).isoformat(timespec="seconds"),
                 "projectId": project, "workspaceId": workspace, "heads": heads, "stages": stages,
@@ -156,10 +160,8 @@ class AgentState:
                 "decisions": decisions, "actions": actions,
                 "gaps": sorted(({"id": key, "stage": stage, "reason": reason} for key, stage, reason in gaps),
                                key=lambda item: item["id"]),
-                "cards": outbox.attach(lease_state.attach(plan_steps.attach(dag_state.enrich(
-                    card_stages.project(cards, accepted, latest, claims, linked, reviewing, now), dag, actions, reviewing),
-                    cards, linked, gates), latest, now), last_events),
-                "truncated": process["truncated"], "eventsCursor": cursor}
+                "cards": shown, "truncated": next_offset is not None or cards_offset > 0,
+                "cardsTotal": total, "cardsNextOffset": next_offset, "eventsCursor": cursor}
 
     @staticmethod
     def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None,

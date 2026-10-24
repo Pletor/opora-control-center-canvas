@@ -72,7 +72,8 @@ class ProcessSync:
     def __init__(self, canvas):
         self.canvas = canvas
 
-    def read(self, project, workspace, node=None):
+    def read(self, project, workspace, node=None, limit=CARD_LIMIT):
+        """`limit=None` projects every card (agent-state derives actions from all of them)."""
         validate({"project": project, "workspace": workspace, **({"nodeId": node} if node is not None else {})},
                  {"nodeId"} if node is not None else set())
         canvas = self.canvas
@@ -91,7 +92,7 @@ class ProcessSync:
             executions = OporaExecutions(canvas)
             blocked = blocked_by(canvas, project, workspace)
             items = []
-            for card in selected[:CARD_LIMIT]:
+            for card in selected if limit is None else selected[:limit]:
                 identifier = card["id"]
                 stored = state["nodes"].get(identifier, {})
                 execution = _latest(repo, identifier, accepted)
@@ -122,6 +123,6 @@ class ProcessSync:
                               "currentExecution": execution, "executionAvailability": availability,
                               "links": links(project, workspace, identifier, execution["id"] if execution else None)})
             return {"schema": "opora.process-sync/1", "project": project, "workspace": workspace,
-                    "acceptedRevision": accepted, "observedAt": now(), "cardLimit": CARD_LIMIT,
-                    "totalCards": len(selected), "truncated": len(selected) > CARD_LIMIT, "items": items,
+                    "acceptedRevision": accepted, "observedAt": now(), "cardLimit": limit,
+                    "totalCards": len(selected), "truncated": limit is not None and len(selected) > limit, "items": items,
                     "githubTracking": tracking(repo.db, project, workspace, accepted)}
