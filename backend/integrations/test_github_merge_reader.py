@@ -116,6 +116,22 @@ def test_slow_drip_hits_absolute_deadline_and_sanitizes_http(monkeypatch):
     assert failure.value.retry_after == 60
     assert cooldown({'Retry-After': 'Infinity'}) == 86400
 
+@pytest.mark.parametrize('status', [401, 403, 404])
+def test_private_repository_without_token_is_auth_missing_not_unavailable(monkeypatch, status):
+    for name in ('OPORA_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN'):
+        monkeypatch.delenv(name, raising=False)
+    def fail(*args, **kwargs):
+        raise urllib.error.HTTPError('https://secret.invalid', status, 'Not Found', {}, None)
+    source = GitHubMergeTransport(opener=SimpleNamespace(open=fail))
+    with pytest.raises(GitHubMergeError) as failure:
+        source('/repos/owner/private/pulls/7', timeout=3)
+    assert failure.value.code == 'github-auth-missing' and failure.value.action_required
+    monkeypatch.setenv('GH_TOKEN', 'present')  # With a token the same answer stays a GitHub-side failure.
+    with pytest.raises(GitHubMergeError) as failure:
+        source('/repos/owner/private/pulls/7', timeout=3)
+    assert failure.value.code == 'github-unavailable'
+
+
 def test_default_transport_disables_proxy_and_redirects(monkeypatch):
     handlers = []
     def build(*supplied):

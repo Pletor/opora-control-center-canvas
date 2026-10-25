@@ -2,7 +2,14 @@
 
 Called inside the execution transaction (`OporaExecutions.transaction`), so each event commits or
 rolls back with the lease write it describes. Replays never reach these calls."""
+import os
+from datetime import UTC, datetime
+
 from backend.canvas.opora_events import emit_event, refresh
+from database.repositories import opora_events as store
+
+# A renewal that changes nothing observable is told at most once per this many minutes per execution.
+HEARTBEAT_EVENT_MINUTES = 15
 
 
 def _emit(repo, kind, record, actor, **data):
@@ -16,8 +23,50 @@ def claimed(repo, record, owner):
           expiresAt=record["expiresAt"])
 
 
-def heartbeat(repo, record):
-    _emit(repo, "lease.heartbeat", record, None, epoch=record["epoch"], expiresAt=record["expiresAt"])
+def heartbeat_interval_seconds():
+    """`OPORA_LEASE_HEARTBEAT_EVENT_MINUTES` (default 15); 0 tells every renewal, invalid values fall back."""
+    try:
+        minutes = float(os.environ.get("OPORA_LEASE_HEARTBEAT_EVENT_MINUTES", HEARTBEAT_EVENT_MINUTES))
+    except ValueError:
+        return HEARTBEAT_EVENT_MINUTES * 60
+    return minutes * 60 if minutes >= 0 else HEARTBEAT_EVENT_MINUTES * 60
+
+
+def heartbeat_reason(last, record, *, ttl, capped, previous_expires, stamp, now=None):
+    """Why this renewal is worth an event, or None when it only keeps an unchanged lease alive.
+
+    `last` is `(at, data)` of the execution's previous `lease.heartbeat` event. The lease itself is
+    renewed either way; this only decides whether the feed hears about it."""
+    if last is None:
+        return "first"
+    at, data = last
+    if data.get("epoch") != record["epoch"]:
+        return "epoch"
+    if data.get("ttlSeconds") != ttl:
+        return "ttl"
+    if bool(data.get("capped")) != capped:
+        return "capped"
+    if previous_expires - stamp < ttl / 3:  # renewed with under a third of the lease left: beats were missed
+        return "late"
+    try:
+        elapsed = ((now or datetime.now(UTC)) - datetime.fromisoformat(at)).total_seconds()
+    except (TypeError, ValueError):
+        return "keepalive"
+    return "keepalive" if elapsed >= heartbeat_interval_seconds() else None
+
+
+def heartbeat(repo, record, *, ttl, previous_expires, stamp):
+    """A renewal emits `lease.heartbeat` only on an observable change or as the periodic keep-alive.
+
+    A quiet renewal still recomputes the card (as the event used to), so stage and gate stay exact."""
+    capped = record["expiresAt"] < stamp + ttl
+    last = store.last_of_execution(repo.db, *repo.scope, record["executionId"], "lease.heartbeat")
+    reason = heartbeat_reason(last, record, ttl=ttl, capped=capped, previous_expires=previous_expires, stamp=stamp)
+    if reason is None:
+        refresh(repo.db, *repo.scope, record["nodeId"])
+        return None
+    return _emit(repo, "lease.heartbeat", record, None, epoch=record["epoch"], expiresAt=record["expiresAt"],
+                 ttlSeconds=ttl, capped=capped, reason=reason)
 
 
 def expired(repo, node, owner):

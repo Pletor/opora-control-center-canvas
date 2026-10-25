@@ -38,6 +38,13 @@ def cooldown(headers, now=None):
     return min(86400, max(0, wait))
 
 
+TOKEN_VARIABLES = ('OPORA_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN')
+
+
+def github_token():
+    return next((os.environ[k] for k in TOKEN_VARIABLES if os.environ.get(k)), '')
+
+
 class GitHubMergeTransport:
     def __init__(self, *, opener=None):
         self._opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
@@ -49,7 +56,7 @@ class GitHubMergeTransport:
             raise GitHubMergeError('invalid-read-request', action_required=True)
         headers = {'Accept': 'application/vnd.github+json', 'User-Agent': 'OporaHub',
                    'X-GitHub-Api-Version': '2022-11-28'}
-        token = next((os.environ[k] for k in ('OPORA_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN') if os.environ.get(k)), '')
+        token = github_token()
         if token:
             headers['Authorization'] = 'Bearer ' + token
         request = urllib.request.Request(ORIGIN + path, headers=headers, method='GET')
@@ -84,6 +91,9 @@ class GitHubMergeTransport:
         except urllib.error.HTTPError as error:
             wait = cooldown(error.headers or {})
             rate = error.code == 429 or (error.code == 403 and wait > 0)
+            if error.code in (401, 403, 404) and not rate and not token:
+                # A private repository answers 404/401 to an anonymous read: the token is missing, GitHub is fine.
+                raise GitHubMergeError('github-auth-missing', action_required=True) from None
             raise GitHubMergeError('github-rate-limit' if rate else 'github-unavailable',
                                    retry_after=max(60, wait) if rate else wait,
                                    action_required=error.code in (401, 403, 404) and not rate) from None
