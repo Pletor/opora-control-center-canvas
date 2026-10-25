@@ -36,6 +36,7 @@ from backend.api.editor.opora_execution_pull_request_routes import (
     create_execution_pull_request_router,
 )
 from backend.api.editor.opora_execution_routes import create_opora_execution_router
+from backend.api.editor.opora_folder_repository_routes import create_folder_repository_router
 from backend.api.editor.opora_graph_routes import create_opora_graph_router
 from backend.api.editor.opora_history_routes import create_opora_history_router
 from backend.api.editor.opora_plan_lens_routes import create_plan_lens_router
@@ -338,6 +339,8 @@ def create_app(data_root=None):
     app.include_router(create_opora_review_router(service))
     app.include_router(create_opora_review_policy_router(service))
     app.include_router(create_opora_reconciliation_router(service))
+    # Projekt z lokální složky: člověk připojí GitHub repozitář jejího origin (docs/oporahub-github.md)
+    app.include_router(create_folder_repository_router(service))
     app.include_router(create_opora_execution_router(service))
     app.include_router(create_execution_pull_request_router(service))
     app.include_router(create_review_self_check_router(service))  # before /{job}/… review job paths

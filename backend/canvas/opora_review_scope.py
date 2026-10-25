@@ -1,7 +1,11 @@
-﻿"""Resolve evidence authority from project metadata, never from request repository URLs."""
+"""Resolve evidence authority from project metadata, never from request repository URLs.
+
+A git-cloned project carries its repository in the registry; a local-folder project only through
+the human binding of `opora_folder_repository` (validated against the folder's origin on disk)."""
 import re
 
 from backend.canvas.opora_change_validation import identifier, scope
+from backend.canvas.opora_folder_repository import read_binding
 from database.repositories.opora_changesets import ChangesetRepository
 
 _REPO = r"([A-Za-z0-9-]+/[A-Za-z0-9_-][A-Za-z0-9._-]*?)"
@@ -21,6 +25,8 @@ def configuration(service, pid):
         raise ValueError("Lokální návrh nemá připojený GitHub repozitář.")
     row = service.row("projects", pid)
     source = service.project_hub.source_info(row)
+    if source["sourceKind"] == "local":
+        return folder_configuration(service, pid, row, source)
     folder = service.folder(pid).read()["source"]
     if source["sourceKind"] != "git" or folder.get("kind") != "git":
         raise ValueError("Projekt nemá připojený Git repozitář.")
@@ -30,6 +36,15 @@ def configuration(service, pid):
             or not isinstance(branch, str) or not branch or branch != folder.get("branch")):
         raise ValueError("Konfigurace repozitáře projektu není konzistentní.")
     return {"repository": repository, "branch": branch, "repoPath": row.get("repo"),
+            "sourcePath": source.get("sourcePath")}
+
+
+def folder_configuration(service, pid, row, source):
+    """A local-folder project gains a repository only through the human binding validated on disk."""
+    bound = read_binding(service, pid)
+    if bound is None:
+        raise ValueError("Projekt nemá připojený Git repozitář. Připojte GitHub repozitář složky projektu.")
+    return {"repository": bound["repository"], "branch": bound["branch"], "repoPath": row.get("repo"),
             "sourcePath": source.get("sourcePath")}
 
 

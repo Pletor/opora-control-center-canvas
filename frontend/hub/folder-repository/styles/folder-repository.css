@@ -1,0 +1,15 @@
+/* REPOZITÁŘ SLOŽKY PROJEKTU (blok `folder-repository`)
+   Příběh: projekt z lokální složky zatím nevidí své PR. Nad sledováním GitHub PR stojí krátká karta:
+   jedna věta, proč je potřeba, a malý formulář se dvěma poli, předvyplněný repozitářem z origin složky.
+   Po připojení se karta smrskne na jeden řádek „Připojeno: owner/repo · větev“ s tichým tlačítkem Odpojit. */
+.folder-repository { display: grid; gap: 10px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); font-size: 13px; }
+.folder-repository__title { margin: 0; font-size: 14px; font-weight: 600; }
+.folder-repository__lead { margin: 0; color: var(--ink-2); }
+.folder-repository__note { margin: 0; color: var(--ink-muted); }
+.folder-repository__error { margin: 0; padding: 8px 12px; border: 1px solid var(--danger-line); border-radius: 4px; background: var(--danger-soft); color: var(--danger); }
+.folder-repository__form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.folder-repository__field { display: grid; gap: 4px; color: var(--ink-2); font-size: 12px; }
+.folder-repository__bound { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.folder-repository__button { padding: 5px 12px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--ink); cursor: pointer; }
+.folder-repository__button--primary { border-color: var(--ink); font-weight: 600; }
+.folder-repository__button:disabled { cursor: default; opacity: 0.5; }

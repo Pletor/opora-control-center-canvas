@@ -24,6 +24,9 @@ Výjimkou je PR připojené k běhu přijatého zadání: sledování pak zapne 
 [uzavření smyčky](oporahub-executions.md#uzavření-smyčky-běh--pr--merge--plán).
 Pozastavení a obnovení takové vazby zůstávají lidskými kroky.
 
+Projekt z lokální složky potřebuje nejprve [připojit GitHub repozitář](oporahub-github.md#projekt-z-lokální-složky);
+do té doby panel hlásí „Projekt nemá připojený Git repozitář.“
+
 Pro jedno PR může být v prostoru zapnuté jedno sledování. Jiná PR mají vlastní
 úlohy. Chcete-li stejné PR přiřadit k jiné revizi plánu, původní sledování nejprve
 výslovně pozastavte a vytvořte nové z aktuálního důkazu. Historie se nemaže.

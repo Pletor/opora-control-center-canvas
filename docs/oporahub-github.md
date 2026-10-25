@@ -25,6 +25,44 @@ reviewerů potřebuje účet/token s odpovídajícím přístupem ke čtení dan
 Token patří do prostředí serveru, nikoli do formuláře nebo repozitáře. Změna tokenu
 vyžaduje restart serveru. Tato integrace provádí pouze GET požadavky.
 
+## Projekt z lokální složky
+
+Projekt, jehož zdrojem je lokální složka, nemá repozitář v metadatech, a proto pro
+něj GitHub důkazy, trvalé sledování PR ani merge běhů nefungovaly
+(„Projekt nemá připojený Git repozitář.“). Je-li složka Git checkout s GitHub
+`origin`, člověk ji jednou připojí:
+
+1. V OporaHubu otevřete Trvalé sledování GitHub PR. U projektu ze složky je nahoře
+   karta „GitHub repozitář složky projektu“ předvyplněná repozitářem z `origin`.
+2. Zkontrolujte repozitář (`owner/název`) a větev (obvykle `main`) a zvolte
+   „Připojit repozitář“.
+
+Server připojení ověří na disku: `git remote get-url origin` musí ukazovat na
+stejný GitHub repozitář a větev musí existovat (`refs/remotes/origin/<větev>` nebo
+`refs/heads/<větev>`). Uloží ho do registru jako metadata projektu
+(`project_repository_bindings`); od té chvíle ho čte `configuration()` stejně jako
+repozitář klonovaného projektu. Adresa z požadavku nikdy autoritu nedává.
+Pracovní prostor se nemění: projekt ze složky dál pracuje v `draft`.
+
+Připojení zároveň vrátí do fronty PR, která agent připojil k běhům dřív, než měl
+projekt repozitář (`enrollment: unavailable`, `github-not-configured`). Smyčka je
+při dalším průchodu zapíše do sledování, a už sloučená PR tak projdou merge,
+zápisem do plánu i rozhodnutím `close_card`. Běhy bez připojeného PR najde
+pravidelné hledání trailerů `Opora-Execution` / `Opora-Revision`.
+
+API (jen lidská relace, cookie `opora_ui` a stejný origin; agent dostane 403):
+
+- `GET /api/oporahub/repository?project=…` vrací `applies`, `bindable`,
+  `binding`, `detectedRepository`, `canConfigure` a `unavailableReason`.
+- `POST /api/oporahub/repository` s `{"project", "repository", "branch"}` připojí
+  repozitář; opakování se stejnými hodnotami nic nemění, jiný repozitář vyžaduje
+  nejprve odpojení. Odpověď nese `requeuedLinks`.
+- `POST /api/oporahub/repository/unbind` s `{"project"}` připojení zruší. Existující
+  sledování pak hlásí změnu konfigurace a čeká na člověka.
+
+Změní-li se později `origin` složky, připojení se samo nepřepíše; odpojte ho
+a připojte znovu.
+
 ## Co jednotlivé výsledky znamenají
 
 **Review kódu:** server ověřil schválení pro přesné SHA od jiného GitHub účtu typu
@@ -87,7 +125,8 @@ PR připojené k běhu ([uzavření smyčky](oporahub-executions.md#uzavření-s
 server čte sám: jednou kvůli číselné identitě PR při zapnutí sledování a pravidelně
 jednu stránku nedávných PR kvůli trailerům `Opora-Execution` a `Opora-Revision`.
 Používá stejný transport s pevným originem, bez přesměrování, s limity velikosti
-a s respektem k rate limitu. Bez GitHub repozitáře projektu nečte nic. Ani tato
+a s respektem k rate limitu. Bez GitHub repozitáře projektu nečte nic (projekt
+z lokální složky ho získá [připojením](#projekt-z-lokální-složky)). Ani tato
 čtení nevytvářejí review důkaz, nepřijímají plán a nic na GitHub nezapisují.
 U otevřených připojených PR server stejně čte také check run `formal/tlc` na head SHA
 a převádí ho na záznam formálního ověření

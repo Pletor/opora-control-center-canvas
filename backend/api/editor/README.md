@@ -3,3 +3,5 @@ Rozhraní Editoru: graf plátna, kresby, wireframe kontext, odstraňování (can
 `sync_routes` vydává `GET /api/sync-report`: echo a verdikt Oracle pro jeden projekt, jen ke čtení.
 
 `oporahub_process_event_routes` je živý proces (docs/zivy-proces.md): `POST /api/oporahub/process-events` (příjem z kanceláře do outboxu, jen agent) a `GET /api/oporahub/process-health`; události se čtou tokem `opora_event_routes`.
+
+`opora_folder_repository_routes` připojuje projekt z lokální složky ke GitHub repozitáři jejího `origin` (`GET/POST /api/oporahub/repository`, `POST …/unbind`); jen člověk, ověřeno na disku (docs/oporahub-github.md).
