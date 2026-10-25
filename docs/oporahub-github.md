@@ -56,7 +56,10 @@ API (jen lidská relace, cookie `opora_ui` a stejný origin; agent dostane 403):
   `binding`, `detectedRepository`, `canConfigure` a `unavailableReason`.
 - `POST /api/oporahub/repository` s `{"project", "repository", "branch"}` připojí
   repozitář; opakování se stejnými hodnotami nic nemění, jiný repozitář vyžaduje
-  nejprve odpojení. Odpověď nese `requeuedLinks`.
+  nejprve odpojení. Odpověď nese `requeuedLinks`. Opakované připojení vrátí do fronty
+  i odkazy, které selhaly kvůli nedostupnému GitHubu nebo chybějícímu tokenu
+  (`github-unavailable`, `github-auth-missing`): po nastavení `OPORA_GITHUB_TOKEN`
+  a restartu stačí repozitář připojit znovu.
 - `POST /api/oporahub/repository/unbind` s `{"project"}` připojení zruší. Existující
   sledování pak hlásí změnu konfigurace a čeká na člověka.
 
