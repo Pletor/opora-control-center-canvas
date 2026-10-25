@@ -5,7 +5,7 @@ from copy import deepcopy
 from backend.canvas.graph import valid_id
 from backend.canvas.opora_graph_build import validate_plan
 
-FIELDS = {"name", "purpose", "parentId", "sourceRef", "x", "y", "size"}
+FIELDS = {"name", "purpose", "parentId", "sourceRef", "x", "y", "size", "memberOf"}
 EDIT_KEYS = {"updateNodes", "removeNodes", "updateEdges", "removeEdges"}
 
 
@@ -31,6 +31,8 @@ def normalize(plan):
                     raise ValueError("Unsupported or empty node field patch.")
                 if "parentId" in fields and fields["parentId"] is not None and not valid_id(fields["parentId"]):
                     raise ValueError("Parent references must be existing node identities.")
+                if "memberOf" in fields and fields["memberOf"] is not None and not valid_id(fields["memberOf"]):
+                    raise ValueError("Membership references must be existing area identities or null.")
             elif item["port"] != "next" or not all(valid_id(item[field]) for field in ("source", "target")):
                 raise ValueError("Only plain next edge updates with existing references are supported.")
     for kind in ("Nodes", "Edges"):
@@ -60,7 +62,7 @@ def apply(graph, plan):
             for key, value in fields.items():
                 if kind == "edges" and key == "port" and target.get("port", "next") == value:
                     continue
-                if key in ("sourceRef", "size") and value is None:
+                if key in ("sourceRef", "size", "memberOf") and value is None:
                     target.pop(key, None)
                 else:
                     target[key] = deepcopy(value)
@@ -89,6 +91,7 @@ def validate_targets(accepted, working, plan):
     for graph in (accepted, working):
         ids = {item["id"] for item in graph["nodes"]}
         refs = {item["fields"]["parentId"] for item in plan["updateNodes"] if "parentId" in item["fields"]}
+        refs |= {item["fields"]["memberOf"] for item in plan["updateNodes"] if "memberOf" in item["fields"]}
         refs |= {item[field] for item in plan["updateEdges"] for field in ("source", "target")}
         if not refs - {None} <= ids:
             raise ValueError("Edit references must exist in accepted and working graphs.")

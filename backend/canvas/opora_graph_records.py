@@ -51,7 +51,7 @@ def validate_record(record, *, manifest=False):
     validate_graph(graph)
     for node in record["additions"]["nodes"]:
         if (node["kind"] not in ("node", "sector", "area")
-                or not set(node) <= {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef"}):
+                or not set(node) <= {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf"}):
             raise ValueError("Unsupported persisted graph addition.")
     for edge in record["additions"]["edges"]:
         if not set(edge) <= {"id", "source", "target", "port"} or edge.get("port", "next") != "next":

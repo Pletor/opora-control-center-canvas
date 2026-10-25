@@ -25,6 +25,8 @@ export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: str
 export type NodeSite = { kind: "application"; environments: { name: string; host: string }[] } | { kind: "page"; path: string };
 export type CanvasNode = {
   gateNodeId?: string;
+  /** Výslovné logické členství v oblasti se stejným rodičem (H01, `docs/kontrakt-identity.md`); ne poloha. */
+  memberOf?: string;
   design?: DesignArtifact;
   checks?: { id: string; command: string }[];
   factRefs?: string[];

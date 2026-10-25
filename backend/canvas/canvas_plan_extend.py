@@ -3,14 +3,17 @@
 `replaceBlocks: true` (with `blocks`) replaces the card's blocks instead of appending; it is refused while
 a `block` edge still starts from one of the current blocks (the edge would point at nothing).
 
-`layer` (frontend|backend|database|library) přepíše `card.layer` existující karty; bez něj se vrstva nemění."""
+`layer` (frontend|backend|database|library) přepíše `card.layer` existující karty; bez něj se vrstva nemění.
+
+`memberOf` (`@id` oblasti) zapíše výslovné logické členství uzlu nebo sektoru v oblasti, `null` ho zruší;
+platnost (oblast se stejným rodičem) ověří `validate_graph` (docs/kontrakt-identity.md)."""
 
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref
 from backend.canvas.canvas_plan_links import PORT_FIELDS, blocks_of
 from backend.canvas.graph import CARD_VALUES
 
 EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef",
-                 "replaceBlocks", "layer"}
+                 "replaceBlocks", "layer", "memberOf"}
 
 
 def extend_cards(built, extensions, existing):
@@ -53,8 +56,16 @@ def extend_cards(built, extensions, existing):
             if built.state["nodes"].get(cursor, {}).get("done", {}).get("confirmed"):
                 fail(label, "uzavřenou kartu ani její potomky nelze rozšířit.")
             cursor = existing[cursor]["parentId"]
-        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer"}):
+        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer", "memberOf"}):
             fail(label, "rozšíření neobsahuje žádný obsah.")
+        if "memberOf" in item:
+            area = item["memberOf"]
+            if area is None:
+                existing[node_id].pop("memberOf", None)
+            elif isinstance(area, str) and area.startswith("@") and existing.get(area[1:], {}).get("kind") == "area":
+                existing[node_id]["memberOf"] = area[1:]
+            else:
+                fail(label, "memberOf musí být @id existující oblasti nebo null.")
         if "layer" in item:
             if item["layer"] not in CARD_VALUES["layer"] or existing[node_id]["kind"] != "node":
                 fail(label, "layer je frontend / backend / database / library a patří uzlu.")
