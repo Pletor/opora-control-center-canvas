@@ -228,6 +228,26 @@ def test_unavailable_github_retries_enrollment_from_the_loop(world, monkeypatch)
     manager.close()
 
 
+def test_missing_token_is_told_as_auth_missing_and_heals_once_set(world, monkeypatch):
+    service, scope, executions = world
+    monkeypatch.setenv("OPORA_EXECUTION_PR_DISCOVERY_SECONDS", "0")
+    record = claim(executions, scope)
+    reader = Reader(error=GitHubMergeError("github-auth-missing", action_required=True))
+    now = [1000.0]
+    links = ExecutionPullRequestLinks(service, reader, clock=lambda: now[0])
+    linked = links.link(record["executionId"], body(record), "agent")
+    assert (linked["enrollment"], linked["enrollmentError"], linked["attention"]) == (
+        "pending", "github-auth-missing", "github-auth-missing")
+    assert "OPORA_GITHUB_TOKEN" in linked["enrollmentMessage"] and "token" in linked["enrollmentMessage"]
+    manager = ExecutionPullRequestManager(service, links, clock=lambda: now[0])
+    reader.error, now[0] = None, 2000.0  # The token was set: the retry enrolls and the attention clears.
+    manager.run_once()
+    healed = links.read(**scope, execution_id=record["executionId"])
+    assert (healed["enrollment"], healed["enrollmentError"], healed["attention"], healed["enrollmentMessage"]) == (
+        "enrolled", None, None, None)
+    manager.close()
+
+
 def test_office_links_after_reported_result_with_own_credentials(world):
     """agent-office links the PR after the worker submitted its result and the lease is gone."""
     service, scope, executions = world

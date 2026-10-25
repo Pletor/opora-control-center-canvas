@@ -9,6 +9,15 @@ COLUMNS = ("execution_id", "node_id", "accepted_revision", "repository", "number
            "merge_sha", "merged_at", "awaiting_human_close", "attention", "source", "linked_by",
            "created_at", "updated_at")
 
+# Czech text of each enrollment failure for people and agents reading the link (docs/oporahub-executions.md).
+ENROLLMENT_MESSAGES = {
+    "github-auth-missing": "GitHub odmítl přístup k repozitáři a Opora nemá token. Nastavte OPORA_GITHUB_TOKEN"
+                           " (nebo GH_TOKEN / GITHUB_TOKEN) s právem číst tento repozitář a restartujte server;"
+                           " sledování se pak zapne samo.",
+    "github-unavailable": "GitHub teď neodpovídá; Opora to zkusí znovu.",
+    "github-not-configured": "Projekt nemá nastavený GitHub repozitář, sledování PR je vypnuté.",
+}
+
 
 def public(row):
     """Contract DTO (docs/oporahub-executions.md, "Uzavření smyčky")."""
@@ -16,6 +25,7 @@ def public(row):
             "repository": row["repository"], "number": row["number"], "headRef": row["head_ref"],
             "headSha": row["head_sha"], "state": row["state"], "bindingId": row["binding_id"],
             "enrollment": row["enrollment"], "enrollmentError": row["enrollment_error"],
+            "enrollmentMessage": ENROLLMENT_MESSAGES.get(row["enrollment_error"]),
             "mergeSha": row["merge_sha"], "mergedAt": row["merged_at"],
             "awaitingHumanClose": bool(row["awaiting_human_close"]), "attention": row["attention"],
             # Merge write-back applied (execution.merged recorded, execution finished, card marked for human close).

@@ -191,7 +191,7 @@ merge a označí kartu k lidskému uzavření. Zadání karty (`goal`, `non_goal
 
 Odpověď obsahuje `executionId`, `cardId`, `acceptedRevision`, `repository`, `number`,
 `headSha`, `state` (`open` / `merged` / `closed`), `bindingId` a provozní údaje
-`enrollment`, `mergeSha`, `awaitingHumanClose` a `attention`.
+`enrollment`, `enrollmentError`, `enrollmentMessage`, `mergeSha`, `awaitingHumanClose` a `attention`.
 
 Přesný požadavek, který posílá agent-office (`PullRequestHandoff.link`: `project`,
 `workspace`, `token`, `epoch`, `requestId`, `repository`, `number`, `headRef`, `headSha`
@@ -219,6 +219,11 @@ nepřijímá plán ani review; lidské brány přijetí zůstávají. Při výpa
 zůstane `enrollment: pending` a smyčka zkouší znovu s rostoucím odstupem (30 s
 až 1 h). Bez GitHub repozitáře v projektu je `enrollment: unavailable`
 a GitHub se nečte vůbec.
+Odpoví-li GitHub na čtení 401/403/404 a Opora nemá token (`OPORA_GITHUB_TOKEN`, `GH_TOKEN`
+ani `GITHUB_TOKEN`), nejde o výpadek, ale o soukromý repozitář bez přístupu: vazba dostane
+`enrollmentError: github-auth-missing` a `attention: github-auth-missing`, zůstává `pending`
+a po nastavení tokenu a restartu serveru se sledování zapne samo (značka zmizí).
+Odpověď nese i `enrollmentMessage`, česky popsanou příčinu chyby (nebo `null`).
 
 **Zápis výsledku.** Smyčka uzavření (vedle pracovníka sledování) čte neměnná
 pozorování vazby. Mergnuté PR zapíše jednou událost `execution.merged`
