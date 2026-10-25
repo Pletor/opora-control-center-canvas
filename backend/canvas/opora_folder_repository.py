@@ -8,7 +8,9 @@ lives in the registry as project metadata. Request URLs never grant authority: e
 later caller reads the stored binding through `opora_review_scope.configuration`.
 
 Binding re-queues execution PR links that were stored as `github-not-configured`, so PRs
-linked before the binding enroll (and their merges are observed) without a new link."""
+linked before the binding enroll (and their merges are observed) without a new link. Binding
+again re-queues links that failed because GitHub was unreachable or the token was missing
+(`github-unavailable`, `github-auth-missing`), so a human can retry them after fixing the token."""
 import re
 
 from backend.canvas.opora_changesets import stamp
@@ -87,7 +89,8 @@ def _requeue(db, pid, repository):
         return db.execute(
             "UPDATE opora_execution_pull_requests SET enrollment='pending',enrollment_error=NULL,"
             "enrollment_retry_at=NULL,enrollment_failures=0,updated_at=? WHERE project_id=? AND repository=? "
-            "AND enrollment='unavailable' AND enrollment_error='github-not-configured'",
+            "AND ((enrollment='unavailable' AND enrollment_error='github-not-configured') "
+            "OR (enrollment='failed' AND enrollment_error IN ('github-unavailable','github-auth-missing')))",
             (stamp(), pid, repository)).rowcount
 
 

@@ -179,6 +179,29 @@ def test_pr_linked_before_binding_enrolls_merges_and_offers_close(folder, monkey
     manager.close()
 
 
+def test_binding_again_requeues_links_that_failed_without_github_access(folder):
+    """Ample: links failed as `github-unavailable` (private repo, no token); binding again retries them."""
+    service, scope = folder
+    executions = ExecutionResults(service)
+    record = claim(executions, scope)
+    executions.submit(record["executionId"], {**scope, "token": record["token"], "epoch": record["epoch"],
+                                              "requestId": "result", "result": {"summary": "Done"}})
+    links = ExecutionPullRequestLinks(service, Reader())
+    links.link(record["executionId"], {"projectId": scope["project"], "workspaceId": "draft", "token": record["token"],
+                                       "epoch": record["epoch"], "requestId": "1b4e28ba-2fa1-11d2-883f-0016d3cca427",
+                                       "repository": "owner/repo", "number": 7, "headRef": "feature", "headSha": SHA},
+               "agent")
+    assert folder_repository.bind(service, {"project": scope["project"], **BIND}, HUMAN)["requeuedLinks"] == 1
+    db = service.db_for(scope["project"])
+    with db:
+        db.execute("UPDATE opora_execution_pull_requests SET enrollment='failed',enrollment_error='github-unavailable'")
+    assert folder_repository.bind(service, {"project": scope["project"], **BIND}, HUMAN)["requeuedLinks"] == 1
+    assert links.read(**scope, execution_id=record["executionId"])["enrollment"] == "pending"
+    with db:
+        db.execute("UPDATE opora_execution_pull_requests SET enrollment='failed',enrollment_error='pr-closed-unmerged'")
+    assert folder_repository.bind(service, {"project": scope["project"], **BIND}, HUMAN)["requeuedLinks"] == 0
+
+
 def test_binding_lets_discovery_link_unlinked_results_by_trailers(folder):
     service, scope = folder
     executions = ExecutionResults(service)
