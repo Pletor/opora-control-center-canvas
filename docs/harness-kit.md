@@ -41,7 +41,11 @@ zachovat původní digest. Změna relevantního zadání po převzetí zneplatn�
 kontext podle stávajících pravidel. Původní přidělený snímek zůstane dohledatelný.
 
 Karta s `harness` vyžaduje přípravu a claim s `contextProtocolVersion: 2`; v1 ji
-výslovně odmítne. Pro agent-office nastavte na serveru
+výslovně odmítne. Přehled procesu a agent-state ji přesto hlásí jako připravenou:
+`GET /executions/context` vrátí `available: true`, `contextProtocolVersion: 2` a
+`contextVersion: null` a akce `claim` nese předpoklad `contextProtocolVersion: 2`.
+Kancelář ve v2 si kontext připraví a kartu převezme, i autopilotem. Kancelář ve v1
+takovou akci přeskočí. Pro agent-office nastavte na serveru
 `AGENT_OFFICE_OPORA_CONTEXT_VERSION=2` a po sestavení restartujte server i klienta.
 Výchozí starší režim kanceláře není aktivací této funkce. Karty bez výbavy mají
 dosavadní kompatibilitu.

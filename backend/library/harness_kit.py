@@ -96,6 +96,10 @@ def kit_of_assignment(assignment, node_id):
     return kit
 
 
+class KitContextRequired(ValueError):
+    """The card is claimable, but only through the sparse (v2) execution context."""
+
+
 def require_kit_context(fields, version):
     if "harness" in fields and version != 2:
-        raise ValueError("Harness kits require contextProtocolVersion 2; prepare and claim the sparse context.")
+        raise KitContextRequired("Harness kits require contextProtocolVersion 2; prepare and claim the sparse context.")

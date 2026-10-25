@@ -5,7 +5,9 @@ import hashlib
 import pytest
 
 from backend.library.harness_kit import kit_of_assignment, validate_kit
+from backend.canvas.opora_agent_state import AgentState
 from backend.canvas.opora_changesets import OporaChangesets
+from backend.canvas.opora_process_sync import ProcessSync
 from backend.canvas.test_opora_changesets import AGENT, FIELDS, SCOPE, accept
 from backend.canvas.test_opora_execution_context import claimed, prepared
 from backend.canvas.test_opora_execution_context import sparse as sparse  # noqa: PLC0414
@@ -139,7 +141,12 @@ def test_accepted_kit_refuses_legacy_context_and_claim_without_creating_an_execu
     proposed, head = propose_kit(sparse, kit())
     accept(graphs.service, proposed, head)
     context = authority.context("draft", "draft", refs["a"])
-    assert context["available"] is False
+    # Claimable, but only through the sparse context: no legacy contextVersion a v1 office could claim with.
+    assert context["available"] is True and context["contextProtocolVersion"] == 2 and context["contextVersion"] is None
+    process = ProcessSync(graphs.service).read("draft", "draft", node=refs["a"])["items"][0]
+    assert "contextProtocolVersion" not in (process["executionAvailability"]["unavailableReason"] or "")
+    claim = AgentState(graphs.service).claims("draft", "draft", [{"nodeId": refs["a"], "status": "ready"}])[0]
+    assert claim["status"] == "ready" and claim["context"]["contextProtocolVersion"] == 2
     with pytest.raises(ValueError, match="contextProtocolVersion 2"):
         authority.claim({**SCOPE, "nodeId": refs["a"], "requestId": "legacy", "ttlSeconds": 60,
                          "expectedAcceptedHead": head, "expectedContextVersion": "legacy"}, "agent:worker")
