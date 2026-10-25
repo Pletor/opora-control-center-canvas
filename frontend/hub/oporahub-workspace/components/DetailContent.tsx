@@ -4,6 +4,7 @@ import AcceptancePolicy from "@/hub/proposal-review/components/AcceptancePolicy"
 import AcceptanceOverview from "@/hub/proposal-review/components/AcceptanceOverview";
 import ReviewPolicy from "@/hub/review-policy/components/ReviewPolicy";
 import GithubReconciliation from "@/hub/github-reconciliation/components/GithubReconciliation";
+import FolderRepository from "@/hub/folder-repository/components/FolderRepository";
 import GitEvidence from "@/hub/git-evidence/components/GitEvidence";
 import ExecutionReceipts from "@/hub/execution-receipts/components/ExecutionReceipts";
 import ExecutionObservations from "@/hub/execution-observations/components/ExecutionObservations";
@@ -59,7 +60,7 @@ export default function DetailContent({ models, detail, open, currentAcceptedHea
       <GitEvidence model={models.evidence} />
     </ExactDetail>;
     case "policy": return <ReviewPolicy model={models.reviewPolicy} />;
-    case "tracking": return <GithubReconciliation model={models.reconciliation} />;
+    case "tracking": return <><FolderRepository project={project} /><GithubReconciliation model={models.reconciliation} /></>;
     case "budgets": return <ExecutionBudgets model={models.budgets} />;
     case "formal": return <FormalVerification model={models.formalVerification} currentAcceptedHead={currentAcceptedHead} />;
     case "content": return <ContentChanges model={models.contentChanges} requestedId={detail.id} currentAcceptedHead={currentAcceptedHead} review={models.proposalReview?.content} />;

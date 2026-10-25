@@ -46,6 +46,9 @@ REGISTRY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY, name TEXT, repo TEXT, url TEXT, branch TEXT);
 CREATE TABLE IF NOT EXISTS project_sources(project_id TEXT PRIMARY KEY, source_kind TEXT NOT NULL, source_path TEXT);
 CREATE TABLE IF NOT EXISTS builtin_project_metadata(project_id TEXT PRIMARY KEY, name TEXT NOT NULL);
+-- backend/canvas/opora_folder_repository.py: GitHub repozitář a větev, které člověk připojil k projektu z lokální složky
+CREATE TABLE IF NOT EXISTS project_repository_bindings(
+  project_id TEXT PRIMARY KEY, repository TEXT NOT NULL, branch TEXT NOT NULL, bound_at TEXT NOT NULL, bound_by TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, branch TEXT, node_id TEXT, actor TEXT, base_sha TEXT);
 CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, kind TEXT, status TEXT, message TEXT, project_id TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS archived_projects(project_id TEXT PRIMARY KEY, snapshot TEXT NOT NULL, archived_at TEXT NOT NULL);
