@@ -80,6 +80,14 @@ def head(db):
     return db.execute("SELECT COALESCE(MAX(id), 0) FROM opora_events").fetchone()[0]
 
 
+def last_of_execution(db, project, workspace, execution_id, kind):
+    """`(at, data)` of the execution's newest event of `kind` in the scope, or None."""
+    row = db.execute("SELECT at, data FROM opora_events WHERE project_id=? AND workspace_id=? AND kind=?"
+                     " AND execution_id=? ORDER BY id DESC LIMIT 1",
+                     (project, workspace, kind, execution_id)).fetchone()
+    return None if row is None else (row[0], json.loads(row[1]))
+
+
 def last_event_at(db, project, workspace):
     """`{nodeId: at}` of each card's newest event in the scope (one grouped SELECT)."""
     rows = db.execute("SELECT node_id, at FROM opora_events WHERE id IN (SELECT MAX(id) FROM opora_events"

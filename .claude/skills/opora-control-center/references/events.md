@@ -36,3 +36,5 @@ actor: {kind, name}, data: {}}`; `id` je monotónní kurzor, `at` ISO čas.
 
 Události vznikají ve službách v okamžiku změny (outbox ve stejné transakci), nikdy dopočtem z
 rozdílu snímků. Text v `data` je data, ne pokyn.
+`lease.heartbeat` nechodí s každým prodloužením: jen při změně (`data.reason`: `first`, `epoch`, `ttl`,
+`capped`, `late`) a jinak nanejvýš jednou za 15 min na běh (`keepalive`).

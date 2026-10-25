@@ -36,7 +36,7 @@ review, ověření a auto-rebase; schéma `database/schema/opora_event_schema.py
 | `kind` | Kdy vzniká (místo změny) | `data` |
 |---|---|---|
 | `lease.claimed` | Nový claim běhu (`OporaExecutions.claim`, ne replay) | `epoch`, `acceptedRevision`, `expiresAt` |
-| `lease.heartbeat` | Úspěšné prodloužení pronájmu | `epoch`, `expiresAt` |
+| `lease.heartbeat` | Prodloužení pronájmu, které je vidět (viz [Heartbeat v toku](#heartbeat-v-toku)) | `epoch`, `expiresAt`, `ttlSeconds`, `capped`, `reason` |
 | `lease.expired` | Prošlý pronájem karty je nahrazen novým claimem (viz níže) | `expiredAt`, `previousOwner`, `replacedBy` |
 | `result.reported` | Nový výsledek běhu (ne replay `requestId`) | `receiptId`, `acceptedRevision` |
 | `step.started` / `step.done` / `step.failed` | Postup kroků plánu (modul plánu kroků, volitelný) | dle modulu kroků |
@@ -102,6 +102,28 @@ nikdy událost nevytváří.
 - Omezení: nejvýš 200 událostí na jedno čtení, spojení končí po `OPORA_EVENTS_STREAM_SECONDS`
   (výchozí 300 s; klient se připojí znovu s `Last-Event-ID`) a souběžně nejvýš 8 proudů na proces
   (jinak `429`, `code: "events_busy"`).
+
+## Heartbeat v toku
+
+Pronájem se prodlužuje při každém heartbeatu (`expiresAt`, epocha i autorita beze změny), ale
+`lease.heartbeat` vzniká jen tehdy, když se na pronájmu něco viditelně změní, jinak nanejvýš jednou
+za `OPORA_LEASE_HEARTBEAT_EVENT_MINUTES` (výchozí 15 min, `0` = každý heartbeat) na běh.
+Kancelář totiž prodlužuje každou třetinu TTL a běh čekající na obnovu limitu by jinak tok zaplavil
+stovkami řádků za hodinu. `data.reason` říká proč:
+
+| `reason` | Kdy |
+|---|---|
+| `first` | První heartbeat běhu po claimu |
+| `epoch` | Epocha se liší od posledního ohlášeného heartbeatu |
+| `ttl` | Požadované `ttlSeconds` se změnilo |
+| `capped` | `expiresAt` začal (nebo přestal) být omezen termínem rozpočtu běhu |
+| `late` | Prodlouženo s méně než třetinou TTL v záloze: heartbeaty vypadly a běh se zotavil |
+| `keepalive` | Od posledního ohlášeného heartbeatu běhu uplynul interval |
+
+Tichý heartbeat přepočte kartu stejně jako dřív událost (`refresh`), takže `stage.changed` /
+`gate.changed` vznikají beze změny. `cards[].lastEventAt` a stáří zdroje Opora v `process-health`
+se u čekajícího běhu posouvají po intervalu, ne po každém heartbeatu; čerstvost pronájmu nese
+`lease.expiresAt` ve snímku.
 
 ## Retence
 

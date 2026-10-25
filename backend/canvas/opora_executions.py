@@ -189,6 +189,7 @@ class OporaExecutions:
             self.authenticate(record, payload["token"], payload["epoch"])
             self.active(repo, record)
             stamp = time.time()
+            previous_expires = record["expiresAt"]
             record["expiresAt"] = stamp + payload["ttlSeconds"]
             budget_runtime.check(repo.db, repo.scope, record, stamp)
             if record.get("executionProtocolVersion") == 2:
@@ -199,7 +200,8 @@ class OporaExecutions:
             if changed != 1:
                 raise ValueError("Execution expired before renewal.")
             repo.save(record)
-            lease_events.heartbeat(repo, record)
+            lease_events.heartbeat(repo, record, ttl=payload["ttlSeconds"], previous_expires=previous_expires,
+                                   stamp=stamp)
             return {**record, **sparse_context.public_proof(repo, record), "serverNow": stamp}
 
     @staticmethod
