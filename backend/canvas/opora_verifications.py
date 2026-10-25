@@ -36,12 +36,12 @@ class OporaVerifications(OporaExecutions):
             value["report"] = {**record["report"], "artifacts": descriptors(record["report"]["artifacts"])}
         return value
 
-    def history(self, project, workspace, node=None):
+    def history(self, project, workspace, node=None, *, domain="formal"):
         validate({"project": project, "workspace": workspace, **({"nodeId": node} if node is not None else {})},
                  {"nodeId"} if node is not None else set())
         with self.transaction(project, workspace) as repo:
             store = self.store(repo)
-            return {"requests": [self.availability(store, item) for item in store.history(node)]}
+            return {"requests": [self.availability(store, item) for item in store.history(node, domain)]}
 
     def read(self, identifier, project, workspace):
         validation.identity(identifier)
@@ -97,6 +97,8 @@ class OporaVerifications(OporaExecutions):
         with self.transaction(project, workspace) as repo:
             store = self.store(repo)
             request = store.read(identifier)
+            if request.get("trust") != "agent-reported":
+                raise ValueError("Server-owned verification reports cannot be imported by a worker.")
             execution = repo.read(request["executionId"])
             self.authenticate(execution, payload["token"], payload["epoch"])
             metadata, blobs = validation.report(payload["report"], request["verification"]["claims"])

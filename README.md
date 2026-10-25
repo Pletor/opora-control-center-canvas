@@ -200,6 +200,12 @@ ověření. Nasazení, API a omezení: [vykonávání zadání](docs/oporahub-ex
 Pravidla rezervací mají také [omezený TLA+ model](tools/formal/oporahub-execution/README.md)
 s reprodukovatelnou kontrolou a záměrně porušenou variantou.
 
+[Serverové ověření Harness](docs/harness-server-verifier.md) může po explicitním
+nastavení opakovat přijaté porovnání skriptů v oddělených kontejnerech bez sítě.
+Výstup měří server, pracovník žádá pouze o kontrolu; důkaz se ukládá do existující
+historie verifikací. Neúplný běh zůstává neznámý a úspěch na příkladech nepovyšuje
+nástroj do produkce ani nenahrazuje formální důkaz.
+
 [Formální podklady](docs/oporahub-verification.md) uchovávají přesné vstupy,
 tvrzení a výstupy TLC/Lean u přijaté revize a běhu agenta. Soubory mají ověřené
 SHA256 a jsou dostupné z historie. Nahlášené `passed` zůstává tvrzením agenta;
@@ -263,3 +269,22 @@ Native Harness observations support accepted kit v2 when its full validator is
 installed; see [compatibility and evidence limits](docs/harness-invocations.md#accepted-kit-v2-compatibility).
 
 Accepted Context7 reads can be reported as `result.harnessDocumentation` and inspected through `/api/oporahub/harness-documentation`; see [documentation evidence](docs/harness-invocations.md#documentation-read-evidence). These are reported reference reads, not task-success rates.
+
+Harness fixture history also exposes a scoped all-history quarantine projection: old failed
+versions remain visible beyond pagination, with incomplete coverage explicit. See
+[server verifier quarantine](docs/harness-server-verifier.md#lasting-quarantine-projection).
+
+When the native Harness memory module is installed, completed fixture reports can queue [separate role-scoped experiences](docs/harness-server-verifier.md#optional-fixture-experience-delivery). Verification responses explicitly report integration availability; fixture success never becomes production acceptance.
+
+Native Harness verification now requires an explicit [durable experiment ceiling](docs/harness-server-verifier.md#durable-experiment-ceiling); restarts and failed attempts cannot refresh the configured capacity.
+
+Harness verifier history exposes remaining experiment capacity for the configured scope, so agents can inspect exhaustion without starting work. The read-only snapshot reserves no capacity.
+
+Autonomous native Harness experiments require an explicit [nonproduction exploration policy](docs/harness-server-verifier.md#nonproduction-exploration-share) and nineteen eligible completed baseline cards per admitted experiment. Existing configurations without this policy remain readable but cannot start new experiments.
+
+The optional [native stability assessment](docs/harness-server-verifier.md#native-stability-eligibility) combines exact-version closure evidence, regression checks and independent fixture results under server-approved plans. It reports project eligibility without publishing stable versions or granting production permission.
+Its retained-evidence endpoint rechecks an existing native verification after the evaluation session ends, without restoring execution authority. Current policy and regressions are checked again; a historical stable label is insufficient.
+
+Harness verifier, exploration and stability settings accept an optional [explicit multi-project scope list](docs/harness-server-verifier.md#multiple-explicit-project-scopes). Existing single-scope JSON remains valid; each project keeps its own budget and evidence.
+
+Intentionally published versions can request [read-only shared fixture eligibility](docs/harness-server-verifier.md#shared-fixture-eligibility). The server rechecks explicitly approved source references across projects; private content is never copied and eligibility does not grant global promotion or production authority.
