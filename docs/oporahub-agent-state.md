@@ -12,6 +12,12 @@ do SQLite. Skládá existující služby (`OporaChangesets`, `ProcessSync`,
 `OporaExecutions`, seznamy návrhů a `classify_risk`) pod zámky projektu, takže jde
 o konzistentní snímek. Akce nejsou oprávnění: každý zápis dál ověří původní API.
 
+Po dobu skládání drží zámky projektu, takže na něj čeká každý claim, heartbeat i zápis.
+Skládání proto běží v jednom bloku `steady_reads` a celoprojektová fakta (přijatý kontext,
+uložený stav Desktop v3, ověření přijatého grafu a obsahu, redigované karty specifikace)
+počítá jednou na dokument přes `CanvasService.steady_value`, ne znovu pro každou kartu.
+Hlídá to `backend/canvas/test_opora_agent_state_budget.py`.
+
 Kód: `backend/canvas/opora_agent_state.py` (skládání), `opora_agent_state_rules.py`
 (konstanty a pravidla zdraví), `opora_agent_state_pulls.py` (volitelná vazba na PR)
 a router `backend/api/editor/opora_agent_state_routes.py`.

@@ -28,14 +28,18 @@ class OporaChangesets:
     def context(self, pid, wid):
         scope({"project": pid, "workspace": wid})
         with self.service.graph_lock_for(pid), self.service.lock_for(pid), self.service.steady_reads(pid):
-            view = self.service.view(pid, wid)
-            repo = self.repository(pid, wid)
-            head = repo.head()
-            current = documents(self.service, pid, wid, view)
-            accepted = repo.read(head)["documents"] if head else []
-            return {"acceptedHead": head, "graphDigest": view["digest"], "documents": current,
-                    "acceptedDocuments": accepted, "specificationsVersion": specifications_version(current),
-                    "workingDiffers": current != accepted, "readOnly": view["readOnly"]}
+            # A steady block (agent-state, process sync) asks once per card: build it once per block.
+            return dict(self.service.steady_value(pid, ("changesets.context", wid), lambda: self._context(pid, wid)))
+
+    def _context(self, pid, wid):
+        view = self.service.view(pid, wid)
+        repo = self.repository(pid, wid)
+        head = repo.head()
+        current = documents(self.service, pid, wid, view)
+        accepted = repo.read(head)["documents"] if head else []
+        return {"acceptedHead": head, "graphDigest": view["digest"], "documents": current,
+                "acceptedDocuments": accepted, "specificationsVersion": specifications_version(current),
+                "workingDiffers": current != accepted, "readOnly": view["readOnly"]}
 
     def baseline(self, payload, by):
         by = _author(by)

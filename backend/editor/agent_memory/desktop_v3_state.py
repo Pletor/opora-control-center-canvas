@@ -556,6 +556,11 @@ class DesktopV3State:
         Stav se cachuje podle tokenu dat a revize (karta P3; `backend/canvas/read_cache.py`):
         vrácený `state` je sdílený mezi požadavky a jen ke čtení. Kdo ho mění, vezme si kopii
         (mělkou tam, kde mění jen jednu sekci, a `save(..., base=...)` pak neověřuje nezměněné uzly)."""
+        # Under the project lock the read cache is off; a steady block reads the state once.
+        return self.canvas.steady_value(project, ("desktop_v3.current", workspace),
+                                        lambda: self._current(project, workspace))
+
+    def _current(self, project, workspace):
         canvas = self.canvas
         with canvas.reading(project):
             key = ("state", project, workspace)
