@@ -21,6 +21,7 @@ from backend.api.editor.claude_code_routes import create_claude_code_router
 from backend.api.editor.code_intelligence_routes import create_code_intelligence_router
 from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
 from backend.api.editor.harness_learning_routes import create_harness_learning_router
+from backend.api.editor.harness_invocation_routes import create_harness_invocation_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.opora_agent_state_routes import create_opora_agent_state_router
@@ -347,6 +348,7 @@ def create_app(data_root=None):
     # Projekt z lokální složky: člověk připojí GitHub repozitář jejího origin (docs/oporahub-github.md)
     app.include_router(create_folder_repository_router(service))
     app.include_router(create_opora_execution_router(service))
+    app.include_router(create_harness_invocation_router(service))
     app.include_router(create_execution_pull_request_router(service))
     app.include_router(create_review_self_check_router(service))  # before /{job}/… review job paths
     app.include_router(create_review_lens_router(service))  # POST /review-jobs/lens, GET /review-lens

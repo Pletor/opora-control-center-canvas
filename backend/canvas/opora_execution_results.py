@@ -8,6 +8,7 @@ from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_execution_steps import reported_pairs
 from backend.canvas.opora_execution_validation import result_digest, validate
 from backend.canvas.opora_executions import OporaExecutions
+from backend.canvas.opora_result_extensions import validate_extensions
 
 
 class ExecutionResults(OporaExecutions):
@@ -40,6 +41,7 @@ class ExecutionResults(OporaExecutions):
             self.active(repo, record)
             steps = step_results.validate_step_results(payload["result"], record["assignment"].get("steps"))
             decisions = execution_decisions.validate_decisions(payload["result"])
+            validate_extensions(payload["result"], record, repo)
             receipt = {"receiptId": uuid.uuid4().hex, "executionId": identifier,
                        "requestId": payload["requestId"], "result": payload["result"], "state": "reported",
                        "acceptedRevision": record["acceptedRevision"], "assignmentDigest": record["assignmentDigest"],
