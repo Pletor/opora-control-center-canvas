@@ -9,6 +9,16 @@ Ověřené přiřaditelné výsledky a jejich odvolání se automaticky doručuj
 paměti rolí OpenViking přes trvalou frontu; stav doručení je čitelný samostatně.
 Přesně přiřazené incidenty a reverty z existujícího review se vracejí jako samostatné
 varovné signály; nepředstírají prokázanou příčinu ani produkční úspěch bez incidentu.
+Paired Harness experiments can submit `result.harnessPairedEvaluation` alongside
+invocation metadata. Native validation reconciles the pinned plan, every planned
+trial and regression counts before saving the receipt; output matching remains a
+worker assertion. See [paired evidence](docs/harness-invocations.md#paired-evaluation-evidence).
+Agents can read reconciled comparisons at `GET /api/oporahub/harness-paired-evaluations`
+with exact version provenance and explicit incomplete or conflicting evidence.
+
+Použití nástrojů Harness lze měřit přes nativní výsledky běhů:
+[kontrakt a čtení zkušeností](docs/harness-invocations.md). Metadata zachovávají
+vazbu na přijatý skript a rozlišují hlášení workera od nezávislého ověření.
 
 Plátno projekt → sektor → uzel pro řízení agentů: struktura práce, zadání uzlů, podklady a běhy na jednom místě.
 
@@ -249,3 +259,7 @@ See [Harness kit](docs/harness-kit.md#historical-selection-origins).
 Harness offers an identity-bound accepted-kit preflight preview before claiming a context-v2 task. It creates no execution and does not certify runner readiness; see [the preflight contract](docs/harness-kit.md#accepted-preflight-before-a-claim).
 
 Preflight assignment identity includes the current predecessor handoff, matching the native claim contract.
+Native Harness observations support accepted kit v2 when its full validator is
+installed; see [compatibility and evidence limits](docs/harness-invocations.md#accepted-kit-v2-compatibility).
+
+Accepted Context7 reads can be reported as `result.harnessDocumentation` and inspected through `/api/oporahub/harness-documentation`; see [documentation evidence](docs/harness-invocations.md#documentation-read-evidence). These are reported reference reads, not task-success rates.
