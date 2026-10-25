@@ -13,6 +13,16 @@ def semantic_graph(graph):
 
 
 def require_accepted_graph(canvas, project, workspace, accepted_head, graph):
+    # A steady block passes the same view graph for every card: verify it once per block (same object).
+    def check():
+        _require(canvas, project, workspace, accepted_head, graph)
+        return graph
+
+    if canvas.steady_value(project, ("accepted_graph", workspace, accepted_head), check) is not graph:
+        _require(canvas, project, workspace, accepted_head, graph)
+
+
+def _require(canvas, project, workspace, accepted_head, graph):
     repo = ChangesetRepository(canvas.db_for(project), project, workspace)
     accepted = accepted_record(repo, accepted_head)
     manifest_id = accepted.get("graphManifestId")

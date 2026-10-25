@@ -87,6 +87,30 @@ def _graph_part(canvas, project, workspace, view):
     return canvas.read_cache.put(key, view["digest"], part)
 
 
+def _card(canvas, project, workspace, view, stored, identifier):
+    spec = canvas.node_spec(project, workspace, identifier)
+    text = canvas.texts.read((project, canvas.document_workspace(project, workspace, identifier), identifier)) if not view["readOnly"] else {}
+    return redact_deep({
+        "nodeId": identifier,
+        "spec": {"revision": spec["revision"], "fields": spec["fields"],
+                 "available": spec.get("available", True)},
+        "content": {"revision": text.get("revision", 0), "text": text.get("text", ""),
+                    "available": not view["readOnly"]},
+        "instructions": _instructions(stored["state"]["nodes"].get(identifier, {})),
+    })
+
+
+def _drawing(canvas, project, workspace, layer):
+    drawing = canvas.drawing(project, workspace, layer)
+    return redact_deep({
+        "layer": layer, "revision": drawing["revision"],
+        "available": drawing.get("available", True),
+        # Geometry inside a design drawing is task content, unlike card layout.
+        "scene": drawing["scene"],
+        "imageContentsIncluded": False,
+    })
+
+
 def capture_specification(canvas, project, workspace, node_id):
     """Return the version and frozen canonical data under the existing reentrant locks."""
     if not all(valid_id(value) for value in (project, workspace, node_id)):
@@ -120,28 +144,14 @@ def capture_specification(canvas, project, workspace, node_id):
         upstream_ids = {edge["source"] for edge in graph["edges"]
                         if edge["target"] in descendants and edge["source"] not in descendants
                         and edge.get("port") != "flow"}
-        cards = []
-        for identifier in sorted(related):
-            spec = canvas.node_spec(project, workspace, identifier)
-            text = canvas.texts.read((project, canvas.document_workspace(project, workspace, identifier), identifier)) if not view["readOnly"] else {}
-            cards.append({
-                "nodeId": identifier,
-                "spec": {"revision": spec["revision"], "fields": spec["fields"],
-                         "available": spec.get("available", True)},
-                "content": {"revision": text.get("revision", 0), "text": text.get("text", ""),
-                            "available": not view["readOnly"]},
-                "instructions": _instructions(stored["state"]["nodes"].get(identifier, {})),
-            })
-        drawings = []
-        for layer in ["", *sorted(related)]:
-            drawing = canvas.drawing(project, workspace, layer)
-            drawings.append({
-                "layer": layer, "revision": drawing["revision"],
-                "available": drawing.get("available", True),
-                # Geometry inside a design drawing is task content, unlike card layout.
-                "scene": drawing["scene"],
-                "imageContentsIncluded": False,
-            })
+        # Redaction is per value, so each card and drawing is redacted on its own; a steady block
+        # (agent-state over every card) builds each related card and layer once, not once per capture.
+        cards = [canvas.steady_value(project, ("spec-card", workspace, identifier),
+                                     lambda key=identifier: _card(canvas, project, workspace, view, stored, key))
+                 for identifier in sorted(related)]
+        drawings = [canvas.steady_value(project, ("spec-drawing", workspace, layer),
+                                        lambda key=layer: _drawing(canvas, project, workspace, key))
+                    for layer in ["", *sorted(related)]]
         shared = _graph_part(canvas, project, workspace, view)
         head = redact_deep({
             "schema": SCHEMA,
@@ -157,9 +167,7 @@ def capture_specification(canvas, project, workspace, node_id):
             # Own agent proposals remain output; incoming decisions are assumptions of this task.
             "decisions": [item for item in memory["decisions"]
                           if item.get("by") != "agent" or item.get("nodeId") in upstream_ids],
-            "cards": cards,
-            "drawings": drawings,
             "referencesPolicy": "reference-only; external content is not captured or verified",
-        })}
+        }), "cards": cards, "drawings": drawings}
         specification = scoped_specification(specification)
         return {"contextVersion": digest(specification), "specification": specification}

@@ -438,6 +438,23 @@ class CanvasService:
         finally:
             steady.pop(pid, None)
 
+    def steady_value(self, pid, key, compute):
+        """Uvnitř `steady_reads` spočítá celoprojektovou hodnotu jednou na blok (klíč = n-tice, aby se
+        nepletl s pohledy pod `wid`); mimo blok pokaždé znovu. Odmítnutí (`ValueError`) se pamatuje jako
+        výsledek: čtení přes všechny karty pak neověřuje týž přijatý graf či kontext pro každou kartu."""
+        memo = getattr(self._local, "steady", {}).get(pid)
+        if memo is None:
+            return compute()
+        if key not in memo:
+            try:
+                memo[key] = (True, compute())
+            except ValueError as error:
+                memo[key] = (False, error)
+        ok, value = memo[key]
+        if not ok:
+            raise value.with_traceback(None)
+        return value
+
     def folder(self, pid):
         return ProjectFolder(self.root, pid)
 

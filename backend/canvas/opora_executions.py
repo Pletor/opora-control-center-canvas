@@ -47,16 +47,21 @@ class OporaExecutions:
 
     def context(self, project, workspace, node):
         with self.canvas.graph_lock_for(project), self.canvas.lock_for(project), self.canvas.steady_reads(project):
-            try:
-                value = assignment(self.canvas, project, workspace, node)
-                budget = budget_status(self.canvas.db_for(project), project, workspace, node, value["acceptedRevision"])
-                return {"available": True, "unavailableReason": None, "acceptedHead": value["acceptedRevision"],
-                        "contextVersion": value["contextVersion"], "executionProtocolVersion": 2 if budget["enrolled"] else 1,
-                        "budget": budget} | ({"available": False, "unavailableReason": budget["blockedReason"]} if budget["blockedReason"] else {})
-            except ValueError as exc:
-                version,budget=unavailable_budget(self.canvas.db_for(project),project,workspace,node)
-                return {"available": False, "unavailableReason": str(exc), "acceptedHead": None, "contextVersion": None,
-                        "executionProtocolVersion":version,"budget":budget}
+            # Agent-state asks for a card's context in process sync and again for its claim action.
+            return self.canvas.steady_value(project, ("executions.context", workspace, node),
+                                            lambda: self._context(project, workspace, node))
+
+    def _context(self, project, workspace, node):
+        try:
+            value = assignment(self.canvas, project, workspace, node)
+            budget = budget_status(self.canvas.db_for(project), project, workspace, node, value["acceptedRevision"])
+            return {"available": True, "unavailableReason": None, "acceptedHead": value["acceptedRevision"],
+                    "contextVersion": value["contextVersion"], "executionProtocolVersion": 2 if budget["enrolled"] else 1,
+                    "budget": budget} | ({"available": False, "unavailableReason": budget["blockedReason"]} if budget["blockedReason"] else {})
+        except ValueError as exc:
+            version,budget=unavailable_budget(self.canvas.db_for(project),project,workspace,node)
+            return {"available": False, "unavailableReason": str(exc), "acceptedHead": None, "contextVersion": None,
+                    "executionProtocolVersion":version,"budget":budget}
 
     def claim(self, payload, owner):
         extra = budget_runtime.V2_FIELDS if isinstance(payload, dict) and budget_runtime.V2_FIELDS.intersection(payload) else set()

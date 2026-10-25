@@ -109,7 +109,8 @@ class AgentState:
     def read(self, project, workspace, cards_offset=0):
         scope({"project": project, "workspace": workspace})
         canvas, now = self.canvas, self.clock()
-        with canvas.graph_lock_for(project), canvas.lock_for(project):
+        # steady_reads: project-wide facts (view, accepted context, stored state) once per build, not per card.
+        with canvas.graph_lock_for(project), canvas.lock_for(project), canvas.steady_reads(project):
             db = canvas.db_for(project)
             context = OporaChangesets(canvas).context(project, workspace)
             accepted = context["acceptedHead"]
