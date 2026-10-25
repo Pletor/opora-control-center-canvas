@@ -14,6 +14,7 @@ from backend.canvas.opora_plan_steps import ordered, steps_of
 from backend.editor.agent_packet.desktop_v3_packets import redact_deep
 from backend.editor.agent_packet.specification_sql_context import project_sql_context
 from backend.editor.agent_packet.specification_sql_rows import composed_graph
+from backend.library.harness_kit import kit_of_assignment
 from database.repositories import opora_context_bindings as bindings
 from database.repositories import opora_execution_contexts as private
 from database.repositories.opora_changesets import ChangesetRepository
@@ -91,6 +92,7 @@ def _collect(canvas, db, project, workspace, node):
     assignment = {"acceptedRevision": head, "documents": redact_deep(selected), "contextVersion": opaque,
                   "contextProtocolVersion": 2, "steps": redact_deep(steps),
                   "specification": {**redact_deep(projection), "schema": "opora.specification-context/2"}}
+    kit_of_assignment(assignment, node)  # Validate transported content before issuing an execution pin.
     pin = {"schemaVersion": 1, "snapshot": snapshot, "metadata": metadata, "binding": before,
            "nodeId": node, "acceptedRevision": head, "contextVersion": opaque,
            "assignmentDigest": digest(assignment)}

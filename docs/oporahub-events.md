@@ -44,6 +44,7 @@ review, ověření a auto-rebase; schéma `database/schema/opora_event_schema.py
 | `review.round` | Nové kolo review (vložená úloha) a každá změna jeho fáze nebo čísla kola | `reviewJobId`, `kind`, `round`, `phase`, `headSha`, `riskTier`, `repository` |
 | `review.finding` | Nový nález review a každá změna jeho stavu | `findingId`, `severity`, `status`, `round`, `headSha`, `repository` |
 | `gate.changed` | Brána merge karty se po zápisu změnila (odvozené, viz níže) | `gate {status, rule}` nebo `null`, `previous` |
+| `harness.fixture.observed` | Complete native Harness fixture observation queued for role memory; quiet event does not change card stage or acceptance | `verificationId`, `outcome` |
 | `formal.result` | Zapsaná zpráva ověření (`formal/*`, ruční i z CI) | `verificationId`, `outcome` |
 | `decision.created` | Vzniklo rozhodnutí člověka: návrh k přijetí (`accept`), merge čekající na uzavření (`close_card`), ověření `verification_counterexample` / `verification_failed` | `decision`, + kontext |
 | `decision.resolved` | Rozhodnutí vyřízeno: přijetí návrhu (`accept`), uzavření karty po merge (`close_card`), rozhodnutí na stropu kol review (`review_round_cap`) | `decision`, + kontext |

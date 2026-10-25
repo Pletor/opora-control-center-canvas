@@ -3,11 +3,13 @@
 // Kroky (`fields.steps`, docs/oporahub-plan-steps.md) jsou volitelné: starší server je nenese a rozdíl
 // kroků je pak `null`, ne „beze změny“.
 export type PlanStep = { id: string; order: number; title: string; acceptance: string[]; dependsOn: string[]; kind: string | null; files: string[] };
-export type SpecDoc = { goal: string; non_goals: string; acceptance: string; steps?: unknown };
+import { harnessChanged } from '@/shared/harness-kit/logic/harness-kit';
+export type SpecDoc = { goal: string; non_goals: string; acceptance: string; steps?: unknown; harness?: unknown };
 export type TextDiff = { state: "same" | "changed"; before: string; after: string };
 export type LineDiff = { kind: "same" | "added" | "removed"; text: string };
 export type StepDiff = { id: string; kind: "same" | "added" | "removed" | "changed"; before: PlanStep | null; after: PlanStep | null; changed: string[] };
-export type SpecDiffView = { goal: TextDiff; nonGoals: TextDiff; acceptance: LineDiff[]; steps: StepDiff[] | null; changes: number };
+export type SpecDiffView = { goal: TextDiff; nonGoals: TextDiff; acceptance: LineDiff[]; steps: StepDiff[] | null; changes: number;
+  harness?: { before: SpecDoc; after: SpecDoc } };
 
 const texts = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
@@ -70,6 +72,7 @@ export function specDiff(accepted: SpecDoc | null, working: SpecDoc | null): Spe
   const acceptedSteps = readSteps(base), workingSteps = readSteps(next);
   const steps = acceptedSteps || workingSteps ? stepsDiff(acceptedSteps ?? [], workingSteps ?? []) : null;
   const changes = Number(goal.state === "changed") + Number(nonGoals.state === "changed")
-    + acceptance.filter(line => line.kind !== "same").length + (steps ?? []).filter(row => row.kind !== "same").length;
-  return { goal, nonGoals, acceptance, steps, changes };
+    + acceptance.filter(line => line.kind !== "same").length + (steps ?? []).filter(row => row.kind !== "same").length
+    + Number(harnessChanged(base, next));
+  return { goal, nonGoals, acceptance, steps, changes, harness: { before: base, after: next } };
 }

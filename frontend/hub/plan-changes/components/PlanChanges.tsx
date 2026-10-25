@@ -1,4 +1,5 @@
 import type { PlanChangesView } from "../logic/use-plan-changes";
+import HarnessKit from '@/shared/harness-kit/components/HarnessKit';
 import ProposalReview from "@/hub/proposal-review/components/ProposalReview";
 import { reviewReady } from "@/hub/proposal-review/logic/proposal-review";
 import type { ProposalReviewView } from "@/hub/proposal-review/logic/use-proposal-review";
@@ -32,6 +33,7 @@ export default function PlanChanges({ model, review, acceptancePolicy }: { model
         {model.context.documents.map(document => <details key={document.nodeId} className="plan-changes__document">
           <summary>{model.name(document.nodeId)} · revize {document.revision}</summary>
           {fieldKeys.map(field => <div key={field}><h4>{fieldLabels[field]}</h4><pre>{document.fields[field] || "(prázdné)"}</pre></div>)}
+          <HarnessKit after={document.fields} />
         </details>)}
         <button type="button" disabled={disabled || !model.subject.trim() || !model.context.documents.length}
           onClick={model.baseline}>Přijmout tato uložená zadání jako výchozí základ</button>
@@ -63,6 +65,8 @@ export default function PlanChanges({ model, review, acceptancePolicy }: { model
       <h3>{model.inspected.subject}</h3><p>Návrh <code>{model.inspected.id.slice(0, 12)}</code> vychází z <code>{model.inspected.parentRevision.slice(0, 12)}</code>.</p>
       {model.inspected.changes.map(change => <article key={change.nodeId}>
         <h4>{model.name(change.nodeId)} · výchozí revize {change.expectedRevision}</h4>
+        <HarnessKit before={change.acceptedBefore.fields} after={change.fields} mode="diff" />
+        <HarnessKit after={change.before} />
         {inspectedFields(change).map(field => <div key={field}>
           <h5>{fieldLabels[field]}</h5><div className="plan-changes__comparison">
             <div><strong>Přijaté zadání</strong><pre>{change.acceptedBefore.fields[field] || "(prázdné)"}</pre></div>

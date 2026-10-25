@@ -47,6 +47,9 @@ def assignment(canvas, project, workspace, node):
     context = OporaChangesets(canvas).context(project, workspace)
     if context["readOnly"] or not context["acceptedHead"]:
         raise ValueError("A writable workspace with accepted specifications is required.")
+    from backend.library.harness_kit import require_kit_context
+    own = next((doc for doc in context["acceptedDocuments"] if doc["nodeId"] == node), {})
+    require_kit_context(own.get("fields", {}), 1)
     view = canvas.view(project, workspace)
     require_accepted_graph(canvas, project, workspace, context["acceptedHead"], view["graph"])
     target = next((item for item in view["graph"]["nodes"] if item["id"] == node), None)

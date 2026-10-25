@@ -60,8 +60,11 @@ def spec(proposal, accepted_documents):
                 continue
             outcome = verdict(f"spec:{node}:{name}", base, ours, theirs)
             card.append(outcome)
-            if outcome == "clean" and ours is not ABSENT:
-                fields[name] = ours
+            if outcome == "clean":
+                if ours == ABSENT:
+                    fields.pop(name, None)
+                else:
+                    fields[name] = ours
         results.extend(card)
         if card and fields != theirs_doc["fields"]:
             merged.append({"nodeId": node, "fields": fields})

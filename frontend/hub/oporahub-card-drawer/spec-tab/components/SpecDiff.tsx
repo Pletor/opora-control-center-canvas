@@ -1,4 +1,5 @@
 import type { LineDiff, SpecDiffView, StepDiff, TextDiff } from "../logic/spec-diff";
+import HarnessKit from '@/shared/harness-kit/components/HarnessKit';
 
 export type SpecMode = "accepted" | "working" | "diff";
 const SIGN = { added: "+", removed: "−", changed: "~", same: "" } as const;
@@ -58,5 +59,6 @@ export default function SpecDiff({ view, mode, purpose }: { view: SpecDiffView; 
     <TextBlock field="non_goals" label="Ne-cíle" diff={view.nonGoals} mode={mode} />
     <AcceptanceBlock lines={view.acceptance} mode={mode} />
     <StepsBlock steps={view.steps} mode={mode} />
+    {view.harness && <HarnessKit {...view.harness} mode={mode} />}
   </div>;
 }
