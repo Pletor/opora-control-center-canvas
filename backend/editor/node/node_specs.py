@@ -19,7 +19,7 @@ def validate_payload(payload):
     fields = payload["fields"]
     limits = {"goal": 4000, "non_goals": 8000, "acceptance": 12000}
     # `steps` is the optional versioned plan (docs/oporahub-plan-steps.md); older specs omit it.
-    if not isinstance(fields, dict) or not set(limits) <= set(fields) <= {*limits, "steps"}:
+    if not isinstance(fields, dict) or not set(limits) <= set(fields) <= {*limits, "steps", "harness"}:
         raise ValueError("Zadání vyžaduje cíl, omezení a podmínky dokončení.")
     for key, limit in limits.items():
         if not isinstance(fields[key], str) or len(fields[key]) > limit or "\0" in fields[key]:
@@ -28,6 +28,10 @@ def validate_payload(payload):
         from backend.canvas.opora_plan_steps import validate_steps
 
         validate_steps(fields["steps"])
+    if "harness" in fields:
+        from backend.library.harness_kit import validate_kit
+
+        validate_kit(fields["harness"])
 
 
 class NodeSpecStore:

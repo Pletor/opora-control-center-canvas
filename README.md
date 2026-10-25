@@ -1,5 +1,15 @@
 # Opora Canvas
 
+Přijaté zadání může nést konkrétní verze nástrojů a pravidel pro agenta:
+[připnutá výbava Harness](docs/harness-kit.md). Obsah se ověřuje SHA-256 a stává
+se součástí neměnného zadání běhu; změny jsou viditelné při přijetí návrhu.
+Výsledky běhů s výbavou se trvale promítají z outboxu do
+[měření Harness](docs/harness-kit.md#měření-výsledků) se samostatnými úrovněmi důkazů.
+Ověřené přiřaditelné výsledky a jejich odvolání se automaticky doručují do existující
+paměti rolí OpenViking přes trvalou frontu; stav doručení je čitelný samostatně.
+Přesně přiřazené incidenty a reverty z existujícího review se vracejí jako samostatné
+varovné signály; nepředstírají prokázanou příčinu ani produkční úspěch bez incidentu.
+
 Plátno projekt → sektor → uzel pro řízení agentů: struktura práce, zadání uzlů, podklady a běhy na jednom místě.
 
 Změny zadání se porovnávají v kontextu konkrétní karty; nesouvisející poznámka na plátně
@@ -216,3 +226,26 @@ Historie se nemaže. Přesné API, migrace a omezení:
 [kontrakt OporaHubu](docs/oporahub.md).
 Pozorování izolovaných běhů v OporaHubu zobrazuje záznamy z API poskytovatele doložené brokerem pro právě vybraný projekt a workspace. U doložené session ukazuje kumulativní tokeny a ceníkovou spotřebu (nikoli fakturu); nulové sentinelské hodnoty bez session označuje jako nedoloženou spotřebu. Stav nečinný nepotvrzuje ukončení. Nejde o povolení běhu ani o důkaz tvrdého finančního limitu. Podrobnosti: [vykonávání a pozorování](docs/oporahub-executions.md).
 - Kontrakt identity a logického členství v oblasti (pro Agent Office a Harness): [docs/kontrakt-identity.md](docs/kontrakt-identity.md).
+
+Completed server fixture checks can use the same queue for [separate test experiences](docs/harness-kit.md#server-fixture-experiences). They do not count as accepted task successes; recalled memory never replaces native quarantine checks.
+
+A live Harness execution can prepare a [same-card historical recovery proposal](docs/harness-kit.md#historical-recovery-proposals) from existing accepted snapshots. It preserves the running assignment and requires normal specification acceptance.
+
+Intentionally shared Harness publications can deliver [public fixture lessons](docs/harness-kit.md#shared-fixture-lessons) through the existing OpenViking queue. Recall requires fresh native evidence and exact remote content; historical success never grants execution or promotion authority.
+
+Native accepted Harness kits support an opt-in [version 2 selection provenance format](docs/harness-kit.md#accepted-selection-provenance-expand-stage), while preserving strict version 1. This reader expansion pins why resources were proposed; it does not attest those claims or enable automatic rollout to older workers.
+
+Selection metadata uses matching JSON safe-integer rules in Python and Office, including integral decimal notation; malformed numbers do not become accepted provenance.
+Harness writers can discover scoped accepted-kit formats through the
+[read-only compatibility endpoint](docs/harness-kit.md#discover-accepted-formats-before-writing).
+### Historical Harness origins
+
+The read-only `/api/oporahub/harness-origin-history` endpoint compares native
+outcomes by exact resource version and the origin pinned in an accepted kit.
+Its bounded window, unknown origins, and overlapping cohorts are explicit;
+declared origins are not verified ancestry or promotion evidence.
+See [Harness kit](docs/harness-kit.md#historical-selection-origins).
+
+Harness offers an identity-bound accepted-kit preflight preview before claiming a context-v2 task. It creates no execution and does not certify runner readiness; see [the preflight contract](docs/harness-kit.md#accepted-preflight-before-a-claim).
+
+Preflight assignment identity includes the current predecessor handoff, matching the native claim contract.

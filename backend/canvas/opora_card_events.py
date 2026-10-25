@@ -16,6 +16,8 @@ def closures(db, project, workspace, before, after, actor):
         if was == now:
             continue
         if not now:
+            emit_event(db, project_id=project, workspace_id=workspace, kind="card.reopened", node_id=node,
+                       actor=actor, data={"previouslyConfirmed": True})
             refresh(db, project, workspace, node, actor)
             continue
         done = after["nodes"][node]["done"]

@@ -20,6 +20,7 @@ from backend.api.editor.canvas_version_routes import create_canvas_version_route
 from backend.api.editor.claude_code_routes import create_claude_code_router
 from backend.api.editor.code_intelligence_routes import create_code_intelligence_router
 from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
+from backend.api.editor.harness_learning_routes import create_harness_learning_router
 from backend.api.editor.memory_routes import create_memory_router
 from backend.api.editor.node_routes import create_node_router
 from backend.api.editor.opora_agent_state_routes import create_opora_agent_state_router
@@ -104,6 +105,7 @@ from backend.editor.storyboard.storyboard import StoryboardService
 from backend.integrations.build_identity import build_identity
 from backend.integrations.typesafe_client import configured_provider
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
+from backend.library.harness_memory import HarnessMemory
 from backend.memory.memory_service import AppSettings, MemoryService
 from backend.paths import DIST_DIR, REPO_ROOT
 from backend.project.architecture.web_status import WebStatusService
@@ -140,6 +142,7 @@ def create_app(data_root=None):
     reconciliation = ReconciliationManager(service)
     execution_prs = ExecutionPullRequestManager(service)
     auto_rebase = AutoRebaseManager(service)
+    harness_memory = HarnessMemory(service, memory_service)
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -170,12 +173,14 @@ def create_app(data_root=None):
         reconciliation.start()
         execution_prs.start()
         auto_rebase.start()
+        harness_memory.start()
         yield
         assistant.close_all()
         map_refresh.close()
         reconciliation.close()
         execution_prs.close()
         auto_rebase.close()
+        harness_memory.close()
         service.close()
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -355,6 +360,7 @@ def create_app(data_root=None):
     # Živý tok událostí OporaHubu (outbox, kurzor + SSE), jen čtení (docs/oporahub-events.md)
     app.include_router(create_opora_event_router(service))
     app.include_router(create_process_event_router(service, memory_status=memory_service.status))
+    app.include_router(create_harness_learning_router(service))
     app.include_router(create_execution_observer_router(service))
     app.include_router(create_opora_verification_router(service))
     app.include_router(create_execution_budget_router(service))

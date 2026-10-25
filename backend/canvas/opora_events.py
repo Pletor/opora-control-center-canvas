@@ -24,12 +24,12 @@ KINDS = ("stage.changed", "step.started", "step.done", "step.failed", "lease.cla
          "lease.expired", "result.reported", "pr.linked", "review.round", "review.finding", "gate.changed",
          "formal.result", "decision.created", "decision.resolved", "changeset.proposed", "changeset.accepted",
          "autorebase.done", "autorebase.conflict", "merge.done", "writeback.done", "card.closed",
-         "memory.recall", "memory.write", "plan.commit")
+         "memory.recall", "memory.write", "plan.commit", "card.reopened", "harness.fixture.observed")
 # Derived kinds never trigger a refresh themselves; step progress is not a loop stage.
 DERIVED = {"stage.changed", "gate.changed", "step.started", "step.done", "step.failed"}
 # Live process (docs/zivy-proces.md): memory and legacy plan commits come from the activity bridge and
 # never move a card's stage; events of external sources (office, github) never refresh a card either.
-QUIET = DERIVED | {"memory.recall", "memory.write", "plan.commit"}
+QUIET = DERIVED | {"memory.recall", "memory.write", "plan.commit", "harness.fixture.observed"}
 EXTERNAL_SOURCES = ("office", "github")
 SYSTEM = {"kind": "system", "name": "opora"}
 ACTOR_KINDS = ("human", "agent", "system")
@@ -86,6 +86,8 @@ def emit_event(conn_or_service, *, project_id, workspace_id, kind, node_id=None,
 
     def write():
         identifier = store.insert(db, event)
+        from backend.canvas.opora_event_projections import project
+        project(db, identifier, event)
         if identifier % PRUNE_EVERY == 0:
             days, rows = retention()
             store.prune(db, stamp(datetime.now(UTC) - timedelta(days=days)), rows)

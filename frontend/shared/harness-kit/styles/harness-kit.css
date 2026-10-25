@@ -1,0 +1,4 @@
+.harness-kit { margin-block: 1rem; min-width: 0; }
+.harness-kit__comparison { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 1rem; }
+.harness-kit__version { min-width: 0; }
+.harness-kit__content { max-height: 24rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: .75rem; border: 1px solid currentColor; border-radius: .4rem; font-size: .8rem; }
