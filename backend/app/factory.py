@@ -34,6 +34,7 @@ from backend.api.editor.opora_event_routes import create_opora_event_router
 from backend.api.editor.opora_execution_budget_routes import create_execution_budget_router
 from backend.api.editor.opora_execution_observer_routes import BODY_LIMIT as OBSERVER_BODY_LIMIT
 from backend.api.editor.opora_execution_observer_routes import create_execution_observer_router
+from backend.api.editor.harness_verifier_routes import create_harness_verifier_router
 from backend.api.editor.opora_execution_pull_request_routes import (
     create_execution_pull_request_router,
 )
@@ -364,6 +365,7 @@ def create_app(data_root=None):
     app.include_router(create_process_event_router(service, memory_status=memory_service.status))
     app.include_router(create_harness_learning_router(service))
     app.include_router(create_execution_observer_router(service))
+    app.include_router(create_harness_verifier_router(service))
     app.include_router(create_opora_verification_router(service))
     app.include_router(create_execution_budget_router(service))
     app.include_router(create_opora_graph_router(service))

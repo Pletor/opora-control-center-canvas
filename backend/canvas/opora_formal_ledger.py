@@ -53,6 +53,8 @@ def _evidence(record):
     if report is None:
         return []
     tool, outcome = verification["tool"]["name"], report["outcome"]
+    if tool not in PASSED:
+        return []  # Other verification tools cannot become TLC/Lean proof claims.
     base = {"commitSha": verification["source"]["commitSha"], "trust": record["trust"],
             "lastChecked": report["createdAt"], "verificationId": record["id"],
             "checkName": (record.get("origin") or {}).get("checkName"), "outcome": outcome}

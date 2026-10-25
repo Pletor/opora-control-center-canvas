@@ -26,6 +26,8 @@ def marker(verification_id):
 
 
 def actionable(record):
+    if record.get("domain", "formal") != "formal":
+        return False
     report, origin = record.get("report") or {}, record.get("origin") or {}
     if report.get("outcome") not in ACTIONABLE:
         return False

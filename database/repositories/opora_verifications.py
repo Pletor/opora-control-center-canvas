@@ -24,9 +24,12 @@ class Verifications:
                               (*self.scope, execution, request)).fetchone()
         return (row[1], self.read(row[0])) if row else None
 
-    def history(self, node=None):
+    def history(self, node=None, domain=None):
         clause = " AND node_id=?" if node is not None else ""
         parameters = (*self.scope, node) if node is not None else self.scope
+        if domain is not None:
+            clause += " AND COALESCE(json_extract(record, '$.domain'), 'formal')=?"
+            parameters = (*parameters, domain)
         rows = self.db.execute("SELECT id FROM opora_verification_requests WHERE project_id=? AND workspace_id=?"
                                + clause + " ORDER BY rowid DESC LIMIT 100", parameters).fetchall()
         return [self.read(row[0]) for row in rows]
@@ -66,8 +69,10 @@ class Verifications:
                         (identifier, *self.scope, record["requestId"], record["reportDigest"], json.dumps(record, ensure_ascii=False)))
         # formal.result in the report's transaction
         from backend.canvas.opora_events import emit_event
-        row = self.db.execute("SELECT node_id,execution_id FROM opora_verification_requests WHERE id=? AND project_id=?"
+        row = self.db.execute("SELECT node_id,execution_id,record FROM opora_verification_requests WHERE id=? AND project_id=?"
                               " AND workspace_id=?", (identifier, *self.scope)).fetchone()
+        if row and json.loads(row[2]).get("domain", "formal") != "formal":
+            return
         node, execution = (row[0], row[1]) if row else (None, None)
         outcome = record.get("outcome")
         emit_event(self.db, project_id=self.scope[0], workspace_id=self.scope[1], kind="formal.result", node_id=node,
