@@ -1,6 +1,8 @@
 """Process-level bounded I/O plus fixture ordering, authority and cleanup failures."""
 import hashlib
+import subprocess
 import sys
+import time
 
 import pytest
 
@@ -34,6 +36,52 @@ def test_actual_process_timeout():
     assert observed["reason"] == "timeout"
     assert observed["exit"] is not None
     assert observed["duration"] < 2000
+
+
+def test_timeout_with_slow_exit_after_kill_is_still_a_timeout(monkeypatch):
+    # A killed process that needs longer than the whole call budget to exit (Windows under load) has still been
+    # cleaned up: the bounded grace after the kill lets it finish instead of reporting cleanup-incomplete.
+    class SlowExit(subprocess.Popen):
+        exits_at = None
+
+        def wait(self, timeout=None):
+            # The killed process only reports its exit 0.3 s after the first wait (three times the budget).
+            self.exits_at = self.exits_at or time.monotonic() + 0.3
+            remaining = self.exits_at - time.monotonic()
+            if timeout is not None and timeout < remaining:
+                time.sleep(max(0, timeout))
+                raise subprocess.TimeoutExpired(self.args, timeout)
+            time.sleep(max(0, remaining))
+            return super().wait(timeout)
+
+    monkeypatch.setattr(runner.subprocess, "Popen", SlowExit)
+    observed = runner._capture([sys.executable, "-c", "import time; time.sleep(30)"], timeout=0.1)
+    assert observed["reason"] == "timeout"
+    assert observed["exit"] is not None
+
+
+def test_process_that_never_exits_after_kill_is_cleanup_incomplete(monkeypatch):
+    waits, spawned, real_wait = [], [], subprocess.Popen.wait
+
+    class NeverExits(subprocess.Popen):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            spawned.append(self)
+
+        def wait(self, timeout=None):
+            waits.append(timeout)
+            raise subprocess.TimeoutExpired(self.args, timeout)
+
+    monkeypatch.setattr(runner.subprocess, "Popen", NeverExits)
+    try:
+        observed = runner._capture([sys.executable, "-c", "import time; time.sleep(30)"], timeout=0.1)
+    finally:
+        for process in spawned:
+            process.kill()
+            real_wait(process, timeout=10)
+    assert observed["reason"] == "cleanup-incomplete"
+    assert waits and all(0 <= value <= runner.CLEANUP_GRACE_SECONDS for value in waits)
+    assert observed["duration"] < 3000
 
 
 def test_actual_process_output_flood_is_bounded():

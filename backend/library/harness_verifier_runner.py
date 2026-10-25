@@ -14,6 +14,11 @@ from collections.abc import Callable
 CALL_SECONDS = 5
 BUDGET_SECONDS = 60
 OUTPUT_LIMIT = 128 * 1024
+# After the run ends (exit or kill), how long cleanup may still take: on Windows a killed process can need tens
+# of ms (more under load) to exit and close its pipes. The run itself still ends at its own deadline; this only
+# keeps a slow but successful cleanup from being reported as "cleanup-incomplete". Bounded, so a process or
+# reader that never finishes is still reported as such, at most this much past the call's deadline.
+CLEANUP_GRACE_SECONDS = 1.0
 
 
 def _capture(command: list[str], data: bytes = b"", timeout: float = CALL_SECONDS) -> dict:
@@ -69,12 +74,13 @@ def _capture(command: list[str], data: bytes = b"", timeout: float = CALL_SECOND
                 pass
             break
         time.sleep(0.005)
+    settle_by = max(deadline, time.monotonic() + CLEANUP_GRACE_SECONDS)
     try:
-        process.wait(timeout=max(0, deadline - time.monotonic()))
+        process.wait(timeout=max(0, settle_by - time.monotonic()))
     except subprocess.TimeoutExpired:
         reason = "cleanup-incomplete"
     for thread in threads:
-        thread.join(timeout=max(0, deadline - time.monotonic()))
+        thread.join(timeout=max(0, settle_by - time.monotonic()))
     if any(thread.is_alive() for thread in threads):
         reason = "cleanup-incomplete"
     elif overflow.is_set():
