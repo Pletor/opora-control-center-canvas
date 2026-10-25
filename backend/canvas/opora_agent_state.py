@@ -201,6 +201,8 @@ class AgentState:
             ctx, budget = item["context"], item["budget"]
             expected = {"expectedAcceptedHead": ctx["acceptedHead"] or accepted,
                         "expectedContextVersion": ctx["contextVersion"]}
+            if ctx.get("contextProtocolVersion") == 2:  # a pinned kit: claim only after preparing the sparse context
+                expected["contextProtocolVersion"] = 2
             if ctx.get("executionProtocolVersion") == 2:
                 expected |= {"expectedBudgetPolicyHead": budget.get("policyHead"),
                              "previousExecutionId": budget.get("latestExecutionId")}

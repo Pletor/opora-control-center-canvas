@@ -41,7 +41,7 @@ def result_digest(result):
     return digest(result)
 
 
-def assignment(canvas, project, workspace, node):
+def assignment(canvas, project, workspace, node, context_version=1):
     if not isinstance(node, str) or not valid_id(node):
         raise ValueError("Invalid card.")
     context = OporaChangesets(canvas).context(project, workspace)
@@ -49,7 +49,7 @@ def assignment(canvas, project, workspace, node):
         raise ValueError("A writable workspace with accepted specifications is required.")
     from backend.library.harness_kit import require_kit_context
     own = next((doc for doc in context["acceptedDocuments"] if doc["nodeId"] == node), {})
-    require_kit_context(own.get("fields", {}), 1)
+    require_kit_context(own.get("fields", {}), context_version)
     view = canvas.view(project, workspace)
     require_accepted_graph(canvas, project, workspace, context["acceptedHead"], view["graph"])
     target = next((item for item in view["graph"]["nodes"] if item["id"] == node), None)

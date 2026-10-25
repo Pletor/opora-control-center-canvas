@@ -21,6 +21,7 @@ from backend.canvas.opora_execution_budget_status import unavailable as unavaila
 from backend.canvas.opora_execution_validation import assignment, validate
 from backend.canvas.opora_step_results import emit_step_started
 from backend.editor.agent_memory.card_leases import MAX_PER_OWNER
+from backend.library.harness_kit import KitContextRequired
 from database.repositories.opora_executions import Executions
 
 CLAIM = {"nodeId", "expectedAcceptedHead", "expectedContextVersion", "requestId", "ttlSeconds"}
@@ -53,11 +54,18 @@ class OporaExecutions:
 
     def _context(self, project, workspace, node):
         try:
-            value = assignment(self.canvas, project, workspace, node)
+            sparse = {}
+            try:
+                value = assignment(self.canvas, project, workspace, node)
+            except KitContextRequired:
+                # A pinned kit is claimable only through the prepared sparse context: report the card as ready for
+                # a v2 office, with no legacy contextVersion, so a v1 office cannot claim it and refuses the reply.
+                value = assignment(self.canvas, project, workspace, node, context_version=2)
+                sparse = {"contextVersion": None, "contextProtocolVersion": 2}
             budget = budget_status(self.canvas.db_for(project), project, workspace, node, value["acceptedRevision"])
             return {"available": True, "unavailableReason": None, "acceptedHead": value["acceptedRevision"],
                     "contextVersion": value["contextVersion"], "executionProtocolVersion": 2 if budget["enrolled"] else 1,
-                    "budget": budget} | ({"available": False, "unavailableReason": budget["blockedReason"]} if budget["blockedReason"] else {})
+                    "budget": budget} | sparse | ({"available": False, "unavailableReason": budget["blockedReason"]} if budget["blockedReason"] else {})
         except ValueError as exc:
             version,budget=unavailable_budget(self.canvas.db_for(project),project,workspace,node)
             return {"available": False, "unavailableReason": str(exc), "acceptedHead": None, "contextVersion": None,
