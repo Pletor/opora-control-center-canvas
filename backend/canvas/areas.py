@@ -1,4 +1,7 @@
-"""Členství v oblasti (`kind: "area"`) je geometrické, nikde se neukládá.
+"""Geometrická příslušnost k oblasti (`kind: "area"`) se nikde neukládá; výslovné členství nese `memberOf`.
+
+Výslovné logické členství (`memberOf`, H01, `docs/kontrakt-identity.md`) ověřuje `graph.validate_graph`
+a jen ono je členstvím pro agenty; `area_of` níže je nápověda plátna podle polohy.
 
 Oblast je dashovaný obdélník na plátně, který karty seskupuje podle polohy, ne podle
 odkazu. Karta patří do oblasti na stejné vrstvě (stejný `parentId`), jejíž obdélník
@@ -42,3 +45,19 @@ def area_of(node, nodes):
         return None
     candidates.sort(key=lambda area: area["size"]["w"] * area["size"]["h"])
     return candidates[0]
+
+
+def members_of(area_id, nodes):
+    """Id uzlů a sektorů, které se k oblasti `area_id` výslovně hlásí přes `memberOf` (ne geometricky)."""
+    return [n["id"] for n in nodes if n.get("memberOf") == area_id]
+
+
+def strip_area_membership(graph):
+    """Vratná cesta migrace H01: vrátí kopii grafu bez výslovného členství (`memberOf`).
+
+    Členství je aditivní pole, takže graf bez něj je přesně graf před migrací a projde starou validací.
+    """
+    return {
+        "nodes": [{k: v for k, v in n.items() if k != "memberOf"} for n in graph["nodes"]],
+        "edges": [dict(e) for e in graph["edges"]],
+    }

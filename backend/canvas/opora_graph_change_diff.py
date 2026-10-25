@@ -52,6 +52,8 @@ def preconditions(graph, plan, additions, inside=None):
                 observed[kind][update["id"]]["$areaId"] = area["id"] if area else None
                 relevant.add(before.get("parentId"))
                 relevant.add(update["fields"].get("parentId"))
+                relevant.add(before.get("memberOf"))
+                relevant.add(update["fields"].get("memberOf"))
             elif before:
                 relevant.update(before[key] for key in ("source", "target"))
                 relevant.update(update[key] for key in ("source", "target"))
@@ -62,6 +64,7 @@ def preconditions(graph, plan, additions, inside=None):
                            "edges": sorted(edge["id"] for edge in graph["edges"]
                                            if edge["source"] in removed or edge["target"] in removed)}
     relevant.update(node.get("parentId") for node in additions["nodes"])
+    relevant.update(node.get("memberOf") for node in additions["nodes"])
     relevant.update(edge[key] for edge in additions["edges"] for key in ("source", "target"))
     anchors, pending = {}, list(relevant)
     while pending:

@@ -46,7 +46,7 @@ def _validate(record):
                           "expected_revision": 0, "fields": item["fields"]})
     for node in record["additions"]["nodes"]:
         if node["kind"] not in ("node", "sector", "area") or not set(node) <= {
-            "id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef"
+            "id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf"
         }:
             raise ValueError("Invalid persisted node addition.")
     for edge in record["additions"]["edges"]:

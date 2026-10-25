@@ -23,6 +23,8 @@ def validate_origin(record):
     for node in nodes:
         node["id"] = translate[node["id"]]
         node["parentId"] = translate.get(node["parentId"], node["parentId"])
+        if "memberOf" in node:
+            node["memberOf"] = translate.get(node["memberOf"], node["memberOf"])
     for edge in edges:
         for key in ("id", "source", "target"):
             edge[key] = translate.get(edge[key], edge[key])

@@ -37,8 +37,11 @@ CARD_VALUES = {
     "effort": ("low", "medium", "high", "xhigh", "max"),
 }
 CARD_KEYS = set(CARD_VALUES) | {"due"}
+# `memberOf` je nepovinné výslovné logické členství uzlu nebo sektoru v oblasti (H01, kontrakt
+# `docs/kontrakt-identity.md`): id oblasti se stejným rodičem. Oblast tím nezačne být rodičem a
+# geometrické `areaId` (`areas.area_of`) zůstává jen nápovědou plátna, ne členstvím.
 NODE_KEY_SETS = tuple(
-    keys | offsets | color | card | site | design | gate | checks | facts | realization | scenario
+    keys | offsets | color | card | site | design | gate | checks | facts | realization | scenario | member
     for keys in (NODE_KEYS, NODE_KEYS_WITH_SOURCE, NODE_KEYS_WITH_SIZE)
     for offsets in (set(), {"blockOffsets"})
     for color in (set(), {"color"})
@@ -50,6 +53,7 @@ NODE_KEY_SETS = tuple(
     for facts in (set(), {"factRefs"})
     for realization in (set(), {"realization"})
     for scenario in (set(), {"scenario"})
+    for member in (set(), {"memberOf"})
 )
 EDGE_KEYS = {"id", "source", "target"}
 # Port karty, ze kterého vazba vede; chybějící port u starších vazeb znamená `next`.
@@ -198,6 +202,8 @@ def validate_graph(value):
             if n["kind"] != "node":
                 raise ValueError("Kartu má jen uzel.")
             validate_card(n["card"])
+        if "memberOf" in n and (n["kind"] not in ("node", "sector") or not valid_id(n["memberOf"])):
+            raise ValueError("Členství v oblasti má jen uzel nebo sektor.")
         if (
             not isinstance(n["name"], str)
             or (n["kind"] != "area" and not n["name"].strip())
@@ -239,6 +245,16 @@ def validate_graph(value):
             raise ValueError("Komentář nesmí být rodičem.")
         if kinds[parent_id] == "area":
             raise ValueError("Oblast nesmí být rodičem.")
+    for node in nodes:
+        # Členství je výslovné a ověřené: oblast musí existovat ve stejném grafu (tedy ve stejném
+        # projektu a prostoru) a mít stejného rodiče. Přesun ani smazání oblasti ho tiše nepřemapuje.
+        if "memberOf" in node and (
+            kinds.get(node["memberOf"]) != "area" or parents[node["memberOf"]] != node["parentId"]
+        ):
+            raise ValueError(
+                "Členství v oblasti musí mířit na existující oblast se stejným rodičem; "
+                "před přesunem karty nebo smazáním oblasti členství zrušte."
+            )
     for node_id, source_ref in sources.items():
         if source_ref is None or kinds[node_id] != "node":
             continue

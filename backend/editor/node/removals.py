@@ -115,6 +115,9 @@ class RemovalService:
         blocked = self.canvas.architecture_references(
             project, removed & arch_nodes, skip=workspace, hidden=arch_nodes - removed
         )
+        # Oblast s výslovnými členy zůstávajícími na plátně se nesmaže tiše (docs/kontrakt-identity.md).
+        if any(n.get("memberOf") in removed for n in graph["nodes"] if n["id"] not in removed):
+            raise ValueError("Oblast má výslovné členy; před smazáním oblasti jejich členství zrušte.")
         remaining = {
             "nodes": [n for n in graph["nodes"] if n["id"] not in removed],
             "edges": [

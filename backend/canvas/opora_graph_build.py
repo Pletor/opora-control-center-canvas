@@ -7,7 +7,7 @@ from backend.canvas.canvas_plan_layout import layout
 from backend.canvas.graph import digest, validate_graph
 from backend.editor.node.node_specs import EMPTY_FIELDS
 
-NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec"}
+NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf"}
 
 
 def validate_plan(plan):
@@ -49,6 +49,7 @@ def semantic(node):
 def anchors(base, additions, inside):
     existing = {node["id"]: node for node in base["nodes"]}
     relevant = set(inside.values()) | {node["parentId"] for node in additions["nodes"]}
+    relevant.update(node.get("memberOf") for node in additions["nodes"])
     relevant |= {edge[key] for edge in additions["edges"] for key in ("source", "target")}
     pending, observed = list(relevant), {}
     while pending:
