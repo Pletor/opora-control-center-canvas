@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
 import { architectureEditorId } from "./editor-model";
-import { resolveEditorRoute } from "./editor-route";
+import { domainViewOf, resolveEditorRoute } from "./editor-route";
 
 const node = (id: string, parentId: string | null = null): CanvasNode => ({ id, parentId, name: id, purpose: "", kind: "node", x: 0, y: 0 });
 const graph: Graph = { nodes: [
@@ -12,15 +12,23 @@ const graph: Graph = { nodes: [
 ], edges: [] };
 const route = (values: Record<string, string>) => new URLSearchParams(values);
 
+describe("domain view", () => {
+  it("reads Studio only from domainView=studio, anything else is Pages", () => {
+    expect(domainViewOf(route({ domainView: "studio" }))).toBe("studio");
+    expect(domainViewOf(route({ domainView: "x" }))).toBe("pages");
+    expect(domainViewOf(route({}))).toBe("pages");
+  });
+});
+
 describe("editor route", () => {
   it("opens the landing without parameters", () => {
-    expect(resolveEditorRoute(graph, route({}), "p", "main")).toEqual({ domainId: null, pageId: null, selectedId: null, structureId: null });
+    expect(resolveEditorRoute(graph, route({}), "p", "main")).toEqual({ domainId: null, pageId: null, selectedId: null, structureId: null, domainView: "pages" });
   });
 
   it("keeps domain, page, selection and structure from the link", () => {
     const editorId = architectureEditorId("p", "w1", "app");
-    expect(resolveEditorRoute(graph, route({ editorId, domainId: "app", pageId: "home", architectureNode: "card", structureNode: "card" }), "p", "w1"))
-      .toEqual({ domainId: "app", pageId: "home", selectedId: "card", structureId: "card" });
+    expect(resolveEditorRoute(graph, route({ editorId, domainId: "app", pageId: "home", architectureNode: "card", structureNode: "card", domainView: "studio" }), "p", "w1"))
+      .toEqual({ domainId: "app", pageId: "home", selectedId: "card", structureId: "card", domainView: "studio" });
   });
 
   it("derives the domain from a page and rejects foreign or invalid links", () => {

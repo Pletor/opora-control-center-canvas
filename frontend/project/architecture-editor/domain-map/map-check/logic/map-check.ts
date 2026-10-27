@@ -49,7 +49,7 @@ export function normalizeMapCheck(raw: unknown): MapCheck {
 }
 
 /** Uzel sám a jeho předci po `parentId`, odspodu; cyklus ani chybějící uzel nehodí výjimku. */
-function lineage(byId: Map<string, CanvasNode>, id: string): CanvasNode[] {
+export function lineage(byId: Map<string, CanvasNode>, id: string): CanvasNode[] {
   const chain: CanvasNode[] = [];
   for (let node = byId.get(id); node && !chain.includes(node); node = node.parentId ? byId.get(node.parentId) : undefined) chain.push(node);
   return chain;
