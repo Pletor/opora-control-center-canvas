@@ -148,3 +148,30 @@ def test_extend_layer_changes_card_layer_and_keeps_it_without_layer(tmp_path):
         keep = {"node": "@n0", "expectedRevision": revision(client), "blocks": blocks, "replaceBlocks": True}
         assert send(client, changed.json()["digest"], {"extend": [keep]}).status_code == 200
         assert layer_of(client) == "backend"
+
+
+def test_extend_writes_and_clears_component_tech_and_states(tmp_path):
+    """Agent doplní `card.tech` / `card.states` existující karty; `null` je smaže, prázdné odmítne."""
+    def card_of(client, node_id="n0"):
+        nodes = client.get("/api/view", params=SCOPE).json()["graph"]["nodes"]
+        return next(n for n in nodes if n["id"] == node_id).get("card")
+
+    def item(client, **fields):
+        revision = client.get("/api/desktop-v3/state", params=SCOPE).json()["revision"]
+        return {"node": "@n0", "expectedRevision": revision, **fields}
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        digest = seed(client)
+        original = card_of(client)
+        for bad in ({"tech": ""}, {"states": []}, {"states": ["chyba", "chyba"]}, {"tech": "x" * 81}):
+            refused = send(client, digest, {"extend": [item(client, **bad)]})
+            assert refused.status_code == 409, bad
+            assert card_of(client) == original
+        refused = send(client, digest, {"extend": [{**item(client, tech="FastAPI"), "node": "@s0"}]})
+        assert refused.status_code == 409 and "tech" in refused.json()["error"]
+        done = send(client, digest, {"extend": [item(client, tech="React 19", states=["prázdno", "chyba"])]})
+        assert done.status_code == 200, done.text
+        assert card_of(client) == {**(original or {}), "tech": "React 19", "states": ["prázdno", "chyba"]}
+        cleared = send(client, done.json()["digest"], {"extend": [item(client, tech=None, states=None)]})
+        assert cleared.status_code == 200, cleared.text
+        assert card_of(client) == original

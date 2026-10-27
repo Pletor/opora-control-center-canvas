@@ -193,7 +193,8 @@ pravidla); tady jen to, co rozklad sektoru navíc hlídá:
   (`sourceKind: "empty"`) navrhni jako první kartu `[research]` na volbu technologie a testovacího příkazu.
   Po vytvoření mění `checks` jen člověk.
 - `card` (`layer`, `model`, `effort`) vyplň jen tam, kde je technologie a vrstva známá; jinak `card` vynech
-  celé, nikdy `{}`.
+  celé, nikdy `{}`. U komponenty pod stránkou přidej `tech` (čím se staví) a `states` (1–8 stavů, které uživatel
+  uvidí, např. `prázdno`, `načítá`, `chyba`, `hotovo`), jen když je znáš; nevymýšlej je.
 - Vazby: `next` tvoří **hlavní linku** a ta končí na existující kartě `[gate]` sektoru
   (`"to": "@<gateNodeId>"`). **Jeden port vede na jednu kartu**; víc cílů = víc portů. `block` z bloku
   na bránu jen tam, kde blok nese akceptační podmínku sektoru, ne povinně u všech karet. Kartu `[gate]`,

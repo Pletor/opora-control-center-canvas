@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode } from "@/shared/types/logic/types";
-import { cardAddress, cardLayer, cardPath, effectiveStatus, effectiveType, formatPath, normalizeCard, slug, withCard } from "./card-context";
+import { cardAddress, cardComponent, cardLayer, cardPath, effectiveStatus, effectiveType, formatPath, normalizeCard, slug, withCard } from "./card-context";
 
 const node = (id: string, name: string, parentId: string | null = null, extra: Partial<CanvasNode> = {}): CanvasNode => ({
   id, parentId, kind: "node", name, purpose: "", x: 0, y: 0, ...extra,
@@ -91,5 +91,20 @@ describe("normalizeCard a withCard", () => {
     expect("card" in withCard(old, { layer: "" })).toBe(false);
     expect(withCard(old, { status: "ready" })).toEqual({ ...old, card: { status: "ready" } });
     expect(withCard(node("n2", "B"), {})).toEqual(node("n2", "B"));
+  });
+
+  it("technologii a stavy komponenty od agenta úprava karty člověkem zachová", () => {
+    const card = { layer: "frontend" as const, tech: "React 19", states: ["prázdno", "chyba"] };
+    const old = node("n1", "A", null, { card });
+    expect(withCard(old, { layer: "backend" }).card).toEqual({ layer: "backend", tech: "React 19", states: ["prázdno", "chyba"] });
+    expect(withCard(old, { layer: "" }).card).toEqual({ tech: "React 19", states: ["prázdno", "chyba"] });
+  });
+});
+
+describe("cardComponent", () => {
+  it("nezapsané je null a prázdný seznam, nic se nedoplňuje", () => {
+    expect(cardComponent({})).toEqual({ tech: null, states: [] });
+    expect(cardComponent({ card: { tech: "FastAPI" } })).toEqual({ tech: "FastAPI", states: [] });
+    expect(cardComponent({ card: { states: ["čeká", "hotovo"] } })).toEqual({ tech: null, states: ["čeká", "hotovo"] });
   });
 });

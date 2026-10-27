@@ -18,6 +18,8 @@ Uzel (`kind: "node"`, nikdy sektor, komentář ani oblast) smí v grafu nést ne
 | `due` | `YYYY-MM-DD` | termín, volitelný |
 | `model` | `fable` · `opus` · `sonnet` · `haiku` | doporučený model pro kartu (viz `docs/predani-modelum.md`) |
 | `effort` | `low` · `medium` · `high` · `xhigh` · `max` | doporučený effort |
+| `tech` | 1–80 znaků | technologie komponenty; píše agent (`docs/architektura-pro-agenty.md` §3.3) |
+| `states` | 1–8 různých stavů po 1–40 znacích | stavy komponenty; píše agent, formulář karty je zachová |
 
 - Každý klíč uvnitř `card` je nepovinný; prázdný `card` se neukládá (klient ho vypustí).
 - Jiný klíč nebo hodnota = `ValueError` v `backend/canvas/graph.py`. To platí i pro `card.type`:
@@ -99,7 +101,7 @@ Kdo z indexu čte:
 ## 6. node-brief a agent-output
 
 - `node-brief.node` navíc: `type` (typ workflow z předpony názvu; čte ho workflow), `layer`, `status`,
-  `due`, `model`, `effort` (efektivní hodnoty, chybějící `null`), `address`.
+  `due`, `model`, `effort` (efektivní hodnoty, chybějící `null`), `address`; `tech` a `states` jen když jsou zapsané.
 - `graph.incoming` / `graph.outgoing` navíc: `fromAddress`, `toAddress`; `report` nese `sentAt` a `due`, když jsou.
 - `agent-output`: když report mění neprázdný `handoff`, backend nastaví `sentAt` na čas zápisu. Agent
   `sentAt` ani `due` neposílá (neznámý klíč = chyba jako dosud).

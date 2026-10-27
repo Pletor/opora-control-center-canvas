@@ -2,6 +2,7 @@ import hashlib
 import json
 import math
 import re
+import unicodedata
 from datetime import date
 
 from backend.canvas.card_checks import validate_checks
@@ -27,7 +28,8 @@ BLOCK_OFFSET_PORTS = {"action", "rule", "material", "pipeline"}
 # smí ji nést jen oblast (kind "area") a jen jedna z šesti hodnot (viz `AREA_COLORS`).
 AREA_COLORS = ("indigo", "teal", "amber", "rose", "violet", "slate")
 # `card` je nepovinná karta uzlu (jen kind "node"): vrstva (otázka frontend / backend / database /
-# library z `docs/pravidla-struktury.md`), ruční stav, termín a doporučený model s effortem.
+# library z `docs/pravidla-struktury.md`), ruční stav, termín a doporučený model s effortem; u komponenty
+# navíc technologie `tech` a stavy `states` (viz níže).
 # Typ workflow se neukládá, čte se jen z předpony názvu (`[task] …`). `done` se nikdy neukládá, odvozuje se z uzavření karty (`done.confirmed`).
 # Kontrakt: `docs/kontext-karet-a-index.md` §1.
 CARD_VALUES = {
@@ -36,7 +38,12 @@ CARD_VALUES = {
     "model": ("fable", "opus", "sonnet", "haiku"),
     "effort": ("low", "medium", "high", "xhigh", "max"),
 }
-CARD_KEYS = set(CARD_VALUES) | {"due"}
+# `tech` a `states` popisují komponentu (kontrakt `docs/architektura-pro-agenty.md` §3.3) a píše je agent:
+# `tech` je technologie realizace (1–80 znaků), `states` 1–8 krátkých stavů (každý 1–40 znaků, jedinečný).
+# Prázdná hodnota se neukládá, klíč se vynechá; chybějící klíč nemění digest ani `contextVersion`.
+CARD_TECH_MAX = 80
+CARD_STATES_MAX, CARD_STATE_MAX = 8, 40
+CARD_KEYS = set(CARD_VALUES) | {"due", "tech", "states"}
 # `memberOf` je nepovinné výslovné logické členství uzlu nebo sektoru v oblasti (H01, kontrakt
 # `docs/kontrakt-identity.md`): id oblasti se stejným rodičem. Oblast tím nezačne být rodičem a
 # geometrické `areaId` (`areas.area_of`) zůstává jen nápovědou plátna, ne členstvím.
@@ -146,6 +153,27 @@ def validate_card(card):
             raise ValueError("Neplatná karta uzlu.")
     if "due" in card and not valid_date(card["due"]):
         raise ValueError("Neplatný termín karty.")
+    if "tech" in card and not card_text(card["tech"], CARD_TECH_MAX):
+        raise ValueError("Neplatná technologie karty (1–80 znaků bez okrajových mezer).")
+    if "states" in card:
+        states = card["states"]
+        if (
+            not isinstance(states, list)
+            or not 1 <= len(states) <= CARD_STATES_MAX
+            or not all(card_text(state, CARD_STATE_MAX) for state in states)
+            or len({state.casefold() for state in states}) != len(states)
+        ):
+            raise ValueError("Neplatné stavy karty (1–8 různých stavů po 1–40 znacích).")
+
+
+def card_text(value, limit):
+    """Krátký text karty: neprázdný, bez okrajových mezer a řídicích znaků, nejvýše `limit` znaků."""
+    return (
+        isinstance(value, str)
+        and 0 < len(value) <= limit
+        and value == value.strip()
+        and not any(unicodedata.category(char) == "Cc" for char in value)
+    )
 
 
 def validate_graph(value):

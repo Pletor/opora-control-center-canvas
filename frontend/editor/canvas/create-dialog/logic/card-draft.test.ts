@@ -10,6 +10,11 @@ describe("rozepsaná karta", () => {
     expect(sameCardDraft(draft, { ...draft, status: "ready" })).toBe(false);
   });
 
+  it("technologie a stavy komponenty do formuláře karty nepatří", () => {
+    const card = { layer: "frontend" as const, tech: "React 19", states: ["chyba"] };
+    expect(cardDraftOf(card)).toEqual({ layer: "frontend", status: "", due: "", model: "", effort: "" });
+  });
+
   it("čip vrstvy vybere, druhý klik na tentýž výběr zruší, jiný ho přepne", () => {
     const fe = toggleLayer(emptyCard(), "frontend");
     expect(fe.layer).toBe("frontend");

@@ -28,7 +28,15 @@ describe("pracovní kontext agenta", () => {
       page: { id: "page", name: "Dashboard" },
       componentPath: ["Formulář", "Pole e-mail"],
       repo: { kind: "existing", path: "src/Email.tsx" },
+      tech: null,
+      states: [],
     });
+  });
+  it("technologii a stavy komponenty čte jen ze zapsané karty uzlu", () => {
+    const card = { tech: "React 19", states: ["prázdno", "chyba"] };
+    const withCard: Graph = { nodes: [...graph.nodes, node("ui", "form", { card })], edges: [] };
+    expect(agentContext(withCard, "ui", "app")).toMatchObject({ tech: "React 19", states: ["prázdno", "chyba"] });
+    expect(agentContext(withCard, "form", "app")).toMatchObject({ tech: null, states: [] });
   });
   it("navrženou cestu označí jako návrh a prázdné jméno jako Bez názvu", () => {
     const context = agentContext(graph, "plan", "app");

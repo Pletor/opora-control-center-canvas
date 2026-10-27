@@ -7,7 +7,8 @@ při každém volání z grafu a stavu plochy (graf má nejvýše 2000 uzlů) a 
   rodiče, nejbližší sektor (u sektoru on sám), popis a cestu zdroje. Komentáře se neindexují.
 - Vazba (`kind` edge) nese oba konce s názvy a adresami a zprávu na vazbě (summary, handoff,
   sentAt, due), pokud existuje.
-- `text` je složený korpus pro hledání; adresa ani text nikdy nejsou klíčem, klíčem je `id`.
+- `text` je složený korpus pro hledání; adresa ani text nikdy nejsou klíčem, klíčem je `id`. Technologie
+  a stavy komponenty (`card.tech`, `card.states`) jsou jen v textu, záznam kvůli nim nový klíč nemá.
 """
 
 import re
@@ -39,14 +40,16 @@ def _lines(*parts):
     return "\n".join(part for part in parts if isinstance(part, str) and part)
 
 
-def _card_text(entry, node_state):
-    """Korpus karty: adresa, typ, štítek vrstvy, název, popis, zdroj; navíc bloky, kritéria a kroky ze stavu."""
+def _card_text(entry, node_state, card):
+    """Korpus karty: adresa, typ, štítek vrstvy, název, popis, zdroj, technologie a stavy komponenty;
+    navíc bloky, kritéria a kroky ze stavu."""
     blocks = []
     for block in node_state.get("blocks", []):
         blocks += [block.get("title", ""), block.get("text", "")]
         blocks += [todo.get("text", "") for todo in block.get("todos", [])]
     return _lines(
         entry["address"], entry["type"] or "", LAYER_LABELS.get(entry["layer"], ""), entry["name"], entry["purpose"], entry["sourcePath"],
+        card.get("tech"), *card.get("states", []),
         *blocks,
         *(item.get("text", "") for item in node_state.get("criteria", [])),
         *(item.get("text", "") for item in node_state.get("steps", [])),
@@ -86,7 +89,7 @@ def build_index(graph, state):
             "purpose": node["purpose"],
             "sourcePath": (node.get("sourceRef") or {}).get("path", ""),
         }
-        entry["text"] = _card_text(entry, node_state)
+        entry["text"] = _card_text(entry, node_state, card)
         entries.append(entry)
     for edge in graph.get("edges", []):
         source, target = by_id.get(edge["source"]), by_id.get(edge["target"])

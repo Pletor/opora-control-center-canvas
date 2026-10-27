@@ -700,3 +700,30 @@ def test_link_carries_appears_only_when_the_edge_has_it(tmp_path):
         data = brief(client).json()
         assert data["graph"]["incoming"][0]["carries"] == "navigation"
         assert "carries" not in data["graph"]["outgoing"][0]
+
+
+def test_component_tech_and_states_appear_only_when_set_and_change_the_version(tmp_path):
+    """Kontrakt architektura-pro-agenty §3.3: `card.tech` a `card.states` jsou část zadání komponenty."""
+    def save(client, card):
+        nodes = [{**item, "card": card} if item["id"] == "focus" and card else item for item in GRAPH["nodes"]]
+        view = client.get("/api/view", params=SCOPE).json()
+        saved = client.post("/api/graph", headers=HEADERS,
+                            json={**SCOPE, "graph": {"nodes": nodes, "edges": GRAPH["edges"]}, "digest": view["digest"]})
+        assert saved.status_code == 200, saved.text
+        return brief(client).json()
+
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        plain = save(client, None)
+        layered = save(client, {"layer": "frontend"})
+        assert "tech" not in layered["node"] and "states" not in layered["node"]
+        own = next(item for item in layered["specification"]["graph"]["nodes"] if item["id"] == "focus")
+        assert "tech" not in own and "states" not in own
+        component = save(client, {"layer": "frontend", "tech": "React 19", "states": ["prázdno", "chyba"]})
+        assert component["node"]["tech"] == "React 19"
+        assert component["node"]["states"] == ["prázdno", "chyba"]
+        own = next(item for item in component["specification"]["graph"]["nodes"] if item["id"] == "focus")
+        assert (own["tech"], own["states"]) == ("React 19", ["prázdno", "chyba"])
+        assert component["contextVersion"] != layered["contextVersion"]
+        # Odebrání vrátí přesně původní otisk: chybějící klíč se nikdy nedoplňuje.
+        assert save(client, {"layer": "frontend"})["contextVersion"] == layered["contextVersion"]
+        assert save(client, None)["contextVersion"] == plain["contextVersion"]

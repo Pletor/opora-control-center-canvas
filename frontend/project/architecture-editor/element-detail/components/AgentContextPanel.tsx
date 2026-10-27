@@ -4,7 +4,7 @@ const UNKNOWN = "nedostupné";
 
 /** Panel „Pracovní kontext agenta“: kde prvek žije, aby agent i člověk věděli, na co sahají. */
 export default function AgentContextPanel({ context }: { context: AgentContext }) {
-  const { environment, host, page, componentPath, repo } = context;
+  const { environment, host, page, componentPath, repo, tech, states } = context;
   return (
     <section className="element-detail__context" aria-label="Pracovní kontext agenta">
       <h3 className="element-detail__context-title">Pracovní kontext agenta</h3>
@@ -25,6 +25,18 @@ export default function AgentContextPanel({ context }: { context: AgentContext }
         <dd className="element-detail__fact">
           <code className="element-detail__path">{repo ? repo.path : UNKNOWN}</code>
         </dd>
+        {tech && <>
+          <dt className="element-detail__fact-label">Technologie</dt>
+          <dd className="element-detail__fact">{tech}</dd>
+        </>}
+        {states.length > 0 && <>
+          <dt className="element-detail__fact-label">Stavy</dt>
+          <dd className="element-detail__fact">
+            <ul className="element-detail__states">
+              {states.map((state) => <li key={state} className="element-detail__state">{state}</li>)}
+            </ul>
+          </dd>
+        </>}
       </dl>
       {repo?.kind === "planned" ? <p className="element-detail__notice">{PLANNED_NOTICE}</p> : null}
     </section>
