@@ -240,4 +240,6 @@
   --studio-state-verified: #58d7c1;
   --studio-state-hole: #ff6275;
   --studio-carries-unspecified: #7d8fa8;
+  /* Zastavená tečka selhání cesty (docs/zive-zobrazeni-a-knihovna.md §3). */
+  --studio-failure: #ff5c78;
 }

@@ -5,8 +5,13 @@ import type { DerivedJourney } from "@/project/architecture-editor/domain-map/lo
 import { studioDescendants, type StudioItem, type StudioTree } from "./studio-tree";
 
 export type StudioState = "plan" | "building" | "done" | "verified" | "hole";
-/** Cesta zákazníka domény: stránky jejích kroků a odvození backendu s `lastRun` (chybí = nenačteno). */
-export type StudioJourney = { id: string; name: string; domainId: string; pages: Set<string>; derived: DerivedJourney | undefined };
+/** Cesta zákazníka domény: stránky jejích kroků, stránka podle kroku a odvození backendu s `lastRun` (chybí = nenačteno). */
+export type StudioJourney = {
+  id: string; name: string; domainId: string; pages: Set<string>;
+  /** Stránka každého kroku podle id kroku (včetně menu `nav`): přechody `lastRun` a odvození jsou mezi kroky. */
+  stepPages: Map<string, string>;
+  derived: DerivedJourney | undefined;
+};
 export type StudioFacts = {
   done: Set<string>;
   building: Set<string>;

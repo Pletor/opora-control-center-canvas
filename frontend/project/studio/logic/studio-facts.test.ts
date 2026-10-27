@@ -41,5 +41,6 @@ describe("studio facts", () => {
     const [journey] = studioJourneys(graph, derived);
     expect(journey).toMatchObject({ id: "j1", name: "Kampaň", domainId: "web", derived: derived[0] });
     expect([...journey.pages]).toEqual(["home"]);
+    expect(Object.fromEntries(journey.stepPages)).toEqual({ s1: "nav", s2: "home" });
   });
 });

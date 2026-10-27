@@ -11,7 +11,7 @@ const graph: Graph = { nodes: [
   node("c1", "home", { card: { section: "hero" } }), node("c2", "home", { card: { section: "hero" } }), node("c3", "home"),
 ], edges: [] };
 const run = (passed: boolean, stale = false): DerivedJourney => ({ applicationId: "web", id: "j", missing: [], segments: [], lastRun: { at: "2026-10-27T10:00:00Z", passed, stale, command: "x", failed: passed ? 0 : 1 } });
-const journey = (derived: DerivedJourney | undefined): StudioJourney => ({ id: "j", name: "Kampaň", domainId: "web", pages: new Set(["home"]), derived });
+const journey = (derived: DerivedJourney | undefined): StudioJourney => ({ id: "j", name: "Kampaň", domainId: "web", pages: new Set(["home"]), stepPages: new Map([["s1", "home"]]), derived });
 const facts = (extra: Partial<StudioFacts> = {}): StudioFacts => ({ done: new Set(), building: new Set(), holes: new Map(), journeys: [], ...extra });
 
 describe("studio card status", () => {

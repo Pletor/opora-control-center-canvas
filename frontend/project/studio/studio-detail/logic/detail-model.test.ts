@@ -15,7 +15,7 @@ const graph: Graph = {
 };
 const tree = buildStudioTree(graph);
 const facts: StudioFacts = { done: new Set(["a"]), building: new Set(), holes: new Map([["a", ["bez cíle"]], ["a1", ["bez stavu"]]]), journeys: [
-  { id: "j", name: "Kampaň", domainId: "web", pages: new Set(["a"]), derived: { applicationId: "web", id: "j", missing: [], segments: [], lastRun: { at: "2026-10-27T10:00:00Z", passed: true, stale: false, command: "npm run journey", failed: 0 } } },
+  { id: "j", name: "Kampaň", domainId: "web", pages: new Set(["a"]), stepPages: new Map([["s1", "a"]]), derived: { applicationId: "web", id: "j", missing: [], segments: [], lastRun: { at: "2026-10-27T10:00:00Z", passed: true, stale: false, command: "npm run journey", failed: 0 } } },
 ] };
 
 describe("detail model", () => {

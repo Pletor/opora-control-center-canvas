@@ -1,0 +1,36 @@
+/* Pohyb Skutečnosti leží přímo na vazbě: neviditelná kopie trasy, po které animátor měří polohu teček, a nad ní
+   tečky. Plátno je jinak v klidu; hýbe se jen to, co se právě staví nebo co právě prošlo, aby oko našlo práci
+   hned a nic nekřičelo zbytečně (docs/studio.md §2). */
+.studio-motion { pointer-events: none; }
+.studio-motion__track { fill: none; stroke: none; }
+
+/* Tečka 5 px v barvě druhu toku vazby se září 6 px, jako tok v TechViz: dvě tečky obíhají trasu stavěné vazby
+   lineárně za 1,05 s (sousední vazby o 70 ms pomaleji, aby nešly v zákrytu). Jednorázová tečka nově ověřené cesty
+   vypadá stejně, jen projede jednou a zmizí. */
+.studio-motion__dot { fill: var(--studio-link, var(--studio-blue)); filter: drop-shadow(0 0 6px var(--studio-link, var(--studio-blue))); }
+.studio-motion__dot--pass { fill: var(--studio-state-verified); filter: drop-shadow(0 0 6px var(--studio-state-verified)); }
+
+/* Štítek „staví se“ nad středem vazby je náhrada pohybu: kdo má omezený pohyb, dostane stav slovem, ostatní ho
+   nepotřebují, protože ho vidí v tečkách. */
+.studio-motion__label { display: none; fill: var(--studio-state-building); font: 700 10px Inter, system-ui, sans-serif; paint-order: stroke; stroke: var(--studio-bg); stroke-width: 3px; }
+
+/* Selhání cesty je zastavená červená tečka s křížkem v půli vazby, kde cesta spadla: nehýbe se, protože už se nic
+   neděje, jen čeká na opravu. Na najetí myší řekne, která cesta, který přechod a proč. */
+.studio-motion__failure { pointer-events: all; cursor: help; }
+.studio-motion__failure-dot { fill: var(--studio-failure); stroke: var(--studio-bg); stroke-width: 1.5px; filter: drop-shadow(0 0 6px var(--studio-failure)); }
+.studio-motion__failure-cross { fill: none; stroke: var(--studio-bg); stroke-width: 1.6px; stroke-linecap: round; }
+
+/* Karta kroku nově ověřené cesty jednou zapulzuje (0,9 s): kolem karty se rozběhne a zhasne tyrkysový kruh, jako
+   když se rozsvítí kontrolka. Pak je klid; trvalý stav nese štítek karty „ověřeno“. */
+.studio-motion__pulse { border-radius: 8px; animation: studio-motion-pulse .9s ease-out 1; }
+@keyframes studio-motion-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--studio-state-verified) 70%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+
+/* Omezený pohyb: žádné tečky ani pulz; stav nesou barva rámu karty a štítek „staví se“ na vazbě. */
+@media (prefers-reduced-motion: reduce) {
+  .studio-motion__dot { display: none; }
+  .studio-motion__label { display: block; }
+  .studio-motion__pulse { animation: none; }
+}

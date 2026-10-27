@@ -14,6 +14,7 @@ import StudioCanvas from "../studio-canvas/components/StudioCanvas";
 import StudioBreadcrumbs from "../studio-breadcrumbs/components/StudioBreadcrumbs";
 import StudioDetail from "../studio-detail/components/StudioDetail";
 import StudioJourneys from "../studio-journeys/components/StudioJourneys";
+import { useStudioMotion } from "../studio-motion/logic/use-studio-motion";
 import "../styles/studio.css";
 
 type Props = {
@@ -26,7 +27,7 @@ type Props = {
 
 /** Záložka Studio (docs/studio.md, vrstva Skutečnost): fraktální plátno projekt → doména → stránka → sekce → komponenta
  * v designu TechViz, drobečky nahoře, panel detailu vpravo a na doméně pás cest zákazníka pod plátnem. Skládá dílky,
- * drží zanoření (v adrese) a výběr; nic neukládá, všechno jen čte. */
+ * drží zanoření (v adrese) a výběr a skládá pohyb Skutečnosti (`studio-motion`); nic neukládá, všechno jen čte. */
 export default function Studio({ project, workspace, worktreeLive, onOpenArchitecture }: Props) {
   const data = useStudioData(project, workspace, worktreeLive);
   const { tree, graph, facts } = data;
@@ -35,6 +36,8 @@ export default function Studio({ project, workspace, worktreeLive, onOpenArchite
   const level = useMemo(() => levelOf(tree, graph, focus), [tree, graph, focus]);
   const statuses = useMemo(() => new Map([...level.cards, ...(level.focus ? [level.focus] : [])].map((item) => [item.id, cardStatus(tree, item, facts)])), [tree, level, facts]);
   const views = useMemo(() => level.cards.map((item) => cardView(item, statuses.get(item.id)!)), [level, statuses]);
+  const states = useMemo(() => new Map(views.map((view) => [view.id, view.state])), [views]);
+  const motion = useStudioMotion({ tree, focus, links: level.links, states, journeys: data.derived ? facts.journeys : null });
   const grouped = useMemo(() => new Set(level.cards.filter((item) => item.unsectioned).map((item) => item.id)), [level]);
   const crumbs = [{ id: null, label: "Projekt", kind: "Projekt" }, ...studioTrail(tree, focus).map((item) => ({ id: item.id, label: item.name, kind: KIND_LABEL[item.kind] }))];
   const shown = (selected && level.cards.find((item) => item.id === selected)) || level.focus;
@@ -57,7 +60,7 @@ export default function Studio({ project, workspace, worktreeLive, onOpenArchite
     <div className="studio__body">
       <div className="studio__stage">
         {!data.loaded ? <p className="studio__loading">Načítám architekturu…</p>
-          : <StudioCanvas levelKey={focus ?? "project"} cards={views} grouped={grouped} links={level.links} selected={selected} onSelect={select} onEnter={enter} onUp={up}/>}
+          : <StudioCanvas levelKey={focus ?? "project"} cards={views} grouped={grouped} links={level.links} selected={selected} motion={motion} onSelect={select} onEnter={enter} onUp={up}/>}
         {lanes && <StudioJourneys lanes={lanes} open={lanesOpen} onToggle={() => setLanesOpen((value) => !value)} onPage={(pageId) => open(tree.parent.get(pageId) ?? null, pageId)}/>}
       </div>
       <StudioDetail view={detail} selected={!!selected && shown !== level.focus} onOpenEditor={onOpenArchitecture} onClear={() => select(null)}/>

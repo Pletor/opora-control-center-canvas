@@ -40,7 +40,8 @@ export function studioJourneys(graph: Graph, derived: DerivedJourney[] | null): 
     const runs = derivedForDomain(derived ?? [], node.id);
     return (node.site.journeys ?? []).map((journey) => ({
       id: journey.id, name: journey.name || journey.id, domainId: node.id,
-      pages: new Set(journey.steps.map((step) => step.page).filter((page) => page !== FROM_NAV)), derived: runs.get(journey.id),
+      pages: new Set(journey.steps.map((step) => step.page).filter((page) => page !== FROM_NAV)),
+      stepPages: new Map(journey.steps.map((step) => [step.id, step.page])), derived: runs.get(journey.id),
     }));
   });
 }
