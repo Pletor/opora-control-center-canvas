@@ -1,0 +1,59 @@
+/* Cesty zákazníka domény jako dráhy pod plátnem Studia (přesunuto z mapy domény, etapa 9): když člověk stojí na doméně,
+   vidí pod kartami, kudy zákazník jde a co poslední ověření potvrdilo. Pás má vlastní posuvník a dá se sbalit, aby
+   plátno zůstalo hlavní plochou. Barvy a linky jsou z palety Studia, tmavé jako plátno nad ním. */
+.studio-journeys{flex-shrink:0;max-height:42%;overflow:auto;padding:10px 16px 14px;border-top:1px solid var(--studio-line);background:var(--studio-panel);color:var(--studio-text)}
+.studio-journeys__toggle{display:flex;align-items:center;gap:8px;width:100%;margin:0;padding:4px 0;border:0;background:none;color:var(--studio-text);font:inherit;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;text-align:left;cursor:pointer}
+.studio-journeys__toggle::before{content:"▸";color:var(--studio-blue)}
+.studio-journeys__toggle--open::before{content:"▾"}
+.studio-journeys__heading-count{min-width:22px;padding:1px 8px;border-radius:999px;border:1px solid var(--studio-line);color:var(--studio-muted);font-size:11px;text-align:center}
+.studio-journeys__empty{margin:6px 0 0;color:var(--studio-muted);font-size:12px}
+
+/* Odznak ověření cesty v záhlaví dráhy: zelený ověřeno, jantarový zastaralé, červený neprošlo, šedý neověřeno; čas běhu
+   drobně za textem, příkaz v tooltipu. Text a tón dává sdílená logika journey-verification. */
+.studio-journeys__badge{--studio-journeys-badge:var(--studio-state-plan);display:inline-flex;gap:6px;align-items:baseline;padding:1px 8px;border:1px solid var(--studio-journeys-badge);border-radius:10px;color:var(--studio-journeys-badge);font-size:11px}
+.studio-journeys__badge--ok{--studio-journeys-badge:var(--studio-state-done)}
+.studio-journeys__badge--stale{--studio-journeys-badge:var(--edge-carries-event)}
+.studio-journeys__badge--failed{--studio-journeys-badge:var(--studio-state-hole)}
+.studio-journeys__badge-time{color:var(--studio-muted);font-size:10px}
+
+/* Dráha je jedna cesta zákazníka na jednom řádku: v záhlaví název, odznak ověření a proměna A → B, aby člověk
+   hned věděl, proč cesta existuje a jestli ji poslední běh potvrdil. Dráhy leží pod sebou jako koleje. */
+.studio-journeys__lane-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:14px}
+.studio-journeys__lane{padding:12px 14px;border:1px solid var(--studio-line);border-radius:12px;background:var(--studio-card)}
+.studio-journeys__lane-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-bottom:10px}
+.studio-journeys__lane-name{font-size:14px}
+.studio-journeys__lane-shift{color:var(--studio-muted);font-size:12px}
+.studio-journeys__lane-point{color:var(--studio-blue)}
+.studio-journeys__lane-broken{margin:0 0 8px;color:var(--edge-carries-event);font-size:12px}
+
+/* Kolej: zastávky a přechody vodorovně za sebou. Delší cesta se neláme do řádků, ale posouvá do strany, aby
+   pořadí kroků zůstalo čitelné zleva doprava jako čas. */
+.studio-journeys__track{list-style:none;margin:0;padding:2px 0 6px;display:flex;align-items:stretch;overflow-x:auto}
+
+/* Zastávka je stránka kroku: role malým písmem, název stránky a její cesta jako kód. Je to tlačítko, protože klik
+   otevře Editor té stránky; menu a chybějící stránka se otevřít nedají, proto jsou bez rámečku akce. */
+.studio-journeys__stop-slot{display:flex;flex:0 0 auto}
+.studio-journeys__stop{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:130px;max-width:190px;padding:8px 10px;border:1px solid var(--studio-line);border-radius:10px;background:var(--studio-panel);color:var(--studio-text);font:inherit;text-align:left;cursor:pointer}
+.studio-journeys__stop:hover:not(:disabled){border-color:var(--studio-blue)}
+.studio-journeys__stop--static{cursor:default;border-style:dashed}
+.studio-journeys__stop--missing{border-color:var(--edge-carries-event);color:var(--edge-carries-event)}
+.studio-journeys__stop-role{color:var(--studio-muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.studio-journeys__stop-title{font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.studio-journeys__stop-path{color:var(--studio-blue);font-size:11px;overflow-wrap:anywhere}
+
+/* Přechod je šipka mezi zastávkami a její barva je výsledek posledního ověření: zelená prošel, červená neprošel,
+   jantarová zastaralé, šedá čárkovaná neověřeno. Nad šipkou co zákazník udělá (signál `via`), pod ní stav slovy
+   a jak přechod mapa nese; nerealizovaný přechod je tichý štítek, protože je to práce pro agenty, ne chyba. */
+.studio-journeys__transition{--studio-state:var(--studio-muted);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;flex:0 0 auto;width:170px;padding:0 8px;text-align:center}
+.studio-journeys__transition--passed{--studio-state:var(--studio-state-done)}
+.studio-journeys__transition--failed{--studio-state:var(--studio-state-hole)}
+.studio-journeys__transition--stale{--studio-state:var(--edge-carries-event)}
+.studio-journeys__transition-arrow{position:relative;width:100%;height:0;border-top:2px solid var(--studio-state)}
+.studio-journeys__transition-arrow::after{content:"";position:absolute;right:-1px;top:-6px;border:5px solid transparent;border-left:8px solid var(--studio-state);border-right:0}
+.studio-journeys__transition--unverified .studio-journeys__transition-arrow{border-top-style:dashed}
+.studio-journeys__transition-signal{font-size:11px;color:var(--studio-text);overflow-wrap:anywhere}
+.studio-journeys__transition-signal--missing{color:var(--edge-carries-event)}
+.studio-journeys__transition-state{font-size:10px;font-weight:700;color:var(--studio-state);text-transform:uppercase;letter-spacing:.05em}
+.studio-journeys__transition-line{max-width:100%;font-size:10px;color:var(--studio-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.studio-journeys__transition-line--gap{padding:0 6px;border:1px dashed var(--studio-line);border-radius:999px}
+.studio-journeys__transition-branch{font-size:10px;color:var(--studio-blue)}

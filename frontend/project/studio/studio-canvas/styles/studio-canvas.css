@@ -1,0 +1,38 @@
+/* Plátno Studia je noční deska z TechViz: tmavá modř se slabým světlem v levém horním rohu a mřížka teček po 24 px,
+   aby oko mělo měřítko i při oddálení. Zabírá všechno místo mezi drobečky a panelem detailu; fokus klávesnice
+   ukáže modrá linka uvnitř, protože šipky a Enter ovládají výběr karet. */
+.studio-canvas { position: relative; flex: 1; min-width: 0; min-height: 0; background: radial-gradient(ellipse at top left, var(--studio-bg-glow), var(--studio-bg) 65%); outline: none; }
+.studio-canvas:focus-visible { box-shadow: inset 0 0 0 2px var(--studio-blue); }
+.studio-canvas .react-flow { --xy-background-color: transparent; background: transparent; }
+.studio-canvas__empty { position: absolute; left: 50%; top: 45%; margin: 0; transform: translate(-50%, -50%); color: var(--studio-muted); font-size: 13px; pointer-events: none; }
+
+/* Vazba je Bézierova křivka 2 px s průhledností 0,7 jako v TechViz; barva říká, co po ní teče: modrá navigace,
+   tyrkysová data, fialový příkaz o půl pixelu silnější, jantarová událost čárkovaně 6 4, neurčená šedá
+   (docs/zive-zobrazeni-a-knihovna.md §2). Pod čarou leží neviditelná široká stopa, aby šel tooltip trefit myší. */
+.studio-canvas__link { --studio-link: var(--studio-carries-unspecified); }
+.studio-canvas__link--navigation { --studio-link: var(--edge-carries-navigation); }
+.studio-canvas__link--data { --studio-link: var(--edge-carries-data); }
+.studio-canvas__link--command { --studio-link: var(--edge-carries-command); }
+.studio-canvas__link--event { --studio-link: var(--edge-carries-event); }
+.studio-canvas__link-line { fill: none; stroke: var(--studio-link); stroke-width: 2; opacity: .7; pointer-events: none; }
+.studio-canvas__link--command .studio-canvas__link-line { stroke-width: 2.5; }
+.studio-canvas__link--event .studio-canvas__link-line { stroke-dasharray: 6 4; }
+.studio-canvas__link-hit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; }
+
+/* Štítek souhrnné vazby: malé kolečko s počtem hran uprostřed křivky, orámované barvou druhu toku. Říká „pod touto
+   čarou je víc vazeb“, které se ukážou, když člověk sestoupí o patro. */
+.studio-canvas__link-count { --studio-link: var(--studio-carries-unspecified); position: absolute; min-width: 20px; padding: 1px 6px; border: 1px solid var(--studio-link); border-radius: 10px; background: var(--studio-bg); color: var(--studio-text); font: 700 10px/16px Inter, system-ui, sans-serif; text-align: center; pointer-events: all; }
+.studio-canvas__link-count--navigation { --studio-link: var(--edge-carries-navigation); }
+.studio-canvas__link-count--data { --studio-link: var(--edge-carries-data); }
+.studio-canvas__link-count--command { --studio-link: var(--edge-carries-command); }
+.studio-canvas__link-count--event { --studio-link: var(--edge-carries-event); }
+
+/* Minimapa vpravo dole jako v TechViz: tmavý rámeček 194 × 116 se zaoblením 8 px, karty v barvě svého stavu, takže i
+   z celkového pohledu je vidět, kde se staví a kde je díra. Tah a kolečko v ní posouvají a zoomují plátno. */
+.studio-canvas__minimap { width: 194px; height: 116px; border: 1px solid var(--studio-line); border-radius: 8px; overflow: hidden; background: #1c2a3ae8; }
+
+/* Ovladače pohledu vpravo nahoře: svislý sloupek tlačítek 32 px (přiblížit, oddálit, napasovat) na tmavém podkladu
+   s linkou, stejné místo i tvar jako sloupek ovladačů prototypu. */
+.studio-canvas__controls { border: 1px solid var(--studio-line); border-radius: 8px; overflow: hidden; background: var(--studio-control); box-shadow: none; }
+.studio-canvas__controls .react-flow__controls-button { width: 32px; height: 32px; border-bottom: 1px solid var(--studio-line); background: var(--studio-control); color: var(--studio-text); fill: var(--studio-text); }
+.studio-canvas__controls .react-flow__controls-button:hover { background: #233951; }

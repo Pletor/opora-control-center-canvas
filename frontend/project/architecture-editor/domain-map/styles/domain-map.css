@@ -24,13 +24,6 @@
 .domain-map__title{margin:4px 0 8px;font-size:24px}
 .domain-map__lead{margin:0;color:var(--ae-muted)}
 
-/* Nadpis mapy a vedle něj přepínač pohledu Stránky | Studio: dva pohledy na stejná data, proto malý segmentový přepínač
-   u nadpisu, ne další obrazovka. Zvolený pohled svítí akcentem, druhý zůstává tichý, aby přepínač nepřebil obsah. */
-.domain-map__head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.domain-map__views{display:inline-flex;padding:2px;border:1px solid var(--ae-line);border-radius:10px;background:var(--ae-card)}
-.domain-map__view{padding:5px 14px;border:0;border-radius:8px;background:none;color:var(--ae-muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
-.domain-map__view:hover{color:var(--ae-text)}
-.domain-map__view--active{background:color-mix(in srgb,var(--ae-accent) 22%,transparent);color:var(--ae-accent)}
 .domain-map__empty{margin:0;color:var(--ae-muted);font-size:12px}
 
 /* NAVBAR: panel s tlačítky hlavních stránek, přesně tak, jak je uvidí návštěvník webu. */

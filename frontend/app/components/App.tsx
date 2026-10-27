@@ -434,6 +434,8 @@ export default function App() {
     }
     // Otevřený detail karty (`openCardDrawer`) si drží vlastní parametry; v tomtéž prostoru je nepřepisujeme.
     if (!switchedScope) for (const name of ["ohCard", "ohTab"]) if (currentRoute.has(name)) q.set(name, currentRoute.get(name)!);
+    // Zanoření Studia (`studioFocus`, docs/studio.md §2) drží Studio samo; platí jen v jeho záložce a v tomtéž prostoru.
+    if (!switchedScope && projectMapKind === "studio" && currentRoute.has("studioFocus")) q.set("studioFocus", currentRoute.get("studioFocus")!);
     history.replaceState(null, "", "/?" + q);
   }, [project, workspace, parent, selected, mode, screen, wireframeMode, environment, projectMapKind]);
   const completed = jobs
@@ -732,6 +734,15 @@ export default function App() {
       setMode("structure"); setParent(target.site?.kind === "page" ? target.id : target.parentId); setSelection(selectNode(id));
       setTagFilter(""); dock.close();
     });
+  }
+  /** Studio → Architektura projektu: parametry editoru jdou do adresy dřív, než se editor připojí, protože je čte při startu. */
+  function openStudioInArchitecture(params: Record<string, string>) {
+    const route = new URLSearchParams(location.search);
+    for (const name of ["editorId", "domainId", "pageId", "architectureNode", "structureNode", "studioFocus"]) route.delete(name);
+    for (const [name, value] of Object.entries(params)) route.set(name, value);
+    route.set("projectView", "architecture");
+    history.replaceState(null, "", "/?" + route);
+    setProjectMapKind("architecture");
   }
   async function addSkeleton(parentId: string | null, names: string[], kind: "node" | "sector") {
     if (!editable || busy || savingGraph.current > 0) throw new Error("Úpravy nejsou právě dostupné. Otevřete pracovní prostor nebo počkejte na uložení.");
@@ -1112,7 +1123,7 @@ export default function App() {
           z levého okraje rámu vyjíždí menu (Struktura, Schránka, Nastavení) nad plátnem, ne vedle
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onOpenArchitecture={openStudioInArchitecture} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
       environment === "hub" ? <OporaHubWorkspace onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
