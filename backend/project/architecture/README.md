@@ -15,3 +15,12 @@ ze tří zdrojů: relace asistenta, hook bindingy a lease + aktivita karet. Vyhr
 bez relace), `reasons[]` nese důvody vítězného stavu. Prahy: hook bez signálu 120 s, aktivita karty 300 s, okno „stojí“
 24 h. Worktree se řadí do domén podle `workspaces.node_id`; co nesedí na žádnou doménu architektury, je v `unassigned`.
 Relace v `main`/`draft` jsou v `mainSessions`. Čisté funkce berou `now`; čtení zdrojů je v `collect_sources`.
+
+## Kontrola mapy (`map_check.py`)
+
+`GET /api/project-architecture/map-check?project=` (`docs/architektura-pro-agenty.md` §5) vrací
+`{findings: [{rule, nodeId|edgeId, message}], summary: {pravidlo: počet}}` nad přijatým grafem (architektura složená
+s obsahem `main`, bez Gitu `draft`; čte ho `work_status.architecture_graph`). Bez modelu, deterministicky: pořadí
+pravidel, pak id. Pravidla `page.no-goal`, `section.unrealized`, `command.no-receiver`, `state.no-error`,
+`edge.carries-unset`; komponenta je uzel pod nejbližší stránkou v řetězu `parentId`. Nová pole kontraktu se čtou jako
+nepovinná, nic se nedoplňuje. `journey.broken` přijde s cestami zákazníka (etapa 7).

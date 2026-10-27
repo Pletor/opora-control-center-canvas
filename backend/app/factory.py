@@ -67,6 +67,7 @@ from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
 from backend.api.project.project_architecture_routes import create_project_architecture_router
+from backend.api.project.project_map_check_routes import create_project_map_check_router
 from backend.api.project.project_web_status_routes import create_project_web_status_router
 from backend.api.project.project_work_status_routes import create_project_work_status_router
 from backend.api.project.project_workspace_routes import create_project_workspace_router
@@ -335,6 +336,7 @@ def create_app(data_root=None):
     app.include_router(create_rlm_router(key_source=lambda: app_settings.jev_key(jev_provider), evaluate=jev_evaluate))
     app.include_router(create_project_work_status_router(service, assistant.registry))
     app.include_router(create_project_web_status_router(WebStatusService(service)))
+    app.include_router(create_project_map_check_router(service))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)
     sync_report = SyncReport(service, check_runs=check_runs)
