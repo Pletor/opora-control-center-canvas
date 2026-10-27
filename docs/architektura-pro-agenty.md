@@ -24,12 +24,13 @@ cestu → výsledek se zapíše na mapu a do paměti role.
 |---|---|---|---|
 | 0 Projekt | aplikace (`site.kind = "application"`) | člověk | prostředí, **cesty zákazníka** (`journeys`) |
 | 1 Stránka | `site.kind = "page"` | člověk | `goal`, `feel`, `navLabel`; pořadí v menu dává pořadí uzlů (beze změny) |
-| 2 Sekce | `site.sections` stránky | agent navrhne, člověk potvrdí dávku | role, název, záměr sekce |
+| 2 Sekce | `site.sections` stránky | člověk ve formuláři stránky; agent smí navrhnout v dávce | role, název, záměr sekce |
 | 3 Komponenta | uzel pod stránkou | agent | `section`, `card.tech`, `card.states`, `sourceRef`, kontroly |
 | Vazby | hrany | agent | `carries` (druh toku) |
 | Brána | cesta A → B | stroj | výsledek ověření cesty |
 
-Člověk pod úrovní stránky nic nevyplňuje (pyramida §4). Formuláře pro člověka jsou jen na aplikaci a stránce.
+Člověk pod úrovní sekcí nic nevyplňuje (pyramida §4). Formuláře pro člověka jsou jen na aplikaci a stránce;
+sekce jsou součástí formuláře stránky, protože člověk určuje, co na stránce má být (rozhodnutí 2026-10-27).
 
 ## 3. Datový model (jen přidává)
 
@@ -195,4 +196,4 @@ Každá etapa je samostatný PR z čerstvého `origin/main` (`docs/cista-linie.m
 ## 10. Co se nestaví
 
 Monitor procesů, porty OS, spouštění skriptů, simulace zátěže, vlastní úložiště stránek a úkolů vedle grafu,
-formuláře pro člověka pod úrovní stránky, změna geometrického členství v oblasti.
+formuláře pro člověka pod úrovní sekcí, změna geometrického členství v oblasti.

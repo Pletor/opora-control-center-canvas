@@ -16,8 +16,8 @@ Kód (`frontend/project/architecture-editor/`) tento kontrakt provádí, neměn�
    stránek (ID v bublině); uprostřed **NAVBAR** hlavních stránek a karty stránek s podstránkami (**+ Podstránka**).
    Stránka (`site.kind = "page"`) nese vedle cesty nepovinný záměr člověka: **Cíl stránky** (`goal`, 1–200 znaků),
    **Působení** (`feel`, 1–120) a **Popisek v menu** (`navLabel`, 1–40; NAVBAR ukazuje `navLabel`, jinak název).
-   Prázdné pole se neukládá. Sekce stránky (`sections`: role, název, záměr) navrhuje agent; karta stránky ukazuje
-   cíl na jednom řádku a sekce jako štítky, formulář stránky je jen vypíše (`docs/architektura-pro-agenty.md` §3.1).
+   Prázdné pole se neukládá. Sekce stránky (`sections`: role, název, záměr) určuje člověk ve formuláři stránky; karta stránky ukazuje
+   cíl na jednom řádku a sekce jako štítky; ve formuláři se sekce přidávají, řadí a odebírají (`docs/architektura-pro-agenty.md` §3.1).
 3. **Editor stránky** (jedna stránka, vlastní ID) – rychlá infografika: co stránka obsahuje a jak spolu části souvisí.
    Čtyři sloupce:
    - **Strom projektu / Knihovna prvků** (vlevo). Strom: projekt → *Produkce LIVE* / *Vývoj DEV* (sbalitelné) → doména

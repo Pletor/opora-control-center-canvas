@@ -1,6 +1,47 @@
 import { describe, expect, it } from "vitest";
 import type { PageSite } from "@/shared/types/logic/types";
-import { navLabelOf, pageSiteForSave, withPageIntent } from "./page-site";
+import { MAX_PAGE_SECTIONS, addSection, moveSection, navLabelOf, pageSiteForSave, removeSection, updateSection, withPageIntent } from "./page-site";
+
+describe("úprava sekcí stránky", () => {
+  const base: PageSite = { kind: "page", path: "/k" };
+  const sec = (id: string) => ({ id, role: "content" as const, name: id, intent: "" });
+  const ids = (site: PageSite) => site.sections?.map((s) => s.id);
+  it("addSection přidá obsahovou sekci s volným id a nemění vstup", () => {
+    expect(addSection(base).sections).toEqual([{ id: "sekce-1", role: "content", name: "Nová sekce", intent: "" }]);
+    expect(base).not.toHaveProperty("sections");
+    expect(ids(addSection({ ...base, sections: [sec("sekce-1"), sec("sekce-3")] }))).toEqual(["sekce-1", "sekce-3", "sekce-2"]);
+  });
+  it("addSection na 20 sekcích nic nepřidá", () => {
+    const full: PageSite = { ...base, sections: Array.from({ length: MAX_PAGE_SECTIONS }, (_, i) => sec("s" + i)) };
+    expect(addSection(full)).toBe(full);
+  });
+  it("updateSection změní jen zadanou sekci a id nepřepíše", () => {
+    const site: PageSite = { ...base, sections: [sec("a"), sec("b")] };
+    const next = updateSection(site, "b", { role: "faq", name: "Otázky", id: "x" } as never);
+    expect(next.sections?.[1]).toEqual({ id: "b", role: "faq", name: "Otázky", intent: "" });
+    expect(next.sections?.[0]).toBe(site.sections?.[0]);
+    expect(updateSection(base, "a", { name: "x" })).toBe(base);
+  });
+  it("removeSection odebere sekci a po poslední vynechá klíč sections", () => {
+    const site: PageSite = { ...base, sections: [sec("a"), sec("b")] };
+    expect(ids(removeSection(site, "a"))).toEqual(["b"]);
+    expect(removeSection(removeSection(site, "a"), "b")).toEqual(base);
+    expect(removeSection(site, "nic")).toEqual(site);
+  });
+  it("moveSection posune o místo a na kraji zůstane", () => {
+    const site: PageSite = { ...base, sections: [sec("a"), sec("b"), sec("c")] };
+    expect(ids(moveSection(site, "b", -1))).toEqual(["b", "a", "c"]);
+    expect(ids(moveSection(site, "b", 1))).toEqual(["a", "c", "b"]);
+    expect(moveSection(site, "a", -1)).toBe(site);
+    expect(moveSection(site, "c", 1)).toBe(site);
+    expect(moveSection(site, "zzz", 1)).toBe(site);
+  });
+  it("pageSiteForSave ořízne název a záměr sekcí a bez sekcí klíč vynechá", () => {
+    const saved = pageSiteForSave({ ...base, sections: [{ id: "a", role: "hero", name: "  Úvod ", intent: "  Zaujmout " }] });
+    expect(saved.sections).toEqual([{ id: "a", role: "hero", name: "Úvod", intent: "Zaujmout" }]);
+    expect(pageSiteForSave({ ...base, sections: [] })).not.toHaveProperty("sections");
+  });
+});
 
 const sections = [{ id: "form", role: "cta" as const, name: "Formulář", intent: "" }];
 

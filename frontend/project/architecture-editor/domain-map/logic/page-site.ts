@@ -1,6 +1,6 @@
 // Záměr stránky pro člověka (cíl, působení, popisek v menu) a sekce od agenta; čistá logika bez Reactu.
 // Kontrakt: docs/architektura-pro-agenty.md §3.1. Prázdné pole se neukládá, výchozí hodnota se nikdy nedoplní.
-import type { CanvasNode, PageSectionRole, PageSite } from "@/shared/types/logic/types";
+import type { CanvasNode, PageSection, PageSectionRole, PageSite } from "@/shared/types/logic/types";
 import { normalizePagePath } from "@/project/product-tree/logic/page-path";
 
 /** Pole, která na stránce vyplňuje člověk, s horní mezí délky podle backendu (`site_metadata.py`). */
@@ -16,12 +16,55 @@ export const SECTION_ROLE_LABELS: Record<PageSectionRole, string> = {
   proof: "Důkaz", faq: "Otázky", footer: "Patička", custom: "Vlastní",
 };
 
+/** Nejvýš tolik sekcí na stránce povolí backend. */
+export const MAX_PAGE_SECTIONS = 20;
+
+/** Vrátí `site` s novým seznamem sekcí; prázdný seznam klíč `sections` úplně vynechá (backend prázdné pole odmítne). */
+function withSections(site: PageSite, sections: PageSection[]): PageSite {
+  const { sections: _old, ...rest } = site;
+  return sections.length ? { ...rest, sections } : rest;
+}
+
+/** Přidá na konec novou sekci „Obsah“ s volným id `sekce-N`; na 20 sekcích nic neudělá. */
+export function addSection(site: PageSite): PageSite {
+  const sections = site.sections ?? [];
+  if (sections.length >= MAX_PAGE_SECTIONS) return site;
+  const used = new Set(sections.map((section) => section.id));
+  let n = 1;
+  while (used.has("sekce-" + n)) n += 1;
+  return withSections(site, [...sections, { id: "sekce-" + n, role: "content", name: "Nová sekce", intent: "" }]);
+}
+
+/** Změní roli, název nebo záměr sekce podle id; samo `id` se přepsat nedá. */
+export function updateSection(site: PageSite, id: string, patch: Partial<Omit<PageSection, "id">>): PageSite {
+  if (!site.sections) return site;
+  return withSections(site, site.sections.map((section) => (section.id === id ? { ...section, ...patch, id } : section)));
+}
+
+/** Odebere sekci podle id; po odebrání poslední zmizí i klíč `sections`. */
+export function removeSection(site: PageSite, id: string): PageSite {
+  if (!site.sections) return site;
+  return withSections(site, site.sections.filter((section) => section.id !== id));
+}
+
+/** Posune sekci o `delta` míst (−1 nahoru, +1 dolů); na kraji seznamu zůstane, kde je. */
+export function moveSection(site: PageSite, id: string, delta: number): PageSite {
+  const sections = site.sections;
+  const from = sections?.findIndex((section) => section.id === id) ?? -1;
+  if (!sections || from < 0) return site;
+  const to = Math.min(sections.length - 1, Math.max(0, from + delta));
+  if (to === from) return site;
+  const next = [...sections];
+  next.splice(to, 0, next.splice(from, 1)[0]);
+  return withSections(site, next);
+}
+
 /** Upraví jedno pole záměru a zachová zbytek `site` (sekce, ostatní pole). */
 export function withPageIntent(site: PageSite, key: PageIntentKey, value: string): PageSite {
   return { ...site, [key]: value };
 }
 
-/** Před uložením: cesta v normálním tvaru, text oříznutý a prázdné pole vynechané; sekce beze změny. */
+/** Před uložením: cesta v normálním tvaru, text (i název a záměr sekcí) oříznutý a prázdné pole vynechané; bez sekcí klíč `sections` zmizí. Prázdný název sekce hlídá formulář (`required`). */
 export function pageSiteForSave(site: PageSite): PageSite {
   const result: PageSite = { ...site, path: normalizePagePath(site.path) };
   for (const { key } of PAGE_INTENT_FIELDS) {
@@ -29,7 +72,7 @@ export function pageSiteForSave(site: PageSite): PageSite {
     if (value) result[key] = value;
     else delete result[key];
   }
-  return result;
+  return withSections(result, (site.sections ?? []).map((section) => ({ ...section, name: section.name.trim(), intent: section.intent.trim() })));
 }
 
 /** Text tlačítka v navigaci: popisek v menu, když ho člověk nastavil, jinak název stránky. */
