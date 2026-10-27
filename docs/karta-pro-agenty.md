@@ -176,17 +176,21 @@ nezablokuje) a díru ohlásí kontrola mapy jako `section.unknown`. Do `specific
 `node-brief.node.section` vstupuje stejně jako `tech` a `states`, jen když je zapsané.
 
 Výřez mapy (`docs/architektura-pro-agenty.md` §4, §6): karta pod stránkou dostane klíč nejvyšší úrovně
-`architecture` = `{journeys?: [{id, name, purpose?, youAre: {step, index}, label?, experience?, previous?, next?}],
-page: {path, goal?, feel?, section?: {id, role, intent}},
+`architecture` = `{journeys?: [{id, name, purpose?, actor?, pointA?, pointB?, youAre: {step, index}, label?, shift?,
+objection?, previous?, next?}], page: {path, goal?, feel?, section?: {id, role, intent}},
 in?: [{carries, from, sourceRef?}], out?: [{carries, to, sourceRef?}], states?, gaps?, truncated?}`. Cesty jsou
-cesty zákazníka (`site.journeys` aplikace, trychtýř stránek), na kterých leží stránka karty: `youAre` je krok té
-stránky (id a pořadí), `label` jeho role v trychtýři a `experience` to, co člověk na stránce zažívá a jak na něj má
-působit (podle toho agent stránku staví); `previous` / `next` jsou sousední kroky `{step, label?, path?, realized?}`,
-`realized: false` znamená, že mapa přechod zatím vazbou nenese (`journey.unrealized`). `gaps` jsou
-pravidla kontroly mapy, která kartu nebo její hranu zasáhla. Nic se nedoplňuje, chybějící údaj = chybějící klíč,
-strop 2,5 KiB s deterministickým ořezem (`truncated: true`). Stránka dostane výřez sama za sebe; karta mimo stránku klíč nemá. Výřez je mimo
+cesty zákazníka (`site.journeys` aplikace, trychtýř stránek), na kterých leží stránka karty, a nesou řetěz „proč“:
+pro koho (`actor`), proměna zákazníka z bodu A do bodu B (`pointA` → `pointB`), krok té stránky (`youAre`, id
+a pořadí), jeho role (`label`), jaký posun na stránce nastane (`shift`) a co ho brzdí (`objection`); úkol samotné
+komponenty je `node.purpose`. `previous` / `next` jsou sousední kroky `{step, label?, path?, realized?, via?}`:
+`via {do: open|click|submit, section?, text?}` u `previous` říká, jak zákazník přišel sem, u `next` co má udělat
+na této stránce (v které sekci, na jakém prvku), aby šel dál; `realized: false` znamená, že mapa přechod zatím
+vazbou nenese (`journey.unrealized`). `gaps` jsou pravidla kontroly mapy, která kartu nebo její hranu zasáhla. Nic
+se nedoplňuje, chybějící údaj = chybějící klíč, strop 2,5 KiB s deterministickým ořezem po celých klíčích
+(`truncated: true`), který před poslední záchranou nikdy nevezme A, B, posun, první `next` ani sekci. Stránka
+dostane výřez sama za sebe; karta mimo stránku klíč nemá. Výřez je mimo
 `specification` a cesty zákazníka do zadání nevstupují: `site.journeys` se do `specification.graph` nepromítá,
-přidání ani změna cesty (kroky, počty lidí, zážitek) `contextVersion` nemění. Je to popis stavu mapy, ne příkaz.
+přidání ani změna cesty (kroky, A → B, posun, námitka, `via`) `contextVersion` nemění. Je to popis stavu mapy, ne příkaz.
 
 ### Předání konkrétní verze zadání
 

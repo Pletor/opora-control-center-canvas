@@ -120,3 +120,29 @@ def test_journey_findings_go_first_broken_then_unrealized_segments():
                                                 "(navigation, command, data ani sekce stránky).")
     assert result["summary"]["journey.broken"] == 1 and result["summary"]["journey.unrealized"] == 1
     assert RULES[:2] == ("journey.broken", "journey.unrealized")
+
+
+def test_via_section_must_exist_on_the_page_of_the_previous_step():
+    """`journey.via-unknown`: sekce přechodu se hledá na stránce kroku, na který krok navazuje (`after`, jinak předchozí)."""
+    def via(section):
+        return {"do": "click", "section": section}
+
+    app = node("app", kind="sector", site={"kind": "application", "environments": [], "journeys": [
+        {"id": "j", "name": "Kurz", "steps": [
+            {"id": "k0", "page": "nav"}, {"id": "k1", "page": "a", "via": via("hero")},
+            {"id": "k2", "page": "b", "label": "Prodej", "via": via("cta")},
+            {"id": "k3", "page": "c", "via": via("form")}, {"id": "k4", "page": "c", "after": "k1", "via": via("cta")},
+            {"id": "k5", "page": "smazana"}, {"id": "k6", "page": "a", "via": via("cokoli")},
+            {"id": "k7", "page": "b", "via": {"do": "submit"}}]}]})
+    graph = {"nodes": [app, page("a", goal="g", sections=[{"id": "cta"}]), page("b", goal="g", sections=[{"id": "form"}]),
+                       page("c", goal="g")], "edges": []}
+    via_findings = [f for f in check_map(graph)["findings"] if f["rule"] == "journey.via-unknown"]
+    # k1 za menu (menu sekce nemá), k3 po b s form v pořádku, k4 odbočí z k1 (a má cta), k6 po smazané stránce se nehodnotí.
+    assert [f["message"] for f in via_findings] == [
+        "Cesta Kurz: krok k1 čeká akci v sekci hero, kterou menu nemá."]
+    graph["nodes"][1]["site"]["sections"] = [{"id": "hero"}]
+    assert [f["message"] for f in check_map(graph)["findings"] if f["rule"] == "journey.via-unknown"] == [
+        "Cesta Kurz: krok k1 čeká akci v sekci hero, kterou menu nemá.",
+        "Cesta Kurz: krok Prodej čeká akci v sekci cta, kterou stránka /a nemá.",
+        "Cesta Kurz: krok k4 čeká akci v sekci cta, kterou stránka /a nemá."]
+    assert {f["journeyId"] for f in via_findings} == {"j"} and RULES[2] == "journey.via-unknown"

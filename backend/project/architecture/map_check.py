@@ -27,17 +27,21 @@ Výklad pravidel:
   z jiné aplikace). Nález nese `journeyId`, zpráva jmenuje cestu a důvod z `journeys.derive_journeys`.
 - `journey.unrealized`: přechod mezi dvěma kroky cesty (segment), který mapa vazbami nerealizuje. Cestu
   nerozbíjí (přechod člověk deklaroval), je to práce pro agenty. Nález za každý takový segment, nese `journeyId`.
-  Pořadí obou pravidel: aplikace podle id, cesty v pořadí, v jakém je zadal člověk, segmenty v pořadí kroků.
+- `journey.via-unknown`: krok cesty, jehož signál přechodu `via.section` míří na sekci, kterou stránka
+  předchozího kroku (`after`, jinak předchozí v seznamu) nemá; menu (`"nav"`) sekce nemá nikdy. Krok, jehož
+  předchozí stránka chybí, se nehodnotí (to hlásí `journey.broken`). Uložení grafu existenci sekce nehlídá
+  (smazání stránky ani sekce nesmí zablokovat mapu), proto to hlásí kontrola. Nález nese `journeyId`.
+  Pořadí pravidel cest: aplikace podle id, cesty v pořadí, v jakém je zadal člověk, segmenty a kroky v pořadí kroků.
 
 Pořadí nálezů: podle pořadí pravidel, pak podle id (sekce stejné stránky v pořadí stránky).
 """
 
-from backend.canvas.site_metadata import card_section_error
+from backend.canvas.site_metadata import JOURNEY_FROM_NAV, card_section_error
 from backend.editor.agent_packet.desktop_v3_packets import ancestor_ids
 from backend.project.architecture.journeys import derive_journeys
 from backend.project.architecture.work_status import architecture_graph
 
-RULES = ("journey.broken", "journey.unrealized", "page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver",
+RULES = ("journey.broken", "journey.unrealized", "journey.via-unknown", "page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver",
          "state.no-error", "edge.carries-unset")
 ERROR_STATES = frozenset({"chyba", "error", "selhání"})
 
@@ -142,7 +146,31 @@ def _edge_rules(edges, components):
     return findings
 
 
-def _journey_rules(graph):
+def _sections_of(by_id, page_id):
+    sections = (by_id.get(page_id) or {}).get("site", {}).get("sections")
+    return {item.get("id") for item in sections if isinstance(item, dict)} if isinstance(sections, list) else set()
+
+
+def _via_unknown(item, by_id):
+    """Nálezy `journey.via-unknown` jedné odvozené cesty, v pořadí kroků."""
+    findings, by_step, previous = [], {step["id"]: step for step in item["steps"]}, None
+    for step in item["steps"]:
+        source = by_step.get(step.get("after")) or previous
+        previous = step
+        via = step.get("via")
+        section = via.get("section") if isinstance(via, dict) else None
+        if source is None or not isinstance(section, str) or "path" not in source:
+            continue
+        nav = source["page"] == JOURNEY_FROM_NAV
+        if nav or section not in _sections_of(by_id, source["page"]):
+            where = "menu" if nav else f"stránka {source['path']}"
+            findings.append(_finding("journey.via-unknown", "journeyId", item["id"],
+                                     f"Cesta {item['name']}: krok {step.get('label') or step['id']} čeká akci "
+                                     f"v sekci {section}, kterou {where} nemá."))
+    return findings
+
+
+def _journey_rules(graph, by_id):
     journeys = derive_journeys(graph)
     broken = [_finding("journey.broken", "journeyId", item["id"], f"Cesta {item['name']}: {item['broken']}")
               for item in journeys if "broken" in item]
@@ -153,7 +181,8 @@ def _journey_rules(graph):
                                 f"Cesta {item['name']}: z {paths[s['from']]} na {paths[s['to']]} nevede vazba "
                                 "(navigation, command, data ani sekce stránky).")
                        for s in item.get("segments", []) if not s["realized"]]
-    return [*broken, *unrealized]
+    via = [finding for item in journeys for finding in _via_unknown(item, by_id)]
+    return [*broken, *unrealized, *via]
 
 
 def check_map(graph):
@@ -165,7 +194,7 @@ def check_map(graph):
     pages = [node for node in nodes if _site_kind(node) == "page"]
     goals, sections = _page_rules(pages, components, nodes)
     receivers, errors = _command_rules(nodes, edges, components)
-    findings = [*_journey_rules(graph), *goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
+    findings = [*_journey_rules(graph, by_id), *goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
     return {"findings": findings, "summary": {rule: sum(f["rule"] == rule for f in findings) for rule in RULES}}
 
 

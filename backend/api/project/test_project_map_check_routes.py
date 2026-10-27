@@ -8,7 +8,7 @@ from backend.api.project.project_map_check_routes import create_project_map_chec
 
 def make_client(source_kind="git"):
     journeys = [{"id": "j1", "name": "Na b", "steps": [{"id": "s1", "page": "nav"}, {"id": "s2", "page": "b"}]},
-                {"id": "j2", "name": "Domů", "steps": [{"id": "s1", "page": "nav"}, {"id": "s2", "page": "p", "count": 3}]}]
+                {"id": "j2", "name": "Domů", "steps": [{"id": "s1", "page": "nav"}, {"id": "s2", "page": "p", "shift": "Ví, kam dál."}]}]
     graph = {"nodes": [{"id": "app", "parentId": None, "kind": "sector", "site": {"kind": "application", "journeys": journeys}},
                        {"id": "p", "parentId": "app", "kind": "node", "site": {"kind": "page", "path": "/"}},
                        {"id": "a", "parentId": "p", "kind": "node"}, {"id": "b", "parentId": "p", "kind": "node"}],
@@ -53,6 +53,6 @@ def test_journeys_returns_derived_steps_of_the_accepted_graph():
         {"applicationId": "app", "id": "j1", "name": "Na b", "broken": "chybí stránka b v kroku s2.",
          "steps": [{"id": "s1", "page": "nav", "path": "nav"}, {"id": "s2", "page": "b", "missing": True}]},
         {"applicationId": "app", "id": "j2", "name": "Domů", "line": "nav → /",
-         "steps": [{"id": "s1", "page": "nav", "path": "nav"}, {"id": "s2", "page": "p", "path": "/", "count": 3}],
+         "steps": [{"id": "s1", "page": "nav", "path": "nav"}, {"id": "s2", "page": "p", "path": "/", "shift": "Ví, kam dál."}],
          "segments": [{"from": "s1", "to": "s2", "line": "nav → /", "realized": True}]}]}
     assert client.get("/api/project-architecture/journeys").status_code == 422

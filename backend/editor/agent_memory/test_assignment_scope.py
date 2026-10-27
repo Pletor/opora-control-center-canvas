@@ -129,8 +129,10 @@ def test_customer_journeys_are_not_part_of_the_scoped_assignment():
 
     def spec(app_site):
         return {"cards": [{"nodeId": "app"}], "graph": {"nodes": [{"id": "app", "site": app_site}], "edges": []}}
-    legacy = spec({**site, "journeys": [{"id": "j", "name": "J", "steps": [
-        {"id": "a", "page": "nav", "label": "Menu"}, {"id": "b", "page": "p", "count": 5, "experience": "Ví, co dál."}]}]})
+    legacy = spec({**site, "journeys": [{"id": "j", "name": "J", "actor": "Zahrádkář", "pointA": "Neví si rady.",
+                                         "pointB": "Ví, co dělá.", "steps": [
+        {"id": "a", "page": "nav", "label": "Menu", "via": {"do": "open"}},
+        {"id": "b", "page": "p", "shift": "Ví, co dál.", "objection": "Spam.", "via": {"do": "click", "section": "cta"}}]}]})
     assert scoped_specification(legacy) == scoped_specification(spec(site))
     assert same_assignment({"contextVersion": "old", "specification": legacy},
                            {"contextVersion": "new", "specification": spec(site)})

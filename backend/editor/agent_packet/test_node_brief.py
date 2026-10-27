@@ -780,19 +780,25 @@ def test_architecture_slice_only_under_a_page_and_a_new_journey_keeps_the_contex
             "out": [{"carries": "command", "to": "POST /api/poptavka"}], "states": ["prázdno", "chyba"]}
         assert "architecture" not in brief(client, "api").json()
         assert brief(client, "kontakt").json()["architecture"]["page"]["path"] == "/kontakt"  # stránka je svou stránkou
-        steps = [{"id": "vstup", "page": "kontakt", "label": "Vstupní stránka", "count": 200,
-                  "experience": "Rychle vyplní pár polí a ví, že se ozveme."},
-                 {"id": "dik", "page": "dekujeme", "label": "Poděkování", "count": 150}]
-        save(client, [{"id": "poptavka", "name": "Poptávka z menu", "steps": steps}])
+        steps = [{"id": "vstup", "page": "kontakt", "label": "Vstupní stránka", "via": {"do": "open"},
+                  "shift": "Z „asi bych měl“ na „chci prohlídku“.", "objection": "Bojí se telefonátů."},
+                 {"id": "dik", "page": "dekujeme", "label": "Poděkování",
+                  "via": {"do": "submit", "section": "form", "text": "Odeslat poptávku"}}]
+        points = {"actor": "Majitel zahrady", "pointA": "Zahrada ho tíží.", "pointB": "Má plán a termín."}
+        save(client, [{"id": "poptavka", "name": "Poptávka z menu", **points, "steps": steps}])
         with_journey = brief(client, "formular").json()
         assert with_journey["architecture"]["journeys"] == [
-            {"id": "poptavka", "name": "Poptávka z menu", "youAre": {"step": "vstup", "index": 0},
-             "label": "Vstupní stránka", "experience": "Rychle vyplní pár polí a ví, že se ozveme.",
-             "next": [{"step": "dik", "label": "Poděkování", "path": "/dekujeme", "realized": True}]}]
+            {"id": "poptavka", "name": "Poptávka z menu", **points, "youAre": {"step": "vstup", "index": 0},
+             "label": "Vstupní stránka", "shift": "Z „asi bych měl“ na „chci prohlídku“.",
+             "objection": "Bojí se telefonátů.",
+             "next": [{"step": "dik", "label": "Poděkování", "path": "/dekujeme", "realized": True,
+                       "via": {"do": "submit", "section": "form", "text": "Odeslat poptávku"}}]}]
         assert with_journey["contextVersion"] == plain["contextVersion"]
         assert "architecture" not in with_journey["specification"]
-        # Úprava trychtýře (počty, zážitek, nový krok) zadání karty nemění.
-        steps[1]["count"] = 151
+        # Úprava cesty (proměna A → B, posun, námitka, signál, nový krok) zadání karty nemění.
+        steps[0]["shift"], steps[0]["objection"] = "Chce prohlídku.", "Bojí se ceny."
+        steps[1]["via"] = {"do": "click", "text": "Poptat"}
         steps.append({"id": "upsell", "page": "kontakt", "label": "Upsell", "after": "vstup"})
-        save(client, [{"id": "poptavka", "name": "Poptávka z menu", "purpose": "Poptávka", "steps": steps}])
+        save(client, [{"id": "poptavka", "name": "Poptávka z menu", "purpose": "Poptávka", "actor": "Firma",
+                       "pointA": "Jiné A.", "pointB": "Jiné B.", "steps": steps}])
         assert brief(client, "formular").json()["contextVersion"] == plain["contextVersion"]
