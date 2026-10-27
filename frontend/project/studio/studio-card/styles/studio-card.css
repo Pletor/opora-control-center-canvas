@@ -1,0 +1,63 @@
+/* Karta Studia je stroj z TechViz: tmavě modrá deska 260 × 150 se zaoblením 8 px a měkkým stínem, aby na tečkované
+   noci plátna ležela jako díl na stole. Rám nese stav karty jednou barvou (plán šedý, staví se modrý, hotovo zelené,
+   ověřeno tyrkysové, díra červená), takže člověk z dálky, i v minimapě, vidí, co stojí, bez čtení textu.
+   Výška je pevná, protože rozložení úrovně počítá s mřížkou karet a polohy se neukládají. */
+.studio-card {
+  --studio-card-tone: var(--studio-state-plan);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  height: 150px;
+  border: 1px solid var(--studio-card-tone);
+  border-radius: 8px;
+  background: var(--studio-card);
+  box-shadow: 0 6px 16px #0003;
+  color: var(--studio-text);
+  font: 12px/1.4 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+.studio-card--building { --studio-card-tone: var(--studio-state-building); animation: studio-card-building 2.4s ease-in-out infinite; }
+.studio-card--done { --studio-card-tone: var(--studio-state-done); }
+.studio-card--verified { --studio-card-tone: var(--studio-state-verified); }
+.studio-card--hole { --studio-card-tone: var(--studio-state-hole); }
+.studio-card--selected { border-color: var(--studio-blue); box-shadow: 0 0 0 2px #45baff40, 0 6px 18px #0004; }
+
+/* Staví se: rám pomalu dýchá modrým svitem, jediný trvalý pohyb ve Skutečnosti (docs/studio.md §2). Kdo nechce pohyb,
+   vidí stav jen barvou rámu a štítkem. */
+@keyframes studio-card-building {
+  0%, 100% { box-shadow: 0 0 0 0 #49b8ff00, 0 6px 16px #0003; }
+  50% { box-shadow: 0 0 0 4px #49b8ff38, 0 6px 16px #0003; }
+}
+@media (prefers-reduced-motion: reduce) { .studio-card--building { animation: none; } }
+
+/* Hlavička: ikona druhu v modrém, název přes celou šířku (dlouhý se zkrátí třemi tečkami, celý je v title) a vpravo
+   malý štítek stavu v barvě rámu. Je o tón světlejší než tělo, aby se karta četla jako titulek a obsah. */
+.studio-card__head { display: flex; align-items: center; gap: 7px; padding: 8px 10px; border-bottom: 1px solid var(--studio-line-soft); border-radius: 8px 8px 0 0; background: var(--studio-card-head); }
+.studio-card__icon { display: inline-grid; place-items: center; width: 18px; height: 18px; color: var(--studio-blue); flex-shrink: 0; }
+.studio-card__icon-svg { width: 16px; height: 16px; }
+.studio-card__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.studio-card__state { padding: 1px 6px; border: 1px solid var(--studio-card-tone); border-radius: 10px; color: var(--studio-card-tone); font-size: 9px; white-space: nowrap; background: color-mix(in srgb, var(--studio-card-tone) 14%, transparent); }
+
+/* Tělo: druh karty a její adresa (cesta stránky, role sekce, technologie) drobně nahoře, pod tím účel na dva řádky.
+   Účel je to, proč karta existuje; víc se na kartu nevejde a celý je v panelu detailu. */
+.studio-card__body { flex: 1; display: flex; flex-direction: column; gap: 4px; min-height: 0; padding: 7px 10px 0; }
+.studio-card__kind { display: flex; gap: 6px; align-items: baseline; color: var(--studio-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .6px; }
+.studio-card__subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--studio-blue); font-size: 10px; text-transform: none; letter-spacing: 0; }
+.studio-card__purpose { display: -webkit-box; margin: 0; overflow: hidden; color: var(--studio-muted); font-size: 11px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* Pata: souhrn toho, co je pod kartou („4/7 stojí · 1 se staví“), červený odznak děr a vpravo počet dětí se šipkou
+   dolů jako slib, že dvojklik nebo Enter otevře další patro. Oddělená tenkou linkou jako pata stroje v TechViz. */
+.studio-card__foot { display: flex; align-items: center; gap: 8px; margin: 0 9px 7px; padding-top: 5px; border-top: 1px solid var(--studio-line-soft); color: var(--studio-muted); font-size: 10px; }
+.studio-card__summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studio-card__holes { padding: 0 6px; border-radius: 10px; background: color-mix(in srgb, var(--studio-state-hole) 22%, transparent); color: var(--studio-state-hole); font-weight: 700; }
+.studio-card__enter { color: var(--studio-blue); }
+
+/* Porty jsou kuličky 10 px na obvodu karty: vstup na levé hraně, výstup na pravé, odkud vede vazba doprava k další
+   vrstvě. Mají tmavý lem jako v TechViz, aby se oddělily od rámu. Vazby se tu netáhnou, port jen ukazuje kotvu. */
+.studio-card__port { width: 10px; height: 10px; min-width: 0; min-height: 0; border: 2px solid #142036; border-radius: 50%; background: var(--studio-blue); box-shadow: 0 0 0 1px #49b8ff73; cursor: default; }
+
+/* Skupina „bez sekce“: průsvitný rám se zaoblením 18 px kolem komponent stránky, které nepatří žádné sekci. Popisek
+   velkými písmeny 10 px vlevo nahoře, jako rodiny komponent v TechViz; rám se nedá vybrat, jen ohraničuje. */
+.studio-group { box-sizing: border-box; width: 100%; height: 100%; border: 1px dashed #4a7b9b80; border-radius: 18px; background: #295e8c0c; pointer-events: none; }
+.studio-group__label { position: absolute; top: 10px; left: 14px; color: #73bee8; font-size: 10px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }

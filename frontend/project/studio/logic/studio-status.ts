@@ -1,0 +1,57 @@
+// Stav karty Studia (docs/studio.md §2), odvozený, nikdy zadaný: plán, staví se, hotovo, ověřeno, díra. Čistá logika
+// bez Reactu nad hotovými fakty (`studio-facts.ts`): uzavřené karty (`done.confirmed`), karty s aktivním nárokem práce,
+// nálezy kontroly mapy po uzlech a cesty zákazníka s posledním ověřením. Rodič agreguje děti („4/7 stojí, 1 se staví“).
+import type { DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
+import { studioDescendants, type StudioItem, type StudioTree } from "./studio-tree";
+
+export type StudioState = "plan" | "building" | "done" | "verified" | "hole";
+/** Cesta zákazníka domény: stránky jejích kroků a odvození backendu s `lastRun` (chybí = nenačteno). */
+export type StudioJourney = { id: string; name: string; domainId: string; pages: Set<string>; derived: DerivedJourney | undefined };
+export type StudioFacts = {
+  done: Set<string>;
+  building: Set<string>;
+  /** Nálezy kontroly mapy po uzlech grafu (hrana se počítá zdroji, cesta doméně). */
+  holes: Map<string, string[]>;
+  journeys: StudioJourney[];
+};
+export type StudioSummary = {
+  /** Přímé děti karty ve Studiu. */
+  children: number;
+  /** Uzly grafu pod kartou (bez sekcí, bez karty samé). */
+  total: number; done: number; building: number;
+  /** Díry mapy karty a všech jejích potomků. */
+  holes: number;
+};
+export type StudioStatus = { state: StudioState; summary: StudioSummary; ownHoles: string[]; journeys: StudioJourney[] };
+
+/** Cesty, na kterých karta leží: doména = všechny její cesty; jinak cesty, jejichž krok míří na stránku karty. */
+export function journeysOf(item: StudioItem, journeys: StudioJourney[]): StudioJourney[] {
+  if (item.kind === "domain") return journeys.filter((journey) => journey.domainId === item.id);
+  return item.pageId ? journeys.filter((journey) => journey.pages.has(item.pageId!)) : [];
+}
+
+/** Ověřená cesta: má doklad, prošel a není zastaralý; rozbitá cesta ověřená není. */
+export const journeyVerified = (journey: StudioJourney) => {
+  const run = journey.derived?.lastRun;
+  return !!run && run.passed && !run.stale && !journey.derived?.broken;
+};
+
+export function cardStatus(tree: StudioTree, item: StudioItem, facts: StudioFacts): StudioStatus {
+  const below = studioDescendants(tree, item.id);
+  const real = below.filter((child) => child.node);
+  const children = tree.children.get(item.id)?.length ?? 0;
+  const ownHoles = item.node ? facts.holes.get(item.id) ?? [] : [];
+  const summary: StudioSummary = {
+    children, total: real.length,
+    done: real.filter((child) => facts.done.has(child.id)).length,
+    building: real.filter((child) => facts.building.has(child.id)).length,
+    holes: ownHoles.length + real.reduce((sum, child) => sum + (facts.holes.get(child.id)?.length ?? 0), 0),
+  };
+  // Sekce nemá vlastní uzavření: stojí, když stojí všechny její komponenty.
+  const done = item.node ? facts.done.has(item.id) : summary.total > 0 && summary.done === summary.total;
+  const journeys = journeysOf(item, facts.journeys);
+  const building = facts.building.has(item.id) || summary.building > 0;
+  const state: StudioState = building ? "building" : ownHoles.length ? "hole"
+    : done && journeys.length > 0 && journeys.every(journeyVerified) ? "verified" : done ? "done" : "plan";
+  return { state, summary, ownHoles, journeys };
+}

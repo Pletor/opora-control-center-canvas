@@ -1,0 +1,16 @@
+/* Studio zabírá celou hlavní plochu Projektu a je vždy tmavé jako TechViz: nahoře úzká lišta s vrstvou a drobečky,
+   pod ní plátno přes celou šířku a vpravo panel detailu. Pás cest domény se přidá pod plátno, ne vedle, aby plátno
+   zůstalo široké. Barvy jsou tokeny `--studio-*` z design-tokens, stejné v obou režimech aplikace. */
+.studio { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; background: var(--studio-bg); color: var(--studio-text); font: 12px/1.5 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif; color-scheme: dark; }
+.studio__body { display: flex; flex: 1; min-height: 0; }
+.studio__stage { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+.studio__loading { margin: auto; color: var(--studio-muted); }
+.studio__error { margin: 0; padding: 6px 14px; border-bottom: 1px solid #8b435d; background: #402337; color: #ff9ab4; }
+
+/* Lišta nad plátnem, výška 47 px jako pruh domény v prototypu: vlevo zlatý štítek vrstvy (Skutečnost = jen čtení,
+   MODEL přijde později s jiným tónem), uprostřed drobečky zanoření a vpravo tiché Obnovit. */
+.studio__bar { display: flex; align-items: center; gap: 12px; min-height: 47px; padding: 6px 12px; border-bottom: 1px solid var(--studio-line); background: #131d2d; }
+.studio__layer { flex-shrink: 0; padding: 3px 9px; border: 1px solid #aa883d; border-radius: 6px; background: #3a3221; color: #f5c963; font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }
+.studio__reload { flex-shrink: 0; margin-left: auto; padding: 6px 10px; border: 1px solid var(--studio-line); border-radius: 6px; background: #1c2a40; color: var(--studio-text); font: inherit; font-size: 11px; cursor: pointer; }
+.studio__reload:hover:not(:disabled) { border-color: var(--studio-blue); background: #233951; }
+.studio__reload:disabled { opacity: .4; cursor: not-allowed; }

@@ -1,0 +1,12 @@
+/* Drobečky jsou výtah mezi patry: řada tlačítek oddělených šipkou ›, každé s malým druhem nad jménem (DOMÉNA,
+   STRÁNKA…), aby člověk věděl, ve které výšce stojí. Předci jsou modří a klikací, aktuální patro je bílé a tiché.
+   Dlouhá cesta se neláme, posouvá se do strany, protože pořadí pater se čte zleva doprava. */
+.studio-breadcrumbs { min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.studio-breadcrumbs__list { display: flex; align-items: center; margin: 0; padding: 0; list-style: none; white-space: nowrap; }
+.studio-breadcrumbs__item { display: flex; align-items: center; }
+.studio-breadcrumbs__item + .studio-breadcrumbs__item::before { content: "›"; margin: 0 8px; color: var(--studio-muted); font-size: 14px; }
+.studio-breadcrumbs__link, .studio-breadcrumbs__current { display: inline-flex; flex-direction: column; align-items: flex-start; padding: 3px 8px; border: 1px solid transparent; border-radius: 6px; font: inherit; font-size: 12px; line-height: 1.25; }
+.studio-breadcrumbs__link { background: none; color: var(--studio-blue); cursor: pointer; }
+.studio-breadcrumbs__link:hover { border-color: var(--studio-line); background: #233951; }
+.studio-breadcrumbs__current { color: var(--studio-text); font-weight: 600; }
+.studio-breadcrumbs__kind { color: var(--studio-muted); font-size: 8px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }

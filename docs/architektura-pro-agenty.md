@@ -320,10 +320,12 @@ a důvod. Agent-state ho ukazuje v `cards[].dod.journeys` a `dod.blockingJourney
 
 ## 7. Co člověk vidí
 
-Na doméně dva pohledy na stejná data: **Stránky** (karta stránky se sekcemi, cesty) a **Studio** (tok podle
-`carries` a stav cest podle posledního ověření). Studio je hotové (etapa 9): přepínač Stránky | Studio v hlavičce
-mapy domény (adresa `domainView=studio`), cesty jako dráhy se stavem přechodů a tok domény po druzích
-(`frontend/project/architecture-editor/domain-map/studio/`). Velín: jedna fronta „Čeká na tebe“. Monitor procesů se nestaví.
+Mapa domény má jeden pohled **Stránky** (karta stránky se sekcemi, cesty). **Studio** je samostatná záložka v liště
+Projektu (`Architektura projektu · Studio · Graphify-out`, adresa `projectView=studio`, kontrakt `docs/studio.md`):
+fraktální plátno projekt → doména → stránka → sekce → komponenta se stavem karet a souhrnnými vazbami podle `carries`;
+na úrovni domény pod plátnem cesty jako dráhy se stavem přechodů podle posledního ověření
+(`frontend/project/studio/studio-journeys/`, přesunuto z mapy domény v etapě S2; přepínač Stránky | Studio a
+`domainView` zanikly). Velín: jedna fronta „Čeká na tebe“. Monitor procesů se nestaví.
 
 V Editoru stránky stojí nad plátnem pruh navigace domény (stejné stránky a popisky jako NAVBAR, aktivní stránka =
 otevřený rozsah), úsek cesty zákazníka aktivní stránky (odkud → tato stránka s posunem a námitkou → kam, se signály
@@ -393,7 +395,7 @@ a role a posun stránky v cestách na kartě stránky (`PageJourneys.tsx`). Prom
 | 6 | Kontrola mapy (§5) + API | ne |
 | 7 | Cesty (§6) a `node-brief.architecture` (§4), hotovo | node-brief |
 | 8 | Brána cesty: harness, doklad, `lastRun` | dodatek |
-| 9 | Pohled Studio, hotovo | ne |
+| 9 | Pohled Studio, hotovo (od S2 záložka Studio, `docs/studio.md`) | ne |
 
 Každá etapa je samostatný PR z čerstvého `origin/main` (`docs/cista-linie.md`). Před odevzdáním:
 `uv run pytest backend`, `npm test`, `npm run build`, u skillu i jeho testy.

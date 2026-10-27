@@ -1,0 +1,50 @@
+/* Panel detailu je Inspector z TechViz: sloupec 344 px na tmavém panelu vpravo od plátna, s vlastním posuvníkem,
+   aby dlouhý seznam děr nepohnul plátnem. Nahoře titulek s modrou svislou linkou, pod ním identita karty v rámečku,
+   účel jako odstavec a oddíly oddělené linkou. Jen čte; jediné tlačítko vede do Architektury projektu. */
+.studio-detail { box-sizing: border-box; width: 344px; flex-shrink: 0; overflow: auto; padding: 12px; border-left: 1px solid var(--studio-line); background: var(--studio-panel); color: var(--studio-text); scrollbar-width: thin; scrollbar-color: var(--studio-line) transparent; }
+.studio-detail__title { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 12px; padding-left: 7px; border-left: 3px solid var(--studio-blue); font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; }
+.studio-detail__clear { padding: 0 8px; border: 1px solid var(--studio-line); border-radius: 6px; background: #1c2a40; color: var(--studio-text); font-size: 14px; cursor: pointer; }
+.studio-detail__empty { padding: 40px 12px; color: var(--studio-muted); text-align: center; }
+
+/* Identita: rámeček v barvě stavu karty (plán šedý, staví se modrý, hotovo zelené, ověřeno tyrkysové, díra červená),
+   druh malými písmeny, název velkým písmem, adresa jako kód a vedle štítku stavu souhrn dětí. */
+.studio-detail__identity { --studio-detail-tone: var(--studio-state-plan); display: grid; gap: 6px; padding: 10px; border: 1px solid var(--studio-line); border-left: 3px solid var(--studio-detail-tone); border-radius: 7px; background: #1b2b40; }
+.studio-detail__identity--building { --studio-detail-tone: var(--studio-state-building); }
+.studio-detail__identity--done { --studio-detail-tone: var(--studio-state-done); }
+.studio-detail__identity--verified { --studio-detail-tone: var(--studio-state-verified); }
+.studio-detail__identity--hole { --studio-detail-tone: var(--studio-state-hole); }
+.studio-detail__kind { color: var(--studio-muted); font-size: 9px; letter-spacing: .8px; text-transform: uppercase; }
+.studio-detail__name { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.studio-detail__subtitle { color: var(--studio-blue); font-size: 11px; overflow-wrap: anywhere; }
+.studio-detail__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--studio-muted); font-size: 11px; }
+.studio-detail__state { padding: 1px 8px; border: 1px solid var(--studio-detail-tone); border-radius: 10px; color: var(--studio-detail-tone); font-size: 10px; }
+.studio-detail__editor { justify-self: start; margin-top: 4px; padding: 7px 10px; border: 1px solid var(--studio-blue); border-radius: 6px; background: #173c58; color: #fff; font: inherit; font-size: 11px; cursor: pointer; }
+.studio-detail__editor:hover { background: #1d4a6d; }
+.studio-detail__purpose { margin: 12px 0 4px; color: var(--studio-muted); font-size: 12px; line-height: 1.6; }
+
+/* Oddíly: nadpis velkými písmeny s počtem v kolečku, pod ním hustý seznam. Vazba nese barevný puntík druhu toku
+   (stejné barvy jako čáry na plátně), díra červené jméno místa, cesta odznak ověření vpravo. */
+.studio-detail__section { padding: 14px 0 4px; border-top: 1px solid var(--studio-line); margin-top: 12px; }
+.studio-detail__heading { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 11px; letter-spacing: .6px; text-transform: uppercase; }
+.studio-detail__count { min-width: 18px; padding: 0 6px; border: 1px solid var(--studio-line); border-radius: 10px; color: var(--studio-muted); font-size: 10px; text-align: center; }
+.studio-detail__list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.studio-detail__none { margin: 0; color: var(--studio-muted); font-size: 11px; }
+.studio-detail__link { --studio-detail-flow: var(--studio-carries-unspecified); display: flex; align-items: center; gap: 7px; }
+.studio-detail__link--navigation { --studio-detail-flow: var(--edge-carries-navigation); }
+.studio-detail__link--data { --studio-detail-flow: var(--edge-carries-data); }
+.studio-detail__link--command { --studio-detail-flow: var(--edge-carries-command); }
+.studio-detail__link--event { --studio-detail-flow: var(--edge-carries-event); }
+.studio-detail__swatch { width: 8px; height: 8px; border-radius: 50%; background: var(--studio-detail-flow); flex-shrink: 0; }
+.studio-detail__link-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.studio-detail__link-flow { color: var(--studio-detail-flow); font-size: 10px; white-space: nowrap; }
+.studio-detail__hole { padding: 6px 8px; border-left: 3px solid var(--studio-state-hole); border-radius: 4px; background: #101b2c; color: var(--studio-muted); }
+.studio-detail__hole-place { color: #ff9bb5; }
+.studio-detail__journey { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.studio-detail__journey-name { min-width: 0; overflow-wrap: anywhere; }
+
+/* Odznak ověření cesty: zelený ověřeno, jantarový zastaralé, červený neprošlo, šedý neověřeno; čas a příkaz běhu
+   jsou v tooltipu, aby řádek zůstal krátký. Text a tón dává sdílená logika journey-verification. */
+.studio-detail__badge { --studio-detail-badge: var(--studio-state-plan); padding: 1px 7px; border: 1px solid var(--studio-detail-badge); border-radius: 10px; color: var(--studio-detail-badge); font-size: 10px; white-space: nowrap; }
+.studio-detail__badge--ok { --studio-detail-badge: var(--studio-state-done); }
+.studio-detail__badge--stale { --studio-detail-badge: var(--edge-carries-event); }
+.studio-detail__badge--failed { --studio-detail-badge: var(--studio-state-hole); }

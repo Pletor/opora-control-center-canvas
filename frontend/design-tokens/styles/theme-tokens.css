@@ -216,3 +216,28 @@
   --edge-carries-command: #b49cff;
   --edge-carries-event: #f4b94f;
 }
+
+/* Studio (docs/studio.md): plátno v designu TechViz je vždy tmavé, protože barvy vazeb a stavů karet se čtou
+   proti noční modři a mají znamenat totéž v obou režimech aplikace. Hodnoty jsou změřené z prototypu Architektura
+   projektu (`reference-theme.css`): pozadí, panel, karta, linka, tlumený a hlavní text, mřížka teček a pět stavů
+   karty (plán šedý, staví se modrý, hotovo zelené, ověřeno tyrkysové, díra červená). */
+:root {
+  --studio-bg: #0b121e;
+  --studio-bg-glow: #152637;
+  --studio-panel: #152033;
+  --studio-card: #1a293e;
+  --studio-card-head: #1d2b42;
+  --studio-line: #3b4f6e;
+  --studio-line-soft: #32445b;
+  --studio-dot: #3b526a;
+  --studio-text: #ecf3ff;
+  --studio-muted: #a4b6cf;
+  --studio-blue: #49b8ff;
+  --studio-control: #142032;
+  --studio-state-plan: #566b85;
+  --studio-state-building: #49b8ff;
+  --studio-state-done: #38d996;
+  --studio-state-verified: #58d7c1;
+  --studio-state-hole: #ff6275;
+  --studio-carries-unspecified: #7d8fa8;
+}
