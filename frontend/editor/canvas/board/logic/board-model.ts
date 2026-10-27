@@ -2,6 +2,7 @@
 // aby se dal testovat samostatně; Board i App jen předávají, co uživatel natáhl, a ukládá rodič.
 import type { EdgePort, GraphEdge } from "@/shared/types/logic/types";
 import { blockHandleId, EDGE_PORTS, isBlockEdge } from "@/shared/types/logic/types";
+import { carriesLook } from "@/shared/edge-carries/logic/edge-carries";
 
 export function newEdgeId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -41,7 +42,9 @@ export function edgeFromConnection(connection: BoardConnection, id: string = new
 export type EdgeAppearance = {
   sourceHandle: string;
   className: string;
-  style?: { stroke: string; strokeDasharray?: string; strokeWidth?: number };
+  style?: { stroke?: string; strokeDasharray?: string; strokeWidth?: number };
+  /** Tooltip druhu toku (`carries`) pro čtečky a najetí myší; jen když ho vazba nese. */
+  ariaLabel?: string;
   type: "smoothstep";
   pathOptions: { borderRadius: number; offset: number };
 };
@@ -55,11 +58,22 @@ const EDGE_STYLE: Record<string, { stroke: string; strokeDasharray?: string }> =
   flow: { stroke: "var(--area-line)", strokeDasharray: "6 4" },
 };
 
+/** Výchozí šířka čáry vazby v React Flow; druh toku `command` k ní přidá půl pixelu. */
+const BOARD_EDGE_WIDTH = 1;
+
 /** Pravoúhlé vedení sdílí všechny vazby grafu: zaoblení 12 a odstup 24 od karty, než se lomí. */
 const EDGE_PATH_OPTIONS = { borderRadius: 12, offset: 24 };
 
 export function edgeAppearance(edge: GraphEdge, decision?: { status?: "chosen" | "rejected" }): EdgeAppearance {
   const port = edge.port ?? "next";
+  // Druh toku (`carries`) smí nést jen vazba `next`: jemně změní tah a přidá třídu-háček `edge--carries-<druh>`.
+  const carries = port === "next" ? carriesLook(edge.carries) : null;
+  if (carries) return {
+    sourceHandle: port, className: `edge-port-next ${carries.className}`,
+    style: { stroke: carries.stroke, ...(carries.dash ? { strokeDasharray: carries.dash } : {}),
+      ...(carries.extraWidth ? { strokeWidth: BOARD_EDGE_WIDTH + carries.extraWidth } : {}) },
+    ariaLabel: carries.title, type: "smoothstep", pathOptions: EDGE_PATH_OPTIONS,
+  };
   return {
     sourceHandle: isBlockEdge(edge) ? blockHandleId(edge.sourceBlockId, edge.sourcePortId) : port,
     // Tok mezi oblastmi nese vlastní třídu (ne "edge-port-*"), ať jde v CSS i mimo ni stylovat

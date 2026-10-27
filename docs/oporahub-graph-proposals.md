@@ -58,7 +58,8 @@ Seznam vrací nejvýše 100 souhrnů; plný graf a zadání se načítají až v
 `plan` obsahuje seznamy `nodes` a `edges`. Uzel má lokální `ref`, druh `node`,
 `sector` nebo `area`, název a volitelného rodiče a specifikaci
 `spec: {goal, non_goals, acceptance}`. Vazba má `from`, `to` a volitelný
-`port: "next"`. Odkazy jsou lokální názvy návrhu nebo `@ID` existujícího uzlu.
+`port: "next"` a volitelný druh toku `carries` (`navigation | data | command | event`, jen u `next`,
+nikdy se nedoplňuje). Odkazy jsou lokální názvy návrhu nebo `@ID` existujícího uzlu.
 Podporované volitelné údaje uzlu zahrnují účel, rozměry, polohu a zdrojový odkaz.
 Server odmítá neznámá pole; klient nepředává vypočtená ID ani odvozený výsledek.
 

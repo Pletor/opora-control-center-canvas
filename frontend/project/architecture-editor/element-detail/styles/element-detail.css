@@ -74,6 +74,14 @@
 .element-detail__link-name { font-size: 12px; overflow-wrap: anywhere; }
 .element-detail__port { font-size: 11px; color: var(--ae-cyan, #75d9ff); }
 
+/* Co po vazbě teče: pod řádkem vazby `next` drobný výběr, aby člověk jedním klikem řekl, jestli tu zákazník
+   přechází, čtou se data, něco se odesílá, nebo jde o událost. Je tichý a menší než řádek, protože
+   „neurčeno“ je běžný stav a vazbu nemá přebít; jiné porty výběr nemají vůbec. */
+.element-detail__link-row { display: grid; gap: 3px; }
+.element-detail__carries { display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 2px; }
+.element-detail__carries-label { font-size: 11px; color: var(--ae-muted, #a2bacb); }
+.element-detail__carries-select { font: inherit; font-size: 11px; padding: 2px 6px; color: inherit; background: var(--ae-bg, #0c1723); border: 1px solid var(--ae-line, #304b5a); border-radius: 6px; }
+
 /*
  * Práce: pětikroková mini pipeline (aktuální fáze svítí akcentem), věta o uzavření karty a velké
  * tlačítko do Editoru, protože pracovní zadání se mění jen tam.

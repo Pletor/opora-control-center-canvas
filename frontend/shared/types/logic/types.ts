@@ -71,7 +71,12 @@ export type GraphEdge = {
   /** Jen s `port: "block"`: blok zdrojové karty a jeho port. Úchyt v React Flow je `block:<blockId>:<portId>`. */
   sourceBlockId?: string;
   sourcePortId?: string;
+  /** Co po vazbě teče (`docs/architektura-pro-agenty.md` §3.4). Jen u vazby `next` nebo bez portu; nikdy se nedoplňuje. */
+  carries?: EdgeCarries;
 };
+/** Druh toku vazby: navigace zákazníka, čtení dat, odeslání/zápis, událost. */
+export type EdgeCarries = "navigation" | "data" | "command" | "event";
+export const EDGE_CARRIES: EdgeCarries[] = ["navigation", "data", "command", "event"];
 /** Vazba z tlačítka bloku: musí mít `port: "block"` i obě identity, jinak ji nelze zakreslit. */
 export const isBlockEdge = (edge: GraphEdge): edge is GraphEdge & { sourceBlockId: string; sourcePortId: string } =>
   edge.port === "block" && !!edge.sourceBlockId && !!edge.sourcePortId;

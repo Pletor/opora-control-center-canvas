@@ -19,8 +19,8 @@ def validate_plan(plan):
         if not isinstance(node, dict) or not set(node) <= NODE_KEYS or node.get("kind") not in ("node", "sector", "area"):
             raise ValueError("Unsupported graph addition fields or kind.")
     for edge in plan.get("edges", []):
-        if not isinstance(edge, dict) or not set(edge) <= {"from", "to", "port"} or edge.get("port", "next") != "next":
-            raise ValueError("Only plain next edges are supported.")
+        if not isinstance(edge, dict) or not set(edge) <= {"from", "to", "port", "carries"} or edge.get("port", "next") != "next":
+            raise ValueError("Only plain next edges (optionally with carries) are supported.")
 
 
 def place(additions, base, inside, positions):

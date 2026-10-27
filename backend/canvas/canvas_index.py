@@ -97,6 +97,7 @@ def build_index(graph, state):
             "id": edge["id"],
             "kind": "edge",
             "port": edge.get("port", "next"),
+            **({"carries": edge["carries"]} if "carries" in edge else {}),
             "from": edge["source"],
             "to": edge["target"],
             "fromName": source["name"],

@@ -293,6 +293,8 @@ class NodeBrief:
                 "to": edge["target"], "toName": name_of(edge["target"]),
                 "toAddress": address_of(edge["target"]),
                 "port": edge_port(edge),
+                # Co po vazbě teče (`carries`), jen když ho graf nese; nikdy se nedoplňuje.
+                **({"carries": edge["carries"]} if "carries" in edge else {}),
                 # Zpráva nese i `sentAt` a `due`, když je aplikace nebo člověk zapsali.
                 "sourceBlockId": edge.get("sourceBlockId", ""),
                 "sourcePortId": edge.get("sourcePortId", ""),

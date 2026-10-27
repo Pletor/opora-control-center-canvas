@@ -142,3 +142,9 @@ def test_legacy_graph_and_state_without_new_fields():
     graph = {"nodes": [item("n1", "Stará karta")], "edges": []}
     entries = build_index(graph, {"settings": [], "rules": [], "decisions": [], "nodes": {}, "tickets": []})
     assert entries[0]["type"] is None and entries[0]["layer"] is None and entries[0]["status"] is None and entries[0]["address"] == "stara-karta"
+
+
+def test_edge_entry_names_carries_only_when_set():
+    graph = {**GRAPH, "edges": [{**GRAPH["edges"][0], "carries": "data"}, GRAPH["edges"][1]]}
+    found = by_id(build_index(graph, STATE))
+    assert found["e1"]["carries"] == "data" and "carries" not in found["e2"]

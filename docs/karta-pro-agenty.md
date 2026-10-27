@@ -58,6 +58,11 @@ sourcePortId: string    // port toho bloku
 ```
 `sourceBlockId/sourcePortId` jsou povolené jen s `port: "block"`. Úchyt v React Flow má id `block:<blockId>:<portId>`.
 
+Volitelné `carries ∈ navigation | data | command | event` říká, co po vazbě teče (navigace zákazníka, čtení dat,
+odeslání/zápis, událost; `docs/architektura-pro-agenty.md` §3.4). Smí ho mít jen vazba `next` (i bez portu), vazba
+`flow`, `action`, `rule` nebo `block` s ním neprojde. Nikdy se nedoplňuje: vazba bez něj zůstává bajt po bajtu stejná.
+Port ani jeho význam se nemění.
+
 ### Zpráva agenta na vazbě (`state.edges[edgeId]`, Desktop v3 stav, nová sekce)
 Vazba je místo, kam model píše, co udělal, když přechází z jedné karty (bloku) na další. Pět pojmenovaných polí, každé text do 4000 znaků:
 
@@ -130,7 +135,7 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
     "roleMemory": {status, role, items} },  // paměť role (OpenViking), viz pamet-agentu.md
   "harness": { "actions": [{index,id,pipelineId,label,params}], "stopConditions": [texty] },
   "blocks": [ { id, number, title, text, tags, todos, images, state:{status,condition,onMet,onUnmet}, ports:[{id,label, edges:[{edgeId,targetId,targetName}]}] } ],
-  "graph": { "incoming": [{edgeId, from, fromName, to, toName, port, sourceBlockId?, report?, agentWorkspace}], "outgoing": [...same...], "children": [{id,name,kind,agentWorkspace}], "parent": {id,name,kind,goal,rules,agentWorkspace} | null, // rodičovský rámec
+  "graph": { "incoming": [{edgeId, from, fromName, to, toName, port, carries?, sourceBlockId?, report?, agentWorkspace}], "outgoing": [...same...], "children": [{id,name,kind,agentWorkspace}], "parent": {id,name,kind,goal,rules,agentWorkspace} | null, // rodičovský rámec
     "innerComments": [{id,title,text}], // lístky na vrstvě uvnitř karty
     "areaFlows": [{edgeId,from,fromName,to,toName,direction: "in"|"out"}], // tok (port "flow"), který se dotýká oblasti karty
     "areaMembers": [{id,name,kind}] }, // ostatní karty ve stejné oblasti (bez komentářů a bez karty samotné)

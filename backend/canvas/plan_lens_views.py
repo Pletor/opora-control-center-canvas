@@ -33,6 +33,13 @@ def _port(item):
     return item.get("port") or "next"
 
 
+def _kind(item, port):
+    """Druh hrany PR Lens: vazba `next`, po které tečou data (`carries: data`), je `data`; jinak podle portu."""
+    if port == "next" and item.get("carries") == "data":
+        return "data"
+    return EDGE_KIND.get(port, "other")
+
+
 def _progress(cards, done):
     return f"{sum(1 for card in cards if card['id'] in done)}/{len(cards)} {DONE}"
 
@@ -137,7 +144,7 @@ def area_view(ctx, area):
             continue
         if port not in PLAN_PORTS or (source not in ids and target not in ids):
             continue
-        kind, text = EDGE_KIND.get(port, "other"), report_label(ctx["state"], item["id"])
+        kind, text = _kind(item, port), report_label(ctx["state"], item["id"])
         if source in ids and target in ids:
             a, b = lens_id("card", source), lens_id("card", target)
             edges[lens_id("edge", item["id"])] = edge(lens_id("edge", item["id"]), a, b, kind, delta(a, b), text)

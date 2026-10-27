@@ -59,6 +59,19 @@ describe("board-model", () => {
     });
   });
 
+  it("vazba next s druhem toku nese třídu-háček, tooltip a jemný tah; jiný port carries ignoruje", () => {
+    const pathOptions = { borderRadius: 12, offset: 24 };
+    expect(edgeAppearance({ id: "e", source: "a", target: "b", carries: "data" })).toEqual({
+      sourceHandle: "next", className: "edge-port-next edge--carries-data", style: { stroke: "var(--edge-carries-data)" },
+      ariaLabel: "Po vazbě teče: Data", type: "smoothstep", pathOptions,
+    });
+    expect(edgeAppearance({ id: "e", source: "a", target: "b", port: "next", carries: "command" }).style)
+      .toEqual({ stroke: "var(--edge-carries-command)", strokeWidth: 1.5 });
+    expect(edgeAppearance({ id: "e", source: "a", target: "b", carries: "event" }).style)
+      .toEqual({ stroke: "var(--edge-carries-event)", strokeDasharray: "6 4" });
+    expect(edgeAppearance({ id: "e", source: "a", target: "b", port: "rule", carries: "data" }).className).toBe("edge-port-rule");
+  });
+
   it("tah z úchytu flow dá vazbu port:flow", () => {
     expect(edgeFromConnection({ source: "a1", target: "a2", sourceHandle: "flow" }, "e5"))
       .toEqual({ id: "e5", source: "a1", target: "a2", port: "flow" });

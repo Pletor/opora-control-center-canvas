@@ -31,7 +31,9 @@ Přijetí plánu nepotvrzuje implementaci ani dokončení karty. Styl má BEM pr
 `acceptedGraph` a `workingGraph` z právě načteného kontextu. `graph-edits.ts`
 odesílá pouze označená pole (`name`, `purpose`, `parentId`, `sourceRef`, `x`,
 `y`, `size`); pracovní rozdíly jiných polí nepřebírá. Vazby mají explicitní
-ID, oba konce a port `next`. Odstranění vyžaduje samostatný výběr všech potomků
+ID, oba konce a port `next`; druh toku `carries` se posílá jen při změně
+(`null` = neurčeno), jinak ho server nechá, a kontrola změny ho ukáže česky
+(`carriesChange`). Odstranění vyžaduje samostatný výběr všech potomků
 a dotčených vazeb. Server hlásí chybějící identity; klient rozsah nerozšiřuje.
 Prvek chybějící v pracovním grafu zůstává dostupný pro výslovné odstranění
 z přijatého plánu. Nové prvky z původního formuláře tvoří samostatný v1 návrh.

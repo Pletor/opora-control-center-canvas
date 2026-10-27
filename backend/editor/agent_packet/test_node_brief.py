@@ -686,3 +686,17 @@ def test_page_intent_and_sections_travel_in_site_and_nav_label_in_navigation(tmp
             {"nodeId": "home", "parentPageId": None},
             {"nodeId": "kontakt", "parentPageId": None, "navLabel": "Kontakt"},
         ]}]
+
+
+def test_link_carries_appears_only_when_the_edge_has_it(tmp_path):
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        seed_graph(client)
+        data = brief(client).json()
+        assert all("carries" not in item for item in data["graph"]["incoming"] + data["graph"]["outgoing"])
+        view = client.get("/api/view", params=SCOPE).json()
+        graph = {**GRAPH, "edges": [{**GRAPH["edges"][0], "carries": "navigation"}, GRAPH["edges"][1]]}
+        saved = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": graph, "digest": view["digest"]})
+        assert saved.status_code == 200, saved.text
+        data = brief(client).json()
+        assert data["graph"]["incoming"][0]["carries"] == "navigation"
+        assert "carries" not in data["graph"]["outgoing"][0]

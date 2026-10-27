@@ -45,23 +45,28 @@ def _outgoing(state, by_id, block):
     return found
 
 
+def _carries(edge):
+    """Druh toku vazby jen tam, kde ho graf nese (`docs/architektura-pro-agenty.md` §3.4)."""
+    return {"carries": edge["carries"]} if "carries" in edge else {}
+
+
 def trace(state, graph, entity_id):
     by_id = {item["id"]: item for item in graph["nodes"]}
     if entity_id in by_id:
         node = by_id[entity_id]
         incoming = [
-            {"via": "edge", "kind": "node", "sourceId": edge["source"], "label": by_id[edge["source"]]["name"], "port": edge.get("port", "next")}
+            {"via": "edge", "kind": "node", "sourceId": edge["source"], "label": by_id[edge["source"]]["name"], "port": edge.get("port", "next"), **_carries(edge)}
             for edge in graph["edges"] if edge["target"] == entity_id and edge["source"] in by_id
         ] + _incoming(state, by_id, "node", entity_id)
         outgoing = [
-            {"via": "edge", "kind": "node", "targetId": edge["target"], "label": by_id[edge["target"]]["name"], "port": edge.get("port", "next")}
+            {"via": "edge", "kind": "node", "targetId": edge["target"], "label": by_id[edge["target"]]["name"], "port": edge.get("port", "next"), **_carries(edge)}
             for edge in graph["edges"] if edge["source"] == entity_id and edge["target"] in by_id
         ]
         return {"id": entity_id, "kind": "node", "nodeId": entity_id, "label": node["name"], "nodeKind": node["kind"],
                 "incoming": incoming, "outgoing": outgoing}
     for edge in graph["edges"]:
         if edge["id"] == entity_id:
-            return {"id": entity_id, "kind": "edge", "source": edge["source"], "target": edge["target"], "port": edge.get("port", "next")}
+            return {"id": entity_id, "kind": "edge", "source": edge["source"], "target": edge["target"], "port": edge.get("port", "next"), **_carries(edge)}
     for node_id, block in _blocks(state):
         if block["id"] == entity_id:
             return {"id": entity_id, "kind": "block", "nodeId": node_id, "blockId": block["id"], "number": block["number"],

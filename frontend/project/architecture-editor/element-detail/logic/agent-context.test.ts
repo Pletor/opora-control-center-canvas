@@ -66,4 +66,10 @@ describe("vazby prvku", () => {
     ]);
     expect(links.outgoing).toEqual([{ edgeId: "e2", otherId: "plan", otherName: "Bez názvu", port: "rule" }]);
   });
+  it("nese druh toku vazby jen když ho graf má", () => {
+    const carried: Graph = { ...graph, edges: graph.edges.map((edge) => edge.id === "e1" ? { ...edge, carries: "data" as const } : edge) };
+    const links = nodeLinks(carried, "field");
+    expect(links.incoming[0]).toEqual({ edgeId: "e1", otherId: "form", otherName: "Formulář", port: "next", carries: "data" });
+    expect("carries" in links.incoming[1]).toBe(false);
+  });
 });

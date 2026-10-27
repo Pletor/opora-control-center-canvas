@@ -2,11 +2,18 @@
 
 from copy import deepcopy
 
-from backend.canvas.graph import valid_id
+from backend.canvas.graph import EDGE_CARRIES, valid_id
 from backend.canvas.opora_graph_build import validate_plan
 
 FIELDS = {"name", "purpose", "parentId", "sourceRef", "x", "y", "size", "memberOf"}
 EDIT_KEYS = {"updateNodes", "removeNodes", "updateEdges", "removeEdges"}
+EDGE_UPDATE_KEYS = {"id", "source", "target", "port"}
+
+
+def edge_update_fields(update):
+    """Pole, která úprava vazby mění: zdroj, cíl a port vždy, druh toku `carries` jen když ho úprava uvádí
+    (null ho odebere). Úprava bez `carries` dává stejná pole jako dřív, takže staré záznamy odvodí totéž."""
+    return ("source", "target", "port", "carries") if "carries" in update else ("source", "target", "port")
 
 
 def normalize(plan):
@@ -22,8 +29,8 @@ def normalize(plan):
     validate_plan({key: result[key] for key in ("nodes", "edges")})
     for key in ("updateNodes", "updateEdges"):
         for item in result[key]:
-            required = {"id", "fields"} if key == "updateNodes" else {"id", "source", "target", "port"}
-            if not isinstance(item, dict) or set(item) != required or not valid_id(item["id"]):
+            allowed = ({"id", "fields"},) if key == "updateNodes" else (EDGE_UPDATE_KEYS, EDGE_UPDATE_KEYS | {"carries"})
+            if not isinstance(item, dict) or set(item) not in allowed or not valid_id(item["id"]):
                 raise ValueError("Invalid graph update fields or identity.")
             if key == "updateNodes":
                 fields = item["fields"]
@@ -35,6 +42,8 @@ def normalize(plan):
                     raise ValueError("Membership references must be existing area identities or null.")
             elif item["port"] != "next" or not all(valid_id(item[field]) for field in ("source", "target")):
                 raise ValueError("Only plain next edge updates with existing references are supported.")
+            elif "carries" in item and item["carries"] is not None and item["carries"] not in EDGE_CARRIES:
+                raise ValueError("Unknown edge carries value.")
     for kind in ("Nodes", "Edges"):
         remove, update = result[f"remove{kind}"], result[f"update{kind}"]
         if any(not valid_id(item) for item in remove):
@@ -58,11 +67,11 @@ def apply(graph, plan):
                 raise ValueError("Shared architecture and special nodes cannot be edited.")
             if kind == "edges" and target.get("port", "next") != "next":
                 raise ValueError("Only plain next edges can be updated.")
-            fields = update["fields"] if kind == "nodes" else {key: update[key] for key in ("source", "target", "port")}
+            fields = update["fields"] if kind == "nodes" else {key: update[key] for key in edge_update_fields(update)}
             for key, value in fields.items():
                 if kind == "edges" and key == "port" and target.get("port", "next") == value:
                     continue
-                if key in ("sourceRef", "size", "memberOf") and value is None:
+                if key in ("sourceRef", "size", "memberOf", "carries") and value is None:
                     target.pop(key, None)
                 else:
                     target[key] = deepcopy(value)
