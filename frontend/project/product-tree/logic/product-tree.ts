@@ -39,12 +39,13 @@ export function editProductNode(node: CanvasNode, draft: ProductDraft): CanvasNo
 }
 
 /** Compare only fields this form owns; moving cards or adding children is harmless.
- * A page also carries goal, feel, navLabel and agent-proposed sections: the form saves the whole `site`,
+ * A page also carries goal, feel, navLabel and sections, an application its customer journeys: the form saves the whole `site`,
  * so a concurrent change to any of them must be noticed instead of silently overwritten. */
 export function productFingerprint(node: Pick<CanvasNode, "name" | "purpose" | "site">): string {
   const site = node.site;
   return JSON.stringify([node.name, node.purpose, site?.kind,
     site?.kind === "application" ? site.environments.map((env) => [env.name, env.host]) : site?.path,
+    ...(site?.kind === "application" ? [(site.journeys ?? []).map((journey) => [journey.id, journey.name, journey.from, journey.to])] : []),
     ...(site?.kind === "page" ? [[site.goal ?? null, site.feel ?? null, site.navLabel ?? null,
       (site.sections ?? []).map((section) => [section.id, section.role, section.name, section.intent])]] : [])]);
 }

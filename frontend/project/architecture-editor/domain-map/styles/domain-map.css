@@ -94,3 +94,19 @@
   .domain-map__frame--live{grid-template-columns:minmax(0,1fr);grid-template-rows:none}
   .domain-map__frame--live .domain-map__live{max-height:none}
   .domain-map__frame--live .domain-map__live{order:-1;grid-column:auto;border-top:0;border-bottom:1px solid var(--ae-line)}}
+
+/* Cesty zákazníka: pod kartami stránek, protože cesta je prochází. Každá cesta je jeden řádek
+   „název: začátek → cíl“, aby člověk na první pohled viděl, odkud kam má zákazník dojít. Konec, jehož stránka
+   z mapy zmizela, svítí varovně: taková cesta nejde projít. */
+.domain-map__journeys{display:flex;flex-direction:column;gap:6px;margin-top:16px;padding-top:12px;border-top:1px solid var(--ae-line)}
+.domain-map__journeys-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.domain-map__journey-list{list-style:none;display:flex;flex-direction:column;gap:4px;margin:0;padding:0}
+.domain-map__journey{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-size:12px;color:var(--ae-text)}
+.domain-map__journey-end{padding:1px 6px;border-radius:6px;border:1px solid var(--ae-line);font-size:11px}
+.domain-map__journey-end--missing{border-color:var(--warn-line);color:var(--warn)}
+.domain-map__journey-arrow{color:var(--ae-muted)}
+.domain-map__journey-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto minmax(0,1fr) auto;gap:4px;align-items:center}
+.domain-map__journey-row input,.domain-map__journey-row select{width:100%;min-width:0}
+.domain-map__journey-row button{padding:3px 8px;font-size:11px;border-radius:7px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-text);cursor:pointer}
+.domain-map__journey-problem{grid-column:1 / -1;color:var(--warn)}
+@media (max-width:640px){.domain-map__journey-row{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.domain-map__journey-row input{grid-column:1 / -1}}

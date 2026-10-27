@@ -64,8 +64,11 @@ odvozují; přidaný výchozí klíč by starý záznam zneplatnil a změnil dig
   "journeys": [ { "id": "poptavka", "name": "Poptávka z menu", "from": "nav", "to": "<id stránky /dekujeme>" } ] }
 ```
 
-- `journeys` 0–20 položek; `from` je id stránky aplikace nebo `"nav"` (vstup z menu); `to` je id stránky
-  aplikace. Kroky cesty se **neukládají**, odvodí je stroj (§6).
+- `journeys` 1–20 položek (bez cest pole vynechte); `id` jako id uzlu, jedinečné v aplikaci; `name` 1–80;
+  `from` je id stránky aplikace nebo `"nav"` (vstup z menu); `to` je id stránky aplikace, jiné než `from`.
+  Kroky cesty se **neukládají**, odvodí je stroj (§6). Zadává je člověk v mapě domény (panel „Cesty zákazníka“).
+- Uložení neověřuje, že `from`/`to` stránka existuje: smazání stránky nesmí zablokovat mapu. Cestu s chybějícím
+  koncem ohlásí kontrola mapy jako `journey.broken` (etapa 7) a editor ukáže „chybí stránka“.
 - `healthPath` zůstává beze změny (čte ho `web_status`).
 
 ### 3.3 Komponenta (uzel pod stránkou)
