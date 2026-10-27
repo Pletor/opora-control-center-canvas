@@ -27,6 +27,9 @@ souřadnice, vazby, zdrojové reference a všechna přidávaná/přebíraná zad
 Přijetí plánu nepotvrzuje implementaci ani dokončení karty. Styl má BEM prefix
 `graph-proposals`; čistá logika a transport mají sousední testy.
 
+Nová vazba ve formuláři rozšíření má výběr „Co po vazbě teče“ (navigace, data, příkaz, událost, neurčeno);
+„neurčeno“ klíč `carries` do návrhu neposílá, server (`opora_graph_build.py`) ho jinak přenese na vazbu.
+
 `GraphEditForm` a `GraphNodeEdit` vytvářejí v2 návrhy úprav a odstranění nad
 `acceptedGraph` a `workingGraph` z právě načteného kontextu. `graph-edits.ts`
 odesílá pouze označená pole (`name`, `purpose`, `parentId`, `sourceRef`, `x`,

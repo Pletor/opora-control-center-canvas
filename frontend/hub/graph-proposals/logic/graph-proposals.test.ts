@@ -13,8 +13,10 @@ describe("graph proposal input and explicit adoption", () => {
   });
   it("emits local and existing endpoints without embedding stable IDs or source verdicts", () => {
     const node = { ...newDraftNode("task"), name: "Task", parent: "@sector" };
-    expect(graphPayload("p", "w", "Next", context, [node], [{ from: "@old", to: "task" }]).plan.edges)
+    expect(graphPayload("p", "w", "Next", context, [node], [{ from: "@old", to: "task", carries: "" }]).plan.edges)
       .toEqual([{ from: "@old", to: "task", port: "next" }]);
+    expect(graphPayload("p", "w", "Next", context, [node], [{ from: "@old", to: "task", carries: "data" }]).plan.edges)
+      .toEqual([{ from: "@old", to: "task", port: "next", carries: "data" }]);
   });
   it("sends explicit valid area dimensions and refuses ambiguous sizes", () => {
     const node = { ...newDraftNode("area"), name: "Area", kind: "area" as const };
@@ -25,7 +27,7 @@ describe("graph proposal input and explicit adoption", () => {
     const node = { ...newDraftNode("task"), name: "Task" };
     expect(() => graphPayload("p", "w", "x", context, [newDraftNode("task")], [])).toThrow();
     expect(() => graphPayload("p", "w", "x", context, [node, node], [])).toThrow();
-    expect(() => graphPayload("p", "w", "x", context, [node], [{ from: "missing", to: "task" }])).toThrow();
+    expect(() => graphPayload("p", "w", "x", context, [node], [{ from: "missing", to: "task", carries: "" }])).toThrow();
     expect(() => graphPayload("p", "w", "x", context, [{ ...node, parent: "task" }], [])).toThrow();
   });
   it("requires acknowledgement bound to this proposal and exact base digest, even on empty Canvas", () => {
