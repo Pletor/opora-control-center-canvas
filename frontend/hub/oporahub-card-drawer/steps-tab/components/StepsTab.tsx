@@ -1,5 +1,6 @@
 import { readSteps } from "../../spec-tab/logic/spec-diff";
 import type { CardData } from "../../logic/use-card-data";
+import { stepFill } from "../logic/step-fill";
 import { stepColumns, stepProgress, stepRows, type StepRow } from "../logic/step-status";
 import "../styles/steps-tab.css";
 
@@ -41,6 +42,7 @@ export default function StepsTab({ data, onEditSteps }: { data: CardData; onEdit
   const rows = steps ? stepRows(steps, data.stepResults, data.card?.steps?.current ?? null) : [];
   const progress = stepProgress(rows);
   const columns = stepColumns(rows);
+  const fill = stepFill(rows);
   const next = rows.find(row => row.status === "waiting");
   return <div className="steps-tab" data-oh-view="card-steps" data-oh-steps-total={progress.total} data-oh-steps-done={progress.done}
     data-oh-steps-current={progress.current?.id ?? ""} data-oh-steps-source={accepted ? "accepted" : working ? "working" : "none"}>
@@ -49,6 +51,10 @@ export default function StepsTab({ data, onEditSteps }: { data: CardData; onEdit
       <div className="steps-tab__head">
         <b>Postup <span className="steps-tab__muted">{progress.done}/{progress.total}</span></b>
         <span className="steps-tab__muted">{accepted ? "přijatý plán" : "jen pracovní návrh"} · DAG kroků</span>
+      </div>
+      <div className={`steps-tab__fill steps-tab__fill--${fill.severity}`} role="progressbar" aria-label="Hotové kroky" aria-valuemin={0} aria-valuemax={100}
+        aria-valuenow={fill.percent} aria-valuetext={`${progress.done} z ${progress.total} kroků${fill.severity === "error" ? ", krok selhal" : fill.severity === "warn" ? ", krok přeskočen" : ""}`}>
+        <i style={{ width: `${fill.percent}%` }} />
       </div>
       <div className="steps-tab__bar" aria-hidden="true">{rows.map(row => <i key={row.id} className={`steps-tab__seg steps-tab__seg--${row.status}`} />)}</div>
       <div className="steps-tab__dag" aria-label="Závislosti kroků (sloupec = hloubka v DAG)">

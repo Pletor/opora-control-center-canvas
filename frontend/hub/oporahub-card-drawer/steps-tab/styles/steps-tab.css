@@ -7,6 +7,14 @@
 .steps-tab__empty { margin: 0; padding: 12px 14px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--ink-muted); }
 .steps-tab__head { display: flex; justify-content: space-between; gap: 10px; }
 
+/* Tenká výplň nad segmenty: kolik plánu je hotovo jedním pohledem. Roste plynule (0,22 s) při každém dokončeném
+   kroku; modrá je klid, jantarová znamená přeskočený krok, červená selhaný. Barvu doprovází text v aria-valuetext. */
+.steps-tab__fill { height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.steps-tab__fill i { display: block; height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.22s ease-out; }
+.steps-tab__fill--warn i { background: var(--gold); }
+.steps-tab__fill--error i { background: var(--danger); }
+@media (prefers-reduced-motion: reduce) { .steps-tab__fill i { transition: none; } }
+
 .steps-tab__bar { display: flex; gap: 3px; }
 .steps-tab__seg { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-3); }
 .steps-tab__seg--done, .steps-tab__seg--skipped { background: var(--ok); }

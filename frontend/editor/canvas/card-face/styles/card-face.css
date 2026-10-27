@@ -39,7 +39,8 @@
 /* Postup kroků: segment = krok, zelený hotový, tyrkysový právě běží; pod ním „3/7 · s4 Název kroku“. */
 .card-face__progress { display: flex; flex-direction: column; gap: 5px; }
 .card-face__segments { display: flex; gap: 3px; }
-.card-face__segments b { flex: 1; height: 6px; border-radius: 2px; background: var(--line); }
+.card-face__segments b { flex: 1; height: 6px; border-radius: 2px; background: var(--line); transition: background-color 0.22s; }
+@media (prefers-reduced-motion: reduce) { .card-face__segments b { transition: none; } }
 .card-face__segments .card-face__segment--done { background: var(--ok); }
 .card-face__segments .card-face__segment--cur { background: var(--accent); }
 .card-face__steps { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -77,7 +78,17 @@
 .node-card--lean:not(:hover):not(.node-card--selected) .node-card__port { opacity: 0; }
 .node-card--lean.node-card--face-working { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .node-card--lean.node-card--face-ready { border-color: var(--accent-line); }
-.node-card--lean.node-card--face-decision { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+.node-card--lean.node-card--face-decision { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft), 0 0 16px color-mix(in srgb, var(--gold) 18%, transparent); }
+/* Karta, která čeká na lidské rozhodnutí (tvář „decision“, slovo „čeká na tebe“), je obtažená čárkovaným zlatým
+   prstencem, který se pomalu (1,85 s) rozsvěcí a tlumí. Dýchá jen tato jedna karta, dokud se nerozhodne; pro
+   klid je prstenec jen průhlednost pseudo-prvku. Při omezeném pohybu zůstane svítit napevno, stav nese i slovo a značka. */
+.node-card--lean.node-card--face-decision::after {
+  content: ""; position: absolute; inset: -3px; border-radius: 13px; pointer-events: none;
+  border: 1.5px dashed color-mix(in srgb, var(--gold) 82%, transparent);
+  opacity: 0.4; animation: node-card-await 1.85s ease-in-out infinite;
+}
+@keyframes node-card-await { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.95; } }
+@media (prefers-reduced-motion: reduce) { .node-card--lean.node-card--face-decision::after { animation: none; opacity: 0.95; } }
 .node-card--lean.node-card--face-problem { border-color: var(--danger-line); }
 .node-card--lean.node-card--face-blocked { border-style: dashed; background: var(--surface-2); }
 .node-card--lean.node-card--face-done { background: var(--surface-2); }
