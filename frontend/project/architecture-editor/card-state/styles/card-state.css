@@ -1,0 +1,26 @@
+/* Stav karty je jedna barva, stejná jako ve Studiu: plán šedý, staví se modrý, hotovo zelené, ověřeno tyrkysové,
+   díra červená. Modifikátor stavu nese jen proměnnou `--card-state-tone`, takže si ji vezme rám karty i štítek a oko
+   z dálky pozná, co stojí, dřív než přečte text. Karta bez stavu (oblast, komentář) zůstane v barvě linky. */
+.card-state--plan { --card-state-tone: var(--studio-state-plan); }
+.card-state--building { --card-state-tone: var(--studio-state-building); }
+.card-state--done { --card-state-tone: var(--studio-state-done); }
+.card-state--verified { --card-state-tone: var(--studio-state-verified); }
+.card-state--hole { --card-state-tone: var(--studio-state-hole); }
+
+/* Štítek vpravo v hlavičce: malá pilulka 9 px v barvě stavu s jemnou výplní, jako na kartě Studia. Souhrn dětí
+   („2/3 stojí · 1 se staví“) je v bublině, aby hlavička zůstala na jeden řádek. */
+.card-state__chip { flex-shrink: 0; padding: 1px 6px; border: 1px solid var(--card-state-tone); border-radius: 10px; background: color-mix(in srgb, var(--card-state-tone) 14%, transparent); color: var(--card-state-tone); font-size: 9px; line-height: 1.4; white-space: nowrap; }
+
+/* Ikona druhu je kresba Lucide 16 px v rámečku 18 px; barvu bere z textu rodiče, takže karta řekne vrstvou
+   (frontend, backend, databáze), co je zač, a rám zůstane stavu. */
+.card-state__icon { display: inline-grid; flex-shrink: 0; place-items: center; width: 18px; height: 18px; }
+.card-state__icon svg { width: 16px; height: 16px; }
+
+/* Staví se: rám karty pomalu dýchá modrým svitem (2,4 s), jediný trvalý pohyb karty, jako ve Studiu. Kdo nechce
+   pohyb, vidí stav jen barvou rámu a štítkem. */
+.card-state__frame--building { animation: card-state-building 2.4s ease-in-out infinite; }
+@keyframes card-state-building {
+  0%, 100% { box-shadow: 0 0 0 0 #49b8ff00, 0 6px 16px #0003; }
+  50% { box-shadow: 0 0 0 4px #49b8ff38, 0 6px 16px #0003; }
+}
+@media (prefers-reduced-motion: reduce) { .card-state__frame--building { animation: none; } }

@@ -1,0 +1,10 @@
+# Stav karty
+
+Stav, ikona a dech rámu karet Editoru architektury ve stejném jazyce jako Studio (`docs/studio.md` §2). Nic neodvozuje po svém: strom (`studio-tree`), fakta (`studio-facts`), pravidla (`studio-status`) a popisky (`card-view`) jsou Studia, tady se jen přiřadí uzlům grafu.
+
+- `logic/card-state.ts` (test vedle): `cardStates(graph, facts)` → stav každého uzlu, který Studio zná (doména, stránka, sektor, komponenta; oblast a komentář stav nemají), `cardLife(...)` složí fakta ze zdrojů Skutečnosti, `cardIcon(node)` ikona Lucide podle druhu a vrstvy, `holesLabel`.
+- `logic/use-card-life.ts`: hook pro `ArchitectureEditor` (jediný volající); Editor stránky a Mapa domény dostanou výsledek v props.
+- `components/CardStateChip.tsx` štítek stavu, `components/CardIcon.tsx` ikona druhu (kresba `StudioCardIcon`).
+- `styles/card-state.css`, blok `card-state`: `card-state--<stav>` nese jen `--card-state-tone` (rám i štítek), `card-state__frame--building` dech rámu 2,4 s (při `prefers-reduced-motion` stojí).
+
+Data: uzavření karet (Desktop stav), aktivní nároky práce (`work-status`, jen projekty s worktree), díry mapy (`map-check`) a cesty s `lastRun` (`useStudioRuns`, stejný poller jako Studio).

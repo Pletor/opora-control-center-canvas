@@ -22,7 +22,8 @@ import ComponentStructure from "../component-structure/components/ComponentStruc
 import ElementDetail from "../element-detail/components/ElementDetail";
 import ArchitectureHeader from "./ArchitectureHeader";
 import { useDomainLive } from "../logic/use-domain-live";
-import { useDerivedJourneys } from "../logic/use-derived-journeys";
+import { useStudioRuns } from "@/project/studio/logic/use-studio-runs";
+import { useCardLife } from "../card-state/logic/use-card-life";
 import { useMapCheck } from "../logic/use-map-check";
 import { mapCheckGroups, type MapCheckTarget } from "../domain-map/map-check/logic/map-check";
 import { pageWork, panelViews } from "../logic/live-views";
@@ -42,6 +43,7 @@ export type ArchitectureLiveProps = {
   onOpenCard: (request: CardRequest) => void; onOpenSession: (id: string) => void;
 };
 
+const EMPTY_GRAPH: Graph = { nodes: [], edges: [] };
 type Props = { project: string; workspace: string; projectName?: string; onGraphChanged: () => void; onOpenEditor: (id: string) => void; live: ArchitectureLiveProps };
 export default function ArchitectureEditor({ project, workspace, projectName, onGraphChanged, onOpenEditor, live: liveProps }: Props) {
   const store = useArchitectureGraph(project, workspace, onGraphChanged);
@@ -64,9 +66,10 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const [worktreeId, setWorktreeId] = useState<string | null>(null);
   const live = useDomainLive(project, domainId, liveProps.worktreeLive);
   const admin = useWorktreeAdmin(project, () => { live.refreshWork(); onGraphChanged(); });
-  const derivedJourneys = useDerivedJourneys(project, store.view?.digest);
+  const derivedJourneys = useStudioRuns(project, store.view?.digest).journeys;
   const mapCheck = useMapCheck(project, store.view?.digest);
-  const graph = store.view?.graph ?? { nodes: [], edges: [] };
+  const graph = store.view?.graph ?? EMPTY_GRAPH;
+  const cards = useCardLife({ graph, nodes: desktop.state.nodes, work: live.work.data, check: mapCheck, derived: derivedJourneys });
   const closed = new Set(Object.entries(desktop.state.nodes).filter(([, value]) => value.done?.confirmed).map(([id]) => id));
   const editorId = architectureEditorId(project, workspace, domainId ?? undefined);
   const active = useRef(scopeId); active.current = scopeId;
@@ -174,7 +177,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
         onAssign: admin.assign, shelf: admin.shelf, onLoadShelf: admin.loadShelf }}
       onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
-      work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding}
+      work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} cardStates={cards.states} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding}
       webBadge={views && !views.work ? webBadge : null}
       live={views?.work ? <LiveDomainPanel web={views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
         actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
@@ -182,7 +185,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onReparent={(id, parentId) => execute(async () => { for (const child of subtreeIds(id)) writable(child, "structure"); writable(parentId, "structure"); await saveGraph(reparentDomainPage(graph, domain.id, id, parentId)); })}/>
     : <PageEditor key={domain.id + ":" + scope.id} webBadge={webBadge} graph={graph} domain={domain} scope={scope} projectName={projectName || "Projekt"} selectedId={selected?.id ?? null}
       editorId={editorId} disabled={disabled} structureDisabled={structureDisabled} reveal={reveal} onOpenPage={openPage} onAddPage={(id) => { navigate(id); setDraftParent(id); }} onOpenScope={openScope}
-      derivedJourneys={derivedJourneys} onOpenJourneys={(journeyId) => { navigate(domain.id); setJourneyEdit(journeyId); }}
+      derivedJourneys={derivedJourneys} cards={cards} onOpenJourneys={(journeyId) => { navigate(domain.id); setJourneyEdit(journeyId); }}
       onSelect={setSelectedId} onOpenStructure={openStructure} onOpenEditor={onOpenEditor} onArea={() => createArea()} onSector={(id) => createSector(id)} onAddNode={createNode}
       onInsert={(id, target, point, link) => eventAction(() => insert(id, target, point, link))}
       onMove={(id, x, y, area) => execute(async () => { writable(id); if (area) writable(area.id); const next = moveEditorNode(area ? growEditorArea(graph, area) : graph, id, x, y); for (const moved of next.nodes) { const prior = graph.nodes.find((node) => node.id === moved.id); if (prior && (prior.x !== moved.x || prior.y !== moved.y)) writable(moved.id); } await saveGraph(next); })}

@@ -11,6 +11,7 @@ import type { MapCheckGroup, MapCheckTarget } from "../map-check/logic/map-check
 import type { DerivedJourney } from "../logic/derived-journeys";
 import { journeysOfPage, type PageJourneyRole } from "../logic/page-journeys";
 import { navLabelOf } from "../logic/page-site";
+import type { CardState } from "../../card-state/logic/card-state";
 import "../styles/domain-map.css";
 
 function flatten(branches: ProductBranch[]): CanvasNode[] {
@@ -21,10 +22,12 @@ function flatten(branches: ProductBranch[]): CanvasNode[] {
  * Step 2: the only place where structure changes: pages, sub-pages, order, navigation. The parent saves; this part reports edits upward.
  * `live` = third column (only projects with worktrees); `webBadge` = web state in the domain panel when there is no live column.
  */
-export default function ArchitectureDomainMap({ domain, pages, disabled, live, webBadge, work, derivedJourneys, mapCheck, onOpenFinding, initialDraftParentId, onDraftOpened, initialJourneyId, onJourneyOpened, onOpen, onSave, onReorder, onReparent, onRemove }: {
+export default function ArchitectureDomainMap({ domain, pages, disabled, live, webBadge, work, derivedJourneys, cardStates, mapCheck, onOpenFinding, initialDraftParentId, onDraftOpened, initialJourneyId, onJourneyOpened, onOpen, onSave, onReorder, onReparent, onRemove }: {
   domain: CanvasNode; pages: ProductBranch[]; disabled: boolean; live?: ReactNode; webBadge?: ReactNode; work?: PageWork;
   /** Odvozené kroky cest zákazníka celého projektu (backend §6); null = zatím nenačteno nebo nedostupné. */
-  derivedJourneys?: DerivedJourney[] | null; initialDraftParentId?: string | null; onDraftOpened?: () => void; onOpen: (id: string) => void;
+  derivedJourneys?: DerivedJourney[] | null;
+  /** Stav každé stránky jako ve Studiu (`card-state/`); chybí = karty bez štítku stavu. */
+  cardStates?: ReadonlyMap<string, CardState>; initialDraftParentId?: string | null; onDraftOpened?: () => void; onOpen: (id: string) => void;
   /** Jednorázová žádost z úseku cesty v Editoru stránky: id = otevřít editor té cesty a ukázat ji, `null` = jen ukázat cesty. */
   initialJourneyId?: string | null; onJourneyOpened?: () => void;
   /** Díry mapy této domény (kontrola mapy §5, hotové skupiny od rodiče); null = zatím nenačteno nebo nedostupné. Klik na stránku
@@ -58,7 +61,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
         {pages.map(({ node }) => <button type="button" key={node.id} className="domain-map__navbar-item" onClick={() => onOpen(node.id)}>{navLabelOf(node)}</button>)}
       </nav>
       <div className="domain-map__grid">
-        {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work} journeyRoles={journeyRoles}/>)}
+        {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work} journeyRoles={journeyRoles} states={cardStates}/>)}
       </div>
       {!pages.length && <p className="domain-map__empty">Přidejte první stránku této domény.</p>}
       {mapCheck && <MapCheckPanel groups={mapCheck} onSelect={(target) => target.kind === "page" ? onOpen(target.id) : onOpenFinding?.(target)}/>}

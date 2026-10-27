@@ -12,7 +12,10 @@ naměřené hodnoty a chování, kód se nepřebírá.
 - **Klid je výchozí.** Trvale se hýbe jen to, co právě běží (karta s nárokem, běžící ověření, běžící cesta).
   Událost (přijato, odmítnuto, prošlo, spadlo) se ukáže jednou a utichne.
 - **`prefers-reduced-motion: reduce`**: žádná animace ani přechod; stav nese barva, tvar a text.
-- Každá animace je CSS na dílku (BEM třída, `@keyframes` v jeho `styles/*.css`), nikdy nový běh v JS na snímek.
+- Animace je přednostně CSS na dílku (BEM třída, `@keyframes` v jeho `styles/*.css`). Co CSS neumí (pohyb po
+  trase vazby, řízení času, pauza, synchronizace s daty), smí řídit TS (rozhodnutí uživatele 2026-10-28):
+  jedna sdílená smyčka `requestAnimationFrame` na plátno (jako `PresentationClock` ve Studiu), zastavená při
+  skrytém dokumentu a bez práce, když se nic nehýbe; logika snímku v `logic/` s testem.
 
 ## 2. Vazby podle `carries` (statické odlišení)
 

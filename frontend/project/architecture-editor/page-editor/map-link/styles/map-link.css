@@ -1,0 +1,7 @@
+/* Vazba mapy je Bézierova křivka jako v TechViz a ve Studiu: z portu vede chvíli rovně ven z karty a teprve pak se
+   ohne k cíli, takže oko čte tok zleva doprava i mezi kartami pod sebou. Průhlednost 0,75 nechá křivky křížit se bez
+   skvrn; barvu, šířku a čárkování dodává druh toku (docs/zive-zobrazeni-a-knihovna.md §2). Pod myší se vazba rozsvítí
+   naplno, aby se dala dočíst ve spleti ostatních. */
+.map-link__line { opacity: .75; transition: opacity .15s ease; }
+.map-link:hover .map-link__line { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .map-link__line { transition: none; } }

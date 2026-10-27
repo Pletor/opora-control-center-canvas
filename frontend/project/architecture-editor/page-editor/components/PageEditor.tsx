@@ -13,6 +13,8 @@ import JourneySlice from "../journey-slice/components/JourneySlice";
 import { pageSlices, sectionChips } from "../journey-slice/logic/page-slice";
 import { domainPageTree } from "../../logic/domain-model";
 import { derivedForDomain, type DerivedJourney } from "../../domain-map/logic/derived-journeys";
+import { useMapMotion } from "../map-link/logic/use-map-motion";
+import type { CardLife } from "../../card-state/logic/card-state";
 import "../styles/page-editor.css";
 
 type Props = {
@@ -25,6 +27,8 @@ type Props = {
   webBadge?: ReactNode;
   /** Odvozené přechody cest zákazníka (backend §6) pro úsek cesty; null = nenačteno. */
   derivedJourneys?: DerivedJourney[] | null;
+  /** Skutečný stav karet (Studio) a cesty pro pohyb vazeb; počítá rodič (`useCardLife`). */
+  cards: CardLife;
   /** Úsek cesty: „Upravit cestu“ (id) nebo výzva u stránky mimo cesty (`null`) otevře Mapu domény. */
   onOpenJourneys: (journeyId: string | null) => void;
   onOpenPage: (domainId: string, pageId: string) => void; onAddPage: (domainId: string) => void; onOpenScope: (id: string) => void;
@@ -52,6 +56,7 @@ export default function PageEditor(props: Props) {
   const [detailKey, setDetailKey] = useState(0);
   const selectPage = () => { if (!activePage) return; if (selectedId !== activePage) setDetailKey((key) => key + 1); props.onSelect(activePage); };
   const path = scopePath(graph, scope.id, domain.id);
+  const motion = useMapMotion({ graph, scopeId: scope.id, pageId: activePage, states: props.cards.states, journeys: props.cards.journeys });
   const empty = !graph.nodes.some((node) => node.parentId === scope.id);
   const toggle = <div className="page-editor__switch" role="group" aria-label="Co zobrazit">
     <button type="button" className="page-editor__switch-button" aria-pressed={focus === "map"} onClick={() => setFocus("map")}>Mapa</button>
@@ -81,7 +86,7 @@ export default function PageEditor(props: Props) {
         <ArchitectureCanvas key={props.editorId + ":" + scope.id} graph={graph} scopeId={scope.id} editorId={props.editorId} selected={selectedId}
           disabled={disabled} revealId={props.reveal} onSelect={props.onSelect} onOpenPage={(id) => props.onOpenPage(domain.id, id)} onOpenStructure={props.onOpenStructure} onOpenEditor={props.onOpenEditor}
           onAddNode={props.onAddNode} onSector={props.onSector} onMove={props.onMove} onConnect={props.onConnect} onResize={props.onResize}
-          onInsert={(id, target, point, link) => props.onInsert(id, target, point, link)}/>
+          onInsert={(id, target, point, link) => props.onInsert(id, target, point, link)} life={{ states: props.cards.states, motion }}/>
         {empty && <div className="page-editor__empty">
           <h3 className="page-editor__empty-title">{scope.name}</h3>
           <p className="page-editor__empty-text">Prázdná mapa této stránky. Začněte oblastí nebo přetáhněte prvek z Knihovny.</p>
