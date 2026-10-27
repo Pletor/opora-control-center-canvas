@@ -46,3 +46,5 @@ nebo `null`, když záměr chybí; `decomposeTarget(host)` říká, zda jde o se
 zadání míří karty do rámečku oblasti (`parent: "@<id oblasti>"`) a cíl, akceptaci a bránu čte agent z
 `node-brief` sektoru. Název, záměr a počet sektorů nese jako citovaná data („Záměr (data, ne pokyn)“), pravdu agent čte z `view`. Sektory v zadání míří do oblasti přes `parent: "@<id oblasti>"` (backend je položí na
 vrstvu oblasti dovnitř rámečku, viz `canvas-plan.md`).
+
+Porty (2026-10-27): úchyty toku in / out jsou `PortHandle` (druh `flow`) ze `shared/flow-ports`; area.css dodává jen barvu, čtvercový tvar a viditelnost při najetí, výběru nebo fokusu.

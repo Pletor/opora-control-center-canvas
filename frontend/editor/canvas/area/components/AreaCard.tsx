@@ -4,11 +4,12 @@
 // velikosti. Přejmenování a změna velikosti bublají nahoru přes kontext akcí plátna (`renameNode`,
 // `resizeArea`); data nenesou funkce, aby šla oblast při přestavbě znovu použít beze změny.
 import { memo, useEffect, useRef, useState } from "react";
-import { Handle, NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
+import { NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
 import { AREA_SIZE_MAX, AREA_SIZE_MIN, areaRollup } from "@/editor/canvas/area/logic/area-model";
 import type { AreaColor } from "@/shared/types/logic/types";
 import "@/editor/canvas/area/styles/area.css";
 import { useCardActions } from "@/editor/canvas/node-card/logic/card-actions";
+import PortHandle from "@/shared/flow-ports/components/PortHandle";
 import AreaSummary from "@/editor/canvas/card-checklist/components/AreaSummary";
 import type { areaSummary } from "@/editor/canvas/card-checklist/logic/card-checklist";
 
@@ -61,13 +62,17 @@ const AreaCard = memo(function AreaCard({ id, data, selected }: NodeProps<Node<A
         maxHeight={AREA_SIZE_MAX}
         onResizeEnd={(_, params) => onResize(params.width, params.height)}
       />
-      <Handle
+      <PortHandle
+        kind="flow"
+        hint="vstup toku do oblasti"
         type="target"
         position={Position.Left}
         className="nodrag area-card__flow area-card__flow--in"
         data-testid={"area-flow-in-" + id}
       />
-      <Handle
+      <PortHandle
+        kind="flow"
+        hint="výstup toku z oblasti"
         type="source"
         position={Position.Right}
         id="flow"

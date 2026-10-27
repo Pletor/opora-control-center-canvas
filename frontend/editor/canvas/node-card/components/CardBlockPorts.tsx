@@ -10,7 +10,8 @@
 // se editor s rozepsaným popiskem znovu otevře (bez krádeže fokusu); při odmontování se nic neukládá.
 import { useRef, useState } from "react";
 import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
-import { Handle, Position } from "@xyflow/react";
+import { Position } from "@xyflow/react";
+import PortHandle from "@/shared/flow-ports/components/PortHandle";
 import { blockHandleId } from "@/shared/types/logic/types";
 import { MAX_BLOCK_PORTS, type BlockPortDef } from "@/shared/desktop-state/logic/types";
 import PortDecisionEditor from "./PortDecisionEditor";
@@ -126,12 +127,14 @@ export default function CardBlockPorts({
                 onSave={(status, reason) => handlers.decidePort?.(blockId, port.id, status, reason)} />}
               {portEditorsShown(detail, held.has(port.id)) && handlers.configureSpawn && <PortSpawnEditor key={"spawn:" + port.id} port={port} blockId={blockId} disabled={disabled}
                 onSave={action => handlers.configureSpawn?.(blockId, port.id, action)} />}
-              <Handle
+              <PortHandle
+                kind="block"
+                name={port.label}
+                hint="tahem vznikne vazba na jinou kartu"
                 type="source"
                 position={Position.Right}
                 id={blockHandleId(blockId, port.id)}
                 className="nodrag node-card__block-port-dot"
-                style={port.status === "chosen" ? { background: "var(--accent)", borderWidth: 2 } : port.status === "rejected" ? { background: "#94a3b8", borderStyle: "dashed" } : undefined}
                 isConnectableStart
                 isConnectableEnd={false}
                 data-testid={"card-port-handle-" + port.id}

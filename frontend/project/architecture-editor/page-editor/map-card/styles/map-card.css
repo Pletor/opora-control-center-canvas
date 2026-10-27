@@ -103,10 +103,8 @@
 
 /* Porty jsou barevné kroužky na bocích: vlevo vstup, vpravo výstup, z nich se táhne vazba. */
 .map-card__port.react-flow__handle {
-  width: 11px;
-  height: 11px;
-  border: 2px solid #0c1723;
-  background: var(--tone);
+  --port-fill: var(--tone);
+  --port-ring: #0c1723;
 }
 
 /* Oblast: přerušovaný jantarový rám, který karty seskupuje podle polohy. Je průhledná a leží
