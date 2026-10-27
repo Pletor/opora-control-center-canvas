@@ -23,6 +23,8 @@ import ElementDetail from "../element-detail/components/ElementDetail";
 import ArchitectureHeader from "./ArchitectureHeader";
 import { useDomainLive } from "../logic/use-domain-live";
 import { useDerivedJourneys } from "../logic/use-derived-journeys";
+import { useMapCheck } from "../logic/use-map-check";
+import { mapCheckGroups, type MapCheckTarget } from "../domain-map/map-check/logic/map-check";
 import { pageWork, panelViews } from "../logic/live-views";
 import LiveDomainPanel from "../live-status/components/LiveDomainPanel";
 import WebStatusBadge from "../live-status/components/WebStatusBadge";
@@ -63,6 +65,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const live = useDomainLive(project, domainId, liveProps.worktreeLive);
   const admin = useWorktreeAdmin(project, () => { live.refreshWork(); onGraphChanged(); });
   const derivedJourneys = useDerivedJourneys(project, store.view?.digest);
+  const mapCheck = useMapCheck(project, store.view?.digest);
   const graph = store.view?.graph ?? { nodes: [], edges: [] };
   const closed = new Set(Object.entries(desktop.state.nodes).filter(([, value]) => value.done?.confirmed).map(([id]) => id));
   const editorId = architectureEditorId(project, workspace, domainId ?? undefined);
@@ -103,6 +106,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   function navigate(nextDomain: string | null, nextScope: string | null = null) { if (nextDomain !== domainId) setWorktreeId(null); setDomainId(nextDomain); setScopeId(nextScope); setSelectedId(nextScope); setStructureId(null); setReveal(null); setError(""); }
   function openScope(id: string) { try { editorScopeNode(graph, id); if (domainForNode(graph, id)?.id !== domainId) throw new Error("Prvek nepatří do této domény."); navigate(domainId, id === domainId ? null : id); } catch (cause) { setError(String(cause)); } }
   function openPage(nextDomain: string, pageId: string) { try { editorScopeNode(graph, pageId); if (domainForNode(graph, pageId)?.id !== nextDomain) throw new Error("Stránka nepatří k této doméně."); navigate(nextDomain, pageId); } catch (cause) { setError(String(cause)); } }
+  /** Klik na díru mapy: cesta otevře svůj editor na mapě, komponenta a hrana otevřou stránku a vyberou prvek (u hrany její zdroj). */ function openFinding(target: MapCheckTarget) { if (target.kind === "journey") return setJourneyEdit(target.id); openScope(target.kind === "page" ? target.id : target.pageId); if (target.kind !== "page") setSelectedId(target.kind === "node" ? target.id : target.sourceId); }
   function openStructure(id: string) { const node = inDomain(id); if (node && (node.kind === "node" || node.kind === "sector")) { setStructureId(id); setSelectedId(id); } }
   function writable(id: string | null = scopeId ?? domainId, kind: keyof typeof locks = "content") {
     const lock = locks[kind];
@@ -170,7 +174,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
         onAssign: admin.assign, shelf: admin.shelf, onLoadShelf: admin.loadShelf }}
       onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
-      work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys}
+      work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding}
       webBadge={views && !views.work ? webBadge : null}
       live={views?.work ? <LiveDomainPanel web={views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
         actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
