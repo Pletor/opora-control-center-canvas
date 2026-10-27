@@ -31,6 +31,11 @@ describe("cardSummary", () => {
     expect(summary.preview.map((child) => child.id)).toEqual(["a", "b", "c"]);
     expect(summary.more).toBe(1);
     expect(summary.tone).toBe("frontend");
+    expect(summary.page).toBeNull();
+  });
+  it("podstránka je na plátně odkazem na svou stránku s cestou", () => {
+    expect(cardSummary(node("p", "s", "node", { site: { kind: "page", path: "/novinky" } }), graph).page).toEqual({ path: "/novinky" });
+    expect(cardSummary(node("q", "s", "node", { site: { kind: "page", path: "" } }), graph).page).toEqual({ path: null });
   });
 });
 

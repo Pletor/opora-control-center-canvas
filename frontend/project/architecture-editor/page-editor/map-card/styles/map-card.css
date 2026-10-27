@@ -101,6 +101,14 @@
 .map-card__add { flex: 1; padding: 5px; white-space: nowrap; border-style: dashed; color: var(--ae-muted); font-size: 11px; }
 .map-card__open { padding: 5px 7px; white-space: nowrap; color: var(--ae-cyan); font-size: 10px; }
 
+/* Podstránka na plátně stránky není kus obsahu, ale dveře do jiné stránky: rám je čárkovaný
+   a pod názvem stojí její cesta, aby člověk na první pohled poznal, že tady komponenty nepřidává.
+   Porty a vazby zůstávají (navigační vazba `carries: navigation` z tlačítka sem musí být vidět);
+   jediná akce v patičce ho na tu stránku přenese, stejně jako pruh navigace nad plátnem. */
+.map-card--page { border-style: dashed; background: color-mix(in srgb, var(--tone) 4%, #0d1924); }
+.map-card__path { overflow: hidden; color: var(--ae-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.map-card__open--page { flex: 1; padding: 6px; border-color: color-mix(in srgb, var(--ae-cyan) 50%, transparent); font-size: 11px; font-weight: 600; }
+
 /* Porty jsou barevné kroužky na bocích: vlevo vstup, vpravo výstup, z nich se táhne vazba. */
 .map-card__port.react-flow__handle {
   --port-fill: var(--tone);

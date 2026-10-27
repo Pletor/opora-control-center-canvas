@@ -1,0 +1,37 @@
+/* Pruh navigace domény: tenký řádek nad plátnem, který vypadá jako menu webu, protože jím je.
+   Člověk z něj pozná, kde ve webu stojí, a jedním klikem přejde na sousední stránku, aniž by
+   hledal ve stromu vlevo. Otevřená stránka svítí plně, její rodič jen obrysem: podstránka tak
+   pořád „patří“ pod položku menu, ze které se k ní zákazník dostane. */
+.page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--ae-line);
+}
+.page-nav__label { color: var(--ae-muted); font-size: 9px; letter-spacing: .14em; }
+.page-nav__list { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+
+/* Podstránky aktivní větve jsou druhá, menší řada pod menu, odsazená jako rozbalená nabídka. */
+.page-nav__list--sub { flex-basis: 100%; padding-left: 64px; }
+
+.page-nav__item {
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ae-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.page-nav__list--sub .page-nav__item { font-size: 11px; color: var(--ae-muted); }
+.page-nav__item:hover, .page-nav__item:focus-visible { border-color: var(--ae-line); }
+.page-nav__item--path { border-color: color-mix(in srgb, var(--ae-accent) 55%, transparent); }
+.page-nav__item--current,
+.page-nav__list--sub .page-nav__item--current {
+  border-color: var(--ae-accent);
+  background: color-mix(in srgb, var(--ae-accent) 18%, transparent);
+  color: var(--ae-accent);
+  font-weight: 700;
+}

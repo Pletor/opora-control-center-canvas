@@ -1,0 +1,86 @@
+/* Úsek cesty zákazníka: mezi menu a plátnem stojí jeden řádek „odkud → tato stránka → kam“.
+   Člověk, který skládá komponenty, má mít před očima, proč stránka existuje: odkud zákazník
+   přichází, k jakému posunu ho tady dovedeme a kam má pokračovat. Úsek je nízký a sám roluje,
+   aby plátno pod ním nepřišlo o výšku; prostřední sloupec je širší, protože nese hlavní věc. */
+.journey-slice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 38vh;
+  overflow: auto;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--ae-line);
+  color: var(--ae-text);
+  font-size: 12px;
+}
+
+/* Hlavička: název cesty (nebo přepínač, když stránka leží na více cestách) a vpravo „Upravit cestu“,
+   protože cesta se mění jen v trychtýři na Mapě domény a tam tlačítko vede. */
+.journey-slice__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.journey-slice__kicker { color: var(--ae-accent); font-size: 9px; font-weight: 700; letter-spacing: .14em; }
+.journey-slice__name { font-size: 12px; }
+.journey-slice__switch { display: flex; flex-wrap: wrap; gap: 4px; }
+.journey-slice__switch-item { padding: 2px 8px; border: 1px solid var(--ae-line); border-radius: 999px; background: transparent; color: var(--ae-muted); font-size: 11px; cursor: pointer; }
+.journey-slice__switch-item[aria-pressed=true] { border-color: var(--ae-accent); color: var(--ae-accent); }
+.journey-slice__broken { color: var(--warn); font-size: 11px; }
+.journey-slice__edit { margin-left: auto; padding: 3px 10px; border: 1px solid var(--ae-line); border-radius: 7px; background: transparent; color: var(--ae-text); font-size: 11px; cursor: pointer; }
+
+/* Řádek úseku: sousedé po stranách jsou tišší a užší, tato stránka uprostřed v rámečku jako
+   „jste zde“. Pod 760 px se sloupce složí pod sebe a šipky ukazují dolů. */
+.journey-slice__row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.6fr) auto minmax(0, 1fr); align-items: start; gap: 8px; }
+.journey-slice__from, .journey-slice__to { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.journey-slice__arrow { align-self: center; color: var(--ae-muted); font-size: 14px; }
+.journey-slice__here {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--ae-accent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ae-accent) 8%, transparent);
+}
+.journey-slice__caption { color: var(--ae-muted); font-size: 10px; letter-spacing: .06em; }
+.journey-slice__here-role { font-size: 13px; }
+.journey-slice__line { margin: 0; }
+.journey-slice__line--quiet { color: var(--ae-muted); font-size: 11px; }
+.journey-slice__quiet { color: var(--ae-muted); font-style: italic; }
+
+/* Proměna cesty (pro koho, z A do B) je kontext, ne obsah stránky: drobně a na jeden řádek každá. */
+.journey-slice__change { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 0; color: var(--ae-muted); font-size: 11px; }
+.journey-slice__change span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.journey-slice__mark { color: var(--ae-accent); }
+
+/* Soused je odkaz na svou stránku (stejný přechod jako strom a menu); menu a zmizelá stránka
+   odkazem nejsou, zmizelá svítí varovně. Signál pod ním říká, co zákazník udělá, aby přešel. */
+.journey-slice__next-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.journey-slice__next { display: flex; flex-direction: column; gap: 2px; }
+.journey-slice__neighbour { align-self: flex-start; max-width: 100%; padding: 2px 8px; border: 1px solid var(--ae-line); border-radius: 8px; background: var(--ae-card); color: var(--ae-text); font-size: 12px; text-align: left; cursor: pointer; }
+.journey-slice__neighbour--static { cursor: default; }
+.journey-slice__neighbour--missing { border-color: var(--warn-line); color: var(--warn); }
+.journey-slice__role { color: var(--ae-muted); font-size: 11px; }
+.journey-slice__page { font-weight: 700; }
+.journey-slice__signal { display: flex; flex-wrap: wrap; gap: 4px; color: var(--ae-muted); font-size: 11px; }
+.journey-slice__via--missing { color: var(--warn); }
+.journey-slice__tag { padding: 0 6px; border: 1px solid var(--ae-line); border-radius: 6px; }
+.journey-slice__tag--gap { border-style: dashed; }
+
+/* Stránka mimo cesty: jedna tichá věta, žádný prázdný rámeček, který by se tvářil jako chyba. */
+.journey-slice__empty { margin: 0; color: var(--ae-muted); }
+.journey-slice__link { padding: 0; border: 0; background: none; color: var(--ae-accent); font: inherit; text-decoration: underline; cursor: pointer; }
+
+/* Pruh sekcí: stránka rozložená na své části v pořadí shora dolů, u každé počet komponent,
+   které ji stavějí. Sekce bez komponenty je čárkovaná a varovná: tady na plátně ještě něco chybí. */
+.journey-slice__sections { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.journey-slice__section { display: flex; align-items: baseline; gap: 6px; max-width: 320px; padding: 3px 8px; border: 1px solid var(--ae-line); border-radius: 8px; background: var(--ae-card); color: var(--ae-text); font-size: 11px; cursor: pointer; }
+.journey-slice__section--empty { border-style: dashed; border-color: var(--warn-line); }
+.journey-slice__section-role { color: var(--ae-muted); }
+.journey-slice__section-name { font-weight: 700; white-space: nowrap; }
+.journey-slice__section-moves { overflow: hidden; color: var(--ae-muted); text-overflow: ellipsis; white-space: nowrap; }
+.journey-slice__section-count { color: var(--ae-accent); font-weight: 700; }
+.journey-slice__section--empty .journey-slice__section-count { color: var(--warn); }
+
+@media (max-width: 760px) {
+  .journey-slice__row { grid-template-columns: minmax(0, 1fr); }
+  .journey-slice__arrow { transform: rotate(90deg); justify-self: start; }
+}

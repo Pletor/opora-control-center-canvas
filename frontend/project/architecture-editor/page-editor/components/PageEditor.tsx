@@ -6,6 +6,12 @@ import { pageLayoutClass, type PageFocus } from "../logic/page-layout";
 import PageSidebar from "./PageSidebar";
 import ArchitectureCanvas from "./ArchitectureCanvas";
 import PageIcon from "./PageIcon";
+import PageNav from "../page-nav/components/PageNav";
+import { pageNav } from "../page-nav/logic/page-nav";
+import JourneySlice from "../journey-slice/components/JourneySlice";
+import { pageSlices, sectionChips } from "../journey-slice/logic/page-slice";
+import { domainPageTree } from "../../logic/domain-model";
+import { derivedForDomain, type DerivedJourney } from "../../domain-map/logic/derived-journeys";
 import "../styles/page-editor.css";
 
 type Props = {
@@ -16,6 +22,10 @@ type Props = {
   structure: ReactNode | null; detail: ReactNode | null;
   /** Web state badge of the domain host in the map header (docs/domeny-a-worktree.md §10.3). */
   webBadge?: ReactNode;
+  /** Odvozené přechody cest zákazníka (backend §6) pro úsek cesty; null = nenačteno. */
+  derivedJourneys?: DerivedJourney[] | null;
+  /** Úsek cesty: „Upravit cestu“ (id) nebo výzva u stránky mimo cesty (`null`) otevře Mapu domény. */
+  onOpenJourneys: (journeyId: string | null) => void;
   onOpenPage: (domainId: string, pageId: string) => void; onAddPage: (domainId: string) => void; onOpenScope: (id: string) => void;
   onSelect: (id: string | null) => void; onOpenStructure: (id: string) => void; onOpenEditor: (id: string) => void;
   onInsert: (id: string, target?: string | null, point?: { x: number; y: number }) => void;
@@ -30,7 +40,15 @@ export default function PageEditor(props: Props) {
   const { graph, domain, scope, selectedId, disabled, structure, detail } = props;
   const [focus, setFocus] = useState<PageFocus>("map");
   useEffect(() => setFocus(structure ? "structure" : "map"), [!!structure]);
-  const groups = projectTree(graph, domain.id, activePageId(graph, scope.id));
+  // Aktivní stránka = nejbližší stránka otevřeného rozsahu; pruh navigace, úsek cesty a sekce se počítají k ní.
+  const activePage = activePageId(graph, scope.id);
+  const groups = projectTree(graph, domain.id, activePage);
+  const nav = pageNav(domainPageTree(graph, domain.id), activePage);
+  const appSite = domain.site?.kind === "application" ? domain.site : undefined;
+  const slices = activePage ? pageSlices(appSite, activePage, graph.nodes, derivedForDomain(props.derivedJourneys ?? [], domain.id)) : [];
+  // Štítek sekce vybere stránku v Detailu; nový klíč sloupce ho otevře znovu, aby začal záložkou Stránka.
+  const [detailKey, setDetailKey] = useState(0);
+  const selectPage = () => { if (!activePage) return; if (selectedId !== activePage) setDetailKey((key) => key + 1); props.onSelect(activePage); };
   const path = scopePath(graph, scope.id, domain.id);
   const empty = !graph.nodes.some((node) => node.parentId === scope.id);
   const toggle = <div className="page-editor__switch" role="group" aria-label="Co zobrazit">
@@ -54,9 +72,12 @@ export default function PageEditor(props: Props) {
         {path.map((node, index) => <button key={node.id} type="button" className="page-editor__crumb" aria-current={index === path.length - 1 ? "page" : undefined}
           onClick={() => props.onOpenScope(node.id)}>{node.name}</button>)}
       </nav>}
+      <PageNav nav={nav} onOpen={(id) => props.onOpenPage(domain.id, id)}/>
+      {activePage && <JourneySlice key={activePage} slices={slices} sections={sectionChips(graph, activePage)} onOpenPage={(id) => props.onOpenPage(domain.id, id)}
+        onOpenJourneys={props.onOpenJourneys} onSelectPage={selectPage}/>}
       <div className="page-editor__stage">
         <ArchitectureCanvas key={props.editorId + ":" + scope.id} graph={graph} scopeId={scope.id} editorId={props.editorId} selected={selectedId}
-          disabled={disabled} revealId={props.reveal} onSelect={props.onSelect} onOpenStructure={props.onOpenStructure} onOpenEditor={props.onOpenEditor}
+          disabled={disabled} revealId={props.reveal} onSelect={props.onSelect} onOpenPage={(id) => props.onOpenPage(domain.id, id)} onOpenStructure={props.onOpenStructure} onOpenEditor={props.onOpenEditor}
           onAddNode={props.onAddNode} onSector={props.onSector} onMove={props.onMove} onConnect={props.onConnect} onResize={props.onResize}
           onInsert={(id, target, point) => props.onInsert(id, target, point)}/>
         {empty && <div className="page-editor__empty">
@@ -67,6 +88,6 @@ export default function PageEditor(props: Props) {
       </div>
     </main>
     {structure && <section className="page-editor__structure"><div className="page-editor__structure-bar">{toggle}</div>{structure}</section>}
-    {detail && <aside className="page-editor__detail" aria-label="Detail prvku">{detail}</aside>}
+    {detail && <aside key={detailKey} className="page-editor__detail" aria-label="Detail prvku">{detail}</aside>}
   </div>;
 }

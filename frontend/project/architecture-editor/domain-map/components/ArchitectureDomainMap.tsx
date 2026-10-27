@@ -19,10 +19,12 @@ function flatten(branches: ProductBranch[]): CanvasNode[] {
  * Step 2: the only place where structure changes: pages, sub-pages, order, navigation. The parent saves; this part reports edits upward.
  * `live` = third column (only projects with worktrees); `webBadge` = web state in the domain panel when there is no live column.
  */
-export default function ArchitectureDomainMap({ domain, pages, disabled, live, webBadge, work, derivedJourneys, initialDraftParentId, onDraftOpened, onOpen, onSave, onReorder, onReparent, onRemove }: {
+export default function ArchitectureDomainMap({ domain, pages, disabled, live, webBadge, work, derivedJourneys, initialDraftParentId, onDraftOpened, initialJourneyId, onJourneyOpened, onOpen, onSave, onReorder, onReparent, onRemove }: {
   domain: CanvasNode; pages: ProductBranch[]; disabled: boolean; live?: ReactNode; webBadge?: ReactNode; work?: PageWork;
   /** Odvozené kroky cest zákazníka celého projektu (backend §6); null = zatím nenačteno nebo nedostupné. */
   derivedJourneys?: DerivedJourney[] | null; initialDraftParentId?: string | null; onDraftOpened?: () => void; onOpen: (id: string) => void;
+  /** Jednorázová žádost z úseku cesty v Editoru stránky: id = otevřít editor té cesty a ukázat ji, `null` = jen ukázat cesty. */
+  initialJourneyId?: string | null; onJourneyOpened?: () => void;
   onSave: (draft: ProductDraft) => Promise<void>; onReorder: (id: string, direction: -1 | 1) => void;
   onReparent: (id: string, parentId: string) => Promise<void>; onRemove: (id: string) => void;
 }) {
@@ -54,7 +56,8 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
         {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work} journeyRoles={journeyRoles}/>)}
       </div>
       {!pages.length && <p className="domain-map__empty">Přidejte první stránku této domény.</p>}
-      {domain.site?.kind === "application" && <CustomerJourneys domain={domain} site={domain.site} pages={flatten(pages)} derived={derivedJourneys ?? null} disabled={disabled} onSave={onSave}/>}
+      {domain.site?.kind === "application" && <CustomerJourneys domain={domain} site={domain.site} pages={flatten(pages)} derived={derivedJourneys ?? null} disabled={disabled} onSave={onSave}
+        initialEditId={initialJourneyId} onEditOpened={onJourneyOpened}/>}
     </main>
     {live && <div className="domain-map__live">{live}</div>}
   </div>;
