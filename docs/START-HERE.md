@@ -9,6 +9,12 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 - **Jak vyvíjet projekt (zadání v OPORA → agenti ve VS Code → GitHub):** [postup-vyvoje-projektu.md](postup-vyvoje-projektu.md).
 - Směr vývoje: konkrétní kroky vznikají při praktickém vývoji. Dřívější plány, koncepty a LLM/Hermes běhy byly odstraněny 2026-09-13; základ je funkční editor plátna s Podklady pro agenta (náhled, neměnný snímek, export pro externího agenta).
 
+## Nově (2026-10-27): mapa architektury jako harness agentů
+
+Stránka nese cíl, působení a sekce, aplikace cesty zákazníka A → B, vazby druh toku (`carries`); agent dostane
+výřez mapy v `node-brief.architecture`, kontrola mapy najde díry bez modelu a cesta je brána hotovo.
+Kontrakt a etapy: `docs/architektura-pro-agenty.md`.
+
 ## Nově (2026-10-15): pyramida a velín
 
 Člověk píše **záměr oblasti** a potvrzuje dávky; agenti rozkládají oblast → sektory → karty (`docs/pyramida.md`).
