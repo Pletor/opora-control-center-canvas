@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import { AREA_SIZE_MAX, AREA_SIZE_MIN } from "@/editor/canvas/area/logic/area-model";
@@ -5,6 +6,7 @@ import { toneOf, type CardSummary } from "../../logic/canvas-model";
 import CardMenu from "./CardMenu";
 import PortHandle from "@/shared/flow-ports/components/PortHandle";
 import PageIcon from "../../components/PageIcon";
+import { isPortClick } from "../../port-menu/logic/port-menu-place";
 import "../styles/map-card.css";
 
 /** Stable callbacks shared by all cards; the canvas routes them to the newest parent handlers. */
@@ -15,6 +17,8 @@ export type CardActions = {
   openPage: (pageId: string) => void;
   /** Ustálený rozměr rámečku po tažení tahadla oblasti. */
   resizeArea: (areaId: string, w: number, h: number) => void;
+  /** Klik nebo Enter na výstupním portu: nabídka vazby u tohoto úchytu (`port-menu/`). */
+  openPortMenu: (sourceId: string, port: HTMLElement) => void;
 };
 export type CardData = { node: CanvasNode; summary: CardSummary | null; areaLabel: string | null; disabled: boolean; actions: CardActions };
 export type ArchitectureNode = Node<CardData>;
@@ -41,6 +45,8 @@ function AreaFrame({ data, selected }: { data: CardData; selected: boolean }) {
 /** One map card: area frame, comment note, or sector/node card colored by its layer. */
 export default function ArchitectureCard({ data, selected }: NodeProps<ArchitectureNode>) {
   const { node, summary, actions } = data;
+  /** Kde stisk výstupního portu začal: puštění blíž než práh je klik (nabídka), dál tah vazby. */
+  const down = useRef<{ x: number; y: number } | null>(null);
   if (node.kind === "area") return <AreaFrame data={data} selected={selected}/>;
   if (node.kind === "comment" || !summary) return <article className="map-card map-card--comment" data-testid={"architecture-card-" + node.id}>
     <p className="map-card__purpose">{node.name}</p></article>;
@@ -48,7 +54,10 @@ export default function ArchitectureCard({ data, selected }: NodeProps<Architect
   const page = summary.page;
   return <article className={`map-card map-card--${summary.tone}${page ? " map-card--page" : ""}${selected ? " map-card--selected" : ""}`} data-testid={"architecture-card-" + node.id}>
     <PortHandle kind="next" type="target" position={Position.Left} className="map-card__port"/>
-    <PortHandle kind="next" type="source" position={Position.Right} className="map-card__port"/>
+    <PortHandle kind="next" type="source" position={Position.Right} className="map-card__port" hint="klik: nabídka vazby, tah: propojit" aria-haspopup="dialog"
+      onPointerDown={(event) => { down.current = { x: event.clientX, y: event.clientY }; }}
+      onClick={(event) => { event.stopPropagation(); const click = isPortClick(down.current, { x: event.clientX, y: event.clientY }); down.current = null; if (click && !data.disabled) actions.openPortMenu(node.id, event.currentTarget); }}
+      onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== " ") return; event.preventDefault(); event.stopPropagation(); if (!data.disabled) actions.openPortMenu(node.id, event.currentTarget); }}/>
     <header className="map-card__head">
       <span className="map-card__icon"><PageIcon name={summary.tone}/></span>
       <span className="map-card__heading">

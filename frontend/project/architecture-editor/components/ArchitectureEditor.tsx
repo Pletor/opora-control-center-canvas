@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type CanvasNode, type Graph, type RemovalPreview } from "@/shared/types/logic/types";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import type { NodePhase } from "@/shared/desktop-state/logic/types";
-import { catalogPlacement, catalogPlan } from "@/editor/component-library/library-catalog/logic/catalog-plan";
+import { catalogPlacement, catalogPlan, type CatalogLink } from "@/editor/component-library/library-catalog/logic/catalog-plan";
 import { itemById } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import { editProductNode, sitePlan, type ProductDraft } from "@/project/product-tree/logic/product-tree";
 import RemovalDialog from "@/ui-kit/removal-dialog/components/RemovalDialog";
@@ -127,9 +127,9 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   }
   /** New element stays on the page map; when it landed inside a card it is only selected, the map keeps its scope. */
   function created(start: string | null, node: CanvasNode) { if (active.current !== start) return; setSelectedId(node.id); if (node.parentId === start) setReveal(node.id); }
-  async function insert(id: string, targetId: string | null = null, point?: { x: number; y: number }) {
-    if (!scopeId) throw new Error("Nejdříve otevřete stránku."); writable(targetId ?? scopeId); const item = itemById(id); if (!item) throw new Error("Prvek není v katalogu.");
-    const start = scopeId; created(start, await apply(catalogPlan(item, catalogPlacement(graph.nodes, scopeId, targetId, point)), "component", targetId ?? scopeId));
+  async function insert(id: string, targetId: string | null = null, point?: { x: number; y: number }, link?: CatalogLink) {
+    if (!scopeId) throw new Error("Nejdříve otevřete stránku."); writable(targetId ?? scopeId); if (link) writable(link.nodeId); const item = itemById(id); if (!item) throw new Error("Prvek není v katalogu.");
+    const start = scopeId; created(start, await apply(catalogPlan(item, catalogPlacement(graph.nodes, scopeId, targetId, point), link), "component", targetId ?? scopeId));
   }
   /** Sector parent may be an area: the plan places it inside the frame and keeps the area's own parent. */
   function createSector(parentId = scopeId) { eventAction(async () => { const start = scopeId; created(start, await apply({ nodes: [{ ref: "sector", kind: "sector", parent: parentId ? `@${parentId}` : null, name: "Nový sektor", purpose: "" }] }, "sector", parentId)); }); }
@@ -184,9 +184,9 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       editorId={editorId} disabled={disabled} structureDisabled={structureDisabled} reveal={reveal} onOpenPage={openPage} onAddPage={(id) => { navigate(id); setDraftParent(id); }} onOpenScope={openScope}
       derivedJourneys={derivedJourneys} onOpenJourneys={(journeyId) => { navigate(domain.id); setJourneyEdit(journeyId); }}
       onSelect={setSelectedId} onOpenStructure={openStructure} onOpenEditor={onOpenEditor} onArea={() => createArea()} onSector={(id) => createSector(id)} onAddNode={createNode}
-      onInsert={(id, target, point) => eventAction(() => insert(id, target, point))}
+      onInsert={(id, target, point, link) => eventAction(() => insert(id, target, point, link))}
       onMove={(id, x, y, area) => execute(async () => { writable(id); if (area) writable(area.id); const next = moveEditorNode(area ? growEditorArea(graph, area) : graph, id, x, y); for (const moved of next.nodes) { const prior = graph.nodes.find((node) => node.id === moved.id); if (prior && (prior.x !== moved.x || prior.y !== moved.y)) writable(moved.id); } await saveGraph(next); })}
-      onConnect={(source, target) => eventAction(async () => { writable(source); writable(target); await saveGraph(connectEditorNodes(graph, source, target, crypto.randomUUID())); })}
+      onConnect={(source, target, carries) => eventAction(async () => { writable(source); writable(target); await saveGraph(connectEditorNodes(graph, source, target, crypto.randomUUID(), carries)); })}
       onResize={(id, w, h) => execute(async () => { writable(id); const next = resizeEditorNode(graph, id, w, h); if (next !== graph) await saveGraph(next); })}
       structure={structure ? <ComponentStructure graph={graph} rootId={structure.id} selectedId={selected?.id ?? null} phaseOf={phaseOf} isDone={isDone} disabled={disabled}
         onSelect={setSelectedId} onOpen={openStructure} onAddNode={createNode} onAddSector={(id) => createSector(id)} onAddArea={(id) => createArea(id)} onClose={() => setStructureId(null)}/> : null}

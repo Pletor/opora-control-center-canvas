@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph, PageSite } from "@/shared/types/logic/types";
-import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite, validateEditorRoute } from "./editor-model";
+import { architectureEditorId, connectEditorNodes, connectionProblem, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite, validateEditorRoute } from "./editor-model";
 
 const node = (id: string, parentId: string | null = null, kind: CanvasNode["kind"] = "node"): CanvasNode => ({ id, parentId, kind, name: id, purpose: "Účel", x: 20, y: 40 });
 const graph = (): Graph => ({ nodes: [
@@ -85,7 +85,7 @@ describe("whole graph patches", () => {
     expect(result.nodes).toBe(original.nodes);
     expect(result.edges).toEqual([...original.edges, { id: "next", source: "other", target: "page", port: "next" }]);
     expect(original.edges).toHaveLength(1);
-    expect(connectEditorNodes(result, "page", "other", "reverse").edges).toHaveLength(3);
+    expect(() => connectEditorNodes(result, "page", "other", "reverse")).toThrow(/cyklus/);
     expect(connectEditorNodes(original, "app", "page", "sector-link").edges).toHaveLength(2);
   });
   it("refuses self, missing, comment/area endpoints and duplicate identities or next links", () => {
@@ -97,6 +97,24 @@ describe("whole graph patches", () => {
       original.edges.push({ id: "legacy", source: "page", target: "child", ...(port ? { port } : {}) });
       expect(() => connectEditorNodes(original, "page", "child", "duplicate")).toThrow();
     }
+  });
+  it("nese druh toku z nabídky vazby jen na vazbě next", () => {
+    expect(connectEditorNodes(graph(), "other", "page", "typed", "data").edges.at(-1)).toEqual({ id: "typed", source: "other", target: "page", port: "next", carries: "data" });
+    const original = graph();
+    original.nodes.push({ ...node("second-area", null, "area"), size: { w: 720, h: 480 } });
+    expect(connectEditorNodes(original, "area", "second-area", "flow", "data").edges.at(-1)).not.toHaveProperty("carries");
+  });
+  it("connectionProblem říká totéž co tah: null jen u povolené vazby", () => {
+    expect(connectionProblem(graph(), "other", "page")).toBeNull();
+    expect(connectionProblem(graph(), "page", "page")).toMatch(/sebou/);
+    expect(connectionProblem(graph(), "page", "area")).toMatch(/Oblast/);
+    expect(connectionProblem(graph(), "note", "page")).toMatch(/komentář/);
+  });
+  it("connectionProblem odmítne vazbu next, která by uzavřela cyklus karet (jako backend card_dag)", () => {
+    const original = graph();
+    original.edges.push({ id: "a", source: "page", target: "child", port: "next" }, { id: "b", source: "child", target: "other" });
+    expect(connectionProblem(original, "other", "page")).toMatch(/cyklus/);
+    expect(connectionProblem(original, "other", "app")).toBeNull();
   });
   it("connects two areas through flow and refuses duplicate flow links", () => {
     const original = graph();

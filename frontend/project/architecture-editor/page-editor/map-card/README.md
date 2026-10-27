@@ -4,4 +4,4 @@ Uzel React Flow pro Editor stránky. Oblast je přerušovaný jantarový rám s 
 
 Karta dostává hotová data (`cardSummary`, `areaSectorLabel` z `../logic/canvas-model.ts`) a stabilní `actions`, které plátno směruje na aktuální callbacky rodiče. Nic neukládá.
 
-Porty (2026-10-27): úchyty jsou `PortHandle` ze `shared/flow-ports` (oblast = `flow`, uzel / sektor = `next`); barvu dodává `--tone` přes `--port-fill`. `ArchitectureCanvas` vkládá `PortZoomVar` pro stálou velikost portů.
+Porty (2026-10-27): úchyty jsou `PortHandle` ze `shared/flow-ports` (oblast = `flow`, uzel / sektor = `next`); barvu dodává `--tone` přes `--port-fill`. `ArchitectureCanvas` vkládá `PortZoomVar` pro stálou velikost portů. Výstupní port uzlu / sektoru: klik (pod prahem pohybu) nebo Enter volá `actions.openPortMenu` – nabídka vazby (`port-menu/`); tah dál táhne vazbu.

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlow, Background, BackgroundVariant, Controls, MarkerType, applyNodeChanges, type Edge, type ReactFlowInstance, type Viewport } from "@xyflow/react";
-import type { Graph } from "@/shared/types/logic/types";
-import { CATALOG_DRAG_TYPE } from "@/editor/component-library/library-catalog/logic/library-catalog";
+import type { EdgeCarries, Graph } from "@/shared/types/logic/types";
+import { CATALOG_DRAG_TYPE, CATALOG_ITEMS } from "@/editor/component-library/library-catalog/logic/library-catalog";
+import type { CatalogLink } from "@/editor/component-library/library-catalog/logic/catalog-plan";
 import { areaSectorLabel, cardBodies, cardSummary, CARD_WIDTH, edgeLook } from "../logic/canvas-model";
 import { dropCard, type Rect } from "@/editor/canvas/area/logic/area-growth";
 import { useAreaGrowth } from "@/editor/canvas/area/logic/use-area-growth";
@@ -10,6 +11,9 @@ import PortZoomVar from "@/shared/flow-ports/components/PortZoomVar";
 import { edgeHintText } from "../edge-hint/logic/edge-hint";
 import EdgeHint from "../edge-hint/components/EdgeHint";
 import ArchitectureCard, { type ArchitectureNode, type CardActions } from "../map-card/components/ArchitectureCard";
+import PortMenu from "../port-menu/components/PortMenu";
+import { hasPortMenu, linkTargets } from "../port-menu/logic/port-menu";
+import { menuPosition, newCardPosition, planBox, type Box } from "../port-menu/logic/port-menu-place";
 
 const nodeTypes = { architecture: ArchitectureCard };
 const DEFAULT_VIEWPORT: Viewport = { x: 50, y: 75, zoom: 0.9 };
@@ -21,10 +25,12 @@ type Props = {
   /** Podstránka na plátně (karta-odkaz nebo dvojklik) přepne rozsah editoru na svou stránku. */
   onOpenPage: (pageId: string) => void;
   /** Puštěný prvek; `area` = domovská oblast, která za kartou vyrostla (uloží se s ní jednou změnou). */
-  onMove: (id: string, x: number, y: number, area?: Rect & { id: string }) => Promise<void>; onConnect: (source: string, target: string) => void;
+  onMove: (id: string, x: number, y: number, area?: Rect & { id: string }) => Promise<void>; onConnect: (source: string, target: string, carries?: EdgeCarries | null) => void;
   onResize: (id: string, w: number, h: number) => Promise<void>;
-  onInsert: (id: string, targetId: string | null, point: { x: number; y: number }) => void;
+  /** `link` = nabídka vazby z portu: nová karta i vazba ze zdroje vzniknou jedním plánem (`catalogPlan`). */
+  onInsert: (id: string, targetId: string | null, point: { x: number; y: number }, link?: CatalogLink) => void;
 };
+type PortMenuState = { sourceId: string; at: { x: number; y: number }; port: HTMLElement };
 
 /** Stored viewport of this map, or null on the first visit (the map then fits its cards). */
 function readViewport(key: string): Viewport | null {
@@ -40,12 +46,19 @@ export default function ArchitectureCanvas(props: Props) {
   const flow = useRef<ReactFlowInstance<ArchitectureNode> | null>(null);
   const stage = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState<{ edgeId: string; x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<PortMenuState | null>(null);
   const latest = useRef(props); latest.current = props;
   const actions = useMemo<CardActions>(() => ({
     select: (id) => latest.current.onSelect(id), openStructure: (id) => latest.current.onOpenStructure(id),
     openEditor: (id) => latest.current.onOpenEditor(id), addNode: (id) => latest.current.onAddNode(id), addSector: (id) => latest.current.onSector(id),
     openPage: (id) => latest.current.onOpenPage(id),
     resizeArea: (id, w, h) => { void latest.current.onResize(id, w, h).catch(() => setNodes(make())); },
+    openPortMenu: (sourceId, port) => {
+      const box = stage.current?.getBoundingClientRect(); const card = port.closest(".react-flow__node")?.getBoundingClientRect();
+      if (!box || !card) return;
+      const rel = (rect: DOMRect): Box => ({ x: rect.left - box.left, y: rect.top - box.top, w: rect.width, h: rect.height });
+      setMenu({ sourceId, port, at: menuPosition(rel(port.getBoundingClientRect()), rel(card), { w: box.width, h: box.height }) });
+    },
   }), []);
   const make = (): ArchitectureNode[] => graph.nodes.filter((node) => node.parentId === scopeId).map((node) => {
     const area = node.kind === "area";
@@ -95,6 +108,9 @@ export default function ArchitectureCanvas(props: Props) {
     if (box) setHovered({ edgeId, x: event.clientX - box.left, y: event.clientY - box.top });
   };
   const hoveredEdge = hovered ? graph.edges.find((edge) => edge.id === hovered.edgeId) : undefined;
+  const menuSource = menu && !disabled ? graph.nodes.find((node) => node.id === menu.sourceId && node.parentId === scopeId && hasPortMenu(node)) : undefined;
+  /** Zavření vrátí fokus na port, ze kterého nabídka vyjela (klávesnice pokračuje tam, kde byla). */
+  const closeMenu = () => { if (menu?.port.isConnected) menu.port.focus(); setMenu(null); };
   return <div className="page-editor__canvas" data-testid="architecture-canvas" ref={stage}
     onDragOver={(event) => { if (!disabled && event.dataTransfer.types.includes(CATALOG_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
     onDrop={(event) => {
@@ -133,12 +149,18 @@ export default function ArchitectureCanvas(props: Props) {
         void props.onMove(node.id, drop.x, drop.y, "area" in drop ? drop.area : undefined).catch(() => setNodes(make()));
       }}
       onConnect={(connection) => { if (connection.source && connection.target) props.onConnect(connection.source, connection.target); }}
-      onMoveEnd={(_, next) => { try { localStorage.setItem(viewportKey, JSON.stringify(next)); } catch { /* Navigation works without storage. */ } }}
+      onMoveStart={() => setMenu(null)} onMoveEnd={(_, next) => { try { localStorage.setItem(viewportKey, JSON.stringify(next)); } catch { /* Navigation works without storage. */ } }}
       deleteKeyCode={null}>
       <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#294454"/>
       <Controls showInteractive={false}/>
       <PortZoomVar/>
     </ReactFlow>
+    {menu && menuSource ? <PortMenu key={menu.sourceId} sourceName={menuSource.name} at={menu.at} targets={linkTargets(graph, scopeId, menuSource.id)} items={CATALOG_ITEMS}
+      onClose={closeMenu} onLink={(target, carries) => { closeMenu(); props.onConnect(menuSource.id, target, carries); }}
+      onCreate={(itemId) => {
+        closeMenu(); const layer = graph.nodes.filter((node) => node.parentId === scopeId).map(planBox);
+        props.onInsert(itemId, null, newCardPosition(menuSource, layer), { nodeId: menuSource.id, side: "source" });
+      }}/> : null}
     {hovered && hoveredEdge ? <EdgeHint hint={edgeHintText(hoveredEdge, graph)} x={hovered.x} y={hovered.y}/> : null}
   </div>;
 }
