@@ -3,8 +3,15 @@
 
 /** Přechod mezi dvěma kroky: `realized` = mapa ho vazbami realizuje; `line` = realizace (nebo jen oba kroky). */
 export type DerivedSegment = { from: string; to: string; line: string; realized: boolean };
-/** Odvození jedné cesty: kroky, jejichž stránka chybí (`missing`), přechody a u rozbité cesty důvod (`broken`). */
-export type DerivedJourney = { applicationId: string; id: string; missing: string[]; segments: DerivedSegment[]; broken?: string };
+/** Poslední doklad přehrání cesty (docs/brana-cesty.md §4): `stale` = mapa se od běhu změnila, `failed` = počet
+ * neúspěšných přechodů, `firstFailure` první z nich. */
+export type JourneyLastRun = {
+  at: string; passed: boolean; stale: boolean; command: string; failed: number;
+  firstFailure?: { from: string; to: string; reason?: string };
+};
+/** Odvození jedné cesty: kroky, jejichž stránka chybí (`missing`), přechody, u rozbité cesty důvod (`broken`) a poslední
+ * doklad přehrání (`lastRun`, jen když cesta doklad má). */
+export type DerivedJourney = { applicationId: string; id: string; missing: string[]; segments: DerivedSegment[]; broken?: string; lastRun?: JourneyLastRun };
 
 export function derivedJourneysUrl(project: string): string {
   return "/api/project-architecture/journeys?" + new URLSearchParams({ project });
@@ -20,14 +27,25 @@ function segment(raw: unknown): DerivedSegment[] {
   return source && target && typeof realized === "boolean" ? [{ from: source, to: target, line: text(line) ?? "", realized }] : [];
 }
 
+/** `lastRun` jen v úplném tvaru (`at`, `passed`, `stale`); chybějící čísla a texty se čtou tolerantně. */
+function lastRun(raw: unknown): JourneyLastRun | undefined {
+  const { at, passed, stale, command, failed, firstFailure } = record(raw);
+  const when = text(at);
+  if (!when || typeof passed !== "boolean" || typeof stale !== "boolean") return undefined;
+  const first = record(firstFailure), from = text(first.from), to = text(first.to), reason = text(first.reason);
+  return { at: when, passed, stale, command: text(command) ?? "", failed: typeof failed === "number" && failed >= 0 ? failed : 0,
+    ...(from && to ? { firstFailure: { from, to, ...(reason ? { reason } : {}) } } : {}) };
+}
+
 /** Položky bez id aplikace a cesty zahodí; neznámý tvar odpovědi = žádné cesty. */
 export function normalizeDerivedJourneys(raw: unknown): DerivedJourney[] {
   return list(record(raw).journeys).flatMap((item): DerivedJourney[] => {
-    const { applicationId, id, steps, segments, broken } = record(item);
-    const app = text(applicationId), journey = text(id), reason = text(broken);
+    const { applicationId, id, steps, segments, broken, lastRun: run } = record(item);
+    const app = text(applicationId), journey = text(id), reason = text(broken), verified = lastRun(run);
     if (!app || !journey) return [];
     const missing = list(steps).flatMap((step) => { const { id: stepId, missing: gone } = record(step); return gone === true && text(stepId) ? [stepId as string] : []; });
-    return [{ applicationId: app, id: journey, missing, segments: list(segments).flatMap(segment), ...(reason ? { broken: reason } : {}) }];
+    return [{ applicationId: app, id: journey, missing, segments: list(segments).flatMap(segment), ...(reason ? { broken: reason } : {}),
+      ...(verified ? { lastRun: verified } : {}) }];
   });
 }
 

@@ -45,14 +45,16 @@ def card_plan(db, project, workspace, node, accepted_document, blocked):
 
 
 def dod(card, linked, gates):
-    """`cards[].dod`: six booleans of the single definition of done (keys = opora_card_done
-    REQUIREMENTS) + `gate` kind (`review` / `external`), `done` and `missing` in contract order."""
+    """`cards[].dod`: one boolean per requirement of the single definition of done (keys = opora_card_done
+    REQUIREMENTS) + `gate` kind (`review` / `external`), `done` and `missing` in contract order; while the
+    journey gate is missing also `blockingJourneys` [{journeyId, applicationId, name, reason}]."""
     link = card_done.link_for(linked, card.get("nodeId"))
     gate = (gates or {}).get(link["executionId"]) if link else None
     state = card_done.card_done_state(card_done.facts(card, link, gate, closed=card.get("doneConfirmed") is True,
                                                       external=gates is None))
     return {**{name: name not in state["missing"] for name in card_done.REQUIREMENTS},
-            "gate": state["gate"], "done": state["done"], "missing": state["missing"]}
+            "gate": state["gate"], "done": state["done"], "missing": state["missing"],
+            **({"blockingJourneys": state["blockingJourneys"]} if "blockingJourneys" in state else {})}
 
 
 def attach(entries, cards, linked=None, gates=None):

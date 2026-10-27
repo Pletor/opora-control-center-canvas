@@ -116,6 +116,9 @@ class AgentState:
             accepted = context["acceptedHead"]
             process = ProcessSync(canvas).read(project, workspace, limit=None)  # actions see every card
             cards = {item["nodeId"]: item for item in process["items"]}
+            # Journey gate of the definition of done (docs/brana-cesty.md §5): blocking journeys per card.
+            blocking = card_done.journeys_by_card(canvas, project, workspace, list(cards))
+            cards = {key: {**item, "journeys": blocking.get(key, [])} for key, item in cards.items()}
             pending = self.proposals(db, project, workspace, accepted)
             latest = self.executions(db, project, workspace)
             claims = self.claims(project, workspace, process["items"])

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { agentStateFixture } from "@/hub/oporahub-agent-state/logic/fixtures";
 import type { AgentState } from "@/hub/oporahub-agent-state/logic/agent-state";
-import { backendDod, dodView } from "./card-dod";
+import { backendDod, blockingJourneysText, dodView } from "./card-dod";
 import { cardEntry, nextAction, statusLine } from "./card-header";
 
 function stateWith(card: Record<string, unknown>, actions: AgentState["actions"] = []): AgentState {
@@ -11,24 +11,24 @@ function stateWith(card: Record<string, unknown>, actions: AgentState["actions"]
 const states = (view: ReturnType<typeof dodView>) => view.segments.map(item => item.state);
 
 describe("definition of done segments", () => {
-  it("computes six ordered segments from the card snapshot when the backend has no dod", () => {
+  it("computes seven ordered segments from the card snapshot when the backend has no dod", () => {
     const card = cardEntry(stateWith({ steps: { total: 7, done: 3, current: "s4" }, gate: { status: "blocked", rule: "open_important_findings" } }), "c1");
     const view = dodView({ card, prState: "open" });
     expect(view.source).toBe("computed");
-    expect(view.segments.map(item => item.key)).toEqual(["steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "human_close"]);
-    expect(states(view)).toEqual(["active", "unknown", "active", "active", "todo", "todo"]);
+    expect(view.segments.map(item => item.key)).toEqual(["steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "journeys", "human_close"]);
+    expect(states(view)).toEqual(["active", "unknown", "active", "active", "todo", "unknown", "todo"]);
     expect(view.segments[0]).toMatchObject({ detail: "3/7", progress: 3 / 7 });
   });
   it("treats merge, write-back and human close as a chain", () => {
     const card = cardEntry(stateWith({ stage: "plan_writeback", reason: "awaiting_human_close", steps: { total: 2, done: 2, current: null } }), "c1");
-    expect(states(dodView({ card }))).toEqual(["done", "done", "done", "done", "done", "active"]);
+    expect(states(dodView({ card }))).toEqual(["done", "done", "done", "done", "done", "unknown", "active"]);
     const closed = dodView({ card, eventKinds: new Set(["card.closed"]) });
     expect(closed.done).toBe(true);
   });
   it("uses process-sync acceptance evidence and human close", () => {
     expect(dodView({ card: null, acceptance: false }).segments[1].state).toBe("todo");
     expect(dodView({ card: null, acceptance: true }).segments[1].state).toBe("done");
-    expect(dodView({ card: null, closed: true }).segments.map(item => item.state).slice(1)).toEqual(["done", "done", "done", "done", "done"]);
+    expect(dodView({ card: null, closed: true }).segments.map(item => item.state).slice(1)).toEqual(["done", "done", "done", "done", "done", "done"]);
   });
   it("falls back to step results and marks a card without steps as unknown", () => {
     expect(dodView({ card: null, steps: { total: 2, done: 2 } }).segments[0].state).toBe("done");
@@ -41,15 +41,25 @@ describe("definition of done segments", () => {
     const card = cardEntry(stateWith({ dod: { done: false, missing: ["gate_ready", "merged", "plan_written_back", "human_close"] } }), "c1");
     const view = dodView({ card });
     expect(view.source).toBe("backend");
-    expect(states(view)).toEqual(["done", "done", "todo", "todo", "todo", "todo"]);
+    expect(states(view)).toEqual(["done", "done", "todo", "todo", "todo", "done", "todo"]);
   });
   it("reads the agent-state dod with gate kind", () => {
     const dod = { steps: true, card_acceptance: true, gate_ready: true, merged: true, plan_written_back: false, human_close: false,
       gate: "external", done: false, missing: ["plan_written_back", "human_close"] };
     const view = dodView({ card: cardEntry(stateWith({ dod, steps: { total: 2, done: 2, current: null, items: [] } }), "c1") });
     expect(view).toMatchObject({ source: "backend", gate: "external", done: false });
-    expect(states(view)).toEqual(["done", "done", "done", "done", "todo", "todo"]);
+    expect(states(view)).toEqual(["done", "done", "done", "done", "todo", "done", "todo"]);
     expect(view.segments[2].detail).toBe("GitHub");
+  });
+  it("shows the journey gate and names the blocking journeys", () => {
+    const dod = { steps: true, card_acceptance: true, gate_ready: true, merged: true, plan_written_back: true, journeys: false, human_close: false,
+      gate: "review", done: false, missing: ["journeys", "human_close"],
+      blockingJourneys: [{ journeyId: "kampan", name: "Kampaň Pěstování", reason: "zastaralé" }, { name: "Návrat", reason: "chybí ověření" }] };
+    const view = dodView({ card: cardEntry(stateWith({ dod }), "c1") });
+    expect(states(view)).toEqual(["done", "done", "done", "done", "done", "todo", "todo"]);
+    expect(view.segments[5]).toMatchObject({ key: "journeys", label: "Cesta ověřena", detail: "Kampaň Pěstování: zastaralé; Návrat: chybí ověření" });
+    expect(backendDod({ done: false, missing: ["journeys"] })).toMatchObject({ journeys: false, human_close: true });
+    expect(blockingJourneysText({ blockingJourneys: "x" })).toBe("");
   });
 });
 

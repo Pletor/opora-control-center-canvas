@@ -115,10 +115,11 @@ Totéž vynucuje endpoint `POST /api/oporahub/executions/claim`: odmítne `409` 
 `card_done_state(card) -> {done, missing}` (`backend/canvas/opora_card_done.py`) je čistá funkce.
 Hotovo = všechny kroky `done` (alespoň jeden) + přijetí karty doložené během nad aktuálním přijatým
 zadáním (`card_acceptance`) + brána review `ready` (`gate_ready`) + PR `merged` + plán zapsán zpět
-(`plan_written_back`) + lidské `close_card` (`human_close`). `missing` vypisuje chybějící části
-v tomto pořadí. Agent-state ji vydává u každé karty jako `cards[].dod`: šest booleanů pod jmény
-požadavků (`steps`, `card_acceptance`, `gate_ready`, `merged`, `plan_written_back`, `human_close`),
-druh brány `gate` (`review` / `external`), `done` a `missing`. Detail karty kreslí dílky z něj.
+(`plan_written_back`) + každá cesta zákazníka, na které karta leží, ověřená prošlým čerstvým dokladem
+(`journeys`, `docs/brana-cesty.md` §5) + lidské `close_card` (`human_close`). `missing` vypisuje chybějící části
+v tomto pořadí. Agent-state ji vydává u každé karty jako `cards[].dod`: boolean pod jménem každého
+požadavku (`steps`, `card_acceptance`, `gate_ready`, `merged`, `plan_written_back`, `journeys`, `human_close`),
+druh brány `gate` (`review` / `external`), `done`, `missing` a při nesplněné bráně cesty `blockingJourneys`. Detail karty kreslí dílky z něj.
 
 - Akce `close_card` v agent-state je `blocked/human_only` jen když chybí pouze `human_close`; jinak
   `blocked/done_state_incomplete` s `preconditions.missing` a bez rozhodnutí pro člověka.

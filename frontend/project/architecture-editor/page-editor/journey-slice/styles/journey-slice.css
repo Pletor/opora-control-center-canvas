@@ -23,6 +23,15 @@
 .journey-slice__switch-item { padding: 2px 8px; border: 1px solid var(--ae-line); border-radius: 999px; background: transparent; color: var(--ae-muted); font-size: 11px; cursor: pointer; }
 .journey-slice__switch-item[aria-pressed=true] { border-color: var(--ae-accent); color: var(--ae-accent); }
 .journey-slice__broken { color: var(--warn); font-size: 11px; }
+
+/* Odznak ověření hned za názvem cesty: kdo skládá komponenty, vidí, jestli web cestu naposledy unesl. Stejná řeč barev
+   jako trychtýř na Mapě domény: zelená ověřeno, žlutá zastaralé, červená neprošlo, tiché neověřeno; karty na cestě se
+   uzavřou jen při zelené. Čas běhu je drobnější, stav se čte první. */
+.journey-slice__verified { display: inline-flex; align-items: baseline; gap: 6px; padding: 1px 8px; border: 1px solid var(--ae-line); border-radius: 999px; color: var(--ae-muted); font-size: 11px; }
+.journey-slice__verified--ok { border-color: var(--ok); color: var(--ok); }
+.journey-slice__verified--stale { border-color: var(--warn); color: var(--warn); }
+.journey-slice__verified--failed { border-color: var(--danger); color: var(--danger); }
+.journey-slice__verified-time { font-size: 10px; opacity: .8; }
 .journey-slice__edit { margin-left: auto; padding: 3px 10px; border: 1px solid var(--ae-line); border-radius: 7px; background: transparent; color: var(--ae-text); font-size: 11px; cursor: pointer; }
 
 /* Řádek úseku: sousedé po stranách jsou tišší a užší, tato stránka uprostřed v rámečku jako

@@ -49,6 +49,13 @@ cesty složí plán přehrání (`baseUrl`, segmenty `{from, to, open, scope, do
 (`{at, passed, stale, command, failed, firstFailure?}`) pro `journeys`, `node-brief.architecture` a kontrolu mapy.
 Opora cestu nepřehrává; runner je etapa 8c.
 
+Brána uzavření (§5, `journey_gate.py`): `journeys_blocking(graph, nodeId, runs)` vrací cesty, které brání uzavření
+karty (`{journeyId, applicationId, name, reason}`; „chybí ověření“ → „zastaralé“ → „neprošel přechod s2 → s3“ →
+„nepokrývá všechny přechody“), `blocking_by_node` totéž pro více karet, `refusal` text odmítnutí. Karta leží na cestě,
+když její nejbližší stránka (nebo ona sama) je stránkou kroku nerozbité cesty. Volá ji `backend/canvas/opora_card_done.py`
+(požadavek `journeys` v definici hotovo, `closure_gate` i agent-state `cards[].dod`) a starší větev uzavření
+v `backend/editor/agent_memory/desktop_v3_state.py`; graf je graf pracovního prostoru karty.
+
 ## Výřez mapy pro agenta (`node_architecture.py`)
 
 `node_architecture(graph, nodeId)` skládá `node-brief.architecture` (§4) jen pro kartu pod stránkou: cesty, na kterých

@@ -5,6 +5,7 @@
 import type { ApplicationSite, CanvasNode, CustomerJourney, Graph } from "@/shared/types/logic/types";
 import { FROM_NAV, previousStepId, stepPageLabel, stepSignal } from "../../../domain-map/logic/journeys";
 import { derivedStepState, type DerivedJourney } from "../../../domain-map/logic/derived-journeys";
+import { verificationBadge, type VerificationBadge } from "../../../domain-map/logic/journey-verification";
 import { SECTION_ROLE_LABELS } from "../../../domain-map/logic/page-site";
 import { activePageId } from "../../project-tree/logic/project-tree-model";
 
@@ -20,6 +21,8 @@ export type PageSlice = {
   stepId: string; step: number; stepCount: number; role: string; shift?: string; objection?: string;
   /** Jak zákazník přijde na první krok (jen `open`); u dalších kroků nese signál `from`. */
   entry: string | null; from: SliceNeighbour | null; next: SliceNeighbour[];
+  /** Odznak ověření cesty (poslední doklad přehrání), jen když backend cestu odvodil a není rozbitá. */
+  verification?: VerificationBadge;
 };
 /** Štítek sekce v pruhu sekcí: role, název, čím posouvá a kolik komponent stránky ji realizuje. */
 export type SectionChip = { id: string; role: string; name: string; moves?: string; components: number };
@@ -40,6 +43,7 @@ function neighbour(journey: CustomerJourney, index: number, signalIndex: number,
 export function pageSlices(site: ApplicationSite | undefined, pageId: string, pages: CanvasNode[], derived: ReadonlyMap<string, DerivedJourney> = new Map()): PageSlice[] {
   return (site?.journeys ?? []).flatMap((journey) => {
     const facts = derived.get(journey.id);
+    const badge = verificationBadge(facts);
     return journey.steps.flatMap((step, index): PageSlice[] => {
       if (step.page !== pageId) return [];
       const before = previousStepId(journey, index);
@@ -52,7 +56,8 @@ export function pageSlices(site: ApplicationSite | undefined, pageId: string, pa
         stepId: step.id, step: index + 1, stepCount: journey.steps.length, role: roleOf(journey, index),
         ...(step.shift ? { shift: step.shift } : {}), ...(step.objection ? { objection: step.objection } : {}),
         entry: index === 0 && step.via?.do === "open" ? "otevře stránku přímo" : null,
-        from: fromIndex < 0 ? null : neighbour(journey, fromIndex, index, fromIndex !== index - 1, pages, facts), next }];
+        from: fromIndex < 0 ? null : neighbour(journey, fromIndex, index, fromIndex !== index - 1, pages, facts), next,
+        ...(badge ? { verification: badge } : {}) }];
     });
   });
 }

@@ -306,7 +306,10 @@ Brána: karta, jejíž komponenta leží na cestě, se neuzavře, dokud posledn�
 neprošlo (etapa 8). Test cesty dodává výbava harnessu projektu (`harness.kit/1`, kategorie `testing`; u webu
 typicky Playwright). Opora nástroj nepředepisuje, vyžaduje doklad. Plán přehrání (`GET
 /api/project-architecture/journey-plan`), tvar dokladu (`POST /api/project-architecture/journey-runs`), `lastRun`
-a bránu uzavření upřesňuje dodatek `docs/brana-cesty.md`.
+a bránu uzavření upřesňuje dodatek `docs/brana-cesty.md`. Brána je zapojená (etapa 8b): požadavek `journeys` v jediné
+definici hotovo (`opora_card_done.py`) i ve starší větvi uzavření (`desktop_v3_state.py`); čistá funkce
+`journey_gate.journeys_blocking` počítá `stale` nad grafem pracovního prostoru karty a odmítnutí (409) jmenuje cestu
+a důvod. Agent-state ho ukazuje v `cards[].dod.journeys` a `dod.blockingJourneys`.
 
 ## 7. Co člověk vidí
 
@@ -318,6 +321,10 @@ otevřený rozsah), úsek cesty zákazníka aktivní stránky (odkud → tato st
 `via`; jen ke čtení, cesta se mění v trychtýři na mapě domény) a pruh sekcí s počtem komponent (`card.section`).
 Podstránka je na plátně stránky odkazem na svou stránku, navigační vazby na ni zůstávají vidět
 ([návrh](cesta-zakaznika-a-brief.md) §5.1).
+
+Trychtýř cesty na mapě domény i úsek cesty v Editoru stránky nesou odznak ověření z `lastRun`: „Ověřeno“,
+„Ověření zastaralé“, „Neprošlo: s2 → s3 (důvod)“ nebo „Neověřeno“, s časem běhu (`domain-map/logic/journey-verification.ts`).
+Detail karty má v definici hotovo dílek **Cesta ověřena** s blokujícími cestami v popisku.
 
 ## 8. Strom dopadů (co se musí upravit spolu)
 

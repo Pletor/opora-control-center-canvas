@@ -23,6 +23,19 @@ describe("odvozené cesty zákazníka", () => {
     expect(normalizeDerivedJourneys(null)).toEqual([]);
     expect(normalizeDerivedJourneys({ journeys: "x" })).toEqual([]);
   });
+  it("čte poslední doklad přehrání tolerantně a neúplný zahodí", () => {
+    const raw = { journeys: [
+      { applicationId: "web", id: "a", lastRun: { at: "2026-10-27T21:40:00Z", passed: false, stale: false, command: "run", failed: 1,
+        firstFailure: { from: "s2", to: "s3", reason: "URL /novinky" } } },
+      { applicationId: "web", id: "b", lastRun: { at: "2026-10-27T21:40:00Z", passed: true, stale: true, firstFailure: { from: "s1" } } },
+      { applicationId: "web", id: "c", lastRun: { passed: true } },
+    ] };
+    const [a, b, c] = normalizeDerivedJourneys(raw);
+    expect(a.lastRun).toEqual({ at: "2026-10-27T21:40:00Z", passed: false, stale: false, command: "run", failed: 1,
+      firstFailure: { from: "s2", to: "s3", reason: "URL /novinky" } });
+    expect(b.lastRun).toEqual({ at: "2026-10-27T21:40:00Z", passed: true, stale: true, command: "", failed: 0 });
+    expect(c.lastRun).toBeUndefined();
+  });
   it("vybere cesty jedné domény podle id", () => {
     const items = [{ applicationId: "a", id: "j", missing: [], segments: [] }, { applicationId: "b", id: "j", missing: ["s"], segments: [] }];
     expect(derivedForDomain(items, "b").get("j")?.missing).toEqual(["s"]);

@@ -35,7 +35,9 @@ nextActionId, gate: {status, rule}|null, steps, dod, lease}`.
 - `steps: {total, done, current, items: [{id, status, executionId}]}`: postup přes **všechny běhy** karty
   proti aktuálně přijatým krokům; krok hotový v dřívějším běhu zůstává hotový, `current` = první nehotový.
 - `dod`: jediná definice hotovo, booleany `steps`, `card_acceptance`, `gate_ready`, `merged`,
-  `plan_written_back`, `human_close` + `gate` (`review` / `external`), `done`, `missing`.
+  `plan_written_back`, `journeys`, `human_close` + `gate` (`review` / `external`), `done`, `missing`
+  (+ `blockingJourneys`). Karta na cestě zákazníka se uzavře až po prošlém čerstvém ověření cesty: plán
+  `GET /api/project-architecture/journey-plan`, doklad `POST /api/project-architecture/journey-runs`.
 - `lease: {holder, expiresAt, epoch}|null`: živý běh karty; cizí lease nepřebírej.
 - `cards[]` má nejvýše 100 položek seřazených podle důležitosti (rozjeté, `ready`, blokované, v plánu,
   uzavřené až nakonec). `actions[]` pokrývá vždy celý plán; když chybí karta pro `--card`, dočti ji
