@@ -121,11 +121,18 @@ def compose_work_status(domains, workspaces, sources, now, card_name=lambda wid,
             "mainSessions": main}
 
 
-def architecture_domains(service, project):
-    """Domény projektu = uzly `site.kind == "application"`. Jediné místo, které ví, odkud se architektura čte."""
+def architecture_graph(service, project):
+    """Přijatý graf projektu (architektura složená s obsahem `main`, u projektu bez Gitu `draft`).
+
+    Jediné místo, které ví, odkud se architektura s komponentami pod stránkami čte."""
     wid = "main" if service.project_hub.settings(project)["project"]["sourceKind"] == "git" else "draft"
+    return service.view(project, wid)["graph"]
+
+
+def architecture_domains(service, project):
+    """Domény projektu = uzly `site.kind == "application"`."""
     domains = []
-    for node in service.view(project, wid)["graph"]["nodes"]:
+    for node in architecture_graph(service, project)["nodes"]:
         site = node.get("site")
         if isinstance(site, dict) and site.get("kind") == "application":
             environment = (site.get("environments") or [{}])[0]

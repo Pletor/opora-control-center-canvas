@@ -122,6 +122,9 @@ přijatou architekturou (čtení) a nad dávkou plánu i návrhem změny grafu (
 | `edge.carries-unset` | hrana `next` mezi komponentami stránky bez `carries` | práce (migrace bez odhadu) |
 | `page.no-goal` | stránka bez `goal` | jediná díra pro člověka |
 
+Provádí `backend/project/architecture/map_check.py`; čtení nad přijatou architekturou je
+`GET /api/project-architecture/map-check?project=` (`journey.broken` přibude s cestami v etapě 7).
+
 Díry jsou práce pro agenty **jen v potvrzené dávce**; k člověku jde souhrn jako jedno rozhodnutí
 (pyramida, pravidlo 4).
 
