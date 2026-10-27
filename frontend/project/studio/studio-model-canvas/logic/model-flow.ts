@@ -11,6 +11,7 @@ import { layoutStudioConnections, type LayoutNode, type PortAnchor, type StudioR
 import type { Point, PortDirection, PortSide, PortType } from "../../model/logic/model-types";
 import type { EditModel, Selection } from "../../studio-model/logic/model-edit";
 import type { BindingCard } from "../../studio-layer/logic/studio-layer";
+import type { CardRun } from "../../studio-model-run/logic/run-view";
 import { cardStages } from "./card-stages";
 import { portKey, type PortTarget } from "./connect-gesture";
 
@@ -18,7 +19,7 @@ export type PortView = { id: string; type: PortType; direction: PortDirection; s
   connected: number; target: PortTarget | null; pending: boolean };
 export type BindingBadge = { name: string; state: BindingCard["state"] | "missing"; stateLabel: string };
 export type ModelCardView = { id: string; name: string; typeName: string; icon: string; group: string; category: string; provider: string;
-  width: number; height: number; ports: PortView[]; stages: readonly string[]; binding: BindingBadge | null };
+  width: number; height: number; ports: PortView[]; stages: readonly string[]; binding: BindingBadge | null; run: CardRun | null };
 export type ModelLinkView = { id: string; d: string; color: string; type: PortType; inactive: boolean; selected: boolean; label: string; mid: Point };
 export type ModelLayout = { nodes: LayoutNode[]; ports: Map<string, Map<string, PortAnchor>>; routes: Map<string, StudioRoute> };
 
@@ -36,9 +37,10 @@ export function modelLayout(model: EditModel, overrides: ReadonlyMap<string, Poi
   return { nodes, ports, routes };
 }
 
-type CardContext = { pending: string | null; targets: ReadonlyMap<string, PortTarget>; bindings: ReadonlyMap<string, BindingCard> };
+type CardContext = { pending: string | null; targets: ReadonlyMap<string, PortTarget>; bindings: ReadonlyMap<string, BindingCard>; runs?: ReadonlyMap<string, CardRun> };
 
-export function modelCards(model: EditModel, layout: ModelLayout, { pending, targets, bindings }: CardContext): ModelCardView[] {
+/** Karty plátna; s během (`runs`) nese karta i vypočtený stav a čísla stupňů (výpočet modelu, ne měření). */
+export function modelCards(model: EditModel, layout: ModelLayout, { pending, targets, bindings, runs }: CardContext): ModelCardView[] {
   const connected = new Map<string, number>();
   for (const edge of model.edges) for (const end of [edge.from, edge.to]) connected.set(portKey(end), (connected.get(portKey(end)) ?? 0) + 1);
   return model.nodes.map((node, index) => {
@@ -52,7 +54,7 @@ export function modelCards(model: EditModel, layout: ModelLayout, { pending, tar
     const binding: BindingBadge | null = !node.binding ? null : bound ? { name: bound.name, state: bound.state, stateLabel: bound.stateLabel }
       : { name: node.binding.nodeId, state: "missing", stateLabel: "karta chybí" };
     return { id: node.id, name: node.name, typeName: type?.name ?? node.type, icon: type?.icon ?? "□", group: type?.group ?? "", category: type?.category ?? "",
-      provider: type?.provider ?? "", width: box.width, height: box.height, ports, stages: cardStages(node.type), binding };
+      provider: type?.provider ?? "", width: box.width, height: box.height, ports, stages: cardStages(node.type), binding, run: runs?.get(node.id) ?? null };
   });
 }
 

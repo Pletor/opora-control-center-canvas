@@ -1,0 +1,24 @@
+/* Knihovna scénářů je široký panel přes plátno (dialog v prototypu): nahoře název a křížek, pod ním upozornění, že
+   scénáře jsou vysvětlující modely, ne skutečná nasazení, pak hledání s kategorií a mřížka karet. Plátno pod ním
+   zůstává vidět po okrajích, aby bylo jasné, že se nic nezměnilo, dokud člověk scénář neotevře. */
+.studio-model-scenarios { position: absolute; inset: 24px; z-index: 8; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1px solid var(--studio-model-accent); border-radius: 10px; background: #18152bf7; box-shadow: 0 16px 40px #000a; color: var(--studio-text); }
+.studio-model-scenarios__head { display: flex; align-items: center; justify-content: space-between; }
+.studio-model-scenarios__title { margin: 0; font-size: 16px; }
+.studio-model-scenarios__close { padding: 0 9px; border: 1px solid var(--studio-line); border-radius: 6px; background: #1c2a40; color: var(--studio-text); font-size: 16px; cursor: pointer; }
+.studio-model-scenarios__notice { margin: 0; padding: 7px 10px; border: 1px solid #aa883d; border-radius: 6px; background: #2b2518; color: #f5c963; font-size: 11px; line-height: 1.5; }
+.studio-model-scenarios__filters { display: flex; align-items: center; gap: 8px; }
+.studio-model-scenarios__input { padding: 6px 9px; border: 1px solid var(--studio-line); border-radius: 6px; background: var(--studio-control); color: var(--studio-text); font: inherit; font-size: 12px; }
+.studio-model-scenarios__input[type="search"] { flex: 1; min-width: 0; }
+.studio-model-scenarios__count { color: var(--studio-muted); font-size: 11px; white-space: nowrap; }
+
+/* Karty scénářů jsou v mřížce po 280 px s vlastním posuvníkem: kategorie a počet komponent jako štítek, název,
+   krátký popis, rozbalitelná pravidla a omezení a dole jediné tlačítko, které otevře novou modelovou doménu. */
+.studio-model-scenarios__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; overflow: auto; align-content: start; scrollbar-width: thin; }
+.studio-model-scenarios__card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-card); }
+.studio-model-scenarios__pill { align-self: flex-start; padding: 1px 7px; border: 1px solid var(--studio-model-accent); border-radius: 10px; color: var(--studio-model-accent); font-size: 9px; text-transform: uppercase; }
+.studio-model-scenarios__name { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.studio-model-scenarios__text { margin: 0; font-size: 11px; line-height: 1.5; }
+.studio-model-scenarios__text--muted { color: var(--studio-muted); }
+.studio-model-scenarios__details { color: var(--studio-muted); font-size: 11px; }
+.studio-model-scenarios__open { margin-top: auto; padding: 6px 10px; border: 1px solid var(--studio-blue); border-radius: 6px; background: #173c58; color: #fff; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.studio-model-scenarios__open:hover { background: #1d4a6d; }

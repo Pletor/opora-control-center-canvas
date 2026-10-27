@@ -1,0 +1,41 @@
+/* Telemetrie leží v inspektoru nad identitou výběru, protože za běhu je to první, co člověk u komponenty chce vidět:
+   co se s ní právě děje. Rámeček má fialový levý okraj MODELu a trvalý štítek „výpočet modelu“, aby se čísla nedala
+   splést s měřením projektu (docs/studio.md §5). */
+.studio-model-telemetry { display: grid; gap: 8px; margin-bottom: 12px; padding: 10px; border: 1px solid var(--studio-line); border-left: 3px solid var(--studio-model-accent); border-radius: 7px; background: #171a30; }
+.studio-model-telemetry__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.studio-model-telemetry__heading { margin: 0; font-size: 11px; letter-spacing: .5px; text-transform: uppercase; }
+.studio-model-telemetry__source { padding: 1px 6px; border: 1px solid var(--studio-model-accent); border-radius: 10px; color: var(--studio-model-accent); font-size: 9px; text-transform: uppercase; }
+.studio-model-telemetry__notice { margin: 0; color: var(--studio-muted); font-size: 10px; line-height: 1.5; }
+
+/* Hodnoty jsou dlaždice ve dvou sloupcích jako metriky uzlu v prototypu: malý tlumený popisek nad tučným číslem.
+   Dlaždice s problémem (výpadek, odmítnutí, selhání závislostí) má růžové číslo. */
+.studio-model-telemetry__metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 0; }
+.studio-model-telemetry__metric { padding: 5px 7px; border-radius: 4px; background: #101b2d; }
+.studio-model-telemetry__metric-label { color: var(--studio-muted); font-size: 9px; }
+.studio-model-telemetry__metric-value { margin: 0; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.studio-model-telemetry__metric--alert .studio-model-telemetry__metric-value { color: #ff7397; }
+
+/* Sparkline je nízký tmavý pruh přes celou šířku s lomenou čarou posledních až 60 ticků; nad ním název veličiny a
+   vpravo poslední hodnota a maximum, takže tvar i měřítko jsou čitelné bez os. */
+.studio-model-telemetry__spark { margin: 0; }
+.studio-model-telemetry__spark-head { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 2px; color: var(--studio-muted); font-size: 10px; }
+.studio-model-telemetry__spark-value { color: var(--studio-text); font-variant-numeric: tabular-nums; }
+.studio-model-telemetry__spark-chart { display: block; width: 100%; height: 44px; border: 1px solid var(--studio-line); border-radius: 5px; background: #0e192a; }
+.studio-model-telemetry__spark-line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+
+/* Incidenty jsou tři tlačítka v řadě (Crash růžově, Slow jantarově, Restore zeleně) a pod nimi řádek plánu: druh,
+   tick a uložení do definice modelu. Plán komponenty je krátký seznam s křížkem pro odebrání. */
+.studio-model-telemetry__incidents { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--studio-line-soft); }
+.studio-model-telemetry__row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.studio-model-telemetry__button { padding: 5px 9px; border: 1px solid var(--studio-line); border-radius: 6px; background: #1c2a40; color: var(--studio-text); font: inherit; font-size: 11px; cursor: pointer; }
+.studio-model-telemetry__button:hover { border-color: var(--studio-blue); background: #233951; }
+.studio-model-telemetry__button--crash { border-color: #8b435d; color: #ff9ab4; }
+.studio-model-telemetry__button--slow { border-color: #a78343; color: #ffdb88; }
+.studio-model-telemetry__button--restore { border-color: #2f7a57; color: #7ee2b0; }
+.studio-model-telemetry__input { padding: 4px 6px; border: 1px solid var(--studio-line); border-radius: 6px; background: var(--studio-control); color: var(--studio-text); font: inherit; font-size: 11px; }
+.studio-model-telemetry__input--tick { width: 56px; }
+.studio-model-telemetry__tick { display: flex; align-items: center; gap: 4px; color: var(--studio-muted); font-size: 11px; }
+.studio-model-telemetry__error { margin: 0; color: #ff9ab4; font-size: 10px; }
+.studio-model-telemetry__plan { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.studio-model-telemetry__plan-row { display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; border-radius: 4px; background: #101b2d; font-size: 11px; }
+.studio-model-telemetry__remove { padding: 0 6px; border: 0; background: transparent; color: var(--studio-muted); font-size: 14px; cursor: pointer; }
