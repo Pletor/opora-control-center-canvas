@@ -5,6 +5,7 @@ import re
 import unicodedata
 from datetime import date
 
+from backend.canvas.card_agent_context import validate_agent_context
 from backend.canvas.card_checks import validate_checks
 from backend.canvas.design_metadata import validate_design
 from backend.canvas.gate_scenario import validate_scenario
@@ -46,7 +47,9 @@ CARD_STATES_MAX, CARD_STATE_MAX = 8, 40
 # `section` je id sekce nejbližší stránky, kterou komponenta realizuje (§3.3). Uložení ověří jen tvar id
 # (`SECTION_ID`), ne existenci sekce: smazání sekce na stránce nesmí zablokovat uložení mapy. Neexistující
 # sekci odmítne dávka plánu agenta a kontrola mapy ji ohlásí jako `section.unknown`.
-CARD_KEYS = set(CARD_VALUES) | {"due", "tech", "states", "section"}
+# `fetch` a `fill` skládá vložení z knihovny: co si agent stáhne a která pole karty vyplní
+# (`docs/zive-zobrazeni-a-knihovna.md` §5, tvar v `card_agent_context.py`). Nejsou součást zadání.
+CARD_KEYS = set(CARD_VALUES) | {"due", "tech", "states", "section", "fetch", "fill"}
 # `memberOf` je nepovinné výslovné logické členství uzlu nebo sektoru v oblasti (H01, kontrakt
 # `docs/kontrakt-identity.md`): id oblasti se stejným rodičem. Oblast tím nezačne být rodičem a
 # geometrické `areaId` (`areas.area_of`) zůstává jen nápovědou plátna, ne členstvím.
@@ -169,6 +172,7 @@ def validate_card(card):
             raise ValueError("Neplatné stavy karty (1–8 různých stavů po 1–40 znacích).")
     if "section" in card and not (isinstance(card["section"], str) and SECTION_ID.fullmatch(card["section"])):
         raise ValueError("Neplatná sekce karty (id sekce: písmena, číslice, _ a -, nejvýše 80 znaků).")
+    validate_agent_context(card)
 
 
 def card_text(value, limit):

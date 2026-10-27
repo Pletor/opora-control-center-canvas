@@ -1,7 +1,7 @@
 // Kontext karty podle docs/kontext-karet-a-index.md §1 a §3: typ workflow z předpony, vrstva, efektivní stav, čitelná cesta
 // a adresa. Nic se tu neukládá; adresa se počítá z aktuálních názvů, takže přejmenování nebo přesun
 // ji přepočítá sám. Backend drží tytéž funkce v `backend/canvas/card_context.py` se stejnými testy.
-import type { CanvasNode, CardComponentFields, CardEffort, CardLayer, CardModel, CardStatus, CardType, NodeCardFields } from "@/shared/types/logic/types";
+import type { CanvasNode, CardAgentFields, CardComponentFields, CardEffort, CardLayer, CardModel, CardStatus, CardType, NodeCardFields } from "@/shared/types/logic/types";
 
 const WORKFLOW_TYPES: CardType[] = ["research", "prototype", "grilling", "task", "gate"];
 export const CARD_LAYERS: CardLayer[] = ["frontend", "backend", "database", "library"];
@@ -108,14 +108,17 @@ export function cardComponent(node: { card?: CardComponentFields }): { tech: str
 
 /**
  * Uzel s novou kartou: prázdná karta klíč `card` z uzlu odstraní, ostatní pole zůstanou beze změny.
- * Technologii, stavy a sekci komponenty nenese formulář karty, proto je člověkova úprava karty zachová.
+ * Technologii, stavy, sekci komponenty ani `fetch` / `fill` z knihovny nenese formulář karty, proto je člověkova úprava karty zachová.
  */
-export function withCard<T extends { card?: NodeCardFields & CardComponentFields }>(node: T, card: Partial<Record<keyof NodeCardFields, string>> | undefined): T {
+export function withCard<T extends { card?: NodeCardFields & CardComponentFields & CardAgentFields }>(node: T, card: Partial<Record<keyof NodeCardFields, string>> | undefined): T {
   const { card: old, ...rest } = node;
-  const kept: CardComponentFields = {};
+  const kept: CardComponentFields & CardAgentFields = {};
   if (old?.tech) kept.tech = old.tech;
   if (old?.states?.length) kept.states = old.states;
   if (old?.section) kept.section = old.section;
+  // Podklady a díry z knihovny (docs/zive-zobrazeni-a-knihovna.md §5) formulář karty také nenese.
+  if (old?.fetch) kept.fetch = old.fetch;
+  if (old?.fill?.length) kept.fill = old.fill;
   const next = { ...normalizeCard(card), ...kept };
   return (Object.keys(next).length ? { ...rest, card: next } : rest) as T;
 }

@@ -1,6 +1,8 @@
 // Trvalá brána nad katalogem (blok 3 sektoru „Drag&drop-knihovna-levý navbar“): žádná šablona
 // v CATALOG_ITEMS nesmí lintu utéct. Pod bránou jsou fixtury pravidlo po pravidle, aby bylo hned
 // vidět, které přesně z pěti pravidel (px, vnoření, !important, #id, dvojité __) šablona porušila.
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { CATALOG_ITEMS, catalogLint, type CatalogItem } from "./library-catalog";
 
@@ -22,6 +24,17 @@ describe("catalog-lint – trvalá brána nad vydaným katalogem", () => {
     const violations = catalogLint(CATALOG_ITEMS);
     const readable = violations.map((v) => `${v.itemId}: [${v.rule}] ${v.detail}`).join("\n");
     expect(violations, readable ? `Nalezená porušení lintu:\n${readable}` : undefined).toEqual([]);
+  });
+});
+
+// Katalog je statický soubor ve frontendu; k souborům repozitáře má přístup jen test (vitest v Node),
+// proto existenci souborů `fetch` ověřuje tato brána (docs/zive-zobrazeni-a-knihovna.md §5).
+describe("catalog-lint – fetch míří na existující soubory repozitáře", () => {
+  it("soubory a dokumenty fetch v CATALOG_ITEMS existují", () => {
+    const repo = (path: string) => existsSync(fileURLToPath(new URL(`../../../../../${path}`, import.meta.url)));
+    const violations = catalogLint(CATALOG_ITEMS, repo).filter((v) => v.rule === "fetch");
+    expect(violations.map((v) => `${v.itemId}: ${v.detail}`)).toEqual([]);
+    expect(CATALOG_ITEMS.some((item) => item.fetch?.files.length)).toBe(true);
   });
 });
 

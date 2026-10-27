@@ -27,6 +27,12 @@ export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: str
  * realizuje; píše ji agent i člověk v Detailu prvku. Chybějící klíč = neurčeno, nikdy se nedoplňuje.
  */
 export type CardComponentFields = { tech?: string; states?: string[]; section?: string };
+/**
+ * Kontext pro agenta z knihovny (docs/zive-zobrazeni-a-knihovna.md §5): `fetch` = co si stáhnout do kontextu
+ * (relativní cesty v repozitáři, u `docs` i `https://`), `fill` = pole karty, která agent vyplní. Skládá je vložení
+ * z knihovny; node-brief je nese v `node` mimo zadání. Prázdný seznam se neukládá.
+ */
+export type CardAgentFields = { fetch?: { files?: string[]; docs?: string[] }; fill?: string[] };
 /** Product structure shares the same graph identities across deployment environments. */
 export type NodeSite = ApplicationSite | PageSite;
 /** Akce zákazníka, kterou se dostane do kroku: `open` otevře stránku přímo (jen první krok), `click` / `submit` na stránce předchozího kroku. */
@@ -74,7 +80,7 @@ export type CanvasNode = {
   /** Jen s `kind: "area"`: barva rámečku; chybí = indigová (viz `areaColorOf`). */
   color?: AreaColor;
   /** Jen s `kind: "node"`: typ, ruční stav, termín, model a effort karty; chybí u starších uzlů. */
-  card?: NodeCardFields & CardComponentFields;
+  card?: NodeCardFields & CardComponentFields & CardAgentFields;
   site?: NodeSite;
 };
 export type DesignArtifact = { artifactUrl: string; version: string; previewUrl?: string };

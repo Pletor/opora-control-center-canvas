@@ -12,6 +12,7 @@ import { securityItems, testItems } from "./catalog-safety";
 import { architectureItems, tenancyItems } from "./catalog-architecture";
 import type { CatalogFit } from "./catalog-fit";
 import { practicalItems } from "./catalog-practical";
+import { agentContextViolations, type AgentContextRule, type CatalogFetch, type CatalogPort } from "./catalog-agent-context";
 
 export type CatalogCategory =
   | "fe-components"
@@ -51,6 +52,16 @@ export type CatalogItem = {
   template?: string;
   /** Pro které projekty prvek dává smysl (docs/suplik-a-profil.md); bez `fits` patří všem. */
   fits?: CatalogFit;
+  /** Kontext pro agenta (docs/zive-zobrazeni-a-knihovna.md §5, catalog-agent-context.ts): předvyplní `card.tech`. */
+  tech?: string;
+  /** 1–8 krátkých stavů do `card.states`; s výstupním portem `command` povinně stav chyby. */
+  states?: string[];
+  /** Porty; cílené vložení z nich navrhne vazbu s `carries`. */
+  ports?: CatalogPort[];
+  /** Co si agent stáhne do kontextu; lint ověří, že soubory v repozitáři existují. */
+  fetch?: CatalogFetch;
+  /** Pole karty, která má agent vyplnit (díry), z `CARD_FILL_FIELDS`. */
+  fill?: string[];
 };
 
 /**
@@ -143,7 +154,7 @@ export function relatesLines(
 
 export type CatalogViolation = {
   itemId: string;
-  rule: "px" | "nesting" | "important" | "id" | "bem" | "relates" | "done" | "invariants" | "purpose";
+  rule: "px" | "nesting" | "important" | "id" | "bem" | "relates" | "done" | "invariants" | "purpose" | AgentContextRule;
   detail: string;
 };
 
@@ -278,9 +289,10 @@ function shapeViolations(item: CatalogItem, known: ReadonlySet<string>): Catalog
  * se nevnoří přes tři úrovně, ať už skládáním pravidel do sebe nebo mezerou na jednom řádku.
  * Žádné `!important`, žádné `#id` selektory a žádná třída s víc než jedním `__` (`blok__prvek__prvek`).
  * K tomu tvar prvku: účel, 1–3 kritéria hotovo, nejvýš 2 invarianty a `@id` v `relates` jen na prvek
- * téhož katalogu.
+ * téhož katalogu. A kontext pro agenta (`tech`, `states`, `ports`, `fetch`, `fill`, catalog-agent-context.ts);
+ * existenci souborů `fetch` ověří `exists`, když ho volající dodá (vitest nad repozitářem, catalog-lint.test.ts).
  */
-export function catalogLint(items: CatalogItem[] = CATALOG_ITEMS): CatalogViolation[] {
+export function catalogLint(items: CatalogItem[] = CATALOG_ITEMS, exists?: (path: string) => boolean): CatalogViolation[] {
   const known = new Set(items.map((item) => item.id));
   return items.flatMap((item) => [
     ...shapeViolations(item, known),
@@ -289,5 +301,6 @@ export function catalogLint(items: CatalogItem[] = CATALOG_ITEMS): CatalogViolat
     ...importantViolations(item),
     ...idSelectorViolations(item),
     ...bemViolations(item),
+    ...agentContextViolations(item, exists),
   ]);
 }

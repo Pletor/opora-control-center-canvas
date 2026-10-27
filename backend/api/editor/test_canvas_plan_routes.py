@@ -44,3 +44,24 @@ def test_plan_error_is_409_with_item_name(tmp_path):
         })
         assert response.status_code == 409
         assert "ref musí být" in response.json()["error"]
+
+
+def test_library_insert_saves_agent_context_and_the_proposed_link_in_one_plan(tmp_path):
+    """Vložení z knihovny (docs/zive-zobrazeni-a-knihovna.md §5): karta s tech/states/fetch/fill a vazba s carries jednou dávkou."""
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        digest = client.get("/api/view", params=SCOPE).json()["digest"]
+        first = client.post("/api/canvas-plan", headers=HEADERS, json={
+            **SCOPE, "digest": digest, "plan": {"nodes": [{"ref": "api", "kind": "node", "name": "POST /api/poptavka"}]}})
+        assert first.status_code == 200, first.text
+        api_id, digest = first.json()["refs"]["api"], first.json()["digest"]
+        card = {"status": "draft", "layer": "frontend", "tech": "React + TypeScript", "states": ["prázdno", "chyba"],
+                "fetch": {"files": ["docs/pravidla-struktury.md"]}, "fill": ["card.section", "sourceRef"]}
+        plan = {"nodes": [{"ref": "component", "kind": "node", "parent": None, "name": "Formulář", "card": card}],
+                "edges": [{"from": "component", "to": f"@{api_id}", "port": "next", "carries": "command"}]}
+        saved = client.post("/api/canvas-plan", headers=HEADERS, json={**SCOPE, "digest": digest, "plan": plan})
+        assert saved.status_code == 200, saved.text
+        graph = client.get("/api/view", params=SCOPE).json()["graph"]
+        node = next(item for item in graph["nodes"] if item["id"] == saved.json()["refs"]["component"])
+        assert node["card"] == card
+        assert any(edge["source"] == node["id"] and edge["target"] == api_id and edge.get("carries") == "command"
+                   for edge in graph["edges"])
