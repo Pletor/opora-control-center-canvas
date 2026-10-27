@@ -8,6 +8,8 @@ import { flowEdges, flowNodes } from "../logic/canvas-flow";
 import { layoutLevel } from "../logic/studio-layout";
 import { keyAction, nextInDirection, type StudioKeyAction } from "../logic/studio-keys";
 import StudioLink from "./StudioLink";
+import { MotionContext, useParticleAnimator } from "../../studio-motion/logic/motion-context";
+import type { LinkMotion } from "../../studio-motion/logic/motion-plan";
 import "../styles/studio-canvas.css";
 
 const nodeTypes = { "studio-card": StudioCard, "studio-group": StudioGroup };
@@ -17,17 +19,20 @@ type Props = {
   /** Klíč úrovně: změna zanoření plátno znovu napasuje na nové karty. */
   levelKey: string;
   cards: StudioCardView[]; grouped: Set<string>; links: Link[]; selected: string | null;
+  /** Pohyb Skutečnosti od rodiče: co se hýbe na vazbách a které karty jednou zapulzují. */
+  motion: { links: Map<string, LinkMotion>; pulsing: Set<string> };
   onSelect: (id: string | null) => void; onEnter: (id: string) => void; onUp: () => void;
 };
 
 /** Plátno jedné úrovně Studia v designu TechViz: tmavé pozadí s mřížkou teček, karty na deterministických polohách,
  * Bézierovy vazby podle `carries`, minimapa vpravo dole, ovladače zoom ± a fit, zoom 0,1–3. Karty se netahají a
  * polohy se neukládají. Klik vybere, dvojklik nebo Enter sestoupí, Backspace vystoupí, šipky posunou výběr, Escape
- * výběr zruší; vše hlásí rodiči. */
-export default function StudioCanvas({ levelKey, cards, grouped, links, selected, onSelect, onEnter, onUp }: Props) {
+ * výběr zruší; vše hlásí rodiči. Tečky na vazbách kreslí jeden animátor plátna (kontext pro vazby). */
+export default function StudioCanvas({ levelKey, cards, grouped, links, selected, motion, onSelect, onEnter, onUp }: Props) {
+  const animator = useParticleAnimator();
   const layout = useMemo(() => layoutLevel(cards.map((card) => ({ id: card.id, grouped: grouped.has(card.id) })), links), [cards, grouped, links]);
-  const nodes = useMemo(() => flowNodes(cards, layout, selected, (view) => ({ view, onEnter })), [cards, layout, selected, onEnter]);
-  const edges = useMemo(() => flowEdges(links), [links]);
+  const nodes = useMemo(() => flowNodes(cards, layout, selected, (view) => ({ view, onEnter }), motion.pulsing), [cards, layout, selected, onEnter, motion.pulsing]);
+  const edges = useMemo(() => flowEdges(links, motion.links), [links, motion.links]);
   const states = useMemo(() => new Map(cards.map((card) => [card.id, card.state])), [cards]);
   function act(action: StudioKeyAction, event: KeyboardEvent) {
     if (!action) return;
@@ -39,6 +44,7 @@ export default function StudioCanvas({ levelKey, cards, grouped, links, selected
   }
   return <div className="studio-canvas" data-testid="studio-canvas" tabIndex={0} aria-label="Plátno Studia: šipky vybírají kartu, Enter sestoupí, Backspace vystoupí"
     onKeyDown={(event) => { if (!(event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement)) act(keyAction(event.key), event); }}>
+    <MotionContext.Provider value={animator}>
     <ReactFlow key={levelKey} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
       minZoom={0.1} maxZoom={3} nodesDraggable={false} nodesConnectable={false} elementsSelectable panOnScroll={false} zoomOnDoubleClick={false}
       deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null} colorMode="dark"
@@ -49,6 +55,7 @@ export default function StudioCanvas({ levelKey, cards, grouped, links, selected
         nodeStrokeColor={(node) => node.type === "studio-group" ? "var(--studio-line)" : "transparent"} nodeBorderRadius={6} maskColor="#0b121ecc"/>
       <Controls position="top-right" showInteractive={false} className="studio-canvas__controls" fitViewOptions={{ padding: 0.2, maxZoom: 1 }}/>
     </ReactFlow>
+    </MotionContext.Provider>
     {!cards.length && <p className="studio-canvas__empty">Tato úroveň zatím nemá žádné karty.</p>}
   </div>;
 }

@@ -1,5 +1,6 @@
 // Převod úrovně Studia na uzly a hrany React Flow: karty na polohách z `layoutLevel`, rám skupiny „bez sekce“ pod nimi
-// a souhrnné vazby jako hrany typu `studio-link` s počtem a druhem toku. Uzly nesou pevné rozměry: plátno je řízené bez
+// a souhrnné vazby jako hrany typu `studio-link` s počtem, druhem toku a pohybem Skutečnosti (`studio-motion`); karta
+// kroku nově ověřené cesty dostane na uzel třídu jednorázového pulzu. Uzly nesou pevné rozměry: plátno je řízené bez
 // `onNodesChange`, takže změřené rozměry se do uzlů nevrací a minimapa i fit by bez nich karty neviděly.
 // Čistá logika bez Reactu; plátno ji jen předá.
 import type { Edge, Node } from "@xyflow/react";
@@ -7,8 +8,9 @@ import type { StudioFlow, StudioLink } from "../../logic/studio-level";
 import type { StudioCardView } from "../../studio-card/logic/card-view";
 import { CARRIES_LABEL } from "@/shared/edge-carries/logic/edge-carries";
 import { CARD_HEIGHT, CARD_WIDTH, type StudioLayout } from "./studio-layout";
+import { PULSE_CLASS, type LinkMotion } from "../../studio-motion/logic/motion-plan";
 
-export type StudioLinkData = { count: number; carries: StudioFlow; title: string };
+export type StudioLinkData = { count: number; carries: StudioFlow; title: string; motion?: LinkMotion };
 export type StudioLinkEdge = Edge<StudioLinkData, "studio-link">;
 export const FLOW_LABEL: Record<StudioFlow, string> = { ...CARRIES_LABEL, unspecified: "Neurčeno" };
 export const UNSECTIONED_LABEL = "Bez sekce";
@@ -19,7 +21,7 @@ export function linkTitle(link: Pick<StudioLink, "count" | "carries" | "kinds">)
   return `${FLOW_LABEL[link.carries]} · ${link.count} ${link.count === 1 ? "vazba" : link.count < 5 ? "vazby" : "vazeb"}${mixed}`;
 }
 
-export function flowNodes<Data extends Record<string, unknown>>(views: StudioCardView[], layout: StudioLayout, selected: string | null, data: (view: StudioCardView) => Data): Node[] {
+export function flowNodes<Data extends Record<string, unknown>>(views: StudioCardView[], layout: StudioLayout, selected: string | null, data: (view: StudioCardView) => Data, pulsing?: Set<string>): Node[] {
   const nodes: Node[] = [];
   if (layout.group) nodes.push({
     id: layout.group.id, type: "studio-group", position: { x: layout.group.x, y: layout.group.y }, data: { label: UNSECTIONED_LABEL },
@@ -27,14 +29,15 @@ export function flowNodes<Data extends Record<string, unknown>>(views: StudioCar
   });
   for (const view of views) {
     const position = layout.positions.get(view.id);
-    if (position) nodes.push({ id: view.id, type: "studio-card", position, width: CARD_WIDTH, height: CARD_HEIGHT, data: data(view), selected: view.id === selected, draggable: false, connectable: false });
+    if (position) nodes.push({ id: view.id, type: "studio-card", position, width: CARD_WIDTH, height: CARD_HEIGHT, data: data(view), selected: view.id === selected, draggable: false, connectable: false,
+      ...(pulsing?.has(view.id) ? { className: PULSE_CLASS } : {}) });
   }
   return nodes;
 }
 
-export function flowEdges(links: StudioLink[]): StudioLinkEdge[] {
+export function flowEdges(links: StudioLink[], motion?: Map<string, LinkMotion>): StudioLinkEdge[] {
   return links.map((link) => ({
     id: link.id, source: link.source, target: link.target, type: "studio-link", focusable: false, selectable: false,
-    data: { count: link.count, carries: link.carries, title: linkTitle(link) },
+    data: { count: link.count, carries: link.carries, title: linkTitle(link), ...(motion?.has(link.id) ? { motion: motion.get(link.id) } : {}) },
   }));
 }
