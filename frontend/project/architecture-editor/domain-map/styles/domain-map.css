@@ -53,17 +53,10 @@
 /* Podrobný přehled sekcí pod sebou i se záměrem; nic se v něm needituje. */
 .domain-map__sections--detailed{flex-direction:column;align-items:flex-start;margin:4px 0}
 
-/* Sekce stránky ve formuláři: osnova, kterou si člověk skládá sám. Každá sekce je jeden řádek (role, název,
-   záměr, nahoru/dolů/odebrat), aby se pořadí četlo shora dolů jako stránka; na úzkém formuláři se řádek zalomí
-   a záměr dostane celou šířku. Tlačítko „Přidat sekci“ stojí pod seznamem a při 20 sekcích zešedne. */
-.domain-map__sections-editor{display:flex;flex-direction:column;gap:6px}
-.domain-map__section-row{display:grid;grid-template-columns:7.5rem minmax(0,1fr) minmax(0,1.6fr) auto;gap:4px;align-items:center}
-.domain-map__section-row select,.domain-map__section-row input{width:100%;min-width:0}
-@media (max-width:640px){.domain-map__section-row{grid-template-columns:7.5rem minmax(0,1fr)}.domain-map__section-row input:last-of-type{grid-column:1 / -1}}
-.domain-map__section-actions{display:inline-flex;gap:4px}
-.domain-map__section-actions button,.domain-map__section-add{padding:3px 8px;font-size:11px;border-radius:7px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-text);cursor:pointer}
-.domain-map__section-actions button:disabled,.domain-map__section-add:disabled{opacity:.4;cursor:default}
-.domain-map__section-add{align-self:flex-start}
+/* Tichá tlačítka u cest zákazníka („+ Přidat cestu“, „Upravit“): obrys bez výplně, aby nepřebíjela obsah karty;
+   když nejdou použít, zešednou. Editor sekcí stránky má vlastní dílek (`page-sections/`). */
+.domain-map__section-add{padding:3px 8px;font-size:11px;border-radius:7px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-text);cursor:pointer;align-self:flex-start}
+.domain-map__section-add:disabled{opacity:.4;cursor:default}
 
 /* Podstránky: svislá linka vlevo říká, že patří k rodiči; prázdný stav to řekne větou. */
 .domain-map__subpages{display:grid;gap:10px;padding-left:12px;border-left:1px solid var(--ae-line)}

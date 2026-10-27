@@ -177,17 +177,19 @@ nezablokuje) a díru ohlásí kontrola mapy jako `section.unknown`. Do `specific
 
 Výřez mapy (`docs/architektura-pro-agenty.md` §4, §6): karta pod stránkou dostane klíč nejvyšší úrovně
 `architecture` = `{journeys?: [{id, name, purpose?, actor?, pointA?, pointB?, youAre: {step, index}, label?, shift?,
-objection?, previous?, next?}], page: {path, goal?, feel?, section?: {id, role, intent}},
+objection?, previous?, next?}], page: {path, goal?, feel?, section?: {id, role, intent, moves?}},
 in?: [{carries, from, sourceRef?}], out?: [{carries, to, sourceRef?}], states?, gaps?, truncated?}`. Cesty jsou
 cesty zákazníka (`site.journeys` aplikace, trychtýř stránek), na kterých leží stránka karty, a nesou řetěz „proč“:
 pro koho (`actor`), proměna zákazníka z bodu A do bodu B (`pointA` → `pointB`), krok té stránky (`youAre`, id
 a pořadí), jeho role (`label`), jaký posun na stránce nastane (`shift`) a co ho brzdí (`objection`); úkol samotné
-komponenty je `node.purpose`. `previous` / `next` jsou sousední kroky `{step, label?, path?, realized?, via?}`:
+komponenty je `node.purpose`; čím k posunu přispívá sekce, kterou komponenta realizuje, říká `page.section.moves`
+(jen když ho sekce má; je součást zadání stránky, jeho změna mění `contextVersion`). `previous` / `next` jsou
+sousední kroky `{step, label?, path?, realized?, via?}`:
 `via {do: open|click|submit, section?, text?}` u `previous` říká, jak zákazník přišel sem, u `next` co má udělat
 na této stránce (v které sekci, na jakém prvku), aby šel dál; `realized: false` znamená, že mapa přechod zatím
 vazbou nenese (`journey.unrealized`). `gaps` jsou pravidla kontroly mapy, která kartu nebo její hranu zasáhla. Nic
 se nedoplňuje, chybějící údaj = chybějící klíč, strop 2,5 KiB s deterministickým ořezem po celých klíčích
-(`truncated: true`), který před poslední záchranou nikdy nevezme A, B, posun, první `next` ani sekci. Stránka
+(`truncated: true`), který před poslední záchranou nikdy nevezme A, B, posun, první `next` ani sekci (sekci s `moves` nevezme vůbec). Stránka
 dostane výřez sama za sebe; karta mimo stránku klíč nemá. Výřez je mimo
 `specification` a cesty zákazníka do zadání nevstupují: `site.journeys` se do `specification.graph` nepromítá,
 přidání ani změna cesty (kroky, A → B, posun, námitka, `via`) `contextVersion` nemění. Je to popis stavu mapy, ne příkaz.

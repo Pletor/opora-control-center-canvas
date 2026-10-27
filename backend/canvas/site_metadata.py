@@ -15,6 +15,10 @@ SECTION_ID = re.compile(r"[A-Za-z0-9_-]{1,80}")
 PAGE_KEYS = {"kind", "path", "goal", "feel", "navLabel", "sections"}
 PAGE_TEXT_LIMITS = {"goal": ("cíl stránky", 200), "feel": ("působení stránky", 120), "navLabel": ("popisek v menu", 40)}
 SECTION_KEYS = {"id", "role", "name", "intent"}
+# Čím sekce posouvá zákazníka v kroku cesty (pain reliever / gain creator, `docs/cesta-zakaznika-a-brief.md` §2.3).
+# Nepovinné, prázdné se neukládá, bez výchozí hodnoty.
+SECTION_OPTIONAL_KEYS = {"moves"}
+SECTION_MOVES_MAX = 120
 SECTION_ROLES = ("hero", "cta", "form", "content", "gallery", "proof", "faq", "footer", "custom")
 # Aplikace nese cesty zákazníka jako trychtýř stránek, který zadává člověk: cesta je proměna zákazníka (`actor`,
 # bod A → bod B), krok je stránka s rolí, posunem, námitkou a signálem přechodu `via`; vazby mezi kroky (kudy
@@ -52,8 +56,8 @@ def validate_page_fields(label, site):
         raise ValueError(f"{label}: stránka má 1–20 sekcí; bez sekcí pole vynechte.")
     seen = set()
     for section in sections:
-        if not isinstance(section, dict) or set(section) != SECTION_KEYS:
-            raise ValueError(f"{label}: sekce vyžaduje přesně id, role, name a intent.")
+        if not isinstance(section, dict) or not SECTION_KEYS <= set(section) <= SECTION_KEYS | SECTION_OPTIONAL_KEYS:
+            raise ValueError(f"{label}: sekce vyžaduje přesně id, role, name a intent, volitelně moves.")
         section_id = section["id"]
         if not isinstance(section_id, str) or not SECTION_ID.fullmatch(section_id):
             raise ValueError(f"{label}: id sekce musí mít tvar id uzlu (písmena, číslice, _ a -, nejvýše 80 znaků).")
@@ -66,6 +70,9 @@ def validate_page_fields(label, site):
             raise ValueError(f"{label}: název sekce musí mít 1–60 znaků bez řídicích znaků.")
         if not _text(section["intent"], 0, 200):
             raise ValueError(f"{label}: záměr sekce musí mít nejvýše 200 znaků bez řídicích znaků.")
+        if "moves" in section and not _text(section["moves"], 1, SECTION_MOVES_MAX):
+            raise ValueError(f"{label}: čím sekce posouvá (moves) musí mít 1–{SECTION_MOVES_MAX} znaků bez řídicích"
+                             " znaků; prázdné pole vynechte.")
 
 
 def _validate_via(label, step_id, index, via):

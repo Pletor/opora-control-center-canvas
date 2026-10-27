@@ -18,6 +18,8 @@ export const SECTION_ROLE_LABELS: Record<PageSectionRole, string> = {
 
 /** Nejvýš tolik sekcí na stránce povolí backend. */
 export const MAX_PAGE_SECTIONS = 20;
+/** Nejvýš tolik znaků smí mít „Čím posouvá“ (`moves`) sekce (`site_metadata.py`). */
+export const SECTION_MOVES_MAX = 120;
 
 /** Vrátí `site` s novým seznamem sekcí; prázdný seznam klíč `sections` úplně vynechá (backend prázdné pole odmítne). */
 function withSections(site: PageSite, sections: PageSection[]): PageSite {
@@ -35,7 +37,7 @@ export function addSection(site: PageSite): PageSite {
   return withSections(site, [...sections, { id: "sekce-" + n, role: "content", name: "Nová sekce", intent: "" }]);
 }
 
-/** Změní roli, název nebo záměr sekce podle id; samo `id` se přepsat nedá. */
+/** Změní roli, název, záměr nebo „čím posouvá“ (`moves`) sekce podle id; samo `id` se přepsat nedá. */
 export function updateSection(site: PageSite, id: string, patch: Partial<Omit<PageSection, "id">>): PageSite {
   if (!site.sections) return site;
   return withSections(site, site.sections.map((section) => (section.id === id ? { ...section, ...patch, id } : section)));
@@ -64,7 +66,7 @@ export function withPageIntent(site: PageSite, key: PageIntentKey, value: string
   return { ...site, [key]: value };
 }
 
-/** Před uložením: cesta v normálním tvaru, text (i název a záměr sekcí) oříznutý a prázdné pole vynechané; bez sekcí klíč `sections` zmizí. Prázdný název sekce hlídá formulář (`required`). */
+/** Před uložením: cesta v normálním tvaru, text (i název, záměr a `moves` sekcí) oříznutý a prázdné pole vynechané; bez sekcí klíč `sections` zmizí. Prázdný název sekce hlídá formulář (`required`). */
 export function pageSiteForSave(site: PageSite): PageSite {
   const result: PageSite = { ...site, path: normalizePagePath(site.path) };
   for (const { key } of PAGE_INTENT_FIELDS) {
@@ -72,7 +74,13 @@ export function pageSiteForSave(site: PageSite): PageSite {
     if (value) result[key] = value;
     else delete result[key];
   }
-  return withSections(result, (site.sections ?? []).map((section) => ({ ...section, name: section.name.trim(), intent: section.intent.trim() })));
+  return withSections(result, (site.sections ?? []).map(sectionForSave));
+}
+
+/** Sekce před uložením: název a záměr oříznuté, `moves` oříznuté a prázdné vynechané (backend prázdné odmítne). */
+function sectionForSave({ moves, ...section }: PageSection): PageSection {
+  const trimmed = moves?.trim();
+  return { ...section, name: section.name.trim(), intent: section.intent.trim(), ...(trimmed ? { moves: trimmed } : {}) };
 }
 
 /** Text tlačítka v navigaci: popisek v menu, když ho člověk nastavil, jinak název stránky. */

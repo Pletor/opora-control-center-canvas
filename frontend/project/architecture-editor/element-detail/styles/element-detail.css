@@ -49,6 +49,11 @@
 .element-detail__section-label { font-size: 11px; color: var(--ae-muted, #a2bacb); white-space: nowrap; }
 .element-detail__section-select { flex: 1; min-width: 0; font: inherit; font-size: 12px; padding: 3px 6px; color: inherit; background: var(--ae-bg, #0c1723); border: 1px solid var(--ae-line, #304b5a); border-radius: 6px; }
 .element-detail__section-select--missing { border-color: var(--ed-database); }
+/* Řetěz „proč“ pod sekcí: jedna tichá řádka, kterou člověk přečte jako důvod existence komponenty – kým se
+   zákazník stane, co se na stránce posune a čím k tomu přispívá její sekce. Je menší a tlumená, protože jen
+   připomíná zadání zapsané jinde; tyrkysová linka vlevo ji váže k výběru sekce nad ní. */
+.element-detail__why { margin: 0; padding-left: 8px; font-size: 11px; line-height: 1.45; color: var(--ae-muted, #a2bacb); border-left: 2px solid var(--ae-accent, #38d6c2); overflow-wrap: anywhere; }
+.element-detail__why-label { font-weight: 700; color: var(--ae-text, #e3f1fb); }
 
 /* Identita prvku: ikona v barvě vrstvy, velký název a účel; tón stejný jako na plátně. */
 .element-detail__identity--frontend { --ed-tone: var(--ed-frontend); }
@@ -66,6 +71,13 @@
 .element-detail__tab { flex: 1; padding: 7px 4px; font-size: 12px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--ae-muted, #a2bacb); cursor: pointer; }
 .element-detail__tab--active { color: var(--ae-text, #e3f1fb); border-bottom-color: var(--ae-accent, #38d6c2); }
 .element-detail__pane { display: flex; flex-direction: column; gap: 12px; }
+
+/* Záložka Stránka začíná připomínkou, na kterých cestách stránka leží a k jakému posunu slouží: tiché řádky
+   s tyrkysovou tečkou, jen ke čtení, protože cesty se mění v trychtýři na mapě domény. Pod nimi stejný
+   formulář jako identita (cíl, působení, popisek v menu, sekce) s uložením vpravo dole. */
+.element-detail__journeys { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.element-detail__journey { position: relative; padding-left: 12px; font-size: 12px; overflow-wrap: anywhere; }
+.element-detail__journey::before { content: ""; position: absolute; left: 2px; top: .5em; width: 5px; height: 5px; border-radius: 50%; background: var(--ae-accent, #38d6c2); }
 
 /* Formulář identity: pod sebou Název a Účel, uložení vpravo; neuložený koncept je vidět i chyba. */
 .element-detail__form { display: flex; flex-direction: column; gap: 8px; }

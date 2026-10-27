@@ -48,12 +48,19 @@ odvozují; přidaný výchozí klíč by starý záznam zneplatnil a změnil dig
   "navLabel": "Kontakt",
   "sections": [
     { "id": "hero", "role": "hero", "name": "Hero", "intent": "Ozveme se do 24 h" },
-    { "id": "form", "role": "cta", "name": "Formulář", "intent": "Jméno, e-mail, popis" } ] }
+    { "id": "form", "role": "cta", "name": "Formulář", "intent": "Jméno, e-mail, popis",
+      "moves": "Rozptýlí obavu ze spamu: jen e-mail, ozveme se jednou do 24 h." } ] }
 ```
 
 - `goal` 1–200 znaků, `feel` 1–120, `navLabel` 1–40. Prázdný řetězec se neukládá, pole se vynechá.
 - `sections` 1–20 položek; `id` jako id uzlu, jedinečné ve stránce; `role` ∈ `hero | cta | form | content |
-  gallery | proof | faq | footer | custom`; `name` 1–60; `intent` 0–200.
+  gallery | proof | faq | footer | custom`; `name` 1–60; `intent` 0–200; nepovinné `moves` 1–120 (prázdné se
+  neukládá): čím sekce posouvá zákazníka v kroku cesty, na kterém stránka leží (rozptýlí námitku, ukáže důkaz;
+  [cesta-zakaznika-a-brief.md](cesta-zakaznika-a-brief.md) §2.3). Jiný klíč sekce validátor odmítne.
+- Sekce navrhuje agent v dávce plánu (`site` stránky, i s `moves`) a skládá a upravuje člověk na dvou místech nad
+  stejným dílkem: ve formuláři stránky na mapě domény a v záložce **Stránka** Detailu prvku v Editoru stránky.
+- Sekce jsou součást `site` stránky, a tedy **zadání** (`specification`): změna sekce včetně `moves` mění
+  `contextVersion` stránky a komponent pod ní (u karet mimo stránku ne).
 - Proč v `site`, ne jako bloky: bloky žijí ve stavu pracovního prostoru (`state.nodes[id].blocks`), kdežto
   architektura je sdílená (`ARCHITECTURE_WID`). Sekce v `site` mají jednu pravdu, verzují se s revizí
   architektury, obnova revize je vrátí a smazání stránky nezanechá sirotky.
@@ -163,7 +170,7 @@ Počítá ho backend deterministicky ze stejného grafu; nese jen větev karty. 
                   "next": [ { "step": "dik", "label": "Potvrzení", "path": "/dekujeme", "realized": false,
                               "via": { "do": "submit", "section": "form", "text": "Odeslat poptávku" } } ],
                   "lastRun": { "status": "failed", "failedAt": 3, "summary": "422 na POST" } } ],
-  "page": { "path": "/kontakt", "goal": "…", "feel": "…", "section": { "id": "form", "role": "form", "intent": "…" } },
+  "page": { "path": "/kontakt", "goal": "…", "feel": "…", "section": { "id": "form", "role": "form", "intent": "…", "moves": "…" } },
   "in":  [ { "carries": "navigation", "from": "Navbar" } ],
   "out": [ { "carries": "command", "to": "POST /api/poptavka", "sourceRef": "api/poptavka.py" } ],
   "states": ["prázdno", "odesílá", "chyba", "hotovo"],
@@ -177,7 +184,8 @@ Provádí `backend/project/architecture/node_architecture.py` (volá ho `node_br
 - **Bez výchozích hodnot.** Chybějící údaj = chybějící klíč; prázdný seznam (`journeys`, `in`, `out`, `gaps`)
   se vynechá, `states` jen když karta `card.states` má.
 - **Řetěz „proč“.** `actor` a `pointA` → `pointB` cesty (proč cesta existuje) → `shift` a `objection` kroku (proč
-  existuje stránka) → sousední kroky se signálem `via` (co se na stránce má stát) → `node.purpose` v `brief.node`
+  existuje stránka) → sousední kroky se signálem `via` (co se na stránce má stát) → `page.section.moves` (proč
+  existuje sekce) → `node.purpose` v `brief.node`
   (proč existuje komponenta; tady se neopakuje). Agent tak ví, **co** staví (sekce + akce), **pro koho**, **proč**
   a **čím je hotovo** (přechod na stránku dalšího kroku).
 - `journeys`: cesty zákazníka (§3.2), na kterých leží stránka karty (karta, která sama je stránka, jen ona; jinak
@@ -188,8 +196,9 @@ Provádí `backend/project/architecture/node_architecture.py` (volá ho `node_br
   souseda je signál přechodu mezi ním a tímto krokem: u `previous` jak zákazník přišel sem (`via` tohoto kroku),
   u `next` co má zákazník udělat **na této stránce**, aby šel dál (`via` následujícího kroku) – pro komponentu
   nejdůležitější údaj. Rozbitá cesta (chybí stránka jiného kroku) roli kroku dál nese.
-- `page`: `path`, `goal` a `feel` jen když jsou; `section` = `{id, role, intent}` jen když karta má
-  `card.section` a nejbližší stránka sekci s tím id má.
+- `page`: `path`, `goal` a `feel` jen když jsou; `section` = `{id, role, intent, moves?}` jen když karta má
+  `card.section` a nejbližší stránka sekci s tím id má; `moves` (čím sekce posouvá zákazníka) jen když ho sekce
+  má. Stránka sama `section` nedostane.
 - `in` / `out`: hrany karty s `carries`, v pořadí id hrany; `from` / `to` je název uzlu na druhé straně (bez
   názvu id), `sourceRef` jeho `sourceRef.path`, jen když je.
 - `gaps`: pravidla kontroly mapy (§5), jejichž nález míří na kartu (`nodeId`) nebo na její hranu (`edgeId`);
@@ -204,12 +213,14 @@ Provádí `backend/project/architecture/node_architecture.py` (volá ho `node_br
   6. v první cestě `objection`;
   7. první cesta celá (poslední záchrana).
 
-  Do sedmého stupně se nikdy neořízne `actor`, `pointA`, `pointB`, `shift`, první `next` ani `page.section`: to je
-  řetěz „proč“. Test nejhoršího případu (texty na maximu limitů §3.2, dvoubajtová diakritika v A, B a posunu,
+  `page.section` (i s `moves`) se neořízne nikdy; do sedmého stupně ani `actor`, `pointA`, `pointB`, `shift`
+  a první `next`: to je řetěz „proč“. Test nejhoršího případu (texty na maximu limitů §3.2, dvoubajtová diakritika v A, B a posunu,
   8 stavů po 40 znacích) se vejde nejpozději po šestém stupni.
 - **Verze zadání.** Cesty zákazníka nejsou zadání karty: `site.journeys` aplikace se do `specification` (graf
   `_node` i porovnání starých záznamů `scoped_specification`) nepromítá, takže přidání, změna ani smazání cesty
   `contextVersion` nemění (ani změna A → B, posunu, námitky nebo `via`). Ke kartě se cesta dostane jen tady.
+  Naopak `moves` leží v `site.sections` stránky, tedy v zadání (§3.1): jeho změna `contextVersion` stránky
+  a komponent pod ní mění záměrně (změnilo se zadání sekce).
 
 ## 5. Kontrola mapy
 

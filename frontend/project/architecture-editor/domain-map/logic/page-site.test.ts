@@ -41,6 +41,14 @@ describe("úprava sekcí stránky", () => {
     expect(saved.sections).toEqual([{ id: "a", role: "hero", name: "Úvod", intent: "Zaujmout" }]);
     expect(pageSiteForSave({ ...base, sections: [] })).not.toHaveProperty("sections");
   });
+  it("updateSection zapíše moves a pageSiteForSave ho ořízne, prázdné vynechá", () => {
+    const site = updateSection({ ...base, sections: [sec("a"), sec("b")] }, "a", { moves: "  Rozptýlí obavu ze spamu. " });
+    expect(site.sections?.[0].moves).toBe("  Rozptýlí obavu ze spamu. ");
+    const saved = pageSiteForSave(updateSection(site, "b", { moves: "   " }));
+    expect(saved.sections?.[0]).toEqual({ ...sec("a"), moves: "Rozptýlí obavu ze spamu." });
+    expect(saved.sections?.[1]).toEqual(sec("b"));
+    expect(saved.sections?.[1]).not.toHaveProperty("moves");
+  });
 });
 
 const sections = [{ id: "form", role: "cta" as const, name: "Formulář", intent: "" }];

@@ -294,7 +294,8 @@ Kdy mě číst: hledáš domény a stránky projektu, kdo na které doméně pra
 worktree a relace. Kontrakt: `docs/domeny-a-worktree.md`. Architektura (uzly se `site`: doména
 `site.kind="application"` s jedním prostředím `{name, host}`, stránka `site.kind="page"` s `path` a nepovinnými
 `goal` (cíl, 1–200), `feel` (působení, 1–120), `navLabel` (popisek v menu, 1–40) a `sections`
-(`[{id, role, name, intent}]`, 1–20; role `hero|cta|form|content|gallery|proof|faq|footer|custom`); prázdné
+(`[{id, role, name, intent, moves?}]`, 1–20; role `hero|cta|form|content|gallery|proof|faq|footer|custom`;
+`moves` 1–120 = čím sekce posouvá zákazníka v kroku cesty); prázdné
 pole se vynechá, výchozí hodnoty se nedoplňují; `node-brief` je nese v `node.site`, `navLabel` i v
 `specification.navigation`) je jedna pro
 projekt nad všemi worktree; `/api/view` ji skládá s obsahem prostoru a vrací navíc `architectureEditable`

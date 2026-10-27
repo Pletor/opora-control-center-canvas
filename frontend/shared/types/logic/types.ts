@@ -44,8 +44,9 @@ export type CustomerJourney = { id: string; name: string; purpose?: string; acto
 export type ApplicationSite = { kind: "application"; environments: { name: string; host: string }[]; healthPath?: string; journeys?: CustomerJourney[] };
 /** Role sekce stránky (`docs/architektura-pro-agenty.md` §3.1). */
 export type PageSectionRole = "hero" | "cta" | "form" | "content" | "gallery" | "proof" | "faq" | "footer" | "custom";
-/** Sekce stránky navrhuje agent; člověk ji jen vidí. `intent` smí být prázdný. */
-export type PageSection = { id: string; role: PageSectionRole; name: string; intent: string };
+/** Sekce stránky: navrhuje ji agent v dávce, skládá a upravuje člověk. `intent` smí být prázdný; `moves` (1–120) říká,
+ * čím sekce posouvá zákazníka v kroku cesty, prázdné se neukládá. */
+export type PageSection = { id: string; role: PageSectionRole; name: string; intent: string; moves?: string };
 /** Stránka: záměr píše člověk (`goal`, `feel`, `navLabel`); vše nepovinné, prázdné pole se neukládá. */
 export type PageSite = { kind: "page"; path: string; goal?: string; feel?: string; navLabel?: string; sections?: PageSection[] };
 export type CanvasNode = {

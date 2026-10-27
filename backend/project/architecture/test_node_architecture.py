@@ -188,6 +188,19 @@ def test_worst_case_journey_at_its_limits_keeps_the_why_chain_under_the_ceiling(
     assert result == node_architecture(data, "formular")
 
 
+def test_section_moves_travels_with_the_section_and_survives_every_cut(monkeypatch):
+    """`page.section.moves` (čím sekce posouvá) jde jen se sekcí, která ho má; ořez §4.3 sekci ani `moves` nebere."""
+    data = graph()
+    data["nodes"][1]["site"]["sections"] = [SECTION | {"moves": "Rozptýlí obavu ze spamu."}]
+    assert node_architecture(data, "formular")["page"]["section"] == {
+        "id": "form", "role": "cta", "intent": "Jméno, e-mail, popis", "moves": "Rozptýlí obavu ze spamu."}
+    assert "section" not in node_architecture(data, "kontakt")["page"]  # stránka sama sekci nemá
+    assert "moves" not in node_architecture(graph(), "formular")["page"]["section"]
+    monkeypatch.setattr(node_architecture_module, "LIMIT_BYTES", 1)
+    cut = node_architecture(data, "formular")
+    assert cut["truncated"] is True and cut["page"]["section"]["moves"] == "Rozptýlí obavu ze spamu."
+
+
 def test_page_in_the_menu_is_its_own_page_and_gets_its_step_shift():
     data = node_architecture(graph(), "kontakt")
     assert data["page"] == {"path": "/kontakt", "goal": "Poptávka do 2 minut"}

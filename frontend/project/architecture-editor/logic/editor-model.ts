@@ -1,7 +1,9 @@
-import type { CanvasNode, EdgeCarries, Graph } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, Graph, PageSite } from "@/shared/types/logic/types";
 import { canCarry } from "@/shared/edge-carries/logic/edge-carries";
 import { withCardSection } from "@/shared/card-context/logic/card-context";
 import { moveWithMembers, resizeArea } from "@/editor/canvas/area/logic/area-model";
+import { productFingerprint } from "@/project/product-tree/logic/product-tree";
+import { pageSiteForSave } from "../domain-map/logic/page-site";
 
 const GRAPH_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
@@ -110,6 +112,22 @@ export function setEditorNodeSection(graph: Graph, nodeId: string, section: stri
   if (section !== null && !GRAPH_ID.test(section)) throw new Error("Neplatné id sekce.");
   if ((node.card?.section ?? null) === section) return graph;
   return { ...graph, nodes: graph.nodes.map((item) => item.id === nodeId ? withCardSection(item, section) : item) };
+}
+
+/**
+ * Člověk uloží záměr a sekce stránky ze záložky Stránka v Detailu prvku (cíl, působení, popisek v menu, sekce
+ * s `moves`; docs/architektura-pro-agenty.md §3.1). `original` je stránka, ze které koncept vznikl: změnil-li ji
+ * mezitím někdo jiný (otisk `productFingerprint`), uložení se odmítne a koncept zůstane. Cesta stránky se tu
+ * nemění; text se ořízne a prázdné pole vynechá (`pageSiteForSave`). Beze změny vrací týž graf.
+ */
+export function setEditorPageSite(graph: Graph, original: CanvasNode, site: PageSite): Graph {
+  const node = graph.nodes.find((item) => item.id === original.id);
+  if (!node) throw new Error("Stránka již neexistuje.");
+  if (node.site?.kind !== "page") throw new Error("Záměr a sekce má jen stránka.");
+  if (productFingerprint(node) !== productFingerprint(original)) throw new Error("Stránka se mezitím změnila. Zrušte koncept a otevřete aktuální hodnoty.");
+  const next = pageSiteForSave({ ...site, kind: "page", path: node.site.path });
+  if (JSON.stringify(next) === JSON.stringify(node.site)) return graph;
+  return { ...graph, nodes: graph.nodes.map((item) => item.id === node.id ? { ...item, site: next } : item) };
 }
 
 export function createEditorAreaPlan(parentId: string | null, name = "Nová oblast"): EditorAreaPlan {

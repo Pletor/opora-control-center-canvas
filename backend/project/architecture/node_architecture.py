@@ -15,8 +15,8 @@ Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam s
   souseda je signál přechodu mezi ním a tímto krokem: u `previous` jak zákazník přišel sem (akce na předchozí
   stránce, `via` tohoto kroku), u `next` co má zákazník udělat na této stránce, aby šel dál (`via` následujícího
   kroku). Pořadí jako `derive_journeys`.
-- `page`: `{path, goal?, feel?, section?}` nejbližší stránky; `section` = `{id, role, intent}` jen když karta má
-  `card.section` a sekce na stránce existuje.
+- `page`: `{path, goal?, feel?, section?}` nejbližší stránky; `section` = `{id, role, intent, moves?}` jen když karta
+  má `card.section` a sekce na stránce existuje; `moves` (čím sekce posouvá zákazníka) jen když ho sekce má.
 - `in` / `out`: sousední hrany karty s `carries`, v pořadí id hrany: `{carries, from}` / `{carries, to}`, kde
   `from`/`to` je název uzlu na druhé straně (bez názvu id) a `sourceRef` jeho `sourceRef.path`, jen když je.
 - `states`: `card.states`, jen když jsou.
@@ -31,8 +31,8 @@ Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam s
   5. `page.feel`, pak `page.goal`;
   6. v první cestě `objection`;
   7. první cesta celá (poslední záchrana).
-  Do sedmého kroku se nikdy neořízne `actor`, `pointA`, `pointB`, `shift`, první `next` ani `page.section`: to je
-  řetěz „proč“. Ořezaný výřez nese `"truncated": true`.
+  Nikdy se neořízne `page.section` (ani jeho `moves`); do sedmého kroku ani `actor`, `pointA`, `pointB`, `shift`
+  a první `next`: to je řetěz „proč“. Ořezaný výřez nese `"truncated": true`.
 """
 
 import json
@@ -93,7 +93,7 @@ def _page(page, node):
     sections = site.get("sections") if isinstance(site.get("sections"), list) else []
     section = next((item for item in sections if isinstance(item, dict) and item.get("id") == section_id), None)
     if isinstance(section_id, str) and section is not None:
-        result["section"] = {key: section[key] for key in ("id", "role", "intent") if key in section}
+        result["section"] = {key: section[key] for key in ("id", "role", "intent", "moves") if key in section}
     return result
 
 

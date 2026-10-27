@@ -55,6 +55,7 @@ describe("page fingerprint notices concurrent changes to page intent and section
     ["missing goal", { goal: undefined }],
     ["section intent", { sections: [{ id: "form", role: "cta" as const, name: "Formulář", intent: "Jméno" }] }],
     ["section role", { sections: [{ id: "form", role: "form" as const, name: "Formulář", intent: "" }] }],
+    ["section moves", { sections: [{ id: "form", role: "cta" as const, name: "Formulář", intent: "", moves: "Rozptýlí obavu ze spamu." }] }],
     ["no sections", { sections: undefined }],
   ])("%s changes the fingerprint", (_label, change) => {
     const changed = { ...page, site: { ...page.site, ...change } as CanvasNode["site"] };

@@ -4,8 +4,9 @@
 a [kartu pro agenty](karta-pro-agenty.md).
 
 Stav: **schváleno; PR 1–4 z §7 (cesta bez počtů, proměna A → B, posun a námitka, signál `via`) jsou v kódu
-a kontraktu jedním PR** ([architektura-pro-agenty.md](architektura-pro-agenty.md) §3.2, §4, §5, §6). PR 5–6 (sekce
-`moves`, Detail prvku, Editor stránky) čekají. Tvrzení o kódu v §1–§6 jsou ze stavu před implementací
+a kontraktu jedním PR** ([architektura-pro-agenty.md](architektura-pro-agenty.md) §3.2, §4, §5, §6). PR 5 (sekce
+`moves`, záložka Stránka v Detailu prvku, řádka řetězu u komponenty) je v kódu a kontraktu (§3.1, §4). PR 6 (úsek
+cesty a pruh navigace v Editoru stránky) čeká. Tvrzení o kódu v §1–§6 jsou ze stavu před implementací
 (2026-10-27, `643e966`); živá data se nečetla.
 
 ## Rozhodnutí
@@ -17,7 +18,7 @@ Závazná rozhodnutí člověka k otázkám §8 (2026-10-27):
 2. **`experience` u kroku se nahrazuje dvojicí `shift` + `objection`, bez migrace.** Validátor `experience`
    i `count` odmítne (stejně jako dřívější podobu `{from, to}`).
 3. **Sekce se upravují v Detailu Editoru stránky i ve formuláři stránky na mapě domény**, nad stejným dílkem
-   `PageSectionsEditor` (PR 5–6, zatím ne).
+   `PageSectionsEditor` (PR 5: dílek je sdílený v `architecture-editor/page-sections/`).
 
 Rozhodnutí při implementaci PR 1–4 (navíc k návrhu):
 
@@ -31,6 +32,21 @@ Rozhodnutí při implementaci PR 1–4 (navíc k návrhu):
 - Při posunu kroku v editoru trychtýře signál, který k novému pořadí nesedí (klik u prvního kroku, otevření mimo
   začátek), zmizí; `via.section`, které nová předchozí stránka nemá, zůstane a ukáže se jako „chybí sekce …“.
 - Textová pole cesty a kroku v editoru mění konec řádku na mezeru (backend řídicí znaky odmítne).
+
+Rozhodnutí při implementaci PR 5 (navíc k návrhu):
+
+- `moves` je jediný volitelný klíč sekce; prázdné (i jen z mezer) validátor odmítne a `pageSiteForSave` ho před
+  uložením vynechá. Dávka plánu agenta sekce s `moves` přijme beze změny kódu (`site` jde přes stejný validátor).
+- Ořez §4.3 `page.section` nebere ani v sedmém stupni (sedmý stupeň bere jen první cestu), takže `moves` přežije
+  každý ořez.
+- `PageSectionsEditor` se přesunul z `domain-map/` do vlastního dílku `page-sections/` (CSS `page-sections__`,
+  zalamuje se podle své šířky, ne okna); logika sekcí zůstává v `domain-map/logic/page-site.ts`.
+- Záložka **Stránka** (jen u vybrané stránky, otevře se jako první) má cíl, působení, **popisek v menu** a sekce;
+  cestu stránky nemění (ta zůstává ve formuláři na mapě domény). Koncept se ukládá tlačítkem, souběžnou změnu
+  stránky odmítne `setEditorPageSite` podle `productFingerprint`. Připomínka cest nahoře je `pageJourneyText`
+  (role kroku a posun), námitku zatím neukazuje.
+- Řádka řetězu „Proč“ u komponenty bere při více cestách první cestu aplikace, na které stránka leží, a v ní
+  první krok s touto stránkou; chybějící článek vynechá.
 
 ## 0. Shrnutí
 
@@ -382,7 +398,7 @@ a staví na tvaru dat z 1–4.
 | 2 ✅ | `feat(architektura): cesta nese proměnu A → B` — hotovo v tomto PR | `actor`, `pointA`, `pointB` na cestě; výřez je nese; trychtýř a editor cesty je ukazují / zadávají. | `site_metadata.py`, `journeys.py`, `node_architecture.py`, `types.ts`, `journeys.ts`, `JourneyFunnel.tsx`, `JourneyFunnelEditor.tsx`, docs §3.2/§4, `karta-pro-agenty.md`, `api.md`, `opora_read.py` | validátor (limity, prázdné vynechat), `test_node_architecture.py` (klíče, nic se nedoplňuje), `test_assignment_scope.py` (contextVersion beze změny), `journeys.test.ts` | Nízké. |
 | 3 ✅ | `feat(architektura): krok nese posun a námitku` — hotovo v tomto PR | `shift` + `objection` místo `experience`; nový `_fit` (§4.3). | stejné jako 2 + `JourneyStepCard.tsx`, `page-journeys.ts`, `PageJourneys.tsx` | `test_node_architecture.py` (ořez: každý stupeň zvlášť, determinismus), validátor, `journeys.test.ts`, `page-journeys.test.ts` | Střední: ořez musí zůstat deterministický; testy na přesné pořadí. |
 | 4 ✅ | `feat(architektura): krok nese ověřitelný signál via` — hotovo v tomto PR | `via {do, section?, text?}`, `journey.via-unknown`, sousedé ve výřezu nesou `via`, šipka trychtýře ukazuje signál, karta kroku „Jak sem přijde“. | `site_metadata.py`, `map_check.py`, `journeys.py` (předat `via`), `node_architecture.py`, `types.ts`, `journeys.ts`, `JourneyFunnelLink.tsx`, `JourneyStepCard.tsx`, docs §3.2/§4/§5, `api.md` | validátor (první krok jen `open`, ostatní ne), `test_map_check.py`, `test_node_architecture.py`, `journeys.test.ts` | Nízké–střední: výběr sekce předchozí stránky v kartě kroku závisí na `after`. |
-| 5 | `feat(architektura): sekce říká, čím posouvá` + Detail stránky | volitelné `moves` v sekci (validátor, `page-site.ts`, `PageSectionsEditor`, výřez `page.section.moves`); záložka **Stránka** v Detailu prvku s editorem sekcí a řádkou řetězu u komponenty. | `site_metadata.py`, `node_architecture.py`, `types.ts`, `page-site.ts`, `PageSectionsEditor.tsx`, `ElementDetail.tsx`, nový dílek v `element-detail/`, `agent-context.ts`, `ArchitectureEditor.tsx` (`onSavePage`), docs §3.1/§4 | `test_site_metadata.py` (sekce bez/s `moves`, staré sekce dál platné), `test_node_architecture.py`, `test_node_brief.py`, `page-site.test.ts`, `agent-context.test.ts` | Střední: `moves` mění `contextVersion` (záměrně); dávka plánu agenta musí `moves` přijmout v návrhu sekcí – ověřit `canvas_plan*`. |
+| 5 ✅ | `feat(architektura): sekce říká, čím posouvá` + Detail stránky — hotovo v tomto PR | volitelné `moves` v sekci (validátor, `page-site.ts`, `PageSectionsEditor`, výřez `page.section.moves`); záložka **Stránka** v Detailu prvku s editorem sekcí a řádkou řetězu u komponenty. | `site_metadata.py`, `node_architecture.py`, `types.ts`, `page-site.ts`, `PageSectionsEditor.tsx`, `ElementDetail.tsx`, nový dílek v `element-detail/`, `agent-context.ts`, `ArchitectureEditor.tsx` (`onSavePage`), docs §3.1/§4 | `test_site_metadata.py` (sekce bez/s `moves`, staré sekce dál platné), `test_node_architecture.py`, `test_node_brief.py`, `page-site.test.ts`, `agent-context.test.ts` | Střední: `moves` mění `contextVersion` (záměrně); dávka plánu agenta musí `moves` přijmout v návrhu sekcí – ověřit `canvas_plan*`. |
 | 6 | `feat(architektura): editor stránky ukazuje úsek cesty` | Pruh navigace domény v hlavičce plátna, úsek cesty aktivní stránky s úpravou kroku, pruh sekcí s počtem komponent. | nový dílek `page-editor/journey-slice/`, `PageEditor.tsx`, `ArchitectureEditor.tsx`, `page-editor/README.md`, `architecture-editor/README.md` | `page-slice.test.ts` (sousedé, odbočky, stránka na více cestách, chybějící stránka), prohlížeč nad izolovanými daty | Střední: `ArchitectureEditor` má 190 řádků, přidání props musí zůstat skládáním; plátno nesmí ztratit `measured` (React Flow) – úsek je mimo plátno. |
 
 Etapa 8 (harness, `lastRun`, konvence `data-opora-section`) zůstává samostatným dodatkem; tento návrh jí dává

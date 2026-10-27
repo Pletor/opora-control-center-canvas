@@ -802,3 +802,37 @@ def test_architecture_slice_only_under_a_page_and_a_new_journey_keeps_the_contex
         save(client, [{"id": "poptavka", "name": "Poptávka z menu", "purpose": "Poptávka", "actor": "Firma",
                        "pointA": "Jiné A.", "pointB": "Jiné B.", "steps": steps}])
         assert brief(client, "formular").json()["contextVersion"] == plain["contextVersion"]
+
+
+def test_section_moves_is_part_of_the_page_assignment_and_reaches_the_component_slice(tmp_path):
+    """`moves` leží v `site.sections` stránky, tedy v zadání (`docs/cesta-zakaznika-a-brief.md` §4.4): jeho změna
+    mění `contextVersion` stránky a komponent pod ní, karta mimo stránku zůstane beze změny."""
+    def save(client, moves):
+        section = {"id": "form", "role": "cta", "name": "Formulář", "intent": "Jméno a e-mail",
+                   **({"moves": moves} if moves else {})}
+        graph = {"nodes": [
+            {"id": "app", "parentId": None, "kind": "sector", "name": "Web", "purpose": "", "x": 0, "y": 0,
+             "site": {"kind": "application", "environments": []}},
+            {"id": "kontakt", "parentId": "app", "kind": "node", "name": "Kontakt", "purpose": "", "x": 0, "y": 0,
+             "site": {"kind": "page", "path": "/kontakt", "sections": [section]}},
+            {"id": "formular", "parentId": "kontakt", "kind": "node", "name": "Formulář", "purpose": "", "x": 0, "y": 0,
+             "card": {"section": "form"}},
+            {"id": "jinde", "parentId": None, "kind": "node", "name": "Jinde", "purpose": "", "x": 600, "y": 0},
+        ], "edges": []}
+        view = client.get("/api/view", params=SCOPE).json()
+        saved = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": graph, "digest": view["digest"]})
+        assert saved.status_code == 200, saved.text
+        return {node: brief(client, node).json() for node in ("kontakt", "formular", "jinde")}
+
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        plain = save(client, None)
+        assert "moves" not in plain["formular"]["architecture"]["page"]["section"]
+        moved = save(client, "Rozptýlí obavu ze spamu.")
+        assert moved["formular"]["architecture"]["page"]["section"]["moves"] == "Rozptýlí obavu ze spamu."
+        assert "section" not in moved["kontakt"]["architecture"]["page"]
+        for node in ("kontakt", "formular"):
+            assert moved[node]["contextVersion"] != plain[node]["contextVersion"]
+        assert moved["jinde"]["contextVersion"] == plain["jinde"]["contextVersion"]
+        # Smazání `moves` vrátí přesně původní otisk: nic se nedoplňuje.
+        assert {node: data["contextVersion"] for node, data in save(client, None).items()} == {
+            node: data["contextVersion"] for node, data in plain.items()}

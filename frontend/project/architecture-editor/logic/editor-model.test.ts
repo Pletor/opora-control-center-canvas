@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, setEditorNodeSection, validateEditorRoute } from "./editor-model";
+import type { CanvasNode, Graph, PageSite } from "@/shared/types/logic/types";
+import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite, validateEditorRoute } from "./editor-model";
 
 const node = (id: string, parentId: string | null = null, kind: CanvasNode["kind"] = "node"): CanvasNode => ({ id, parentId, kind, name: id, purpose: "Účel", x: 20, y: 40 });
 const graph = (): Graph => ({ nodes: [
@@ -172,5 +172,29 @@ describe("sekce stránky u komponenty", () => {
     expect(() => setEditorNodeSection(graph(), "nic", "form")).toThrow("neexistuje");
     expect(() => setEditorNodeSection(graph(), "app", "form")).toThrow("jen uzel");
     expect(() => setEditorNodeSection(graph(), "child", "s/1")).toThrow("Neplatné id");
+  });
+});
+
+describe("záměr a sekce stránky z Detailu prvku", () => {
+  const page = (g: Graph) => g.nodes[1];
+  it("uloží cíl a sekce s moves oříznuté, cestu stránky nechá a ostatní pole uzlu zachová", () => {
+    const base = graph();
+    const next = setEditorPageSite(base, page(base), { kind: "page", path: "/jinam", goal: "  Poptávka ", feel: "  ",
+      sections: [{ id: "form", role: "form", name: " Formulář ", intent: "", moves: "  Rozptýlí obavu ze spamu. " }] });
+    expect(page(next).site).toEqual({ kind: "page", path: "/", goal: "Poptávka",
+      sections: [{ id: "form", role: "form", name: "Formulář", intent: "", moves: "Rozptýlí obavu ze spamu." }] });
+    expect(page(next).card).toEqual(page(base).card);
+    expect(next.nodes.filter((item) => item.id !== "page")).toEqual(base.nodes.filter((item) => item.id !== "page"));
+    expect(setEditorPageSite(next, page(next), structuredClone(page(next).site) as PageSite)).toBe(next);
+    const cleared = setEditorPageSite(next, page(next), { kind: "page", path: "/", goal: "Poptávka", sections: [{ id: "form", role: "form", name: "Formulář", intent: "", moves: " " }] });
+    expect(page(cleared).site).toEqual({ kind: "page", path: "/", goal: "Poptávka", sections: [{ id: "form", role: "form", name: "Formulář", intent: "" }] });
+  });
+  it("odmítne souběžnou změnu stránky, chybějící stránku a prvek, který stránkou není", () => {
+    const base = graph();
+    const stale = page(base);
+    const changed = { ...base, nodes: base.nodes.map((item) => item.id === "page" ? { ...item, site: { kind: "page" as const, path: "/", feel: "klidně" } } : item) };
+    expect(() => setEditorPageSite(changed, stale, { kind: "page", path: "/", goal: "Cíl" })).toThrow("mezitím změnila");
+    expect(() => setEditorPageSite(base, { ...stale, id: "nic" }, { kind: "page", path: "/" })).toThrow("neexistuje");
+    expect(() => setEditorPageSite(base, base.nodes[2], { kind: "page", path: "/" })).toThrow("jen stránka");
   });
 });
