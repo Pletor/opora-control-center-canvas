@@ -242,4 +242,11 @@
   --studio-carries-unspecified: #7d8fa8;
   /* Zastavená tečka selhání cesty (docs/zive-zobrazeni-a-knihovna.md §3). */
   --studio-failure: #ff5c78;
+  /* Vrstva MODEL (docs/studio.md §1): plátno má fialovější noc a fialový akcent štítku „MODEL – výpočet, ne měření“,
+     aby se vypočtený model na první pohled lišil od Skutečnosti a nikdy se za ni nevydával. */
+  --studio-model-bg: #100e1f;
+  --studio-model-bg-glow: #261d40;
+  --studio-model-dot: #4a3f6b;
+  --studio-model-tint: #2e2448;
+  --studio-model-accent: #c9a8ff;
 }
