@@ -84,7 +84,10 @@ má `schemaVersion: 2` a `kind: "graph-changes"` a vyžaduje přijatý manifest.
 
 - `updateNodes: [{id, fields}]` s výslovně vybranými poli;
 - `removeNodes: [id]`;
-- `updateEdges: [{id, source, target, port}]`;
+- `updateEdges: [{id, source, target, port, carries?}]`; `carries` (`navigation | data | command | event`,
+  `null` = odebrat) se uvádí jen při jeho změně. Úprava bez něj druh toku vazby nemění a odvodí stejná pole
+  a předpoklady jako dřív; s ním je `carries` mezi vybranými poli změny vazby a zneplatní zprávu na vazbě
+  stejně jako přepojení;
 - `removeEdges: [id]`.
 
 Volitelné `adoptArchitectureContext: true` znamená výslovné převzetí aktuálního

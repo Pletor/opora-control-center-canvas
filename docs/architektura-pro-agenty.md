@@ -183,7 +183,7 @@ mění digest pohledu a zneplatní rozpracovaný výstup obou koncových karet; 
 | 2 | Oblast roste s kartou | ne |
 | 3a | Stránka: `goal`, `feel`, `navLabel`, `sections` | `site` |
 | 3b | Aplikace: `journeys` | `site` |
-| 4 | Hrana `carries`, komponenta `section` | graf, návrhy grafu |
+| 4 | Hrana `carries`, komponenta `section`: 4a `carries` (samostatně), 4b `section` (až po 3a) | graf, návrhy grafu |
 | 5 | Komponenta `card.tech`, `card.states` | `card` |
 | 6 | Kontrola mapy (§5) + API | ne |
 | 7 | Cesty (§6) a `node-brief.architecture` (§4) | node-brief |

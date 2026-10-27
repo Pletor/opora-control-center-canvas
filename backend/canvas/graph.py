@@ -62,7 +62,22 @@ EDGE_KEYS = {"id", "source", "target"}
 EDGE_PORTS = ("next", "action", "rule", "block", "flow")
 EDGE_KEYS_WITH_PORT = EDGE_KEYS | {"port"}
 EDGE_KEYS_WITH_BLOCK_PORT = EDGE_KEYS_WITH_PORT | {"sourceBlockId", "sourcePortId"}
-EDGE_KEY_SETS = (EDGE_KEYS, EDGE_KEYS_WITH_PORT, EDGE_KEYS_WITH_BLOCK_PORT)
+# Co po vazbě teče (`docs/architektura-pro-agenty.md` §3.4): navigace zákazníka, čtení dat, odeslání/zápis,
+# událost. Nepovinné, nikdy se nedoplňuje; smí ho mít jen vazba `next` (i bez portu). Port se tím nemění.
+EDGE_CARRIES = ("navigation", "data", "command", "event")
+EDGE_KEY_SETS = (EDGE_KEYS, EDGE_KEYS_WITH_PORT, EDGE_KEYS_WITH_BLOCK_PORT,
+                 EDGE_KEYS | {"carries"}, EDGE_KEYS_WITH_PORT | {"carries"})
+
+
+def edge_carries_error(edge):
+    """Důvod, proč vazba nesmí nést `carries`, nebo None; vazba bez `carries` je vždy v pořádku."""
+    if "carries" not in edge:
+        return None
+    if edge["carries"] not in EDGE_CARRIES:
+        return "Neznámý druh toku vazby (carries)."
+    if edge.get("port", "next") != "next":
+        return "Druh toku (carries) smí mít jen vazba next."
+    return None
 
 
 def valid_id(value):
@@ -291,6 +306,8 @@ def validate_graph(value):
             or edge["source"] == edge["target"]
         ):
             raise ValueError("Neplatná vazba.")
+        if carries_error := edge_carries_error(edge):
+            raise ValueError(carries_error)
         source_kind, target_kind = kinds[edge["source"]], kinds[edge["target"]]
         if source_kind == "comment" or target_kind == "comment":
             raise ValueError("Komentář nemá vazby.")

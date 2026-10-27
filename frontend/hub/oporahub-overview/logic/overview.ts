@@ -11,7 +11,7 @@ export type Decision = DetailTarget & { author: string; stale: boolean | null; i
 function graphSnapshot(graph: Graph) {
   return JSON.stringify({ nodes: [...graph.nodes].sort((a, b) => a.id.localeCompare(b.id)).map(node => [node.id, node.kind, node.name,
     node.purpose, node.parentId, node.sourceRef?.origin, node.sourceRef?.kind, node.sourceRef?.path, node.x, node.y, node.size?.w, node.size?.h]),
-    edges: [...graph.edges].sort((a, b) => a.id.localeCompare(b.id)).map(edge => [edge.id, edge.source, edge.target, edge.port ?? "next", edge.sourceBlockId, edge.sourcePortId]) });
+    edges: [...graph.edges].sort((a, b) => a.id.localeCompare(b.id)).map(edge => [edge.id, edge.source, edge.target, edge.port ?? "next", edge.sourceBlockId, edge.sourcePortId, edge.carries]) });
 }
 export function pendingDecisions(graph: GraphSummary[], changes: PlanChangeset[], acceptedHead: string | null, basisKnown = true, content: ContentSummary[] = []): Decision[] {
   const superseded = new Set(graph.map(item => item.supersedes).filter(Boolean));

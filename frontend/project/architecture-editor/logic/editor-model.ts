@@ -1,4 +1,5 @@
-import type { CanvasNode, Graph } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, Graph } from "@/shared/types/logic/types";
+import { canCarry } from "@/shared/edge-carries/logic/edge-carries";
 import { moveWithMembers, resizeArea } from "@/editor/canvas/area/logic/area-model";
 
 const GRAPH_ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -83,6 +84,17 @@ export function connectEditorNodes(graph: Graph, source: string, target: string,
   const port = from.kind === "area" ? "flow" : "next";
   if (graph.edges.some((edge) => edge.source === source && edge.target === target && (edge.port ?? "next") === port)) throw new Error("Tato vazba již existuje.");
   return { ...graph, edges: [...graph.edges, { id, source, target, port }] };
+}
+
+/** Člověk určí, co po vazbě teče; `null` = neurčeno (klíč zmizí, nic se nedoplňuje). Jen vazba `next`. */
+export function setEditorEdgeCarries(graph: Graph, edgeId: string, carries: EdgeCarries | null): Graph {
+  const edge = graph.edges.find((item) => item.id === edgeId);
+  if (!edge) throw new Error("Vazba již neexistuje.");
+  if (!canCarry(edge)) throw new Error("Druh toku smí mít jen vazba next.");
+  if ((edge.carries ?? null) === carries) return graph;
+  const { carries: _previous, ...rest } = edge;
+  const next = carries ? { ...rest, carries } : rest;
+  return { ...graph, edges: graph.edges.map((item) => item.id === edgeId ? next : item) };
 }
 
 export function createEditorAreaPlan(parentId: string | null, name = "Nová oblast"): EditorAreaPlan {

@@ -17,7 +17,8 @@ Kontrakty: `docs/oporahub.md` (změny zadání), `docs/oporahub-graph-proposals.
    `kind` uzlu vždy; vrstvu karty (`cards[].layer`) server odvodí z rodičovského sektoru.
 4. **Zadání karty.** `spec: {goal, non_goals, acceptance}`: jeden cíl, co výslovně ne, testovatelné
    podmínky hotovo. Plus `spec.steps`, viz níže.
-5. **Závislosti.** Vazby `{from, to, port: "next"}` tvoří **DAG**: cyklus server odmítne (409
+5. **Závislosti.** Vazby `{from, to, port: "next"}` (volitelně `carries`: `navigation | data | command | event`,
+   jen když víš, co po vazbě teče) tvoří **DAG**: cyklus server odmítne (409
    `card_cycle` s `cycle` = uzavřená cesta karet). Karta se odblokuje až po merge a zápisu do plánu všech předchůdců.
 6. **Návrh.** Nové uzly a vazby: `POST /api/oporahub/graph-proposals` (`parentRevision`,
    `expectedGraphDigest`, `subject`, `plan: {nodes, edges}`; ≤ 200 uzlů, 600 vazeb). Změna

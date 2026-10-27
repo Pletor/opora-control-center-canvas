@@ -1,4 +1,5 @@
-import type { CanvasNode, Graph, GraphEdge } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, Graph, GraphEdge } from "@/shared/types/logic/types";
+import { CARRIES_LABEL } from "@/shared/edge-carries/logic/edge-carries";
 import type { GraphContext } from "./graph-proposals";
 
 export const editFields = ["name", "purpose", "parentId", "sourceRef", "x", "y", "size"] as const;
@@ -6,9 +7,10 @@ export type EditField = typeof editFields[number];
 export const editLabels: Record<EditField, string> = { name: "Název", purpose: "Účel", parentId: "Rodič", sourceRef: "Zdroj", x: "Souřadnice X", y: "Souřadnice Y", size: "Rozměry oblasti" };
 export type NodeEdit = { id: string; remove: boolean; selected: EditField[]; name: string; purpose: string; parentId: string;
   sourceOrigin: "" | "existing" | "planned"; sourcePath: string; sourceKind: "file" | "directory"; x: string; y: string; width: string; height: string; clearSize: boolean };
-export type EdgeEdit = { id: string; remove: boolean; source: string; target: string };
+/** `carries` = co má po vazbě téct po úpravě; "" = neurčeno. Pošle se jen, když se liší od pracovní vazby. */
+export type EdgeEdit = { id: string; remove: boolean; source: string; target: string; carries?: EdgeCarries | "" };
 export type EditDraft = { nodes: NodeEdit[]; edges: EdgeEdit[]; adoptArchitectureContext?: boolean };
-type Change<T> = { id: string; operation: "update" | "remove" | "add"; fields: string[];
+export type Change<T> = { id: string; operation: "update" | "remove" | "add"; fields: string[];
   acceptedBefore: T | null; workingBefore: T | null; proposedAccepted: T | null; proposedWorking: T | null };
 export type GraphChanges = { nodes: Change<CanvasNode>[]; edges: Change<GraphEdge>[];
   architectureContext?: { acceptedBefore: Graph; workingBefore: Graph; proposedAccepted: Graph; proposedWorking: Graph } | null;
@@ -58,9 +60,19 @@ export function graphEditPayload(project: string, workspace: string, subject: st
   const updateEdges = draft.edges.filter(edge => !edge.remove).map(edge => {
     if (!context.workingGraph?.edges.some(current => current.id === edge.id) || !ids.has(edge.source) || !ids.has(edge.target) || edge.source === edge.target)
       throw new Error("Zkontrolujte oba konce upravované vazby.");
-    return { id: edge.id, source: edge.source, target: edge.target, port: "next" as const };
+    // Bez `carries` backend druh toku vazby nechá beze změny; posílá se jen jeho skutečná změna (null = neurčeno).
+    const current = context.workingGraph.edges.find(item => item.id === edge.id)?.carries ?? "";
+    const carries = edge.carries === undefined || edge.carries === current ? {} : { carries: edge.carries || null };
+    return { id: edge.id, source: edge.source, target: edge.target, port: "next" as const, ...carries };
   });
   return { project, workspace, subject: subject.trim(), parentRevision: context.acceptedHead, expectedGraphDigest: context.graphDigest,
     plan: { updateNodes, removeNodes: draft.nodes.filter(node => node.remove).map(node => node.id), updateEdges, removeEdges: draft.edges.filter(edge => edge.remove).map(edge => edge.id),
       ...(draft.adoptArchitectureContext ? { adoptArchitectureContext: true as const } : {}) } };
+}
+
+/** Česky pro kontrolu změny vazby: co po ní teklo a co poteče (pracovní graf); `null`, když se druh toku nemění. */
+export function carriesChange(change: Change<GraphEdge>): { before: string; after: string } | null {
+  const label = (edge: GraphEdge | null) => edge?.carries ? CARRIES_LABEL[edge.carries] : "neurčeno";
+  const before = label(change.workingBefore ?? change.acceptedBefore), after = label(change.proposedWorking ?? change.proposedAccepted);
+  return change.operation !== "remove" && before !== after ? { before, after } : null;
 }

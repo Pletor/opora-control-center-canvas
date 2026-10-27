@@ -1,4 +1,6 @@
 import type { GraphProposal } from "../logic/graph-proposals";
+import { carriesChange, type Change } from "../logic/graph-edits";
+import type { GraphEdge } from "@/shared/types/logic/types";
 
 /** All evidence values remain React text, including arbitrary state keys and stored strings. */
 export function EvidenceValue({ value }: { value: unknown }) {
@@ -28,6 +30,7 @@ export default function GraphChangeReview({ proposal }: { proposal: GraphProposa
     {([ ["nodes", "Prvek"], ["edges", "Vazba"] ] as const).map(([collection, label]) => proposal.changes![collection].map(change => <article key={`${collection}-${change.id}`} className="graph-proposals__edit-row">
       <h4>{label} <code>{change.id}</code> · {change.operation === "remove" ? "Odstranění" : change.operation === "add" ? "Přidání" : "Úprava"}</h4>
       <p>Vybraná pole: {change.fields.join(", ") || "celý prvek"}</p>
+      {collection === "edges" && (() => { const flow = carriesChange(change as Change<GraphEdge>); return flow && <p>Co po vazbě teče: {flow.before} → {flow.after}</p>; })()}
       <div className="graph-proposals__comparison">{columns.map(([key, title]) => <section key={key}><h5>{title}</h5><EvidenceValue value={change[key]} /></section>)}</div>
     </article>))}
     {proposal.changes.areaMembership.length > 0 && <section><h4>Příslušnost prvků k oblastem</h4>{proposal.changes.areaMembership.map(change => <article key={change.id}>

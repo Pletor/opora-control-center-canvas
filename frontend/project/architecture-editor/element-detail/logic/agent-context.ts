@@ -1,6 +1,6 @@
 // Čistý model „Pracovního kontextu agenta“ a vazeb prvku v Detailu prvku. Vše se čte z grafu;
 // co v grafu není, vrací `null` a komponenta to ukáže jako „nedostupné“.
-import type { CanvasNode, Graph, GraphEdgePort } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, Graph, GraphEdge, GraphEdgePort } from "@/shared/types/logic/types";
 
 export type RepoPath = { kind: "existing"; path: string } | { kind: "planned"; path: string };
 export type AgentContext = {
@@ -13,7 +13,8 @@ export type AgentContext = {
   componentPath: string[];
   repo: RepoPath | null;
 };
-export type NodeLink = { edgeId: string; otherId: string; otherName: string; port: GraphEdgePort };
+/** `carries` jen když ho vazba nese (co po ní teče); jinak klíč chybí. */
+export type NodeLink = { edgeId: string; otherId: string; otherName: string; port: GraphEdgePort; carries?: EdgeCarries };
 export const PLANNED_NOTICE = "Kontext je návrh; skutečné cesty vyžadují napojení repozitáře.";
 
 /** Prvek a jeho předci od nejbližšího; cyklus rodičů zastaví průchod. */
@@ -64,14 +65,15 @@ export function agentContext(graph: Graph, nodeId: string, domainId: string): Ag
 /** Příchozí a odchozí vazby prvku s názvem druhého konce; smyčka na sebe se počítá do obou. */
 export function nodeLinks(graph: Graph, nodeId: string): { incoming: NodeLink[]; outgoing: NodeLink[] } {
   const names = new Map(graph.nodes.map((node) => [node.id, label(node)]));
-  const link = (edgeId: string, otherId: string, port: GraphEdgePort | undefined): NodeLink => ({
-    edgeId,
+  const link = (edge: GraphEdge, otherId: string): NodeLink => ({
+    edgeId: edge.id,
     otherId,
     otherName: names.get(otherId) ?? "nedostupné",
-    port: port ?? "next",
+    port: edge.port ?? "next",
+    ...(edge.carries ? { carries: edge.carries } : {}),
   });
   return {
-    incoming: graph.edges.filter((edge) => edge.target === nodeId).map((edge) => link(edge.id, edge.source, edge.port)),
-    outgoing: graph.edges.filter((edge) => edge.source === nodeId).map((edge) => link(edge.id, edge.target, edge.port)),
+    incoming: graph.edges.filter((edge) => edge.target === nodeId).map((edge) => link(edge, edge.source)),
+    outgoing: graph.edges.filter((edge) => edge.source === nodeId).map((edge) => link(edge, edge.target)),
   };
 }

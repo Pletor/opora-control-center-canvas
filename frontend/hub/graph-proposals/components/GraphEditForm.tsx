@@ -1,6 +1,8 @@
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
 import GraphNodeEdit from "./GraphNodeEdit";
 import { EvidenceValue } from "./GraphChangeReview";
+import { EDGE_CARRIES } from "@/shared/types/logic/types";
+import { CARRIES_LABEL, parseCarries } from "@/shared/edge-carries/logic/edge-carries";
 
 export default function GraphEditForm({ model }: { model: GraphProposalsView }) {
   const { context, edits } = model;
@@ -31,7 +33,9 @@ export default function GraphEditForm({ model }: { model: GraphProposalsView }) 
       <label>Operace s vazbou<select aria-label={`Operace s vazbou ${edge.id}`} value={edge.remove ? "remove" : "update"} onChange={event => edits.editEdge(edge.id, { remove: event.target.value === "remove" })}>
         <option value="update" disabled={!context.workingGraph?.edges.some(item => item.id === edge.id)}>Změnit oba konce</option><option value="remove">Odstranit vazbu</option></select></label>
       {!edge.remove && <div className="graph-proposals__row">{(["source", "target"] as const).map(field => <label key={field}>{field === "source" ? "Z" : "Do"}<select aria-label={`${field === "source" ? "Z" : "Do"} ${edge.id}`} value={edge[field]} onChange={event => edits.editEdge(edge.id, { [field]: event.target.value })}>
-        {edits.nodes.map(node => <option key={node.id} value={node.id}>{node.name} ({node.id})</option>)}</select></label>)}</div>}
+        {edits.nodes.map(node => <option key={node.id} value={node.id}>{node.name} ({node.id})</option>)}</select></label>)}
+        <label>Co po vazbě teče<select aria-label={`Co po vazbě teče ${edge.id}`} value={edge.carries ?? ""} onChange={event => edits.editEdge(edge.id, { carries: parseCarries(event.target.value) ?? "" })}>
+          <option value="">neurčeno</option>{EDGE_CARRIES.map(value => <option key={value} value={value}>{CARRIES_LABEL[value]}</option>)}</select></label></div>}
       <button type="button" onClick={() => edits.dropEdge(edge.id)}>Odebrat z výběru {edge.id}</button>
     </article>)}
     <p>Nové prvky ve formuláři výše patří do samostatného návrhu rozšíření. Tento návrh obsahuje jen zde vybrané úpravy a odstranění.</p>

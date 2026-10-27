@@ -247,7 +247,7 @@ protože vrstva a technologie tu známé nejsou.
    ],
    "edges": [
      {"from": "nahrani", "to": "kontrola", "port": "block", "block": "ulozeni", "blockPort": "ok"},
-     {"from": "nahrani", "to": "kontrola", "port": "next"},
+     {"from": "nahrani", "to": "kontrola", "port": "next", "carries": "data"},
      {"from": "kontrola", "to": "@GATE_ID", "port": "next"},
      {"from": "kontrola", "to": "@GATE_ID", "port": "block", "block": "format", "blockPort": "ok"}
    ]

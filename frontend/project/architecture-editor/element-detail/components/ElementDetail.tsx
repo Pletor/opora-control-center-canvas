@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { CanvasNode, Graph } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, Graph } from "@/shared/types/logic/types";
 import type { NodePhase } from "@/shared/desktop-state/logic/types";
 import StructureIcon from "../../component-structure/components/StructureIcon";
 import { toneOf } from "../../component-structure/logic/structure-model";
@@ -23,6 +23,8 @@ export type ElementDetailProps = {
   onIdentity: (original: CanvasNode, name: string, purpose: string) => Promise<void>;
   onOpenEditor: (id: string) => void;
   onSelect: (id: string) => void;
+  /** Člověk určil, co po vazbě `next` teče; `null` = neurčeno. Ukládá rodič. */
+  onCarries: (edgeId: string, carries: EdgeCarries | null) => void;
   onClose: () => void;
 };
 
@@ -35,7 +37,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 /** Pravý sloupec Editoru stránky: kontext agenta a tři záložky nad jedním prvkem. Nic neukládá sám. */
 export default function ElementDetail(props: ElementDetailProps) {
-  const { project, workspace, graph, nodeId, domainId, phase, done, disabled, onIdentity, onOpenEditor, onSelect, onClose } = props;
+  const { project, workspace, graph, nodeId, domainId, phase, done, disabled, onIdentity, onOpenEditor, onSelect, onCarries, onClose } = props;
   const [tab, setTab] = useState<Tab>("brief");
   const node = graph.nodes.find((item) => item.id === nodeId) ?? null;
   const context = useMemo(() => agentContext(graph, nodeId, domainId), [graph, nodeId, domainId]);
@@ -88,8 +90,8 @@ export default function ElementDetail(props: ElementDetailProps) {
           ) : null}
           {tab === "links" ? (
             <div className="element-detail__pane">
-              <LinkList title="Příchozí vazby" links={links.incoming} empty="Žádná příchozí vazba" onSelect={onSelect} />
-              <LinkList title="Odchozí vazby" links={links.outgoing} empty="Žádná odchozí vazba" onSelect={onSelect} />
+              <LinkList title="Příchozí vazby" links={links.incoming} empty="Žádná příchozí vazba" onSelect={onSelect} onCarries={onCarries} disabled={disabled} />
+              <LinkList title="Odchozí vazby" links={links.outgoing} empty="Žádná odchozí vazba" onSelect={onSelect} onCarries={onCarries} disabled={disabled} />
             </div>
           ) : null}
           {tab === "work" ? <WorkTab nodeId={nodeId} phase={phase} done={done} onOpenEditor={onOpenEditor} /> : null}

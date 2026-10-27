@@ -12,7 +12,7 @@ nebo `/api/graph` + `/api/node-spec`, viz [canvas-plan.md](../references/canvas-
 - Hotovo když (`acceptance`): <ověřitelné body + příkazy testů projektu>
 - Text karty: <doslovný výňatek zadání s názvem kapitoly>
 - Bloky a porty: <blok → podmínka → porty s popiskem výsledku>
-- Vazby: <odkud a kam, `next` / `block` / `flow`>
+- Vazby: <odkud a kam, `next` / `block` / `flow`; u `next` volitelně `carries` = co po ní teče: `navigation` / `data` / `command` / `event`, jinak nech neurčeno>
 - Zdroj (`sourceRef`): <`existing` cesta ověřená v repu / `planned` cesta / žádný u konceptu>
 - Pravidla: <`must` / `must_not` ze zadání>
 

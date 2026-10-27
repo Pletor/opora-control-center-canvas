@@ -206,3 +206,13 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Druh toku na vazbě (`carries`): člověk na mapě i plátně pozná, co po vazbě teče, ještě než si ji přečte.
+   Modrá navigace, tyrkysová data, fialový příkaz a jantarová událost platí v obou režimech stejně, aby
+   barva znamenala totéž všude (docs/zive-zobrazeni-a-knihovna.md §2). Neurčená vazba si nechává dnešní vzhled. */
+:root {
+  --edge-carries-navigation: #4ab8ff;
+  --edge-carries-data: #58d7c1;
+  --edge-carries-command: #b49cff;
+  --edge-carries-event: #f4b94f;
+}

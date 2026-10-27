@@ -1,0 +1,1 @@
+Druh toku vazby `carries` (`docs/architektura-pro-agenty.md` §3.4): české popisky, pravidlo „jen vazba `next`“, převod z výběru a jemný statický vzhled čáry s třídou-háčkem `edge--carries-<druh>` pro pozdější animaci. Čte plátno karet (`board-model`), mapa architektury (`canvas-model`) a výběr v Detailu prvku.

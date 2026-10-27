@@ -80,3 +80,11 @@ def test_endpoint_serves_trace(tmp_path):
         assert found.status_code == 200 and found.json()["kind"] == "todo"
         missing = client.get("/api/desktop-v3/trace", params={**SCOPE, "id": "ghost"})
         assert missing.status_code == 404
+
+
+def test_trace_names_edge_carries_only_when_set():
+    assert "carries" not in trace(STATE, GRAPH, "e1")
+    graph = {**GRAPH, "edges": [{**GRAPH["edges"][0], "carries": "command"}]}
+    assert trace(STATE, graph, "e1")["carries"] == "command"
+    assert trace(STATE, graph, "login")["outgoing"][0]["carries"] == "command"
+    assert trace(STATE, graph, "menu")["incoming"][0]["carries"] == "command"

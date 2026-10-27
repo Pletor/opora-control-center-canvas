@@ -3,6 +3,7 @@ import { fieldKeys, fieldLabels } from "@/hub/plan-changes/logic/plan-changes";
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
 import { graphProposalStale } from "../logic/graph-proposals";
 import GraphChangeReview from "./GraphChangeReview";
+import { CARRIES_LABEL } from "@/shared/edge-carries/logic/edge-carries";
 import ProposalReview from "@/hub/proposal-review/components/ProposalReview";
 import { reviewReady } from "@/hub/proposal-review/logic/proposal-review";
 import type { ProposalReviewView } from "@/hub/proposal-review/logic/use-proposal-review";
@@ -15,7 +16,7 @@ function GraphContents({ graph }: { graph: Graph }) {
     {node.purpose && <pre>{node.purpose}</pre>}
     {node.sourceRef && <p>Zdroj: {node.sourceRef.origin} · {node.sourceRef.kind} · <code>{node.sourceRef.path}</code></p>}
   </li>)}</ul>
-    <ul>{graph.edges.map(edge => <li key={edge.id}>Vazba <code>{edge.id}</code>: <code>{edge.source}</code> → <code>{edge.target}</code> ({edge.port ?? "next"})</li>)}</ul>
+    <ul>{graph.edges.map(edge => <li key={edge.id}>Vazba <code>{edge.id}</code>: <code>{edge.source}</code> → <code>{edge.target}</code> ({edge.port ?? "next"}{edge.carries ? `, teče: ${CARRIES_LABEL[edge.carries]}` : ""})</li>)}</ul>
     {!graph.edges.length && <p>Bez vazeb.</p>}</>;
 }
 function Documents({ documents }: { documents: { nodeId: string; fields: SpecFields; revision?: number; ownerWorkspace?: string }[] }) {

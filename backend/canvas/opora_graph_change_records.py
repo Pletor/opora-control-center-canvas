@@ -50,7 +50,7 @@ def _validate(record):
         }:
             raise ValueError("Invalid persisted node addition.")
     for edge in record["additions"]["edges"]:
-        if not set(edge) <= {"id", "source", "target", "port"} or edge.get("port", "next") != "next":
+        if not set(edge) <= {"id", "source", "target", "port", "carries"} or edge.get("port", "next") != "next":
             raise ValueError("Invalid persisted edge addition.")
     validate_review(record["stateEffects"])
     state = record["stateEffects"]

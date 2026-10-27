@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, validateEditorRoute } from "./editor-model";
+import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, validateEditorRoute } from "./editor-model";
 
 const node = (id: string, parentId: string | null = null, kind: CanvasNode["kind"] = "node"): CanvasNode => ({ id, parentId, kind, name: id, purpose: "Účel", x: 20, y: 40 });
 const graph = (): Graph => ({ nodes: [
@@ -140,5 +140,20 @@ describe("growEditorArea", () => {
     expect(grown.nodes[5]).toMatchObject({ x: -16, y: 40, size: { w: 1000, h: 480 }, color: "teal" });
     expect(grown.nodes.slice(0, 5)).toEqual(original.nodes.slice(0, 5));
     expect(() => growEditorArea(original, { id: "page", x: 0, y: 0, w: 200, h: 200 })).toThrow();
+  });
+});
+
+describe("edge carries", () => {
+  const linked = (): Graph => ({ ...graph(), edges: [...graph().edges, { id: "n1", source: "page", target: "child", port: "next" }] });
+  it("sets, replaces and clears carries only on next edges", () => {
+    const set = setEditorEdgeCarries(linked(), "n1", "navigation");
+    expect(set.edges[1]).toEqual({ id: "n1", source: "page", target: "child", port: "next", carries: "navigation" });
+    expect(setEditorEdgeCarries(set, "n1", "navigation")).toBe(set);
+    expect(setEditorEdgeCarries(set, "n1", "data").edges[1].carries).toBe("data");
+    expect(setEditorEdgeCarries(set, "n1", null).edges[1]).toEqual({ id: "n1", source: "page", target: "child", port: "next" });
+  });
+  it("refuses other ports and missing edges", () => {
+    expect(() => setEditorEdgeCarries(linked(), "existing", "data")).toThrow("jen vazba next");
+    expect(() => setEditorEdgeCarries(linked(), "gone", "data")).toThrow();
   });
 });

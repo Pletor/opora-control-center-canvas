@@ -133,3 +133,11 @@ def test_odd_ids_and_long_names_fit_the_schema():
     assert item["id"].startswith("card:h") and len(item["id"]) <= 128
     assert len(item["label"]) == 120 and len(item["summary"]) <= 200
     assert spec["id"].startswith("opora-plan:h")
+
+
+def test_next_edge_carrying_data_is_a_data_edge():
+    graph, state, reality = world()
+    graph["edges"][0]["carries"] = "data"
+    graph["edges"].append({**link("e4", "api", "idea"), "carries": "command"})
+    edges = by_id(build(graph, state, reality, area="a1")["spec"]["edges"])
+    assert edges["edge:e1"]["kind"] == "data" and edges["edge:e4"]["kind"] == "call"

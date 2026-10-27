@@ -79,9 +79,9 @@ export default function ArchitectureCanvas(props: Props) {
   const ids = new Set(nodes.map((node) => node.id));
   const edges: Edge[] = graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)).map((edge) => {
     const look = edgeLook(edge, graph);
-    return { id: edge.id, source: edge.source, target: edge.target, label: look.label, className: "page-editor__edge",
+    return { id: edge.id, source: edge.source, target: edge.target, label: look.label, className: look.className, ariaLabel: look.title,
       markerEnd: { type: MarkerType.ArrowClosed, color: look.color, width: 16, height: 16 },
-      style: { stroke: look.color, strokeWidth: 2, strokeDasharray: look.dashed ? "7 6" : undefined } };
+      style: { stroke: look.stroke, strokeWidth: look.width, strokeDasharray: look.dash } };
   });
   return <div className="page-editor__canvas" data-testid="architecture-canvas" ref={stage}
     onDragOver={(event) => { if (!disabled && event.dataTransfer.types.includes(CATALOG_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}

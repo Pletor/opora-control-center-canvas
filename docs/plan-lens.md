@@ -95,7 +95,7 @@ celou dvojici oblastí, proto `crossAreaWithoutHandoff` počítá dvojice, ne ka
   Ostatní karty (původ `planned`, bez cesty nebo s chybějící cestou) jsou `added` s odznakem
   „plán“. Plánovaná cesta se ukáže jen jako podtitulek. Uzavřená karta má odznak „hotovo“.
   Souhrn uzlu je první věta podstaty karty (nejvýš 200 znaků).
-- **Vazby plánu:** `next` je hrana `call` (pořadí práce: „potom tahle karta“) a tlačítko bloku
+- **Vazby plánu:** `next` je hrana `call` (pořadí práce: „potom tahle karta“), s `carries: data` hrana `data`; tlačítko bloku
   (`block`) je `dependency`. Ostatní porty (`action`, `rule`) jsou `other`. Hrana je `unchanged`,
   jen když jsou oba konce `unchanged`.
 - **Sousedé:** vazba plánu z karty oblasti na kartu v jiné oblasti vede na vnější uzel té oblasti

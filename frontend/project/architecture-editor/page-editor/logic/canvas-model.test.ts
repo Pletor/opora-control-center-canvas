@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { areaSectorLabel, cardBodies, cardSummary, czechCount, edgeLook, NODE_FORMS, scopePath, TONE_COLORS, toneOf } from "./canvas-model";
+import { areaSectorLabel, CARRIES_COLORS, cardBodies, cardSummary, czechCount, edgeLook, NODE_FORMS, scopePath, TONE_COLORS, toneOf } from "./canvas-model";
 
 const node = (id: string, parentId: string | null, kind: CanvasNode["kind"] = "node", extra: Partial<CanvasNode> = {}): CanvasNode =>
   ({ id, parentId, kind, name: id, purpose: "", x: 0, y: 0, ...extra });
@@ -45,9 +45,17 @@ describe("areaSectorLabel", () => {
 describe("edgeLook", () => {
   const graph: Graph = { nodes: [node("a", null, "node", { card: { layer: "database" } }), node("o", null, "area")], edges: [] };
   it("barví podle zdroje a flow kreslí přerušovaně", () => {
-    expect(edgeLook({ id: "e", source: "a", target: "b" }, graph)).toEqual({ color: TONE_COLORS.database, dashed: false, label: undefined });
-    expect(edgeLook({ id: "f", source: "o", target: "o2", port: "flow" }, graph).dashed).toBe(true);
+    expect(edgeLook({ id: "e", source: "a", target: "b" }, graph)).toEqual({ color: TONE_COLORS.database, stroke: TONE_COLORS.database,
+      dash: undefined, width: 2, label: undefined, className: "page-editor__edge", title: undefined });
+    expect(edgeLook({ id: "f", source: "o", target: "o2", port: "flow" }, graph).dash).toBe("7 6");
     expect(edgeLook({ id: "r", source: "a", target: "b", port: "rule" }, graph).label).toBe("pravidlo");
+  });
+  it("vazba next s druhem toku má barvu druhu, háček a tooltip; jiný port carries nečte", () => {
+    expect(edgeLook({ id: "c", source: "a", target: "b", carries: "command" }, graph)).toEqual({
+      color: CARRIES_COLORS.command, stroke: "var(--edge-carries-command)", dash: undefined, width: 2.5, label: undefined,
+      className: "page-editor__edge edge--carries-command", title: "Po vazbě teče: Příkaz" });
+    expect(edgeLook({ id: "v", source: "a", target: "b", port: "next", carries: "event" }, graph).dash).toBe("6 4");
+    expect(edgeLook({ id: "r", source: "a", target: "b", port: "rule", carries: "data" }, graph).className).toBe("page-editor__edge");
   });
 });
 

@@ -12,7 +12,7 @@ export function useGraphEdits(key: string, context: GraphContext | null) {
   return { draft, nodes, edges,
     adoptArchitecture: (checked: boolean) => set({ ...draft, adoptArchitectureContext: checked }),
     addNode: (id: string) => { const node = nodes.find(item => item.id === id); if (node && !draft.nodes.some(item => item.id === id)) set({ ...draft, nodes: [...draft.nodes, nodeEdit(node)] }); },
-    addEdge: (id: string) => { const edge = edges.find(item => item.id === id); if (edge && !draft.edges.some(item => item.id === id)) set({ ...draft, edges: [...draft.edges, { id, remove: false, source: edge.source, target: edge.target }] }); },
+    addEdge: (id: string) => { const edge = edges.find(item => item.id === id); if (edge && !draft.edges.some(item => item.id === id)) set({ ...draft, edges: [...draft.edges, { id, remove: false, source: edge.source, target: edge.target, carries: edge.carries ?? "" }] }); },
     editNode: (id: string, patch: Partial<NodeEdit>) => set({ ...draft, nodes: draft.nodes.map(node => node.id === id ? { ...node, ...patch } : node) }),
     editEdge: (id: string, patch: Partial<EdgeEdit>) => set({ ...draft, edges: draft.edges.map(edge => edge.id === id ? { ...edge, ...patch } : edge) }),
     dropNode: (id: string) => set({ ...draft, nodes: draft.nodes.filter(node => node.id !== id) }),

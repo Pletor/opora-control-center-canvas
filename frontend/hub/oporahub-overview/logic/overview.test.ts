@@ -25,6 +25,13 @@ describe("overview preserves evidence boundaries", () => {
     expect(acceptedPlan({ ...graph, workingGraph: { nodes: [{ ...node, name: "Změna" }], edges: [] } }, plan).differs).toBe(true);
     expect(acceptedPlan(graph, { ...plan, workingDiffers: true }).differs).toBe(true);
   });
+  it("counts a changed edge carries as graph drift", () => {
+    const edge = { id: "e", source: "n", target: "n2", port: "next" as const };
+    const two = [node, { ...node, id: "n2" }];
+    const base = { ...graph, acceptedGraph: { nodes: two, edges: [edge] }, workingGraph: { nodes: two, edges: [edge] } };
+    expect(acceptedPlan(base, plan).differs).toBe(false);
+    expect(acceptedPlan({ ...base, workingGraph: { nodes: two, edges: [{ ...edge, carries: "data" as const }] } }, plan).differs).toBe(true);
+  });
   it("leaves graph comparison unknown when snapshots are unavailable", () => {
     expect(acceptedPlan({ ...graph, acceptedGraph: undefined }, plan).differs).toBeNull();
   });

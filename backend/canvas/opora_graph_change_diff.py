@@ -3,13 +3,14 @@ from copy import deepcopy
 
 from backend.canvas.areas import area_of
 from backend.canvas.opora_graph_build import semantic
+from backend.canvas.opora_graph_change_plan import edge_update_fields
 
 
 def changes(accepted, working, approved, result, plan, additions):
     review = {}
     for kind in ("nodes", "edges"):
         maps = [{item["id"]: item for item in graph[kind]} for graph in (accepted, working, approved, result)]
-        operations = {item["id"]: ("update", sorted(item["fields"]) if kind == "nodes" else ["source", "target", "port"])
+        operations = {item["id"]: ("update", sorted(item["fields"]) if kind == "nodes" else list(edge_update_fields(item)))
                       for item in plan[f"update{kind.title()}"]}
         operations.update({key: ("remove", []) for key in plan[f"remove{kind.title()}"]})
         operations.update({item["id"]: ("add", sorted(item)) for item in additions[kind]})
@@ -43,7 +44,7 @@ def preconditions(graph, plan, additions, inside=None):
         observed[kind] = {}
         for update in plan[f"update{kind.title()}"]:
             before = mapping.get(update["id"])
-            fields = update["fields"] if kind == "nodes" else ("source", "target", "port")
+            fields = update["fields"] if kind == "nodes" else edge_update_fields(update)
             observed[kind][update["id"]] = None if before is None else {
                 key: {"present": key in before, "value": deepcopy(before.get(key))} for key in fields}
             if kind == "nodes" and before:

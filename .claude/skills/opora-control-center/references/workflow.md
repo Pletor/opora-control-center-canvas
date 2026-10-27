@@ -178,7 +178,8 @@ Použij, když se aplikace staví sektor po sektoru a další sektor nesmí zač
   v režimu GOAL, dokud `acceptance` neprojde spuštěním (začni ji řádkem `GOAL: …`).
 - **Poslední karta `[task] N.x Ověření sektoru`:** end-to-end scénář proti skutečné DB. V dávce ji
   nastav jako bránu sektoru (`gateNodeId` sektoru = ref karty) a vazbu `next` veď **ze sektoru na další
-  sektor**: `{"ref": "s1", "kind": "sector", "gateNodeId": "gate", …}`, `edges: [{"from": "s1", "to": "s2", "port": "next"}]`.
+  sektor**: `{"ref": "s1", "kind": "sector", "gateNodeId": "gate", …}`, `edges: [{"from": "s1", "to": "s2", "port": "next"}]`
+  (`carries` mezi sektory neuváděj; patří jen vazbám mezi komponentami, kde víš, co po nich teče).
   Další sektor je v `frontier` blokovaný, dokud člověk bránu neuzavře. Existující bránu a vazby mezi
   sektory mění jen člověk.
 - **Kontrola:** `frontier` sektoru má na začátku jen karty bez předchůdců (typicky `[research]`).

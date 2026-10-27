@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { CanvasNode } from "@/shared/types/logic/types";
-import { editableNodes, graphEditPayload, nodeEdit } from "./graph-edits";
+import { carriesChange, editableNodes, graphEditPayload, nodeEdit } from "./graph-edits";
 import { adoptionKey, graphActionPayload, graphProposalStale, type GraphContext, type GraphProposal } from "./graph-proposals";
 import GraphChangeReview from "../components/GraphChangeReview";
 import GraphProposalDetails from "../components/GraphProposalDetails";
@@ -42,6 +42,25 @@ describe("explicit graph edit projection", () => {
     expect(result.plan.updateEdges).toEqual([{ id: "edge", source: "other", target: "n", port: "next" }]);
     const blocked = { ...current, acceptedGraph: { ...current.acceptedGraph, edges: [{ ...edge, port: "block" as const }] }, workingGraph: { ...current.workingGraph, edges: [{ ...edge, port: "block" as const }] } };
     expect(() => graphEditPayload("p", "w", "Remove", blocked, { nodes: [], edges: [{ id: "edge", remove: true, source: "n", target: "other" }] })).toThrow();
+  });
+  it("keeps edge carries untouched unless the human changed it, and sends null to clear it", () => {
+    const other = { ...node, id: "other" };
+    const edge = { id: "edge", source: "n", target: "other", port: "next" as const, carries: "data" as const };
+    const current = { ...context, acceptedGraph: { nodes: [node, other], edges: [edge] }, workingGraph: { nodes: [node, other], edges: [edge] } };
+    const send = (carries?: "" | "data" | "event") => graphEditPayload("p", "w", "Rewire", current,
+      { nodes: [], edges: [{ id: "edge", remove: false, source: "other", target: "n", ...(carries === undefined ? {} : { carries }) }] }).plan.updateEdges[0];
+    expect(send()).toEqual({ id: "edge", source: "other", target: "n", port: "next" });
+    expect(send("data")).toEqual({ id: "edge", source: "other", target: "n", port: "next" });
+    expect(send("event")).toEqual({ id: "edge", source: "other", target: "n", port: "next", carries: "event" });
+    expect(send("")).toEqual({ id: "edge", source: "other", target: "n", port: "next", carries: null });
+  });
+  it("names a carries change in Czech for review", () => {
+    const edge = { id: "edge", source: "n", target: "other", port: "next" as const };
+    const change = { id: "edge", operation: "update" as const, fields: ["source", "target", "port", "carries"], acceptedBefore: edge, workingBefore: edge,
+      proposedAccepted: { ...edge, carries: "command" as const }, proposedWorking: { ...edge, carries: "command" as const } };
+    expect(carriesChange(change)).toEqual({ before: "neurčeno", after: "Příkaz" });
+    expect(carriesChange({ ...change, proposedAccepted: edge, proposedWorking: edge })).toBeNull();
+    expect(carriesChange({ ...change, operation: "remove", proposedAccepted: null, proposedWorking: null })).toBeNull();
   });
   it("only imports architecture dependency context after explicit selection and observed drift", () => {
     const current = { ...context, architectureContext: { accepted: context.acceptedGraph!, working: context.workingGraph!, differs: true } };

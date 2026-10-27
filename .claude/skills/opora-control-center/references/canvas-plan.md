@@ -33,7 +33,7 @@ Jedna dávka = jedna oblast nebo sektor, do ~25 kB. Jen přidává a je atomick�
    ],
    "edges": [
      {"from": "ingest", "to": "chunking", "port": "block", "block": "formaty", "blockPort": "ok"},
-     {"from": "chunking", "to": "overeni", "port": "next"}
+     {"from": "chunking", "to": "overeni", "port": "next", "carries": "data"}
    ],
    "decisions": [{"node": "ingest", "text": "Ukládáme originál i extrahovaný text.", "pinned": false}]
  }}
@@ -57,6 +57,8 @@ Pravidla dávky:
 - `parent` a konce vazeb: `ref` z dávky, `"@<id>"` existujícího uzlu, nebo `null` (kořen).
 - Vazba: `from`, `to`, `port` `next` (výchozí) | `action` | `rule` | `block` | `flow`. `block`
   vyžaduje `block` + `blockPort` zdroje; `flow` jen mezi oblastmi; komentář bez vazeb.
+  Volitelně `carries` (co po vazbě teče): `navigation` | `data` | `command` | `event`, jen u `next`
+  (jinak 409). Neuváděj ho, když druh toku neznáš; server ho nikdy nedoplní.
 - `card`: `layer` `frontend|backend|database|library`, `status` `draft|ready`, `due` `YYYY-MM-DD`,
   `model` `fable|opus|sonnet|haiku`, `effort` `low|medium|high|xhigh|max`. Nikdy `{}`.
 - Typ karty je předpona názvu: `[task]`, `[research]`, `[prototype]`, `[grilling]`, `[gate]`.

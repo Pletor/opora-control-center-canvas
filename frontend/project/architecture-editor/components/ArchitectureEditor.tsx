@@ -10,7 +10,7 @@ import { editProductNode, sitePlan, type ProductDraft } from "@/project/product-
 import RemovalDialog from "@/ui-kit/removal-dialog/components/RemovalDialog";
 import { discardSpecDrafts } from "@/editor/node-detail/assignment/components/NodeSpecEditor";
 import { discardDrawingDrafts } from "@/editor/canvas/drawing/logic/drawing-state";
-import { architectureEditorId, editorScopeNode, isEditorScopeClosed, moveEditorNode, growEditorArea, resizeEditorNode, connectEditorNodes, createEditorAreaPlan } from "../logic/editor-model";
+import { architectureEditorId, editorScopeNode, isEditorScopeClosed, moveEditorNode, growEditorArea, resizeEditorNode, connectEditorNodes, createEditorAreaPlan, setEditorEdgeCarries } from "../logic/editor-model";
 import { domainNode, domainForNode, domainPageTree, splitDomainHost, reorderDomainPage, reparentDomainPage } from "../logic/domain-model";
 import { useArchitectureGraph } from "../logic/use-architecture-graph";
 import { resolveEditorRoute } from "../logic/editor-route";
@@ -182,7 +182,8 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       structure={structure ? <ComponentStructure graph={graph} rootId={structure.id} selectedId={selected?.id ?? null} phaseOf={phaseOf} isDone={isDone} disabled={disabled}
         onSelect={setSelectedId} onOpen={openStructure} onAddNode={createNode} onAddSector={(id) => createSector(id)} onAddArea={(id) => createArea(id)} onClose={() => setStructureId(null)}/> : null}
       detail={selected ? <ElementDetail project={project} workspace={workspace} graph={graph} nodeId={selected.id} domainId={domain.id} phase={phaseOf(selected.id)} done={isDone(selected.id)}
-        disabled={selected.site ? structureDisabled : disabled} onIdentity={identity} onOpenEditor={onOpenEditor} onSelect={setSelectedId} onClose={() => setSelectedId(null)}/> : null}/>}
+        disabled={selected.site ? structureDisabled : disabled} onIdentity={identity} onOpenEditor={onOpenEditor} onSelect={setSelectedId} onClose={() => setSelectedId(null)}
+        onCarries={(edgeId, carries) => eventAction(async () => { const edge = graph.edges.find((item) => item.id === edgeId); if (edge) { writable(edge.source); writable(edge.target); } await saveGraph(setEditorEdgeCarries(graph, edgeId, carries)); })}/> : null}/>}
     {removal && <RemovalDialog preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval}/>}
   </section>;
 }

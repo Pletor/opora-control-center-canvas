@@ -54,7 +54,7 @@ def validate_record(record, *, manifest=False):
                 or not set(node) <= {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf"}):
             raise ValueError("Unsupported persisted graph addition.")
     for edge in record["additions"]["edges"]:
-        if not set(edge) <= {"id", "source", "target", "port"} or edge.get("port", "next") != "next":
+        if not set(edge) <= {"id", "source", "target", "port", "carries"} or edge.get("port", "next") != "next":
             raise ValueError("Unsupported persisted edge addition.")
     if type(record["requiresBaseAdoption"]) is not bool or record["requiresBaseAdoption"] != (record["parentGraphManifestId"] is None):
         raise ValueError("Invalid graph adoption declaration.")

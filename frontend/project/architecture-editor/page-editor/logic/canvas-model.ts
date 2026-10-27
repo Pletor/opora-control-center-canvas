@@ -1,6 +1,7 @@
 // Čistý model Mapy architektury: barva karty podle vrstvy, počty s českým skloňováním,
 // náhled potomků na kartě a vzhled vazby. Bez Reactu; test vedle v canvas-model.test.ts.
-import type { CanvasNode, Graph, GraphEdge } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, Graph, GraphEdge } from "@/shared/types/logic/types";
+import { carriesLook } from "@/shared/edge-carries/logic/edge-carries";
 import { membersOf } from "@/editor/canvas/area/logic/area-model";
 
 export type Tone = "frontend" | "backend" | "database" | "security" | "infrastructure" | "cache" | "area";
@@ -46,15 +47,36 @@ export function areaSectorLabel(area: CanvasNode, graph: Graph): string {
   return czechCount(membersOf(area, graph.nodes).filter((node) => node.kind === "sector").length, SECTOR_FORMS);
 }
 
-export type EdgeLook = { color: string; dashed: boolean; label: string | undefined };
+/**
+ * Literální barvy druhů toku pro SVG značku šipky (atribut `fill` neumí `var()`).
+ * Musí souhlasit s tokeny `--edge-carries-*` v design-tokens/styles/theme-tokens.css.
+ */
+export const CARRIES_COLORS: Record<EdgeCarries, string> = {
+  navigation: "#4ab8ff", data: "#58d7c1", command: "#b49cff", event: "#f4b94f",
+};
 
-/** Vazba má barvu zdroje; `flow` mezi oblastmi je přerušovaná, `rule` nese popisek. */
+/** `color` je literál pro šipku, `stroke` hodnota tahu (může být token), `className` háček pro CSS. */
+export type EdgeLook = {
+  color: string; stroke: string; dash: string | undefined; width: number;
+  label: string | undefined; className: string; title: string | undefined;
+};
+
+/** Šířka čáry vazby na mapě; druh toku `command` k ní přidá půl pixelu. */
+const MAP_EDGE_WIDTH = 2;
+
+/** Vazba má barvu zdroje; `flow` mezi oblastmi je přerušovaná, `rule` nese popisek. Vazba `next`
+ *  s druhem toku (`carries`) má barvu druhu, čáru podle něj a druh v tooltipu, ne na čáře. */
 export function edgeLook(edge: GraphEdge, graph: Graph): EdgeLook {
+  const carries = (edge.port ?? "next") === "next" && edge.carries ? carriesLook(edge.carries) : null;
+  if (carries && edge.carries) return {
+    color: CARRIES_COLORS[edge.carries], stroke: carries.stroke, dash: carries.dash, width: MAP_EDGE_WIDTH + carries.extraWidth,
+    label: undefined, className: `page-editor__edge ${carries.className}`, title: carries.title,
+  };
   const source = graph.nodes.find((node) => node.id === edge.source);
+  const color = TONE_COLORS[source ? toneOf(source) : "infrastructure"];
   return {
-    color: TONE_COLORS[source ? toneOf(source) : "infrastructure"],
-    dashed: edge.port === "flow",
-    label: edge.port === "rule" ? "pravidlo" : undefined,
+    color, stroke: color, dash: edge.port === "flow" ? "7 6" : undefined, width: MAP_EDGE_WIDTH,
+    label: edge.port === "rule" ? "pravidlo" : undefined, className: "page-editor__edge", title: undefined,
   };
 }
 
