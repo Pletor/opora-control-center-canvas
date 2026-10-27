@@ -1,5 +1,5 @@
 // Rodič karty: nahoře tvář karty z agent-state (`editor/canvas/card-face`: druh, kdo drží, název, jeden stavový
-// řádek, postup kroků, nejvýš jedna patička), pod ní bloky obsahu s porty a u vybrané karty štítky a jeden fold
+// řádek, postup kroků, nejvýš jedna patička), pod ní technologie a stavy komponenty (jen když je agent zapsal), bloky obsahu s porty a u vybrané karty štítky a jeden fold
 // „Podrobnosti“. Kontrolní pás, kuličky pipeline, sloty dokladů a starší stavové věty z karty zmizely; žijí
 // v detailu karty. `data` nenese žádnou funkci, takže `memo` kartu opravdu přeskočí, když se data nezměnila
 // (docs/navrhy/2026-10-14-vykon-platna.md, oprava 3). Pod prahem zoomu (`logic/card-lod.ts`) kreslí nevybraná
@@ -11,6 +11,7 @@ import type { EffectiveRule } from "../logic/effective-rules";
 import type { Rule } from "@/shared/desktop-state/logic/types";
 import type { SourceRef } from "@/shared/types/logic/types";
 import CardBody from "@/editor/canvas/node-card/components/CardBody";
+import CardComponent from "@/editor/canvas/node-card/components/CardComponent";
 import CardBlocks, { type CardBlockHandlers } from "@/editor/canvas/node-card/components/CardBlocks";
 import CardFoot from "@/editor/canvas/node-card/components/CardFoot";
 import CardPorts, { type BlockPort } from "@/editor/canvas/node-card/components/CardPorts";
@@ -101,6 +102,7 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
       data-detail={detail}
     >
       {far ? <CardGlyph face={data.face!} name={view.name} /> : data.face ? <CardFace face={data.face} title={title} /> : title}
+      {!far && <CardComponent tech={view.tech} states={view.states} />}
       <CardBlocks id={id} rows={view.rows} disabled={blocks.disabled} handlers={on.blocks} selectedBlockId={selectedBlockId} selected={selected}
         detail={selected ? detail : "far"} />
       {selected && <CardDetails id={id} data={data} actions={actions} release={data.releaseLease ? on.release : undefined} realize={on.realize} />}

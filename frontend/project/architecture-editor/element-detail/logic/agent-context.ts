@@ -1,5 +1,6 @@
 // Čistý model „Pracovního kontextu agenta“ a vazeb prvku v Detailu prvku. Vše se čte z grafu;
 // co v grafu není, vrací `null` a komponenta to ukáže jako „nedostupné“.
+import { cardComponent } from "@/shared/card-context/logic/card-context";
 import type { CanvasNode, EdgeCarries, Graph, GraphEdge, GraphEdgePort } from "@/shared/types/logic/types";
 
 export type RepoPath = { kind: "existing"; path: string } | { kind: "planned"; path: string };
@@ -12,6 +13,10 @@ export type AgentContext = {
   /** Názvy od prvního prvku pod stránkou (nebo doménou) po vybraný prvek. */
   componentPath: string[];
   repo: RepoPath | null;
+  /** Technologie komponenty (`card.tech`, píše agent); `null` = nezapsáno. */
+  tech: string | null;
+  /** Stavy komponenty (`card.states`, píše agent); prázdný seznam = nezapsáno. */
+  states: string[];
 };
 /** `carries` jen když ho vazba nese (co po ní teče); jinak klíč chybí. */
 export type NodeLink = { edgeId: string; otherId: string; otherName: string; port: GraphEdgePort; carries?: EdgeCarries };
@@ -59,6 +64,7 @@ export function agentContext(graph: Graph, nodeId: string, domainId: string): Ag
     } : null,
     componentPath: below.reverse().map(label),
     repo,
+    ...(node?.kind === "node" ? cardComponent(node) : { tech: null, states: [] }),
   };
 }
 

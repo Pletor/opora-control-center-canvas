@@ -22,7 +22,8 @@ Jedna dávka = jedna oblast nebo sektor, do ~25 kB. Jen přidává a je atomick�
      {"ref": "ingest", "kind": "node", "parent": "vlna-2", "name": "[task] Ingest dokumentů",
       "purpose": "Přijme soubory a uloží je", "text": "Zadání, kap. Zpracování dat: …",
       "sourceRef": {"origin": "planned", "path": "", "kind": "directory"},
-      "card": {"layer": "backend", "status": "ready", "model": "opus", "effort": "high"},
+      "card": {"layer": "backend", "status": "ready", "model": "opus", "effort": "high",
+               "tech": "FastAPI + SQLAlchemy", "states": ["čeká", "ukládá", "chyba", "hotovo"]},
       "checks": [{"id": "unit", "command": "uv run pytest backend/ingest"}], "goal_mode": "until_checks_pass",
       "spec": {"goal": "Soubor se uloží s metadaty", "acceptance": "uv run pytest backend/ingest projde"},
       "blocks": [{"ref": "formaty", "title": "Formáty vstupu", "text": "PDF, DOCX, HTML", "condition": "Každý formát má test",
@@ -61,6 +62,8 @@ Pravidla dávky:
   (jinak 409). Neuváděj ho, když druh toku neznáš; server ho nikdy nedoplní.
 - `card`: `layer` `frontend|backend|database|library`, `status` `draft|ready`, `due` `YYYY-MM-DD`,
   `model` `fable|opus|sonnet|haiku`, `effort` `low|medium|high|xhigh|max`. Nikdy `{}`.
+  Komponenta: `tech` (technologie, 1–80 znaků) a `states` (1–8 různých stavů po 1–40 znacích, např.
+  `prázdno`, `načítá`, `chyba`, `hotovo`); bez okrajových mezer, prázdné vynech. Odesílá-li komponenta data, dej jí stav `chyba`.
 - Typ karty je předpona názvu: `[task]`, `[research]`, `[prototype]`, `[grilling]`, `[gate]`.
 - GOAL: `goal_mode: "until_checks_pass"` + aspoň jedna `checks`. Po vytvoření mění `checks`,
   `goal_mode` a `gateNodeId` jen člověk.
@@ -80,6 +83,7 @@ Položka `{node: "@id", expectedRevision, …}` (revize ze `state`), každá kar
 - `text: {expectedRevision, text}` (nahradí celý text),
 - přesun do oblasti `{parent: "@oblast", columns}`, barva oblasti `{color}`,
 - `fragmentRef` (stejný tvar jako u nové karty): přidá odkazy do schránky; odkaz na týž fragment přepíše revizi, ostatní zůstanou.
+- `layer`, `tech`, `states` (jen uzel): přepíší `card.layer` / `card.tech` / `card.states`; `null` u `tech` a `states` je smaže.
 
 ```json
 {"digest": "DIGEST", "plan": {"nodes": [], "edges": [], "extend": [

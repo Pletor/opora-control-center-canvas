@@ -121,7 +121,8 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
 {
   "schema": "opora.node-brief/1",
   "readOnly": bool,  // workspace jen ke čtení (main); výstup agenta zde nelze uložit
-  "node": { "id", "name", "kind", "purpose", "path": [ancestor names], "depth": children count, "sourceRef" },
+  "node": { "id", "name", "kind", "purpose", "path": [ancestor names], "depth": children count, "sourceRef",
+    "tech"?, "states"? },  // komponenta: technologie a stavy z `card`, jen když je agent zapsal (viz níže)
   "goal": { "goal", "nonGoals", "acceptance" },            // ze spec uzlu (prázdné řetězce, když chybí)
   "content": { "text", "revision" } | null,               // text karty (node-text): podklad, typicky doslovný výňatek zadání; prázdný = null
   "definitionOfDone": { "acceptance", "blockConditions": [{blockId, number, condition}] },
@@ -159,6 +160,13 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
 Hotovo karty definují `acceptance` a bloky (`blocks[].state`, `definitionOfDone.blockConditions`); karta má definici hotovo, když má acceptance nebo aspoň jeden blok s podmínkou. Fáze, kritéria a kroky zůstávají jen jako tolerovaná stará data (měření 2026-10-15), brief je nenese. Stav Desktop v3 pole `phase`, `criteria` a `steps` dál přijme a uloží, žádná brána fáze ale neexistuje a do `contextVersion` nevstupují.
 
 `stopConditions` se odvozují z nesplněných podmínek bloků, pravidel `must_not` a uzavření karty. Samotný prázdný seznam podkladů práci neblokuje; povinný podklad musí být pojmenován v podmínce bloku. Orientace uvádí nepřipojené podklady jako volitelný kontext. Nový úkol nepotřebuje předávku předchozího agenta; chybějící předávka se hlásí při doloženém pokračování práce.
+
+Komponenta (`docs/architektura-pro-agenty.md` §3.3): karta uzlu smí nést `card.tech` (technologie realizace,
+1–80 znaků) a `card.states` (1–8 různých krátkých stavů po 1–40 znacích, např. `["prázdno", "načítá", "chyba",
+"hotovo"]`). Bez okrajových mezer a řídicích znaků; prázdná hodnota se neukládá, klíč se vynechá. Píše je agent
+dávkou plánu (nová karta v `card`, existující karta v `extend` polem `tech` / `states`, `null` smaže), člověk je
+vidí na kartě a v Detailu prvku a formulář karty je zachová. Jsou část zadání: zapsané vstupují do
+`specification.graph` i `contextVersion`, nezapsané nemění nic, otisk karty bez nich zůstává bajt po bajtu stejný.
 
 ### Předání konkrétní verze zadání
 

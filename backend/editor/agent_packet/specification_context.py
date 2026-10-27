@@ -22,6 +22,11 @@ def _node(node, nodes):
     # Layer affects the responsibility; suggested model, due date and work status do not.
     if (node.get("card") or {}).get("layer"):
         result["layer"] = node["card"]["layer"]
+    # Technology and states describe what to build (architektura-pro-agenty §3.3); absent keys stay
+    # absent so the digest of a card without them does not change.
+    for key in ("tech", "states"):
+        if key in (node.get("card") or {}):
+            result[key] = node["card"][key]
     area = area_of(node, nodes)
     result["areaId"] = area["id"] if area else None
     return result

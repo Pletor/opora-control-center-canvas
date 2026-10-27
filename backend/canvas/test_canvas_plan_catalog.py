@@ -29,7 +29,8 @@ def test_plan_preserves_all_card_fields_in_graph_and_brief(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         digest = seed(client)
         plan = component()
-        card = {'layer': 'backend', 'status': 'ready', 'model': 'sonnet', 'effort': 'high', 'due': '2026-10-10'}
+        card = {'layer': 'backend', 'status': 'ready', 'model': 'sonnet', 'effort': 'high', 'due': '2026-10-10',
+                'tech': 'FastAPI', 'states': ['čeká', 'chyba', 'hotovo']}
         plan['nodes'][0]['card'] = card
         result = send(client, digest, plan)
         assert result.status_code == 200, result.text

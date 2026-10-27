@@ -90,3 +90,51 @@ def test_card_on_non_node_is_rejected(carrier):
     carrier["card"] = {"layer": "frontend"}
     with pytest.raises(ValueError):
         validate_graph({"nodes": [carrier], "edges": []})
+
+
+# Komponenta (docs/architektura-pro-agenty.md §3.3): technologie a stavy píše agent, obě nepovinné.
+@pytest.mark.parametrize(
+    "card",
+    [
+        {"tech": "React 19 + react-hook-form"},
+        {"tech": "x" * 80},
+        {"states": ["prázdno", "načítá", "chyba", "hotovo"]},
+        {"states": ["s"]},
+        {"states": [f"stav {i}" for i in range(8)]},
+        {"states": ["y" * 40]},
+        {"layer": "frontend", "tech": "FastAPI", "states": ["čeká", "hotovo"]},
+    ],
+)
+def test_component_tech_and_states_are_accepted(card):
+    graph = {"nodes": [node(card=card)], "edges": []}
+    assert validate_graph(graph) == graph
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        {"tech": ""},
+        {"tech": "   "},
+        {"tech": " React"},
+        {"tech": "x" * 81},
+        {"tech": "React\n19"},
+        {"tech": "React\x0019"},
+        {"tech": 19},
+        {"tech": None},
+        {"states": []},
+        {"states": "hotovo"},
+        {"states": None},
+        {"states": [f"stav {i}" for i in range(9)]},
+        {"states": ["hotovo", "hotovo"]},
+        {"states": ["Hotovo", "hotovo"]},
+        {"states": [""]},
+        {"states": ["  "]},
+        {"states": ["chyba "]},
+        {"states": ["y" * 41]},
+        {"states": ["a\tb"]},
+        {"states": ["ok", 1]},
+    ],
+)
+def test_invalid_component_tech_or_states_is_rejected(card):
+    with pytest.raises(ValueError):
+        validate_graph({"nodes": [node(card=card)], "edges": []})

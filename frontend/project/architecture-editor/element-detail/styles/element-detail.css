@@ -36,6 +36,10 @@
 .element-detail__fact { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .element-detail__badge { display: inline-block; padding: 1px 7px; font-size: 11px; border-radius: 5px; color: var(--ae-bg, #0c1723); background: var(--ae-accent, #38d6c2); }
 .element-detail__path { font-size: 11px; color: var(--ae-cyan, #75d9ff); }
+/* Technologie a stavy komponenty zapsal agent; člověk je tu jen čte. Stavy stojí vedle sebe jako tiché
+   štítky v obrysu, aby se nepletly s plným štítkem prostředí, který říká, kde prvek běží. */
+.element-detail__states { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.element-detail__state { padding: 1px 7px; font-size: 11px; border: 1px solid var(--ae-line, #304b5a); border-radius: 5px; color: var(--ae-muted, #a2bacb); }
 .element-detail__notice { margin: 8px 0 0; font-size: 11px; color: var(--ed-database); }
 
 /* Identita prvku: ikona v barvě vrstvy, velký název a účel; tón stejný jako na plátně. */

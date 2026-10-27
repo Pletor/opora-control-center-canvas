@@ -5,6 +5,9 @@ a `block` edge still starts from one of the current blocks (the edge would point
 
 `layer` (frontend|backend|database|library) přepíše `card.layer` existující karty; bez něj se vrstva nemění.
 
+`tech` (řetězec) a `states` (seznam stavů) zapíší `card.tech` / `card.states` existujícího uzlu, `null` je smaže;
+bez nich se nemění. Tvar ověří `validate_graph` (`docs/architektura-pro-agenty.md` §3.3).
+
 `memberOf` (`@id` oblasti) zapíše výslovné logické členství uzlu nebo sektoru v oblasti, `null` ho zruší;
 platnost (oblast se stejným rodičem) ověří `validate_graph` (docs/kontrakt-identity.md)."""
 
@@ -13,7 +16,8 @@ from backend.canvas.canvas_plan_links import PORT_FIELDS, blocks_of
 from backend.canvas.graph import CARD_VALUES
 
 EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef",
-                 "replaceBlocks", "layer", "memberOf"}
+                 "replaceBlocks", "layer", "memberOf", "tech", "states"}
+CARD_FIELDS = ("tech", "states")
 
 
 def extend_cards(built, extensions, existing):
@@ -56,7 +60,7 @@ def extend_cards(built, extensions, existing):
             if built.state["nodes"].get(cursor, {}).get("done", {}).get("confirmed"):
                 fail(label, "uzavřenou kartu ani její potomky nelze rozšířit.")
             cursor = existing[cursor]["parentId"]
-        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer", "memberOf"}):
+        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer", "memberOf", *CARD_FIELDS}):
             fail(label, "rozšíření neobsahuje žádný obsah.")
         if "memberOf" in item:
             area = item["memberOf"]
@@ -71,6 +75,9 @@ def extend_cards(built, extensions, existing):
                 fail(label, "layer je frontend / backend / database / library a patří uzlu.")
             if (existing[node_id].get("card") or {}).get("layer") != item["layer"]:
                 existing[node_id]["card"] = {**(existing[node_id].get("card") or {}), "layer": item["layer"]}
+        for key in CARD_FIELDS:
+            if key in item:
+                _set_card_field(existing[node_id], key, item[key], label)
         built.labels[node_id] = target
         workflow = built.state["nodes"].setdefault(node_id, {"phase": "discover", "criteria": [], "steps": []})
         if "fragmentRef" in item:
@@ -113,3 +120,16 @@ def extend_cards(built, extensions, existing):
                     fail(label, f"{key}.expectedRevision musí být nezáporné celé číslo.")
                 built.documents.append((node_id, key, revision, item[key][value_key]))
         built.state_changed = True
+
+
+def _set_card_field(node, key, value, label):
+    """Zapíše `card.tech` / `card.states` uzlu, `null` klíč smaže; prázdná karta se vynechá celá."""
+    if node["kind"] != "node":
+        fail(label, f"{key} patří uzlu.")
+    card = {k: v for k, v in (node.get("card") or {}).items() if k != key}
+    if value is not None:
+        card[key] = value
+    if card:
+        node["card"] = card
+    else:
+        node.pop("card", None)

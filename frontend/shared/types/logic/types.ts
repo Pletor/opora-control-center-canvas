@@ -21,6 +21,11 @@ export type CardModel = "fable" | "opus" | "sonnet" | "haiku";
 export type CardEffort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Nepovinná karta uzlu (jen `kind: "node"`); každý klíč je nepovinný a prázdná karta se neukládá. */
 export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: string; model?: CardModel; effort?: CardEffort };
+/**
+ * Komponenta (docs/architektura-pro-agenty.md §3.3): technologie realizace (1–80 znaků) a 1–8 krátkých stavů.
+ * Píše je agent dávkou plánu, člověk je jen vidí; chybějící klíč = neurčeno, nikdy se nedoplňuje.
+ */
+export type CardComponentFields = { tech?: string; states?: string[] };
 /** Product structure shares the same graph identities across deployment environments. */
 export type NodeSite = { kind: "application"; environments: { name: string; host: string }[] } | PageSite;
 /** Role sekce stránky (`docs/architektura-pro-agenty.md` §3.1). */
@@ -54,7 +59,7 @@ export type CanvasNode = {
   /** Jen s `kind: "area"`: barva rámečku; chybí = indigová (viz `areaColorOf`). */
   color?: AreaColor;
   /** Jen s `kind: "node"`: typ, ruční stav, termín, model a effort karty; chybí u starších uzlů. */
-  card?: NodeCardFields;
+  card?: NodeCardFields & CardComponentFields;
   site?: NodeSite;
 };
 export type DesignArtifact = { artifactUrl: string; version: string; previewUrl?: string };

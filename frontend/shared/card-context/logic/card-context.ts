@@ -1,7 +1,7 @@
 // Kontext karty podle docs/kontext-karet-a-index.md §1 a §3: typ workflow z předpony, vrstva, efektivní stav, čitelná cesta
 // a adresa. Nic se tu neukládá; adresa se počítá z aktuálních názvů, takže přejmenování nebo přesun
 // ji přepočítá sám. Backend drží tytéž funkce v `backend/canvas/card_context.py` se stejnými testy.
-import type { CanvasNode, CardEffort, CardLayer, CardModel, CardStatus, CardType, NodeCardFields } from "@/shared/types/logic/types";
+import type { CanvasNode, CardComponentFields, CardEffort, CardLayer, CardModel, CardStatus, CardType, NodeCardFields } from "@/shared/types/logic/types";
 
 const WORKFLOW_TYPES: CardType[] = ["research", "prototype", "grilling", "task", "gate"];
 export const CARD_LAYERS: CardLayer[] = ["frontend", "backend", "database", "library"];
@@ -14,7 +14,7 @@ export const CARD_EFFORTS: CardEffort[] = ["low", "medium", "high", "xhigh", "ma
 /** Efektivní stav: `done` jen z uzavření karty, jinak ruční stav, jinak neznámo (`null`, ne „draft“). */
 export type EffectiveStatus = CardStatus | "done";
 
-type NamedNode = Pick<CanvasNode, "name"> & { card?: NodeCardFields };
+type NamedNode = Pick<CanvasNode, "name"> & { card?: NodeCardFields & CardComponentFields };
 type TreeNode = Pick<CanvasNode, "id" | "name" | "parentId">;
 
 /** Předpona typu v názvu: přesně `[task] ` (malými písmeny, s mezerou); název se jí nemění. */
@@ -98,9 +98,23 @@ export function normalizeCard(card: Partial<Record<keyof NodeCardFields, string>
   return Object.keys(next).length ? next : undefined;
 }
 
-/** Uzel s novou kartou: prázdná karta klíč `card` z uzlu odstraní, ostatní pole zůstanou beze změny. */
-export function withCard<T extends { card?: NodeCardFields }>(node: T, card: Partial<Record<keyof NodeCardFields, string>> | undefined): T {
-  const { card: _old, ...rest } = node;
-  const next = normalizeCard(card);
-  return (next ? { ...rest, card: next } : rest) as T;
+/**
+ * Komponenta karty (docs/architektura-pro-agenty.md §3.3): technologie a stavy, jak je zapsal agent.
+ * Nezapsané je `null` / prázdný seznam; nic se nedoplňuje.
+ */
+export function cardComponent(node: { card?: CardComponentFields }): { tech: string | null; states: string[] } {
+  return { tech: node.card?.tech || null, states: node.card?.states ?? [] };
+}
+
+/**
+ * Uzel s novou kartou: prázdná karta klíč `card` z uzlu odstraní, ostatní pole zůstanou beze změny.
+ * Technologii a stavy komponenty píše agent, ne formulář karty, proto je člověkova úprava zachová.
+ */
+export function withCard<T extends { card?: NodeCardFields & CardComponentFields }>(node: T, card: Partial<Record<keyof NodeCardFields, string>> | undefined): T {
+  const { card: old, ...rest } = node;
+  const kept: CardComponentFields = {};
+  if (old?.tech) kept.tech = old.tech;
+  if (old?.states?.length) kept.states = old.states;
+  const next = { ...normalizeCard(card), ...kept };
+  return (Object.keys(next).length ? { ...rest, card: next } : rest) as T;
 }

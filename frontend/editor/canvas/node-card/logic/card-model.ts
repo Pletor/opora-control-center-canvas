@@ -3,7 +3,7 @@
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { BlockPortDef, BlockStatus, NodeWorkflowFull } from "@/shared/desktop-state/logic/types";
 import { blockPorts } from "@/shared/desktop-state/logic/types";
-import { cardLayer } from "@/shared/card-context/logic/card-context";
+import { cardComponent, cardLayer } from "@/shared/card-context/logic/card-context";
 import type { CardLayer } from "@/shared/types/logic/types";
 
 export type CardPort = "next" | "action" | "rule" | "material" | "pipeline";
@@ -49,6 +49,10 @@ export type CardView = {
   closed: boolean;
   /** Vrstva uzlu (FE / BE / DB / Knihovna) z `card.layer`; sektor ji nemá. Typ workflow je vidět v názvu. */
   cardLayer: CardLayer | null;
+  /** Technologie komponenty (`card.tech`, píše agent); nezapsaná je `null`. */
+  tech: string | null;
+  /** Stavy komponenty (`card.states`, píše agent); nezapsané = prázdný seznam. */
+  states: string[];
   checks?: import("@/shared/types/logic/types").CanvasNode["checks"];
   goal_mode?: import("@/shared/types/logic/types").CanvasNode["goal_mode"];
 };
@@ -82,6 +86,7 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     rows: cardBlocks(workflow),
     closed: workflow.done.confirmed,
     cardLayer: node.kind === "node" ? cardLayer(node) : null,
+    ...(node.kind === "node" ? cardComponent(node) : { tech: null, states: [] }),
     checks: node.checks,
     goal_mode: node.goal_mode,
   };

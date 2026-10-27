@@ -9,7 +9,12 @@ export type CardDraft = Record<keyof NodeCardFields, string>;
 export const emptyCard = (): CardDraft => ({ layer: "", status: "", due: "", model: "", effort: "" });
 
 /** Uložená karta jako rozepsaná: chybějící klíč je prázdný řetězec (detail karty z ní začíná). */
-export const cardDraftOf = (card: NodeCardFields | undefined): CardDraft => ({ ...emptyCard(), ...(card ?? {}) });
+/** Bere jen pole formuláře; technologii a stavy komponenty píše agent a formulář je nenese. */
+export const cardDraftOf = (card: NodeCardFields | undefined): CardDraft => {
+  const draft = emptyCard();
+  for (const key of Object.keys(draft) as (keyof CardDraft)[]) draft[key] = card?.[key] ?? "";
+  return draft;
+};
 
 /** Zda dvě rozepsané karty říkají totéž; detail karty podle toho ukáže tlačítko Uložit. */
 export const sameCardDraft = (a: CardDraft, b: CardDraft): boolean =>

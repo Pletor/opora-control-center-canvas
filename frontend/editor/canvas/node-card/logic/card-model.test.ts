@@ -88,6 +88,13 @@ describe("card-model: vrstva karty", () => {
     expect(view.cardLayer).toBe("database");
   });
 
+  it("technologie a stavy komponenty jen ze zapsané karty uzlu", () => {
+    expect(cardView(node, emptyNodeWorkflow(), 0)).toMatchObject({ tech: null, states: [] });
+    const card = { layer: "frontend" as const, tech: "React 19", states: ["prázdno", "chyba"] };
+    expect(cardView({ ...node, card }, emptyNodeWorkflow(), 0)).toMatchObject({ tech: "React 19", states: ["prázdno", "chyba"] });
+    expect(cardView({ ...node, kind: "sector", card }, emptyNodeWorkflow(), 0)).toMatchObject({ tech: null, states: [] });
+  });
+
   it("sektor vrstvu nenese", () => {
     const view = cardView({ ...node, kind: "sector", name: "[task] S", card: { layer: "backend", status: "ready" } }, emptyNodeWorkflow(), 0);
     expect(view.cardLayer).toBeNull();

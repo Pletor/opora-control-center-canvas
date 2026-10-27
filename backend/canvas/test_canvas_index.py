@@ -138,6 +138,13 @@ def test_limit(entries):
             search(entries, "", bad)
 
 
+def test_component_tech_and_states_are_searchable_text_only():
+    graph = {"nodes": [item("n1", "Formulář", card={"tech": "React 19", "states": ["prázdno", "odesílá"]})], "edges": []}
+    [entry] = build_index(graph, {})
+    assert "tech" not in entry and "states" not in entry
+    assert [row["id"] for row in search([entry], "react odesila")["entries"]] == ["n1"]
+
+
 def test_legacy_graph_and_state_without_new_fields():
     graph = {"nodes": [item("n1", "Stará karta")], "edges": []}
     entries = build_index(graph, {"settings": [], "rules": [], "decisions": [], "nodes": {}, "tickets": []})

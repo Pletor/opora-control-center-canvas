@@ -327,6 +327,29 @@
 .node-card__counts { display: flex; gap: 8px; white-space: nowrap; }
 .node-card__count-value { font-weight: 600; color: var(--ink); }
 
+/* KOMPONENTA: pod názvem tichý řádek technologie a pod ním drobné čipy stavů. Je to popis od agenta, ne
+   ovládání, proto šedé písmo bez rámečků tlačítek a nic se tu nedá stisknout. Technologie zůstane na jednom
+   řádku a zbytek uřízne trojtečka, aby karta nerostla; stavy se zalomí, protože je jich nejvýš osm a krátkých.
+   Karta bez zapsané komponenty tenhle pás vůbec nemá. */
+.node-card__component { display: grid; gap: 5px; padding: 0 13px 8px; min-width: 0; }
+.node-card__tech {
+  margin: 0;
+  font: 500 11px var(--mono);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.node-card__states { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.node-card__state {
+  font: 500 10px var(--mono);
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
 /* PORTY KARTY: pět kuliček na pravé hraně ve výškách 22 / 60 / 98 / 136 / 174 — pořadí odshora dolů odpovídá
    tomu, jak se o uzlu přemýšlí: kam se jde dál, čím se to udělá, co se nesmí porušit, z čeho se vychází
    a jak se ověří (pipeline: testy, review, opravy, kritici). Karta je proto vysoká aspoň 190 px.
