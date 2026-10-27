@@ -136,6 +136,12 @@ krok na dřívější krok než ten předchozí. Cesta lidi nepočítá (zdůvod
     karta mimo stránku `card.section` mít nesmí.
 - `card.tech`: 1–80 znaků, technologie realizace. `card.states`: 1–8 krátkých stavů
   (`prázdno`, `načítá`, `chyba`, `hotovo`…). Píše agent.
+- `card.fetch` = `{files?, docs?}` (co si agent stáhne do kontextu; každý seznam 1–20 relativních cest v repozitáři,
+  u `docs` i `https://`) a `card.fill` (1–11 polí, která agent vyplní, ze seznamu `purpose`, `sourceRef`,
+  `spec.goal`, `spec.non_goals`, `spec.acceptance`, `text`, `card.tech`, `card.states`, `card.section`, `blocks`,
+  `rules`). Skládá je deterministicky vložení z knihovny ([zive-zobrazeni-a-knihovna.md](zive-zobrazeni-a-knihovna.md)
+  §5), tvar hlídá `backend/canvas/card_agent_context.py`. Agent je dostane v `node-brief.node`, jen když jsou; nejsou
+  součást `specification`, takže `contextVersion` nemění.
 
 ### 3.4 Hrana: `carries`
 

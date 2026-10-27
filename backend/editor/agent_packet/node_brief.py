@@ -352,6 +352,9 @@ class NodeBrief:
                 **{key: (node.get("card") or {}).get(key) for key in ("due", "model", "effort")},
                 # Komponenta (`docs/architektura-pro-agenty.md` §3.3): technologie, stavy a sekce stránky jen když jsou zapsané.
                 **{key: node["card"][key] for key in ("tech", "states", "section") if key in (node.get("card") or {})},
+                # Z knihovny (docs/zive-zobrazeni-a-knihovna.md §5): `fetch` = co si stáhnout do kontextu, `fill` = která pole
+                # karty vyplnit. Jen když jsou; leží v `node`, ne ve `specification`, takže `contextVersion` nemění.
+                **{key: node["card"][key] for key in ("fetch", "fill") if key in (node.get("card") or {})},
                 "address": address_of(node_id),
             },
             "goal": {

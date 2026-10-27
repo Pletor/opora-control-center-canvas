@@ -52,6 +52,8 @@ Detail a tvar výsledku: [hub-loop.md](references/hub-loop.md).
 
 409 kdekoli = `state --fresh` a nové ID akce; stejný požadavek znovu nepomůže.
 
+Karta vložená z knihovny nese v `node-brief` (klíč `node`) `fetch` = co si stáhnout do kontextu (soubory a dokumenty) a `fill` = která pole karty vyplnit (díry, např. `sourceRef`, `spec.acceptance`).
+
 ## Role a nejkratší cesta
 
 | Role | Cesta | Detail |

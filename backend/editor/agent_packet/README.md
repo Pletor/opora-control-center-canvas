@@ -1,5 +1,6 @@
 Podklady pro agenta: složení uzlu (text, zadání, kresby, dokumentace, paměť) do packetu opora.packet/1, neměnný snímek, redakce tajemství (desktop_v3_packets.py, redact.py).
 Balíček celé karty pro model: cíl, definice hotovo, hranice, kontext, harness, bloky s porty, graf a smyčka v jednom JSON opora.node-brief/1 (node_brief.py).
+Karta vložená z knihovny nese v `node` navíc `fetch` (co si stáhnout do kontextu) a `fill` (která pole karty vyplnit), jen když jsou; mimo `specification`, takže `contextVersion` nemění (test_node_brief_agent_context.py, docs/zive-zobrazeni-a-knihovna.md §5).
 Fraktální předávka v balíčku: pracovní prostor karty i okolí (vazby celý, potomci/rodič/oblast jen rámec a předávka) a odkaz na mapu Graphify v context.knowledgeGraph (node_brief.py).
 
 `loop.openBlocks` počítá všechny nesplněné bloky (`open`, `unmet`, `blocked`). `loop.waitingOnHuman`

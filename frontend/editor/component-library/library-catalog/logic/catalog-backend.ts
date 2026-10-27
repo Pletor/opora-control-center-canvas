@@ -20,6 +20,17 @@ export const backendItems: CatalogItem[] = [
       "Vedle modulu leží test_<modul>.py a uv run pytest backend prochází.",
     ],
     invariants: [],
+    tech: "FastAPI",
+    states: ["přijato", "neplatný vstup", "chyba", "hotovo"],
+    ports: [
+      { id: "pozadavek", direction: "in", carries: "command" },
+      { id: "modul", direction: "out", carries: "command" },
+    ],
+    fetch: {
+      files: ["backend/api/editor/canvas_routes.py", "backend/canvas/canvas_plan.py"],
+      docs: ["CLAUDE.md", "docs/pravidla-struktury.md"],
+    },
+    fill: ["sourceRef", "spec.acceptance"],
     template: [
       "# backend/api/editor/library_routes.py",
       "@router.post(\"/api/library/insert\")",

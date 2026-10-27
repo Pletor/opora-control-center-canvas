@@ -106,6 +106,11 @@ describe("normalizeCard a withCard", () => {
     expect(withCard(old, {}).card).toEqual({ section: "form" });
   });
 
+  it("podklady a díry z knihovny (fetch, fill) úprava karty člověkem zachová", () => {
+    const old = node("n1", "A", null, { card: { layer: "frontend", fetch: { files: ["a.ts"] }, fill: ["sourceRef"] } });
+    expect(withCard(old, { status: "ready" }).card).toEqual({ status: "ready", fetch: { files: ["a.ts"] }, fill: ["sourceRef"] });
+  });
+
   it("withCardSection zapíše sekci, null ji odebere a prázdnou kartu vypustí", () => {
     const plain = node("n1", "A");
     expect(withCardSection(plain, "hero").card).toEqual({ section: "hero" });
