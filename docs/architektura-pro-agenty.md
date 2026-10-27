@@ -25,7 +25,7 @@ cestu → výsledek se zapíše na mapu a do paměti role.
 | 0 Projekt | aplikace (`site.kind = "application"`) | člověk | prostředí, **cesty zákazníka** (`journeys`) |
 | 1 Stránka | `site.kind = "page"` | člověk | `goal`, `feel`, `navLabel`; pořadí v menu dává pořadí uzlů (beze změny) |
 | 2 Sekce | `site.sections` stránky | člověk ve formuláři stránky; agent smí navrhnout v dávce | role, název, záměr sekce |
-| 3 Komponenta | uzel pod stránkou | agent | `section`, `card.tech`, `card.states`, `sourceRef`, kontroly |
+| 3 Komponenta | uzel pod stránkou | agent | `card.section`, `card.tech`, `card.states`, `sourceRef`, kontroly |
 | Vazby | hrany | agent | `carries` (druh toku) |
 | Brána | cesta A → B | stroj | výsledek ověření cesty |
 
@@ -73,7 +73,15 @@ odvozují; přidaný výchozí klíč by starý záznam zneplatnil a změnil dig
 
 ### 3.3 Komponenta (uzel pod stránkou)
 
-- `section`: id sekce nejbližší stránky mezi předky. Validátor odmítne neexistující sekci.
+- `card.section`: id sekce (`site.sections[].id`) nejbližší stránky mezi předky karty (nejbližší předek se
+  `site.kind = "page"` v řetězu `parentId`), kterou komponenta realizuje. Tvar id uzlu (`[A-Za-z0-9_-]{1,80}`),
+  nepovinné, nikdy se nedoplňuje. Píše ho agent (dávka plánu: nová karta v `card`, existující v `extend` polem
+  `section`, `null` smaže) a člověk v Detailu prvku (výběr „Sekce stránky“).
+  - **Uložení grafu** (`validate_graph`) ověřuje jen tvar, ne existenci sekce: smazání sekce na stránce nesmí
+    zablokovat uložení mapy (stejně jako cesty `site.journeys`, §3.2). Odkaz na chybějící sekci ohlásí kontrola
+    mapy jako `section.unknown` a Detail prvku ho ukáže jako „chybí sekce …“.
+  - **Dávka plánu** (agent) sekci, kterou zapisuje, ověří proti novému grafu a neexistující odmítne s důvodem;
+    karta mimo stránku `card.section` mít nesmí.
 - `card.tech`: 1–80 znaků, technologie realizace. `card.states`: 1–8 krátkých stavů
   (`prázdno`, `načítá`, `chyba`, `hotovo`…). Píše agent.
 
@@ -119,7 +127,8 @@ přijatou architekturou (čtení) a nad dávkou plánu i návrhem změny grafu (
 | Pravidlo | Kdy | Dopad |
 |---|---|---|
 | `journey.broken` | cesta nemá souvislou řadu kroků | dávka/návrh se vrátí agentovi |
-| `section.unrealized` | sekce bez komponenty se `section` | práce pro rozkladače |
+| `section.unrealized` | sekce bez komponenty se `card.section` | práce pro rozkladače |
+| `section.unknown` | karta odkazuje `card.section` na sekci, kterou nejbližší stránka nemá, nebo leží mimo stránku (`nodeId` karty) | práce (agent nebo člověk sekci opraví či zruší) |
 | `command.no-receiver` | komponenta odesílá (`command`) a vazba nikam nevede | práce |
 | `state.no-error` | komponenta s výstupem `command` nemá stav „chyba“ | práce |
 | `edge.carries-unset` | hrana `next` mezi komponentami stránky bez `carries` | práce (migrace bez odhadu) |
@@ -134,7 +143,7 @@ Díry jsou práce pro agenty **jen v potvrzené dávce**; k člověku jde souhrn
 ## 6. Cesta zákazníka
 
 Kroky odvodí stroj: z `from` (menu nebo stránka) po hranách `carries ∈ {navigation, command, data}` a přes
-komponenty se `section` až k `to`. Nejkratší cesta, deterministické pořadí podle id. Bez souvislé cesty je
+komponenty se `card.section` až k `to`. Nejkratší cesta, deterministické pořadí podle id. Bez souvislé cesty je
 `journey.broken`. Brána: karta, jejíž komponenta leží na cestě, se neuzavře, dokud poslední ověření cesty
 neprošlo (etapa 8). Test cesty dodává výbava harnessu projektu (`harness.kit/1`, kategorie `testing`; u webu
 typicky Playwright). Opora nástroj nepředepisuje, vyžaduje doklad. Tvar dokladu upřesní dodatek tohoto kontraktu
@@ -166,8 +175,8 @@ a `healthPath` **nejsou** mrtvé a zůstávají.
 `PageCard.tsx`, `DomainPanel.tsx`; `product-tree.ts` `productFingerprint`; `frontend/project/architecture-editor/element-detail/logic/agent-context.ts`;
 docs `architektura-projektu.md`, `domeny-a-worktree.md`; skill `.claude/skills/opora-control-center/references/api.md`.
 
-**Hrana `carries` a komponenta `section`:** backend `graph.py` (`EDGE_KEY_SETS`, kontrola hodnot; uzlový klíč
-`section`), `canvas_plan_links.py`, OporaHub `opora_graph_build.py`, `opora_graph_records.py`,
+**Hrana `carries` a komponenta `section`:** backend `graph.py` (`EDGE_KEY_SETS`, kontrola hodnot; klíč karty
+`card.section`), `canvas_plan_links.py`, OporaHub `opora_graph_build.py`, `opora_graph_records.py`,
 `opora_graph_change_records.py`, `opora_graph_change_plan.py`, `opora_graph_change_diff.py`, `node_brief.py`
 `link()`, `canvas_index.py`, `trace.py`, `plan_lens_views.py`; frontend `types.ts` `GraphEdge`,
 `board-model.ts`, `editor-model.ts`, `canvas-model.ts` `edgeLook`, `agent-context.ts`,

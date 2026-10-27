@@ -64,6 +64,9 @@ Pravidla dávky:
   `model` `fable|opus|sonnet|haiku`, `effort` `low|medium|high|xhigh|max`. Nikdy `{}`.
   Komponenta: `tech` (technologie, 1–80 znaků) a `states` (1–8 různých stavů po 1–40 znacích, např.
   `prázdno`, `načítá`, `chyba`, `hotovo`); bez okrajových mezer, prázdné vynech. Odesílá-li komponenta data, dej jí stav `chyba`.
+  Komponenta pod stránkou: `section` = id sekce ze `site.sections` **nejbližší stránky** mezi předky karty, kterou
+  realizuje (např. `"card": {"layer": "frontend", "section": "form"}`). Neexistující sekci i sekci u karty mimo
+  stránku server odmítne (409 s důvodem); sekci, kterou neznáš, vynech.
 - Typ karty je předpona názvu: `[task]`, `[research]`, `[prototype]`, `[grilling]`, `[gate]`.
 - GOAL: `goal_mode: "until_checks_pass"` + aspoň jedna `checks`. Po vytvoření mění `checks`,
   `goal_mode` a `gateNodeId` jen člověk.
@@ -83,7 +86,8 @@ Položka `{node: "@id", expectedRevision, …}` (revize ze `state`), každá kar
 - `text: {expectedRevision, text}` (nahradí celý text),
 - přesun do oblasti `{parent: "@oblast", columns}`, barva oblasti `{color}`,
 - `fragmentRef` (stejný tvar jako u nové karty): přidá odkazy do schránky; odkaz na týž fragment přepíše revizi, ostatní zůstanou.
-- `layer`, `tech`, `states` (jen uzel): přepíší `card.layer` / `card.tech` / `card.states`; `null` u `tech` a `states` je smaže.
+- `layer`, `tech`, `states`, `section` (jen uzel): přepíší `card.layer` / `card.tech` / `card.states` / `card.section`;
+  `null` u `tech`, `states` a `section` je smaže. `section` musí být sekce nejbližší stránky, jinak 409.
 
 ```json
 {"digest": "DIGEST", "plan": {"nodes": [], "edges": [], "extend": [

@@ -95,6 +95,12 @@ describe("card-model: vrstva karty", () => {
     expect(cardView({ ...node, kind: "sector", card }, emptyNodeWorkflow(), 0)).toMatchObject({ tech: null, states: [] });
   });
 
+  it("sekce stránky jen ze zapsané karty uzlu", () => {
+    expect(cardView(node, emptyNodeWorkflow(), 0).section).toBeNull();
+    expect(cardView({ ...node, card: { section: "form" } }, emptyNodeWorkflow(), 0).section).toBe("form");
+    expect(cardView({ ...node, kind: "sector", card: { section: "form" } }, emptyNodeWorkflow(), 0).section).toBeNull();
+  });
+
   it("sektor vrstvu nenese", () => {
     const view = cardView({ ...node, kind: "sector", name: "[task] S", card: { layer: "backend", status: "ready" } }, emptyNodeWorkflow(), 0);
     expect(view.cardLayer).toBeNull();

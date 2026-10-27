@@ -4,10 +4,12 @@ import type { NodePhase } from "@/shared/desktop-state/logic/types";
 import StructureIcon from "../../component-structure/components/StructureIcon";
 import { toneOf } from "../../component-structure/logic/structure-model";
 import { agentContext, nodeLinks } from "../logic/agent-context";
+import { sectionChoice } from "../logic/section-choice";
 import { useNodeSpec } from "../logic/use-node-spec";
 import AgentContextPanel from "./AgentContextPanel";
 import BriefTab from "./BriefTab";
 import LinkList from "./LinkList";
+import SectionPicker from "./SectionPicker";
 import WorkTab from "./WorkTab";
 import "../styles/element-detail.css";
 
@@ -25,6 +27,8 @@ export type ElementDetailProps = {
   onSelect: (id: string) => void;
   /** Člověk určil, co po vazbě `next` teče; `null` = neurčeno. Ukládá rodič. */
   onCarries: (edgeId: string, carries: EdgeCarries | null) => void;
+  /** Člověk určil, kterou sekci stránky komponenta realizuje; `null` = neurčeno. Ukládá rodič. */
+  onSection: (nodeId: string, section: string | null) => void;
   onClose: () => void;
 };
 
@@ -37,11 +41,12 @@ const TABS: { id: Tab; label: string }[] = [
 
 /** Pravý sloupec Editoru stránky: kontext agenta a tři záložky nad jedním prvkem. Nic neukládá sám. */
 export default function ElementDetail(props: ElementDetailProps) {
-  const { project, workspace, graph, nodeId, domainId, phase, done, disabled, onIdentity, onOpenEditor, onSelect, onCarries, onClose } = props;
+  const { project, workspace, graph, nodeId, domainId, phase, done, disabled, onIdentity, onOpenEditor, onSelect, onCarries, onSection, onClose } = props;
   const [tab, setTab] = useState<Tab>("brief");
   const node = graph.nodes.find((item) => item.id === nodeId) ?? null;
   const context = useMemo(() => agentContext(graph, nodeId, domainId), [graph, nodeId, domainId]);
   const links = useMemo(() => nodeLinks(graph, nodeId), [graph, nodeId]);
+  const section = useMemo(() => sectionChoice(graph, nodeId), [graph, nodeId]);
   const spec = useNodeSpec(project, workspace, nodeId);
 
   return (
@@ -57,6 +62,7 @@ export default function ElementDetail(props: ElementDetailProps) {
       {node ? (
         <div className="element-detail__body">
           <AgentContextPanel context={context} />
+          {section ? <SectionPicker choice={section} disabled={disabled} onSection={(value) => onSection(nodeId, value)} /> : null}
           <div className={`element-detail__identity element-detail__identity--${toneOf(node)}`}>
             <StructureIcon name={node.kind === "sector" ? "sector" : toneOf(node)} className="element-detail__icon" />
             <div className="element-detail__identity-text">

@@ -175,3 +175,45 @@ def test_extend_writes_and_clears_component_tech_and_states(tmp_path):
         cleared = send(client, done.json()["digest"], {"extend": [item(client, tech=None, states=None)]})
         assert cleared.status_code == 200, cleared.text
         assert card_of(client) == original
+
+
+def test_plan_section_must_exist_on_the_nearest_page(tmp_path):
+    """Agent zapíše `card.section` jen sekci nejbližší stránky; neznámou sekci i kartu mimo stránku dávka odmítne."""
+    hero = {"id": "hero", "role": "hero", "name": "Hero", "intent": ""}
+
+    def nodes_of(client):
+        return {n["id"]: n for n in client.get("/api/view", params=SCOPE).json()["graph"]["nodes"]}
+
+    def site_nodes(card):
+        return {"nodes": [
+            {"ref": "app", "kind": "sector", "name": "Aplikace", "site": {"kind": "application", "environments": []}},
+            {"ref": "page", "kind": "node", "parent": "app", "name": "Kontakt",
+             "site": {"kind": "page", "path": "/kontakt", "sections": [hero]}},
+            {"ref": "ui", "kind": "node", "parent": "page", "name": "Úvod", "card": card},
+        ]}
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        digest = seed(client)
+        before = nodes_of(client)
+        refused = send(client, digest, site_nodes({"section": "form"}))
+        assert refused.status_code == 409 and "ui" in refused.json()["error"] and "form" in refused.json()["error"]
+        assert nodes_of(client) == before
+        done = send(client, digest, site_nodes({"layer": "frontend", "section": "hero"}))
+        assert done.status_code == 200, done.text
+        ui = done.json()["refs"]["ui"]
+        assert nodes_of(client)[ui]["card"] == {"layer": "frontend", "section": "hero"}
+
+        def item(node, **fields):
+            revision = client.get("/api/desktop-v3/state", params=SCOPE).json()["revision"]
+            return {"node": f"@{node}", "expectedRevision": revision, **fields}
+
+        digest = done.json()["digest"]
+        for node, section, reason in ((ui, "form", "nemá sekci form"), ("n0", "hero", "mimo stránku")):
+            refused = send(client, digest, {"extend": [item(node, section=section)]})
+            assert refused.status_code == 409 and reason in refused.json()["error"], refused.text
+        cleared = send(client, digest, {"extend": [item(ui, section=None)]})
+        assert cleared.status_code == 200, cleared.text
+        assert nodes_of(client)[ui]["card"] == {"layer": "frontend"}
+        again = send(client, cleared.json()["digest"], {"extend": [item(ui, section="hero")]})
+        assert again.status_code == 200, again.text
+        assert nodes_of(client)[ui]["card"] == {"layer": "frontend", "section": "hero"}

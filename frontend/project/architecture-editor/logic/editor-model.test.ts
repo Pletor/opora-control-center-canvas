@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, validateEditorRoute } from "./editor-model";
+import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, setEditorNodeSection, validateEditorRoute } from "./editor-model";
 
 const node = (id: string, parentId: string | null = null, kind: CanvasNode["kind"] = "node"): CanvasNode => ({ id, parentId, kind, name: id, purpose: "Účel", x: 20, y: 40 });
 const graph = (): Graph => ({ nodes: [
@@ -155,5 +155,22 @@ describe("edge carries", () => {
   it("refuses other ports and missing edges", () => {
     expect(() => setEditorEdgeCarries(linked(), "existing", "data")).toThrow("jen vazba next");
     expect(() => setEditorEdgeCarries(linked(), "gone", "data")).toThrow();
+  });
+});
+
+describe("sekce stránky u komponenty", () => {
+  it("zapíše a zruší card.section, ostatní pole karty zachová", () => {
+    const set = setEditorNodeSection(graph(), "page", "form");
+    expect(set.nodes[1].card).toEqual({ layer: "frontend", status: "draft", section: "form" });
+    expect(setEditorNodeSection(set, "page", "form")).toBe(set);
+    expect(setEditorNodeSection(set, "page", null).nodes[1].card).toEqual({ layer: "frontend", status: "draft" });
+    const child = setEditorNodeSection(graph(), "child", "hero");
+    expect(child.nodes[2].card).toEqual({ section: "hero" });
+    expect("card" in setEditorNodeSection(child, "child", null).nodes[2]).toBe(false);
+  });
+  it("odmítne chybějící prvek, ne-uzel a neplatné id", () => {
+    expect(() => setEditorNodeSection(graph(), "nic", "form")).toThrow("neexistuje");
+    expect(() => setEditorNodeSection(graph(), "app", "form")).toThrow("jen uzel");
+    expect(() => setEditorNodeSection(graph(), "child", "s/1")).toThrow("Neplatné id");
   });
 });

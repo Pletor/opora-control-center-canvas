@@ -85,6 +85,40 @@ def validate_journeys(label, site):
             raise ValueError(f"{label}: cesta {journey_id} musí vést na jinou stránku, než začíná.")
 
 
+def nearest_page(by_id, node_id):
+    """Nejbližší stránka (`site.kind == "page"`) mezi předky uzlu po řetězu `parentId`, nebo None.
+    Uzel sám se nepočítá; cyklus ani chybějící rodič řetěz ukončí."""
+    seen, current = {node_id}, by_id[node_id].get("parentId")
+    while current is not None and current in by_id and current not in seen:
+        seen.add(current)
+        site = by_id[current].get("site")
+        if isinstance(site, dict) and site.get("kind") == "page":
+            return by_id[current]
+        current = by_id[current].get("parentId")
+    return None
+
+
+def card_section_error(by_id, node_id):
+    """Důvod, proč `card.section` uzlu nemíří na sekci nejbližší stránky (§3.3), nebo None.
+
+    Uzel bez `card.section` je vždy v pořádku. Uložení grafu tohle neověřuje (smazání sekce nesmí zablokovat
+    mapu); odmítá podle toho dávka plánu agenta a kontrola mapy to hlásí jako `section.unknown`."""
+    card = by_id[node_id].get("card")
+    section = card.get("section") if isinstance(card, dict) else None
+    if section is None:
+        return None
+    page = nearest_page(by_id, node_id)
+    if page is None:
+        return f"karta leží mimo stránku, sekci {section} nemá kde realizovat."
+    sections = page["site"].get("sections")
+    known = [item.get("id") for item in sections if isinstance(item, dict)] if isinstance(sections, list) else []
+    if section not in known:
+        name = page.get("name") or page["id"]
+        return (f"stránka {name} nemá sekci {section}; sekce musí být id ze site.sections nejbližší stránky"
+                + (f" ({', '.join(str(item) for item in known)})." if known else " (stránka zatím sekce nemá)."))
+    return None
+
+
 def host_key(value):
     """Canonical comparison of hostname[:port], accepting localhost and bracketed IPv6."""
     if (not isinstance(value, str) or not value or len(value) > 300

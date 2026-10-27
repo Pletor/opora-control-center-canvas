@@ -122,7 +122,7 @@ Jeden JSON, který model čte odshora dolů. Klíče jsou anglické, hodnoty v j
   "schema": "opora.node-brief/1",
   "readOnly": bool,  // workspace jen ke čtení (main); výstup agenta zde nelze uložit
   "node": { "id", "name", "kind", "purpose", "path": [ancestor names], "depth": children count, "sourceRef",
-    "tech"?, "states"? },  // komponenta: technologie a stavy z `card`, jen když je agent zapsal (viz níže)
+    "tech"?, "states"?, "section"? },  // komponenta: technologie, stavy a sekce stránky z `card`, jen když jsou zapsané (viz níže)
   "goal": { "goal", "nonGoals", "acceptance" },            // ze spec uzlu (prázdné řetězce, když chybí)
   "content": { "text", "revision" } | null,               // text karty (node-text): podklad, typicky doslovný výňatek zadání; prázdný = null
   "definitionOfDone": { "acceptance", "blockConditions": [{blockId, number, condition}] },
@@ -167,6 +167,13 @@ Komponenta (`docs/architektura-pro-agenty.md` §3.3): karta uzlu smí nést `car
 dávkou plánu (nová karta v `card`, existující karta v `extend` polem `tech` / `states`, `null` smaže), člověk je
 vidí na kartě a v Detailu prvku a formulář karty je zachová. Jsou část zadání: zapsané vstupují do
 `specification.graph` i `contextVersion`, nezapsané nemění nic, otisk karty bez nich zůstává bajt po bajtu stejný.
+
+Komponenta pod stránkou smí nést i `card.section`: id sekce (`site.sections[].id`) nejbližší stránky mezi předky,
+kterou realizuje. Píše ho agent dávkou plánu (nová karta v `card`, existující v `extend` polem `section`, `null`
+smaže) a člověk výběrem „Sekce stránky“ v Detailu prvku; formulář karty ho zachová. Dávka plánu odmítne sekci,
+kterou nejbližší stránka nemá, i sekci u karty mimo stránku; uložení grafu ověří jen tvar id (smazání sekce mapu
+nezablokuje) a díru ohlásí kontrola mapy jako `section.unknown`. Do `specification.graph`, `contextVersion` a
+`node-brief.node.section` vstupuje stejně jako `tech` a `states`, jen když je zapsané.
 
 ### Předání konkrétní verze zadání
 

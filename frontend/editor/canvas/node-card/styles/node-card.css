@@ -315,11 +315,21 @@
 .node-card__counts { display: flex; gap: 8px; white-space: nowrap; }
 .node-card__count-value { font-weight: 600; color: var(--ink); }
 
-/* KOMPONENTA: pod názvem tichý řádek technologie a pod ním drobné čipy stavů. Je to popis od agenta, ne
-   ovládání, proto šedé písmo bez rámečků tlačítek a nic se tu nedá stisknout. Technologie zůstane na jednom
-   řádku a zbytek uřízne trojtečka, aby karta nerostla; stavy se zalomí, protože je jich nejvýš osm a krátkých.
+/* KOMPONENTA: pod názvem nejdřív sekce stránky, kterou karta realizuje, pak tichý řádek technologie a pod ním
+   drobné čipy stavů. Je to popis, ne ovládání, proto šedé písmo bez rámečků tlačítek a nic se tu nedá stisknout
+   (sekci mění člověk v Detailu prvku). Sekce a technologie zůstanou na jednom řádku a zbytek uřízne trojtečka,
+   aby karta nerostla; stavy se zalomí, protože je jich nejvýš osm a krátkých. Sekce nese barvu akcentu, protože
+   říká, kam na stránce karta patří, a oko ji má najít dřív než technologii.
    Karta bez zapsané komponenty tenhle pás vůbec nemá. */
 .node-card__component { display: grid; gap: 5px; padding: 0 13px 8px; min-width: 0; }
+.node-card__section {
+  margin: 0;
+  font: 500 11px var(--mono);
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .node-card__tech {
   margin: 0;
   font: 500 11px var(--mono);

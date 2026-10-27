@@ -194,7 +194,9 @@ pravidla); tady jen to, co rozklad sektoru navíc hlídá:
   Po vytvoření mění `checks` jen člověk.
 - `card` (`layer`, `model`, `effort`) vyplň jen tam, kde je technologie a vrstva známá; jinak `card` vynech
   celé, nikdy `{}`. U komponenty pod stránkou přidej `tech` (čím se staví) a `states` (1–8 stavů, které uživatel
-  uvidí, např. `prázdno`, `načítá`, `chyba`, `hotovo`), jen když je znáš; nevymýšlej je.
+  uvidí, např. `prázdno`, `načítá`, `chyba`, `hotovo`), jen když je znáš; nevymýšlej je. Komponentě, která
+  realizuje sekci stránky, zapiš `card.section` = id sekce ze `site.sections` nejbližší stránky (ze `state`
+  nebo mapy); sekci nevymýšlej, chybí-li na stránce, navrhni ji nejdřív stránce. Neexistující sekci dávka odmítne.
 - Vazby: `next` tvoří **hlavní linku** a ta končí na existující kartě `[gate]` sektoru
   (`"to": "@<gateNodeId>"`). **Jeden port vede na jednu kartu**; víc cílů = víc portů. `block` z bloku
   na bránu jen tam, kde blok nese akceptační podmínku sektoru, ne povinně u všech karet. Kartu `[gate]`,

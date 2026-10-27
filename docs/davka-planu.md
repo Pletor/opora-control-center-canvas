@@ -40,7 +40,7 @@ Jedna dávka, která na vrstvu přidá uzly, vazby, spec, text, bloky s porty a 
       "parent": "@pilot-mapa",            // "@<existující id>" | "<ref z dávky>" | null (kořen)
       "name": "[task] Pipeline zpracování dokumentů",
       "purpose": "…",                     // podstata na kartě
-      "card": { "layer": "backend", "status": "draft" }, // volitelné, jen node; stejná validace jako graf (i tech, states)
+      "card": { "layer": "backend", "status": "draft" }, // volitelné, jen node; stejná validace jako graf (i tech, states, section — sekce musí existovat na nejbližší stránce)
       "position": { "x": 120, "y": 240 }, // volitelné místo vložení; bez něj automatické rozložení
       "sourceRef": { "origin": "existing", "path": "api/src/…", "kind": "directory" },  // volitelné; kind directory | file
       "size": { "w": 1200, "h": 800 },    // jen area

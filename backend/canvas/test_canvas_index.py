@@ -155,3 +155,14 @@ def test_edge_entry_names_carries_only_when_set():
     graph = {**GRAPH, "edges": [{**GRAPH["edges"][0], "carries": "data"}, GRAPH["edges"][1]]}
     found = by_id(build_index(graph, STATE))
     assert found["e1"]["carries"] == "data" and "carries" not in found["e2"]
+
+
+def test_component_section_is_searchable_by_id_and_name():
+    page = item("p", "Kontakt", site={"kind": "page", "path": "/kontakt", "sections": [
+        {"id": "form", "role": "form", "name": "Poptávkový formulář", "intent": ""}]})
+    graph = {"nodes": [page, item("c", "Pole", parent_id="p", card={"section": "form"}),
+                       item("x", "Bez stránky", card={"section": "zmizela"})], "edges": []}
+    entries = build_index(graph, {})
+    assert all("section" not in entry for entry in entries)
+    assert [row["id"] for row in search(entries, "poptavkovy")["entries"]] == ["c"]
+    assert [row["id"] for row in search(entries, "zmizela")["entries"]] == ["x"]

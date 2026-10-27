@@ -10,7 +10,7 @@ u sektoru) jdou do stavu uzlu a hlídá je `brief_vault_marks`.
 
 import copy
 
-from backend.canvas.canvas_plan_extend import extend_cards
+from backend.canvas.canvas_plan_extend import check_sections, extend_cards
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref, position_of
 from backend.canvas.canvas_plan_links import blocks_of, edge_of
 from backend.canvas.canvas_service import now
@@ -44,6 +44,8 @@ class Built:
         self.layout_moves = {}
         # id karty → `fragmentRef` z dávky; proti schránce ho ověří `brief_vault_refs.resolve_plan_refs`.
         self.fragment_refs = {}
+        # id karty → jméno položky, jejíž `card.section` dávka zapsala; ověří `check_sections`.
+        self.sections = {}
 
     def new_graph(self):
         return {"nodes": [*self.graph["nodes"], *self.nodes], "edges": [*self.graph["edges"], *self.edges]}
@@ -94,6 +96,7 @@ def build(plan, graph, state):
         if "memberOf" in item:
             node["memberOf"] = resolve(item["memberOf"], item["ref"])
     extend_cards(built, extensions, existing)
+    check_sections(built)
     if built.layout_moves:
         from backend.canvas.canvas_layout import arrange
         for area, move in built.layout_moves.items():
@@ -139,6 +142,8 @@ def _node(built, item, parents, kinds, existing):
     for key in ("sourceRef", "size", "card", "site", "design", "checks", "goal_mode", "factRefs", "scenario", "color"):
         if key in item:
             node[key] = item[key]
+    if isinstance(item.get("card"), dict) and "section" in item["card"]:
+        built.sections[node_id] = ref
     if "position" in item:
         built.positions[node_id] = position_of(item["position"], ref)
     built.nodes.append(node)

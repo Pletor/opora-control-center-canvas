@@ -25,7 +25,7 @@ def rules(result):
 
 def test_complete_page_has_no_findings():
     graph = {"nodes": [APP, page("kontakt", goal="Poptávka do 2 minut", sections=[{"id": "form"}]),
-                       node("form", "kontakt", section="form", card={"states": ["prázdno", " Chyba "]}),
+                       node("form", "kontakt", card={"section": "form", "states": ["prázdno", " Chyba "]}),
                        node("api", "kontakt")],
              "edges": [edge("e1", "form", "api", carries="command")]}
     result = check_map(graph)
@@ -35,7 +35,7 @@ def test_complete_page_has_no_findings():
 
 def test_page_without_goal_and_unrealized_sections():
     graph = {"nodes": [APP, page("b", goal="  "), page("a", sections=[{"id": "hero"}, {"id": "form"}]),
-                       node("c", "a", section="form"), node("other", "b", section="hero")],
+                       node("c", "a", card={"section": "form"}), node("other", "b")],
              "edges": []}
     result = check_map(graph)
     assert rules(result) == [("page.no-goal", "a"), ("page.no-goal", "b"), ("section.unrealized", "a")]
@@ -45,9 +45,29 @@ def test_page_without_goal_and_unrealized_sections():
 
 def test_section_counts_only_components_of_the_nearest_page():
     graph = {"nodes": [APP, page("outer", goal="g", sections=[{"id": "s"}]),
-                       page("inner", parent="outer", goal="g"), node("deep", "inner", section="s")],
+                       page("inner", parent="outer", goal="g", sections=[{"id": "s"}]),
+                       node("deep", "inner", card={"section": "s"})],
              "edges": []}
     assert rules(check_map(graph)) == [("section.unrealized", "outer")]
+
+
+def test_top_level_section_key_is_not_read():
+    """Sekce se čte jen z `card.section`; starý klíč uzlu `section` komponentu nedělá realizací sekce."""
+    graph = {"nodes": [APP, page("p", goal="g", sections=[{"id": "s"}]), node("c", "p", section="s")], "edges": []}
+    assert rules(check_map(graph)) == [("section.unrealized", "p")]
+
+
+def test_unknown_section_names_the_card():
+    """Karta odkazuje na sekci, kterou nejbližší stránka nemá, nebo leží mimo stránku: `section.unknown`."""
+    graph = {"nodes": [APP, page("p", goal="g", sections=[{"id": "hero"}]), page("q", parent="app", goal="g"),
+                       node("ok", "p", card={"section": "hero"}), node("gone", "p", card={"section": "form"}),
+                       node("bare", "q", card={"section": "hero"}), node("loose", card={"section": "hero"})],
+             "edges": []}
+    result = check_map(graph)
+    assert rules(result) == [("section.unknown", "bare"), ("section.unknown", "gone"), ("section.unknown", "loose")]
+    messages = {f["nodeId"]: f["message"] for f in result["findings"]}
+    assert "form" in messages["gone"] and "mimo stránku" in messages["loose"]
+    assert result["summary"]["section.unknown"] == 3
 
 
 def test_command_without_receiver_and_without_error_state():

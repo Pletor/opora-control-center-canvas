@@ -9,7 +9,7 @@ from backend.canvas.card_checks import validate_checks
 from backend.canvas.design_metadata import validate_design
 from backend.canvas.gate_scenario import validate_scenario
 from backend.canvas.project_facts import validate_fact_refs
-from backend.canvas.site_metadata import validate_sites
+from backend.canvas.site_metadata import SECTION_ID, validate_sites
 from backend.canvas.source_realization import validate_realization
 from backend.project.workspace.workspace_sources import relative_path
 
@@ -29,7 +29,7 @@ BLOCK_OFFSET_PORTS = {"action", "rule", "material", "pipeline"}
 AREA_COLORS = ("indigo", "teal", "amber", "rose", "violet", "slate")
 # `card` je nepovinná karta uzlu (jen kind "node"): vrstva (otázka frontend / backend / database /
 # library z `docs/pravidla-struktury.md`), ruční stav, termín a doporučený model s effortem; u komponenty
-# navíc technologie `tech` a stavy `states` (viz níže).
+# navíc technologie `tech`, stavy `states` a sekce stránky `section` (viz níže).
 # Typ workflow se neukládá, čte se jen z předpony názvu (`[task] …`). `done` se nikdy neukládá, odvozuje se z uzavření karty (`done.confirmed`).
 # Kontrakt: `docs/kontext-karet-a-index.md` §1.
 CARD_VALUES = {
@@ -43,7 +43,10 @@ CARD_VALUES = {
 # Prázdná hodnota se neukládá, klíč se vynechá; chybějící klíč nemění digest ani `contextVersion`.
 CARD_TECH_MAX = 80
 CARD_STATES_MAX, CARD_STATE_MAX = 8, 40
-CARD_KEYS = set(CARD_VALUES) | {"due", "tech", "states"}
+# `section` je id sekce nejbližší stránky, kterou komponenta realizuje (§3.3). Uložení ověří jen tvar id
+# (`SECTION_ID`), ne existenci sekce: smazání sekce na stránce nesmí zablokovat uložení mapy. Neexistující
+# sekci odmítne dávka plánu agenta a kontrola mapy ji ohlásí jako `section.unknown`.
+CARD_KEYS = set(CARD_VALUES) | {"due", "tech", "states", "section"}
 # `memberOf` je nepovinné výslovné logické členství uzlu nebo sektoru v oblasti (H01, kontrakt
 # `docs/kontrakt-identity.md`): id oblasti se stejným rodičem. Oblast tím nezačne být rodičem a
 # geometrické `areaId` (`areas.area_of`) zůstává jen nápovědou plátna, ne členstvím.
@@ -164,6 +167,8 @@ def validate_card(card):
             or len({state.casefold() for state in states}) != len(states)
         ):
             raise ValueError("Neplatné stavy karty (1–8 různých stavů po 1–40 znacích).")
+    if "section" in card and not (isinstance(card["section"], str) and SECTION_ID.fullmatch(card["section"])):
+        raise ValueError("Neplatná sekce karty (id sekce: písmena, číslice, _ a -, nejvýše 80 znaků).")
 
 
 def card_text(value, limit):

@@ -138,3 +138,26 @@ def test_component_tech_and_states_are_accepted(card):
 def test_invalid_component_tech_or_states_is_rejected(card):
     with pytest.raises(ValueError):
         validate_graph({"nodes": [node(card=card)], "edges": []})
+
+
+# Sekce stránky, kterou komponenta realizuje (§3.3): uložení hlídá jen tvar id, ne existenci sekce.
+@pytest.mark.parametrize("section", ["form", "hero-2", "A_b", "x" * 80])
+def test_card_section_with_id_shape_is_accepted(section):
+    graph = {"nodes": [node(card={"section": section})], "edges": []}
+    assert validate_graph(graph) == graph
+
+
+@pytest.mark.parametrize("section", ["", " form", "form ", "s/1", "sekce č", "x" * 81, None, 5, ["form"]])
+def test_card_section_with_bad_shape_is_rejected(section):
+    with pytest.raises(ValueError, match="sekce"):
+        validate_graph({"nodes": [node(card={"section": section})], "edges": []})
+
+
+def test_card_section_missing_on_the_page_still_saves():
+    """Smazání sekce na stránce nesmí zablokovat uložení mapy; díru hlásí kontrola mapy (`section.unknown`)."""
+    app = node("app", "sector", site={"kind": "application", "environments": []})
+    page = node("page", parent_id="app", site={"kind": "page", "path": "/", "sections": [
+        {"id": "hero", "role": "hero", "name": "Hero", "intent": ""}]})
+    graph = {"nodes": [app, page, node("c", parent_id="page", card={"section": "smazana"}),
+                       node("loose", card={"section": "hero"})], "edges": []}
+    assert validate_graph(graph) == graph
