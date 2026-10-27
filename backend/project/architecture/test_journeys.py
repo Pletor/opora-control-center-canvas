@@ -1,4 +1,4 @@
-"""Cesty zákazníka jako trychtýř (§6): kroky, konverze, odvozené segmenty, remízy podle id a důvody rozbití."""
+"""Cesty zákazníka jako trychtýř (§6): proměna A → B, kroky, odvozené segmenty, remízy podle id a důvody rozbití."""
 
 from backend.project.architecture.journeys import derive_journeys
 
@@ -64,15 +64,20 @@ def test_contact_journey_goes_from_menu_through_the_form_section_to_the_thank_yo
     assert "broken" not in result and "purpose" not in result
 
 
+VIA = {"do": "click", "section": "hero", "text": "Chci video zdarma"}
+
+
 def funnel_graph():
     """Trychtýř ze zadání: přistávací stránka → kontakty → prodej → upsell, miniupsell odbočí po prodeji."""
-    steps = [step("vstup", "pristavaci", label="Vstupní stránka", count=36879,
-                  experience="Pozná, že tu najde odpověď, a nechá kontakt za obsah zdarma."),
-             step("kontakt", "obsah", label="1. Stránka s obsahem zdarma", count=18975),
-             step("prodej", "nabidka", label="Prodej", count=3369),
-             step("upsell", "upsell", label="Upsell", count=1187),
-             step("mini", "miniupsell", label="Miniupsell", count=1545, after="prodej")]
-    application = app({"id": "kurz", "name": "Prodej kurzu", "purpose": "Z návštěvníka zákazník", "steps": steps})
+    steps = [step("vstup", "pristavaci", label="Vstupní stránka", via={"do": "open"},
+                  shift="Z „nejde mi to“ na „asi je to naučitelné“.", objection="Zase někdo, kdo chce jen prodat."),
+             step("kontakt", "obsah", label="1. Stránka s obsahem zdarma", via=VIA),
+             step("prodej", "nabidka", label="Prodej"),
+             step("upsell", "upsell", label="Upsell"),
+             step("mini", "miniupsell", label="Miniupsell", after="prodej")]
+    application = app({"id": "kurz", "name": "Prodej kurzu", "purpose": "Z návštěvníka zákazník",
+                       "actor": "Začínající zahrádkář", "pointA": "Rostliny mu hynou.", "pointB": "Má zelený balkon.",
+                       "steps": steps})
     return {"nodes": [application, page("pristavaci", path="/"), page("obsah"), page("nabidka"), page("upsell"),
                       page("miniupsell")],
             "edges": [edge("e1", "pristavaci", "obsah", carries="navigation"),
@@ -80,14 +85,15 @@ def funnel_graph():
                       edge("e3", "nabidka", "upsell", carries="navigation")]}
 
 
-def test_funnel_keeps_human_steps_counts_conversions_and_branches():
+def test_funnel_keeps_the_human_transformation_steps_and_branches_without_counting_people():
     result = only(funnel_graph())
-    assert result["purpose"] == "Z návštěvníka zákazník"
-    assert [(item["id"], item.get("rate")) for item in result["steps"]] == [
-        ("vstup", None), ("kontakt", 0.5145), ("prodej", 0.1775), ("upsell", 0.3523), ("mini", 0.4586)]
+    assert (result["purpose"], result["actor"], result["pointA"], result["pointB"]) == (
+        "Z návštěvníka zákazník", "Začínající zahrádkář", "Rostliny mu hynou.", "Má zelený balkon.")
     assert result["steps"][0] == {"id": "vstup", "page": "pristavaci", "path": "/", "label": "Vstupní stránka",
-                                  "count": 36879,
-                                  "experience": "Pozná, že tu najde odpověď, a nechá kontakt za obsah zdarma."}
+                                  "via": {"do": "open"}, "shift": "Z „nejde mi to“ na „asi je to naučitelné“.",
+                                  "objection": "Zase někdo, kdo chce jen prodat."}
+    assert result["steps"][1]["via"] == VIA
+    assert all("rate" not in item and "count" not in item for item in result["steps"])
     assert result["steps"][4]["after"] == "prodej"
     assert result["line"] == "/ → /obsah → /nabidka → /upsell → /miniupsell"
     assert [(s["from"], s["to"], s["realized"], s["line"]) for s in result["segments"]] == [
@@ -96,13 +102,13 @@ def test_funnel_keeps_human_steps_counts_conversions_and_branches():
     assert "broken" not in result
 
 
-def test_conversion_needs_both_counts_and_a_nonzero_previous_count():
+def test_journey_without_transformation_fields_gets_none_filled_in():
     graph = funnel_graph()
-    steps = graph["nodes"][0]["site"]["journeys"][0]["steps"]
-    steps[0]["count"] = 0
-    del steps[2]["count"]
-    rates = [item.get("rate") for item in only(graph)["steps"]]
-    assert rates == [None, None, None, None, None]
+    journey_data = graph["nodes"][0]["site"]["journeys"][0]
+    for key in ("purpose", "actor", "pointA", "pointB"):
+        del journey_data[key]
+    result = only(graph)
+    assert not {"purpose", "actor", "pointA", "pointB"} & set(result)
 
 
 def test_unrealized_segment_does_not_break_the_journey():

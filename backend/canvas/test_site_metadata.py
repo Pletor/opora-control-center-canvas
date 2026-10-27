@@ -162,24 +162,35 @@ def journey(identifier="poptavka", steps=None, name="Poptávka z menu", **extra)
 
 
 def funnel():
-    """Trychtýř ze zadání: přistávací stránka → kontakty → prodej → upsell, miniupsell odbočí po prodeji."""
-    return journey("trychtyr", name="Prodej kurzu", purpose="Z návštěvníka zákazník s upsellem", steps=[
-        step("vstup", "pristavaci", label="Vstupní stránka", count=36879,
-             experience="Pozná, že tu najde odpověď, a nechá kontakt za obsah zdarma."),
-        step("kontakt", "obsah", label="1. Stránka s obsahem zdarma", count=18975),
-        step("prodej", "nabidka", label="Prodej", count=3369),
-        step("upsell", "upsell", label="Upsell", count=1187),
-        step("mini", "miniupsell", label="Miniupsell", count=1545, after="prodej"),
+    """Trychtýř: přistávací stránka → kontakty → prodej → upsell, miniupsell odbočí po prodeji; cesta je proměna A → B."""
+    return journey("trychtyr", name="Prodej kurzu", purpose="Z návštěvníka zákazník s upsellem",
+                   actor="Začínající zahrádkář na balkoně", pointA="Rostliny mu hynou, neví proč, stydí se zeptat.",
+                   pointB="Má zelený balkon a ví, co dělá.", steps=[
+        step("vstup", "pristavaci", label="Vstupní stránka", via={"do": "open"},
+             shift="Z „nejde mi to“ na „asi je to naučitelné“.", objection="Zase někdo, kdo chce jen prodat."),
+        step("kontakt", "obsah", label="1. Stránka s obsahem zdarma",
+             via={"do": "click", "section": "hero", "text": "Chci video zdarma"}),
+        step("prodej", "nabidka", label="Prodej", via={"do": "submit"}),
+        step("upsell", "upsell", label="Upsell", via={"do": "click", "text": "Přidat konzultaci"}),
+        step("mini", "miniupsell", label="Miniupsell", after="prodej", via={"do": "click", "section": "smazana"}),
     ])
 
 
 def test_application_carries_journeys_without_defaults_and_keeps_health_path():
     app = application()
     app["site"] = {**app["site"], "healthPath": "/api/health",
-                   "journeys": [journey(), funnel(), journey("z-domu", [step("a", "home"), step("b", "dekujeme", count=0)])]}
+                   "journeys": [journey(), funnel(), journey("z-domu", [step("a", "home"), step("b", "dekujeme", objection="Bojí se spamu.")])]}
     saved = copy.deepcopy(app)
     validate_graph({"nodes": [app, page("home"), page("dekujeme", path="/dekujeme")], "edges": []})
     assert app == saved
+
+
+def test_journey_and_step_texts_at_their_limits_are_saved():
+    app = application()
+    app["site"]["journeys"] = [journey(actor="x" * 80, pointA="ž" * 200, pointB="ž" * 200, purpose="p" * 200, steps=[
+        step("a", "home", shift="ž" * 160, objection="o" * 120, via={"do": "open"}),
+        step("b", "dekujeme", via={"do": "submit", "section": "s" * 80, "text": "t" * 60})])]
+    validate_graph({"nodes": [app, page("home"), page("dekujeme", path="/dekujeme")], "edges": []})
 
 
 def test_journey_to_a_missing_page_is_saved_and_left_to_the_map_check():
@@ -196,6 +207,12 @@ def test_journey_to_a_missing_page_is_saved_and_left_to_the_map_check():
     [journey(name="x" * 81)],
     [journey(purpose="")],
     [journey(purpose="x" * 201)],
+    [journey(actor="")],
+    [journey(actor="x" * 81)],
+    [journey(pointA="   ")],
+    [journey(pointA="x" * 201)],
+    [journey(pointB="a\nb")],
+    [journey(pointB="x" * 201)],
     [{"id": "stara", "name": "Stará podoba", "from": "nav", "to": "dekujeme"}],
     [{**journey(), "extra": 1}],
     [journey(steps=[step("a", "nav")])],
@@ -206,11 +223,24 @@ def test_journey_to_a_missing_page_is_saved_and_left_to_the_map_check():
     [journey(steps=[step("a", "bad id"), step("b", "dekujeme")])],
     [journey(steps=[step("a", "home", label=""), step("b", "dekujeme")])],
     [journey(steps=[step("a", "home", label="x" * 61), step("b", "dekujeme")])],
-    [journey(steps=[step("a", "home", experience="x" * 401), step("b", "dekujeme")])],
-    [journey(steps=[step("a", "home", experience="a\tb"), step("b", "dekujeme")])],
-    [journey(steps=[step("a", "home", count=-1), step("b", "dekujeme")])],
-    [journey(steps=[step("a", "home", count=1.5), step("b", "dekujeme")])],
-    [journey(steps=[step("a", "home", count=True), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", shift=""), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", shift="x" * 161), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", objection="x" * 121), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", objection="a\tb"), step("b", "dekujeme")])],
+    # Zrušená pole: počet lidí a zážitek se bez migrace odmítnou.
+    [journey(steps=[step("a", "home", count=5), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", experience="Ví, co dál."), step("b", "dekujeme")])],
+    # Signál přechodu: první krok jen open, další jen click / submit, sekce tvarem id, text 1–60.
+    [journey(steps=[step("a", "home", via={"do": "click"}), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", via={"do": "open", "text": "Reklama"}), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", via={"do": "open"})])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", via={"do": "hover"})])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", via={"section": "form"})])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", via={"do": "click", "section": "bad id"})])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", via={"do": "click", "text": ""})])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", via={"do": "click", "text": "x" * 61})])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", via={"do": "click", "note": "x"})])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", via="click")])],
     [journey(steps=[step("a", "home", after="b"), step("b", "dekujeme")])],
     [journey(steps=[step("a", "home"), step("b", "dekujeme", after="b")])],
     [journey(steps=[step("a", "home"), step("b", "dekujeme", after="c"), step("c", "x")])],

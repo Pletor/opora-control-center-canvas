@@ -45,6 +45,6 @@ export default function CustomerJourneys({ domain, site: saved, pages, derived, 
             : <JourneyFunnel key={journey.id} journey={journey} pages={pages} derived={derivedById.get(journey.id)} disabled={disabled || draft !== null} onEdit={() => setDraft(structuredClone(journey))}/>)}
           {draft && original === null && editor(draft)}
         </ol>
-      : <p className="domain-map__empty">{pages.length ? "Zatím bez cest. Cesta je trychtýř stránek: kudy zákazník jde, co na každé stránce zažívá a kolik lidí dojde dál." : "Cesty půjdou zadat, až doména bude mít stránky."}</p>}
+      : <p className="domain-map__empty">{pages.length ? "Zatím bez cest. Cesta je proměna zákazníka z bodu A do bodu B přes stránky: co se na každé stránce posune, co tomu brání a čím zákazník přejde dál." : "Cesty půjdou zadat, až doména bude mít stránky."}</p>}
   </section>;
 }

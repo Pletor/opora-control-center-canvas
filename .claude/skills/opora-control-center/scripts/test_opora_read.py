@@ -369,8 +369,11 @@ def test_drawing_reads_sketch_layer_and_summarizes(net, monkeypatch, capsys):
 
 
 def test_node_brief_summary_carries_architecture_slice_only_when_present():
-    architecture = {'journeys': [{'id': 'j', 'name': 'Poptávka', 'youAre': {'step': 'k', 'index': 1}, 'label': 'Formulář',
-                                  'experience': 'Ví, že se ozveme.', 'next': [{'step': 'd', 'path': '/dekujeme', 'realized': True}]}],
+    architecture = {'journeys': [{'id': 'j', 'name': 'Poptávka', 'actor': 'Majitel zahrady', 'pointA': 'Zahrada ho tíží.',
+                                  'pointB': 'Má plán.', 'youAre': {'step': 'k', 'index': 1}, 'label': 'Formulář',
+                                  'shift': 'Chce prohlídku.', 'objection': 'Bojí se telefonátů.',
+                                  'next': [{'step': 'd', 'path': '/dekujeme', 'realized': True,
+                                            'via': {'do': 'submit', 'section': 'form'}}]}],
                     'page': {'path': '/kontakt'}}
     data = {'node': {}, 'architecture': architecture}
     assert opora_read.summary('node-brief', data, None, None)['architecture'] == architecture

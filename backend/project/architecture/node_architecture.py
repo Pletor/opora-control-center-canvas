@@ -5,12 +5,16 @@ karta pod stránkou (nejbližší stránka přes `nearest_page`); jinak funkce v
 Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam se vynechá.
 
 - `journeys`: cesty zákazníka, na kterých leží stránka karty (karta, která sama je stránka, jen ona; jinak
-  nejbližší stránka): `{id, name, purpose?, youAre: {step, index}, label?, experience?, previous?, next?}`.
-  `youAre` je id a pořadí (od 0) prvního kroku s touto stránkou, `label` a `experience` jsou role kroku a to, co
-  člověk na stránce zažívá a jak na něj má působit (pro agenta klíčové). `previous` je krok, na který tento
-  navazuje (`after`, jinak předchozí v seznamu), `next` kroky, které navazují na tento; každý soused je
-  `{step, label?, path?, realized?}`, `path` jen u existující stránky, `realized` jen když cesta není rozbitá
-  (vede mezi kroky vazba na mapě, viz `journeys.py`). Pořadí jako `derive_journeys`.
+  nejbližší stránka): `{id, name, purpose?, actor?, pointA?, pointB?, youAre: {step, index}, label?, shift?,
+  objection?, previous?, next?}`. Řetěz „proč“: kdo je zákazník a jeho proměna A → B (proč existuje cesta),
+  posun a námitka kroku (proč existuje stránka), sousední kroky se signálem `via` (co se na stránce má stát),
+  úkol komponenty je `node.purpose` v briefu (tady se neopakuje). `youAre` je id a pořadí (od 0) prvního kroku
+  s touto stránkou. `previous` je krok, na který tento navazuje (`after`, jinak předchozí v seznamu), `next`
+  kroky, které navazují na tento; každý soused je `{step, label?, path?, realized?, via?}`, `path` jen u existující
+  stránky, `realized` jen když cesta není rozbitá (vede mezi kroky vazba na mapě, viz `journeys.py`). `via`
+  souseda je signál přechodu mezi ním a tímto krokem: u `previous` jak zákazník přišel sem (akce na předchozí
+  stránce, `via` tohoto kroku), u `next` co má zákazník udělat na této stránce, aby šel dál (`via` následujícího
+  kroku). Pořadí jako `derive_journeys`.
 - `page`: `{path, goal?, feel?, section?}` nejbližší stránky; `section` = `{id, role, intent}` jen když karta má
   `card.section` a sekce na stránce existuje.
 - `in` / `out`: sousední hrany karty s `carries`, v pořadí id hrany: `{carries, from}` / `{carries, to}`, kde
@@ -18,9 +22,17 @@ Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam s
 - `states`: `card.states`, jen když jsou.
 - `gaps`: pravidla kontroly mapy (`map_check`), jejichž nález míří na kartu (`nodeId`) nebo na její hranu
   (`edgeId`); každé pravidlo jednou, v pořadí `RULES`.
-- Strop `LIMIT_BYTES` (2,5 KiB kompaktního JSON v UTF-8). Když se výřez nevejde, ořezává se deterministicky:
-  nejdřív poslední cesty (aspoň první zůstane), pak hrany od konce, delší seznam z `in`/`out` dřív (při shodě
-  `out`), nakonec i první cesta; ořezaný výřez nese `"truncated": true`.
+- Strop `LIMIT_BYTES` (2,5 KiB kompaktního JSON v UTF-8). Dokud se výřez nevejde, odebírá se po celých klíčích
+  (texty se nikdy nezkracují) v tomto pořadí (`docs/cesta-zakaznika-a-brief.md` §4.3):
+  1. cesty od konce, dokud nezbude jedna;
+  2. hrany od konce, delší seznam z `in`/`out` dřív (při shodě `out`);
+  3. v první cestě `purpose`;
+  4. v první cestě `next` od konce kromě prvního souseda, pak `previous.via`, pak celé `previous`;
+  5. `page.feel`, pak `page.goal`;
+  6. v první cestě `objection`;
+  7. první cesta celá (poslední záchrana).
+  Do sedmého kroku se nikdy neořízne `actor`, `pointA`, `pointB`, `shift`, první `next` ani `page.section`: to je
+  řetěz „proč“. Ořezaný výřez nese `"truncated": true`.
 """
 
 import json
@@ -36,9 +48,14 @@ def _size(value):
     return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
 
-def _neighbour(step, realized):
+JOURNEY_FIELDS = ("purpose", "actor", "pointA", "pointB")
+STEP_FIELDS = ("label", "shift", "objection")
+
+
+def _neighbour(step, realized, via):
     return {"step": step["id"], **{key: step[key] for key in ("label", "path") if key in step},
-            **({"realized": realized} if realized is not None else {})}
+            **({"realized": realized} if realized is not None else {}),
+            **({"via": via} if isinstance(via, dict) else {})}
 
 
 def _journeys(graph, page_id):
@@ -53,12 +70,14 @@ def _journeys(graph, page_id):
         by_step = {step["id"]: step for step in steps}
         own = steps[index]
         previous = next((by_step[source] for source, step in links if step is own), None)
-        following = [_neighbour(step, realized.get((own["id"], step["id"]))) for source, step in links if source == own["id"]]
+        following = [_neighbour(step, realized.get((own["id"], step["id"])), step.get("via"))
+                     for source, step in links if source == own["id"]]
         result.append({"id": journey["id"], "name": journey["name"],
-                       **({"purpose": journey["purpose"]} if "purpose" in journey else {}),
+                       **{key: journey[key] for key in JOURNEY_FIELDS if key in journey},
                        "youAre": {"step": own["id"], "index": index},
-                       **{key: own[key] for key in ("label", "experience") if key in own},
-                       **({"previous": _neighbour(previous, realized.get((previous["id"], own["id"])))} if previous else {}),
+                       **{key: own[key] for key in STEP_FIELDS if key in own},
+                       **({"previous": _neighbour(previous, realized.get((previous["id"], own["id"])), own.get("via"))}
+                          if previous else {}),
                        **({"next": following} if following else {})})
     return result
 
@@ -102,17 +121,64 @@ def _gaps(graph, node_id):
     return [rule for rule in RULES if rule in hit]
 
 
+def _cut_journeys(result):
+    journeys = result.get("journeys", [])
+    if len(journeys) > 1:
+        journeys.pop()
+        return True
+    return False
+
+
+def _cut_edges(result):
+    incoming, outgoing = result.get("in", []), result.get("out", [])
+    if not incoming and not outgoing:
+        return False
+    (outgoing if len(outgoing) >= len(incoming) else incoming).pop()
+    return True
+
+
+def _cut_key(owner, key):
+    if isinstance(owner, dict) and key in owner:
+        del owner[key]
+        return True
+    return False
+
+
+def _first(result):
+    journeys = result.get("journeys")
+    return journeys[0] if journeys else None
+
+
+def _cut_neighbours(result):
+    first = _first(result)
+    if first is None:
+        return False
+    if len(first.get("next", [])) > 1:
+        first["next"].pop()
+        return True
+    return _cut_key(first.get("previous"), "via") or _cut_key(first, "previous")
+
+
+def _cut_last_journey(result):
+    return _cut_key(result, "journeys") if result.get("journeys") else False
+
+
+# Pořadí ořezu z docstringu modulu; každý krok odebere jednu věc a vrátí, zda měl co odebrat.
+_CUTS = (
+    _cut_journeys,
+    _cut_edges,
+    lambda result: _cut_key(_first(result), "purpose"),
+    _cut_neighbours,
+    lambda result: _cut_key(result.get("page"), "feel") or _cut_key(result.get("page"), "goal"),
+    lambda result: _cut_key(_first(result), "objection"),
+    _cut_last_journey,
+)
+
+
 def _fit(result):
-    """Ořízne výřez pod strop v pořadí z docstringu modulu."""
+    """Ořízne výřez pod strop v pořadí z docstringu modulu; deterministicky, po celých klíčích."""
     while _size(result) > LIMIT_BYTES:
-        journeys, incoming, outgoing = result.get("journeys", []), result.get("in", []), result.get("out", [])
-        if len(journeys) > 1:
-            journeys.pop()
-        elif incoming or outgoing:
-            (outgoing if len(outgoing) >= len(incoming) else incoming).pop()
-        elif journeys:
-            journeys.pop()
-        else:
+        if not any(cut(result) for cut in _CUTS):
             break
         for key in ("journeys", "in", "out"):
             if key in result and not result[key]:
@@ -122,7 +188,7 @@ def _fit(result):
 
 def node_architecture(graph, node_id):
     """Výřez mapy pro kartu `node_id`, nebo None, když karta není stránka ani neleží pod stránkou.
-    Stránka je svou vlastní stránkou: i stránka přímo v menu dostane své cesty a zážitek svého kroku."""
+    Stránka je svou vlastní stránkou: i stránka přímo v menu dostane své cesty a posun svého kroku."""
     by_id = {node["id"]: node for node in graph.get("nodes") or []}
     if node_id not in by_id:
         return None

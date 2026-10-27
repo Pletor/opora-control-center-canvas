@@ -67,14 +67,18 @@ describe("page fingerprint notices concurrent changes to page intent and section
     expect(() => editProductNode(concurrent, draft)).toThrow("mezitím změnily");
   });
   it("fingerprint of an application covers whole customer journeys, down to each funnel step", () => {
-    const journey: CustomerJourney = { id: "kurz", name: "Prodej kurzu", steps: [{ id: "a", page: "nav" }, { id: "b", page: "p", count: 10 }] };
+    const journey: CustomerJourney = { id: "kurz", name: "Prodej kurzu", steps: [{ id: "a", page: "nav" },
+      { id: "b", page: "p", shift: "Chce víc.", via: { do: "click", section: "hero" } }] };
     const app = node("app", null, { kind: "application", environments: [], journeys: [journey] });
     const changed = (steps: JourneyStep[], extra = {}) => productFingerprint({ ...app, site: { kind: "application", environments: [], journeys: [{ ...journey, ...extra, steps }] } });
     const base = productFingerprint(app);
-    expect(changed([journey.steps[0], { ...journey.steps[1], count: 11 }])).not.toBe(base);
-    expect(changed([journey.steps[0], { ...journey.steps[1], experience: "Cítí jistotu." }])).not.toBe(base);
+    expect(changed([journey.steps[0], { ...journey.steps[1], shift: "Chce prohlídku." }])).not.toBe(base);
+    expect(changed([journey.steps[0], { ...journey.steps[1], objection: "Spam." }])).not.toBe(base);
+    expect(changed([journey.steps[0], { ...journey.steps[1], via: { do: "click", section: "cta" } }])).not.toBe(base);
+    expect(changed([journey.steps[0], { ...journey.steps[1], via: { do: "click", section: "hero", text: "Chci" } }])).not.toBe(base);
     expect(changed([...journey.steps, { id: "c", page: "q", after: "a" }])).not.toBe(base);
     expect(changed(journey.steps, { purpose: "Prodej" })).not.toBe(base);
+    for (const key of ["actor", "pointA", "pointB"]) expect(changed(journey.steps, { [key]: "Text" })).not.toBe(base);
     expect(changed(journey.steps)).toBe(base);
   });
 });

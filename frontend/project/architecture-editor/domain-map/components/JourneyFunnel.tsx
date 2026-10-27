@@ -1,10 +1,11 @@
 import type { CanvasNode, CustomerJourney } from "@/shared/types/logic/types";
-import { formatCount, previousStepId, stepName, stepPageLabel, stepRate } from "../logic/journeys";
+import { previousStepId, stepName, stepPageLabel, stepSignal } from "../logic/journeys";
 import { derivedStepState, type DerivedJourney } from "../logic/derived-journeys";
 import JourneyFunnelLink from "./JourneyFunnelLink";
 
-/** Klidové zobrazení jedné cesty: název a účel, pod tím trychtýř kroků (role · stránka · počet lidí) se šipkami
- * a konverzí mezi nimi. Chybějící stránku ukáže varovně, nerealizovaný přechod tichým štítkem (`derived` od rodiče). */
+/** Klidové zobrazení jedné cesty jako proměny zákazníka: název a účel, pro koho a bod A nahoře, pod tím trychtýř kroků
+ * (role · stránka, posun, menším písmem námitka) se signálem přechodu na šipkách a dole bod B. Bez čísel. Chybějící
+ * stránku ukáže varovně, nerealizovaný přechod tichým štítkem (`derived` od rodiče). */
 export default function JourneyFunnel({ journey, pages, derived, disabled, onEdit }: {
   journey: CustomerJourney; pages: CanvasNode[]; derived: DerivedJourney | undefined; disabled: boolean; onEdit: () => void;
 }) {
@@ -16,6 +17,8 @@ export default function JourneyFunnel({ journey, pages, derived, disabled, onEdi
       </div>
       <button type="button" className="domain-map__section-add" disabled={disabled} data-testid={"architecture-journey-edit-" + journey.id} onClick={onEdit}>Upravit</button>
     </header>
+    {journey.actor && <p className="domain-map__journey-actor" data-testid={"architecture-journey-actor-" + journey.id}>Pro: {journey.actor}</p>}
+    {journey.pointA && <p className="domain-map__journey-point" data-testid={"architecture-journey-a-" + journey.id}><b className="domain-map__journey-point-mark">A ▸</b> {journey.pointA}</p>}
     {derived?.broken && <p className="domain-map__journey-broken" data-testid={"architecture-journey-broken-" + journey.id}>Cesta je přerušená: {derived.broken}</p>}
     <ol className="domain-map__funnel">
       {journey.steps.map((step, index) => {
@@ -23,16 +26,18 @@ export default function JourneyFunnel({ journey, pages, derived, disabled, onEdi
         const state = derivedStepState(derived, step.id);
         const previous = previousStepId(journey, index);
         const branch = previous && index > 0 && previous !== journey.steps[index - 1].id ? stepName(journey, previous) : undefined;
+        const signal = stepSignal(journey, index, pages);
         return <li key={step.id} className="domain-map__funnel-item" data-testid={"architecture-journey-step-" + journey.id + "-" + step.id}>
-          {index > 0 && <JourneyFunnelLink rate={stepRate(journey, index)} branchFrom={branch} unrealized={state.unrealized}/>}
+          {index > 0 && <JourneyFunnelLink signal={signal?.text} missingSection={signal?.missingSection} branchFrom={branch} unrealized={state.unrealized}/>}
           <div className={"domain-map__funnel-step" + (page.missing || state.missing ? " domain-map__funnel-step--missing" : "")}>
             <span className="domain-map__funnel-role">{step.label ?? `${index + 1}. krok`}</span>
             <span className="domain-map__funnel-page">{page.label}</span>
-            {step.count !== undefined && <span className="domain-map__funnel-count">{formatCount(step.count)} lidí</span>}
-            {step.experience && <p className="domain-map__funnel-experience">{step.experience}</p>}
+            {step.shift && <p className="domain-map__funnel-shift">Posun: {step.shift}</p>}
+            {step.objection && <p className="domain-map__funnel-objection">Námitka: {step.objection}</p>}
           </div>
         </li>;
       })}
     </ol>
+    {journey.pointB && <p className="domain-map__journey-point domain-map__journey-point--b" data-testid={"architecture-journey-b-" + journey.id}><b className="domain-map__journey-point-mark">B ▸</b> {journey.pointB}</p>}
   </li>;
 }

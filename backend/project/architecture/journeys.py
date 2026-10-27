@@ -1,9 +1,10 @@
 """Cesty zákazníka jako trychtýř stránek: přechody odvozené z mapy (`docs/architektura-pro-agenty.md` §6).
 
 `derive_journeys` je čistá funkce nad grafem (prosté slovníky), bez modelu a bez I/O; `project_journeys` k ní jen
-přečte přijatý graf projektu (stejně jako kontrola mapy). Člověk zadává kroky trychtýře (`site.journeys` aplikace:
-`steps[].page` = id stránky, u prvního kroku smí být `"nav"`, role `label`, zážitek `experience`, počet lidí
-`count` a odbočku `after`); vazby mezi kroky se nikde neukládají, počítají se při každém čtení ze stejného grafu.
+přečte přijatý graf projektu (stejně jako kontrola mapy). Člověk zadává cestu jako proměnu zákazníka (`actor`,
+`pointA`, `pointB`) a kroky trychtýře (`site.journeys` aplikace: `steps[].page` = id stránky, u prvního kroku smí
+být `"nav"`, role `label`, posun `shift`, námitka `objection`, signál přechodu `via` a odbočka `after`); vazby mezi
+kroky se nikde neukládají, počítají se při každém čtení ze stejného grafu. Kroky i cesta se předávají beze změny.
 
 Přechod (segment): každý krok kromě prvního navazuje na krok `after`, bez něj na předchozí krok v seznamu.
 Segment `from → to` se hledá po mapě (níže). Segment, který mapa vazbami nerealizuje, cestu nerozbije: přechod
@@ -40,9 +41,6 @@ následuje její komponenta se sekcí, se do ní nepíše samostatně (`nav → 
 /kontakt[form]`), stejně stránka hned po své komponentě se sekcí, pokud to není cíl segmentu. Nerealizovaný
 segment má `line` jen z popisků obou kroků. `line` celé cesty jsou popisky kroků (`path`) v pořadí, v jakém je
 zadal člověk (`nav → /pestovani → /novinky`).
-
-Konverze `rate` kroku = `count` kroku / `count` kroku, na který navazuje, zaokrouhlená na 4 místa; jen když oba
-počty jsou a předchozí je > 0.
 """
 
 from collections import deque
@@ -52,6 +50,8 @@ from backend.project.architecture.work_status import architecture_graph
 
 MOVING_CARRIES = frozenset({"navigation", "command", "data"})
 NAV_LABEL = "nav"
+JOURNEY_FIELDS = ("purpose", "actor", "pointA", "pointB")
+STEP_FIELDS = ("label", "shift", "objection", "via", "after")
 
 
 def _site(node):
@@ -173,11 +173,6 @@ def _journey_name(journey):
     return name if isinstance(name, str) and name else journey["id"]
 
 
-def _count(step):
-    count = step.get("count")
-    return count if isinstance(count, int) and not isinstance(count, bool) else None
-
-
 def _step_path(step, by_id):
     return NAV_LABEL if step["page"] == JOURNEY_FROM_NAV else _page_label(by_id[step["page"]])
 
@@ -207,15 +202,12 @@ def _derive(journey, application_id, pages, by_id, components, moves):
         page = step["page"]
         after = step["after"] if step.get("after") in by_step else previous
         item = {"id": step["id"], "page": page,
-                **{key: step[key] for key in ("label", "experience", "count", "after") if key in step}}
+                **{key: step[key] for key in STEP_FIELDS if key in step}}
         if page == JOURNEY_FROM_NAV or pages.get(page, (None,))[0] == application_id:
             item["path"] = _step_path(step, by_id)
         else:
             item["missing"] = True
             missing = missing or step
-        before = _count(by_step[after]) if after is not None else None
-        if before and _count(step) is not None:
-            item["rate"] = round(_count(step) / before, 4)
         steps.append(item)
         if after is not None:
             links.append((after, step["id"]))
@@ -228,7 +220,8 @@ def _derive(journey, application_id, pages, by_id, components, moves):
 
 
 def derive_journeys(graph):
-    """[{applicationId, id, name, purpose?, steps, segments, line} | {…, steps, broken}] pro cesty všech aplikací.
+    """[{applicationId, id, name, purpose?, actor?, pointA?, pointB?, steps, segments, line} | {…, steps, broken}]
+    pro cesty všech aplikací.
 
     Aplikace v pořadí id, cesty i kroky v pořadí, v jakém je člověk zadal. Poškozené položky (bez id) se přeskočí;
     tvar hlídá validátor grafu, tady se čte obranně."""
@@ -245,7 +238,7 @@ def derive_journeys(graph):
             if not isinstance(journey, dict) or not isinstance(journey.get("id"), str):
                 continue
             result.append({"applicationId": application["id"], "id": journey["id"], "name": _journey_name(journey),
-                           **({"purpose": journey["purpose"]} if isinstance(journey.get("purpose"), str) else {}),
+                           **{key: journey[key] for key in JOURNEY_FIELDS if isinstance(journey.get(key), str)},
                            **_derive(journey, application["id"], pages, by_id, components, moves)})
     return result
 

@@ -1,7 +1,9 @@
 // Cesty zákazníka jako trychtýř stránek na aplikaci; čistá logika bez Reactu. Kontrakt: docs/architektura-pro-agenty.md §3.2.
-// Člověk zadává kroky (stránka, role, zážitek, počet lidí, odbočka `after`); vazby mezi kroky po mapě odvodí stroj (§6).
+// Člověk zadává cestu jako proměnu zákazníka (`actor`, bod A → bod B) a kroky (stránka, role, posun, námitka, signál
+// přechodu `via`, odbočka `after`); vazby mezi kroky po mapě odvodí stroj (§6). Počty lidí se neukládají.
 // Prázdné texty a prázdný seznam se neukládají, nic se nedoplňuje výchozí hodnotou.
 import type { ApplicationSite, CanvasNode, CustomerJourney, JourneyStep } from "@/shared/types/logic/types";
+import { fitVia, sectionsOfPage, viaForSave, viaSentence } from "./journey-via";
 
 /** Nejvýš tolik cest na aplikaci a kroků na cestu povolí backend (`site_metadata.py`); kroků musí být aspoň dva. */
 export const MAX_JOURNEYS = 20;
@@ -43,12 +45,15 @@ export function removeJourney(site: ApplicationSite, id: string): ApplicationSit
   return site.journeys ? withJourneys(site, site.journeys.filter((journey) => journey.id !== id)) : site;
 }
 
-/** Krok smí navazovat jen na dřívější krok a první krok nenavazuje na nic: jinak `after` zmizí (navazuje na předchozí). */
+/** Krok smí navazovat jen na dřívější krok a první krok nenavazuje na nic: jinak `after` zmizí (navazuje na předchozí).
+ * Signál `via` musí sedět k pořadí (první krok jen otevření, další ne): jinak zmizí taky. */
 function tidy(steps: JourneyStep[]): JourneyStep[] {
   return steps.map((step, index) => {
-    if (step.after === undefined || steps.slice(0, index).some((other) => other.id === step.after)) return step;
-    const { after: _drop, ...rest } = step;
-    return rest;
+    const keepAfter = step.after === undefined || steps.slice(0, index).some((other) => other.id === step.after);
+    const via = fitVia(index, step.via);
+    if (keepAfter && via === step.via) return step;
+    const { after, via: _via, ...rest } = step;
+    return { ...rest, ...(via ? { via } : {}), ...(keepAfter && after !== undefined ? { after } : {}) };
   });
 }
 
@@ -85,15 +90,23 @@ export function moveStep(journey: CustomerJourney, id: string, direction: -1 | 1
   return { ...journey, steps: tidy(steps) };
 }
 
-/** Před uložením oříznuté texty; prázdné texty a neplatný počet se vynechají. */
+/** Text z víceřádkového pole bez řídicích znaků (backend je odmítne): konce řádků a tabulátory se stanou mezerou. */
+export function oneLine(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f]+/g, " ");
+}
+
+/** Oříznuté nepovinné texty v pevném pořadí klíčů; prázdné se vynechají. */
+function texts<K extends string>(source: Partial<Record<K, string>>, keys: readonly K[]): Partial<Record<K, string>> {
+  const result: Partial<Record<K, string>> = {};
+  for (const key of keys) { const value = source[key]?.trim(); if (value) result[key] = value; }
+  return result;
+}
+
+/** Před uložením oříznuté texty; prázdné texty a prázdné části signálu se vynechají. */
 export function journeyForSave(journey: CustomerJourney): CustomerJourney {
-  const purpose = journey.purpose?.trim();
-  return { id: journey.id, name: journey.name.trim(), ...(purpose ? { purpose } : {}), steps: journey.steps.map((step) => {
-    const label = step.label?.trim(), experience = step.experience?.trim();
-    const count = Number.isInteger(step.count) && (step.count ?? -1) >= 0 ? step.count : undefined;
-    return { id: step.id, page: step.page, ...(label ? { label } : {}), ...(experience ? { experience } : {}),
-      ...(count !== undefined ? { count } : {}), ...(step.after ? { after: step.after } : {}) };
-  }) };
+  return { id: journey.id, name: journey.name.trim(), ...texts(journey, ["purpose", "actor", "pointA", "pointB"] as const),
+    steps: tidy(journey.steps).map((step) => ({ id: step.id, page: step.page, ...texts(step, ["label", "shift", "objection"] as const),
+      ...(step.via ? { via: viaForSave(step.via) } : {}), ...(step.after ? { after: step.after } : {}) })) };
 }
 
 /** Všechny cesty aplikace připravené k uložení; bez cest klíč zmizí. */
@@ -117,21 +130,16 @@ export function previousStepId(journey: CustomerJourney, index: number): string 
   return journey.steps[index].after ?? journey.steps[index - 1].id;
 }
 
-/** Konverze kroku proti kroku, na který navazuje (0–1), jen když oba mají počet a předchozí je > 0. */
-export function stepRate(journey: CustomerJourney, index: number): number | null {
-  const previous = journey.steps.find((step) => step.id === previousStepId(journey, index));
-  const before = previous?.count, now = journey.steps[index]?.count;
-  return before && now !== undefined ? now / before : null;
+/** Stránka kroku, na který krok `index` navazuje: tam zákazník udělá akci signálu `via`; první krok žádnou nemá. */
+export function previousStepPage(journey: CustomerJourney, index: number): string | null {
+  const id = previousStepId(journey, index);
+  return journey.steps.find((step) => step.id === id)?.page ?? null;
 }
 
-/** „51,4 %“: konverze s jedním desetinným místem a českou čárkou. */
-export function formatRate(rate: number): string {
-  return (Math.round(rate * 1000) / 10).toFixed(1).replace(".", ",") + " %";
-}
-
-/** „36 879“: počet lidí s mezerou mezi tisíci (nezlomitelnou, aby se číslo nerozdělilo na dva řádky). */
-export function formatCount(count: number): string {
-  return String(count).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+/** Signál přechodu do kroku `index` jako věta nad sekcemi předchozí stránky; krok bez `via` nebo první krok nic. */
+export function stepSignal(journey: CustomerJourney, index: number, pages: Pick<CanvasNode, "id" | "site">[]): ReturnType<typeof viaSentence> | null {
+  const via = journey.steps[index]?.via;
+  return via && index > 0 ? viaSentence(via, sectionsOfPage(previousStepPage(journey, index), pages)) : null;
 }
 
 /** Popisek stránky kroku: „Menu“, název stránky, nebo upozornění na stránku, která v mapě už není. */

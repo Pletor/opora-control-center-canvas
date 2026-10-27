@@ -21,16 +21,18 @@ Relace v `main`/`draft` jsou v `mainSessions`. Čisté funkce berou `now`; čten
 `GET /api/project-architecture/map-check?project=` (`docs/architektura-pro-agenty.md` §5) vrací
 `{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}}` nad přijatým grafem (architektura složená
 s obsahem `main`, bez Gitu `draft`; čte ho `work_status.architecture_graph`). Bez modelu, deterministicky: pořadí
-pravidel, pak id. Pravidla `journey.broken`, `journey.unrealized`, `page.no-goal`, `section.unrealized`, `section.unknown`,
+pravidel, pak id. Pravidla `journey.broken`, `journey.unrealized`, `journey.via-unknown` (sekce signálu přechodu,
+kterou stránka předchozího kroku nemá), `page.no-goal`, `section.unrealized`, `section.unknown`,
 `command.no-receiver`, `state.no-error`, `edge.carries-unset`; komponenta je uzel pod nejbližší stránkou v řetězu
 `parentId`. Nová pole kontraktu se čtou jako nepovinná, nic se nedoplňuje.
 
 ## Cesty zákazníka (`journeys.py`)
 
-Cesta zákazníka je trychtýř stránek (`site.journeys`, §3.2): kroky s rolí, zážitkem, počtem lidí a odbočkou `after`
-zadává člověk. `derive_journeys(graph)` (§6) odvodí každý přechod `after → krok` (segment): z menu nebo stránky po
+Cesta zákazníka je trychtýř stránek (`site.journeys`, §3.2): proměnu zákazníka (`actor`, `pointA` → `pointB`) a kroky
+s rolí, posunem `shift`, námitkou `objection`, signálem přechodu `via` a odbočkou `after` zadává člověk; počty lidí se
+neukládají. `derive_journeys(graph)` (§6) odvodí každý přechod `after → krok` (segment): z menu nebo stránky po
 hranách `carries ∈ {navigation, command, data}`, ze stránky do komponenty se sekcí a z komponenty zpět na její
-stránku; nejkratší řada (BFS), remízy podle id. Vrací kroky (s `path`, konverzí `rate`, u chybějící stránky
+stránku; nejkratší řada (BFS), remízy podle id. Vrací cestu s A → B a kroky (s `path`, u chybějící stránky
 `missing`), `segments` `{from, to, line, realized}` a `line` kroků (`nav → /pestovani → /novinky`). Nerealizovaný
 segment cestu nerozbije (`journey.unrealized` v kontrole mapy), `broken` má cesta jen s chybějící stránkou kroku
 (`journey.broken`). Přesná pravidla jsou v docstringu modulu a v kontraktu §6. Čtení
@@ -39,5 +41,7 @@ segment cestu nerozbije (`journey.unrealized` v kontrole mapy), `broken` má ces
 ## Výřez mapy pro agenta (`node_architecture.py`)
 
 `node_architecture(graph, nodeId)` skládá `node-brief.architecture` (§4) jen pro kartu pod stránkou: cesty, na kterých
-leží stránka karty (`youAre`, role `label` a zážitek `experience` kroku, sousední kroky), stránku a sekci karty, hrany s `carries`, stavy a díry z kontroly mapy. Bez výchozích
-hodnot, strop 2,5 KiB s deterministickým ořezem (`truncated`). Volá ho `backend/editor/agent_packet/node_brief.py`.
+leží stránka karty, jako řetěz „proč“: `actor` a A → B cesty, `youAre`, role `label`, posun `shift` a námitka
+`objection` kroku a sousední kroky se signálem `via`; dál stránku a sekci karty, hrany s `carries`, stavy a díry
+z kontroly mapy. Bez výchozích hodnot, strop 2,5 KiB s deterministickým ořezem po celých klíčích (`truncated`), který
+před poslední záchranou nikdy nevezme A, B, posun, první `next` ani sekci. Volá ho `backend/editor/agent_packet/node_brief.py`.
