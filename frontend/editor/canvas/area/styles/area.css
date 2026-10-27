@@ -144,17 +144,19 @@
    kuličky, a zůstávají schované, dokud na oblast nenajede myš nebo není vybraná; klidné plátno tak
    nepřibude o další tečky vedle desítek karet. */
 .area-card__flow {
-  width: 10px !important;
-  height: 10px !important;
-  border-radius: 2px !important;
-  background: var(--area-line) !important;
-  border: 1px solid var(--area-ink) !important;
+  --port-fill: var(--area-line);
+  --port-ring: var(--area-ink);
+  --port-radius: 2px;
   opacity: 0;
   transition: opacity 0.12s ease;
 }
 .area-card:hover .area-card__flow,
-.area-card--selected .area-card__flow {
+.area-card--selected .area-card__flow,
+.area-card__flow:focus-visible {
   opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .area-card__flow { transition: none; }
 }
 
 /* Oblast nikdy nesmí ležet nad kartami, ani při přetahování nebo výběru — React Flow by ji jinak

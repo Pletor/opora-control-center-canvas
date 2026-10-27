@@ -52,6 +52,7 @@ import { membersOf } from "@/editor/canvas/area/logic/area-model";
 import { blockNodeTypes } from "@/editor/workflow/blocks/components/CanvasBlock";
 import { isBlockId, parseBlockId, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import { isDeleteKey, reportsSelection, sameSelection, selectionIds } from "../logic/box-selection";
+import PortZoomVar from "@/shared/flow-ports/components/PortZoomVar";
 import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
@@ -464,6 +465,7 @@ export default function Board({
           }
           maskColor="rgba(15,19,24,.75)"
         />}
+        <PortZoomVar />
       </ReactFlow>
       </CardActionsContext.Provider>
       {!disabled && (

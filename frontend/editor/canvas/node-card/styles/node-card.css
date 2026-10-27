@@ -272,23 +272,11 @@
 }
 .node-card__port-row:hover .node-card__port-remove,
 .node-card__port-row:focus-within .node-card__port-remove { opacity: 1; }
-/* Kulička portu bloku: 11 px na obrysu karty, barvou akcentu, aby bylo vidět, odkud vazba vyrůstá.
-   Dvě úrovně selektoru přebíjejí výchozí úchyt React Flow, který by ji jinak posadil jinam. */
-.node-card .node-card__block-port-dot {
-  position: absolute;
-  right: -6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 11px;
-  height: 11px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--surface-3);
-  box-shadow: 0 0 0 1px var(--line-strong);
-  cursor: crosshair;
-}
-:root[data-theme="light"] .node-card .node-card__block-port-dot { border-color: var(--surface); }
+/* Kulička portu bloku: na obrysu karty, barvou akcentu, aby bylo vidět, odkud vazba vyrůstá. Velikost,
+   zásahovou plochu a stavy řeší sdílené `flow-port`; tady zbývá jen výška (uprostřed řádku) a barva
+   podle rozhodnutí: vybraný port zůstane akcentový, odmítnutý zešedne a má přerušovaný obrys. */
+.node-card .node-card__block-port-dot { top: 50%; cursor: crosshair; }
+.node-card__port-row--rejected .node-card__block-port-dot { --port-fill: #94a3b8; --port-border-style: dashed; }
 .node-card__port-add {
   margin: 0 8px 5px 16px;
   padding: 1px 8px;
@@ -354,30 +342,20 @@
    tomu, jak se o uzlu přemýšlí: kam se jde dál, čím se to udělá, co se nesmí porušit, z čeho se vychází
    a jak se ověří (pipeline: testy, review, opravy, kritici). Karta je proto vysoká aspoň 190 px.
    Klik otevře příslušný blok vedle karty, tah propojí s jinou kartou; podklady a pipeline se jen otevírají.
-   Popisky se objeví až najetím na kartu, aby plátno v klidu zůstalo čisté. */
-.node-card .node-card__port {
-  position: absolute;
-  right: -7px;
-  width: 13px;
-  height: 13px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  border: 2px solid var(--surface-3);
-  box-shadow: 0 0 0 1px var(--line-strong);
-  cursor: pointer;
-}
-:root[data-theme="light"] .node-card .node-card__port { border-color: var(--surface); }
-.node-card .node-card__port--next { top: 22px; background: var(--accent); }
-.node-card .node-card__port--action { top: 60px; background: #c98a1e; }
-.node-card .node-card__port--rule { top: 98px; background: transparent; border-color: #c4524a; }
+   Popisky se objeví až najetím na kartu, aby plátno v klidu zůstalo čisté. Velikost kuliček a zásahové
+   plochy řeší sdílené `flow-port`; tady je jen výška, barva a zlatý kroužek otevřeného bloku. */
+.node-card .node-card__port { cursor: pointer; }
+.node-card .node-card__port--next { top: 22px; --port-fill: var(--accent); }
+.node-card .node-card__port--action { top: 60px; --port-fill: #c98a1e; }
+.node-card .node-card__port--rule { top: 98px; --port-fill: transparent; --port-ring: #c4524a; }
 /* Port podkladů netáhne vazbu, React Flow mu proto vypíná ukazatel; klik na blok musí projít. */
-.node-card .node-card__port--material { top: 136px; background: #5f947f; pointer-events: all; cursor: pointer; }
+.node-card .node-card__port--material { top: 136px; --port-fill: #5f947f; pointer-events: all; cursor: pointer; }
 /* Pipeline: fialová kulička; stav etap ukazuje blok vedle karty. */
-.node-card .node-card__port--pipeline { top: 174px; background: #7c6bd6; pointer-events: all; cursor: pointer; }
-.node-card .node-card__port--open { box-shadow: 0 0 0 3px rgba(201, 138, 30, 0.35); }
-.node-card .node-card__port--rule.node-card__port--open { box-shadow: 0 0 0 3px rgba(196, 82, 74, 0.35); }
-.node-card .node-card__port--material.node-card__port--open { box-shadow: 0 0 0 3px rgba(95, 148, 127, 0.4); }
-.node-card .node-card__port--pipeline.node-card__port--open { box-shadow: 0 0 0 3px rgba(124, 107, 214, 0.4); }
+.node-card .node-card__port--pipeline { top: 174px; --port-fill: #7c6bd6; pointer-events: all; cursor: pointer; }
+.node-card .node-card__port--open { --port-glow: rgba(201, 138, 30, 0.35); }
+.node-card .node-card__port--rule.node-card__port--open { --port-glow: rgba(196, 82, 74, 0.35); }
+.node-card .node-card__port--material.node-card__port--open { --port-glow: rgba(95, 148, 127, 0.4); }
+.node-card .node-card__port--pipeline.node-card__port--open { --port-glow: rgba(124, 107, 214, 0.4); }
 .node-card__port-labels { position: absolute; left: 100%; top: 0; bottom: 0; width: 0; pointer-events: none; }
 .node-card__port-label {
   position: absolute;

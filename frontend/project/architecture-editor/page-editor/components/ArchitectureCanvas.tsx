@@ -6,6 +6,7 @@ import { areaSectorLabel, cardBodies, cardSummary, CARD_WIDTH, edgeLook } from "
 import { dropCard, type Rect } from "@/editor/canvas/area/logic/area-growth";
 import { useAreaGrowth } from "@/editor/canvas/area/logic/use-area-growth";
 import { viewportShowsAllNodes } from "../logic/viewport-visibility";
+import PortZoomVar from "@/shared/flow-ports/components/PortZoomVar";
 import ArchitectureCard, { type ArchitectureNode, type CardActions } from "../map-card/components/ArchitectureCard";
 
 const nodeTypes = { architecture: ArchitectureCard };
@@ -124,6 +125,7 @@ export default function ArchitectureCanvas(props: Props) {
       deleteKeyCode={null}>
       <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#294454"/>
       <Controls showInteractive={false}/>
+      <PortZoomVar/>
     </ReactFlow>
   </div>;
 }

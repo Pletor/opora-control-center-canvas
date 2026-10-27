@@ -1,7 +1,8 @@
 // Porty karty: pět kuliček na pravé hraně. Tah = zdroj vazby (React Flow Handle), klik bez tahu = otevřít/skrýt blok.
 // Který port je otevřený rozhoduje rodič; sem přichází jen `open` a událost `onToggle` bublá nahoru.
-import { useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { Handle, Position } from "@xyflow/react";
+import { useRef, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { Position } from "@xyflow/react";
+import PortHandle from "@/shared/flow-ports/components/PortHandle";
 import { CARD_PORTS, LINKABLE_PORTS, PORT_LABEL, type CardPort } from "@/editor/canvas/node-card/logic/card-model";
 
 export type BlockPort = Exclude<CardPort, "next">;
@@ -18,26 +19,28 @@ export default function CardPorts({ id, open, onToggle }: { id: string; open: Bl
   });
   return (
     <>
-      <Handle type="target" position={Position.Left} />
+      <PortHandle kind="next" type="target" position={Position.Left} hint="sem se zapojí vazba z jiné karty" />
       {CARD_PORTS.map((port) => (
-        <Handle
+        <PortHandle
           key={port}
+          kind={port}
           type="source"
           position={Position.Right}
           id={port}
           className={`nodrag node-card__port node-card__port--${port}` + (port !== "next" && open.includes(port) ? " node-card__port--open" : "")}
           isConnectableStart={LINKABLE_PORTS.includes(port)}
-          title={
+          hint={
             port === "next"
-              ? "Další krok: tahem propojit s další kartou"
+              ? "tahem propojit s další kartou"
               : port === "material"
-                ? "Podklady: klik otevře blok s obrázky a odkazy pro tento uzel"
+                ? "klik otevře blok s obrázky a odkazy pro tento uzel"
                 : port === "pipeline"
-                  ? "Pipeline: klik otevře etapy práce, testů, review, oprav a tří kritiků"
-                  : `${PORT_LABEL[port]}: klik otevře blok, tah propojí s kartou`
+                  ? "klik otevře etapy práce, testů, review, oprav a tří kritiků"
+                  : "klik otevře blok, tah propojí s kartou"
           }
           data-testid={`port-${port}-${id}`}
           {...(port === "next" ? {} : click(port))}
+          {...(port === "next" ? {} : { onKeyDown: (e: ReactKeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onToggle(port); } } })}
         />
       ))}
       <div className="node-card__port-labels" aria-hidden="true">

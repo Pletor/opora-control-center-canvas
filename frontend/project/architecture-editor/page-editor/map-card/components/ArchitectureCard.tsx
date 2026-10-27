@@ -1,8 +1,9 @@
-import { Handle, NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
+import { NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import { AREA_SIZE_MAX, AREA_SIZE_MIN } from "@/editor/canvas/area/logic/area-model";
 import { toneOf, type CardSummary } from "../../logic/canvas-model";
 import CardMenu from "./CardMenu";
+import PortHandle from "@/shared/flow-ports/components/PortHandle";
 import PageIcon from "../../components/PageIcon";
 import "../styles/map-card.css";
 
@@ -22,8 +23,8 @@ function AreaFrame({ data, selected }: { data: CardData; selected: boolean }) {
     <NodeResizer isVisible={selected && !data.disabled} minWidth={AREA_SIZE_MIN} minHeight={AREA_SIZE_MIN} maxWidth={AREA_SIZE_MAX} maxHeight={AREA_SIZE_MAX}
       lineClassName="map-card__resize-line" handleClassName="map-card__resize-handle"
       onResizeEnd={(_, params) => actions.resizeArea(node.id, params.width, params.height)}/>
-    <Handle type="target" position={Position.Left} className="map-card__port"/>
-    <Handle type="source" position={Position.Right} className="map-card__port"/>
+    <PortHandle kind="flow" type="target" position={Position.Left} className="map-card__port"/>
+    <PortHandle kind="flow" type="source" position={Position.Right} className="map-card__port"/>
     <header className="map-card__head">
       <PageIcon name="area" className="map-card__icon"/>
       <strong className="map-card__title">OBLAST: {node.name}</strong>
@@ -43,8 +44,8 @@ export default function ArchitectureCard({ data, selected }: NodeProps<Architect
     <p className="map-card__purpose">{node.name}</p></article>;
   const sector = node.kind === "sector";
   return <article className={`map-card map-card--${summary.tone}${selected ? " map-card--selected" : ""}`} data-testid={"architecture-card-" + node.id}>
-    <Handle type="target" position={Position.Left} className="map-card__port"/>
-    <Handle type="source" position={Position.Right} className="map-card__port"/>
+    <PortHandle kind="next" type="target" position={Position.Left} className="map-card__port"/>
+    <PortHandle kind="next" type="source" position={Position.Right} className="map-card__port"/>
     <header className="map-card__head">
       <span className="map-card__icon"><PageIcon name={summary.tone}/></span>
       <span className="map-card__heading">

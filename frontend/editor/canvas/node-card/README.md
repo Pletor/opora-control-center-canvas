@@ -7,3 +7,5 @@ Tvář karty (Editor lean, `docs/oporahub-ui.md`): `NodeCard` nahoře kreslí `e
 Smazáno 2026-10-15 ráno: editor důkazů na kartě (`EvidenceEditor`, akce `saveEvidence`, schopnost `can.saveEvidence`); důkazy hlásí agent přes `agent-output.evidence`. Samostatné řádky a foldy nad bloky (deklarováno, Kontroly, převzetí, Blokováno, Vychází z, pravidla, zdroj, realizace) sloučené do Podrobností.
 
 Smazáno jako nepoužívané podle měření na živých datech 2026-10-15: čip fáze v hlavě, scénář (`CardScenario`, polling historie), fakta projektu (`CardFacts`), odkaz na návrh (`CardDesign`) a přepínač stahování z URL (`InputSecurity`); kontrola bezpečného odkazu pro důkazy, logy a PR zůstala v `logic/safe-url.ts`.
+
+Porty (2026-10-27): všechny úchyty karty i bloků jsou `PortHandle` ze `shared/flow-ports` (zásahová plocha 26 px, kulička 10 px, stálá velikost při zoomu přes `--rf-inv-zoom`, český tooltip a fokus z klávesnice; Enter / mezerník na portu bloku ho otevře). Styl karty dodává jen výšku a barvu přes `--port-fill` / `--port-ring` / `--port-glow`.
