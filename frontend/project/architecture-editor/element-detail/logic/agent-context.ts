@@ -7,7 +7,8 @@ export type AgentContext = {
   /** `null` = doména bez prostředí (sdílená struktura). */
   environment: string | null;
   host: string | null;
-  page: { id: string; name: string } | null;
+  /** Stránka s cílem a působením, jak je zadal člověk; chybějící pole se nedoplňuje. */
+  page: { id: string; name: string; goal?: string; feel?: string } | null;
   /** Názvy od prvního prvku pod stránkou (nebo doménou) po vybraný prvek. */
   componentPath: string[];
   repo: RepoPath | null;
@@ -42,13 +43,19 @@ export function agentContext(graph: Graph, nodeId: string, domainId: string): Ag
   const below = boundary >= 0 ? chain.slice(0, boundary) : chain;
   const node = chain[0];
   const ref = node?.sourceRef;
+  const pageNode = pageIndex >= 0 ? chain[pageIndex] : null;
+  const pageSite = pageNode?.site?.kind === "page" ? pageNode.site : null;
   const repo: RepoPath | null = ref?.path.trim()
     ? { kind: ref.origin === "planned" ? "planned" : "existing", path: ref.path }
     : null;
   return {
     environment: env?.name.trim() || null,
     host: env?.host.trim() || domain?.name.trim() || null,
-    page: pageIndex >= 0 ? { id: chain[pageIndex].id, name: label(chain[pageIndex]) } : null,
+    page: pageNode ? {
+      id: pageNode.id, name: label(pageNode),
+      ...(pageSite?.goal ? { goal: pageSite.goal } : {}),
+      ...(pageSite?.feel ? { feel: pageSite.feel } : {}),
+    } : null,
     componentPath: below.reverse().map(label),
     repo,
   };

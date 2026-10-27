@@ -154,7 +154,7 @@ a `healthPath` **nejsou** mrtvé a zůstávají.
 `area/` a `page-editor/`. `CENTRE_OFFSET` se nemění (musí sedět s backendem `areas._CENTRE_OFFSET`).
 
 **Stránka a aplikace (`site`):** `backend/canvas/site_metadata.py` (+ `test_site_metadata.py`);
-`node_brief.py` `_navigation` (přidat `navLabel`); `frontend/shared/types/logic/types.ts` `NodeSite`;
+`specification_context.py` `_navigation` (navigace v node-briefu, přidat `navLabel`); `frontend/shared/types/logic/types.ts` `NodeSite`;
 `ArchitectureProductForm.tsx` (oprava: změna cesty dnes zahodí ostatní klíče `site`); `ArchitectureDomainMap.tsx`;
 `PageCard.tsx`, `DomainPanel.tsx`; `product-tree.ts` `productFingerprint`; `frontend/project/architecture-editor/element-detail/logic/agent-context.ts`;
 docs `architektura-projektu.md`, `domeny-a-worktree.md`; skill `.claude/skills/opora-control-center/references/api.md`.
@@ -180,7 +180,8 @@ mění digest pohledu a zneplatní rozpracovaný výstup obou koncových karet; 
 |---|---|---|
 | 1 | Úklid karty | ne |
 | 2 | Oblast roste s kartou | ne |
-| 3 | Stránka a aplikace: `goal`, `feel`, `navLabel`, `sections`, `journeys` | `site` |
+| 3a | Stránka: `goal`, `feel`, `navLabel`, `sections` | `site` |
+| 3b | Aplikace: `journeys` | `site` |
 | 4 | Hrana `carries`, komponenta `section` | graf, návrhy grafu |
 | 5 | Komponenta `card.tech`, `card.states` | `card` |
 | 6 | Kontrola mapy (§5) + API | ne |

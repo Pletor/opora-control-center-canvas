@@ -38,8 +38,13 @@ export function editProductNode(node: CanvasNode, draft: ProductDraft): CanvasNo
   return { ...node, name: draft.name.trim(), purpose: draft.purpose.trim(), site: draft.site };
 }
 
-/** Compare only fields this form owns; moving cards or adding children is harmless. */
+/** Compare only fields this form owns; moving cards or adding children is harmless.
+ * A page also carries goal, feel, navLabel and agent-proposed sections: the form saves the whole `site`,
+ * so a concurrent change to any of them must be noticed instead of silently overwritten. */
 export function productFingerprint(node: Pick<CanvasNode, "name" | "purpose" | "site">): string {
-  return JSON.stringify([node.name, node.purpose, node.site?.kind,
-    node.site?.kind === "application" ? node.site.environments.map((env) => [env.name, env.host]) : node.site?.path]);
+  const site = node.site;
+  return JSON.stringify([node.name, node.purpose, site?.kind,
+    site?.kind === "application" ? site.environments.map((env) => [env.name, env.host]) : site?.path,
+    ...(site?.kind === "page" ? [[site.goal ?? null, site.feel ?? null, site.navLabel ?? null,
+      (site.sections ?? []).map((section) => [section.id, section.role, section.name, section.intent])]] : [])]);
 }

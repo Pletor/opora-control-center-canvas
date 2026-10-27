@@ -44,3 +44,26 @@ describe("product tree shares the graph", () => {
     expect(editProductNode({ ...original, x: 800 }, draft).x).toBe(800);
   });
 });
+
+describe("page fingerprint notices concurrent changes to page intent and sections", () => {
+  const page = node("page", "app", { kind: "page", path: "/kontakt", goal: "Poptávka do 2 minut", feel: "klidně", navLabel: "Kontakt",
+    sections: [{ id: "form", role: "cta", name: "Formulář", intent: "" }] });
+  it.each([
+    ["goal", { goal: "Jiný cíl" }],
+    ["feel", { feel: "rychle" }],
+    ["navLabel", { navLabel: "Napište nám" }],
+    ["missing goal", { goal: undefined }],
+    ["section intent", { sections: [{ id: "form", role: "cta" as const, name: "Formulář", intent: "Jméno" }] }],
+    ["section role", { sections: [{ id: "form", role: "form" as const, name: "Formulář", intent: "" }] }],
+    ["no sections", { sections: undefined }],
+  ])("%s changes the fingerprint", (_label, change) => {
+    const changed = { ...page, site: { ...page.site, ...change } as CanvasNode["site"] };
+    expect(productFingerprint(changed)).not.toBe(productFingerprint(page));
+  });
+  it("editing a page keeps the sections the form only shows", () => {
+    const draft: ProductDraft = { id: "page", original: productFingerprint(page), parentId: "app", name: "page", purpose: "Smysl části", site: structuredClone(page.site!) };
+    expect(editProductNode(page, draft).site).toEqual(page.site);
+    const concurrent = { ...page, site: { ...page.site, sections: [] } as CanvasNode["site"] };
+    expect(() => editProductNode(concurrent, draft)).toThrow("mezitím změnily");
+  });
+});

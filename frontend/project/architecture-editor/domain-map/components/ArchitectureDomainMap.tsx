@@ -5,6 +5,7 @@ import ArchitectureProductForm from "./ArchitectureProductForm";
 import DomainPanel from "./DomainPanel";
 import MovePageForm from "./MovePageForm";
 import PageCard, { type PageWork } from "./PageCard";
+import { navLabelOf } from "../logic/page-site";
 import "../styles/domain-map.css";
 
 function flatten(branches: ProductBranch[]): CanvasNode[] {
@@ -39,7 +40,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
         onSubmit={(parentId) => onReparent(moving, parentId).then(() => setMoving(null))} onCancel={() => setMoving(null)}/>}
       <nav className="domain-map__navbar" aria-label="Hlavní navigace stránek" data-testid="architecture-navbar">
         <strong className="domain-map__navbar-label">NAVBAR</strong>
-        {pages.map(({ node }) => <button type="button" key={node.id} className="domain-map__navbar-item" onClick={() => onOpen(node.id)}>{node.name}</button>)}
+        {pages.map(({ node }) => <button type="button" key={node.id} className="domain-map__navbar-item" onClick={() => onOpen(node.id)}>{navLabelOf(node)}</button>)}
       </nav>
       <div className="domain-map__grid">
         {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work}/>)}

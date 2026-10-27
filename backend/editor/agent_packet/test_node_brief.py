@@ -658,3 +658,31 @@ def test_storyboard_section_only_for_cards_with_a_storyboard(tmp_path):
         assert moment["comment"] == "Plošší." and moment["annotationsText"] == ["poznámka u (0.50, 0.80): stín"]
         assert "storyboard.moments[].comment" in result["trust"]["instructions"]
         assert "storyboard" not in brief(client, "dalsi").json()
+
+
+def test_page_intent_and_sections_travel_in_site_and_nav_label_in_navigation(tmp_path):
+    """Stránka nese goal, feel, navLabel a sekce (etapa 3a); brief je kopíruje beze změny a bez výchozích hodnot."""
+    page_site = {"kind": "page", "path": "/kontakt", "goal": "Poptávka odeslaná do 2 minut",
+                 "feel": "klidně, důvěryhodně", "navLabel": "Kontakt",
+                 "sections": [{"id": "form", "role": "cta", "name": "Formulář", "intent": "Jméno, e-mail, popis"}]}
+    graph = {"nodes": [
+        {"id": "app", "parentId": None, "kind": "sector", "name": "Web", "purpose": "", "x": 0, "y": 0,
+         "site": {"kind": "application", "environments": []}},
+        {"id": "home", "parentId": "app", "kind": "node", "name": "Domů", "purpose": "", "x": 0, "y": 0,
+         "site": {"kind": "page", "path": "/"}},
+        {"id": "kontakt", "parentId": "app", "kind": "node", "name": "Kontakt", "purpose": "", "x": 300, "y": 0,
+         "site": page_site},
+        {"id": "formular", "parentId": "kontakt", "kind": "node", "name": "Formulář", "purpose": "", "x": 0, "y": 0},
+    ], "edges": []}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        view = client.get("/api/view", params=SCOPE).json()
+        saved = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": graph, "digest": view["digest"]})
+        assert saved.status_code == 200, saved.text
+        page_brief = brief(client, "kontakt").json()
+        assert page_brief["node"]["site"] == page_site
+        component = brief(client, "formular").json()
+        assert [item.get("site") for item in component["context"]["ancestors"]][-1] == page_site
+        assert component["specification"]["navigation"] == [{"domainId": "app", "pages": [
+            {"nodeId": "home", "parentPageId": None},
+            {"nodeId": "kontakt", "parentPageId": None, "navLabel": "Kontakt"},
+        ]}]

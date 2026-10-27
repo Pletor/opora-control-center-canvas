@@ -2,13 +2,16 @@ import type { ReactNode } from "react";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { ProductBranch } from "@/project/product-tree/logic/product-tree";
 import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
+import PageSections from "./PageSections";
 
 function rows(branches: ProductBranch[], onOpen: (id: string) => void, depth: number) {
   return branches.map(({ node, children }) => <li key={node.id} data-testid={"architecture-tree-" + node.id}>
     <button type="button" className={"domain-map__page-link" + (depth ? " domain-map__page-link--sub" : "")} title={`ID stránky: ${node.id}`} data-testid={"architecture-open-" + node.id} onClick={() => onOpen(node.id)}>
       <span>{depth ? "↳ " : ""}{node.name}</span>
       {node.site?.kind === "page" && node.site.path && <small className="domain-map__page-path">{node.site.path}</small>}
+      {node.site?.kind === "page" && node.site.goal && <small className="domain-map__goal" title={node.site.goal}>{node.site.goal}</small>}
     </button>
+    {node.site?.kind === "page" && <PageSections sections={node.site.sections}/>}
     {children.length > 0 && <ul className="domain-map__page-list">{rows(children, onOpen, depth + 1)}</ul>}
   </li>);
 }

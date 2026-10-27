@@ -1,6 +1,7 @@
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { ProductBranch } from "@/project/product-tree/logic/product-tree";
 import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
+import PageSections from "./PageSections";
 
 type Actions = {
   disabled: boolean; onOpen: (id: string) => void; onAdd: (parentId: string) => void; onEdit: (node: CanvasNode) => void;
@@ -27,7 +28,9 @@ export default function PageCard({ branch, index, count, actions, work }: { bran
       <button type="button" className="domain-map__sub-add" disabled={disabled} data-testid={"architecture-add-page-" + node.id} onClick={() => actions.onAdd(node.id)}>+ Podstránka</button>
     </header>
     {node.site?.kind === "page" && <code className="domain-map__path">{node.site.path}</code>}
+    {node.site?.kind === "page" && node.site.goal && <p className="domain-map__goal" title={node.site.goal} data-testid={"architecture-page-goal-" + node.id}>{node.site.goal}</p>}
     {node.purpose && <p className="domain-map__card-purpose">{node.purpose}</p>}
+    {node.site?.kind === "page" && <PageSections sections={node.site.sections}/>}
     <div className="domain-map__subpages">
       {children.map((child, i) => <PageCard key={child.node.id} branch={child} index={i} count={children.length} actions={actions} work={work}/>)}
       {!children.length && <p className="domain-map__empty">Zatím bez podstránek</p>}

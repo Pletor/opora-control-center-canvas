@@ -292,7 +292,11 @@ Odpověď `{scene, revision, readOnly, available, source}`.
 
 Kdy mě číst: hledáš domény a stránky projektu, kdo na které doméně pracuje, jestli běží web, nebo
 worktree a relace. Kontrakt: `docs/domeny-a-worktree.md`. Architektura (uzly se `site`: doména
-`site.kind="application"` s jedním prostředím `{name, host}`, stránka `site.kind="page"`) je jedna pro
+`site.kind="application"` s jedním prostředím `{name, host}`, stránka `site.kind="page"` s `path` a nepovinnými
+`goal` (cíl, 1–200), `feel` (působení, 1–120), `navLabel` (popisek v menu, 1–40) a `sections`
+(`[{id, role, name, intent}]`, 1–20; role `hero|cta|form|content|gallery|proof|faq|footer|custom`); prázdné
+pole se vynechá, výchozí hodnoty se nedoplňují; `node-brief` je nese v `node.site`, `navLabel` i v
+`specification.navigation`) je jedna pro
 projekt nad všemi worktree; `/api/view` ji skládá s obsahem prostoru a vrací navíc `architectureEditable`
 a `architectureRevision`. Worktree patří jedné doméně (`nodeId`); `main`/`draft` je prostor hlavní relace.
 
