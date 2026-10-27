@@ -7,6 +7,8 @@ import { dropCard, type Rect } from "@/editor/canvas/area/logic/area-growth";
 import { useAreaGrowth } from "@/editor/canvas/area/logic/use-area-growth";
 import { viewportShowsAllNodes } from "../logic/viewport-visibility";
 import PortZoomVar from "@/shared/flow-ports/components/PortZoomVar";
+import { edgeHintText } from "../edge-hint/logic/edge-hint";
+import EdgeHint from "../edge-hint/components/EdgeHint";
 import ArchitectureCard, { type ArchitectureNode, type CardActions } from "../map-card/components/ArchitectureCard";
 
 const nodeTypes = { architecture: ArchitectureCard };
@@ -37,6 +39,7 @@ export default function ArchitectureCanvas(props: Props) {
   const { graph, scopeId, editorId, selected, disabled, revealId } = props;
   const flow = useRef<ReactFlowInstance<ArchitectureNode> | null>(null);
   const stage = useRef<HTMLDivElement | null>(null);
+  const [hovered, setHovered] = useState<{ edgeId: string; x: number; y: number } | null>(null);
   const latest = useRef(props); latest.current = props;
   const actions = useMemo<CardActions>(() => ({
     select: (id) => latest.current.onSelect(id), openStructure: (id) => latest.current.onOpenStructure(id),
@@ -87,6 +90,11 @@ export default function ArchitectureCanvas(props: Props) {
       markerEnd: { type: MarkerType.ArrowClosed, color: look.color, width: 16, height: 16 },
       style: { stroke: look.stroke, strokeWidth: look.width, strokeDasharray: look.dash } };
   });
+  const hoverAt = (event: { clientX: number; clientY: number }, edgeId: string) => {
+    const box = stage.current?.getBoundingClientRect();
+    if (box) setHovered({ edgeId, x: event.clientX - box.left, y: event.clientY - box.top });
+  };
+  const hoveredEdge = hovered ? graph.edges.find((edge) => edge.id === hovered.edgeId) : undefined;
   return <div className="page-editor__canvas" data-testid="architecture-canvas" ref={stage}
     onDragOver={(event) => { if (!disabled && event.dataTransfer.types.includes(CATALOG_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
     onDrop={(event) => {
@@ -106,6 +114,7 @@ export default function ArchitectureCanvas(props: Props) {
         if (!viewportShowsAllNodes(viewport, size, boxes)) requestAnimationFrame(() => { void instance.fitView({ maxZoom: 1, padding: 0.15 }); });
       }} defaultViewport={viewport ?? DEFAULT_VIEWPORT} fitView={!viewport} fitViewOptions={{ maxZoom: 1, padding: 0.15 }} minZoom={0.2} maxZoom={1.6} elevateNodesOnSelect={false}
       onNodesChange={(changes) => setNodes((old) => applyNodeChanges(changes, old))} nodesDraggable={!disabled} nodesConnectable={!disabled}
+      onEdgeMouseEnter={(event, edge) => hoverAt(event, edge.id)} onEdgeMouseMove={(event, edge) => hoverAt(event, edge.id)} onEdgeMouseLeave={() => setHovered(null)}
       onNodeClick={(_, node) => props.onSelect(node.id)} onPaneClick={() => props.onSelect(null)}
       onNodeDoubleClick={(_, node) => { const card = node.data.node; if (card.site?.kind === "page") props.onOpenPage(node.id); else if (card.kind === "node" || card.kind === "sector") props.onOpenStructure(node.id); }}
       onNodeDragStart={(_, node) => { if (node.data.node.kind !== "area") growth.begin(node.data.node, graph.nodes, bodies()); }}
@@ -130,5 +139,6 @@ export default function ArchitectureCanvas(props: Props) {
       <Controls showInteractive={false}/>
       <PortZoomVar/>
     </ReactFlow>
+    {hovered && hoveredEdge ? <EdgeHint hint={edgeHintText(hoveredEdge, graph)} x={hovered.x} y={hovered.y}/> : null}
   </div>;
 }
