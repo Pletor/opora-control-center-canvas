@@ -119,3 +119,17 @@ def test_relevant_graph_changes_still_invalidate_assignment(tmp_path, change):
         graph(client, value)
         assert brief(client)["contextVersion"] != assignment["contextVersion"]
         assert send(client, result_request(assignment)).status_code == 409
+
+
+def test_customer_journeys_are_not_part_of_the_scoped_assignment():
+    """Záznam zachycený, když spec ještě nesla `site.journeys`, se po projekci shoduje s dnešním (§4)."""
+    from backend.editor.agent_packet.assignment_scope import same_assignment, scoped_specification
+
+    site = {"kind": "application", "environments": []}
+
+    def spec(app_site):
+        return {"cards": [{"nodeId": "app"}], "graph": {"nodes": [{"id": "app", "site": app_site}], "edges": []}}
+    legacy = spec({**site, "journeys": [{"id": "j", "name": "J", "from": "nav", "to": "p"}]})
+    assert scoped_specification(legacy) == scoped_specification(spec(site))
+    assert same_assignment({"contextVersion": "old", "specification": legacy},
+                           {"contextVersion": "new", "specification": spec(site)})

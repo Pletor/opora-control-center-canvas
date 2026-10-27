@@ -105,6 +105,10 @@
 .domain-map__journey-end{padding:1px 6px;border-radius:6px;border:1px solid var(--ae-line);font-size:11px}
 .domain-map__journey-end--missing{border-color:var(--warn-line);color:var(--warn)}
 .domain-map__journey-arrow{color:var(--ae-muted)}
+/* Odvozená řada kroků leží na vlastním řádku pod koncem cesty, drobným strojovým písmem: je to výsledek, který spočítal
+   stroj z vazeb, ne text, který člověk píše. Přerušená cesta svítí varovně a říká proč, aby člověk věděl, co na mapě chybí. */
+.domain-map__journey-line{flex-basis:100%;font:11px/1.4 var(--mono, ui-monospace, monospace);color:var(--ae-muted);overflow-wrap:anywhere}
+.domain-map__journey-line--broken{color:var(--warn)}
 .domain-map__journey-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto minmax(0,1fr) auto;gap:4px;align-items:center}
 .domain-map__journey-row input,.domain-map__journey-row select{width:100%;min-width:0}
 .domain-map__journey-row button{padding:3px 8px;font-size:11px;border-radius:7px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-text);cursor:pointer}

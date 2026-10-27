@@ -366,3 +366,11 @@ def test_drawing_reads_sketch_layer_and_summarizes(net, monkeypatch, capsys):
     assert calls[-1]['method'] == 'GET' and calls[-1]['query']['layer'] == ['sb/n1/m-3f9a1c2e']
     code, _, err = run(monkeypatch, capsys, 'drawing', *SCOPE)
     assert code == 1 and '--layer' in err
+
+
+def test_node_brief_summary_carries_architecture_slice_only_when_present():
+    architecture = {'journeys': [{'id': 'j', 'line': 'nav → /kontakt[form] → /dekujeme', 'youAre': 1}],
+                    'page': {'path': '/kontakt'}}
+    data = {'node': {}, 'architecture': architecture}
+    assert opora_read.summary('node-brief', data, None, None)['architecture'] == architecture
+    assert 'architecture' not in opora_read.summary('node-brief', {'node': {}}, None, None)

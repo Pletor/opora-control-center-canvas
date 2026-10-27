@@ -61,6 +61,7 @@ from backend.editor.agent_packet.effective_rules import effective_rules, propose
 from backend.editor.agent_packet.sector_status import sector_status
 from backend.editor.agent_packet.specification_context import capture_specification
 from backend.editor.agent_packet.upstream_context import upstream_context
+from backend.project.architecture.node_architecture import node_architecture
 from backend.project.maps.graphify_runtime import writable
 from backend.project.maps.map_artifacts import main_project_root
 
@@ -508,6 +509,11 @@ class NodeBrief:
         brief["usage"] = {"own": usage["nodes"][node_id], "sector": usage["sectors"].get(node_id),
                           "source": usage["source"], "mode": usage["mode"]}
         brief["evidence"] = redact_deep(node_state.get("evidence"))
+        # Výřez mapy architektury (docs/architektura-pro-agenty.md §4): jen karta pod stránkou, mimo `specification`,
+        # takže `contextVersion` nemění; cesty zákazníka jsou odvozené ze stejného grafu.
+        architecture = node_architecture(graph, node_id)
+        if architecture is not None:
+            brief["architecture"] = redact_deep(architecture)
         # Kontrolní pás: deset polí ano / ne; `hint` říká, co doplnit a kam (stejný výpočet jako plátno).
         brief["checklist"] = card_items(node, node_state, captured_spec_fields(self.canvas, project, workspace, node_id),
                                         (brief.get("content") or {}).get("text", ""), graph["edges"], stored["state"].get("edges", {}))

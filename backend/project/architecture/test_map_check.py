@@ -100,3 +100,18 @@ def test_malformed_optional_fields_are_read_defensively():
     graph = {"nodes": [APP, page("p", goal=5, sections="x"), node("a", "p", card="bad")],
              "edges": [edge("e1", "a", "p", carries="command")]}
     assert rules(check_map(graph)) == [("page.no-goal", "p"), ("state.no-error", "a")]
+
+
+def test_broken_journeys_are_reported_first_with_their_id_and_reason():
+    app = node("app", kind="sector", site={"kind": "application", "environments": [], "journeys": [
+        {"id": "ok", "name": "Prochází", "from": "a", "to": "b"},
+        {"id": "gone", "name": "Bez cíle", "from": "nav", "to": "smazana"},
+        {"id": "cut", "name": "Přerušená", "from": "b", "to": "a"}]})
+    graph = {"nodes": [app, page("a", goal="g"), page("b", goal="g")],
+             "edges": [edge("e1", "a", "b", carries="navigation")]}
+    result = check_map(graph)
+    assert [(f["rule"], f["journeyId"]) for f in result["findings"]] == [("journey.broken", "gone"),
+                                                                        ("journey.broken", "cut")]
+    assert result["findings"][0]["message"] == "Cesta Bez cíle: chybí stránka smazana, kam cesta vede."
+    assert "nevede souvislá řada" in result["findings"][1]["message"]
+    assert result["summary"]["journey.broken"] == 2 and RULES[0] == "journey.broken"

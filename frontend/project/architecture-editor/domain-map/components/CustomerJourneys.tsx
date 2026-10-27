@@ -3,12 +3,14 @@ import type { ApplicationSite, CanvasNode } from "@/shared/types/logic/types";
 import { productFingerprint, type ProductDraft } from "@/project/product-tree/logic/product-tree";
 import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import { journeysForSave, journeyEndLabel } from "../logic/journeys";
+import { derivedForDomain, derivedJourneyText, type DerivedJourney } from "../logic/derived-journeys";
 import CustomerJourneysEditor from "./CustomerJourneysEditor";
 
-/** Cesty zákazníka A → B celé domény: v klidu seznam „název: začátek → cíl“, po „Upravit cesty“ editor řádků.
- * Kroky mezi začátkem a cílem nezadává nikdo, odvodí je stroj z vazeb. Ukládá rodič přes `onSave` (stejně jako formulář domény). */
-export default function CustomerJourneys({ domain, site: saved, pages, disabled, onSave }: {
-  domain: CanvasNode; site: ApplicationSite; pages: CanvasNode[]; disabled: boolean; onSave: (draft: ProductDraft) => Promise<void>;
+/** Cesty zákazníka A → B celé domény: v klidu seznam „název: začátek → cíl“ a pod ním odvozená řada kroků (nebo proč je
+ * cesta přerušená), po „Upravit cesty“ editor řádků. Kroky mezi začátkem a cílem nezadává nikdo, odvodí je backend z vazeb
+ * (`derived`, hotová data od rodiče). Ukládá rodič přes `onSave` (stejně jako formulář domény). */
+export default function CustomerJourneys({ domain, site: saved, pages, derived, disabled, onSave }: {
+  domain: CanvasNode; site: ApplicationSite; pages: CanvasNode[]; derived: DerivedJourney[] | null; disabled: boolean; onSave: (draft: ProductDraft) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<ApplicationSite | null>(null);
   const [error, setError] = useState("");
@@ -17,6 +19,7 @@ export default function CustomerJourneys({ domain, site: saved, pages, disabled,
     dirty: draft !== null && JSON.stringify(journeysForSave(draft)) !== JSON.stringify(saved), pending: saving,
     blocked: "Nejprve uložte nebo zrušte úpravu cest zákazníka." });
   const journeys = saved.journeys ?? [];
+  const steps = derivedForDomain(derived ?? [], domain.id);
   async function save(site: ApplicationSite) {
     setSaving(true); setError("");
     try {
@@ -29,6 +32,10 @@ export default function CustomerJourneys({ domain, site: saved, pages, disabled,
     const { label, missing } = journeyEndLabel(id, pages);
     return <span className={"domain-map__journey-end" + (missing ? " domain-map__journey-end--missing" : "")}>{label}</span>;
   };
+  const line = (id: string) => {
+    const shown = derivedJourneyText(steps.get(id));
+    return shown && <span className={"domain-map__journey-line" + (shown.broken ? " domain-map__journey-line--broken" : "")} data-testid={"architecture-journey-line-" + id}>{shown.text}</span>;
+  };
   return <section className="domain-map__journeys" data-testid="architecture-journeys">
     <header className="domain-map__journeys-head">
       <h3 className="domain-map__list-title">Cesty zákazníka A → B</h3>
@@ -40,6 +47,7 @@ export default function CustomerJourneys({ domain, site: saved, pages, disabled,
       : journeys.length
         ? <ol className="domain-map__journey-list">{journeys.map((journey) => <li key={journey.id} className="domain-map__journey" data-testid={"architecture-journey-" + journey.id}>
             <strong>{journey.name}</strong>{end(journey.from)}<span aria-hidden="true" className="domain-map__journey-arrow">→</span>{end(journey.to)}
+            {line(journey.id)}
           </li>)}</ol>
         : <p className="domain-map__empty">{pages.length ? "Zatím bez cest. Cesta říká, odkud kam má zákazník dojít; je zároveň zadáním i testem." : "Cesty půjdou zadat, až doména bude mít stránky."}</p>}
   </section>;

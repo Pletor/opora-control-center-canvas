@@ -5,11 +5,22 @@ import json
 from backend.canvas.graph import digest
 
 
+def without_journeys(node):
+    """Uzel bez cest zákazníka aplikace (`site.journeys`): cesty nejsou zadání karty, karta je dostane odvozené
+    v `node-brief.architecture` (architektura-pro-agenty §4), takže přidání cesty `contextVersion` nemění."""
+    site = node.get("site")
+    if isinstance(site, dict) and "journeys" in site:
+        return {**node, "site": {key: value for key, value in site.items() if key != "journeys"}}
+    return node
+
+
 def scoped_specification(specification):
     """Project the graph using the captured context, never today's graph or card content.
 
     Old records included every graph node. Keep those records immutable; use the same
     projection on both sides for comparison. Ordered navigation remains significant.
+    Customer journeys of an application are not part of a card's assignment (`without_journeys`);
+    records captured while they still were compare equal once they are dropped on both sides.
     """
     if not isinstance(specification, dict) or "cards" not in specification:
         return specification
@@ -21,7 +32,7 @@ def scoped_specification(specification):
     endpoints = {identifier for edge in flows for identifier in (edge["source"], edge["target"])}
     flow_ids = {edge["id"] for edge in flows}
     return {**specification, "graph": {
-        "nodes": sorted((node for node in graph["nodes"] if node["id"] in related | areas | endpoints),
+        "nodes": sorted((without_journeys(node) for node in graph["nodes"] if node["id"] in related | areas | endpoints),
                         key=lambda node: node["id"]),
         "edges": sorted((edge for edge in graph["edges"]
                          if edge["id"] in flow_ids or
