@@ -28,11 +28,11 @@
 .card-drawer__holder { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; color: var(--accent); }
 .card-drawer__avatar { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 10px; }
 
-/* Definice hotovo: šest stejně širokých pruhů; plný = splněno, částečný = rozpracováno, čárkovaný = nenapojeno.
+/* Definice hotovo: sedm stejně širokých pruhů (s ověřením cesty zákazníka); plný = splněno, částečný = rozpracováno, čárkovaný = nenapojeno.
    Poslední dílek (uzavřel člověk) je zlatý, protože ho nikdy neudělá agent. */
 .card-drawer__dod { display: grid; gap: 5px; }
 .card-drawer__dod-label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
-.card-drawer__dod-bars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.card-drawer__dod-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .card-drawer__dod-seg { display: grid; gap: 4px; min-width: 0; }
 .card-drawer__dod-track { display: block; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
 .card-drawer__dod-fill { display: block; height: 100%; background: var(--accent); }

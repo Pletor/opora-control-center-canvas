@@ -83,4 +83,12 @@ describe("pruh sekcí", () => {
   it("stránka bez sekcí nemá pruh", () => {
     expect(sectionChips(graph, "dekujeme")).toEqual([]);
   });
+
+  it("nese odznak ověření cesty z posledního dokladu, bez odvození ne", () => {
+    const derived = new Map<string, DerivedJourney>([["poptavka", { applicationId: "app", id: "poptavka", missing: [], segments: [],
+      lastRun: { at: "2026-10-27T21:40:00Z", passed: false, stale: false, command: "run", failed: 1, firstFailure: { from: "s2", to: "s3" } } }]]);
+    const [slice] = pageSlices(site, "kontakt", pages, derived);
+    expect(slice.verification).toMatchObject({ tone: "failed", text: "Neprošlo: s2 → s3" });
+    expect(pageSlices(site, "kontakt", pages)[0].verification).toBeUndefined();
+  });
 });

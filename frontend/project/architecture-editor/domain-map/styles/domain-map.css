@@ -106,6 +106,14 @@
 .domain-map__journey-point{margin:0;padding-left:2px;line-height:1.4}
 .domain-map__journey-point--b{margin-top:2px}
 .domain-map__journey-point-mark{color:var(--ae-accent)}
+/* Odznak ověření vedle názvu cesty: malá pilulka, která řekne, jestli web cestu opravdu unese. Zelená „Ověřeno“
+   uklidní, žlutá „zastaralé“ a červená „Neprošlo“ upozorní, že karty na cestě se zatím neuzavřou; „Neověřeno“ je tiché,
+   je to práce, ne chyba. Čas běhu stojí za textem drobněji, aby oko nejdřív četlo stav. */
+.domain-map__journey-verified{display:inline-flex;align-items:baseline;gap:6px;margin-left:8px;padding:1px 8px;border:1px solid var(--ae-line);border-radius:999px;font-size:11px;color:var(--ae-muted)}
+.domain-map__journey-verified--ok{border-color:var(--ok);color:var(--ok)}
+.domain-map__journey-verified--stale{border-color:var(--warn);color:var(--warn)}
+.domain-map__journey-verified--failed{border-color:var(--danger);color:var(--danger)}
+.domain-map__journey-verified-time{font-size:10px;opacity:.8}
 /* Rozbitá cesta (chybí stránka kroku) svítí varovně a říká proč: tohle musí opravit člověk, ne agent. */
 .domain-map__journey-broken{margin:0;color:var(--warn)}
 .domain-map__journey-problem{color:var(--warn)}

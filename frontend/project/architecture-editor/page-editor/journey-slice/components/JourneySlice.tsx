@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { PageSlice, SectionChip } from "../logic/page-slice";
 import SliceRow from "./SliceRow";
 import SectionStrip from "./SectionStrip";
+import SliceVerification from "./SliceVerification";
 import "../styles/journey-slice.css";
 
 type Props = {
@@ -28,6 +29,7 @@ export default function JourneySlice({ slices, sections, onOpenPage, onOpenJourn
           {slices.map((item, at) => <button key={item.journeyId + ":" + item.stepId} type="button" className="journey-slice__switch-item"
             aria-pressed={at === index} onClick={() => setChosen(at)}>{item.journeyName} · {item.step}.</button>)}
         </div> : <strong className="journey-slice__name">{slice.journeyName}</strong>}
+        <SliceVerification badge={slice.verification}/>
         {slice.broken && <span className="journey-slice__broken">Cesta je přerušená: {slice.broken}</span>}
         <button type="button" className="journey-slice__edit" data-testid="architecture-slice-edit" onClick={() => onOpenJourneys(slice.journeyId)}>Upravit cestu</button>
       </header>

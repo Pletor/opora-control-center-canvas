@@ -1,10 +1,10 @@
 import type { CardEntry } from "./card-header";
 
-// Jediná definice hotovo (kontrakt §3) jako šest dílků v hlavičce: kroky · akceptace karty · brána ·
-// sloučeno · plán zapsán · uzavřel člověk. Zdrojem je backendové `cards[].dod` (opora_card_done, šest
-// booleanů + druh brány). Výpočet na klientovi (`computeDod`) je jen náhrada pro starší server bez `dod`;
+// Jediná definice hotovo (kontrakt §3) jako sedm dílků v hlavičce: kroky · akceptace karty · brána ·
+// sloučeno · plán zapsán · cesta ověřena · uzavřel člověk. Zdrojem je backendové `cards[].dod` (opora_card_done,
+// boolean na požadavek + druh brány; u nesplněné brány cesty i `blockingJourneys`, docs/brana-cesty.md §5). Výpočet na klientovi (`computeDod`) je jen náhrada pro starší server bez `dod`;
 // z něj se u backendového stavu bere jen odstín „rozpracováno“ u nesplněných dílků.
-export const DOD_KEYS = ["steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "human_close"] as const;
+export const DOD_KEYS = ["steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "journeys", "human_close"] as const;
 export type DodKey = typeof DOD_KEYS[number];
 export type DodState = "done" | "active" | "todo" | "unknown";
 export type DodSegment = { key: DodKey; label: string; state: DodState; detail: string; progress: number };
@@ -14,7 +14,7 @@ export type DodView = { source: "backend" | "computed"; done: boolean; segments:
 
 const LABEL: Record<DodKey, string> = {
   steps: "Kroky", card_acceptance: "Akceptace karty", gate_ready: "Brána", merged: "Sloučeno",
-  plan_written_back: "Plán zapsán", human_close: "Uzavřel člověk",
+  plan_written_back: "Plán zapsán", journeys: "Cesta ověřena", human_close: "Uzavřel člověk",
 };
 
 export type DodFacts = {
@@ -31,10 +31,11 @@ export type DodFacts = {
   closed?: boolean;
 };
 
-/** Backendové `dod`: šest booleanů pod jmény požadavků (agent-state), nebo jen `{done, missing: [klíč]}`. */
+/** Backendové `dod`: boolean pod jménem každého požadavku (agent-state), nebo jen `{done, missing: [klíč]}`.
+ * Starší server bez brány cesty `journeys` nenese: ta se pak bere jako splněná (karta mimo cesty). */
 export function backendDod(raw: unknown): Record<DodKey, boolean> | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const value = raw as Record<string, unknown>;
+  const value: Record<string, unknown> = { journeys: true, ...(raw as Record<string, unknown>) };
   if (DOD_KEYS.every(key => typeof value[key] === "boolean"))
     return Object.fromEntries(DOD_KEYS.map(key => [key, value[key]])) as Record<DodKey, boolean>;
   if (Array.isArray(value.missing)) {
@@ -68,11 +69,23 @@ export function computeDod(facts: DodFacts): Record<DodKey, DodState> {
     gate_ready: gate === "ready" || merged ? "done" : gate === "blocked" || gate === "pending" ? "active" : "todo",
     merged: merged ? "done" : facts.prState === "open" ? "active" : "todo",
     plan_written_back: writtenBack ? "done" : merged ? "active" : "todo",
+    // Ověření cest klient sám nezjistí: bez backendového `dod` jen uzavřená karta je jistě ověřená.
+    journeys: closed ? "done" : "unknown",
     human_close: closed ? "done" : reason === "awaiting_human_close" ? "active" : "todo",
   };
 }
 
-/** Šest dílků definice hotovo v pevném pořadí kontraktu. */
+/** Cesty, které brání uzavření (backend `dod.blockingJourneys`): „Kampaň: zastaralé; …“, jinak prázdný text. */
+export function blockingJourneysText(raw: unknown): string {
+  const list = raw && typeof raw === "object" ? (raw as Record<string, unknown>).blockingJourneys : null;
+  if (!Array.isArray(list)) return "";
+  return list.flatMap((item) => {
+    const { name, reason } = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    return typeof name === "string" && typeof reason === "string" ? [`${name}: ${reason}`] : [];
+  }).join("; ");
+}
+
+/** Dílky definice hotovo v pevném pořadí kontraktu. */
 export function dodView(facts: DodFacts): DodView {
   const fromBackend = backendDod(facts.card?.dod);
   const gate = fromBackend ? backendGate(facts.card?.dod) : null;
@@ -82,6 +95,7 @@ export function dodView(facts: DodFacts): DodView {
     const state: DodState = fromBackend ? (fromBackend[key] ? "done" : computed[key] === "active" ? "active" : "todo") : computed[key];
     const progress = key === "steps" ? (state === "done" ? 1 : steps.progress) : state === "done" ? 1 : 0;
     const detail = key === "steps" ? steps.detail : key === "gate_ready" && gate === "external" ? "GitHub"
+      : key === "journeys" && state !== "done" ? blockingJourneysText(facts.card?.dod)
       : state === "unknown" ? "nenapojeno" : "";
     return { key, label: LABEL[key], state, detail, progress };
   });

@@ -143,6 +143,6 @@ def test_agent_state_cards_carry_dod_and_step_items(stepped, service):
     dod = entry["dod"]
     assert {key: dod[key] for key in REQUIREMENTS} == {
         "steps": True, "card_acceptance": True, "gate_ready": False, "merged": False,
-        "plan_written_back": False, "human_close": False}
+        "plan_written_back": False, "journeys": True, "human_close": False}
     assert dod["gate"] == "review" and dod["done"] is False
     assert dod["missing"] == ["gate_ready", "merged", "plan_written_back", "human_close"]

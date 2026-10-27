@@ -693,6 +693,11 @@ class DesktopV3State:
                         scenario_run = node.get("scenarioRun", {})
                         if scenario and (scenario_run.get("command") != scenario["command"] or scenario_run.get("failed") != 0):
                             raise ValueError("Uzavření brány vyžaduje úspěšný běh jejího aktuálního scénáře.")
+                        # Karta na cestě zákazníka: každá její cesta má prošlý a čerstvý doklad (docs/brana-cesty.md §5).
+                        from backend.canvas.opora_card_done import journeys_blocking, journeys_refusal
+                        blocking = journeys_blocking(self.canvas, project, workspace, node_id, view["graph"])
+                        if blocking:
+                            raise ValueError(journeys_refusal(blocking))
                     if done["by"] == "autonomy" and done != previous_done and node_id not in autonomy_close:
                         raise ValueError("Uzavření ve svěřené autonomii zapisuje jen výstup agenta (agent-output).")
                 # Hromadný zápis stavu nesmí obejít zámek, který hlídá adresné API bloků.

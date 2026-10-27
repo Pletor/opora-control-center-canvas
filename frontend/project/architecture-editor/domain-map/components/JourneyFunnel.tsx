@@ -2,10 +2,12 @@ import type { CanvasNode, CustomerJourney } from "@/shared/types/logic/types";
 import { previousStepId, stepName, stepPageLabel, stepSignal } from "../logic/journeys";
 import { derivedStepState, type DerivedJourney } from "../logic/derived-journeys";
 import JourneyFunnelLink from "./JourneyFunnelLink";
+import JourneyVerification from "./JourneyVerification";
 
 /** Klidové zobrazení jedné cesty jako proměny zákazníka: název a účel, pro koho a bod A nahoře, pod tím trychtýř kroků
  * (role · stránka, posun, menším písmem námitka) se signálem přechodu na šipkách a dole bod B. Bez čísel. Chybějící
- * stránku ukáže varovně, nerealizovaný přechod tichým štítkem (`derived` od rodiče). */
+ * stránku ukáže varovně, nerealizovaný přechod tichým štítkem (`derived` od rodiče); vedle názvu odznak ověření cesty
+ * posledním dokladem přehrání (docs/brana-cesty.md §4). */
 export default function JourneyFunnel({ journey, pages, derived, disabled, onEdit }: {
   journey: CustomerJourney; pages: CanvasNode[]; derived: DerivedJourney | undefined; disabled: boolean; onEdit: () => void;
 }) {
@@ -13,6 +15,7 @@ export default function JourneyFunnel({ journey, pages, derived, disabled, onEdi
     <header className="domain-map__journey-head">
       <div>
         <strong className="domain-map__journey-name">{journey.name}</strong>
+        <JourneyVerification journeyId={journey.id} derived={derived}/>
         {journey.purpose && <p className="domain-map__journey-purpose">{journey.purpose}</p>}
       </div>
       <button type="button" className="domain-map__section-add" disabled={disabled} data-testid={"architecture-journey-edit-" + journey.id} onClick={onEdit}>Upravit</button>

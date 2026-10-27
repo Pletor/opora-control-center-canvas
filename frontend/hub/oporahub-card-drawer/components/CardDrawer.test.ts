@@ -37,11 +37,11 @@ const data = {
 const html = (type: unknown, props: object) => renderToStaticMarkup(createElement(type as never, props as never));
 
 describe("card drawer rendering", () => {
-  it("header carries status, holder and six dod segments as data-oh attributes", () => {
+  it("header carries status, holder and seven dod segments as data-oh attributes", () => {
     const markup = html(DrawerHeader, { title: "Lease a heartbeat", nodeId: "card-lease", kind: "code", trail: "Backend · pořadí 2", status: statusLine(card),
       lease: "04:12", holder: "codex-2", dod: dodView({ card }), onClose: () => {} });
     expect(markup).toContain('data-oh-close="card-drawer"');
-    expect(markup.match(/data-oh-dod="/g)).toHaveLength(6);
+    expect(markup.match(/data-oh-dod="/g)).toHaveLength(7);
     expect(markup).toContain('data-oh-dod="steps" data-oh-dod-state="active"');
     expect(markup).toContain("Kroky 3/7");
     expect(markup).toContain('data-oh-value="codex-2"');

@@ -136,7 +136,8 @@ počet přijatých [kroků plánu](oporahub-plan-steps.md), počet hotových pod
 běhů (hotový krok zůstává hotový), ID prvního nehotového kroku (`null`) a `items`
 `[{id, status, executionId}]` po krocích v topologickém pořadí. Dále `dod` = [jediná definice
 hotovo](oporahub-plan-steps.md#jediná-definice-hotovo): `{steps, card_acceptance, gate_ready, merged,
-plan_written_back, human_close}` (booleany), `gate` (`review` / `external`), `done`, `missing`. Akce `claim` vzniká jen pro kartu s přijatými kroky;
+plan_written_back, journeys, human_close}` (booleany), `gate` (`review` / `external`), `done`, `missing`
+(a `blockingJourneys`, když brání cesta zákazníka, `docs/brana-cesty.md` §5). Akce `claim` vzniká jen pro kartu s přijatými kroky;
 stará pipeline `stages` připravenost neovlivňuje.
 
 ## Rozhodnutí a akce

@@ -12,7 +12,8 @@ průběh nebo hledáš kontext. Neaktivuj pro programování, které s plátnem 
 
 **Jeden zdroj stavu:** OporaHub `agent-state`. **Jeden model plánu:** přijatá revize
 verzovaná návrhy změn (changesety). **Jedna definice hotovo:** všechny kroky `done` +
-acceptance karty + brána review `ready` + merge + zápis do plánu + `close_card` člověkem.
+acceptance karty + brána review `ready` + merge + zápis do plánu + ověřená cesta zákazníka + `close_card` člověkem.
+Karta na cestě zákazníka se uzavře až po prošlém čerstvém ověření cesty (plán `journey-plan`, doklad `journey-runs`).
 Backend vede účetnictví, ty děláš jen práci uvnitř kroku.
 
 Projekt určují dvě hodnoty `<projectId>` a `<workspace>` (nikdy název projektu). `<SKILL_DIR>` je
