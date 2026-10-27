@@ -802,6 +802,16 @@ def test_architecture_slice_only_under_a_page_and_a_new_journey_keeps_the_contex
         save(client, [{"id": "poptavka", "name": "Poptávka z menu", "purpose": "Poptávka", "actor": "Firma",
                        "pointA": "Jiné A.", "pointB": "Jiné B.", "steps": steps}])
         assert brief(client, "formular").json()["contextVersion"] == plain["contextVersion"]
+        # Doklad přehrání cesty (docs/brana-cesty.md §4): brief nese jen `lastRun: {passed, stale}`, zadání nemění.
+        plan = client.get("/api/project-architecture/journey-plan", params={"project": "draft", "journey": "poptavka"}).json()
+        run = {"schema": "opora.journey-run/1", "applicationId": "app", "journeyId": "poptavka", "planDigest": plan["digest"],
+               "command": "runner", "at": "2026-10-27T21:40:00Z",
+               "segments": [{"from": s["from"], "to": s["to"], "ok": True} for s in plan["segments"]]}
+        assert client.post("/api/project-architecture/journey-runs", params={"project": "draft"}, headers=HEADERS,
+                           json=run).status_code == 200
+        verified = brief(client, "formular").json()
+        assert verified["architecture"]["journeys"][0]["lastRun"] == {"passed": True, "stale": False}
+        assert verified["contextVersion"] == plain["contextVersion"]
 
 
 def test_section_moves_is_part_of_the_page_assignment_and_reaches_the_component_slice(tmp_path):

@@ -22,7 +22,8 @@ Relace v `main`/`draft` jsou v `mainSessions`. Čisté funkce berou `now`; čten
 `{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}}` nad přijatým grafem (architektura složená
 s obsahem `main`, bez Gitu `draft`; čte ho `work_status.architecture_graph`). Bez modelu, deterministicky: pořadí
 pravidel, pak id. Pravidla `journey.broken`, `journey.unrealized`, `journey.via-unknown` (sekce signálu přechodu,
-kterou stránka předchozího kroku nemá), `page.no-goal`, `section.unrealized`, `section.unknown`,
+kterou stránka předchozího kroku nemá), `journey.unverified` (cesta bez prošlého a aktuálního dokladu přehrání;
+jen při čtení, doklady načte `map_check`), `page.no-goal`, `section.unrealized`, `section.unknown`,
 `command.no-receiver`, `state.no-error`, `edge.carries-unset`; komponenta je uzel pod nejbližší stránkou v řetězu
 `parentId`. Nová pole kontraktu se čtou jako nepovinná, nic se nedoplňuje.
 
@@ -36,7 +37,17 @@ stránku; nejkratší řada (BFS), remízy podle id. Vrací cestu s A → B a kr
 `missing`), `segments` `{from, to, line, realized}` a `line` kroků (`nav → /pestovani → /novinky`). Nerealizovaný
 segment cestu nerozbije (`journey.unrealized` v kontrole mapy), `broken` má cesta jen s chybějící stránkou kroku
 (`journey.broken`). Přesná pravidla jsou v docstringu modulu a v kontraktu §6. Čtení
-`GET /api/project-architecture/journeys?project=` (router vedle kontroly mapy).
+`GET /api/project-architecture/journeys?project=` (router vedle kontroly mapy), u každé cesty s dokladem i `lastRun`.
+
+## Brána cesty (`journey_plan.py`, `journey_runs.py`)
+
+Dodatek `docs/brana-cesty.md`. `journey_plan(graph, journey_id, application_id=None)` je čistá funkce: z odvozené
+cesty složí plán přehrání (`baseUrl`, segmenty `{from, to, open, scope, do, text?, expectPath}`, `digest`); čtení
+`GET /api/project-architecture/journey-plan?project=&journey=&application=`. `journey_runs.py` ověří doklad
+(`POST /api/project-architecture/journey-runs?project=`), odvodí `passed` a uloží ho append-only do tabulky
+`journey_runs` v `project.sqlite`; `last_runs` z posledních dokladů a aktuálních digestů skládá `lastRun`
+(`{at, passed, stale, command, failed, firstFailure?}`) pro `journeys`, `node-brief.architecture` a kontrolu mapy.
+Opora cestu nepřehrává; runner je etapa 8c.
 
 ## Výřez mapy pro agenta (`node_architecture.py`)
 

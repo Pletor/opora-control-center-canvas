@@ -1,7 +1,7 @@
 """Cesty zákazníka jako trychtýř stránek: přechody odvozené z mapy (`docs/architektura-pro-agenty.md` §6).
 
-`derive_journeys` je čistá funkce nad grafem (prosté slovníky), bez modelu a bez I/O; `project_journeys` k ní jen
-přečte přijatý graf projektu (stejně jako kontrola mapy). Člověk zadává cestu jako proměnu zákazníka (`actor`,
+`derive_journeys` je čistá funkce nad grafem (prosté slovníky), bez modelu a bez I/O; čtení nad přijatým grafem
+projektu s `lastRun` cest je `journey_runs.project_journeys`. Člověk zadává cestu jako proměnu zákazníka (`actor`,
 `pointA`, `pointB`) a kroky trychtýře (`site.journeys` aplikace: `steps[].page` = id stránky, u prvního kroku smí
 být `"nav"`, role `label`, posun `shift`, námitka `objection`, signál přechodu `via` a odbočka `after`); vazby mezi
 kroky se nikde neukládají, počítají se při každém čtení ze stejného grafu. Kroky i cesta se předávají beze změny.
@@ -46,7 +46,6 @@ zadal člověk (`nav → /pestovani → /novinky`).
 from collections import deque
 
 from backend.canvas.site_metadata import JOURNEY_FROM_NAV, card_section_error, nearest_page
-from backend.project.architecture.work_status import architecture_graph
 
 MOVING_CARRIES = frozenset({"navigation", "command", "data"})
 NAV_LABEL = "nav"
@@ -241,8 +240,3 @@ def derive_journeys(graph):
                            **{key: journey[key] for key in JOURNEY_FIELDS if isinstance(journey.get(key), str)},
                            **_derive(journey, application["id"], pages, by_id, components, moves)})
     return result
-
-
-def project_journeys(service, project):
-    """Odvozené cesty přijaté architektury projektu (`GET /api/project-architecture/journeys`)."""
-    return {"journeys": derive_journeys(architecture_graph(service, project))}

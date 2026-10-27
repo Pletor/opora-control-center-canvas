@@ -146,3 +146,38 @@ def test_via_section_must_exist_on_the_page_of_the_previous_step():
         "Cesta Kurz: krok Prodej čeká akci v sekci cta, kterou stránka /a nemá.",
         "Cesta Kurz: krok k4 čeká akci v sekci cta, kterou stránka /a nemá."]
     assert {f["journeyId"] for f in via_findings} == {"j"} and RULES[2] == "journey.via-unknown"
+
+
+def test_unverified_journey_is_reported_only_when_runs_are_given():
+    """`journey.unverified` (docs/brana-cesty.md §4): bez dokladu, se zastaralým nebo neprošlým; rozbitá cesta ne."""
+    from backend.project.architecture.journey_plan import journey_plan
+
+    def steps(*pages):
+        return [{"id": f"k{index}", "page": item} for index, item in enumerate(pages)]
+
+    app = node("app", kind="sector", site={"kind": "application", "environments": [], "journeys": [
+        {"id": "bez", "name": "Bez dokladu", "steps": steps("a", "b")},
+        {"id": "stara", "name": "Stará", "steps": steps("a", "b")},
+        {"id": "padla", "name": "Padlá", "steps": steps("a", "b")},
+        {"id": "ok", "name": "Prošlá", "steps": steps("a", "b")},
+        {"id": "gone", "name": "Bez cíle", "steps": steps("nav", "smazana")}]})
+    graph = {"nodes": [app, page("a", goal="g"), page("b", goal="g")],
+             "edges": [edge("e1", "a", "b", carries="navigation")]}
+
+    def run(journey, digest=None, ok=True, reason=None):
+        segment = {"from": "k0", "to": "k1", "ok": ok, **({"reason": reason} if reason else {})}
+        return {"applicationId": "app", "journeyId": journey, "at": "2026-10-27T21:40:00Z", "command": "runner",
+                "planDigest": digest or journey_plan(graph, journey)["digest"], "segments": [segment], "passed": ok}
+
+    runs = {("app", "stara"): run("stara", digest="sha256:" + "0" * 64), ("app", "padla"): run("padla", ok=False, reason="404"),
+            ("app", "ok"): run("ok")}
+    assert all(f["rule"] != "journey.unverified" for f in check_map(graph)["findings"])
+    findings = [f for f in check_map(graph, runs)["findings"] if f["rule"].startswith("journey.")]
+    assert findings == [
+        {"rule": "journey.broken", "journeyId": "gone", "message": "Cesta Bez cíle: chybí stránka smazana v kroku k1."},
+        {"rule": "journey.unverified", "journeyId": "bez", "message": "Cesta Bez dokladu: chybí ověření (doklad přehrání cesty)."},
+        {"rule": "journey.unverified", "journeyId": "stara",
+         "message": "Cesta Stará: ověření je zastaralé, mapa se od běhu změnila."},
+        {"rule": "journey.unverified", "journeyId": "padla", "message": "Cesta Padlá: neprošel přechod k0 → k1 (404)."}]
+    assert check_map(graph, runs)["summary"]["journey.unverified"] == 3
+    assert RULES[3] == "journey.unverified"

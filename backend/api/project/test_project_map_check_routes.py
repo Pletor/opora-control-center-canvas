@@ -1,26 +1,41 @@
+import json
+import sqlite3
+import threading
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.api.project.project_map_check_routes import create_project_map_check_router
+from backend.canvas.canvas_service import ProjectNotFound
+from database.schema.journey_run_schema import SCHEMA as JOURNEY_RUN_SCHEMA
 
 
 def make_client(source_kind="git"):
     journeys = [{"id": "j1", "name": "Na b", "steps": [{"id": "s1", "page": "nav"}, {"id": "s2", "page": "b"}]},
                 {"id": "j2", "name": "Domů", "steps": [{"id": "s1", "page": "nav"}, {"id": "s2", "page": "p", "shift": "Ví, kam dál."}]}]
-    graph = {"nodes": [{"id": "app", "parentId": None, "kind": "sector", "site": {"kind": "application", "journeys": journeys}},
+    graph = {"nodes": [{"id": "app", "parentId": None, "kind": "sector",
+                        "site": {"kind": "application", "journeys": journeys, "environments": [{"name": "Dev", "host": "localhost:3000"}]}},
                        {"id": "p", "parentId": "app", "kind": "node", "site": {"kind": "page", "path": "/"}},
                        {"id": "a", "parentId": "p", "kind": "node"}, {"id": "b", "parentId": "p", "kind": "node"}],
              "edges": [{"id": "e1", "source": "a", "target": "b"}]}
     seen = []
 
+    db = sqlite3.connect(":memory:", check_same_thread=False)
+    db.executescript(JOURNEY_RUN_SCHEMA)
+
+    def settings(project):
+        if project == "nikdo":
+            raise ProjectNotFound(project)
+        return {"project": {"sourceKind": source_kind}}
+
     def view(project, wid):
         seen.append((project, wid))
         return {"graph": graph}
 
-    service = SimpleNamespace(
-        project_hub=SimpleNamespace(settings=lambda project: {"project": {"sourceKind": source_kind}}), view=view)
+    service = SimpleNamespace(project_hub=SimpleNamespace(settings=settings), view=view, db_for=lambda project: db,
+                              reading=lambda project: nullcontext(), lock_for=lambda project: threading.RLock())
     app = FastAPI()
     app.include_router(create_project_map_check_router(service))
     return TestClient(app), seen
@@ -32,6 +47,8 @@ def test_map_check_reads_the_accepted_graph_and_returns_findings():
     assert seen == [("p1", "main")]
     assert body["findings"] == [{"rule": "journey.broken", "journeyId": "j1",
                                  "message": "Cesta Na b: chybí stránka b v kroku s2."},
+                                {"rule": "journey.unverified", "journeyId": "j2",
+                                 "message": "Cesta Domů: chybí ověření (doklad přehrání cesty)."},
                                 {"rule": "page.no-goal", "nodeId": "p", "message": "Stránka nemá cíl (goal)."},
                                 {"rule": "edge.carries-unset", "edgeId": "e1",
                                  "message": "Vazba neříká, co nese (carries)."}]
@@ -56,3 +73,59 @@ def test_journeys_returns_derived_steps_of_the_accepted_graph():
          "steps": [{"id": "s1", "page": "nav", "path": "nav"}, {"id": "s2", "page": "p", "path": "/", "shift": "Ví, kam dál."}],
          "segments": [{"from": "s1", "to": "s2", "line": "nav → /", "realized": True}]}]}
     assert client.get("/api/project-architecture/journeys").status_code == 422
+
+
+def run_body(digest, ok=True):
+    return {"schema": "opora.journey-run/1", "applicationId": "app", "journeyId": "j2", "planDigest": digest,
+            "command": "uv run python tools/journey_run.py --journey j2", "at": "2026-10-27T21:40:00Z",
+            "segments": [{"from": "s1", "to": "s2", "ok": ok, **({} if ok else {"reason": "URL /x, čekáno /"})}]}
+
+
+def test_journey_plan_returns_the_plan_and_maps_errors():
+    client, _ = make_client()
+    plan = client.get("/api/project-architecture/journey-plan", params={"project": "p1", "journey": "j2"})
+    assert plan.status_code == 200
+    body = plan.json()
+    assert body["baseUrl"] == "http://localhost:3000" and body["digest"].startswith("sha256:")
+    assert body["segments"] == [{"from": "s1", "to": "s2", "open": "/", "scope": "nav", "do": "click", "expectPath": "/"}]
+    assert client.get("/api/project-architecture/journey-plan",
+                      params={"project": "p1", "journey": "j2", "application": "app"}).json() == body
+    assert client.get("/api/project-architecture/journey-plan", params={"project": "p1", "journey": "zadna"}).status_code == 404
+    assert client.get("/api/project-architecture/journey-plan", params={"project": "nikdo", "journey": "j2"}).status_code == 404
+    broken = client.get("/api/project-architecture/journey-plan", params={"project": "p1", "journey": "j1"})
+    assert broken.status_code == 409 and broken.json()["detail"] == "Cesta Na b: chybí stránka b v kroku s2."
+    assert client.get("/api/project-architecture/journey-plan", params={"project": "p1"}).status_code == 422
+
+
+def test_journey_run_is_recorded_and_shows_up_as_last_run():
+    client, _ = make_client()
+    digest = client.get("/api/project-architecture/journey-plan", params={"project": "p1", "journey": "j2"}).json()["digest"]
+    url = "/api/project-architecture/journey-runs"
+    saved = client.post(url, params={"project": "p1"}, json=run_body(digest, ok=False))
+    assert saved.status_code == 200
+    assert saved.json()["passed"] is False and saved.json()["verification"] == "agent-reported; not independently verified"
+    journeys = client.get("/api/project-architecture/journeys", params={"project": "p1"}).json()["journeys"]
+    assert "lastRun" not in journeys[0]
+    assert journeys[1]["lastRun"] == {"at": "2026-10-27T21:40:00Z", "passed": False, "stale": False,
+                                      "command": "uv run python tools/journey_run.py --journey j2", "failed": 1,
+                                      "firstFailure": {"from": "s1", "to": "s2", "reason": "URL /x, čekáno /"}}
+    findings = client.get("/api/project-architecture/map-check", params={"project": "p1"}).json()["findings"]
+    assert [f["message"] for f in findings if f["rule"] == "journey.unverified"] == [
+        "Cesta Domů: neprošel přechod s1 → s2 (URL /x, čekáno /)."]
+    assert client.post(url, params={"project": "p1"}, json=run_body(digest)).status_code == 200
+    findings = client.get("/api/project-architecture/map-check", params={"project": "p1"}).json()["findings"]
+    assert not [f for f in findings if f["rule"] == "journey.unverified"]
+
+
+def test_journey_run_errors_are_404_409_and_422():
+    client, _ = make_client()
+    url = "/api/project-architecture/journey-runs"
+    digest = "sha256:" + "0" * 64
+    assert client.post(url, params={"project": "p1"}, json={**run_body(digest), "journeyId": "zadna"}).status_code == 404
+    assert client.post(url, params={"project": "nikdo"}, json=run_body(digest)).status_code == 404
+    broken = {**run_body(digest), "journeyId": "j1"}
+    assert client.post(url, params={"project": "p1"}, json=broken).status_code == 409
+    assert client.post(url, params={"project": "p1"}, json={**run_body(digest), "planDigest": "x"}).status_code == 422
+    assert client.post(url, params={"project": "p1"}, content=b"{nejson").status_code == 422
+    huge = {**run_body(digest), "logUrl": "x" * (65 * 1024)}
+    assert client.post(url, params={"project": "p1"}, content=json.dumps(huge).encode()).status_code == 422

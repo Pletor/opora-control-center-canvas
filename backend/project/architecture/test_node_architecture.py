@@ -214,3 +214,19 @@ def test_journey_without_transformation_fields_fills_nothing_in():
     [journey] = node_architecture(graph(journeys=[bare]), "formular")["journeys"]
     assert journey == {"id": "j", "name": "J", "youAre": {"step": "b", "index": 1},
                        "previous": {"step": "a", "path": "nav", "realized": True}}
+
+
+def test_journey_with_a_run_carries_only_passed_and_stale():
+    """`lastRun` (docs/brana-cesty.md §4): dvě pole posledního dokladu; cesta bez dokladu klíč nemá."""
+    from backend.project.architecture.journey_plan import journey_plan
+
+    second = {"id": "druha", "name": "Druhá", "steps": [{"id": "a", "page": "nav"}, {"id": "b", "page": "kontakt"}]}
+    current = graph(journeys=(JOURNEY, second))
+    digest = journey_plan(current, "poptavka")["digest"]
+    runs = {("app", "poptavka"): {"applicationId": "app", "journeyId": "poptavka", "planDigest": digest, "passed": False,
+                                  "at": "2026-10-27T21:40:00Z", "command": "runner",
+                                  "segments": [{"from": "menu", "to": "formular", "ok": False, "reason": "404"}]}}
+    journeys = node_architecture(current, "formular", runs)["journeys"]
+    assert journeys[0]["lastRun"] == {"passed": False, "stale": False}
+    assert "lastRun" not in journeys[1]
+    assert "lastRun" not in node_architecture(current, "formular")["journeys"][0]

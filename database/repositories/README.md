@@ -13,3 +13,5 @@ Doménové operace a oprávnění jsou v `backend/canvas/opora_changesets.py`
 a `opora_acceptance.py`. Kontrakt: `docs/oporahub.md`.
 
 `opora_executions.py` ukládá autoritu vykonávání: trvalé `opora_execution_epochs`, záznamy `opora_executions` s neměnným zadáním a soukromým tokenem, a idempotentní `opora_execution_results`. Transakci vlastní doménová služba a rezervace se sdílí s původní tabulkou `card_leases`. Token se neposílá do veřejného výpisu. Aditivní schéma je v `database/schema/opora_execution_schema.py`.
+
+`journey_runs.py` čte a zapisuje append-only doklady přehrání cest zákazníka (`journey_runs`, schéma `database/schema/journey_run_schema.py`); validaci a `lastRun` vlastní `backend/project/architecture/journey_runs.py`, transakci volající.
