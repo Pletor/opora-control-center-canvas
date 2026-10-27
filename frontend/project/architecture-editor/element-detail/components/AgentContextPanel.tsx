@@ -17,6 +17,8 @@ export default function AgentContextPanel({ context }: { context: AgentContext }
         <dd className="element-detail__fact">{host ?? UNKNOWN}</dd>
         <dt className="element-detail__fact-label">Stránka</dt>
         <dd className="element-detail__fact">{page ? `${page.name} · ${page.id}` : UNKNOWN}</dd>
+        {page?.goal ? <><dt className="element-detail__fact-label">Cíl stránky</dt><dd className="element-detail__fact">{page.goal}</dd></> : null}
+        {page?.feel ? <><dt className="element-detail__fact-label">Působení</dt><dd className="element-detail__fact">{page.feel}</dd></> : null}
         <dt className="element-detail__fact-label">Komponenta / uzel</dt>
         <dd className="element-detail__fact">{componentPath.length ? componentPath.join(" / ") : "Stránka sama"}</dd>
         <dt className="element-detail__fact-label">{repo?.kind === "planned" ? "Navržená cesta" : "Cesta v repozitáři"}</dt>

@@ -24,12 +24,13 @@ cestu → výsledek se zapíše na mapu a do paměti role.
 |---|---|---|---|
 | 0 Projekt | aplikace (`site.kind = "application"`) | člověk | prostředí, **cesty zákazníka** (`journeys`) |
 | 1 Stránka | `site.kind = "page"` | člověk | `goal`, `feel`, `navLabel`; pořadí v menu dává pořadí uzlů (beze změny) |
-| 2 Sekce | `site.sections` stránky | agent navrhne, člověk potvrdí dávku | role, název, záměr sekce |
+| 2 Sekce | `site.sections` stránky | člověk ve formuláři stránky; agent smí navrhnout v dávce | role, název, záměr sekce |
 | 3 Komponenta | uzel pod stránkou | agent | `section`, `card.tech`, `card.states`, `sourceRef`, kontroly |
 | Vazby | hrany | agent | `carries` (druh toku) |
 | Brána | cesta A → B | stroj | výsledek ověření cesty |
 
-Člověk pod úrovní stránky nic nevyplňuje (pyramida §4). Formuláře pro člověka jsou jen na aplikaci a stránce.
+Člověk pod úrovní sekcí nic nevyplňuje (pyramida §4). Formuláře pro člověka jsou jen na aplikaci a stránce;
+sekce jsou součástí formuláře stránky, protože člověk určuje, co na stránce má být (rozhodnutí 2026-10-27).
 
 ## 3. Datový model (jen přidává)
 
@@ -154,7 +155,7 @@ a `healthPath` **nejsou** mrtvé a zůstávají.
 `area/` a `page-editor/`. `CENTRE_OFFSET` se nemění (musí sedět s backendem `areas._CENTRE_OFFSET`).
 
 **Stránka a aplikace (`site`):** `backend/canvas/site_metadata.py` (+ `test_site_metadata.py`);
-`node_brief.py` `_navigation` (přidat `navLabel`); `frontend/shared/types/logic/types.ts` `NodeSite`;
+`specification_context.py` `_navigation` (navigace v node-briefu, přidat `navLabel`); `frontend/shared/types/logic/types.ts` `NodeSite`;
 `ArchitectureProductForm.tsx` (oprava: změna cesty dnes zahodí ostatní klíče `site`); `ArchitectureDomainMap.tsx`;
 `PageCard.tsx`, `DomainPanel.tsx`; `product-tree.ts` `productFingerprint`; `frontend/project/architecture-editor/element-detail/logic/agent-context.ts`;
 docs `architektura-projektu.md`, `domeny-a-worktree.md`; skill `.claude/skills/opora-control-center/references/api.md`.
@@ -180,7 +181,8 @@ mění digest pohledu a zneplatní rozpracovaný výstup obou koncových karet; 
 |---|---|---|
 | 1 | Úklid karty | ne |
 | 2 | Oblast roste s kartou | ne |
-| 3 | Stránka a aplikace: `goal`, `feel`, `navLabel`, `sections`, `journeys` | `site` |
+| 3a | Stránka: `goal`, `feel`, `navLabel`, `sections` | `site` |
+| 3b | Aplikace: `journeys` | `site` |
 | 4 | Hrana `carries`, komponenta `section` | graf, návrhy grafu |
 | 5 | Komponenta `card.tech`, `card.states` | `card` |
 | 6 | Kontrola mapy (§5) + API | ne |
@@ -194,4 +196,4 @@ Každá etapa je samostatný PR z čerstvého `origin/main` (`docs/cista-linie.m
 ## 10. Co se nestaví
 
 Monitor procesů, porty OS, spouštění skriptů, simulace zátěže, vlastní úložiště stránek a úkolů vedle grafu,
-formuláře pro člověka pod úrovní stránky, změna geometrického členství v oblasti.
+formuláře pro člověka pod úrovní sekcí, změna geometrického členství v oblasti.

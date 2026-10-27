@@ -12,7 +12,7 @@ Cíl: **architektura je nadřazená worktree.** Je jedna pro projekt, jde upravi
 
 | Pojem | Význam |
 |---|---|
-| **Architektura** | Uzly se `site` (domény `site.kind="application"`, stránky `site.kind="page"`), strukturní sektory mezi nimi a hrany mezi dvěma uzly architektury. Jedna pro projekt. |
+| **Architektura** | Uzly se `site` (domény `site.kind="application"`, stránky `site.kind="page"` s klíči `{kind, path[, goal, feel, navLabel, sections]}`), strukturní sektory mezi nimi a hrany mezi dvěma uzly architektury. Jedna pro projekt. |
 | **Doména** | Sektor `site.kind="application"` s **právě jedním** prostředím `{name, host}` (platí už dnes, `docs/architektura-projektu.md`). Skupina na přehledu = `name` prostředí (Produkce / Vývoj). |
 | **Obsah stránky** | Všechno pod stránkou, co nemá `site` (karty, sektory práce, oblasti). Patří pracovnímu prostoru. |
 | **Worktree** | Řádek `workspaces` + Git worktree. Patří jedné doméně přes `workspaces.node_id = id domény`. |
@@ -57,6 +57,10 @@ project_architecture_revisions(project_id TEXT, revision INTEGER, graph TEXT, ac
 - Uzel se `site` smí ležet jen v architektuře; uložení ho tam přesune.
 - `validate_sites` (`backend/canvas/site_metadata.py`) zůstává jedna funkce: volá se nad architekturou při zápisu architektury a nad složeným grafem při `save_graph`. Unikátnost hostů a cest je tím celoprojektová.
 - `site` aplikace smí nově nést volitelné `healthPath` (ověřené jako cesta přes `route_key`): klíče `{kind, environments[, healthPath]}`.
+- `site` stránky: klíče `{kind, path[, goal, feel, navLabel, sections]}`. `goal` 1–200 znaků, `feel` 1–120, `navLabel` 1–40,
+  bez řídicích znaků; prázdný řetězec je chyba (pole se vynechá). `sections` 1–20 položek přesně `{id, role, name, intent}`:
+  `id` ve tvaru id uzlu a jedinečné ve stránce, `role` ∈ `hero | cta | form | content | gallery | proof | faq | footer | custom`,
+  `name` 1–60, `intent` 0–200. Výchozí hodnoty se nikdy nedoplňují (`docs/architektura-pro-agenty.md` §3.1).
 
 ### Pravidla zápisu
 

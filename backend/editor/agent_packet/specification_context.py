@@ -56,8 +56,10 @@ def _navigation(nodes):
         while cursor is not None:
             kind = (cursor.get("site") or {}).get("kind")
             if kind == "application":
+                # Popisek v menu jen když ho člověk nastavil; bez něj se položka nemění (stejný digest).
                 domains.setdefault(cursor["id"], []).append({
                     "nodeId": node["id"], "parentPageId": parent_page,
+                    **({"navLabel": node["site"]["navLabel"]} if "navLabel" in node["site"] else {}),
                 })
                 break
             if kind == "page" and parent_page is None:

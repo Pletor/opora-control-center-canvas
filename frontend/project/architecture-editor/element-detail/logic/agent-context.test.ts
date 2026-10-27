@@ -45,6 +45,12 @@ describe("pracovní kontext agenta", () => {
     const bare: Graph = { nodes: [node("d", null, { kind: "sector", site: { kind: "application", environments: [] } }), node("x", "d")], edges: [] };
     expect(agentContext(bare, "x", "d")).toMatchObject({ environment: null, host: "d", page: null, componentPath: ["x"] });
   });
+  it("stránka nese cíl a působení, jen když je člověk zadal", () => {
+    const intent: Graph = { nodes: graph.nodes.map((item) => item.id === "page"
+      ? { ...item, site: { kind: "page" as const, path: "/dashboard", goal: "Přehled do 5 s", feel: "klidně", navLabel: "Přehled" } } : item), edges: [] };
+    expect(agentContext(intent, "field", "app").page).toEqual({ id: "page", name: "Dashboard", goal: "Přehled do 5 s", feel: "klidně" });
+    expect(agentContext(graph, "field", "app").page).toEqual({ id: "page", name: "Dashboard" });
+  });
   it("předci přežijí cyklus", () => {
     const loop: Graph = { nodes: [node("a", "b"), node("b", "a")], edges: [] };
     expect(ancestry(loop, "a").map((n) => n.id)).toEqual(["a", "b"]);

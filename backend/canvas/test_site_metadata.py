@@ -77,3 +77,77 @@ def test_unknown_or_malformed_site_never_bypasses_graph_validation(site):
     candidate["site"] = copy.deepcopy(site)
     with pytest.raises(ValueError):
         validate_graph({"nodes": [candidate, application()], "edges": []})
+
+
+def page_with(**fields):
+    candidate = page()
+    candidate["site"].update(fields)
+    return candidate
+
+
+SECTIONS = [{"id": "hero", "role": "hero", "name": "Hero", "intent": "Ozveme se do 24 h"},
+            {"id": "form", "role": "cta", "name": "Formulář", "intent": ""}]
+
+
+def test_page_carries_goal_feel_nav_label_and_sections_without_defaults():
+    candidate = page_with(goal="Poptávka odeslaná do 2 minut", feel="klidně, důvěryhodně",
+                          navLabel="Kontakt", sections=copy.deepcopy(SECTIONS))
+    graph = {"nodes": [application(), candidate], "edges": []}
+    stored = copy.deepcopy(graph)
+    assert validate_graph(graph) == stored
+    bare = page()
+    validate_graph({"nodes": [application(), bare], "edges": []})
+    assert bare["site"] == {"kind": "page", "path": "/"}
+
+
+@pytest.mark.parametrize("key,limit", [("goal", 200), ("feel", 120), ("navLabel", 40)])
+def test_page_text_length_bounds(key, limit):
+    validate_graph({"nodes": [application(), page_with(**{key: "x"})], "edges": []})
+    validate_graph({"nodes": [application(), page_with(**{key: "x" * limit})], "edges": []})
+    for value in ("", "   ", "x" * (limit + 1), "a\0b", "a\nb", 4, None):
+        with pytest.raises(ValueError, match=key):
+            validate_graph({"nodes": [application(), page_with(**{key: value})], "edges": []})
+
+
+def test_section_bounds_and_count():
+    longest = {"id": "s" * 80, "role": "custom", "name": "n" * 60, "intent": "i" * 200}
+    validate_graph({"nodes": [application(), page_with(sections=[longest])], "edges": []})
+    twenty = [{"id": f"s{i}", "role": "content", "name": "Obsah", "intent": ""} for i in range(20)]
+    validate_graph({"nodes": [application(), page_with(sections=twenty)], "edges": []})
+    for sections in ([], twenty + [{"id": "s20", "role": "content", "name": "Obsah", "intent": ""}], {"id": "x"}, None):
+        with pytest.raises(ValueError, match="sekc"):
+            validate_graph({"nodes": [application(), page_with(sections=sections)], "edges": []})
+
+
+@pytest.mark.parametrize("change,message", [
+    ({"role": "banner"}, "role"),
+    ({"role": None}, "role"),
+    ({"id": "bad id"}, "id sekce"),
+    ({"id": "s" * 81}, "id sekce"),
+    ({"name": ""}, "název"),
+    ({"name": "n" * 61}, "název"),
+    ({"intent": "i" * 201}, "záměr"),
+    ({"intent": "a\0b"}, "záměr"),
+    ({"extra": True}, "přesně"),
+])
+def test_invalid_section_is_rejected(change, message):
+    section = {"id": "hero", "role": "hero", "name": "Hero", "intent": ""} | change
+    with pytest.raises(ValueError, match=message):
+        validate_graph({"nodes": [application(), page_with(sections=[section])], "edges": []})
+
+
+def test_missing_section_key_and_duplicate_section_id_are_rejected():
+    with pytest.raises(ValueError, match="přesně"):
+        validate_graph({"nodes": [application(), page_with(sections=[{"id": "hero", "role": "hero", "name": "Hero"}])],
+                        "edges": []})
+    duplicate = copy.deepcopy(SECTIONS)
+    duplicate[1]["id"] = "hero"
+    with pytest.raises(ValueError, match="opakuje"):
+        validate_graph({"nodes": [application(), page_with(sections=duplicate)], "edges": []})
+
+
+def test_application_does_not_accept_page_fields():
+    app = application()
+    app["site"]["goal"] = "Cíl"
+    with pytest.raises(ValueError, match="aplikace"):
+        validate_graph({"nodes": [app], "edges": []})

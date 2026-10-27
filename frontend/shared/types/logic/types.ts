@@ -22,7 +22,13 @@ export type CardEffort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Nepovinná karta uzlu (jen `kind: "node"`); každý klíč je nepovinný a prázdná karta se neukládá. */
 export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: string; model?: CardModel; effort?: CardEffort };
 /** Product structure shares the same graph identities across deployment environments. */
-export type NodeSite = { kind: "application"; environments: { name: string; host: string }[] } | { kind: "page"; path: string };
+export type NodeSite = { kind: "application"; environments: { name: string; host: string }[] } | PageSite;
+/** Role sekce stránky (`docs/architektura-pro-agenty.md` §3.1). */
+export type PageSectionRole = "hero" | "cta" | "form" | "content" | "gallery" | "proof" | "faq" | "footer" | "custom";
+/** Sekce stránky navrhuje agent; člověk ji jen vidí. `intent` smí být prázdný. */
+export type PageSection = { id: string; role: PageSectionRole; name: string; intent: string };
+/** Stránka: záměr píše člověk (`goal`, `feel`, `navLabel`); vše nepovinné, prázdné pole se neukládá. */
+export type PageSite = { kind: "page"; path: string; goal?: string; feel?: string; navLabel?: string; sections?: PageSection[] };
 export type CanvasNode = {
   gateNodeId?: string;
   /** Výslovné logické členství v oblasti se stejným rodičem (H01, `docs/kontrakt-identity.md`); ne poloha. */
