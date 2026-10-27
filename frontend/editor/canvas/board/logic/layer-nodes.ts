@@ -13,14 +13,12 @@ import type { AreaCardData } from "@/editor/canvas/area/components/AreaCard";
 import { upstreamRows } from "@/editor/canvas/node-card/logic/upstream";
 import { areaSummary, type Checklists } from "@/editor/canvas/card-checklist/logic/card-checklist";
 import { effectiveRules } from "@/editor/canvas/node-card/logic/effective-rules";
-import type { UsageSummary } from "@/editor/canvas/node-card/logic/use-usage";
 import { cardView, matchesTagFilter } from "@/editor/canvas/node-card/logic/card-model";
 import { cardFace } from "@/editor/canvas/card-face/logic/card-face";
 import type { AgentCardStage, AgentDecision } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { commentView } from "@/editor/canvas/comment-card/logic/comment-model";
 import { areaColorOf, areaLabel, membersOf } from "@/editor/canvas/area/logic/area-model";
 import type { OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
-import { changedSinceInsert, type indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import type { FrontierItem } from "@/editor/canvas/node-card/logic/use-frontier";
 import type { WorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
 import type { CardLease } from "@/editor/canvas/node-card/logic/use-leases";
@@ -51,9 +49,7 @@ export type LayerInput = {
   openBlocks: OpenBlocks;
   tagFilter: string;
   moved: ReadonlySet<string>;
-  vaultIndex: ReturnType<typeof indexVault>;
   checklists?: Checklists;
-  usage?: UsageSummary | null;
   frontier?: Record<string, FrontierItem>;
   work?: { data?: WorkOverview } | null;
   leases?: Record<string, CardLease>;
@@ -95,14 +91,13 @@ export function buildLayerNodes(input: LayerInput): Node[] {
       continue;
     }
     const workflow = nodeWorkflowOf(state, n.id);
-    const view = { ...cardView(n, workflow, childCount(index, n.id)), briefChanged: changedSinceInsert(workflow.fragmentRefs, input.vaultIndex) };
+    const view = cardView(n, workflow, childCount(index, n.id));
     const own = state.nodes[n.id];
     const face = cardFace({ nodeId: n.id, card: input.agent?.cards.get(n.id), sector: n.kind === "sector", layer: view.cardLayer ?? undefined,
       decisions: input.agent?.decisions ?? [], nameOf: (id) => index.byId.get(id)?.name ?? id });
     const data: NodeCardData = {
       view,
       face,
-      usage: (n.kind === "sector" ? input.usage?.sectors : input.usage?.nodes)?.[n.id],
       upstream: { rows: upstreamRows(graph, state, n.id, index) },
       frontier: input.frontier?.[n.id],
       evidence: own?.evidence,

@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import "@/ui-kit/panel-frame/styles/panels.css";
 import Board from "@/editor/canvas/board/components/Board";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
-import { useUsage } from "@/editor/canvas/node-card/logic/use-usage";
 import { useLeases } from "@/editor/canvas/node-card/logic/use-leases";
 import { useSourceStatus } from "@/editor/canvas/node-card/logic/use-source-status";
 import { confirmProposal } from "@/editor/canvas/node-card/logic/completion-proposals";
@@ -240,7 +239,6 @@ export default function App() {
   // Filtr štítků: karty bez vybraného štítku jsou na plátně ztlumené; prázdný = bez filtru.
   const [tagFilter, setTagFilter] = useState("");
   const desktop = useDesktopState(project, workspace);
-  const usage = useUsage(project, workspace, desktop.revision);
   const leases = useLeases(project, workspace);
   // Vybraný blok zmizel ze stavu (smazán jinde): výběr spadne zpět na uzel, aby zásuvka i inspektor zůstaly platné.
   useEffect(() => {
@@ -1190,7 +1188,6 @@ export default function App() {
                   heightsRef={cardHeights}
                   revision={desktop.revision}
                   digest={view?.digest}
-                  usage={usage}
                   leases={leases}
                   sourceStatuses={sourceStatuses}
                   onRealizeSource={async (nodeId, commit, prUrl) => {

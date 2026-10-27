@@ -7,7 +7,6 @@
 import { memo, useMemo } from "react";
 import { useStore, type Node, type NodeProps } from "@xyflow/react";
 import CardDetails from "./CardDetails";
-import type { Usage } from "../logic/use-usage";
 import type { EffectiveRule } from "../logic/effective-rules";
 import type { Rule } from "@/shared/desktop-state/logic/types";
 import type { SourceRef } from "@/shared/types/logic/types";
@@ -36,7 +35,6 @@ export type NodeCardData = {
   releaseLease?: boolean;
   frontier?: import("../logic/use-frontier").FrontierItem;
   upstream?: { rows: import("../logic/upstream").UpstreamRow[] };
-  usage?: Usage;
   inheritedRules?: EffectiveRule[];
   rules?: { items: Rule[] };
   source?: { source: SourceRef; project: string; workspace: string };

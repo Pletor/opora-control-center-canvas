@@ -44,7 +44,6 @@ import JsonMirror from "@/hub/oporahub-mirror/components/JsonMirror";
 import { layerFootprints } from "@/editor/canvas/board/logic/layout-model";
 import { settleArea, settleCard } from "@/editor/canvas/board/logic/solid-bodies";
 import NodeCard, { type NodeCardData } from "@/editor/canvas/node-card/components/NodeCard";
-import type { UsageSummary } from "@/editor/canvas/node-card/logic/use-usage";
 import CommentCard from "@/editor/canvas/comment-card/components/CommentCard";
 import AreaCard from "@/editor/canvas/area/components/AreaCard";
 import { membersOf } from "@/editor/canvas/area/logic/area-model";
@@ -52,7 +51,6 @@ import { blockNodeTypes } from "@/editor/workflow/blocks/components/CanvasBlock"
 import { isBlockId, parseBlockId, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import { isDeleteKey, reportsSelection, sameSelection, selectionIds } from "../logic/box-selection";
 import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
-import { indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
 /** Nad tolika uzly vrstvy se MiniMap nekreslí: React Flow ji překresluje při každé změně uzlů. */
@@ -68,7 +66,6 @@ export default function Board({
   onConfirmSector,
   onConfirmProposal,
   leases,
-  usage,
   onRuleWrite,
   onRuleReview,
   sourceContext,
@@ -112,7 +109,6 @@ export default function Board({
 }: {
   /** Vrstva nad kartami uvnitř React Flow (odznaky etap OporaHubu); skládá ji App. */
   overlay?: import("react").ReactNode;
-  usage?: UsageSummary | null;
   sourceStatuses?: Record<string, import("@/editor/canvas/node-card/logic/use-source-status").SourceStatus>;
   onRealizeSource?: (nodeId: string, commit: string, prUrl: string) => Promise<void>;
   onConfirmProposal?: (nodeId: string) => Promise<boolean>;
@@ -186,11 +182,11 @@ export default function Board({
   const workKey = `${digest ?? ""}:${stateKey}`;
   const frontier = useFrontier(sourceContext, parent, true, stateKey);
   const checklists = useCardChecklist(sourceContext, parent, stateKey);
-  // Strom schránky se obnoví jen při změně odkazů karet a Podnětů do schránky, ne při každé změně stavu.
+  // Plátno strom schránky nečte, jen požádá sdílený zdroj o obnovu (pro Schránku a detail karty), když se změní
+  // odkazy karet a Podnětů do schránky; ne při každé změně stavu.
   const vaultRefs = useMemo(() => JSON.stringify(Object.entries(state.nodes).map(([id, node]) =>
     [id, node.fragmentRefs ?? [], (node.ideas ?? []).map((idea) => idea.fragmentId ?? "")])), [state.nodes]);
-  const vault = useBriefVault(sourceContext, vaultRefs);
-  const vaultIndex = useMemo(() => indexVault(vault.tree?.roots ?? []), [vault.tree]);
+  useBriefVault(sourceContext, vaultRefs);
   // Jeden index grafu a stavu na přestavbu: karty z něj čtou místo procházení všech uzlů pro každou kartu.
   // Závisí jen na grafu a stavu, takže výběr ani polling overlayů ho nepřestaví.
   const index = useMemo(() => buildBoardIndex(graph, state), [graph, state]);
@@ -212,7 +208,7 @@ export default function Board({
   // Schopnosti rodiče jako booleany: nové inline callbacky v App vrstvu nepřestaví, jejich přítomnost ano.
   const can = { realize: !!onRealizeSource, rules: !!onRuleWrite && !!onRuleReview };
   const make = (): Node[] => buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
-    disabled, openBlocks, tagFilter, moved: movedSet, vaultIndex, checklists, usage, frontier: frontier.rows, work,
+    disabled, openBlocks, tagFilter, moved: movedSet, checklists, frontier: frontier.rows, work,
     leases, sourceStatuses, agent, sourceContext, can }).concat(blocks.nodes);
   const [nodes, setNodes] = useState<Node[]>(make);
   // Výšky pro „Srovnat“ v App a pro dosednutí tažené karty: jen změření v plném detailu. Karta z dálky
@@ -246,8 +242,8 @@ export default function Board({
   useEffect(() => {
     setNodes((previous) => reuseNodes(previous, make()));
   }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project,
-    sourceContext?.workspace, usage, frontier.rows, leases, sourceStatuses, work, movedCards,
-    checklists, vaultIndex, agent, can.realize, can.rules]);
+    sourceContext?.workspace, frontier.rows, leases, sourceStatuses, work, movedCards,
+    checklists, agent, can.realize, can.rules]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);

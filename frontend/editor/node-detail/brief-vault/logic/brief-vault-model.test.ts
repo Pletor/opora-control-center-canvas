@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
-  briefChips, changedSinceInsert, countChangedMvp, scopeOfFragment, coverageKey, coverageOf, coverageSegments, hasOwnVault, indexVault, rootsOf, statusDot,
+  briefChips, countChangedMvp, scopeOfFragment, coverageKey, coverageOf, coverageSegments, hasOwnVault, indexVault, rootsOf, statusDot,
   type VaultNode,
 } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 import BriefVaultPanel from "@/editor/node-detail/brief-vault/components/BriefVaultPanel";
@@ -66,9 +66,9 @@ describe("changed since insert", () => {
   const index = indexVault([node({ children: [latest, same] })]);
 
   it("flags refs planned from an older revision", () => {
-    expect(changedSinceInsert([{ fragmentId: latest.id, revision: 1 }, { fragmentId: same.id, revision: 1 }], index)).toBe(1);
-    expect(changedSinceInsert([{ fragmentId: latest.id, revision: 3 }], index)).toBe(0);
-    expect(changedSinceInsert(undefined, index)).toBe(0);
+    expect(briefChips([{ fragmentId: latest.id, revision: 1 }, { fragmentId: same.id, revision: 1 }], index).map((chip) => chip.changed)).toEqual([true, false]);
+    expect(briefChips([{ fragmentId: latest.id, revision: 3 }], index)[0].changed).toBe(false);
+    expect(briefChips(undefined, index)).toEqual([]);
   });
 
   it("keeps unknown fragments as unavailable chips without a warning", () => {
@@ -90,8 +90,8 @@ describe("text revision and MVP under a warning", () => {
     const meta = node({ revision: 4, textRevision: 1, title: "3.12 Chunks", mvp: "proposed" });
     const text = node({ revision: 4, textRevision: 3, title: "3.13 Overlap" });
     const index = indexVault([node({ children: [meta, text] })]);
-    expect(changedSinceInsert([{ fragmentId: meta.id, revision: 1 }], index)).toBe(0);
-    expect(changedSinceInsert([{ fragmentId: text.id, revision: 2 }], index)).toBe(1);
+    expect(briefChips([{ fragmentId: meta.id, revision: 1 }], index)[0].changed).toBe(false);
+    expect(briefChips([{ fragmentId: text.id, revision: 2 }], index)[0].changed).toBe(true);
     expect(briefChips([{ fragmentId: text.id, revision: 2 }], index)[0].latestRevision).toBe(3);
   });
 

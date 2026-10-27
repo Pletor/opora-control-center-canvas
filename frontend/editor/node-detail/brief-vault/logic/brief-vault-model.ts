@@ -212,11 +212,6 @@ export function briefChips(refs: FragmentRef[] | undefined, index: Map<string, V
   });
 }
 
-/** Kolik fragmentů karty má novější TEXT, než ze kterého karta vznikla (0 = odznak se nekreslí). */
-export function changedSinceInsert(refs: FragmentRef[] | undefined, index: Map<string, VaultNode>): number {
-  return briefChips(refs, index).filter((chip) => chip.changed).length;
-}
-
 /** Rozsah schránky (vlastník kořene), ve které fragment leží; `null` = fragment mimo načtený strom. */
 export function scopeOfFragment(index: Map<string, VaultNode>, fragmentId: string): string | null {
   let node = index.get(fragmentId);
