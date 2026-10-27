@@ -33,6 +33,13 @@ vazby `next/action/rule` ani děti a nikdy není rodičem ani členem jiné obla
 vedou jen portem `flow` (dashovaná čára barvou `--area-line`). App a Board ji proto všude, kde staví
 seznamy cílů odkazů, štítků nebo knihovny, vylučují stejně jako komentář.
 
+**Rostoucí oblast** (`logic/area-growth.ts`, testováno; náhled `logic/use-area-growth.ts`): když člověk táhne
+kartu přes hranu její domovské oblasti (`areaOf` na začátku tahu), rámeček se za ní živě natahuje — jen
+zvětšuje, s okrajem 16 px kolem karty i jejího bodu členství — a po puštění se karta i nový rámeček uloží
+jednou změnou. O cizí kartu ani jinou oblast se rámeček nikdy neopře; kde by musel, zůstane poslední platná
+velikost a karta dosedne jako dřív (`settleCard`: vtáhne se dovnitř, nebo vysune ven). Stejně se chová
+Editor i mapa v editoru architektury.
+
 `logic/decompose-prompt.ts` (testováno) skládá zadání pro rozkladače: `decomposePrompt({project,
 workspace, areaId, areaName, intent, sectors, cards?, host?})` vrátí text začínající `/opora-control-center`,
 nebo `null`, když záměr chybí; `decomposeTarget(host)` říká, zda jde o sektory, nebo karty. S `host` (fáze)

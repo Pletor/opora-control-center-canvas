@@ -72,3 +72,19 @@ export function scopePath(graph: Graph, scopeId: string, domainId: string): Canv
   }
   return path;
 }
+
+/** Šířka karty na mapě a výška, dokud ji React Flow nezměří. */
+export const CARD_WIDTH = 270;
+const CARD_HEIGHT_GUESS = 90;
+
+/**
+ * Obdélníky karet otevřeného rozsahu (bez oblastí) na uložených místech, se skutečně změřeným rozměrem
+ * z React Flow (`measured`); nezměřená karta dostane šířku 270 a odhad výšky. Pro usazení a růst oblasti.
+ */
+export function cardBodies(graph: Graph, scopeId: string, measured: ReadonlyMap<string, { width?: number; height?: number } | undefined>):
+  { id: string; x: number; y: number; w: number; h: number }[] {
+  return graph.nodes.filter((node) => node.parentId === scopeId && node.kind !== "area").map((node) => {
+    const size = measured.get(node.id);
+    return { id: node.id, x: node.x, y: node.y, w: size?.width || CARD_WIDTH, h: size?.height || CARD_HEIGHT_GUESS };
+  });
+}

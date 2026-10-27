@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlow, Background, BackgroundVariant, Controls, MarkerType, applyNodeChanges, type Edge, type ReactFlowInstance, type Viewport } from "@xyflow/react";
 import type { Graph } from "@/shared/types/logic/types";
 import { CATALOG_DRAG_TYPE } from "@/editor/component-library/library-catalog/logic/library-catalog";
-import { areaSectorLabel, cardSummary, edgeLook } from "../logic/canvas-model";
+import { areaSectorLabel, cardBodies, cardSummary, CARD_WIDTH, edgeLook } from "../logic/canvas-model";
+import { dropCard, type Rect } from "@/editor/canvas/area/logic/area-growth";
+import { useAreaGrowth } from "@/editor/canvas/area/logic/use-area-growth";
 import { viewportShowsAllNodes } from "../logic/viewport-visibility";
 import ArchitectureCard, { type ArchitectureNode, type CardActions } from "../map-card/components/ArchitectureCard";
 
@@ -13,7 +15,8 @@ type Props = {
   graph: Graph; scopeId: string; editorId: string; selected: string | null; disabled: boolean; revealId: string | null;
   onSelect: (id: string | null) => void; onOpenStructure: (id: string) => void; onOpenEditor: (id: string) => void;
   onAddNode: (parentId: string) => void; onSector: (areaId: string) => void;
-  onMove: (id: string, x: number, y: number) => Promise<void>; onConnect: (source: string, target: string) => void;
+  /** Puštěný prvek; `area` = domovská oblast, která za kartou vyrostla (uloží se s ní jednou změnou). */
+  onMove: (id: string, x: number, y: number, area?: Rect & { id: string }) => Promise<void>; onConnect: (source: string, target: string) => void;
   onResize: (id: string, w: number, h: number) => Promise<void>;
   onInsert: (id: string, targetId: string | null, point: { x: number; y: number }) => void;
 };
@@ -41,11 +44,14 @@ export default function ArchitectureCanvas(props: Props) {
     const area = node.kind === "area";
     return {
       id: node.id, type: "architecture", position: { x: node.x, y: node.y }, selected: node.id === selected,
-      zIndex: area ? -1 : 1, style: area ? { width: node.size?.w ?? 720, height: node.size?.h ?? 480 } : { width: 270 },
+      zIndex: area ? -1 : 1, style: area ? { width: node.size?.w ?? 720, height: node.size?.h ?? 480 } : { width: CARD_WIDTH },
       data: { node, disabled, actions, summary: area || node.kind === "comment" ? null : cardSummary(node, graph), areaLabel: area ? areaSectorLabel(node, graph) : null },
     };
   });
   const [nodes, setNodes] = useState<ArchitectureNode[]>(make);
+  // Rostoucí oblast: tah karty přes hranu natáhne v náhledu jen uzel domovské oblasti (`area-growth.ts`).
+  const growth = useAreaGrowth(setNodes);
+  const bodies = () => cardBodies(graph, scopeId, new Map(nodes.map((node) => [node.id, node.measured])));
   const nodeSource = useRef({ graph, scopeId });
   const viewportKey = `opora:architecture-viewport:${editorId}:${scopeId}`;
   const [viewport] = useState<Viewport | null>(() => readViewport(viewportKey));
@@ -98,7 +104,21 @@ export default function ArchitectureCanvas(props: Props) {
       onNodesChange={(changes) => setNodes((old) => applyNodeChanges(changes, old))} nodesDraggable={!disabled} nodesConnectable={!disabled}
       onNodeClick={(_, node) => props.onSelect(node.id)} onPaneClick={() => props.onSelect(null)}
       onNodeDoubleClick={(_, node) => { if (node.data.node.kind === "node" || node.data.node.kind === "sector") props.onOpenStructure(node.id); }}
-      onNodeDragStop={(_, node) => { void props.onMove(node.id, node.position.x, node.position.y).catch(() => setNodes(make())); }}
+      onNodeDragStart={(_, node) => { if (node.data.node.kind !== "area") growth.begin(node.data.node, graph.nodes, bodies()); }}
+      onNodeDrag={(_, node) => growth.preview(node.position.x, node.position.y)}
+      onNodeDragStop={(_, node) => {
+        const session = growth.finish();
+        const stored = graph.nodes.find((item) => item.id === node.id);
+        const all = bodies();
+        const body = all.find((item) => item.id === node.id);
+        // Oblast se táhne dál beze změny; karta buď natáhne domovskou oblast, nebo dosedne jako v editoru (`settleCard`).
+        const drop = stored && stored.kind !== "area" && body
+          ? dropCard(session, { ...stored, ...node.position }, { ...body, x: body.x + node.position.x - stored.x, y: body.y + node.position.y - stored.y },
+            all.filter((item) => item.id !== node.id), graph.nodes.filter((item) => item.parentId === scopeId && item.kind === "area" && !!item.size))
+          : { ...node.position };
+        if (session) growth.show(session.homeId, "area" in drop && drop.area ? drop.area : session.start);
+        void props.onMove(node.id, drop.x, drop.y, "area" in drop ? drop.area : undefined).catch(() => setNodes(make()));
+      }}
       onConnect={(connection) => { if (connection.source && connection.target) props.onConnect(connection.source, connection.target); }}
       onMoveEnd={(_, next) => { try { localStorage.setItem(viewportKey, JSON.stringify(next)); } catch { /* Navigation works without storage. */ } }}
       deleteKeyCode={null}>

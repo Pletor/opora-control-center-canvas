@@ -64,6 +64,15 @@ export function resizeEditorNode(graph: Graph, id: string, w: number, h: number)
   return { ...graph, nodes: graph.nodes.map((node) => node.id === id ? resized : node) };
 }
 
+/** Domovská oblast vyrostla za puštěnou kartou (`area-growth.ts`): nová poloha i rozměr (120..20000), členové stojí. */
+export function growEditorArea(graph: Graph, frame: { id: string; x: number; y: number; w: number; h: number }): Graph {
+  if (![frame.x, frame.y].every((value) => Number.isFinite(value) && Math.abs(value) <= 1_000_000)) throw new Error("Neplatná poloha oblasti.");
+  const area = graph.nodes.find((node) => node.id === frame.id);
+  if (!area || area.kind !== "area") throw new Error("Oblast již neexistuje.");
+  const grown = { ...resizeEditorNode(graph, frame.id, frame.w, frame.h).nodes.find((node) => node.id === frame.id)!, x: frame.x, y: frame.y };
+  return { ...graph, nodes: graph.nodes.map((node) => node.id === frame.id ? grown : node) };
+}
+
 export function connectEditorNodes(graph: Graph, source: string, target: string, id: string): Graph {
   if (!GRAPH_ID.test(id) || graph.edges.some((edge) => edge.id === id)) throw new Error("Neplatná nebo již použitá identita vazby.");
   if (source === target) throw new Error("Prvek nelze propojit se sebou.");

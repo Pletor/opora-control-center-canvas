@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { areaSectorLabel, cardSummary, czechCount, edgeLook, NODE_FORMS, scopePath, TONE_COLORS, toneOf } from "./canvas-model";
+import { areaSectorLabel, cardBodies, cardSummary, czechCount, edgeLook, NODE_FORMS, scopePath, TONE_COLORS, toneOf } from "./canvas-model";
 
 const node = (id: string, parentId: string | null, kind: CanvasNode["kind"] = "node", extra: Partial<CanvasNode> = {}): CanvasNode =>
   ({ id, parentId, kind, name: id, purpose: "", x: 0, y: 0, ...extra });
@@ -55,5 +55,13 @@ describe("scopePath", () => {
   it("vede od stránky pod doménou po rozsah", () => {
     const graph: Graph = { nodes: [node("d", null, "sector"), node("p", "d"), node("c", "p")], edges: [] };
     expect(scopePath(graph, "c", "d").map((item) => item.id)).toEqual(["p", "c"]);
+  });
+});
+
+describe("cardBodies", () => {
+  it("bere změřený rozměr karty, nezměřená dostane 270 × odhad, oblasti vynechá", () => {
+    const graph: Graph = { nodes: [node("a", "p", "node", { x: 10, y: 20 }), node("b", "p"), node("o", "p", "area"), node("c", "q")], edges: [] };
+    const bodies = cardBodies(graph, "p", new Map([["a", { width: 270, height: 140 }]]));
+    expect(bodies).toEqual([{ id: "a", x: 10, y: 20, w: 270, h: 140 }, { id: "b", x: 0, y: 0, w: 270, h: 90 }]);
   });
 });
