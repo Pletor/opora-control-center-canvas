@@ -10,7 +10,7 @@ Chování aplikace se nemění; mění se jen cesty, názvy složek, názvy čty
 | Krok uživatele | Co dělá | Složka |
 |---|---|---|
 | 1. Úvodní nastavení | přiřadí repozitáře nebo složky, vytvoří projekt | `project-setup/` |
-| 2. Prostředí **Projekt** | vidí main skrz strom složek, Archify, Graphify a další vývojová zobrazení | `project/` |
+| 2. Prostředí **Projekt** | vidí main skrz strom složek, Graphify a další vývojová zobrazení | `project/` |
 | 3. Prostředí **Editor** | řídí vývoj: plátno, detail uzlu, workflow a pipeline; vlevo knihovna komponent, metod a funkcí; vpravo ovládání Claude Code (skills, commandy, agenti, paměť) | `editor/` |
 | 4. Prostředí **OporaHub** | plán a dokumentace 1:1 s kódem (panel synchronizace) | `hub/` |
 | společné | vstup aplikace, kostra obrazovky, přepínač prostředí, tokeny vzhledu, sdílený stav, prvky bez domény | `app/`, `layout/`, `design-tokens/`, `shared/`, `ui-kit/` |
@@ -69,8 +69,8 @@ frontend/
 │   ├── shell/       components/ProjectLayout.tsx          levý strom + navigace map
 │   │                styles/project-layout.css
 │   ├── source-tree/ components/SourceExplorer.tsx         strom složek a souborů projektu
-│   ├── maps/        components/ArchifyMap.tsx · GraphifyMap.tsx · MapUpdateMenu.tsx
-│   │                styles/archify-map.css · map-update-menu.css
+│   ├── maps/        components/GraphifyMap.tsx · MapUpdateMenu.tsx
+│   │                styles/map-view.css · map-update-menu.css
 │   └── workspace/   components/ProjectWorkspace.tsx
 │
 ├── editor/                            PROSTŘEDÍ EDITOR: řízení vývoje
@@ -171,10 +171,9 @@ Legenda: **R** = přejmenování složky/cesty, **RN** = přejmenování souboru
 | project-detail/inspector/README.md | project/source-tree/README.md | R; text jen o stromu zdrojů |
 | project-detail/inspector/SourceExplorer.tsx | project/source-tree/components/SourceExplorer.tsx | strom složek projektu |
 | project-detail/maps/README.md | project/maps/README.md | R |
-| project-detail/maps/ArchifyMap.tsx | project/maps/components/ArchifyMap.tsx | šuplík |
 | project-detail/maps/GraphifyMap.tsx | project/maps/components/GraphifyMap.tsx | šuplík |
 | project-detail/maps/MapUpdateMenu.tsx | project/maps/components/MapUpdateMenu.tsx | šuplík |
-| project-detail/maps/archify-map.css | project/maps/styles/archify-map.css | šuplík |
+| project-detail/maps/archify-map.css (dnes map-view.css) | project/maps/styles/map-view.css | šuplík |
 | project-detail/maps/map-update-menu.css | project/maps/styles/map-update-menu.css | šuplík |
 | project-detail/workspace/README.md | project/workspace/README.md | R |
 | project-detail/ProjectWorkspace.tsx | project/workspace/components/ProjectWorkspace.tsx | skládá shell + mapy |

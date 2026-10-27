@@ -65,7 +65,7 @@ export const cacheItems: CatalogItem[] = [
     category: "cache",
     label: "Klíč z otisku vstupů",
     purpose: "Klíč cache je otisk všech vstupů a verze algoritmu, takže změna zdroje dá nový klíč a starou hodnotu zneplatní.",
-    relates: ["@cache-ttl-fallback", "@cache-never-list", "Mapy projektu (archify, graphify) se cachují podle otisku cest."],
+    relates: ["@cache-ttl-fallback", "@cache-never-list", "Mapy projektu (graphify) se cachují podle otisku cest."],
     done: [
       "Změna kteréhokoli vstupu dá jiný klíč (test).",
       "Neplatný záznam se přepočítá, nevrátí.",
@@ -103,7 +103,7 @@ export const cacheItems: CatalogItem[] = [
     ],
     template: [
       "# backend/project/maps/README.md",
-      "# Cachujeme: artefakty map (archify, graphify) podle digestu cest.",
+      "# Cachujeme: artefakty map (graphify) podle digestu cest.",
       "# Necachujeme: desktop stav (má revizi a CAS), podklady pro agenta, cokoli s právy.",
     ].join("\n"),
   },

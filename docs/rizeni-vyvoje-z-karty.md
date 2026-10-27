@@ -10,7 +10,7 @@ v [karta-pro-agenty.md](karta-pro-agenty.md); tady je mapa a postup.
 Každý projekt má jednu složku `P:\opora-data\projects\<id>\` (kořen dat nastavuje `opora.local.toml`) a v ní
 jednu databázi `project.sqlite`; cesty v tabulce jsou relativní k této složce, pokud není řečeno jinak.
 **Kód je v repu, zadání a práce jsou v Opoře, nic není na obou místech.** Dvě výslovné výjimky: mapy
-(`graphify-out/`, `archify-out/`) leží v kořeni worktree projektu, protože je čtou nástroje přímo nad kódem,
+(`graphify-out/`) leží v kořeni worktree projektu, protože je čtou nástroje přímo nad kódem,
 a jsou git-ignorované; graf plátna git projektu leží v datech Opory, nikdy v cílovém repu. Autoritou pro
 průběh etap je `desktop_v3_state.stages`; soubory procesů (`processes/`) jsou starší, nepoužívaná cesta.
 
@@ -25,7 +25,7 @@ průběh etap je `desktop_v3_state.stages`; soubory procesů (`processes/`) jsou
 | Podklady (obrázky, soubory ke kartě), kresby vrstvy | `nodes/<id>/`, `drawing_revisions`, `drawing_files` | člověk | kresba je per vrstva, obrázky s ní |
 | Verze plátna (uložené snímky) | `canvas_versions` | člověk (Uložit) | obnova vrací graf i stav |
 | OporaHub (commit specu, párování commitů, verdikt) | `oporahub/<id>.json`, `oporahub/main.log`, index `opora_commits` | člověk, orchestrátor | pravda je v souborech, index se přestaví |
-| Mapy projektu (Graphify, Archify) | **v kořeni hlavního worktree projektu**: `graphify-out/`, `archify-out/` | automatika po mergi do `main` | git-ignorované přes `.git/info/exclude`; jediná sada, bez verzí |
+| Mapa projektu (Graphify) | **v kořeni hlavního worktree projektu**: `graphify-out/` | automatika po mergi do `main` | git-ignorované přes `.git/info/exclude`; jediná sada, bez verzí |
 | Paměť role agenta (co se role naučila napříč projekty) | **mimo Oporu**: OpenViking `http://127.0.0.1:1933`, adresa `viking://user/<role>/peers/<projekt>/resources/cards/<nodeId>/` | Opora po uzavření karty a při `remember` | klíče rolí v `app_settings`; viz [pamet-agentu.md](pamet-agentu.md) |
 | Schránka zadání (fragmenty, brány) | `brief_fragment_*`, `brief_gate_proposals`, `brief_lessons` | člověk a agenti cyklu | [schranka-neurony.md](schranka-neurony.md) |
 

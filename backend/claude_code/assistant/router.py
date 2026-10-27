@@ -16,7 +16,6 @@ SOURCES = {
     "find": "Sémantické hledání v kódu a dokumentaci projektu: kde se řeší určité téma.",
     "code": "LSP: definice, reference a symboly konkrétní funkce, třídy nebo souboru.",
     "graphify": "Graf vztahů souborů a modulů: kdo na koho závisí, komunity, architektura v souvislostech.",
-    "archify": "Mapa architektury a toků projektu jako diagram.",
     "memory": "Paměť role agenta: dřívější rozhodnutí, poučení a kontext z minulých sessions.",
     "web": "Web: knihovny, externí API, ceny a dokumentace mimo projekt.",
 }

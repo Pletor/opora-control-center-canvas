@@ -11,10 +11,19 @@ from backend.integrations.gitio import git
 from backend.project.maps.map_artifacts import main_project_root, missing_tools
 
 LOGGER = logging.getLogger(__name__)
-TOOLS = ('graphify', 'archify')
+TOOLS = ('graphify',)
 # Verze schématu fronty. 1 = automatika zapnutá bez ručního kroku; dřívější uložená 0
 # pocházela z původního výchozího stavu, proto se jednou převede na 1.
 SCHEMA_VERSION = 1
+
+
+def stored_tools(raw):
+    """Uložený seznam nástrojů bez těch, které už neexistují (např. zrušený `archify` ve starých datech)."""
+    try:
+        items = json.loads(raw)
+    except (TypeError, ValueError):
+        return list(TOOLS)
+    return [tool for tool in TOOLS if isinstance(items, list) and tool in items]
 
 
 def worker_allowed():
@@ -49,9 +58,9 @@ class MapRefresh:
         ''')
         columns = {row['name'] for row in self.db.execute('PRAGMA table_info(projects)')}
         for name, definition in {
-            'auto_graphify': 'INTEGER NOT NULL DEFAULT 1', 'auto_archify': 'INTEGER NOT NULL DEFAULT 1',
-            'requested_tools': '''TEXT NOT NULL DEFAULT '["graphify","archify"]' ''',
-            'running_tools': 'TEXT', 'built_graphify': 'TEXT', 'built_archify': 'TEXT',
+            'auto_graphify': 'INTEGER NOT NULL DEFAULT 1',
+            'requested_tools': '''TEXT NOT NULL DEFAULT '["graphify"]' ''',
+            'running_tools': 'TEXT', 'built_graphify': 'TEXT',
             'manual': 'INTEGER NOT NULL DEFAULT 0',
         }.items():
             if name not in columns:
@@ -135,7 +144,7 @@ class MapRefresh:
             if row is None:
                 return None
             # Dvě registrace worktrees téhož repozitáře nevytvářejí druhý placený běh.
-            shared = self.db.execute("SELECT 1 FROM projects WHERE root=? AND project!=? AND built_graphify=? AND built_archify=? LIMIT 1", (row['root'], row['project'], row['wanted'], row['wanted'])).fetchone()
+            shared = self.db.execute("SELECT 1 FROM projects WHERE root=? AND project!=? AND built_graphify=? LIMIT 1", (row['root'], row['project'], row['wanted'])).fetchone()
             if shared:
                 self.db.execute("UPDATE projects SET status='succeeded',built=wanted,manual=0 WHERE project=?", (row['project'],))
                 return None
@@ -145,7 +154,7 @@ class MapRefresh:
                 raise ValueError('Převzetí aktualizace se změnilo.')
             self.db.execute('INSERT INTO runs VALUES(?,?,?,?,?,?,NULL,NULL)', (owner, row['project'], row['root'], row['wanted'], 'running', now))
             return {'id': owner, 'project': row['project'], 'root': row['root'], 'revision': row['wanted'],
-                    'tools': json.loads(row['requested_tools']), 'manual': bool(row['manual'])}
+                    'tools': stored_tools(row['requested_tools']), 'manual': bool(row['manual'])}
 
     def phase(self, job, phase):
         with self.lock, self.db:
@@ -174,8 +183,8 @@ class MapRefresh:
                              row['manual'] if next_status == 'queued' else 0, job['project'], job['id']))
             self.db.execute('UPDATE runs SET status=?,finished=?,error=? WHERE id=?', (status, now, error, job['id']))
             if status == 'succeeded':
-                for tool in job.get('tools', ['graphify', 'archify']):
-                    column = {'graphify': 'built_graphify', 'archify': 'built_archify'}[tool]
+                for tool in job.get('tools', list(TOOLS)):
+                    column = {'graphify': 'built_graphify'}[tool]
                     self.db.execute(f'UPDATE projects SET {column}=? WHERE project=?', (job['revision'], job['project']))
 
     def run_one(self):
@@ -198,7 +207,7 @@ class MapRefresh:
     def retry(self, project, tool=None):
         """„Aktualizovat teď“: výslovná volba člověka, proto platí i při vypnuté automatice
         a i u nástroje nastaveného na „Pouze ručně“."""
-        if tool not in (None, 'graphify', 'archify'):
+        if tool not in (None, *TOOLS):
             raise ValueError('Neplatný nástroj mapy.')
         root = main_project_root(self.service, project)
         revision = git(root, 'rev-parse', 'refs/heads/main', timeout=3)
@@ -207,19 +216,19 @@ class MapRefresh:
             row = self.db.execute('SELECT status,requested_tools FROM projects WHERE project=?', (project,)).fetchone()
             wanted = {tool} if tool else set(TOOLS)
             if row['status'] == 'queued':
-                wanted |= set(json.loads(row['requested_tools']))
+                wanted |= set(stored_tools(row['requested_tools']))
             tools = [item for item in TOOLS if item in wanted]
             self.db.execute("UPDATE projects SET wanted=?,requested_tools=?,manual=1,status=CASE WHEN owner IS NULL THEN 'queued' ELSE status END,error=NULL WHERE project=?", (revision, json.dumps(tools), project))
         self.start()
         return self.status(project)
 
     def settings(self, project, tool, automatic):
-        if tool not in ('graphify', 'archify') or type(automatic) is not bool:
+        if tool not in TOOLS or type(automatic) is not bool:
             raise ValueError('Neplatné nastavení aktualizace mapy.')
         root = main_project_root(self.service, project)
         revision = git(root, 'rev-parse', 'refs/heads/main', timeout=3)
         self.observe(project, root, revision)
-        column = {'graphify': 'auto_graphify', 'archify': 'auto_archify'}[tool]
+        column = {'graphify': 'auto_graphify'}[tool]
         with self.lock, self.db:
             self.db.execute(f'UPDATE projects SET {column}=? WHERE project=?', (int(automatic), project))
         return self.status(project)
@@ -233,9 +242,9 @@ class MapRefresh:
                     'sourceRoot': row['root'] if row else None, 'observedRevision': row['observed'] if row else None,
                     'sourceRevision': row['built'] if row else None, 'phase': row['phase'] if row else None,
                     'automatic': {tool: bool(row['auto_' + tool]) if row else True for tool in TOOLS},
-                    'versions': {tool: row['built_' + tool] if row else None for tool in ('graphify', 'archify')},
+                    'versions': {tool: row['built_' + tool] if row else None for tool in TOOLS},
                     'error': row['error'] if row else None, 'runs': runs,
-                    'trigger': 'refs/heads/main', 'agent': 'claude-code/sonnet', 'maxSeconds': 600, 'maxTurns': 10}
+                    'trigger': 'refs/heads/main', 'agent': None, 'maxSeconds': 600, 'maxTurns': 10}
 
     def start(self):
         if not worker_allowed() or self.closed or self.thread and self.thread.is_alive():

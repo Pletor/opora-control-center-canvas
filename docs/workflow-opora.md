@@ -32,7 +32,7 @@ Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kód
 | Tickety | `{id, title, priority, status open/doing/done, nodeId, sessionId, createdBy}` | jen uvnitř stavu Desktop v3 | agent zapisuje | **jen backend, UI chybí** |
 | Trace, pipeline akcí | dohledání ID, knihovna akcí | `/api/desktop-v3/trace`, `/pipelines` | UI, agent | hotovo |
 | Paměť role | OpenViking: recall, remember, lend; zrcadlí prostor agenta | `/api/memory/*` | automatika + člověk | hotovo (volitelné) |
-| Mapy | Archify (jediný model: Claude Code Sonnet), Graphify (bez modelu), automatika po mergi | `/api/archify/*`, `/api/graphify/*`, `/api/map-refresh/*` | UI, automatika | hotovo |
+| Mapy | Graphify (bez modelu), automatika po mergi | `/api/graphify/*`, `/api/map-refresh/*` | UI, automatika | hotovo |
 | Pravda a dokončení | echo, verdikt Oracle (`canCommit/canMerge/blocking`), commit specu, párování commitů | `/api/sync-report`, `/api/opora-commit(s)`, `/api/opora-merge` | člověk, orchestrátor | jádro hotovo |
 | Linear | jen kontrakt | — | — | nezačato |
 | Vzdálený přístup | tunel s tokenem, asistent a RLM jen z loopbacku | `/api/access/*` | člověk | hotovo |
@@ -82,7 +82,7 @@ flowchart LR
 
 | # | Krok | Vstup | Výstup v OPORA | Kdo | Brána k dalšímu kroku |
 |---|---|---|---|---|---|
-| 1 | **Grilling** | myšlenka, `node-brief` sektoru/projektu, mapa Graphify/Archify | kola otázek v `agent-workspace.log` karty, odpovědi jako `decisions` (`nodeId` = karta) | člověk + model | frontier otázek je prázdný a člověk potvrdí shodu |
+| 1 | **Grilling** | myšlenka, `node-brief` sektoru/projektu, mapa Graphify | kola otázek v `agent-workspace.log` karty, odpovědi jako `decisions` (`nodeId` = karta) | člověk + model | frontier otázek je prázdný a člověk potvrdí shodu |
 | 2 | **Rozcestí** | výsledek grillingu | malé a jasné: rovnou krok 4; velké a v mlze: krok 3 | model navrhne, člověk rozhodne | výslovná volba |
 | 3 | **Wayfinding** | cíl (Destination) | sektor = mapa, karty-rozhodnutí, vazby `next` jako blokace, komentáře na plátně jako mlha | model + člověk | žádná otevřená karta-rozhodnutí v sektoru |
 | 4 | **Zadání karty** | rozhodnutí z mapy | spec (`goal / non_goals / acceptance`), bloky s podmínkami, pravidla, `sourceRef` nebo vazba na existující uzel, `agentRole`, fáze `define` | model navrhne, člověk upraví | kontrola zapadnutí (viz níže) a kritéria nejsou prázdná |
@@ -90,7 +90,7 @@ flowchart LR
 | 6 | **Vykonání po etapách** | `node-brief` | každá etapa = nová relace: lease → práce → `agent-output` (`stages` s předávkou, `evidence`, `checksRun`) → release; review a kritiky jiná relace | agenti | všechny etapy prošly, důkazy a kontroly zelené, `done.proposed` |
 | 7 | **Pravda** | commity | párování (`Opora-Node` trailer, cesty), echo, verdikt Oracle | OporaHub | `canMerge` |
 | 8 | **Uzavření** | verdikt + výstup | `done.confirmed`, fáze `verify → live` | člověk | — |
-| 9 | **Mapy** | merge do main | Archify, Graphify, které jsou kontextem pro další kroky 1 a 4 | automatika | — |
+| 9 | **Mapy** | merge do main | Graphify, která je kontextem pro další kroky 1 a 4 | automatika | — |
 
 **Kontrola zapadnutí (krok 4).** Karta k vykonání vznikne jen tehdy, když splní všechny tři podmínky:
 - má rodiče (sektor) a alespoň jednu vazbu nebo `sourceRef` na existující komponentu;
@@ -140,7 +140,7 @@ Na každou z nich pipeline buď navazuje, nebo ji výslovně nechává beze změ
 - tickety ve stavu Desktop v3 s konvencí `[external:…]`;
 - procesy s kroky a důkazy;
 - paměť role (OpenViking);
-- Archify jako jediný model spouštěný aplikací, Graphify, automatika map;
+- Graphify, automatika map (bez modelu);
 - OporaHub, párování commitů, verdikt Oracle;
 - tunel s tokenem jen v prostředí;
 - „Jedno rozhraní pro všechny projekty“ přes `project-capabilities.ts`;

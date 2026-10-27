@@ -23,7 +23,6 @@ export const CONNECTORS: Connector[] = [
   { id: "claude-code", name: "Claude Code", purpose: "Skills a commandy řízené z aplikace; agent pracující nad uzlem.", status: "planned" },
   { id: "mcp", name: "MCP server", purpose: "Rozhraní pro agenty nad API: strom, uzel, převzetí úkolu, výsledek.", status: "planned" },
   { id: "graphify", name: "Graphify", purpose: "Mapa znalostí projektu z kódu a dokumentů.", status: "planned" },
-  { id: "archify", name: "Archify", purpose: "Architektonická mapa projektu jako explorovatelné HTML.", status: "planned" },
   {
     id: OPENVIKING_ID,
     name: "OpenViking – paměť rolí",

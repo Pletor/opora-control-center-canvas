@@ -1,0 +1,30 @@
+/* map-view: společný rám mapy projektu (Graphify i Mapa kódu).
+   Příběh: mapa vždy zabere celou plochu vedle stromu souborů. Nahoře je tenký panel
+   s nástroji, pod ním popisek s počty a teprve pak samotná mapa, která si bere všechno
+   zbylé místo, aby graf nebyl nikdy menší, než musí být. */
+.map-view{height:100%;display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface,#151b24);color:var(--ink,#e5e7eb)}
+/* Na celou obrazovku dostane mapa jen malý okraj, aby se dala číst bez rušení okolím. */
+.map-view:fullscreen{height:100vh;padding:12px}
+
+/* Panel nástrojů: tlačítka v řadě, na úzkém displeji se zalomí a zmenší. */
+.map-view__toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 12px;flex-shrink:0}
+.map-view__toolbar strong{margin-right:10px}
+
+/* Popisek pod panelem: vlevo co mapa obsahuje, vpravo odkud pochází; tlumený, aby nesoutěžil s mapou. */
+.map-view__caption{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:4px 12px 8px;font-size:12px;color:var(--muted,#94a3b8);flex-shrink:0}
+
+/* Tělo s mapou: iframe vyplní celou šířku a má světlé pozadí, protože výstup nástroje je navržený na světlé. */
+.map-view__body{display:flex;flex:1;min-height:200px;min-width:0}
+.map-view__body>iframe{flex:1;width:100%;min-width:0;border:0;background:#f5f7fb}
+
+/* Hlášky: stav („Načítám…“) je klidný text, chyba má červený pruh, aby ji člověk nepřehlédl. */
+.map-view__status,.map-view__error{padding:8px 12px;margin:0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.map-view__error{color:#fb7185;background:#3a1825}
+
+/* Doklad o původu mapy: sbalený pruh dole; rozbalený nezabere víc než třetinu výšky a posouvá se sám. */
+.map-view__receipt{max-height:35%;overflow:auto;border-top:1px solid var(--line,#374151);padding:7px 12px;font-size:12px;flex-shrink:0}
+.map-view__receipt summary{cursor:pointer}
+.map-view__receipt pre,.map-view__receipt code{white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* Úzký displej: menší písmo a těsnější mezery v panelu i popisku. */
+@media(max-width:800px){.map-view__toolbar{gap:4px}.map-view__toolbar button{font-size:12px}.map-view__caption{font-size:11px}}

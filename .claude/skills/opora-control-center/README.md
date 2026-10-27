@@ -22,7 +22,7 @@ Do skillu nepatří nic specifického pro jeden projekt.
   `legacy.md` (**zastaralé**: lease, `agent-output`, router, kritici, `opora_stage.py`, `opora_closure.py`),
   `workflow.md` (grilling, wayfinder, laťka karty, brány), `cycle.md` (brány Schránky, buňka, duel),
   `provoz.md` (spuštění, zastavení, restart, build, ověření běžící verze) a mapy / orientace
-  (`navigation.md`, `rlm.md`, `graphify.md`, `archify.md`, `map-refresh.md`, `external-agent.md`).
+  (`navigation.md`, `rlm.md`, `graphify.md`, `map-refresh.md`, `external-agent.md`).
 - `scripts/opora_read.py`: čtení a hledání (loopback i tunel); jen standardní Python 3.
 - `scripts/opora_hub.py`: agent-state s ETagem, výběr akce, claim / zadání / heartbeat / průběžný krok / výsledek běhu
   a slot review; tokeny jen v souborech 0600 (`OPORA_HUB_STATE_DIR`, výchozí `~/.opora/hub`).

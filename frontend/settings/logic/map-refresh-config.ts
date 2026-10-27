@@ -26,7 +26,7 @@ export function parseMapRefreshConfig(value: unknown): MapRefreshConfig | null {
 export function mapRefreshView(config: MapRefreshConfig | null): MapRefreshView {
   if (!config) return { checked: false, busy: true, detail: "Zjišťuji stav automatiky…" };
   return config.enabled
-    ? { checked: true, busy: false, detail: "Po každém mergi do main se Graphify a Archify přepíšou na místě ve všech projektech." }
+    ? { checked: true, busy: false, detail: "Po každém mergi do main se Graphify přepíše na místě ve všech projektech." }
     : { checked: false, busy: false, detail: "Mapy se aktualizují jen volbou „Aktualizovat teď“ v mapě projektu." };
 }
 

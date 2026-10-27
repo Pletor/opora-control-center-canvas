@@ -54,7 +54,7 @@ def test_skill_md_is_a_short_router_linking_every_reference():
     references = {f"references/{p.name}" for p in (SKILL / "references").glob("*.md")} - {"references/source-map.md"}
     assert references - linked == set()
     for path in (SKILL / "references").glob("*.md"):
-        if path.name not in ("source-map.md", "navigation.md", "rlm.md", "graphify.md", "archify.md",
+        if path.name not in ("source-map.md", "navigation.md", "rlm.md", "graphify.md",
                              "map-refresh.md", "external-agent.md"):
             assert "Kdy mě číst" in path.read_text("utf-8"), path.name
 

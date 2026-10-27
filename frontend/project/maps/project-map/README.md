@@ -15,6 +15,6 @@ ukazuje oblasti projektu jako bubliny pojmenované podle společné složky. Dat
   překryvů), `edgeLines` (nejsilnější vazby, tloušťka log), `filterCommunities`, `communityColor`/`communityTone`
   (cyklus přes `--cat-*`), `neighbors`, `fitView`, `zoomAt`, `panBy`, `shortLabel`. Test vedle.
 - `styles/project-map.css` — bloky `project-map`, `project-map-canvas`, `project-map-sidebar`, `project-map-legend`.
-  Stav a chyba používají `archify-status` a `archify-error` z `../styles/archify-map.css`.
+  Stav a chyba používají `map-view__status` a `map-view__error` z `../styles/map-view.css`.
 
 Původní HTML zůstává za tlačítkem „Původní Graphify HTML“ v `GraphifyMap.tsx` a načte se až na kliknutí.

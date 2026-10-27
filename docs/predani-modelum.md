@@ -48,7 +48,7 @@ Z výše uvedeného plyne, že dnešní modely nepotřebují návod, jak myslet.
 | hranice rozsahu | `goal.nonGoals`, `boundaries.nodeRules`/`projectRules` (`must`/`must_not`) | brzdí přidávání testů, dokumentace a oprav okolí |
 | kde se rozhlédnout | `graph.parent`, `incoming`/`outgoing` s `agentWorkspace`, `context.materials`, `context.knowledgeGraph`, `sourceRef` | Opus se má před změnou rozhlédnout; nový dílek musí navázat na existující komponenty |
 | proč (rozhodnutí) | `context.decisions`, zprávy na vazbách | modely lépe rozhodují, když znají důvod |
-| vizualizaci | plátno: oblast, sektor, vazby, kresba, mapa Archify | Opus 5.5 čte význam diagramu podle polohy |
+| vizualizaci | plátno: oblast, sektor, vazby, kresba, mapa Graphify | Opus 5.5 čte význam diagramu podle polohy |
 | stop podmínky | `harness.stopConditions`, uzavření karty `done` | jasně ohraničí, kdy se ptát a kdy pokračovat |
 | tvar výstupu | `outputContract` → `agent-output` | strukturovaný výsledek místo volného hlášení |
 

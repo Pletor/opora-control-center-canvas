@@ -64,7 +64,7 @@ Karta vložená z knihovny nese v `node-brief` (klíč `node`) `fetch` = co si s
 | **Řešitel konfliktů** | `proposal.resolve_conflict` → nový návrh nad hlavou → `…/resolve` | [conflicts.md](references/conflicts.md) |
 | **Formální ověření** | `verification.investigate` → `verification.fix` (návrh karty opravy) | [formal.md](references/formal.md) |
 | **Pozorovatel** | `agent-state` (snímek) + feed událostí (delta) | [events.md](references/events.md) |
-| **Najít kontext** | `search` → `find` / `code` → `graphify query` → Archify → `recall` → web | [api.md](references/api.md) „Čtení“, [navigation.md](references/navigation.md) |
+| **Najít kontext** | `search` → `find` / `code` → `graphify query` → `recall` → web | [api.md](references/api.md) „Čtení“, [navigation.md](references/navigation.md) |
 
 ## Co patří jen člověku (agent dostane 403/428, skript odmítne předem)
 
@@ -108,7 +108,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | storyboard a skica momentu | `/api/storyboard`, `/api/drawing` | [storyboard.md](references/storyboard.md) |
 | ověřit cestu zákazníka před uzavřením karty | `uv run python tools/journey_run.py --project P --journey J [--dry-run]` | [journey-run.md](references/journey-run.md) |
 | design karta: DESIGN.md, režim, screenshoty na hlavu PR | `/api/oporahub/review-preview`, `/api/oporahub/review-jobs/preview` | `docs/design-nahled.md` |
-| velký projekt, mapy | `index` → `rank`; Graphify, Archify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [archify.md](references/archify.md), [map-refresh.md](references/map-refresh.md) |
+| velký projekt, mapy | `index` → `rank`; Graphify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [map-refresh.md](references/map-refresh.md) |
 | podklady pro externího agenta | `snapshot --id` | [external-agent.md](references/external-agent.md) |
 | návrh karty pro člověka | šablona | [assets/task-brief.md](assets/task-brief.md) |
 | stará karta mimo OporaHub (lease, `agent-output`, router, kritici, `opora_stage.py`, `opora_closure.py`) | **zastaralé**, jen pro stará data | [legacy.md](references/legacy.md) |

@@ -62,7 +62,6 @@ from backend.api.editor.rlm_routes import create_rlm_router
 from backend.api.editor.semantic_routes import create_semantic_router
 from backend.api.editor.storyboard_routes import create_storyboard_router
 from backend.api.editor.sync_routes import create_sync_router
-from backend.api.project.archify_routes import create_archify_router
 from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
@@ -314,7 +313,6 @@ def create_app(data_root=None):
     # prostředí Projekt
     app.include_router(create_project_workspace_router(service, WorkspaceArchive(service, assistant.registry)))
     app.include_router(create_workspace_router(service))
-    app.include_router(create_archify_router(service))
     app.include_router(create_graphify_router(service))
     app.include_router(create_map_refresh_router(map_refresh))
     app.include_router(create_project_architecture_router(service))

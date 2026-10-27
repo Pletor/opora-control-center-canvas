@@ -3,5 +3,4 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DIST_DIR = REPO_ROOT / "dist"
-VENDOR_DIR = REPO_ROOT / "vendor"
 GRAPHIFY_VENV = REPO_ROOT / ".venv-graphify"

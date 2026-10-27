@@ -1,5 +1,2 @@
 * text=auto eol=lf
 *.png binary
-# Doručovací SHA-256 musí zůstat shodné i po Git checkoutu.
-docs/architecture/archify/** -text
-vendor/archify/** -text

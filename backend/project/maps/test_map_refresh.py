@@ -20,8 +20,6 @@ def stable(path):
     # Stabilní sada už existuje; projekt tedy nečeká na počáteční běh.
     (path / 'graphify-out').mkdir()
     (path / 'graphify-out/graph.json').write_text('{}')
-    (path / 'archify-out').mkdir()
-    (path / 'archify-out/deliver-receipt.json').write_text('{}')
     return path
 
 
@@ -118,8 +116,8 @@ def test_menu_preferences_are_separate_for_each_project_and_tool(tmp_path):
     with TestClient(app, base_url='http://127.0.0.1:8740') as client:
         result = client.post('/api/map-refresh/settings', json={'project': pa, 'tool': 'graphify', 'automatic': False}, headers={'Origin':'http://127.0.0.1:8740'})
         assert result.status_code == 200, result.text
-        assert client.get('/api/map-refresh/status',params={'project':pa}).json()['automatic'] == {'graphify':False,'archify':True}
-        assert client.get('/api/map-refresh/status',params={'project':pb}).json()['automatic'] == {'graphify':True,'archify':True}
+        assert client.get('/api/map-refresh/status',params={'project':pa}).json()['automatic'] == {'graphify':False}
+        assert client.get('/api/map-refresh/status',params={'project':pb}).json()['automatic'] == {'graphify':True}
 
 
 def test_automation_is_on_by_default_and_global_switch_persists(tmp_path):
@@ -166,22 +164,11 @@ def test_missing_stable_maps_queue_one_initial_run_per_automatic_tool(tmp_path):
     assert manager.status(pb)['status'] == 'watching'
     assert manager.status(pa)['status'] == 'queued'
     job = manager.claim()
-    assert job['project'] == pa and job['tools'] == ['graphify', 'archify'] and job['manual'] is False
+    assert job['project'] == pa and job['tools'] == ['graphify'] and job['manual'] is False
     manager.finish(job, 'failed', 'Controlled failure')
     manager.scan()
-    # Selhaný počáteční běh se sám neopakuje; jinak by worker každých 5 s volal Sonnet.
+    # Selhaný počáteční běh se sám neopakuje; jinak by worker každých 5 s znovu stavěl graf.
     assert manager.status(pa)['status'] == 'failed'
-    manager.close()
-    service.close()
-
-
-def test_initial_run_respects_manual_only_tool(tmp_path):
-    app, service, (a, pa), _ = two_projects(tmp_path, with_maps=False)
-    manager = app.state.map_refresh
-    manager.settings(pa, 'archify', False)
-    manager.scan()
-    job = manager.claim()
-    assert job['project'] == pa and job['tools'] == ['graphify']
     manager.close()
     service.close()
 
@@ -189,18 +176,36 @@ def test_initial_run_respects_manual_only_tool(tmp_path):
 def test_update_now_runs_while_tool_and_global_automation_are_off(tmp_path):
     app, service, (a, pa), _ = two_projects(tmp_path)
     manager = app.state.map_refresh
-    manager.settings(pa, 'archify', False)
+    manager.settings(pa, 'graphify', False)
     manager.set_enabled(False, start=False)
     seen = []
     manager.builder = lambda job, owner: seen.append((job['tools'], owner.current(job)))
-    manager.retry(pa, 'archify')
+    manager.retry(pa, 'graphify')
     assert manager.status(pa)['status'] == 'queued'
     assert manager.run_one()['project'] == pa
-    assert seen == [(['archify'], True)]
+    assert seen == [(['graphify'], True)]
     assert manager.status(pa)['status'] == 'succeeded'
-    assert manager.status(pa)['versions']['archify'] == git(a, 'rev-parse', 'refs/heads/main')
+    assert manager.status(pa)['versions']['graphify'] == git(a, 'rev-parse', 'refs/heads/main')
     # Bez výslovné volby se při vypnuté automatice nic dalšího nezařadí.
     assert manager.claim() is None
+    manager.close()
+    service.close()
+
+
+def test_old_archify_in_stored_tools_is_ignored(tmp_path):
+    # Stará data (před zrušením Archify) mají v requested_tools/running_tools i "archify".
+    app, service, (a, pa), _ = two_projects(tmp_path, with_maps=False)
+    manager = app.state.map_refresh
+    manager.scan()
+    manager.db.execute('UPDATE projects SET requested_tools=? WHERE project=?', ('["graphify","archify"]', pa))
+    manager.db.commit()
+    job = manager.claim()
+    assert job['tools'] == ['graphify']
+    manager.db.execute('UPDATE projects SET running_tools=? WHERE project=?', ('["graphify","archify"]', pa))
+    manager.db.commit()
+    manager.finish(job, 'succeeded')
+    assert manager.status(pa)['versions'] == {'graphify': git(a, 'rev-parse', 'refs/heads/main')}
+    assert 'archify' not in manager.status(pa)['automatic']
     manager.close()
     service.close()
 
@@ -208,22 +213,19 @@ def test_update_now_runs_while_tool_and_global_automation_are_off(tmp_path):
 def test_publish_rewrites_stable_files_in_place_and_excludes_them_from_git(tmp_path):
     from backend.project.maps.map_artifacts import FILES, publish
     root = repository(tmp_path / 'repo', 'alpha')
-    graph, archify = tmp_path / 'graph', tmp_path / 'archify'
-    graph.mkdir(), archify.mkdir()
+    graph = tmp_path / 'graph'
+    graph.mkdir()
     for name in FILES['graphify']:
-        (graph / name).write_text('graph ' + name)
-    for name in (*FILES['archify'], 'validate-receipt.json', 'evidence.json'):
-        (archify / name).write_text('first ' + name)
+        (graph / name).write_text('first ' + name)
     revision = git(root, 'rev-parse', 'refs/heads/main')
-    publish(root, revision, {'graphify': graph, 'archify': archify})
-    (archify / 'SPEC.md').write_text('second')
-    publish(root, revision, {'archify': archify})
-    assert sorted(p.name for p in (root / 'archify-out').iterdir()) == sorted(FILES['archify'])
-    assert (root / 'archify-out/SPEC.md').read_text() == 'second'
+    publish(root, revision, {'graphify': graph})
+    (graph / 'GRAPH_REPORT.md').write_text('second')
+    publish(root, revision, {'graphify': graph})
+    assert (root / 'graphify-out/GRAPH_REPORT.md').read_text() == 'second'
     assert sorted(p.name for p in (root / 'graphify-out').iterdir()) == sorted(FILES['graphify'])
-    assert sorted(p.name for p in root.iterdir()) == ['.git', 'archify-out', 'graphify-out', 'module.py']
+    assert sorted(p.name for p in root.iterdir()) == ['.git', 'graphify-out', 'module.py']
     exclude = (root / '.git/info/exclude').read_text().splitlines()
-    assert '/graphify-out/' in exclude and '/archify-out/' in exclude
+    assert '/graphify-out/' in exclude
     assert git(root, 'status', '--porcelain') == ''
 
 
@@ -232,16 +234,16 @@ def test_incomplete_output_does_not_overwrite_previous_set(tmp_path):
 
     from backend.project.maps.map_artifacts import FILES, publish
     root = tmp_path / 'root'
-    (root / 'archify-out').mkdir(parents=True)
-    (root / 'archify-out/SPEC.md').write_text('previous')
+    (root / 'graphify-out').mkdir(parents=True)
+    (root / 'graphify-out/GRAPH_REPORT.md').write_text('previous')
     partial = tmp_path / 'partial'
     partial.mkdir()
-    for name in FILES['archify'][:-1]:
+    for name in FILES['graphify'][:-1]:
         (partial / name).write_text('new')
     with pytest.raises(ValueError):
-        publish(root, 'a' * 40, {'archify': partial})
-    assert (root / 'archify-out/SPEC.md').read_text() == 'previous'
-    assert sorted(p.name for p in (root / 'archify-out').iterdir()) == ['SPEC.md']
+        publish(root, 'a' * 40, {'graphify': partial})
+    assert (root / 'graphify-out/GRAPH_REPORT.md').read_text() == 'previous'
+    assert sorted(p.name for p in (root / 'graphify-out').iterdir()) == ['GRAPH_REPORT.md']
 
 
 def test_real_graphify_refresh_publishes_only_selected_project(tmp_path, real_graphify):
@@ -258,6 +260,5 @@ def test_real_graphify_refresh_publishes_only_selected_project(tmp_path, real_gr
     assert 'alpha' in value['graphJson']
     assert 'beta' not in value['graphJson']
     assert not (b / 'graphify-out/graph.json').exists()
-    assert not (a / 'archify-out').exists()
     manager.close()
     service.close()

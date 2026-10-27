@@ -73,8 +73,8 @@ testy vedle kódu a záznam do `docs/brain/pamet/kratka.md`. Výsledek hlásí d
 2. V projektu ověř testy: u Ample `npm test` (a `npm run typecheck`).
 3. Commity zkontroluj ve VS Code a pushni na GitHub. Ample má v CLAUDE.md pravidlo „push jen přes `git push no-mistakes`“.
    Remote `no-mistakes` ale zatím nemá, takže pushuješ na `origin`, dokud bránu nezřídíš.
-4. Mapy (Archify, Graphify-out v prostředí Projekt) se obnoví po změně `main`. Hned je obnovíš přes **Aktualizovat graf → Aktualizovat teď**.
-   Selže-li to, chyba ukáže důvod. Archify má jedno automatické kolo opravy.
+4. Mapa (Graphify-out v prostředí Projekt) se obnoví po změně `main`. Hned je obnovíš přes **Aktualizovat graf → Aktualizovat teď**.
+   Selže-li to, chyba ukáže důvod.
 
 ## Víc agentů najednou
 
@@ -92,8 +92,7 @@ testy vedle kódu a záznam do `docs/brain/pamet/kratka.md`. Výsledek hlásí d
 | „Failed to fetch“ všude | backend neběží | `uv run opora` |
 | Změna v kódu Opory se neprojevila | Python se za běhu nepřenačte | restart `uv run opora` |
 | Agent nevidí skill | relace začala před vytvořením odkazu | nová relace `claude` |
-| Mapa hlásí důvod odmítnutí | validátor Archify návrh odmítl i po opravě | znovu „Aktualizovat teď“; opakuje-li se, pošli hlášku |
-| V `git status` projektu jsou `archify-out/` nebo `graphify-out/opora-*` | výstupy map | OPORA je vylučuje přes `.git/info/exclude`, necommituj je |
+| V `git status` projektu jsou `graphify-out/` nebo `graphify-out/opora-*` | výstupy map | OPORA je vylučuje přes `.git/info/exclude`, necommituj je |
 
 ## Záloha
 
