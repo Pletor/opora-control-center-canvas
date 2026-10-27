@@ -8,16 +8,20 @@ a `block` edge still starts from one of the current blocks (the edge would point
 `tech` (řetězec) a `states` (seznam stavů) zapíší `card.tech` / `card.states` existujícího uzlu, `null` je smaže;
 bez nich se nemění. Tvar ověří `validate_graph` (`docs/architektura-pro-agenty.md` §3.3).
 
+`section` (id sekce) zapíše `card.section` existujícího uzlu, `null` ho smaže. Dávka přijme jen sekci ze
+`site.sections` nejbližší stránky mezi předky karty (`check_sections`); uložení grafu ověří jen tvar id.
+
 `memberOf` (`@id` oblasti) zapíše výslovné logické členství uzlu nebo sektoru v oblasti, `null` ho zruší;
 platnost (oblast se stejným rodičem) ověří `validate_graph` (docs/kontrakt-identity.md)."""
 
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref
 from backend.canvas.canvas_plan_links import PORT_FIELDS, blocks_of
 from backend.canvas.graph import CARD_VALUES
+from backend.canvas.site_metadata import card_section_error
 
 EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef",
-                 "replaceBlocks", "layer", "memberOf", "tech", "states"}
-CARD_FIELDS = ("tech", "states")
+                 "replaceBlocks", "layer", "memberOf", "tech", "states", "section"}
+CARD_FIELDS = ("tech", "states", "section")
 
 
 def extend_cards(built, extensions, existing):
@@ -78,6 +82,8 @@ def extend_cards(built, extensions, existing):
         for key in CARD_FIELDS:
             if key in item:
                 _set_card_field(existing[node_id], key, item[key], label)
+        if item.get("section") is not None:
+            built.sections[node_id] = label
         built.labels[node_id] = target
         workflow = built.state["nodes"].setdefault(node_id, {"phase": "discover", "criteria": [], "steps": []})
         if "fragmentRef" in item:
@@ -123,7 +129,7 @@ def extend_cards(built, extensions, existing):
 
 
 def _set_card_field(node, key, value, label):
-    """Zapíše `card.tech` / `card.states` uzlu, `null` klíč smaže; prázdná karta se vynechá celá."""
+    """Zapíše `card.tech` / `card.states` / `card.section` uzlu, `null` klíč smaže; prázdná karta se vynechá celá."""
     if node["kind"] != "node":
         fail(label, f"{key} patří uzlu.")
     card = {k: v for k, v in (node.get("card") or {}).items() if k != key}
@@ -133,3 +139,15 @@ def _set_card_field(node, key, value, label):
         node["card"] = card
     else:
         node.pop("card", None)
+
+
+def check_sections(built):
+    """Sekce zapsané touto dávkou (nová karta i `extend`) musí existovat na nejbližší stránce nového grafu.
+
+    Hlídá jen to, co dávka sama píše: starý odkaz na smazanou sekci jinde v mapě dávku nezastaví, ohlásí ho
+    kontrola mapy (`section.unknown`). Stránku a její sekce může přidat i táž dávka."""
+    by_id = {node["id"]: node for node in built.new_graph()["nodes"]}
+    for node_id, label in built.sections.items():
+        error = card_section_error(by_id, node_id)
+        if error:
+            fail(label, f"section: {error}")

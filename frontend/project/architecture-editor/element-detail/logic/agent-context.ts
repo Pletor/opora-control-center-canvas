@@ -51,6 +51,9 @@ export function agentContext(graph: Graph, nodeId: string, domainId: string): Ag
   const ref = node?.sourceRef;
   const pageNode = pageIndex >= 0 ? chain[pageIndex] : null;
   const pageSite = pageNode?.site?.kind === "page" ? pageNode.site : null;
+  // Sekci stránky ukazuje a mění výběr „Sekce stránky“ (`section-choice.ts`), kontext ji neopakuje.
+  const { tech, states } = node?.kind === "node" ? cardComponent(node) : { tech: null, states: [] };
+  const component = { tech, states };
   const repo: RepoPath | null = ref?.path.trim()
     ? { kind: ref.origin === "planned" ? "planned" : "existing", path: ref.path }
     : null;
@@ -64,7 +67,7 @@ export function agentContext(graph: Graph, nodeId: string, domainId: string): Ag
     } : null,
     componentPath: below.reverse().map(label),
     repo,
-    ...(node?.kind === "node" ? cardComponent(node) : { tech: null, states: [] }),
+    ...component,
   };
 }
 

@@ -20,6 +20,7 @@ Uzel (`kind: "node"`, nikdy sektor, komentář ani oblast) smí v grafu nést ne
 | `effort` | `low` · `medium` · `high` · `xhigh` · `max` | doporučený effort |
 | `tech` | 1–80 znaků | technologie komponenty; píše agent (`docs/architektura-pro-agenty.md` §3.3) |
 | `states` | 1–8 různých stavů po 1–40 znacích | stavy komponenty; píše agent, formulář karty je zachová |
+| `section` | id sekce (`[A-Za-z0-9_-]{1,80}`) | sekce nejbližší stránky, kterou komponenta realizuje; píše agent i člověk v Detailu prvku (`docs/architektura-pro-agenty.md` §3.3) |
 
 - Každý klíč uvnitř `card` je nepovinný; prázdný `card` se neukládá (klient ho vypustí).
 - Jiný klíč nebo hodnota = `ValueError` v `backend/canvas/graph.py`. To platí i pro `card.type`:
@@ -101,7 +102,7 @@ Kdo z indexu čte:
 ## 6. node-brief a agent-output
 
 - `node-brief.node` navíc: `type` (typ workflow z předpony názvu; čte ho workflow), `layer`, `status`,
-  `due`, `model`, `effort` (efektivní hodnoty, chybějící `null`), `address`; `tech` a `states` jen když jsou zapsané.
+  `due`, `model`, `effort` (efektivní hodnoty, chybějící `null`), `address`; `tech`, `states` a `section` jen když jsou zapsané.
 - `graph.incoming` / `graph.outgoing` navíc: `fromAddress`, `toAddress`; `report` nese `sentAt` a `due`, když jsou.
 - `agent-output`: když report mění neprázdný `handoff`, backend nastaví `sentAt` na čas zápisu. Agent
   `sentAt` ani `due` neposílá (neznámý klíč = chyba jako dosud).

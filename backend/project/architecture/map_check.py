@@ -1,7 +1,7 @@
 """Kontrola mapy architektury bez modelu (`docs/architektura-pro-agenty.md` §5).
 
 Čistá funkce nad přijatým grafem (prosté slovníky). Nová pole kontraktu (`site.goal`, `site.sections`,
-`section`, `card.states`, `carries`) se čtou jen jako nepovinné klíče; tvar ověřuje validátor grafu, ne
+`card.section`, `card.states`, `carries`) se čtou jen jako nepovinné klíče; tvar ověřuje validátor grafu, ne
 tento modul. Chybějící pole znamená „neurčeno“ a nic se nedoplňuje.
 
 Pod stránkou: komponenta je uzel, jehož nejbližší stránka mezi předky (`parentId` řetěz, kontrakt §3.3)
@@ -10,8 +10,11 @@ není (§3.5).
 
 Výklad pravidel:
 - `page.no-goal`: stránka bez neprázdného `site.goal`.
-- `section.unrealized`: sekce stránky (`site.sections[].id`), na kterou se neodvolává `section` žádné
+- `section.unrealized`: sekce stránky (`site.sections[].id`), na kterou se neodvolává `card.section` žádné
   komponenty pod touto stránkou. Nález nese `nodeId` stránky, sekci jmenuje zpráva.
+- `section.unknown`: karta s `card.section`, kterou její nejbližší stránka nemá (sekci někdo smazal nebo
+  přejmenoval), nebo karta s `card.section` mimo stránku. Nález nese `nodeId` karty. Uložení grafu tohle
+  nehlídá (smazání sekce nesmí zablokovat mapu), proto to hlásí kontrola.
 - Odesílatel je uzel pod stránkou nebo uzel s `card.states`, ze kterého vede aspoň jedna hrana
   `carries == "command"`.
 - `command.no-receiver`: odesílatel, jehož žádná hrana `command` nemíří na uzel přítomný v grafu
@@ -25,10 +28,12 @@ Výklad pravidel:
 Pořadí nálezů: podle pořadí pravidel, pak podle id (sekce stejné stránky v pořadí stránky).
 """
 
+from backend.canvas.site_metadata import card_section_error
 from backend.editor.agent_packet.desktop_v3_packets import ancestor_ids
 from backend.project.architecture.work_status import architecture_graph
 
-RULES = ("page.no-goal", "section.unrealized", "command.no-receiver", "state.no-error", "edge.carries-unset")
+RULES = ("page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver", "state.no-error",
+         "edge.carries-unset")
 ERROR_STATES = frozenset({"chyba", "error", "selhání"})
 
 
@@ -39,6 +44,11 @@ def _site_kind(node):
 
 def _text(value):
     return isinstance(value, str) and bool(value.strip())
+
+
+def _section(node):
+    card = node.get("card")
+    return card.get("section") if isinstance(card, dict) else None
 
 
 def _states(node):
@@ -70,7 +80,7 @@ def _finding(rule, key, item_id, message):
 
 def _page_rules(pages, components, nodes):
     goals, sections = [], []
-    realized = {(components[n["id"]], n.get("section")) for n in nodes if n["id"] in components}
+    realized = {(components[n["id"]], _section(n)) for n in nodes if n["id"] in components}
     for page in pages:
         site = page["site"]
         if not _text(site.get("goal")):
@@ -82,6 +92,17 @@ def _page_rules(pages, components, nodes):
                 sections.append(_finding("section.unrealized", "nodeId", page["id"],
                                          f"Sekce {section_id} nemá žádnou komponentu."))
     return goals, sections
+
+
+def _unknown_sections(nodes, by_id):
+    findings = []
+    for node in nodes:
+        if not isinstance(_section(node), str):
+            continue
+        error = card_section_error(by_id, node["id"])
+        if error:
+            findings.append(_finding("section.unknown", "nodeId", node["id"], f"Karta odkazuje na neznámou sekci: {error}"))
+    return findings
 
 
 def _command_rules(nodes, edges, components):
@@ -125,7 +146,7 @@ def check_map(graph):
     pages = [node for node in nodes if _site_kind(node) == "page"]
     goals, sections = _page_rules(pages, components, nodes)
     receivers, errors = _command_rules(nodes, edges, components)
-    findings = [*goals, *sections, *receivers, *errors, *_edge_rules(edges, components)]
+    findings = [*goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
     return {"findings": findings, "summary": {rule: sum(f["rule"] == rule for f in findings) for rule in RULES}}
 
 

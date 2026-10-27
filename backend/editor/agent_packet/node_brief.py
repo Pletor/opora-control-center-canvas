@@ -348,8 +348,8 @@ class NodeBrief:
                 **({key: redact_deep(node[key]) for key in ("checks", "goal_mode", "factRefs", "realization", "scenario") if key in node}),
                 "status": effective_status(node, done["confirmed"]),
                 **{key: (node.get("card") or {}).get(key) for key in ("due", "model", "effort")},
-                # Komponenta (`docs/architektura-pro-agenty.md` §3.3): technologie a stavy jen když jsou zapsané.
-                **{key: node["card"][key] for key in ("tech", "states") if key in (node.get("card") or {})},
+                # Komponenta (`docs/architektura-pro-agenty.md` §3.3): technologie, stavy a sekce stránky jen když jsou zapsané.
+                **{key: node["card"][key] for key in ("tech", "states", "section") if key in (node.get("card") or {})},
                 "address": address_of(node_id),
             },
             "goal": {

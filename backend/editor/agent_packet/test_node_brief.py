@@ -727,3 +727,25 @@ def test_component_tech_and_states_appear_only_when_set_and_change_the_version(t
         # Odebrání vrátí přesně původní otisk: chybějící klíč se nikdy nedoplňuje.
         assert save(client, {"layer": "frontend"})["contextVersion"] == layered["contextVersion"]
         assert save(client, None)["contextVersion"] == plain["contextVersion"]
+
+
+def test_component_section_appears_only_when_set_and_changes_the_version(tmp_path):
+    """Kontrakt architektura-pro-agenty §3.3: `card.section` (kterou sekci stránky komponenta realizuje) je část zadání."""
+    def save(client, card):
+        nodes = [{**item, "card": card} if item["id"] == "focus" and card else item for item in GRAPH["nodes"]]
+        view = client.get("/api/view", params=SCOPE).json()
+        saved = client.post("/api/graph", headers=HEADERS,
+                            json={**SCOPE, "graph": {"nodes": nodes, "edges": GRAPH["edges"]}, "digest": view["digest"]})
+        assert saved.status_code == 200, saved.text
+        return brief(client).json()
+
+    def own(data):
+        return next(item for item in data["specification"]["graph"]["nodes"] if item["id"] == "focus")
+
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        plain = save(client, None)
+        assert "section" not in plain["node"] and "section" not in own(plain)
+        component = save(client, {"section": "form"})
+        assert component["node"]["section"] == "form" and own(component)["section"] == "form"
+        assert component["contextVersion"] != plain["contextVersion"]
+        assert save(client, None)["contextVersion"] == plain["contextVersion"]

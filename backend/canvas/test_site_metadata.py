@@ -4,7 +4,7 @@ import copy
 import pytest
 
 from backend.canvas.graph import validate_graph
-from backend.canvas.site_metadata import host_key
+from backend.canvas.site_metadata import card_section_error, host_key, nearest_page
 from backend.canvas.test_graph_card import node
 
 
@@ -191,3 +191,23 @@ def test_malformed_journeys_are_rejected(journeys):
     app["site"]["journeys"] = journeys
     with pytest.raises(ValueError):
         validate_graph({"nodes": [app, page()], "edges": []})
+
+
+def test_card_section_error_reads_the_nearest_page():
+    def item(identifier, parent=None, **extra):
+        return {"id": identifier, "parentId": parent, "kind": "node", "name": identifier, **extra}
+
+    sections = [{"id": "hero", "role": "hero", "name": "Hero", "intent": ""}]
+    by_id = {n["id"]: n for n in [
+        item("outer", site={"kind": "page", "path": "/", "sections": sections}),
+        item("inner", "outer", site={"kind": "page", "path": "/x"}),
+        item("ok", "outer", card={"section": "hero"}),
+        item("deep", "inner", card={"section": "hero"}),
+        item("loose", card={"section": "hero"}),
+        item("plain", "outer"),
+    ]}
+    assert nearest_page(by_id, "deep")["id"] == "inner"
+    assert nearest_page(by_id, "outer") is None
+    assert card_section_error(by_id, "ok") is None and card_section_error(by_id, "plain") is None
+    assert "inner nemá sekci hero" in card_section_error(by_id, "deep")
+    assert "mimo stránku" in card_section_error(by_id, "loose")

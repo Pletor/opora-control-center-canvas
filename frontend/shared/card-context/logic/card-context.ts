@@ -99,22 +99,34 @@ export function normalizeCard(card: Partial<Record<keyof NodeCardFields, string>
 }
 
 /**
- * Komponenta karty (docs/architektura-pro-agenty.md §3.3): technologie a stavy, jak je zapsal agent.
+ * Komponenta karty (docs/architektura-pro-agenty.md §3.3): technologie, stavy a sekce stránky, jak jsou zapsané.
  * Nezapsané je `null` / prázdný seznam; nic se nedoplňuje.
  */
-export function cardComponent(node: { card?: CardComponentFields }): { tech: string | null; states: string[] } {
-  return { tech: node.card?.tech || null, states: node.card?.states ?? [] };
+export function cardComponent(node: { card?: CardComponentFields }): { tech: string | null; states: string[]; section: string | null } {
+  return { tech: node.card?.tech || null, states: node.card?.states ?? [], section: node.card?.section || null };
 }
 
 /**
  * Uzel s novou kartou: prázdná karta klíč `card` z uzlu odstraní, ostatní pole zůstanou beze změny.
- * Technologii a stavy komponenty píše agent, ne formulář karty, proto je člověkova úprava zachová.
+ * Technologii, stavy a sekci komponenty nenese formulář karty, proto je člověkova úprava karty zachová.
  */
 export function withCard<T extends { card?: NodeCardFields & CardComponentFields }>(node: T, card: Partial<Record<keyof NodeCardFields, string>> | undefined): T {
   const { card: old, ...rest } = node;
   const kept: CardComponentFields = {};
   if (old?.tech) kept.tech = old.tech;
   if (old?.states?.length) kept.states = old.states;
+  if (old?.section) kept.section = old.section;
   const next = { ...normalizeCard(card), ...kept };
+  return (Object.keys(next).length ? { ...rest, card: next } : rest) as T;
+}
+
+/**
+ * Uzel s novou sekcí stránky v `card.section` (docs/architektura-pro-agenty.md §3.3); `null` sekci odebere.
+ * Ostatní pole karty zůstanou; karta, která tím zůstane prázdná, se z uzlu vypustí.
+ */
+export function withCardSection<T extends { card?: NodeCardFields & CardComponentFields }>(node: T, section: string | null): T {
+  const { card: old, ...rest } = node;
+  const { section: _old, ...card } = old ?? {};
+  const next = section ? { ...card, section } : card;
   return (Object.keys(next).length ? { ...rest, card: next } : rest) as T;
 }

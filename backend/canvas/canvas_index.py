@@ -7,8 +7,9 @@ při každém volání z grafu a stavu plochy (graf má nejvýše 2000 uzlů) a 
   rodiče, nejbližší sektor (u sektoru on sám), popis a cestu zdroje. Komentáře se neindexují.
 - Vazba (`kind` edge) nese oba konce s názvy a adresami a zprávu na vazbě (summary, handoff,
   sentAt, due), pokud existuje.
-- `text` je složený korpus pro hledání; adresa ani text nikdy nejsou klíčem, klíčem je `id`. Technologie
-  a stavy komponenty (`card.tech`, `card.states`) jsou jen v textu, záznam kvůli nim nový klíč nemá.
+- `text` je složený korpus pro hledání; adresa ani text nikdy nejsou klíčem, klíčem je `id`. Technologie,
+  stavy a sekce stránky komponenty (`card.tech`, `card.states`, `card.section`; u sekce id a název, když ji
+  nejbližší stránka má) jsou jen v textu, záznam kvůli nim nový klíč nemá.
 """
 
 import re
@@ -22,6 +23,7 @@ from backend.canvas.card_context import (
     effective_type,
     fold,
 )
+from backend.canvas.site_metadata import nearest_page
 
 INDEXED_KINDS = ("sector", "node", "area")
 DEFAULT_LIMIT = 200
@@ -40,8 +42,20 @@ def _lines(*parts):
     return "\n".join(part for part in parts if isinstance(part, str) and part)
 
 
-def _card_text(entry, node_state, card):
-    """Korpus karty: adresa, typ, štítek vrstvy, název, popis, zdroj, technologie a stavy komponenty;
+def _section_text(by_id, node_id, card):
+    """Id sekce stránky, kterou komponenta realizuje, a její název z nejbližší stránky (když ho stránka má)."""
+    section = card.get("section")
+    if not isinstance(section, str):
+        return []
+    page = nearest_page(by_id, node_id)
+    sections = (page or {}).get("site", {}).get("sections")
+    if not isinstance(sections, list):
+        return [section]
+    return [section, *(item.get("name") for item in sections if isinstance(item, dict) and item.get("id") == section)]
+
+
+def _card_text(entry, node_state, card, section=()):
+    """Korpus karty: adresa, typ, štítek vrstvy, název, popis, zdroj, technologie, stavy a sekce komponenty;
     navíc bloky, kritéria a kroky ze stavu."""
     blocks = []
     for block in node_state.get("blocks", []):
@@ -49,7 +63,7 @@ def _card_text(entry, node_state, card):
         blocks += [todo.get("text", "") for todo in block.get("todos", [])]
     return _lines(
         entry["address"], entry["type"] or "", LAYER_LABELS.get(entry["layer"], ""), entry["name"], entry["purpose"], entry["sourcePath"],
-        card.get("tech"), *card.get("states", []),
+        card.get("tech"), *card.get("states", []), *section,
         *blocks,
         *(item.get("text", "") for item in node_state.get("criteria", [])),
         *(item.get("text", "") for item in node_state.get("steps", [])),
@@ -89,7 +103,7 @@ def build_index(graph, state):
             "purpose": node["purpose"],
             "sourcePath": (node.get("sourceRef") or {}).get("path", ""),
         }
-        entry["text"] = _card_text(entry, node_state, card)
+        entry["text"] = _card_text(entry, node_state, card, _section_text(by_id, node["id"], card))
         entries.append(entry)
     for edge in graph.get("edges", []):
         source, target = by_id.get(edge["source"]), by_id.get(edge["target"])

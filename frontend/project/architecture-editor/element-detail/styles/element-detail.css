@@ -41,6 +41,14 @@
 .element-detail__states { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .element-detail__state { padding: 1px 7px; font-size: 11px; border: 1px solid var(--ae-line, #304b5a); border-radius: 5px; color: var(--ae-muted, #a2bacb); }
 .element-detail__notice { margin: 8px 0 0; font-size: 11px; color: var(--ed-database); }
+/* Sekce stránky: hned pod kontextem agenta řádek „Sekce stránky“ s výběrem, protože sekce říká, kam na
+   stránce komponenta patří, a člověk ji určuje stejně tiše jako „Co po vazbě teče“ u vazby. Popisek vlevo,
+   výběr se roztáhne do zbytku řádku. Odkaz na sekci, kterou stránka už nemá, dostane výstražný obrys, aby
+   člověk díru uviděl dřív, než ji ohlásí kontrola mapy. */
+.element-detail__section { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
+.element-detail__section-label { font-size: 11px; color: var(--ae-muted, #a2bacb); white-space: nowrap; }
+.element-detail__section-select { flex: 1; min-width: 0; font: inherit; font-size: 12px; padding: 3px 6px; color: inherit; background: var(--ae-bg, #0c1723); border: 1px solid var(--ae-line, #304b5a); border-radius: 6px; }
+.element-detail__section-select--missing { border-color: var(--ed-database); }
 
 /* Identita prvku: ikona v barvě vrstvy, velký název a účel; tón stejný jako na plátně. */
 .element-detail__identity--frontend { --ed-tone: var(--ed-frontend); }

@@ -10,8 +10,8 @@ describe("rozepsaná karta", () => {
     expect(sameCardDraft(draft, { ...draft, status: "ready" })).toBe(false);
   });
 
-  it("technologie a stavy komponenty do formuláře karty nepatří", () => {
-    const card = { layer: "frontend" as const, tech: "React 19", states: ["chyba"] };
+  it("technologie, stavy a sekce komponenty do formuláře karty nepatří", () => {
+    const card = { layer: "frontend" as const, tech: "React 19", states: ["chyba"], section: "form" };
     expect(cardDraftOf(card)).toEqual({ layer: "frontend", status: "", due: "", model: "", effort: "" });
   });
 

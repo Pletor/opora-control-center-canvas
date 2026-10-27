@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode } from "@/shared/types/logic/types";
-import { cardAddress, cardComponent, cardLayer, cardPath, effectiveStatus, effectiveType, formatPath, normalizeCard, slug, withCard } from "./card-context";
+import { cardAddress, cardComponent, cardLayer, cardPath, effectiveStatus, effectiveType, formatPath, normalizeCard, slug, withCard, withCardSection } from "./card-context";
 
 const node = (id: string, name: string, parentId: string | null = null, extra: Partial<CanvasNode> = {}): CanvasNode => ({
   id, parentId, kind: "node", name, purpose: "", x: 0, y: 0, ...extra,
@@ -99,12 +99,27 @@ describe("normalizeCard a withCard", () => {
     expect(withCard(old, { layer: "backend" }).card).toEqual({ layer: "backend", tech: "React 19", states: ["prázdno", "chyba"] });
     expect(withCard(old, { layer: "" }).card).toEqual({ tech: "React 19", states: ["prázdno", "chyba"] });
   });
+
+  it("sekci stránky úprava karty člověkem zachová", () => {
+    const old = node("n1", "A", null, { card: { layer: "frontend", section: "form" } });
+    expect(withCard(old, { status: "ready" }).card).toEqual({ status: "ready", section: "form" });
+    expect(withCard(old, {}).card).toEqual({ section: "form" });
+  });
+
+  it("withCardSection zapíše sekci, null ji odebere a prázdnou kartu vypustí", () => {
+    const plain = node("n1", "A");
+    expect(withCardSection(plain, "hero").card).toEqual({ section: "hero" });
+    expect(withCardSection(withCardSection(plain, "hero"), null)).toEqual(plain);
+    const card = { layer: "frontend" as const, tech: "React 19", section: "hero" };
+    expect(withCardSection(node("n2", "B", null, { card }), "form").card).toEqual({ ...card, section: "form" });
+  });
 });
 
 describe("cardComponent", () => {
   it("nezapsané je null a prázdný seznam, nic se nedoplňuje", () => {
-    expect(cardComponent({})).toEqual({ tech: null, states: [] });
-    expect(cardComponent({ card: { tech: "FastAPI" } })).toEqual({ tech: "FastAPI", states: [] });
-    expect(cardComponent({ card: { states: ["čeká", "hotovo"] } })).toEqual({ tech: null, states: ["čeká", "hotovo"] });
+    expect(cardComponent({})).toEqual({ tech: null, states: [], section: null });
+    expect(cardComponent({ card: { tech: "FastAPI" } })).toEqual({ tech: "FastAPI", states: [], section: null });
+    expect(cardComponent({ card: { states: ["čeká", "hotovo"] } })).toEqual({ tech: null, states: ["čeká", "hotovo"], section: null });
+    expect(cardComponent({ card: { section: "form" } })).toEqual({ tech: null, states: [], section: "form" });
   });
 });

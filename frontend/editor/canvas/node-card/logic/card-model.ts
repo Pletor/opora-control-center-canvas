@@ -53,6 +53,8 @@ export type CardView = {
   tech: string | null;
   /** Stavy komponenty (`card.states`, píše agent); nezapsané = prázdný seznam. */
   states: string[];
+  /** Id sekce stránky, kterou komponenta realizuje (`card.section`); nezapsaná je `null`. */
+  section: string | null;
   checks?: import("@/shared/types/logic/types").CanvasNode["checks"];
   goal_mode?: import("@/shared/types/logic/types").CanvasNode["goal_mode"];
 };
@@ -86,7 +88,7 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     rows: cardBlocks(workflow),
     closed: workflow.done.confirmed,
     cardLayer: node.kind === "node" ? cardLayer(node) : null,
-    ...(node.kind === "node" ? cardComponent(node) : { tech: null, states: [] }),
+    ...(node.kind === "node" ? cardComponent(node) : { tech: null, states: [], section: null }),
     checks: node.checks,
     goal_mode: node.goal_mode,
   };

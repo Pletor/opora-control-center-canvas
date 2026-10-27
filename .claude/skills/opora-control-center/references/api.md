@@ -308,7 +308,7 @@ tabulka zápisů je tu, abys věděl, co se stalo a jak to ověřit.
 |---|---|
 | `/api/project-architecture?project=` | `{graph, revision, digest}` jen s uzly architektury |
 | `/api/project-architecture/work-status?project=` | `{domains:[{id, name, environment, counts, worktrees:[{id, branch, actor, state, reasons[], sessions[], cards[{nodeId, name}]}]}], unassigned[], mainSessions[]}`; `state` = `running` / `waiting` / `stopped` / `none` (prahy 120 s / 300 s, §7) |
-| `/api/project-architecture/map-check?project=` | `{findings:[{rule, nodeId\|edgeId, message}], summary:{pravidlo: počet}}`; kontrola mapy bez modelu nad přijatou architekturou (`page.no-goal`, `section.unrealized`, `command.no-receiver`, `state.no-error`, `edge.carries-unset`), pořadí podle pravidla a id |
+| `/api/project-architecture/map-check?project=` | `{findings:[{rule, nodeId\|edgeId, message}], summary:{pravidlo: počet}}`; kontrola mapy bez modelu nad přijatou architekturou (`page.no-goal`, `section.unrealized`, `section.unknown`, `command.no-receiver`, `state.no-error`, `edge.carries-unset`), pořadí podle pravidla a id |
 | `/api/project-architecture/web-status?project=&domain=&refresh=` | `{hosts:[{domainId, environment, host, state, httpStatus, health, latencyMs, checkedAt, detail}]}`; hosty jen z architektury, cache 60 s; `dns_missing` u nenasazené domény je normální stav |
 | `/api/project-workspaces?project=` | prostory projektu (u Gitu `main` + worktree) |
 | `/api/workspaces/archive?project=` | skladiště uzavřených worktree `{items:[{id, nodeId, branch, actor, reason, archivedAt}]}`, jen ke čtení |

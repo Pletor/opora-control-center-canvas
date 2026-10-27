@@ -22,10 +22,11 @@ export type CardEffort = "low" | "medium" | "high" | "xhigh" | "max";
 /** Nepovinná karta uzlu (jen `kind: "node"`); každý klíč je nepovinný a prázdná karta se neukládá. */
 export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: string; model?: CardModel; effort?: CardEffort };
 /**
- * Komponenta (docs/architektura-pro-agenty.md §3.3): technologie realizace (1–80 znaků) a 1–8 krátkých stavů.
- * Píše je agent dávkou plánu, člověk je jen vidí; chybějící klíč = neurčeno, nikdy se nedoplňuje.
+ * Komponenta (docs/architektura-pro-agenty.md §3.3): technologie realizace (1–80 znaků) a 1–8 krátkých stavů
+ * píše agent dávkou plánu, člověk je jen vidí. `section` je id sekce nejbližší stránky, kterou komponenta
+ * realizuje; píše ji agent i člověk v Detailu prvku. Chybějící klíč = neurčeno, nikdy se nedoplňuje.
  */
-export type CardComponentFields = { tech?: string; states?: string[] };
+export type CardComponentFields = { tech?: string; states?: string[]; section?: string };
 /** Product structure shares the same graph identities across deployment environments. */
 export type NodeSite = ApplicationSite | PageSite;
 /** Cesta zákazníka A → B (`docs/architektura-pro-agenty.md` §3.2): zadává člověk; `from` je id stránky nebo `"nav"` (vstup z menu), `to` id stránky. Kroky odvodí stroj. */

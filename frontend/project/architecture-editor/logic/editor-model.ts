@@ -1,5 +1,6 @@
 import type { CanvasNode, EdgeCarries, Graph } from "@/shared/types/logic/types";
 import { canCarry } from "@/shared/edge-carries/logic/edge-carries";
+import { withCardSection } from "@/shared/card-context/logic/card-context";
 import { moveWithMembers, resizeArea } from "@/editor/canvas/area/logic/area-model";
 
 const GRAPH_ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -95,6 +96,20 @@ export function setEditorEdgeCarries(graph: Graph, edgeId: string, carries: Edge
   const { carries: _previous, ...rest } = edge;
   const next = carries ? { ...rest, carries } : rest;
   return { ...graph, edges: graph.edges.map((item) => item.id === edgeId ? next : item) };
+}
+
+/**
+ * Člověk určí, kterou sekci stránky komponenta realizuje (`card.section`, docs/architektura-pro-agenty.md §3.3);
+ * `null` = neurčeno (klíč zmizí, nic se nedoplňuje). Ostatní pole karty zůstanou. Existenci sekce tu nehlídáme:
+ * výběr nabízí jen sekce nejbližší stránky a díru po smazané sekci ohlásí kontrola mapy (`section.unknown`).
+ */
+export function setEditorNodeSection(graph: Graph, nodeId: string, section: string | null): Graph {
+  const node = graph.nodes.find((item) => item.id === nodeId);
+  if (!node) throw new Error("Prvek již neexistuje.");
+  if (node.kind !== "node") throw new Error("Sekci stránky realizuje jen uzel.");
+  if (section !== null && !GRAPH_ID.test(section)) throw new Error("Neplatné id sekce.");
+  if ((node.card?.section ?? null) === section) return graph;
+  return { ...graph, nodes: graph.nodes.map((item) => item.id === nodeId ? withCardSection(item, section) : item) };
 }
 
 export function createEditorAreaPlan(parentId: string | null, name = "Nová oblast"): EditorAreaPlan {
