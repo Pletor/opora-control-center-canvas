@@ -241,7 +241,8 @@ přijatou architekturou (čtení) a nad dávkou plánu i návrhem změny grafu (
 | `page.no-goal` | stránka bez `goal` | jediná díra pro člověka |
 
 Provádí `backend/project/architecture/map_check.py`; čtení nad přijatou architekturou je
-`GET /api/project-architecture/map-check?project=`. `journey.broken` nese `journeyId` (id cesty v aplikaci) a zprávu
+`GET /api/project-architecture/map-check?project=`; výsledek je vidět na Mapě domény v panelu **Díry mapy** (nálezy domény po
+pravidlech, klik otevře stránku, komponentu, zdroj hrany nebo editor cesty). `journey.broken` nese `journeyId` (id cesty v aplikaci) a zprávu
 „Cesta <název>: chybí stránka <id> v kroku <role nebo id>.“; `journey.unrealized` jeden nález za každý
 nerealizovaný přechod, `journeyId` a zprávu „Cesta <název>: z /a na /b nevede vazba (navigation, command, data ani
 sekce stránky).“; `journey.via-unknown` jeden nález za každý takový krok, `journeyId` a zprávu „Cesta <název>: krok

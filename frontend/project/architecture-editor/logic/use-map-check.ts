@@ -1,0 +1,20 @@
+// Kontrola mapy (díry mapy, docs/architektura-pro-agenty.md §5) pro mapu domény. Čte ji znovu, když se změní projekt nebo
+// otisk grafu (`view.digest`): každé uložení mapy může díru zacelit nebo novou otevřít. Odpověď, kterou mezitím předběhl
+// novější dotaz, se zahodí. Chyba čtení panel jen skryje (null): mapa zůstává použitelná bez něj.
+// Dílky data dostanou od ArchitectureEditor.
+import { useEffect, useState } from "react";
+import { api } from "@/shared/types/logic/types";
+import { mapCheckUrl, normalizeMapCheck, type MapCheck } from "../domain-map/map-check/logic/map-check";
+
+export function useMapCheck(project: string, digest: string | undefined): MapCheck | null {
+  const [check, setCheck] = useState<MapCheck | null>(null);
+  useEffect(() => {
+    if (!project || !digest) return;
+    let current = true;
+    api<unknown>(mapCheckUrl(project))
+      .then((raw) => { if (current) setCheck(normalizeMapCheck(raw)); })
+      .catch(() => { if (current) setCheck(null); });
+    return () => { current = false; };
+  }, [project, digest]);
+  return check;
+}
