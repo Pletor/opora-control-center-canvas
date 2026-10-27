@@ -77,16 +77,44 @@ export function growEditorArea(graph: Graph, frame: { id: string; x: number; y: 
   return { ...graph, nodes: graph.nodes.map((node) => node.id === frame.id ? grown : node) };
 }
 
-export function connectEditorNodes(graph: Graph, source: string, target: string, id: string): Graph {
-  if (!GRAPH_ID.test(id) || graph.edges.some((edge) => edge.id === id)) throw new Error("Neplatná nebo již použitá identita vazby.");
-  if (source === target) throw new Error("Prvek nelze propojit se sebou.");
+/**
+ * Pravidlo vazby na mapě (tah z portu i nabídka vazby z portu, `port-menu/`): proč `source → target` nejde,
+ * nebo `null`, když jde. Bez sebe sama, bez komentářů, oblast jen s oblastí (`flow`) a bez duplicitní vazby.
+ */
+export function connectionProblem(graph: Graph, source: string, target: string): string | null {
+  if (source === target) return "Prvek nelze propojit se sebou.";
   const from = graph.nodes.find((node) => node.id === source);
   const to = graph.nodes.find((node) => node.id === target);
-  if (!from || !to || from.kind === "comment" || to.kind === "comment") throw new Error("Vazba vyžaduje dva prvky bez komentářů.");
-  if ((from.kind === "area") !== (to.kind === "area")) throw new Error("Oblast lze propojit jen s jinou oblastí.");
+  if (!from || !to || from.kind === "comment" || to.kind === "comment") return "Vazba vyžaduje dva prvky bez komentářů.";
+  if ((from.kind === "area") !== (to.kind === "area")) return "Oblast lze propojit jen s jinou oblastí.";
   const port = from.kind === "area" ? "flow" : "next";
-  if (graph.edges.some((edge) => edge.source === source && edge.target === target && (edge.port ?? "next") === port)) throw new Error("Tato vazba již existuje.");
-  return { ...graph, edges: [...graph.edges, { id, source, target, port }] };
+  if (graph.edges.some((edge) => edge.source === source && edge.target === target && (edge.port ?? "next") === port)) return "Tato vazba již existuje.";
+  if (port === "next" && nextReaches(graph, target, source)) return "Vazba by uzavřela cyklus karet; server ji odmítne.";
+  return null;
+}
+
+/** Vede z `from` cesta po vazbách `next` mezi kartami do `to`? Totéž pravidlo hlídá backend `card_dag.py`. */
+function nextReaches(graph: Graph, from: string, to: string): boolean {
+  const cards = new Set(graph.nodes.filter((node) => node.kind === "node" || node.kind === "sector").map((node) => node.id));
+  const seen = new Set([from]); const queue = [from];
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (current === to) return true;
+    for (const edge of graph.edges) {
+      if (edge.source !== current || (edge.port ?? "next") !== "next" || !cards.has(edge.source) || !cards.has(edge.target) || seen.has(edge.target)) continue;
+      seen.add(edge.target); queue.push(edge.target);
+    }
+  }
+  return false;
+}
+
+/** Nová vazba; `carries` (druh toku z nabídky vazby) dostane jen vazba `next`, tah z portu ho nenese. */
+export function connectEditorNodes(graph: Graph, source: string, target: string, id: string, carries?: EdgeCarries | null): Graph {
+  if (!GRAPH_ID.test(id) || graph.edges.some((edge) => edge.id === id)) throw new Error("Neplatná nebo již použitá identita vazby.");
+  const problem = connectionProblem(graph, source, target);
+  if (problem) throw new Error(problem);
+  const port = graph.nodes.find((node) => node.id === source)!.kind === "area" ? "flow" : "next";
+  return { ...graph, edges: [...graph.edges, { id, source, target, port, ...(carries && port === "next" ? { carries } : {}) }] };
 }
 
 /** Člověk určí, co po vazbě teče; `null` = neurčeno (klíč zmizí, nic se nedoplňuje). Jen vazba `next`. */
