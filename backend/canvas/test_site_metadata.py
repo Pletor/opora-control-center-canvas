@@ -153,14 +153,30 @@ def test_application_does_not_accept_page_fields():
         validate_graph({"nodes": [app], "edges": []})
 
 
-def journey(identifier="poptavka", start="nav", end="dekujeme", name="Poptávka z menu"):
-    return {"id": identifier, "name": name, "from": start, "to": end}
+def step(identifier, page, **extra):
+    return {"id": identifier, "page": page, **extra}
+
+
+def journey(identifier="poptavka", steps=None, name="Poptávka z menu", **extra):
+    return {"id": identifier, "name": name, "steps": steps or [step("vstup", "nav"), step("dik", "dekujeme")], **extra}
+
+
+def funnel():
+    """Trychtýř ze zadání: přistávací stránka → kontakty → prodej → upsell, miniupsell odbočí po prodeji."""
+    return journey("trychtyr", name="Prodej kurzu", purpose="Z návštěvníka zákazník s upsellem", steps=[
+        step("vstup", "pristavaci", label="Vstupní stránka", count=36879,
+             experience="Pozná, že tu najde odpověď, a nechá kontakt za obsah zdarma."),
+        step("kontakt", "obsah", label="1. Stránka s obsahem zdarma", count=18975),
+        step("prodej", "nabidka", label="Prodej", count=3369),
+        step("upsell", "upsell", label="Upsell", count=1187),
+        step("mini", "miniupsell", label="Miniupsell", count=1545, after="prodej"),
+    ])
 
 
 def test_application_carries_journeys_without_defaults_and_keeps_health_path():
     app = application()
     app["site"] = {**app["site"], "healthPath": "/api/health",
-                   "journeys": [journey(), journey("z-domu", "home", "dekujeme", "Z domovské stránky")]}
+                   "journeys": [journey(), funnel(), journey("z-domu", [step("a", "home"), step("b", "dekujeme", count=0)])]}
     saved = copy.deepcopy(app)
     validate_graph({"nodes": [app, page("home"), page("dekujeme", path="/dekujeme")], "edges": []})
     assert app == saved
@@ -168,7 +184,7 @@ def test_application_carries_journeys_without_defaults_and_keeps_health_path():
 
 def test_journey_to_a_missing_page_is_saved_and_left_to_the_map_check():
     app = application()
-    app["site"]["journeys"] = [journey(end="smazana-stranka")]
+    app["site"]["journeys"] = [journey(steps=[step("a", "nav"), step("b", "smazana-stranka")])]
     validate_graph({"nodes": [app, page()], "edges": []})
 
 
@@ -178,12 +194,29 @@ def test_journey_to_a_missing_page_is_saved_and_left_to_the_map_check():
     [journey(name="")],
     [journey(name="   ")],
     [journey(name="x" * 81)],
-    [journey(end="nav")],
-    [journey(start="dekujeme")],
-    [journey(start="bad id")],
-    [{**journey(), "steps": []}],
-    [{k: v for k, v in journey().items() if k != "to"}],
-    [journey() for _ in range(21)],
+    [journey(purpose="")],
+    [journey(purpose="x" * 201)],
+    [{"id": "stara", "name": "Stará podoba", "from": "nav", "to": "dekujeme"}],
+    [{**journey(), "extra": 1}],
+    [journey(steps=[step("a", "nav")])],
+    [journey(steps=[step(f"s{index}", f"p{index}") for index in range(31)])],
+    [journey(steps=[step("a", "home"), step("b", "nav")])],
+    [journey(steps=[step("a", "home"), step("a", "dekujeme")])],
+    [journey(steps=[step("bad id", "home"), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "bad id"), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", label=""), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", label="x" * 61), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", experience="x" * 401), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", experience="a\tb"), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", count=-1), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", count=1.5), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", count=True), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home", after="b"), step("b", "dekujeme")])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", after="b")])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", after="c"), step("c", "x")])],
+    [journey(steps=[step("a", "home"), {"id": "b"}])],
+    [journey(steps=[step("a", "home"), step("b", "dekujeme", note="x")])],
+    [journey(identifier=f"j{index}") for index in range(21)],
     "poptavka",
 ])
 def test_malformed_journeys_are_rejected(journeys):

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CanvasNode } from "@/shared/types/logic/types";
+import type { CanvasNode, CustomerJourney, JourneyStep } from "@/shared/types/logic/types";
 import { editProductNode, productFingerprint, productTree, sitePlan, type ProductDraft } from "./product-tree";
 
 const node = (id: string, parentId: string | null, site?: CanvasNode["site"]): CanvasNode => ({
@@ -65,5 +65,16 @@ describe("page fingerprint notices concurrent changes to page intent and section
     expect(editProductNode(page, draft).site).toEqual(page.site);
     const concurrent = { ...page, site: { ...page.site, sections: [] } as CanvasNode["site"] };
     expect(() => editProductNode(concurrent, draft)).toThrow("mezitím změnily");
+  });
+  it("fingerprint of an application covers whole customer journeys, down to each funnel step", () => {
+    const journey: CustomerJourney = { id: "kurz", name: "Prodej kurzu", steps: [{ id: "a", page: "nav" }, { id: "b", page: "p", count: 10 }] };
+    const app = node("app", null, { kind: "application", environments: [], journeys: [journey] });
+    const changed = (steps: JourneyStep[], extra = {}) => productFingerprint({ ...app, site: { kind: "application", environments: [], journeys: [{ ...journey, ...extra, steps }] } });
+    const base = productFingerprint(app);
+    expect(changed([journey.steps[0], { ...journey.steps[1], count: 11 }])).not.toBe(base);
+    expect(changed([journey.steps[0], { ...journey.steps[1], experience: "Cítí jistotu." }])).not.toBe(base);
+    expect(changed([...journey.steps, { id: "c", page: "q", after: "a" }])).not.toBe(base);
+    expect(changed(journey.steps, { purpose: "Prodej" })).not.toBe(base);
+    expect(changed(journey.steps)).toBe(base);
   });
 });

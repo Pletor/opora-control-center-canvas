@@ -23,9 +23,11 @@ Výklad pravidel:
   bez ohledu na velikost písmen a okolní mezery); chybějící `card.states` se počítá jako bez chyby.
 - `edge.carries-unset`: hrana s portem `next` (nebo bez portu) mezi dvěma komponentami téže stránky
   bez neprázdného `carries`.
-- `journey.broken`: cesta zákazníka (`site.journeys` aplikace), které `journeys.derive_journeys` nenašel
-  souvislou řadu kroků nebo jí chybí stránka `from`/`to`. Nález nese `journeyId`, zpráva jmenuje cestu a důvod.
-  Pořadí: aplikace podle id, cesty v pořadí, v jakém je zadal člověk.
+- `journey.broken`: cesta zákazníka (`site.journeys` aplikace), jejímuž kroku chybí stránka (smazaná nebo
+  z jiné aplikace). Nález nese `journeyId`, zpráva jmenuje cestu a důvod z `journeys.derive_journeys`.
+- `journey.unrealized`: přechod mezi dvěma kroky cesty (segment), který mapa vazbami nerealizuje. Cestu
+  nerozbíjí (přechod člověk deklaroval), je to práce pro agenty. Nález za každý takový segment, nese `journeyId`.
+  Pořadí obou pravidel: aplikace podle id, cesty v pořadí, v jakém je zadal člověk, segmenty v pořadí kroků.
 
 Pořadí nálezů: podle pořadí pravidel, pak podle id (sekce stejné stránky v pořadí stránky).
 """
@@ -35,7 +37,7 @@ from backend.editor.agent_packet.desktop_v3_packets import ancestor_ids
 from backend.project.architecture.journeys import derive_journeys
 from backend.project.architecture.work_status import architecture_graph
 
-RULES = ("journey.broken", "page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver",
+RULES = ("journey.broken", "journey.unrealized", "page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver",
          "state.no-error", "edge.carries-unset")
 ERROR_STATES = frozenset({"chyba", "error", "selhání"})
 
@@ -141,8 +143,17 @@ def _edge_rules(edges, components):
 
 
 def _journey_rules(graph):
-    return [_finding("journey.broken", "journeyId", item["id"], f"Cesta {item['name']}: {item['broken']}")
-            for item in derive_journeys(graph) if "broken" in item]
+    journeys = derive_journeys(graph)
+    broken = [_finding("journey.broken", "journeyId", item["id"], f"Cesta {item['name']}: {item['broken']}")
+              for item in journeys if "broken" in item]
+    unrealized = []
+    for item in journeys:
+        paths = {step["id"]: step.get("path") for step in item["steps"]}
+        unrealized += [_finding("journey.unrealized", "journeyId", item["id"],
+                                f"Cesta {item['name']}: z {paths[s['from']]} na {paths[s['to']]} nevede vazba "
+                                "(navigation, command, data ani sekce stránky).")
+                       for s in item.get("segments", []) if not s["realized"]]
+    return [*broken, *unrealized]
 
 
 def check_map(graph):

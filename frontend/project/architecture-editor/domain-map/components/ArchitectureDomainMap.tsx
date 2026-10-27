@@ -7,6 +7,7 @@ import DomainPanel from "./DomainPanel";
 import MovePageForm from "./MovePageForm";
 import PageCard, { type PageWork } from "./PageCard";
 import type { DerivedJourney } from "../logic/derived-journeys";
+import { journeysOfPage, type PageJourneyRole } from "../logic/page-journeys";
 import { navLabelOf } from "../logic/page-site";
 import "../styles/domain-map.css";
 
@@ -33,13 +34,16 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
   useEffect(() => { if (initialDraftParentId) { add(initialDraftParentId); onDraftOpened?.(); } }, [initialDraftParentId]);
   const actions = { disabled, onOpen, onAdd: add, onEdit: edit, onReorder, onMove: setMoving, onRemove };
   const host = domain.site?.kind === "application" ? domain.site.environments[0]?.host : "";
+  // Stránka zná své cesty: role každé stránky v cestách domény, hotová data pro karty i formulář stránky.
+  const appSite = domain.site?.kind === "application" ? domain.site : undefined;
+  const journeyRoles = new Map<string, PageJourneyRole[]>(flatten(pages).map((node) => [node.id, journeysOfPage(appSite, node.id)]));
   return <div className={"ae-layout ae-layout--map" + (live ? " domain-map__frame--live" : "")} data-testid="architecture-domain-map">
     <DomainPanel domain={domain} pages={pages} disabled={disabled} badge={webBadge} onOpen={onOpen} onAdd={() => add(domain.id)}/>
     <main className="domain-map">
       <p className="domain-map__kicker">MAPA STRÁNEK · {host || domain.name}</p>
       <h2 className="domain-map__title">Navigace domény</h2>
       <p className="domain-map__lead">Hlavní stránky se zobrazují v navigaci. Podstránky patří ke svému rodiči.</p>
-      {draft && <ArchitectureProductForm key={draft.id ?? draft.parentId} initial={draft} disabled={disabled} onSave={onSave} onClose={() => setDraft(null)}/>}
+      {draft && <ArchitectureProductForm key={draft.id ?? draft.parentId} initial={draft} disabled={disabled} journeyRoles={draft.id ? journeyRoles.get(draft.id) : undefined} onSave={onSave} onClose={() => setDraft(null)}/>}
       {moving && <MovePageForm key={moving} domainId={domain.id} candidates={flatten(pages).filter((node) => node.id !== moving)} disabled={disabled}
         onSubmit={(parentId) => onReparent(moving, parentId).then(() => setMoving(null))} onCancel={() => setMoving(null)}/>}
       <nav className="domain-map__navbar" aria-label="Hlavní navigace stránek" data-testid="architecture-navbar">
@@ -47,7 +51,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
         {pages.map(({ node }) => <button type="button" key={node.id} className="domain-map__navbar-item" onClick={() => onOpen(node.id)}>{navLabelOf(node)}</button>)}
       </nav>
       <div className="domain-map__grid">
-        {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work}/>)}
+        {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work} journeyRoles={journeyRoles}/>)}
       </div>
       {!pages.length && <p className="domain-map__empty">Přidejte první stránku této domény.</p>}
       {domain.site?.kind === "application" && <CustomerJourneys domain={domain} site={domain.site} pages={flatten(pages)} derived={derivedJourneys ?? null} disabled={disabled} onSave={onSave}/>}

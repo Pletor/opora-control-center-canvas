@@ -11,8 +11,9 @@ které změnu provádí.
 
 Mapa architektury domény je primárně **harness agentů**. Agent z ní ví, co stavět, kudy teče
 zákazník i data a čím je hotovo; nemusí kvůli orientaci číst kód. Člověk z ní vidí celý obraz a píše jen
-záměr. Každá **cesta zákazníka z bodu A do bodu B** je zároveň zadání i test: aplikace je pro člověka
-nerozbitná, když všechny její cesty procházejí na skutečném kódu.
+záměr. Každá **cesta zákazníka** je trychtýř stránek (kudy zákazník jde, co na každé stránce zažívá a kolik
+lidí dojde dál) a je zároveň zadání i test: aplikace je pro člověka nerozbitná, když všechny přechody jejích cest
+procházejí na skutečném kódu.
 
 Smyčka: člověk napíše záměr → agent rozloží stránku (dávka `canvas-plan`) → kontrola mapy najde díry bez
 modelu → člověk potvrdí dávku jedním rozhodnutím → agent staví s výřezem mapy v `node-brief` → harness ověří
@@ -27,7 +28,7 @@ cestu → výsledek se zapíše na mapu a do paměti role.
 | 2 Sekce | `site.sections` stránky | člověk ve formuláři stránky; agent smí navrhnout v dávce | role, název, záměr sekce |
 | 3 Komponenta | uzel pod stránkou | agent | `card.section`, `card.tech`, `card.states`, `sourceRef`, kontroly |
 | Vazby | hrany | agent | `carries` (druh toku) |
-| Brána | cesta A → B | stroj | výsledek ověření cesty |
+| Brána | cesta zákazníka (trychtýř) | stroj | výsledek ověření cesty |
 
 Člověk pod úrovní sekcí nic nevyplňuje (pyramida §4). Formuláře pro člověka jsou jen na aplikaci a stránce;
 sekce jsou součástí formuláře stránky, protože člověk určuje, co na stránce má být (rozhodnutí 2026-10-27).
@@ -59,16 +60,40 @@ odvozují; přidaný výchozí klíč by starý záznam zneplatnil a změnil dig
 
 ### 3.2 Aplikace (`site.kind = "application"`)
 
+Cesta zákazníka není jednoduchý bod A → bod B, ale **trychtýř stránek**: každý krok je stránka (její id), má roli
+v trychtýři, popis toho, co člověk zažívá a jak na něj stránka působí, a počet lidí, kteří krokem prošli. Kroky jdou
+za sebou v pořadí seznamu; odbočka (`after`) naváže krok na dřívější krok než ten předchozí. Příklad ze zadání:
+přistávací stránka 36 879 návštěvníků → kontakty 18 975 → prodej 3 369 → upsell 1 187, miniupsell 1 545 po prodeji.
+
 ```json
 { "kind": "application", "environments": [{ "name": "Vývoj", "host": "localhost:3000" }],
-  "journeys": [ { "id": "poptavka", "name": "Poptávka z menu", "from": "nav", "to": "<id stránky /dekujeme>" } ] }
+  "journeys": [ { "id": "kurz", "name": "Prodej kurzu", "purpose": "Z návštěvníka platící zákazník s upsellem",
+    "steps": [
+      { "id": "vstup", "page": "<id přistávací stránky>", "label": "Vstupní stránka", "count": 36879,
+        "experience": "Pozná, že tu najde odpověď na svůj problém, a nechá kontakt za obsah zdarma." },
+      { "id": "kontakt", "page": "<id stránky s obsahem>", "label": "1. Stránka s obsahem zdarma", "count": 18975 },
+      { "id": "prodej", "page": "<id prodejní stránky>", "label": "Prodej", "count": 3369 },
+      { "id": "upsell", "page": "<id stránky upsellu>", "label": "Upsell", "count": 1187 },
+      { "id": "mini", "page": "<id stránky miniupsellu>", "label": "Miniupsell", "count": 1545, "after": "prodej" } ] } ] }
 ```
 
-- `journeys` 1–20 položek (bez cest pole vynechte); `id` jako id uzlu, jedinečné v aplikaci; `name` 1–80;
-  `from` je id stránky aplikace nebo `"nav"` (vstup z menu); `to` je id stránky aplikace, jiné než `from`.
-  Kroky cesty se **neukládají**, odvodí je stroj (§6). Zadává je člověk v mapě domény (panel „Cesty zákazníka“).
-- Uložení neověřuje, že `from`/`to` stránka existuje: smazání stránky nesmí zablokovat mapu. Cestu s chybějícím
-  koncem ohlásí kontrola mapy jako `journey.broken` a editor ukáže „chybí stránka“.
+- `journeys` 1–20 položek (bez cest pole vynechte). Cesta `{id, name, purpose?, steps}`: `id` jako id uzlu,
+  jedinečné v aplikaci; `name` 1–80; `purpose` 1–200; `steps` 2–30 kroků.
+- Krok `{id, page, label?, experience?, count?, after?}`: `id` jako id uzlu, jedinečné v cestě; `page` je id
+  stránky aplikace, jen **první** krok smí mít `"nav"` (vstup z menu); `label` 1–60 (role kroku, např.
+  „Vstupní stránka“, „Upsell“); `experience` 1–400 (co člověk zažívá a jak na něj stránka působí; pro agenta
+  klíčové, §4); `count` celé číslo ≥ 0 (kolik lidí krokem prošlo, zadává člověk, později může přijít
+  z analytiky); `after` = id **dřívějšího** kroku, na který tento navazuje (odbočka). Bez `after` krok navazuje na
+  předchozí krok v seznamu; první krok `after` nemá. Cykly tak vzniknout nemohou.
+- Prázdné texty se neukládají (klíč se vynechá), nic se nedoplňuje výchozí hodnotou. Zadává je člověk v mapě
+  domény (panel „Cesty zákazníka“, editor trychtýře).
+- Vazby mezi kroky (kudy zákazník po mapě opravdu jde) se **neukládají**, odvodí je stroj (§6). Přechod, který
+  mapa vazbami nerealizuje, cestu nerozbije: je to práce pro agenty (`journey.unrealized`, §5).
+- Uložení neověřuje, že stránka kroku existuje: smazání stránky nesmí zablokovat mapu. Krok s chybějící stránkou
+  ohlásí kontrola mapy jako `journey.broken` a editor ukáže „chybí stránka“.
+- Stará podoba `{id, name, from, to}` se už nepřijímá. Migrace není: v době změny ji živý backend ještě nenačetl,
+  takže se nikde neuložila.
+- Přidání ani úprava cesty (kroky, počty, zážitek) nemění `contextVersion` karet (§4, `without_journeys`).
 - `healthPath` zůstává beze změny (čte ho `web_status`).
 
 ### 3.3 Komponenta (uzel pod stránkou)
@@ -106,8 +131,12 @@ Počítá ho backend deterministicky ze stejného grafu; nese jen větev karty. 
 
 ```json
 "architecture": {
-  "journeys": [ { "id": "poptavka", "line": "nav → /kontakt[form] → POST /api/poptavka → db.poptavky → /dekujeme",
-                  "youAre": 2, "lastRun": { "status": "failed", "failedAt": 3, "summary": "422 na POST" } } ],
+  "journeys": [ { "id": "kurz", "name": "Prodej kurzu", "purpose": "Z návštěvníka platící zákazník s upsellem",
+                  "youAre": { "step": "prodej", "index": 2 }, "label": "Prodej",
+                  "experience": "Vidí, co se naučí, a cena mu dává smysl.",
+                  "previous": { "step": "kontakt", "label": "1. Stránka s obsahem zdarma", "path": "/obsah", "realized": true },
+                  "next": [ { "step": "upsell", "label": "Upsell", "path": "/upsell", "realized": false } ],
+                  "lastRun": { "status": "failed", "failedAt": 3, "summary": "422 na POST" } } ],
   "page": { "path": "/kontakt", "goal": "…", "feel": "…", "section": { "id": "form", "role": "cta", "intent": "…" } },
   "in":  [ { "carries": "navigation", "from": "Navbar" } ],
   "out": [ { "carries": "command", "to": "POST /api/poptavka", "sourceRef": "api/poptavka.py" } ],
@@ -116,25 +145,30 @@ Počítá ho backend deterministicky ze stejného grafu; nese jen větev karty. 
 }
 ```
 
-Karta mimo stránku (není pod žádnou stránkou) klíč nedostane. `lastRun` se objeví až s etapou 8.
+Stránka je svou vlastní stránkou (i stránka přímo v menu dostane své cesty a zážitek svého kroku); karta, která není stránka ani neleží pod stránkou, klíč nedostane. `lastRun` se objeví až s etapou 8.
 Provádí `backend/project/architecture/node_architecture.py` (volá ho `node_brief.py`). Pravidla:
 
 - **Bez výchozích hodnot.** Chybějící údaj = chybějící klíč; prázdný seznam (`journeys`, `in`, `out`, `gaps`)
   se vynechá, `states` jen když karta `card.states` má.
-- `journeys`: jen odvozené (nerozbité) cesty (§6), v jejichž krocích karta je (krok s jejím `nodeId`, nebo
-  stránka slitá do kroku své komponenty, `pageId`); `youAre` je index toho kroku (menu `nav` je krok 0).
+- `journeys`: cesty zákazníka (§3.2), na kterých leží stránka karty (karta, která sama je stránka, jen ona; jinak
+  nejbližší stránka). `youAre` = `{step, index}`: id a pořadí (od 0) prvního kroku s touto stránkou. `label`
+  a `experience` jsou role kroku a to, co člověk na stránce zažívá a jak na něj má působit: podle toho agent
+  stránku a její komponenty staví. `previous` je krok, na který tento navazuje (`after`, jinak předchozí),
+  `next` kroky, které navazují na tento; soused = `{step, label?, path?, realized?}`, `path` jen u existující
+  stránky, `realized` (vede mezi kroky vazba na mapě, §6) jen u nerozbité cesty. Rozbitá cesta (chybí stránka
+  jiného kroku) roli kroku dál nese.
 - `page`: `path`, `goal` a `feel` jen když jsou; `section` = `{id, role, intent}` jen když karta má
   `card.section` a nejbližší stránka sekci s tím id má.
 - `in` / `out`: hrany karty s `carries`, v pořadí id hrany; `from` / `to` je název uzlu na druhé straně (bez
   názvu id), `sourceRef` jeho `sourceRef.path`, jen když je.
 - `gaps`: pravidla kontroly mapy (§5), jejichž nález míří na kartu (`nodeId`) nebo na její hranu (`edgeId`);
   každé jednou, v pořadí pravidel.
-- **Strop** 2560 B kompaktního JSON v UTF-8. Ořez je deterministický: nejdřív cesty od konce (první zůstane),
+- **Strop** 2560 B kompaktního JSON v UTF-8 (zážitek kroku má až 400 znaků). Ořez je deterministický: nejdřív cesty od konce (první zůstane),
   pak hrany od konce, delší z `in`/`out` dřív (při shodě `out`), nakonec i první cesta; ořezaný výřez nese
   `"truncated": true`.
 - **Verze zadání.** Cesty zákazníka nejsou zadání karty: `site.journeys` aplikace se do `specification` (graf
   `_node` i porovnání starých záznamů `scoped_specification`) nepromítá, takže přidání, změna ani smazání cesty
-  `contextVersion` nemění. Ke kartě se cesta dostane jen tady, odvozená.
+  `contextVersion` nemění (ani změna počtu lidí nebo zážitku). Ke kartě se cesta dostane jen tady.
 
 ## 5. Kontrola mapy
 
@@ -144,7 +178,8 @@ přijatou architekturou (čtení) a nad dávkou plánu i návrhem změny grafu (
 
 | Pravidlo | Kdy | Dopad |
 |---|---|---|
-| `journey.broken` | cesta nemá souvislou řadu kroků | dávka/návrh se vrátí agentovi |
+| `journey.broken` | krok cesty míří na stránku, která chybí (smazaná nebo z jiné aplikace) | člověk opraví cestu |
+| `journey.unrealized` | přechod mezi dvěma kroky cesty mapa vazbami nerealizuje (§6) | práce pro agenty |
 | `section.unrealized` | sekce bez komponenty se `card.section` | práce pro rozkladače |
 | `section.unknown` | karta odkazuje `card.section` na sekci, kterou nejbližší stránka nemá, nebo leží mimo stránku (`nodeId` karty) | práce (agent nebo člověk sekci opraví či zruší) |
 | `command.no-receiver` | komponenta odesílá (`command`) a vazba nikam nevede | práce |
@@ -154,28 +189,45 @@ přijatou architekturou (čtení) a nad dávkou plánu i návrhem změny grafu (
 
 Provádí `backend/project/architecture/map_check.py`; čtení nad přijatou architekturou je
 `GET /api/project-architecture/map-check?project=`. `journey.broken` nese `journeyId` (id cesty v aplikaci) a zprávu
-„Cesta <název>: <důvod>“; důvody jsou z odvození cesty (§6). Nálezy cest jdou první (aplikace podle id, cesty
-v pořadí, v jakém je zadal člověk).
+„Cesta <název>: chybí stránka <id> v kroku <role nebo id>.“; `journey.unrealized` jeden nález za každý
+nerealizovaný přechod, `journeyId` a zprávu „Cesta <název>: z /a na /b nevede vazba (navigation, command, data ani
+sekce stránky).“ Nálezy cest jdou první (nejdřív `broken`, pak `unrealized`; aplikace podle id, cesty v pořadí,
+v jakém je zadal člověk, přechody v pořadí kroků).
 
 Díry jsou práce pro agenty **jen v potvrzené dávce**; k člověku jde souhrn jako jedno rozhodnutí
 (pyramida, pravidlo 4).
 
 ## 6. Cesta zákazníka
 
-Kroky odvodí stroj: z `from` (menu nebo stránka) po hranách `carries ∈ {navigation, command, data}` a přes
-komponenty se `card.section` až k `to`. Nejkratší cesta, deterministické pořadí podle id. Bez souvislé cesty je
-`journey.broken`.
+Člověk zadává kroky trychtýře (§3.2); stroj odvodí, kudy zákazník mezi nimi po mapě opravdu jde. Každý krok
+kromě prvního tvoří s krokem, na který navazuje (`after`, jinak předchozí), **přechod (segment)**. Segment se
+hledá z jeho začátku (menu nebo stránka) po hranách `carries ∈ {navigation, command, data}` a přes komponenty
+se `card.section` až ke stránce cílového kroku. Nejkratší řada, deterministické pořadí podle id. Segment bez
+souvislé řady cestu **nerozbije** (přechod člověk deklaroval, chybějící vazba je práce pro agenty,
+`journey.unrealized`); rozbitá (`broken`) je cesta jen tehdy, když chybí stránka kroku.
 
 Provádí `backend/project/architecture/journeys.py` (`derive_journeys`, čistá funkce bez modelu a I/O); čtení nad
 přijatou architekturou je `GET /api/project-architecture/journeys?project=` →
-`{journeys: [{applicationId, id, name, from, to, steps, line} | {applicationId, id, name, from, to, broken}]}`.
-Přesná pravidla:
+`{journeys: [{applicationId, id, name, purpose?, steps, segments, line} | {applicationId, id, name, purpose?, steps, broken}]}`.
+
+- **Krok** ve výstupu: `{id, page, path?, missing?, label?, experience?, count?, after?, rate?}`. `path` je
+  popisek stránky (`site.path`, menu = `nav`), u chybějící stránky místo něj `missing: true`. `rate` = konverze
+  proti kroku, na který krok navazuje (`count / count`, 0–1, zaokrouhlená na 4 místa), jen když oba počty jsou
+  a předchozí je > 0.
+- **Segment** `{from, to, line, realized}`: `from`/`to` jsou id kroků, `realized` říká, zda mapa přechod nese,
+  `line` je jeho realizace (`/kontakt[form] → POST /api/poptavka → /dekujeme`), u nerealizovaného jen popisky
+  obou kroků (`/obsah → /nabidka`).
+- **`line` cesty** jsou popisky kroků v pořadí, v jakém je zadal člověk (`nav → /pestovani → /novinky → …`);
+  podrobnosti přechodů jsou v `segments`. Rozbitá cesta nese jen `steps` a `broken` („chybí stránka X v kroku
+  <role nebo id>.“).
+
+Pravidla hledání segmentu:
 
 - **Stránky aplikace** jsou stránky, jejichž nejbližší aplikace v řetězu `parentId` je tato aplikace. **Menu**
-  (`from: "nav"`) jsou ty z nich, mezi kterými a aplikací neleží jiná stránka (jako `parentPageId == null`
+  (první krok s `page: "nav"`) jsou ty z nich, mezi kterými a aplikací neleží jiná stránka (jako `parentPageId == null`
   v `specification.navigation`). Menu je jen začátek: z menu se vstoupí na kteroukoli stránku v menu, zpět do
-  menu se cesta nevrací. Cíl, který sám je v menu, je z menu jedním krokem; stránka, na kterou se má dojít jen
-  přes formulář (poděkování), patří pod jinou stránku jako podstránka.
+  menu se cesta nevrací. Stránka kroku, která sama je v menu, je z menu jedním krokem; stránka, na kterou se má
+  dojít jen přes formulář (poděkování), patří pod jinou stránku jako podstránka.
 - **Komponenta** je uzel pod stránkou (nejbližší stránka mezi předky, §3.3), který není stránka, aplikace,
   oblast ani komentář. **Komponenta se sekcí** má `card.section`, které nejbližší stránka má.
 - **Kroky pohybu:** (1) hrana s `carries ∈ {navigation, command, data}` po směru `source → target` (`event` cestu
@@ -186,12 +238,10 @@ Přesná pravidla:
   leží na cestě; sekce je povinná jen pro vstup zákazníka ze stránky.
 - **Nejkratší cesta** podle počtu kroků (BFS); startovní uzly i sousedé vzestupně podle id, každý uzel si
   pamatuje prvního předchůdce, takže remízu vyhraje cesta s menšími id dříve.
-- **Kroky a `line`:** stránka = `site.path`, komponenta se sekcí = `/path[sectionId]` (cesta její stránky),
-  ostatní uzly = název (bez názvu id), menu = `nav` (krok bez `nodeId`). Stránka hned před vlastní komponentou se
-  sekcí se slije do jejího kroku (`pageId`), stejně stránka hned po ní, pokud to není cíl. Krok je
-  `{nodeId?, label, pageId?}`, `line` = popisky spojené „ → “.
-- **Rozbitá cesta** (`broken` místo `steps` a `line`): „chybí stránka X, kde cesta začíná.“, „chybí stránka X,
-  kam cesta vede.“ (smazaná nebo z jiné aplikace), „z <začátek> na <cíl> nevede souvislá řada kroků …“. Brána: karta, jejíž komponenta leží na cestě, se neuzavře, dokud poslední ověření cesty
+- **Popisky v `line` segmentu:** stránka = `site.path`, komponenta se sekcí = `/path[sectionId]` (cesta její
+  stránky), ostatní uzly = název (bez názvu id), menu = `nav`. Stránka hned před vlastní komponentou se sekcí se
+  slije do jejího popisku, stejně stránka hned po ní, pokud to není cíl segmentu.
+Brána: karta, jejíž komponenta leží na cestě, se neuzavře, dokud poslední ověření cesty
 neprošlo (etapa 8). Test cesty dodává výbava harnessu projektu (`harness.kit/1`, kategorie `testing`; u webu
 typicky Playwright). Opora nástroj nepředepisuje, vyžaduje doklad. Tvar dokladu upřesní dodatek tohoto kontraktu
 v etapě 8.
@@ -216,7 +266,7 @@ a `healthPath` **nejsou** mrtvé a zůstávají.
 (`onNodeDragStop` dnes ukládá surovou pozici); zarážka o cizí kartu/oblast podle `solid-bodies.ts`; README
 `area/` a `page-editor/`. `CENTRE_OFFSET` se nemění (musí sedět s backendem `areas._CENTRE_OFFSET`).
 
-**Stránka a aplikace (`site`):** `backend/canvas/site_metadata.py` (+ `test_site_metadata.py`);
+**Stránka a aplikace (`site`):** `backend/canvas/site_metadata.py` (+ `test_site_metadata.py`, trychtýř `journeys` §3.2);
 `specification_context.py` `_navigation` (navigace v node-briefu, přidat `navLabel`); `frontend/shared/types/logic/types.ts` `NodeSite`;
 `ArchitectureProductForm.tsx` (oprava: změna cesty dnes zahodí ostatní klíče `site`); `ArchitectureDomainMap.tsx`;
 `PageCard.tsx`, `DomainPanel.tsx`; `product-tree.ts` `productFingerprint`; `frontend/project/architecture-editor/element-detail/logic/agent-context.ts`;
@@ -238,8 +288,9 @@ mění digest pohledu a zneplatní rozpracovaný výstup obou koncových karet; 
 `backend/project/architecture/node_architecture.py` a cesty `journeys.py` (+ testy), `journey.broken` v `map_check.py`,
 čtení `GET /api/project-architecture/journeys`, projekce zadání bez `site.journeys` (`assignment_scope.py`,
 `specification_context.py`), skill `.claude/skills/opora-control-center/scripts/opora_read.py`
-(souhrn) + `test_opora_read.py`, `references/api.md`, `karta-pro-agenty.md`; v mapě domény odvozená řada u cesty
-(`CustomerJourneys.tsx`).
+(souhrn) + `test_opora_read.py`, `references/api.md`, `karta-pro-agenty.md`; v mapě domény trychtýř cesty
+(`CustomerJourneys.tsx`, `JourneyFunnel.tsx`, `JourneyFunnelEditor.tsx`, `JourneyStepCard.tsx`) se štítkem
+„chybí vazba“ u nerealizovaného přechodu a role stránky v cestách na kartě stránky (`PageJourneys.tsx`).
 
 ## 9. Etapy
 
@@ -248,7 +299,7 @@ mění digest pohledu a zneplatní rozpracovaný výstup obou koncových karet; 
 | 1 | Úklid karty | ne |
 | 2 | Oblast roste s kartou | ne |
 | 3a | Stránka: `goal`, `feel`, `navLabel`, `sections` | `site` |
-| 3b | Aplikace: `journeys` | `site` |
+| 3b | Aplikace: `journeys` (od 2026-10-27 trychtýř stránek, §3.2) | `site` |
 | 4 | Hrana `carries`, komponenta `section`: 4a `carries` (samostatně), 4b `section` (až po 3a) | graf, návrhy grafu |
 | 5 | Komponenta `card.tech`, `card.states` | `card` |
 | 6 | Kontrola mapy (§5) + API | ne |

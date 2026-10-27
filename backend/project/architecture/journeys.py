@@ -1,9 +1,14 @@
-"""Cesty zákazníka A → B: kroky odvozené z mapy (`docs/architektura-pro-agenty.md` §6).
+"""Cesty zákazníka jako trychtýř stránek: přechody odvozené z mapy (`docs/architektura-pro-agenty.md` §6).
 
 `derive_journeys` je čistá funkce nad grafem (prosté slovníky), bez modelu a bez I/O; `project_journeys` k ní jen
-přečte přijatý graf projektu (stejně jako kontrola mapy). Člověk zadává jen konce cesty
-(`site.journeys` aplikace: `from` = id stránky nebo `"nav"`, `to` = id stránky); kroky se nikde neukládají,
-počítají se při každém čtení ze stejného grafu.
+přečte přijatý graf projektu (stejně jako kontrola mapy). Člověk zadává kroky trychtýře (`site.journeys` aplikace:
+`steps[].page` = id stránky, u prvního kroku smí být `"nav"`, role `label`, zážitek `experience`, počet lidí
+`count` a odbočku `after`); vazby mezi kroky se nikde neukládají, počítají se při každém čtení ze stejného grafu.
+
+Přechod (segment): každý krok kromě prvního navazuje na krok `after`, bez něj na předchozí krok v seznamu.
+Segment `from → to` se hledá po mapě (níže). Segment, který mapa vazbami nerealizuje, cestu nerozbije: přechod
+člověk deklaroval, chybějící vazba je práce pro agenty (`journey.unrealized` v kontrole mapy). Rozbitá
+(`broken`) je cesta jen tehdy, když chybí stránka kroku (smazaná, nebo patří jiné aplikaci).
 
 Pojmy:
 - Stránka aplikace: uzel se `site.kind == "page"`, jehož nejbližší aplikace (`site.kind == "application"`)
@@ -15,7 +20,7 @@ Pojmy:
   (`card_section_error` je None).
 - Prochodný uzel: každý uzel kromě oblastí a komentářů.
 
-Pohyb (orientované kroky, z nichž se skládá cesta):
+Pohyb (orientované kroky, z nichž se skládá realizace segmentu):
 1. Hrana s `carries ∈ {navigation, command, data}` vede ze `source` do `target` (jen po směru hrany, oba konce
    musí být prochodné uzly). `event` cestu nenese: událost není krok zákazníka ani jeho dat.
 2. Stránka → její komponenta se sekcí: zákazník na stránce použije sekci (formulář, CTA…). Do komponenty
@@ -23,21 +28,21 @@ Pohyb (orientované kroky, z nichž se skládá cesta):
    cesta projít smí: backendové uzly (API, databáze) sekci mít nemohou, pokud leží pod stránkou.
 3. Komponenta → její stránka (s i bez sekce): výsledek, který dorazí do komponenty, zákazník vidí na její stránce.
 Menu (`"nav"`) je jen začátek: z menu se vstoupí na kteroukoli stránku v menu, zpět do menu se cesta nevrací
-(jinak by každá cesta na stránku v menu prošla vždy a nic by netestovala). Cíl, který sám je v menu, je z menu
-dosažitelný jedním krokem (`nav → /kontakt`); stránka, na kterou se má dojít jen přes formulář (poděkování),
-patří pod jinou stránku jako podstránka.
+(jinak by každý přechod na stránku v menu prošel vždy a nic by netestoval). Stránka, která sama je v menu, je
+z menu dosažitelná jedním krokem (`nav → /kontakt`).
 
-Hledání: nejkratší cesta podle počtu kroků (BFS). Startovní uzly i sousedé se procházejí vzestupně podle id
-a každý uzel si pamatuje prvního předchůdce, takže remízu vyhrává cesta s menšími id dříve.
+Hledání: nejkratší řada podle počtu kroků (BFS). Startovní uzly i sousedé se procházejí vzestupně podle id
+a každý uzel si pamatuje prvního předchůdce, takže remízu vyhrává řada s menšími id dříve.
 
-Kroky a `line` (§4): stránka = `site.path`, komponenta se sekcí = `/path[sectionId]` (path její stránky), ostatní
-uzly = název (bez názvu id). Stránka, hned za níž následuje její komponenta se sekcí, se do kroků nepíše
-samostatně: krok komponenty ji nese v `pageId` i v popisku (`nav → /kontakt[form]`, ne `nav → /kontakt →
-/kontakt[form]`). Totéž platí pro stránku hned po její komponentě se sekcí, pokud to není cíl cesty. Menu je
-krok `{"label": "nav"}` bez `nodeId`.
+Popisky (§4): stránka = `site.path`, komponenta se sekcí = `/path[sectionId]` (path její stránky), ostatní
+uzly = název (bez názvu id), menu = `nav`. `line` segmentu je jeho realizace spojená „ → “; stránka, hned za níž
+následuje její komponenta se sekcí, se do ní nepíše samostatně (`nav → /kontakt[form]`, ne `nav → /kontakt →
+/kontakt[form]`), stejně stránka hned po své komponentě se sekcí, pokud to není cíl segmentu. Nerealizovaný
+segment má `line` jen z popisků obou kroků. `line` celé cesty jsou popisky kroků (`path`) v pořadí, v jakém je
+zadal člověk (`nav → /pestovani → /novinky`).
 
-Rozbitá cesta nese `broken` (důvod) místo `steps` a `line`: chybí stránka `from` nebo `to` v této aplikaci
-(smazaná, nebo patří jiné aplikaci), nebo mezi konci nevede souvislá řada kroků.
+Konverze `rate` kroku = `count` kroku / `count` kroku, na který navazuje, zaokrouhlená na 4 místa; jen když oba
+počty jsou a předchozí je > 0.
 """
 
 from collections import deque
@@ -168,30 +173,64 @@ def _journey_name(journey):
     return name if isinstance(name, str) and name else journey["id"]
 
 
-def _derive(journey, application_id, pages, by_id, components, moves):
-    start, end = journey.get("from"), journey.get("to")
-    if not isinstance(end, str) or pages.get(end, (None,))[0] != application_id:
-        return {"broken": f"chybí stránka {end}, kam cesta vede."}
-    if start == JOURNEY_FROM_NAV:
-        # Cílová stránka existuje, takže aplikace má aspoň jednu stránku v menu (její nejvyšší předek).
+def _count(step):
+    count = step.get("count")
+    return count if isinstance(count, int) and not isinstance(count, bool) else None
+
+
+def _step_path(step, by_id):
+    return NAV_LABEL if step["page"] == JOURNEY_FROM_NAV else _page_label(by_id[step["page"]])
+
+
+def _segment(source, target, application_id, pages, by_id, components, moves):
+    """{from, to, line, realized} přechodu mezi dvěma kroky, jejichž stránky existují."""
+    if source["page"] == JOURNEY_FROM_NAV:
+        # Stránka cíle existuje, takže aplikace má aspoň jednu stránku v menu (její nejvyšší předek).
         starts = sorted(page for page, (app, in_nav) in pages.items() if app == application_id and in_nav)
-        start_label = "menu"
     else:
-        if not isinstance(start, str) or pages.get(start, (None,))[0] != application_id:
-            return {"broken": f"chybí stránka {start}, kde cesta začíná."}
-        starts, start_label = [start], _page_label(by_id[start])
-    path = _shortest(starts, end, moves)
+        starts = [source["page"]]
+    path = _shortest(starts, target["page"], moves)
     if path is None:
-        return {"broken": f"z {start_label} na {_page_label(by_id[end])} nevede souvislá řada kroků "
-                          "(vazby navigation, command, data a sekce stránek)."}
-    steps = ([{"label": NAV_LABEL}] if start == JOURNEY_FROM_NAV else []) + _steps(path, by_id, components)
-    return {"steps": steps, "line": " → ".join(step["label"] for step in steps)}
+        labels = [_step_path(source, by_id), _step_path(target, by_id)]
+    else:
+        labels = ([NAV_LABEL] if source["page"] == JOURNEY_FROM_NAV else []) + [
+            item["label"] for item in _steps(path, by_id, components)]
+    return {"from": source["id"], "to": target["id"], "line": " → ".join(labels), "realized": path is not None}
+
+
+def _derive(journey, application_id, pages, by_id, components, moves):
+    raw = [step for step in journey.get("steps") or []
+           if isinstance(step, dict) and isinstance(step.get("id"), str) and isinstance(step.get("page"), str)]
+    by_step = {step["id"]: step for step in raw}
+    steps, links, missing, previous = [], [], None, None
+    for step in raw:
+        page = step["page"]
+        after = step["after"] if step.get("after") in by_step else previous
+        item = {"id": step["id"], "page": page,
+                **{key: step[key] for key in ("label", "experience", "count", "after") if key in step}}
+        if page == JOURNEY_FROM_NAV or pages.get(page, (None,))[0] == application_id:
+            item["path"] = _step_path(step, by_id)
+        else:
+            item["missing"] = True
+            missing = missing or step
+        before = _count(by_step[after]) if after is not None else None
+        if before and _count(step) is not None:
+            item["rate"] = round(_count(step) / before, 4)
+        steps.append(item)
+        if after is not None:
+            links.append((after, step["id"]))
+        previous = step["id"]
+    if missing is not None:
+        return {"steps": steps, "broken": f"chybí stránka {missing['page']} v kroku {missing.get('label') or missing['id']}."}
+    segments = [_segment(by_step[source], by_step[target], application_id, pages, by_id, components, moves)
+                for source, target in links]
+    return {"steps": steps, "segments": segments, "line": " → ".join(item["path"] for item in steps)}
 
 
 def derive_journeys(graph):
-    """[{applicationId, id, name, from, to, steps, line} | {…, broken}] pro cesty všech aplikací grafu.
+    """[{applicationId, id, name, purpose?, steps, segments, line} | {…, steps, broken}] pro cesty všech aplikací.
 
-    Aplikace v pořadí id, cesty v pořadí, v jakém je člověk zadal. Poškozené položky (bez id) se přeskočí;
+    Aplikace v pořadí id, cesty i kroky v pořadí, v jakém je člověk zadal. Poškozené položky (bez id) se přeskočí;
     tvar hlídá validátor grafu, tady se čte obranně."""
     nodes = sorted(graph.get("nodes") or [], key=lambda n: n["id"])
     by_id = {node["id"]: node for node in nodes}
@@ -206,7 +245,7 @@ def derive_journeys(graph):
             if not isinstance(journey, dict) or not isinstance(journey.get("id"), str):
                 continue
             result.append({"applicationId": application["id"], "id": journey["id"], "name": _journey_name(journey),
-                           "from": journey.get("from"), "to": journey.get("to"),
+                           **({"purpose": journey["purpose"]} if isinstance(journey.get("purpose"), str) else {}),
                            **_derive(journey, application["id"], pages, by_id, components, moves)})
     return result
 

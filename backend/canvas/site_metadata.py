@@ -16,9 +16,14 @@ PAGE_KEYS = {"kind", "path", "goal", "feel", "navLabel", "sections"}
 PAGE_TEXT_LIMITS = {"goal": ("cíl stránky", 200), "feel": ("působení stránky", 120), "navLabel": ("popisek v menu", 40)}
 SECTION_KEYS = {"id", "role", "name", "intent"}
 SECTION_ROLES = ("hero", "cta", "form", "content", "gallery", "proof", "faq", "footer", "custom")
-# Aplikace nese cesty zákazníka A → B, které zadává člověk; kroky cesty se neukládají, odvodí je stroj (§6).
+# Aplikace nese cesty zákazníka jako trychtýř stránek, který zadává člověk: kroky jsou stránky s rolí, zážitkem
+# a počtem lidí; vazby mezi nimi (kudy zákazník jde po mapě) se neukládají, odvodí je stroj (§6).
 APPLICATION_KEYS = {"kind", "environments", "healthPath", "journeys"}
-JOURNEY_KEYS = {"id", "name", "from", "to"}
+JOURNEY_KEYS = {"id", "name", "steps"}
+JOURNEY_OPTIONAL_KEYS = {"purpose"}
+STEP_KEYS = {"id", "page"}
+STEP_OPTIONAL_KEYS = {"label", "experience", "count", "after"}
+STEP_TEXT_LIMITS = {"label": ("role kroku", 60), "experience": ("zážitek kroku", 400)}
 JOURNEY_FROM_NAV = "nav"
 
 
@@ -56,9 +61,36 @@ def validate_page_fields(label, site):
             raise ValueError(f"{label}: záměr sekce musí mít nejvýše 200 znaků bez řídicích znaků.")
 
 
+def _validate_steps(label, journey_id, steps):
+    if not isinstance(steps, list) or not 2 <= len(steps) <= 30:
+        raise ValueError(f"{label}: cesta {journey_id} má 2–30 kroků.")
+    seen = []
+    for index, step in enumerate(steps):
+        if not isinstance(step, dict) or not STEP_KEYS <= set(step) <= STEP_KEYS | STEP_OPTIONAL_KEYS:
+            raise ValueError(f"{label}: krok cesty {journey_id} vyžaduje id a page, volitelně label, experience, count a after.")
+        step_id, page = step["id"], step["page"]
+        if not isinstance(step_id, str) or not SECTION_ID.fullmatch(step_id):
+            raise ValueError(f"{label}: id kroku cesty {journey_id} musí mít tvar id uzlu.")
+        if step_id in seen:
+            raise ValueError(f"{label}: id kroku {step_id} se v cestě {journey_id} opakuje.")
+        if not isinstance(page, str) or not SECTION_ID.fullmatch(page) or (index > 0 and page == JOURNEY_FROM_NAV):
+            raise ValueError(f"{label}: krok {step_id} cesty {journey_id} potřebuje page jako id stránky"
+                             + (" nebo nav (vstup z menu)." if index == 0 else "; menu (nav) smí být jen první krok."))
+        for key, (title, maximum) in STEP_TEXT_LIMITS.items():
+            if key in step and not _text(step[key], 1, maximum):
+                raise ValueError(f"{label}: {title} ({key}) musí mít 1–{maximum} znaků bez řídicích znaků; prázdné pole vynechte.")
+        count = step.get("count", 0)
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise ValueError(f"{label}: počet lidí v kroku {step_id} (count) musí být celé číslo ≥ 0.")
+        if "after" in step and (index == 0 or step["after"] not in seen):
+            raise ValueError(f"{label}: krok {step_id} cesty {journey_id} smí navazovat (after) jen na dřívější krok;"
+                             " první krok after nemá.")
+        seen.append(step_id)
+
+
 def validate_journeys(label, site):
     """Tvar cest aplikace. Odkaz na stránku se tu neověřuje: smazání stránky nesmí zablokovat uložení mapy,
-    cestu s chybějícím koncem ohlásí kontrola mapy jako `journey.broken`."""
+    krok s chybějící stránkou ohlásí kontrola mapy jako `journey.broken`. Stará podoba `{from, to}` se nepřijímá."""
     if "journeys" not in site:
         return
     journeys = site["journeys"]
@@ -66,8 +98,8 @@ def validate_journeys(label, site):
         raise ValueError(f"{label}: aplikace má 1–20 cest zákazníka; bez cest pole vynechte.")
     seen = set()
     for journey in journeys:
-        if not isinstance(journey, dict) or set(journey) != JOURNEY_KEYS:
-            raise ValueError(f"{label}: cesta vyžaduje přesně id, name, from a to.")
+        if not isinstance(journey, dict) or not JOURNEY_KEYS <= set(journey) <= JOURNEY_KEYS | JOURNEY_OPTIONAL_KEYS:
+            raise ValueError(f"{label}: cesta vyžaduje id, name a steps, volitelně purpose.")
         journey_id = journey["id"]
         if not isinstance(journey_id, str) or not SECTION_ID.fullmatch(journey_id):
             raise ValueError(f"{label}: id cesty musí mít tvar id uzlu (písmena, číslice, _ a -, nejvýše 80 znaků).")
@@ -76,13 +108,9 @@ def validate_journeys(label, site):
         seen.add(journey_id)
         if not _text(journey["name"], 1, 80):
             raise ValueError(f"{label}: název cesty musí mít 1–80 znaků bez řídicích znaků.")
-        for end in ("from", "to"):
-            value = journey[end]
-            if not isinstance(value, str) or not SECTION_ID.fullmatch(value) or (end == "to" and value == JOURNEY_FROM_NAV):
-                raise ValueError(f"{label}: cesta {journey_id} potřebuje {end} jako id stránky"
-                                 + (" nebo nav (vstup z menu)." if end == "from" else "."))
-        if journey["from"] == journey["to"]:
-            raise ValueError(f"{label}: cesta {journey_id} musí vést na jinou stránku, než začíná.")
+        if "purpose" in journey and not _text(journey["purpose"], 1, 200):
+            raise ValueError(f"{label}: účel cesty (purpose) musí mít 1–200 znaků bez řídicích znaků; prázdné pole vynechte.")
+        _validate_steps(label, journey_id, journey["steps"])
 
 
 def nearest_page(by_id, node_id):

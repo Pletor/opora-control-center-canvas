@@ -1,5 +1,6 @@
-// Odvozené kroky cest zákazníka pro mapu domény (docs/architektura-pro-agenty.md §6). Čte je znovu, když se změní
-// projekt nebo otisk grafu (`view.digest`): každé uložení mapy může cestu spojit nebo přerušit. Odpověď, kterou
+// Odvozené údaje cest zákazníka pro mapu domény (docs/architektura-pro-agenty.md §6): které přechody mezi kroky trychtýře
+// mapa realizuje a kterým krokům chybí stránka. Čte je znovu, když se změní projekt nebo otisk grafu (`view.digest`):
+// každé uložení mapy může vazbu doplnit nebo stránku smazat. Odpověď, kterou
 // mezitím předběhl novější dotaz, se zahodí. Chyba čtení cesty jen skryje: seznam cest zůstává použitelný bez nich.
 // Dílky data dostanou od ArchitectureEditor.
 import { useEffect, useState } from "react";

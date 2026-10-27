@@ -11,7 +11,7 @@ Tento adresář `Opora-control-center-canvas` je jediný aktivní kořen aplikac
 
 ## Nově (2026-10-27): mapa architektury jako harness agentů
 
-Stránka nese cíl, působení a sekce, aplikace cesty zákazníka A → B, vazby druh toku (`carries`); agent dostane
+Stránka nese cíl, působení a sekce, aplikace cesty zákazníka jako trychtýř stránek (role, zážitek, počet lidí), vazby druh toku (`carries`); agent dostane
 výřez mapy v `node-brief.architecture`, kontrola mapy najde díry bez modelu a cesta je brána hotovo.
 Kontrakt a etapy: `docs/architektura-pro-agenty.md`.
 

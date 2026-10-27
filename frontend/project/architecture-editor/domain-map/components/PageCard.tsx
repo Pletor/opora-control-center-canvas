@@ -1,7 +1,9 @@
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { ProductBranch } from "@/project/product-tree/logic/product-tree";
 import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
+import PageJourneys from "./PageJourneys";
 import PageSections from "./PageSections";
+import type { PageJourneyRole } from "../logic/page-journeys";
 
 type Actions = {
   disabled: boolean; onOpen: (id: string) => void; onAdd: (parentId: string) => void; onEdit: (node: CanvasNode) => void;
@@ -11,8 +13,11 @@ type Actions = {
 /** Live work on pages: how many worktrees touch each page and which pages the selected worktree touches. */
 export type PageWork = { counts: Map<string, number>; highlighted: Set<string> };
 
-/** One page card with a quiet ID chip, a worktree badge, sub-pages inside it and a quiet footer of structural actions; recursive for sub-pages. */
-export default function PageCard({ branch, index, count, actions, work }: { branch: ProductBranch; index: number; count: number; actions: Actions; work?: PageWork }) {
+/** One page card with a quiet ID chip, a worktree badge, the customer journeys the page lies on (read-only), sub-pages inside it
+ * and a quiet footer of structural actions; recursive for sub-pages. */
+export default function PageCard({ branch, index, count, actions, work, journeyRoles }: {
+  branch: ProductBranch; index: number; count: number; actions: Actions; work?: PageWork; journeyRoles?: Map<string, PageJourneyRole[]>;
+}) {
   const { node, children } = branch;
   const { disabled } = actions;
   const workCount = work?.counts.get(node.id) ?? 0;
@@ -31,8 +36,9 @@ export default function PageCard({ branch, index, count, actions, work }: { bran
     {node.site?.kind === "page" && node.site.goal && <p className="domain-map__goal" title={node.site.goal} data-testid={"architecture-page-goal-" + node.id}>{node.site.goal}</p>}
     {node.purpose && <p className="domain-map__card-purpose">{node.purpose}</p>}
     {node.site?.kind === "page" && <PageSections sections={node.site.sections}/>}
+    <PageJourneys roles={journeyRoles?.get(node.id) ?? []} pageId={node.id}/>
     <div className="domain-map__subpages">
-      {children.map((child, i) => <PageCard key={child.node.id} branch={child} index={i} count={children.length} actions={actions} work={work}/>)}
+      {children.map((child, i) => <PageCard key={child.node.id} branch={child} index={i} count={children.length} actions={actions} work={work} journeyRoles={journeyRoles}/>)}
       {!children.length && <p className="domain-map__empty">Zatím bez podstránek</p>}
     </div>
     <footer className="domain-map__card-foot">
