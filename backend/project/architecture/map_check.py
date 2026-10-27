@@ -31,6 +31,11 @@ Výklad pravidel:
   předchozího kroku (`after`, jinak předchozí v seznamu) nemá; menu (`"nav"`) sekce nemá nikdy. Krok, jehož
   předchozí stránka chybí, se nehodnotí (to hlásí `journey.broken`). Uložení grafu existenci sekce nehlídá
   (smazání stránky ani sekce nesmí zablokovat mapu), proto to hlásí kontrola. Nález nese `journeyId`.
+- `journey.unverified` (`docs/brana-cesty.md` §4): nerozbitá cesta bez `lastRun`, se zastaralým (`stale`, mapa se
+  od běhu změnila) nebo neprošlým dokladem; zpráva jmenuje první neúspěšný přechod. Jeden nález za cestu, nese
+  `journeyId`. Práce pro agenty, ne chyba mapy. Doklady nejsou v grafu: `check_map` je dostane argumentem `runs`
+  (`{(applicationId, journeyId): poslední doklad}`, načte je `map_check`); bez `runs` (`None`) pravidlo nehlásí nic,
+  takže kontrola dávky plánu, návrhu změny i `gaps` v briefu se nemění (nález na kartu ani hranu nemíří).
   Pořadí pravidel cest: aplikace podle id, cesty v pořadí, v jakém je zadal člověk, segmenty a kroky v pořadí kroků.
 
 Pořadí nálezů: podle pořadí pravidel, pak podle id (sekce stejné stránky v pořadí stránky).
@@ -38,10 +43,11 @@ Pořadí nálezů: podle pořadí pravidel, pak podle id (sekce stejné stránky
 
 from backend.canvas.site_metadata import JOURNEY_FROM_NAV, card_section_error
 from backend.editor.agent_packet.desktop_v3_packets import ancestor_ids
+from backend.project.architecture.journey_runs import last_runs, latest_journey_runs
 from backend.project.architecture.journeys import derive_journeys
 from backend.project.architecture.work_status import architecture_graph
 
-RULES = ("journey.broken", "journey.unrealized", "journey.via-unknown", "page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver",
+RULES = ("journey.broken", "journey.unrealized", "journey.via-unknown", "journey.unverified", "page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver",
          "state.no-error", "edge.carries-unset")
 ERROR_STATES = frozenset({"chyba", "error", "selhání"})
 
@@ -170,7 +176,22 @@ def _via_unknown(item, by_id):
     return findings
 
 
-def _journey_rules(graph, by_id):
+def _unverified(run):
+    """Důvod, proč cesta není ověřená, nebo None, když poslední doklad prošel a je aktuální."""
+    if run is None:
+        return "chybí ověření (doklad přehrání cesty)."
+    if run["stale"]:
+        return "ověření je zastaralé, mapa se od běhu změnila."
+    if run["passed"]:
+        return None
+    failure = run.get("firstFailure")
+    if failure is None:
+        return "doklad nepokrývá všechny přechody cesty."
+    reason = f" ({failure['reason']})" if failure.get("reason") else ""
+    return f"neprošel přechod {failure['from']} → {failure['to']}{reason}."
+
+
+def _journey_rules(graph, by_id, runs):
     journeys = derive_journeys(graph)
     broken = [_finding("journey.broken", "journeyId", item["id"], f"Cesta {item['name']}: {item['broken']}")
               for item in journeys if "broken" in item]
@@ -182,11 +203,20 @@ def _journey_rules(graph, by_id):
                                 "(navigation, command, data ani sekce stránky).")
                        for s in item.get("segments", []) if not s["realized"]]
     via = [finding for item in journeys for finding in _via_unknown(item, by_id)]
-    return [*broken, *unrealized, *via]
+    unverified = []
+    if runs is not None:
+        latest = last_runs(graph, runs)
+        for item in journeys:
+            reason = None if "broken" in item else _unverified(latest.get((item["applicationId"], item["id"])))
+            if reason:
+                unverified.append(_finding("journey.unverified", "journeyId", item["id"], f"Cesta {item['name']}: {reason}"))
+    return [*broken, *unrealized, *via, *unverified]
 
 
-def check_map(graph):
-    """{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}} nad grafem `{nodes, edges}`."""
+def check_map(graph, runs=None):
+    """{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}} nad grafem `{nodes, edges}`.
+
+    `runs` = poslední doklady cest `{(applicationId, journeyId): doklad}`; bez nich se `journey.unverified` nehodnotí."""
     nodes = sorted(graph.get("nodes") or [], key=lambda n: n["id"])
     edges = graph.get("edges") or []
     by_id = {node["id"]: node for node in nodes}
@@ -194,10 +224,10 @@ def check_map(graph):
     pages = [node for node in nodes if _site_kind(node) == "page"]
     goals, sections = _page_rules(pages, components, nodes)
     receivers, errors = _command_rules(nodes, edges, components)
-    findings = [*_journey_rules(graph, by_id), *goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
+    findings = [*_journey_rules(graph, by_id, runs), *goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
     return {"findings": findings, "summary": {rule: sum(f["rule"] == rule for f in findings) for rule in RULES}}
 
 
 def map_check(service, project):
     """Kontrola přijaté architektury projektu (`GET /api/project-architecture/map-check`)."""
-    return check_map(architecture_graph(service, project))
+    return check_map(architecture_graph(service, project), latest_journey_runs(service, project))

@@ -169,7 +169,7 @@ Počítá ho backend deterministicky ze stejného grafu; nese jen větev karty. 
                                 "via": { "do": "click", "section": "cta", "text": "Chci podobnou zahradu" } },
                   "next": [ { "step": "dik", "label": "Potvrzení", "path": "/dekujeme", "realized": false,
                               "via": { "do": "submit", "section": "form", "text": "Odeslat poptávku" } } ],
-                  "lastRun": { "status": "failed", "failedAt": 3, "summary": "422 na POST" } } ],
+                  "lastRun": { "passed": false, "stale": false } } ],
   "page": { "path": "/kontakt", "goal": "…", "feel": "…", "section": { "id": "form", "role": "form", "intent": "…", "moves": "…" } },
   "in":  [ { "carries": "navigation", "from": "Navbar" } ],
   "out": [ { "carries": "command", "to": "POST /api/poptavka", "sourceRef": "api/poptavka.py" } ],
@@ -178,7 +178,8 @@ Počítá ho backend deterministicky ze stejného grafu; nese jen větev karty. 
 }
 ```
 
-Stránka je svou vlastní stránkou (i stránka přímo v menu dostane své cesty a posun svého kroku); karta, která není stránka ani neleží pod stránkou, klíč nedostane. `lastRun` se objeví až s etapou 8.
+Stránka je svou vlastní stránkou (i stránka přímo v menu dostane své cesty a posun svého kroku); karta, která není stránka ani neleží pod stránkou, klíč nedostane. `lastRun` cesty je `{passed, stale}` posledního
+dokladu jejího přehrání (`docs/brana-cesty.md` §4), jen když cesta doklad má; ořez ho samostatně nebere.
 Provádí `backend/project/architecture/node_architecture.py` (volá ho `node_brief.py`). Pravidla:
 
 - **Bez výchozích hodnot.** Chybějící údaj = chybějící klíč; prázdný seznam (`journeys`, `in`, `out`, `gaps`)
@@ -233,6 +234,7 @@ přijatou architekturou (čtení) a nad dávkou plánu i návrhem změny grafu (
 | `journey.broken` | krok cesty míří na stránku, která chybí (smazaná nebo z jiné aplikace) | člověk opraví cestu |
 | `journey.unrealized` | přechod mezi dvěma kroky cesty mapa vazbami nerealizuje (§6) | práce pro agenty |
 | `journey.via-unknown` | signál přechodu kroku (`via.section`) míří na sekci, kterou stránka předchozího kroku nemá (menu sekce nemá nikdy) | práce pro člověka nebo agenta |
+| `journey.unverified` | nerozbitá cesta bez `lastRun`, se zastaralým nebo neprošlým dokladem přehrání (`docs/brana-cesty.md` §4) | práce pro agenty |
 | `section.unrealized` | sekce bez komponenty se `card.section` | práce pro rozkladače |
 | `section.unknown` | karta odkazuje `card.section` na sekci, kterou nejbližší stránka nemá, nebo leží mimo stránku (`nodeId` karty) | práce (agent nebo člověk sekci opraví či zruší) |
 | `command.no-receiver` | komponenta odesílá (`command`) a vazba nikam nevede | práce |
@@ -249,7 +251,9 @@ sekce stránky).“; `journey.via-unknown` jeden nález za každý takový krok,
 <role nebo id> čeká akci v sekci <id>, kterou stránka /a nemá.“ (u menu „kterou menu nemá“); krok, jehož předchozí
 stránka chybí, se nehodnotí (hlásí ho `journey.broken`). Nálezy cest jdou první (nejdřív `broken`, pak
 `unrealized`, pak `via-unknown`; aplikace podle id, cesty v pořadí, v jakém je zadal člověk, přechody a kroky
-v pořadí kroků).
+v pořadí kroků). `journey.unverified` jde po nich: jeden nález za cestu, `journeyId` a zpráva „Cesta <název>: chybí
+ověření …“, „… ověření je zastaralé …“ nebo „… neprošel přechod s2 → s3 (důvod).“; hodnotí ji jen čtení
+`map-check` (doklady přehrání nejsou v grafu, dávka plánu ani návrh změny ji nehlásí).
 
 Díry jsou práce pro agenty **jen v potvrzené dávce**; k člověku jde souhrn jako jedno rozhodnutí
 (pyramida, pravidlo 4).
@@ -265,7 +269,8 @@ souvislé řady cestu **nerozbije** (přechod člověk deklaroval, chybějící 
 
 Provádí `backend/project/architecture/journeys.py` (`derive_journeys`, čistá funkce bez modelu a I/O); čtení nad
 přijatou architekturou je `GET /api/project-architecture/journeys?project=` →
-`{journeys: [{applicationId, id, name, purpose?, actor?, pointA?, pointB?, steps, segments, line} | {applicationId, id, name, purpose?, actor?, pointA?, pointB?, steps, broken}]}`.
+`{journeys: [{applicationId, id, name, purpose?, actor?, pointA?, pointB?, steps, segments, line, lastRun?} | {applicationId, id, name, purpose?, actor?, pointA?, pointB?, steps, broken}]}`
+(`lastRun` podle `docs/brana-cesty.md` §4).
 
 - **Krok** ve výstupu: `{id, page, path?, missing?, label?, shift?, objection?, via?, after?}` (pole člověka beze
   změny). `path` je popisek stránky (`site.path`, menu = `nav`), u chybějící stránky místo něj `missing: true`.
@@ -299,8 +304,9 @@ Pravidla hledání segmentu:
   slije do jejího popisku, stejně stránka hned po ní, pokud to není cíl segmentu.
 Brána: karta, jejíž komponenta leží na cestě, se neuzavře, dokud poslední ověření cesty
 neprošlo (etapa 8). Test cesty dodává výbava harnessu projektu (`harness.kit/1`, kategorie `testing`; u webu
-typicky Playwright). Opora nástroj nepředepisuje, vyžaduje doklad. Tvar dokladu upřesní dodatek tohoto kontraktu
-v etapě 8.
+typicky Playwright). Opora nástroj nepředepisuje, vyžaduje doklad. Plán přehrání (`GET
+/api/project-architecture/journey-plan`), tvar dokladu (`POST /api/project-architecture/journey-runs`), `lastRun`
+a bránu uzavření upřesňuje dodatek `docs/brana-cesty.md`.
 
 ## 7. Co člověk vidí
 

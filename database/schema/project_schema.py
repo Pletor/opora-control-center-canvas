@@ -6,6 +6,8 @@ import sqlite3
 
 from database.schema.harness_learning_schema import SCHEMA as HARNESS_LEARNING_SCHEMA
 from database.schema.harness_learning_schema import TABLES as HARNESS_LEARNING_TABLES
+from database.schema.journey_run_schema import SCHEMA as JOURNEY_RUN_SCHEMA
+from database.schema.journey_run_schema import TABLES as JOURNEY_RUN_TABLES
 from database.schema.opora_auto_rebase_schema import SCHEMA as AUTO_REBASE_SCHEMA
 from database.schema.opora_auto_rebase_schema import TABLES as AUTO_REBASE_TABLES
 from database.schema.opora_content_schema import SCHEMA as CONTENT_SCHEMA
@@ -297,7 +299,7 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
                    + EXECUTION_CONTEXT_SCHEMA + CONTENT_SCHEMA + PROPOSAL_REVIEW_SCHEMA + OBSERVER_SCHEMA
                    + EXECUTION_PR_SCHEMA + REVIEW_JOB_SCHEMA + REVIEW_GATE_SCHEMA
                    + REVIEW_INSIGHT_SCHEMA + AUTO_REBASE_SCHEMA + EVENT_SCHEMA
-                   + DESIGN_PREVIEW_SCHEMA + HARNESS_LEARNING_SCHEMA)
+                   + DESIGN_PREVIEW_SCHEMA + HARNESS_LEARNING_SCHEMA + JOURNEY_RUN_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -352,6 +354,7 @@ PROJECT_TABLES.update({table: "project_id" for table in REVIEW_GATE_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in REVIEW_INSIGHT_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in DESIGN_PREVIEW_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in HARNESS_LEARNING_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in JOURNEY_RUN_TABLES})
 
 
 # CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).

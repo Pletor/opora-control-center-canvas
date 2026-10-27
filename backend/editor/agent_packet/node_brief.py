@@ -61,6 +61,7 @@ from backend.editor.agent_packet.effective_rules import effective_rules, propose
 from backend.editor.agent_packet.sector_status import sector_status
 from backend.editor.agent_packet.specification_context import capture_specification
 from backend.editor.agent_packet.upstream_context import upstream_context
+from backend.project.architecture.journey_runs import latest_journey_runs
 from backend.project.architecture.node_architecture import node_architecture
 from backend.project.maps.graphify_runtime import writable
 from backend.project.maps.map_artifacts import main_project_root
@@ -510,8 +511,9 @@ class NodeBrief:
                           "source": usage["source"], "mode": usage["mode"]}
         brief["evidence"] = redact_deep(node_state.get("evidence"))
         # Výřez mapy architektury (docs/architektura-pro-agenty.md §4): jen karta pod stránkou, mimo `specification`,
-        # takže `contextVersion` nemění; cesty zákazníka jsou odvozené ze stejného grafu.
-        architecture = node_architecture(graph, node_id)
+        # takže `contextVersion` nemění; cesty zákazníka jsou odvozené ze stejného grafu. `lastRun` cest bere
+        # poslední doklady přehrání z `journey_runs` projektu (docs/brana-cesty.md §4).
+        architecture = node_architecture(graph, node_id, latest_journey_runs(self.canvas, project))
         if architecture is not None:
             brief["architecture"] = redact_deep(architecture)
         # Kontrolní pás: deset polí ano / ne; `hint` říká, co doplnit a kam (stejný výpočet jako plátno).

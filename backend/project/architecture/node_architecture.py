@@ -6,7 +6,7 @@ Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam s
 
 - `journeys`: cesty zákazníka, na kterých leží stránka karty (karta, která sama je stránka, jen ona; jinak
   nejbližší stránka): `{id, name, purpose?, actor?, pointA?, pointB?, youAre: {step, index}, label?, shift?,
-  objection?, previous?, next?}`. Řetěz „proč“: kdo je zákazník a jeho proměna A → B (proč existuje cesta),
+  objection?, previous?, next?, lastRun?}`. Řetěz „proč“: kdo je zákazník a jeho proměna A → B (proč existuje cesta),
   posun a námitka kroku (proč existuje stránka), sousední kroky se signálem `via` (co se na stránce má stát),
   úkol komponenty je `node.purpose` v briefu (tady se neopakuje). `youAre` je id a pořadí (od 0) prvního kroku
   s touto stránkou. `previous` je krok, na který tento navazuje (`after`, jinak předchozí v seznamu), `next`
@@ -14,14 +14,17 @@ Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam s
   stránky, `realized` jen když cesta není rozbitá (vede mezi kroky vazba na mapě, viz `journeys.py`). `via`
   souseda je signál přechodu mezi ním a tímto krokem: u `previous` jak zákazník přišel sem (akce na předchozí
   stránce, `via` tohoto kroku), u `next` co má zákazník udělat na této stránce, aby šel dál (`via` následujícího
-  kroku). Pořadí jako `derive_journeys`.
+  kroku). Pořadí jako `derive_journeys`. `lastRun` = `{passed, stale}` posledního dokladu přehrání cesty
+  (`docs/brana-cesty.md` §4, `journey_runs.last_runs`), jen když cesta doklad má; doklady nejsou v grafu, funkce je
+  dostane argumentem `runs` (skládá je `node_brief.py`). Bez textů, ořez ho samostatně nebere (dvě pole).
 - `page`: `{path, goal?, feel?, section?}` nejbližší stránky; `section` = `{id, role, intent, moves?}` jen když karta
   má `card.section` a sekce na stránce existuje; `moves` (čím sekce posouvá zákazníka) jen když ho sekce má.
 - `in` / `out`: sousední hrany karty s `carries`, v pořadí id hrany: `{carries, from}` / `{carries, to}`, kde
   `from`/`to` je název uzlu na druhé straně (bez názvu id) a `sourceRef` jeho `sourceRef.path`, jen když je.
 - `states`: `card.states`, jen když jsou.
 - `gaps`: pravidla kontroly mapy (`map_check`), jejichž nález míří na kartu (`nodeId`) nebo na její hranu
-  (`edgeId`); každé pravidlo jednou, v pořadí `RULES`.
+  (`edgeId`); každé pravidlo jednou, v pořadí `RULES`. `check_map` se volá bez dokladů: `journey.unverified` nese
+  `journeyId`, na kartu nemíří, ověření cesty karta vidí v `journeys[].lastRun`.
 - Strop `LIMIT_BYTES` (2,5 KiB kompaktního JSON v UTF-8). Dokud se výřez nevejde, odebírá se po celých klíčích
   (texty se nikdy nezkracují) v tomto pořadí (`docs/cesta-zakaznika-a-brief.md` §4.3):
   1. cesty od konce, dokud nezbude jedna;
@@ -38,6 +41,7 @@ Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam s
 import json
 
 from backend.canvas.site_metadata import nearest_page
+from backend.project.architecture.journey_runs import last_runs
 from backend.project.architecture.journeys import derive_journeys
 from backend.project.architecture.map_check import RULES, check_map
 
@@ -58,8 +62,9 @@ def _neighbour(step, realized, via):
             **({"via": via} if isinstance(via, dict) else {})}
 
 
-def _journeys(graph, page_id):
+def _journeys(graph, page_id, runs):
     result = []
+    verified = last_runs(graph, runs) if runs else {}
     for journey in derive_journeys(graph):
         steps = journey["steps"]
         index = next((i for i, step in enumerate(steps) if step["page"] == page_id), None)
@@ -78,7 +83,9 @@ def _journeys(graph, page_id):
                        **{key: own[key] for key in STEP_FIELDS if key in own},
                        **({"previous": _neighbour(previous, realized.get((previous["id"], own["id"])), own.get("via"))}
                           if previous else {}),
-                       **({"next": following} if following else {})})
+                       **({"next": following} if following else {}),
+                       **({"lastRun": {key: run[key] for key in ("passed", "stale")}}
+                          if (run := verified.get((journey["applicationId"], journey["id"]))) else {})})
     return result
 
 
@@ -186,9 +193,10 @@ def _fit(result):
         result["truncated"] = True
 
 
-def node_architecture(graph, node_id):
+def node_architecture(graph, node_id, runs=None):
     """Výřez mapy pro kartu `node_id`, nebo None, když karta není stránka ani neleží pod stránkou.
-    Stránka je svou vlastní stránkou: i stránka přímo v menu dostane své cesty a posun svého kroku."""
+    Stránka je svou vlastní stránkou: i stránka přímo v menu dostane své cesty a posun svého kroku.
+    `runs` = poslední doklady cest `{(applicationId, journeyId): doklad}` pro `journeys[].lastRun`."""
     by_id = {node["id"]: node for node in graph.get("nodes") or []}
     if node_id not in by_id:
         return None
@@ -200,7 +208,7 @@ def node_architecture(graph, node_id):
     incoming, outgoing = _links(graph, by_id, node_id)
     card = node.get("card")
     states = card.get("states") if isinstance(card, dict) else None
-    result = {"journeys": _journeys(graph, page["id"]), "page": _page(page, node), "in": incoming, "out": outgoing,
+    result = {"journeys": _journeys(graph, page["id"], runs), "page": _page(page, node), "in": incoming, "out": outgoing,
               **({"states": list(states)} if isinstance(states, list) and states else {}),
               "gaps": _gaps(graph, node_id)}
     result = {key: value for key, value in result.items() if value != []}
