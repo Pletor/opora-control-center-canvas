@@ -1,5 +1,7 @@
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
 import { kindNames } from "../logic/graph-proposals";
+import { EDGE_CARRIES } from "@/shared/types/logic/types";
+import { CARRIES_LABEL, parseCarries } from "@/shared/edge-carries/logic/edge-carries";
 import { fieldKeys, fieldLabels, fieldLimits } from "@/hub/plan-changes/logic/plan-changes";
 
 export default function GraphProposalForm({ model }: { model: GraphProposalsView }) {
@@ -40,6 +42,9 @@ export default function GraphProposalForm({ model }: { model: GraphProposalsView
           <option value="">Vyberte prvek</option>{choices.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}
         </select>
       </label>)}
+      <label className="graph-proposals__field">Co po vazbě teče · vazba {index + 1}<select aria-label={`Co po vazbě teče · vazba ${index + 1}`} value={edge.carries}
+        onChange={event => model.editEdge(index, "carries", parseCarries(event.target.value) ?? "")}>
+        <option value="">neurčeno</option>{EDGE_CARRIES.map(value => <option key={value} value={value}>{CARRIES_LABEL[value]}</option>)}</select></label>
       <button type="button" onClick={() => model.removeEdge(index)}>Odebrat vazbu {index + 1}</button>
     </div>)}
     <div className="graph-proposals__actions"><button type="button" onClick={model.addEdge}>Přidat vazbu</button>

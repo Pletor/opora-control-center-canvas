@@ -1,4 +1,4 @@
-import type { CanvasNode, Graph, GraphEdge, SpecFields } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, Graph, GraphEdge, SpecFields } from "@/shared/types/logic/types";
 import type { PlanDocument } from "@/hub/plan-changes/logic/plan-changes";
 import type { GraphChanges } from "./graph-edits";
 
@@ -15,7 +15,8 @@ export type GraphProposal = GraphSummary & { schemaVersion?: 1 | 2; kind?: "grap
     removedNodeIds: string[]; removedEdgeIds: string[]; rewiredEdgeIds: string[]; checkedNodeIds: string[] } };
 export type DraftNode = { ref: string; kind: "node" | "sector" | "area"; name: string; parent: string;
   goal: string; non_goals: string; acceptance: string; width: string; height: string };
-export type DraftEdge = { from: string; to: string };
+/** `carries` prázdné = neurčeno; do návrhu se pak klíč vůbec nepošle. */
+export type DraftEdge = { from: string; to: string; carries: EdgeCarries | "" };
 export const newDraftNode = (ref: string): DraftNode => ({ ref, kind: "node", name: "", parent: "", goal: "", non_goals: "", acceptance: "", width: "1200", height: "800" });
 export const kindNames = { node: "Karta", sector: "Sektor", area: "Oblast" };
 
@@ -36,7 +37,7 @@ export function graphPayload(project: string, workspace: string, subject: string
   return { project, workspace, subject: subject.trim(), parentRevision: context.acceptedHead, expectedGraphDigest: context.graphDigest,
     plan: { nodes: nodes.map(node => ({ ref: node.ref, kind: node.kind, name: node.name.trim(), parent: node.parent || null,
       ...(node.kind === "area" ? { size: { w: Number(node.width), h: Number(node.height) } } : { spec: { goal: node.goal, non_goals: node.non_goals, acceptance: node.acceptance } }) })),
-      edges: edges.map(edge => ({ from: edge.from, to: edge.to, port: "next" as const })) } };
+      edges: edges.map(edge => ({ from: edge.from, to: edge.to, port: "next" as const, ...(edge.carries ? { carries: edge.carries } : {}) })) } };
 }
 
 export function adoptionKey(proposal: GraphProposal) { return proposal.schemaVersion === 2 ? proposal.id : JSON.stringify([proposal.id, proposal.graphDigest]); }

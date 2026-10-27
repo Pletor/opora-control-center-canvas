@@ -117,7 +117,7 @@ export function useGraphProposals(project: string, workspace: string, existing: 
     editNode: (index: number, field: keyof DraftNode, value: string) => setDraft({ ...form, nodes: form.nodes.map((node, i) => i === index ? { ...node, [field]: value } : node) }),
     addNode: () => { const ref = `new${++nodeSequence.current}`; setDraft({ ...form, nodes: [...form.nodes, newDraftNode(ref)] }); },
     removeNode: (index: number) => setDraft({ ...form, nodes: form.nodes.filter((_, i) => i !== index) }),
-    addEdge: () => setDraft({ ...form, edges: [...form.edges, { from: "", to: "" }] }),
+    addEdge: () => setDraft({ ...form, edges: [...form.edges, { from: "", to: "", carries: "" }] }),
     editEdge: (index: number, field: keyof DraftEdge, value: string) => setDraft({ ...form, edges: form.edges.map((edge, i) => i === index ? { ...edge, [field]: value } : edge) }),
     removeEdge: (index: number) => setDraft({ ...form, edges: form.edges.filter((_, i) => i !== index) }),
     create: () => action("create"), accept: () => action("accept"), rebase: () => action("rebase") };
