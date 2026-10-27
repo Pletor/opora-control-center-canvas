@@ -51,7 +51,7 @@ merge ani nasazením. Podrobnosti: [Proces Control Center](../../../../docs/opor
 - Kde: karta `[grilling] …` v sektoru mapy, při malém zadání karta nebo sektor, kterého se rozhovor týká. Neexistuje-li, navrhni ji a založ až po souhlasu.
 - Každé kolo: otázky s doporučenou odpovědí jdou do chatu (formát skillu). Po odpovědi člověka připiš kolo do `agent-workspace.log` karty (`Kolo N: Q… → odpověď…`). Uvedená sekce se přepisuje celá, takže nejdřív načti a připoj.
 - Konec (otázky došly a člověk potvrdil shodu): rozhodnutí zapiš jedním `agent-output` (`decisions`, `done.proposed`) a u velkého zadání zpřesni spec sektoru.
-- Fakta zjišťuje agent sám: `node-brief` karty a rodiče, `context.knowledgeGraph` (Graphify), mapa Archify, existující karty přes `search` / `view`. Na fakta se člověka neptá.
+- Fakta zjišťuje agent sám: `node-brief` karty a rodiče, `context.knowledgeGraph` (Graphify), existující karty přes `search` / `view`. Na fakta se člověka neptá.
 
 ## Recept: dlouhé zadání → schránka zadání → MVP → karty
 
@@ -113,7 +113,7 @@ Kdo čte jen vazby, musí poznat, jak věc funguje: např. cestu dat od vstupu p
 
 ### Postup
 
-1. **Orientace:** plátno `search` → `find` / `code` → `graphify query` → Archify → `recall` → web. Co existuje, dostane `sourceRef` nebo vazbu `@id`, ne novou kartu.
+1. **Orientace:** plátno `search` → `find` / `code` → `graphify query` → `recall` → web. Co existuje, dostane `sourceRef` nebo vazbu `@id`, ne novou kartu.
 2. **Kostra hned ze zadání.** Oblast; sektor mapy s kartami-rozhodnutí (`[grilling]`, `[research]`, `[prototype]`); **a** sektory vln s kartami `[task]`, které zadání popisuje. Co a podle čeho poznat je známé ze zadání; otevřené je jen jak. Karta `[task]`, kterou rozhodnutí ovlivní, dostane vazbu `block` z portu varianty rozhodovací karty. Prázdný sektor „až z rozhodnutí“ nezakládej.
 3. **Podklad.** Celé zadání doslova do schránky zadání (recept výše) a karty s `fragmentRef` na své kapitoly; bez schránky (starší server) jako `text` karty oblasti nebo sektoru, delší než 64 000 znaků po kapitolách do sektorů, výňatky do `text` karet.
 4. **Návrh pro člověka:** tabulka karet (rodič, bloky, porty → kam vedou, `sourceRef`, model) a seznam vazeb. Po souhlasu:

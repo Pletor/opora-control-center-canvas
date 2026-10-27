@@ -10,7 +10,7 @@ from pathspec import GitIgnoreSpec
 
 from backend.integrations.gitio import git
 
-# Mapy samotné do snapshotu nepatří: `graphify-out/` ani `archify-out/` nejsou zdroj.
+# Mapy samotné do snapshotu nepatří: `graphify-out/` není zdroj; `archify-out/` je zbytek zrušeného Archify.
 EXCLUDED = {'.git', '.opora', '.claude', '.agents', '.worktrees', '.data', 'vendor', 'node_modules',
             'dist', 'build', 'graphify-out', 'archify-out', 'evidence', 'test-results'}
 EXTENSIONS = {'.py', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.toml', '.yaml', '.yml',

@@ -9,15 +9,13 @@ from backend.project.maps.map_git_exclude import ensure_excluded
 from backend.project.workspace.workspace_sources import reparse
 
 LOCK = threading.RLock()
-DIRECTORIES = {'graphify': 'graphify-out', 'archify': 'archify-out'}
+DIRECTORIES = {'graphify': 'graphify-out'}
 # Jediné soubory, které se publikují; ostatní mezivýstupy zůstávají v dočasné složce běhu.
 FILES = {
     'graphify': ('graph.json', 'graph.html', 'GRAPH_REPORT.md', 'opora-receipt.json'),
-    'archify': ('map.architecture.html', 'map.architecture.json', 'deliver-receipt.json',
-                'visual-check-receipt.json', 'SPEC.md'),
 }
 # Podle tohoto souboru se pozná, že sada nástroje v projektu existuje.
-SIGNALS = {'graphify': 'graphify-out/graph.json', 'archify': 'archify-out/deliver-receipt.json'}
+SIGNALS = {'graphify': 'graphify-out/graph.json'}
 MAX_FILE = 32 * 1024 * 1024
 
 

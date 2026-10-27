@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useState} from 'react';
-import '@/project/maps/styles/archify-map.css';
+import '@/project/maps/styles/map-view.css';
 import '@/project/maps/project-map/styles/project-map.css';
 import MapCanvas from '@/project/maps/project-map/components/MapCanvas';
 import MapSidebar from '@/project/maps/project-map/components/MapSidebar';
@@ -37,14 +37,14 @@ export default function ProjectMap({project,revision,onMissing,onLoaded}:Props){
   },[value]);
   const matches=useMemo(()=>value&&query.trim()?filterCommunities(value.communities,query):null,[value,query]);
   const matchIds=useMemo(()=>matches?new Set(matches.map(c=>String(c.id))):null,[matches]);
-  if(busy&&!value)return <p role="status" className="archify-status">Načítám mapu kódu…</p>;
-  if(missing)return <p role="status" className="archify-status">Graf zatím není; Graphify ho vytváří z projektu…</p>;
-  if(error&&!value)return <p role="alert" className="archify-error">{error}</p>;
+  if(busy&&!value)return <p role="status" className="map-view__status">Načítám mapu kódu…</p>;
+  if(missing)return <p role="status" className="map-view__status">Graf zatím není; Graphify ho vytváří z projektu…</p>;
+  if(error&&!value)return <p role="alert" className="map-view__error">{error}</p>;
   if(!value||!model)return null;
   const entry=selected==null?null:model.byId.get(String(selected))??null;
   const list=(matches??value.communities).map(community=>model.byId.get(String(community.id))!);
   return <div className="project-map">
-    {error&&<p role="alert" className="archify-error project-map__error">{error}</p>}
+    {error&&<p role="alert" className="map-view__error project-map__error">{error}</p>}
     <div className="project-map__stage">
       <MapCanvas layout={model.layout} lines={model.lines} byId={model.byId} selected={entry?selected:null} matches={matchIds}
         view={view??model.base} base={model.base} onSelect={setSelected} onView={setView}/>

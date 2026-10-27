@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
-import '@/project/maps/styles/archify-map.css';
+import '@/project/maps/styles/map-view.css';
 import MapUpdateMenu from '@/project/maps/components/MapUpdateMenu';
 import ProjectMap from '@/project/maps/project-map/components/ProjectMap';
 import type {Overview} from '@/project/maps/project-map/logic/project-map-model';
@@ -47,20 +47,20 @@ export default function GraphifyMap({project}:{project:string}){
   // CSP a sandbox platí jen pro vložený náhled; uložené a stažené HTML jsou beze změny.
   const preview=useMemo(()=>value&&mode==='html'?'<meta http-equiv="Content-Security-Policy" content="'+policy+'">'+value.html:'',[value,mode]);
   const counts=summary?.counts??value?.counts;
-  return <section className="archify-workspace" ref={root} aria-label="Graphify hlavního projektu">
-    <div className="archify-toolbar"><strong>Mapa kódu · Graphify</strong>
+  return <section className="map-view" ref={root} aria-label="Graphify hlavního projektu">
+    <div className="map-view__toolbar"><strong>Mapa kódu · Graphify</strong>
       <MapUpdateMenu key={project} project={project} tool="graphify" busy={busy} onUpdate={update} onReload={reload}/>
       <button type="button" aria-pressed={mode==='html'} disabled={busy&&mode==='map'} onClick={()=>{if(mode==='html'){setMode('map');return}setMode('html');if(!value)void load()}}>{mode==='html'?'Zpět na mapu kódu':'Původní Graphify HTML'}</button>
       <button type="button" disabled={busy} onClick={()=>void save('html')}>Stáhnout HTML</button>
       <button type="button" disabled={busy} onClick={()=>void save('json')}>Stáhnout JSON</button>
       <button type="button" onClick={()=>{if(document.fullscreenElement)void document.exitFullscreen().catch(()=>{});else void root.current?.requestFullscreen().catch(()=>setError('Prohlížeč nepovolil celou obrazovku.'))}}>Celá obrazovka</button>
     </div>
-    <div className="archify-caption"><span>{counts?`${counts.nodes} uzlů · ${counts.edges} vztahů${summary?` · ${summary.counts.communities} oblastí`:''}`:'Graphify · analýza otevřeného projektu'}</span><span>Lokální kód · bez placeného modelu</span></div>
-    {busy&&<p role="status" className="archify-status">Načítám graf; pokud chybí, Graphify jej vytváří z projektu…</p>}
-    {error&&<p role="alert" className="archify-error">{error}</p>}
+    <div className="map-view__caption"><span>{counts?`${counts.nodes} uzlů · ${counts.edges} vztahů${summary?` · ${summary.counts.communities} oblastí`:''}`:'Graphify · analýza otevřeného projektu'}</span><span>Lokální kód · bez placeného modelu</span></div>
+    {busy&&<p role="status" className="map-view__status">Načítám graf; pokud chybí, Graphify jej vytváří z projektu…</p>}
+    {error&&<p role="alert" className="map-view__error">{error}</p>}
     {mode==='map'&&<ProjectMap key={project} project={project} revision={revision} onLoaded={setSummary} onMissing={()=>{if(autoBuilt.current)return;autoBuilt.current=true;void update()}}/>}
-    {mode==='html'&&value&&<div className="archify-body"><iframe title="Graphify — graf projektu" sandbox="allow-scripts allow-downloads" srcDoc={preview} referrerPolicy="no-referrer"/></div>}
-    {(value||summary)&&<details className="archify-receipt"><summary>Původní Graphify · {value?.version??summary?.version??'externí výstup'} · zdroj a rozsah</summary>
+    {mode==='html'&&value&&<div className="map-view__body"><iframe title="Graphify — graf projektu" sandbox="allow-scripts allow-downloads" srcDoc={preview} referrerPolicy="no-referrer"/></div>}
+    {(value||summary)&&<details className="map-view__receipt"><summary>Původní Graphify · {value?.version??summary?.version??'externí výstup'} · zdroj a rozsah</summary>
         {value&&<><p>Hlavní projekt: <code>{value.sourceRoot}</code></p><p>Výstup: <code>{value.sourcePath}</code></p><p>{value.scope}</p></>}
         <p>Mapa kódu shrnuje uzly Graphify do oblastí podle společné složky; podrobný graf otevře tlačítko „Původní Graphify HTML“. Dokumenty a média se v tomto režimu neanalyzují. Automatická aktualizace po mergi do main se nastavuje v menu; rozepsané změny ve worktrees ji nespouštějí.</p>
         <p>Vytvořeno: {value?.generatedAt??summary?.generatedAt??'čas generování nedoložen'}. Knihovnu pro původní HTML načítá vložená stránka z unpkg.com.</p>

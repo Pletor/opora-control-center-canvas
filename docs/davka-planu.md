@@ -104,7 +104,7 @@ Tento recept platí pro rozpracování konkrétního dlouhého zadání. Ruční
 
 **Postup asistenta:**
 
-1. Orientace (plátno → kód → graphify → Archify → paměť), jako dnes.
+1. Orientace (plátno → kód → graphify → paměť), jako dnes.
 2. Kostra **hned ze zadání**: oblast, sektor mapy s kartami-rozhodnutí **a** sektory vln s kartami `[task]`, které zadání popisuje (co a podle čeho poznat je známé; otevřené je jen jak). Karta `[task]`, kterou rozhodnutí ovlivní, dostane vazbu `block` z portu varianty rozhodovací karty, ne prázdný sektor.
 3. Návrh jako tabulka pro člověka (karta, bloky, porty, vazby, sourceRef) a po souhlasu **jedna dávka**: koncept nástrojem `Write` do `<draftsDir>/plan.json` (absolutní cesta z `<opora_context>`; `$` v příkazu schvalování nepustí), `opora_write.py /api/canvas-plan --json-file "<draftsDir>/plan.json" --dry-run` (bez dotazu), oprava chyb, pak tentýž příkaz bez `--dry-run` → člověk schválí jednou.
 4. Kontrola: `node-brief` každé nové karty; karta bez textu, bloků, vazby nebo `sourceRef` se do výsledku hlásí jako nedodělaná, ne jako hotová.

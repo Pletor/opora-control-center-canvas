@@ -26,7 +26,7 @@ Nepoužívané formuláře karty (fáze, kritéria, kroky, scénář, fakta, des
 
 ## Nově: pracovní módy
 
-Kresby jsou samostatné pro každou vrstvu a mají ruční ukládání; obrázky (screenshot Ctrl+V, přetažení, nástroj Obrázek) se ukládají s kresbou. Mapy projektu (Archify a Graphify-out v prostředí Projekt) se po mergi do main samy přepíšou na místě v `archify-out/` a `graphify-out/` hlavního projektu, viz [mapy-projektu.md](mapy-projektu.md). Nastavení je vlevo dole.
+Kresby jsou samostatné pro každou vrstvu a mají ruční ukládání; obrázky (screenshot Ctrl+V, přetažení, nástroj Obrázek) se ukládají s kresbou. Mapa projektu (Graphify-out v prostředí Projekt) se po mergi do main sama přepíše na místě v `graphify-out/` hlavního projektu, viz [mapy-projektu.md](mapy-projektu.md). Nastavení je vlevo dole.
 
 ## Nově: odstranění vložených položek
 
@@ -46,7 +46,7 @@ Uzel/sektor/vazbu smažeš z detailu s potvrzením dopadu; repozitář odebereš
 
 Technické podsložky nejsou další aplikace. Případné pracovní kopie agentů mají být pouze uvnitř tohoto kořene, nikoli dalšími primárními projekty vedle něj.
 
-Starší sourozenecké projekty `OporaCC` a `OporaCC-v3` nejsou aktivní vývoj této aplikace. Zůstávají zachované; tento řez je nemaže ani nepřesouvá. Archify, Excalidraw, Logseq, Open Note, Tuval a OpenViking jsou referenční zdroje, nikoli další části, které by bylo nutné samostatně spouštět pro základní editor.
+Starší sourozenecké projekty `OporaCC` a `OporaCC-v3` nejsou aktivní vývoj této aplikace. Zůstávají zachované; tento řez je nemaže ani nepřesouvá. Excalidraw, Logseq, Open Note, Tuval a OpenViking jsou referenční zdroje, nikoli další části, které by bylo nutné samostatně spouštět pro základní editor.
 
 ## Pravidla společného vývoje
 

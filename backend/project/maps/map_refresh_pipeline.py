@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 from backend.project.maps.graphify_runtime import generate_graph, prepare_output, writable
 from backend.project.maps.map_artifacts import publish
-from backend.project.maps.map_refresh_archify import build_archify
 from backend.project.maps.map_refresh_snapshot import snapshot_main
 
 
@@ -41,12 +40,6 @@ def build_maps(job, manager):
             meta['sourceRevision'] = job['revision']
             receipt.write_text(json.dumps(meta), encoding='utf-8')
             outputs = {'graphify': source / 'graphify-out'} if 'graphify' in job['tools'] else {}
-            if 'archify' in job['tools']:
-                manager.phase(job, 'archify')
-                destination = work / 'archify'
-                build_archify(source, destination, job['revision'], cancel=manager.stop)
-                # Publikuje se jen pět souborů ze smlouvy; validate receipt a evidence zůstanou v temp.
-                outputs['archify'] = destination
             manager.phase(job, 'publishing')
             # Provider neběží v transakci. Krátká publikace znovu ověřuje owner, root i SHA.
             with manager.lock, manager.db:

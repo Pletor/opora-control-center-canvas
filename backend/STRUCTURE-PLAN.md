@@ -39,7 +39,7 @@ backend/
 │   ├── factory.py
 │   └── tests/  test_api · test_backend_review_guards · test_v3_acceptance
 ├── api/                    ROBUSTNÍ API: tenké routery rozdělené podle prostředí, nad nimi MCP
-│   ├── project/            archify_routes · graphify_routes  + tests/ (test_archify_routes · test_graphify_routes)
+│   ├── project/            graphify_routes  + tests/ (test_graphify_routes)
 │   ├── editor/             desktop_v3_routes
 │   └── project_setup/      README (slot): rozhraní pro připojení a založení projektu (dnes inline v app/factory.py)
 ├── mcp/                    MCP SERVER nad api/: get_tree, get_node, claim_task… README (slot, dříve agents/control)
@@ -57,9 +57,9 @@ backend/
 │   ├── workspace/          strom zdrojů, otevírání souborů, dokumentace k cestám
 │   │   ├── workspace_sources.py · workspace_documents.py
 │   │   └── tests/  test_workspace_sources (+ sdílené helpery attach/ORIGIN) · test_workspace_documents · test_workspace_source_safety · test_working_source_tree · test_source_creation_user_contract · test_empty_workspace_source · test_workspace_goal
-│   └── maps/               Archify, Graphify, fronta obnovy map
-│       ├── graphify_runtime · graphify_worker · map_artifacts · map_refresh · map_refresh_archify · map_refresh_pipeline · map_refresh_snapshot
-│       └── tests/  test_map_refresh · test_map_refresh_archify
+│   └── maps/               Graphify, fronta obnovy map
+│       ├── graphify_runtime · graphify_worker · map_artifacts · map_refresh · map_refresh_pipeline · map_refresh_snapshot
+│       └── tests/  test_map_refresh
 │
 ├── editor/                 PROSTŘEDÍ EDITOR: obsah uzlů a vše, co dostává agent
 │   ├── node/               obsah jednoho uzlu
@@ -129,8 +129,8 @@ Zanikají balíčky `domain/`, `agents/`, `maps/` – všechny soubory jsou pře
 | agents/runs/external_agent_tasks.py, README.md, __init__.py | editor/agent_handoff/ | předání úkolu ven |
 | agents/runs/tests/__init__.py | editor/agent_handoff/tests/__init__.py | slot |
 | agents/control/README.md | mcp/README.md | MCP server nad API, vlastní balíček na první úrovni |
-| api/archify_routes.py, graphify_routes.py | api/project/ | rozhraní prostředí Projekt |
-| api/tests/test_archify_routes.py, test_graphify_routes.py, __init__.py | api/project/tests/ | |
+| api/graphify_routes.py | api/project/ | rozhraní prostředí Projekt |
+| api/tests/test_graphify_routes.py, __init__.py | api/project/tests/ | |
 | api/desktop_v3_routes.py | api/editor/desktop_v3_routes.py | rozhraní Editoru |
 | api/README.md, __init__.py | zůstávají; + api/project/__init__.py, api/editor/__init__.py, api/project_setup/README.md | nové |
 | agents/README.md, agents/__init__.py | editor/README.md, editor/__init__.py | text přepsat |
@@ -153,12 +153,12 @@ Zanikají balíčky `domain/`, `agents/`, `maps/` – všechny soubory jsou pře
 | backend.agents.packets.desktop_v3_state | backend.editor.agent_memory.desktop_v3_state |
 | backend.agents.packets.desktop_v3_packets, redact | backend.editor.agent_packet.* |
 | backend.agents.runs.external_agent_tasks | backend.editor.agent_handoff.external_agent_tasks |
-| backend.api.archify_routes, graphify_routes | backend.api.project.* |
+| backend.api.graphify_routes | backend.api.project.* |
 | backend.api.desktop_v3_routes | backend.api.editor.desktop_v3_routes |
 | řetězec "backend.domain.service.git" (4 testy) | "backend.canvas.canvas_service.git" |
 
 Beze změny: `pyproject.toml`, `tools/serve-preview.py` (`backend.app`), `tools/tests` (`backend.paths`).
-Dokumentace: `.claude/skills/opora-control-center/references/{source-map,api,graphify,archify}.md`, `docs/pravidla-struktury.md`, README každého balíčku.
+Dokumentace: `.claude/skills/opora-control-center/references/{source-map,api,graphify}.md`, `docs/pravidla-struktury.md`, README každého balíčku.
 
 ## 5. Evidovaný dluh (vyžaduje změnu obsahu souborů, mimo rozsah)
 1. HOTOVO: routery vyjmuty do `api/project/workspace_routes.py`, `api/project/map_refresh_routes.py`; 25 inline rout z `app/factory.py` rozděleno do `api/app_routes.py`, `api/project_setup/project_routes.py`, `api/project/project_workspace_routes.py`, `api/editor/canvas_routes.py`, `api/editor/node_routes.py`. `mcp/` bude volat jen `api/`.

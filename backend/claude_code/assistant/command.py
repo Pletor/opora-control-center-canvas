@@ -27,8 +27,8 @@ ALLOWED_TOOLS = "Read,Glob,Grep,Skill,WebFetch,WebSearch,Agent"
 # PowerShell je nástroj Claude Code na Windows; asistent ho nepotřebuje (čtecí skript jde přes Bash).
 # Write tu ani v DENY není: deny i odebrání by dotaz zastavily dřív, než ho backend pustí do konceptů.
 DISALLOWED_TOOLS = "Edit,NotebookEdit,PowerShell"
-# Seznam Archify (`map_refresh_archify._claude_command`) + klíče z §5 + zápis.
-# Celé "Bash" z Archify se nepřebírá: deny má v Claude Code přednost před allow a zablokovalo
+# Seznam zakázaných nástrojů + klíče z §5 + zápis.
+# Celé "Bash" se do deny nedává: deny má v Claude Code přednost před allow a zablokovalo
 # by i jediný povolený čtecí vzor z ALLOWED_TOOLS. Jiný Bash se zeptá backendu, který ho zamítne
 # bez UI, pokud nejde o `python …opora_write.py` (§5.1).
 DENY = (

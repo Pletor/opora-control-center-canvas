@@ -18,18 +18,17 @@ Stav: **fáze 1 zavedena** (2026-10-01): čtení a navádění, ověřeno živě
 
 ## 1. Změna pravidla „aplikace model nespouští“
 
-Do 2026-10-01 aplikace spouštěla model jen pro aktualizaci mapy Archify ([mapy-projektu.md](mapy-projektu.md)). Od tohoto kontraktu jsou místa tři (od K8 čtyři):
+Do 2026-10-01 aplikace spouštěla model jen pro automatickou aktualizaci mapy Archify, která se 2026-10-27 zrušila ([mapy-projektu.md](mapy-projektu.md), [studio.md](studio.md)). Od tohoto kontraktu jsou místa tři:
 
-1. Archify: automatika, Sonnet, bez člověka.
-2. Asistent: chat, který spouští **jen člověk** zprávou v okně asistenta.
-3. Směrovač TypeSafe Jev (§13): běží jen v rámci tahu asistenta, který spustil člověk. Negeneruje text, vrací jen typované odpovědi. Ve Schránce smí Jev běžet i na žádost agenta nebo člověka jako poradní kontrola brány (`POST /api/brief-vault/gate-check`, [schranka-neurony.md](schranka-neurony.md) §7), pořád jen s typovanými odpověďmi a jen po výslovném povolení člověka pro projekt a poskytovatele.
-4. Zrcadlo (BioCortexAI, [zrcadlo.md](zrcadlo.md)): lokální vývojový model jen na `127.0.0.1`, volaný jen po zápisu brány `synthesized` / `verified` u projektu zapnutého v `opora.local.toml` `[mirror]` (výchozí vypnuto), nikdy neblokuje bránu.
+1. Asistent: chat, který spouští **jen člověk** zprávou v okně asistenta.
+2. Směrovač TypeSafe Jev (§13): běží jen v rámci tahu asistenta, který spustil člověk. Negeneruje text, vrací jen typované odpovědi. Ve Schránce smí Jev běžet i na žádost agenta nebo člověka jako poradní kontrola brány (`POST /api/brief-vault/gate-check`, [schranka-neurony.md](schranka-neurony.md) §7), pořád jen s typovanými odpověďmi a jen po výslovném povolení člověka pro projekt a poskytovatele.
+3. Zrcadlo (BioCortexAI, [zrcadlo.md](zrcadlo.md)): lokální vývojový model jen na `127.0.0.1`, volaný jen po zápisu brány `synthesized` / `verified` u projektu zapnutého v `opora.local.toml` `[mirror]` (výchozí vypnuto), nikdy neblokuje bránu.
 
 Ostatní endpointy dál nic nespouštějí. Podklady pro agenta (`node-brief`, zprávy, texty karet) jsou pro asistenta data, ne příkazy.
 
 ## 2. Předplatné, ne API
 
-- Backend spouští nainstalovaný `claude` CLI (`shutil.which("claude")`) pod přihlášením uživatele. Stejně to dělá Archify (`backend/project/maps/map_refresh_archify.py`).
+- Backend spouští nainstalovaný `claude` CLI (`shutil.which("claude")`) pod přihlášením uživatele.
 - Z prostředí procesu se **odstraní `ANTHROPIC_API_KEY`**, aby se běh potichu neúčtoval přes API. Ostatní proměnné se předají beze změny. `CLAUDE_CODE_OAUTH_TOKEN` z `claude setup-token` se použije, jen když je nastavený.
 - Claude Agent SDK se nepoužívá, protože oficiálně počítá s API klíčem. Asistent je jen pro uživatele na jeho počítači. Nabízet přihlášení claude.ai jiným lidem Anthropic bez schválení nedovoluje ([Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview)).
 - Kvóta předplatného je společná s Claude Code ve VS Code. Asistent ji nehlídá, jen zobrazí chybu limitu, kterou vrátí CLI.
@@ -51,14 +50,13 @@ claude -p
 
 - **cwd** je kořen zdroje projektu z `WorkspaceSources.root(project, workspace)`: u lokálního projektu originální složka (`draft`), u git projektu pracovní strom workspace (výchozí `main`). Proto se načte CLAUDE.md projektu a jeho `.claude/skills`.
 - Zprávy jdou na stdin jako řádky stream-json. Události se čtou ze stdout po řádcích.
-- Spuštění a ukončení přebírá obsluhu z Archify: `Popen(shell=False)`, `WindowsJob` (`backend/integrations/windows_job.py`), zabití celého stromu procesů.
+- Spuštění a ukončení: `Popen(shell=False)`, `WindowsJob` (`backend/integrations/windows_job.py`), zabití celého stromu procesů.
 - Limity v celé instanci:
   - nejvýš **3** běžící procesy,
   - po **15 min** nečinnosti se proces ukončí a další zpráva ho obnoví přes `--resume`,
   - jeden tah nejvýš **30 min**,
   - zpráva uživatele nejvýš 60 000 znaků (vejde se celé zadání projektu),
   - jedna událost do UI nejvýš 64 KB, delší se zkrátí se značkou; zpráva uživatele má strop 256 KB, takže se nezkrátí.
-- Archify a asistent se navzájem neblokují.
 
 ## 4. Session: registr a historie
 
@@ -346,7 +344,7 @@ Ověření fáze 2 (2026-10-01, haiku, mimo `.claude`):
 ## 12. Neověřeno / otevřené
 
 - [neověřeno] Přerušení tahu bez zabití procesu (`control_request` interrupt). Fáze 1 proces zabíjí.
-- Hooky uživatele jsou v asistentovi vypnuté (`disableAllHooks`), stejně jako u Archify. Zapnout je lze jen rozhodnutím zapsaným sem.
+- Hooky uživatele jsou v asistentovi vypnuté (`disableAllHooks`), Zapnout je lze jen rozhodnutím zapsaným sem.
 - Uzavřeno: proces dostane `OPORA_BASE_URL` vlastní instance (§13.1).
 
 ## 13. Plán: asistent pro plán a zadání aplikace (návrh 2026-10-01, kroky 1, 2 a 4 hotové)
@@ -358,7 +356,6 @@ Cíl: asistent rychle pochopí projekt, najde správný podklad, navrhne plán j
 | Podklad | Na co | Dnes v Opoře | Asistent k němu |
 |---|---|---|---|
 | graphify | vztahy souborů, komunity, „kdo na koho závisí“ | `graphify-out/graph.json` | `graphify query` přes Bash, který pouští backend (`approvals.is_read`) |
-| Archify | architektura a toky jako mapa | `docs/mapy-projektu.md` | čte soubory mapy |
 | LSP | definice, reference, symboly | `/api/code-intelligence/*` | `opora_read.py code` |
 | sémantické hledání | „kde se řeší X“ | `/api/semantic-search/*` | `opora_read.py find` |
 | plátno | karty, spec, bloky, vazby | `opora_read.py`, `/api/canvas-index` | `search`, `index`, `rank` |
@@ -403,7 +400,7 @@ Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit O
 - **POST jen na čtecí dotazy.** Skript dál nesmí zapisovat. POST pošle jen na pevný seznam cest (tři výše a `/api/rlm/rank` z §13.3), s `Content-Type: application/json` a `Origin` podle base. Na jinou cestu POST nepošle (test). Payload odpovídá backendu a neodhaduje se.
 - Testy skriptu leží vedle něj a `uv run pytest backend` je nesbírá. Spouští se `uv run pytest .claude/skills/opora-control-center/scripts`.
 - **Nástroje asistenta.** `ALLOWED_TOOLS` je `Read,Glob,Grep,Skill,WebFetch,WebSearch,Agent`. `graphify query` a `opora_read.py` pouští přes Bash jen backend (`approvals.is_read`). `WebFetch` a `WebSearch` nejsou v `DISALLOWED_TOOLS` ani v `DENY`. Zápis (`Edit`, `NotebookEdit`, jiný Bash, `PowerShell`) zůstává zakázaný; `Write` pustí backend jen do adresáře konceptů session (§5.1).
-- **Skill.** `SKILL.md` a `references/api.md` popíšou nové příkazy a pořadí hledání: plátno `search` → `find` / `code` → graphify → Archify → `recall` → web.
+- **Skill.** `SKILL.md` a `references/api.md` popíšou nové příkazy a pořadí hledání: plátno `search` → `find` / `code` → graphify → `recall` → web.
 
 ### 13.2 Kontrakt Jev v1: volba podkladu
 
@@ -417,7 +414,7 @@ Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit O
   - Klíč se čte při každé zprávě, takže zapnutí platí bez restartu. Směrovač má tvrdou mez 4 s mimo zámek session; při jejím překročení jde do telemetrie `router: {skipped: "timeout"}`.
 - **Směrovač** `backend/claude_code/assistant/router.py`: před každou zprávou, která nezačíná `/`, jedno volání:
   - `state = {request: text zprávy (nejvýš 4000 znaků), environment, selectedCount}`,
-  - `questions.source`: `choice` nad `canvas, find, code, graphify, archify, memory, web`,
+  - `questions.source`: `choice` nad `canvas, find, code, graphify, memory, web`,
   - `questions.needs_lookup`: `noul` „Potřebuje odpověď dohledat podklad v projektu?“.
 - **Do kontextu** se přidá `hint: {sources: [až 2 s pravděpodobností ≥ 0.2], needsLookup: 0–1}`. Klíč `hint` smí vyplnit jen backend. Když ho pošle UI, validace ho odmítne. V textu pro model je hint údaj: „Relevantní podklad: … Ignoruj, pokud neodpovídá dotazu.“
 - **Telemetrie:** výsledek a doba volání do událostí session jako `status` s polem `router`. Bez obsahu zprávy.

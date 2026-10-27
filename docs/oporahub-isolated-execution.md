@@ -159,4 +159,4 @@ vodorovného přesahu. Zachovaný filtr nativní historie jiné karty nezakryl
 samostatný detail zvoleného pozorování: Office context 2 → context 1 i původní
 running → terminated zobrazily právě jeden požadovaný detail a žádný cizí nativní
 detail. Esc zavřel drawer. Jediný očekávaný HTTP/console záznam je fixture-only
-Archify GET 409 bez připojeného zdrojového adresáře; jiné chyby nebyly zaznamenány.
+Archify GET 409 (Archify se později zrušil) bez připojeného zdrojového adresáře; jiné chyby nebyly zaznamenány.

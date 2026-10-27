@@ -22,24 +22,24 @@ def untracked(root):
 def test_unignored_folder_goes_to_local_exclude_not_gitignore(tmp_path):
     root = repository(tmp_path / 'repo')
     (root / '.gitignore').write_text('node_modules/\n')
-    assert ensure_excluded(root, 'archify-out') is True
-    assert '/archify-out/' in exclude_lines(root)
+    assert ensure_excluded(root, 'graphify-out') is True
+    assert '/graphify-out/' in exclude_lines(root)
     assert (root / '.gitignore').read_text() == 'node_modules/\n'
-    (root / 'archify-out').mkdir()
-    (root / 'archify-out/SPEC.md').write_text('x')
+    (root / 'graphify-out').mkdir()
+    (root / 'graphify-out/graph.json').write_text('x')
     assert untracked(root) == {'?? .gitignore'}
-    assert ensure_excluded(root, 'archify-out') is False
-    assert exclude_lines(root).count('/archify-out/') == 1
+    assert ensure_excluded(root, 'graphify-out') is False
+    assert exclude_lines(root).count('/graphify-out/') == 1
 
 
 def test_blank_line_in_gitignore_does_not_fake_ignored_folder(tmp_path):
     # Git 2.47 hlásí `složka/` jako ignorovanou, když za pravidlem složky následuje prázdný řádek.
     root = repository(tmp_path / 'repo')
     (root / '.gitignore').write_text('node_modules/\n\ndocs/\n')
-    (root / 'archify-out').mkdir()
-    (root / 'archify-out/SPEC.md').write_text('x')
-    assert ensure_excluded(root, 'archify-out') is True
-    assert '/archify-out/' in exclude_lines(root)
+    (root / 'graphify-out').mkdir()
+    (root / 'graphify-out/graph.json').write_text('x')
+    assert ensure_excluded(root, 'graphify-out') is True
+    assert '/graphify-out/' in exclude_lines(root)
     assert untracked(root) == {'?? .gitignore'}
 
 

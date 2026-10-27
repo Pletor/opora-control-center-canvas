@@ -157,7 +157,7 @@ describe("skupiny a hledání na celé ploše", () => {
   });
 
   it("hledá v názvech bez diakritiky a velikosti písmen, všechna slova", () => {
-    const tasks = [view("Export plátna do PDF"), view("Revize mapy Archify"), view("Tmavý režim exportu")];
+    const tasks = [view("Export plátna do PDF"), view("Revize mapy Graphify"), view("Tmavý režim exportu")];
     expect(filterTasks(tasks, "").map((t) => t.id)).toHaveLength(3);
     expect(filterTasks(tasks, "  EXPORT ").map((t) => t.id)).toEqual(["Export plátna do PDF", "Tmavý režim exportu"]);
     expect(filterTasks(tasks, "platna pdf").map((t) => t.id)).toEqual(["Export plátna do PDF"]);

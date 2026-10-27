@@ -18,7 +18,7 @@ opora-canvas/
     project/            # PROSTŘEDÍ PROJEKT: pohled na main
       shell/            # levý strom + navigace map (ProjectLayout)
       source-tree/      # strom složek a souborů (SourceExplorer)
-      maps/             # Archify, Graphify, obnova map
+      maps/             # Graphify, obnova map
       workspace/        # složení plochy, dokumentace k cestám
     editor/             # PROSTŘEDÍ EDITOR: řízení vývoje
       canvas/           # board, drawing (Excalidraw), wireframes, node-card, sector-card, history (krok zpět, Ctrl+Z)
@@ -46,14 +46,14 @@ opora-canvas/
     app/                # create_app, middleware, mount dist/, skládání routerů z api/
     api/                # ROBUSTNÍ API: tenké routery podle prostředí; app_routes = zdraví, identita, bootstrap
       project_setup/    # project_routes: nastavení, lokální/prázdný projekt, connect
-      project/          # project_workspace_routes, workspace_routes, archify_routes, graphify_routes, map_refresh_routes
+      project/          # project_workspace_routes, workspace_routes, graphify_routes, map_refresh_routes
       editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes
     canvas/             # základ plátna: canvas_service (registr + db_for(projekt), git sync, graf), graph, project_folder (projects/<id>/), project_registry, migrate_to_project_folders
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
     project/            # PROSTŘEDÍ PROJEKT
       workspace/        # strom zdrojů, otevírání souborů, dokumentace k cestám
       worktrees/        # workspace_domain (worktree ↔ doména), workspace_archive (skladiště uzavřených worktree)
-      maps/             # graphify, archify, map_refresh, artefakty, snapshoty
+      maps/             # graphify, map_refresh, artefakty, snapshoty
     editor/             # PROSTŘEDÍ EDITOR: obsah uzlů a vše, co dostává agent
       node/             # node_text, node_specs, node_journal, node_links, drawings, wireframe_context, removals
       sector/           # slot: zpracování celého sektoru
@@ -83,7 +83,6 @@ opora-canvas/
   shared/               # JSON schémata kontraktů FE ↔ BE ↔ agenti
   docs/                 # PRODUCT-CONTRACT, pravidla struktury, ADR, tento spec
   tools/                # build a dev skripty: copy-drawing-assets, serve-preview
-  vendor/archify/
 ```
 
 Pravidla umístění nového souboru:
