@@ -27,7 +27,11 @@ export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: str
  */
 export type CardComponentFields = { tech?: string; states?: string[] };
 /** Product structure shares the same graph identities across deployment environments. */
-export type NodeSite = { kind: "application"; environments: { name: string; host: string }[] } | PageSite;
+export type NodeSite = ApplicationSite | PageSite;
+/** Cesta zákazníka A → B (`docs/architektura-pro-agenty.md` §3.2): zadává člověk; `from` je id stránky nebo `"nav"` (vstup z menu), `to` id stránky. Kroky odvodí stroj. */
+export type CustomerJourney = { id: string; name: string; from: string; to: string };
+/** Aplikace (doména): prostředí, volitelná cesta zdraví a cesty zákazníka; prázdné cesty se neukládají. */
+export type ApplicationSite = { kind: "application"; environments: { name: string; host: string }[]; healthPath?: string; journeys?: CustomerJourney[] };
 /** Role sekce stránky (`docs/architektura-pro-agenty.md` §3.1). */
 export type PageSectionRole = "hero" | "cta" | "form" | "content" | "gallery" | "proof" | "faq" | "footer" | "custom";
 /** Sekce stránky navrhuje agent; člověk ji jen vidí. `intent` smí být prázdný. */

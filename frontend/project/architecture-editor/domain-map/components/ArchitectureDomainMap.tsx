@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import { productFingerprint, type ProductBranch, type ProductDraft } from "@/project/product-tree/logic/product-tree";
 import ArchitectureProductForm from "./ArchitectureProductForm";
+import CustomerJourneys from "./CustomerJourneys";
 import DomainPanel from "./DomainPanel";
 import MovePageForm from "./MovePageForm";
 import PageCard, { type PageWork } from "./PageCard";
@@ -46,6 +47,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
         {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work}/>)}
       </div>
       {!pages.length && <p className="domain-map__empty">Přidejte první stránku této domény.</p>}
+      {domain.site?.kind === "application" && <CustomerJourneys domain={domain} site={domain.site} pages={flatten(pages)} disabled={disabled} onSave={onSave}/>}
     </main>
     {live && <div className="domain-map__live">{live}</div>}
   </div>;

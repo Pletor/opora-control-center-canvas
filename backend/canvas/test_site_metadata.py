@@ -151,3 +151,43 @@ def test_application_does_not_accept_page_fields():
     app["site"]["goal"] = "Cíl"
     with pytest.raises(ValueError, match="aplikace"):
         validate_graph({"nodes": [app], "edges": []})
+
+
+def journey(identifier="poptavka", start="nav", end="dekujeme", name="Poptávka z menu"):
+    return {"id": identifier, "name": name, "from": start, "to": end}
+
+
+def test_application_carries_journeys_without_defaults_and_keeps_health_path():
+    app = application()
+    app["site"] = {**app["site"], "healthPath": "/api/health",
+                   "journeys": [journey(), journey("z-domu", "home", "dekujeme", "Z domovské stránky")]}
+    saved = copy.deepcopy(app)
+    validate_graph({"nodes": [app, page("home"), page("dekujeme", path="/dekujeme")], "edges": []})
+    assert app == saved
+
+
+def test_journey_to_a_missing_page_is_saved_and_left_to_the_map_check():
+    app = application()
+    app["site"]["journeys"] = [journey(end="smazana-stranka")]
+    validate_graph({"nodes": [app, page()], "edges": []})
+
+
+@pytest.mark.parametrize("journeys", [
+    [],
+    [journey()] * 2,
+    [journey(name="")],
+    [journey(name="   ")],
+    [journey(name="x" * 81)],
+    [journey(end="nav")],
+    [journey(start="dekujeme")],
+    [journey(start="bad id")],
+    [{**journey(), "steps": []}],
+    [{k: v for k, v in journey().items() if k != "to"}],
+    [journey() for _ in range(21)],
+    "poptavka",
+])
+def test_malformed_journeys_are_rejected(journeys):
+    app = application()
+    app["site"]["journeys"] = journeys
+    with pytest.raises(ValueError):
+        validate_graph({"nodes": [app, page()], "edges": []})
