@@ -115,3 +115,13 @@ def test_binding_must_exist_in_project_graph():
     with pytest.raises(StudioModelInvalid, match="ghost"):
         write_model(service, "p1", "web", model(nodes=[node("a", binding={"nodeId": "ghost"}), node("b")], revision=1))
     assert read_model(service, "p1", "web")["revision"] == 1
+
+
+def test_model_definition_is_stored_and_returned_unchanged():
+    """MODEL část S5 (`modelDefinition`: plán incidentů, politika vazeb scénáře) se uloží a vrátí beze změny."""
+    service, _ = make_service()
+    definition = {"version": "flow-model/1", "layer": "MODEL", "principle": "", "limitations": "",
+                  "connectionPolicy": "typed-ports/1", "incidents": [{"tick": 3, "kind": "crash", "nodeIds": ["a"]}]}
+    saved = write_model(service, "p1", "web", {**model(), "modelDefinition": definition})
+    assert saved["modelDefinition"] == definition
+    assert read_model(service, "p1", "web")["modelDefinition"] == definition

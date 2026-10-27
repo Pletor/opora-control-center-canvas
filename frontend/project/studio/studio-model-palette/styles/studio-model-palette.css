@@ -1,0 +1,32 @@
+/* Katalog je levý sloupec 280 px jako LIBRARY v TechViz: tmavý panel s vlastním posuvníkem, aby dlouhý seznam typů
+   nehýbal plátnem. Nahoře titulek s modrou svislou linkou a počtem nalezených typů, pod ním hledání. */
+.studio-model-palette { box-sizing: border-box; width: 280px; flex-shrink: 0; overflow: auto; padding: 12px; border-right: 1px solid var(--studio-line); background: var(--studio-panel); color: var(--studio-text); scrollbar-width: thin; scrollbar-color: var(--studio-line) transparent; }
+.studio-model-palette__title { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 10px; padding-left: 7px; border-left: 3px solid var(--studio-blue); font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; }
+.studio-model-palette__count { margin-left: auto; color: var(--studio-muted); font-size: 10px; font-weight: 400; }
+.studio-model-palette__empty { color: var(--studio-muted); text-align: center; }
+
+/* Hledání je jedno pole přes celou šířku s křížkem na vymazání; hledá se v názvu, kategorii, poskytovateli i typech
+   portů, takže „sql“ najde všechno, co mluví SQL. */
+.studio-model-palette__search { position: relative; margin-bottom: 10px; }
+.studio-model-palette__input { box-sizing: border-box; width: 100%; padding: 8px 28px 8px 10px; border: 1px solid var(--studio-line); border-radius: 6px; background: var(--studio-control); color: var(--studio-text); font: inherit; font-size: 12px; }
+.studio-model-palette__input:focus { outline: 2px solid var(--studio-blue); outline-offset: -1px; }
+.studio-model-palette__clear { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); border: 0; background: transparent; color: var(--studio-muted); font-size: 14px; cursor: pointer; }
+
+/* Skupina má hlavičku velkými písmeny se šipkou: klik ji sbalí, aby se dalo dojít k Deploymentu bez dlouhého
+   posouvání. Během hledání jsou všechny skupiny otevřené, aby se nález neschoval. */
+.studio-model-palette__group { margin-top: 8px; }
+.studio-model-palette__group-head { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 2px; border: 0; background: transparent; color: var(--studio-muted); font: inherit; font-size: 10px; letter-spacing: .8px; text-transform: uppercase; cursor: pointer; }
+.studio-model-palette__group-head:hover { color: var(--studio-text); }
+.studio-model-palette__chevron { width: 10px; }
+.studio-model-palette__list { display: grid; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
+
+/* Položka je dlaždice 280 − okraje: vlevo ikona typu v rámečku, uprostřed název (poskytovatel jako malý štítek)
+   a souhrn portů, vpravo ⊕. Celá dlaždice je tlačítko i úchyt pro přetažení na plátno. */
+.studio-model-palette__item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 1px solid var(--studio-line); border-radius: 7px; background: var(--studio-card); color: var(--studio-text); font: inherit; text-align: left; cursor: grab; }
+.studio-model-palette__item:hover { border-color: var(--studio-blue); background: #213450; }
+.studio-model-palette__icon { display: inline-grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border: 1px solid var(--studio-line); border-radius: 6px; color: var(--studio-blue); font-size: 15px; }
+.studio-model-palette__text { display: grid; min-width: 0; flex: 1; }
+.studio-model-palette__name { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.studio-model-palette__provider { padding: 0 4px; border: 1px solid var(--studio-line); border-radius: 4px; color: var(--studio-muted); font-size: 8px; font-weight: 400; }
+.studio-model-palette__summary { overflow: hidden; color: var(--studio-muted); font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
+.studio-model-palette__plus { color: var(--studio-blue); font-size: 16px; }

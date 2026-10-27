@@ -1,0 +1,44 @@
+/* Inspektor MODELu je stejný sloupec 344 px vpravo jako detail Skutečnosti (Inspector v TechViz), aby oko našlo
+   podrobnosti na stejném místě v obou vrstvách. Má vlastní posuvník, protože cloudové typy mají desítky parametrů. */
+.studio-model-inspector { box-sizing: border-box; width: 344px; flex-shrink: 0; overflow: auto; padding: 12px; border-left: 1px solid var(--studio-line); background: var(--studio-panel); color: var(--studio-text); scrollbar-width: thin; scrollbar-color: var(--studio-line) transparent; }
+.studio-model-inspector__title { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 12px; padding-left: 7px; border-left: 3px solid var(--studio-model-accent); font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; }
+.studio-model-inspector__close { padding: 0 8px; border: 1px solid var(--studio-line); border-radius: 6px; background: #1c2a40; color: var(--studio-text); font-size: 14px; cursor: pointer; }
+.studio-model-inspector__help { display: grid; gap: 4px; }
+.studio-model-inspector__hint { margin: 4px 0 8px; color: var(--studio-muted); font-size: 11px; line-height: 1.55; }
+
+/* Identita výběru v rámečku: skupina a kategorie malými písmeny, typ velkým písmem s ikonou (u vazby barevná tečka
+   datového typu), pod tím id nebo trasa vazby jako kód. */
+.studio-model-inspector__identity { display: grid; gap: 5px; margin-bottom: 12px; padding: 10px; border: 1px solid var(--studio-line); border-left: 3px solid var(--studio-model-accent); border-radius: 7px; background: #1b2b40; }
+.studio-model-inspector__kind { color: var(--studio-muted); font-size: 9px; letter-spacing: .8px; text-transform: uppercase; }
+.studio-model-inspector__name { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.studio-model-inspector__id { color: var(--studio-muted); font-size: 10px; overflow-wrap: anywhere; }
+.studio-model-inspector__route { margin: 0; color: var(--studio-muted); font-size: 11px; overflow-wrap: anywhere; }
+.studio-model-inspector__type-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+
+/* Pole jsou pod sebou přes celou šířku: popisek nad polem, tmavé pole s modrým fokusem. Neplatná hodnota má
+   červený rám a pod polem krátký důvod; výchozí hodnota je v poli šedě jako nápověda. */
+.studio-model-inspector__field { display: grid; gap: 4px; margin-bottom: 10px; color: var(--studio-muted); font-size: 11px; }
+.studio-model-inspector__label { display: flex; justify-content: space-between; gap: 6px; }
+.studio-model-inspector__bounds { color: #7f93ad; font-size: 10px; white-space: nowrap; }
+.studio-model-inspector__input { box-sizing: border-box; width: 100%; padding: 7px 9px; border: 1px solid var(--studio-line); border-radius: 6px; background: var(--studio-control); color: var(--studio-text); font: inherit; font-size: 12px; }
+.studio-model-inspector__input:focus { outline: 2px solid var(--studio-blue); outline-offset: -1px; }
+.studio-model-inspector__input--invalid { border-color: var(--studio-state-hole); }
+.studio-model-inspector__input--area { resize: vertical; min-height: 80px; }
+.studio-model-inspector__error { color: #ff9ab4; font-size: 10px; }
+.studio-model-inspector__check { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; }
+
+/* Skutečný stav vázané karty OPORY je řádek v barvě stavu ze Skutečnosti; chybějící karta je červená, aby bylo
+   vidět, že vazbu je třeba opravit dřív, než model půjde uložit. */
+.studio-model-inspector__bound { --studio-model-bound: var(--studio-muted); margin: -4px 0 12px; padding: 5px 8px; border: 1px solid var(--studio-model-bound); border-radius: 6px; color: var(--studio-model-bound); font-size: 11px; }
+.studio-model-inspector__bound--plan { --studio-model-bound: var(--studio-state-plan); }
+.studio-model-inspector__bound--building { --studio-model-bound: var(--studio-state-building); }
+.studio-model-inspector__bound--done { --studio-model-bound: var(--studio-state-done); }
+.studio-model-inspector__bound--verified { --studio-model-bound: var(--studio-state-verified); }
+.studio-model-inspector__bound--hole, .studio-model-inspector__bound--missing { --studio-model-bound: var(--studio-state-hole); }
+
+/* Oddíl parametrů začíná linkou a nadpisem s počtem; smazání je červené tlačítko na konci, daleko od polí. */
+.studio-model-inspector__section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--studio-line); }
+.studio-model-inspector__heading { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 11px; letter-spacing: .6px; text-transform: uppercase; }
+.studio-model-inspector__count { min-width: 18px; padding: 0 6px; border: 1px solid var(--studio-line); border-radius: 10px; color: var(--studio-muted); font-size: 10px; text-align: center; }
+.studio-model-inspector__delete { margin-top: 12px; padding: 8px 12px; border: 1px solid #8b435d; border-radius: 6px; background: #402337; color: #ff9ab4; font: inherit; font-size: 12px; cursor: pointer; }
+.studio-model-inspector__delete:hover { background: #4d2a42; }

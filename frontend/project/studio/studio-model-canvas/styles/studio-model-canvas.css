@@ -1,0 +1,69 @@
+/* Plátno MODELu je stejná noční deska jako Skutečnost, jen do fialova: jiný tón pozadí a tečky mřížky říkají
+   „tady se počítá, ne měří“, ještě než člověk přečte štítek. Ovládání (zoom, fit, minimapa, posun) je stejné,
+   aby se přechod mezi vrstvami nemusel učit. */
+.studio-model-canvas { position: relative; flex: 1; min-width: 0; min-height: 0; background: radial-gradient(ellipse at top left, var(--studio-model-bg-glow), var(--studio-model-bg) 65%); }
+.studio-model-canvas .react-flow { --xy-background-color: transparent; background: transparent; }
+.studio-model-canvas .react-flow__viewport-portal { z-index: -1; }
+.studio-model-canvas__empty { position: absolute; left: 50%; top: 45%; margin: 0; transform: translate(-50%, -50%); color: var(--studio-muted); font-size: 13px; pointer-events: none; }
+
+/* Trvalý štítek vlevo nahoře: fialový rámeček s textem „MODEL – výpočet, ne měření“. Nejde zavřít ani posunout,
+   protože MODEL se nikdy nesmí vydávat za skutečný stav projektu (docs/studio.md §1). */
+.studio-model-canvas__label { position: absolute; top: 12px; left: 12px; z-index: 5; padding: 4px 10px; border: 1px solid var(--studio-model-accent); border-radius: 6px; background: var(--studio-model-tint); color: var(--studio-model-accent); font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; pointer-events: none; }
+
+/* Karta je stroj z TechViz v rozměru změřeném pro svůj typ: hlavička s ikonou a štítkem MODEL, řádek typu, tři
+   stupně fungování (co přijímá, čím prochází, co vydává) a pata s vazbou na kartu OPORY. Vybraná karta má modrý
+   rám se svitem; táhne se za kteroukoli část mimo porty. */
+.studio-model-canvas__card { box-sizing: border-box; display: flex; flex-direction: column; border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-card); box-shadow: 0 6px 16px #0004; color: var(--studio-text); font: 12px/1.4 Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif; cursor: grab; }
+.studio-model-canvas__card--selected { border-color: var(--studio-blue); box-shadow: 0 0 0 2px #45baff40, 0 6px 18px #0005; }
+.studio-model-canvas__card-head { display: flex; align-items: center; gap: 7px; padding: 8px 10px; border-bottom: 1px solid var(--studio-line-soft); border-radius: 8px 8px 0 0; background: var(--studio-card-head); }
+.studio-model-canvas__card-icon { display: inline-grid; place-items: center; width: 18px; color: var(--studio-blue); font-size: 14px; }
+.studio-model-canvas__card-name { flex: 1; min-width: 0; overflow: hidden; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+.studio-model-canvas__card-badge { padding: 1px 6px; border: 1px solid var(--studio-model-accent); border-radius: 10px; color: var(--studio-model-accent); font-size: 8px; letter-spacing: .6px; }
+.studio-model-canvas__card-type { display: flex; justify-content: space-between; gap: 6px; padding: 6px 10px 0; color: var(--studio-muted); font-size: 10px; }
+.studio-model-canvas__card-group { color: #7f93ad; }
+
+/* Stupně jsou tři stejně široké buňky v řadě, tlumené a malé: naučí, co komponenta dělá, a v RUN (S6b) se do nich
+   dopíšou vypočtená čísla. */
+.studio-model-canvas__card-stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 8px 10px 0; }
+.studio-model-canvas__card-stage { overflow: hidden; padding: 6px 4px; border: 1px solid var(--studio-line-soft); border-radius: 4px; background: #0e1726b0; color: var(--studio-muted); font-size: 9px; text-align: center; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Pata leží na spodní hraně: buď „bez vazby na kartu OPORY“, nebo jméno vázané karty a její skutečný stav ve stejné
+   barvě jako ve Skutečnosti (plán šedý, staví se modrý, hotovo zelené, ověřeno tyrkysové, díra a chybějící karta
+   červené). Skutečný stav je tu jen pro orientaci; model ho nemění. */
+.studio-model-canvas__card-foot { --studio-model-bound: var(--studio-muted); display: flex; align-items: center; gap: 6px; margin-top: auto; padding: 6px 10px; border-top: 1px solid var(--studio-line-soft); color: var(--studio-model-bound); font-size: 9px; }
+.studio-model-canvas__card-foot--plan { --studio-model-bound: var(--studio-state-plan); }
+.studio-model-canvas__card-foot--building { --studio-model-bound: var(--studio-state-building); }
+.studio-model-canvas__card-foot--done { --studio-model-bound: var(--studio-state-done); }
+.studio-model-canvas__card-foot--verified { --studio-model-bound: var(--studio-state-verified); }
+.studio-model-canvas__card-foot--hole, .studio-model-canvas__card-foot--missing { --studio-model-bound: var(--studio-state-hole); }
+.studio-model-canvas__card-state { margin-left: auto; padding: 0 6px; border: 1px solid var(--studio-model-bound); border-radius: 10px; }
+
+/* Port je kulatá trefovací plocha 22 px se středem přesně na obvodu karty a tečkou 10 px v barvě datového typu
+   (modrý vstup požadavků, zelený výstup, fialové SQL, jantarové události, růžová telemetrie). Připojený port má
+   tečku plnou, volný jen obrys. Vybraný port svítí modře, kompatibilní cíl zeleně, nekompatibilní je ztlumený
+   na 0,55, aby oko hned vidělo, kam vazba smí. */
+.studio-model-canvas__port { position: absolute; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; transform: translate(-50%, -50%); cursor: crosshair; z-index: 3; }
+.studio-model-canvas__port:focus-visible { outline: 2px solid var(--studio-blue); outline-offset: 1px; }
+.studio-model-canvas__port-dot { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; box-sizing: border-box; border: 2px solid var(--studio-port); border-radius: 50%; background: #142036; transform: translate(-50%, -50%); }
+.studio-model-canvas__port-dot--connected { border-color: #142036; background: var(--studio-port); box-shadow: 0 0 0 1px var(--studio-port); }
+.studio-model-canvas__port--pending .studio-model-canvas__port-dot { box-shadow: 0 0 0 6px #4ab8ff38, 0 0 14px #4ab8ffbf; }
+.studio-model-canvas__port--compatible .studio-model-canvas__port-dot { box-shadow: 0 0 0 6px #35d58a33, 0 0 12px #35d58ab3; }
+.studio-model-canvas__port--invalid { opacity: .55; }
+
+/* Vazby leží pod kartami: Bézierova křivka 2 px v barvě datového typu s průhledností 0,75. Vypnutá vazba je
+   čárkovaná a slabá, vybraná silnější se svitem. Popisek vazby sedí nad jejím středem. Náhled tažené vazby je
+   čárkovaná čára v barvě portu, ze kterého se táhne. */
+.studio-model-canvas__links { position: absolute; overflow: visible; pointer-events: none; }
+.studio-model-canvas__link-line { fill: none; stroke: var(--studio-link); stroke-width: 2; opacity: .75; }
+.studio-model-canvas__link-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+.studio-model-canvas__link--inactive .studio-model-canvas__link-line { stroke-dasharray: 6 5; opacity: .35; }
+.studio-model-canvas__link--selected .studio-model-canvas__link-line { stroke-width: 3.5; opacity: 1; filter: drop-shadow(0 0 4px var(--studio-link)); }
+.studio-model-canvas__link-label { fill: var(--studio-text); font: 600 10px Inter, system-ui, sans-serif; text-anchor: middle; paint-order: stroke; stroke: var(--studio-model-bg); stroke-width: 3px; }
+.studio-model-canvas__preview { fill: none; stroke: var(--studio-link); stroke-width: 2.5; stroke-dasharray: 5 5; }
+
+/* Minimapa a ovladače jsou na stejných místech a ve stejném tvaru jako ve Skutečnosti; karty v minimapě mají
+   fialový akcent MODELu. */
+.studio-model-canvas__minimap { width: 194px; height: 116px; border: 1px solid var(--studio-line); border-radius: 8px; overflow: hidden; background: #1d1830e8; }
+.studio-model-canvas__controls { border: 1px solid var(--studio-line); border-radius: 8px; overflow: hidden; background: var(--studio-control); box-shadow: none; }
+.studio-model-canvas__controls .react-flow__controls-button { width: 32px; height: 32px; border-bottom: 1px solid var(--studio-line); background: var(--studio-control); color: var(--studio-text); fill: var(--studio-text); }
+.studio-model-canvas__controls .react-flow__controls-button:hover { background: #233951; }

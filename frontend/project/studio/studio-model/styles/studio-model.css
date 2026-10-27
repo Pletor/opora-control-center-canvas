@@ -1,0 +1,44 @@
+/* Vrstva MODEL zabírá celé tělo Studia ve třech sloupcích jako BUILD v TechViz: katalog vlevo, uprostřed lišta
+   s uložením nad plátnem a vpravo inspektor. Plátno je nejširší, protože se na něm skládá a propojuje. */
+.studio-model { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.studio-model__stage { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+.studio-model__board { position: relative; display: flex; flex: 1; min-height: 0; }
+
+/* Lišta modelu: vlevo jméno domény a počty, pak zpět / znovu jako malá čtvercová tlačítka, stav uložení (zlatě
+   neuloženo, šedě uloženo s revizí, červeně konflikt) a vpravo modré Uložit. Hláška, proč model nejde uložit,
+   se zalomí na celou šířku pod lištu. */
+.studio-model__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--studio-line); background: #17142a; }
+.studio-model__domain { margin-right: auto; color: var(--studio-muted); font-size: 11px; }
+.studio-model__counts { margin-left: 8px; color: #7f93ad; }
+.studio-model__tool { min-width: 30px; padding: 5px 8px; border: 1px solid var(--studio-line); border-radius: 6px; background: #1c2a40; color: var(--studio-text); font: inherit; font-size: 13px; cursor: pointer; }
+.studio-model__tool:hover:not(:disabled) { border-color: var(--studio-blue); background: #233951; }
+.studio-model__tool:disabled { opacity: .35; cursor: not-allowed; }
+.studio-model__tool--text { font-size: 11px; }
+.studio-model__state { font-size: 11px; }
+.studio-model__state--clean { color: var(--studio-muted); }
+.studio-model__state--dirty { color: #f5c963; }
+.studio-model__state--alert { color: #ff9ab4; }
+.studio-model__save { padding: 6px 14px; border: 1px solid var(--studio-blue); border-radius: 6px; background: #173c58; color: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.studio-model__save:hover:not(:disabled) { background: #1d4a6d; }
+.studio-model__save:disabled { opacity: .4; cursor: not-allowed; }
+.studio-model__problem { flex-basis: 100%; margin: 0; padding: 4px 8px; border: 1px solid #8b435d; border-radius: 6px; background: #402337; color: #ff9ab4; font-size: 11px; }
+
+/* Krátká hláška (vazba vytvořena, proč vazba nejde) vyskočí vlevo dole nad plátnem jako v prototypu a po čtyřech
+   sekundách zmizí; nic nepřekrývá ovladače vpravo. */
+.studio-model__toast { position: absolute; left: 12px; bottom: 12px; z-index: 6; max-width: 60%; margin: 0; padding: 7px 12px; border: 1px solid #aa883d; border-radius: 6px; background: #2b2518; color: #f5c963; font-size: 12px; }
+
+/* Nabídka prázdného modelu je karta uprostřed plátna: nadpis, krátké vysvětlení, že model je výpočet, a dvě volby.
+   Návrh z architektury je hlavní tlačítko, prázdný začátek tiché. */
+.studio-model__offer { position: absolute; left: 50%; top: 50%; z-index: 6; box-sizing: border-box; width: min(520px, 90%); padding: 20px 22px; border: 1px solid var(--studio-model-accent); border-radius: 10px; background: #1a1630f2; box-shadow: 0 12px 32px #0008; transform: translate(-50%, -50%); }
+.studio-model__offer-title { margin: 0 0 8px; font-size: 16px; }
+.studio-model__offer-text { margin: 0 0 14px; color: var(--studio-muted); font-size: 12px; line-height: 1.6; }
+.studio-model__offer-actions { display: flex; gap: 10px; }
+
+/* Nepřevedené vazby jsou nízký pás pod plátnem s vlastním posuvníkem: trasa „odkud → kam“ tučně a vedle důvod,
+   aby člověk věděl, co má v modelu dořešit ručně. */
+.studio-model__unresolved { max-height: 150px; overflow: auto; padding: 8px 12px; border-top: 1px solid var(--studio-line); background: #17142a; }
+.studio-model__unresolved-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; color: #f5c963; font-size: 11px; font-weight: 700; }
+.studio-model__unresolved-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.studio-model__unresolved-row { display: flex; gap: 10px; font-size: 11px; }
+.studio-model__unresolved-route { flex-shrink: 0; }
+.studio-model__unresolved-reason { color: var(--studio-muted); }

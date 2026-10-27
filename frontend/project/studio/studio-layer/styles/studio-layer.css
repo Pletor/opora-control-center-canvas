@@ -1,0 +1,10 @@
+/* Přepínač vrstev sedí vlevo v liště Studia jako dvoudílný spínač: Skutečnost a MODEL vedle sebe, zapnutá vrstva svítí
+   svou barvou. Skutečnost je zlatá, protože jen čte to, co v projektu opravdu je; MODEL je fialový jako tón jeho plátna,
+   aby se výpočet nikdy nepletl se skutečným stavem. Na úrovni projektu je MODEL zhaslý, model patří doméně. */
+.studio-layer { display: inline-flex; flex-shrink: 0; border: 1px solid var(--studio-line); border-radius: 7px; overflow: hidden; background: var(--studio-control); }
+.studio-layer__option { padding: 4px 10px; border: 0; background: transparent; color: var(--studio-muted); font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; cursor: pointer; }
+.studio-layer__option + .studio-layer__option { border-left: 1px solid var(--studio-line); }
+.studio-layer__option:hover:not(:disabled) { color: var(--studio-text); background: #1c2a40; }
+.studio-layer__option:disabled { opacity: .4; cursor: not-allowed; }
+.studio-layer__option--reality.studio-layer__option--on { background: #3a3221; color: #f5c963; }
+.studio-layer__option--model.studio-layer__option--on { background: var(--studio-model-tint); color: var(--studio-model-accent); }
