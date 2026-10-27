@@ -70,6 +70,7 @@ from backend.api.project.project_map_check_routes import create_project_map_chec
 from backend.api.project.project_web_status_routes import create_project_web_status_router
 from backend.api.project.project_work_status_routes import create_project_work_status_router
 from backend.api.project.project_workspace_routes import create_project_workspace_router
+from backend.api.project.studio_model_routes import create_studio_model_router
 from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
 from backend.app.embed_origins import ENV_NAME as EMBED_ORIGINS_ENV
@@ -335,6 +336,7 @@ def create_app(data_root=None):
     app.include_router(create_project_work_status_router(service, assistant.registry))
     app.include_router(create_project_web_status_router(WebStatusService(service)))
     app.include_router(create_project_map_check_router(service))
+    app.include_router(create_studio_model_router(service))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)
     sync_report = SyncReport(service, check_runs=check_runs)

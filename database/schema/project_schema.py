@@ -43,6 +43,8 @@ from database.schema.opora_review_job_schema import TABLES as REVIEW_JOB_TABLES
 from database.schema.opora_review_policy_schema import SCHEMA as REVIEW_POLICY_SCHEMA
 from database.schema.opora_verification_schema import SCHEMA as VERIFICATION_SCHEMA
 from database.schema.opora_verification_schema import TABLES as VERIFICATION_TABLES
+from database.schema.studio_model_schema import SCHEMA as STUDIO_MODEL_SCHEMA
+from database.schema.studio_model_schema import TABLES as STUDIO_MODEL_TABLES
 from database.schema.workspace_graph_authority_schema import SCHEMA as GRAPH_AUTHORITY_SCHEMA
 
 # .data/<root>/registry.sqlite – jen to, co musí být vidět napříč projekty.
@@ -299,7 +301,8 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
                    + EXECUTION_CONTEXT_SCHEMA + CONTENT_SCHEMA + PROPOSAL_REVIEW_SCHEMA + OBSERVER_SCHEMA
                    + EXECUTION_PR_SCHEMA + REVIEW_JOB_SCHEMA + REVIEW_GATE_SCHEMA
                    + REVIEW_INSIGHT_SCHEMA + AUTO_REBASE_SCHEMA + EVENT_SCHEMA
-                   + DESIGN_PREVIEW_SCHEMA + HARNESS_LEARNING_SCHEMA + JOURNEY_RUN_SCHEMA)
+                   + DESIGN_PREVIEW_SCHEMA + HARNESS_LEARNING_SCHEMA + JOURNEY_RUN_SCHEMA
+                   + STUDIO_MODEL_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -355,6 +358,7 @@ PROJECT_TABLES.update({table: "project_id" for table in REVIEW_INSIGHT_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in DESIGN_PREVIEW_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in HARNESS_LEARNING_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in JOURNEY_RUN_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in STUDIO_MODEL_TABLES})
 
 
 # CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).
