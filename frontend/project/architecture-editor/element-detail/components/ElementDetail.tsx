@@ -79,14 +79,11 @@ export default function ElementDetail(props: ElementDetailProps) {
           {tab === "brief" ? (
             <BriefTab
               node={node}
-              incoming={links.incoming}
-              outgoing={links.outgoing}
               spec={spec}
               phase={phase}
               done={done}
               disabled={disabled}
               onIdentity={onIdentity}
-              onSelect={onSelect}
             />
           ) : null}
           {tab === "links" ? (

@@ -5,7 +5,6 @@ import { emptyDesktopState, type DesktopState } from "@/shared/desktop-state/log
 import { buildBoardIndex } from "./board-index";
 import { buildLayerNodes, CULL_FROM, CULL_VISIBLE, shouldCull, type LayerInput } from "./layer-nodes";
 import { changedNodes, reuseNodes, sameShell, sameValue } from "./stable-nodes";
-import { indexVault } from "@/editor/node-detail/brief-vault/logic/brief-vault-model";
 
 /** Vrstva s `cards` kartami po třech blocích se dvěma porty, pár sektory, komentář a oblast. */
 function board(cards = 300): { graph: Graph; state: DesktopState } {
@@ -29,7 +28,7 @@ function board(cards = 300): { graph: Graph; state: DesktopState } {
 function inputFor(graph: Graph, state: DesktopState, patch: Partial<LayerInput> = {}): LayerInput {
   const index = buildBoardIndex(graph, state);
   return { graph, state, index, parent: null, selected: null, multiSelected: new Set(), selectedBlock: null, editing: null, disabled: false,
-    openBlocks: {}, tagFilter: "", moved: new Set(), vaultIndex: indexVault([]),
+    openBlocks: {}, tagFilter: "", moved: new Set(),
     sourceContext: { project: "p", workspace: "w" }, can: { realize: true, rules: true },
     ...patch };
 }

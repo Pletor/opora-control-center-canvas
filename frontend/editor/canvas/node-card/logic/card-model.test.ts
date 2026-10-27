@@ -61,13 +61,10 @@ describe("card-model", () => {
     expect(cardBlocks({ blocks: [block("1", [])] })[0].text).toBe("");
   });
 
-  it("potvrzené done kartu uzavře; návrh agenta ji jen označí", () => {
-    const open = cardView(node, emptyNodeWorkflow(), 0);
-    expect([open.closed, open.doneProposed]).toEqual([false, false]);
-    const proposed = cardView(node, { ...emptyNodeWorkflow(), done: { confirmed: false, at: "t", by: "agent", note: "" } }, 0);
-    expect([proposed.closed, proposed.doneProposed]).toEqual([false, true]);
-    const closed = cardView(node, { ...emptyNodeWorkflow(), done: { confirmed: true, at: "t", by: "human", note: "" } }, 0);
-    expect([closed.closed, closed.doneProposed]).toEqual([true, false]);
+  it("kartu uzavře jen potvrzené done, návrh agenta ne", () => {
+    expect(cardView(node, emptyNodeWorkflow(), 0).closed).toBe(false);
+    expect(cardView(node, { ...emptyNodeWorkflow(), done: { confirmed: false, at: "t", by: "agent", note: "" } }, 0).closed).toBe(false);
+    expect(cardView(node, { ...emptyNodeWorkflow(), done: { confirmed: true, at: "t", by: "human", note: "" } }, 0).closed).toBe(true);
   });
 
   it("filtr štítků zvýrazní jen uzly s daným štítkem a bez filtru všechny", () => {
@@ -78,24 +75,21 @@ describe("card-model", () => {
   });
 });
 
-describe("card-model: vrstva a stav karty", () => {
-  it("uzel bez karty nemá štítky, starší graf se nemění", () => {
+describe("card-model: vrstva karty", () => {
+  it("uzel bez karty nemá vrstvu, starší graf se nemění", () => {
     const view = cardView(node, emptyNodeWorkflow(), 0);
     expect(view.cardLayer).toBeNull();
-    expect(view.cardStatus).toBeNull();
   });
 
-  it("vrstva jen z karty (ne z předpony), stav done z uzavření", () => {
+  it("vrstva jen z karty (ne z předpony)", () => {
     const workflow = { ...emptyNodeWorkflow(), done: { confirmed: true, at: "", by: "human" as const, note: "" } };
     expect(cardView({ ...node, name: "[task] Login" }, emptyNodeWorkflow(), 0).cardLayer).toBeNull();
     const view = cardView({ ...node, card: { layer: "database", status: "ready" } }, workflow, 0);
     expect(view.cardLayer).toBe("database");
-    expect(view.cardStatus).toBe("done");
   });
 
-  it("sektor vrstvu ani stav nenese", () => {
+  it("sektor vrstvu nenese", () => {
     const view = cardView({ ...node, kind: "sector", name: "[task] S", card: { layer: "backend", status: "ready" } }, emptyNodeWorkflow(), 0);
     expect(view.cardLayer).toBeNull();
-    expect(view.cardStatus).toBeNull();
   });
 });

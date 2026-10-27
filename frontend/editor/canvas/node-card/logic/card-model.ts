@@ -3,9 +3,7 @@
 import type { CanvasNode } from "@/shared/types/logic/types";
 import type { BlockPortDef, BlockStatus, NodeWorkflowFull } from "@/shared/desktop-state/logic/types";
 import { blockPorts } from "@/shared/desktop-state/logic/types";
-import { cardLayer, effectiveStatus, type EffectiveStatus } from "@/shared/card-context/logic/card-context";
-import { openIdeas } from "@/editor/node-detail/ideas/logic/ideas-model";
-import { roundNumber } from "@/editor/node-detail/rounds/logic/rounds-model";
+import { cardLayer } from "@/shared/card-context/logic/card-context";
 import type { CardLayer } from "@/shared/types/logic/types";
 
 export type CardPort = "next" | "action" | "rule" | "material" | "pipeline";
@@ -49,27 +47,12 @@ export type CardView = {
   rows: CardBlockRow[];
   /** Karta uzavřená člověkem: jen ke čtení, ztlumená, se zámkem v hlavě. */
   closed: boolean;
-  /** Uzavření navržené agentem, které člověk zatím nepotvrdil. */
-  doneProposed: boolean;
-  /** Otevřené podněty k dalšímu vývoji (ne-blokující nálezy review a kritiků). */
-  openIdeas: number;
-  /** Aktuální kolo karty (1 = bez historie); v2+ ukáže hlava přepínač „v1 ✓ · v2 ●“. */
-  round: number;
-  /** Fragmenty schránky zadání, které mají novější revizi, než ze které karta vznikla (doplní Board). */
-  briefChanged?: number;
   /** Vrstva uzlu (FE / BE / DB / Knihovna) z `card.layer`; sektor ji nemá. Typ workflow je vidět v názvu. */
   cardLayer: CardLayer | null;
-  /** Efektivní stav uzlu: `done` z uzavření, jinak ruční stav, jinak `null`; sektor ho nemá. */
-  cardStatus: EffectiveStatus | null;
-  design?: import("@/shared/types/logic/types").DesignArtifact;
   checks?: import("@/shared/types/logic/types").CanvasNode["checks"];
   goal_mode?: import("@/shared/types/logic/types").CanvasNode["goal_mode"];
-  cardModel: string | null;
-  cardEffort: string | null;
 };
 
-/** Popisky štítků karty: krátké, česky, aby se vešly do hlavy vedle fáze. */
-export const CARD_STATUS_LABEL: Record<EffectiveStatus, string> = { draft: "rozpracovaná", ready: "připravená", done: "hotovo" };
 
 /** Štítky uzlu = sjednocení štítků všech bloků v pořadí prvního výskytu. */
 export function nodeTags(workflow: Pick<NodeWorkflowFull, "blocks">): string[] {
@@ -98,15 +81,9 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     blocks: workflow.blocks.length,
     rows: cardBlocks(workflow),
     closed: workflow.done.confirmed,
-    doneProposed: workflow.done.by === "agent" && !workflow.done.confirmed,
-    openIdeas: openIdeas(workflow.ideas),
-    round: roundNumber(workflow.round),
     cardLayer: node.kind === "node" ? cardLayer(node) : null,
-    cardStatus: node.kind === "node" ? effectiveStatus(node, workflow.done.confirmed) : null,
     checks: node.checks,
     goal_mode: node.goal_mode,
-    cardModel: node.card?.model ?? null,
-    cardEffort: node.card?.effort ?? null,
   };
 }
 
