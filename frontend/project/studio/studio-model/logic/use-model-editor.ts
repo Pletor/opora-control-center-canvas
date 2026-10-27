@@ -35,7 +35,9 @@ export function useModelEditor(project: string, domain: string) {
   }, [history.present, domain, store]);
 
   return {
-    model: history.present, revision: store.model.revision, status: store.status, message: store.message, problem,
+    model: history.present, revision: store.model.revision, status: store.status,
+    /** Doména, ke které patří načtená verze (po přepnutí domény se změní až s načtením). */
+    loadedDomain: store.model.domainId, message: store.message, problem,
     dirty: !sameContent(history.present, saved), canUndo: history.past.length > 0, canRedo: history.future.length > 0,
     apply, save,
     undo: useCallback(() => setHistory(undo), []),

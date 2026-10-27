@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { EditModel, EdgePatch, Selection } from "../../studio-model/logic/model-edit";
 import type { BindingCard } from "../../studio-layer/logic/studio-layer";
 import { counted } from "../../studio-model/logic/proposal-rows";
@@ -13,8 +14,9 @@ export type InspectorActions = {
 
 /** Inspektor vpravo od plátna MODELu (v MODELu místo detailu Skutečnosti): bez výběru nápověda k ovládání, s vybranou
  * komponentou její název, typ, parametry simulace a vazba na kartu OPORY, s vybranou vazbou její typ, zapnutí,
- * popisek a podmínka. Každou změnu hlásí rodiči; nic neukládá. */
-export default function ModelInspector({ model, selection, bindings, actions }: { model: EditModel; selection: Selection; bindings: BindingCard[]; actions: InspectorActions }) {
+ * popisek a podmínka. Nad výběrem leží panel telemetrie běhu, který skládá rodič (`telemetry`). Každou změnu hlásí
+ * rodiči; nic neukládá. */
+export default function ModelInspector({ model, selection, bindings, actions, telemetry }: { model: EditModel; selection: Selection; bindings: BindingCard[]; actions: InspectorActions; telemetry?: ReactNode }) {
   const node = selection?.kind === "node" ? model.nodes.find((item) => item.id === selection.id) : undefined;
   const edge = selection?.kind === "edge" ? model.edges.find((item) => item.id === selection.id) : undefined;
   return <aside className="studio-model-inspector" aria-label="Inspektor modelu" data-testid="studio-model-inspector">
@@ -22,6 +24,7 @@ export default function ModelInspector({ model, selection, bindings, actions }: 
       <span>{node ? "Komponenta" : edge ? "Vazba" : "Inspektor"}</span>
       {(node || edge) && <button type="button" className="studio-model-inspector__close" onClick={actions.onClear} title="Zrušit výběr (Escape)">×</button>}
     </header>
+    {(node || edge) && telemetry}
     {node ? <NodeInspector key={node.id} node={node} bindings={bindings} actions={actions}/>
       : edge ? <EdgeInspector key={edge.id} edge={edge} model={model} actions={actions}/>
       : <div className="studio-model-inspector__help">

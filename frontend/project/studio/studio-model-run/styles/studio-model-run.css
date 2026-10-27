@@ -1,0 +1,35 @@
+/* Lišta RUN je druhý nízký pás pod lištou modelu, jako runtimebar v prototypu: vlevo velké Start / Pause, krok,
+   rychlost a čítač ticku (zelený puntík, když běží), uprostřed zátěž a incidenty, vpravo souhrn běhu. Souhrn má
+   vlastní fialový štítek „výpočet modelu“, aby čísla nikdo nečetl jako měření projektu (docs/studio.md §1, §5). */
+.studio-model-run { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--studio-line); background: #141226; color: var(--studio-text); font-size: 11px; }
+.studio-model-run__start { min-width: 82px; padding: 5px 12px; border: 1px solid var(--studio-model-accent); border-radius: 6px; background: #2e2652; color: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.studio-model-run__start:hover:not(:disabled) { background: #3a2f68; }
+.studio-model-run__start:disabled, .studio-model-run__tool:disabled { opacity: .35; cursor: not-allowed; }
+.studio-model-run__tool { padding: 5px 9px; border: 1px solid var(--studio-line); border-radius: 6px; background: #1c2a40; color: var(--studio-text); font: inherit; cursor: pointer; }
+.studio-model-run__tool:hover:not(:disabled) { border-color: var(--studio-blue); background: #233951; }
+.studio-model-run__tool--on { border-color: #e8b95b; background: #3a2e18; color: #ffdb88; }
+.studio-model-run__speed { display: flex; align-items: center; gap: 5px; color: var(--studio-muted); }
+.studio-model-run__select { padding: 4px 6px; border: 1px solid var(--studio-line); border-radius: 6px; background: var(--studio-control); color: var(--studio-text); font: inherit; }
+.studio-model-run__tick { min-width: 108px; color: var(--studio-muted); font-variant-numeric: tabular-nums; }
+.studio-model-run__tick--running { color: #35d58a; }
+.studio-model-run__divider { width: 1px; height: 18px; background: var(--studio-line); }
+
+/* Souhrn běhu zabírá zbytek řádku zarovnaný vpravo: propustnost, chybovost a nejvytíženější komponenta tučně,
+   ostatní tlumeně. Když se lišta nevejde, zalomí se celý souhrn pod ovládání, ne jednotlivá čísla. */
+.studio-model-run__summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 0 0 auto; color: var(--studio-muted); }
+.studio-model-run__summary strong { color: var(--studio-text); font-variant-numeric: tabular-nums; }
+.studio-model-run__source { margin-right: 4px; padding: 1px 6px; border: 1px solid var(--studio-model-accent); border-radius: 10px; color: var(--studio-model-accent); font-size: 9px; letter-spacing: .5px; text-transform: uppercase; }
+.studio-model-run__error { flex-basis: 100%; margin: 0; padding: 4px 8px; border: 1px solid #8b435d; border-radius: 6px; background: #402337; color: #ff9ab4; }
+
+/* Částice jedou po vazbě v barvě typu portu se září (přijaté) nebo růžově (odmítnuté a chybové odpovědi, jinou
+   barvou, aby chyba vystoupila z toku). Přijatá částice, která se vrací s odpovědí, je slabší než ta, která jede tam.
+   Kopie trasy je neviditelná; slouží jen k měření polohy. */
+.studio-model-run__flow { pointer-events: none; }
+.studio-model-run__track { fill: none; stroke: none; }
+.studio-model-run__particle { fill: var(--studio-particle); filter: drop-shadow(0 0 4px var(--studio-particle)); }
+.studio-model-run__particle[data-direction="return"].studio-model-run__particle--accepted { opacity: .65; }
+
+/* Omezený pohyb: žádné částice; stav nese barva karty a čísla stupňů. */
+@media (prefers-reduced-motion: reduce) {
+  .studio-model-run__flow { display: none; }
+}

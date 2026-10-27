@@ -19,4 +19,8 @@ Vrstva **MODEL** jedné domény (`docs/studio.md` §1, §3, §4; etapa S6a). Cel
 - `logic/proposal-rows.ts` – nepřevedené vazby návrhu jako řádky (jména karet a důvod).
 - `styles/studio-model.css`, blok `studio-model`.
 
-Scénáře a RUN (S6b) zatím nejsou.
+- `logic/use-model-domain.ts` – modelová doména (architektura nebo scénář `scenario:<id>`) a naplnění prázdné domény scénářem.
+
+Běh (S6b) skládá workspace z dílků `studio-model-run/` (lišta RUN, částice, řízení běhu), `studio-model-telemetry/`
+(telemetrie a incidenty v inspektoru) a `studio-model-scenarios/` (knihovna scénářů). Editace, která změní, co engine
+počítá, běh zastaví a vynuluje s hláškou.

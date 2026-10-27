@@ -1,11 +1,14 @@
 import { ViewportPortal } from "@xyflow/react";
 import type { ModelLinkView } from "../logic/model-flow";
 import type { ConnectDrag } from "../logic/use-connect-drag";
+import type { LinkFlow } from "../../studio-model-run/logic/run-view";
+import ModelLinkFlow from "../../studio-model-run/components/ModelLinkFlow";
 
 /** Vazby MODELu v souřadnicích plátna (vrstva pod kartami): Bézierova křivka v barvě datového typu, vypnutá vazba
  * čárkovaná a tlumená, vybraná silnější se svitem, popisek uprostřed. Široká neviditelná stopa dovolí vazbu
- * vybrat (`onSelect`). Během tahu nové vazby čárkovaný náhled od portu ke kurzoru. */
-export default function ModelLinks({ links, drag, dragColor, onSelect }: { links: ModelLinkView[]; drag: ConnectDrag | null; dragColor: string; onSelect: (id: string) => void }) {
+ * vybrat (`onSelect`). Během tahu nové vazby čárkovaný náhled od portu ke kurzoru. Za běhu MODELu jedou po aktivní
+ * vazbě s vypočteným tokem částice (`flows`). */
+export default function ModelLinks({ links, flows, drag, dragColor, onSelect }: { links: ModelLinkView[]; flows: ReadonlyMap<string, LinkFlow>; drag: ConnectDrag | null; dragColor: string; onSelect: (id: string) => void }) {
   return <ViewportPortal>
     <svg className="studio-model-canvas__links" width="1" height="1" aria-label="Vazby modelu">
       {links.map((link) => <g key={link.id} className={"studio-model-canvas__link" + (link.inactive ? " studio-model-canvas__link--inactive" : "") + (link.selected ? " studio-model-canvas__link--selected" : "")}
@@ -13,6 +16,7 @@ export default function ModelLinks({ links, drag, dragColor, onSelect }: { links
         <title>{`${link.type}${link.label ? " · " + link.label : ""}${link.inactive ? " · vypnuto" : ""}`}</title>
         <path className="studio-model-canvas__link-hit" d={link.d} onClick={(event) => { event.stopPropagation(); onSelect(link.id); }}/>
         <path className="studio-model-canvas__link-line" d={link.d}/>
+        {!link.inactive && flows.get(link.id) && <ModelLinkFlow linkId={link.id} d={link.d} flow={flows.get(link.id)!}/>}
         {link.label && <text className="studio-model-canvas__link-label" x={link.mid.x} y={link.mid.y - 6}>{link.label}</text>}
       </g>)}
       {drag && <path className="studio-model-canvas__preview" style={{ ["--studio-link" as string]: dragColor }}

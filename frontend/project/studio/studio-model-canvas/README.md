@@ -13,4 +13,6 @@ Plátno vrstvy MODEL (`docs/studio.md` §1, §3, §4; etapa S6a). Design karet, 
   karet, vazeb a uzly React Flow. `logic/connect-gesture.ts` – klik port → port, orientace výstup → vstup, kompatibilní
   a ztlumené cíle (`connectionError`). `logic/use-connect-drag.ts` – tah vazby s náhledem (Escape ruší).
   `logic/card-actions.ts` – kontext akcí portu. `logic/card-stages.ts` – tři stupně fungování podle typu (data).
+- Běh (S6b): plátno dostane snímek běhu, karty běhu a toky vazeb; karta ukáže vypočtený stav, čísla stupňů a řádek
+  telemetrie, zpomalená pulzuje (1,6 s, Pause ji zastaví), spadlá je ztlumená s křížkem; částice kreslí `ModelLinkFlow`.
 - `styles/studio-model-canvas.css`, blok `studio-model-canvas`.
