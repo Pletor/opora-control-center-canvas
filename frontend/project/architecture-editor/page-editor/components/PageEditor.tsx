@@ -19,7 +19,8 @@ type Props = {
   onOpenPage: (domainId: string, pageId: string) => void; onAddPage: (domainId: string) => void; onOpenScope: (id: string) => void;
   onSelect: (id: string | null) => void; onOpenStructure: (id: string) => void; onOpenEditor: (id: string) => void;
   onInsert: (id: string, target?: string | null, point?: { x: number; y: number }) => void;
-  onMove: (id: string, x: number, y: number) => Promise<void>; onConnect: (source: string, target: string) => void;
+  /** `area` = domovská oblast, která za puštěnou kartou vyrostla; ukládá se s kartou jednou změnou. */
+  onMove: (id: string, x: number, y: number, area?: { id: string; x: number; y: number; w: number; h: number }) => Promise<void>; onConnect: (source: string, target: string) => void;
   onResize: (id: string, w: number, h: number) => Promise<void>;
   onSector: (parentId: string) => void; onArea: () => void; onAddNode: (parentId: string) => void;
 };

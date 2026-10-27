@@ -42,7 +42,9 @@ import "@/editor/canvas/board/styles/board-bar.css";
 import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
 import JsonMirror from "@/hub/oporahub-mirror/components/JsonMirror";
 import { layerFootprints } from "@/editor/canvas/board/logic/layout-model";
-import { settleArea, settleCard } from "@/editor/canvas/board/logic/solid-bodies";
+import { settleArea } from "@/editor/canvas/board/logic/solid-bodies";
+import { dropCard, type Rect } from "@/editor/canvas/area/logic/area-growth";
+import { useAreaGrowth } from "@/editor/canvas/area/logic/use-area-growth";
 import NodeCard, { type NodeCardData } from "@/editor/canvas/node-card/components/NodeCard";
 import CommentCard from "@/editor/canvas/comment-card/components/CommentCard";
 import AreaCard from "@/editor/canvas/area/components/AreaCard";
@@ -146,7 +148,8 @@ export default function Board({
   selectedEdge: string | null;
   onSelectEdge: (id: string) => void;
   onEnter: (id: string) => void;
-  onPosition: (id: string, x: number, y: number) => void;
+  /** Puštěná karta; `area` = domovská oblast, která za kartou vyrostla (uloží se s ní jednou změnou). */
+  onPosition: (id: string, x: number, y: number, area?: Rect & { id: string }) => void;
   onConnect: (c: Connection) => void;
   /** Uzel právě přejmenovaný přímo na kartě. */
   editing: string | null;
@@ -211,6 +214,8 @@ export default function Board({
     disabled, openBlocks, tagFilter, moved: movedSet, checklists, frontier: frontier.rows, work,
     leases, sourceStatuses, agent, sourceContext, can }).concat(blocks.nodes);
   const [nodes, setNodes] = useState<Node[]>(make);
+  // Rostoucí oblast: při tahu karty přes hranu se v náhledu natahuje jen uzel domovské oblasti.
+  const growth = useAreaGrowth(setNodes);
   // Výšky pro „Srovnat“ v App a pro dosednutí tažené karty: jen změření v plném detailu. Karta z dálky
   // (`data-detail="far"`) je nižší; její míra se nikdy nebere jako plná a do první plné míry platí odhad.
   const measuredAt = useRef(new Map<string, { measured: object; height?: number }>());
@@ -368,7 +373,14 @@ export default function Board({
         onEdgeClick={(_, edge) => !isBlockId(edge.target) && onSelectEdge(edge.id)}
         onPaneClick={onClear}
         onNodeDoubleClick={(_, n) => !isBlockId(n.id) && n.type !== "comment" && n.type !== "area" && onEnter(n.id)}
+        onNodeDragStart={(_, dragged) => {
+          const stored = graph.nodes.find((n) => n.id === dragged.id);
+          if (!stored || isBlockId(dragged.id) || areaIds.has(dragged.id)) return;
+          growth.begin(stored, graph.nodes, layerFootprints(graph, parent, state, openBlocks, fullHeights.current, true));
+        }}
+        onNodeDrag={(_, dragged) => growth.preview(dragged.position.x, dragged.position.y)}
         onNodeDragStop={(_, dragged) => {
+          const session = growth.finish();
           const block = parseBlockId(dragged.id);
           if (block) {
             // Blok se táhne sám za sebe: kartou nehne a magnetismem neprochází (v otisku patří ke své kartě).
@@ -398,13 +410,15 @@ export default function Board({
             onAreaMove(dragged.id, settled.x - stored.x, settled.y - stored.y);
             return;
           }
-          // Karta: střed rozhodne, jestli patří dovnitř oblasti (pak se vejde celá), nebo ven (pak se celá
-          // odsune za hranu), a teprve pak se vytáhne z překryvu s ostatními kartami. Až pak se pozice uloží.
+          // Karta: přesáhla-li hranu své domovské oblasti a je kam růst, oblast vyroste a karta zůstane, kde je
+          // (`dropCard`, docs/architektura-pro-agenty.md §3.5). Jinak dnešní usazení: střed rozhodne, jestli
+          // patří dovnitř oblasti (vejde se celá), nebo ven (odsune se za hranu), pak překryv s kartami.
           const moved = footprints.find((f) => f.id === dragged.id);
           const others = footprints.filter((f) => f.id !== dragged.id);
           const resolved =
             moved && stored
-              ? settleCard(
+              ? dropCard(
+                  session,
                   { ...stored, x: dragged.position.x, y: dragged.position.y },
                   {
                     ...moved,
@@ -414,8 +428,10 @@ export default function Board({
                   others,
                   layerAreas,
                 )
-              : dragged.position;
-          onPosition(dragged.id, resolved.x, resolved.y);
+              : { ...dragged.position };
+          // Náhled oblasti dosedne na to, co se uloží: na nový rámeček, nebo zpět na původní.
+          if (session) growth.show(session.homeId, "area" in resolved && resolved.area ? resolved.area : session.start);
+          onPosition(dragged.id, resolved.x, resolved.y, "area" in resolved ? resolved.area : undefined);
         }}
         onConnect={(c) => {
           if (!c.target || isBlockId(c.target)) return;

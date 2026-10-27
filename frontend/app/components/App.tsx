@@ -1266,12 +1266,14 @@ export default function App() {
                       setEditingName(created.id);
                     });
                   }}
-                  onPosition={(id, x, y) =>
+                  onPosition={(id, x, y, area) =>
+                    // Karta a případně za ní vyrostlá domovská oblast (`area-growth.ts`) jdou jednou změnou.
                     run(() =>
                       save({
                         ...graph,
                         nodes: graph.nodes.map((n) =>
-                          n.id === id ? { ...n, x, y } : n,
+                          n.id === id ? { ...n, x, y }
+                            : area && n.id === area.id ? { ...resizeArea(n, area.w, area.h), x: area.x, y: area.y } : n,
                         ),
                       }),
                     )

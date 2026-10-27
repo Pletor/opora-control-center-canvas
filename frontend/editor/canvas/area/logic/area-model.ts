@@ -85,6 +85,12 @@ function centreOf(node: Pick<CanvasNode, "kind" | "x" | "y">): { cx: number; cy:
   return { cx: node.x + offset.dx, cy: node.y + offset.dy };
 }
 
+/** Bod členství karty (střed podle `CENTRE_OFFSET`): ten rozhoduje v `areaOf`, kam karta patří. */
+export function membershipPoint(node: Pick<CanvasNode, "kind" | "x" | "y">): { x: number; y: number } {
+  const { cx, cy } = centreOf(node);
+  return { x: cx, y: cy };
+}
+
 type Rect = { x: number; y: number; w: number; h: number };
 
 /** Mezera, kterou musí nová oblast dodržet od všeho ostatního na vrstvě. */

@@ -8,6 +8,8 @@ Krok 3 kontraktu `docs/architektura-projektu.md`: rychlá infografika jedné str
 
 Šířku řeší CSS (`logic/page-layout.ts` skládá jen BEM varianty): pod 1400 px se mapa a struktura střídají přepínačem „Mapa / Struktura“, pod 1050 px vyjede detail zprava jako zásuvka.
 
+Puštěná karta na mapě dosedne jako v Editoru: když přetáhne hranu své oblasti a je kam růst, oblast se za ní (už během tahu) natáhne a uloží se s ní; jinak se karta vtáhne do oblasti nebo vysune ven, aby nikdy nepřečnívala (`editor/canvas/area/logic/area-growth.ts`, rozměry karet ze změřeného `measured`).
+
 Dílek nic neukládá: všechny změny (vložení, přesun, vazba, nový uzel / sektor / oblast, „+ Stránka“) hlásí callbackem rodiči. „+ Stránka“ v Stromu přepne na Mapu projektu dané domény – strukturu stránek mění jen ona. React Flow při přestavbě uzlů přenáší `measured`, jinak by se karty znovu měřily a vstupy ztrácely fokus. Pohled plátna se pamatuje v `localStorage` podle ID editoru a rozsahu.
 
 Testy: `logic/*.test.ts`, `project-tree/logic/project-tree-model.test.ts` (`npm test`).

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, moveEditorNode, resizeEditorNode, validateEditorRoute } from "./editor-model";
+import { architectureEditorId, connectEditorNodes, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, validateEditorRoute } from "./editor-model";
 
 const node = (id: string, parentId: string | null = null, kind: CanvasNode["kind"] = "node"): CanvasNode => ({ id, parentId, kind, name: id, purpose: "Účel", x: 20, y: 40 });
 const graph = (): Graph => ({ nodes: [
@@ -130,5 +130,15 @@ describe("scope and creation", () => {
     expect(() => createEditorAreaPlan("@page")).toThrow();
     expect(() => createEditorAreaPlan("page.with.dot")).toThrow();
     expect(() => createEditorAreaPlan(null, " ")).toThrow();
+  });
+});
+
+describe("growEditorArea", () => {
+  it("posune a natáhne jen oblast, členy nechá na místě", () => {
+    const original = graph();
+    const grown = growEditorArea(original, { id: "area", x: -16, y: 40, w: 1000, h: 480 });
+    expect(grown.nodes[5]).toMatchObject({ x: -16, y: 40, size: { w: 1000, h: 480 }, color: "teal" });
+    expect(grown.nodes.slice(0, 5)).toEqual(original.nodes.slice(0, 5));
+    expect(() => growEditorArea(original, { id: "page", x: 0, y: 0, w: 200, h: 200 })).toThrow();
   });
 });
