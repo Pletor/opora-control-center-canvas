@@ -136,6 +136,20 @@ def test_invalid_section_is_rejected(change, message):
         validate_graph({"nodes": [application(), page_with(sections=[section])], "edges": []})
 
 
+def test_section_moves_is_optional_bounded_and_never_filled_in():
+    """`moves` (čím sekce posouvá) je nepovinné 1–120 znaků; sekce bez něj platí dál a nic se nedoplňuje."""
+    sections = [SECTIONS[0] | {"moves": "Rozptýlí obavu ze spamu."}, SECTIONS[1] | {"moves": "m" * 120}]
+    candidate = page_with(sections=copy.deepcopy(sections))
+    assert validate_graph({"nodes": [application(), candidate], "edges": []})["nodes"][1]["site"]["sections"] == sections
+    old = page_with(sections=copy.deepcopy(SECTIONS))
+    validate_graph({"nodes": [application(), old], "edges": []})
+    assert all("moves" not in section for section in old["site"]["sections"])
+    for value in ("", "   ", "m" * 121, "a\nb", "a\0b", 4, None):
+        section = SECTIONS[0] | {"moves": value}
+        with pytest.raises(ValueError, match="moves"):
+            validate_graph({"nodes": [application(), page_with(sections=[section])], "edges": []})
+
+
 def test_missing_section_key_and_duplicate_section_id_are_rejected():
     with pytest.raises(ValueError, match="přesně"):
         validate_graph({"nodes": [application(), page_with(sections=[{"id": "hero", "role": "hero", "name": "Hero"}])],

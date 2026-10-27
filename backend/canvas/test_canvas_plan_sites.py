@@ -97,3 +97,26 @@ def test_duplicate_route_plan_and_graph_edit_are_both_atomic(tmp_path):
         broken["nodes"][0]["site"]["environments"][1]["host"] = "APP.EXAMPLE.CZ."
         assert save_graph(client, broken).status_code == 409
         assert view(client)["graph"] == before["graph"]
+
+
+def test_plan_proposes_sections_with_moves_and_rejects_an_empty_one(tmp_path):
+    """Dávka agenta smí navrhnout sekce s `moves` (čím sekce posouvá); prázdné `moves` odmítne celá dávka."""
+    sections = [{"id": "hero", "role": "hero", "name": "Úvod", "intent": "Slib a fotka zahrady"},
+                {"id": "form", "role": "form", "name": "Formulář", "intent": "Jméno a e-mail",
+                 "moves": "Rozptýlí obavu ze spamu: jen e-mail, ozveme se jednou."}]
+    plan = site_plan()
+    plan["nodes"][1]["site"]["sections"] = sections
+    plan["nodes"].append({"ref": "form", "kind": "node", "parent": "page", "name": "Formulář", "card": {"section": "form"}})
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        before = view(client)["digest"]
+        empty = copy.deepcopy(plan)
+        empty["nodes"][1]["site"]["sections"][0]["moves"] = ""
+        rejected = send(client, before, empty)
+        assert rejected.status_code == 409 and "moves" in rejected.text
+        assert view(client)["digest"] == before
+        response = send(client, before, plan)
+        assert response.status_code == 200, response.text
+        refs = response.json()["refs"]
+        stored = {node["id"]: node for node in view(client)["graph"]["nodes"]}
+        assert stored[refs["page"]]["site"]["sections"] == sections
+        assert brief(client, refs["form"])["architecture"]["page"]["section"]["moves"] == sections[1]["moves"]

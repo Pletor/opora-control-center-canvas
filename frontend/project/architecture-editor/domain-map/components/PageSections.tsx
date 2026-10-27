@@ -1,7 +1,7 @@
 import type { PageSection } from "@/shared/types/logic/types";
 import { SECTION_ROLE_LABELS } from "../logic/page-site";
 
-/** Sekce stránky jako drobné štítky role + název; `detailed` přidá záměr (přehled sekcí). Jen zobrazení; sekce se upravují ve formuláři stránky (`PageSectionsEditor`). */
+/** Sekce stránky jako drobné štítky role + název; `detailed` přidá záměr (přehled sekcí). Jen zobrazení; sekce se upravují ve formuláři stránky a v záložce Stránka Detailu prvku (`page-sections/`). */
 export default function PageSections({ sections, detailed = false }: { sections?: PageSection[]; detailed?: boolean }) {
   if (!sections?.length) return null;
   return <ul className={"domain-map__sections" + (detailed ? " domain-map__sections--detailed" : "")} aria-label="Sekce stránky">

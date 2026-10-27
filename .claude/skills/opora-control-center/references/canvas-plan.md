@@ -67,6 +67,9 @@ Pravidla dávky:
   Komponenta pod stránkou: `section` = id sekce ze `site.sections` **nejbližší stránky** mezi předky karty, kterou
   realizuje (např. `"card": {"layer": "frontend", "section": "form"}`). Neexistující sekci i sekci u karty mimo
   stránku server odmítne (409 s důvodem); sekci, kterou neznáš, vynech.
+- `site` stránky smí nést sekce `[{id, role, name, intent, moves?}]` (1–20; `intent` 0–200). `moves` (1–120) říká,
+  čím sekce posouvá zákazníka v kroku cesty („Rozptýlí obavu ze spamu: jen e-mail.“); neznáš-li ho, vynech, prázdné
+  server odmítne (409). Sekce jsou zadání stránky: jejich změna mění `contextVersion` stránky i komponent pod ní.
 - Typ karty je předpona názvu: `[task]`, `[research]`, `[prototype]`, `[grilling]`, `[gate]`.
 - GOAL: `goal_mode: "until_checks_pass"` + aspoň jedna `checks`. Po vytvoření mění `checks`,
   `goal_mode` a `gateNodeId` jen člověk.

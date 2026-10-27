@@ -1,6 +1,6 @@
 import type { PageSite } from "@/shared/types/logic/types";
 import { PAGE_INTENT_FIELDS, withPageIntent } from "../logic/page-site";
-import PageSectionsEditor from "./PageSectionsEditor";
+import PageSectionsEditor from "../../page-sections/components/PageSectionsEditor";
 
 /** Pole stránky ve formuláři: cesta a záměr člověka (cíl, působení, popisek v menu); sekce, které člověk skládá v `PageSectionsEditor`.
  * Každá změna vrací celý `site` se zachovanými ostatními klíči. */

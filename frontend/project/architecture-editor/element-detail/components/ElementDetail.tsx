@@ -1,14 +1,17 @@
 import { useMemo, useState } from "react";
-import type { CanvasNode, EdgeCarries, Graph } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, Graph, PageSite } from "@/shared/types/logic/types";
 import type { NodePhase } from "@/shared/desktop-state/logic/types";
 import StructureIcon from "../../component-structure/components/StructureIcon";
 import { toneOf } from "../../component-structure/logic/structure-model";
 import { agentContext, nodeLinks } from "../logic/agent-context";
+import { journeysOfPage } from "../../domain-map/logic/page-journeys";
 import { sectionChoice } from "../logic/section-choice";
+import { whyChain, whyChainText } from "../logic/why-chain";
 import { useNodeSpec } from "../logic/use-node-spec";
 import AgentContextPanel from "./AgentContextPanel";
 import BriefTab from "./BriefTab";
 import LinkList from "./LinkList";
+import PageTab from "./PageTab";
 import SectionPicker from "./SectionPicker";
 import WorkTab from "./WorkTab";
 import "../styles/element-detail.css";
@@ -29,24 +32,36 @@ export type ElementDetailProps = {
   onCarries: (edgeId: string, carries: EdgeCarries | null) => void;
   /** Člověk určil, kterou sekci stránky komponenta realizuje; `null` = neurčeno. Ukládá rodič. */
   onSection: (nodeId: string, section: string | null) => void;
+  /** Člověk uložil záměr a sekce vybrané stránky (záložka Stránka); `original` je stránka, ze které koncept vznikl. Ukládá rodič. */
+  onPage: (original: CanvasNode, site: PageSite) => Promise<void>;
   onClose: () => void;
 };
 
-type Tab = "brief" | "links" | "work";
+type Tab = "page" | "brief" | "links" | "work";
 const TABS: { id: Tab; label: string }[] = [
+  { id: "page", label: "Stránka" },
   { id: "brief", label: "Zadání" },
   { id: "links", label: "Vazby" },
   { id: "work", label: "Práce" },
 ];
 
-/** Pravý sloupec Editoru stránky: kontext agenta a tři záložky nad jedním prvkem. Nic neukládá sám. */
+/** Pravý sloupec Editoru stránky: kontext agenta a záložky nad jedním prvkem (u stránky navíc a jako první Stránka). Nic neukládá sám. */
 export default function ElementDetail(props: ElementDetailProps) {
-  const { project, workspace, graph, nodeId, domainId, phase, done, disabled, onIdentity, onOpenEditor, onSelect, onCarries, onSection, onClose } = props;
-  const [tab, setTab] = useState<Tab>("brief");
+  const { project, workspace, graph, nodeId, domainId, phase, done, disabled, onIdentity, onOpenEditor, onSelect, onCarries, onSection, onPage, onClose } = props;
+  const [chosen, setChosen] = useState<Tab | null>(null);
   const node = graph.nodes.find((item) => item.id === nodeId) ?? null;
+  const page = node?.site?.kind === "page" ? node as CanvasNode & { site: PageSite } : null;
+  // Stránka otevírá svou záložku Stránka; jiný prvek ji nemá a spadne na Zadání.
+  const tab: Tab = chosen === "page" && !page ? "brief" : chosen ?? (page ? "page" : "brief");
+  const tabs = page ? TABS : TABS.filter((item) => item.id !== "page");
   const context = useMemo(() => agentContext(graph, nodeId, domainId), [graph, nodeId, domainId]);
   const links = useMemo(() => nodeLinks(graph, nodeId), [graph, nodeId]);
   const section = useMemo(() => sectionChoice(graph, nodeId), [graph, nodeId]);
+  const why = useMemo(() => whyChain(graph, nodeId), [graph, nodeId]);
+  const roles = useMemo(() => {
+    const domain = graph.nodes.find((item) => item.id === domainId);
+    return page && domain?.site?.kind === "application" ? journeysOfPage(domain.site, page.id) : [];
+  }, [graph, domainId, page]);
   const spec = useNodeSpec(project, workspace, nodeId);
 
   return (
@@ -63,6 +78,7 @@ export default function ElementDetail(props: ElementDetailProps) {
         <div className="element-detail__body">
           <AgentContextPanel context={context} />
           {section ? <SectionPicker choice={section} disabled={disabled} onSection={(value) => onSection(nodeId, value)} /> : null}
+          {why ? <p className="element-detail__why" data-testid="element-detail-why"><span className="element-detail__why-label">Proč</span> {whyChainText(why)}</p> : null}
           <div className={`element-detail__identity element-detail__identity--${toneOf(node)}`}>
             <StructureIcon name={node.kind === "sector" ? "sector" : toneOf(node)} className="element-detail__icon" />
             <div className="element-detail__identity-text">
@@ -71,19 +87,20 @@ export default function ElementDetail(props: ElementDetailProps) {
             </div>
           </div>
           <div className="element-detail__tabs" role="tablist" aria-label="Části detailu">
-            {TABS.map((item) => (
+            {tabs.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 role="tab"
                 aria-selected={tab === item.id}
                 className={`element-detail__tab${tab === item.id ? " element-detail__tab--active" : ""}`}
-                onClick={() => setTab(item.id)}
+                onClick={() => setChosen(item.id)}
               >
                 {item.label}
               </button>
             ))}
           </div>
+          {tab === "page" && page ? <PageTab key={page.id} page={page} roles={roles} disabled={disabled} onSave={onPage} /> : null}
           {tab === "brief" ? (
             <BriefTab
               node={node}

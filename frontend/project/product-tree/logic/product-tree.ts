@@ -50,5 +50,5 @@ export function productFingerprint(node: Pick<CanvasNode, "name" | "purpose" | "
       journey.steps.map((step) => [step.id, step.page, step.label ?? null, step.shift ?? null, step.objection ?? null,
         step.via ? [step.via.do, step.via.section ?? null, step.via.text ?? null] : null, step.after ?? null])])] : []),
     ...(site?.kind === "page" ? [[site.goal ?? null, site.feel ?? null, site.navLabel ?? null,
-      (site.sections ?? []).map((section) => [section.id, section.role, section.name, section.intent])]] : [])]);
+      (site.sections ?? []).map((section) => [section.id, section.role, section.name, section.intent, section.moves ?? null])]] : [])]);
 }
