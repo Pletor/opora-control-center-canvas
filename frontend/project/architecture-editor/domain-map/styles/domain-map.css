@@ -95,22 +95,60 @@
   .domain-map__frame--live .domain-map__live{max-height:none}
   .domain-map__frame--live .domain-map__live{order:-1;grid-column:auto;border-top:0;border-bottom:1px solid var(--ae-line)}}
 
-/* Cesty zákazníka: pod kartami stránek, protože cesta je prochází. Každá cesta je jeden řádek
-   „název: začátek → cíl“, aby člověk na první pohled viděl, odkud kam má zákazník dojít. Konec, jehož stránka
-   z mapy zmizela, svítí varovně: taková cesta nejde projít. */
-.domain-map__journeys{display:flex;flex-direction:column;gap:6px;margin-top:16px;padding-top:12px;border-top:1px solid var(--ae-line)}
+/* Cesty zákazníka: pod kartami stránek, protože cesta je prochází. Každá cesta je trychtýř: nahoře název a jednou
+   větou účel, pod ním kroky shora dolů tak, jak jimi zákazník padá, aby člověk na první pohled viděl, kudy lidé jdou
+   a kde jich ubývá. Cesty od sebe dělí jen vzduch a tenká linka, ne rámečky, ať trychtýř zůstane hlavní postavou. */
+.domain-map__journeys{display:flex;flex-direction:column;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--ae-line)}
 .domain-map__journeys-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.domain-map__journey-list{list-style:none;display:flex;flex-direction:column;gap:4px;margin:0;padding:0}
-.domain-map__journey{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-size:12px;color:var(--ae-text)}
-.domain-map__journey-end{padding:1px 6px;border-radius:6px;border:1px solid var(--ae-line);font-size:11px}
-.domain-map__journey-end--missing{border-color:var(--warn-line);color:var(--warn)}
-.domain-map__journey-arrow{color:var(--ae-muted)}
-/* Odvozená řada kroků leží na vlastním řádku pod koncem cesty, drobným strojovým písmem: je to výsledek, který spočítal
-   stroj z vazeb, ne text, který člověk píše. Přerušená cesta svítí varovně a říká proč, aby člověk věděl, co na mapě chybí. */
-.domain-map__journey-line{flex-basis:100%;font:11px/1.4 var(--mono, ui-monospace, monospace);color:var(--ae-muted);overflow-wrap:anywhere}
-.domain-map__journey-line--broken{color:var(--warn)}
-.domain-map__journey-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto minmax(0,1fr) auto;gap:4px;align-items:center}
-.domain-map__journey-row input,.domain-map__journey-row select{width:100%;min-width:0}
-.domain-map__journey-row button{padding:3px 8px;font-size:11px;border-radius:7px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-text);cursor:pointer}
-.domain-map__journey-problem{grid-column:1 / -1;color:var(--warn)}
-@media (max-width:640px){.domain-map__journey-row{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.domain-map__journey-row input{grid-column:1 / -1}}
+.domain-map__journey-list{list-style:none;display:flex;flex-direction:column;gap:18px;margin:0;padding:0}
+.domain-map__journey{display:flex;flex-direction:column;gap:8px;max-width:760px;font-size:12px;color:var(--ae-text)}
+.domain-map__journey-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.domain-map__journey-name{font-size:13px}
+.domain-map__journey-purpose{margin:2px 0 0;color:var(--ae-muted)}
+/* Rozbitá cesta (chybí stránka kroku) svítí varovně a říká proč: tohle musí opravit člověk, ne agent. */
+.domain-map__journey-broken{margin:0;color:var(--warn)}
+.domain-map__journey-problem{color:var(--warn)}
+
+/* Trychtýř: svislý sloupec karet kroků uprostřed, mezi nimi šipka dolů. Krok je bílá karta s rolí nahoře
+   (jako „Vstupní stránka“ nad výběrem stránky), stránkou a počtem lidí; zážitek je drobným písmem pod nimi.
+   Krok, jehož stránka z mapy zmizela, dostane varovný okraj: cesta přes něj nevede. */
+.domain-map__funnel{list-style:none;display:flex;flex-direction:column;margin:0;padding:0}
+.domain-map__funnel-item{display:flex;flex-direction:column;align-items:stretch}
+.domain-map__funnel-step{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:8px 12px;border-radius:10px;border:1px solid var(--ae-line);background:var(--ae-card)}
+.domain-map__funnel-step--missing{border-color:var(--warn-line);color:var(--warn)}
+.domain-map__funnel-role{flex-basis:100%;font-size:11px;color:var(--ae-muted)}
+.domain-map__funnel-page{font-weight:700}
+.domain-map__funnel-count{margin-left:auto;font-variant-numeric:tabular-nums}
+.domain-map__funnel-experience{flex-basis:100%;margin:2px 0 0;color:var(--ae-muted)}
+
+/* Šipka mezi kroky nese to, co se mezi nimi stane: kolik procent lidí došlo dál (výrazně, je to hlavní číslo
+   trychtýře), odkud krok odbočuje, když nenavazuje na předchozí, a tichý štítek „chybí vazba“, když mapa přechod
+   zatím nerealizuje. Štítek je šedý, ne varovný: přechod člověk chtěl, vazbu dodělají agenti. */
+.domain-map__funnel-link{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:4px 0;color:var(--ae-muted);font-size:11px}
+.domain-map__funnel-arrow{font-size:14px}
+.domain-map__funnel-rate{font-weight:700;color:var(--ae-text);font-variant-numeric:tabular-nums}
+.domain-map__funnel-gap{padding:0 6px;border-radius:6px;border:1px dashed var(--ae-line)}
+
+/* Editor trychtýře podle vzoru: nahoře název a účel cesty, pod nimi karty kroků. Na širokém okně má karta dva
+   sloupce: vlevo role, stránka, počet lidí a odbočka, vpravo poctivý odstavec, co člověk na stránce zažívá a jak
+   na něj stránka působí (to je pro agenty nejcennější věta). Dole kulaté „+ Přidat stránku“ jako pokračování sloupce. */
+.domain-map__journey--editing{max-width:none}
+.domain-map__journey-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px}
+.domain-map__journey-fields label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--ae-muted)}
+.domain-map__step{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--ae-line);background:var(--ae-card)}
+.domain-map__step-main{display:flex;flex-direction:column;gap:6px;min-width:0}
+.domain-map__step-role{font-size:11px;text-align:center}
+.domain-map__step-field,.domain-map__step-experience{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--ae-muted)}
+.domain-map__step-experience textarea{flex:1;min-height:80px;resize:vertical}
+.domain-map__step-tools{display:flex;gap:4px}
+.domain-map__step-tools button,.domain-map__funnel-add{padding:3px 8px;font-size:11px;border-radius:7px;border:1px solid var(--ae-line);background:transparent;color:var(--ae-text);cursor:pointer}
+.domain-map__step-tools button:disabled,.domain-map__funnel-add:disabled{opacity:.4;cursor:default}
+.domain-map__funnel-add{align-self:center;padding:5px 14px;border-radius:999px;border-color:var(--ae-accent);color:var(--ae-accent)}
+@media (max-width:640px){.domain-map__step,.domain-map__journey-fields{grid-template-columns:minmax(0,1fr)}}
+
+/* Stránka zná své cesty: v kartě i formuláři stránky drobný seznam „cesta · role (krok n)“. Jen ke čtení a tlumeně,
+   aby karta dál mluvila hlavně o stránce; cesty se mění v trychtýři pod kartami. */
+.domain-map__page-journeys{list-style:none;display:flex;flex-direction:column;gap:2px;margin:4px 0 0;padding:0;font-size:11px;color:var(--ae-muted)}
+.domain-map__page-journey::before{content:"↧ ";color:var(--ae-accent)}
+.domain-map__form-journeys{display:flex;flex-direction:column;gap:2px}
+.domain-map__form-journeys-title{font-size:12px}

@@ -45,7 +45,8 @@ export function productFingerprint(node: Pick<CanvasNode, "name" | "purpose" | "
   const site = node.site;
   return JSON.stringify([node.name, node.purpose, site?.kind,
     site?.kind === "application" ? site.environments.map((env) => [env.name, env.host]) : site?.path,
-    ...(site?.kind === "application" ? [(site.journeys ?? []).map((journey) => [journey.id, journey.name, journey.from, journey.to])] : []),
+    ...(site?.kind === "application" ? [(site.journeys ?? []).map((journey) => [journey.id, journey.name, journey.purpose ?? null,
+      journey.steps.map((step) => [step.id, step.page, step.label ?? null, step.experience ?? null, step.count ?? null, step.after ?? null])])] : []),
     ...(site?.kind === "page" ? [[site.goal ?? null, site.feel ?? null, site.navLabel ?? null,
       (site.sections ?? []).map((section) => [section.id, section.role, section.name, section.intent])]] : [])]);
 }

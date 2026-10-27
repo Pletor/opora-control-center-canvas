@@ -73,7 +73,7 @@ Co jde spočítat, počítá skript; model jen vyplňuje, co skript označí jak
 | Skript | Výstup | Etapa |
 |---|---|---|
 | kontrola mapy `map_check` | díry podle pravidel §5 kontraktu | 6 |
-| odvození kroků cesty | `line`, `youAre`, `journey.broken` | 7 |
+| odvození přechodů cesty (trychtýř) | `segments`, `youAre`, `journey.broken`, `journey.unrealized` | 7 |
 | výřez mapy `node-brief.architecture` | do ~600 tokenů | 7 |
 | vložení z knihovny | karta + vazby + `fetch` + `fill` | L1 |
 | kostra testu cesty | soubor testu podle výbavy harnessu (Playwright u webu) | 8 |

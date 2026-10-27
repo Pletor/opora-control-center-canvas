@@ -4,9 +4,13 @@
 karta pod stránkou (nejbližší stránka přes `nearest_page`); jinak funkce vrací None a klíč v briefu chybí.
 Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam se vynechá.
 
-- `journeys`: jen odvozené (nerozbité) cesty, kterými karta prochází: `{id, line, youAre}`, `youAre` je index
-  kroku karty v krocích cesty (krok s jejím `nodeId` nebo `pageId`, viz `journeys.py`). Pořadí jako
-  `derive_journeys`.
+- `journeys`: cesty zákazníka, na kterých leží stránka karty (karta, která sama je stránka, jen ona; jinak
+  nejbližší stránka): `{id, name, purpose?, youAre: {step, index}, label?, experience?, previous?, next?}`.
+  `youAre` je id a pořadí (od 0) prvního kroku s touto stránkou, `label` a `experience` jsou role kroku a to, co
+  člověk na stránce zažívá a jak na něj má působit (pro agenta klíčové). `previous` je krok, na který tento
+  navazuje (`after`, jinak předchozí v seznamu), `next` kroky, které navazují na tento; každý soused je
+  `{step, label?, path?, realized?}`, `path` jen u existující stránky, `realized` jen když cesta není rozbitá
+  (vede mezi kroky vazba na mapě, viz `journeys.py`). Pořadí jako `derive_journeys`.
 - `page`: `{path, goal?, feel?, section?}` nejbližší stránky; `section` = `{id, role, intent}` jen když karta má
   `card.section` a sekce na stránce existuje.
 - `in` / `out`: sousední hrany karty s `carries`, v pořadí id hrany: `{carries, from}` / `{carries, to}`, kde
@@ -32,13 +36,30 @@ def _size(value):
     return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
 
-def _journeys(graph, node_id):
+def _neighbour(step, realized):
+    return {"step": step["id"], **{key: step[key] for key in ("label", "path") if key in step},
+            **({"realized": realized} if realized is not None else {})}
+
+
+def _journeys(graph, page_id):
     result = []
     for journey in derive_journeys(graph):
-        steps = journey.get("steps") or []
-        index = next((i for i, step in enumerate(steps) if node_id in (step.get("nodeId"), step.get("pageId"))), None)
-        if index is not None:
-            result.append({"id": journey["id"], "line": journey["line"], "youAre": index})
+        steps = journey["steps"]
+        index = next((i for i, step in enumerate(steps) if step["page"] == page_id), None)
+        if index is None:
+            continue
+        realized = {(s["from"], s["to"]): s["realized"] for s in journey.get("segments", [])}
+        links = [(step.get("after") or steps[i - 1]["id"], step) for i, step in enumerate(steps) if i > 0]
+        by_step = {step["id"]: step for step in steps}
+        own = steps[index]
+        previous = next((by_step[source] for source, step in links if step is own), None)
+        following = [_neighbour(step, realized.get((own["id"], step["id"]))) for source, step in links if source == own["id"]]
+        result.append({"id": journey["id"], "name": journey["name"],
+                       **({"purpose": journey["purpose"]} if "purpose" in journey else {}),
+                       "youAre": {"step": own["id"], "index": index},
+                       **{key: own[key] for key in ("label", "experience") if key in own},
+                       **({"previous": _neighbour(previous, realized.get((previous["id"], own["id"])))} if previous else {}),
+                       **({"next": following} if following else {})})
     return result
 
 
@@ -100,18 +121,20 @@ def _fit(result):
 
 
 def node_architecture(graph, node_id):
-    """Výřez mapy pro kartu `node_id`, nebo None, když karta neleží pod stránkou."""
+    """Výřez mapy pro kartu `node_id`, nebo None, když karta není stránka ani neleží pod stránkou.
+    Stránka je svou vlastní stránkou: i stránka přímo v menu dostane své cesty a zážitek svého kroku."""
     by_id = {node["id"]: node for node in graph.get("nodes") or []}
     if node_id not in by_id:
         return None
-    page = nearest_page(by_id, node_id)
+    node = by_id[node_id]
+    is_page = (node.get("site") or {}).get("kind") == "page"
+    page = node if is_page else nearest_page(by_id, node_id)
     if page is None:
         return None
-    node = by_id[node_id]
     incoming, outgoing = _links(graph, by_id, node_id)
     card = node.get("card")
     states = card.get("states") if isinstance(card, dict) else None
-    result = {"journeys": _journeys(graph, node_id), "page": _page(page, node), "in": incoming, "out": outgoing,
+    result = {"journeys": _journeys(graph, page["id"]), "page": _page(page, node), "in": incoming, "out": outgoing,
               **({"states": list(states)} if isinstance(states, list) and states else {}),
               "gaps": _gaps(graph, node_id)}
     result = {key: value for key, value in result.items() if value != []}

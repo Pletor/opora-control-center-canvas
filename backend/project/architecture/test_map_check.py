@@ -102,16 +102,21 @@ def test_malformed_optional_fields_are_read_defensively():
     assert rules(check_map(graph)) == [("page.no-goal", "p"), ("state.no-error", "a")]
 
 
-def test_broken_journeys_are_reported_first_with_their_id_and_reason():
+def test_journey_findings_go_first_broken_then_unrealized_segments():
+    def steps(*pages):
+        return [{"id": f"k{index}", "page": item} for index, item in enumerate(pages)]
+
     app = node("app", kind="sector", site={"kind": "application", "environments": [], "journeys": [
-        {"id": "ok", "name": "Prochází", "from": "a", "to": "b"},
-        {"id": "gone", "name": "Bez cíle", "from": "nav", "to": "smazana"},
-        {"id": "cut", "name": "Přerušená", "from": "b", "to": "a"}]})
+        {"id": "ok", "name": "Prochází", "steps": steps("a", "b")},
+        {"id": "gone", "name": "Bez cíle", "steps": steps("nav", "smazana")},
+        {"id": "cut", "name": "Přerušená", "steps": steps("b", "a", "b")}]})
     graph = {"nodes": [app, page("a", goal="g"), page("b", goal="g")],
              "edges": [edge("e1", "a", "b", carries="navigation")]}
     result = check_map(graph)
     assert [(f["rule"], f["journeyId"]) for f in result["findings"]] == [("journey.broken", "gone"),
-                                                                        ("journey.broken", "cut")]
-    assert result["findings"][0]["message"] == "Cesta Bez cíle: chybí stránka smazana, kam cesta vede."
-    assert "nevede souvislá řada" in result["findings"][1]["message"]
-    assert result["summary"]["journey.broken"] == 2 and RULES[0] == "journey.broken"
+                                                                        ("journey.unrealized", "cut")]
+    assert result["findings"][0]["message"] == "Cesta Bez cíle: chybí stránka smazana v kroku k1."
+    assert result["findings"][1]["message"] == ("Cesta Přerušená: z /b na /a nevede vazba "
+                                                "(navigation, command, data ani sekce stránky).")
+    assert result["summary"]["journey.broken"] == 1 and result["summary"]["journey.unrealized"] == 1
+    assert RULES[:2] == ("journey.broken", "journey.unrealized")

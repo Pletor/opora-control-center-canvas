@@ -29,8 +29,11 @@ export type NodeCardFields = { layer?: CardLayer; status?: CardStatus; due?: str
 export type CardComponentFields = { tech?: string; states?: string[]; section?: string };
 /** Product structure shares the same graph identities across deployment environments. */
 export type NodeSite = ApplicationSite | PageSite;
-/** Cesta zákazníka A → B (`docs/architektura-pro-agenty.md` §3.2): zadává člověk; `from` je id stránky nebo `"nav"` (vstup z menu), `to` id stránky. Kroky odvodí stroj. */
-export type CustomerJourney = { id: string; name: string; from: string; to: string };
+/** Krok trychtýře (`docs/architektura-pro-agenty.md` §3.2): stránka (`page`, u prvního kroku smí být `"nav"`), role (`label`), co člověk
+ * zažívá (`experience`), kolik lidí krokem prošlo (`count`) a odbočka (`after` = id dřívějšího kroku; bez něj navazuje na předchozí). */
+export type JourneyStep = { id: string; page: string; label?: string; experience?: string; count?: number; after?: string };
+/** Cesta zákazníka jako trychtýř stránek: zadává člověk, 2–30 kroků; vazby mezi kroky po mapě odvodí stroj (§6). Prázdné texty se neukládají. */
+export type CustomerJourney = { id: string; name: string; purpose?: string; steps: JourneyStep[] };
 /** Aplikace (doména): prostředí, volitelná cesta zdraví a cesty zákazníka; prázdné cesty se neukládají. */
 export type ApplicationSite = { kind: "application"; environments: { name: string; host: string }[]; healthPath?: string; journeys?: CustomerJourney[] };
 /** Role sekce stránky (`docs/architektura-pro-agenty.md` §3.1). */

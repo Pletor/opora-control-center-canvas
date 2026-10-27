@@ -1,4 +1,4 @@
-"""Cesty zákazníka (§6): odvozené kroky, `line`, remízy podle id a důvody rozbití."""
+"""Cesty zákazníka jako trychtýř (§6): kroky, konverze, odvozené segmenty, remízy podle id a důvody rozbití."""
 
 from backend.project.architecture.journeys import derive_journeys
 
@@ -21,8 +21,13 @@ def app(*journeys, identifier="app"):
     return node(identifier, kind="sector", site={**site, "journeys": list(journeys)} if journeys else site)
 
 
+def step(identifier, page, **extra):
+    return {"id": identifier, "page": page, **extra}
+
+
 def journey(identifier="poptavka", start="nav", end="dekujeme", name="Poptávka z menu"):
-    return {"id": identifier, "name": name, "from": start, "to": end}
+    """Dvoukroková cesta: jeden segment z `start` na `end` (dřívější podoba A → B)."""
+    return {"id": identifier, "name": name, "steps": [step("start", start), step("end", end)]}
 
 
 def contact_graph(*journeys, edges=None):
@@ -42,56 +47,109 @@ def only(graph):
     return result
 
 
+def segment(graph):
+    """Jediný segment dvoukrokové cesty."""
+    [result] = only(graph)["segments"]
+    return result
+
+
 def test_contact_journey_goes_from_menu_through_the_form_section_to_the_thank_you_page():
     result = only(contact_graph(journey()))
-    assert result["line"] == "nav → /kontakt[form] → POST /api/poptavka → db.poptavky → /dekujeme"
-    assert result["steps"] == [{"label": "nav"}, {"nodeId": "formular", "label": "/kontakt[form]", "pageId": "kontakt"},
-                               {"nodeId": "api", "label": "POST /api/poptavka"}, {"nodeId": "db", "label": "db.poptavky"},
-                               {"nodeId": "dekujeme", "label": "/dekujeme"}]
-    assert (result["applicationId"], result["id"], result["name"], result["from"], result["to"]) == (
-        "app", "poptavka", "Poptávka z menu", "nav", "dekujeme")
+    assert result["segments"] == [{"from": "start", "to": "end", "realized": True,
+                                   "line": "nav → /kontakt[form] → POST /api/poptavka → db.poptavky → /dekujeme"}]
+    assert result["steps"] == [{"id": "start", "page": "nav", "path": "nav"},
+                               {"id": "end", "page": "dekujeme", "path": "/dekujeme"}]
+    assert result["line"] == "nav → /dekujeme"
+    assert (result["applicationId"], result["id"], result["name"]) == ("app", "poptavka", "Poptávka z menu")
+    assert "broken" not in result and "purpose" not in result
+
+
+def funnel_graph():
+    """Trychtýř ze zadání: přistávací stránka → kontakty → prodej → upsell, miniupsell odbočí po prodeji."""
+    steps = [step("vstup", "pristavaci", label="Vstupní stránka", count=36879,
+                  experience="Pozná, že tu najde odpověď, a nechá kontakt za obsah zdarma."),
+             step("kontakt", "obsah", label="1. Stránka s obsahem zdarma", count=18975),
+             step("prodej", "nabidka", label="Prodej", count=3369),
+             step("upsell", "upsell", label="Upsell", count=1187),
+             step("mini", "miniupsell", label="Miniupsell", count=1545, after="prodej")]
+    application = app({"id": "kurz", "name": "Prodej kurzu", "purpose": "Z návštěvníka zákazník", "steps": steps})
+    return {"nodes": [application, page("pristavaci", path="/"), page("obsah"), page("nabidka"), page("upsell"),
+                      page("miniupsell")],
+            "edges": [edge("e1", "pristavaci", "obsah", carries="navigation"),
+                      edge("e2", "obsah", "nabidka", carries="navigation"),
+                      edge("e3", "nabidka", "upsell", carries="navigation")]}
+
+
+def test_funnel_keeps_human_steps_counts_conversions_and_branches():
+    result = only(funnel_graph())
+    assert result["purpose"] == "Z návštěvníka zákazník"
+    assert [(item["id"], item.get("rate")) for item in result["steps"]] == [
+        ("vstup", None), ("kontakt", 0.5145), ("prodej", 0.1775), ("upsell", 0.3523), ("mini", 0.4586)]
+    assert result["steps"][0] == {"id": "vstup", "page": "pristavaci", "path": "/", "label": "Vstupní stránka",
+                                  "count": 36879,
+                                  "experience": "Pozná, že tu najde odpověď, a nechá kontakt za obsah zdarma."}
+    assert result["steps"][4]["after"] == "prodej"
+    assert result["line"] == "/ → /obsah → /nabidka → /upsell → /miniupsell"
+    assert [(s["from"], s["to"], s["realized"], s["line"]) for s in result["segments"]] == [
+        ("vstup", "kontakt", True, "/ → /obsah"), ("kontakt", "prodej", True, "/obsah → /nabidka"),
+        ("prodej", "upsell", True, "/nabidka → /upsell"), ("prodej", "mini", False, "/nabidka → /miniupsell")]
     assert "broken" not in result
+
+
+def test_conversion_needs_both_counts_and_a_nonzero_previous_count():
+    graph = funnel_graph()
+    steps = graph["nodes"][0]["site"]["journeys"][0]["steps"]
+    steps[0]["count"] = 0
+    del steps[2]["count"]
+    rates = [item.get("rate") for item in only(graph)["steps"]]
+    assert rates == [None, None, None, None, None]
+
+
+def test_unrealized_segment_does_not_break_the_journey():
+    result = only(contact_graph(journey(), edges=[]))
+    assert "broken" not in result
+    assert result["segments"] == [{"from": "start", "to": "end", "line": "nav → /dekujeme", "realized": False}]
 
 
 def test_page_start_and_a_result_shown_in_a_component_return_to_its_page():
     graph = contact_graph(journey(start="kontakt"), edges=[
         edge("e1", "formular", "api", carries="command"), edge("e2", "api", "dik", carries="data")])
     graph["nodes"].append(node("dik", "dekujeme", name="Poděkování"))
-    assert only(graph)["line"] == "/kontakt[form] → POST /api/poptavka → Poděkování → /dekujeme"
+    assert segment(graph)["line"] == "/kontakt[form] → POST /api/poptavka → Poděkování → /dekujeme"
 
 
 def test_component_without_section_is_not_entered_from_its_page_but_may_be_passed_by_edges():
     graph = contact_graph(journey())
     graph["nodes"][3] = node("formular", "kontakt")
-    assert "nevede souvislá řada" in only(graph)["broken"]
+    assert segment(graph)["realized"] is False
     graph["edges"].append(edge("e0", "kontakt", "formular", carries="navigation"))
-    assert only(graph)["line"] == "nav → /kontakt → formular → POST /api/poptavka → db.poptavky → /dekujeme"
+    assert segment(graph)["line"] == "nav → /kontakt → formular → POST /api/poptavka → db.poptavky → /dekujeme"
 
 
 def test_section_that_the_page_does_not_have_does_not_count():
     graph = contact_graph(journey())
     graph["nodes"][3] = node("formular", "kontakt", card={"section": "smazana"})
-    assert "nevede souvislá řada" in only(graph)["broken"]
+    assert segment(graph)["realized"] is False
 
 
 def test_event_edges_and_reversed_edges_do_not_carry_the_customer():
     edges = [edge("e1", "formular", "api", carries="event"), edge("e2", "api", "db", carries="data"),
              edge("e3", "db", "dekujeme", carries="navigation")]
-    assert "broken" in only(contact_graph(journey(), edges=edges))
+    assert segment(contact_graph(journey(), edges=edges))["realized"] is False
     edges = [edge("e1", "api", "formular", carries="command"), *edges[1:]]
-    assert "broken" in only(contact_graph(journey(), edges=edges))
+    assert segment(contact_graph(journey(), edges=edges))["realized"] is False
 
 
 def test_menu_holds_only_top_level_pages_and_the_journey_never_returns_to_it():
     graph = {"nodes": [app(journey(end="b")), page("a"), page("sub", parent="a"), page("b", parent="sub")],
              "edges": [edge("e1", "sub", "b", carries="navigation")]}
-    assert "nevede" in only(graph)["broken"]
+    assert segment(graph)["realized"] is False
     graph["edges"].append(edge("e2", "a", "sub", carries="navigation"))
-    assert only(graph)["line"] == "nav → /a → /sub → /b"
+    assert segment(graph)["line"] == "nav → /a → /sub → /b"
 
 
 def test_target_in_the_menu_is_reached_straight_from_the_menu():
-    assert only({"nodes": [app(journey(end="home")), page("home", path="/")], "edges": []})["line"] == "nav → /"
+    assert segment({"nodes": [app(journey(end="home")), page("home", path="/")], "edges": []})["line"] == "nav → /"
 
 
 def test_shortest_path_wins_and_ties_go_to_smaller_ids():
@@ -100,20 +158,30 @@ def test_shortest_path_wins_and_ties_go_to_smaller_ids():
              "edges": [edge("e1", "a", "m2", carries="data"), edge("e2", "a", "m1", carries="data"),
                        edge("e3", "m1", "z", carries="navigation"), edge("e4", "m2", "z", carries="navigation"),
                        edge("e5", "a", "long", carries="data"), edge("e6", "long", "m1", carries="data")]}
-    assert only(graph)["line"] == "/a → M1 → /z"
+    assert segment(graph)["line"] == "/a → M1 → /z"
 
 
 def test_missing_pages_and_pages_of_another_application_break_the_journey():
     graph = {"nodes": [app(journey("j1", "smazana", "b"), journey("j2", "a", "smazana"), journey("j3", "a", "cizi")),
                        page("a"), page("b"), app(identifier="jina"), page("cizi", parent="jina")], "edges": []}
-    broken = {item["id"]: item["broken"] for item in derive_journeys(graph)}
-    assert broken == {"j1": "chybí stránka smazana, kde cesta začíná.", "j2": "chybí stránka smazana, kam cesta vede.",
-                      "j3": "chybí stránka cizi, kam cesta vede."}
+    results = {item["id"]: item for item in derive_journeys(graph)}
+    assert {key: item["broken"] for key, item in results.items()} == {
+        "j1": "chybí stránka smazana v kroku start.", "j2": "chybí stránka smazana v kroku end.",
+        "j3": "chybí stránka cizi v kroku end."}
+    assert results["j2"]["steps"] == [{"id": "start", "page": "a", "path": "/a"},
+                                      {"id": "end", "page": "smazana", "missing": True}]
+    assert "segments" not in results["j2"] and "line" not in results["j2"]
+
+
+def test_broken_reason_names_the_step_role_when_it_has_one():
+    graph = {"nodes": [app({"id": "j", "name": "J", "steps": [step("a", "nav"), step("b", "x", label="Upsell")]}),
+                       page("a")], "edges": []}
+    assert only(graph)["broken"] == "chybí stránka x v kroku Upsell."
 
 
 def test_wrapper_sector_between_application_and_page_keeps_the_page_in_the_menu():
     graph = {"nodes": [app(journey(end="b")), node("wrap", "app", kind="sector"), page("b", parent="wrap")], "edges": []}
-    assert only(graph)["line"] == "nav → /b"
+    assert segment(graph)["line"] == "nav → /b"
 
 
 def test_applications_in_id_order_journeys_in_human_order_and_malformed_items_skipped():

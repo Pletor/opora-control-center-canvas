@@ -3,10 +3,13 @@ import type { ProductDraft } from "@/project/product-tree/logic/product-tree";
 import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import { pageSiteForSave } from "../logic/page-site";
 import PageIntentFields from "./PageIntentFields";
+import PageJourneys from "./PageJourneys";
+import type { PageJourneyRole } from "../logic/page-journeys";
 
-/** Structural identity belongs to the domain map; working specifications stay in Editor. */
-export default function ArchitectureProductForm({ initial, disabled, onSave, onClose }: {
-  initial: ProductDraft; disabled: boolean; onSave: (draft: ProductDraft) => Promise<void>; onClose: () => void;
+/** Structural identity belongs to the domain map; working specifications stay in Editor.
+ * `journeyRoles`: the customer journeys this page lies on, shown read-only (journeys are edited in the funnel). */
+export default function ArchitectureProductForm({ initial, disabled, journeyRoles, onSave, onClose }: {
+  initial: ProductDraft; disabled: boolean; journeyRoles?: PageJourneyRole[]; onSave: (draft: ProductDraft) => Promise<void>; onClose: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState("");
@@ -37,6 +40,10 @@ export default function ArchitectureProductForm({ initial, disabled, onSave, onC
       <label>Prostředí<select value={env.name} data-testid="architecture-product-environment" onChange={(event) => { if (draft.site.kind === "application") setDraft({ ...draft, site: { ...draft.site, environments: draft.site.environments.map((old, i) => i === index ? { ...old, name: event.target.value } : old) } }); }}><option>Produkce</option><option>Vývoj</option>{!["Produkce", "Vývoj"].includes(env.name) && <option>{env.name}</option>}</select></label>
       <label>Doména<input required data-testid={"architecture-product-host-" + index} placeholder="app.example.cz" value={env.host} onChange={(event) => { if (draft.site.kind === "application") setDraft({ ...draft, site: { ...draft.site, environments: draft.site.environments.map((old, i) => i === index ? { ...old, host: event.target.value } : old) } }); }}/><small>Bez https:// a cesty. {draft.site.kind === "application" && draft.site.environments.length > 1 ? "Tyto hosty sdílejí původní stránky. Oddělení najdete na přehledu domén." : "Tato doména má vlastní stránky a vlastní ID."}</small></label>
     </fieldset>)}
+    {draft.site.kind === "page" && !!journeyRoles?.length && <div className="domain-map__form-journeys">
+      <span className="domain-map__form-journeys-title">Na cestách zákazníka</span>
+      <PageJourneys roles={journeyRoles} pageId={draft.id ?? "new"}/>
+    </div>}
     {error && <p role="alert">{error}</p>}
     <div className="ae-row"><button type="submit" disabled={locked || !draft.name.trim()} data-testid="architecture-product-save">{saving ? "Ukládám…" : draft.id ? "Uložit změny" : "Vytvořit"}</button><button type="button" disabled={saving} onClick={onClose}>Zrušit</button></div>
   </form>;

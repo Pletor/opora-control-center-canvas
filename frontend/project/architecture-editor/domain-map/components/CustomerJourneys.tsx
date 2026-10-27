@@ -1,25 +1,28 @@
 import { useState } from "react";
-import type { ApplicationSite, CanvasNode } from "@/shared/types/logic/types";
+import type { ApplicationSite, CanvasNode, CustomerJourney } from "@/shared/types/logic/types";
 import { productFingerprint, type ProductDraft } from "@/project/product-tree/logic/product-tree";
 import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
-import { journeysForSave, journeyEndLabel } from "../logic/journeys";
-import { derivedForDomain, derivedJourneyText, type DerivedJourney } from "../logic/derived-journeys";
-import CustomerJourneysEditor from "./CustomerJourneysEditor";
+import { journeyForSave, journeysForSave, newJourney, removeJourney, replaceJourney } from "../logic/journeys";
+import { derivedForDomain, type DerivedJourney } from "../logic/derived-journeys";
+import JourneyFunnel from "./JourneyFunnel";
+import JourneyFunnelEditor from "./JourneyFunnelEditor";
 
-/** Cesty zákazníka A → B celé domény: v klidu seznam „název: začátek → cíl“ a pod ním odvozená řada kroků (nebo proč je
- * cesta přerušená), po „Upravit cesty“ editor řádků. Kroky mezi začátkem a cílem nezadává nikdo, odvodí je backend z vazeb
- * (`derived`, hotová data od rodiče). Ukládá rodič přes `onSave` (stejně jako formulář domény). */
+/** Cesty zákazníka celé domény jako trychtýře stránek: v klidu každá cesta svým trychtýřem, „Upravit“ otevře editor
+ * jedné cesty na jejím místě, „+ Přidat cestu“ novou na konci. Vazby mezi kroky odvodí backend (`derived`, hotová data
+ * od rodiče). Ukládá rodič přes `onSave` celé `site` domény (stejně jako formulář domény, otisk hlídá souběžnou změnu). */
 export default function CustomerJourneys({ domain, site: saved, pages, derived, disabled, onSave }: {
   domain: CanvasNode; site: ApplicationSite; pages: CanvasNode[]; derived: DerivedJourney[] | null; disabled: boolean; onSave: (draft: ProductDraft) => Promise<void>;
 }) {
-  const [draft, setDraft] = useState<ApplicationSite | null>(null);
+  const [draft, setDraft] = useState<CustomerJourney | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  useScopedSaveParticipant({ id: "architecture-journeys:" + domain.id, label: "Cesty zákazníka",
-    dirty: draft !== null && JSON.stringify(journeysForSave(draft)) !== JSON.stringify(saved), pending: saving,
-    blocked: "Nejprve uložte nebo zrušte úpravu cest zákazníka." });
   const journeys = saved.journeys ?? [];
-  const steps = derivedForDomain(derived ?? [], domain.id);
+  const original = draft ? journeys.find((journey) => journey.id === draft.id) ?? null : null;
+  useScopedSaveParticipant({ id: "architecture-journeys:" + domain.id, label: "Cesta zákazníka",
+    dirty: draft !== null && JSON.stringify(journeyForSave(draft)) !== JSON.stringify(original), pending: saving,
+    blocked: "Nejprve uložte nebo zrušte úpravu cesty zákazníka." });
+  const derivedById = derivedForDomain(derived ?? [], domain.id);
+  const fresh = newJourney(saved, pages.map((page) => page.id));
   async function save(site: ApplicationSite) {
     setSaving(true); setError("");
     try {
@@ -28,27 +31,20 @@ export default function CustomerJourneys({ domain, site: saved, pages, derived, 
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setSaving(false); }
   }
-  const end = (id: string) => {
-    const { label, missing } = journeyEndLabel(id, pages);
-    return <span className={"domain-map__journey-end" + (missing ? " domain-map__journey-end--missing" : "")}>{label}</span>;
-  };
-  const line = (id: string) => {
-    const shown = derivedJourneyText(steps.get(id));
-    return shown && <span className={"domain-map__journey-line" + (shown.broken ? " domain-map__journey-line--broken" : "")} data-testid={"architecture-journey-line-" + id}>{shown.text}</span>;
-  };
+  const editor = (journey: CustomerJourney) => <JourneyFunnelEditor key={journey.id} journey={journey} pages={pages} isNew={original === null}
+    disabled={disabled || saving} saving={saving} error={error} onChange={setDraft} onSave={() => void save(replaceJourney(saved, journeyForSave(journey)))}
+    onCancel={() => { setDraft(null); setError(""); }} onRemove={() => void save(removeJourney(saved, journey.id))}/>;
   return <section className="domain-map__journeys" data-testid="architecture-journeys">
     <header className="domain-map__journeys-head">
-      <h3 className="domain-map__list-title">Cesty zákazníka A → B</h3>
-      {!draft && <button type="button" className="domain-map__section-add" disabled={disabled || !pages.length} data-testid="architecture-journeys-edit" onClick={() => setDraft(structuredClone(saved))}>Upravit cesty</button>}
+      <h3 className="domain-map__list-title">Cesty zákazníka</h3>
+      {!draft && <button type="button" className="domain-map__section-add" disabled={disabled || !fresh} data-testid="architecture-journey-add" onClick={() => fresh && setDraft(fresh)}>+ Přidat cestu</button>}
     </header>
-    {draft
-      ? <CustomerJourneysEditor site={draft} pages={pages} disabled={disabled || saving} saving={saving} error={error} onChange={setDraft}
-          onSave={() => void save(draft)} onCancel={() => { setDraft(null); setError(""); }}/>
-      : journeys.length
-        ? <ol className="domain-map__journey-list">{journeys.map((journey) => <li key={journey.id} className="domain-map__journey" data-testid={"architecture-journey-" + journey.id}>
-            <strong>{journey.name}</strong>{end(journey.from)}<span aria-hidden="true" className="domain-map__journey-arrow">→</span>{end(journey.to)}
-            {line(journey.id)}
-          </li>)}</ol>
-        : <p className="domain-map__empty">{pages.length ? "Zatím bez cest. Cesta říká, odkud kam má zákazník dojít; je zároveň zadáním i testem." : "Cesty půjdou zadat, až doména bude mít stránky."}</p>}
+    {journeys.length || draft
+      ? <ol className="domain-map__journey-list">
+          {journeys.map((journey) => draft?.id === journey.id ? editor(draft)
+            : <JourneyFunnel key={journey.id} journey={journey} pages={pages} derived={derivedById.get(journey.id)} disabled={disabled || draft !== null} onEdit={() => setDraft(structuredClone(journey))}/>)}
+          {draft && original === null && editor(draft)}
+        </ol>
+      : <p className="domain-map__empty">{pages.length ? "Zatím bez cest. Cesta je trychtýř stránek: kudy zákazník jde, co na každé stránce zažívá a kolik lidí dojde dál." : "Cesty půjdou zadat, až doména bude mít stránky."}</p>}
   </section>;
 }

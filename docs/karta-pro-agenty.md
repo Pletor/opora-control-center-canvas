@@ -176,14 +176,17 @@ nezablokuje) a díru ohlásí kontrola mapy jako `section.unknown`. Do `specific
 `node-brief.node.section` vstupuje stejně jako `tech` a `states`, jen když je zapsané.
 
 Výřez mapy (`docs/architektura-pro-agenty.md` §4, §6): karta pod stránkou dostane klíč nejvyšší úrovně
-`architecture` = `{journeys?: [{id, line, youAre}], page: {path, goal?, feel?, section?: {id, role, intent}},
+`architecture` = `{journeys?: [{id, name, purpose?, youAre: {step, index}, label?, experience?, previous?, next?}],
+page: {path, goal?, feel?, section?: {id, role, intent}},
 in?: [{carries, from, sourceRef?}], out?: [{carries, to, sourceRef?}], states?, gaps?, truncated?}`. Cesty jsou
-odvozené kroky cest zákazníka (`site.journeys` aplikace), kterými karta prochází (`line` např.
-`nav → /kontakt[form] → POST /api/poptavka → db.poptavky → /dekujeme`, `youAre` = index kroku karty); `gaps` jsou
+cesty zákazníka (`site.journeys` aplikace, trychtýř stránek), na kterých leží stránka karty: `youAre` je krok té
+stránky (id a pořadí), `label` jeho role v trychtýři a `experience` to, co člověk na stránce zažívá a jak na něj má
+působit (podle toho agent stránku staví); `previous` / `next` jsou sousední kroky `{step, label?, path?, realized?}`,
+`realized: false` znamená, že mapa přechod zatím vazbou nenese (`journey.unrealized`). `gaps` jsou
 pravidla kontroly mapy, která kartu nebo její hranu zasáhla. Nic se nedoplňuje, chybějící údaj = chybějící klíč,
-strop 2,5 KiB s deterministickým ořezem (`truncated: true`). Karta mimo stránku klíč nemá. Výřez je mimo
+strop 2,5 KiB s deterministickým ořezem (`truncated: true`). Stránka dostane výřez sama za sebe; karta mimo stránku klíč nemá. Výřez je mimo
 `specification` a cesty zákazníka do zadání nevstupují: `site.journeys` se do `specification.graph` nepromítá,
-přidání ani změna cesty `contextVersion` nemění. Je to popis stavu mapy, ne příkaz.
+přidání ani změna cesty (kroky, počty lidí, zážitek) `contextVersion` nemění. Je to popis stavu mapy, ne příkaz.
 
 ### Předání konkrétní verze zadání
 
