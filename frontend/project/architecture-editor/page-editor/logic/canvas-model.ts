@@ -32,14 +32,16 @@ export function czechCount(count: number, forms: [string, string, string]): stri
 export const NODE_FORMS: [string, string, string] = ["uzel", "uzly", "uzlů"];
 export const SECTOR_FORMS: [string, string, string] = ["sektor", "sektory", "sektorů"];
 
-export type CardSummary = { tone: Tone; countLabel: string; preview: CanvasNode[]; more: number };
+/** `page` = karta je podstránka otevřeného rozsahu: na plátně stojí jako odkaz na svou stránku (cesta, `null` = bez cesty). */
+export type CardSummary = { tone: Tone; countLabel: string; preview: CanvasNode[]; more: number; page: { path: string | null } | null };
 const PREVIEW = 3;
 
-/** Co karta sektoru / uzlu ukazuje: štítek „N uzlů“ a až tři přímé potomky jako řádky. */
+/** Co karta sektoru / uzlu ukazuje: štítek „N uzlů“, až tři přímé potomky jako řádky a u stránky její cestu. */
 export function cardSummary(node: CanvasNode, graph: Graph): CardSummary {
   const children = graph.nodes.filter((child) => child.parentId === node.id && (child.kind === "node" || child.kind === "sector"));
   const nodes = children.filter((child) => child.kind === "node").length;
-  return { tone: toneOf(node), countLabel: czechCount(nodes, NODE_FORMS), preview: children.slice(0, PREVIEW), more: Math.max(0, children.length - PREVIEW) };
+  return { tone: toneOf(node), countLabel: czechCount(nodes, NODE_FORMS), preview: children.slice(0, PREVIEW), more: Math.max(0, children.length - PREVIEW),
+    page: node.site?.kind === "page" ? { path: node.site.path || null } : null };
 }
 
 /** Hlavička oblasti: „N sektorů“ podle geometrického členství (oblast není rodič). */

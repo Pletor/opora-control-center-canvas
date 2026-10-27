@@ -306,6 +306,12 @@ v etapě 8.
 Na doméně dva pohledy na stejná data: **Stránky** (karta stránky se sekcemi, cesty) a **Studio** (tok podle
 `carries` a stav cest podle posledního ověření). Velín: jedna fronta „Čeká na tebe“. Monitor procesů se nestaví.
 
+V Editoru stránky stojí nad plátnem pruh navigace domény (stejné stránky a popisky jako NAVBAR, aktivní stránka =
+otevřený rozsah), úsek cesty zákazníka aktivní stránky (odkud → tato stránka s posunem a námitkou → kam, se signály
+`via`; jen ke čtení, cesta se mění v trychtýři na mapě domény) a pruh sekcí s počtem komponent (`card.section`).
+Podstránka je na plátně stránky odkazem na svou stránku, navigační vazby na ni zůstávají vidět
+([návrh](cesta-zakaznika-a-brief.md) §5.1).
+
 ## 8. Strom dopadů (co se musí upravit spolu)
 
 Každá etapa upraví celý svůj strom v jednom PR, včetně testů, README dílků, skillu a dokumentů.

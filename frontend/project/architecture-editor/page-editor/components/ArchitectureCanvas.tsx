@@ -16,6 +16,8 @@ type Props = {
   graph: Graph; scopeId: string; editorId: string; selected: string | null; disabled: boolean; revealId: string | null;
   onSelect: (id: string | null) => void; onOpenStructure: (id: string) => void; onOpenEditor: (id: string) => void;
   onAddNode: (parentId: string) => void; onSector: (areaId: string) => void;
+  /** Podstránka na plátně (karta-odkaz nebo dvojklik) přepne rozsah editoru na svou stránku. */
+  onOpenPage: (pageId: string) => void;
   /** Puštěný prvek; `area` = domovská oblast, která za kartou vyrostla (uloží se s ní jednou změnou). */
   onMove: (id: string, x: number, y: number, area?: Rect & { id: string }) => Promise<void>; onConnect: (source: string, target: string) => void;
   onResize: (id: string, w: number, h: number) => Promise<void>;
@@ -39,6 +41,7 @@ export default function ArchitectureCanvas(props: Props) {
   const actions = useMemo<CardActions>(() => ({
     select: (id) => latest.current.onSelect(id), openStructure: (id) => latest.current.onOpenStructure(id),
     openEditor: (id) => latest.current.onOpenEditor(id), addNode: (id) => latest.current.onAddNode(id), addSector: (id) => latest.current.onSector(id),
+    openPage: (id) => latest.current.onOpenPage(id),
     resizeArea: (id, w, h) => { void latest.current.onResize(id, w, h).catch(() => setNodes(make())); },
   }), []);
   const make = (): ArchitectureNode[] => graph.nodes.filter((node) => node.parentId === scopeId).map((node) => {
@@ -104,7 +107,7 @@ export default function ArchitectureCanvas(props: Props) {
       }} defaultViewport={viewport ?? DEFAULT_VIEWPORT} fitView={!viewport} fitViewOptions={{ maxZoom: 1, padding: 0.15 }} minZoom={0.2} maxZoom={1.6} elevateNodesOnSelect={false}
       onNodesChange={(changes) => setNodes((old) => applyNodeChanges(changes, old))} nodesDraggable={!disabled} nodesConnectable={!disabled}
       onNodeClick={(_, node) => props.onSelect(node.id)} onPaneClick={() => props.onSelect(null)}
-      onNodeDoubleClick={(_, node) => { if (node.data.node.kind === "node" || node.data.node.kind === "sector") props.onOpenStructure(node.id); }}
+      onNodeDoubleClick={(_, node) => { const card = node.data.node; if (card.site?.kind === "page") props.onOpenPage(node.id); else if (card.kind === "node" || card.kind === "sector") props.onOpenStructure(node.id); }}
       onNodeDragStart={(_, node) => { if (node.data.node.kind !== "area") growth.begin(node.data.node, graph.nodes, bodies()); }}
       onNodeDrag={(_, node) => growth.preview(node.position.x, node.position.y)}
       onNodeDragStop={(_, node) => {

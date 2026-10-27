@@ -11,6 +11,8 @@ import "../styles/map-card.css";
 export type CardActions = {
   select: (id: string) => void; openStructure: (id: string) => void; openEditor: (id: string) => void;
   addNode: (parentId: string) => void; addSector: (areaId: string) => void;
+  /** Podstránka na plátně je odkaz: přepne rozsah editoru na svou stránku (stejně jako strom a pruh navigace). */
+  openPage: (pageId: string) => void;
   /** Ustálený rozměr rámečku po tažení tahadla oblasti. */
   resizeArea: (areaId: string, w: number, h: number) => void;
 };
@@ -43,14 +45,16 @@ export default function ArchitectureCard({ data, selected }: NodeProps<Architect
   if (node.kind === "comment" || !summary) return <article className="map-card map-card--comment" data-testid={"architecture-card-" + node.id}>
     <p className="map-card__purpose">{node.name}</p></article>;
   const sector = node.kind === "sector";
-  return <article className={`map-card map-card--${summary.tone}${selected ? " map-card--selected" : ""}`} data-testid={"architecture-card-" + node.id}>
+  const page = summary.page;
+  return <article className={`map-card map-card--${summary.tone}${page ? " map-card--page" : ""}${selected ? " map-card--selected" : ""}`} data-testid={"architecture-card-" + node.id}>
     <PortHandle kind="next" type="target" position={Position.Left} className="map-card__port"/>
     <PortHandle kind="next" type="source" position={Position.Right} className="map-card__port"/>
     <header className="map-card__head">
       <span className="map-card__icon"><PageIcon name={summary.tone}/></span>
       <span className="map-card__heading">
-        <span className="map-card__kind">{sector ? "Sektor" : "Uzel"}</span>
+        <span className="map-card__kind">{page ? "Podstránka" : sector ? "Sektor" : "Uzel"}</span>
         <strong className="map-card__title">{node.name}</strong>
+        {page?.path && <span className="map-card__path">{page.path}</span>}
       </span>
       <span className="map-card__count">{summary.countLabel}</span>
       <CardMenu name={node.name} items={[
@@ -71,11 +75,14 @@ export default function ArchitectureCard({ data, selected }: NodeProps<Architect
       </li>)}
       {summary.more > 0 && <li className="map-card__more">+ {summary.more} dalších</li>}
     </ul>}
-    <footer className="map-card__foot">
+    {page ? <footer className="map-card__foot">
+      <button type="button" className="map-card__open map-card__open--page nodrag" data-testid={"architecture-open-page-" + node.id}
+        aria-label={`Otevřít stránku ${node.name} v Editoru stránky`} onClick={(event) => { event.stopPropagation(); actions.openPage(node.id); }}>Otevřít stránku →</button>
+    </footer> : <footer className="map-card__foot">
       <button type="button" className="map-card__add nodrag" disabled={data.disabled} data-testid={"architecture-add-node-" + node.id}
         aria-label={`Přidat komponentu do ${node.name}`} onClick={(event) => { event.stopPropagation(); actions.addNode(node.id); }}>+ Přidat komponentu</button>
       <button type="button" className="map-card__open nodrag" data-testid={"architecture-open-structure-" + node.id}
         onClick={(event) => { event.stopPropagation(); actions.openStructure(node.id); }}>Otevřít detail ↗</button>
-    </footer>
+    </footer>}
   </article>;
 }
