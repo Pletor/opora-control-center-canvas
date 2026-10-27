@@ -1,8 +1,25 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
+
+
+@pytest.fixture
+def fake_claude_path(tmp_path, monkeypatch):
+    """Make the real CLI resolver find a placeholder; patched runners never execute it."""
+    from backend.project.maps import map_refresh_archify as subject
+
+    bin_dir = tmp_path / "fake-cli"
+    bin_dir.mkdir()
+    executable = bin_dir / ("claude.exe" if os.name == "nt" else "claude")
+    executable.write_text("", encoding="utf-8")
+    if os.name != "nt":
+        executable.chmod(0o700)
+    monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ.get("PATH", ""))
+    assert os.path.normcase(subject.shutil.which("claude")) == os.path.normcase(str(executable))
+    return executable
 
 
 def _candidate():
@@ -85,7 +102,7 @@ def _receipt(command, candidate, html):
     raise AssertionError(command)
 
 
-def test_build_archify_runs_bounded_readonly_agent_and_native_receipts(tmp_path, monkeypatch):
+def test_build_archify_runs_bounded_readonly_agent_and_native_receipts(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source = tmp_path / "snapshot"
@@ -144,7 +161,7 @@ def test_build_archify_runs_bounded_readonly_agent_and_native_receipts(tmp_path,
     assert all("CLAUDE_CODE_OAUTH_TOKEN" not in item[3] for item in seen if item[3])
 
 
-def test_build_archify_rejects_bad_evidence_without_publishing(tmp_path, monkeypatch):
+def test_build_archify_rejects_bad_evidence_without_publishing(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source = tmp_path / "snapshot"
@@ -160,7 +177,7 @@ def test_build_archify_rejects_bad_evidence_without_publishing(tmp_path, monkeyp
     assert not output.exists()
 
 
-def test_author_reserves_a_tool_free_final_turn(tmp_path, monkeypatch):
+def test_author_reserves_a_tool_free_final_turn(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
     calls = []
     session = '1538a182-cee7-44e8-bdfc-36f60e3b1fdf'
@@ -184,6 +201,14 @@ def test_local_repository_keeps_evidence_outside_public_link_fields():
     assert 'sources' not in rendered['components'][0]
     assert original['components'][0]['sources'][0]['path'] == 'src/app.py'
     assert rendered['components'][0]['id'] == original['components'][0]['id']
+
+
+def test_claude_command_rejects_missing_runtime(monkeypatch):
+    from backend.project.maps import map_refresh_archify as subject
+
+    monkeypatch.setattr(subject.shutil, "which", lambda name: None)
+    with pytest.raises(subject.ArchifyBuildError, match="Claude Code Sonnet"):
+        subject._claude_command()
 
 
 def test_build_archify_refuses_nonempty_private_output(tmp_path):
@@ -275,7 +300,7 @@ def test_nonzero_archify_validate_reports_first_error_diagnostic(tmp_path):
     assert caught.value.diagnostics == [DIAGNOSTIC, "[x/minor] minor"]
 
 
-def test_validate_failure_gets_one_repair_round(tmp_path, monkeypatch):
+def test_validate_failure_gets_one_repair_round(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source, output = _snapshot(tmp_path), tmp_path / "private-output"
@@ -295,7 +320,7 @@ def test_validate_failure_gets_one_repair_round(tmp_path, monkeypatch):
     assert DIAGNOSTIC in stdin
 
 
-def test_second_validate_failure_raises_after_repair_without_publishing(tmp_path, monkeypatch):
+def test_second_validate_failure_raises_after_repair_without_publishing(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source, output = _snapshot(tmp_path), tmp_path / "private-output"
@@ -309,7 +334,7 @@ def test_second_validate_failure_raises_after_repair_without_publishing(tmp_path
     assert not list(tmp_path.glob("archify-private-*"))
 
 
-def test_evidence_mismatch_triggers_repair(tmp_path, monkeypatch):
+def test_evidence_mismatch_triggers_repair(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source, output = _snapshot(tmp_path), tmp_path / "private-output"
@@ -324,7 +349,7 @@ def test_evidence_mismatch_triggers_repair(tmp_path, monkeypatch):
     assert sum(1 for command, _ in calls if Path(command[0]).name == "node") == 3
 
 
-def test_evidence_mismatch_without_session_names_offending_item(tmp_path, monkeypatch):
+def test_evidence_mismatch_without_session_names_offending_item(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source, output = _snapshot(tmp_path), tmp_path / "private-output"
@@ -336,7 +361,7 @@ def test_evidence_mismatch_without_session_names_offending_item(tmp_path, monkey
     assert len(calls) == 1 and not output.exists()
 
 
-def test_fenced_reply_with_prose_is_accepted(tmp_path, monkeypatch):
+def test_fenced_reply_with_prose_is_accepted(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source, output = _snapshot(tmp_path), tmp_path / "private-output"
@@ -348,7 +373,7 @@ def test_fenced_reply_with_prose_is_accepted(tmp_path, monkeypatch):
     assert not any("--resume" in command for command, _ in calls)
 
 
-def test_prose_reply_triggers_repair_and_repaired_json_builds(tmp_path, monkeypatch):
+def test_prose_reply_triggers_repair_and_repaired_json_builds(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source, output = _snapshot(tmp_path), tmp_path / "private-output"
@@ -361,7 +386,7 @@ def test_prose_reply_triggers_repair_and_repaired_json_builds(tmp_path, monkeypa
     assert "[agent/json]" in stdin and "I will now produce the map." in stdin
 
 
-def test_invalid_envelope_is_not_repaired(tmp_path, monkeypatch):
+def test_invalid_envelope_is_not_repaired(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source, output = _snapshot(tmp_path), tmp_path / "private-output"
@@ -372,7 +397,7 @@ def test_invalid_envelope_is_not_repaired(tmp_path, monkeypatch):
     assert len(calls) == 1 and not output.exists()
 
 
-def test_repair_reply_still_not_json_fails_without_publishing(tmp_path, monkeypatch):
+def test_repair_reply_still_not_json_fails_without_publishing(tmp_path, monkeypatch, fake_claude_path):
     from backend.project.maps import map_refresh_archify as subject
 
     source, output = _snapshot(tmp_path), tmp_path / "private-output"
