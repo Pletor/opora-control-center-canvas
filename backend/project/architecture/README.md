@@ -19,8 +19,23 @@ Relace v `main`/`draft` jsou v `mainSessions`. Čisté funkce berou `now`; čten
 ## Kontrola mapy (`map_check.py`)
 
 `GET /api/project-architecture/map-check?project=` (`docs/architektura-pro-agenty.md` §5) vrací
-`{findings: [{rule, nodeId|edgeId, message}], summary: {pravidlo: počet}}` nad přijatým grafem (architektura složená
+`{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}}` nad přijatým grafem (architektura složená
 s obsahem `main`, bez Gitu `draft`; čte ho `work_status.architecture_graph`). Bez modelu, deterministicky: pořadí
-pravidel, pak id. Pravidla `page.no-goal`, `section.unrealized`, `command.no-receiver`, `state.no-error`,
-`edge.carries-unset`; komponenta je uzel pod nejbližší stránkou v řetězu `parentId`. Nová pole kontraktu se čtou jako
-nepovinná, nic se nedoplňuje. `journey.broken` přijde s cestami zákazníka (etapa 7).
+pravidel, pak id. Pravidla `journey.broken`, `page.no-goal`, `section.unrealized`, `section.unknown`,
+`command.no-receiver`, `state.no-error`, `edge.carries-unset`; komponenta je uzel pod nejbližší stránkou v řetězu
+`parentId`. Nová pole kontraktu se čtou jako nepovinná, nic se nedoplňuje.
+
+## Cesty zákazníka (`journeys.py`)
+
+`derive_journeys(graph)` odvodí kroky každé cesty `site.journeys` (§6): z menu nebo stránky po hranách `carries ∈
+{navigation, command, data}`, ze stránky do komponenty se sekcí a z komponenty zpět na její stránku; nejkratší cesta
+(BFS), remízy podle id. Vrací `line` (`nav → /kontakt[form] → POST /api/poptavka → /dekujeme`) a kroky, nebo
+`broken` s důvodem (chybí stránka, žádná souvislá řada). Přesná pravidla jsou v docstringu modulu a v kontraktu §6.
+Čtení `GET /api/project-architecture/journeys?project=` (router vedle kontroly mapy); rozbitou cestu hlásí kontrola
+mapy jako `journey.broken`.
+
+## Výřez mapy pro agenta (`node_architecture.py`)
+
+`node_architecture(graph, nodeId)` skládá `node-brief.architecture` (§4) jen pro kartu pod stránkou: cesty, kterými
+karta prochází (`youAre`), stránku a sekci karty, hrany s `carries`, stavy a díry z kontroly mapy. Bez výchozích
+hodnot, strop 2,5 KiB s deterministickým ořezem (`truncated`). Volá ho `backend/editor/agent_packet/node_brief.py`.

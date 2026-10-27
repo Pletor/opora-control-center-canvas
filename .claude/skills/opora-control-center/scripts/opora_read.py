@@ -237,6 +237,8 @@ def summary(command, data, args, base):
                 'request': (data.get('outputContract') or {}).get('request'),
                 # Storyboard karty: co čeká na agenta a podklady s cestou k obrázku; momenty a kód vypíše --raw.
                 'storyboard': storyboard_summary(data.get('storyboard')),
+                # Výřez mapy architektury (jen karta pod stránkou, nejvýš 2,5 KiB): celý, jinak chybí.
+                **({'architecture': data['architecture']} if 'architecture' in data else {}),
                 'note': 'Souhrn; celý balíček pro model vypíše --raw.'}
     if command == 'vault':
         return {'readOnly': data.get('readOnly'), 'roots': [vault_root(root) for root in data.get('roots', [])],

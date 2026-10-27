@@ -22,6 +22,7 @@ import ComponentStructure from "../component-structure/components/ComponentStruc
 import ElementDetail from "../element-detail/components/ElementDetail";
 import ArchitectureHeader from "./ArchitectureHeader";
 import { useDomainLive } from "../logic/use-domain-live";
+import { useDerivedJourneys } from "../logic/use-derived-journeys";
 import { pageWork, panelViews } from "../logic/live-views";
 import LiveDomainPanel from "../live-status/components/LiveDomainPanel";
 import WebStatusBadge from "../live-status/components/WebStatusBadge";
@@ -59,6 +60,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const [worktreeId, setWorktreeId] = useState<string | null>(null);
   const live = useDomainLive(project, domainId, liveProps.worktreeLive);
   const admin = useWorktreeAdmin(project, () => { live.refreshWork(); onGraphChanged(); });
+  const derivedJourneys = useDerivedJourneys(project, store.view?.digest);
   const graph = store.view?.graph ?? { nodes: [], edges: [] };
   const closed = new Set(Object.entries(desktop.state.nodes).filter(([, value]) => value.done?.confirmed).map(([id]) => id));
   const editorId = architectureEditorId(project, workspace, domainId ?? undefined);
@@ -166,7 +168,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
         onAssign: admin.assign, shelf: admin.shelf, onLoadShelf: admin.loadShelf }}
       onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} pages={pages} disabled={structureDisabled} onOpen={openScope}
-      work={pageWork(graph, live, domain.id, worktreeId)}
+      work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys}
       webBadge={views && !views.work ? webBadge : null}
       live={views?.work ? <LiveDomainPanel web={views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
         actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}

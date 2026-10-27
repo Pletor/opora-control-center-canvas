@@ -23,17 +23,20 @@ Výklad pravidel:
   bez ohledu na velikost písmen a okolní mezery); chybějící `card.states` se počítá jako bez chyby.
 - `edge.carries-unset`: hrana s portem `next` (nebo bez portu) mezi dvěma komponentami téže stránky
   bez neprázdného `carries`.
-- `journey.broken` přijde s cestami zákazníka (`site.journeys`, etapa 7); dnes se nepočítá.
+- `journey.broken`: cesta zákazníka (`site.journeys` aplikace), které `journeys.derive_journeys` nenašel
+  souvislou řadu kroků nebo jí chybí stránka `from`/`to`. Nález nese `journeyId`, zpráva jmenuje cestu a důvod.
+  Pořadí: aplikace podle id, cesty v pořadí, v jakém je zadal člověk.
 
 Pořadí nálezů: podle pořadí pravidel, pak podle id (sekce stejné stránky v pořadí stránky).
 """
 
 from backend.canvas.site_metadata import card_section_error
 from backend.editor.agent_packet.desktop_v3_packets import ancestor_ids
+from backend.project.architecture.journeys import derive_journeys
 from backend.project.architecture.work_status import architecture_graph
 
-RULES = ("page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver", "state.no-error",
-         "edge.carries-unset")
+RULES = ("journey.broken", "page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver",
+         "state.no-error", "edge.carries-unset")
 ERROR_STATES = frozenset({"chyba", "error", "selhání"})
 
 
@@ -137,8 +140,13 @@ def _edge_rules(edges, components):
     return findings
 
 
+def _journey_rules(graph):
+    return [_finding("journey.broken", "journeyId", item["id"], f"Cesta {item['name']}: {item['broken']}")
+            for item in derive_journeys(graph) if "broken" in item]
+
+
 def check_map(graph):
-    """{findings: [{rule, nodeId|edgeId, message}], summary: {pravidlo: počet}} nad grafem `{nodes, edges}`."""
+    """{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}} nad grafem `{nodes, edges}`."""
     nodes = sorted(graph.get("nodes") or [], key=lambda n: n["id"])
     edges = graph.get("edges") or []
     by_id = {node["id"]: node for node in nodes}
@@ -146,7 +154,7 @@ def check_map(graph):
     pages = [node for node in nodes if _site_kind(node) == "page"]
     goals, sections = _page_rules(pages, components, nodes)
     receivers, errors = _command_rules(nodes, edges, components)
-    findings = [*goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
+    findings = [*_journey_rules(graph), *goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
     return {"findings": findings, "summary": {rule: sum(f["rule"] == rule for f in findings) for rule in RULES}}
 
 

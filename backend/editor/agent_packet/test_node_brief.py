@@ -749,3 +749,40 @@ def test_component_section_appears_only_when_set_and_changes_the_version(tmp_pat
         assert component["node"]["section"] == "form" and own(component)["section"] == "form"
         assert component["contextVersion"] != plain["contextVersion"]
         assert save(client, None)["contextVersion"] == plain["contextVersion"]
+
+
+def test_architecture_slice_only_under_a_page_and_a_new_journey_keeps_the_context_version(tmp_path):
+    """Kontrakt architektura-pro-agenty §4: `architecture` je mimo `specification`; cesta zákazníka zadání nemění."""
+    def save(client, journeys):
+        app_site = {"kind": "application", "environments": [], **({"journeys": journeys} if journeys else {})}
+        graph = {"nodes": [
+            {"id": "app", "parentId": None, "kind": "sector", "name": "Web", "purpose": "", "x": 0, "y": 0, "site": app_site},
+            {"id": "kontakt", "parentId": "app", "kind": "node", "name": "Kontakt", "purpose": "", "x": 0, "y": 0,
+             "site": {"kind": "page", "path": "/kontakt", "goal": "Poptávka do 2 minut",
+                      "sections": [{"id": "form", "role": "cta", "name": "Formulář", "intent": "Jméno a e-mail"}]}},
+            {"id": "dekujeme", "parentId": "kontakt", "kind": "node", "name": "Děkujeme", "purpose": "", "x": 0, "y": 300,
+             "site": {"kind": "page", "path": "/dekujeme"}},
+            {"id": "formular", "parentId": "kontakt", "kind": "node", "name": "Formulář", "purpose": "", "x": 0, "y": 0,
+             "card": {"section": "form", "states": ["prázdno", "chyba"]}},
+            {"id": "api", "parentId": None, "kind": "node", "name": "POST /api/poptavka", "purpose": "", "x": 600, "y": 0},
+        ], "edges": [{"id": "e1", "source": "formular", "target": "api", "port": "next", "carries": "command"},
+                     {"id": "e2", "source": "api", "target": "dekujeme", "port": "next", "carries": "navigation"}]}
+        view = client.get("/api/view", params=SCOPE).json()
+        saved = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": graph, "digest": view["digest"]})
+        assert saved.status_code == 200, saved.text
+
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        save(client, None)
+        plain = brief(client, "formular").json()
+        assert plain["architecture"] == {
+            "page": {"path": "/kontakt", "goal": "Poptávka do 2 minut",
+                     "section": {"id": "form", "role": "cta", "intent": "Jméno a e-mail"}},
+            "out": [{"carries": "command", "to": "POST /api/poptavka"}], "states": ["prázdno", "chyba"]}
+        assert "architecture" not in brief(client, "api").json()
+        assert "architecture" not in brief(client, "kontakt").json()
+        save(client, [{"id": "poptavka", "name": "Poptávka z menu", "from": "nav", "to": "dekujeme"}])
+        with_journey = brief(client, "formular").json()
+        assert with_journey["architecture"]["journeys"] == [
+            {"id": "poptavka", "line": "nav → /kontakt[form] → POST /api/poptavka → /dekujeme", "youAre": 1}]
+        assert with_journey["contextVersion"] == plain["contextVersion"]
+        assert "architecture" not in with_journey["specification"]

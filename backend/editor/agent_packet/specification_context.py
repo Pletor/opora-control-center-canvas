@@ -10,7 +10,7 @@ import copy
 from backend.canvas.areas import area_of
 from backend.canvas.graph import digest, valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
-from backend.editor.agent_packet.assignment_scope import scoped_specification
+from backend.editor.agent_packet.assignment_scope import scoped_specification, without_journeys
 from backend.editor.agent_packet.desktop_v3_packets import ancestor_ids, memory_for, redact_deep
 
 SCHEMA = "opora.specification-context/1"
@@ -18,7 +18,7 @@ PRESENTATION = {"x", "y", "size", "color", "blockOffsets"}
 
 
 def _node(node, nodes):
-    result = {key: value for key, value in node.items() if key not in PRESENTATION | {"card"}}
+    result = {key: value for key, value in without_journeys(node).items() if key not in PRESENTATION | {"card"}}
     # Layer affects the responsibility; suggested model, due date and work status do not.
     if (node.get("card") or {}).get("layer"):
         result["layer"] = node["card"]["layer"]

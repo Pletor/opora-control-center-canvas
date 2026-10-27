@@ -7,7 +7,8 @@ from backend.api.project.project_map_check_routes import create_project_map_chec
 
 
 def make_client(source_kind="git"):
-    graph = {"nodes": [{"id": "app", "parentId": None, "kind": "sector", "site": {"kind": "application"}},
+    journeys = [{"id": "j1", "name": "Na b", "from": "nav", "to": "b"}, {"id": "j2", "name": "Domů", "from": "nav", "to": "p"}]
+    graph = {"nodes": [{"id": "app", "parentId": None, "kind": "sector", "site": {"kind": "application", "journeys": journeys}},
                        {"id": "p", "parentId": "app", "kind": "node", "site": {"kind": "page", "path": "/"}},
                        {"id": "a", "parentId": "p", "kind": "node"}, {"id": "b", "parentId": "p", "kind": "node"}],
              "edges": [{"id": "e1", "source": "a", "target": "b"}]}
@@ -28,7 +29,9 @@ def test_map_check_reads_the_accepted_graph_and_returns_findings():
     client, seen = make_client()
     body = client.get("/api/project-architecture/map-check", params={"project": "p1"}).json()
     assert seen == [("p1", "main")]
-    assert body["findings"] == [{"rule": "page.no-goal", "nodeId": "p", "message": "Stránka nemá cíl (goal)."},
+    assert body["findings"] == [{"rule": "journey.broken", "journeyId": "j1",
+                                 "message": "Cesta Na b: chybí stránka b, kam cesta vede."},
+                                {"rule": "page.no-goal", "nodeId": "p", "message": "Stránka nemá cíl (goal)."},
                                 {"rule": "edge.carries-unset", "edgeId": "e1",
                                  "message": "Vazba neříká, co nese (carries)."}]
     assert body["summary"]["page.no-goal"] == 1 and body["summary"]["edge.carries-unset"] == 1
@@ -39,3 +42,14 @@ def test_map_check_uses_draft_without_git_and_requires_project():
     assert client.get("/api/project-architecture/map-check", params={"project": "p1"}).status_code == 200
     assert seen == [("p1", "draft")]
     assert client.get("/api/project-architecture/map-check").status_code == 422
+
+
+def test_journeys_returns_derived_steps_of_the_accepted_graph():
+    client, seen = make_client()
+    body = client.get("/api/project-architecture/journeys", params={"project": "p1"}).json()
+    assert seen == [("p1", "main")]
+    assert body == {"journeys": [{"applicationId": "app", "id": "j1", "name": "Na b", "from": "nav", "to": "b",
+                                  "broken": "chybí stránka b, kam cesta vede."},
+                                 {"applicationId": "app", "id": "j2", "name": "Domů", "from": "nav", "to": "p",
+                                  "steps": [{"label": "nav"}, {"nodeId": "p", "label": "/"}], "line": "nav → /"}]}
+    assert client.get("/api/project-architecture/journeys").status_code == 422

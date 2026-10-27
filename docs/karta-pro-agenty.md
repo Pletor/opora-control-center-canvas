@@ -175,6 +175,16 @@ kterou nejbližší stránka nemá, i sekci u karty mimo stránku; uložení gra
 nezablokuje) a díru ohlásí kontrola mapy jako `section.unknown`. Do `specification.graph`, `contextVersion` a
 `node-brief.node.section` vstupuje stejně jako `tech` a `states`, jen když je zapsané.
 
+Výřez mapy (`docs/architektura-pro-agenty.md` §4, §6): karta pod stránkou dostane klíč nejvyšší úrovně
+`architecture` = `{journeys?: [{id, line, youAre}], page: {path, goal?, feel?, section?: {id, role, intent}},
+in?: [{carries, from, sourceRef?}], out?: [{carries, to, sourceRef?}], states?, gaps?, truncated?}`. Cesty jsou
+odvozené kroky cest zákazníka (`site.journeys` aplikace), kterými karta prochází (`line` např.
+`nav → /kontakt[form] → POST /api/poptavka → db.poptavky → /dekujeme`, `youAre` = index kroku karty); `gaps` jsou
+pravidla kontroly mapy, která kartu nebo její hranu zasáhla. Nic se nedoplňuje, chybějící údaj = chybějící klíč,
+strop 2,5 KiB s deterministickým ořezem (`truncated: true`). Karta mimo stránku klíč nemá. Výřez je mimo
+`specification` a cesty zákazníka do zadání nevstupují: `site.journeys` se do `specification.graph` nepromítá,
+přidání ani změna cesty `contextVersion` nemění. Je to popis stavu mapy, ne příkaz.
+
 ### Předání konkrétní verze zadání
 
 Aktuální `node-brief` obsahuje `contextVersion` a `specification` (`opora.specification-context/1`): uložený projektový rámec, zadání karty a souvisejících karet, zděděné podmínky, sémantický graf a lokálně uložené podklady podle dostupnosti. `contextVersion` je otisk tohoto snímku. Pouhý posun karty při zachovaném členství v oblasti a hlášení postupu nejsou novou verzí zadání; změna jeho obsahu ano. Odkazy na externí soubory zůstávají referencemi, nikoli důkazem přečteného nebo archivovaného obsahu.
