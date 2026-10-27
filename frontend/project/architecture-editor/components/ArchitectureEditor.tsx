@@ -13,7 +13,7 @@ import { discardDrawingDrafts } from "@/editor/canvas/drawing/logic/drawing-stat
 import { architectureEditorId, editorScopeNode, isEditorScopeClosed, moveEditorNode, growEditorArea, resizeEditorNode, connectEditorNodes, createEditorAreaPlan, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite } from "../logic/editor-model";
 import { domainNode, domainForNode, domainPageTree, splitDomainHost, reorderDomainPage, reparentDomainPage } from "../logic/domain-model";
 import { useArchitectureGraph } from "../logic/use-architecture-graph";
-import { resolveEditorRoute } from "../logic/editor-route";
+import { resolveEditorRoute, type DomainView } from "../logic/editor-route";
 import { environmentOf, SHARED_GROUP } from "../page-editor/project-tree/logic/project-tree-model";
 import ArchitectureLanding from "../landing/components/ArchitectureLanding";
 import ArchitectureDomainMap from "../domain-map/components/ArchitectureDomainMap";
@@ -25,6 +25,7 @@ import { useDomainLive } from "../logic/use-domain-live";
 import { useDerivedJourneys } from "../logic/use-derived-journeys";
 import { useMapCheck } from "../logic/use-map-check";
 import { mapCheckGroups, type MapCheckTarget } from "../domain-map/map-check/logic/map-check";
+import { domainFlows } from "../domain-map/studio/logic/studio-flows";
 import { pageWork, panelViews } from "../logic/live-views";
 import LiveDomainPanel from "../live-status/components/LiveDomainPanel";
 import WebStatusBadge from "../live-status/components/WebStatusBadge";
@@ -53,6 +54,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const [scopeId, setScopeId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [structureId, setStructureId] = useState<string | null>(null);
+  /** Pohled na mapu domény: Stránky, nebo Studio (tok podle `carries` a stav cest); v adrese jako `domainView=studio`. */ const [domainView, setDomainView] = useState<DomainView>("pages");
   const [error, setError] = useState("");
   /** One-shot: „+ Stránka“ in the project tree opens the map with this parent's new-page form already open. */
   const [draftParent, setDraftParent] = useState<string | null>(null);
@@ -77,15 +79,15 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
     if (ready || !store.view) return;
     try {
       const route = resolveEditorRoute(graph, initial, project, workspace);
-      setDomainId(route.domainId); setScopeId(route.pageId); setSelectedId(route.selectedId); setStructureId(route.structureId); setReady(true);
+      setDomainId(route.domainId); setScopeId(route.pageId); setSelectedId(route.selectedId); setStructureId(route.structureId); setDomainView(route.domainView); setReady(true);
     } catch (cause) { setRouteError(cause instanceof Error ? cause.message : String(cause)); }
   }, [store.view, ready]);
   useEffect(() => {
     if (!ready || routeError) return;
     const params = new URLSearchParams(location.search); params.set("editorId", editorId);
-    for (const [key, value] of [["domainId", domainId], ["pageId", scopeId], ["architectureNode", selectedId], ["structureNode", structureId]]) { if (value) params.set(key!, value); else params.delete(key!); }
+    for (const [key, value] of [["domainId", domainId], ["pageId", scopeId], ["architectureNode", selectedId], ["structureNode", structureId], ["domainView", domainId && domainView === "studio" ? "studio" : null]]) { if (value) params.set(key!, value); else params.delete(key!); }
     history.replaceState(null, "", "/?" + params);
-  }, [ready, routeError, editorId, domainId, scopeId, selectedId, structureId]);
+  }, [ready, routeError, editorId, domainId, scopeId, selectedId, structureId, domainView]);
   // Editor is keyed by project only: a worktree switch keeps the route but drops a removal prepared against the previous workspace.
   useEffect(() => { setRemoval(null); setError(""); }, [workspace]);
   let domain: CanvasNode | null = null; let scope: CanvasNode | null = null; let scopeError = "";
@@ -175,6 +177,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
       work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding}
+      view={domainView} onView={setDomainView} flows={domainView === "studio" ? domainFlows(graph, domain.id) : null}
       webBadge={views && !views.work ? webBadge : null}
       live={views?.work ? <LiveDomainPanel web={views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
         actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}

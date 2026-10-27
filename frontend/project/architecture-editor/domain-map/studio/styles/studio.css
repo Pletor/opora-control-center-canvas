@@ -1,0 +1,72 @@
+/* Studio: druhý pohled na mapu domény. Nahoře cesty zákazníka jako dráhy, pod nimi tok domény. Stejná data jako
+   pohled Stránky, jen se čtou jinak: místo „co je na stránce“ ukazují „kudy zákazník jde a co po vazbách teče“. */
+.studio{display:grid;gap:26px;margin-top:20px}
+.studio__heading{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:15px}
+.studio__heading-count{min-width:22px;padding:1px 8px;border-radius:999px;border:1px solid var(--ae-line);color:var(--ae-muted);font-size:11px;text-align:center}
+.studio__empty{margin:0;color:var(--ae-muted);font-size:12px}
+
+/* Dráha je jedna cesta zákazníka na jednom řádku: v záhlaví název, odznak ověření a proměna A → B, aby člověk
+   hned věděl, proč cesta existuje a jestli ji poslední běh potvrdil. Dráhy leží pod sebou jako koleje. */
+.studio__lane-list{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.studio__lane{padding:12px 14px;border:1px solid var(--ae-line);border-radius:12px;background:var(--ae-card)}
+.studio__lane-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-bottom:10px}
+.studio__lane-name{font-size:14px}
+.studio__lane-shift{color:var(--ae-muted);font-size:12px}
+.studio__lane-point{color:var(--ae-accent)}
+.studio__lane-broken{margin:0 0 8px;color:var(--warn);font-size:12px}
+
+/* Kolej: zastávky a přechody vodorovně za sebou. Delší cesta se neláme do řádků, ale posouvá do strany, aby
+   pořadí kroků zůstalo čitelné zleva doprava jako čas. */
+.studio__track{list-style:none;margin:0;padding:2px 0 6px;display:flex;align-items:stretch;overflow-x:auto}
+
+/* Zastávka je stránka kroku: role malým písmem, název stránky a její cesta jako kód. Je to tlačítko, protože klik
+   otevře Editor té stránky; menu a chybějící stránka se otevřít nedají, proto jsou bez rámečku akce. */
+.studio__stop-slot{display:flex;flex:0 0 auto}
+.studio__stop{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:130px;max-width:190px;padding:8px 10px;border:1px solid var(--ae-line);border-radius:10px;background:var(--ae-panel);color:var(--ae-text);font:inherit;text-align:left;cursor:pointer}
+.studio__stop:hover:not(:disabled){border-color:var(--ae-accent)}
+.studio__stop--static{cursor:default;border-style:dashed}
+.studio__stop--missing{border-color:var(--warn);color:var(--warn)}
+.studio__stop-role{color:var(--ae-muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.studio__stop-title{font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.studio__stop-path{color:var(--ae-cyan);font-size:11px;overflow-wrap:anywhere}
+
+/* Přechod je šipka mezi zastávkami a její barva je výsledek posledního ověření: zelená prošel, červená neprošel,
+   jantarová zastaralé, šedá čárkovaná neověřeno. Nad šipkou co zákazník udělá (signál `via`), pod ní stav slovy
+   a jak přechod mapa nese; nerealizovaný přechod je tichý štítek, protože je to práce pro agenty, ne chyba. */
+.studio__transition{--studio-state:var(--ae-muted);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;flex:0 0 auto;width:170px;padding:0 8px;text-align:center}
+.studio__transition--passed{--studio-state:var(--ok)}
+.studio__transition--failed{--studio-state:var(--danger)}
+.studio__transition--stale{--studio-state:var(--warn)}
+.studio__transition-arrow{position:relative;width:100%;height:0;border-top:2px solid var(--studio-state)}
+.studio__transition-arrow::after{content:"";position:absolute;right:-1px;top:-6px;border:5px solid transparent;border-left:8px solid var(--studio-state);border-right:0}
+.studio__transition--unverified .studio__transition-arrow{border-top-style:dashed}
+.studio__transition-signal{font-size:11px;color:var(--ae-text);overflow-wrap:anywhere}
+.studio__transition-signal--missing{color:var(--warn)}
+.studio__transition-state{font-size:10px;font-weight:700;color:var(--studio-state);text-transform:uppercase;letter-spacing:.05em}
+.studio__transition-line{max-width:100%;font-size:10px;color:var(--ae-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.studio__transition-line--gap{padding:0 6px;border:1px dashed var(--ae-line);border-radius:999px}
+.studio__transition-branch{font-size:10px;color:var(--ae-cyan)}
+
+/* Tok domény: sloupec na každý druh toku, barva je táž jako čára vazby na plátně Editoru stránky (modrá navigace,
+   tyrkysová data, fialový příkaz, jantarová událost), takže člověk barvu nemusí učit dvakrát. Neurčené vazby jsou
+   šedé a stojí poslední: připomínají, že druh toku zatím nikdo neurčil. */
+.studio__flow-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.studio__flow{--studio-flow:var(--ae-muted);padding:10px 12px;border:1px solid var(--ae-line);border-top:3px solid var(--studio-flow);border-radius:10px;background:var(--ae-card)}
+.studio__flow--navigation{--studio-flow:var(--edge-carries-navigation)}
+.studio__flow--data{--studio-flow:var(--edge-carries-data)}
+.studio__flow--command{--studio-flow:var(--edge-carries-command)}
+.studio__flow--event{--studio-flow:var(--edge-carries-event)}
+.studio__flow-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.studio__flow-swatch{width:10px;height:10px;border-radius:50%;background:var(--studio-flow)}
+.studio__flow-label{flex:1;font-size:13px;font-weight:600;color:var(--studio-flow)}
+.studio__flow-count{font-size:13px;font-weight:700;color:var(--ae-text)}
+
+/* Uvnitř druhu jsou vazby seskupené podle stránky zdroje, protože člověk opravuje stránku po stránce. Vazba je
+   odkaz: otevře stránku zdroje a vybere zdroj; zdroj mimo stránky zůstane šedým textem bez slibu kliku. */
+.studio__flow-group{margin-top:6px}
+.studio__flow-page{font-size:10px;color:var(--ae-muted);text-transform:uppercase;letter-spacing:.06em}
+.studio__flow-items{margin:2px 0 0;padding:0 0 0 16px;display:grid;gap:2px}
+.studio__flow-item{font-size:12px}
+.studio__flow-link{padding:0;border:0;background:none;color:var(--ae-cyan);font:inherit;text-align:left;cursor:pointer}
+.studio__flow-link:hover{text-decoration:underline}
+.studio__flow-note{color:var(--ae-muted)}
