@@ -9,3 +9,5 @@ Build a dev skripty. opora.py = jediný spouštěč aplikace podle opora.toml (`
 `move_data_root.py` přesune datovou složku (i mimo repozitář) při zastaveném backendu: checkpoint SQLite, přesun, přepis uložených absolutních cest, `git worktree repair`, `[app] data` v `opora.local.toml`; `--dry-run` jen vypíše změny, záznam pro návrat je v `<nová>/move-data-root.log.json`.
 
 `perf/` měřicí skripty výkonu plátna nad kopií dat (`perf/data_copy.py` ji vyrobí z `.data/production` do `.data/perf-copy`); popis v `perf/README.md`.
+
+`journey_run.py` je referenční runner brány cesty zákazníka (`docs/brana-cesty.md` §6): stáhne plán `journey-plan`, přehraje segmenty v jednom prohlížeči (Python Playwright, volitelná závislost; bez ní skončí kódem 2 s návodem na instalaci) a pošle doklad na `journey-runs` (`--dry-run` ho jen vypíše). Formuláře plní z `--fixtures` (`{"<journeyId>/<to>": {selektor nebo popisek: hodnota}}`). Exit 0 jen když prošly všechny segmenty. Rozhodování bez prohlížeče je v `journey_run_logic.py`, přehrání v `journey_run_browser.py`.

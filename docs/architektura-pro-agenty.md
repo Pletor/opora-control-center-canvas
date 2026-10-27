@@ -309,7 +309,8 @@ typicky Playwright). Opora nástroj nepředepisuje, vyžaduje doklad. Plán pře
 a bránu uzavření upřesňuje dodatek `docs/brana-cesty.md`. Brána je zapojená (etapa 8b): požadavek `journeys` v jediné
 definici hotovo (`opora_card_done.py`) i ve starší větvi uzavření (`desktop_v3_state.py`); čistá funkce
 `journey_gate.journeys_blocking` počítá `stale` nad grafem pracovního prostoru karty a odmítnutí (409) jmenuje cestu
-a důvod. Agent-state ho ukazuje v `cards[].dod.journeys` a `dod.blockingJourneys`.
+a důvod. Agent-state ho ukazuje v `cards[].dod.journeys` a `dod.blockingJourneys`. Referenční runner, který plán přehraje a doklad odevzdá, je
+`tools/journey_run.py` (etapa 8c).
 
 ## 7. Co člověk vidí
 

@@ -13,7 +13,8 @@ průběh nebo hledáš kontext. Neaktivuj pro programování, které s plátnem 
 **Jeden zdroj stavu:** OporaHub `agent-state`. **Jeden model plánu:** přijatá revize
 verzovaná návrhy změn (changesety). **Jedna definice hotovo:** všechny kroky `done` +
 acceptance karty + brána review `ready` + merge + zápis do plánu + ověřená cesta zákazníka + `close_card` člověkem.
-Karta na cestě zákazníka se uzavře až po prošlém čerstvém ověření cesty (plán `journey-plan`, doklad `journey-runs`).
+Karta na cestě zákazníka se uzavře až po prošlém čerstvém ověření cesty (plán `journey-plan`, doklad `journey-runs`):
+sekce nese `data-opora-section="<id sekce>"` a cestu přehraješ `tools/journey_run.py` ([journey-run.md](references/journey-run.md)).
 Backend vede účetnictví, ty děláš jen práci uvnitř kroku.
 
 Projekt určují dvě hodnoty `<projectId>` a `<workspace>` (nikdy název projektu). `<SKILL_DIR>` je
@@ -103,6 +104,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | stavět strom karet na pracovním plátně | `/api/canvas-plan` (dávka, `--dry-run`), pak návrh grafu k přijetí | [canvas-plan.md](references/canvas-plan.md) |
 | grilling, wayfinder, schránka zadání | `/api/brief-vault`, `opora_cycle.py` | [workflow.md](references/workflow.md), [cycle.md](references/cycle.md) |
 | storyboard a skica momentu | `/api/storyboard`, `/api/drawing` | [storyboard.md](references/storyboard.md) |
+| ověřit cestu zákazníka před uzavřením karty | `uv run python tools/journey_run.py --project P --journey J [--dry-run]` | [journey-run.md](references/journey-run.md) |
 | design karta: DESIGN.md, režim, screenshoty na hlavu PR | `/api/oporahub/review-preview`, `/api/oporahub/review-jobs/preview` | `docs/design-nahled.md` |
 | velký projekt, mapy | `index` → `rank`; Graphify, Archify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [archify.md](references/archify.md), [map-refresh.md](references/map-refresh.md) |
 | podklady pro externího agenta | `snapshot --id` | [external-agent.md](references/external-agent.md) |
