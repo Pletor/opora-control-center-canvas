@@ -1,0 +1,136 @@
+"""Referenční runner brány cesty zákazníka (`docs/brana-cesty.md` §6).
+
+Stáhne plán přehrání, přehraje jeho segmenty v jednom prohlížeči (Python Playwright, volitelná závislost)
+a odevzdá doklad `opora.journey-run/1`. Exit 0 jen když prošly všechny segmenty plánu.
+
+    uv run python tools/journey_run.py --server http://127.0.0.1:8740 --project <id> --journey <id>
+        [--application <id>] [--base-url URL] [--fixtures file.json] [--headed] [--dry-run] [--log FILE]
+
+Exit: 0 prošlo, 1 neprošlo nebo chyba serveru, 2 chybí Playwright nebo špatné zadání.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+try:
+    from tools import journey_run_browser as browser
+    from tools import journey_run_logic as logic
+except ImportError:  # spuštěno jako skript z tools/
+    import journey_run_browser as browser  # type: ignore[no-redef]
+    import journey_run_logic as logic  # type: ignore[no-redef]
+
+INSTALL_HINT = ("Runner potřebuje Python Playwright (volitelná závislost, jako tools/e2e):\n"
+                "  uv pip install playwright && uv run playwright install chromium\n"
+                "nebo jednorázově: uv run --with playwright python tools/journey_run.py …")
+
+
+def _http(method: str, url: str, server: str, body: dict | None = None):
+    headers = {"Accept": "application/json", "Origin": server}
+    data = None
+    if body is not None:
+        data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.status, json.loads(response.read() or b"null")
+    except urllib.error.HTTPError as error:
+        raw = error.read().decode("utf-8", errors="replace")
+        try:
+            return error.code, json.loads(raw)
+        except ValueError:
+            return error.code, raw
+
+
+def _expect_ok(what: str, status: int, body):
+    if status != 200:
+        raise RuntimeError(f"{what}: HTTP {status}: {body.get('detail') if isinstance(body, dict) else body}")
+    return body
+
+
+def fetch_plan(server: str, project: str, journey: str, application: str | None) -> dict:
+    params = {"project": project, "journey": journey}
+    if application:
+        params["application"] = application
+    url = f"{server}/api/project-architecture/journey-plan?{urllib.parse.urlencode(params)}"
+    return logic.check_plan(_expect_ok("plán cesty", *_http("GET", url, server)))
+
+
+def post_run(server: str, project: str, run: dict) -> dict:
+    url = f"{server}/api/project-architecture/journey-runs?{urllib.parse.urlencode({'project': project})}"
+    return _expect_ok("doklad", *_http("POST", url, server, run))
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Přehraje cestu zákazníka a odevzdá doklad (docs/brana-cesty.md).")
+    parser.add_argument("--server", default="http://127.0.0.1:8740")
+    parser.add_argument("--project", required=True)
+    parser.add_argument("--journey", required=True)
+    parser.add_argument("--application")
+    parser.add_argument("--base-url", help="přepíše baseUrl plánu (digest na něm nezávisí)")
+    parser.add_argument("--fixtures", help="JSON {\"<journeyId>/<to>\": {selector|popisek: hodnota}}")
+    parser.add_argument("--headed", action="store_true", help="viditelný prohlížeč")
+    parser.add_argument("--dry-run", action="store_true", help="doklad jen vypíše, neodešle")
+    parser.add_argument("--log", help="soubor průběhu; jeho file:// URL jde do logUrl")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    args = parse_args(argv)
+    for stream in (sys.stdout, sys.stderr):  # doklad i důvody v UTF-8 i v rouře na Windows
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+    server = args.server.rstrip("/")
+    try:
+        import playwright.sync_api  # noqa: F401
+    except ImportError:
+        print(INSTALL_HINT, file=sys.stderr)
+        return 2
+    try:
+        fixtures = logic.load_fixtures(args.fixtures)
+    except (OSError, TypeError, ValueError) as error:
+        print(f"fixtures: {error}", file=sys.stderr)
+        return 2
+    try:
+        plan = fetch_plan(server, args.project, args.journey, args.application)
+    except (RuntimeError, TypeError, ValueError, OSError) as error:
+        print(error, file=sys.stderr)
+        return 1
+    base_url = args.base_url or plan.get("baseUrl")
+    if not base_url:
+        print("Plán nemá baseUrl (aplikace bez prostředí): dodej --base-url.", file=sys.stderr)
+        return 2
+    log_lines: list[str] = []
+
+    def log(line: str) -> None:
+        log_lines.append(line)
+        print(line, file=sys.stderr)
+
+    at = logic.utc_now()
+    results = browser.replay(plan, base_url, fixtures, args.headed, log)
+    log_url = None
+    if args.log:
+        log_path = Path(args.log).resolve()
+        log_path.write_text("\n".join([f"{at} {base_url}", *log_lines]) + "\n", encoding="utf-8")
+        log_url = log_path.as_uri()
+    command = logic.command_line([sys.argv[0], *argv])
+    run = logic.build_run(plan, command, at, results, log_url)
+    print(json.dumps(run, ensure_ascii=False, indent=2))
+    if not args.dry_run:
+        try:
+            post_run(server, args.project, run)
+        except (RuntimeError, OSError) as error:
+            print(error, file=sys.stderr)
+            return 1
+    return 0 if logic.run_passed(plan, run) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
