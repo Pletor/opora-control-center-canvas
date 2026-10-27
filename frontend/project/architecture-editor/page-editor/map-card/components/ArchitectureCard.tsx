@@ -1,11 +1,17 @@
 import { useRef } from "react";
-import { NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Position, type Node, type NodeProps } from "@xyflow/react";
 import type { CanvasNode } from "@/shared/types/logic/types";
-import { AREA_SIZE_MAX, AREA_SIZE_MIN } from "@/editor/canvas/area/logic/area-model";
-import { toneOf, type CardSummary } from "../../logic/canvas-model";
+import type { CardSummary } from "../../logic/canvas-model";
+import type { CardPorts } from "../logic/card-face";
+import { cardFace } from "../logic/card-face";
+import type { CardState } from "../../../card-state/logic/card-state";
+import { holesLabel } from "../../../card-state/logic/card-state";
+import CardIcon from "../../../card-state/components/CardIcon";
+import CardStateChip from "../../../card-state/components/CardStateChip";
 import CardMenu from "./CardMenu";
+import CardStages from "./CardStages";
+import AreaFrame from "./AreaFrame";
 import PortHandle from "@/shared/flow-ports/components/PortHandle";
-import PageIcon from "../../components/PageIcon";
 import { isPortClick } from "../../port-menu/logic/port-menu-place";
 import "../styles/map-card.css";
 
@@ -20,78 +26,60 @@ export type CardActions = {
   /** Klik nebo Enter na výstupním portu: nabídka vazby u tohoto úchytu (`port-menu/`). */
   openPortMenu: (sourceId: string, port: HTMLElement) => void;
 };
-export type CardData = { node: CanvasNode; summary: CardSummary | null; areaLabel: string | null; disabled: boolean; actions: CardActions };
+export type CardData = {
+  node: CanvasNode; summary: CardSummary | null; areaLabel: string | null; disabled: boolean; actions: CardActions;
+  /** Stav karty jako ve Studiu (`card-state/`); null = Studio kartu nezná nebo fakta ještě nejsou. */
+  state: CardState | null;
+  /** Druh toku vazeb na vstupu a výstupu (barva portů); null = volný port. */
+  ports: CardPorts;
+};
 export type ArchitectureNode = Node<CardData>;
 
-function AreaFrame({ data, selected }: { data: CardData; selected: boolean }) {
-  const { node, actions } = data;
-  return <article className={"map-card map-card--area" + (selected ? " map-card--selected" : "")} data-testid={"architecture-card-" + node.id}>
-    <NodeResizer isVisible={selected && !data.disabled} minWidth={AREA_SIZE_MIN} minHeight={AREA_SIZE_MIN} maxWidth={AREA_SIZE_MAX} maxHeight={AREA_SIZE_MAX}
-      lineClassName="map-card__resize-line" handleClassName="map-card__resize-handle"
-      onResizeEnd={(_, params) => actions.resizeArea(node.id, params.width, params.height)}/>
-    <PortHandle kind="flow" type="target" position={Position.Left} className="map-card__port"/>
-    <PortHandle kind="flow" type="source" position={Position.Right} className="map-card__port"/>
-    <header className="map-card__head">
-      <PageIcon name="area" className="map-card__icon"/>
-      <strong className="map-card__title">OBLAST: {node.name}</strong>
-      <span className="map-card__count">{data.areaLabel}</span>
-      <button type="button" className="map-card__area-add nodrag" disabled={data.disabled} data-testid={"architecture-area-sector-" + node.id}
-        aria-label={`Přidat sektor do oblasti ${node.name}`} onClick={() => actions.addSector(node.id)}>+ Sektor</button>
-    </header>
-    {node.purpose && <p className="map-card__purpose">{node.purpose}</p>}
-  </article>;
-}
-
-/** One map card: area frame, comment note, or sector/node card colored by its layer. */
+/** Karta mapy v designu Studia: hlavička s ikonou druhu, názvem, štítkem stavu a menu ⋮, druh s adresou, účel, až tři
+ * potomci jako buňky stupňů a pata se souhrnem, dírami a akcemi. Rám nese barvu stavu (staví se = dýchá), ikona
+ * barvu vrstvy. Porty jsou body na obvodu v barvě `carries`; výstupní port: klik nebo Enter = nabídka vazby, tah = vazba. */
 export default function ArchitectureCard({ data, selected }: NodeProps<ArchitectureNode>) {
-  const { node, summary, actions } = data;
+  const { node, summary, actions, state } = data;
   /** Kde stisk výstupního portu začal: puštění blíž než práh je klik (nabídka), dál tah vazby. */
   const down = useRef<{ x: number; y: number } | null>(null);
   if (node.kind === "area") return <AreaFrame data={data} selected={selected}/>;
   if (node.kind === "comment" || !summary) return <article className="map-card map-card--comment" data-testid={"architecture-card-" + node.id}>
     <p className="map-card__purpose">{node.name}</p></article>;
-  const sector = node.kind === "sector";
   const page = summary.page;
-  return <article className={`map-card map-card--${summary.tone}${page ? " map-card--page" : ""}${selected ? " map-card--selected" : ""}`} data-testid={"architecture-card-" + node.id}>
-    <PortHandle kind="next" type="target" position={Position.Left} className="map-card__port"/>
-    <PortHandle kind="next" type="source" position={Position.Right} className="map-card__port" hint="klik: nabídka vazby, tah: propojit" aria-haspopup="dialog"
+  const face = cardFace(node);
+  const tone = state ? ` card-state--${state.state}${state.state === "building" ? " card-state__frame--building" : ""}` : "";
+  return <article className={`map-card map-card--${summary.tone}${page ? " map-card--page" : ""}${selected ? " map-card--selected" : ""}${tone}`}
+    data-testid={"architecture-card-" + node.id} data-state={state?.state}>
+    <PortHandle kind="next" type="target" position={Position.Left} className={"map-card__port map-card__port--" + (data.ports.in ?? "open")}/>
+    <PortHandle kind="next" type="source" position={Position.Right} className={"map-card__port map-card__port--" + (data.ports.out ?? "open")} hint="klik: nabídka vazby, tah: propojit" aria-haspopup="dialog"
       onPointerDown={(event) => { down.current = { x: event.clientX, y: event.clientY }; }}
       onClick={(event) => { event.stopPropagation(); const click = isPortClick(down.current, { x: event.clientX, y: event.clientY }); down.current = null; if (click && !data.disabled) actions.openPortMenu(node.id, event.currentTarget); }}
       onKeyDown={(event) => { if (event.key !== "Enter" && event.key !== " ") return; event.preventDefault(); event.stopPropagation(); if (!data.disabled) actions.openPortMenu(node.id, event.currentTarget); }}/>
     <header className="map-card__head">
-      <span className="map-card__icon"><PageIcon name={summary.tone}/></span>
-      <span className="map-card__heading">
-        <span className="map-card__kind">{page ? "Podstránka" : sector ? "Sektor" : "Uzel"}</span>
-        <strong className="map-card__title">{node.name}</strong>
-        {page?.path && <span className="map-card__path">{page.path}</span>}
-      </span>
-      <span className="map-card__count">{summary.countLabel}</span>
+      <CardIcon node={node} className="map-card__icon"/>
+      <strong className="map-card__title" title={node.name}>{node.name}</strong>
+      <CardStateChip state={state} testId={"architecture-state-" + node.id}/>
       <CardMenu name={node.name} items={[
         { label: "Otevřít detail", testId: "architecture-menu-structure-" + node.id, onClick: () => actions.openStructure(node.id) },
         { label: "Otevřít v Editoru", testId: "architecture-menu-editor-" + node.id, onClick: () => actions.openEditor(node.id) },
       ]}/>
     </header>
-    {node.purpose && <p className="map-card__purpose">{node.purpose}</p>}
-    {summary.preview.length > 0 && <ul className="map-card__children">
-      {summary.preview.map((child) => <li key={child.id}>
-        <button type="button" className={`map-card__child map-card__child--${toneOf(child)} nodrag`} data-testid={"architecture-child-" + child.id}
-          onClick={(event) => { event.stopPropagation(); actions.select(child.id); }}
-          onDoubleClick={(event) => { event.stopPropagation(); actions.openStructure(child.id); }}>
-          <PageIcon name={toneOf(child)} size={15} className="map-card__child-icon"/>
-          <span className="map-card__child-name">{child.name}</span>
-          {child.purpose && <span className="map-card__child-purpose">{child.purpose}</span>}
-        </button>
-      </li>)}
-      {summary.more > 0 && <li className="map-card__more">+ {summary.more} dalších</li>}
-    </ul>}
-    {page ? <footer className="map-card__foot">
-      <button type="button" className="map-card__open map-card__open--page nodrag" data-testid={"architecture-open-page-" + node.id}
+    <div className="map-card__body">
+      <span className="map-card__kind">{face.kind}{face.subtitle && <code className="map-card__subtitle">{face.subtitle}</code>}</span>
+      {node.purpose && <p className="map-card__purpose">{node.purpose}</p>}
+    </div>
+    <CardStages preview={summary.preview} more={summary.more} actions={actions}/>
+    <footer className="map-card__foot">
+      <span className="map-card__summary" title={state?.summary}>{summary.countLabel}{state && state.summary !== "bez dětí" ? ` · ${state.summary}` : ""}</span>
+      {state && state.holes > 0 && <span className="map-card__holes" title="Díry mapy pod touto kartou">{holesLabel(state.holes)}</span>}
+      {page ? <button type="button" className="map-card__action map-card__action--page nodrag" data-testid={"architecture-open-page-" + node.id}
         aria-label={`Otevřít stránku ${node.name} v Editoru stránky`} onClick={(event) => { event.stopPropagation(); actions.openPage(node.id); }}>Otevřít stránku →</button>
-    </footer> : <footer className="map-card__foot">
-      <button type="button" className="map-card__add nodrag" disabled={data.disabled} data-testid={"architecture-add-node-" + node.id}
-        aria-label={`Přidat komponentu do ${node.name}`} onClick={(event) => { event.stopPropagation(); actions.addNode(node.id); }}>+ Přidat komponentu</button>
-      <button type="button" className="map-card__open nodrag" data-testid={"architecture-open-structure-" + node.id}
-        onClick={(event) => { event.stopPropagation(); actions.openStructure(node.id); }}>Otevřít detail ↗</button>
-    </footer>}
+      : <>
+        <button type="button" className="map-card__action nodrag" disabled={data.disabled} data-testid={"architecture-add-node-" + node.id}
+          aria-label={`Přidat komponentu do ${node.name}`} onClick={(event) => { event.stopPropagation(); actions.addNode(node.id); }}>+ Komponenta</button>
+        <button type="button" className="map-card__action map-card__action--open nodrag" data-testid={"architecture-open-structure-" + node.id}
+          onClick={(event) => { event.stopPropagation(); actions.openStructure(node.id); }}>Detail ↗</button>
+      </>}
+    </footer>
   </article>;
 }

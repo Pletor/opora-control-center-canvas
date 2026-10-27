@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ReactFlow, Background, BackgroundVariant, Controls, MarkerType, applyNodeChanges, type Edge, type ReactFlowInstance, type Viewport } from "@xyflow/react";
+import { ReactFlow, Background, BackgroundVariant, Controls, MarkerType, applyNodeChanges, type ReactFlowInstance, type Viewport } from "@xyflow/react";
 import type { EdgeCarries, Graph } from "@/shared/types/logic/types";
 import { CATALOG_DRAG_TYPE, CATALOG_ITEMS } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import type { CatalogLink } from "@/editor/component-library/library-catalog/logic/catalog-plan";
@@ -14,8 +14,15 @@ import ArchitectureCard, { type ArchitectureNode, type CardActions } from "../ma
 import PortMenu from "../port-menu/components/PortMenu";
 import { hasPortMenu, linkTargets } from "../port-menu/logic/port-menu";
 import { menuPosition, newCardPosition, planBox, type Box } from "../port-menu/logic/port-menu-place";
+import { cardPorts } from "../map-card/logic/card-face";
+import ArchitectureLink, { type MapLinkEdge } from "../map-link/components/ArchitectureLink";
+import type { MapMotion } from "../map-link/logic/link-motion";
+import type { CardState } from "../../card-state/logic/card-state";
+import { MotionContext, useParticleAnimator } from "@/project/studio/studio-motion/logic/motion-context";
+import { PULSE_CLASS } from "@/project/studio/studio-motion/logic/motion-plan";
 
 const nodeTypes = { architecture: ArchitectureCard };
+const edgeTypes = { "map-link": ArchitectureLink };
 const DEFAULT_VIEWPORT: Viewport = { x: 50, y: 75, zoom: 0.9 };
 
 type Props = {
@@ -29,6 +36,8 @@ type Props = {
   onResize: (id: string, w: number, h: number) => Promise<void>;
   /** `link` = nabídka vazby z portu: nová karta i vazba ze zdroje vzniknou jedním plánem (`catalogPlan`). */
   onInsert: (id: string, targetId: string | null, point: { x: number; y: number }, link?: CatalogLink) => void;
+  /** Skutečný stav od rodiče: stav každé karty (`card-state/`) a pohyb vazeb a pulz karet (`map-link/`). */
+  life: { states: ReadonlyMap<string, CardState>; motion: MapMotion };
 };
 type PortMenuState = { sourceId: string; at: { x: number; y: number }; port: HTMLElement };
 
@@ -42,8 +51,9 @@ function readViewport(key: string): Viewport | null {
 
 /** Map of one page: areas, sectors and nodes of the open scope, with links between them. */
 export default function ArchitectureCanvas(props: Props) {
-  const { graph, scopeId, editorId, selected, disabled, revealId } = props;
-  const flow = useRef<ReactFlowInstance<ArchitectureNode> | null>(null);
+  const { graph, scopeId, editorId, selected, disabled, revealId, life } = props;
+  const animator = useParticleAnimator();
+  const flow = useRef<ReactFlowInstance<ArchitectureNode, MapLinkEdge> | null>(null);
   const stage = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState<{ edgeId: string; x: number; y: number } | null>(null);
   const [menu, setMenu] = useState<PortMenuState | null>(null);
@@ -63,9 +73,10 @@ export default function ArchitectureCanvas(props: Props) {
   const make = (): ArchitectureNode[] => graph.nodes.filter((node) => node.parentId === scopeId).map((node) => {
     const area = node.kind === "area";
     return {
-      id: node.id, type: "architecture", position: { x: node.x, y: node.y }, selected: node.id === selected,
+      id: node.id, type: "architecture", position: { x: node.x, y: node.y }, selected: node.id === selected, className: life.motion.pulsing.has(node.id) ? PULSE_CLASS : undefined,
       zIndex: area ? -1 : 1, style: area ? { width: node.size?.w ?? 720, height: node.size?.h ?? 480 } : { width: CARD_WIDTH },
-      data: { node, disabled, actions, summary: area || node.kind === "comment" ? null : cardSummary(node, graph), areaLabel: area ? areaSectorLabel(node, graph) : null },
+      data: { node, disabled, actions, summary: area || node.kind === "comment" ? null : cardSummary(node, graph), areaLabel: area ? areaSectorLabel(node, graph) : null,
+        state: life.states.get(node.id) ?? null, ports: cardPorts(graph.edges, node.id) },
     };
   });
   const [nodes, setNodes] = useState<ArchitectureNode[]>(make);
@@ -85,7 +96,7 @@ export default function ArchitectureCanvas(props: Props) {
       return { ...next, ...(prior?.measured ? { measured: prior.measured } : {}),
         ...(sameSource && prior ? { position: prior.position } : {}) };
     }));
-  }, [graph, scopeId, selected, disabled]);
+  }, [graph, scopeId, selected, disabled, life.states, life.motion.pulsing]);
   useEffect(() => {
     if (!revealId) return;
     let raf = 0; let attempts = 0;
@@ -97,10 +108,11 @@ export default function ArchitectureCanvas(props: Props) {
     raf = requestAnimationFrame(reveal); return () => cancelAnimationFrame(raf);
   }, [revealId]);
   const ids = new Set(nodes.map((node) => node.id));
-  const edges: Edge[] = graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)).map((edge) => {
+  const edges: MapLinkEdge[] = graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)).map((edge) => {
     const look = edgeLook(edge, graph);
-    return { id: edge.id, source: edge.source, target: edge.target, label: look.label, className: look.className, ariaLabel: look.title,
-      markerEnd: { type: MarkerType.ArrowClosed, color: look.color, width: 16, height: 16 },
+    return { id: edge.id, source: edge.source, target: edge.target, type: "map-link", label: look.label, className: look.className, ariaLabel: look.title,
+      data: { tone: look.stroke, motion: life.motion.links.get(edge.id) },
+      markerEnd: { type: MarkerType.ArrowClosed, color: look.color, width: 14, height: 14 },
       style: { stroke: look.stroke, strokeWidth: look.width, strokeDasharray: look.dash } };
   });
   const hoverAt = (event: { clientX: number; clientY: number }, edgeId: string) => {
@@ -120,7 +132,8 @@ export default function ArchitectureCanvas(props: Props) {
       const point = flow.current.screenToFlowPosition({ x: event.clientX, y: event.clientY });
       props.onInsert(event.dataTransfer.getData(CATALOG_DRAG_TYPE), target, { x: point.x - 135, y: point.y - 45 });
     }}>
-    <ReactFlow<ArchitectureNode> nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode="dark"
+    <MotionContext.Provider value={animator}>
+    <ReactFlow<ArchitectureNode, MapLinkEdge> nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} colorMode="dark"
       onInit={(instance) => {
         flow.current = instance;
         // A stored viewport that shows no card (cards moved or window resized) is dropped in favour of fitting the map.
@@ -151,10 +164,11 @@ export default function ArchitectureCanvas(props: Props) {
       onConnect={(connection) => { if (connection.source && connection.target) props.onConnect(connection.source, connection.target); }}
       onMoveStart={() => setMenu(null)} onMoveEnd={(_, next) => { try { localStorage.setItem(viewportKey, JSON.stringify(next)); } catch { /* Navigation works without storage. */ } }}
       deleteKeyCode={null}>
-      <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#294454"/>
+      <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color="var(--studio-dot)"/>
       <Controls showInteractive={false}/>
       <PortZoomVar/>
     </ReactFlow>
+    </MotionContext.Provider>
     {menu && menuSource ? <PortMenu key={menu.sourceId} sourceName={menuSource.name} at={menu.at} targets={linkTargets(graph, scopeId, menuSource.id)} items={CATALOG_ITEMS}
       onClose={closeMenu} onLink={(target, carries) => { closeMenu(); props.onConnect(menuSource.id, target, carries); }}
       onCreate={(itemId) => {

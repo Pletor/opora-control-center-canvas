@@ -58,8 +58,9 @@
 .page-editor__crumb[aria-current=page] { color: var(--ae-accent); }
 
 .page-editor__stage { position: relative; flex: 1; min-height: 0; }
-.page-editor__canvas { position: absolute; inset: 0; }
-/* Plátno je průhledné, aby tečkovaný podklad mapy splynul s barvou sloupce. */
+/* Plátno je noční deska Studia: tmavá modř se slabým světlem v levém horním rohu a mřížka teček po 24 px, aby karty
+   ležely na stejném stole jako ve Studiu a oko mělo měřítko i při oddálení. React Flow je nad ní průhledný. */
+.page-editor__canvas { position: absolute; inset: 0; background: radial-gradient(ellipse at top left, var(--studio-bg-glow), var(--studio-bg) 65%); }
 .page-editor__canvas .react-flow { --xy-background-color: transparent; background: transparent; }
 .page-editor__canvas .react-flow__node { font-family: inherit; }
 .page-editor__canvas .react-flow__controls-button { background: var(--ae-panel); border-color: var(--ae-line); fill: var(--ae-text); }
