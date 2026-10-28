@@ -48,3 +48,9 @@
 .studio-detail__badge--ok { --studio-detail-badge: var(--studio-state-done); }
 .studio-detail__badge--stale { --studio-detail-badge: var(--edge-carries-event); }
 .studio-detail__badge--failed { --studio-detail-badge: var(--studio-state-hole); }
+
+/* Obsah Detailu prvku: pod identitou a účelem leží tytéž dílky jako v Editoru stránky (kontext agenta v rámečku,
+   řádka Proč, zadání, práce s dlaždicemi bran a u komponenty její přímé vazby), oddíly stejným rytmem jako zbytek
+   panelu. Jen čte; barvu upozornění „navržená cesta“ a čekajícího běhu nese žlutá jako v Editoru. */
+.studio-detail__element { --ed-database: #ffc548; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.studio-detail__element .studio-detail__section { margin-top: 2px; }

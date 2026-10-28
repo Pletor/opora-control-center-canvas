@@ -3,7 +3,7 @@
 // (`useDomainLive`, jen u projektů s worktree podle schopnosti `worktreeLive`), díry mapy a cesty s `lastRun`
 // (`useStudioRuns`, čte se i průběžně, protože nový doklad cesty otisk mapy nemění) a nálezy strážců
 // na kartách ze sdíleného snímku agent-state (`useCardGuards`, `cards[].guardFindings`).
-// Vrací strom Studia a fakta pro stavy karet; nic nezapisuje.
+// Vrací strom Studia, fakta pro stavy karet a stavy uzlů z Desktop stavu (fáze pro Detail prvku); nic nezapisuje.
 import { useMemo } from "react";
 import type { Graph } from "@/shared/types/logic/types";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
@@ -33,7 +33,7 @@ export function useStudioData(project: string, workspace: string, worktreeLive: 
   const work = live.work.data;
   const facts = useMemo(() => studioFacts({ graph, doneIds, work, check, derived, guards }), [graph, doneIds, work, check, derived, guards]);
   return {
-    graph, tree, facts, derived,
+    graph, tree, facts, derived, nodeStates: nodes,
     loaded: !!store.view, loading: store.loading, error: store.error ?? desktop.error ?? "",
     reload: () => { void store.reload().catch(() => undefined); desktop.reload(); live.refreshWork(); runs.refresh(); },
   };
