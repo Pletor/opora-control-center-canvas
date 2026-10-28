@@ -1,12 +1,13 @@
 // Fakta pro stav karet Studia ze zdrojů vrstvy Skutečnost (docs/studio.md §1): uzavření karet z Desktop stavu
 // (`done.confirmed`), aktivní nároky práce z `GET /api/project-architecture/work-status` (lease `active`, relace
-// asistenta `running`), nálezy kontroly mapy a cesty zákazníka domén s odvozením backendu (`lastRun`). Jen čte.
+// asistenta `running`), nálezy kontroly mapy, nálezy strážců z agent-state a cesty zákazníka domén s odvozením backendu (`lastRun`). Jen čte.
 import type { Graph } from "@/shared/types/logic/types";
 import type { WorkStatus, LiveSession } from "@/project/architecture-editor/live-status/logic/live-model";
 import type { MapCheck } from "@/project/architecture-editor/domain-map/map-check/logic/map-check";
 import { derivedForDomain, type DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
 import { FROM_NAV } from "@/project/architecture-editor/domain-map/logic/journeys";
 import type { StudioFacts, StudioJourney } from "./studio-status";
+import type { GuardTally } from "../studio-guards/logic/guard-tally";
 
 /** Karty, na kterých právě někdo pracuje: aktivní lease nebo běžící relace asistenta s kartou, ve všech worktree i na mainu. */
 export function buildingNodes(status: WorkStatus | null): Set<string> {
@@ -46,6 +47,10 @@ export function studioJourneys(graph: Graph, derived: DerivedJourney[] | null): 
   });
 }
 
-export function studioFacts(input: { graph: Graph; doneIds: Iterable<string>; work: WorkStatus | null; check: MapCheck | null; derived: DerivedJourney[] | null }): StudioFacts {
-  return { done: new Set(input.doneIds), building: buildingNodes(input.work), holes: holesByNode(input.check, input.graph), journeys: studioJourneys(input.graph, input.derived) };
+/** Vstup faktů; `guards` = nálezy strážců po kartách (`useCardGuards`), chybí = bez odznaků strážců. */
+export type StudioFactsInput = { graph: Graph; doneIds: Iterable<string>; work: WorkStatus | null; check: MapCheck | null; derived: DerivedJourney[] | null; guards?: Map<string, GuardTally> };
+
+export function studioFacts(input: StudioFactsInput): StudioFacts {
+  return { done: new Set(input.doneIds), building: buildingNodes(input.work), holes: holesByNode(input.check, input.graph), journeys: studioJourneys(input.graph, input.derived),
+    guards: input.guards };
 }

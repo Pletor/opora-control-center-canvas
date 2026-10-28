@@ -1,13 +1,14 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import type { StudioCardView } from "../logic/card-view";
 import StudioCardIcon from "./StudioCardIcon";
+import GuardBadge from "../../studio-guards/components/GuardBadge";
 import "../styles/studio-card.css";
 
 export type StudioCardData = { view: StudioCardView; onEnter: (id: string) => void };
 export type StudioCardNode = Node<StudioCardData, "studio-card">;
 
 /** Karta jedné položky úrovně Studia v designu TechViz: hlavička s ikonou druhu, názvem a štítkem stavu, podtitulek
- * (cesta, role sekce, technologie), účel a pata se souhrnem dětí, odznakem „cíl z MODELu“ a dírami. Porty jsou body na obvodu (vstup vlevo,
+ * (cesta, role sekce, technologie), účel a pata se souhrnem dětí, odznakem „cíl z MODELu“, dírami a nálezy strážců. Porty jsou body na obvodu (vstup vlevo,
  * výstup vpravo); vazby jen ukazují, netáhnou se. Dvojklik hlásí sestup rodiči (`onEnter`). */
 export default function StudioCard({ data, selected }: NodeProps<StudioCardNode>) {
   const { view, onEnter } = data;
@@ -27,6 +28,7 @@ export default function StudioCard({ data, selected }: NodeProps<StudioCardNode>
       <span className="studio-card__summary">{view.summary}</span>
       {view.modelTarget && <span className="studio-card__model" data-testid={"studio-card-model-" + view.id} title="Na kartu váže uzel MODELu: agent dostane jeho cíl (kapacita, odolnost) v briefu. Cíl, ne měření.">cíl z MODELu</span>}
       {view.holes > 0 && <span className="studio-card__holes" title="Díry mapy pod touto kartou">{view.holes} {view.holes === 1 ? "díra" : view.holes < 5 ? "díry" : "děr"}</span>}
+      <GuardBadge guards={view.guards} testId={"studio-card-guards-" + view.id}/>
       {view.children > 0 && <span className="studio-card__enter" aria-hidden="true">↳ {view.children}</span>}
     </footer>
     <Handle type="source" position={Position.Right} isConnectable={false} className="studio-card__port studio-card__port--out" title="Výstup"/>

@@ -28,9 +28,9 @@ describe("card view", () => {
   });
 
   it("builds the view with subtitle per kind and state label", () => {
-    const status = { state: "hole" as const, summary: { children: 2, total: 2, done: 0, building: 0, holes: 3 }, ownHoles: ["x"], journeys: [] };
+    const status = { state: "hole" as const, summary: { children: 2, total: 2, done: 0, building: 0, holes: 3 }, ownHoles: ["x"], journeys: [], guards: { count: 2, severity: "warn" as const } };
     expect(cardView(item("home"), status)).toEqual({ id: "home", name: "home", kind: "page", kindLabel: "Stránka", subtitle: "/", purpose: "Přivítá", icon: "layout-dashboard",
-      state: "hole", stateLabel: "díra", summary: "0/2 stojí", holes: 3, children: 2, modelTarget: false });
+      state: "hole", stateLabel: "díra", summary: "0/2 stojí", holes: 3, children: 2, modelTarget: false, guards: { count: 2, severity: "warn" } });
     expect(cardView(item("api"), status, true).modelTarget).toBe(true);
     expect(cardView(item("web"), status).subtitle).toBe("web.dev");
     expect(cardView(item("api"), status).subtitle).toBe("FastAPI");

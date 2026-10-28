@@ -24,6 +24,7 @@ import ArchitectureHeader from "./ArchitectureHeader";
 import { useDomainLive } from "../logic/use-domain-live";
 import { useStudioRuns } from "@/project/studio/logic/use-studio-runs";
 import { useCardLife } from "../card-state/logic/use-card-life";
+import { useCardGuards } from "@/project/studio/studio-guards/logic/use-card-guards";
 import { useMapCheck } from "../logic/use-map-check";
 import { mapCheckGroups, type MapCheckTarget } from "../domain-map/map-check/logic/map-check";
 import { pageWork, panelViews } from "../logic/live-views";
@@ -70,7 +71,8 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const derivedJourneys = useStudioRuns(project, store.view?.digest).journeys;
   const mapCheck = useMapCheck(project, store.view?.digest);
   const graph = store.view?.graph ?? EMPTY_GRAPH;
-  const cards = useCardLife({ graph, nodes: desktop.state.nodes, work: live.work.data, check: mapCheck, derived: derivedJourneys });
+  const guards = useCardGuards(project, workspace);
+  const cards = useCardLife({ graph, nodes: desktop.state.nodes, work: live.work.data, check: mapCheck, derived: derivedJourneys, guards });
   const closed = new Set(Object.entries(desktop.state.nodes).filter(([, value]) => value.done?.confirmed).map(([id]) => id));
   const editorId = architectureEditorId(project, workspace, domainId ?? undefined);
   const active = useRef(scopeId); active.current = scopeId;

@@ -15,7 +15,7 @@ const facts = { done: new Set<string>(), building: new Set<string>(), holes: new
 describe("card state for architecture cards", () => {
   it("gives Studio states to domain, page and components, none to areas and comments", () => {
     const states = cardStates(graph, { ...facts, done: new Set(["form", "api"]), building: new Set(), holes: new Map([["api", ["bez stavu"]]]) });
-    expect(states.get("form")).toEqual({ state: "done", label: "hotovo", summary: "bez dětí", holes: 0 });
+    expect(states.get("form")).toEqual({ state: "done", label: "hotovo", summary: "bez dětí", holes: 0, guards: null });
     expect(states.get("api")?.state).toBe("hole");
     expect(states.get("home")).toMatchObject({ state: "plan", summary: "2/2 stojí", holes: 1 });
     expect(states.has("zone")).toBe(false);
@@ -26,6 +26,14 @@ describe("card state for architecture cards", () => {
     const states = cardStates(graph, { ...facts, building: new Set(["api"]) });
     expect(states.get("api")?.label).toBe("staví se");
     expect(states.get("home")?.summary).toBe("0/2 stojí · 1 se staví");
+  });
+
+  it("carries guard findings of the card and its children for the badge", () => {
+    const guards = new Map([["api", { count: 2, severity: "warn" as const }], ["form", { count: 1, severity: "block" as const }]]);
+    const states = cardLife({ graph, doneIds: [], work: null, check: null, derived: null, guards }).states;
+    expect(states.get("api")?.guards).toEqual({ count: 2, severity: "warn" });
+    expect(states.get("home")?.guards).toEqual({ count: 3, severity: "block" });
+    expect(states.get("web")?.guards).toEqual({ count: 3, severity: "block" });
   });
 
   it("verifies a done page only with a passed, fresh run", () => {
