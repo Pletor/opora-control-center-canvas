@@ -6,10 +6,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match
 
 from backend.api.access_routes import create_access_router
 from backend.api.app_routes import create_app_router
+from backend.api.brain_opora.brain_routes import create_brain_router
 from backend.api.brain_opora.gate_routes import create_gate_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
@@ -85,6 +87,8 @@ from backend.app.remote_access import (
     is_loopback_only,
     requires_token,
 )
+from backend.brain_opora.determinism import tokens as gate_tokens
+from backend.brain_opora.determinism import wall as brain_wall
 from backend.canvas import authority as authority_context
 from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.payload_errors import InvalidPayload, NextStep
@@ -288,6 +292,22 @@ def create_app(data_root=None):
         # Oprávnění odděleně od původce (docs/plna-autonomie-agenta.md §2): agent dostane `human`
         # jen v projektu požadavku, kterému člověk zapnul plnou autonomii.
         request.state.authority = _authority(request)
+        # Zeď brány mozku (docs/brain-gate.md §3); projekt s vypnutou bránou ji nevidí.
+        gate_header = request.headers.get(gate_tokens.HEADER)
+        verdict = brain_wall.ALLOW
+        if brain_wall.relevant(request.method, request.state.actor, gate_header):
+            verdict = await run_in_threadpool(
+                brain_wall.check, service, request.method, request.url.path, request.state.actor,
+                gate_header, request.query_params.get("project") or "",
+                lambda: describe(getattr(request, "_body", b""), {})["project"])
+        if not verdict.allow:
+            return JSONResponse(verdict.body(), status_code=verdict.status)
+        if verdict.heart:
+            # Srdce = agent s plnou autonomií, ale jen v projektu svého tokenu.
+            if request.state.actor != "agent":
+                request.state.actor, request.state.agent = "agent", "heart"
+            request.state.authority = authority_context.resolve("agent", True)
+            request.state.authority_project = verdict.project
         state, token = authority_context.begin(request.state.actor, request.state.authority,
                                                getattr(request.state, "authority_project", ""))
         request.state.authority_context = state
@@ -421,6 +441,7 @@ def create_app(data_root=None):
     app.include_router(create_strazci_router(service, guardian))
     app.include_router(create_opora_history_router(service))
     app.include_router(create_gate_router(service))  # brána mozku (docs/brain-gate.md §4)
+    app.include_router(create_brain_router(service))  # přepínač brány (docs/brain-gate.md §1)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)

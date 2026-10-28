@@ -17,6 +17,19 @@ An event flows downwards and stops at the first layer that can handle it:
 Imports only go downwards. `heart` may use `decision` and `determinism`, and `decision` may use `determinism`.
 Lower layers never import higher ones, which `test_layer_boundaries.py` enforces. Routers live in `backend/api/brain_opora/`.
 
+## Where the brain keeps its data
+
+Every OPORA project, which is a downloaded repository, has its own folder on the server: `<data>/projects/<id>/`. The
+important things about the project live there, and so do the brain's:
+
+- `project.sqlite`: the gate tables (`gate_sessions`, `gate_tickets`, later `heart_tasks`) next to the plan, journal and
+  decisions;
+- `project.json`: the switch `settings.brain`;
+- `brain/`: the heart's own folder, which is also its working directory. It holds the current session id and rotation
+  (`session.json`), the heart's journal of batches and the last snapshot it was given.
+
+Nothing about a project's brain is stored outside its folder, so the folder can be moved or backed up as a whole.
+
 ## Step by step
 
 The brain is built in small steps. A step goes on only after the previous one is measured as successful:

@@ -6,5 +6,6 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
 - `gate_routes.py`: the gate for worker sessions (`/api/gate/sessions`, `/requests`, `/inbox`, `/tickets/{id}`,
   `/tickets/{id}/answer`). Contract: `docs/brain-gate.md` §4. The gate is loopback-only and never reachable through
   the tunnel (`backend/app/remote_access.py`).
-
-Not here yet (later steps of the contract): the wall in the middleware and `POST /api/brain/gate-setting`.
+- `brain_routes.py`: the gate switch. `GET /api/brain/gate-setting?project=` is readable by anyone,
+  `POST /api/brain/gate-setting {project, enabled}` is human only (`require_human`, even with full agent autonomy).
+  Contract: `docs/brain-gate.md` §1. The wall itself lives in `backend/brain_opora/determinism/wall.py`.
