@@ -7,7 +7,8 @@ import type { CanvasNode, Graph } from "@/shared/types/logic/types";
 export const MAP_CHECK_RULES = ["journey.broken", "journey.unrealized", "journey.via-unknown", "journey.unverified", "page.no-goal", "section.unrealized", "section.unknown",
   "command.no-receiver", "state.no-error", "edge.carries-unset"] as const;
 export type MapCheckRule = typeof MAP_CHECK_RULES[number];
-export type MapCheckFinding = { rule: MapCheckRule; nodeId?: string; edgeId?: string; journeyId?: string; message: string };
+/** `solverId` = místo řešení (karta, zdroj hrany, stránka zdroje přechodu cesty, jinak aplikace; backend §5.1), jen při `locate`. */
+export type MapCheckFinding = { rule: MapCheckRule; nodeId?: string; edgeId?: string; journeyId?: string; solverId?: string; message: string };
 export type MapCheck = { findings: MapCheckFinding[] };
 /** Kam vede klik: stránka, komponenta (a její nejbližší stránka), cesta zákazníka, hrana (a stránka i uzel jejího zdroje). */
 export type MapCheckTarget = { kind: "page"; id: string } | { kind: "journey"; id: string } | { kind: "node"; id: string; pageId: string }
@@ -29,8 +30,9 @@ export const MAP_CHECK_TEXT: Record<MapCheckRule, { label: string; advice: strin
   "edge.carries-unset": { label: "Vazba neříká, co nese", advice: "Nastavte vazbě, co nese (Detail prvku → Vazby)." },
 };
 
-export function mapCheckUrl(project: string): string {
-  return "/api/project-architecture/map-check?" + new URLSearchParams({ project });
+/** Adresa kontroly mapy; `locate` přidá nálezům `solverId` (docs/architektura-pro-agenty.md §5.3). */
+export function mapCheckUrl(project: string, locate = false): string {
+  return "/api/project-architecture/map-check?" + new URLSearchParams({ project, ...(locate ? { locate: "1" } : {}) });
 }
 
 const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
@@ -41,10 +43,11 @@ const isRule = (value: unknown): value is MapCheckRule => (MAP_CHECK_RULES as re
 export function normalizeMapCheck(raw: unknown): MapCheck {
   const items = record(raw).findings;
   return { findings: (Array.isArray(items) ? items : []).flatMap((item): MapCheckFinding[] => {
-    const { rule, nodeId, edgeId, journeyId, message } = record(item);
-    const note = text(message), node = text(nodeId), edge = text(edgeId), journey = text(journeyId);
+    const { rule, nodeId, edgeId, journeyId, solverId, message } = record(item);
+    const note = text(message), node = text(nodeId), edge = text(edgeId), journey = text(journeyId), solver = text(solverId);
     if (!isRule(rule) || !note) return [];
-    return [{ rule, ...(node ? { nodeId: node } : {}), ...(edge ? { edgeId: edge } : {}), ...(journey ? { journeyId: journey } : {}), message: note }];
+    return [{ rule, ...(node ? { nodeId: node } : {}), ...(edge ? { edgeId: edge } : {}), ...(journey ? { journeyId: journey } : {}),
+      ...(solver ? { solverId: solver } : {}), message: note }];
   }) };
 }
 

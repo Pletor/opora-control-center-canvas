@@ -19,11 +19,8 @@ export type DecomposeFacts = {
   holes: MapCheckFinding[] | null;
 };
 
-/** Zprávy nálezů přechodu cesty (backend `map_check.py`), které vycházejí ze stránky s cestou `path`. */
-const JOURNEY_HOLES: Record<string, (path: string) => string> = {
-  "journey.unrealized": (path) => ` z ${path} na `,
-  "journey.via-unknown": (path) => ` stránka ${path} nemá`,
-};
+/** Nálezy přechodu cesty, jejichž místo řešení (`solverId`, backend `map_check.py`) je stránka zdroje přechodu. */
+const JOURNEY_HOLES: ReadonlySet<string> = new Set(["journey.unrealized", "journey.via-unknown"]);
 
 /** Nejbližší stránka uzlu (sám, nebo předek se `site.kind = "page"`); aplikace je hranice. */
 function pageOf(byId: Map<string, CanvasNode>, id: string): string | null {
@@ -35,19 +32,17 @@ function pageOf(byId: Map<string, CanvasNode>, id: string): string | null {
 }
 
 /**
- * Díry stránky: nález na stránku nebo její komponentu, na hranu z nich, a nález přechodu cesty, který ze stránky
- * vychází (`unrealized` „z /a na /b“, `via-unknown` „stránka /a nemá“) na cestě přes stránku. Pořadí kontroly mapy zůstává.
+ * Díry stránky: nález na stránku nebo její komponentu, na hranu z nich, a nález přechodu cesty přes stránku
+ * (`unrealized`, `via-unknown`), jehož `solverId` je tato stránka (kontrola čtená s `locate=1`; text zprávy se nepáruje).
+ * Pořadí kontroly mapy zůstává.
  */
 export function pageHoles(check: MapCheck, graph: Graph, pageId: string, journeyIds: ReadonlySet<string>): MapCheckFinding[] {
   const byId = new Map(graph.nodes.map((node) => [node.id, node]));
-  const page = byId.get(pageId);
-  const path = page?.site?.kind === "page" ? page.site.path : "";
   const mine = (id: string | undefined) => !!id && pageOf(byId, id) === pageId;
   return check.findings.filter((finding) => {
     if (finding.nodeId) return mine(finding.nodeId);
     if (finding.edgeId) return mine(graph.edges.find((edge) => edge.id === finding.edgeId)?.source);
-    const marker = JOURNEY_HOLES[finding.rule];
-    return !!finding.journeyId && journeyIds.has(finding.journeyId) && !!marker && !!path && finding.message.includes(marker(path));
+    return !!finding.journeyId && journeyIds.has(finding.journeyId) && JOURNEY_HOLES.has(finding.rule) && finding.solverId === pageId;
   });
 }
 

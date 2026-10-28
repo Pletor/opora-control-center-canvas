@@ -42,8 +42,11 @@ Jedna dávka = jedna oblast nebo sektor, do ~25 kB. Jen přidává a je atomick�
 
 3. Ověř bez zápisu: `opora_write.py /api/canvas-plan --project P --workspace W --json-file "<draftsDir>/plan.json" --dry-run`.
 4. Ostře tentýž příkaz bez `--dry-run` (v okně OPORA člověk schválí jednou). Koncept kvůli tomu nepřepisuj.
-5. Odpověď: `{ok, refs {ref → id}, blocks {"ref/blokRef" → blockId}, summary, digest, revision}`.
+5. Odpověď: `{ok, refs {ref → id}, blocks {"ref/blokRef" → blockId}, summary, warnings, digest, revision}`.
    ID z `--dry-run` jsou jen ukázkové. Zkontroluj `node-brief` nových karet.
+   `warnings` `[{rule, message, nodeId?, place?}]` (≤ 20, i u `--dry-run`): díry kontroly mapy, které dávka
+   **otevřela** (byly po ní, ne před ní); `place` = karta, kde se díra řeší. Dávku neodmítají; zacel je další
+   dávkou nebo je uveď v souhrnu. Díry, které už existovaly, sem nepatří.
 
 Pravidla dávky:
 

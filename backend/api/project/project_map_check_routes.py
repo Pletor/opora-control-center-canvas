@@ -34,8 +34,9 @@ def create_project_map_check_router(service):
     router = APIRouter(prefix="/api/project-architecture", tags=["project-architecture"])
 
     @router.get("/map-check")
-    def map_check_view(project: str = Query(min_length=1, max_length=64)):
-        return map_check(service, project)
+    def map_check_view(project: str = Query(min_length=1, max_length=64), locate: bool = False):
+        # `locate=1` přidá nálezům `solverId` (místo řešení, §5.1); rozklad stránky podle něj páruje díry cest (§5.3).
+        return map_check(service, project, locate=locate)
 
     @router.get("/journeys")
     def journeys_view(project: str = Query(min_length=1, max_length=64)):

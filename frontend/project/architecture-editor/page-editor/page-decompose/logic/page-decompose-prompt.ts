@@ -48,7 +48,7 @@ function componentLines(facts: DecomposeFacts): string[] {
 }
 
 function holeLines(facts: DecomposeFacts): string[] {
-  if (facts.holes === null) return ["(kontrola mapy není načtená; přečti GET /api/project-architecture/map-check)"];
+  if (facts.holes === null) return ["(kontrola mapy není načtená; přečti GET /api/project-architecture/map-check?project=…&locate=1)"];
   if (!facts.holes.length) return ["(kontrola mapy na stránce nic nehlásí)"];
   return facts.holes.map((hole) => `- ${hole.rule}: ${oneLine(hole.message)}`);
 }

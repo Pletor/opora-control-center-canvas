@@ -19,7 +19,7 @@ describe("podklady rozkladu stránky", () => {
     expect(pageComponents(GRAPH, "p3").map((item) => item.id)).toEqual(["c3"]);
   });
 
-  it("díry: stránka, její komponenty a hrany, přechody cesty ze stránky; ne podstránka ani příchozí přechod", () => {
+  it("díry: stránka, její komponenty a hrany, přechody cesty se solverId stránky; ne podstránka, příchozí přechod ani shoda jen textem", () => {
     expect(pageHoles(CHECK, GRAPH, "p1", new Set(["j1"])).map((hole) => hole.rule)).toEqual(["journey.unrealized", "section.unrealized", "edge.carries-unset"]);
     expect(pageHoles(CHECK, GRAPH, "p1", new Set(["j1"]))[0].message).toContain("z /pestovani na /kontakt");
     expect(pageHoles(CHECK, GRAPH, "p1", new Set())).toHaveLength(2);
