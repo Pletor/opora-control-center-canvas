@@ -31,7 +31,10 @@ Kód (`frontend/project/architecture-editor/`) tento kontrakt provádí, neměn�
      **← Zpět na mapu** zavře sloupec.
    - **Detail prvku** (vpravo) – *Pracovní kontext agenta*: prostředí, doména, stránka (s cílem a působením, jsou-li zadané), komponenta / uzel, cesta v repozitáři
      (`sourceRef`, jinak „navržená cesta“ s upozorněním, že není souborem). Záložky **Zadání** (název, účel, vstupní a
-     výstupní port, kritéria dokončení, stav), **Vazby** (příchozí a odchozí vazby), **Práce** (fáze, uzavření, **Otevřít v Editoru**).
+     výstupní port, kritéria dokončení, stav), **Vazby** (příchozí a odchozí vazby), **Práce** (brány definice hotovo jako dlaždice, kroky plánu `spec.steps` se stavem, běh: kdo staví, běžící krok,
+     otevřené nálezy strážců; **Otevřít v Editoru**). Záložka Práce jen čte: kartu ze snímku `GET /api/oporahub/agent-state`
+     (`cards[]`: `dod`, `steps.items`/`current`, `lease`, `guardFindings`, stejný zdroj jako tvář karty na plátně a detail karty)
+     a kroky z pracovního zadání (`GET /api/node-spec`). Bez karty ve snímku ukáže „nenapojeno“. Fáze uzlu tu už není.
 4. **Editor** (běžný) – detail pro agenty nad stejným ID. Do Editoru se jde jen ze stránky / prvku, nikdy bez ID.
 
 ## Pravidla

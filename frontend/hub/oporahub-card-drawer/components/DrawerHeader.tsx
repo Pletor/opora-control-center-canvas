@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { DodView } from "../logic/card-dod";
 import type { StatusLine } from "../logic/card-header";
+import DodBars from "./DodBars";
 
 type Props = {
   title: string; nodeId: string; kind: string; trail: string; status: StatusLine; lease: ReactNode; holder: string;
@@ -23,15 +24,6 @@ export default function DrawerHeader({ title, nodeId, kind, trail, status, lease
       {holder && <span className="card-drawer__holder" data-oh-field="lease-holder" data-oh-value={holder}>
         <span className="card-drawer__avatar card-drawer__avatar--agent" aria-hidden="true">A</span>{holder}</span>}
     </div>
-    <div className="card-drawer__dod" role="list" aria-label="Definice hotového" data-oh-dod-source={dod.source} data-oh-dod-done={String(dod.done)}>
-      <span className="card-drawer__dod-label">Definice hotového{dod.source === "computed" ? "" : " · server"}</span>
-      <div className="card-drawer__dod-bars">
-        {dod.segments.map(segment => <div key={segment.key} role="listitem" className={`card-drawer__dod-seg card-drawer__dod-seg--${segment.state}${segment.key === "human_close" ? " card-drawer__dod-seg--human" : ""}`}
-          data-oh-dod={segment.key} data-oh-dod-state={segment.state} title={`${segment.label}: ${segment.state}${segment.detail ? ` · ${segment.detail}` : ""}`}>
-          <span className="card-drawer__dod-track"><i className="card-drawer__dod-fill" style={{ width: `${Math.round(segment.progress * 100)}%` }} /></span>
-          <span className="card-drawer__dod-name">{segment.label}{segment.key === "steps" && segment.detail ? ` ${segment.detail}` : ""}</span>
-        </div>)}
-      </div>
-    </div>
+    <DodBars dod={dod} />
   </header>;
 }

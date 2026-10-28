@@ -1,11 +1,9 @@
 import { readSteps } from "../../spec-tab/logic/spec-diff";
 import type { CardData } from "../../logic/use-card-data";
 import { stepFill } from "../logic/step-fill";
-import { stepColumns, stepProgress, stepRows, type StepRow } from "../logic/step-status";
+import { STEP_GLYPH as GLYPH, STEP_WORD as WORD, stepColumns, stepProgress, stepRows, type StepRow } from "../logic/step-status";
 import "../styles/steps-tab.css";
 
-const GLYPH: Record<StepRow["status"], string> = { done: "✓", failed: "✕", skipped: "↷", current: "▸", waiting: "○" };
-const WORD: Record<StepRow["status"], string> = { done: "hotovo", failed: "selhalo", skipped: "přeskočeno", current: "běží", waiting: "čeká" };
 
 function StepItem({ row }: { row: StepRow }) {
   const evidence = row.result?.evidence;

@@ -8,6 +8,9 @@ export type StepResult = { stepId: string; status: "done" | "failed" | "skipped"
 export type StepStatus = "done" | "failed" | "skipped" | "current" | "waiting";
 export type StepRow = PlanStep & { status: StepStatus; isCurrent: boolean; depth: number; result: StepResult | null;
   acceptanceMet: number; blockedBy: string[] };
+/** Značka a slovo stavu kroku; sdílí je záložka Kroky i záložka Práce v Detailu prvku. */
+export const STEP_GLYPH: Record<StepStatus, string> = { done: "✓", failed: "✕", skipped: "↷", current: "▸", waiting: "○" };
+export const STEP_WORD: Record<StepStatus, string> = { done: "hotovo", failed: "selhalo", skipped: "přeskočeno", current: "běží", waiting: "čeká" };
 export type ReceiptLike = { executionId: string; createdAt: string; result: Record<string, unknown> };
 
 const STATUSES = ["done", "failed", "skipped"] as const;
