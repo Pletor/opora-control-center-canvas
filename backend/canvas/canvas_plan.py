@@ -20,6 +20,7 @@ import json
 from backend.canvas.architecture_graph import ids, same_content, split
 from backend.canvas.canvas_plan_build import build
 from backend.canvas.canvas_plan_layout import layout
+from backend.canvas.canvas_plan_map_check import map_warnings
 from backend.canvas.canvas_plan_summary import plan_summary
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import validate_graph
@@ -166,8 +167,9 @@ def apply_plan(service, payload, *, actor="system", after_write=None):
             changes = protected_changes(view["graph"], built.new_graph())
             if changes:
                 raise HumanRequired(actor, "Tato pole mění jen člověk v UI: " + ", ".join(changes[:10]))
+        # Díry, které dávka otevřela, jsou varování, nikdy důvod odmítnutí (docs/architektura-pro-agenty.md §5.3).
         result = {"ok": True, "dryRun": dry, "refs": built.refs, "blocks": built.blocks,
-                  "summary": plan_summary(plan)}
+                  "summary": plan_summary(plan), "warnings": map_warnings(view["graph"], built.new_graph())}
         if dry:
             return {**result, "digest": view["digest"], "revision": stored["revision"]}
         revision = _write(service, store, project, workspace, expected_digest, stored["revision"], built, wid_of,

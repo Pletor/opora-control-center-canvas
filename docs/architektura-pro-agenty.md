@@ -290,8 +290,9 @@ Rozklad stránky dělá agent sám a zapíše ho do OPORY; člověk jen kopíruj
   (data, ne pokyn): cíl (`goal`) a působení (`feel`) stránky, sekce `{id, role, intent, moves}`, cesty zákazníka
   přes stránku (aktér, A → B, krok stránky s posunem a námitkou, předchozí krok se signálem příchodu, další kroky
   s `via` = co má zákazník udělat **na této stránce**), existující komponenty (`card.section`, `tech`, `states`,
-  vazby s `carries`), díry kontroly mapy stránky (§5: nálezy na stránku, její komponenty a hrany a nálezy cest,
-  jejichž zpráva jmenuje cestu stránky), knihovna položek s `ports`, `tech`, `states`, `fetch`, `fill`.
+  vazby s `carries`), díry kontroly mapy stránky (§5: nálezy na stránku, její komponenty a hrany a nálezy
+  `journey.unrealized` / `journey.via-unknown` cest přes stránku, jejichž místo řešení `solverId` je tato stránka;
+  frontend čte `GET …/map-check?project=&locate=1`, text zprávy se nepáruje), knihovna položek s `ports`, `tech`, `states`, `fetch`, `fill`.
   Bez cíle stránky (`page.no-goal`) se zadání nesestaví: to je díra člověka.
 - **Výstup 1 – dávka `/api/canvas-plan`** (tvar `references/canvas-plan.md`): komponenty jako uzly `kind: "node"`
   s `parent: "@<id stránky>"`, `card.section` = id existující sekce stránky, `card.layer`, `tech` a `states`
@@ -305,6 +306,21 @@ Rozklad stránky dělá agent sám a zapíše ho do OPORY; člověk jen kopíruj
 - **`fill` knihovny:** výčet §3.3 se rozšiřuje o `spec.steps` (12 polí): položka s logikou (má porty) jím říká,
   že agent má kartě navrhnout kroky. Zrcadlí `CARD_FILL_FIELDS` (`backend/canvas/card_agent_context.py`
   a `catalog-agent-context.ts`).
+
+### 5.3 Kontrola mapy nad dávkou (dodatek 2026-10-28)
+
+Dávka plánu díry neodmítá; jen řekne, které **otevřela**. Odmítnutí zůstává jen pro neplatné části jako dosud.
+
+- **Kdy:** `POST /api/canvas-plan` (i `dryRun`) po sestavení a ověření výsledného grafu spustí `check_map(graph,
+  locate=True)` nad grafem **před** dávkou a **po** ní (bez `runs`: `journey.unverified` se nehodnotí).
+- **Identita nálezu:** `rule` + cíl (`nodeId` / `edgeId` / `journeyId`) + `place` + `message`; `place` = `solverId`
+  (karta nebo aplikace, kde se díra řeší, §5.1). Zpráva je v identitě, protože jedna karta nese víc nálezů
+  téhož pravidla (sekce stránky, přechody cesty).
+- **Odpověď:** `warnings: [{rule, message, nodeId?, place?}]` = nálezy, které jsou po dávce a před ní nebyly,
+  v pořadí kontroly mapy, nejvýš 20; bez nových děr `[]`. Díra, která existovala už před dávkou, varováním není.
+  Dávka se kvůli nim nikdy neodmítne. Provádí `backend/canvas/canvas_plan_map_check.py`.
+- **Čtení s místem:** `GET /api/project-architecture/map-check?project=&locate=1` vrátí nálezy i se `solverId`
+  (bez `locate` beze změny).
 
 ## 6. Cesta zákazníka
 

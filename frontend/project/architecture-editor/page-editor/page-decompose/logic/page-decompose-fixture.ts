@@ -30,8 +30,12 @@ export const GRAPH: Graph = {
 };
 
 export const CHECK: MapCheck = { findings: [
-  { rule: "journey.unrealized", journeyId: "j1", message: "Cesta Kampaň: z /pestovani na /kontakt nevede vazba (navigation, command, data ani sekce stránky)." },
-  { rule: "journey.unrealized", journeyId: "j1", message: "Cesta Kampaň: z /kontakt na /pestovani nevede vazba (navigation, command, data ani sekce stránky)." },
+  { rule: "journey.unrealized", journeyId: "j1", solverId: "p1", message: "Cesta Kampaň: z /pestovani na /kontakt nevede vazba (navigation, command, data ani sekce stránky)." },
+  { rule: "journey.unrealized", journeyId: "j1", solverId: "p2", message: "Cesta Kampaň: z /kontakt na /pestovani nevede vazba (navigation, command, data ani sekce stránky)." },
+  // Zpráva jmenuje /pestovani, ale přechod vychází z menu (místem řešení je aplikace): stránce nepatří.
+  { rule: "journey.via-unknown", journeyId: "j1", solverId: "web", message: "Cesta Kampaň: krok Zájem čeká akci v sekci x, kterou menu nemá. stránka /pestovani nemá" },
+  // Nález bez místa (kontrola čtená bez locate) se podle textu nepáruje.
+  { rule: "journey.unrealized", journeyId: "j1", message: "Cesta Kampaň: z /pestovani na /kontakt nevede vazba." },
   { rule: "section.unrealized", nodeId: "p1", message: "Sekce hero nemá komponentu." },
   { rule: "state.no-error", nodeId: "c3", message: "Komponenta odesílá, ale nemá stav chyba." },
   { rule: "edge.carries-unset", edgeId: "e1", message: "Vazba neříká, co nese." },

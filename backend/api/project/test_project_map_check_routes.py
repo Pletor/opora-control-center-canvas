@@ -55,6 +55,13 @@ def test_map_check_reads_the_accepted_graph_and_returns_findings():
     assert body["summary"]["page.no-goal"] == 1 and body["summary"]["edge.carries-unset"] == 1
 
 
+def test_map_check_locate_adds_solver_ids():
+    client, _ = make_client()
+    body = client.get("/api/project-architecture/map-check", params={"project": "p1", "locate": "1"}).json()
+    assert [(f["rule"], f["solverId"]) for f in body["findings"]] == [
+        ("journey.broken", "app"), ("journey.unverified", "app"), ("page.no-goal", "p"), ("edge.carries-unset", "a")]
+
+
 def test_map_check_uses_draft_without_git_and_requires_project():
     client, seen = make_client(source_kind="folder")
     assert client.get("/api/project-architecture/map-check", params={"project": "p1"}).status_code == 200

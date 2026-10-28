@@ -11,12 +11,14 @@ const graph = { nodes: [app, node("home", "app", { kind: "page", path: "/" }), n
 describe("kontrola mapy na mapě domény", () => {
   it("adresa dotazu nese projekt", () => {
     expect(mapCheckUrl("p 1")).toBe("/api/project-architecture/map-check?project=p+1");
+    expect(mapCheckUrl("p 1", true)).toBe("/api/project-architecture/map-check?project=p+1&locate=1");
   });
   it("čte nálezy a neznámá pravidla, nálezy bez zprávy i cizí tvary zahodí", () => {
     const raw = { findings: [{ rule: "page.no-goal", nodeId: "home", message: "Stránka nemá cíl (goal)." }, { rule: "journey.broken", journeyId: "kurz", edgeId: 3, message: "Cesta Kurz: chybí." },
       { rule: "neznámé", nodeId: "x", message: "m" }, { rule: "page.no-goal", nodeId: "x" }, null, "x"], summary: { "page.no-goal": 1 } };
     expect(normalizeMapCheck(raw)).toEqual({ findings: [{ rule: "page.no-goal", nodeId: "home", message: "Stránka nemá cíl (goal)." },
       { rule: "journey.broken", journeyId: "kurz", message: "Cesta Kurz: chybí." }] });
+    expect(normalizeMapCheck({ findings: [{ rule: "journey.unrealized", journeyId: "j", solverId: "p", message: "m" }] }).findings[0].solverId).toBe("p");
     expect(normalizeMapCheck(null)).toEqual({ findings: [] });
     expect(normalizeMapCheck({ findings: "x" })).toEqual({ findings: [] });
   });

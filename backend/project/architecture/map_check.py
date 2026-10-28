@@ -45,7 +45,8 @@ Nález na kartu = ta karta, nález na hranu = zdroj hrany, nález cesty = strán
 stránka kroku `from`, `journey.via-unknown` stránka předchozího kroku, `journey.unverified` stránka zdroje prvního
 neprošlého přechodu. Kde přechod nevychází ze stránky (zdroj je menu `"nav"`), nebo nález žádný přechod nemá
 (`journey.broken`, `journey.unverified` bez neprošlého přechodu), je místem řešení aplikace, která cestu nese
-(cesty se upravují na ní). Bez `locate` výstup `solverId` nemá (`GET …/map-check`, dávka plánu, návrh změny).
+(cesty se upravují na ní). Bez `locate` výstup `solverId` nemá (`GET …/map-check` bez `locate=1`, návrh změny); dávka plánu ho bere pro
+`warnings` (§5.3, `canvas_plan_map_check`).
 """
 
 from backend.canvas.site_metadata import JOURNEY_FROM_NAV, card_section_error
@@ -264,6 +265,6 @@ def check_map(graph, runs=None, locate=False):
     return {"findings": findings, "summary": {rule: sum(f["rule"] == rule for f in findings) for rule in RULES}}
 
 
-def map_check(service, project):
-    """Kontrola přijaté architektury projektu (`GET /api/project-architecture/map-check`)."""
-    return check_map(architecture_graph(service, project), latest_journey_runs(service, project))
+def map_check(service, project, locate=False):
+    """Kontrola přijaté architektury projektu (`GET /api/project-architecture/map-check`; `locate=1` přidá `solverId`)."""
+    return check_map(architecture_graph(service, project), latest_journey_runs(service, project), locate=locate)
