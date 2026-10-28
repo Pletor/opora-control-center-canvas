@@ -51,6 +51,13 @@ describe("definition of done segments", () => {
     expect(states(view)).toEqual(["done", "done", "done", "done", "todo", "done", "todo"]);
     expect(view.segments[2].detail).toBe("GitHub");
   });
+  it("reads the local gate of a project without GitHub", () => {
+    const dod = { steps: true, card_acceptance: true, gate_ready: true, merged: true, plan_written_back: true, human_close: false,
+      gate: "local", done: false, missing: ["human_close"] };
+    const view = dodView({ card: cardEntry(stateWith({ dod }), "c1") });
+    expect(view).toMatchObject({ source: "backend", gate: "local", done: false });
+    expect(view.segments[2].detail).toBe("lokálně");
+  });
   it("shows the journey gate and names the blocking journeys", () => {
     const dod = { steps: true, card_acceptance: true, gate_ready: true, merged: true, plan_written_back: true, journeys: false, human_close: false,
       gate: "review", done: false, missing: ["journeys", "human_close"],

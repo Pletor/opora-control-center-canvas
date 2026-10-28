@@ -20,7 +20,15 @@ ENROLLMENT_MESSAGES = {
 
 
 def public(row):
-    """Contract DTO (docs/oporahub-executions.md, "Uzavření smyčky")."""
+    """Contract DTO (docs/oporahub-executions.md, "Uzavření smyčky"). A local merge (docs/lokalni-slouceni.md,
+    `source: "local"`) has the same shape without a PR: `number` None, `repository` "local", plus `commit`."""
+    value = _public(row)
+    if row["source"] == "local":
+        value |= {"number": None, "commit": row["merge_sha"]}
+    return value
+
+
+def _public(row):
     return {"executionId": row["execution_id"], "cardId": row["node_id"], "acceptedRevision": row["accepted_revision"],
             "repository": row["repository"], "number": row["number"], "headRef": row["head_ref"],
             "headSha": row["head_sha"], "state": row["state"], "bindingId": row["binding_id"],

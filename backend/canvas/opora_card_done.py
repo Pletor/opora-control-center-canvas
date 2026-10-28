@@ -1,7 +1,8 @@
 """The single definition of done of an OporaHub card (night contract §3).
 
 done = every accepted plan step reported `done` + card acceptance evidenced against the
-current accepted spec + review gate `ready` + PR merged + plan written back + every customer
+current accepted spec + review gate `ready` (in a project without GitHub: the local gate,
+docs/lokalni-slouceni.md) + PR (or local) merge + plan written back + every customer
 journey the card lies on verified by a passed, fresh run (docs/brana-cesty.md §5) + a human
 `close_card`. `card_done_state` is pure; `closure_gate` loads the facts for the human close
 precondition and replaces the legacy evidence/checks/pipeline closure gate for every card
@@ -21,11 +22,16 @@ def card_done_state(card):
     only while the requirement is missing, so the human sees which journey and why.
 
     `gateMode` "review" (default): gate_ready = the OporaHub review gate is `ready`. "external"
-    (automated review jobs disabled): GitHub branch protection is the gate, so gate_ready = merged."""
+    (automated review jobs disabled): GitHub branch protection is the gate, so gate_ready = merged.
+    "local" (project without GitHub, docs/lokalni-slouceni.md): gate_ready = merged and the card's
+    latest checks on the merged commit passed (`checksPassed`, True for a card without checks)."""
     steps = card.get("steps") or {}
     gate = card.get("gate") or {}
-    mode = "external" if card.get("gateMode") == "external" else "review"
-    gate_ready = card.get("merged") is True if mode == "external" else gate.get("status") == "ready"
+    mode = card.get("gateMode") if card.get("gateMode") in ("external", "local") else "review"
+    if mode == "review":
+        gate_ready = gate.get("status") == "ready"
+    else:
+        gate_ready = card.get("merged") is True and (mode == "external" or card.get("checksPassed", True) is True)
     met = {"steps": steps.get("total", 0) >= 1 and steps.get("done", 0) >= steps.get("total", 0),
            "card_acceptance": card.get("acceptanceEvidence") is True,
            "gate_ready": gate_ready,
@@ -49,13 +55,42 @@ def link_for(links, node):
     return next((item for item in own if item.get("state") == "merged"), own[-1] if own else None)
 
 
-def facts(card, link, gate, closed=False, external=False):
+def facts(card, link, gate, closed=False, external=False, local_checks=None):
     """Done-state input from a process card (`steps`, `acceptanceEvidence`, `journeys`), its link and gate;
-    `external` = automated review jobs are disabled (gates_by_execution returned None)."""
+    `external` = automated review jobs are disabled (gates_by_execution returned None); `local_checks`
+    None = the project has GitHub, a bool = local mode with the card's checks result (`local_checks_passed`)."""
+    mode = "local" if local_checks is not None else "external" if external else "review"
     return {"steps": card.get("steps"), "acceptanceEvidence": card.get("acceptanceEvidence"),
             "journeys": card.get("journeys") or [],
-            "gate": (gate or {}).get("reviewGate"), "gateMode": "external" if external else "review", "merged": bool(link) and link.get("state") == "merged",
-            "planWrittenBack": bool(link) and link.get("planWrittenBack") is True, "closed": closed}
+            "gate": (gate or {}).get("reviewGate"), "gateMode": mode, "merged": bool(link) and link.get("state") == "merged",
+            "planWrittenBack": bool(link) and link.get("planWrittenBack") is True, "closed": closed,
+            "checksPassed": local_checks is not False}
+
+
+def local_mode(service, project):
+    """Gate `local` (docs/lokalni-slouceni.md §2): derived, never set; the project has no GitHub repository."""
+    from backend.canvas.opora_execution_pr_enrollment import configured
+
+    return configured(service, project) is None
+
+
+def local_checks_passed(graph_node, run, link):
+    """Local gate checks of one card on its merged commit: the latest check run of the card (`/api/check-run`,
+    scope = card) is green on that commit; a card without a run passes only when it declares no `checks`."""
+    commit = (link or {}).get("mergeSha") or ""
+    if run is None:
+        return not (graph_node or {}).get("checks")
+    sha = run.get("sha") or ""
+    return run.get("status") == "green" and bool(commit and sha) and (commit.startswith(sha) or sha.startswith(commit))
+
+
+def local_checks_by_card(canvas, project, workspace, graph, links, nodes):
+    """`{nodeId: bool}` for `nodes` in local mode; one read of the check runs for the whole project."""
+    from backend.canvas.check_runs import CheckRuns
+
+    runs = CheckRuns(canvas).latest_for_project(project, workspace)
+    by_id = {item["id"]: item for item in graph["nodes"]}
+    return {node: local_checks_passed(by_id.get(node), runs.get(node), link_for(links, node)) for node in nodes}
 
 
 def gates_by_execution(db, project, workspace):
@@ -121,8 +156,12 @@ def closure_gate(canvas, project, workspace, node):
     gates = gates_by_execution(db, project, workspace)
     gate = (gates or {}).get(link["executionId"]) if link else None
     blocking = journeys_blocking(canvas, project, workspace, node)
+    local = None
+    if local_mode(canvas, project):
+        graph = canvas.view(project, workspace)["graph"]
+        local = local_checks_by_card(canvas, project, workspace, graph, [link] if link else [], [node])[node]
     state = card_done_state(facts({"steps": summary, "acceptanceEvidence": evidence, "journeys": blocking}, link, gate,
-                                  external=gates is None))
+                                  external=gates is None, local_checks=local))
     if not closable(state):
         missing = [name for name in state["missing"] if name != "human_close"]
         if missing == ["journeys"]:

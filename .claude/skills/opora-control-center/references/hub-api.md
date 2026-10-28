@@ -76,6 +76,7 @@ skript odmítne předem a server vrátí 403/428; s autonomií volá agent cestu
 | `GET /api/oporahub/executions/{identifier}/results` | read | potvrzení přijatého výsledku (ověř po odevzdání) |
 | `POST /api/oporahub/executions/{identifier}/release` | hub | uvolnění vlastního běhu; vynucené uvolnění cizího běhu jen člověk nebo agent při plné autonomii |
 | `POST /api/oporahub/executions/{identifier}/pull-request` | hub | připojuje agent-office; agent ručně ne |
+| `POST /api/oporahub/executions/{identifier}/local-merge` | HTTP (agent i člověk) | jen projekt bez GitHubu (režim `local`, [hub-loop.md](hub-loop.md) „Projekt bez GitHubu“): `{project, workspace, commit}` (7–64 hex; `token`+`epoch` volitelně) → vazba jako PR `{state: "merged", source: "local", commit, number: null, planWrittenBack: true, …}`; commit musí existovat (jinak 422 `invalid_commit`) a být předkem `HEAD` aktuální větve repa projektu (jinak 409 `commit_not_on_branch`); projekt s GitHubem, cizí PR vazba nebo neplatné pole 409; týž commit znovu = stejná vazba, jiný commit nahradí starší; agent smí pro vlastní odevzdaný běh, cizí jen při plné autonomii |
 | `GET /api/oporahub/executions/{identifier}/pull-request` | read | PR připojený k běhu (číslo, hlava, stav); 404 `pull_request_not_linked` |
 | `GET /api/oporahub/executions` | read | ≤ 100 souhrnů běhů bez tokenů |
 | `GET /api/oporahub/execution-budgets` | read | `nodeId` → rozpočet běhů karty a `canConfigure` / `canCancel` |
@@ -153,6 +154,7 @@ Nálezy strážců (`agent-state.guards`, `GET /api/strazci`): [strazci.md](stra
 ## Mimo OporaHub, ale v procesu
 
 `close_card` = `done.confirmed` přes `/api/desktop-v3/state`: jen člověk, nebo agent při plné autonomii.
+V projektu bez GitHubu mu předchází `local-merge` (výše); `cards[].dod.gate` je pak `local`.
 Ostatní cesty plátna (dávka, graf, texty, storyboard) a čtecí příkazy jsou v [api.md](api.md), zbytek v [routy.md](routy.md).
 
 Starší brána 1:1 (verdikt Oracle, `docs/synchronizace-pravdy.md`), pod `/api`, ne `/api/oporahub`:

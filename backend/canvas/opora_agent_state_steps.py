@@ -44,25 +44,27 @@ def card_plan(db, project, workspace, node, accepted_document, blocked):
     return {"steps": summary, "stepItems": items, "acceptanceEvidence": evidence, "blockedBy": sorted(blocked.get(node) or [])}
 
 
-def dod(card, linked, gates):
+def dod(card, linked, gates, local=None):
     """`cards[].dod`: one boolean per requirement of the single definition of done (keys = opora_card_done
-    REQUIREMENTS) + `gate` kind (`review` / `external`), `done` and `missing` in contract order; while the
-    journey gate is missing also `blockingJourneys` [{journeyId, applicationId, name, reason}]."""
+    REQUIREMENTS) + `gate` kind (`review` / `external` / `local`), `done` and `missing` in contract order; while
+    the journey gate is missing also `blockingJourneys` [{journeyId, applicationId, name, reason}].
+    `local` = None (project with GitHub) or `{nodeId: checks passed}` (docs/lokalni-slouceni.md)."""
     link = card_done.link_for(linked, card.get("nodeId"))
     gate = (gates or {}).get(link["executionId"]) if link else None
+    checks = None if local is None else local.get(card.get("nodeId"), True)
     state = card_done.card_done_state(card_done.facts(card, link, gate, closed=card.get("doneConfirmed") is True,
-                                                      external=gates is None))
+                                                      external=gates is None, local_checks=checks))
     return {**{name: name not in state["missing"] for name in card_done.REQUIREMENTS},
             "gate": state["gate"], "done": state["done"], "missing": state["missing"],
             **({"blockingJourneys": state["blockingJourneys"]} if "blockingJourneys" in state else {})}
 
 
-def attach(entries, cards, linked=None, gates=None):
+def attach(entries, cards, linked=None, gates=None, local=None):
     """Agent-state `cards[]` entries gain `steps: {total, done, current, items}` and `dod`."""
     empty = {"total": 0, "done": 0, "current": None}
     result = []
     for entry in entries:
         card = cards.get(entry["nodeId"], {})
         result.append({**entry, "steps": {**card.get("steps", empty), "items": card.get("stepItems", [])},
-                       "dod": dod({**card, "nodeId": entry["nodeId"]}, linked, gates)})
+                       "dod": dod({**card, "nodeId": entry["nodeId"]}, linked, gates, local)})
     return result

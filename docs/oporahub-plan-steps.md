@@ -119,7 +119,7 @@ zadáním (`card_acceptance`) + brána review `ready` (`gate_ready`) + PR `merge
 (`journeys`, `docs/brana-cesty.md` §5) + lidské `close_card` (`human_close`). `missing` vypisuje chybějící části
 v tomto pořadí. Agent-state ji vydává u každé karty jako `cards[].dod`: boolean pod jménem každého
 požadavku (`steps`, `card_acceptance`, `gate_ready`, `merged`, `plan_written_back`, `journeys`, `human_close`),
-druh brány `gate` (`review` / `external`), `done`, `missing` a při nesplněné bráně cesty `blockingJourneys`. Detail karty kreslí dílky z něj.
+druh brány `gate` (`review` / `external` / `local`), `done`, `missing` a při nesplněné bráně cesty `blockingJourneys`. Detail karty kreslí dílky z něj.
 
 - Akce `close_card` v agent-state je `blocked/human_only` jen když chybí pouze `human_close`; jinak
   `blocked/done_state_incomplete` s `preconditions.missing` a bez rozhodnutí pro člověka.
@@ -130,6 +130,9 @@ druh brány `gate` (`review` / `external`), `done`, `missing` a při nesplněné
   (`OPORA_REVIEW_JOBS`) je to `"review"` a platí jen brána OporaHubu `ready` (čte se pro všechny
   vazby PR, i sloučené); s vypnutými úlohami review je to `"external"` a branou je ochrana větve
   na GitHubu, takže `gate_ready` = PR je sloučený. Akce `close_card` nese `preconditions.gate`.
+- Třetí režim `"local"` má projekt bez vazby na GitHub ([lokální sloučení](lokalni-slouceni.md)): `merged`
+  a `plan_written_back` vznikají z `POST /api/oporahub/executions/{executionId}/local-merge` a `gate_ready` =
+  sloučeno + poslední běh kontrol karty na sloučeném commitu je zelený (karta bez kontrol: jen sloučeno).
 
 ## Migrace
 

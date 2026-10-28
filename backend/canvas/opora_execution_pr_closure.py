@@ -2,7 +2,8 @@
 
 Reads only the immutable reconciliation observations of each linked binding. Never
 touches spec fields (goal/non_goals/acceptance) or card closure; confirming a card as
-done stays a human action, so a merge sets the `awaitingHumanClose` marker instead."""
+done stays a human action (or an agent's with full autonomy), so a merge sets the `awaitingHumanClose`
+marker instead. `write_back` is shared with the local merge (docs/lokalni-slouceni.md)."""
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_events import emit_event, refresh
 from backend.canvas.opora_executions import OporaExecutions
@@ -27,20 +28,40 @@ def _finish_execution(executions, execution_id):
         OporaExecutions.finish(executions, record, "released")
 
 
-def merge_events(db, project, workspace, row, pr):
-    """Merge and its plan write-back are one act here; the human close decision opens with them."""
-    for kind, data in (("merge.done", {"mergeSha": pr["mergeCommitSha"], "mergedAt": pr["mergedAt"]}),
-                       ("writeback.done", {"mergeSha": pr["mergeCommitSha"], "planWrittenBack": True}),
-                       ("decision.created", {"decision": "close_card", "mergeSha": pr["mergeCommitSha"]})):
+def merge_events(db, project, workspace, row, merge_sha, merged_at):
+    """Merge and its plan write-back are one act here; the human close decision opens with them.
+
+    A local merge (docs/lokalni-slouceni.md) has no PR number and says `source: "local"` in the data."""
+    local = row["source"] == "local"
+    extra = {"source": "local", "commit": merge_sha} if local else {}
+    for kind, data in (("merge.done", {"mergeSha": merge_sha, "mergedAt": merged_at}),
+                       ("writeback.done", {"mergeSha": merge_sha, "planWrittenBack": True}),
+                       ("decision.created", {"decision": "close_card", "mergeSha": merge_sha})):
         emit_event(db, project_id=project, workspace_id=workspace, kind=kind, node_id=row["node_id"],
-                   execution_id=row["execution_id"], pr_number=row["number"], data={"repository": row["repository"], **data})
+                   execution_id=row["execution_id"], pr_number=None if local else row["number"],
+                   data={"repository": row["repository"], **extra, **data})
+
+
+def write_back(db, project, workspace, row, key, content, merge_sha, merged_at, head_sha):
+    """The one merge write-back (`planWrittenBack`) of a merged GitHub PR and of a local merge alike.
+
+    Records `execution.merged` once per `key`, marks the link merged and awaiting the close decision,
+    finishes a still-running execution and emits the merge events. Caller holds the locks and the
+    transaction. Returns True when the merge is new."""
+    links = ExecutionPullRequests(db, project, workspace)
+    merged = links.event(key, row["execution_id"], "execution.merged", content, stamp())
+    links.update(row["execution_id"], state="merged", merge_sha=merge_sha, merged_at=merged_at, head_sha=head_sha,
+                 awaiting_human_close=1, attention=None, updated_at=stamp())
+    _finish_execution(Executions(db, project, workspace), row["execution_id"])
+    if merged:
+        merge_events(db, project, workspace, row, merge_sha, merged_at)
+    return merged
 
 
 def close_loop(db, project, workspace):
     """Caller holds graph -> project locks and BEGIN IMMEDIATE. Returns emitted event kinds."""
     links = ExecutionPullRequests(db, project, workspace)
     recon = ReconciliationRepository(db, project, workspace)
-    executions = Executions(db, project, workspace)
     emitted = []
     for row in links.unresolved():
         if not row["binding_id"]:
@@ -51,16 +72,10 @@ def close_loop(db, project, workspace):
         pr = observation["data"]["pr"]
         if pr["state"] == "merged":
             key = f"execution.merged:{row['execution_id']}:{pr['mergeCommitSha']}"
-            merged = links.event(key, row["execution_id"], "execution.merged",
-                                 _event_content(row, observation, mergeSha=pr["mergeCommitSha"], mergedAt=pr["mergedAt"],
-                                                prNumber=row["number"]), stamp())
-            if merged:
+            content = _event_content(row, observation, mergeSha=pr["mergeCommitSha"], mergedAt=pr["mergedAt"],
+                                     prNumber=row["number"])
+            if write_back(db, project, workspace, row, key, content, pr["mergeCommitSha"], pr["mergedAt"], pr["headSha"]):
                 emitted.append("execution.merged")
-            links.update(row["execution_id"], state="merged", merge_sha=pr["mergeCommitSha"], merged_at=pr["mergedAt"],
-                         head_sha=pr["headSha"], awaiting_human_close=1, attention=None, updated_at=stamp())
-            _finish_execution(executions, row["execution_id"])
-            if merged:
-                merge_events(db, project, workspace, row, pr)
         elif pr["state"] == "closed-unmerged" and row["state"] == "open":
             # Close -> reopen -> close is a new fact: key on the observation that first saw this closure.
             key = f"execution.pr_closed:{row['execution_id']}:{observation['id']}"
