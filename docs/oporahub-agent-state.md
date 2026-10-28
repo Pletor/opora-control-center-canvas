@@ -38,6 +38,7 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `truncated` | `cards[]` neobsahuje všechny karty prostoru (další stránka existuje nebo `cardsOffset > 0`); `actions`, `decisions`, `stages` a `heads` jsou přesto vždy úplné |
 | `cardsTotal` | Počet všech karet (uzel, sektor) prostoru |
 | `cardsNextOffset` | Hodnota `cardsOffset` pro další stránku `cards[]`, `null` na poslední stránce |
+| `mapGaps`, `mapGapsTotal`, `guards` | [Díry mapy](#díry-mapy-jako-práce-mapgaps) a [nálezy strážců](#nálezy-strážců-guards) |
 | `eventsCursor` | Kurzor [toku událostí](oporahub-events.md) (`id` poslední události outboxu, `0` bez událostí) přečtený ve **stejném snímku** jako zbytek dokumentu (viz [Podmíněné čtení](#podmíněné-čtení)) |
 
 `health` je `ok`, `waiting`, `blocking` nebo `not_connected`. `reason` je strojový kód.
@@ -213,6 +214,17 @@ práce `{rule, message, nodeId, journeyId?, edgeId?, owner}`; `nodeId` je karta,
 `owner: "human"` u `page.no-goal` a `journey.broken`. Tvar a výběr řešitele:
 [architektura pro agenty §5.1](architektura-pro-agenty.md). Nic se neodškrtává; díra zmizí, když ji kontrola
 mapy přestane hlásit.
+
+## Nálezy strážců (`guards`)
+
+`guards = {open: {block, warn, info}, findings: [...]}`: otevřené nálezy [strážců](strazci.md) prostoru
+dokumentu (`workspaceId` nálezu, výchozí `draft`) z tabulky `guard_findings`, `findings` nejvýš 20, `block`
+první, uvnitř od nejnovějšího `lastSeen`. Položka `{key, guard, rule, severity, message, nodeId?, journeyId?,
+executionId?, workspaceId, firstSeen, lastSeen}`. Karta s otevřeným nálezem dostane v `cards[]`
+`guardFindings: {count, severity}` (nejvyšší závažnost); karta bez nálezu pole nemá. Nálezy strážce `mapa`
+se **vynechávají** všude: díry mapy jsou jen v `mapGaps` (jeden zdroj děr mapy, strážci §5). Agent nález
+nevyřizuje odškrtnutím; nález zmizí, když strážce při dalším běhu přestane hlásit jeho příčinu.
+Modul `backend/canvas/opora_agent_state_guards.py`.
 
 ## Mezery
 

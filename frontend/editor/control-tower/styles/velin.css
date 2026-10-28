@@ -39,6 +39,43 @@
    otevře Mapu domény s panelem Díry mapy; sám tu nic neřeší, proto bez barvy poplachu. */
 .velin__map-gaps { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0 4px; font-size: 13px; color: var(--ink-2); }
 
+/* Strážci: hned pod dírami mapy jeden řádek, který říká, jestli tichý dohled něco vidí. „✓“ je klid bez barvy;
+   „⚠ N“ a chyba strážce dostanou teplou barvu, ať oko řádek najde. Pod ním nálezy jako krátké řádky: značka
+   závažnosti (✕ ⚠ i), věta strážce a jméno karty vpravo; klik otevře kartu. Nález bez karty se jen čte. */
+.velin__guards { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
+.velin__guard-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0; font-size: 13px; color: var(--ink-2); }
+.velin__guard-line--alert b { color: var(--gold); }
+.velin__guard-meta { color: var(--ink-muted); font-size: 12px; }
+.velin__guard-error { color: var(--danger); font-size: 12px; }
+.velin__guard-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.velin__guard-list li + li { border-top: 1px solid var(--line); }
+.velin__guard {
+  display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; width: 100%;
+  padding: 7px 12px; border: 0; background: none; color: var(--ink); font: 13px var(--font); text-align: left; cursor: pointer;
+}
+.velin__guard:disabled { cursor: default; color: var(--ink-2); }
+.velin__guard:not(:disabled):hover { background: var(--surface-3); }
+.velin__guard-glyph { font-weight: 700; text-align: center; }
+.velin__guard--block .velin__guard-glyph { color: var(--danger); }
+.velin__guard--warn .velin__guard-glyph { color: var(--gold); }
+.velin__guard--info .velin__guard-glyph { color: var(--ink-muted); }
+.velin__guard-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.velin__guard-card { color: var(--ink-muted); white-space: nowrap; }
+
+/* Čeká na člověka: kolem pilulky „na tebe“ i kolem rozhodnutí vpravo dýchá čárkovaný zlatý rám (katalog pohybu
+   docs/zive-zobrazeni-a-knihovna.md §3: 1,85 s, opacita 0,4 → 0,95, inset −3 px). Klidný dech, ne blikání: říká
+   „tohle stojí na tobě“, aniž by křičel. Kdo nechce pohyb, vidí rám stát. */
+.velin__pill--human, .velin__panel-row--waiting { position: relative; }
+.velin__pill--human::after, .velin__panel-row--waiting::after {
+  content: ""; position: absolute; inset: -3px; border: 1.5px dashed #f4b94fd1; border-radius: 7px; pointer-events: none;
+  animation: velin-human-wait 1.85s ease-in-out infinite alternate;
+}
+.velin__panel-row--waiting::after { inset: 3px; }
+@keyframes velin-human-wait { from { opacity: 0.4; } to { opacity: 0.95; } }
+@media (prefers-reduced-motion: reduce) {
+  .velin__pill--human::after, .velin__panel-row--waiting::after { animation: none; opacity: 0.95; }
+}
+
 /* Tóny pilulek a počtů: stejné značky a barvy jako stavový řádek karty na plátně. */
 .velin__count, .velin__pill { border: 1px solid; border-radius: 5px; font-size: 13px; white-space: nowrap; }
 .velin__count { padding: 1px 7px; font-weight: 600; }

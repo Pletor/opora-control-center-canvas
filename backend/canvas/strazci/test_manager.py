@@ -126,8 +126,8 @@ def test_worker_loop_survives_a_failing_pass(service, monkeypatch):
     assert len(passes) == 2
 
 
-def test_registry_has_mapa_and_prace_and_refuses_duplicates():
-    assert [guard.id for guard in default_guards()] == ["mapa", "prace"]
+def test_registry_has_first_set_and_refuses_duplicates():
+    assert [guard.id for guard in default_guards()] == ["mapa", "prace", "cesty", "pravda"]
     with pytest.raises(ValueError):
         validate_registry([Guard("g", "G", 1, list), Guard("g", "H", 1, list)])
     with pytest.raises(ValueError):

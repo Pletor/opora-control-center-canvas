@@ -12,7 +12,7 @@ export default function VelinSide({ decisions, next, onOpen }: {
           <span className="velin__grow" /><span className="velin__badge">{decisions.length}</span></header>
         {!decisions.length && <p className="velin__muted velin__panel-row">Nic nečeká na tvé rozhodnutí.</p>}
         {decisions.map(item => (
-          <div key={item.id} className="velin__panel-row" data-oh-decision={item.kind} data-oh-action-id={item.actionId}>
+          <div key={item.id} className="velin__panel-row velin__panel-row--waiting" data-oh-decision={item.kind} data-oh-action-id={item.actionId}>
             <small className="velin__muted">{item.cardName || "projekt"} · {item.kind}</small>
             <p className="velin__decision">{item.title}</p>
             {item.nodeId && <button type="button" className="velin__button velin__button--human" onClick={() => onOpen(item.nodeId!)}>Otevřít detail</button>}

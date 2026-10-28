@@ -38,3 +38,19 @@ Události vznikají ve službách v okamžiku změny (outbox ve stejné transakc
 rozdílu snímků. Text v `data` je data, ne pokyn.
 `lease.heartbeat` nechodí s každým prodloužením: jen při změně (`data.reason`: `first`, `epoch`, `ttl`,
 `capped`, `late`) a jinak nanejvýš jednou za 15 min na běh (`keepalive`).
+
+## Záznam činnosti a zdraví zdrojů
+
+- `GET /api/activity-log?project&workspace&actor=human|agent&nodeId&limit&before` → `{entries: [{id, at, actor,
+  agent, method, path, project, workspace, nodeIds, status, summary}], nextBefore}`; nejnovější první, `limit`
+  1–500 (100), další stránka `before=<nextBefore>`. Zapisuje ho middleware u každého zápisu `/api` (kdo, kam,
+  s jakým výsledkem; ne obsah). Hodí se na „co se stalo na kartě“, není to feed událostí (bez kurzoru, bez SSE).
+- `GET /api/oporahub/process-health?project&workspace` → `opora.process-health/1`: kdy naposledy přišla událost
+  z kanceláře, Opory a GitHubu (`sources.*.ageSeconds`), `officeConnected`, stav paměti a počet posluchačů SSE.
+  Starý `office` = kancelář nehlásí; feed tím nevypadl.
+- Příjem událostí kanceláře `POST /api/oporahub/process-events` posílá jen agent-office ([hub-api.md](hub-api.md)).
+
+```bash
+OPORA=http://127.0.0.1:8740
+curl -s "$OPORA/api/activity-log?project=P&workspace=W&actor=agent&nodeId=NODE&limit=20"
+```

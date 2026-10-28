@@ -846,3 +846,54 @@ def test_section_moves_is_part_of_the_page_assignment_and_reaches_the_component_
         # Smazání `moves` vrátí přesně původní otisk: nic se nedoplňuje.
         assert {node: data["contextVersion"] for node, data in save(client, None).items()} == {
             node: data["contextVersion"] for node, data in plain.items()}
+
+
+def test_guards_carry_at_most_three_open_findings_of_the_card_and_keep_the_context_version(tmp_path):
+    """Kontrakt strazci §5: `guards` mimo `specification`, bez strážce mapy (díry mapy nese `holes`)."""
+    import time
+
+    from backend.canvas.strazci import findings
+
+    def item(key, node):
+        return {"key": key, "rule": "work.no-heartbeat", "severity": "warn", "message": f"Nález {key}", "nodeId": node}
+
+    app = create_app(tmp_path / "data")
+    with TestClient(app, base_url=ORIGIN) as client:
+        seed_graph(client)
+        plain = brief(client).json()
+        assert plain["guards"] == []
+        service, now = app.state.service, time.time()
+        findings.apply(service, "draft", "mapa", [{**item("map:1", "focus"), "rule": "page.no-goal"}], now)
+        findings.apply(service, "draft", "prace", [item(f"w:{i}", "focus") for i in range(4)] + [item("w:x", "dalsi")], now)
+        guarded = brief(client).json()
+        assert len(guarded["guards"]) == 3
+        assert all(entry["rule"] == "work.no-heartbeat" and set(entry) == {"rule", "message"} for entry in guarded["guards"])
+        assert guarded["contextVersion"] == plain["contextVersion"]
+        assert "guards" not in guarded["specification"]
+
+
+def test_card_bound_to_a_domain_model_unit_carries_the_model_target(tmp_path):
+    """docs/studio.md §4a: uzel MODELu domény navázaný na kartu → `architecture.model` (cíl, ne měření)."""
+    from backend.project.architecture.node_model_target import SOURCE
+
+    def card(identifier, parent=None, **extra):
+        return {"id": identifier, "parentId": parent, "kind": "node", "name": identifier, "purpose": "", "x": 0, "y": 0,
+                **extra}
+
+    graph = {"nodes": [card("app", kind="sector", site={"kind": "application", "environments": []}),
+                       card("kontakt", "app", site={"kind": "page", "path": "/kontakt"}), card("formular", "kontakt"),
+                       card("api", "app")], "edges": []}
+    unit = {"id": "svc", "type": "service", "name": "Service", "position": {"x": 0, "y": 0},
+            "config": {"endpoint": "", "model": {"capacity": 900}}, "binding": {"nodeId": "api"}}
+    model = {"schema": "opora.studio-model/1", "domainId": "app", "revision": 0, "nodes": [unit], "edges": []}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        view = client.get("/api/view", params=SCOPE).json()
+        saved = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": graph, "digest": view["digest"]})
+        assert saved.status_code == 200, saved.text
+        assert "architecture" not in brief(client, "api").json()  # mimo stránku a bez vazby žádný výřez
+        put = client.put("/api/studio/model", params={"project": "draft", "domain": "app"}, headers=HEADERS, json=model)
+        assert put.status_code == 200, put.text
+        assert brief(client, "api").json()["architecture"]["model"] == {
+            "source": SOURCE, "domain": "app", "revision": 1, "type": "service", "name": "Service",
+            "targets": {"capacity": 900}}
+        assert "model" not in brief(client, "formular").json()["architecture"]

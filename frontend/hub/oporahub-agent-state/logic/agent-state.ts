@@ -26,11 +26,21 @@ export type AgentCardStage = {
   /** Jediná definice hotovo (šest booleanů + `gate`, `done`, `missing`); čte ji detail karty. */
   dod?: unknown;
   lease?: { holder: string | null; expiresAt: string; epoch: number | null } | null;
+  /** Otevřené nálezy strážců na kartě (bez strážce mapy); karta bez nálezu pole nemá. */
+  guardFindings?: { count: number; severity: GuardSeverity };
 };
 export type AgentDecision = { id: string; kind: string; targetId: string | null; title: string; actionId: string };
 export type AgentGap = { id: string; stage: string; reason: string };
 /** Díra mapy jako práce (docs/architektura-pro-agenty.md §5.1); `nodeId` = karta, na které se řeší. */
 export type AgentMapGap = { rule: string; message: string; nodeId: string; journeyId?: string; edgeId?: string; owner: "agent" | "human" };
+export const GUARD_SEVERITIES = ["block", "warn", "info"] as const;
+export type GuardSeverity = typeof GUARD_SEVERITIES[number];
+/** Otevřený nález strážce (docs/strazci.md §5); `mapa` tu není, díry mapy jsou jen v `mapGaps`. */
+export type AgentGuardFinding = {
+  key: string; guard: string; rule: string; severity: GuardSeverity; message: string; nodeId?: string; journeyId?: string;
+  executionId?: string; workspaceId: string; firstSeen: string; lastSeen: string;
+};
+export type AgentGuards = { open: Record<GuardSeverity, number>; findings: AgentGuardFinding[] };
 export type AgentHeads = {
   acceptedHead: string | null; acceptedRevision: string | null; graphDigest: string; workingDiffers: boolean;
   contextVersion: string; budgetPolicyHead: Record<string, string>;
@@ -43,6 +53,8 @@ export type AgentState = {
   cards?: AgentCardStage[];
   /** Díry mapy (nejvýš 50) a jejich celkový počet; starší server pole nemá. */
   mapGaps?: AgentMapGap[]; mapGapsTotal?: number;
+  /** Otevřené nálezy strážců (nejvýš 20, block první) a jejich počty; starší server pole nemá. */
+  guards?: AgentGuards;
 };
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -72,13 +84,21 @@ const cardExtras = (value: Record<string, unknown>) => optional(value.kind, text
   && optional(value.topoIndex, count) && optional(value.nextActionId, text)
   && optional(value.gate, item => object(item) && text(item.status) && nullableText(item.rule))
   && (value.steps === undefined || (object(value.steps) && count(value.steps.total) && count(value.steps.done) && nullableText(value.steps.current)))
-  && optional(value.lease, item => object(item) && nullableText(item.holder) && text(item.expiresAt));
+  && optional(value.lease, item => object(item) && nullableText(item.holder) && text(item.expiresAt))
+  && optional(value.guardFindings, item => object(item) && count(item.count) && GUARD_SEVERITIES.includes(item.severity as GuardSeverity));
 const cardStage = (value: unknown): value is AgentCardStage => object(value) && text(value.nodeId)
   && STAGE_IDS.includes(value.stage as StageId) && HEALTHS.includes(value.health as Health) && text(value.reason)
   && nullableText(value.executionId) && cardExtras(value);
 const gap = (value: unknown): value is AgentGap => object(value) && text(value.id) && text(value.stage) && text(value.reason);
 const mapGap = (value: unknown): value is AgentMapGap => object(value) && text(value.rule) && text(value.message) && text(value.nodeId)
   && optional(value.journeyId, text) && optional(value.edgeId, text) && (value.owner === "agent" || value.owner === "human");
+const guardFinding = (value: unknown): value is AgentGuardFinding => object(value) && text(value.key) && text(value.guard)
+  && text(value.rule) && GUARD_SEVERITIES.includes(value.severity as GuardSeverity) && text(value.message)
+  && optional(value.nodeId, text) && optional(value.journeyId, text) && optional(value.executionId, text)
+  && text(value.workspaceId) && text(value.firstSeen) && text(value.lastSeen);
+const guards = (value: unknown): value is AgentGuards => object(value) && object(value.open)
+  && GUARD_SEVERITIES.every(severity => count((value.open as Record<string, unknown>)[severity]))
+  && Array.isArray(value.findings) && value.findings.every(guardFinding);
 
 /** Ověří tvar a rozsah; dokument jiného projektu nebo prostoru se nikdy nezobrazí. */
 export function parseAgentState(raw: unknown, project: string, workspace: string): AgentState {
@@ -98,6 +118,7 @@ export function parseAgentState(raw: unknown, project: string, workspace: string
   if (raw.cards !== undefined && (!Array.isArray(raw.cards) || !raw.cards.every(cardStage))) throw new Error("Stav pro agenty má neplatné etapy karet.");
   if ((raw.mapGaps !== undefined && (!Array.isArray(raw.mapGaps) || !raw.mapGaps.every(mapGap)))
     || (raw.mapGapsTotal !== undefined && !count(raw.mapGapsTotal))) throw new Error("Stav pro agenty má neplatné díry mapy.");
+  if (raw.guards !== undefined && !guards(raw.guards)) throw new Error("Stav pro agenty má neplatné nálezy strážců.");
   if (!text(raw.generatedAt) || typeof raw.truncated !== "boolean") throw new Error("Stav pro agenty je neúplný.");
   return raw as unknown as AgentState;
 }

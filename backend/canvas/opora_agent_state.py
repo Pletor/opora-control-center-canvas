@@ -13,6 +13,7 @@ from backend.canvas import opora_agent_state_cards as card_stages
 from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas import opora_agent_state_events as outbox
 from backend.canvas import opora_agent_state_formal as formal
+from backend.canvas import opora_agent_state_guards as guards_state
 from backend.canvas import opora_agent_state_lease as lease_state
 from backend.canvas import opora_agent_state_map_gaps as map_gaps
 from backend.canvas import opora_agent_state_pulls as pulls
@@ -133,6 +134,7 @@ class AgentState:
             gates = card_done.gates_by_execution(db, project, workspace) if linked else {}
             cursor, last_events = outbox.read(db, project, workspace)  # Same lock + connection = same snapshot.
             holes, holes_total = map_gaps.read(canvas, project)  # One map check over the accepted architecture.
+            alerts = guards_state.open_findings(db, project, workspace)  # Guard findings without map holes.
         dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
@@ -157,6 +159,7 @@ class AgentState:
         entries = outbox.attach(lease_state.attach(plan_steps.attach(dag_state.enrich(
             card_stages.project(cards, accepted, latest, claims, linked, reviewing, now), dag, actions, reviewing),
             cards, linked, gates), latest, now), last_events)
+        entries = guards_state.attach(entries, guards_state.by_card(alerts))
         shown, total, next_offset = card_stages.page(entries, cards_offset)  # cap only cards[], never actions
         return {"schemaVersion": SCHEMA_VERSION,
                 "generatedAt": datetime.fromtimestamp(now, UTC).isoformat(timespec="seconds"),
@@ -168,7 +171,7 @@ class AgentState:
                                key=lambda item: item["id"]),
                 "cards": shown, "truncated": next_offset is not None or cards_offset > 0,
                 "cardsTotal": total, "cardsNextOffset": next_offset, "eventsCursor": cursor,
-                "mapGaps": holes, "mapGapsTotal": holes_total}
+                "mapGaps": holes, "mapGapsTotal": holes_total, "guards": guards_state.summary(alerts)}
 
     @staticmethod
     def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None,
