@@ -10,7 +10,9 @@ Kontrakty: `docs/oporahub.md` (změny zadání), `docs/oporahub-graph-proposals.
 
 1. **Stav a hlava.** `opora_hub.py state` (`heads.acceptedHead`, `graphDigest`); kontext návrhů
    `GET /api/oporahub/graph-proposals/context` a `GET /api/oporahub/changesets/context`.
-   Bez přijatého základu (`accept_baseline`) nic nepřevezmeš: první základ přijímá člověk.
+   Bez přijatého grafu plánu nic nepřevezmeš (běh v2 vrátí `409 graph_acceptance_required`): první ready akce je
+   `propose_graph` (prázdný návrh převezme pracovní graf i zadání karet), pak její `accept`; přijímá člověk, při
+   `autonomy.full` agent (`opora_hub.py act --action-id ID`). `accept_baseline` (jen zadání) je starší cesta.
 2. **Vrstvy a sektory.** Rozděl projekt na vrstvy (např. `db`, `be`, `fe`, `infra`, `docs`)
    a uvnitř na sektory (uzel `kind: "sector"`); sektor = jedna odpovědnost s vlastním cílem.
 3. **Karty.** Karta = uzel `kind: "node"` s rodičem `parent` (sektor). Druh i vrstvu uváděj výslovně:

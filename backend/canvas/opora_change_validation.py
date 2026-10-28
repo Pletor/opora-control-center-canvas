@@ -2,13 +2,16 @@
 import re
 
 from backend.canvas.graph import digest, valid_id
+from backend.canvas.payload_errors import invalid
 from backend.editor.node.node_specs import validate_payload
 
 
 def scope(payload):
     pid, wid = payload.get("project"), payload.get("workspace")
     if not all(valid_id(value) and len(value) <= 64 for value in (pid, wid)):
-        raise ValueError("Neplatný projekt nebo pracovní prostor.")
+        # Stav 409 zůstává (sdílí ho desítky cest a jejich klienti); text říká, kde pole chybí.
+        raise ValueError("Neplatný projekt nebo pracovní prostor: zápis OporaHubu nese project a workspace"
+                         " v těle JSON, čtení v dotazu (?project=…&workspace=…).")
     return pid, wid
 
 
@@ -22,7 +25,8 @@ def identifier(value, *, nullable=False):
 def subject(payload):
     value = payload.get("subject")
     if not isinstance(value, str) or not value.strip() or len(value) > 200 or "\0" in value:
-        raise ValueError("Předmět návrhu musí mít 1 až 200 znaků.")
+        raise invalid("", "subject", "Předmět návrhu musí mít 1 až 200 znaků" + ("; pole chybí." if value is None else "."),
+                      "neprázdný text do 200 znaků: co návrh nebo přijetí mění", {"subject": "Výchozí zadání stránky"})
     return value.strip()
 
 

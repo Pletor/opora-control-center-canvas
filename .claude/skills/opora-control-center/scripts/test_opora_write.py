@@ -114,11 +114,21 @@ def test_conflict_prints_conflict_and_exits_3(net, capsys):
     assert len(calls) == 1
 
 
-def test_other_http_error_exits_1(net, capsys):
+def test_invalid_payload_exits_6_with_status_and_hint(net, capsys):
     _, behaviour = net
     behaviour['status'] = 422
+    assert opora_write.main(['/api/graph', *SCOPE, '--json', '{}']) == 6
+    err = json.loads(capsys.readouterr().err)
+    assert err['ok'] is False and err['status'] == 422 and err['error'] == 'Revize nesouhlasí.'
+    assert 'field' in err['hint']
+
+
+def test_other_http_error_exits_1_with_hint(net, capsys):
+    _, behaviour = net
+    behaviour['status'] = 500
     assert opora_write.main(['/api/graph', *SCOPE, '--json', '{}']) == 1
-    assert json.loads(capsys.readouterr().err)['error'] == 'HTTP 422'
+    err = json.loads(capsys.readouterr().err)
+    assert err['status'] == 500 and err['hint']
 
 
 @pytest.mark.parametrize('base', ['https://127.0.0.1:8741', 'http://example.com:80', 'http://127.0.0.1',
@@ -213,7 +223,10 @@ def test_documented_write_routes_match_the_allowlist():
     missing = sorted(route for route in opora_write.WRITE_ROUTES if f"`{route}`" not in text)
     assert not missing, missing
     hub = (skill / "references" / "hub-api.md").read_text(encoding="utf-8")
-    assert [route for route in opora_write.HUB_AGENT_ROUTES if route not in hub] == []
+    # hub-api.md pojmenovává ID segment (`{identifier}`, `{conflict_id}`, …), allowlist píše `{id}`.
+    import re
+    assert [route for route in opora_write.HUB_AGENT_ROUTES
+            if not re.search(re.escape(route).replace(re.escape('{id}'), r'\{[a-z_]+\}') + '`', hub)] == []
     router = (skill / "SKILL.md").read_text(encoding="utf-8")
     assert "WRITE_ROUTES" in router and "HUB_AGENT_ROUTES" in router
 

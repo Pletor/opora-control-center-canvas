@@ -32,13 +32,36 @@ from backend.canvas.opora_graph_proposals import OporaGraphProposals
 from backend.canvas.opora_process_sync import ProcessSync
 from backend.canvas.opora_proposal_review_context import proposal as native_proposal
 from backend.canvas.opora_proposal_risk import classify_risk
+from database.repositories.opora_changesets import ChangesetRepository
 from database.repositories.opora_executions import Executions
 
 SCHEMA_VERSION = 1
 _KINDS = {"graph-additions": "graph-addition", "graph-changes": "graph-change",
           "content-proposal": "content"}
+# Výchozí předmět, aby `preconditions` akce stačily jako celé tělo (doplní se jen project a workspace).
+BASELINE_SUBJECT = "Výchozí zadání"
+GRAPH_SUBJECT = "Přijatý graf plánu pro běhy karet"
 _PATHS = {"spec": "/api/oporahub/changesets/{}", "graph-addition": "/api/oporahub/graph-proposals/{}",
           "graph-change": "/api/oporahub/graph-proposals/{}", "content": "/api/oporahub/content-changes/{}"}
+
+
+def _adoption(kind, item):
+    """Pole přijetí, která server vyžaduje navíc k hlavě: převzetí zobrazeného základu (nebo výslovné null)."""
+    if kind == "graph-addition":
+        return {"adoptBaseGraphDigest": item.get("graphDigest") if item.get("parentGraphManifestId") is None else None}
+    if kind == "graph-change":
+        return {"adoptBaseGraphDigest": None}
+    if kind == "content":
+        return {"adoptBaseContentDigest": item.get("baseContentDigest") if item.get("requiresBaseContentAdoption")
+                else None}
+    return {}
+
+
+def graph_manifest_missing(db, project, workspace, accepted, documents):
+    """Přijatá revize bez grafu plánu: běh v2 (sparse kontext) ji nepřevezme, nejdřív návrh grafu a jeho přijetí."""
+    if not documents:
+        return False
+    return accepted is None or not ChangesetRepository(db, project, workspace).read(accepted).get("graphManifestId")
 
 
 def _epoch(value):
@@ -85,10 +108,11 @@ class AgentState:
                 if item["accepted"] or item["id"] in superseded:
                     continue
                 kind = _KINDS.get(item.get("kind"), "spec")
-                level = classify_risk(kind, native_proposal(db, project, workspace, kind, item["id"]))["level"]
+                full = native_proposal(db, project, workspace, kind, item["id"])
+                level = classify_risk(kind, full)["level"]
                 pending.append({"kind": kind, "id": item["id"], "subject": item.get("subject") or "",
                                 "createdAt": _epoch(item.get("createdAt")), "risk": rules.RISK[level],
-                                "stale": item["parentRevision"] != accepted})
+                                "stale": item["parentRevision"] != accepted, "adopt": _adoption(kind, {**full, **item})})
         return sorted(pending, key=lambda item: (item["createdAt"], item["id"]))
 
     def executions(self, db, project, workspace):
@@ -134,6 +158,7 @@ class AgentState:
             blocking = card_done.journeys_by_card(canvas, project, workspace, list(cards))
             cards = {key: {**item, "journeys": blocking.get(key, [])} for key, item in cards.items()}
             pending = self.proposals(db, project, workspace, accepted)
+            needs_graph = graph_manifest_missing(db, project, workspace, accepted, context["documents"])
             latest = self.executions(db, project, workspace)
             claims = self.claims(project, workspace, process["items"])
             linked = pulls.read(canvas, project, workspace)
@@ -157,7 +182,7 @@ class AgentState:
         to_review = [item for item in reported if item["acceptedRevision"] == accepted
                      and not cards.get(item["nodeId"], {}).get("doneConfirmed")]
         actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards,
-                                          reviewing, gates, local)
+                                          reviewing, gates, local, needs_graph)
         actions, decisions = formal.merge(actions, decisions, attention, project, workspace)
         # One priority list (rules.VERB_ORDER) over core, gate, formal, recurring and auto-rebase actions.
         actions = rules.ordered([*actions, *promotions, *rebasing_state.actions(project, workspace, rebasing)])
@@ -196,7 +221,7 @@ class AgentState:
 
     @staticmethod
     def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None,
-                gates=None, local=None):
+                gates=None, local=None, needs_graph=False):
         accepted, graph, actions, decisions = context["acceptedHead"], context["graphDigest"], [], []
         query = urlencode({"project": project, "workspace": workspace})
 
@@ -208,9 +233,15 @@ class AgentState:
         if accepted is None and context["documents"]:
             action = _action("accept_baseline", "POST", "/api/oporahub/baselines", None, context["specificationsVersion"],
                              {"expectedAcceptedHead": None, "expectedGraphDigest": graph,
-                              "expectedSpecificationsVersion": context["specificationsVersion"]}, "human_only")
+                              "expectedSpecificationsVersion": context["specificationsVersion"],
+                              "subject": BASELINE_SUBJECT}, "human_only")
             actions.append(action)
             decide("accept_baseline", None, "Přijmout výchozí zadání", action)
+        if needs_graph and not any(item["kind"] == "graph-addition" for item in pending):
+            # Běh v2 potřebuje přijatý graf plánu; prázdný návrh převezme pracovní graf i zadání karet (docs/oporahub-agent-state.md).
+            actions.append(_action("propose_graph", "POST", "/api/oporahub/graph-proposals", None, accepted or graph,
+                                   {"parentRevision": accepted, "expectedGraphDigest": graph, "subject": GRAPH_SUBJECT,
+                                    "plan": {"nodes": [], "edges": []}}))
         for item in pending:
             path = _PATHS[item["kind"]].format(item["id"])
             if item["stale"]:
@@ -224,6 +255,7 @@ class AgentState:
                 expected["reviewedChangesId"] = item["id"]
             if item["kind"] == "content":
                 expected["reviewedProposalId"] = item["id"]
+            expected |= item.get("adopt", {})
             action = _action("accept", "POST", path + "/accept", item["id"], accepted, expected, "human_only")
             actions.append(action)
             decide("accept_" + item["risk"], item["id"], item["subject"], action, item["createdAt"])

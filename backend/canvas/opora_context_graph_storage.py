@@ -2,6 +2,7 @@
 from backend.canvas.architecture_graph import split
 from backend.canvas.graph import encode
 from backend.canvas.opora_graph_execution import require_accepted_graph
+from backend.canvas.payload_errors import NextStep
 from backend.canvas.workspace_graph_storage import save_authoritative
 from database.repositories.opora_changesets import ChangesetRepository
 from database.repositories.opora_context_events import enroll as enroll_journal
@@ -40,8 +41,15 @@ def promote_sql_draft(canvas, project, workspace, accepted_head):
     if not db.in_transaction:
         raise RuntimeError("Draft SQL promotion requires caller transaction.")
     accepted = ChangesetRepository(db, project, workspace)
-    if accepted.head() != accepted_head or not accepted.read(accepted_head).get("graphManifestId"):
-        raise ValueError("SQL promotion requires the current accepted graph manifest.")
+    if accepted_head is None or accepted.head() != accepted_head or not accepted.read(accepted_head).get("graphManifestId"):
+        raise NextStep(
+            "Převzetí karty potřebuje přijatý graf plánu; přijatá revize "
+            + (str(accepted_head) if accepted_head else "zatím není") + " nemá manifest grafu plánu (graphManifestId; je jen zadání karet).",
+            code="graph_acceptance_required",
+            hint="Proveď akci propose_graph z agent-state (POST /api/oporahub/graph-proposals s prázdným plánem "
+                 "{nodes: [], edges: []} nad acceptedHead; když už návrh grafu čeká, tento krok vynech), pak akci "
+                 "accept návrhu (POST /api/oporahub/graph-proposals/{id}/accept, tělo = project, workspace a "
+                 "preconditions akce); potom claim znovu. Skriptem: opora_hub.py act --action-id ID.")
     authority = WorkspaceGraphAuthority(db, project, workspace)
     row = authority.read()
     local = project == "draft" or canvas.project_hub.source_info(canvas.row("projects", project))["sourceKind"] in ("local", "empty")

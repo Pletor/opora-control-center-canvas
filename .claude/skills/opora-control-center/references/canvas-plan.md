@@ -72,7 +72,13 @@ Pravidla dávky:
   stránku server odmítne (409 s důvodem); sekci, kterou neznáš, vynech.
 - `site` stránky smí nést sekce `[{id, role, name, intent, moves?}]` (1–20; `intent` 0–200). `moves` (1–120) říká,
   čím sekce posouvá zákazníka v kroku cesty („Rozptýlí obavu ze spamu: jen e-mail.“); neznáš-li ho, vynech, prázdné
-  server odmítne (409). Sekce jsou zadání stránky: jejich změna mění `contextVersion` stránky i komponent pod ní.
+  server odmítne (422). Sekce jsou zadání stránky: jejich změna mění `contextVersion` stránky i komponent pod ní.
+- Aplikace (sektor): `site: {kind: "application", environments: [{name, host}], healthPath?, journeys?}`; pole je
+  `environments` (seznam), ne `environment`. Stránka (uzel pod aplikací): `site: {kind: "page", path, goal?, feel?,
+  navLabel?, sections?}`. Cesta `journeys: [{id, name, steps: [{id, page, via?, label?, shift?, objection?}]}]`
+  (2–30 kroků): `page` je **ref stránky v dávce** (server ho přeloží na id), `@id` existující stránky, nebo `nav`
+  jen u prvního kroku; URL cesta (`/pribeh`) tam nepatří. Další krok nese `via: {do: "click"|"submit", text?, section?}`.
+- Neplatný `site` vrací 422 s `field` (např. `site.journeys[0].steps[1].page`), `expected` a platným `example`.
 - Typ karty je předpona názvu: `[task]`, `[research]`, `[prototype]`, `[grilling]`, `[gate]`.
 - GOAL: `goal_mode: "until_checks_pass"` + aspoň jedna `checks`. Po vytvoření mění `checks`,
   `goal_mode` a `gateNodeId` jen člověk.

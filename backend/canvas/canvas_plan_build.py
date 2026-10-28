@@ -95,6 +95,7 @@ def build(plan, graph, state):
             node["gateNodeId"] = resolve(item["gateNodeId"], item["ref"])
         if "memberOf" in item:
             node["memberOf"] = resolve(item["memberOf"], item["ref"])
+    _journey_pages(built, existing)
     extend_cards(built, extensions, existing)
     check_sections(built)
     if built.layout_moves:
@@ -119,6 +120,28 @@ def build(plan, graph, state):
         })
         built.state_changed = True
     return built
+
+
+def _journey_pages(built, existing):
+    """Krok cesty v dávce smí na stránku ukázat jejím `ref` (nebo `@id`); uloží se id uzlu jako při zápisu mapy.
+
+    Bez toho by agent musel stránku nejdřív založit a cesty dopsat druhým zápisem (dávka id předem nezná)."""
+    def page_id(value):
+        if isinstance(value, str) and value != "nav" and value in built.refs:
+            return built.refs[value]
+        if isinstance(value, str) and value.startswith("@") and value[1:] in existing:
+            return value[1:]
+        return value
+
+    for node in built.nodes:
+        site = node.get("site")
+        if not isinstance(site, dict) or not isinstance(site.get("journeys"), list):
+            continue
+        node["site"] = {**site, "journeys": [
+            {**journey, "steps": [{**step, "page": page_id(step.get("page"))} if isinstance(step, dict) and "page" in step
+                                  else step for step in journey["steps"]]}
+            if isinstance(journey, dict) and isinstance(journey.get("steps"), list) else journey
+            for journey in site["journeys"]]}
 
 
 def _node(built, item, parents, kinds, existing):

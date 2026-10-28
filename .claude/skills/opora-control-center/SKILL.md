@@ -41,6 +41,28 @@ absolutní cesta k tomuto skillu (řádek „Base directory for this skill“), 
 Tunel na vzdálený počítač: jen čtení (`opora_read.py --api-base https://<host>`, token jen
 v `OPORA_ACCESS_TOKEN`). Zápisové skripty mluví jen s loopbackem.
 
+## Recept: stavba stránky (plná autonomie, projekt bez GitHubu)
+
+`H` = `python "<SKILL_DIR>/scripts/opora_hub.py"`, `A` = `.../opora_api.py`, `W` = `.../opora_write.py`, vždy
+s `--project P --workspace W`. Pomocné soubory (payloady, poznámky) drž **mimo repo** (`~/.opora/drafts`),
+rozhodnutí a úvahy zapisuj do OPORY (deník, `--notes`, `summary`), ne do `.md` v repu. Vlastní HTTP klient netřeba.
+
+1. `H state` (+ `A GET /api/view` pro `digest`) – co je na plátně a co je `ready`.
+2. `W /api/canvas-plan --json-file F --dry-run`, pak bez `--dry-run`: aplikace se `site.environments`
+   a `site.journeys` (krok `page` = `ref` stránky v dávce), stránka se `site.feel` a `site.sections`,
+   komponenta s `card.section` a `spec.steps`: obsah → **vzhled podle `site.feel`** (styl, rytmus) →
+   **přístupnost** (sémantika, focus, kontrast) → **prázdné a chybové stavy** → **testy kritérií**.
+3. `H act --action-id ID` na `propose_graph`, pak na `accept` (výstup nese `next` = další ready akce).
+4. `H pick --verb claim` → `H claim --action-id ID` → `H assignment --execution E`.
+5. Po každém kroku commit a `H step --execution E --step-id S --status done --notes T --check "npm test"`.
+6. `H results --execution E --result-file F` (`summary`, `stepResults`, `selfChecks` s `headSha`).
+7. `H local-merge --execution E --commit SHA`; `A POST /api/check-run --json '{"scope":"<nodeId>",...}'`.
+8. Cesta: `uv run python tools/journey_run.py --project P --journey J` ([journey-run.md](references/journey-run.md)).
+9. `H act --action-id ID` na `close_card` (nebo `H close-card --card ID --note T`).
+
+Chyba = JSON `{ok:false, status, error, hint}`: kód 6 (422) nese `field`, `expected`, `example` – oprav jen to
+pole; kód 3 (409) nese `hint` s dalším krokem (často `act` na jinou akci); kód 5 = jen člověk.
+
 ## Hlavní smyčka agenta
 
 Detail a tvar výsledku: [hub-loop.md](references/hub-loop.md).
@@ -58,7 +80,7 @@ Detail a tvar výsledku: [hub-loop.md](references/hub-loop.md).
 8. Konec. PR otevře Office, review a merge běží dál, kartu uzavře člověk. V projektu bez GitHubu
    (`dod.gate: "local"`) pokračuj commitem a `local-merge` ([hub-loop.md](references/hub-loop.md)).
 
-409 kdekoli = `state --fresh` a nové ID akce; stejný požadavek znovu nepomůže.
+409 kdekoli = přečti `hint`, `state --fresh` a nové ID akce; stejný požadavek znovu nepomůže. 422 = oprav `field`.
 
 Karta vložená z knihovny nese v `node-brief` (klíč `node`) `fetch` = co si stáhnout do kontextu (soubory a dokumenty) a `fill` = která pole karty vyplnit (díry, např. `sourceRef`, `spec.acceptance`).
 
@@ -79,8 +101,8 @@ Karta vložená z knihovny nese v `node-brief` (klíč `node`) `fetch` = co si s
 
 Projekt má přepínač **plná autonomie agentů** (výchozí vypnuto, `GET /api/project-settings` → `agentAutonomy`).
 Zapíná ho jen člověk v UI; agent si ho nikdy nezapne sám. Poznáš ho podle `autonomy.full` v `agent-state`
-a v `node-brief`. Když je `true`, smíš v projektu i akce níže „jen člověk“ (přímo HTTP s `X-Opora-Actor`;
-`opora_write.py` je odmítá dál), kromě §4: přepínač sám, `/api/access/*`, připojení a odpojení repozitáře
+a v `node-brief`. Když je `true`, smíš v projektu i akce níže „jen člověk“ (`opora_hub.py act` na `ready`
+akci z agent-state, jinak `opora_api.py METHOD PATH`), kromě §4: přepínač sám, `/api/access/*`, připojení a odpojení repozitáře
 a složky, smazání projektu, klíče (`/api/assistant/jev-key`, `/api/memory/provision`). Původce zůstává
 agent, záznam činnosti nese `autonomy: "full"`. Detail: [autonomie.md](references/autonomie.md).
 
@@ -128,7 +150,9 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | přesná cesta a kdo ji smí | tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
 | jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy, asistent) | tabulky cest | [routy.md](references/routy.md) |
 | přijmout, uzavřít, nastavit bez člověka | plná autonomie (`autonomy.full`) | [autonomie.md](references/autonomie.md) |
-| ohlásit sloučení v projektu bez GitHubu | `POST /api/oporahub/executions/{identifier}/local-merge` | [hub-loop.md](references/hub-loop.md) |
+| ohlásit sloučení v projektu bez GitHubu | `opora_hub.py local-merge` (`POST /api/oporahub/executions/{identifier}/local-merge`) | [hub-loop.md](references/hub-loop.md) |
+| provést akci z agent-state (i lidskou při `autonomy.full`) | `opora_hub.py act --action-id ID` | [hub-loop.md](references/hub-loop.md) |
+| zavolat cestu bez vlastního příkazu | `opora_api.py METHOD PATH [--json-file F] [--query k=v]` | [autonomie.md](references/autonomie.md) |
 | spustit, zastavit, restartovat Oporu | `uv run opora --no-open`, `opora_read.py status` | [provoz.md](references/provoz.md) |
 | přehled plátna, hledání | `opora_read.py view`, `search`, `work-overview` | [api.md](references/api.md) |
 | zpráva jiné kartě, deník, obrázky karty, strom zdrojů | `/api/desktop-v3/agent-messages`, `/api/node-journal`, `/api/workspace/tree` | [api.md](references/api.md) „Karta, zdroje a projekt“ |
@@ -145,7 +169,8 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 
 Skripty: `opora_hub.py` (stav, akce, běh a slot review; tokeny jen v souborech 0600),
 `opora_write.py` (zápisy plátna `WRITE_ROUTES` a agentní cesty OporaHubu `HUB_AGENT_ROUTES`;
-lidské cesty a cesty s tokenem odmítne), `opora_read.py` (čtení), `opora_save.py`, `opora_cycle.py`.
+lidské cesty a cesty s tokenem odmítne), `opora_api.py` (libovolná cesta s identitou agenta, výjimky §4 a tokeny
+odmítne), `opora_read.py` (čtení), `opora_save.py`, `opora_cycle.py`.
 
 ## Pravidla efektivity
 
@@ -153,7 +178,8 @@ lidské cesty a cesty s tokenem odmítne), `opora_read.py` (čtení), `opora_sav
 - Akci vybírej podle `id`, ne podle textu; po odmítnutí počkej na nové `id`.
 - Čti nejmenší cíl (`--card`, `assignment`), `--raw` jen pro cíl, který opravdu potřebuješ celý.
 - Víc změn plánu = jeden návrh (graf nebo změna zadání), ne desítky zápisů. Delší payload `--json-file`.
-- Kód 3 = HTTP 409 (změněný stav **i** neplatný payload): přečti `detail`, načti znovu, pošli jen svou změnu.
+- Kód 3 = HTTP 409 (změněný stav): přečti `hint`, načti znovu, pošli jen svou změnu. Kód 6 = HTTP 422
+  (neplatné tělo): `field`, `expected`, `example` řeknou, co opravit.
 - Kód 5 = blokované, lidské nebo chybí identita: neobcházej, napiš to člověku.
 - Po zápisu ověř čtením (`state`, detail návrhu). „ok“ ze skriptu není důkaz.
 

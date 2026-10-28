@@ -8,10 +8,15 @@ Běh:    `claim --action-id ID` (čerstvý agent-state → akce `claim` ve stavu
         `assignment`, `heartbeat`, `step --step-id S --status done|failed|skipped --notes T`
         (průběžný krok hned po jeho commitu), `results --result-file F`, `release`.
 Review: `review-claim`, `review-heartbeat`, `review-submit --submission-file F`, `review-release`.
+Akce:   `act --action-id ID` provede akci z agent-state přesně podle `method/path/preconditions` (propose_graph,
+        accept_baseline, accept, rebase, claim, review, close_card, verification.fix, review.claim); lidské akce jen
+        když je agent-state při `autonomy.full` nabízí jako `ready`. Výstup nese `next` = další ready akce.
+        `local-merge --execution E --commit SHA` (projekt bez GitHubu), `close-card --card ID [--note T]`.
 
 Token běhu i slotu review se nikdy nevypisuje: leží v soukromém souboru (0600) ve složce
 `OPORA_HUB_STATE_DIR` (výchozí `~/.opora/hub`) a skript ho čte sám. Blokovanou akci skript
-nepošle (kód 5) a stejné ID akce se po odmítnutí neopakuje. Kód 3 = 409: znovu načti `state`.
+nepošle (kód 5) a stejné ID akce se po odmítnutí neopakuje. Kód 3 = 409: znovu načti `state`; kód 6 = 422
+(neplatné tělo, `field`/`expected`/`example`). Chybový JSON má vždy `ok`, `status`, `error` a `hint` (další krok).
 Adresa je jen loopback, bez proxy a bez přesměrování (jako `opora_write.py`).
 """
 import argparse
@@ -19,6 +24,7 @@ import json
 import os
 import sys
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -28,13 +34,19 @@ import opora_write
 
 HUB = '/api/oporahub'
 STATE_DIR_ENV = 'OPORA_HUB_STATE_DIR'
-EXIT_CONFLICT, EXIT_NONE, EXIT_REFUSED = 3, 4, 5
+EXIT_CONFLICT, EXIT_NONE, EXIT_REFUSED, EXIT_INVALID = 3, 4, 5, 6
+# Akce, jejichž `preconditions` jsou celé tělo (doplní se jen project a workspace), docs/oporahub-agent-state.md.
+BODY_VERBS = frozenset({'propose_graph', 'accept_baseline', 'accept', 'rebase', 'verification.fix'})
 STEP_STATUSES = ('done', 'failed', 'skipped')
 SLIM = {'assignment': 'omit'}
 
 
 class Refused(Exception):
-    """Krok, který agent nesmí udělat (blokovaná akce, lidská akce, chybějící feed)."""
+    """Krok, který agent nesmí udělat (blokovaná akce, lidská akce, chybějící feed); `hint` = co místo toho."""
+
+    def __init__(self, message, hint=None):
+        super().__init__(message)
+        self.hint = hint or 'Načti state --fresh a vyber ready akci podle nového id (pick).'
 
 
 def state_dir():
@@ -124,7 +136,10 @@ def find_action(state, action_id):
     if action is None:
         raise Refused(f'Akce {action_id} v aktuálním agent-state není (hlava se posunula); vyber znovu přes pick.')
     if action.get('status') != 'ready':
-        raise Refused(f'Akce {action_id} je {action.get("status")}/{action.get("blockReason")}; blokovanou akci neopakuj.')
+        reason = action.get('blockReason')
+        raise Refused(f'Akce {action_id} je {action.get("status")}/{reason}; blokovanou akci neopakuj.',
+                      'Patří člověku (bez autonomy.full); napiš mu ID akce.' if reason == 'human_only'
+                      else 'Počkej na změnu stavu (blockedBy, rozpočet) a vyber jinou ready akci (pick).')
     return action
 
 
@@ -145,7 +160,12 @@ def claim(base, project, workspace, action_id, ttl, context_version=2):
     state, _ = agent_state(base, project, workspace, fresh=True)
     action = find_action(state, action_id)
     if action.get('verb') != 'claim':
-        raise Refused(f'Akce {action_id} je {action.get("verb")}, ne claim.')
+        raise Refused(f'Akce {action_id} je {action.get("verb")}, ne claim.', 'Pro jiné akce použij act --action-id.')
+    first = next((item for item in ready_actions(state) if item.get('verb') == 'propose_graph'), None)
+    if context_version == 2 and first:
+        # Běh v2 potřebuje přijatý graf plánu; jinak server vrátí 409 graph_acceptance_required.
+        raise Refused('Převzetí potřebuje přijatý graf plánu; přijatá revize ho nemá.',
+                      f'Nejdřív act --action-id {first["id"]} (propose_graph), pak act na novou akci accept, potom claim.')
     node = action['targetId']
     scope = {'project': project, 'workspace': workspace}
     if context_version == 2:
@@ -274,6 +294,65 @@ def results(base, execution, result_file):
     return value
 
 
+# --- akce z agent-state, lokální sloučení, uzavření karty ----------------------------------------
+
+def next_ready(base, project, workspace):
+    """První ready akce po kroku (pořadí serveru), aby agent nečetl celý stav znovu."""
+    state, _ = agent_state(base, project, workspace, fresh=True)
+    found = ready_actions(state)
+    return {k: found[0].get(k) for k in ('id', 'verb', 'targetId')} if found else None
+
+
+def close_card(base, project, workspace, card, note=None):
+    """`done.confirmed` karty přes `POST /api/desktop-v3/state` (s plnou autonomií agent, jinak člověk).
+
+    Karta bez záznamu ve stavu dostane minimální uzel `{phase, criteria, steps}` jako v UI."""
+    scope = {'project': project, 'workspace': workspace}
+    _, current, _ = _call(base, 'GET', '/api/desktop-v3/state', params=scope)
+    state = current['state']
+    node = state.setdefault('nodes', {}).setdefault(card, {'phase': 'discover', 'criteria': [], 'steps': []})
+    at = datetime.now(UTC).isoformat(timespec='seconds').replace('+00:00', 'Z')
+    node['done'] = {'confirmed': True, 'by': 'agent', 'at': at,
+                    'note': note or 'Uzavřeno agentem: definice hotovo splněná (agent-state dod.missing jen human_close).'}
+    _, saved, _ = _call(base, 'POST', '/api/desktop-v3/state',
+                        {**scope, 'expectedRevision': current['revision'], 'state': state})
+    return {'cardId': card, 'revision': (saved or {}).get('revision'), 'done': node['done']}
+
+
+def local_merge(base, project, workspace, execution, commit):
+    """Ohlášení sloučení v projektu bez GitHubu (docs/lokalni-slouceni.md): commit musí být předek HEAD větve."""
+    if not commit:
+        raise ValueError('local-merge potřebuje --commit SHA sloučeného commitu (git rev-parse HEAD).')
+    _, value, _ = _call(base, 'POST', f'{HUB}/executions/{execution}/local-merge',
+                        {'project': project, 'workspace': workspace, 'commit': commit})
+    return value
+
+
+def act(base, project, workspace, action_id, ttl=900, note=None):
+    """Provede ready akci z čerstvého agent-state přesně podle `method/path/preconditions`."""
+    state, _ = agent_state(base, project, workspace, fresh=True)
+    action = find_action(state, action_id)
+    verb, scope = action['verb'], {'project': project, 'workspace': workspace}
+    if verb == 'claim':
+        result = claim(base, project, workspace, action_id, ttl)
+    elif verb == 'review.claim':
+        result = review_claim(base, project, workspace, ttl, (action.get('preconditions') or {}).get('role'))
+    elif verb == 'close_card':
+        result = close_card(base, project, workspace, action['targetId'], note)
+    elif action.get('method') == 'GET':
+        result = _call(base, 'GET', action['path'])[1]
+    elif verb in BODY_VERBS and action.get('method') == 'POST':
+        result = _call(base, 'POST', action['path'], {**scope, **(action.get('preconditions') or {})})[1]
+    elif verb == 'link_pull_request':
+        raise Refused('Vazbu PR zakládá agent-office s tokenem běhu.',
+                      'Projekt bez GitHubu (cards[].dod.gate == "local"): opora_hub.py local-merge --execution E --commit SHA.')
+    else:
+        raise Refused(f'Akci {verb} skript obecně neprovádí (tělo není jen preconditions).',
+                      'Viz references/hub-api.md pro tvar těla; pošli ho přes opora_api.py.')
+    return {'ok': True, 'action': {k: action.get(k) for k in ('id', 'verb', 'targetId', 'path')},
+            'result': result, 'next': next_ready(base, project, workspace)}
+
+
 # --- slot review ------------------------------------------------------------------------------
 
 def review_claim(base, project, workspace, ttl, role=None):
@@ -370,14 +449,22 @@ def run(args, base):
         return review_release(base, args.slot)
     if args.command == 'review-submit':
         return review_submit(base, args.slot, args.submission_file)
+    if args.command == 'act':
+        return act(base, *scope, args.action_id, args.ttl, args.note)
+    if args.command == 'local-merge':
+        return {**local_merge(base, *scope, args.execution, args.commit), 'next': next_ready(base, *scope)}
+    if args.command == 'close-card':
+        return {**close_card(base, *scope, args.card, args.note), 'next': next_ready(base, *scope)}
     return events(base, *scope, args.since, args.limit)
 
 
 COMMANDS = ['state', 'actions', 'pick', 'claim', 'assignment', 'heartbeat', 'step', 'results', 'release',
-            'review-claim', 'review-heartbeat', 'review-submit', 'review-release', 'events']
+            'review-claim', 'review-heartbeat', 'review-submit', 'review-release', 'events',
+            'act', 'local-merge', 'close-card']
 
 
 def main(argv=None):
+    opora_write.safe_console()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('command', choices=COMMANDS)
     parser.add_argument('--project', required=True)
@@ -385,11 +472,11 @@ def main(argv=None):
     parser.add_argument('--base-url', help='http://127.0.0.1:PORT; výchozí ' + opora_write.BASE_ENV)
     parser.add_argument('--raw', action='store_true', help='state: celý dokument')
     parser.add_argument('--fresh', action='store_true', help='state: bez If-None-Match')
-    parser.add_argument('--card', help='state: jen etapa této karty')
+    parser.add_argument('--card', help='state: jen etapa této karty; close-card: karta k uzavření')
     parser.add_argument('--verb', help='actions/pick: sloveso akce (claim, review.claim, …)')
     parser.add_argument('--target', help='actions/pick: targetId akce')
     parser.add_argument('--all', action='store_true', help='actions: i blokované')
-    parser.add_argument('--action-id', help='claim: stabilní ID akce z pick')
+    parser.add_argument('--action-id', help='claim/act: stabilní ID akce z pick nebo state')
     parser.add_argument('--context-version', type=int, choices=[1, 2], default=2,
                         help='claim: 2 (výchozí); 1 jen na výslovný pokyn člověka, nikdy jako tichý fallback')
     parser.add_argument('--ttl', type=int, default=900, help='claim/heartbeat: 30–3600 s')
@@ -398,7 +485,9 @@ def main(argv=None):
     parser.add_argument('--step-id', help='step: ID kroku ze zadání')
     parser.add_argument('--status', choices=list(STEP_STATUSES), help='step: stav kroku')
     parser.add_argument('--notes', help='step: co krok udělal (povinné, do 4000 znaků)')
-    parser.add_argument('--commit', action='append', default=[], help='step: SHA commitu kroku (opakovatelné)')
+    parser.add_argument('--note', help='act/close-card: poznámka k uzavření karty')
+    parser.add_argument('--commit', action='append', default=[],
+                        help='step: SHA commitu kroku (opakovatelné); local-merge: sloučený commit (poslední platí)')
     parser.add_argument('--check', action='append', default=[], help='step: spuštěná kontrola (opakovatelné)')
     parser.add_argument('--result-file', help='results: JSON výsledku')
     parser.add_argument('--role', choices=['finder', 'voter'])
@@ -407,27 +496,32 @@ def main(argv=None):
     parser.add_argument('--since', help='events: kurzor')
     parser.add_argument('--limit', type=int, default=100)
     args = parser.parse_args(argv)
+    if args.command == 'local-merge':
+        args.commit = args.commit[-1] if args.commit else None
     try:
         base = opora_write.base_url(args.base_url or os.environ.get(opora_write.BASE_ENV, '').strip())
         print(json.dumps(run(args, base), ensure_ascii=True, indent=2))
         return 0
     except LookupError as error:
-        print(json.dumps({'ok': False, 'none': True, 'error': str(error)}, ensure_ascii=True), file=sys.stderr)
+        print(json.dumps({'ok': False, 'status': None, 'none': True, 'error': str(error),
+                          'hint': 'Nic není ready: state ukáže blokované akce a rozhodnutí; jinak konec.'},
+                         ensure_ascii=True), file=sys.stderr)
         return EXIT_NONE
     except Refused as error:
-        print(json.dumps({'ok': False, 'refused': True, 'error': str(error)}, ensure_ascii=True), file=sys.stderr)
+        print(json.dumps({'ok': False, 'status': None, 'refused': True, 'error': str(error), 'hint': error.hint},
+                         ensure_ascii=True), file=sys.stderr)
         return EXIT_REFUSED
     except HTTPError as error:
-        detail = opora_write._detail(error)
-        out = {'ok': False, 'error': 'HTTP ' + str(error.code), 'detail': detail}
-        if error.code == 409:
+        out = opora_write.explain(error)
+        out['detail'] = out['error']  # zpětná kompatibilita: text serveru býval v `detail`
+        if error.code == 409 and 'code' not in out:
             out['note'] = 'Konflikt: znovu načti state (--fresh) a vyber akci podle nového ID; stejný požadavek neopakuj.'
-        if error.code in (403, 428):
-            out['note'] = 'Patří člověku nebo chybí identita (OPORA_AGENT_NAME); neobcházej.'
         print(json.dumps(out, ensure_ascii=True), file=sys.stderr)
-        return EXIT_CONFLICT if error.code == 409 else EXIT_REFUSED if error.code in (403, 428) else 1
+        return {409: EXIT_CONFLICT, 422: EXIT_INVALID, 403: EXIT_REFUSED, 428: EXIT_REFUSED}.get(error.code, 1)
     except (URLError, TimeoutError, OSError, ValueError, TypeError, KeyError) as error:
-        print(json.dumps({'ok': False, 'error': str(error)}, ensure_ascii=True), file=sys.stderr)
+        print(json.dumps({'ok': False, 'status': None, 'error': str(error),
+                          'hint': 'Skript nic neodeslal nebo spojení selhalo; oprav argumenty podle error.'},
+                         ensure_ascii=True), file=sys.stderr)
         return 1
 
 

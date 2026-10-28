@@ -37,7 +37,8 @@ def test_v2_dispatch_review_identity_sparse_history_and_removal(client):
     path = BASE + "/" + item["id"] + "/accept"
     assert client.post(path, headers=AGENT, json=payload).status_code == 403
     missing_ack = {key: value for key, value in payload.items() if key != "reviewedChangesId"}
-    assert client.post(path, headers=HEADERS, json=missing_ack).status_code == 409
+    rejected = client.post(path, headers=HEADERS, json=missing_ack)  # neplatné tělo = 422 a jméno chybějícího pole
+    assert rejected.status_code == 422 and "reviewedChangesId" in rejected.json()["error"]
     response = client.post(path, headers=HEADERS, json=payload)
     assert response.status_code == 200, response.text
     assert client.get(BASE + "/context", params=SCOPE).json()["acceptedGraph"]["nodes"][0]["name"] == "Renamed task"

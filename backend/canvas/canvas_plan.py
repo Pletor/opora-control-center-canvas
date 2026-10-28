@@ -24,6 +24,7 @@ from backend.canvas.canvas_plan_map_check import map_warnings
 from backend.canvas.canvas_plan_summary import plan_summary
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import validate_graph
+from backend.canvas.payload_errors import relabel
 from backend.canvas.project_architecture import ARCHITECTURE_WID
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State, validate_state
 from backend.editor.node import node_specs, node_text
@@ -50,6 +51,13 @@ def _named(error, labels):
     for item_id, label in labels.items():
         message = message.replace(item_id, label)
     return message
+
+
+def _renamed(error, labels):
+    """Chyba téhož druhu (`InvalidPayload` 422, jinak 409) se jmény položek dávky místo nových id."""
+    renamed = relabel(error, "")
+    renamed.args = (_named(error, labels),)
+    return renamed
 
 
 def _ordered(nodes):
@@ -84,8 +92,8 @@ def _check_graph(service, project, workspace, current, built):
         try:
             check({"nodes": nodes, "edges": edges})
         except ValueError as error:
-            raise ValueError(f"{built.labels[item['id']]}: {error}") from error
-    raise ValueError(_named(whole, built.labels))
+            raise relabel(error, built.labels[item["id"]]) from error
+    raise _renamed(whole, built.labels)
 
 
 def _check_content(project, workspace, built):
@@ -94,13 +102,13 @@ def _check_content(project, workspace, built):
             node_specs.validate_payload({"project": project, "workspace": workspace, "node": node_id,
                                          "expected_revision": 0, "fields": fields})
         except ValueError as error:
-            raise ValueError(f"{built.labels[node_id]}: {error}") from error
+            raise relabel(error, built.labels[node_id]) from error
     for node_id, text in built.texts.items():
         try:
             node_text.validate_payload({"project": project, "workspace": workspace, "node": node_id,
                                         "expected_revision": 0, "text": text})
         except ValueError as error:
-            raise ValueError(f"{built.labels[node_id]}: {error}") from error
+            raise relabel(error, built.labels[node_id]) from error
     if built.state_changed:
         try:
             validate_state(built.state)

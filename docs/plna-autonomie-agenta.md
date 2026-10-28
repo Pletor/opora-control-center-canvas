@@ -86,3 +86,22 @@ Jen upřesnění, pravidla §2–§5 platí beze změny.
   a strana `human` v duelu schránky (mluví za člověka).
 - **Převzetí (lease).** Je to koordinace agentů, ne oprávnění: běžný zápis agenta s autonomií cizí platné
   převzetí neobchází; výslovné uvolnění bez tokenu (`op: release`) smí jako člověk.
+
+## 7. Cesta bez slepých pokusů (2026-10-28)
+
+Upřesnění z ověřovacího běhu headless agenta (mapa → karty → přijetí grafu → claim → kroky → `local-merge` →
+kontroly → cesta → `close_card`). Pravidla §2–§4 se nemění; mění se jen to, co agent dostane zpátky.
+
+- **422 vs. 409.** Neplatný tvar těla (`site`, `subject`, pole přijetí návrhu grafu, změny a obsahu) vrací
+  422 `{error, code: "invalid_payload", field, expected, example}` (`backend/canvas/payload_errors.py`,
+  `InvalidPayload`). 409 zůstává jen pro konflikt stavu (revize, hlava, duplicita). Krok, který chybí před
+  jiným, vrací 409 s `code` a `hint` (`NextStep`), např. claim bez přijatého grafu plánu
+  `graph_acceptance_required`.
+- **agent-state nabízí první krok.** Bez přijatého manifestu grafu nabídne akci `propose_graph` (prázdný
+  graf nad hlavou) a po ní `accept`; preconditions `accept` nesou přesné tělo včetně `adoptBase*Digest`,
+  `accept_baseline` nese `subject`. Při `autonomy.full` jsou lidské akce `ready`.
+- **Skripty skillu.** `opora_hub.py act --action-id ID` provede akci z agent-state podle `method/path/
+  preconditions` (i `close_card`), `local-merge` a `close-card` mají vlastní příkaz; `opora_api.py METHOD PATH`
+  volá jinou cestu s identitou agenta a výjimky §4 i cesty s tokenem odmítne předem. Výstup je vždy JSON
+  s `ok`, `status`, `error`, `hint`; kód 6 = 422. Postup je recept „stavba stránky“ v `SKILL.md`, ověřený
+  testem `.claude/skills/opora-control-center/scripts/test_opora_recipe.py`.

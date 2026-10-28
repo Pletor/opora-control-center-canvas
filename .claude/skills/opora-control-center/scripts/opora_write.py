@@ -8,7 +8,9 @@ z konceptu), dávka se jen ověří a nic se nezapíše; koncept se kvůli tomu 
 Adresa je jen loopback (`--base-url http://127.0.0.1:PORT`, jinak `OPORA_BASE_URL`), bez proxy
 a bez přesměrování. Každé volání asistenta schvaluje člověk v UI (docs/asistent.md §5.1).
 `project` a `workspace` se doplní do payloadu; jiná hodnota v payloadu je chyba.
-Při 409 vypíše `conflict: <detail>` a skončí kódem 3. 409 je změněný stav i neplatný payload; rozliší je detail.
+Při 409 vypíše `conflict: <detail>` a skončí kódem 3 (změněný stav nebo krok, na který je brzy; `hint` říká další
+krok). Neplatný payload je 422 s `field`, `expected` a `example` a končí kódem 6. Chybový JSON (stderr) má vždy
+`ok`, `status`, `error` a `hint`.
 """
 import argparse
 import json
@@ -101,7 +103,8 @@ def check_route(route, payload=None):
         return route
     template = hub_template(route)
     if template in HUB_HUMAN_ROUTES:
-        raise ValueError('Cesta ' + route + ' patří člověku v UI (403); napiš to člověku, neobcházej.')
+        raise ValueError('Cesta ' + route + ' patří člověku v UI (403); napiš to člověku, neobcházej. Agent mimo'
+                         ' aplikaci s autonomy.full ji provede přes opora_hub.py act --action-id ID.')
     if template in HUB_TOKEN_ROUTES:
         raise ValueError('Cesta ' + route + ' nese token běhu nebo slotu; použij opora_hub.py.')
     if template is None:
@@ -112,6 +115,17 @@ def check_route(route, payload=None):
 
 
 EXIT_CONFLICT = 3
+EXIT_INVALID = 6
+# Další krok podle HTTP stavu, když ho server neřekl sám (`hint` v těle má přednost).
+HINTS = {
+    422: 'Neplatné tělo: oprav pole z `field` podle `expected` (vzor v `example`) a pošli znovu; nic se nezapsalo.',
+    409: 'Stav se mezitím změnil nebo na krok je brzy: opora_hub.py state --fresh, vyber akci podle nového id; '
+         'stejný požadavek znovu nepomůže.',
+    403: 'Patří člověku. S autonomy.full v agent-state to agent smí přes opora_hub.py act --action-id ID '
+         '(nebo opora_api.py); jinak napiš člověku, neobcházej.',
+    428: 'Chybí identita: nastav OPORA_AGENT_NAME="<role>-<relace>" a pošli znovu.',
+    404: 'Cesta nebo záznam neexistuje: ověř cestu v references/hub-api.md nebo routy.md a ID ze state.',
+}
 # Záznam činnosti (docs/zaznam-cinnosti.md): každý zápis skriptu se hlásí jako agent.
 AGENT_ENV = 'OPORA_AGENT_NAME'
 LEASE_ENV = 'OPORA_LEASE_TOKEN'
@@ -208,6 +222,25 @@ def route_of(value):
     return match['route'].replace('\\', '/') if match else value
 
 
+def explain(error):
+    """HTTPError → `{ok: False, status, error, hint}` a z těla serveru `code`, `field`, `expected`, `example`."""
+    try:
+        body = json.loads(error.read(64 * 1024))
+    except (OSError, ValueError, AttributeError):
+        body = None
+    body = body if isinstance(body, dict) else {}
+    out = {'ok': False, 'status': error.code,
+           'error': body['error'] if isinstance(body.get('error'), str) else 'HTTP ' + str(error.code)}
+    for key in ('code', 'field', 'expected', 'example', 'humanRequired'):
+        if key in body:
+            out[key] = body[key]
+    hint = body.get('hint') if isinstance(body.get('hint'), str) else None
+    out['hint'] = hint or HINTS.get(error.code) or (
+        'Server nebo úložiště nedostupné: opora_read.py status; zápis neopakuj naslepo.' if error.code >= 500
+        else 'Přečti error a oprav požadavek.')
+    return out
+
+
 def _detail(error):
     try:
         detail = json.loads(error.read(64 * 1024)).get('error')
@@ -216,7 +249,17 @@ def _detail(error):
     return detail if isinstance(detail, str) else None
 
 
+def safe_console():
+    """Nápověda a chyby s diakritikou nespadnou na konzoli cp1250 (Windows): neznámý znak se escapuje."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors='backslashreplace')
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv=None):
+    safe_console()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('route', help='jedna z: ' + ', '.join(sorted(WRITE_ROUTES)) + '; OporaHub viz HUB_AGENT_ROUTES')
     parser.add_argument('--project', required=True)
@@ -243,24 +286,26 @@ def main(argv=None):
         print(json.dumps({'ok': True, 'route': args.route, 'result': result}, ensure_ascii=True, indent=2))
         return 0
     except HTTPError as error:
-        detail = _detail(error)
+        out = explain(error)
+        detail = out['error'] if out['error'] != 'HTTP ' + str(error.code) else None
         if error.code == 409:
-            # Backend vrací 409 i pro neplatný payload (každá ValueError, factory.py); `detail` rozliší,
-            # zda opakovat s čerstvou revizí, nebo opravit payload. Stejný zápis znovu nepomůže.
-            out = {'ok': False, 'conflict': True, 'error': 'conflict',
-                   'note': 'Zápis odmítnut (409): buď se stav mezitím změnil, nebo payload neprošel validací. '
-                           'Podle detail buď znovu načti stav a použij jen svou změnu, nebo oprav payload.'}
+            # 409 = změněný stav nebo krok, na který je brzy; neplatný payload je u nových chyb 422
+            # (backend/canvas/payload_errors.py), starší cesty ho vrací jako 409 dál: rozliší `detail`.
+            out |= {'conflict': True, 'error': 'conflict', 'note': 'Zápis odmítnut (409): stav se změnil, krok čeká '
+                    'na jiný krok, nebo (starší cesta) payload neprošel validací. Řiď se detail a hint.'}
             if detail:
                 out['detail'] = detail
             print('conflict' + (': ' + detail if detail else ''))
             print(json.dumps(out, ensure_ascii=True), file=sys.stderr)
             return EXIT_CONFLICT
-        out = {'ok': False, 'error': 'HTTP ' + str(error.code)}
         if detail:
             out['detail'] = detail
         print(json.dumps(out, ensure_ascii=True), file=sys.stderr)
+        return EXIT_INVALID if error.code == 422 else 1
     except (URLError, TimeoutError, OSError, ValueError, TypeError, UnicodeError) as error:
-        print(json.dumps({'ok': False, 'error': str(error)}, ensure_ascii=True), file=sys.stderr)
+        print(json.dumps({'ok': False, 'status': None, 'error': str(error),
+                          'hint': 'Skript nic neodeslal nebo spojení selhalo; oprav argumenty podle error.'},
+                         ensure_ascii=True), file=sys.stderr)
     return 1
 
 
