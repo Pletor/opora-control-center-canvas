@@ -27,6 +27,8 @@ Do skillu nepatří nic specifického pro jeden projekt.
 - `scripts/opora_read.py`: čtení a hledání (loopback i tunel); jen standardní Python 3.
 - `scripts/opora_hub.py`: agent-state s ETagem, výběr akce, claim / zadání / heartbeat / průběžný krok / výsledek běhu
   a slot review; tokeny jen v souborech 0600 (`OPORA_HUB_STATE_DIR`, výchozí `~/.opora/hub`).
+- `scripts/opora_act_batch.py`: hromadné `act` (`--action-id` opakovaně, `--all-ready --verb V`) podle
+  `(verb, targetId)`, výstup `{done, skipped, next}`, cizí změna = konflikt s `changed`.
 - `scripts/opora_write.py`: zápis na pevný seznam cest (`WRITE_ROUTES`) a agentní cesty OporaHubu
   (`HUB_AGENT_ROUTES`); lidské cesty a cesty s tokenem odmítne předem. Jen loopback.
 - `scripts/opora_save.py`: uložení verze plátna.

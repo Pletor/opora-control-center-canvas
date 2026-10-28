@@ -32,7 +32,7 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `stages[]` | Pořadí `plan, proposal, acceptance, claim, work, evidence, review, pull_request, merge, plan_writeback`; každá `{id, count, health, reason}` |
 | `riskMix` | `{low, elevated, critical}` nepřijatých a nenahrazených návrhů podle serverového rizika (`standard` → `low`) |
 | `decisions[]` | Nejvýše 3 rozhodnutí člověka `{id, kind, targetId, title, actionId}` |
-| `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?}` |
+| `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?, command?}`; `command` jen u `ready` akce: hotový řádek `opora_hub.py start --node N` (claim) nebo `opora_hub.py act --action-id ID`, `null` u akce, kterou klient sám neprovádí |
 | `gaps[]` | Známé nenapojené schopnosti `{id, stage, reason}` |
 | `cards[]` | Etapa karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease, lastEventAt}`, nejvýše 100 na stránku, seřazené podle [důležitosti](#strop-a-stránkování-karet) a uvnitř podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)); `lastEventAt` je čas (`at`, ISO) nejnovější události karty v prostoru, `null` bez události |
 | `truncated` | `cards[]` neobsahuje všechny karty prostoru (další stránka existuje nebo `cardsOffset > 0`); `actions`, `decisions`, `stages` a `heads` jsou přesto vždy úplné |
