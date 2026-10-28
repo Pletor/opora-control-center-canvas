@@ -10,6 +10,7 @@ import { focusUp } from "../logic/studio-route";
 import { cardView, KIND_LABEL } from "../studio-card/logic/card-view";
 import { useModelTargets } from "../studio-card/logic/use-model-targets";
 import { detailView } from "../studio-detail/logic/detail-model";
+import { useElementView } from "../studio-detail/logic/use-element-view";
 import { studioLanes } from "../studio-journeys/logic/studio-lanes";
 import StudioCanvas from "../studio-canvas/components/StudioCanvas";
 import StudioBreadcrumbs from "../studio-breadcrumbs/components/StudioBreadcrumbs";
@@ -54,6 +55,8 @@ export default function Studio({ project, workspace, worktreeLive, onOpenArchite
   const crumbs = [{ id: null, label: "Projekt", kind: "Projekt" }, ...studioTrail(tree, focus).map((item) => ({ id: item.id, label: item.name, kind: KIND_LABEL[item.kind] }))];
   const shown = (selected && level.cards.find((item) => item.id === selected)) || level.focus;
   const detail = shown ? detailView({ tree, item: shown, status: statuses.get(shown.id)!, facts, links: level.links, focus: shown === level.focus, project, workspace }) : null;
+  const element = useElementView({ project, workspace, graph, item: layer === "reality" ? shown ?? null : null,
+    phase: (shown && data.nodeStates[shown.id]?.phase) || "discover", done: !!shown && facts.done.has(shown.id) });
   const enter = useCallback((id: string) => { if (tree.items.has(id)) open(id); }, [tree, open]);
   const up = () => { if (focus) open(focusUp(tree, focus), focus); };
   const bindings = useMemo(() => layer === "model" && modelDomain ? bindingCards(tree, facts, modelDomain) : [], [layer, modelDomain, tree, facts]);
@@ -80,7 +83,7 @@ export default function Studio({ project, workspace, worktreeLive, onOpenArchite
           : <StudioCanvas levelKey={focus ?? "project"} cards={views} grouped={grouped} links={level.links} selected={selected} motion={motion} onSelect={select} onEnter={enter} onUp={up}/>}
         {lanes && <StudioJourneys lanes={lanes} open={lanesOpen} onToggle={() => setLanesOpen((value) => !value)} onPage={(pageId) => open(tree.parent.get(pageId) ?? null, pageId)}/>}
       </div>
-      <StudioDetail view={detail} selected={!!selected && shown !== level.focus} onOpenEditor={onOpenArchitecture} onClear={() => select(null)}/>
+      <StudioDetail view={detail} element={element} selected={!!selected && shown !== level.focus} onOpenEditor={onOpenArchitecture} onClear={() => select(null)}/>
     </div>}
   </section>;
 }

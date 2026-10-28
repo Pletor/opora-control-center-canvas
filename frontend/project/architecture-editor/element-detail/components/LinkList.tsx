@@ -7,7 +7,8 @@ type Props = {
   title: string;
   links: NodeLink[];
   empty: string;
-  onSelect: (id: string) => void;
+  /** Klik na druhý konec přenese výběr; bez callbacku je řádek jen text (Studio, jen čtení). */
+  onSelect?: (id: string) => void;
   /** Volba „Co po vazbě teče“ u vazby `next`; bez callbacku nebo se zámkem jen ke čtení. Ukládá rodič. */
   onCarries?: (edgeId: string, carries: EdgeCarries | null) => void;
   disabled?: boolean;
@@ -23,10 +24,17 @@ export default function LinkList({ title, links, empty, onSelect, onCarries, dis
         <ul className="element-detail__list">
           {links.map((link) => (
             <li key={link.edgeId} className="element-detail__link-row">
-              <button type="button" className="element-detail__link" onClick={() => onSelect(link.otherId)}>
-                <span className="element-detail__link-name">{link.otherName}</span>
-                <span className="element-detail__port">{link.port}</span>
-              </button>
+              {onSelect ? (
+                <button type="button" className="element-detail__link" onClick={() => onSelect(link.otherId)}>
+                  <span className="element-detail__link-name">{link.otherName}</span>
+                  <span className="element-detail__port">{link.port}</span>
+                </button>
+              ) : (
+                <span className="element-detail__link">
+                  <span className="element-detail__link-name">{link.otherName}</span>
+                  <span className="element-detail__port">{link.port}</span>
+                </span>
+              )}
               {link.port === "next" && onCarries ? (
                 <label className="element-detail__carries">
                   <span className="element-detail__carries-label">Co po vazbě teče</span>

@@ -49,8 +49,8 @@ předky (štítek s počtem a převládajícím `carries`). Barva a čára podle
 ## 3. Ovládání (z prototypu)
 
 Kolečko = zoom kolem kurzoru, tažení pozadí = posun, fit, ± , minimapa vpravo dole, panel detailu vpravo
-(stejný obsah jako Detail prvku: kontext agenta, zadání, vazby, práce; ve Skutečnosti jen čtení a odkaz
-„Otevřít v Editoru stránky“). Klávesy: šipky posun výběru, Enter sestup, Backspace výstup, Escape zrušení výběru.
+(stejný obsah jako Detail prvku, tytéž dílky z `element-detail/`: kontext agenta, zadání, vazby, práce; ve
+Skutečnosti jen čtení a odkaz „Otevřít v Editoru stránky“). Klávesy: šipky posun výběru, Enter sestup, Backspace výstup, Escape zrušení výběru.
 
 ## 4. Technický model (MODEL)
 

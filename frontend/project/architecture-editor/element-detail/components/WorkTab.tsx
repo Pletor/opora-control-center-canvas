@@ -4,7 +4,8 @@ import type { WorkView } from "../logic/work-view";
 type Props = {
   nodeId: string;
   view: WorkView;
-  onOpenEditor: (id: string) => void;
+  /** Bez callbacku tlačítko chybí (Studio má vlastní odkaz „Otevřít v Editoru stránky“ v identitě). */
+  onOpenEditor?: (id: string) => void;
 };
 
 /** Kdo kartu staví, který krok běží a kolik nálezů strážců na ní visí; bez karty v agent-state poctivě „nenapojeno“. */
@@ -52,9 +53,11 @@ export default function WorkTab({ nodeId, view, onOpenEditor }: Props) {
         ) : <p className="element-detail__muted">Zadání zatím nemá kroky; doplňují se v Editoru.</p>}
       </section>
       <RunState view={view} />
-      <button type="button" className="element-detail__open" onClick={() => onOpenEditor(nodeId)}>
-        Otevřít v Editoru
-      </button>
+      {onOpenEditor ? (
+        <button type="button" className="element-detail__open" onClick={() => onOpenEditor(nodeId)}>
+          Otevřít v Editoru
+        </button>
+      ) : null}
     </div>
   );
 }

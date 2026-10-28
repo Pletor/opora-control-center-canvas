@@ -1,13 +1,17 @@
 import type { ReactNode } from "react";
 import type { StudioDetailView } from "../logic/detail-model";
+import type { StudioElementView } from "../logic/element-view";
+import DetailElement from "./DetailElement";
 import DetailSections from "./DetailSections";
 import "../styles/studio-detail.css";
 
 /** Panel detailu vpravo, jako Inspector v TechViz (ve Skutečnosti jen čtení): identita karty (druh, název, adresa, stav),
- * účel, souhrn, vazby, díry, cesty a odkaz do Architektury projektu. Bez výběru ukazuje otevřenou úroveň. Pod obsahem
- * smí rodič přidat panel (`extra`), např. dráhy cest domény. Akce hlásí rodiči (`onOpenEditor`, `onClear`). */
-export default function StudioDetail({ view, selected, onOpenEditor, onClear, extra }: {
-  view: StudioDetailView | null; selected: boolean; onOpenEditor: (params: Record<string, string>) => void; onClear: () => void; extra?: ReactNode;
+ * účel, souhrn a odkaz do Architektury projektu, pod tím obsah Detailu prvku (`element`: kontext agenta, zadání, práce,
+ * vazby komponenty) a vazby, díry a cesty. Bez výběru ukazuje otevřenou úroveň. Pod obsahem smí rodič přidat panel
+ * (`extra`). Akce hlásí rodiči (`onOpenEditor`, `onClear`). */
+export default function StudioDetail({ view, element, selected, onOpenEditor, onClear, extra }: {
+  view: StudioDetailView | null; element?: StudioElementView | null; selected: boolean;
+  onOpenEditor: (params: Record<string, string>) => void; onClear: () => void; extra?: ReactNode;
 }) {
   return <aside className="studio-detail" aria-label="Detail Studia" data-testid="studio-detail">
     <header className="studio-detail__title">
@@ -26,7 +30,8 @@ export default function StudioDetail({ view, selected, onOpenEditor, onClear, ex
         {view.editor && <button type="button" className="studio-detail__editor" data-testid="studio-open-editor" onClick={() => onOpenEditor(view.editor!.params)}>{view.editor.label}</button>}
       </section>
       <p className="studio-detail__purpose">{view.purpose || "Účel zatím nikdo nenapsal."}</p>
-      <DetailSections view={view}/>
+      {element && <DetailElement view={element}/>}
+      <DetailSections view={view} links={!element?.links}/>
     </>}
     {extra}
   </aside>;
