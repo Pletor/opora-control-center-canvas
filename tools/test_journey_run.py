@@ -100,7 +100,9 @@ def test_main_dry_run(site, tmp_path, capsys):
 def test_main_posts_run_with_origin(site):
     code = journey_run.main(["--server", site, "--project", "p", "--journey", "kampan"])
     assert code == 1  # bez fixtures formulář neprojde
-    [call] = posted
+    # start a průběh (§3a) testovací server neumí (vrací 200 bez runId): runner jen varuje a doklad odevzdá
+    [call] = [item for item in posted if item["path"].startswith("/api/project-architecture/journey-runs?")]
+    assert posted[0]["path"] == "/api/project-architecture/journey-runs/start"
     assert call["path"] == "/api/project-architecture/journey-runs?project=p"
     assert call["origin"] == site and call["type"] == "application/json"
     assert call["run"]["segments"][0] == {"from": "s1", "to": "s2", "ok": False, "reason": "chybí data formuláře"}

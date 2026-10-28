@@ -137,9 +137,13 @@ def record_journey_run(service, project, body):
     return {**record, "recordedAt": recorded_at}
 
 
-def project_journeys(service, project):
-    """Odvozené cesty přijaté architektury s `lastRun` (`GET /api/project-architecture/journeys`)."""
+def project_journeys(service, project, running=None):
+    """Odvozené cesty přijaté architektury s `lastRun` a `running` (`GET /api/project-architecture/journeys`).
+
+    `running` je `JourneyRunning` (§3a, stav jen v paměti); bez něj má každá cesta `running: null`."""
     graph = architecture_graph(service, project)
     runs = last_runs(graph, latest_journey_runs(service, project))
-    return {"journeys": [{**item, **({"lastRun": runs[key]} if (key := (item["applicationId"], item["id"])) in runs else {})}
+    live = running.running(project) if running is not None else {}
+    return {"journeys": [{**item, **({"lastRun": runs[key]} if (key := (item["applicationId"], item["id"])) in runs else {}),
+                          "running": live.get(key)}
                          for item in derive_journeys(graph)]}

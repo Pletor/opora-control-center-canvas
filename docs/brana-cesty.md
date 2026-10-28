@@ -78,6 +78,26 @@ Bez dat runner segment označí jako neúspěšný s důvodem „chybí data for
 - Doklad je neměnný záznam (append-only) v SQLite projektu (tabulka `journey_runs`), s
   `verification: "agent-reported; not independently verified"`, stejně jako výsledky kroků karty.
 
+## 3a. Cesta právě běží (krátkodobý stav)
+
+Runner během přehrání hlásí, kde právě je, aby Studio (Skutečnost) a Editor stránky ukázaly pohyb na aktuálním
+přechodu. Je to jen signál pro obrazovku: stav žije **jen v paměti procesu** serveru, žádná SQLite ani změna
+schématu; doklad běhu (§3) zůstává neměnný a odevzdává se jako dosud.
+
+- `POST /api/project-architecture/journey-runs/start`, tělo `{project, journeyId, applicationId?}` →
+  `{runId, startedAt}` (200). Cesta se ověří stejně jako u plánu (§2): neznámý projekt nebo cesta 404, rozbitá
+  nebo nejednoznačná cesta 409, chyba tvaru (i neznámý klíč) 422. Nový start téže cesty předchozí běh nahradí.
+- `POST /api/project-architecture/journey-runs/{runId}/progress`, tělo `{segment: {from, to}, ok?}` → 204.
+  Heartbeat: bez `ok` se přechod právě přehrává, s `ok` skončil. Neznámý nebo vypršelý `runId` 404, tvar 422.
+- TTL 120 s od posledního heartbeatu (startu nebo `progress`); pak běh zmizí. Restart serveru stav smaže.
+- `GET /api/project-architecture/journeys` přidá každé cestě `running: {runId, at, segment} | null`; `at` =
+  poslední heartbeat (ISO 8601 UTC), `segment` = `{from, to, ok?}` posledního `progress`, před prvním `null`.
+- Po zapsání dokladu (`POST /api/project-architecture/journey-runs`) se `running` té cesty smaže.
+- Runner (§6) volá start před přehráním a `progress` před každým segmentem a po něm. Selhání těchto volání běh
+  nezastaví (jen varování); `--dry-run` je neposílá. Vlastní nástroj projektu je posílat nemusí.
+- Zobrazení: po vazbách aktuálního přechodu obíhají dvě tečky v barvě ověření; při `prefers-reduced-motion`
+  místo nich štítek „cesta běží“. Dokud něco běží, UI čte `journeys` každé 3 s (jinak 15 s).
+
 ## 4. `lastRun`
 
 Poslední doklad cesty podle `at` (při shodě později uložený):
@@ -107,7 +127,7 @@ i do starší větve v `backend/editor/agent_memory/desktop_v3_state.py`; odmít
 ## 6. Runner
 
 `tools/journey_run.py` (Python Playwright, volitelná závislost jako `tools/e2e`): stáhne plán, přehraje
-segmenty v jednom prohlížeči (každý segment začíná `open`), odevzdá doklad. Exit 0 jen při `passed`. Projekt
+segmenty v jednom prohlížeči (každý segment začíná `open`), průběh hlásí podle §3a, odevzdá doklad. Exit 0 jen při `passed`. Projekt
 smí místo něj použít vlastní nástroj; Opora vyžaduje jen doklad.
 
 ## 7. Etapy dodatku

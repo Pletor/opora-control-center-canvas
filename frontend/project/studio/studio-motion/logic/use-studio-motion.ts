@@ -1,14 +1,15 @@
 // Pohyb aktuální úrovně Studia pro rodiče (docs/studio.md §2): ze stavů karet, vazeb úrovně a cest s `lastRun`
 // složí pohyb vazeb a karty k jednorázovému pulzu. Nový prošlý doklad (změna oproti minulému čtení) spustí jeden
 // průchod, který po `passDurationMs` sám utichne; první načtení jen zapamatuje otisky. Při omezeném pohybu se průchod
-// nespouští (stav nese štítek karty „ověřeno“). Nic neukládá.
+// nespouští (stav nese štítek karty „ověřeno“). Cesta, která právě běží (`running`), nese tečky na vazbě aktuálního
+// přechodu, dokud ji server hlásí (při omezeném pohybu štítek „cesta běží“). Nic neukládá.
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StudioLink } from "../../logic/studio-level";
 import type { StudioJourney, StudioState } from "../../logic/studio-status";
 import type { StudioTree } from "../../logic/studio-tree";
-import { freshPasses, journeyKey, runFailures, runStamps, type RunStamps } from "./run-events";
+import { freshPasses, journeyKey, runFailures, runningHops, runStamps, type RunStamps } from "./run-events";
 import { hopLink, routeOnLevel } from "./journey-route";
-import { levelMotion, passDurationMs, type LevelFailure, type LevelPass } from "./motion-plan";
+import { levelMotion, passDurationMs, type LevelFailure, type LevelPass, type LevelRunning } from "./motion-plan";
 
 type Pass = { stamp: string; journey: StudioJourney };
 const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -49,6 +50,10 @@ export function useStudioMotion(input: {
       const link = hopLink(place, failure.journey, failure);
       return link ? [{ linkId: link.id, title: failure.title }] : [];
     });
-    return { links: levelMotion({ links, states, passes: levelPasses, failures }), pulsing };
+    const running: LevelRunning[] = (journeys ? runningHops(journeys) : []).flatMap((hop) => {
+      const link = hopLink(place, hop.journey, hop);
+      return link ? [{ linkId: link.id, title: hop.title }] : [];
+    });
+    return { links: levelMotion({ links, states, passes: levelPasses, failures, running }), pulsing };
   }, [tree, focus, links, states, passes, journeys]);
 }

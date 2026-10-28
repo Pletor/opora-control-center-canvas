@@ -1,7 +1,8 @@
 // Pohyb vazeb Editoru stránky jen ze skutečného stavu (docs/zive-zobrazeni-a-knihovna.md §1 a §3), se stejnými
 // pravidly a časy jako pohyb Skutečnosti ve Studiu (`studio-motion/motion-plan.ts`, `run-events.ts`): trvale tečky
 // po vazbách, jejichž karta na jednom konci se staví; jednou tečka po vazbách nově ověřené cesty a puls jejích karet;
-// staticky červená tečka s křížkem na vazbě prvního selhání. Rozdíl proti Studiu je jen v tom, kde přechod cesty
+// staticky červená tečka s křížkem na vazbě prvního selhání; po dobu běhu cesty (`running`, docs/brana-cesty.md §3a)
+// obíhají tečky po vazbách aktuálního přechodu. Rozdíl proti Studiu je jen v tom, kde přechod cesty
 // leží: na plátně stránky jsou karty uzly grafu (ne souhrnné vazby úrovně), takže přechod `from → to` mezi kroky
 // realizuje každá vazba `next`, jejíž zdroj patří stránce kroku `from` a cíl stránce kroku `to` (podstránka na plátně
 // patří sama sobě, ostatní karty otevřené stránce). Čistá logika bez Reactu.
@@ -10,8 +11,8 @@ import { canCarry } from "@/shared/edge-carries/logic/edge-carries";
 import { FROM_NAV } from "../../../domain-map/logic/journeys";
 import type { StudioLink } from "@/project/studio/logic/studio-level";
 import type { StudioJourney, StudioState } from "@/project/studio/logic/studio-status";
-import { levelMotion, type LevelFailure, type LevelPass, type LinkMotion } from "@/project/studio/studio-motion/logic/motion-plan";
-import { runFailures } from "@/project/studio/studio-motion/logic/run-events";
+import { levelMotion, type LevelFailure, type LevelPass, type LevelRunning, type LinkMotion } from "@/project/studio/studio-motion/logic/motion-plan";
+import { runFailures, runningHops } from "@/project/studio/studio-motion/logic/run-events";
 
 /** Karty otevřeného rozsahu, vazby mezi nimi a stránka rozsahu (null = rozsah mimo stránky). */
 export type MapPlace = { cards: CanvasNode[]; edges: GraphEdge[]; pageId: string | null };
@@ -58,5 +59,7 @@ export function mapMotion(place: MapPlace, states: ReadonlyMap<string, StudioSta
   });
   const failures: LevelFailure[] = (journeys ? runFailures(journeys) : []).flatMap((failure) =>
     hopEdges(scoped, failure.journey, failure).map((linkId) => ({ linkId, title: failure.title })));
-  return { links: levelMotion({ links: edges.map(asLink), states: new Map(states), passes: levelPasses, failures }), pulsing };
+  const running: LevelRunning[] = (journeys ? runningHops(journeys) : []).flatMap((hop) =>
+    hopEdges(scoped, hop.journey, hop).map((linkId) => ({ linkId, title: hop.title })));
+  return { links: levelMotion({ links: edges.map(asLink), states: new Map(states), passes: levelPasses, failures, running }), pulsing };
 }

@@ -9,9 +9,17 @@ export type JourneyLastRun = {
   at: string; passed: boolean; stale: boolean; command: string; failed: number;
   firstFailure?: { from: string; to: string; reason?: string };
 };
-/** Odvození jedné cesty: kroky, jejichž stránka chybí (`missing`), přechody, u rozbité cesty důvod (`broken`) a poslední
- * doklad přehrání (`lastRun`, jen když cesta doklad má). */
-export type DerivedJourney = { applicationId: string; id: string; missing: string[]; segments: DerivedSegment[]; broken?: string; lastRun?: JourneyLastRun };
+/** Cesta se právě přehrává (docs/brana-cesty.md §3a, stav jen v paměti serveru): `at` = poslední heartbeat runneru,
+ * `segment` = přechod, který se přehrává (bez `ok`) nebo právě skončil; null = běh začal, přechod ještě nehlásil. */
+export type JourneyRunning = { runId: string; at: string; segment: { from: string; to: string; ok?: boolean } | null };
+/** Odvození jedné cesty: kroky, jejichž stránka chybí (`missing`), přechody, u rozbité cesty důvod (`broken`), poslední
+ * doklad přehrání (`lastRun`, jen když cesta doklad má) a běžící přehrání (`running`, jen když právě běží). */
+export type DerivedJourney = { applicationId: string; id: string; missing: string[]; segments: DerivedSegment[]; broken?: string; lastRun?: JourneyLastRun; running?: JourneyRunning };
+
+/** Interval čtení cest: 15 s v klidu, 3 s když některá cesta právě běží (tečky mají sledovat aktuální přechod). */
+export const RUNS_POLL_MS = 15_000;
+export const RUNNING_POLL_MS = 3_000;
+export const runsPollMs = (journeys: readonly DerivedJourney[] | null) => (journeys?.some((journey) => journey.running) ? RUNNING_POLL_MS : RUNS_POLL_MS);
 
 export function derivedJourneysUrl(project: string): string {
   return "/api/project-architecture/journeys?" + new URLSearchParams({ project });
@@ -37,15 +45,24 @@ function lastRun(raw: unknown): JourneyLastRun | undefined {
     ...(from && to ? { firstFailure: { from, to, ...(reason ? { reason } : {}) } } : {}) };
 }
 
+/** `running` jen s `runId` a `at`; přechod jen s `from` i `to`, `ok` jen jako bool. */
+function running(raw: unknown): JourneyRunning | undefined {
+  const { runId, at, segment: hop } = record(raw);
+  const id = text(runId), when = text(at);
+  if (!id || !when) return undefined;
+  const { from, to, ok } = record(hop), source = text(from), target = text(to);
+  return { runId: id, at: when, segment: source && target ? { from: source, to: target, ...(typeof ok === "boolean" ? { ok } : {}) } : null };
+}
+
 /** Položky bez id aplikace a cesty zahodí; neznámý tvar odpovědi = žádné cesty. */
 export function normalizeDerivedJourneys(raw: unknown): DerivedJourney[] {
   return list(record(raw).journeys).flatMap((item): DerivedJourney[] => {
-    const { applicationId, id, steps, segments, broken, lastRun: run } = record(item);
-    const app = text(applicationId), journey = text(id), reason = text(broken), verified = lastRun(run);
+    const { applicationId, id, steps, segments, broken, lastRun: run, running: live } = record(item);
+    const app = text(applicationId), journey = text(id), reason = text(broken), verified = lastRun(run), playing = running(live);
     if (!app || !journey) return [];
     const missing = list(steps).flatMap((step) => { const { id: stepId, missing: gone } = record(step); return gone === true && text(stepId) ? [stepId as string] : []; });
     return [{ applicationId: app, id: journey, missing, segments: list(segments).flatMap(segment), ...(reason ? { broken: reason } : {}),
-      ...(verified ? { lastRun: verified } : {}) }];
+      ...(verified ? { lastRun: verified } : {}), ...(playing ? { running: playing } : {}) }];
   });
 }
 

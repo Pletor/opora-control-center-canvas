@@ -45,4 +45,12 @@ describe("map link motion", () => {
     expect(motion.links.get("e1")?.failure?.title).toBe("Cesta Nákup spadla na přechodu s1 → s2: timeout");
     expect(motion.links.has("e2")).toBe(false);
   });
+
+  it("circles dots on the edges of the hop a running journey is replaying", () => {
+    const running = journey(derived({ running: { runId: "r", at: "t", segment: { from: "s1", to: "s2" } } }));
+    const motion = mapMotion(place, new Map(), [], [running]);
+    expect(motion.links.get("e1")?.running?.title).toBe("Cesta Nákup právě běží: přechod s1 → s2");
+    expect(motion.links.has("e2")).toBe(false);
+    expect(mapMotion(place, new Map(), [], [journey(derived({ running: { runId: "r", at: "t", segment: null } }))]).links.size).toBe(0);
+  });
 });

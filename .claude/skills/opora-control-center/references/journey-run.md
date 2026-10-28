@@ -35,6 +35,10 @@ uv run python tools/journey_run.py --server http://127.0.0.1:8740 --project <pro
 - Formulář (`do: submit`) potřebuje data: `fixtures.json` = `{"<journeyId>/<to>": {"E-mail": "a@b.cz",
   "input[name=souhlas]": "on"}}`; klíč je popisek pole, nebo CSS selektor (obsahuje `#`, `.`, `[` …).
   Bez dat segment selže „chybí data formuláře“. Data jsou výbava harnessu projektu, ne mapy.
+- Runner před přehráním ohlásí start (`POST /api/project-architecture/journey-runs/start`) a u každého přechodu
+  heartbeat (`…/journey-runs/{runId}/progress`, §3a); Studio a Editor stránky pak ukazují tečky na právě
+  přehrávaném přechodu. Selhání hlášení běh nezastaví (jen varování na stderr); `--dry-run` je neposílá.
+  Vlastní nástroj je posílat nemusí.
 - Neprošlý segment oprav v kódu a přehraj znovu; doklad je neměnný, platí poslední podle `at`.
 - Změna mapy (cesta, `via`, sekce, cesta stránky) změní digest plánu a dosavadní doklad zastará: přehraj znovu.
 

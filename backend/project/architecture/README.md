@@ -49,6 +49,11 @@ cesty složí plán přehrání (`baseUrl`, segmenty `{from, to, open, scope, do
 (`{at, passed, stale, command, failed, firstFailure?}`) pro `journeys`, `node-brief.architecture` a kontrolu mapy.
 Opora cestu nepřehrává; runner je etapa 8c.
 
+Stav „cesta právě běží“ (§3a, `journey_running.py`): `JourneyRunning` drží běhy jen v paměti procesu (zámek, TTL
+120 s od posledního heartbeatu, vstříknuté hodiny pro testy, strop 256 běhů). `start_journey_run` ověří cestu jako
+plán a vrátí `{runId, startedAt}`; `progress` nese aktuální přechod; `project_journeys` přidá cestám `running`
+a zápis dokladu běh té cesty smaže. Žádná SQLite, žádné schéma.
+
 Brána uzavření (§5, `journey_gate.py`): `journeys_blocking(graph, nodeId, runs)` vrací cesty, které brání uzavření
 karty (`{journeyId, applicationId, name, reason}`; „chybí ověření“ → „zastaralé“ → „neprošel přechod s2 → s3“ →
 „nepokrývá všechny přechody“), `blocking_by_node` totéž pro více karet, `refusal` text odmítnutí. Karta leží na cestě,

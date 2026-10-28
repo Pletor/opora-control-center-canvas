@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { derivedForDomain, derivedJourneysUrl, derivedStepState, normalizeDerivedJourneys } from "./derived-journeys";
+import { derivedForDomain, derivedJourneysUrl, derivedStepState, normalizeDerivedJourneys, RUNNING_POLL_MS, RUNS_POLL_MS, runsPollMs } from "./derived-journeys";
 
 describe("odvozené cesty zákazníka", () => {
   it("adresa dotazu nese projekt", () => {
@@ -35,6 +35,27 @@ describe("odvozené cesty zákazníka", () => {
       firstFailure: { from: "s2", to: "s3", reason: "URL /novinky" } });
     expect(b.lastRun).toEqual({ at: "2026-10-27T21:40:00Z", passed: true, stale: true, command: "", failed: 0 });
     expect(c.lastRun).toBeUndefined();
+  });
+  it("čte běžící přehrání (running) a vadné zahodí", () => {
+    const raw = { journeys: [
+      { applicationId: "web", id: "a", running: { runId: "r1", at: "2026-10-28T10:00:05Z", segment: { from: "s1", to: "s2", ok: true } } },
+      { applicationId: "web", id: "b", running: { runId: "r2", at: "2026-10-28T10:00:00Z", segment: null } },
+      { applicationId: "web", id: "c", running: { runId: "r3", at: "t", segment: { from: "s1", ok: "ano" } } },
+      { applicationId: "web", id: "d", running: { at: "t" } },
+      { applicationId: "web", id: "e", running: null },
+    ] };
+    const [a, b, c, d, e] = normalizeDerivedJourneys(raw);
+    expect(a.running).toEqual({ runId: "r1", at: "2026-10-28T10:00:05Z", segment: { from: "s1", to: "s2", ok: true } });
+    expect(b.running).toEqual({ runId: "r2", at: "2026-10-28T10:00:00Z", segment: null });
+    expect(c.running).toEqual({ runId: "r3", at: "t", segment: null });
+    expect(d.running).toBeUndefined();
+    expect("running" in e).toBe(false);
+  });
+  it("čte častěji, jen když některá cesta běží", () => {
+    const idle = { applicationId: "web", id: "a", missing: [], segments: [] };
+    expect(runsPollMs(null)).toBe(RUNS_POLL_MS);
+    expect(runsPollMs([idle])).toBe(RUNS_POLL_MS);
+    expect(runsPollMs([idle, { ...idle, running: { runId: "r", at: "t", segment: null } }])).toBe(RUNNING_POLL_MS);
   });
   it("vybere cesty jedné domény podle id", () => {
     const items = [{ applicationId: "a", id: "j", missing: [], segments: [] }, { applicationId: "b", id: "j", missing: ["s"], segments: [] }];

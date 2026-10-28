@@ -1,7 +1,8 @@
 // Události ověření cest pro pohyb Skutečnosti (docs/studio.md §2): co právě prošlo a kde cesta spadla. Průchod se
 // ukáže jen při změně oproti předchozímu stavu (nový `lastRun.at`, prošlo, není zastaralé); první načtení stránky
 // nastaví jen výchozí otisky a nic nepřehraje. Selhání je stav, ne událost: dokud poslední doklad neprošel, nese
-// vazba `firstFailure` zastavenou červenou tečku. Čistá logika bez Reactu.
+// vazba `firstFailure` zastavenou červenou tečku. Běh je také stav: dokud server hlásí, že cesta právě běží
+// (`running`, docs/brana-cesty.md §3a), obíhají tečky po vazbě aktuálního přechodu. Čistá logika bez Reactu.
 import type { StudioJourney } from "../../logic/studio-status";
 
 /** Id cesty je jedinečné jen v doméně. */
@@ -34,5 +35,16 @@ export function runFailures(journeys: StudioJourney[]): RunFailure[] {
     const reason = first.reason ? `: ${first.reason}` : "";
     const stale = run.stale ? " (doklad je starší než mapa)" : "";
     return [{ journey, from: first.from, to: first.to, title: `Cesta ${journey.name} spadla na přechodu ${first.from} → ${first.to}${reason}${stale}` }];
+  });
+}
+
+export type RunningHop = { journey: StudioJourney; from: string; to: string; title: string };
+
+/** Přechody, které se právě přehrávají (cesta má `running` s nahlášeným přechodem), s větou do tooltipu. */
+export function runningHops(journeys: StudioJourney[]): RunningHop[] {
+  return journeys.flatMap((journey) => {
+    const segment = journey.derived?.running?.segment;
+    if (!segment) return [];
+    return [{ journey, from: segment.from, to: segment.to, title: `Cesta ${journey.name} právě běží: přechod ${segment.from} → ${segment.to}` }];
   });
 }

@@ -71,7 +71,8 @@ def replay_segment(page, base_url: str, segment: dict, fixtures: dict, journey_i
     return True, None
 
 
-def replay(plan: dict, base_url: str, fixtures: dict, headed: bool, log) -> list[dict]:
+def replay(plan: dict, base_url: str, fixtures: dict, headed: bool, log, progress=None) -> list[dict]:
+    """Přehraje segmenty plánu; `progress(segment, ok=None)` (nepovinné) hlásí přechod před přehráním a po něm."""
     from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
 
@@ -82,11 +83,15 @@ def replay(plan: dict, base_url: str, fixtures: dict, headed: bool, log) -> list
         page.set_default_timeout(SEGMENT_TIMEOUT_MS)
         page.set_default_navigation_timeout(SEGMENT_TIMEOUT_MS)
         for segment in plan["segments"]:
+            if progress:
+                progress(segment)
             try:
                 ok, reason = replay_segment(page, base_url, segment, fixtures, plan["journeyId"])
             except PlaywrightError as error:  # timeout, odpojený prvek, neplatný selektor
                 ok, reason = False, logic.short_reason(error)
             log(f"{segment['from']} -> {segment['to']}: {'ok' if ok else 'selhal: ' + str(reason)}")
             results.append({"from": segment["from"], "to": segment["to"], "ok": ok, "reason": reason})
+            if progress:
+                progress(segment, ok)
         browser.close()
     return results
