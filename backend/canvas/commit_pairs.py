@@ -71,9 +71,11 @@ def _trailer_match(commit, scope_id):
     revision = None
     for value in _trailer_values(commit):
         name, separator, raw = str(value).partition("@")
-        if not separator or name.strip() != scope_id:
+        if name.strip() != scope_id:
             continue
         matched = True
+        if not separator:  # `Opora-Node: <id>` bez revize: commit karty, revizi nehlásí
+            continue
         try:
             number = int(raw.strip())
         except ValueError:

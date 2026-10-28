@@ -54,9 +54,10 @@ class ExecutionResults(OporaExecutions):
             if record.get("executionProtocolVersion") == 2:
                 receipt.update(executionProtocolVersion=2, budget=record["budget"])
             if record.get("contextProtocolVersion") == 2:
+                from backend.canvas.opora_execution_context import pin_id
                 from database.repositories.opora_execution_contexts import read_proof
                 receipt.update(contextProtocolVersion=2,
-                               contextValidation=read_proof(repo.db, *repo.scope, identifier))
+                               contextValidation=read_proof(repo.db, *repo.scope, pin_id(record)))
             if decisions:  # stored as card decisions with this executionId (opora_execution_decisions.py)
                 receipt["decisionIds"] = execution_decisions.store(self.canvas, repo.db, record, decisions)
             repo.insert_receipt(identifier, payload["requestId"], fingerprint, receipt)

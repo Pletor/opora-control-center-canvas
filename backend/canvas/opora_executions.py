@@ -152,7 +152,15 @@ class OporaExecutions:
         self.lease_valid(repo, record)
         if record.get("contextProtocolVersion") == 2:
             from backend.canvas.opora_execution_context_validation import validate_context
-            validate_context(self.canvas, repo, record)
+            from backend.canvas.payload_errors import NextStep
+            try:
+                validate_context(self.canvas, repo, record)
+            except NextStep:
+                raise
+            except ValueError as exc:  # cizí změna rozsahu karty; vlastní canvas-plan kontext přepne (re-pin)
+                raise NextStep(str(exc), code="execution_context_changed",
+                               hint="Kontext karty se změnil mimo tento běh; spusť start znovu: "
+                                    f"opora_hub.py start --node {record['nodeId']}") from exc
         else:
             if "contextProtocolVersion" in record:
                 raise ValueError("Unsupported persisted execution context protocol version.")

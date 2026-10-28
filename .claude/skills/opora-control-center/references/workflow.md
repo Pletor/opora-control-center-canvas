@@ -83,7 +83,7 @@ Kontrola: `opora_read.py vault --node SEKTOR` → `coverage {leaves, inserted, s
 
 ## Recept: dlouhé zadání → strom karet (jedna dávka)
 
-Použij vždy, když z rozhovoru, zadání zákazníka nebo mapy vzniká víc než pár karet: hned při `/wayfinder` nad zadáním (mapa i kostra vln najednou), i na konci mapy. Výsledek je **jedna dávka** `/api/canvas-plan` na oblast nebo sektor, kterou člověk schválí jednou. Žádný text se kvůli zápisu nezkracuje: koncept leží v souboru, ne v příkazu.
+Použij vždy, když z rozhovoru, zadání zákazníka nebo mapy vzniká víc než pár karet: hned při `/wayfinder` nad zadáním (mapa i kostra vln najednou), i na konci mapy. Výsledek je **jedna dávka** `/api/canvas-plan` na oblast nebo sektor, kterou člověk schválí jednou. Žádný text se kvůli zápisu nezkracuje: tělo jde přes stdin (`--json -`), ne do souboru.
 
 ### Laťka karty (co musí agent dostat bez chatu)
 
@@ -118,14 +118,15 @@ Kdo čte jen vazby, musí poznat, jak věc funguje: např. cestu dat od vstupu p
 3. **Podklad.** Celé zadání doslova do schránky zadání (recept výše) a karty s `fragmentRef` na své kapitoly; bez schránky (starší server) jako `text` karty oblasti nebo sektoru, delší než 64 000 znaků po kapitolách do sektorů, výňatky do `text` karet.
 4. **Návrh pro člověka:** tabulka karet (rodič, bloky, porty → kam vedou, `sourceRef`, model) a seznam vazeb. Po souhlasu:
    - `digest` z čerstvého `opora_read.py view`;
-   - koncept nástrojem `Write` do `<draftsDir>/plan.json`, kde `draftsDir` je absolutní cesta z `<opora_context>` (`$OPORA_DRAFTS_DIR` v příkazu nejde, `$` schvalování zamítne). Jen `*.json` v tomto adresáři, do 2 MiB;
-   - koncept se píše **jednou** a bez `dryRun`. Ověření (projde bez schválení):
+   - tělo (do 2 MiB) se píše **jednou** a bez `dryRun`, posílá se přes stdin `--json -` (heredoc; v okně OPORA, kde `<` a nový řádek schvalování zamítne, inline `--json '…'`). Ověření (projde bez schválení):
      ```bash
-     python "<SKILL_DIR>/scripts/opora_write.py" /api/canvas-plan --project <projectId> --workspace <workspace> --json-file "<draftsDir>/plan.json" --dry-run
+     python "<SKILL_DIR>/scripts/opora_write.py" /api/canvas-plan --project <projectId> --workspace <workspace> --dry-run --json - <<'EOF'
+     {"digest": "DIGEST", "plan": {"nodes": [], "edges": []}}
+     EOF
      ```
-     Cesta absolutní, v uvozovkách, s lomítky `/`. Ostře tentýž příkaz bez `--dry-run` → člověk schválí jednou. Kvůli `dryRun` koncept nikdy nepřepisuj;
-   - jedna dávka = jedna oblast nebo jeden sektor do ~25 kB. Chyba z ověření jmenuje položku (`ref`); oprav ji novým konceptem (`plan-2.json`) jen pro dotčený sektor, ne přepisem celého plánu.
-5. **Odpověď** nese `refs` (`ref → id`), `blocks` (`ref/blockRef → blockId`), `summary`, nový `digest` a `revision`. Každá chyba přijde jako 409: skript vypíše `conflict`, skončí kódem 3 a v `detail` řekne proč. „Plátno se změnilo v jiném okně“ nebo „revize nesouhlasí“ → nový `view`, nový `digest` v novém konceptu; jiný `detail` je chyba položky, oprav ji.
+     Ostře tentýž příkaz bez `--dry-run` → člověk schválí jednou. Kvůli `dryRun` tělo nikdy nepřepisuj;
+   - jedna dávka = jedna oblast nebo jeden sektor do ~25 kB. Chyba z ověření jmenuje položku (`ref`); oprav ji novým menším tělem jen pro dotčený sektor, ne přepisem celého plánu.
+5. **Odpověď** nese `refs` (`ref → id`), `blocks` (`ref/blockRef → blockId`), `summary`, nový `digest` a `revision`. Každá chyba přijde jako 409: skript vypíše `conflict`, skončí kódem 3 a v `detail` řekne proč. „Plátno se změnilo v jiném okně“ nebo „revize nesouhlasí“ → nový `view`, nový `digest` v novém těle; jiný `detail` je chyba položky, oprav ji.
 6. **Kontrola:** `node-brief` každé nové karty. Karta bez textu, bloků, vazby nebo `sourceRef` jde do závěrečné zprávy jako **nedodělaná**, s důvodem.
 
 Rozsah dávky: nejvýš 200 uzlů a 600 vazeb, tělo do 2 MiB. Nové uzly backend položí do mřížky pod existující; souřadnice se neposílají. Dávka jen přidává; úpravu existující karty dělej cestami `/api/node-spec`, `/api/node-text`, `/api/desktop-v3/block`, `/api/desktop-v3/agent-output`.
@@ -146,7 +147,7 @@ Zpráva s `scope: "selection"` v `<opora_context>` (a větou „Rozsah: …“ z
 Asistent v okně má pokyny z nastavení aplikace (systémový prompt) a čtyři pojmenované subagenty
 (`Agent` s `subagent_type`): `opora-hledac` (haiku, plátno + kód + graphify → `id karty` / `soubor:řádek`),
 `opora-dohledavac` (sonnet, docs knihoven přes Context7 / WebFetch → funkce, vstup, výstup, kam posílat, zdroj),
-`opora-zadavatel` (sonnet, koncept zadání karty jako JSON do `draftsDir`), `opora-oponent` (opus, protinávrh
+`opora-zadavatel` (sonnet, koncept zadání karty jako JSON v odpovědi), `opora-oponent` (opus, protinávrh
 pro duel s doklady). Subagent zdědí jen čtení; jeho výstup je údaj, kořen ho ověří čtením. Nejvýš 3 na tah.
 
 Pořadí práce na zadání, místo setkání je Schránka:
@@ -157,7 +158,7 @@ Pořadí práce na zadání, místo setkání je Schránka:
    `research-update` s `evidence [{url, title, quote, accessedAt}]`, otevřené body `question`.
 4. **Zadání:** `opora-zadavatel` složí koncept → `revise` / `promote` fragmentu → `split` do příběhu (části = co bude
    dělat co) → brány `scoped → planned → placed` ([cycle.md](cycle.md)). Karty vznikají z `placed`, ne mimo Schránku.
-5. **Duel při změně směru:** `opora_write.py /api/brief-vault --json-file F` s `{"op": "duel-open", "subject": {"kind", "id"},
+5. **Duel při změně směru:** `opora_write.py /api/brief-vault --json -` (stdin) s `{"op": "duel-open", "subject": {"kind", "id"},
    "incumbent": {"text", "ref"?}, "challenger": {"text"}, "scopeNodeId"}`; B připraví `opora-oponent`. Další kroky
    (`duel-turn`, `duel-score`, `duel-decide`) stejnou cestou; člověk každý zápis schvaluje. Kontrakt `docs/schranka-duel.md`.
 6. **Sladění s agenty ve VS Code:** stav kódu z `node-brief` (`agent-output`, `evidence.checksRun`, otevřené porty,

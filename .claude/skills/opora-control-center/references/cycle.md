@@ -13,11 +13,11 @@ Adresa jako u `opora_write.py` (`--base-url` / `OPORA_BASE_URL`, jen loopback). 
 | Příkaz | Co dělá |
 |---|---|
 | `next [--discipline be]` | hlava fronty: `{fragment (s round, exhausted), gate, needs: proposal\|confirm, proposal?, hint, lessons, blocked, blockedBy}` nebo `{fragment: null, blocked, blockedBy}` |
-| `propose F GATE --json-file p.json --note "…"` | `op: propose`; revizi načte sám, `--revision N` ji připne na tu, kterou jsi četl |
+| `propose F GATE --json '{…}' --note "…"` | `op: propose`; revizi načte sám, `--revision N` ji připne na tu, kterou jsi četl |
 | `yes F GATE --note "…"` | `op: gate` `value: true` bez payloadu (server vezme poslední platný návrh) |
 | `no F GATE --note "…"` | `op: gate` `value: false`: vypne **zapnutou** bránu a všechny další (kaskáda) |
 | `reject F GATE --note "…"` | `op: reject-proposal`: zamítne poslední čekající návrh brány (revizi nepřidá), `next` pak vrátí `needs: proposal`; smí i autor (stažení vlastního návrhu); bez čekajícího návrhu 409 |
-| `check F GATE [--json-file p.json]` | poradní `gate-check` (Jev); bez payloadu bere návrh z hlavy `next`; `probability: null` = bez povolení / nedostupné |
+| `check F GATE [--json '{…}']` | poradní `gate-check` (Jev); bez payloadu bere návrh z hlavy `next`; `probability: null` = bez povolení / nedostupné |
 | `lessons [--discipline be]` | živá poučení disciplíny |
 | `run-checks F --root DIR --tests DIR --executor A [--plan-score N] [--critic-rounds N] [--unexpected] [--note "…"]` | role OVĚŘOVATEL: spustí `synthesized.checks` bez shellu v DIR, podá `propose verified` s `actual.run`; vypíše `{action: "proposed", tests, checks: [{checkId, exitCode, durationMs, tail}]}` (`tail` = posledních 2 000 znaků, na server výstup nejde); `executor == vlastní aktér` = kód 2 |
 | `duel open\|show\|turn\|score\|decide\|align …` | duel změny směru, viz sekce DUEL níže |
@@ -60,7 +60,7 @@ Server odmítne (400) `tests: pass|fail` bez `run`, když `synthesized` má `che
 1. `next` → bere jen `needs: "proposal"` (u `confirm` už návrh je, nech ho potvrzovateli).
 2. Přečti fragment (`opora_read.py vault-fragment --id F`) a předchozí brány; napiš payload přesně podle tvaru níže
    (žádná další pole, žádné `value`, `by`, `predictionError`).
-3. `propose F GATE --json-file p.json --revision <revize z next> --note "z čeho payload plyne"`.
+3. `propose F GATE --json '{…}' --revision <revize z next> --note "z čeho payload plyne"`.
 4. Brány `scoped`, `planned`, `placed` payload nemají: nenavrhuj, `op: gate` nevolej.
 
 | Brána | Tvar payloadu | Dobrý | Špatný (proč) |
@@ -121,7 +121,7 @@ tahu): věnuj se mu dřív než bránám.
 
 | Akce | Příkaz |
 |---|---|
-| otevřít | `duel open --subject-kind fragment\|node\|project --subject ID (--incumbent-file F\|--incumbent T) (--challenger-file F\|--challenger T) --scope NODE [--discipline D] [--incumbent-ref FRAG:REV]` |
+| otevřít | `duel open --subject-kind fragment\|node\|project --subject ID --incumbent T --challenger T --scope NODE [--discipline D] [--incumbent-ref FRAG:REV]` |
 | číst | `duel show ID` → `{p, n, onTurn, rounds, canDecide, trajectory, turns (posledních 6 zkráceně)}` |
 | výměna | `duel turn ID --side A\|B\|judge\|human --kind claim\|grill\|answer\|concede\|synthesis\|note (--text T\|--text-file F) [--ref TURN]… [--evidence "zdroj\|citát"]…` |
 | hodnotit | `duel score ID --turn TURN --strength 0-10 --supports A\|B [--rebutted-by TURN] [--evidence-ok]` (`--evidence-ok` = soudce ověřil doložení, teprve to dává bonus) |
@@ -152,14 +152,13 @@ po rozhodnutém duelu zapisuje bod trendu.
 ## Ukázka
 
 ```bash
-export OPORA_BASE_URL=http://127.0.0.1:8740
-OPORA_ACTOR=navrh-be-1 python opora_cycle.py next --discipline be --project P --workspace W
-OPORA_ACTOR=navrh-be-1 python opora_cycle.py propose F1 weighed --json-file w.json --revision 4 --note "z odstavce 2" --project P --workspace W
-OPORA_ACTOR=potvrz-be-1 python opora_cycle.py yes F1 weighed --note "riziko konkrétní, bez metrik" --project P --workspace W
-OPORA_ACTOR=potvrz-be-1 python opora_cycle.py reject F1 decided --note "reason neodpovídá fragmentu" --project P --workspace W
-OPORA_ACTOR=potvrz-be-1 python opora_cycle.py no F1 synthesized --note "done nejde ověřit testem" --project P --workspace W
-OPORA_ACTOR=obhajce-1 python opora_cycle.py duel open --subject-kind fragment --subject F1 --incumbent-file stary.txt --challenger "Měřítko přes e-mail" --scope N1 --project P --workspace W
-OPORA_ACTOR=obhajce-1 python opora_cycle.py duel turn D1 --side A --kind answer --text "Heslo zůstává" --ref T2 --evidence "docs/a.md:12|citát" --project P --workspace W
-OPORA_ACTOR=soudce-1 python opora_cycle.py duel score D1 --turn T3 --strength 7 --supports A --project P --workspace W
-OPORA_ACTOR=soudce-1 python opora_cycle.py duel show D1 --project P --workspace W
+python opora_cycle.py next --discipline be --actor navrh-be-1 --project P --workspace W
+python opora_cycle.py propose F1 weighed --json '{"…": "…"}' --revision 4 --note "z odstavce 2" --actor navrh-be-1 --project P --workspace W
+python opora_cycle.py yes F1 weighed --note "riziko konkrétní, bez metrik" --actor potvrz-be-1 --project P --workspace W
+python opora_cycle.py reject F1 decided --note "reason neodpovídá fragmentu" --actor potvrz-be-1 --project P --workspace W
+python opora_cycle.py no F1 synthesized --note "done nejde ověřit testem" --actor potvrz-be-1 --project P --workspace W
+python opora_cycle.py duel open --subject-kind fragment --subject F1 --incumbent "Dosavadní znění" --challenger "Měřítko přes e-mail" --scope N1 --actor obhajce-1 --project P --workspace W
+python opora_cycle.py duel turn D1 --side A --kind answer --text "Heslo zůstává" --ref T2 --evidence "docs/a.md:12|citát" --actor obhajce-1 --project P --workspace W
+python opora_cycle.py duel score D1 --turn T3 --strength 7 --supports A --actor soudce-1 --project P --workspace W
+python opora_cycle.py duel show D1 --actor soudce-1 --project P --workspace W
 ```

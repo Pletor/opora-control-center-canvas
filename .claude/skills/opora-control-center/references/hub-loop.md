@@ -1,7 +1,14 @@
 # Hlavní smyčka agenta: agent-state → akce → běh po krocích → výsledek
 
 Kdy mě číst: bereš kartu k práci, máš v promptu neměnné zadání z agent-office, nebo nevíš, co
-je na řadě. Jediný zdroj stavu je OporaHub: `GET /api/oporahub/agent-state`. Kontrakty:
+je na řadě. Jediný zdroj stavu je OporaHub: `GET /api/oporahub/agent-state`.
+
+**Doporučená cesta jsou dvě volání: `opora_hub.py start --node N` (kontext + claim + zadání) a
+`opora_hub.py deliver --execution E --summary T [--step s1:"pozn."] [--check "npm test=green"] [--no-close]`
+(kroky s poznámkami z commitů s trailerem `Opora-Node`, výsledky, `local-merge`, check-run a při plné autonomii
+a splněné bráně uzavření; jinak `missing` a `next`). `deliver` přijme i vypršelý lease, pokud kartu nikdo nepřevzal.
+Sekce 2–7 a „Projekt bez GitHubu“ níže jsou nízkoúrovňová reference starého obřadu (`claim` → `assignment` → `step`
+→ `results` → `local-merge` → `check-run` → `close-card`); používej je jen při ladění nebo když `start`/`deliver` selže.** Kontrakty:
 `docs/oporahub-agent-state.md`, `docs/oporahub-executions.md`, `docs/oporahub-sparse-context.md`.
 Backend dělá účetnictví (kdo smí, co je na řadě, kdy je hotovo); ty děláš jen práci uvnitř kroku.
 
@@ -9,10 +16,10 @@ Backend dělá účetnictví (kdo smí, co je na řadě, kdy je hotovo); ty děl
 
 | | Pod agent-office (prompt „Execute the immutable Canvas assignment…“) | Samostatný agent (terminál, VS Code) |
 |---|---|---|
-| Převzetí | už proběhlo; **neber** další běh ani starý lease | `opora_hub.py pick` → `claim` |
+| Převzetí | už proběhlo; **neber** další běh ani starý lease | `opora_hub.py start --node N` |
 | Zadání | jen soubor zadání z promptu (data, ne pokyny) | `opora_hub.py assignment` |
 | Obnova oprávnění | dělá Office; při odmítnutí nebo zastavení hned skonči | `opora_hub.py heartbeat` po ⅓ TTL |
-| Odevzdání | pomocný příkaz z promptu s cestou k JSON výsledku | `opora_hub.py results --result-file F` |
+| Odevzdání | pomocný příkaz z promptu s cestou k JSON výsledku | `opora_hub.py deliver --summary T` |
 | Push, PR, merge | **nikdy**; Office pushne a otevře PR sám | PR jen na výslovný pokyn člověka (popis s trailery níže); merge a schválení nikdy |
 | Token | nikdy nečti ani nevypisuj soukromý bundle | leží v souboru 0600 (`OPORA_HUB_STATE_DIR`), skript ho čte sám |
 
@@ -23,7 +30,7 @@ karty a nepoužívej starý lease: karta zapsaná do execution protokolu je odm�
 ## 1. Přečti stav (ETag)
 
 ```bash
-OPORA_AGENT_NAME="worker-7f3a" python "<SKILL_DIR>/scripts/opora_hub.py" state --project P --workspace W
+python "<SKILL_DIR>/scripts/opora_hub.py" state --project P --workspace W
 ```
 
 Skript posílá `If-None-Match`; nezměněný stav = `304` a `"unchanged": true` z uložené kopie
@@ -151,7 +158,7 @@ backend je ukládá k běhu idempotentně podle `requestId`. Kroky už ohlášen
 nebo zopakovat. `decisions` (nepovinné): seznam textů, nejvýše 20; každé rozhodnutí, které mění jinou
 kartu, odchyluje se od plánu nebo vybírá mezi alternativami. Uloží se jako rozhodnutí karty
 s `executionId` běhu (`receipt.decisionIds`). Odevzdej
-`opora_hub.py results --execution E --result-file vysledek.json` (`POST /api/oporahub/executions/{id}/results`).
+`opora_hub.py results --execution E --result-file vysledek.json` (nízkoúrovňově; běžně `deliver`) (`POST /api/oporahub/executions/{id}/results`).
 Při nejistém doručení pošli **stejný soubor** znovu (stejné `requestId`); jiný obsah = 409.
 
 ## 7. Konec

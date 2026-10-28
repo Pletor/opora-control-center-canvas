@@ -4,8 +4,11 @@ from fastapi.responses import JSONResponse
 
 from backend.canvas.authority import can_act
 from backend.canvas.opora_execution_context import prepare
+from backend.canvas.opora_execution_deliver import deliver
 from backend.canvas.opora_execution_results import ExecutionResults
+from backend.canvas.opora_execution_start import start
 from backend.canvas.opora_execution_steps import checkpoint
+from backend.canvas.opora_local_merge import CommitOffBranch, InvalidCommit
 
 ASSIGNMENT_VIEWS = ("include", "omit")
 
@@ -33,6 +36,11 @@ def create_opora_execution_router(service):
             return JSONResponse({"error": "assignment must be include or omit.", "code": "execution_conflict"}, status_code=409)
         try:
             return action()
+        except InvalidCommit as exc:  # deliver → lokální sloučení (docs/lokalni-slouceni.md)
+            return JSONResponse({"error": str(exc), "code": "invalid_commit"}, status_code=422)
+        except CommitOffBranch as exc:
+            return JSONResponse({"error": str(exc), "code": "commit_not_on_branch",
+                                 "hint": "Slučte commit karty do aktuální větve projektu a odevzdejte znovu."}, status_code=409)
         except ValueError as exc:
             if hasattr(exc, "body"):  # InvalidPayload (422) / NextStep (409 s hint), backend/canvas/payload_errors.py
                 return JSONResponse(exc.body(), status_code=exc.status)
@@ -68,6 +76,40 @@ def create_opora_execution_router(service):
                 raise ValueError("An identified execution owner is required.")
             return lease_view(executions.claim(payload, "agent:" + name if request.state.actor == "agent" else "human"), assignment)
         return call(request, create, assignment)
+
+    def owner(request):
+        name = getattr(request.state, "agent", None)
+        if request.state.actor == "agent" and (not isinstance(name, str) or not name.strip()):
+            raise ValueError("An identified execution owner is required.")
+        return "agent:" + name if request.state.actor == "agent" else "human"
+
+    @router.post("/start")
+    def start_card(payload: dict, request: Request):
+        # Složená akce: kontext v2 + hlavy z čerstvého stavu + claim + zadání (zefektivneni-opory.md §3.1).
+        return call(request, lambda: start(executions, payload, owner(request)))
+
+    @router.post("/{identifier}/deliver")
+    def deliver_card(identifier: str, payload: dict, request: Request):
+        # Složená akce: kroky, výsledek, lokální sloučení, kontroly a uzavření (zefektivneni-opory.md §3.2).
+        def act():
+            value = deliver(service, identifier, payload, request.headers.get("x-opora-execution-token"),
+                            request.state.actor)
+            if value["leaseRenewed"]:
+                note_renewal(request, payload, value)
+            return value
+        return call(request, act)
+
+    def note_renewal(request, payload, value):
+        """Záznam činnosti: odevzdání přijalo vypršelé převzetí (epocha beze změny, nikdo kartu nepřevzal)."""
+        from backend.canvas.activity_log import ActivityLog
+        try:
+            ActivityLog(service).record(
+                actor=request.state.actor, agent=request.state.agent, method="POST", path=request.url.path,
+                described={"project": payload["project"], "workspace": payload["workspace"], "nodeIds": [value["nodeId"]],
+                           "summary": "lease_renewed_on_deliver execution=" + value["executionId"]},
+                status=200)
+        except Exception:  # noqa: BLE001 - záznam je doplněk, ne podmínka odevzdání
+            return
 
     @router.get("/{identifier}/assignment")
     def assignment(identifier: str, project: str, workspace: str, request: Request):

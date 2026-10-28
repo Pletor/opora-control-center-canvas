@@ -45,10 +45,15 @@ def persist(repo, record, pin):
         "liveTransitionsChecked": 0, "acceptedScopeUnchanged": True, "liveScopeUnchanged": True})
 
 
+def pin_id(record):
+    """Klíč platného pinu běhu: původní (`executionId`), po re-pinu nový neměnný pin (`contextPinId`)."""
+    return record.get("contextPinId") or record["executionId"]
+
+
 def public_proof(repo, record):
     if record.get("contextProtocolVersion") != 2:
         return {}
-    return {"contextValidation": private.read_proof(repo.db, *repo.scope, record["executionId"])}
+    return {"contextValidation": private.read_proof(repo.db, *repo.scope, pin_id(record))}
 
 
 def _metadata(canvas, project):

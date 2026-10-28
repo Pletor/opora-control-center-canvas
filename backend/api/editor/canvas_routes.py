@@ -77,7 +77,13 @@ def create_canvas_router(service):
     @router.post("/canvas-plan")
     def canvas_plan(payload: dict, request: Request):
         # Dávka plánu (docs/davka-planu.md §3): jen přidává, atomicky; `dryRun` nic nezapíše.
-        return apply_plan(service, payload, actor=request.state.actor)
+        name = getattr(request.state, "agent", None)
+        if request.state.actor != "agent" or not isinstance(name, str) or not name.strip():
+            return apply_plan(service, payload, actor=request.state.actor)
+        # Vlastní dávka agenta přepne kontext jeho živých běhů (re-pin, zefektivneni-opory.md §3.3).
+        from backend.canvas.opora_execution_repin import plan_with_repin
+        return plan_with_repin(service, payload, "agent:" + name,
+                               lambda: apply_plan(service, payload, actor=request.state.actor))
 
     @router.get("/drawing")
     def drawing(project: str, workspace: str, layer: str = ""):

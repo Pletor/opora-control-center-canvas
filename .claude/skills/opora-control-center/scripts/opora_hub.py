@@ -2,6 +2,9 @@
 
 `opora_hub.py <příkaz> --project P --workspace W [--base-url http://127.0.0.1:PORT]`
 
+Karta:  `start --node N` (kontext, claim a zadání jedním voláním) → práce + commit s `Opora-Node: N` →
+        `deliver --execution E --summary T [--step s1:"pozn."]... [--check "npm test=green"]... [--commit SHA]
+        [--no-close] [--json -]` (kroky, výsledek, lokální sloučení, kontroly a uzavření jedním voláním).
 Čtení:  `state` (GET agent-state s `If-None-Match`; 304 vrátí uloženou kopii), `actions`, `pick`,
         `events` (feed událostí).
 Běh:    `claim --action-id ID` (čerstvý agent-state → akce `claim` ve stavu `ready` → kontext v2 → claim),
@@ -13,8 +16,9 @@ Akce:   `act --action-id ID` provede akci z agent-state přesně podle `method/p
         když je agent-state při `autonomy.full` nabízí jako `ready`. Výstup nese `next` = další ready akce.
         `local-merge --execution E --commit SHA` (projekt bez GitHubu), `close-card --card ID [--note T]`.
 
-Token běhu i slotu review se nikdy nevypisuje: leží v soukromém souboru (0600) ve složce
-`OPORA_HUB_STATE_DIR` (výchozí `~/.opora/hub`) a skript ho čte sám. Blokovanou akci skript
+Token běhu i slotu review se nikdy nevypisuje: leží v soukromém souboru (0600) ve složce `hub` pod
+`$OPORA_HOME`, jinak `<cwd>/.opora/` (první zápis doplní `.opora/` do `.gitignore` Git repa), jinak `~/.opora`
+(`OPORA_HUB_STATE_DIR` = přímá cesta, má přednost), a skript ho čte sám. Blokovanou akci skript
 nepošle (kód 5) a stejné ID akce se po odmítnutí neopakuje. Kód 3 = 409: znovu načti `state`; kód 6 = 422
 (neplatné tělo, `field`/`expected`/`example`). Chybový JSON má vždy `ok`, `status`, `error` a `hint` (další krok).
 Adresa je jen loopback, bez proxy a bez přesměrování (jako `opora_write.py`).
@@ -33,7 +37,8 @@ from urllib.request import Request
 import opora_write
 
 HUB = '/api/oporahub'
-STATE_DIR_ENV = 'OPORA_HUB_STATE_DIR'
+STATE_DIR_ENV = 'OPORA_HUB_STATE_DIR'  # přímá cesta ke složce stavu; má přednost
+HOME_ENV = 'OPORA_HOME'
 EXIT_CONFLICT, EXIT_NONE, EXIT_REFUSED, EXIT_INVALID = 3, 4, 5, 6
 # Akce, jejichž `preconditions` jsou celé tělo (doplní se jen project a workspace), docs/oporahub-agent-state.md.
 BODY_VERBS = frozenset({'propose_graph', 'accept_baseline', 'accept', 'rebase', 'verification.fix'})
@@ -49,8 +54,36 @@ class Refused(Exception):
         self.hint = hint or 'Načti state --fresh a vyber ready akci podle nového id (pick).'
 
 
+def _ignore_in_git(folder):
+    """Při prvním zápisu do `<cwd>/.opora/` doplní `.opora/` do `.gitignore` pracovní kopie (je-li to Git repo)."""
+    top = next((item for item in (folder, *folder.parents) if (item / '.git').exists()), None)
+    if top is None:
+        return
+    ignore = top / '.gitignore'
+    text = ignore.read_text('utf-8') if ignore.is_file() else ''
+    if '.opora/' in [line.strip() for line in text.splitlines()]:
+        return
+    with ignore.open('a', encoding='utf-8', newline='\n') as handle:
+        handle.write(('' if not text or text.endswith('\n') else '\n') + '.opora/\n')
+
+
+def opora_home():
+    """Kořen stavu klienta: `$OPORA_HOME`, jinak `<cwd>/.opora/` (pracovní složka agenta), jinak `~/.opora`."""
+    if os.environ.get(HOME_ENV):
+        return Path(os.environ[HOME_ENV])
+    local = Path.cwd() / '.opora'
+    try:
+        fresh = not local.exists()
+        local.mkdir(parents=True, exist_ok=True)
+        if fresh:
+            _ignore_in_git(Path.cwd())
+        return local
+    except OSError:
+        return Path.home() / '.opora'
+
+
 def state_dir():
-    path = Path(os.environ.get(STATE_DIR_ENV) or Path.home() / '.opora' / 'hub')
+    path = Path(os.environ.get(STATE_DIR_ENV) or opora_home() / 'hub')
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -294,6 +327,66 @@ def results(base, execution, result_file):
     return value
 
 
+# --- složené akce karty: start a deliver (zefektivneni-opory.md §3) ------------------------------
+
+def start(base, project, workspace, node, ttl):
+    """Jedno volání: kontext, hlavy, claim a zadání; token jde jen do soukromého souboru, zadání do souboru."""
+    payload = {'project': project, 'workspace': workspace, 'nodeId': node, 'ttlSeconds': ttl}
+    _, value, _ = _call(base, 'POST', HUB + '/executions/start', payload)
+    execution = value['executionId']
+    _private_write(_bundle_path('execution', execution), {
+        'executionId': execution, 'project': project, 'workspace': workspace, 'nodeId': node,
+        'token': value['token'], 'epoch': value['epoch'], 'expiresAt': value['expiresAt'],
+        'acceptedRevision': value['acceptedRevision'], 'contextProtocolVersion': 2, 'resultRequestId': uuid.uuid4().hex})
+    target = _bundle_path('assignment', execution)
+    target.write_text(json.dumps(value['assignment'], ensure_ascii=False, indent=2), 'utf-8')
+    return {'executionId': execution, 'nodeId': node, 'epoch': value['epoch'], 'expiresAt': value['expiresAt'],
+            'resumed': value.get('resumed'), 'steps': value.get('steps'), 'assignmentFile': str(target),
+            'next': value.get('next')}
+
+
+def parse_steps(items):
+    """`--step s1` / `--step s1:"poznámka"` → krok `done` (bez poznámky ji server odvodí z commitů karty)."""
+    steps = []
+    for item in items:
+        step, _, notes = item.partition(':')
+        if not step.strip():
+            raise ValueError('--step má tvar ID[:poznámka], např. --step s1:"Komponenta a test".')
+        steps.append({'stepId': step.strip(), 'status': 'done', **({'notes': notes.strip()} if notes.strip() else {})})
+    return steps
+
+
+def parse_checks(items):
+    """`--check "npm test=green"` → `{name, status}`; stav je green nebo red."""
+    checks = []
+    for item in items:
+        name, _, status = item.rpartition('=')
+        if not name.strip() or status.strip() not in ('green', 'red'):
+            raise ValueError('--check má tvar "PŘÍKAZ=green|red", např. --check "npm test=green".')
+        checks.append({'name': name.strip(), 'status': status.strip()})
+    return checks
+
+
+def deliver(base, execution, summary, steps=(), checks=(), commit=None, close=True, extra=None):
+    """Jedno volání: kroky, výsledek, lokální sloučení, kontroly a uzavření; `extra` = tělo z `--json`."""
+    bundle = load_bundle('execution', execution)
+    body = {'project': bundle['project'], 'workspace': bundle['workspace'], **(extra or {})}
+    if summary:
+        body['summary'] = summary
+    if steps:
+        body['steps'] = parse_steps(steps)
+    if checks:
+        body['checks'] = parse_checks(checks)
+    if commit:
+        body['commit'] = commit
+    if not close:
+        body['close'] = False
+    _, value, _ = _call(base, 'POST', f'{HUB}/executions/{execution}/deliver', body,
+                        headers={'X-Opora-Execution-Token': bundle['token']})
+    keys = ('executionId', 'nodeId', 'merged', 'checks', 'closed', 'missing', 'leaseRenewed', 'next')
+    return {key: value.get(key) for key in keys} | {'steps': (value.get('delivered') or {}).get('steps')}
+
+
 # --- akce z agent-state, lokální sloučení, uzavření karty ----------------------------------------
 
 def next_ready(base, project, workspace):
@@ -429,6 +522,16 @@ def run(args, base):
         if not found:
             raise LookupError('Žádná ready akce ' + (args.verb or '') + '.')
         return found[0]
+    if args.command == 'start':
+        if not args.node:
+            raise ValueError('start potřebuje --node ID karty.')
+        return start(base, *scope, args.node, args.ttl)
+    if args.command == 'deliver':
+        extra = opora_write.load_payload(args.json_text) if args.json_text is not None else None
+        if not args.execution or not (args.summary or (extra or {}).get('summary')):
+            raise ValueError('deliver potřebuje --execution E a --summary T (nebo summary v --json).')
+        return deliver(base, args.execution, args.summary, args.step, args.check,
+                       args.commit[-1] if args.commit else None, not args.no_close, extra)
     if args.command == 'claim':
         return claim(base, *scope, args.action_id, args.ttl, args.context_version)
     if args.command == 'assignment':
@@ -458,7 +561,7 @@ def run(args, base):
     return events(base, *scope, args.since, args.limit)
 
 
-COMMANDS = ['state', 'actions', 'pick', 'claim', 'assignment', 'heartbeat', 'step', 'results', 'release',
+COMMANDS = ['state', 'actions', 'pick', 'start', 'deliver', 'claim', 'assignment', 'heartbeat', 'step', 'results', 'release',
             'review-claim', 'review-heartbeat', 'review-submit', 'review-release', 'events',
             'act', 'local-merge', 'close-card']
 
@@ -479,7 +582,7 @@ def main(argv=None):
     parser.add_argument('--action-id', help='claim/act: stabilní ID akce z pick nebo state')
     parser.add_argument('--context-version', type=int, choices=[1, 2], default=2,
                         help='claim: 2 (výchozí); 1 jen na výslovný pokyn člověka, nikdy jako tichý fallback')
-    parser.add_argument('--ttl', type=int, default=900, help='claim/heartbeat: 30–3600 s')
+    parser.add_argument('--ttl', type=int, default=900, help='start/claim/heartbeat: 30–3600 s')
     parser.add_argument('--execution', help='ID běhu z claim')
     parser.add_argument('--out', help='assignment: kam uložit neměnné zadání')
     parser.add_argument('--step-id', help='step: ID kroku ze zadání')
@@ -487,9 +590,17 @@ def main(argv=None):
     parser.add_argument('--notes', help='step: co krok udělal (povinné, do 4000 znaků)')
     parser.add_argument('--note', help='act/close-card: poznámka k uzavření karty')
     parser.add_argument('--commit', action='append', default=[],
-                        help='step: SHA commitu kroku (opakovatelné); local-merge: sloučený commit (poslední platí)')
-    parser.add_argument('--check', action='append', default=[], help='step: spuštěná kontrola (opakovatelné)')
+                        help='step: SHA commitu kroku (opakovatelné); local-merge/deliver: commit karty'
+                             ' (poslední platí; deliver bez něj = HEAD)')
+    parser.add_argument('--check', action='append', default=[],
+                        help='step: spuštěná kontrola; deliver: "PŘÍKAZ=green|red" (opakovatelné)')
     parser.add_argument('--result-file', help='results: JSON výsledku')
+    parser.add_argument('--node', help='start: ID karty')
+    parser.add_argument('--summary', help='deliver: souhrn práce karty')
+    parser.add_argument('--step', action='append', default=[],
+                        help='deliver: hotový krok ID[:poznámka] (opakovatelné); bez poznámky ji server odvodí z commitů')
+    parser.add_argument('--no-close', action='store_true', help='deliver: kartu neuzavírat')
+    parser.add_argument('--json', dest='json_text', help="deliver: tělo jako JSON; '-' = ze stdin")
     parser.add_argument('--role', choices=['finder', 'voter'])
     parser.add_argument('--slot', help='review-*: slot z review-claim (reviewJobId.taskId)')
     parser.add_argument('--submission-file', help='review-submit: JSON odevzdání')

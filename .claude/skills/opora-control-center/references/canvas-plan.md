@@ -8,7 +8,7 @@ kartám, nebo přeskládáváš oblast. Co má dobrá karta obsahovat: [workflow
 Jedna dávka = jedna oblast nebo sektor, do ~25 kB. Jen přidává a je atomická: projde celá, nebo nic.
 
 1. `opora_read.py view` → `digest`.
-2. Koncept zapiš **jednou a bez `dryRun`** do souboru (`<draftsDir>/plan.json`):
+2. Koncept pošli **jednou a bez `dryRun`** přes stdin (`--json -`, heredoc; v okně OPORA inline `--json '…'`). Tělo:
 
 <!-- example: /api/canvas-plan -->
 ```json
@@ -40,8 +40,10 @@ Jedna dávka = jedna oblast nebo sektor, do ~25 kB. Jen přidává a je atomick�
  }}
 ```
 
-3. Ověř bez zápisu: `opora_write.py /api/canvas-plan --project P --workspace W --json-file "<draftsDir>/plan.json" --dry-run`.
-4. Ostře tentýž příkaz bez `--dry-run` (v okně OPORA člověk schválí jednou). Koncept kvůli tomu nepřepisuj.
+3. Ověř bez zápisu: `opora_write.py /api/canvas-plan --project P --workspace W --dry-run --json - <<'EOF' … EOF`.
+4. Ostře tentýž příkaz bez `--dry-run` (v okně OPORA člověk schválí jednou). Tělo kvůli tomu nepřepisuj.
+   Celý plán pošli předem jednou dávkou a teprve potom začni pracovat na kartách (`opora_hub.py start`); změna
+   rozsahu karty, kterou držíš, ji vyřadí (409).
 5. Odpověď: `{ok, refs {ref → id}, blocks {"ref/blokRef" → blockId}, summary, warnings, digest, revision}`.
    ID z `--dry-run` jsou jen ukázkové. Zkontroluj `node-brief` nových karet.
    `warnings` `[{rule, message, nodeId?, place?}]` (≤ 20, i u `--dry-run`): díry kontroly mapy, které dávka
@@ -49,6 +51,10 @@ Jedna dávka = jedna oblast nebo sektor, do ~25 kB. Jen přidává a je atomick�
    dávkou nebo je uveď v souhrnu. Díry, které už existovaly, sem nepatří.
 
 Pravidla dávky:
+
+- Velikost karty: karta = stránka nebo sekce s vlastním ověřením, malá stránka 1–3 karty. Komponenty patří do
+  `spec.steps` (`[{id, order, title, acceptance: [..], dependsOn?}]`), ne do samostatných karet.
+- Role sekce: `hero`, `cta`, `form`, `content`, `gallery`, `proof`, `faq`, `footer`, `custom` (jiná = 422).
 
 - Požadavek: `digest`, `plan`, `dryRun?`. `plan`: `nodes`, `edges`, `decisions`, `extend`. ≤ 200 uzlů, 600 vazeb, 2 MiB.
 - Uzel: `ref` (`[a-z0-9-]` ≤ 80), `kind` (`node`, `sector`, `comment`, `area`), `name` (≤ 160).

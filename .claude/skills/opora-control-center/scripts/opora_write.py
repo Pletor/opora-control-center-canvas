@@ -1,6 +1,7 @@
 """Zapisovací klient OPORA pro asistenta: jeden POST na plátno, jen na pevný seznam cest.
 
-`opora_write.py <cesta> --project P --workspace W (--json '<json>' | --json-file soubor) [--dry-run]`.
+`opora_write.py <cesta> --project P --workspace W (--json '<json>' | --json - | --json-file soubor) [--dry-run]`.
+`--json -` čte tělo ze stdin (heredoc), takže payload nemusí do souboru.
 OporaHub (`/api/oporahub/*`): jen cesty, které smí agent (`HUB_AGENT_ROUTES`); lidské (`HUB_HUMAN_ROUTES`)
 skript odmítne dřív, než cokoli odejde, a cesty s tokenem běhu či slotu patří `opora_hub.py`.
 `--dry-run` (bez hodnoty) u `/api/canvas-plan` a `/api/canvas-layout`: nastaví `dryRun: true` (přepíše hodnotu
@@ -80,6 +81,9 @@ HUB_TOKEN_ROUTES = (
     '/api/oporahub/review-jobs/{id}/tasks/{id}/submit', '/api/oporahub/verifications/requests',
     '/api/oporahub/verifications/{id}/report',
 )
+# Složené akce karty (docs/navrhy/2026-10-28-zefektivneni-opory.md §3): vrací nebo berou token běhu, proto
+# jen `opora_hub.py start` / `deliver`; token nesmí na výstup ani do příkazu.
+HUB_COMPOSED_ROUTES = ('/api/oporahub/executions/start', '/api/oporahub/executions/{id}/deliver')
 # Tyto cesty berou jen `project` (bez `workspace`); server neznámé pole odmítne.
 HUB_PROJECT_ONLY = frozenset({'/api/oporahub/review-evals/sync', '/api/oporahub/review-recurring/promote'})
 ID_SEGMENT = re.compile(r'[A-Za-z0-9_.:-]{1,160}')
@@ -88,7 +92,7 @@ ID_SEGMENT = re.compile(r'[A-Za-z0-9_.:-]{1,160}')
 def hub_template(route):
     """Šablona OporaHub cesty pro `route`, nebo None; ID segment nesmí být `.` ani `..`."""
     parts = route.split('/')
-    for template in HUB_AGENT_ROUTES + HUB_HUMAN_ROUTES + HUB_TOKEN_ROUTES:
+    for template in HUB_AGENT_ROUTES + HUB_HUMAN_ROUTES + HUB_TOKEN_ROUTES + HUB_COMPOSED_ROUTES:
         expected = template.split('/')
         if len(expected) == len(parts) and all(
                 want == got or (want == '{id}' and ID_SEGMENT.fullmatch(got) and got not in ('.', '..'))
@@ -105,7 +109,7 @@ def check_route(route, payload=None):
     if template in HUB_HUMAN_ROUTES:
         raise ValueError('Cesta ' + route + ' patří člověku v UI (403); napiš to člověku, neobcházej. Agent mimo'
                          ' aplikaci s autonomy.full ji provede přes opora_hub.py act --action-id ID.')
-    if template in HUB_TOKEN_ROUTES:
+    if template in HUB_TOKEN_ROUTES or template in HUB_COMPOSED_ROUTES:
         raise ValueError('Cesta ' + route + ' nese token běhu nebo slotu; použij opora_hub.py.')
     if template is None:
         raise ValueError('Cesta ' + route + ' není povolený zápis na plátno.')
@@ -172,8 +176,14 @@ def _read(req, timeout):
 
 
 def load_payload(text=None, path=None):
+    """Tělo z `--json TEXT`, `--json -` (stdin, bez souboru v repu) nebo `--json-file`."""
     if (text is None) == (path is None):
         raise ValueError('Zadejte právě jedno: --json nebo --json-file.')
+    if text == '-':
+        raw = sys.stdin.buffer.read(MAX_PAYLOAD + 1)
+        if len(raw) > MAX_PAYLOAD:
+            raise ValueError('Payload překročil limit 2 MiB.')
+        text = raw.decode('utf-8-sig')
     if path is not None:
         with open(path, 'rb') as handle:
             raw = handle.read(MAX_PAYLOAD + 1)
@@ -264,7 +274,7 @@ def main(argv=None):
     parser.add_argument('route', help='jedna z: ' + ', '.join(sorted(WRITE_ROUTES)) + '; OporaHub viz HUB_AGENT_ROUTES')
     parser.add_argument('--project', required=True)
     parser.add_argument('--workspace', help='povinné kromě ' + ', '.join(sorted(HUB_PROJECT_ONLY)))
-    parser.add_argument('--json', dest='json_text')
+    parser.add_argument('--json', dest='json_text', help="tělo jako JSON; '-' = ze stdin")
     parser.add_argument('--json-file')
     parser.add_argument('--dry-run', action='store_true', help='jen ověření dávky nebo rozmístění; /api/canvas-plan a /api/canvas-layout')
     parser.add_argument('--base-url', help='domácí adresa http://127.0.0.1:PORT; výchozí ' + BASE_ENV)

@@ -31,7 +31,9 @@ Kontrakty: `docs/oporahub.md` (změny zadání), `docs/oporahub-graph-proposals.
    Nečekej v cyklu: skonči s ID návrhu. Zastaralý návrh převede server sám ([conflicts.md](conflicts.md)).
 
 ```bash
-python "<SKILL_DIR>/scripts/opora_write.py" /api/oporahub/graph-proposals --project P --workspace W --json-file plan.json
+python "<SKILL_DIR>/scripts/opora_write.py" /api/oporahub/graph-proposals --project P --workspace W --json - <<'EOF'
+{"…": "tělo návrhu grafu"}
+EOF
 ```
 
 ## `spec.steps`

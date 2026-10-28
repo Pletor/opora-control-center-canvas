@@ -2,7 +2,7 @@
 import hmac
 
 from backend.canvas.graph import digest
-from backend.canvas.opora_execution_context import token
+from backend.canvas.opora_execution_context import pin_id, token
 from backend.canvas.opora_execution_lineage import validate_accepted_lineage
 from backend.editor.agent_packet.specification_sql_context import project_sql_context
 from database.repositories import opora_context_bindings as bindings
@@ -13,7 +13,7 @@ from database.repositories.opora_context_replay import replay
 
 def _validate_context(canvas, repo, record):
     project, workspace = repo.scope
-    identifier = record["executionId"]
+    identifier = pin_id(record)  # po re-pinu nový neměnný pin; původní zůstává jako doklad
     pin = private.read(repo.db, project, workspace, identifier)
     expected = {"schemaVersion", "snapshot", "metadata", "binding", "nodeId", "acceptedRevision",
                 "contextVersion", "assignmentDigest"}
