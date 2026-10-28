@@ -206,6 +206,14 @@ a čte položky `executionId`, `state` (`open`/`merged`/`closed`) a volitelně
 zůstává jen ke čtení i se skutečným modulem. Bez modulu jsou tři PR etapy `not_connected` a `gaps` obsahuje
 `pull_request_link`. Testy podstrčí zdroj přes `register(...)`; žádná vazba se nevymýšlí.
 
+## Díry mapy jako práce (`mapGaps`)
+
+`mapGaps` (nejvýš 50) a `mapGapsTotal`: nálezy kontroly mapy nad přijatou architekturou projektu jako fronta
+práce `{rule, message, nodeId, journeyId?, edgeId?, owner}`; `nodeId` je karta, na které se díra řeší,
+`owner: "human"` u `page.no-goal` a `journey.broken`. Tvar a výběr řešitele:
+[architektura pro agenty §5.1](architektura-pro-agenty.md). Nic se neodškrtává; díra zmizí, když ji kontrola
+mapy přestane hlásit.
+
 ## Mezery
 
 Vždy přítomné: `ai_review` (kontrolu výsledku dělá člověk; chybí, když je zapnuté [automatické review](oporahub-review-jobs.md)), `lean_verification`

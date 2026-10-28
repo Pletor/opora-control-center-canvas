@@ -35,6 +35,10 @@
 .velin__stack-part--blocked { background: var(--line-strong); }
 .velin__counts { display: flex; gap: 6px; flex-wrap: wrap; }
 
+/* Díry mapy: tichý řádek pod projektem. Člověk jen vidí, kolik práce si agenti berou z mapy, a jedním klikem
+   otevře Mapu domény s panelem Díry mapy; sám tu nic neřeší, proto bez barvy poplachu. */
+.velin__map-gaps { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0 4px; font-size: 13px; color: var(--ink-2); }
+
 /* Tóny pilulek a počtů: stejné značky a barvy jako stavový řádek karty na plátně. */
 .velin__count, .velin__pill { border: 1px solid; border-radius: 5px; font-size: 13px; white-space: nowrap; }
 .velin__count { padding: 1px 7px; font-weight: 600; }

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import type { Graph } from "@/shared/types/logic/types";
 import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
 import JsonMirror from "@/hub/oporahub-mirror/components/JsonMirror";
-import { velinModel, type VelinFilter } from "../logic/velin-model";
+import { mapGapsForAgents, velinModel, type VelinFilter } from "../logic/velin-model";
 import VelinLayer, { VelinCounts } from "./VelinLayer";
 import VelinSide from "./VelinSide";
 import VelinRunning from "./VelinRunning";
@@ -15,13 +15,14 @@ const FILTERS: { id: VelinFilter; label: string }[] = [
   { id: "all", label: "Vše" }, { id: "human", label: "Na tebe" }, { id: "problems", label: "Problémy" }, { id: "running", label: "Běží" },
 ];
 
-type Props = { project: string; workspace: string; graph: Graph; projectName?: string; onOpen: (nodeId: string) => void };
+type Props = { project: string; workspace: string; graph: Graph; projectName?: string; onOpen: (nodeId: string) => void; onOpenMap?: () => void };
 
-export default function ControlTower({ project, workspace, graph, projectName, onOpen }: Props) {
+export default function ControlTower({ project, workspace, graph, projectName, onOpen, onOpenMap }: Props) {
   const agent = useAgentState(project, workspace);
   const [filter, setFilter] = useState<VelinFilter>("all");
   const view = useMemo(() => agent.state ? velinModel(graph, agent.state, filter) : null, [graph, agent.state, filter]);
   const all = useMemo(() => agent.state ? velinModel(graph, agent.state) : null, [graph, agent.state]);
+  const holes = agent.state ? mapGapsForAgents(agent.state) : null;
   const count = (id: VelinFilter) => !all ? 0 : id === "human" ? all.total.human : id === "problems" ? all.total.bad + all.total.blocked
     : id === "running" ? all.total.run : all.cards;
   return (
@@ -51,6 +52,10 @@ export default function ControlTower({ project, workspace, graph, projectName, o
             </div>
             <VelinCounts counts={all.total} />
           </div>
+          {holes && <p className="velin__map-gaps" data-oh-map-gaps={holes.count}>
+            Díry mapy pro agenty: <b>{holes.count}{holes.more ? "+" : ""}</b>
+            {onOpenMap && <button type="button" className="velin__button" onClick={onOpenMap}>Mapa domény</button>}
+          </p>}
           {!view.layers.length && <p className="velin__empty">Agent-state zatím nezná žádnou kartu. Velín ukáže vrstvy, sektory a karty, jakmile vzniknou.</p>}
           {view.layers.map(layer => <VelinLayer key={layer.id} layer={layer} onOpen={onOpen} />)}
           <VelinRunning running={view.running} onOpen={onOpen} />

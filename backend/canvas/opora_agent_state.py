@@ -14,6 +14,7 @@ from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas import opora_agent_state_events as outbox
 from backend.canvas import opora_agent_state_formal as formal
 from backend.canvas import opora_agent_state_lease as lease_state
+from backend.canvas import opora_agent_state_map_gaps as map_gaps
 from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_review_gates as review_gates
 from backend.canvas import opora_agent_state_reviews as reviews
@@ -131,6 +132,7 @@ class AgentState:
             # Merged PRs too; None = review jobs disabled, GitHub branch protection is the gate.
             gates = card_done.gates_by_execution(db, project, workspace) if linked else {}
             cursor, last_events = outbox.read(db, project, workspace)  # Same lock + connection = same snapshot.
+            holes, holes_total = map_gaps.read(canvas, project)  # One map check over the accepted architecture.
         dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
@@ -165,7 +167,8 @@ class AgentState:
                 "gaps": sorted(({"id": key, "stage": stage, "reason": reason} for key, stage, reason in gaps),
                                key=lambda item: item["id"]),
                 "cards": shown, "truncated": next_offset is not None or cards_offset > 0,
-                "cardsTotal": total, "cardsNextOffset": next_offset, "eventsCursor": cursor}
+                "cardsTotal": total, "cardsNextOffset": next_offset, "eventsCursor": cursor,
+                "mapGaps": holes, "mapGapsTotal": holes_total}
 
     @staticmethod
     def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None,
