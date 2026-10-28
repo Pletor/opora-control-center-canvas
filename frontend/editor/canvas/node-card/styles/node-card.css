@@ -739,9 +739,13 @@
 /* PRUH STAVŮ A POSTUP
    Sektor ukazuje svůj stav jako tenký pruh rozdělený podle počtu karet v každém stavu:
    kdo se podívá, vidí poměr hotového, rozdělaného a blokovaného bez čtení čísel. Šířku dílu
-   dodává proměnná `--w`, jediná hodnota, která se při vykreslení mění, zbytek je v třídách. */
+   dodává proměnná `--w`, jediná hodnota, která se při vykreslení mění, zbytek je v třídách.
+   Když se krok posune do jiného stavu, díly se nepřeskládají skokem: jeden plynule ubývá, druhý
+   přirůstá (a barva dojede), takže oko vidí, kam práce přetekla. Stav s nulou zůstává v pruhu
+   s nulovou šířkou, aby i jeho objevení a zmizení bylo přechodem. Bez pohybu se šířka změní hned. */
 .node-card__bar { display: flex; height: 7px; }
-.node-card__bar-part { width: var(--w); background: #94a3b8; }
+.node-card__bar-part { width: var(--w); background: #94a3b8; transition: width .45s ease, background-color .45s ease; }
+@media (prefers-reduced-motion: reduce) { .node-card__bar-part { transition: none; } }
 .node-card__bar-part--claimed { background: #60a5fa; }
 .node-card__bar-part--waiting-human { background: #f59e0b; }
 .node-card__bar-part--proposed { background: #4ade80; }

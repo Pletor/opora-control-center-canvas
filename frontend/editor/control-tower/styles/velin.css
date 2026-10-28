@@ -81,16 +81,19 @@
 
 /* Čeká na člověka: kolem pilulky „na tebe“ i kolem rozhodnutí vpravo dýchá čárkovaný zlatý rám (katalog pohybu
    docs/zive-zobrazeni-a-knihovna.md §3: 1,85 s, opacita 0,4 → 0,95, inset −3 px). Klidný dech, ne blikání: říká
-   „tohle stojí na tobě“, aniž by křičel. Kdo nechce pohyb, vidí rám stát. */
-.velin__pill--human, .velin__panel-row--waiting { position: relative; }
-.velin__pill--human::after, .velin__panel-row--waiting::after {
+   „tohle stojí na tobě“, aniž by křičel. Stejně dýchá i záložka filtru „Na tebe“, dokud na člověka čeká aspoň
+   jedno rozhodnutí nebo návrh ke schválení: první pohled do lišty řekne, že je co schvalovat, ještě než člověk
+   sjede k panelu vpravo. Kdo nechce pohyb, vidí rám stát. */
+.velin__pill--human, .velin__panel-row--waiting, .velin__filter--waiting { position: relative; }
+.velin__pill--human::after, .velin__panel-row--waiting::after, .velin__filter--waiting::after {
   content: ""; position: absolute; inset: -3px; border: 1.5px dashed #f4b94fd1; border-radius: 7px; pointer-events: none;
   animation: velin-human-wait 1.85s ease-in-out infinite alternate;
 }
 .velin__panel-row--waiting::after { inset: 3px; }
+.velin__filter--waiting::after { inset: 1px; border-radius: 6px; }
 @keyframes velin-human-wait { from { opacity: 0.4; } to { opacity: 0.95; } }
 @media (prefers-reduced-motion: reduce) {
-  .velin__pill--human::after, .velin__panel-row--waiting::after { animation: none; opacity: 0.95; }
+  .velin__pill--human::after, .velin__panel-row--waiting::after, .velin__filter--waiting::after { animation: none; opacity: 0.95; }
 }
 
 /* Tóny pilulek a počtů: stejné značky a barvy jako stavový řádek karty na plátně. */

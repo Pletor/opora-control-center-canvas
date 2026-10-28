@@ -31,3 +31,21 @@
 @media (max-width: 1050px) { .graph-proposals__comparison { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .graph-proposals__comparison { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 850px) { .graph-proposals__columns, .graph-proposals__identity { grid-template-columns: minmax(0, 1fr); } }
+
+/* Odezva rozhodnutí v historii: když člověk návrh přijme, jeho řádek jednou zeleně pulzne kroužkem,
+   jako potvrzení „zapsáno“ přímo tam, kam se dívá. Když server přijetí zamítne, řádek se jednou krátce
+   zatřese, jako hlava, která říká ne. Pohyb trvá pod sekundu a neopakuje se; trvalý stav nese text
+   hlášení nad historií. Rytmus i tvar převzaté z mapy toku (flow-map-pulse 0,9 s, flow-map-shake 0,4 s);
+   vlastní kopie keyframes je tu proto, že styl mapy toku se načítá jen s mapou a pulz mapy má barvu
+   akcentu, ne zelenou. Kdo nechce pohyb, vidí místo pulzu a třesení klidný zelený nebo červený rám. */
+.graph-proposals__entry { border-radius: 6px; }
+@keyframes graph-proposals-pulse { 0% { box-shadow: 0 0 0 1.5px var(--ok-line), 0 0 0 1.5px var(--ok); } 100% { box-shadow: 0 0 0 1.5px var(--ok-line), 0 0 0 11px transparent; } }
+@keyframes graph-proposals-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-3px); } 40%, 80% { transform: translateX(3px); } }
+@media (prefers-reduced-motion: no-preference) {
+  .graph-proposals__entry--accepted { animation: graph-proposals-pulse .9s ease-out 1; }
+  .graph-proposals__entry--refused { animation: graph-proposals-shake .4s ease-in-out 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .graph-proposals__entry--accepted { outline: 2px solid var(--ok-line); outline-offset: 2px; }
+  .graph-proposals__entry--refused { outline: 2px solid var(--danger); outline-offset: 2px; }
+}

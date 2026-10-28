@@ -54,3 +54,10 @@ adopční v1 návrh projde původní úplnou kontrolou grafu a zadání. Změně
 kontext sdílené architektury se přebírá pouze samostatně označeným checkboxem,
 včetně možnosti návrhu obsahujícího jen tento krok. Review ukáže všechny
 hranice před a po převzetí; sdílená architektura se tím nepřepisuje.
+
+Po rozhodnutí o přijetí řádek návrhu v historii jednou odpoví pohybem: úspěšné přijetí
+zeleně pulzne (`graph-proposals__entry--accepted`), přijetí zamítnuté serverem se zatřese
+(`--refused`). Stav záblesku je čistá logika `decision-flash.ts` (s testem); hook ho
+smaže po `animationend`, novém výběru nebo obnově. Při `prefers-reduced-motion` zůstane
+jen barevný rám a stav nese text hlášení. Samostatná akce „zamítnout návrh“ v rozhraní
+zatím není; třesení proto patří k zamítnutému přijetí.

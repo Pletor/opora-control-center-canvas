@@ -12,5 +12,5 @@ Strážci (`docs/strazci.md` §5): řádek „Strážci ✓ / ⚠ N“ z `GET /a
 `logic/velin-guards.ts` (test `velin-guards.test.ts`), dílek `components/VelinGuards.tsx`. Strážce `mapa` se nepočítá,
 díry mapy má řádek „Díry mapy“. Panel Trend: osm malých křivek za 14 dní z `GET /api/strazci/trend?project=&days=14`
 (`logic/use-guard-trend.ts`, 5 min), logika `logic/velin-trend.ts` (test `velin-trend.test.ts`), dílek
-`components/VelinTrend.tsx`. Pilulky „na tebe“ a rozhodnutí dýchají čárkovaným zlatým rámem
+`components/VelinTrend.tsx`. Pilulky „na tebe“, rozhodnutí a záložka filtru „Na tebe“ (když čeká aspoň jedno, `velin__filter--waiting`) dýchají čárkovaným zlatým rámem
 (`docs/zive-zobrazeni-a-knihovna.md` §3, bez pohybu při `prefers-reduced-motion`).
