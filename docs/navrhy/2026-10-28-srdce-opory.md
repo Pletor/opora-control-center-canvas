@@ -83,7 +83,7 @@ claude -p --input-format stream-json --output-format stream-json --verbose
   --permission-mode dontAsk
   --append-system-prompt-file <heart-prompt.md>
   --add-dir <zdroj projektu>                                     # jen čtení kódu
-cwd = <data>/heart/<project>/       env: bez ANTHROPIC_API_KEY, OPORA_HEART_TOKEN=…
+cwd = <data>/projects/<project>/brain/   env: bez ANTHROPIC_API_KEY, OPORA_HEART_TOKEN=…
 ```
 
 **Životní cyklus: budí se, odbaví dávku, usne.**
