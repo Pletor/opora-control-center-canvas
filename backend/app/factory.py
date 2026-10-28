@@ -10,6 +10,7 @@ from starlette.routing import Match
 
 from backend.api.access_routes import create_access_router
 from backend.api.app_routes import create_app_router
+from backend.api.brain_opora.gate_routes import create_gate_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
@@ -419,6 +420,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_auto_rebase_router(service))
     app.include_router(create_strazci_router(service, guardian))
     app.include_router(create_opora_history_router(service))
+    app.include_router(create_gate_router(service))  # brána mozku (docs/brain-gate.md §4)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)
