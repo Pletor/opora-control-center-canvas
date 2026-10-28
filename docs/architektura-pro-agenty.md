@@ -264,6 +264,21 @@ ověření …“, „… ověření je zastaralé …“ nebo „… neprošel 
 Díry jsou práce pro agenty **jen v potvrzené dávce**; k člověku jde souhrn jako jedno rozhodnutí
 (pyramida, pravidlo 4).
 
+### 5.1 Díry jako práce (dodatek 2026-10-28)
+
+Díra, která je „práce pro agenty / rozkladače“, musí dojít k agentovi s místem, ne jen s názvem pravidla.
+
+- **Brief karty:** vedle `gaps` (beze změny: id pravidel) přibude `holes`: `[{rule, message}]` – zprávy nálezů,
+  které míří na kartu nebo její hranu, a navíc nálezy `journey.unrealized`, jejichž přechod **vychází ze stránky
+  karty** (stránka sama, nebo nejbližší stránka komponenty), a `section.unrealized` sekcí stránky karty (jen u
+  stránky samé). Nejvýš 5, v pořadí pravidel; `gaps` pak obsahuje i jejich pravidla. Ořez (§4) bere `holes` jako
+  stupeň 0: od konce, pak celé, dřív než cesty.
+- **Fronta práce:** `GET /api/oporahub/agent-state` přidá `mapGaps`: `[{rule, message, nodeId, journeyId?, edgeId?,
+  owner: "agent"|"human"}]` nad přijatou architekturou projektu, jen pravidla s dopadem „práce“ (`page.no-goal` a
+  `journey.broken` mají `owner: "human"`), seřazené jako kontrola mapy; `nodeId` je karta, na které se díra
+  řeší (u nálezu cesty stránka zdroje přechodu, u hrany zdroj hrany). Strop 50 položek + `mapGapsTotal`. Agent si
+  z ní bere práci stejně jako z karet; díra zmizí sama, až ji kontrola mapy přestane hlásit (nic se nezapisuje).
+
 ## 6. Cesta zákazníka
 
 Člověk zadává kroky trychtýře (§3.2); stroj odvodí, kudy zákazník mezi nimi po mapě opravdu jde. Každý krok

@@ -49,6 +49,9 @@ def graph(journeys=(JOURNEY,), extra_edges=()):
                       *extra_edges]}
 
 
+TO_BLOG = "Cesta Poptávka: z /kontakt na /blog nevede vazba (navigation, command, data ani sekce stránky)."
+
+
 def test_component_on_a_journey_gets_its_slice_of_the_map():
     assert node_architecture(graph(), "formular") == {
         "journeys": [{"id": "poptavka", "name": "Poptávka", "purpose": "Z návštěvníka poptávka", **POINTS,
@@ -63,6 +66,8 @@ def test_component_on_a_journey_gets_its_slice_of_the_map():
         "in": [{"carries": "navigation", "from": "Navbar"}],
         "out": [{"carries": "command", "to": "POST /api/poptavka", "sourceRef": "api/poptavka.py"}],
         "states": ["prázdno", "odesílá", "chyba", "hotovo"],
+        "holes": [{"rule": "journey.unrealized", "message": TO_BLOG}],
+        "gaps": ["journey.unrealized"],
     }
 
 
@@ -79,32 +84,39 @@ def test_card_outside_a_page_gets_nothing_and_missing_values_are_left_out():
 def test_gaps_name_the_rules_that_hit_this_card_or_its_edges():
     data = graph(extra_edges=[edge("e5", "navbar", "formular")])
     data["nodes"][4]["card"]["states"] = ["hotovo"]
-    assert node_architecture(data, "formular")["gaps"] == ["state.no-error", "edge.carries-unset"]
-    assert node_architecture(data, "navbar")["gaps"] == ["edge.carries-unset"]
+    assert node_architecture(data, "formular")["gaps"] == ["journey.unrealized", "state.no-error", "edge.carries-unset"]
+    assert node_architecture(data, "navbar")["gaps"] == ["journey.unrealized", "edge.carries-unset"]
 
 
-def test_nested_page_on_the_journey_finds_its_own_step():
-    assert node_architecture(graph(), "dekujeme")["journeys"] == [
-        {"id": "poptavka", "name": "Poptávka", "purpose": "Z návštěvníka poptávka", **POINTS,
-         "youAre": {"step": "dik", "index": 2}, "label": "Poděkování",
-         "previous": {"step": "formular", "label": "Poptávkový formulář", "path": "/kontakt", "realized": True,
-                      "via": SUBMIT}}]
+def test_holes_carry_the_message_of_each_finding_for_this_card_its_edges_and_its_page_transitions():
+    """§5.1: zprávy nálezů na kartu a hranu + nerealizované přechody ze stránky karty; v pořadí pravidel."""
+    data = graph(extra_edges=[edge("e5", "navbar", "formular")])
+    data["nodes"][4]["card"]["states"] = ["hotovo"]
+    assert node_architecture(data, "formular")["holes"] == [
+        {"rule": "journey.unrealized", "message": TO_BLOG},
+        {"rule": "state.no-error", "message": "Komponenta odesílá, ale nemá stav chyby."},
+        {"rule": "edge.carries-unset", "message": "Vazba neříká, co nese (carries)."}]
+    # Přechod z /kontakt na /blog vychází ze stránky /kontakt: stránka sama i komponenta pod ní, /blog ne.
+    assert node_architecture(data, "kontakt")["holes"] == [{"rule": "journey.unrealized", "message": TO_BLOG}]
+    assert node_architecture(data, "blog")["holes"] == [{"rule": "page.no-goal", "message": "Stránka nemá cíl (goal)."}]
 
 
-def test_journey_with_a_missing_page_still_tells_the_card_its_role_without_realization():
+def test_section_without_component_is_a_hole_of_the_page_only():
+    data = graph(journeys=())
+    data["nodes"][1]["site"]["sections"] = [SECTION, {"id": "hero", "role": "hero", "name": "Úvod", "intent": "x"}]
+    hole = {"rule": "section.unrealized", "message": "Sekce hero nemá žádnou komponentu."}
+    assert node_architecture(data, "kontakt")["holes"] == [hole]
+    assert node_architecture(data, "kontakt")["gaps"] == ["section.unrealized"]
+    assert "holes" not in node_architecture(data, "formular")
+
+
+def test_holes_stop_at_five_but_gaps_name_every_rule():
+    sections = [{"id": f"s{index}", "role": "text", "name": "S", "intent": "x"} for index in range(6)]
     data = graph()
-    data["nodes"] = [item for item in data["nodes"] if item["id"] != "blog"]
-    data["nodes"][0]["site"]["journeys"][0]["steps"][3]["page"] = "smazana"
-    [journey] = node_architecture(data, "formular")["journeys"]
-    assert journey["previous"] == {"step": "menu", "label": "Menu", "path": "nav", "via": INTO_FORM}
-    assert journey["next"] == [{"step": "dik", "label": "Poděkování", "path": "/dekujeme", "via": SUBMIT},
-                               {"step": "blog", "label": "Blog"}]
-
-
-def test_component_of_a_page_off_the_journey_gets_no_journeys():
-    data = graph()
-    data["nodes"][0]["site"]["journeys"][0]["steps"] = [{"id": "a", "page": "nav"}, {"id": "b", "page": "blog"}]
-    assert "journeys" not in node_architecture(data, "formular")
+    data["nodes"][1]["site"]["sections"] = [SECTION, *sections]
+    result = node_architecture(data, "kontakt")
+    assert [hole["rule"] for hole in result["holes"]] == ["journey.unrealized", *["section.unrealized"] * 4]
+    assert result["gaps"] == ["journey.unrealized", "section.unrealized"]
 
 
 def size(value):
@@ -132,6 +144,8 @@ def test_with_one_journey_left_the_edges_are_cut_from_the_end():
 
 
 CUT_ORDER = (
+    lambda r: r["holes"].pop(),                            # 0. díry od konce, pak celé
+    lambda r: r.pop("holes"),
     lambda r: r["journeys"].pop(),                         # 1. cesty od konce, dokud nezbude jedna
     lambda r: r.pop("out"),                                # 2. hrany: při shodě délek nejdřív `out`
     lambda r: r.pop("in"),
@@ -153,14 +167,14 @@ def test_each_cut_stage_in_its_exact_order_stops_as_soon_as_the_slice_fits(monke
     data["nodes"][1]["site"]["feel"] = "klidně"
     monkeypatch.setattr(node_architecture_module, "LIMIT_BYTES", 10 ** 6)
     expected = node_architecture(data, "formular")
-    assert len(expected["journeys"]) == 2 and expected["in"] and expected["out"]
+    assert len(expected["journeys"]) == 2 and expected["in"] and expected["out"] and len(expected["holes"]) == 2
     for cut in CUT_ORDER:
         cut(expected)
         stage = {**copy.deepcopy(expected), "truncated": True}
         monkeypatch.setattr(node_architecture_module, "LIMIT_BYTES", size(stage))
         assert node_architecture(data, "formular") == stage
     # Až po sedmém stupni zůstane jen stránka se sekcí, stavy a díry; řetěz „proč“ do té doby přežije.
-    assert set(stage) == {"page", "states", "truncated"} and stage["page"]["section"]["id"] == "form"
+    assert set(stage) == {"page", "states", "gaps", "truncated"} and stage["page"]["section"]["id"] == "form"
 
 
 def test_worst_case_journey_at_its_limits_keeps_the_why_chain_under_the_ceiling():

@@ -181,3 +181,29 @@ def test_unverified_journey_is_reported_only_when_runs_are_given():
         {"rule": "journey.unverified", "journeyId": "padla", "message": "Cesta Padlá: neprošel přechod k0 → k1 (404)."}]
     assert check_map(graph, runs)["summary"]["journey.unverified"] == 3
     assert RULES[3] == "journey.unverified"
+
+
+def test_locate_names_the_card_where_each_finding_is_solved():
+    """§5.1: `solverId` = karta, zdroj hrany, stránka zdroje přechodu; menu, rozbitá cesta a cesta bez neprošlého
+    přechodu se řeší na aplikaci. Bez `locate` nálezy `solverId` nenesou."""
+    from backend.project.architecture.journey_plan import journey_plan
+
+    def steps(*pages):
+        return [{"id": f"k{index}", "page": item} for index, item in enumerate(pages)]
+
+    app = node("app", kind="sector", site={"kind": "application", "environments": [], "journeys": [
+        {"id": "cut", "name": "Přerušená", "steps": steps("b", "a")},
+        {"id": "gone", "name": "Bez cíle", "steps": steps("nav", "smazana")},
+        {"id": "padla", "name": "Padlá", "steps": steps("a", "b")},
+        {"id": "via", "name": "Menu", "steps": [{"id": "k0", "page": "nav"},
+                                                {"id": "k1", "page": "a", "via": {"do": "click", "section": "x"}}]}]})
+    graph = {"nodes": [app, page("a", goal="g"), page("b"), node("c", "a"), node("d", "a")],
+             "edges": [edge("e1", "a", "b", carries="navigation"), edge("e2", "c", "d")]}
+    runs = {("app", "padla"): {"applicationId": "app", "journeyId": "padla", "at": "2026-10-27T21:40:00Z",
+                               "command": "runner", "planDigest": journey_plan(graph, "padla")["digest"],
+                               "segments": [{"from": "k0", "to": "k1", "ok": False}], "passed": False}}
+    located = [(f["rule"], f["solverId"]) for f in check_map(graph, runs, locate=True)["findings"]]
+    assert located == [("journey.broken", "app"), ("journey.unrealized", "b"), ("journey.via-unknown", "app"),
+                       ("journey.unverified", "app"), ("journey.unverified", "a"),
+                       ("journey.unverified", "app"), ("page.no-goal", "b"), ("edge.carries-unset", "c")]
+    assert all("solverId" not in f for f in check_map(graph, runs)["findings"])

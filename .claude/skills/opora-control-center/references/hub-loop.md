@@ -46,6 +46,13 @@ nextActionId, gate: {status, rule}|null, steps, dod, lease}`.
 Karta s neprázdným `blockedBy` čeká na sloučení a zápis do plánu předchůdců (`next` hrany);
 nezačínej ji, ani když ji vidíš.
 
+`mapGaps` (max 50, celkem `mapGapsTotal`): díry kontroly mapy nad přijatou architekturou
+(`docs/architektura-pro-agenty.md` §5.1), v pořadí kontroly mapy. `nodeId` = karta, na které se díra řeší
+(u cesty stránka zdroje přechodu, u hrany její zdroj, u menu nebo celé cesty aplikace). Ber jen
+`owner: "agent"`; `page.no-goal` a `journey.broken` (`owner: "human"`) patří člověku. Díru řešíš
+na kartě `nodeId` jako běžnou práci: claim karty, v `node-brief.architecture.holes` máš zprávy děr této
+karty (`gaps` = jejich pravidla). Nic neodškrtáváš: díra zmizí sama, až ji kontrola mapy přestane hlásit.
+
 ## 2. Vyber akci podle stabilního ID
 
 `opora_hub.py pick --verb claim [--target NODE]` vrátí první `ready` akci v pořadí serveru.

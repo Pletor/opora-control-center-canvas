@@ -39,6 +39,13 @@ Výklad pravidel:
   Pořadí pravidel cest: aplikace podle id, cesty v pořadí, v jakém je zadal člověk, segmenty a kroky v pořadí kroků.
 
 Pořadí nálezů: podle pořadí pravidel, pak podle id (sekce stejné stránky v pořadí stránky).
+
+Místo řešení (`check_map(..., locate=True)`, §5.1): každý nález navíc nese `solverId`, kartu, na které se díra řeší.
+Nález na kartu = ta karta, nález na hranu = zdroj hrany, nález cesty = stránka zdroje přechodu: `journey.unrealized`
+stránka kroku `from`, `journey.via-unknown` stránka předchozího kroku, `journey.unverified` stránka zdroje prvního
+neprošlého přechodu. Kde přechod nevychází ze stránky (zdroj je menu `"nav"`), nebo nález žádný přechod nemá
+(`journey.broken`, `journey.unverified` bez neprošlého přechodu), je místem řešení aplikace, která cestu nese
+(cesty se upravují na ní). Bez `locate` výstup `solverId` nemá (`GET …/map-check`, dávka plánu, návrh změny).
 """
 
 from backend.canvas.site_metadata import JOURNEY_FROM_NAV, card_section_error
@@ -89,8 +96,14 @@ def _components(nodes, by_id):
     return result
 
 
-def _finding(rule, key, item_id, message):
-    return {"rule": rule, key: item_id, "message": message}
+def _finding(rule, key, item_id, message, solver=None):
+    """Nález; `solver` (jen u cest) je místo řešení, které `check_map` vydá jako `solverId` při `locate`."""
+    return {"rule": rule, key: item_id, "message": message, **({"solverId": solver} if solver else {})}
+
+
+def _page_or(page, application):
+    """Stránka zdroje přechodu, u menu (`"nav"`) aplikace cesty."""
+    return application if page in (None, JOURNEY_FROM_NAV) else page
 
 
 def _page_rules(pages, components, nodes):
@@ -172,7 +185,8 @@ def _via_unknown(item, by_id):
             where = "menu" if nav else f"stránka {source['path']}"
             findings.append(_finding("journey.via-unknown", "journeyId", item["id"],
                                      f"Cesta {item['name']}: krok {step.get('label') or step['id']} čeká akci "
-                                     f"v sekci {section}, kterou {where} nemá."))
+                                     f"v sekci {section}, kterou {where} nemá.",
+                                     _page_or(source["page"], item["applicationId"])))
     return findings
 
 
@@ -193,30 +207,47 @@ def _unverified(run):
 
 def _journey_rules(graph, by_id, runs):
     journeys = derive_journeys(graph)
-    broken = [_finding("journey.broken", "journeyId", item["id"], f"Cesta {item['name']}: {item['broken']}")
+    broken = [_finding("journey.broken", "journeyId", item["id"], f"Cesta {item['name']}: {item['broken']}",
+                       item["applicationId"])
               for item in journeys if "broken" in item]
     unrealized = []
     for item in journeys:
         paths = {step["id"]: step.get("path") for step in item["steps"]}
+        pages = {step["id"]: step["page"] for step in item["steps"]}
         unrealized += [_finding("journey.unrealized", "journeyId", item["id"],
                                 f"Cesta {item['name']}: z {paths[s['from']]} na {paths[s['to']]} nevede vazba "
-                                "(navigation, command, data ani sekce stránky).")
+                                "(navigation, command, data ani sekce stránky).",
+                                _page_or(pages[s["from"]], item["applicationId"]))
                        for s in item.get("segments", []) if not s["realized"]]
     via = [finding for item in journeys for finding in _via_unknown(item, by_id)]
     unverified = []
     if runs is not None:
         latest = last_runs(graph, runs)
         for item in journeys:
-            reason = None if "broken" in item else _unverified(latest.get((item["applicationId"], item["id"])))
+            run = latest.get((item["applicationId"], item["id"]))
+            reason = None if "broken" in item else _unverified(run)
             if reason:
-                unverified.append(_finding("journey.unverified", "journeyId", item["id"], f"Cesta {item['name']}: {reason}"))
+                pages = {step["id"]: step["page"] for step in item["steps"]}
+                failure = (run or {}).get("firstFailure") if run and not run["stale"] else None
+                source = pages.get(failure["from"]) if failure else None
+                unverified.append(_finding("journey.unverified", "journeyId", item["id"], f"Cesta {item['name']}: {reason}",
+                                           _page_or(source, item["applicationId"])))
     return [*broken, *unrealized, *via, *unverified]
 
 
-def check_map(graph, runs=None):
+def _locate(findings, edges):
+    """Doplní `solverId` nálezům na kartu (karta) a na hranu (zdroj hrany); nálezy cest ho už nesou."""
+    sources = {edge["id"]: edge["source"] for edge in edges}
+    for finding in findings:
+        if "solverId" not in finding:
+            finding["solverId"] = finding.get("nodeId") or sources.get(finding.get("edgeId"))
+
+
+def check_map(graph, runs=None, locate=False):
     """{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}} nad grafem `{nodes, edges}`.
 
-    `runs` = poslední doklady cest `{(applicationId, journeyId): doklad}`; bez nich se `journey.unverified` nehodnotí."""
+    `runs` = poslední doklady cest `{(applicationId, journeyId): doklad}`; bez nich se `journey.unverified` nehodnotí.
+    `locate=True` přidá každému nálezu `solverId` (místo řešení, viz docstring modulu)."""
     nodes = sorted(graph.get("nodes") or [], key=lambda n: n["id"])
     edges = graph.get("edges") or []
     by_id = {node["id"]: node for node in nodes}
@@ -225,6 +256,11 @@ def check_map(graph, runs=None):
     goals, sections = _page_rules(pages, components, nodes)
     receivers, errors = _command_rules(nodes, edges, components)
     findings = [*_journey_rules(graph, by_id, runs), *goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
+    if locate:
+        _locate(findings, edges)
+    else:
+        for finding in findings:
+            finding.pop("solverId", None)
     return {"findings": findings, "summary": {rule: sum(f["rule"] == rule for f in findings) for rule in RULES}}
 
 

@@ -29,6 +29,8 @@ export type AgentCardStage = {
 };
 export type AgentDecision = { id: string; kind: string; targetId: string | null; title: string; actionId: string };
 export type AgentGap = { id: string; stage: string; reason: string };
+/** Díra mapy jako práce (docs/architektura-pro-agenty.md §5.1); `nodeId` = karta, na které se řeší. */
+export type AgentMapGap = { rule: string; message: string; nodeId: string; journeyId?: string; edgeId?: string; owner: "agent" | "human" };
 export type AgentHeads = {
   acceptedHead: string | null; acceptedRevision: string | null; graphDigest: string; workingDiffers: boolean;
   contextVersion: string; budgetPolicyHead: Record<string, string>;
@@ -39,6 +41,8 @@ export type AgentState = {
   decisions: AgentDecision[]; actions: AgentAction[]; gaps: AgentGap[]; truncated: boolean;
   /** Chybí u serveru před vlnou 5; UI pak odznaky na plátně nekreslí. */
   cards?: AgentCardStage[];
+  /** Díry mapy (nejvýš 50) a jejich celkový počet; starší server pole nemá. */
+  mapGaps?: AgentMapGap[]; mapGapsTotal?: number;
 };
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -73,6 +77,8 @@ const cardStage = (value: unknown): value is AgentCardStage => object(value) && 
   && STAGE_IDS.includes(value.stage as StageId) && HEALTHS.includes(value.health as Health) && text(value.reason)
   && nullableText(value.executionId) && cardExtras(value);
 const gap = (value: unknown): value is AgentGap => object(value) && text(value.id) && text(value.stage) && text(value.reason);
+const mapGap = (value: unknown): value is AgentMapGap => object(value) && text(value.rule) && text(value.message) && text(value.nodeId)
+  && optional(value.journeyId, text) && optional(value.edgeId, text) && (value.owner === "agent" || value.owner === "human");
 
 /** Ověří tvar a rozsah; dokument jiného projektu nebo prostoru se nikdy nezobrazí. */
 export function parseAgentState(raw: unknown, project: string, workspace: string): AgentState {
@@ -90,6 +96,8 @@ export function parseAgentState(raw: unknown, project: string, workspace: string
   if (!Array.isArray(decisions) || !decisions.every(decision) || decisions.length > 3) throw new Error("Stav pro agenty má neplatná rozhodnutí.");
   if (!Array.isArray(gaps) || !gaps.every(gap)) throw new Error("Stav pro agenty má neplatné mezery.");
   if (raw.cards !== undefined && (!Array.isArray(raw.cards) || !raw.cards.every(cardStage))) throw new Error("Stav pro agenty má neplatné etapy karet.");
+  if ((raw.mapGaps !== undefined && (!Array.isArray(raw.mapGaps) || !raw.mapGaps.every(mapGap)))
+    || (raw.mapGapsTotal !== undefined && !count(raw.mapGapsTotal))) throw new Error("Stav pro agenty má neplatné díry mapy.");
   if (!text(raw.generatedAt) || typeof raw.truncated !== "boolean") throw new Error("Stav pro agenty je neúplný.");
   return raw as unknown as AgentState;
 }

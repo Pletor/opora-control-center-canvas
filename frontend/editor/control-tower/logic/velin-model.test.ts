@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Graph } from "@/shared/types/logic/types";
 import { agentStateFixture } from "@/hub/oporahub-agent-state/logic/fixtures";
 import type { AgentCardStage } from "@/hub/oporahub-agent-state/logic/agent-state";
-import { velinModel } from "./velin-model";
+import { mapGapsForAgents, velinModel } from "./velin-model";
 
 const node = (id: string, kind: "node" | "sector", parentId: string | null, name = id) => ({ id, parentId, kind, name, purpose: "", x: 0, y: 0 });
 const graph: Graph = { edges: [], nodes: [node("s1", "sector", null, "Broker"), node("a", "node", "s1", "Alfa"), node("b", "node", "s1", "Beta"),
@@ -41,5 +41,15 @@ describe("Velín nad agent-state", () => {
     const filtered = velinModel(graph, state, "problems");
     expect(filtered.layers[0].sectors[0].pills.map(pill => pill.nodeId)).toEqual(["a"]);
     expect(filtered.layers[0].counts.run).toBe(1);
+  });
+});
+
+describe("Díry mapy pro agenty", () => {
+  const gap = (owner: "agent" | "human") => ({ rule: "section.unrealized", message: "Sekce s nemá žádnou komponentu.", nodeId: "a", owner });
+  it("počítá jen díry agentů a pozná ořezaný seznam; starší server bez pole nic neukáže", () => {
+    expect(mapGapsForAgents(agentStateFixture({ mapGaps: [gap("agent"), gap("human"), gap("agent")], mapGapsTotal: 3 })))
+      .toEqual({ count: 2, more: false });
+    expect(mapGapsForAgents(agentStateFixture({ mapGaps: [gap("agent")], mapGapsTotal: 70 }))).toEqual({ count: 1, more: true });
+    expect(mapGapsForAgents(agentStateFixture({}))).toBeNull();
   });
 });

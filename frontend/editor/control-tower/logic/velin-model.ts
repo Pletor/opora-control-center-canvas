@@ -62,3 +62,9 @@ export function velinModel(graph: Graph, state: AgentState, filter: VelinFilter 
   return { total, cards: rows.length, layers: ordered, decisions, next, running };
 }
 export type VelinView = ReturnType<typeof velinModel>;
+
+/** Díry mapy pro agenty (`mapGaps` s `owner: "agent"`); `more`, když server seznam ořízl. Starší server: null. */
+export function mapGapsForAgents(state: AgentState) {
+  if (!state.mapGaps) return null;
+  return { count: state.mapGaps.filter(item => item.owner === "agent").length, more: (state.mapGapsTotal ?? 0) > state.mapGaps.length };
+}

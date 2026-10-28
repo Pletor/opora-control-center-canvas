@@ -22,11 +22,17 @@ Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam s
 - `in` / `out`: sousední hrany karty s `carries`, v pořadí id hrany: `{carries, from}` / `{carries, to}`, kde
   `from`/`to` je název uzlu na druhé straně (bez názvu id) a `sourceRef` jeho `sourceRef.path`, jen když je.
 - `states`: `card.states`, jen když jsou.
-- `gaps`: pravidla kontroly mapy (`map_check`), jejichž nález míří na kartu (`nodeId`) nebo na její hranu
-  (`edgeId`); každé pravidlo jednou, v pořadí `RULES`. `check_map` se volá bez dokladů: `journey.unverified` nese
-  `journeyId`, na kartu nemíří, ověření cesty karta vidí v `journeys[].lastRun`.
+- `holes` (§5.1): `[{rule, message}]` nálezů kontroly mapy (`map_check`), které míří na kartu (`nodeId`) nebo na
+  její hranu (`edgeId`), a navíc nálezů `journey.unrealized`, jejichž přechod vychází ze stránky karty (stránka
+  sama, nebo nejbližší stránka komponenty; `solverId` z `check_map(locate=True)`). `section.unrealized` nese
+  `nodeId` stránky, takže ho dostane jen stránka sama. Nejvýš `HOLES_LIMIT` (5), v pořadí `RULES` (uvnitř pravidla
+  v pořadí kontroly mapy).
+- `gaps`: pravidla všech těchto nálezů (i těch nad strop `holes`); každé pravidlo jednou, v pořadí `RULES`.
+  `check_map` se volá bez dokladů: `journey.unverified` se nehodnotí, ověření cesty karta vidí v `journeys[].lastRun`.
 - Strop `LIMIT_BYTES` (2,5 KiB kompaktního JSON v UTF-8). Dokud se výřez nevejde, odebírá se po celých klíčích
-  (texty se nikdy nezkracují) v tomto pořadí (`docs/cesta-zakaznika-a-brief.md` §4.3):
+  (texty se nikdy nezkracují) v tomto pořadí (`docs/cesta-zakaznika-a-brief.md` §4.3, `docs/architektura-pro-agenty.md`
+  §5.1):
+  0. `holes` od konce, pak celé (`gaps` zůstává);
   1. cesty od konce, dokud nezbude jedna;
   2. hrany od konce, delší seznam z `in`/`out` dřív (při shodě `out`);
   3. v první cestě `purpose`;
@@ -46,6 +52,7 @@ from backend.project.architecture.journeys import derive_journeys
 from backend.project.architecture.map_check import RULES, check_map
 
 LIMIT_BYTES = 2560
+HOLES_LIMIT = 5
 
 
 def _size(value):
@@ -121,11 +128,23 @@ def _links(graph, by_id, node_id):
     return incoming, outgoing
 
 
-def _gaps(graph, node_id):
+def _holes(graph, node_id, page_id):
+    """(holes, gaps) karty: nálezy na kartu, její hranu a nerealizované přechody ze stránky karty (§5.1)."""
     own_edges = {edge["id"] for edge in graph.get("edges") or [] if node_id in (edge["source"], edge["target"])}
-    hit = {f["rule"] for f in check_map(graph)["findings"]
-           if f.get("nodeId") == node_id or f.get("edgeId") in own_edges}
-    return [rule for rule in RULES if rule in hit]
+    hits = [f for f in check_map(graph, locate=True)["findings"]
+            if f.get("nodeId") == node_id or f.get("edgeId") in own_edges
+            or (f["rule"] == "journey.unrealized" and f["solverId"] == page_id)]
+    hits.sort(key=lambda f: RULES.index(f["rule"]))
+    holes = [{"rule": f["rule"], "message": f["message"]} for f in hits[:HOLES_LIMIT]]
+    return holes, [rule for rule in RULES if any(f["rule"] == rule for f in hits)]
+
+
+def _cut_holes(result):
+    holes = result.get("holes")
+    if not holes:
+        return False
+    holes.pop()
+    return True
 
 
 def _cut_journeys(result):
@@ -172,6 +191,7 @@ def _cut_last_journey(result):
 
 # Pořadí ořezu z docstringu modulu; každý krok odebere jednu věc a vrátí, zda měl co odebrat.
 _CUTS = (
+    _cut_holes,
     _cut_journeys,
     _cut_edges,
     lambda result: _cut_key(_first(result), "purpose"),
@@ -187,7 +207,7 @@ def _fit(result):
     while _size(result) > LIMIT_BYTES:
         if not any(cut(result) for cut in _CUTS):
             break
-        for key in ("journeys", "in", "out"):
+        for key in ("holes", "journeys", "in", "out"):
             if key in result and not result[key]:
                 del result[key]
         result["truncated"] = True
@@ -208,9 +228,10 @@ def node_architecture(graph, node_id, runs=None):
     incoming, outgoing = _links(graph, by_id, node_id)
     card = node.get("card")
     states = card.get("states") if isinstance(card, dict) else None
+    holes, gaps = _holes(graph, node_id, page["id"])
     result = {"journeys": _journeys(graph, page["id"], runs), "page": _page(page, node), "in": incoming, "out": outgoing,
               **({"states": list(states)} if isinstance(states, list) and states else {}),
-              "gaps": _gaps(graph, node_id)}
+              "holes": holes, "gaps": gaps}
     result = {key: value for key, value in result.items() if value != []}
     _fit(result)
     return result
