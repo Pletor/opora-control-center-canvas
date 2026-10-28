@@ -132,6 +132,22 @@ def test_mirror_off_by_default_and_on_only_with_enabled(tmp_path):
     assert environ["OPORA_MIRROR_URL"] == ""
 
 
+def test_strazci_section_becomes_worker_environment(tmp_path):
+    (tmp_path / "opora.toml").write_text(CONFIG, encoding="utf-8")
+    environ = {}
+    apply_environment(resolve(load_config(tmp_path / "opora.toml", tmp_path / "nic.toml")), environ)
+    assert "OPORA_GUARDS_WORKER" not in environ and "OPORA_GUARDS_SECONDS" not in environ
+    local = tmp_path / "opora.local.toml"
+    local.write_text("[strazci]\nenabled = false\nseconds = 12\n", encoding="utf-8")
+    environ = {"OPORA_GUARDS_SECONDS": "5"}
+    apply_environment(resolve(load_config(tmp_path / "opora.toml", local)), environ)
+    assert environ["OPORA_GUARDS_WORKER"] == "0" and environ["OPORA_GUARDS_SECONDS"] == "5"
+    local.write_text('[strazci]\nenabled = "ne"\nseconds = 12\n', encoding="utf-8")
+    environ = {}
+    apply_environment(resolve(load_config(tmp_path / "opora.toml", local)), environ)
+    assert "OPORA_GUARDS_WORKER" not in environ and environ["OPORA_GUARDS_SECONDS"] == "12.0"
+
+
 def test_dotenv_fills_only_missing_and_never_prints(tmp_path, capsys):
     secret = "tajna-hodnota-" + "x" * 8
     (tmp_path / ".env").write_text(

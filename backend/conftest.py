@@ -10,6 +10,8 @@ os.environ['OPORA_EXECUTION_PR_WORKER'] = '0'
 # Auto-rebase smyčku testy řídí ručně přes run_once() (docs/oporahub-auto-rebase.md).
 os.environ['OPORA_AUTO_REBASE_WORKER'] = '0'
 os.environ['OPORA_HARNESS_MEMORY_WORKER'] = '0'
+# Strážce testy řídí ručně přes run_once(now) s falešným časem (docs/strazci.md).
+os.environ['OPORA_GUARDS_WORKER'] = '0'
 # Sdílené hodnoty cache čtení (karta P3) se nesmí měnit na místě: v testech to hlídá otisk
 # hodnoty při každém čtení z cache (backend/canvas/read_cache.py).
 os.environ['OPORA_READ_CACHE_GUARD'] = '1'

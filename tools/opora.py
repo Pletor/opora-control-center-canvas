@@ -79,6 +79,8 @@ def resolve(config: dict, profile: str | None = None, **overrides) -> dict:
         "jev_provider": str(config.get("jev", {}).get("provider", "typesafe")),
         # Zrcadlo (docs/zrcadlo.md): výchozí vypnuto; loopback a platnost adresy hlídá backend (mirror_client).
         "mirror": mirror_settings(config.get("mirror", {})),
+        # Strážci (docs/strazci.md §2): výchozí zapnuto; interval workeru jen kladné číslo.
+        "strazci": strazci_settings(config.get("strazci", {})),
         "profile": profile or "app",
     }
 
@@ -89,6 +91,14 @@ def mirror_settings(section) -> dict:
     projects = section.get("projects", [])
     return {"enabled": section.get("enabled") is True, "url": str(section.get("url", "")),
             "projects": [str(item) for item in projects] if isinstance(projects, list) else []}
+
+
+def strazci_settings(section) -> dict:
+    """`[strazci] enabled, seconds` z TOML; vypíná jen `enabled = false`, neplatné `seconds` = výchozí (None)."""
+    section = section if isinstance(section, dict) else {}
+    seconds = section.get("seconds")
+    valid = isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and seconds > 0
+    return {"enabled": section.get("enabled") is not False, "seconds": float(seconds) if valid else None}
 
 
 def load_dotenv(path: Path = DOTENV, environ=os.environ) -> int:
@@ -161,6 +171,12 @@ def apply_environment(settings: dict, environ=os.environ) -> list[str]:
     mirror = settings["mirror"]
     environ["OPORA_MIRROR_URL"] = mirror["url"] if mirror["enabled"] else ""
     environ["OPORA_MIRROR_PROJECTS"] = ",".join(mirror["projects"]) if mirror["enabled"] else ""
+    # Strážci: `enabled = false` worker vždy vypne; `seconds` jen tam, kde prostředí interval nenastavilo.
+    strazci = settings["strazci"]
+    if not strazci["enabled"]:
+        environ["OPORA_GUARDS_WORKER"] = "0"
+    if strazci["seconds"] is not None and not environ.get("OPORA_GUARDS_SECONDS"):
+        environ["OPORA_GUARDS_SECONDS"] = str(strazci["seconds"])
     # Rámování v <iframe> je nastavení aplikace, ne integrace: opora.toml vždy přebije prostředí.
     environ["OPORA_CANVAS_EMBED_ORIGINS"] = " ".join(settings.get("embed_origins", []))
     applied = []
@@ -198,7 +214,8 @@ def main(argv=None) -> int:
 
     print(f"[opora] profil: {settings['profile']} | {url} | data: {data}")
     if args.check:
-        for key in ("frontend", "build_command", "open_browser", "embed_origins", "integrations", "jev_provider", "mirror"):
+        for key in ("frontend", "build_command", "open_browser", "embed_origins", "integrations", "jev_provider", "mirror",
+                    "strazci"):
             print(f"[opora] {key}: {settings[key]}")
         return 0
     if not port_free(settings["host"], settings["port"]):
