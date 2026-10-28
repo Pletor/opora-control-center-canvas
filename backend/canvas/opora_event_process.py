@@ -37,6 +37,7 @@ KINDS = {
     "plan.commit": ("plan", "info", "Commit zadání (OporaHub)"),
     "guard.alert": ("checks", "wait", "Strážce hlásí nález"),
     "guard.resolved": ("checks", "ok", "Nález strážce vyřešen"),
+    "gate.ticket": ("intake", "info", "Lístek brány mozku"),
 }
 STAGE_PHASE = {"plan": "plan", "proposal": "plan", "acceptance": "plan", "claim": "intake", "work": "work",
                "evidence": "checks", "review": "review", "pull_request": "review", "merge": "merge",

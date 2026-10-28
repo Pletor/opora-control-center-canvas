@@ -27,6 +27,8 @@ RLM_PREFIX = "/api/rlm"
 OPEN_FILE_PATH = "/api/workspace/open-file"
 # Kontrola brány Schránky volá placené API (Jev) klíčem aplikace; zvenčí ne (docs/schranka-neurony.md §7).
 LOOPBACK_ONLY_PATHS = frozenset({"/api/brief-vault/gate-check"})
+# Brána mozku pouští pracovníky z tohoto počítače; přes tunel nikdy (docs/brain-gate.md §2).
+GATE_PREFIX = "/api/gate"
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
 OPEN_PATHS = frozenset({"/api/access/status", "/api/access/login", "/api/access/logout"})
 
@@ -82,7 +84,7 @@ def bearer_token(authorization):
 
 def is_loopback_only(path):
     return path in LOOPBACK_ONLY_PATHS or any(
-        path == prefix or path.startswith(prefix + "/") for prefix in (ASSISTANT_PREFIX, RLM_PREFIX, OPEN_FILE_PATH))
+        path == prefix or path.startswith(prefix + "/") for prefix in (ASSISTANT_PREFIX, RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX))
 
 
 def requires_token(path):
