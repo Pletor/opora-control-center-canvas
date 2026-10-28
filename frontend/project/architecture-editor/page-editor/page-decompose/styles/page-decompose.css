@@ -1,0 +1,18 @@
+/* Kopírovat zadání rozkladu: člověk tu jen předává stránku agentovi, nic se neukládá. Proto je tlačítko tiché –
+   na kartě stránky stojí mezi akcemi struktury stejně drobné jako „Upravit“, v hlavičce Editoru stránky jako
+   obrysové tlačítko vedle odznaku webu. Vypnuté (stránka bez cíle) zůstává vidět, aby popisek řekl, co chybí. */
+.page-decompose{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px}
+.page-decompose__button{min-height:0;padding:2px 7px;font-size:10px;background:transparent;color:var(--ae-accent);border:1px solid transparent;border-radius:4px;cursor:pointer}
+.page-decompose__button:hover:not(:disabled){border-color:var(--ae-accent)}
+.page-decompose__button:disabled{color:var(--ae-muted);cursor:not-allowed}
+.page-decompose--card .page-decompose__button:enabled{color:var(--ae-accent)}
+.page-decompose--header .page-decompose__button{padding:4px 10px;font-size:12px;border-color:var(--ae-line)}
+
+/* Když schránka odmítne, zadání se ukáže v poli pod tlačítkem a samo se označí: člověk ho zkopíruje ručně
+   a neztratí ho. Pole má šířku karty, aby nerozbilo mřížku stránek. */
+.page-decompose__fallback{display:flex;flex-direction:column;gap:4px;width:100%}
+.page-decompose__alert{font-size:11px;color:var(--ae-text)}
+.page-decompose__field{width:100%;min-width:16rem;font:11px/1.4 ui-monospace,monospace;color:var(--ae-text);background:var(--ae-panel);border:1px solid var(--ae-line);border-radius:4px;resize:vertical}
+
+/* Hláška pro čtečku: po zkopírování se oznámí, vizuálně ji nahrazuje text tlačítka. */
+.page-decompose__status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

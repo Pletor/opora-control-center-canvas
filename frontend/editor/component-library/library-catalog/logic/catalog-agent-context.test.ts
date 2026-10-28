@@ -71,4 +71,9 @@ describe("catalog-agent-context – lint", () => {
     expect(rules({ fill: ["name"] })).toEqual(["fill"]);
     expect(rules({ fill: ["text", "text"] })).toEqual(["fill"]);
   });
+
+  it("spec.steps (návrh kroků) jen u položky s logikou, tedy s porty", () => {
+    expect(rules({ fill: ["spec.steps"], ports: [{ id: "data", direction: "in", carries: "data" }] })).toEqual([]);
+    expect(rules({ fill: ["spec.steps"] })).toEqual(["fill"]);
+  });
 });

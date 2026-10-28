@@ -11,11 +11,11 @@ export type CatalogFetch = { files: string[]; docs: string[] };
 
 /**
  * Pole karty, která agent opravdu umí zapsat (a smí tedy stát ve `fill`): `purpose` a `sourceRef` změnou grafu
- * v OporaHubu, `spec.*` a `text` přes `extend` dávky plánu s revizí, `card.tech` / `card.states` / `card.section`,
- * `blocks` a `rules` přes `extend`. Zrcadlí `CARD_FILL_FIELDS` v `backend/canvas/card_agent_context.py`.
+ * v OporaHubu, `spec.*` a `text` přes `extend` dávky plánu s revizí, `spec.steps` návrhem změny zadání (kroky plánu,
+ * docs/oporahub-plan-steps.md), `card.tech` / `card.states` / `card.section`, `blocks` a `rules` přes `extend`. Zrcadlí `CARD_FILL_FIELDS` v `backend/canvas/card_agent_context.py`.
  */
 export const CARD_FILL_FIELDS = [
-  "purpose", "sourceRef", "spec.goal", "spec.non_goals", "spec.acceptance", "text",
+  "purpose", "sourceRef", "spec.goal", "spec.non_goals", "spec.acceptance", "spec.steps", "text",
   "card.tech", "card.states", "card.section", "blocks", "rules",
 ] as const;
 export type CardFillField = (typeof CARD_FILL_FIELDS)[number];
@@ -74,7 +74,8 @@ function fetchViolations(item: AgentContextItem, exists?: (path: string) => bool
 /**
  * Lint kontextu pro agenta: `tech` 1–80 znaků, `states` 1–8 různých stavů po 1–40 znacích, u položky s výstupním
  * portem `command` povinně stav chyby, porty s unikátním id a známým `carries`, `fetch` jako relativní cesty
- * (existenci ověří `exists`, když ho volající má – test nad repozitářem), `fill` jen z `CARD_FILL_FIELDS`.
+ * (existenci ověří `exists`, když ho volající má – test nad repozitářem), `fill` jen z `CARD_FILL_FIELDS` a `spec.steps`
+ * jen u položky s logikou (má porty): statický dílek nemá co rozkládat na kroky.
  */
 export function agentContextViolations(item: AgentContextItem, exists?: (path: string) => boolean): AgentContextViolation[] {
   const found: AgentContextViolation[] = [];
@@ -103,6 +104,7 @@ export function agentContextViolations(item: AgentContextItem, exists?: (path: s
     if (fill.length < 1) add("fill", "fill je prázdný; bez děr pole vynechte.");
     if (new Set(fill).size !== fill.length) add("fill", "fill má duplicitní pole.");
     for (const field of fill) if (!(CARD_FILL_FIELDS as readonly string[]).includes(field)) add("fill", `Pole ${field} agent vyplnit neumí.`);
+    if (fill.includes("spec.steps") && !ports.length) add("fill", "spec.steps patří jen položce s logikou (s porty); statický dílek kroky nemá.");
   }
   return found;
 }

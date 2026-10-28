@@ -7,6 +7,8 @@ import type { PageJourneyRole } from "../logic/page-journeys";
 import { holesLabel, type CardState } from "../../card-state/logic/card-state";
 import CardIcon from "../../card-state/components/CardIcon";
 import CardStateChip from "../../card-state/components/CardStateChip";
+import PageDecomposeCopy from "../../page-editor/page-decompose/components/PageDecomposeCopy";
+import type { PageDecompose } from "../../page-editor/page-decompose/logic/page-decompose-prompt";
 
 type Actions = {
   disabled: boolean; onOpen: (id: string) => void; onAdd: (parentId: string) => void; onEdit: (node: CanvasNode) => void;
@@ -18,10 +20,12 @@ export type PageWork = { counts: Map<string, number>; highlighted: Set<string> }
 
 /** Karta stránky v jazyce karet Studia: hlavička s ikonou stránky, názvem (otevře Editor stránky), štítkem stavu a tichým
  * čipem ID; pod ní cesta, cíl, účel, sekce, cesty zákazníka a podstránky (rekurzivně); pata se souhrnem, dírami,
- * odznakem worktree a tichými akcemi struktury. Rám nese barvu stavu, „staví se“ dýchá. */
-export default function PageCard({ branch, index, count, actions, work, journeyRoles, states }: {
+ * odznakem worktree a tichými akcemi struktury (i „Kopírovat zadání rozkladu“ pro agenta). Rám nese barvu stavu, „staví se“ dýchá. */
+export default function PageCard({ branch, index, count, actions, work, journeyRoles, states, decompose }: {
   branch: ProductBranch; index: number; count: number; actions: Actions; work?: PageWork; journeyRoles?: Map<string, PageJourneyRole[]>;
   states?: ReadonlyMap<string, CardState>;
+  /** Zadání rozkladu stránky pro agenta (§5.2), skládá rodič; chybí = bez tlačítka „Kopírovat zadání rozkladu“. */
+  decompose?: PageDecompose;
 }) {
   const { node, children } = branch;
   const { disabled } = actions;
@@ -42,7 +46,7 @@ export default function PageCard({ branch, index, count, actions, work, journeyR
       {node.site?.kind === "page" && <PageSections sections={node.site.sections}/>}
       <PageJourneys roles={journeyRoles?.get(node.id) ?? []} pageId={node.id}/>
       <div className="domain-map__subpages">
-        {children.map((child, i) => <PageCard key={child.node.id} branch={child} index={i} count={children.length} actions={actions} work={work} journeyRoles={journeyRoles} states={states}/>)}
+        {children.map((child, i) => <PageCard key={child.node.id} branch={child} index={i} count={children.length} actions={actions} work={work} journeyRoles={journeyRoles} states={states} decompose={decompose}/>)}
         {!children.length && <p className="domain-map__empty">Zatím bez podstránek</p>}
         <button type="button" className="domain-map__sub-add" disabled={disabled} data-testid={"architecture-add-page-" + node.id} onClick={() => actions.onAdd(node.id)}>+ Podstránka</button>
       </div>
@@ -57,6 +61,7 @@ export default function PageCard({ branch, index, count, actions, work, journeyR
       <button type="button" disabled={disabled || index === 0} aria-label={`Posunout ${node.name} dříve`} data-testid={"architecture-page-up-" + node.id} onClick={() => actions.onReorder(node.id, -1)}>←</button>
       <button type="button" disabled={disabled || index === count - 1} aria-label={`Posunout ${node.name} později`} data-testid={"architecture-page-down-" + node.id} onClick={() => actions.onReorder(node.id, 1)}>→</button>
       <button type="button" disabled={disabled} data-testid={"architecture-page-move-" + node.id} onClick={() => actions.onMove(node.id)}>Přesunout</button>
+      {decompose && <PageDecomposeCopy pageId={node.id} {...decompose(node.id)}/>}
       <button type="button" className="domain-map__danger" disabled={disabled} data-testid={"architecture-page-delete-" + node.id} onClick={() => actions.onRemove(node.id)}>Smazat</button>
     </nav>
   </article>;

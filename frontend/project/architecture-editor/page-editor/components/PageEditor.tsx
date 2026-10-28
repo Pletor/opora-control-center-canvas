@@ -15,6 +15,8 @@ import { domainPageTree } from "../../logic/domain-model";
 import { derivedForDomain, type DerivedJourney } from "../../domain-map/logic/derived-journeys";
 import { useMapMotion } from "../map-link/logic/use-map-motion";
 import type { CardLife } from "../../card-state/logic/card-state";
+import PageDecomposeCopy from "../page-decompose/components/PageDecomposeCopy";
+import type { PageDecompose } from "../page-decompose/logic/page-decompose-prompt";
 import "../styles/page-editor.css";
 
 type Props = {
@@ -29,6 +31,8 @@ type Props = {
   derivedJourneys?: DerivedJourney[] | null;
   /** Skutečný stav karet (Studio) a cesty pro pohyb vazeb; počítá rodič (`useCardLife`). */
   cards: CardLife;
+  /** Zadání rozkladu aktivní stránky pro agenta (docs/architektura-pro-agenty.md §5.2); skládá rodič. */
+  decompose?: PageDecompose;
   /** Úsek cesty: „Upravit cestu“ (id) nebo výzva u stránky mimo cesty (`null`) otevře Mapu domény. */
   onOpenJourneys: (journeyId: string | null) => void;
   onOpenPage: (domainId: string, pageId: string) => void; onAddPage: (domainId: string) => void; onOpenScope: (id: string) => void;
@@ -73,6 +77,7 @@ export default function PageEditor(props: Props) {
           <p className="page-editor__map-lead">Přehled komponent a jejich propojení na stránce</p>
         </div>
         {props.webBadge}
+        {activePage && props.decompose && <PageDecomposeCopy pageId={activePage} variant="header" {...props.decompose(activePage)}/>}
         {structure && toggle}
       </header>
       {path.length > 1 && <nav className="page-editor__crumbs" aria-label="Cesta mapou">

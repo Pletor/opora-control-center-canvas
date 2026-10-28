@@ -7,9 +7,10 @@ Obě pole skládá deterministicky vložení z knihovny (bez modelu) a node-brie
   1–20 různých položek. `files` jsou relativní cesty v repozitáři (`a/b.ts`, bez `..`, bez úvodního `/`, nejvýš
   200 znaků); `docs` totéž nebo adresa `https://`. Prázdný seznam se neukládá, klíč se vynechá. Uložení ověří jen
   tvar; existenci souborů hlídá lint katalogu tam, kde katalog vzniká (vitest nad repozitářem).
-- `fill` = 1–11 různých polí karty, která agent vyplní (díry). Povolená jsou jen pole, která agent opravdu umí
+- `fill` = 1–12 různých polí karty, která agent vyplní (díry). Povolená jsou jen pole, která agent opravdu umí
   zapsat: `purpose` a `sourceRef` (změna grafu v OporaHubu), `spec.goal` / `spec.non_goals` / `spec.acceptance`
-  a `text` (`extend` dávky plánu s revizí), `card.tech` / `card.states` / `card.section` (`extend`), `blocks`
+  a `text` (`extend` dávky plánu s revizí), `spec.steps` (návrh změny zadání, `docs/oporahub-plan-steps.md`;
+  rozklad stránky `docs/architektura-pro-agenty.md` §5.2), `card.tech` / `card.states` / `card.section` (`extend`), `blocks`
   a `rules` (`extend`). Seznam zrcadlí `CARD_FILL_FIELDS` ve frontendu (`catalog-agent-context.ts`, test hlídá shodu).
 """
 
@@ -17,8 +18,8 @@ import re
 
 from backend.project.workspace.workspace_sources import relative_path
 
-CARD_FILL_FIELDS = ("purpose", "sourceRef", "spec.goal", "spec.non_goals", "spec.acceptance", "text",
-                    "card.tech", "card.states", "card.section", "blocks", "rules")
+CARD_FILL_FIELDS = ("purpose", "sourceRef", "spec.goal", "spec.non_goals", "spec.acceptance", "spec.steps",
+                    "text", "card.tech", "card.states", "card.section", "blocks", "rules")
 FETCH_KEYS = ("files", "docs")
 FETCH_ITEMS_MAX, FETCH_PATH_MAX = 20, 200
 HTTPS_URL = re.compile(r"https://[^\s]{1,192}")

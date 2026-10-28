@@ -60,6 +60,7 @@ Karta vložená z knihovny nese v `node-brief` (klíč `node`) `fetch` = co si s
 |---|---|---|
 | **Vykonavatel karty** | smyčka výše | [hub-loop.md](references/hub-loop.md) |
 | **Plánovač** | projekt → vrstvy/sektory → karty (`kind`, vazby `next` jako DAG) → `spec.steps` → návrh grafu / změny zadání → člověk přijme | [planner.md](references/planner.md), rozklad oblasti [rozklad.md](references/rozklad.md) |
+| **Rozkladač stránky** | zadání „Jsi rozkladač stránky“ → sekce → komponenty (`card.section`, `carries`) dávkou `canvas-plan` → `spec.steps` návrhem změny zadání | [rozklad.md](references/rozklad.md) „Stránka → komponenty“ |
 | **Reviewer** | `review-claim` → hledač (diff `sinceSha..headSha`) nebo ověřovatel (hlasy) → `review-submit` | [review.md](references/review.md) |
 | **Řešitel konfliktů** | `proposal.resolve_conflict` → nový návrh nad hlavou → `…/resolve` | [conflicts.md](references/conflicts.md) |
 | **Formální ověření** | `verification.investigate` → `verification.fix` (návrh karty opravy) | [formal.md](references/formal.md) |

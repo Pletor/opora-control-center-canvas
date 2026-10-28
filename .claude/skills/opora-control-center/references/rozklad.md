@@ -2,7 +2,9 @@
 
 Kdy mě číst: člověk ti předal zadání „Jsi rozkladač oblasti“ (tlačítko „Kopírovat zadání“ v inspektoru
 oblasti, oddíl „Rozložit na sektory“), nebo „Jsi rozkladač sektoru“ (inspektor sektoru, záložka Zadání,
-oddíl „Rozložit na karty“; čti hlavně [Sektor → karty](#sektor--karty)), nebo máš ze záměru oblasti
+oddíl „Rozložit na karty“; čti hlavně [Sektor → karty](#sektor--karty)), nebo „Jsi rozkladač stránky“
+(tlačítko „Kopírovat zadání rozkladu“ na kartě stránky Mapy domény nebo v hlavičce Editoru stránky; čti
+[Stránka → komponenty](#stránka--komponenty)), nebo máš ze záměru oblasti
 navrhnout sektory či z cíle sektoru karty. Autorita pro
 tvar dávky, typy polí a limity je [canvas-plan.md](canvas-plan.md); tady je jen to, co dělá rozklad jinak.
 Proč to tak je: `docs/pyramida.md` §1 a §3 (člověk píše záměr oblasti a potvrzuje dávku sektorů jedním
@@ -276,6 +278,57 @@ sektor id S, fáze id F“ a platí celý oddíl „Sektor → karty“ s těmit
   dávku nestav a uveď to v souhrnu blokací. Jiné fáze ani jejich karty neměníš.
 - Rámeček fáze vyroste sám; jen když nemá kam (sousedi těsně u něj), dávka neprojde: uveď to v souhrnu
   blokací, oblast sám nezvětšuj.
+
+## Stránka → komponenty
+
+Architektura určuje rozestavění webu; stránku rozkládáš po vrstvách **stránka → sekce → komponenta → kroky**
+(kontrakt `docs/architektura-pro-agenty.md` §5.2). Platí všechno výše o citovaných datech, pokrytí, schválení
+celé verze, vazbě souhlasu na soubor a digest a blokacích jedním souhrnem.
+
+**Jak přečíst zadání.** Datový blok „Podklady stránky“ je kopie z chvíle kopírování: cíl a působení stránky,
+sekce (`id · role · záměr · posouvá`), cesty zákazníka přes stránku (aktér, A → B, krok stránky s posunem
+a námitkou, odkud zákazník přichází a **via na této stránce** u každého dalšího kroku = co tu má jít udělat),
+existující komponenty (sekce, `tech`, stavy, vazby s `carries`), díry mapy stránky a knihovna položek
+(`tech`, stavy, porty `směr id:carries`, `fetch`, `fill`). Pravdu ověř v `view --raw` (stránka, `site.sections`,
+uzly s nejbližší stránkou = tato) a `node-brief --node <stránka> --raw` (`architecture.journeys`, `holes`);
+liší-li se cíl, sekce nebo komponenty od kopie, blokace. Stránka bez cíle zadání nedostane (díra člověka).
+
+**Pokrytí.** Každá sekce bez komponenty (`section.unrealized`) dostane aspoň jednu komponentu. Každý další krok
+cesty potřebuje komponentu v sekci svého `via.section` s prvkem textu `via.text` a vazbu `next` s `carries`
+`navigation` (klik) nebo `command` (odeslání) ke stránce dalšího kroku (`journey.unrealized`). Sekce, kterou
+`via` jmenuje a stránka nemá (`journey.via-unknown`), patří nejdřív stránce (`site` přes člověka nebo dávku
+s `site`), ne komponentě. Existující komponenty neměň; chybějící `card.section`, `tech`, `states` doplň jen
+`extend`. Když nic nechybí, vrať souhrn (která komponenta pokrývá kterou sekci a přechod), ne dávku.
+
+**Laťka komponenty.** `kind: "node"`, `parent: "@<id stránky>"`, předpona `[task]`, `purpose` (proč komponenta
+existuje = `moves` sekce), `spec {goal, non_goals, acceptance}` (akceptace jako odrážky, ověřitelné na stránce:
+prvek s textem `via.text`, přechod na cestu dalšího kroku), `card` s `layer`, `section` (jen existující sekce),
+`tech` a `states` jen doložené (odesílá-li, stav „chyba“). Komponenta odpovídající položce knihovny převezme
+její `tech`, stavy a porty jako vazby s `carries`; soubory `fetch` si přečti, pole `fill` vyplň (`spec.steps`
+= navrhni kroky, níže). Vazby: `next` + `carries` (`navigation` na stránku dalšího kroku, `command` k příjemci,
+`data` od zdroje); jeden port = jedna karta.
+
+**Dávka a schválení.** Soubor `<draftsDir>/plan-<id stránky>-<čas>.json`, `opora_write.py /api/canvas-plan
+--project P --workspace W --json-file "<soubor>" --dry-run`, ke schválení celá dávka (název, účel, sekce, cíl,
+akceptace, stavy, vazby s `carries`), soubor a sha256; ostře až po souhlasu. Po zápisu `view --raw`: každá nová
+komponenta má `parentId` = stránka a `card.section` ze schváleného souboru.
+
+```json
+{"digest": "DIGEST", "plan": {"nodes": [
+  {"ref": "vyzva", "kind": "node", "parent": "@PAGE_ID", "name": "[task] Tlačítko Chci poradit",
+   "purpose": "Rozptýlí obavu ze spamu a pošle zákazníka na kontakt.",
+   "card": {"layer": "frontend", "section": "cta", "tech": "React + TypeScript", "states": ["připraveno", "chyba"]},
+   "spec": {"goal": "V sekci Výzva je tlačítko „Chci poradit“, které vede na kontakt.",
+            "non_goals": "Formulář kontaktu řeší stránka Kontakt.",
+            "acceptance": "- Sekce cta ukazuje tlačítko s textem „Chci poradit“.
+- Klik otevře /kontakt."}}],
+ "edges": [{"from": "vyzva", "to": "@CONTACT_PAGE_ID", "port": "next", "carries": "navigation"}]}}
+```
+
+**Kroky.** Po zápisu dávky navrhni každé nové komponentě `spec.steps` podle [planner.md](planner.md) (tvar,
+kontrolní seznam kvality): `GET /api/oporahub/changesets/context`, pak `opora_write.py /api/oporahub/changesets`
+s `changes: [{nodeId, expectedRevision, fields}]` (plná pole zadání včetně `steps`). Přijímá člověk. Kartu,
+kterou kontext ještě nezná (graf čeká na přijetí), nech bez kroků a kroky uveď v souhrnu jako návrh.
 
 ## Podněty → jedno rozhodnutí
 

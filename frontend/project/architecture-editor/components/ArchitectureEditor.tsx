@@ -34,6 +34,7 @@ import { architectureEditable, contentLock, structureLock, type LockInput } from
 import { useWorktreeAdmin } from "../logic/use-worktree-admin";
 import { normalizeConflicts } from "../view-conflicts/logic/view-conflicts";
 import EditorNotices from "./EditorNotices";
+import { pageDecomposeOffer, type PageDecompose } from "../page-editor/page-decompose/logic/page-decompose-prompt";
 
 /** Co editor architektury potřebuje vědět o živé práci: schopnost projektu (od App) a akce, které jdou nahoru do App. */
 export type ArchitectureLiveProps = {
@@ -162,6 +163,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const views = domain ? panelViews(live, domain.id) : null;
   const webBadge = views && <WebStatusBadge host={views.web.host} stale={views.web.stale}/>;
   const nav = { onOpenCard: liveProps.onOpenCard, onOpenSession: liveProps.onOpenSession };
+  const decompose: PageDecompose = (pageId) => pageDecomposeOffer({ project, workspace, graph, pageId, check: mapCheck });
   const crumbs = domain ? [env?.name ?? SHARED_GROUP, env?.host || domain.name, ...(scope ? [scope.name] : [])] : [];
   const identity = (original: CanvasNode, name: string, purpose: string) => execute(async () => { writable(original.id, original.site ? "structure" : "content"); const current = graph.nodes.find((node) => node.id === original.id); if (!current || current.name !== original.name || current.purpose !== original.purpose) throw new Error("Název nebo účel se mezitím změnil. Zrušte koncept a otevřete aktuální hodnoty."); await saveGraph({ ...graph, nodes: graph.nodes.map((node) => node.id === original.id ? { ...node, name: name.trim(), purpose: purpose.trim() } : node) }); });
   return <section className="architecture-editor" data-testid="standalone-architecture-editor">
@@ -177,7 +179,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
         onAssign: admin.assign, shelf: admin.shelf, onLoadShelf: admin.loadShelf }}
       onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
-      work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} cardStates={cards.states} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding}
+      work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} cardStates={cards.states} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding} decompose={decompose}
       webBadge={views && !views.work ? webBadge : null}
       live={views?.work ? <LiveDomainPanel web={views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
         actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
@@ -185,7 +187,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onReparent={(id, parentId) => execute(async () => { for (const child of subtreeIds(id)) writable(child, "structure"); writable(parentId, "structure"); await saveGraph(reparentDomainPage(graph, domain.id, id, parentId)); })}/>
     : <PageEditor key={domain.id + ":" + scope.id} webBadge={webBadge} graph={graph} domain={domain} scope={scope} projectName={projectName || "Projekt"} selectedId={selected?.id ?? null}
       editorId={editorId} disabled={disabled} structureDisabled={structureDisabled} reveal={reveal} onOpenPage={openPage} onAddPage={(id) => { navigate(id); setDraftParent(id); }} onOpenScope={openScope}
-      derivedJourneys={derivedJourneys} cards={cards} onOpenJourneys={(journeyId) => { navigate(domain.id); setJourneyEdit(journeyId); }}
+      derivedJourneys={derivedJourneys} cards={cards} decompose={decompose} onOpenJourneys={(journeyId) => { navigate(domain.id); setJourneyEdit(journeyId); }}
       onSelect={setSelectedId} onOpenStructure={openStructure} onOpenEditor={onOpenEditor} onArea={() => createArea()} onSector={(id) => createSector(id)} onAddNode={createNode}
       onInsert={(id, target, point, link) => eventAction(() => insert(id, target, point, link))}
       onMove={(id, x, y, area) => execute(async () => { writable(id); if (area) writable(area.id); const next = moveEditorNode(area ? growEditorArea(graph, area) : graph, id, x, y); for (const moved of next.nodes) { const prior = graph.nodes.find((node) => node.id === moved.id); if (prior && (prior.x !== moved.x || prior.y !== moved.y)) writable(moved.id); } await saveGraph(next); })}
