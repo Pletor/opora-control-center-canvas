@@ -85,6 +85,12 @@
    souhrn. Stránky, kterých se dotýká vybraný worktree v pravém panelu, dostanou tyrkysový okraj. */
 .domain-map__work{display:inline-flex;padding:1px 6px;border-radius:999px;font-size:11px;font-weight:700;color:var(--ae-accent);background:color-mix(in srgb,var(--ae-accent) 16%,transparent)}
 .domain-map__card--highlighted{border-color:var(--ae-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--ae-accent) 45%,transparent),0 6px 16px #0003}
+/* Stránka, na které nebo pod kterou agenti pracují ve worktree, mění barvu i tvar jako karta Studia: dvojitý čárkovaný
+   rám v limetce worktree (vnější čára rám, vnitřní obrys uvnitř) a seříznutý pravý horní roh se šikmou čárkou. Stav
+   stránky dál nese štítek v hlavičce; tvar a ikona větve v patě platí i bez barvy a bez pohybu. Ořez nechává místo vně
+   karty, aby stín a zvýraznění zůstaly celé. */
+.domain-map__card--worktree{position:relative;border:2px dashed var(--studio-worktree);outline:1px dashed color-mix(in srgb,var(--studio-worktree) 70%,transparent);outline-offset:-6px;clip-path:polygon(-16px -16px,calc(100% - 32px) -16px,calc(100% + 16px) 32px,calc(100% + 16px) calc(100% + 16px),-16px calc(100% + 16px))}
+.domain-map__card--worktree::after{content:"";position:absolute;top:-2px;right:-2px;width:16px;height:16px;background:linear-gradient(to top right,transparent calc(50% - 1px),var(--studio-worktree) calc(50% - 1px),var(--studio-worktree) calc(50% + 1px),transparent calc(50% + 1px));pointer-events:none}
 
 /* Třetí sloupec vpravo: živý panel (web a worktree). Na širokém okně stojí vedle mapy jako zrcadlo
    levého panelu; na úzkém sjede pod mapu přes celou šířku jako nízký pruh (nejvýš 40 % výšky, dál se

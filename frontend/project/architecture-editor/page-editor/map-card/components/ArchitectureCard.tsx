@@ -72,7 +72,7 @@ export default function ArchitectureCard({ data, selected }: NodeProps<Architect
     <CardStages preview={summary.preview} more={summary.more} actions={actions}/>
     <footer className="map-card__foot">
       <span className="map-card__summary" title={state?.summary}>{summary.countLabel}{state && state.summary !== "bez dětí" ? ` · ${state.summary}` : ""}</span>
-      {state && state.holes > 0 && <span className="map-card__holes" title="Díry mapy pod touto kartou">{holesLabel(state.holes)}</span>}
+      {state && state.holes > 0 && <span className="map-card__holes" title="Díry mapy pod touto kartou">{holesLabel(state.holes, state.holesInWork)}</span>}
       <GuardBadge guards={state?.guards} testId={"architecture-guards-" + node.id}/>
       {page ? <button type="button" className="map-card__action map-card__action--page nodrag" data-testid={"architecture-open-page-" + node.id}
         aria-label={`Otevřít stránku ${node.name} v Editoru stránky`} onClick={(event) => { event.stopPropagation(); actions.openPage(node.id); }}>Otevřít stránku →</button>

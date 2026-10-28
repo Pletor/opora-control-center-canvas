@@ -15,7 +15,7 @@ const facts = { done: new Set<string>(), building: new Set<string>(), holes: new
 describe("card state for architecture cards", () => {
   it("gives Studio states to domain, page and components, none to areas and comments", () => {
     const states = cardStates(graph, { ...facts, done: new Set(["form", "api"]), building: new Set(), holes: new Map([["api", ["bez stavu"]]]) });
-    expect(states.get("form")).toEqual({ state: "done", label: "hotovo", summary: "bez dětí", holes: 0, guards: null });
+    expect(states.get("form")).toEqual({ state: "done", label: "hotovo", summary: "bez dětí", holes: 0, guards: null, holesInWork: 0, worktree: null });
     expect(states.get("api")?.state).toBe("hole");
     expect(states.get("home")).toMatchObject({ state: "plan", summary: "2/2 stojí", holes: 1 });
     expect(states.has("zone")).toBe(false);
@@ -36,6 +36,15 @@ describe("card state for architecture cards", () => {
     expect(states.get("web")?.guards).toEqual({ count: 3, severity: "block" });
   });
 
+  it("marks cards a worktree works on and holes it already closes, summed up the tree", () => {
+    const check = { findings: [{ rule: "state.no-error" as const, nodeId: "api", message: "bez chyby" }, { rule: "page.no-goal" as const, nodeId: "home", message: "bez cíle" }] };
+    const worktrees = { main: check.findings, worktrees: [{ workspaceId: "w1", branch: "feat/api", actor: "agent-1", domainId: "web", closed: ["state.no-error|api||||bez chyby"], opened: [] }] };
+    const states = cardLife({ graph, doneIds: [], work: null, check, derived: null, worktrees }).states;
+    expect(states.get("api")).toMatchObject({ holes: 1, holesInWork: 1, worktree: { count: 1 } });
+    expect(states.get("home")).toMatchObject({ holes: 2, holesInWork: 1, worktree: { count: 1, marks: [{ branch: "feat/api" }] } });
+    expect(states.get("form")?.worktree).toBeNull();
+  });
+
   it("verifies a done page only with a passed, fresh run", () => {
     const run: DerivedJourney = { applicationId: "web", id: "j", missing: [], segments: [], lastRun: { at: "t", passed: true, stale: false, command: "x", failed: 0 } };
     const life = cardLife({ graph, doneIds: ["home", "form", "api"], work: null, check: null, derived: [run] });
@@ -50,6 +59,7 @@ describe("card state for architecture cards", () => {
   });
 
   it("declines holes in Czech", () => {
-    expect([1, 3, 5].map(holesLabel)).toEqual(["1 díra", "3 díry", "5 děr"]);
+    expect([1, 3, 5].map((count) => holesLabel(count))).toEqual(["1 díra", "3 díry", "5 děr"]);
+    expect(holesLabel(3, 1)).toBe("3 díry · 1 v práci");
   });
 });

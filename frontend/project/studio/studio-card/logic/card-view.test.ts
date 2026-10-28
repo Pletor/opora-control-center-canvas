@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
 import { buildStudioTree, sectionItemId } from "../../logic/studio-tree";
-import { cardView, iconFor, summaryLine } from "./card-view";
+import { cardView, holesLine, iconFor, summaryLine } from "./card-view";
 
 const node = (id: string, parentId: string | null, extra: Partial<CanvasNode> = {}): CanvasNode => ({ id, parentId, name: id, purpose: "", kind: "node", x: 0, y: 0, ...extra });
 const graph: Graph = { nodes: [
@@ -27,10 +27,18 @@ describe("card view", () => {
     expect(summaryLine({ children: 0, total: 0, done: 0, building: 0, holes: 0 })).toBe("bez dětí");
   });
 
+  it("says holes and how many of them a worktree already closes", () => {
+    expect([1, 3, 5].map((count) => holesLine(count))).toEqual(["1 díra", "3 díry", "5 děr"]);
+    expect(holesLine(3, 1)).toBe("3 díry · 1 v práci");
+    expect(holesLine(2, 0)).toBe("2 díry");
+  });
+
   it("builds the view with subtitle per kind and state label", () => {
-    const status = { state: "hole" as const, summary: { children: 2, total: 2, done: 0, building: 0, holes: 3 }, ownHoles: ["x"], journeys: [], guards: { count: 2, severity: "warn" as const } };
+    const status = { state: "hole" as const, summary: { children: 2, total: 2, done: 0, building: 0, holes: 3 }, ownHoles: ["x"], journeys: [], guards: { count: 2, severity: "warn" as const },
+      holesInWork: 1, worktree: null };
     expect(cardView(item("home"), status)).toEqual({ id: "home", name: "home", kind: "page", kindLabel: "Stránka", subtitle: "/", purpose: "Přivítá", icon: "layout-dashboard",
-      state: "hole", stateLabel: "díra", summary: "0/2 stojí", holes: 3, children: 2, modelTarget: false, guards: { count: 2, severity: "warn" } });
+      state: "hole", stateLabel: "díra", summary: "0/2 stojí", holes: 3, children: 2, modelTarget: false, guards: { count: 2, severity: "warn" },
+      holesText: "3 díry · 1 v práci", worktree: null });
     expect(cardView(item("api"), status, true).modelTarget).toBe(true);
     expect(cardView(item("web"), status).subtitle).toBe("web.dev");
     expect(cardView(item("api"), status).subtitle).toBe("FastAPI");

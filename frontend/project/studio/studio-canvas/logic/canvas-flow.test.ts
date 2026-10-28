@@ -3,7 +3,7 @@ import type { StudioCardView } from "../../studio-card/logic/card-view";
 import { flowEdges, flowNodes, linkTitle } from "./canvas-flow";
 import { layoutLevel } from "./studio-layout";
 
-const view = (id: string): StudioCardView => ({ id, name: id, kind: "component", kindLabel: "Komponenta", subtitle: "", purpose: "", icon: "box", state: "plan", stateLabel: "plán", summary: "bez dětí", holes: 0, children: 0, modelTarget: false, guards: null });
+const view = (id: string): StudioCardView => ({ id, name: id, kind: "component", kindLabel: "Komponenta", subtitle: "", purpose: "", icon: "box", state: "plan", stateLabel: "plán", summary: "bez dětí", holes: 0, children: 0, modelTarget: false, guards: null, holesText: "", worktree: null });
 
 describe("canvas flow", () => {
   it("makes read-only card nodes on layout positions and a group frame behind them", () => {

@@ -4,6 +4,7 @@ import type { StudioItem } from "../../logic/studio-tree";
 import type { StudioState, StudioStatus, StudioSummary } from "../../logic/studio-status";
 import type { StudioIconName } from "./studio-icons";
 import type { GuardTally } from "../../studio-guards/logic/guard-tally";
+import type { WorktreeTally } from "../../studio-worktree/logic/worktree-tally";
 
 export const STATE_LABEL: Record<StudioState, string> = {
   plan: "plán", building: "staví se", done: "hotovo", verified: "ověřeno", hole: "díra",
@@ -27,6 +28,12 @@ export function summaryLine(summary: StudioSummary): string {
   return [`${summary.done}/${summary.total} stojí`, summary.building ? `${summary.building} se staví` : ""].filter(Boolean).join(" · ");
 }
 
+/** Odznak děr: „1 díra“, „3 díry“, „5 děr“; s dírami, které už zavírá worktree, „3 díry · 1 v práci“. */
+export function holesLine(holes: number, inWork = 0): string {
+  const count = `${holes} ${holes === 1 ? "díra" : holes > 1 && holes < 5 ? "díry" : "děr"}`;
+  return inWork > 0 ? `${count} · ${inWork} v práci` : count;
+}
+
 /** Podtitulek karty: cesta stránky, role sekce, technologie komponenty, host domény. */
 export function cardSubtitle(item: StudioItem): string {
   const site = item.node?.site;
@@ -43,6 +50,10 @@ export type StudioCardView = {
   modelTarget: boolean;
   /** Otevřené nálezy strážců karty a jejích potomků (docs/strazci.md §5); `null` = žádný. */
   guards: GuardTally | null;
+  /** Odznak děr jednou větou („3 díry · 1 v práci“); prázdný = bez děr. */
+  holesText: string;
+  /** Worktree karty a potomků (docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md §5); `null` = ve worktree se tu nepracuje. */
+  worktree: WorktreeTally | null;
 };
 
 export function cardView(item: StudioItem, status: StudioStatus, modelTarget = false): StudioCardView {
@@ -50,6 +61,6 @@ export function cardView(item: StudioItem, status: StudioStatus, modelTarget = f
     id: item.id, name: item.name, kind: item.kind, kindLabel: KIND_LABEL[item.kind], subtitle: cardSubtitle(item), purpose: item.purpose,
     icon: iconFor(item), state: status.state, stateLabel: STATE_LABEL[status.state], summary: summaryLine(status.summary),
     holes: status.summary.holes, children: status.summary.children, modelTarget,
-    guards: status.guards,
+    guards: status.guards, holesText: status.summary.holes > 0 ? holesLine(status.summary.holes, status.holesInWork) : "", worktree: status.worktree,
   };
 }

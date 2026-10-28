@@ -1,0 +1,25 @@
+/* Práce ve worktree na kartě: obrysová pilulka s ikonou větve a jménem větve v limetkové barvě worktree, kterou nenese
+   žádný jiný stav (plán, staví se, hotovo, ověřeno, díra ani strážci). Čárkovaný obrys opakuje čárkovaný rám karty, takže
+   odznak a rám čte oko jako jednu zprávu „tady agenti pracují mimo main“; větev s textem ji nese i bez barvy. Dlouhé
+   jméno větve se zkrátí třemi tečkami, celé je v title; rodič ve fraktálu ukáže „2 worktree“. */
+.worktree-badge {
+  display: inline-flex;
+  flex-shrink: 1;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: 110px;
+  padding: 0 6px 0 4px;
+  border: 1px dashed var(--studio-worktree);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--studio-worktree) 12%, transparent);
+  color: var(--studio-worktree);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Ikona větve Lucide 10 px stojí před jménem jako značka „worktree“; je jen kresba, větu nese title a aria-label. */
+.worktree-badge__branch { flex-shrink: 0; width: 10px; height: 10px; }
+
+/* Jméno větve nebo počet worktree; zkracuje se, aby se pata karty nikdy nezalomila. */
+.worktree-badge__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

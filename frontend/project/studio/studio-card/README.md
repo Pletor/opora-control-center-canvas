@@ -6,3 +6,5 @@
 - `logic/model-targets.ts` – id karet, na které váže uzel modelu domény (`binding.nodeId`); `logic/use-model-targets.ts` je načte ze `GET /api/studio/model` jen ve Skutečnosti, bez katalogu a simulace MODELu (ty zůstávají v líném chunku).
 - `logic/studio-icons.ts` – ikony Lucide převzaté z prototypu (`icons.mjs`) jako data SVG; licence v `LUCIDE-LICENSE` (ISC, ikona `monitor` z Feather pod MIT).
 - `styles/studio-card.css`, bloky `studio-card` a `studio-group`.
+
+Práce ve worktree (`docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md` §5): karta, na které nebo pod kterou se pracuje ve worktree, má modifikátor `studio-card--worktree` (token `--studio-worktree`, dvojitý čárkovaný rám, seříznutý pravý horní roh se šikmou čárkou; stav dál nese štítek) a v patě odznak `WorktreeBadge` (`studio-worktree/`, ikona větve a větev, u víc worktree „2 worktree“). Odznak děr říká i, kolik děr už worktree zavírá („3 díry · 1 v práci“, `holesLine` v `card-view.ts`). Tvar a text platí i bez barvy a bez pohybu.

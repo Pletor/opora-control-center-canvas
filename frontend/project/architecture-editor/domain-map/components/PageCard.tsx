@@ -8,6 +8,7 @@ import { holesLabel, type CardState } from "../../card-state/logic/card-state";
 import CardIcon from "../../card-state/components/CardIcon";
 import CardStateChip from "../../card-state/components/CardStateChip";
 import GuardBadge from "@/project/studio/studio-guards/components/GuardBadge";
+import WorktreeBadge from "@/project/studio/studio-worktree/components/WorktreeBadge";
 import PageDecomposeCopy from "../../page-editor/page-decompose/components/PageDecomposeCopy";
 import type { PageDecompose } from "../../page-editor/page-decompose/logic/page-decompose-prompt";
 
@@ -21,7 +22,8 @@ export type PageWork = { counts: Map<string, number>; highlighted: Set<string> }
 
 /** Karta stránky v jazyce karet Studia: hlavička s ikonou stránky, názvem (otevře Editor stránky), štítkem stavu a tichým
  * čipem ID; pod ní cesta, cíl, účel, sekce, cesty zákazníka a podstránky (rekurzivně); pata se souhrnem, dírami, nálezy strážců,
- * odznakem worktree a tichými akcemi struktury (i „Kopírovat zadání rozkladu“ pro agenta). Rám nese barvu stavu, „staví se“ dýchá. */
+ * odznakem worktree (větev) a tichými akcemi struktury (i „Kopírovat zadání rozkladu“ pro agenta). Rám nese barvu stavu, „staví se“ dýchá;
+ * stránka, na které nebo pod kterou se pracuje ve worktree, má dvojitý čárkovaný rám se seříznutým rohem (`domain-map__card--worktree`). */
 export default function PageCard({ branch, index, count, actions, work, journeyRoles, states, decompose }: {
   branch: ProductBranch; index: number; count: number; actions: Actions; work?: PageWork; journeyRoles?: Map<string, PageJourneyRole[]>;
   states?: ReadonlyMap<string, CardState>;
@@ -32,8 +34,8 @@ export default function PageCard({ branch, index, count, actions, work, journeyR
   const { disabled } = actions;
   const workCount = work?.counts.get(node.id) ?? 0;
   const state = states?.get(node.id);
-  const tone = state ? ` card-state--${state.state}${state.state === "building" ? " card-state__frame--building" : ""}` : "";
-  return <article className={"domain-map__card" + (work?.highlighted.has(node.id) ? " domain-map__card--highlighted" : "") + tone} data-testid={"architecture-page-card-" + node.id} data-state={state?.state}>
+  const tone = state ? ` card-state--${state.state}${state.state === "building" ? " card-state__frame--building" : ""}${state.worktree ? " domain-map__card--worktree" : ""}` : "";
+  return <article className={"domain-map__card" + (work?.highlighted.has(node.id) ? " domain-map__card--highlighted" : "") + tone} data-testid={"architecture-page-card-" + node.id} data-state={state?.state} data-worktree={state?.worktree?.count ?? 0}>
     <header className="domain-map__card-head">
       <CardIcon node={node} className="domain-map__card-icon"/>
       <button type="button" className="domain-map__card-title" title={node.name} data-testid={"architecture-page-open-" + node.id} onClick={() => actions.onOpen(node.id)}>{node.name} ↗</button>
@@ -54,9 +56,10 @@ export default function PageCard({ branch, index, count, actions, work, journeyR
     </div>
     {(state || workCount > 0) && <footer className="domain-map__card-foot">
       <span className="domain-map__card-summary" title={state?.summary}>{state?.summary ?? ""}</span>
-      {state && state.holes > 0 && <span className="domain-map__card-holes" title="Díry mapy pod touto stránkou">{holesLabel(state.holes)}</span>}
+      {state && state.holes > 0 && <span className="domain-map__card-holes" title="Díry mapy pod touto stránkou">{holesLabel(state.holes, state.holesInWork)}</span>}
       <GuardBadge guards={state?.guards} testId={"architecture-page-guards-" + node.id}/>
-      {workCount > 0 && <span className="domain-map__work" title="Worktree, které na této stránce nebo jejích podstránkách pracují">{workCount} worktree</span>}
+      {state?.worktree ? <WorktreeBadge worktree={state.worktree} testId={"architecture-page-worktree-" + node.id}/>
+        : workCount > 0 && <span className="domain-map__work" title="Worktree, které na této stránce nebo jejích podstránkách pracují">{workCount} worktree</span>}
     </footer>}
     <nav className="domain-map__card-actions" aria-label={`Úpravy stránky ${node.name}`}>
       <button type="button" disabled={disabled} onClick={() => actions.onEdit(node)}>Upravit</button>
