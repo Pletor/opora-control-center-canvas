@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { JourneyLastRun } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
 import type { StudioJourney } from "../../logic/studio-status";
-import { freshPasses, journeyKey, runFailures, runStamps } from "./run-events";
+import { freshPasses, journeyKey, runFailures, runningHops, runStamps } from "./run-events";
 
 const journey = (id: string, lastRun?: Partial<JourneyLastRun>): StudioJourney => ({
   id, name: "Kampaň " + id, domainId: "web", pages: new Set(), stepPages: new Map(),
@@ -26,6 +26,15 @@ describe("run events", () => {
     expect(runFailures([failed, stale, journey("c", {}), journey("d", { passed: false })]).map(({ from, to, title }) => ({ from, to, title }))).toEqual([
       { from: "vstup", to: "prodej", title: "Cesta Kampaň a spadla na přechodu vstup → prodej: chybí tlačítko" },
       { from: "x", to: "y", title: "Cesta Kampaň b spadla na přechodu x → y (doklad je starší než mapa)" },
+    ]);
+  });
+
+  it("names the hop that is being replayed right now", () => {
+    const base = journey("a");
+    const playing: StudioJourney = { ...base, derived: { ...base.derived!, running: { runId: "r", at: "t", segment: { from: "s1", to: "s2" } } } };
+    const started: StudioJourney = { ...base, id: "b", derived: { ...base.derived!, id: "b", running: { runId: "r2", at: "t", segment: null } } };
+    expect(runningHops([playing, started, journey("c", {})]).map(({ from, to, title }) => ({ from, to, title }))).toEqual([
+      { from: "s1", to: "s2", title: "Cesta Kampaň a právě běží: přechod s1 → s2" },
     ]);
   });
 });

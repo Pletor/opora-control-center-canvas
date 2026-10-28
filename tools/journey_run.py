@@ -1,7 +1,9 @@
 """Referenční runner brány cesty zákazníka (`docs/brana-cesty.md` §6).
 
 Stáhne plán přehrání, přehraje jeho segmenty v jednom prohlížeči (Python Playwright, volitelná závislost)
-a odevzdá doklad `opora.journey-run/1`. Exit 0 jen když prošly všechny segmenty plánu.
+a odevzdá doklad `opora.journey-run/1`. Exit 0 jen když prošly všechny segmenty plánu. Před přehráním ohlásí
+start běhu a během něj posílá heartbeat s přechodem (§3a, „cesta právě běží“); selhání těchto hlášení běh nezastaví,
+jen vypíše varování. `--dry-run` je neposílá.
 
     uv run python tools/journey_run.py --server http://127.0.0.1:8740 --project <id> --journey <id>
         [--application <id>] [--base-url URL] [--fixtures file.json] [--headed] [--dry-run] [--log FILE]
@@ -30,7 +32,10 @@ INSTALL_HINT = ("Runner potřebuje Python Playwright (volitelná závislost, jak
                 "nebo jednorázově: uv run --with playwright python tools/journey_run.py …")
 
 
-def _http(method: str, url: str, server: str, body: dict | None = None):
+LIVE_TIMEOUT_S = 5
+
+
+def _http(method: str, url: str, server: str, body: dict | None = None, timeout: float = 30):
     headers = {"Accept": "application/json", "Origin": server}
     data = None
     if body is not None:
@@ -38,7 +43,7 @@ def _http(method: str, url: str, server: str, body: dict | None = None):
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.status, json.loads(response.read() or b"null")
     except urllib.error.HTTPError as error:
         raw = error.read().decode("utf-8", errors="replace")
@@ -65,6 +70,40 @@ def fetch_plan(server: str, project: str, journey: str, application: str | None)
 def post_run(server: str, project: str, run: dict) -> dict:
     url = f"{server}/api/project-architecture/journey-runs?{urllib.parse.urlencode({'project': project})}"
     return _expect_ok("doklad", *_http("POST", url, server, run))
+
+
+class LiveRun:
+    """Hlášení „cesta právě běží“ (`docs/brana-cesty.md` §3a): start a heartbeat po segmentech. Jen informuje
+    Studio a Editor stránky; když selže, vypíše varování a další hlášení vynechá, přehrání ani doklad nezastaví."""
+
+    def __init__(self, server: str, project: str, plan: dict, warn):
+        self.server, self.project, self.plan, self.warn = server, project, plan, warn
+        self.run_id: str | None = None
+
+    def _post(self, what: str, path: str, body: dict, expect: int):
+        try:
+            status, answer = _http("POST", f"{self.server}/api/project-architecture/journey-runs{path}", self.server,
+                                   body, timeout=LIVE_TIMEOUT_S)
+        except (OSError, ValueError) as error:
+            status, answer = None, str(error)
+        if status != expect:
+            detail = answer.get("detail") if isinstance(answer, dict) else answer
+            self.warn(f"varování: {what} se nepodařilo ohlásit ({f'HTTP {status}: ' if status else ''}{detail}); běh pokračuje")
+            self.run_id = None
+            return None
+        return answer
+
+    def start(self) -> None:
+        body = {"project": self.project, "journeyId": self.plan["journeyId"], "applicationId": self.plan["applicationId"]}
+        answer = self._post("start běhu", "/start", body, 200)
+        run_id = answer.get("runId") if isinstance(answer, dict) else None
+        self.run_id = run_id if isinstance(run_id, str) and run_id else None
+
+    def progress(self, segment: dict, ok: bool | None = None) -> None:
+        if not self.run_id:
+            return
+        body = {"segment": {"from": segment["from"], "to": segment["to"]}, **({"ok": ok} if ok is not None else {})}
+        self._post("průběh běhu", f"/{urllib.parse.quote(self.run_id, safe='')}/progress", body, 204)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -113,8 +152,12 @@ def main(argv: list[str] | None = None) -> int:
         log_lines.append(line)
         print(line, file=sys.stderr)
 
+    live = None
+    if not args.dry_run:
+        live = LiveRun(server, args.project, plan, lambda line: print(line, file=sys.stderr))
+        live.start()
     at = logic.utc_now()
-    results = browser.replay(plan, base_url, fixtures, args.headed, log)
+    results = browser.replay(plan, base_url, fixtures, args.headed, log, live.progress if live else None)
     log_url = None
     if args.log:
         log_path = Path(args.log).resolve()

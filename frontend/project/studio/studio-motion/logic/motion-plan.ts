@@ -1,8 +1,9 @@
 // Co se na úrovni Studia hýbe a jak rychle (docs/studio.md §2, hodnoty z docs/zive-zobrazeni-a-knihovna.md §3).
 // Trvale jen vazby, jejichž karta na jednom konci se staví: dvě tečky, cyklus 1,05 s + 70 ms × (pořadí mod 4), aby
 // sousední vazby nešly v zákrytu; nejvýš 40 vazeb. Jednorázově trasa nově ověřené cesty: jedna tečka po každé vazbě
-// trasy, přechod za přechodem, a pulz karet kroků 0,9 s. Staticky vazba prvního selhání neprošlé cesty. Čistá
-// logika bez Reactu; plátno a animátor jen čtou výsledek.
+// trasy, přechod za přechodem, a pulz karet kroků 0,9 s. Staticky vazba prvního selhání neprošlé cesty. Dokud cesta
+// právě běží (docs/brana-cesty.md §3a), obíhají po vazbě aktuálního přechodu dvě tečky v barvě ověření v základním
+// cyklu. Čistá logika bez Reactu; plátno a animátor jen čtou výsledek.
 import type { StudioLink } from "../../logic/studio-level";
 import type { StudioState } from "../../logic/studio-status";
 
@@ -37,6 +38,8 @@ export type LinkMotion = {
   pass: { stamp: string; delay: number } | null;
   /** Zastavená tečka selhání s větou do tooltipu. */
   failure: { title: string } | null;
+  /** Po vazbě vede přechod cesty, která se právě přehrává (věta do tooltipu); chybí = nic neběží. */
+  running?: { title: string };
 };
 
 /** Vazby, kde se staví (zdroj nebo cíl ve stavu „staví se“), v pořadí úrovně s pořadovým číslem; nejvýš 40. */
@@ -47,9 +50,11 @@ export function buildingLinks(links: StudioLink[], states: Map<string, StudioSta
 
 export type LevelPass = { stamp: string; links: string[] };
 export type LevelFailure = { linkId: string; title: string };
+/** Vazba aktuálního přechodu běžící cesty. */
+export type LevelRunning = { linkId: string; title: string };
 
 /** Pohyb každé vazby úrovně; vazba bez pohybu v mapě není. Víc průchodů na téže vazbě: platí poslední. */
-export function levelMotion(input: { links: StudioLink[]; states: Map<string, StudioState>; passes: LevelPass[]; failures: LevelFailure[] }): Map<string, LinkMotion> {
+export function levelMotion(input: { links: StudioLink[]; states: Map<string, StudioState>; passes: LevelPass[]; failures: LevelFailure[]; running?: LevelRunning[] }): Map<string, LinkMotion> {
   const motion = new Map<string, LinkMotion>();
   const of = (id: string) => motion.get(id) ?? motion.set(id, { building: null, pass: null, failure: null }).get(id)!;
   for (const [id, ordinal] of buildingLinks(input.links, input.states)) of(id).building = ordinal;
@@ -57,6 +62,10 @@ export function levelMotion(input: { links: StudioLink[]; states: Map<string, St
   for (const failure of input.failures) {
     const current = of(failure.linkId);
     current.failure = { title: current.failure ? `${current.failure.title}\n${failure.title}` : failure.title };
+  }
+  for (const hop of input.running ?? []) {
+    const current = of(hop.linkId);
+    current.running = { title: current.running ? `${current.running.title}\n${hop.title}` : hop.title };
   }
   return motion;
 }

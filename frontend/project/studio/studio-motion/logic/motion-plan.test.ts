@@ -43,6 +43,12 @@ describe("motion plan", () => {
     expect(levelMotion({ links: [link("b", "c")], states, passes: [], failures: [] }).size).toBe(0);
   });
 
+  it("marks the links of the hop that is being replayed right now", () => {
+    const motion = levelMotion({ links: [link("a", "b")], states: new Map(), passes: [], failures: [],
+      running: [{ linkId: "a->b", title: "běží j1" }, { linkId: "a->b", title: "běží j2" }] });
+    expect(motion.get("a->b")).toEqual({ building: null, pass: null, failure: null, running: { title: "běží j1\nběží j2" } });
+  });
+
   it("lasts as long as the route, but at least one card pulse", () => {
     expect(passDurationMs(0)).toBe(900);
     expect(passDurationMs(3)).toBe(3150);

@@ -75,10 +75,10 @@ def test_journeys_returns_derived_steps_of_the_accepted_graph():
     assert seen == [("p1", "main")]
     assert body == {"journeys": [
         {"applicationId": "app", "id": "j1", "name": "Na b", "broken": "chybí stránka b v kroku s2.",
-         "steps": [{"id": "s1", "page": "nav", "path": "nav"}, {"id": "s2", "page": "b", "missing": True}]},
+         "steps": [{"id": "s1", "page": "nav", "path": "nav"}, {"id": "s2", "page": "b", "missing": True}], "running": None},
         {"applicationId": "app", "id": "j2", "name": "Domů", "line": "nav → /",
          "steps": [{"id": "s1", "page": "nav", "path": "nav"}, {"id": "s2", "page": "p", "path": "/", "shift": "Ví, kam dál."}],
-         "segments": [{"from": "s1", "to": "s2", "line": "nav → /", "realized": True}]}]}
+         "segments": [{"from": "s1", "to": "s2", "line": "nav → /", "realized": True}], "running": None}]}
     assert client.get("/api/project-architecture/journeys").status_code == 422
 
 
@@ -136,3 +136,36 @@ def test_journey_run_errors_are_404_409_and_422():
     assert client.post(url, params={"project": "p1"}, content=b"{nejson").status_code == 422
     huge = {**run_body(digest), "logUrl": "x" * (65 * 1024)}
     assert client.post(url, params={"project": "p1"}, content=json.dumps(huge).encode()).status_code == 422
+
+
+def test_journey_running_start_progress_and_clear_after_record():
+    client, _ = make_client()
+    base = "/api/project-architecture/journey-runs"
+    started = client.post(base + "/start", json={"project": "p1", "journeyId": "j2"})
+    assert started.status_code == 200
+    run_id = started.json()["runId"]
+    assert started.json()["startedAt"].endswith("Z")
+    journeys = client.get("/api/project-architecture/journeys", params={"project": "p1"}).json()["journeys"]
+    assert journeys[0]["running"] is None
+    assert journeys[1]["running"] == {"runId": run_id, "at": started.json()["startedAt"], "segment": None}
+    progress = client.post(f"{base}/{run_id}/progress", json={"segment": {"from": "s1", "to": "s2"}})
+    assert progress.status_code == 204 and progress.content == b""
+    running = client.get("/api/project-architecture/journeys", params={"project": "p1"}).json()["journeys"][1]["running"]
+    assert running["segment"] == {"from": "s1", "to": "s2"}
+    digest = client.get("/api/project-architecture/journey-plan", params={"project": "p1", "journey": "j2"}).json()["digest"]
+    assert client.post(base, params={"project": "p1"}, json=run_body(digest)).status_code == 200
+    assert client.get("/api/project-architecture/journeys", params={"project": "p1"}).json()["journeys"][1]["running"] is None
+    assert client.post(f"{base}/{run_id}/progress", json={"segment": {"from": "s1", "to": "s2"}}).status_code == 404
+
+
+def test_journey_running_errors():
+    client, _ = make_client()
+    base = "/api/project-architecture/journey-runs"
+    assert client.post(base + "/start", json={"project": "p1", "journeyId": "zadna"}).status_code == 404
+    assert client.post(base + "/start", json={"project": "nikdo", "journeyId": "j2"}).status_code == 404
+    assert client.post(base + "/start", json={"project": "p1", "journeyId": "j1"}).status_code == 409
+    assert client.post(base + "/start", json={"project": "p1"}).status_code == 422
+    assert client.post(base + "/start", content=b"{nejson").status_code == 422
+    run_id = client.post(base + "/start", json={"project": "p1", "journeyId": "j2"}).json()["runId"]
+    assert client.post(f"{base}/{run_id}/progress", json={"segment": "s1"}).status_code == 422
+    assert client.post(f"{base}/neni/progress", json={"segment": {"from": "s1", "to": "s2"}}).status_code == 404

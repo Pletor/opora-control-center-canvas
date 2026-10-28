@@ -10,9 +10,15 @@
 .studio-motion__dot { fill: var(--studio-link, var(--studio-blue)); filter: drop-shadow(0 0 6px var(--studio-link, var(--studio-blue))); }
 .studio-motion__dot--pass { fill: var(--studio-state-verified); filter: drop-shadow(0 0 6px var(--studio-state-verified)); }
 
-/* Štítek „staví se“ nad středem vazby je náhrada pohybu: kdo má omezený pohyb, dostane stav slovem, ostatní ho
+/* Když runner právě přehrává cestu, obíhají po vazbě aktuálního přechodu dvě tečky v barvě ověření v základním
+   rytmu 1,05 s: je to ověřování naživo, ne stavba, proto tyrkys, a jen dokud server běh hlásí (heartbeat do 120 s).
+   Jakmile přijde doklad, tečky zmizí a ozve se průchod nebo selhání. */
+.studio-motion__dot--running { fill: var(--studio-state-verified); filter: drop-shadow(0 0 6px var(--studio-state-verified)); }
+
+/* Štítek „staví se“ nad středem vazby (a „cesta běží“ pod ním) je náhrada pohybu: kdo má omezený pohyb, dostane stav slovem, ostatní ho
    nepotřebují, protože ho vidí v tečkách. */
 .studio-motion__label { display: none; fill: var(--studio-state-building); font: 700 10px Inter, system-ui, sans-serif; paint-order: stroke; stroke: var(--studio-bg); stroke-width: 3px; }
+.studio-motion__label--running { fill: var(--studio-state-verified); }
 
 /* Selhání cesty je zastavená červená tečka s křížkem v půli vazby, kde cesta spadla: nehýbe se, protože už se nic
    neděje, jen čeká na opravu. Na najetí myší řekne, která cesta, který přechod a proč. */
