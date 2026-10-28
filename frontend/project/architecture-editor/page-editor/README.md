@@ -11,6 +11,8 @@ Krok 3 kontraktu `docs/architektura-projektu.md`: rychlá infografika jedné str
 
 Pohyb ze skutečného stavu (`map-link/`, `docs/zive-zobrazeni-a-knihovna.md` §1, §3): tečky po vazbách karet, které se staví, jednorázová tečka a pulz karet nově ověřené cesty, zastavená červená tečka s křížkem na vazbě prvního selhání; jedna smyčka `requestAnimationFrame` na plátno (animátor Studia v `MotionContext`), stojí bez pohybu, při skrytém dokumentu a při omezeném pohybu.
 
+V hlavičce mapy je **Kopírovat zadání rozkladu** aktivní stránky (`page-decompose/`, stejné tlačítko je na kartě stránky Mapy domény): zadání pro agenta, který stránku rozloží na komponenty v sekcích a kroky (docs/architektura-pro-agenty.md §5.2).
+
 Klik nebo Enter na výstupním portu karty otevře **nabídku vazby** (`port-menu/`): existující kompatibilní karty a „Vytvořit a propojit“ z Knihovny; karta i vazba vzniknou jedním plánem.
 
 Puštěná karta na mapě dosedne jako v Editoru: když přetáhne hranu své oblasti a je kam růst, oblast se za ní (už během tahu) natáhne a uloží se s ní; jinak se karta vtáhne do oblasti nebo vysune ven, aby nikdy nepřečnívala (`editor/canvas/area/logic/area-growth.ts`, rozměry karet ze změřeného `measured`).

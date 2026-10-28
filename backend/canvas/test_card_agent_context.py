@@ -19,6 +19,7 @@ def node(card):
         {"fetch": {"files": [f"f{i}.ts" for i in range(20)]}},
         {"fill": ["sourceRef", "spec.acceptance"]},
         {"fill": list(CARD_FILL_FIELDS)},
+        {"fill": ["spec.acceptance", "spec.steps"]},
         {"layer": "frontend", "tech": "React", "states": ["chyba"], "fetch": {"files": ["a.ts"]}, "fill": ["card.section"]},
     ],
 )
@@ -58,3 +59,9 @@ def test_fetch_and_fill_in_shape_are_accepted(card):
 def test_bad_fetch_or_fill_is_rejected(card):
     with pytest.raises(ValueError):
         validate_graph({"nodes": [node(card)], "edges": []})
+
+
+def test_spec_steps_is_fillable():
+    """Rozklad stránky (`docs/architektura-pro-agenty.md` §5.2): knihovna smí agentovi říct, ať kartě navrhne kroky."""
+    assert "spec.steps" in CARD_FILL_FIELDS
+    assert len(CARD_FILL_FIELDS) == 12

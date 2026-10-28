@@ -1,0 +1,8 @@
+# Rozklad stránky zadáním pro agenta
+
+Tlačítko **Kopírovat zadání rozkladu** na kartě stránky Mapy domény a v hlavičce Editoru stránky. Člověk zkopíruje zadání a vloží ho agentovi v terminálu se skillem `opora-control-center`; agent stránku rozloží sám (sekce → komponenty dávkou `canvas-plan`, pak návrh `spec.steps` změnou zadání). Kontrakt: `docs/architektura-pro-agenty.md` §5.2, recept skillu `references/rozklad.md` „Stránka → komponenty“.
+
+- `logic/page-decompose-model.ts` (test vedle): podklady ze grafu – stránka (cíl, působení, sekce), cesty zákazníka přes stránku (`pageSlices` z `journey-slice/`), existující komponenty (nejbližší stránka = tato, s `card.section`, `tech`, `states` a vazbami s `carries`) a díry stránky z kontroly mapy (`pageHoles`: nálezy na stránku, komponenty a hrany z nich, přechody cest, které ze stránky vycházejí).
+- `logic/page-decompose-prompt.ts` (test vedle): deterministické zadání bez modelu. Identifikátory jen ověřené (`safeIds`), vše volné v jednom datovém bloku (`dataBlock`), knihovna položek s porty nebo `fill`, recept dávky `/api/canvas-plan` s položkou `card.section` a výzva navrhnout kroky. `pageDecomposeOffer` vrátí zadání, nebo důvod, proč nejde (stránka bez cíle, neplatné id).
+- `components/PageDecomposeCopy.tsx`: dostane hotové `prompt` / `problem` od rodiče a jen kopíruje (`useCopyText`); při selhání schránky ukáže pole k ruční kopii. Zadání skládá `ArchitectureEditor` z grafu a `useMapCheck` a předá ho přes `ArchitectureDomainMap` → `PageCard` a `PageEditor`.
+- `styles/page-decompose.css`, předpona `page-decompose`.

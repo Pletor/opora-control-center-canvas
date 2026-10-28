@@ -30,7 +30,7 @@ export const backendItems: CatalogItem[] = [
       files: ["backend/api/editor/canvas_routes.py", "backend/canvas/canvas_plan.py"],
       docs: ["CLAUDE.md", "docs/pravidla-struktury.md"],
     },
-    fill: ["sourceRef", "spec.acceptance"],
+    fill: ["sourceRef", "spec.acceptance", "spec.steps"],
     template: [
       "# backend/api/editor/library_routes.py",
       "@router.post(\"/api/library/insert\")",

@@ -60,7 +60,7 @@ export type CatalogItem = {
   ports?: CatalogPort[];
   /** Co si agent stáhne do kontextu; lint ověří, že soubory v repozitáři existují. */
   fetch?: CatalogFetch;
-  /** Pole karty, která má agent vyplnit (díry), z `CARD_FILL_FIELDS`. */
+  /** Pole karty, která má agent vyplnit (díry), z `CARD_FILL_FIELDS`; `spec.steps` (návrh kroků) jen u položky s porty. */
   fill?: string[];
 };
 

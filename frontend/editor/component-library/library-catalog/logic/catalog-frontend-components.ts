@@ -60,7 +60,7 @@ export const frontendComponentItems: CatalogItem[] = [
       files: ["frontend/editor/storyboard/logic/storyboard-model.ts", "frontend/editor/storyboard/logic/storyboard-model.test.ts"],
       docs: ["docs/pravidla-struktury.md"],
     },
-    fill: ["card.section", "sourceRef", "spec.acceptance"],
+    fill: ["card.section", "sourceRef", "spec.acceptance", "spec.steps"],
     steps: [
       { title: "FormField", text: "Lokální draft v useState, onCommit nahoru; změna props zvenku draft přepíše." },
       { title: "form-model.ts", text: "validate(values) → chyby podle pole." },

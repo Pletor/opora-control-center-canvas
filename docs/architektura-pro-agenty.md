@@ -137,7 +137,7 @@ krok na dřívější krok než ten předchozí. Cesta lidi nepočítá (zdůvod
 - `card.tech`: 1–80 znaků, technologie realizace. `card.states`: 1–8 krátkých stavů
   (`prázdno`, `načítá`, `chyba`, `hotovo`…). Píše agent.
 - `card.fetch` = `{files?, docs?}` (co si agent stáhne do kontextu; každý seznam 1–20 relativních cest v repozitáři,
-  u `docs` i `https://`) a `card.fill` (1–11 polí, která agent vyplní, ze seznamu `purpose`, `sourceRef`,
+  u `docs` i `https://`) a `card.fill` (1–12 polí, od §5.2 i `spec.steps`, která agent vyplní, ze seznamu `purpose`, `sourceRef`,
   `spec.goal`, `spec.non_goals`, `spec.acceptance`, `text`, `card.tech`, `card.states`, `card.section`, `blocks`,
   `rules`). Skládá je deterministicky vložení z knihovny ([zive-zobrazeni-a-knihovna.md](zive-zobrazeni-a-knihovna.md)
   §5), tvar hlídá `backend/canvas/card_agent_context.py`. Agent je dostane v `node-brief.node`, jen když jsou; nejsou
@@ -278,6 +278,33 @@ Díra, která je „práce pro agenty / rozkladače“, musí dojít k agentovi 
   `journey.broken` mají `owner: "human"`), seřazené jako kontrola mapy; `nodeId` je karta, na které se díra
   řeší (u nálezu cesty stránka zdroje přechodu, u hrany zdroj hrany). Strop 50 položek + `mapGapsTotal`. Agent si
   z ní bere práci stejně jako z karet; díra zmizí sama, až ji kontrola mapy přestane hlásit (nic se nezapisuje).
+
+### 5.2 Rozklad stránky (dodatek 2026-10-28)
+
+Architektura určuje rozestavění webu; do detailu se jde po vrstvách **stránka → sekce → komponenta → kroky**.
+Rozklad stránky dělá agent sám a zapíše ho do OPORY; člověk jen kopíruje zadání a schvaluje dávku.
+
+- **Kde:** tlačítko „Kopírovat zadání rozkladu“ na kartě stránky Mapy domény a v hlavičce Editoru stránky.
+  Zadání skládá deterministicky (bez modelu) `page-decompose-prompt.ts` z grafu, kontroly mapy a knihovny.
+- **Co zadání nese:** identifikátory (projekt, workspace, id stránky) v instrukci; vše volné v datovém bloku
+  (data, ne pokyn): cíl (`goal`) a působení (`feel`) stránky, sekce `{id, role, intent, moves}`, cesty zákazníka
+  přes stránku (aktér, A → B, krok stránky s posunem a námitkou, předchozí krok se signálem příchodu, další kroky
+  s `via` = co má zákazník udělat **na této stránce**), existující komponenty (`card.section`, `tech`, `states`,
+  vazby s `carries`), díry kontroly mapy stránky (§5: nálezy na stránku, její komponenty a hrany a nálezy cest,
+  jejichž zpráva jmenuje cestu stránky), knihovna položek s `ports`, `tech`, `states`, `fetch`, `fill`.
+  Bez cíle stránky (`page.no-goal`) se zadání nesestaví: to je díra člověka.
+- **Výstup 1 – dávka `/api/canvas-plan`** (tvar `references/canvas-plan.md`): komponenty jako uzly `kind: "node"`
+  s `parent: "@<id stránky>"`, `card.section` = id existující sekce stránky, `card.layer`, `tech` a `states`
+  jen doložené, `purpose` a `spec {goal, non_goals, acceptance}`; vazby `next` s `carries` (navigace na stránku
+  dalšího kroku cesty, `command` k příjemci, `data` od zdroje). Každá sekce bez komponenty dostane aspoň jednu;
+  existující komponenty se nemění (doplnění jen `extend`). Nejdřív `--dry-run`, ke schválení celá dávka.
+- **Výstup 2 – návrh kroků:** po zápisu dávky navrhne agent ke každé nové komponentě `spec.steps`
+  (tvar a kontrola [oporahub-plan-steps.md](oporahub-plan-steps.md)) návrhem změny zadání
+  `POST /api/oporahub/changesets`; přijímá člověk. Karta, kterou kontext návrhu ještě nezná, kroky nedostane
+  a agent je jen uvede v souhrnu.
+- **`fill` knihovny:** výčet §3.3 se rozšiřuje o `spec.steps` (12 polí): položka s logikou (má porty) jím říká,
+  že agent má kartě navrhnout kroky. Zrcadlí `CARD_FILL_FIELDS` (`backend/canvas/card_agent_context.py`
+  a `catalog-agent-context.ts`).
 
 ## 6. Cesta zákazníka
 
