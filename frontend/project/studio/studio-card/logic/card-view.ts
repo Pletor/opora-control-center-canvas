@@ -1,8 +1,9 @@
-// Co karta Studia ukáže (docs/studio.md §2): druh a ikona, stav slovy, souhrn dětí („4/7 stojí · 1 se staví“) a díry.
+// Co karta Studia ukáže (docs/studio.md §2): druh a ikona, stav slovy, souhrn dětí („4/7 stojí · 1 se staví“), díry a nálezy strážců.
 // Čistá logika bez Reactu; karta je jen mapování těchto hodnot na JSX.
 import type { StudioItem } from "../../logic/studio-tree";
 import type { StudioState, StudioStatus, StudioSummary } from "../../logic/studio-status";
 import type { StudioIconName } from "./studio-icons";
+import type { GuardTally } from "../../studio-guards/logic/guard-tally";
 
 export const STATE_LABEL: Record<StudioState, string> = {
   plan: "plán", building: "staví se", done: "hotovo", verified: "ověřeno", hole: "díra",
@@ -40,6 +41,8 @@ export type StudioCardView = {
   state: StudioState; stateLabel: string; summary: string; holes: number; children: number;
   /** Na kartu váže uzel MODELu domény: agent dostane jeho cíl v briefu (docs/studio.md §4a). */
   modelTarget: boolean;
+  /** Otevřené nálezy strážců karty a jejích potomků (docs/strazci.md §5); `null` = žádný. */
+  guards: GuardTally | null;
 };
 
 export function cardView(item: StudioItem, status: StudioStatus, modelTarget = false): StudioCardView {
@@ -47,5 +50,6 @@ export function cardView(item: StudioItem, status: StudioStatus, modelTarget = f
     id: item.id, name: item.name, kind: item.kind, kindLabel: KIND_LABEL[item.kind], subtitle: cardSubtitle(item), purpose: item.purpose,
     icon: iconFor(item), state: status.state, stateLabel: STATE_LABEL[status.state], summary: summaryLine(status.summary),
     holes: status.summary.holes, children: status.summary.children, modelTarget,
+    guards: status.guards,
   };
 }

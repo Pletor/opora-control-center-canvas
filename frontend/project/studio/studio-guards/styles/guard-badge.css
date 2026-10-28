@@ -1,0 +1,24 @@
+/* Strážci na kartě: malá obrysová pilulka se štítem a počtem nálezů v patě karty, hned vedle děr. Díra je plná červená
+   skvrna („něco chybí v mapě“), strážce je obrys se štítem („někdo hlídá a něco našel“), takže je oko od sebe pozná i
+   při stejné barvě. Barva je nejvážnější nález pod kartou: blokuje červeně, varování jantarově, informace tlumeně šedě;
+   rodič ve fraktálu nese součet dětí, takže člověk jde po barvě shora dolů až ke kartě, která nález skutečně má. */
+.guard-badge {
+  --guard-badge-tone: var(--studio-muted);
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px 0 4px;
+  border: 1px solid var(--guard-badge-tone);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--guard-badge-tone) 12%, transparent);
+  color: var(--guard-badge-tone);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.guard-badge--block { --guard-badge-tone: var(--studio-failure); }
+.guard-badge--warn { --guard-badge-tone: var(--studio-guard-warn); }
+.guard-badge--info { --guard-badge-tone: var(--studio-muted); }
+
+/* Štít Lucide 10 px stojí před číslem jako značka „strážce“; je jen kresba, větu nese title a aria-label. */
+.guard-badge__shield { width: 10px; height: 10px; }

@@ -8,6 +8,7 @@ import type { CardState } from "../../../card-state/logic/card-state";
 import { holesLabel } from "../../../card-state/logic/card-state";
 import CardIcon from "../../../card-state/components/CardIcon";
 import CardStateChip from "../../../card-state/components/CardStateChip";
+import GuardBadge from "@/project/studio/studio-guards/components/GuardBadge";
 import CardMenu from "./CardMenu";
 import CardStages from "./CardStages";
 import AreaFrame from "./AreaFrame";
@@ -36,7 +37,7 @@ export type CardData = {
 export type ArchitectureNode = Node<CardData>;
 
 /** Karta mapy v designu Studia: hlavička s ikonou druhu, názvem, štítkem stavu a menu ⋮, druh s adresou, účel, až tři
- * potomci jako buňky stupňů a pata se souhrnem, dírami a akcemi. Rám nese barvu stavu (staví se = dýchá), ikona
+ * potomci jako buňky stupňů a pata se souhrnem, dírami, nálezy strážců a akcemi. Rám nese barvu stavu (staví se = dýchá), ikona
  * barvu vrstvy. Porty jsou body na obvodu v barvě `carries`; výstupní port: klik nebo Enter = nabídka vazby, tah = vazba. */
 export default function ArchitectureCard({ data, selected }: NodeProps<ArchitectureNode>) {
   const { node, summary, actions, state } = data;
@@ -72,6 +73,7 @@ export default function ArchitectureCard({ data, selected }: NodeProps<Architect
     <footer className="map-card__foot">
       <span className="map-card__summary" title={state?.summary}>{summary.countLabel}{state && state.summary !== "bez dětí" ? ` · ${state.summary}` : ""}</span>
       {state && state.holes > 0 && <span className="map-card__holes" title="Díry mapy pod touto kartou">{holesLabel(state.holes)}</span>}
+      <GuardBadge guards={state?.guards} testId={"architecture-guards-" + node.id}/>
       {page ? <button type="button" className="map-card__action map-card__action--page nodrag" data-testid={"architecture-open-page-" + node.id}
         aria-label={`Otevřít stránku ${node.name} v Editoru stránky`} onClick={(event) => { event.stopPropagation(); actions.openPage(node.id); }}>Otevřít stránku →</button>
       : <>

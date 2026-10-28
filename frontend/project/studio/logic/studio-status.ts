@@ -3,6 +3,7 @@
 // nálezy kontroly mapy po uzlech a cesty zákazníka s posledním ověřením. Rodič agreguje děti („4/7 stojí, 1 se staví“).
 import type { DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
 import { studioDescendants, type StudioItem, type StudioTree } from "./studio-tree";
+import { sumGuards, type GuardTally } from "../studio-guards/logic/guard-tally";
 
 export type StudioState = "plan" | "building" | "done" | "verified" | "hole";
 /** Cesta zákazníka domény: stránky jejích kroků, stránka podle kroku a odvození backendu s `lastRun` (chybí = nenačteno). */
@@ -18,6 +19,8 @@ export type StudioFacts = {
   /** Nálezy kontroly mapy po uzlech grafu (hrana se počítá zdroji, cesta doméně). */
   holes: Map<string, string[]>;
   journeys: StudioJourney[];
+  /** Otevřené nálezy strážců po kartách (agent-state `cards[].guardFindings`); chybí = nenačteno. */
+  guards?: Map<string, GuardTally>;
 };
 export type StudioSummary = {
   /** Přímé děti karty ve Studiu. */
@@ -27,7 +30,11 @@ export type StudioSummary = {
   /** Díry mapy karty a všech jejích potomků. */
   holes: number;
 };
-export type StudioStatus = { state: StudioState; summary: StudioSummary; ownHoles: string[]; journeys: StudioJourney[] };
+export type StudioStatus = {
+  state: StudioState; summary: StudioSummary; ownHoles: string[]; journeys: StudioJourney[];
+  /** Nálezy strážců karty a všech jejích potomků (součet, nejvážnější závažnost) jako díry; `null` = žádný. */
+  guards: GuardTally | null;
+};
 
 /** Cesty, na kterých karta leží: doména = všechny její cesty; jinak cesty, jejichž krok míří na stránku karty. */
 export function journeysOf(item: StudioItem, journeys: StudioJourney[]): StudioJourney[] {
@@ -58,5 +65,6 @@ export function cardStatus(tree: StudioTree, item: StudioItem, facts: StudioFact
   const building = facts.building.has(item.id) || summary.building > 0;
   const state: StudioState = building ? "building" : ownHoles.length ? "hole"
     : done && journeys.length > 0 && journeys.every(journeyVerified) ? "verified" : done ? "done" : "plan";
-  return { state, summary, ownHoles, journeys };
+  const guards = sumGuards([item.node ? facts.guards?.get(item.id) : undefined, ...real.map((child) => facts.guards?.get(child.id))]);
+  return { state, summary, ownHoles, journeys, guards };
 }

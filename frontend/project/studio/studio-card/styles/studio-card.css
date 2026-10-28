@@ -46,7 +46,7 @@
 .studio-card__subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--studio-blue); font-size: 10px; text-transform: none; letter-spacing: 0; }
 .studio-card__purpose { display: -webkit-box; margin: 0; overflow: hidden; color: var(--studio-muted); font-size: 11px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 
-/* Pata: souhrn toho, co je pod kartou („4/7 stojí · 1 se staví“), červený odznak děr a vpravo počet dětí se šipkou
+/* Pata: souhrn toho, co je pod kartou („4/7 stojí · 1 se staví“), červený odznak děr, obrysový štít strážců a vpravo počet dětí se šipkou
    dolů jako slib, že dvojklik nebo Enter otevře další patro. Oddělená tenkou linkou jako pata stroje v TechViz. */
 .studio-card__foot { display: flex; align-items: center; gap: 8px; margin: 0 9px 7px; padding-top: 5px; border-top: 1px solid var(--studio-line-soft); color: var(--studio-muted); font-size: 10px; }
 .studio-card__summary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -7,6 +7,7 @@ import type { PageJourneyRole } from "../logic/page-journeys";
 import { holesLabel, type CardState } from "../../card-state/logic/card-state";
 import CardIcon from "../../card-state/components/CardIcon";
 import CardStateChip from "../../card-state/components/CardStateChip";
+import GuardBadge from "@/project/studio/studio-guards/components/GuardBadge";
 import PageDecomposeCopy from "../../page-editor/page-decompose/components/PageDecomposeCopy";
 import type { PageDecompose } from "../../page-editor/page-decompose/logic/page-decompose-prompt";
 
@@ -19,7 +20,7 @@ type Actions = {
 export type PageWork = { counts: Map<string, number>; highlighted: Set<string> };
 
 /** Karta stránky v jazyce karet Studia: hlavička s ikonou stránky, názvem (otevře Editor stránky), štítkem stavu a tichým
- * čipem ID; pod ní cesta, cíl, účel, sekce, cesty zákazníka a podstránky (rekurzivně); pata se souhrnem, dírami,
+ * čipem ID; pod ní cesta, cíl, účel, sekce, cesty zákazníka a podstránky (rekurzivně); pata se souhrnem, dírami, nálezy strážců,
  * odznakem worktree a tichými akcemi struktury (i „Kopírovat zadání rozkladu“ pro agenta). Rám nese barvu stavu, „staví se“ dýchá. */
 export default function PageCard({ branch, index, count, actions, work, journeyRoles, states, decompose }: {
   branch: ProductBranch; index: number; count: number; actions: Actions; work?: PageWork; journeyRoles?: Map<string, PageJourneyRole[]>;
@@ -54,6 +55,7 @@ export default function PageCard({ branch, index, count, actions, work, journeyR
     {(state || workCount > 0) && <footer className="domain-map__card-foot">
       <span className="domain-map__card-summary" title={state?.summary}>{state?.summary ?? ""}</span>
       {state && state.holes > 0 && <span className="domain-map__card-holes" title="Díry mapy pod touto stránkou">{holesLabel(state.holes)}</span>}
+      <GuardBadge guards={state?.guards} testId={"architecture-page-guards-" + node.id}/>
       {workCount > 0 && <span className="domain-map__work" title="Worktree, které na této stránce nebo jejích podstránkách pracují">{workCount} worktree</span>}
     </footer>}
     <nav className="domain-map__card-actions" aria-label={`Úpravy stránky ${node.name}`}>

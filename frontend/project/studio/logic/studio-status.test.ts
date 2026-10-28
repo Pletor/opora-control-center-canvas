@@ -25,6 +25,16 @@ describe("studio card status", () => {
     expect(status.ownHoles).toEqual(["bez cíle"]);
   });
 
+  it("sums guard findings of the card and its descendants like holes, keeping the worst severity", () => {
+    const guards = new Map([["home", { count: 1, severity: "info" as const }], ["c1", { count: 2, severity: "block" as const }], ["c3", { count: 1, severity: "warn" as const }]]);
+    expect(cardStatus(tree, item("home"), facts({ guards })).guards).toEqual({ count: 4, severity: "block" });
+    expect(cardStatus(tree, item("web"), facts({ guards })).guards).toEqual({ count: 4, severity: "block" });
+    expect(cardStatus(tree, item(sectionItemId("home", "hero")), facts({ guards })).guards).toEqual({ count: 2, severity: "block" });
+    expect(cardStatus(tree, item("c3"), facts({ guards })).guards).toEqual({ count: 1, severity: "warn" });
+    expect(cardStatus(tree, item("c2"), facts({ guards })).guards).toBeNull();
+    expect(cardStatus(tree, item("c3"), facts()).guards).toBeNull();
+  });
+
   it("derives plan, hole, done and verified in that order of evidence", () => {
     expect(cardStatus(tree, item("c3"), facts()).state).toBe("plan");
     expect(cardStatus(tree, item("c3"), facts({ holes: new Map([["c3", ["díra"]]]), done: new Set(["c3"]) })).state).toBe("hole");

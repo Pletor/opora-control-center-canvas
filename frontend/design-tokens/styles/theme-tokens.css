@@ -242,6 +242,8 @@
   --studio-carries-unspecified: #7d8fa8;
   /* Zastavená tečka selhání cesty (docs/zive-zobrazeni-a-knihovna.md §3). */
   --studio-failure: #ff5c78;
+  /* Varování strážce na kartě (docs/strazci.md §5): jantar, aby se lišil od díry i selhání a četl se na noční modři. */
+  --studio-guard-warn: #ffc548;
   /* Vrstva MODEL (docs/studio.md §1): plátno má fialovější noc a fialový akcent štítku „MODEL – výpočet, ne měření“,
      aby se vypočtený model na první pohled lišil od Skutečnosti a nikdy se za ni nevydával. */
   --studio-model-bg: #100e1f;
