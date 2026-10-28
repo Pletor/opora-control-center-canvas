@@ -55,6 +55,7 @@ review, ověření a auto-rebase; schéma `database/schema/opora_event_schema.py
 | `merge.done` | Uzavření smyčky zapsalo merge PR | `repository`, `mergeSha`, `mergedAt` |
 | `writeback.done` | Zápis merge zpět do plánu (stejný krok jako merge, `planWrittenBack: true`) | `repository`, `mergeSha`, `planWrittenBack` |
 | `card.closed` | Člověk potvrdil uzavření karty (`done.confirmed` false → true) | `by`, `at` |
+| `guard.alert` / `guard.resolved` | Strážce našel nový nález / nález zmizel ([strážci](strazci.md)); tiché (`QUIET`), actor `{system, "strazce:<id>"}`, fáze `mapa` → plan, `prace` → work, ostatní → checks, `block` → stav blocked | `key`, `guard`, `rule`, `severity`, `message`, `journeyId?` |
 | `stage.changed` | Etapa karty se po zápisu změnila (odvozené, viz níže); nese `stage` a `health` | `reason`, `previous` nebo `null` |
 
 ### `stage.changed` a `gate.changed`

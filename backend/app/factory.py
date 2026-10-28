@@ -61,6 +61,7 @@ from backend.api.editor.oporahub_routes import create_oporahub_router
 from backend.api.editor.rlm_routes import create_rlm_router
 from backend.api.editor.semantic_routes import create_semantic_router
 from backend.api.editor.storyboard_routes import create_storyboard_router
+from backend.api.editor.strazci_routes import create_strazci_router
 from backend.api.editor.sync_routes import create_sync_router
 from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
@@ -91,6 +92,7 @@ from backend.canvas.opora_execution_pr_manager import ExecutionPullRequestManage
 from backend.canvas.opora_hub import OporaHub
 from backend.canvas.opora_reconciliation_manager import ReconciliationManager
 from backend.canvas.process_activity_bridge import bridge as bridge_activity
+from backend.canvas.strazci.manager import GuardianManager
 from backend.canvas.sync_report import SyncReport
 from backend.claude_code.assistant.agents import load_agents
 from backend.claude_code.assistant.manager import AssistantManager
@@ -146,6 +148,8 @@ def create_app(data_root=None):
     execution_prs = ExecutionPullRequestManager(service)
     auto_rebase = AutoRebaseManager(service)
     harness_memory = HarnessMemory(service, memory_service)
+    # Strážci: tichý dohled bez modelu, jen čtou a hlásí (docs/strazci.md).
+    guardian = GuardianManager(service)
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -177,6 +181,7 @@ def create_app(data_root=None):
         execution_prs.start()
         auto_rebase.start()
         harness_memory.start()
+        guardian.start()
         yield
         assistant.close_all()
         map_refresh.close()
@@ -184,6 +189,7 @@ def create_app(data_root=None):
         execution_prs.close()
         auto_rebase.close()
         harness_memory.close()
+        guardian.close()
         service.close()
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
@@ -374,6 +380,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_content_router(service))
     app.include_router(create_proposal_review_router(service))
     app.include_router(create_opora_auto_rebase_router(service))
+    app.include_router(create_strazci_router(service, guardian))
     app.include_router(create_opora_history_router(service))
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)

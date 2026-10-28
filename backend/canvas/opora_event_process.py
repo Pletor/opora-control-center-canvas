@@ -35,6 +35,8 @@ KINDS = {
     "memory.recall": ("memory", "info", "Vybavení z paměti role"),
     "memory.write": ("memory", "ok", "Zápis do paměti role"),
     "plan.commit": ("plan", "info", "Commit zadání (OporaHub)"),
+    "guard.alert": ("checks", "wait", "Strážce hlásí nález"),
+    "guard.resolved": ("checks", "ok", "Nález strážce vyřešen"),
 }
 STAGE_PHASE = {"plan": "plan", "proposal": "plan", "acceptance": "plan", "claim": "intake", "work": "work",
                "evidence": "checks", "review": "review", "pull_request": "review", "merge": "merge",
@@ -45,6 +47,8 @@ DECISION_PHASE = {"accept": "plan", "close_card": "merge", "review_round_cap": "
                   "verification_counterexample": "checks", "verification_failed": "checks"}
 FORMAL_OK = {"proved", "passed", "verified", "ok"}
 FORMAL_FAIL = {"failed", "counterexample", "refuted", "error"}
+# Strážce mapy hlídá plán, strážce práce běh (docs/strazci.md §4); ostatní zůstávají u kontrol.
+GUARD_PHASE = {"mapa": "plan", "prace": "work"}
 
 
 def _classify(event):
@@ -64,6 +68,12 @@ def _classify(event):
         phase = DECISION_PHASE[data["decision"]]
     elif kind == "review.finding" and data.get("status") == "open":
         state = "wait"
+    elif kind.startswith("guard."):
+        phase = GUARD_PHASE.get(data.get("guard"), "checks")
+        if kind == "guard.alert" and data.get("severity") == "block":
+            state = "blocked"
+        if isinstance(data.get("message"), str):
+            title = f"{title}: {data['message']}"[:200]
     elif kind == "review.round" and isinstance(data.get("round"), int):
         title = f"Kolo review {data['round']}"
     return phase, state, title
