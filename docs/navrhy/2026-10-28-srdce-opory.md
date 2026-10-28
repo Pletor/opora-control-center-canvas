@@ -61,7 +61,7 @@ dělník ──►  │ BRÁNA /api/gate/*  ──►  determinismus          �
 
 ## 4. Kde srdce žije
 
-**Proces.** Modul `backend/brain_opora/srdce/` (§4a). Supervizor je vlákno vlastněné lifespanem (vzor `GuardianManager`).
+**Proces.** Modul `backend/brain_opora/heart/` (§4a). Supervizor je vlákno vlastněné lifespanem (vzor `GuardianManager`).
 
 **Spánek na localhostu.** Když OPORA běží na loopbacku, supervizor se spustí automaticky. Srdce pak **spí**:
 - proces Claude Code neběží a nic se neplatí;
@@ -113,23 +113,24 @@ dávku). Když porady přesáhnou strop dne, spustí srdce bez `--advisor`.
 ## 4a. Modul `brain-opora`: tři vrstvy, tři složky
 
 Rozhodnutí člověka (2026-10-28): každá vrstva je samostatná složka. Práce na srdci se dělí podle nich a jedno PR sahá
-do jedné složky. Python balík nesmí mít pomlčku, proto se jmenuje `brain_opora`.
+do jedné složky. Python balík nesmí mít pomlčku, proto se jmenuje `brain_opora`. Složky, soubory a kód jsou anglicky. Platné
+názvy souborů mají README složek (`determinism/`, `decision/`, `heart/`), strom níže je původní návrh.
 
 ```
 backend/brain_opora/
   README.md                 # příběh tří vrstev, tok události, kdo smí co
-  determinismus/            # vrstva 1: bez modelu, zdarma, okamžitě
+  determinism/              # vrstva 1: bez modelu, zdarma, okamžitě
     brana.py                #   /api/gate: relace, požadavky, schránka (logika; router v api/)
     tokeny.py               #   tokeny rolí člověk / srdce / dělník, middleware hradby
     fronta.py               #   fronta úkolů, next z fronty, report → zkoušky sha
     snimek.py               #   deterministický snímek projektu pro srdce (≤ 4k tokenů)
     udalosti.py             #   odběr opora_events + PROCESS_SIGNAL → kandidáti na budíček
     schvaleni.py            #   klasifikace nástrojů (převzato z assistant/approvals.py)
-  rozhodovani/              # vrstva 2: JEV, typované odpovědi choice / score / noul
+  decision/                 # vrstva 2: JEV, typované odpovědi choice / score / noul
     vratny.py               #   událost → auto | srdce | člověk | nic
     prirazeni.py            #   commit bez traileru → karta (score)
     zdroje.py               #   směrovač podkladů (převzato z assistant/router.py, rlm_rank.py)
-  srdce/                    # vrstva 3: Claude Code pod předplatným, Haiku + poradce Opus
+  heart/                    # vrstva 3: Claude Code pod předplatným, Haiku + poradce Opus
     supervizor.py           #   spánek, budíček, dávka 60 s, stropy, rate_limit_event
     prikaz.py               #   sestavení CLI (§4), bez ANTHROPIC_API_KEY
     proces.py               #   SessionProcess + WindowsJob (převzato z assistant/)
@@ -137,7 +138,7 @@ backend/brain_opora/
     relace.py               #   session-id, resume, rotace nad 60k tokenů
     prompt.md               #   role srdce, kdy se poradit, co nesmí
     opora_heart.py          #   jediný nástroj srdce (§6)
-backend/api/brain_opora/    # routery: gate_routes.py, srdce_routes.py (kanál člověka)
+backend/api/brain_opora/    # routery: gate_routes.py, heart_routes.py (kanál člověka)
 ```
 
 Testy leží vedle modulů (`test_<modul>.py`). Hranice mezi vrstvami jsou pevné:
@@ -154,7 +155,7 @@ jsou známé tyhle vady:
 - zpráva během běžícího kola dostane 409.
 
 Nové řešení:
-- Okno asistenta v aplikaci posílá zprávy srdci stejného projektu přes `api/brain_opora/srdce_routes.py`, s rolí člověk.
+- Okno asistenta v aplikaci posílá zprávy srdci stejného projektu přes `api/brain_opora/heart_routes.py`, s rolí člověk.
 - Zpráva člověka má přednost před frontou dělníků a během kola se zařadí, nevrací 409.
 - Použitelné části `backend/claude_code/assistant/` se přesunou do vrstev podle stromu výše. Zbytek se po přechodu
   **smaže** i s testy a README (pravidlo mazání slepých uliček).
@@ -265,10 +266,10 @@ Každá fáze je malé PR s testy vedle modulů.
 | Fáze | Obsah | Hotovo, když |
 |---|---|---|
 | **H0** | Kostra `backend/brain_opora/` se třemi složkami a README, bez chování. | Struktura, kontrola `router-v-api` zelená. |
-| **H1** `determinismus/` | Tokeny rolí, `/api/gate/sessions\|requests\|inbox`, tabulky, deterministický `next` a `report` (fronta, snímek, zkoušky sha). | Dělník projde S2 jen přes bránu, bez srdce, s ručně zadanými úkoly. |
-| **H2** `srdce/` | Supervizor (spánek na localhostu), proces Haiku bez poradce, budíček z `opora_events`, `opora_heart.py`, rotace relace; přesun procesu a proudu z asistenta. | Událost „zkouška padá“ vytvoří úkol ve frontě do 2 min. |
-| **H2b** `srdce/` | Kanál člověka: panel asistenta mluví se srdcem, zpráva se zařadí, starý `claude_code/assistant/` se smaže. | Panel funguje se srdcem, 0 odkazů na starý modul. |
-| **H3** `rozhodovani/` | JEV jako vrátný a přiřazení commitů, přesun směrovače, poradce Opus se stropem, `rate_limit_event`. | Srdce se probudí jen na události vyžadující úsudek, porady jsou změřené. |
+| **H1** `determinism/` | Tokeny rolí, `/api/gate/sessions\|requests\|inbox`, tabulky, deterministický `next` a `report` (fronta, snímek, zkoušky sha). | Dělník projde S2 jen přes bránu, bez srdce, s ručně zadanými úkoly. |
+| **H2** `heart/` | Supervizor (spánek na localhostu), proces Haiku bez poradce, budíček z `opora_events`, `opora_heart.py`, rotace relace; přesun procesu a proudu z asistenta. | Událost „zkouška padá“ vytvoří úkol ve frontě do 2 min. |
+| **H2b** `heart/` | Kanál člověka: panel asistenta mluví se srdcem, zpráva se zařadí, starý `claude_code/assistant/` se smaže. | Panel funguje se srdcem, 0 odkazů na starý modul. |
+| **H3** `decision/` | JEV jako vrátný a přiřazení commitů, přesun směrovače, poradce Opus se stropem, `rate_limit_event`. | Srdce se probudí jen na události vyžadující úsudek, porady jsou změřené. |
 | **H3b** | agent-office: bridge přes bránu. | Relace z agent-office dostane úkol a odevzdá ho bez převzetí karty. |
 | **H4** | Eval m2 na Zeleném balkonu: C proti D (brána a determinismus) a E (D + srdce). | Tabulka kvality, ceny dělníků a ceny srdce. |
 | H5 | Výzkum s REA (rozbor vzoru do knihovny) a REA jen pro srdce. | Až po H4, podle výsledků. |
