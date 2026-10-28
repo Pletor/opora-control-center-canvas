@@ -29,10 +29,14 @@ Nic se nedoplňuje: chybějící údaj = chybějící klíč, prázdný seznam s
   v pořadí kontroly mapy).
 - `gaps`: pravidla všech těchto nálezů (i těch nad strop `holes`); každé pravidlo jednou, v pořadí `RULES`.
   `check_map` se volá bez dokladů: `journey.unverified` se nehodnotí, ověření cesty karta vidí v `journeys[].lastRun`.
+- `model` (`docs/studio.md` §4a): cíl z MODELu domény karty, hotový od `node_model_target.read_model_target`
+  (argument `model`, skládá ho `node_brief.py`); jen když na kartu váže uzel modelu. Karta, která neleží pod
+  stránkou, ale cíl z MODELu má (typicky služba), dostane výřez jen s `model`.
 - Strop `LIMIT_BYTES` (2,5 KiB kompaktního JSON v UTF-8). Dokud se výřez nevejde, odebírá se po celých klíčích
   (texty se nikdy nezkracují) v tomto pořadí (`docs/cesta-zakaznika-a-brief.md` §4.3, `docs/architektura-pro-agenty.md`
   §5.1):
   0. `holes` od konce, pak celé (`gaps` zůstává);
+  0b. `model.links`, pak celý `model` (`docs/studio.md` §4a);
   1. cesty od konce, dokud nezbude jedna;
   2. hrany od konce, delší seznam z `in`/`out` dřív (při shodě `out`);
   3. v první cestě `purpose`;
@@ -147,6 +151,10 @@ def _cut_holes(result):
     return True
 
 
+def _cut_model(result):
+    return _cut_key(result.get("model"), "links") or _cut_key(result, "model")
+
+
 def _cut_journeys(result):
     journeys = result.get("journeys", [])
     if len(journeys) > 1:
@@ -192,6 +200,7 @@ def _cut_last_journey(result):
 # Pořadí ořezu z docstringu modulu; každý krok odebere jednu věc a vrátí, zda měl co odebrat.
 _CUTS = (
     _cut_holes,
+    _cut_model,
     _cut_journeys,
     _cut_edges,
     lambda result: _cut_key(_first(result), "purpose"),
@@ -213,10 +222,11 @@ def _fit(result):
         result["truncated"] = True
 
 
-def node_architecture(graph, node_id, runs=None):
-    """Výřez mapy pro kartu `node_id`, nebo None, když karta není stránka ani neleží pod stránkou.
+def node_architecture(graph, node_id, runs=None, model=None):
+    """Výřez mapy pro kartu `node_id`, nebo None, když karta není stránka ani neleží pod stránkou a nemá cíl z MODELu.
     Stránka je svou vlastní stránkou: i stránka přímo v menu dostane své cesty a posun svého kroku.
-    `runs` = poslední doklady cest `{(applicationId, journeyId): doklad}` pro `journeys[].lastRun`."""
+    `runs` = poslední doklady cest `{(applicationId, journeyId): doklad}` pro `journeys[].lastRun`;
+    `model` = cíl z MODELu (`node_model_target.read_model_target`) nebo None."""
     by_id = {node["id"]: node for node in graph.get("nodes") or []}
     if node_id not in by_id:
         return None
@@ -224,14 +234,18 @@ def node_architecture(graph, node_id, runs=None):
     is_page = (node.get("site") or {}).get("kind") == "page"
     page = node if is_page else nearest_page(by_id, node_id)
     if page is None:
-        return None
+        if not model:
+            return None
+        result = {"model": dict(model)}
+        _fit(result)
+        return result
     incoming, outgoing = _links(graph, by_id, node_id)
     card = node.get("card")
     states = card.get("states") if isinstance(card, dict) else None
     holes, gaps = _holes(graph, node_id, page["id"])
     result = {"journeys": _journeys(graph, page["id"], runs), "page": _page(page, node), "in": incoming, "out": outgoing,
               **({"states": list(states)} if isinstance(states, list) and states else {}),
-              "holes": holes, "gaps": gaps}
+              "holes": holes, "gaps": gaps, **({"model": dict(model)} if model else {})}
     result = {key: value for key, value in result.items() if value != []}
     _fit(result)
     return result

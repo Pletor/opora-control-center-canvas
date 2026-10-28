@@ -63,6 +63,30 @@ kartě OPORY (pak se v MODEL ukazuje i její skutečný stav). Ukládá se v SQL
 optimistická revize, konflikt 409), API `GET/PUT /api/studio/model?project=&domain=`. Nový model domény je
 prázdný; scénáře z prototypu se otevírají jen jako nová pojmenovaná modelová doména, nikdy nepřepíšou existující.
 
+### 4a. Cíl z MODELu pro agenta (dodatek 2026-10-28, rozhodnutí uživatele)
+
+MODEL popisuje, **kam se aplikace musí dostat** (co musí zvládnout). Uzel MODELu s `binding.nodeId` dodá kartě
+OPORY do `node-brief.architecture.model` zadané cíle, ne výsledky simulace:
+
+```json
+"model": {"source": "MODEL – cíl, ne měření", "domain": "web", "revision": 4,
+          "type": "service", "name": "Service",
+          "targets": {"capacity": 2500, "concurrency": 20, "replicas": 2},
+          "mustSurvive": ["crash", "slow"], "links": [{"to": "PostgreSQL", "type": "sql-query"}]}
+```
+
+- `targets` jen parametry `config.model`, které člověk **zadal** (ne výchozí hodnoty); `mustSurvive` druhy
+  plánovaných incidentů v `modelDefinition.incidents`, které uzel zasahují; `links` vazby uzlu v modelu (název
+  protějšku a typ hrany), nejvýš 5. Bez vazby (`binding`) klíč chybí; víc modelových uzlů na jednu kartu → první
+  podle id uzlu. Hledá se v modelu domény karty (`studio_models`, doména = aplikace karty) a nikdy v doménách
+  scénářů (`scenario:*`).
+- Mimo `specification` (nemění `contextVersion`); ořez §4 `docs/architektura-pro-agenty.md` ho bere jako stupeň 0b
+  hned po `holes` (nejdřív `links`, pak celý klíč). Čísla ze simulace (rps, využití, latence) se nikdy nepíšou.
+- Karta mimo stránku (služba, API, databáze – nejčastější vazba modelu) dostane `architecture` jen s klíčem
+  `model`. `tech` se nepíše (katalog typů žije ve frontendu); `links` mají `{to, type}` pro odchozí a `{from, type}`
+  pro příchozí zapnuté hrany; `mustSurvive` bez `restore`.
+- Ve Skutečnosti Studia nese karta s navázaným uzlem MODELu odznak „cíl z MODELu“.
+
 Převod `carries` → typ portu pro předvyplnění modelu z architektury (jen návrh, člověk potvrdí):
 `navigation → http-request`, `data → data`, `command → record-command`, `event → event`.
 

@@ -53,6 +53,11 @@
 .studio-card__holes { padding: 0 6px; border-radius: 10px; background: color-mix(in srgb, var(--studio-state-hole) 22%, transparent); color: var(--studio-state-hole); font-weight: 700; }
 .studio-card__enter { color: var(--studio-blue); }
 
+/* Cíl z MODELu: na kartu váže technická karta modelu domény, takže agent ví, co musí stavba vydržet (kapacita,
+   odolnost). Odznak je obrysový a modrý jako MODEL, ne plný jako díra: neříká, že něco chybí, jen že karta má zadaný
+   cíl. Text drobný a bez zalomení, aby se vešel do paty vedle souhrnu i děr. */
+.studio-card__model { padding: 0 6px; border: 1px solid color-mix(in srgb, var(--studio-blue) 60%, transparent); border-radius: 10px; color: var(--studio-blue); font-size: 9px; white-space: nowrap; }
+
 /* Porty jsou kuličky 10 px na obvodu karty: vstup na levé hraně, výstup na pravé, odkud vede vazba doprava k další
    vrstvě. Mají tmavý lem jako v TechViz, aby se oddělily od rámu. Vazby se tu netáhnou, port jen ukazuje kotvu. */
 .studio-card__port { width: 10px; height: 10px; min-width: 0; min-height: 0; border: 2px solid #142036; border-radius: 50%; background: var(--studio-blue); box-shadow: 0 0 0 1px #49b8ff73; cursor: default; }
