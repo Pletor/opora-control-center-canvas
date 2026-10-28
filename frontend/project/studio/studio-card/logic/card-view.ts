@@ -38,12 +38,14 @@ export function cardSubtitle(item: StudioItem): string {
 export type StudioCardView = {
   id: string; name: string; kind: StudioItem["kind"]; kindLabel: string; subtitle: string; purpose: string; icon: StudioIconName;
   state: StudioState; stateLabel: string; summary: string; holes: number; children: number;
+  /** Na kartu váže uzel MODELu domény: agent dostane jeho cíl v briefu (docs/studio.md §4a). */
+  modelTarget: boolean;
 };
 
-export function cardView(item: StudioItem, status: StudioStatus): StudioCardView {
+export function cardView(item: StudioItem, status: StudioStatus, modelTarget = false): StudioCardView {
   return {
     id: item.id, name: item.name, kind: item.kind, kindLabel: KIND_LABEL[item.kind], subtitle: cardSubtitle(item), purpose: item.purpose,
     icon: iconFor(item), state: status.state, stateLabel: STATE_LABEL[status.state], summary: summaryLine(status.summary),
-    holes: status.summary.holes, children: status.summary.children,
+    holes: status.summary.holes, children: status.summary.children, modelTarget,
   };
 }

@@ -63,3 +63,8 @@ leží stránka karty, jako řetěz „proč“: `actor` a A → B cesty, `youAr
 `objection` kroku a sousední kroky se signálem `via`; dál stránku a sekci karty, hrany s `carries`, stavy a díry
 z kontroly mapy. Bez výchozích hodnot, strop 2,5 KiB s deterministickým ořezem po celých klíčích (`truncated`), který
 před poslední záchranou nikdy nevezme A, B, posun, první `next` ani sekci. Volá ho `backend/editor/agent_packet/node_brief.py`.
+
+Cíl z MODELu (`docs/studio.md` §4a) skládá `node_model_target.py`: `read_model_target(service, project, graph, nodeId)`
+přečte model domény karty (aplikace karty, nikdy `scenario:*`) a vrátí `{source, domain, revision, type, name,
+targets?, mustSurvive?, links?}` uzlu modelu navázaného na kartu, nebo None. `node_architecture(..., model=)` ho
+vloží jako `architecture.model` (i u karty mimo stránku) a ořízne ho jako stupeň 0b hned po `holes`.

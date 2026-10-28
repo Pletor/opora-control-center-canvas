@@ -8,6 +8,7 @@ import { cardStatus } from "../logic/studio-status";
 import { cardInLevel, studioTrail } from "../logic/studio-tree";
 import { focusUp } from "../logic/studio-route";
 import { cardView, KIND_LABEL } from "../studio-card/logic/card-view";
+import { useModelTargets } from "../studio-card/logic/use-model-targets";
 import { detailView } from "../studio-detail/logic/detail-model";
 import { studioLanes } from "../studio-journeys/logic/studio-lanes";
 import StudioCanvas from "../studio-canvas/components/StudioCanvas";
@@ -43,7 +44,10 @@ export default function Studio({ project, workspace, worktreeLive, onOpenArchite
   const [lanesOpen, setLanesOpen] = useState(true);
   const level = useMemo(() => levelOf(tree, graph, focus), [tree, graph, focus]);
   const statuses = useMemo(() => new Map([...level.cards, ...(level.focus ? [level.focus] : [])].map((item) => [item.id, cardStatus(tree, item, facts)])), [tree, level, facts]);
-  const views = useMemo(() => level.cards.map((item) => cardView(item, statuses.get(item.id)!)), [level, statuses]);
+  const modelDomain = modelDomainOf(tree, focus);
+  const { layer, choose } = useStudioLayer(modelDomain, data.loaded);
+  const targets = useModelTargets(project, modelDomain, layer === "reality");
+  const views = useMemo(() => level.cards.map((item) => cardView(item, statuses.get(item.id)!, targets.has(item.id))), [level, statuses, targets]);
   const states = useMemo(() => new Map(views.map((view) => [view.id, view.state])), [views]);
   const motion = useStudioMotion({ tree, focus, links: level.links, states, journeys: data.derived ? facts.journeys : null });
   const grouped = useMemo(() => new Set(level.cards.filter((item) => item.unsectioned).map((item) => item.id)), [level]);
@@ -52,8 +56,6 @@ export default function Studio({ project, workspace, worktreeLive, onOpenArchite
   const detail = shown ? detailView({ tree, item: shown, status: statuses.get(shown.id)!, facts, links: level.links, focus: shown === level.focus, project, workspace }) : null;
   const enter = useCallback((id: string) => { if (tree.items.has(id)) open(id); }, [tree, open]);
   const up = () => { if (focus) open(focusUp(tree, focus), focus); };
-  const modelDomain = modelDomainOf(tree, focus);
-  const { layer, choose } = useStudioLayer(modelDomain, data.loaded);
   const bindings = useMemo(() => layer === "model" && modelDomain ? bindingCards(tree, facts, modelDomain) : [], [layer, modelDomain, tree, facts]);
   const domain = level.focus?.kind === "domain" ? level.focus : null;
   const lanes = useMemo(() => {
