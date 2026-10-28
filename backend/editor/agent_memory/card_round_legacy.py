@@ -6,7 +6,7 @@ OporaHub obsah (`opora_content_sources`, `opora_content_changes`). Klíč nikdo 
 zápis stavu ho jen převezme beze změny.
 """
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 
 ROUND_KEYS = {"number", "openedAt", "by", "reason"}
 MAX_REASON = 2000
@@ -38,5 +38,5 @@ def guard_state_write(actor, previous_state, state):
         if node.get("round") == before.get(node_id, {}).get("round"):
             continue
         message = "Kola karty jsou zrušená; číslo kola karty se nemění."
-        require_human(actor, message)
+        require_authority(actor, message)
         raise ValueError(message)

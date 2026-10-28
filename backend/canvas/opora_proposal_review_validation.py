@@ -34,7 +34,9 @@ def _common(record, kind, keys, *, human=False):
     if not isinstance(record["by"], dict) or set(record["by"]) != {"kind", "name"}:
         raise ValueError("Invalid proposal review actor fields.")
     author = _author(record["by"], allow_agent=True)
-    if author["kind"] not in ({"human"} if human else {"human", "agent"}):
+    # `human` záznamy (politika, přijetí, resolve/ack) smí od plné autonomie nést i agenta pod jeho jménem;
+    # kdo je smí zapsat, hlídá služba při zápisu (docs/plna-autonomie-agenta.md).
+    if author["kind"] not in {"human", "agent"}:
         raise ValueError("Proposal review actor is not permitted.")
     bounded_text(record["createdAt"], 80)
     timestamp(record["createdAt"])

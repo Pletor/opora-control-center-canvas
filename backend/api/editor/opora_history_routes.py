@@ -1,7 +1,7 @@
 """Derived plan data over HTTP: card history and blame from accepted changesets (no local copy)."""
 from fastapi import APIRouter, Query, Request
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.canvas.opora_derived_history import DerivedHistory
 
 
@@ -21,7 +21,7 @@ def create_opora_history_router(service):
 
     @router.post("/history/rebuild")
     def rebuild(payload: dict, request: Request):
-        require_human(request.state.actor, "Přepočet odvozené historie spouští člověk.")
+        require_authority(request.state.actor, "Přepočet odvozené historie spouští člověk.")
         return derived.rebuild(payload.get("project"), payload.get("workspace"))
 
     return router

@@ -1,6 +1,8 @@
 """Rozhraní kroku 1: připojení repozitáře nebo složky, založení projektu a jeho nastavení."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+
+from backend.canvas.activity_log import require_human
 
 
 def create_project_setup_router(service):
@@ -13,6 +15,12 @@ def create_project_setup_router(service):
     @router.post("/project-settings")
     def save_project_settings(payload: dict):
         return service.project_hub.save_settings(payload)
+
+    @router.post("/project-settings/agent-autonomy")
+    def save_agent_autonomy(payload: dict, request: Request):
+        # Výjimka §4 (docs/plna-autonomie-agenta.md): přepínač mění jen člověk, i při zapnuté autonomii.
+        require_human(request.state.actor, "Plnou autonomii agentů zapíná a vypíná jen člověk v UI.")
+        return service.project_hub.set_agent_autonomy(payload)
 
     @router.post("/local-project")
     def local_project(payload: dict):

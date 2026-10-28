@@ -9,7 +9,7 @@ textu, takže kartám „zadání se změnilo“ nevyvolá (`text_revisions`).
 import copy
 import json
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.canvas.graph import valid_id
 from backend.editor.brief_vault.brief_vault_details import (
     MAX_QUESTION,
@@ -96,7 +96,7 @@ def answer(w, payload, node_ids):
     fields = _details(w, row["fragment_id"])
     asked = fields.get("question") or {"askedFor": "human", "proposal": "", "answer": "", "answeredBy": "", "answeredAt": ""}
     if asked["askedFor"] == "human":
-        require_human(w.actor, "Otázku pro člověka zodpoví jen člověk.")
+        require_authority(w.actor, "Otázku pro člověka zodpoví jen člověk.")
     text = text_of(payload["answer"], 8000, "answer", allow_empty=False)
     fields = {**fields, "question": validate_question({**asked, "answer": text, "answeredBy": w.by, "answeredAt": w.at})}
     revised = w.revise(row, payload.get("note") or "Zodpovězeno.", stage="ready")

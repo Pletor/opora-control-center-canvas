@@ -171,6 +171,7 @@ class RemovalService:
         from backend.canvas.activity_log import HumanRequired
         from backend.canvas.protected_fields import protected_changes
         if preview["kind"] == "project":
+            # Výjimka §4 (docs/plna-autonomie-agenta.md): smazání projektu = odpojení jeho složky, jen člověk.
             raise HumanRequired(actor, "Projekt maže jen člověk v UI.")
         graph = current["graph"]
         kinds = {n["id"]: n["kind"] for n in graph["nodes"]}
@@ -189,7 +190,8 @@ class RemovalService:
                      "edges": [e for e in graph["edges"] if e["source"] not in removed and e["target"] not in removed]}
         if protected_changes(survivors, remaining):
             reasons.append("vazba mezi sektory")
-        if reasons:
+        from backend.canvas.authority import acts_as_human
+        if reasons and not acts_as_human(actor):
             raise HumanRequired(actor, "Tohle maže jen člověk v UI: " + ", ".join(reasons) + ".")
 
     def remove(self, payload, *, actor="system"):

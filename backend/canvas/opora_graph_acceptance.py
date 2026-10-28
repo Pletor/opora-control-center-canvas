@@ -1,4 +1,5 @@
 """Human graph/specification/manifest acceptance under one accepted-reference transaction."""
+from backend.canvas.authority import acts_as_human
 from backend.canvas.architecture_graph import split
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import stamp
@@ -27,7 +28,7 @@ class OporaGraphAcceptance:
             raise ValueError("Invalid graph acceptance fields.")
         project, workspace = scope(payload)
         author = _author(by)
-        if author["kind"] != "human":
+        if not acts_as_human(author["kind"]):
             raise ValueError("Graph additions require explicit human acceptance.")
         with self.service.graph_lock_for(project), self.service.lock_for(project):
             repo = self.proposals.repository(project, workspace)

@@ -10,6 +10,11 @@ Použij, když pracuješ s plátnem OPORA kteréhokoli projektu: plánuješ kart
 bereš kartu k práci, děláš review PR, řešíš konflikt návrhů nebo formální ověření, sleduješ
 průběh nebo hledáš kontext. Neaktivuj pro programování, které s plátnem nesouvisí.
 
+**Pravidlo: OPORA je mozek a mapa projektu.** Agent, který staví, pracuje s OPOROU povinně: plán, rozklad,
+úvahy, rozhodnutí i kontext zapisuje a čte v OPOŘE (karty, `spec`, kroky, deník, výsledky, paměť), ne v `.md`
+souborech v repu. Při plné autonomii ([autonomie.md](references/autonomie.md)) dokončí práci v OPOŘE sám.
+Chybí-li mu v OPOŘE proces nebo cesta, podá návrh nebo kartu na OPORU, místo aby ji obcházel.
+
 **Jeden zdroj stavu:** OporaHub `agent-state`. **Jeden model plánu:** přijatá revize
 verzovaná návrhy změn (changesety). **Jedna definice hotovo:** všechny kroky `done` +
 acceptance karty + brána review `ready` + merge + zápis do plánu + ověřená cesta zákazníka + `close_card` člověkem.
@@ -67,7 +72,16 @@ Karta vložená z knihovny nese v `node-brief` (klíč `node`) `fetch` = co si s
 | **Pozorovatel** | `agent-state` (snímek) + feed událostí (delta) | [events.md](references/events.md) |
 | **Najít kontext** | `search` → `find` / `code` → `graphify query` → `recall` → web | [api.md](references/api.md) „Čtení“, [navigation.md](references/navigation.md) |
 
-## Co patří jen člověku (agent dostane 403/428, skript odmítne předem)
+## Plná autonomie agentů
+
+Projekt má přepínač **plná autonomie agentů** (výchozí vypnuto, `GET /api/project-settings` → `agentAutonomy`).
+Zapíná ho jen člověk v UI; agent si ho nikdy nezapne sám. Poznáš ho podle `autonomy.full` v `agent-state`
+a v `node-brief`. Když je `true`, smíš v projektu i akce níže „jen člověk“ (přímo HTTP s `X-Opora-Actor`;
+`opora_write.py` je odmítá dál), kromě §4: přepínač sám, `/api/access/*`, připojení a odpojení repozitáře
+a složky, smazání projektu, klíče (`/api/assistant/jev-key`, `/api/memory/provision`). Původce zůstává
+agent, záznam činnosti nese `autonomy: "full"`. Detail: [autonomie.md](references/autonomie.md).
+
+## Co patří jen člověku (bez autonomie agent dostane 403/428, skript odmítne předem)
 
 - Přijetí: základ (`accept_baseline`), návrhy změn zadání, grafu i obsahu (`accept`).
 - Kontrola nahlášeného výsledku (`review`), schválení PR na GitHubu, merge.
@@ -109,6 +123,8 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | plán nebo PR jako graf PR Lens, rozdíl commitů zadání | `/api/oporahub/plan-lens`, `/review-lens`, `/diff` | [hub-api.md](references/hub-api.md) |
 | verdikt brány 1:1, zapsat zelený běh testů | `GET /api/sync-report`, `POST /api/check-run` | [hub-api.md](references/hub-api.md) |
 | přesná cesta a kdo ji smí | tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
+| jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy, asistent) | tabulky cest | [routy.md](references/routy.md) |
+| přijmout, uzavřít, nastavit bez člověka | plná autonomie (`autonomy.full`) | [autonomie.md](references/autonomie.md) |
 | spustit, zastavit, restartovat Oporu | `uv run opora --no-open`, `opora_read.py status` | [provoz.md](references/provoz.md) |
 | přehled plátna, hledání | `opora_read.py view`, `search`, `work-overview` | [api.md](references/api.md) |
 | zpráva jiné kartě, deník, obrázky karty, strom zdrojů | `/api/desktop-v3/agent-messages`, `/api/node-journal`, `/api/workspace/tree` | [api.md](references/api.md) „Karta, zdroje a projekt“ |

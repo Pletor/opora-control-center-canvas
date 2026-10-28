@@ -1,7 +1,7 @@
 // Jeden zápis: čas, u agenta žeton se jménem, akce z cesty s doplňkem, karty (klik = otevřít kartu)
-// a tichý status; selhaný zápis nese červený proužek a „selhalo · 409“.
+// a tichý status; selhaný zápis nese červený proužek a „selhalo · 409“. Akce z plné autonomie nese štítek.
 import Icon from "@/ui-kit/icon/components/Icon";
-import { actionLabel, isFailed, nodeRefs, summaryDetail, timeLabel, type ActivityEntry } from "@/editor/canvas/activity-log/logic/activity-log";
+import { actionLabel, isFailed, isFullAutonomy, nodeRefs, summaryDetail, timeLabel, type ActivityEntry } from "@/editor/canvas/activity-log/logic/activity-log";
 
 export default function ActivityLogRow({ entry, nodes, onOpenNode }: {
   entry: ActivityEntry;
@@ -19,6 +19,9 @@ export default function ActivityLogRow({ entry, nodes, onOpenNode }: {
         <div className="activity-log__line">
           {entry.actor === "agent" && (
             <span className="activity-log__agent"><Icon name="bot" size={16} />{entry.agent || "agent"}</span>
+          )}
+          {isFullAutonomy(entry) && (
+            <span className="activity-log__autonomy" title="Agent to udělal díky plné autonomii projektu">plná autonomie</span>
           )}
           <span className="activity-log__action">{actionLabel(entry.path)}</span>
           {detail && <span className="activity-log__detail">{detail}</span>}

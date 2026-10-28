@@ -1,7 +1,7 @@
 """Local policy API; human identity is established by middleware, never request JSON."""
 from fastapi import APIRouter, Query, Request
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.canvas.opora_review_policy import OporaReviewPolicy
 
 
@@ -10,8 +10,8 @@ def create_opora_review_policy_router(service):
     policy = OporaReviewPolicy(service)
 
     def author(request):
-        require_human(request.state.actor, "Review policy changes require a human UI session.")
-        return {"kind": "human", "name": "Člověk"}
+        require_authority(request.state.actor, "Review policy changes require a human UI session.")
+        return {"kind": request.state.actor, "name": request.state.agent if request.state.actor == "agent" else "Člověk"}
 
     @router.get("")
     def current(request: Request, project: str, workspace: str):

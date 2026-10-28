@@ -19,6 +19,7 @@ import json
 import re
 from datetime import datetime, timedelta
 
+from backend.canvas.authority import acts_as_human
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import valid_date, valid_id
 from backend.memory.roles import role_ids
@@ -262,8 +263,8 @@ def _validate_done(node, node_id):
     _timestamp(done["at"], f"čas uzavření uzlu {node_id}", allow_empty=True)
     by = _enum(done["by"], DONE_ACTORS, "původce uzavření")
     _text(done["note"], MAX_TEXT, "poznámka k uzavření", allow_empty=True)
-    if by == "agent" and confirmed:
-        _fail("agent smí uzavření karty jen navrhnout; potvrzuje ho člověk.")
+    # `agent` + potvrzeno = agent s plnou autonomií projektu (docs/plna-autonomie-agenta.md); kdo smí
+    # potvrzení zapsat, hlídá brána zápisu stavu, ne tvar.
     if by == "autonomy" and not confirmed:
         _fail("„autonomy“ označuje jen potvrzené uzavření ve svěřené autonomii.")
 
@@ -526,12 +527,13 @@ def stamp_agent_rules(actor, previous, rules):
         old = before.get(rule["id"])
         if old == rule:
             continue
-        if old is not None and old.get("by", "human") != "agent":
+        if old is not None and old.get("by", "human") != "agent" and not acts_as_human(actor):
             from backend.canvas.activity_log import HumanRequired
             raise HumanRequired(actor, "Pravidlo člověka mění jen člověk; navrhněte nové pravidlo.")
         rule["by"] = "agent"
     kept = {rule["id"] for rule in rules}
-    if any(rule.get("by", "human") != "agent" for rule_id, rule in before.items() if rule_id not in kept):
+    if (any(rule.get("by", "human") != "agent" for rule_id, rule in before.items() if rule_id not in kept)
+            and not acts_as_human(actor)):
         from backend.canvas.activity_log import HumanRequired
         raise HumanRequired(actor, "Pravidlo člověka odebírá jen člověk.")
 
@@ -667,7 +669,7 @@ class DesktopV3State:
                     previous_done = current["state"]["nodes"].get(node_id, {}).get("done", default_done())
                     previous_evidence = current["state"]["nodes"].get(node_id, {}).get("evidence")
                     if (actor not in ("human", "system") and done != previous_done
-                            and (done["confirmed"] or previous_done["confirmed"])):
+                            and (done["confirmed"] or previous_done["confirmed"]) and not acts_as_human(actor)):
                         from backend.canvas.activity_log import HumanRequired
                         raise HumanRequired(actor, "Uzavření karty potvrzuje nebo ruší jen člověk v UI; agent ho navrhuje přes agent-output.")
                     previous_scenario = current["state"]["nodes"].get(node_id, {}).get("scenarioRun")
@@ -704,7 +706,8 @@ class DesktopV3State:
                 for node_id, previous in current["state"]["nodes"].items():
                     node = state["nodes"].get(node_id)
                     if node is None:
-                        if actor not in ("human", "system") and previous.get("done", default_done())["confirmed"]:
+                        if (actor not in ("human", "system") and previous.get("done", default_done())["confirmed"]
+                                and not acts_as_human(actor)):
                             from backend.canvas.activity_log import HumanRequired
                             raise HumanRequired(actor, "Uzavřenou kartu ze stavu odebírá jen člověk.")
                         continue

@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from backend.canvas.authority import can_act
 from backend.canvas.opora_execution_context import prepare
 from backend.canvas.opora_execution_results import ExecutionResults
 from backend.canvas.opora_execution_steps import checkpoint
@@ -51,7 +52,7 @@ def create_opora_execution_router(service):
 
     @router.get("")
     def history(project: str, workspace: str, request: Request, nodeId: str | None = None):
-        return call(request, lambda: executions.history(project, workspace, nodeId) | {"canCancel": request.state.actor == "human"})
+        return call(request, lambda: executions.history(project, workspace, nodeId) | {"canCancel": can_act(request.state.actor)})
 
     @router.get("/{identifier}/results")
     def receipts(identifier: str, project: str, workspace: str, request: Request):

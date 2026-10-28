@@ -1,4 +1,5 @@
 """Review events bind exact proposals; CAS and explicit human acknowledgement never write a plan."""
+from backend.canvas.authority import acts_as_human
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_commit_validation import _author
@@ -50,7 +51,7 @@ class ProposalReviews:
         if set(payload) != {"project", "workspace", "expectedPolicyHead", "enabled", "rules"}:
             raise ValueError("Invalid acceptance policy fields.")
         author = _author(by, allow_agent=True)
-        if author["kind"] != "human":
+        if not acts_as_human(author["kind"]):
             raise ValueError("Only a human may configure acceptance policy.")
         project, workspace = scope(payload)
         with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
@@ -71,7 +72,7 @@ class ProposalReviews:
         body = payload["body"]
         if not isinstance(body, dict) or body.get("type") not in {"comment", "finding", "resolve", "ack"}:
             raise ValueError("Unsupported proposal review event body.")
-        if body["type"] in {"resolve", "ack"} and author["kind"] != "human":
+        if body["type"] in {"resolve", "ack"} and not acts_as_human(author["kind"]):
             raise ValueError("Only a human may resolve findings or acknowledge risk.")
         with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
             db = self.canvas.db_for(project)

@@ -1,4 +1,5 @@
 """Human acceptance changes raw node specs and accepted reference in one SQLite transaction."""
+from backend.canvas.authority import acts_as_human
 from backend.canvas.opora_change_validation import identifier, scope
 from backend.canvas.opora_changesets import OporaChangesets, stamp
 from backend.canvas.opora_commit_validation import _author
@@ -13,7 +14,7 @@ class OporaAcceptance:
 
     def accept(self, proposal_id, payload, by):
         by = _author(by)
-        if by["kind"] != "human":
+        if not acts_as_human(by["kind"]):
             raise ValueError("Návrh zadání přijímá člověk.")
         pid, wid = scope(payload)
         expected = payload.get("expectedAcceptedHead")

@@ -3,6 +3,7 @@
 Every finding ends `fixed` (confirmed by voters in a later round) or `resolved` with a reason.
 An important finding is resolved only by a human session; an agent may resolve nit and
 pre_existing findings with a reason. After the round cap only a human accepts an unreviewed head."""
+from backend.canvas.authority import acts_as_human
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_review_job_validation import reason
 from backend.canvas.opora_review_jobs import capped
@@ -12,6 +13,11 @@ from database.repositories.opora_review_jobs import public_finding
 
 class FindingMissing(LookupError):
     """Unknown finding in this scope (HTTP 404)."""
+
+
+def _human_authority(actor):
+    """`human`, nebo `agent:<jméno>` s plnou autonomií projektu (docs/plna-autonomie-agenta.md)."""
+    return actor == "human" or (isinstance(actor, str) and actor.startswith("agent:") and acts_as_human("agent"))
 
 
 class HumanRequired(PermissionError):
@@ -33,7 +39,7 @@ class ReviewFindings:
                 if resolution.get("kind") == "resolved" and resolution.get("reason") == text:
                     return public_finding(row)
                 raise ValueError("Finding is already closed.")
-            if actor != "human" and row["severity"] == "important":
+            if row["severity"] == "important" and not _human_authority(actor):
                 raise HumanRequired("Only a human resolves an important finding without a fix.")
             row = store.update_finding(finding_id, status="resolved", updated_at=stamp(), resolution={
                 "kind": "resolved", "by": actor, "reason": text, "at": stamp()})
@@ -41,7 +47,7 @@ class ReviewFindings:
 
     def decide(self, payload, actor):
         """Human accepts a head that the capped automatic review will not cover."""
-        if actor != "human":
+        if not _human_authority(actor):
             raise HumanRequired("Only a human decides after the review round cap.")
         project, workspace, text = reason(payload, ("repository", "number", "headSha"))
         config = self.jobs.config()

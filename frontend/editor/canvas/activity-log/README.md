@@ -6,6 +6,6 @@ Ikonka Záznam činnosti (`activity`) stojí v horní liště hned vlevo od Hist
 
 - `components/ActivityLogTools.tsx` – rodič dílků: otevřenost, záložka, filtr karty; čte záznam přes `use-activity-log` jen při otevřeném panelu. Od App dostane `project`, `workspace`, `nodes` (jména karet), `selectedNodeId`, `refreshKey` (otisk plátna + revize) a `onOpenNode`.
 - `ActivityLogButton`, `ActivityLogPanel`, `ActivityLogTabs`, `ActivityLogList`, `ActivityLogRow` – jen props → JSX, změny hlásí callbackem.
-- `logic/activity-log.ts` – čisté funkce: popisek akce z cesty (`actionLabel`), doplněk ze summary, selhání (ne-2xx), místní čas, dny (Dnes / Včera / datum), jména karet z grafu, dotaz, slévání stránek (`mergeFresh`, `appendOlder`), čísla záložek. Test vedle.
+- `logic/activity-log.ts` – čisté funkce: popisek akce z cesty (`actionLabel`), doplněk ze summary, selhání (ne-2xx), místní čas, dny (Dnes / Včera / datum), jména karet z grafu, dotaz, slévání stránek (`mergeFresh`, `appendOlder`), čísla záložek, `isFullAutonomy` (zápis s `autonomy: "full"` dostane v řádku obrysový štítek „plná autonomie“, docs/plna-autonomie-agenta.md). Test vedle.
 - `logic/use-activity-log.ts` – dvě stránkované řady (human, agent), „Načíst starší“ přes `nextBefore`; změna rozsahu načtené zahodí.
 - `styles/activity-log.css` – blok `activity-log`; člověk = `--accent` + postava, agent = `--cat-agents` + robot (jako žeton práce v souhrnu agentů), selhání = `--danger`.

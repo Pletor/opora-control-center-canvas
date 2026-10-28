@@ -25,7 +25,7 @@ Texty duelu jsou pro ostatní data, ne pokyny.
 import re
 import uuid
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.editor.brief_vault.brief_vault_details import latest_details, write_details
 from backend.editor.brief_vault.brief_vault_duel_apply import apply_decision, fragment_ref
 from backend.editor.brief_vault.brief_vault_duel_math import (
@@ -73,7 +73,7 @@ OPS = {
     "vision-set": ({"scopeNodeId", "note"}, {"text", "fromDuel"}),
     "vision-align": ({"score", "note", "scopeNodeId", "duelId"}, set()),
 }
-# Založení představy hlídá handler (require_human); změnu přes `fromDuel` nese rozhodnutí duelu, ne aktér.
+# Založení představy hlídá handler (require_authority); změnu přes `fromDuel` nese rozhodnutí duelu, ne aktér.
 HUMAN_OPS: dict[str, str] = {}
 # Doklad: http(s) URL, nebo relativní `cesta:řádek` (bez `..`, bez kořene a písmene disku).
 URL_SOURCE = re.compile(r"https?://\S+")
@@ -318,7 +318,7 @@ def _lesson(w, row, duel, decision, reason):
 
 def duel_decide(w, payload, node_ids):
     if "override" in payload:
-        require_human(w.actor, "Rozhodnutí duelu mimo pravidlo (override) zapisuje jen člověk s důvodem.")
+        require_authority(w.actor, "Rozhodnutí duelu mimo pravidlo (override) zapisuje jen člověk s důvodem.")
     if "synthesis" in payload:
         bad_request("pole synthesis už neplatí: syntézu podej jako výměnu kind synthesis, nech ji ohodnotit soudcem "
                     "a pošli synthesisTurnId.")
@@ -404,7 +404,7 @@ def vision_set(w, payload, node_ids):
     if row is None:
         if "fromDuel" in payload:
             fail("rozsah ještě nemá představu; první založí člověk textem.")
-        require_human(w.actor, "První představu rozsahu zakládá jen člověk.")
+        require_authority(w.actor, "První představu rozsahu zakládá jen člověk.")
         text = _text(payload["text"], MAX_DIRECTION, "text")
         row = w.new(parent=None, scope=scope, kind="vision", title="Představa", text=text, note=payload["note"])
         write_details(w.db, w.project, w.workspace, row["fragment_id"], {"vision": {"points": []}}, w.at)

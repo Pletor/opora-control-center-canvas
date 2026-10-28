@@ -86,7 +86,7 @@ def policy(value):
     if (
         not isinstance(value["by"], dict)
         or set(value["by"]) != {"kind", "name"}
-        or _author(value["by"])["kind"] != "human"
+        or _author(value["by"], allow_agent=True)["kind"] not in ("human", "agent")  # agent = plná autonomie; kdo smí zapsat, hlídá brána zápisu (docs/plna-autonomie-agenta.md)
     ):
         raise ValueError("Budget policy requires a human author.")
     timestamp(value["createdAt"])

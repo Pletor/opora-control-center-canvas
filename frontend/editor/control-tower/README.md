@@ -20,3 +20,5 @@ Práce ve worktree (`docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md` §5): p
 a klik na díru s kartou ji otevře (`onOpen`, jako strážci). Zdroj `GET /api/project-architecture/map-check/worktrees`
 přes sdílený `project/architecture-editor/logic/use-map-worktrees.ts` (30 s, jen se schopností `worktreeLive` od App),
 logika `logic/velin-worktrees.ts` (test `velin-worktrees.test.ts`), dílek `components/VelinWorktrees.tsx`. Bez worktree nic.
+
+Štítek „Plná autonomie agentů“ v liště velínu: App předá `autonomy` z `useAgentAutonomy` (`frontend/shared/agent-autonomy`), velín ho jen kreslí dílkem `AgentAutonomyBadge`.

@@ -1,6 +1,7 @@
 """Specification proposals form immutable siblings without touching the working canvas."""
 from datetime import UTC, datetime
 
+from backend.canvas.authority import acts_as_human
 from backend.canvas.opora_change_validation import (
     check_changes,
     documents,
@@ -43,7 +44,7 @@ class OporaChangesets:
 
     def baseline(self, payload, by):
         by = _author(by)
-        if by["kind"] != "human":
+        if not acts_as_human(by["kind"]):
             raise ValueError("Výchozí zadání přijímá člověk.")
         pid, wid = scope(payload)
         if "expectedAcceptedHead" not in payload or payload["expectedAcceptedHead"] is not None:

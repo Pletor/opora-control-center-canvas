@@ -16,7 +16,8 @@ a agentů se čtou odděleně.
 - **Neznámý** (`unknown`) je zápis bez hlavičky agenta i bez dokladu (curl, cizí skript).
 - Lidské akce (potvrzení a otevření uzavření, autonomie, hromadné potvrzení, obnova verze,
   brána/kontroly/vazby sektorů, mazání sektorů a uzavřených karet, pravidla člověka) server
-  agentovi vrátí 403 a neznámému 428 (`HumanRequired`).
+  agentovi vrátí 403 a neznámému 428 (`HumanRequired`). Výjimka: v projektu se zapnutou plnou
+  autonomií agentů je agent smí také; původce zůstává agent (docs/plna-autonomie-agenta.md).
 - Mez: lokální proces se stejným uživatelem OS umí prohlížeč napodobit. Doklad brání opomenutí
   a výchozímu „člověk“, ne úmyslnému padělku hlaviček; ten je vidět jako vědomé obcházení.
 - Záznam drží posledních 50 000 řádků (retence, upgrade-opora #41).
@@ -36,7 +37,7 @@ Jeden řádek na každý požadavek jiný než GET/HEAD na `/api/*`, i když sko
 | `project_id`, `workspace_id` | z těla (`project`, `workspace`) nebo z query; jinak prázdné |
 | `node_ids` | JSON pole ID karet z těla (`nodeId`, `node`, `sectorId`) |
 | `status` | HTTP status odpovědi |
-| `summary` | krátký popis: klíče těla, druh operace (`op.kind`), návrh uzavření (`done.proposed`) |
+| `summary` | krátký popis: klíče těla, druh operace (`op.kind`), návrh uzavření (`done.proposed`); na konci `autonomy=full`, když akce prošla díky plné autonomii |
 
 Obsah textů (zadání, texty karet) se do záznamu nekopíruje; ten má vlastní revize. Selhání
 zápisu do záznamu nikdy neshodí samotný požadavek.
@@ -45,5 +46,5 @@ zápisu do záznamu nikdy neshodí samotný požadavek.
 
 `GET /api/activity-log?project=&workspace=&actor=human|agent&nodeId=&limit=&before=` vrátí
 `{entries: [...], nextBefore}`, nejnovější první, `limit` 1–500 (výchozí 100), `before` = `id`
-pro další stránku. Bez `actor` vrací obojí. V UI: panel „Záznam činnosti“ se záložkami
+pro další stránku. Bez `actor` vrací obojí. Každý záznam nese `autonomy: "full" | null`. V UI: panel „Záznam činnosti“ se záložkami
 **Já** a **Agenti**.

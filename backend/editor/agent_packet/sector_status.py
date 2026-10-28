@@ -70,9 +70,9 @@ def sector_status(graph, state, by_id=None):
             scenario = by_id.get(gate_id, {}).get("scenario")
             run = state["nodes"].get(gate_id, {}).get("scenarioRun", {})
             scenario_ready = not scenario or (run.get("command") == scenario["command"] and run.get("failed") == 0)
-            verified = bool(gate.get("confirmed") and gate.get("by") == "human" and count and done == count and scenario_ready)
+            verified = bool(gate.get("confirmed") and gate.get("by") in ("human", "agent") and count and done == count and scenario_ready)
         else:
-            verified = bool(count and done == count) or bool(own.get("confirmed") and own.get("by") == "human")
+            verified = bool(count and done == count) or bool(own.get("confirmed") and own.get("by") in ("human", "agent"))
         result[sector["id"]] = {"gateNodeId": gate_id, "status": "verified" if verified else "running", "closed": done, "total": count}
     return result
 

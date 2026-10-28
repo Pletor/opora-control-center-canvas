@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from backend.canvas.authority import can_act
 from backend.canvas.opora_proposal_review_service import ProposalReviews
 
 
@@ -22,7 +23,7 @@ def create_proposal_review_router(canvas):
     def policy(project: str, workspace: str, request: Request):
         def read(by):
             value = reviews.policy(project, workspace)
-            return {**value, "canConfigure": by["kind"] == "human" and not value["readOnly"]}
+            return {**value, "canConfigure": can_act(by["kind"]) and not value["readOnly"]}
         return call(request, read)
 
     @router.post("/policy")
@@ -47,10 +48,10 @@ def create_proposal_review_router(canvas):
     def context(project: str, workspace: str, proposalKind: str, proposalId: str, request: Request):
         def read(by):
             value = reviews.context(project, workspace, proposalKind, proposalId)
-            human = by["kind"] == "human" and not value["readOnly"]
+            human = can_act(by["kind"]) and not value["readOnly"]
             can_ack = human and bool(value["policy"] and value["policy"]["enabled"])
             can_ack = can_ack and value["parentAcceptedHead"] == value["acceptedHead"] and value["acceptedRevision"] is None
-            return {**value, "canAccept": by["kind"] == "human" and value["eligible"], "canAcknowledge": can_ack,
+            return {**value, "canAccept": can_act(by["kind"]) and value["eligible"], "canAcknowledge": can_ack,
                     "canResolve": human, "canComment": not value["readOnly"]}
         return call(request, read)
 

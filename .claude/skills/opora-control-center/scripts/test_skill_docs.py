@@ -243,9 +243,54 @@ def test_hub_write_templates_are_documented_and_exist_as_post(backend_routes):
     hub_api = (SKILL / "references" / "hub-api.md").read_text("utf-8")
     templates = opora_write.HUB_AGENT_ROUTES + opora_write.HUB_HUMAN_ROUTES + opora_write.HUB_TOKEN_ROUTES
     assert len(set(templates)) == len(templates)
+    rows = {}
+    for line in hub_api.splitlines():
+        for mention in MENTION.findall(line):
+            rows.setdefault(tuple(_segments(mention)), []).append(line)
     for template in templates:
         assert _exists(_segments(template), backend_routes, "POST"), template
-        assert template in hub_api, template
+        # Skript píše `{id}`, reference jména parametrů FastAPI (`{identifier}`, `{job}`): porovnej tvar cesty.
+        assert tuple(_segments(template)) in rows, template
     for template in opora_write.HUB_HUMAN_ROUTES:
-        row = next(line for line in hub_api.splitlines() if template in line)
-        assert "člověk" in row, template
+        assert any("člověk" in row for row in rows[tuple(_segments(template))] if "POST" in row), template
+
+
+# Cesty, které skill záměrně nepopisuje. Každá výjimka má důvod; ostatní cesty backendu musí být v SKILL.md
+# nebo references/*.md doslova (se zástupnými segmenty `{name}` přesně jako ve FastAPI). Zástupné „/*“ se nepřijímají.
+UNDOCUMENTED_ROUTES = {
+    # §4 docs/plna-autonomie-agenta.md: přístup a vzdálený přístup patří jen člověku (token tunelu, přihlášení).
+    "/api/access/status", "/api/access/login", "/api/access/logout",
+    # §4 a čisté UI: relační doklad člověka vydává server jen fetchi prohlížeče (`Sec-Fetch-Site: same-origin`).
+    "/api/access/ui-session",
+    # §4: klíč poskytovatele Jev je tajemství aplikace; agent ho nikdy nečte ani nezapisuje.
+    "/api/assistant/jev-key",
+    # §4: rozdání klíčů rolím u OpenVikingu root klíčem (zakládá uživatele paměti).
+    "/api/memory/provision",
+}
+# Cesty mimo schéma OpenAPI, které nejsou API pro agenta.
+NON_SCHEMA_EXCEPTIONS = {
+    # Záchytná 404 pro neznámé `/api/*` (backend/app/factory.py `unknown_api`), ne skutečná cesta.
+    "/api/{rest:path}",
+}
+
+
+def _documented(path, text):
+    """Cesta je v textu doslova a nepokračuje dalším segmentem (`/api/remove` ≠ `/api/remove/restore`)."""
+    return re.search(re.escape(path) + r"(?![A-Za-z0-9_{}-]|/[A-Za-z0-9_{])", text) is not None
+
+
+def test_skill_documents_every_backend_route(tmp_path):
+    """Každá cesta skutečné aplikace je ve skillu, kromě výslovných výjimek (docs/plna-autonomie-agenta.md §5)."""
+    from backend.app.factory import create_app
+
+    app = create_app(tmp_path / "data")
+    paths = set(app.openapi()["paths"])
+    hidden = {route.path for route in app.routes
+              if getattr(route, "path", "").startswith("/api") and not getattr(route, "include_in_schema", True)}
+    docs = "\n".join(path.read_text("utf-8")
+                     for path in [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md"))])
+    assert len(paths) > 200
+    assert UNDOCUMENTED_ROUTES <= paths, UNDOCUMENTED_ROUTES - paths  # výjimka bez cesty = smazat z výjimek
+    missing = sorted(path for path in paths - UNDOCUMENTED_ROUTES if not _documented(path, docs))
+    missing += sorted(path for path in hidden - NON_SCHEMA_EXCEPTIONS - paths if not _documented(path, docs))
+    assert missing == []

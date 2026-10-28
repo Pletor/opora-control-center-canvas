@@ -9,7 +9,9 @@ z `agentRole` uzlu. Karta bez role není chyba — vrací se `status: "skipped"`
 výsledek, který by vypadal jako „nic si nepamatuji“.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+
+from backend.canvas.activity_log import require_human
 
 from backend.memory import roles
 
@@ -53,11 +55,13 @@ def create_memory_router(service, memory_service):
         return memory_service.status()
 
     @router.post("/provision")
-    def provision(payload: dict):
+    def provision(payload: dict, request: Request):
         """Rozdá rolím klíče u OpenVikingu. Zakládá uživatele, proto to potvrzuje člověk.
 
         Odpověď nese jen jména rolí a důvody chyb — **klíč se nikdy nevrací ani neloguje**.
         """
+        # Výjimka §4 (docs/plna-autonomie-agenta.md): provisioning root klíčem jen člověk.
+        require_human(getattr(request.state, "actor", "unknown"), "Rozdání klíčů rolím potvrzuje jen člověk v UI.")
         _exact(payload, PROVISION_KEYS, "Rozdání klíčů rolím")
         if payload["confirmed"] is not True:
             raise ValueError("Rozdání klíčů rolím vyžaduje výslovné potvrzení.")

@@ -84,6 +84,7 @@ from backend.app.remote_access import (
     is_loopback_only,
     requires_token,
 )
+from backend.canvas import authority as authority_context
 from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
@@ -211,13 +212,33 @@ def create_app(data_root=None):
         try:
             actor, agent = request.state.actor, request.state.agent
             described = describe(getattr(request, "_body", b""), dict(request.query_params))
+            used = getattr(request.state, "authority_context", None)
             activity_log.record(actor=actor, agent=agent, method=request.method, path=request.url.path,
-                                described=described, status=status)
+                                described=described, status=status, autonomy=bool(used and used.used))
             # Živý proces: paměť a starý commit zadání nemají událost v outboxu (docs/zivy-proces.md §4).
             bridge_activity(service, method=request.method, path=request.url.path, status=status, actor=actor,
                             agent=agent, described=described)
         except Exception:  # noqa: BLE001 - záznam je doplněk, ne podmínka zápisu
             return
+
+    def _authority(request):
+        """`human | agent | unknown`; projekt bere z `project` v query, jinak z těla JSON."""
+        actor = request.state.actor
+        request.state.authority_project = ""
+        if actor != "agent":
+            return authority_context.resolve(actor, False)
+        query = request.query_params.get("project") or ""
+        body = describe(getattr(request, "_body", b""), {})["project"] or ""
+        project = query or body
+        # Různý projekt v query a v těle: autonomie jednoho projektu nesmí odemknout zápis do jiného.
+        if not project or (query and body and query != body):
+            return authority_context.resolve(actor, False)
+        request.state.authority_project = project
+        try:
+            full = service.project_hub.agent_autonomy(project)["full"]
+        except Exception:  # noqa: BLE001 - neznámý projekt nebo chyba čtení = bez autonomie
+            full = False
+        return authority_context.resolve(actor, full)
 
     @app.middleware("http")
     async def boundary(request: Request, call_next):
@@ -262,7 +283,16 @@ def create_app(data_root=None):
                     return JSONResponse({"error": "Požadavek je příliš velký."}, status_code=413)
                 body.extend(chunk)
             request._body = bytes(body)
-        response = await call_next(request)
+        # Oprávnění odděleně od původce (docs/plna-autonomie-agenta.md §2): agent dostane `human`
+        # jen v projektu požadavku, kterému člověk zapnul plnou autonomii.
+        request.state.authority = _authority(request)
+        state, token = authority_context.begin(request.state.actor, request.state.authority,
+                                               getattr(request.state, "authority_project", ""))
+        request.state.authority_context = state
+        try:
+            response = await call_next(request)
+        finally:
+            authority_context.end(token)
         if request.method not in ("GET", "HEAD") and request.url.path.startswith("/api"):
             _log_activity(request, response.status_code)
         response.headers["X-Content-Type-Options"] = "nosniff"

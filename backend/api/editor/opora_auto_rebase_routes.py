@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Query, Request
 
 from backend.canvas import opora_sparse_enrollment as sparse
-from backend.canvas.activity_log import HumanRequired, require_human
+from backend.canvas.activity_log import HumanRequired, require_authority
 from backend.canvas.opora_auto_rebase import AutoRebase
 
 
@@ -46,7 +46,7 @@ def create_opora_auto_rebase_router(service):
         if type(dry_run) is not bool:
             raise ValueError("dryRun must be a boolean.")
         if not dry_run:
-            require_human(request.state.actor, "Zápis backfillu sparse kontextu spouští člověk.")
+            require_authority(request.state.actor, "Zápis backfillu sparse kontextu spouští člověk.")
         return sparse.backfill(service, payload.get("project"), payload.get("workspace"), dry_run=dry_run)
 
     return router

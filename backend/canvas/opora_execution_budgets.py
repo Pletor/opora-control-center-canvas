@@ -2,6 +2,7 @@
 
 import time
 
+from backend.canvas.authority import can_act
 from backend.canvas.opora_change_validation import identifier, scope
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_execution_budget_legacy import seed_legacy
@@ -44,10 +45,10 @@ class ExecutionBudgets:
                 "workspace": workspace,
                 "nodeId": nodeId,
                 "acceptedHead": view["acceptedHead"],
-                "canConfigure": actor == "human" and view["available"],
-                "canCancel": actor == "human",
+                "canConfigure": can_act(actor) and view["available"],
+                "canCancel": can_act(actor),
                 "unavailableReason": view["unavailableReason"]
-                or (None if actor == "human" else "Human UI session required."),
+                or (None if can_act(actor) else "Human UI session required."),
                 **value,
                 "budget": value,
             }
@@ -150,6 +151,6 @@ class ExecutionBudgets:
                 "policies": policies,
                 "allocations": events,
                 "cancellations": cancellation_records,
-                "canCancel": actor == "human",
+                "canCancel": can_act(actor),
                 "nextCursor": None,
             }

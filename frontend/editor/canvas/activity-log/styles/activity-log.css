@@ -268,3 +268,17 @@
   width: 100%;
   margin-top: 8px;
 }
+
+/* ŠTÍTEK PLNÉ AUTONOMIE (prvek `activity-log__autonomy`)
+   Příběh: agent s plnou autonomií dělá i to, co jinak smí jen člověk. Zápis dál říká „agent“, ale vedle
+   jména stojí obrysová pilulka „plná autonomie“, aby se takové akce daly zpětně najít očima. Obrys
+   místo výplně: je to poznámka k zápisu, ne další aktér. */
+.activity-log__autonomy {
+  padding: 0 6px;
+  border: 1px solid var(--cat-agents);
+  border-radius: 999px;
+  color: var(--cat-agents);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}

@@ -1,4 +1,5 @@
 """Permanent enrollment prevents late legacy state/results from bypassing fencing."""
+from backend.canvas.authority import acts_as_human
 from backend.canvas.graph import digest
 
 
@@ -23,5 +24,5 @@ def state_write(db, project, workspace, before, after, graph, actor):
     changed |= any(digest(before.get("edges", {}).get(edge)) != digest(after.get("edges", {}).get(edge)) for edge in edges)
     def decisions(state):
         return [item for item in state["decisions"] if item.get("nodeId") in cards]
-    if changed or digest(decisions(before)) != digest(decisions(after)):
+    if (changed or digest(decisions(before)) != digest(decisions(after))) and not acts_as_human(actor):
         raise ValueError("Enrolled cards accept execution receipts, not legacy state changes.")

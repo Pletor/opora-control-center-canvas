@@ -1,6 +1,7 @@
 ﻿"""Sparse read projections keep historical facts separate from current job health."""
 import os
 
+from backend.canvas.authority import can_act
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_reconciliation_scope import read_context
 from database.repositories.opora_reconciliation import ReconciliationRepository
@@ -24,10 +25,10 @@ def listing(service, project, workspace, actor):
         db = service.db_for(project)
         repo, jobs = ReconciliationRepository(db, project, workspace), ReconciliationJobs(db, project, workspace)
         return {"project": project, "workspace": workspace, "currentAcceptedHead": current["acceptedHead"],
-                "canConfigure": actor == "human" and current["available"],
-                "canPause": actor == "human",
+                "canConfigure": can_act(actor) and current["available"],
+                "canPause": can_act(actor),
                 "automaticWorkerEnabled": os.environ.get("OPORA_RECONCILIATION_WORKER", "1") != "0",
                 "automaticWorkerUnavailableReason": ("Automatic reconciliation worker is disabled by server configuration."
                     if os.environ.get("OPORA_RECONCILIATION_WORKER", "1") == "0" else None),
-                "unavailableReason": current["unavailableReason"] or (None if actor == "human" else "Human UI session required."),
+                "unavailableReason": current["unavailableReason"] or (None if can_act(actor) else "Human UI session required."),
                 "serverNow": stamp(), "items": [item(repo, jobs, b, current) for b in repo.bindings()]}

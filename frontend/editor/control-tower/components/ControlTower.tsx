@@ -17,6 +17,8 @@ import { useGuardTrend } from "../logic/use-guard-trend";
 import VelinWorktrees from "./VelinWorktrees";
 import { velinWorktrees } from "../logic/velin-worktrees";
 import { useMapWorktrees } from "@/project/architecture-editor/logic/use-map-worktrees";
+import AgentAutonomyBadge from "@/shared/agent-autonomy/components/AgentAutonomyBadge";
+import { AUTONOMY_OFF, type AgentAutonomy } from "@/shared/agent-autonomy/logic/agent-autonomy";
 import "../styles/velin.css";
 
 const FILTERS: { id: VelinFilter; label: string }[] = [
@@ -25,9 +27,11 @@ const FILTERS: { id: VelinFilter; label: string }[] = [
 
 type Props = { project: string; workspace: string; graph: Graph; projectName?: string; onOpen: (nodeId: string) => void; onOpenMap?: () => void;
   /** Schopnost projektu (od App): práce ve worktree se čte jen u projektů, které worktree mají. */
-  worktreeLive?: boolean };
+  worktreeLive?: boolean;
+  /** Plná autonomie agentů projektu (od App, useAgentAutonomy); zapnutá = trvalý štítek nahoře. */
+  autonomy?: AgentAutonomy };
 
-export default function ControlTower({ project, workspace, graph, projectName, onOpen, onOpenMap, worktreeLive = false }: Props) {
+export default function ControlTower({ project, workspace, graph, projectName, onOpen, onOpenMap, worktreeLive = false, autonomy = AUTONOMY_OFF }: Props) {
   const agent = useAgentState(project, workspace);
   const [filter, setFilter] = useState<VelinFilter>("all");
   const view = useMemo(() => agent.state ? velinModel(graph, agent.state, filter) : null, [graph, agent.state, filter]);
@@ -58,6 +62,7 @@ export default function ControlTower({ project, workspace, graph, projectName, o
             className={"velin__filter" + (filter === item.id ? " velin__filter--active" : "") + (item.id === "human" && count("human") > 0 ? " velin__filter--waiting" : "")} onClick={() => setFilter(item.id)}>
             {item.label}{item.id !== "all" ? ` · ${count(item.id)}` : ""}</button>)}
         </div>
+        <AgentAutonomyBadge autonomy={autonomy} place="velin" />
         <span className="velin__source">agent-state · snímek {agent.state ? new Date(agent.state.generatedAt).toLocaleTimeString("cs-CZ") : "—"}</span>
       </header>
       {agent.error && !agent.state && <p className="velin__empty" role="alert">{agent.error}</p>}

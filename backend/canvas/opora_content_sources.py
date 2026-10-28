@@ -3,6 +3,7 @@ import json
 from copy import deepcopy
 from datetime import UTC, datetime
 
+from backend.canvas.authority import acts_as_human
 from backend.canvas.graph import validate_graph
 from backend.canvas.opora_content_config import CONFIG_FIELDS, preview_config_changes
 from backend.canvas.opora_content_source_bounds import preflight_source_bytes
@@ -148,7 +149,7 @@ def _state(canvas, db, project, workspace):
 
 def write_changes_in_transaction(canvas, db, project, workspace, changes, actor, graph):
     """Apply accepted native source changes; the caller owns BEGIN/COMMIT and locks."""
-    if actor != "human" or not db.in_transaction:
+    if not acts_as_human(actor) or not db.in_transaction:
         raise ValueError("Content writes require a human and the caller's SQL transaction.")
     nodes = _nodes(graph)
     validate_graph(graph)
