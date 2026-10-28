@@ -63,6 +63,7 @@ from backend.editor.agent_packet.specification_context import capture_specificat
 from backend.editor.agent_packet.upstream_context import upstream_context
 from backend.project.architecture.journey_runs import latest_journey_runs
 from backend.project.architecture.node_architecture import node_architecture
+from backend.project.architecture.node_model_target import read_model_target
 from backend.project.maps.graphify_runtime import writable
 from backend.project.maps.map_artifacts import main_project_root
 
@@ -516,7 +517,8 @@ class NodeBrief:
         # Výřez mapy architektury (docs/architektura-pro-agenty.md §4): jen karta pod stránkou, mimo `specification`,
         # takže `contextVersion` nemění; cesty zákazníka jsou odvozené ze stejného grafu. `lastRun` cest bere
         # poslední doklady přehrání z `journey_runs` projektu (docs/brana-cesty.md §4).
-        architecture = node_architecture(graph, node_id, latest_journey_runs(self.canvas, project))
+        architecture = node_architecture(graph, node_id, latest_journey_runs(self.canvas, project),
+                                         read_model_target(self.canvas, project, graph, node_id))
         if architecture is not None:
             brief["architecture"] = redact_deep(architecture)
         # Kontrolní pás: deset polí ano / ne; `hint` říká, co doplnit a kam (stejný výpočet jako plátno).
@@ -541,6 +543,10 @@ class NodeBrief:
         # Poučení Schránky: nejvýš 5 živých poučení disciplín fragmentů karty (docs/schranka-neurony.md §5).
         from backend.editor.brief_vault.brief_vault_lessons import card_lessons
         brief["lessons"] = redact_deep(card_lessons(self.canvas.db_for(project), project, workspace, brief["fragments"]["items"]))
+        # Strážci (docs/strazci.md §5): nejvýš 3 otevřené nálezy karty bez strážce mapy (díry mapy nese `holes`),
+        # mimo `specification`, takže `contextVersion` nemění.
+        from backend.canvas.opora_agent_state_guards import node_findings
+        brief["guards"] = redact_deep(node_findings(self.canvas.db_for(project), project, workspace, node_id))
         preview_layer = node_id if node["kind"] == "sector" else node.get("parentId") or ""
         brief["context"]["layoutPreview"] = {"layer": preview_layer, "schematic": True, "svg": layout_preview(graph, preview_layer)}
         if "scenarioRun" in node_state:

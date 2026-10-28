@@ -26,9 +26,9 @@ class GuardContext:
 
 
 def default_guards():
-    """První sada strážců etapy G1: mapa a práce."""
-    from backend.canvas.strazci import guard_mapa, guard_prace
-    return (guard_mapa.GUARD, guard_prace.GUARD)
+    """První sada strážců: mapa a práce (G1), cesty a pravda (G2)."""
+    from backend.canvas.strazci import guard_cesty, guard_mapa, guard_prace, guard_pravda
+    return (guard_mapa.GUARD, guard_prace.GUARD, guard_cesty.GUARD, guard_pravda.GUARD)
 
 
 def validate_registry(guards):

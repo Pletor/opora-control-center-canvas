@@ -33,6 +33,12 @@ def workspace_of(service, project):
     return "main" if service.project_hub.settings(project)["project"]["sourceKind"] == "git" else "draft"
 
 
+def workspaces_of(service, project):
+    """Prostory projektu, ve kterých leží karty: `draft`, u projektu z Gitu `main` a živé worktree."""
+    main = workspace_of(service, project)
+    return [main] if main == "draft" else [main, *(row["id"] for row in service.workspaces(project))]
+
+
 def runs_head(service, project):
     with service.reading(project):
         row = service.db_for(project).execute(

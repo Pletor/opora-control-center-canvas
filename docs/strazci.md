@@ -53,7 +53,8 @@ uvolní až příští claim jako dnes.
 **Jeden zdroj děr mapy.** Díry mapy počítá jen kontrola mapy; agentům je dává `mapGaps` (agent-state) a `holes`
 (brief) podle `docs/architektura-pro-agenty.md` §5.1. Strážce `mapa` je ukládá jako nálezy kvůli **změnám**
 (událost nová / zaniklá díra), odznakům a trendu; `guards` v agent-state a v briefu pravidla mapy (`guard: "mapa"`)
-**vynechají**, aby agent ani člověk neviděl stejnou díru dvakrát.
+**vynechají**, aby agent ani člověk neviděl stejnou díru dvakrát. Totéž platí pro `journey.failed` a `journey.stale` strážce `cesty`
+(kontrola mapy je hlásí jako `journey.unverified`); nálezy vznikají kvůli událostem a trendu, agentovi je dává jen `mapGaps`.
 
 - `GET /api/strazci?project=` → `{guards: [{id, label, every_s, lastRunAt, lastOkAt, lastError?, open}], open:
   {block, warn, info}}`; `GET /api/strazci/findings?project=&node=&open=1`; `GET /api/strazci/trend?project=&metric=&days=`.

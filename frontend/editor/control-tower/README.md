@@ -6,3 +6,9 @@ Velín zobrazuje projekt → vrstvu → sektor → kartu jako pilulky seřazené
 plátna jen jména a příslušnost k sektoru. Model `logic/velin-model.ts` (test `velin-model.test.ts`), dílky
 `components/` (rám a filtry, vrstva, pravý sloupec, Teď běží), styl `styles/velin.css`. Nic nezapisuje:
 klik otevře detail karty přes `frontend/hub/oporahub-card-drawer/open.ts`. Zrcadlo pro agenty `script#oh-velin`.
+
+Strážci (`docs/strazci.md` §5): řádek „Strážci ✓ / ⚠ N“ z `GET /api/strazci?project=` (poslední běh, chyba strážce;
+`logic/use-guard-status.ts`, 30 s) a otevřené nálezy z agent-state `guards.findings` (klik → karta), logika
+`logic/velin-guards.ts` (test `velin-guards.test.ts`), dílek `components/VelinGuards.tsx`. Strážce `mapa` se nepočítá,
+díry mapy má řádek „Díry mapy“. Pilulky „na tebe“ a rozhodnutí dýchají čárkovaným zlatým rámem
+(`docs/zive-zobrazeni-a-knihovna.md` §3, bez pohybu při `prefers-reduced-motion`).

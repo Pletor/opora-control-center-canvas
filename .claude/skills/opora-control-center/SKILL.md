@@ -72,6 +72,8 @@ Karta vložená z knihovny nese v `node-brief` (klíč `node`) `fetch` = co si s
 - Přijetí: základ (`accept_baseline`), návrhy změn zadání, grafu i obsahu (`accept`).
 - Kontrola nahlášeného výsledku (`review`), schválení PR na GitHubu, merge.
 - Uzavření karty (`close_card` = `done.confirmed`).
+- Starší brána 1:1: commit zadání a merge (`/api/opora-commit`, `/api/opora-merge`); připojení repozitáře
+  (`/api/oporahub/repository`) a založení projektu (`/api/local-project`, `/api/connect`).
 - Registr lidí v review: nárok, ověření a zrušení identity (`review-identities/*`).
 - Rozhodnutí za stropem kol review (`review-jobs/decisions`), vypořádání `important` nálezu bez opravy.
 - Pravidla běhů a review (`execution-budgets`, `review-policy`, `proposal-reviews/policy`),
@@ -101,9 +103,16 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | opakovaný nález povýšit na kontrolu | `/api/oporahub/review-recurring/promote` | [review.md](references/review.md) |
 | protipříklad formálního ověření | `verification.investigate` → `/api/oporahub/verifications/{id}/fix-proposal` | [formal.md](references/formal.md) |
 | živě sledovat průběh | `opora_hub.py events --since C` | [events.md](references/events.md) |
+| kdo co na kartě udělal, zdraví kanceláře | `GET /api/activity-log`, `/api/oporahub/process-health` | [events.md](references/events.md) |
+| nálezy strážců (`guards`, `guardFindings`) a co s nimi | `GET /api/strazci/findings`, tabulka pravidel | [strazci.md](references/strazci.md) |
+| výbava karty: měření, náhled před claimem, ověřovatel fixture | cesty `harness-*` pod `/api/oporahub` | [harness.md](references/harness.md) |
+| plán nebo PR jako graf PR Lens, rozdíl commitů zadání | `/api/oporahub/plan-lens`, `/review-lens`, `/diff` | [hub-api.md](references/hub-api.md) |
+| verdikt brány 1:1, zapsat zelený běh testů | `GET /api/sync-report`, `POST /api/check-run` | [hub-api.md](references/hub-api.md) |
 | přesná cesta a kdo ji smí | tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
 | spustit, zastavit, restartovat Oporu | `uv run opora --no-open`, `opora_read.py status` | [provoz.md](references/provoz.md) |
 | přehled plátna, hledání | `opora_read.py view`, `search`, `work-overview` | [api.md](references/api.md) |
+| zpráva jiné kartě, deník, obrázky karty, strom zdrojů | `/api/desktop-v3/agent-messages`, `/api/node-journal`, `/api/workspace/tree` | [api.md](references/api.md) „Karta, zdroje a projekt“ |
+| technický model domény (cíl z MODELu) | `GET /api/studio/model`, v briefu `architecture.model` | [api.md](references/api.md) „Technický model domény“ |
 | stavět strom karet na pracovním plátně | `/api/canvas-plan` (dávka, `--dry-run`), pak návrh grafu k přijetí | [canvas-plan.md](references/canvas-plan.md) |
 | grilling, wayfinder, schránka zadání | `/api/brief-vault`, `opora_cycle.py` | [workflow.md](references/workflow.md), [cycle.md](references/cycle.md) |
 | storyboard a skica momentu | `/api/storyboard`, `/api/drawing` | [storyboard.md](references/storyboard.md) |

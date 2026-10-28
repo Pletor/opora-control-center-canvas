@@ -9,6 +9,9 @@ import { mapGapsForAgents, velinModel, type VelinFilter } from "../logic/velin-m
 import VelinLayer, { VelinCounts } from "./VelinLayer";
 import VelinSide from "./VelinSide";
 import VelinRunning from "./VelinRunning";
+import VelinGuards from "./VelinGuards";
+import { guardFindings, guardLine } from "../logic/velin-guards";
+import { useGuardStatus } from "../logic/use-guard-status";
 import "../styles/velin.css";
 
 const FILTERS: { id: VelinFilter; label: string }[] = [
@@ -23,6 +26,12 @@ export default function ControlTower({ project, workspace, graph, projectName, o
   const view = useMemo(() => agent.state ? velinModel(graph, agent.state, filter) : null, [graph, agent.state, filter]);
   const all = useMemo(() => agent.state ? velinModel(graph, agent.state) : null, [graph, agent.state]);
   const holes = agent.state ? mapGapsForAgents(agent.state) : null;
+  const guardStatus = useGuardStatus(project);
+  const alerts = useMemo(() => {
+    if (!agent.state) return null;
+    const names = new Map(graph.nodes.map(node => [node.id, node.name]));
+    return guardFindings(agent.state, id => names.get(id) ?? id);
+  }, [graph, agent.state]);
   const count = (id: VelinFilter) => !all ? 0 : id === "human" ? all.total.human : id === "problems" ? all.total.bad + all.total.blocked
     : id === "running" ? all.total.run : all.cards;
   return (
@@ -56,6 +65,7 @@ export default function ControlTower({ project, workspace, graph, projectName, o
             Díry mapy pro agenty: <b>{holes.count}{holes.more ? "+" : ""}</b>
             {onOpenMap && <button type="button" className="velin__button" onClick={onOpenMap}>Mapa domény</button>}
           </p>}
+          <VelinGuards line={guardStatus ? guardLine(guardStatus) : null} findings={alerts} onOpen={onOpen} />
           {!view.layers.length && <p className="velin__empty">Agent-state zatím nezná žádnou kartu. Velín ukáže vrstvy, sektory a karty, jakmile vzniknou.</p>}
           {view.layers.map(layer => <VelinLayer key={layer.id} layer={layer} onOpen={onOpen} />)}
           <VelinRunning running={view.running} onOpen={onOpen} />

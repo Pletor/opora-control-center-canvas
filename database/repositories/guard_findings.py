@@ -23,6 +23,11 @@ class GuardFindings:
                                (self.project, guard)).fetchall()
         return {row[0] for row in rows}
 
+    def has_any(self, guard):
+        """Má strážce v projektu aspoň jeden záznam (otevřený i vyřešený)? Ne = první běh."""
+        return self.db.execute("SELECT 1 FROM guard_findings WHERE project_id=? AND guard=? LIMIT 1",
+                               (self.project, guard)).fetchone() is not None
+
     def upsert_new(self, finding, payload, at):
         """Nový nález, nebo znovu otevřený dřív vyřešený (stejný `key`): `first_seen` začíná znovu."""
         self.db.execute(

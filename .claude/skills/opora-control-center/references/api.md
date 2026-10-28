@@ -334,6 +334,53 @@ tabulka zápisů je tu, abys věděl, co se stalo a jak to ověřit.
 | POST `/api/desktop-v3/node` | `{project, workspace, expectedRevision, nodeId, node}` → `{revision, nodeId, node}` | stav jedné karty, `node: null` ho odebere; lease jako u `/block`; stejná pravidla jako `/api/desktop-v3/state` |
 | POST `/api/graph/positions` | `{project, workspace, digest, positions:[{id, x, y}]}` → pohled bez grafu + uložené pozice | jen posun existujících uzlů (≤ 2000), 409 při jiném digestu |
 
+### Technický model domény (Studio, MODEL)
+
+Kontrakt `docs/studio.md` §4. Vlastní model na doménu, oddělený od grafu práce (nikdy nesahá na `/api/graph`).
+Agent ho dostává hotový jako cíl v `node-brief.architecture.model` (výše, řádek `node-brief`); celý model čti jen,
+když potřebuješ víc než uzel své karty.
+
+| Cesta | Parametry / tělo → odpověď | Kdo |
+|---|---|---|
+| GET `/api/studio/model?project=&domain=` | → `{schema: "opora.studio-model/1", domainId, revision, nodes, edges, updatedAt}`; neuložený model = prázdný s `revision: 0` | kdokoli |
+| PUT `/api/studio/model?project=&domain=` | celý model `{schema, domainId (= domain), revision (ze které vycházíš), nodes: [{id, type, name, position {x, y}, config, binding? {nodeId}}], edges: [{id, from {nodeId, portId}, to {nodeId, portId}, type, enabled, label?, condition?}]}` → uložený model s `revision + 1` | člověk ve Studiu; agent jen na výslovný pokyn člověka (MODEL je cíl, který zadává člověk) |
+
+PUT: ≤ 1 MiB, ≤ 1000 uzlů a 5000 hran, `type` hrany z 12 datových typů portu (`http-request`, `sql-query`,
+`event`, …); `binding.nodeId` musí být karta přijaté architektury. 404 neznámý projekt, 409 jiná revize
+(načti znovu), 422 tvar. Čísla ze simulace (rps, latence) do modelu ani do zadání nepiš.
+
+## Karta, zdroje a projekt mimo skripty
+
+Kdy mě číst: potřebuješ adresné zprávy mezi kartami, deník nebo obrázky karty, strom zdrojů projektu nebo
+založení projektu. Tyto cesty nejsou v `opora_read.py` ani `opora_write.py`: v okně OPORA je asistent nevolá,
+mimo okno HTTP (zápis se stejným `Origin`, `Content-Type: application/json` a `X-Opora-Actor`).
+
+```bash
+OPORA=http://127.0.0.1:8740
+curl -s "$OPORA/api/desktop-v3/agent-messages?project=P&workspace=W&nodeId=NODE&direction=incoming"
+```
+
+| Cesta | Parametry / tělo → odpověď | Kdo, poznámka |
+|---|---|---|
+| GET `/api/desktop-v3/agent-messages` | `project, workspace, nodeId, direction=incoming\|outgoing, before?` → `{messages, readOnly, targets [{id, name}], hasMore, nextBefore}` (30 na stranu, nejnovější první) | kdokoli |
+| POST `/api/desktop-v3/agent-messages` | přesně `{project, workspace, sourceNodeId, targetNodeId, kind, body ≤ 12 000, replyToMessageId, idempotencyKey, senderLabel ≤ 120}`; `kind` `handoff\|question\|answer\|blocker\|result\|correction` → `{message: {id, sequence, …, digest, receipt}}` | agent i člověk; neměnná zpráva, opakuj se stejným `idempotencyKey`, změněný obsah = nový klíč; uzavřená karta ani main nepíše (`docs/karta-pro-agenty.md` „Adresovaná komunikace“) |
+| POST `/api/desktop-v3/agent-message-receipt` | přesně `{project, workspace, nodeId (adresát), messageId, digest (SHA-256 zprávy), disposition accepted\|rejected\|needs_clarification, note, recipientLabel}` → `{message}` | jen adresát; `note` povinná mimo `accepted`; potvrzení je neměnné |
+| GET `/api/node-journal` | `project, workspace, node, day=YYYY-MM-DD` → `{revision, text, saved_at, days [{day, revision, saved_at}], readOnly, scope}` | kdokoli; deník karty po dnech |
+| POST `/api/node-journal` | přesně `{project, workspace, node, day, expected_revision, text ≤ 64 000}` → totéž | agent i člověk; CAS jako `node-text` (nový den 0), main jen ke čtení |
+| POST `/api/node-materials/upload` | přesně `{project, workspace, nodeId, dataUrl}` (obrázek png/jpg/gif/webp/svg jako data URL, ≤ 8 MB) → `{file, bytes, mime}` | uloží soubor; odkaz do `nodes[id].materials` stavu zapisuje klient zvlášť |
+| GET `/api/node-materials/file` | `project, nodeId, file` → obrázek | 404 neuložený |
+| POST `/api/node-materials/remove` | `{project, nodeId, file}` → `{removed}` | |
+| GET `/api/workspace/tree` | `project, workspace, path?, offset, limit 1–500 (200), visibility all\|working` → `{root, path, entries [{name, path, kind file\|directory\|link, blocked}], total, hasMore, nextOffset, available, visibility, hiddenCount}` | kdokoli; jen uvnitř kořene zdroje |
+| GET `/api/workspace/image` | `project, workspace, path` → obrázek ze zdroje | 415 jiný typ, 404 chybí |
+| GET `/api/workspace/document` | `project, workspace, path` (`""` = kořen) → `{project, workspace, path, revision, fields {purpose, goal, architecture, technologies, notes, requirements}, settingsRevision, …}` | dokumentace cesty ve zdroji; u kořene `goal` z nastavení projektu |
+| POST `/api/workspace/document` | přesně `{project, workspace, path, expectedRevision, fields (všech 6, ≤ 16 000), nodeId}` (+ `expectedSettingsRevision` u kořene) | píše UI Projektu; agent jen na pokyn člověka |
+| POST `/api/workspace/open-file` | `{project, workspace, path, action vscode\|folder\|folder-vscode\|workspace-vscode}` | otevře okno na počítači člověka; jen loopback, agent nevolá |
+| POST `/api/local-project` | přesně `{name, path (absolutní), confirmed: true}` | **jen člověk** (krok 1, potvrzení v UI); stejná složka vrátí existující projekt |
+| POST `/api/empty-project` | přesně `{name, confirmed: true}` | **jen člověk** |
+| POST `/api/connect` | `{url (GitHub), approved: true}` → úloha klonu | **jen člověk** (schválí konkrétní zdroj) |
+| GET `/api/claude-code/skills` | → `{skills [{id, name, description, …}], disabled}` | skills Claude Code na tomto počítači |
+| POST `/api/claude-code/skills/disabled` | přesně `{disabled: [id]}` → `{disabled}` | nastavení aplikace, **jen člověk** |
+
 ## Chyby
 
 | Kód | Význam | Co udělat |

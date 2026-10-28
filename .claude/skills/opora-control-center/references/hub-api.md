@@ -17,6 +17,9 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 | `GET /api/oporahub/process` | read | starší projekce procesu (`opora_read.py process-sync`) |
 | `GET /api/oporahub/events` | read | feed událostí (`since`, `limit`), [events.md](events.md) |
 | `GET /api/oporahub/events/stream` | read | SSE, `Last-Event-ID` |
+| `GET /api/oporahub/process-health` | read | `opora.process-health/1`: `sources {office, opora, github: {lastAt, ageSeconds}}`, `officeConnected`, `officeFreshMinutes`, `memory {status, reason}`, `listeners` |
+| `POST /api/oporahub/process-events` | kancelář | `{events: [≤ 50 × opora.process-event/1]}` → `{accepted, duplicates, rejected}`; jen agent (`X-Opora-Actor`), člověk 403; posílá agent-office, ne agent karty (`docs/zivy-proces.md` §3) |
+| `GET /api/oporahub/plan-lens` | read (identita) | `area?`; plán jako graf PR Lens `{kind: "plan", area, digest, spec, stats, graphify}`, ETag → 304; bez `X-Opora-Actor` 428, neznámá oblast 404 (`docs/plan-lens.md`) |
 
 ## Plán: návrhy a přijetí
 
@@ -35,6 +38,8 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 | `POST /api/oporahub/content-changes/{id}/rebase` | write | |
 | `POST /api/oporahub/content-changes/{id}/accept` | člověk | |
 | `POST /api/oporahub/proposals` | write | starší návrh první etapy |
+| `GET /api/oporahub/context` | read | `scope`; kontext staršího návrhu (hlava commitů rozsahu) |
+| `GET /api/oporahub/diff` | read | `scope`, `before`, `after` (40znakové ID commitů) → `{before, after, changes: [{op, path, before?, after?}]}` (JSON Pointer); commit bez snímku = 409 |
 | `POST /api/oporahub/proposal-reviews/events` | write | komentář k návrhu |
 | `POST /api/oporahub/proposal-reviews/policy` | člověk | i `/api/oporahub/proposal-reviews/policy/disable` |
 | `GET /api/oporahub/auto-rebase/conflicts` | read | [conflicts.md](conflicts.md) |
@@ -80,6 +85,8 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 | `POST /api/oporahub/review-preview/confirm` | člověk | Potvrdit vzhled pro hlavu |
 | `POST /api/oporahub/design-mode` | člověk | `brand` / `explore` |
 | `GET /api/oporahub/design-system` | read | DESIGN.md z `HEAD`, ETag |
+| `POST /api/oporahub/review-jobs/lens` | běh (token + epocha) | `{executionId, token, epoch, lens}` ≤ 64 KiB; graf PR Lens změny pro otevřený PR a jeho hlavu; posílá agent-office (`docs/oporahub-review-jobs.md` „Diagram PR Lens“) |
+| `GET /api/oporahub/review-lens` | read (identita) | `nodeId` → `{nodeId, lens, executionId?, repository?, number?, prState?, current?, by?, createdAt?, area}`; `current` = graf je pro aktuální hlavu |
 | `GET /api/oporahub/review-identities` | read | |
 | `POST /api/oporahub/review-identities/claim` | člověk | i `/api/oporahub/review-identities/{id}/verify`, `/api/oporahub/review-identities/{id}/revoke` |
 | `GET /api/oporahub/review-metrics` | read | |
@@ -90,6 +97,8 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 | `POST /api/oporahub/review-policy` | člověk | i `/api/oporahub/review-policy/disable` |
 | `POST /api/oporahub/github-evidence` | write | import GitHub důkazů (jen GET na GitHub) |
 | `POST /api/oporahub/reconciliation/bindings` | člověk | i `/api/oporahub/reconciliation/{id}/control` |
+| `GET /api/oporahub/repository` | read | jen `project` → `{applies, bindable, binding {repository, branch, boundAt}, detectedRepository, canConfigure, unavailableReason?}` |
+| `POST /api/oporahub/repository` | člověk | připojení složkového projektu k repozitáři GitHub; i `/api/oporahub/repository/unbind` |
 
 ## Formální ověření
 
@@ -101,7 +110,24 @@ Sloupec **Čím**: `hub` = `opora_hub.py` (nese token běhu/slotu, ten nikdy nep
 | `POST /api/oporahub/verifications/requests` | hub | token běhu; posílá CI / vykonavatel |
 | `POST /api/oporahub/verifications/{id}/report` | hub | token běhu; posílá CI / vykonavatel |
 
+## Harness a strážci
+
+Měření výbavy, náhled před claimem a serverový ověřovatel (cesty `harness-*` pod `/api/oporahub`): [harness.md](harness.md).
+Nálezy strážců (`agent-state.guards`, `GET /api/strazci`): [strazci.md](strazci.md).
+
 ## Mimo OporaHub, ale v procesu
 
 `close_card` = `done.confirmed` přes `/api/desktop-v3/state`: **jen člověk**. Ostatní cesty plátna
 (dávka, graf, texty, storyboard) a čtecí příkazy jsou v [api.md](api.md).
+
+Starší brána 1:1 (verdikt Oracle, `docs/synchronizace-pravdy.md`), pod `/api`, ne `/api/oporahub`:
+
+| Cesta | Čím | Poznámka |
+|---|---|---|
+| `GET /api/sync-report` | read | `project`, `workspace` (výchozí `draft`) → `{project, workspace, observedAt, gitHead, signals: [{id, type, severity, subject, evidence, action}], verdicts: [{scope, state, canCommit, canMerge, checks, blocking, nextSteps}], counts}` |
+| `GET /api/check-run` | read | `project`, `workspace`, `scope` → nejnovější běh `{scopeId, sha, status, detail, recordedAt}`, bez běhu `{status: null}` |
+| `POST /api/check-run` | HTTP (agent i člověk) | `{project, workspace, scope, status: green\|red, sha (7–64 hex), detail? ≤ 2000}`; append-only, aplikace testy nespouští; zapiš jen výsledek, který jsi skutečně naměřil na tomto `sha` |
+| `GET /api/opora-commits` | read | `project`, `workspace`, `scope`, `limit` 1–100 (20) → `{items, head, main}` |
+| `GET /api/opora-commit` | read | `+ id` (40 znaků) → commit se `specificationSnapshot` |
+| `POST /api/opora-commit` | člověk | commit zadání rozsahu (`{project, workspace, scope, subject?}`); agent 403 |
+| `POST /api/opora-merge` | člověk | `{project, workspace, scope, id}`, jen aktuální hlava a `canMerge`; jinak 409 s `blocking`, `nextSteps` |

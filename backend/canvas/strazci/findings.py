@@ -5,6 +5,10 @@ plus nepovinné `workspaceId` (prostor, do kterého jde událost; výchozí `dra
 svých aktuálních nálezů; `apply` ho porovná s otevřenými nálezy v tabulce `guard_findings`:
 nový → vloží a vydá `guard.alert`, trvající → jen `last_seen` (a aktuální znění, bez události),
 zmizelý → `resolved_at` a `guard.resolved`. Vyřešené nálezy starší 14 dní se při každém zápisu smažou.
+
+Žádná záplava: první běh strážce v projektu (v tabulce o něm není žádný záznam) založí nálezy bez jednotlivých
+událostí a vydá jednu souhrnnou `guard.alert` s `data: {guard, rule: "baseline", count, bySeverity, severity,
+message}`; stejně jeden běh s víc než `BATCH_LIMIT` novými nálezy vydá jednu souhrnnou událost (`rule: "batch"`).
 Vše v jedné transakci pod zámkem projektu, takže řádek a událost vznikají spolu.
 """
 from datetime import UTC, datetime
@@ -15,6 +19,7 @@ from database.repositories.guard_findings import GuardFindings
 SEVERITIES = ("info", "warn", "block")
 RETENTION_DAYS = 14
 DEFAULT_WORKSPACE = "draft"
+BATCH_LIMIT = 20
 
 
 def at_of(now):
@@ -64,6 +69,22 @@ def _event(db, project, kind, finding, actor):
                node_id=finding.get("nodeId"), execution_id=finding.get("executionId"), actor=actor, data=data)
 
 
+def summary(guard, rule, items):
+    """Data souhrnné `guard.alert` za dávku nových nálezů (první běh nebo víc než `BATCH_LIMIT`)."""
+    by_severity = {severity: sum(item["severity"] == severity for item in items) for severity in reversed(SEVERITIES)}
+    highest = next(severity for severity, count in by_severity.items() if count)
+    text = "první běh založil" if rule == "baseline" else "jeden běh přinesl"
+    return {"guard": guard, "rule": rule, "count": len(items), "bySeverity": by_severity, "severity": highest,
+            "message": f"Strážce {guard}: {text} {len(items)} nových nálezů."}
+
+
+def _summary_event(db, project, guard, rule, items, actor):
+    workspaces = {item.get("workspaceId") or DEFAULT_WORKSPACE for item in items}
+    workspace = workspaces.pop() if len(workspaces) == 1 else DEFAULT_WORKSPACE
+    emit_event(db, project_id=project, workspace_id=workspace, kind="guard.alert", actor=actor,
+               data=summary(guard, rule, items))
+
+
 def apply(service, project, guard, findings, now):
     """Zapíše diff výstupu strážce; vrací `{new, ongoing, resolved}` se seznamy klíčů."""
     current = validate(guard, findings)
@@ -74,13 +95,18 @@ def apply(service, project, guard, findings, now):
     with service.lock_for(project), db:
         db.execute("BEGIN IMMEDIATE")
         store = GuardFindings(db, project)
+        baseline = not store.has_any(guard)
         open_keys = store.open_keys(guard)
         new, ongoing, resolved = diff(open_keys, current)
         for key in ongoing:
             store.touch(current[key], payload_of(current[key]), at)
+        quiet = baseline or len(new) > BATCH_LIMIT
         for key in new:
             store.upsert_new(current[key], payload_of(current[key]), at)
-            _event(db, project, "guard.alert", current[key], actor)
+            if not quiet:
+                _event(db, project, "guard.alert", current[key], actor)
+        if quiet and new:
+            _summary_event(db, project, guard, "baseline" if baseline else "batch", [current[key] for key in new], actor)
         if resolved:
             gone = {item["key"]: item for item in store.list(open_only=True, limit=100_000) if item["key"] in resolved}
             for key in resolved:
