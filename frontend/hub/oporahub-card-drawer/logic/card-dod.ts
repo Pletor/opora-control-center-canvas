@@ -9,8 +9,9 @@ export type DodKey = typeof DOD_KEYS[number];
 export type DodState = "done" | "active" | "todo" | "unknown";
 export type DodSegment = { key: DodKey; label: string; state: DodState; detail: string; progress: number };
 export type DodView = { source: "backend" | "computed"; done: boolean; segments: DodSegment[];
-  /** Druh brány z backendu: `review` (brána OporaHubu) nebo `external` (ochrana větve na GitHubu). */
-  gate: "review" | "external" | null };
+  /** Druh brány z backendu: `review` (brána OporaHubu), `external` (ochrana větve na GitHubu) nebo `local`
+   * (projekt bez GitHubu: sloučení ohlášené `local-merge` + kontroly na commitu, docs/lokalni-slouceni.md). */
+  gate: "review" | "external" | "local" | null };
 
 const LABEL: Record<DodKey, string> = {
   steps: "Kroky", card_acceptance: "Akceptace karty", gate_ready: "Brána", merged: "Sloučeno",
@@ -47,7 +48,7 @@ export function backendDod(raw: unknown): Record<DodKey, boolean> | null {
 
 function backendGate(raw: unknown): DodView["gate"] {
   const gate = raw && typeof raw === "object" ? (raw as Record<string, unknown>).gate : null;
-  return gate === "review" || gate === "external" ? gate : null;
+  return gate === "review" || gate === "external" || gate === "local" ? gate : null;
 }
 
 function stepsSegment(facts: DodFacts): Omit<DodSegment, "key" | "label"> {
@@ -95,6 +96,7 @@ export function dodView(facts: DodFacts): DodView {
     const state: DodState = fromBackend ? (fromBackend[key] ? "done" : computed[key] === "active" ? "active" : "todo") : computed[key];
     const progress = key === "steps" ? (state === "done" ? 1 : steps.progress) : state === "done" ? 1 : 0;
     const detail = key === "steps" ? steps.detail : key === "gate_ready" && gate === "external" ? "GitHub"
+      : key === "gate_ready" && gate === "local" ? "lokálně"
       : key === "journeys" && state !== "done" ? blockingJourneysText(facts.card?.dod)
       : state === "unknown" ? "nenapojeno" : "";
     return { key, label: LABEL[key], state, detail, progress };

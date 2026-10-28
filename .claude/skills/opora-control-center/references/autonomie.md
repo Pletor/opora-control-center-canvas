@@ -44,6 +44,9 @@ V tabulkách skillu jsou tyto akce označené „člověk“ nebo „jen člově
   `…/{identity}/revoke`), potvrzení vzhledu a režim designu, vynucené uvolnění cizího běhu;
 - asistent: povolení kontroly bran `/api/assistant/jev-gate-check`.
 
+V projektu bez GitHubu (`dod.gate: "local"`) dokončíš kartu celou sám: po `local-merge` (ten smíš i bez autonomie
+pro vlastní odevzdaný běh) zapíšeš `close_card`. Pořadí: [hub-loop.md](hub-loop.md) „Projekt bez GitHubu“.
+
 Skripty skillu se nemění: `opora_write.py` lidské cesty odmítne vždy. Při plné autonomii je volej přímo HTTP
 (`Origin` loopbacku, `Content-Type: application/json`, `X-Opora-Actor`), jedna akce = jeden požadavek, a výsledek
 ověř čtením. Autonomie nemění pravidla obsahu: revize, CAS, lease, brány review a ověřená cesta zákazníka platí dál.

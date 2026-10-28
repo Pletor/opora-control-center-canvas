@@ -59,8 +59,13 @@ def parse_actor(header):
     return "agent", name
 
 
-def describe(body, query):
-    """Projekt, prostor, karty a krátký popis z těla JSON a query; nic z obsahu textů."""
+COMMIT = re.compile(r"[0-9a-f]{7,64}")
+
+
+def describe(body, query, path=""):
+    """Projekt, prostor, karty a krátký popis z těla JSON a query; nic z obsahu textů.
+
+    `path` končící `/local-merge` dá popisu `local_merge commit=<sha>` (docs/lokalni-slouceni.md §2)."""
     try:
         payload = json.loads(body) if body else {}
     except (ValueError, UnicodeDecodeError):
@@ -78,6 +83,10 @@ def describe(body, query):
         if isinstance(extensions, list):
             nodes.extend(item["node"][1:] for item in extensions if isinstance(item, dict)
                          and isinstance(item.get("node"), str) and item["node"].startswith("@"))
+    if path.endswith("/local-merge"):
+        commit = payload.get("commit")
+        parts.insert(0, "local_merge" + (" commit=" + commit if isinstance(commit, str) and COMMIT.fullmatch(commit)
+                                         else ""))
     op = payload.get("op")
     if isinstance(op, dict) and isinstance(op.get("kind"), str):
         parts.append("op=" + op["kind"])

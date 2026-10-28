@@ -73,7 +73,7 @@ oprav je první (`GET /api/project-architecture/map-check/worktrees` ukáže cel
 | `review.claim`, `review.self_checks`, `review.promote_to_check` | agent (pracovník review) | [review.md](review.md) |
 | `verification.investigate`, `verification.fix` | agent | [formal.md](formal.md) |
 | `pr.update_branch`, `link_pull_request` | agent-office (údržba PR) | nedělej ručně |
-| `accept_baseline`, `accept`, `review`, `close_card` | **jen člověk** | napiš člověku, viz [SKILL.md](../SKILL.md) „Co patří jen člověku“ |
+| `accept_baseline`, `accept`, `review`, `close_card` | **jen člověk** (s `autonomy.full` i agent) | napiš člověku, viz [SKILL.md](../SKILL.md) „Co patří jen člověku“; s plnou autonomií [autonomie.md](autonomie.md) |
 
 ## 3. Převezmi kartu
 
@@ -160,6 +160,29 @@ Po výsledku skonči. Potvrzení je tvrzení agenta, ne ověření ani hotová k
 (popis nese `Opora-Execution` a `Opora-Revision`), review řídí [review.md](review.md), merge
 a uzavření karty dělá člověk. Hotovo = všechny kroky `done` + acceptance karty + brána `ready`
 + merge + zápis do plánu + `close_card` člověkem.
+
+## Projekt bez GitHubu (režim `local`)
+
+Projekt bez vazby na GitHub (lokální složka, Git bez vzdáleného repa) nemá PR ani Office, která by ho otevřela.
+Poznáš ho podle `cards[].dod.gate == "local"` v `agent-state`. Kontrakt: `docs/lokalni-slouceni.md`.
+Sloučení ohlásíš sám a s plnou autonomií ([autonomie.md](autonomie.md)) kartu i uzavřeš. Pořadí práce:
+
+1. **Kroky:** claim → kroky `spec.steps` → `results` se `stepResults` (`dod.steps`).
+2. **Přijetí karty:** výsledek běhu nad aktuálním přijatým zadáním (`dod.card_acceptance`); po změně zadání nový běh.
+3. **Commit:** práci commitni do repa projektu a slouč do jeho aktuální větve (lokálně, bez push).
+4. **`local-merge`:** `POST /api/oporahub/executions/{identifier}/local-merge` s `{project, workspace, commit}`
+   (sloučený commit, 7–64 hex). Server ověří commit v repu (`422` neexistuje, `409` není předkem `HEAD`) a zapíše
+   vazbu `source: "local"` a zápis plánu zpět (`dod.merged`, `dod.plan_written_back`). Týž commit znovu nic nemění,
+   novější commit nahradí starší vazbu.
+5. **Kontroly:** má-li karta `checks` nebo běh kontrol, zapiš skutečně naměřený výsledek na sloučeném commitu
+   `POST /api/check-run` `{project, workspace, scope: <nodeId>, status, sha: <commit>}`. `dod.gate_ready` = sloučeno
+   + poslední běh karty je `green` na tomto commitu (karta bez kontrol: jen sloučeno).
+6. **Cesty:** karta na cestě zákazníka čeká na prošlé čerstvé ověření (`dod.journeys`, [journey-run.md](journey-run.md)).
+7. **`close_card`:** když `dod.missing == ["human_close"]` (akce `close_card` má `preconditions.gate: "local"`):
+   s `autonomy.full` zapiš `done.confirmed` přes `POST /api/desktop-v3/state` (`by: "agent"`), jinak napiš člověku.
+   Akce v `agent-state` dál nese `human_only`; s plnou autonomií ji smíš i tak (server rozhodne podle projektu).
+
+`project` a `workspace` posílej vždy v těle: podle nich server pozná projekt a jeho autonomii a běh čte v něm.
 
 ## Chyby
 

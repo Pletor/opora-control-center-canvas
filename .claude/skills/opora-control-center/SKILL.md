@@ -18,6 +18,8 @@ Chybí-li mu v OPOŘE proces nebo cesta, podá návrh nebo kartu na OPORU, míst
 **Jeden zdroj stavu:** OporaHub `agent-state`. **Jeden model plánu:** přijatá revize
 verzovaná návrhy změn (changesety). **Jedna definice hotovo:** všechny kroky `done` +
 acceptance karty + brána review `ready` + merge + zápis do plánu + ověřená cesta zákazníka + `close_card` člověkem.
+Projekt bez GitHubu (`dod.gate: "local"`): merge ohlásíš sám `local-merge` (kroky → přijetí karty → commit →
+`local-merge` → kontroly → cesty → `close_card`), [hub-loop.md](references/hub-loop.md) „Projekt bez GitHubu“.
 Karta na cestě zákazníka se uzavře až po prošlém čerstvém ověření cesty (plán `journey-plan`, doklad `journey-runs`):
 sekce nese `data-opora-section="<id sekce>"` a cestu přehraješ `tools/journey_run.py` ([journey-run.md](references/journey-run.md)).
 Backend vede účetnictví, ty děláš jen práci uvnitř kroku.
@@ -53,7 +55,8 @@ Detail a tvar výsledku: [hub-loop.md](references/hub-loop.md).
    svůj výsledek, ověřená `acceptance`, commit po kroku. Heartbeat po ⅓ TTL.
 6. Vlastní kontroly (`tests`, `build`) na posledním commitu → `selfChecks` s `headSha`.
 7. `opora_hub.py results --execution E --result-file F` (`summary`, `stepResults`, `selfChecks`).
-8. Konec. PR otevře Office, review a merge běží dál, kartu uzavře člověk.
+8. Konec. PR otevře Office, review a merge běží dál, kartu uzavře člověk. V projektu bez GitHubu
+   (`dod.gate: "local"`) pokračuj commitem a `local-merge` ([hub-loop.md](references/hub-loop.md)).
 
 409 kdekoli = `state --fresh` a nové ID akce; stejný požadavek znovu nepomůže.
 
@@ -125,6 +128,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | přesná cesta a kdo ji smí | tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
 | jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy, asistent) | tabulky cest | [routy.md](references/routy.md) |
 | přijmout, uzavřít, nastavit bez člověka | plná autonomie (`autonomy.full`) | [autonomie.md](references/autonomie.md) |
+| ohlásit sloučení v projektu bez GitHubu | `POST /api/oporahub/executions/{identifier}/local-merge` | [hub-loop.md](references/hub-loop.md) |
 | spustit, zastavit, restartovat Oporu | `uv run opora --no-open`, `opora_read.py status` | [provoz.md](references/provoz.md) |
 | přehled plátna, hledání | `opora_read.py view`, `search`, `work-overview` | [api.md](references/api.md) |
 | zpráva jiné kartě, deník, obrázky karty, strom zdrojů | `/api/desktop-v3/agent-messages`, `/api/node-journal`, `/api/workspace/tree` | [api.md](references/api.md) „Karta, zdroje a projekt“ |

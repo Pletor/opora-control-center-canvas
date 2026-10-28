@@ -59,6 +59,17 @@ def _action(verb, method, path, target, head, preconditions, blocked=None, budge
     return value
 
 
+def _autonomous(actions):
+    """Při plné autonomii je akce blokovaná jen kvůli člověku pro agenta `ready` s `autonomy: "full"`."""
+    out = []
+    for action in actions:
+        if action.get("blockReason") == "human_only":
+            action = {key: value for key, value in action.items() if key != "blockReason"}
+            action.update(status="ready", autonomy="full")
+        out.append(action)
+    return out
+
+
 class AgentState:
     def __init__(self, canvas, clock=time.time):
         self.canvas, self.clock = canvas, clock
@@ -133,6 +144,10 @@ class AgentState:
             dag = dag_state.facts(canvas, project, workspace, linked)  # Card DAG: blockedBy, topoIndex
             # Merged PRs too; None = review jobs disabled, GitHub branch protection is the gate.
             gates = card_done.gates_by_execution(db, project, workspace) if linked else {}
+            # Project without GitHub: gate `local` with each card's checks on its merged commit (lokalni-slouceni.md).
+            local = (card_done.local_checks_by_card(canvas, project, workspace, canvas.view(project, workspace)["graph"],
+                                                    linked or [], list(cards))
+                     if card_done.local_mode(canvas, project) else None)
             cursor, last_events = outbox.read(db, project, workspace)  # Same lock + connection = same snapshot.
             holes, holes_total = map_gaps.read(canvas, project, workspace)  # Main check + worktree overlay.
             alerts = guards_state.open_findings(db, project, workspace)  # Guard findings without map holes.
@@ -142,7 +157,7 @@ class AgentState:
         to_review = [item for item in reported if item["acceptedRevision"] == accepted
                      and not cards.get(item["nodeId"], {}).get("doneConfirmed")]
         actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards,
-                                          reviewing, gates)
+                                          reviewing, gates, local)
         actions, decisions = formal.merge(actions, decisions, attention, project, workspace)
         # One priority list (rules.VERB_ORDER) over core, gate, formal, recurring and auto-rebase actions.
         actions = rules.ordered([*actions, *promotions, *rebasing_state.actions(project, workspace, rebasing)])
@@ -159,9 +174,12 @@ class AgentState:
         gaps = [gap for gap in rebasing_state.gaps(gaps, rebasing) if reviewing is None or gap[0] != "ai_review"]
         entries = outbox.attach(lease_state.attach(plan_steps.attach(dag_state.enrich(
             card_stages.project(cards, accepted, latest, claims, linked, reviewing, now), dag, actions, reviewing),
-            cards, linked, gates), latest, now), last_events)
+            cards, linked, gates, local), latest, now), last_events)
         entries = guards_state.attach(entries, guards_state.by_card(alerts))
         shown, total, next_offset = card_stages.page(entries, cards_offset)  # cap only cards[], never actions
+        autonomy = project_autonomy(self.canvas, project)
+        if autonomy["full"]:
+            actions = _autonomous(actions)
         return {"schemaVersion": SCHEMA_VERSION,
                 "generatedAt": datetime.fromtimestamp(now, UTC).isoformat(timespec="seconds"),
                 "projectId": project, "workspaceId": workspace, "heads": heads, "stages": stages,
@@ -174,11 +192,11 @@ class AgentState:
                 "cardsTotal": total, "cardsNextOffset": next_offset, "eventsCursor": cursor,
                 "mapGaps": holes, "mapGapsTotal": holes_total, "guards": guards_state.summary(alerts),
                 # Plná autonomie agentů (docs/plna-autonomie-agenta.md §3).
-                "autonomy": project_autonomy(self.canvas, project)}
+                "autonomy": autonomy}
 
     @staticmethod
     def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None,
-                gates=None):
+                gates=None, local=None):
         accepted, graph, actions, decisions = context["acceptedHead"], context["graphDigest"], [], []
         query = urlencode({"project": project, "workspace": workspace})
 
@@ -241,7 +259,9 @@ class AgentState:
             # Precondition = the single definition of done minus the human close (opora_card_done).
             done = card_done.card_done_state(card_done.facts(cards.get(item["cardId"], {}), item,
                                                              (gates or {}).get(item["executionId"]),
-                                                             external=gates is None))
+                                                             external=gates is None,
+                                                             local_checks=None if local is None
+                                                             else local.get(item["cardId"], True)))
             ready = card_done.closable(done)
             action = _action("close_card", "POST", "/api/desktop-v3/state", item["cardId"], item.get("mergeSha"),
                              {"executionId": item["executionId"], "mergeSha": item.get("mergeSha"),
