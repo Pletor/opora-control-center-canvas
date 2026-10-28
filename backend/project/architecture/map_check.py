@@ -265,6 +265,15 @@ def check_map(graph, runs=None, locate=False):
     return {"findings": findings, "summary": {rule: sum(f["rule"] == rule for f in findings) for rule in RULES}}
 
 
+def finding_key(finding):
+    """Identita nálezu `rule|nodeId|edgeId|journeyId|solverId|message` (chybějící část prázdná).
+
+    Jediná funkce klíče: sdílí ji dávka plánu (`canvas_plan_map_check`, §5.3) i kontrola přes worktree
+    (`map_check_worktrees`, `docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md` §3). Zpráva je v klíči, protože
+    jedna karta nese víc nálezů téhož pravidla; místo řešení (`solverId`), protože hrana může změnit zdroj."""
+    return "|".join(str(finding.get(part) or "") for part in ("rule", "nodeId", "edgeId", "journeyId", "solverId", "message"))
+
+
 def map_check(service, project, locate=False):
     """Kontrola přijaté architektury projektu (`GET /api/project-architecture/map-check`; `locate=1` přidá `solverId`)."""
     return check_map(architecture_graph(service, project), latest_journey_runs(service, project), locate=locate)

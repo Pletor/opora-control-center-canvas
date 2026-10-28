@@ -1,4 +1,4 @@
-"""Rozhraní Projektu: kontrola mapy architektury bez modelu (docs/architektura-pro-agenty.md §5), odvozené
+"""Rozhraní Projektu: kontrola mapy architektury bez modelu (docs/architektura-pro-agenty.md §5) i přes worktree, odvozené
 cesty zákazníka (§6) a brána cesty (docs/brana-cesty.md): plán přehrání, odevzdání dokladu a krátkodobý stav
 „cesta právě běží“ (§3a, jen v paměti procesu). Model se nevolá."""
 
@@ -22,6 +22,7 @@ from backend.project.architecture.journey_runs import (
     record_journey_run,
 )
 from backend.project.architecture.map_check import map_check
+from backend.project.architecture.map_check_worktrees import worktree_overlay
 from backend.project.architecture.work_status import architecture_graph
 
 
@@ -56,6 +57,11 @@ def create_project_map_check_router(service, running=None):
     def map_check_view(project: str = Query(min_length=1, max_length=64), locate: bool = False):
         # `locate=1` přidá nálezům `solverId` (místo řešení, §5.1); rozklad stránky podle něj páruje díry cest (§5.3).
         return map_check(service, project, locate=locate)
+
+    @router.get("/map-check/worktrees")
+    def map_check_worktrees_view(project: str = Query(min_length=1, max_length=64)):
+        # Díry mainu a co s nimi dělá každý aktivní worktree (docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md §3).
+        return _journey_errors(lambda: worktree_overlay(service, project))
 
     @router.get("/journeys")
     def journeys_view(project: str = Query(min_length=1, max_length=64)):

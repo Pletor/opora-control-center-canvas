@@ -516,7 +516,8 @@ class NodeBrief:
         brief["evidence"] = redact_deep(node_state.get("evidence"))
         # Výřez mapy architektury (docs/architektura-pro-agenty.md §4): jen karta pod stránkou, mimo `specification`,
         # takže `contextVersion` nemění; cesty zákazníka jsou odvozené ze stejného grafu. `lastRun` cest bere
-        # poslední doklady přehrání z `journey_runs` projektu (docs/brana-cesty.md §4).
+        # poslední doklady přehrání z `journey_runs` projektu (docs/brana-cesty.md §4). `graph` je pohled prostoru karty,
+        # takže `holes` ve worktree počítá `check_map` nad worktree (docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md §4).
         architecture = node_architecture(graph, node_id, latest_journey_runs(self.canvas, project),
                                          read_model_target(self.canvas, project, graph, node_id))
         if architecture is not None:

@@ -215,6 +215,12 @@ práce `{rule, message, nodeId, journeyId?, edgeId?, owner}`; `nodeId` je karta,
 [architektura pro agenty §5.1](architektura-pro-agenty.md). Nic se neodškrtává; díra zmizí, když ji kontrola
 mapy přestane hlásit.
 
+Worktree ([kontrola mapy a worktree](navrhy/2026-10-28-kontrola-mapy-a-worktree.md) §4): v dokumentu prostoru
+worktree `w` díra, kterou `w` už zavřel, chybí; díra zavřená v jiném worktree nese `inProgress: {workspaceId,
+branch, actor}` (na ní se pracuje, agent ji nebere); díry, které `w` otevřel, jsou na začátku s `origin:
+"worktree"` (agent je způsobil, opraví je první). Na `main` / `draft` platí jen `inProgress`. `mapGapsTotal`
+počítá výsledek. Strážce `mapa` a trend čtou dál jen main.
+
 ## Nálezy strážců (`guards`)
 
 `guards = {open: {block, warn, info}, findings: [...]}`: otevřené nálezy [strážců](strazci.md) prostoru

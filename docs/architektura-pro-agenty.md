@@ -278,6 +278,12 @@ Díra, která je „práce pro agenty / rozkladače“, musí dojít k agentovi 
   `journey.broken` mají `owner: "human"`), seřazené jako kontrola mapy; `nodeId` je karta, na které se díra
   řeší (u nálezu cesty stránka zdroje přechodu, u hrany zdroj hrany). Strop 50 položek + `mapGapsTotal`. Agent si
   z ní bere práci stejně jako z karet; díra zmizí sama, až ji kontrola mapy přestane hlásit (nic se nezapisuje).
+- **Worktree** ([kontrola mapy a worktree](navrhy/2026-10-28-kontrola-mapy-a-worktree.md), jeden zdroj
+  `map_check_worktrees.py`, čtení `GET /api/project-architecture/map-check/worktrees?project=`): v agent-state
+  prostoru worktree `w` díra, kterou `w` zavřel, v `mapGaps` chybí; díra zavřená v jiném worktree nese
+  `inProgress: {workspaceId, branch, actor}` (agent ji nebere); díry, které `w` otevřel, jdou na začátek fronty
+  s `origin: "worktree"`. Na `main` / `draft` jen `inProgress`. `mapGapsTotal` počítá výsledek. `holes` v briefu
+  karty prostoru `w` počítá `check_map` nad pohledem `w`.
 
 ### 5.2 Rozklad stránky (dodatek 2026-10-28)
 
@@ -315,7 +321,8 @@ Dávka plánu díry neodmítá; jen řekne, které **otevřela**. Odmítnutí z�
   locate=True)` nad grafem **před** dávkou a **po** ní (bez `runs`: `journey.unverified` se nehodnotí).
 - **Identita nálezu:** `rule` + cíl (`nodeId` / `edgeId` / `journeyId`) + `place` + `message`; `place` = `solverId`
   (karta nebo aplikace, kde se díra řeší, §5.1). Zpráva je v identitě, protože jedna karta nese víc nálezů
-  téhož pravidla (sekce stránky, přechody cesty).
+  téhož pravidla (sekce stránky, přechody cesty). Počítá ji `map_check.finding_key`, tentýž klíč jako kontrola
+  mapy přes worktree.
 - **Odpověď:** `warnings: [{rule, message, nodeId?, place?}]` = nálezy, které jsou po dávce a před ní nebyly,
   v pořadí kontroly mapy, nejvýš 20; bez nových děr `[]`. Díra, která existovala už před dávkou, varováním není.
   Dávka se kvůli nim nikdy neodmítne. Provádí `backend/canvas/canvas_plan_map_check.py`.

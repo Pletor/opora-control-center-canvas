@@ -121,12 +121,16 @@ def compose_work_status(domains, workspaces, sources, now, card_name=lambda wid,
             "mainSessions": main}
 
 
+def accepted_workspace(service, project):
+    """Prostor přijatého grafu: `main` u Git projektu, jinak `draft`."""
+    return "main" if service.project_hub.settings(project)["project"]["sourceKind"] == "git" else "draft"
+
+
 def architecture_graph(service, project):
     """Přijatý graf projektu (architektura složená s obsahem `main`, u projektu bez Gitu `draft`).
 
     Jediné místo, které ví, odkud se architektura s komponentami pod stránkami čte."""
-    wid = "main" if service.project_hub.settings(project)["project"]["sourceKind"] == "git" else "draft"
-    return service.view(project, wid)["graph"]
+    return service.view(project, accepted_workspace(service, project))["graph"]
 
 
 def architecture_domains(service, project):

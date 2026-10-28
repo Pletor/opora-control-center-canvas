@@ -34,8 +34,10 @@ def make_client(source_kind="git"):
         seen.append((project, wid))
         return {"graph": graph}
 
+    workspaces = [{"id": "w1", "branch": "work/w1", "actor": "agent", "node_id": "app"}]
     service = SimpleNamespace(project_hub=SimpleNamespace(settings=settings), view=view, db_for=lambda project: db,
-                              reading=lambda project: nullcontext(), lock_for=lambda project: threading.RLock())
+                              reading=lambda project: nullcontext(), lock_for=lambda project: threading.RLock(),
+                              workspaces=lambda project: workspaces)
     app = FastAPI()
     app.include_router(create_project_map_check_router(service))
     return TestClient(app), seen
@@ -67,6 +69,18 @@ def test_map_check_uses_draft_without_git_and_requires_project():
     assert client.get("/api/project-architecture/map-check", params={"project": "p1"}).status_code == 200
     assert seen == [("p1", "draft")]
     assert client.get("/api/project-architecture/map-check").status_code == 422
+
+
+def test_map_check_worktrees_returns_the_overlay():
+    client, seen = make_client()
+    body = client.get("/api/project-architecture/map-check/worktrees", params={"project": "p1"}).json()
+    assert seen == [("p1", "main"), ("p1", "w1")]
+    assert [(f["rule"], f["solverId"]) for f in body["main"]] == [
+        ("journey.broken", "app"), ("journey.unverified", "app"), ("page.no-goal", "p"), ("edge.carries-unset", "a")]
+    assert body["worktrees"] == [{"workspaceId": "w1", "branch": "work/w1", "actor": "agent", "domainId": "app",
+                                  "closed": [], "opened": []}]
+    assert client.get("/api/project-architecture/map-check/worktrees", params={"project": "nikdo"}).status_code == 404
+    assert client.get("/api/project-architecture/map-check/worktrees").status_code == 422
 
 
 def test_journeys_returns_derived_steps_of_the_accepted_graph():
