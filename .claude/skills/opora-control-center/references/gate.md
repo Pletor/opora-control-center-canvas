@@ -1,0 +1,46 @@
+# Brána mozku: práce pracovníka přes frontu úkolů
+
+Kdy mě číst: projekt má zapnutou bránu mozku (`GET /api/brain/gate-setting?project=P` → `enabled: true`) a ty jsi
+pracovník (např. z agent-office). Do takového projektu nezapisuješ přímo: každý zápis mimo bránu dostane 403
+`gate_required`. Úkol si vezmeš z fronty, uděláš ho ve svém repu, spustíš kontroly a nahlásíš sha. Kontrakt:
+`docs/brain-gate.md` §4 a §6 (H1b).
+
+## Klient `opora_gate.py` (jen standardní knihovna)
+
+```bash
+python "<SKILL_DIR>/scripts/opora_gate.py" session --project P --workspace W --name office-dev-1
+python "<SKILL_DIR>/scripts/opora_gate.py" next
+python "<SKILL_DIR>/scripts/opora_gate.py" ask "Smím upravit sdílený modul X?"
+python "<SKILL_DIR>/scripts/opora_gate.py" report --task ht_… --sha "$(git rev-parse HEAD)" --summary "…" \
+  --check "npm test=green" --check "uv run pytest backend/x=green"
+python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
+```
+
+- Adresa z `OPORA_BASE_URL` (výchozí `http://127.0.0.1:8740`); brána je jen loopback, tunelem nejde.
+- Token relace leží v `<cwd>/.opora/gate.json` (`.opora/` se připíše do `.gitignore`), platí 8 h. Nevypisuj ho.
+- Výstup je jeden JSON. Kód 0 ok, 1 chyba klienta (chybí relace, server neběží), 2 server odmítl: řiď se `code` a `hint`.
+
+## Smyčka pracovníka
+
+1. `next` → `answer.task = {id, title, nodeId, status, attempts, body}`; `body` má pevný tvar
+   `{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{intent?, rules[]?, pattern?}, commit}`.
+   Opakované `next` vrátí tentýž držený úkol. Prázdná fronta: `{task: null, plan: [{id, name, stage}]}` (nejvýš 20
+   otevřených karet); úkol si nevymýšlej, zeptej se (`ask`) nebo čekej.
+2. Pracuj jen na `files`, nesahej na `dontTouch`. Kontroly spusť sám; nevymýšlej sha ani výsledky.
+3. `report` s `sha` (7–40 hex) a aspoň jednou kontrolou. Všechny zelené = `done`. Červená = úkol se vrátí do `ready`
+   (`attempts + 1`) a `next` ho dá znovu; druhá červená = `failed`. Kontroly se zapíší do `check_runs` u sha.
+4. Chyby: `task_not_assigned` (409, úkol nedržíš), `invalid_sha`, `checks_required`, `invalid_payload` (422),
+   `task_not_found` (404), `gate_token_invalid` (401, nová `session`), `gate_scope` (403, jiný projekt).
+
+## Cesty
+
+| Cesta | Kdo | Co |
+|---|---|---|
+| `/api/gate/sessions` | kdokoli na loopbacku | `POST {project, workspace, worker: {name, office?, floor?}}` → `201 {sessionId, token, expiresAt}` |
+| `/api/gate/requests` | token pracovníka | `POST {kind: next \| ask \| report \| change, body}` → `201 {ticketId, seq, kind, status, answer?}`; `next` a `report` odpoví hned |
+| `/api/gate/inbox` | token pracovníka | `GET ?after=<answeredSeq>&wait=0..30` → `{tickets, last}` (long-poll) |
+| `/api/gate/tickets/{ticket_id}` | token (vlastní lístek) nebo člověk s `?project=` | `GET` lístek |
+| `/api/gate/tickets/{ticket_id}/answer` | jen člověk | `POST {answer}` na čekající `ask` / `change` |
+| `/api/brain/gate-setting` | čtení kdokoli, zápis jen člověk | `GET ?project=`, `POST {project, enabled}` |
+| `/api/brain/tasks` | čtení kdokoli, zápis jen člověk | `GET ?project&workspace&status?` → `{tasks}`; `POST {project, workspace, nodeId?, title, body}` → `201` úkol |
+| `/api/brain/tasks/{task_id}/cancel` | jen člověk | `POST ?project=` (tělo `{}`) → zrušený úkol; uzavřený = 409 `task_closed` |

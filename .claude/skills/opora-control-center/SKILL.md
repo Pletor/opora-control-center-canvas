@@ -176,11 +176,11 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | design karta: DESIGN.md, režim, screenshoty na hlavu PR | `/api/oporahub/review-preview`, `/api/oporahub/review-jobs/preview` | `docs/design-nahled.md` |
 | velký projekt, mapy | `index` → `rank`; Graphify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [map-refresh.md](references/map-refresh.md) |
 | podklady pro externího agenta | `snapshot --id` | [external-agent.md](references/external-agent.md) |
+| projekt se zapnutou bránou mozku (`gate_required`): úkol z fronty, hlášení se sha | `opora_gate.py session` → `next` → `report` | [gate.md](references/gate.md) |
 | stará karta mimo OporaHub (lease, `agent-output`, router, kritici, `opora_stage.py`, `opora_closure.py`) | **zastaralé**, jen pro stará data | [legacy.md](references/legacy.md) |
 
-Skripty: `opora_hub.py` (stav, akce, `start`, `deliver`, review; tokeny jen v souborech 0600), `opora_write.py`
-(zápisy plátna `WRITE_ROUTES` a agentní cesty `HUB_AGENT_ROUTES`; lidské a tokenové odmítne), `opora_api.py` (libovolná cesta s identitou
-agenta, výjimky §4 a tokeny odmítne), `opora_read.py` (čtení), `opora_save.py`, `opora_cycle.py`.
+Skripty: `opora_hub.py` (stav, akce, `start`, `deliver`, review; tokeny jen v souborech 0600), `opora_write.py` (zápisy plátna `WRITE_ROUTES` a agentní cesty `HUB_AGENT_ROUTES`; lidské a tokenové odmítne),
+`opora_api.py` (libovolná cesta s identitou agenta, výjimky §4 a tokeny odmítne), `opora_read.py` (čtení), `opora_save.py`, `opora_cycle.py`, `opora_gate.py` (pracovník brány mozku).
 
 ## Pravidla efektivity
 

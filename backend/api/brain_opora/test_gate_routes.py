@@ -52,11 +52,11 @@ def test_worker_asks_human_answers_and_the_answer_reaches_the_inbox(tmp_path):
         assert kinds == [("gate.ticket", "queued"), ("gate.ticket", "answered")]
 
 
-def test_next_answers_at_once_with_the_stub(tmp_path):
+def test_next_answers_at_once_from_the_queue(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         auth = worker(open_session(client)["token"])
         nxt = client.post("/api/gate/requests", headers=auth, json={"kind": "next"})
-        assert nxt.status_code == 201 and nxt.json()["answer"] == {"pending": "H1b"}
+        assert nxt.status_code == 201 and nxt.json()["answer"]["task"] is None
         bad = client.post("/api/gate/requests", headers=auth, json={"kind": "deploy"})
         assert bad.status_code == 422 and "next, ask, report, change" in bad.json()["hint"]
         big = client.post("/api/gate/requests", headers=auth, json={"kind": "ask", "body": "x" * 70_000})

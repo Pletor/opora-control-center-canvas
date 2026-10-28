@@ -9,3 +9,7 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
 - `brain_routes.py`: the gate switch. `GET /api/brain/gate-setting?project=` is readable by anyone,
   `POST /api/brain/gate-setting {project, enabled}` is human only (`require_human`, even with full agent autonomy).
   Contract: `docs/brain-gate.md` §1. The wall itself lives in `backend/brain_opora/determinism/wall.py`.
+- `brain_routes.py` also carries the task queue (`docs/brain-gate.md` §6, H1b): `GET /api/brain/tasks?project&workspace&status?`
+  is readable by anyone; `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` and
+  `POST /api/brain/tasks/{id}/cancel?project=` are human only (`require_human`). The heart token is not accepted
+  here yet (H2 adds its own check). The wall lets a human through, so a human writes tasks in a gate-on project too.

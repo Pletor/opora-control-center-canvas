@@ -48,13 +48,22 @@ def test_authenticate_refuses_invalid_token_and_other_project(service):
     assert caught.value.code == "gate_scope"
 
 
-def test_next_and_report_answer_with_the_h1a_stub(service):
+def test_next_answers_at_once_from_the_queue_and_a_refused_report_makes_no_ticket(service):
     session = worker_session(service)
-    for kind in ("next", "report"):
-        ticket = gate.create_request(service, session, {"kind": kind, "body": {}})
-        assert ticket["status"] == "answered" and ticket["answer"] == {"pending": "H1b"}
-        assert ticket["answeredBy"] == "gate"
-    assert [data["status"] for _, data in events(service)] == ["queued", "answered"] * 2
+    ticket = gate.create_request(service, session, {"kind": "next", "body": {}})
+    assert ticket["status"] == "answered" and ticket["answer"]["task"] is None and "plan" in ticket["answer"]
+    assert ticket["answeredBy"] == "gate"
+    with pytest.raises(GateError) as caught:
+        gate.create_request(service, session, {"kind": "report", "body": {}})
+    assert caught.value.status == 422
+    assert [data["status"] for _, data in events(service)] == ["queued", "answered"]
+
+
+def test_registered_handler_gets_service_session_body_and_time(service, monkeypatch):
+    session, seen = worker_session(service), []
+    monkeypatch.setitem(gate.HANDLERS, "change", lambda *args: seen.append(args) or {"ok": True})
+    ticket = gate.create_request(service, session, {"kind": "change", "body": {"x": 1}})
+    assert ticket["answer"] == {"ok": True} and seen == [(service, session, {"x": 1}, None)]
 
 
 def test_ask_waits_for_a_human_and_then_reaches_the_inbox(service):

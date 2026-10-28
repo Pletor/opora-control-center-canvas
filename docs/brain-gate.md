@@ -97,6 +97,45 @@ CREATE INDEX IF NOT EXISTS gate_tickets_queue ON gate_tickets(project_id, worksp
 | H1c | **A strong control API.** Everything an agent needs to drive OPORA goes through the gate as typed kinds: read state, plan request, task, report, decision, question. Each kind has a JSON schema, an example and a `hint` on every error. The OpenAPI document is complete. | an agent drives one eval session using only the gate API and its OpenAPI, without the skill references |
 | H1d | **MCP server on top of the gate.** The same kinds become typed MCP tools (`mcp__opora__*`), a thin layer over the HTTP gate with no logic of its own. | the same session through MCP: no shell, no permission denials |
 
+H1b in detail (the task queue):
+- **Table** in `project.sqlite`. It is new; no existing table changes.
+  ```sql
+  CREATE TABLE IF NOT EXISTS heart_tasks(
+      seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+      project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('ready','assigned','done','failed','cancelled')),
+      session_id TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, report TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+  CREATE INDEX IF NOT EXISTS heart_tasks_queue ON heart_tasks(project_id, workspace_id, status, seq);
+  ```
+- **Task body**, the fixed shape a worker gets:
+  `{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{intent?, rules[]?, pattern?}, commit}`.
+  `title` and `do` are required.
+- **Writing tasks.** Only a human, or later the heart, writes tasks:
+  - `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` → `201 task`;
+  - `GET /api/brain/tasks?project&workspace&status?` lists tasks, reading is free;
+  - `POST /api/brain/tasks/{id}/cancel?project=` cancels a task.
+- **`next`** (gate kind, deterministic). Body `{}`.
+  - If the session already holds an `assigned` task, it gets the same task again (idempotent).
+  - Otherwise it gets the oldest `ready` task, which becomes `assigned` to the session.
+  - With an empty queue it gets `{task: null, plan}`. `plan` lists the open cards with `{id, name, stage}` from the
+    existing agent state, at most 20.
+  - A worker session whose token has expired loses its `assigned` task, which goes back to `ready` the next time
+    anyone calls `next`.
+- **`report`** (gate kind, deterministic). Body `{taskId, sha, summary, checks: [{name, status: "green" | "red", output?}]}`.
+  - The task must be `assigned` to this session.
+  - `sha` must be 7–40 hex characters.
+  - `checks` must not be empty.
+  - Every check is written to `check_runs` (`CheckRuns.record`, scope `node_id`, otherwise the task id).
+  - All checks green: the task becomes `done`.
+  - Any check red: `attempts += 1`, and the task goes back to `ready`. On the second red it becomes `failed`.
+  - The answer is `{task: {id, status, attempts}}`.
+- **Event** `gate.task` with `{taskId, status}` on create, assign, done, failed and cancel.
+- **Client** `.claude/skills/opora-control-center/scripts/opora_gate.py`, stdlib only:
+  - commands: `session`, `next`, `ask`, `report`, `inbox`;
+  - the token is kept in `<cwd>/.opora/gate.json`;
+  - `report --check "npm test=green"` can be repeated.
+
 H1a2 in detail:
 - **Switch.** `settings.brain = {gate: bool, since?, by?}` lives in `project.json` next to `agentAutonomy`. Reading and
   writing mirror `project_hub.agent_autonomy` / `set_agent_autonomy`. `POST /api/brain/gate-setting` takes
