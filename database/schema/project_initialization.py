@@ -16,6 +16,8 @@ def initialize_project_schema(db):
     ensure_review_job_kind(db)
     from database.schema.opora_event_schema import ensure_process_columns
     ensure_process_columns(db)
+    from database.repositories.heart_tasks import ensure_order_column
+    ensure_order_column(db)
     from database.repositories.opora_context_events import install
     install(db)
     from database.schema.dead_tables import drop_dead_tables

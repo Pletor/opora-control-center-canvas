@@ -15,11 +15,13 @@ SHA = re.compile(r"[0-9a-fA-F]{7,40}")
 TITLE_LIMIT = 200
 TEXT_LIMIT = 4000
 MAX_CHECKS = 50
+MAX_ORDER = 1_000_000
 TASK_EXAMPLE = {"project": "draft", "workspace": "draft", "title": "Přidat test",
                 "body": {"do": "Doplňte test pro modul X.", "doneWhen": ["npm test je zelený"]}}
 REPORT_EXAMPLE = {"taskId": "ht_…", "sha": "abc1234", "summary": "Hotovo.",
                   "checks": [{"name": "npm test", "status": "green"}]}
-TASK_HINT = "Tělo je " + json.dumps(TASK_EXAMPLE, ensure_ascii=False) + "; nodeId je volitelné."
+TASK_HINT = ("Tělo je " + json.dumps(TASK_EXAMPLE, ensure_ascii=False)
+             + "; nodeId a order (celé číslo, nižší jde dřív) jsou volitelné.")
 REPORT_HINT = "Tělo hlášení je " + json.dumps(REPORT_EXAMPLE, ensure_ascii=False) + "."
 
 
@@ -60,10 +62,14 @@ def task_body(body):
 
 
 def task_payload(payload):
-    """`{project, workspace, nodeId?, title, body}` → `(project, workspace, nodeId, title, body)`."""
+    """`{project, workspace, nodeId?, order?, title, body}` → `(project, workspace, nodeId, title, body, order)`."""
     if not isinstance(payload, dict) or not {"project", "workspace", "title", "body"} <= set(payload) \
-            or not set(payload) <= {"project", "workspace", "nodeId", "title", "body"}:
-        raise invalid("Úkol potřebuje project, workspace, title a body (nodeId je volitelné).", TASK_HINT)
+            or not set(payload) <= {"project", "workspace", "nodeId", "order", "title", "body"}:
+        raise invalid("Úkol potřebuje project, workspace, title a body (nodeId a order jsou volitelné).", TASK_HINT)
+    order = payload.get("order", 0)
+    if type(order) is not int or not 0 <= order <= MAX_ORDER:
+        raise invalid(f"order je celé číslo 0 až {MAX_ORDER}; nižší jde dřív, při shodě rozhoduje pořadí vzniku.",
+                      TASK_HINT)
     project, workspace, node = payload["project"], payload["workspace"], payload.get("nodeId")
     if not (project == "draft" or valid_id(project)) or not valid_id(workspace):
         raise invalid("Neplatné ID projektu nebo pracovního prostoru.", TASK_HINT)
@@ -71,7 +77,7 @@ def task_payload(payload):
         raise invalid("nodeId je ID karty (písmena, číslice, _ a -).", TASK_HINT)
     if not _text(payload["title"], TITLE_LIMIT, True):
         raise invalid(f"title je neprázdný text do {TITLE_LIMIT} znaků.", TASK_HINT)
-    return project, workspace, node, payload["title"].strip(), task_body(payload["body"])
+    return project, workspace, node, payload["title"].strip(), task_body(payload["body"]), order
 
 
 def status_filter(status):

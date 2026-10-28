@@ -331,7 +331,7 @@ CREATE TABLE IF NOT EXISTS heart_tasks(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL,
     status TEXT NOT NULL CHECK(status IN ('ready','assigned','done','failed','cancelled')),
     session_id TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, report TEXT,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, task_order INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS heart_tasks_queue ON heart_tasks(project_id, workspace_id, status, seq);
 """
 PROJECT_SCHEMA += GATE_SCHEMA

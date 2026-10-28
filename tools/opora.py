@@ -227,6 +227,8 @@ def main(argv=None) -> int:
     if applied:
         print(f"[opora] integrace z opora.toml: {', '.join(applied)}")
 
+    # Srdce mozku běží jen na loopbacku; supervisor čte adresu, na které server poslouchá.
+    os.environ["OPORA_CANVAS_HOST"] = settings["host"]
     sys.path.insert(0, str(ROOT))
     import uvicorn
 

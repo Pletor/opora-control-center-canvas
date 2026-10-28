@@ -29,6 +29,8 @@ OPEN_FILE_PATH = "/api/workspace/open-file"
 LOOPBACK_ONLY_PATHS = frozenset({"/api/brief-vault/gate-check"})
 # Brána mozku pouští pracovníky z tohoto počítače; přes tunel nikdy (docs/brain-gate.md §2).
 GATE_PREFIX = "/api/gate"
+# Srdce mozku (zprávy, stav, snímek, eskalace) také jen z tohoto počítače (docs/brain-heart.md §1).
+HEART_PREFIX = "/api/brain/heart"
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
 OPEN_PATHS = frozenset({"/api/access/status", "/api/access/login", "/api/access/logout"})
 
@@ -84,7 +86,7 @@ def bearer_token(authorization):
 
 def is_loopback_only(path):
     return path in LOOPBACK_ONLY_PATHS or any(
-        path == prefix or path.startswith(prefix + "/") for prefix in (ASSISTANT_PREFIX, RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX))
+        path == prefix or path.startswith(prefix + "/") for prefix in (ASSISTANT_PREFIX, RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX))
 
 
 def requires_token(path):

@@ -13,6 +13,7 @@ from backend.api.access_routes import create_access_router
 from backend.api.app_routes import create_app_router
 from backend.api.brain_opora.brain_routes import create_brain_router
 from backend.api.brain_opora.gate_routes import create_gate_router
+from backend.api.brain_opora.heart_routes import create_heart_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
@@ -89,6 +90,7 @@ from backend.app.remote_access import (
 )
 from backend.brain_opora.determinism import tokens as gate_tokens
 from backend.brain_opora.determinism import wall as brain_wall
+from backend.brain_opora.heart.supervisor import HeartSupervisor
 from backend.canvas import authority as authority_context
 from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.payload_errors import InvalidPayload, NextStep
@@ -181,6 +183,9 @@ def create_app(data_root=None):
                                  instructions=lambda: app_settings.assistant_instructions()["text"],
                                  agents=load_agents)
 
+    # Srdce mozku: dávky `claude -p` jen pro projekty se zapnutou bránou, jen na loopbacku (docs/brain-heart.md).
+    heart = HeartSupervisor(service, base_url=f"http://127.0.0.1:{port}")
+
     @asynccontextmanager
     async def lifespan(app):
         map_refresh.start()
@@ -189,7 +194,9 @@ def create_app(data_root=None):
         auto_rebase.start()
         harness_memory.start()
         guardian.start()
+        heart.start()
         yield
+        heart.close()
         assistant.close_all()
         map_refresh.close()
         reconciliation.close()
@@ -203,6 +210,7 @@ def create_app(data_root=None):
     app.state.service = service
     app.state.map_refresh = map_refresh
     app.state.reconciliation = reconciliation
+    app.state.heart = heart
 
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
     remote = RemoteAccess.from_env()
@@ -294,6 +302,7 @@ def create_app(data_root=None):
         request.state.authority = _authority(request)
         # Zeď brány mozku (docs/brain-gate.md §3); projekt s vypnutou bránou ji nevidí.
         gate_header = request.headers.get(gate_tokens.HEADER)
+        request.state.heart_project = ""  # jen zeď po ověření tokenu srdce (docs/brain-heart.md §5)
         verdict = brain_wall.ALLOW
         if brain_wall.relevant(request.method, request.state.actor, gate_header):
             verdict = await run_in_threadpool(
@@ -308,6 +317,7 @@ def create_app(data_root=None):
                 request.state.actor, request.state.agent = "agent", "heart"
             request.state.authority = authority_context.resolve("agent", True)
             request.state.authority_project = verdict.project
+            request.state.heart_project = verdict.project
         state, token = authority_context.begin(request.state.actor, request.state.authority,
                                                getattr(request.state, "authority_project", ""))
         request.state.authority_context = state
@@ -442,6 +452,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_history_router(service))
     app.include_router(create_gate_router(service))  # brána mozku (docs/brain-gate.md §4)
     app.include_router(create_brain_router(service))  # přepínač brány (docs/brain-gate.md §1)
+    app.include_router(create_heart_router(service, heart))  # srdce mozku (docs/brain-heart.md §1)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)

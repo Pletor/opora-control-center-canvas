@@ -1,6 +1,6 @@
 """Fronta úkolů mozku (docs/brain-gate.md §6, H1b): zápis úkolů, `next` a `report` pro pracovníky brány.
 
-Úkoly píše člověk (v H2 i srdce). Pracovník si přes bránu řekne o další (`next`), úkol mu zůstane, dokud ho
+Úkoly píše člověk nebo srdce projektu (H2a, `created_by = "heart"`). Pracovník si přes bránu řekne o další (`next`), úkol mu zůstane, dokud ho
 neohlásí (`report`): všechny kontroly zelené = `done`, červená = zpět do `ready`, druhá červená = `failed`.
 Kontroly se jen zapisují do `check_runs` u nahlášeného sha; aplikace sama nic nespouští a nevolá model.
 Úkol relace s prošlým nebo zneplatněným tokenem se vrátí do `ready` při nejbližším `next` kohokoli.
@@ -26,6 +26,8 @@ PLAN_LIMIT = 20
 MAX_ATTEMPTS = 2
 OUTPUT_LIMIT = 1500
 HUMAN = {"kind": "human", "name": None}
+HEART = {"kind": "agent", "name": "heart"}
+WRITERS = ("human", "heart")
 
 
 def _missing_project():
@@ -53,18 +55,26 @@ def _agent(session):
     return {"kind": "agent", "name": session["worker_name"]}
 
 
+def writer_actor(by):
+    """Původce události podle pisatele úkolu: člověk, nebo srdce projektu."""
+    if by not in WRITERS:
+        raise ValueError("Úkol píše jen člověk nebo srdce.")
+    return HUMAN if by == "human" else HEART
+
+
 def create(service, payload, created_by="human", now=None):
-    """`POST /api/brain/tasks` → nový úkol ve stavu `ready`."""
-    project, workspace, node, title, body = task_payload(payload)
+    """`POST /api/brain/tasks` → nový úkol ve stavu `ready`; `order` řadí frontu (nižší dřív)."""
+    actor = writer_actor(created_by)
+    project, workspace, node, title, body, order = task_payload(payload)
     _check_scope(service, project, workspace)
     task_id, at = "ht_" + uuid.uuid4().hex, tokens.stamp(now)
     with service.lock_for(project):
         db = service.db_for(project)
         with db:
             store = HeartTaskStore(db, project)
-            store.insert(task_id, workspace, node, title, body, created_by, at)
+            store.insert(task_id, workspace, node, title, body, created_by, at, order)
             task = store.get(task_id)
-            _emit(db, project, task, HUMAN)
+            _emit(db, project, task, actor)
     return task
 
 
@@ -76,8 +86,9 @@ def list_tasks(service, project, workspace, status=None):
         return {"tasks": HeartTaskStore(service.db_for(project), project).list(workspace, status)}
 
 
-def cancel(service, project, task_id, now=None):
+def cancel(service, project, task_id, now=None, by="human"):
     """`POST /api/brain/tasks/{id}/cancel` → zrušený úkol; hotový nebo zrušený je 409 `task_closed`."""
+    actor = writer_actor(by)
     if not service.project_exists(project):
         raise _missing_project()
     with service.lock_for(project):
@@ -90,7 +101,7 @@ def cancel(service, project, task_id, now=None):
                 raise GateError(409, "task_closed", "Úkol už je uzavřený (done, failed nebo cancelled).",
                                 "Zrušit jde jen úkol ve stavu ready nebo assigned.")
             task = store.get(task_id)
-            _emit(db, project, task, HUMAN)
+            _emit(db, project, task, actor)
     return task
 
 

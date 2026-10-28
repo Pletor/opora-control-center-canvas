@@ -1,16 +1,17 @@
 """Routy brány mozku (docs/brain-gate.md §4). Logika je v `backend/brain_opora/determinism/gate.py`.
 
-Pracovník se prokazuje hlavičkou `X-Opora-Gate-Token`. Na lístek v H1a odpovídá jen člověk (doklad UI);
-token srdce přibude v H2. Každé odmítnutí je JSON s `error`, `code` a `hint`.
+Pracovník se prokazuje hlavičkou `X-Opora-Gate-Token`. Na lístek odpovídá člověk (doklad UI) nebo srdce
+téhož projektu (`answeredBy = "heart"`, docs/brain-heart.md §5). Každé odmítnutí je JSON s `error`, `code` a `hint`.
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+from backend.api.brain_opora.writer import heart_project
 from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_query, parse_body
 
-HUMAN_HINT = "Na lístek v tomto kroku odpovídá jen člověk v UI OPORY."
+HUMAN_HINT = "Na lístek odpovídá jen člověk v UI OPORY nebo srdce projektu."
 
 
 def _refused(error):
@@ -78,11 +79,15 @@ def create_gate_router(service):
     @router.post("/tickets/{ticket_id}/answer")
     async def answer(ticket_id: str, request: Request):
         try:
-            if request.state.actor != "human":
-                raise GateError(403, "human_required", "Na lístek smí odpovědět jen člověk.", HUMAN_HINT)
+            project = request.query_params.get("project") or ""
+            heart = bool(project) and heart_project(request) == project
+            by = "human" if request.state.actor == "human" else "heart" if heart else None
+            if by is None:
+                raise GateError(403, "human_required", "Na lístek smí odpovědět jen člověk nebo srdce projektu.",
+                                HUMAN_HINT)
             project = _human_project(service, request)
             payload = parse_body(await request.body())
-            return await run_in_threadpool(gate.answer, service, project, ticket_id, payload)
+            return await run_in_threadpool(gate.answer, service, project, ticket_id, payload, by)
         except GateError as error:
             return _refused(error)
 

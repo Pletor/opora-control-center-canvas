@@ -1,0 +1,77 @@
+"""Dávka srdce s falešným procesem: zpráva, řádka, deník `batches.jsonl`, rotace, limit a vypršení času."""
+import json
+
+from backend.brain_opora.heart import batch, session
+from backend.brain_opora.heart.process import Outcome
+
+RESULT = {"type": "result", "subtype": "success", "is_error": False, "session_id": "11111111-1111-1111-1111-111111111111",
+          "total_cost_usd": 0.0421, "num_turns": 7, "result": "Hotovo.",
+          "usage": {"input_tokens": 900, "cache_read_input_tokens": 20_000},
+          "modelUsage": {"claude-haiku-4-5": {"costUSD": 0.0121}, "claude-opus-4-5": {"costUSD": 0.03}}}
+
+
+class FakeRunner:
+    def __init__(self, outcome, done=None):
+        self.outcome, self.done, self.calls = outcome, done, []
+
+    def __call__(self, line, *, cwd, env, stdin_text, timeout):
+        self.calls.append({"line": line, "cwd": cwd, "env": env, "stdin": stdin_text, "timeout": timeout})
+        if self.done:
+            (batch.Path(cwd) / batch.LAST_DONE).write_text(json.dumps({"summary": self.done}), encoding="utf-8")
+        return self.outcome
+
+
+def spec(tmp_path, inputs=None):
+    return batch.BatchSpec(brain=tmp_path / "brain", claude="claude", base_url="http://127.0.0.1:9", token="tok",
+                           project="p1", workspace="main", snapshot="PROJEKT p1", inputs=inputs or [])
+
+
+def clock(*values):
+    items = iter(values)
+    return lambda: next(items)
+
+
+def test_message_contains_snapshot_inputs_and_the_finish_instruction():
+    text = batch.message("PROJEKT X", [{"type": "message", "text": "Dvě stránky."},
+                                       {"type": "ticket", "ticketId": "gt_1", "kind": "ask", "body": {"q": "?"}},
+                                       {"type": "taskFailed", "taskId": "ht_1", "title": "Hero", "report": {"sha": "a"}}])
+    assert text.index("PROJEKT X") < text.index("ZPRÁVA ČLOVĚKA: Dvě stránky.") < text.index("LÍSTEK gt_1 (ask)")
+    assert "ÚKOL SELHAL ht_1" in text and text.rstrip().endswith(batch.FINISH)
+
+
+def test_ok_batch_is_journaled_with_costs_and_summary(tmp_path):
+    inputs = [{"type": "message", "text": "Dvě stránky."}]
+    runner = FakeRunner(Outcome(0, "noise\n" + json.dumps(RESULT), ""), done="Dva úkoly ve frontě.")
+    entry = batch.run(spec(tmp_path, inputs), runner, clock(100.0, 160.5))
+    call = runner.calls[0]
+    assert call["timeout"] == batch.TIMEOUT and call["cwd"].endswith("brain") and "--session-id" in call["line"]
+    assert call["env"]["OPORA_HEART_TOKEN"] == "tok" and "Dvě stránky." in call["stdin"]
+    assert entry["status"] == "ok" and entry["summary"] == "Dva úkoly ve frontě." and entry["numTurns"] == 7
+    assert entry["costByModel"] == {"claude-haiku-4-5": 0.0121, "claude-opus-4-5": 0.03}
+    assert entry["costUsd"] == 0.0421 and entry["durationMs"] == 60_500 and entry["inputs"] == inputs
+    assert batch.read_journal(tmp_path / "brain") == [entry]
+    assert session.load(tmp_path / "brain") == {"sessionId": RESULT["session_id"], "batches": 1,
+                                                "lastInputTokens": 20_900}
+    assert (tmp_path / "brain" / batch.SNAPSHOT).read_text(encoding="utf-8") == "PROJEKT p1"
+    second = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
+    batch.run(spec(tmp_path), second, clock(200.0, 201.0))
+    assert second.calls[0]["line"][second.calls[0]["line"].index("--resume") + 1] == RESULT["session_id"]
+    assert session.load(tmp_path / "brain")["batches"] == 2
+
+
+def test_rate_limit_keeps_session_and_is_marked(tmp_path):
+    limited = {**RESULT, "is_error": True, "result": "Claude AI usage limit reached; you've hit your session limit"}
+    entry = batch.run(spec(tmp_path), FakeRunner(Outcome(1, json.dumps(limited), "")), clock(0.0, 1.0))
+    assert entry["status"] == "rate_limited" and "limit" in entry["error"]
+    assert session.load(tmp_path / "brain") == session.EMPTY
+    assert batch.rate_limited(None, "Error: rate_limit_error") is True
+    assert batch.rate_limited(RESULT, "") is False
+
+
+def test_timeout_and_error_force_rotation(tmp_path):
+    entry = batch.run(spec(tmp_path), FakeRunner(Outcome(None, "", "", True)), clock(0.0, 900.0))
+    assert entry["status"] == "timeout" and entry["isError"] is True and entry["summary"] is None
+    failed = {**RESULT, "is_error": True, "subtype": "error_during_execution", "result": "No conversation found"}
+    assert batch.run(spec(tmp_path), FakeRunner(Outcome(1, json.dumps(failed), "")), clock(0.0, 1.0))["status"] == "error"
+    assert session.choose(tmp_path / "brain", lambda: "new")[1] is False
+    assert [item["status"] for item in batch.read_journal(tmp_path / "brain")] == ["timeout", "error"]
