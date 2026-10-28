@@ -1,6 +1,6 @@
 """Graph edits, reviewed state, specifications and accepted reference commit together."""
-from backend.canvas.authority import acts_as_human
 from backend.canvas.architecture_graph import split
+from backend.canvas.authority import acts_as_human
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_commit_validation import _author
@@ -9,6 +9,7 @@ from backend.canvas.opora_graph_change_state import persist_state
 from backend.canvas.opora_graph_changes import OporaGraphChanges
 from backend.canvas.opora_graph_records import accepted_record, preserved_content_manifest
 from backend.canvas.opora_proposal_acceptance_guard import guard, seal
+from backend.canvas.payload_errors import exact_fields
 
 
 class OporaGraphChangeAcceptance(OporaGraphAcceptance):
@@ -16,9 +17,12 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
         self.service, self.proposals = service, OporaGraphChanges(service)
 
     def accept(self, proposal_id, payload, by):
-        if set(payload) != {"project", "workspace", "expectedAcceptedHead", "expectedGraphDigest",
-                            "adoptBaseGraphDigest", "reviewedChangesId"}:
-            raise ValueError("Invalid graph change acceptance fields.")
+        exact_fields(payload, {"project", "workspace", "expectedAcceptedHead", "expectedGraphDigest",
+                               "adoptBaseGraphDigest", "reviewedChangesId"},
+                     "Přijetí změn grafu", {"project": "<projectId>", "workspace": "draft",
+                                             "expectedAcceptedHead": "<heads.acceptedHead>",
+                                             "expectedGraphDigest": "<heads.graphDigest>",
+                                             "adoptBaseGraphDigest": None, "reviewedChangesId": "<id návrhu>"})
         project, workspace = scope(payload)
         author = _author(by)
         if not acts_as_human(author["kind"]) or payload["reviewedChangesId"] != proposal_id or payload["adoptBaseGraphDigest"] is not None:

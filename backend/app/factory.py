@@ -86,6 +86,7 @@ from backend.app.remote_access import (
 )
 from backend.canvas import authority as authority_context
 from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
+from backend.canvas.payload_errors import InvalidPayload, NextStep
 from backend.canvas.canvas_service import CanvasService, ProjectNotFound
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_auto_rebase_manager import AutoRebaseManager
@@ -316,6 +317,12 @@ def create_app(data_root=None):
         # 428: UI si obnoví doklad a zkusí to znovu; agent dostane jasné 403.
         return JSONResponse({"error": str(exc), "humanRequired": True},
                             status_code=403 if exc.actor == "agent" else 428)
+
+    @app.exception_handler(InvalidPayload)
+    @app.exception_handler(NextStep)
+    async def explained(request, exc):
+        # 422 = neplatné tělo (pole, tvar, příklad), 409 = stav s dalším krokem (`code`, `hint`).
+        return JSONResponse(exc.body(), status_code=exc.status)
 
     @app.exception_handler(ValueError)
     async def invalid(request, exc):

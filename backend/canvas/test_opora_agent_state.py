@@ -117,8 +117,9 @@ def test_action_ids_are_deterministic_and_change_with_the_head(planned, service)
     one, two = read(service), read(service, 5)
     assert [item["id"] for item in one["actions"]] == [item["id"] for item in two["actions"]]
     assert one["decisions"] == two["decisions"]
-    assert [(item["verb"], item["targetId"]) for item in one["actions"]] == sorted(
-        (item["verb"], item["targetId"]) for item in one["actions"])
+    from backend.canvas import opora_agent_state_rules as rules
+    assert [(item["verb"], item["targetId"]) for item in one["actions"]] == [
+        (item["verb"], item["targetId"]) for item in rules.ordered(one["actions"])]
     before = {item["targetId"]: item["id"] for item in one["actions"]}
     accept(service, first, head)
     after = {item["targetId"]: item["id"] for item in read(service)["actions"]}

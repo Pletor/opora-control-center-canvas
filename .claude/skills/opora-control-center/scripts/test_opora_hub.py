@@ -98,9 +98,9 @@ def test_full_agent_loop_against_the_real_backend(backend, capsys, tmp_path):
     code, action, _ = run(capsys, 'pick', '--verb', 'claim', '--target', 'n0')
     assert code == 0 and action['status'] == 'ready' and action['id'].startswith('act_')
 
-    # Kontext v2 tato data neumí (SQL manifest): skript nesmí potichu spadnout na v1.
+    # Kontext v2 potřebuje přijatý graf plánu: skript nespadne potichu na v1 a řekne, která akce je první.
     code, _, err = run(capsys, 'claim', '--action-id', action['id'])
-    assert code == 3 and 'HTTP 409' in err
+    assert code == 5 and 'propose_graph' in json.loads(err)['hint']
 
     code, lease, out = run(capsys, 'claim', '--action-id', action['id'], '--context-version', '1', '--ttl', '120')
     assert code == 0, out

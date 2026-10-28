@@ -15,7 +15,7 @@ export function verbGroup(verb: string) {
   return "smyčka";
 }
 export const VERB_LABEL: Record<string, string> = {
-  accept_baseline: "Přijmout základ", accept: "Přijmout návrh", rebase: "Převést návrh", claim: "Převzít kartu",
+  propose_graph: "Navrhnout graf plánu", accept_baseline: "Přijmout základ", accept: "Přijmout návrh", rebase: "Převést návrh", claim: "Převzít kartu",
   review: "Zkontrolovat výsledek", link_pull_request: "Navázat PR", close_card: "Uzavřít kartu", ...REVIEW_GATE_VERBS,
   "proposal.resolve_conflict": "Vyřešit konflikt auto-rebase", "verification.investigate": "Prošetřit formální ověření",
   "verification.fix": "Založit návrh opravy ověření",

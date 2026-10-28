@@ -154,8 +154,9 @@ uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhl
 
 | `verb` | Cíl | Stav |
 |---|---|---|
-| `accept_baseline` | `POST /api/oporahub/baselines` | vždy `blocked/human_only` |
-| `accept` | `…/{id}/accept` podle druhu návrhu | vždy `blocked/human_only` |
+| `propose_graph` | `POST /api/oporahub/graph-proposals` | `ready`, když karty mají zadání, ale přijatá revize nemá graf plánu (žádná, nebo jen `accept_baseline`) a čeká žádný návrh grafu; běh v2 bez grafu plánu nepřevezme (`409 graph_acceptance_required`). `preconditions` = celé tělo bez `project`/`workspace`: `{parentRevision, expectedGraphDigest, subject, plan: {nodes: [], edges: []}}`; prázdný plán převezme pracovní graf i zadání karet |
+| `accept` | `…/{id}/accept` podle druhu návrhu | vždy `blocked/human_only`; `preconditions` = celé tělo bez `project`/`workspace` včetně převzetí základu (`adoptBaseGraphDigest`, `adoptBaseContentDigest`, `reviewed…Id`) |
+| `accept_baseline` | `POST /api/oporahub/baselines` | vždy `blocked/human_only`; `preconditions` nesou i výchozí `subject` |
 | `rebase` | `…/{id}/rebase` zastaralého návrhu | `ready` (výslovný převod; automatický běží na serveru) |
 | `proposal.resolve_conflict` | `POST /api/oporahub/auto-rebase/conflicts/{id}/resolve` | `ready` u otevřeného konfliktu auto-rebase; řešením je běžný nový návrh nad aktuální hlavou |
 | `claim` | `POST /api/oporahub/executions/claim` | `ready`, nebo `blocked/budget_exhausted`, `budget_policy_required` či `blocked_by_predecessor` (nedokončený předchůdce v grafu karet; ID akce se mění se sadou blokujících karet); `budget` nese zbývající pokusy a opravy |
@@ -169,6 +170,9 @@ uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhl
 | `verification.fix` | `POST /api/oporahub/verifications/{id}/fix-proposal` (`{project, workspace}`) | `ready` u `counterexample` a u `failed`, které není jen `runner_error`; idempotentně založí návrh karty „Opravit formální ověření“, přijímá člověk |
 | `review.promote_to_check` | `POST /api/oporahub/review-recurring/promote` | `ready`, `attention: true`; třída nálezu se opakuje v ≥ N PR projektu a ještě není povýšená na kontrolu (viz [lidé v review](oporahub-review-identity.md)) |
 
+Při plné autonomii je akce `blocked/human_only` pro agenta `ready` s `autonomy: "full"`
+([plná autonomie](plna-autonomie-agenta.md)). U `propose_graph`, `accept_baseline` a `accept` stačí poslat
+`{project, workspace, ...preconditions}`; neplatné tělo vrací `422` s `field`, `expected` a `example`.
 `preconditions` obsahují přesné hodnoty k opakování v těle požadavku (`expectedAcceptedHead`,
 `expectedGraphDigest`, `expectedContextVersion`, u protokolu v2 `expectedBudgetPolicyHead`
 a `previousExecutionId`). Ostatní pole těla (důvod, `requestId`, `ttlSeconds`) doplní agent

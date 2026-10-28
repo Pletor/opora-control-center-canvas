@@ -1,6 +1,6 @@
 """Human graph/specification/manifest acceptance under one accepted-reference transaction."""
-from backend.canvas.authority import acts_as_human
 from backend.canvas.architecture_graph import split
+from backend.canvas.authority import acts_as_human
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_commit_validation import _author
@@ -9,6 +9,7 @@ from backend.canvas.opora_graph_proposals import OporaGraphProposals
 from backend.canvas.opora_graph_records import accepted_record, combined, preserved_content_manifest
 from backend.canvas.opora_hub_store import canonical
 from backend.canvas.opora_proposal_acceptance_guard import guard, seal
+from backend.canvas.payload_errors import exact_fields
 from database.repositories.workspace_graph_authority import WorkspaceGraphAuthority
 
 
@@ -24,8 +25,11 @@ class OporaGraphAcceptance:
             kind = self.proposals.repository(project, workspace).read(proposal_id)["kind"]
         if kind == "graph-changes":
             return OporaGraphChangeAcceptance(self.service).accept(proposal_id, payload, by)
-        if set(payload) != {"project", "workspace", "expectedAcceptedHead", "expectedGraphDigest", "adoptBaseGraphDigest"}:
-            raise ValueError("Invalid graph acceptance fields.")
+        exact_fields(payload, {"project", "workspace", "expectedAcceptedHead", "expectedGraphDigest", "adoptBaseGraphDigest"},
+                     "Přijetí návrhu grafu", {"project": "<projectId>", "workspace": "draft",
+                                               "expectedAcceptedHead": "<heads.acceptedHead nebo null>",
+                                               "expectedGraphDigest": "<heads.graphDigest>",
+                                               "adoptBaseGraphDigest": "<graphDigest návrhu, když hlava nemá graf; jinak null>"})
         project, workspace = scope(payload)
         author = _author(by)
         if not acts_as_human(author["kind"]):

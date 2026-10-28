@@ -12,6 +12,7 @@ from backend.canvas.opora_content_changes import (
 from backend.canvas.opora_content_sources import capture_content, write_changes_in_transaction
 from backend.canvas.opora_graph_records import preserved_manifest
 from backend.canvas.opora_proposal_acceptance_guard import guard, seal
+from backend.canvas.payload_errors import exact_fields
 from database.repositories.opora_changesets import ChangesetRepository
 from database.repositories.opora_content_records import ContentRecords
 
@@ -21,8 +22,11 @@ class OporaContentAcceptance:
         self.canvas, self.proposals = canvas, OporaContentChanges(canvas)
 
     def accept(self, identifier, payload, by):
-        if set(payload) != {"project", "workspace", "expectedAcceptedHead", "reviewedProposalId", "adoptBaseContentDigest"}:
-            raise ValueError("Invalid content acceptance fields.")
+        exact_fields(payload, {"project", "workspace", "expectedAcceptedHead", "reviewedProposalId", "adoptBaseContentDigest"},
+                     "Přijetí změny obsahu", {"project": "<projectId>", "workspace": "draft",
+                                               "expectedAcceptedHead": "<heads.acceptedHead>",
+                                               "reviewedProposalId": "<id návrhu>",
+                                               "adoptBaseContentDigest": "<baseContentDigest návrhu nebo null>"})
         author = _author(by, allow_agent=True)
         if not acts_as_human(author["kind"]) or payload["reviewedProposalId"] != identifier:
             raise ValueError("Explicit human review of this exact content proposal is required.")

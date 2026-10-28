@@ -170,17 +170,19 @@ Sloučení ohlásíš sám a s plnou autonomií ([autonomie.md](autonomie.md)) k
 1. **Kroky:** claim → kroky `spec.steps` → `results` se `stepResults` (`dod.steps`).
 2. **Přijetí karty:** výsledek běhu nad aktuálním přijatým zadáním (`dod.card_acceptance`); po změně zadání nový běh.
 3. **Commit:** práci commitni do repa projektu a slouč do jeho aktuální větve (lokálně, bez push).
-4. **`local-merge`:** `POST /api/oporahub/executions/{identifier}/local-merge` s `{project, workspace, commit}`
+4. **`local-merge`:** `opora_hub.py local-merge --execution E --commit SHA`
+   (`POST /api/oporahub/executions/{identifier}/local-merge` s `{project, workspace, commit}`)
    (sloučený commit, 7–64 hex). Server ověří commit v repu (`422` neexistuje, `409` není předkem `HEAD`) a zapíše
    vazbu `source: "local"` a zápis plánu zpět (`dod.merged`, `dod.plan_written_back`). Týž commit znovu nic nemění,
    novější commit nahradí starší vazbu.
 5. **Kontroly:** má-li karta `checks` nebo běh kontrol, zapiš skutečně naměřený výsledek na sloučeném commitu
-   `POST /api/check-run` `{project, workspace, scope: <nodeId>, status, sha: <commit>}`. `dod.gate_ready` = sloučeno
+   `opora_api.py POST /api/check-run --json '{"scope": "<nodeId>", "status": "green", "sha": "<commit>"}'`
+   (`{project, workspace, scope, status, sha}`). `dod.gate_ready` = sloučeno
    + poslední běh karty je `green` na tomto commitu (karta bez kontrol: jen sloučeno).
 6. **Cesty:** karta na cestě zákazníka čeká na prošlé čerstvé ověření (`dod.journeys`, [journey-run.md](journey-run.md)).
 7. **`close_card`:** když `dod.missing == ["human_close"]` (akce `close_card` má `preconditions.gate: "local"`):
-   s `autonomy.full` zapiš `done.confirmed` přes `POST /api/desktop-v3/state` (`by: "agent"`), jinak napiš člověku.
-   Akce v `agent-state` dál nese `human_only`; s plnou autonomií ji smíš i tak (server rozhodne podle projektu).
+   s `autonomy.full` je akce pro agenta `ready`: `opora_hub.py act --action-id ID` (nebo `close-card --card ID`)
+   zapíše `done.confirmed` (`by: "agent"`) přes `POST /api/desktop-v3/state`; bez autonomie napiš člověku.
 
 `project` a `workspace` posílej vždy v těle: podle nich server pozná projekt a jeho autonomii a běh čte v něm.
 
@@ -188,6 +190,9 @@ Sloučení ohlásíš sám a s plnou autonomií ([autonomie.md](autonomie.md)) k
 
 | Kód | Význam | Co dělat |
 |---|---|---|
-| 3 (HTTP 409) | změněný stav, ztracené oprávnění, neplatný payload | `state --fresh`, nové ID akce; nic neopakuj naslepo |
+| 3 (HTTP 409) | změněný stav, krok čeká na jiný (`code`, `hint`), u starších cest i neplatný payload | udělej `hint` (např. `graph_acceptance_required` → `act` na `propose_graph` a `accept`), jinak `state --fresh`, nové ID akce |
 | 4 | žádná `ready` akce | konec, nebo jiná role |
 | 5 (HTTP 403/428, blokovaná akce) | patří člověku / chybí `OPORA_AGENT_NAME` | napiš člověku, neobcházej |
+| 6 (HTTP 422) | neplatné tělo: `field`, `expected`, `example` | oprav jen to pole podle `example` a pošli znovu |
+
+Chybový JSON skriptů má vždy `ok`, `status`, `error` a `hint` (další krok).

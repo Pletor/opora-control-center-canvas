@@ -112,7 +112,9 @@ def test_plan_proposes_sections_with_moves_and_rejects_an_empty_one(tmp_path):
         empty = copy.deepcopy(plan)
         empty["nodes"][1]["site"]["sections"][0]["moves"] = ""
         rejected = send(client, before, empty)
-        assert rejected.status_code == 409 and "moves" in rejected.text
+        # Neplatné tělo = 422 s polem (docs/plna-autonomie-agenta.md §7), ne konflikt stavu.
+        assert rejected.status_code == 422 and "moves" in rejected.text
+        assert rejected.json()["field"] == "site.sections[0].moves" and rejected.json()["code"] == "invalid_payload"
         assert view(client)["digest"] == before
         response = send(client, before, plan)
         assert response.status_code == 200, response.text

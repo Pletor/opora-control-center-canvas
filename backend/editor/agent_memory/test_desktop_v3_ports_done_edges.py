@@ -105,11 +105,13 @@ def test_done_is_optional_and_human_may_confirm_it():
     assert validate_state(state(node(done=default_done())))["nodes"]["focus"]["done"] == default_done()
 
 
-def test_agent_may_only_propose_done():
+def test_stored_done_may_be_confirmed_by_agent():
+    """Plná autonomie (docs/plna-autonomie-agenta.md §6): tvar uloženého stavu přijme potvrzení od agenta;
+    kdo smí potvrdit, hlídá brána při zápisu (backend/app/test_full_autonomy.py)."""
     proposal = {"confirmed": False, "at": "2026-09-14T08:00:00+00:00", "by": "agent", "note": "Podle mě hotovo."}
     assert validate_state(state(node(done=proposal)))["nodes"]["focus"]["done"] == proposal
-    with pytest.raises(ValueError):
-        validate_state(state(node(done={**proposal, "confirmed": True})))
+    confirmed = {**proposal, "confirmed": True}
+    assert validate_state(state(node(done=confirmed)))["nodes"]["focus"]["done"] == confirmed
 
 
 @pytest.mark.parametrize(

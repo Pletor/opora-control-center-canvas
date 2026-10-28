@@ -47,8 +47,11 @@ V tabulkách skillu jsou tyto akce označené „člověk“ nebo „jen člově
 V projektu bez GitHubu (`dod.gate: "local"`) dokončíš kartu celou sám: po `local-merge` (ten smíš i bez autonomie
 pro vlastní odevzdaný běh) zapíšeš `close_card`. Pořadí: [hub-loop.md](hub-loop.md) „Projekt bez GitHubu“.
 
-Skripty skillu se nemění: `opora_write.py` lidské cesty odmítne vždy. Při plné autonomii je volej přímo HTTP
-(`Origin` loopbacku, `Content-Type: application/json`, `X-Opora-Actor`), jedna akce = jeden požadavek, a výsledek
+Skripty: `opora_write.py` (asistent v okně, schvaluje člověk) lidské cesty odmítne vždy. Agent mimo aplikaci je
+při plné autonomii provede skriptem, ne vlastním HTTP klientem: akci z agent-state `opora_hub.py act --action-id ID`
+(tělo = `project`, `workspace` a `preconditions` akce; výstup nese `next`), uzavření `opora_hub.py close-card --card ID`,
+sloučení `opora_hub.py local-merge --execution E --commit SHA` a jakoukoli jinou cestu `opora_api.py METHOD PATH`
+(identita agenta, jen loopback; výjimky §4 a cesty s tokenem odmítne předem). Jedna akce = jeden požadavek, výsledek
 ověř čtením. Autonomie nemění pravidla obsahu: revize, CAS, lease, brány review a ověřená cesta zákazníka platí dál.
 
 ## Co zůstává jen člověku (§4)

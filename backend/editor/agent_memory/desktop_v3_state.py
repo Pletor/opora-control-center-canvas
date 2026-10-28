@@ -136,6 +136,18 @@ def fill_defaults(state):
     return state
 
 
+def _node_keys_problem(node):
+    """Co na klíčích uzlu chybí nebo je navíc (`actions` a `rules` jen spolu)."""
+    if not isinstance(node, dict):
+        return "uzel není objekt"
+    allowed = set().union(*_node_key_sets())
+    parts = [f"chybí {key}" for key in sorted(NODE_KEYS - set(node))]
+    parts += [f"neznámé pole {key}" for key in sorted(set(node) - allowed)]
+    if ("actions" in node) != ("rules" in node):
+        parts.append("actions a rules jen spolu")
+    return ", ".join(parts) or "nepovolená kombinace polí"
+
+
 def _fail(message):
     raise ValueError("Neplatný stav Desktop v3: " + message)
 
@@ -460,7 +472,8 @@ def validate_state(state, *, unchanged=None):
     for node_id, node in nodes.items():
         _ident(node_id, "klíč uzlu")
         if not isinstance(node, dict) or frozenset(node) not in _node_key_sets():
-            _fail("stav uzlu má neplatná pole.")
+            _fail(f"stav uzlu {node_id} má neplatná pole ({_node_keys_problem(node)}); uzel vždy nese phase, criteria"
+                  " a steps, např. {\"phase\": \"discover\", \"criteria\": [], \"steps\": [], \"done\": {…}}.")
         if unchanged is not None and unchanged.get(node_id) is node:
             continue
         _validate_blocks(node, node_id)
