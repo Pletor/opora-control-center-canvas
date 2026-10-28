@@ -73,3 +73,27 @@ def test_reclaim_tasks_of_expired_or_revoked_sessions(store):
     assert store.reclaim(LATER) == ["ht_1", "ht_2"]
     assert [t["status"] for t in store.list("main")] == ["assigned", "ready", "ready"]
     assert store.reclaim(LATER) == []
+
+
+def test_order_goes_first_then_seq(store):
+    store.insert("ht_1", "main", None, "Bez pořadí", {"do": "a"}, "human", AT)
+    store.insert("ht_2", "main", None, "Druhý krok", {"do": "b"}, "heart", AT, order=2)
+    store.insert("ht_3", "main", None, "První krok", {"do": "c"}, "heart", AT, order=1)
+    store.insert("ht_4", "main", None, "Také první", {"do": "d"}, "heart", AT, order=1)
+    assert store.get("ht_2")["order"] == 2 and store.get("ht_1")["order"] == 0
+    picked = []
+    while (ready := store.oldest_ready("main")) is not None:
+        picked.append(ready["taskId"])
+        store.assign(ready["taskId"], "gs_1", AT)
+    assert picked == ["ht_1", "ht_3", "ht_4", "ht_2"]
+
+
+def test_order_column_is_added_to_a_table_from_h1b():
+    from database.repositories.heart_tasks import ensure_order_column
+    connection = sqlite3.connect(":memory:")
+    connection.execute("CREATE TABLE heart_tasks(seq INTEGER PRIMARY KEY, id TEXT)")
+    connection.execute("INSERT INTO heart_tasks VALUES(1, 'ht_old')")
+    ensure_order_column(connection)
+    ensure_order_column(connection)
+    assert connection.execute("SELECT task_order FROM heart_tasks").fetchone()[0] == 0
+    connection.close()

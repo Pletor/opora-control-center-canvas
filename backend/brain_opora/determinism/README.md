@@ -33,8 +33,18 @@ Modules (H1b):
   body is filled to the fixed shape `{why, do, files, doneWhen, dontTouch, context, commit}`.
 - Worker client: `.claude/skills/opora-control-center/scripts/opora_gate.py` (reference `references/gate.md`).
 
+Modules (H2a, contract `docs/brain-heart.md`):
+- `snapshot.py`: the deterministic project snapshot for the heart (§3): project and workspace, intent (project goal,
+  else the home page goal and feel), plan pages with their stage (≤ 20, else open cards), task queue counts and the
+  last 10 tasks, waiting tickets (≤ 10), last checks (≤ 10). `collect` reads, `render` is pure; the text is cut at
+  12 000 characters.
+- `task_queue.py` / `gate.py`: tasks and ticket answers may come from the heart of the same project
+  (`created_by` / `answeredBy = "heart"`, event actor `agent heart`). A task has an optional `order`: `next` takes
+  the lowest `order`, then the lowest `seq` (column `task_order`, added to older tables by `ensure_order_column`).
+  The `gate.ticket` event of a new ticket carries `from` (the session role), so the heart's own escalation does not
+  wake it.
+
 Still planned:
-- `snapshot.py`: a deterministic project snapshot for the heart (at most about 4k tokens).
 - `events.py`: reads `opora_events` and `PROCESS_SIGNAL` and turns them into wake-up candidates.
 - `tool_policy.py`: tool classification for the heart (moved from `claude_code/assistant/approvals.py`).
 

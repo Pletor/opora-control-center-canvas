@@ -1,0 +1,71 @@
+"""Řádka dávky srdce: přesně §2, nastavení se zdí nad zdrojem, prostředí bez klíčů API, hledání `claude`."""
+import json
+import os
+import uuid
+
+import pytest
+
+from backend.brain_opora.heart import command
+
+SID = str(uuid.UUID(int=7))
+
+
+def build(resume, source_root=None):
+    return command.build_command("claude", session_id=SID, resume=resume, settings_path="s.json",
+                                 mcp_path="m.json", source_root=source_root)
+
+
+def test_new_session_command_matches_the_contract():
+    line = build(False, "/src")
+    assert line[:9] == ["claude", "-p", "--output-format", "json", "--model", "haiku", "--advisor", "opus",
+                        "--session-id"]
+    pairs = {line[i]: line[i + 1] for i in range(1, len(line) - 1) if line[i].startswith("--")}
+    assert pairs["--session-id"] == SID and "--resume" not in line
+    assert pairs["--setting-sources"] == "project" and pairs["--settings"] == "s.json"
+    assert "--strict-mcp-config" in line and pairs["--mcp-config"] == "m.json"
+    assert pairs["--allowedTools"] == "Read,Grep,Glob,Bash(python opora_heart.py:*)"
+    assert pairs["--permission-mode"] == "dontAsk" and pairs["--add-dir"] == "/src"
+    assert pairs["--system-prompt-file"] == str(command.PROMPT_FILE) and command.PROMPT_FILE.is_file()
+    assert line[-2:] == ["--max-turns", "40"]
+
+
+def test_resume_and_no_source_root():
+    line = build(True)
+    assert line[line.index("--resume") + 1] == SID and "--session-id" not in line and "--add-dir" not in line
+    with pytest.raises(ValueError):
+        command.build_command("claude", session_id="", resume=False, settings_path="s", mcp_path="m")
+    with pytest.raises(ValueError):
+        command.build_command("claude", session_id="ne-uuid", resume=False, settings_path="s", mcp_path="m")
+
+
+def test_settings_deny_writes_into_the_source_and_disable_hooks(tmp_path):
+    value = command.settings(tmp_path / "src")
+    root = command.rule_path(tmp_path / "src")
+    assert value["disableAllHooks"] is True and root.startswith("//") and "\\" not in root
+    assert {f"Edit({root}/**)", f"Write({root}/**)", "NotebookEdit", "Read(**/.env)"} <= set(value["permissions"]["deny"])
+    settings_path, mcp_path = command.write_config(tmp_path / "brain", tmp_path / "src")
+    assert json.loads(settings_path.read_text(encoding="utf-8")) == value
+    assert json.loads(mcp_path.read_text(encoding="utf-8")) == {"mcpServers": {}}
+    assert (tmp_path / "brain" / "opora_heart.py").read_bytes() == command.TOOL_FILE.read_bytes()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="disková písmena jen na Windows")
+def test_rule_path_on_windows_drive():
+    assert command.rule_path("C:\\Users\\a") == "//c/Users/a"
+
+
+def test_child_env_strips_api_keys_and_sets_the_heart():
+    env = command.child_env(base_url="http://127.0.0.1:9", token="t", project="p", workspace="w",
+                            environ={"ANTHROPIC_API_KEY": "x", "TYPESAFE_API_KEY": "y", "CELERIS_API_KEY": "z",
+                                     "PATH": "/bin"})
+    assert not set(command.STRIPPED) & set(env) and env["PATH"] == "/bin"
+    assert (env["OPORA_BASE_URL"], env["OPORA_HEART_TOKEN"], env["OPORA_PROJECT"], env["OPORA_WORKSPACE"]) == (
+        "http://127.0.0.1:9", "t", "p", "w")
+
+
+def test_find_claude_prefers_exe_on_windows():
+    found = {"claude.cmd": "C:/n/claude.cmd", "claude.exe": "C:/n/claude.exe"}
+    assert command.find_claude(found.get, nt=True) == "C:/n/claude.exe"
+    assert command.find_claude({"claude.cmd": "C:/n/claude.cmd"}.get, nt=True) == "C:/n/claude.cmd"
+    assert command.find_claude({"claude": "/usr/bin/claude"}.get, nt=False) == "/usr/bin/claude"
+    assert command.find_claude({}.get, nt=False) is None

@@ -79,7 +79,7 @@ def test_ask_waits_for_a_human_and_then_reaches_the_inbox(service):
     assert [t["ticketId"] for t in box["tickets"]] == [ticket["ticketId"]] and box["last"] == box["tickets"][0]["answeredSeq"]
     assert gate.inbox(service, session, box["last"])["tickets"] == []
     expected = {"ticketId": ticket["ticketId"], "kind": "ask"}
-    assert events(service) == [("agent", {**expected, "status": "queued"}),
+    assert events(service) == [("agent", {**expected, "status": "queued", "from": "worker"}),
                                ("human", {**expected, "status": "answered"})]
 
 

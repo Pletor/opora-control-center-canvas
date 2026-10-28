@@ -2,7 +2,7 @@
 
 Pracovník (např. z agent-office) pošle požadavek a odpověď mu přijde do schránky. Registr `HANDLERS`
 drží deterministické obsluhy podle druhu: ta odpoví hned v tomtéž požadavku. `ask` a `change` obsluhu
-nemají a čekají, až odpoví člověk (v H2 i srdce). `next` a `report` obsluhuje fronta úkolů (`task_queue`, H1b).
+nemají a čekají, až odpoví člověk nebo srdce projektu. `next` a `report` obsluhuje fronta úkolů (`task_queue`, H1b).
 Vytvoření i odpověď lístku vydají událost `gate.ticket`. Nic tu nevolá model.
 """
 import asyncio
@@ -65,9 +65,11 @@ def _actor(session):
     return {"kind": "agent", "name": session["worker_name"]} if session else {"kind": "human", "name": None}
 
 
-def _emit(db, project, workspace, ticket, actor):
+def _emit(db, project, workspace, ticket, actor, source=None):
+    """`from` (role relace, která lístek založila) u vzniku: srdce se nebudí na vlastní eskalaci."""
+    data = {"ticketId": ticket["ticketId"], "kind": ticket["kind"], "status": ticket["status"]}
     emit_event(db, project_id=project, workspace_id=workspace, kind="gate.ticket", actor=actor,
-               data={"ticketId": ticket["ticketId"], "kind": ticket["kind"], "status": ticket["status"]})
+               data=data | ({"from": source} if source else {}))
 
 
 def create_request(service, session, payload, now=None):
@@ -85,7 +87,7 @@ def create_request(service, session, payload, now=None):
             store = GateTicketStore(db, project)
             store.insert(ticket_id, workspace, session["id"], kind, body, tokens.stamp(now))
             ticket = store.get(ticket_id)
-            _emit(db, project, workspace, ticket, _actor(session))
+            _emit(db, project, workspace, ticket, _actor(session), session.get("role"))
             if handler is not None:
                 store.answer(ticket_id, result, "gate", tokens.stamp(now))
                 ticket = store.get(ticket_id)
@@ -106,7 +108,8 @@ def get_ticket(service, project, ticket_id, session=None):
 
 
 def answer(service, project, ticket_id, payload, answered_by="human", now=None):
-    """Odpověď člověka na čekající lístek; podruhé 409 `ticket_answered`."""
+    """Odpověď člověka nebo srdce (`answered_by`) na čekající lístek; podruhé 409 `ticket_answered`."""
+    actor = task_queue.writer_actor(answered_by)
     value = answer_payload(payload)
     with service.lock_for(project):
         db = service.db_for(project)
@@ -120,7 +123,7 @@ def answer(service, project, ticket_id, payload, answered_by="human", now=None):
                 raise GateError(409, "ticket_answered", "Lístek už má odpověď.", "Načtěte ho: GET /api/gate/tickets/{id}.")
             ticket = store.get(ticket_id)
             workspace = db.execute("SELECT workspace_id FROM gate_tickets WHERE id=?", (ticket_id,)).fetchone()[0]
-            _emit(db, project, workspace, ticket, {"kind": "human", "name": None})
+            _emit(db, project, workspace, ticket, actor)
     return ticket
 
 

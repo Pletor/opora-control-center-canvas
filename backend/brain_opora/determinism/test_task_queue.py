@@ -112,3 +112,20 @@ def test_cancel_and_list(service):
         with pytest.raises(GateError):
             call()
     assert task_events(service) == ["ready", "cancelled"]
+
+
+def test_heart_writes_ordered_tasks_and_order_is_checked(service):
+    payload = {"project": "draft", "workspace": "draft", "title": "Krok", "body": {"do": "x"}}
+    later = task_queue.create(service, payload | {"order": 2}, created_by="heart")
+    sooner = task_queue.create(service, payload | {"order": 1}, created_by="heart")
+    assert (later["createdBy"], later["order"]) == ("heart", 2)
+    assert task_queue.next_task(service, worker(service), {})["task"]["id"] == sooner["taskId"]
+    assert task_queue.cancel(service, "draft", later["taskId"], by="heart")["status"] == "cancelled"
+    actors = service.db_for("draft").execute(
+        "SELECT DISTINCT actor_name FROM opora_events WHERE kind='gate.task' AND actor_kind='agent'").fetchall()
+    assert {row[0] for row in actors} >= {"heart"}
+    for order in (-1, "1", 1.5, True, 10**7):
+        with pytest.raises(GateError):
+            task_queue.create(service, payload | {"order": order})
+    with pytest.raises(ValueError):
+        task_queue.create(service, payload, created_by="worker")

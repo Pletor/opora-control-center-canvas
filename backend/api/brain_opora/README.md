@@ -11,5 +11,13 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   Contract: `docs/brain-gate.md` §1. The wall itself lives in `backend/brain_opora/determinism/wall.py`.
 - `brain_routes.py` also carries the task queue (`docs/brain-gate.md` §6, H1b): `GET /api/brain/tasks?project&workspace&status?`
   is readable by anyone; `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` and
-  `POST /api/brain/tasks/{id}/cancel?project=` are human only (`require_human`). The heart token is not accepted
-  here yet (H2 adds its own check). The wall lets a human through, so a human writes tasks in a gate-on project too.
+  `POST /api/brain/tasks/{id}/cancel?project=` accept a human or the heart of the same project (`writer.py`); the
+  body may carry `order`. The wall lets a human through, so a human writes tasks in a gate-on project too.
+- `writer.py`: human or heart. The heart is recognised only by `request.state.heart_project`, which the `boundary`
+  middleware sets after the wall verified a heart token for the request's project; it cannot be spoofed. The ticket
+  answer in `gate_routes.py` uses the same marker (`answeredBy = "heart"`).
+- `heart_routes.py` (H2a, `docs/brain-heart.md`, loopback-only): `POST /api/brain/heart/messages {project, workspace,
+  text}` (human only, gate on, else 409 `gate_off`) queues a wake and answers `{queued: true, pending}`;
+  `GET /api/brain/heart/status?project=` returns the session, the last 5 batches, sleeping and `nextAllowedAt`;
+  `GET /api/brain/heart/snapshot?project&workspace` returns `{snapshot}`; `POST /api/brain/heart/escalate
+  {project, workspace, text}` (heart token only) creates an `ask` ticket for the human.

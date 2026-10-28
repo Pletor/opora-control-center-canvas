@@ -1,11 +1,13 @@
 """Řádky `heart_tasks` (docs/brain-gate.md §6, H1b): fronta úkolů, které píše člověk (později srdce) a bere pracovník.
 
 Stavy: `ready` → `assigned` (drží ho jedna relace) → `done` | `failed`, nebo `ready` znovu po červeném hlášení;
-`cancelled` kdykoli před koncem. `body` a `report` jsou text JSON. Transakci vlastní volající."""
+`cancelled` kdykoli před koncem. `body` a `report` jsou text JSON. Transakci vlastní volající.
+Pořadí (docs/brain-heart.md §5): nižší `task_order` jde dřív, při shodě rozhoduje `seq`."""
 import json
+import sqlite3
 
 COLUMNS = ("seq", "id", "project_id", "workspace_id", "node_id", "title", "body", "status", "session_id", "attempts",
-           "created_by", "report", "created_at", "updated_at")
+           "created_by", "report", "created_at", "updated_at", "task_order")
 OPEN = ("ready", "assigned")
 SELECT = "SELECT " + ",".join(COLUMNS) + " FROM heart_tasks"
 
@@ -19,7 +21,20 @@ def public(row):
             "title": value["title"], "body": json.loads(value["body"]), "status": value["status"],
             "sessionId": value["session_id"], "attempts": value["attempts"], "createdBy": value["created_by"],
             "report": None if value["report"] is None else json.loads(value["report"]),
-            "createdAt": value["created_at"], "updatedAt": value["updated_at"]}
+            "createdAt": value["created_at"], "updatedAt": value["updated_at"], "order": value["task_order"]}
+
+
+def ensure_order_column(db):
+    """Doplní `task_order` do tabulky z H1b (aditivně, idempotentně i při souběžném otevření)."""
+    def columns():
+        return {row[1] for row in db.execute("PRAGMA table_info(heart_tasks)")}
+    if not columns() or "task_order" in columns():
+        return
+    try:
+        db.execute("ALTER TABLE heart_tasks ADD COLUMN task_order INTEGER NOT NULL DEFAULT 0")
+    except sqlite3.OperationalError:
+        if "task_order" not in columns():
+            raise
 
 
 def _json(value):
@@ -30,12 +45,12 @@ class HeartTaskStore:
     def __init__(self, db, project):
         self.db, self.project = db, project
 
-    def insert(self, task_id, workspace, node_id, title, body, created_by, at):
+    def insert(self, task_id, workspace, node_id, title, body, created_by, at, order=0):
         """Uloží úkol ve stavu `ready`; vrací jeho `seq`."""
         cursor = self.db.execute(
             "INSERT INTO heart_tasks(id,project_id,workspace_id,node_id,title,body,status,created_by,created_at,"
-            "updated_at) VALUES(?,?,?,?,?,?,'ready',?,?,?)",
-            (task_id, self.project, workspace, node_id, title, _json(body), created_by, at, at))
+            "updated_at,task_order) VALUES(?,?,?,?,?,?,'ready',?,?,?,?)",
+            (task_id, self.project, workspace, node_id, title, _json(body), created_by, at, at, order))
         return cursor.lastrowid
 
     def get(self, task_id):
@@ -56,7 +71,7 @@ class HeartTaskStore:
 
     def oldest_ready(self, workspace):
         return public(self.db.execute(SELECT + " WHERE project_id=? AND workspace_id=? AND status='ready'"
-                                      " ORDER BY seq LIMIT 1", (self.project, workspace)).fetchone())
+                                      " ORDER BY task_order, seq LIMIT 1", (self.project, workspace)).fetchone())
 
     def assign(self, task_id, session_id, at):
         """Přidělí připravený úkol relaci; True, když ho přidělilo právě toto volání."""
