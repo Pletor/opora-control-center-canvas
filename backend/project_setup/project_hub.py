@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 from backend.canvas.graph import EMPTY, encode, valid_id
@@ -81,7 +82,40 @@ class ProjectHub:
         with self.canvas.reading(project):
             item = self._project(project)
             revision, values = self._settings(project)
-            return {"project": item, "revision": revision, "settings": values}
+            return {"project": item, "revision": revision, "settings": values,
+                    "agentAutonomy": self.agent_autonomy(project)}
+
+    def agent_autonomy(self, pid):
+        """Plná autonomie agentů (docs/plna-autonomie-agenta.md §3): `{full, since?, by?}`.
+
+        Leží v `project.json` vedle zrcadla nastavení (`settings.agentAutonomy`), aby tabulka
+        project_settings zůstala beze změny schématu. Chybějící nebo poškozená hodnota = vypnuto.
+        """
+        try:
+            folder = self.canvas.folder(pid)
+            stored = folder.read().get("settings", {}).get("agentAutonomy") if folder.exists() else None
+        except (ValueError, OSError):
+            stored = None
+        if not isinstance(stored, dict) or stored.get("full") is not True:
+            return {"full": False}
+        return {"full": True, **{key: stored[key] for key in ("since", "by") if isinstance(stored.get(key), str)}}
+
+    def set_agent_autonomy(self, payload):
+        """Zapne/vypne plnou autonomii; volá jen route za `require_human` (agent si ji nesvěří)."""
+        if not isinstance(payload, dict) or set(payload) != {"project", "full"} or type(payload["full"]) is not bool:
+            raise ValueError("Tělo je přesně {project, full: true | false}.")
+        pid = payload["project"]
+        if not isinstance(pid, str) or (pid != "draft" and not valid_id(pid)):
+            raise ValueError("Neplatný identifikátor projektu.")
+        with self.canvas.lock_for(pid):
+            self._project(pid)  # ověří registr a archiv
+            folder = self.canvas.folder(pid)
+            if not folder.exists():
+                raise ValueError("Projekt nemá složku s project.json; plnou autonomii nelze uložit.")
+            value = ({"full": True, "since": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "by": "human"}
+                     if payload["full"] else {"full": False})
+            folder.update(settings={"agentAutonomy": value})
+        return self.settings(pid)
 
     def _validate_name(self, name):
         if not isinstance(name, str) or not name.strip() or len(name.strip()) > 120:

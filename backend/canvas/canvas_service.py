@@ -857,7 +857,8 @@ class CanvasService:
                 from backend.canvas.activity_log import HumanRequired
                 from backend.canvas.protected_fields import protected_changes
                 changes = protected_changes(current["graph"], graph)
-                if changes:
+                from backend.canvas.authority import acts_as_human
+                if changes and not acts_as_human(actor):  # plná autonomie: docs/plna-autonomie-agenta.md
                     raise HumanRequired(actor, "Tato pole mění jen člověk v UI: " + ", ".join(changes[:10]))
             # Zaokrouhlujeme až při zápisu; čtení starého grafu nesmí změnit jeho digest.
             graph = {"nodes": [{**node, "x": round(node["x"]), "y": round(node["y"])}

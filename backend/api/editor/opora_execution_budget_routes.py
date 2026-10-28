@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Request
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.canvas.opora_execution_budget_cancel import cancel
 from backend.canvas.opora_execution_budgets import ExecutionBudgets
 
@@ -12,8 +12,8 @@ def create_execution_budget_router(service):
     authority = ExecutionBudgets(service)
 
     def author(request):
-        require_human(request.state.actor, "Execution budget controls require a human UI session.")
-        return {"kind": "human", "name": "Člověk"}
+        require_authority(request.state.actor, "Execution budget controls require a human UI session.")
+        return {"kind": request.state.actor, "name": request.state.agent if request.state.actor == "agent" else "Člověk"}
 
     @router.get("")
     def context(request: Request, project: str, workspace: str, nodeId: str):

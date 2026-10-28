@@ -5,7 +5,7 @@ Zápis vrací jen novou revizi a zapsanou položku (karta P3, < 10 kB místo cel
 Hromadné posouzení návrhů agenta (`review_rules`) jde stejnou cestou jako jedna položka,
 jen všechny změny uloží jednou revizí: všechno, nebo nic.
 """
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.canvas.graph import valid_id
 
 KEYS = {"project", "workspace", "id", "op", "expected", "item"}
@@ -67,6 +67,12 @@ def _review_change(payload):
         "op": "update" if decision == "approve" else "remove", "expected": expected,
         "item": approved if decision == "approve" else None,
     }
+
+
+def _reviewer(actor):
+    """Schválení agentem s plnou autonomií zapisuje server (`system`), aby se pravidlo znovu neoznačilo
+    jako návrh agenta; původce (agent) zůstává v záznamu činnosti."""
+    return actor if actor == "human" else "system"
 
 
 class MemoryItems:
@@ -143,17 +149,18 @@ class MemoryItems:
 
         Schválení = uložení pravidla bez `by` (od té doby platí v `node-brief`), zamítnutí = odebrání.
         Agent dostane 403, neznámý původce 428; `expected` je přečtený návrh (CAS jako u zápisu položky)."""
-        require_human(actor, "Návrh pravidla schvaluje nebo zamítá jen člověk v UI.")
+        require_authority(actor, "Návrh pravidla schvaluje nebo zamítá jen člověk v UI.")
         if not isinstance(payload, dict) or set(payload) != REVIEW_KEYS:
             raise ValueError("Posouzení pravidla vyžaduje project, workspace, id, decision a expected.")
-        return self.apply("rules", _review_change(payload), actor=actor, full=full)
+        return self.apply("rules", _review_change(payload), actor=_reviewer(actor), full=full)
 
     def review_rules(self, payload, *, actor, full=False):
         """Člověk posoudí víc návrhů agenta jedním krokem: všechno, nebo nic (jedna revize).
 
         Každá položka `{id, expected}` projde stejnou cestou jako `review_rule` (CAS na přečtený návrh);
         když kterákoli koliduje, neuloží se nic a `BatchConflict.conflicts` řekne, které to byly."""
-        require_human(actor, "Návrhy pravidel schvaluje nebo zamítá jen člověk v UI.")
+        require_authority(actor, "Návrhy pravidel schvaluje nebo zamítá jen člověk v UI.")
+        actor = _reviewer(actor)
         if not isinstance(payload, dict) or set(payload) != BATCH_KEYS:
             raise ValueError("Hromadné posouzení vyžaduje project, workspace, items a decision.")
         entries = payload["items"]

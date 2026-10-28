@@ -1,4 +1,5 @@
 """Human-controlled local review policy, independent of plan acceptance and GitHub writes."""
+from backend.canvas.authority import acts_as_human, can_act
 from backend.canvas.opora_change_validation import identifier, scope
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_commit_validation import _author
@@ -23,9 +24,9 @@ class OporaReviewPolicy:
             current = context(self.service, project, workspace)
             repo = self.repository(project, workspace)
             head = repo.head()
-            reason = current["unavailableReason"] or ("Policy configuration requires a human UI session." if actor != "human" else None)
+            reason = current["unavailableReason"] or ("Policy configuration requires a human UI session." if not can_act(actor) else None)
             return {"project": project, "workspace": workspace, "policyHead": head, "policy": repo.read(head) if head else None,
-                    "canConfigure": actor == "human" and current["available"], "unavailableReason": reason,
+                    "canConfigure": can_act(actor) and current["available"], "unavailableReason": reason,
                     "acceptedHead": current["acceptedHead"]}
 
     def history(self, project, workspace):
@@ -37,7 +38,7 @@ class OporaReviewPolicy:
     @staticmethod
     def author(by):
         author = _author(by)
-        if author["kind"] != "human":
+        if not acts_as_human(author["kind"]):
             raise ValueError("Only a human may configure review policy.")
         return author
 

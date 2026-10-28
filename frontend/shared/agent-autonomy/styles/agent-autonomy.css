@@ -1,0 +1,77 @@
+/* ŠTÍTEK PLNÉ AUTONOMIE (blok `agent-autonomy-badge`)
+   Příběh: když člověk svěřil projekt agentům, musí to vidět pořád — v hlavičce projektu i ve velínu,
+   dřív než si přečte cokoli jiného. Proto plná pilulka v barvě agentů s robotem: stejná barva jako
+   žeton agenta v záznamu činnosti, takže „tady jednají agenti sami“ se pozná na první pohled. Nebliká,
+   nekřičí; je to trvalý stav, ne poplach. */
+.agent-autonomy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--cat-agents);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cat-agents) var(--cat-soft, 14%), transparent);
+  color: var(--cat-agents);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.agent-autonomy-badge--velin {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+/* PŘEPÍNAČ PLNÉ AUTONOMIE (blok `agent-autonomy-switch`)
+   Příběh: v nastavení projektu stojí samostatný rámeček, oddělený od formuláře s revizí, protože se
+   ukládá hned a znamená velké svěření. Řádek čte jako věta „přepínač · co to je · jak to teď je“, pod
+   ním drobná vysvětlivka, co agent smí a co ne. Zapnutí chce potvrzení v rámečku přímo pod tím —
+   jedno kliknutí navíc, žádné okno přes celou obrazovku. Zapnutý stav orámuje celek barvou agentů. */
+.agent-autonomy-switch {
+  margin-top: var(--sp-4, 16px);
+  padding: var(--sp-3, 12px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.agent-autonomy-switch--on {
+  border-color: var(--cat-agents);
+}
+.agent-autonomy-switch__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  cursor: pointer;
+}
+.agent-autonomy-switch__toggle {
+  margin: 0;
+}
+.agent-autonomy-switch__label {
+  font-weight: 600;
+}
+.agent-autonomy-switch__state {
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-size: var(--fs-0, 12px);
+}
+.agent-autonomy-switch__hint {
+  margin: var(--sp-2, 8px) 0 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-0, 12px);
+}
+.agent-autonomy-switch__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  margin-top: var(--sp-3, 12px);
+  padding: var(--sp-3, 12px);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--cat-agents) var(--cat-soft, 14%), transparent);
+}
+.agent-autonomy-switch__confirm p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.agent-autonomy-switch__error {
+  margin: var(--sp-2, 8px) 0 0;
+  color: var(--danger);
+}

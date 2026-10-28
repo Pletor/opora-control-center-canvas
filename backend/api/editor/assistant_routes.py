@@ -16,7 +16,7 @@ import time
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority, require_human
 from backend.claude_code.assistant.instructions import default_assistant_instructions
 from backend.claude_code.assistant.manager import AssistantError, SessionNotFound
 from backend.integrations.typesafe_client import DEFAULT_PROVIDER, PROVIDERS
@@ -107,9 +107,11 @@ def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.2
         return _instructions()
 
     @router.post("/jev-key")
-    def jev_key(payload: dict):
+    def jev_key(payload: dict, request: Request):
         """Uloží nebo smaže klíč poskytovatele Jev pro celou aplikaci; klíč se nikdy nevrací.
         Bez `provider` jde o klíč TypeSafe (zpětná kompatibilita)."""
+        # Výjimka §4 (docs/plna-autonomie-agenta.md): klíče a tajemství jen člověk, i při plné autonomii.
+        require_human(getattr(request.state, "actor", "unknown"), "Klíč poskytovatele ukládá jen člověk v UI.")
         if (jev_settings is None or not isinstance(payload, dict) or "key" not in payload
                 or set(payload) - {"key", "provider"}):
             return JSONResponse({"error": "Tělo je {key: text | null, provider?: typesafe | celeris}."}, status_code=422)
@@ -131,8 +133,8 @@ def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.2
     @router.post("/jev-gate-check")
     def jev_gate_check_set(payload: dict, request: Request):
         """Povolí nebo zakáže kontrolu bran pro (projekt, poskytovatel); jen člověk v UI."""
-        require_human(getattr(request.state, "actor", "unknown"),
-                      "Externí kontrolu bran povoluje jen člověk v UI.")
+        require_authority(getattr(request.state, "actor", "unknown"),
+                          "Externí kontrolu bran povoluje jen člověk v UI.")
         if (jev_settings is None or not isinstance(payload, dict)
                 or set(payload) != {"project", "provider", "allowed"}):
             return JSONResponse({"error": "Tělo je přesně {project, provider, allowed: true | false}."}, status_code=422)

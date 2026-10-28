@@ -45,6 +45,8 @@ import DockSettings from "@/layout/panel-dock/components/DockSettings";
 import { usePanelDock } from "@/layout/panel-dock/logic/use-panel-dock";
 import ProfileCard from "@/layout/project-profile/components/ProfileCard";
 import { useProjectProfile } from "@/layout/project-profile/logic/use-project-profile";
+import { useAgentAutonomy } from "@/shared/agent-autonomy/logic/use-agent-autonomy";
+import AgentAutonomyBadge from "@/shared/agent-autonomy/components/AgentAutonomyBadge";
 import { nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
 import { withStages, type PipelineWriteResponse } from "@/shared/desktop-state/logic/slim-writes";
 import "@/editor/component-library/node-library/styles/node-library.css";
@@ -233,6 +235,8 @@ export default function App() {
   // Profil patří projektu: načte se z /api/project-settings při otevření sekce a ukládá ho jen App
   // s očekávanou revizí.
   const projectProfile = useProjectProfile(project, dock.section);
+  // Plná autonomie agentů: jediný zdroj pro přepínač (úvodní obrazovka) a štítky v liště a ve velínu.
+  const agentAutonomy = useAgentAutonomy(project);
   const profile = catalogProfile(projectProfile.snapshot?.settings ?? null);
   // Přechod na jinou vrstvu (Zanořit, drobečková navigace) vrací stránku Text zpět na Uživatele.
   useEffect(() => { setTextSubtab("user"); }, [parent]);
@@ -1010,7 +1014,7 @@ export default function App() {
   // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez menu Editoru: nemá plátno ani vybranou kartu.
   if (screen === "home") return <>
     <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
-      <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
+      <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} autonomy={agentAutonomy} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
     </div>
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
     <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
@@ -1085,6 +1089,7 @@ export default function App() {
         onSelectWorkspace={selectWorkspace}
       >
         <EnvironmentSwitch value={environment} onChange={changeEnvironment} disabled={busy || saveAllBusy} />
+        <AgentAutonomyBadge autonomy={agentAutonomy.autonomy} />
 
       </TopBar>
       {error && (
@@ -1162,7 +1167,7 @@ export default function App() {
               mode === "text" ? (
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
               ) : mode === "map" ? (
-                <ControlTower key={project} project={project} workspace={workspace} graph={graph} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpen={(id) => { openCardDrawer(id); }} onOpenMap={() => openDomainMap(null)} worktreeLive={capabilities.worktreeLive} />
+                <ControlTower key={project} project={project} workspace={workspace} graph={graph} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpen={(id) => { openCardDrawer(id); }} onOpenMap={() => openDomainMap(null)} worktreeLive={capabilities.worktreeLive} autonomy={agentAutonomy.autonomy} />
               ) : mode === "office" ? (
                 <OfficeWorkspace key={`${project}:${workspace}`} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }}
                   onStartSession={(request) => { setAssistantStart((prior) => ({ ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); }}

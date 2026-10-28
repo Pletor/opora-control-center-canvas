@@ -1,7 +1,7 @@
 """Separate immutable graph-addition proposals; accepted revisions share the plan chain."""
 from fastapi import APIRouter, Request
 
-from backend.canvas.activity_log import HumanRequired, require_human
+from backend.canvas.activity_log import HumanRequired, require_authority
 from backend.canvas.opora_graph_acceptance import OporaGraphAcceptance
 from backend.canvas.opora_graph_proposals import OporaGraphProposals
 
@@ -13,7 +13,7 @@ def create_opora_graph_router(service):
     def author(request, *, human=False):
         actor = request.state.actor
         if human:
-            require_human(actor, "Graph additions require human acceptance in the UI.")
+            require_authority(actor, "Graph additions require human acceptance in the UI.")
         elif actor not in ("human", "agent"):
             raise HumanRequired(actor, "A proposal author is required.")
         return {"kind": actor, "name": request.state.agent if actor == "agent" else "Člověk"}

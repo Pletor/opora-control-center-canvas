@@ -3,13 +3,13 @@
 Commit zapisuje revizi zadání a otisk grafu; obsah bere z aplikace, ne z těla požadavku,
 aby zápis nemohl tvrdit něco jiného, než co je uložené. Merge projde jen rozsahu, kterému
 to Oracle dovolí (`canMerge`) a snímek odpovídá aktuálnímu zadání i hlavě historie.
-Agent nesmí ani jedno; původce ověřuje session middleware, nikoli tělo požadavku.
+Agent nesmí ani jedno (kromě plné autonomie projektu); původce ověřuje session middleware, nikoli tělo požadavku.
 """
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.editor.agent_packet.specification_context import capture_specification
 
 
@@ -17,8 +17,9 @@ def create_oporahub_router(service, hub, report):
     router = APIRouter(prefix="/api", tags=["oporahub"])
 
     def author(request):
-        require_human(request.state.actor, "Commit a přijetí do mainu vyžadují člověka v UI.")
-        return {"kind": "human", "name": "Člověk"}
+        # Člověk, nebo agent s plnou autonomií pod svým jménem (docs/plna-autonomie-agenta.md).
+        require_authority(request.state.actor, "Commit a přijetí do mainu vyžadují člověka v UI.")
+        return {"kind": request.state.actor, "name": request.state.agent if request.state.actor == "agent" else "Člověk"}
 
     @router.post("/opora-commit")
     def commit(payload: dict, request: Request):

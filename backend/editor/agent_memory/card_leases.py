@@ -9,6 +9,7 @@ import secrets
 import time
 from datetime import UTC, datetime
 
+from backend.canvas.authority import acts_as_human
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_memory.work_activity import record_activity, validate_touched
@@ -54,7 +55,9 @@ class CardLeases:
         op = payload["op"]
         extra = {"owner", "ttlSeconds"} if op == "claim" else {"token", "ttlSeconds"} if op == "heartbeat" else {"token"}
         # Člověk uvolní zaseknuté nebo okupované převzetí i bez tokenu.
-        forced = op == "release" and actor == "human" and "token" not in payload
+        # Plná autonomie (docs/plna-autonomie-agenta.md): agent smí převzetí uvolnit výslovně jako člověk;
+        # běžný zápis cizí převzetí neobchází (`require`), převzetí je koordinace, ne oprávnění.
+        forced = op == "release" and "token" not in payload and (actor == "human" or acts_as_human(actor))
         if forced:
             extra = set()
         if set(payload) - {"touched"} != common | extra or not all(valid_id(payload[k]) for k in ("project", "workspace", "nodeId")):

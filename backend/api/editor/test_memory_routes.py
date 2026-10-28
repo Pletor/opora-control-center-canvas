@@ -28,7 +28,7 @@ class FakeService:
         self.desktop_v3_state = FakeState(nodes)
 
 
-def build(nodes=None, client=None, enabled=True, keys=None):
+def build(nodes=None, client=None, enabled=True, keys=None, actor="human"):
     fake = client or FakeOpenVikingClient(results={
         SELF_URI: [hit("viking://user/role-backend/memories/a.md", 0.9, "Router patří do api.")],
     })
@@ -38,6 +38,12 @@ def build(nodes=None, client=None, enabled=True, keys=None):
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
         return JSONResponse({"error": str(exc)}, status_code=409)
+
+    @app.middleware("http")
+    async def as_actor(request, call_next):
+        # Původce jako po middleware aplikace (rozdání klíčů je výjimka §4: jen člověk).
+        request.state.actor = actor
+        return await call_next(request)
 
     app.include_router(create_memory_router(FakeService(nodes or {}), memory))
     return TestClient(app, raise_server_exceptions=False), memory, fake
@@ -71,6 +77,19 @@ def test_provision_needs_confirmation_and_returns_roles_without_secrets():
     secrets = list(memory.settings.role_keys().values())
     assert secrets and not any(secret in repr(done) for secret in secrets)
     assert client.get("/api/memory/status").json()["status"] == "configured"
+
+
+def test_provision_stays_human_only_even_for_agent():
+    """docs/plna-autonomie-agenta.md §4: rozdání klíčů root klíčem nikdy agent, ani s plnou autonomií."""
+    from backend.canvas.activity_log import HumanRequired
+    fake = FakeOpenVikingClient(users=["admin"], results={SELF_URI: []})
+    client, _, _ = build(client=fake, keys={}, actor="agent")
+
+    @client.app.exception_handler(HumanRequired)
+    async def human_required(request, exc):
+        return JSONResponse({"error": str(exc)}, status_code=403)
+
+    assert client.post("/api/memory/provision", json={"confirmed": True}).status_code == 403
 
 
 def test_a_role_without_a_key_is_unavailable_over_http():

@@ -165,7 +165,8 @@ def apply_plan(service, payload, *, actor="system", after_write=None):
             from backend.canvas.activity_log import HumanRequired
             from backend.canvas.protected_fields import protected_changes
             changes = protected_changes(view["graph"], built.new_graph())
-            if changes:
+            from backend.canvas.authority import acts_as_human
+            if changes and not acts_as_human(actor):  # plná autonomie: docs/plna-autonomie-agenta.md
                 raise HumanRequired(actor, "Tato pole mění jen člověk v UI: " + ", ".join(changes[:10]))
         # Díry, které dávka otevřela, jsou varování, nikdy důvod odmítnutí (docs/architektura-pro-agenty.md §5.3).
         result = {"ok": True, "dryRun": dry, "refs": built.refs, "blocks": built.blocks,

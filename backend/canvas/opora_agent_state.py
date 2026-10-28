@@ -23,6 +23,7 @@ from backend.canvas import opora_agent_state_rules as rules
 from backend.canvas import opora_agent_state_steps as plan_steps
 from backend.canvas import opora_card_done as card_done
 from backend.canvas import opora_review_recurring as recurring
+from backend.canvas.authority import project_autonomy
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_content_changes import OporaContentChanges
@@ -171,7 +172,9 @@ class AgentState:
                                key=lambda item: item["id"]),
                 "cards": shown, "truncated": next_offset is not None or cards_offset > 0,
                 "cardsTotal": total, "cardsNextOffset": next_offset, "eventsCursor": cursor,
-                "mapGaps": holes, "mapGapsTotal": holes_total, "guards": guards_state.summary(alerts)}
+                "mapGaps": holes, "mapGapsTotal": holes_total, "guards": guards_state.summary(alerts),
+                # Plná autonomie agentů (docs/plna-autonomie-agenta.md §3).
+                "autonomy": project_autonomy(self.canvas, project)}
 
     @staticmethod
     def actions(project, workspace, context, pending, claims, reported, to_review, linked, cards, reviewing=None,

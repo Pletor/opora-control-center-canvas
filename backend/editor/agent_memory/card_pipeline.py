@@ -260,6 +260,18 @@ def summary(value):
 
 
 def guard_state_write(actor, previous, value):
+    """Brána obecného zápisu stavu; agent s plnou autonomií projde jako člověk (docs/plna-autonomie-agenta.md)."""
+    from backend.canvas.activity_log import HumanRequired
+    from backend.canvas.authority import acts_as_human
+
+    try:
+        _guard_state_write(actor, previous, value)
+    except HumanRequired:
+        if not acts_as_human(actor):
+            raise
+
+
+def _guard_state_write(actor, previous, value):
     """Obecný zápis stavu od ne-člověka smí etapy jen přidat za rozpracovanou část (aditivně);
     profil, pořadí, definici, odebrání a stav etap mění člověk, stav agent hlásí přes agent-output."""
     from backend.canvas.activity_log import HumanRequired

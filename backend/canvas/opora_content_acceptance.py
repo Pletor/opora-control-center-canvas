@@ -1,4 +1,5 @@
 """Explicit human review atomically writes native history and advances accepted content."""
+from backend.canvas.authority import acts_as_human
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_commit_validation import _author
@@ -23,7 +24,7 @@ class OporaContentAcceptance:
         if set(payload) != {"project", "workspace", "expectedAcceptedHead", "reviewedProposalId", "adoptBaseContentDigest"}:
             raise ValueError("Invalid content acceptance fields.")
         author = _author(by, allow_agent=True)
-        if author["kind"] != "human" or payload["reviewedProposalId"] != identifier:
+        if not acts_as_human(author["kind"]) or payload["reviewedProposalId"] != identifier:
             raise ValueError("Explicit human review of this exact content proposal is required.")
         project, workspace = scope(payload)
         with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):

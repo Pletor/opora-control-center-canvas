@@ -33,6 +33,7 @@ cesty ve `graphify-out` se určují stejnými pomocníky jako při generování
 
 import subprocess
 
+from backend.canvas.authority import project_autonomy
 from backend.canvas.areas import area_of
 from backend.canvas.canvas_layout import layout_preview
 from backend.canvas.card_context import card_address, card_layer, effective_status, effective_type
@@ -553,7 +554,9 @@ class NodeBrief:
         if "scenarioRun" in node_state:
             brief["scenarioRun"] = redact_deep(node_state["scenarioRun"])
         sector_id = sector_of(graph, node_id)
-        brief["autonomy"] = {"sectorId": sector_id, "grant": redact_deep(stored["state"].get("autonomy", {}).get(sector_id)),
+        # `full` = plná autonomie agentů projektu (docs/plna-autonomie-agenta.md §3): smí přijímat a uzavírat sám;
+        # `sectorId`/`grant` = svěřená autonomie sektoru (starší, užší souhlas).
+        brief["autonomy"] = {**project_autonomy(self.canvas, project), "sectorId": sector_id, "grant": redact_deep(stored["state"].get("autonomy", {}).get(sector_id)),
                              "policy": "nearest sector only; all blocks met and evidence required; sector gates always human; validity checked at submission"}
         section = self.storyboard.brief_section(project, workspace, node_id) if self.storyboard else None
         if section is not None:

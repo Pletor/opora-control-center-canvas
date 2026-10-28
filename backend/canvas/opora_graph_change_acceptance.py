@@ -1,4 +1,5 @@
 """Graph edits, reviewed state, specifications and accepted reference commit together."""
+from backend.canvas.authority import acts_as_human
 from backend.canvas.architecture_graph import split
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import stamp
@@ -20,7 +21,7 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
             raise ValueError("Invalid graph change acceptance fields.")
         project, workspace = scope(payload)
         author = _author(by)
-        if author["kind"] != "human" or payload["reviewedChangesId"] != proposal_id or payload["adoptBaseGraphDigest"] is not None:
+        if not acts_as_human(author["kind"]) or payload["reviewedChangesId"] != proposal_id or payload["adoptBaseGraphDigest"] is not None:
             raise ValueError("Explicit human review of these graph changes is required.")
         with self.service.graph_lock_for(project), self.service.lock_for(project):
             repo = self.proposals.repository(project, workspace)

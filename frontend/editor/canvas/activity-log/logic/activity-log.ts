@@ -16,6 +16,8 @@ export type ActivityEntry = {
   nodeIds: string[];
   status: number;
   summary: string;
+  /** `"full"` = agent to smí jen díky plné autonomii projektu (docs/plna-autonomie-agenta.md §2). */
+  autonomy?: "full";
 };
 
 export type ActivityPage = { entries: ActivityEntry[]; nextBefore: number | null };
@@ -54,6 +56,11 @@ export function summaryDetail(summary: string): string {
     if (token === "done.proposed=true") parts.push("návrh uzavření");
   }
   return parts.join(" · ");
+}
+
+/** Akci provedl agent díky plné autonomii projektu; řádek dostane štítek „plná autonomie“. */
+export function isFullAutonomy(entry: Pick<ActivityEntry, "autonomy">): boolean {
+  return entry.autonomy === "full";
 }
 
 /** Zápis selhal, když status není 2xx (včetně 0 = žádná odpověď). */

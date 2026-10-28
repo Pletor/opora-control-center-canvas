@@ -4,6 +4,7 @@ import copy
 import re
 from datetime import UTC, datetime
 
+from backend.canvas.authority import acts_as_human
 from backend.canvas.design_metadata import validate_design
 
 
@@ -56,7 +57,11 @@ def realize_source(state, payload, *, actor="system"):
     with canvas.graph_lock_for(project), canvas.lock_for(project):
         if actor != "human":
             from backend.canvas.opora_execution_guard import legacy_lease
-            legacy_lease(canvas.db_for(project), project, workspace, payload["nodeId"])
+            try:
+                legacy_lease(canvas.db_for(project), project, workspace, payload["nodeId"])
+            except ValueError:
+                if not acts_as_human(actor):  # plná autonomie: docs/plna-autonomie-agenta.md
+                    raise
         view = canvas.view(project, workspace)
         if view["readOnly"] or view["digest"] != payload["digest"]:
             raise ValueError("Plátno je pouze ke čtení nebo se změnilo. Obnovte ho.")

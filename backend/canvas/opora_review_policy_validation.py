@@ -89,7 +89,7 @@ def validate_policy(record):
     configuration({"repository": repository["fullName"], "branch": repository["baseBranch"]})
     if rules(record["rules"]) != record["rules"]:
         raise ValueError("Stored policy rules are not canonical.")
-    if not isinstance(record["by"], dict) or set(record["by"]) != {"kind", "name"} or _author(record["by"])["kind"] != "human":
+    if not isinstance(record["by"], dict) or set(record["by"]) != {"kind", "name"} or _author(record["by"], allow_agent=True)["kind"] not in ("human", "agent"):
         raise ValueError("Policy revisions require a human author.")
     timestamp(record["createdAt"])
     return record

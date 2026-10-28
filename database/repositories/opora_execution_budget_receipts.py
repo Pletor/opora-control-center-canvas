@@ -78,7 +78,7 @@ def cancellation(repo, event):
         != ("cancelled" if event["previousState"] == "running" else event["previousState"])
         or not isinstance(event["by"], dict)
         or set(event["by"]) != {"kind", "name"}
-        or _author(event["by"])["kind"] != "human"
+        or _author(event["by"], allow_agent=True)["kind"] not in ("human", "agent")  # agent = plná autonomie; kdo smí zapsat, hlídá brána zápisu (docs/plna-autonomie-agenta.md)
     ):
         raise ValueError("Invalid budget cancellation authority.")
     return event

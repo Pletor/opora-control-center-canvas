@@ -10,6 +10,7 @@ Odpověď nese jen `revision`, `nodeId` a novou pipeline karty `stages` (karta P
 
 import copy
 
+from backend.canvas.authority import acts_as_human
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory import card_pipeline as pipeline
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State, default_done
@@ -74,7 +75,7 @@ class PipelineRouting:
             if payload["op"] == "route":
                 if not human and current and current["items"] and (
                         current.get("routedBy", "human") == "human"
-                        or any(item["status"] != "todo" for item in current["items"])):
+                        or any(item["status"] != "todo" for item in current["items"])) and not acts_as_human(actor):
                     from backend.canvas.activity_log import HumanRequired
                     raise HumanRequired(actor, "Rozpracovanou pipeline nebo pipeline od člověka přestaví jen člověk; přidejte etapy (op add).")
                 goal = graph_node.get("goal_mode") == "until_checks_pass"
@@ -86,7 +87,7 @@ class PipelineRouting:
                     raise ValueError("Karta nemá pipeline; nejprve ji nasměrujte (op route).")
                 value = copy.deepcopy(current)
                 if not pipeline.retry_stuck(value, payload["stageId"]):
-                    if human:
+                    if human or acts_as_human(actor):
                         raise ValueError(f"Smyčky oprav došly ({pipeline.MAX_RETRIES}); etapu přeskočte nebo upravte pipeline.")
                     from backend.canvas.activity_log import HumanRequired
                     raise HumanRequired(actor, f"Smyčky oprav došly ({pipeline.MAX_RETRIES}); rozhoduje člověk.")

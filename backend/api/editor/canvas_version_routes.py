@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Request
 
 from backend.api.http_etag import conditional, etag_of
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.editor.canvas_versions.canvas_versions import CanvasVersions
 
 
@@ -35,7 +35,7 @@ def create_canvas_version_router(service, desktop_state=None):
     @router.post("/canvas-versions/restore")
     def restore_canvas_version(payload: dict, request: Request):
         # Obnova přepisuje celé plátno včetně uzavření; smí ji jen člověk (upgrade-opora #30).
-        require_human(request.state.actor, "Obnovení verze plátna provádí člověk v UI.")
+        require_authority(request.state.actor, "Obnovení verze plátna provádí člověk v UI.")
         # Neuložené změny se před obnovením samy uloží jako verze „<autor> (před obnovením)“.
         return versions.restore(payload)
 

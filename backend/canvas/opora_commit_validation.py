@@ -2,6 +2,7 @@
 import json
 import re
 
+from backend.canvas.authority import autonomy_active
 from backend.canvas.graph import digest as graph_digest
 
 AUTHORS = ("human", "orchestrator", "agent")
@@ -15,6 +16,9 @@ def _author(by, *, allow_agent=False):
     if not isinstance(by, dict):
         raise ValueError("Autor commitu musí být objekt s druhem a jménem.")  # noqa: TRY004
     kind, name = by.get("kind"), by.get("name")
+    if kind == "agent" and not allow_agent and autonomy_active():
+        # Plná autonomie (docs/plna-autonomie-agenta.md): agent píše historii jako člověk, pod svým jménem.
+        allow_agent = True
     if kind == "agent" and not allow_agent:
         raise ValueError(
             "Agent do OporaHubu nezapisuje; commit a merge dělá orchestrátor nebo člověk.")

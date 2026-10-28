@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from backend.canvas.authority import can_act
 from backend.canvas.opora_content_acceptance import OporaContentAcceptance
 from backend.canvas.opora_content_changes import OporaContentChanges
 
@@ -26,14 +27,14 @@ def create_opora_content_router(canvas):
     def listing(project: str, workspace: str, request: Request):
         def read(by):
             value = changes.list(project, workspace)
-            return {**value, "canAccept": by["kind"] == "human" and not value["readOnly"]}
+            return {**value, "canAccept": can_act(by["kind"]) and not value["readOnly"]}
         return call(request, read)
 
     @router.get("/{identifier}")
     def detail(identifier: str, project: str, workspace: str, request: Request):
         def read(by):
             value = changes.read(project, workspace, identifier)
-            return {**value, "canAccept": by["kind"] == "human" and not value["readOnly"] and value["accepted"] is None}
+            return {**value, "canAccept": can_act(by["kind"]) and not value["readOnly"] and value["accepted"] is None}
         return call(request, read)
 
     @router.post("")

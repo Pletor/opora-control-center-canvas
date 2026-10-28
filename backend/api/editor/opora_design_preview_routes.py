@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 
+from backend.canvas.authority import acts_as_human
 from backend.api.http_etag import conditional, etag_of, matches
 from backend.canvas import opora_design_mode as design_mode
 from backend.canvas import opora_design_preview as preview
@@ -51,9 +52,9 @@ def identity(request):
 
 
 def human_only(request, message):
-    """Jen člověk v UI: agent 403, neznámý původce 428 (UI si obnoví doklad), jako `require_human`."""
+    """Jen člověk v UI (nebo agent s plnou autonomií): agent 403, neznámý původce 428, jako `require_authority`."""
     actor = getattr(request.state, "actor", None)
-    if actor == "human":
+    if acts_as_human(actor):
         return None
     return error(message, "human_required", 403 if actor == "agent" else 428, humanRequired=True)
 

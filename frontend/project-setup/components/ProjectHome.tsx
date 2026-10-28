@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type Project, type Job, type ProjectSettings, type SettingsSnapshot } from "@/shared/types/logic/types";
 import { ARCHITECTURE_OPTIONS, TENANCY_OPTIONS } from "@/shared/project-capabilities/logic/project-profile";
+import AgentAutonomyBadge from "@/shared/agent-autonomy/components/AgentAutonomyBadge";
+import AgentAutonomySwitch from "@/shared/agent-autonomy/components/AgentAutonomySwitch";
+import type { AgentAutonomyApi } from "@/shared/agent-autonomy/logic/use-agent-autonomy";
 import "@/project-setup/styles/project-home.css";
 
 type Draft = SettingsSnapshot & { dirty: boolean };
 const drafts = new Map<string, Draft>();
 
-export default function ProjectHome({ projects, draftProject, projectId, jobs, onChoose, onRefresh, onOpen, onRemove, onConnected }: {
+export default function ProjectHome({ projects, draftProject, projectId, jobs, autonomy, onChoose, onRefresh, onOpen, onRemove, onConnected }: {
   projects: Project[]; draftProject?: Project; projectId: string; jobs: Job[];
+  /** Plná autonomie agentů otevřeného projektu (drží a ukládá App přes useAgentAutonomy). */
+  autonomy: AgentAutonomyApi;
   onChoose: (id: string, kind?: string) => void; onRefresh: () => Promise<void>; onOpen: () => void; onRemove: () => void;
   onConnected?: () => void;
 }) {
@@ -97,7 +102,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, o
     <main className="hub-main">
       <header className="hub-top"><div><div className="eyebrow">PROJEKT → ZADÁNÍ → PRACOVNÍ PLOCHA</div><h1>Opora Control Center</h1></div><button className="primary" disabled={loading || !form || busy} onClick={onOpen}>Otevřít Canvas</button></header>
       {error && <div className="hub-error" role="alert"><p>{error}</p>{form && <button disabled={busy} onClick={() => { drafts.delete(projectId); setReload(reload + 1); }}>Zahodit rozepsané a načíst uložené</button>}</div>}
-      <section className="hub-heading"><h2>{form?.project.name ?? "Načítám projekt…"}</h2><p>{form?.project.sourcePath || form?.project.url || "Samostatný lokální návrh bez repozitáře"}</p>{projectId !== "draft" && <button className="danger" disabled={busy} onClick={onRemove}>Odebrat projekt z aplikace</button>}</section>
+      <section className="hub-heading"><h2>{form?.project.name ?? "Načítám projekt…"} <AgentAutonomyBadge autonomy={autonomy.autonomy} /></h2><p>{form?.project.sourcePath || form?.project.url || "Samostatný lokální návrh bez repozitáře"}</p>{projectId !== "draft" && <button className="danger" disabled={busy} onClick={onRemove}>Odebrat projekt z aplikace</button>}</section>
       <section className="hub-card">
         <h2>Nastavení projektu</h2>
         {form ? <form onSubmit={(e) => { e.preventDefault(); saveSettings(); }}>
@@ -109,6 +114,8 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, o
           <label className="field">Cíl projektu<textarea aria-label="Cíl projektu" rows={4} maxLength={4000} value={form.settings.goal} disabled={busy} onChange={(e) => change({ goal: e.target.value })} /></label>
           <div className="hub-actions"><span role="status" data-testid="project-settings-status">{busy ? "Ukládám…" : form.dirty ? "Neuložené nastavení" : form.revision ? `Uloženo · verze ${form.revision}` : "Výchozí nastavení"}</span><button className="primary" disabled={busy || !form.dirty}>Uložit nastavení projektu</button></div>
         </form> : <p role="status">Načítám nastavení…</p>}
+        {/* Plná autonomie se ukládá hned a mimo revizi nastavení (docs/plna-autonomie-agenta.md). */}
+        <AgentAutonomySwitch autonomy={autonomy.autonomy} disabled={autonomy.loading || busy} saving={autonomy.saving} error={autonomy.error} onChange={(full) => { void autonomy.setFull(full); }} />
       </section>
     </main>
   </div>;

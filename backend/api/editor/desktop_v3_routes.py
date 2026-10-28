@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from backend.api.http_etag import conditional, etag_of
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.canvas.graph import payload_project
 from backend.canvas.opora_process_links import brief_metadata
 from backend.canvas.source_realization import realize_source, source_status
@@ -70,15 +70,18 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
 
     @router.post("/autonomy")
     def grant_autonomy(payload: dict, request: Request):
-        require_human(request.state.actor, "Autonomii svěřuje pouze člověk v UI.")
+        require_authority(request.state.actor, "Autonomii svěřuje pouze člověk v UI.")
+        if request.state.actor == "agent" and isinstance(payload, dict):
+            # Atribuce: souhlas agenta s plnou autonomií nese jeho jméno, nikdy „human“.
+            payload = {**payload, "grantedBy": f"agent {request.state.agent} (plná autonomie)"[:160]}
         project = payload_project(payload)
         with state.canvas.graph_lock_for(project), state.canvas.lock_for(project):
             return state.set_autonomy(payload)
 
     @router.post("/confirm-proposals")
     def confirm_sector_proposals(payload: dict, request: Request):
-        require_human(request.state.actor, "Hromadné potvrzení provádí člověk v UI.")
-        return confirm_proposals(state, payload)
+        require_authority(request.state.actor, "Hromadné potvrzení provádí člověk v UI.")
+        return confirm_proposals(state, payload, actor=request.state.actor)
 
     @router.get("/leases")
     def read_leases(project: str, workspace: str):

@@ -1,7 +1,7 @@
 ﻿"""Durable reconciliation HTTP controls require middleware-verified human identity."""
 from fastapi import APIRouter, Query, Request
 
-from backend.canvas.activity_log import HumanRequired
+from backend.canvas.activity_log import require_authority
 from backend.canvas.opora_reconciliation import OporaReconciliation
 
 
@@ -10,10 +10,8 @@ def create_opora_reconciliation_router(service):
     authority = OporaReconciliation(service)
 
     def human(request):
-        actor = request.state.actor
-        if actor != "human":
-            raise HumanRequired(actor, "Only a verified human UI session may configure persistent tracking.")
-        return {"kind": "human", "name": "Člověk"}
+        require_authority(request.state.actor, "Only a verified human UI session may configure persistent tracking.")
+        return {"kind": request.state.actor, "name": request.state.agent if request.state.actor == "agent" else "Člověk"}
 
     @router.get("")
     def listing(request: Request, project: str = Query(min_length=1, max_length=64),

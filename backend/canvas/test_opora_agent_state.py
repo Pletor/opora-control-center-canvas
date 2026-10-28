@@ -49,7 +49,8 @@ def test_shape_snapshot_and_stage_order(service):
     document = read(service)
     assert list(document) == ["schemaVersion", "generatedAt", "projectId", "workspaceId", "heads", "stages",
                               "riskMix", "decisions", "actions", "gaps", "cards", "truncated", "cardsTotal",
-                              "cardsNextOffset", "eventsCursor", "mapGaps", "mapGapsTotal", "guards"]
+                              "cardsNextOffset", "eventsCursor", "mapGaps", "mapGapsTotal", "guards", "autonomy"]
+    assert document["autonomy"] == {"full": False}
     assert document["schemaVersion"] == 1 and document["projectId"] == "draft" and document["workspaceId"] == "draft"
     assert list(document["heads"]) == ["acceptedHead", "acceptedRevision", "graphDigest", "workingDiffers",
                                        "contextVersion", "budgetPolicyHead"]

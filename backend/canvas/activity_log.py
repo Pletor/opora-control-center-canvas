@@ -23,14 +23,26 @@ class HumanRequired(Exception):
 
 
 def require_human(actor, message):
+    """Jen člověk v UI, i při plné autonomii: výjimky docs/plna-autonomie-agenta.md §4."""
     if actor != "human":
         raise HumanRequired(actor, message)
+
+
+def require_authority(actor, message):
+    """Brána „jen člověk“: člověk, nebo agent v projektu s plnou autonomií (docs/plna-autonomie-agenta.md §2)."""
+    from backend.canvas.authority import acts_as_human
+    if not acts_as_human(actor):
+        raise HumanRequired(actor, message)
+
+
 AGENT_NAME = re.compile(r"^[\w .:()\-]{1,80}$")
 NODE_KEYS = ("nodeId", "node", "sectorId")
 MAX_LIMIT = 500
 DEFAULT_LIMIT = 100
 MAX_SUMMARY = 400
 MAX_ROWS = 50_000
+# Akce agenta díky plné autonomii: značka na konci `summary` (bez změny schématu tabulky).
+AUTONOMY_MARK = "autonomy=full"
 
 
 def parse_actor(header):
@@ -86,7 +98,13 @@ class ActivityLog:
     def __init__(self, service):
         self.service = service
 
-    def record(self, *, actor, agent, method, path, described, status):
+    def record(self, *, actor, agent, method, path, described, status, autonomy=False):
+        if autonomy:
+            described = {**described, "summary": (described["summary"][:MAX_SUMMARY - len(AUTONOMY_MARK) - 1]
+                                                  + " " + AUTONOMY_MARK).strip()}
+        elif described["summary"].split(" ")[-1:] == [AUTONOMY_MARK]:
+            # Klíč těla se značkou se nesmí vydávat za akci z plné autonomie.
+            described = {**described, "summary": described["summary"][:MAX_SUMMARY - 2] + " ~"}
         with self.service.registry_lock:
             self.service.db.execute(
                 "INSERT INTO activity_log(at,actor,agent,method,path,project_id,workspace_id,node_ids,status,summary)"
@@ -130,4 +148,5 @@ def _entry(row):
         "method": row["method"], "path": row["path"], "project": row["project_id"],
         "workspace": row["workspace_id"], "nodeIds": json.loads(row["node_ids"]),
         "status": row["status"], "summary": row["summary"],
+        "autonomy": "full" if row["summary"].split(" ")[-1:] == [AUTONOMY_MARK] else None,
     }

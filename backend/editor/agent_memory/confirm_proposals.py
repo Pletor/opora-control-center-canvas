@@ -6,7 +6,8 @@ from backend.canvas.canvas_service import now
 from backend.canvas.graph import valid_id
 
 
-def confirm_proposals(state_store, payload):
+def confirm_proposals(state_store, payload, *, actor="human"):
+    """`actor` = ověřený původce (člověk, nebo agent s plnou autonomií); do `done.by` se píše skutečný původce."""
     keys = {"project", "workspace", "sectorId", "nodeIds", "expectedRevision"}
     if not isinstance(payload, dict) or set(payload) != keys:
         raise ValueError("Potvrzení vyžaduje projekt, workspace, sektor, nodeIds a expectedRevision.")
@@ -41,6 +42,6 @@ def confirm_proposals(state_store, payload):
             done = state["nodes"].get(node_id, {}).get("done", {})
             if done.get("by") != "agent" or done.get("confirmed") is not False:
                 raise ValueError("Některá karta už nemá návrh agenta. Obnovte seznam.")
-            done.update(confirmed=True, by="human", at=now())
+            done.update(confirmed=True, by="human" if actor == "human" else "agent", at=now())
         return state_store.save({"project": project, "workspace": workspace,
-                                 "expectedRevision": payload["expectedRevision"], "state": state}, execution_actor="human")
+                                 "expectedRevision": payload["expectedRevision"], "state": state}, execution_actor=actor)

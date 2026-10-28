@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  actionLabel, activityQuery, appendOlder, dayKey, dayLabel, groupByDay, isFailed, mergeFresh, nodeRefs,
+  actionLabel, activityQuery, appendOlder, dayKey, dayLabel, groupByDay, isFailed, isFullAutonomy, mergeFresh, nodeRefs,
   summaryDetail, tabStats, timeLabel, type ActivityEntry,
 } from "./activity-log";
 
@@ -106,5 +106,12 @@ describe("stránkování", () => {
   it("tabStats ukáže „+“ u dalších stránek a počet selhání", () => {
     expect(tabStats({ entries: [entry(2, "x", { status: 409 }), entry(1, "x")], nextBefore: 1 })).toEqual({ count: "2+", failed: 1 });
     expect(tabStats({ entries: [], nextBefore: null })).toEqual({ count: "0", failed: 0 });
+  });
+});
+
+describe("isFullAutonomy – akce z plné autonomie", () => {
+  it("jen autonomy: \"full\" se označí", () => {
+    expect(isFullAutonomy(entry(1, local(2026, 10, 28), { actor: "agent", autonomy: "full" }))).toBe(true);
+    expect(isFullAutonomy(entry(2, local(2026, 10, 28), { actor: "agent" }))).toBe(false);
   });
 });

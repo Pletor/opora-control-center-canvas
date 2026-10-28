@@ -13,7 +13,7 @@ revize; kořen ji nese vždy a přeřadí ji jen `set-discipline` (nová revize 
 import uuid
 from datetime import UTC, datetime
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault import brief_vault_develop as develop
@@ -330,7 +330,7 @@ class BriefVault(VaultReader):
     def _apply(self, payload, *, actor, agent):
         op = _payload(payload)
         if op in HUMAN_OPS:
-            require_human(actor, HUMAN_OPS[op])
+            require_authority(actor, HUMAN_OPS[op])
         project, workspace = payload["project"], payload["workspace"]
         with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)

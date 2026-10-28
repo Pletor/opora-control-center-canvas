@@ -86,13 +86,13 @@ python "<SKILL_DIR>/scripts/opora_write.py" <cesta> --project P --workspace W (-
 | `/api/desktop-v3/rule`, `/api/desktop-v3/decision` | `id`, `op: add\|update\|remove`, `expected`, `item` | položka z `rule` / `decision` | agent (pravidlo = návrh) |
 | `/api/desktop-v3/realize-source` | `nodeId`, `digest`, `commit`, `prUrl` | `view` | agent po merge |
 | `/api/desktop-v3/state` | `expectedRevision`, `state` (celý dokument) | `state --raw` | agent jen aditivně; raději adresné cesty |
-| `/api/canvas-versions` | `digest`, `expectedToken`, `author` | `versions` → `currentToken`, `view` → `digest` | agent (obnova jen člověk) |
+| `/api/canvas-versions` | `digest`, `expectedToken`, `author` | `versions` → `currentToken`, `view` → `digest` | agent (obnova `/api/canvas-versions/restore` jen člověk, nebo agent při plné autonomii) |
 
 Štíhlé odpovědi: `/api/desktop-v3/pipeline` vrací `{revision, nodeId, stages}`, `/api/desktop-v3/rule`
 a `/decision` `{revision, item}` (ne celý stav ~700 kB); `?full=1` za cestou vrátí i celý stav.
 Čtení `state`, `view`, `canvas-index` a `canvas-versions` posílá `ETag` (`If-None-Match` beze změny = 304);
 levná hlava verzí `GET /api/canvas-versions/head` = `{currentToken, dirty}`. Neznámé ID projektu = 404.
-| `/api/brief-vault` | `op` + pole operace (níže „Schránka zadání“) | `vault-fragment` → `revision` | agent; `set-mvp`, `delete`, `restore`, `feedback` jen člověk |
+| `/api/brief-vault` | `op` + pole operace (níže „Schránka zadání“) | `vault-fragment` → `revision` | agent; `set-mvp`, `delete`, `restore`, `feedback` jen člověk, nebo agent při plné autonomii |
 | `/api/brief-vault/gate-check` | `project`, `workspace`, `fragmentId`, `expectedRevision`, `gate`, `payload` (kandidát) | `vault-fragment` → `revision` | agent i člověk; poradní Jev `noul` → `{probability, provider, inputHash}`, nic nezapisuje; bez povolení člověka `probability: null, reason: not-allowed`; jen loopback |
 
 Pole `expected_revision` (spec, text) a `expectedRevision` (ostatní) nesjednocuj. Do uzavřené karty
@@ -159,7 +159,7 @@ nepřepisuje: každá změna je nová revize s `note`; CAS přes `expectedRevisi
 | `link-decisions` | `fragmentId`, `decisionIds` | `note` | id rozhodnutí plátna; text se nekopíruje |
 | `from-idea` | `nodeId`, `ideaId` | `parentId` nebo `scopeNodeId`, `title`, `note`, `discipline` | Podnět karty → fragment; nový kořen chce `discipline` |
 | `propose-mvp` | `fragmentIds` (≤ 500) | `note` | návrh; `yes`/`no` nastaví jen člověk |
-| `set-mvp`, `delete`, `restore`, `feedback` | — | — | **jen člověk** (agent 403) |
+| `set-mvp`, `delete`, `restore`, `feedback` | — | — | **jen člověk**, nebo agent při plné autonomii ([autonomie.md](autonomie.md)) |
 | `propose` | `fragmentId`, `expectedRevision`, `gate`, `payload`, `note` | | návrh payloadu brány k aktuální revizi; revizi nepřidá; brány bez payloadu (`scoped`, `planned`, `placed`) = 400 |
 | `reject-proposal` | `fragmentId`, `expectedRevision`, `gate`, `note` | | zamítne poslední čekající návrh brány (append-only, revizi nepřidá, CAS jen kontrola); smí i autor (stažení); `→ {ok, op, rejected: {…návrh, status: "rejected", rejection: {by, actor, at, note}}}`; žádný čekající návrh nebo zapnutá brána = 409 |
 | `gate` | `fragmentId`, `expectedRevision`, `gate`, `value` (`true\|false`), `note` | `payload` | nová revize se stejným textem; `true` bez `payload` vezme poslední návrh (bez návrhu 400 „chybí návrh“); `false` vypne i další brány |
@@ -324,7 +324,7 @@ tabulka zápisů je tu, abys věděl, co se stalo a jak to ověřit.
 | POST `/api/project-architecture/migrate` | `{project, dryRun}` | výchozí `dryRun: true`; ostře jen po schválení reportu |
 | POST `/api/project-architecture/journey-runs?project=` | doklad `opora.journey-run/1` (`docs/brana-cesty.md` §3) → uložený záznam s odvozeným `passed` | agent nebo člověk po přehrání cesty; append-only, bez modelu; 404 / 409 / 422; smaže `running` té cesty |
 | POST `/api/project-architecture/journey-runs/start` | `{project, journeyId, applicationId?}` → `{runId, startedAt}` | runner před přehráním (§3a); cesta se ověří jako u plánu (404 / 409 / 422); stav jen v paměti, žádný záznam |
-| POST `/api/project-architecture/journey-runs/{runId}/progress` | `{segment:{from, to}, ok?}` → 204 | heartbeat runneru: přechod se přehrává (bez `ok`) nebo skončil; prodlouží TTL 120 s; neznámý nebo prošlý běh 404 |
+| POST `/api/project-architecture/journey-runs/{run_id}/progress` | `{segment:{from, to}, ok?}` → 204 | heartbeat runneru: přechod se přehrává (bez `ok`) nebo skončil; prodlouží TTL 120 s; neznámý nebo prošlý běh 404 |
 | POST `/api/workspaces` | `{project, nodeId, actor}` → řádek prostoru | `nodeId` musí být doména, jinak 400 |
 | PATCH `/api/workspaces/{wid}` | `{project, nodeId}` → řádek prostoru | přiřazení nepřiřazeného worktree k doméně |
 | POST `/api/workspaces/{wid}/archive` | `{project, reason, confirmed: true}` → `{archived, branch}` | odmítne worktree se změnami nebo živou relací; větev `work/<wid>` zůstane |

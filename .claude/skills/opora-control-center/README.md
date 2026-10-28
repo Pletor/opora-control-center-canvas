@@ -17,7 +17,8 @@ Do skillu nepatří nic specifického pro jeden projekt.
 - `references/` (načítá se jen podle potřeby, každá začíná „Kdy mě číst“):
   `hub-loop.md` (smyčka agenta nad OporaHubem), `planner.md` (plán, `spec.steps`, kontrolní seznam kvality),
   `review.md` (hledač / ověřovatel), `conflicts.md` (auto-rebase), `formal.md` (formální ověření),
-  `events.md` (feed událostí), `hub-api.md` (cesty OporaHubu a kdo je smí),
+  `events.md` (feed událostí), `hub-api.md` (cesty OporaHubu a kdo je smí), `routy.md` (všechny ostatní cesty
+  backendu: k čemu a kdy), `autonomie.md` (plná autonomie agentů: přepínač, co odemyká, výjimky §4),
   `api.md` (čtecí příkazy, zápisové cesty, chyby), `canvas-plan.md` (dávka, extend, graf, rozmístění),
   `legacy.md` (**zastaralé**: lease, `agent-output`, router, kritici, `opora_stage.py`, `opora_closure.py`),
   `workflow.md` (grilling, wayfinder, laťka karty, brány), `cycle.md` (brány Schránky, buňka, duel),
@@ -44,7 +45,8 @@ python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 view
 Testy skriptů a dokumentace: `uv run pytest .claude/skills/opora-control-center/scripts` (z kořene repa OPORA).
 `test_skill_docs.py` hlídá, že reference pokrývají všechny zápisové cesty a čtecí příkazy, že každá cesta
 zmíněná v SKILL.md a references/ existuje v tabulce cest backendu (cesty z běžících PR jsou výslovně
-v `PENDING_ROUTES`) a že příklady JSON označené `<!-- example: /api/… -->` projdou validátorem backendu.
+v `PENDING_ROUTES`), že naopak **každá** cesta backendu je ve skillu doslova popsaná (výjimky jen §4
+`docs/plna-autonomie-agenta.md` a čisté UI v `UNDOCUMENTED_ROUTES`) a že příklady JSON označené `<!-- example: /api/… -->` projdou validátorem backendu.
 `test_opora_hub.py` projde celou smyčku agenta proti skutečnému backendu.
 Co asistent smí spustit, určuje backend (`backend/claude_code/assistant/approvals.py`, `command.py`),
 ne tento skill. Novou cestu nebo příkaz zapiš do skillu až ve chvíli, kdy existuje v kódu.

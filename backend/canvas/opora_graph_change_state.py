@@ -1,6 +1,7 @@
 """Reviewed removal effects and transactional current-state cleanup; histories remain intact."""
 from copy import deepcopy
 
+from backend.canvas.authority import acts_as_human
 from backend.canvas.architecture_graph import split
 from backend.canvas.graph import digest, encode, valid_id
 from backend.canvas.opora_graph_change_safety import preflight
@@ -111,7 +112,7 @@ def validate_review(review):
 
 
 def persist_state(canvas, db, project, workspace, review, resultGraph, *, actor):
-    if actor != "human":
+    if not acts_as_human(actor):
         raise ValueError("Reviewed graph state cleanup requires a human.")
     if not db.in_transaction:
         raise RuntimeError("State cleanup requires the caller's transaction.")

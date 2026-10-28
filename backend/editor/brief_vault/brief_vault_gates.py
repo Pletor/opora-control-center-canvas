@@ -21,7 +21,7 @@ Spustitelná buňka (docs/schranka-bunka.md §3 body 1–4, `brief_vault_cell`) 
 import json
 import uuid
 
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.editor.brief_vault.brief_vault_cell import (
     check_run,
     earlier_checks,
@@ -47,6 +47,7 @@ from backend.editor.brief_vault.brief_vault_lessons import (
 )
 from backend.editor.brief_vault.brief_vault_model import (
     MAX_BY,
+    BadRequest,
     bad_request,
     effective_disciplines,
     fail,
@@ -122,7 +123,13 @@ def _cell_rules(w, row, state, gate_name, given, author):
     synthesized = (state["entries"].get("synthesized") or {}).get("payload") if "synthesized" in state["on"] else None
     if gate_name == "synthesized" and w.actor != "human":
         history = [item["gates"] for item in history_rows(w.db, w.project, w.workspace, row["fragment_id"])]
-        same_checks(earlier_checks(history), given)
+        try:
+            same_checks(earlier_checks(history), given)
+        except BadRequest:
+            # Plná autonomie (docs/plna-autonomie-agenta.md): agent smí kontroly změnit jako člověk.
+            from backend.canvas.authority import acts_as_human
+            if not acts_as_human(w.actor):
+                raise
     if gate_name == "verified" and synthesized is not None:
         check_run(synthesized, given["actual"])
         run = given["actual"].get("run")
@@ -200,7 +207,7 @@ def gate(w, payload, node_ids):
     row, rows, discipline, states = _context(w, payload)
     state = states[row["fragment_id"]]
     if covered(rows, row["fragment_id"], states):
-        require_human(w.actor, "Fragment je pokrytý předkem s bránou placed; jeho brány přepíná jen člověk.")
+        require_authority(w.actor, "Fragment je pokrytý předkem s bránou placed; jeho brány přepíná jen člověk.")
     entries, result = _kept(state), {}
     if not value:
         if gate_name not in state["on"]:

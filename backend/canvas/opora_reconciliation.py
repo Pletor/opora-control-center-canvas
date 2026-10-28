@@ -1,6 +1,7 @@
 ﻿"""Human opt-in authority for durable read-only GitHub reconciliation."""
 import time
 
+from backend.canvas.authority import can_act
 from backend.canvas.opora_change_validation import identifier
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_execution_validation import validate
@@ -29,9 +30,9 @@ class OporaReconciliation:
             existing = self.repository(project, workspace).enabled_for(binding["repository"]["id"], binding["pr"]["id"])
             return {"project": project, "workspace": workspace, "evidenceId": evidence_id, "binding": binding,
                     "currentAcceptedHead": current["acceptedHead"], "existingEnabledBinding": existing,
-                    "canConfigure": actor == "human" and existing is None,
+                    "canConfigure": can_act(actor) and existing is None,
                     "unavailableReason": "Pause the existing subscription first." if existing else
-                    (None if actor == "human" else "Human UI session required.")}
+                    (None if can_act(actor) else "Human UI session required.")}
 
     def enroll(self, payload, by):
         project, workspace = validate(payload, {"expectedAcceptedHead", "identityEvidenceId", "requestId"})

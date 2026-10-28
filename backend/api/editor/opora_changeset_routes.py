@@ -1,7 +1,7 @@
 """Specifications-only proposal workflow; actor identity comes from the UI/agent session."""
 from fastapi import APIRouter, Query, Request
 
-from backend.canvas.activity_log import HumanRequired, require_human
+from backend.canvas.activity_log import HumanRequired, require_authority
 from backend.canvas.opora_acceptance import OporaAcceptance
 from backend.canvas.opora_changesets import OporaChangesets
 
@@ -14,7 +14,7 @@ def create_opora_changeset_router(service):
     def author(request, *, human=False):
         actor = request.state.actor
         if human:
-            require_human(actor, "Přijetí zadání vyžaduje člověka v UI.")
+            require_authority(actor, "Přijetí zadání vyžaduje člověka v UI.")
         elif actor not in ("human", "agent"):
             raise HumanRequired(actor, "Chybí identita autora návrhu.")
         return {"kind": actor, "name": request.state.agent if actor == "agent" else "Člověk"}

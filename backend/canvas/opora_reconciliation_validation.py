@@ -42,7 +42,7 @@ def validate(kind, record):
             raise ValueError("Invalid bound configuration.")
         if record["by"] != AUTO_ENROLL_AUTHOR and (
                 not isinstance(record["by"], dict) or set(record["by"]) != {"kind", "name"}
-                or _author(record["by"])["kind"] != "human"):
+                or _author(record["by"], allow_agent=True)["kind"] not in ("human", "agent")):  # agent = plná autonomie; kdo smí zapsat, hlídá brána zápisu (docs/plna-autonomie-agenta.md)
             raise ValueError("Human subscription authority required.")
     elif kind == "control":
         if not isinstance(record["by"], dict) or set(record["by"]) != {"kind", "name"}:
@@ -53,7 +53,7 @@ def validate(kind, record):
                 or record["action"] not in {"enroll", "pause", "resume", "retry", "system-pause", "auto-enroll"}):
             raise ValueError("Invalid reconciliation control.")
         system = {"system-pause": {"kind": "system", "name": "Reconciliation"}, "auto-enroll": AUTO_ENROLL_AUTHOR}
-        if record["action"] not in system and _author(record["by"])["kind"] != "human":
+        if record["action"] not in system and _author(record["by"], allow_agent=True)["kind"] not in ("human", "agent"):
             raise ValueError("Human subscription authority required.")
         if record["action"] in system:
             if (record["requestId"] is not None or record["requestDigest"] is not None

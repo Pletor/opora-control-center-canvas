@@ -165,7 +165,8 @@ class ProjectArchitecture:
                 from backend.canvas.protected_fields import protected_changes
 
                 changes = protected_changes(current["graph"], graph)
-                if changes:
+                from backend.canvas.authority import acts_as_human
+                if changes and not acts_as_human(actor):  # plná autonomie: docs/plna-autonomie-agenta.md
                     raise HumanRequired(actor, "Tato pole mění jen člověk v UI: " + ", ".join(changes[:10]))
             dropped = ids(current["graph"])[0] - ids(graph)[0]
             hits = canvas.architecture_references(pid, dropped, hidden=ids(graph)[0])
