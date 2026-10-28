@@ -2,15 +2,20 @@
 
 Pracovník (např. z agent-office) pošle požadavek a odpověď mu přijde do schránky. Registr `HANDLERS`
 drží deterministické obsluhy podle druhu: ta odpoví hned v tomtéž požadavku. `ask` a `change` obsluhu
-nemají a čekají, až odpoví člověk (v H2 i srdce). V H1a odpovídají `next` a `report` zástupně
-`{"pending": "H1b"}`. Vytvoření i odpověď lístku vydají událost `gate.ticket`. Nic tu nevolá model.
+nemají a čekají, až odpoví člověk (v H2 i srdce). `next` a `report` obsluhuje fronta úkolů (`task_queue`, H1b).
+Vytvoření i odpověď lístku vydají událost `gate.ticket`. Nic tu nevolá model.
 """
 import asyncio
 import time
 import uuid
 
-from backend.brain_opora.determinism import tokens
-from backend.brain_opora.determinism.gate_payloads import GateError, answer_payload, request_payload, session_payload
+from backend.brain_opora.determinism import task_queue, tokens
+from backend.brain_opora.determinism.gate_payloads import (
+    GateError,
+    answer_payload,
+    request_payload,
+    session_payload,
+)
 from backend.canvas.opora_events import emit_event
 from database.repositories.gate_tickets import GateTicketStore
 
@@ -18,16 +23,12 @@ INBOX_LIMIT = 100
 TOKEN_HINT = "Založte relaci: POST /api/gate/sessions a pošlete token v hlavičce X-Opora-Gate-Token."
 
 
-def _pending(ticket):
-    """Zástupná obsluha H1a; H1b ji nahradí frontou úkolů a kontrolami na sha."""
-    return {"pending": "H1b"}
-
-
-HANDLERS = {"next": _pending, "report": _pending}
+# Obsluha je `handler(service, session, body, now) -> odpověď`; odmítnutí hlásí `GateError` (lístek pak nevznikne).
+HANDLERS = {"next": task_queue.next_task, "report": task_queue.report}
 
 
 def register(kind, handler):
-    """Nahradí obsluhu druhu (H1b: `next` z fronty úkolů, `report` → kontroly)."""
+    """Nahradí obsluhu druhu (např. v testu nebo pro další deterministický druh)."""
     HANDLERS[kind] = handler
 
 
@@ -74,6 +75,10 @@ def create_request(service, session, payload, now=None):
     kind, body = request_payload(payload)
     project, workspace = session["project_id"], session["workspace_id"]
     ticket_id = "gt_" + uuid.uuid4().hex
+    handler = HANDLERS.get(kind)
+    # Obsluha běží dřív než zápis lístku a se svými zámky: odmítnutý požadavek lístek nezaloží a přehled
+    # karet pro prázdnou frontu (zámek grafu, pak projektu) se nečte pod zámkem projektu.
+    result = handler(service, session, body, now) if handler is not None else None
     with service.lock_for(project):
         db = service.db_for(project)
         with db:
@@ -81,9 +86,8 @@ def create_request(service, session, payload, now=None):
             store.insert(ticket_id, workspace, session["id"], kind, body, tokens.stamp(now))
             ticket = store.get(ticket_id)
             _emit(db, project, workspace, ticket, _actor(session))
-            handler = HANDLERS.get(kind)
             if handler is not None:
-                store.answer(ticket_id, handler(ticket), "gate", tokens.stamp(now))
+                store.answer(ticket_id, result, "gate", tokens.stamp(now))
                 ticket = store.get(ticket_id)
                 _emit(db, project, workspace, ticket, {"kind": "system", "name": "gate"})
     return ticket

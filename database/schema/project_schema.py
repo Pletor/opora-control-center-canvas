@@ -311,8 +311,8 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
                    + STUDIO_MODEL_SCHEMA + GUARD_FINDINGS_SCHEMA + GUARD_TREND_SCHEMA
                    + GUARD_EXPERIENCE_SCHEMA)
 
-# Brána mozku (docs/brain-gate.md §5): relace pracovníků a srdce a lístky s odpověďmi.
-GATE_TABLES = ("gate_sessions", "gate_tickets")
+# Brána mozku (docs/brain-gate.md §5, H1b): relace pracovníků a srdce, lístky s odpověďmi a fronta úkolů.
+GATE_TABLES = ("gate_sessions", "gate_tickets", "heart_tasks")
 GATE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS gate_sessions(
     id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
@@ -326,6 +326,13 @@ CREATE TABLE IF NOT EXISTS gate_tickets(
 CREATE INDEX IF NOT EXISTS gate_tickets_session ON gate_tickets(session_id, seq);
 CREATE INDEX IF NOT EXISTS gate_tickets_inbox ON gate_tickets(session_id, answered_seq);
 CREATE INDEX IF NOT EXISTS gate_tickets_queue ON gate_tickets(project_id, workspace_id, status, seq);
+CREATE TABLE IF NOT EXISTS heart_tasks(
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('ready','assigned','done','failed','cancelled')),
+    session_id TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, report TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS heart_tasks_queue ON heart_tasks(project_id, workspace_id, status, seq);
 """
 PROJECT_SCHEMA += GATE_SCHEMA
 
