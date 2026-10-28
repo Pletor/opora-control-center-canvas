@@ -133,7 +133,7 @@ class AgentState:
             # Merged PRs too; None = review jobs disabled, GitHub branch protection is the gate.
             gates = card_done.gates_by_execution(db, project, workspace) if linked else {}
             cursor, last_events = outbox.read(db, project, workspace)  # Same lock + connection = same snapshot.
-            holes, holes_total = map_gaps.read(canvas, project)  # One map check over the accepted architecture.
+            holes, holes_total = map_gaps.read(canvas, project, workspace)  # Main check + worktree overlay.
             alerts = guards_state.open_findings(db, project, workspace)  # Guard findings without map holes.
         dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]

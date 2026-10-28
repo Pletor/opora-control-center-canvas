@@ -5,6 +5,7 @@ from backend.canvas import opora_agent_state_map_gaps as map_gaps
 from backend.canvas.opora_agent_state import AgentState
 from backend.canvas.test_opora_changesets import SCOPE
 from backend.canvas.test_opora_changesets import service as service  # noqa: PLC0414
+from backend.project.architecture import map_check_worktrees as overlay
 
 
 def node(identifier, parent=None, **extra):
@@ -23,7 +24,7 @@ def graph(sections=1):
 
 
 def read(service, monkeypatch, data):
-    monkeypatch.setattr(map_gaps, "architecture_graph", lambda canvas, project: data)
+    monkeypatch.setattr(overlay, "architecture_graph", lambda canvas, project: data)
     return AgentState(service, clock=time.time).read(**SCOPE)
 
 
@@ -51,7 +52,47 @@ def test_map_gaps_stop_at_fifty_and_report_the_total(service, monkeypatch):
 
 def test_map_check_runs_once_per_agent_state(service, monkeypatch):
     calls = []
-    original = map_gaps.check_map
-    monkeypatch.setattr(map_gaps, "check_map", lambda *args, **kwargs: calls.append(1) or original(*args, **kwargs))
+    original = overlay.check_map
+    monkeypatch.setattr(overlay, "check_map", lambda *args, **kwargs: calls.append(1) or original(*args, **kwargs))
     read(service, monkeypatch, graph())
     assert calls == [1]
+
+
+def finding(rule, node_id, message, **extra):
+    return {"rule": rule, "nodeId": node_id, "message": message, "solverId": node_id, **extra}
+
+
+GOAL = finding("page.no-goal", "b", "Stránka nemá cíl (goal).")
+SECTION = finding("section.unrealized", "a", "Sekce s0 nemá žádnou komponentu.")
+EDGE = finding("edge.carries-unset", None, "Vazba neříká, co nese (carries).", edgeId="e9", solverId="c")
+KEY = "section.unrealized|a|||a|Sekce s0 nemá žádnou komponentu."
+STATE = {"main": [GOAL, SECTION],
+         "worktrees": [{"workspaceId": "w1", "branch": "work/w1", "actor": "agent-1", "domainId": "app",
+                        "closed": [KEY], "opened": [EDGE]},
+                       {"workspaceId": "w2", "branch": "work/w2", "actor": "agent-2", "domainId": "app",
+                        "closed": [KEY], "opened": []}]}
+GOAL_ITEM = {"rule": "page.no-goal", "message": "Stránka nemá cíl (goal).", "nodeId": "b", "owner": "human"}
+SECTION_ITEM = {"rule": "section.unrealized", "message": "Sekce s0 nemá žádnou komponentu.", "nodeId": "a",
+                "owner": "agent"}
+
+
+def test_worktree_sees_its_fixed_hole_gone_and_its_new_holes_first():
+    assert map_gaps.workspace_items(STATE, "w1") == [
+        {"rule": "edge.carries-unset", "message": "Vazba neříká, co nese (carries).", "nodeId": "c", "edgeId": "e9",
+         "owner": "agent", "origin": "worktree"},
+        GOAL_ITEM]
+
+
+def test_hole_closed_in_another_worktree_is_in_progress():
+    in_progress = {"workspaceId": "w1", "branch": "work/w1", "actor": "agent-1"}
+    assert map_gaps.workspace_items(STATE, "main") == [GOAL_ITEM, {**SECTION_ITEM, "inProgress": in_progress}]
+    assert map_gaps.workspace_items(STATE, "w2") == [GOAL_ITEM]  # w2 díru zavřel sám, nové díry nemá
+    assert map_gaps.workspace_items({"main": [GOAL, SECTION], "worktrees": []}, "draft") == [GOAL_ITEM, SECTION_ITEM]
+
+
+def test_agent_state_reads_the_worktree_overlay(service, monkeypatch):
+    monkeypatch.setattr(overlay, "worktree_overlay", lambda canvas, project: STATE)
+    document = AgentState(service, clock=time.time).read(**SCOPE)
+    assert document["mapGaps"] == [GOAL_ITEM, {**SECTION_ITEM, "inProgress": {"workspaceId": "w1", "branch": "work/w1",
+                                                                              "actor": "agent-1"}}]
+    assert document["mapGapsTotal"] == 2

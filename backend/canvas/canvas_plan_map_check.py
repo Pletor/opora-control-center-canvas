@@ -3,16 +3,12 @@
 Dávka díry neodmítá: `map_warnings` porovná kontrolu mapy grafu před dávkou a po ní a vrátí jen nálezy, které dávka
 otevřela, jako varování `{rule, message, nodeId?, place?}` (`place` = `solverId`, místo řešení). Identita nálezu je
 pravidlo, cíl (`nodeId` / `edgeId` / `journeyId`), místo a zpráva: jedna karta nese víc nálezů téhož pravidla.
+Klíč počítá `map_check.finding_key`, tentýž jako kontrola mapy přes worktree.
 """
 
-from backend.project.architecture.map_check import check_map
+from backend.project.architecture.map_check import check_map, finding_key
 
 WARNINGS_LIMIT = 20
-
-
-def _identity(finding):
-    return (finding["rule"], finding.get("nodeId"), finding.get("edgeId"), finding.get("journeyId"),
-            finding.get("solverId"), finding["message"])
 
 
 def _warning(finding):
@@ -23,6 +19,6 @@ def _warning(finding):
 
 def map_warnings(before, after):
     """Nové nálezy kontroly mapy grafu `after` proti `before` (`{nodes, edges}`), v pořadí kontroly, nejvýš 20."""
-    known = {_identity(finding) for finding in check_map(before, locate=True)["findings"]}
-    fresh = [finding for finding in check_map(after, locate=True)["findings"] if _identity(finding) not in known]
+    known = {finding_key(finding) for finding in check_map(before, locate=True)["findings"]}
+    fresh = [finding for finding in check_map(after, locate=True)["findings"] if finding_key(finding) not in known]
     return [_warning(finding) for finding in fresh[:WARNINGS_LIMIT]]

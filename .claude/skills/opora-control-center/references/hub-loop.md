@@ -52,6 +52,9 @@ nezačínej ji, ani když ji vidíš.
 `owner: "agent"`; `page.no-goal` a `journey.broken` (`owner: "human"`) patří člověku. Díru řešíš
 na kartě `nodeId` jako běžnou práci: claim karty, v `node-brief.architecture.holes` máš zprávy děr této
 karty (`gaps` = jejich pravidla). Nic neodškrtáváš: díra zmizí sama, až ji kontrola mapy přestane hlásit.
+Ve worktree díra, kterou jsi už zalepil, ve `mapGaps` není; díru s `inProgress: {workspaceId, branch, actor}`
+řeší jiný worktree, neber ji; díry s `origin: "worktree"` jsou na začátku, protože je otevřela tvoje práce:
+oprav je první (`GET /api/project-architecture/map-check/worktrees` ukáže celý přehled).
 
 ## 2. Vyber akci podle stabilního ID
 

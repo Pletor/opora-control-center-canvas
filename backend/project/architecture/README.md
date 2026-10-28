@@ -27,6 +27,14 @@ jen při čtení, doklady načte `map_check`), `page.no-goal`, `section.unrealiz
 `command.no-receiver`, `state.no-error`, `edge.carries-unset`; komponenta je uzel pod nejbližší stránkou v řetězu
 `parentId`. Nová pole kontraktu se čtou jako nepovinná, nic se nedoplňuje.
 
+## Kontrola mapy přes worktree (`map_check_worktrees.py`)
+
+Jediný zdroj děr mapy přes worktree (`docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md` §3).
+`worktree_overlay(service, project)` vrací díry mainu a pro každý aktivní worktree `closed` (klíče děr mainu,
+které worktree zalepil) a `opened` (nové díry worktree, max 50). Klíč je `map_check.finding_key`, tentýž jako
+u dávky plánu. Nálezy worktree se drží v paměti procesu podle digestu pohledu. Čte ho
+`GET /api/project-architecture/map-check/worktrees?project=` a `mapGaps` v agent-state.
+
 ## Cesty zákazníka (`journeys.py`)
 
 Cesta zákazníka je trychtýř stránek (`site.journeys`, §3.2): proměnu zákazníka (`actor`, `pointA` → `pointB`) a kroky
