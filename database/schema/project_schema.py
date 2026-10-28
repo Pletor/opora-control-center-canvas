@@ -4,6 +4,12 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 """
 import sqlite3
 
+from database.schema.guard_experience_schema import SCHEMA as GUARD_EXPERIENCE_SCHEMA
+from database.schema.guard_experience_schema import TABLES as GUARD_EXPERIENCE_TABLES
+from database.schema.guard_findings_schema import SCHEMA as GUARD_FINDINGS_SCHEMA
+from database.schema.guard_findings_schema import TABLES as GUARD_FINDINGS_TABLES
+from database.schema.guard_trend_schema import SCHEMA as GUARD_TREND_SCHEMA
+from database.schema.guard_trend_schema import TABLES as GUARD_TREND_TABLES
 from database.schema.harness_learning_schema import SCHEMA as HARNESS_LEARNING_SCHEMA
 from database.schema.harness_learning_schema import TABLES as HARNESS_LEARNING_TABLES
 from database.schema.journey_run_schema import SCHEMA as JOURNEY_RUN_SCHEMA
@@ -45,8 +51,6 @@ from database.schema.opora_verification_schema import SCHEMA as VERIFICATION_SCH
 from database.schema.opora_verification_schema import TABLES as VERIFICATION_TABLES
 from database.schema.studio_model_schema import SCHEMA as STUDIO_MODEL_SCHEMA
 from database.schema.studio_model_schema import TABLES as STUDIO_MODEL_TABLES
-from database.schema.guard_findings_schema import SCHEMA as GUARD_FINDINGS_SCHEMA
-from database.schema.guard_findings_schema import TABLES as GUARD_FINDINGS_TABLES
 from database.schema.workspace_graph_authority_schema import SCHEMA as GRAPH_AUTHORITY_SCHEMA
 
 # .data/<root>/registry.sqlite – jen to, co musí být vidět napříč projekty.
@@ -304,7 +308,8 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
                    + EXECUTION_PR_SCHEMA + REVIEW_JOB_SCHEMA + REVIEW_GATE_SCHEMA
                    + REVIEW_INSIGHT_SCHEMA + AUTO_REBASE_SCHEMA + EVENT_SCHEMA
                    + DESIGN_PREVIEW_SCHEMA + HARNESS_LEARNING_SCHEMA + JOURNEY_RUN_SCHEMA
-                   + STUDIO_MODEL_SCHEMA + GUARD_FINDINGS_SCHEMA)
+                   + STUDIO_MODEL_SCHEMA + GUARD_FINDINGS_SCHEMA + GUARD_TREND_SCHEMA
+                   + GUARD_EXPERIENCE_SCHEMA)
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
@@ -362,6 +367,7 @@ PROJECT_TABLES.update({table: "project_id" for table in HARNESS_LEARNING_TABLES}
 PROJECT_TABLES.update({table: "project_id" for table in JOURNEY_RUN_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in STUDIO_MODEL_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in GUARD_FINDINGS_TABLES})
+PROJECT_TABLES.update({table: "project_id" for table in (*GUARD_TREND_TABLES, *GUARD_EXPERIENCE_TABLES)})
 
 
 # CanvasVersions._dirty hledá verzi se stejným obsahem; bez indexu prochází všechny ~5MB řádky (karta P1).

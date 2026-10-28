@@ -22,8 +22,13 @@ def items(findings):
             for f in findings if f.get("solverId")]
 
 
+def all_items(canvas, project):
+    """Every map hole as an agent-state item, uncapped (the `trend` guard counts them, docs/strazci.md §4)."""
+    graph = architecture_graph(canvas, project)
+    return items(check_map(graph, latest_journey_runs(canvas, project), locate=True)["findings"])
+
+
 def read(canvas, project):
     """(mapGaps capped at LIMIT, mapGapsTotal). Inside `steady_reads` the accepted view is computed once."""
-    graph = architecture_graph(canvas, project)
-    work = items(check_map(graph, latest_journey_runs(canvas, project), locate=True)["findings"])
+    work = all_items(canvas, project)
     return work[:LIMIT], len(work)

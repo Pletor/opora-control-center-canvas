@@ -48,5 +48,25 @@ mapy řeš podle `mapGaps` / `holes`, ne podle `/api/strazci/findings`.
 | `pravda` (300 s) | `truth.worktree-behind` | větev worktree domény je za hlavní větví o víc než 20 commitů; `data {behind, branch}` | ve **svém** worktree `git fetch` a `rebase` na `origin/main` (ne merge, `docs/cista-linie.md`); cizí worktree neměň |
 | | `truth.proposal-stale` | návrh zadání, grafu nebo obsahu čeká na člověka déle než 24 h; `data {proposalId, kind, waitingHours}` | nic nepřijímáš ani nezamítáš a neposíláš duplicitní návrh; zmiň ho člověku v závěrečné zprávě |
 
-Dnes běží `mapa`, `prace`, `cesty` a `pravda`. Kontrakt plánuje ještě `zkusenost` (zápis zkušenosti do
-OpenVikingu) a `trend` (souhrnná čísla); ani jeden nálezy vydávat nebude.
+Dnes běží všech šest strážců. Dva poslední nálezy nevydávají:
+
+- `zkusenost` (při události: tick dočte od kurzoru `card.closed`, `merge.done` a nové doklady cest) zapíše
+  deterministický záznam `opora.guard-experience/1` `{card, role, passed, failed: [{step|segment, fixedBy}], steps,
+  evidence}` do OpenVikingu pod klíčem role karty (`agentRole` na ploše), cesta
+  `viking://user/<role>/peers/<projekt>/resources/cards/<karta>/zkusenost-<zdroj>-<otisk>.md`, štítek
+  `kind=guard-experience`. Kroky a segmenty jsou `agent-reported`, nic neověřoval model. Když je paměť vypnutá,
+  OpenViking neběží nebo karta nemá roli, záznam čeká ve frontě a nic neblokuje. Při vybavování (recall) ber záznam
+  jako historii: co dřív spadlo a čím se to opravilo; aktuální stav čti z agent-state.
+- `trend` (900 s) vzorkuje osm čísel projektu: `holes`, `holes.agent`, `journeys.verified`, `journeys.total`,
+  `cards.done`, `cards.building`, `work.stalled`, `proposals.waiting`; retence 90 dní.
+
+| Rozhraní | Tvar | Poznámka |
+|---|---|---|
+| `GET /api/strazci/trend?project=&metric=&days=` | `{metrics: [...], days, series: {metric: [{at, value}]}}` | `days` 1–90 (výchozí 14), `metric` jen ze známých osmi (jinak 422); vzestupně podle času; číslo bez vzorku v `series` chybí |
+
+```bash
+curl -s "$OPORA/api/strazci/trend?project=P&metric=holes.agent&days=30"
+```
+
+Trend je pro člověka (panel Trend ve Velínu) a pro závěrečnou zprávu („díry klesly z 12 na 7“); práci dál vybírej
+z `mapGaps` a `actions[]`, ne z trendu.

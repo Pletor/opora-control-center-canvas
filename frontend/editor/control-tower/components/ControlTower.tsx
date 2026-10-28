@@ -12,6 +12,8 @@ import VelinRunning from "./VelinRunning";
 import VelinGuards from "./VelinGuards";
 import { guardFindings, guardLine } from "../logic/velin-guards";
 import { useGuardStatus } from "../logic/use-guard-status";
+import VelinTrend from "./VelinTrend";
+import { useGuardTrend } from "../logic/use-guard-trend";
 import "../styles/velin.css";
 
 const FILTERS: { id: VelinFilter; label: string }[] = [
@@ -27,6 +29,7 @@ export default function ControlTower({ project, workspace, graph, projectName, o
   const all = useMemo(() => agent.state ? velinModel(graph, agent.state) : null, [graph, agent.state]);
   const holes = agent.state ? mapGapsForAgents(agent.state) : null;
   const guardStatus = useGuardStatus(project);
+  const trend = useGuardTrend(project);
   const alerts = useMemo(() => {
     if (!agent.state) return null;
     const names = new Map(graph.nodes.map(node => [node.id, node.name]));
@@ -66,6 +69,7 @@ export default function ControlTower({ project, workspace, graph, projectName, o
             {onOpenMap && <button type="button" className="velin__button" onClick={onOpenMap}>Mapa domény</button>}
           </p>}
           <VelinGuards line={guardStatus ? guardLine(guardStatus) : null} findings={alerts} onOpen={onOpen} />
+          <VelinTrend series={trend} />
           {!view.layers.length && <p className="velin__empty">Agent-state zatím nezná žádnou kartu. Velín ukáže vrstvy, sektory a karty, jakmile vzniknou.</p>}
           {view.layers.map(layer => <VelinLayer key={layer.id} layer={layer} onOpen={onOpen} />)}
           <VelinRunning running={view.running} onOpen={onOpen} />

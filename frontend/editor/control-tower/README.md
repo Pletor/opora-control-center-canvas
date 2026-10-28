@@ -10,5 +10,7 @@ klik otevře detail karty přes `frontend/hub/oporahub-card-drawer/open.ts`. Zrc
 Strážci (`docs/strazci.md` §5): řádek „Strážci ✓ / ⚠ N“ z `GET /api/strazci?project=` (poslední běh, chyba strážce;
 `logic/use-guard-status.ts`, 30 s) a otevřené nálezy z agent-state `guards.findings` (klik → karta), logika
 `logic/velin-guards.ts` (test `velin-guards.test.ts`), dílek `components/VelinGuards.tsx`. Strážce `mapa` se nepočítá,
-díry mapy má řádek „Díry mapy“. Pilulky „na tebe“ a rozhodnutí dýchají čárkovaným zlatým rámem
+díry mapy má řádek „Díry mapy“. Panel Trend: osm malých křivek za 14 dní z `GET /api/strazci/trend?project=&days=14`
+(`logic/use-guard-trend.ts`, 5 min), logika `logic/velin-trend.ts` (test `velin-trend.test.ts`), dílek
+`components/VelinTrend.tsx`. Pilulky „na tebe“ a rozhodnutí dýchají čárkovaným zlatým rámem
 (`docs/zive-zobrazeni-a-knihovna.md` §3, bez pohybu při `prefers-reduced-motion`).
