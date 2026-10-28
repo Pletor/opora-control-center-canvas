@@ -4,6 +4,7 @@
 import type { DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
 import { studioDescendants, type StudioItem, type StudioTree } from "./studio-tree";
 import { sumGuards, type GuardTally } from "../studio-guards/logic/guard-tally";
+import { sumWorktrees, type WorktreeMark, type WorktreeTally } from "../studio-worktree/logic/worktree-tally";
 
 export type StudioState = "plan" | "building" | "done" | "verified" | "hole";
 /** Cesta zákazníka domény: stránky jejích kroků, stránka podle kroku a odvození backendu s `lastRun` (chybí = nenačteno). */
@@ -21,6 +22,10 @@ export type StudioFacts = {
   journeys: StudioJourney[];
   /** Otevřené nálezy strážců po kartách (agent-state `cards[].guardFindings`); chybí = nenačteno. */
   guards?: Map<string, GuardTally>;
+  /** Worktree, které na kartě pracují (díra zavřená / otevřená, lease, karta v práci); chybí = nenačteno. */
+  worktrees?: Map<string, WorktreeMark[]>;
+  /** Díry mainu po uzlech, které některý worktree už zavírá („v práci“); chybí = nenačteno. */
+  holesInWork?: Map<string, number>;
 };
 export type StudioSummary = {
   /** Přímé děti karty ve Studiu. */
@@ -34,6 +39,10 @@ export type StudioStatus = {
   state: StudioState; summary: StudioSummary; ownHoles: string[]; journeys: StudioJourney[];
   /** Nálezy strážců karty a všech jejích potomků (součet, nejvážnější závažnost) jako díry; `null` = žádný. */
   guards: GuardTally | null;
+  /** Kolik z děr (`summary.holes`) už některý worktree zavírá („3 díry · 1 v práci“). */
+  holesInWork: number;
+  /** Worktree karty a všech jejích potomků (každý jednou); `null` = na stromě se ve worktree nepracuje. */
+  worktree: WorktreeTally | null;
 };
 
 /** Cesty, na kterých karta leží: doména = všechny její cesty; jinak cesty, jejichž krok míří na stránku karty. */
@@ -66,5 +75,8 @@ export function cardStatus(tree: StudioTree, item: StudioItem, facts: StudioFact
   const state: StudioState = building ? "building" : ownHoles.length ? "hole"
     : done && journeys.length > 0 && journeys.every(journeyVerified) ? "verified" : done ? "done" : "plan";
   const guards = sumGuards([item.node ? facts.guards?.get(item.id) : undefined, ...real.map((child) => facts.guards?.get(child.id))]);
-  return { state, summary, ownHoles, journeys, guards };
+  const own = (map: Map<string, number> | undefined) => (item.node ? map?.get(item.id) ?? 0 : 0);
+  const holesInWork = own(facts.holesInWork) + real.reduce((sum, child) => sum + (facts.holesInWork?.get(child.id) ?? 0), 0);
+  const worktree = sumWorktrees([item.node ? facts.worktrees?.get(item.id) : undefined, ...real.map((child) => facts.worktrees?.get(child.id))]);
+  return { state, summary, ownHoles, journeys, guards, holesInWork, worktree };
 }

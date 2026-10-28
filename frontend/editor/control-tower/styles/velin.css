@@ -62,6 +62,34 @@
 .velin__guard-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .velin__guard-card { color: var(--ink-muted); white-space: nowrap; }
 
+/* Práce ve worktree: pod strážci karta s řádkem na každý worktree, kde agenti pracují mimo main. Řádek začíná
+   značkou větve a jménem větve v limetce worktree (stejná barva jako čárkovaný rám karet ve Studiu), pak aktér
+   a věta „zavírá N děr · otevírá M nových“. Worktree, který otevírá nové díry, má vlevo jantarový pruh: tady má
+   člověk zpozornět, rozbalit ho a podívat se, kam práce míří, než ji nechá dojet. Nové díry jsou jantarové řádky
+   se značkou „＋“ a slovy „nová díra“, aby je nesla i značka a text, ne jen barva; klik otevře kartu. */
+.velin__worktrees { display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
+.velin__worktrees-title { font-size: 13px; color: var(--ink-2); }
+.velin__worktree-list { list-style: none; margin: 0; padding: 0; border: 1px dashed var(--worktree); border-radius: 8px; background: var(--surface); }
+.velin__worktree-list li + li { border-top: 1px solid var(--line); }
+.velin__worktree { border-left: 3px solid transparent; }
+.velin__worktree--opens { border-left-color: var(--gold); }
+.velin__worktree-head { display: flex; align-items: baseline; gap: 10px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+.velin__worktree-glyph { color: var(--worktree); font-weight: 700; }
+.velin__worktree-branch { max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--worktree); font: 600 12px var(--mono); }
+.velin__worktree-actor { color: var(--ink-muted); font-size: 12px; }
+.velin__worktree-line { margin-left: auto; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.velin__worktree-none { margin: 0; padding: 0 12px 8px 34px; color: var(--ink-muted); font-size: 12px; }
+.velin__worktree-holes { list-style: none; margin: 0; padding: 0 0 6px; }
+.velin__worktree-hole {
+  display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; width: 100%;
+  padding: 5px 12px 5px 16px; border: 0; background: color-mix(in srgb, var(--gold) 8%, transparent); color: var(--ink); font: 13px var(--font); text-align: left; cursor: pointer;
+}
+.velin__worktree-hole:disabled { cursor: default; color: var(--ink-2); }
+.velin__worktree-hole:not(:disabled):hover { background: var(--surface-3); }
+.velin__worktree-hole-glyph { color: var(--gold); font-weight: 700; text-align: center; }
+.velin__worktree-hole-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.velin__worktree-hole-card { color: var(--gold); white-space: nowrap; }
+
 /* Trend: pod strážci tichá karta s osmi řádky. Člověk nečte čísla, čte tvar: klesají díry, roste počet ověřených
    cest, nezasekla se práce? Každý řádek má stejný rytmus (jméno, křivka, číslo, rozdíl), takže oko jede po sloupci
    křivek. Křivka je tenká a v barvě akcentu, aby nekřičela; barvu dostane jen rozdíl za 14 dní, zelenou, když jde

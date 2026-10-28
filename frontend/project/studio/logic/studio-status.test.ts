@@ -35,6 +35,19 @@ describe("studio card status", () => {
     expect(cardStatus(tree, item("c3"), facts()).guards).toBeNull();
   });
 
+  it("sums worktrees of the card and its descendants once each, and holes already in work", () => {
+    const a = { workspaceId: "w1", branch: "feat/a", actor: "agent-1" };
+    const b = { workspaceId: "w2", branch: "feat/b", actor: "" };
+    const extra = { worktrees: new Map([["c1", [a]], ["c3", [a, b]]]), holes: new Map([["home", ["x", "y"]], ["c3", ["z"]]]), holesInWork: new Map([["c3", 1]]) };
+    const home = cardStatus(tree, item("home"), facts(extra));
+    expect(home.worktree).toEqual({ count: 2, marks: [a, b] });
+    expect(home.summary.holes).toBe(3);
+    expect(home.holesInWork).toBe(1);
+    expect(cardStatus(tree, item(sectionItemId("home", "hero")), facts(extra)).worktree).toEqual({ count: 1, marks: [a] });
+    expect(cardStatus(tree, item("c2"), facts(extra)).worktree).toBeNull();
+    expect(cardStatus(tree, item("c2"), facts()).holesInWork).toBe(0);
+  });
+
   it("derives plan, hole, done and verified in that order of evidence", () => {
     expect(cardStatus(tree, item("c3"), facts()).state).toBe("plan");
     expect(cardStatus(tree, item("c3"), facts({ holes: new Map([["c3", ["díra"]]]), done: new Set(["c3"]) })).state).toBe("hole");

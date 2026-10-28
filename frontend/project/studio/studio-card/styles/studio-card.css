@@ -21,6 +21,29 @@
 .studio-card--done { --studio-card-tone: var(--studio-state-done); }
 .studio-card--verified { --studio-card-tone: var(--studio-state-verified); }
 .studio-card--hole { --studio-card-tone: var(--studio-state-hole); }
+/* Práce ve worktree: agenti na tomhle stromě pracují mimo main, proto karta mění barvu i tvar. Rám je dvojitý a
+   čárkovaný v limetce worktree (vnější čára rám, vnitřní obrys 3 px uvnitř) a pravý horní roh je seříznutý jako
+   ohnutý roh lístku „rozpracováno“; šikmou hranu kreslí tenká čárka. Stav karty dál nese štítek v hlavičce, takže
+   se neztratí, že je to třeba díra. Tvar platí i bez barvy a bez pohybu: barvoslepý i člověk s vypnutým pohybem
+   pozná worktree podle čárek, rohu a ikony větve v patě. Ořez nechává místo vně karty, aby porty a záře výběru
+   zůstaly celé. */
+.studio-card--worktree {
+  position: relative;
+  border: 2px dashed var(--studio-worktree);
+  outline: 1px dashed color-mix(in srgb, var(--studio-worktree) 70%, transparent);
+  outline-offset: -6px;
+  clip-path: polygon(-16px -16px, calc(100% - 32px) -16px, calc(100% + 16px) 32px, calc(100% + 16px) calc(100% + 16px), -16px calc(100% + 16px));
+}
+.studio-card--worktree::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(to top right, transparent calc(50% - 1px), var(--studio-worktree) calc(50% - 1px), var(--studio-worktree) calc(50% + 1px), transparent calc(50% + 1px));
+  pointer-events: none;
+}
 .studio-card--selected { border-color: var(--studio-blue); box-shadow: 0 0 0 2px #45baff40, 0 6px 18px #0004; }
 
 /* Staví se: rám pomalu dýchá modrým svitem, jediný trvalý pohyb ve Skutečnosti (docs/studio.md §2). Kdo nechce pohyb,

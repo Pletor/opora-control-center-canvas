@@ -14,15 +14,20 @@ import { guardFindings, guardLine } from "../logic/velin-guards";
 import { useGuardStatus } from "../logic/use-guard-status";
 import VelinTrend from "./VelinTrend";
 import { useGuardTrend } from "../logic/use-guard-trend";
+import VelinWorktrees from "./VelinWorktrees";
+import { velinWorktrees } from "../logic/velin-worktrees";
+import { useMapWorktrees } from "@/project/architecture-editor/logic/use-map-worktrees";
 import "../styles/velin.css";
 
 const FILTERS: { id: VelinFilter; label: string }[] = [
   { id: "all", label: "Vše" }, { id: "human", label: "Na tebe" }, { id: "problems", label: "Problémy" }, { id: "running", label: "Běží" },
 ];
 
-type Props = { project: string; workspace: string; graph: Graph; projectName?: string; onOpen: (nodeId: string) => void; onOpenMap?: () => void };
+type Props = { project: string; workspace: string; graph: Graph; projectName?: string; onOpen: (nodeId: string) => void; onOpenMap?: () => void;
+  /** Schopnost projektu (od App): práce ve worktree se čte jen u projektů, které worktree mají. */
+  worktreeLive?: boolean };
 
-export default function ControlTower({ project, workspace, graph, projectName, onOpen, onOpenMap }: Props) {
+export default function ControlTower({ project, workspace, graph, projectName, onOpen, onOpenMap, worktreeLive = false }: Props) {
   const agent = useAgentState(project, workspace);
   const [filter, setFilter] = useState<VelinFilter>("all");
   const view = useMemo(() => agent.state ? velinModel(graph, agent.state, filter) : null, [graph, agent.state, filter]);
@@ -30,6 +35,12 @@ export default function ControlTower({ project, workspace, graph, projectName, o
   const holes = agent.state ? mapGapsForAgents(agent.state) : null;
   const guardStatus = useGuardStatus(project);
   const trend = useGuardTrend(project);
+  const overlay = useMapWorktrees(project, worktreeLive);
+  const worktrees = useMemo(() => {
+    const names = new Map(graph.nodes.map(node => [node.id, node.name]));
+    const sources = new Map(graph.edges.map(edge => [edge.id, edge.source]));
+    return velinWorktrees(overlay, finding => finding.nodeId ?? (finding.edgeId ? sources.get(finding.edgeId) : undefined) ?? null, id => names.get(id) ?? id);
+  }, [graph, overlay]);
   const alerts = useMemo(() => {
     if (!agent.state) return null;
     const names = new Map(graph.nodes.map(node => [node.id, node.name]));
@@ -69,6 +80,7 @@ export default function ControlTower({ project, workspace, graph, projectName, o
             {onOpenMap && <button type="button" className="velin__button" onClick={onOpenMap}>Mapa domény</button>}
           </p>}
           <VelinGuards line={guardStatus ? guardLine(guardStatus) : null} findings={alerts} onOpen={onOpen} />
+          <VelinWorktrees rows={worktrees} onOpen={onOpen} />
           <VelinTrend series={trend} />
           {!view.layers.length && <p className="velin__empty">Agent-state zatím nezná žádnou kartu. Velín ukáže vrstvy, sektory a karty, jakmile vzniknou.</p>}
           {view.layers.map(layer => <VelinLayer key={layer.id} layer={layer} onOpen={onOpen} />)}

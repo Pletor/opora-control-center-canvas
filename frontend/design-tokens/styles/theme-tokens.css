@@ -10,6 +10,8 @@
   --gold: #e4c788;
   --gold-soft: #33291a;
   --gold-line: #7a6433;
+  /* Práce ve worktree ve Velínu (docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md §5): limetka, kterou nenese žádný jiný stav. */
+  --worktree: #c8f060;
   --ok: #a3cfa4;
   --ok-soft: #1e3324;
   --ok-line: #4d7a50;
@@ -61,6 +63,7 @@
   --gold: #8a5f0f;
   --gold-soft: #f6ecd8;
   --gold-line: #d8bb7e;
+  --worktree: #4d7300;
   --warn: #8a5f0f;
   --danger: #a3362f;
   --danger-line: #dca29c;
@@ -244,6 +247,10 @@
   --studio-failure: #ff5c78;
   /* Varování strážce na kartě (docs/strazci.md §5): jantar, aby se lišil od díry i selhání a četl se na noční modři. */
   --studio-guard-warn: #ffc548;
+  /* Práce ve worktree na kartě (docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md §5): limetka, kterou nenese žádný
+     jiný stav karty (plán, staví se, hotovo, ověřeno, díra) ani strážci; spolu s čárkovaným rámem říká „agenti tu
+     pracují mimo main“. */
+  --studio-worktree: #c8f060;
   /* Vrstva MODEL (docs/studio.md §1): plátno má fialovější noc a fialový akcent štítku „MODEL – výpočet, ne měření“,
      aby se vypočtený model na první pohled lišil od Skutečnosti a nikdy se za ni nevydával. */
   --studio-model-bg: #100e1f;

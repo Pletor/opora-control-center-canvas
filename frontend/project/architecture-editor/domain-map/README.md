@@ -13,3 +13,5 @@ Druhá obrazovka editoru architektury a jediné místo, kde se mění struktura:
 - **Díry mapy** nad cestami zákazníka: dílek `map-check/` (`MapCheckPanel`) ukazuje výsledek kontroly mapy (§5) pro tuto doménu po pravidlech; skupiny dostane od `ArchitectureEditor` v `mapCheck`, klik na stránku jde do `onOpen`, ostatní do `onOpenFinding`.
 - **Studio** už není pohled mapy domény: dráhy cest se stavem posledního ověření se přesunuly do záložky Studio (`frontend/project/studio/studio-journeys/`, `docs/studio.md`). Mapa domény má jen pohled Stránky.
 - `styles/domain-map.css`, předpona `domain-map`.
+
+Práce ve worktree (`docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md` §5): `PageCard` stránky, na které nebo pod kterou se pracuje ve worktree (`CardState.worktree`), má rám `domain-map__card--worktree` (dvojitý čárkovaný, seříznutý roh, token `--studio-worktree`) a v patě odznak větve `WorktreeBadge` místo dřívějšího „N worktree“ (to zůstává jen bez stavu karty); odznak děr říká „3 díry · 1 v práci“.
