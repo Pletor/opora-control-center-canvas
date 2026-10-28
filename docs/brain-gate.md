@@ -94,3 +94,16 @@ CREATE INDEX IF NOT EXISTS gate_tickets_queue ON gate_tickets(project_id, worksp
 | H1a | §2 tokens, §4 sessions, tickets, inbox and answer (human only), §5 tables, `gate.ticket` events | targeted tests green: session → `ask` queued → human answers → inbox; foreign project 403, invalid token 401 |
 | H1a2 | §1 switch, §3 wall, heart token as full autonomy | in a project with the gate on, a write without a token is refused and a worker token can use only the gate |
 | H1b | `heart_tasks`, `next` from the queue with a fallback to the plan, `report` → checks on the sha, `opora_gate.py` client for workers | a worker finishes eval session S2 only through the gate, using hand-written tasks |
+| H1c | **A strong control API.** Everything an agent needs to drive OPORA goes through the gate as typed kinds: read state, plan request, task, report, decision, question. Each kind has a JSON schema, an example and a `hint` on every error. The OpenAPI document is complete. | an agent drives one eval session using only the gate API and its OpenAPI, without the skill references |
+| H1d | **MCP server on top of the gate.** The same kinds become typed MCP tools (`mcp__opora__*`), a thin layer over the HTTP gate with no logic of its own. | the same session through MCP: no shell, no permission denials |
+
+H1a2 in detail:
+- **Switch.** `settings.brain = {gate: bool, since?, by?}` lives in `project.json` next to `agentAutonomy`. Reading and
+  writing mirror `project_hub.agent_autonomy` / `set_agent_autonomy`. `POST /api/brain/gate-setting` takes
+  `{project, enabled}` and is human only.
+- **Wall.** A pure function `wall.decide(method, path, actor, gate_on, token)` returns allow, or a refusal with
+  status, `code` and `hint`. The `boundary` middleware calls it after `_authority`, and only for projects with the gate
+  on. Projects with the gate off keep exactly today's behaviour.
+- **Heart token.** A request carrying a valid heart token for the request's project gets `authority = resolve(actor,
+  True)`, the same as full autonomy, but only in that project. A worker token outside `/api/gate/*` gets 403
+  `gate_required`.
