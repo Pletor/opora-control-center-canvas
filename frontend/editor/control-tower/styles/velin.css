@@ -62,6 +62,23 @@
 .velin__guard-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .velin__guard-card { color: var(--ink-muted); white-space: nowrap; }
 
+/* Trend: pod strážci tichá karta s osmi řádky. Člověk nečte čísla, čte tvar: klesají díry, roste počet ověřených
+   cest, nezasekla se práce? Každý řádek má stejný rytmus (jméno, křivka, číslo, rozdíl), takže oko jede po sloupci
+   křivek. Křivka je tenká a v barvě akcentu, aby nekřičela; barvu dostane jen rozdíl za 14 dní, zelenou, když jde
+   k lepšímu, a teplou, když k horšímu. Na úzkém displeji jdou řádky pod sebe stejně, jen se zúží jméno. */
+.velin__trend { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.velin__trend-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; font-size: 13px; }
+.velin__trend-empty { margin: 0; font-size: 13px; }
+.velin__trend-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 20px; }
+.velin__trend-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px 3ch 4ch; gap: 8px; align-items: center; font-size: 12px; color: var(--ink-2); }
+.velin__trend-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.velin__trend-spark { display: block; overflow: visible; }
+.velin__trend-spark path { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.velin__trend-value { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.velin__trend-delta { font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+.velin__trend-delta--better { color: var(--ok); }
+.velin__trend-delta--worse { color: var(--gold); }
+
 /* Čeká na člověka: kolem pilulky „na tebe“ i kolem rozhodnutí vpravo dýchá čárkovaný zlatý rám (katalog pohybu
    docs/zive-zobrazeni-a-knihovna.md §3: 1,85 s, opacita 0,4 → 0,95, inset −3 px). Klidný dech, ne blikání: říká
    „tohle stojí na tobě“, aniž by křičel. Kdo nechce pohyb, vidí rám stát. */

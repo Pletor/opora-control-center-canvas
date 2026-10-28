@@ -45,6 +45,14 @@ zadání, kroky ani obsah karet a nikdy nepřijímají ani nezamítají návrhy 
 | `zkusenost` | při události | uzavření karty (`done.confirmed`), doklad cesty, sloučení PR | deterministický záznam `{card, role, co prošlo, co spadlo a čím opraveno, čísla kroků, odkaz na doklad}` do OpenViking pod klíčem role přes outbox stejně jako `harness_memory` (claim/lease, retry); nehlásí nálezy |
 | `trend` | 900 s | souhrnná čísla | vzorek do tabulky `guard_trend(project, at, metric, value)`: `holes`, `holes.agent`, `journeys.verified`, `journeys.total`, `cards.done`, `cards.building`, `work.stalled`, `proposals.waiting`; retence 90 dní |
 
+Výklad G3 (2026-10-28): `zkusenost` nemá háček v místě události; tick strážce (každých 10 s) dočte od svého kurzoru
+(`guard_experience_cursor`) nové `card.closed` / `merge.done` v `opora_events` a nové řádky `journey_runs`. První běh
+v projektu nastaví kurzor na hlavu bez doplňování historie. Outbox je vlastní tabulka `guard_experience` (vzor
+`harness_memory_deliveries`); role = `agentRole` karty na ploše, karta dokladu cesty = první stránka cesty. Nejvýš 2
+zápisy na projekt a tick, první nedostupnost OpenVikingu doručení v ticku ukončí. Tabulka trendu má sloupec
+`project_id` (jako ostatní tabulky projektu); `work.stalled` = otevřené nálezy strážce `prace`, `cards.building` =
+poslední vydaná etapa karty rozpracovaná (běh, doklad, review, PR, merge) a karta není uzavřená.
+
 Strážce smí **sám** udělat jen vratnou akci mimo obsah: první sada žádnou nedělá (jen hlásí); propadlý nárok
 uvolní až příští claim jako dnes.
 

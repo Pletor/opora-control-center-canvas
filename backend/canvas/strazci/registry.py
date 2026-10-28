@@ -5,8 +5,9 @@ vstup od posledního běhu nezměnil a strážce přeskočil. `ctx` je `GuardCon
 běhu (epoch sekundy, testy podstrčí falešný) a `memo`, slovník strážce pro jeden projekt, který jádro uloží
 jen po úspěšném běhu (např. hlava architektury, nad kterou strážce naposledy počítal).
 """
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -26,9 +27,19 @@ class GuardContext:
 
 
 def default_guards():
-    """První sada strážců: mapa a práce (G1), cesty a pravda (G2)."""
-    from backend.canvas.strazci import guard_cesty, guard_mapa, guard_prace, guard_pravda
-    return (guard_mapa.GUARD, guard_prace.GUARD, guard_cesty.GUARD, guard_pravda.GUARD)
+    """První sada strážců: mapa a práce (G1), cesty a pravda (G2), zkušenost a trend (G3).
+
+    `trend` je poslední: v jednom průchodu počítá i s čerstvými nálezy ostatních strážců (`work.stalled`)."""
+    from backend.canvas.strazci import (
+        guard_cesty,
+        guard_mapa,
+        guard_prace,
+        guard_pravda,
+        guard_trend,
+        guard_zkusenost,
+    )
+    return (guard_mapa.GUARD, guard_prace.GUARD, guard_cesty.GUARD, guard_pravda.GUARD, guard_zkusenost.GUARD,
+            guard_trend.GUARD)
 
 
 def validate_registry(guards):

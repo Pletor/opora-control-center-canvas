@@ -52,3 +52,26 @@ def test_unknown_project_is_404(setup):
     client, _, _ = setup
     assert client.get("/api/strazci", params={"project": "nikdo"}).status_code == 404
     assert client.get("/api/strazci/findings", params={"project": "nikdo"}).status_code == 404
+
+
+def test_trend_returns_series_filtered_by_metric_and_days(tmp_path):
+    from backend.canvas.strazci import guard_trend
+
+    service = CanvasService(tmp_path / "trend")
+    try:
+        guard_trend.record(service, "draft", {"holes": 4, "cards.done": 1}, NOW - 20 * 86400)
+        guard_trend.record(service, "draft", {"holes": 2, "cards.done": 3}, NOW - 3600)
+        app = FastAPI()
+        app.include_router(create_strazci_router(service, GuardianManager(service, guards=[]), clock=lambda: NOW))
+        client = TestClient(app)
+        body = client.get("/api/strazci/trend", params={"project": "draft"}).json()
+        assert body["days"] == 14 and body["metrics"] == list(guard_trend.METRICS)
+        assert {metric: [p["value"] for p in points] for metric, points in body["series"].items()} == {
+            "holes": [2], "cards.done": [3]}
+        month = client.get("/api/strazci/trend", params={"project": "draft", "metric": "holes", "days": 30}).json()
+        assert month["metrics"] == ["holes"] and [p["value"] for p in month["series"]["holes"]] == [4, 2]
+        assert client.get("/api/strazci/trend", params={"project": "draft", "metric": "nic"}).status_code == 422
+        assert client.get("/api/strazci/trend", params={"project": "draft", "days": 91}).status_code == 422
+        assert client.get("/api/strazci/trend", params={"project": "nikdo"}).status_code == 404
+    finally:
+        service.close()
