@@ -44,7 +44,7 @@ export default function ControlTower({ project, workspace, graph, projectName, o
       <header className="velin__bar">
         <div className="velin__filters" role="tablist" aria-label="Filtr Velínu">
           {FILTERS.map(item => <button key={item.id} type="button" role="tab" aria-selected={filter === item.id}
-            className={"velin__filter" + (filter === item.id ? " velin__filter--active" : "")} onClick={() => setFilter(item.id)}>
+            className={"velin__filter" + (filter === item.id ? " velin__filter--active" : "") + (item.id === "human" && count("human") > 0 ? " velin__filter--waiting" : "")} onClick={() => setFilter(item.id)}>
             {item.label}{item.id !== "all" ? ` · ${count(item.id)}` : ""}</button>)}
         </div>
         <span className="velin__source">agent-state · snímek {agent.state ? new Date(agent.state.generatedAt).toLocaleTimeString("cs-CZ") : "—"}</span>

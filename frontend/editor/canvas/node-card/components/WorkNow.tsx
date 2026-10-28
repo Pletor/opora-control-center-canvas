@@ -17,7 +17,7 @@ export function WorkProgress({ counts }: { counts: Record<WorkStatus, number> })
   const entries = Object.entries(counts) as [WorkStatus, number][];
   const total = entries.reduce((sum, [, count]) => sum + count, 0);
   return <div aria-label="Postup podle stavů">
-    <div className="node-card__bar">{entries.filter(([, count]) => count > 0).map(([status, count]) => <span key={status} className={`node-card__bar-part node-card__bar-part--${status}`} title={`${count} ${workLabels[status]}`} style={{ "--w": `${100 * count / total}%` } as CSSProperties} />)}</div>
+    <div className="node-card__bar">{entries.map(([status, count]) => <span key={status} className={`node-card__bar-part node-card__bar-part--${status}`} aria-hidden={count === 0 || undefined} title={count ? `${count} ${workLabels[status]}` : undefined} style={{ "--w": `${total ? 100 * count / total : 0}%` } as CSSProperties} />)}</div>
     <small>{entries.filter(([, count]) => count > 0).map(([status, count]) => `${count} ${workLabels[status]}`).join(" · ") || "Sektor je prázdný"}</small>
   </div>;
 }

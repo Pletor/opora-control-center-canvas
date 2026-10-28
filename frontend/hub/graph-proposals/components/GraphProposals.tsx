@@ -21,7 +21,8 @@ export default function GraphProposals({ model, review }: { model: GraphProposal
       <GraphProposalForm model={model} /><GraphEditForm model={model} /></>}
     <h3>Historie návrhů rozšíření</h3>
     {!model.items.length && <p>Zatím žádné návrhy rozšíření.</p>}
-    <ul className="graph-proposals__history">{model.items.map(item => <li key={item.id}>
+    <ul className="graph-proposals__history">{model.items.map(item => <li key={item.id}
+      className={["graph-proposals__entry", model.flashOf(item.id)].filter(Boolean).join(" ")} onAnimationEnd={() => model.endFlash(item.id)}>
       <button type="button" disabled={model.busy} aria-pressed={model.inspected?.id === item.id} onClick={() => model.inspect(item.id)}>{item.subject}</button>
       <span>{item.nodeCount} prvků · {item.edgeCount} vazeb · {item.accepted ? "Přijato" : "Navrženo"} · {item.by.name}</span>
     </li>)}</ul>

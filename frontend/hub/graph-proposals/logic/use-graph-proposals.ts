@@ -4,6 +4,7 @@ import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import { postGraphProposal } from "./graph-api";
 import { graphEditPayload } from "./graph-edits";
 import { useGraphEdits } from "./use-graph-edits";
+import { flashEnded, flashFor, flashModifier, type DecisionFlash } from "./decision-flash";
 import { adoptionKey, GraphRequests, graphActionPayload, graphPayload, graphReadState, newDraftNode,
   type DraftEdge, type DraftNode, type GraphContext, type GraphProposal, type GraphSummary } from "./graph-proposals";
 
@@ -23,6 +24,7 @@ export function useGraphProposals(project: string, workspace: string, existing: 
   const [attempt, setAttempt] = useState(0);
   const [selection, setSelection] = useState({ key, id: "" });
   const [ack, setAck] = useState({ key: "", value: "" });
+  const [flash, setFlash] = useState<DecisionFlash>(null);
   const [draft, setDraft] = useState({ scope, subject: "", nodes: [newDraftNode("new1")], edges: [] as DraftEdge[] });
   const form = draft.scope === scope ? draft : { scope, subject: "", nodes: [newDraftNode("new1")], edges: [] as DraftEdge[] };
   const shown = state.key === key ? state : empty(key);
@@ -67,7 +69,7 @@ export function useGraphProposals(project: string, workspace: string, existing: 
     const valid = requests.current.beginWrite();
     if (!valid) return;
     setWritePending(true);
-    details.current.invalidate(); setAck({ key: "", value: "" });
+    details.current.invalidate(); setAck({ key: "", value: "" }); setFlash(null);
     setState({ ...shown, busy: true, error: "", notice: "" });
     try {
       const mutation = postGraphProposal<{ id: string }>(path, payload);
@@ -75,6 +77,7 @@ export function useGraphProposals(project: string, workspace: string, existing: 
       // Parent checks captured scope even when this panel was left during the mutation.
       if (action === "accept") onApplied();
       if (!valid()) return;
+      if (action === "accept") setFlash(flashFor(selectedId, "accepted"));
       setState({ ...shown, context: null, busy: false, error: "", notice: action === "accept"
         ? "Rozšíření plánu přijato. Canvas se obnovuje; nejde o ověření implementace."
         : "Neměnný návrh uložen. Před dalším krokem obnovte kontext a prohlédněte jeho obsah." });
@@ -83,6 +86,7 @@ export function useGraphProposals(project: string, workspace: string, existing: 
       setSelection({ key, id: action === "accept" ? selectedId : result.id });
       setAttempt(value => value + 1);
     } catch (error) {
+      if (valid() && action === "accept") setFlash(flashFor(selectedId, "refused"));
       if (valid()) { setState({ ...shown, context: null, busy: false, notice: "", error: message(error) + " Obnovte kontext a zkontrolujte historii; akce se automaticky neopakuje." });
         setDetail({ key: detailKey, item: null, busy: false, error: "" }); }
     } finally { requests.current.endWrite(); setWritePending(false); }
@@ -111,8 +115,10 @@ export function useGraphProposals(project: string, workspace: string, existing: 
     detailError: detail.key === detailKey ? detail.error : "",
     acknowledged: !!inspected && acknowledgement === adoptionKey(inspected),
     acknowledge: (checked: boolean) => setAck({ key: detailKey, value: checked && inspected ? adoptionKey(inspected) : "" }),
-    inspect: (id: string) => { if (!requests.current.busy) { details.current.invalidate(); setAck({ key: "", value: "" }); setSelection({ key, id }); } },
-    refresh: () => { if (!requests.current.busy) { requests.current.invalidate(); details.current.invalidate(); setAck({ key: "", value: "" }); setAttempt(value => value + 1); } },
+    inspect: (id: string) => { if (!requests.current.busy) { details.current.invalidate(); setAck({ key: "", value: "" }); setFlash(null); setSelection({ key, id }); } },
+    flashOf: (id: string) => flashModifier(flash, id),
+    endFlash: (id: string) => setFlash(current => flashEnded(current, id)),
+    refresh: () => { if (!requests.current.busy) { setFlash(null); requests.current.invalidate(); details.current.invalidate(); setAck({ key: "", value: "" }); setAttempt(value => value + 1); } },
     editSubject: (subject: string) => setDraft({ ...form, subject }),
     editNode: (index: number, field: keyof DraftNode, value: string) => setDraft({ ...form, nodes: form.nodes.map((node, i) => i === index ? { ...node, [field]: value } : node) }),
     addNode: () => { const ref = `new${++nodeSequence.current}`; setDraft({ ...form, nodes: [...form.nodes, newDraftNode(ref)] }); },
