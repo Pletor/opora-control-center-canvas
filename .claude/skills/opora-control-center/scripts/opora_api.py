@@ -6,6 +6,7 @@ Vlastní HTTP klient v repu ani sondování `/openapi.json` nejsou potřeba.
 
     opora_api.py GET  /api/oporahub/graph-proposals/context --project P --workspace W
     opora_api.py POST /api/check-run --project P --workspace W --json '{"scope": "<nodeId>", "status": "green", "sha": "<sha>"}'
+    opora_api.py POST /api/canvas-plan --project P --workspace W --json - <<'EOF'   # tělo ze stdin
 
 `--project`/`--workspace` jdou u GET do dotazu, u POST/PUT/PATCH/DELETE do těla (rozpor s tělem = chyba).
 Výstup je vždy jeden JSON na stdout: `{ok, status, result}` nebo `{ok: false, status, error, hint, …}`
@@ -54,7 +55,11 @@ def check(method, path, body):
                       'Napiš to člověku; přepínač autonomie, přístupy, repozitář, klíče a identitu reviewera agent nemění.')
     if path.rstrip('/') == '/api/remove' and isinstance(body, dict) and body.get('kind') == 'project':
         raise Refused('Odpojení celého projektu patří jen člověku.', 'Napiš to člověku.')
-    if method != 'GET' and opora_write.hub_template(path) in opora_write.HUB_TOKEN_ROUTES:
+    template = opora_write.hub_template(path)
+    if method != 'GET' and template in opora_write.HUB_COMPOSED_ROUTES:
+        raise Refused('Cesta ' + path + ' vrací nebo bere token běhu.',
+                      'Použij opora_hub.py start --node N / deliver --execution E --summary T.')
+    if method != 'GET' and template in opora_write.HUB_TOKEN_ROUTES:
         raise Refused('Cesta ' + path + ' nese token běhu nebo slotu.',
                       'Použij opora_hub.py (claim, step, results, heartbeat, release, review-*); token nepatří do příkazu.')
 
@@ -106,7 +111,7 @@ def main(argv=None):
     parser.add_argument('path', help='cesta API bez dotazu, např. /api/check-run')
     parser.add_argument('--project')
     parser.add_argument('--workspace')
-    parser.add_argument('--json', dest='json_text', help='tělo jako JSON objekt')
+    parser.add_argument('--json', dest='json_text', help="tělo jako JSON objekt; '-' = ze stdin (heredoc, bez souboru)")
     parser.add_argument('--json-file', help='tělo ze souboru (delší payload); soubor drž mimo repozitář projektu')
     parser.add_argument('--query', action='append', default=[], help='klic=hodnota do dotazu (opakovatelné)')
     parser.add_argument('--base-url', help='http://127.0.0.1:PORT; výchozí ' + opora_write.BASE_ENV)

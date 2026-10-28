@@ -85,14 +85,13 @@ blokací, oblast sám nezvětšuj. Karta `[gate]` leží ve vrstvě svého sekto
    (chyba čtení, ne prázdná hodnota) → blokace. Prázdný projekt, chybějící mapa, prázdná pravidla nebo prázdný
    `goal` blokace nejsou (viz „Co blokace není“).
 2. Blokující otázka nebo jiná blokace → žádná dávka, jen souhrn (oddíl Blokace). Jinak koncept zapiš
-   jednou do **nového** souboru `<draftsDir>/plan-<id oblasti nebo sektoru>-<čas YYYYMMDDTHHMMSS>.json`
-   (bez `dryRun`). Existující soubor nikdy nepřepisuj; každá nová verze = nový soubor. Spočítej jeho sha256.
-3. `opora_write.py /api/canvas-plan --project P --workspace W --json-file "<soubor>" --dry-run`.
+   jednou jako tělo `--json -` (stdin, heredoc; bez `dryRun`) a pro schválení si tělo ulož do deníku karty / `summary`
+   (soubor mimo OPORU nezakládej). Opravená verze = nové tělo, ne úprava starého.
+3. `opora_write.py /api/canvas-plan --project P --workspace W --dry-run --json - <<'EOF' … EOF`.
 4. Ke schválení ukaž **celou dávku**: u každé položky **všechna pole, která v souboru má** (u sektoru
    `name`, `purpose`, `spec.goal`, `spec.non_goals`, `spec.acceptance`, `gateNodeId` a jeho karta `[gate]`,
    `rules`, `sourceRef`, `position`; u karty navíc `blocks` s porty, `checks`, `goal_mode`, `card`, `text`)
-   a vazby. Nic, co je v souboru, nesmí v náhledu chybět. Přidej cestu k souboru a jeho sha256, aby šel
-   celý JSON otevřít; dál které existující položky pokrývají zbytek a větu „proč žádný `sourceRef`“, kde
+   a vazby. Nic, co je v souboru, nesmí v náhledu chybět. Přidej celé tělo dávky, aby šlo otevřít; dál které existující položky pokrývají zbytek a větu „proč žádný `sourceRef`“, kde
    chybí. Nestačí `digest` a `summary`. Pod dávkou **odložené otázky** (každá jednou větou) včetně vět z
    „Co blokace není“. `--dry-run` nevrací pozice: že sektory leží v rámečku, ověříš až v kroku 7.
 5. **Jedno rozhodnutí** = potvrzení, nebo vrácení celé verze s poznámkou. Neptej se po položkách ani
@@ -308,10 +307,10 @@ její `tech`, stavy a porty jako vazby s `carries`; soubory `fetch` si přečti,
 = navrhni kroky, níže). Vazby: `next` + `carries` (`navigation` na stránku dalšího kroku, `command` k příjemci,
 `data` od zdroje); jeden port = jedna karta.
 
-**Dávka a schválení.** Soubor `<draftsDir>/plan-<id stránky>-<čas>.json`, `opora_write.py /api/canvas-plan
---project P --workspace W --json-file "<soubor>" --dry-run`, ke schválení celá dávka (název, účel, sekce, cíl,
-akceptace, stavy, vazby s `carries`), soubor a sha256; ostře až po souhlasu. Po zápisu `view --raw`: každá nová
-komponenta má `parentId` = stránka a `card.section` ze schváleného souboru.
+**Dávka a schválení.** Tělo přes stdin: `opora_write.py /api/canvas-plan
+--project P --workspace W --dry-run --json - <<'EOF' … EOF`, ke schválení celá dávka (název, účel, sekce, cíl,
+akceptace, stavy, vazby s `carries`); ostře až po souhlasu. Po zápisu `view --raw`: každá nová
+komponenta má `parentId` = stránka a `card.section` ze schválené dávky.
 
 ```json
 {"digest": "DIGEST", "plan": {"nodes": [

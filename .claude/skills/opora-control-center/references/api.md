@@ -7,7 +7,7 @@ Kdy mě číst: potřebuješ přesný příkaz `opora_read.py`, tvar payloadu pr
 
 - `python "<SKILL_DIR>/scripts/opora_read.py" <příkaz> [volby]`, zápis `… opora_write.py <cesta> …`.
 - V okně OPORA nesmí příkaz obsahovat `;` `&` `|` `<` `>` `$` `` ` `` ani nový řádek (backend ho zamítne).
-  `<SKILL_DIR>` a `<draftsDir>` nahraď skutečnou absolutní cestou.
+  `<SKILL_DIR>` nahraď skutečnou absolutní cestou. Heredoc (`<<`) tu nejde: payload dej inline `--json '…'` na jednom řádku.
 - Mimo okno přidej `--base-url http://127.0.0.1:<port>`, pokud nemáš `OPORA_BASE_URL`.
 - Časové limity: čtení (GET) 60 s, zápis a `opora_save.py` 90 s, čtecí POST 75 s. Po vypršení skript
   nic neopakuje; zápis mohl na serveru proběhnout, proto nejdřív čtením ověř stav a teprve pak zapisuj znovu.
@@ -56,14 +56,13 @@ Všechny příkazy kromě `status`, `projects` a `pipeline-profiles` potřebují
 ## Zápis: `opora_write.py`
 
 ```bash
-python "<SKILL_DIR>/scripts/opora_write.py" <cesta> --project P --workspace W (--json '<json>' | --json-file "<soubor>.json") [--dry-run]
+python "<SKILL_DIR>/scripts/opora_write.py" <cesta> --project P --workspace W (--json '<json>' | --json -) [--dry-run]
 ```
 
 - `project` a `workspace` doplní skript; jiná hodnota v payloadu je chyba.
 - `OPORA_AGENT_NAME` → hlavička `X-Opora-Actor` (záznam činnosti), `OPORA_LEASE_TOKEN` → `X-Opora-Lease`.
 - `--dry-run` jen u `/api/canvas-plan` a `/api/canvas-layout`.
-- Delší payload: v okně OPORA nástrojem `Write` jako `*.json` do `draftsDir` z `<opora_context>`
-  (≤ 2 MiB); mimo okno kamkoli mimo repo. Po schválení soubor neměň.
+- Payload: `--json '…'` inline, nebo `--json -` ze stdinu (heredoc, mimo okno OPORA). Žádné payload soubory.
 - Kód 0 = zapsáno (`{ok, route, result}`), 3 = HTTP 409, 1 = jiná chyba.
 - OporaHub (`/api/oporahub/*`): agentní zápisy (`HUB_AGENT_ROUTES`), lidské cesty a cesty s tokenem
   běhu skript odmítne předem; přehled a „kdo smí“ v [hub-api.md](hub-api.md), stav a běh přes `opora_hub.py`.

@@ -128,3 +128,10 @@ Asistenta spouští jen člověk zprávou (`docs/asistent.md`). Agent tyto cesty
 | GET `/api/assistant/sessions/{session_id}/transcript` | přepis relace | kdokoli |
 | GET `/api/assistant/sessions/{session_id}/events` | SSE události relace (`after` / `Last-Event-ID`) | UI |
 | POST `/api/assistant/approvals/{approval_id}` | `{decision: allow \| deny, note?}` → schválení žádosti asistenta o příkaz | UI (člověk) |
+
+## Karta na dvě volání (složené akce)
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| POST `/api/oporahub/executions/start` | `{project, workspace, nodeId, ttlSeconds?}` → kontext v2, hlavy z čerstvého stavu, claim a zadání jedním voláním: `{executionId, token, epoch, expiresAt, acceptedRevision, contextVersion, resumed, assignment, steps: [{id, title, dod, status}], next}`; týž aktér s živým převzetím dostane stávající běh (`resumed: true`); cizí převzetí 409 `card_leased`, bez přijatého grafu 409 `graph_acceptance_required` (`hint`); jen `opora_hub.py start --node N` (token) | agent i člověk |
+| POST `/api/oporahub/executions/{identifier}/deliver` | hlavička `X-Opora-Execution-Token`; `{project, workspace, summary, steps?: [{stepId, status, notes?}], commit?, checks?: [{name, status: green\|red, output?}], decisions?, close?}` → kroky (bez `notes` z commitů karty s `Opora-Node`, jinak `summary`), výsledek se `selfChecks`, lokální sloučení (bez GitHubu, výchozí commit = HEAD), běhy kontrol a při plné autonomii uzavření stejnou bránou: `{delivered, merged, checks, closed, missing, leaseRenewed, next}`; červená kontrola uzavření zastaví; vypršelé převzetí přijme, když kartu nikdo nepřevzal (`lease_renewed_on_deliver`), jinak 409 `execution_superseded`; cizí změna kontextu 409 `execution_context_changed` („spusť start znovu“); vlastní `canvas-plan` kontext přepne (`rePinned` v odpovědi dávky); jen `opora_hub.py deliver` | agent i člověk |

@@ -90,7 +90,7 @@ Hotová stránka jako animace: `animation: "scena"` + `scene: {"title", "html", 
 
 Scénu čteš z `node-brief.storyboard.scene` (celý `html`, `fields`, `layers`, `title`); úprava = zapsat zpět **celý** `scene`
 přes `/api/storyboard` (`opora_write.py`, CAS `expected_revision`, schvaluje člověk). Backend jen kontroluje tvar, nic nespouští.
-Dokument má desítky kB: celý payload `{nodeId, expected_revision, storyboard}` ulož jako JSON soubor do adresáře konceptů (asistent v aplikaci: `<draftsDir>/storyboard-<nodeId>.json`, jiné cesty jsou zamítnuté; Claude Code: scratchpad) a zapiš `opora_write.py /api/storyboard --project … --workspace … --json-file <soubor>`. Nepiš `.html` soubory ani pomocné skripty mimo koncepty.
+Dokument má desítky kB: celý payload `{nodeId, expected_revision, storyboard}` pošli přes stdin: `opora_write.py /api/storyboard --project … --workspace … --json - <<'EOF' … EOF` (bez souboru). Nepiš `.html` soubory ani pomocné skripty.
 Podklady míří na `scene.layers`. Render balíčku dělá `python render.py` stejně jako u kódu (u scény snímá `page.screenshot()` viewportu).
 
 ## Podklady (nahrané obrázky, textury, barvy)

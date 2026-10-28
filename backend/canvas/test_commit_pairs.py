@@ -311,3 +311,11 @@ def test_owned_paths_feeds_the_pair():
     result = pair(commits, scope={"kind": "sector", "id": "sector-1"}, owned=owned)
     assert result["gitCommits"] == ["aaa"]
     assert result["confidence"] == "weak"
+
+
+def test_bare_trailer_pairs_the_commit_without_a_revision():
+    """`Opora-Node: <id>` bez `@revize` (recept odevzdání karty) commit ke kartě přiřadí, revizi nehlásí."""
+    result = pair([commit("aaa", trailers={"Opora-Node": ["node-1"]}), commit("bbb", trailers={"Opora-Node": ["node-2"]})])
+    assert result["gitCommits"] == ["aaa"]
+    assert result["evidence"] == "trailer" and result["confidence"] == "weak"
+    assert result["revisionInCode"] is None
