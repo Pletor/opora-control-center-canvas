@@ -107,13 +107,22 @@
 .element-detail__carries-select { font: inherit; font-size: 11px; padding: 2px 6px; color: inherit; background: var(--ae-bg, #0c1723); border: 1px solid var(--ae-line, #304b5a); border-radius: 6px; }
 
 /*
- * Práce: pětikroková mini pipeline (aktuální fáze svítí akcentem), věta o uzavření karty a velké
- * tlačítko do Editoru, protože pracovní zadání se mění jen tam.
+ * Práce: nahoře sedm bran definice hotovo jako dlaždice (sdílené s detailem karty), pod nimi kroky plánu jako
+ * tichý seznam „název vlevo, stav vpravo“ a nakonec běh: kdo staví, který krok běží a kolik nálezů strážců
+ * visí. Běžící krok svítí akcentem, hotový je tlumený, selhaný červený, aby oko našlo „kde to teď je“ bez
+ * čtení. Velké tlačítko do Editoru zůstává dole, protože zadání a kroky se mění jen tam.
  */
-.element-detail__phases { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
-.element-detail__phase { padding: 4px 8px; font-size: 11px; border: 1px solid var(--ae-line, #304b5a); border-radius: 6px; }
-.element-detail__phase--past { color: var(--ae-muted, #a2bacb); }
-.element-detail__phase--current { color: var(--ae-bg, #0c1723); background: var(--ae-accent, #38d6c2); border-color: var(--ae-accent, #38d6c2); font-weight: 700; }
-.element-detail__closure { margin: 0; font-size: 12px; color: var(--ae-muted, #a2bacb); }
-.element-detail__closure--done { color: var(--ed-frontend); }
+.element-detail__steps { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.element-detail__step { display: flex; justify-content: space-between; gap: 8px; padding: 5px 9px; font-size: 12px; border: 1px solid var(--ae-line, #304b5a); border-radius: 6px; }
+.element-detail__step-title { min-width: 0; overflow-wrap: anywhere; }
+.element-detail__step-state { flex-shrink: 0; font-size: 11px; color: var(--ae-muted, #a2bacb); }
+.element-detail__step--done, .element-detail__step--skipped { color: var(--ae-muted, #a2bacb); }
+.element-detail__step--current { border-color: var(--ae-accent, #38d6c2); }
+.element-detail__step--failed { border-color: #ff7b8a; }
+.element-detail__run { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.element-detail__run--waiting { color: var(--ed-database); }
+.element-detail__run--blocking { color: #ff7b8a; }
+.element-detail__run--not_connected { color: var(--ae-muted, #a2bacb); }
+.element-detail__guards--block { color: #ff7b8a; }
+.element-detail__guards--warn { color: var(--ed-database); }
 .element-detail__open { width: 100%; padding: 10px; font-size: 13px; font-weight: 700; color: var(--ae-bg, #0c1723); background: var(--ae-accent, #38d6c2); border: 0; border-radius: 8px; cursor: pointer; }

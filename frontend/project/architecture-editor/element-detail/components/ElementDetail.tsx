@@ -8,6 +8,9 @@ import { journeysOfPage } from "../../domain-map/logic/page-journeys";
 import { sectionChoice } from "../logic/section-choice";
 import { whyChain, whyChainText } from "../logic/why-chain";
 import { useNodeSpec } from "../logic/use-node-spec";
+import { workView } from "../logic/work-view";
+import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
+import { cardEntry } from "@/hub/oporahub-card-drawer/logic/card-header";
 import AgentContextPanel from "./AgentContextPanel";
 import BriefTab from "./BriefTab";
 import LinkList from "./LinkList";
@@ -63,6 +66,10 @@ export default function ElementDetail(props: ElementDetailProps) {
     return page && domain?.site?.kind === "application" ? journeysOfPage(domain.site, page.id) : [];
   }, [graph, domainId, page]);
   const spec = useNodeSpec(project, workspace, nodeId);
+  // Stejný sdílený snímek agent-state jako tvář karty na plátně; záložka Práce z něj čte brány, kroky a běh.
+  const agent = useAgentState(project, workspace);
+  const card = useMemo(() => cardEntry(agent.state, nodeId), [agent.state, nodeId]);
+  const fields = spec.status === "ready" && spec.spec.available ? spec.spec.fields : null;
 
   return (
     <aside className="element-detail" aria-label="Detail prvku">
@@ -117,7 +124,7 @@ export default function ElementDetail(props: ElementDetailProps) {
               <LinkList title="Odchozí vazby" links={links.outgoing} empty="Žádná odchozí vazba" onSelect={onSelect} onCarries={onCarries} disabled={disabled} />
             </div>
           ) : null}
-          {tab === "work" ? <WorkTab nodeId={nodeId} phase={phase} done={done} onOpenEditor={onOpenEditor} /> : null}
+          {tab === "work" ? <WorkTab nodeId={nodeId} view={workView(card, fields, done, Date.now())} onOpenEditor={onOpenEditor} /> : null}
         </div>
       ) : (
         <p className="element-detail__muted">Prvek je nedostupný.</p>
