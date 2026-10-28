@@ -72,7 +72,7 @@ rozepiš do `spec.steps`, ne do karet. Build a test pusť **jednou na kartu** p�
    Role sekcí: `hero`, `cta`, `form`, `content`, `gallery`, `proof`, `faq`, `footer`, `custom`. Karta `formular` je sekce
    s vlastním ověřením (`card.section`); drobnosti jdou do `spec.steps` (obsah → vzhled podle `site.feel` → přístupnost →
    prázdné a chybové stavy → testy). Cesty zákazníka a další pole: [canvas-plan.md](references/canvas-plan.md).
-3. `H act --action-id ID` na `propose_graph`, pak na `accept` (výstup nese `next` = další ready akce).
+3. `H act --all-ready --verb propose_graph --verb accept` – jedno volání, **žádná smyčka přes ID** (`{done, skipped, next}`).
 4. Pro každou kartu `H start --node N` (kontext, claim i zadání v jednom volání; vrátí `executionId` a `steps`, `assignment` netřeba).
 5. Kód a commit s trailerem `Opora-Node: <nodeId>`; kroky zvlášť ohlašovat netřeba.
 6. `npm run build && npm test` **jednou** (`&&`: test jen po prošlém buildu).
@@ -164,7 +164,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | přesná cesta a kdo ji smí | tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
 | jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy, asistent) | tabulky cest | [routy.md](references/routy.md) |
 | přijmout, uzavřít, nastavit bez člověka | plná autonomie (`autonomy.full`) | [autonomie.md](references/autonomie.md) |
-| provést akci z agent-state (i lidskou při `autonomy.full`) | `opora_hub.py act --action-id ID` | [hub-loop.md](references/hub-loop.md) |
+| provést akci z agent-state (i lidskou při `autonomy.full`) | `opora_hub.py act --action-id ID` (víc = `--action-id` opakovaně nebo `--all-ready --verb V`) | [hub-loop.md](references/hub-loop.md) |
 | zavolat cestu bez vlastního příkazu | `opora_api.py METHOD PATH [--json - | --json '…'] [--query k=v]` | [autonomie.md](references/autonomie.md) |
 | spustit, zastavit, restartovat Oporu | `uv run opora --no-open`, `opora_read.py status` | [provoz.md](references/provoz.md) |
 | zpráva jiné kartě, deník, obrázky karty, strom zdrojů | `/api/desktop-v3/agent-messages`, `/api/node-journal`, `/api/workspace/tree` | [api.md](references/api.md) „Karta, zdroje a projekt“ |

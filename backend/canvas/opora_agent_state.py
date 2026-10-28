@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
 from backend.canvas import opora_agent_state_cards as card_stages
+from backend.canvas import opora_agent_state_commands as commands
 from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas import opora_agent_state_events as outbox
 from backend.canvas import opora_agent_state_formal as formal
@@ -205,6 +206,7 @@ class AgentState:
         autonomy = project_autonomy(self.canvas, project)
         if autonomy["full"]:
             actions = _autonomous(actions)
+        actions = commands.attach(actions)  # ready akce nesou hotový řádek klienta (`command`)
         return {"schemaVersion": SCHEMA_VERSION,
                 "generatedAt": datetime.fromtimestamp(now, UTC).isoformat(timespec="seconds"),
                 "projectId": project, "workspaceId": workspace, "heads": heads, "stages": stages,

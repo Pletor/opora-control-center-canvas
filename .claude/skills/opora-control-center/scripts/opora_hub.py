@@ -14,6 +14,8 @@ Review: `review-claim`, `review-heartbeat`, `review-submit --submission-file F`,
 Akce:   `act --action-id ID` provede akci z agent-state přesně podle `method/path/preconditions` (propose_graph,
         accept_baseline, accept, rebase, claim, review, close_card, verification.fix, review.claim); lidské akce jen
         když je agent-state při `autonomy.full` nabízí jako `ready`. Výstup nese `next` = další ready akce.
+        Dávka: `act --action-id A --action-id B …` nebo `act --all-ready --verb V [--verb V2] [--target N]…`
+        (opora_act_batch.py: klíč (verb, targetId), `{done, skipped, next}`, cizí změna = kód 3 s `changed`).
         `local-merge --execution E --commit SHA` (projekt bez GitHubu), `close-card --card ID [--note T]`.
 
 Token běhu i slotu review se nikdy nevypisuje: leží v soukromém souboru (0600) ve složce `hub` pod
@@ -44,6 +46,14 @@ EXIT_CONFLICT, EXIT_NONE, EXIT_REFUSED, EXIT_INVALID = 3, 4, 5, 6
 BODY_VERBS = frozenset({'propose_graph', 'accept_baseline', 'accept', 'rebase', 'verification.fix'})
 STEP_STATUSES = ('done', 'failed', 'skipped')
 SLIM = {'assignment': 'omit'}
+
+
+class BatchConflictError(Exception):
+    """Cizí změna stavu během dávky `act`; `payload` = `{error, code, changed, hint, done, skipped}`."""
+
+    def __init__(self, payload):
+        super().__init__(payload.get('error'))
+        self.payload = payload
 
 
 class Refused(Exception):
@@ -181,14 +191,14 @@ def summary(state, card=None):
     return {'heads': state.get('heads'),
             'stages': [item for item in state.get('stages', []) if item.get('health') != 'ok'],
             'decisions': state.get('decisions', []),
-            'ready': [{k: a.get(k) for k in ('id', 'verb', 'targetId', 'path')} for a in ready_actions(state)],
+            'ready': [{k: a.get(k) for k in ('id', 'verb', 'targetId', 'path', 'command')} for a in ready_actions(state)],
             'blocked': len(state.get('actions', [])) - len(ready_actions(state)),
             'cards': cards, 'truncated': state.get('truncated', False)}
 
 
 # --- běh karty --------------------------------------------------------------------------------
 
-def claim(base, project, workspace, action_id, ttl, context_version=2):
+def claim(base, project, workspace, action_id, ttl, context_version=2, request_id=None):
     """Čerstvý agent-state → akce `claim` ready → kontext → claim; token jde jen do soukromého souboru."""
     state, _ = agent_state(base, project, workspace, fresh=True)
     action = find_action(state, action_id)
@@ -209,7 +219,8 @@ def claim(base, project, workspace, action_id, ttl, context_version=2):
     if not ctx.get('available'):
         raise Refused('Karta není k převzetí: ' + str(ctx.get('unavailableReason')))
     payload = {**scope, 'nodeId': node, 'expectedAcceptedHead': ctx['acceptedHead'],
-               'expectedContextVersion': ctx['contextVersion'], 'requestId': uuid.uuid4().hex, 'ttlSeconds': ttl}
+               'expectedContextVersion': ctx['contextVersion'], 'requestId': request_id or uuid.uuid4().hex,
+               'ttlSeconds': ttl}
     if ctx.get('executionProtocolVersion') == 2:
         budget = ctx.get('budget') or {}
         payload |= {'expectedBudgetPolicyHead': budget.get('policyHead'),
@@ -393,7 +404,12 @@ def next_ready(base, project, workspace):
     """První ready akce po kroku (pořadí serveru), aby agent nečetl celý stav znovu."""
     state, _ = agent_state(base, project, workspace, fresh=True)
     found = ready_actions(state)
-    return {k: found[0].get(k) for k in ('id', 'verb', 'targetId')} if found else None
+    return first_ready(found)
+
+
+def first_ready(found):
+    """První ready akce jako `{id, verb, targetId, command}` (`command` z agent-state, je-li)."""
+    return {k: found[0].get(k) for k in ('id', 'verb', 'targetId', 'command')} if found else None
 
 
 def close_card(base, project, workspace, card, note=None):
@@ -421,35 +437,40 @@ def local_merge(base, project, workspace, execution, commit):
     return value
 
 
+def perform(base, project, workspace, action, ttl=900, note=None, request_id=None):
+    """Provede jednu ready akci přesně podle `method/path/preconditions`; `request_id` = deterministický klíč dávky."""
+    verb, scope = action['verb'], {'project': project, 'workspace': workspace}
+    if verb == 'claim':
+        return claim(base, project, workspace, action['id'], ttl, request_id=request_id)
+    if verb == 'review.claim':
+        return review_claim(base, project, workspace, ttl, (action.get('preconditions') or {}).get('role'), request_id)
+    if verb == 'close_card':
+        return close_card(base, project, workspace, action['targetId'], note)
+    if action.get('method') == 'GET':
+        return _call(base, 'GET', action['path'])[1]
+    if verb in BODY_VERBS and action.get('method') == 'POST':
+        return _call(base, 'POST', action['path'], {**scope, **(action.get('preconditions') or {})})[1]
+    if verb == 'link_pull_request':
+        raise Refused('Vazbu PR zakládá agent-office s tokenem běhu.',
+                      'Projekt bez GitHubu (cards[].dod.gate == "local"): opora_hub.py local-merge --execution E --commit SHA.')
+    raise Refused(f'Akci {verb} skript obecně neprovádí (tělo není jen preconditions).',
+                  'Viz references/hub-api.md pro tvar těla; pošli ho přes opora_api.py.')
+
+
 def act(base, project, workspace, action_id, ttl=900, note=None):
     """Provede ready akci z čerstvého agent-state přesně podle `method/path/preconditions`."""
     state, _ = agent_state(base, project, workspace, fresh=True)
     action = find_action(state, action_id)
-    verb, scope = action['verb'], {'project': project, 'workspace': workspace}
-    if verb == 'claim':
-        result = claim(base, project, workspace, action_id, ttl)
-    elif verb == 'review.claim':
-        result = review_claim(base, project, workspace, ttl, (action.get('preconditions') or {}).get('role'))
-    elif verb == 'close_card':
-        result = close_card(base, project, workspace, action['targetId'], note)
-    elif action.get('method') == 'GET':
-        result = _call(base, 'GET', action['path'])[1]
-    elif verb in BODY_VERBS and action.get('method') == 'POST':
-        result = _call(base, 'POST', action['path'], {**scope, **(action.get('preconditions') or {})})[1]
-    elif verb == 'link_pull_request':
-        raise Refused('Vazbu PR zakládá agent-office s tokenem běhu.',
-                      'Projekt bez GitHubu (cards[].dod.gate == "local"): opora_hub.py local-merge --execution E --commit SHA.')
-    else:
-        raise Refused(f'Akci {verb} skript obecně neprovádí (tělo není jen preconditions).',
-                      'Viz references/hub-api.md pro tvar těla; pošli ho přes opora_api.py.')
+    result = perform(base, project, workspace, action, ttl, note)
     return {'ok': True, 'action': {k: action.get(k) for k in ('id', 'verb', 'targetId', 'path')},
             'result': result, 'next': next_ready(base, project, workspace)}
 
 
 # --- slot review ------------------------------------------------------------------------------
 
-def review_claim(base, project, workspace, ttl, role=None):
-    payload = {'project': project, 'workspace': workspace, 'requestId': uuid.uuid4().hex, 'ttlSeconds': ttl}
+def review_claim(base, project, workspace, ttl, role=None, request_id=None):
+    payload = {'project': project, 'workspace': workspace, 'requestId': request_id or uuid.uuid4().hex,
+               'ttlSeconds': ttl}
     if role:
         payload['role'] = role
     _, value, _ = _call(base, 'POST', HUB + '/review-jobs/claim', payload)
@@ -508,6 +529,11 @@ def events(base, project, workspace, since=None, limit=100):
 
 # --- CLI --------------------------------------------------------------------------------------
 
+def _last(values):
+    """Opakovatelný přepínač u příkazu s jednou hodnotou: platí poslední."""
+    return values[-1] if values else None
+
+
 def run(args, base):
     scope = (args.project, args.workspace)
     if args.command == 'state':
@@ -515,12 +541,12 @@ def run(args, base):
         return state if args.raw else {'unchanged': cached, **summary(state, args.card)}
     if args.command == 'actions':
         state, _ = agent_state(base, *scope)
-        return ready_actions(state, args.verb, args.target, args.all)
+        return ready_actions(state, _last(args.verb), _last(args.target), args.all)
     if args.command == 'pick':
         state, _ = agent_state(base, *scope, fresh=True)
-        found = ready_actions(state, args.verb, args.target)
+        found = ready_actions(state, _last(args.verb), _last(args.target))
         if not found:
-            raise LookupError('Žádná ready akce ' + (args.verb or '') + '.')
+            raise LookupError('Žádná ready akce ' + (_last(args.verb) or '') + '.')
         return found[0]
     if args.command == 'start':
         if not args.node:
@@ -533,7 +559,7 @@ def run(args, base):
         return deliver(base, args.execution, args.summary, args.step, args.check,
                        args.commit[-1] if args.commit else None, not args.no_close, extra)
     if args.command == 'claim':
-        return claim(base, *scope, args.action_id, args.ttl, args.context_version)
+        return claim(base, *scope, _last(args.action_id), args.ttl, args.context_version)
     if args.command == 'assignment':
         return assignment(base, args.execution, args.out)
     if args.command == 'heartbeat':
@@ -553,7 +579,11 @@ def run(args, base):
     if args.command == 'review-submit':
         return review_submit(base, args.slot, args.submission_file)
     if args.command == 'act':
-        return act(base, *scope, args.action_id, args.ttl, args.note)
+        if args.all_ready or len(args.action_id) > 1:
+            import opora_act_batch  # hromadné act: stabilní klíč (verb, targetId), skipped místo 409
+            return opora_act_batch.run(base, *scope, args.action_id, args.verb, args.target, args.all_ready,
+                                       args.ttl, args.note)
+        return act(base, *scope, _last(args.action_id), args.ttl, args.note)
     if args.command == 'local-merge':
         return {**local_merge(base, *scope, args.execution, args.commit), 'next': next_ready(base, *scope)}
     if args.command == 'close-card':
@@ -576,10 +606,15 @@ def main(argv=None):
     parser.add_argument('--raw', action='store_true', help='state: celý dokument')
     parser.add_argument('--fresh', action='store_true', help='state: bez If-None-Match')
     parser.add_argument('--card', help='state: jen etapa této karty; close-card: karta k uzavření')
-    parser.add_argument('--verb', help='actions/pick: sloveso akce (claim, review.claim, …)')
-    parser.add_argument('--target', help='actions/pick: targetId akce')
+    parser.add_argument('--verb', action='append', default=[],
+                        help='actions/pick: sloveso akce (claim, review.claim, …); act --all-ready: opakovatelné')
+    parser.add_argument('--target', action='append', default=[],
+                        help='actions/pick: targetId akce; act --all-ready: jen tyto cíle (opakovatelné)')
+    parser.add_argument('--all-ready', action='store_true',
+                        help='act: všechny ready akce sloves --verb (i ty, které vzniknou po kroku dávky)')
     parser.add_argument('--all', action='store_true', help='actions: i blokované')
-    parser.add_argument('--action-id', help='claim/act: stabilní ID akce z pick nebo state')
+    parser.add_argument('--action-id', action='append', default=[],
+                        help='claim/act: ID akce z pick nebo state; act: opakovatelné = dávka')
     parser.add_argument('--context-version', type=int, choices=[1, 2], default=2,
                         help='claim: 2 (výchozí); 1 jen na výslovný pokyn člověka, nikdy jako tichý fallback')
     parser.add_argument('--ttl', type=int, default=900, help='start/claim/heartbeat: 30–3600 s')
@@ -618,6 +653,9 @@ def main(argv=None):
                           'hint': 'Nic není ready: state ukáže blokované akce a rozhodnutí; jinak konec.'},
                          ensure_ascii=True), file=sys.stderr)
         return EXIT_NONE
+    except BatchConflictError as error:
+        print(json.dumps(error.payload, ensure_ascii=True), file=sys.stderr)
+        return EXIT_CONFLICT
     except Refused as error:
         print(json.dumps({'ok': False, 'status': None, 'refused': True, 'error': str(error), 'hint': error.hint},
                          ensure_ascii=True), file=sys.stderr)

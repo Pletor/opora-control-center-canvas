@@ -72,6 +72,17 @@ oprav je první (`GET /api/project-architecture/map-check/worktrees` ukáže cel
   `budget_policy_required`, `not_implemented`); skript ji odmítne kódem 5.
 - Odmítnutá akce se stejným ID se neopakuje; nové ID přijde až po posunu hlavy.
 - `409` kdekoli = stav se změnil: `state --fresh`, vyber znovu. Stejný požadavek znovu nepomůže.
+- **Víc akcí = jedna dávka, ne shellová smyčka přes ID** (ID se po každé akci přepočítá → 409):
+  `opora_hub.py act --all-ready --verb propose_graph --verb accept [--target NODE]…` nebo
+  `act --action-id A --action-id B …`. Dávka drží akce podle `(verb, targetId)`, jde v pořadí serveru a po každém
+  kroku čte čerstvý stav; `--all-ready` přibere i akce, které krok vytvořil (propose_graph → accept).
+  Výstup `{done:[{id, verb, targetId, status}], skipped:[{id, verb, targetId, reason}], next}`; `reason`
+  `no_longer_needed` (např. `accept` pokryl i `accept_baseline`), `stale_id`, `blocked: …`, `refused: …`.
+  Opakovaná dávka nic nezdvojí (hotové akce ze stavu zmizí, claim nese deterministické `requestId`).
+  Cizí změna mezi kroky = kód 3 a `{error, code, changed:["heads.graphDigest", "action:ID", "card:ID"], hint,
+  done, skipped}`: prohlédni `changed` a pusť tutéž dávku znovu.
+- `ready` akce nese `command`: hotový řádek (`opora_hub.py start --node N` u `claim`, jinak `act --action-id ID`;
+  `null` = klient ji sám neprovádí). Doplň jen `--project`/`--workspace`.
 
 | `verb` | Kdo | Kam dál |
 |---|---|---|
@@ -197,7 +208,7 @@ Sloučení ohlásíš sám a s plnou autonomií ([autonomie.md](autonomie.md)) k
 
 | Kód | Význam | Co dělat |
 |---|---|---|
-| 3 (HTTP 409) | změněný stav, krok čeká na jiný (`code`, `hint`), u starších cest i neplatný payload | udělej `hint` (např. `graph_acceptance_required` → `act` na `propose_graph` a `accept`), jinak `state --fresh`, nové ID akce |
+| 3 (HTTP 409) | změněný stav, krok čeká na jiný (`code`, `hint`), u starších cest i neplatný payload; u dávky `act` cizí změna (`changed`) | udělej `hint` (např. `graph_acceptance_required` → `act --all-ready --verb propose_graph --verb accept`), jinak `state --fresh`, nové ID akce |
 | 4 | žádná `ready` akce | konec, nebo jiná role |
 | 5 (HTTP 403/428, blokovaná akce) | patří člověku / chybí `OPORA_AGENT_NAME` | napiš člověku, neobcházej |
 | 6 (HTTP 422) | neplatné tělo: `field`, `expected`, `example` | oprav jen to pole podle `example` a pošli znovu |
