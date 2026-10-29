@@ -163,6 +163,12 @@ class SnapshotOut(BaseModel):
     snapshot: str
 
 
+class ContextOut(BaseModel):
+    """Data dílny srdce (`ctx <name>`, docs/brain-heart.md §3b)."""
+    name: str
+    items: list[dict[str, Any]]
+
+
 class EscalateOut(BaseModel):
     ticketId: str
     kind: str

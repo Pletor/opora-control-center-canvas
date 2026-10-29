@@ -9,14 +9,21 @@
     python opora_heart.py decide --text T [--node N] [--pin]
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
+    python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
+    python opora_heart.py run SCRIPT [ARG…]
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
+Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` a vypíše jen cestu, počet a velikost;
+`run` spustí `dilna/scripts/<SCRIPT>.py` (`python -I`, cwd `dilna/`, 120 s) bez tokenu srdce a klíčů API
+a zapíše řádek do `dilna/runs.jsonl`.
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 import time
 import uuid
@@ -29,6 +36,16 @@ HEADER = "X-Opora-Gate-Token"
 TIMEOUT = 60
 LAST_DONE = "last_done.json"
 _OPENER = build_opener(ProxyHandler({}))  # loopback bez systémové proxy
+DILNA = Path("dilna")
+CONTEXTS = ("tasks", "tickets", "journal", "messages", "rules", "decisions", "tree")
+SCRIPT = re.compile(r"[A-Za-z0-9_-]+\Z")
+RUN_TIMEOUT, STDOUT_LIMIT, STDERR_LIMIT = 120, 8000, 2000
+# Prostředí skriptu: bez tokenu srdce a adresy (skript OPORU nemění) a bez klíčů API (kopie command.STRIPPED,
+# nástroj je jen stdlib).
+SCRIPT_STRIPPED = ("OPORA_HEART_TOKEN", "OPORA_BASE_URL", "ANTHROPIC_API_KEY", "TYPESAFE_API_KEY", "CELERIS_API_KEY")
+# `-I` nedá cwd do sys.path: zavaděč ho přidá, aby skript našel `rlm.py`, a spustí skript jako __main__.
+BOOT = ("import os,runpy,sys;sys.path.insert(0,os.getcwd());sys.argv=sys.argv[1:];"
+        "runpy.run_path(sys.argv[0],run_name='__main__')")
 
 
 class Failure(Exception):
@@ -117,8 +134,81 @@ def rule_payload(args):
                          "target": ""})
 
 
+def load_context(name):
+    """`ctx <name>`: data z OPORY do `dilna/data/<name>.json`; vrací jen cestu, počet položek a velikost."""
+    items = call("GET", "/api/brain/heart/context", query={**scope(), "name": name})["items"]
+    path = DILNA / "data" / f"{name}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    raw = json.dumps(items, ensure_ascii=False).encode("utf-8")
+    path.write_bytes(raw)
+    return {"path": path.as_posix(), "items": len(items), "bytes": len(raw)}
+
+
+def _text(value):
+    return value.decode("utf-8", "replace") if isinstance(value, bytes) else (value or "")
+
+
+def _cut(text, limit):
+    return text if len(text) <= limit else text[:limit] + f"\n… (zkráceno, celkem {len(text)} znaků)"
+
+
+def _sub_usage(log):
+    calls = cost = 0
+    try:
+        lines = log.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return 0, 0.0
+    for line in lines:
+        try:
+            cost += float(json.loads(line).get("costUsd") or 0)
+            calls += 1
+        except (ValueError, AttributeError, TypeError):
+            continue
+    return calls, round(cost, 6)
+
+
+def run_script(script, script_args):
+    """`run <script>`: skript dílny v odděleném prostředí; výsledek a řádek do `dilna/runs.jsonl`."""
+    if not SCRIPT.match(script):
+        raise Failure({"error": f"Neplatné jméno skriptu {script!r}.", "code": "script_name",
+                       "hint": "Jméno bez přípony a cesty, jen písmena, číslice, _ a -; skript leží v dilna/scripts/."})
+    dilna = DILNA.resolve()
+    if not (dilna / "scripts" / f"{script}.py").is_file():
+        raise Failure({"error": f"Skript {script}.py neexistuje.", "code": "script_missing",
+                       "hint": "Napiš ho nástrojem Write do dilna/scripts/<jméno>.py (první řádek docstringu = co dělá)."})
+    log = dilna / f".sub-{uuid.uuid4().hex}.jsonl"
+    env = {key: value for key, value in os.environ.items() if key not in SCRIPT_STRIPPED}
+    env.update({"OPORA_RLM_LOG": str(log), "PYTHONIOENCODING": "utf-8"})
+    env.pop("OPORA_RLM_DEPTH", None)
+    started, exit_code, timed_out = time.time(), None, False
+    try:
+        done = subprocess.run([sys.executable, "-I", "-c", BOOT, f"scripts/{script}.py", *script_args],
+                              cwd=str(dilna), env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=RUN_TIMEOUT)
+        exit_code, out, err = done.returncode, done.stdout, done.stderr
+    except subprocess.TimeoutExpired as expired:
+        timed_out, out, err = True, _text(expired.stdout), _text(expired.stderr)
+    ms = int((time.time() - started) * 1000)
+    calls, cost = _sub_usage(log)
+    log.unlink(missing_ok=True)
+    entry = {"at": now(), "script": script, "args": list(script_args), "exit": exit_code, "ms": ms,
+             "subCalls": calls, "subCostUsd": cost}
+    with (dilna / "runs.jsonl").open("a", encoding="utf-8") as runs:
+        runs.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    result = {**entry, "stdout": _cut(out or "", STDOUT_LIMIT)}
+    if err:
+        result["stderr"] = (err or "")[-STDERR_LIMIT:]
+    if timed_out:
+        result["timedOut"] = True
+    return result
+
+
 def run(args):
     project = env("OPORA_PROJECT")
+    if args.command == "ctx":
+        return load_context(args.name)
+    if args.command == "run":
+        return run_script(args.script, args.script_args)
     if args.command == "snapshot":
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
     if args.command == "task":
@@ -168,6 +258,10 @@ def parser():
     decide.add_argument("--pin", action="store_true")
     commands.add_parser("rule").add_argument("--text", required=True)
     commands.add_parser("done").add_argument("--summary", required=True)
+    commands.add_parser("ctx").add_argument("name", choices=CONTEXTS)
+    script = commands.add_parser("run")
+    script.add_argument("script")
+    script.add_argument("script_args", nargs=argparse.REMAINDER)
     return root
 
 

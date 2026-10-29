@@ -1,5 +1,5 @@
 """Nástroj srdce proti falešnému serveru: hlavičky, tvar úkolu, odpověď, zrušení, eskalace, paměť (`decide`, `rule`),
-`done` a chyby."""
+`done`, chyby a dílna (`ctx`, `run`)."""
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -30,6 +30,8 @@ class Handler(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(length)) if length else None
         Handler.calls.append({"method": method, "path": url.path, "query": parse_qs(url.query), "body": body,
                               "headers": dict(self.headers)})
+        if url.path == "/api/brain/heart/context":
+            return self._reply(200, {"name": "tasks", "items": [{"taskId": "ht_1"}, {"taskId": "ht_2", "t": "č"}]})
         if url.path == "/api/brain/heart/snapshot":
             return self._reply(200, {"snapshot": "PROJEKT p1\nPLÁN:"})
         if url.path == "/api/brain/tasks":
@@ -125,3 +127,69 @@ def test_decide_and_rule_add_memory_items_in_the_fixed_shape(server, capsys):
     assert rule["item"] == {"id": rule["id"], "text": "Texty česky, tykání.", "kind": "must", "scope": "project",
                             "target": ""}
     assert json.loads(out)["by"] == "agent"
+
+
+def test_ctx_writes_the_data_file_and_prints_only_its_size(server, capsys, tmp_path):
+    code, out = run(capsys, "ctx", "tasks")
+    raw = (tmp_path / "dilna" / "data" / "tasks.json").read_bytes()
+    assert code == 0 and json.loads(out) == {"path": "dilna/data/tasks.json", "items": 2, "bytes": len(raw)}
+    assert "ht_1" not in out and json.loads(raw)[1] == {"taskId": "ht_2", "t": "č"}
+    call = Handler.calls[0]
+    assert call["path"] == "/api/brain/heart/context" and call["headers"]["X-Opora-Gate-Token"] == "tok-heart"
+    assert call["query"] == {"project": ["p1"], "workspace": ["main"], "name": ["tasks"]}
+    with pytest.raises(SystemExit):
+        opora_heart.main(["ctx", "secrets"])
+
+
+SCRIPT = """\"\"\"Vypíše prostředí a argumenty.\"\"\"
+import json, os, sys
+import rlm
+with open(os.environ["OPORA_RLM_LOG"], "a", encoding="utf-8") as log:
+    log.write(json.dumps({"ok": True, "costUsd": 0.002}) + "\\n" + json.dumps({"ok": True, "costUsd": 0.003}) + "\\n")
+print(json.dumps({"args": sys.argv[1:], "token": os.environ.get("OPORA_HEART_TOKEN"),
+                  "key": os.environ.get("ANTHROPIC_API_KEY"), "base": os.environ.get("OPORA_BASE_URL"),
+                  "chunks": rlm.chunks([1, 2, 3], 2), "cwd": os.path.basename(os.getcwd())}))
+"""
+
+
+@pytest.fixture
+def dilna(server, tmp_path, monkeypatch):
+    (tmp_path / "dilna" / "scripts").mkdir(parents=True)
+    (tmp_path / "dilna" / "rlm.py").write_bytes((opora_heart.Path(opora_heart.__file__).parent / "rlm.py").read_bytes())
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-tajne")
+    return tmp_path / "dilna"
+
+
+def test_run_executes_the_script_without_token_and_logs_sub_cost(dilna, capsys):
+    (dilna / "scripts" / "probe.py").write_text(SCRIPT, encoding="utf-8")
+    code, out = run(capsys, "run", "probe", "a b", "--flag")
+    result = json.loads(out)
+    assert code == 0 and result["exit"] == 0, result.get("stderr")
+    assert json.loads(result["stdout"]) == {"args": ["a b", "--flag"], "token": None, "key": None, "base": None,
+                                            "chunks": [[1, 2], [3]], "cwd": "dilna"}
+    assert (result["subCalls"], result["subCostUsd"]) == (2, 0.005)
+    entry = json.loads((dilna / "runs.jsonl").read_text(encoding="utf-8"))
+    assert set(entry) == {"at", "script", "args", "exit", "ms", "subCalls", "subCostUsd"}
+    assert (entry["script"], entry["args"], entry["subCostUsd"]) == ("probe", ["a b", "--flag"], 0.005)
+    assert not list(dilna.glob(".sub-*"))  # záznam sub-volání po běhu zmizí
+
+
+def test_run_refuses_bad_names_and_missing_scripts(dilna, capsys):
+    for name in ("../probe", "a/b", "a\\b", "x.py", ""):
+        code, out = run(capsys, "run", name)
+        assert code == 1 and json.loads(out)["code"] == "script_name", name
+    code, out = run(capsys, "run", "nikde")
+    assert code == 1 and json.loads(out)["code"] == "script_missing"
+
+
+def test_run_cuts_stdout_reports_errors_and_times_out(dilna, capsys, monkeypatch):
+    (dilna / "scripts" / "loud.py").write_text("import sys\nprint('x' * 9000)\nsys.exit('chyba')\n", encoding="utf-8")
+    result = json.loads(run(capsys, "run", "loud")[1])
+    assert result["exit"] == 1 and "chyba" in result["stderr"] and len(result["stdout"]) < 8100
+    assert result["stdout"].startswith("x" * opora_heart.STDOUT_LIMIT) and "zkráceno" in result["stdout"]
+    (dilna / "scripts" / "slow.py").write_text("import time\nprint('start', flush=True)\ntime.sleep(30)\n",
+                                               encoding="utf-8")
+    monkeypatch.setattr(opora_heart, "RUN_TIMEOUT", 1)
+    result = json.loads(run(capsys, "run", "slow")[1])
+    assert result["timedOut"] is True and result["exit"] is None
+    assert json.loads((dilna / "runs.jsonl").read_text(encoding="utf-8").splitlines()[-1])["script"] == "slow"

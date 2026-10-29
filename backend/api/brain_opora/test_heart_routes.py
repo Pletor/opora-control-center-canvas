@@ -173,3 +173,39 @@ def test_answer_to_a_worker_ticket_does_not_wake_the_heart(tmp_path):
                                json={"answer": {"text": "Ano"}})
         assert answered.status_code == 200, answered.text
         assert client.app.state.heart.pending.get("draft", []) == []
+
+
+def test_workshop_context_is_for_the_heart_of_its_own_project_only(tmp_path):
+    """`ctx` (§3b): data dílny čte jen token srdce svého projektu a prostoru; pracovník ani cizí srdce ne."""
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        service = client.app.state.service
+        _, token = tokens.issue_heart(service, "draft", "draft")
+        heart = {**HEADERS, tokens.HEADER: token}
+        client.cookies.clear()
+        assert client.post("/api/brain/tasks", headers=heart, json={**SCOPE, "title": "Hero",
+                                                                    "body": {"do": "Hero sekce"}}).status_code == 201
+        worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
+        client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"question": "?"}})
+        tasks = client.get("/api/brain/heart/context", headers=heart, params={**SCOPE, "name": "tasks"})
+        assert tasks.status_code == 200, tasks.text
+        assert [(item["title"], item["body"]["do"]) for item in tasks.json()["items"]] == [("Hero", "Hero sekce")]
+        tickets = client.get("/api/brain/heart/context", headers=heart, params={**SCOPE, "name": "tickets"}).json()
+        assert [item["kind"] for item in tickets["items"]] == ["ask"]
+        for name in ("journal", "messages", "rules", "decisions", "tree"):
+            got = client.get("/api/brain/heart/context", headers=heart, params={**SCOPE, "name": name})
+            assert got.status_code == 200 and isinstance(got.json()["items"], list), (name, got.text)
+        assert code(client.get("/api/brain/heart/context", headers=heart, params={**SCOPE, "name": "x"})
+                    ) == "invalid_payload"
+        refused = client.get("/api/brain/heart/context", headers=worker, params={**SCOPE, "name": "tasks"})
+        assert refused.status_code == 403 and code(refused) == "gate_scope"
+        assert client.get("/api/brain/heart/context", headers=HEADERS, params={**SCOPE, "name": "tasks"}
+                          ).status_code == 401
+        other = client.post("/api/empty-project", headers=HEADERS, json={"name": "Jiný", "confirmed": True}).json()["id"]
+        _, foreign = tokens.issue_heart(service, other, "draft")
+        assert code(client.get("/api/brain/heart/context", headers={**HEADERS, tokens.HEADER: foreign},
+                               params={**SCOPE, "name": "tasks"})) == "gate_scope"
+        _, main = tokens.issue_heart(service, "draft", "main")
+        assert code(client.get("/api/brain/heart/context", headers={**HEADERS, tokens.HEADER: main},
+                               params={**SCOPE, "name": "tasks"})) == "gate_scope"

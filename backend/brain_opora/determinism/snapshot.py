@@ -1,7 +1,7 @@
 """Snímek projektu pro srdce (docs/brain-heart.md §3): deterministický text bez modelu, s pevným stropem znaků.
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky plánu,
-fronta úkolů, čekající lístky, poslední kontroly, deník dávek; okolí srdce §3a), `render` z nich bez dalšího čtení
+fronta úkolů, čekající lístky, poslední kontroly, deník dávek; okolí srdce §3a; skripty dílny §3b), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
 Každá část má vlastní strop počtu řádků a celý text se nakonec ořízne na `LIMIT` znaků.
 `view` složí ze stejných faktů kompaktní JSON pro druh brány `state` (docs/brain-control-api.md §2).
@@ -29,6 +29,7 @@ MESSAGES = 5
 MESSAGE_TEXT = 400
 DECISIONS = 10
 JOURNAL = 5
+SCRIPTS = 15
 UNREADABLE = (ValueError, KeyError, TypeError, AttributeError, OSError, sqlite3.Error)
 CUT = "\n… (snímek zkrácen)"
 
@@ -75,12 +76,13 @@ def _memory(service, project, workspace):
 
 
 def _brain(service, project, workspace):
-    """Zprávy člověka tohoto pracovního prostoru a deník dávek ze složky `brain/`; nečitelné = nic."""
+    """Zprávy člověka tohoto pracovního prostoru, deník dávek a skripty dílny ze složky `brain/`; nečitelné = nic."""
     try:
         brain = brain_files.brain_dir(service, project)
     except UNREADABLE:
-        return [], []
-    return brain_files.messages(brain, workspace, MESSAGES), brain_files.journal(brain, JOURNAL)
+        return [], [], []
+    return (brain_files.messages(brain, workspace, MESSAGES), brain_files.journal(brain, JOURNAL),
+            brain_files.scripts(brain, SCRIPTS))
 
 
 def collect(service, project, workspace):
@@ -89,7 +91,7 @@ def collect(service, project, workspace):
         raise GateError(404, "project_not_found", "Projekt neexistuje.", "ID projektu najdete v GET /api/bootstrap.")
     name, goal = _identity(service, project)
     rules, decisions = _memory(service, project, workspace)
-    messages, journal = _brain(service, project, workspace)
+    messages, journal, scripts = _brain(service, project, workspace)
     pages, cards = _pages(service, project, workspace), open_cards(service, project, workspace)
     with service.reading(project):
         db = service.db_for(project)
@@ -99,7 +101,7 @@ def collect(service, project, workspace):
                             " ORDER BY recorded_at DESC, scope_id LIMIT ?", (project, workspace, CHECKS)).fetchall()
     return {"project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
-            "rules": rules, "decisions": decisions, "journal": journal}
+            "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts}
 
 
 def _intent(facts):
@@ -174,6 +176,11 @@ def _journal_lines(facts):
     return _section("DENÍK:", rows)
 
 
+def _workshop_lines(facts):
+    rows = [f"- {name}" + (f": {_short(doc, 200)}" if doc else "") for name, doc in (facts.get("scripts") or [])[:SCRIPTS]]
+    return _section("DÍLNA:", rows)
+
+
 def render(facts, limit=LIMIT):
     """Text snímku podle §3 a §3a; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
@@ -183,7 +190,7 @@ def render(facts, limit=LIMIT):
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines.append("POSLEDNÍ KONTROLY:")
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
-    lines += _journal_lines(facts)
+    lines += _journal_lines(facts) + _workshop_lines(facts)
     text = "\n".join(lines)
     return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
 

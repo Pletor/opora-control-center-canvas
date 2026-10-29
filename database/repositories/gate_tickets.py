@@ -67,6 +67,13 @@ class GateTicketStore:
             " AND status='queued' ORDER BY seq LIMIT ?", (self.project, workspace, limit)).fetchall()
         return [public(row) for row in rows]
 
+    def all(self, workspace, limit):
+        """Všechny lístky pracovního prostoru od nejstaršího (data dílny srdce, `ctx tickets`)."""
+        rows = self.db.execute(
+            "SELECT " + ",".join(COLUMNS) + " FROM gate_tickets WHERE project_id=? AND workspace_id=?"
+            " ORDER BY seq LIMIT ?", (self.project, workspace, limit)).fetchall()
+        return [public(row) for row in rows]
+
     def escalations(self, workspace, limit):
         """Čekající eskalace srdce pro člověka (`ask` s `for: "human"` z relace srdce), od nejnovější."""
         rows = self.db.execute(

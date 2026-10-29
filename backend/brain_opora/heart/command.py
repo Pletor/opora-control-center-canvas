@@ -1,10 +1,12 @@
 """Příkazová řádka a prostředí jedné dávky srdce (docs/brain-heart.md §2).
 
 Srdce běží jako jednorázový `claude -p` pod předplatným: Haiku jako hlavní model, Opus jako poradce.
-Z prostředí se odstraní klíče API (běh se nesmí potichu účtovat přes API). Srdce smí jen číst a volat svůj
-nástroj `opora_heart.py`; `dontAsk` odmítne každý nástroj mimo `allowedTools`, takže Edit/Write neprojdou nikde.
-Deny pravidla v nastavení jsou druhá pojistka nad zdrojem projektu (`--add-dir`), háčky jsou vypnuté
-a MCP je prázdné. Nastavení a MCP jdou do souborů v `brain/`, ne do řádky (cmd.exe láme uvozovky v JSON).
+Z prostředí se odstraní klíče API (běh se nesmí potichu účtovat přes API). Srdce čte, volá svůj nástroj
+`opora_heart.py` a píše jen do dílny `brain/dilna/scripts/**` a `brain/dilna/out/**` (§3b): `dontAsk` odmítne
+vše mimo povolení, Write/Edit jsou povolené jen pravidly `allow` v nastavení s absolutní cestou dílny
+(v `--allowedTools` by mezera v cestě rozdělila pravidlo). Deny pravidla jsou druhá pojistka nad zdrojem projektu
+(`--add-dir`) a nad zbytkem `brain/`, háčky jsou vypnuté a MCP je prázdné. Nastavení a MCP jdou do souborů
+v `brain/`, ne do řádky (cmd.exe láme uvozovky v JSON).
 """
 import json
 import os
@@ -16,10 +18,14 @@ HEART_DIR = Path(__file__).resolve().parent
 PROMPT_FILE = HEART_DIR / "prompt.md"
 TOOL_FILE = HEART_DIR / "opora_heart.py"
 TOOL_NAME = "opora_heart.py"  # kopie v cwd (`brain/`), aby pravidlo Bash nemělo v cestě mezery
+RLM_FILE = HEART_DIR / "rlm.py"
+DILNA, RLM_NAME, DILNA_DIRS = "dilna", "rlm.py", ("data", "scripts", "out")
+WRITABLE = ("scripts", "out")  # jediné složky, kam srdce smí Write/Edit
 MODEL, ADVISOR = "haiku", "opus"
 MAX_TURNS = 40
-# Vestavěné nástroje jen tyto (bez PowerShellu, Edit, Write, Webu); méně definic = menší kontext i porada.
-TOOLS = "Read,Grep,Glob,Bash"
+# Vestavěné nástroje jen tyto (bez PowerShellu, Webu); méně definic = menší kontext i porada.
+# Write a Edit jsou tu kvůli skriptům dílny; povolené jsou jen v `allow` nastavení (`settings`).
+TOOLS = "Read,Grep,Glob,Bash,Write,Edit"
 ALLOWED_TOOLS = f"Read,Grep,Glob,Bash(python {TOOL_NAME}:*)"
 STRIPPED = ("ANTHROPIC_API_KEY", "TYPESAFE_API_KEY", "CELERIS_API_KEY")
 SECRETS = ("Read(**/.env)", "Read(**/.env.*)", "Read(**/*.pem)", "Read(**/*.key)")
@@ -44,23 +50,43 @@ def rule_path(path):
     return "/" + text if text.startswith("/") else "//" + text
 
 
-def settings(source_root=None):
-    """Nastavení dávky: deny (tajemství, NotebookEdit, zápis do zdroje projektu) a vypnuté háčky."""
-    deny = [*SECRETS, "NotebookEdit"]
+def workshop_allow(brain):
+    """Povolení zápisu srdce: Write a Edit jen pod `dilna/scripts/**` a `dilna/out/**` (§3b)."""
+    dilna = rule_path(Path(brain) / DILNA)
+    return [f"{tool}({dilna}/{folder}/**)" for tool in ("Write", "Edit") for folder in WRITABLE]
+
+
+def workshop_deny(brain):
+    """Druhá pojistka: soubory `brain/` a dílny mimo skripty a výstupy (stav, deník, nástroje, data `ctx`)."""
+    root, dilna = rule_path(brain), rule_path(Path(brain) / DILNA)
+    paths = [f"{root}/*.{ext}" for ext in ("json", "jsonl", "py", "txt", "md")]
+    paths += [f"{dilna}/*.py", f"{dilna}/*.jsonl", f"{dilna}/data/**"]
+    return [f"{tool}({path})" for tool in ("Write", "Edit") for path in paths]
+
+
+def settings(source_root=None, brain=None):
+    """Nastavení dávky: allow dílny, deny (tajemství, NotebookEdit, zdroj projektu, zbytek `brain/`), bez háčků."""
+    deny, allow = [*SECRETS, "NotebookEdit"], []
     if source_root:
         root = rule_path(source_root)
         deny += [f"Edit({root}/**)", f"Write({root}/**)", f"NotebookEdit({root}/**)"]
-    return {"disableAllHooks": True, "permissions": {"deny": deny}}
+    if brain:
+        allow, deny = workshop_allow(brain), deny + workshop_deny(brain)
+    return {"disableAllHooks": True, "permissions": {"allow": allow, "deny": deny}}
 
 
 def write_config(brain, source_root=None):
-    """Zapíše nastavení a prázdné MCP do `brain/` a zkopíruje tam nástroj; vrací `(settings, mcp)` cesty."""
+    """Zapíše nastavení a prázdné MCP do `brain/`, zkopíruje tam nástroj a `rlm.py` do dílny (se složkami
+    `data/`, `scripts/`, `out/`); vrací `(settings, mcp)` cesty."""
     brain = Path(brain)
     brain.mkdir(parents=True, exist_ok=True)
+    for folder in DILNA_DIRS:
+        (brain / DILNA / folder).mkdir(parents=True, exist_ok=True)
     settings_path, mcp_path = brain / SETTINGS_FILE, brain / MCP_FILE
-    settings_path.write_text(json.dumps(settings(source_root), ensure_ascii=False, indent=1), encoding="utf-8")
+    settings_path.write_text(json.dumps(settings(source_root, brain), ensure_ascii=False, indent=1), encoding="utf-8")
     mcp_path.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
     shutil.copyfile(TOOL_FILE, brain / TOOL_NAME)
+    shutil.copyfile(RLM_FILE, brain / DILNA / RLM_NAME)
     return settings_path, mcp_path
 
 
@@ -83,11 +109,14 @@ def build_command(claude, *, session_id, resume, settings_path, mcp_path, source
     return command + ["--max-turns", str(max_turns)]
 
 
-def child_env(*, base_url, token, project, workspace, environ=None):
-    """Prostředí procesu bez klíčů API, s adresou instance, tokenem srdce, projektem a pracovním prostorem."""
+def child_env(*, base_url, token, project, workspace, source_root=None, environ=None):
+    """Prostředí procesu bez klíčů API, s adresou instance, tokenem srdce, projektem, pracovním prostorem
+    a kořenem zdroje (`OPORA_SOURCE_ROOT` pro `rlm.py`; bez zdroje chybí)."""
     env = dict(os.environ if environ is None else environ)
-    for key in STRIPPED:
+    for key in (*STRIPPED, "OPORA_SOURCE_ROOT"):
         env.pop(key, None)
     env.update({"OPORA_BASE_URL": base_url, "OPORA_HEART_TOKEN": token, "OPORA_PROJECT": project,
                 "OPORA_WORKSPACE": workspace, "PYTHONIOENCODING": "utf-8"})
+    if source_root:
+        env["OPORA_SOURCE_ROOT"] = str(source_root)
     return env
