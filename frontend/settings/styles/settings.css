@@ -51,21 +51,10 @@
   .connector-body, .skill-body { flex-basis: 100%; }
 }
 
-/* Pokyny asistenta jsou dlouhý text, který člověk čte i upravuje po odstavcích, proto pole zabírá
-   celou šířku sekce, je vysoké aspoň na dvacet řádků a píše se neproporcionálním písmem. Pod ním
-   stojí věta o tom, jestli je to výchozí text, a počet znaků; přes limit zčervená, ať je jasné,
-   proč „Uložit“ nejde. Tlačítka jsou vlevo pod polem, chyba serveru hned pod nimi. */
-.assistant-instructions { display: grid; gap: 8px; margin-top: 12px; }
-.assistant-instructions__textarea { width: 100%; min-height: 260px; box-sizing: border-box; resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.5; }
-.assistant-instructions__meta { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--ink-muted); }
-.assistant-instructions__count--over { color: var(--danger); }
-.assistant-instructions__actions { display: flex; align-items: center; gap: 8px; }
-.assistant-instructions__error { font-size: 12px; color: var(--danger); }
-
 /* Klíč Jev je tajemství, ne text k čtení: pole je maskované a po uložení prázdné, vedle názvu
    poskytovatele stojí jen slovy „nastavený / nenastavený“ (zeleně / tlumeně), nikdy kus klíče.
    Každý poskytovatel má vlastní řádek, aktivní první, aby Smazat nikdy nemířilo na jiný klíč, než člověk vidí. */
-.jev-key { display: grid; gap: 8px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+.jev-key { display: grid; gap: 8px; margin-top: 12px; }
 .jev-key__title { margin: 0; }
 .jev-key__note { margin: 0; }
 .jev-key__row { display: grid; gap: 6px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }

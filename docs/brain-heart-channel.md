@@ -66,3 +66,40 @@ The view polls every 4 s while it is visible, like the old panel. There is no SS
   - a message reaches `status.pending`;
   - an escalation created through `POST /api/brain/heart/escalate` with the heart token appears;
   - the answer sent from the UI closes the escalation and wakes the heart.
+
+## 5. H2b2: deleting the old assistant
+
+The human approved this on 2026-10-29. The panel becomes the heart channel only. The old assistant
+(`backend/claude_code/assistant/`, `/api/assistant/*` and the chat parts of `frontend/layout/assistant-panel/`) is
+deleted together with its tests, styles and docs. The work is split into two PRs.
+
+**H2b2a: move out what other features use (no deletions of user features)**
+
+| Today | After |
+|---|---|
+| `GET /api/assistant/status` → `.jev` | `GET /api/brain/jev` → `{configured, provider, keys}` |
+| `POST /api/assistant/jev-key` | `POST /api/brain/jev/key` (human only, same body and checks) |
+| `GET/POST /api/assistant/jev-gate-check` | `GET/POST /api/brain/jev/gate-check` (same body and checks) |
+| `claude_code/assistant/rlm_rank.py` (`POST /api/rlm/rank` stays) | `brain_opora/decision/sources.py` |
+| `claude_code/assistant/router.py` (route hint via Jev) | deleted with the package; the heart is the router now |
+| `GET/POST /api/assistant/instructions`, "Pokyny asistenta" | deleted; the heart's `prompt.md` replaces them. The stored setting stays in the DB, unread |
+
+- The new router is `backend/api/brain_opora/jev_routes.py`.
+- The settings UIs (`JevKeySetting`, `JevGateCheckSetting`) call the new routes.
+
+**H2b2b: delete the old assistant**
+- **Panel:** heart channel only. `ChannelSwitch`, the model/scope prefs and every chat component and logic file are
+  deleted. The shell stays: `AssistantButton`, `AssistantPanel`, `PanelHead`, `SizeSwitch`, `MinimizedBar`,
+  `PanelNotice` and `use-panel-keys`.
+- **Work status and the workspace archive:** they lose the `assistant` source. The session chip that opened an
+  assistant session is deleted.
+- **Actions that started an assistant session** (Office "hire", and the worktree buttons "new session for worktree"
+  and "new session for card"):
+  - they send their prepared text to the heart (`POST /api/brain/heart/messages`);
+  - they open the panel.
+- **Office:** a worker is a gate session holding a task (`sessionId` of an `assigned` task in `GET /api/brain/tasks`).
+  The occupancy header reads the heart status.
+- **Docs:**
+  - the Jev and RLM sections of `docs/asistent.md` (§13.2, §13.3) move to `backend/brain_opora/decision/README.md`;
+  - `docs/asistent.md` is deleted and every link to it is fixed;
+  - the `CLAUDE.md` line about H2b is updated.

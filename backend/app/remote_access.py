@@ -31,6 +31,8 @@ LOOPBACK_ONLY_PATHS = frozenset({"/api/brief-vault/gate-check"})
 GATE_PREFIX = "/api/gate"
 # Srdce mozku (zprávy, stav, snímek, eskalace) také jen z tohoto počítače (docs/brain-heart.md §1).
 HEART_PREFIX = "/api/brain/heart"
+# Klíče Jev a povolení kontroly bran mění jen člověk doma (docs/brain-heart-channel.md §5).
+JEV_PREFIX = "/api/brain/jev"
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
 OPEN_PATHS = frozenset({"/api/access/status", "/api/access/login", "/api/access/logout"})
 
@@ -86,7 +88,8 @@ def bearer_token(authorization):
 
 def is_loopback_only(path):
     return path in LOOPBACK_ONLY_PATHS or any(
-        path == prefix or path.startswith(prefix + "/") for prefix in (ASSISTANT_PREFIX, RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX))
+        path == prefix or path.startswith(prefix + "/")
+        for prefix in (ASSISTANT_PREFIX, RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, JEV_PREFIX))
 
 
 def requires_token(path):

@@ -1,11 +1,10 @@
-"""Souhrn dávky plánu pro kartu schválení i odpověď (`docs/davka-planu.md` §3).
+"""Souhrn dávky plánu pro odpověď i log aktivit (`docs/davka-planu.md` §3).
 
 Tvar: „Přidá 1 oblast, 5 sektorů, 23 karet, 61 bloků, 74 portů, 38 vazeb (next 21, block 15,
 flow 2), 19 pravidel, 6 rozhodnutí, text u 23 karet.“ Nulové položky se vynechají.
 
 Počítá se z nepřeloženého `plan` (refy, ne UUID): stejnou funkci volá `/api/canvas-plan`
-i karta schválení (`approvals.plan_summary`), takže člověk vidí přesně tentýž text, jaký
-vrátí backend. Neplatnou dávku nic neodmítá — jen ji počítá (neznámý druh, „jiný“ port);
+i log aktivit (`activity_log.py`), takže člověk vidí přesně tentýž text, jaký vrátí backend. Neplatnou dávku nic neodmítá — jen ji počítá (neznámý druh, „jiný“ port);
 odmítnutí je věc validace dávky. Jen počty, nikdy texty.
 """
 

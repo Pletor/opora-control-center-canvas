@@ -40,7 +40,7 @@ Oddělit **oprávnění** od **původce**:
 - přepínač plné autonomie sám;
 - přístup a vzdálený přístup (`/api/access/*`, tokeny, `ui-session`);
 - připojení / odpojení repozitáře a složky projektu;
-- klíče a tajemství (`/api/assistant/jev-key`, paměť – provisioning root klíčem).
+- klíče a tajemství (`/api/brain/jev/key`, paměť – provisioning root klíčem).
 
 ## 5. Skill
 
@@ -80,7 +80,7 @@ Jen upřesnění, pravidla §2–§5 platí beze změny.
   (svěřená autonomie sektoru); `full` se přidává do téhož objektu: `autonomy: {full, sectorId, grant, policy}`.
 - **Výjimky §4 v kódu.** Jen člověk i při plné autonomii: `POST /api/project-settings/agent-autonomy`,
   `/api/access/*`, `/api/oporahub/repository` a `/unbind`, smazání celého projektu (`/api/remove` s `kind:
-  project` = odpojení složky projektu), `POST /api/assistant/jev-key` a `POST /api/memory/provision` (tyto dvě
+  project` = odpojení složky projektu), `POST /api/brain/jev/key` a `POST /api/memory/provision` (tyto dvě
   dřív neměly bránu vůbec; teď `require_human`). Dál jen člověk zůstává i **identita reviewera**
   (`/api/oporahub/review-identities*`): je to tvrzení „tento GitHub účet je člověk“, tedy atribuce, ne oprávnění,
   a strana `human` v duelu schránky (mluví za člověka).

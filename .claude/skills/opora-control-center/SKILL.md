@@ -123,7 +123,7 @@ Projekt má přepínač **plná autonomie agentů** (výchozí vypnuto, `GET /ap
 Zapíná ho jen člověk v UI; agent si ho nikdy nezapne sám. Poznáš ho podle `autonomy.full` v `agent-state`
 a v `node-brief`. Když je `true`, smíš v projektu i akce níže „jen člověk“ (`opora_hub.py act` na `ready`
 akci z agent-state, jinak `opora_api.py METHOD PATH`), kromě §4: přepínač sám, `/api/access/*`, připojení a odpojení repozitáře
-a složky, smazání projektu, klíče (`/api/assistant/jev-key`, `/api/memory/provision`). Původce zůstává
+a složky, smazání projektu, klíče (`/api/brain/jev/key`, `/api/memory/provision`). Původce zůstává
 agent, záznam činnosti nese `autonomy: "full"`. Detail: [autonomie.md](references/autonomie.md).
 
 ## Co patří jen člověku (bez autonomie agent dostane 403/428, skript odmítne předem)

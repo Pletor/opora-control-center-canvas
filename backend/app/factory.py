@@ -14,6 +14,7 @@ from backend.api.app_routes import create_app_router
 from backend.api.brain_opora.brain_routes import create_brain_router
 from backend.api.brain_opora.gate_routes import create_gate_router
 from backend.api.brain_opora.heart_routes import create_heart_router
+from backend.api.brain_opora.jev_routes import create_jev_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.assistant_routes import create_assistant_router
@@ -104,6 +105,7 @@ from backend.canvas.process_activity_bridge import bridge as bridge_activity
 from backend.canvas.strazci.manager import GuardianManager
 from backend.canvas.sync_report import SyncReport
 from backend.claude_code.assistant.agents import load_agents
+from backend.claude_code.assistant.instructions import default_assistant_instructions
 from backend.claude_code.assistant.manager import AssistantManager
 from backend.claude_code.assistant.router import route as route_message
 from backend.claude_code.assistant.workspace import project_locator
@@ -180,7 +182,7 @@ def create_app(data_root=None):
 
     assistant = AssistantManager(service.root, project_locator(service), base_url=f"http://127.0.0.1:{port}",
                                  route_hint=route_hint, route_provider=jev_provider,
-                                 instructions=lambda: app_settings.assistant_instructions()["text"],
+                                 instructions=default_assistant_instructions,
                                  agents=load_agents)
 
     # Srdce mozku: dávky `claude -p` jen pro projekty se zapnutou bránou, jen na loopbacku (docs/brain-heart.md).
@@ -404,7 +406,8 @@ def create_app(data_root=None):
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
     app.include_router(create_agent_message_router(agent_messages))
     app.include_router(create_claude_code_router(service))
-    app.include_router(create_assistant_router(assistant, jev_settings=app_settings, jev_provider=jev_provider))
+    app.include_router(create_assistant_router(assistant))
+    app.include_router(create_jev_router(app_settings, jev_provider))
     # RLM: řazení oddílů plátna přes Jev pro asistenta; jen loopback, klíč zůstává v backendu (§13.3)
     app.include_router(create_rlm_router(key_source=lambda: app_settings.jev_key(jev_provider), evaluate=jev_evaluate))
     app.include_router(create_project_work_status_router(service, assistant.registry))

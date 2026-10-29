@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.claude_code.assistant.rlm_rank import rank
+from backend.brain_opora.decision.sources import rank
 
 CANDIDATES = [{"id": "a", "text": "Přihlášení"}, {"id": "b", "text": "Platby"}, {"id": "c", "text": "Mapa"}]
 

@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from backend.app.factory import create_app
 from backend.canvas.areas import area_of
 from backend.canvas.canvas_plan import apply_plan
+from backend.canvas.canvas_plan_summary import plan_summary
 from backend.canvas.canvas_service import CanvasService
-from backend.claude_code.assistant import approvals
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.canvas.canvas_plan_layout import overlapping
 
@@ -109,8 +109,8 @@ def test_full_plan_lands_and_node_brief_reads_it(tmp_path):
             "Přidá 2 oblasti, 1 sektor, 3 karty, 1 komentář, 2 bloky, 2 porty, "
             "6 vazeb (next 1, rule 1, block 2, flow 2), 2 pravidla, 1 rozhodnutí, text u 2 karet."
         )
-        # Karta schválení počítá z nepřeloženého payloadu tentýž text.
-        assert approvals.plan_summary({**SCOPE, "plan": plan()}) == body["summary"]
+        # Souhrn se počítá z nepřeloženého plánu; tentýž text dá i log aktivit.
+        assert plan_summary(plan()) == body["summary"]
         refs, ingest = body["refs"], body["refs"]["ingest"]
         assert set(body["blocks"]) == {"ingest/formaty", "ingest/meta"}
         assert body["revision"] == 2

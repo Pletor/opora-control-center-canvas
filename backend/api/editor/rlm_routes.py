@@ -1,13 +1,13 @@
 """Řazení oddílů plátna pro asistenta (RLM, docs/asistent.md §13.3); jen loopback.
 
-Tenký router nad `backend.claude_code.assistant.rlm_rank`. Klíč Jev se čte při každém dotazu
+Tenký router nad `backend.brain_opora.decision.sources`. Klíč Jev se čte při každém dotazu
 z `key_source` (nastavení aplikace), zůstává v backendu a do odpovědi ani do procesu `claude`
 se nedostane. Hranici tunelu drží `backend/app/remote_access.py`.
 """
 
 from fastapi import APIRouter
 
-from backend.claude_code.assistant.rlm_rank import rank
+from backend.brain_opora.decision.sources import rank
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
 
 RANK_KEYS = {"project", "workspace", "query", "candidates", "top"}

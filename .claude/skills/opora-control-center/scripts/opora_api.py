@@ -31,7 +31,7 @@ METHODS = ('GET', 'POST', 'PUT', 'PATCH', 'DELETE')
 EXIT_CONFLICT, EXIT_REFUSED, EXIT_INVALID = 3, 5, 6
 # Výjimky plné autonomie (docs/plna-autonomie-agenta.md §4) a atribuce člověka: jen člověk v UI, vždy.
 HUMAN_ONLY = (re.compile(r'/api/project-settings/agent-autonomy'), re.compile(r'/api/access(/.*)?'),
-              re.compile(r'/api/oporahub/repository(/.*)?'), re.compile(r'/api/assistant/jev-key'),
+              re.compile(r'/api/oporahub/repository(/.*)?'), re.compile(r'/api/brain/jev/key'),
               re.compile(r'/api/memory/provision'), re.compile(r'/api/oporahub/review-identities(/.*)?'),
               re.compile(r'/api/(local-project|empty-project|connect)'))
 SAFE_PATH = re.compile(r'/api(/[A-Za-z0-9_.:~-]+)*/?')

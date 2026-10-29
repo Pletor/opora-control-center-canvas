@@ -109,17 +109,24 @@ loopback, stejný `Origin`, `Content-Type: application/json`, `X-Opora-Actor: ag
 | POST `/api/map-refresh/retry` | `project`, `tool?` → zopakuje selhanou obnovu | UI |
 | POST `/api/map-refresh/settings` | `{project, tool, automatic}` → obnova po mergi pro projekt | UI |
 
+## Rozhodovací model Jev
+
+Nastavení aplikace, jen loopback (`docs/brain-heart-channel.md` §5). Klíč (`POST /api/brain/jev/key`) ukládá jen člověk
+a agent ho nikdy nečte ani nezapisuje.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| GET `/api/brain/jev` | `configured`, `provider`, `keys` (jen bool) zvoleného poskytovatele Jev | kdokoli |
+| GET `/api/brain/jev/gate-check` | `project` → pro které poskytovatele je povolená externí kontrola bran | kdokoli |
+| POST `/api/brain/jev/gate-check` | `{project, provider, allowed}` → povolení kontroly bran | člověk |
+
 ## Asistent v okně OPORA
 
 Asistenta spouští jen člověk zprávou (`docs/asistent.md`). Agent tyto cesty nevolá; čte jen stav, je-li to potřeba.
 
 | Cesta | K čemu, kdy | Kdo |
 |---|---|---|
-| GET `/api/assistant/status` | stav procesu asistenta a Jev (`configured`, `provider`, `keys` jako bool) | kdokoli |
-| GET `/api/assistant/instructions` | uložené pokyny asistenta (jinak výchozí) | kdokoli |
-| POST `/api/assistant/instructions` | `{text \| null}` → uloží / obnoví výchozí pokyny | UI |
-| GET `/api/assistant/jev-gate-check` | `project` → pro které poskytovatele je povolená externí kontrola bran | kdokoli |
-| POST `/api/assistant/jev-gate-check` | `{project, provider, allowed}` → povolení kontroly bran | člověk |
+| GET `/api/assistant/status` | stav procesu asistenta | kdokoli |
 | GET `/api/assistant/sessions` | `project` → relace asistenta; POST založení viz [api.md](api.md) | kdokoli |
 | POST `/api/assistant/sessions/{session_id}/messages` | `{text, context?}` → zpráva člověka relaci (spustí model) | UI |
 | POST `/api/assistant/sessions/{session_id}/title` | `{title}` → přejmenování relace | UI |

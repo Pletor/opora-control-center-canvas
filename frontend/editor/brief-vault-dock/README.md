@@ -12,7 +12,7 @@ Schránka zadání v levém menu Editoru: sekce `vault` („Schránka“, zkratk
 - `VaultNav.tsx` — vnitřní menu (hledání, Plán · Vývoj · Směr · Know-how · Historie s počty, vlastník dole; ve Směru „Duel“ s počtem otevřených duelů).
 - `RootCreateForm.tsx` — „Nové zadání“: kořen vždy s disciplínou (`op: "create"`, `scopeNodeId`, `discipline`); bez volby nejde odeslat.
 - `DisciplineOf.tsx` — v detailu fragmentu jen „Disciplína: skupina · disciplína · vlastní/zděděná“. Přeřazuje agent (`op: set-discipline`); dřívější ruční přeřazení stopy je smazané, protože brány, návrhy, poučení a disciplíny řídí agenti a UI je jen ukazuje.
-- `JevGateCheckSetting.tsx` — na konci Přehledu jednorázové nastavení „Povolit kontrolu bran Jev pro projekt“ (`POST /api/assistant/jev-gate-check`, jen člověk) s větou, co odejde ven (`consentText`); bez klíče jen upozornění. Je to souhlas, ne krok toku.
+- `JevGateCheckSetting.tsx` — na konci Přehledu jednorázové nastavení „Povolit kontrolu bran Jev pro projekt“ (`POST /api/brain/jev/gate-check`, jen člověk) s větou, co odejde ven (`consentText`); bez klíče jen upozornění. Je to souhlas, ne krok toku.
 - `DisciplineOverview.tsx` — v Přehledu řádek na disciplínu: malý pruh pokrytí, kolik kapitol pracuje jako karty, průměrná chyba předpovědi; klik přepne disciplínu.
 - Sekce **Duel** je vlastní dílek `duel/` (konverzace jako v terminálu, viz jeho README). Dock rozdělí strom rozsahu (`splitVault`): fragmenty `kind: "duel"` a `"vision"` dostane jen Duel, ostatní sekce (Zadání, MVP, plán, Podněty, pokrytí) je nevidí.
 - Brány cyklu v detailu fragmentu jsou vlastní dílek `fragment-gates/` (jen zobrazení, viz jeho README); dock ho vkládá do akcí detailu.
