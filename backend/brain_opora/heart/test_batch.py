@@ -75,3 +75,21 @@ def test_timeout_and_error_force_rotation(tmp_path):
     assert batch.run(spec(tmp_path), FakeRunner(Outcome(1, json.dumps(failed), "")), clock(0.0, 1.0))["status"] == "error"
     assert session.choose(tmp_path / "brain", lambda: "new")[1] is False
     assert [item["status"] for item in batch.read_journal(tmp_path / "brain")] == ["timeout", "error"]
+
+
+def test_advisor_is_dropped_after_the_daily_cap(tmp_path):
+    brain = tmp_path / "brain"
+    brain.mkdir()
+    day = 1_800_000_000.0  # 2027-01-15 UTC
+    old = {"at": "2027-01-14T23:00:00Z", "costByModel": {"claude-opus-4-5": 9.0}}
+    today = {"at": "2027-01-15T08:00:00Z", "costByModel": {"claude-opus-4-5": 1.5, "claude-haiku-4-5": 3.0}}
+    (brain / batch.JOURNAL).write_text("\n".join(json.dumps(item) for item in (old, today)) + "\n", encoding="utf-8")
+    assert batch.advisor_spent(brain, day) == 1.5
+    first = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
+    assert batch.run(spec(tmp_path), first, clock(day, day + 1))["advisor"] is True
+    assert "--advisor" in first.calls[0]["line"]
+    with (brain / batch.JOURNAL).open("a", encoding="utf-8") as journal:
+        journal.write(json.dumps({**today, "costByModel": {"claude-opus-4-5": 0.6}}) + "\n")
+    second = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
+    assert batch.run(spec(tmp_path), second, clock(day + 2, day + 3))["advisor"] is False
+    assert "--advisor" not in second.calls[0]["line"]

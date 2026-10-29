@@ -2,7 +2,8 @@
 
 Dávka složí zprávu (snímek, vstupy, pokyn skončit `done`), spustí proces, přečte výsledek JSON a zapíše
 jeden řádek do `brain/batches.jsonl`: vstupy, relaci, cenu po modelech (`modelUsage`; poradce = položka Opus),
-tahy, chybu, trvání a shrnutí z `done`. Pozná vyčerpaný limit předplatného (`rate_limited`) a vypršení času.
+tahy, chybu, trvání a shrnutí z `done`. Když poradce za den přesáhne `ADVISOR_DAY_USD`, běží dávka
+bez `--advisor` (záznam nese `advisor: false`). Pozná vyčerpaný limit předplatného (`rate_limited`) a vypršení času.
 """
 import json
 import re
@@ -16,6 +17,8 @@ from backend.brain_opora.heart.process import run_process
 
 JOURNAL, LAST_DONE, SNAPSHOT = "batches.jsonl", "last_done.json", "snapshot.txt"
 TIMEOUT = 15 * 60
+# strop poradce za den (UTC) na projekt; eval m3/m6: poradce = 86 % ceny srdce, nejdražší sezení 0,37 USD
+ADVISOR_DAY_USD = 2.0
 RATE_LIMIT = re.compile(r"hit your [^\n]{0,60}limit|rate[_ ]limit|usage limit", re.IGNORECASE)
 FINISH = ("Až budeš hotové, ukonči dávku příkazem `python opora_heart.py done --summary \"…\"` "
           "(jedna věta: co jsi naplánovalo, zodpovědělo nebo eskalovalo).")
@@ -105,10 +108,11 @@ def run(spec, runner=run_process, clock=time.time):
     (brain / LAST_DONE).unlink(missing_ok=True)
     settings_path, mcp_path = command.write_config(brain, spec.source_root)
     session_id, resume = session.choose(brain)
-    line = command.build_command(spec.claude, session_id=session_id, resume=resume, settings_path=settings_path,
-                                 mcp_path=mcp_path, source_root=spec.source_root)
-    env = command.child_env(base_url=spec.base_url, token=spec.token, project=spec.project, workspace=spec.workspace)
     started = clock()
+    advisor = advisor_spent(brain, started) < ADVISOR_DAY_USD
+    line = command.build_command(spec.claude, session_id=session_id, resume=resume, settings_path=settings_path,
+                                 mcp_path=mcp_path, source_root=spec.source_root, advisor=advisor)
+    env = command.child_env(base_url=spec.base_url, token=spec.token, project=spec.project, workspace=spec.workspace)
     outcome = runner(line, cwd=str(brain), env=env, stdin_text=message(spec.snapshot, spec.inputs), timeout=TIMEOUT)
     result = parse(outcome.stdout)
     status = _status(outcome, result, outcome.stderr)
@@ -118,7 +122,7 @@ def run(spec, runner=run_process, clock=time.time):
         session.record(brain, result["session_id"], used if status == "ok" else session.ROTATE_AT + 1)
     entry = {"at": datetime.fromtimestamp(started, UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "project": spec.project,
              "workspace": spec.workspace, "status": status, "inputs": spec.inputs,
-             "sessionId": (result or {}).get("session_id") or session_id, "resumed": resume,
+             "sessionId": (result or {}).get("session_id") or session_id, "resumed": resume, "advisor": advisor,
              "costUsd": (result or {}).get("total_cost_usd"), "costByModel": costs(result),
              "numTurns": (result or {}).get("num_turns"), "isError": bool((result or {}).get("is_error", True)),
              "durationMs": int((clock() - started) * 1000), "inputTokens": used, "summary": _summary(brain)}
@@ -127,6 +131,18 @@ def run(spec, runner=run_process, clock=time.time):
     with (brain / JOURNAL).open("a", encoding="utf-8") as journal:
         journal.write(json.dumps(entry, ensure_ascii=False) + "\n")
     return entry
+
+
+def advisor_spent(brain, now):
+    """Cena poradce (položky Opus v `costByModel`) z dávek dne `now` (UTC) v deníku."""
+    day = datetime.fromtimestamp(now, UTC).strftime("%Y-%m-%d")
+    try:
+        lines = (Path(brain) / JOURNAL).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return 0.0
+    entries = (parse(line) for line in lines)
+    return sum(float(cost or 0) for entry in entries if entry and str(entry.get("at", "")).startswith(day)
+               for model, cost in (entry.get("costByModel") or {}).items() if "opus" in model.lower())
 
 
 def read_journal(brain, last=5):
