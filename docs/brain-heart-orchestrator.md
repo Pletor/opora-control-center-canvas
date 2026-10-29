@@ -36,7 +36,7 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
 ## 3. O2 – Srdce staví karty (`heart/opora_heart.py`, prompt)
 
 - Nový příkaz `plan --file F [--dry-run]`: přečte `F` (JSON `plan` podle `/api/canvas-plan`), vezme čerstvý `digest`
-  (`GET /api/desktop-v3/state?project&workspace` → `digest`) a pošle `POST /api/canvas-plan {digest, plan, dryRun?}`
+  (`GET /api/view?project&workspace` → `digest`) a pošle `POST /api/canvas-plan {digest, plan, dryRun?}`
   s tokenem srdce. Výstup `{ok, refs, summary, warnings}` nebo `code`/`hint` (409 `stale` → zkus znovu s novým digestem,
   nejvýš jednou).
 - Snímek: sekce `PLÁN` ukáže u karet stav práce z executions: `volná`, `běží (agent)`, `odevzdáno`, `PR #n`,
@@ -58,6 +58,8 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   - zdroj `local`: jen `git rev-parse HEAD` ve zdroji (nic nestahuje).
   - Poslední viděný HEAD drží v paměti; první průchod jen zapamatuje (nebudí). Změna → vstup `commits`
     s `git log --format="%h %s" from..to` (≤ 20).
+- Kam vstup `commits` patří: `main` git projektu je jen ke čtení, karty v něm nevzniknou. Jeho posun proto dostanou
+  pracovní prostory, ve kterých srdce od startu OPORY pracovalo; bez nich `main` (srdce aspoň odpoví nebo eskaluje).
 - Vstupy `merged` a `commits` jdou do stropu 6 dávek za hodinu; víc sloučení v okně = jedna dávka.
 - Snímek: nová sekce `GIT` za `POSLEDNÍ KONTROLY`: posledních 10 commitů zdroje (`sha7 titulek`), ≤ 1 200 znaků.
 - Srdce dál čte kód zdroje (`--add-dir`), tedy pravdu po sloučení. Do `P:\opora-data` se zapisuje jen existující

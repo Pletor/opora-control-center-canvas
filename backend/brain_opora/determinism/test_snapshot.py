@@ -1,4 +1,7 @@
 """Snímek pro srdce: pevný tvar §3, deterministický text, strop znaků a čtení faktů z projektu."""
+import json
+import subprocess
+
 import pytest
 
 from backend.brain_opora.determinism import brain_files, gate, kinds, snapshot, task_queue
@@ -42,7 +45,7 @@ def test_render_prefers_project_goal_and_falls_back_to_cards():
     text = snapshot.render(facts)
     assert "ZÁMĚR: Prodat sazenice." in text and "- Domů · home · ready" in text
     empty = snapshot.render({**facts, "goal": "", "cards": [], "tasks": [], "tickets": [], "checks": []})
-    assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 8  # lístky, kontroly, čtyři části okolí, dílna a výzkum
+    assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 9  # lístky, kontroly, git, čtyři části okolí, dílna a výzkum
 
 
 def test_render_is_cut_at_the_hard_limit():
@@ -73,7 +76,7 @@ MEMORY = {"messages": [{"at": f"2026-10-29T10:0{i}:00Z", "workspace": "main", "t
           "journal": [{"at": "2026-10-29T09:00:00Z", "status": "ok", "summary": "Dva úkoly zadány."},
                       {"at": "2026-10-29T09:30:00Z", "status": "error", "summary": None}]}
 ORDER = ["PROJEKT", "ZÁMĚR:", "ZPRÁVY ČLOVĚKA:", "PRAVIDLA:", "ROZHODNUTÍ:", "PLÁN:", "FRONTA ÚKOLŮ:",
-         "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:", "DENÍK:", "DÍLNA:"]
+         "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:", "GIT:", "DENÍK:", "DÍLNA:"]
 
 
 def _block(text, head):
@@ -174,3 +177,56 @@ def test_research_line_shows_next_from_the_first_approach_line():
             "next": "plan", "status": "done"}
     assert _block(snapshot.render({**FACTS, "research": [item]}), "VÝZKUM:") == [
         "- výzkum Limit (r1) · feasible/high · next plan · done"]
+
+
+def _link(execution, node, state, number=None, sha=None, awaiting=0):
+    return {"execution_id": execution, "node_id": node, "state": state, "number": number, "merge_sha": sha,
+            "awaiting_human_close": awaiting}
+
+
+def test_work_states_from_newest_execution_and_its_pr_link():
+    executions = [{"executionId": "e5", "nodeId": "run", "state": "running", "owner": "agent:dev"},
+                  {"executionId": "e4", "nodeId": "done", "state": "reported", "owner": "a"},
+                  {"executionId": "e3", "nodeId": "pr", "state": "running", "owner": "a"},
+                  {"executionId": "e2", "nodeId": "free", "state": "released", "owner": "a"},
+                  {"executionId": "e1", "nodeId": "run", "state": "reported", "owner": "a"}]
+    links = [_link("e3", "pr", "open", 12), _link("e0", "merged", "merged", 9, "abcdef123456", 1),
+             _link("e9", "old", "merged", 3, "1234567890")]
+    work = snapshot.work_states(executions, links)
+    assert work == {"run": "běží (agent:dev)", "done": "odevzdáno", "pr": "PR #12", "free": "volná",
+                    "merged": "sloučeno abcdef1 · čeká na uzavření", "old": "sloučeno 1234567"}
+    text = snapshot.render({**FACTS, "pages": [], "work": {"home": "PR #12"}})
+    assert "- Domů · home · ready · PR #12" in text
+    assert "- Domů · / · ready · volná · cíl:" in snapshot.render({**FACTS, "work": {}})
+
+
+def test_git_section_after_checks_is_capped():
+    text = snapshot.render({**FACTS, "git": [f"{i:07} commit {i}" for i in range(12)]})
+    assert text.index("POSLEDNÍ KONTROLY:") < text.index("GIT:") < text.index("DENÍK:")
+    assert _block(text, "GIT:")[:2] == ["- 0000000 commit 0", "- 0000001 commit 1"]
+    assert len(_block(text, "GIT:")) == snapshot.GIT_COMMITS
+    long = _block(snapshot.render({**FACTS, "git": ["x" * 300] * 10}), "GIT:")
+    assert sum(len(row) + 1 for row in long) <= snapshot.GIT_CHARS
+
+
+def _git(root, *args):
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-C", str(root), *args],
+                   check=True, capture_output=True)
+
+
+def test_snapshot_reads_recent_commits_of_the_source_and_survives_a_broken_one(service, tmp_path):
+    source = tmp_path / "zdroj"
+    source.mkdir()
+    _git(source, "init", "-q")
+    for number in range(12):
+        (source / "f.txt").write_text(str(number), encoding="utf-8")
+        _git(source, "add", "f.txt")
+        _git(source, "commit", "-q", "-m", f"Krok {number}")
+    project = service.project_hub.local_project({"name": "Zdroj", "path": str(source), "confirmed": True})["id"]
+    rows = _block(snapshot.snapshot(service, project, "draft"), "GIT:")
+    assert len(rows) == 10 and rows[0].endswith(" Krok 11") and len(rows[0].split()[1]) >= 7
+    assert "GIT:" not in json.dumps(snapshot.state(service, project, "draft"), ensure_ascii=False)  # stav pro pracovníky git nečte
+    (source / ".git" / "HEAD").write_text("rozbité", encoding="utf-8")
+    assert _block(snapshot.snapshot(service, project, "draft"), "GIT:") == ["- žádné"]
+    assert _block(snapshot.snapshot(service, "draft", "draft"), "GIT:") == ["- žádné"]  # bez zdroje
+

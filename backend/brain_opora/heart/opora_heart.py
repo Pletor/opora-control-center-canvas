@@ -3,6 +3,7 @@
     python opora_heart.py snapshot
     python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P[@kdo]]…
                                [--rule R]… [--intent I] [--node N] [--order N] [--commit C] [--model M]
+    python opora_heart.py plan --file F [--dry-run]
     python opora_heart.py answer --ticket ID --text T
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
@@ -19,6 +20,7 @@ OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrn
 Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` a vypíše jen cestu, počet a velikost;
 `run` spustí `dilna/scripts/<SCRIPT>.py` (`python -I`, cwd `dilna/`, 120 s) bez tokenu srdce a klíčů API
 ve vlastní skupině procesů (po vypršení zemře celý strom i s pod-voláními `claude`) a zapíše řádek do `dilna/runs.jsonl`.
+`plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem.
 `research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje.
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -139,6 +141,40 @@ def rule_payload(args):
     """Pravidlo celé aplikace; `by: agent` (návrh do schválení člověkem) doplní server."""
     return item_payload({"id": "hr_" + uuid.uuid4().hex, "text": args.text, "kind": "must", "scope": "project",
                          "target": ""})
+
+
+STALE = "změnilo"  # 409 dávky plánu se zastaralým digestem („Plátno se změnilo v jiném okně.“), bez vlastního kódu
+
+
+def read_plan(path):
+    """Obsah `plan` ze souboru: JSON objekt dávky (`nodes`, `edges`, …) podle docs/davka-planu.md."""
+    try:
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise Failure({"error": f"Soubor plánu nejde přečíst: {error}", "code": "plan_file",
+                       "hint": "Ulož plán jako JSON objekt do dilna/out/<jméno>.json (Write) a předej cestu."}) from None
+    if not isinstance(value, dict):
+        raise Failure({"error": "Plán musí být JSON objekt.", "code": "plan_file",
+                       "hint": "Soubor obsahuje objekt {\"nodes\": […], \"edges\": […]} bez obálky digest/project."})
+    return value
+
+
+def submit_plan(args, retried=False):
+    """`plan`: čerstvý digest z `GET /api/view`, pak `POST /api/canvas-plan`; zastaralý digest zkusí ještě jednou."""
+    plan = read_plan(args.file)
+    body = {**scope(), "digest": call("GET", "/api/view", query=scope())["digest"], "plan": plan}
+    if args.dry_run:
+        body["dryRun"] = True
+    try:
+        result = call("POST", "/api/canvas-plan", body)
+    except Failure as failure:
+        if failure.payload.get("status") != 409 or STALE not in failure.payload.get("error", ""):
+            raise
+        if not retried:
+            return submit_plan(args, retried=True)
+        failure.payload.update(code="stale", hint="Plátno se mění pod rukama; načti snapshot a pošli plán znovu.")
+        raise
+    return {key: result.get(key) for key in ("ok", "dryRun", "refs", "summary", "warnings")}
 
 
 def load_context(name):
@@ -265,6 +301,8 @@ def run(args):
         return getattr(module, args.command)(args, sys.modules[__name__])
     if args.command == "snapshot":
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
+    if args.command == "plan":
+        return submit_plan(args)
     if args.command == "task":
         task = call("POST", "/api/brain/tasks", task_payload(args))
         return {key: task[key] for key in ("taskId", "title", "status", "order")}
@@ -301,6 +339,9 @@ def parser():
         task.add_argument(flag)
     task.add_argument("--order", type=int)
     task.add_argument("--model", choices=("sonnet", "opus", "haiku", "fable"))
+    plan = commands.add_parser("plan")
+    plan.add_argument("--file", required=True)
+    plan.add_argument("--dry-run", action="store_true")
     answer = commands.add_parser("answer")
     answer.add_argument("--ticket", required=True)
     answer.add_argument("--text", required=True)

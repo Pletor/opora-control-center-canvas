@@ -26,6 +26,17 @@ def spec(tmp_path, inputs=None):
                            project="p1", workspace="main", snapshot="PROJEKT p1", inputs=inputs or [])
 
 
+
+def test_message_renders_merge_and_new_commits_in_czech():
+    text = batch.message("S", [{"type": "merged", "nodeId": "n1", "executionId": "ex1", "mergeSha": "abcdef1234567890",
+                                "pr": 7},
+                               {"type": "merged", "nodeId": "n2", "executionId": "ex2", "mergeSha": "fff", "pr": None},
+                               {"type": "commits", "from": "1111111aaaa", "to": "2222222bbbb",
+                                "log": ["2222222 Druhý", "1a1a1a1 První"]}])
+    assert "- SLOUČENO: karta n1, PR #7, sha abcdef123456 (běh ex1)" in text
+    assert "- SLOUČENO: karta n2, lokální sloučení, sha fff" in text
+    assert "- NOVÉ COMMITY 1111111..2222222: 2222222 Druhý; 1a1a1a1 První" in text
+
 def clock(*values):
     items = iter(values)
     return lambda: next(items)

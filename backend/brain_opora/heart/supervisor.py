@@ -5,6 +5,10 @@ a úkol `failed` přidají vstup s oknem 20 s, zpráva člověka budí hned. Dá
 jedna na projekt a nejvýš 6 automatických za hodinu (zpráva člověka strop obchází, prázdná dávka se nepočítá); vstup, který přijde během
 dávky, počká na další. Vyčerpaný limit
 předplatného uspí srdce na 15 min a vstupy zůstanou. Běží jen na loopbacku a jen bez `OPORA_HEART=off`.
+
+Hlídač gitu (docs/brain-heart-orchestrator.md §4) běží každých `GIT_POLL` s ve vlastním vlákně, ať neblokuje
+čtení outboxu: u zdroje `git` pustí existující synchronizaci aplikace (`service.sync`), u zdroje `local` jen čte
+HEAD. Pohnutý HEAD přidá vstup `commits` s oknem 20 s; první průchod jen zapamatuje, selhání srdce nebudí.
 """
 import logging
 import os
@@ -12,7 +16,7 @@ import threading
 import time
 from collections import deque
 
-from backend.brain_opora.determinism import brain_files, gate_setting, snapshot, tokens
+from backend.brain_opora.determinism import brain_files, gate_setting, git_log, snapshot, tokens
 from backend.brain_opora.heart import batch, command, session
 from backend.brain_opora.heart.inputs import resolve, wake_input
 from backend.canvas.process_signal import PROCESS_SIGNAL
@@ -24,6 +28,10 @@ WINDOW, RATE_SLEEP, PER_HOUR, HOUR, TICK = 20.0, 15 * 60.0, 6, 3600.0, 2.0
 LOOPBACK = ("127.0.0.1", "localhost", "::1")
 PAGE = 200
 POLL = 10.0  # pojistka: outbox se čte i bez signálu (nově zapnutá brána, události jiného procesu)
+GIT_POLL = 300.0  # hlídač gitu: jak často čte HEAD zdrojů (a synchronizuje zdroj `git`)
+SYNC_WAIT, SYNC_STEP = 180.0, 1.0  # čekání na úlohu synchronizace (fetch má sám strop 120 s)
+COMMITS = 20  # nejvýš řádků „sha7 titulek“ ve vstupu `commits`
+HOME = {"git": "main", "local": "draft"}  # pracovní prostor, jehož zdroj hlídač čte vždy
 
 
 def enabled(environ=None):
@@ -36,9 +44,16 @@ def _thread(target):
     threading.Thread(target=target, name="opora-heart-batch", daemon=True).start()
 
 
+def _git_thread(target):
+    threading.Thread(target=target, name="opora-heart-git", daemon=True).start()
+
+
 class HeartSupervisor:
-    def __init__(self, service, *, base_url, runner=None, clock=time.time, tick=TICK, spawn=_thread, find=None):
+    def __init__(self, service, *, base_url, runner=None, clock=time.time, tick=TICK, spawn=_thread, find=None,
+                 git_spawn=_git_thread):
         self.service, self.base_url, self.clock, self.tick, self.spawn = service, base_url, clock, tick, spawn
+        self.git_spawn, self.heads, self.git_errors = git_spawn, {}, {}
+        self.git_at, self.git_busy = float("-inf"), False
         self.runner = runner or batch.run_process
         self.find = find or command.find_claude
         self.lock, self.stop, self.wakeup, self.thread = threading.Lock(), threading.Event(), threading.Event(), None
@@ -109,6 +124,81 @@ class HeartSupervisor:
                 if item is not None:
                     self._add(project, event["workspaceId"], item, now + WINDOW)
 
+    def _git_pass(self):
+        try:
+            self.watch_git()
+        except Exception:  # hlídač nesmí shodit supervisor ani srdce budit
+            LOGGER.exception("Srdce: průchod hlídače gitu selhal.")
+        finally:
+            self.git_busy = False
+
+    def _kind(self, project):
+        return self.service.project_hub.settings(project)["project"]["sourceKind"]
+
+    def _job_status(self, job):
+        with self.service.registry_lock:
+            row = self.service.db.execute("SELECT status, message FROM jobs WHERE id=?", (job,)).fetchone()
+        return (row[0], row[1]) if row else ("missing", "Úloha synchronizace zmizela.")
+
+    def _sync(self, project):
+        """Existující synchronizace aplikace (fetch + `merge --ff-only`) a čekání na její úlohu; selhání = výjimka."""
+        job = self.service.sync(project)["jobId"]
+        deadline = time.monotonic() + SYNC_WAIT
+        while True:
+            status, message = self._job_status(job)
+            if status == "complete":
+                return
+            if status in ("failed", "missing"):
+                raise ValueError(f"Synchronizace selhala: {message}")
+            if time.monotonic() > deadline or self.stop.wait(SYNC_STEP):
+                raise TimeoutError("Synchronizace nedoběhla včas.")
+
+    def _watched(self, project, kind):
+        """Domovský prostor zdroje a prostory, ve kterých srdce už pracovalo (má token)."""
+        with self.lock:
+            known = {space for owner, space in self.tokens if owner == project}
+        return sorted({HOME[kind], *known})
+
+    def watch_git(self):
+        """Jeden průchod hlídače: projekty se zapnutou bránou a zdrojem `git` / `local`; změna HEAD = vstup `commits`.
+        Selhání projektu se jen zapíše (log a `git_errors`) a srdce nebudí."""
+        for project in self.service.project_ids():
+            try:
+                if not gate_setting.is_on(self.service, project):
+                    continue
+                kind = self._kind(project)
+                if kind not in HOME:
+                    continue
+                if kind == "git":
+                    self._sync(project)
+                for workspace in self._watched(project, kind):
+                    self._watch_head(project, workspace, kind)
+                self.git_errors.pop(project, None)
+            except Exception as error:  # noqa: BLE001 - selhaný zdroj jen zapsat, ostatní projekty běží dál
+                LOGGER.warning("Srdce: hlídač gitu projektu %s: %s", project, error)
+                self.git_errors[project] = f"{type(error).__name__}: {error}"[:500]
+
+    def _targets(self, project, workspace, kind):
+        """Kam vstup `commits` patří. `main` git projektu je jen ke čtení (karty tam nevzniknou): jeho posun dostanou
+        prostory, ve kterých srdce pracovalo; bez nich `main` (srdce aspoň odpoví nebo eskaluje)."""
+        if kind != "git" or workspace != HOME["git"]:
+            return [workspace]
+        return [space for space in self._watched(project, kind) if space != workspace] or [workspace]
+
+    def _watch_head(self, project, workspace, kind="local"):
+        root = WorkspaceSources(self.service).root(project, workspace)
+        if root is None:
+            return
+        new, key = git_log.head(root), (project, workspace)
+        old = self.heads.get(key)
+        self.heads[key] = new  # nejdřív zapamatovat: nečitelný rozsah (přepsaná historie) nebudí znovu
+        if old is None or old == new:
+            return
+        log = git_log.between(root, old, new, COMMITS)
+        for target in self._targets(project, workspace, kind):
+            self._add(project, target, {"type": "commits", "from": old, "to": new, "log": log}, self.clock() + WINDOW)
+        self.wakeup.set()
+
     def next_allowed(self, project, now):
         """Nejbližší čas, kdy smí projekt začít dávku (spánek po limitu a strop dávek za hodinu)."""
         starts = self.starts.setdefault(project, deque())
@@ -123,6 +213,9 @@ class HeartSupervisor:
         if PROCESS_SIGNAL.generation != self.generation or now - self.polled_at >= POLL:
             self.generation, self.polled_at = PROCESS_SIGNAL.generation, now
             self.poll_events(now)
+        if now - self.git_at >= GIT_POLL and not self.git_busy:
+            self.git_at, self.git_busy = now, True
+            self.git_spawn(self._git_pass)
         started = []
         with self.lock:
             for project, items in list(self.pending.items()):
@@ -197,7 +290,8 @@ class HeartSupervisor:
         return {"project": project, "enabled": enabled() and self.thread is not None, "running": running,
                 "pending": pending, "session": session.load(brain), "batches": batch.read_journal(brain, 5),
                 "sleeping": self.sleeping_until > now, "sleepingUntil": _iso(self.sleeping_until),
-                "nextAllowedAt": _iso(allowed), "error": self.errors.get(project)}
+                "nextAllowedAt": _iso(allowed), "error": self.errors.get(project),
+                "gitError": self.git_errors.get(project)}
 
 
 def _iso(moment):

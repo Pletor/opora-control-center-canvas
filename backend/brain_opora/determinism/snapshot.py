@@ -2,7 +2,8 @@
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky plánu,
 fronta úkolů, čekající lístky, poslední kontroly, deník dávek; okolí srdce §3a; skripty dílny §3b; výzkumy a duely
-srdce ze schránky zadání §3c), `render` z nich bez dalšího čtení
+srdce ze schránky zadání §3c; stav práce karet z executions a vazeb PR, docs/brain-heart-orchestrator.md §3),
+`snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
 Každá část má vlastní strop počtu řádků a celý text se nakonec ořízne na `LIMIT` znaků.
 `view` složí ze stejných faktů kompaktní JSON pro druh brány `state` (docs/brain-control-api.md §2).
@@ -11,16 +12,19 @@ import json
 import re
 import sqlite3
 
-from backend.brain_opora.determinism import brain_files
+from backend.brain_opora.determinism import brain_files, git_log
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
-from database.repositories.gate_tickets import GateTicketStore
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_duel_shape import summary as duel_summary
 from backend.editor.brief_vault.brief_vault_model import latest_rows
 from backend.editor.brief_vault.brief_vault_tree import live_ids
+from backend.project.workspace.workspace_sources import WorkspaceSources
+from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
+from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
+from database.repositories.opora_executions import Executions
 
 LIMIT = 12_000  # zhruba 4k tokenů
 PAGES = 20
@@ -37,6 +41,8 @@ DECISIONS = 10
 JOURNAL = 5
 SCRIPTS = 15
 RESEARCH = 10
+GIT_COMMITS, GIT_CHARS = 10, 1200
+FREE = "volná"  # karta bez běhu, nebo s během uvolněným či odebraným
 NEXT_LINE = re.compile(r"Další krok: (plan|spike|duel|ask|stop)\b")
 HEART = "heart"  # autor výzkumů a duelů srdce ve schránce (agent `heart`)
 UNREADABLE = (ValueError, KeyError, TypeError, AttributeError, OSError, sqlite3.Error)
@@ -129,6 +135,52 @@ def _research(service, project, workspace):
     return items
 
 
+def _link_work(link):
+    """Stav práce z vazby PR (docs/oporahub-executions.md): sloučeno (a čeká na uzavření), nebo PR #n."""
+    pr = f"PR #{link['number']}" if link.get("number") else "lokální"
+    if link["state"] == "merged":
+        merged = f"sloučeno {str(link.get('merge_sha') or '?')[:7]}"
+        return merged + (" · čeká na uzavření" if link.get("awaiting_human_close") else "")
+    return pr + (" zavřený" if link["state"] == "closed" else "")
+
+
+def work_states(executions, links):
+    """`{nodeId: text}` z nejnovějšího běhu karty a jeho vazby PR; bez vazby rozhoduje stav běhu.
+    `executions` a `links` jsou od nejnovějšího (tak je vrací `Executions.history` a `ExecutionPullRequests.listing`)."""
+    by_execution, by_node, work = {}, {}, {}
+    for link in links:
+        by_execution.setdefault(link["execution_id"], link)
+        by_node.setdefault(link["node_id"], link)
+    for record in executions:
+        node = record.get("nodeId")
+        if node in work:
+            continue
+        link = by_execution.get(record.get("executionId"))
+        state = record.get("state")
+        work[node] = (_link_work(link) if link else f"běží ({record.get('owner') or '?'})" if state == "running"
+                      else "odevzdáno" if state == "reported" else FREE)
+    for node, link in by_node.items():
+        work.setdefault(node, _link_work(link))
+    return work
+
+
+def _work(db, project, workspace):
+    try:
+        return work_states(Executions(db, project, workspace).history(),
+                           ExecutionPullRequests(db, project, workspace).listing())
+    except UNREADABLE:
+        return {}
+
+
+def _git(service, project, workspace):
+    """Posledních `GIT_COMMITS` commitů zdroje prostoru; bez zdroje nebo s nečitelným gitem prázdné."""
+    try:
+        root = WorkspaceSources(service).root(project, workspace)
+        return git_log.recent(root, GIT_COMMITS) if root is not None else []
+    except (*UNREADABLE, *git_log.READ_ERRORS):
+        return []
+
+
 def collect(service, project, workspace):
     """Fakta snímku jednoho pracovního prostoru. Neexistující projekt je 404 `project_not_found`."""
     if not service.project_exists(project):
@@ -143,7 +195,8 @@ def collect(service, project, workspace):
         tickets = GateTicketStore(db, project).queued(workspace, TICKETS)
         checks = db.execute("SELECT scope_id, sha, status FROM check_runs WHERE project_id=? AND workspace_id=?"
                             " ORDER BY recorded_at DESC, scope_id LIMIT ?", (project, workspace, CHECKS)).fetchall()
-    return {"project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
+        work = _work(db, project, workspace)
+    return {"work": work, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -161,12 +214,18 @@ def _intent(facts):
 
 def _plan(facts):
     stages = {card["id"]: card["stage"] for card in facts["cards"]}
+    work = facts.get("work")
+
+    def doing(node):  # stav práce z executions (§3 orchestrátoru); fakta bez `work` ho nepíšou
+        return "" if work is None else f" · {work.get(node, FREE)}"
+
     if facts["pages"]:
         rows = [f"- {_short(page['name'], 80)} · {page['path'] or '—'} · {stages.get(page['id'], 'closed')}"
-                + (f" · cíl: {_short(page['goal'], 120)}" if page["goal"] else "")
+                + doing(page["id"]) + (f" · cíl: {_short(page['goal'], 120)}" if page["goal"] else "")
                 for page in facts["pages"][:PAGES]]
     else:
-        rows = [f"- {_short(card['name'], 80)} · {card['id']} · {card['stage']}" for card in facts["cards"][:PAGES]]
+        rows = [f"- {_short(card['name'], 80)} · {card['id']} · {card['stage']}" + doing(card["id"])
+                for card in facts["cards"][:PAGES]]
     return rows or ["- (prázdný plán)"]
 
 
@@ -249,6 +308,17 @@ def _research_lines(facts):
     return _section("VÝZKUM:", rows)
 
 
+def _git_lines(facts):
+    rows, size = [], 0
+    for line in (facts.get("git") or [])[:GIT_COMMITS]:
+        row = f"- {_short(line, 200)}"
+        if size + len(row) + 1 > GIT_CHARS:
+            break
+        rows.append(row)
+        size += len(row) + 1
+    return _section("GIT:", rows)
+
+
 def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
@@ -258,7 +328,7 @@ def render(facts, limit=LIMIT):
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines.append("POSLEDNÍ KONTROLY:")
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
-    lines += _journal_lines(facts) + _workshop_lines(facts) + _research_lines(facts)
+    lines += _git_lines(facts) + _journal_lines(facts) + _workshop_lines(facts) + _research_lines(facts)
     text = "\n".join(lines)
     return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
 
@@ -298,5 +368,6 @@ def state(service, project, workspace, session_id=None):
 
 
 def snapshot(service, project, workspace, limit=LIMIT):
-    """Snímek jako text: `render(collect(...))`."""
-    return render(collect(service, project, workspace), limit)
+    """Snímek jako text: `render(collect(...))` a commity zdroje (git jen tady, `state` pro pracovníky ho nečte)."""
+    facts = collect(service, project, workspace)
+    return render({**facts, "git": _git(service, project, workspace)}, limit)

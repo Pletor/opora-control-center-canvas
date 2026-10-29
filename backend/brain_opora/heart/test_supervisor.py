@@ -37,7 +37,8 @@ def setup(tmp_path):
     gate_setting.write(service, {"project": "draft", "enabled": True})
     clock, runner, held = Clock(), Runner(), []
     heart = supervisor.HeartSupervisor(service, base_url="http://127.0.0.1:9", runner=runner, clock=clock,
-                                       spawn=lambda fn: fn(), find=lambda: "claude")
+                                       spawn=lambda fn: fn(), find=lambda: "claude",
+                                       git_spawn=lambda fn: fn())
     yield service, heart, clock, runner, held
     service.close()
 

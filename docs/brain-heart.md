@@ -14,6 +14,10 @@ Workers (`opora_gate.py next → work → report`) do the coding.
 | human message (intent, change, question) | `POST /api/brain/heart/messages {project, workspace, text}` (human only) | at once |
 | queued ticket `ask` / `change` | `gate.ticket` event with `status: queued` | after a 20 s batch window |
 | task `failed` (second red) | `gate.task` event with `status: failed` | after a 20 s batch window |
+| `merged` `{nodeId, executionId, mergeSha, pr}` | `merge.done` event (merged card PR or local merge) | after a 20 s batch window |
+| `commits` `{from, to, log}` | git watcher every 300 s: the source HEAD moved (`git` source after the app's own sync) | after a 20 s batch window |
+
+The last two are O3 of `docs/brain-heart-orchestrator.md` §4; they count toward the cap of 6 batches an hour.
 
 In H2a the supervisor wakes on **all** of these. JEV filtering is H3. The supervisor runs only while OPORA runs on
 loopback and only for projects with `settings.brain.gate = true`. It never runs two batches of one project at once.
@@ -299,7 +303,8 @@ split into several focused researches instead of a wider desk. V1s became `resea
 | Command | Does |
 |---|---|
 | `snapshot` | prints the snapshot again |
-| `task --title T --do D [--why] [--file F]… [--done-when C]… [--dont-touch P]… [--node N]` | `POST /api/brain/tasks` with the heart token |
+| `plan --file F [--dry-run]` | builds cards: fresh `digest` from `GET /api/view`, then `POST /api/canvas-plan` with the heart token; one retry on a stale digest (`docs/brain-heart-orchestrator.md` §3) |
+| `task --title T --do D [--why] [--file F]… [--done-when C]… [--dont-touch P]… [--node N]` | `POST /api/brain/tasks` with the heart token (only for a worker that works through the gate) |
 | `answer --ticket ID --text T` | `POST /api/gate/tickets/{id}/answer` with the heart token |
 | `cancel --task ID` | cancels a task |
 | `escalate --text T` | records a question for the human: an `ask` ticket created by the heart, visible in the velín |

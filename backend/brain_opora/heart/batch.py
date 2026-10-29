@@ -50,6 +50,13 @@ def _input_line(item):
         report = json.dumps(item.get("report"), ensure_ascii=False, sort_keys=True)[:1500]
         return (f"- ÚKOL SELHAL {item['taskId']} „{item.get('title', '')}“ (druhá červená, už uzavřený): "
                 f"zadání {body}; report {report}")
+    if kind == "merged":
+        pr = f"PR #{item['pr']}" if item.get("pr") else "lokální sloučení"
+        return (f"- SLOUČENO: karta {item.get('nodeId') or '?'}, {pr}, sha {str(item.get('mergeSha') or '?')[:12]}"
+                f" (běh {item.get('executionId') or '?'})")
+    if kind == "commits":
+        log = "; ".join(item.get("log") or []) or "(bez výpisu)"
+        return f"- NOVÉ COMMITY {str(item.get('from') or '?')[:7]}..{str(item.get('to') or '?')[:7]}: {log}"
     return "- " + json.dumps(item, ensure_ascii=False, sort_keys=True)
 
 

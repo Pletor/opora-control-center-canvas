@@ -1,7 +1,7 @@
 """Co srdce budí a co dostane do dávky (docs/brain-heart.md §1).
 
 `wake_input` převede událost outboxu na vstup: čekající lístek `ask` / `change` pracovníka (ne vlastní
-eskalaci srdce) a úkol `failed`. `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze (u selhaného úkolu
+eskalaci srdce), úkol `failed` a sloučení karty `merge.done` (docs/brain-heart-orchestrator.md §4). `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze (u selhaného úkolu
 zadání i report, aby srdce nové zadání psalo z původního)
 a zahodí ty, které mezitím vyřešil někdo jiný (lístek už zodpovězený). Zpráva člověka projde vždy.
 """
@@ -19,6 +19,10 @@ def wake_input(event):
         return {"type": "ticket", "ticketId": data["ticketId"], "kind": data["kind"]}
     if event.get("kind") == "gate.task" and data.get("status") == "failed" and isinstance(data.get("taskId"), str):
         return {"type": "taskFailed", "taskId": data["taskId"]}
+    if event.get("kind") == "merge.done":
+        # PR karty nebo lokální sloučení; data se před dávkou nedočítají (`resolve` je nechá projít).
+        return {"type": "merged", "nodeId": event.get("nodeId"), "executionId": event.get("executionId"),
+                "mergeSha": data.get("mergeSha") or data.get("commit"), "pr": event.get("prNumber")}
     return None
 
 
