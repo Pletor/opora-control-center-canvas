@@ -15,6 +15,7 @@ from backend.brain_opora.heart import opora_heart
 
 class Handler(BaseHTTPRequestHandler):
     calls = []
+    stale = 0  # kolikrát ještě `/api/canvas-plan` odmítne zastaralý digest
 
     def log_message(self, *args):
         return
@@ -35,6 +36,16 @@ class Handler(BaseHTTPRequestHandler):
                               "headers": dict(self.headers)})
         if url.path == "/api/brain/heart/context":
             return self._reply(200, {"name": "tasks", "items": [{"taskId": "ht_1"}, {"taskId": "ht_2", "t": "č"}]})
+        if url.path == "/api/view":
+            return self._reply(200, {"digest": f"d{len(Handler.calls)}", "graph": {"nodes": []}})
+        if url.path == "/api/canvas-plan":
+            if Handler.stale:
+                Handler.stale -= 1
+                return self._reply(409, {"error": "Plátno se změnilo v jiném okně. Obnovte ho."})
+            if not body["plan"].get("nodes"):
+                return self._reply(409, {"error": "Dávka je prázdná."})
+            return self._reply(200, {"ok": True, "dryRun": body.get("dryRun", False), "refs": {"hero": "n_1"},
+                                     "summary": "1 karta", "warnings": [], "digest": "x", "revision": 3})
         if url.path == "/api/brain/heart/snapshot":
             return self._reply(200, {"snapshot": "PROJEKT p1\nPLÁN:"})
         if url.path == "/api/brain/tasks":
@@ -63,7 +74,7 @@ def server(monkeypatch, tmp_path):
                        "OPORA_WORKSPACE": "main"}.items():
         monkeypatch.setenv(key, value)
     monkeypatch.chdir(tmp_path)
-    Handler.calls = []
+    Handler.calls, Handler.stale = [], 0
     yield base
     httpd.shutdown()
 
@@ -86,6 +97,32 @@ def test_task_sends_the_fixed_shape_with_the_heart_token(server, capsys):
                                      "doneWhen": ["npm test projde"], "commit": "", "model": "opus",
                                      "dontTouch": [{"path": "nav.tsx", "heldBy": "úkol navigace"}],
                                      "context": {"rules": ["Česky"], "intent": "klid"}}}
+
+
+def test_plan_sends_the_file_with_a_fresh_digest_and_retries_stale_once(server, capsys, tmp_path):
+    plan = {"nodes": [{"ref": "hero", "kind": "node", "name": "Hero", "card": {"status": "draft"}}]}
+    (tmp_path / "plan.json").write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+    code, out = run(capsys, "plan", "--file", "plan.json", "--dry-run")
+    assert code == 0 and json.loads(out) == {"ok": True, "dryRun": True, "refs": {"hero": "n_1"}, "summary": "1 karta",
+                                             "warnings": []}
+    view, post = Handler.calls
+    assert view["path"] == "/api/view" and view["query"] == {"project": ["p1"], "workspace": ["main"]}
+    assert post["body"] == {"project": "p1", "workspace": "main", "digest": "d1", "plan": plan, "dryRun": True}
+    assert post["headers"]["X-Opora-Gate-Token"] == "tok-heart"
+    Handler.calls, Handler.stale = [], 1
+    code, out = run(capsys, "plan", "--file", "plan.json")
+    posts = [call for call in Handler.calls if call["path"] == "/api/canvas-plan"]
+    assert code == 0 and len(posts) == 2 and posts[0]["body"]["digest"] != posts[1]["body"]["digest"]
+    assert "dryRun" not in posts[1]["body"]
+    Handler.stale = 2
+    code, out = run(capsys, "plan", "--file", "plan.json")
+    assert code == 1 and json.loads(out)["code"] == "stale" and json.loads(out)["hint"]
+    (tmp_path / "empty.json").write_text('{"nodes": []}', encoding="utf-8")
+    code, out = run(capsys, "plan", "--file", "empty.json")
+    assert code == 1 and json.loads(out)["code"] == "http_409" and json.loads(out)["error"] == "Dávka je prázdná."
+    (tmp_path / "bad.json").write_text("[1]", encoding="utf-8")
+    assert json.loads(run(capsys, "plan", "--file", "bad.json")[1])["code"] == "plan_file"
+    assert json.loads(run(capsys, "plan", "--file", "chybi.json")[1])["code"] == "plan_file"
 
 
 def test_snapshot_answer_escalate_and_done(server, capsys, tmp_path):
