@@ -51,6 +51,9 @@ cwd = <data>/projects/<id>/brain/       env: without ANTHROPIC_API_KEY; OPORA_BA
   - At most 6 automatic batches (tickets, failed tasks) per hour per project. A batch with a human message skips
     this cap (eval m2: the cap held back the human's next brief); the subscription sleep still applies.
   - Timeout 15 min per batch: the job is killed and the batch is written as `timeout`.
+  - Advisor cap: when the Opus entries of today's batches (UTC) reach 2 USD for the project, the next batches run
+    without `--advisor` and are journaled with `advisor: false`. Eval m3/m6: the advisor is 86 % of the heart's cost,
+    and the most expensive session cost 0.37 USD.
 
 ## 3. Snapshot (`determinism/snapshot.py`, ≤ about 4k tokens)
 
