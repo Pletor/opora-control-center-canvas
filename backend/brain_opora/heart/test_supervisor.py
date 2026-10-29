@@ -119,6 +119,14 @@ def test_one_batch_per_project_six_automatic_per_hour_and_human_bypasses(setup):
     assert heart.run_once() == ["draft"]
 
 
+def test_batch_without_live_inputs_does_not_count_toward_the_cap(setup):
+    service, heart, clock, runner, _ = setup
+    for number in range(supervisor.PER_HOUR + 2):  # lístky vyřešené dřív, než dávka začne
+        heart._add("draft", "draft", {"type": "ticket", "ticketId": f"gone-{number}", "kind": "ask"}, clock.now)
+        assert heart.run_once() == ["draft"]
+    assert runner.calls == [] and heart.next_allowed("draft", clock.now) == clock.now
+
+
 def test_rate_limit_sleeps_and_keeps_inputs(setup):
     service, heart, clock, runner, _ = setup
     runner.result = LIMITED

@@ -2,7 +2,7 @@
 
 Vlákno (démon) sleduje outbox událostí projektů se zapnutou bránou: čekající lístek `ask` / `change`
 a úkol `failed` přidají vstup s oknem 20 s, zpráva člověka budí hned. Dávka běží ve vlastním vlákně, nejvýš
-jedna na projekt a nejvýš 6 automatických za hodinu (zpráva člověka strop obchází); vstup, který přijde během
+jedna na projekt a nejvýš 6 automatických za hodinu (zpráva člověka strop obchází, prázdná dávka se nepočítá); vstup, který přijde během
 dávky, počká na další. Vyčerpaný limit
 předplatného uspí srdce na 15 min a vstupy zůstanou. Běží jen na loopbacku a jen bez `OPORA_HEART=off`.
 """
@@ -130,8 +130,6 @@ class HeartSupervisor:
                 taken = [item for space, item, _ in items if space == workspace]
                 self.pending[project] = [entry for entry in items if entry[0] != workspace]
                 self.running.add(project)
-                if not human:
-                    self.starts.setdefault(project, deque()).append(now)
                 started.append((project, workspace, taken))
         for project, workspace, taken in started:
             self.spawn(lambda p=project, w=workspace, t=taken: self._batch(p, w, t))
@@ -161,6 +159,10 @@ class HeartSupervisor:
             inputs = resolve(self.service, project, items)
             if not inputs:
                 return
+            if not any(item.get("type") == "message" for item in inputs):
+                # do stropu se počítá až dávka, která opravdu běží (prázdná po `resolve` ne; sonda r1: 7. lístek čekal 53 min)
+                with self.lock:
+                    self.starts.setdefault(project, deque()).append(self.clock())
             spec = batch.BatchSpec(brain=self.brain(project), claude=claude, base_url=self.base_url,
                                    token=self._token(project, workspace), project=project, workspace=workspace,
                                    snapshot=snapshot.snapshot(self.service, project, workspace), inputs=inputs,
