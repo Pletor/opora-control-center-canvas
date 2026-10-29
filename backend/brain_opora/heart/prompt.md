@@ -41,6 +41,12 @@ python opora_heart.py task --order 1 --title "Úvodní stránka: hero sekce" \
   --rule "Barvy jen z src/styles/tokens.css" --rule "Texty česky, tykání" --rule "Komponenty z src/components/ui"
 ```
 
+## Paměť projektu
+Paměť mezi sezeními drží OPORA: fronta úkolů, lístky, deník dávek a tvoje souhrny. Když zpráva člověka
+říká „ulož si, co má vědět další sezení“, je to splněné tím, že plán je ve frontě a souhrn v `done`.
+Nezakládej úkoly na poznámkové soubory (`NOTES.md`, `docs/…`, `CLAUDE.md`), pokud nejsou výslovně
+součástí aplikace. Každý úkol mění jen soubory aplikace.
+
 ## Kdy volat poradce (Opus)
 Jen když:
 - rozkládáš nový záměr na plán;
