@@ -13,6 +13,7 @@ python "<SKILL_DIR>/scripts/opora_gate.py" next
 python "<SKILL_DIR>/scripts/opora_gate.py" ask "Smím upravit sdílený modul X?"
 python "<SKILL_DIR>/scripts/opora_gate.py" report --task ht_… --sha "$(git rev-parse HEAD)" --summary "…" \
   --check "npm test=green" --check "uv run pytest backend/x=green"
+python "<SKILL_DIR>/scripts/opora_gate.py" release --task ht_… --reason "Úkol potřebuje soubor z dontTouch."
 python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
 ```
 
@@ -27,9 +28,13 @@ python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
    Opakované `next` vrátí tentýž držený úkol. Prázdná fronta: `{task: null, plan: [{id, name, stage}]}` (nejvýš 20
    otevřených karet); úkol si nevymýšlej, zeptej se (`ask`) nebo čekej.
 2. Pracuj jen na `files`, nesahej na `dontTouch`. Kontroly spusť sám; nevymýšlej sha ani výsledky.
-3. `report` s `sha` (7–40 hex) a aspoň jednou kontrolou. Všechny zelené = `done`. Červená = úkol se vrátí do `ready`
+3. Commitni práci a `report` s `sha` z `git rev-parse HEAD` (7–40 hex) a aspoň jednou kontrolou. Všechny zelené =
+   `done`, ale jen když sha ve zdrojovém repu prostoru existuje (jinak 422 `sha_unknown`; bez git zdroje se
+   neověřuje). Červená = úkol se vrátí do `ready`
    (`attempts + 1`) a `next` ho dá znovu; druhá červená = `failed`. Kontroly se zapíší do `check_runs` u sha.
-4. Chyby: `task_not_assigned` (409, úkol nedržíš), `invalid_sha`, `checks_required`, `invalid_payload` (422),
+4. Úkol nedokončíš (chybí podklad, potřebuješ soubor z `dontTouch`, končíš relaci): `release --task … --reason "…"`
+   ho hned vrátí do `ready` (`attempts` beze změny, důvod uvidí srdce). Jinak ho držíš až 8 h do vypršení tokenu.
+5. Chyby: `task_not_assigned` (409, úkol nedržíš), `invalid_sha`, `sha_unknown`, `checks_required`, `invalid_payload` (422),
    `task_not_found` (404), `gate_token_invalid` (401, nová `session`), `gate_scope` (403, jiný projekt).
 
 ## Cesty
@@ -37,7 +42,7 @@ python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
 | Cesta | Kdo | Co |
 |---|---|---|
 | `/api/gate/sessions` | kdokoli na loopbacku | `POST {project, workspace, worker: {name, office?, floor?}}` → `201 {sessionId, token, expiresAt}` |
-| `/api/gate/requests` | token pracovníka | `POST {kind: next \| ask \| report \| change, body}` → `201 {ticketId, seq, kind, status, answer?}`; `next` a `report` odpoví hned |
+| `/api/gate/requests` | token pracovníka | `POST {kind: next \| ask \| report \| release \| change, body}` → `201 {ticketId, seq, kind, status, answer?}`; `next`, `report` a `release` odpoví hned |
 | `/api/gate/inbox` | token pracovníka | `GET ?after=<answeredSeq>&wait=0..30` → `{tickets, last}` (long-poll) |
 | `/api/gate/tickets/{ticket_id}` | token (vlastní lístek) nebo člověk s `?project=` | `GET` lístek |
 | `/api/gate/tickets/{ticket_id}/answer` | jen člověk | `POST {answer}` na čekající `ask` / `change` |
@@ -50,7 +55,7 @@ python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
 Když tě spustili s MCP serverem `opora` (`backend/api/brain_opora/mcp/opora_mcp.py`, kontrakt
 `docs/brain-control-api.md` §3), nepouštěj `opora_gate.py` ani Bash: každý druh brány je nástroj
 `mcp__opora__opora_<druh>` (`opora_next`, `opora_ask`, `opora_report`, `opora_change`, `opora_state`,
-`opora_inbox`; srdce navíc `opora_task_create`, `opora_task_cancel`, `opora_ticket_answer`, `opora_escalate`).
+`opora_inbox`, `opora_release`; srdce navíc `opora_task_create`, `opora_task_cancel`, `opora_ticket_answer`, `opora_escalate`).
 Vstup je přesně `inputSchema` nástroje, nic předem nečti.
 
 - Relaci zakládá server sám při prvním volání (z `OPORA_WORKER_NAME`); token nevidíš a nikam se neukládá.

@@ -1,7 +1,10 @@
 """Nástroj srdce proti falešnému serveru: hlavičky, tvar úkolu, odpověď, zrušení, eskalace, paměť (`decide`, `rule`),
 `done`, chyby a dílna (`ctx`, `run`)."""
 import json
+import os
+import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -193,3 +196,36 @@ def test_run_cuts_stdout_reports_errors_and_times_out(dilna, capsys, monkeypatch
     result = json.loads(run(capsys, "run", "slow")[1])
     assert result["timedOut"] is True and result["exit"] is None
     assert json.loads((dilna / "runs.jsonl").read_text(encoding="utf-8").splitlines()[-1])["script"] == "slow"
+
+
+TREE = """import subprocess, sys, time
+child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+open("child.pid", "w").write(str(child.pid))
+print("start", flush=True)
+time.sleep(60)
+"""
+
+
+def alive(pid):
+    if os.name == "nt":  # os.kill(pid, 0) by na Windows proces ukončil
+        listed = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True)
+        return str(pid) in listed.stdout
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def test_timeout_kills_the_whole_tree_with_sub_processes(dilna, capsys, monkeypatch):
+    (dilna / "scripts" / "tree.py").write_text(TREE, encoding="utf-8")
+    monkeypatch.setattr(opora_heart, "RUN_TIMEOUT", 2)
+    started = time.time()
+    result = json.loads(run(capsys, "run", "tree")[1])
+    assert result["timedOut"] is True and result["exit"] is None and "start" in result["stdout"]
+    assert time.time() - started < 8  # potomek nedrží rouru výstupu
+    child = int((dilna / "child.pid").read_text(encoding="utf-8"))
+    deadline = time.time() + 3
+    while alive(child) and time.time() < deadline:
+        time.sleep(0.1)
+    assert not alive(child)

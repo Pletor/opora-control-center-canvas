@@ -133,7 +133,15 @@ def _queue(facts):
             + (f" ({', '.join(holders)})" if holders else "")
             + f" · done {counts['done']} · failed {counts['failed']}")
     last = sorted(tasks, key=lambda task: task["seq"], reverse=True)[:TASKS]
-    return [head, *(f"- [{task['status']}] {_short(task['title'], 100)} ({task['taskId']})" for task in last)]
+    return [head, *(f"- [{task['status']}] {_short(task['title'], 100)} ({task['taskId']})" + _held_since(task)
+                    for task in last)]
+
+
+def _held_since(task):
+    """U drženého úkolu kdo a od kdy (`updatedAt` nastaví přidělení); čas jako údaj, ne délka, ať je snímek stálý."""
+    if task["status"] != "assigned":
+        return ""
+    return f" · drží {task.get('sessionId') or '?'} od {task.get('updatedAt') or '?'}"
 
 
 def _approved(rule):

@@ -10,7 +10,8 @@ FACTS = {"project": "p1", "name": "Zahrada", "workspace": "main", "goal": "",
                    {"id": "kontakt", "name": "Kontakt", "path": "/kontakt", "goal": "", "feel": ""}],
          "cards": [{"id": "home", "name": "Domů", "stage": "ready"}],
          "tasks": [{"taskId": "ht_1", "seq": 1, "title": "Hero", "status": "done", "sessionId": "gs_1"},
-                   {"taskId": "ht_2", "seq": 2, "title": "Formulář", "status": "assigned", "sessionId": "gs_2"}],
+                   {"taskId": "ht_2", "seq": 2, "title": "Formulář", "status": "assigned", "sessionId": "gs_2",
+                    "updatedAt": "2026-10-29T08:00:00Z"}],
          "tickets": [{"ticketId": "gt_1", "kind": "ask", "body": {"q": "Jaká barva?"}}],
          "checks": [("ht_1", "abcdef1234567890", "green")]}
 
@@ -30,6 +31,8 @@ def test_render_has_the_fixed_sections_in_order():
     assert positions == sorted(positions)
     assert "- Domů · / · ready · cíl: Uvěřit, že to zvládnu." in text and "- Kontakt · /kontakt · closed" in text
     assert text.index("[assigned] Formulář") < text.index("[done] Hero")  # nejnovější úkoly první
+    assert "- [assigned] Formulář (ht_2) · drží gs_2 od 2026-10-29T08:00:00Z" in text  # od kdy úkol drží
+    assert "- [done] Hero (ht_1)\n" in text
     assert '- gt_1 ask {"q": "Jaká barva?"}' in text and "- ht_1 abcdef123456 green" in text
     assert snapshot.render(FACTS) == text
 

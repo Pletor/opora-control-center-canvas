@@ -45,8 +45,8 @@ def service(tmp_path):
 
 
 def test_every_kind_is_complete_and_its_example_passes_check_and_schema():
-    assert list(kinds.KINDS) == ["next", "ask", "report", "change", "state", "inbox", "task.create", "task.cancel",
-                                 "ticket.answer", "escalate"]
+    assert list(kinds.KINDS) == ["next", "ask", "report", "change", "state", "inbox", "release", "task.create",
+                                 "task.cancel", "ticket.answer", "escalate"]
     assert set(SCHEMAS) == set(kinds.KINDS)
     for name, kind in kinds.KINDS.items():
         public = kind.public()
@@ -61,7 +61,7 @@ def test_every_kind_is_complete_and_its_example_passes_check_and_schema():
 
 def test_role_decides_the_visible_kinds():
     worker = [kind["kind"] for kind in kinds.visible("worker")]
-    assert worker == ["next", "ask", "report", "change", "state", "inbox"]
+    assert worker == ["next", "ask", "report", "change", "state", "inbox", "release"]
     assert [kind["kind"] for kind in kinds.visible("heart")] == list(kinds.KINDS)
     assert kinds.visible("human") == kinds.visible("heart")
 
@@ -73,7 +73,8 @@ def test_unknown_kind_lists_allowed_kinds_and_bad_bodies_name_the_example():
     assert caught.value.status == 422 and "next, ask, report, change, state, inbox" in caught.value.hint
     for name, body in (("ask", {"q": "?"}), ("change", {"proposal": "x"}), ("task.create", {"title": "x"}),
                        ("task.create", {**SCHEMAS["task.create"][2], "project": "draft"}), ("escalate", {}),
-                       ("ticket.answer", {"ticketId": "gt_1"}), ("task.cancel", {"taskId": "../x"})):
+                       ("ticket.answer", {"ticketId": "gt_1"}), ("task.cancel", {"taskId": "../x"}),
+                       ("release", {"taskId": "ht_1"}), ("release", {"taskId": "ht_1", "reason": " "})):
         with pytest.raises(GateError) as caught:
             kinds.KINDS[name].check(body)
         assert caught.value.code == "invalid_payload" and caught.value.hint, name

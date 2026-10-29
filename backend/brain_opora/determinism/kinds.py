@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from backend.brain_opora.determinism import gate, snapshot, task_queue
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_body, invalid, shaped
 from backend.brain_opora.determinism.kind_schemas import SCHEMAS
-from backend.brain_opora.determinism.task_payloads import empty_body, report_payload, task_fields
+from backend.brain_opora.determinism.task_payloads import empty_body, release_payload, report_payload, task_fields
 
 ROLES = {"worker": ("worker",), "heart": ("worker", "heart"), "human": ("worker", "heart")}
 ESCALATE_LIMIT = 8000
@@ -82,6 +82,7 @@ TABLE = (
     Kind("report", "worker", "Hlášení úkolu s kontrolami na sha: vše zelené = done, červená = zpět do ready, "
          "druhá červená = failed.",
          {"invalid_sha": "Pošlete výstup git rev-parse HEAD (nebo jeho zkrácenou podobu).",
+          "sha_unknown": "Commitni práci a nahlas sha z `git rev-parse HEAD`.",
           "checks_required": 'Spusťte kontroly a pošlete checks: [{"name": "npm test", "status": "green"}].',
           **TASK_MISSING,
           "task_not_assigned": "Hlaste jen úkol, který vám vrátil next; o další požádejte přes next."},
@@ -95,6 +96,10 @@ TABLE = (
     Kind("inbox", "worker", "Zodpovězené lístky této relace s answeredSeq > after; s wait > 0 čeká až wait sekund. "
          "Další volání pošle after = last.", {}, inbox_body,
          lambda service, session, body, now: gate.inbox(service, session, *inbox_body(body))),
+    Kind("release", "worker", "Vrátí držený úkol do fronty (ready) s krátkým důvodem; attempts se nemění. Použijte, "
+         "když úkol nedokončíte, místo čekání na vypršení tokenu.",
+         {**TASK_MISSING, "task_not_assigned": "Vrátit jde jen úkol, který držíte (vrátil vám ho next)."},
+         release_payload, task_queue.release),
     Kind("task.create", "heart", "Nový úkol ve frontě (ready) v projektu a prostoru tokenu srdce; nižší order jde "
          "dřív.", {**HEART_ONLY, "project_not_found": "ID projektu najdete v GET /api/bootstrap.",
          "files_held": "Soubor úkolu nesmí být zároveň v dontTouch; seřaď úkoly přes order."}, _task_create,

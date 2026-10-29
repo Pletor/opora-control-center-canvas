@@ -56,6 +56,18 @@ def test_finish_red_returns_to_ready_and_only_holder_finishes(store):
     assert store.get("ht_1")["status"] == "done"
 
 
+def test_release_returns_only_the_holders_task_and_keeps_attempts(store):
+    store.insert("ht_1", "main", None, "Úkol", {"do": "a"}, "human", AT)
+    assert store.release("ht_1", "gs_1", AT) is False  # ready, nikdo ho nedrží
+    store.assign("ht_1", "gs_1", AT)
+    store.finish("ht_1", "gs_1", "ready", 1, {}, AT)
+    store.assign("ht_1", "gs_1", AT)
+    assert store.release("ht_1", "gs_2", LATER) is False
+    assert store.release("ht_1", "gs_1", LATER) is True
+    task = store.get("ht_1")
+    assert (task["status"], task["sessionId"], task["attempts"], task["updatedAt"]) == ("ready", None, 1, LATER)
+
+
 def test_cancel_only_open_tasks(store):
     store.insert("ht_1", "main", None, "Úkol", {"do": "a"}, "human", AT)
     assert store.cancel("ht_1", AT) is True and store.cancel("ht_1", AT) is False

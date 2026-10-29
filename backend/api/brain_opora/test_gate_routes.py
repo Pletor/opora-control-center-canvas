@@ -130,6 +130,8 @@ def test_every_kind_example_runs_through_the_gate_and_answers_its_output_schema(
         ids["task"] = run("task.create", heart)["answer"]["task"]["taskId"]
         assert run("state", auth)["answer"]["queue"]["ready"] == 1
         assert run("next", auth)["answer"]["task"]["id"] == ids["task"]
+        assert run("release", auth, taskId="task")["answer"]["task"]["status"] == "ready"
+        assert run("next", auth)["answer"]["task"]["id"] == ids["task"]
         assert run("report", auth, taskId="task")["answer"]["task"]["status"] == "done"
         ids["ticket"] = run("ask", auth, taskId="task")["ticketId"]
         run("change", auth, taskId="task")
@@ -157,7 +159,7 @@ def test_kinds_listing_follows_the_role(tmp_path):
             body = client.get("/api/gate/kinds", headers=headers).json()
             return body["role"], [kind["kind"] for kind in body["kinds"]]
 
-        worker_kinds = ["next", "ask", "report", "change", "state", "inbox"]
+        worker_kinds = ["next", "ask", "report", "change", "state", "inbox", "release"]
         heart_kinds = ["task.create", "task.cancel", "ticket.answer", "escalate"]
         assert names(auth) == ("worker", worker_kinds)
         assert names(AGENT) == ("worker", worker_kinds)

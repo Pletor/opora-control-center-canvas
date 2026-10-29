@@ -3,16 +3,19 @@
 Úkoly píše člověk nebo srdce projektu (H2a, `created_by = "heart"`). Pracovník si přes bránu řekne o další (`next`), úkol mu zůstane, dokud ho
 neohlásí (`report`): všechny kontroly zelené = `done`, červená = zpět do `ready`, druhá červená = `failed`.
 Kontroly se jen zapisují do `check_runs` u nahlášeného sha; aplikace sama nic nespouští a nevolá model.
-Úkol relace s prošlým nebo zneplatněným tokenem se vrátí do `ready` při nejbližším `next` kohokoli.
-Změny stavu (vznik, přidělení, done, failed, zrušení) vydají událost `gate.task`.
+Úkol relace s prošlým nebo zneplatněným tokenem se vrátí do `ready` při nejbližším `next` kohokoli; pracovník ho
+může vrátit sám (`release` s důvodem). Zelené hlášení musí nést sha, které ve zdrojovém repu prostoru existuje.
+Změny stavu (vznik, přidělení, done, failed, zrušení, vrácení) vydají událost `gate.task`.
 """
 import sqlite3
+import subprocess
 import uuid
 
 from backend.brain_opora.determinism import tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_payloads import (
     empty_body,
+    release_payload,
     report_payload,
     status_filter,
     task_payload,
@@ -20,11 +23,13 @@ from backend.brain_opora.determinism.task_payloads import (
 from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_events import emit_event
 from backend.canvas.opora_process_sync import ProcessSync
+from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.heart_tasks import HeartTaskStore
 
 PLAN_LIMIT = 20
 MAX_ATTEMPTS = 2
 OUTPUT_LIMIT = 1500
+GIT_TIMEOUT = 10
 HUMAN = {"kind": "human", "name": None}
 HEART = {"kind": "agent", "name": "heart"}
 WRITERS = ("human", "heart")
@@ -46,9 +51,9 @@ def _missing_task():
     return GateError(404, "task_not_found", "Úkol v projektu neexistuje.", "ID úkolu vrací next nebo GET /api/brain/tasks.")
 
 
-def _emit(db, project, task, actor):
+def _emit(db, project, task, actor, **extra):
     emit_event(db, project_id=project, workspace_id=task["workspaceId"], kind="gate.task", node_id=task["nodeId"],
-               actor=actor, data={"taskId": task["taskId"], "status": task["status"]})
+               actor=actor, data={"taskId": task["taskId"], "status": task["status"], **extra})
 
 
 def _agent(session):
@@ -151,18 +156,61 @@ def _detail(check):
     return (check["name"] + (": " + output[:OUTPUT_LIMIT] if output else "")).replace("\0", "")
 
 
+def _held(store, task_id, session, hint):
+    """Úkol držený touto relací, jinak 404 `task_not_found` / 409 `task_not_assigned`."""
+    task = store.get(task_id)
+    if task is None:
+        raise _missing_task()
+    if task["status"] != "assigned" or task["sessionId"] != session["id"]:
+        raise GateError(409, "task_not_assigned", "Úkol není přidělený této relaci.", hint)
+    return task
+
+
+def source_root(service, project, workspace):
+    """Kořen zdrojového repa prostoru, nebo None (žádný zdroj, nedostupný, mimo hranici)."""
+    try:
+        return WorkspaceSources(service).root(project, workspace)
+    except (ValueError, KeyError, OSError, sqlite3.Error):
+        return None
+
+
+def commit_exists(root, sha):
+    """True / False podle `git cat-file -e <sha>^{commit}`; None, když kořen není repo gitu nebo git nejde spustit."""
+    try:
+        inside = subprocess.run(["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"], capture_output=True,
+                                stdin=subprocess.DEVNULL, timeout=GIT_TIMEOUT)
+        if inside.returncode != 0:
+            return None
+        found = subprocess.run(["git", "-C", str(root), "cat-file", "-e", sha + "^{commit}"], capture_output=True,
+                               stdin=subprocess.DEVNULL, timeout=GIT_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return found.returncode == 0
+
+
+REPORT_HELD = "Hlaste jen úkol, který vám vrátil next; o další požádejte přes next."
+
+
+def _check_sha(service, session, task_id, sha):
+    """Zelené hlášení: sha musí být commit ve zdrojovém repu prostoru. Git běží mimo zámek projektu."""
+    project = session["project_id"]
+    with service.reading(project):
+        task = _held(HeartTaskStore(service.db_for(project), project), task_id, session, REPORT_HELD)
+    root = source_root(service, project, task["workspaceId"])
+    if root is not None and commit_exists(root, sha) is False:
+        raise GateError(422, "sha_unknown", f"Commit {sha} ve zdrojovém repu pracovního prostoru neexistuje.",
+                        "Commitni práci a nahlas sha z `git rev-parse HEAD`.")
+
+
 def report(service, session, body, now=None):
     """Obsluha `report`: kontroly do `check_runs` u sha a výsledek úkolu → `{task: {id, status, attempts}}`."""
     task_id, sha, summary, checks = report_payload(body)
     project = session["project_id"]
+    if all(check["status"] == "green" for check in checks):
+        _check_sha(service, session, task_id, sha)
     with service.lock_for(project):
         db = service.db_for(project)
-        task = HeartTaskStore(db, project).get(task_id)
-        if task is None:
-            raise _missing_task()
-        if task["status"] != "assigned" or task["sessionId"] != session["id"]:
-            raise GateError(409, "task_not_assigned", "Úkol není přidělený této relaci.",
-                            "Hlaste jen úkol, který vám vrátil next; o další požádejte přes next.")
+        task = _held(HeartTaskStore(db, project), task_id, session, REPORT_HELD)
         runs = CheckRuns(service)
         scope = (project, task["workspaceId"], task["nodeId"] or task_id)
         for check in checks:  # každý zápis má vlastní transakci (append-only check_runs)
@@ -177,4 +225,19 @@ def report(service, session, body, now=None):
             task = store.get(task_id)
             if status != "ready":
                 _emit(db, project, task, _agent(session))
+    return {"task": {"id": task_id, "status": task["status"], "attempts": task["attempts"]}}
+
+
+def release(service, session, body, now=None):
+    """Obsluha `release`: držený úkol zpět do `ready` bez relace (`attempts` beze změny), důvod jde do `gate.task`."""
+    task_id, reason = release_payload(body)
+    project = session["project_id"]
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            store = HeartTaskStore(db, project)
+            _held(store, task_id, session, "Vrátit jde jen úkol, který držíte (vrátil vám ho next).")
+            store.release(task_id, session["id"], tokens.stamp(now))
+            task = store.get(task_id)
+            _emit(db, project, task, _agent(session), reason=reason)
     return {"task": {"id": task_id, "status": task["status"], "attempts": task["attempts"]}}

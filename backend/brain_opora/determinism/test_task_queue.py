@@ -1,5 +1,6 @@
 """Fronta úkolů: zápis, `next` (idempotentní, nejstarší, návrat úkolů prošlých relací), `report` a události `gate.task`."""
 import json
+import subprocess
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -132,3 +133,63 @@ def test_heart_writes_ordered_tasks_and_order_is_checked(service):
             task_queue.create(service, payload | {"order": order})
     with pytest.raises(ValueError):
         task_queue.create(service, payload, created_by="worker")
+
+
+def test_release_gives_the_held_task_back_with_a_reason(service):
+    task = create(service, "Úkol")
+    mine, other = worker(service), worker(service)
+    task_queue.next_task(service, mine, {})
+    report(service, mine, task["taskId"], RED)
+    task_queue.next_task(service, mine, {})
+    body = {"taskId": task["taskId"], "reason": "Potřebuji soubor z dontTouch."}
+    for session, payload, code in ((other, body, "task_not_assigned"), (mine, {**body, "taskId": "ht_none"},
+                                   "task_not_found"), (mine, {"taskId": task["taskId"]}, "invalid_payload"),
+                                   (mine, {**body, "reason": "x" * 401}, "invalid_payload")):
+        with pytest.raises(GateError) as caught:
+            task_queue.release(service, session, payload)
+        assert caught.value.code == code and caught.value.hint
+    assert task_queue.release(service, mine, body) == {"task": {"id": task["taskId"], "status": "ready", "attempts": 1}}
+    held = task_queue.list_tasks(service, "draft", "draft")["tasks"][0]
+    assert (held["status"], held["sessionId"]) == ("ready", None)
+    rows = service.db_for("draft").execute("SELECT data FROM opora_events WHERE kind='gate.task' ORDER BY id").fetchall()
+    assert json.loads(rows[-1][0]) == {"taskId": task["taskId"], "status": "ready", "reason": body["reason"]}
+    with pytest.raises(GateError) as again:
+        task_queue.release(service, mine, body)
+    assert again.value.code == "task_not_assigned"
+    assert task_queue.next_task(service, other, {})["task"]["id"] == task["taskId"]
+
+
+def git(root, *args):
+    return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def test_green_report_needs_a_commit_in_the_source_repo(service, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    (repo / "a.txt").write_text("a", encoding="utf-8")
+    git(repo, "add", "a.txt")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "a")
+    head = git(repo, "rev-parse", "HEAD")
+    monkeypatch.setattr(task_queue, "source_root", lambda *args: repo)
+    task = create(service, "Úkol")
+    session = worker(service)
+    task_queue.next_task(service, session, {})
+    green = {"taskId": task["taskId"], "summary": "s", "checks": GREEN}
+    with pytest.raises(GateError) as caught:
+        task_queue.report(service, session, {**green, "sha": "0000000"})
+    assert caught.value.status == 422 and caught.value.code == "sha_unknown" and "git rev-parse HEAD" in caught.value.hint
+    assert service.db_for("draft").execute("SELECT COUNT(*) FROM check_runs").fetchone()[0] == 0
+    # červené hlášení práci commitnutou mít nemusí
+    assert task_queue.report(service, session, {**green, "sha": "0000000", "checks": RED})["task"]["status"] == "ready"
+    task_queue.next_task(service, session, {})
+    assert task_queue.report(service, session, {**green, "sha": head[:9]})["task"]["status"] == "done"
+
+
+def test_sha_is_accepted_without_a_git_source(service, tmp_path, monkeypatch):
+    assert task_queue.commit_exists(tmp_path, "0000000") is None  # není repo gitu
+    monkeypatch.setattr(task_queue, "source_root", lambda *args: tmp_path)
+    task = create(service, "Úkol")
+    session = worker(service)
+    task_queue.next_task(service, session, {})
+    assert report(service, session, task["taskId"], GREEN)["task"]["status"] == "done"
