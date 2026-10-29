@@ -65,6 +65,8 @@ How the kinds are served:
 - **Launch:**
   - worker: `claude --mcp-config '{"mcpServers":{"opora":{"command":"python","args":["<abs>/opora_mcp.py"]}}}'
     --allowedTools mcp__opora__*`;
+  - `--safe-mode` turns MCP servers off, so a sandboxed agent uses `--strict-mcp-config` with
+    `--setting-sources` instead (live smoke 2026-10-29: the tools were missing under `--safe-mode`).
   - heart: the same with its token. The heart's Bash rule and `opora_heart.py` then go away (H2 follow-up, after
     measuring).
 
