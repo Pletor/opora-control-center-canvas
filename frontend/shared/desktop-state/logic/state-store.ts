@@ -22,7 +22,7 @@ export type DesktopStateHandle = {
   loading: boolean;
   error: string;
   /**
-   * Znovu načte stav ze serveru (např. po zápisu asistenta z jiného procesu, docs/asistent.md §6.2).
+   * Znovu načte stav ze serveru (např. po zápisu jiného procesu přes backend).
    * Když právě běží uložení, počká na jeho konec: rozpracovaná změna se nepřepíše ani nezahodí.
    */
   reload: () => void;

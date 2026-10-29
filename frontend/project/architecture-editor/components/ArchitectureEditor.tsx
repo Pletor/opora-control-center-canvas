@@ -31,7 +31,8 @@ import { mapCheckGroups, type MapCheckTarget } from "../domain-map/map-check/log
 import { pageWork, panelViews } from "../logic/live-views";
 import LiveDomainPanel from "../live-status/components/LiveDomainPanel";
 import WebStatusBadge from "../live-status/components/WebStatusBadge";
-import { sessionTitle, type CardRequest, type SessionRequest } from "../live-status/logic/session-state";
+import type { CardRequest } from "../live-status/logic/session-state";
+import type { HeartRequest } from "@/layout/heart-channel/logic/heart-api";
 import { architectureEditable, contentLock, structureLock, type LockInput } from "../logic/edit-locks";
 import { useWorktreeAdmin } from "../logic/use-worktree-admin";
 import { normalizeConflicts } from "../view-conflicts/logic/view-conflicts";
@@ -40,10 +41,10 @@ import { pageDecomposeOffer, type PageDecompose } from "../page-editor/page-deco
 
 /** Co editor architektury potřebuje vědět o živé práci: schopnost projektu (od App) a akce, které jdou nahoru do App. */
 export type ArchitectureLiveProps = {
-  worktreeLive: boolean; mainWorkspace: string;
-  onSwitchWorkspace: (id: string) => void; onStartSession: (request: SessionRequest) => void; onCreateWorktree: (domainId: string) => void;
-  /** Otevře kartu (App přepne prostor, je-li jiný) a relaci asistenta (panel Asistent). */
-  onOpenCard: (request: CardRequest) => void; onOpenSession: (id: string) => void;
+  worktreeLive: boolean;
+  onSwitchWorkspace: (id: string) => void; onAskHeart: (request: HeartRequest) => void; onCreateWorktree: (domainId: string) => void;
+  /** Otevře kartu (App přepne prostor, je-li jiný). */
+  onOpenCard: (request: CardRequest) => void;
 };
 
 const EMPTY_GRAPH: Graph = { nodes: [], edges: [] };
@@ -166,7 +167,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const env = domain ? environmentOf(domain) : null;
   const views = domain ? panelViews(live, domain.id) : null;
   const webBadge = views && <WebStatusBadge host={views.web.host} stale={views.web.stale}/>;
-  const nav = { onOpenCard: liveProps.onOpenCard, onOpenSession: liveProps.onOpenSession };
+  const nav = { onOpenCard: liveProps.onOpenCard };
   const decompose: PageDecompose = (pageId) => pageDecomposeOffer({ project, workspace, graph, pageId, check: mapCheck });
   const crumbs = domain ? [env?.name ?? SHARED_GROUP, env?.host || domain.name, ...(scope ? [scope.name] : [])] : [];
   const identity = (original: CanvasNode, name: string, purpose: string) => execute(async () => { writable(original.id, original.site ? "structure" : "content"); const current = graph.nodes.find((node) => node.id === original.id); if (!current || current.name !== original.name || current.purpose !== original.purpose) throw new Error("Název nebo účel se mezitím změnil. Zrušte koncept a otevřete aktuální hodnoty."); await saveGraph({ ...graph, nodes: graph.nodes.map((node) => node.id === original.id ? { ...node, name: name.trim(), purpose: purpose.trim() } : node) }); });
@@ -179,14 +180,14 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onCopyId={() => { void navigator.clipboard.writeText(editorId).catch(() => setError("ID se nepodařilo zkopírovat.")); }}/>
     <EditorNotices error={error || (store.view ? store.error ?? "" : "") || desktop.error || ""} lock={scope ? locks.content : locks.structure} conflicts={normalizeConflicts(store.view?.conflicts)}/>
     {scopeError ? <div className="ae-route-error"><p role="alert">{scopeError}</p><button onClick={() => navigate(null)}>Zpět na domény</button></div> : !ready || !store.view ? <p className="ae-loading">Načítám architekturu…</p> : !domain ? <ArchitectureLanding graph={graph} disabled={structureDisabled} lockReason={locks.structure?.text}
-      live={{ web: live.web, work: live.work, worktreeLive: live.worktreeLive, nav, onCreateWorktree: liveProps.onCreateWorktree, onStartMainSession: () => liveProps.onStartSession({ workspace: liveProps.mainWorkspace, nodeId: null, title: sessionTitle("main") }),
+      live={{ web: live.web, work: live.work, worktreeLive: live.worktreeLive, nav, onCreateWorktree: liveProps.onCreateWorktree,
         onAssign: admin.assign, shelf: admin.shelf, onLoadShelf: admin.loadShelf }}
       onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
       work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} cardStates={cards.states} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding} decompose={decompose}
       webBadge={views && !views.work ? webBadge : null}
       live={views?.work ? <LiveDomainPanel web={views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
-        actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onStartSession: liveProps.onStartSession, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
+        actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onAskHeart: liveProps.onAskHeart, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
       onReorder={(id, direction) => eventAction(async () => { writable(id, "structure"); const next = reorderDomainPage(graph, domain.id, id, direction); next.nodes.forEach((node, index) => { if (graph.nodes[index]?.id !== node.id) writable(node.id, "structure"); }); await saveGraph(next); })}
       onReparent={(id, parentId) => execute(async () => { for (const child of subtreeIds(id)) writable(child, "structure"); writable(parentId, "structure"); await saveGraph(reparentDomainPage(graph, domain.id, id, parentId)); })}/>
     : <PageEditor key={domain.id + ":" + scope.id} webBadge={webBadge} graph={graph} domain={domain} scope={scope} projectName={projectName || "Projekt"} selectedId={selected?.id ?? null}

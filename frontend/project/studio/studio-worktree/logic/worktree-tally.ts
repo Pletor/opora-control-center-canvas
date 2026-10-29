@@ -12,8 +12,8 @@ export type WorktreeTally = { count: number; marks: WorktreeMark[] };
 /** Kam nález patří na kartách (uzel, zdroj hrany, doména cesty); chybí = nikam. */
 export type FindingLocate = (finding: MapCheckFinding) => string | undefined;
 
-/** Živý nárok práce: lease `active`, relace asistenta `running`. */
-export const sessionLive = (session: LiveSession) => (session.source === "lease" ? session.state === "active" : session.state === "running");
+/** Živý nárok práce: lease `active`. */
+export const sessionLive = (session: LiveSession) => session.state === "active";
 
 /** Worktree po kartách z overlay kontroly mapy a ze stavu práce; obojí může chybět. */
 export function worktreesByNode(overlay: MapWorktreeOverlay | null | undefined, work: WorkStatus | null | undefined, locate: FindingLocate): Map<string, WorktreeMark[]> {

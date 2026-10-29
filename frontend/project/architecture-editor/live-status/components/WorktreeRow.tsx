@@ -5,15 +5,15 @@ import { worktreeKey, type TreeItem } from "../logic/tree-nav";
 import SessionChip from "./SessionChip";
 import { worktreeLabel, worktreeName } from "../logic/worktree-label";
 
-/** Otevření z řádku stromu: karta (App přepne prostor a vybere ji) a relace asistenta (panel Asistent). */
-export type WorktreeNav = { onOpenCard: (request: CardRequest) => void; onOpenSession: (id: string) => void };
+/** Otevření z řádku stromu: karta (App přepne prostor a vybere ji). */
+export type WorktreeNav = { onOpenCard: (request: CardRequest) => void };
 
 /** Co řádek potřebuje od stromu: zastávku Tab, registraci prvků pro fokus a použití položky. */
 export type RowFocus = { tabStop: string | null; register: (key: string) => (element: HTMLLIElement | null) => void; onActivate: (item: TreeItem) => void };
 
 /**
  * Jeden worktree ve stromu: aktér, krátké ID a stav slovem (větev a plné ID jsou v `title`); rozbalený ukáže relace a karty v práci jako
- * podřízené položky. Akce (přepnutí, nové relace) tu nejsou, patří do detailu vybraného worktree.
+ * podřízené položky. Akce (přepnutí, zadání srdci) tu nejsou, patří do detailu vybraného worktree.
  */
 export default function WorktreeRow({ worktree, expanded, selected, nav, focus, onToggle }: {
   worktree: LiveWorktree; expanded: boolean; selected: boolean; nav?: WorktreeNav; focus: RowFocus; onToggle: () => void;
@@ -40,7 +40,7 @@ export default function WorktreeRow({ worktree, expanded, selected, nav, focus, 
     </div>
     {expanded && <ul role="group" className="live-status__group">
       {worktree.sessions.map((session) => <li key={session.source + session.id} className="live-status__leaf" {...leaf(`s:${worktree.id}:${session.source}:${session.id}`, "session", session.id)}>
-        <SessionChip session={session} effective={worktree.state} onOpen={nav && (() => nav.onOpenSession(session.id))}/>
+        <SessionChip session={session} effective={worktree.state}/>
       </li>)}
       {worktree.cards.map((card) => <li key={card.nodeId} className="live-status__leaf" {...leaf(`c:${worktree.id}:${card.nodeId}`, "card", card.nodeId)}>
         {nav ? <button type="button" tabIndex={-1} className="live-status__card-name live-status__card-name--link" title={`Otevřít kartu ${card.name} ve worktree ${name}`} data-testid={"worktree-card-" + card.nodeId}

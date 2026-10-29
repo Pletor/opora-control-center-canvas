@@ -3,7 +3,7 @@ import type { QueueTask } from "./heart-api";
 import { groupQueue, holderLabel } from "./queue";
 
 const task = (taskId: string, status: QueueTask["status"], order = 1, sessionId: string | null = null): QueueTask => ({
-  taskId, title: taskId, status, sessionId, createdBy: "heart", order, body: { do: "x" },
+  taskId, title: taskId, status, sessionId, nodeId: null, createdBy: "heart", updatedAt: "2026-10-29T10:00:00Z", order, body: { do: "x" },
 });
 
 describe("fronta srdce", () => {

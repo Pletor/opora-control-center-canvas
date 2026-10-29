@@ -10,7 +10,7 @@ const graph = { nodes: [
 ], edges: [] } as unknown as Graph;
 const wt = (id: string, state: LiveWorktree["state"], createdAt = "", cards: string[] = [], sessionNode: string | null = null): LiveWorktree => ({
   id, branch: "work/" + id, actor: "a", createdAt, state, reasons: [], cards: cards.map((nodeId) => ({ nodeId, name: nodeId })),
-  sessions: sessionNode ? [{ source: "assistant", id: "s-" + id, state: "running", nodeId: sessionNode, lastSeenAt: null }] : [],
+  sessions: sessionNode ? [{ source: "lease", id: "s-" + id, state: "active", nodeId: sessionNode, lastSeenAt: null }] : [],
 });
 
 describe("model živého stavu", () => {
@@ -24,9 +24,8 @@ describe("model živého stavu", () => {
     expect(domain.counts).toEqual({ running: 1, waiting: 0, stopped: 0, none: 1, total: 2 });
     expect(domain.worktrees[0].cards).toEqual([{ nodeId: "c1", name: "c1" }]);
     expect(status.unassigned[0].state).toBe("waiting");
-    expect(status.mainSessions).toEqual([]);
     expect(domainLive(status, "x")).toBeNull();
-    expect(normalizeWorkStatus(undefined)).toEqual({ domains: [], unassigned: [], mainSessions: [] });
+    expect(normalizeWorkStatus(undefined)).toEqual({ domains: [], unassigned: [] });
   });
   it("věta s počty vynechá nulové stavy", () => {
     expect(countsLine({ running: 1, waiting: 1, stopped: 0, none: 1, total: 3 })).toBe("3 worktree · 1 běží · 1 čeká");

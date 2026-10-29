@@ -1,4 +1,4 @@
-/* Nastavení aplikace: dialog s levou navigací, sekce Obecné (vzhled a automatika map), Plátno, Asistent (pokyny jako systémový prompt), Skills a Connectors. */
+/* Nastavení aplikace: dialog s levou navigací, sekce Obecné (vzhled a automatika map), Plátno, Jev (klíče), projekt, Skills a Connectors. */
 .settings-dialog { width: min(1000px, calc(100vw - 32px)); height: min(720px, calc(100vh - 32px)); padding: 0; display: grid; grid-template-columns: 200px minmax(0, 1fr); overflow: hidden; }
 .settings-nav { padding: var(--sp-3) var(--sp-2); border-right: 1px solid var(--line); background: var(--surface); display: grid; align-content: start; gap: var(--sp-3); overflow: auto; }
 .settings-nav .menu-item { display: block; width: 100%; }

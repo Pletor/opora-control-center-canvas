@@ -11,7 +11,9 @@ export type QueueTask = {
   title: string;
   status: QueueStatus;
   sessionId: string | null;
+  nodeId: string | null;
   createdBy: string;
+  updatedAt: string;
   order: number;
   body: { do: string; doneWhen?: string[] };
 };
@@ -58,6 +60,9 @@ export const fetchQueue = (project: string, workspace: string) =>
 
 export const fetchHeartStatus = (project: string) =>
   api<HeartStatus>(`/api/brain/heart/status?project=${encodeURIComponent(project)}`);
+
+/** Připravený text pro srdce z jiné části aplikace (Kancelář, živý panel domény) a prostor, kterého se týká. */
+export type HeartRequest = { workspace: string; text: string };
 
 export const sendHeartMessage = (project: string, workspace: string, text: string) =>
   api<{ queued: boolean; pending: number }>("/api/brain/heart/messages", { project, workspace, text });

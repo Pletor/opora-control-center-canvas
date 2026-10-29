@@ -218,17 +218,6 @@ def test_placed_is_written_directly_by_the_agent(server, capsys):
                     'note': 'vlož uložený plán', 'project': 'p1', 'workspace': 'draft'}
 
 
-def test_assistant_window_still_asks_for_placed():
-    """Okno asistenta je jiná cesta: stejný zápis přes opora_write.py tam dál schvaluje člověk."""
-    from backend.claude_code.assistant import approvals
-
-    body = json.dumps({'op': 'gate', 'fragmentId': 'f1', 'expectedRevision': 4, 'gate': 'placed', 'value': True,
-                       'note': 'x'})
-    command = f"python x/opora_write.py /api/brief-vault --project p1 --workspace draft --json '{body}'"
-    kind, parsed = approvals.classify({'tool_name': 'Bash', 'input': {'command': command}})
-    assert kind == 'ask' and parsed['payloadSummary'].startswith('Zápis na plátno: brána placed')
-
-
 def test_reject_sends_reject_proposal_and_passes_400_until_backend_has_it(server, capsys):
     code, out = run(capsys, 'reject', 'f1', 'weighed', '--note', 'riziko je obecné')
     assert code == 1 and out['error'] == 'HTTP 400' and 'reject-proposal' in out['detail']
@@ -239,14 +228,6 @@ def test_reject_sends_reject_proposal_and_passes_400_until_backend_has_it(server
     assert code == 0 and out['op'] == 'reject-proposal' and out['rejected']['id'] == 'pr1'
     assert run(capsys, 'reject', 'f1', 'weighed')[0] == 1  # bez --note nic neodejde
     assert len(posts(server)) == 2
-
-
-def test_cycle_script_itself_is_never_approvable():
-    """Asistent nemůže zápis obejít přes opora_cycle.py: backend ho zamítne sám."""
-    from backend.claude_code.assistant import approvals
-
-    command = 'python x/opora_cycle.py yes f1 placed --project p --workspace w --note ok'
-    assert approvals.classify({'tool_name': 'Bash', 'input': {'command': command}})[0] == 'auto_deny'
 
 
 def test_only_loopback_base(server, capsys, monkeypatch):

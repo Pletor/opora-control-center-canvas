@@ -1,17 +1,17 @@
 # Skill opora-control-center
 
 Znovupoužitelný skill pro práci s plátnem OPORA v **kterémkoli projektu**, současném i budoucím.
-Platí pro asistenta v okně OPORA (`docs/asistent.md`) i pro agenta mimo aplikaci (Claude Code
+Platí pro pracovníky pod agent-office i pro agenta mimo aplikaci (Claude Code
 v terminálu nebo VS Code). Globálně je dostupný přes odkaz `~/.claude/skills/opora-control-center`
 na tuto složku v repu OPORA, takže v repu projektu nic instalovat netřeba a úprava zde platí všude.
 
-Projekt neurčuje skill, ale dvě hodnoty: `<projectId>` a `<workspace>`. Asistent je dostane
-v `<opora_context>`, agent mimo aplikaci je zjistí `opora_read.py projects` / `workspaces`.
+Projekt neurčuje skill, ale dvě hodnoty: `<projectId>` a `<workspace>`. Pracovník je dostane
+v promptu, agent mimo aplikaci je zjistí `opora_read.py projects` / `workspaces`.
 Do skillu nepatří nic specifického pro jeden projekt.
 
 ## Co je uvnitř
 
-- `SKILL.md`: rozcestník nad OporaHubem. Kde agent běží (pod agent-office, mimo aplikaci, v okně),
+- `SKILL.md`: rozcestník nad OporaHubem. Kde agent běží (pod agent-office, mimo aplikaci),
   hlavní smyčka (agent-state → akce → běh po krocích → výsledek), role, co patří člověku,
   tabulka „chci X → udělám Y“, pravidla efektivity a hranice.
 - `references/` (načítá se jen podle potřeby, každá začíná „Kdy mě číst“):
@@ -50,5 +50,5 @@ zmíněná v SKILL.md a references/ existuje v tabulce cest backendu (cesty z b�
 v `PENDING_ROUTES`), že naopak **každá** cesta backendu je ve skillu doslova popsaná (výjimky jen §4
 `docs/plna-autonomie-agenta.md` a čisté UI v `UNDOCUMENTED_ROUTES`) a že příklady JSON označené `<!-- example: /api/… -->` projdou validátorem backendu.
 `test_opora_hub.py` projde celou smyčku agenta proti skutečnému backendu.
-Co asistent smí spustit, určuje backend (`backend/claude_code/assistant/approvals.py`, `command.py`),
+Co srdce OPORY smí spustit, určuje backend (`backend/brain_opora/heart/command.py`, `--allowedTools`),
 ne tento skill. Novou cestu nebo příkaz zapiš do skillu až ve chvíli, kdy existuje v kódu.

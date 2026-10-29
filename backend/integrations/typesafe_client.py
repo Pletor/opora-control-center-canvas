@@ -1,4 +1,4 @@
-"""Klient TypeSafe Jev: jediné místo, kde Opora volá placené API (docs/asistent.md §13, §13.2).
+"""Klient TypeSafe Jev: jediné místo, kde Opora volá placené API (backend/brain_opora/decision/README.md).
 
 Jev negeneruje text. Na `state + questions` vrací typované odpovědi (`choice`, `score`, `noul`)
 s pravděpodobností. Asistentovi jen zrychluje volbu podkladu; když klíč chybí nebo služba

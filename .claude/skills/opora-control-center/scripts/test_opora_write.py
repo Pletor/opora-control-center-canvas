@@ -1,4 +1,4 @@
-"""Zapisovací skript nad falešnou sítí: `_open` se podvrhne, nic neodchází (docs/asistent.md §5.1)."""
+"""Zapisovací skript nad falešnou sítí: `_open` se podvrhne, nic neodchází."""
 
 import io
 import json

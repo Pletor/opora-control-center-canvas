@@ -1,7 +1,7 @@
 """Čtecí klient OPORA: GET na loopback server, nebo na vlastní tunel s tokenem.
 
 `--base-url http://127.0.0.1:PORT` je domácí režim beze změny; bez něj i bez `--api-base`
-se vezme `OPORA_BASE_URL` (asistent ji dostane od své instance, docs/asistent.md §13.1).
+se vezme `OPORA_BASE_URL` (proces srdce ji dostane od své instance).
 POST jde jen na pevný seznam čtecích dotazů `POST_ROUTES`; skript nic nezapisuje.
 `--api-base https://HOST` je vzdálený režim: jde jen s tokenem v proměnné prostředí
 `OPORA_ACCESS_TOKEN` (nikdy v příkazu ani v logu) a posílá `Authorization: Bearer` a `Origin`.

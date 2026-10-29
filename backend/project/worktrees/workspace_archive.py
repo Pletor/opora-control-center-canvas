@@ -10,7 +10,7 @@ nechalo konzistentní a opakovatelný stav:
 4. smazání řádku `workspaces`.
 
 Selže-li krok 3 nebo 4, chyba řekne, co už se stalo; nové zavolání postup dokončí (hotové kroky přeskočí).
-Odmítne se worktree se změnami (`git status --porcelain`) i worktree s živou relací (stav běží/čeká, §7).
+Odmítne se worktree se změnami (`git status --porcelain`) i worktree s živou prací (stav běží/čeká, §7).
 Ze skladiště jde jen číst; obnova je pozdější kus.
 """
 
@@ -44,12 +44,11 @@ def archived_workspaces(service, pid):
              "reason": r["reason"], "archivedAt": r["archived_at"]} for r in rows]
 
 
-def live_state(service, registry, pid, wid, now=None):
+def live_state(service, pid, wid, now=None):
     """(stav, důvody) jednoho worktree podle zdrojů stavu práce (§7)."""
     now = now or datetime.fromtimestamp(time.time(), UTC)
-    sources = collect_sources(service, registry, pid)
+    sources = collect_sources(service, pid)
     return worktree_state(
-        [s for s in sources["sessions"] if s.get("workspace") == wid],
         [lease for lease in sources["leases"] if lease["workspace_id"] == wid],
         {a["node_id"]: a for a in sources["activity"] if a["workspace_id"] == wid},
         now,
@@ -57,9 +56,8 @@ def live_state(service, registry, pid, wid, now=None):
 
 
 class WorkspaceArchive:
-    def __init__(self, service, registry):
+    def __init__(self, service):
         self.service = service
-        self.registry = registry
 
     def items(self, pid):
         if pid != "draft" and not valid_id(pid):
@@ -117,7 +115,7 @@ class WorkspaceArchive:
         reasons = []
         if directory is not None and git(directory, "status", "--porcelain"):
             reasons.append("worktree má neuložené změny")
-        state, signals = live_state(self.service, self.registry, pid, wid)
+        state, signals = live_state(self.service, pid, wid)
         if state in LIVE_STATES:
             reasons.append(f"na worktree se pracuje ({LIVE_STATES[state]}: " + ", ".join(signals) + ")")
         if reasons:

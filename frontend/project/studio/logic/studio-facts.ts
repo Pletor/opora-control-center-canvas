@@ -12,11 +12,11 @@ import type { GuardTally } from "../studio-guards/logic/guard-tally";
 import type { MapWorktreeOverlay } from "@/project/architecture-editor/domain-map/map-check/logic/map-check-worktrees";
 import { holesInWork, sessionLive, worktreesByNode, type FindingLocate } from "../studio-worktree/logic/worktree-tally";
 
-/** Karty, na kterých právě někdo pracuje: aktivní lease nebo běžící relace asistenta s kartou, ve všech worktree i na mainu. */
+/** Karty, na kterých právě někdo pracuje: aktivní lease, ve všech worktree. */
 export function buildingNodes(status: WorkStatus | null): Set<string> {
   const ids = new Set<string>();
   if (!status) return ids;
-  const sessions = [...status.domains.flatMap((domain) => domain.worktrees), ...status.unassigned].flatMap((worktree) => worktree.sessions).concat(status.mainSessions);
+  const sessions = [...status.domains.flatMap((domain) => domain.worktrees), ...status.unassigned].flatMap((worktree) => worktree.sessions);
   for (const session of sessions) if (session.nodeId && sessionLive(session)) ids.add(session.nodeId);
   return ids;
 }

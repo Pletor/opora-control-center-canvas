@@ -82,8 +82,8 @@ def test_loopback_keeps_todays_rules_in_remote_mode(remote_app):
         assert client.get("/api/access/status").json() == {
             "remote": False, "authenticated": True, "host": "127.0.0.1:8740"
         }
-        # Asistent je doma pořád dostupný; hranice ho zamyká jen pro veřejného hosta.
-        assert client.get("/api/assistant/status").status_code != 403
+        # Srdce je doma pořád dostupné; hranice ho zamyká jen pro veřejného hosta.
+        assert client.get("/api/brain/heart/status").status_code != 403
 
 
 def test_public_host_needs_a_token(remote_app):
@@ -116,20 +116,20 @@ def test_login_sets_the_cookie_and_logout_clears_it(remote_app):
         assert client.get("/api/bootstrap").status_code == 401
 
 
-def test_assistant_is_loopback_only():
-    assert is_loopback_only("/api/assistant") and is_loopback_only("/api/assistant/status")
-    assert is_loopback_only("/api/assistant/sessions/abc/events")
-    assert not is_loopback_only("/api/assistantx") and not is_loopback_only("/api/assistants/status")
+def test_heart_is_loopback_only():
+    assert is_loopback_only("/api/brain/heart") and is_loopback_only("/api/brain/heart/status")
+    assert is_loopback_only("/api/brain/heart/messages")
+    assert not is_loopback_only("/api/brain/heartx") and not is_loopback_only("/api/brain/tasks")
 
 
-def test_assistant_refused_through_tunnel_even_with_token(remote_app):
+def test_heart_refused_through_tunnel_even_with_token(remote_app):
     with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
         headers = {"authorization": "Bearer " + TOKEN, "origin": "https://" + PUBLIC}
-        refused = client.get("/api/assistant/status", headers=headers)
+        refused = client.get("/api/brain/heart/status", headers=headers)
         assert refused.status_code == 403
         assert refused.json() == {"error": "Tohle běží jen na tomto počítači."}
-        assert client.get("/api/assistant/sessions?project=p1", headers=headers).status_code == 403
-        assert client.post("/api/assistant/sessions", json={"project": "p1"}, headers=headers).status_code == 403
+        assert client.post("/api/brain/heart/messages", json={"project": "p1", "text": "x"},
+                           headers=headers).status_code == 403
 
 
 def test_rlm_is_loopback_only():

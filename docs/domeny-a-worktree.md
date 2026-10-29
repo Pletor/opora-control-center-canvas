@@ -16,7 +16,7 @@ Cíl: **architektura je nadřazená worktree.** Je jedna pro projekt, jde upravi
 | **Doména** | Sektor `site.kind="application"` s **právě jedním** prostředím `{name, host}` (platí už dnes, `docs/architektura-projektu.md`). Skupina na přehledu = `name` prostředí (Produkce / Vývoj). |
 | **Obsah stránky** | Všechno pod stránkou, co nemá `site` (karty, sektory práce, oblasti). Patří pracovnímu prostoru. |
 | **Worktree** | Řádek `workspaces` + Git worktree. Patří jedné doméně přes `workspaces.node_id = id domény`. |
-| **Relace** | Živá práce ve worktree: relace asistenta, lease karty. |
+| **Relace** | Živá práce ve worktree: lease karty (převzetí a aktivita). |
 
 ## 3. Domény Tajemstvi-opory
 
@@ -106,16 +106,16 @@ samotná složka archivu není úplnou zálohou. Záloha musí zahrnovat také d
 
 Logika `backend/project/architecture/work_status.py`, router `backend/api/project/project_architecture_routes.py`.
 
-Zdroje: relace asistenta (`backend/claude_code/assistant/registry.py`), `card_leases` + `card_work_activity`.
+Zdroje: `card_leases` + `card_work_activity`. Relace starého asistenta jako zdroj zmizely s jeho smazáním (H2b2b, `docs/brain-heart-channel.md` §5).
 
 | Stav worktree | Kdy (vyhrává vyšší řádek) |
 |---|---|
-| **běží** | relace asistenta `running`; NEBO platná lease a aktivita ≤ 300 s |
-| **čeká** | relace `waiting_approval` nebo `idle`; NEBO platná lease bez aktivity v posledních 300 s |
-| **stojí** | relace `error`; NEBO prošlá lease s aktivitou mladší 24 h |
+| **běží** | platná lease a aktivita ≤ 300 s |
+| **čeká** | platná lease bez aktivity v posledních 300 s |
+| **stojí** | prošlá lease s aktivitou mladší 24 h |
 | **bez relace** | nic z výše uvedeného (nikdy se nehlásí jako „stojí“) |
 
-Doména = počty stavů jejích worktree + karty v práci (`nodeId` z leases a relací). Odpověď nese `reasons[]`, aby UI umělo říct proč.
+Doména = počty stavů jejích worktree + karty v práci (`nodeId` z leases). Odpověď nese `reasons[]`, aby UI umělo říct proč.
 
 ## 8. Stav webu
 
@@ -158,7 +158,7 @@ Routery jen v `backend/api/project/`, logika v modulech, test `test_<modul>.py` 
 ### Tok
 
 1. **Přehled domén** (`ArchitectureLanding`): pruhy Produkce / Vývoj a Nepřiřazené. Karta domény nese žeton webu („běží · 120 ms“, „DNS neexistuje“), počty „3 worktree · 1 běží · 1 čeká“ a sbalitelný strom worktree (větev → aktér → karty v práci).
-2. **Detail domény** (`ArchitectureDomainMap`): vlevo strom stránek, uprostřed mapa stránek (na `PageCard` odznak „2 worktree“), vpravo živý panel (web hostu + strom worktree se stavy relací).
+2. **Detail domény** (`ArchitectureDomainMap`): vlevo strom stránek, uprostřed mapa stránek (na `PageCard` odznak „2 worktree“), vpravo živý panel (web hostu + strom worktree se stavy relací). Detail vybraného worktree nabízí „Zadat srdci“ pro worktree i pro každou kartu v práci: App pošle připravený text `POST /api/brain/heart/messages` a otevře panel asistenta.
 3. **Plátno stránky** (`PageEditor`): beze změny, v hlavičce žeton webu.
 
 - Klik na worktree ve stromu **nepřepíná** prostor, jen ho vybere a zvýrazní dotčené stránky. Přepne až tlačítko „Pracovat v tomto worktree“ → `onSwitchWorkspace(id)` nahoru do `App` (stejný kód jako `onSelectWorkspace`).
@@ -209,4 +209,4 @@ zachycuje kontext sdílené architektury; její samostatné workflow tím není 
 1. **Vývoj je jiný než Produkce.** Šest samostatných domén s vlastními stromy. Ve Vývoji vznikají nové věci; do Produkce se převádějí, až mají kvalitu. Převod Vývoj → Produkce je pozdější kus (zde se jen nesmí znemožnit: ID se nesdílejí, převod bude kopie s vazbou `promotedFrom`).
 2. **Architekturu lze měnit odkudkoli.** Pravda je to, co projde workflow a mergne se do mainu (`docs/oporahub.md`: „co není v gitu, není hotové“). Architektura projektu v OPORA je pracovní kopie; každá revize nese `actor` a `workspace`, odkud přišla. Export domén a stránek do plánu v repu dělá OporaHub (pozdější kus).
 3. **Uzavřený worktree jde do skladiště OporaHubu.** Větev `work/<wid>` zůstává, záznam se přesune do archivu (`archived_workspaces`: id, doména, větev, aktér, důvod, čas) a neovlivňuje aktivní práci. Typicky nápad, který nevyšel. Ze skladiště jde jen číst; obnova je pozdější kus.
-4. **Relace: hlavní relace + relace ve worktree.** Člověk spouští hlavní relaci projektu (prostor `main`/`draft`); uvnitř worktree se podle potřeby spouštějí vlastní relace oblastí nebo karet (asistent s `workspace` + `nodeId`). Živý panel nabízí „Nová relace“ u worktree i u karty. Model běží jen na zprávu člověka (`docs/asistent.md`). Prahy z §7 (120 s / 300 s) a cache webu 60 s platí.
+4. **Práce ve worktree řídí srdce.** Člověk píše srdci v panelu asistenta (`docs/brain-heart-channel.md`); živý panel nabízí „Zadat srdci“ u worktree i u karty (připravená zpráva srdci). Pracovníky do worktree posazuje srdce úkolem přes bránu (`docs/brain-gate.md`). Dřívější „Nová relace“ starého asistenta je od H2b2b pryč. Prahy z §7 (300 s / 24 h) a cache webu 60 s platí.

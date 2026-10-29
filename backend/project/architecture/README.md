@@ -11,10 +11,9 @@ přesměrování, odmítá privátní adresy a připíná spojení na ověřenou
 ## Stav práce (`work_status.py`)
 
 `GET /api/project-architecture/work-status?project=` (`docs/domeny-a-worktree.md` §7, §9) skládá stav každého worktree
-ze tří zdrojů: relace asistenta, hook bindingy a lease + aktivita karet. Vyhrává nejvyšší stav (běží > čeká > stojí >
-bez relace), `reasons[]` nese důvody vítězného stavu. Prahy: hook bez signálu 120 s, aktivita karty 300 s, okno „stojí“
-24 h. Worktree se řadí do domén podle `workspaces.node_id`; co nesedí na žádnou doménu architektury, je v `unassigned`.
-Relace v `main`/`draft` jsou v `mainSessions`. Čisté funkce berou `now`; čtení zdrojů je v `collect_sources`.
+z lease a aktivity karet. Vyhrává nejvyšší stav (běží > čeká > stojí > bez relace), `reasons[]` nese důvody vítězného
+stavu. Prahy: aktivita karty 300 s, okno „stojí“ 24 h. Worktree se řadí do domén podle `workspaces.node_id`; co nesedí
+na žádnou doménu architektury, je v `unassigned`. Čisté funkce berou `now`; čtení zdrojů je v `collect_sources`.
 
 ## Kontrola mapy (`map_check.py`)
 

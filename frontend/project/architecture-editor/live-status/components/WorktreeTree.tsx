@@ -31,10 +31,6 @@ export default function WorktreeTree({ worktrees, label, compact = false, select
       onSelect(selectedId === item.worktreeId ? null : item.worktreeId);
       if (!open.has(item.worktreeId)) toggle(item.worktreeId, true);
     } else if (item.kind === "card") nav?.onOpenCard({ workspace: item.worktreeId, nodeId: item.targetId });
-    else {
-      const session = worktrees.find((w) => w.id === item.worktreeId)?.sessions.find((s) => s.id === item.targetId);
-      if (session?.source === "assistant") nav?.onOpenSession(session.id);
-    }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
     const current = (event.target as HTMLElement).closest<HTMLElement>("[data-tree-key]")?.dataset.treeKey;

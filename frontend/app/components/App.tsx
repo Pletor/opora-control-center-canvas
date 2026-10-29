@@ -61,8 +61,7 @@ import { appendSkeleton } from "@/editor/skeleton/logic/skeleton";
 import TopBar from "@/layout/top-bar/components/TopBar";
 import AssistantButton from "@/layout/assistant-panel/components/AssistantButton";
 import AssistantPanel from "@/layout/assistant-panel/components/AssistantPanel";
-import type { StartRequest } from "@/layout/assistant-panel/logic/use-start-request";
-import type { SelectRequest } from "@/layout/assistant-panel/logic/select-request";
+import { sendHeartMessage, type HeartRequest } from "@/layout/heart-channel/logic/heart-api";
 import type { CardRequest } from "@/project/architecture-editor/live-status/logic/session-state";
 import type { ArchitectureLiveProps } from "@/project/architecture-editor/components/ArchitectureEditor";
 import "@/layout/assistant-panel/styles/assistant-panel.css";
@@ -195,11 +194,6 @@ export default function App() {
   const [settings, setSettings] = useState(readSettings);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
-  const [assistantBusy, setAssistantBusy] = useState(false);
-  // „Nová relace“ z živého panelu domény: panel Asistent založí úkol jednou podle pořadí, bez zprávy.
-  const [assistantStart, setAssistantStart] = useState<StartRequest | null>(null);
-  // Klik na čip relace v živém panelu: panel Asistent vybere existující úkol.
-  const [assistantSelect, setAssistantSelect] = useState<SelectRequest | null>(null);
   // Doména předvyplněná v modalu „Nový worktree“ z živého panelu; jinak se bere vybraný uzel.
   const [worktreeDomain, setWorktreeDomain] = useState<string | null>(null);
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
@@ -350,11 +344,11 @@ export default function App() {
     setDraftProject((current) => keepSame(current, b.draft));
     setJobs((current) => keepSame(current, b.jobs));
   }
-  // Zápis asistenta (docs/asistent.md §6.2) jde přes backend z jiného procesu. Po ohlášení z panelu
+  // Zápis jiného procesu (srdce, agent) jde přes backend. Po ohlášení (`opora:spawned`)
   // se graf i stav Desktop v3 načtou znovu stejnými cestami jako při otevření projektu, jen bez
   // vyprázdnění plátna (Board přenese `measured`, fokus v kartách zůstane). Když právě běží uložení
   // grafu, reload počká na jeho konec; o souběh se pak postará digest (stávající hláška konfliktu).
-  // Historie kroků zpět se vyprázdní jako při otevření: krok zpět by jinak zápis asistenta smazal.
+  // Historie kroků zpět se vyprázdní jako při otevření: krok zpět by jinak cizí zápis smazal.
   const savingGraph = useRef(0);
   const canvasReloadQueued = useRef(false);
   function reloadCanvas() {
@@ -788,6 +782,15 @@ export default function App() {
       if (result.spec) await saveNodeSpec(submitScope.project, submitScope.workspace, result.node.id, 0, result.spec);
     });
   }
+  /**
+   * Akce, které dřív zakládaly relaci asistenta (Kancelář „Posadit agenta“, živý panel domény), posílají
+   * připravený text srdci a otevřou panel, kde je odpověď srdce vidět (docs/brain-heart-channel.md §5).
+   */
+  function askHeart(request: HeartRequest) {
+    setAssistantOpen(true);
+    if (!project) return;
+    sendHeartMessage(project, request.workspace, request.text).catch((e) => setError("Zprávu srdci se nepodařilo poslat: " + (e instanceof Error ? e.message : String(e))));
+  }
   /** Přepnutí pracovního prostoru: TopBar i „Pracovat v tomto worktree“ v živém panelu domény. */
   function selectWorkspace(id: string) {
     setWorkspace(id);
@@ -795,16 +798,14 @@ export default function App() {
   }
   const architectureLive: ArchitectureLiveProps = {
     worktreeLive: capabilities.worktreeLive,
-    mainWorkspace: capabilities.defaultWorkspace,
     onSwitchWorkspace: selectWorkspace,
-    onStartSession: (request) => { setAssistantStart((prior) => ({ sectorId: null, ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); },
+    onAskHeart: askHeart,
     onCreateWorktree: (domainId) => { open("workspace"); setWorktreeDomain(domainId); },
     onOpenCard: (request) => {
       if (request.workspace === workspace) { openArchitectureNode(request.nodeId); return; }
       setPendingCard(request);
       selectWorkspace(request.workspace);
     },
-    onOpenSession: (id) => { setAssistantSelect((prior) => ({ seq: (prior?.seq ?? 0) + 1, sessionId: id })); setAssistantOpen(true); },
   };
   // Modal „Nový worktree“: worktree vždy patří doméně (uzlu `site.kind = "application"`). Předvolí se
   // doména z živého panelu, jinak doména vybraného uzlu nebo vrstvy; bez domény nejde worktree založit.
@@ -1064,7 +1065,7 @@ export default function App() {
     <SaveScopeProvider project={project} workspace={workspace}><div className="app desktop-v2 desktop-v3">
       <TopBar
         onHome={() => setScreen("home")}
-        trailing={<><AssistantButton open={assistantOpen} busy={assistantBusy} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
+        trailing={<><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
         projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={(kind) => { if (!saveAllBusy) setProjectMapKind(kind); }}/> : null}
         projects={projects}
         draftProject={draftProject}
@@ -1170,8 +1171,7 @@ export default function App() {
                 <ControlTower key={project} project={project} workspace={workspace} graph={graph} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpen={(id) => { openCardDrawer(id); }} onOpenMap={() => openDomainMap(null)} worktreeLive={capabilities.worktreeLive} autonomy={agentAutonomy.autonomy} />
               ) : mode === "office" ? (
                 <OfficeWorkspace key={`${project}:${workspace}`} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }}
-                  onStartSession={(request) => { setAssistantStart((prior) => ({ ...request, seq: (prior?.seq ?? 0) + 1 })); setAssistantOpen(true); }}
-                  onSelectSession={(id) => { setAssistantSelect((prior) => ({ seq: (prior?.seq ?? 0) + 1, sessionId: id })); setAssistantOpen(true); }} />
+                  onAskHeart={askHeart} />
               ) : mode === "storyboard" ? (
                 <StoryboardWorkspace key={JSON.stringify([project, workspace])} project={project} workspace={workspace} graph={graph} selectedNode={selected} readOnly={!!view?.readOnly} onOpenNode={(id) => { openNode(id); }} onDraw={(id) => { enter(id); setMode("drawing"); }} />
               ) : mode === "drawing" ? (
@@ -1699,15 +1699,7 @@ export default function App() {
           </section>
         </div>
       )}
-      <AssistantPanel
-        open={assistantOpen}
-        context={{ projectId: project, workspace, layerId: parent ?? null, selectedNodeIds: selected ? [selected] : [], environment }}
-        onClose={() => setAssistantOpen(false)}
-        onBusyChange={setAssistantBusy}
-        onCanvasWritten={reloadCanvas}
-        startRequest={assistantStart}
-        selectRequest={assistantSelect}
-      />
+      <AssistantPanel open={assistantOpen} scope={{ projectId: project, workspace }} onClose={() => setAssistantOpen(false)} />
     </div></SaveScopeProvider>
   );
 }

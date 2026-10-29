@@ -1,4 +1,4 @@
-"""Čtecí skript nad falešnou sítí: `_open` se podvrhne, nic neodchází (docs/asistent.md §13.1, §13.3)."""
+"""Čtecí skript nad falešnou sítí: `_open` se podvrhne, nic neodchází (RLM: backend/brain_opora/decision/README.md)."""
 
 import io
 import json

@@ -1,8 +1,8 @@
 Heart channel: the human's channel to the heart of OPORA (H2b1, contract `docs/brain-heart-channel.md`).
 
-It lives in the assistant panel beside the old assistant. `AssistantPanel` shows it when the head switch says
-**Srdce**; the switch, its stored choice and the gate state belong to the panel (`assistant-panel/logic/use-channel.ts`).
-The channel receives only `projectId`, `workspace`, `gateOn` and `onEnableGate`, and reads nothing of the old assistant.
+It is the only content of the assistant panel (the old assistant was deleted in H2b2b). The gate state belongs to the
+panel (`assistant-panel/logic/use-gate.ts`); the channel receives only `projectId`, `workspace`, `gateOn`, `gateFailure`
+and `onEnableGate`.
 
 One column, top to bottom:
 

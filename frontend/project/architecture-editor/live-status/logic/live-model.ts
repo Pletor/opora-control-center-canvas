@@ -4,12 +4,12 @@ import type { Graph } from "@/shared/types/logic/types";
 // pro dílky: pořadí „nejživější nahoře“, věta s počty, stránky, kterých se worktree dotýká.
 
 export type WorktreeState = "running" | "waiting" | "stopped" | "none";
-export type LiveSession = { source: "assistant" | "lease"; id: string; state: string | null; nodeId: string | null; lastSeenAt: string | null };
+export type LiveSession = { source: "lease"; id: string; state: string | null; nodeId: string | null; lastSeenAt: string | null };
 export type LiveCard = { nodeId: string; name: string };
 export type LiveWorktree = { id: string; branch: string; actor: string; createdAt?: string; state: WorktreeState; reasons: string[]; sessions: LiveSession[]; cards: LiveCard[] };
 export type LiveCounts = Record<WorktreeState, number> & { total: number };
 export type LiveDomain = { id: string; name: string; environment: { name: string; host: string } | null; counts: LiveCounts; worktrees: LiveWorktree[] };
-export type WorkStatus = { domains: LiveDomain[]; unassigned: LiveWorktree[]; mainSessions: LiveSession[] };
+export type WorkStatus = { domains: LiveDomain[]; unassigned: LiveWorktree[] };
 
 const STATES: WorktreeState[] = ["running", "waiting", "stopped", "none"];
 const RANK: Record<WorktreeState, number> = { running: 0, waiting: 1, stopped: 2, none: 3 };
@@ -19,8 +19,7 @@ const record = (value: unknown): Record<string, unknown> => (value && typeof val
 
 function session(raw: unknown): LiveSession {
   const item = record(raw);
-  const source = item.source === "lease" ? "lease" : "assistant";
-  return { source, id: text(item.id), state: text(item.state) || null, nodeId: text(item.nodeId) || null, lastSeenAt: text(item.lastSeenAt) || null };
+  return { source: "lease", id: text(item.id), state: text(item.state) || null, nodeId: text(item.nodeId) || null, lastSeenAt: text(item.lastSeenAt) || null };
 }
 
 function worktree(raw: unknown): LiveWorktree {
@@ -53,7 +52,7 @@ export function normalizeWorkStatus(raw: unknown): WorkStatus {
     const env = record(item.environment);
     return { id: text(item.id), name: text(item.name), environment: item.environment ? { name: text(env.name), host: text(env.host) } : null, counts: countsOf(worktrees), worktrees };
   }).filter((domain) => domain.id);
-  return { domains, unassigned: sortWorktrees(list(body.unassigned).map(worktree)), mainSessions: list(body.mainSessions).map(session) };
+  return { domains, unassigned: sortWorktrees(list(body.unassigned).map(worktree)) };
 }
 
 export function domainLive(status: WorkStatus | null, domainId: string): LiveDomain | null {

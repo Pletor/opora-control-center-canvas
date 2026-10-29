@@ -5,14 +5,14 @@ import { tabStop, treeKey, visibleItems } from "./tree-nav";
 const wt = (id: string, cards: string[] = [], sessions: string[] = []): LiveWorktree => ({
   id, branch: "work/" + id, actor: "a", state: "none", reasons: [],
   cards: cards.map((nodeId) => ({ nodeId, name: nodeId })),
-  sessions: sessions.map((sid) => ({ source: "assistant", id: sid, state: "idle", nodeId: null, lastSeenAt: null })),
+  sessions: sessions.map((sid) => ({ source: "lease", id: sid, state: "active", nodeId: null, lastSeenAt: null })),
 });
 const trees = [wt("a", ["c1"], ["s1"]), wt("b")];
 
 describe("klávesnice ve stromu worktree", () => {
   it("viditelné položky: rozbalený worktree ukáže relace a karty", () => {
     expect(visibleItems(trees, new Set()).map((item) => item.key)).toEqual(["w:a", "w:b"]);
-    expect(visibleItems(trees, new Set(["a"])).map((item) => item.key)).toEqual(["w:a", "s:a:assistant:s1", "c:a:c1", "w:b"]);
+    expect(visibleItems(trees, new Set(["a"])).map((item) => item.key)).toEqual(["w:a", "s:a:lease:s1", "c:a:c1", "w:b"]);
   });
   it("v pořadí Tab je jedna položka: zaměřená, jinak první", () => {
     const items = visibleItems(trees, new Set());
@@ -23,7 +23,7 @@ describe("klávesnice ve stromu worktree", () => {
   it("šipky, Home a End", () => {
     const open = new Set(["a"]);
     const items = visibleItems(trees, open);
-    expect(treeKey(items, "w:a", "ArrowDown", open)).toEqual({ focus: "s:a:assistant:s1" });
+    expect(treeKey(items, "w:a", "ArrowDown", open)).toEqual({ focus: "s:a:lease:s1" });
     expect(treeKey(items, "w:b", "ArrowDown", open)).toEqual({ focus: "w:b" });
     expect(treeKey(items, "w:a", "ArrowUp", open)).toEqual({ focus: "w:a" });
     expect(treeKey(items, "c:a:c1", "Home", open)).toEqual({ focus: "w:a" });
@@ -34,7 +34,7 @@ describe("klávesnice ve stromu worktree", () => {
     expect(treeKey(visibleItems(trees, closed), "w:a", "ArrowRight", closed)).toEqual({ expand: "a" });
     const open = new Set(["a"]);
     const items = visibleItems(trees, open);
-    expect(treeKey(items, "w:a", "ArrowRight", open)).toEqual({ focus: "s:a:assistant:s1" });
+    expect(treeKey(items, "w:a", "ArrowRight", open)).toEqual({ focus: "s:a:lease:s1" });
     expect(treeKey(items, "c:a:c1", "ArrowLeft", open)).toEqual({ focus: "w:a" });
     expect(treeKey(items, "w:a", "ArrowLeft", open)).toEqual({ collapse: "a" });
     expect(treeKey(items, "w:b", "ArrowLeft", open)).toEqual({});

@@ -10,7 +10,6 @@ from backend.canvas.migrate_architecture_backup import down, new_backup_id, take
 from backend.canvas.test_workspace_graph import GRAPH, repository, workspace
 from backend.canvas.test_migrate_architecture import site_graph
 from backend.editor.canvas_versions.canvas_versions import CanvasVersions
-from backend.project.worktrees.test_workspace_archive import Sessions
 from backend.project.worktrees.workspace_archive import WorkspaceArchive
 from database.repositories.workspace_graph_authority import WorkspaceGraphAuthority
 from database.schema.project_initialization import initialize_project_schema
@@ -161,7 +160,7 @@ def test_architecture_migration_strips_authority_without_touching_legacy_file(en
 
 def test_archive_keeps_authoritative_graph_and_serializes_graph_mutations(enrolled, monkeypatch):
     service, project, wid, original, _data = enrolled
-    archive = WorkspaceArchive(service, Sessions())
+    archive = WorkspaceArchive(service)
     original_move = archive._move_data
 
     def checked_move(pid, workspace_id):

@@ -1,4 +1,4 @@
-"""Zapisovací klient OPORA pro asistenta: jeden POST na plátno, jen na pevný seznam cest.
+"""Zapisovací klient OPORA pro agenta: jeden POST na plátno, jen na pevný seznam cest.
 
 `opora_write.py <cesta> --project P --workspace W (--json '<json>' | --json - | --json-file soubor) [--dry-run]`.
 `--json -` čte tělo ze stdin (heredoc), takže payload nemusí do souboru.
@@ -7,7 +7,7 @@ skript odmítne dřív, než cokoli odejde, a cesty s tokenem běhu či slotu pa
 `--dry-run` (bez hodnoty) u `/api/canvas-plan` a `/api/canvas-layout`: nastaví `dryRun: true` (přepíše hodnotu
 z konceptu), dávka se jen ověří a nic se nezapíše; koncept se kvůli tomu nepřepisuje.
 Adresa je jen loopback (`--base-url http://127.0.0.1:PORT`, jinak `OPORA_BASE_URL`), bez proxy
-a bez přesměrování. Každé volání asistenta schvaluje člověk v UI (docs/asistent.md §5.1).
+a bez přesměrování.
 `project` a `workspace` se doplní do payloadu; jiná hodnota v payloadu je chyba.
 Při 409 vypíše `conflict: <detail>` a skončí kódem 3 (změněný stav nebo krok, na který je brzy; `hint` říká další
 krok). Neplatný payload je 422 s `field`, `expected` a `example` a končí kódem 6. Chybový JSON (stderr) má vždy
@@ -27,8 +27,8 @@ BASE_ENV = 'OPORA_BASE_URL'
 # po vypršení NEopakuje: server ho mohl provést, druhý pokus by zapsal 2× (karta P1).
 TIMEOUT = 90
 MAX_BYTES = 8 * 1024 * 1024
-MAX_PAYLOAD = 2 * 1024 * 1024  # shodně s `DRAFT_LIMIT` v approvals.py (koncept dávky plánu)
-# Jediné cesty, na které skript pošle POST (docs/asistent.md §5.1). Jinam nic neodejde.
+MAX_PAYLOAD = 2 * 1024 * 1024  # strop konceptu dávky plánu
+# Jediné cesty, na které skript pošle POST. Jinam nic neodejde.
 WRITE_ROUTES = frozenset({
     '/api/desktop-v3/lease',
     '/api/desktop-v3/realize-source',

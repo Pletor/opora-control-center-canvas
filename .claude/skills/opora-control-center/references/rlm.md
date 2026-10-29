@@ -2,7 +2,7 @@
 
 Vzor [Recursive Language Models](https://arxiv.org/abs/2512.24601): velký kontext se nevkládá
 do promptu. Plátno je korpus rozdělený na oddíly (karty). Nahlížíš do něj po kouscích a dílčí
-otázky posíláš levnějším podvoláním. Kontrakt: `docs/asistent.md` §13.3.
+otázky posíláš levnějším podvoláním. Kontrakt: `backend/brain_opora/decision/README.md`.
 
 ## Postup
 

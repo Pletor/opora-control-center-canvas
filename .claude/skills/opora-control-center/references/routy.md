@@ -1,7 +1,7 @@
 # Ostatní cesty backendu: co je k čemu a kdy je agent volá
 
 Kdy mě číst: hledáš cestu, která není v [api.md](api.md) ani v [hub-api.md](hub-api.md) (čtecí přehledy Desktop v3,
-podklady pro externího agenta, mazání, paměť rolí, mapy, hledání v kódu, asistent v okně). Každá cesta backendu je
+podklady pro externího agenta, mazání, paměť rolí, mapy, hledání v kódu). Každá cesta backendu je
 popsaná v některé referenci; `scripts/test_skill_docs.py` to hlídá proti tabulce cest aplikace (výjimky jsou jen
 cesty §4 `docs/plna-autonomie-agenta.md` a čistě UI).
 
@@ -119,22 +119,6 @@ a agent ho nikdy nečte ani nezapisuje.
 | GET `/api/brain/jev` | `configured`, `provider`, `keys` (jen bool) zvoleného poskytovatele Jev | kdokoli |
 | GET `/api/brain/jev/gate-check` | `project` → pro které poskytovatele je povolená externí kontrola bran | kdokoli |
 | POST `/api/brain/jev/gate-check` | `{project, provider, allowed}` → povolení kontroly bran | člověk |
-
-## Asistent v okně OPORA
-
-Asistenta spouští jen člověk zprávou (`docs/asistent.md`). Agent tyto cesty nevolá; čte jen stav, je-li to potřeba.
-
-| Cesta | K čemu, kdy | Kdo |
-|---|---|---|
-| GET `/api/assistant/status` | stav procesu asistenta | kdokoli |
-| GET `/api/assistant/sessions` | `project` → relace asistenta; POST založení viz [api.md](api.md) | kdokoli |
-| POST `/api/assistant/sessions/{session_id}/messages` | `{text, context?}` → zpráva člověka relaci (spustí model) | UI |
-| POST `/api/assistant/sessions/{session_id}/title` | `{title}` → přejmenování relace | UI |
-| POST `/api/assistant/sessions/{session_id}/stop` | zastaví běžící odpověď | UI |
-| POST `/api/assistant/sessions/{session_id}/close` | uzavře relaci | UI |
-| GET `/api/assistant/sessions/{session_id}/transcript` | přepis relace | kdokoli |
-| GET `/api/assistant/sessions/{session_id}/events` | SSE události relace (`after` / `Last-Event-ID`) | UI |
-| POST `/api/assistant/approvals/{approval_id}` | `{decision: allow \| deny, note?}` → schválení žádosti asistenta o příkaz | UI (člověk) |
 
 ## Karta na dvě volání (složené akce)
 

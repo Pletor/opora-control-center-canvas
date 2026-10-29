@@ -1,4 +1,4 @@
-"""Řazení oddílů plátna pro asistenta (RLM, docs/asistent.md §13.3); jen loopback.
+"""Řazení oddílů plátna (RLM, backend/brain_opora/decision/README.md); jen loopback.
 
 Tenký router nad `backend.brain_opora.decision.sources`. Klíč Jev se čte při každém dotazu
 z `key_source` (nastavení aplikace), zůstává v backendu a do odpovědi ani do procesu `claude`

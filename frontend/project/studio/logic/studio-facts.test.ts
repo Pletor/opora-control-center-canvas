@@ -14,15 +14,14 @@ const graph: Graph = {
 };
 
 describe("studio facts", () => {
-  it("collects cards with an active lease or a running assistant session, anywhere in the project", () => {
+  it("collects cards with an active lease, anywhere in the project", () => {
     const status = normalizeWorkStatus({
       domains: [{ id: "web", worktrees: [{ id: "w1", state: "running", sessions: [
         { source: "lease", id: "a", state: "active", nodeId: "c1" }, { source: "lease", id: "b", state: "expired", nodeId: "c2" },
       ] }] }],
-      unassigned: [{ id: "w2", sessions: [{ source: "assistant", id: "c", state: "running", nodeId: "c3" }] }],
-      mainSessions: [{ source: "assistant", id: "d", state: "waiting", nodeId: "c4" }, { source: "lease", id: "e", state: "active", nodeId: "c5" }],
+      unassigned: [{ id: "w2", sessions: [{ source: "lease", id: "c", state: "active", nodeId: "c3" }] }],
     });
-    expect([...buildingNodes(status)].sort()).toEqual(["c1", "c3", "c5"]);
+    expect([...buildingNodes(status)].sort()).toEqual(["c1", "c3"]);
     expect(buildingNodes(null).size).toBe(0);
   });
 

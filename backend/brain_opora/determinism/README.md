@@ -57,6 +57,7 @@ Modules (H2a, contract `docs/brain-heart.md`):
 
 Still planned:
 - `events.py`: reads `opora_events` and `PROCESS_SIGNAL` and turns them into wake-up candidates.
-- `tool_policy.py`: tool classification for the heart (moved from `claude_code/assistant/approvals.py`).
+- `tool_policy.py`: tool classification for the heart (the old assistant's `approvals.py` was deleted in H2b2b; today
+  `heart/command.py` limits the tools with `--allowedTools`).
 
 Rule: nothing here calls a model, and nothing imports `decision` or `heart`.

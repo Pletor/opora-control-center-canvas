@@ -97,7 +97,7 @@ Kdo z indexu čte:
   shody (id) z endpointu (debounce ~200 ms) a zobrazí je i s předky. Bez dotazu se nic nevolá.
 - **RLM** (`.claude/skills/opora-control-center/scripts/opora_read.py`): `search` a `index` čtou
   endpoint místo vlastního skládání; `rank` posílá kandidáty s `text = address + type + layer + name + text[:300]`.
-- **Jev**: RLM `rank` posílá kandidáty z indexu do Jevu (`/api/rlm/rank`). Výběr karty ve zprávě asistenta (fáze 2, `docs/asistent.md` §13) zůstává otevřený a bude číst tentýž index.
+- **Jev**: RLM `rank` posílá kandidáty z indexu do Jevu (`/api/rlm/rank`). Kontrakt RLM je v `backend/brain_opora/decision/README.md`; výběr zdrojů pro srdce (`sources.py`, H3) bude číst tentýž index.
 
 ## 6. node-brief a agent-output
 

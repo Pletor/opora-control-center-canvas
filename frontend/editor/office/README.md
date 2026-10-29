@@ -1,24 +1,24 @@
 Kancelář (mód `office` v Editoru, v liště „Kancelář“, ikona `users`): plátno jako budova, kde u stolů
-sedí relace asistenta. Kontrakt: `docs/kancelar.md`. Nic se tu nevyplňuje ani neukládá; klik otevře kartu
-(`onOpenNode`), vstoupí do vrstvy sektoru (`onEnterLayer`), založí relaci (`onStartSession`) nebo přepne
-panel asistenta na relaci (`onSelectSession`).
+sedí pracovníci brány. Kontrakt: `docs/kancelar.md`. Nic se tu nevyplňuje ani neukládá; klik otevře kartu
+(`onOpenNode`), vstoupí do vrstvy sektoru (`onEnterLayer`) nebo pošle srdci připravený text
+(`onAskHeart`; App ho odešle `POST /api/brain/heart/messages` a otevře panel asistenta).
 
 Slovník: **oddělení** = oblast na kořenové vrstvě (`kind: "area"`), **místnost** = sektor (člen oblasti podle
 polohy, `membersOf`; mimo oblast je v **Hale**), **stůl** = karta s `parentId` = sektor, **pracovník** =
-relace asistenta (`AssistantSession`, `closed` se nekreslí). Relace s `nodeId` sedí u stolu, se `sectorId`
-bez karty u společného stolu místnosti, ostatní (a ty, jejichž karta nebo sektor v budově není) v **Recepci**.
+relace brány, která drží úkol (`sessionId` úkolu `assigned` z `GET /api/brain/tasks`). Úkol s `nodeId` karty
+sedí u stolu, s `nodeId` sektoru u společného stolu místnosti, ostatní (a ty, jejichž uzel v budově není)
+v **Recepci**.
 
-`logic/office-model.ts` (testováno): `buildOffice({graph, sessions, workRows, leases, state})` vrátí
-`{departments, hall, reception, waiting}`. Stůl nese stavovou větu `cardState()` z
-`node-card/logic/card-state.ts` (stejná jako na kartě), místnost součty tónů pro pruh stavů. `waiting` jsou
-relace `waiting_approval` od nejstaršího `updatedAt`. `logic/next-waiting.ts`: cyklus „Další čekající“.
-`logic/hire-message.ts`: předvyplněná zpráva (`hireDraft`), název relace (`hireTitle`, nejvýš 60 znaků) a
-žádost bez pořadového čísla (`hireRequest`), které přidělí App.
+`logic/office-model.ts` (testováno): `buildOffice({graph, tasks, workRows, leases, state})` vrátí
+`{departments, hall, reception}`; `workersOf` vybere pracovníky z úkolů (každá relace jednou), `workerCount`
+je sečte. Stůl nese stavovou větu `cardState()` z `node-card/logic/card-state.ts` (stejná jako na kartě),
+místnost součty tónů pro pruh stavů. `logic/hire-message.ts`: text pro srdce (`hireText`) a žádost
+`{workspace, text}` (`hireRequest`).
 
-`components/OfficeWorkspace.tsx` je rodič: drží relace (`useAssistantSessions`), přehled práce
-(`useWorkOverview`), pronájmy (`useLeases`) a obsazenost (`GET /api/assistant/status`, polling 4 s); skládá
-dílky `OfficeHeader` (Čeká na tebe, Další čekající, „běží X / Y“), `Department` (pásmo oblasti nebo Hala),
-`Room` (dlaždice sektoru se společným stolem), `Desk` (řádek karty), `WorkerChip` (čip relace, maják u
-čekajícího) a `Reception`. Když běží tolik procesů, kolik dovoluje limit, jsou tlačítka „Posadit agenta“
-vypnutá s důvodem v titulku. Styl v `styles/office.css` (BEM, bloky `office`, `office-header`,
-`office-department`, `office-room`, `office-desk`, `office-worker`, `office-reception`).
+`components/OfficeWorkspace.tsx` je rodič: drží úkoly brány a stav srdce (`heart-api.ts`, polling 4 s),
+přehled práce (`useWorkOverview`) a pronájmy (`useLeases`); skládá dílky `OfficeHeader` (počet pracovníků,
+stav srdce a zprávy ve frontě), `Department` (pásmo oblasti nebo Hala), `Room` (dlaždice sektoru se
+společným stolem), `Desk` (řádek karty), `WorkerChip` (čip pracovníka) a `Reception`. Když má projekt
+vypnutou bránu (srdce neběží), jsou tlačítka „Posadit agenta“ vypnutá s důvodem v titulku. Styl
+v `styles/office.css` (BEM, bloky `office`, `office-header`, `office-department`, `office-room`,
+`office-desk`, `office-worker`, `office-reception`).
