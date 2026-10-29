@@ -1,7 +1,8 @@
 """Snímek projektu pro srdce (docs/brain-heart.md §3): deterministický text bez modelu, s pevným stropem znaků.
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky plánu,
-fronta úkolů, čekající lístky, poslední kontroly, deník dávek; okolí srdce §3a; skripty dílny §3b), `render` z nich bez dalšího čtení
+fronta úkolů, čekající lístky, poslední kontroly, deník dávek; okolí srdce §3a; skripty dílny §3b; výzkumy a duely
+srdce ze schránky zadání §3c), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
 Každá část má vlastní strop počtu řádků a celý text se nakonec ořízne na `LIMIT` znaků.
 `view` složí ze stejných faktů kompaktní JSON pro druh brány `state` (docs/brain-control-api.md §2).
@@ -14,6 +15,10 @@ from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
 from database.repositories.gate_tickets import GateTicketStore
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+from backend.editor.brief_vault.brief_vault_details import latest_details
+from backend.editor.brief_vault.brief_vault_duel_shape import summary as duel_summary
+from backend.editor.brief_vault.brief_vault_model import latest_rows
+from backend.editor.brief_vault.brief_vault_tree import live_ids
 from database.repositories.heart_tasks import HeartTaskStore
 
 LIMIT = 12_000  # zhruba 4k tokenů
@@ -30,6 +35,8 @@ MESSAGE_TEXT = 400
 DECISIONS = 10
 JOURNAL = 5
 SCRIPTS = 15
+RESEARCH = 10
+HEART = "heart"  # autor výzkumů a duelů srdce ve schránce (agent `heart`)
 UNREADABLE = (ValueError, KeyError, TypeError, AttributeError, OSError, sqlite3.Error)
 CUT = "\n… (snímek zkrácen)"
 
@@ -85,6 +92,33 @@ def _brain(service, project, workspace):
             brain_files.scripts(brain, SCRIPTS))
 
 
+def _research(service, project, workspace):
+    """Živé fragmenty `research` a `duel`, které založilo srdce, s výtahem podrobností; nejnovější první."""
+    try:
+        with service.reading(project):
+            db = service.db_for(project)
+            rows = latest_rows(db, project, workspace)
+            mine = {row[0] for row in db.execute(
+                "SELECT fragment_id FROM brief_fragment_revisions WHERE project_id=? AND workspace_id=? AND revision=1"
+                " AND by=? AND kind IN ('research', 'duel')", (project, workspace, HEART))}
+            ids = sorted(mine & live_ids(rows), key=lambda fid: (rows[fid]["saved_at"], fid), reverse=True)[:RESEARCH]
+            details = latest_details(db, project, workspace, ids)
+    except UNREADABLE:
+        return []
+    items = []
+    for fragment_id in ids:
+        fields = (details.get(fragment_id) or {}).get("fields") or {}
+        item = {"id": fragment_id, "kind": rows[fragment_id]["kind"], "title": rows[fragment_id]["title"]}
+        if item["kind"] == "duel" and isinstance(fields.get("duel"), dict):
+            summary = duel_summary(fields["duel"])
+            item.update(status=summary["status"], outcome=summary["outcome"], p=summary["p"])
+        elif isinstance(fields.get("research"), dict):
+            research = fields["research"]
+            item.update(status=research["status"], verdict=research["verdict"], confidence=research["confidence"])
+        items.append(item)
+    return items
+
+
 def collect(service, project, workspace):
     """Fakta snímku jednoho pracovního prostoru. Neexistující projekt je 404 `project_not_found`."""
     if not service.project_exists(project):
@@ -101,7 +135,8 @@ def collect(service, project, workspace):
                             " ORDER BY recorded_at DESC, scope_id LIMIT ?", (project, workspace, CHECKS)).fetchall()
     return {"project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
-            "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts}
+            "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
+            "research": _research(service, project, workspace)}
 
 
 def _intent(facts):
@@ -189,8 +224,22 @@ def _workshop_lines(facts):
     return _section("DÍLNA:", rows)
 
 
+def _research_lines(facts):
+    rows = []
+    for item in (facts.get("research") or [])[:RESEARCH]:
+        head = f"- {'duel' if item['kind'] == 'duel' else 'výzkum'} {_short(item['title'], 100)} ({item['id']})"
+        if item["kind"] == "duel":
+            p = item.get("p")
+            rows.append(head + f" · {item.get('outcome') or item.get('status') or '?'}"
+                        + (f" · p {p:.2f}" if isinstance(p, (int, float)) else ""))
+        else:
+            rows.append(head + f" · {item.get('verdict') or '?'}"
+                        + (f"/{item['confidence']}" if item.get("confidence") else "") + f" · {item.get('status') or '?'}")
+    return _section("VÝZKUM:", rows)
+
+
 def render(facts, limit=LIMIT):
-    """Text snímku podle §3 a §3a; delší než `limit` znaků se ořízne a označí."""
+    """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), "PLÁN:", *_plan(facts),
              "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
@@ -198,7 +247,7 @@ def render(facts, limit=LIMIT):
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines.append("POSLEDNÍ KONTROLY:")
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
-    lines += _journal_lines(facts) + _workshop_lines(facts)
+    lines += _journal_lines(facts) + _workshop_lines(facts) + _research_lines(facts)
     text = "\n".join(lines)
     return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
 

@@ -71,6 +71,8 @@ Modules (K3, contract `docs/brain-heart.md` §3b, the heart's workshop):
   `GET /api/brain/heart/context` (heart token of the same project and workspace only).
 - `brain_files.scripts` + `snapshot.py`: section `DÍLNA` after `DENÍK` = the scripts in `brain/dilna/scripts/` with
   the first docstring line (≤ 15).
+- `snapshot.py`: section `VÝZKUM` after `DÍLNA` = live `research` and `duel` fragments of the brief vault whose
+  first revision the heart wrote (verdict or outcome and p, ≤ 10; docs/brain-heart.md §3c).
 
 Still planned:
 - `events.py`: reads `opora_events` and `PROCESS_SIGNAL` and turns them into wake-up candidates.

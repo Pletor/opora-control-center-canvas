@@ -37,6 +37,10 @@ Modules (H2a):
   `claude -p --model haiku` per item, ≤ 20 per run counted in `OPORA_RLM_LOG`, depth 1). Write/Edit are allowed only
   by the settings `allow` rules for `dilna/scripts/**` and `dilna/out/**`; `batch.py` sums the run costs into
   `subCostUsd` of the journal entry.
+- Research (K4, §3c): `opora_research.py` (stdlib, copied next to the tool) runs `research` (a `research` fragment
+  in the brief vault, one researcher `claude -p` with Read/Grep/Glob and only six REA web tools from
+  `dilna/rea-mcp.json`, result via `research-update`) and `duel` (deterministic, Haiku sub-calls as actors
+  `srdce-obhajce-a|b` and judges `srdce-soudce-1|2`, `duel-decide` by the server rule). Both log to `runs.jsonl`.
 - `prompt.md`: the heart's role, task shape with a full example, application-wide rules, when to ask the advisor.
 
 The heart token comes from `tokens.issue_heart` once per project and workspace; it lives only in memory and in the
