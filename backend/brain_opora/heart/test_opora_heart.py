@@ -1,4 +1,5 @@
-"""Nástroj srdce proti falešnému serveru: hlavičky, tvar úkolu, odpověď, zrušení, eskalace, `done` a chyby."""
+"""Nástroj srdce proti falešnému serveru: hlavičky, tvar úkolu, odpověď, zrušení, eskalace, paměť (`decide`, `rule`),
+`done` a chyby."""
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -35,6 +36,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._reply(201, {"taskId": "ht_1", "title": body["title"], "status": "ready", "order": 1})
         if url.path.endswith("/answer"):
             return self._reply(200, {"ticketId": "gt_1", "status": "answered", "answeredBy": "heart"})
+        if url.path.startswith("/api/desktop-v3/"):
+            return self._reply(200, {"revision": 2, "item": {**body["item"], "by": "agent"}})
         if url.path.endswith("/cancel"):
             return self._reply(409, {"error": "uzavřený", "code": "task_closed", "hint": "Jen ready nebo assigned."})
         return self._reply(201, {"ticketId": "gt_2", "kind": "ask", "status": "queued"})
@@ -101,3 +104,24 @@ def test_errors_print_code_and_hint(server, capsys, monkeypatch):
     monkeypatch.setenv("OPORA_HEART_TOKEN", "t")
     monkeypatch.setenv("OPORA_BASE_URL", "http://127.0.0.1:9")
     assert json.loads(run(capsys, "snapshot")[1])["code"] == "server_unreachable"
+
+
+def test_decide_and_rule_add_memory_items_in_the_fixed_shape(server, capsys):
+    code, out = run(capsys, "decide", "--text", "Test h1 smí upravit úkol hero.", "--node", "home", "--pin")
+    decision = Handler.calls[-1]["body"]
+    assert code == 0 and Handler.calls[-1]["path"] == "/api/desktop-v3/decision"
+    item = decision["item"]
+    assert {key: decision[key] for key in ("project", "workspace", "op", "expected")} == {
+        "project": "p1", "workspace": "main", "op": "add", "expected": None}
+    assert decision["id"] == item["id"] and item["id"].startswith("hd_") and item["createdAt"].endswith("Z")
+    assert {key: item[key] for key in ("text", "pinned", "path", "nodeId", "by")} == {
+        "text": "Test h1 smí upravit úkol hero.", "pinned": True, "path": "", "nodeId": "home", "by": "agent"}
+    assert json.loads(out) == {"id": item["id"], "text": item["text"], "by": "agent"}
+    assert run(capsys, "decide", "--text", "Bez karty.")[0] == 0
+    assert (Handler.calls[-1]["body"]["item"]["nodeId"], Handler.calls[-1]["body"]["item"]["pinned"]) == ("", False)
+    code, out = run(capsys, "rule", "--text", "Texty česky, tykání.")
+    rule = Handler.calls[-1]["body"]
+    assert code == 0 and Handler.calls[-1]["path"] == "/api/desktop-v3/rule" and rule["id"].startswith("hr_")
+    assert rule["item"] == {"id": rule["id"], "text": "Texty česky, tykání.", "kind": "must", "scope": "project",
+                            "target": ""}
+    assert json.loads(out)["by"] == "agent"
