@@ -75,7 +75,8 @@ rozepiš do `spec.steps`, ne do karet. Build a test pusť **jednou na kartu** p�
 3. `H act --all-ready --verb propose_graph --verb accept` – jedno volání, **žádná smyčka přes ID** (`{done, skipped, next}`).
 4. Pro každou kartu `H start --node N` (kontext, claim i zadání v jednom volání; vrátí `executionId` a `steps`, `assignment` netřeba).
 5. Kód a commit s trailerem `Opora-Node: <nodeId>`; kroky zvlášť ohlašovat netřeba.
-6. `npm run build && npm test` **jednou** (`&&`: test jen po prošlém buildu).
+6. `npm run build`, a když projde, `npm test` **jednou**, jako dva samostatné příkazy. Zřetězený příkaz
+   (`&&`, `;`, `|`) pravidla oprávnění zamítnou; zamítnutý příkaz rozděl a spusť znovu.
 7. `H deliver --execution E --summary "…" --check "npm test=green"` – jedno volání zapíše kroky (evidence kroku
    musí mít `notes`; `deliver` je doplní z commitů s `Opora-Node`, jinak ze `summary`), výsledky, `local-merge`
    HEAD, check-run a při plné autonomii a splněné bráně kartu uzavře. Jinak vypíše `missing` a `next` – udělej `next`.
