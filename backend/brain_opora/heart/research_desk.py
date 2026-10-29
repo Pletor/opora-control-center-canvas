@@ -12,8 +12,9 @@ from pathlib import Path
 try:
     import research_digest
     import research_fetch
+    import research_verify
 except ImportError:  # v testech moduly balíčku
-    from backend.brain_opora.heart import research_digest, research_fetch
+    from backend.brain_opora.heart import research_digest, research_fetch, research_verify
 
 # Digest a čtení odpovědí jsou v `research_digest`; stůl je vystavuje dál (opora_research, duel, eval).
 (DISTILL, LAYERS, child_env, claude_result, clip, dicts, facts_block, find_claude, fix_verdict, flat, last_object,
@@ -105,7 +106,7 @@ class _Desk:
 
     def __init__(self, runner, cwd, budget):
         self.runner, self.cwd, self.budget, self.started = runner, cwd, budget, time.time()
-        self.calls, self.cost, self.timed_out, self.skipped = 0, 0.0, 0, []
+        self.calls, self.cost, self.timed_out, self.skipped, self.last_out = 0, 0.0, 0, [], ""
 
     def left(self):
         return self.budget - (time.time() - self.started)
@@ -119,6 +120,7 @@ class _Desk:
         limit = max(30, int(min(timeout, self.left() - (reserve or 0))))
         exit_code, out, err, timed_out = self.runner(argv, self.cwd, env, timeout=limit, input_text=prompt)
         answer, cost = claude_result(out)
+        self.last_out = out or ""
         self.cost, self.timed_out = self.cost + cost, self.timed_out + bool(timed_out)
         return answer, {"exit": exit_code, "timedOut": bool(timed_out), "costUsd": cost, "stderr": (err or "")[-500:]}
 
@@ -128,7 +130,7 @@ def gather_command(claude, *, deep=False, source_root=None, data_dir=None, rea=F
     """Výzkumník: web a čtení zdroje, povolené přesně tyto nástroje (s `rea` navíc webové nástroje REA),
     bez nastavení, háčků a lomítkových příkazů; MCP jen REA a jen s `rea` (`--strict-mcp-config` vždy)."""
     allowed = [GATHER_TOOLS, *(f"mcp__rea__{name}" for name in (*REA_TOOLS, *BROWSER_TOOLS) if rea)]
-    line = [claude, "-p", "--output-format", "json", "--model", "sonnet" if deep else "haiku",
+    line = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", "sonnet" if deep else "haiku",
             "--tools", GATHER_TOOLS, "--allowedTools", ",".join(allowed), "--strict-mcp-config",
             *(["--mcp-config", str(mcp_path)] if rea else []),
             "--setting-sources", "", "--permission-mode", "dontAsk", "--disable-slash-commands"]
@@ -174,18 +176,20 @@ def run_desk(question, targets, *, runner, claude, source_root, data_dir, deep=F
     task = f"Otázka: {question}\nPokryj všechny vrstvy, kterých se otázka týká, a navrhni možnosti postupu.{focus}"
     parts = {"T": ", ".join(targets) or "—", "F": facts_text, "N": str(MAX_FINDINGS),
              "R": str(source_root or "(projekt nemá připojený zdroj)"),
-             "D": f"\nStažené cíle: {data_dir / 'index.json'} (url → soubor; čti je Read)." if targets else "",
+             "D": f"\nStažené cíle: {data_dir / 'index.json'} (url → soubor; čti je Read). Doklad z nich uveď jejich původní URL, ne cestu k souboru." if targets else "",
              "P": REA_HINT.replace("<B>", json.dumps(str(browser))) if rea else ""}
     line = gather_command(claude, deep=deep, source_root=source_root, data_dir=data_dir, rea=rea, mcp_path=mcp_path)
     answer, run = desk.ask(line, _fill(GATHER, ("TASK", task), **parts), GATHER_TIMEOUT,
                            {**child_env(), **RESEARCH_ENV}, "gather q1", reserve=DISTILL_RESERVE)
-    found = last_object(answer)
+    found, observed = last_object(answer), research_verify.observed_text(desk.last_out) if run else ""
     raw = {"run": run, "answer": answer, "parsed": found}
     (data_dir / "gather" / "q1.json").write_text(json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8")
     shaped, options = shape_findings(found, forced[0] if forced else "")
     findings = [{"id": f"f{index}", **item} for index, item in enumerate(shaped, 1)]
-    facts = research_fetch.verify_findings(findings, data_dir / "cache", source_root, opener)
-    verified = [fact for fact in facts if fact["verified"] == "verified"]
+    findings = research_verify.prefetched_urls(findings, data_dir)
+    facts = research_verify.verify_findings(findings, data_dir / "cache", source_root, opener, data_dir,
+                                           observed=observed, observed_urls=targets)
+    verified = [fact for fact in facts if fact["verified"] in research_verify.FACT]
     missing = {status: sum(1 for fact in facts if fact["verified"] == status) for status in ("false", "unreachable")}
     covered = list(dict.fromkeys([*forced, *(fact["layer"] for fact in verified if fact["layer"])]))
     prompt = _fill(DISTILL, ("Q", question), FR=", ".join(covered) or "—", F=facts_text, FACTS=facts_block(verified),

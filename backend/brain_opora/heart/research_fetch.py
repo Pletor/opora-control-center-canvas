@@ -3,14 +3,11 @@
 - `prefetch`: cíle výzkumu (`http(s)` stránka a její skripty a styly ze stejného původu) do složky výzkumu.
 - `html_text`, `normalize`, `check_quote`: text stránky bez `script`/`style` a kontrola doslovné citace
   (podřetězec, nebo ≥ 80 % pětislovných šindelů; stránka pod 500 znaků textu je `unreachable`).
-- `verify_findings`: každé zjištění výzkumníka proti jeho zdroji (URL jednou, ≤ 30 URL, 6 vláken, cache;
-  `cesta:řádek` jen uvnitř kořene zdroje, ± 20 řádků). Fakt je jen `verified`.
+- `clean_source`, `is_url`: zdroj zjištění od modelu. Ověření zjištění proti zdrojům je v `research_verify.py`.
 Supervisor soubor kopíruje do `brain/` vedle `opora_heart.py`.
 """
-import hashlib
 import json
 import re
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from html.parser import HTMLParser
 from pathlib import Path
@@ -20,7 +17,7 @@ from urllib.request import Request, urlopen
 # Prefetch (§3c): cíle stáhne nástroj sám a výzkumník je jen čte; strop času, velikosti a počtu souborů.
 FETCH_TIMEOUT, FETCH_MAX_BYTES, FETCH_MAX_FILES = 10, 1_000_000, 20
 # Ověření (§3d krok 4).
-VERIFY_MAX_URLS, VERIFY_THREADS, MIN_TEXT, SHINGLE, SHINGLE_SHARE, LINE_WINDOW = 30, 6, 500, 5, 0.8, 20
+MIN_TEXT, SHINGLE, SHINGLE_SHARE = 500, 5, 0.8
 SKIPPED_TAGS = {"script", "style"}
 QUOTES = str.maketrans({ch: "" for ch in "\"'“”„‟″‘’‚‛′«»`"})
 MARKS = re.compile(r"[*_#>~|]+|\[|\]\([^)]*\)|\]")
@@ -176,55 +173,3 @@ def clean_source(source):
 def is_url(source):
     parts = urlsplit(source or "")
     return parts.scheme in ("http", "https") and bool(parts.netloc) and not any(ch.isspace() for ch in source)
-
-
-def _page_text(url, cache_dir, opener):
-    """Text stránky (cache v `cache_dir`, klíč = hash URL); None, když stažení selhalo."""
-    cached = Path(cache_dir) / (hashlib.sha1(url.encode("utf-8")).hexdigest()[:20] + ".txt")
-    if cached.is_file():
-        return cached.read_text(encoding="utf-8")
-    _, body, _ = _fetch(url, opener)
-    if body is None:
-        return None
-    raw = body.decode("utf-8", errors="replace")
-    text = html_text(raw) if HTML_HINT.search(body[:5000]) else " ".join(raw.split())
-    cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_text(text, encoding="utf-8")
-    return text
-
-
-def _file_text(source, source_root):
-    """Okno ± `LINE_WINDOW` řádků kolem `cesta:řádek[-řádek]` (bez řádku celý soubor); None mimo kořen zdroje."""
-    match = PATH_LINE.match(source.strip())
-    if not match or not source_root:
-        return None
-    root = Path(source_root).resolve()
-    path = Path(match["path"])
-    path = (path if path.is_absolute() else root / path).resolve()
-    if root not in path.parents or not path.is_file() or path.stat().st_size > FETCH_MAX_BYTES:
-        return None
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    if match["start"]:
-        start = int(match["start"])
-        end = int(match["end"] or start)
-        lines = lines[max(start - 1 - LINE_WINDOW, 0):end + LINE_WINDOW]
-    return "\n".join(lines)
-
-
-def verify_findings(findings, cache_dir, source_root, opener=None):
-    """Kopie zjištění s polem `verified` (`verified|false|unreachable`); každé URL se stáhne jednou
-    (nejvýš `VERIFY_MAX_URLS`, další jsou `unreachable`), soubory jen uvnitř kořene zdroje."""
-    opener = opener or urlopen
-    urls = list(dict.fromkeys(item.get("source", "").split("#")[0] for item in findings if is_url(item.get("source"))))
-    fetched = urls[:VERIFY_MAX_URLS]
-    with ThreadPoolExecutor(max_workers=VERIFY_THREADS) as pool:
-        texts = dict(zip(fetched, pool.map(lambda url: _page_text(url, cache_dir, opener), fetched), strict=True))
-    out = []
-    for item in findings:
-        source, quote = item.get("source") or "", item.get("quote") or ""
-        if is_url(source):
-            status = check_quote(quote, texts.get(source.split("#")[0]))
-        else:
-            status = check_quote(quote, _file_text(source, source_root) if source else None, min_text=1)
-        out.append({**item, "verified": status})
-    return out

@@ -18,8 +18,9 @@ from pathlib import Path
 try:
     import research_desk
     import research_fetch
+    import research_verify
 except ImportError:  # v testech moduly balíčku
-    from backend.brain_opora.heart import research_desk, research_fetch
+    from backend.brain_opora.heart import research_desk, research_fetch, research_verify
 
 ROOT_TITLE = "Výzkum srdce"
 ROOT_TEXT = "Kořen výzkumů a duelů srdce (docs/brain-heart.md §3c). Není to zadání ke stavbě."
@@ -66,7 +67,7 @@ def vault_fields(result, at):
     digest, evidence = dict(result["digest"]), []
     for fact in result["facts"]:
         url = fact.get("source") or ""
-        if (fact.get("verified") == "verified" and research_fetch.is_url(url) and len(evidence) < MAX_EVIDENCE
+        if (fact.get("verified") in research_verify.FACT and research_fetch.is_url(url) and len(evidence) < MAX_EVIDENCE
                 and url not in {item["url"] for item in evidence}):
             evidence.append({"url": url[:2048], "title": (fact.get("claim") or url)[:300],
                              "quote": (fact.get("quote") or "")[:2000], "accessedAt": at})
