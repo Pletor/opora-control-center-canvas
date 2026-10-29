@@ -1,5 +1,7 @@
 Panel Asistent: úkoly s Claude Code přímo v OPOŘE (kontrakt `docs/asistent.md`, UI v §9).
 
+Channel Srdce | Asistent (H2b1, `docs/brain-heart-channel.md` §1): `ChannelSwitch` in the head replaces the name. The choice is stored once for the application (`channel` in `assistant-prefs.ts`); until the human chooses, the project gate decides (`pickChannel`: gate on = Srdce). `logic/use-channel.ts` reads the gate (`GET /api/brain/gate-setting`) and turns it on. With Srdce the panel composes `frontend/layout/heart-channel/` (`HeartChannel`) instead of the assistant; neither reads the other's state, the channel only gets project, workspace and gate state. The old assistant behaves as before (H2b2 deletes it).
+
 Tři velikosti: `minimized` (lišta vpravo dole nad minimapou), `side` (panel vpravo, cca 480 px) a `full` (celá plocha pod horní lištou). Velikost a výchozí model se ukládají jednou pro aplikaci (`localStorage` `opora:assistant:v1`), nikdy per projekt.
 
 Celá plocha má tři sloupce: úkoly (288 px) | konverzace (sloupec až 920 px, odstavce cca 80 znaků) | osnova (296 px, jen od šířky okna 1280 px).
@@ -10,7 +12,7 @@ Dílky (`components/`):
 
 - `AssistantButton`: tlačítko v pravém rohu horní lišty, tečka když nějaký úkol pracuje.
 - `AssistantPanel`: rodič. Drží velikost, spojení, koncepty zpráv a zkratky (`Esc` zmenší, `Alt+↑/↓` přepíná úkoly, na celé ploše v pořadí skupin) a skládá ostatní dílky. Zůstává připojený i zavřený, aby tečka na tlačítku věděla, kdy práce doběhla.
-- `PanelHead`, `SizeSwitch`: hlavička (na celé ploše i název a model úkolu) a tři ikony velikosti.
+- `PanelHead`, `ChannelSwitch`, `SizeSwitch`: hlavička (přepínač Srdce | Asistent, u Asistenta na celé ploše i název a model úkolu) a tři ikony velikosti.
 - `MinimizedBar`: minimalizovaná lišta s aktivním úkolem, stavem a počtem.
 - `TaskColumn` (celá plocha): „+ Nový úkol“, hledání v názvech a skupiny Pracuje / Čeká na vás / Ostatní. `TaskList` (panel vpravo): rozbalovací pruh. Oba skládají `TaskItem` (přejmenování v řádku, zavření s potvrzením v řádku) a `NewTask` (tlačítko s modelem).
 - `TasksEmpty`: prázdný stav s příklady otázek. `PanelNotice`: chybí projekt, `claude` nedostupný, selhání.
@@ -30,7 +32,7 @@ Logika (`logic/`), čisté funkce s testem vedle:
 - `turns.ts`: tahy z konverzace, hlavička tahu, popisek pro osnovu, kotvy, souhrn kroků.
 - `decisions.ts`: otázky grillingu (úvod, `{id, topic, question, recommendation}`, závěr), jinak `null`.
 - `tool-steps.ts`: sbalení po sobě jdoucích nástrojů. `slash-commands.ts`: nápověda `/grill-me`, `/wayfinder`.
-- `assistant-prefs.ts`: preference aplikace (model, velikost, rozsah práce, výchozí `board`) a přechody velikostí.
+- `assistant-prefs.ts`: preference aplikace (model, velikost, rozsah práce, výchozí `board`, kanál Srdce | Asistent) a přechody velikostí; `pickChannel` volí výchozí kanál podle brány.
 - `work-scope.ts`: jména rozsahů a „Výběr: 2 uzly“ / „nic nevybráno“.
 - `canvas-write.ts`: hlídač proudu událostí, který pozná doběhlý povolený zápis (`approval` Bash → `approval_resolved allow` → `tool_result ok`, párování podle id nástroje); přehrané staré události nespustí nic (§6.2).
 

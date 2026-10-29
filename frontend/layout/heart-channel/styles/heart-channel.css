@@ -1,0 +1,295 @@
+/* Kanál Srdce (blok heart-channel) je jeden sloupec, který se čte shora dolů jako ranní porada:
+   nejdřív co srdce potřebuje od vás, pak co se dělá, pak jak se srdci daří, a dole místo pro novou
+   zprávu. Obsah roluje, pole zprávy zůstává přišpendlené dole, aby se dalo psát kdykoli. Na celé ploše
+   se sloupec drží uprostřed v čitelné šířce, protože víc sloupců tu nemá co nést. */
+.heart-channel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 72ch;
+  margin: 0 auto;
+}
+.heart-channel__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-3) var(--sp-5) var(--sp-4);
+}
+.heart-channel__note {
+  margin: var(--sp-5);
+  color: var(--ink-muted);
+}
+
+/* Každá část má malý nadpis a mezi částmi je vzduch, ne čára: oko je od sebe pozná podle rytmu.
+   Počet vedle nadpisu je tichá pilulka, aby bylo hned vidět, kolik toho čeká. */
+.heart-channel__section {
+  margin-bottom: var(--sp-5);
+}
+.heart-channel__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+.heart-channel__count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-weight: 600;
+}
+.heart-channel__empty {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+/* Otázky srdce jsou to jediné, co tu čeká na člověka, proto mají zlatý okraj jako karta, která chce
+   rozhodnutí. Text otázky je plnou barvou, čas tiše vpravo, pod tím pole a tlačítko Odpovědět. */
+.heart-channel__escalations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.heart-channel__escalation {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-lg);
+  background: var(--gold-soft);
+}
+.heart-channel__escalation-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.heart-channel__escalation-meta {
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.heart-channel__escalation-form {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+}
+
+/* Fronta je seznam ke čtení: skupina má tichý popisek, řádek nese název, stav a kdo úkol drží.
+   Klik řádek rozbalí na to, co se má udělat a kdy je hotovo; nic se tu needituje. Stav je barevné
+   slovo: připraveno klidně, přiděleno akcentem, hotovo tlumeně, selhalo červeně. */
+.heart-channel__group {
+  margin-bottom: var(--sp-3);
+}
+.heart-channel__group-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-1);
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.heart-channel__tasks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.heart-channel__task {
+  border-bottom: 1px solid var(--line);
+}
+.heart-channel__task-summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 6px 0;
+  cursor: pointer;
+}
+.heart-channel__task-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.heart-channel__task-status,
+.heart-channel__task-holder {
+  flex: none;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+.heart-channel__task-status--assigned {
+  color: var(--accent);
+}
+.heart-channel__task-status--failed {
+  color: var(--danger);
+}
+.heart-channel__task-do {
+  margin: 0 0 var(--sp-2);
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+.heart-channel__task-done-when {
+  margin: 0 0 var(--sp-2);
+  padding-left: var(--sp-5);
+  color: var(--ink-2);
+}
+
+/* Stav srdce je tečka a věta jako u úkolů asistenta: pracuje = dýchající akcent, čeká = zlatá,
+   chyba = červená, spí nebo neběží = prázdný kroužek. Pod tím pět posledních dávek, shrnutí vlevo
+   a cena vpravo v pevné šířce, aby se částky daly porovnat pohledem dolů. */
+.heart-channel__state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--sp-2);
+  color: var(--ink-2);
+}
+.heart-channel__state-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border: 1.5px solid var(--ink-muted);
+  border-radius: 50%;
+}
+.heart-channel__state--working {
+  color: var(--accent);
+}
+.heart-channel__state--working .heart-channel__state-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  animation: heart-channel-breathe 1.8s ease-in-out infinite;
+}
+.heart-channel__state--waiting .heart-channel__state-dot {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.heart-channel__state--error {
+  color: var(--danger);
+}
+.heart-channel__state--error .heart-channel__state-dot {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+@keyframes heart-channel-breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heart-channel__state--working .heart-channel__state-dot {
+    animation: none;
+  }
+}
+.heart-channel__batches {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.heart-channel__batch {
+  display: flex;
+  gap: var(--sp-3);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-1);
+}
+.heart-channel__batch-summary {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-2);
+}
+.heart-channel__batch-cost {
+  flex: none;
+  min-width: 9ch;
+  color: var(--ink-muted);
+  font-family: var(--mono);
+  text-align: right;
+}
+
+/* Pole zprávy a odpovědi mají stejný klidný rámeček jako pole asistenta; tlačítko je jediná plná
+   akcentní plocha v kanálu, aby bylo jasné, čím se odesílá. Pole zprávy dole odděluje jedna linka. */
+.heart-channel__composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--line);
+}
+.heart-channel__field {
+  flex: 1;
+  min-width: 0;
+  padding: 6px var(--sp-3);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+.heart-channel__button {
+  flex: none;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.heart-channel__button:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+.heart-channel__button:disabled {
+  opacity: 0.5;
+}
+
+/* Vypnutá brána je jedna věta a jedno tlačítko; nic dalšího, protože bez brány srdce nepracuje.
+   Když zapnutí selže, důvod stojí červeně na vlastním řádku pod tím. */
+.heart-channel__gate-off {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-5);
+}
+.heart-channel__gate-off-text {
+  margin: 0;
+  color: var(--ink-2);
+}
+.heart-channel__gate-off-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+}
+
+/* Chyba sítě stojí nahoře přes celou šířku v tlumeně červené a jde skrýt křížkem. */
+.heart-channel__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--radius-lg);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.heart-channel__error-text {
+  flex: 1;
+}
+.heart-channel__error-dismiss {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}

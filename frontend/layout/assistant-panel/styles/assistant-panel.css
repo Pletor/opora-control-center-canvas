@@ -140,6 +140,35 @@
   border-radius: var(--radius);
   background: var(--bg);
 }
+/* Místo jména stojí vlevo přepínač kanálu Srdce | Asistent: dvě slova v nízké pilulce, vybrané má
+   akcentní podklad jako aktivní velikost vpravo. Hlavička tak zůstane stejně tichá a člověk hned ví,
+   s kým mluví. Tvar je stejný ve všech projektech; jen výchozí volba se řídí bránou projektu. */
+.assistant-panel__channels {
+  display: flex;
+  align-self: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.assistant-panel__channel {
+  min-height: 28px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+.assistant-panel__channel:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.assistant-panel__channel--on,
+.assistant-panel__channel--on:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 .assistant-panel__size,
 .assistant-panel__close {
   display: inline-flex;

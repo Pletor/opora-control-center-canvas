@@ -1,17 +1,19 @@
-import type { PanelSize } from "../logic/assistant-prefs";
+import type { PanelChannel, PanelSize } from "../logic/assistant-prefs";
 import type { TaskView } from "../logic/task-overview";
+import ChannelSwitch from "./ChannelSwitch";
 import SizeSwitch from "./SizeSwitch";
 
 /**
- * Hlavička panelu: vlevo „Asistent“ (na celé ploše i „/ název úkolu · model“, protože sloupec úkolů
- * je daleko vlevo a oko potřebuje vědět, kde je), vpravo přepínač velikostí a křížek.
+ * Hlavička panelu: vlevo přepínač kanálu Srdce | Asistent (u Asistenta na celé ploše i „/ název úkolu
+ * · model“, protože sloupec úkolů je daleko vlevo a oko potřebuje vědět, kde je), vpravo přepínač
+ * velikostí a křížek.
  */
-export default function PanelHead({ size, task, onSize, onClose }: { size: PanelSize; task: TaskView | null; onSize: (size: PanelSize) => void; onClose: () => void }) {
+export default function PanelHead({ size, task, channel, onChannel, onSize, onClose }: { size: PanelSize; task: TaskView | null; channel: PanelChannel; onChannel: (channel: PanelChannel) => void; onSize: (size: PanelSize) => void; onClose: () => void }) {
   return (
     <header className="assistant-panel__head">
       <span className="assistant-panel__brand">
-        Asistent
-        {size === "full" && task && (
+        <ChannelSwitch channel={channel} onChannel={onChannel} />
+        {channel === "assistant" && size === "full" && task && (
           <>
             <span className="assistant-panel__brand-sep" aria-hidden="true">/</span>
             <span className="assistant-panel__brand-task">{task.title}</span>

@@ -25,6 +25,13 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   `GET /api/brain/heart/status?project=` returns the session, the last 5 batches, sleeping and `nextAllowedAt`;
   `GET /api/brain/heart/snapshot?project&workspace` returns `{snapshot}`; `POST /api/brain/heart/escalate
   {project, workspace, text}` (heart token only) creates an `ask` ticket for the human.
+- Human channel to the heart (H2b1, `docs/brain-heart-channel.md` §2): `GET /api/brain/heart/escalations?project&workspace`
+  (human only, loopback) lists the heart's open questions for the human (`ask` tickets with `for: "human"` from a
+  heart session), newest first: `{escalations: [{ticketId, text, createdAt, taskId?}]}`. When a human answers such a
+  ticket through `POST /api/gate/tickets/{id}/answer`, `gate_routes.py` wakes the heart at once through
+  `supervisor.message()` with `ODPOVĚĎ ČLOVĚKA na <ticketId>: <text>` (skips the hourly cap, gate must be on). An
+  answer to a worker ticket, or an answer given by the heart, wakes nothing. `create_gate_router(service, supervisor)`
+  gets the same supervisor as the heart router (`backend/app/factory.py`).
 
 ## MCP server (H1d)
 

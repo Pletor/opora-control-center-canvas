@@ -66,3 +66,26 @@ class GateTicketStore:
             "SELECT " + ",".join(COLUMNS) + " FROM gate_tickets WHERE project_id=? AND workspace_id=?"
             " AND status='queued' ORDER BY seq LIMIT ?", (self.project, workspace, limit)).fetchall()
         return [public(row) for row in rows]
+
+    def escalations(self, workspace, limit):
+        """Čekající eskalace srdce pro člověka (`ask` s `for: "human"` z relace srdce), od nejnovější."""
+        rows = self.db.execute(
+            "SELECT " + ",".join("t." + column for column in COLUMNS) + " FROM gate_tickets t"
+            " JOIN gate_sessions s ON s.id=t.session_id WHERE t.project_id=? AND t.workspace_id=?"
+            " AND t.status='queued' AND t.kind='ask' AND s.role='heart' ORDER BY t.seq DESC LIMIT ?",
+            (self.project, workspace, limit)).fetchall()
+        return [ticket for ticket in map(public, rows) if _for_human(ticket)]
+
+    def heart_escalation_workspace(self, ticket_id):
+        """Pracovní prostor lístku, když je to eskalace srdce pro člověka; jinak None."""
+        row = self.db.execute(
+            "SELECT " + ",".join("t." + column for column in COLUMNS) + " FROM gate_tickets t"
+            " JOIN gate_sessions s ON s.id=t.session_id WHERE t.project_id=? AND t.id=? AND t.kind='ask'"
+            " AND s.role='heart'", (self.project, ticket_id)).fetchone()
+        ticket = public(row)
+        return dict(zip(COLUMNS, tuple(row)))["workspace_id"] if ticket and _for_human(ticket) else None
+
+
+def _for_human(ticket):
+    body = ticket["body"]
+    return isinstance(body, dict) and body.get("for") == "human"

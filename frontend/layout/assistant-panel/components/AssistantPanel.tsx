@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import HeartChannel from "@/layout/heart-channel/components/HeartChannel";
 import type { AssistantContext, AssistantScope, ViewContext } from "../logic/assistant-api";
 import { isBusy } from "../logic/assistant-events";
 import { readPrefs, reopenSize, smallerSize, writePrefs, type PanelSize } from "../logic/assistant-prefs";
 import { anyWorking, groupTasks, neighbourTask } from "../logic/task-overview";
 import { useAssistantSessions } from "../logic/use-assistant-sessions";
+import { useChannel } from "../logic/use-channel";
 import { useConversation } from "../logic/use-conversation";
 import { usePanelKeys } from "../logic/use-panel-keys";
 import { useTaskMemory } from "../logic/use-task-memory";
@@ -28,6 +30,8 @@ import TasksEmpty from "./TasksEmpty";
  * Na celé ploše skládá tři sloupce: úkoly, konverzaci po tazích a osnovu (tu skrývá CSS pod 1280 px).
  * K pohledu od App přidá rozsah práce (preference aplikace, §6.1) a povolený zápis, který doběhl,
  * ohlásí nahoru `onCanvasWritten`, aby rodič načetl plátno znovu (§6.2).
+ * Přepínač Srdce | Asistent v hlavičce (docs/brain-heart-channel.md §1) skládá místo asistenta kanál
+ * `HeartChannel`; panely si navzájem stav nečtou, kanál dostane jen projekt, prostor a stav brány.
  */
 export default function AssistantPanel({
   open,
@@ -56,6 +60,7 @@ export default function AssistantPanel({
   const [watch, setWatch] = useState(false);
   const lastExpanded = useRef<PanelSize>(size === "full" ? "full" : "side");
   const root = useRef<HTMLElement>(null);
+  const ch = useChannel(open, view.projectId);
 
   const s = useAssistantSessions(open, watch, context.projectId, context.workspace);
   useSelectRequest(selectRequest, s.sessions, s.select);
@@ -145,6 +150,7 @@ export default function AssistantPanel({
 
   let content;
   if (!context.projectId) content = <PanelNotice kind="project" />;
+  else if (ch.channel === "heart") content = <HeartChannel active={open} projectId={context.projectId} workspace={context.workspace} gateOn={ch.gateOn} gateFailure={ch.gateFailure} onEnableGate={ch.turnGateOn} />;
   else if (s.failure && !s.status) content = <PanelNotice kind="failure" detail={s.failure} />;
   else if (!s.status) content = <PanelNotice kind="checking" />;
   else if (!s.status.available) content = <PanelNotice kind="unavailable" />;
@@ -225,7 +231,7 @@ export default function AssistantPanel({
 
   return (
     <aside ref={root} className={`assistant-panel assistant-panel--${size}`} aria-label="Asistent">
-      <PanelHead size={size} task={activeTask} onSize={setSize} onClose={onClose} />
+      <PanelHead size={size} task={activeTask} channel={ch.channel} onChannel={ch.setChannel} onSize={setSize} onClose={onClose} />
       <div className="assistant-panel__body">{content}</div>
     </aside>
   );

@@ -4,14 +4,19 @@ import { MODELS, SCOPES, type AssistantModel, type AssistantScope } from "./assi
  * Preference asistenta jsou volba aplikace, ne projektu: jeden klíč pro všechny projekty.
  * Drží výchozí model nové session, velikost panelu (minimalizovat, vpravo, celá plocha)
  * a rozsah práce asistenta (Celý obraz / Výběr, docs/asistent.md §6.1).
+ * Drží i kanál panelu Srdce | Asistent (docs/brain-heart-channel.md §1); `null` = člověk ještě nevolil
+ * a kanál se odvodí ze zapnuté brány projektu (`pickChannel`).
  */
 export const ASSISTANT_PREFS_KEY = "opora:assistant:v1";
 
 export type PanelSize = "minimized" | "side" | "full";
 export const SIZES: PanelSize[] = ["minimized", "side", "full"];
 
-export type AssistantPrefs = { model: AssistantModel; size: PanelSize; scope: AssistantScope };
-export const DEFAULT_PREFS: AssistantPrefs = { model: "opus", size: "side", scope: "board" };
+export type PanelChannel = "heart" | "assistant";
+export const CHANNELS: PanelChannel[] = ["heart", "assistant"];
+
+export type AssistantPrefs = { model: AssistantModel; size: PanelSize; scope: AssistantScope; channel: PanelChannel | null };
+export const DEFAULT_PREFS: AssistantPrefs = { model: "opus", size: "side", scope: "board", channel: null };
 
 /** Uložený JSON → platné preference; neznámé nebo poškozené hodnoty dostanou výchozí. */
 export function parsePrefs(raw: string | null): AssistantPrefs {
@@ -22,12 +27,18 @@ export function parsePrefs(raw: string | null): AssistantPrefs {
         model: MODELS.includes(value.model) ? value.model : DEFAULT_PREFS.model,
         size: SIZES.includes(value.size) ? value.size : DEFAULT_PREFS.size,
         scope: SCOPES.includes(value.scope) ? value.scope : DEFAULT_PREFS.scope,
+        channel: CHANNELS.includes(value.channel) ? value.channel : DEFAULT_PREFS.channel,
       };
     }
   } catch {
     /* Poškozené preference nejsou data projektu. */
   }
   return { ...DEFAULT_PREFS };
+}
+
+/** Kanál panelu: uložená volba člověka, jinak Srdce u projektu se zapnutou bránou a Asistent u ostatních. */
+export function pickChannel(stored: PanelChannel | null, gateOn: boolean): PanelChannel {
+  return stored ?? (gateOn ? "heart" : "assistant");
 }
 
 /** Esc zmenší panel o jeden stupeň: celá plocha → vpravo → lišta. Lišta už zůstane. */

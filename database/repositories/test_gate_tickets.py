@@ -62,3 +62,28 @@ def test_queued_lists_what_still_waits(store):
     assert [t["ticketId"] for t in store.queued("main", 10)] == ["gt_2"]
     with pytest.raises(sqlite3.IntegrityError):
         store.db.execute("UPDATE gate_tickets SET status='done'")
+
+
+def _session(store, session_id, role):
+    store.db.execute("INSERT INTO gate_sessions(id,project_id,workspace_id,role,worker_name,worker_meta,token_hash,"
+                     "created_at) VALUES(?,?,?,?,?,?,?,?)", (session_id, "p1", "main", role, role, "{}",
+                                                             "h_" + session_id, AT))
+
+
+def test_escalations_are_heart_questions_for_the_human_newest_first(store):
+    _session(store, "gs_heart", "heart")
+    _session(store, "gs_dev", "worker")
+    store.insert("gt_1", "main", "gs_heart", "ask", {"text": "Barva?", "for": "human"}, AT)
+    store.insert("gt_2", "main", "gs_heart", "ask", {"text": "Font?", "for": "human"}, AT)
+    store.insert("gt_3", "main", "gs_dev", "ask", {"text": "Smím?", "for": "human"}, AT)  # pracovník, ne srdce
+    store.insert("gt_4", "main", "gs_heart", "ask", {"question": "?"}, AT)  # ne pro člověka
+    store.insert("gt_5", "draft", "gs_heart", "ask", {"text": "Jinde", "for": "human"}, AT)
+    store.answer("gt_1", {"text": "Modrá"}, "human", AT)
+    assert [t["ticketId"] for t in store.escalations("main", 10)] == ["gt_2"]
+    store.insert("gt_6", "main", "gs_heart", "ask", {"text": "Logo?", "for": "human"}, AT)
+    assert [t["ticketId"] for t in store.escalations("main", 10)] == ["gt_6", "gt_2"]
+    assert store.heart_escalation_workspace("gt_1") == "main"
+    assert store.heart_escalation_workspace("gt_5") == "draft"
+    assert store.heart_escalation_workspace("gt_3") is None
+    assert store.heart_escalation_workspace("gt_4") is None
+    assert store.heart_escalation_workspace("gt_none") is None

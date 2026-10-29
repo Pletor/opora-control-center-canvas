@@ -3,7 +3,7 @@ v úkolech a odpovědích. Supervisor v testech neběží (OPORA_HEART=off), ž�
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
-from backend.brain_opora.determinism import tokens
+from backend.brain_opora.determinism import gate, tokens
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed
 
 AGENT = {**HEADERS, "X-Opora-Actor": "agent; name=dev"}
@@ -104,3 +104,40 @@ def test_heart_drives_the_queue_through_the_gate_in_a_gate_on_project(tmp_path):
         again = gate("task.cancel", {"taskId": task["taskId"]})
         assert again.status_code == 409 and code(again) == "task_closed" and again.json()["hint"]
         assert code(gate("ticket.answer", {"ticketId": "gt_none", "text": "x"})) == "ticket_not_found"
+
+
+def test_escalations_are_for_the_human_and_an_answer_wakes_the_heart(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        service, heart = client.app.state.service, client.app.state.heart
+        _, token = tokens.issue_heart(service, "draft", "draft")
+        ticket = gate.escalate(service, tokens.verify(service, token), "Jakou barvu?")
+        listed = client.get("/api/brain/heart/escalations", headers=HEADERS, params=SCOPE)
+        assert listed.status_code == 200, listed.text
+        assert [(e["ticketId"], e["text"]) for e in listed.json()["escalations"]] == [(ticket["ticketId"], "Jakou barvu?")]
+        # Agent ani srdce otázky pro člověka nečtou; chybějící prostor je 422.
+        assert client.get("/api/brain/heart/escalations", headers=AGENT, params=SCOPE).status_code == 403
+        assert client.get("/api/brain/heart/escalations", headers=HEADERS, params={"project": "draft"}
+                          ).status_code == 422
+        answered = client.post(f"/api/gate/tickets/{ticket['ticketId']}/answer?project=draft", headers=HEADERS,
+                               json={"answer": {"text": "Modrou"}})
+        assert answered.status_code == 200 and answered.json()["answeredBy"] == "human", answered.text
+        assert [item for _, item, _ in heart.pending["draft"]] == [
+            {"type": "message", "text": f"ODPOVĚĎ ČLOVĚKA na {ticket['ticketId']}: Modrou"}]
+        assert client.get("/api/brain/heart/status", params={"project": "draft"}).json()["pending"] == 1
+        assert client.get("/api/brain/heart/escalations", headers=HEADERS, params=SCOPE).json() == {"escalations": []}
+
+
+def test_answer_to_a_worker_ticket_does_not_wake_the_heart(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
+        asked = client.post("/api/gate/requests", headers=worker,
+                            json={"kind": "ask", "body": {"question": "Smím?"}})
+        assert asked.status_code == 201, asked.text
+        answered = client.post(f"/api/gate/tickets/{asked.json()['ticketId']}/answer?project=draft", headers=HEADERS,
+                               json={"answer": {"text": "Ano"}})
+        assert answered.status_code == 200, answered.text
+        assert client.app.state.heart.pending.get("draft", []) == []
