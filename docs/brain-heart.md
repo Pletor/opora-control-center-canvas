@@ -62,13 +62,47 @@ cwd = <data>/projects/<id>/brain/       env: without ANTHROPIC_API_KEY; OPORA_BA
 ```
 PROJEKT <name> · workspace <w>
 ZÁMĚR: <application site goal / feel, if any>
+ZPRÁVY ČLOVĚKA: <at text> (last 5 of the workspace, ≤ 400 chars each)
+PRAVIDLA: <project rules: approved, then "(návrh)"> (≤ 20)
+ROZHODNUTÍ: <decisions: pinned, then newest> (≤ 10)
 PLÁN: <pages: name, path, stage> (≤ 20)
 FRONTA ÚKOLŮ: ready n · assigned n (by whom) · done n · failed n; last 10 titles with status
 LÍSTKY ČEKAJÍCÍ: <id kind text> (≤ 10)
 POSLEDNÍ KONTROLY: <scope sha status> (≤ 10)
+DENÍK: <at [status] summary> (last 5 batches)
 ```
 
+An empty section prints `- žádné` (§3a).
+
 It is deterministic and has no model behind it. It is cut at a hard character limit.
+
+## 3a. The heart's surroundings: it never works blind (K1, K2)
+
+The heart is a fresh `claude -p` per batch and its session rotates at 60k tokens, so everything it must know to
+continue has to live in OPORA and come back in the snapshot. Probe r1 (2026-10-29): the human's intent was lost
+(`ZÁMĚR: —`), permissions given in an answer vanished, and the heart re-escalated what was already decided.
+Nothing new is stored in a new table: the surroundings reuse what the application already has.
+
+| Surrounding | Source (existing) | In the snapshot | The heart writes it with |
+|---|---|---|---|
+| intent of the human | `settings.goal`, home page goal/feel, **and the human's messages** | `ZÁMĚR` + `ZPRÁVY ČLOVĚKA` (last 5, newest last, ≤ 400 chars each) | — (the human writes) |
+| memory: decisions | Desktop v3 `decisions` of the workspace (`/api/desktop-v3/decision`) | `ROZHODNUTÍ` (pinned first, then newest; ≤ 10) | `decide --text T [--node N] [--pin]` |
+| memory: application rules | Desktop v3 `rules` with scope `project` (`/api/desktop-v3/rule`); a rule by the heart is a proposal (`by: agent`) until the human approves it | `PRAVIDLA` (approved, then `(návrh)`; ≤ 20) | `rule --text T` |
+| journal | `brain/batches.jsonl` summaries | `DENÍK` (last 5 summaries with time and status) | `done --summary` |
+| project source | the workspace source root (`--add-dir`, read only) | — | reads `CLAUDE.md`, `README`, `package.json` and the existing components before planning |
+
+- **Human messages are durable.** `POST /api/brain/heart/messages` appends `{at, workspace, text}` to
+  `brain/messages.jsonl` before it queues the input (server-side, in the project's own `brain/` folder like
+  `batches.jsonl`). The snapshot reads the last 5 of the batch's workspace from there.
+- **Decisions keep what answers promise.** Every permission or ruling the heart gives in `answer` (a file the
+  worker may change, which of two texts wins, an order of work) is also written as `decide`, so it survives
+  rotation and the next batch sees it. Rules of the whole application go as `rule`; the human approves them in the
+  memory panel and approved rules are what the heart repeats in `--rule`.
+- **Order of the snapshot:** `PROJEKT`, `ZÁMĚR`, `ZPRÁVY ČLOVĚKA`, `PRAVIDLA`, `ROZHODNUTÍ`, `PLÁN`, `FRONTA ÚKOLŮ`,
+  `LÍSTKY ČEKAJÍCÍ`, `POSLEDNÍ KONTROLY`, `DENÍK`. Each section has its own line cap; the whole text keeps the
+  12 000-character limit. An unreadable source is an empty section, never an error.
+- Steps: **K1** = durable messages and the four new snapshot sections (determinism + supervisor, no new tool);
+  **K2** = `decide` and `rule` in `opora_heart.py` and the prompt part "Okolí" (what to read, when to `decide`).
 
 ## 4. The heart's tool (`heart/opora_heart.py`, stdlib, one call = one intent)
 
@@ -80,6 +114,8 @@ It is deterministic and has no model behind it. It is cut at a hard character li
 | `cancel --task ID` | cancels a task |
 | `escalate --text T` | records a question for the human: an `ask` ticket created by the heart, visible in the velín |
 | `done --summary S` | ends the batch; the summary goes to `batches.jsonl` |
+| `decide --text T [--node N] [--pin]` | adds a decision to the workspace memory (`POST /api/desktop-v3/decision`) |
+| `rule --text T` | proposes an application rule (scope `project`, `by: agent`; the human approves) |
 
 Errors print `code` and `hint`, and the exit code is not zero.
 

@@ -1,6 +1,7 @@
 """Routy srdce mozku (docs/brain-heart.md §1, §4). Logika je v `backend/brain_opora/heart/`.
 
-- `POST /api/brain/heart/messages {project, workspace, text}`: jen člověk; vstup do supervisoru, budí hned.
+- `POST /api/brain/heart/messages {project, workspace, text}`: jen člověk; zpráva se uloží do `brain/messages.jsonl`
+  (snímek ji ukáže v `ZPRÁVY ČLOVĚKA`, §3a), pak jde jako vstup do supervisoru a budí hned.
 - `GET /api/brain/heart/status?project=`: relace, posledních 5 dávek, spánek a nejbližší povolený čas.
 - `GET /api/brain/heart/escalations?project&workspace`: jen člověk; otevřené otázky srdce pro člověka, od nejnovější
   (docs/brain-heart-channel.md §2). Odpověď jde přes `POST /api/gate/tickets/{id}/answer` a srdce budí.
@@ -62,7 +63,7 @@ def create_heart_router(service, supervisor):
                                 'Zapněte bránu: POST /api/brain/gate-setting {"project": "<id>", "enabled": true}.')
         except GateError as error:
             return _refused(error)
-        return {"queued": True, "pending": supervisor.message(project, workspace, text)}
+        return {"queued": True, "pending": await run_in_threadpool(supervisor.message, project, workspace, text)}
 
     @router.get("/status", responses={404: {"model": models.Refusal}})
     def status(project: str = ""):

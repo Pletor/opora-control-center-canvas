@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from backend.brain_opora.determinism import gate, gate_setting, kinds
+from backend.brain_opora.determinism import brain_files, gate, gate_setting, kinds
 from backend.brain_opora.heart import batch, supervisor
 from backend.brain_opora.heart.process import Outcome
 from backend.canvas.canvas_service import CanvasService
@@ -63,6 +63,15 @@ def test_human_message_wakes_at_once_and_is_journaled(setup):
     status = heart.status("draft")
     assert status["batches"][-1]["status"] == "ok" and status["session"]["batches"] == 1 and status["pending"] == 0
     assert status["running"] is False and status["sleeping"] is False
+
+
+def test_human_message_is_durable_and_reaches_the_next_snapshot(setup):
+    service, heart, clock, runner, _ = setup
+    heart.message("draft", "draft", "Jen dvě stránky, žádný blog.")
+    assert brain_files.messages(heart.brain("draft"), "draft") == [
+        {"at": "1970-01-12T13:46:40Z", "workspace": "draft", "text": "Jen dvě stránky, žádný blog."}]
+    heart.run_once()
+    assert "ZPRÁVY ČLOVĚKA:" + chr(10) + "- 1970-01-12T13:46:40Z Jen dvě stránky, žádný blog." in runner.calls[0]
 
 
 def test_worker_ticket_waits_for_the_window_and_own_escalation_does_not_wake(setup):

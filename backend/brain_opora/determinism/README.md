@@ -42,13 +42,22 @@ Modules (H1c, contract `docs/brain-control-api.md`):
   stay queued). `run` serves `POST /api/gate/requests`: a worker sending a heart kind gets 403 `heart_required`, a
   refused body leaves no ticket. `visible(role)` serves `GET /api/gate/kinds`.
 - `kind_schemas.py`: the JSON schemas and examples of the kinds (data only).
-- `snapshot.py` also builds `view`, the JSON of the `state` kind; `rules` are the `context.rules` of the tasks.
+- `snapshot.py` also builds `view`, the JSON of the `state` kind; `rules` are the approved project rules of the
+  Desktop v3 memory, then the `context.rules` of the tasks (no repeats).
 
 Modules (H2a, contract `docs/brain-heart.md`):
 - `snapshot.py`: the deterministic project snapshot for the heart (§3): project and workspace, intent (project goal,
   else the home page goal and feel), plan pages with their stage (≤ 20, else open cards), task queue counts and the
   last 10 tasks, waiting tickets (≤ 10), last checks (≤ 10). `collect` reads, `render` is pure; the text is cut at
   12 000 characters.
+
+Modules (K1, contract `docs/brain-heart.md` §3a, the heart's surroundings):
+- `brain_files.py`: the project's `brain/` folder (`brain_dir`), durable human messages `brain/messages.jsonl`
+  (`append_message`, `messages` = last 5 of a workspace) and the batch journal `brain/batches.jsonl` (`journal`).
+  It lives here, not in `heart/`, because the snapshot reads both and determinism must not import the heart.
+- `snapshot.py` adds `ZPRÁVY ČLOVĚKA`, `PRAVIDLA` (Desktop v3 rules with scope `project`: approved, then
+  `(návrh)`; ≤ 20), `ROZHODNUTÍ` (pinned, then newest; ≤ 10) after `ZÁMĚR` and `DENÍK` (last 5 batch summaries) at
+  the end. An unreadable source is an empty section (`- žádné`), never an error.
 - `task_queue.py` / `gate.py`: tasks and ticket answers may come from the heart of the same project
   (`created_by` / `answeredBy = "heart"`, event actor `agent heart`). A task has an optional `order`: `next` takes
   the lowest `order`, then the lowest `seq` (column `task_order`, added to older tables by `ensure_order_column`).

@@ -12,7 +12,7 @@ import threading
 import time
 from collections import deque
 
-from backend.brain_opora.determinism import gate_setting, snapshot, tokens
+from backend.brain_opora.determinism import brain_files, gate_setting, snapshot, tokens
 from backend.brain_opora.heart import batch, command, session
 from backend.brain_opora.heart.inputs import resolve, wake_input
 from backend.canvas.process_signal import PROCESS_SIGNAL
@@ -73,8 +73,14 @@ class HeartSupervisor:
             self.pending.setdefault(project, []).append((workspace, item, due))
 
     def message(self, project, workspace, text, now=None):
-        """Zpráva člověka: vstup splatný hned; vrací počet čekajících vstupů projektu."""
-        self._add(project, workspace, {"type": "message", "text": text}, self.clock() if now is None else now)
+        """Zpráva člověka: nejdřív řádek do `brain/messages.jsonl` (přežije dávku i rotaci relace, §3a), pak vstup
+        splatný hned; vrací počet čekajících vstupů projektu. Selhaný zápis se jen zaloguje, zpráva srdce budí dál."""
+        now = self.clock() if now is None else now
+        try:
+            brain_files.append_message(self.brain(project), _iso(now), workspace, text)
+        except OSError:
+            LOGGER.exception("Srdce: zprávu člověka projektu %s nešlo uložit.", project)
+        self._add(project, workspace, {"type": "message", "text": text}, now)
         self.wakeup.set()
         with self.lock:
             return len(self.pending[project])
@@ -148,7 +154,7 @@ class HeartSupervisor:
             return None
 
     def brain(self, project):
-        return self.service.folder(project).path / "brain"
+        return brain_files.brain_dir(self.service, project)
 
     def _batch(self, project, workspace, items):
         try:
