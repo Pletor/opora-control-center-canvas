@@ -16,13 +16,14 @@ Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
 Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` a vypíše jen cestu, počet a velikost;
 `run` spustí `dilna/scripts/<SCRIPT>.py` (`python -I`, cwd `dilna/`, 120 s) bez tokenu srdce a klíčů API
-a zapíše řádek do `dilna/runs.jsonl`.
+ve vlastní skupině procesů (po vypršení zemře celý strom i s pod-voláními `claude`) a zapíše řádek do `dilna/runs.jsonl`.
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
 import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -144,10 +145,6 @@ def load_context(name):
     return {"path": path.as_posix(), "items": len(items), "bytes": len(raw)}
 
 
-def _text(value):
-    return value.decode("utf-8", "replace") if isinstance(value, bytes) else (value or "")
-
-
 def _cut(text, limit):
     return text if len(text) <= limit else text[:limit] + f"\n… (zkráceno, celkem {len(text)} znaků)"
 
@@ -167,6 +164,42 @@ def _sub_usage(log):
     return calls, round(cost, 6)
 
 
+def _group():
+    """Skript ve vlastní skupině procesů, ať po vypršení jde zabít celý strom (§3b)."""
+    if os.name == "nt":
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
+
+
+def kill_tree(process):
+    """Zabije proces i všechny jeho potomky (pod-volání `claude` z `rlm.py`); na Windows `taskkill /T`."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], stdin=subprocess.DEVNULL,
+                       capture_output=True, timeout=30, check=False)
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    process.kill()  # pojistka, kdyby strom už nebyl celý
+
+
+def _execute(argv, cwd, env):
+    """`(exit, stdout, stderr, timedOut)`; po `RUN_TIMEOUT` zabije strom a dočte, co skript stihl vypsat."""
+    process = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", **_group())
+    try:
+        out, err = process.communicate(timeout=RUN_TIMEOUT)
+        return process.returncode, out, err, False
+    except subprocess.TimeoutExpired:
+        kill_tree(process)
+        try:
+            out, err = process.communicate(timeout=10)
+        except subprocess.TimeoutExpired:  # roura drží ještě někdo jiný; výstup oželíme
+            out, err = "", ""
+        return None, out, err, True
+
+
 def run_script(script, script_args):
     """`run <script>`: skript dílny v odděleném prostředí; výsledek a řádek do `dilna/runs.jsonl`."""
     if not SCRIPT.match(script):
@@ -180,14 +213,9 @@ def run_script(script, script_args):
     env = {key: value for key, value in os.environ.items() if key not in SCRIPT_STRIPPED}
     env.update({"OPORA_RLM_LOG": str(log), "PYTHONIOENCODING": "utf-8"})
     env.pop("OPORA_RLM_DEPTH", None)
-    started, exit_code, timed_out = time.time(), None, False
-    try:
-        done = subprocess.run([sys.executable, "-I", "-c", BOOT, f"scripts/{script}.py", *script_args],
-                              cwd=str(dilna), env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=RUN_TIMEOUT)
-        exit_code, out, err = done.returncode, done.stdout, done.stderr
-    except subprocess.TimeoutExpired as expired:
-        timed_out, out, err = True, _text(expired.stdout), _text(expired.stderr)
+    started = time.time()
+    exit_code, out, err, timed_out = _execute([sys.executable, "-I", "-c", BOOT, f"scripts/{script}.py", *script_args],
+                                              str(dilna), env)
     ms = int((time.time() - started) * 1000)
     calls, cost = _sub_usage(log)
     log.unlink(missing_ok=True)

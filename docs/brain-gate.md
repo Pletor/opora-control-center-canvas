@@ -130,14 +130,30 @@ H1b in detail (the task queue):
 - **`report`** (gate kind, deterministic). Body `{taskId, sha, summary, checks: [{name, status: "green" | "red", output?}]}`.
   - The task must be `assigned` to this session.
   - `sha` must be 7–40 hex characters.
+  - All checks green (a `done` report): the sha must exist as a commit in the workspace source repo
+    (`WorkspaceSources.root(project, workspace)`, then `git -C <root> cat-file -e <sha>^{commit}`, 10 s timeout, run
+    outside the project lock). An unknown sha is 422 `sha_unknown` with the hint "Commitni práci a nahlas sha z
+    `git rev-parse HEAD`.". When the workspace has no source root, the root is unavailable, it is not a git repo, or
+    git cannot run, the sha is accepted as before. A report with a red check skips this (the work may not be
+    committed).
   - `checks` must not be empty.
   - Every check is written to `check_runs` (`CheckRuns.record`, scope `node_id`, otherwise the task id).
   - All checks green: the task becomes `done`.
   - Any check red: `attempts += 1`, and the task goes back to `ready`. On the second red it becomes `failed`.
   - The answer is `{task: {id, status, attempts}}`.
-- **Event** `gate.task` with `{taskId, status}` on create, assign, done, failed and cancel.
+- **`release`** (gate kind, deterministic). Body `{taskId, reason}`; `reason` is a short required text (≤ 400
+  chars). The worker gives a task back instead of letting it sit `assigned` until the token expires (8 h).
+  - The task must be `assigned` to this session, otherwise 409 `task_not_assigned` (404 `task_not_found` for an
+    unknown id).
+  - The task goes back to `ready` with no session; `attempts` stay unchanged.
+  - Emits `gate.task` with `{taskId, status: "ready", reason}`. The heart is **not** woken by it (it wakes only on
+    `failed` and on queued tickets); it sees the reason in the event log and the task in its next snapshot.
+  - The answer is `{task: {id, status, attempts}}`.
+- **Event** `gate.task` with `{taskId, status}` on create, assign, done, failed, cancel and release (`reason` added).
+- **Heart snapshot.** Every `assigned` task line shows its holder and since when it is held (`updated_at`, which
+  `assign` sets; the table has no separate `assigned_at`).
 - **Client** `.claude/skills/opora-control-center/scripts/opora_gate.py`, stdlib only:
-  - commands: `session`, `next`, `ask`, `report`, `inbox`;
+  - commands: `session`, `next`, `ask`, `report`, `release`, `inbox`;
   - the token is kept in `<cwd>/.opora/gate.json`;
   - `report --check "npm test=green"` can be repeated.
 

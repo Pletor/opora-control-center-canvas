@@ -1,4 +1,4 @@
-"""Klient brány proti falešnému serveru: relace a token v .opora/, .gitignore, next/ask/report, kurzor schránky a 4xx."""
+"""Klient brány proti falešnému serveru: relace a token v .opora/, .gitignore, next/ask/report/release, kurzor schránky a 4xx."""
 import json
 import sys
 import threading
@@ -82,6 +82,8 @@ def test_requests_carry_token_and_bodies(server, tmp_path, capsys):
                     "--check", "npm test=green", "--check", "a=b=red")
     assert code == 0 and out["answer"]["echo"]["checks"] == [{"name": "npm test", "status": "green"},
                                                              {"name": "a=b", "status": "red"}]
+    code, out = run(tmp_path, capsys, "release", "--task", "ht_1", "--reason", "Nestihnu.")
+    assert code == 0 and server[-1][2] == {"kind": "release", "body": {"taskId": "ht_1", "reason": "Nestihnu."}}
     assert all(item[3] == TOKEN and item[4].startswith("http://127.0.0.1:") for item in server[1:])
 
 

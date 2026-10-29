@@ -26,6 +26,9 @@ REPORT_EXAMPLE = {"taskId": "ht_…", "sha": "abc1234", "summary": "Hotovo.",
 TASK_HINT = ("Tělo je " + json.dumps(TASK_EXAMPLE, ensure_ascii=False)
              + "; nodeId a order (celé číslo, nižší jde dřív) jsou volitelné.")
 REPORT_HINT = "Tělo hlášení je " + json.dumps(REPORT_EXAMPLE, ensure_ascii=False) + "."
+REASON_LIMIT = 400
+RELEASE_HINT = ('Tělo vrácení je {"taskId": "ht_…", "reason": "Úkol potřebuje soubor mimo files."}; '
+                f"reason je krátký text do {REASON_LIMIT} znaků.")
 
 
 def _text(value, limit=TEXT_LIMIT, required=False):
@@ -132,3 +135,13 @@ def report_payload(body):
     if len(checks) > MAX_CHECKS or not all(_check(item) for item in checks):
         raise invalid(f"Každá kontrola je {{name, status: green | red, output?}}, nejvýš {MAX_CHECKS}.", REPORT_HINT)
     return body["taskId"], body["sha"].lower(), body["summary"], checks
+
+
+def release_payload(body):
+    """`{taskId, reason}` druhu `release` → `(taskId, reason)`; důvod je povinný krátký text."""
+    if not isinstance(body, dict) or set(body) != {"taskId", "reason"}:
+        raise invalid("Vrácení úkolu je přesně {taskId, reason}.", RELEASE_HINT)
+    if not valid_id(body["taskId"]) or not _text(body["reason"], REASON_LIMIT, True):
+        raise invalid(f"taskId je ID úkolu z odpovědi next a reason neprázdný text do {REASON_LIMIT} znaků.",
+                      RELEASE_HINT)
+    return body["taskId"], body["reason"].strip()

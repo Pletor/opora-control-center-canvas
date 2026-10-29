@@ -89,6 +89,13 @@ class HeartTaskStore:
             (status, holder, attempts, _json(report), at, self.project, task_id, session_id))
         return cursor.rowcount == 1
 
+    def release(self, task_id, session_id, at):
+        """Pracovník vrátí držený úkol do `ready` bez relace; `attempts` beze změny. True, když ho vrátilo toto volání."""
+        cursor = self.db.execute(
+            "UPDATE heart_tasks SET status='ready', session_id=NULL, updated_at=? WHERE project_id=? AND id=?"
+            " AND status='assigned' AND session_id=?", (at, self.project, task_id, session_id))
+        return cursor.rowcount == 1
+
     def cancel(self, task_id, at):
         """Zruší otevřený úkol; True, když ho zrušilo právě toto volání."""
         cursor = self.db.execute(

@@ -29,6 +29,7 @@ a thin layer with no logic of its own. Measured problems it addresses:
 |---|---|---|---|
 | `next` | worker | `{}` | `{task \| null, plan?}` (H1b) |
 | `report` | worker | `{taskId, sha, summary, checks[]}` | `{task}` (H1b) |
+| `release` | worker | `{taskId, reason}` | `{task}`: the held task goes back to `ready` (brain-gate.md §6) |
 | `ask` | worker | `{question, taskId?}` | ticket, queued; the answer arrives in the inbox |
 | `change` | worker | `{proposal, reason, taskId?}` | ticket, queued for the heart |
 | `state` | worker | `{}` | `{project, intent, rules[], plan[], queue{ready, assigned, done, failed}, myTask?}`: a compact, deterministic view (the snapshot in JSON) |
@@ -40,7 +41,7 @@ a thin layer with no logic of its own. Measured problems it addresses:
 
 How the kinds are served:
 - Every kind goes through `POST /api/gate/requests {kind, body}`.
-- **Synchronous kinds** (`next`, `report`, `state`, `inbox`, all heart kinds) answer in the same response and still
+- **Synchronous kinds** (`next`, `report`, `release`, `state`, `inbox`, all heart kinds) answer in the same response and still
   leave a ticket for the audit log.
 - `ask` and `change` stay `queued`.
 - The existing `/api/brain/tasks*` and `/api/gate/tickets/*/answer` routes stay for the UI and become thin wrappers

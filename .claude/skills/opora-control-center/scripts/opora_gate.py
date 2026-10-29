@@ -4,6 +4,7 @@
     opora_gate.py next
     opora_gate.py ask "Smím upravit X?"
     opora_gate.py report --task T --sha S --summary "…" --check "npm test=green" --check "pytest=red"
+    opora_gate.py release --task T --reason "Úkol potřebuje soubor z dontTouch."
     opora_gate.py inbox [--wait 20]
 
 Adresa serveru je v OPORA_BASE_URL (výchozí http://127.0.0.1:8740). Token relace se uloží do
@@ -121,6 +122,8 @@ def run(args, cwd):
         checks = [parse_check(item) for item in args.check or []]
         return request(state, "report", {"taskId": args.task, "sha": args.sha, "summary": args.summary,
                                          "checks": checks})
+    if args.command == "release":
+        return request(state, "release", {"taskId": args.task, "reason": args.reason})
     box = call("GET", "/api/gate/inbox", token=state["token"], name=state.get("name"),
                query={"after": state.get("after", 0), "wait": args.wait})
     save_state(cwd, {**state, "after": box["last"]})
@@ -144,6 +147,9 @@ def parser():
     report.add_argument("--sha", required=True)
     report.add_argument("--summary", required=True)
     report.add_argument("--check", action="append", help='"název=green|red", lze opakovat')
+    release = sub.add_parser("release", help="vrátí držený úkol do fronty s krátkým důvodem")
+    release.add_argument("--task", required=True)
+    release.add_argument("--reason", required=True)
     inbox = sub.add_parser("inbox", help="nové odpovědi na lístky této relace")
     inbox.add_argument("--wait", type=int, default=0, help="long-poll 0..30 s")
     return root
