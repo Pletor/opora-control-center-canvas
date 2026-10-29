@@ -24,6 +24,9 @@ Jeden úkol = ověřitelný přírůstek (stránka nebo sekce) na 10–30 minut 
 - `--done-when`: `npm run build` projde, `npm test` projde, a jedno pozorovatelné chování (co uvidí uživatel);
 - `--rule` s pravidly celé aplikace, opakovanými v každém úkolu;
 - `--order` u plánu o více krocích (nižší jde dřív; kroky jedné stránky drž za sebou).
+- texty, které předepisuješ (nadpisy, tlačítka, hlášky), piš už podle pravidel aplikace (např. tykání), jinak se
+  pracovník musí ptát;
+- soubor ve `--file` nikdy nedávej do `--dont-touch` téhož úkolu (brána to odmítne `files_held`);
 - `--model` vynech: pracovník běží na Sonnetu. `--model opus` dej jen úkolu, který na Sonnetu selhal
   podruhé, nebo který rozhoduje návrh napříč mnoha soubory.
 

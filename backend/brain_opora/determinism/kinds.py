@@ -96,7 +96,8 @@ TABLE = (
          "Další volání pošle after = last.", {}, inbox_body,
          lambda service, session, body, now: gate.inbox(service, session, *inbox_body(body))),
     Kind("task.create", "heart", "Nový úkol ve frontě (ready) v projektu a prostoru tokenu srdce; nižší order jde "
-         "dřív.", {**HEART_ONLY, "project_not_found": "ID projektu najdete v GET /api/bootstrap."}, _task_create,
+         "dřív.", {**HEART_ONLY, "project_not_found": "ID projektu najdete v GET /api/bootstrap.",
+         "files_held": "Soubor úkolu nesmí být zároveň v dontTouch; seřaď úkoly přes order."}, _task_create,
          lambda service, session, body, now: {"task": task_queue.create(service, {**body, **_scope(session)},
                                                                          "heart", now)}),
     Kind("task.cancel", "heart", "Zruší úkol ve stavu ready nebo assigned.",

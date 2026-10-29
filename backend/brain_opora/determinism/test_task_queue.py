@@ -50,6 +50,9 @@ def test_task_body_fills_the_fixed_shape_and_refuses_bad_fields():
                  {"do": "x", "dontTouch": [{"path": "a"}]}, {"do": "x", "context": {"who": "?"}}):
         with pytest.raises(GateError):
             task_body(body)
+    with pytest.raises(GateError) as clash:
+        task_body({"do": "x", "files": ["src/Layout.tsx"], "dontTouch": [{"path": "src/Layout.tsx", "heldBy": "menu"}]})
+    assert clash.value.code == "files_held" and "src/Layout.tsx" in str(clash.value)
 
 
 def test_next_is_idempotent_takes_the_oldest_and_reports_close_tasks(service):
