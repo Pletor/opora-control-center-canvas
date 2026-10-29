@@ -9,7 +9,7 @@ Modules (H2a):
 - `supervisor.py`: `HeartSupervisor`, a daemon thread started from the factory lifespan. It reads the event outbox of
   projects with the gate on: a queued `ask` / `change` ticket of a worker (`gate.ticket`, not `from: heart`) and a
   `failed` task (`gate.task`) become inputs with a 20 s batch window; a human message (`message()`) is due at once.
-  At most one batch per project at a time and 6 per hour; a rate-limited batch puts the heart to sleep for 15 min
+  At most one batch per project at a time and 6 automatic per hour (a human message skips the cap); a rate-limited batch puts the heart to sleep for 15 min
   and keeps its inputs. It runs only when `OPORA_HEART` is not `off` and `OPORA_CANVAS_HOST` is loopback
   (`tools/opora.py` sets it). Tests set `OPORA_HEART=off` in `backend/conftest.py`.
 - `inputs.py`: event → input (`wake_input`) and the fresh data of each input right before a batch (`resolve`);

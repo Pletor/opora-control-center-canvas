@@ -89,7 +89,7 @@ def test_answered_ticket_is_dropped_before_the_batch(setup):
     assert heart.run_once() == ["draft"] and runner.calls == []  # nic k řešení, proces se nespustil
 
 
-def test_one_batch_per_project_and_six_per_hour(setup):
+def test_one_batch_per_project_six_automatic_per_hour_and_human_bypasses(setup):
     service, heart, clock, runner, _ = setup
     parked = []
     heart.spawn = parked.append
@@ -100,12 +100,21 @@ def test_one_batch_per_project_and_six_per_hour(setup):
     parked.pop()()
     heart.spawn = lambda fn: fn()
     assert heart.run_once() == ["draft"] and "během dávky" in runner.calls[-1]
-    for number in range(4):
-        clock.now += 60
-        heart.message("draft", "draft", f"zpráva {number}")
+    for number in range(supervisor.PER_HOUR):  # automatické dávky (lístky) mají strop
+        ask(service, {"q": f"otázka {number}"})
+        heart.run_once()
+        clock.now += supervisor.WINDOW + 1
         assert heart.run_once() == ["draft"]
-    heart.message("draft", "draft", "sedmá")
+    ask(service, {"q": "sedmá"})
+    heart.run_once()
+    clock.now += supervisor.WINDOW + 1
     assert heart.run_once() == [] and heart.next_allowed("draft", clock.now) > clock.now
+    heart.message("draft", "draft", "zpráva člověka strop obchází")
+    assert heart.run_once() == ["draft"] and "sedmá" in runner.calls[-1]
+    ask(service, {"q": "osmá"})
+    heart.run_once()
+    clock.now += supervisor.WINDOW + 1
+    assert heart.run_once() == []
     clock.now += supervisor.HOUR
     assert heart.run_once() == ["draft"]
 

@@ -58,9 +58,20 @@ Jinak pracuj sám a stručně.
 Když požadavek pracovníka nebo člověka jde proti ZÁMĚRU, nahlas ho `escalate` a prvek, který jde proti
 záměru, neplánuj. Pracovníkovi odpověz `answer`, že čeká na rozhodnutí člověka.
 
+## Rozpor ve vlastním plánu
+Plán i testy úkolů jsou tvoje. Když test jednoho úkolu odporuje zadání jiného (např. jiný text h1), rozhoduješ ty,
+ne člověk: platí ZÁMĚR, a když o tom mlčí, platí novější úkol. Pracovníkovi odpověz, že soubor testu smí upravit
+(povolení v odpovědi rozšiřuje `files` úkolu), a stejné rozhodnutí promítni do dalších úkolů. Úkol, který mění
+chování pokryté testem jiného úkolu, má ten test rovnou ve `--file`.
+- Červený `npm test` blokuje všechny další úkoly: jeho oprava jde jako první.
+- Druhý lístek ke stejné věci znamená, že tvoje odpověď nestačila: změň ji, neopakuj ji.
+- `escalate` jen pro rozpor se ZÁMĚREM člověka nebo pro rozhodnutí, které záměr nepokrývá a které člověk musí
+  vlastnit (cena, právní text, odebrání funkce). Do rozhodnutí člověka nic neblokuj, co blokovat nemusíš.
+
 ## Postup dávky
 1. Přečti snímek a vstupy dávky. Zprávy člověka mají přednost.
 2. Lístky pracovníků: odpověz na každý (`answer`), nebo eskaluj.
-3. Selhaný úkol: zruš ho (`cancel`) a napiš nový, menší a přesnější, nebo eskaluj.
+3. Selhaný úkol: zjisti příčinu (často test jiného úkolu), zruš ho (`cancel`) a napiš nový, menší a přesnější
+   i s opravou příčiny. Eskaluj jen podle pravidla výše.
 4. Nový záměr: naplánuj úkoly s `--order`, nejdřív to, na čem ostatní stojí. Neduplikuj úkoly z FRONTY.
 5. Vždy skonči `python opora_heart.py done --summary "…"` (jedna věta: co jsi udělalo).

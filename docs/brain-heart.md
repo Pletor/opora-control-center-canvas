@@ -48,7 +48,8 @@ cwd = <data>/projects/<id>/brain/       env: without ANTHROPIC_API_KEY; OPORA_BA
 - **Limits.**
   - `is_error` with `rate_limit`, or the text "hit your … limit", puts the supervisor to sleep for 15 min and keeps
     the inputs.
-  - At most 6 batches per hour per project.
+  - At most 6 automatic batches (tickets, failed tasks) per hour per project. A batch with a human message skips
+    this cap (eval m2: the cap held back the human's next brief); the subscription sleep still applies.
   - Timeout 15 min per batch: the job is killed and the batch is written as `timeout`.
 
 ## 3. Snapshot (`determinism/snapshot.py`, ≤ about 4k tokens)
