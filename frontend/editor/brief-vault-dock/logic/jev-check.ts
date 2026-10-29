@@ -2,9 +2,9 @@
 // poskytovatele a věta, co přesně tím odejde ven. Kontrolu volají agenti (`POST /api/brief-vault/gate-check`);
 // bez povolení člověka pro projekt a poskytovatele server nepošle nic. Bez Reactu.
 export type JevProvider = "typesafe" | "celeris";
-/** `GET /api/assistant/status` → `jev`. */
+/** `GET /api/brain/jev`. */
 export type JevStatus = { configured: boolean; provider: JevProvider; keys: Record<JevProvider, boolean> };
-/** `GET /api/assistant/jev-gate-check?project` → povolení po poskytovatelích. */
+/** `GET /api/brain/jev/gate-check?project` → povolení po poskytovatelích. */
 export type JevPermission = { project: string; allowed: Record<JevProvider, boolean> };
 
 export const PROVIDER_LABELS: Record<JevProvider, string> = { typesafe: "TypeSafe", celeris: "Celeris" };

@@ -3,8 +3,7 @@
 Tenký router nad `backend.claude_code.assistant.manager`. Všechny cesty jsou jen pro loopback
 (`backend/app/remote_access.py`). Události jdou jako SSE a po výpadku se navážou od `after`.
 `POST /approvals/{approvalId}` je rozhodnutí člověka o zápisu na plátno (§5.1).
-Klíče Jev (`typesafe`, `celeris`) a povolení externí kontroly bran Schránky pro projekt
-(`/jev-gate-check`, docs/schranka-neurony.md §7, §9 bod 10) jsou nastavení aplikace; povolení dává jen člověk.
+Klíče Jev a povolení kontroly bran jsou v `backend/api/brain_opora/jev_routes.py` (`/api/brain/jev`).
 """
 
 from __future__ import annotations
@@ -16,10 +15,7 @@ import time
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from backend.canvas.activity_log import require_authority, require_human
-from backend.claude_code.assistant.instructions import default_assistant_instructions
 from backend.claude_code.assistant.manager import AssistantError, SessionNotFound
-from backend.integrations.typesafe_client import DEFAULT_PROVIDER, PROVIDERS
 
 CREATE_KEYS = {"project", "workspace", "title", "model", "nodeId", "sectorId"}
 MESSAGE_KEYS = {"text", "context"}
@@ -70,79 +66,12 @@ async def sse_events(manager, session_id, after, is_disconnected, *, heartbeat=1
         await asyncio.sleep(poll)
 
 
-def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.25, jev_settings=None,
-                            jev_provider=DEFAULT_PROVIDER):
-    """`jev_settings` je úložiště klíčů Jev (`AppSettings`, §13.2); bez něj Jev nejde zapnout.
-    `jev_provider` je poskytovatel zvolený v `opora.local.toml`; `configured` platí pro něj."""
+def create_assistant_router(manager, *, heartbeat_seconds=15.0, poll_seconds=0.25):
     router = APIRouter(prefix="/api/assistant", tags=["assistant"])
-
-    def _jev():
-        keys = {name: bool(jev_settings and jev_settings.jev_key(name)) for name in PROVIDERS}
-        return {"configured": keys[jev_provider], "provider": jev_provider, "keys": keys}
 
     @router.get("/status")
     def status():
-        return {**manager.status(), "jev": _jev()}
-
-    def _instructions():
-        current = jev_settings.assistant_instructions()
-        return {**current, "defaultText": default_assistant_instructions()}
-
-    @router.get("/instructions")
-    def instructions_get():
-        """Pokyny asistenta (§14.1): uložené, jinak výchozí; platí pro nově spuštěný proces."""
-        if jev_settings is None:
-            return JSONResponse({"error": "Nastavení aplikace není dostupné."}, status_code=422)
-        return _instructions()
-
-    @router.post("/instructions")
-    def instructions_set(payload: dict):
-        """Uloží pokyny, nebo s `text: null` obnoví výchozí."""
-        if jev_settings is None or not isinstance(payload, dict) or set(payload) != {"text"}:
-            return JSONResponse({"error": "Tělo je přesně {text: text | null}."}, status_code=422)
-        try:
-            jev_settings.set_assistant_instructions(payload["text"])
-        except ValueError as exc:
-            return JSONResponse({"error": str(exc)}, status_code=422)
-        return _instructions()
-
-    @router.post("/jev-key")
-    def jev_key(payload: dict, request: Request):
-        """Uloží nebo smaže klíč poskytovatele Jev pro celou aplikaci; klíč se nikdy nevrací.
-        Bez `provider` jde o klíč TypeSafe (zpětná kompatibilita)."""
-        # Výjimka §4 (docs/plna-autonomie-agenta.md): klíče a tajemství jen člověk, i při plné autonomii.
-        require_human(getattr(request.state, "actor", "unknown"), "Klíč poskytovatele ukládá jen člověk v UI.")
-        if (jev_settings is None or not isinstance(payload, dict) or "key" not in payload
-                or set(payload) - {"key", "provider"}):
-            return JSONResponse({"error": "Tělo je {key: text | null, provider?: typesafe | celeris}."}, status_code=422)
-        provider = payload.get("provider", "typesafe")
-        if provider not in PROVIDERS:
-            return JSONResponse({"error": "provider musí být " + " nebo ".join(PROVIDERS) + "."}, status_code=422)
-        try:
-            jev_settings.set_jev_key(payload["key"], provider)
-        except ValueError as exc:
-            return JSONResponse({"error": str(exc)}, status_code=422)
-        return {"jev": _jev()}
-
-    @router.get("/jev-gate-check")
-    def jev_gate_check_status(project: str):
-        """Pro který poskytovatel je v projektu povolená externí kontrola bran (§9 bod 10)."""
-        allowed = (jev_settings.gate_check_permissions().get(project, []) if jev_settings else [])
-        return {"project": project, "allowed": {name: name in allowed for name in PROVIDERS}}
-
-    @router.post("/jev-gate-check")
-    def jev_gate_check_set(payload: dict, request: Request):
-        """Povolí nebo zakáže kontrolu bran pro (projekt, poskytovatel); jen člověk v UI."""
-        require_authority(getattr(request.state, "actor", "unknown"),
-                          "Externí kontrolu bran povoluje jen člověk v UI.")
-        if (jev_settings is None or not isinstance(payload, dict)
-                or set(payload) != {"project", "provider", "allowed"}):
-            return JSONResponse({"error": "Tělo je přesně {project, provider, allowed: true | false}."}, status_code=422)
-        try:
-            allowed = jev_settings.set_gate_check_allowed(payload["project"], payload["provider"], payload["allowed"])
-        except ValueError as exc:
-            return JSONResponse({"error": str(exc)}, status_code=422)
-        return {"project": payload["project"], "allowed": {name: name in allowed for name in PROVIDERS}}
+        return manager.status()
 
     @router.get("/sessions")
     def sessions(project: str):

@@ -32,6 +32,11 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   `supervisor.message()` with `ODPOVĚĎ ČLOVĚKA na <ticketId>: <text>` (skips the hourly cap, gate must be on). An
   answer to a worker ticket, or an answer given by the heart, wakes nothing. `create_gate_router(service, supervisor)`
   gets the same supervisor as the heart router (`backend/app/factory.py`).
+- `jev_routes.py` (H2b2a, `docs/brain-heart-channel.md` §5, loopback-only): settings of the decision model JEV.
+  `GET /api/brain/jev` → `{configured, provider, keys}` (booleans only, the key never comes back);
+  `POST /api/brain/jev/key {key: text | null, provider?}` (human only, `require_human` even with full autonomy);
+  `GET /api/brain/jev/gate-check?project=` and `POST /api/brain/jev/gate-check {project, provider, allowed}` (write
+  human only): consent to the external gate check of the brief vault (`docs/schranka-neurony.md` §7).
 
 ## MCP server (H1d)
 

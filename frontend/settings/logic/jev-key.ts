@@ -1,8 +1,8 @@
 /**
- * Klíč poskytovatele Jev v Nastavení → Asistent (docs/asistent.md §13.2). Bez Reactu a bez sítě.
+ * Klíč poskytovatele Jev v Nastavení → Jev (docs/brain-heart-channel.md §5). Bez Reactu a bez sítě.
  *
- * Stav se čte z `GET /api/assistant/status` → `jev: {provider, configured, keys}`; server o klíči
- * vrací jen booleany, nikdy jeho hodnotu. Uložení a smazání jde přes `POST /api/assistant/jev-key
+ * Stav se čte z `GET /api/brain/jev` → `{provider, configured, keys}`; server o klíči
+ * vrací jen booleany, nikdy jeho hodnotu. Uložení a smazání jde přes `POST /api/brain/jev/key
  * {key: text | null, provider}`. Klíč platí pro celou aplikaci a čte se při každé zprávě, takže
  * změna platí bez restartu.
  */
@@ -12,11 +12,10 @@ import { PROVIDER_LABELS, type JevProvider, type JevStatus } from "@/editor/brie
 export const MAX_JEV_KEY = 512;
 const PROVIDERS = Object.keys(PROVIDER_LABELS) as JevProvider[];
 
-/** Výřez `jev` ze stavu asistenta; cizí tvar = neznámý stav (null), ne „klíč chybí“. */
+/** Odpověď `GET /api/brain/jev`; cizí tvar = neznámý stav (null), ne „klíč chybí“. */
 export function parseJevStatus(value: unknown): JevStatus | null {
-  const jev = value && typeof value === "object" ? (value as { jev?: unknown }).jev : undefined;
-  if (!jev || typeof jev !== "object") return null;
-  const { configured, provider, keys } = jev as { configured?: unknown; provider?: unknown; keys?: unknown };
+  if (!value || typeof value !== "object") return null;
+  const { configured, provider, keys } = value as { configured?: unknown; provider?: unknown; keys?: unknown };
   if (typeof configured !== "boolean" || !PROVIDERS.includes(provider as JevProvider)) return null;
   const flags = (keys && typeof keys === "object" ? keys : {}) as Record<string, unknown>;
   const parsed = Object.fromEntries(PROVIDERS.map((name) => [name, flags[name] === true])) as Record<JevProvider, boolean>;

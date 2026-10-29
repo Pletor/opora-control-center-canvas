@@ -83,7 +83,7 @@ def test_human_only_exceptions_stay_human_with_autonomy(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)
         assert autonomy(client, True).status_code == 200
-        assert client.post("/api/assistant/jev-key", headers=AGENT, json={"key": None}).status_code == 403
+        assert client.post("/api/brain/jev/key", headers=AGENT, json={"key": None}).status_code == 403
         assert client.post("/api/memory/provision", headers=AGENT, json={"confirmed": True}).status_code == 403
         assert client.post("/api/oporahub/repository", headers=AGENT,
                            json={"project": "draft", "repository": "a/b", "branch": "main"}).status_code == 403

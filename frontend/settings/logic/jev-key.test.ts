@@ -4,19 +4,19 @@ import { MAX_JEV_KEY, jevKeyHint, jevKeyIsUsable, jevKeyPayload, jevKeyRows, par
 const status = { configured: false, provider: "typesafe", keys: { typesafe: false, celeris: true } };
 
 describe("klíč Jev v Nastavení", () => {
-  it("čte jen booleany ze stavu asistenta, cizí tvar je neznámý stav", () => {
-    expect(parseJevStatus({ running: false, jev: status })).toEqual(status);
-    expect(parseJevStatus({ jev: { configured: true, provider: "typesafe" } })).toEqual({
+  it("čte jen booleany ze stavu Jev, cizí tvar je neznámý stav", () => {
+    expect(parseJevStatus(status)).toEqual(status);
+    expect(parseJevStatus({ configured: true, provider: "typesafe" })).toEqual({
       configured: true, provider: "typesafe", keys: { typesafe: true, celeris: false },
     });
-    expect(parseJevStatus({ jev: { configured: "ano", provider: "typesafe" } })).toBeNull();
-    expect(parseJevStatus({ jev: { configured: true, provider: "openai" } })).toBeNull();
+    expect(parseJevStatus({ configured: "ano", provider: "typesafe" })).toBeNull();
+    expect(parseJevStatus({ configured: true, provider: "openai" })).toBeNull();
     expect(parseJevStatus({})).toBeNull();
     expect(parseJevStatus(null)).toBeNull();
   });
 
   it("stav nikdy nenese hodnotu klíče, ani když ji server omylem pošle", () => {
-    const parsed = parseJevStatus({ jev: { ...status, key: "tajne", keys: { typesafe: "tajne", celeris: true } } });
+    const parsed = parseJevStatus({ ...status, key: "tajne", keys: { typesafe: "tajne", celeris: true } });
     expect(JSON.stringify(parsed)).not.toContain("tajne");
     expect(parsed?.keys.typesafe).toBe(false);
   });

@@ -42,7 +42,7 @@ V tabulkách skillu jsou tyto akce označené „člověk“ nebo „jen člově
   `/api/oporahub/sparse-context/backfill`, vypořádání `important` nálezu bez opravy a rozhodnutí za stropem kol
   (`/api/oporahub/review-jobs/decisions`), identity reviewerů (`review-identities/claim`, `…/{identity}/verify`,
   `…/{identity}/revoke`), potvrzení vzhledu a režim designu, vynucené uvolnění cizího běhu;
-- asistent: povolení kontroly bran `/api/assistant/jev-gate-check`.
+- Jev: povolení kontroly bran `/api/brain/jev/gate-check`.
 
 V projektu bez GitHubu (`dod.gate: "local"`) dokončíš kartu celou sám: po `local-merge` (ten smíš i bez autonomie
 pro vlastní odevzdaný běh) zapíšeš `close_card`. Pořadí: [hub-loop.md](hub-loop.md) „Projekt bez GitHubu“.
@@ -60,7 +60,7 @@ ověř čtením. Autonomie nemění pravidla obsahu: revize, CAS, lease, brány 
 - přístup a vzdálený přístup (`/api/access/*`, tokeny, `ui-session`);
 - připojení a odpojení repozitáře a složky projektu (`/api/oporahub/repository`, `/api/oporahub/repository/unbind`,
   `/api/local-project`, `/api/empty-project`, `/api/connect`) a smazání celého projektu (`/api/remove` s `kind: "project"`);
-- klíče a tajemství (`/api/assistant/jev-key`, rozdání klíčů paměti root klíčem `/api/memory/provision`).
+- klíče a tajemství (`/api/brain/jev/key`, rozdání klíčů paměti root klíčem `/api/memory/provision`).
 
 ## Původce zůstává agent
 

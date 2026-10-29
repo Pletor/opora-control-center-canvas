@@ -526,20 +526,6 @@ def test_app_settings_persist_for_the_whole_application(tmp_path, monkeypatch):
     assert AppSettings(canvas).enabled() is False
 
 
-def test_assistant_instructions_store_reset_and_validate(tmp_path):
-    settings = AppSettings(FakeCanvas(tmp_path / "registry.sqlite"))
-    default = settings.assistant_instructions()
-    assert default["isDefault"] is True and default["text"].strip()
-    saved = settings.set_assistant_instructions("Moje pokyny\n\tdruhý řádek")
-    assert saved == {"text": "Moje pokyny\n\tdruhý řádek", "isDefault": False}
-    assert AppSettings(settings.canvas).assistant_instructions() == saved
-    assert settings.set_assistant_instructions(None) == default
-    for bad in ("", "   ", "x" * 12001, "a\x00b", 5):
-        with pytest.raises(ValueError):
-            settings.set_assistant_instructions(bad)
-    assert settings.assistant_instructions() == default
-
-
 def test_app_settings_default_comes_from_the_environment(tmp_path, monkeypatch):
     canvas = FakeCanvas(tmp_path / "registry.sqlite")
     monkeypatch.setenv("OPORA_OPENVIKING_ENABLED", "1")

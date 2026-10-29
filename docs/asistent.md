@@ -407,10 +407,10 @@ Později může stejnou kontrolou (`noul`: odpovídá kód zadání?) zrychlit O
 - `backend/integrations/typesafe_client.py`: `evaluate(state, questions, *, key, timeout=3.0, post=…)` → `answers` nebo `None`. Bez klíče, při chybě HTTP (401, 422, 429, 529), při timeoutu nebo neplatné odpovědi vrátí `None` a nic nevyhodí. Model je `jev-latest`, endpoint `https://api.typesafe.ai/v1/systemone`.
 - **Klíč** se bere z nastavení aplikace (jednou pro aplikaci) nebo z proměnné `TYPESAFE_API_KEY` backendu. Do `child_env` procesu `claude` se nepředá, `child_env` ho odstraní stejně jako `ANTHROPIC_API_KEY`.
   - Uložení: `AppSettings.typesafe_key()` / `set_typesafe_key()` (`app_settings`, klíč `typesafe.apiKey`). Uložený klíč přebíjí prostředí.
-  - `POST /api/assistant/jev-key {key: text | null}` → `{jev: {configured}}` klíč uloží nebo smaže. Klíč se nikdy nevrací. Jen loopback jako celé `/api/assistant/*`.
-  - `GET /api/assistant/status` nese `jev: {configured}`.
-  - UI: **Nastavení → Asistent → Klíč Jev** (`frontend/settings/components/JevKeySetting.tsx`, pravidla v `frontend/settings/logic/jev-key.ts` s testem). Řádek pro každého poskytovatele (aktivní první): maskované pole, Uložit, Smazat (`key: null`) a stav jen slovy „nastavený / nenastavený“ podle `status.jev.keys`; pole se po uložení vyprázdní a klíč se nikdy neukáže zpátky. Klíč z proměnné prostředí se ukáže jako nastavený a Smazat ho neodstraní. Zvenčí přes tunel je `/api/assistant/*` 403, takže klíč jde měnit jen doma.
-  - Poskytovatel (`typesafe` | `celeris`) z `[jev] provider` v `opora.local.toml` (výchozí `typesafe`, neznámá hodnota = `typesafe` + varování v logu). Klíč Celeris: `POST /api/assistant/jev-key {key, provider: "celeris"}` (`app_settings` `celeris.apiKey`, záloha `CELERIS_API_KEY`); `status.jev` nese i `provider` a `keys: {typesafe, celeris}` (jen booleany). Povolení kontroly bran: `GET|POST /api/assistant/jev-gate-check {project, provider, allowed}` (zápis jen člověk). Viz [schranka-neurony.md](schranka-neurony.md) §7, §9 bod 10.
+  - `POST /api/brain/jev/key {key: text | null}` → `{jev: {configured, provider, keys}}` klíč uloží nebo smaže (jen člověk). Klíč se nikdy nevrací. Jen loopback jako celé `/api/brain/jev` (router `backend/api/brain_opora/jev_routes.py`, H2b2a v [brain-heart-channel.md](brain-heart-channel.md) §5).
+  - `GET /api/brain/jev` → `{configured, provider, keys}`.
+  - UI: **Nastavení → Jev → Klíč Jev** (`frontend/settings/components/JevKeySetting.tsx`, pravidla v `frontend/settings/logic/jev-key.ts` s testem). Řádek pro každého poskytovatele (aktivní první): maskované pole, Uložit, Smazat (`key: null`) a stav jen slovy „nastavený / nenastavený“ podle `keys` z `GET /api/brain/jev`; pole se po uložení vyprázdní a klíč se nikdy neukáže zpátky. Klíč z proměnné prostředí se ukáže jako nastavený a Smazat ho neodstraní. Zvenčí přes tunel je `/api/brain/jev` 403, takže klíč jde měnit jen doma.
+  - Poskytovatel (`typesafe` | `celeris`) z `[jev] provider` v `opora.local.toml` (výchozí `typesafe`, neznámá hodnota = `typesafe` + varování v logu). Klíč Celeris: `POST /api/brain/jev/key {key, provider: "celeris"}` (`app_settings` `celeris.apiKey`, záloha `CELERIS_API_KEY`); `GET /api/brain/jev` nese i `provider` a `keys: {typesafe, celeris}` (jen booleany). Povolení kontroly bran: `GET|POST /api/brain/jev/gate-check {project, provider, allowed}` (zápis jen člověk). Viz [schranka-neurony.md](schranka-neurony.md) §7, §9 bod 10.
   - Klíč se čte při každé zprávě, takže zapnutí platí bez restartu. Směrovač má tvrdou mez 4 s mimo zámek session; při jejím překročení jde do telemetrie `router: {skipped: "timeout"}`.
 - **Směrovač** `backend/claude_code/assistant/router.py`: před každou zprávou, která nezačíná `/`, jedno volání:
   - `state = {request: text zprávy (nejvýš 4000 znaků), environment, selectedCount}`,
@@ -429,7 +429,7 @@ Vzor [Recursive Language Models](https://arxiv.org/abs/2512.24601) (Zhang, Krask
    - Nahlédnutí do jednoho oddílu je stávající `node-brief` / `node-text` a hledání napříč korpusem je `search` z §13.1.
 2. **Levné podvolání: řazení oddílů přes Jev.** `opora_read.py rank --project --workspace --query [--layer] [--top 10]`.
    - Skript sestaví kandidáty z indexu (id → název a prvních 300 znaků textu karty, nejvýš 255) a pošle `POST /api/rlm/rank {project, workspace, query, candidates: [{id, text}], top}`.
-   - Backend (`backend/api/editor/rlm_routes.py`, logika `backend/claude_code/assistant/rlm_rank.py`, jen loopback) zavolá Jev `choice` s `criteria = {id: text}`. Vrátí `{status: "ok", ranked: [{id, p}]}` seřazené podle pravděpodobnosti, nejvýš `top`.
+   - Backend (`backend/api/editor/rlm_routes.py`, logika `backend/brain_opora/decision/sources.py`, jen loopback) zavolá Jev `choice` s `criteria = {id: text}`. Vrátí `{status: "ok", ranked: [{id, p}]}` seřazené podle pravděpodobnosti, nejvýš `top`.
    - Bez klíče nebo při poruše Jev vrátí `{status: "unavailable"}` a model pokračuje bodem 3. Klíč zůstává v backendu, do procesu `claude` se nedostane.
 3. **Rekurze: subagenti.** `Agent` (dříve `Task`) je v `ALLOWED_TOOLS`. Kořenový model rozdělí otázku po oddílech nebo složkách a každý kus předá subagentovi (`Explore`, levnější model). Subagent má stejná oprávnění jen pro čtení a vrací zhuštěné nálezy s odkazy `soubor:řádek` nebo `id karty`. Kořen nálezy jen skládá a celé oddíly nečte.
 
@@ -447,22 +447,14 @@ napíše zadání (jak má co fungovat, kam co posílat), rozdělí práci subag
 vede duelem. Nepíše eseje do chatu. Výstup subagentů se **sejde ve Schránce** a z něj vznikne zadání, které se rozdělí
 do příběhu a karet. Stav kódu zjišťuje z výstupů agentů na kartách, ne dohadem.
 
-### 14.1 Pokyny asistenta = systémový prompt v nastavení aplikace
+### 14.1 Pokyny asistenta = systémový prompt
 
-- Chování routeru (triage zprávy, zákaz esejí, výstupní formát, stop podmínky) je text **Pokyny asistenta**. Platí pro
-  celou aplikaci (jednou, ne per projekt) a má váhu systémového promptu: backend ho při startu procesu předá přes
-  `--append-system-prompt-file <soubor>` (soubor `instructions.md` v adresáři konceptů session, aby se nenarazilo na
-  délku příkazové řádky Windows).
-- Výchozí text je v repu: `backend/claude_code/assistant/instructions.md`. Uložený text v `app_settings`
-  (klíč `assistant.instructions`, ≤ 12 000 znaků, bez řídicích znaků kromě `\n`, `\t`) výchozí přebíjí.
-- `AppSettings.assistant_instructions()` → `{text, isDefault}`; `set_assistant_instructions(text | None)` (`None` =
-  smazat uložený, platí výchozí).
-- API (jen loopback jako celé `/api/assistant/*`): `GET /api/assistant/instructions` → `{text, isDefault, defaultText}`;
-  `POST /api/assistant/instructions {text: string | null}` → totéž. Text mimo meze = 422.
-- Změna platí pro **nově spuštěný proces** (nová session nebo obnova po pádu); běžící session drží text, se kterým vznikla.
-- UI: Nastavení → sekce „Asistent“ (`frontend/settings/components/AssistantSection.tsx` + dílek
-  `AssistantInstructionsSetting.tsx`, logika `frontend/settings/logic/assistant-instructions.ts` s testem). Textarea,
-  „Uložit“, „Obnovit výchozí“, počet znaků, chyba serveru pod polem. Rodič ukládá a po uložení znovu čte ze serveru.
+- Chování routeru (triage zprávy, zákaz esejí, výstupní formát, stop podmínky) je text **Pokyny asistenta**. Má váhu
+  systémového promptu: backend ho při startu procesu předá přes `--append-system-prompt-file <soubor>` (soubor
+  `instructions.md` v adresáři konceptů session, aby se nenarazilo na délku příkazové řádky Windows).
+- Text je jen výchozí v repu: `backend/claude_code/assistant/instructions.md`. Úprava v Nastavení a
+  `/api/assistant/instructions` jsou od H2b2a pryč ([brain-heart-channel.md](brain-heart-channel.md) §5); dřív uložený
+  text zůstává v `app_settings` (klíč `assistant.instructions`), ale nikdo ho nečte.
 
 ### 14.2 Subagenti asistenta
 

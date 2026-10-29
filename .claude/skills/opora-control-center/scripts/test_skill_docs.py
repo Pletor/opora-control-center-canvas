@@ -263,7 +263,7 @@ UNDOCUMENTED_ROUTES = {
     # §4 a čisté UI: relační doklad člověka vydává server jen fetchi prohlížeče (`Sec-Fetch-Site: same-origin`).
     "/api/access/ui-session",
     # §4: klíč poskytovatele Jev je tajemství aplikace; agent ho nikdy nečte ani nezapisuje.
-    "/api/assistant/jev-key",
+    "/api/brain/jev/key",
     # §4: rozdání klíčů rolím u OpenVikingu root klíčem (zakládá uživatele paměti).
     "/api/memory/provision",
 }

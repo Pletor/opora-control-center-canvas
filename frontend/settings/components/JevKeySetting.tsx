@@ -3,13 +3,13 @@ import type { JevProvider, JevStatus } from "@/editor/brief-vault-dock/logic/jev
 import { jevKeyHint, jevKeyIsUsable, jevKeyPayload, jevKeyRows, parseJevStatus } from "@/settings/logic/jev-key";
 import { api } from "@/shared/types/logic/types";
 
-const STATUS_URL = "/api/assistant/status";
-const KEY_URL = "/api/assistant/jev-key";
+const STATUS_URL = "/api/brain/jev";
+const KEY_URL = "/api/brain/jev/key";
 
 /**
  * Klíče poskytovatelů Jev (TypeSafe, Celeris) pro celou aplikaci. Pole je maskované, po uložení se
  * vyprázdní a server vrací jen „nastavený / nenastavený“, takže se klíč nikdy neukáže zpátky.
- * Po každém zápisu se znovu čte `GET /api/assistant/status`: v řádku stojí odpověď serveru, ne přání UI.
+ * Po každém zápisu se znovu čte `GET /api/brain/jev`: v řádku stojí odpověď serveru, ne přání UI.
  */
 export default function JevKeySetting() {
   const [status, setStatus] = useState<JevStatus | null>(null);
@@ -55,7 +55,7 @@ export default function JevKeySetting() {
     <div className="jev-key">
       <h4 className="jev-key__title">Klíč Jev</h4>
       <p className="muted jev-key__note">
-        Směrovač Jev vrací jen typované odpovědi. Klíč platí pro celou aplikaci, ukládá se jen na tomto počítači
+        Rozhodovací model Jev vrací jen typované odpovědi. Klíč platí pro celou aplikaci, ukládá se jen na tomto počítači
         a zpátky se nikdy neukáže. Změna platí bez restartu.
       </p>
       {status ? jevKeyRows(status).map((row) => {

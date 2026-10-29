@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import AssistantSection from "@/settings/components/AssistantSection";
 import CanvasSection from "@/settings/components/CanvasSection";
 import ConnectorsSection from "@/settings/components/ConnectorsSection";
 import GeneralSection from "@/settings/components/GeneralSection";
+import JevKeySetting from "@/settings/components/JevKeySetting";
 import ProjectSection, { type ProjectActions } from "@/settings/components/ProjectSection";
 import SkillsSection from "@/settings/components/SkillsSection";
 import type { SurfaceSettings } from "@/shared/surface-settings/logic/workspace-settings";
 import "@/settings/styles/settings.css";
 
-type SectionId = "general" | "canvas" | "assistant" | "project" | "skills" | "connectors";
+type SectionId = "general" | "canvas" | "jev" | "project" | "skills" | "connectors";
 
 /** Nastavení aplikace z levého dolního rohu: vlevo navigace, vpravo vybraná sekce. Jediné místo pro nastavení. */
 export default function SettingsDialog({ onClose, initial = "general", surface, project }: {
@@ -26,7 +26,7 @@ export default function SettingsDialog({ onClose, initial = "general", surface, 
     return () => d.close();
   }, []);
   const nav: { head: string; items: { id: SectionId; label: string }[] }[] = [
-    { head: "Nastavení", items: [{ id: "general", label: "Obecné" }, { id: "canvas", label: "Plátno" }, { id: "assistant", label: "Asistent" }] },
+    { head: "Nastavení", items: [{ id: "general", label: "Obecné" }, { id: "canvas", label: "Plátno" }, { id: "jev", label: "Jev" }] },
     ...(project ? [{ head: "Projekt", items: [{ id: "project" as SectionId, label: project.name }] }] : []),
     { head: "Přizpůsobení", items: [{ id: "skills", label: "Skills" }, { id: "connectors", label: "Connectors" }] },
   ];
@@ -59,7 +59,12 @@ export default function SettingsDialog({ onClose, initial = "general", surface, 
         </header>
         {section === "general" && <GeneralSection />}
         {section === "canvas" && <CanvasSection value={surface.value} onChange={surface.onChange} />}
-        {section === "assistant" && <AssistantSection />}
+        {section === "jev" && (
+          <section className="settings-section" aria-labelledby="jev-title">
+            <h3 id="jev-title">Rozhodovací model Jev</h3>
+            <JevKeySetting />
+          </section>
+        )}
         {section === "project" && project && <ProjectSection actions={project} onClose={onClose} />}
         {section === "skills" && <SkillsSection />}
         {section === "connectors" && <ConnectorsSection />}

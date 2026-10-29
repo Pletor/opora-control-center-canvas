@@ -59,14 +59,14 @@ def check(client, fragment, expect=200, **extra):
 
 
 def allow(client, value=True):
-    response = client.post("/api/assistant/jev-gate-check",
+    response = client.post("/api/brain/jev/gate-check",
                            headers=HEADERS, json={"project": SCOPE["project"], "provider": "celeris", "allowed": value})
     assert response.status_code == 200, response.text
 
 
 def test_without_permission_no_network_even_with_key(setup):
     client, fragment, calls = setup
-    assert client.post("/api/assistant/jev-key", headers=HEADERS, json={"key": SECRET, "provider": "celeris"}).status_code == 200
+    assert client.post("/api/brain/jev/key", headers=HEADERS, json={"key": SECRET, "provider": "celeris"}).status_code == 200
     result = check(client, fragment).json()
     assert result["probability"] is None and result["reason"] == "not-allowed" and result["provider"] == "celeris"
     assert len(result["inputHash"]) == 64
@@ -82,7 +82,7 @@ def test_permission_without_key_is_not_configured(setup):
 
 def test_allowed_sends_only_title_text_gate_payload(setup, caplog):
     client, fragment, calls = setup
-    client.post("/api/assistant/jev-key", headers=HEADERS, json={"key": SECRET, "provider": "celeris"})
+    client.post("/api/brain/jev/key", headers=HEADERS, json={"key": SECRET, "provider": "celeris"})
     allow(client)
     with caplog.at_level(logging.DEBUG):
         response = check(client, fragment)
@@ -139,10 +139,10 @@ def test_permission_is_per_provider(setup):
 
 def test_agent_cannot_grant_permission(setup):
     client, _fragment, _calls = setup
-    refused = client.post("/api/assistant/jev-gate-check", headers=AGENT,
+    refused = client.post("/api/brain/jev/gate-check", headers=AGENT,
                           json={"project": SCOPE["project"], "provider": "celeris", "allowed": True})
     assert refused.status_code == 403
-    assert client.get("/api/assistant/jev-gate-check", params={"project": SCOPE["project"]}).json()["allowed"] == {
+    assert client.get("/api/brain/jev/gate-check", params={"project": SCOPE["project"]}).json()["allowed"] == {
         "typesafe": False, "celeris": False}
 
 
