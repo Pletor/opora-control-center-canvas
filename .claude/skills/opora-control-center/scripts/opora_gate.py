@@ -118,6 +118,9 @@ def run(args, cwd):
         return request(state, "next", {})
     if args.command == "ask":
         return request(state, "ask", {"question": args.text})
+    if args.command == "change":
+        body = {"proposal": args.text, "reason": args.reason} | ({"taskId": args.task} if args.task else {})
+        return request(state, "change", body)
     if args.command == "report":
         checks = [parse_check(item) for item in args.check or []]
         return request(state, "report", {"taskId": args.task, "sha": args.sha, "summary": args.summary,
@@ -142,6 +145,10 @@ def parser():
     sub.add_parser("next", help="další úkol z fronty (nebo plán, když je fronta prázdná)")
     ask = sub.add_parser("ask", help="otázka; odpověď přijde do schránky")
     ask.add_argument("text")
+    change = sub.add_parser("change", help="žádost srdci o změnu plánu; odpověď přijde do schránky")
+    change.add_argument("text", help="navržená změna plánu")
+    change.add_argument("--reason", required=True, help="proč (např. záměr člověka)")
+    change.add_argument("--task", help="úkol fronty, kterého se změna týká")
     report = sub.add_parser("report", help="hlášení úkolu s kontrolami na sha")
     report.add_argument("--task", required=True)
     report.add_argument("--sha", required=True)

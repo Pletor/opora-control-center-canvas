@@ -78,6 +78,8 @@ def test_requests_carry_token_and_bodies(server, tmp_path, capsys):
     run(tmp_path, capsys, "session", "--project", "draft", "--workspace", "draft", "--name", "dev")
     assert run(tmp_path, capsys, "next")[1]["answer"] == {"echo": {}}
     assert run(tmp_path, capsys, "ask", "Smím?")[1]["answer"] == {"echo": {"question": "Smím?"}}
+    answer = run(tmp_path, capsys, "change", "Přidej kartu Kontakt.", "--reason", "Záměr člověka.")[1]["answer"]
+    assert answer == {"echo": {"proposal": "Přidej kartu Kontakt.", "reason": "Záměr člověka."}}
     code, out = run(tmp_path, capsys, "report", "--task", "ht_1", "--sha", "abc1234", "--summary", "ok",
                     "--check", "npm test=green", "--check", "a=b=red")
     assert code == 0 and out["answer"]["echo"]["checks"] == [{"name": "npm test", "status": "green"},

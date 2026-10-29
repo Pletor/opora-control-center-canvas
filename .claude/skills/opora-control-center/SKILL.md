@@ -161,12 +161,10 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | nálezy strážců (`guards`, `guardFindings`) a co s nimi | `GET /api/strazci/findings`, tabulka pravidel | [strazci.md](references/strazci.md) |
 | výbava karty: měření, náhled před claimem, ověřovatel fixture | cesty `harness-*` pod `/api/oporahub` | [harness.md](references/harness.md) |
 | plán nebo PR jako graf PR Lens, rozdíl commitů zadání | `/api/oporahub/plan-lens`, `/review-lens`, `/diff` | [hub-api.md](references/hub-api.md) |
-| verdikt brány 1:1, zapsat zelený běh testů | `GET /api/sync-report`, `POST /api/check-run` | [hub-api.md](references/hub-api.md) |
-| přesná cesta a kdo ji smí | tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
+| verdikt brány 1:1, zelený běh testů; přesná cesta a kdo ji smí | `GET /api/sync-report`, `POST /api/check-run`; tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
 | jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy) | tabulky cest | [routy.md](references/routy.md) |
-| přijmout, uzavřít, nastavit bez člověka | plná autonomie (`autonomy.full`) | [autonomie.md](references/autonomie.md) |
 | provést akci z agent-state (i lidskou při `autonomy.full`) | `opora_hub.py act --action-id ID` (víc = `--action-id` opakovaně nebo `--all-ready --verb V`) | [hub-loop.md](references/hub-loop.md) |
-| zavolat cestu bez vlastního příkazu | `opora_api.py METHOD PATH [--json - | --json '…'] [--query k=v]` | [autonomie.md](references/autonomie.md) |
+| přijmout, uzavřít bez člověka (`autonomy.full`); zavolat cestu bez vlastního příkazu | `opora_api.py METHOD PATH [--json - | --json '…'] [--query k=v]` | [autonomie.md](references/autonomie.md) |
 | spustit, zastavit, restartovat Oporu | `uv run opora --no-open`, `opora_read.py status` | [provoz.md](references/provoz.md) |
 | zpráva jiné kartě, deník, obrázky karty, strom zdrojů | `/api/desktop-v3/agent-messages`, `/api/node-journal`, `/api/workspace/tree` | [api.md](references/api.md) „Karta, zdroje a projekt“ |
 | technický model domény (cíl z MODELu) | `GET /api/studio/model`, v briefu `architecture.model` | [api.md](references/api.md) „Technický model domény“ |
@@ -178,6 +176,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | velký projekt, mapy | `index` → `rank`; Graphify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [map-refresh.md](references/map-refresh.md) |
 | podklady pro externího agenta | `snapshot --id` | [external-agent.md](references/external-agent.md) |
 | projekt se zapnutou bránou mozku (`gate_required`): úkol z fronty, hlášení se sha | `opora_gate.py session` → `next` → `report` | [gate.md](references/gate.md) |
+| orchestrátor v projektu se srdcem: číst plán srdce, karty v pruhu, žádat změnu plánu | `opora_hub.py start`/`deliver`; `opora_gate.py ask` / `change` → `inbox` | [srdce.md](references/srdce.md) |
 | stará karta mimo OporaHub (lease, `agent-output`, router, kritici, `opora_stage.py`, `opora_closure.py`) | **zastaralé**, jen pro stará data | [legacy.md](references/legacy.md) |
 
 Skripty: `opora_hub.py` (stav, akce, `start`, `deliver`, review; tokeny jen v souborech 0600), `opora_write.py` (zápisy plátna `WRITE_ROUTES` a agentní cesty `HUB_AGENT_ROUTES`; lidské a tokenové odmítne),
