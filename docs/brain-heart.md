@@ -239,9 +239,14 @@ question ─▶ project facts (code) ─▶ RESEARCHER (web + source) ─▶ VER
    `dilna/data/research/<fragmentId>/gather/q1.json`.
 3. **Verify** (code, no model): a URL is downloaded once (stdlib, 10 s, ≤ 1 MB, ≤ 30 URLs, 6 threads, cache in the
    research folder), HTML reduced to text without `script`/`style`, both sides normalised. `verified` when the quote is
-   in the text or ≥ 80 % of its 5-word shingles are; `false` when the page has text but not the quote; `unreachable`
+   in the visible text or ≥ 80 % of its 5-word shingles are, or it is in the page source (markup and inline scripts are
+   evidence too); `false` when the page has text but not the quote; `unreachable`
    when the download failed or the page has < 500 chars of text. `path:line` is checked against the file inside the
-   source root (± 20 lines). Only `verified` findings are facts.
+   source root (± 20 lines). A source that points to a prefetched file becomes its original URL, and a prefetched
+   target is checked against the saved file (what the researcher read, even when short). A target's quote that is
+   not in the static page but is in the output of a REA tool the researcher really called (behaviour in the browser,
+   read from `--output-format stream-json`; WebFetch output does not count, it is a model's summary) is `observed`.
+   Facts are `verified` and `observed` findings.
 4. **Distill** (one sub-call without tools, **Sonnet**): question, project facts and only the verified facts → digest
    ```
    {verdict: feasible|dead_end|unrealistic|unverified, confidence,
@@ -270,7 +275,8 @@ question ─▶ project facts (code) ─▶ RESEARCHER (web + source) ─▶ VER
   tell the human. Never plan on a `false` or unverified fact as if it held.
 - **Files**: `opora_research.py` (command, vault), `research_desk.py` (facts, researcher, orchestration),
   `research_digest.py` (distill, digest, verdict fix, shared sub-call helpers), `research_fetch.py` (prefetch, HTML to
-  text, quote check), `opora_duel.py` (§3c duel); stdlib, copied by the supervisor into `brain/`.
+  text, quote check), `research_verify.py` (findings against sources, `observed`), `opora_duel.py` (§3c duel); stdlib,
+  copied by the supervisor into `brain/`.
 
 **Measured** (`.claude/hillclimb/research-desk/eval.py`, 7 scenarios across fe/be/db/cache/infra, a hypothesis and a
 vague intent; blind Sonnet judge 0–10 "a worker can start without more research"):

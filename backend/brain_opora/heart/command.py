@@ -20,7 +20,8 @@ TOOL_FILE = HEART_DIR / "opora_heart.py"
 TOOL_NAME = "opora_heart.py"  # kopie v cwd (`brain/`), aby pravidlo Bash nemělo v cestě mezery
 RLM_FILE = HEART_DIR / "rlm.py"
 # Výzkum a duel vedle nástroje (§3c, §3d): příkaz, stůl, digest, stažení a ověření, duel.
-RESEARCH_NAMES = ("opora_research.py", "research_desk.py", "research_digest.py", "research_fetch.py", "opora_duel.py")
+RESEARCH_NAMES = ("opora_research.py", "research_desk.py", "research_digest.py", "research_fetch.py",
+                  "research_verify.py", "opora_duel.py")
 DILNA, RLM_NAME, DILNA_DIRS = "dilna", "rlm.py", ("data", "scripts", "out")
 WRITABLE = ("scripts", "out")  # jediné složky, kam srdce smí Write/Edit
 MODEL, ADVISOR = "haiku", "opus"
