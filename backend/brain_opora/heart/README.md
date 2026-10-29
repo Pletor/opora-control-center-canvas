@@ -38,8 +38,9 @@ Modules (H2a):
   by the settings `allow` rules for `dilna/scripts/**` and `dilna/out/**`; `batch.py` sums the run costs into
   `subCostUsd` of the journal entry.
 - Research (K4, §3c): `opora_research.py` (stdlib, copied next to the tool) runs `research` (a `research` fragment
-  in the brief vault, one researcher `claude -p` with Read/Grep/Glob and only six REA web tools from
-  `dilna/rea-mcp.json`, result via `research-update`) and `duel` (deterministic, Haiku sub-calls as actors
+  in the brief vault, deterministic `prefetch` of the targets into `dilna/data/research/<id>/`, one researcher
+  `claude -p` with Read/Grep/Glob and, only when a Chrome/Edge is found, REA web tools plus browser launch from
+  `dilna/rea-mcp.json` with compact schemas, result via `research-update`) and `duel` (deterministic, Haiku sub-calls as actors
   `srdce-obhajce-a|b` and judges `srdce-soudce-1|2`, `duel-decide` by the server rule). Both log to `runs.jsonl`.
 - `prompt.md`: the heart's role, task shape with a full example, application-wide rules, when to ask the advisor.
 
