@@ -156,25 +156,41 @@ where the human sees them. A change of direction goes through a **duel** (`docs/
 
 - **`research --question Q --title T [--target URL|path]… [--fragment F] [--deep]`**
   1. Writes a `research` fragment into the vault (child of `F`, else of the heart's root fragment
-     "Výzkum srdce", `scopeNodeId: ""`, created once).
+     "Výzkum srdce", `scopeNodeId: ""`, discipline `ai` because a vault root always carries one, created once).
   2. Starts a **researcher**: one `claude -p` (Haiku, `--deep` = Sonnet), no OPORA token, max 20 turns,
      timeout 10 min. It may read the project source (Read, Grep, Glob, read only) and use only the web tools of
      the REA MCP server (`.agent-office/rea-mcp.json`): `inspect_web_page`, `analyze_web_bundle`,
      `trace_application_feature`, `trace_javascript_semantics`, `capture_web_screenshot`, `compare_web_captures`.
-     The heart itself never loads REA (207 tools would flood its context).
+     The heart itself never loads REA (207 tools would flood its context). The supervisor writes the server
+     definition (a copy of that file, kept in `command.py`) to `brain/dilna/rea-mcp.json`; the researcher runs with
+     `--strict-mcp-config`, `--tools Read,Grep,Glob`, `--allowedTools` = those three plus the six `mcp__rea__…`
+     tools, `--permission-mode dontAsk`, `--add-dir <source root>`, without the heart token, `OPORA_BASE_URL` and
+     API keys; on timeout the whole process tree dies. The heart's Bash waits up to 700 s (`BASH_*_TIMEOUT_MS`).
   3. The researcher answers in a fixed JSON: `{verdict: feasible|dead_end|unrealistic|unverified,
      confidence: low|medium|high, approach, evidence: [{source, quote}], alternatives: [{approach, why}]}`.
-     The tool writes it with `research-update` (`status: done`) and prints only verdict, confidence, the first
-     200 chars of the approach and the alternatives' titles. Cost goes to `runs.jsonl` and `subCostUsd`.
+     The tool takes the last JSON object of the answer and writes it with `research-update` (`status: done`):
+     `http(s)` sources become vault evidence `{url, title, quote, accessedAt}`; the vault accepts only URLs as
+     evidence, so `path:line` sources and the alternatives go into `approach`, and a verdict other than
+     `unverified` without any URL is stored as `unverified` with the researcher's verdict at the head of `approach`
+     (the output then has `claimed`). An answer without valid JSON is `unverified` with the head of the raw answer.
+     It prints only verdict, confidence, the first 200 chars of the approach and the alternatives' titles.
+     Cost goes to `runs.jsonl` (`script: research`) and so to `subCostUsd`.
 - **`duel --subject F --a TEXT --b TEXT`** (A = current direction, B = the parallel path):
   1. opens a duel on fragment `F` (`duel-open`);
   2. runs it deterministically: B's claim from the heart; A's defence, grills and answers from two independent
      Haiku sub-calls (actors `srdce-obhajce-a`, `srdce-obhajce-b`); every turn scored by two independent Haiku
-     judges (`srdce-soudce-1`, `srdce-soudce-2`); at most 2 rounds, about 12 sub-calls;
+     judges (`srdce-soudce-1`, `srdce-soudce-2`); at most 2 rounds, about 12 sub-calls. Order: B claim (heart),
+     A claim + grill, B answer + grill, judges; A answer + grill, B answer + grill, A answer, judges; each judge
+     scores all turns it has not scored yet in one sub-call. When the rule says synthesis, side A proposes a
+     synthesis and the judges score it (decided only when defended, average ≥ 6). Hard caps: 12 sub-calls and
+     9 min; all writes use the heart token with the actor's name in `X-Opora-Actor` (the server keeps sides and
+     judges apart). A refused turn or score is skipped and listed in `skipped`; the cost goes to `runs.jsonl`
+     (`script: duel`);
   3. calls `duel-decide` when the server says `canDecide`, and prints `probability`, the outcome
      (keep / adopt / synthesis) and the duel id. The server's rule stays: adopt needs p ≥ 0.75;
      only the human may override.
-- **Snapshot** gets `VÝZKUM`: the heart's research fragments and duels (title, verdict or outcome, p; ≤ 10).
+- **Snapshot** gets `VÝZKUM` (last section): live `research` and `duel` fragments whose first revision the
+  heart wrote, newest first (title, id, verdict/confidence and status, or outcome and p; ≤ 10).
 - **Prompt** (part "Výzkum"): research before planning a feature the project source does not show how to do,
   after a task failed twice (look for a parallel path), and when a worker's `change` proposes another way.
   The heart switches the plan to path B only after a duel with outcome adopt; otherwise it keeps A.

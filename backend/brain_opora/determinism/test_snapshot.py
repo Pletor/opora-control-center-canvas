@@ -42,7 +42,7 @@ def test_render_prefers_project_goal_and_falls_back_to_cards():
     text = snapshot.render(facts)
     assert "ZÁMĚR: Prodat sazenice." in text and "- Domů · home · ready" in text
     empty = snapshot.render({**facts, "goal": "", "cards": [], "tasks": [], "tickets": [], "checks": []})
-    assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 7  # lístky, kontroly, čtyři části okolí a dílna
+    assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 8  # lístky, kontroly, čtyři části okolí, dílna a výzkum
 
 
 def test_render_is_cut_at_the_hard_limit():

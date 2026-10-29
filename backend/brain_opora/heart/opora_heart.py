@@ -11,12 +11,15 @@
     python opora_heart.py done --summary S
     python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
     python opora_heart.py run SCRIPT [ARG…]
+    python opora_heart.py research --question Q --title T [--target URL|cesta]… [--fragment F] [--deep]
+    python opora_heart.py duel --subject F --a TEXT --b TEXT
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
 Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` a vypíše jen cestu, počet a velikost;
 `run` spustí `dilna/scripts/<SCRIPT>.py` (`python -I`, cwd `dilna/`, 120 s) bez tokenu srdce a klíčů API
 ve vlastní skupině procesů (po vypršení zemře celý strom i s pod-voláními `claude`) a zapíše řádek do `dilna/runs.jsonl`.
+`research` a `duel` (§3c) jsou v `opora_research.py` vedle nástroje (výzkumník s REA, duel s pod-voláními Haiku).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
 import argparse
@@ -63,11 +66,12 @@ def env(name):
     return value
 
 
-def call(method, path, body=None, query=None):
-    """Jedno volání OPORY s tokenem srdce; odmítnutí serveru je `Failure` s jeho `code` a `hint`."""
+def call(method, path, body=None, query=None, actor="heart"):
+    """Jedno volání OPORY s tokenem srdce; odmítnutí serveru je `Failure` s jeho `code` a `hint`.
+    `actor` = jméno agenta v X-Opora-Actor (duel: strany a soudci jsou různí aktéři, token zůstává srdce)."""
     base = env("OPORA_BASE_URL").rstrip("/")
     url = base + path + ("?" + urlencode(query) if query else "")
-    headers = {"Accept": "application/json", "Origin": base, "X-Opora-Actor": "agent; name=heart",
+    headers = {"Accept": "application/json", "Origin": base, "X-Opora-Actor": f"agent; name={actor}",
                HEADER: env("OPORA_HEART_TOKEN")}
     data = None
     if body is not None:
@@ -184,12 +188,14 @@ def kill_tree(process):
     process.kill()  # pojistka, kdyby strom už nebyl celý
 
 
-def _execute(argv, cwd, env):
-    """`(exit, stdout, stderr, timedOut)`; po `RUN_TIMEOUT` zabije strom a dočte, co skript stihl vypsat."""
-    process = subprocess.Popen(argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", **_group())
+def _execute(argv, cwd, env, timeout=None, input_text=None):
+    """`(exit, stdout, stderr, timedOut)`; po `timeout` (výchozí `RUN_TIMEOUT`) zabije strom a dočte, co proces stihl vypsat.
+    `input_text` jde na stdin (zadání výzkumníka a pod-volání duelu)."""
+    process = subprocess.Popen(argv, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                               stdin=subprocess.DEVNULL if input_text is None else subprocess.PIPE,
+                               encoding="utf-8", errors="replace", **_group())
     try:
-        out, err = process.communicate(timeout=RUN_TIMEOUT)
+        out, err = process.communicate(input=input_text, timeout=RUN_TIMEOUT if timeout is None else timeout)
         return process.returncode, out, err, False
     except subprocess.TimeoutExpired:
         kill_tree(process)
@@ -198,6 +204,25 @@ def _execute(argv, cwd, env):
         except subprocess.TimeoutExpired:  # roura drží ještě někdo jiný; výstup oželíme
             out, err = "", ""
         return None, out, err, True
+
+
+def log_run(script, script_args, exit_code, ms, calls, cost):
+    """Řádek do `dilna/runs.jsonl` (běh skriptu, výzkum, duel); dávka z něj sečte `subCostUsd` do deníku."""
+    entry = {"at": now(), "script": script, "args": list(script_args), "exit": exit_code, "ms": ms,
+             "subCalls": calls, "subCostUsd": round(cost, 6)}
+    DILNA.mkdir(parents=True, exist_ok=True)
+    with (DILNA / "runs.jsonl").open("a", encoding="utf-8") as runs:
+        runs.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    return entry
+
+
+def research_module():
+    """`opora_research.py`: kopie vedle nástroje v `brain/`, v testech modul balíčku."""
+    try:
+        import opora_research
+    except ImportError:
+        from backend.brain_opora.heart import opora_research
+    return opora_research
 
 
 def run_script(script, script_args):
@@ -219,10 +244,7 @@ def run_script(script, script_args):
     ms = int((time.time() - started) * 1000)
     calls, cost = _sub_usage(log)
     log.unlink(missing_ok=True)
-    entry = {"at": now(), "script": script, "args": list(script_args), "exit": exit_code, "ms": ms,
-             "subCalls": calls, "subCostUsd": cost}
-    with (dilna / "runs.jsonl").open("a", encoding="utf-8") as runs:
-        runs.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    entry = log_run(script, script_args, exit_code, ms, calls, cost)
     result = {**entry, "stdout": _cut(out or "", STDOUT_LIMIT)}
     if err:
         result["stderr"] = (err or "")[-STDERR_LIMIT:]
@@ -237,6 +259,8 @@ def run(args):
         return load_context(args.name)
     if args.command == "run":
         return run_script(args.script, args.script_args)
+    if args.command in ("research", "duel"):
+        return getattr(research_module(), args.command)(args, sys.modules[__name__])
     if args.command == "snapshot":
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
     if args.command == "task":
@@ -290,6 +314,15 @@ def parser():
     script = commands.add_parser("run")
     script.add_argument("script")
     script.add_argument("script_args", nargs=argparse.REMAINDER)
+    research = commands.add_parser("research")
+    research.add_argument("--question", required=True)
+    research.add_argument("--title", required=True)
+    research.add_argument("--target", action="append", default=[])
+    research.add_argument("--fragment")
+    research.add_argument("--deep", action="store_true")
+    duel = commands.add_parser("duel")
+    for flag in ("--subject", "--a", "--b"):
+        duel.add_argument(flag, required=True)
     return root
 
 

@@ -19,6 +19,7 @@ PROMPT_FILE = HEART_DIR / "prompt.md"
 TOOL_FILE = HEART_DIR / "opora_heart.py"
 TOOL_NAME = "opora_heart.py"  # kopie v cwd (`brain/`), aby pravidlo Bash nemělo v cestě mezery
 RLM_FILE = HEART_DIR / "rlm.py"
+RESEARCH_FILE, RESEARCH_NAME = HEART_DIR / "opora_research.py", "opora_research.py"  # vedle nástroje (§3c)
 DILNA, RLM_NAME, DILNA_DIRS = "dilna", "rlm.py", ("data", "scripts", "out")
 WRITABLE = ("scripts", "out")  # jediné složky, kam srdce smí Write/Edit
 MODEL, ADVISOR = "haiku", "opus"
@@ -30,6 +31,13 @@ ALLOWED_TOOLS = f"Read,Grep,Glob,Bash(python {TOOL_NAME}:*)"
 STRIPPED = ("ANTHROPIC_API_KEY", "TYPESAFE_API_KEY", "CELERIS_API_KEY")
 SECRETS = ("Read(**/.env)", "Read(**/.env.*)", "Read(**/*.pem)", "Read(**/*.key)")
 SETTINGS_FILE, MCP_FILE = "heart-settings.json", "heart-mcp.json"
+# MCP výzkumníka (§3c): jen server REA, stejná definice jako `.agent-office/rea-mcp.json` v kořeni repozitáře
+# (kořen zdroje projektu může být jinde, proto kopie tady). Srdce samo REA nikdy nenačítá.
+REA_MCP_NAME = "rea-mcp.json"
+REA_MCP = {"mcpServers": {"rea": {"type": "stdio", "command": "cmd",
+                                  "args": ["/c", "npx", "-y", "rea-agents@6.7.0", "mcp"]}}}
+# Výzkum běží až 10 min a duel kolem 9 min: Bash srdce musí počkat déle než výchozí 2 min.
+BASH_TIMEOUT_MS = "700000"
 
 
 def find_claude(which=shutil.which, nt=None):
@@ -60,7 +68,7 @@ def workshop_deny(brain):
     """Druhá pojistka: soubory `brain/` a dílny mimo skripty a výstupy (stav, deník, nástroje, data `ctx`)."""
     root, dilna = rule_path(brain), rule_path(Path(brain) / DILNA)
     paths = [f"{root}/*.{ext}" for ext in ("json", "jsonl", "py", "txt", "md")]
-    paths += [f"{dilna}/*.py", f"{dilna}/*.jsonl", f"{dilna}/data/**"]
+    paths += [f"{dilna}/*.py", f"{dilna}/*.json", f"{dilna}/*.jsonl", f"{dilna}/data/**"]
     return [f"{tool}({path})" for tool in ("Write", "Edit") for path in paths]
 
 
@@ -76,8 +84,8 @@ def settings(source_root=None, brain=None):
 
 
 def write_config(brain, source_root=None):
-    """Zapíše nastavení a prázdné MCP do `brain/`, zkopíruje tam nástroj a `rlm.py` do dílny (se složkami
-    `data/`, `scripts/`, `out/`); vrací `(settings, mcp)` cesty."""
+    """Zapíše nastavení a prázdné MCP do `brain/`, zkopíruje tam nástroj s `opora_research.py` a do dílny `rlm.py`
+    a MCP výzkumníka `rea-mcp.json` (se složkami `data/`, `scripts/`, `out/`); vrací `(settings, mcp)` cesty."""
     brain = Path(brain)
     brain.mkdir(parents=True, exist_ok=True)
     for folder in DILNA_DIRS:
@@ -86,7 +94,9 @@ def write_config(brain, source_root=None):
     settings_path.write_text(json.dumps(settings(source_root, brain), ensure_ascii=False, indent=1), encoding="utf-8")
     mcp_path.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
     shutil.copyfile(TOOL_FILE, brain / TOOL_NAME)
+    shutil.copyfile(RESEARCH_FILE, brain / RESEARCH_NAME)
     shutil.copyfile(RLM_FILE, brain / DILNA / RLM_NAME)
+    (brain / DILNA / REA_MCP_NAME).write_text(json.dumps(REA_MCP, indent=1), encoding="utf-8")
     return settings_path, mcp_path
 
 
@@ -116,7 +126,8 @@ def child_env(*, base_url, token, project, workspace, source_root=None, environ=
     for key in (*STRIPPED, "OPORA_SOURCE_ROOT"):
         env.pop(key, None)
     env.update({"OPORA_BASE_URL": base_url, "OPORA_HEART_TOKEN": token, "OPORA_PROJECT": project,
-                "OPORA_WORKSPACE": workspace, "PYTHONIOENCODING": "utf-8"})
+                "OPORA_WORKSPACE": workspace, "PYTHONIOENCODING": "utf-8",
+                "BASH_DEFAULT_TIMEOUT_MS": BASH_TIMEOUT_MS, "BASH_MAX_TIMEOUT_MS": BASH_TIMEOUT_MS})
     if source_root:
         env["OPORA_SOURCE_ROOT"] = str(source_root)
     return env
