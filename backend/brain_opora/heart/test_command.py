@@ -48,6 +48,8 @@ def test_settings_deny_writes_into_the_source_and_disable_hooks(tmp_path):
     assert json.loads(settings_path.read_text(encoding="utf-8")) == command.settings(tmp_path / "src", tmp_path / "brain")
     assert json.loads(mcp_path.read_text(encoding="utf-8")) == {"mcpServers": {}}
     assert (tmp_path / "brain" / "opora_heart.py").read_bytes() == command.TOOL_FILE.read_bytes()
+    for name in command.RESEARCH_NAMES:
+        assert (tmp_path / "brain" / name).read_bytes() == (command.HEART_DIR / name).read_bytes()
     dilna = tmp_path / "brain" / "dilna"
     assert (dilna / "rlm.py").read_bytes() == command.RLM_FILE.read_bytes()
     assert all((dilna / folder).is_dir() for folder in ("data", "scripts", "out"))

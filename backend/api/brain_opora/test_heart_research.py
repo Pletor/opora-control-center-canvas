@@ -1,20 +1,37 @@
-"""Výzkum a duel srdce přes skutečnou aplikaci (docs/brain-heart.md §3c): nástroj srdce píše do schránky zadání
-tokenem srdce, strany a soudci duelu jsou různí aktéři. Model ani `npx` se nespouští: `_execute` je falešný."""
+"""Výzkum a duel srdce přes skutečnou aplikaci (docs/brain-heart.md §3c, §3d): nástroj srdce píše do schránky zadání
+tokenem srdce, strany a soudci duelu jsou různí aktéři. Model ani `npx` se nespouští: `_execute` je falešný; citace
+výzkumníka ověřuje kód proti místnímu serveru."""
 import json
 import re
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
 from backend.brain_opora.determinism import tokens
-from backend.brain_opora.heart import command, opora_heart, opora_research
+from backend.brain_opora.heart import command, opora_heart, opora_research, research_digest
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed
 
-FOUND = {"verdict": "feasible", "confidence": "medium", "approach": "Převzít vzor z Hero.",
-         "evidence": [{"source": "https://example.com/hero", "quote": "hero sekce"},
-                      {"source": "src/Hero.tsx:3", "quote": "export function Hero"}],
-         "alternatives": [{"approach": "Statická stránka", "why": "rychlejší"}]}
+HERO = ("<html><body><section><h1>Zahrada</h1><p>Hero sekce s nadpisem a tlačítkem Začít vede na kontakt.</p>"
+        + "<p>Další obsah stránky o zahradě. </p>" * 30 + "</section></body></html>").encode("utf-8")
+DIGEST = {"verdict": "feasible", "confidence": "medium",
+          "layers": {"fe": {"essence": "Hero podle vzoru", "recommended": "Komponenta Hero",
+                            "options": [{"approach": "Statická stránka", "pros": "rychlejší", "cons": "", "facts": ["f1"]}],
+                            "risks": []}},
+          "hypotheses": [], "next": "plan", "nextWhy": "Vzor je doložený.",
+          "slices": [{"layer": "fe", "title": "Hero sekce", "why": "první dojem", "facts": ["f1"]}]}
+
+
+class _Site(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200 if self.path == "/hero" else 404)
+        self.end_headers()
+        self.wfile.write(HERO if self.path == "/hero" else b"")
+
+    def log_message(self, *args):
+        pass
 
 
 def claude_json(result, cost):
@@ -22,17 +39,19 @@ def claude_json(result, cost):
 
 
 class FakeClaude:
-    """Výzkumník odpoví `researcher`; pod-volání duelu: strany pevné texty, soudci straně A drtivě."""
+    """Stůl: výzkumník (`findings`) a destilace (`digest`); duel: strany pevné texty, soudci straně A drtivě."""
 
-    def __init__(self, researcher):
-        self.researcher, self.lines, self.prompts = researcher, [], []
+    def __init__(self, findings=(), digest=None):
+        self.findings, self.digest, self.lines, self.prompts = list(findings), digest, [], []
 
     def __call__(self, argv, cwd, env, timeout=None, input_text=None):
         self.lines.append(argv)
         self.prompts.append(input_text)
         assert "OPORA_HEART_TOKEN" not in env and "OPORA_BASE_URL" not in env
         if "--allowedTools" in argv:
-            return 0, claude_json(self.researcher, 0.05), "", False
+            return 0, claude_json(json.dumps({"findings": self.findings}), 0.05), "", False
+        if input_text.startswith("Jsi syntetik výzkumu"):
+            return 0, claude_json(json.dumps(self.digest) if self.digest else "Nevím.", 0.01), "", False
         if "Jsi nezávislý soudce" in input_text:
             ids = re.search(r"těchto výměn: ([^\n]+)\.", input_text).group(1).split(", ")
             scores = [{"turnId": turn, "strength": 8, "supports": "A"} for turn in ids]
@@ -44,6 +63,14 @@ class FakeClaude:
 
 
 @pytest.fixture
+def site():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Site)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{server.server_port}"
+    server.shutdown()
+
+
+@pytest.fixture
 def heart(tmp_path, monkeypatch):
     """Aplikace se zapnutou bránou a `opora_heart.call` přes TestClient s tokenem srdce a jménem aktéra."""
     for key, value in {"OPORA_PROJECT": "draft", "OPORA_WORKSPACE": "draft"}.items():
@@ -52,7 +79,8 @@ def heart(tmp_path, monkeypatch):
     brain = tmp_path / "brain"
     command.write_config(brain)
     monkeypatch.setattr(opora_heart, "DILNA", brain / "dilna")
-    monkeypatch.setattr(opora_research, "find_claude", lambda: "claude")
+    monkeypatch.setattr(research_digest, "find_claude", lambda: "claude")
+    monkeypatch.setattr(opora_research, "find_browser", lambda: "C:/chrome.exe")
     with TestClient(create_app(tmp_path / "app"), base_url=ORIGIN) as client:
         seed(client)
         assert client.post("/api/brain/gate-setting", headers=HEADERS, json={"project": "draft", "enabled": True}
@@ -78,29 +106,36 @@ def run(fake, monkeypatch, argv):
     return opora_heart.run(opora_heart.parser().parse_args(argv))
 
 
-def test_research_writes_the_vault_and_a_duel_reaches_a_decision(heart, monkeypatch):
+def test_research_writes_the_vault_and_a_duel_reaches_a_decision(heart, monkeypatch, site):
     client, call, brain = heart
-    fake = FakeClaude("Zde výsledek:\n" + json.dumps(FOUND))
+    findings = [{"claim": "Hero má nadpis a tlačítko", "kind": "fact", "source": f"{site}/hero",
+                 "quote": "Hero sekce s nadpisem a tlačítkem Začít"},
+                {"claim": "Komponenta už je", "source": "src/Hero.tsx:3", "quote": "export function Hero"}]
+    fake = FakeClaude(findings, DIGEST)
     done = run(fake, monkeypatch, ["research", "--question", "Jak udělat hero?", "--title", "Hero",
-                                   "--target", "https://example.com/hero"])
-    assert (done["verdict"], done["confidence"], done["alternatives"]) == ("feasible", "medium", ["Statická stránka"])
-    assert done["approach"].startswith("Převzít vzor z Hero.") and "claimed" not in done
-    researcher = fake.lines[0]
-    assert researcher[researcher.index("--mcp-config") + 1] == str((brain / "dilna" / "rea-mcp.json").resolve())
-    assert "Jak udělat hero?" in fake.prompts[0] and "https://example.com/hero" in fake.prompts[0]
+                                   "--target", f"{site}/hero", "--layer", "fe"])
+    assert (done["verdict"], done["confidence"], done["next"], done["facts"]) == ("feasible", "medium", "plan", "1/2")
+    assert done["layers"] == ["fe: Hero podle vzoru → Komponenta Hero"] and done["slices"] == ["Hero sekce"]
+    assert "claimed" not in done and done["out"] == f"dilna/out/research/{done['fragmentId']}.json"
+    gather = next(line for line in fake.lines if "--allowedTools" in line)
+    assert gather[gather.index("--mcp-config") + 1] == str((brain / "dilna" / "rea-mcp.json").resolve())
+    assert "Jak udělat hero?" in fake.prompts[0] and f"{site}/hero" in fake.prompts[0]
     fragment = call("GET", "/api/brief-vault/fragment", query={**SCOPE, "id": done["fragmentId"]})
     research = fragment["details"]["research"]
-    assert (research["verdict"], research["status"], len(research["evidence"])) == ("feasible", "done", 1)
-    assert "src/Hero.tsx:3" in research["approach"] and fragment["fragment"]["by"] == "heart"
+    assert (research["verdict"], research["status"], [e["url"] for e in research["evidence"]]) == (
+        "feasible", "done", [f"{site}/hero"])
+    assert research["approach"].startswith("Další krok: plan – Vzor je doložený.") and fragment["fragment"]["by"] == "heart"
+    saved = json.loads((brain / "dilna" / "out" / "research" / f"{done['fragmentId']}.json").read_text(encoding="utf-8"))
+    assert saved["digest"]["next"] == "plan" and [f["verified"] for f in saved["facts"]] == ["verified", "unreachable"]
+    assert (brain / "dilna" / "data" / "research" / done["fragmentId"] / "gather" / "q1.json").is_file()
 
-    # Neplatná odpověď výzkumníka: unverified se začátkem odpovědi; kořen „Výzkum srdce“ se nezaloží podruhé.
-    failed = run(FakeClaude("Nevím, nenašel jsem nic."), monkeypatch,
-                 ["research", "--question", "Jde to offline?", "--title", "Offline"])
-    assert failed["verdict"] == "unverified" and failed["approach"].startswith("Výzkumník nevrátil platný JSON: Nevím")
+    # Nic ověřeného a destilace bez JSON: unverified, `ask`; kořen „Výzkum srdce“ se nezaloží podruhé.
+    failed = run(FakeClaude(), monkeypatch, ["research", "--question", "Jde to offline?", "--title", "Offline"])
+    assert (failed["verdict"], failed["next"], failed["facts"]) == ("unverified", "ask", "0/0")
     roots = [r for r in call("GET", "/api/brief-vault", query=SCOPE)["roots"] if r["title"] == opora_research.ROOT_TITLE]
     assert len(roots) == 1
 
-    fake = FakeClaude("")
+    fake = FakeClaude()
     result = run(fake, monkeypatch, ["duel", "--subject", done["fragmentId"], "--a", "Hero podle vzoru.",
                                      "--b", "Statická stránka bez komponent."])
     assert result["outcome"] == "keep" and result["probability"] <= 0.40 and result["subCalls"] == 9
@@ -114,13 +149,13 @@ def test_research_writes_the_vault_and_a_duel_reaches_a_decision(heart, monkeypa
 
     runs = [json.loads(line) for line in (brain / "dilna" / "runs.jsonl").read_text(encoding="utf-8").splitlines()]
     assert [(r["script"], r["subCalls"], r["subCostUsd"]) for r in runs] == [
-        ("research", 1, 0.05), ("research", 1, 0.05), ("duel", 9, 0.09)]
+        ("research", 2, 0.06), ("research", 2, 0.06), ("duel", 9, 0.09)]
 
     text = client.get("/api/brain/heart/snapshot", params=SCOPE).json()["snapshot"]
     section = text.split("VÝZKUM:")[1]
     assert f"- duel Duel: Statická stránka bez komponent. ({result['duelId']}) · keep · p " in section
-    assert f"- výzkum Hero ({done['fragmentId']}) · feasible/medium · done" in section
-    assert f"- výzkum Offline ({failed['fragmentId']}) · unverified · done" in section
+    assert f"- výzkum Hero ({done['fragmentId']}) · feasible/medium · next plan · done" in section
+    assert f"- výzkum Offline ({failed['fragmentId']}) · unverified · next ask · done" in section
 
 
 def test_duel_sides_cannot_be_the_same_actor_on_both_sides(heart):

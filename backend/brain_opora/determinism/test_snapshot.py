@@ -165,3 +165,12 @@ def test_workshop_lists_scripts_after_the_journal(service):
     assert _block(text, "DÍLNA:") == ["- a_bare", "- b_count: Spočítá úkoly podle stavu.", "- c_broken"]
     many = {**FACTS, "scripts": [(f"s{i:02}", "x") for i in range(30)]}
     assert len(_block(snapshot.render(many), "DÍLNA:")) == snapshot.SCRIPTS
+
+
+def test_research_line_shows_next_from_the_first_approach_line():
+    assert snapshot.research_next("Další krok: spike – změřit\nVerdikt: unverified") == "spike"
+    assert snapshot.research_next("Verdikt výzkumníka: feasible") == "" and snapshot.research_next(None) == ""
+    item = {"id": "r1", "kind": "research", "title": "Limit", "verdict": "feasible", "confidence": "high",
+            "next": "plan", "status": "done"}
+    assert _block(snapshot.render({**FACTS, "research": [item]}), "VÝZKUM:") == [
+        "- výzkum Limit (r1) · feasible/high · next plan · done"]

@@ -214,6 +214,80 @@ where the human sees them. A change of direction goes through a **duel** (`docs/
   asks to plan, the heart plans after the research, with the current approach when the verdict is `unverified`,
   and says so in the task's `--why`. Rule text never starts with "(návrh)" (the snapshot marks proposals itself).
 
+## 3d. Universal research on real ground (K5)
+
+§3c researched only targets the heart already knew (a reference URL, a file). A heart that builds products from zero
+to production must **find** the sources itself, for any layer: frontend, backend, database, API, cache,
+infrastructure, security, data, operations. K5 makes `research` a deterministic pipeline in the tool, where models do
+only what needs judgment, and every fact the plan stands on is **checked by code against its source**.
+
+```
+question ─▶ project facts (code) ─▶ RESEARCHER (web + source) ─▶ VERIFY (code: quote really on the page / in the file)
+         ─▶ DISTILL (Sonnet, verified facts only) ─▶ digest: layers · options · hypotheses · NEXT ─▶ vault + dilna/out
+```
+
+1. **Project facts** (`project_facts(source_root)`, code, ≤ 1 500 chars): stack and versions from `package.json`,
+   `pyproject.toml`, `requirements*.txt`, `go.mod`, `Cargo.toml`, `Dockerfile*`, compose and CI files, top folders.
+   Research is about *this* project's stack.
+2. **Researcher**: one `claude -p` (Haiku, `--deep` = Sonnet), ≤ 12 turns, 420 s, tools `WebSearch, WebFetch, Read,
+   Grep, Glob` (+ the REA web tools of §3c when a browser exists and a target is `http(s)`), no OPORA token, no API
+   keys. It covers every layer the question touches (`--layer`, repeatable, from `fe, be, db, api, cache, infra,
+   security, data, ops`, narrows it) and answers ≤ 12 findings
+   `{claim, layer, kind: fact|practice|option|risk|version, source, quote}` + ≤ 4 options. `source` is a URL or
+   `path:line` (text around a URL is cut off by code), `quote` verbatim ≤ 300 chars. Source order: official docs and
+   specs, the project source, maintainers' repositories and release notes, the rest. Raw answer:
+   `dilna/data/research/<fragmentId>/gather/q1.json`.
+3. **Verify** (code, no model): a URL is downloaded once (stdlib, 10 s, ≤ 1 MB, ≤ 30 URLs, 6 threads, cache in the
+   research folder), HTML reduced to text without `script`/`style`, both sides normalised. `verified` when the quote is
+   in the text or ≥ 80 % of its 5-word shingles are; `false` when the page has text but not the quote; `unreachable`
+   when the download failed or the page has < 500 chars of text. `path:line` is checked against the file inside the
+   source root (± 20 lines). Only `verified` findings are facts.
+4. **Distill** (one sub-call without tools, **Sonnet**): question, project facts and only the verified facts → digest
+   ```
+   {verdict: feasible|dead_end|unrealistic|unverified, confidence,
+    layers: {<layer>: {essence, recommended, options: [{approach, pros, cons, facts}], risks}},
+    hypotheses: [{claim, layer, check}], next: plan|spike|duel|ask|stop, nextWhy,
+    slices: [{layer, title, why, facts}]}
+   ```
+   `next` is the method, the first rule that holds wins: **stop** (facts refute the question's claim or the way is
+   unrealistic), **ask** (the way rests on the human's choice: vendor, price, law, removing a feature), **duel** (two
+   grounded paths the facts do not separate, §3c), **spike** (no way can be chosen without measuring a hypothesis the
+   docs do not answer), **plan** (otherwise; remaining doubts become hypotheses measured in the first slice).
+   Code then fixes it: no verified fact ⇒ verdict `unverified` and `plan`/`duel` become `spike`.
+5. **Write**: `research-update` with the verdict, the digest rendered as `approach` and ≤ 6 verified URLs as evidence.
+   The vault accepts only its fixed keys, so `next` is the first line of `approach` (`Další krok: <next> – <nextWhy>`),
+   which the snapshot reads back for `VÝZKUM`. A verdict other than `unverified` needs a verified URL (vault rule);
+   one verified only by `path:line` is stored as `unverified` with `claimed`. The whole result goes to
+   `dilna/out/research/<fragmentId>.json`. The tool prints verdict, `next` + `nextWhy`, one line per layer, slices,
+   ≤ 3 hypotheses with `check`, `facts verified/claimed`, cost, seconds and the `out` path.
+
+- **Caps**: 2 sub-calls (researcher, distill), 600 s; the heart's Bash waits 700 s; cost to `runs.jsonl`.
+- **Prompt** ("Výzkum"): research whenever a plan step rests on something neither the source nor the memory shows
+  (library, limit, version, pattern, infrastructure), not only for a reference page. A broad intent (an app from
+  zero) is not one research: one per decision the plan carries, with `--layer`, foundations first. After research act
+  by `next`: plan → tasks from `slices` with fact sources in `--why`; spike → one small task whose `--done-when` is the
+  `check`, the rest after its report; duel → `duel`; ask → `escalate` with the options; stop → `decide` why not and
+  tell the human. Never plan on a `false` or unverified fact as if it held.
+- **Files**: `opora_research.py` (command, vault), `research_desk.py` (facts, researcher, orchestration),
+  `research_digest.py` (distill, digest, verdict fix, shared sub-call helpers), `research_fetch.py` (prefetch, HTML to
+  text, quote check), `opora_duel.py` (§3c duel); stdlib, copied by the supervisor into `brain/`.
+
+**Measured** (`.claude/hillclimb/research-desk/eval.py`, 7 scenarios across fe/be/db/cache/infra, a hypothesis and a
+vague intent; blind Sonnet judge 0–10 "a worker can start without more research"):
+
+| Variant | verified facts | layers covered | `next` right | judge | USD | s |
+|---|---|---|---|---|---|---|
+| V0 §3c (source only, no web) | 1.0 | – | – | 4.4 | 0.002 | 16 |
+| V1 one researcher + web, Haiku distill | 11.9 (99 %) | 0.95 | 5/7 | 6.1 | 0.035 | 84 |
+| V2 frame + 6 researchers, Haiku distill | 41.4 (91 %) | 1.0 | 5/7 | 6.7 | 0.206 | 164 |
+| **V1s one researcher + web, Sonnet distill** | 11.6 (96 %) | 1.0 | **7/7** | **6.9** | **0.074** | 80 |
+| V3 frame + 3 researchers, Sonnet distill | 20.7 (93 %) | 0.91 | 7/7 | 6.7 | 0.148 | 89 |
+
+The first runs also found two faults, fixed before the table: the distill chose `spike` every time (now the ordered
+rule above), and sources like "URL (section 2)" failed the check (code cuts the URL out). For an app from zero
+(2 runs) V3 covered layers slightly better (0.7 vs 0.6, judge 5.5 vs 5.0) at 2.7× the cost, so a broad intent is
+split into several focused researches instead of a wider desk. V1s became `research`; the fan-out was deleted.
+
 ## 4. The heart's tool (`heart/opora_heart.py`, stdlib, one call = one intent)
 
 | Command | Does |
@@ -228,7 +302,7 @@ where the human sees them. A change of direction goes through a **duel** (`docs/
 | `rule --text T` | proposes an application rule (scope `project`, `by: agent`; the human approves) |
 | `ctx <name>` | loads large context into `brain/dilna/data/<name>.json` (§3b) |
 | `run <script> [args…]` | runs the heart's own script from `brain/dilna/scripts/` (§3b) |
-| `research --question Q --title T [--target]… [--fragment F] [--deep]` | vault research by a researcher with REA web tools (§3c) |
+| `research --question Q --title T [--target]… [--layer L]… [--fragment F] [--deep]` | research on the web and in the source, quotes checked by code, digest with `next` (§3c, §3d) |
 | `duel --subject F --a TEXT --b TEXT` | duel of the current direction and a parallel path, judged by sub-calls (§3c) |
 
 Errors print `code` and `hint`, and the exit code is not zero.

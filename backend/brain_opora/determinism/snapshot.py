@@ -8,6 +8,7 @@ Každá část má vlastní strop počtu řádků a celý text se nakonec oříz
 `view` složí ze stejných faktů kompaktní JSON pro druh brány `state` (docs/brain-control-api.md §2).
 """
 import json
+import re
 import sqlite3
 
 from backend.brain_opora.determinism import brain_files
@@ -36,6 +37,7 @@ DECISIONS = 10
 JOURNAL = 5
 SCRIPTS = 15
 RESEARCH = 10
+NEXT_LINE = re.compile(r"Další krok: (plan|spike|duel|ask|stop)\b")
 HEART = "heart"  # autor výzkumů a duelů srdce ve schránce (agent `heart`)
 UNREADABLE = (ValueError, KeyError, TypeError, AttributeError, OSError, sqlite3.Error)
 CUT = "\n… (snímek zkrácen)"
@@ -92,6 +94,13 @@ def _brain(service, project, workspace):
             brain_files.scripts(brain, SCRIPTS))
 
 
+def research_next(approach):
+    """`next` výzkumného stolu (§3d) z prvního řádku `approach` („Další krok: <next> – …“); schránka pole
+    `next` nemá a její schéma se nemění. Bez něj (výzkum §3c, člověk) prázdný text."""
+    match = NEXT_LINE.match(approach or "")
+    return match.group(1) if match else ""
+
+
 def _research(service, project, workspace):
     """Živé fragmenty `research` a `duel`, které založilo srdce, s výtahem podrobností; nejnovější první."""
     try:
@@ -114,7 +123,8 @@ def _research(service, project, workspace):
             item.update(status=summary["status"], outcome=summary["outcome"], p=summary["p"])
         elif isinstance(fields.get("research"), dict):
             research = fields["research"]
-            item.update(status=research["status"], verdict=research["verdict"], confidence=research["confidence"])
+            item.update(status=research["status"], verdict=research["verdict"], confidence=research["confidence"],
+                        next=research_next(research.get("approach")))
         items.append(item)
     return items
 
@@ -234,7 +244,8 @@ def _research_lines(facts):
                         + (f" · p {p:.2f}" if isinstance(p, (int, float)) else ""))
         else:
             rows.append(head + f" · {item.get('verdict') or '?'}"
-                        + (f"/{item['confidence']}" if item.get("confidence") else "") + f" · {item.get('status') or '?'}")
+                        + (f"/{item['confidence']}" if item.get("confidence") else "")
+                        + (f" · next {item['next']}" if item.get("next") else "") + f" · {item.get('status') or '?'}")
     return _section("VÝZKUM:", rows)
 
 
