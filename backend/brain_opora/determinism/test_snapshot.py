@@ -1,7 +1,7 @@
 """Snímek pro srdce: pevný tvar §3, deterministický text, strop znaků a čtení faktů z projektu."""
 import pytest
 
-from backend.brain_opora.determinism import gate, kinds, snapshot, task_queue
+from backend.brain_opora.determinism import brain_files, gate, kinds, snapshot, task_queue
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.canvas_service import CanvasService
 
@@ -39,7 +39,7 @@ def test_render_prefers_project_goal_and_falls_back_to_cards():
     text = snapshot.render(facts)
     assert "ZÁMĚR: Prodat sazenice." in text and "- Domů · home · ready" in text
     empty = snapshot.render({**facts, "goal": "", "cards": [], "tasks": [], "tickets": [], "checks": []})
-    assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 2
+    assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 6  # lístky, kontroly a čtyři části okolí
 
 
 def test_render_is_cut_at_the_hard_limit():
@@ -60,3 +60,92 @@ def test_collect_reads_queue_tickets_and_unknown_project(service):
     with pytest.raises(GateError) as caught:
         snapshot.collect(service, "nikde", "draft")
     assert caught.value.code == "project_not_found"
+
+
+MEMORY = {"messages": [{"at": f"2026-10-29T10:0{i}:00Z", "workspace": "main", "text": f"zpráva {i}"} for i in range(7)],
+          "rules": [{"id": "r1", "text": "Návrh agenta", "kind": "must", "scope": "project", "target": "", "by": "agent"},
+                    {"id": "r2", "text": "Česky a bez emoji", "kind": "must", "scope": "project", "target": ""}],
+          "decisions": [{"id": f"d{i}", "text": f"rozhodnutí {i}", "pinned": i == 0, "path": "", "nodeId": "",
+                         "createdAt": f"2026-10-{10 + i}T00:00:00Z", "by": "human"} for i in range(14)],
+          "journal": [{"at": "2026-10-29T09:00:00Z", "status": "ok", "summary": "Dva úkoly zadány."},
+                      {"at": "2026-10-29T09:30:00Z", "status": "error", "summary": None}]}
+ORDER = ["PROJEKT", "ZÁMĚR:", "ZPRÁVY ČLOVĚKA:", "PRAVIDLA:", "ROZHODNUTÍ:", "PLÁN:", "FRONTA ÚKOLŮ:",
+         "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:", "DENÍK:"]
+
+
+def _block(text, head):
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith(head))
+    rest = lines[start + 1:]
+    return [line for line in rest[:next((i for i, line in enumerate(rest) if not line.startswith("- ")), len(rest))]]
+
+
+def test_render_surroundings_order_caps_and_proposals():
+    text = snapshot.render({**FACTS, **MEMORY})
+    positions = [text.index(head) for head in ORDER]
+    assert positions == sorted(positions)
+    assert _block(text, "ZPRÁVY ČLOVĚKA:") == [f"- 2026-10-29T10:0{i}:00Z zpráva {i}" for i in range(2, 7)]
+    assert _block(text, "PRAVIDLA:") == ["- Česky a bez emoji", "- Návrh agenta (návrh)"]
+    decisions = _block(text, "ROZHODNUTÍ:")
+    assert len(decisions) == snapshot.DECISIONS and decisions[0] == "- [připnuto] rozhodnutí 0"
+    assert decisions[1:3] == ["- rozhodnutí 13", "- rozhodnutí 12"]
+    assert _block(text, "DENÍK:") == ["- 2026-10-29T09:00:00Z [ok] Dva úkoly zadány.",
+                                      "- 2026-10-29T09:30:00Z [error] (bez souhrnu)"]
+    assert snapshot.render({**FACTS, **MEMORY}) == text
+    long = snapshot.render({**FACTS, "messages": [{"at": "t", "workspace": "main", "text": "x" * 900}]})
+    assert len(_block(long, "ZPRÁVY ČLOVĚKA:")[0]) == len("- t ") + snapshot.MESSAGE_TEXT
+    many = {**FACTS, **MEMORY, "rules": [{"id": f"r{i}", "text": "y" * 300, "scope": "project"} for i in range(40)]}
+    assert len(_block(snapshot.render(many), "PRAVIDLA:")) == snapshot.RULES
+    assert len(snapshot.render(many, limit=800)) <= 800
+
+
+def test_render_without_surroundings_prints_empty_sections():
+    text = snapshot.render(FACTS)
+    for head in ("ZPRÁVY ČLOVĚKA:", "PRAVIDLA:", "ROZHODNUTÍ:", "DENÍK:"):
+        assert _block(text, head) == ["- žádné"]
+
+
+def test_view_rules_put_approved_memory_rules_before_task_rules():
+    tasks = [{**FACTS["tasks"][0], "body": {"context": {"rules": ["Česky a bez emoji", "Mobil první"]}}}]
+    view = snapshot.view({**FACTS, **MEMORY, "tasks": tasks})
+    assert view["rules"] == ["Česky a bez emoji", "Mobil první"]
+    assert set(view) == {"project", "intent", "rules", "plan", "queue", "myTask"}
+
+
+class Memory:
+    def __init__(self, state=None):
+        self.state = state
+
+    def read(self, project, workspace):
+        if self.state is None:
+            raise ValueError("nečitelné")
+        return {"revision": 1, "state": self.state}
+
+
+def test_collect_reads_memory_messages_and_journal(service):
+    brain = brain_files.brain_dir(service, "draft")
+    brain_files.append_message(brain, "2026-10-29T10:00:00Z", "draft", "Chci web o dvou stránkách.")
+    brain_files.append_message(brain, "2026-10-29T10:01:00Z", "jinde", "cizí prostor")
+    (brain / brain_files.JOURNAL).write_text('{"at": "a", "status": "ok", "summary": "Hotovo."}\nrozbité\n',
+                                             encoding="utf-8")
+    service.desktop_v3_state = Memory({"rules": [{**MEMORY["rules"][1]}, {"id": "r3", "text": "Jen karta",
+                                       "kind": "must", "scope": "node", "target": "home"}],
+                                       "decisions": MEMORY["decisions"][:1]})
+    text = snapshot.snapshot(service, "draft", "draft")
+    assert _block(text, "ZPRÁVY ČLOVĚKA:") == ["- 2026-10-29T10:00:00Z Chci web o dvou stránkách."]
+    assert _block(text, "PRAVIDLA:") == ["- Česky a bez emoji"]
+    assert _block(text, "ROZHODNUTÍ:") == ["- [připnuto] rozhodnutí 0"]
+    assert _block(text, "DENÍK:") == ["- a [ok] Hotovo."]
+    assert snapshot.state(service, "draft", "draft")["rules"] == ["Česky a bez emoji"]
+
+
+def test_collect_unreadable_sources_are_empty_sections(service):
+    service.desktop_v3_state = Memory(None)
+    brain = brain_files.brain_dir(service, "draft")
+    brain.mkdir(parents=True)
+    (brain / brain_files.MESSAGES).mkdir()  # složka místo souboru = nečitelné
+    text = snapshot.snapshot(service, "draft", "draft")
+    for head in ("ZPRÁVY ČLOVĚKA:", "PRAVIDLA:", "ROZHODNUTÍ:", "DENÍK:"):
+        assert _block(text, head) == ["- žádné"]
+    del service.desktop_v3_state
+    assert _block(snapshot.snapshot(service, "draft", "draft"), "PRAVIDLA:") == ["- žádné"]  # skutečná prázdná paměť

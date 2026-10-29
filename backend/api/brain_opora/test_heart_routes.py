@@ -37,6 +37,8 @@ def test_messages_are_human_only_need_the_gate_and_show_in_status(tmp_path):
         assert client.get("/api/brain/heart/status", params={"project": "nikde"}).status_code == 404
         text = client.get("/api/brain/heart/snapshot", params=SCOPE).json()["snapshot"]
         assert text.startswith("PROJEKT") and "FRONTA ÚKOLŮ" in text
+        # zpráva je trvalá (brain/messages.jsonl) a snímek ji čte
+        assert "Chci web o dvou stránkách." in text.split("ZPRÁVY ČLOVĚKA:")[1].split("PRAVIDLA:")[0]
 
 
 def test_heart_token_writes_tasks_answers_and_escalates_in_its_project(tmp_path):
