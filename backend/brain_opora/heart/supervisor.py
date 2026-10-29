@@ -2,7 +2,8 @@
 
 Vlákno (démon) sleduje outbox událostí projektů se zapnutou bránou: čekající lístek `ask` / `change`
 a úkol `failed` přidají vstup s oknem 20 s, zpráva člověka budí hned. Dávka běží ve vlastním vlákně, nejvýš
-jedna na projekt a nejvýš 6 za hodinu; vstup, který přijde během dávky, počká na další. Vyčerpaný limit
+jedna na projekt a nejvýš 6 automatických za hodinu (zpráva člověka strop obchází); vstup, který přijde během
+dávky, počká na další. Vyčerpaný limit
 předplatného uspí srdce na 15 min a vstupy zůstanou. Běží jen na loopbacku a jen bez `OPORA_HEART=off`.
 """
 import logging
@@ -121,13 +122,16 @@ class HeartSupervisor:
             for project, items in list(self.pending.items()):
                 if not items or project in self.running or min(due for _, _, due in items) > now:
                     continue
-                if self.next_allowed(project, now) > now:
+                # zpráva člověka strop za hodinu obchází (eval m2: strop zablokoval zadání), limit předplatného ne
+                human = any(item.get("type") == "message" for _, item, _ in items)
+                if (max(now, self.sleeping_until) if human else self.next_allowed(project, now)) > now:
                     continue
                 workspace = items[0][0]
                 taken = [item for space, item, _ in items if space == workspace]
                 self.pending[project] = [entry for entry in items if entry[0] != workspace]
                 self.running.add(project)
-                self.starts[project].append(now)
+                if not human:
+                    self.starts.setdefault(project, deque()).append(now)
                 started.append((project, workspace, taken))
         for project, workspace, taken in started:
             self.spawn(lambda p=project, w=workspace, t=taken: self._batch(p, w, t))
