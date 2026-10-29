@@ -1,21 +1,23 @@
 import { useState } from "react";
+import type { HeartRequest } from "@/layout/heart-channel/logic/heart-api";
 import type { LiveWorktree } from "../logic/live-model";
-import { sessionTitle, type SessionRequest } from "../logic/session-state";
+import { heartText } from "../logic/session-state";
 import { archiveBlocked } from "../logic/worktree-archive";
 import ArchiveConfirm from "./ArchiveConfirm";
 import { worktreeLabel, worktreeName } from "../logic/worktree-label";
 
-/** Akce živého panelu nad vybraným worktree; jdou nahoru do App (přepnutí, relace) nebo do editoru (skladiště). */
+/** Akce živého panelu nad vybraným worktree; jdou nahoru do App (přepnutí, zpráva srdci) nebo do editoru (skladiště). */
 export type WorktreeActions = {
   currentWorkspace: string;
   onSwitch: (id: string) => void;
-  onStartSession: (request: SessionRequest) => void;
+  /** Připravený text pro srdce; App ho odešle a otevře panel asistenta. */
+  onAskHeart: (request: HeartRequest) => void;
   /** Přesun do skladiště s důvodem; odmítnutí backendu přijde jako výjimka. */
   onArchive?: (id: string, reason: string) => Promise<void>;
 };
 
 /**
- * Detail vybraného worktree pod stromem: přepnutí prostoru, nová relace worktree a nová relace pro
+ * Detail vybraného worktree pod stromem: přepnutí prostoru, zadání srdci pro worktree a pro
  * každou kartu v práci. Tlačítka jsou jen tady, aby se ve stromu neopakovala u každého řádku.
  * Na konci tichá cesta do skladiště, vždy přes potvrzení s důvodem.
  */
@@ -31,14 +33,14 @@ export default function WorktreeDetails({ worktree, actions }: { worktree: LiveW
     {label.branch && <code className="live-status__details-branch" title={label.branch}>{label.branch}</code>}
     <div className="live-status__actions">
       <button type="button" className="live-status__primary" disabled={current} data-testid={"worktree-switch-" + worktree.id} onClick={() => actions.onSwitch(worktree.id)}>{current ? "Právě zde pracujete" : "Pracovat v tomto worktree"}</button>
-      <button type="button" className="live-status__quiet" data-testid={"worktree-session-" + worktree.id} onClick={() => actions.onStartSession({ workspace: worktree.id, nodeId: null, title: sessionTitle("worktree", name) })}>Nová relace</button>
+      <button type="button" className="live-status__quiet" title="Poslat srdci zadání pro tento worktree" data-testid={"worktree-heart-" + worktree.id} onClick={() => actions.onAskHeart({ workspace: worktree.id, text: heartText("worktree", name) })}>Zadat srdci</button>
     </div>
     {worktree.cards.length > 0 && <>
-      <p className="live-status__details-label">Nová relace pro kartu</p>
+      <p className="live-status__details-label">Zadat srdci kartu</p>
       <ul className="live-status__card-actions">
         {worktree.cards.map((card) => <li key={card.nodeId}>
-          <button type="button" className="live-status__quiet" title={`Nová relace asistenta pro kartu ${card.name}`} data-testid={"worktree-card-session-" + card.nodeId}
-            onClick={() => actions.onStartSession({ workspace: worktree.id, nodeId: card.nodeId, title: sessionTitle("card", card.name) })}>{card.name}</button>
+          <button type="button" className="live-status__quiet" title={`Poslat srdci zadání pro kartu ${card.name}`} data-testid={"worktree-card-heart-" + card.nodeId}
+            onClick={() => actions.onAskHeart({ workspace: worktree.id, text: heartText("card", name, card) })}>{card.name}</button>
         </li>)}
       </ul>
     </>}

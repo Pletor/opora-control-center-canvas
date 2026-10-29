@@ -1,4 +1,4 @@
-"""Řazení oddílů přes falešný Jev; skutečné API se nikdy nevolá (docs/asistent.md §13.3)."""
+"""Řazení oddílů přes falešný Jev; skutečné API se nikdy nevolá (README.md, sekce RLM)."""
 
 import pytest
 

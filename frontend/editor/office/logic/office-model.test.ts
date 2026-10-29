@@ -2,16 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
 import { emptyDesktopState, nodeWorkflowOf, type DesktopState } from "@/shared/desktop-state/logic/types";
 import type { WorkRow } from "@/editor/canvas/node-card/logic/use-work-overview";
-import type { AssistantSession } from "@/layout/assistant-panel/logic/assistant-api";
-import { buildOffice } from "./office-model";
+import { buildOffice, workerCount, type OfficeTask } from "./office-model";
 
 const node = (id: string, kind: CanvasNode["kind"], parentId: string | null, x: number, y: number, extra: Partial<CanvasNode> = {}): CanvasNode =>
   ({ id, kind, parentId, name: id.toUpperCase(), purpose: "účel " + id, x, y, ...extra });
 
-const session = (id: string, state: AssistantSession["state"], extra: Partial<AssistantSession> = {}): AssistantSession => ({
-  id, projectId: "p", workspace: "main", title: "Relace " + id, model: "sonnet", claudeSessionId: null,
-  createdAt: "2026-10-17T10:00:00Z", updatedAt: "2026-10-17T10:00:00Z", state, nodeId: null, sectorId: null, lastSeq: 0, ...extra,
-});
+const task = (taskId: string, status: string, sessionId: string | null, nodeId: string | null): OfficeTask =>
+  ({ taskId, title: "Úkol " + taskId, status, sessionId, nodeId, updatedAt: "2026-10-29T10:00:00Z" });
 
 const row = (id: string, status: WorkRow["status"], agent = ""): WorkRow =>
   ({ id, name: id, status, agent, startedAt: null, lastActivity: null, touched: null, waitingOnHuman: [], blockedBy: [] });
@@ -37,13 +34,13 @@ function fixture(): { graph: Graph; state: DesktopState } {
 
 describe("buildOffice – oddělení, místnosti, stoly", () => {
   it("sektor uvnitř oblasti je místnost oddělení, sektor mimo oblast je v Hale", () => {
-    const office = buildOffice({ ...fixture(), sessions: [] });
+    const office = buildOffice({ ...fixture(), tasks: [] });
     expect(office.departments.map((d) => [d.id, d.color, d.rooms.map((r) => r.id)])).toEqual([["a1", "teal", ["s1"]], ["a2", "indigo", []]]);
     expect(office.hall.map((r) => r.id)).toEqual(["s2"]);
   });
 
   it("stoly jsou karty sektoru se stavovou větou a pruh počítá tóny", () => {
-    const office = buildOffice({ ...fixture(), sessions: [], workRows: { c1: row("c1", "claimed", "Ada") } });
+    const office = buildOffice({ ...fixture(), tasks: [], workRows: { c1: row("c1", "claimed", "Ada") } });
     const room = office.departments[0].rooms[0];
     expect(room.desks.map((d) => [d.id, d.closed, d.state.tone, d.state.text])).toEqual([
       ["c1", false, "run", "Pracuje Ada"],
@@ -54,45 +51,38 @@ describe("buildOffice – oddělení, místnosti, stoly", () => {
 });
 
 describe("buildOffice – kdo kde sedí", () => {
-  it("relace s kartou sedí u stolu, se sektorem u společného stolu, bez vazby v Recepci; zavřené se nekreslí", () => {
+  it("relace s úkolem na kartě sedí u stolu, na sektoru u společného stolu, bez uzlu v Recepci", () => {
     const office = buildOffice({
       ...fixture(),
-      sessions: [
-        session("desk", "running", { nodeId: "c1" }),
-        session("common", "idle", { sectorId: "s2" }),
-        session("main", "idle"),
-        session("gone", "closed", { nodeId: "c1" }),
+      tasks: [
+        task("t1", "assigned", "desk", "c1"),
+        task("t2", "assigned", "common", "s2"),
+        task("t3", "assigned", "main", null),
       ],
     });
-    expect(office.departments[0].rooms[0].desks[0].workers.map((w) => w.id)).toEqual(["desk"]);
+    expect(office.departments[0].rooms[0].desks[0].workers.map((w) => [w.id, w.taskId])).toEqual([["desk", "t1"]]);
     expect(office.hall[0].common.map((w) => w.id)).toEqual(["common"]);
     expect(office.reception.map((w) => w.id)).toEqual(["main"]);
+    expect(workerCount(office)).toBe(3);
   });
 
-  it("vazba mimo budovu (neznámá karta nebo sektor, karta mimo sektor) skončí v Recepci", () => {
+  it("pracovník je jen přidělený úkol s relací; ready, hotové a zrušené se nekreslí", () => {
     const office = buildOffice({
       ...fixture(),
-      sessions: [session("x", "idle", { nodeId: "missing" }), session("y", "idle", { sectorId: "nope" }), session("z", "idle", { nodeId: "loose" })],
+      tasks: [task("a", "ready", null, "c1"), task("b", "done", "s-done", "c1"), task("c", "cancelled", "s-x", "c1"), task("d", "assigned", null, "c1")],
     });
-    expect(office.reception.map((w) => w.id)).toEqual(["x", "y", "z"]);
+    expect(office.departments[0].rooms[0].desks[0].workers).toEqual([]);
+    expect(office.reception).toEqual([]);
   });
 
-  it("relace s kartou i sektorem sedí u stolu karty", () => {
-    const office = buildOffice({ ...fixture(), sessions: [session("both", "idle", { nodeId: "c3", sectorId: "s2" })] });
-    expect(office.hall[0].desks[0].workers.map((w) => w.id)).toEqual(["both"]);
-    expect(office.hall[0].common).toEqual([]);
+  it("relace se dvěma úkoly sedí jen jednou, u prvního", () => {
+    const office = buildOffice({ ...fixture(), tasks: [task("t1", "assigned", "s", "c1"), task("t2", "assigned", "s", "c3")] });
+    expect(office.departments[0].rooms[0].desks[0].workers.map((w) => w.taskId)).toEqual(["t1"]);
+    expect(office.hall[0].desks[0].workers).toEqual([]);
   });
 
-  it("čekající jsou jen waiting_approval, nejstarší první, při shodě v pořadí seznamu", () => {
-    const office = buildOffice({
-      ...fixture(),
-      sessions: [
-        session("new", "waiting_approval", { updatedAt: "2026-10-17T12:00:00Z" }),
-        session("run", "running"),
-        session("old", "waiting_approval", { updatedAt: "2026-10-17T09:00:00Z" }),
-        session("tie", "waiting_approval", { updatedAt: "2026-10-17T12:00:00Z" }),
-      ],
-    });
-    expect(office.waiting.map((w) => w.id)).toEqual(["old", "new", "tie"]);
+  it("uzel mimo budovu (neznámý nebo karta mimo sektor) skončí v Recepci", () => {
+    const office = buildOffice({ ...fixture(), tasks: [task("x", "assigned", "x", "missing"), task("z", "assigned", "z", "loose")] });
+    expect(office.reception.map((w) => w.id)).toEqual(["x", "z"]);
   });
 });

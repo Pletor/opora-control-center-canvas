@@ -11,7 +11,7 @@ Brány `synthesized` a `verified` už ukládají předpověď a skutečnost a se
 - Kód i model zůstávají v `I:\1. Projekty\12_Memory\BioCortexAI` (licence CC-BY-NC-4.0, autor OpenTechLab). Do repa OPORA se nic z něj nekopíruje a OPORA nedostane žádnou novou závislost (torch atd.).
 - Zrcadlo běží jako samostatný proces jen na `127.0.0.1`. Adresa a zapnutí jen v `opora.local.toml` (`[mirror] url = "http://127.0.0.1:8750"`, `enabled = true`); bez toho je klient no-op.
 - **Data jen z OPORA:** Zrcadlo dostává jen text fragmentu, disciplínu, mikrokrok, předpověď a skutečnost brány. `perceptor.py` a `harvest_history.py` (čtou všechny relace Claude Code a export z Telegramu) se s OPORA nepoužívají.
-- Výjimka běhu modelu (CLAUDE.md, [asistent.md](asistent.md) §1): **čtvrté místo**, lokální vývojový model, volaný jen při zápisu brány `synthesized` / `verified`, kterou zapnul agent nebo člověk; výchozí vypnuto.
+- Výjimka běhu modelu (CLAUDE.md, [srdce-opory](navrhy/2026-10-28-srdce-opory.md)): **čtvrté místo**, lokální vývojový model, volaný jen při zápisu brány `synthesized` / `verified`, kterou zapnul agent nebo člověk; výchozí vypnuto.
 - Zrcadlo **nikdy neblokuje** bránu: timeout 2 s, výpadek nebo chyba = brána projde bez údaje Zrcadla.
 
 ## Rozhraní služby (v repu BioCortexAI)

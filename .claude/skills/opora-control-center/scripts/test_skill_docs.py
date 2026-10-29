@@ -229,16 +229,6 @@ def test_events_feed_is_a_real_route(backend_routes):
         assert "pending" not in row, route
 
 
-def test_assistant_approvals_allow_exactly_the_agent_hub_routes():
-    """In-app asistent (approvals.WRITE_ROUTES) smí stejné OporaHub cesty jako agent, žádnou lidskou."""
-    from backend.claude_code.assistant import approvals
-
-    hub = {route for route in approvals.WRITE_ROUTES if route.startswith("/api/oporahub/")}
-    assert hub == set(opora_write.HUB_AGENT_ROUTES)
-    assert not hub & set(opora_write.HUB_HUMAN_ROUTES + opora_write.HUB_TOKEN_ROUTES)
-    assert approvals.WRITE_ROUTES - hub == opora_write.WRITE_ROUTES
-
-
 def test_hub_write_templates_are_documented_and_exist_as_post(backend_routes):
     hub_api = (SKILL / "references" / "hub-api.md").read_text("utf-8")
     templates = opora_write.HUB_AGENT_ROUTES + opora_write.HUB_HUMAN_ROUTES + opora_write.HUB_TOKEN_ROUTES

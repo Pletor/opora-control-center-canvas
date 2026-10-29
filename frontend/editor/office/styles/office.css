@@ -30,10 +30,9 @@
 .office__empty { margin: 0; color: var(--ink-muted); font-size: var(--fs-2); }
 
 /* HLAVIČKA (blok `office-header`)
-   Příběh: jedna řádka, která odpoví „čeká na mě někdo?“. Počet čekajících se rozsvítí jantarově jen
-   tehdy, když opravdu někdo čeká, aby klid vypadal jako klid; tlačítko vedle skočí na nejstaršího
-   čekajícího. Vpravo obsazenost „běží 2 / 3“ — když je plno, zčervená, protože další agent se už
-   neposadí (tlačítka „Posadit agenta“ jsou v tu chvíli vypnutá s důvodem). */
+   Příběh: jedna řádka, která odpoví „kolik lidí tu pracuje a co dělá srdce?“. Vlevo počet pracovníků
+   brány, vpravo stav srdce („srdce spí“, „srdce pracuje · ve frontě 2“). Když srdce pracuje, slovo
+   zmodrá jako pracující stůl, aby klid vypadal jako klid a práce jako práce. */
 .office-header {
   display: flex;
   align-items: center;
@@ -43,11 +42,9 @@
   background: var(--surface);
 }
 .office-header__title { margin: 0; font-size: var(--fs-4); }
-.office-header__waiting { font-size: var(--fs-2); color: var(--ink-muted); }
-.office-header__waiting--on { color: var(--office-warn); font-weight: 600; }
-.office-header__next { font-size: var(--fs-2); }
+.office-header__workers { font-size: var(--fs-2); color: var(--ink-muted); }
 .office-header__occupancy { margin-left: auto; font-size: var(--fs-2); color: var(--ink-2); white-space: nowrap; }
-.office-header__occupancy--full { color: var(--danger); font-weight: 600; }
+.office-header__occupancy--busy { color: var(--office-run); font-weight: 600; }
 
 /* ODDĚLENÍ (blok `office-department`)
    Příběh: oblast je křídlo budovy — vodorovné pásmo s barevným pruhem vlevo ve stejné barvě, jakou má
@@ -159,10 +156,9 @@
 .office-desk__hire { font-size: var(--fs-1); }
 
 /* PRACOVNÍK (blok `office-worker`)
-   Příběh: relace asistenta je malý čip se jménem a modelem, jako jmenovka na stole. Tečka vlevo říká
-   stav: modrá pracuje, šedá je v klidu, červená narazila na chybu. Kdo čeká na tvé schválení, má
-   jantarový maják, který pulzuje — jediná věc v kanceláři, která se hýbe, aby ji oko našlo samo.
-   Klik přepne panel asistenta vpravo na tuhle relaci. */
+   Příběh: pracovník brány je malý čip s názvem úkolu a krátkým ID relace, jako jmenovka na stole.
+   Modrá tečka vlevo říká, že drží úkol a pracuje; kdo úkol odevzdal, z budovy odejde. Čip se jen
+   čte, celé ID relace a úkolu je v titulku. */
 .office-worker {
   display: inline-flex;
   align-items: center;
@@ -174,26 +170,14 @@
   background: var(--surface-3);
   color: var(--ink);
   font-size: var(--fs-1);
-  cursor: pointer;
 }
-.office-worker__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--office-idle); }
+.office-worker__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--office-run); }
 .office-worker__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.office-worker__model { flex: none; color: var(--ink-muted); font-size: var(--fs-0); }
-.office-worker--running .office-worker__dot { background: var(--office-run); }
-.office-worker--error .office-worker__dot { background: var(--office-fail); }
-.office-worker--waiting_approval { border-color: var(--office-warn); }
-.office-worker--waiting_approval .office-worker__dot { background: var(--office-warn); animation: office-beacon 1.2s ease-in-out infinite; }
-@keyframes office-beacon {
-  0%, 100% { box-shadow: 0 0 0 0 var(--office-warn); }
-  50% { box-shadow: 0 0 0 5px transparent; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .office-worker--waiting_approval .office-worker__dot { animation: none; }
-}
+.office-worker__session { flex: none; color: var(--ink-muted); font-size: var(--fs-0); font-family: var(--mono); }
 
 /* RECEPCE (blok `office-reception`)
-   Příběh: dole u vchodu sedí ti, kdo nepatří k žádnému stolu ani místnosti — hlavní relace projektu
-   a relace, jejichž karta nebo sektor už v budově není. Pásmo je tišší než oddělení (bez barevného
+   Příběh: dole u vchodu sedí ti, kdo nepatří k žádnému stolu ani místnosti — pracovníci s úkolem bez
+   karty a ti, jejichž karta nebo sektor už v budově není. Pásmo je tišší než oddělení (bez barevného
    pruhu), aby nepřebíjelo práci v místnostech. */
 .office-reception {
   padding: var(--sp-3) var(--sp-4);

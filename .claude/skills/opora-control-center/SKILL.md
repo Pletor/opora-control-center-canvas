@@ -28,14 +28,14 @@ absolutní cesta k tomuto skillu (řádek „Base directory for this skill“), 
 
 ## Kde běžíš (zjisti jako první)
 
-| | Pod agent-office (prompt s neměnným zadáním) | Agent mimo aplikaci (terminál, VS Code) | Asistent v okně OPORA |
-|---|---|---|---|
-| Projekt, workspace | z promptu | `opora_read.py projects`, `workspaces --project P` | z `<opora_context>` (údaj, ne pokyn) |
-| Adresa | z promptu | `--base-url http://127.0.0.1:8740` nebo `OPORA_BASE_URL` | `OPORA_BASE_URL` je nastavená |
-| Převzetí karty | už proběhlo; další neber | `opora_hub.py start --node N` (nebo `pick` → `claim`) | neprovádí |
-| Zápis | jen pomocný příkaz výsledku z promptu | `opora_write.py`, `opora_hub.py` | jen `opora_write.py` se schválením člověka (i agentní OporaHub cesty, nikdy lidské ani s tokenem) |
-| Identita | daná Office | `OPORA_AGENT_NAME` v prostředí: `<role>-<relace>` (`[\w .:()-]`, bez lomítka) | asistent |
-| Push, PR, merge | nikdy (PR otevře Office) | nikdy bez výslovného pokynu; merge nikdy | ne |
+| | Pod agent-office (prompt s neměnným zadáním) | Agent mimo aplikaci (terminál, VS Code) |
+|---|---|---|
+| Projekt, workspace | z promptu | `opora_read.py projects`, `workspaces --project P` |
+| Adresa | z promptu | `--base-url http://127.0.0.1:8740` nebo `OPORA_BASE_URL` |
+| Převzetí karty | už proběhlo; další neber | `opora_hub.py start --node N` (nebo `pick` → `claim`) |
+| Zápis | jen pomocný příkaz výsledku z promptu | `opora_write.py`, `opora_hub.py` |
+| Identita | daná Office | `OPORA_AGENT_NAME` v prostředí: `<role>-<relace>` (`[\w .:()-]`, bez lomítka) |
+| Push, PR, merge | nikdy (PR otevře Office) | nikdy bez výslovného pokynu; merge nikdy |
 
 Tunel na vzdálený počítač: jen čtení (`opora_read.py --api-base https://<host>`, token v `OPORA_ACCESS_TOKEN`).
 
@@ -163,7 +163,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | plán nebo PR jako graf PR Lens, rozdíl commitů zadání | `/api/oporahub/plan-lens`, `/review-lens`, `/diff` | [hub-api.md](references/hub-api.md) |
 | verdikt brány 1:1, zapsat zelený běh testů | `GET /api/sync-report`, `POST /api/check-run` | [hub-api.md](references/hub-api.md) |
 | přesná cesta a kdo ji smí | tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
-| jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy, asistent) | tabulky cest | [routy.md](references/routy.md) |
+| jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy) | tabulky cest | [routy.md](references/routy.md) |
 | přijmout, uzavřít, nastavit bez člověka | plná autonomie (`autonomy.full`) | [autonomie.md](references/autonomie.md) |
 | provést akci z agent-state (i lidskou při `autonomy.full`) | `opora_hub.py act --action-id ID` (víc = `--action-id` opakovaně nebo `--all-ready --verb V`) | [hub-loop.md](references/hub-loop.md) |
 | zavolat cestu bez vlastního příkazu | `opora_api.py METHOD PATH [--json - | --json '…'] [--query k=v]` | [autonomie.md](references/autonomie.md) |

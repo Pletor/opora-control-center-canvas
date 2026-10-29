@@ -1,4 +1,4 @@
-"""Levné podvolání RLM: seřadí oddíly plátna k dotazu jedním voláním Jev (docs/asistent.md §13.3).
+"""Levné podvolání RLM: seřadí oddíly plátna k dotazu jedním voláním Jev (README.md, sekce RLM).
 
 Asistent nečte celé plátno. Pošle sem kandidáty (id karty a začátek jejího textu) a dostane
 pořadí s pravděpodobností. Jev nic nepíše a nerozhoduje; pořadí je jen údaj, kam nahlédnout

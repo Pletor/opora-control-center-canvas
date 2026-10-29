@@ -13,8 +13,8 @@ Aplikace není stateless web. Drží se čtyř věcí, které jsou fyzicky na to
    instance by si o zámky rozbily hlavu.
 2. **Datový kořen a repozitáře.** Projekty ukazují na skutečné složky a git worktree na tomto
    stroji (`OPORA_CANVAS_DATA`, `backend/project/workspace`). Bez nich není co číst ani co větvit.
-3. **Asistent a RLM.** `/api/assistant*` a `/api/rlm*` spouštějí Claude Code na **tomto** počítači
-   pod jeho předplatným a s přístupem k jeho souborům. To se nedá provozovat z cizího datacentra.
+3. **Srdce, brána a RLM.** `/api/brain/heart*`, `/api/gate*` a `/api/rlm*` spouštějí Claude Code nebo
+   placené volání na **tomto** počítači pod jeho předplatným a s přístupem k jeho souborům. To se nedá provozovat z cizího datacentra.
 4. **Lokální modely.** Sémantika (ONNX), Ollama a OpenViking běží na loopbacku tohoto počítače.
 
 Proto aplikace běží dál doma a veřejnou adresu jí dá **tunel**.
@@ -52,9 +52,9 @@ v `backend/app/factory.py`.
 - **Origin proti `https://<host>`** (schéma z `X-Forwarded-Proto`), zápisy navíc pořád chtějí
   `Content-Type: application/json`. Limit těla 2 MB, bezpečnostní hlavičky a `Cache-Control: no-store`
   zůstávají.
-- **Asistent a RLM jsou zvenčí zakázané.** `/api/assistant*` a `/api/rlm*` vrací 403
-  „Tohle běží jen na tomto počítači.“ i s platným tokenem. Tyhle routy spouští agenta na tomto
-  počítači; token otevírá aplikaci, ne řízení procesů na stroji.
+- **Srdce, brána, Jev a RLM jsou zvenčí zakázané.** `/api/brain/heart*`, `/api/gate*`, `/api/brain/jev*`
+  a `/api/rlm*` vrací 403 „Tohle běží jen na tomto počítači.“ i s platným tokenem. Tyhle routy spouští agenta
+  na tomto počítači; token otevírá aplikaci, ne řízení procesů na stroji.
 - **Loopback se nemění.** Doma nic token nepotřebuje.
 
 ### Přihlášení prohlížeče

@@ -18,10 +18,8 @@ import os
 COOKIE_NAME = "opora_access"
 MIN_TOKEN_LENGTH = 24
 TOKEN_REQUIRED = "Přístup vyžaduje token."
-# Asistent spouští Claude Code na tomto počítači; kdo má URL tunelu, nesmí ho ovládat.
-# Token otevírá aplikaci, ne řízení procesů na tomto stroji.
-ASSISTANT_PREFIX = "/api/assistant"
-# Řazení pro asistenta volá placené API (Jev) klíčem aplikace; zvenčí ne (docs/asistent.md §13.3).
+# Token otevírá aplikaci, ne řízení procesů na tomto stroji: co spouští model nebo program tady, je jen z loopbacku.
+# Řazení zdrojů volá placené API (Jev) klíčem aplikace; zvenčí ne (backend/brain_opora/decision/README.md).
 RLM_PREFIX = "/api/rlm"
 # Otevření souboru spouští VS Code / os.startfile na tomto stroji; přes tunel ne (upgrade-opora #42).
 OPEN_FILE_PATH = "/api/workspace/open-file"
@@ -89,7 +87,7 @@ def bearer_token(authorization):
 def is_loopback_only(path):
     return path in LOOPBACK_ONLY_PATHS or any(
         path == prefix or path.startswith(prefix + "/")
-        for prefix in (ASSISTANT_PREFIX, RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, JEV_PREFIX))
+        for prefix in (RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, JEV_PREFIX))
 
 
 def requires_token(path):

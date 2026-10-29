@@ -6,7 +6,6 @@ import DomainCard, { type DomainCardLive } from "./DomainCard";
 import type { WorktreeNav } from "@/project/architecture-editor/live-status/components/WorktreeRow";
 import { countsOf, domainLive, type WorkStatus } from "@/project/architecture-editor/live-status/logic/live-model";
 import { loadNotice, staleNote, type LiveSlot } from "@/project/architecture-editor/live-status/logic/live-poll";
-import { mainSessionsSummary } from "@/project/architecture-editor/live-status/logic/session-state";
 import { webLoadNotice, webView, type WebLive } from "@/project/architecture-editor/live-status/logic/web-slots";
 import type { ArchiveShelfState } from "@/project/architecture-editor/live-status/logic/worktree-archive";
 import { domainChoices } from "../logic/domain-choices";
@@ -20,10 +19,10 @@ const GROUP_NOTE: Record<string, string> = { Produkce: "Aktivní prostředí", V
 const toneOf = (name: string) => (name === "Produkce" ? "prod" : name === "Vývoj" ? "dev" : "legacy");
 const NO_WORK = { counts: countsOf([]), worktrees: [] };
 
-/** Živý stav pro přehled (data drží ArchitectureEditor): web po doménách, stav práce, hlavní relace a akce nahoru. */
+/** Živý stav pro přehled (data drží ArchitectureEditor): web po doménách, stav práce a akce nahoru. */
 export type LandingLive = {
   web: WebLive; work: LiveSlot<WorkStatus>; worktreeLive: boolean; nav: WorktreeNav;
-  onStartMainSession: () => void; onCreateWorktree: (domainId: string) => void;
+  onCreateWorktree: (domainId: string) => void;
   /** Přiřazení nepřiřazeného worktree k doméně a skladiště (jen ke čtení); obojí ukládá editor. */
   onAssign: (worktreeId: string, domainId: string) => Promise<void>;
   shelf: ArchiveShelfState; onLoadShelf: () => void;
@@ -60,13 +59,10 @@ export default function ArchitectureLanding({ graph, disabled, lockReason = "", 
       <div>
         <h2 className="arch-landing__title">Mapy architektury</h2>
         <p className="arch-landing__lead">Vyber prostředí a doménu. Každá doména má vlastní mapu stránek a jejich editory.</p>
-        {live?.worktreeLive && <p className="arch-landing__flow" data-testid="architecture-work-flow">Jak začít práci: <b className="arch-landing__flow-step">1) Nový worktree na doméně</b> → <b className="arch-landing__flow-step">2) Nová relace</b> → <b className="arch-landing__flow-step">3) karta</b></p>}
+        {live?.worktreeLive && <p className="arch-landing__flow" data-testid="architecture-work-flow">Jak začít práci: <b className="arch-landing__flow-step">1) Nový worktree na doméně</b> → <b className="arch-landing__flow-step">2) Zadat srdci</b> → <b className="arch-landing__flow-step">3) karta</b></p>}
       </div>
       <div className="arch-landing__head-tools">
-        {live?.worktreeLive && <p className="arch-landing__sessions" data-testid="architecture-main-sessions">
-          <span>{mainSessionsSummary(work ? work.mainSessions : null)}</span>{workStale && <small className="arch-landing__stale"> · {workStale}</small>}
-          <button type="button" className="arch-landing__quiet" title="Relace asistenta nad celým projektem (prostor main); práce na doméně začíná novým worktree" onClick={live.onStartMainSession}>Nová hlavní relace</button>
-        </p>}
+        {workStale && <p className="arch-landing__work-note"><small className="arch-landing__stale">{workStale}</small></p>}
         <button type="button" disabled={disabled} title={disabled ? lockReason : "Založit novou doménu (jeden host)"} data-testid="architecture-add-domain" onClick={() => setDraft(newDomain())}>+ Doména</button>
       </div>
     </header>

@@ -44,7 +44,7 @@ from backend.memory import roles
 SETTINGS_KEY = "openviking.enabled"
 ROLE_KEYS_SETTING = "openviking.roleKeys"
 ENABLED_ENV = "OPORA_OPENVIKING_ENABLED"
-# Klíč TypeSafe Jev pro směrovač asistenta (docs/asistent.md §13.2); platí pro celou aplikaci.
+# Klíč TypeSafe Jev (backend/brain_opora/decision/README.md); platí pro celou aplikaci.
 TYPESAFE_KEY_SETTING = "typesafe.apiKey"
 TYPESAFE_KEY_ENV = "TYPESAFE_API_KEY"
 MAX_TYPESAFE_KEY = 512

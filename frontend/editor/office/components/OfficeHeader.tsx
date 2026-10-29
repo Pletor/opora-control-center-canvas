@@ -1,24 +1,27 @@
-// Hlavička Kanceláře: kolik relací čeká na člověka, skok na dalšího čekajícího a obsazenost procesů.
+// Hlavička Kanceláře: kolik pracovníků brány právě drží úkol a co dělá srdce (pracuje / spí, zprávy ve frontě).
+import type { HeartStatus } from "@/layout/heart-channel/logic/heart-api";
+
 type Props = {
-  waiting: number;
-  /** Běžící procesy a limit z `GET /api/assistant/status`; `null`, dokud stav není znám. */
-  running: number | null;
-  limit: number | null;
-  onNext: () => void;
+  /** Stav srdce z `GET /api/brain/heart/status`; `null`, dokud stav není znám. */
+  status: HeartStatus | null;
+  workers: number;
 };
 
-export default function OfficeHeader({ waiting, running, limit, onNext }: Props) {
-  const full = running !== null && limit !== null && running >= limit;
+function heartWord(status: HeartStatus | null): string {
+  if (!status) return "srdce ?";
+  if (!status.enabled) return "srdce vypnuté";
+  return status.running ? "srdce pracuje" : "srdce spí";
+}
+
+export default function OfficeHeader({ status, workers }: Props) {
+  const pending = status?.pending ?? 0;
   return (
     <header className="office-header">
       <h2 className="office-header__title">Kancelář</h2>
-      <span className={"office-header__waiting" + (waiting ? " office-header__waiting--on" : "")}>Čeká na tebe ({waiting})</span>
-      <button type="button" className="office-header__next" onClick={onNext} disabled={!waiting}
-        title={waiting ? "Otevřít v panelu asistenta nejstarší čekající relaci (opakovaně cyklí)" : "Nikdo nečeká na tvé schválení"}>
-        Další čekající
-      </button>
-      <span className={"office-header__occupancy" + (full ? " office-header__occupancy--full" : "")} title="Běžící procesy asistenta / limit">
-        běží {running ?? "?"} / {limit ?? "?"}
+      <span className="office-header__workers">Pracovníci: {workers}</span>
+      <span className={"office-header__occupancy" + (status?.running ? " office-header__occupancy--busy" : "")}
+        title="Stav srdce projektu a počet zpráv, které na něj čekají">
+        {heartWord(status)}{pending > 0 ? ` · ve frontě ${pending}` : ""}
       </span>
     </header>
   );

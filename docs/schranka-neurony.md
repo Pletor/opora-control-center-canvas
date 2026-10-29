@@ -115,7 +115,7 @@ Tabulka `brief_lessons(project_id, workspace_id, lesson_id, discipline, kind, te
 `celeris-1-decision` implementuje TypeSafe System One API (`/v1/systemone`); podle dokumentace stačí změnit adresu, model a klíč (https://docs.celeris.ai/decisions.md).
 
 - `backend/integrations/typesafe_client.py` dostane poskytovatele: `typesafe` (`https://api.typesafe.ai/v1/systemone`, `jev-latest`) a `celeris` (`https://inference.celeris.ai/celeris-1-decision/v1/systemone`, `celeris-1-decision`). Volba v `opora.local.toml` (`[jev] provider = "celeris"`), výchozí `typesafe`. Klíč dál jen v `AppSettings`, nikdy v repu.
-- **Kontrola brány** `POST /api/brief-vault/gate-check {fragmentId, gate}`: Jev dostane text fragmentu a payload brány a typovanou otázku `noul` „Splňuje payload podmínku brány?“; vrátí `{probability}` nebo `{probability: null}`, když Jev není nastavený. Je jen poradní, bránu nezapíná. Rozšiřuje výjimku 3 v [asistent.md](asistent.md) §1: Jev smí běžet i na žádost agenta nebo člověka ve Schránce, pořád jen typované odpovědi.
+- **Kontrola brány** `POST /api/brief-vault/gate-check {fragmentId, gate}`: Jev dostane text fragmentu a payload brány a typovanou otázku `noul` „Splňuje payload podmínku brány?“; vrátí `{probability}` nebo `{probability: null}`, když Jev není nastavený. Je jen poradní, bránu nezapíná. Rozšiřuje výjimku pro Jev (CLAUDE.md, `backend/brain_opora/decision/README.md`): Jev smí běžet i na žádost agenta nebo člověka ve Schránce, pořád jen typované odpovědi.
 
 ## 8. Kusy
 

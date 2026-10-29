@@ -23,7 +23,7 @@ Archify (automatická mapa architektury modelem Claude Code Sonnet) se 2026-10-2
 - Je zapnutá bez ručního kroku. Globální přepínač je v aplikaci **Nastavení → Obecné** (app-global, nikdy per projekt). Na serveru ho mění `POST /api/map-refresh/configure {enabled}`.
 - Worker každých 5 s kontroluje `refs/heads/main` každého projektu. Nová revize zařadí běh.
 - Projekt bez stabilních souborů zařadí počáteční běh. Chybět může `graphify-out/graph.json`.
-- Po mergi se aktualizuje Graphify (lokálně, bez modelu). Automatická aktualizace map tedy žádný model nespouští; model v aplikaci spouští jen člověk přes asistenta ([asistent.md](asistent.md)).
+- Po mergi se aktualizuje Graphify (lokálně, bez modelu). Automatická aktualizace map tedy žádný model nespouští; model v aplikaci běží jen v mozku OPORY ([brain-heart.md](brain-heart.md)).
 - V projektu lze automatiku vypnout pro nástroj („Pouze ručně“). Tlačítko „Aktualizovat teď“ funguje i tehdy.
 - Nejvýše jeden běh v celé instanci. Starý výsledek se nepublikuje, pokud se `main` mezitím změnil.
 - Snapshot čte jen commit, nikdy rozepsaný worktree, a vynechává `graphify-out/`.

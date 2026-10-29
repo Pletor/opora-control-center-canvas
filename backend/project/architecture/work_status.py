@@ -1,8 +1,8 @@
 """Stav práce na worktree a doménách (docs/domeny-a-worktree.md §7, §9).
 
-Čisté funkce nad už načtenými zdroji (relace asistenta, lease a aktivita karet)
-s vloženým `now`; čtení zdrojů je odděleně v `collect_sources` a `work_status`.
-Chybějící relace není „stojí“: worktree bez jakéhokoli signálu je „bez relace“.
+Čisté funkce nad už načtenými zdroji (lease a aktivita karet) s vloženým `now`;
+čtení zdrojů je odděleně v `collect_sources` a `work_status`.
+Chybějící signál není „stojí“: worktree bez jakéhokoli signálu je „bez relace“.
 """
 
 from __future__ import annotations
@@ -34,19 +34,6 @@ def _age(value, now):
     return None if moment is None else (now - moment).total_seconds()
 
 
-def _assistant_signal(session):
-    state = session.get("state")
-    if state == "running":
-        return RUNNING, "asistent běží"
-    if state == "waiting_approval":
-        return WAITING, "asistent čeká na schválení"
-    if state == "idle":
-        return WAITING, "asistent čeká na zprávu"
-    if state == "error":
-        return STOPPED, "asistent skončil chybou"
-    return None
-
-
 def _lease_signal(lease, activity, now):
     idle = _age(activity.get("updated_at"), now) if activity else None
     if lease["expires_at"] > now.timestamp():
@@ -58,12 +45,11 @@ def _lease_signal(lease, activity, now):
     return None
 
 
-def worktree_state(sessions, leases, activity, now):
-    """Stav jednoho worktree: nejvyšší signál ze všech zdrojů; `reasons` jen od vítězného stavu.
+def worktree_state(leases, activity, now):
+    """Stav jednoho worktree: nejvyšší signál ze všech lease; `reasons` jen od vítězného stavu.
 
     `activity` je slovník node_id → řádek `card_work_activity`."""
-    signals = [_assistant_signal(item) for item in sessions]
-    signals += [_lease_signal(lease, activity.get(lease["node_id"]), now) for lease in leases]
+    signals = [_lease_signal(lease, activity.get(lease["node_id"]), now) for lease in leases]
     signals = [signal for signal in signals if signal]
     if not signals:
         return NONE, []
@@ -78,17 +64,15 @@ def _session_view(source, item_id, state, node_id, last_seen):
 
 def _worktree_entry(workspace, sources, now, card_name):
     wid = workspace["id"]
-    sessions = [s for s in sources["sessions"] if s.get("workspace") == wid]
     leases = [lease for lease in sources["leases"] if lease["workspace_id"] == wid]
     activity = {a["node_id"]: a for a in sources["activity"] if a["workspace_id"] == wid}
-    state, reasons = worktree_state(sessions, leases, activity, now)
-    views = ([_session_view("assistant", s["id"], s["state"], s.get("nodeId"), s.get("updatedAt")) for s in sessions]
-             + [_session_view("lease", f"{lease['workspace_id']}:{lease['node_id']}",
-                              "active" if lease["expires_at"] > now.timestamp() else "expired",
-                              lease["node_id"], (activity.get(lease["node_id"]) or {}).get("updated_at"))
-                for lease in leases])
+    state, reasons = worktree_state(leases, activity, now)
+    views = [_session_view("lease", f"{lease['workspace_id']}:{lease['node_id']}",
+                           "active" if lease["expires_at"] > now.timestamp() else "expired",
+                           lease["node_id"], (activity.get(lease["node_id"]) or {}).get("updated_at"))
+             for lease in leases]
     card_ids = []
-    for node_id in [s.get("nodeId") for s in sessions] + [lease["node_id"] for lease in leases]:
+    for node_id in [lease["node_id"] for lease in leases]:
         if node_id and node_id not in card_ids:
             card_ids.append(node_id)
     entry = {"id": wid, "branch": workspace.get("branch"), "actor": workspace.get("actor"),
@@ -115,10 +99,7 @@ def compose_work_status(domains, workspaces, sources, now, card_name=lambda wid,
         worktrees = [entry for node_id, entry in entries if node_id == domain["id"]]
         result.append({"id": domain["id"], "name": domain["name"], "environment": domain["environment"],
                        "counts": _counts(worktrees), "worktrees": worktrees})
-    main = [_session_view("assistant", s["id"], s["state"], s.get("nodeId"), s.get("updatedAt"))
-            for s in sources["sessions"] if s.get("workspace") in MAIN_WORKSPACES]
-    return {"domains": result, "unassigned": [entry for node_id, entry in entries if node_id not in known],
-            "mainSessions": main}
+    return {"domains": result, "unassigned": [entry for node_id, entry in entries if node_id not in known]}
 
 
 def accepted_workspace(service, project):
@@ -145,20 +126,20 @@ def architecture_domains(service, project):
     return domains
 
 
-def collect_sources(service, registry, project):
+def collect_sources(service, project):
     with service.reading(project):
         db = service.db_for(project)
         leases = [dict(r) for r in db.execute(
             "SELECT workspace_id,node_id,owner,expires_at FROM card_leases WHERE project_id=?", (project,))]
         activity = [dict(r) for r in db.execute(
             "SELECT workspace_id,node_id,agent,updated_at FROM card_work_activity WHERE project_id=?", (project,))]
-    return {"sessions": registry.list(project), "leases": leases, "activity": activity}
+    return {"leases": leases, "activity": activity}
 
 
-def work_status(service, registry, project, now=None):
+def work_status(service, project, now=None):
     now = now or datetime.fromtimestamp(time.time(), UTC)
     domains = architecture_domains(service, project)
-    sources = collect_sources(service, registry, project)
+    sources = collect_sources(service, project)
     names = {}
 
     def card_name(wid, node_id):

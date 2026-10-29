@@ -11,14 +11,14 @@
 .arch-landing__flow{margin:6px 0 0;color:var(--ae-muted);font-size:12px}
 .arch-landing__flow-step{color:var(--ae-text);font-weight:600}
 
-/* Vpravo v hlavičce stojí vedle „+ Doména“ tichá věta o hlavních relacích projektu („Hlavní relace:
-   1 čeká“) s tlačítkem nové relace: člověk hned vidí, jestli na něj někde čeká asistent. */
+/* Vpravo v hlavičce stojí „+ Doména“ a před ním jen tehdy, když je živý stav práce zastaralý, tichá
+   zlatá poznámka o tom, z kdy údaj je: člověk ví, že čísla na kartách domén nemusí sedět. */
 .arch-landing__head-tools{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.arch-landing__sessions{display:flex;align-items:center;gap:8px;margin:0;color:var(--ae-muted);font-size:12px}
+.arch-landing__work-note{margin:0;color:var(--ae-muted);font-size:12px}
 
 /* Když se živý stav nepodařilo načíst ani jednou, řekne to věta pod hlavičkou: prázdné karty by jinak
    lhaly, že se nikde nepracuje. Zastaralý údaj se jen tiše podepíše zlatým časem („údaj z 12:03,
-   nepodařilo se obnovit“) u hlavních relací, u karty domény i u Nepřiřazených. */
+   nepodařilo se obnovit“) v hlavičce, u karty domény i u Nepřiřazených. */
 .arch-landing__alert{margin:18px 0 0;padding:8px 12px;border-radius:8px;border:1px solid var(--danger);background:var(--danger-soft);color:var(--ae-text);font-size:12px}
 .arch-landing__stale{color:var(--gold);font-size:11px}
 

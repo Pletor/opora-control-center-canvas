@@ -6,17 +6,16 @@ import Desk from "./Desk";
 import WorkerChip from "./WorkerChip";
 
 export type RoomActions = {
-  /** Důvod, proč nejde posadit dalšího agenta (obsazeno), nebo `null`. */
+  /** Důvod, proč nejde posadit agenta (srdce vypnuté), nebo `null`. */
   blocked: string | null;
   onEnterLayer: (id: string) => void;
   onOpenNode: (id: string) => void;
   onHire: (target: HireTarget) => void;
-  onSelectSession: (id: string) => void;
 };
 
 const TONE_LABEL = { ok: "hotovo", run: "pracuje", warn: "čeká na tebe", fail: "selhalo", idle: "čeká" } as const;
 
-export default function Room({ room, blocked, onEnterLayer, onOpenNode, onHire, onSelectSession }: { room: RoomData } & RoomActions) {
+export default function Room({ room, blocked, onEnterLayer, onOpenNode, onHire }: { room: RoomData } & RoomActions) {
   const total = room.desks.length;
   return (
     <article className="office-room" aria-label={"Místnost " + room.name}>
@@ -32,15 +31,15 @@ export default function Room({ room, blocked, onEnterLayer, onOpenNode, onHire, 
       </div>
       <div className="office-room__common">
         <span className="office-room__label">Společný stůl</span>
-        {room.common.map((w) => <WorkerChip key={w.id} worker={w} onSelect={onSelectSession} />)}
-        <button type="button" className="office-room__hire" disabled={!!blocked} title={blocked ?? "Založit relaci asistenta pro celý sektor"}
+        {room.common.map((w) => <WorkerChip key={w.id} worker={w} />)}
+        <button type="button" className="office-room__hire" disabled={!!blocked} title={blocked ?? "Poslat srdci zadání pro celý sektor"}
           onClick={() => onHire({ kind: "sector", id: room.id, name: room.name })}>
           Posadit agenta k sektoru
         </button>
       </div>
       {total > 0 ? (
         <ul className="office-room__desks">
-          {room.desks.map((desk) => <Desk key={desk.id} desk={desk} blocked={blocked} onOpenNode={onOpenNode} onHire={onHire} onSelectSession={onSelectSession} />)}
+          {room.desks.map((desk) => <Desk key={desk.id} desk={desk} blocked={blocked} onOpenNode={onOpenNode} onHire={onHire} />)}
         </ul>
       ) : <p className="office-room__empty">Místnost zatím nemá stoly (karty).</p>}
     </article>

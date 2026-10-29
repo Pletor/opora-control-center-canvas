@@ -31,6 +31,7 @@ Modules (H2a):
 The heart token comes from `tokens.issue_heart` once per project and workspace; it lives only in memory and in the
 environment of the process. Routes are in `backend/api/brain_opora/heart_routes.py`.
 
-Still planned (H2b): `human_channel.py` (the assistant panel talks to the heart) and deleting `claude_code/assistant/`.
+The human channel (the assistant panel talks to the heart) is in the frontend (`frontend/layout/heart-channel/`, contract
+`docs/brain-heart-channel.md`); the old `claude_code/assistant/` was deleted in H2b2b.
 
 Rule: the heart writes to OPORA only through `opora_heart.py`, with its role token.

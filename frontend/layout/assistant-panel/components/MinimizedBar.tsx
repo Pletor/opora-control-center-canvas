@@ -1,37 +1,16 @@
 import type { Ref } from "react";
-import { tasksCount, type TaskView } from "../logic/task-overview";
 
 /**
- * Minimalizovaný asistent: malá lišta vpravo dole nad minimapou. Ukazuje aktivní úkol, jeho stav
- * a počet úkolů, aby uživatel koutkem oka viděl, že asistent pracuje nebo doběhl. Klik ji rozbalí.
+ * Minimalizovaný panel: malá lišta vpravo dole nad minimapou, aby kanál srdce zůstal po ruce a nepřekážel.
+ * Klik ji rozbalí do poslední velikosti.
  */
-export default function MinimizedBar({
-  barRef,
-  task,
-  count,
-  othersNew,
-  onExpand,
-  onClose,
-}: {
-  barRef: Ref<HTMLElement>;
-  task: TaskView | null;
-  count: number;
-  othersNew: boolean;
-  onExpand: () => void;
-  onClose: () => void;
-}) {
+export default function MinimizedBar({ barRef, onExpand, onClose }: { barRef: Ref<HTMLElement>; onExpand: () => void; onClose: () => void }) {
   return (
     <aside ref={barRef} className="assistant-panel__mini" aria-label="Asistent (minimalizovaný)">
       <button type="button" className="assistant-panel__mini-open" title="Rozbalit asistenta" onClick={onExpand}>
-        <span className={`assistant-panel__status assistant-panel__status--${task?.status ?? "ready"}`}>
-          <span className="assistant-panel__status-dot" aria-hidden="true" />
-        </span>
         <span className="assistant-panel__mini-text">
-          <span className="assistant-panel__mini-title">{task ? task.title : "Asistent"}</span>
-          <span className="assistant-panel__mini-meta">
-            {task ? task.statusWord : "žádný úkol"} · {tasksCount(count)}
-            {othersNew && <span className="assistant-panel__mini-new"> · nové</span>}
-          </span>
+          <span className="assistant-panel__mini-title">Srdce</span>
+          <span className="assistant-panel__mini-meta">kanál k srdci projektu</span>
         </span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" className="assistant-panel__mini-chevron">
           <path d="m6 15 6-6 6 6" />

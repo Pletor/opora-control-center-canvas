@@ -1,8 +1,8 @@
-// Kancelář (docs/kancelar.md §1–2): z grafu, relací asistenta, přehledu práce a pronájmů složí budovu.
+// Kancelář (docs/kancelar.md §1–2): z grafu, úkolů brány, přehledu práce a pronájmů složí budovu.
 // Oddělení = oblast na kořenové vrstvě, místnost = sektor (člen oblasti podle polohy, jinak Hala),
-// stůl = karta s `parentId` = sektor, pracovník = relace asistenta. Relace sedí u stolu (`nodeId`), u
-// společného stolu místnosti (`sectorId`) nebo v Recepci (bez vazby, nebo vazba vede mimo budovu).
-// Čistá data bez Reactu; dílky je jen kreslí.
+// stůl = karta s `parentId` = sektor, pracovník = relace brány, která drží úkol (`assigned` se `sessionId`).
+// Pracovník sedí u stolu (úkol na kartě), u společného stolu místnosti (úkol na sektoru) nebo v Recepci
+// (úkol bez uzlu, nebo uzel mimo budovu). Čistá data bez Reactu; dílky je jen kreslí.
 import type { AreaColor, CanvasNode, Graph } from "@/shared/types/logic/types";
 import { nodeWorkflowOf, type DesktopState } from "@/shared/desktop-state/logic/types";
 import { areaColorOf, areaLabel, isArea, membersOf } from "@/editor/canvas/area/logic/area-model";
@@ -10,19 +10,20 @@ import { cardState, type CardStateLine, type CardStateTone } from "@/editor/canv
 import { processView } from "@/editor/canvas/node-card/logic/card-process";
 import type { WorkRow } from "@/editor/canvas/node-card/logic/use-work-overview";
 import type { CardLease } from "@/editor/canvas/node-card/logic/use-leases";
-import type { AssistantSession } from "@/layout/assistant-panel/logic/assistant-api";
 
-export type WorkerState = Exclude<AssistantSession["state"], "closed">;
-export type Worker = { id: string; title: string; model: string; state: WorkerState; nodeId: string | null; sectorId: string | null; updatedAt: string };
+/** Úkol z `GET /api/brain/tasks`, jen pole, která Kancelář čte. */
+export type OfficeTask = { taskId: string; title: string; status: string; sessionId: string | null; nodeId: string | null; updatedAt: string };
+/** Pracovník: relace brány (`id` = `sessionId`) a úkol, který drží. */
+export type Worker = { id: string; taskId: string; title: string; nodeId: string | null; updatedAt: string };
 export type Desk = { id: string; name: string; closed: boolean; state: CardStateLine; workers: Worker[] };
 export type ToneCounts = Record<CardStateTone, number>;
 export type Room = { id: string; name: string; purpose: string; tones: ToneCounts; desks: Desk[]; common: Worker[] };
 export type Department = { id: string; name: string; color: AreaColor; rooms: Room[] };
-export type Office = { departments: Department[]; hall: Room[]; reception: Worker[]; waiting: Worker[] };
+export type Office = { departments: Department[]; hall: Room[]; reception: Worker[] };
 
 export type OfficeInput = {
   graph: Graph;
-  sessions: AssistantSession[];
+  tasks: OfficeTask[];
   workRows?: Record<string, WorkRow>;
   leases?: Record<string, CardLease>;
   state: DesktopState;
@@ -35,8 +36,16 @@ export const TONE_ORDER: CardStateTone[] = ["ok", "run", "warn", "fail", "idle"]
 
 const emptyTones = (): ToneCounts => ({ ok: 0, run: 0, warn: 0, fail: 0, idle: 0 });
 
-function workerOf(s: AssistantSession): Worker {
-  return { id: s.id, title: s.title, model: s.model, state: s.state as WorkerState, nodeId: s.nodeId ?? null, sectorId: s.sectorId ?? null, updatedAt: s.updatedAt };
+/** Pracovníci: přidělené úkoly s relací, každá relace jednou (drží-li víc úkolů, platí první v seznamu). */
+export function workersOf(tasks: OfficeTask[]): Worker[] {
+  const seen = new Set<string>();
+  const workers: Worker[] = [];
+  for (const t of tasks) {
+    if (t.status !== "assigned" || !t.sessionId || seen.has(t.sessionId)) continue;
+    seen.add(t.sessionId);
+    workers.push({ id: t.sessionId, taskId: t.taskId, title: t.title, nodeId: t.nodeId, updatedAt: t.updatedAt });
+  }
+  return workers;
 }
 
 function deskOf(card: CanvasNode, input: OfficeInput): Omit<Desk, "workers"> {
@@ -55,19 +64,19 @@ function deskOf(card: CanvasNode, input: OfficeInput): Omit<Desk, "workers"> {
 
 export function buildOffice(input: OfficeInput): Office {
   const { graph } = input;
-  const workers = input.sessions.filter((s) => s.state !== "closed").map(workerOf);
+  const workers = workersOf(input.tasks);
   const sectors = graph.nodes.filter((n) => n.kind === "sector");
   const sectorIds = new Set(sectors.map((s) => s.id));
   const cardSector = new Set(graph.nodes.filter((n) => n.kind === "node" && !!n.parentId && sectorIds.has(n.parentId)).map((n) => n.id));
 
-  // Kam kdo sedí: karta v budově → stůl; jinak sektor v budově → společný stůl; jinak Recepce.
+  // Kam kdo sedí: uzel úkolu je karta v budově → stůl; sektor v budově → společný stůl; jinak Recepce.
   const atDesk = new Map<string, Worker[]>();
   const atCommon = new Map<string, Worker[]>();
   const reception: Worker[] = [];
   const push = (map: Map<string, Worker[]>, key: string, w: Worker) => map.set(key, [...(map.get(key) ?? []), w]);
   for (const w of workers) {
     if (w.nodeId && cardSector.has(w.nodeId)) push(atDesk, w.nodeId, w);
-    else if (!w.nodeId && w.sectorId && sectorIds.has(w.sectorId)) push(atCommon, w.sectorId, w);
+    else if (w.nodeId && sectorIds.has(w.nodeId)) push(atCommon, w.nodeId, w);
     else reception.push(w);
   }
 
@@ -86,11 +95,11 @@ export function buildOffice(input: OfficeInput): Office {
     return { id: area.id, name: areaLabel(area), color: areaColorOf(area), rooms: members.map(roomOf) };
   });
   const hall = sectors.filter((s) => !placed.has(s.id)).map(roomOf);
+  return { departments, hall, reception };
+}
 
-  // Fronta majáků: nejstarší čekání první; stabilní řazení drží pořadí seznamu při shodném čase.
-  const waiting = workers.map((w, i) => ({ w, i }))
-    .filter(({ w }) => w.state === "waiting_approval")
-    .sort((a, b) => a.w.updatedAt.localeCompare(b.w.updatedAt) || a.i - b.i)
-    .map(({ w }) => w);
-  return { departments, hall, reception, waiting };
+/** Kolik pracovníků v budově sedí: u stolů, u společných stolů a v Recepci. */
+export function workerCount(office: Office): number {
+  const rooms = [...office.departments.flatMap((d) => d.rooms), ...office.hall];
+  return rooms.reduce((sum, room) => sum + room.common.length + room.desks.reduce((n, desk) => n + desk.workers.length, 0), office.reception.length);
 }

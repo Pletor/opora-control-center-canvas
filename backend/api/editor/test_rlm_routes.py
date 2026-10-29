@@ -1,4 +1,4 @@
-"""Routa `/api/rlm/rank` nad falešným Jev: ok, bez klíče, porucha (docs/asistent.md §13.3)."""
+"""Routa `/api/rlm/rank` nad falešným Jev: ok, bez klíče, porucha (backend/brain_opora/decision/README.md)."""
 
 import pytest
 from fastapi import FastAPI

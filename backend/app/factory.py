@@ -17,7 +17,6 @@ from backend.api.brain_opora.heart_routes import create_heart_router
 from backend.api.brain_opora.jev_routes import create_jev_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
-from backend.api.editor.assistant_routes import create_assistant_router
 from backend.api.editor.brief_vault_check_routes import create_brief_vault_check_router
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
 from backend.api.editor.canvas_routes import create_canvas_router
@@ -104,11 +103,6 @@ from backend.canvas.opora_reconciliation_manager import ReconciliationManager
 from backend.canvas.process_activity_bridge import bridge as bridge_activity
 from backend.canvas.strazci.manager import GuardianManager
 from backend.canvas.sync_report import SyncReport
-from backend.claude_code.assistant.agents import load_agents
-from backend.claude_code.assistant.instructions import default_assistant_instructions
-from backend.claude_code.assistant.manager import AssistantManager
-from backend.claude_code.assistant.router import route as route_message
-from backend.claude_code.assistant.workspace import project_locator
 from backend.code_intelligence import CodeIntelligence
 from backend.editor.agent_handoff.message_store import MessageStore
 from backend.editor.agent_memory.agent_output import AgentOutput
@@ -166,24 +160,11 @@ def create_app(data_root=None):
         raise ValueError("Neplatný lokální port.")
     # Rámování jen pro původy z [app] embed_origins; prázdné = DENY jako dřív (backend/app/embed_origins.py).
     frame_options, frame_ancestors = frame_policy(parse_embed_origins(os.environ.get(EMBED_ORIGINS_ENV, "")))
-    # Asistent: Claude Code pod předplatným, proces spouští jen zpráva člověka (docs/asistent.md).
-    # Skill v jeho procesu čte plátno této instance, ne pevného portu 8740 (§13.1).
-    # Směrovač Jev (§13.2): klíč se čte při každé zprávě, takže zapnutí platí bez restartu.
     # Poskytovatel Jev (typesafe | celeris) z `[jev] provider` v opora.local.toml (docs/schranka-neurony.md §7).
     jev_provider = configured_provider()
 
     def jev_evaluate(state, questions, *, key):
         return typesafe_evaluate(state, questions, key=key, provider=jev_provider)
-
-    def route_hint(text, context):
-        key = app_settings.jev_key(jev_provider)
-        return route_message(text, context,
-                             evaluate=lambda state, questions: jev_evaluate(state, questions, key=key))
-
-    assistant = AssistantManager(service.root, project_locator(service), base_url=f"http://127.0.0.1:{port}",
-                                 route_hint=route_hint, route_provider=jev_provider,
-                                 instructions=default_assistant_instructions,
-                                 agents=load_agents)
 
     # Srdce mozku: dávky `claude -p` jen pro projekty se zapnutou bránou, jen na loopbacku (docs/brain-heart.md).
     heart = HeartSupervisor(service, base_url=f"http://127.0.0.1:{port}")
@@ -199,7 +180,6 @@ def create_app(data_root=None):
         heart.start()
         yield
         heart.close()
-        assistant.close_all()
         map_refresh.close()
         reconciliation.close()
         execution_prs.close()
@@ -388,7 +368,7 @@ def create_app(data_root=None):
     # krok 1: nastavení projektu
     app.include_router(create_project_setup_router(service))
     # prostředí Projekt
-    app.include_router(create_project_workspace_router(service, WorkspaceArchive(service, assistant.registry)))
+    app.include_router(create_project_workspace_router(service, WorkspaceArchive(service)))
     app.include_router(create_workspace_router(service))
     app.include_router(create_graphify_router(service))
     app.include_router(create_map_refresh_router(map_refresh))
@@ -406,11 +386,10 @@ def create_app(data_root=None):
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
     app.include_router(create_agent_message_router(agent_messages))
     app.include_router(create_claude_code_router(service))
-    app.include_router(create_assistant_router(assistant))
     app.include_router(create_jev_router(app_settings, jev_provider))
     # RLM: řazení oddílů plátna přes Jev pro asistenta; jen loopback, klíč zůstává v backendu (§13.3)
     app.include_router(create_rlm_router(key_source=lambda: app_settings.jev_key(jev_provider), evaluate=jev_evaluate))
-    app.include_router(create_project_work_status_router(service, assistant.registry))
+    app.include_router(create_project_work_status_router(service))
     app.include_router(create_project_web_status_router(WebStatusService(service)))
     app.include_router(create_project_map_check_router(service))
     app.include_router(create_studio_model_router(service))

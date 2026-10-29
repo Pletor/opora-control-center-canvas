@@ -14,7 +14,7 @@ const graph = { nodes: [
 ], edges: [] } as unknown as Graph;
 const status = normalizeWorkStatus({ domains: [{ id: "d", name: "D", worktrees: [
   { id: "w1", state: "running", cards: [{ nodeId: "c1", name: "C1" }] },
-  { id: "w2", state: "waiting", sessions: [{ source: "assistant", id: "s", state: "idle", nodeId: "p2" }] },
+  { id: "w2", state: "waiting", sessions: [{ source: "lease", id: "s", state: "active", nodeId: "p2" }] },
 ] }] });
 const host: WebHost = { domainId: "d", environment: "Produkce", host: "www.a.cz", state: "dns_missing", httpStatus: null, health: null, latencyMs: null, checkedAt: null, detail: "" };
 const live = { worktreeLive: true, work: slotLoaded(emptySlot<WorkStatus>(), status, 0), web: webLoaded(emptyWeb(), "*", [host], 0) };
