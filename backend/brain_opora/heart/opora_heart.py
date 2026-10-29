@@ -11,7 +11,7 @@
     python opora_heart.py done --summary S
     python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
     python opora_heart.py run SCRIPT [ARG…]
-    python opora_heart.py research --question Q --title T [--target URL|cesta]… [--fragment F] [--deep]
+    python opora_heart.py research --question Q --title T [--target URL|cesta]… [--layer L]… [--fragment F] [--deep]
     python opora_heart.py duel --subject F --a TEXT --b TEXT
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
@@ -19,10 +19,11 @@ OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrn
 Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` a vypíše jen cestu, počet a velikost;
 `run` spustí `dilna/scripts/<SCRIPT>.py` (`python -I`, cwd `dilna/`, 120 s) bez tokenu srdce a klíčů API
 ve vlastní skupině procesů (po vypršení zemře celý strom i s pod-voláními `claude`) a zapíše řádek do `dilna/runs.jsonl`.
-`research` a `duel` (§3c) jsou v `opora_research.py` vedle nástroje (výzkumník s REA, duel s pod-voláními Haiku).
+`research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje.
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
 import argparse
+import importlib
 import json
 import os
 import re
@@ -42,6 +43,7 @@ LAST_DONE = "last_done.json"
 _OPENER = build_opener(ProxyHandler({}))  # loopback bez systémové proxy
 DILNA = Path("dilna")
 CONTEXTS = ("tasks", "tickets", "journal", "messages", "rules", "decisions", "tree")
+LAYERS = ("fe", "be", "db", "api", "cache", "infra", "security", "data", "ops")  # vrstvy výzkumu (§3d)
 SCRIPT = re.compile(r"[A-Za-z0-9_-]+\Z")
 RUN_TIMEOUT, STDOUT_LIMIT, STDERR_LIMIT = 120, 8000, 2000
 # Prostředí skriptu: bez tokenu srdce a adresy (skript OPORU nemění) a bez klíčů API (kopie command.STRIPPED,
@@ -216,13 +218,12 @@ def log_run(script, script_args, exit_code, ms, calls, cost):
     return entry
 
 
-def research_module():
-    """`opora_research.py`: kopie vedle nástroje v `brain/`, v testech modul balíčku."""
+def research_module(name="opora_research"):
+    """`opora_research.py` / `opora_duel.py`: kopie vedle nástroje v `brain/`, v testech modul balíčku."""
     try:
-        import opora_research
+        return importlib.import_module(name)
     except ImportError:
-        from backend.brain_opora.heart import opora_research
-    return opora_research
+        return importlib.import_module(f"backend.brain_opora.heart.{name}")
 
 
 def run_script(script, script_args):
@@ -260,7 +261,8 @@ def run(args):
     if args.command == "run":
         return run_script(args.script, args.script_args)
     if args.command in ("research", "duel"):
-        return getattr(research_module(), args.command)(args, sys.modules[__name__])
+        module = research_module("opora_research" if args.command == "research" else "opora_duel")
+        return getattr(module, args.command)(args, sys.modules[__name__])
     if args.command == "snapshot":
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
     if args.command == "task":
@@ -320,6 +322,7 @@ def parser():
     research.add_argument("--target", action="append", default=[])
     research.add_argument("--fragment")
     research.add_argument("--deep", action="store_true")
+    research.add_argument("--layer", action="append", default=[], choices=LAYERS)
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)

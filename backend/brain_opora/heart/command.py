@@ -19,7 +19,8 @@ PROMPT_FILE = HEART_DIR / "prompt.md"
 TOOL_FILE = HEART_DIR / "opora_heart.py"
 TOOL_NAME = "opora_heart.py"  # kopie v cwd (`brain/`), aby pravidlo Bash nemělo v cestě mezery
 RLM_FILE = HEART_DIR / "rlm.py"
-RESEARCH_FILE, RESEARCH_NAME = HEART_DIR / "opora_research.py", "opora_research.py"  # vedle nástroje (§3c)
+# Výzkum a duel vedle nástroje (§3c, §3d): příkaz, stůl, digest, stažení a ověření, duel.
+RESEARCH_NAMES = ("opora_research.py", "research_desk.py", "research_digest.py", "research_fetch.py", "opora_duel.py")
 DILNA, RLM_NAME, DILNA_DIRS = "dilna", "rlm.py", ("data", "scripts", "out")
 WRITABLE = ("scripts", "out")  # jediné složky, kam srdce smí Write/Edit
 MODEL, ADVISOR = "haiku", "opus"
@@ -36,7 +37,7 @@ SETTINGS_FILE, MCP_FILE = "heart-settings.json", "heart-mcp.json"
 REA_MCP_NAME = "rea-mcp.json"
 REA_MCP = {"mcpServers": {"rea": {"type": "stdio", "command": "cmd",
                                   "args": ["/c", "npx", "-y", "rea-agents@6.7.0", "mcp"]}}}
-# Výzkum běží až 10 min a duel kolem 9 min: Bash srdce musí počkat déle než výchozí 2 min.
+# Výzkum běží až 10 min (stůl má strop 600 s) a duel kolem 9 min: Bash srdce musí počkat déle než výchozí 2 min.
 BASH_TIMEOUT_MS = "700000"
 
 
@@ -84,7 +85,7 @@ def settings(source_root=None, brain=None):
 
 
 def write_config(brain, source_root=None):
-    """Zapíše nastavení a prázdné MCP do `brain/`, zkopíruje tam nástroj s `opora_research.py` a do dílny `rlm.py`
+    """Zapíše nastavení a prázdné MCP do `brain/`, zkopíruje tam nástroj s moduly výzkumu a duelu a do dílny `rlm.py`
     a MCP výzkumníka `rea-mcp.json` (se složkami `data/`, `scripts/`, `out/`); vrací `(settings, mcp)` cesty."""
     brain = Path(brain)
     brain.mkdir(parents=True, exist_ok=True)
@@ -94,7 +95,8 @@ def write_config(brain, source_root=None):
     settings_path.write_text(json.dumps(settings(source_root, brain), ensure_ascii=False, indent=1), encoding="utf-8")
     mcp_path.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
     shutil.copyfile(TOOL_FILE, brain / TOOL_NAME)
-    shutil.copyfile(RESEARCH_FILE, brain / RESEARCH_NAME)
+    for name in RESEARCH_NAMES:
+        shutil.copyfile(HEART_DIR / name, brain / name)
     shutil.copyfile(RLM_FILE, brain / DILNA / RLM_NAME)
     (brain / DILNA / REA_MCP_NAME).write_text(json.dumps(REA_MCP, indent=1), encoding="utf-8")
     return settings_path, mcp_path
