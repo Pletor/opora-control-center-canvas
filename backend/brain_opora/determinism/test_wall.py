@@ -66,6 +66,17 @@ def test_canvas_and_rules_stay_with_heart_and_human():
         assert wall.decide("POST", path, "agent", False, None, "draft") is wall.ALLOW
 
 
+def test_worker_of_this_project_relays_a_message_to_the_heart():
+    """Relé záměru (docs/brain-heart-orchestrator.md §8): jen přesná cesta a token pracovníka téhož projektu."""
+    assert wall.decide("POST", wall.RELAY, "agent", True, WORKER, "draft") is wall.ALLOW
+    assert wall.decide("POST", wall.RELAY, "agent", True, None, "draft").code == "gate_required"
+    assert wall.decide("POST", wall.RELAY, "agent", True, wall.INVALID, "draft").code == "gate_token_invalid"
+    assert wall.decide("POST", wall.RELAY, "agent", True, WORKER, "jiny").code == "gate_scope"
+    assert wall.decide("POST", wall.RELAY, "agent", True, WORKER, "").code == "gate_scope"
+    for path in (wall.RELAY + "/x", "/api/brain/heart/escalate", "/api/brain/heart/messagesX"):
+        assert wall.decide("POST", path, "agent", True, WORKER, "draft").code == "gate_required", path
+
+
 @pytest.fixture
 def service(tmp_path):
     canvas = CanvasService(tmp_path / "data")

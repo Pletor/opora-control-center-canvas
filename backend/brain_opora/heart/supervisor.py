@@ -87,12 +87,13 @@ class HeartSupervisor:
         with self.lock:
             self.pending.setdefault(project, []).append((workspace, item, due))
 
-    def message(self, project, workspace, text, now=None):
+    def message(self, project, workspace, text, now=None, via=None):
         """Zpráva člověka: nejdřív řádek do `brain/messages.jsonl` (přežije dávku i rotaci relace, §3a), pak vstup
-        splatný hned; vrací počet čekajících vstupů projektu. Selhaný zápis se jen zaloguje, zpráva srdce budí dál."""
+        splatný hned; vrací počet čekajících vstupů projektu. Selhaný zápis se jen zaloguje, zpráva srdce budí dál.
+        `via` = jméno relace pracovníka, který zprávu předal (relé záměru, docs/brain-heart-orchestrator.md §8)."""
         now = self.clock() if now is None else now
         try:
-            brain_files.append_message(self.brain(project), _iso(now), workspace, text)
+            brain_files.append_message(self.brain(project), _iso(now), workspace, text, via)
         except OSError:
             LOGGER.exception("Srdce: zprávu člověka projektu %s nešlo uložit.", project)
         self._add(project, workspace, {"type": "message", "text": text}, now)

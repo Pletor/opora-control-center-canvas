@@ -1,7 +1,8 @@
 """Routy srdce mozku (docs/brain-heart.md §1, §4). Logika je v `backend/brain_opora/heart/`.
 
-- `POST /api/brain/heart/messages {project, workspace, text}`: jen člověk; zpráva se uloží do `brain/messages.jsonl`
-  (snímek ji ukáže v `ZPRÁVY ČLOVĚKA`, §3a), pak jde jako vstup do supervisoru a budí hned.
+- `POST /api/brain/heart/messages {project, workspace, text}`: člověk, nebo relé záměru (docs/brain-heart-orchestrator.md
+  §8): platný token pracovníka brány téhož projektu, zpráva pak nese `via` = jméno relace. Uloží se do
+  `brain/messages.jsonl` (snímek ji ukáže v `ZPRÁVY ČLOVĚKA`, §3a), pak jde jako vstup do supervisoru a budí hned.
 - `GET /api/brain/heart/status?project=`: relace, posledních 5 dávek, spánek a nejbližší povolený čas.
 - `GET /api/brain/heart/escalations?project&workspace`: jen člověk; otevřené otázky srdce pro člověka, od nejnovější
   (docs/brain-heart-channel.md §2). Odpověď jde přes `POST /api/gate/tickets/{id}/answer` a srdce budí.
@@ -55,17 +56,25 @@ def create_heart_router(service, supervisor):
     router = APIRouter(prefix="/api/brain/heart", tags=["heart"])
 
     @router.post("/messages", openapi_extra=models.body(models.HeartMessageIn),
-                 responses=models.answers(200, models.HeartMessageOut, 403, 404, 409, 422))
+                 responses=models.answers(200, models.HeartMessageOut, 401, 403, 404, 409, 422))
     async def message(request: Request):
-        require_human(request.state.actor, "Srdci píše zprávu jen člověk v UI.")
+        header = request.headers.get(tokens.HEADER)
+        human = request.state.actor == "human"
+        if not human and not header:
+            require_human(request.state.actor, "Srdci píše zprávu člověk v UI, nebo relé s tokenem pracovníka brány.")
+        via = None
         try:
             project, workspace, text = _scope(service, parse_body(await request.body()))
+            if not human:
+                session = await run_in_threadpool(gate.authenticate, service, header, project, ("worker",))
+                via = session["worker_name"]
             if not await run_in_threadpool(gate_setting.is_on, service, project):
                 raise GateError(409, "gate_off", "Srdce pracuje jen v projektu se zapnutou bránou.",
                                 'Zapněte bránu: POST /api/brain/gate-setting {"project": "<id>", "enabled": true}.')
         except GateError as error:
             return _refused(error)
-        return {"queued": True, "pending": await run_in_threadpool(supervisor.message, project, workspace, text)}
+        pending = await run_in_threadpool(supervisor.message, project, workspace, text, None, via)
+        return {"queued": True, "pending": pending}
 
     @router.get("/status", responses={404: {"model": models.Refusal}})
     def status(project: str = ""):

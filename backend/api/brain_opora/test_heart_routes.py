@@ -42,6 +42,31 @@ def test_messages_are_human_only_need_the_gate_and_show_in_status(tmp_path):
         assert "Chci web o dvou stránkách." in text.split("ZPRÁVY ČLOVĚKA:")[1].split("PRAVIDLA:")[0]
 
 
+def test_worker_token_of_the_project_relays_a_message_marked_via(tmp_path):
+    """Relé záměru (docs/brain-heart-orchestrator.md §8): pracovník brány předá srdci zprávu člověka."""
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        other = client.post("/api/empty-project", headers=HEADERS, json={"name": "Jiný", "confirmed": True}).json()["id"]
+        worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
+        foreign = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT,
+                                                       json={**SESSION, "project": other}).json()["token"]}
+        ui = dict(client.cookies)
+        client.cookies.clear()  # pracovník nemá doklad UI
+        assert code(client.post("/api/brain/heart/messages", headers=worker, json=MESSAGE)) == "gate_off"
+        client.cookies.update(ui)
+        gate_on(client)
+        client.cookies.clear()
+        relayed = client.post("/api/brain/heart/messages", headers=worker, json=MESSAGE)
+        assert relayed.status_code == 200 and relayed.json() == {"queued": True, "pending": 1}, relayed.text
+        text = client.get("/api/brain/heart/snapshot", params=SCOPE).json()["snapshot"]
+        assert "Chci web o dvou stránkách. (přes dev)" in text.split("ZPRÁVY ČLOVĚKA:")[1].split("PRAVIDLA:")[0]
+        bad = client.post("/api/brain/heart/messages", headers={**AGENT, tokens.HEADER: "x"}, json=MESSAGE)
+        assert bad.status_code == 401 and code(bad) == "gate_token_invalid"
+        assert client.post("/api/brain/heart/messages", headers=AGENT, json=MESSAGE).status_code == 403
+        scoped = client.post("/api/brain/heart/messages", headers=foreign, json=MESSAGE)
+        assert scoped.status_code == 403 and code(scoped) == "gate_scope", scoped.text
+
+
 def test_heart_token_writes_tasks_answers_and_escalates_in_its_project(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)

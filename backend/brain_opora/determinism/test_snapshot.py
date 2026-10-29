@@ -100,6 +100,9 @@ def test_render_surroundings_order_caps_and_proposals():
     assert snapshot.render({**FACTS, **MEMORY}) == text
     long = snapshot.render({**FACTS, "messages": [{"at": "t", "workspace": "main", "text": "x" * 900}]})
     assert len(_block(long, "ZPRÁVY ČLOVĚKA:")[0]) == len("- t ") + snapshot.MESSAGE_TEXT
+    relayed = snapshot.render({**FACTS, "messages": [{"at": "t", "workspace": "main", "text": "Web", "via": "office"},
+                                                     {"at": "t", "workspace": "main", "text": "Já", "via": 7}]})
+    assert _block(relayed, "ZPRÁVY ČLOVĚKA:") == ["- t Web (přes office)", "- t Já"]
     many = {**FACTS, **MEMORY, "rules": [{"id": f"r{i}", "text": "y" * 300, "scope": "project"} for i in range(40)]}
     assert len(_block(snapshot.render(many), "PRAVIDLA:")) == snapshot.RULES
     assert len(snapshot.render(many, limit=800)) <= 800

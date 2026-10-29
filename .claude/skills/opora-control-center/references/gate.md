@@ -17,8 +17,10 @@ python "<SKILL_DIR>/scripts/opora_gate.py" report --task ht_… --sha "$(git rev
   --check "npm test=green" --check "uv run pytest backend/x=green"
 python "<SKILL_DIR>/scripts/opora_gate.py" release --task ht_… --reason "Úkol potřebuje soubor z dontTouch."
 python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
+python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova"
 ```
 
+- `tell` předá srdci záměr člověka (relé, [srdce.md](srdce.md)); zpráva nese `via` = jméno relace a budí srdce hned.
 - Adresa z `OPORA_BASE_URL` (výchozí `http://127.0.0.1:8740`); brána je jen loopback, tunelem nejde.
 - Token relace leží v `<cwd>/.opora/gate.json` (`.opora/` se připíše do `.gitignore`), platí 8 h. Nevypisuj ho.
 - Výstup je jeden JSON. Kód 0 ok, 1 chyba klienta (chybí relace, server neběží), 2 server odmítl: řiď se `code` a `hint`.
@@ -48,6 +50,7 @@ python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
 | `/api/gate/kinds` | kdokoli na loopbacku | `GET` → druhy lístků pro roli volajícího (bez tokenu a s tokenem pracovníka druhy pracovníka) |
 | `/api/gate/inbox` | token pracovníka | `GET ?after=<answeredSeq>&wait=0..30` → `{tickets, last}` (long-poll) |
 | `/api/gate/tickets/{ticket_id}` | token (vlastní lístek) nebo člověk s `?project=` | `GET` lístek |
+| `/api/brain/heart/messages` | člověk nebo token pracovníka téhož projektu | `POST {project, workspace, text}` → `{queued, pending}` (relé `tell`; 401 neplatný token, 403 `gate_scope`, 409 `gate_off`) |
 | `/api/gate/tickets/{ticket_id}/answer` | jen člověk | `POST {answer}` na čekající `ask` / `change` |
 | `/api/brain/gate-setting` | čtení kdokoli, zápis jen člověk | `GET ?project=`, `POST {project, enabled}` |
 | `/api/brain/tasks` | čtení kdokoli, zápis jen člověk | `GET ?project&workspace&status?` → `{tasks}`; `POST {project, workspace, nodeId?, title, body}` → `201` úkol |

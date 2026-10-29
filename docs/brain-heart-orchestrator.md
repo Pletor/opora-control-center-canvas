@@ -39,6 +39,36 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   (`GET /api/view?project&workspace` → `digest`) a pošle `POST /api/canvas-plan {digest, plan, dryRun?}`
   s tokenem srdce. Výstup `{ok, refs, summary, warnings}` nebo `code`/`hint` (409 `stale` → zkus znovu s novým digestem,
   nejvýš jednou).
+- **O2b – tvar dávky a chyby.** Odmítnutá dávka (4xx) dá do `hint` vlastní text serveru (a `field`/`expected`
+  z 422), ne obecnou radu; srdce opraví jen to pole. Prompt „Plán“ nese krátký vzor dávky (sektor + dvě karty `node`
+  s `card {layer, status: "ready"}`, `spec {goal, non_goals, acceptance, steps[{id, order, title, acceptance[],
+  dependsOn[]}]}`, `checks[{id, command}]` a vazba `next`); tentýž vzor vypíše `plan --example`
+  (`opora_heart.PLAN_EXAMPLE`). Test `backend/api/brain_opora/test_heart_plan.py` vzor z promptu vytáhne, porovná
+  s nástrojem a pošle skutečnému `/api/canvas-plan` s `dryRun`, takže vzor nezastará.
+- **O2b – přijetí plánu (rozhodnutí člověka 2026-10-29: „srdce plánuje, orchestrátor koná“).** Ostrý `plan` hned po
+  dávce přijme plán sám, tokenem srdce: opakovaně čte `GET /api/oporahub/agent-state` a provede kroky
+  `propose_graph` (`POST /api/oporahub/graph-proposals`, tělo = `project`, `workspace` + `preconditions` akce),
+  přijetí návrhu grafu (`POST /api/oporahub/graph-proposals/{id}/accept`) a případně `accept_baseline`
+  (`POST /api/oporahub/baselines`), nejvýš 6 kroků. Cizí návrhy zadání a obsahu (`accept` mimo graf) nechává
+  člověku. Oprávnění: obě routy přijetí volají `require_authority` → `acts_as_human`; token srdce ve vlastním
+  projektu se zapnutou bránou dostane ve zdi `Verdict(heart=True)` a middleware mu dá oprávnění `human` (plná
+  autonomie, záznam `by: {kind: agent, name: heart}`), takže routy nebylo třeba měnit. Výstup `plan` má
+  `accepted: true|false` a `acceptSteps`; při `false` `code` a `hint` (např. `plan_not_accepted`). `--no-accept`
+  nechá přijetí člověku. Uzavření karty (`awaitingHumanClose`) zůstává člověku.
+- **O2c – další plán nad přijatým grafem.** Fáze 2 je vždy další plán. Dávka plánu (`/api/canvas-plan`) nad už
+  přijatým grafem by změnila jen pracovní graf: agent-state pro to nemá krok přijetí (návrh grafu záměrně nic
+  z pracovního grafu nepřebírá) a claim všech karet by se zablokoval („Working graph differs from the accepted
+  graph“). `plan` proto nejdřív čte `GET /api/oporahub/graph-proposals/context`; když má přijatý graf
+  (`graphManifestId`), pošle dávku stejnou cestou jako formulář „Rozšíření plánu“ v UI
+  (`frontend/hub/graph-proposals`): `POST /api/oporahub/graph-proposals {parentRevision: acceptedHead,
+  expectedGraphDigest: graphDigest, subject, plan}` a hned `POST /api/oporahub/graph-proposals/{id}/accept
+  {expectedAcceptedHead, expectedGraphDigest, adoptBaseGraphDigest: null}` tokenem srdce. Karty vzniknou na plátně až
+  přijetím, pracovní a přijatý graf zůstanou shodné a dřívější claimy platí. Návrh grafu nese jen pole uzlu `ref, kind
+  (node|sector|area), name, parent, purpose, spec, sourceRef, position, size, memberOf` a vazby `next`; `card`
+  a `checks` nástroj vynechá s varováním, jiná pole odmítne (`code: plan_shape`) dřív než server. `--dry-run` ověří
+  přírůstek dávkou plánu s `dryRun`. Výstup: `acceptSteps: ["graph_addition", "accept"]`, `proposalId`, `refs`.
+  Žádná routa ani agent-state se neměnily. Test: `backend/api/brain_opora/test_heart_plan.py` (plán 1 → claim
+  ready; plán 2 se sektorem `@id` a vazbou na existující kartu → nová karta ready, dřívější ready zůstal).
 - Snímek: sekce `PLÁN` ukáže u karet stav práce z executions: `volná`, `běží (agent)`, `odevzdáno`, `PR #n`,
   `sloučeno sha`, `čeká na uzavření`. Bez nové tabulky, čte existující executions a vazby PR.
 - Prompt „Plán“: práce pro orchestrátora = **karta na plátně** (`plan`), malá karta se `spec.steps` a ověřením;
@@ -90,3 +120,21 @@ vstupy výše; „zapne se, když je potřeba“ je výchozí chování, žádn�
 | O3 git | `heart/inputs.py`, `heart/supervisor.py`, `determinism/snapshot.py` (GIT), `docs/brain-heart.md` §1 | `test_inputs.py`, `test_supervisor*.py`, `test_snapshot.py` |
 | O4 skill | `.claude/skills/opora-control-center/references/srdce.md`, `SKILL.md` | lint skillu |
 | O5 zapnutí | — (klik člověka v panelu Asistent) | `GET /api/brain/gate-setting` |
+
+## 8. O6 – Kancelář jako kanál člověka (rozhodnutí 2026-10-30)
+
+Člověk mluví s orchestrátorem v agent-office; orchestrátor jeho záměr **předá srdci doslova** a sám neplánuje.
+Člověk 2026-10-30 povolil ladit oprávnění tak, aby kruh běžel bez schvalování (kromě uzavření karty).
+
+- **Relé záměru (OPORA).** `POST /api/brain/heart/messages {project, workspace, text}` přijme kromě člověka i
+  platný token pracovníka brány téhož projektu (hlavička jako u `opora_gate.py`). Zpráva se uloží do
+  `brain/messages.jsonl` s `via: "<jméno relace>"`, budí srdce hned jako zpráva člověka a ve snímku má
+  `ZPRÁVY ČLOVĚKA` značku „(přes <via>)“. Klient: `opora_gate.py tell "TEXT"`.
+- **Orchestrátor v projektu se srdcem (agent-office).** Kancelář pozná zapnuté srdce
+  (`GET /api/brain/gate-setting?project`). Pak `planning.start` v režimu `opora` použije prompt `planning.heart`:
+  1. `opora_gate.py session` + `tell` se záměrem člověka (doslova, s fokusem); `canvas-plan` nikdy;
+  2. čeká na dávku srdce (`GET /api/brain/heart/status`, nejvýš ~10 min) a pak čte nové karty (agent-state, frontier);
+  3. do souhrnu zapíše, co srdce naplánovalo, a otázky srdce pro člověka (eskalace).
+  Karty rozdá kancelář sama (hand-out → execution v pruhu → dělník ve worktree → PR); srdce se o sloučení dozví z gitu.
+- **Oprávnění orchestrátora.** Planner v režimu srdce dostane `--allowedTools` pro skripty skillu
+  (`Bash(python:*)` nad `opora_*.py`), `Read`, `Grep`, `Glob`, aby nečekal na schválení příkazů.

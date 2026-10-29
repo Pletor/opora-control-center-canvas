@@ -272,6 +272,7 @@ def _section(head, rows):
 
 def _memory_lines(facts):
     messages = [f"- {entry.get('at') or '—'} {_short(entry.get('text'), MESSAGE_TEXT)}"
+                + (f" (přes {_short(entry['via'], 80)})" if isinstance(entry.get("via"), str) and entry["via"] else "")
                 for entry in (facts.get("messages") or [])[-MESSAGES:]]
     rules = [f"- {_short(rule.get('text'), 300)}" + ("" if _approved(rule) else " (návrh)")
              for rule in _project_rules(facts)[:RULES]]

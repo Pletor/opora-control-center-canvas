@@ -14,6 +14,14 @@ def test_messages_are_appended_filtered_by_workspace_and_capped(tmp_path):
     assert brain_files.messages(tmp_path / "nic", "main") == []
 
 
+def test_relayed_message_keeps_via(tmp_path):
+    brain = tmp_path / "brain"
+    assert brain_files.append_message(brain, "t", "main", "záměr", via="orchestrator") == {
+        "at": "t", "workspace": "main", "text": "záměr", "via": "orchestrator"}
+    assert "via" not in brain_files.append_message(brain, "t", "main", "člověk", via=None)
+    assert [entry.get("via") for entry in brain_files.messages(brain, "main")] == ["orchestrator", None]
+
+
 def test_journal_reads_last_entries_and_survives_missing_file(tmp_path):
     assert brain_files.journal(tmp_path) == []
     (tmp_path / brain_files.JOURNAL).write_text("\n".join(f'{{"at": "t{i}", "summary": "s{i}"}}' for i in range(8)),

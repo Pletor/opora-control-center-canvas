@@ -11,7 +11,7 @@ Workers (`opora_gate.py next → work → report`) do the coding.
 
 | Input | Source | Wakes |
 |---|---|---|
-| human message (intent, change, question) | `POST /api/brain/heart/messages {project, workspace, text}` (human only) | at once |
+| human message (intent, change, question) | `POST /api/brain/heart/messages {project, workspace, text}` (human, or worker relay with `via`, `docs/brain-heart-orchestrator.md` §8) | at once |
 | queued ticket `ask` / `change` | `gate.ticket` event with `status: queued` | after a 20 s batch window |
 | task `failed` (second red) | `gate.task` event with `status: failed` | after a 20 s batch window |
 | `merged` `{nodeId, executionId, mergeSha, pr}` | `merge.done` event (merged card PR or local merge) | after a 20 s batch window |
@@ -303,7 +303,7 @@ split into several focused researches instead of a wider desk. V1s became `resea
 | Command | Does |
 |---|---|
 | `snapshot` | prints the snapshot again |
-| `plan --file F [--dry-run]` | builds cards: fresh `digest` from `GET /api/view`, then `POST /api/canvas-plan` with the heart token; one retry on a stale digest (`docs/brain-heart-orchestrator.md` §3) |
+| `plan --file F [--dry-run] [--no-accept]`, `plan --example` | builds cards: fresh `digest` from `GET /api/view`, then `POST /api/canvas-plan` with the heart token; one retry on a stale digest. A rejected batch puts the server's own error (and `field`/`expected`) into `hint`. A non-dry plan is then accepted by the tool itself: the first plan through canvas-plan + `propose_graph` + graph `accept` from agent-state, every later plan (graph already accepted) as a graph-addition proposal + its `accept` and the output gains `accepted: true\|false` (`code`/`hint` when false); `--no-accept` leaves acceptance to the human; `--example` prints the batch template that is also in the prompt (`docs/brain-heart-orchestrator.md` §3) |
 | `task --title T --do D [--why] [--file F]… [--done-when C]… [--dont-touch P]… [--node N]` | `POST /api/brain/tasks` with the heart token (only for a worker that works through the gate) |
 | `answer --ticket ID --text T` | `POST /api/gate/tickets/{id}/answer` with the heart token |
 | `cancel --task ID` | cancels a task |

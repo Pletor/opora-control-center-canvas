@@ -1,11 +1,12 @@
 """Nástroj srdce proti falešnému serveru: hlavičky, tvar úkolu, odpověď, zrušení, eskalace, paměť (`decide`, `rule`),
-`done`, chyby a dílna (`ctx`, `run`)."""
+`done`, chyby, dílna (`ctx`, `run`) a dávka plánu s přijetím (`plan`)."""
 import json
 import os
 import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import ClassVar
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -14,8 +15,12 @@ from backend.brain_opora.heart import opora_heart
 
 
 class Handler(BaseHTTPRequestHandler):
-    calls = []
+    calls: ClassVar = []
     stale = 0  # kolikrát ještě `/api/canvas-plan` odmítne zastaralý digest
+    rejected = None  # (status, tělo), kterým `/api/canvas-plan` dávku odmítne
+    states: ClassVar = []  # odpovědi `GET /api/oporahub/agent-state` po řadě (poslední se opakuje)
+    refuse = ""  # cesta, kterou server odmítne 403 (přijetí bez oprávnění)
+    manifest = None  # graphManifestId kontextu návrhů grafu (None = graf ještě není přijatý)
 
     def log_message(self, *args):
         return
@@ -38,7 +43,23 @@ class Handler(BaseHTTPRequestHandler):
             return self._reply(200, {"name": "tasks", "items": [{"taskId": "ht_1"}, {"taskId": "ht_2", "t": "č"}]})
         if url.path == "/api/view":
             return self._reply(200, {"digest": f"d{len(Handler.calls)}", "graph": {"nodes": []}})
+        if url.path == "/api/oporahub/agent-state":
+            index = sum(call["path"] == url.path for call in Handler.calls) - 1
+            return self._reply(200, Handler.states[min(index, len(Handler.states) - 1)] if Handler.states else {})
+        if url.path == Handler.refuse:
+            return self._reply(403, {"error": "Graph additions require human acceptance in the UI.",
+                                     "humanRequired": True})
+        if url.path == "/api/oporahub/graph-proposals/context":
+            return self._reply(200, {"acceptedHead": "r1" if Handler.manifest else None, "graphDigest": "gd",
+                                     "graphManifestId": Handler.manifest})
+        if url.path == "/api/oporahub/graph-proposals" and method == "POST":
+            return self._reply(200, {"id": "gp2", "refs": {ref["ref"]: "n_" + ref["ref"] for ref in body["plan"]["nodes"]},
+                                     "accepted": False})
+        if url.path.startswith("/api/oporahub/"):
+            return self._reply(200, {"id": "g1"})
         if url.path == "/api/canvas-plan":
+            if Handler.rejected:
+                return self._reply(*Handler.rejected)
             if Handler.stale:
                 Handler.stale -= 1
                 return self._reply(409, {"error": "Plátno se změnilo v jiném okně. Obnovte ho."})
@@ -74,7 +95,8 @@ def server(monkeypatch, tmp_path):
                        "OPORA_WORKSPACE": "main"}.items():
         monkeypatch.setenv(key, value)
     monkeypatch.chdir(tmp_path)
-    Handler.calls, Handler.stale = [], 0
+    Handler.calls, Handler.stale, Handler.rejected, Handler.states, Handler.refuse = [], 0, None, [], ""
+    Handler.manifest = None
     yield base
     httpd.shutdown()
 
@@ -105,9 +127,10 @@ def test_plan_sends_the_file_with_a_fresh_digest_and_retries_stale_once(server, 
     code, out = run(capsys, "plan", "--file", "plan.json", "--dry-run")
     assert code == 0 and json.loads(out) == {"ok": True, "dryRun": True, "refs": {"hero": "n_1"}, "summary": "1 karta",
                                              "warnings": []}
-    view, post = Handler.calls
+    context, view, post = Handler.calls
+    assert context["path"] == "/api/oporahub/graph-proposals/context"
     assert view["path"] == "/api/view" and view["query"] == {"project": ["p1"], "workspace": ["main"]}
-    assert post["body"] == {"project": "p1", "workspace": "main", "digest": "d1", "plan": plan, "dryRun": True}
+    assert post["body"] == {"project": "p1", "workspace": "main", "digest": "d2", "plan": plan, "dryRun": True}
     assert post["headers"]["X-Opora-Gate-Token"] == "tok-heart"
     Handler.calls, Handler.stale = [], 1
     code, out = run(capsys, "plan", "--file", "plan.json")
@@ -245,7 +268,8 @@ time.sleep(60)
 
 def alive(pid):
     if os.name == "nt":  # os.kill(pid, 0) by na Windows proces ukončil
-        listed = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True)
+        listed = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True,
+                                check=False)
         return str(pid) in listed.stdout
     try:
         os.kill(pid, 0)
@@ -266,3 +290,115 @@ def test_timeout_kills_the_whole_tree_with_sub_processes(dilna, capsys, monkeypa
     while alive(child) and time.time() < deadline:
         time.sleep(0.1)
     assert not alive(child)
+
+
+PROPOSE = {"verb": "propose_graph", "method": "POST", "path": "/api/oporahub/graph-proposals", "status": "ready",
+           "preconditions": {"parentRevision": None, "expectedGraphDigest": "g", "subject": "Graf",
+                             "plan": {"nodes": [], "edges": []}}}
+ACCEPT = {"verb": "accept", "method": "POST", "path": "/api/oporahub/graph-proposals/gp1/accept", "status": "blocked",
+          "blockReason": "human_only", "preconditions": {"expectedAcceptedHead": None, "expectedGraphDigest": "g",
+                                                         "adoptBaseGraphDigest": "g"}}
+FOREIGN = {"verb": "accept", "method": "POST", "path": "/api/oporahub/content-changes/c1/accept", "status": "blocked",
+           "blockReason": "human_only", "preconditions": {}}
+CLAIM = {"verb": "claim", "method": "POST", "path": "/api/oporahub/executions/claim", "status": "ready"}
+
+
+def plan_file(tmp_path):
+    (tmp_path / "plan.json").write_text(json.dumps(opora_heart.PLAN_EXAMPLE, ensure_ascii=False), encoding="utf-8")
+    return "plan.json"
+
+
+def test_plan_accepts_the_graph_with_the_heart_token_and_leaves_foreign_proposals(server, capsys, tmp_path):
+    Handler.states = [{"actions": [PROPOSE, FOREIGN]}, {"actions": [ACCEPT, FOREIGN]},
+                      {"actions": [CLAIM, FOREIGN], "heads": {"workingDiffers": False}}]
+    code, out = run(capsys, "plan", "--file", plan_file(tmp_path))
+    result = json.loads(out)
+    assert code == 0 and result["accepted"] is True and result["acceptSteps"] == ["propose_graph", "accept"]
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/canvas-plan", PROPOSE["path"], ACCEPT["path"]]
+    assert posts[1]["body"] == {"project": "p1", "workspace": "main", **PROPOSE["preconditions"]}
+    assert posts[2]["body"] == {"project": "p1", "workspace": "main", **ACCEPT["preconditions"]}
+    assert all(call["headers"]["X-Opora-Gate-Token"] == "tok-heart" for call in posts)
+
+
+def test_plan_reports_an_unaccepted_plan_with_a_code_and_hint(server, capsys, tmp_path):
+    name = plan_file(tmp_path)
+    Handler.states, Handler.refuse = [{"actions": [ACCEPT]}], ACCEPT["path"]
+    result = json.loads(run(capsys, "plan", "--file", name)[1])
+    assert (result["accepted"], result["code"], result["acceptSteps"]) == (False, "http_403", [])
+    assert "human acceptance" in result["error"] and result["hint"]
+    Handler.calls, Handler.refuse = [], ""
+    Handler.states = [{"actions": [CLAIM], "heads": {"workingDiffers": True}}]
+    result = json.loads(run(capsys, "plan", "--file", name)[1])
+    assert (result["accepted"], result["code"]) == (False, "plan_not_accepted") and result["hint"]
+    Handler.calls = []
+    code, out = run(capsys, "plan", "--file", name, "--no-accept")
+    assert code == 0 and json.loads(out)["accepted"] is False
+    assert [call["path"] for call in Handler.calls] == ["/api/oporahub/graph-proposals/context", "/api/view",
+                                                        "/api/canvas-plan"]
+    Handler.calls = []
+    assert "accepted" not in json.loads(run(capsys, "plan", "--file", name, "--dry-run")[1])
+    assert [call["path"] for call in Handler.calls] == ["/api/oporahub/graph-proposals/context", "/api/view",
+                                                        "/api/canvas-plan"]
+
+
+def test_rejected_plan_hint_carries_the_server_text_and_field(server, capsys, tmp_path):
+    name = plan_file(tmp_path)
+    Handler.rejected = (409, {"error": "nodes[0]: neznámé pole files, id, title, why"})
+    code, out = run(capsys, "plan", "--file", name, "--dry-run")
+    result = json.loads(out)
+    assert code == 1 and result["code"] == "http_409"
+    assert "nodes[0]: neznámé pole files, id, title, why" in result["hint"] and "plan --example" in result["hint"]
+    Handler.rejected = (422, {"error": "Krok plánu: …", "code": "invalid_payload", "field": "spec.steps",
+                              "expected": "pole kroků", "example": [{"id": "s1"}]})
+    result = json.loads(run(capsys, "plan", "--file", name)[1])
+    assert result["field"] == "spec.steps" and result["example"] == [{"id": "s1"}]
+    assert "Krok plánu: …" in result["hint"] and "Pole spec.steps: pole kroků." in result["hint"]
+    Handler.rejected = (409, {"error": "Cyklus.", "code": "card_cycle", "hint": "Vlastní rada serveru."})
+    assert json.loads(run(capsys, "plan", "--file", name)[1])["hint"] == "Vlastní rada serveru."
+
+
+def test_plan_example_prints_the_batch_and_plan_needs_a_file(server, capsys):
+    code, out = run(capsys, "plan", "--example")
+    assert code == 0 and json.loads(out) == opora_heart.PLAN_EXAMPLE and Handler.calls == []
+    code, out = run(capsys, "plan")
+    assert code == 1 and json.loads(out)["code"] == "plan_file" and "--example" in json.loads(out)["hint"]
+
+
+def test_plan_over_an_accepted_graph_goes_as_a_graph_proposal_and_accepts_it(server, capsys, tmp_path):
+    Handler.manifest = "m1"
+    code, out = run(capsys, "plan", "--file", plan_file(tmp_path))
+    result = json.loads(out)
+    assert code == 0 and result["accepted"] is True and result["acceptSteps"] == ["graph_addition", "accept"]
+    assert result["refs"] == {"mvp": "n_mvp", "model": "n_model", "cli": "n_cli"} and result["proposalId"] == "gp2"
+    assert result["warnings"] == ["Pole card, checks se do přírůstku nad přijatým grafem nepřenáší."]
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/oporahub/graph-proposals",
+                                                "/api/oporahub/graph-proposals/gp2/accept"]
+    proposal = posts[0]["body"]
+    assert (proposal["parentRevision"], proposal["expectedGraphDigest"]) == ("r1", "gd")
+    assert all(not {"card", "checks"} & set(node) for node in proposal["plan"]["nodes"])
+    assert proposal["plan"]["nodes"][1]["spec"] == opora_heart.PLAN_EXAMPLE["nodes"][1]["spec"]
+    assert posts[1]["body"] == {"project": "p1", "workspace": "main", "expectedAcceptedHead": "r1",
+                                "expectedGraphDigest": "gd", "adoptBaseGraphDigest": None}
+    Handler.calls = []
+    result = json.loads(run(capsys, "plan", "--file", "plan.json", "--no-accept")[1])
+    assert result["accepted"] is False and [call["path"] for call in Handler.calls if call["method"] == "POST"] == [
+        "/api/oporahub/graph-proposals"]
+    Handler.calls = []
+    result = json.loads(run(capsys, "plan", "--file", "plan.json", "--dry-run")[1])
+    dry = [call for call in Handler.calls if call["method"] == "POST"]
+    assert result["dryRun"] is True and [call["path"] for call in dry] == ["/api/canvas-plan"]
+    assert dry[0]["body"]["dryRun"] is True and "card" not in dry[0]["body"]["plan"]["nodes"][1]
+
+
+def test_addition_refuses_fields_a_graph_proposal_cannot_carry(server, capsys, tmp_path):
+    Handler.manifest = "m1"
+    bad = {"nodes": [{"ref": "a", "kind": "node", "name": "A", "blocks": [{"ref": "b", "title": "B"}]}]}
+    (tmp_path / "bad.json").write_text(json.dumps(bad), encoding="utf-8")
+    result = json.loads(run(capsys, "plan", "--file", "bad.json")[1])
+    assert result["code"] == "plan_shape" and "blocks" in result["error"] and "návrh grafu" in result["hint"]
+    edge = {"nodes": [], "edges": [{"from": "a", "to": "b", "port": "block"}]}
+    (tmp_path / "edge.json").write_text(json.dumps(edge), encoding="utf-8")
+    assert json.loads(run(capsys, "plan", "--file", "edge.json")[1])["code"] == "plan_shape"
+    assert not [call for call in Handler.calls if call["method"] == "POST"]
