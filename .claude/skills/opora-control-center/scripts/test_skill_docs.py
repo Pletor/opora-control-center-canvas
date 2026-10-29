@@ -165,7 +165,7 @@ def test_drawing_sketch_example_passes_backend_and_marks_stale(tmp_path):
 # Feed událostí (`/api/oporahub/events*`) už je v běžné tabulce (PR card-dag-events je v zásobníku).
 PENDING_ROUTES = {}
 # Zmíněné záměrně jako neexistující (provoz.md: „Cesta /api/status neexistuje“).
-NOT_ROUTES = {"/api/status"}
+NOT_ROUTES = {"/api/status", "/api/brain_opora/mcp/opora_mcp.py"}  # druhá = cesta k souboru v gate.md
 MENTION = re.compile(r"/api/[A-Za-z0-9_./{}<>-]*[A-Za-z0-9}>]")
 PLACEHOLDER = re.compile(r"^(\{[^}]*\}|<[^>]*>|[A-Z][A-Z0-9_]*)$")
 

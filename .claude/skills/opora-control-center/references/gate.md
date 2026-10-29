@@ -1,9 +1,10 @@
 # Brána mozku: práce pracovníka přes frontu úkolů
 
 Kdy mě číst: projekt má zapnutou bránu mozku (`GET /api/brain/gate-setting?project=P` → `enabled: true`) a ty jsi
-pracovník (např. z agent-office). Do takového projektu nezapisuješ přímo: každý zápis mimo bránu dostane 403
-`gate_required`. Úkol si vezmeš z fronty, uděláš ho ve svém repu, spustíš kontroly a nahlásíš sha. Kontrakt:
-`docs/brain-gate.md` §4 a §6 (H1b).
+pracovník (např. z agent-office). Do takového projektu nezapisuješ přímo: zápis mimo bránu dostane 403
+`gate_required`, kromě pruhu práce na kartě (`executions`, review, `agent-output`; orchestrátor karet viz
+[srdce.md](srdce.md)). Úkol si vezmeš z fronty, uděláš ho ve svém repu, spustíš kontroly a nahlásíš sha. Kontrakt:
+`docs/brain-gate.md` §3, §4 a §6 (H1b).
 
 ## Klient `opora_gate.py` (jen standardní knihovna)
 
@@ -11,6 +12,7 @@ pracovník (např. z agent-office). Do takového projektu nezapisuješ přímo: 
 python "<SKILL_DIR>/scripts/opora_gate.py" session --project P --workspace W --name office-dev-1
 python "<SKILL_DIR>/scripts/opora_gate.py" next
 python "<SKILL_DIR>/scripts/opora_gate.py" ask "Smím upravit sdílený modul X?"
+python "<SKILL_DIR>/scripts/opora_gate.py" change "Rozděl kartu X na dvě." --reason "…" [--task ht_…]
 python "<SKILL_DIR>/scripts/opora_gate.py" report --task ht_… --sha "$(git rev-parse HEAD)" --summary "…" \
   --check "npm test=green" --check "uv run pytest backend/x=green"
 python "<SKILL_DIR>/scripts/opora_gate.py" release --task ht_… --reason "Úkol potřebuje soubor z dontTouch."
@@ -43,6 +45,7 @@ python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
 |---|---|---|
 | `/api/gate/sessions` | kdokoli na loopbacku | `POST {project, workspace, worker: {name, office?, floor?}}` → `201 {sessionId, token, expiresAt}` |
 | `/api/gate/requests` | token pracovníka | `POST {kind: next \| ask \| report \| release \| change, body}` → `201 {ticketId, seq, kind, status, answer?}`; `next`, `report` a `release` odpoví hned |
+| `/api/gate/kinds` | kdokoli na loopbacku | `GET` → druhy lístků pro roli volajícího (bez tokenu a s tokenem pracovníka druhy pracovníka) |
 | `/api/gate/inbox` | token pracovníka | `GET ?after=<answeredSeq>&wait=0..30` → `{tickets, last}` (long-poll) |
 | `/api/gate/tickets/{ticket_id}` | token (vlastní lístek) nebo člověk s `?project=` | `GET` lístek |
 | `/api/gate/tickets/{ticket_id}/answer` | jen člověk | `POST {answer}` na čekající `ask` / `change` |

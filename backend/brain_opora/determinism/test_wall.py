@@ -46,6 +46,26 @@ def test_refusals_carry_code_and_hint():
     assert wall.decide("POST", PLAN, "unknown", True, None, "draft").hint == wall.GATE_HINT
 
 
+LANE_PATHS = ("/api/oporahub/executions/claim", "/api/oporahub/executions/e1/deliver",
+              "/api/oporahub/executions/e1/heartbeat", "/api/oporahub/harness-invocations",
+              "/api/oporahub/review-identities/claim", "/api/desktop-v3/agent-output")
+WALLED = (PLAN, "/api/oporahub/graph-proposals", "/api/desktop-v3/node", "/api/desktop-v3/rule",
+          "/api/oporahub/executionsX", "/api/oporahub/review-identities/i1/verify", "/api/desktop-v3/agent-outputs")
+
+
+def test_lane_lets_card_work_through_without_token():
+    for path in LANE_PATHS:
+        for token in (None, wall.INVALID, WORKER, {"role": "worker", "project": "jiny"}):
+            assert wall.decide("POST", path, "agent", True, token, "draft") is wall.ALLOW, (path, token)
+
+
+def test_canvas_and_rules_stay_with_heart_and_human():
+    for path in WALLED:
+        assert wall.decide("POST", path, "agent", True, None, "draft").code == "gate_required", path
+        assert wall.decide("POST", path, "human", True, None, "draft") is wall.ALLOW
+        assert wall.decide("POST", path, "agent", False, None, "draft") is wall.ALLOW
+
+
 @pytest.fixture
 def service(tmp_path):
     canvas = CanvasService(tmp_path / "data")
@@ -68,6 +88,8 @@ def test_check_reads_switch_and_verifies_token(service):
     assert check(header=heart, body="jiny").code == "gate_scope"  # dva různé projekty, jeden se zapnutou bránou
     worker = tokens.issue_worker(service, "draft", "draft", {"name": "dev"})["token"]
     assert check(header=worker).code == "gate_required"
+    claim = wall.check(service, "POST", "/api/oporahub/executions/claim", "agent", None, "draft", lambda: "")
+    assert claim is wall.ALLOW  # pruh orchestrátora i se zapnutou bránou
     assert check(actor="human") is wall.ALLOW and check(method="GET") is wall.ALLOW
 
 
