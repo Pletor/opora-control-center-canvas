@@ -43,10 +43,28 @@ def test_settings_deny_writes_into_the_source_and_disable_hooks(tmp_path):
     root = command.rule_path(tmp_path / "src")
     assert value["disableAllHooks"] is True and root.startswith("//") and "\\" not in root
     assert {f"Edit({root}/**)", f"Write({root}/**)", "NotebookEdit", "Read(**/.env)"} <= set(value["permissions"]["deny"])
+    assert value["permissions"]["allow"] == []
     settings_path, mcp_path = command.write_config(tmp_path / "brain", tmp_path / "src")
-    assert json.loads(settings_path.read_text(encoding="utf-8")) == value
+    assert json.loads(settings_path.read_text(encoding="utf-8")) == command.settings(tmp_path / "src", tmp_path / "brain")
     assert json.loads(mcp_path.read_text(encoding="utf-8")) == {"mcpServers": {}}
     assert (tmp_path / "brain" / "opora_heart.py").read_bytes() == command.TOOL_FILE.read_bytes()
+    dilna = tmp_path / "brain" / "dilna"
+    assert (dilna / "rlm.py").read_bytes() == command.RLM_FILE.read_bytes()
+    assert all((dilna / folder).is_dir() for folder in ("data", "scripts", "out"))
+
+
+def test_writes_are_allowed_only_in_workshop_scripts_and_out(tmp_path):
+    brain = tmp_path / "my brain"
+    permissions = command.settings(tmp_path / "src", brain)["permissions"]
+    dilna = command.rule_path(brain / "dilna")
+    assert permissions["allow"] == [f"Write({dilna}/scripts/**)", f"Write({dilna}/out/**)",
+                                    f"Edit({dilna}/scripts/**)", f"Edit({dilna}/out/**)"]
+    root = command.rule_path(brain)
+    for path in (f"{root}/*.json", f"{root}/*.jsonl", f"{root}/*.py", f"{dilna}/*.py", f"{dilna}/*.jsonl",
+                 f"{dilna}/data/**"):
+        assert {f"Write({path})", f"Edit({path})"} <= set(permissions["deny"])
+    assert "Write" in command.TOOLS.split(",") and "Edit" in command.TOOLS.split(",")
+    assert "Write" not in command.ALLOWED_TOOLS and "Edit" not in command.ALLOWED_TOOLS  # povolení jen s cestou
 
 
 @pytest.mark.skipif(os.name != "nt", reason="disková písmena jen na Windows")
@@ -61,6 +79,10 @@ def test_child_env_strips_api_keys_and_sets_the_heart():
     assert not set(command.STRIPPED) & set(env) and env["PATH"] == "/bin"
     assert (env["OPORA_BASE_URL"], env["OPORA_HEART_TOKEN"], env["OPORA_PROJECT"], env["OPORA_WORKSPACE"]) == (
         "http://127.0.0.1:9", "t", "p", "w")
+    assert "OPORA_SOURCE_ROOT" not in env
+    sourced = command.child_env(base_url="b", token="t", project="p", workspace="w", source_root="/src",
+                                environ={"OPORA_SOURCE_ROOT": "/stary"})
+    assert sourced["OPORA_SOURCE_ROOT"] == "/src"
 
 
 def test_find_claude_prefers_exe_on_windows():

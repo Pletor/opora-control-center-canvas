@@ -39,7 +39,7 @@ def test_render_prefers_project_goal_and_falls_back_to_cards():
     text = snapshot.render(facts)
     assert "ZÁMĚR: Prodat sazenice." in text and "- Domů · home · ready" in text
     empty = snapshot.render({**facts, "goal": "", "cards": [], "tasks": [], "tickets": [], "checks": []})
-    assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 6  # lístky, kontroly a čtyři části okolí
+    assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 7  # lístky, kontroly, čtyři části okolí a dílna
 
 
 def test_render_is_cut_at_the_hard_limit():
@@ -70,7 +70,7 @@ MEMORY = {"messages": [{"at": f"2026-10-29T10:0{i}:00Z", "workspace": "main", "t
           "journal": [{"at": "2026-10-29T09:00:00Z", "status": "ok", "summary": "Dva úkoly zadány."},
                       {"at": "2026-10-29T09:30:00Z", "status": "error", "summary": None}]}
 ORDER = ["PROJEKT", "ZÁMĚR:", "ZPRÁVY ČLOVĚKA:", "PRAVIDLA:", "ROZHODNUTÍ:", "PLÁN:", "FRONTA ÚKOLŮ:",
-         "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:", "DENÍK:"]
+         "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:", "DENÍK:", "DÍLNA:"]
 
 
 def _block(text, head):
@@ -149,3 +149,16 @@ def test_collect_unreadable_sources_are_empty_sections(service):
         assert _block(text, head) == ["- žádné"]
     del service.desktop_v3_state
     assert _block(snapshot.snapshot(service, "draft", "draft"), "PRAVIDLA:") == ["- žádné"]  # skutečná prázdná paměť
+
+
+def test_workshop_lists_scripts_after_the_journal(service):
+    scripts = brain_files.brain_dir(service, "draft") / brain_files.SCRIPTS
+    scripts.mkdir(parents=True)
+    (scripts / "b_count.py").write_text('"""Spočítá úkoly podle stavu.\n\nDruhý řádek."""\n', encoding="utf-8")
+    (scripts / "a_bare.py").write_text("print(1)\n", encoding="utf-8")
+    (scripts / "c_broken.py").write_text("def (:\n", encoding="utf-8")
+    text = snapshot.snapshot(service, "draft", "draft")
+    assert text.index("DENÍK:") < text.index("DÍLNA:")
+    assert _block(text, "DÍLNA:") == ["- a_bare", "- b_count: Spočítá úkoly podle stavu.", "- c_broken"]
+    many = {**FACTS, "scripts": [(f"s{i:02}", "x") for i in range(30)]}
+    assert len(_block(snapshot.render(many), "DÍLNA:")) == snapshot.SCRIPTS

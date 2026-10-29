@@ -64,6 +64,14 @@ Modules (K1, contract `docs/brain-heart.md` §3a, the heart's surroundings):
   The `gate.ticket` event of a new ticket carries `from` (the session role), so the heart's own escalation does not
   wake it.
 
+Modules (K3, contract `docs/brain-heart.md` §3b, the heart's workshop):
+- `workshop.py`: `context(service, project, workspace, name)` = the data of `ctx <name>`: `tasks`, `tickets`,
+  `journal`, `messages`, `rules`, `decisions` (all, not capped like the snapshot) and `tree` (source files
+  `{path, size, mtime}` without `node_modules`, `.git`, build output and links, ≤ 20 000). Route
+  `GET /api/brain/heart/context` (heart token of the same project and workspace only).
+- `brain_files.scripts` + `snapshot.py`: section `DÍLNA` after `DENÍK` = the scripts in `brain/dilna/scripts/` with
+  the first docstring line (≤ 15).
+
 Still planned:
 - `events.py`: reads `opora_events` and `PROCESS_SIGNAL` and turns them into wake-up candidates.
 - `tool_policy.py`: tool classification for the heart (the old assistant's `approvals.py` was deleted in H2b2b; today

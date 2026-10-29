@@ -19,3 +19,4 @@ def test_journal_reads_last_entries_and_survives_missing_file(tmp_path):
     (tmp_path / brain_files.JOURNAL).write_text("\n".join(f'{{"at": "t{i}", "summary": "s{i}"}}' for i in range(8)),
                                                 encoding="utf-8")
     assert [entry["summary"] for entry in brain_files.journal(tmp_path, 3)] == ["s5", "s6", "s7"]
+    assert len(brain_files.journal(tmp_path, None)) == 8  # None = celý deník (ctx journal)

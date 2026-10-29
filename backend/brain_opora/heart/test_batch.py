@@ -94,3 +94,24 @@ def test_advisor_is_dropped_after_the_daily_cap(tmp_path):
     second = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
     assert batch.run(spec(tmp_path), second, clock(day + 2, day + 3))["advisor"] is False
     assert "--advisor" not in second.calls[0]["line"]
+
+
+def test_sub_cost_sums_workshop_runs_since_the_batch_started(tmp_path):
+    runs = tmp_path / "brain" / batch.RUNS
+    runs.parent.mkdir(parents=True)
+    runs.write_text(json.dumps({"at": "1970-01-01T00:00:10Z", "subCostUsd": 5.0}) + "\n", encoding="utf-8")
+
+    class Runs(FakeRunner):
+        def __call__(self, line, **kwargs):
+            with runs.open("a", encoding="utf-8") as file:
+                for cost in (0.01, 0.0025):
+                    file.write(json.dumps({"at": "1970-01-01T00:01:41Z", "script": "x", "subCostUsd": cost}) + "\n")
+                file.write("rozbitý řádek\n")
+            return super().__call__(line, **kwargs)
+
+    runner = Runs(Outcome(0, json.dumps(RESULT), ""))
+    entry = batch.run(batch.BatchSpec(**{**vars(spec(tmp_path)), "source_root": tmp_path}), runner, clock(100.0, 101.0))
+    assert entry["subCostUsd"] == 0.0125
+    assert runner.calls[0]["env"]["OPORA_SOURCE_ROOT"] == str(tmp_path)
+    assert (tmp_path / "brain" / "dilna" / "rlm.py").is_file() and (tmp_path / "brain" / "dilna" / "scripts").is_dir()
+    assert batch.sub_cost(tmp_path / "nic", "1970") == 0.0

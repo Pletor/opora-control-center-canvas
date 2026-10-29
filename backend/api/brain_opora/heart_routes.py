@@ -6,6 +6,8 @@
 - `GET /api/brain/heart/escalations?project&workspace`: jen člověk; otevřené otázky srdce pro člověka, od nejnovější
   (docs/brain-heart-channel.md §2). Odpověď jde přes `POST /api/gate/tickets/{id}/answer` a srdce budí.
 - `GET /api/brain/heart/snapshot?project&workspace`: deterministický snímek (čtení je volné).
+- `GET /api/brain/heart/context?project&workspace&name`: jen token srdce svého projektu a prostoru; data dílny
+  `{name, items}` pro `ctx <name>` (`determinism/workshop.py`, §3b). Pracovník ani člověk je nečtou.
 - `POST /api/brain/heart/escalate {project, workspace, text}`: jen token srdce; lístek `ask` pro člověka
   (`gate.escalate`, stejná funkce jako druh brány `escalate`).
 Celá cesta je jen pro loopback (`backend/app/remote_access.py`). Odmítnutí nese `code` a `hint`.
@@ -15,7 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
-from backend.brain_opora.determinism import gate, gate_setting, snapshot, tokens
+from backend.brain_opora.determinism import gate, gate_setting, snapshot, tokens, workshop
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid, parse_body
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
@@ -88,6 +90,20 @@ def create_heart_router(service, supervisor):
             if not valid_id(workspace):
                 raise invalid("Chybí ?workspace=.", "Přidejte ?project=<id>&workspace=<main | draft | id>.")
             return {"snapshot": snapshot.snapshot(service, _project(service, project), workspace)}
+        except GateError as error:
+            return _refused(error)
+
+    @router.get("/context", responses=models.answers(200, models.ContextOut, 401, 403, 404, 422))
+    def context(request: Request, project: str = "", workspace: str = "", name: str = ""):
+        try:
+            if not valid_id(workspace):
+                raise invalid("Chybí ?workspace=.", "Přidejte ?project=<id>&workspace=<main | draft | id>&name=tasks.")
+            session = gate.authenticate(service, request.headers.get(tokens.HEADER), _project(service, project),
+                                        ("heart",))
+            if session["workspace_id"] != workspace:
+                raise GateError(403, "gate_scope", "Token srdce platí jen pro svůj pracovní prostor.",
+                                "Použijte OPORA_WORKSPACE z prostředí dávky.")
+            return {"name": name, "items": workshop.context(service, project, workspace, name)}
         except GateError as error:
             return _refused(error)
 

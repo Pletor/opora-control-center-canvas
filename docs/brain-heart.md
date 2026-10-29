@@ -122,8 +122,9 @@ brain/dilna/
   rlm.py     helper library, copied by the supervisor before each batch (like opora_heart.py)
 ```
 
-- **Write rights.** The heart gets `Write` and `Edit` only for `brain/dilna/scripts/**` and `brain/dilna/out/**`.
-  Everything else stays denied (source root, secrets, the rest of `brain/`).
+- **Write rights.** The heart gets `Write` and `Edit` only for `brain/dilna/scripts/**` and `brain/dilna/out/**`,
+  as absolute `allow` rules in the batch settings file (not in `--allowedTools`, where a space in the path would
+  split the rule). Everything else stays denied (source root, secrets, the rest of `brain/`).
 - **`ctx <name>`** (deterministic, no model) writes `data/<name>.json`: `tasks` (all tasks with body and report),
   `tickets` (all tickets of the workspace), `journal` (all batches), `messages`, `rules` and `decisions`
   (Desktop v3), `tree` (source files of the workspace with size and mtime, without `node_modules`, `.git` and

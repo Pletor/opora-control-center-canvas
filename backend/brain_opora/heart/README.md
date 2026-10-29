@@ -25,8 +25,18 @@ Modules (H2a):
   `claude.cmd` / `claude`.
 - `session.py`: `brain/session.json = {sessionId, batches, lastInputTokens}`; a new session above 60k input tokens
   or after a failed batch.
-- `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `decide`, `rule`, `done`).
-  It is copied into `brain/` before each batch so the Bash rule is `Bash(python opora_heart.py:*)`.
+- `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `decide`, `rule`, `done`,
+  and the workshop's `ctx`, `run`). It is copied into `brain/` before each batch so the Bash rule is
+  `Bash(python opora_heart.py:*)`.
+- Workshop (K3, `docs/brain-heart.md` §3b): `write_config` creates `brain/dilna/{data,scripts,out}` and copies
+  `rlm.py` there. `ctx <name>` writes `GET /api/brain/heart/context` (`determinism/workshop.py`) to
+  `dilna/data/<name>.json`; `run <script>` runs `dilna/scripts/<script>.py` with `python -I` (a `-c` loader puts
+  `dilna/` on `sys.path` for `import rlm`), cwd `dilna/`, 120 s, without the heart token, base URL and API keys,
+  and appends `{at, script, args, exit, ms, subCalls, subCostUsd}` to `dilna/runs.jsonl`. `rlm.py` (stdlib):
+  `load`, `files`, `read`, `grep` (read only, inside `OPORA_SOURCE_ROOT`), `chunks`, `sub` (one tool-less
+  `claude -p --model haiku` per item, ≤ 20 per run counted in `OPORA_RLM_LOG`, depth 1). Write/Edit are allowed only
+  by the settings `allow` rules for `dilna/scripts/**` and `dilna/out/**`; `batch.py` sums the run costs into
+  `subCostUsd` of the journal entry.
 - `prompt.md`: the heart's role, task shape with a full example, application-wide rules, when to ask the advisor.
 
 The heart token comes from `tokens.issue_heart` once per project and workspace; it lives only in memory and in the
