@@ -450,7 +450,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_auto_rebase_router(service))
     app.include_router(create_strazci_router(service, guardian))
     app.include_router(create_opora_history_router(service))
-    app.include_router(create_gate_router(service))  # brána mozku (docs/brain-gate.md §4)
+    app.include_router(create_gate_router(service, heart))  # brána mozku (docs/brain-gate.md §4)
     app.include_router(create_brain_router(service))  # přepínač brány (docs/brain-gate.md §1)
     app.include_router(create_heart_router(service, heart))  # srdce mozku (docs/brain-heart.md §1)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací

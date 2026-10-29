@@ -169,6 +169,17 @@ class EscalateOut(BaseModel):
     status: str
 
 
+class Escalation(BaseModel):
+    ticketId: str
+    text: str
+    createdAt: str
+    taskId: str | None = None
+
+
+class EscalationsOut(BaseModel):
+    escalations: list[Escalation]
+
+
 def _inline(schema, defs):
     """Schéma bez `$ref` na `$defs`: vnořené modely se vloží přímo (tělo není v components)."""
     if isinstance(schema, dict):

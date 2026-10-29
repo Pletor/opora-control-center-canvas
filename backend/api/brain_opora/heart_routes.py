@@ -2,6 +2,8 @@
 
 - `POST /api/brain/heart/messages {project, workspace, text}`: jen člověk; vstup do supervisoru, budí hned.
 - `GET /api/brain/heart/status?project=`: relace, posledních 5 dávek, spánek a nejbližší povolený čas.
+- `GET /api/brain/heart/escalations?project&workspace`: jen člověk; otevřené otázky srdce pro člověka, od nejnovější
+  (docs/brain-heart-channel.md §2). Odpověď jde přes `POST /api/gate/tickets/{id}/answer` a srdce budí.
 - `GET /api/brain/heart/snapshot?project&workspace`: deterministický snímek (čtení je volné).
 - `POST /api/brain/heart/escalate {project, workspace, text}`: jen token srdce; lístek `ask` pro člověka
   (`gate.escalate`, stejná funkce jako druh brány `escalate`).
@@ -66,6 +68,16 @@ def create_heart_router(service, supervisor):
     def status(project: str = ""):
         try:
             return supervisor.status(_project(service, project))
+        except GateError as error:
+            return _refused(error)
+
+    @router.get("/escalations", responses=models.answers(200, models.EscalationsOut, 403, 404, 422))
+    def escalations(request: Request, project: str = "", workspace: str = ""):
+        require_human(request.state.actor, "Otázky srdce čte jen člověk v UI.")
+        try:
+            if not valid_id(workspace):
+                raise invalid("Chybí ?workspace=.", "Přidejte ?project=<id>&workspace=<main | draft | id>.")
+            return {"escalations": gate.escalations(service, _project(service, project), workspace)}
         except GateError as error:
             return _refused(error)
 

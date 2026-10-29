@@ -3,6 +3,8 @@
 Logika je v `backend/brain_opora/determinism/`: druhy požadavků v `kinds.py`, lístky a schránka v `gate.py`.
 Pracovník i srdce se prokazují hlavičkou `X-Opora-Gate-Token`; druhy srdce projdou jen s tokenem srdce.
 Na lístek odpovídá člověk (doklad UI) nebo srdce téhož projektu (`answeredBy = "heart"`, docs/brain-heart.md §5).
+Odpověď člověka na eskalaci srdce srdce hned budí (`supervisor.message`, docs/brain-heart-channel.md §2);
+odpověď na lístek pracovníka srdce nebudí.
 Každé odmítnutí je JSON s `error`, `code` a `hint`.
 """
 from fastapi import APIRouter, Request
@@ -11,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
 from backend.api.brain_opora.writer import heart_project
-from backend.brain_opora.determinism import gate, kinds, tokens
+from backend.brain_opora.determinism import gate, gate_setting, kinds, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_query, parse_body
 
 HUMAN_HINT = "Na lístek odpovídá jen člověk v UI OPORY nebo srdce projektu."
@@ -31,7 +33,16 @@ def _human_project(service, request):
     return project
 
 
-def create_gate_router(service):
+def _wake_heart(service, supervisor, project, ticket):
+    """Odpověď člověka na eskalaci srdce = zpráva člověka srdci (obchází hodinový strop, #149)."""
+    workspace = gate.heart_escalation_workspace(service, project, ticket["ticketId"])
+    if supervisor is None or workspace is None or not gate_setting.is_on(service, project):
+        return
+    supervisor.message(project, workspace,
+                       f"ODPOVĚĎ ČLOVĚKA na {ticket['ticketId']}: {gate.answer_text(ticket['answer'])}")
+
+
+def create_gate_router(service, supervisor=None):
     router = APIRouter(prefix="/api/gate", tags=["gate"])
 
     def session_of(request, roles=ROLES):
@@ -104,7 +115,10 @@ def create_gate_router(service):
                                 HUMAN_HINT)
             project = _human_project(service, request)
             payload = parse_body(await request.body())
-            return await run_in_threadpool(gate.answer, service, project, ticket_id, payload, by)
+            ticket = await run_in_threadpool(gate.answer, service, project, ticket_id, payload, by)
+            if by == "human":
+                await run_in_threadpool(_wake_heart, service, supervisor, project, ticket)
+            return ticket
         except GateError as error:
             return _refused(error)
 

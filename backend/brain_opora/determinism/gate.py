@@ -4,6 +4,7 @@ Druhy požadavků, jejich kontroly a obsluhy drží tabulka `kinds.py`; tady jso
 a jejich ověření, zápis lístku (`record`), odpověď člověka nebo srdce, eskalace srdce a schránka.
 Vytvoření i odpověď lístku vydají událost `gate.ticket`. Nic tu nevolá model.
 """
+import json
 import time
 import uuid
 
@@ -77,6 +78,29 @@ def record(service, session, kind, body, now=None, *, answered=False, answer=Non
 def escalate(service, session, text, now=None):
     """Otázka srdce pro člověka: čekající lístek `ask` `{text, for: "human"}`; srdce se na ni samo nebudí."""
     return record(service, session, "ask", {"text": text, "for": "human"}, now)
+
+
+def escalations(service, project, workspace, limit=INBOX_LIMIT):
+    """`GET /api/brain/heart/escalations`: otevřené otázky srdce pro člověka, od nejnovější."""
+    with service.reading(project):
+        tickets = GateTicketStore(service.db_for(project), project).escalations(workspace, limit)
+    return [{"ticketId": ticket["ticketId"], "text": str(ticket["body"].get("text") or ""),
+             "createdAt": ticket["createdAt"]}
+            | ({"taskId": ticket["body"]["taskId"]} if isinstance(ticket["body"].get("taskId"), str) else {})
+            for ticket in tickets]
+
+
+def heart_escalation_workspace(service, project, ticket_id):
+    """Pracovní prostor lístku, když jde o eskalaci srdce pro člověka; jinak None (lístek pracovníka)."""
+    with service.reading(project):
+        return GateTicketStore(service.db_for(project), project).heart_escalation_workspace(ticket_id)
+
+
+def answer_text(value):
+    """Text odpovědi pro srdce: `{text}` nebo řetězec beze změny, jiná hodnota JSON jako text."""
+    if isinstance(value, dict) and isinstance(value.get("text"), str):
+        return value["text"]
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
 def get_ticket(service, project, ticket_id, session=None):

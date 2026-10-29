@@ -1,0 +1,86 @@
+// Vazba kanálu Srdce na React a síť: eskalace, fronta úkolů a stav srdce jednoho pracovního prostoru.
+// Načítá se sdíleným pollerem každé 4 s, jen když je kanál vidět (ve skryté záložce poller stojí).
+// Odpověď na eskalaci a zpráva srdci po úspěchu hned požádají o nové načtení. Volá ho jen HeartChannel.
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "@/shared/hooks/logic/use-polling";
+import {
+  answerEscalation,
+  fetchEscalations,
+  fetchHeartStatus,
+  fetchQueue,
+  sendHeartMessage,
+  type Escalation,
+  type HeartStatus,
+  type QueueTask,
+} from "./heart-api";
+
+const POLL_MS = 4000;
+
+const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+export type HeartChannelData = {
+  escalations: Escalation[];
+  tasks: QueueTask[];
+  status: HeartStatus | null;
+  loaded: boolean;
+  failure: string;
+  setFailure: (text: string) => void;
+  answer: (ticketId: string, text: string) => Promise<boolean>;
+  send: (text: string) => Promise<boolean>;
+};
+
+export function useHeartChannel(active: boolean, project: string, workspace: string): HeartChannelData {
+  const [escalations, setEscalations] = useState<Escalation[]>([]);
+  const [tasks, setTasks] = useState<QueueTask[]>([]);
+  const [status, setStatus] = useState<HeartStatus | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [failure, setFailure] = useState("");
+  const scopeKey = `${project}\n${workspace}`;
+  const scopeRef = useRef(scopeKey);
+  useEffect(() => {
+    scopeRef.current = scopeKey;
+    setEscalations([]);
+    setTasks([]);
+    setStatus(null);
+    setLoaded(false);
+  }, [scopeKey]);
+
+  // Výsledek jiného projektu nebo prostoru (dotaz běžel při přepnutí) se zahodí.
+  const poll = usePolling(() => {
+    const asked = scopeKey;
+    return Promise.all([fetchEscalations(project, workspace), fetchQueue(project, workspace), fetchHeartStatus(project)])
+      .then(([nextEscalations, nextTasks, nextStatus]) => {
+        if (scopeRef.current !== asked) return;
+        setEscalations(nextEscalations);
+        setTasks(nextTasks);
+        setStatus(nextStatus);
+        setLoaded(true);
+      })
+      .catch((error) => { if (scopeRef.current === asked) setFailure(messageOf(error)); });
+  }, { intervalMs: POLL_MS, enabled: active && !!project && !!workspace, refreshKeys: [scopeKey] });
+
+  const answer = useCallback(async (ticketId: string, text: string) => {
+    try {
+      await answerEscalation(project, ticketId, text);
+      setEscalations((list) => list.filter((item) => item.ticketId !== ticketId));
+      void poll.refresh();
+      return true;
+    } catch (error) {
+      setFailure(messageOf(error));
+      return false;
+    }
+  }, [project, poll]);
+
+  const send = useCallback(async (text: string) => {
+    try {
+      await sendHeartMessage(project, workspace, text);
+      void poll.refresh();
+      return true;
+    } catch (error) {
+      setFailure(messageOf(error));
+      return false;
+    }
+  }, [project, workspace, poll]);
+
+  return { escalations, tasks, status, loaded, failure, setFailure, answer, send };
+}
