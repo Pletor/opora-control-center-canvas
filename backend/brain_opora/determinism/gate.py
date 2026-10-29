@@ -1,35 +1,19 @@
-"""Brána mozku (docs/brain-gate.md §4): relace pracovníků, lístky, odpovědi a schránka.
+"""Brána mozku (docs/brain-gate.md §4): relace, lístky, odpovědi a schránka.
 
-Pracovník (např. z agent-office) pošle požadavek a odpověď mu přijde do schránky. Registr `HANDLERS`
-drží deterministické obsluhy podle druhu: ta odpoví hned v tomtéž požadavku. `ask` a `change` obsluhu
-nemají a čekají, až odpoví člověk nebo srdce projektu. `next` a `report` obsluhuje fronta úkolů (`task_queue`, H1b).
+Druhy požadavků, jejich kontroly a obsluhy drží tabulka `kinds.py`; tady jsou společné kusy pod ní: relace
+a jejich ověření, zápis lístku (`record`), odpověď člověka nebo srdce, eskalace srdce a schránka.
 Vytvoření i odpověď lístku vydají událost `gate.ticket`. Nic tu nevolá model.
 """
-import asyncio
 import time
 import uuid
 
 from backend.brain_opora.determinism import task_queue, tokens
-from backend.brain_opora.determinism.gate_payloads import (
-    GateError,
-    answer_payload,
-    request_payload,
-    session_payload,
-)
+from backend.brain_opora.determinism.gate_payloads import GateError, answer_payload, session_payload
 from backend.canvas.opora_events import emit_event
 from database.repositories.gate_tickets import GateTicketStore
 
 INBOX_LIMIT = 100
 TOKEN_HINT = "Založte relaci: POST /api/gate/sessions a pošlete token v hlavičce X-Opora-Gate-Token."
-
-
-# Obsluha je `handler(service, session, body, now) -> odpověď`; odmítnutí hlásí `GateError` (lístek pak nevznikne).
-HANDLERS = {"next": task_queue.next_task, "report": task_queue.report}
-
-
-def register(kind, handler):
-    """Nahradí obsluhu druhu (např. v testu nebo pro další deterministický druh)."""
-    HANDLERS[kind] = handler
 
 
 def _workspace_known(service, project, workspace):
@@ -72,15 +56,10 @@ def _emit(db, project, workspace, ticket, actor, source=None):
                data=data | ({"from": source} if source else {}))
 
 
-def create_request(service, session, payload, now=None):
-    """`POST /api/gate/requests` → lístek; s deterministickou obsluhou už zodpovězený."""
-    kind, body = request_payload(payload)
+def record(service, session, kind, body, now=None, *, answered=False, answer=None):
+    """Zapíše lístek relace; s `answered` ho rovnou zodpoví brána (`answeredBy = "gate"`, audit synchronních druhů)."""
     project, workspace = session["project_id"], session["workspace_id"]
     ticket_id = "gt_" + uuid.uuid4().hex
-    handler = HANDLERS.get(kind)
-    # Obsluha běží dřív než zápis lístku a se svými zámky: odmítnutý požadavek lístek nezaloží a přehled
-    # karet pro prázdnou frontu (zámek grafu, pak projektu) se nečte pod zámkem projektu.
-    result = handler(service, session, body, now) if handler is not None else None
     with service.lock_for(project):
         db = service.db_for(project)
         with db:
@@ -88,11 +67,16 @@ def create_request(service, session, payload, now=None):
             store.insert(ticket_id, workspace, session["id"], kind, body, tokens.stamp(now))
             ticket = store.get(ticket_id)
             _emit(db, project, workspace, ticket, _actor(session), session.get("role"))
-            if handler is not None:
-                store.answer(ticket_id, result, "gate", tokens.stamp(now))
+            if answered:
+                store.answer(ticket_id, answer, "gate", tokens.stamp(now))
                 ticket = store.get(ticket_id)
                 _emit(db, project, workspace, ticket, {"kind": "system", "name": "gate"})
     return ticket
+
+
+def escalate(service, session, text, now=None):
+    """Otázka srdce pro člověka: čekající lístek `ask` `{text, for: "human"}`; srdce se na ni samo nebudí."""
+    return record(service, session, "ask", {"text": text, "for": "human"}, now)
 
 
 def get_ticket(service, project, ticket_id, session=None):
@@ -127,19 +111,16 @@ def answer(service, project, ticket_id, payload, answered_by="human", now=None):
     return ticket
 
 
-def inbox(service, session, after, limit=INBOX_LIMIT):
-    """`{tickets, last}`: zodpovězené lístky relace s `answeredSeq > after`; `last` je nejvyšší vrácené `answeredSeq`."""
-    project = session["project_id"]
-    with service.reading(project):
-        tickets = GateTicketStore(service.db_for(project), project).answered_after(session["id"], after, limit)
-    return {"tickets": tickets, "last": tickets[-1]["answeredSeq"] if tickets else after}
+def inbox(service, session, after, wait=0, limit=INBOX_LIMIT, *, interval=0.25, clock=time.monotonic,
+          sleep=time.sleep):
+    """`{tickets, last}`: zodpovězené lístky relace s `answeredSeq > after`; `last` je nejvyšší vrácené `answeredSeq`.
 
-
-async def long_poll(fetch, wait, *, interval=0.25, clock=time.monotonic, sleep=asyncio.sleep):
-    """Volá `fetch()` (async), dokud nevrátí neprázdné `tickets` nebo neuplyne `wait` sekund."""
-    deadline = clock() + wait
-    result = await fetch()
-    while not result["tickets"] and clock() < deadline:
-        await sleep(min(interval, max(deadline - clock(), 0)))
-        result = await fetch()
-    return result
+    S `wait > 0` čeká (long-poll), dokud takový lístek nevznikne nebo neuplyne `wait` sekund.
+    """
+    project, deadline = session["project_id"], clock() + wait
+    while True:
+        with service.reading(project):
+            tickets = GateTicketStore(service.db_for(project), project).answered_after(session["id"], after, limit)
+        if tickets or clock() >= deadline:
+            return {"tickets": tickets, "last": tickets[-1]["answeredSeq"] if tickets else after}
+        sleep(min(interval, max(deadline - clock(), 0)))

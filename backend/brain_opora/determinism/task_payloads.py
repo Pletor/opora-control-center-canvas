@@ -61,23 +61,30 @@ def task_body(body):
     return full
 
 
-def task_payload(payload):
-    """`{project, workspace, nodeId?, order?, title, body}` → `(project, workspace, nodeId, title, body, order)`."""
-    if not isinstance(payload, dict) or not {"project", "workspace", "title", "body"} <= set(payload) \
-            or not set(payload) <= {"project", "workspace", "nodeId", "order", "title", "body"}:
-        raise invalid("Úkol potřebuje project, workspace, title a body (nodeId a order jsou volitelné).", TASK_HINT)
-    order = payload.get("order", 0)
+def task_fields(payload):
+    """`{nodeId?, order?, title, body}` → `(nodeId, title, body, order)`; projekt a prostor dodá volající."""
+    if not isinstance(payload, dict) or not {"title", "body"} <= set(payload)             or not set(payload) <= {"nodeId", "order", "title", "body"}:
+        raise invalid("Úkol potřebuje title a body (nodeId a order jsou volitelné).", TASK_HINT)
+    order, node = payload.get("order", 0), payload.get("nodeId")
     if type(order) is not int or not 0 <= order <= MAX_ORDER:
         raise invalid(f"order je celé číslo 0 až {MAX_ORDER}; nižší jde dřív, při shodě rozhoduje pořadí vzniku.",
                       TASK_HINT)
-    project, workspace, node = payload["project"], payload["workspace"], payload.get("nodeId")
-    if not (project == "draft" or valid_id(project)) or not valid_id(workspace):
-        raise invalid("Neplatné ID projektu nebo pracovního prostoru.", TASK_HINT)
     if node is not None and not valid_id(node):
         raise invalid("nodeId je ID karty (písmena, číslice, _ a -).", TASK_HINT)
     if not _text(payload["title"], TITLE_LIMIT, True):
         raise invalid(f"title je neprázdný text do {TITLE_LIMIT} znaků.", TASK_HINT)
-    return project, workspace, node, payload["title"].strip(), task_body(payload["body"]), order
+    return node, payload["title"].strip(), task_body(payload["body"]), order
+
+
+def task_payload(payload):
+    """`{project, workspace, nodeId?, order?, title, body}` → `(project, workspace, nodeId, title, body, order)`."""
+    if not isinstance(payload, dict) or not {"project", "workspace"} <= set(payload):
+        raise invalid("Úkol potřebuje project, workspace, title a body (nodeId a order jsou volitelné).", TASK_HINT)
+    project, workspace = payload["project"], payload["workspace"]
+    if not (project == "draft" or valid_id(project)) or not valid_id(workspace):
+        raise invalid("Neplatné ID projektu nebo pracovního prostoru.", TASK_HINT)
+    rest = {key: value for key, value in payload.items() if key not in ("project", "workspace")}
+    return project, workspace, *task_fields(rest)
 
 
 def status_filter(status):

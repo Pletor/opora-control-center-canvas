@@ -45,7 +45,8 @@ or the body, the same way `_authority` does it.
 | Call | Body / query | Answer |
 |---|---|---|
 | `POST /api/gate/sessions` | `{project, workspace, worker: {name, office?, floor?}}` | `201 {sessionId, token, expiresAt}` |
-| `POST /api/gate/requests` | header token; `{kind, body}` with `kind ∈ next \| ask \| report \| change` | `201 {ticketId, seq, kind, status, answer?}` |
+| `GET /api/gate/kinds` | header token, or none | `200 {role, kinds}`: the kinds of the caller's role with schemas, example and error codes (`docs/brain-control-api.md` §1) |
+| `POST /api/gate/requests` | header token (worker or heart); `{kind, body}` with a kind from `determinism/kinds.py` | `201 {ticketId, seq, kind, status, answer?}`; a worker sending a heart kind gets 403 `heart_required` |
 | `GET /api/gate/inbox` | header token; `?after=<answeredSeq>&wait=<0..30>` | `200 {tickets: [...], last}`: answered tickets of **this session** with `answeredSeq > after`, in answer order (`answeredSeq` grows per project on every answer, so a ticket answered late is never lost behind the cursor). With `wait > 0` the call waits until such a ticket exists or `wait` seconds pass (long-poll). |
 | `GET /api/gate/tickets/{id}` | header token (own ticket) or human | `200 ticket` |
 | `POST /api/gate/tickets/{id}/answer` | heart token or human; `{answer}` | `200 ticket` with `status: answered` |
@@ -54,9 +55,10 @@ or the body, the same way `_authority` does it.
 **Ticket:** `{ticketId, seq, sessionId, kind, body, status: queued | answered, answer, answeredBy, createdAt,
 answeredAt}`.
 
-**Handlers.** `gate.py` keeps a registry `kind → handler`:
-- A **deterministic handler** answers in the same request (`status: answered`). `ask` and `change` have none: they stay
-  `queued` until the heart or a human answers them.
+**Handlers.** The table `determinism/kinds.py` maps each kind to its body check and handler (H1c):
+- A **deterministic handler** answers in the same request (`status: answered`, `answeredBy: "gate"`); such tickets stay
+  for the audit but do not appear in the inbox. `ask` and `change` have none: they stay `queued` until the heart or a
+  human answers them.
 - In H1a, `next` and `report` answer with the stub `{"pending": "H1b"}`.
 - H1b replaces the stub with the task queue (`heart_tasks`) and checks on a sha.
 

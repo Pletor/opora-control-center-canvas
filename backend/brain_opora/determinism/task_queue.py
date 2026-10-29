@@ -105,7 +105,8 @@ def cancel(service, project, task_id, now=None, by="human"):
     return task
 
 
-def _for_worker(task):
+def for_worker(task):
+    """Úkol v pevném tvaru, jak ho dostane pracovník (`next`, `state.myTask`)."""
     return {key: task[value] for key, value in (("id", "taskId"), ("title", "title"), ("nodeId", "nodeId"),
                                                 ("status", "status"), ("attempts", "attempts"), ("body", "body"))}
 
@@ -140,7 +141,7 @@ def next_task(service, session, body, now=None):
                     task = store.get(ready["taskId"])
                     _emit(db, project, task, _agent(session))
     if task is not None:
-        return {"task": _for_worker(task)}
+        return {"task": for_worker(task)}
     # Přehled karet bere vlastní zámky (graf, pak projekt), proto až po uvolnění zámku fronty.
     return {"task": None, "plan": open_cards(service, project, workspace)}
 

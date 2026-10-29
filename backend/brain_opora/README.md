@@ -10,7 +10,7 @@ An event flows downwards and stops at the first layer that can handle it:
 
 | Layer | Folder | What it does | Never |
 |---|---|---|---|
-| 1. Determinism | `determinism/` | Answers at once and for free: the gate (sessions, requests, inbox), role tokens and the wall, the task queue, the project snapshot, the event feed, tool classification. | calls a model |
+| 1. Determinism | `determinism/` | Answers at once and for free: the gate (sessions, the table of request kinds `kinds.py`, inbox), role tokens and the wall, the task queue, the project snapshot, the event feed, tool classification. | calls a model |
 | 2. Decision model | `decision/` | Asks JEV (TypeSafe) for typed answers (`choice` / `score` / `noul`): should an event wake the heart, a human, or nobody; which card a commit belongs to; which sources to use. | writes text |
 | 3. Heart | `heart/` | Claude Code under the subscription, Haiku with an Opus advisor. It sleeps on localhost and wakes for a batch of events or a human message. It writes the canvas, plans, tasks and answers. | writes application code, approves a change of intent |
 

@@ -4,10 +4,12 @@ This is the first layer of the brain. It answers without a model, at once and fo
 sessions, the wall, and the facts the heart wakes up to.
 
 Modules (H1a, contract `docs/brain-gate.md`):
-- `gate.py`: worker sessions, requests (`next` | `ask` | `report` | `change`), the handler registry `kind -> handler`
-  (`handler(service, session, body, now)`, run before the ticket is written: a refused request leaves no ticket),
-  the human answer, the inbox with long-poll and the `gate.ticket` event. The router is in `backend/api/brain_opora/gate_routes.py`.
-- `gate_payloads.py`: body checks of the gate and `GateError` (every refusal carries `code` and `hint`).
+- `gate.py`: sessions and their verification, writing a ticket (`record`; a synchronous kind's ticket is answered
+  by `gate` for the audit), the human or heart answer, the heart's escalation (a queued `ask` `{text, for: "human"}`)
+  and the inbox with long-poll (tickets answered by `gate` never reach the inbox: their answer came in the response).
+  The router is in `backend/api/brain_opora/gate_routes.py`.
+- `gate_payloads.py`: body checks of the gate (`shaped` for exact-key kind bodies, `inbox_body`) and `GateError`
+  (every refusal carries `code` and `hint`).
 - `tokens.py`: worker and heart tokens (only `sha256` is stored, a worker token lives 8 h), verify and revoke.
 
 Modules (H1a2):
@@ -32,6 +34,15 @@ Modules (H1b):
 - `task_payloads.py`: body checks of tasks and reports (`invalid_payload`, `invalid_sha`, `checks_required`); a task
   body is filled to the fixed shape `{why, do, files, doneWhen, dontTouch, context, commit}`.
 - Worker client: `.claude/skills/opora-control-center/scripts/opora_gate.py` (reference `references/gate.md`).
+
+Modules (H1c, contract `docs/brain-control-api.md`):
+- `kinds.py`: the single table of request kinds (`next`, `ask`, `report`, `change`, `state`, `inbox` for workers;
+  `task.create`, `task.cancel`, `ticket.answer`, `escalate` for the heart). Each kind has role, description,
+  input/output schema, example, error codes with `hint`, a body check and a handler (`ask` / `change` have none and
+  stay queued). `run` serves `POST /api/gate/requests`: a worker sending a heart kind gets 403 `heart_required`, a
+  refused body leaves no ticket. `visible(role)` serves `GET /api/gate/kinds`.
+- `kind_schemas.py`: the JSON schemas and examples of the kinds (data only).
+- `snapshot.py` also builds `view`, the JSON of the `state` kind; `rules` are the `context.rules` of the tasks.
 
 Modules (H2a, contract `docs/brain-heart.md`):
 - `snapshot.py`: the deterministic project snapshot for the heart (§3): project and workspace, intent (project goal,

@@ -1,17 +1,21 @@
-"""Routy brány mozku (docs/brain-gate.md §4). Logika je v `backend/brain_opora/determinism/gate.py`.
+"""Routy brány mozku (docs/brain-gate.md §4, docs/brain-control-api.md §1–§2).
 
-Pracovník se prokazuje hlavičkou `X-Opora-Gate-Token`. Na lístek odpovídá člověk (doklad UI) nebo srdce
-téhož projektu (`answeredBy = "heart"`, docs/brain-heart.md §5). Každé odmítnutí je JSON s `error`, `code` a `hint`.
+Logika je v `backend/brain_opora/determinism/`: druhy požadavků v `kinds.py`, lístky a schránka v `gate.py`.
+Pracovník i srdce se prokazují hlavičkou `X-Opora-Gate-Token`; druhy srdce projdou jen s tokenem srdce.
+Na lístek odpovídá člověk (doklad UI) nebo srdce téhož projektu (`answeredBy = "heart"`, docs/brain-heart.md §5).
+Každé odmítnutí je JSON s `error`, `code` a `hint`.
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+from backend.api.brain_opora import models
 from backend.api.brain_opora.writer import heart_project
-from backend.brain_opora.determinism import gate, tokens
+from backend.brain_opora.determinism import gate, kinds, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_query, parse_body
 
 HUMAN_HINT = "Na lístek odpovídá jen člověk v UI OPORY nebo srdce projektu."
+ROLES = ("worker", "heart")
 
 
 def _refused(error):
@@ -28,13 +32,14 @@ def _human_project(service, request):
 
 
 def create_gate_router(service):
-    router = APIRouter(prefix="/api/gate")
+    router = APIRouter(prefix="/api/gate", tags=["gate"])
 
-    def session_of(request):
+    def session_of(request, roles=ROLES):
         return gate.authenticate(service, request.headers.get(tokens.HEADER),
-                                 request.query_params.get("project") or None)
+                                 request.query_params.get("project") or None, roles)
 
-    @router.post("/sessions", status_code=201)
+    @router.post("/sessions", status_code=201, openapi_extra=models.body(models.SessionIn),
+                 responses=models.answers(201, models.SessionOut, 404, 413, 422))
     async def open_session(request: Request):
         try:
             payload = parse_body(await request.body())
@@ -42,31 +47,42 @@ def create_gate_router(service):
         except GateError as error:
             return _refused(error)
 
-    @router.post("/requests", status_code=201)
+    @router.get("/kinds", responses=models.answers(200, models.KindsOut, 401, 403))
+    def list_kinds(request: Request):
+        """Druhy pro roli volajícího: token pracovníka = druhy pracovníka, token srdce i člověk = všechny.
+
+        Agent bez tokenu vidí druhy pracovníka, aby věděl, co může po založení relace poslat."""
+        try:
+            if request.headers.get(tokens.HEADER):
+                role = session_of(request)["role"]
+            else:
+                role = "human" if request.state.actor == "human" else "worker"
+        except GateError as error:
+            return _refused(error)
+        return {"role": role, "kinds": kinds.visible(role)}
+
+    @router.post("/requests", status_code=201, openapi_extra=models.body(models.GateRequestIn),
+                 responses=models.answers(201, models.GateRequestOut, 401, 403, 404, 409, 413, 422))
     async def create_request(request: Request):
         try:
             session = await run_in_threadpool(session_of, request)
             payload = parse_body(await request.body())
-            ticket = await run_in_threadpool(gate.create_request, service, session, payload)
+            ticket = await run_in_threadpool(kinds.run, service, session, payload)
         except GateError as error:
             return _refused(error)
         out = {key: ticket[key] for key in ("ticketId", "seq", "kind", "status")}
         return out | ({"answer": ticket["answer"]} if ticket["status"] == "answered" else {})
 
-    @router.get("/inbox")
+    @router.get("/inbox", responses=models.answers(200, models.InboxOut, 401, 403, 422))
     async def inbox(request: Request):
         try:
             session = await run_in_threadpool(session_of, request)
             after, wait = inbox_query(request.query_params.get("after"), request.query_params.get("wait"))
         except GateError as error:
             return _refused(error)
+        return await run_in_threadpool(gate.inbox, service, session, after, wait)
 
-        async def fetch():
-            return await run_in_threadpool(gate.inbox, service, session, after)
-
-        return await gate.long_poll(fetch, wait)
-
-    @router.get("/tickets/{ticket_id}")
+    @router.get("/tickets/{ticket_id}", responses=models.answers(200, models.Ticket, 401, 403, 404))
     def ticket(ticket_id: str, request: Request):
         try:
             if request.state.actor == "human" and not request.headers.get(tokens.HEADER):
@@ -76,7 +92,8 @@ def create_gate_router(service):
         except GateError as error:
             return _refused(error)
 
-    @router.post("/tickets/{ticket_id}/answer")
+    @router.post("/tickets/{ticket_id}/answer", openapi_extra=models.body(models.AnswerIn),
+                 responses=models.answers(200, models.Ticket, 403, 404, 409, 422))
     async def answer(ticket_id: str, request: Request):
         try:
             project = request.query_params.get("project") or ""

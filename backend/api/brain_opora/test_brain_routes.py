@@ -60,7 +60,7 @@ def test_wall_end_to_end(tmp_path):
         assert issued.status_code == 201, issued.text
         worker = {**AGENT, tokens.HEADER: issued.json()["token"]}
         assert code(plan(client, worker)) == "gate_required"
-        asked = client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"q": "?"}})
+        asked = client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"question": "?"}})
         assert asked.status_code == 201, asked.text
         # Neplatný token 401.
         assert plan(client, {**AGENT, tokens.HEADER: "x" * 43}).status_code == 401
