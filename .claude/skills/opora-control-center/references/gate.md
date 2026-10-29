@@ -44,3 +44,17 @@ python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
 | `/api/brain/gate-setting` | čtení kdokoli, zápis jen člověk | `GET ?project=`, `POST {project, enabled}` |
 | `/api/brain/tasks` | čtení kdokoli, zápis jen člověk | `GET ?project&workspace&status?` → `{tasks}`; `POST {project, workspace, nodeId?, title, body}` → `201` úkol |
 | `/api/brain/tasks/{task_id}/cancel` | jen člověk | `POST ?project=` (tělo `{}`) → zrušený úkol; uzavřený = 409 `task_closed` |
+
+## MCP místo `opora_gate.py` (H1d)
+
+Když tě spustili s MCP serverem `opora` (`backend/api/brain_opora/mcp/opora_mcp.py`, kontrakt
+`docs/brain-control-api.md` §3), nepouštěj `opora_gate.py` ani Bash: každý druh brány je nástroj
+`mcp__opora__opora_<druh>` (`opora_next`, `opora_ask`, `opora_report`, `opora_change`, `opora_state`,
+`opora_inbox`; srdce navíc `opora_task_create`, `opora_task_cancel`, `opora_ticket_answer`, `opora_escalate`).
+Vstup je přesně `inputSchema` nástroje, nic předem nečti.
+
+- Relaci zakládá server sám při prvním volání (z `OPORA_WORKER_NAME`); token nevidíš a nikam se neukládá.
+- Výsledek je JSON brány `{ticketId, seq, kind, status, answer?}`; u `next` je úkol v `answer.task`.
+- `opora_ask` s `"wait": true` počká až 30 s a vrátí rovnou `answer` (`answered: false` = zatím nic, později
+  `opora_inbox` s `after` = poslední `last`).
+- Chyba má `isError` a v textu `{code, hint, status}`; řiď se `hint`. `server_unreachable` = OPORA neběží.

@@ -25,3 +25,19 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   `GET /api/brain/heart/status?project=` returns the session, the last 5 batches, sleeping and `nextAllowedAt`;
   `GET /api/brain/heart/snapshot?project&workspace` returns `{snapshot}`; `POST /api/brain/heart/escalate
   {project, workspace, text}` (heart token only) creates an `ask` ticket for the human.
+
+## MCP server (H1d)
+
+`mcp/opora_mcp.py` (stdlib only, contract `docs/brain-control-api.md` §3) exposes the gate kinds as MCP tools over
+stdio: `tools/list` = `GET /api/gate/kinds` for the role, tool `opora_<kind with . → _>` (`opora_next`,
+`opora_task_create`), `tools/call` = `POST /api/gate/requests`. A refusal comes back as `isError: true` with
+`code`, `hint` and `status`; `opora_ask` with `wait: true` long-polls the inbox up to 30 s for its answer. Env:
+`OPORA_BASE_URL` (default `http://127.0.0.1:8740`), `OPORA_PROJECT`, `OPORA_WORKSPACE`, plus `OPORA_WORKER_NAME`
+(worker: the server opens its gate session at the first call and keeps the token in memory only) or
+`OPORA_GATE_TOKEN` / `OPORA_HEART_TOKEN` (heart). Only JSON-RPC goes to stdout, logs go to stderr.
+
+- worker: `claude --mcp-config '{"mcpServers":{"opora":{"command":"python","args":["<abs>/opora_mcp.py"]}}}'
+  --allowedTools mcp__opora__*` with `OPORA_PROJECT`, `OPORA_WORKSPACE`, `OPORA_WORKER_NAME` in the environment;
+- heart: the same with `OPORA_GATE_TOKEN` (or `OPORA_HEART_TOKEN`) instead of `OPORA_WORKER_NAME`.
+
+Tests: `mcp/test_opora_mcp.py` runs the server as a subprocess against a fake gate.
