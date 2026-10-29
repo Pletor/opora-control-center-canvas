@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from backend.brain_opora.determinism import gate, gate_setting
+from backend.brain_opora.determinism import gate, gate_setting, kinds
 from backend.brain_opora.heart import batch, supervisor
 from backend.brain_opora.heart.process import Outcome
 from backend.canvas.canvas_service import CanvasService
@@ -45,7 +45,7 @@ def setup(tmp_path):
 def ask(service, body):
     session = gate.authenticate(service, gate.open_session(
         service, {"project": "draft", "workspace": "draft", "worker": {"name": "dev"}})["token"])
-    return gate.create_request(service, session, {"kind": "ask", "body": body})
+    return kinds.run(service, session, {"kind": "ask", "body": body})
 
 
 def test_enabled_only_on_loopback_and_not_off():
@@ -68,13 +68,13 @@ def test_human_message_wakes_at_once_and_is_journaled(setup):
 def test_worker_ticket_waits_for_the_window_and_own_escalation_does_not_wake(setup):
     service, heart, clock, runner, _ = setup
     assert heart.run_once() == []  # první průchod nastaví kurzor na konec outboxu
-    ticket = ask(service, {"q": "Jakou barvu?"})
+    ticket = ask(service, {"question": "Jakou barvu?"})
     assert heart.run_once() == [] and heart.status("draft")["pending"] == 1
     clock.now += supervisor.WINDOW + 1
     assert heart.run_once() == ["draft"]
     assert f"LÍSTEK {ticket['ticketId']} (ask)" in runner.calls[0] and "Jakou barvu?" in runner.calls[0]
     heart_session = gate.tokens.verify(service, heart.tokens[("draft", "draft")])
-    gate.create_request(service, heart_session, {"kind": "ask", "body": {"text": "Pro člověka"}})
+    kinds.run(service, heart_session, {"kind": "escalate", "body": {"text": "Pro člověka"}})
     clock.now += supervisor.WINDOW + 1
     assert heart.run_once() == [] and heart.status("draft")["pending"] == 0
 
@@ -82,7 +82,7 @@ def test_worker_ticket_waits_for_the_window_and_own_escalation_does_not_wake(set
 def test_answered_ticket_is_dropped_before_the_batch(setup):
     service, heart, clock, runner, _ = setup
     heart.run_once()
-    ticket = ask(service, {"q": "?"})
+    ticket = ask(service, {"question": "?"})
     heart.run_once()
     gate.answer(service, "draft", ticket["ticketId"], {"answer": "Ano"})
     clock.now += supervisor.WINDOW + 1
@@ -101,17 +101,17 @@ def test_one_batch_per_project_six_automatic_per_hour_and_human_bypasses(setup):
     heart.spawn = lambda fn: fn()
     assert heart.run_once() == ["draft"] and "během dávky" in runner.calls[-1]
     for number in range(supervisor.PER_HOUR):  # automatické dávky (lístky) mají strop
-        ask(service, {"q": f"otázka {number}"})
+        ask(service, {"question": f"otázka {number}"})
         heart.run_once()
         clock.now += supervisor.WINDOW + 1
         assert heart.run_once() == ["draft"]
-    ask(service, {"q": "sedmá"})
+    ask(service, {"question": "sedmá"})
     heart.run_once()
     clock.now += supervisor.WINDOW + 1
     assert heart.run_once() == [] and heart.next_allowed("draft", clock.now) > clock.now
     heart.message("draft", "draft", "zpráva člověka strop obchází")
     assert heart.run_once() == ["draft"] and "sedmá" in runner.calls[-1]
-    ask(service, {"q": "osmá"})
+    ask(service, {"question": "osmá"})
     heart.run_once()
     clock.now += supervisor.WINDOW + 1
     assert heart.run_once() == []

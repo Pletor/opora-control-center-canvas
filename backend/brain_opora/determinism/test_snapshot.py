@@ -1,7 +1,7 @@
 """Snímek pro srdce: pevný tvar §3, deterministický text, strop znaků a čtení faktů z projektu."""
 import pytest
 
-from backend.brain_opora.determinism import gate, snapshot, task_queue
+from backend.brain_opora.determinism import gate, kinds, snapshot, task_queue
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.canvas_service import CanvasService
 
@@ -54,7 +54,7 @@ def test_collect_reads_queue_tickets_and_unknown_project(service):
     task_queue.create(service, {"project": "draft", "workspace": "draft", "title": "Stránka", "body": {"do": "x"}})
     session = gate.authenticate(service, gate.open_session(
         service, {"project": "draft", "workspace": "draft", "worker": {"name": "dev"}})["token"])
-    gate.create_request(service, session, {"kind": "ask", "body": {"q": "?"}})
+    kinds.run(service, session, {"kind": "ask", "body": {"question": "?"}})
     text = snapshot.snapshot(service, "draft", "draft")
     assert "FRONTA ÚKOLŮ: ready 1" in text and "[ready] Stránka" in text and " ask " in text
     with pytest.raises(GateError) as caught:

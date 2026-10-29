@@ -1,15 +1,16 @@
-"""Kontrola těl požadavků brány a její chyby (docs/brain-gate.md §4 „Errors“).
+"""Kontrola těl brány mimo druhy požadavků a její chyby (docs/brain-gate.md §4 „Errors“).
 
-Každá chyba 4xx nese `code` a `hint` s dalším krokem, jako od #139.
+Těla jednotlivých druhů `{kind, body}` kontroluje tabulka `kinds.py`. Každá chyba 4xx nese `code` a `hint`
+s dalším krokem, jako od #139.
 """
 import json
 
 from backend.canvas.graph import valid_id
 
-KINDS = ("next", "ask", "report", "change")
 MAX_BODY = 64 * 1024
 MAX_INBOX_WAIT = 30
 NAME_LIMIT = 80
+TEXT_LIMIT = 4000
 SESSION_EXAMPLE = {"project": "draft", "workspace": "draft", "worker": {"name": "office-dev-1"}}
 
 
@@ -58,15 +59,6 @@ def session_payload(payload):
     return project, workspace, {key: value.strip() for key, value in worker.items()}
 
 
-def request_payload(payload):
-    """`{kind, body?}` → `(kind, body)`; neznámý druh dostane 422 s výčtem povolených."""
-    if not isinstance(payload, dict) or "kind" not in payload or not set(payload) <= {"kind", "body"}:
-        raise invalid("Požadavek brány je {kind, body}.", 'Například {"kind": "ask", "body": {"question": "…"}}.')
-    if payload["kind"] not in KINDS:
-        raise invalid("Neznámý druh požadavku brány.", "Povolené druhy: " + ", ".join(KINDS) + ".")
-    return payload["kind"], payload.get("body", {})
-
-
 def answer_payload(payload):
     """`{answer}` → odpověď (libovolná hodnota JSON kromě null)."""
     if not isinstance(payload, dict) or set(payload) != {"answer"} or payload["answer"] is None:
@@ -74,12 +66,47 @@ def answer_payload(payload):
     return payload["answer"]
 
 
+def _inbox_bounds(after, wait, hint):
+    if after < 0 or not 0 <= wait <= MAX_INBOX_WAIT:
+        raise invalid("after je ≥ 0 a wait v rozsahu 0..30.", hint)
+    return after, wait
+
+
 def inbox_query(after, wait):
     """`?after=<seq>&wait=<0..30>` → `(after, wait)` jako celá čísla."""
+    hint = "Například /api/gate/inbox?after=0&wait=20."
     try:
         after, wait = int(after or 0), int(wait or 0)
     except (TypeError, ValueError):
-        raise invalid("after a wait jsou celá čísla.", "Například /api/gate/inbox?after=0&wait=20.") from None
-    if after < 0 or not 0 <= wait <= MAX_INBOX_WAIT:
-        raise invalid("after je ≥ 0 a wait v rozsahu 0..30.", "Například /api/gate/inbox?after=0&wait=20.")
-    return after, wait
+        raise invalid("after a wait jsou celá čísla.", hint) from None
+    return _inbox_bounds(after, wait, hint)
+
+
+def inbox_body(body):
+    """Tělo druhu `inbox` `{after?, wait?}` → `(after, wait)`; stejné meze jako `?after&wait`."""
+    hint = 'Například {"kind": "inbox", "body": {"after": 0, "wait": 20}}.'
+    body = shaped(body, (), ("after", "wait"), hint=hint)
+    if any(type(value) is not int for value in body.values()):
+        raise invalid("after a wait jsou celá čísla.", hint)
+    return _inbox_bounds(body.get("after", 0), body.get("wait", 0), hint)
+
+
+def _filled(value, limit):
+    return isinstance(value, str) and bool(value.strip()) and len(value) <= limit and "\0" not in value
+
+
+def shaped(body, required, optional=(), *, texts=(), ids=(), limit=TEXT_LIMIT, hint):
+    """Tělo druhu s přesně danými klíči: `required` povinné, `optional` volitelné; chybějící tělo = `{}`.
+
+    `texts` jsou neprázdné texty do `limit` znaků, `ids` ID (písmena, číslice, _ a -). Vrací tělo beze změny.
+    """
+    body = {} if body is None else body
+    keys = [*required, *(key + "?" for key in optional)]
+    if not isinstance(body, dict) or not set(required) <= set(body) <= {*required, *optional}:
+        raise invalid("Tělo je přesně {" + ", ".join(keys) + "}.", hint)
+    for key, value in body.items():
+        if key in ids and not valid_id(value):
+            raise invalid(f"{key} je ID (písmena, číslice, _ a -).", hint)
+        if key in texts and not _filled(value, limit):
+            raise invalid(f"{key} je neprázdný text do {limit} znaků.", hint)
+    return body

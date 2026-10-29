@@ -3,12 +3,13 @@
 `collect` přečte fakta (identita projektu, stránky plánu, fronta úkolů, čekající lístky, poslední kontroly),
 `render` z nich bez dalšího čtení složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
 Každá část má vlastní strop počtu řádků a celý text se nakonec ořízne na `LIMIT` znaků.
+`view` složí ze stejných faktů kompaktní JSON pro druh brány `state` (docs/brain-control-api.md §2).
 """
 import json
 import sqlite3
 
 from backend.brain_opora.determinism.gate_payloads import GateError
-from backend.brain_opora.determinism.task_queue import open_cards
+from backend.brain_opora.determinism.task_queue import for_worker, open_cards
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
 
@@ -19,6 +20,8 @@ TICKETS = 10
 CHECKS = 10
 TEXT = 160
 STATUSES = ("ready", "assigned", "done", "failed", "cancelled")
+QUEUE = ("ready", "assigned", "done", "failed")
+RULES = 20
 CUT = "\n… (snímek zkrácen)"
 
 
@@ -68,12 +71,13 @@ def collect(service, project, workspace):
 
 
 def _intent(facts):
+    """Záměr z cíle projektu, jinak z domovské stránky; žádný = prázdný text."""
     if facts["goal"].strip():
         return _short(facts["goal"], 400)
     home = next((page for page in facts["pages"] if page["path"].rstrip("/") == ""), None)
     if home and (home["goal"] or home["feel"]):
         return _short(" · ".join(part for part in (home["goal"], home["feel"]) if part), 400)
-    return "—"
+    return ""
 
 
 def _plan(facts):
@@ -101,7 +105,7 @@ def _queue(facts):
 def render(facts, limit=LIMIT):
     """Text snímku podle §3; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
-             f"ZÁMĚR: {_intent(facts)}", "PLÁN:", *_plan(facts), "FRONTA ÚKOLŮ: " + _queue(facts)[0],
+             f"ZÁMĚR: {_intent(facts) or '—'}", "PLÁN:", *_plan(facts), "FRONTA ÚKOLŮ: " + _queue(facts)[0],
              *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
@@ -109,6 +113,36 @@ def render(facts, limit=LIMIT):
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
     text = "\n".join(lines)
     return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
+
+
+def _rules(tasks):
+    """Pravidla aplikace: srdce je opakuje v `context.rules` každého úkolu; od nejnovějšího úkolu, bez opakování."""
+    rules = []
+    for task in sorted(tasks, key=lambda task: task["seq"], reverse=True):
+        context = task["body"].get("context") if isinstance(task["body"], dict) else None
+        for rule in (context or {}).get("rules", []):
+            if rule not in rules:
+                rules.append(rule)
+    return rules[:RULES]
+
+
+def view(facts, session_id=None):
+    """JSON druhu `state`: `{project, intent, rules, plan, queue, myTask}`; `myTask` je úkol držený relací, jinak null."""
+    stages = {card["id"]: card["stage"] for card in facts["cards"]}
+    plan = ([{"id": page["id"], "name": page["name"], "stage": stages.get(page["id"], "closed"), "path": page["path"],
+              "goal": page["goal"]} for page in facts["pages"][:PAGES]]
+            or [{key: card[key] for key in ("id", "name", "stage")} for card in facts["cards"][:PAGES]])
+    held = next((task for task in facts["tasks"] if session_id and task["status"] == "assigned"
+                 and task["sessionId"] == session_id), None)
+    return {"project": {"id": facts["project"], "name": facts["name"], "workspace": facts["workspace"]},
+            "intent": _intent(facts), "rules": _rules(facts["tasks"]), "plan": plan,
+            "queue": {status: sum(task["status"] == status for task in facts["tasks"]) for status in QUEUE},
+            "myTask": for_worker(held) if held else None}
+
+
+def state(service, project, workspace, session_id=None):
+    """Stav pro agenta: `view(collect(...))`."""
+    return view(collect(service, project, workspace), session_id)
 
 
 def snapshot(service, project, workspace, limit=LIMIT):

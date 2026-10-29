@@ -50,10 +50,14 @@ class GateTicketStore:
         return cursor.rowcount == 1
 
     def answered_after(self, session_id, after, limit):
-        """Zodpovězené lístky jedné relace s `answered_seq > after`, v pořadí odpovědí."""
+        """Zodpovězené lístky jedné relace s `answered_seq > after`, v pořadí odpovědí.
+
+        Lístky, které brána zodpověděla hned v požadavku (`answered_by = 'gate'`), sem nepatří: jejich odpověď
+        přišla v odpovědi na požadavek a schránka by se jinak plnila vlastními dotazy (`inbox`, `state`)."""
         rows = self.db.execute(
             "SELECT " + ",".join(COLUMNS) + " FROM gate_tickets WHERE session_id=? AND answered_seq>?"
-            " AND project_id=? ORDER BY answered_seq LIMIT ?", (session_id, after, self.project, limit)).fetchall()
+            " AND project_id=? AND answered_by<>'gate' ORDER BY answered_seq LIMIT ?",
+            (session_id, after, self.project, limit)).fetchall()
         return [public(row) for row in rows]
 
     def queued(self, workspace, limit):

@@ -39,6 +39,10 @@ def test_answered_after_is_per_session_and_cursor(store):
     assert [t["ticketId"] for t in box] == ["gt_1", "gt_3"]
     assert [t["ticketId"] for t in store.answered_after("gs_1", box[0]["answeredSeq"], 10)] == ["gt_3"]
     assert GateTicketStore(store.db, "p2").answered_after("gs_1", 0, 10) == []
+    # Lístek zodpovězený branou hned v požadavku (audit synchronního druhu) do schránky nejde.
+    store.insert("gt_4", "main", "gs_1", "state", {}, AT)
+    store.answer("gt_4", {"queue": {}}, "gate", AT)
+    assert [t["ticketId"] for t in store.answered_after("gs_1", 0, 10)] == ["gt_1", "gt_3"]
 
 
 def test_ticket_answered_later_is_not_lost_behind_the_cursor(store):

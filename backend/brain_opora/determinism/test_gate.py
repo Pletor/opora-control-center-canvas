@@ -1,10 +1,9 @@
 """Brána: relace, lístky s obsluhami, odpověď člověka, schránka, long-poll a události `gate.ticket`."""
-import asyncio
 import json
 
 import pytest
 
-from backend.brain_opora.determinism import gate
+from backend.brain_opora.determinism import gate, kinds
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.canvas_service import CanvasService
 
@@ -50,25 +49,28 @@ def test_authenticate_refuses_invalid_token_and_other_project(service):
 
 def test_next_answers_at_once_from_the_queue_and_a_refused_report_makes_no_ticket(service):
     session = worker_session(service)
-    ticket = gate.create_request(service, session, {"kind": "next", "body": {}})
+    ticket = kinds.run(service, session, {"kind": "next", "body": {}})
     assert ticket["status"] == "answered" and ticket["answer"]["task"] is None and "plan" in ticket["answer"]
     assert ticket["answeredBy"] == "gate"
     with pytest.raises(GateError) as caught:
-        gate.create_request(service, session, {"kind": "report", "body": {}})
+        kinds.run(service, session, {"kind": "report", "body": {}})
     assert caught.value.status == 422
     assert [data["status"] for _, data in events(service)] == ["queued", "answered"]
 
 
-def test_registered_handler_gets_service_session_body_and_time(service, monkeypatch):
-    session, seen = worker_session(service), []
-    monkeypatch.setitem(gate.HANDLERS, "change", lambda *args: seen.append(args) or {"ok": True})
-    ticket = gate.create_request(service, session, {"kind": "change", "body": {"x": 1}})
-    assert ticket["answer"] == {"ok": True} and seen == [(service, session, {"x": 1}, None)]
+def test_heart_escalation_is_a_queued_ask_marked_as_from_the_heart(service):
+    _, token = gate.tokens.issue_heart(service, "draft", "draft")
+    heart = gate.authenticate(service, token, roles=("heart",))
+    ticket = gate.escalate(service, heart, "Rozhodněte prosím.")
+    assert (ticket["kind"], ticket["status"], ticket["body"]) == ("ask", "queued", {"text": "Rozhodněte prosím.",
+                                                                                     "for": "human"})
+    assert events(service)[-1] == ("agent", {"ticketId": ticket["ticketId"], "kind": "ask", "status": "queued",
+                                             "from": "heart"})
 
 
 def test_ask_waits_for_a_human_and_then_reaches_the_inbox(service):
     session = worker_session(service)
-    ticket = gate.create_request(service, session, {"kind": "ask", "body": {"question": "Smím?"}})
+    ticket = kinds.run(service, session, {"kind": "ask", "body": {"question": "Smím?"}})
     assert ticket["status"] == "queued" and gate.inbox(service, session, 0) == {"tickets": [], "last": 0}
     answered = gate.answer(service, "draft", ticket["ticketId"], {"answer": "Ano"})
     assert answered["status"] == "answered" and answered["answeredBy"] == "human"
@@ -85,29 +87,26 @@ def test_ask_waits_for_a_human_and_then_reaches_the_inbox(service):
 
 def test_worker_reads_only_own_tickets(service):
     mine, other = worker_session(service), worker_session(service)
-    ticket = gate.create_request(service, mine, {"kind": "ask"})
+    ticket = kinds.run(service, mine, {"kind": "ask", "body": {"question": "?"}})
     assert gate.get_ticket(service, "draft", ticket["ticketId"], mine)["ticketId"] == ticket["ticketId"]
     with pytest.raises(GateError) as caught:
         gate.get_ticket(service, "draft", ticket["ticketId"], other)
     assert caught.value.code == "gate_scope"
 
 
-def test_long_poll_returns_when_a_ticket_arrives_or_time_runs_out():
-    clock = {"now": 0.0}
-    results = iter([{"tickets": []}, {"tickets": []}, {"tickets": [{"seq": 1}]}])
+def test_inbox_waits_until_an_answer_arrives_or_time_runs_out(service):
+    session, clock = worker_session(service), {"now": 0.0}
+    ticket = kinds.run(service, session, {"kind": "ask", "body": {"question": "?"}})
+    kinds.run(service, session, {"kind": "next"})  # zodpovězený branou: do schránky nepatří
 
-    async def fetch():
-        return next(results)
-
-    async def sleep(seconds):
+    def sleep(seconds):
         clock["now"] += seconds
+        if clock["now"] >= 0.5 and gate.get_ticket(service, "draft", ticket["ticketId"])["status"] == "queued":
+            gate.answer(service, "draft", ticket["ticketId"], {"answer": "Ano"})
 
-    found = asyncio.run(gate.long_poll(fetch, 5, clock=lambda: clock["now"], sleep=sleep))
-    assert found == {"tickets": [{"seq": 1}]} and clock["now"] == 0.5
-
-    async def empty():
-        return {"tickets": [], "last": 3}
-
+    found = gate.inbox(service, session, 0, 5, clock=lambda: clock["now"], sleep=sleep)
+    assert [t["ticketId"] for t in found["tickets"]] == [ticket["ticketId"]] and clock["now"] == 0.5
     clock["now"] = 0.0
-    assert asyncio.run(gate.long_poll(empty, 1, clock=lambda: clock["now"], sleep=sleep))["last"] == 3
+    assert gate.inbox(service, session, found["last"], 1, clock=lambda: clock["now"], sleep=sleep) == {
+        "tickets": [], "last": found["last"]}
     assert clock["now"] == 1.0

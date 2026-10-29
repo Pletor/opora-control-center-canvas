@@ -54,12 +54,12 @@ def test_heart_token_writes_tasks_answers_and_escalates_in_its_project(tmp_path)
         cancel = client.post(f"/api/brain/tasks/{task.json()['taskId']}/cancel?project=draft", headers=heart, json={})
         assert cancel.status_code == 200 and cancel.json()["status"] == "cancelled"
         worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
-        ticket = client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"q": "?"}}).json()
+        ticket = client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"question": "?"}}).json()
         answered = client.post(f"/api/gate/tickets/{ticket['ticketId']}/answer?project=draft", headers=heart,
                                json={"answer": {"text": "Ano"}})
         assert answered.status_code == 200 and answered.json()["answeredBy"] == "heart", answered.text
         # Pracovník ani agent bez tokenu srdce neodpovídají a úkoly nepíší.
-        ticket = client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"q": "?"}}).json()
+        ticket = client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"question": "?"}}).json()
         refused = client.post(f"/api/gate/tickets/{ticket['ticketId']}/answer?project=draft", headers=worker,
                               json={"answer": "x"})
         assert refused.status_code == 403 and code(refused) == "human_required"
@@ -82,3 +82,25 @@ def test_heart_of_another_project_has_no_writer_rights_here(tmp_path):
         response = client.post("/api/brain/tasks", headers={**AGENT, tokens.HEADER: foreign},
                                json={**SCOPE, "title": "x", "body": {"do": "x"}})
         assert response.status_code == 403 and code(response) == "gate_scope"
+
+
+def test_heart_drives_the_queue_through_the_gate_in_a_gate_on_project(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        _, token = tokens.issue_heart(client.app.state.service, "draft", "draft")
+        heart = {**HEADERS, tokens.HEADER: token}
+        client.cookies.clear()  # srdce nemá doklad UI
+
+        def gate(kind, body, query=""):
+            return client.post("/api/gate/requests" + query, headers=heart, json={"kind": kind, "body": body})
+
+        created = gate("task.create", {"title": "Hero", "order": 1, "body": {"do": "Hero sekce"}})
+        assert created.status_code == 201, created.text
+        task = created.json()["answer"]["task"]
+        assert (task["createdBy"], task["workspaceId"], task["order"]) == ("heart", "draft", 1)
+        cancelled = gate("task.cancel", {"taskId": task["taskId"]}, "?project=draft")
+        assert cancelled.status_code == 201 and cancelled.json()["answer"]["task"]["status"] == "cancelled"
+        again = gate("task.cancel", {"taskId": task["taskId"]})
+        assert again.status_code == 409 and code(again) == "task_closed" and again.json()["hint"]
+        assert code(gate("ticket.answer", {"ticketId": "gt_none", "text": "x"})) == "ticket_not_found"
