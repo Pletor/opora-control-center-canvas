@@ -62,6 +62,12 @@ def task_body(body):
             and _context(full["context"]) and _text(full["commit"], 400) and full["model"] in MODELS):
         raise invalid("Pole úkolu mají špatný tvar: texty, seznamy textů, dontTouch = [{path, heldBy}], model = "
                       + " | ".join(MODELS) + ".", TASK_HINT)
+    # eval m3/m6: soubor ve files i v dontTouch zastavil pracovníka lístkem; rozpor odmítne už zápis úkolu
+    clash = sorted(set(full["files"]) & {item["path"] for item in full["dontTouch"]})
+    if clash:
+        raise GateError(422, "files_held", "Soubor je zároveň ve files i v dontTouch: " + ", ".join(clash) + ".",
+                        "Úkol, který soubor mění, ho nesmí mít v dontTouch. Seřaď úkoly přes order, "
+                        "nebo změnu přesuň do nového souboru a v drženém nech jen import.")
     return full
 
 
