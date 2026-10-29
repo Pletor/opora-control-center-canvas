@@ -16,6 +16,9 @@ TITLE_LIMIT = 200
 TEXT_LIMIT = 4000
 MAX_CHECKS = 50
 MAX_ORDER = 1_000_000
+# model pracovníka: výchozí Sonnet (eval m6: stejná kvalita jako Opus za ~55 % ceny), Opus jen na žádost srdce
+MODELS = ("sonnet", "opus", "haiku", "fable")
+DEFAULT_MODEL = "sonnet"
 TASK_EXAMPLE = {"project": "draft", "workspace": "draft", "title": "Přidat test",
                 "body": {"do": "Doplňte test pro modul X.", "doneWhen": ["npm test je zelený"]}}
 REPORT_EXAMPLE = {"taskId": "ht_…", "sha": "abc1234", "summary": "Hotovo.",
@@ -49,15 +52,16 @@ def _context(value):
 
 
 def task_body(body):
-    """`{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{…}, commit}` s doplněnými prázdnými poli."""
-    fields = {"why", "do", "files", "doneWhen", "dontTouch", "context", "commit"}
+    """`{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{…}, commit, model}` s doplněnými poli."""
+    fields = {"why", "do", "files", "doneWhen", "dontTouch", "context", "commit", "model"}
     if not isinstance(body, dict) or not set(body) <= fields or not _text(body.get("do"), required=True):
-        raise invalid("Tělo úkolu je objekt s povinným do a poli why, files, doneWhen, dontTouch, context, commit.",
+        raise invalid("Tělo úkolu je objekt s povinným do a poli why, files, doneWhen, dontTouch, context, commit, model.",
                       TASK_HINT)
-    full = {"why": "", "files": [], "doneWhen": [], "dontTouch": [], "context": {}, "commit": "", **body}
+    full = {"why": "", "files": [], "doneWhen": [], "dontTouch": [], "context": {}, "commit": "", "model": DEFAULT_MODEL, **body}
     if not (_text(full["why"]) and _texts(full["files"]) and _texts(full["doneWhen"]) and _held(full["dontTouch"])
-            and _context(full["context"]) and _text(full["commit"], 400)):
-        raise invalid("Pole úkolu mají špatný tvar: texty, seznamy textů, dontTouch = [{path, heldBy}].", TASK_HINT)
+            and _context(full["context"]) and _text(full["commit"], 400) and full["model"] in MODELS):
+        raise invalid("Pole úkolu mají špatný tvar: texty, seznamy textů, dontTouch = [{path, heldBy}], model = "
+                      + " | ".join(MODELS) + ".", TASK_HINT)
     return full
 
 

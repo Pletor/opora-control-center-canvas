@@ -45,8 +45,8 @@ def task_events(service):
 
 def test_task_body_fills_the_fixed_shape_and_refuses_bad_fields():
     assert task_body({"do": "x"}) == {"why": "", "do": "x", "files": [], "doneWhen": [], "dontTouch": [],
-                                      "context": {}, "commit": ""}
-    for body in ({}, {"do": " "}, {"do": "x", "extra": 1}, {"do": "x", "files": "a"},
+                                      "context": {}, "commit": "", "model": "sonnet"}
+    for body in ({}, {"do": " "}, {"do": "x", "extra": 1}, {"do": "x", "model": "gpt"}, {"do": "x", "files": "a"},
                  {"do": "x", "dontTouch": [{"path": "a"}]}, {"do": "x", "context": {"who": "?"}}):
         with pytest.raises(GateError):
             task_body(body)
