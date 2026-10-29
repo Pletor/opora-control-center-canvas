@@ -1,7 +1,8 @@
 """Co srdce budí a co dostane do dávky (docs/brain-heart.md §1).
 
 `wake_input` převede událost outboxu na vstup: čekající lístek `ask` / `change` pracovníka (ne vlastní
-eskalaci srdce) a úkol `failed`. `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze
+eskalaci srdce) a úkol `failed`. `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze (u selhaného úkolu
+zadání i report, aby srdce nové zadání psalo z původního)
 a zahodí ty, které mezitím vyřešil někdo jiný (lístek už zodpovězený). Zpráva člověka projde vždy.
 """
 from database.repositories.gate_tickets import GateTicketStore
@@ -32,7 +33,7 @@ def _task(store, item):
     task = store.get(item["taskId"])
     if task is None or task["status"] != "failed":
         return None
-    return {**item, "title": task["title"], "report": task["report"]}
+    return {**item, "title": task["title"], "body": task["body"], "report": task["report"]}
 
 
 def resolve(service, project, items):
