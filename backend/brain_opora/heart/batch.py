@@ -45,8 +45,10 @@ def _input_line(item):
         body = json.dumps(item.get("body"), ensure_ascii=False, sort_keys=True)
         return f"- LÍSTEK {item['ticketId']} ({item['kind']}) od pracovníka: {body}"
     if kind == "taskFailed":
+        body = json.dumps(item.get("body"), ensure_ascii=False, sort_keys=True)[:1500]
         report = json.dumps(item.get("report"), ensure_ascii=False, sort_keys=True)[:1500]
-        return f"- ÚKOL SELHAL {item['taskId']} „{item.get('title', '')}“ (druhá červená): {report}"
+        return (f"- ÚKOL SELHAL {item['taskId']} „{item.get('title', '')}“ (druhá červená, už uzavřený): "
+                f"zadání {body}; report {report}")
     return "- " + json.dumps(item, ensure_ascii=False, sort_keys=True)
 
 

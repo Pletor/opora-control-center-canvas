@@ -34,9 +34,10 @@ def clock(*values):
 def test_message_contains_snapshot_inputs_and_the_finish_instruction():
     text = batch.message("PROJEKT X", [{"type": "message", "text": "Dvě stránky."},
                                        {"type": "ticket", "ticketId": "gt_1", "kind": "ask", "body": {"q": "?"}},
-                                       {"type": "taskFailed", "taskId": "ht_1", "title": "Hero", "report": {"sha": "a"}}])
+                                       {"type": "taskFailed", "taskId": "ht_1", "title": "Hero", "body": {"do": "Sekce hero"},
+                                        "report": {"sha": "a"}}])
     assert text.index("PROJEKT X") < text.index("ZPRÁVA ČLOVĚKA: Dvě stránky.") < text.index("LÍSTEK gt_1 (ask)")
-    assert "ÚKOL SELHAL ht_1" in text and text.rstrip().endswith(batch.FINISH)
+    assert "ÚKOL SELHAL ht_1" in text and "Sekce hero" in text and text.rstrip().endswith(batch.FINISH)
 
 
 def test_ok_batch_is_journaled_with_costs_and_summary(tmp_path):
