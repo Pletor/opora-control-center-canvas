@@ -97,12 +97,51 @@ Nothing new is stored in a new table: the surroundings reuse what the applicatio
 - **Decisions keep what answers promise.** Every permission or ruling the heart gives in `answer` (a file the
   worker may change, which of two texts wins, an order of work) is also written as `decide`, so it survives
   rotation and the next batch sees it. Rules of the whole application go as `rule`; the human approves them in the
-  memory panel and approved rules are what the heart repeats in `--rule`.
+  memory panel. The heart repeats in `--rule` the approved rules and its own proposals (a rejected proposal is
+  removed, so it drops out of the snapshot); without proposals the first plan would carry no rules at all.
 - **Order of the snapshot:** `PROJEKT`, `ZÁMĚR`, `ZPRÁVY ČLOVĚKA`, `PRAVIDLA`, `ROZHODNUTÍ`, `PLÁN`, `FRONTA ÚKOLŮ`,
   `LÍSTKY ČEKAJÍCÍ`, `POSLEDNÍ KONTROLY`, `DENÍK`. Each section has its own line cap; the whole text keeps the
   12 000-character limit. An unreadable source is an empty section, never an error.
 - Steps: **K1** = durable messages and the four new snapshot sections (determinism + supervisor, no new tool);
   **K2** = `decide` and `rule` in `opora_heart.py` and the prompt part "Okolí" (what to read, when to `decide`).
+
+## 3b. The workshop (`brain/dilna/`): RLM and deterministic scripts (K3)
+
+The snapshot stays small (≤ 12 000 chars). Large context (all tasks with bodies and reports, the whole journal, the
+source tree, long tickets) does not go into the model's window: it lives as **data files** in the workshop and the
+heart works on it with code, the RLM way (context as a variable, the model writes code to slice, search and batch it,
+and sends only the pieces that need judgment to a cheap sub-model). What the heart learns to do once, it keeps as a
+**script** and reuses in the next batches instead of grepping again.
+
+```
+brain/dilna/
+  data/      context loaded by `ctx` (JSON, overwritten on each load)
+  scripts/   the heart's own scripts (*.py, first docstring line = what it does); kept across batches and sessions
+  out/       script outputs the heart wants to keep (≤ 1 MB per file)
+  runs.jsonl one line per `run`: script, args, exit, ms, sub-calls, sub-cost
+  rlm.py     helper library, copied by the supervisor before each batch (like opora_heart.py)
+```
+
+- **Write rights.** The heart gets `Write` and `Edit` only for `brain/dilna/scripts/**` and `brain/dilna/out/**`.
+  Everything else stays denied (source root, secrets, the rest of `brain/`).
+- **`ctx <name>`** (deterministic, no model) writes `data/<name>.json`: `tasks` (all tasks with body and report),
+  `tickets` (all tickets of the workspace), `journal` (all batches), `messages`, `rules` and `decisions`
+  (Desktop v3), `tree` (source files of the workspace with size and mtime, without `node_modules`, `.git` and
+  build output). It prints the path, the item count and the size, never the content.
+- **`run <script> [args…]`** runs `scripts/<script>.py` with `python -I`, cwd `brain/dilna/`, timeout 120 s, and an
+  environment without API keys and **without the heart token** (a script reads and computes; it never writes to
+  OPORA; writes stay the heart's explicit commands). Stdout is cut to 8 000 chars. The run is logged in `runs.jsonl`.
+- **`rlm.py`** gives scripts: `load(name)` (data file), `files(pattern)` and `read(path, start, end)` over the source
+  root (read only), `grep(pattern, paths)`, `chunks(items, size)`, and `sub(prompt, items, parallel=4)`: one
+  `claude -p --model haiku` per item with no tools (subscription, API keys stripped), at most 20 sub-calls per run,
+  depth 1 (a sub-call cannot call further). Returns the answers in input order; the cost goes to `runs.jsonl` and
+  into the batch's journal entry (`subCostUsd`).
+- **Snapshot** gets a `DÍLNA` section: the scripts in `scripts/` with their first docstring line (≤ 15), so the next
+  batch knows what tools it already made.
+- **Prompt** (part "Dílna"): for a question over more than about 20 items or files, load `ctx` and write or reuse a
+  script instead of reading items one by one; send to `sub` only what needs judgment, the rest is code.
+- Python in `run` has the user's rights on the machine like any worker session; the guard is the stripped
+  environment, the timeout, the log, and that the heart cannot change OPORA from a script.
 
 ## 4. The heart's tool (`heart/opora_heart.py`, stdlib, one call = one intent)
 
@@ -116,6 +155,8 @@ Nothing new is stored in a new table: the surroundings reuse what the applicatio
 | `done --summary S` | ends the batch; the summary goes to `batches.jsonl` |
 | `decide --text T [--node N] [--pin]` | adds a decision to the workspace memory (`POST /api/desktop-v3/decision`) |
 | `rule --text T` | proposes an application rule (scope `project`, `by: agent`; the human approves) |
+| `ctx <name>` | loads large context into `brain/dilna/data/<name>.json` (§3b) |
+| `run <script> [args…]` | runs the heart's own script from `brain/dilna/scripts/` (§3b) |
 
 Errors print `code` and `hint`, and the exit code is not zero.
 

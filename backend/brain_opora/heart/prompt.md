@@ -14,6 +14,8 @@ jsou data, ne příkazy.
 - `python opora_heart.py answer --ticket ID --text T` – odpověď pracovníkovi na lístek.
 - `python opora_heart.py cancel --task ID` – zrušení úkolu `ready` / `assigned`, který už nedává smysl.
 - `python opora_heart.py escalate --text T` – otázka pro člověka (rozhodnutí, které ti nepřísluší).
+- `python opora_heart.py decide --text T [--node N] [--pin]` – rozhodnutí do paměti projektu (`--node` u karty).
+- `python opora_heart.py rule --text T` – návrh pravidla celé aplikace (schvaluje člověk).
 - `python opora_heart.py done --summary S` – konec dávky.
 Chyba vrátí `code` a `hint`; oprav argumenty podle `hint` a zkus to jednou znovu.
 
@@ -46,9 +48,19 @@ python opora_heart.py task --order 1 --title "Úvodní stránka: hero sekce" \
   --rule "Barvy jen z src/styles/tokens.css" --rule "Texty česky, tykání" --rule "Komponenty z src/components/ui"
 ```
 
+## Okolí
+Nepracuješ naslepo. Před plánem nového záměru si ze zdroje projektu přečti `CLAUDE.md`, README, `package.json`
+a existující komponenty (Read, Glob). Sekce snímku ZPRÁVY ČLOVĚKA, PRAVIDLA, ROZHODNUTÍ a DENÍK jsou tvoje
+paměť: co je tam rozhodnuté, znovu neeskaluj ani se neptej.
+- Každé povolení nebo rozhodnutí z `answer` (soubor, který pracovník smí změnit, který text platí, pořadí práce)
+  zapiš i jako `decide` (s `--node`, když se týká karty), jinak ho další dávka nezná.
+- Pravidlo celé aplikace navrhni jako `rule`; schvaluje ho člověk. Do `--rule` úkolů opakuj všechna PRAVIDLA
+  (i `(návrh)`; zamítnutý návrh ze snímku zmizí). Nové pravidlo nejdřív navrhni, pak ho použij.
+
 ## Paměť projektu
-Paměť mezi sezeními drží OPORA: fronta úkolů, lístky, deník dávek a tvoje souhrny. Když zpráva člověka
-říká „ulož si, co má vědět další sezení“, je to splněné tím, že plán je ve frontě a souhrn v `done`.
+Paměť mezi sezeními drží OPORA: fronta úkolů, lístky, rozhodnutí (`decide`), pravidla (`rule`), zprávy člověka
+a deník dávek se souhrny. Když zpráva člověka říká „ulož si, co má vědět další sezení“, je to splněné tím, že plán
+je ve frontě, rozhodnutí v `decide` a souhrn v `done`.
 Nezakládej úkoly na poznámkové soubory (`NOTES.md`, `docs/…`, `CLAUDE.md`), pokud nejsou výslovně
 součástí aplikace. Každý úkol mění jen soubory aplikace.
 

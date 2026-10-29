@@ -6,6 +6,8 @@
     python opora_heart.py answer --ticket ID --text T
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
+    python opora_heart.py decide --text T [--node N] [--pin]
+    python opora_heart.py rule --text T
     python opora_heart.py done --summary S
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
@@ -17,6 +19,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -93,6 +96,27 @@ def task_payload(args):
     return payload
 
 
+def now():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def item_payload(item):
+    """Přidání položky paměti (`POST /api/desktop-v3/decision|rule`, CAS: `expected` null)."""
+    return {**scope(), "id": item["id"], "op": "add", "expected": None, "item": item}
+
+
+def decision_payload(args):
+    """Rozhodnutí srdce v paměti prostoru (DECISION_KEYS); `by: agent`, cesta prázdná."""
+    return item_payload({"id": "hd_" + uuid.uuid4().hex, "text": args.text, "pinned": args.pin, "path": "",
+                         "nodeId": args.node or "", "createdAt": now(), "by": "agent"})
+
+
+def rule_payload(args):
+    """Pravidlo celé aplikace; `by: agent` (návrh do schválení člověkem) doplní server."""
+    return item_payload({"id": "hr_" + uuid.uuid4().hex, "text": args.text, "kind": "must", "scope": "project",
+                         "target": ""})
+
+
 def run(args):
     project = env("OPORA_PROJECT")
     if args.command == "snapshot":
@@ -109,7 +133,12 @@ def run(args):
         return {key: task[key] for key in ("taskId", "status")}
     if args.command == "escalate":
         return call("POST", "/api/brain/heart/escalate", {**scope(), "text": args.text})
-    summary = {"summary": args.summary, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    if args.command in ("decide", "rule"):
+        path, payload = (("/api/desktop-v3/decision", decision_payload(args)) if args.command == "decide"
+                         else ("/api/desktop-v3/rule", rule_payload(args)))
+        item = call("POST", path, payload)["item"]
+        return {key: item.get(key) for key in ("id", "text", "by")}
+    summary = {"summary": args.summary, "at": now()}
     Path(LAST_DONE).write_text(json.dumps(summary, ensure_ascii=False), encoding="utf-8")
     return {"done": True}
 
@@ -133,6 +162,11 @@ def parser():
     answer.add_argument("--text", required=True)
     commands.add_parser("cancel").add_argument("--task", required=True)
     commands.add_parser("escalate").add_argument("--text", required=True)
+    decide = commands.add_parser("decide")
+    decide.add_argument("--text", required=True)
+    decide.add_argument("--node")
+    decide.add_argument("--pin", action="store_true")
+    commands.add_parser("rule").add_argument("--text", required=True)
     commands.add_parser("done").add_argument("--summary", required=True)
     return root
 

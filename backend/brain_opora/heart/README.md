@@ -25,7 +25,7 @@ Modules (H2a):
   `claude.cmd` / `claude`.
 - `session.py`: `brain/session.json = {sessionId, batches, lastInputTokens}`; a new session above 60k input tokens
   or after a failed batch.
-- `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `done`).
+- `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `decide`, `rule`, `done`).
   It is copied into `brain/` before each batch so the Bash rule is `Bash(python opora_heart.py:*)`.
 - `prompt.md`: the heart's role, task shape with a full example, application-wide rules, when to ask the advisor.
 

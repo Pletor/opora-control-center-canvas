@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
 from backend.brain_opora.determinism import gate, tokens
+from backend.brain_opora.heart import opora_heart
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed
 
 AGENT = {**HEADERS, "X-Opora-Actor": "agent; name=dev"}
@@ -73,6 +74,35 @@ def test_heart_token_writes_tasks_answers_and_escalates_in_its_project(tmp_path)
         assert code(client.post("/api/brain/heart/escalate", headers=worker, json={**SCOPE, "text": "x"})
                     ) == "gate_required"
         assert client.post("/api/brain/heart/messages", headers=heart, json=MESSAGE).status_code == 403
+
+
+def test_heart_token_adds_decisions_and_proposes_rules_in_the_snapshot(tmp_path, monkeypatch):
+    """`decide` a `rule` (§3a): tvar z nástroje srdce projde skutečnou routou; pravidlo je návrh agenta."""
+    for key, value in {"OPORA_PROJECT": "draft", "OPORA_WORKSPACE": "draft"}.items():
+        monkeypatch.setenv(key, value)
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        _, token = tokens.issue_heart(client.app.state.service, "draft", "draft")
+        heart = {**HEADERS, tokens.HEADER: token}
+        client.cookies.clear()  # srdce nemá doklad UI
+        decision = opora_heart.decision_payload(opora_heart.parser().parse_args(
+            ["decide", "--text", "Test h1 smí upravit úkol hero.", "--node", "n0", "--pin"]))
+        added = client.post("/api/desktop-v3/decision", headers=heart, json=decision)
+        assert added.status_code == 200, added.text
+        assert added.json()["item"]["by"] == "agent" and added.json()["item"]["nodeId"] == "n0"
+        rule = opora_heart.rule_payload(opora_heart.parser().parse_args(["rule", "--text", "Texty česky, tykání."]))
+        proposed = client.post("/api/desktop-v3/rule", headers=heart, json=rule)
+        assert proposed.status_code == 200, proposed.text
+        assert proposed.json()["item"] == {**rule["item"], "by": "agent"}  # server označí návrh agenta
+        text = client.get("/api/brain/heart/snapshot", params=SCOPE).json()["snapshot"]
+        assert "- Texty česky, tykání. (návrh)" in text.split("PRAVIDLA:")[1].split("ROZHODNUTÍ:")[0]
+        assert "- [připnuto] Test h1 smí upravit úkol hero. · karta n0" in text.split("ROZHODNUTÍ:")[1]
+        # Pracovník bez tokenu srdce do paměti nepíše (zeď).
+        worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
+        other = {**decision, "id": "hd_worker", "item": {**decision["item"], "id": "hd_worker"}}
+        refused = client.post("/api/desktop-v3/decision", headers=worker, json=other)
+        assert refused.status_code == 403 and code(refused) == "gate_required"
 
 
 def test_heart_of_another_project_has_no_writer_rights_here(tmp_path):
