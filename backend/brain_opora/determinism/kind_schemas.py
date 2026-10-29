@@ -4,6 +4,8 @@ Jen data pro tabulku `kinds.py`: z nich vzniká `GET /api/gate/kinds` (a pozděj
 jsou funkce v `gate_payloads.py` a `task_payloads.py`; test `test_kinds.py` hlídá, že příklady projdou kontrolou
 i schématem a že výstup obsluhy schématu odpovídá.
 """
+from backend.brain_opora.determinism.task_payloads import MODELS
+
 TEXT = {"type": "string", "minLength": 1}
 ID = {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}
 TEXTS = {"type": "array", "items": TEXT}
@@ -23,8 +25,8 @@ EMPTY = obj({})
 TASK_BODY_IN = obj({"why": {"type": "string"}, "do": TEXT, "files": TEXTS, "doneWhen": TEXTS,
                     "dontTouch": {"type": "array", "items": obj({"path": TEXT, "heldBy": TEXT}, ("path", "heldBy"))},
                     "context": obj({"intent": {"type": "string"}, "rules": TEXTS, "pattern": {"type": "string"}}),
-                    "commit": {"type": "string"}}, ("do",))
-TASK_BODY = {**TASK_BODY_IN, "required": ["why", "do", "files", "doneWhen", "dontTouch", "context", "commit"]}
+                    "commit": {"type": "string"}, "model": {"type": "string", "enum": list(MODELS)}}, ("do",))
+TASK_BODY = {**TASK_BODY_IN, "required": ["why", "do", "files", "doneWhen", "dontTouch", "context", "commit", "model"]}
 WORKER_TASK = obj({"id": ID, "title": TEXT, "nodeId": nullable(ID), "status": {"type": "string"},
                    "attempts": {"type": "integer"}, "body": TASK_BODY},
                   ("id", "title", "nodeId", "status", "attempts", "body"))

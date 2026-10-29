@@ -2,7 +2,7 @@
 
     python opora_heart.py snapshot
     python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P[@kdo]]…
-                               [--rule R]… [--intent I] [--node N] [--order N] [--commit C]
+                               [--rule R]… [--intent I] [--node N] [--order N] [--commit C] [--model M]
     python opora_heart.py answer --ticket ID --text T
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
@@ -84,6 +84,8 @@ def task_payload(args):
             "dontTouch": [held(item) for item in args.dont_touch], "commit": args.commit or ""}
     context = {key: value for key, value in (("rules", args.rule), ("intent", args.intent)) if value}
     payload = {**scope(), "title": args.title, "body": {**body, "context": context}}
+    if args.model:
+        payload["body"]["model"] = args.model
     if args.node:
         payload["nodeId"] = args.node
     if args.order is not None:
@@ -125,6 +127,7 @@ def parser():
     for flag in ("--intent", "--node", "--commit"):
         task.add_argument(flag)
     task.add_argument("--order", type=int)
+    task.add_argument("--model", choices=("sonnet", "opus", "haiku", "fable"))
     answer = commands.add_parser("answer")
     answer.add_argument("--ticket", required=True)
     answer.add_argument("--text", required=True)

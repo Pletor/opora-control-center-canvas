@@ -111,7 +111,10 @@ H1b in detail (the task queue):
   CREATE INDEX IF NOT EXISTS heart_tasks_queue ON heart_tasks(project_id, workspace_id, status, seq);
   ```
 - **Task body**, the fixed shape a worker gets:
-  `{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{intent?, rules[]?, pattern?}, commit}`.
+  `{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{intent?, rules[]?, pattern?}, commit, model}`.
+  `model` is the worker's model (`sonnet` | `opus` | `haiku` | `fable`), default `sonnet` (eval m6: the same quality as
+  Opus at about 55 % of the cost). The launcher (agent-office) starts the worker session with it. Tasks stored before
+  the field existed read as `sonnet`.
   `title` and `do` are required.
 - **Writing tasks.** Only a human, or later the heart, writes tasks:
   - `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` → `201 task`;

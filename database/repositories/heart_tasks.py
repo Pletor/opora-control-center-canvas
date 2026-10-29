@@ -13,12 +13,12 @@ SELECT = "SELECT " + ",".join(COLUMNS) + " FROM heart_tasks"
 
 
 def public(row):
-    """Úkol v podobě, jakou vrací API."""
+    """Úkol v podobě, jakou vrací API; úkol starší než pole `model` dostane výchozí `sonnet` (task_payloads)."""
     if row is None:
         return None
     value = dict(zip(COLUMNS, tuple(row)))
     return {"taskId": value["id"], "seq": value["seq"], "workspaceId": value["workspace_id"], "nodeId": value["node_id"],
-            "title": value["title"], "body": json.loads(value["body"]), "status": value["status"],
+            "title": value["title"], "body": {"model": "sonnet", **json.loads(value["body"])}, "status": value["status"],
             "sessionId": value["session_id"], "attempts": value["attempts"], "createdBy": value["created_by"],
             "report": None if value["report"] is None else json.loads(value["report"]),
             "createdAt": value["created_at"], "updatedAt": value["updated_at"], "order": value["task_order"]}

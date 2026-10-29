@@ -68,14 +68,14 @@ def run(capsys, *argv):
 def test_task_sends_the_fixed_shape_with_the_heart_token(server, capsys):
     code, out = run(capsys, "task", "--title", "Hero", "--do", "Udělej hero.", "--why", "Proč", "--file", "a.tsx",
                     "--done-when", "npm test projde", "--dont-touch", "nav.tsx@úkol navigace", "--rule", "Česky",
-                    "--intent", "klid", "--order", "1", "--node", "home")
+                    "--intent", "klid", "--order", "1", "--node", "home", "--model", "opus")
     assert code == 0 and json.loads(out) == {"taskId": "ht_1", "title": "Hero", "status": "ready", "order": 1}
     call = Handler.calls[0]
     assert call["headers"]["X-Opora-Gate-Token"] == "tok-heart" and call["headers"]["Origin"] == server
     assert call["headers"]["X-Opora-Actor"] == "agent; name=heart"
     assert call["body"] == {"project": "p1", "workspace": "main", "title": "Hero", "nodeId": "home", "order": 1,
                             "body": {"do": "Udělej hero.", "why": "Proč", "files": ["a.tsx"],
-                                     "doneWhen": ["npm test projde"], "commit": "",
+                                     "doneWhen": ["npm test projde"], "commit": "", "model": "opus",
                                      "dontTouch": [{"path": "nav.tsx", "heldBy": "úkol navigace"}],
                                      "context": {"rules": ["Česky"], "intent": "klid"}}}
 

@@ -28,7 +28,7 @@ def test_insert_list_and_oldest_ready(store):
     store.insert("ht_2", "main", None, "Druhý", {"do": "b"}, "human", AT)
     store.insert("ht_3", "w2", None, "Jinde", {"do": "c"}, "human", AT)
     task = store.get("ht_1")
-    assert task["status"] == "ready" and task["body"] == {"do": "a"} and task["nodeId"] == "n1"
+    assert task["status"] == "ready" and task["body"] == {"model": "sonnet", "do": "a"} and task["nodeId"] == "n1"
     assert task["attempts"] == 0 and task["sessionId"] is None and task["report"] is None
     assert [t["taskId"] for t in store.list("main")] == ["ht_1", "ht_2"]
     assert store.oldest_ready("main")["taskId"] == "ht_1"
