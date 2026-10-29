@@ -6,6 +6,7 @@
     opora_gate.py report --task T --sha S --summary "…" --check "npm test=green" --check "pytest=red"
     opora_gate.py release --task T --reason "Úkol potřebuje soubor z dontTouch."
     opora_gate.py inbox [--wait 20]
+    opora_gate.py tell "Záměr člověka doslova"   # relé záměru srdci (docs/brain-heart-orchestrator.md §8)
 
 Adresa serveru je v OPORA_BASE_URL (výchozí http://127.0.0.1:8740). Token relace se uloží do
 `<cwd>/.opora/gate.json` a `.opora/` se připíše do `.gitignore` v cwd, když tam chybí; na výstup token nejde.
@@ -127,6 +128,9 @@ def run(args, cwd):
                                          "checks": checks})
     if args.command == "release":
         return request(state, "release", {"taskId": args.task, "reason": args.reason})
+    if args.command == "tell":
+        return call("POST", "/api/brain/heart/messages", {"project": state["project"], "workspace": state["workspace"],
+                                                         "text": args.text}, state["token"], name=state.get("name"))
     box = call("GET", "/api/gate/inbox", token=state["token"], name=state.get("name"),
                query={"after": state.get("after", 0), "wait": args.wait})
     save_state(cwd, {**state, "after": box["last"]})
@@ -159,6 +163,8 @@ def parser():
     release.add_argument("--reason", required=True)
     inbox = sub.add_parser("inbox", help="nové odpovědi na lístky této relace")
     inbox.add_argument("--wait", type=int, default=0, help="long-poll 0..30 s")
+    tell = sub.add_parser("tell", help="předá srdci záměr člověka doslova (zpráva s via = jméno relace)")
+    tell.add_argument("text")
     return root
 
 

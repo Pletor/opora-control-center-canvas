@@ -39,6 +39,7 @@ or the body, the same way `_authority` does it.
 | valid heart token for this project | allowed and treated as an agent with full autonomy in this project |
 | `/api/gate/*` with a valid worker token | allowed |
 | orchestrator lane (`LANE` in `determinism/wall.py`: card work such as `/api/oporahub/executions/*`, review jobs, `agent-output`; list in `docs/brain-heart-orchestrator.md` §2) | allowed with any token or none; canvas, proposals and rules stay walled |
+| intent relay `POST /api/brain/heart/messages` (`RELAY` in `determinism/wall.py`, `docs/brain-heart-orchestrator.md` §8) with a valid worker token of this project | allowed; the route stores `via` = session name |
 | anything else that writes | 403 `{error, code: "gate_required", hint: "Write through the gate: POST /api/gate/requests"}` |
 
 ## 4. Gate API (`backend/api/brain_opora/gate_routes.py`)

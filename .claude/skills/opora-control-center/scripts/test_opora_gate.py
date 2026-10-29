@@ -35,6 +35,8 @@ class FakeGate(BaseHTTPRequestHandler):
         self.seen.append(("POST", self.path, body, self.headers.get(opora_gate.HEADER), self.headers.get("Origin")))
         if self.path == "/api/gate/sessions":
             return self._send(201, {"sessionId": "gs_1", "token": TOKEN, "expiresAt": "2026-10-29T18:00:00Z"})
+        if self.path == "/api/brain/heart/messages":
+            return self._send(200, {"queued": True, "pending": 1})
         if body["kind"] == "report" and body["body"]["taskId"] == "ht_cizi":
             return self._send(409, {"error": "Úkol není přidělený.", "code": "task_not_assigned", "hint": "Použijte next."})
         return self._send(201, {"ticketId": "gt_1", "seq": 1, "kind": body["kind"], "status": "answered",
@@ -87,6 +89,15 @@ def test_requests_carry_token_and_bodies(server, tmp_path, capsys):
     code, out = run(tmp_path, capsys, "release", "--task", "ht_1", "--reason", "Nestihnu.")
     assert code == 0 and server[-1][2] == {"kind": "release", "body": {"taskId": "ht_1", "reason": "Nestihnu."}}
     assert all(item[3] == TOKEN and item[4].startswith("http://127.0.0.1:") for item in server[1:])
+
+
+def test_tell_relays_the_intent_to_the_heart_with_the_session(server, tmp_path, capsys):
+    run(tmp_path, capsys, "session", "--project", "draft", "--workspace", "main", "--name", "office")
+    code, out = run(tmp_path, capsys, "tell", "Chci web o dvou stránkách.")
+    assert code == 0 and out == {"queued": True, "pending": 1}
+    method, path, body, token, _ = server[-1]
+    assert (method, path, token) == ("POST", "/api/brain/heart/messages", TOKEN)
+    assert body == {"project": "draft", "workspace": "main", "text": "Chci web o dvou stránkách."}
 
 
 def test_inbox_moves_the_cursor(server, tmp_path, capsys):

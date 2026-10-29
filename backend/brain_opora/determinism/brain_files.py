@@ -1,6 +1,7 @@
 """Soubory složky `brain/` projektu, které čte snímek (docs/brain-heart.md §3a, §3b): zprávy, deník a skripty dílny.
 
-`messages.jsonl` drží zprávy člověka `{at, workspace, text}` (supervisor je připíše dřív, než vstup zařadí),
+`messages.jsonl` drží zprávy člověka `{at, workspace, text}` a u předaných relé navíc `via` (jméno relace
+pracovníka, docs/brain-heart-orchestrator.md §8; supervisor je připíše dřív, než vstup zařadí),
 `batches.jsonl` píše dávka srdce (`heart/batch.py`). Leží tu, ne v `heart/`, protože je čte i determinismus
 (snímek) a ten srdce importovat nesmí. Nečitelný soubor nebo poškozený řádek = nic, nikdy výjimka.
 """
@@ -17,9 +18,9 @@ def brain_dir(service, project):
     return Path(service.folder(project).path) / "brain"
 
 
-def append_message(brain, at, workspace, text):
-    """Připíše zprávu člověka jako jeden řádek JSON; vrací zapsaný záznam."""
-    entry = {"at": at, "workspace": workspace, "text": text}
+def append_message(brain, at, workspace, text, via=None):
+    """Připíše zprávu člověka jako jeden řádek JSON (`via` jen u relé); vrací zapsaný záznam."""
+    entry = {"at": at, "workspace": workspace, "text": text} | ({"via": via} if via else {})
     brain = Path(brain)
     brain.mkdir(parents=True, exist_ok=True)
     with (brain / MESSAGES).open("a", encoding="utf-8") as file:

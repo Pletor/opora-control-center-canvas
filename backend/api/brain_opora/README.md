@@ -21,7 +21,8 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   middleware sets after the wall verified a heart token for the request's project; it cannot be spoofed. The ticket
   answer in `gate_routes.py` uses the same marker (`answeredBy = "heart"`).
 - `heart_routes.py` (H2a, `docs/brain-heart.md`, loopback-only): `POST /api/brain/heart/messages {project, workspace,
-  text}` (human only, gate on, else 409 `gate_off`) queues a wake and answers `{queued: true, pending}`;
+  text}` (human, or a worker gate token of the same project relaying intent with `via` = session name,
+  `docs/brain-heart-orchestrator.md` §8; gate on, else 409 `gate_off`) queues a wake and answers `{queued: true, pending}`;
   `GET /api/brain/heart/status?project=` returns the session, the last 5 batches, sleeping and `nextAllowedAt`;
   `GET /api/brain/heart/snapshot?project&workspace` returns `{snapshot}`; `POST /api/brain/heart/escalate
   {project, workspace, text}` (heart token only) creates an `ask` ticket for the human.

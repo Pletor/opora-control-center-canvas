@@ -44,8 +44,12 @@ python "<SKILL_DIR>/scripts/opora_gate.py" session --project P --workspace W --n
 python "<SKILL_DIR>/scripts/opora_gate.py" ask "Patří validace formuláře do karty X, nebo do nové?"
 python "<SKILL_DIR>/scripts/opora_gate.py" change "Přidej kartu Kontakt pod Web." --reason "Záměr člověka: …"
 python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
+python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova, s fokusem"
 ```
 
+- `tell` = relé záměru: předá srdci slova člověka **doslova** (žádný vlastní plán) jako zprávu člověka; srdce
+  ji vidí v `ZPRÁVY ČLOVĚKA` se značkou „(přes <jméno relace>)“ a budí se hned. Pak čekej na dávku
+  (`/api/brain/heart/status`) a nové karty čti ve stavu.
 - `ask` = otázka, `change` = žádost o změnu plánu (`--task ht_…`, když se týká úkolu fronty). Oba lístky čekají,
   až je srdce (nebo člověk) zodpoví; odpověď najdeš v `inbox`. Relace a token: [gate.md](gate.md).
 - Novou kartu od srdce poznáš v `opora_hub.py state`; nečekej na ni ve smyčce, dělej jinou `ready` kartu.
@@ -56,7 +60,7 @@ python "<SKILL_DIR>/scripts/opora_gate.py" inbox --wait 20
 |---|---|---|
 | `/api/brain/heart/status` | čtení kdokoli | `GET ?project=` → poslední dávky srdce |
 | `/api/brain/heart/snapshot` | čtení kdokoli | `GET ?project&workspace` → `{snapshot}` (text, co srdce vidí) |
-| `/api/brain/heart/messages` | jen člověk | `POST {project, workspace, text}` → zpráva srdci z panelu Asistent (409 `gate_off`) |
+| `/api/brain/heart/messages` | člověk nebo token pracovníka projektu | `POST {project, workspace, text}` → zpráva srdci z panelu Asistent nebo relé `tell` (409 `gate_off`) |
 | `/api/brain/heart/escalations` | jen člověk | `GET ?project&workspace` → otázky srdce na člověka |
 | `/api/brain/heart/context` | token srdce | `GET ?project&workspace&name=` → podklady dávky srdce |
 | `/api/brain/heart/escalate` | token srdce | `POST {project, workspace, text}` → otázka srdce člověku |

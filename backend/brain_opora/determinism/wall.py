@@ -32,6 +32,9 @@ LANE = (
     "/api/desktop-v3/agent-workspace",
     "/api/desktop-v3/lease",
 )
+# Relé záměru (docs/brain-heart-orchestrator.md §8): pracovník brány předá srdci zprávu člověka. Jen tahle
+# přesná cesta a jen s platným tokenem pracovníka téhož projektu; kdo smí psát, ověří ještě routa.
+RELAY = "/api/brain/heart/messages"
 
 
 @dataclass(frozen=True)
@@ -85,6 +88,9 @@ def decide(method, path, actor, gate_on, token, project=""):
         return ALLOW
     if in_lane(path):
         # Pruh nepotřebuje token: bez hlavičky, s neplatným i s cizím tokenem rozhoduje jen cesta.
+        return ALLOW
+    if (path == RELAY and isinstance(token, dict) and token.get("role") == "worker" and bool(project)
+            and token.get("project") == project):
         return ALLOW
     if token == INVALID:
         return _refuse(401, "gate_token_invalid", "Token brány je neznámý, prošlý nebo zneplatněný.",

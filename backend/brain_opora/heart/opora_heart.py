@@ -3,7 +3,8 @@
     python opora_heart.py snapshot
     python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P[@kdo]]…
                                [--rule R]… [--intent I] [--node N] [--order N] [--commit C] [--model M]
-    python opora_heart.py plan --file F [--dry-run]
+    python opora_heart.py plan --file F [--dry-run] [--no-accept]
+    python opora_heart.py plan --example
     python opora_heart.py answer --ticket ID --text T
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
@@ -20,7 +21,9 @@ OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrn
 Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` a vypíše jen cestu, počet a velikost;
 `run` spustí `dilna/scripts/<SCRIPT>.py` (`python -I`, cwd `dilna/`, 120 s) bez tokenu srdce a klíčů API
 ve vlastní skupině procesů (po vypršení zemře celý strom i s pod-voláními `claude`) a zapíše řádek do `dilna/runs.jsonl`.
-`plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem.
+`plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem
+a ostrou dávku hned přijme (návrh grafu + přijetí, §3 O2b; `--no-accept` nechá přijetí člověku); `--example` vypíše
+platný vzor dávky (tentýž je v prompt.md, část Plán).
 `research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje.
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -90,12 +93,23 @@ def call(method, path, body=None, query=None, actor="heart"):
         except ValueError:
             payload = {}
         payload = payload if isinstance(payload, dict) else {}
-        raise Failure({"error": payload.get("error") or f"HTTP {error.code}", "status": error.code,
-                       "code": payload.get("code") or f"http_{error.code}",
-                       "hint": payload.get("hint") or "Zkontrolujte argumenty příkazu."}) from None
+        raise Failure(server_failure(error.code, payload)) from None
     except (URLError, OSError) as error:
         raise Failure({"error": f"OPORA neodpovídá: {error}", "code": "server_unreachable",
                        "hint": "Server OPORY neběží nebo je na jiné adrese než OPORA_BASE_URL."}) from None
+
+
+GENERIC_HINT = "Zkontrolujte argumenty příkazu."
+DETAILS = ("field", "expected", "example", "cycle")  # podrobnosti chyby serveru (payload_errors, card_cycle)
+
+
+def server_failure(status, payload):
+    """Odmítnutí serveru jako výstup nástroje: `error`, `status`, `code`, `hint` a podrobnosti pole, když je server dá."""
+    payload = payload if isinstance(payload, dict) else {}
+    out = {"error": str(payload.get("error") or payload.get("detail") or f"HTTP {status}"), "status": status,
+           "code": payload.get("code") or f"http_{status}", "hint": payload.get("hint") or GENERIC_HINT}
+    out.update({key: payload[key] for key in DETAILS if key in payload})
+    return out
 
 
 def scope():
@@ -159,9 +173,104 @@ def read_plan(path):
     return value
 
 
+# Vzor dávky pro srdce: sektor, dvě karty se spec.steps a checks, vazba `next`. Tentýž JSON stojí v prompt.md (část
+# Plán); test ho z promptu vytáhne, porovná s tímto a pošle skutečnému `/api/canvas-plan` s dryRun, aby nezastaral.
+PLAN_EXAMPLE = {
+    "nodes": [
+        {"ref": "mvp", "kind": "sector", "parent": None, "name": "MVP seznam úkolů",
+         "purpose": "První použitelná verze aplikace."},
+        {"ref": "model", "kind": "node", "parent": "mvp", "name": "[task] Třída SeznamUkolu",
+         "purpose": "Úkoly v paměti: přidat, smazat, vypsat.", "card": {"layer": "backend", "status": "ready"},
+         "spec": {"goal": "ukoly.py má třídu SeznamUkolu s metodami pridat, smazat a seznam.",
+                  "non_goals": "Příkazovou řádku řeší karta CLI.", "acceptance": "python -m unittest projde",
+                  "steps": [{"id": "s1", "order": 1, "title": "Třída a její testy", "dependsOn": [],
+                             "acceptance": ["test_ukoly.py pokrývá pridat, smazat i seznam"]}]},
+         "checks": [{"id": "unit", "command": "python -m unittest"}]},
+        {"ref": "cli", "kind": "node", "parent": "mvp", "name": "[task] CLI ukoly.py",
+         "purpose": "Úkoly z příkazové řádky.", "card": {"layer": "backend", "status": "ready"},
+         "spec": {"goal": "python ukoly.py pridat|smazat|seznam volá SeznamUkolu.", "non_goals": "",
+                  "acceptance": "python -m unittest projde",
+                  "steps": [{"id": "s1", "order": 1, "title": "Argumenty a výstup", "dependsOn": [],
+                             "acceptance": ["python ukoly.py seznam vypíše přidaný úkol"]}]},
+         "checks": [{"id": "unit", "command": "python -m unittest"}]},
+    ],
+    "edges": [{"from": "model", "to": "cli", "port": "next"}],
+}
+PLAN_SHAPE = ("Tvar dávky: `python opora_heart.py plan --example` (sektor, karty node s card, spec.steps a checks, "
+              "vazba next); celý kontrakt docs/davka-planu.md §3.")
+# Přijetí plánu (docs/brain-heart-orchestrator.md §3 O2b): kroky z agent-state, které z plátna udělají přijatý plán.
+GRAPH_PROPOSALS = "/api/oporahub/graph-proposals"
+ACCEPT_ROUNDS = 6
+
+
+def plan_hint(failure, shape=None):
+    """Odmítnutí dávky nese vlastní text serveru (a pole), ne obecnou radu: srdce se podle něj opraví samo."""
+    payload = failure.payload
+    if not 400 <= (payload.get("status") or 0) < 500 or payload.get("hint") not in (None, GENERIC_HINT):
+        return
+    detail = (f" Pole {payload['field']}: {payload['expected']}."
+              if payload.get("field") and payload.get("expected") else "")
+    payload["hint"] = (f"Server dávku odmítl: {payload.get('error')}{detail} Oprav soubor a pošli ho s --dry-run. "
+                       + (shape or PLAN_SHAPE))
+
+
+def acceptance_step(action):
+    """Krok přijetí plánu, který smí udělat srdce: návrh grafu, přijetí návrhu grafu, výchozí zadání.
+    Cizí návrhy zadání a obsahu (`accept` mimo graf) nechává člověku."""
+    if action.get("method") != "POST" or not action.get("path"):
+        return False
+    if action.get("status") != "ready" and action.get("blockReason") != "human_only":
+        return False
+    verb, path = action.get("verb"), action["path"]
+    return (verb in ("propose_graph", "accept_baseline")
+            or (verb == "accept" and path.startswith(GRAPH_PROPOSALS + "/") and path.endswith("/accept")))
+
+
+def accept_plan():
+    """Po ostré dávce: kroky přijetí z `GET /api/oporahub/agent-state` jeden po druhém (jako člověk v UI), tokenem
+    srdce. `accepted` = žádný krok přijetí nezbyl a pracovní plán se shoduje s přijatým (`heads.workingDiffers`)."""
+    steps = []
+    for _ in range(ACCEPT_ROUNDS):
+        state = call("GET", "/api/oporahub/agent-state", query=scope())
+        todo = [action for action in state.get("actions", []) if acceptance_step(action)]
+        if not todo:
+            if (state.get("heads") or {}).get("workingDiffers"):
+                return {"accepted": False, "acceptSteps": steps, "code": "plan_not_accepted",
+                        "hint": "Plán na plátně se liší od přijatého a agent-state nenabízí krok přijetí "
+                                "(dávka nad už přijatým grafem); nové karty přijme člověk v UI."}
+            return {"accepted": True, "acceptSteps": steps}
+        action = todo[0]
+        try:
+            call("POST", action["path"], {**scope(), **(action.get("preconditions") or {})})
+        except Failure as failure:
+            return {"accepted": False, "acceptSteps": steps, "code": failure.payload.get("code"),
+                    "error": failure.payload.get("error"),
+                    "hint": f"Přijetí plánu ({action['verb']} {action['path']}) selhalo; karty jsou na plátně, "
+                            "přijme je člověk v UI."}
+        steps.append(action["verb"])
+    return {"accepted": False, "acceptSteps": steps, "code": "plan_accept_loop",
+            "hint": f"Přijetí plánu nedoběhlo za {ACCEPT_ROUNDS} kroků; přijme ho člověk v UI."}
+
+
 def submit_plan(args, retried=False):
-    """`plan`: čerstvý digest z `GET /api/view`, pak `POST /api/canvas-plan`; zastaralý digest zkusí ještě jednou."""
+    """`plan`: bez přijatého grafu čerstvý digest z `GET /api/view`, pak `POST /api/canvas-plan` a přijetí
+    (`accept_plan`); s přijatým grafem přírůstek přes návrh grafu (`submit_addition`). Zastaralý stav zkusí ještě
+    jednou; `--no-accept` nechá přijetí člověku; `--example` jen vypíše vzor dávky."""
+    if args.example:
+        return PLAN_EXAMPLE
+    if not args.file:
+        raise Failure({"error": "Chybí --file.", "code": "plan_file",
+                       "hint": "Ulož plán do dilna/out/<jméno>.json (Write) a předej --file. " + PLAN_SHAPE})
     plan = read_plan(args.file)
+    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    if context.get("graphManifestId"):
+        try:
+            return submit_addition(args, plan, context)
+        except Failure as failure:
+            if failure.payload.get("status") == 409 and "changed" in failure.payload.get("error", "") and not retried:
+                return submit_plan(args, retried=True)
+            plan_hint(failure, ADDITION_SHAPE)
+            raise
     body = {**scope(), "digest": call("GET", "/api/view", query=scope())["digest"], "plan": plan}
     if args.dry_run:
         body["dryRun"] = True
@@ -169,12 +278,81 @@ def submit_plan(args, retried=False):
         result = call("POST", "/api/canvas-plan", body)
     except Failure as failure:
         if failure.payload.get("status") != 409 or STALE not in failure.payload.get("error", ""):
+            plan_hint(failure)
             raise
         if not retried:
             return submit_plan(args, retried=True)
         failure.payload.update(code="stale", hint="Plátno se mění pod rukama; načti snapshot a pošli plán znovu.")
         raise
-    return {key: result.get(key) for key in ("ok", "dryRun", "refs", "summary", "warnings")}
+    out = {key: result.get(key) for key in ("ok", "dryRun", "refs", "summary", "warnings")}
+    if args.dry_run:
+        return out
+    return {**out, **({"accepted": False} if args.no_accept else accept_plan())}
+
+
+# Přírůstek nad přijatým grafem (O2c): stejná cesta jako formulář „Rozšíření plánu“ v UI (frontend/hub/graph-proposals).
+# Návrh grafu umí jen tato pole uzlu a jen vazby `next`; `card` a `checks` z dávky se do přírůstku nepřenesou.
+ADDITION_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf"}
+ADDITION_DROPPED = ("card", "checks")
+ADDITION_EDGE_KEYS = {"from", "to", "port", "carries"}
+ADDITION_SHAPE = ("Plán nad už přijatým grafem jde jako návrh grafu: uzel jen s poli ref, kind (node|sector|area), "
+                  "name, parent, purpose, spec, sourceRef, position, size, memberOf; vazby jen next (from, to); "
+                  "nic dalšího (text, bloky, pravidla, rozhodnutí). Existující uzel odkazuj \"@<id>\".")
+
+
+def addition_plan(plan):
+    """Dávka → plán návrhu grafu. Vrací (plán, vynechaná pole); jiná pole odmítne česky, než je odmítne server."""
+    if not set(plan) <= {"nodes", "edges"}:
+        raise Failure({"error": f"Přírůstek plánu neumí {', '.join(sorted(set(plan) - {'nodes', 'edges'}))}.",
+                       "code": "plan_shape", "hint": ADDITION_SHAPE})
+    nodes, dropped = [], set()
+    for index, node in enumerate(plan.get("nodes") or []):
+        if not isinstance(node, dict):
+            raise Failure({"error": f"nodes[{index}] není objekt.", "code": "plan_shape", "hint": ADDITION_SHAPE})
+        extra = set(node) - ADDITION_KEYS - set(ADDITION_DROPPED)
+        if extra or node.get("kind") not in ("node", "sector", "area"):
+            what = f"neznámé pole {', '.join(sorted(extra))}" if extra else f"druh {node.get('kind')!r}"
+            raise Failure({"error": f"nodes[{index}]: {what}.", "code": "plan_shape", "hint": ADDITION_SHAPE})
+        dropped |= set(node) & set(ADDITION_DROPPED)
+        nodes.append({key: value for key, value in node.items() if key in ADDITION_KEYS})
+    edges = []
+    for index, edge in enumerate(plan.get("edges") or []):
+        if not isinstance(edge, dict) or not set(edge) <= ADDITION_EDGE_KEYS or edge.get("port", "next") != "next":
+            raise Failure({"error": f"edges[{index}]: jen vazba next (from, to).", "code": "plan_shape",
+                           "hint": ADDITION_SHAPE})
+        edges.append(edge)
+    return {"nodes": nodes, "edges": edges}, sorted(dropped)
+
+
+def submit_addition(args, plan, context):
+    """Plán nad přijatým grafem: `POST /api/oporahub/graph-proposals` s přírůstkem, pak jeho přijetí tokenem srdce.
+    Karty vzniknou na plátně až přijetím, takže pracovní a přijatý graf se nerozejdou a claimy ostatních karet platí."""
+    addition, dropped = addition_plan(plan)
+    warnings = [f"Pole {', '.join(dropped)} se do přírůstku nad přijatým grafem nepřenáší."] if dropped else []
+    if args.dry_run:
+        # Návrh grafu nemá dryRun: tvar ověří stejná validace dávky plánu bez zápisu.
+        result = call("POST", "/api/canvas-plan", {**scope(), "digest": context["graphDigest"], "plan": addition,
+                                                    "dryRun": True})
+        return {"ok": result.get("ok"), "dryRun": True, "refs": result.get("refs"), "summary": result.get("summary"),
+                "warnings": [*warnings, *(result.get("warnings") or [])], "path": "graph-proposal"}
+    proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
+                                              "expectedGraphDigest": context["graphDigest"],
+                                              "subject": f"Plán srdce: {len(addition['nodes'])} uzlů", "plan": addition})
+    out = {"ok": True, "dryRun": False, "refs": proposal.get("refs"), "proposalId": proposal["id"],
+           "summary": f"Návrh grafu: {len(addition['nodes'])} uzlů, {len(addition['edges'])} vazeb.",
+           "warnings": warnings, "path": "graph-proposal"}
+    if args.no_accept:
+        return {**out, "accepted": False}
+    try:
+        call("POST", f"{GRAPH_PROPOSALS}/{quote(proposal['id'], safe='')}/accept",
+             {**scope(), "expectedAcceptedHead": context["acceptedHead"], "expectedGraphDigest": context["graphDigest"],
+              "adoptBaseGraphDigest": None})
+    except Failure as failure:
+        return {**out, "accepted": False, "acceptSteps": ["graph_addition"], "code": failure.payload.get("code"),
+                "error": failure.payload.get("error"),
+                "hint": "Návrh grafu čeká na přijetí (plátno se mezitím změnilo, nebo chybí oprávnění); "
+                        "přijme ho člověk v UI, nebo pošli plán znovu."}
+    return {**out, "accepted": True, "acceptSteps": ["graph_addition", "accept"]}
 
 
 def load_context(name):
@@ -340,8 +518,10 @@ def parser():
     task.add_argument("--order", type=int)
     task.add_argument("--model", choices=("sonnet", "opus", "haiku", "fable"))
     plan = commands.add_parser("plan")
-    plan.add_argument("--file", required=True)
+    plan.add_argument("--file")
     plan.add_argument("--dry-run", action="store_true")
+    plan.add_argument("--no-accept", action="store_true")
+    plan.add_argument("--example", action="store_true")
     answer = commands.add_parser("answer")
     answer.add_argument("--ticket", required=True)
     answer.add_argument("--text", required=True)

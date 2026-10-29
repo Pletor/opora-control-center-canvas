@@ -75,6 +75,15 @@ def test_human_message_is_durable_and_reaches_the_next_snapshot(setup):
     assert "ZPRÁVY ČLOVĚKA:" + chr(10) + "- 1970-01-12T13:46:40Z Jen dvě stránky, žádný blog." in runner.calls[0]
 
 
+def test_relayed_message_wakes_at_once_and_is_marked_in_the_snapshot(setup):
+    """Relé záměru (docs/brain-heart-orchestrator.md §8): `via` se uloží a snímek ho ukáže."""
+    _, heart, _, runner, _ = setup
+    assert heart.message("draft", "draft", "Web o dvou stránkách.", via="office") == 1
+    assert brain_files.messages(heart.brain("draft"), "draft")[0]["via"] == "office"
+    assert heart.run_once() == ["draft"]
+    assert "- 1970-01-12T13:46:40Z Web o dvou stránkách. (přes office)" in runner.calls[0]
+
+
 def test_worker_ticket_waits_for_the_window_and_own_escalation_does_not_wake(setup):
     service, heart, clock, runner, _ = setup
     assert heart.run_once() == []  # první průchod nastaví kurzor na konec outboxu
