@@ -1,5 +1,6 @@
 // Jedna vrstva Velínu: vlevo jméno a počty podle tónu, vpravo sektory jako rámečky s pilulkami karet v pořadí
 // grafu závislostí. Pilulka nese značku a slovo tónu (barva sama nic neříká); klik otevře detail karty.
+import CardGaugeBadge from "../card-gauge-badge/components/CardGaugeBadge";
 import { TONES, TONE_GLYPH, TONE_LABEL, type Counts, type VelinLayer as Layer } from "../logic/velin-model";
 
 export function VelinCounts({ counts }: { counts: Counts }) {
@@ -31,6 +32,7 @@ export default function VelinLayer({ layer, onOpen }: { layer: Layer; onOpen: (n
                   title={`${pill.name} · ${TONE_LABEL[pill.tone]} · ${pill.face.stage} · ${pill.face.reason}${pill.face.pr ? " · " + pill.face.pr.label : ""}`}
                   data-oh-node-id={pill.nodeId} data-oh-tone={pill.tone} data-oh-stage={pill.face.raw.stage} data-oh-reason={pill.face.raw.reason}>
                   <span aria-hidden="true">{TONE_GLYPH[pill.tone]}</span> {pill.name}
+                  <CardGaugeBadge badge={pill.gauge} />
                 </button>
               ))}
             </div>

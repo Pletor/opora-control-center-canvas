@@ -25,6 +25,9 @@ export type AgentCardStage = {
     items?: unknown };
   /** Jediná definice hotovo (šest booleanů + `gate`, `done`, `missing`); čte ji detail karty. */
   dod?: unknown;
+  /** Měřák karty (štítek složitosti `run.label`, `steps`/`dod` v %, `risk`, `evidence`); starší server pole nemá.
+   *  Čte ho odznak Velínu (`editor/control-tower/card-gauge-badge`). */
+  gauge?: unknown;
   lease?: { holder: string | null; expiresAt: string; epoch: number | null } | null;
   /** Otevřené nálezy strážců na kartě (bez strážce mapy); karta bez nálezu pole nemá. */
   guardFindings?: { count: number; severity: GuardSeverity };

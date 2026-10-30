@@ -1,6 +1,7 @@
 // Velín (návrh „Opora Editor — lean“, rámy 4a/4b): projekt → vrstva → sektor → karta nad jediným snímkem
 // agent-state, vpravo rozhodnutí pro člověka a další akce, dole „Teď běží“ s odpočtem pronájmu. Nic tu nezapisuje:
 // klik na kartu, rozhodnutí nebo akci otevře detail karty (`openCardDrawer`), zápisy dál ověřuje původní API.
+// Druhý pohled „Požadavky a plán“ (dílek `intake-plan`) je jediné místo Velínu, kde člověk rozhoduje o návrhu milníku.
 import { useMemo, useState } from "react";
 import type { Graph } from "@/shared/types/logic/types";
 import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
@@ -19,7 +20,12 @@ import { velinWorktrees } from "../logic/velin-worktrees";
 import { useMapWorktrees } from "@/project/architecture-editor/logic/use-map-worktrees";
 import AgentAutonomyBadge from "@/shared/agent-autonomy/components/AgentAutonomyBadge";
 import { AUTONOMY_OFF, type AgentAutonomy } from "@/shared/agent-autonomy/logic/agent-autonomy";
+import IntakePlan from "../intake-plan/components/IntakePlan";
 import "../styles/velin.css";
+
+/** Pohledy Velínu: karty (vrstvy a sektory) a „Požadavky a plán“ (oblasti, milníky, požadavky; intake-plan). */
+const VIEWS = [{ id: "cards", label: "Karty" }, { id: "plan", label: "Požadavky a plán" }] as const;
+type VelinView = typeof VIEWS[number]["id"];
 
 const FILTERS: { id: VelinFilter; label: string }[] = [
   { id: "all", label: "Vše" }, { id: "human", label: "Na tebe" }, { id: "problems", label: "Problémy" }, { id: "running", label: "Běží" },
@@ -34,6 +40,7 @@ type Props = { project: string; workspace: string; graph: Graph; projectName?: s
 export default function ControlTower({ project, workspace, graph, projectName, onOpen, onOpenMap, worktreeLive = false, autonomy = AUTONOMY_OFF }: Props) {
   const agent = useAgentState(project, workspace);
   const [filter, setFilter] = useState<VelinFilter>("all");
+  const [mode, setMode] = useState<VelinView>("cards");
   const view = useMemo(() => agent.state ? velinModel(graph, agent.state, filter) : null, [graph, agent.state, filter]);
   const all = useMemo(() => agent.state ? velinModel(graph, agent.state) : null, [graph, agent.state]);
   const holes = agent.state ? mapGapsForAgents(agent.state) : null;
@@ -57,17 +64,22 @@ export default function ControlTower({ project, workspace, graph, projectName, o
       <JsonMirror id="oh-velin" value={view ? { total: view.total, layers: view.layers.map(layer => ({ id: layer.id, counts: layer.counts,
         sectors: layer.sectors.map(sector => ({ id: sector.id, cards: sector.pills.map(pill => ({ nodeId: pill.nodeId, tone: pill.tone })) })) })) } : null} />
       <header className="velin__bar">
-        <div className="velin__filters" role="tablist" aria-label="Filtr Velínu">
+        <div className="velin__filters" role="tablist" aria-label="Pohled Velínu">
+          {VIEWS.map(item => <button key={item.id} type="button" role="tab" aria-selected={mode === item.id} data-oh-velin-view={item.id}
+            className={"velin__filter" + (mode === item.id ? " velin__filter--active" : "")} onClick={() => setMode(item.id)}>{item.label}</button>)}
+        </div>
+        {mode === "cards" && <div className="velin__filters" role="tablist" aria-label="Filtr Velínu">
           {FILTERS.map(item => <button key={item.id} type="button" role="tab" aria-selected={filter === item.id}
             className={"velin__filter" + (filter === item.id ? " velin__filter--active" : "") + (item.id === "human" && count("human") > 0 ? " velin__filter--waiting" : "")} onClick={() => setFilter(item.id)}>
             {item.label}{item.id !== "all" ? ` · ${count(item.id)}` : ""}</button>)}
-        </div>
+        </div>}
         <AgentAutonomyBadge autonomy={autonomy} place="velin" />
         <span className="velin__source">agent-state · snímek {agent.state ? new Date(agent.state.generatedAt).toLocaleTimeString("cs-CZ") : "—"}</span>
       </header>
-      {agent.error && !agent.state && <p className="velin__empty" role="alert">{agent.error}</p>}
-      {!agent.state && !agent.error && <p className="velin__empty">Načítám stav pro agenty…</p>}
-      {view && all && <div className="velin__grid">
+      {mode === "plan" && <IntakePlan project={project} workspace={workspace} graph={graph} onOpen={onOpen} />}
+      {mode === "cards" && agent.error && !agent.state && <p className="velin__empty" role="alert">{agent.error}</p>}
+      {mode === "cards" && !agent.state && !agent.error && <p className="velin__empty">Načítám stav pro agenty…</p>}
+      {mode === "cards" && view && all && <div className="velin__grid">
         <div className="velin__main">
           <div className="velin__project">
             <div><span className="velin__eyebrow">Projekt</span><h2 className="velin__title">{projectName || project}</h2></div>
