@@ -405,6 +405,15 @@ def test_addition_refuses_fields_a_graph_proposal_cannot_carry(server, capsys, t
     assert not [call for call in Handler.calls if call["method"] == "POST"]
 
 
+def test_architecture_in_a_workspace_points_the_heart_to_main(server, capsys, tmp_path):
+    Handler.manifest = "m1"
+    page = {"nodes": [{"ref": "p", "kind": "node", "name": "Zdroje", "site": {"kind": "page", "path": "/sources"}}]}
+    (tmp_path / "arch.json").write_text(json.dumps(page), encoding="utf-8")
+    result = json.loads(run(capsys, "plan", "--file", "arch.json")[1])
+    assert result["code"] == "plan_architecture" and "--workspace main" in result["hint"]
+    assert not [call for call in Handler.calls if call["method"] == "POST"]
+
+
 def test_workspace_override_is_per_call_and_ctx_plan_of_reads_another_project(server, capsys, tmp_path):
     code, _ = run(capsys, "task", "--title", "T", "--do", "D", "--workspace", "w1")
     assert code == 0 and Handler.calls[-1]["body"]["workspace"] == "w1"
