@@ -14,7 +14,7 @@ from contextlib import contextmanager
 
 from backend.canvas.opora_execution_pr_closure import close_loop
 from backend.canvas.opora_execution_pr_discovery import discover
-from backend.canvas.opora_execution_pr_enrollment import HEALABLE
+from backend.canvas.opora_execution_pr_enrollment import AUTH, HEALABLE
 from backend.canvas.opora_execution_pull_requests import ExecutionPullRequestLinks
 from backend.canvas.opora_formal_check_poll import poll as poll_formal_checks
 from backend.integrations.github_merge_transport import GitHubMergeError
@@ -82,20 +82,24 @@ class ExecutionPullRequestManager:
                 close_loop(repo.db, project, workspace)
 
     def _heal(self, project):
-        """Once per process: links whose enrollment failed on a token problem go back to `pending`.
+        """Once per process: links whose enrollment failed or backed off on a token problem retry now.
 
         The fix for such a failure is a new token and a restart, so the restart retries them; without this
-        an already merged PR would never be observed and its successor card would stay blocked."""
+        an already merged PR would never be observed (or only after the backoff of every 401 before the
+        restart) and its successor card would stay blocked."""
         if project in self.healed:
             return
-        marks = ",".join("?" * len(HEALABLE))
+        # A failed link on any token problem, and a pending one backing off on a rejected or missing token
+        # (a passing outage keeps its own backoff).
+        due = ("binding_id IS NULL AND ((enrollment='failed' AND enrollment_error IN ({})) "
+               "OR (enrollment='pending' AND enrollment_error IN ({})))").format(
+            ",".join("?" * len(HEALABLE)), ",".join("?" * len(AUTH)))
         for workspace in self._workspaces(project, "SELECT DISTINCT workspace_id FROM opora_execution_pull_requests "
-                                                   "WHERE project_id=? AND enrollment='failed' AND binding_id IS NULL "
-                                                   f"AND enrollment_error IN ({marks})", *HEALABLE):
+                                                   f"WHERE project_id=? AND {due}", *HEALABLE, *AUTH):
             with self.links.transaction(project, workspace) as repo:
                 repo.db.execute("UPDATE opora_execution_pull_requests SET enrollment='pending',enrollment_retry_at=NULL,"
-                                "enrollment_failures=0 WHERE project_id=? AND workspace_id=? AND enrollment='failed' "
-                                f"AND binding_id IS NULL AND enrollment_error IN ({marks})", (project, workspace, *HEALABLE))
+                                f"enrollment_failures=0 WHERE project_id=? AND workspace_id=? AND {due}",
+                                (project, workspace, *HEALABLE, *AUTH))
         self.healed.add(project)
 
     def _enroll(self, project):

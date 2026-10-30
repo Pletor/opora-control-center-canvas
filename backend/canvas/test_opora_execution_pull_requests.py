@@ -277,6 +277,24 @@ def test_rejected_token_heals_after_restart_and_merged_pr_is_written_back(world,
     manager.close()
 
 
+def test_restart_retries_a_token_backoff_at_once(world, monkeypatch):
+    """Live case: 11 rejections with a stale token pushed the next try 38 min past the restart with a new one."""
+    service, scope, executions = world
+    monkeypatch.setenv("OPORA_EXECUTION_PR_DISCOVERY_SECONDS", "0")
+    record = claim(executions, scope)
+    reader = Reader(error=GitHubMergeError("github-auth-invalid", action_required=True))
+    links = ExecutionPullRequestLinks(service, reader, clock=lambda: 1000.0)
+    links.link(record["executionId"], body(record), "agent")
+    db = service.db_for(scope["project"])
+    with db:
+        db.execute("UPDATE opora_execution_pull_requests SET enrollment_retry_at=99999,enrollment_failures=11")
+    reader.error = None
+    manager = ExecutionPullRequestManager(service, links, clock=lambda: 1000.0)
+    manager.run_once()
+    assert links.read(**scope, execution_id=record["executionId"])["enrollment"] == "enrolled"
+    manager.close()
+
+
 def test_heal_runs_once_per_process(world, monkeypatch):
     service, scope, executions = world
     monkeypatch.setenv("OPORA_EXECUTION_PR_DISCOVERY_SECONDS", "0")
