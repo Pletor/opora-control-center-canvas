@@ -4,18 +4,30 @@
 pracovníka, docs/brain-heart-orchestrator.md §8; supervisor je připíše dřív, než vstup zařadí),
 `batches.jsonl` píše dávka srdce (`heart/batch.py`). Leží tu, ne v `heart/`, protože je čte i determinismus
 (snímek) a ten srdce importovat nesmí. Nečitelný soubor nebo poškozený řádek = nic, nikdy výjimka.
+`active_workspace.json` `{workspace, at}` zapíše nástroj srdce po přijatém plánu (docs/brain-heart-orchestrator.md §9).
 """
 import ast
 import json
 from pathlib import Path
 
 MESSAGES, JOURNAL = "messages.jsonl", "batches.jsonl"
+ACTIVE = "active_workspace.json"  # prostor posledního přijatého plánu srdce (heart/opora_heart.py ACTIVE)
 SCRIPTS = Path("dilna") / "scripts"  # skripty srdce (§3b); první řádek docstringu říká, co dělají
 
 
 def brain_dir(service, project):
     """Složka `brain/` projektu (vedle `project.json`)."""
     return Path(service.folder(project).path) / "brain"
+
+
+def active_workspace(brain):
+    """Prostor posledního plánu, který srdce přijalo; chybějící nebo nečitelný soubor = None."""
+    try:
+        value = json.loads((Path(brain) / ACTIVE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    workspace = value.get("workspace") if isinstance(value, dict) else None
+    return workspace if isinstance(workspace, str) and workspace else None
 
 
 def append_message(brain, at, workspace, text, via=None):

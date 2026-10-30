@@ -3,7 +3,8 @@
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky plánu,
 fronta úkolů, čekající lístky, poslední kontroly, deník dávek; okolí srdce §3a; skripty dílny §3b; výzkumy a duely
 srdce ze schránky zadání §3c; stav práce karet z executions a vazeb PR, docs/brain-heart-orchestrator.md §3),
-`snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4), `render` z nich bez dalšího čtení
+`snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4) a u git projektu pracovní prostory (sekce
+PROSTORY, §9 O7: doména, větev, karty volné/běží/hotové), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
 Každá část má vlastní strop počtu řádků a celý text se nakonec ořízne na `LIMIT` znaků.
 `view` složí ze stejných faktů kompaktní JSON pro druh brány `state` (docs/brain-control-api.md §2).
@@ -15,6 +16,7 @@ import sqlite3
 from backend.brain_opora.determinism import brain_files, git_log
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
+from backend.canvas.architecture_graph import split
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_duel_shape import summary as duel_summary
@@ -42,6 +44,7 @@ JOURNAL = 5
 SCRIPTS = 15
 RESEARCH = 10
 GIT_COMMITS, GIT_CHARS = 10, 1200
+SPACES_CHARS = 800  # sekce PROSTORY git projektu
 FREE = "volná"  # karta bez běhu, nebo s během uvolněným či odebraným
 NEXT_LINE = re.compile(r"Další krok: (plan|spike|duel|ask|stop)\b")
 HEART = "heart"  # autor výzkumů a duelů srdce ve schránce (agent `heart`)
@@ -179,6 +182,41 @@ def _git(service, project, workspace):
         return git_log.recent(root, GIT_COMMITS) if root is not None else []
     except (*UNREADABLE, *git_log.READ_ERRORS):
         return []
+
+
+def _space_counts(service, project, workspace):
+    """(volné, běží, hotové) karty obsahu prostoru (uzly `node` mimo architekturu) podle stavu práce z executions."""
+    graph = service.view(project, workspace)["graph"]
+    owned = {node["id"] for node in split(graph)[0]["nodes"]}
+    cards = [node["id"] for node in graph["nodes"] if node.get("kind") == "node" and node["id"] not in owned]
+    with service.reading(project):
+        work = _work(service.db_for(project), project, workspace)
+    states = [work.get(card, FREE) for card in cards]
+    running = sum(state.startswith("běží") for state in states)
+    free = sum(state == FREE for state in states)
+    return free, running, len(states) - free - running
+
+
+def _spaces(service, project):
+    """Pracovní prostory git projektu `{id, domain, branch, free, running, done}`; jiný projekt None (sekce chybí),
+    nečitelný prostor má počty None."""
+    try:
+        if service.project_hub.settings(project)["project"]["sourceKind"] != "git":
+            return None
+        rows = service.workspaces(project)
+        names = {node["id"]: node.get("name") or node["id"]
+                 for node in service.architecture.read(project)["graph"]["nodes"]}
+    except UNREADABLE:
+        return None
+    spaces = []
+    for row in rows:
+        try:
+            free, running, done = _space_counts(service, project, row["id"])
+        except (*UNREADABLE, *git_log.READ_ERRORS):
+            free = running = done = None
+        spaces.append({"id": row["id"], "domain": names.get(row["node_id"], row["node_id"] or "—"),
+                       "branch": row["branch"] or "", "free": free, "running": running, "done": done})
+    return spaces
 
 
 def collect(service, project, workspace):
@@ -320,6 +358,23 @@ def _git_lines(facts):
     return _section("GIT:", rows)
 
 
+def _space_lines(facts):
+    """PROSTORY (jen git projekt): plné ID prostoru (to bere `--workspace`), doména, větev, když není `work/<id>`,
+    a karty volné/běží/hotové; nejvýš `SPACES_CHARS` znaků."""
+    rows, size = [], 0
+    for space in facts["spaces"]:
+        branch = "" if space["branch"] == "work/" + space["id"] else f" · {_short(space['branch'], 60)}"
+        counts = ("karty ?" if space["free"] is None
+                  else f"karty volné {space['free']} · běží {space['running']} · hotové {space['done']}")
+        row = f"- {space['id']} · doména {_short(space['domain'], 60)}{branch} · {counts}"
+        if size + len(row) + 1 > SPACES_CHARS - 30:  # místo na řádek „… a další“
+            rows.append(f"- … a další ({len(facts['spaces']) - len(rows)})")
+            break
+        rows.append(row)
+        size += len(row) + 1
+    return _section("PROSTORY:", rows)
+
+
 def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
@@ -329,7 +384,8 @@ def render(facts, limit=LIMIT):
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines.append("POSLEDNÍ KONTROLY:")
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
-    lines += _git_lines(facts) + _journal_lines(facts) + _workshop_lines(facts) + _research_lines(facts)
+    lines += _git_lines(facts) + (_space_lines(facts) if facts.get("spaces") is not None else [])
+    lines += _journal_lines(facts) + _workshop_lines(facts) + _research_lines(facts)
     text = "\n".join(lines)
     return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
 
@@ -371,4 +427,4 @@ def state(service, project, workspace, session_id=None):
 def snapshot(service, project, workspace, limit=LIMIT):
     """Snímek jako text: `render(collect(...))` a commity zdroje (git jen tady, `state` pro pracovníky ho nečte)."""
     facts = collect(service, project, workspace)
-    return render({**facts, "git": _git(service, project, workspace)}, limit)
+    return render({**facts, "git": _git(service, project, workspace), "spaces": _spaces(service, project)}, limit)

@@ -64,6 +64,9 @@ def test_human_message_wakes_at_once_and_is_journaled(setup):
     status = heart.status("draft")
     assert status["batches"][-1]["status"] == "ok" and status["session"]["batches"] == 1 and status["pending"] == 0
     assert status["running"] is False and status["sleeping"] is False
+    assert status["activeWorkspace"] is None  # srdce zatím žádný plán nepřijalo
+    (heart.brain("draft") / "active_workspace.json").write_text('{"workspace": "w1"}', encoding="utf-8")
+    assert heart.status("draft")["activeWorkspace"] == "w1"
 
 
 def test_human_message_is_durable_and_reaches_the_next_snapshot(setup):

@@ -28,3 +28,12 @@ def test_journal_reads_last_entries_and_survives_missing_file(tmp_path):
                                                 encoding="utf-8")
     assert [entry["summary"] for entry in brain_files.journal(tmp_path, 3)] == ["s5", "s6", "s7"]
     assert len(brain_files.journal(tmp_path, None)) == 8  # None = celý deník (ctx journal)
+
+
+def test_active_workspace_reads_the_tool_file_and_survives_garbage(tmp_path):
+    assert brain_files.active_workspace(tmp_path) is None
+    (tmp_path / brain_files.ACTIVE).write_text('{"workspace": "w1", "at": "t"}', encoding="utf-8")
+    assert brain_files.active_workspace(tmp_path) == "w1"
+    for raw in ("nejson", '["w1"]', '{"workspace": 5}'):
+        (tmp_path / brain_files.ACTIVE).write_text(raw, encoding="utf-8")
+        assert brain_files.active_workspace(tmp_path) is None
