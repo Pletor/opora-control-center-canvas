@@ -197,6 +197,35 @@ def test_removing_own_next_edge_revokes_run(service, chain):
         authority.heartbeat(record["executionId"], {**credentials(record), "ttlSeconds": 60})
 
 
+def add_unaccepted_edge(service, source, target):
+    """Ruční vazba člověka v pracovním grafu bez přijetí (mapa architektury)."""
+    view = service.view("draft", "draft")
+    graph = copy.deepcopy(view["graph"])
+    graph["edges"].append({"id": f"manual-{source}-{target}", "source": source, "target": target})
+    service.save_graph("draft", "draft", graph, view["digest"])
+
+
+def test_unaccepted_graph_change_elsewhere_keeps_run_alive_but_blocks_new_claim(service, chain):
+    # Ample 2026-10-30: nepřijatá vazba mezi dvěma nesouvisejícími uzly ukončila obnovu lease běžícího
+    # dělníka 409 „Working graph differs“. Rozdíl grafů blokuje jen nový claim, ne běžící běh.
+    authority = ExecutionResults(service)
+    record = claim(authority, node=chain["ca"])
+    ready = authority.context(**SCOPE, node=chain["cc"])
+    renew = {**credentials(record), "ttlSeconds": 60}
+    add_unaccepted_edge(service, "a", "b")
+    beat = authority.heartbeat(record["executionId"], renew)
+    assert beat["state"] == "running" and beat["assignment"] == record["assignment"]
+    assert "Working graph differs" in authority.context(**SCOPE, node=chain["cc"])["unavailableReason"]
+    with pytest.raises(ValueError, match="Working graph differs"):
+        authority.claim({**SCOPE, "nodeId": chain["cc"], "requestId": "other", "ttlSeconds": 60,
+                         "expectedAcceptedHead": ready["acceptedHead"],
+                         "expectedContextVersion": ready["contextVersion"]}, "agent:worker")
+    # Nepřijatá ruční vazba přímo z karty běhu mění její výřez: běh dál končí.
+    add_unaccepted_edge(service, chain["ca"], chain["cc"])
+    with pytest.raises(ValueError, match="changed"):
+        authority.heartbeat(record["executionId"], renew)
+
+
 def test_expired_claim_replay_never_creates_new_authority(authority, service):
     record = claim(authority)
     with service.db_for("draft") as db:
@@ -220,8 +249,8 @@ def test_expiry_during_context_capture_never_renews_or_accepts(authority, servic
     record = claim(authority)
     clock = [record["expiresAt"] - 1]
     original = module.assignment
-    def slow_capture(*args):
-        captured = original(*args)
+    def slow_capture(*args, **kwargs):
+        captured = original(*args, **kwargs)
         clock[0] = record["expiresAt"] + 1
         return captured
     monkeypatch.setattr(module.time, "time", lambda: clock[0])

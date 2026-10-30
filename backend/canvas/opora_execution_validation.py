@@ -41,7 +41,7 @@ def result_digest(result):
     return digest(result)
 
 
-def assignment(canvas, project, workspace, node, context_version=1):
+def assignment(canvas, project, workspace, node, context_version=1, require_graph=True):
     if not isinstance(node, str) or not valid_id(node):
         raise ValueError("Invalid card.")
     context = OporaChangesets(canvas).context(project, workspace)
@@ -51,7 +51,8 @@ def assignment(canvas, project, workspace, node, context_version=1):
     own = next((doc for doc in context["acceptedDocuments"] if doc["nodeId"] == node), {})
     require_kit_context(own.get("fields", {}), context_version)
     view = canvas.view(project, workspace)
-    require_accepted_graph(canvas, project, workspace, context["acceptedHead"], view["graph"])
+    if require_graph:  # Běžící běh hlídá jen výřez své karty; rozdíl grafů blokuje jen nový claim a start.
+        require_accepted_graph(canvas, project, workspace, context["acceptedHead"], view["graph"])
     target = next((item for item in view["graph"]["nodes"] if item["id"] == node), None)
     if target is None or target["kind"] not in ("node", "sector"):
         raise ValueError("Card cannot be executed.")

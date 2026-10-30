@@ -167,8 +167,8 @@ def test_expiry_during_context_capture_never_renews_or_accepts_budgeted_result(a
     configure(authority)
     first=v2(authority)
     original=module.assignment
-    def slow(*args):
-        result=original(*args)
+    def slow(*args,**kwargs):
+        result=original(*args,**kwargs)
         clock[0]=first['budget']['runDeadlineAt']
         return result
     monkeypatch.setattr(module,'assignment',slow)

@@ -61,6 +61,9 @@ Porovnává se výřez karty, ne globální přijatá hlava: přijatá změna pl
 (nová karta, `unlink` vzdálené vazby, `prune`) posune hlavu, ale běh zůstane platný, dokud se
 nezmění vlastní zadání a kroky karty, její uzel ani dokumenty a vazby souvisejících karet,
 které zadání nese (např. vlastní vazba `next`). Běh si drží `acceptedRevision` z claimu.
+Rozdíl pracovního a přijatého grafu blokuje jen nový claim a start. Běžící běh (heartbeat,
+deliver) hlídá jen výřez své karty proti hlavě z claimu; nepřijatá ruční změna, která zasáhne
+přímo výřez karty, běh dál ukončí („Execution assignment changed“).
 Uvolnění člověkem také zneplatní běh, i když jeho proces ještě běží.
 Opožděné uvolnění starého běhu nesmí smazat rezervaci jeho nástupce.
 
