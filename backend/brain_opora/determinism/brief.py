@@ -18,11 +18,15 @@
   (`settings.brain.brief.enabled`, `brief_setting.py`, řez 2) nebudí nic.
 - `research_budget` / `research_spend` hlídají strop ceny rešerše na požadavek (§8, `brief_setting.researchUsd`):
   cena se sčítá do `intake_briefs.cost_usd`, po vyčerpání `research --requirement` odmítne (409).
+- Výslech ve Schránce (docs/navrhy/2026-10-31-vyslech-ve-schrance.md, řez 1): `start`, `save_synthesis`, `ask`
+  a `answer` po zápisu spisu zrcadlí do Schránky (`brief_vault_link.py`: kořen, části, předpoklady, otázky, odpověď);
+  chyba zrcadla výslech nezastaví. Obnova spisu (`situation`) odkazy do Schránky přenáší (`brief_vault_link.carry`).
 """
 import json
 import sqlite3
 
 from backend.brain_opora.determinism import brief_setting
+from backend.brain_opora.determinism import brief_vault_link as vault_link
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas import card_gauge
 from backend.canvas.graph import valid_id
@@ -245,12 +249,15 @@ def collect_situation(service, project, workspace, requirement_id):
 
 
 def view(brief):
-    """`brief` požadavku v `GET /api/intake`: `{status, synthesis, questions, missing}`, bez spisu None.
-    Syntézu (cíl, části s původem, kritéria, hranice) čte panel výslechu ve Velínu (řez 3)."""
+    """`brief` požadavku v `GET /api/intake`: `{status, synthesis, questions, missing, fragmentId, fragmentScope}`,
+    bez spisu None. Syntézu (cíl, části s původem, kritéria, hranice) čte panel výslechu ve Velínu (řez 3);
+    `fragmentId` / `fragmentScope` je kořen požadavku ve Schránce („Otevřít ve Schránce“), bez kořene None."""
     if brief is None:
         return None
+    situation = brief.get("situation") or {}
     return {"status": brief["status"], "synthesis": brief["synthesis"], "questions": brief["questions"],
-            "missing": clarity(brief["synthesis"], brief["questions"])}
+            "missing": clarity(brief["synthesis"], brief["questions"]),
+            "fragmentId": situation.get("fragmentId"), "fragmentScope": situation.get("fragmentScope")}
 
 
 def _requirement(db, workspace, requirement_id):
@@ -285,8 +292,9 @@ def save_synthesis(service, session, requirement_id, synthesis, now):
                                                    "status": "draft", "questions": [], "rounds": 0}
             missing = clarity(synthesis, brief["questions"])
             status = _status(missing, brief["questions"], brief["status"])
-            store.save({**brief, "situation": spis or brief.get("situation") or {}, "synthesis": synthesis,
-                        "status": status, "updatedAt": now})
+            store.save({**brief, "situation": vault_link.carry(brief.get("situation"), spis or brief.get("situation")),
+                        "synthesis": synthesis, "status": status, "updatedAt": now})
+    vault_link.safely(vault_link.after_synthesis, service, project, workspace, requirement_id, synthesis)
     return {"requirement": requirement_id, "status": status, "missing": missing}
 
 
@@ -325,6 +333,7 @@ def ask(service, session, requirement_id, question, recommended, why, now):
             questions.append({"id": f"q{len(questions) + 1}", **item})
             missing = clarity(brief["synthesis"], questions)
             store.save({**brief, "questions": questions, "rounds": rounds, "status": "grilling", "updatedAt": now})
+    vault_link.safely(vault_link.after_ask, service, project, workspace, requirement_id, questions[-1])
     return {"requirement": requirement_id, "status": "grilling", "question": questions[-1]["id"],
             "open": len(waiting) + 1, "rounds": rounds, "missing": missing}
 
@@ -367,7 +376,8 @@ def open_brief(db, workspace, requirement, reason, spis, at):
     brief = store.get(requirement["id"]) or {"requirementId": requirement["id"], "workspaceId": workspace,
                                              "status": "draft", "questions": [], "rounds": 0}
     status = "draft" if brief["status"] == "clear" else brief["status"]
-    store.save({**brief, "situation": spis or brief.get("situation") or {}, "status": status, "updatedAt": at})
+    store.save({**brief, "situation": vault_link.carry(brief.get("situation"), spis or brief.get("situation")),
+                "status": status, "updatedAt": at})
     return {"type": "brief", "requirementId": requirement["id"], "title": requirement["title"], "reason": reason,
             "detail": summary(spis) if spis else ""}
 
@@ -498,6 +508,7 @@ def answer(service, payload, now):
             status = "grilling" if waiting else brief["status"]
             missing = clarity(brief["synthesis"], questions)
             store.save({**brief, "questions": questions, "status": status, "updatedAt": now})
+    vault_link.safely(vault_link.after_answer, service, project, workspace, requirement_id, payload["question"], value)
     return {"requirement": requirement_id, "question": payload["question"], "answer": value, "accepted": accepted,
             "status": status, "open": waiting, "missing": missing}
 
@@ -525,6 +536,7 @@ def start(service, payload, now):
                                 "Otázky a syntéza jsou v GET /api/intake u požadavku.")
             store.save({"requirementId": requirement["id"], "workspaceId": workspace, "status": "draft",
                         "situation": {**spis, "askedAt": now}, "questions": [], "rounds": 0, "updatedAt": now})
+    vault_link.safely(vault_link.ensure_root, service, project, workspace, requirement["id"])
     return {"requirement": requirement["id"], "status": "draft"}
 
 

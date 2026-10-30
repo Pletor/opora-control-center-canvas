@@ -20,6 +20,7 @@ a „Vyslechni mě k tomu“ z Velínu budí přes `brief_wakes` také, jednou n
 from datetime import UTC, datetime, timedelta
 
 from backend.brain_opora.determinism import brain_files, brief, brief_setting, intake, milestones, triggers
+from backend.brain_opora.determinism import brief_vault_link as vault_link
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
 
@@ -99,6 +100,10 @@ def brief_wakes(service, project, at, now):
                 value = brief.open_brief(db, space, item, reason, files[item["id"]], at)
                 if value is not None:
                     found.append((space, value))
+    # Výslech ve Schránce (řez 1): nový spis dostane kořenový fragment požadavku hned, mimo zámek; chyba nic nezastaví.
+    for space, value in found:
+        if value.get("requirementId") and value.get("reason") not in ("answer", "asked"):
+            vault_link.safely(vault_link.ensure_root, service, project, space, value["requirementId"])
     return found
 
 

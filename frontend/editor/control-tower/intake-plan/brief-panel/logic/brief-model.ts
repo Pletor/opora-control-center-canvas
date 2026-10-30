@@ -11,8 +11,10 @@ export type BriefSynthesis = { goal: string | null; users: string | null; parts:
   outOfScope: string[] };
 export type BriefOpenQuestion = { id: string; text: string; recommended: string; why: string };
 export type BriefAnswered = { id: string; text: string; answer: string; accepted: boolean };
+/** Kořen požadavku ve Schránce (docs/navrhy/2026-10-31-vyslech-ve-schrance.md, řez 1): fragment a rozsah Schránky. */
+export type BriefVaultLink = { fragmentId: string; scope: string };
 export type BriefView = { status: string; statusText: string; tone: BriefTone; synthesis: BriefSynthesis | null;
-  open: BriefOpenQuestion[]; answered: BriefAnswered[]; missing: string[] };
+  open: BriefOpenQuestion[]; answered: BriefAnswered[]; missing: string[]; vault: BriefVaultLink | null };
 
 const ORIGINS: Record<string, string> = { human: "od vás", research: "z rešerše", derived: "odvozeno" };
 const CHECKS: Record<string, string> = { test: "ověří test", measure: "ověří měření", observe: "ověří pozorování" };
@@ -74,13 +76,21 @@ export function briefView(raw: unknown): BriefView | null {
     id: String(item.id), text: text(item.text)!, answer: text(item.answer)!, accepted: item.accepted === true }));
   const state = statusText(raw.status, open.length);
   const missing = raw.status === "clear" ? [] : [...new Set(texts(raw.missing).map(missingText))];
-  return { status: raw.status, statusText: state.text, tone: state.tone, synthesis: synthesis(raw.synthesis), open, answered, missing };
+  return { status: raw.status, statusText: state.text, tone: state.tone, synthesis: synthesis(raw.synthesis), open, answered, missing,
+    vault: vaultLink(raw) };
+}
+
+/** Odkaz do Schránky ze spisu (`fragmentId`, `fragmentScope`); bez kořene `null`, rozsah chybí = plátno (""). */
+export function vaultLink(raw: Record<string, unknown>): BriefVaultLink | null {
+  const fragmentId = text(raw.fragmentId);
+  return fragmentId ? { fragmentId, scope: typeof raw.fragmentScope === "string" ? raw.fragmentScope : "" } : null;
 }
 
 /** Akce panelu, které drží rodič (`IntakePlan`): probíhající zápis, chyby podle klíče a callbacky nahoru.
- *  `onAnswer` s `answer` null = „Potvrdit doporučení“. */
+ *  `onAnswer` s `answer` null = „Potvrdit doporučení“. `onOpenVault` (od App) otevře Schránku na kořeni požadavku. */
 export type BriefActions = { busy: string | null; errors: Record<string, string>;
-  onAnswer: (requirement: string, question: string, answer: string | null) => void; onStart: (requirement: string) => void };
+  onAnswer: (requirement: string, question: string, answer: string | null) => void; onStart: (requirement: string) => void;
+  onOpenVault?: (scope: string, fragmentId: string) => void };
 
 /** Klíč zápisu a chyby: otázka požadavku, nebo spuštění výslechu požadavku. */
 export const briefKey = (requirement: string, question?: string) => question ? `brief:${requirement}:${question}` : `brief:${requirement}`;

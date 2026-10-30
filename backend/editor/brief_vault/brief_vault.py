@@ -8,7 +8,8 @@ kartě; dítě má jen rodiče (fraktál do libovolné hloubky). `split` hlídá
 Duel o změnu směru a představa rozsahu (`duel-*`, `vision-*`) jsou v `brief_vault_duel` (docs/schranka-duel.md).
 Disciplína (`discipline`: id z docs/schranka-neurony.md §2 | null = dědí) jde s fragmentem do každé další
 revize; kořen ji nese vždy a přeřadí ji jen `set-discipline` (nová revize se stejným textem).
-Nový fragment `brief` / `question` (revize 1) zapíše i vstup vstupní brány (`brain_opora/determinism/intake.py`).
+Nový fragment `brief` / `question` (revize 1) zapíše i vstup vstupní brány (`brain_opora/determinism/intake.py`);
+`apply(..., intake=False)` ho vynechá: zrcadlo výslechu (`brief_vault_link.py`) píše k požadavku, který už vstup má.
 """
 
 import uuid
@@ -97,8 +98,9 @@ def _payload(payload):
 class _Write:
     """Jeden zápis v transakci: kdo, kdy a nová revize fragmentu."""
 
-    def __init__(self, db, project, workspace, actor, agent, state_store=None):
+    def __init__(self, db, project, workspace, actor, agent, state_store=None, intake=True):
         self.db, self.project, self.workspace, self.actor = db, project, workspace, actor
+        self.intake = intake  # False = nový fragment nezakládá vstup brány (vstup už existuje, např. výslech)
         self.by = (agent or "agent") if actor == "agent" else actor
         self.at = _now()
         self.state_store = state_store
@@ -166,7 +168,7 @@ class _Write:
                 "kind": kind, "title": title, "text": text, "stage": stage, "mvp": "none", "deleted": 0, "discipline": discipline,
                 "gates": None}
         row = self.insert(uuid.uuid4().hex, 1, data, note)
-        if kind in INTAKE_KINDS:  # vstup vstupní brány jen u nového fragmentu, ne u revize; chyba zápis nezastaví
+        if kind in INTAKE_KINDS and self.intake:  # vstup vstupní brány jen u nového fragmentu, ne u revize; chyba zápis nezastaví
             intake.safe_record(self.db, self.workspace, "brief_fragment", row["fragment_id"], text or title, self.at)
         return row
 
@@ -321,11 +323,13 @@ class BriefVault(VaultReader):
         # Zrcadlo (docs/zrcadlo.md): `mirror(project)` vrací klienta, nebo None; výchozí čte prostředí při každém volání.
         self.mirror = mirror or (lambda project: mirror_client.client_for(project))
 
-    def apply(self, payload, *, actor="unknown", agent=""):
+    def apply(self, payload, *, actor="unknown", agent="", intake=True):
         """Jedna operace schránky v jedné transakci; ValueError = nic se nezapsalo (HTTP 409).
+        `intake=False`: nové fragmenty `brief` / `question` nezaloží vstup vstupní brány (zápis k existujícímu
+        požadavku, jinak by z výslechu vznikl nový požadavek a smyčka).
 
         Po potvrzení transakce (mimo zámek) volá Zrcadlo; jeho výsledek ani porucha odpověď nemění."""
-        result = self._apply(payload, actor=actor, agent=agent)
+        result = self._apply(payload, actor=actor, agent=agent, intake=intake)
         vault_mirror.after_gate(self.canvas, payload, result, self.mirror)
         return result
 
@@ -333,7 +337,7 @@ class BriefVault(VaultReader):
         """Přesnost Zrcadla po disciplínách a poslední hormony pro Přehled Schránky (docs/zrcadlo.md)."""
         return vault_mirror.overview(self.canvas, project, workspace, self.mirror(project))
 
-    def _apply(self, payload, *, actor, agent):
+    def _apply(self, payload, *, actor, agent, intake=True):
         op = _payload(payload)
         if op in HUMAN_OPS:
             require_authority(actor, HUMAN_OPS[op])
@@ -345,7 +349,7 @@ class BriefVault(VaultReader):
             node_ids = {node["id"] for node in view["graph"]["nodes"]}
 
             def make_write(db):
-                return _Write(db, project, workspace, actor, agent, self.state)
+                return _Write(db, project, workspace, actor, agent, self.state, intake)
 
             if placement.wants(payload):
                 # Brány plánu: plán a zápis na plátno skládá server mimo transakci schránky (§9 body 1–2).

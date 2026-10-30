@@ -2,6 +2,7 @@
 // jeden dílek na oblast a nakonec požadavky bez oblasti. Rodič pohledu: čte `GET /api/intake`, drží probíhající
 // zápis a chyby. Rozhodnutí člověka o návrhu milníku posílá `POST /api/intake/milestone`, odpověď na výslech srdce
 // `POST /api/intake/brief/answer` a „Vyslechni mě k tomu“ `POST /api/intake/brief/start`; po úspěchu načte znovu.
+// „Otevřít ve Schránce“ u spisu jen předá rozsah a fragment nahoru (`onOpenVault`, Schránku otevírá App).
 import { useMemo, useState } from "react";
 import type { Graph } from "@/shared/types/logic/types";
 import JsonMirror from "@/hub/oporahub-mirror/components/JsonMirror";
@@ -14,9 +15,10 @@ import IntakeRequirements from "./IntakeRequirements";
 import IntakeSummary from "./IntakeSummary";
 import "../styles/intake-plan.css";
 
-type Props = { project: string; workspace: string; graph: Graph; onOpen: (nodeId: string) => void };
+type Props = { project: string; workspace: string; graph: Graph; onOpen: (nodeId: string) => void;
+  onOpenVault?: (scope: string, fragmentId: string) => void };
 
-export default function IntakePlan({ project, workspace, graph, onOpen }: Props) {
+export default function IntakePlan({ project, workspace, graph, onOpen, onOpenVault }: Props) {
   const intake = useIntakePlan(project, workspace);
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -42,7 +44,7 @@ export default function IntakePlan({ project, workspace, graph, onOpen }: Props)
   };
   const decide = (milestoneId: string, action: MilestoneAction) =>
     write(milestoneId, () => decideMilestone(project, workspace, milestoneId, action), error => decisionError(action, error));
-  const brief: BriefActions = { busy, errors,
+  const brief: BriefActions = { busy, errors, onOpenVault,
     onAnswer: (requirement, question, answer) => write(briefKey(requirement, question),
       () => answerBrief(project, workspace, requirement, question, answer), error => briefError("answer", error)),
     onStart: requirement => write(briefKey(requirement), () => startBrief(project, workspace, requirement),
