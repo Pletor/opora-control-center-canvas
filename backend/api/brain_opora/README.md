@@ -53,4 +53,9 @@ stdio: `tools/list` = `GET /api/gate/kinds` for the role, tool `opora_<kind with
   --allowedTools mcp__opora__*` with `OPORA_PROJECT`, `OPORA_WORKSPACE`, `OPORA_WORKER_NAME` in the environment;
 - heart: the same with `OPORA_GATE_TOKEN` (or `OPORA_HEART_TOKEN`) instead of `OPORA_WORKER_NAME`.
 
+- `intake_routes.py` (intake gate slice 1, `docs/navrhy/2026-10-30-vstupni-brana.md` §6): `GET /api/intake?project&workspace`
+  is readable by anyone and returns `{areas: [{id, name, milestone: null, requirements: []}], entries (latest 50),
+  pending, duplicates}`; areas are the canvas nodes with `kind: "area"`. There is no public write, the server records
+  entries itself. Logic: `backend/brain_opora/determinism/intake.py`.
+
 Tests: `mcp/test_opora_mcp.py` runs the server as a subprocess against a fake gate.

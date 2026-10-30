@@ -110,3 +110,20 @@ def test_inbox_waits_until_an_answer_arrives_or_time_runs_out(service):
     assert gate.inbox(service, session, found["last"], 1, clock=lambda: clock["now"], sleep=sleep) == {
         "tickets": [], "last": found["last"]}
     assert clock["now"] == 1.0
+
+
+def test_worker_change_and_ask_record_intake_entries_but_sync_kinds_and_heart_escalations_do_not(service):
+    """Vstupní brána (docs/navrhy/2026-10-30-vstupni-brana.md §6): lístek `change` / `ask` pracovníka = vstup."""
+    session = worker_session(service)
+    asked = kinds.run(service, session, {"kind": "ask", "body": {"question": "Jaká barva?"}})
+    changed = kinds.run(service, session, {"kind": "change", "body": {"proposal": "Rozdělit kartu.", "reason": "Velká."}})
+    again = kinds.run(service, session, {"kind": "change", "body": {"proposal": "rozdělit kartu", "reason": "Jinak."}})
+    kinds.run(service, session, {"kind": "next", "body": {}})
+    _, token = gate.tokens.issue_heart(service, "draft", "draft")
+    gate.escalate(service, gate.authenticate(service, token, roles=("heart",)), "Rozhodněte prosím.")
+    rows = service.db_for("draft").execute(
+        "SELECT source, source_ref, text, verdict FROM intake_entries ORDER BY created_at, rowid").fetchall()
+    assert [tuple(row) for row in rows] == [("gate_ask", asked["ticketId"], "Jaká barva?", "pending"),
+                                            ("gate_change", changed["ticketId"], "Rozdělit kartu.", "pending"),
+                                            ("gate_change", again["ticketId"], "rozdělit kartu", "duplicate")]
+    assert again["status"] == "queued"  # duplicita lístek nezastaví, srdce se budí dál

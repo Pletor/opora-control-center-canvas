@@ -1,7 +1,8 @@
 """Soubory složky `brain/` projektu, které čte snímek (docs/brain-heart.md §3a, §3b): zprávy, deník a skripty dílny.
 
 `messages.jsonl` drží zprávy člověka `{at, workspace, text}` a u předaných relé navíc `via` (jméno relace
-pracovníka, docs/brain-heart-orchestrator.md §8; supervisor je připíše dřív, než vstup zařadí),
+pracovníka, docs/brain-heart-orchestrator.md §8; supervisor je připíše dřív, než vstup zařadí) a u stejné věty
+jako dřívější `duplicate` (ID vstupu vstupní brány; taková zpráva srdce nebudí ani po restartu),
 `batches.jsonl` píše dávka srdce (`heart/batch.py`). Leží tu, ne v `heart/`, protože je čte i determinismus
 (snímek) a ten srdce importovat nesmí. Nečitelný soubor nebo poškozený řádek = nic, nikdy výjimka.
 `active_workspace.json` `{workspace, at}` zapíše nástroj srdce po přijatém plánu (docs/brain-heart-orchestrator.md §9).
@@ -30,9 +31,11 @@ def active_workspace(brain):
     return workspace if isinstance(workspace, str) and workspace else None
 
 
-def append_message(brain, at, workspace, text, via=None):
-    """Připíše zprávu člověka jako jeden řádek JSON (`via` jen u relé); vrací zapsaný záznam."""
-    entry = {"at": at, "workspace": workspace, "text": text} | ({"via": via} if via else {})
+def append_message(brain, at, workspace, text, via=None, duplicate=None):
+    """Připíše zprávu člověka jako jeden řádek JSON (`via` jen u relé, `duplicate` = ID vstupu brány `ie_…`
+    u stejné věty, která srdce nebudí); vrací zapsaný záznam."""
+    entry = ({"at": at, "workspace": workspace, "text": text} | ({"via": via} if via else {})
+             | ({"duplicate": duplicate} if duplicate else {}))
     brain = Path(brain)
     brain.mkdir(parents=True, exist_ok=True)
     with (brain / MESSAGES).open("a", encoding="utf-8") as file:

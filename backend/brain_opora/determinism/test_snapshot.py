@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from backend.brain_opora.determinism import brain_files, gate, kinds, snapshot, task_queue
+from backend.brain_opora.determinism import brain_files, gate, intake, kinds, snapshot, task_queue
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.canvas_service import CanvasService
 from backend.canvas.test_graph_card import node
@@ -273,3 +273,19 @@ def test_spaces_section_only_for_git_projects_after_git_and_capped():
 
 def test_spaces_of_a_local_project_are_none(service):
     assert snapshot._spaces(service, "draft") is None
+
+
+def test_intake_section_lists_recent_entries_and_is_omitted_when_empty(service):
+    """VSTUPY (docs/navrhy/2026-10-30-vstupni-brana.md §4): ID, stanovisko a začátek věty; bez vstupů sekce chybí."""
+    assert "VSTUPY:" not in snapshot.render(FACTS)
+    entries = [{"id": f"ie_{number}", "verdict": "duplicate" if number % 2 else "pending", "text": "věta " * 40}
+               for number in range(12)]
+    text = snapshot.render({**FACTS, "intake": entries})
+    rows = _block(text, "VSTUPY:")
+    assert len(rows) == 8 and rows[0].startswith("- ie_0 · pending · věta") and rows[1].startswith("- ie_1 · duplicate")
+    assert all(len(row) <= len("- ie_00 · duplicate · ") + 100 for row in rows)
+    assert text.index("LÍSTKY ČEKAJÍCÍ:") < text.index("VSTUPY:") < text.index("POSLEDNÍ KONTROLY:")
+    db = service.db_for("draft")
+    with db:
+        intake.record(db, "draft", "heart_message", None, "Přidej hledání.", "2026-10-30T10:00:00Z")
+    assert [entry["text"] for entry in snapshot.collect(service, "draft", "draft")["intake"]] == ["Přidej hledání."]

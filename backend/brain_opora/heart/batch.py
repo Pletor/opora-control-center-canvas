@@ -39,13 +39,23 @@ class BatchSpec:
     source_root: Path | None = None
 
 
+def _intake(item):
+    """Značka vstupní brány za řádkem vstupu: ` [vstup ie_… · stanovisko · podobné: ie_…, ie_…]`; bez vstupu prázdná."""
+    entry = item.get("intake") if isinstance(item.get("intake"), dict) else None
+    if not entry or not entry.get("id"):
+        return ""
+    similar = [str(value) for value in entry.get("candidates") or []]
+    return (f" [vstup {entry['id']} · {entry.get('verdict') or '?'}"
+            + (f" · podobné: {', '.join(similar)}" if similar else "") + "]")
+
+
 def _input_line(item):
     kind = item.get("type")
     if kind == "message":
-        return f"- ZPRÁVA ČLOVĚKA: {item['text']}"
+        return f"- ZPRÁVA ČLOVĚKA: {item['text']}{_intake(item)}"
     if kind == "ticket":
         body = json.dumps(item.get("body"), ensure_ascii=False, sort_keys=True)
-        return f"- LÍSTEK {item['ticketId']} ({item['kind']}) od pracovníka: {body}"
+        return f"- LÍSTEK {item['ticketId']} ({item['kind']}) od pracovníka: {body}{_intake(item)}"
     if kind == "taskFailed":
         body = json.dumps(item.get("body"), ensure_ascii=False, sort_keys=True)[:1500]
         report = json.dumps(item.get("report"), ensure_ascii=False, sort_keys=True)[:1500]
