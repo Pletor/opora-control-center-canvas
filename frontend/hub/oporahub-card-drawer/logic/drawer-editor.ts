@@ -13,6 +13,8 @@ export type DrawerEditor = {
   /** Obnoví uložené pracovní zadání po přijetí návrhu jinde. */
   specRefreshRevision: number;
   onSave: (node: CanvasNode) => void;
+  /** Lidské uzavření karty po sloučení PR (`done` přes desktop-state rodiče); vrací chybu, nebo "" při úspěchu. */
+  onCloseCard?: (nodeId: string, note: string) => Promise<string>;
   /** Otevře modal „Nový worktree“ pro kartu (detail se předtím zavře, aby modal nebyl pod ním). */
   onWorkspace: () => void;
   onOpenNode: (id: string) => void;

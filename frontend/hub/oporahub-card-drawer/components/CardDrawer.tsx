@@ -21,6 +21,8 @@ import RunTab from "../run-tab/components/RunTab";
 import ReviewTab from "../review-tab/components/ReviewTab";
 import HistoryTab from "../history-tab/components/HistoryTab";
 import LensTab from "../lens-tab/components/LensTab";
+import CloseCardPanel from "../close-card/components/CloseCardPanel";
+import { closeCardModel } from "../close-card/logic/close-card";
 import { lensBadge, lensSummary, shownLens } from "@/hub/review-lens/logic/lens-read";
 import { useReviewLens } from "@/hub/review-lens/logic/use-review-lens";
 import "../styles/card-drawer.css";
@@ -56,6 +58,13 @@ export default function CardDrawer({ project, workspace, nodeId, tab, node, pare
   const kind = data.card?.kind ?? (sector ? "sektor" : "karta");
   const trail = [parentName, data.card?.topoIndex != null ? `pořadí ${data.card.topoIndex + 1}` : ""].filter(Boolean).join(" · ");
   const workspaceAction = () => { onClose(); editor?.onWorkspace(); };
+  const closeModel = closeCardModel(data.agent, nodeId, { pr: data.gate?.number ?? null, closed: data.closed });
+  const onCloseCard = editor?.onCloseCard;
+  const closeCard = onCloseCard ? async (note: string) => {
+    const failure = await onCloseCard(nodeId, note);
+    if (!failure) data.reload();
+    return failure;
+  } : null;
   return createPortal(<div className="card-drawer__overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <section ref={dialog} className={`card-drawer${shown === "lens" ? " card-drawer--wide" : ""}`} role="dialog" aria-modal="true" aria-labelledby="card-drawer-title" tabIndex={-1}
       data-oh-view="card-drawer" data-oh-node-id={nodeId} data-oh-tab={shown} data-oh-stage={data.card?.stage ?? ""} data-oh-health={status.health}
@@ -63,7 +72,7 @@ export default function CardDrawer({ project, workspace, nodeId, tab, node, pare
       <JsonMirror id="oh-card-drawer" value={{ nodeId, tab: shown, card: data.card, status, dod, nextAction: action,
         steps: progress && { total: progress.total, done: progress.done, current: progress.current?.id ?? null },
         execution: data.latest && { executionId: data.latest.executionId, epoch: data.latest.epoch, state: data.latest.state, assignmentDigest: data.latest.assignmentDigest },
-        lens: lensSummary(shownLens(lens.read)),
+        lens: lensSummary(shownLens(lens.read)), closeCard: closeModel,
         gate: data.gate && { pr: data.gate.number, headSha: data.gate.headSha, status: data.gate.reviewGate.status, reasons: data.gate.reviewGate.reasons },
         eventsFilter: "client" }} />
       <DrawerHeader title={title} nodeId={nodeId} kind={kind} trail={trail} status={status} holder={data.latest?.state === "running" ? data.latest.owner ?? "" : ""}
@@ -80,6 +89,7 @@ export default function CardDrawer({ project, workspace, nodeId, tab, node, pare
         {shown === "review" && <ReviewTab project={project} workspace={workspace} nodeId={nodeId} data={data} />}
         {shown === "history" && <HistoryTab project={project} workspace={workspace} nodeId={nodeId} events={data.events} />}
       </div>
+      <CloseCardPanel model={closeModel} onCloseCard={closeCard} readOnly={editor?.readOnly ?? true} />
       <DrawerFooter action={action} busy={data.busy} onRefresh={() => { data.reload(); lens.reload(); }} />
     </section>
   </div>, document.body);

@@ -28,3 +28,10 @@ export const confirmProposal = (nodeId: string) => (state: DesktopState): Deskto
   if (!done || done.confirmed || done.by !== "agent") throw new Error("Návrh uzavření už není aktuální. Obnovte kartu.");
   return setDone(nodeId, { confirmed: true, by: "human" })(state);
 };
+
+/** Lidské uzavření karty po sloučení PR (akce `close_card` z agent-state): stejný zápis `done` jako potvrzení
+ *  návrhu, jen bez návrhu agenta. Serverová brána uzavření rozhoduje dál; tady jen nepřepíšeme hotové. */
+export const closeCardAfterMerge = (nodeId: string, note: string) => (state: DesktopState): DesktopState => {
+  if (state.nodes[nodeId]?.done?.confirmed) throw new Error("Karta už je uzavřená. Obnovte kartu.");
+  return setDone(nodeId, { confirmed: true, by: "human", note })(state);
+};
