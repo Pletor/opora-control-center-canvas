@@ -118,6 +118,31 @@ def test_expired_lease_is_never_presented_as_active(planned, service):
     assert item["status"] != "running"
 
 
+def expire_leases(service):
+    with service.db_for("draft") as db:
+        db.execute("UPDATE card_leases SET expires_at=0")
+
+
+def test_dead_run_without_result_makes_the_card_ready_again(planned, service):
+    route(service)
+    record = claim(planned)
+    assert row(service)["status"] == "running"
+    expire_leases(service)  # the worker died: lease past its deadline, no result submitted
+    item = row(service)
+    assert item["status"] == "ready" and item["nextAction"]["kind"] == "claim"
+    assert item["currentExecution"]["id"] == record["executionId"]  # still reported, it just does not decide
+
+
+def test_dead_run_stays_ready_after_an_unrelated_plan_change(planned, service):
+    route(service)
+    record = claim(planned)
+    expire_leases(service)
+    accept(service, propose(service, ("b",), "Other goal"), record["acceptedRevision"])
+    item = row(service)
+    assert not item["currentExecution"]["matchesCurrentRevision"]
+    assert item["status"] == "ready" and item["nextAction"]["kind"] == "claim"
+
+
 def test_legacy_pipeline_is_reported_but_never_gates_readiness(planned, service):
     from backend.editor.agent_memory.test_completion_evidence import evidence
     route(service)

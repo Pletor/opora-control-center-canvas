@@ -122,6 +122,10 @@ class AgentState:
             if record["nodeId"] in latest:
                 continue
             deadline = min(record["expiresAt"], record.get("budget", {}).get("runDeadlineAt", record["expiresAt"]))
+            if record["state"] == "running":  # the lease is the authority: a running run without its lease is past due
+                lease = db.execute("SELECT token,expires_at FROM card_leases WHERE project_id=? AND workspace_id=?"
+                                   " AND node_id=?", (project, workspace, record["nodeId"])).fetchone()
+                deadline = min(deadline, lease["expires_at"] if lease and lease["token"] == record["token"] else 0.0)
             results = len(repo.receipts(record["executionId"]))
             latest[record["nodeId"]] = {"id": record["executionId"], "nodeId": record["nodeId"],
                                         "state": record["state"], "acceptedRevision": record["acceptedRevision"],
@@ -199,9 +203,12 @@ class AgentState:
                  "workingDiffers": context["workingDiffers"], "contextVersion": context["specificationsVersion"],
                  "budgetPolicyHead": {item["nodeId"]: item["budget"]["policyHead"]
                                       for item in claims if item["budget"].get("policyHead")}}
+        # A dead run whose card offers a claim again is handed back: it no longer blocks the work stage.
+        offered = {item["nodeId"]: item for item in claims}
+        working = [item for item in latest if not card_stages.dead_run(item, offered.get(item["nodeId"]), now)]
         stages = [rules.plan_stage(context), rebasing_state.proposal_stage(pending, rebasing),
                   rules.acceptance_stage(context, fresh, now), rules.claim_stage(claims),
-                  rules.work_stage(latest, now), rules.evidence_stage(reported, accepted),
+                  rules.work_stage(working, now), rules.evidence_stage(reported, accepted),
                   rules.review_stage(to_review, reviewing), *rules.pull_stages(reported, linked)]
         gaps = [*rules.GAPS, *([rules.PULL_GAP] if linked is None else [])]
         gaps = [gap for gap in rebasing_state.gaps(gaps, rebasing) if reviewing is None or gap[0] != "ai_review"]

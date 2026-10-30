@@ -20,16 +20,17 @@ LABELS = {"needs-plan": "Doplnit zadání", "needs-acceptance": "Předložit ná
 
 
 def _latest(repo, node, accepted):
+    """`(execution, dead)`: dead = no results and no active lease of this run's token (docs/oporahub-agent-state.md)."""
     records = repo.history(node)
     if not records:
-        return None
+        return None, False
     record = records[0]
     state = record["state"]
     if state not in {"running", "released", "reported", "revoked", "cancelled"}:
         raise ValueError("Unknown persisted execution state.")
+    lease = repo.db.execute("SELECT token,expires_at FROM card_leases WHERE project_id=? AND workspace_id=? AND node_id=?",
+                            (*repo.scope, node)).fetchone()
     if state == "running":
-        lease = repo.db.execute("SELECT token,expires_at FROM card_leases WHERE project_id=? AND workspace_id=? AND node_id=?",
-                                (*repo.scope, node)).fetchone()
         epoch = repo.db.execute("SELECT epoch FROM opora_execution_epochs WHERE project_id=? AND workspace_id=? AND node_id=?",
                                 (*repo.scope, node)).fetchone()
         deadline = record.get("budget", {}).get("runDeadlineAt", record["expiresAt"])
@@ -38,11 +39,17 @@ def _latest(repo, node, accepted):
             state = "revoked"
     count = repo.db.execute("SELECT COUNT(*) FROM opora_execution_results WHERE project_id=? AND workspace_id=? AND execution_id=?",
                             (*repo.scope, record["executionId"])).fetchone()[0]
-    return {"id": record["executionId"], "state": state, "acceptedRevision": record["acceptedRevision"],
-            "matchesCurrentRevision": record["acceptedRevision"] == accepted, "results": count}
+    leased = bool(lease and lease["expires_at"] > time.time() and lease["token"] == record["token"])
+    return ({"id": record["executionId"], "state": state, "acceptedRevision": record["acceptedRevision"],
+             "matchesCurrentRevision": record["acceptedRevision"] == accepted, "results": count},
+            not count and not leased)
 
 
-def _status(document, accepted, matches, stored, execution, availability, read_only, context_valid, plan):
+def _status(document, accepted, matches, stored, execution, availability, read_only, context_valid, plan, dead=False):
+    # A dead run (no result, no active lease of its own) never decides the card: the lease is the authority,
+    # so the card falls through to the readiness rules and becomes claimable again (claim replaces the lease).
+    if dead:
+        execution = None
     if stored.get("done", {}).get("confirmed"):
         return "closed", "Dokončení karty je potvrzeno v Canvasu; není to důkaz merge ani nasazení."
     if read_only:
@@ -95,7 +102,7 @@ class ProcessSync:
             for card in selected if limit is None else selected[:limit]:
                 identifier = card["id"]
                 stored = state["nodes"].get(identifier, {})
-                execution = _latest(repo, identifier, accepted)
+                execution, dead = _latest(repo, identifier, accepted)
                 available = executions.context(project, workspace, identifier)
                 availability = {key: available[key] for key in ("available", "unavailableReason")}
                 lease = repo.db.execute("SELECT expires_at FROM card_leases WHERE project_id=? AND workspace_id=? AND node_id=?",
@@ -106,7 +113,7 @@ class ProcessSync:
                 plan = card_plan(repo.db, project, workspace, identifier, approved.get(identifier), blocked)
                 status, reason = _status(live.get(identifier), accepted, matches, stored, execution, availability,
                                          view["readOnly"], available["acceptedHead"] == accepted and accepted is not None,
-                                         plan)
+                                         plan, dead)
                 stages = stored.get("stages", {})
                 stage = current_stage(stages) if stages.get("items") else None
                 items.append({"nodeId": identifier, "name": card["name"], "status": status,
