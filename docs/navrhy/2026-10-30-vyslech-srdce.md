@@ -119,3 +119,11 @@ Požadavek je `clear`, když syntéza obsahuje všechno z tohoto seznamu:
    - Nová routa a kopie skillu začnou platit až po restartu serveru 8740. Do té doby `skill vyslech` vrátí `skill_missing` a srdce jede podle části Výslech v promptu.
 3. **Velín:** syntéza a otázky s doporučením, odpověď člověka.
 4. **Ověření na Ample:** požadavek „chci metriky X, Y, Z“. Syntéza musí obsahovat i položky s původem `rešerše`/`odvozeno`, výslech nejvýš 3 kola a karty pak mají štítek jiný než „?“.
+
+### Doplnění kroků existující karty
+
+Krátký výslech karty (`VÝSLECH (krátký): karta …`) má doplnit kroky kartě, která už existuje. `plan` zakládá jen nové uzly a `member` mění jen `memberOf`, proto srdce dostalo příkaz `python opora_heart.py steps --node ID --file F [--dry-run]`.
+- Cesta je existující návrh změny zadání: `POST /api/oporahub/changesets` s úplnými `fields` pracovního zadání karty a novými `steps` (volitelně `goal` a `acceptance`), viz `docs/oporahub-plan-steps.md`. Přijetí je akce `accept` z agent-state (`/api/oporahub/changesets/{id}/accept`). Při `autonomy.full` ji srdce provede samo stejně jako u `member`, jinak návrh čeká na člověka v OporaHubu.
+- `heart_scope` se nerozšiřuje. Hlídá jen návrhy grafu (`graph-proposals`); zadání karty jde jinou routou, kterou smí navrhovat každý agent a přijímá ji `require_authority`.
+- Tvar kroku ověřuje server (`validate_steps`). Pravidlo realizační karty, které server nemá (2–8 kroků, každý s `kind` a neprázdnými `files`), kontroluje příkaz. Chybějící `id`, `order` a `dependsOn` doplní lineárně (s1 → s2 → …).
+- Karta musí mít přijaté zadání (`steps_not_accepted`), protože návrh zadání se vztahuje k přijaté revizi. Kroky nové karty patří dál do `plan`.
