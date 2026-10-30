@@ -96,6 +96,35 @@ def test_handoff_is_a_snapshot_a_predecessor_change_does_not_revoke_the_run(auth
     assert handoff_for(service, service.db_for("draft"), "draft", "draft", "b") != snapshot
 
 
+def decide(service, node, by):  # noqa: F811
+    """Rozhodnutí karty na ploše, jak ho zapíše srdce po sloučení předchůdce (bez executionId).
+
+    Srdce zapisuje s plnou autonomií (`acts_as_human`), proto zápis jako člověk; o výřezu rozhoduje pole `by`."""
+    from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+    current = DesktopV3State(service).read(**SCOPE)
+    item = {"id": f"hd_{by}", "text": f"Karta {node} sloučena ({by}).", "pinned": False, "path": "", "nodeId": node,
+            "createdAt": "2026-10-30T11:52:00Z", "by": by}
+    state = {**current["state"], "decisions": [*current["state"]["decisions"], item]}
+    DesktopV3State(service).save({**SCOPE, "expectedRevision": current["revision"], "state": state}, actor="human")
+
+
+def test_agent_decision_on_predecessor_after_claim_does_not_revoke_the_run(authority, service, monkeypatch):  # noqa: F811
+    # Ample 2026-10-30: srdce po sloučení předchůdce zapsalo rozhodnutí na jeho kartu a obnova lease běhu nástupce
+    # skončila 409 „Execution assignment changed“. Rozhodnutí předchůdce jsou předpoklad snímku jako předávka.
+    monkeypatch.setattr(opora_executions, "require_ready", lambda *args: None)  # `a` není uzavřená
+    reported(authority)
+    record = claim(authority, "succ", node="b")
+    renew = {**credentials(record), "ttlSeconds": 60}
+    decide(service, "a", "agent")
+    assert authority.context(**SCOPE, node="b")["contextVersion"] != record["assignment"]["contextVersion"]
+    beat = authority.heartbeat(record["executionId"], renew)
+    assert beat["state"] == "running" and beat["assignment"] == record["assignment"]
+    # Rozhodnutí člověka na předchůdci dál mění zadání a běh odvolá.
+    decide(service, "a", "human")
+    with pytest.raises(ValueError, match="changed"):
+        authority.heartbeat(record["executionId"], renew)
+
+
 def test_pinned_keeps_records_without_handoff_comparable():
     current = {"acceptedRevision": "x"}
     assert pinned(current, {"assignment": {"acceptedRevision": "x"}}) == current

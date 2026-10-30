@@ -154,7 +154,29 @@ def attach(captured, pin, value):
     return captured
 
 
+def _not_agent(items):
+    return [item for item in items if not (isinstance(item, dict) and item.get("by") == "agent")]
+
+
+def _pinned_decisions(current, stored):
+    """Rozhodnutí agentů v `specification.decisions` jsou jen ta z předchůdců (vstupní předpoklady, viz
+    `capture_specification`), tedy část předávky: nové rozhodnutí na předchůdci (srdce po sloučení jeho PR)
+    běh neodvolá. Změna rozhodnutí člověka zadání mění dál."""
+    live, then = current.get("specification"), stored.get("specification")
+    if not (isinstance(live, dict) and isinstance(then, dict)
+            and isinstance(live.get("decisions"), list) and isinstance(then.get("decisions"), list)):
+        return current
+    if _not_agent(live["decisions"]) != _not_agent(then["decisions"]):
+        return current
+    specification = {**live, "decisions": then["decisions"]}
+    pinned_value = {**current, "specification": specification}
+    if "contextVersion" in current:  # otisk specifikace (`capture_specification`) jde se specifikací
+        pinned_value["contextVersion"] = digest(specification)
+    return pinned_value
+
+
 def pinned(current, record):
     """Živé zadání se porovná se snímkem předávky z claimu: změna předchůdce běh neodvolá."""
     stored = record.get("assignment") or {}
-    return {**current, "handoff": stored["handoff"]} if "handoff" in stored else current
+    current = {**current, "handoff": stored["handoff"]} if "handoff" in stored else current
+    return _pinned_decisions(current, stored)
