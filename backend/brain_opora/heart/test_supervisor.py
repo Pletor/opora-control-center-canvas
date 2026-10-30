@@ -176,3 +176,33 @@ def test_gate_off_and_missing_claude_drop_the_batch(setup):
     heart.run_once()
     assert heart.status("draft")["error"] == "Brána projektu je vypnutá." and runner.calls == []
     assert batch.read_journal(heart.brain("draft")) == []
+
+
+def test_ticket_queued_before_the_first_poll_wakes_after_restart_once(setup):
+    """Ztracené buzení: lístek vznikl, než supervisor poprvé přečetl outbox (restart serveru). První průchod ho
+    dožene hned; vlastní eskalace srdce a lístek, který dávka `ok` už viděla, se znovu nebudí."""
+    service, heart, clock, runner, _ = setup
+    ticket = ask(service, {"question": "Před restartem?"})
+    assert heart.run_once() == ["draft"] and heart.status("draft")["pending"] == 0
+    assert f"LÍSTEK {ticket['ticketId']} (ask)" in runner.calls[0]
+    heart_session = gate.tokens.verify(service, heart.tokens[("draft", "draft")])
+    kinds.run(service, heart_session, {"kind": "escalate", "body": {"text": "Pro člověka"}})
+    restarted = supervisor.HeartSupervisor(service, base_url="http://127.0.0.1:9", runner=runner, clock=clock,
+                                           spawn=lambda fn: fn(), find=lambda: "claude", git_spawn=lambda fn: fn())
+    clock.now += supervisor.WINDOW + 1
+    assert restarted.run_once() == [] and restarted.status("draft")["pending"] == 0  # dávka ok lístek viděla
+    assert len(runner.calls) == 1
+
+
+def test_restart_catches_up_unanswered_ticket_and_message_without_duplicates(setup):
+    service, heart, clock, runner, _ = setup
+    ticket = ask(service, {"question": "Ztracený?"})
+    answered = ask(service, {"question": "Už zodpovězený"})
+    gate.answer(service, "draft", answered["ticketId"], {"answer": "Ano"})
+    brain_files.append_message(heart.brain("draft"), supervisor._iso(clock.now - 60), "draft", "Zpráva před pádem")
+    brain_files.append_message(heart.brain("draft"), "1970-01-01T00:00:00Z", "draft", "Prastará zpráva")
+    heart._add("draft", "draft", {"type": "ticket", "ticketId": ticket["ticketId"], "kind": "ask"}, clock.now)
+    assert heart.run_once() == ["draft"]  # dohnaný lístek je v dávce jednou, zodpovězený a prastará zpráva ne
+    sent = runner.calls[0]
+    assert sent.count(f"LÍSTEK {ticket['ticketId']}") == 1 and answered["ticketId"] not in sent.split("VSTUPY")[-1]
+    assert "ZPRÁVA ČLOVĚKA: Zpráva před pádem" in sent and "ZPRÁVA ČLOVĚKA: Prastará zpráva" not in sent

@@ -7,6 +7,7 @@ import pytest
 from backend.brain_opora.determinism import brain_files, gate, kinds, snapshot, task_queue
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.canvas_service import CanvasService
+from backend.canvas.test_graph_card import node
 
 FACTS = {"project": "p1", "name": "Zahrada", "workspace": "main", "goal": "",
          "pages": [{"id": "home", "name": "Domů", "path": "/", "goal": "Uvěřit, že to zvládnu.", "feel": "klidná"},
@@ -197,10 +198,33 @@ def test_work_states_from_newest_execution_and_its_pr_link():
              _link("e9", "old", "merged", 3, "1234567890")]
     work = snapshot.work_states(executions, links)
     assert work == {"run": "běží (agent:dev)", "done": "odevzdáno", "pr": "PR #12", "free": "volná",
-                    "merged": "sloučeno abcdef1 · čeká na uzavření", "old": "sloučeno 1234567"}
+                    "merged": "sloučeno abcdef1 · čeká na uzavření", "old": "sloučeno 1234567 · nezapsáno"}
     text = snapshot.render({**FACTS, "pages": [], "work": {"home": "PR #12"}})
     assert "- Domů · home · ready · PR #12" in text
     assert "- Domů · / · ready · volná · cíl:" in snapshot.render({**FACTS, "work": {}})
+
+
+def test_blocked_card_names_its_predecessor_and_what_it_waits_for():
+    cards = [{"id": key, "name": name, "stage": "ready"} for key, name in
+             (("rls", "RLS"), ("auth", "Auth"), ("db", "Data"), ("ui", "UI"), ("run", "Běh"))]
+    facts = {**FACTS, "pages": [], "cards": cards,
+             "work": {"auth": "PR #12", "db": "sloučeno 1234567 · nezapsáno", "run": "běží (agent:dev)"},
+             "blocked": {"rls": ["auth"], "ui": ["auth", "db", "x"], "run": ["auth"]},
+             "names": {"rls": "RLS", "auth": "Auth", "db": "Data", "ui": "UI", "run": "Běh"}}
+    text = snapshot.render(facts)
+    assert "- RLS · rls · ready · blokovaná – čeká na Auth: PR #12 otevřený\n" in text
+    assert "- UI · ui · ready · blokovaná – čeká na Auth: PR #12 otevřený; Data: sloučeno 1234567 · nezapsáno +1" in text
+    assert "- Běh · run · ready · běží (agent:dev)" in text  # běžící karta zůstává běžící
+    assert "- Auth · auth · ready · PR #12\n" in text and "- Data · db · ready · sloučeno 1234567 · nezapsáno" in text
+    assert "blokovaná" not in snapshot.render({**facts, "blocked": {}})
+
+
+def test_collect_reads_blockers_from_the_card_graph(service):
+    current = service.view("draft", "draft")
+    service.save_graph("draft", "draft", {"nodes": [node("a"), node("b")],
+                                          "edges": [{"id": "e1", "source": "b", "target": "a"}]}, current["digest"])
+    facts = snapshot.collect(service, "draft", "draft")
+    assert facts["blocked"] == {"a": ["b"]} and set(facts["names"]) >= {"a", "b"}
 
 
 def test_git_section_after_checks_is_capped():

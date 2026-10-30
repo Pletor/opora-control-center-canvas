@@ -2,7 +2,8 @@
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky plánu,
 fronta úkolů, čekající lístky, poslední kontroly, deník dávek; okolí srdce §3a; skripty dílny §3b; výzkumy a duely
-srdce ze schránky zadání §3c; stav práce karet z executions a vazeb PR, docs/brain-heart-orchestrator.md §3),
+srdce ze schránky zadání §3c; stav práce karet z executions a vazeb PR, docs/brain-heart-orchestrator.md §3,
+včetně blokace nehotovým předchůdcem z grafu karet agent-state),
 `snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4) a u git projektu pracovní prostory (sekce
 PROSTORY, §9 O7: doména, větev, karty volné/běží/hotové), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
@@ -16,6 +17,7 @@ import sqlite3
 from backend.brain_opora.determinism import brain_files, git_log
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
+from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas.architecture_graph import split
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault.brief_vault_details import latest_details
@@ -25,7 +27,7 @@ from backend.editor.brief_vault.brief_vault_tree import live_ids
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
-from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
+from database.repositories.opora_execution_pull_requests import ExecutionPullRequests, list_execution_pull_requests
 from database.repositories.opora_executions import Executions
 
 LIMIT = 12_000  # zhruba 4k tokenů
@@ -46,6 +48,7 @@ RESEARCH = 10
 GIT_COMMITS, GIT_CHARS = 10, 1200
 SPACES_CHARS = 800  # sekce PROSTORY git projektu
 FREE = "volná"  # karta bez běhu, nebo s během uvolněným či odebraným
+BLOCKERS = 2  # nejvýš předchůdců vypsaných u blokované karty, zbytek jako „+n“
 NEXT_LINE = re.compile(r"Další krok: (plan|spike|duel|ask|stop)\b")
 HEART = "heart"  # autor výzkumů a duelů srdce ve schránce (agent `heart`)
 UNREADABLE = (ValueError, KeyError, TypeError, AttributeError, OSError, sqlite3.Error)
@@ -143,7 +146,8 @@ def _link_work(link):
     pr = f"PR #{link['number']}" if link.get("number") else "lokální"
     if link["state"] == "merged":
         merged = f"sloučeno {str(link.get('merge_sha') or '?')[:7]}"
-        return merged + (" · čeká na uzavření" if link.get("awaiting_human_close") else "")
+        # bez zápisu zpět (agent-state `merged_without_plan_writeback`) následníky dál blokuje
+        return merged + (" · čeká na uzavření" if link.get("awaiting_human_close") else " · nezapsáno")
     return pr + (" zavřený" if link["state"] == "closed" else "")
 
 
@@ -173,6 +177,17 @@ def _work(db, project, workspace):
                            ExecutionPullRequests(db, project, workspace).listing())
     except UNREADABLE:
         return {}
+
+
+def _blocked(service, project, workspace, db):
+    """`({karta: [předchůdce]}, {karta: jméno})` z grafu karet agent-state (`opora_agent_state_dag.facts`):
+    předchůdce blokuje, dokud není sloučený se zápisem zpět nebo potvrzeně hotový. Nečitelné = nic."""
+    try:
+        dag = dag_state.facts(service, project, workspace, list_execution_pull_requests(db, project, workspace))
+    except UNREADABLE:
+        return {}, {}
+    names = {key: node.get("name") or key for key, node in dag["nodes"].items()}
+    return {key: value for key, value in dag["blockedBy"].items() if value}, names
 
 
 def _git(service, project, workspace):
@@ -234,7 +249,8 @@ def collect(service, project, workspace):
         checks = db.execute("SELECT scope_id, sha, status FROM check_runs WHERE project_id=? AND workspace_id=?"
                             " ORDER BY recorded_at DESC, scope_id LIMIT ?", (project, workspace, CHECKS)).fetchall()
         work = _work(db, project, workspace)
-    return {"work": work, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
+        blocked, names = _blocked(service, project, workspace, db)
+    return {"work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -255,7 +271,7 @@ def _plan(facts):
     work = facts.get("work")
 
     def doing(node):  # stav práce z executions (§3 orchestrátoru); fakta bez `work` ho nepíšou
-        return "" if work is None else f" · {work.get(node, FREE)}"
+        return "" if work is None else f" · {_doing(facts, node)}"
 
     if facts["pages"]:
         rows = [f"- {_short(page['name'], 80)} · {page['path'] or '—'} · {stages.get(page['id'], 'closed')}"
@@ -265,6 +281,24 @@ def _plan(facts):
         rows = [f"- {_short(card['name'], 80)} · {card['id']} · {card['stage']}" + doing(card["id"])
                 for card in facts["cards"][:PAGES]]
     return rows or ["- (prázdný plán)"]
+
+
+def _waiting_on(work, node):
+    """Stav předchůdce, na kterého blokovaná karta čeká: otevřený PR, nezapsané sloučení, běh nebo volná."""
+    state = work.get(node, FREE)
+    return state + " otevřený" if state.startswith("PR #") and not state.endswith("zavřený") else state
+
+
+def _doing(facts, node):
+    """Stav práce karty; volná karta s nehotovým předchůdcem je „blokovaná – čeká na <jméno>: <jeho stav>“."""
+    work = facts.get("work") or {}
+    state, blockers = work.get(node, FREE), (facts.get("blocked") or {}).get(node)
+    if state != FREE or not blockers:
+        return state
+    names = facts.get("names") or {}
+    parts = [f"{_short(names.get(item, item), 40)}: {_waiting_on(work, item)}" for item in blockers[:BLOCKERS]]
+    more = f" +{len(blockers) - BLOCKERS}" if len(blockers) > BLOCKERS else ""
+    return "blokovaná – čeká na " + "; ".join(parts) + more
 
 
 def _queue(facts):

@@ -1,7 +1,8 @@
 """Supervisor srdce (docs/brain-heart.md §1, §2): spí, budí se na vstupy a pouští jednu dávku na projekt.
 
 Vlákno (démon) sleduje outbox událostí projektů se zapnutou bránou: čekající lístek `ask` / `change`
-a úkol `failed` přidají vstup s oknem 20 s, zpráva člověka budí hned. Dávka běží ve vlastním vlákně, nejvýš
+a úkol `failed` přidají vstup s oknem 20 s, zpráva člověka budí hned. První čtení projektu začne na konci outboxu
+a dožene čekající lístky a zprávy, které žádná dávka `ok` neviděla (`inputs.backlog`). Dávka běží ve vlastním vlákně, nejvýš
 jedna na projekt a nejvýš 6 automatických za hodinu (zpráva člověka strop obchází, prázdná dávka se nepočítá); vstup, který přijde během
 dávky, počká na další. Vyčerpaný limit
 předplatného uspí srdce na 15 min a vstupy zůstanou. Běží jen na loopbacku a jen bez `OPORA_HEART=off`.
@@ -18,7 +19,7 @@ from collections import deque
 
 from backend.brain_opora.determinism import brain_files, gate_setting, git_log, snapshot, tokens
 from backend.brain_opora.heart import batch, command, session
-from backend.brain_opora.heart.inputs import resolve, wake_input
+from backend.brain_opora.heart.inputs import MESSAGE_HOURS, backlog, resolve, wake_input
 from backend.canvas.process_signal import PROCESS_SIGNAL
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories import opora_events
@@ -85,7 +86,10 @@ class HeartSupervisor:
 
     def _add(self, project, workspace, item, due):
         with self.lock:
-            self.pending.setdefault(project, []).append((workspace, item, due))
+            items = self.pending.setdefault(project, [])
+            if item.get("type") == "ticket" and any(entry[1].get("ticketId") == item["ticketId"] for entry in items):
+                return  # jeden lístek = jeden vstup (dohánění po startu a outbox se mohou potkat)
+            items.append((workspace, item, due))
 
     def message(self, project, workspace, text, now=None, via=None):
         """Zpráva člověka: nejdřív řádek do `brain/messages.jsonl` (přežije dávku i rotaci relace, §3a), pak vstup
@@ -111,6 +115,7 @@ class HeartSupervisor:
                 cursor = self.cursors.get(project)
                 if cursor is None:
                     self.cursors[project] = opora_events.head(db)
+                    self._catch_up(project, now)
                     continue
                 events = []
                 while True:
@@ -124,6 +129,22 @@ class HeartSupervisor:
                 item = wake_input(event)
                 if item is not None:
                     self._add(project, event["workspaceId"], item, now + WINDOW)
+
+    def _catch_up(self, project, now):
+        """První čtení projektu začíná na konci outboxu: co čeká z doby, kdy supervisor nečetl (restart serveru,
+        lístek před prvním průchodem, nově zapnutá brána), dožene `backlog`. Splatné hned; lístek, který dávka
+        `ok` už viděla, ani zprávu, která už čeká ve frontě, znovu nezařadí."""
+        try:
+            found = backlog(self.service, project, self.brain(project), _iso(now - MESSAGE_HOURS * HOUR))
+        except Exception:  # noqa: BLE001 - dohánění nesmí shodit čtení outboxu
+            LOGGER.exception("Srdce: dohánění čekajících vstupů projektu %s selhalo.", project)
+            return
+        with self.lock:
+            queued = {(space, item.get("text")) for space, item, _ in self.pending.get(project, [])
+                      if item.get("type") == "message"}
+        for workspace, item in found:
+            if item["type"] != "message" or (workspace, item["text"]) not in queued:
+                self._add(project, workspace, item, now)
 
     def _git_pass(self):
         try:

@@ -70,7 +70,9 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   Žádná routa ani agent-state se neměnily. Test: `backend/api/brain_opora/test_heart_plan.py` (plán 1 → claim
   ready; plán 2 se sektorem `@id` a vazbou na existující kartu → nová karta ready, dřívější ready zůstal).
 - Snímek: sekce `PLÁN` ukáže u karet stav práce z executions: `volná`, `běží (agent)`, `odevzdáno`, `PR #n`,
-  `sloučeno sha`, `čeká na uzavření`. Bez nové tabulky, čte existující executions a vazby PR.
+  `sloučeno sha`, `čeká na uzavření`, `nezapsáno` (sloučeno bez zápisu zpět). Volná karta s nehotovým předchůdcem
+  (graf karet agent-state, `blocked_by_predecessor`) je `blokovaná – čeká na <jméno>: <jeho stav>`, např.
+  `PR #12 otevřený`. Bez nové tabulky, čte existující executions a vazby PR.
 - **`unlink --from A --to B [--dry-run] [--no-accept] [--workspace W]`**: odebere vazbu `next` A → B jako návrh grafu `{removeEdges}` (`POST /api/oporahub/graph-proposals`, existující operace) a přijme ho tokenem srdce jako přírůstek; neznámá vazba = `code: unlink_unknown_edge`, `--dry-run` nic nezapíše.
 - Prompt „Plán“: práce pro orchestrátora = **karta na plátně** (`plan`), malá karta se `spec.steps` a ověřením;
   `task` (fronta brány) jen pro dělníka, který pracuje přes bránu. Po sloučení karty srdce plán neopakuje, ale
