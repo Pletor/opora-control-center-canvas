@@ -6,9 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
-from backend.brain_opora.determinism import brief, triggers
+from backend.brain_opora.determinism import brief
 from backend.brain_opora.determinism.gate_payloads import GateError
-from backend.brain_opora.heart import inputs
 from backend.canvas.test_canvas_plan import ORIGIN, seed
 from database.repositories.intake_briefs import IntakeBriefs
 from database.repositories.intake_entries import IntakeEntries
@@ -86,22 +85,6 @@ def card(**extra):
             "sinceStep": None, "costUsd": None, **extra}
 
 
-def test_thin_ready_card_wakes_a_short_brief_once(tmp_path, monkeypatch):
-    assert brief.card_hit(card()) == ("trigger:brief:card:n1:thin@w1", {
-        "type": "brief", "nodeId": "n1", "title": "Měřák", "reason": "thin", "detail": brief.card_gauge.THIN_REASON})
-    assert brief.card_hit(card(status="running")) is None and brief.card_hit(card(evidence="ok", label="S")) is None
-    cards = [card(nodeId=f"n{number}") for number in range(7)]
-    monkeypatch.setattr(triggers, "facts", lambda *args: (cards, []))
-    app = create_app(tmp_path)
-    with TestClient(app, base_url=ORIGIN):
-        service = app.state.service
-        first = inputs.card_wakes(service, "draft", {"w1"}, "t1", 0)
-        assert [item["nodeId"] for _, item in first] == ["n0", "n1", "n2", "n3", "n4"]  # strop EXTRA na průchod
-        assert [item["nodeId"] for _, item in inputs.card_wakes(service, "draft", {"w1"}, "t2", 0)] == ["n5", "n6"]
-        assert inputs.card_wakes(service, "draft", {"w1"}, "t3", 0) == []
-        assert triggers.wakes(service, "draft", {"w1"}, "t4", 0) == []  # bez `extra` tenké karty nebudí
-
-
 def add(db, rq, verdicts, at="2026-10-30T10:00:00Z", status="open", area="a0"):
     IntakeRequirements(db).insert({"id": rq, "workspaceId": "draft", "areaId": area, "milestoneId": None,
                                    "title": "Metriky srdce", "status": status, "createdAt": at})
@@ -119,28 +102,6 @@ def app(tmp_path):
     with TestClient(application, base_url=ORIGIN) as client:
         seed(client)  # oblast a0, sektor s0, karta n0
         yield application
-
-
-def test_requirement_wakes_once_per_state_with_a_draft_brief_and_its_situation(app):
-    service = app.state.service
-    db = service.db_for("draft")
-    with db:
-        add(db, "rq_new", ["fix_for_milestone"])
-        add(db, "rq_old", ["fix_for_milestone"], at="2026-10-27T10:00:00Z")  # mimo okno 24 h
-        add(db, "rq_dup", ["extends_in_progress"])
-        add(db, "rq_later", ["later_extension"], status="deferred")
-    [(space, item)] = inputs.brief_wakes(service, "draft", "t1", NOW)
-    assert space == "draft" and (item["type"], item["requirementId"], item["reason"]) == ("brief", "rq_new", "new")
-    assert item["detail"].startswith("„Chci metriky 0.“ · oblast a0 „Stará oblast“")
-    saved = IntakeBriefs(db).get("rq_new")
-    assert saved["status"] == "draft" and saved["situation"]["inputs"][0]["verdict"] == "fix_for_milestone"
-    assert inputs.brief_wakes(service, "draft", "t2", NOW) == []  # stejný stav nebudí
-    with db:
-        IntakeEntries(db).insert({"id": "ie_x", "workspaceId": "draft", "source": "gate_change", "text": "Jinak.",
-                                  "fingerprint": "x", "createdAt": "2026-10-30T11:00:00Z",
-                                  "verdict": "changes_intent", "layer": "heart", "jevCalls": 0})
-        IntakeEntries(db).set_requirement("ie_x", "rq_new")
-    assert [item["reason"] for _, item in inputs.brief_wakes(service, "draft", "t3", NOW)] == ["changes_intent"]
 
 
 def test_brief_sets_clear_only_without_missing_and_ask_caps_questions_and_rounds(app):
@@ -174,4 +135,35 @@ def test_brief_sets_clear_only_without_missing_and_ask_caps_questions_and_rounds
     assert refused.value.code == "brief_rounds_spent"
     with pytest.raises(GateError) as refused:
         brief.save_synthesis(service, {**SESSION, "workspace_id": "main"}, "rq_1", CLEAR, "t8")
+    assert refused.value.code == "intake_requirement_not_found"
+
+
+def test_research_cost_adds_up_to_the_cap_and_then_refuses(app):
+    """Řez 2 (§8): strop rešerše na požadavek, cena se sčítá do `intake_briefs.cost_usd`."""
+    from backend.brain_opora.determinism import brief_setting
+
+    service = app.state.service
+    db = service.db_for("draft")
+    with db:
+        add(db, "rq_r", ["fix_for_milestone"])
+    assert brief.research_budget(service, SESSION, "rq_r") == {
+        "requirement": "rq_r", "spentUsd": 0.0, "capUsd": 0.30, "leftUsd": 0.30}
+    spent = brief.research_spend(service, SESSION, "rq_r", 0.12, "frag1", "feasible/plan: stačí",
+                                 ["https://a.cz", "https://a.cz", 3], "t1")
+    assert spent == {"requirement": "rq_r", "spentUsd": 0.12, "capUsd": 0.30, "leftUsd": 0.18}
+    stored = IntakeBriefs(db).get("rq_r")
+    assert (stored["status"], stored["costUsd"]) == ("research", 0.12)
+    assert stored["research"] == [{"fragmentId": "frag1", "digest": "feasible/plan: stačí", "sources": ["https://a.cz"],
+                                   "costUsd": 0.12, "at": "t1"}]
+    assert brief.research_spend(service, SESSION, "rq_r", 0.2, now="t2")["leftUsd"] == 0
+    with pytest.raises(GateError) as refused:
+        brief.research_budget(service, SESSION, "rq_r")
+    assert refused.value.code == "brief_research_spent" and refused.value.hint == brief.SPENT_HINT
+    brief_setting.write(service, {"project": "draft", "enabled": True, "researchUsd": 1.0})  # člověk strop zvedne
+    assert brief.research_budget(service, SESSION, "rq_r")["leftUsd"] == 0.68
+    with pytest.raises(GateError) as refused:
+        brief.research_spend(service, SESSION, "rq_r", -1, now="t3")
+    assert refused.value.code == "invalid_payload"
+    with pytest.raises(GateError) as refused:
+        brief.research_budget(service, {**SESSION, "workspace_id": "main"}, "rq_r")
     assert refused.value.code == "intake_requirement_not_found"

@@ -101,6 +101,10 @@ Modules (intake gate, slice 1, contract `docs/navrhy/2026-10-30-vstupni-brana.md
 - `intake_setting.py` (slice 2, §7): `settings.brain.intake = {jev, jevPerDay}` in `project.json` next to the gate
   switch. Missing or corrupt = JEV off, 200 calls a day. Only a human changes it (`POST /api/brain/intake-setting`);
   `gate_setting.write` keeps it when the gate is flipped.
+- `brief_setting.py` (interrogation slice 2, `docs/navrhy/2026-10-30-vyslech-srdce.md` §8): `settings.brain.brief =
+  {enabled, researchUsd}`. Missing or corrupt = on, 0.30 USD research cap per requirement. Off = `brief.needs_brief`
+  never wakes the heart. Human, or an agent with full autonomy, changes it (`POST /api/brain/brief-setting`).
+  `brief.research_budget` / `research_spend` guard the cap and sum research cost into `intake_briefs.cost_usd`.
 
 Modules (milestones and requirements, slice 3, contract `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §4, §5):
 - `milestones.py`: the heart only proposes a milestone of an area (`propose`, `POST /api/brain/heart/milestone`,

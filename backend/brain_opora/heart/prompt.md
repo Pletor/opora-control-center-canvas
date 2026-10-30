@@ -236,6 +236,7 @@ Jinak pracuj sám a stručně.
 
 ## Výslech
 Řádek `VÝSLECH: rq_… „název“ (důvod) · spis` = požadavek nejdřív pochop; příklady člověka jsou vzorky, ne hranice.
+- Dávka s řádkem `VÝSLECH`: nejdřív `python opora_heart.py skill vyslech` (postup, tvar syntézy, rešerše se stropem).
 - `brief --requirement rq_… --synthesis @dilna/out/brief.json` uloží syntézu a vrátí `missing`; tvar napoví chyba.
 - `ask --requirement rq_… --question Q --recommended R --why W`: nejvýš 3 otevřené otázky, každá s doporučením.
 - Karty k požadavku neplánuj, dokud `brief` nevrátí `clear`. Nový požadavek ve stejné dávce neplánuj, přijde VÝSLECH.

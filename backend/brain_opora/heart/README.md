@@ -68,6 +68,10 @@ Modules (H2a):
   `claude -p` with Read/Grep/Glob and, only when a Chrome/Edge is found, REA web tools plus browser launch from
   `dilna/rea-mcp.json` with compact schemas, result via `research-update`) and `duel` (deterministic, Haiku sub-calls as actors
   `srdce-obhajce-a|b` and judges `srdce-soudce-1|2`, `duel-decide` by the server rule). Both log to `runs.jsonl`.
+  `research --requirement rq_…` is interrogation research: the per-requirement cap is checked before the desk runs and
+  the cost is added to the requirement's brief (`docs/navrhy/2026-10-30-vyslech-srdce.md` §8).
+- `skills/*.md`: mode procedures copied to `brain/skills/`, read only on demand via `opora_heart.py skill NAME`
+  (`vyslech.md` when a batch carries `VÝSLECH`); never part of the system prompt.
 - `prompt.md`: the heart's role, task shape with a full example (an implementation card has 2–8 steps, each with `kind`
   and `files`, so the card gauge can size it), application-wide rules, when to ask the advisor.
 

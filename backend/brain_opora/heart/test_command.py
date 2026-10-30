@@ -93,3 +93,32 @@ def test_find_claude_prefers_exe_on_windows():
     assert command.find_claude({"claude.cmd": "C:/n/claude.cmd"}.get, nt=True) == "C:/n/claude.cmd"
     assert command.find_claude({"claude": "/usr/bin/claude"}.get, nt=False) == "/usr/bin/claude"
     assert command.find_claude({}.get, nt=False) is None
+
+
+def test_interrogation_skill_lands_in_brain_and_is_read_only_on_demand(tmp_path):
+    """Výslech, řez 2 (docs/navrhy/2026-10-30-vyslech-srdce.md §5): skill leží v `brain/skills/`, čte ho
+    `opora_heart.py skill vyslech` (i z kopie v `brain/`) a základní prompt na něj jen odkazuje."""
+    import subprocess
+    import sys
+
+    from backend.brain_opora.determinism import brief
+
+    skill = command.SKILLS_DIR / "vyslech.md"
+    text = skill.read_text(encoding="utf-8")
+    assert len(text.splitlines()) <= 80 and "--requirement" in text and "rozhodni z toho, co máš" in text
+    for key in ("goal", "users", "parts", "acceptance", "outOfScope", "assumptions", "risks", "dependencies",
+                "questions"):
+        assert f'"{key}"' in text
+    shape = text.split("```json\n")[1].split("```")[0]
+    sample = json.loads(shape.replace("nodeId|areaId", "a0"))
+    assert brief.check_synthesis(sample) is sample and brief.clarity(sample) == []  # vzor projde kontrolou kódu
+    prompt = command.PROMPT_FILE.read_text(encoding="utf-8")
+    assert "python opora_heart.py skill vyslech" in prompt and "## Tvar syntézy" not in prompt
+    command.write_config(tmp_path / "brain")
+    assert (tmp_path / "brain" / "skills" / "vyslech.md").read_bytes() == skill.read_bytes()
+    done = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", "vyslech"], cwd=tmp_path / "brain",
+                          capture_output=True, check=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    assert done.stdout.decode("utf-8").replace("\r\n", "\n").strip() == text.strip()
+    missing = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", "nic"], cwd=tmp_path / "brain",
+                             capture_output=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    assert missing.returncode == 1 and json.loads(missing.stdout.decode("utf-8"))["code"] == "skill_missing"

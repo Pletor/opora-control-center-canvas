@@ -19,6 +19,9 @@ PROMPT_FILE = HEART_DIR / "prompt.md"
 TOOL_FILE = HEART_DIR / "opora_heart.py"
 TOOL_NAME = "opora_heart.py"  # kopie v cwd (`brain/`), aby pravidlo Bash nemělo v cestě mezery
 RLM_FILE = HEART_DIR / "rlm.py"
+# Postupy režimů (docs/navrhy/2026-10-30-vyslech-srdce.md §5): v `brain/skills/`, srdce je čte jen na vyžádání
+# (`opora_heart.py skill NAME`), do systémového promptu se nevkládají.
+SKILLS_DIR, SKILLS_NAME = HEART_DIR / "skills", "skills"
 # Výzkum a duel vedle nástroje (§3c, §3d): příkaz, stůl, digest, stažení a ověření, duel.
 RESEARCH_NAMES = ("opora_research.py", "research_desk.py", "research_digest.py", "research_fetch.py",
                   "research_verify.py", "opora_duel.py")
@@ -86,8 +89,9 @@ def settings(source_root=None, brain=None):
 
 
 def write_config(brain, source_root=None):
-    """Zapíše nastavení a prázdné MCP do `brain/`, zkopíruje tam nástroj s moduly výzkumu a duelu a do dílny `rlm.py`
-    a MCP výzkumníka `rea-mcp.json` (se složkami `data/`, `scripts/`, `out/`); vrací `(settings, mcp)` cesty."""
+    """Zapíše nastavení a prázdné MCP do `brain/`, zkopíruje tam nástroj s moduly výzkumu a duelu, postupy režimů
+    (`skills/*.md`) a do dílny `rlm.py` a MCP výzkumníka `rea-mcp.json` (se složkami `data/`, `scripts/`, `out/`);
+    vrací `(settings, mcp)` cesty."""
     brain = Path(brain)
     brain.mkdir(parents=True, exist_ok=True)
     for folder in DILNA_DIRS:
@@ -99,6 +103,9 @@ def write_config(brain, source_root=None):
     for name in RESEARCH_NAMES:
         shutil.copyfile(HEART_DIR / name, brain / name)
     shutil.copyfile(RLM_FILE, brain / DILNA / RLM_NAME)
+    (brain / SKILLS_NAME).mkdir(exist_ok=True)
+    for skill in SKILLS_DIR.glob("*.md"):
+        shutil.copyfile(skill, brain / SKILLS_NAME / skill.name)
     (brain / DILNA / REA_MCP_NAME).write_text(json.dumps(REA_MCP, indent=1), encoding="utf-8")
     return settings_path, mcp_path
 

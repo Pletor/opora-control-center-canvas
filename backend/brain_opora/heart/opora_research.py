@@ -8,6 +8,11 @@ a zápis do `dilna/runs.jsonl` (`tool.log_run`, odtud dávka sečte `subCostUsd`
 Fragment `research` pod F (jinak pod kořenem „Výzkum srdce“) → `research_desk.run_desk` (jeden výzkumník, ověření
 citací kódem, destilace na Sonnetu) → `research-update` s verdiktem, digestem jako `approach` a ≤ 6 ověřenými URL. Celý
 výsledek s fakty jde do `dilna/out/research/<fragmentId>.json`; na výstup jde jen výtah (§3d krok 6).
+
+S `--requirement rq_…` je to rešerše výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §3.2, §8): před stolem se
+ověří strop ceny požadavku (vyčerpaný = `brief_research_spent` a nic se nespustí), po stole se cena, výtah a ověřené
+zdroje přičtou ke spisu (`intake_briefs.cost_usd`). Spis patří prostoru tokenu srdce (`OPORA_WORKSPACE`), ne prostoru
+schránky. Bez `--requirement` se příkaz chová jako dřív.
 """
 import json
 import os
@@ -32,6 +37,7 @@ BROWSER_ENV = "OPORA_RESEARCH_BROWSER"
 NT_BROWSERS = ("Google/Chrome/Application/chrome.exe", "Microsoft/Edge/Application/msedge.exe")
 UNIX_BROWSERS = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "msedge", "microsoft-edge")
 BUDGET, MAX_EVIDENCE = 600, 6
+BRIEF_RESEARCH = "/api/brain/heart/brief/research"
 
 
 def find_browser(environ=None, which=shutil.which, nt=None, exists=os.path.isfile):
@@ -94,8 +100,28 @@ def summary(fragment_id, digest, stats, out):
     return result
 
 
+def brief_scope(tool, requirement):
+    """Tělo volání stropu rešerše: projekt a prostor tokenu srdce (ne `--workspace` schránky) a požadavek."""
+    return {"project": tool.env("OPORA_PROJECT"), "workspace": tool.env("OPORA_WORKSPACE"), "requirement": requirement}
+
+
+def spend(tool, requirement, fragment_id, digest, fields, cost):
+    """Přičte cenu a výtah rešerše ke spisu požadavku; selhání nezahodí hotový výzkum, jen se vrátí v `brief`."""
+    body = {**brief_scope(tool, requirement), "costUsd": cost, "fragmentId": fragment_id,
+            "digest": f"{digest.get('verdict')}/{digest.get('next')}: {digest.get('nextWhy', '')}"[:300],
+            "sources": [item["url"] for item in fields["evidence"]]}
+    try:
+        return tool.call("POST", BRIEF_RESEARCH, body)
+    except tool.Failure as failure:
+        return {"error": failure.payload.get("error"), "code": failure.payload.get("code")}
+
+
 def research(args, tool):
-    """`research`: fragment výzkumu, výzkumný stůl a zápis výsledku do schránky a dílny; vypíše jen výtah."""
+    """`research`: fragment výzkumu, výzkumný stůl a zápis výsledku do schránky a dílny; vypíše jen výtah.
+    S `--requirement` nejdřív strop rešerše požadavku a po stole přičtení ceny (`brief` ve výtahu)."""
+    requirement = getattr(args, "requirement", None)
+    if requirement:
+        tool.call("POST", BRIEF_RESEARCH, brief_scope(tool, requirement))  # vyčerpaný strop = Failure s hintem
     scope, dilna, browser = tool.scope(), tool.DILNA.resolve(), find_browser()
     mcp = dilna / REA_MCP
     if browser and not mcp.is_file():
@@ -123,4 +149,7 @@ def research(args, tool):
                                **result, "digest": digest}, ensure_ascii=False, indent=1), encoding="utf-8")
     stats = result["stats"]
     tool.log_run("research", [fragment["id"]], 0, int((time.time() - started) * 1000), stats["calls"], stats["costUsd"])
-    return summary(fragment["id"], digest, stats, (Path(tool.DILNA.name) / RESEARCH_OUT / out.name).as_posix())
+    result = summary(fragment["id"], digest, stats, (Path(tool.DILNA.name) / RESEARCH_OUT / out.name).as_posix())
+    if requirement:
+        result["brief"] = spend(tool, requirement, fragment["id"], digest, fields, stats["costUsd"])
+    return result

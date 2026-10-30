@@ -108,5 +108,14 @@ Požadavek je `clear`, když syntéza obsahuje všechno z tohoto seznamu:
    - Odpovědi `brief` / `ask` nesou navíc `requirement` (u `ask` i `question`, `open`, `rounds`). Nastavení `brain.brief` (§8) patří do řezu 2.
    - Otevřená otázka pro řez 3: odpověď člověka jako vstup se zdrojem `brief_answer` (§6) narazí na CHECK sloupce `intake_entries.source`. Ten by se musel přestavět, což je změna existující tabulky.
 2. **Skill výslechu a rešerše:** `skills/vyslech.md`, napojení `research` se stropem, poznámka v promptu, že skill se čte jen při výslechu.
+
+   Odchylky řezu 2:
+   - Skill čte srdce příkazem `python opora_heart.py skill vyslech` (Bash nástroje je povolený, Read by potřeboval absolutní cestu). `command.write_config` kopíruje `heart/skills/*.md` do `brain/skills/` vedle nástroje. Základní prompt má jeden řádek odkazu. Neznámý skill vrátí `skill_missing` s hintem „postupuj podle části promptu“.
+   - Strop rešerše hlídá nová routa `POST /api/brain/heart/brief/research` (jen token srdce svého prostoru). Bez `costUsd` jen zkontroluje strop, s `costUsd` (a volitelně `fragmentId`, `digest`, `sources`) cenu přičte do `intake_briefs.cost_usd` a záznam do sloupce `research` (`[{fragmentId, digest, sources, costUsd, at}]`). Spis bez syntézy přejde do stavu `research`. Schéma tabulky se nemění.
+   - Cena rešerše je `stats.costUsd` výzkumného stolu (součet `total_cost_usd` pod-volání `claude`, výzkumník + destilace). Strop se kontroluje **před** spuštěním stolu, takže jedna rešerše ho může přečerpat nejvýš o svou cenu. Stůl za běhu cenou nehlídá.
+   - Spis patří prostoru tokenu srdce (`OPORA_WORKSPACE`), ne prostoru schránky. `research` v `main` dál zapisuje do prostoru posledního plánu, cena jde ke spisu v `main`. Když přičtení ceny selže, hotová rešerše se neztratí a chyba je ve výtahu v `brief`.
+   - Nastavení `brain.brief = {enabled, researchUsd}` je v `determinism/brief_setting.py`, routa `GET|POST /api/brain/brief-setting`. Zápis je za `require_authority`, takže smí i agent při plné autonomii, na rozdíl od `intake-setting` (`require_human`). `researchUsd` je 0–5 USD. Vypnuto: `needs_brief(..., enabled=False)` vrací `None`, `brief_wakes` nic a tenké karty nebudí (`card_wakes` bez `extra`). Probíhající spis se nemaže a `brief`/`ask` fungují dál.
+   - Strop syntézy („jedno volání s poradcem“) kód nehlídá. Řídí ho skill.
+   - Nová routa a kopie skillu začnou platit až po restartu serveru 8740. Do té doby `skill vyslech` vrátí `skill_missing` a srdce jede podle části Výslech v promptu.
 3. **Velín:** syntéza a otázky s doporučením, odpověď člověka.
 4. **Ověření na Ample:** požadavek „chci metriky X, Y, Z“. Syntéza musí obsahovat i položky s původem `rešerše`/`odvozeno`, výslech nejvýš 3 kola a karty pak mají štítek jiný než „?“.

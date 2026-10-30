@@ -18,7 +18,7 @@ Spouštěč výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §2) dává vstup
 """
 from datetime import UTC, datetime, timedelta
 
-from backend.brain_opora.determinism import brain_files, brief, intake, milestones, triggers
+from backend.brain_opora.determinism import brain_files, brief, brief_setting, intake, milestones, triggers
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
 
@@ -68,14 +68,17 @@ def trigger_workspaces(events):
 
 def card_wakes(service, project, workspaces, at, now):
     """`[(prostor, vstup cardTrigger)]` spouštěčů karet, kterým srdce ještě nebudilo (`workspaces` None = prostory
-    s přijatým plánem); značky zapíše v jedné transakci."""
-    return triggers.wakes(service, project, workspaces, at, now, extra=brief.card_hit)
+    s přijatým plánem); značky zapíše v jedné transakci. Vypnutý výslech (`brain.brief`) tenké karty nebudí."""
+    enabled = brief_setting.read(service, project)["enabled"]
+    return triggers.wakes(service, project, workspaces, at, now, extra=brief.card_hit if enabled else None)
 
 
 def brief_wakes(service, project, at, now):
     """`[(prostor, vstup brief)]` požadavků, které podle `brief.needs_brief` potřebují výslech a srdce na ten stav
     ještě nebudilo (jen se vstupem z posledních `brief.WINDOW_HOURS` h). Kandidáti se čtou bez zámku, spis mimo
-    zámek, značka a spis `draft` se zapíší v jedné transakci."""
+    zámek, značka a spis `draft` se zapíší v jedné transakci. Vypnutý výslech (`brain.brief`) nebudí nic."""
+    if not brief_setting.read(service, project)["enabled"]:
+        return []
     since = (datetime.fromtimestamp(now, UTC) - timedelta(hours=brief.WINDOW_HOURS)).strftime(
         "%Y-%m-%dT%H:%M:%SZ")
     with service.reading(project):

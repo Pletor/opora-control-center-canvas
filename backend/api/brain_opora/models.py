@@ -280,6 +280,38 @@ class BriefAskOut(BaseModel):
     missing: list[str]
 
 
+class BriefResearchIn(BaseModel):
+    """Strop rešerše požadavku (docs/navrhy/2026-10-30-vyslech-srdce.md §8): bez `costUsd` kontrola před rešerší,
+    s `costUsd` přičtení ceny (a výtahu) po rešerši."""
+    project: str
+    workspace: str
+    requirement: str
+    costUsd: float | None = Field(None, ge=0, le=100)
+    fragmentId: str | None = None
+    digest: str | None = None
+    sources: list[str] | None = None
+
+
+class BriefResearchOut(BaseModel):
+    requirement: str
+    spentUsd: float
+    capUsd: float
+    leftUsd: float
+
+
+class BriefSettingIn(BaseModel):
+    """Výslech srdce zapnutý a strop rešerše na požadavek (docs/navrhy/2026-10-30-vyslech-srdce.md §8)."""
+    project: str
+    enabled: bool
+    researchUsd: float | None = Field(None, ge=0, le=5, description="Chybí = beze změny (výchozí 0,30 USD).")
+
+
+class BriefSettingOut(BaseModel):
+    project: str
+    enabled: bool
+    researchUsd: float
+
+
 class Escalation(BaseModel):
     ticketId: str
     text: str

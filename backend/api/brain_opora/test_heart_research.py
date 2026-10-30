@@ -169,3 +169,31 @@ def test_duel_sides_cannot_be_the_same_actor_on_both_sides(heart):
         call("POST", "/api/brief-vault", {**SCOPE, "op": "duel-turn", "fragmentId": opened["fragment"]["id"],
                                           "expectedRevision": opened["fragment"]["revision"], "side": "A",
                                           "kind": "claim", "text": "A je lepší."})
+
+
+def test_research_for_a_requirement_spends_its_cap_and_then_refuses_without_running(heart, monkeypatch):
+    """Výslech, řez 2 (docs/navrhy/2026-10-30-vyslech-srdce.md §8): `research --requirement` čerpá strop požadavku,
+    cena jde do `intake_briefs.cost_usd`; vyčerpaný strop odmítne dřív, než se spustí stůl."""
+    from backend.brain_opora.determinism import brief_setting
+    from backend.brain_opora.determinism.test_brief import add
+    from database.repositories.intake_briefs import IntakeBriefs
+
+    client, _, _ = heart
+    service = client.app.state.service
+    brief_setting.write(service, {"project": "draft", "enabled": True, "researchUsd": 0.1})
+    db = service.db_for("draft")
+    with db:
+        add(db, "rq_1", ["fix_for_milestone"], area=None)
+    argv = ["research", "--question", "Co metriky potřebují?", "--title", "Metriky", "--requirement", "rq_1"]
+    first = run(FakeClaude(), monkeypatch, argv)
+    assert first["brief"] == {"requirement": "rq_1", "spentUsd": 0.06, "capUsd": 0.1, "leftUsd": 0.04}
+    assert run(FakeClaude(), monkeypatch, argv)["brief"]["spentUsd"] == 0.12  # strop se hlídá před stolem
+    stored = IntakeBriefs(db).get("rq_1")
+    assert stored["costUsd"] == 0.12 and [item["fragmentId"] for item in stored["research"]] == [
+        first["fragmentId"], stored["research"][1]["fragmentId"]] and stored["status"] == "research"
+    fake = FakeClaude()
+    with pytest.raises(opora_heart.Failure) as refused:
+        run(fake, monkeypatch, argv)
+    assert refused.value.payload["code"] == "brief_research_spent" and fake.lines == []
+    plain = run(FakeClaude(), monkeypatch, argv[:-2])  # bez --requirement jako dřív
+    assert "brief" not in plain and IntakeBriefs(db).get("rq_1")["costUsd"] == 0.12
