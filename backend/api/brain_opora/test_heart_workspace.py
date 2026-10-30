@@ -91,11 +91,13 @@ def test_main_is_architecture_and_cards_live_in_the_domain_workspace(heart):
     worker = client.post("/api/workspaces", headers={**HEADERS, "X-Opora-Actor": "agent; name=delnik"},
                          json={"project": pid, "nodeId": web, "actor": "delnik"})
     assert worker.status_code == 403 and worker.json()["code"] == "gate_required"
-    space = tool("workspace", "--domain", web, "--reuse")
+    space = tool("workspace", "--domain", web, "--reuse", "--name", "Domů · úvodní blok")
     assert space["created"] is True and space["domain"] == web and space["branch"] == "work/" + space["workspace"]
     again = tool("workspace", "--domain", web, "--reuse")
     assert again == {**space, "created": False}
     wid = space["workspace"]
+    labels = client.get("/api/project-workspaces", params={"project": pid}).json()["workspaces"]
+    assert {"id": wid, "label": "Domů · úvodní blok · work/" + wid} in labels  # prostor nese stránku a co se dělá
 
     done = tool("plan", "--workspace", wid, plan={"nodes": [card("hero", "@" + web, "[task] Úvodní blok")], "edges": []})
     assert done["accepted"] is True and done["acceptSteps"] == ["propose_graph", "accept"], done
