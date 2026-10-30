@@ -173,7 +173,8 @@ class OporaExecutions:
 
     def pinned_digest(self, repo, record):
         """Digest živého zadání karty (v1) připnutého na předávku a hlavu z claimu."""
-        current = handoff.pinned(assignment(self.canvas, *repo.scope, record["nodeId"]), record)
+        current = handoff.pinned(assignment(self.canvas, *repo.scope, record["nodeId"], require_graph=False), record)
+        # Nepřijatá ruční změna grafu mimo výřez karty běh neukončí; zásah do výřezu změní otisk níže.
         # Přijatá hlava se posune s každou přijatou změnou plánu, i se vzdálenou. Běh hlídá jen výřez karty
         # (dokumenty, specifikace a kroky v zadání), proto se živé zadání porovná s hlavou z claimu.
         return digest({**current, "acceptedRevision": record["acceptedRevision"]})
