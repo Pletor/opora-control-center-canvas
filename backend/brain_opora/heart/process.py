@@ -2,7 +2,7 @@
 
 Na Windows běží proces ve `WindowsJob` (KILL_ON_JOB_CLOSE): po limitu se zabije celý strom potomků
 (`claude` → `python opora_heart.py` …). Jinde ve vlastní skupině procesů, kterou zabije `killpg`.
-Zpráva dávky jde na stdin, výstup se čte celý (formát `json` vypíše jeden objekt na konci).
+Zpráva dávky jde na stdin, výstup se čte celý (`stream-json`: událost na řádek, objekt výsledku na konci).
 """
 import os
 import signal

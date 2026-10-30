@@ -18,7 +18,7 @@
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
     python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
-    python opora_heart.py ctx plan-of --project P [--workspace W] [--node N]
+    python opora_heart.py ctx plan-of --project P [--workspace W] [--node N | --full]
     python opora_heart.py run SCRIPT [ARG…]
     python opora_heart.py research --question Q --title T [--target URL|cesta]… [--layer L]… [--fragment F] [--deep]
     python opora_heart.py duel --subject F --a TEXT --b TEXT
@@ -37,8 +37,9 @@ se v něm nepřijímá; ostrý plán architektury ještě převezme změnu archi
 (`adoptArchitectureContext`), jinak by jejich karty nešly převzít. `workspace --domain` založí (s `--reuse` nejdřív
 hledá) pracovní prostor = git worktree vázaný na doménu; `--workspace W` u `plan`, `task`, `decide` přepíše prostor
 z prostředí. Přijatý plán zapíše prostor do `active_workspace.json` v cwd (`activeWorkspace` ve stavu srdce).
-`ctx plan-of --project P [--workspace W]` zapíše celý plán jiného projektu zhuštěně do `dilna/data/plan-of-<P>.json`
-(cíl, přijetí, titulky kroků); `--node N` plné zadání podstromu uzlu N do `plan-of-<P>-<N>.json`. Zkrácený výstup
+`ctx plan-of --project P [--workspace W]` zapíše celý plán jiného projektu kompaktně do `dilna/data/plan-of-<P>.txt`
+(řádek na uzel `id · cesta · název · stage`); `--full` zhuštěný JSON `plan-of-<P>.json` (cíl, přijetí, titulky kroků;
+pro skripty `rlm.load`), `--node N` plné zadání podstromu uzlu N do `plan-of-<P>-<N>.json`. Zkrácený výstup
 hlásí `truncated` a `cut` (vynechané uzly).
 `member` navrhne členství existujících karet a sektorů v oblasti (`--area none` ho zruší) návrhem grafu
 s `updateNodes` jen pole `memberOf`; návrh čeká na přijetí člověkem v UI, srdce ho samo nepřijme.
@@ -573,11 +574,27 @@ def remove(args, context, plan, subject, out, command):
     return {**out, "accepted": True}
 
 
-def load_context(name, of=None, of_workspace=None, of_node=None):
+def plan_lines(items):
+    """Kompaktní plán: jeden řádek na uzel `id · cesta · název · stage` (stage karty, jinak druh uzlu); zkrácený plán
+    končí řádkem s ID vynechaných uzlů."""
+    rows = []
+    for item in items:
+        if item.get("truncated"):
+            cut = [node.get("id") for node in item.get("cut") or []]
+            rows.append(f"… vynecháno {len(cut)} uzlů (dočti --node): {', '.join(str(node) for node in cut)}")
+            continue
+        rows.append(" · ".join(str(part) for part in (item.get("id"), item.get("path") or "—", item.get("name") or "",
+                                                      item.get("stage") or item.get("kind") or "?")))
+    return rows
+
+
+def load_context(name, of=None, of_workspace=None, of_node=None, full=False):
     """`ctx <name>`: data z OPORY do `dilna/data/<name>.json` (JSON pole, jedna položka na řádek); vrací jen cestu,
     počet položek a velikost. `plan-of` čte plán projektu `of` (prostor `of_workspace`, jinak main git / draft
-    lokálního) zhuštěně do `plan-of-<of>.json`, s `of_node` plné zadání podstromu do `plan-of-<of>-<node>.json`;
-    zkrácený plán přidá do výstupu `truncated` a `cut` (ID vynechaných uzlů)."""
+    lokálního): výchozí je kompaktní `plan-of-<of>.txt` (`plan_lines`, jeden řádek na uzel), `full` dá zhuštěný JSON
+    `plan-of-<of>.json` (cíl, přijetí, titulky kroků; čte ho `rlm.load`), `of_node` plné zadání podstromu do
+    `plan-of-<of>-<node>.json`; zkrácený plán přidá do výstupu `truncated` a `cut` (ID vynechaných uzlů)."""
+    lines = False
     query = {**scope(), "name": name}
     if name == "plan-of":
         if not of or not SCRIPT.match(of) or (of_node and not SCRIPT.match(of_node)):
@@ -588,11 +605,15 @@ def load_context(name, of=None, of_workspace=None, of_node=None):
         query.update({"of": of, **({"ofWorkspace": of_workspace} if of_workspace else {}),
                       **({"ofNode": of_node} if of_node else {})})
         name = f"plan-of-{of}" + (f"-{of_node}" if of_node else "")
+        lines = not of_node and not full
     items = call("GET", "/api/brain/heart/context", query=query)["items"]
-    path = DILNA / "data" / f"{name}.json"
+    path = DILNA / "data" / f"{name}.{'txt' if lines else 'json'}"
     path.parent.mkdir(parents=True, exist_ok=True)
-    rows = ",\n".join(json.dumps(item, ensure_ascii=False) for item in items)
-    raw = (f"[\n{rows}\n]\n" if items else "[]\n").encode("utf-8")
+    if lines:
+        raw = "".join(row + "\n" for row in plan_lines(items)).encode("utf-8")
+    else:
+        rows = ",\n".join(json.dumps(item, ensure_ascii=False) for item in items)
+        raw = (f"[\n{rows}\n]\n" if items else "[]\n").encode("utf-8")
     path.write_bytes(raw)
     out = {"path": path.as_posix(), "items": len(items), "bytes": len(raw)}
     last = items[-1] if items and isinstance(items[-1], dict) else {}
@@ -733,7 +754,7 @@ def run(args):
     if args.command in ("research", "duel") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
         _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
-        return load_context(args.name, args.project, args.workspace, args.node)
+        return load_context(args.name, args.project, args.workspace, args.node, args.full)
     if args.command == "workspace":
         return open_workspace(args.domain, args.reuse, args.name)
     if args.command == "run":
@@ -850,6 +871,7 @@ def parser():
     ctx.add_argument("--project")  # jen plan-of: projekt, jehož plán číst
     ctx.add_argument("--workspace")  # jen plan-of: jeho prostor
     ctx.add_argument("--node")  # jen plan-of: plné zadání podstromu uzlu
+    ctx.add_argument("--full", action="store_true")  # jen plan-of: zhuštěný JSON místo řádků (pro skripty dílny)
     script = commands.add_parser("run")
     script.add_argument("script")
     script.add_argument("script_args", nargs=argparse.REMAINDER)

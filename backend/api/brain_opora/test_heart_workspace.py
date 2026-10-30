@@ -160,7 +160,11 @@ def test_ctx_plan_of_dumps_another_workspace_plan_into_the_workshop(heart):
     wid = tool("workspace", "--domain", web, "--reuse")["workspace"]
     hero = tool("plan", "--workspace", wid, plan={"nodes": [card("hero", "@" + web, "[task] Úvodní blok")],
                                                     "edges": []})["refs"]["hero"]
-    done = tool("ctx", "plan-of", "--project", pid, "--workspace", wid)
+    rows = tool("ctx", "plan-of", "--project", pid, "--workspace", wid)  # výchozí: řádek na uzel
+    assert rows["path"] == f"dilna/data/plan-of-{pid}.txt" and rows["items"] == 4
+    lines = (brain / rows["path"]).read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 4 and any(line.startswith(f"{hero} · ") and " · [task] Úvodní blok · " in line for line in lines)
+    done = tool("ctx", "plan-of", "--project", pid, "--workspace", wid, "--full")
     assert done["path"] == f"dilna/data/plan-of-{pid}.json" and done["items"] == 4
     items = {item["id"]: item for item in json.loads((brain / done["path"]).read_text(encoding="utf-8"))}
     assert items[hero]["goal"] == "[task] Úvodní blok funguje." and items[hero]["acceptance"] == "npm test projde"

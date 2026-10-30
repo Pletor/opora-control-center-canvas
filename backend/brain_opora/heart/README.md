@@ -29,13 +29,18 @@ Modules (H2a):
 - `batch.py`: one batch = one `claude -p` process. The message is the snapshot, the inputs and the instruction to end
   with `done`. Writes one line per batch to `brain/batches.jsonl` (inputs, session, cost per model from `modelUsage`,
   turns, error, duration, input tokens, summary from `done`). Detects `rate_limited` and `timeout` (15 min).
+  Tokens: `inputTokens` = input summed over all turns (unchanged), `contextTokens` = context of the last turn,
+  and the batch `usage` split as `fresh`, `cacheRead`, `cacheCreation`, `output` (additive fields). `parse` takes
+  the `result` line of the stream and skips `system` / `assistant` / `user` events.
 - `process.py`: runs the process with the message on stdin, inside a `WindowsJob` on Windows (killed as a tree).
-- `command.py`: the CLI of §2 (`--model haiku --advisor opus`, `--resume` / `--session-id`, settings and empty MCP
+- `command.py`: the CLI of §2 (`--output-format stream-json --verbose` for per-turn `usage`, `--model haiku --advisor opus`, `--resume` / `--session-id`, settings and empty MCP
   written as files in `brain/`, `dontAsk`, `--add-dir` = project source root), and the environment without API keys
   but with `OPORA_BASE_URL`, `OPORA_HEART_TOKEN`, `OPORA_PROJECT`, `OPORA_WORKSPACE`. Finds `claude.exe` /
   `claude.cmd` / `claude`.
-- `session.py`: `brain/session.json = {sessionId, batches, lastInputTokens}`; a new session above 60k input tokens
-  or after a failed batch.
+- `session.py`: `brain/session.json = {sessionId, batches, lastInputTokens}`; `lastInputTokens` is the context of the
+  last main-thread turn (`context_tokens`: `usage` of the last `assistant` event without `parent_tool_use_id`), not the
+  sum over the batch. A new session when it passes 60k or after a failed batch. Without stream events it is estimated
+  from the cumulative `usage`: cache writes + fresh input + cache reads / `num_turns`.
 - `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `intake`, `decide`, `rule`, `done`,
   and the workshop's `ctx`, `run`). `member --area <area>|none --nodes id1,id2 [--dry-run]` proposes area membership of
   existing cards and sectors as a graph proposal with `updateNodes` that change only `memberOf`; it never accepts it,
@@ -43,7 +48,9 @@ Modules (H2a):
   `Bash(python opora_heart.py:*)`.
 - Workshop (K3, `docs/brain-heart.md` §3b): `write_config` creates `brain/dilna/{data,scripts,out}` and copies
   `rlm.py` there. `ctx <name>` writes `GET /api/brain/heart/context` (`determinism/workshop.py`) to
-  `dilna/data/<name>.json`; `run <script>` runs `dilna/scripts/<script>.py` with `python -I` (a `-c` loader puts
+  `dilna/data/<name>.json`; `ctx plan-of --project P` writes `plan-of-P.txt`, one line per node
+  `id · path · name · stage` (`plan_lines`), `--full` the compact JSON for `rlm.load`, `--node N` the subtree JSON;
+  `run <script>` runs `dilna/scripts/<script>.py` with `python -I` (a `-c` loader puts
   `dilna/` on `sys.path` for `import rlm`), cwd `dilna/`, 120 s, without the heart token, base URL and API keys,
   and appends `{at, script, args, exit, ms, subCalls, subCostUsd}` to `dilna/runs.jsonl`. `rlm.py` (stdlib):
   `load`, `files`, `read`, `grep` (read only, inside `OPORA_SOURCE_ROOT`), `chunks`, `sub` (one tool-less

@@ -2,7 +2,9 @@
 
 Dávka složí zprávu (snímek, vstupy, pokyn skončit `done`), spustí proces, přečte výsledek JSON a zapíše
 jeden řádek do `brain/batches.jsonl`: vstupy, relaci, cenu po modelech (`modelUsage`; poradce = položka Opus),
-tahy, chybu, trvání, shrnutí z `done` a cenu dílčích volání dílny (`subCostUsd` z `dilna/runs.jsonl`, §3b). Když poradce za den přesáhne `ADVISOR_DAY_USD`, běží dávka
+tahy, chybu, trvání, shrnutí z `done` a cenu dílčích volání dílny (`subCostUsd` z `dilna/runs.jsonl`, §3b).
+Tokeny: `inputTokens` je součet vstupu přes všechny tahy, `contextTokens` kontext posledního tahu (podle něj se
+rotuje relace, `session.context_tokens`) a `fresh`, `cacheRead`, `cacheCreation`, `output` rozpad `usage` dávky. Když poradce za den přesáhne `ADVISOR_DAY_USD`, běží dávka
 bez `--advisor` (záznam nese `advisor: false`). Pozná vyčerpaný limit předplatného (`rate_limited`) a vypršení času.
 """
 import hashlib
@@ -90,13 +92,14 @@ def message(snapshot_text, inputs):
 
 
 def parse(stdout):
-    """Objekt výsledku `--output-format json`; poslední řádek, který je objekt JSON, jinak None."""
+    """Objekt výsledku `claude -p` (`stream-json` i `json`): poslední řádek, který je objekt JSON s `type` `result`
+    nebo bez `type` (řádek deníku); události proudu (`system`, `assistant`, `user`) se přeskočí. Jinak None."""
     for line in reversed((stdout or "").strip().splitlines()):
         try:
             value = json.loads(line)
         except ValueError:
             continue
-        if isinstance(value, dict):
+        if isinstance(value, dict) and value.get("type", "result") == "result":
             return value
     return None
 
@@ -150,10 +153,12 @@ def run(spec, runner=run_process, clock=time.time):
     outcome = runner(line, cwd=str(brain), env=env, stdin_text=message(spec.snapshot, spec.inputs), timeout=TIMEOUT)
     result = parse(outcome.stdout)
     status = _status(outcome, result, outcome.stderr)
-    used = session.input_tokens((result or {}).get("usage"))
+    usage = (result or {}).get("usage")
+    used, context = session.input_tokens(usage), session.context_tokens(outcome.stdout, result)
     if result and isinstance(result.get("session_id"), str) and status != "rate_limited":
         # Chybná dávka (třeba ztracená relace) vynutí rotaci, aby se další dávka nezasekla na --resume.
-        session.record(brain, result["session_id"], used if status == "ok" else session.ROTATE_AT + 1, prompt_digest)
+        session.record(brain, result["session_id"], context if status == "ok" else session.ROTATE_AT + 1,
+                       prompt_digest)
     at = datetime.fromtimestamp(started, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     entry = {"at": at, "project": spec.project,
              "workspace": spec.workspace, "status": status, "inputs": spec.inputs,
@@ -161,7 +166,7 @@ def run(spec, runner=run_process, clock=time.time):
              "costUsd": (result or {}).get("total_cost_usd"), "costByModel": costs(result),
              "numTurns": (result or {}).get("num_turns"), "isError": bool((result or {}).get("is_error", True)),
              "durationMs": int((clock() - started) * 1000), "inputTokens": used, "summary": _summary(brain),
-             "subCostUsd": sub_cost(brain, at)}
+             "subCostUsd": sub_cost(brain, at), "contextTokens": context, **session.parts(usage)}
     if status != "ok":
         entry["error"] = ((result or {}).get("result") or outcome.stderr or "")[-1000:]
     with (brain / JOURNAL).open("a", encoding="utf-8") as journal:

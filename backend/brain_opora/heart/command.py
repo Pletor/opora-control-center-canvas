@@ -109,7 +109,9 @@ def build_command(claude, *, session_id, resume, settings_path, mcp_path, source
     if not session_id:
         raise ValueError("Dávka potřebuje ID relace.")
     uuid.UUID(str(session_id))  # --session-id i --resume berou UUID
-    command = [claude, "-p", "--output-format", "json", "--model", MODEL, *(["--advisor", ADVISOR] if advisor else []),
+    # `stream-json` (s `--verbose`) nese `usage` každého tahu: rotace relace měří kontext posledního tahu
+    # (`session.context_tokens`); poslední řádek proudu je tentýž objekt výsledku jako u `json`.
+    command = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", MODEL, *(["--advisor", ADVISOR] if advisor else []),
                *(["--resume", session_id] if resume else ["--session-id", session_id]),
                "--setting-sources", "project", "--settings", str(settings_path),
                "--strict-mcp-config", "--mcp-config", str(mcp_path),

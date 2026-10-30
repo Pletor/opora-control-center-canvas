@@ -47,7 +47,9 @@ Modules (H1c, contract `docs/brain-control-api.md`):
 
 Modules (H2a, contract `docs/brain-heart.md`):
 - `snapshot.py`: the deterministic project snapshot for the heart (§3): project and workspace, intent (project goal,
-  else the home page goal and feel), plan pages with their stage (≤ 20, else open cards), task queue counts and the
+  else the home page goal and feel), plan pages with their stage (≤ 20), open cards outside pages (≤ 20), areas
+  (≤ 10) and sectors (≤ 20, with `memberOf`); every `PLÁN` row carries the full node ID, so the heart needs no
+  `ctx tree` / `plan-of` / second `snapshot` for `member`, `milestone` or `@<id>`; task queue counts and the
   last 10 tasks, waiting tickets (≤ 10), last checks (≤ 10). `collect` reads, `render` is pure; the text is cut at
   12 000 characters.
 - `snapshot.py` appends to each open card in `PLÁN` its run tag from `backend/canvas/card_gauge.py` (`[S · sonnet+opus]`;
@@ -70,7 +72,8 @@ Modules (K1, contract `docs/brain-heart.md` §3a, the heart's surroundings):
 Modules (K3, contract `docs/brain-heart.md` §3b, the heart's workshop):
 - `workshop.py`: `context(service, project, workspace, name)` = the data of `ctx <name>`: `tasks`, `tickets`,
   `journal`, `messages`, `rules`, `decisions` (all, not capped like the snapshot) and `tree` (source files
-  `{path, size, mtime}` without `node_modules`, `.git`, build output and links, ≤ 20 000). Route
+  `{path, size, mtime}` without `node_modules`, `.git`, build output and links, ≤ 20 000); `plan-of` items carry
+  `stage` (card status) when the node has one, for the one-line `ctx plan-of` rows. Route
   `GET /api/brain/heart/context` (heart token of the same project and workspace only).
 - `brain_files.scripts` + `snapshot.py`: section `DÍLNA` after `DENÍK` = the scripts in `brain/dilna/scripts/` with
   the first docstring line (≤ 15).

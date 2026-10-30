@@ -31,7 +31,7 @@ of the last 24 h that no `ok` batch had among its inputs wake the heart at once 
 H2a is **one-shot**, not a resident stream: a batch is one `claude -p` process. Continuity comes from `--resume`.
 
 ```
-claude -p --output-format json --model haiku --advisor opus
+claude -p --output-format stream-json --verbose --model haiku --advisor opus
   [--resume <sessionId> | --session-id <new uuid>]
   --setting-sources project --settings <json: deny rules, disableAllHooks>
   --strict-mcp-config --mcp-config {"mcpServers":{}}
@@ -50,8 +50,11 @@ cwd = <data>/projects/<id>/brain/       env: without ANTHROPIC_API_KEY; OPORA_BA
 - **Output.** The JSON result gives `session_id`, `total_cost_usd`, `modelUsage`, `num_turns` and `is_error`. They
   are written to `brain/batches.jsonl` as one line per batch, together with the inputs and the cost per model.
   Advisor usage is the Opus entry in `modelUsage`.
-- **Rotation.** When the last batch's `usage` input passes 60k tokens, the next batch starts a new session
-  (`--session-id`) with a fresh snapshot. `brain/session.json` holds `{sessionId, batches, lastInputTokens}`.
+- **Rotation.** When the context of the batch's last main-thread turn (`input + cache_read + cache_creation` of the
+  last `assistant` event in the stream; fallback estimate from totals / `num_turns`) passes 60k tokens, the next batch
+  starts a new session (`--session-id`) with a fresh snapshot. `brain/session.json` holds
+  `{sessionId, batches, lastInputTokens}` (last-turn context); `batches.jsonl` adds `contextTokens`, `fresh`,
+  `cacheRead`, `cacheCreation`, `output`.
 - **Limits.**
   - `is_error` with `rate_limit`, or the text "hit your … limit", puts the supervisor to sleep for 15 min and keeps
     the inputs.
@@ -316,7 +319,7 @@ split into several focused researches instead of a wider desk. V1s became `resea
 | `decide --text T [--node N] [--pin] [--workspace W]` | adds a decision to the workspace memory (`POST /api/desktop-v3/decision`) |
 | `rule --text T` | proposes an application rule (scope `project`, `by: agent`; the human approves) |
 | `ctx <name>` | loads large context into `brain/dilna/data/<name>.json` (§3b) |
-| `ctx plan-of --project P [--workspace W]` | another project's plan (nodes with name, purpose, parent, sector, spec goal/acceptance/steps, `next`) into `brain/dilna/data/plan-of-<P>.json`, ≤ 300 kB; default workspace `main` (git) or `draft`; `GET /api/brain/heart/context?…&name=plan-of&of=P[&ofWorkspace=W]` (§9 O7) |
+| `ctx plan-of --project P [--workspace W] [--full] [--node N]` | another project's plan: by default one line per node `id · path · name · stage` into `brain/dilna/data/plan-of-<P>.txt`; `--full` writes the full JSON (name, purpose, parent, sector, spec goal/acceptance/steps, `next`) into `plan-of-<P>.json` (needed by `rlm.load`), `--node N` the subtree, ≤ 300 kB; default workspace `main` (git) or `draft`; `GET /api/brain/heart/context?…&name=plan-of&of=P[&ofWorkspace=W]` (§9 O7) |
 | `run <script> [args…]` | runs the heart's own script from `brain/dilna/scripts/` (§3b) |
 | `research --question Q --title T [--target]… [--layer L]… [--fragment F] [--deep]` | research on the web and in the source, quotes checked by code, digest with `next` (§3c, §3d) |
 | `duel --subject F --a TEXT --b TEXT` | duel of the current direction and a parallel path, judged by sub-calls (§3c) |
