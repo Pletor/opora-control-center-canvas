@@ -3,6 +3,7 @@ import json
 
 from backend.canvas.graph import digest, validate_graph
 from backend.canvas.opora_change_validation import identifier, scope
+from backend.canvas.opora_graph_build import PERSISTED_NODE_KEYS
 from backend.canvas.opora_graph_change_additions import validate_origin
 from backend.canvas.opora_graph_change_build import build
 from backend.canvas.opora_graph_change_safety import preflight
@@ -45,9 +46,7 @@ def _validate(record):
         validate_payload({"project": project, "workspace": workspace, "node": item["nodeId"],
                           "expected_revision": 0, "fields": item["fields"]})
     for node in record["additions"]["nodes"]:
-        if node["kind"] not in ("node", "sector", "area") or not set(node) <= {
-            "id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf"
-        }:
+        if node["kind"] not in ("node", "sector", "area") or not set(node) <= PERSISTED_NODE_KEYS:
             raise ValueError("Invalid persisted node addition.")
     for edge in record["additions"]["edges"]:
         if not set(edge) <= {"id", "source", "target", "port", "carries"} or edge.get("port", "next") != "next":

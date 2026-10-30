@@ -372,13 +372,13 @@ def test_plan_over_an_accepted_graph_goes_as_a_graph_proposal_and_accepts_it(ser
     result = json.loads(out)
     assert code == 0 and result["accepted"] is True and result["acceptSteps"] == ["graph_addition", "accept"]
     assert result["refs"] == {"mvp": "n_mvp", "model": "n_model", "cli": "n_cli"} and result["proposalId"] == "gp2"
-    assert result["warnings"] == ["Pole card, checks se do přírůstku nad přijatým grafem nepřenáší."]
+    assert result["warnings"] == []
     posts = [call for call in Handler.calls if call["method"] == "POST"]
     assert [call["path"] for call in posts] == ["/api/oporahub/graph-proposals",
                                                 "/api/oporahub/graph-proposals/gp2/accept"]
     proposal = posts[0]["body"]
     assert (proposal["parentRevision"], proposal["expectedGraphDigest"]) == ("r1", "gd")
-    assert all(not {"card", "checks"} & set(node) for node in proposal["plan"]["nodes"])
+    assert proposal["plan"]["nodes"] == opora_heart.PLAN_EXAMPLE["nodes"]  # card (i effort) a checks beze ztráty
     assert proposal["plan"]["nodes"][1]["spec"] == opora_heart.PLAN_EXAMPLE["nodes"][1]["spec"]
     assert posts[1]["body"] == {"project": "p1", "workspace": "main", "expectedAcceptedHead": "r1",
                                 "expectedGraphDigest": "gd", "adoptBaseGraphDigest": None}
@@ -390,7 +390,7 @@ def test_plan_over_an_accepted_graph_goes_as_a_graph_proposal_and_accepts_it(ser
     result = json.loads(run(capsys, "plan", "--file", "plan.json", "--dry-run")[1])
     dry = [call for call in Handler.calls if call["method"] == "POST"]
     assert result["dryRun"] is True and [call["path"] for call in dry] == ["/api/canvas-plan"]
-    assert dry[0]["body"]["dryRun"] is True and "card" not in dry[0]["body"]["plan"]["nodes"][1]
+    assert dry[0]["body"]["dryRun"] is True and dry[0]["body"]["plan"]["nodes"][1]["card"]["effort"] == "medium"
 
 
 def test_addition_refuses_fields_a_graph_proposal_cannot_carry(server, capsys, tmp_path):

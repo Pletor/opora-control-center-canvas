@@ -7,7 +7,12 @@ from backend.canvas.canvas_plan_layout import layout
 from backend.canvas.graph import digest, validate_graph
 from backend.editor.node.node_specs import EMPTY_FIELDS
 
-NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf"}
+# Pole karty pro dělníka nese přírůstek stejně jako dávka plánu (`card` s effortem, `checks`, `goal_mode`);
+# hlídá je tatáž `validate_graph` (validate_card, validate_checks) jako `/api/canvas-plan`, žádné vlastní pravidlo.
+CARD_FIELDS = {"card", "checks", "goal_mode"}
+NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf", *CARD_FIELDS}
+# Uložený přidaný uzel (záznam návrhu přírůstku i změn grafu).
+PERSISTED_NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf", *CARD_FIELDS}
 
 
 def validate_plan(plan):

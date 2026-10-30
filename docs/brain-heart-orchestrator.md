@@ -64,8 +64,8 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   expectedGraphDigest: graphDigest, subject, plan}` a hned `POST /api/oporahub/graph-proposals/{id}/accept
   {expectedAcceptedHead, expectedGraphDigest, adoptBaseGraphDigest: null}` tokenem srdce. Karty vzniknou na plátně až
   přijetím, pracovní a přijatý graf zůstanou shodné a dřívější claimy platí. Návrh grafu nese jen pole uzlu `ref, kind
-  (node|sector|area), name, parent, purpose, spec, sourceRef, position, size, memberOf` a vazby `next`; `card`
-  a `checks` nástroj vynechá s varováním, jiná pole odmítne (`code: plan_shape`) dřív než server. `--dry-run` ověří
+  (node|sector|area), name, parent, purpose, spec, sourceRef, position, size, memberOf` a pole karty `card` (i `effort`), `checks`,
+  `goal_mode` se stejnou validací jako dávka plánu (`validate_graph`), vazby `next`; jiná pole odmítne (`code: plan_shape`) dřív než server. `--dry-run` ověří
   přírůstek dávkou plánu s `dryRun`. Výstup: `acceptSteps: ["graph_addition", "accept"]`, `proposalId`, `refs`.
   Žádná routa ani agent-state se neměnily. Test: `backend/api/brain_opora/test_heart_plan.py` (plán 1 → claim
   ready; plán 2 se sektorem `@id` a vazbou na existující kartu → nová karta ready, dřívější ready zůstal).
@@ -218,7 +218,7 @@ chvílích (volba přístupu, opakovaná chyba, před hlášením hotovo).
   (přejmenování, konstanta, doc); `medium` = běžná karta s jasným rozsahem a testem; `high` = oprava chyby v existujícím
   kódu, migrace, bezpečnost, souběh, víc modulů; `max` = výjimečně těžké (návrh, který nejde rozdělit na menší karty).
   `card.effort` jde do zadání (assignment) v `specification.node.card.effort`; karty bez něj mají zadání beze změny.
-  Pozdější plány přes `graph-proposals` nesou karty bez `card`, takže jedou na výchozí `medium`.
+  Pozdější plány přes `graph-proposals` nesou `card` (i `effort`) a `checks` stejně jako první plán.
 - **Kancelář spouští dělníka podle náročnosti** (`claude --model … --effort … [--advisor opus]`):
 
   | `card.effort` | model | úsilí | poradce |
