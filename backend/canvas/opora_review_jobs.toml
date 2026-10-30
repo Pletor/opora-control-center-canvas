@@ -1,5 +1,5 @@
 # Automatické review kódu (docs/oporahub-review-jobs.md). Přepis: OPORA_REVIEW_JOBS_CONFIG=<cesta k TOML>,
-# zapnutí bez úpravy souboru: OPORA_REVIEW_JOBS=1. Hodnoty jsou deterministická pravidla, ne model.
+# zapnutí bez úpravy souboru: OPORA_REVIEW_JOBS=1 (`uv run opora` ji zapíše z `[app] review_jobs` v opora.toml, výchozí 1). Hodnoty jsou deterministická pravidla, ne model.
 enabled = false
 
 [jobs]

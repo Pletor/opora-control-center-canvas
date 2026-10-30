@@ -72,6 +72,8 @@ def resolve(config: dict, profile: str | None = None, **overrides) -> dict:
         "open_browser": bool(app.get("open_browser", False)),
         "title": str(app.get("title", "Opora Canvas")),
         "embed_origins": embed_origins,
+        # Automatické review PR (docs/oporahub-review-jobs.md): trvale zapnuto, vypíná jen výslovné `review_jobs = false`.
+        "review_jobs": app.get("review_jobs") is not False,
         "frontend": str(build.get("frontend", "auto")),
         "build_command": str(build.get("command", "npm run build")),
         "integrations": {k: str(v) for k, v in config.get("integrations", {}).items() if v},
@@ -168,6 +170,8 @@ def apply_environment(settings: dict, environ=os.environ) -> list[str]:
     # Rámování v <iframe> je nastavení aplikace, ne integrace: opora.toml vždy přebije prostředí.
     environ["OPORA_CANVAS_EMBED_ORIGINS"] = " ".join(settings.get("embed_origins", []))
     environ["OPORA_JEV_PROVIDER"] = settings["jev_provider"]
+    # Review PR je nastavení aplikace: opora.toml vždy přebije prostředí, chybějící klíč = zapnuto.
+    environ["OPORA_REVIEW_JOBS"] = "1" if settings.get("review_jobs", True) else "0"
     mirror = settings["mirror"]
     environ["OPORA_MIRROR_URL"] = mirror["url"] if mirror["enabled"] else ""
     environ["OPORA_MIRROR_PROJECTS"] = ",".join(mirror["projects"]) if mirror["enabled"] else ""
@@ -213,6 +217,7 @@ def main(argv=None) -> int:
     url = f"http://{settings['host']}:{settings['port']}/"
 
     print(f"[opora] profil: {settings['profile']} | {url} | data: {data}")
+    print(f"[opora] review jobs: {'on' if settings['review_jobs'] else 'off'}")
     if args.check:
         for key in ("frontend", "build_command", "open_browser", "embed_origins", "integrations", "jev_provider", "mirror",
                     "strazci"):

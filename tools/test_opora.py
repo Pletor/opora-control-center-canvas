@@ -162,3 +162,34 @@ def test_dotenv_fills_only_missing_and_never_prints(tmp_path, capsys):
     out = capsys.readouterr()
     assert secret not in out.out + out.err
     assert load_dotenv(tmp_path / "chybi.env", {}) == 0
+
+
+def test_review_jobs_setting_always_overrides_environment():
+    on = resolve({"app": {"review_jobs": True}})
+    environ = {"OPORA_REVIEW_JOBS": "0"}
+    apply_environment(on, environ)
+    assert environ["OPORA_REVIEW_JOBS"] == "1"
+
+    environ = {"OPORA_REVIEW_JOBS": "1"}
+    apply_environment(resolve({"app": {"review_jobs": False}}), environ)
+    assert environ["OPORA_REVIEW_JOBS"] == "0"
+
+    missing = resolve({"app": {}})
+    assert missing["review_jobs"] is True
+    environ = {}
+    apply_environment(missing, environ)
+    assert environ["OPORA_REVIEW_JOBS"] == "1"
+
+
+def test_review_jobs_same_result_whatever_environment(tmp_path):
+    (tmp_path / "opora.toml").write_text(CONFIG, encoding="utf-8")
+    local = tmp_path / "opora.local.toml"
+    for text, expected in (("", "1"), ("[app]\nreview_jobs = false\n", "0"), ('[app]\nreview_jobs = "ne"\n', "1")):
+        local.write_text(text, encoding="utf-8")
+        settings = resolve(load_config(tmp_path / "opora.toml", local))
+        results = []
+        for start in ({}, {"OPORA_REVIEW_JOBS": "0"}):
+            environ = dict(start)
+            apply_environment(settings, environ)
+            results.append(environ["OPORA_REVIEW_JOBS"])
+        assert results == [expected, expected]
