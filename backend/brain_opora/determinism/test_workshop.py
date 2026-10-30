@@ -33,3 +33,28 @@ def test_context_reads_all_journal_entries_and_refuses_unknown_names(service):
     for project, name in (("draft", "secrets"), ("nikde", "tasks")):
         with pytest.raises(GateError):
             workshop.context(service, project, "draft", name)
+
+
+STEP = {"id": "s1", "order": 1, "title": "Krok", "acceptance": ["hotovo"], "dependsOn": []}
+
+
+def test_plan_of_lists_nodes_with_spec_sector_and_next_and_is_capped(service, monkeypatch):
+    view = service.view("draft", "draft")
+    graph = {"nodes": [
+        {"id": "s1", "parentId": None, "kind": "sector", "name": "MVP", "purpose": "", "x": 0, "y": 0},
+        {"id": "a", "parentId": "s1", "kind": "node", "name": "[task] A", "purpose": "p" * 3000, "x": 0, "y": 0},
+        {"id": "b", "parentId": "s1", "kind": "node", "name": "[task] B", "purpose": "", "x": 0, "y": 0}],
+        "edges": [{"id": "e1", "source": "a", "target": "b"}]}
+    service.save_graph("draft", "draft", graph, view["digest"])
+    service.specs.save(("draft", "draft", "a"), 0, {"goal": "Cíl A", "non_goals": "", "acceptance": "test",
+                                                    "steps": [STEP]})
+    items = workshop.context(service, "draft", "draft", "plan-of", "draft")
+    a = next(item for item in items if item["id"] == "a")
+    assert a["sector"] == "s1" and a["parent"] == "s1" and a["next"] == ["b"] and a["architecture"] is False
+    assert a["spec"]["goal"] == "Cíl A" and a["spec"]["steps"] == [STEP]
+    assert len(a["purpose"]) == workshop.PLAN_OF_TEXT + 1
+    monkeypatch.setattr(workshop, "PLAN_OF_BYTES", 400)
+    cut = workshop.plan_of(service, "draft")
+    assert cut[-1] == {"truncated": True, "total": 3, "shown": len(cut) - 1}
+    with pytest.raises(GateError):
+        workshop.context(service, "draft", "draft", "plan-of")  # bez projektu

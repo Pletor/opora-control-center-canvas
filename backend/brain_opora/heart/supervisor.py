@@ -282,7 +282,8 @@ class HeartSupervisor:
             self.wakeup.set()
 
     def status(self, project, now=None):
-        """`GET /api/brain/heart/status`: relace, posledních 5 dávek, spánek a nejbližší povolený čas."""
+        """`GET /api/brain/heart/status`: relace, posledních 5 dávek, spánek, nejbližší povolený čas a `activeWorkspace`
+        (prostor posledního plánu, který srdce přijalo; docs/brain-heart-orchestrator.md §9)."""
         now = self.clock() if now is None else now
         brain = self.brain(project)
         with self.lock:
@@ -292,7 +293,7 @@ class HeartSupervisor:
                 "pending": pending, "session": session.load(brain), "batches": batch.read_journal(brain, 5),
                 "sleeping": self.sleeping_until > now, "sleepingUntil": _iso(self.sleeping_until),
                 "nextAllowedAt": _iso(allowed), "error": self.errors.get(project),
-                "gitError": self.git_errors.get(project)}
+                "gitError": self.git_errors.get(project), "activeWorkspace": brain_files.active_workspace(brain)}
 
 
 def _iso(moment):

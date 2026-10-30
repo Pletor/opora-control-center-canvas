@@ -402,3 +402,24 @@ def test_addition_refuses_fields_a_graph_proposal_cannot_carry(server, capsys, t
     (tmp_path / "edge.json").write_text(json.dumps(edge), encoding="utf-8")
     assert json.loads(run(capsys, "plan", "--file", "edge.json")[1])["code"] == "plan_shape"
     assert not [call for call in Handler.calls if call["method"] == "POST"]
+
+
+def test_workspace_override_is_per_call_and_ctx_plan_of_reads_another_project(server, capsys, tmp_path):
+    code, _ = run(capsys, "task", "--title", "T", "--do", "D", "--workspace", "w1")
+    assert code == 0 and Handler.calls[-1]["body"]["workspace"] == "w1"
+    run(capsys, "snapshot")  # další volání bez --workspace jde zase do prostoru z prostředí
+    assert Handler.calls[-1]["query"]["workspace"] == ["main"]
+    code, out = run(capsys, "ctx", "plan-of", "--project", "p2", "--workspace", "w9")
+    assert code == 0 and json.loads(out)["path"] == "dilna/data/plan-of-p2.json"
+    assert Handler.calls[-1]["query"] == {"project": ["p1"], "workspace": ["main"], "name": ["plan-of"],
+                                          "of": ["p2"], "ofWorkspace": ["w9"]}
+    code, out = run(capsys, "ctx", "plan-of")
+    assert code == 1 and json.loads(out)["code"] == "plan_of_project"
+
+
+def test_accepted_plan_remembers_its_workspace(server, capsys, tmp_path):
+    Handler.states = [{"actions": [], "heads": {"workingDiffers": False}}]
+    (tmp_path / "plan.json").write_text(json.dumps({"nodes": [{"ref": "hero"}]}), encoding="utf-8")
+    code, out = run(capsys, "plan", "--file", "plan.json", "--workspace", "w1")
+    assert code == 0 and json.loads(out)["accepted"] is True
+    assert json.loads((tmp_path / opora_heart.ACTIVE).read_text(encoding="utf-8"))["workspace"] == "w1"

@@ -233,3 +233,19 @@ def test_snapshot_reads_recent_commits_of_the_source_and_survives_a_broken_one(s
     assert _block(snapshot.snapshot(service, project, "draft"), "GIT:") == ["- žádné"]
     assert _block(snapshot.snapshot(service, "draft", "draft"), "GIT:") == ["- žádné"]  # bez zdroje
 
+
+
+def test_spaces_section_only_for_git_projects_after_git_and_capped():
+    assert "PROSTORY:" not in snapshot.render(FACTS)  # lokální projekt (spaces None) sekci nemá
+    space = {"id": "a" * 32, "domain": "Web", "branch": "work/" + "a" * 32, "free": 2, "running": 1, "done": 3}
+    text = snapshot.render({**FACTS, "spaces": [space, {**space, "id": "b" * 32, "branch": "vlastni", "free": None}]})
+    assert text.index("GIT:") < text.index("PROSTORY:") < text.index("DENÍK:")
+    assert _block(text, "PROSTORY:") == [f"- {'a' * 32} · doména Web · karty volné 2 · běží 1 · hotové 3",
+                                         f"- {'b' * 32} · doména Web · vlastni · karty ?"]
+    assert _block(snapshot.render({**FACTS, "spaces": []}), "PROSTORY:") == ["- žádné"]
+    many = _block(snapshot.render({**FACTS, "spaces": [space] * 30}), "PROSTORY:")
+    assert many[-1].startswith("- … a další") and sum(len(row) + 1 for row in many) <= snapshot.SPACES_CHARS
+
+
+def test_spaces_of_a_local_project_are_none(service):
+    assert snapshot._spaces(service, "draft") is None
