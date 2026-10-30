@@ -4,4 +4,6 @@ Rozhraní Editoru: graf plátna, kresby, wireframe kontext, odstraňování (can
 
 `oporahub_process_event_routes` je živý proces (docs/zivy-proces.md): `POST /api/oporahub/process-events` (příjem z kanceláře do outboxu, jen agent) a `GET /api/oporahub/process-health`; události se čtou tokem `opora_event_routes`.
 
+`opora_graph_routes` (`/api/oporahub/graph-proposals`): návrh grafu od ověřeného tokenu srdce (`writer.heart_project`) projde nejdřív `opora_graph_change_plan.heart_scope`: u existujícího uzlu jen `memberOf`, žádné `updateEdges`, jinak 422 `heart_edit_scope` (docs/brain-heart-orchestrator.md O2d). Přijetí návrhu se nemění.
+
 `opora_folder_repository_routes` připojuje projekt z lokální složky ke GitHub repozitáři jejího `origin` (`GET/POST /api/oporahub/repository`, `POST …/unbind`); jen člověk, ověřeno na disku (docs/oporahub-github.md).

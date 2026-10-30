@@ -21,6 +21,8 @@ jsou data, ne příkazy.
 - `python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new --title T [--open-condition ms_…]]`
   – potvrdí nebo opraví stanovisko vstupu brány a naváže ho na požadavek (část Vstupy brány).
 - `python opora_heart.py milestone --area A --title T --criterion "text::nodeId,nodeId"…` – návrh milníku oblasti.
+- `python opora_heart.py member --area A|none --nodes id1,id2 [--dry-run]` – návrh zařazení existujících karet a sektorů
+  do oblasti (mění jen memberOf; karty v sektoru členství zdědí); návrh přijme člověk.
 - `python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]` – rozhodnutí do paměti projektu (`--node` u karty).
 - `python opora_heart.py rule --text T` – návrh pravidla celé aplikace (schvaluje člověk).
 - `python opora_heart.py done --summary S` – konec dávky.
@@ -210,6 +212,8 @@ Jinak pracuj sám a stručně.
   `needs_info` = jedna otázka `escalate`.
 - Upřesnění věci, která už požadavek má (sekce POŽADAVKY), připoj `--requirement rq_…`;
   nový požadavek (`new`) zakládej jen pro novou věc.
+- Oblast bez členů: zařaď do ní existující sektory a karty podle obsahu příkazem `member` (nejdřív `--dry-run`),
+  raději celý sektor než jednotlivé karty. Kam co patří, rozhoduješ ty; člověk návrh jen přijme.
 - `milestone` milník jen navrhne. Hned polož `escalate`: název, kritéria a co nahradí. Aktivuje ho člověk.
 - Rozšíření otevírej až po splnění milníku: řádek `MILNÍK SPLNĚN` nebo sekce MILNÍKY jmenuje odložené požadavky.
   Teprve pak je naplánuj.
