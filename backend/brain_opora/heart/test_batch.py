@@ -1,7 +1,8 @@
 """Dávka srdce s falešným procesem: zpráva, řádka, deník `batches.jsonl`, rotace, limit a vypršení času."""
+import hashlib
 import json
 
-from backend.brain_opora.heart import batch, session
+from backend.brain_opora.heart import batch, command, session
 from backend.brain_opora.heart.process import Outcome
 
 RESULT = {"type": "result", "subtype": "success", "is_error": False, "session_id": "11111111-1111-1111-1111-111111111111",
@@ -62,8 +63,9 @@ def test_ok_batch_is_journaled_with_costs_and_summary(tmp_path):
     assert entry["costByModel"] == {"claude-haiku-4-5": 0.0121, "claude-opus-4-5": 0.03}
     assert entry["costUsd"] == 0.0421 and entry["durationMs"] == 60_500 and entry["inputs"] == inputs
     assert batch.read_journal(tmp_path / "brain") == [entry]
-    assert session.load(tmp_path / "brain") == {"sessionId": RESULT["session_id"], "batches": 1,
-                                                "lastInputTokens": 20_900}
+    stored = session.load(tmp_path / "brain")
+    assert stored.pop("promptDigest") == hashlib.sha256(command.PROMPT_FILE.read_bytes()).hexdigest()  # rotace po změně promptu
+    assert stored == {"sessionId": RESULT["session_id"], "batches": 1, "lastInputTokens": 20_900}
     assert (tmp_path / "brain" / batch.SNAPSHOT).read_text(encoding="utf-8") == "PROJEKT p1"
     second = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
     batch.run(spec(tmp_path), second, clock(200.0, 201.0))

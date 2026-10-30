@@ -5,6 +5,7 @@ jeden řádek do `brain/batches.jsonl`: vstupy, relaci, cenu po modelech (`model
 tahy, chybu, trvání, shrnutí z `done` a cenu dílčích volání dílny (`subCostUsd` z `dilna/runs.jsonl`, §3b). Když poradce za den přesáhne `ADVISOR_DAY_USD`, běží dávka
 bez `--advisor` (záznam nese `advisor: false`). Pozná vyčerpaný limit předplatného (`rate_limited`) a vypršení času.
 """
+import hashlib
 import json
 import re
 import time
@@ -117,7 +118,8 @@ def run(spec, runner=run_process, clock=time.time):
     (brain / SNAPSHOT).write_text(spec.snapshot, encoding="utf-8")
     (brain / LAST_DONE).unlink(missing_ok=True)
     settings_path, mcp_path = command.write_config(brain, spec.source_root)
-    session_id, resume = session.choose(brain)
+    prompt_digest = hashlib.sha256(Path(command.PROMPT_FILE).read_bytes()).hexdigest()
+    session_id, resume = session.choose(brain, prompt_digest=prompt_digest)
     started = clock()
     advisor = advisor_spent(brain, started) < ADVISOR_DAY_USD
     line = command.build_command(spec.claude, session_id=session_id, resume=resume, settings_path=settings_path,
@@ -130,7 +132,7 @@ def run(spec, runner=run_process, clock=time.time):
     used = session.input_tokens((result or {}).get("usage"))
     if result and isinstance(result.get("session_id"), str) and status != "rate_limited":
         # Chybná dávka (třeba ztracená relace) vynutí rotaci, aby se další dávka nezasekla na --resume.
-        session.record(brain, result["session_id"], used if status == "ok" else session.ROTATE_AT + 1)
+        session.record(brain, result["session_id"], used if status == "ok" else session.ROTATE_AT + 1, prompt_digest)
     at = datetime.fromtimestamp(started, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     entry = {"at": at, "project": spec.project,
              "workspace": spec.workspace, "status": status, "inputs": spec.inputs,
