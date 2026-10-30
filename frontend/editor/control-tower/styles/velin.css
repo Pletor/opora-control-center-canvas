@@ -154,6 +154,9 @@
 .velin__panel-row { padding: 12px 14px; border-bottom: 1px solid var(--line); margin: 0; }
 .velin__panel-row:last-child { border-bottom: 0; }
 .velin__decision { margin: 4px 0 8px; font-weight: 600; }
+/* Odznak PR pod rozhodnutím: „Uzavřít kartu“ stojí hned vedle fialového „Sloučeno · PR #N“, takže člověk ví,
+   že agentova práce je už v main a čeká jen na jeho potvrzení. Mezera 8 px drží rytmus řádku fronty. */
+.velin__decision-pr { margin: 0 0 8px; }
 .velin__badge { border: 1px solid var(--gold-line); border-radius: 4px; padding: 0 7px; font-size: 12px; }
 .velin__avatar {
   flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center;

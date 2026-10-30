@@ -44,6 +44,16 @@ describe("Velín nad agent-state", () => {
   });
 });
 
+describe("Odznak PR ve frontě Velínu", () => {
+  it("rozhodnutí o uzavření nese fialové „Sloučeno · PR #N“ své karty", () => {
+    const merged = agentStateFixture({
+      cards: [card("a", { stage: "merge", health: "waiting", reason: "awaiting_human_close", executionId: "e1", pr: { number: 191, state: "merged" } })],
+      decisions: [{ id: "dec_close", kind: "close_card", targetId: "a", title: "Uzavřít kartu po merge PR: Alfa", actionId: "act_close" }],
+    });
+    expect(velinModel(graph, merged).decisions[0]).toMatchObject({ nodeId: "a", pr: { tone: "merged", label: "Sloučeno · PR #191" } });
+  });
+});
+
 describe("Díry mapy pro agenty", () => {
   const gap = (owner: "agent" | "human") => ({ rule: "section.unrealized", message: "Sekce s nemá žádnou komponentu.", nodeId: "a", owner });
   it("počítá jen díry agentů a pozná ořezaný seznam; starší server bez pole nic neukáže", () => {

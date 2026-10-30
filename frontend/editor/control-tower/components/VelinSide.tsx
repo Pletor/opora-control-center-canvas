@@ -1,6 +1,7 @@
 // Pravý sloupec Velínu: nejvýš tři rozhodnutí pro člověka (zlatá, vždy nahoře) a pět dalších připravených akcí
 // v pořadí agent-state. Akce agenta člověk nespouští; tlačítko jen otevře detail karty, kde je vidět proč.
 import type { VelinView } from "../logic/velin-model";
+import PrBadge from "@/shared/pr-badge/components/PrBadge";
 
 export default function VelinSide({ decisions, next, onOpen }: {
   decisions: VelinView["decisions"]; next: VelinView["next"]; onOpen: (nodeId: string) => void;
@@ -15,6 +16,7 @@ export default function VelinSide({ decisions, next, onOpen }: {
           <div key={item.id} className="velin__panel-row velin__panel-row--waiting" data-oh-decision={item.kind} data-oh-action-id={item.actionId}>
             <small className="velin__muted">{item.cardName || "projekt"} · {item.kind}</small>
             <p className="velin__decision">{item.title}</p>
+            {item.pr && <p className="velin__decision-pr"><PrBadge badge={item.pr} /></p>}
             {item.nodeId && <button type="button" className="velin__button velin__button--human" onClick={() => onOpen(item.nodeId!)}>Otevřít detail</button>}
           </div>
         ))}

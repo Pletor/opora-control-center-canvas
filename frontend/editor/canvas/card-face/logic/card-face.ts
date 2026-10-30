@@ -4,6 +4,7 @@
 // Přednost stavu: hotovo > rozhodnutí člověka > agent drží lease > blokováno předchůdcem > brána > zdraví.
 import type { AgentCardStage, AgentDecision } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { STAGE_WORD, gateWord, shortReason } from "./face-labels";
+import { prBadge, type PrBadge } from "@/shared/pr-badge/logic/pr-badge";
 
 export type FaceState = "blocked" | "ready" | "working" | "review" | "decision" | "done" | "problem" | "plan";
 export type FaceTone = "ok" | "warn" | "bad" | "gap" | "hum";
@@ -20,6 +21,8 @@ export type CardFace = {
   lease: { holder: string | null; expiresAt: string; epoch: number | null } | null;
   steps: { total: number; done: number; segments: ("done" | "cur" | "")[]; count: string; label: string };
   footer: FaceFooter | null;
+  /** Odznak PR v barvách GitHubu (`cards[].pr`); uzavřená karta ho nemá. */
+  pr: PrBadge | null;
   /** Syrové kódy pro `data-oh-*`. */
   raw: { stage: string; health: string; reason: string; executionId: string | null; gateStatus: string; gateRule: string };
 };
@@ -59,6 +62,7 @@ export function cardFace({ nodeId, card, sector, layer, decisions, nameOf }: Fac
   const gate = card?.gate ?? null;
   const base = {
     nodeId, kindChip: card?.kind || layer || (sector ? "sektor" : "uzel"), lease: null as CardFace["lease"],
+    pr: card ? prBadge(card.stage, card.reason, card.pr, card.reason === "card_closed") : null,
     stage: card ? STAGE_WORD[card.stage] : "plán", reason: card ? shortReason(card.reason) : "mimo OporaHub",
     raw: { stage: card?.stage ?? "", health: card?.health ?? "", reason: card?.reason ?? "", executionId: card?.executionId ?? null,
       gateStatus: gate?.status ?? "", gateRule: gate?.rule ?? "" },

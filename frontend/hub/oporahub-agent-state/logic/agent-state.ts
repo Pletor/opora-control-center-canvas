@@ -28,6 +28,8 @@ export type AgentCardStage = {
   lease?: { holder: string | null; expiresAt: string; epoch: number | null } | null;
   /** Otevřené nálezy strážců na kartě (bez strážce mapy); karta bez nálezu pole nemá. */
   guardFindings?: { count: number; severity: GuardSeverity };
+  /** PR navázané na kartu (`number` null u lokálního sloučení); uzavřená karta pole nemá. Starší server ho neposílá. */
+  pr?: { number: number | null; state: "open" | "merged" | "closed" } | null;
 };
 export type AgentDecision = { id: string; kind: string; targetId: string | null; title: string; actionId: string };
 export type AgentGap = { id: string; stage: string; reason: string };
@@ -85,7 +87,9 @@ const cardExtras = (value: Record<string, unknown>) => optional(value.kind, text
   && optional(value.gate, item => object(item) && text(item.status) && nullableText(item.rule))
   && (value.steps === undefined || (object(value.steps) && count(value.steps.total) && count(value.steps.done) && nullableText(value.steps.current)))
   && optional(value.lease, item => object(item) && nullableText(item.holder) && text(item.expiresAt))
-  && optional(value.guardFindings, item => object(item) && count(item.count) && GUARD_SEVERITIES.includes(item.severity as GuardSeverity));
+  && optional(value.guardFindings, item => object(item) && count(item.count) && GUARD_SEVERITIES.includes(item.severity as GuardSeverity))
+  && optional(value.pr, item => object(item) && (item.number === null || count(item.number))
+    && (item.state === "open" || item.state === "merged" || item.state === "closed"));
 const cardStage = (value: unknown): value is AgentCardStage => object(value) && text(value.nodeId)
   && STAGE_IDS.includes(value.stage as StageId) && HEALTHS.includes(value.health as Health) && text(value.reason)
   && nullableText(value.executionId) && cardExtras(value);

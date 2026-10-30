@@ -1,5 +1,5 @@
 """Per-card loop stage (docs/oporahub-agent-state.md, "Etapa karty"): first matching rule wins."""
-from backend.canvas.opora_agent_state_cards import card_stage, page, project
+from backend.canvas.opora_agent_state_cards import card_stage, page, project, pull_request
 
 HEAD = "a" * 40
 
@@ -61,8 +61,23 @@ def test_project_is_sorted_and_prefers_the_open_link():
     linked = [{"executionId": "old", "state": "merged", "cardId": "a"}, {"executionId": "e1", "state": "open", "cardId": "a"}]
     rows = project(cards, HEAD, [], [], linked, {"gates": [gate("pending", ["self_checks_missing"])]}, 100.0)
     assert [row["nodeId"] for row in rows] == ["a", "b"]
-    assert rows[0] == {"nodeId": "a", "stage": "review", "health": "waiting", "reason": "self_checks_missing", "executionId": "e1"}
+    assert rows[0] == {"nodeId": "a", "stage": "review", "health": "waiting", "reason": "self_checks_missing", "executionId": "e1",
+                       "pr": {"number": None, "state": "open"}}
     assert list(rows[1]) == ["nodeId", "stage", "health", "reason", "executionId"]
+
+
+def test_pull_request_badge_facts():
+    """`pr` on the card: number and state of the linked PR; none on a closed card or for a stale closed PR."""
+    merged = {"executionId": "e1", "state": "merged", "cardId": "n", "number": 42}
+    assert pull_request({"nodeId": "n"}, merged, None) == {"number": 42, "state": "merged"}
+    assert pull_request({"nodeId": "n", "doneConfirmed": True}, merged, None) is None
+    assert pull_request({"nodeId": "n"}, None, run()) is None
+    closed = {**merged, "state": "closed"}
+    assert pull_request({"nodeId": "n"}, closed, run("reported", 1)) == {"number": 42, "state": "closed"}
+    assert pull_request({"nodeId": "n"}, closed, run(ident="e2")) is None
+    assert pull_request({"nodeId": "n"}, {**merged, "number": None}, None) == {"number": None, "state": "merged"}
+    rows = project({"n": {"nodeId": "n"}}, HEAD, [], [], [{**merged, "awaitingHumanClose": True}], None, 100.0)
+    assert rows[0]["reason"] == "awaiting_human_close" and rows[0]["pr"] == {"number": 42, "state": "merged"}
 
 
 def test_page_orders_by_relevance_and_caps_closed_cards_first():

@@ -28,7 +28,7 @@ export default function VelinLayer({ layer, onOpen }: { layer: Layer; onOpen: (n
             <div className="velin__pills">
               {sector.pills.map(pill => (
                 <button key={pill.nodeId} type="button" className={"velin__pill velin__pill--" + pill.tone} onClick={() => onOpen(pill.nodeId)}
-                  title={`${pill.name} · ${TONE_LABEL[pill.tone]} · ${pill.face.stage} · ${pill.face.reason}`}
+                  title={`${pill.name} · ${TONE_LABEL[pill.tone]} · ${pill.face.stage} · ${pill.face.reason}${pill.face.pr ? " · " + pill.face.pr.label : ""}`}
                   data-oh-node-id={pill.nodeId} data-oh-tone={pill.tone} data-oh-stage={pill.face.raw.stage} data-oh-reason={pill.face.raw.reason}>
                   <span aria-hidden="true">{TONE_GLYPH[pill.tone]}</span> {pill.name}
                 </button>

@@ -6,6 +6,7 @@ import type { CardFace as Face } from "../logic/card-face";
 import { countdown } from "../logic/face-labels";
 import { useNow } from "../logic/use-now";
 import { openCardDrawer } from "@/hub/oporahub-card-drawer/open";
+import PrBadge from "@/shared/pr-badge/components/PrBadge";
 import "../styles/card-face.css";
 
 function LeaseCountdown({ expiresAt }: { expiresAt: string }) {
@@ -56,6 +57,7 @@ export default function CardFace({ face, title }: { face: Face; title: ReactNode
         <span className={"card-face__chip card-face__chip--" + face.chip.tone}>{face.chip.glyph} {face.chip.word}</span>
         <span className="card-face__line">{face.stage} · {face.lease ? <LeaseCountdown expiresAt={face.lease.expiresAt} /> : face.reason}</span>
       </div>
+      <PrBadge badge={face.pr} />
       <div className="card-face__progress" title={`Kroky plánu ${face.steps.count}`}>
         {!!face.steps.segments.length && <div className="card-face__segments" aria-hidden="true">
           {face.steps.segments.map((segment, index) => <b key={index} className={segment ? "card-face__segment--" + segment : undefined} />)}
@@ -72,7 +74,7 @@ export function CardGlyph({ face, name }: { face: Face; name: string }) {
   const share = face.steps.total ? face.steps.done / face.steps.total : 0;
   return (
     <div className={"card-face card-face--glyph card-face--" + face.state} {...ohAttributes(face)}
-      title={`${name} · ${face.chip.word} · ${face.stage} · ${face.reason} · ${face.steps.count}`}>
+      title={`${name} · ${face.chip.word} · ${face.stage} · ${face.reason} · ${face.steps.count}${face.pr ? " · " + face.pr.label : ""}`}>
       <span className={"card-face__mark card-face__mark--" + face.chip.tone} aria-label={face.chip.word}>{face.chip.glyph}</span>
       <span className="card-face__glyph-title">{name}</span>
       <span className="card-face__glyph-bar" style={{ "--share": `${Math.round(share * 100)}%` } as CSSProperties} />
