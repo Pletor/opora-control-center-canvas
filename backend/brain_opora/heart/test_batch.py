@@ -57,6 +57,15 @@ def test_message_renders_card_triggers_and_a_human_change_in_one_short_line():
     assert "- SPOUŠTĚČ card.retry · n1 „Přihlášení“: 2× selhal, doporučeno effort high" in text
     assert "- SPOUŠTĚČ graph.human_change: člověk změnil plán (revize 7)" in text
 
+
+def test_message_renders_a_brief_for_a_requirement_and_a_short_one_for_a_thin_card():
+    text = batch.message("S", [{"type": "brief", "requirementId": "rq_1", "title": "Metriky", "reason": "new",
+                                "detail": "„Chci metriky.“ · karty: žádné"},
+                               {"type": "brief", "nodeId": "n1", "title": "Měřák", "reason": "thin",
+                                "detail": "málo podkladů – doplň kroky a soubory"}])
+    assert "- VÝSLECH: rq_1 „Metriky“ (nový požadavek) · spis: „Chci metriky.“ · karty: žádné" in text
+    assert "- VÝSLECH (krátký): karta n1 „Měřák“ (málo podkladů – doplň kroky a soubory)" in text
+
 def clock(*values):
     items = iter(values)
     return lambda: next(items)

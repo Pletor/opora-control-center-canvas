@@ -20,9 +20,10 @@ import time
 import unicodedata
 import uuid
 
-from backend.brain_opora.determinism import milestones, requirements
+from backend.brain_opora.determinism import brief, milestones, requirements
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.graph import valid_id
+from database.repositories.intake_briefs import IntakeBriefs
 from database.repositories.intake_entries import IntakeEntries
 
 LOGGER = logging.getLogger(__name__)
@@ -169,9 +170,22 @@ def _check_scope(service, project, workspace):
                         "Použijte main, draft nebo ID pracovního prostoru projektu.")
 
 
+def _with_briefs(db, workspace, areas, unassigned):
+    """Požadavky dostanou `brief: {status, questions, missing}` výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §7),
+    bez spisu `None`."""
+    found = IntakeBriefs(db).of_workspace(workspace)
+
+    def mark(items):
+        return [{**item, "brief": brief.view(found.get(item["id"]))} for item in items]
+
+    return ([{**area, "requirements": mark(area["requirements"]), "deferred": mark(area["deferred"])}
+             for area in areas], mark(unassigned))
+
+
 def overview(service, project, workspace, limit=LIST):
     """`GET /api/intake`, pohled „Požadavky a plán“: oblasti s aktivním milníkem (kritéria hotovo/nehotovo, postup),
-    návrhy milníků, otevřené a odložené požadavky (`milestones.plan`), požadavky bez oblasti (`unassigned`),
+    návrhy milníků, otevřené a odložené požadavky (`milestones.plan`, každý s `brief` výslechu), požadavky bez oblasti
+    (`unassigned`),
     posledních `limit` vstupů a počty `pending` / `duplicates`. Jen čtení; neznámý projekt nebo prostor 404,
     chybějící prostor 422."""
     _check_scope(service, project, workspace)
@@ -181,5 +195,6 @@ def overview(service, project, workspace, limit=LIST):
         store = IntakeEntries(db)
         entries, counts = store.recent(workspace, limit), store.counts(workspace)
         found, unassigned = milestones.plan(db, project, workspace, found)
+        found, unassigned = _with_briefs(db, workspace, found, unassigned)
     return {"areas": found, "unassigned": unassigned, "entries": entries, "pending": counts.get("pending", 0),
             "duplicates": counts.get("duplicate", 0)}

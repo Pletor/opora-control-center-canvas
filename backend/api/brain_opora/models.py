@@ -247,6 +247,39 @@ class MilestoneDecisionOut(BaseModel):
     superseded: str | None = None
 
 
+class BriefSynthesisIn(BaseModel):
+    """Syntéza výslechu požadavku od srdce (docs/navrhy/2026-10-30-vyslech-srdce.md §3.3, §7)."""
+    project: str
+    workspace: str
+    requirement: str
+    synthesis: dict = Field(..., description="goal, users, parts, acceptance, outOfScope, dependencies, questions…")
+
+
+class BriefSynthesisOut(BaseModel):
+    requirement: str
+    status: Literal["draft", "research", "grilling", "clear"]
+    missing: list[str] = Field(..., description="Co chybí do jasna (§4); prázdné = clear.")
+
+
+class BriefAskIn(BaseModel):
+    """Otázka výslechu s doporučenou odpovědí a důvodem (§3.4); nejvýš 3 otevřené, nejvýš 3 kola."""
+    project: str
+    workspace: str
+    requirement: str
+    question: str
+    recommended: str
+    why: str
+
+
+class BriefAskOut(BaseModel):
+    requirement: str
+    status: str
+    question: str
+    open: int
+    rounds: int
+    missing: list[str]
+
+
 class Escalation(BaseModel):
     ticketId: str
     text: str

@@ -12,8 +12,13 @@ docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): supervisor ho spočítá po 
 Stejnou cestou jdou spouštěče karet (`card_wakes`, `determinism/triggers.py`: too_big, retry, stalled,
 over_budget) po událostech běhu a plánu (`TRIGGER_EVENTS`) a ruční změna plánu (`human_changes`: `changeset.accepted`,
 jejíž revizi přijal člověk).
+Spouštěč výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §2) dává vstup `brief`: `brief_wakes` pro požadavky
+(nový, otevřené rozšíření, `changes_intent`) se spisem a krátký výslech karty `ready` s tenkými podklady přes
+`card_wakes` (`brief.card_hit`); obojí jednou na stav (`heart_triggers`).
 """
-from backend.brain_opora.determinism import brain_files, intake, milestones, triggers
+from datetime import UTC, datetime, timedelta
+
+from backend.brain_opora.determinism import brain_files, brief, intake, milestones, triggers
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
 
@@ -64,7 +69,29 @@ def trigger_workspaces(events):
 def card_wakes(service, project, workspaces, at, now):
     """`[(prostor, vstup cardTrigger)]` spouštěčů karet, kterým srdce ještě nebudilo (`workspaces` None = prostory
     s přijatým plánem); značky zapíše v jedné transakci."""
-    return triggers.wakes(service, project, workspaces, at, now)
+    return triggers.wakes(service, project, workspaces, at, now, extra=brief.card_hit)
+
+
+def brief_wakes(service, project, at, now):
+    """`[(prostor, vstup brief)]` požadavků, které podle `brief.needs_brief` potřebují výslech a srdce na ten stav
+    ještě nebudilo (jen se vstupem z posledních `brief.WINDOW_HOURS` h). Kandidáti se čtou bez zámku, spis mimo
+    zámek, značka a spis `draft` se zapíší v jedné transakci."""
+    since = (datetime.fromtimestamp(now, UTC) - timedelta(hours=brief.WINDOW_HOURS)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ")
+    with service.reading(project):
+        candidates = brief.requirement_wakes(service.db_for(project), since)
+    if not candidates:
+        return []
+    files = {item["id"]: brief.collect_situation(service, project, space, item["id"]) for space, item, _ in candidates}
+    found = []
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            for space, item, reason in candidates:
+                value = brief.open_brief(db, space, item, reason, files[item["id"]], at)
+                if value is not None:
+                    found.append((space, value))
+    return found
 
 
 def human_changes(service, project, events, at):

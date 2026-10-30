@@ -192,23 +192,31 @@ def facts(service, project, workspace, now):
     return result, done
 
 
-def wakes(service, project, workspaces, at, now):
+EXTRA = 5  # nejvýš vstupů z `extra` na průchod (zbytek přijde v dalším průchodu, značku ještě nemá)
+
+
+def wakes(service, project, workspaces, at, now, extra=None):
     """Spouštěče karet: `[(prostor, vstup cardTrigger)]`, kterým srdce ještě nebudilo. `workspaces` None = prostory
-    s přijatým plánem. Fakta se čtou mimo zámek; značky se zapíší v jedné transakci pod zámkem dat."""
+    s přijatým plánem. Fakta se čtou mimo zámek; značky se zapíší v jedné transakci pod zámkem dat.
+    `extra(karta) -> (klíč, vstup) | None` je další spouštěč nad stejnými fakty (krátký výslech karty
+    `brief.card_hit`, docs/navrhy/2026-10-30-vyslech-srdce.md §2); jeho vstupy jdou za spouštěči karet."""
     if workspaces is None:
         with service.reading(project):
             workspaces = spaces(service.db_for(project), project)
-    hits = []
+    hits, others = [], []
     for workspace in sorted(workspaces)[:SPACES]:
         cards, done = facts(service, project, workspace, now)
-        hits += [(workspace, hit) for hit in evaluate(cards, done)]
-    if not hits:
+        hits += [(workspace, card_key(hit), item_of(hit)) for hit in evaluate(cards, done)]
+        others += [(workspace, *found) for found in map(extra, cards) if found] if extra else []
+    if not hits and not others:
         return []
     with service.lock_for(project):
         db = service.db_for(project)
         with db:
             store = HeartTriggers(db)
-            return [(space, item_of(hit)) for space, hit in hits if store.fire(card_key(hit), space, at)]
+            found = [(space, item) for space, key, item in hits if store.fire(key, space, at)]
+            fresh = [(space, key, item) for space, key, item in others if not store.fired(key)][:EXTRA]
+            return found + [(space, item) for space, key, item in fresh if store.fire(key, space, at)]
 
 
 def human_change(db, project, workspace, revision, at):

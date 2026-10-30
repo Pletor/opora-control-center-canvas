@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from backend.brain_opora.determinism.brief import REASONS as BRIEF_REASONS
 from backend.brain_opora.heart import command, session
 from backend.brain_opora.heart.process import run_process
 
@@ -83,6 +84,12 @@ def _input_line(item):
                 f" odložené požadavky k otevření: {deferred}")
     if kind == "cardTrigger":  # spouštěč karty (determinism/triggers.py)
         return f"- SPOUŠTĚČ {item.get('kind')} · {item.get('nodeId')} „{item.get('title')}“: {item.get('detail')}"
+    if kind == "brief":  # spouštěč výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §2, determinism/brief.py)
+        if item.get("nodeId"):
+            return f"- VÝSLECH (krátký): karta {item['nodeId']} „{item.get('title')}“ ({item.get('detail')})"
+        spis = f" · spis: {item['detail']}" if item.get("detail") else ""
+        return (f"- VÝSLECH: {item.get('requirementId')} „{item.get('title')}“"
+                f" ({BRIEF_REASONS.get(item.get('reason'), item.get('reason'))}){spis}")
     if kind == "humanChange":
         return f"- SPOUŠTĚČ {item.get('kind')}: člověk změnil plán (revize {item.get('revision')})"
     return "- " + json.dumps(item, ensure_ascii=False, sort_keys=True)
