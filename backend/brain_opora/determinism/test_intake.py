@@ -94,7 +94,9 @@ def test_overview_lists_areas_entries_and_counts(service):
     write(service, "Jedna věta")
     write(service, "jedna věta", at="2026-10-30T10:01:00Z")
     result = intake.overview(service, "draft", "draft")
-    assert result["areas"] == [{"id": "a1", "name": "Vyhledání podkladů", "milestone": None, "requirements": []}]
+    assert result["areas"] == [{"id": "a1", "name": "Vyhledání podkladů", "milestone": None, "proposed": [],
+                                "requirements": [], "deferred": []}]
+    assert result["unassigned"] == []
     assert [entry["verdict"] for entry in result["entries"]] == ["duplicate", "pending"]  # nejnovější první
     assert (result["pending"], result["duplicates"]) == (1, 1)
     for project, workspace, code in (("nikde", "draft", "project_not_found"), ("draft", "", "invalid_payload"),
@@ -110,7 +112,7 @@ def test_heart_confirms_or_corrects_the_verdict_only_in_its_workspace(service):
     session = {"project_id": "draft", "workspace_id": "draft"}
     result = intake.confirm(service, session, entry["id"], "later_extension", " po splnění milníku Hledání ")
     assert result == {"id": entry["id"], "verdict": "later_extension", "layer": "heart", "areaId": None,
-                      "reason": "po splnění milníku Hledání"}
+                      "reason": "po splnění milníku Hledání", "requirementId": None}
     assert intake.recent(service.db_for("draft"), "draft") == []  # potvrzený vstup ze snímku zmizí
     assert intake.confirm(service, session, entry["id"], "done")["reason"] == "srdce: done"
     for entry_id, verdict, code in ((other["id"], "done", "intake_entry_not_found"),

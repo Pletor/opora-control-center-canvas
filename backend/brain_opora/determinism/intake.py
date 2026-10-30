@@ -16,9 +16,11 @@ import hashlib
 import logging
 import re
 import sqlite3
+import time
 import unicodedata
 import uuid
 
+from backend.brain_opora.determinism import milestones, requirements
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.graph import valid_id
 from database.repositories.intake_entries import IntakeEntries
@@ -121,9 +123,11 @@ def recent(db, workspace, limit=RECENT):
     return IntakeEntries(db).recent(workspace, limit, layers=UNDECIDED)
 
 
-def confirm(service, session, entry_id, verdict, reason=""):
+def confirm(service, session, entry_id, verdict, reason="", requirement=None, title=None, open_condition=None):
     """Srdce potvrdí nebo opraví stanovisko vstupu svého prostoru (vrstva `heart`); `POST /api/brain/heart/intake`.
-    Oblast a počet volání Jevu zůstanou, jistota Jevu se smaže. Neznámé stanovisko 422, cizí vstup 404."""
+    Oblast a počet volání Jevu zůstanou, jistota Jevu se smaže. Neznámé stanovisko 422, cizí vstup 404.
+    `requirement` (`new` s `title` [a `open_condition`], nebo `rq_…`) vstup naváže na požadavek (`requirements.attach`)."""
+    requirements.check(requirement, title, open_condition)
     if verdict not in VERDICTS:
         raise invalid(f"Neznámé stanovisko {verdict!r}.", "Stanovisko je jedno z: " + ", ".join(VERDICTS) + ".")
     if not isinstance(reason, str) or len(reason) > REASON or "\0" in reason:
@@ -138,8 +142,10 @@ def confirm(service, session, entry_id, verdict, reason=""):
                 raise GateError(404, "intake_entry_not_found", "Vstup v tomto pracovním prostoru neexistuje.",
                                 "ID vstupu (ie_…) je ve snímku v sekci VSTUPY nebo v řádku vstupu dávky.")
             store.set_verdict(entry_id, verdict=verdict, layer="heart", reason=reason.strip() or f"srdce: {verdict}")
+            requirements.attach(db, entry, verdict, requirement, title, open_condition,
+                                time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
             entry = store.get(entry_id)
-    return {key: entry[key] for key in ("id", "verdict", "layer", "areaId", "reason")}
+    return {key: entry[key] for key in ("id", "verdict", "layer", "areaId", "reason", "requirementId")}
 
 
 def areas(service, project, workspace):
@@ -148,7 +154,7 @@ def areas(service, project, workspace):
         nodes = service.view(project, workspace)["graph"]["nodes"]
     except (ValueError, KeyError, TypeError, OSError, sqlite3.Error):
         return []
-    return [{"id": node["id"], "name": node.get("name") or node["id"], "milestone": None, "requirements": []}
+    return [{"id": node["id"], "name": node.get("name") or node["id"]}
             for node in nodes if isinstance(node, dict) and node.get("kind") == "area"]
 
 
@@ -164,12 +170,16 @@ def _check_scope(service, project, workspace):
 
 
 def overview(service, project, workspace, limit=LIST):
-    """`GET /api/intake`: oblasti, posledních `limit` vstupů a počty `pending` / `duplicates`. Jen čtení;
-    neznámý projekt nebo prostor 404, chybějící prostor 422."""
+    """`GET /api/intake`, pohled „Požadavky a plán“: oblasti s aktivním milníkem (kritéria hotovo/nehotovo, postup),
+    návrhy milníků, otevřené a odložené požadavky (`milestones.plan`), požadavky bez oblasti (`unassigned`),
+    posledních `limit` vstupů a počty `pending` / `duplicates`. Jen čtení; neznámý projekt nebo prostor 404,
+    chybějící prostor 422."""
     _check_scope(service, project, workspace)
     found = areas(service, project, workspace)
     with service.reading(project):
-        store = IntakeEntries(service.db_for(project))
+        db = service.db_for(project)
+        store = IntakeEntries(db)
         entries, counts = store.recent(workspace, limit), store.counts(workspace)
-    return {"areas": found, "entries": entries, "pending": counts.get("pending", 0),
+        found, unassigned = milestones.plan(db, project, workspace, found)
+    return {"areas": found, "unassigned": unassigned, "entries": entries, "pending": counts.get("pending", 0),
             "duplicates": counts.get("duplicate", 0)}

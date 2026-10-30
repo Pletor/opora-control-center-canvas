@@ -96,4 +96,20 @@ Modules (intake gate, slice 1, contract `docs/navrhy/2026-10-30-vstupni-brana.md
   switch. Missing or corrupt = JEV off, 200 calls a day. Only a human changes it (`POST /api/brain/intake-setting`);
   `gate_setting.write` keeps it when the gate is flipped.
 
+Modules (milestones and requirements, slice 3, contract `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §4, §5):
+- `milestones.py`: the heart only proposes a milestone of an area (`propose`, `POST /api/brain/heart/milestone`,
+  `opora_heart.py milestone`, status `proposed`; the area must be an `area` node, criterion cards canvas nodes);
+  only a human activates or rejects it (`decide`, `POST /api/intake/milestone`). Activation supersedes the active
+  milestone of the area (`superseded`, history stays), a rejected proposal is `superseded` too. A criterion
+  `{id, text, cards[]}` is met when all its cards have `done.confirmed` on the canvas (`opora_event_stage.confirmed_nodes`,
+  one state read); a milestone is met when all criteria are. Met state and `progress` (mean % of its cards, a card is
+  0 or 100 for now) are computed, never stored. `wakes` is the `milestone.done` trigger: a met active milestone yields
+  one batch input `milestoneDone` with its deferred requirements, once per milestone (`heart_triggers`, key
+  `trigger:milestone:<id>:done`); requirement status is left to the heart. `plan` backs the per-area part of
+  `GET /api/intake`. `snapshot.py` shows met milestones as `MILNÍKY` and the last 8 open / deferred requirements as
+  `POŽADAVKY` (both omitted when empty).
+- `requirements.py`: `intake.confirm` with `requirement`: `new` (needs `title`) creates a requirement in the entry's
+  area: `later_extension` = `deferred` with `openCondition` (given, else the area's active milestone, else 422),
+  otherwise `open` in the active milestone; `rq_…` only links the entry (several entries, one requirement).
+
 Rule: nothing here calls a model, and nothing imports `decision` or `heart`.

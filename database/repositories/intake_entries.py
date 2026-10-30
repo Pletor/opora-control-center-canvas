@@ -3,6 +3,7 @@
 Věta vstupu je neměnná: text, otisk, zdroj a čas se po vložení (spolu s řádkem FTS5) nemění. Měnit se smí jen
 stanovisko (`verdict`, `layer`, `area_id`, `confidence`, `reason`, `jev_calls`): zapíše ho Jev (řez 2,
 `backend/brain_opora/decision/intake.py`) nebo srdce (`backend/brain_opora/determinism/intake.py`, `confirm`).
+Srdce smí vstup navázat na požadavek (`set_requirement`, docs/navrhy/2026-10-30-metriky-a-spoustece.md §5).
 Transakci vlastní volající."""
 
 COLUMNS = ("id", "workspace_id", "source", "source_ref", "text", "fingerprint", "created_at", "verdict", "layer",
@@ -91,4 +92,10 @@ class IntakeEntries:
             "UPDATE intake_entries SET verdict=?, layer=?, reason=?, area_id=COALESCE(?, area_id), confidence=?,"
             " jev_calls=COALESCE(?, jev_calls) WHERE id=?" + condition,
             (verdict, layer, reason, area_id, confidence, jev_calls, entry_id))
+        return cursor.rowcount == 1
+
+    def set_requirement(self, entry_id, requirement_id, milestone_id=None):
+        """Naváže vstup na požadavek (a na milník; None = beze změny). True, když se řádek změnil."""
+        cursor = self.db.execute("UPDATE intake_entries SET requirement_id=?, milestone_id=COALESCE(?, milestone_id)"
+                                 " WHERE id=?", (requirement_id, milestone_id, entry_id))
         return cursor.rowcount == 1

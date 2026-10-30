@@ -15,10 +15,20 @@ from database.repositories.opora_execution_pull_requests import ExecutionPullReq
 from database.repositories.opora_executions import Executions
 
 
+def confirmed_nodes(db, project, workspace, nodes):
+    """Z karet `nodes` ty, které mají na plátně prostoru potvrzené uzavření (`done.confirmed`); jedno čtení stavu.
+    Používá i milník vstupní brány (docs/navrhy/2026-10-30-metriky-a-spoustece.md §5)."""
+    wanted = list(dict.fromkeys(nodes))
+    if not wanted:
+        return set()
+    paths = [f'$.nodes."{node}".done.confirmed' for node in wanted]
+    row = db.execute(f"SELECT {','.join('json_extract(state, ?)' for _ in paths)} FROM desktop_v3_state"
+                     " WHERE project_id=? AND workspace_id=?", (*paths, project, workspace)).fetchone()
+    return {node for node, value in zip(wanted, row or ()) if value}
+
+
 def _done(db, project, workspace, node):
-    row = db.execute("SELECT json_extract(state, ?) FROM desktop_v3_state WHERE project_id=? AND workspace_id=?",
-                     (f'$.nodes."{node}".done.confirmed', project, workspace)).fetchone()
-    return bool(row and row[0])
+    return node in confirmed_nodes(db, project, workspace, [node])
 
 
 def _latest(db, project, workspace, node, accepted=None, done=False):

@@ -30,7 +30,14 @@ from backend.brain_opora.determinism import (
     tokens,
 )
 from backend.brain_opora.heart import batch, command, session
-from backend.brain_opora.heart.inputs import MESSAGE_HOURS, backlog, resolve, wake_input
+from backend.brain_opora.heart.inputs import (
+    MESSAGE_HOURS,
+    backlog,
+    closed_workspaces,
+    milestone_wakes,
+    resolve,
+    wake_input,
+)
 from backend.canvas.process_signal import PROCESS_SIGNAL
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories import opora_events
@@ -145,19 +152,36 @@ class HeartSupervisor:
                 if cursor is None:
                     self.cursors[project] = opora_events.head(db)
                     self._catch_up(project, now)
-                    continue
                 events = []
-                while True:
+                while cursor is not None:
                     chunk, _, _ = opora_events.page(db, project, None, cursor, PAGE)
                     events += chunk
                     if len(chunk) < PAGE:
                         break
                     cursor = chunk[-1]["id"]
+            if cursor is None:
+                self._milestones(project, None, now)  # první čtení: milník mohl dozrát, když supervisor nečetl
+                continue
             for event in events:
                 self.cursors[project] = event["id"]
                 item = wake_input(event)
                 if item is not None:
                     self._add(project, event["workspaceId"], item, now + WINDOW)
+            closed = closed_workspaces(events)
+            if closed:
+                self._milestones(project, closed, now)
+
+    def _milestones(self, project, workspaces, now):
+        """Spouštěč `milestone.done` (docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): splněný aktivní milník budí
+        srdce jednou, s oknem `WINDOW`. Bez vlastní události outboxu: počítá se po `card.closed` a při prvním čtení
+        projektu (`workspaces` None = všechny prostory). Chyba se jen zaloguje."""
+        try:
+            found = milestone_wakes(self.service, project, workspaces, _iso(now))
+        except Exception:  # noqa: BLE001 - spouštěč nesmí shodit čtení outboxu
+            LOGGER.exception("Srdce: spouštěč milníku projektu %s selhal.", project)
+            return
+        for workspace, item in found:
+            self._add(project, workspace, item, now + WINDOW)
 
     def _catch_up(self, project, now):
         """První čtení projektu začíná na konci outboxu: co čeká z doby, kdy supervisor nečetl (restart serveru,

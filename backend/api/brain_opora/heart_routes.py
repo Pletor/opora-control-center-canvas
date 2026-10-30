@@ -13,21 +13,29 @@
   zadání podstromu uzlu (docs/brain-heart-orchestrator.md §9 O7).
 - `POST /api/brain/heart/escalate {project, workspace, text}`: jen token srdce; lístek `ask` pro člověka
   (`gate.escalate`, stejná funkce jako druh brány `escalate`).
-- `POST /api/brain/heart/intake {project, workspace, entry, verdict, reason?}`: jen token srdce; potvrdí nebo opraví
-  stanovisko vstupu vstupní brány svého prostoru (vrstva `heart`, `intake.confirm`, docs/navrhy/2026-10-30-vstupni-brana.md).
+- `POST /api/brain/heart/intake {project, workspace, entry, verdict, reason?, requirement?, title?, openCondition?}`:
+  jen token srdce; potvrdí nebo opraví stanovisko vstupu vstupní brány svého prostoru (vrstva `heart`,
+  `intake.confirm`, docs/navrhy/2026-10-30-vstupni-brana.md) a případně vstup naváže na požadavek
+  (`requirement` = `new` s `title`, nebo `rq_…`; docs/navrhy/2026-10-30-metriky-a-spoustece.md §5).
+- `POST /api/brain/heart/milestone {project, workspace, area, title, criteria}`: jen token srdce; návrh milníku oblasti
+  (`proposed`, `milestones.propose`). Aktivuje ho jen člověk (`POST /api/intake/milestone`).
 Celá cesta je jen pro loopback (`backend/app/remote_access.py`). Odmítnutí nese `code` a `hint`.
 """
+import time
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
-from backend.brain_opora.determinism import gate, gate_setting, intake, snapshot, tokens, workshop
+from backend.brain_opora.determinism import gate, gate_setting, intake, milestones, snapshot, tokens, workshop
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid, parse_body
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 
 TEXT_LIMIT = 8000
+INTAKE_KEYS = {"project", "workspace", "entry", "verdict", "reason", "requirement", "title", "openCondition"}
+MILESTONE_KEYS = {"project", "workspace", "area", "title", "criteria"}
 EXAMPLE = '{"project": "<id>", "workspace": "main", "text": "Chci web o dvou stránkách: …"}'
 
 
@@ -54,6 +62,23 @@ def _project(service, project):
         raise GateError(404, "project_not_found", "Projekt neexistuje nebo chybí ?project=.",
                         "Přidejte ?project=<id projektu>.")
     return project
+
+
+async def _heart_session(service, request, payload):
+    """Relace srdce pro tělo `{project, workspace, …}`: jen token srdce téhož projektu a prostoru."""
+    if not isinstance(payload["project"], str) or not isinstance(payload["workspace"], str):
+        raise invalid("project a workspace jsou text.", "Použijte OPORA_PROJECT a OPORA_WORKSPACE z prostředí.")
+    project = _project(service, payload["project"])
+    session = await run_in_threadpool(gate.authenticate, service, request.headers.get(tokens.HEADER), project,
+                                      ("heart",))
+    if session["workspace_id"] != payload["workspace"]:
+        raise GateError(403, "gate_scope", "Token srdce platí jen pro svůj pracovní prostor.",
+                        "Použijte OPORA_WORKSPACE z prostředí dávky.")
+    return session
+
+
+def _now():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 def create_heart_router(service, supervisor):
@@ -147,20 +172,26 @@ def create_heart_router(service, supervisor):
         try:
             payload = parse_body(await request.body())
             keys = set(payload) if isinstance(payload, dict) else set()
-            if not {"project", "workspace", "entry", "verdict"} <= keys <= {"project", "workspace", "entry", "verdict",
-                                                                            "reason"}:
-                raise invalid("Tělo je {project, workspace, entry, verdict, reason?}.",
+            if not {"project", "workspace", "entry", "verdict"} <= keys <= INTAKE_KEYS:
+                raise invalid("Tělo je {project, workspace, entry, verdict, reason?, requirement?, title?, openCondition?}.",
                               "python opora_heart.py intake --entry ie_… --verdict later_extension --reason \"…\"")
-            if not isinstance(payload["project"], str) or not isinstance(payload["workspace"], str):
-                raise invalid("project a workspace jsou text.", "Použijte OPORA_PROJECT a OPORA_WORKSPACE z prostředí.")
-            project = _project(service, payload["project"])
-            session = await run_in_threadpool(gate.authenticate, service, request.headers.get(tokens.HEADER),
-                                              project, ("heart",))
-            if session["workspace_id"] != payload["workspace"]:
-                raise GateError(403, "gate_scope", "Token srdce platí jen pro svůj pracovní prostor.",
-                                "Použijte OPORA_WORKSPACE z prostředí dávky.")
+            session = await _heart_session(service, request, payload)
             return await run_in_threadpool(intake.confirm, service, session, payload["entry"], payload["verdict"],
-                                           payload.get("reason", ""))
+                                           payload.get("reason", ""), payload.get("requirement"),
+                                           payload.get("title"), payload.get("openCondition"))
+        except GateError as error:
+            return _refused(error)
+
+    @router.post("/milestone", status_code=201, openapi_extra=models.body(models.MilestoneProposalIn),
+                 responses=models.answers(201, models.MilestoneProposalOut, 401, 403, 404, 422))
+    async def propose_milestone(request: Request):
+        try:
+            payload = parse_body(await request.body())
+            if not isinstance(payload, dict) or set(payload) != MILESTONE_KEYS:
+                raise invalid("Tělo je přesně {project, workspace, area, title, criteria}.", milestones.HINT)
+            session = await _heart_session(service, request, payload)
+            return await run_in_threadpool(milestones.propose, service, session, payload["area"], payload["title"],
+                                           payload["criteria"], _now())
         except GateError as error:
             return _refused(error)
 

@@ -256,7 +256,12 @@ def test_heart_token_confirms_an_intake_verdict_and_nobody_else_writes_it(tmp_pa
         confirmed = client.post("/api/brain/heart/intake", headers=heart, json=body)
         assert confirmed.status_code == 200, confirmed.text
         assert confirmed.json() == {"id": entry["id"], "verdict": "later_extension", "layer": "heart", "areaId": None,
-                                    "reason": "po milníku Hledání"}
+                                    "reason": "po milníku Hledání", "requirementId": None}
+        linked = client.post("/api/brain/heart/intake", headers=heart, json={
+            **body, "requirement": "new", "title": "Hybridní hledání", "openCondition": "ms_1"})
+        assert linked.status_code == 200 and linked.json()["requirementId"].startswith("rq_"), linked.text
+        assert code(client.post("/api/brain/heart/intake", headers=heart, json={**body, "requirement": "new"})
+                    ) == "invalid_payload"
         assert code(client.post("/api/brain/heart/intake", headers=worker, json=body)) == "gate_required"
         assert code(client.post("/api/brain/heart/intake", headers=heart, json={**body, "workspace": "main"})
                     ) == "gate_scope"

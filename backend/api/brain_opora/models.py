@@ -196,6 +196,10 @@ class IntakeVerdictIn(BaseModel):
     verdict: str = Field(..., description="done | extends_in_progress | fix_for_milestone | changes_intent | "
                                           "later_extension | needs_info")
     reason: str = ""
+    requirement: str | None = Field(None, description="rq_… (připojit vstup k požadavku) | new (založit požadavek)")
+    title: str | None = Field(None, description="Název nového požadavku (jen s requirement new).")
+    openCondition: str | None = Field(None, description="Podmínka otevření odloženého požadavku (ID milníku); jen "
+                                                         "later_extension, výchozí aktivní milník oblasti vstupu.")
 
 
 class IntakeVerdictOut(BaseModel):
@@ -204,6 +208,43 @@ class IntakeVerdictOut(BaseModel):
     layer: str
     areaId: str | None = None
     reason: str | None = None
+    requirementId: str | None = None
+
+
+class MilestoneCriterionIn(BaseModel):
+    text: str
+    cards: list[str] = Field(..., description="ID karet, které kritérium dokládají (splněno = všechny done.confirmed).")
+
+
+class MilestoneProposalIn(BaseModel):
+    """Návrh milníku srdcem (docs/navrhy/2026-10-30-metriky-a-spoustece.md §5); aktivuje ho jen člověk."""
+    project: str
+    workspace: str
+    area: str
+    title: str
+    criteria: list[MilestoneCriterionIn]
+
+
+class MilestoneProposalOut(BaseModel):
+    id: str
+    status: str
+    areaId: str
+    title: str
+    criteria: list[dict[str, Any]]
+
+
+class MilestoneDecisionIn(BaseModel):
+    """Rozhodnutí člověka o návrhu milníku (docs/navrhy/2026-10-30-metriky-a-spoustece.md §5)."""
+    project: str
+    workspace: str
+    milestoneId: str
+    action: Literal["activate", "reject"]
+
+
+class MilestoneDecisionOut(BaseModel):
+    id: str
+    status: str
+    superseded: str | None = None
 
 
 class Escalation(BaseModel):

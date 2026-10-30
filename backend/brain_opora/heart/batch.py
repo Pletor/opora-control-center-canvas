@@ -75,6 +75,10 @@ def _input_line(item):
     if kind == "commits":
         log = "; ".join(item.get("log") or []) or "(bez výpisu)"
         return f"- NOVÉ COMMITY {str(item.get('from') or '?')[:7]}..{str(item.get('to') or '?')[:7]}: {log}"
+    if kind == "milestoneDone":  # spouštěč milestone.done (docs/navrhy/2026-10-30-metriky-a-spoustece.md §4)
+        deferred = ", ".join(f"{rq.get('id')} „{rq.get('title')}“" for rq in item.get("deferred") or []) or "žádné"
+        return (f"- MILNÍK SPLNĚN {item.get('milestoneId')} „{item.get('title')}“ (oblast {item.get('areaId')}):"
+                f" odložené požadavky k otevření: {deferred}")
     return "- " + json.dumps(item, ensure_ascii=False, sort_keys=True)
 
 

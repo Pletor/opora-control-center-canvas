@@ -9,7 +9,9 @@
     python opora_heart.py answer --ticket ID --text T
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
-    python opora_heart.py intake --entry ie_… --verdict V [--reason R]
+    python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new [--title T]
+                                 [--open-condition ms_…]]
+    python opora_heart.py milestone --area A --title T --criterion "text::nodeId,nodeId" [--criterion …]
     python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]
     python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py rule --text T
@@ -161,6 +163,15 @@ def task_payload(args):
     if args.order is not None:
         payload["order"] = args.order
     return payload
+
+
+def criteria(values):
+    """`"text::nodeId,nodeId"` → `{text, cards[]}` (kritérium milníku a karty, které ho dokládají)."""
+    result = []
+    for value in values:
+        text, _, cards = value.rpartition("::")
+        result.append({"text": text.strip(), "cards": [card.strip() for card in cards.split(",") if card.strip()]})
+    return result
 
 
 def now():
@@ -705,8 +716,13 @@ def run(args):
     if args.command == "escalate":
         return call("POST", "/api/brain/heart/escalate", {**scope(), "text": args.text})
     if args.command == "intake":
-        body = {**scope(), "entry": args.entry, "verdict": args.verdict} | ({"reason": args.reason} if args.reason else {})
-        return call("POST", "/api/brain/heart/intake", body)
+        options = {"reason": args.reason, "requirement": args.requirement, "title": args.title,
+                   "openCondition": args.open_condition}
+        body = {**scope(), "entry": args.entry, "verdict": args.verdict}
+        return call("POST", "/api/brain/heart/intake", body | {key: value for key, value in options.items() if value})
+    if args.command == "milestone":
+        body = {**scope(), "area": args.area, "title": args.title, "criteria": criteria(args.criterion)}
+        return call("POST", "/api/brain/heart/milestone", body)
     if args.command in ("decide", "rule"):
         path, payload = (("/api/desktop-v3/decision", decision_payload(args)) if args.command == "decide"
                          else ("/api/desktop-v3/rule", rule_payload(args)))
@@ -762,6 +778,13 @@ def parser():
     verdict.add_argument("--entry", required=True)
     verdict.add_argument("--verdict", required=True, choices=VERDICTS)
     verdict.add_argument("--reason")
+    verdict.add_argument("--requirement", help="rq_… = připojit k požadavku, new = založit (s --title)")
+    verdict.add_argument("--title")
+    verdict.add_argument("--open-condition", help="jen later_extension: ID milníku, po jehož splnění se otevře")
+    milestone = commands.add_parser("milestone")  # návrh milníku oblasti (docs/navrhy/2026-10-30-metriky-a-spoustece.md §5)
+    milestone.add_argument("--area", required=True)
+    milestone.add_argument("--title", required=True)
+    milestone.add_argument("--criterion", action="append", required=True, help='"text::nodeId,nodeId"')
     decide = commands.add_parser("decide")
     decide.add_argument("--text", required=True)
     decide.add_argument("--node")
