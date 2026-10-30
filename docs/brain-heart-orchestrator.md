@@ -71,6 +71,7 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   ready; plán 2 se sektorem `@id` a vazbou na existující kartu → nová karta ready, dřívější ready zůstal).
 - Snímek: sekce `PLÁN` ukáže u karet stav práce z executions: `volná`, `běží (agent)`, `odevzdáno`, `PR #n`,
   `sloučeno sha`, `čeká na uzavření`. Bez nové tabulky, čte existující executions a vazby PR.
+- **`unlink --from A --to B [--dry-run] [--no-accept] [--workspace W]`**: odebere vazbu `next` A → B jako návrh grafu `{removeEdges}` (`POST /api/oporahub/graph-proposals`, existující operace) a přijme ho tokenem srdce jako přírůstek; neznámá vazba = `code: unlink_unknown_edge`, `--dry-run` nic nezapíše.
 - Prompt „Plán“: práce pro orchestrátora = **karta na plátně** (`plan`), malá karta se `spec.steps` a ověřením;
   `task` (fronta brány) jen pro dělníka, který pracuje přes bránu. Po sloučení karty srdce plán neopakuje, ale
   navazuje (další karta, oprava, výzkum).

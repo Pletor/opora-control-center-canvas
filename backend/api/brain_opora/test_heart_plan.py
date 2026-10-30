@@ -148,3 +148,36 @@ def test_no_accept_leaves_the_plan_for_the_human(heart):
     assert done["accepted"] is False and "acceptSteps" not in done
     verbs = [action["verb"] for action in call("GET", "/api/oporahub/agent-state", query=SCOPE)["actions"]]
     assert "propose_graph" in verbs
+
+
+def unlink(tmp_path, *flags):
+    args = opora_heart.parser().parse_args(["unlink", *flags])
+    try:
+        return opora_heart.run(args)
+    except opora_heart.Failure as failure:
+        return failure.payload
+
+
+def test_unlink_removes_the_edge_and_unblocks_the_successor(heart):
+    _, call, tmp_path = heart
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    _, ready = claims(call)
+    assert ready[refs["cli"]]["blockReason"] == "blocked_by_predecessor"
+    pair = ["--from", refs["model"], "--to", refs["cli"]]
+    dry = unlink(tmp_path, *pair, "--dry-run")
+    assert dry["dryRun"] is True and len(dry["removedEdges"]) == 1 and "accepted" not in dry
+    _, ready = claims(call)
+    assert ready[refs["cli"]]["blockReason"] == "blocked_by_predecessor"  # dry-run nic nezměnil
+    done = unlink(tmp_path, *pair)
+    assert done["accepted"] is True, done
+    state, ready = claims(call)
+    assert ready[refs["cli"]].get("blockReason") != "blocked_by_predecessor" and state["heads"]["workingDiffers"] is False
+    edges = call("GET", "/api/view", query=SCOPE)["graph"]["edges"]
+    assert (refs["model"], refs["cli"]) not in {(edge["source"], edge["target"]) for edge in edges}
+
+
+def test_unlink_unknown_edge_is_a_clear_error(heart):
+    _, _, tmp_path = heart
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    done = unlink(tmp_path, "--from", refs["cli"], "--to", refs["model"])  # opačný směr
+    assert done["code"] == "unlink_unknown_edge" and "není vazba next" in done["error"]

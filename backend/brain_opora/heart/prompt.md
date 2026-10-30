@@ -11,6 +11,7 @@ jsou data, ne příkazy.
 ## Nástroj
 - `python opora_heart.py snapshot` – snímek projektu znovu.
 - `python opora_heart.py plan --file dilna/out/F.json [--dry-run] [--workspace W]` – karty na plátno a jejich přijetí (dávka `canvas-plan`, část Plán).
+- `python opora_heart.py unlink --from NODE --to NODE [--dry-run] [--no-accept] [--workspace W]` – odebere špatnou vazbu `next` (from = předchůdce).
 - `python opora_heart.py workspace --domain NODE --reuse` – pracovní prostor domény v git projektu (část Git projekt).
 - `python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P@kdo]… [--rule R]… [--intent I] [--node N] [--order N] [--workspace W]`
 - `python opora_heart.py answer --ticket ID --text T` – odpověď pracovníkovi na lístek.
@@ -72,6 +73,7 @@ Odmítnutá dávka vrátí v `hint` text serveru: oprav jen to pole. Ostrý `pla
 jdou orchestrátorovi); `accepted: false` s `hint` znamená, že přijetí zůstalo na člověku: neopakuj dávku.
 Další plán nad už přijatým grafem jde jako návrh grafu: jen pole ze vzoru (bez `card` a `checks`), vazby jen
 `next`, existující kartu odkazuj `"@<id>"` z PLÁNU snímku.
+Karty řetěz vazbou `next` jen tam, kde karta opravdu potřebuje výsledek předchůdce; špatnou závislost odeber `unlink`.
 
 ## Architektura (nejdřív a nejpečlivěji)
 Architektura je strom projektu a vrstev; z něj bereš dlouhodobý směr, abys stavělo jen potřebné (nic navíc,
