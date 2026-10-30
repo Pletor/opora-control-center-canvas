@@ -1,0 +1,20 @@
+/* ODZNAK MĚŘÁKU KARTY (blok `card-gauge`)
+   Příběh: v pilulce karty ve Velínu sedí za jménem drobný odznak, aby člověk při přeletu sektoru viděl, jak velká
+   karta je a kolik z ní je hotovo, aniž by ji otvíral. Štítek (XS–XL) je tučný a nese barvu pilulky, procento kroků
+   je tišší vedle něj. Odznak je menší než jméno a odsazený tenkou čarou, aby pilulku nepřebil. */
+.card-gauge {
+  display: inline-flex; align-items: baseline; gap: 4px; margin-left: 6px; padding-left: 6px;
+  border-left: 1px solid currentColor; font: 500 11px var(--mono); opacity: 0.9;
+}
+.card-gauge__label { font-weight: 700; }
+.card-gauge__steps { color: var(--ink-2); }
+
+/* Chudé podklady: „?“ je čárkovaně podtržený, protože štítek chybí a karta potřebuje doplnit kroky a soubory,
+   ne proto, že by byla v poruše. */
+.card-gauge--thin .card-gauge__label { text-decoration: underline dashed; text-underline-offset: 2px; }
+
+/* Riziko se ukáže jen mimo standard: vykřičník v teplé barvě u zvýšeného, dvojitý v barvě poplachu u kritického
+   (citlivá cesta, review člověka). Značka sama mluví i bez barvy; slovo je v titulku a aria-label. */
+.card-gauge__risk { font-weight: 700; }
+.card-gauge__risk--elevated { color: var(--gold); }
+.card-gauge__risk--critical { color: var(--danger); }

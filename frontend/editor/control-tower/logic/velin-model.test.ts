@@ -15,13 +15,18 @@ const state = agentStateFixture({
     card("d", { layer: "backend", topoIndex: 3, stage: "review", health: "waiting", reason: "human_review_required", executionId: "e".repeat(32) }),
     card("b", { layer: "backend", topoIndex: 0, stage: "work", executionId: "f".repeat(32),
       lease: { holder: "agent:codex", expiresAt: "2099-01-01T00:00:00Z", epoch: 1 } }),
-    card("a", { layer: "backend", topoIndex: 1, blockedBy: ["b"] }),
+    card("a", { layer: "backend", topoIndex: 1, blockedBy: ["b"], gauge: { steps: { total: 4, done: 1, percent: 25 }, risk: { level: "critical" }, run: { label: "L" } } }),
     card("c", { layer: "frontend", topoIndex: 2, stage: "plan_writeback", reason: "card_closed" }),
   ],
 });
 
 describe("Velín nad agent-state", () => {
   const view = velinModel(graph, state);
+  it("pilulka nese odznak měřáku z gauge; karta bez gauge odznak nemá", () => {
+    const pills = view.layers[0].sectors[0].pills;
+    expect(pills.find(pill => pill.nodeId === "a")?.gauge).toMatchObject({ label: "L", steps: 25, risk: "critical" });
+    expect(pills.find(pill => pill.nodeId === "b")?.gauge).toBeNull();
+  });
   it("vrstva → sektor → pilulky podle topoIndex; sektor sám pilulkou není", () => {
     expect(view.layers.map(layer => layer.label)).toEqual(["Backend", "Frontend"]);
     const broker = view.layers[0].sectors[0];

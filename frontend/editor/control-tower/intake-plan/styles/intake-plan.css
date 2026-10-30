@@ -1,0 +1,67 @@
+/* POŽADAVKY A PLÁN (blok `intake-plan`)
+   Příběh: člověk ve Velínu přepne z karet na plán a vidí, co aplikace jako celek právě dotahuje. Nahoře jeden
+   řádek o vstupech (co přišlo, co čeká, co se opakovalo), pod ním oblasti jako samostatné listy vedle sebe:
+   každá říká, ke kterému milníku míří, kolik z něj je hotovo a co se odložilo na potom. Listy se skládají do
+   mřížky, aby se čtyři až šest oblastí vešlo na jednu obrazovku bez rolování do strany. */
+.intake-plan { display: flex; flex-direction: column; gap: 12px; color: var(--ink); font-family: var(--font); }
+.intake-plan__eyebrow { display: block; font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.intake-plan__muted { margin: 0; color: var(--ink-muted); font-size: 13px; }
+
+/* Souhrn vstupů: tichý řádek; nenulové číslo ztmavne a ztuční, nula zůstává šedá, protože nic nechce. */
+.intake-plan__summary { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 0; padding: 0 4px; font-size: 13px; }
+.intake-plan__summary-part { color: var(--ink-muted); }
+.intake-plan__summary-part--some { color: var(--ink); font-weight: 600; }
+
+/* Oblasti: listy stejné šířky v mřížce. Prázdná oblast je čárkovaná a tišší, aby oko šlo nejdřív tam, kde se pracuje. */
+.intake-plan__areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-items: start; }
+.intake-plan__area {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+}
+.intake-plan__area--empty { border-style: dashed; background: transparent; }
+.intake-plan__area-title { margin: 2px 0 0; font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+
+/* Milník: název, tenký pruh postupu a pod ním kritéria. Splněný milník má pruh zelený, rozpracovaný v barvě akce.
+   Návrh srdce je ve zlatém rámu, protože čeká na ruku člověka (stejná řeč jako rozhodnutí v pravém sloupci Velínu). */
+.intake-plan__milestone, .intake-plan__proposal { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; }
+.intake-plan__milestone { background: var(--surface-3); }
+.intake-plan__proposal { border: 1px dashed var(--gold); background: var(--gold-soft); }
+.intake-plan__milestone-head { display: flex; flex-direction: column; gap: 2px; }
+.intake-plan__milestone-title { font-size: 14px; }
+.intake-plan__progress { height: 6px; border-radius: 3px; overflow: hidden; background: var(--line); }
+.intake-plan__progress-fill { display: block; height: 100%; background: var(--accent); }
+.intake-plan__progress-fill--done { background: var(--ok); }
+.intake-plan__progress-text { font: 600 12px var(--mono); color: var(--ink-2); }
+
+/* Kritéria: checklist. Značka ✓/○ říká stav i bez barvy; splněné kritérium zezelená. Karty kritéria jsou malé
+   odkazy pod textem: klik otevře kartu, hotová karta je přeškrtnutá jen jemně, ať zůstane čitelná. */
+.intake-plan__criteria, .intake-plan__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.intake-plan__criterion { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 2px 6px; font-size: 13px; }
+.intake-plan__criterion-text { grid-column: 2; }
+.intake-plan__criterion--done .intake-plan__check { color: var(--ok); }
+.intake-plan__check { grid-column: 1; font-weight: 700; color: var(--ink-muted); }
+.intake-plan__cards { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px; }
+.intake-plan__card {
+  border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); padding: 1px 7px;
+  color: var(--accent); font: 12px var(--font); cursor: pointer;
+}
+.intake-plan__card:hover { outline: 1px solid currentColor; }
+.intake-plan__card--done { color: var(--ok); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* Rozhodnutí: Aktivovat je plné tlačítko, Zamítnout obrysové. Při ukládání obě ztichnou; chyba se ukáže pod nimi
+   českou větou v barvě poplachu, nikdy vyskakovacím oknem. */
+.intake-plan__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.intake-plan__button {
+  border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink);
+  padding: 5px 12px; font: 500 13px var(--font); cursor: pointer;
+}
+.intake-plan__button--primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.intake-plan__button:disabled { opacity: 0.5; cursor: default; }
+.intake-plan__error { margin: 0; color: var(--danger); font-size: 13px; }
+
+/* Požadavky: krátké řádky pod nadpisem s počtem. Odložené jsou šedé a nesou podmínku otevření, protože se jich
+   teď nikdo nemá dotýkat; čekají na milník. */
+.intake-plan__requirements { display: flex; flex-direction: column; gap: 4px; }
+.intake-plan__requirement { display: flex; flex-direction: column; font-size: 13px; }
+.intake-plan__requirements--deferred .intake-plan__requirement { color: var(--ink-2); }
+.intake-plan__condition { color: var(--ink-muted); font-size: 12px; }

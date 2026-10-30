@@ -6,9 +6,10 @@ import type { AgentState } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { VERB_LABEL } from "@/hub/oporahub-agent-state/logic/actions-model";
 import { cardFace, type CardFace } from "@/editor/canvas/card-face/logic/card-face";
 import { toneOf, zeroCounts as zero, type Counts, type PillTone } from "@/editor/canvas/card-face/logic/face-tones";
+import { gaugeBadge, type GaugeBadge } from "../card-gauge-badge/logic/card-gauge-badge";
 
 export { TONES, TONE_GLYPH, TONE_LABEL, toneOf, type Counts, type PillTone } from "@/editor/canvas/card-face/logic/face-tones";
-export type VelinPill = { nodeId: string; name: string; tone: PillTone; face: CardFace; topo: number };
+export type VelinPill = { nodeId: string; name: string; tone: PillTone; face: CardFace; topo: number; gauge: GaugeBadge | null };
 export type VelinSector = { id: string; name: string; pills: VelinPill[] };
 export type VelinLayer = { id: string; label: string; counts: Counts; sectors: VelinSector[] };
 export type VelinFilter = "all" | "human" | "problems" | "running";
@@ -30,7 +31,8 @@ export function velinPills(graph: Graph, state: AgentState) {
   return (state.cards ?? []).filter(card => byId.get(card.nodeId)?.kind === "node").map(card => {
     const face = cardFace({ nodeId: card.nodeId, card, sector: false, decisions: state.decisions, nameOf });
     const sector = sectorOf(card.nodeId);
-    return { pill: { nodeId: card.nodeId, name: nameOf(card.nodeId), tone: toneOf(face), face, topo: card.topoIndex ?? Number.MAX_SAFE_INTEGER },
+    return { pill: { nodeId: card.nodeId, name: nameOf(card.nodeId), tone: toneOf(face), face, topo: card.topoIndex ?? Number.MAX_SAFE_INTEGER,
+      gauge: gaugeBadge(card.gauge) },
       layer: card.layer ?? "", sector: sector ? { id: sector.id, name: sector.name } : { id: "", name: "Bez sektoru" } };
   });
 }

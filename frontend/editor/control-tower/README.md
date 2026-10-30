@@ -24,3 +24,8 @@ přes sdílený `project/architecture-editor/logic/use-map-worktrees.ts` (30 s, 
 logika `logic/velin-worktrees.ts` (test `velin-worktrees.test.ts`), dílek `components/VelinWorktrees.tsx`. Bez worktree nic.
 
 Štítek „Plná autonomie agentů“ v liště velínu: App předá `autonomy` z `useAgentAutonomy` (`frontend/shared/agent-autonomy`), velín ho jen kreslí dílkem `AgentAutonomyBadge`.
+
+Pohledy Velínu: přepínač „Karty | Požadavky a plán“ vlevo v liště (`ControlTower`, stav jen v paměti okna). „Karty“ je
+pohled výše. „Požadavky a plán“ je dílek `intake-plan/` (`docs/navrhy/2026-10-30-vstupni-brana.md` §6): souhrn vstupů,
+jeden dílek na oblast s aktivním milníkem, návrhy srdce (Aktivovat / Zamítnout jen člověk) a požadavky. Pilulka
+karty nese odznak měřáku `card-gauge-badge/` (štítek složitosti, % kroků, riziko mimo standard; metriky-a-spoustece §7, řez 4).
