@@ -14,6 +14,7 @@ from contextlib import contextmanager
 
 from backend.canvas.opora_execution_pr_closure import close_loop
 from backend.canvas.opora_execution_pr_discovery import discover
+from backend.canvas.opora_execution_pr_enrollment import HEALABLE
 from backend.canvas.opora_execution_pull_requests import ExecutionPullRequestLinks
 from backend.canvas.opora_formal_check_poll import poll as poll_formal_checks
 from backend.integrations.github_merge_transport import GitHubMergeError
@@ -39,7 +40,7 @@ class ExecutionPullRequestManager:
         self.service, self.clock, self.tick = service, clock, tick
         self.links = links or ExecutionPullRequestLinks(service, clock=clock)
         self.stop, self.gate, self.thread = threading.Event(), threading.RLock(), None
-        self.cursor, self.cooldown_until, self.discovered_at = 0, 0, {}
+        self.cursor, self.cooldown_until, self.discovered_at, self.healed = 0, 0, {}, set()
         self.links.guard = self._guard
 
     @contextmanager
@@ -70,15 +71,32 @@ class ExecutionPullRequestManager:
         if self.thread:
             self.thread.join(timeout=1)
 
-    def _workspaces(self, project, sql):
+    def _workspaces(self, project, sql, *params):
         with self._guard(), self.service.graph_lock_for(project), self.service.lock_for(project):
-            return [row[0] for row in self.service.db_for(project).execute(sql, (project,)).fetchall()]
+            return [row[0] for row in self.service.db_for(project).execute(sql, (project, *params)).fetchall()]
 
     def _close(self, project):
         for workspace in self._workspaces(project, "SELECT DISTINCT workspace_id FROM opora_execution_pull_requests "
                                                    "WHERE project_id=? AND state IN ('open','closed')"):
             with self.links.transaction(project, workspace) as repo:
                 close_loop(repo.db, project, workspace)
+
+    def _heal(self, project):
+        """Once per process: links whose enrollment failed on a token problem go back to `pending`.
+
+        The fix for such a failure is a new token and a restart, so the restart retries them; without this
+        an already merged PR would never be observed and its successor card would stay blocked."""
+        if project in self.healed:
+            return
+        marks = ",".join("?" * len(HEALABLE))
+        for workspace in self._workspaces(project, "SELECT DISTINCT workspace_id FROM opora_execution_pull_requests "
+                                                   "WHERE project_id=? AND enrollment='failed' AND binding_id IS NULL "
+                                                   f"AND enrollment_error IN ({marks})", *HEALABLE):
+            with self.links.transaction(project, workspace) as repo:
+                repo.db.execute("UPDATE opora_execution_pull_requests SET enrollment='pending',enrollment_retry_at=NULL,"
+                                "enrollment_failures=0 WHERE project_id=? AND workspace_id=? AND enrollment='failed' "
+                                f"AND binding_id IS NULL AND enrollment_error IN ({marks})", (project, workspace, *HEALABLE))
+        self.healed.add(project)
 
     def _enroll(self, project):
         for workspace in self._workspaces(project, "SELECT DISTINCT workspace_id FROM opora_execution_pull_requests "
@@ -118,6 +136,7 @@ class ExecutionPullRequestManager:
                 return
             try:
                 self._close(project)
+                self._heal(project)
                 self._enroll(project)
                 self._discover(project)
                 poll_formal_checks(self, project)

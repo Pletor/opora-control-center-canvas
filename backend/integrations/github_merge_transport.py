@@ -94,6 +94,9 @@ class GitHubMergeTransport:
             if error.code in (401, 403, 404) and not rate and not token:
                 # A private repository answers 404/401 to an anonymous read: the token is missing, GitHub is fine.
                 raise GitHubMergeError('github-auth-missing', action_required=True) from None
+            if error.code == 401 and token:
+                # Bad credentials: the token is expired or revoked, GitHub is fine. Heals once it is replaced.
+                raise GitHubMergeError('github-auth-invalid', action_required=True) from None
             raise GitHubMergeError('github-rate-limit' if rate else 'github-unavailable',
                                    retry_after=max(60, wait) if rate else wait,
                                    action_required=error.code in (401, 403, 404) and not rate) from None

@@ -5,7 +5,7 @@ import re
 from backend.canvas.opora_change_validation import identifier
 
 ERROR_CODES = {'github-unavailable', 'github-timeout', 'github-malformed', 'github-identity-mismatch',
-               'github-rate-limit', 'github-auth-missing', 'github-response-too-large', 'invalid-read-request',
+               'github-rate-limit', 'github-auth-missing', 'github-auth-invalid', 'github-response-too-large', 'invalid-read-request',
                'subscription-context-changed', 'control-changed', 'lease-expired'}
 
 

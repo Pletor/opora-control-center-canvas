@@ -223,6 +223,10 @@ Odpoví-li GitHub na čtení 401/403/404 a Opora nemá token (`OPORA_GITHUB_TOKE
 ani `GITHUB_TOKEN`), nejde o výpadek, ale o soukromý repozitář bez přístupu: vazba dostane
 `enrollmentError: github-auth-missing` a `attention: github-auth-missing`, zůstává `pending`
 a po nastavení tokenu a restartu serveru se sledování zapne samo (značka zmizí).
+Odmítne-li GitHub token, který Opora má (401, prošlý nebo zrušený), je to stejné:
+`github-auth-invalid`, `attention: github-auth-invalid`, `pending` a opakování. Vazby, které
+dřív selhaly natrvalo (`failed` s `github-unavailable` / `github-auth-*` a bez sledování),
+smyčka po startu serveru jednou vrátí do `pending`, takže už sloučené PR projde zápisem do plánu.
 Odpověď nese i `enrollmentMessage`, česky popsanou příčinu chyby (nebo `null`).
 
 **Zápis výsledku.** Smyčka uzavření (vedle pracovníka sledování) čte neměnná

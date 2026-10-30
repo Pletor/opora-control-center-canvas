@@ -31,14 +31,19 @@ def configured(service, project):
 
 
 AUTH_MISSING = "github-auth-missing"
+AUTH_INVALID = "github-auth-invalid"
+AUTH = (AUTH_MISSING, AUTH_INVALID)
+# Failed links a restart retries once: a token problem (older rows stored a rejected token as
+# `github-unavailable`) is fixed by replacing the token and restarting, never by a new link.
+HEALABLE = ("github-unavailable",) + AUTH
 
 
 def fail(links, row, code, now, *, retry):
-    """A missing token needs a human (attention) but heals by itself once the token is set: it keeps retrying."""
+    """A missing or rejected token needs a human (attention) but heals once the token is fixed: it keeps retrying."""
     failures = row["enrollment_failures"] + 1
     extra = {}
-    if code == AUTH_MISSING:
-        retry, extra = True, {"attention": AUTH_MISSING}
+    if code in AUTH:
+        retry, extra = True, {"attention": code}
     return links.update(row["execution_id"], enrollment="pending" if retry else "failed", enrollment_error=code,
                         enrollment_failures=failures, enrollment_retry_at=now + retry_delay(failures) if retry else None,
                         updated_at=stamp(), **extra)
@@ -73,7 +78,7 @@ def apply_enrollment(service, links, row, pr, now=None):
             "parentControlId": None, "generation": 1, "action": "auto-enroll", "enabled": True,
             "requestId": None, "requestDigest": None, "by": AUTO_ENROLL_AUTHOR, "createdAt": stamp()}, 0)
         ReconciliationJobs(links.db, project, workspace).create(binding, control, now)
-    cleared = {"attention": None} if row["attention"] == AUTH_MISSING else {}
+    cleared = {"attention": None} if row["attention"] in AUTH else {}
     return links.update(row["execution_id"], binding_id=binding["id"], enrollment="enrolled", enrollment_error=None,
                         enrollment_retry_at=None, head_sha=pr["headSha"], head_ref=pr["headRef"], updated_at=stamp(),
                         **cleared)

@@ -129,7 +129,8 @@ def test_private_repository_without_token_is_auth_missing_not_unavailable(monkey
     monkeypatch.setenv('GH_TOKEN', 'present')  # With a token the same answer stays a GitHub-side failure.
     with pytest.raises(GitHubMergeError) as failure:
         source('/repos/owner/private/pulls/7', timeout=3)
-    assert failure.value.code == 'github-unavailable'
+    assert failure.value.code == ('github-auth-invalid' if status == 401 else 'github-unavailable')
+    assert failure.value.action_required
 
 
 def test_default_transport_disables_proxy_and_redirects(monkeypatch):

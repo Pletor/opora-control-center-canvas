@@ -14,6 +14,9 @@ ENROLLMENT_MESSAGES = {
     "github-auth-missing": "GitHub odmítl přístup k repozitáři a Opora nemá token. Nastavte OPORA_GITHUB_TOKEN"
                            " (nebo GH_TOKEN / GITHUB_TOKEN) s právem číst tento repozitář a restartujte server;"
                            " sledování se pak zapne samo.",
+    "github-auth-invalid": "GitHub odmítl token Opory (401, neplatný nebo prošlý). Nahraďte OPORA_GITHUB_TOKEN"
+                           " (nebo GH_TOKEN / GITHUB_TOKEN) platným tokenem a restartujte server;"
+                           " sledování se pak zapne samo.",
     "github-unavailable": "GitHub teď neodpovídá; Opora to zkusí znovu.",
     "github-not-configured": "Projekt nemá nastavený GitHub repozitář, sledování PR je vypnuté.",
 }
