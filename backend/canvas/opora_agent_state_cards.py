@@ -23,6 +23,12 @@ def _gate(gate, node, execution):
     return _entry(node, "review", _GATE_HEALTH.get(status, "waiting"), reason, execution)
 
 
+def dead_run(latest, claim, now):
+    """A run past its deadline without results whose card already offers a claim again (process sync saw no
+    active lease): it is handed back, so the card shows the claim stage, not `lease_past_deadline`."""
+    return bool(claim) and latest["deadline"] <= now and not latest["results"]
+
+
 def card_stage(card, accepted, latest, claim, link, gate, now):
     """Stage of one card; `latest`, `claim`, `link` and `gate` are None when the card has none."""
     node = card["nodeId"]
@@ -39,7 +45,7 @@ def card_stage(card, accepted, latest, claim, link, gate, now):
         if gate:
             return _gate(gate, node, link["executionId"])
         return _entry(node, "pull_request", "waiting", "pull_requests_open", link["executionId"])
-    if latest and latest["state"] == "running":
+    if latest and latest["state"] == "running" and not dead_run(latest, claim, now):
         if latest["deadline"] <= now:
             return _entry(node, "work", "blocking", "lease_past_deadline", execution)
         return _entry(node, "work", "ok", "runs_active", execution)

@@ -27,6 +27,10 @@ def test_plan_and_claim():
 def test_work_and_evidence():
     assert stage(latest=run()) == ("work", "ok", "runs_active")
     assert stage(latest=run(deadline=50.0)) == ("work", "blocking", "lease_past_deadline")
+    # Mrtvý běh bez výsledku, karta znovu nabízí claim: etapa claim, ne lease_past_deadline.
+    assert stage(latest=run(deadline=50.0), claim={"status": "ready"}) == ("claim", "ok", "cards_ready")
+    assert stage(latest=run(deadline=50.0), claim={"status": "blocked", "blockReason": "budget_exhausted"}) == (
+        "claim", "blocking", "budget_exhausted")
     assert stage(latest=run("reported", 1)) == ("review", "waiting", "human_review_required")
     assert stage(latest=run("reported", 1, revision="b" * 40)) == ("evidence", "waiting", "stale_evidence")
     # Agent-state spočte výřez karty (`staleEvidence`); posun hlavy jinde výsledek nezastará.

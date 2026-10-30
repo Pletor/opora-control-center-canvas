@@ -164,10 +164,29 @@ def test_exhausted_budget_blocks_claim(planned, service):
 
 
 def test_lease_past_deadline_blocks_work(planned, service):
+    # Only the agent-state clock is ahead here; process sync still sees the lease live, so the card is not
+    # claimable yet. That window (deadline passed, claim not offered) is what `lease_past_deadline` reports.
     claim(planned)
     assert stage(read(service), "work") == {"id": "work", "count": 1, "health": "ok", "reason": "runs_active"}
     late = stage(read(service, 120), "work")
     assert late == {"id": "work", "count": 0, "health": "blocking", "reason": "lease_past_deadline"}
+
+
+def test_dead_run_is_handed_back_as_a_ready_claim(planned, service):
+    route(service)
+    dead = claim(planned)
+    with service.db_for("draft") as db:
+        db.execute("UPDATE card_leases SET expires_at=0")  # the worker died without a result
+    document = read(service)
+    [action] = verbs(document, "claim")
+    assert action["status"] == "ready" and action["targetId"] == "a"
+    [card] = [item for item in document["cards"] if item["nodeId"] == "a"]
+    assert (card["stage"], card["health"], card["reason"]) == ("claim", "ok", "cards_ready")
+    assert stage(document, "work")["reason"] != "lease_past_deadline"
+    fresh = claim(planned, request="second")
+    assert fresh["executionId"] != dead["executionId"]
+    lease = service.db_for("draft").execute("SELECT token FROM card_leases WHERE node_id='a'").fetchone()
+    assert lease[0] == fresh["token"]
 
 
 def test_reported_result_needs_human_review_and_pr_link_is_not_connected(planned, service):

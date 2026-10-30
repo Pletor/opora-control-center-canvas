@@ -54,7 +54,7 @@ Pravidla platí v uvedeném pořadí; konstanty jsou v `opora_agent_state_rules.
 | `proposal` | Se zapnutým [automatickým rebase](oporahub-auto-rebase.md): otevřený konflikt → `waiting/auto_rebase_conflicts`; zastaralý návrh, který smyčka nevyřídila (ne redundantní, bez vyřešeného konfliktu) → `waiting/stale_proposals`. S `OPORA_AUTO_REBASE=0`: nepřijatý a nenahrazený návrh s jiným rodičem než přijatou hlavou → `waiting/stale_proposals` |
 | `acceptance` | Chybějící základ → `waiting/baseline_awaiting_human`; čerstvý návrh starší než `ACCEPTANCE_WAIT_SECONDS` (24 h) → `waiting/acceptance_overdue`; mladší → `ok/awaiting_human_within_window` |
 | `claim` | Počítá karty `ready`; vyčerpané pokusy nebo opravy → `blocking/budget_exhausted` |
-| `work` | Poslední běh karty ve stavu `running` s termínem (pronájem nebo pevný konec rozpočtu) v minulosti → `blocking/lease_past_deadline` |
+| `work` | Poslední běh karty ve stavu `running` s termínem (pronájem nebo pevný konec rozpočtu) v minulosti → `blocking/lease_past_deadline`; mrtvý běh bez výsledku, jehož karta znovu nabízí `claim`, se nepočítá |
 | `evidence` | Nahlášený výsledek je zastaralý → `waiting/stale_evidence`. Zastaralý je jen tehdy, když se od claimu změnil **výřez karty**, na kterém stálo zadání běhu (vlastní a související zadání, kroky, vlastní vazby `next`, předávka), stejně jako běh v [`active`](oporahub-executions.md) (`OporaExecutions.slice_changed`: v1 digest živého zadání s hlavou z claimu, v2 linie přijatého výřezu). Přijatá změna plánu jinde (nová karta, unlink, prune) výsledek nezastará; zavřená karta a přepočet události bez canvasu (běh v1 v `stage.changed`) dál porovnávají přijatou hlavu |
 | `review` | Se zapnutým [automatickým review](oporahub-review-jobs.md): brána otevřeného PR `blocked` → `blocking/review_gate_blocked`, ne-`ready` → `waiting/review_gate_pending`; když bránu drží [pravidlo brány](oporahub-review-jobs.md#pravidla-brány), důvodem etapy je přímo jeho kód (blokující v pořadí `open_security_findings`, `self_checks_failed`, `required_checks_failed`; čekající v pořadí `stale_against_main`, `self_checks_missing`, `security_review_not_enqueued`, `security_review_in_progress`, `required_checks_pending`, `base_freshness_unobserved`, `template_unobserved`, `template_incomplete`); pak nahlášený nezastaralý výsledek (viz `evidence`) na nepotvrzené kartě → `waiting/human_review_required` |
 | `pull_request` | Bez modulu vazby → `not_connected`; výsledek bez PR → `blocking/results_without_pull_request` |
@@ -77,10 +77,16 @@ v nejvzdálenější dosažené etapě; platí první pravidlo:
 | PR sloučeno se zápisem / bez zápisu do plánu | `plan_writeback` / `ok` / `plan_written_back`, jinak `waiting` / `merged_without_plan_writeback` |
 | otevřené PR s bránou review | `review` se zdravím brány (`blocked` → `blocking`, `pending` → `waiting`, `ready` → `ok`) a důvodem pravidla, které bránu drží (stejné pořadí jako etapa `review`), jinak `review_gate_ready` |
 | otevřené PR bez brány | `pull_request` / `waiting` / `pull_requests_open` |
-| poslední běh `running` | `work` / `ok` / `runs_active`, po termínu `blocking` / `lease_past_deadline` |
+| poslední běh `running` | `work` / `ok` / `runs_active`, po termínu `blocking` / `lease_past_deadline`; mrtvý běh bez výsledku, jehož karta znovu nabízí `claim`, sem nepatří (viz níže) |
 | poslední běh s výsledkem | změněný výřez karty (viz `evidence`) → `evidence` / `waiting` / `stale_evidence`, jinak `review` / `waiting` / `human_review_required` |
 | akce `claim` karty | `claim` / `ok` / `cards_ready`, blokovaná → `blocking` / `budget_exhausted`, `budget_policy_required` či `blocked_by_predecessor` |
 | jinak | `plan` / `ok` / `card_in_plan` (bez přijatého základu `blocking` / `no_accepted_baseline`) |
+
+Autoritou běhu je pronájem (`card_leases.expires_at`), ne stav v ledgeru: termín běhu `running` je nejdřívější
+z konce v ledgeru, konce rozpočtu a pronájmu se stejným tokenem (bez něj je termín pryč). Mrtvý běh (bez výsledku,
+bez aktivního pronájmu) projekce procesu nepočítá, karta je `ready` a dostane akci `claim`; etapa karty je pak
+`claim` a etapa `work` ho nezapočítá. `lease_past_deadline` tak zůstává jen pro okno, kdy je termín pryč, ale
+karta claim ještě nenabízí (např. hodiny čtení předběhnou čtení pronájmu, nebo karta claim nemá z jiného důvodu).
 
 `executionId` je běh, ke kterému etapa patří (u PR běh vazby), jinak `null`.
 

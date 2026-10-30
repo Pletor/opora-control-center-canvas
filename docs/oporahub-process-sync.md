@@ -19,6 +19,10 @@ a workspace; čtení nevolá model, GitHub ani poskytovatele vykonavatele.
   počty nahlášených výsledků a konkrétní další krok s odkazy na nativní API.
   Evidovaný běh není nové potvrzení autority; tu znovu ověří claim, heartbeat
   nebo odevzdání. Vyčerpaný počet nových pokusů sám neukončuje stávající běh.
+- Mrtvý běh (poslední execution bez výsledku a bez aktivního pronájmu se svým tokenem v `card_leases`)
+  o stavu karty nerozhoduje: karta propadne běžnými pravidly připravenosti (`ready` / `blocked` /
+  `needs-steps`), ne do `running` ani `stale`, ani když se mezitím posunula přijatá hlava jinde.
+  Claim propadlý pronájem nahradí. Běh s výsledkem dál dává `reported` / `stale`, živý běh `running`.
 - Nahlášený výsledek žádá nezávislou kontrolu. PR merge, lidské dokončení karty,
   ověření a nasazení jsou samostatné skutečnosti. Historický výsledek se při
   změně přijaté revize nepřepíše ani nevydává za výsledek aktuální revize.
