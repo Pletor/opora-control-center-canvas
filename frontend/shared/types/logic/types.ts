@@ -167,7 +167,7 @@ let humanSession: Promise<void> | null = null;
 /**
  * Doklad člověka (upgrade-opora #29): server bere zápis za lidský jen s HttpOnly cookie `opora_ui`,
  * kterou vydá výhradně fetchi z prohlížeče. Vyzvedne se jednou před prvním zápisem; po restartu
- * serveru (428) se obnoví a zápis se jednou zopakuje.
+ * serveru (428) se obnoví a požadavek se jednou zopakuje, i čtení jen pro člověka (otázky srdce).
  */
 function ensureHumanSession(refresh = false): Promise<void> {
   if (refresh || !humanSession)
@@ -201,9 +201,9 @@ export type WriteMethod = "POST" | "PATCH" | "PUT";
 export async function api<T>(url: string, body?: object, method: WriteMethod = "POST"): Promise<T> {
   if (body) await ensureHumanSession();
   let response = await send(url, body, true, method);
-  if (response.status === 428 && body) {
+  if (response.status === 428) {
     await ensureHumanSession(true);
-    response = await send(url, body, true, method);
+    response = await send(url, body, Boolean(body), method);
   }
   // 304 = obsah se od posledního čtení nezměnil; bez uloženého těla se dotaz zopakuje bez podmínky.
   if (!body && response.status === 304) {
