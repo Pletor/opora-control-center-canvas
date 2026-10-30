@@ -1,9 +1,9 @@
 """Snímek projektu pro srdce (docs/brain-heart.md §3): deterministický text bez modelu, s pevným stropem znaků.
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky plánu,
-fronta úkolů, čekající lístky, poslední kontroly, deník dávek; okolí srdce §3a; skripty dílny §3b; výzkumy a duely
-srdce ze schránky zadání §3c; stav práce karet z executions a vazeb PR, docs/brain-heart-orchestrator.md §3,
-včetně blokace nehotovým předchůdcem z grafu karet agent-state),
+fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), poslední kontroly, deník dávek;
+okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
+a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state),
 `snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4) a u git projektu pracovní prostory (sekce
 PROSTORY, §9 O7: doména, větev, karty volné/běží/hotové), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
@@ -14,7 +14,7 @@ import json
 import re
 import sqlite3
 
-from backend.brain_opora.determinism import brain_files, git_log
+from backend.brain_opora.determinism import brain_files, git_log, intake
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
 from backend.canvas import opora_agent_state_dag as dag_state
@@ -45,6 +45,7 @@ DECISIONS = 10
 JOURNAL = 5
 SCRIPTS = 15
 RESEARCH = 10
+INTAKE_TEXT = 100  # znaků věty v sekci VSTUPY
 GIT_COMMITS, GIT_CHARS = 10, 1200
 SPACES_CHARS = 800  # sekce PROSTORY git projektu
 FREE = "volná"  # karta bez běhu, nebo s během uvolněným či odebraným
@@ -250,7 +251,8 @@ def collect(service, project, workspace):
                             " ORDER BY recorded_at DESC, scope_id LIMIT ?", (project, workspace, CHECKS)).fetchall()
         work = _work(db, project, workspace)
         blocked, names = _blocked(service, project, workspace, db)
-    return {"work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
+        entries = intake.recent(db, workspace)
+    return {"intake": entries, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -381,6 +383,14 @@ def _research_lines(facts):
     return _section("VÝZKUM:", rows)
 
 
+def _intake_lines(facts):
+    """VSTUPY: poslední vstupy brány `pending` / `duplicate` (docs/navrhy/2026-10-30-vstupni-brana.md §4); žádné =
+    sekce chybí, ať snímek bez brány zůstane stejný."""
+    rows = [f"- {entry['id']} · {entry['verdict']} · {_short(entry['text'], INTAKE_TEXT)}"
+            for entry in (facts.get("intake") or [])[:intake.RECENT]]
+    return ["VSTUPY:", *rows] if rows else []
+
+
 def _git_lines(facts):
     rows, size = [], 0
     for line in (facts.get("git") or [])[:GIT_COMMITS]:
@@ -416,6 +426,7 @@ def render(facts, limit=LIMIT):
              "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
+    lines += _intake_lines(facts)
     lines.append("POSLEDNÍ KONTROLY:")
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
     lines += _git_lines(facts) + (_space_lines(facts) if facts.get("spaces") is not None else [])

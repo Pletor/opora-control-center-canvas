@@ -79,4 +79,16 @@ Still planned:
 - `tool_policy.py`: tool classification for the heart (the old assistant's `approvals.py` was deleted in H2b2b; today
   `heart/command.py` limits the tools with `--allowedTools`).
 
+Modules (intake gate, slice 1, contract `docs/navrhy/2026-10-30-vstupni-brana.md`):
+- `intake.py`: every sentence from the heart panel (`heart_message`), a worker's `change` / `ask` ticket
+  (`gate_change` / `gate_ask`, written by `gate.record`; the heart's own escalation is skipped) and a new brief vault
+  fragment of kind `brief` / `question` (`brief_fragment`, revision 1 only) becomes an immutable entry `ie_…` in
+  `intake_entries` (repository `database/repositories/intake_entries.py`). The fingerprint is sha256 of the
+  normalized text (lower case, no diacritics or punctuation, single spaces). The same fingerprint in the same
+  workspace = verdict `duplicate` (requirement, area and milestone copied from the earlier entry), else `pending`
+  (layer `determinism`). Candidates are the 3 nearest earlier entries by FTS5 bm25; they are not stored and only go
+  into the heart's input line. `safe_record` runs under a savepoint and never breaks the original flow.
+  `overview` backs `GET /api/intake`. `snapshot.py` shows the last 8 `pending` / `duplicate` entries as `VSTUPY`
+  (omitted when empty).
+
 Rule: nothing here calls a model, and nothing imports `decision` or `heart`.

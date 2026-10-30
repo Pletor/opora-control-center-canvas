@@ -2,18 +2,20 @@
 
 Druhy požadavků, jejich kontroly a obsluhy drží tabulka `kinds.py`; tady jsou společné kusy pod ní: relace
 a jejich ověření, zápis lístku (`record`), odpověď člověka nebo srdce, eskalace srdce a schránka.
+Lístek `change` / `ask` pracovníka zapíše i vstup vstupní brány (`intake.py`); srdce budí dál.
 Vytvoření i odpověď lístku vydají událost `gate.ticket`. Nic tu nevolá model.
 """
 import json
 import time
 import uuid
 
-from backend.brain_opora.determinism import task_queue, tokens
+from backend.brain_opora.determinism import intake, task_queue, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, answer_payload, session_payload
 from backend.canvas.opora_events import emit_event
 from database.repositories.gate_tickets import GateTicketStore
 
 INBOX_LIMIT = 100
+INTAKE_TEXT = {"change": "proposal", "ask": "question"}  # pole lístku, které jde jako věta do vstupní brány
 TOKEN_HINT = "Založte relaci: POST /api/gate/sessions a pošlete token v hlavičce X-Opora-Gate-Token."
 
 
@@ -57,6 +59,16 @@ def _emit(db, project, workspace, ticket, actor, source=None):
                data=data | ({"from": source} if source else {}))
 
 
+def _intake(db, session, ticket, workspace, answered):
+    """Lístek `change` / `ask` pracovníka (ne eskalace srdce) zapíše vstup brány (docs/navrhy/2026-10-30-vstupni-brana.md
+    §4). Srdce budí dál i při duplicitě (oprávněné opakování); chyba vstupu lístek nezastaví (`safe_record`)."""
+    field = INTAKE_TEXT.get(ticket["kind"])
+    body = ticket["body"] if isinstance(ticket["body"], dict) else {}
+    if answered or field is None or session.get("role") == "heart" or not isinstance(body.get(field), str):
+        return
+    intake.safe_record(db, workspace, "gate_" + ticket["kind"], ticket["ticketId"], body[field], ticket["createdAt"])
+
+
 def record(service, session, kind, body, now=None, *, answered=False, answer=None):
     """Zapíše lístek relace; s `answered` ho rovnou zodpoví brána (`answeredBy = "gate"`, audit synchronních druhů)."""
     project, workspace = session["project_id"], session["workspace_id"]
@@ -67,6 +79,7 @@ def record(service, session, kind, body, now=None, *, answered=False, answer=Non
             store = GateTicketStore(db, project)
             store.insert(ticket_id, workspace, session["id"], kind, body, tokens.stamp(now))
             ticket = store.get(ticket_id)
+            _intake(db, session, ticket, workspace, answered)
             _emit(db, project, workspace, ticket, _actor(session), session.get("role"))
             if answered:
                 store.answer(ticket_id, answer, "gate", tokens.stamp(now))

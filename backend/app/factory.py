@@ -14,6 +14,7 @@ from backend.api.app_routes import create_app_router
 from backend.api.brain_opora.brain_routes import create_brain_router
 from backend.api.brain_opora.gate_routes import create_gate_router
 from backend.api.brain_opora.heart_routes import create_heart_router
+from backend.api.brain_opora.intake_routes import create_intake_router
 from backend.api.brain_opora.jev_routes import create_jev_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
@@ -435,6 +436,7 @@ def create_app(data_root=None):
     app.include_router(create_gate_router(service, heart))  # brána mozku (docs/brain-gate.md §4)
     app.include_router(create_brain_router(service))  # přepínač brány (docs/brain-gate.md §1)
     app.include_router(create_heart_router(service, heart))  # srdce mozku (docs/brain-heart.md §1)
+    app.include_router(create_intake_router(service))  # vstupní brána (docs/navrhy/2026-10-30-vstupni-brana.md)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
     semantic = SemanticRetrieval(workspace_sources)

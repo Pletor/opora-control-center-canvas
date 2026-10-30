@@ -128,3 +128,14 @@ def test_sub_cost_sums_workshop_runs_since_the_batch_started(tmp_path):
     assert runner.calls[0]["env"]["OPORA_SOURCE_ROOT"] == str(tmp_path)
     assert (tmp_path / "brain" / "dilna" / "rlm.py").is_file() and (tmp_path / "brain" / "dilna" / "scripts").is_dir()
     assert batch.sub_cost(tmp_path / "nic", "1970") == 0.0
+
+
+def test_input_line_carries_the_intake_verdict_and_similar_entries():
+    """Vstupní brána: srdce dostane stanovisko a kandidáty v řádku vstupu a nemusí je hledat."""
+    text = batch.message("PROJEKT X", [
+        {"type": "message", "text": "Hledání.", "intake": {"id": "ie_2", "verdict": "pending",
+                                                          "candidates": ["ie_1", "ie_0"]}},
+        {"type": "ticket", "ticketId": "gt_1", "kind": "change", "body": {"proposal": "x"},
+         "intake": {"id": "ie_3", "verdict": "duplicate", "candidates": []}}])
+    assert "- ZPRÁVA ČLOVĚKA: Hledání. [vstup ie_2 · pending · podobné: ie_1, ie_0]" in text
+    assert 'od pracovníka: {"proposal": "x"} [vstup ie_3 · duplicate]' in text

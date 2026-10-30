@@ -1,7 +1,8 @@
 """Supervisor srdce (docs/brain-heart.md §1, §2): spí, budí se na vstupy a pouští jednu dávku na projekt.
 
 Vlákno (démon) sleduje outbox událostí projektů se zapnutou bránou: čekající lístek `ask` / `change`
-a úkol `failed` přidají vstup s oknem 20 s, zpráva člověka budí hned. První čtení projektu začne na konci outboxu
+a úkol `failed` přidají vstup s oknem 20 s, zpráva člověka budí hned (kromě stejné věty, kterou vstupní brána
+označí `duplicate`, docs/navrhy/2026-10-30-vstupni-brana.md). První čtení projektu začne na konci outboxu
 a dožene čekající lístky a zprávy, které žádná dávka `ok` neviděla (`inputs.backlog`). Dávka běží ve vlastním vlákně, nejvýš
 jedna na projekt a nejvýš 6 automatických za hodinu (zpráva člověka strop obchází, prázdná dávka se nepočítá); vstup, který přijde během
 dávky, počká na další. Vyčerpaný limit
@@ -17,7 +18,14 @@ import threading
 import time
 from collections import deque
 
-from backend.brain_opora.determinism import brain_files, gate_setting, git_log, snapshot, tokens
+from backend.brain_opora.determinism import (
+    brain_files,
+    gate_setting,
+    git_log,
+    intake,
+    snapshot,
+    tokens,
+)
 from backend.brain_opora.heart import batch, command, session
 from backend.brain_opora.heart.inputs import MESSAGE_HOURS, backlog, resolve, wake_input
 from backend.canvas.process_signal import PROCESS_SIGNAL
@@ -91,19 +99,36 @@ class HeartSupervisor:
                 return  # jeden lístek = jeden vstup (dohánění po startu a outbox se mohou potkat)
             items.append((workspace, item, due))
 
-    def message(self, project, workspace, text, now=None, via=None):
-        """Zpráva člověka: nejdřív řádek do `brain/messages.jsonl` (přežije dávku i rotaci relace, §3a), pak vstup
-        splatný hned; vrací počet čekajících vstupů projektu. Selhaný zápis se jen zaloguje, zpráva srdce budí dál.
-        `via` = jméno relace pracovníka, který zprávu předal (relé záměru, docs/brain-heart-orchestrator.md §8)."""
-        now = self.clock() if now is None else now
+    def _intake(self, project, workspace, text, now):
+        """Vstup vstupní brány ke zprávě (docs/navrhy/2026-10-30-vstupni-brana.md §4); chyba = None, zpráva jde dál."""
         try:
-            brain_files.append_message(self.brain(project), _iso(now), workspace, text, via)
+            with self.service.lock_for(project):
+                db = self.service.db_for(project)
+                with db:
+                    return intake.safe_record(db, workspace, "heart_message", None, text, _iso(now))
+        except Exception:  # noqa: BLE001 - vstupní brána nesmí zastavit zprávu člověka
+            LOGGER.exception("Srdce: vstup brány ke zprávě projektu %s nešel zapsat.", project)
+            return None
+
+    def message(self, project, workspace, text, now=None, via=None, *, record_intake=True):
+        """Zpráva člověka: nejdřív vstup brány a řádek do `brain/messages.jsonl` (přežije dávku i rotaci relace, §3a),
+        pak vstup splatný hned; vrací počet čekajících vstupů projektu. Selhaný zápis se jen zaloguje, zpráva srdce
+        budí dál. Stejná věta jako dřívější (`duplicate`) se uloží se značkou a srdce nebudí.
+        `via` = jméno relace pracovníka, který zprávu předal (relé záměru, docs/brain-heart-orchestrator.md §8).
+        `record_intake=False` (odpověď člověka na eskalaci srdce) vstup brány nezapisuje."""
+        now = self.clock() if now is None else now
+        entry = self._intake(project, workspace, text, now) if record_intake else None
+        duplicate = entry["id"] if entry and entry["verdict"] == "duplicate" else None
+        try:
+            brain_files.append_message(self.brain(project), _iso(now), workspace, text, via, duplicate)
         except OSError:
             LOGGER.exception("Srdce: zprávu člověka projektu %s nešlo uložit.", project)
-        self._add(project, workspace, {"type": "message", "text": text}, now)
-        self.wakeup.set()
+        if duplicate is None:
+            item = {"type": "message", "text": text} | ({"intake": intake.line_info(entry)} if entry else {})
+            self._add(project, workspace, item, now)
+            self.wakeup.set()
         with self.lock:
-            return len(self.pending[project])
+            return len(self.pending.get(project, []))
 
     def poll_events(self, now):
         """Nové události projektů se zapnutou bránou → vstupy s oknem `WINDOW`; nový projekt začíná na konci."""

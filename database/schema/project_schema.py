@@ -12,6 +12,7 @@ from database.schema.guard_trend_schema import SCHEMA as GUARD_TREND_SCHEMA
 from database.schema.guard_trend_schema import TABLES as GUARD_TREND_TABLES
 from database.schema.harness_learning_schema import SCHEMA as HARNESS_LEARNING_SCHEMA
 from database.schema.harness_learning_schema import TABLES as HARNESS_LEARNING_TABLES
+from database.schema.intake_schema import SCHEMA as INTAKE_SCHEMA
 from database.schema.journey_run_schema import SCHEMA as JOURNEY_RUN_SCHEMA
 from database.schema.journey_run_schema import TABLES as JOURNEY_RUN_TABLES
 from database.schema.opora_auto_rebase_schema import SCHEMA as AUTO_REBASE_SCHEMA
@@ -309,7 +310,7 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
                    + REVIEW_INSIGHT_SCHEMA + AUTO_REBASE_SCHEMA + EVENT_SCHEMA
                    + DESIGN_PREVIEW_SCHEMA + HARNESS_LEARNING_SCHEMA + JOURNEY_RUN_SCHEMA
                    + STUDIO_MODEL_SCHEMA + GUARD_FINDINGS_SCHEMA + GUARD_TREND_SCHEMA
-                   + GUARD_EXPERIENCE_SCHEMA)
+                   + GUARD_EXPERIENCE_SCHEMA + INTAKE_SCHEMA)
 
 # Brána mozku (docs/brain-gate.md §5, H1b): relace pracovníků a srdce, lístky s odpověďmi a fronta úkolů.
 GATE_TABLES = ("gate_sessions", "gate_tickets", "heart_tasks")

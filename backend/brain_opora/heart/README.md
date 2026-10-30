@@ -10,6 +10,10 @@ Modules (H2a):
   projects with the gate on: a queued `ask` / `change` ticket of a worker (`gate.ticket`, not `from: heart`) and a
   `failed` task (`gate.task`) become inputs with a 20 s batch window; a human message (`message()`) is first
   appended to `brain/messages.jsonl` (`determinism/brain_files.py`, read by the snapshot) and is due at once.
+  Before that it is recorded by the intake gate (`determinism/intake.py`): the same sentence again (`duplicate`) is
+  kept in `messages.jsonl` with `duplicate: ie_…` but never queued, not even by the catch-up after a restart. An input
+  with an intake entry (message, `change` / `ask` ticket via `inputs.resolve`) ends its batch line with
+  `[vstup ie_… · <verdict> · podobné: ie_…]`; a duplicate ticket still wakes the heart.
   At most one batch per project at a time and 6 automatic per hour (a human message skips the cap); a rate-limited batch puts the heart to sleep for 15 min
   and keeps its inputs. It runs only when `OPORA_HEART` is not `off` and `OPORA_CANVAS_HOST` is loopback
   (`tools/opora.py` sets it). Tests set `OPORA_HEART=off` in `backend/conftest.py`.

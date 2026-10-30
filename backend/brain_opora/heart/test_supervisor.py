@@ -206,3 +206,40 @@ def test_restart_catches_up_unanswered_ticket_and_message_without_duplicates(set
     sent = runner.calls[0]
     assert sent.count(f"LÍSTEK {ticket['ticketId']}") == 1 and answered["ticketId"] not in sent.split("VSTUPY")[-1]
     assert "ZPRÁVA ČLOVĚKA: Zpráva před pádem" in sent and "ZPRÁVA ČLOVĚKA: Prastará zpráva" not in sent
+
+
+def change(service, proposal):
+    session = gate.authenticate(service, gate.open_session(
+        service, {"project": "draft", "workspace": "draft", "worker": {"name": "dev"}})["token"])
+    return kinds.run(service, session, {"kind": "change", "body": {"proposal": proposal, "reason": "proto"}})
+
+
+def test_same_human_sentence_is_kept_but_does_not_wake_the_heart(setup):
+    """Vstupní brána (docs/navrhy/2026-10-30-vstupni-brana.md §3): stejná věta člověka = `duplicate`, srdce spí."""
+    service, heart, clock, runner, _ = setup
+    assert heart.message("draft", "draft", "Přidej hybridní vyhledávání.") == 1
+    assert heart.run_once() == ["draft"]
+    first = runner.calls[0].split("VSTUPY TÉTO DÁVKY")[-1]
+    assert "ZPRÁVA ČLOVĚKA: Přidej hybridní vyhledávání. [vstup ie_" in first and " · pending]" in first
+    clock.now += 60
+    assert heart.message("draft", "draft", "přidej HYBRIDNÍ vyhledávání") == 0
+    assert heart.status("draft")["pending"] == 0 and heart.run_once() == [] and len(runner.calls) == 1
+    saved = brain_files.messages(heart.brain("draft"), "draft")
+    assert saved[-1]["text"] == "přidej HYBRIDNÍ vyhledávání" and saved[-1]["duplicate"].startswith("ie_")
+    restarted = supervisor.HeartSupervisor(service, base_url="http://127.0.0.1:9", runner=runner, clock=clock,
+                                           spawn=lambda fn: fn(), find=lambda: "claude", git_spawn=lambda fn: fn())
+    assert restarted.run_once() == [] and len(runner.calls) == 1  # ani dohánění po restartu duplicitu nebudí
+
+
+def test_repeated_change_ticket_still_wakes_with_a_duplicate_mark(setup):
+    """Lístek pracovníka může být oprávněné opakování: srdce se budí, řádek nese jen značku duplicity."""
+    service, heart, clock, runner, _ = setup
+    heart.run_once()
+    first, second = change(service, "Rozdělit kartu hledání."), change(service, "rozdělit kartu hledání")
+    heart.run_once()
+    clock.now += supervisor.WINDOW + 1
+    assert heart.run_once() == ["draft"]
+    sent = runner.calls[-1].split("VSTUPY TÉTO DÁVKY")[-1]
+    assert f"LÍSTEK {first['ticketId']} (change)" in sent and f"LÍSTEK {second['ticketId']} (change)" in sent
+    line = next(row for row in sent.splitlines() if second["ticketId"] in row)
+    assert " · duplicate · podobné: ie_" in line

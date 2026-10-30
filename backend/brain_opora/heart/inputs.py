@@ -2,12 +2,12 @@
 
 `wake_input` převede událost outboxu na vstup: čekající lístek `ask` / `change` pracovníka (ne vlastní
 eskalaci srdce), úkol `failed` a sloučení karty `merge.done` (docs/brain-heart-orchestrator.md §4). `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze (u selhaného úkolu
-zadání i report, aby srdce nové zadání psalo z původního)
-a zahodí ty, které mezitím vyřešil někdo jiný (lístek už zodpovězený). Zpráva člověka projde vždy.
+zadání i report, aby srdce nové zadání psalo z původního), k lístku zkratku vstupu brány (`intake`: ID, stanovisko,
+podobné vstupy) a zahodí ty, které mezitím vyřešil někdo jiný (lístek už zodpovězený). Zpráva člověka projde vždy.
 `backlog` po startu supervisoru dohání to, co outbox už nepřinese (událost vznikla před prvním čtením kurzoru,
 třeba při restartu serveru): čekající lístky a nedávné zprávy člověka, které žádná dávka `ok` ještě neviděla.
 """
-from backend.brain_opora.determinism import brain_files
+from backend.brain_opora.determinism import brain_files, intake
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
 
@@ -31,11 +31,12 @@ def wake_input(event):
     return None
 
 
-def _ticket(store, item):
+def _ticket(store, item, db):
     ticket = store.get(item["ticketId"])
     if ticket is None or ticket["status"] != "queued":
         return None
-    return {**item, "body": ticket["body"]}
+    found = intake.for_source(db, "gate_" + str(item.get("kind")), item["ticketId"])
+    return {**item, "body": ticket["body"]} | ({"intake": found} if found else {})
 
 
 def _task(store, item):
@@ -53,7 +54,7 @@ def resolve(service, project, items):
         tickets, tasks = GateTicketStore(db, project), HeartTaskStore(db, project)
         for item in items:
             kind = item.get("type")
-            value = _ticket(tickets, item) if kind == "ticket" else _task(tasks, item) if kind == "taskFailed" else item
+            value = _ticket(tickets, item, db) if kind == "ticket" else _task(tasks, item) if kind == "taskFailed" else item
             if value is not None:
                 resolved.append(value)
     return resolved
@@ -87,6 +88,8 @@ def backlog(service, project, brain, since):
              for space, ticket in waiting if ticket["ticketId"] not in tickets]
     for entry in brain_files.messages(brain, None, None):
         at, space, text = str(entry.get("at") or ""), entry.get("workspace"), entry["text"]
+        if entry.get("duplicate"):
+            continue  # stejná věta, kterou vstupní brána označila `duplicate`, srdce nebudí
         if at >= since and isinstance(space, str) and messages.get((space, text), "") < at:
             found.append((space, {"type": "message", "text": text}))
     return found

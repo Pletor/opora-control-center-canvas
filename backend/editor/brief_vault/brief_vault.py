@@ -8,11 +8,13 @@ kartě; dítě má jen rodiče (fraktál do libovolné hloubky). `split` hlídá
 Duel o změnu směru a představa rozsahu (`duel-*`, `vision-*`) jsou v `brief_vault_duel` (docs/schranka-duel.md).
 Disciplína (`discipline`: id z docs/schranka-neurony.md §2 | null = dědí) jde s fragmentem do každé další
 revize; kořen ji nese vždy a přeřadí ji jen `set-discipline` (nová revize se stejným textem).
+Nový fragment `brief` / `question` (revize 1) zapíše i vstup vstupní brány (`brain_opora/determinism/intake.py`).
 """
 
 import uuid
 from datetime import UTC, datetime
 
+from backend.brain_opora.determinism import intake
 from backend.canvas.activity_log import require_authority
 from backend.canvas.graph import valid_id
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
@@ -67,6 +69,7 @@ HUMAN_OPS = {"set-mvp": "MVP potvrzuje nebo zamítá jen člověk; agent ho navr
              "restore": "Starou revizi fragmentu obnovuje jen člověk.",
              **develop.HUMAN_OPS, **gates.HUMAN_OPS, **duel.HUMAN_OPS}
 MAX_IDS = 500
+INTAKE_KINDS = ("brief", "question")  # nový fragment těchto druhů = vstup brány (docs/navrhy/2026-10-30-vstupni-brana.md)
 
 
 def _now():
@@ -162,7 +165,10 @@ class _Write:
         data = {"parent_id": parent, "scope_node_id": scope, "ord": max((row["ord"] for row in siblings), default=0) + 1,
                 "kind": kind, "title": title, "text": text, "stage": stage, "mvp": "none", "deleted": 0, "discipline": discipline,
                 "gates": None}
-        return self.insert(uuid.uuid4().hex, 1, data, note)
+        row = self.insert(uuid.uuid4().hex, 1, data, note)
+        if kind in INTAKE_KINDS:  # vstup vstupní brány jen u nového fragmentu, ne u revize; chyba zápis nezastaví
+            intake.safe_record(self.db, self.workspace, "brief_fragment", row["fragment_id"], text or title, self.at)
+        return row
 
 
 def _stage(value):

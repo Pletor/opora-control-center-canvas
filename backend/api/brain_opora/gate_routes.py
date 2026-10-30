@@ -39,7 +39,8 @@ def _wake_heart(service, supervisor, project, ticket):
     if supervisor is None or workspace is None or not gate_setting.is_on(service, project):
         return
     supervisor.message(project, workspace,
-                       f"ODPOVĚĎ ČLOVĚKA na {ticket['ticketId']}: {gate.answer_text(ticket['answer'])}")
+                       f"ODPOVĚĎ ČLOVĚKA na {ticket['ticketId']}: {gate.answer_text(ticket['answer'])}",
+                       record_intake=False)  # odpověď na otázku srdce není nový požadavek pro vstupní bránu
 
 
 def create_gate_router(service, supervisor=None):

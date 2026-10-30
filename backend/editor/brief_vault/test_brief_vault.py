@@ -181,3 +181,18 @@ def test_fragment_read_returns_text_history_children_and_path(vault):
     whole = vault.fragment("draft", "draft", fragment["id"])
     assert [child["title"] for child in whole["children"]][1] == "3.1 Architektura"
     assert "text" not in vault.tree("draft", "draft")["roots"][0]
+
+
+def test_new_brief_and_question_fragments_become_intake_entries_but_revisions_and_research_do_not(vault):
+    """Vstupní brána (docs/navrhy/2026-10-30-vstupni-brana.md §6): jen nový fragment `brief` / `question`."""
+    fragment = root(vault, text="Přidej hybridní vyhledávání.")
+    op(vault, "revise", fragmentId=fragment["id"], expectedRevision=1, text="Přidej vyhledávání.", note="kratší")
+    op(vault, "research", fragmentId=fragment["id"], title="Ověření", text="Změřit bm25.")
+    question = op(vault, "question", fragmentId=fragment["id"], title="Jaký jazyk?")["fragment"]
+    op(vault, "create", scopeNodeId="s1", discipline="be", title="Znovu", text="přidej hybridní VYHLEDÁVÁNÍ")
+    db = vault.canvas.db_for("draft")
+    rows = [tuple(row) for row in db.execute(
+        "SELECT source, source_ref, text, verdict FROM intake_entries ORDER BY created_at, rowid")]
+    assert rows[:2] == [("brief_fragment", fragment["id"], "Přidej hybridní vyhledávání.", "pending"),
+                        ("brief_fragment", question["id"], "Jaký jazyk?", "pending")]
+    assert rows[2][2:] == ("přidej hybridní VYHLEDÁVÁNÍ", "duplicate") and len(rows) == 3
