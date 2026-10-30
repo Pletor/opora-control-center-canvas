@@ -6,6 +6,8 @@ Velín zobrazuje projekt → vrstvu → sektor → kartu jako pilulky seřazené
 plátna jen jména a příslušnost k sektoru. Model `logic/velin-model.ts` (test `velin-model.test.ts`), dílky
 `components/` (rám a filtry, vrstva, pravý sloupec, Teď běží), styl `styles/velin.css`. Nic nezapisuje:
 klik otevře detail karty přes `frontend/hub/oporahub-card-drawer/open.ts`. Zrcadlo pro agenty `script#oh-velin`.
+Rozhodnutí ve frontě nese odznak PR své karty (`decisions[].pr` z tváře karty, dílek `frontend/shared/pr-badge`),
+např. fialové „Sloučeno · PR #N“ u „Uzavřít kartu po merge PR“; titulek pilulky ho uvádí také.
 
 Strážci (`docs/strazci.md` §5): řádek „Strážci ✓ / ⚠ N“ z `GET /api/strazci?project=` (poslední běh, chyba strážce;
 `logic/use-guard-status.ts`, 30 s) a otevřené nálezy z agent-state `guards.findings` (klik → karta), logika

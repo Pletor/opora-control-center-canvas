@@ -34,7 +34,7 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `decisions[]` | Nejvýše 3 rozhodnutí člověka `{id, kind, targetId, title, actionId}` |
 | `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?, command?}`; `command` jen u `ready` akce: hotový řádek `opora_hub.py start --node N` (claim) nebo `opora_hub.py act --action-id ID`, `null` u akce, kterou klient sám neprovádí |
 | `gaps[]` | Známé nenapojené schopnosti `{id, stage, reason}` |
-| `cards[]` | Etapa karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease, lastEventAt}`, nejvýše 100 na stránku, seřazené podle [důležitosti](#strop-a-stránkování-karet) a uvnitř podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)); `lastEventAt` je čas (`at`, ISO) nejnovější události karty v prostoru, `null` bez události |
+| `cards[]` | Etapa karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease, lastEventAt, pr?}`, nejvýše 100 na stránku, seřazené podle [důležitosti](#strop-a-stránkování-karet) a uvnitř podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)); `lastEventAt` je čas (`at`, ISO) nejnovější události karty v prostoru, `null` bez události |
 | `truncated` | `cards[]` neobsahuje všechny karty prostoru (další stránka existuje nebo `cardsOffset > 0`); `actions`, `decisions`, `stages` a `heads` jsou přesto vždy úplné |
 | `cardsTotal` | Počet všech karet (uzel, sektor) prostoru |
 | `cardsNextOffset` | Hodnota `cardsOffset` pro další stránku `cards[]`, `null` na poslední stránce |
@@ -89,6 +89,11 @@ bez aktivního pronájmu) projekce procesu nepočítá, karta je `ready` a dosta
 karta claim ještě nenabízí (např. hodiny čtení předběhnou čtení pronájmu, nebo karta claim nemá z jiného důvodu).
 
 `executionId` je běh, ke kterému etapa patří (u PR běh vazby), jinak `null`.
+
+`pr` je `{number, state}` PR navázaného na kartu (`state` `open` | `merged` | `closed`, `number` je `null`
+u lokálního sloučení bez GitHubu); plátno a Velín z něj kreslí odznak PR v barvách GitHubu. Pole chybí, když
+karta PR nemá, když je karta uzavřená (`done.confirmed`) a u PR zavřeného bez sloučení, které nepatří
+poslednímu běhu karty (nový běh je nový pokus). Bere se stejná vazba jako pro etapu (otevřené PR má přednost).
 
 ### Strop a stránkování karet
 

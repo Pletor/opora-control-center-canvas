@@ -7,7 +7,7 @@ Nothing here writes or guesses a link: no module means no link, never an empty s
 
 Accepted shapes: a list of items or `{"items": [...]}`. Item keys read: `executionId`,
 `state` (`open` | `merged` | `closed`, alias `prState`) and optional `planWrittenBack`,
-`cardId`, `mergeSha` and `awaitingHumanClose` (a merged card a human still has to close).
+`cardId`, `mergeSha`, `number` (PR number, None for a local merge) and `awaitingHumanClose` (a merged card a human still has to close).
 """
 import inspect
 
@@ -31,7 +31,7 @@ def source():
 
 
 def read(canvas, project, workspace):
-    """Normalized `[{executionId, state, planWrittenBack?, cardId?, mergeSha?, awaitingHumanClose?}]`
+    """Normalized `[{executionId, state, planWrittenBack?, cardId?, mergeSha?, number?, awaitingHumanClose?}]`
     or None when not connected."""
     reader = source()
     if reader is None:
@@ -51,6 +51,8 @@ def read(canvas, project, workspace):
         for key in ("cardId", "mergeSha"):
             if isinstance(item.get(key), str):
                 value[key] = item[key]
+        if type(item.get("number")) is int:
+            value["number"] = item["number"]
         if item.get("awaitingHumanClose") is True and isinstance(item.get("cardId"), str):
             value["awaitingHumanClose"] = True
         result.append(value)

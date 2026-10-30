@@ -62,6 +62,18 @@ def card_stage(card, accepted, latest, claim, link, gate, now):
     return _entry(node, "plan", "ok", "card_in_plan")
 
 
+def pull_request(card, link, latest):
+    """`{number, state}` of the card's PR for the badge on the card, or None. A closed card shows none; a PR
+    closed without merge only while it belongs to the card's latest run (a new run is a new attempt).
+    `number` is None for a local merge without GitHub."""
+    if not link or card.get("doneConfirmed"):
+        return None
+    if link["state"] == "closed" and latest and latest["id"] != link["executionId"]:
+        return None
+    number = link.get("number")
+    return {"number": number if type(number) is int else None, "state": link["state"]}
+
+
 def project(cards, accepted, latest, claims, linked, reviewing, now):
     """One entry per card of the workspace, sorted by nodeId; `page` then orders and caps them."""
     runs = {item["nodeId"]: item for item in latest}
@@ -79,7 +91,9 @@ def project(cards, accepted, latest, claims, linked, reviewing, now):
     for node in sorted(cards):
         link = links.get(node)
         gate = gates.get(link["executionId"]) if link else None
-        result.append(card_stage(cards[node], accepted, runs.get(node), offered.get(node), link, gate, now))
+        entry = card_stage(cards[node], accepted, runs.get(node), offered.get(node), link, gate, now)
+        pr = pull_request(cards[node], link, runs.get(node))
+        result.append({**entry, "pr": pr} if pr else entry)
     return result
 
 

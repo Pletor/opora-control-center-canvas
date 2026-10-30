@@ -10,6 +10,13 @@ const face = (extra: Partial<AgentCardStage> = {}, decisions = [] as Parameters<
   cardFace({ nodeId: "a", card: card(extra), sector: false, decisions, nameOf: id => id.toUpperCase() });
 
 describe("tvář karty", () => {
+  it("odznak PR: sloučené na neuzavřené kartě fialové, uzavřená karta bez odznaku", () => {
+    expect(face({ stage: "merge", health: "waiting", reason: "awaiting_human_close", pr: { number: 5, state: "merged" } }).pr)
+      .toEqual({ tone: "merged", label: "Sloučeno · PR #5" });
+    expect(face({ stage: "plan_writeback", reason: "card_closed", pr: { number: 5, state: "merged" } }).pr).toBeNull();
+    expect(face().pr).toBeNull();
+  });
+
   it("blokovaná předchůdcem: čárkovaná, jeden řádek a patička s předchůdci", () => {
     const view = face({ blockedBy: ["b", "c"], steps: { total: 6, done: 0, current: null } });
     expect(view.state).toBe("blocked");

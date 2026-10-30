@@ -53,7 +53,10 @@ export function velinModel(graph: Graph, state: AgentState, filter: VelinFilter 
   const ordered = [...layers.values()].sort((a, b) => LAYER_ORDER.indexOf(a.id) - LAYER_ORDER.indexOf(b.id) || a.label.localeCompare(b.label));
   const byExecution = new Map((state.cards ?? []).filter(card => card.executionId).map(card => [card.executionId!, card.nodeId]));
   const cardOf = (target: string | null) => !target ? null : rows.some(row => row.pill.nodeId === target) ? target : byExecution.get(target) ?? null;
-  const decisions = state.decisions.map(item => ({ ...item, nodeId: cardOf(item.targetId), cardName: cardOf(item.targetId) ? rows.find(row => row.pill.nodeId === cardOf(item.targetId))?.pill.name ?? "" : "" }));
+  const pillOf = (target: string | null) => { const id = cardOf(target); return id ? rows.find(row => row.pill.nodeId === id)?.pill : undefined; };
+  // Položka fronty nese odznak PR své karty (shared/pr-badge), aby člověk viděl, že PR agenta je sloučené.
+  const decisions = state.decisions.map(item => ({ ...item, nodeId: cardOf(item.targetId), cardName: pillOf(item.targetId)?.name ?? "",
+    pr: pillOf(item.targetId)?.face.pr ?? null }));
   const next = state.actions.filter(action => action.status === "ready").slice(0, 5).map(action => ({
     id: action.id, verb: action.verb, label: VERB_LABEL[action.verb] ?? action.verb, nodeId: cardOf(action.targetId),
     cardName: rows.find(row => row.pill.nodeId === cardOf(action.targetId))?.pill.name ?? action.targetId ?? "",
