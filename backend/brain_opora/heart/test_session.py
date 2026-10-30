@@ -33,3 +33,11 @@ def test_corrupt_file_means_no_session(tmp_path):
     assert session.load(tmp_path) == session.EMPTY
     (tmp_path / session.FILE).write_text('{"sessionId": 5}', encoding="utf-8")
     assert session.choose(tmp_path, ids("s9")) == ("s9", False)
+
+
+def test_changed_prompt_starts_a_new_session(tmp_path):
+    session.record(tmp_path, "s1", 5_000, "a" * 64)
+    assert session.choose(tmp_path, ids("s2"), prompt_digest="a" * 64) == ("s1", True)
+    assert session.choose(tmp_path, ids("s3"), prompt_digest="b" * 64) == ("s3", False)  # nová pravidla = nová relace
+    session.record(tmp_path, "s0", 5_000)  # relace z doby před otiskem promptu
+    assert session.choose(tmp_path, ids("s4"), prompt_digest="b" * 64) == ("s4", False)

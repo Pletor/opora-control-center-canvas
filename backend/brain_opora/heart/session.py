@@ -1,7 +1,8 @@
 """Relace srdce a její rotace (docs/brain-heart.md §2): `brain/session.json = {sessionId, batches, lastInputTokens}`.
 
 Další dávka navazuje přes `--resume`. Když vstup poslední dávky přesáhl `ROTATE_AT` tokenů, začne nová relace
-(`--session-id`) s čerstvým snímkem. Poškozený nebo chybějící soubor = žádná relace (začne nová).
+(`--session-id`) s čerstvým snímkem. Novou relaci začne i změněný prompt srdce (`promptDigest`): navázaná relace
+by držela stará pravidla a příkazy z historie. Poškozený nebo chybějící soubor = žádná relace (začne nová).
 """
 import json
 import uuid
@@ -21,14 +22,18 @@ def load(brain):
     if not isinstance(value, dict) or not isinstance(value.get("sessionId"), str):
         return dict(EMPTY)
     batches, tokens = value.get("batches"), value.get("lastInputTokens")
-    return {"sessionId": value["sessionId"], "batches": batches if isinstance(batches, int) else 0,
-            "lastInputTokens": tokens if isinstance(tokens, int) else 0}
+    state = {"sessionId": value["sessionId"], "batches": batches if isinstance(batches, int) else 0,
+             "lastInputTokens": tokens if isinstance(tokens, int) else 0}
+    if isinstance(value.get("promptDigest"), str):
+        state["promptDigest"] = value["promptDigest"]
+    return state
 
 
-def choose(brain, new_id=uuid.uuid4):
-    """`(sessionId, resume)`: navázat na uloženou relaci, nebo po rotaci (či bez relace) začít novou."""
+def choose(brain, new_id=uuid.uuid4, prompt_digest=None):
+    """`(sessionId, resume)`: navázat na uloženou relaci, nebo po rotaci, změně promptu (či bez relace) začít novou."""
     state = load(brain)
-    if state["sessionId"] and state["lastInputTokens"] <= ROTATE_AT:
+    same_prompt = prompt_digest is None or state.get("promptDigest") == prompt_digest
+    if state["sessionId"] and state["lastInputTokens"] <= ROTATE_AT and same_prompt:
         return state["sessionId"], True
     return str(new_id()), False
 
@@ -41,11 +46,13 @@ def input_tokens(usage):
     return sum(value for value in (usage.get(key) for key in keys) if isinstance(value, int))
 
 
-def record(brain, session_id, tokens):
+def record(brain, session_id, tokens, prompt_digest=None):
     """Zapíše dokončenou dávku: stejná relace = `batches + 1`, nová relace začíná na 1."""
     state = load(brain)
     batches = state["batches"] + 1 if state["sessionId"] == session_id else 1
     value = {"sessionId": session_id, "batches": batches, "lastInputTokens": int(tokens)}
+    if prompt_digest:
+        value["promptDigest"] = prompt_digest
     path = Path(brain) / FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
