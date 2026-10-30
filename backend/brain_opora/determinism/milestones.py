@@ -127,7 +127,7 @@ def decide(service, payload):
                       '{"project": "<id>", "workspace": "main", "milestoneId": "ms_…", "action": "activate"}')
     project, workspace, action = payload["project"], payload["workspace"], payload["action"]
     if action not in ACTIONS:
-        raise invalid("action je activate nebo reject.", "Aktivovat nebo zamítnout smí jen člověk.")
+        raise invalid("action je activate nebo reject.", "Aktivovat nebo zamítnout smí člověk, nebo agent při plné autonomii.")
     if not isinstance(project, str) or not service.project_exists(project):
         raise GateError(404, "project_not_found", "Projekt neexistuje.", "ID projektu najdete v GET /api/bootstrap.")
     if not isinstance(workspace, str) or not valid_id(workspace):

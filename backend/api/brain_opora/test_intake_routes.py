@@ -26,7 +26,7 @@ def test_intake_view_reads_entries_and_refuses_unknown_scope(tmp_path):
 
 
 def test_heart_proposes_a_milestone_and_only_a_human_activates_it(tmp_path):
-    """Řez 3 (docs/navrhy/2026-10-30-metriky-a-spoustece.md §5): návrh jen token srdce, rozhodnutí jen člověk,
+    """Řez 3 (docs/navrhy/2026-10-30-metriky-a-spoustece.md §5): návrh jen token srdce, rozhodnutí člověk nebo agent s plnou autonomií,
     pohled „Požadavky a plán“ ukazuje návrh, aktivní milník s kritérii a postup z `done.confirmed`."""
     from backend.brain_opora.determinism import tokens
     from backend.canvas.test_canvas_plan import HEADERS, SCOPE, seed
@@ -57,7 +57,6 @@ def test_heart_proposes_a_milestone_and_only_a_human_activates_it(tmp_path):
         assert [item["id"] for item in view["areas"][0]["proposed"]] == [milestone["id"]]
         decision = {**SCOPE, "milestoneId": milestone["id"], "action": "activate"}
         assert client.post("/api/intake/milestone", headers=agent, json=decision).status_code == 403
-        assert client.post("/api/intake/milestone", headers=heart, json=decision).status_code == 403  # srdce taky ne
         client.cookies.update(ui)  # člověk v UI
         done =client.post("/api/intake/milestone", headers=HEADERS, json=decision)
         assert done.status_code == 200 and done.json() == {"id": milestone["id"], "status": "active", "superseded": None}
@@ -73,3 +72,60 @@ def test_heart_proposes_a_milestone_and_only_a_human_activates_it(tmp_path):
             True, 100, [{"id": "n0", "done": True}])
         text = client.get("/api/brain/heart/snapshot", params=SCOPE).json()["snapshot"]
         assert f"- milník {milestone['id']} „Stará oblast hotová“ splněn – odložené požadavky k otevření: žádné" in text
+
+
+def test_agent_decides_a_milestone_only_with_full_autonomy(tmp_path):
+    """Brána milníku čte oprávnění, ne původce (docs/plna-autonomie-agenta.md §2): agent bez autonomie 403,
+    s plnou autonomií projde."""
+    from backend.canvas.test_canvas_plan import HEADERS, SCOPE, seed
+
+    agent = {**HEADERS, "X-Opora-Actor": "agent; name=dev"}
+    app = create_app(tmp_path)
+    with TestClient(app, base_url=ORIGIN) as client:
+        seed(client)
+        db = app.state.service.db_for("draft")
+        for index in (1, 2, 3, 4):
+            with db:
+                from database.repositories.intake_milestones import IntakeMilestones
+                IntakeMilestones(db).insert({"id": f"ms_{index}", "workspaceId": "draft", "areaId": "a0",
+                                             "title": f"M{index}", "criteria": [{"id": "c1", "text": "x", "cards": ["n0"]}],
+                                             "status": "proposed", "createdAt": "2026-10-30T10:00:00Z"})
+        decision = {**SCOPE, "milestoneId": "ms_1", "action": "activate"}
+        assert client.post("/api/intake/milestone", headers=agent, json=decision).status_code == 403
+        assert client.post("/api/project-settings/agent-autonomy", headers=HEADERS,
+                           json={"project": "draft", "full": True}).status_code == 200
+        done = client.post("/api/intake/milestone", headers=agent, json=decision)
+        assert done.status_code == 200 and done.json()["status"] == "active", done.text
+        rejected = client.post("/api/intake/milestone", headers=agent, json={**decision, "milestoneId": "ms_2", "action": "reject"})
+        assert rejected.status_code == 200 and rejected.json()["status"] == "superseded"
+
+
+def test_heart_token_decides_a_milestone_only_when_project_autonomy_is_on(tmp_path):
+    """Token srdce má oprávnění vždy, ale o milníku rozhodne jen při zapnuté plné autonomii projektu."""
+    from backend.brain_opora.determinism import tokens
+    from backend.canvas.test_canvas_plan import HEADERS, SCOPE, seed
+
+    app = create_app(tmp_path)
+    with TestClient(app, base_url=ORIGIN) as client:
+        seed(client)
+        assert client.post("/api/brain/gate-setting", headers=HEADERS, json={"project": "draft", "enabled": True}
+                           ).status_code == 200
+        db = app.state.service.db_for("draft")
+        from database.repositories.intake_milestones import IntakeMilestones
+        for index in (1, 2):
+            with db:
+                IntakeMilestones(db).insert({"id": f"ms_{index}", "workspaceId": "draft", "areaId": "a0",
+                                             "title": f"M{index}", "criteria": [{"id": "c1", "text": "x", "cards": ["n0"]}],
+                                             "status": "proposed", "createdAt": "2026-10-30T10:00:00Z"})
+        heart = {**HEADERS, tokens.HEADER: tokens.issue_heart(app.state.service, "draft", "draft")[1]}
+        ui = dict(client.cookies)
+        client.cookies.clear()
+        decision = {**SCOPE, "milestoneId": "ms_1", "action": "activate"}
+        refused = client.post("/api/intake/milestone", headers=heart, json=decision)
+        assert refused.status_code == 403 and "Velínu" in refused.text
+        client.cookies.update(ui)
+        assert client.post("/api/project-settings/agent-autonomy", headers=HEADERS,
+                           json={"project": "draft", "full": True}).status_code == 200
+        client.cookies.clear()
+        done = client.post("/api/intake/milestone", headers=heart, json=decision)
+        assert done.status_code == 200 and done.json()["status"] == "active", done.text

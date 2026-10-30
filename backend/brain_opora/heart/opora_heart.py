@@ -12,11 +12,13 @@
     python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new [--title T]
                                  [--open-condition ms_…]]
     python opora_heart.py milestone --area A --title T --criterion "text::nodeId,nodeId" [--criterion …]
+    python opora_heart.py milestone-decide --activate MS_ID | --reject MS_ID
     python opora_heart.py brief --requirement rq_… --synthesis @soubor.json
     python opora_heart.py ask --requirement rq_… --question Q --recommended R --why W
     python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]
     python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py member --area AREA|none --nodes ID,ID… [--dry-run] [--workspace W]
+    python opora_heart.py proposal --accept ID
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
     python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
@@ -44,7 +46,9 @@ z prostředí. Přijatý plán zapíše prostor do `active_workspace.json` v cwd
 pro skripty `rlm.load`), `--node N` plné zadání podstromu uzlu N do `plan-of-<P>-<N>.json`. Zkrácený výstup
 hlásí `truncated` a `cut` (vynechané uzly).
 `member` navrhne členství existujících karet a sektorů v oblasti (`--area none` ho zruší) návrhem grafu
-s `updateNodes` jen pole `memberOf`; návrh čeká na přijetí člověkem v UI, srdce ho samo nepřijme.
+s `updateNodes` jen pole `memberOf`; při `autonomy.full` (agent-state) ho srdce hned samo přijme (`accepted: true`),
+jinak čeká na přijetí člověkem v UI. `proposal --accept ID` přijme návrh grafu akcí `accept` z agent-state
+(úklid; bez autonomie `Rozhodne člověk v UI`). Zamítnutí návrhu server nemá: nahrazený novější návrh zmizí z nabídky sám.
 `brief` uloží syntézu výslechu požadavku (JSON v souboru `@cesta` nebo přímo) a vrátí `status` a co do jasna chybí
 (`missing`); `ask` položí člověku otázku výslechu s doporučenou odpovědí (docs/navrhy/2026-10-30-vyslech-srdce.md §7).
 `research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje.
@@ -317,6 +321,28 @@ def accept_plan():
             "hint": f"Přijetí plánu nedoběhlo za {ACCEPT_ROUNDS} kroků; přijme ho člověk v UI."}
 
 
+def accept_proposal(proposal_id):
+    """Přijme návrh grafu `proposal_id` přesnou akcí `accept` z agent-state (ne cizí návrhy) s jejími preconditions.
+    Bez `autonomy.full` projektu návrh zůstává člověku (`Failure` s hintem)."""
+    state = call("GET", "/api/oporahub/agent-state", query=scope())
+    if not (state.get("autonomy") or {}).get("full"):
+        raise Failure({"error": "Návrh grafu přijímá člověk, projekt nemá plnou autonomii.", "code": "human_only",
+                       "status": 403, "hint": "Rozhodne člověk v UI."})
+    path = f"{GRAPH_PROPOSALS}/{quote(proposal_id, safe='')}/accept"
+    action = next((item for item in state.get("actions", [])
+                   if item.get("verb") == "accept" and item.get("path") == path), None)
+    if action is None or action.get("status") != "ready":
+        raise Failure({"error": f"Agent-state nenabízí přijetí návrhu {proposal_id}.", "code": "proposal_not_offered",
+                       "hint": "Návrh je už přijatý nebo ho nahradil novější; vezmi ID z GET /api/oporahub/graph-proposals."})
+    try:
+        call("POST", action["path"], {**scope(), **(action.get("preconditions") or {})})
+    except Failure as failure:
+        if failure.payload.get("status") in (403, 428):
+            failure.payload["hint"] = "Rozhodne člověk v UI."
+        raise
+    return {"proposalId": proposal_id, "accepted": True}
+
+
 def submit_plan(args, retried=False):
     """`plan`: bez přijatého grafu čerstvý digest z `GET /api/view`, pak `POST /api/canvas-plan` a přijetí
     (`accept_plan`); s přijatým grafem přírůstek přes návrh grafu (`submit_addition`). Zastaralý stav zkusí ještě
@@ -571,8 +597,15 @@ def submit_member(args):
     proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
                                               "expectedGraphDigest": context["graphDigest"],
                                               "subject": subject, "plan": plan})
-    return {**out, "proposalId": proposal["id"], "accepted": False,
-            "hint": "Návrh členství čeká na přijetí člověkem v UI (změny grafu)."}
+    out = {**out, "proposalId": proposal["id"]}
+    state = call("GET", "/api/oporahub/agent-state", query=scope())
+    if (state.get("autonomy") or {}).get("full"):  # plná autonomie: srdce přijme jen svůj vlastní návrh
+        try:
+            return {**out, **accept_proposal(proposal["id"])}
+        except Failure as failure:
+            return {**out, "accepted": False, "code": failure.payload.get("code"), "error": failure.payload.get("error"),
+                    "hint": "Přijetí návrhu členství selhalo; přijme ho člověk v UI."}
+    return {**out, "accepted": False, "hint": "Návrh členství čeká na přijetí člověkem v UI (změny grafu)."}
 
 
 def remove(args, context, plan, subject, out, command):
@@ -794,6 +827,8 @@ def run(args):
         return submit_prune(args)
     if args.command == "member":
         return submit_member(args)
+    if args.command == "proposal":
+        return accept_proposal(args.accept)
     if args.command == "task":
         task = call("POST", "/api/brain/tasks", task_payload(args))
         return {key: task[key] for key in ("taskId", "title", "status", "order")}
@@ -814,6 +849,14 @@ def run(args):
     if args.command == "milestone":
         body = {**scope(), "area": args.area, "title": args.title, "criteria": criteria(args.criterion)}
         return call("POST", "/api/brain/heart/milestone", body)
+    if args.command == "milestone-decide":
+        action, milestone_id = ("activate", args.activate) if args.activate else ("reject", args.reject)
+        try:
+            return call("POST", "/api/intake/milestone", {**scope(), "milestoneId": milestone_id, "action": action})
+        except Failure as failure:
+            if failure.payload.get("status") in (403, 428):  # bez plné autonomie rozhoduje člověk
+                failure.payload["hint"] = "Rozhodne člověk ve Velínu."
+            raise
     if args.command == "brief":
         body = {**scope(), "requirement": args.requirement, "synthesis": read_synthesis(args.synthesis)}
         return call("POST", "/api/brain/heart/brief", body)
@@ -868,6 +911,8 @@ def parser():
     member.add_argument("--nodes", required=True, help="id1,id2,… karet a sektorů")
     member.add_argument("--dry-run", action="store_true")
     member.add_argument("--workspace")
+    proposal = commands.add_parser("proposal")  # přijetí návrhu grafu z agent-state, jen při plné autonomii
+    proposal.add_argument("--accept", required=True, metavar="ID")
     space = commands.add_parser("workspace")
     space.add_argument("--domain", required=True)
     space.add_argument("--reuse", action="store_true")
@@ -888,6 +933,10 @@ def parser():
     milestone.add_argument("--area", required=True)
     milestone.add_argument("--title", required=True)
     milestone.add_argument("--criterion", action="append", required=True, help='"text::nodeId,nodeId"')
+    decision = commands.add_parser("milestone-decide")  # rozhodnutí o návrhu milníku, jen při plné autonomii
+    choice = decision.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--activate", metavar="MILESTONE_ID")
+    choice.add_argument("--reject", metavar="MILESTONE_ID")
     brief = commands.add_parser("brief")  # syntéza výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §7)
     brief.add_argument("--requirement", required=True)
     brief.add_argument("--synthesis", required=True, help="@cesta k JSON souboru, nebo JSON")
