@@ -232,14 +232,17 @@ class AgentState:
                               {"id": "dec_" + action["id"][4:], "kind": kind, "targetId": target,
                                "title": title, "actionId": action["id"]}))
 
-        if accepted is None and context["documents"]:
+        # Read-only prostor (čistý `main` git projektu nese jen architekturu, docs/brain-heart-orchestrator.md §9):
+        # výchozí zadání ani graf plánu se v něm nepřijímají (baselines a graph-proposals ho odmítnou 409), nenabízet.
+        writable = not context.get("readOnly")
+        if writable and accepted is None and context["documents"]:
             action = _action("accept_baseline", "POST", "/api/oporahub/baselines", None, context["specificationsVersion"],
                              {"expectedAcceptedHead": None, "expectedGraphDigest": graph,
                               "expectedSpecificationsVersion": context["specificationsVersion"],
                               "subject": BASELINE_SUBJECT}, "human_only")
             actions.append(action)
             decide("accept_baseline", None, "Přijmout výchozí zadání", action)
-        if needs_graph and not any(item["kind"] == "graph-addition" for item in pending):
+        if writable and needs_graph and not any(item["kind"] == "graph-addition" for item in pending):
             # Běh v2 potřebuje přijatý graf plánu; prázdný návrh převezme pracovní graf i zadání karet (docs/oporahub-agent-state.md).
             actions.append(_action("propose_graph", "POST", "/api/oporahub/graph-proposals", None, accepted or graph,
                                    {"parentRevision": accepted, "expectedGraphDigest": graph, "subject": GRAPH_SUBJECT,

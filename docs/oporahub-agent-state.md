@@ -50,7 +50,7 @@ Pravidla platí v uvedeném pořadí; konstanty jsou v `opora_agent_state_rules.
 
 | Etapa | Pravidlo |
 |---|---|
-| `plan` | Žádná karta → `waiting/empty_plan`; bez přijatého základu → `blocking/no_accepted_baseline`; pracovní zadání se liší → `waiting/working_differs_from_accepted`; jinak `ok` |
+| `plan` | Žádná karta → `waiting/empty_plan`; read-only prostor (čistý `main` git projektu, jen architektura) → `ok/read_only_architecture` a žádné `accept_baseline` ani `propose_graph`; bez přijatého základu → `blocking/no_accepted_baseline`; pracovní zadání se liší → `waiting/working_differs_from_accepted`; jinak `ok` |
 | `proposal` | Se zapnutým [automatickým rebase](oporahub-auto-rebase.md): otevřený konflikt → `waiting/auto_rebase_conflicts`; zastaralý návrh, který smyčka nevyřídila (ne redundantní, bez vyřešeného konfliktu) → `waiting/stale_proposals`. S `OPORA_AUTO_REBASE=0`: nepřijatý a nenahrazený návrh s jiným rodičem než přijatou hlavou → `waiting/stale_proposals` |
 | `acceptance` | Chybějící základ → `waiting/baseline_awaiting_human`; čerstvý návrh starší než `ACCEPTANCE_WAIT_SECONDS` (24 h) → `waiting/acceptance_overdue`; mladší → `ok/awaiting_human_within_window` |
 | `claim` | Počítá karty `ready`; vyčerpané pokusy nebo opravy → `blocking/budget_exhausted` |

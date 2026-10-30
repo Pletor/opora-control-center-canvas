@@ -44,6 +44,8 @@ def plan_stage(context):
     count = len(context["documents"])
     if count == 0:
         return stage("plan", 0, "waiting", "empty_plan")
+    if context.get("readOnly"):  # čistý main git projektu: jen architektura, nic se v něm nepřijímá
+        return stage("plan", count, "ok", "read_only_architecture")
     if context["acceptedHead"] is None:
         return stage("plan", count, "blocking", "no_accepted_baseline")
     if context["workingDiffers"]:
@@ -58,7 +60,7 @@ def proposal_stage(pending):
 
 
 def acceptance_stage(context, fresh, now):
-    if context["acceptedHead"] is None and context["documents"]:
+    if context["acceptedHead"] is None and context["documents"] and not context.get("readOnly"):
         return stage("acceptance", len(fresh) + 1, "waiting", "baseline_awaiting_human")
     if any(now - item["createdAt"] > ACCEPTANCE_WAIT_SECONDS for item in fresh):
         return stage("acceptance", len(fresh), "waiting", "acceptance_overdue")

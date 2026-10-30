@@ -152,8 +152,14 @@ vázaný na doménu (`POST /api/workspaces`, `require_domain`).
   (id, doména, větev, karty volné/běží/hotové).
 - `GET /api/brain/heart/status` vrací `activeWorkspace` = prostor posledního přijatého plánu. Kancelář v režimu
   srdce jde za ním (nepřipnul-li člověk jiný).
-- `ctx plan-of --project P [--workspace W]`: plán jiného projektu (karty, kroky, cíle) jako data do dílny, např.
-  převod plánu lokální Ample do Ample git.
+- `ctx plan-of --project P [--workspace W] [--node N]`: plán jiného projektu jako data do dílny, např. převod plánu
+  lokální Ample do Ample git. Výchozí je **celý plán zhuštěně** (na uzel `id, kind, name, path` (jména předků),
+  `parent, sector, architecture, site?`, `purpose`/`goal`/`acceptance` do 200 znaků, `steps` = titulky, `next`), takže
+  se 150–300 karet vejde pod strop 300 kB; `--node N` dá plné zadání podstromu uzlu N (text do 2 000 znaků, kroky
+  s kritérii a `dependsOn`). Nad stropem poslední položka `{truncated, total, shown, cut: [{id, name}], hint}`
+  jmenuje každý vynechaný uzel a nástroj vypíše `truncated` a `cut`. Soubory dílny mají jednu položku na řádek
+  (Grep a `Read` po řádcích). Prompt srdce má část „Převod plánu“: oblast po oblasti plán ↔ kód, mezery → karty
+  v prostoru domény, oblast bez mezery s důkazem (rozhodnutí 2026-10-30 po prvním běhu, níže §11).
 
 **Zjištěno testem proti skutečné aplikaci** (`backend/api/brain_opora/test_heart_workspace.py`, git projekt
 z `managed_fixture`, brána zapnutá, token srdce prostoru `main`):
@@ -161,7 +167,7 @@ z `managed_fixture`, brána zapnutá, token srdce prostoru `main`):
 | Otázka | Skutečnost |
 |---|---|
 | `plan` architektury v `main` | `POST /api/canvas-plan` projde (`_check_main`: jen dávka, která mění čistě architekturu, tj. uzly se `site` a jejich předky, a nepíše stav Desktop v3). Karta v `main` → 409 „Čistý main je pouze pro čtení…“; nástroj k tomu dá `hint` s `workspace --domain` a `plan --workspace`. |
-| přijetí v `main` | Nejde a není potřeba: agent-state `main` sice nabídne `propose_graph`, ale `POST /api/oporahub/graph-proposals` vrátí 409 „Graph additions require a writable workspace.“ Architektura leží jednou pro projekt (`ARCHITECTURE_WID`) a do prostorů se skládá. Nástroj v `main` přijetí vynechá; výstup `architecture: true` bez `accepted`. |
+| přijetí v `main` | Nejde a není potřeba: agent-state read-only `main` od 2026-10-30 nenabízí `accept_baseline` ani `propose_graph` (etapa `plan` = `ok/read_only_architecture`); dřív je nabízel, ale `POST /api/oporahub/graph-proposals` vrátí 409 „Graph additions require a writable workspace.“ Architektura leží jednou pro projekt (`ARCHITECTURE_WID`) a do prostorů se skládá. Nástroj v `main` přijetí vynechá; výstup `architecture: true` bez `accepted`. |
 | vedlejší účinek změny architektury | Prostor s už přijatým plánem má po změně architektury v `main` `workingDiffers: true`, agent-state mu nenabízí žádný krok a **žádnou kartu nejde převzít**. Řešení bez nové routy: návrh změn grafu `POST /api/oporahub/graph-proposals {parentRevision, expectedGraphDigest, subject, plan: {adoptArchitectureContext: true}}` a `POST …/{id}/accept {…, adoptBaseGraphDigest: null, reviewedChangesId: id}` tokenem srdce (stejná volba jako v UI úprav plánu). Nástroj to dělá sám: po ostrém plánu architektury ve všech prostorech s `architectureContext.differs` (`adopted`), a před plánem v prostoru, jehož architektura se pohnula mimo nástroj (`acceptSteps: ["adopt_architecture", "accept", …]`). |
 | `POST /api/workspaces {project, nodeId, actor}` | Routa (`backend/api/project/project_workspace_routes.py`) nevolá `require_authority`; v projektu se zapnutou bránou ji zeď pustí jen člověku a tokenu srdce (`Verdict(heart=True)`), pracovník bez tokenu dostane 403 `gate_required`. Oprávnění se **neměnilo**. Uzel, který není doménou (`require_domain`), vrátí 409 „Worktree musí patřit doméně…“. Seznam prostorů s doménou (`node_id`) a větví je v `GET /api/view?project&workspace=main` → `workspaces`; `GET /api/project-workspaces` dává jen popisky. |
 | karty v prostoru | `plan --workspace W`: první plán = `canvas-plan` + `propose_graph` + `accept`, další plán = přírůstek návrhem grafu (O2c); claim karty je `ready`. Token srdce je vydaný pro `main`, ale zeď ho posuzuje podle projektu, takže platí ve všech prostorech projektu. Výjimka: `ctx` a `escalate` dál kontrolují prostor relace, proto `--workspace` nemají (u `ctx plan-of` je `--workspace` prostor cizího plánu). |
@@ -189,3 +195,11 @@ vzdušné zámky, nic navíc, žádné slepé uličky). Není to dogma, je to v�
    z něj ověřuje, co funguje, co zlepšit a kudy dál.
 
 Komunikace srdce ↔ kancelář musí být bezchybná: měří se volání, zamítnutí, čas a cena (sonda O1).
+
+## 11. První ostrý běh převodu plánu (2026-10-30)
+
+Ample git, záměr „převeď funkční části plánu lokální Ample“: 43 tahů, 1,6 M vstupních tokenů, 0 karet, souhrn „MVP RAG
+už je v kódu“. Příčiny: `ctx plan-of` dal 300 kB na jednom řádku a 5 uzlů uřízl (srdce ho nepřečetlo, ~19 tahů grepovalo
+výpis a psalo zhušťovací skripty; `tree.json` na jednom řádku stál dalších 10 tahů); o „hotovém MVP“ rozhodl jeden Grep
+na názvy tříd bez porovnání `acceptance`; další fáze odložilo podle „až se sloučí“. Opravy: zhuštěný celý plán +
+`--node`, položka na řádek, část „Převod plánu“ v promptu, agent-state v read-only `main` bez nabídky přijetí.

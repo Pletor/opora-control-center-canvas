@@ -8,6 +8,7 @@ from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas.canvas_service import CanvasService
 from backend.canvas.opora_agent_state import AgentState
 from backend.canvas.opora_agent_state_rules import ACCEPTANCE_WAIT_SECONDS, STAGES
+from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_execution_results import ExecutionResults
 from backend.canvas.test_opora_changesets import SCOPE, accept, baseline, legacy_save, propose
 from backend.canvas.test_opora_changesets import service as service  # noqa: PLC0414
@@ -82,6 +83,18 @@ def test_missing_baseline_blocks_plan_and_is_a_human_only_decision(service):
     assert action["preconditions"]["expectedGraphDigest"] == document["heads"]["graphDigest"]
     assert document["decisions"][0]["kind"] == "accept_baseline"
     assert document["decisions"][0]["actionId"] == action["id"]
+
+
+def test_read_only_main_offers_no_baseline_or_graph_acceptance(service, monkeypatch):
+    """Čistý main git projektu (jen architektura): baselines i graph-proposals ho odmítnou 409, agent-state je nenabízí."""
+    legacy_save(service)
+    real = OporaChangesets._context
+    monkeypatch.setattr(OporaChangesets, "_context", lambda self, pid, wid: {**real(self, pid, wid), "readOnly": True})
+    document = read(service)
+    assert not verbs(document, "accept_baseline") and not verbs(document, "propose_graph")
+    assert document["decisions"] == []
+    assert stage(document, "plan")["health"] == "ok" and stage(document, "plan")["reason"] == "read_only_architecture"
+    assert stage(document, "acceptance")["reason"] == "nothing_to_accept"
 
 
 def test_accept_is_human_only_and_overdue_proposal_waits(planned, service):
