@@ -13,14 +13,15 @@
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
     python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
-    python opora_heart.py ctx plan-of --project P [--workspace W]
+    python opora_heart.py ctx plan-of --project P [--workspace W] [--node N]
     python opora_heart.py run SCRIPT [ARG…]
     python opora_heart.py research --question Q --title T [--target URL|cesta]… [--layer L]… [--fragment F] [--deep]
     python opora_heart.py duel --subject F --a TEXT --b TEXT
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
-Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` a vypíše jen cestu, počet a velikost;
+Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` (jedna položka na řádek, ať jde číst
+po řádcích a Grep vrací položky) a vypíše jen cestu, počet a velikost;
 `run` spustí `dilna/scripts/<SCRIPT>.py` (`python -I`, cwd `dilna/`, 120 s) bez tokenu srdce a klíčů API
 ve vlastní skupině procesů (po vypršení zemře celý strom i s pod-voláními `claude`) a zapíše řádek do `dilna/runs.jsonl`.
 `plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem
@@ -31,7 +32,9 @@ se v něm nepřijímá; ostrý plán architektury ještě převezme změnu archi
 (`adoptArchitectureContext`), jinak by jejich karty nešly převzít. `workspace --domain` založí (s `--reuse` nejdřív
 hledá) pracovní prostor = git worktree vázaný na doménu; `--workspace W` u `plan`, `task`, `decide` přepíše prostor
 z prostředí. Přijatý plán zapíše prostor do `active_workspace.json` v cwd (`activeWorkspace` ve stavu srdce).
-`ctx plan-of --project P [--workspace W]` zapíše plán jiného projektu do `dilna/data/plan-of-<P>.json`.
+`ctx plan-of --project P [--workspace W]` zapíše celý plán jiného projektu zhuštěně do `dilna/data/plan-of-<P>.json`
+(cíl, přijetí, titulky kroků); `--node N` plné zadání podstromu uzlu N do `plan-of-<P>-<N>.json`. Zkrácený výstup
+hlásí `truncated` a `cut` (vynechané uzly).
 `research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje.
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -426,22 +429,33 @@ def submit_addition(args, plan, context):
     return {**out, "accepted": True, "acceptSteps": [*adopted, "graph_addition", "accept"]}
 
 
-def load_context(name, of=None, of_workspace=None):
-    """`ctx <name>`: data z OPORY do `dilna/data/<name>.json`; vrací jen cestu, počet položek a velikost.
-    `plan-of` čte plán projektu `of` (prostor `of_workspace`, jinak main git / draft lokálního) do `plan-of-<of>.json`."""
+def load_context(name, of=None, of_workspace=None, of_node=None):
+    """`ctx <name>`: data z OPORY do `dilna/data/<name>.json` (JSON pole, jedna položka na řádek); vrací jen cestu,
+    počet položek a velikost. `plan-of` čte plán projektu `of` (prostor `of_workspace`, jinak main git / draft
+    lokálního) zhuštěně do `plan-of-<of>.json`, s `of_node` plné zadání podstromu do `plan-of-<of>-<node>.json`;
+    zkrácený plán přidá do výstupu `truncated` a `cut` (ID vynechaných uzlů)."""
     query = {**scope(), "name": name}
     if name == "plan-of":
-        if not of or not SCRIPT.match(of):
-            raise Failure({"error": "ctx plan-of potřebuje --project <id>.", "code": "plan_of_project",
-                           "hint": "ID projektu je v GET /api/bootstrap; prostor volitelně --workspace <id>."})
-        query.update({"of": of, **({"ofWorkspace": of_workspace} if of_workspace else {})})
-        name = f"plan-of-{of}"
+        if not of or not SCRIPT.match(of) or (of_node and not SCRIPT.match(of_node)):
+            raise Failure({"error": "ctx plan-of potřebuje --project <id> (a platné --node <id>).",
+                           "code": "plan_of_project",
+                           "hint": "ID projektu je v GET /api/bootstrap; prostor volitelně --workspace <id>, "
+                                   "podstrom --node <id uzlu> ze zhuštěného plánu."})
+        query.update({"of": of, **({"ofWorkspace": of_workspace} if of_workspace else {}),
+                      **({"ofNode": of_node} if of_node else {})})
+        name = f"plan-of-{of}" + (f"-{of_node}" if of_node else "")
     items = call("GET", "/api/brain/heart/context", query=query)["items"]
     path = DILNA / "data" / f"{name}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    raw = json.dumps(items, ensure_ascii=False).encode("utf-8")
+    rows = ",\n".join(json.dumps(item, ensure_ascii=False) for item in items)
+    raw = (f"[\n{rows}\n]\n" if items else "[]\n").encode("utf-8")
     path.write_bytes(raw)
-    return {"path": path.as_posix(), "items": len(items), "bytes": len(raw)}
+    out = {"path": path.as_posix(), "items": len(items), "bytes": len(raw)}
+    last = items[-1] if items and isinstance(items[-1], dict) else {}
+    if last.get("truncated"):
+        out.update({"items": len(items) - 1, "truncated": True, "total": last.get("total"),
+                    "cut": [node.get("id") for node in last.get("cut") or []]})
+    return out
 
 
 def _cut(text, limit):
@@ -573,7 +587,7 @@ def run(args):
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
     _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide") else None
     if args.command == "ctx":
-        return load_context(args.name, args.project, args.workspace)
+        return load_context(args.name, args.project, args.workspace, args.node)
     if args.command == "workspace":
         return open_workspace(args.domain, args.reuse, args.name)
     if args.command == "run":
@@ -648,6 +662,7 @@ def parser():
     ctx.add_argument("name", choices=CONTEXTS)
     ctx.add_argument("--project")  # jen plan-of: projekt, jehož plán číst
     ctx.add_argument("--workspace")  # jen plan-of: jeho prostor
+    ctx.add_argument("--node")  # jen plan-of: plné zadání podstromu uzlu
     script = commands.add_parser("run")
     script.add_argument("script")
     script.add_argument("script_args", nargs=argparse.REMAINDER)

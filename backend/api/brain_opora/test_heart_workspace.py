@@ -158,8 +158,13 @@ def test_ctx_plan_of_dumps_another_workspace_plan_into_the_workshop(heart):
     done = tool("ctx", "plan-of", "--project", pid, "--workspace", wid)
     assert done["path"] == f"dilna/data/plan-of-{pid}.json" and done["items"] == 4
     items = {item["id"]: item for item in json.loads((brain / done["path"]).read_text(encoding="utf-8"))}
-    assert items[hero]["spec"]["goal"] == "[task] Úvodní blok funguje." and items[hero]["spec"]["steps"][0]["id"] == "s1"
+    assert items[hero]["goal"] == "[task] Úvodní blok funguje." and items[hero]["acceptance"] == "npm test projde"
+    assert items[hero]["steps"] == [step["title"] for step in STEP] and items[hero]["path"].endswith(" › " + items[web]["name"])
     assert items[hero]["parent"] == web and items[hero]["sector"] == web and items[hero]["architecture"] is False
+    full = tool("ctx", "plan-of", "--project", pid, "--workspace", wid, "--node", hero)
+    assert full["path"] == f"dilna/data/plan-of-{pid}-{hero}.json" and full["items"] == 1
+    detail = json.loads((brain / full["path"]).read_text(encoding="utf-8"))[0]
+    assert detail["spec"]["steps"][0]["id"] == "s1" and detail["spec"]["steps"][0]["acceptance"]
     assert items[web]["architecture"] is True and items[web]["site"] == {"kind": "application"}
     main = tool("ctx", "plan-of", "--project", pid)  # git projekt bez --workspace = main: jen architektura
     assert main["items"] == 3

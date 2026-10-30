@@ -197,6 +197,7 @@ def test_ctx_writes_the_data_file_and_prints_only_its_size(server, capsys, tmp_p
     raw = (tmp_path / "dilna" / "data" / "tasks.json").read_bytes()
     assert code == 0 and json.loads(out) == {"path": "dilna/data/tasks.json", "items": 2, "bytes": len(raw)}
     assert "ht_1" not in out and json.loads(raw)[1] == {"taskId": "ht_2", "t": "č"}
+    assert raw.decode("utf-8").splitlines()[1] == '{"taskId": "ht_1"},'  # položka na řádek: Grep a Read po řádcích
     call = Handler.calls[0]
     assert call["path"] == "/api/brain/heart/context" and call["headers"]["X-Opora-Gate-Token"] == "tok-heart"
     assert call["query"] == {"project": ["p1"], "workspace": ["main"], "name": ["tasks"]}
@@ -413,8 +414,20 @@ def test_workspace_override_is_per_call_and_ctx_plan_of_reads_another_project(se
     assert code == 0 and json.loads(out)["path"] == "dilna/data/plan-of-p2.json"
     assert Handler.calls[-1]["query"] == {"project": ["p1"], "workspace": ["main"], "name": ["plan-of"],
                                           "of": ["p2"], "ofWorkspace": ["w9"]}
+    code, out = run(capsys, "ctx", "plan-of", "--project", "p2", "--node", "n7")
+    assert code == 0 and json.loads(out)["path"] == "dilna/data/plan-of-p2-n7.json"
+    assert Handler.calls[-1]["query"]["ofNode"] == ["n7"]
     code, out = run(capsys, "ctx", "plan-of")
     assert code == 1 and json.loads(out)["code"] == "plan_of_project"
+
+
+def test_ctx_plan_of_reports_which_nodes_were_cut(server, capsys, tmp_path, monkeypatch):
+    marker = {"truncated": True, "total": 3, "shown": 1, "cut": [{"id": "b", "name": "B"}, {"id": "c", "name": "C"}],
+              "hint": "…"}
+    monkeypatch.setattr(opora_heart, "call", lambda *args, **kwargs: {"items": [{"id": "a"}, marker]})
+    code, out = run(capsys, "ctx", "plan-of", "--project", "p2")
+    assert code == 0 and json.loads(out) == {"path": "dilna/data/plan-of-p2.json", "items": 1, "truncated": True,
+                                             "total": 3, "cut": ["b", "c"], "bytes": json.loads(out)["bytes"]}
 
 
 def test_accepted_plan_remembers_its_workspace(server, capsys, tmp_path):

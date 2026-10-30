@@ -5,7 +5,8 @@ pracovního prostoru), `journal` (celý deník dávek), `messages` (zprávy člo
 (paměť Desktop v3) a `tree` (soubory zdroje `{path, size, mtime}` bez `node_modules`, `.git` a výstupu buildu,
 nejvýš `TREE_CAP`). Nástroj srdce je zapíše do `brain/dilna/data/<name>.json`; do okna modelu nejdou.
 `plan-of` (docs/brain-heart-orchestrator.md §9 O7) je plán jiného projektu (uzly plátna se zadáním a vazbami) jako data,
-např. k převodu plánu lokální Ample do Ample git; strop `PLAN_OF_BYTES`.
+např. k převodu plánu lokální Ample do Ample git: výchozí je celý plán zhuštěně (`PLAN_OF_SHORT` znaků na text, kroky jen
+titulky), `node` dá plné zadání jednoho podstromu; strop `PLAN_OF_BYTES` a co se nevešlo, jmenuje poslední položka.
 """
 import json
 import os
@@ -24,6 +25,7 @@ NAMES = ("tasks", "tickets", "journal", "messages", "rules", "decisions", "tree"
 ROWS = 10_000  # strop řádků z databáze; dílna je pro velký kontext, ne pro nekonečný
 TREE_CAP = 20_000
 PLAN_OF_BYTES, PLAN_OF_TEXT, PLAN_OF_STEPS = 300_000, 2000, 30  # plán jiného projektu: celý JSON, text pole, kroky
+PLAN_OF_SHORT = 200  # zhuštěný plán: purpose, goal, acceptance a titulek kroku
 SKIP = {"node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".svelte-kit", ".turbo", ".cache",
         "coverage", "__pycache__", ".venv", "venv", ".pytest_cache", ".mypy_cache", "target"}
 
@@ -79,16 +81,26 @@ def _source(service, project, workspace):
         return None
 
 
-def _clip(value):
+def _clip(value, limit=PLAN_OF_TEXT):
     text = value if isinstance(value, str) else ""
-    return text if len(text) <= PLAN_OF_TEXT else text[:PLAN_OF_TEXT] + "…"
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _steps(fields):
+    return [step for step in (fields.get("steps") or []) if isinstance(step, dict)]
 
 
 def _spec(fields):
     steps = [{key: step.get(key) for key in ("id", "order", "title", "acceptance", "dependsOn") if key in step}
-             for step in (fields.get("steps") or []) if isinstance(step, dict)][:PLAN_OF_STEPS]
+             for step in _steps(fields)][:PLAN_OF_STEPS]
     return {"goal": _clip(fields.get("goal")), "non_goals": _clip(fields.get("non_goals")),
             "acceptance": _clip(fields.get("acceptance")), "steps": steps}
+
+
+def _brief(fields):
+    """Zhuštěné zadání: cíl a přijetí do `PLAN_OF_SHORT` znaků, kroky jen titulky (všechny)."""
+    return {"goal": _clip(fields.get("goal"), PLAN_OF_SHORT), "acceptance": _clip(fields.get("acceptance"), PLAN_OF_SHORT),
+            "steps": [_clip(step.get("title"), PLAN_OF_SHORT) for step in _steps(fields)]}
 
 
 def _home(service, project):
@@ -100,10 +112,14 @@ def _home(service, project):
     return "main" if kind == "git" else "draft"
 
 
-def plan_of(service, project, workspace=None):
-    """Plán projektu `project` jako data: uzly plátna `{id, kind, name, purpose, parent, sector, architecture, site?,
-    spec{goal, non_goals, acceptance, steps}, next[]}` v pořadí grafu, nejvýš `PLAN_OF_BYTES` JSONu (poslední položka
-    `{truncated: true, total}` řekne, že zbytek chybí). Neznámý projekt nebo prostor je 404."""
+def plan_of(service, project, workspace=None, node=None):
+    """Plán projektu `project` jako data v pořadí grafu.
+
+    Výchozí je celý plán zhuštěně, ať se vejde i 150–300 karet: `{id, kind, name, path (jména předků › …), parent,
+    sector, architecture, site?, purpose, goal, acceptance (do `PLAN_OF_SHORT` znaků), steps [titulky], next[]}`.
+    `node` dá plné zadání jen toho uzlu a jeho podstromu: `{…, purpose, spec{goal, non_goals, acceptance, steps[{id,
+    order, title, acceptance, dependsOn}]}}`. Nad `PLAN_OF_BYTES` JSONu je poslední položka `{truncated: true, total,
+    shown, cut: [{id, name}], hint}` a jmenuje každý vynechaný uzel. Neznámý projekt, prostor nebo uzel je 404."""
     if not service.project_exists(project):
         raise GateError(404, "project_not_found", "Projekt neexistuje.", "ID projektu najdete v GET /api/bootstrap.")
     workspace = workspace or _home(service, project)
@@ -112,40 +128,65 @@ def plan_of(service, project, workspace=None):
     except (ValueError, KeyError) as error:
         raise GateError(404, "workspace_not_found", f"Plán prostoru {workspace!r} nejde přečíst: {error}",
                         "Prostory projektu: GET /api/project-workspaces?project=<id>.") from None
-    nodes = {node["id"]: node for node in graph["nodes"]}
-    owned = {node["id"] for node in split(graph)[0]["nodes"]}
+    nodes = {item["id"]: item for item in graph["nodes"]}
+    owned = {item["id"] for item in split(graph)[0]["nodes"]}
     after = {}
     for edge in graph["edges"]:
         after.setdefault(edge.get("source"), []).append(edge.get("target"))
 
-    def sector(node):
-        parent = nodes.get(node.get("parentId"))
-        while parent is not None and parent.get("kind") != "sector":
+    def ancestors(item):
+        found, parent = [], nodes.get(item.get("parentId"))
+        while parent is not None and len(found) < len(nodes):
+            found.append(parent)
             parent = nodes.get(parent.get("parentId"))
-        return parent["id"] if parent else None
+        return found
 
-    items, size = [], 2
+    def sector(item):
+        return next((parent["id"] for parent in ancestors(item) if parent.get("kind") == "sector"), None)
+
+    chosen = graph["nodes"]
+    if node is not None:
+        if node not in nodes:
+            raise GateError(404, "node_not_found", f"Uzel {node!r} v plánu prostoru {workspace!r} není.",
+                            "ID uzlů má zhuštěný plán: ctx plan-of --project <id> (pole id).")
+        chosen = [item for item in graph["nodes"]
+                  if item["id"] == node or any(parent["id"] == node for parent in ancestors(item))]
+
+    def entry(item, fields):
+        base = {"id": item["id"], "kind": item.get("kind"), "name": item.get("name") or "",
+                "path": " › ".join(parent.get("name") or "" for parent in reversed(ancestors(item))),
+                "parent": item.get("parentId"), "sector": sector(item), "architecture": item["id"] in owned}
+        if isinstance(item.get("site"), dict):
+            base["site"] = {key: item["site"][key] for key in ("kind", "path") if key in item["site"]}
+        if node is None:
+            base.update({"purpose": _clip(item.get("purpose"), PLAN_OF_SHORT), **_brief(fields)})
+        else:
+            base.update({"purpose": _clip(item.get("purpose")), "spec": _spec(fields)})
+        base["next"] = after.get(item["id"], [])
+        return base
+
+    items, cut, size = [], [], 2
     with service.reading(project):
-        for node in graph["nodes"]:
-            wid = ARCHITECTURE_WID if node["id"] in owned else workspace
-            item = {"id": node["id"], "kind": node.get("kind"), "name": node.get("name") or "",
-                    "purpose": _clip(node.get("purpose")), "parent": node.get("parentId"), "sector": sector(node),
-                    "architecture": node["id"] in owned,
-                    "spec": _spec(service.specs.read((project, wid, node["id"]))["fields"]),
-                    "next": after.get(node["id"], [])}
-            if isinstance(node.get("site"), dict):
-                item["site"] = {key: node["site"][key] for key in ("kind", "path") if key in node["site"]}
-            size += len(json.dumps(item, ensure_ascii=False).encode("utf-8")) + 1
+        for item in chosen:
+            if cut:
+                cut.append({"id": item["id"], "name": item.get("name") or ""})
+                continue
+            wid = ARCHITECTURE_WID if item["id"] in owned else workspace
+            row = entry(item, service.specs.read((project, wid, item["id"]))["fields"])
+            size += len(json.dumps(row, ensure_ascii=False).encode("utf-8")) + 1
             if size > PLAN_OF_BYTES:
-                items.append({"truncated": True, "total": len(graph["nodes"]), "shown": len(items)})
-                break
-            items.append(item)
+                cut.append({"id": item["id"], "name": item.get("name") or ""})
+                continue
+            items.append(row)
+    if cut:
+        items.append({"truncated": True, "total": len(chosen), "shown": len(items), "cut": cut,
+                      "hint": "Vynechané uzly přečti po podstromech: ctx plan-of --project <id> --node <id>."})
     return items
 
 
-def context(service, project, workspace, name, of=None, of_workspace=None):
+def context(service, project, workspace, name, of=None, of_workspace=None, of_node=None):
     """Položky jednoho druhu dílny. Neznámý druh 422 `invalid_payload`, neznámý projekt 404.
-    `plan-of` čte projekt `of` (a jeho prostor `of_workspace`), ne projekt srdce."""
+    `plan-of` čte projekt `of` (a jeho prostor `of_workspace`, podstrom `of_node`), ne projekt srdce."""
     if name not in NAMES:
         raise invalid(f"Neznámý druh kontextu {name!r}.", "Druhy: " + ", ".join(NAMES) + ".")
     if not service.project_exists(project):
@@ -153,7 +194,7 @@ def context(service, project, workspace, name, of=None, of_workspace=None):
     if name == "plan-of":
         if not isinstance(of, str) or not of:
             raise invalid("plan-of potřebuje projekt (?of=<id>).", "python opora_heart.py ctx plan-of --project <id>.")
-        return plan_of(service, of, of_workspace or None)
+        return plan_of(service, of, of_workspace or None, of_node or None)
     if name in ("tasks", "tickets"):
         return _rows(service, project, workspace, name)
     if name in ("rules", "decisions"):

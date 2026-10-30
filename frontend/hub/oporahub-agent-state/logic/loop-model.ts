@@ -29,6 +29,7 @@ const META: Record<StageId, { label: string; unit: string; actor: Actor; target:
 export const reasonText: Record<string, string> = {
   empty_plan: "Plán zatím nemá karty.", no_accepted_baseline: "Chybí přijatý základ plánu.",
   working_differs_from_accepted: "Pracovní verze se liší od přijaté.", accepted_plan_current: "Pracovní verze odpovídá přijaté.",
+  read_only_architecture: "Main nese jen architekturu; karty a přijetí jsou v pracovním prostoru.",
   stale_proposals: "Některé návrhy stojí na starém základu.", proposals_current: "Návrhy stojí na aktuální hlavě.",
   no_pending_proposals: "Žádné otevřené návrhy.", baseline_awaiting_human: "Základ čeká na přijetí člověkem.",
   acceptance_overdue: "Návrh čeká déle než 24 h.", awaiting_human_within_window: "Čeká na člověka v limitu 24 h.",
