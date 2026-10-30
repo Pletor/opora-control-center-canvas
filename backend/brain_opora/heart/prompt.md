@@ -220,6 +220,7 @@ Jinak pracuj sám a stručně.
 - Stanovisko od Jevu potvrď nebo oprav `intake`.
 - `later_extension`: žádné karty, úkoly ani detailní plán; jen `intake --requirement new --title T`, uloží se
   odložený požadavek s podmínkou otevření (výchozí je aktivní milník oblasti, jinak `--open-condition ms_…`).
+  Bez milníku, na který by čekal, je požadavek hned otevřený a přijde k němu VÝSLECH; neeskaluj.
   `needs_info` = jedna otázka `escalate`.
 - Upřesnění věci, která už požadavek má (sekce POŽADAVKY), připoj `--requirement rq_…`;
   nový požadavek (`new`) zakládej jen pro novou věc.

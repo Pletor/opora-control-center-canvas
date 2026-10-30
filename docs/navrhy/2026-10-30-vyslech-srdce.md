@@ -156,3 +156,9 @@ Krátký výslech karty (`VÝSLECH (krátký): karta …`) má doplnit kroky kar
 - `heart_scope` se nerozšiřuje. Hlídá jen návrhy grafu (`graph-proposals`); zadání karty jde jinou routou, kterou smí navrhovat každý agent a přijímá ji `require_authority`.
 - Tvar kroku ověřuje server (`validate_steps`). Pravidlo realizační karty, které server nemá (2–8 kroků, každý s `kind` a neprázdnými `files`), kontroluje příkaz. Chybějící `id`, `order` a `dependsOn` doplní lineárně (s1 → s2 → …).
 - Karta musí mít přijaté zadání (`steps_not_accepted`), protože návrh zadání se vztahuje k přijaté revizi. Kroky nové karty patří dál do `plan`.
+
+### Ověření na Ample (řez 4, 2026-10-30)
+
+- Nový požadavek („měřit kvalitu odpovědí: přesnost citací, latence, cena“) bez oblasti s aktivním milníkem neměl
+  kam jít: `later_extension` bez podmínky otevření skončil chybou a srdce eskalovalo. Oprava: rozšíření bez milníku,
+  na který by čekalo, je požadavek `open` (`determinism/requirements.py`), takže spustí výslech (`opened`).

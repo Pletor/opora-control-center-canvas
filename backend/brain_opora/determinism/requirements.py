@@ -2,7 +2,8 @@
 
 Srdce při potvrzení stanoviska (`opora_heart.py intake … --requirement rq_…|new`) vstup naváže na požadavek:
 - `new` založí požadavek v oblasti vstupu. U `later_extension` je `deferred` s podmínkou otevření
-  (`--open-condition`, jinak aktivní milník oblasti); jinak `open` a patří k aktivnímu milníku oblasti.
+  (`--open-condition`, jinak aktivní milník oblasti; bez obojího `open`, není na co čekat); jinak `open` a patří
+  k aktivnímu milníku oblasti.
 - existující `rq_…` vstup jen připojí (víc vstupů = jeden požadavek, žádné duplicitní zadání).
 Odložený požadavek otevře srdce, až spouštěč `milestone.done` ukáže splněný milník; tady se stav nepřepíná.
 """
@@ -56,12 +57,12 @@ def attach(db, entry, verdict, requirement, title, open_condition, now):
     if not later and open_condition is not None:
         raise invalid("openCondition patří jen k later_extension (odložený požadavek).", HINT)
     condition = (open_condition.strip() if open_condition else active["id"] if active else None) if later else None
-    if later and condition is None:
-        raise invalid("Odložený požadavek potřebuje podmínku otevření a oblast vstupu nemá aktivní milník.",
-                      "Přidejte --open-condition ms_… (ID milníku, po jehož splnění se požadavek otevře).")
+    # Rozšíření bez milníku, na který by čekalo (oblast bez aktivního milníku, bez --open-condition), je nová práce
+    # hned: požadavek je `open` a spustí výslech srdce (docs/navrhy/2026-10-30-vyslech-srdce.md §10).
+    deferred = later and condition is not None
     created = {"id": "rq_" + uuid.uuid4().hex, "workspaceId": workspace, "areaId": area,
                "milestoneId": None if later or active is None else active["id"], "title": title.strip(),
-               "status": "deferred" if later else "open", "openCondition": condition, "createdAt": now}
+               "status": "deferred" if deferred else "open", "openCondition": condition, "createdAt": now}
     store.insert(created)
     IntakeEntries(db).set_requirement(entry["id"], created["id"], created["milestoneId"])
     return created["id"]
