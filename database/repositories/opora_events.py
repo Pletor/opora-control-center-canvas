@@ -94,3 +94,10 @@ def last_event_at(db, project, workspace):
                       " WHERE project_id=? AND workspace_id=? AND node_id IS NOT NULL GROUP BY node_id)",
                       (project, workspace)).fetchall()
     return {row[0]: row[1] for row in rows}
+
+
+def last_step_at(db, project, workspace):
+    """`{nodeId: at}` nejnovější události kroku (`step.*`) každé karty prostoru; spouštěč `card.stalled`."""
+    rows = db.execute("SELECT node_id, MAX(at) FROM opora_events WHERE project_id=? AND workspace_id=?"
+                      " AND node_id IS NOT NULL AND kind LIKE 'step.%' GROUP BY node_id", (project, workspace)).fetchall()
+    return {row[0]: row[1] for row in rows}

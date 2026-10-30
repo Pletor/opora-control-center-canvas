@@ -9,8 +9,11 @@ třeba při restartu serveru): čekající lístky a nedávné zprávy člověka
 `milestone_wakes` je deterministický vstup bez vlastní události outboxu (spouštěč `milestone.done`,
 docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): supervisor ho spočítá po události `card.closed` a při prvním
 čtení projektu; splněný aktivní milník budí srdce jednou (`heart_triggers`) s odloženými požadavky k otevření.
+Stejnou cestou jdou spouštěče karet (`card_wakes`, `determinism/triggers.py`: too_big, retry, stalled,
+over_budget) po událostech běhu a plánu (`TRIGGER_EVENTS`) a ruční změna plánu (`human_changes`: `changeset.accepted`,
+jejíž revizi přijal člověk).
 """
-from backend.brain_opora.determinism import brain_files, intake, milestones
+from backend.brain_opora.determinism import brain_files, intake, milestones, triggers
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
 
@@ -46,6 +49,39 @@ def milestone_wakes(service, project, workspaces, at):
         db = service.db_for(project)
         with db:
             return milestones.wakes(db, project, workspaces, at)
+
+
+# Události, po kterých se může změnit štítek, stav karty nebo počet selhání (release se hlásí jen `stage.changed`).
+TRIGGER_EVENTS = ("changeset.accepted", "lease.claimed", "lease.expired", "result.reported", "stage.changed",
+                  "card.reopened")
+
+
+def trigger_workspaces(events):
+    """Prostory, ve kterých se po `events` vyplatí znovu vyhodnotit spouštěče karet."""
+    return {event.get("workspaceId") for event in events if event.get("kind") in TRIGGER_EVENTS}
+
+
+def card_wakes(service, project, workspaces, at, now):
+    """`[(prostor, vstup cardTrigger)]` spouštěčů karet, kterým srdce ještě nebudilo (`workspaces` None = prostory
+    s přijatým plánem); značky zapíše v jedné transakci."""
+    return triggers.wakes(service, project, workspaces, at, now)
+
+
+def human_changes(service, project, events, at):
+    """`[(prostor, vstup humanChange)]` za přijetí plánu člověkem (`changeset.accepted`), jednou na revizi."""
+    accepted = [(event["workspaceId"], (event.get("data") or {}).get("acceptedHead")) for event in events
+                if event.get("kind") == "changeset.accepted"]
+    if not accepted:
+        return []
+    found = []
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            for workspace, revision in accepted:
+                item = triggers.human_change(db, project, workspace, revision, at) if revision else None
+                if item is not None:
+                    found.append((workspace, item))
+    return found
 
 
 def _ticket(store, item, db):

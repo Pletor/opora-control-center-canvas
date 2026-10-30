@@ -48,6 +48,15 @@ def test_message_renders_a_reached_milestone_with_deferred_requirements():
             in text)
     assert "- MILNÍK SPLNĚN ms_2 „Import“ (oblast a2): odložené požadavky k otevření: žádné" in text
 
+
+def test_message_renders_card_triggers_and_a_human_change_in_one_short_line():
+    text = batch.message("S", [{"type": "cardTrigger", "kind": "card.retry", "nodeId": "n1", "title": "Přihlášení",
+                                "detail": "2× selhal, doporučeno effort high"},
+                               {"type": "humanChange", "kind": "graph.human_change", "revision": 7, "revisionId": "r7",
+                                "subject": "Plán"}])
+    assert "- SPOUŠTĚČ card.retry · n1 „Přihlášení“: 2× selhal, doporučeno effort high" in text
+    assert "- SPOUŠTĚČ graph.human_change: člověk změnil plán (revize 7)" in text
+
 def clock(*values):
     items = iter(values)
     return lambda: next(items)

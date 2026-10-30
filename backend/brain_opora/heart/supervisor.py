@@ -33,9 +33,12 @@ from backend.brain_opora.heart import batch, command, session
 from backend.brain_opora.heart.inputs import (
     MESSAGE_HOURS,
     backlog,
+    card_wakes,
     closed_workspaces,
+    human_changes,
     milestone_wakes,
     resolve,
+    trigger_workspaces,
     wake_input,
 )
 from backend.canvas.process_signal import PROCESS_SIGNAL
@@ -51,6 +54,8 @@ GIT_POLL = 300.0  # hlídač gitu: jak často čte HEAD zdrojů (a synchronizuje
 SYNC_WAIT, SYNC_STEP = 180.0, 1.0  # čekání na úlohu synchronizace (fetch má sám strop 120 s)
 COMMITS = 20  # nejvýš řádků „sha7 titulek“ ve vstupu `commits`
 HOME = {"git": "main", "local": "draft"}  # pracovní prostor, jehož zdroj hlídač čte vždy
+CARD_GAP = 60.0  # spouštěče karet po událostech nejvýš jednou za minutu na projekt
+CARD_POLL = 600.0  # a bez událostí jednou za 10 min (zaseknutý běh žádnou událost nepošle)
 
 
 def enabled(environ=None):
@@ -79,6 +84,7 @@ class HeartSupervisor:
         self.lock, self.stop, self.wakeup, self.thread = threading.Lock(), threading.Event(), threading.Event(), None
         self.pending, self.running, self.starts, self.cursors, self.tokens, self.errors = {}, set(), {}, {}, {}, {}
         self.sleeping_until, self.generation, self.polled_at = 0.0, None, float("-inf")
+        self.card_at, self.card_dirty = {}, {}  # spouštěče karet: poslední vyhodnocení a prostory k vyhodnocení
 
     def start(self):
         if not enabled() or self.thread or self.stop.is_set():
@@ -161,6 +167,7 @@ class HeartSupervisor:
                     cursor = chunk[-1]["id"]
             if cursor is None:
                 self._milestones(project, None, now)  # první čtení: milník mohl dozrát, když supervisor nečetl
+                self._cards(project, set(), now)
                 continue
             for event in events:
                 self.cursors[project] = event["id"]
@@ -170,6 +177,41 @@ class HeartSupervisor:
             closed = closed_workspaces(events)
             if closed:
                 self._milestones(project, closed, now)
+            self._human_changes(project, events, now)
+            self._cards(project, trigger_workspaces(events), now)
+
+    def _human_changes(self, project, events, now):
+        """Spouštěč `graph.human_change`: člověk přijal návrh plánu → srdce jednou na revizi, s oknem `WINDOW`."""
+        try:
+            found = human_changes(self.service, project, events, _iso(now))
+        except Exception:  # noqa: BLE001 - spouštěč nesmí shodit čtení outboxu
+            LOGGER.exception("Srdce: spouštěč ruční změny plánu projektu %s selhal.", project)
+            return
+        for workspace, item in found:
+            self._add(project, workspace, item, now + WINDOW)
+
+    def _cards(self, project, workspaces, now):
+        """Spouštěče karet (docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): prostory s událostí běhu nebo plánu
+        nejvýš jednou za `CARD_GAP`, všechny prostory s přijatým plánem při prvním čtení a jednou za `CARD_POLL`.
+        Jednou na stav (`heart_triggers`), s oknem `WINDOW`. Chyba se jen zaloguje."""
+        dirty = self.card_dirty.setdefault(project, set())
+        dirty.update(space for space in workspaces if isinstance(space, str))
+        last = self.card_at.get(project, float("-inf"))
+        if now - last >= CARD_POLL:
+            spaces = None
+        elif dirty and now - last >= CARD_GAP:
+            spaces = set(dirty)
+        else:
+            return
+        self.card_at[project] = now
+        dirty.clear()
+        try:
+            found = card_wakes(self.service, project, spaces, _iso(now), now)
+        except Exception:  # noqa: BLE001 - spouštěč nesmí shodit čtení outboxu
+            LOGGER.exception("Srdce: spouštěče karet projektu %s selhaly.", project)
+            return
+        for workspace, item in found:
+            self._add(project, workspace, item, now + WINDOW)
 
     def _milestones(self, project, workspaces, now):
         """Spouštěč `milestone.done` (docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): splněný aktivní milník budí

@@ -21,6 +21,12 @@ Modules (H2a):
   `card.closed` event (and on the first read of a project) `inputs.milestone_wakes` adds a `milestoneDone` input
   (20 s window) for each met active milestone not woken yet (`heart_triggers`); the batch line is
   `- MILNÍK SPLNĚN ms_… „…“ (oblast …): odložené požadavky k otevření: rq_… „…“`.
+  Card triggers (`determinism/triggers.py`) go the same way: `inputs.card_wakes` runs on the first read, after run
+  or plan events (`inputs.TRIGGER_EVENTS`) at most once per `CARD_GAP` (60 s) per project, and every `CARD_POLL`
+  (10 min, a stalled run sends no event); line `- SPOUŠTĚČ card.retry · <id> „…“: 2× selhal, doporučeno effort high`.
+  `inputs.human_changes` turns a human acceptance of a plan (`changeset.accepted`) into `humanChange`, once per
+  revision: `- SPOUŠTĚČ graph.human_change: člověk změnil plán (revize N)`. The prompt's section `Spouštěče` says
+  what to do with each kind.
   At most one batch per project at a time and 6 automatic per hour (a human message skips the cap); a rate-limited batch puts the heart to sleep for 15 min
   and keeps its inputs. It runs only when `OPORA_HEART` is not `off` and `OPORA_CANVAS_HOST` is loopback
   (`tools/opora.py` sets it). Tests set `OPORA_HEART=off` in `backend/conftest.py`.
