@@ -63,9 +63,10 @@ def _last(found, last):
 
 
 def messages(brain, workspace, last=5):
-    """Posledních `last` zpráv člověka v pracovním prostoru (nejnovější poslední); `None` = všechny."""
+    """Posledních `last` zpráv člověka v pracovním prostoru (nejnovější poslední); `None` = všechny.
+    `workspace` None = zprávy všech prostorů (dohánění po startu supervisoru)."""
     found = [entry for entry in _entries(Path(brain) / MESSAGES)
-             if entry.get("workspace") == workspace and isinstance(entry.get("text"), str)]
+             if workspace in (None, entry.get("workspace")) and isinstance(entry.get("text"), str)]
     return _last(found, last)
 
 

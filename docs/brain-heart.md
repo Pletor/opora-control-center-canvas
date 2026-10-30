@@ -22,6 +22,9 @@ The last two are O3 of `docs/brain-heart-orchestrator.md` §4; they count toward
 In H2a the supervisor wakes on **all** of these. JEV filtering is H3. The supervisor runs only while OPORA runs on
 loopback and only for projects with `settings.brain.gate = true`. It never runs two batches of one project at once.
 A wake that arrives during a batch is queued and becomes the next batch.
+The first read of a project starts at the end of the outbox, so events from before it (server restart, ticket sent
+before the first pass, gate just switched on) are caught up instead: worker tickets still `queued` and human messages
+of the last 24 h that no `ok` batch had among its inputs wake the heart at once (`heart/inputs.py` `backlog`).
 
 ## 2. One batch = one process
 

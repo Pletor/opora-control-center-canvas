@@ -67,6 +67,17 @@ class GateTicketStore:
             " AND status='queued' ORDER BY seq LIMIT ?", (self.project, workspace, limit)).fetchall()
         return [public(row) for row in rows]
 
+    def waiting_for_heart(self, kinds, limit):
+        """`[(workspace, lístek)]` čekajících lístků `kinds` ze všech prostorů, které nezaložilo srdce (jeho vlastní
+        eskalace srdce nebudí), od nejstaršího. Supervisor je po startu dohání (docs/brain-heart.md §1)."""
+        marks = ",".join("?" * len(kinds))
+        rows = self.db.execute(
+            "SELECT " + ",".join("t." + column for column in COLUMNS) + " FROM gate_tickets t"
+            " LEFT JOIN gate_sessions s ON s.id=t.session_id WHERE t.project_id=? AND t.status='queued'"
+            f" AND t.kind IN ({marks}) AND COALESCE(s.role, '')<>'heart' ORDER BY t.seq LIMIT ?",
+            (self.project, *kinds, limit)).fetchall()
+        return [(dict(zip(COLUMNS, tuple(row)))["workspace_id"], public(row)) for row in rows]
+
     def all(self, workspace, limit):
         """Všechny lístky pracovního prostoru od nejstaršího (data dílny srdce, `ctx tickets`)."""
         rows = self.db.execute(
