@@ -72,8 +72,7 @@ def test_bad_requirement_options_are_refused_and_nothing_is_written(service):
     with db:
         IntakeRequirements(db).insert({"id": "rq_main", "workspaceId": "main", "title": "Cizí", "status": "open",
                                        "createdAt": "t"})
-    cases = ((plain, "later_extension", {"requirement": "new", "title": "X"}, "invalid_payload"),  # bez podmínky
-             (plain, "done", {"requirement": "new"}, "invalid_payload"),  # chybí název
+    cases = ((plain, "done", {"requirement": "new"}, "invalid_payload"),  # chybí název
              (plain, "done", {"requirement": "new", "title": "X", "open_condition": "ms_1"}, "invalid_payload"),
              (plain, "done", {"requirement": "rq_1", "title": "X"}, "invalid_payload"),
              (plain, "done", {"title": "X"}, "invalid_payload"),
@@ -86,3 +85,11 @@ def test_bad_requirement_options_are_refused_and_nothing_is_written(service):
         assert caught.value.code == code, options
     assert IntakeRequirements(db).list("draft") == []
     assert IntakeEntries(db).get(plain)["verdict"] == "pending"  # odmítnutí vrátí i stanovisko
+
+
+def test_extension_without_a_milestone_to_wait_for_is_open_new_work(service):
+    """Vstup bez oblasti (ani aktivní milník, ani --open-condition): požadavek je hned `open`, ne chyba."""
+    first = entry(service, "Chci měřit kvalitu odpovědí.", area=None)
+    rq = confirm(service, first, "later_extension", requirement="new", title="Měření kvality")["requirementId"]
+    assert {key: stored(service, rq)[key] for key in ("status", "openCondition", "milestoneId")} == {
+        "status": "open", "openCondition": None, "milestoneId": None}
