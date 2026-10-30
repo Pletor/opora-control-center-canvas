@@ -23,8 +23,9 @@ def _node(node, nodes):
     if (node.get("card") or {}).get("layer"):
         result["layer"] = node["card"]["layer"]
     # Technology, states and the realized page section describe what to build (architektura-pro-agenty §3.3);
-    # absent keys stay absent so the digest of a card without them does not change.
-    for key in ("tech", "states", "section"):
+    # `effort` is the heart's difficulty of the card that the office turns into worker model/effort
+    # (brain-heart-orchestrator §12). Absent keys stay absent so the digest of a card without them does not change.
+    for key in ("tech", "states", "section", "effort"):
         if key in (node.get("card") or {}):
             result[key] = node["card"][key]
     area = area_of(node, nodes)

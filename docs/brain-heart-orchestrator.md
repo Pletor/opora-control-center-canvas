@@ -203,3 +203,30 @@ už je v kódu“. Příčiny: `ctx plan-of` dal 300 kB na jednom řádku a 5 uz
 výpis a psalo zhušťovací skripty; `tree.json` na jednom řádku stál dalších 10 tahů); o „hotovém MVP“ rozhodl jeden Grep
 na názvy tříd bez porovnání `acceptance`; další fáze odložilo podle „až se sloučí“. Opravy: zhuštěný celý plán +
 `--node`, položka na řádek, část „Převod plánu“ v promptu, agent-state v read-only `main` bez nabídky přijetí.
+
+## 12. O10 – Model a úsilí dělníka podle karty (rozhodnutí 2026-10-30)
+
+Dělník kanceláře dnes běží na výchozím modelu účtu (Opus 5.5) i na jednoduchou kartu. Podle dokumentace Claude Code
+(`code.claude.com/docs/en/model-config`, `/advisor`) je levnější Sonnet jako vykonavatel a Opus jen jako poradce v klíčových
+chvílích (volba přístupu, opakovaná chyba, před hlášením hotovo).
+
+- **Srdce určí náročnost karty** volitelným polem `card.effort` v plánu: `low` | `medium` | `high` | `max` (OPORA zná i `xhigh`).
+  Bez pole platí `medium`. Srdce ho volí podle práce, ne podle velikosti textu: `low` = mechanická změna jednoho souboru
+  (přejmenování, konstanta, doc); `medium` = běžná karta s jasným rozsahem a testem; `high` = oprava chyby v existujícím
+  kódu, migrace, bezpečnost, souběh, víc modulů; `max` = výjimečně těžké (návrh, který nejde rozdělit na menší karty).
+  `card.effort` jde do zadání (assignment) v `specification.node.card.effort`; karty bez něj mají zadání beze změny.
+  Pozdější plány přes `graph-proposals` nesou karty bez `card`, takže jedou na výchozí `medium`.
+- **Kancelář spouští dělníka podle náročnosti** (`claude --model … --effort … [--advisor opus]`):
+
+  | `card.effort` | model | úsilí | poradce |
+  |---|---|---|---|
+  | `low` | `sonnet` | `low` | – |
+  | `medium` (výchozí) | `sonnet` | `medium` | `opus` |
+  | `high` | `sonnet` | `high` | `opus` |
+  | `xhigh` | `sonnet` | `xhigh` | `opus` |
+  | `max` | `opus` | `high` | – |
+
+  Model nebo úsilí zvolené člověkem pro konkrétního dělníka má přednost. Recenzent (review) jede na `sonnet` / `medium`.
+  Globální `CLAUDE_CODE_EFFORT_LEVEL` se nenastavuje (přebil by `--effort`). Poradce je experimentální; když v relaci
+  není k dispozici, dělník jede bez něj.
+- **Měří se** cena karty před a po (sonda O1, deník kanceláře): cíl je nižší cena při stejném podílu sloučených karet.

@@ -46,12 +46,12 @@ opravou nebo výzkumem. Kartu uzavírá člověk.
 Tvar dávky (celý kontrakt `docs/davka-planu.md` §3; tentýž vzor vypíše `plan --example`). Uzel má jen tato pole:
 `ref` (a-z, 0-9, -), `kind` (`sector` = skupina, `node` = karta), `parent` (`ref` z dávky, `"@<id>"` existujícího
 uzlu, nebo `null`), `name` (`[task] …`), `purpose`, `card` {`layer` frontend|backend|database|library, `status`
-`ready`}, `spec` {`goal`, `non_goals`, `acceptance` (text), `steps`}, `checks`. Vazba `next` = pořadí karet.
+`ready`, `effort` low|medium|high|max}, `spec` {`goal`, `non_goals`, `acceptance` (text), `steps`}, `checks`. Vazba `next` = pořadí karet.
 ```json
 {"nodes": [
  {"ref": "mvp", "kind": "sector", "parent": null, "name": "MVP seznam úkolů", "purpose": "První použitelná verze aplikace."},
  {"ref": "model", "kind": "node", "parent": "mvp", "name": "[task] Třída SeznamUkolu", "purpose": "Úkoly v paměti: přidat, smazat, vypsat.",
-  "card": {"layer": "backend", "status": "ready"},
+  "card": {"layer": "backend", "status": "ready", "effort": "medium"},
   "spec": {"goal": "ukoly.py má třídu SeznamUkolu s metodami pridat, smazat a seznam.", "non_goals": "Příkazovou řádku řeší karta CLI.",
    "acceptance": "python -m unittest projde", "steps": [{"id": "s1", "order": 1, "title": "Třída a její testy", "dependsOn": [],
    "acceptance": ["test_ukoly.py pokrývá pridat, smazat i seznam"]}]},
@@ -64,6 +64,10 @@ uzlu, nebo `null`), `name` (`[task] …`), `purpose`, `card` {`layer` frontend|b
   "checks": [{"id": "unit", "command": "python -m unittest"}]}
 ], "edges": [{"from": "model", "to": "cli", "port": "next"}]}
 ```
+Náročnost karty (`card.effort`, nepovinné, bez pole platí `medium`) volíš podle práce, ne podle délky textu: `low` =
+mechanická změna jednoho souboru (přejmenování, konstanta, doc); `medium` = běžná karta s jasným rozsahem a testem;
+`high` = oprava chyby v existujícím kódu, migrace, bezpečnost, souběh, víc modulů; `max` jen výjimečně, když návrh nejde
+rozdělit na menší karty. Podle toho kancelář vybere model a úsilí dělníka.
 Odmítnutá dávka vrátí v `hint` text serveru: oprav jen to pole. Ostrý `plan` plán sám přijme (`accepted: true`, karty
 jdou orchestrátorovi); `accepted: false` s `hint` znamená, že přijetí zůstalo na člověku: neopakuj dávku.
 Další plán nad už přijatým grafem jde jako návrh grafu: jen pole ze vzoru (bez `card` a `checks`), vazby jen
