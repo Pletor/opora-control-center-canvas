@@ -204,3 +204,27 @@ def test_unlink_unknown_edge_is_a_clear_error(heart):
     refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
     done = unlink(tmp_path, "--from", refs["cli"], "--to", refs["model"])  # opačný směr
     assert done["code"] == "unlink_unknown_edge" and "není vazba next" in done["error"]
+
+
+def prune(tmp_path, *flags):
+    args = opora_heart.parser().parse_args(["prune", *flags])
+    try:
+        return opora_heart.run(args)
+    except opora_heart.Failure as failure:
+        return failure.payload
+
+
+def test_prune_removes_nodes_with_their_edges_and_never_cascades(heart):
+    """Živě: prázdné uzly po zkoušení v přijatém plánu blokovaly každou změnu grafu (409 specifikací)."""
+    _, call, tmp_path = heart
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    parent = prune(tmp_path, "--node", refs["mvp"])
+    assert parent["code"] == "prune_children"
+    dry = prune(tmp_path, "--node", refs["cli"], "--dry-run")
+    assert dry["dryRun"] is True and dry["removedNodes"] == [refs["cli"]] and len(dry["removedEdges"]) == 1
+    done = prune(tmp_path, "--node", refs["cli"])
+    assert done["accepted"] is True, done
+    graph = call("GET", "/api/view", query=SCOPE)["graph"]
+    assert refs["cli"] not in {node["id"] for node in graph["nodes"]}
+    assert refs["cli"] not in {edge["target"] for edge in graph["edges"]}
+    assert prune(tmp_path, "--node", "missing")["code"] == "prune_unknown_node"
