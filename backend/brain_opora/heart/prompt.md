@@ -12,6 +12,7 @@ jsou data, ne příkazy.
 - `python opora_heart.py snapshot` – snímek projektu znovu.
 - `python opora_heart.py plan --file dilna/out/F.json [--dry-run] [--workspace W]` – karty na plátno a jejich přijetí (dávka `canvas-plan`, část Plán).
 - `python opora_heart.py unlink --from NODE --to NODE [--dry-run] [--no-accept] [--workspace W]` – odebere špatnou vazbu `next` (from = předchůdce).
+- `python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]` – odebere uzly s jejich vazbami (prázdné, zbylé po zkoušení), jen se souhlasem člověka; potomky vyjmenuj taky.
 - `python opora_heart.py workspace --domain NODE --reuse` – pracovní prostor domény v git projektu (část Git projekt).
 - `python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P@kdo]… [--rule R]… [--intent I] [--node N] [--order N] [--workspace W]`
 - `python opora_heart.py answer --ticket ID --text T` – odpověď pracovníkovi na lístek.

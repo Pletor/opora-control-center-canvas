@@ -10,6 +10,7 @@
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
     python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]
+    python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
     python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
@@ -456,12 +457,39 @@ def submit_unlink(args):
                        "hint": "Zkontroluj ID karet a směr: from je předchůdce, to následník (snapshot ukazuje vazby)."})
     ids = [edge["id"] for edge in edges]
     out = {"ok": True, "dryRun": bool(args.dry_run), "removedEdges": ids, "path": "graph-proposal"}
+    return remove(args, context, {"removeEdges": ids}, f"Srdce odebralo závislost {args.from_node} → {args.to_node}",
+                  out, "unlink")
+
+
+def submit_prune(args):
+    """`prune`: odebere uzly (prázdné nebo zbylé po zkoušení) návrhem grafu `{removeNodes, removeEdges}` se stejným
+    přijetím jako `unlink`. Server nekaskáduje: s uzly jdou jejich vazby a uzel s potomkem, který není v seznamu,
+    odmítne česky bez zápisu. Uzavřenou kartu odmítne server."""
+    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    graph = call("GET", "/api/view", query=scope())["graph"]
+    nodes = {node["id"]: node for node in graph["nodes"]}
+    ids = list(dict.fromkeys(args.node))
+    unknown = [node for node in ids if node not in nodes]
+    if unknown:
+        raise Failure({"error": f"Uzel {', '.join(unknown)} v prostoru není.", "code": "prune_unknown_node",
+                       "hint": "Vezmi celá ID uzlů z /api/view nebo snapshotu tohoto prostoru."})
+    kept = [node["id"] for node in graph["nodes"] if node.get("parentId") in ids and node["id"] not in ids]
+    if kept:
+        raise Failure({"error": f"Uzel má potomky, které v seznamu nejsou: {', '.join(kept)}.", "code": "prune_children",
+                       "hint": "Přidej potomky jako další --node, nebo je nejdřív přesuň; nic se nekaskáduje."})
+    edges = [edge["id"] for edge in graph["edges"] if edge["source"] in ids or edge["target"] in ids]
+    out = {"ok": True, "dryRun": bool(args.dry_run), "removedNodes": ids, "removedEdges": edges, "path": "graph-proposal"}
+    return remove(args, context, {"removeNodes": ids, "removeEdges": edges}, f"Srdce odebralo {len(ids)} uzlů", out,
+                  "prune")
+
+
+def remove(args, context, plan, subject, out, command):
+    """Návrh grafu s odebráním a jeho přijetí tokenem srdce (cesta formuláře úprav plánu v UI)."""
     if args.dry_run:
         return out
     proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
                                               "expectedGraphDigest": context["graphDigest"],
-                                              "subject": f"Srdce odebralo závislost {args.from_node} → {args.to_node}",
-                                              "plan": {"removeEdges": ids}})
+                                              "subject": subject, "plan": plan})
     out["proposalId"] = proposal["id"]
     if args.no_accept:
         return {**out, "accepted": False}
@@ -471,8 +499,8 @@ def submit_unlink(args):
               "adoptBaseGraphDigest": None, "reviewedChangesId": proposal["id"]})
     except Failure as failure:
         return {**out, "accepted": False, "code": failure.payload.get("code"), "error": failure.payload.get("error"),
-                "hint": "Návrh odebrání vazby čeká na přijetí (plátno se mezitím změnilo, nebo chybí oprávnění); "
-                        "přijme ho člověk v UI, nebo pošli unlink znovu."}
+                "hint": "Návrh odebrání čeká na přijetí (plátno se mezitím změnilo, nebo chybí oprávnění); "
+                        f"přijme ho člověk v UI, nebo pošli {command} znovu."}
     return {**out, "accepted": True}
 
 
@@ -632,7 +660,7 @@ def open_workspace(domain, reuse, name=None):
 def run(args):
     project = env("OPORA_PROJECT")
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
-    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "research", "duel") else None
+    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "research", "duel") else None
     if args.command in ("research", "duel") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
         _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
@@ -650,6 +678,8 @@ def run(args):
         return submit_plan(args)
     if args.command == "unlink":
         return submit_unlink(args)
+    if args.command == "prune":
+        return submit_prune(args)
     if args.command == "task":
         task = call("POST", "/api/brain/tasks", task_payload(args))
         return {key: task[key] for key in ("taskId", "title", "status", "order")}
@@ -699,6 +729,11 @@ def parser():
     unlink.add_argument("--dry-run", action="store_true")
     unlink.add_argument("--no-accept", action="store_true")
     unlink.add_argument("--workspace")
+    prune = commands.add_parser("prune")
+    prune.add_argument("--node", action="append", required=True)
+    prune.add_argument("--dry-run", action="store_true")
+    prune.add_argument("--no-accept", action="store_true")
+    prune.add_argument("--workspace")
     space = commands.add_parser("workspace")
     space.add_argument("--domain", required=True)
     space.add_argument("--reuse", action="store_true")
