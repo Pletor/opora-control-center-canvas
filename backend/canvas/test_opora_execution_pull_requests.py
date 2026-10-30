@@ -248,6 +248,50 @@ def test_missing_token_is_told_as_auth_missing_and_heals_once_set(world, monkeyp
     manager.close()
 
 
+def test_rejected_token_heals_after_restart_and_merged_pr_is_written_back(world, monkeypatch):
+    """Live case: a 401 with a stale token failed the link for good, so the merged PR was never observed."""
+    service, scope, executions = world
+    monkeypatch.setenv("OPORA_EXECUTION_PR_DISCOVERY_SECONDS", "0")
+    record = claim(executions, scope)
+    reader = Reader(error=GitHubMergeError("github-auth-invalid", action_required=True))
+    now = [1000.0]
+    links = ExecutionPullRequestLinks(service, reader, clock=lambda: now[0])
+    linked = links.link(record["executionId"], body(record), "agent")
+    assert (linked["enrollment"], linked["enrollmentError"], linked["attention"]) == (
+        "pending", "github-auth-invalid", "github-auth-invalid")
+    assert "401" in linked["enrollmentMessage"]
+    # A row stored before this fix: the same rejection as a terminal `github-unavailable` failure.
+    db = service.db_for(scope["project"])
+    with db:
+        db.execute("UPDATE opora_execution_pull_requests SET enrollment='failed',enrollment_error='github-unavailable',"
+                   "enrollment_retry_at=NULL,attention=NULL")
+    reader.error, now[0] = None, 2000.0  # Token replaced, server restarted: a new manager heals the link once.
+    manager = ExecutionPullRequestManager(service, links, clock=lambda: now[0])
+    manager.run_once()
+    enrolled = links.read(**scope, execution_id=record["executionId"])
+    assert enrolled["enrollment"] == "enrolled" and enrolled["bindingId"]
+    observe(service, scope, enrolled["bindingId"], "merged")
+    manager.run_once()
+    merged = links.read(**scope, execution_id=record["executionId"])
+    assert merged["state"] == "merged" and merged["planWrittenBack"] is True and merged["mergeSha"] == MERGE_SHA
+    manager.close()
+
+
+def test_heal_runs_once_per_process(world, monkeypatch):
+    service, scope, executions = world
+    monkeypatch.setenv("OPORA_EXECUTION_PR_DISCOVERY_SECONDS", "0")
+    record = claim(executions, scope)
+    reader = Reader(error=GitHubMergeError("github-unavailable", action_required=True))
+    links = ExecutionPullRequestLinks(service, reader, clock=lambda: 1000.0)
+    assert links.link(record["executionId"], body(record), "agent")["enrollment"] == "failed"
+    manager = ExecutionPullRequestManager(service, links, clock=lambda: 1000.0)
+    manager.run_once()
+    manager.run_once()
+    assert len(reader.calls) == 2  # the link read plus exactly one healing retry; then it stays failed
+    assert links.read(**scope, execution_id=record["executionId"])["enrollment"] == "failed"
+    manager.close()
+
+
 def test_office_links_after_reported_result_with_own_credentials(world):
     """agent-office links the PR after the worker submitted its result and the lease is gone."""
     service, scope, executions = world
