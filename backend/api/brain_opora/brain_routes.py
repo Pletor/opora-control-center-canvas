@@ -7,6 +7,8 @@ srdce téhož projektu (docs/brain-heart.md §5, `writer.py`); agent s plnou aut
 Zeď projektu se zapnutou bránou člověka i srdce pouští, zápis úkolu tedy funguje i tam.
 `/intake-setting` = povolení a denní strop Jevu vstupní brány (`intake_setting.py`, docs/navrhy/2026-10-30-vstupni-brana.md
 §7): čte kdokoli, mění jen člověk (`require_human`).
+`/brief-setting` = výslech srdce zapnutý a strop rešerše na požadavek (`brief_setting.py`,
+docs/navrhy/2026-10-30-vyslech-srdce.md §8): čte kdokoli, mění člověk nebo agent při plné autonomii (`require_authority`).
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -14,9 +16,9 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
 from backend.api.brain_opora.writer import writer
-from backend.brain_opora.determinism import gate_setting, intake_setting, task_queue
+from backend.brain_opora.determinism import brief_setting, gate_setting, intake_setting, task_queue
 from backend.brain_opora.determinism.gate_payloads import GateError, parse_body
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority, require_human
 
 TASK_WRITER = "Úkoly fronty mozku píše a ruší jen člověk v UI nebo srdce projektu."
 
@@ -59,6 +61,23 @@ def create_brain_router(service):
         require_human(request.state.actor, "Jev vstupní brány zapíná a jeho strop mění jen člověk v UI.")
         try:
             return intake_setting.write(service, parse_body(await request.body()))
+        except GateError as error:
+            return _refused(error)
+
+    @router.get("/brief-setting", responses=models.answers(200, models.BriefSettingOut, 404, 422))
+    def read_brief_setting(project: str = ""):
+        try:
+            return brief_setting.get(service, project)
+        except GateError as error:
+            return _refused(error)
+
+    @router.post("/brief-setting", openapi_extra=models.body(models.BriefSettingIn),
+                 responses=models.answers(200, models.BriefSettingOut, 403, 404, 409, 422))
+    async def save_brief_setting(request: Request):
+        require_authority(request.state.actor,
+                          "Výslech srdce a strop rešerše mění jen člověk v UI, nebo agent při plné autonomii.")
+        try:
+            return brief_setting.write(service, parse_body(await request.body()))
         except GateError as error:
             return _refused(error)
 

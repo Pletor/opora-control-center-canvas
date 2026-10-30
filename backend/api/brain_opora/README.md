@@ -16,6 +16,10 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   `GET /api/brain/intake-setting?project=` (anyone) and `POST /api/brain/intake-setting {project, jev, jevPerDay?}`
   (human only) hold the JEV permission and daily cap of the intake gate (`determinism/intake_setting.py`,
   `docs/navrhy/2026-10-30-vstupni-brana.md` §7).
+  `GET /api/brain/brief-setting?project=` (anyone) and `POST /api/brain/brief-setting {project, enabled, researchUsd?}`
+  (`require_authority`) hold the heart interrogation switch and research cap (`determinism/brief_setting.py`,
+  `docs/navrhy/2026-10-30-vyslech-srdce.md` §8). `POST /api/brain/heart/brief/research` (heart token) checks the cap
+  before `research --requirement` and adds the cost afterwards.
 - `brain_routes.py` also carries the task queue (`docs/brain-gate.md` §6, H1b): `GET /api/brain/tasks?project&workspace&status?`
   is readable by anyone; `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` and
   `POST /api/brain/tasks/{id}/cancel?project=` accept a human or the heart of the same project (`writer.py`); the

@@ -9,11 +9,15 @@
 - `save_synthesis` / `ask` jsou příkazy srdce `brief` a `ask` (§7): syntéza a nejvýš 3 otevřené otázky
   s doporučenou odpovědí, nejvýš 3 kola. Odpovídá jen člověk (řez 3).
 - `requirement_wakes` / `card_hit` jsou spouštěč výslechu: jednou na stav (`heart_triggers`, klíč
-  `trigger:brief:<rq>:<důvod>` a `trigger:brief:card:<uzel>:thin@<prostor>`).
+  `trigger:brief:<rq>:<důvod>` a `trigger:brief:card:<uzel>:thin@<prostor>`). Vypnutý výslech
+  (`settings.brain.brief.enabled`, `brief_setting.py`, řez 2) nebudí nic.
+- `research_budget` / `research_spend` hlídají strop ceny rešerše na požadavek (§8, `brief_setting.researchUsd`):
+  cena se sčítá do `intake_briefs.cost_usd`, po vyčerpání `research --requirement` odmítne (409).
 """
 import json
 import sqlite3
 
+from backend.brain_opora.determinism import brief_setting
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas import card_gauge
 from database.repositories.heart_triggers import HeartTriggers
@@ -46,13 +50,18 @@ SHAPE = ('{"goal": "…", "users": "…", "parts": [{"text": "…", "origin": "h
          '"questions": [{"text": "…", "impact": "high|medium|low", "answer": "…"}]}')
 HINT = "python opora_heart.py brief --requirement rq_… --synthesis @dilna/out/brief.json; tvar: " + SHAPE
 ASK_HINT = 'python opora_heart.py ask --requirement rq_… --question "…" --recommended "…" --why "…"'
+SPENT_HINT = "strop rešerše vyčerpán, rozhodni z toho, co máš"
+SOURCES = 6  # nejvýš ověřených zdrojů jedné rešerše ve spisu
 
 
-def needs_brief(*, status, verdicts=(), brief_status=None, evidence=None):
-    """Důvod výslechu podle tabulky §2, nebo None. Karta (`evidence` není None): `ready` + `thin` → `thin`.
+def needs_brief(*, status, verdicts=(), brief_status=None, evidence=None, enabled=True):
+    """Důvod výslechu podle tabulky §2, nebo None; vypnutý výslech (`enabled` False) nikdy.
+    Karta (`evidence` není None): `ready` + `thin` → `thin`.
     Požadavek: jen `open`; `changes_intent` mezi vstupy → `changes_intent` (i po jasnu, na dopady); s jasnem
     nic; zakládající vstup (první) `fix_for_milestone` → `new`, `later_extension` (už otevřený) → `opened`;
     `duplicate`, `done`, `extends_in_progress` a ostatní nic."""
+    if not enabled:
+        return None
     if evidence is not None:
         return "thin" if status == "ready" and evidence == "thin" else None
     if status != "open" or not verdicts:
@@ -311,9 +320,11 @@ def card_key(node, workspace):
     return f"trigger:brief:card:{node}:thin@{workspace}"
 
 
-def requirement_wakes(db, since):
+def requirement_wakes(db, since, enabled=True):
     """Kandidáti výslechu `[(prostor, požadavek, důvod)]`: otevřené požadavky se vstupem novějším než `since`
-    (ISO čas), kterým `needs_brief` dá důvod a srdce na ten stav ještě nebudilo. Jen čte."""
+    (ISO čas), kterým `needs_brief` dá důvod a srdce na ten stav ještě nebudilo. Jen čte; vypnuto = nic."""
+    if not enabled:
+        return []
     rows = db.execute("SELECT DISTINCT workspace_id FROM intake_requirements WHERE status='open'"
                       " ORDER BY workspace_id").fetchall()
     briefs, triggers, found = IntakeBriefs(db), HeartTriggers(db), []
@@ -324,7 +335,7 @@ def requirement_wakes(db, since):
                 continue
             brief = briefs.get(requirement["id"])
             reason = needs_brief(status=requirement["status"], verdicts=[item["verdict"] for item in entries],
-                                 brief_status=brief["status"] if brief else None)
+                                 brief_status=brief["status"] if brief else None, enabled=enabled)
             if reason and not triggers.fired(requirement_key(requirement["id"], reason)):
                 found.append((workspace, requirement, reason))
     return found
@@ -344,10 +355,59 @@ def open_brief(db, workspace, requirement, reason, spis, at):
             "detail": summary(spis) if spis else ""}
 
 
-def card_hit(card):
+def card_hit(card, enabled=True):
     """Spouštěč krátkého výslechu karty (`triggers.wakes`, `extra`): `(klíč, vstup brief)`, nebo None."""
-    if needs_brief(status=card.get("status"), evidence=card.get("evidence")) != "thin":
+    if needs_brief(status=card.get("status"), evidence=card.get("evidence"), enabled=enabled) != "thin":
         return None
     return card_key(card["nodeId"], card.get("workspace")), {
         "type": "brief", "nodeId": card["nodeId"], "title": card.get("title") or card["nodeId"], "reason": "thin",
         "detail": card_gauge.THIN_REASON}
+
+
+def _spent(brief):
+    return round(float((brief or {}).get("costUsd") or 0), 6)
+
+
+def research_budget(service, session, requirement_id):
+    """Strop rešerše požadavku (§8) před `research --requirement`: `{requirement, spentUsd, capUsd, leftUsd}`;
+    vyčerpaný strop = 409 `brief_research_spent` s hintem `SPENT_HINT`. Jen čte."""
+    project, workspace = session["project_id"], session["workspace_id"]
+    cap = brief_setting.read(service, project)["researchUsd"]
+    with service.reading(project):
+        db = service.db_for(project)
+        _requirement(db, workspace, requirement_id)
+        spent = _spent(IntakeBriefs(db).get(requirement_id))
+    if spent >= cap:
+        raise GateError(409, "brief_research_spent",
+                        f"Rešerše požadavku stála {spent:.2f} USD, strop je {cap:.2f} USD.", SPENT_HINT)
+    return {"requirement": requirement_id, "spentUsd": spent, "capUsd": cap, "leftUsd": round(cap - spent, 6)}
+
+
+def _sources(value):
+    found = [item.strip()[:2048] for item in value if isinstance(item, str) and item.strip()] if isinstance(
+        value, list) else []
+    return list(dict.fromkeys(found))[:SOURCES]
+
+
+def research_spend(service, session, requirement_id, cost, fragment=None, digest="", sources=(), now=None):
+    """Po `research --requirement`: cena se přičte do `intake_briefs.cost_usd` a výsledek (fragment schránky,
+    výtah, ověřené zdroje) do `research`. Spis bez syntézy se přepne do `research`. Vrací stav stropu."""
+    if type(cost) not in (int, float) or not 0 <= cost <= 100:
+        raise invalid("costUsd je číslo 0–100.", "Cenu vrací výtah rešerše (`costUsd`).")
+    project, workspace = session["project_id"], session["workspace_id"]
+    cap = brief_setting.read(service, project)["researchUsd"]
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            _requirement(db, workspace, requirement_id)
+            store = IntakeBriefs(db)
+            brief = store.get(requirement_id) or {"requirementId": requirement_id, "workspaceId": workspace,
+                                                   "status": "draft", "questions": [], "rounds": 0}
+            spent = round(_spent(brief) + cost, 6)
+            research = [*(brief.get("research") or []),
+                        {"fragmentId": fragment if isinstance(fragment, str) else None,
+                         "digest": _short(digest, TEXT), "sources": _sources(list(sources or [])),
+                         "costUsd": round(float(cost), 6), "at": now}]
+            status = "research" if brief["status"] == "draft" and brief.get("synthesis") is None else brief["status"]
+            store.save({**brief, "research": research, "costUsd": spent, "status": status, "updatedAt": now})
+    return {"requirement": requirement_id, "spentUsd": spent, "capUsd": cap, "leftUsd": round(max(cap - spent, 0), 6)}

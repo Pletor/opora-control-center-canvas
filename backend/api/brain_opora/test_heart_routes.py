@@ -323,3 +323,50 @@ def test_intake_setting_is_read_by_anyone_and_changed_only_by_a_human(tmp_path):
                     ) == "invalid_payload"
         gate_on(client)  # přepnutí brány povolení Jevu nesmaže
         assert client.get("/api/brain/intake-setting", params={"project": "draft"}).json()["jev"] is True
+
+
+def test_brief_setting_is_read_by_anyone_and_changed_only_with_authority(tmp_path):
+    """Výslech, řez 2 (docs/navrhy/2026-10-30-vyslech-srdce.md §8): `brain.brief {enabled, researchUsd}`."""
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        read = client.get("/api/brain/brief-setting", params={"project": "draft"})
+        assert read.json() == {"project": "draft", "enabled": True, "researchUsd": 0.3}
+        assert client.post("/api/brain/brief-setting", headers=AGENT, json={"project": "draft", "enabled": False}
+                           ).status_code == 403  # agent bez plné autonomie
+        saved = client.post("/api/brain/brief-setting", headers=HEADERS,
+                            json={"project": "draft", "enabled": False, "researchUsd": 0.5})
+        assert saved.status_code == 200 and saved.json() == {"project": "draft", "enabled": False, "researchUsd": 0.5}
+        assert code(client.post("/api/brain/brief-setting", headers=HEADERS, json={"project": "draft"})
+                    ) == "invalid_payload"
+        assert client.get("/api/brain/brief-setting", params={"project": "nikde"}).status_code == 404
+
+
+def test_heart_token_checks_and_spends_the_research_cap_of_a_requirement(tmp_path):
+    """Výslech, řez 2 (§8): `POST /api/brain/heart/brief/research` bez `costUsd` hlídá strop, s `costUsd` ho čerpá."""
+    from backend.brain_opora.determinism.test_brief import add
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        service = client.app.state.service
+        db = service.db_for("draft")
+        with db:
+            add(db, "rq_1", ["fix_for_milestone"], area=None)
+        body = {**SCOPE, "requirement": "rq_1"}
+        assert code(client.post("/api/brain/heart/brief/research", headers=HEADERS, json=body)) == "gate_token_invalid"
+        heart = {**HEADERS, tokens.HEADER: tokens.issue_heart(service, "draft", "draft")[1]}
+        client.cookies.clear()
+        checked = client.post("/api/brain/heart/brief/research", headers=heart, json=body)
+        assert checked.status_code == 200 and checked.json()["leftUsd"] == 0.3, checked.text
+        assert code(client.post("/api/brain/heart/brief/research", headers=heart, json={**body, "digest": "x"})
+                    ) == "invalid_payload"  # výtah jen s cenou
+        assert code(client.post("/api/brain/heart/brief/research", headers=heart, json={**body, "extra": 1})
+                    ) == "invalid_payload"
+        spent = client.post("/api/brain/heart/brief/research", headers=heart,
+                            json={**body, "costUsd": 0.31, "fragmentId": "f1", "digest": "ok", "sources": ["https://a.cz"]})
+        assert spent.status_code == 200 and spent.json()["spentUsd"] == 0.31
+        refused = client.post("/api/brain/heart/brief/research", headers=heart, json=body)
+        assert refused.status_code == 409 and refused.json()["code"] == "brief_research_spent"
+        assert refused.json()["hint"] == "strop rešerše vyčerpán, rozhodni z toho, co máš"
+        assert code(client.post("/api/brain/heart/brief/research", headers=heart, json={**body, "workspace": "main"})
+                    ) == "gate_scope"

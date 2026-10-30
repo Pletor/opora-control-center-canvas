@@ -25,6 +25,8 @@
     python opora_heart.py ctx plan-of --project P [--workspace W] [--node N | --full]
     python opora_heart.py run SCRIPT [ARG…]
     python opora_heart.py research --question Q --title T [--target URL|cesta]… [--layer L]… [--fragment F] [--deep]
+                                   [--requirement rq_…]
+    python opora_heart.py skill vyslech
     python opora_heart.py duel --subject F --a TEXT --b TEXT
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
@@ -51,7 +53,9 @@ jinak čeká na přijetí člověkem v UI. `proposal --accept ID` přijme návrh
 (úklid; bez autonomie `Rozhodne člověk v UI`). Zamítnutí návrhu server nemá: nahrazený novější návrh zmizí z nabídky sám.
 `brief` uloží syntézu výslechu požadavku (JSON v souboru `@cesta` nebo přímo) a vrátí `status` a co do jasna chybí
 (`missing`); `ask` položí člověku otázku výslechu s doporučenou odpovědí (docs/navrhy/2026-10-30-vyslech-srdce.md §7).
-`research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje.
+`research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje;
+`research --requirement rq_…` je rešerše výslechu se stropem ceny na požadavek (vyslech-srdce.md §8).
+`skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, jen při výslechu).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
 import argparse
@@ -80,6 +84,7 @@ CONTEXTS = ("tasks", "tickets", "journal", "messages", "rules", "decisions", "tr
 VERDICTS = ("done", "extends_in_progress", "fix_for_milestone", "changes_intent", "later_extension", "needs_info")
 LAYERS = ("fe", "be", "db", "api", "cache", "infra", "security", "data", "ops")  # vrstvy výzkumu (§3d)
 SCRIPT = re.compile(r"[A-Za-z0-9_-]+\Z")
+SKILLS = "skills"  # složka postupů režimů vedle nástroje (supervisor ji kopíruje do `brain/`)
 RUN_TIMEOUT, STDOUT_LIMIT, STDERR_LIMIT = 120, 8000, 2000
 # Prostředí skriptu: bez tokenu srdce a adresy (skript OPORU nemění) a bez klíčů API (kopie command.STRIPPED,
 # nástroj je jen stdlib).
@@ -753,6 +758,15 @@ def research_module(name="opora_research"):
         return importlib.import_module(f"backend.brain_opora.heart.{name}")
 
 
+def read_skill(name):
+    """`skill NAME`: text postupu `skills/NAME.md` vedle nástroje (v `brain/` kopie, v testech složka balíčku)."""
+    path = Path(__file__).resolve().parent / SKILLS / f"{name}.md"
+    if not SCRIPT.match(name) or not path.is_file():
+        raise Failure({"error": f"Postup {name!r} neexistuje.", "code": "skill_missing",
+                       "hint": "Postupuj podle části promptu, která režim popisuje (např. Výslech)."})
+    return path.read_text(encoding="utf-8")
+
+
 def run_script(script, script_args):
     """`run <script>`: skript dílny v odděleném prostředí; výsledek a řádek do `dilna/runs.jsonl`."""
     if not SCRIPT.match(script):
@@ -803,6 +817,8 @@ def open_workspace(domain, reuse, name=None):
 
 
 def run(args):
+    if args.command == "skill":  # postup režimu nepotřebuje prostředí dávky
+        return read_skill(args.name)
     project = env("OPORA_PROJECT")
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
     _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "member", "research", "duel") else None
@@ -967,6 +983,8 @@ def parser():
     research.add_argument("--workspace")  # schránka je v prostoru; v main (read-only) bez tohoto jde do aktivního prostoru
     research.add_argument("--deep", action="store_true")
     research.add_argument("--layer", action="append", default=[], choices=LAYERS)
+    research.add_argument("--requirement")  # rešerše výslechu: strop ceny na požadavek, cena do spisu
+    commands.add_parser("skill").add_argument("name")
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)

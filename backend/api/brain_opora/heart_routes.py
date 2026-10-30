@@ -24,6 +24,10 @@
   docs/navrhy/2026-10-30-vyslech-srdce.md §7).
 - `POST /api/brain/heart/ask {project, workspace, requirement, question, recommended, why}`: jen token srdce; otázka
   výslechu pro člověka, nejvýš 3 otevřené a 3 kola (`brief.ask`).
+- `POST /api/brain/heart/brief/research {project, workspace, requirement, costUsd?, fragmentId?, digest?, sources?}`:
+  jen token srdce; strop rešerše požadavku (§8). Bez `costUsd` kontrola před `research --requirement` (vyčerpáno =
+  409 `brief_research_spent`), s `costUsd` přičtení ceny do `intake_briefs.cost_usd` (`brief.research_budget` /
+  `brief.research_spend`).
 Celá cesta je jen pro loopback (`backend/app/remote_access.py`). Odmítnutí nese `code` a `hint`.
 """
 import time
@@ -52,6 +56,8 @@ INTAKE_KEYS = {"project", "workspace", "entry", "verdict", "reason", "requiremen
 MILESTONE_KEYS = {"project", "workspace", "area", "title", "criteria"}
 BRIEF_KEYS = {"project", "workspace", "requirement", "synthesis"}
 ASK_KEYS = {"project", "workspace", "requirement", "question", "recommended", "why"}
+RESEARCH_KEYS = {"project", "workspace", "requirement"}
+RESEARCH_EXTRA = {"costUsd", "fragmentId", "digest", "sources"}
 EXAMPLE = '{"project": "<id>", "workspace": "main", "text": "Chci web o dvou stránkách: …"}'
 
 
@@ -235,6 +241,25 @@ def create_heart_router(service, supervisor):
             session = await _heart_session(service, request, payload)
             return await run_in_threadpool(brief.ask, service, session, payload["requirement"], payload["question"],
                                            payload["recommended"], payload["why"], _now())
+        except GateError as error:
+            return _refused(error)
+
+    @router.post("/brief/research", openapi_extra=models.body(models.BriefResearchIn),
+                 responses=models.answers(200, models.BriefResearchOut, 401, 403, 404, 409, 422))
+    async def brief_research(request: Request):
+        try:
+            payload = parse_body(await request.body())
+            if not isinstance(payload, dict) or not RESEARCH_KEYS <= set(payload) <= RESEARCH_KEYS | RESEARCH_EXTRA:
+                raise invalid("Tělo je {project, workspace, requirement, costUsd?, fragmentId?, digest?, sources?}.",
+                              "python opora_heart.py research --requirement rq_… --question Q --title T")
+            if "costUsd" not in payload and set(payload) - RESEARCH_KEYS:
+                raise invalid("fragmentId, digest a sources jdou jen s costUsd.", "Bez costUsd je to kontrola stropu.")
+            session = await _heart_session(service, request, payload)
+            if "costUsd" not in payload:
+                return await run_in_threadpool(brief.research_budget, service, session, payload["requirement"])
+            return await run_in_threadpool(brief.research_spend, service, session, payload["requirement"],
+                                           payload["costUsd"], payload.get("fragmentId"), payload.get("digest") or "",
+                                           payload.get("sources") or [], _now())
         except GateError as error:
             return _refused(error)
 
