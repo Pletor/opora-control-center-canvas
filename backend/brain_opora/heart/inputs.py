@@ -6,8 +6,11 @@ zadání i report, aby srdce nové zadání psalo z původního), k lístku zkra
 podobné vstupy) a zahodí ty, které mezitím vyřešil někdo jiný (lístek už zodpovězený). Zpráva člověka projde vždy.
 `backlog` po startu supervisoru dohání to, co outbox už nepřinese (událost vznikla před prvním čtením kurzoru,
 třeba při restartu serveru): čekající lístky a nedávné zprávy člověka, které žádná dávka `ok` ještě neviděla.
+`milestone_wakes` je deterministický vstup bez vlastní události outboxu (spouštěč `milestone.done`,
+docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): supervisor ho spočítá po události `card.closed` a při prvním
+čtení projektu; splněný aktivní milník budí srdce jednou (`heart_triggers`) s odloženými požadavky k otevření.
 """
-from backend.brain_opora.determinism import brain_files, intake
+from backend.brain_opora.determinism import brain_files, intake, milestones
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
 
@@ -29,6 +32,20 @@ def wake_input(event):
         return {"type": "merged", "nodeId": event.get("nodeId"), "executionId": event.get("executionId"),
                 "mergeSha": data.get("mergeSha") or data.get("commit"), "pr": event.get("prNumber")}
     return None
+
+
+def closed_workspaces(events):
+    """Prostory, ve kterých se uzavřela karta (`card.closed`): jen tam se může splnit kritérium milníku."""
+    return {event.get("workspaceId") for event in events if event.get("kind") == "card.closed"}
+
+
+def milestone_wakes(service, project, workspaces, at):
+    """`[(prostor, vstup milestoneDone)]` pro splněné aktivní milníky, kterým srdce ještě nebudilo
+    (`workspaces` None = všechny prostory); značku „už jsem budil“ zapíše ve stejné transakci."""
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            return milestones.wakes(db, project, workspaces, at)
 
 
 def _ticket(store, item, db):

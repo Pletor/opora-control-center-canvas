@@ -38,6 +38,16 @@ def test_message_renders_merge_and_new_commits_in_czech():
     assert "- SLOUČENO: karta n2, lokální sloučení, sha fff" in text
     assert "- NOVÉ COMMITY 1111111..2222222: 2222222 Druhý; 1a1a1a1 První" in text
 
+
+def test_message_renders_a_reached_milestone_with_deferred_requirements():
+    text = batch.message("S", [{"type": "milestoneDone", "milestoneId": "ms_1", "title": "Hledání", "areaId": "a1",
+                                "deferred": [{"id": "rq_1", "title": "Hybridní hledání"}]},
+                               {"type": "milestoneDone", "milestoneId": "ms_2", "title": "Import", "areaId": "a2",
+                                "deferred": []}])
+    assert ("- MILNÍK SPLNĚN ms_1 „Hledání“ (oblast a1): odložené požadavky k otevření: rq_1 „Hybridní hledání“"
+            in text)
+    assert "- MILNÍK SPLNĚN ms_2 „Import“ (oblast a2): odložené požadavky k otevření: žádné" in text
+
 def clock(*values):
     items = iter(values)
     return lambda: next(items)

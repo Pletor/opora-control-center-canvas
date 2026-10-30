@@ -5,6 +5,7 @@ from database.schema.project_schema import (
     PROJECT_SCHEMA,
     ensure_brief_fragment_columns,
     ensure_canvas_version_columns,
+    ensure_milestone_proposed,
 )
 
 
@@ -12,6 +13,7 @@ def initialize_project_schema(db):
     db.executescript(PROJECT_SCHEMA)
     ensure_canvas_version_columns(db)
     ensure_brief_fragment_columns(db)
+    ensure_milestone_proposed(db)
     from database.schema.opora_review_gate_schema import ensure_review_job_kind
     ensure_review_job_kind(db)
     from database.schema.opora_event_schema import ensure_process_columns

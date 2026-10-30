@@ -1,7 +1,8 @@
 """Snímek projektu pro srdce (docs/brain-heart.md §3): deterministický text bez modelu, s pevným stropem znaků.
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky plánu,
-fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), poslední kontroly, deník dávek;
+fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), splněné milníky s odloženými
+požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY), poslední kontroly, deník dávek;
 okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
 a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state),
 `snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4) a u git projektu pracovní prostory (sekce
@@ -14,7 +15,8 @@ import json
 import re
 import sqlite3
 
-from backend.brain_opora.determinism import brain_files, git_log, intake
+from backend.brain_opora.determinism import brain_files, git_log, intake, milestones
+from database.repositories.intake_requirements import IntakeRequirements
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
 from backend.canvas import opora_agent_state_dag as dag_state
@@ -46,6 +48,8 @@ JOURNAL = 5
 SCRIPTS = 15
 RESEARCH = 10
 INTAKE_TEXT = 100  # znaků věty v sekci VSTUPY
+MILESTONES = 5  # nejvýš splněných milníků v sekci MILNÍKY
+REQUIREMENTS = 8  # nejvýš otevřených a odložených požadavků v sekci POŽADAVKY
 GIT_COMMITS, GIT_CHARS = 10, 1200
 SPACES_CHARS = 800  # sekce PROSTORY git projektu
 FREE = "volná"  # karta bez běhu, nebo s během uvolněným či odebraným
@@ -252,7 +256,9 @@ def collect(service, project, workspace):
         work = _work(db, project, workspace)
         blocked, names = _blocked(service, project, workspace, db)
         entries = intake.recent(db, workspace)
-    return {"intake": entries, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
+        reached = milestones.reached(db, project, workspace)
+        wanted = IntakeRequirements(db).list(workspace, ("open", "deferred"))[-REQUIREMENTS:]
+    return {"intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -395,6 +401,25 @@ def _intake_lines(facts):
     return ["VSTUPY:", *rows] if rows else []
 
 
+def _milestone_lines(facts):
+    """MILNÍKY: splněné aktivní milníky prostoru a odložené požadavky s podmínkou na ně (spouštěč `milestone.done`,
+    docs/navrhy/2026-10-30-metriky-a-spoustece.md §4). Stav požadavku nepřepíná, rozhodne srdce. Žádné = bez sekce."""
+    rows = [f"- milník {item['milestone']['id']} „{_short(item['milestone']['title'], 80)}“ splněn – odložené"
+            f" požadavky k otevření: {', '.join(rq['id'] for rq in item['deferred']) or 'žádné'}"
+            for item in (facts.get("milestones") or [])[:MILESTONES]]
+    return ["MILNÍKY:", *rows] if rows else []
+
+
+def _requirement_lines(facts):
+    """POŽADAVKY: posledních `REQUIREMENTS` otevřených a odložených požadavků prostoru (ID pro `intake --requirement
+    rq_…`, ať srdce upřesnění připojí místo nového zadání). Žádné = bez sekce."""
+    def head(item):
+        return item["status"] + (f" (po {item['openCondition']})" if item["status"] == "deferred" else "")
+    rows = [f"- {item['id']} · {head(item)}" + (f" · oblast {item['areaId']}" if item.get("areaId") else "")
+            + f" · {_short(item['title'], 80)}" for item in facts.get("requirements") or []]
+    return ["POŽADAVKY:", *rows] if rows else []
+
+
 def _git_lines(facts):
     rows, size = [], 0
     for line in (facts.get("git") or [])[:GIT_COMMITS]:
@@ -430,7 +455,7 @@ def render(facts, limit=LIMIT):
              "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
-    lines += _intake_lines(facts)
+    lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts)
     lines.append("POSLEDNÍ KONTROLY:")
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
     lines += _git_lines(facts) + (_space_lines(facts) if facts.get("spaces") is not None else [])

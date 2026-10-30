@@ -278,3 +278,46 @@ def test_jev_classifies_pending_input_before_the_batch_only_when_allowed(setup):
     heart.message("draft", "draft", "Tohle rozbij.")
     assert heart.run_once() == ["draft"] and heart.status("draft")["batches"][-1]["status"] == "ok"
     assert "Tohle rozbij. [vstup ie_" in runner.calls[-1] and heart.errors.get("draft") is None
+
+
+def test_reached_milestone_wakes_the_heart_once_after_card_closed_without_a_new_event(setup):
+    """Spouštěč `milestone.done` (docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): po `card.closed` splněný aktivní
+    milník budí srdce jednou s odloženými požadavky; další poll ani restart supervisoru ho nebudí znovu."""
+    from backend.canvas.opora_events import emit_event
+    from database.repositories.intake_milestones import IntakeMilestones
+    from database.repositories.intake_requirements import IntakeRequirements
+
+    service, heart, clock, runner, _ = setup
+    db = service.db_for("draft")
+    with db:
+        IntakeMilestones(db).insert({"id": "ms_1", "workspaceId": "draft", "areaId": "a1", "title": "Hledání",
+                                     "criteria": [{"id": "c1", "text": "t", "cards": ["n1"]}], "status": "proposed",
+                                     "createdAt": "t0"})
+        IntakeMilestones(db).activate("ms_1")
+        IntakeRequirements(db).insert({"id": "rq_1", "workspaceId": "draft", "areaId": "a1", "title": "Hybridní",
+                                       "status": "deferred", "openCondition": "ms_1", "createdAt": "t1"})
+    heart.poll_events(clock.now)  # první čtení: milník ještě nesplněný
+    assert heart.pending.get("draft", []) == []
+    with db:
+        db.execute("INSERT OR REPLACE INTO desktop_v3_state VALUES('draft','draft',1,?,'t')",
+                   (json.dumps({"nodes": {"n1": {"done": {"confirmed": True}}}}),))
+        emit_event(db, project_id="draft", workspace_id="draft", kind="card.closed", node_id="n1", actor="human",
+                   data={})
+    heart.poll_events(clock.now)
+    [(workspace, item, due)] = heart.pending["draft"]
+    assert (workspace, due) == ("draft", clock.now + supervisor.WINDOW)
+    assert item == {"type": "milestoneDone", "milestoneId": "ms_1", "title": "Hledání", "areaId": "a1",
+                    "deferred": [{"id": "rq_1", "title": "Hybridní"}]}
+    with db:
+        emit_event(db, project_id="draft", workspace_id="draft", kind="card.closed", node_id="n1", actor="human",
+                   data={})
+    heart.poll_events(clock.now)
+    heart.cursors.clear()  # restart: první čtení znovu
+    heart.poll_events(clock.now)
+    assert len(heart.pending["draft"]) == 1
+    clock.now += supervisor.WINDOW
+    assert heart.run_once() == ["draft"]
+    assert "MILNÍK SPLNĚN ms_1 „Hledání“ (oblast a1): odložené požadavky k otevření: rq_1 „Hybridní“" in runner.calls[-1]
+    assert "- milník ms_1 „Hledání“ splněn – odložené požadavky k otevření: rq_1" in runner.calls[-1]  # snímek
+    assert "POŽADAVKY:\n- rq_1 · deferred (po ms_1) · oblast a1 · Hybridní" in runner.calls[-1]
+    assert IntakeRequirements(db).get("rq_1")["status"] == "deferred"

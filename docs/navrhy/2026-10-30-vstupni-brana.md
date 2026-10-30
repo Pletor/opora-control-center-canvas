@@ -73,7 +73,7 @@ Odhad ceny: duplicita 0 USD. Jev je jedno volání. Srdce běží jako dosud, je
 - `intake_entries(id ie_…, workspace_id, source heart_message|gate_change|gate_ask|brief_fragment, source_ref, text, fingerprint, created_at, verdict, layer, area_id, milestone_id, requirement_id, confidence, reason, cost_usd, jev_calls)`. Index je na `fingerprint`.
 - `intake_entries_fts`: FTS5 nad `text` (ověřeno, sqlite v projektu FTS5 má).
 - `intake_requirements(id rq_…, workspace_id, area_id, milestone_id, title, status open|deferred|done|superseded, open_condition, supersedes, created_at)`.
-- `intake_milestones(id ms_…, workspace_id, area_id, title, criteria JSON [{id, text, cards[]}], status active|done|superseded, created_at)`. Právě jeden `active` na oblast. Kritérium je splněné, když jsou všechny jeho karty `done.confirmed`. Splnění se počítá, neukládá.
+- `intake_milestones(id ms_…, workspace_id, area_id, title, criteria JSON [{id, text, cards[]}], status proposed|active|done|superseded, created_at)`. Právě jeden `active` na oblast. Stav `proposed` přibyl v řezu 3 se souhlasem člověka (přestavba tabulky, docs/navrhy/2026-10-30-metriky-a-spoustece.md §5). Kritérium je splněné, když jsou všechny jeho karty `done.confirmed`. Splnění se počítá, neukládá.
 
 Žádná existující tabulka se nemění.
 
@@ -114,6 +114,18 @@ OpenViking je jen volitelné zrcadlo, zdrojem pravdy zůstává SQLite.
    - Srdce zapisuje stanovisko přes `POST /api/brain/heart/intake` (jen token srdce, jen jeho prostor). Snímek ve `VSTUPY` ukazuje vstupy, které srdce ještě nepotvrdilo (vrstva `determinism` nebo `jev`).
    - Povolení a strop mění člověk zatím jen přes `POST /api/brain/intake-setting`. UI nastavení projektu pro ně ještě není.
 3. **Řez 3:** milníky (`intake_milestones`, kritéria z karet), `opora_heart.py milestone`, potvrzení člověkem.
+   Rámec je `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §4 a §5.
+   Řez 3 – odchylky:
+   - `POST /api/intake/milestone` smí jen člověk (§6 připouštěl i srdce). Srdce milník jen navrhne přes
+     `POST /api/brain/heart/milestone`.
+   - Zamítnutý návrh dostane stav `superseded`. Vlastní stav `rejected` nevzniká, historie zůstává.
+   - Odložený požadavek bez `--open-condition` dostane podmínku z aktivního milníku oblasti vstupu. Bez něj vrátí
+     server 422.
+   - Spouštěč `milestone.done` nemá vlastní událost outboxu. Supervisor ho počítá po `card.closed` a při prvním
+     čtení projektu. Značka v nové aditivní tabulce `heart_triggers` se zapíše už při zařazení vstupu. Srdce se budí
+     i tehdy, když milník žádné odložené požadavky nemá.
+   - Snímek srdce má navíc sekci `POŽADAVKY` (posledních 8 otevřených a odložených), aby srdce znalo `rq_…`
+     pro `--requirement`.
 4. **Řez 4 (frontend):** pohled „Požadavky a plán“ ve Velínu, jeden dílek na oblast.
 
 ## 10. Ověření (scénář Ample, magnet „Vyhledání správných podkladů“)

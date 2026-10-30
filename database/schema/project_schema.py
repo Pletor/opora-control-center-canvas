@@ -12,6 +12,7 @@ from database.schema.guard_trend_schema import SCHEMA as GUARD_TREND_SCHEMA
 from database.schema.guard_trend_schema import TABLES as GUARD_TREND_TABLES
 from database.schema.harness_learning_schema import SCHEMA as HARNESS_LEARNING_SCHEMA
 from database.schema.harness_learning_schema import TABLES as HARNESS_LEARNING_TABLES
+from database.schema.intake_schema import MILESTONES_INDEX, MILESTONES_TABLE
 from database.schema.intake_schema import SCHEMA as INTAKE_SCHEMA
 from database.schema.journey_run_schema import SCHEMA as JOURNEY_RUN_SCHEMA
 from database.schema.journey_run_schema import TABLES as JOURNEY_RUN_TABLES
@@ -442,3 +443,29 @@ def ensure_brief_fragment_columns(db):
             add_column(db, "brief_fragment_revisions", name)
     db.execute("UPDATE brief_fragment_revisions SET discipline=CASE track WHEN 'ux' THEN 'ux' WHEN 'logic' THEN 'be' END"
                " WHERE track IN ('ux','logic') AND discipline IS NULL")
+
+
+MILESTONE_COLUMNS = "id, workspace_id, area_id, title, criteria, status, created_at"
+
+
+def ensure_milestone_proposed(db):
+    """Jednorázová přestavba `intake_milestones` na CHECK se stavem `proposed`
+    (docs/navrhy/2026-10-30-metriky-a-spoustece.md §5): SQLite CHECK nezmění, proto rename → create → copy → drop
+    → index `intake_milestones_one_active`, celé pod savepointem (chyba vrátí původní tabulku i řádky).
+    Idempotentní: tabulka, jejíž CHECK už `proposed` zná, nebo chybějící tabulka = nic."""
+    row = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='intake_milestones'").fetchone()
+    if row is None or "'proposed'" in row[0]:
+        return
+    db.execute("SAVEPOINT intake_milestones_rebuild")
+    try:
+        db.execute("ALTER TABLE intake_milestones RENAME TO intake_milestones_old")
+        db.execute(MILESTONES_TABLE)
+        db.execute(f"INSERT INTO intake_milestones({MILESTONE_COLUMNS})"
+                   f" SELECT {MILESTONE_COLUMNS} FROM intake_milestones_old")
+        db.execute("DROP TABLE intake_milestones_old")  # smaže i starý index, nový vznikne nad novou tabulkou
+        db.execute(MILESTONES_INDEX)
+    except BaseException:
+        db.execute("ROLLBACK TO intake_milestones_rebuild")
+        db.execute("RELEASE intake_milestones_rebuild")
+        raise
+    db.execute("RELEASE intake_milestones_rebuild")

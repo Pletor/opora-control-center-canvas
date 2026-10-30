@@ -17,6 +17,10 @@ Modules (H2a):
   Right before the message is built, `_batch` lets `decision/intake.py` classify `pending` entries through JEV
   (constructor argument `jev`: a callable returning `evaluate(state, questions)` with the app key, or None; the factory
   passes it, tests inject a fake). It never blocks a message, ticket or fragment and a JEV error never stops the batch.
+  The `milestone.done` trigger (`docs/navrhy/2026-10-30-metriky-a-spoustece.md` §4) needs no new outbox event: after a
+  `card.closed` event (and on the first read of a project) `inputs.milestone_wakes` adds a `milestoneDone` input
+  (20 s window) for each met active milestone not woken yet (`heart_triggers`); the batch line is
+  `- MILNÍK SPLNĚN ms_… „…“ (oblast …): odložené požadavky k otevření: rq_… „…“`.
   At most one batch per project at a time and 6 automatic per hour (a human message skips the cap); a rate-limited batch puts the heart to sleep for 15 min
   and keeps its inputs. It runs only when `OPORA_HEART` is not `off` and `OPORA_CANVAS_HOST` is loopback
   (`tools/opora.py` sets it). Tests set `OPORA_HEART=off` in `backend/conftest.py`.
