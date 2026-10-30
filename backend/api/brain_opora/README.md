@@ -69,7 +69,7 @@ stdio: `tools/list` = `GET /api/gate/kinds` for the role, tool `opora_<kind with
   one with computed criteria (`done` per card and criterion) and `progress`, `requirements` are open, `deferred`
   carry `openCondition`, `unassigned` = open / deferred requirements without a known area. Entries have no public
   write, the server records them itself. `POST /api/intake/milestone {project, workspace, milestoneId,
-  action: activate|reject}` is human only (`require_human`, 403 for agents and the heart): activation supersedes the
+  action: activate|reject}` is human only, or an agent (the heart) in a project with full autonomy (`require_authority`; 403 otherwise): activation supersedes the
   area's active milestone; not a proposal 409 `milestone_not_proposed`. Logic: `determinism/intake.py`, `milestones.py`.
 
 Tests: `mcp/test_opora_mcp.py` runs the server as a subprocess against a fake gate.

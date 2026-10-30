@@ -18,7 +18,7 @@
   `intake.confirm`, docs/navrhy/2026-10-30-vstupni-brana.md) a případně vstup naváže na požadavek
   (`requirement` = `new` s `title`, nebo `rq_…`; docs/navrhy/2026-10-30-metriky-a-spoustece.md §5).
 - `POST /api/brain/heart/milestone {project, workspace, area, title, criteria}`: jen token srdce; návrh milníku oblasti
-  (`proposed`, `milestones.propose`). Aktivuje ho jen člověk (`POST /api/intake/milestone`).
+  (`proposed`, `milestones.propose`). Aktivuje ho člověk, nebo srdce při plné autonomii (`POST /api/intake/milestone`, `require_authority`).
 - `POST /api/brain/heart/brief {project, workspace, requirement, synthesis}`: jen token srdce; uloží syntézu výslechu
   požadavku a vrátí `{requirement, status, missing}`; `clear` jen bez `missing` (`brief.save_synthesis`,
   docs/navrhy/2026-10-30-vyslech-srdce.md §7).

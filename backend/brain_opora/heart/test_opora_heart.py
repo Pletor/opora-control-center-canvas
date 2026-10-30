@@ -172,6 +172,17 @@ def test_snapshot_answer_escalate_and_done(server, capsys, tmp_path):
     assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/brain/heart/milestone", {
         "project": "p1", "workspace": "main", "area": "a1", "title": "Spolehlivé hledání",
         "criteria": [{"text": "Jen dokumenty organizace", "cards": ["n1", "n2"]}, {"text": "Rychlé", "cards": ["n3"]}]})
+    assert run(capsys, "milestone-decide", "--activate", "ms_1")[0] == 0
+    assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/intake/milestone", {
+        "project": "p1", "workspace": "main", "milestoneId": "ms_1", "action": "activate"})
+    assert run(capsys, "milestone-decide", "--reject", "ms_2")[0] == 0
+    assert Handler.calls[-1]["body"]["action"] == "reject" and Handler.calls[-1]["body"]["milestoneId"] == "ms_2"
+    Handler.refuse = "/api/intake/milestone"
+    code, out = run(capsys, "milestone-decide", "--activate", "ms_1")
+    assert code == 1 and json.loads(out)["status"] == 403 and json.loads(out)["hint"] == "Rozhodne člověk ve Velínu."
+    Handler.refuse = ""
+    with pytest.raises(SystemExit):
+        opora_heart.main(["milestone-decide"])
     (tmp_path / "brief.json").write_text(json.dumps({"goal": "Metriky"}, ensure_ascii=False), encoding="utf-8")
     assert run(capsys, "brief", "--requirement", "rq_1", "--synthesis", "@brief.json")[0] == 0
     assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/brain/heart/brief", {
@@ -523,6 +534,45 @@ def test_member_sends_only_member_of_updates_and_leaves_acceptance_to_the_human(
     assert body["plan"] == {"updateNodes": [{"id": "s_core", "fields": {"memberOf": "a_pay"}},
                                             {"id": "n_card", "fields": {"memberOf": "a_pay"}}]}
     assert posts[0]["headers"]["X-Opora-Gate-Token"] == "tok-heart"
+
+
+def accept_action(proposal_id, status="ready"):
+    return {"verb": "accept", "method": "POST", "path": f"/api/oporahub/graph-proposals/{proposal_id}/accept",
+            "status": status, "preconditions": {"expectedAcceptedHead": "r1", "expectedGraphDigest": "gd"}}
+
+
+def test_member_with_full_autonomy_accepts_only_its_own_proposal(server, capsys):
+    Handler.manifest, Handler.graph = "m1", MEMBER_GRAPH
+    Handler.states = [{"autonomy": {"full": True}, "actions": [accept_action("gp_old"), accept_action("gp2")]}]
+    result = json.loads(run(capsys, "member", "--area", "a_pay", "--nodes", "n_card")[1])
+    assert result["accepted"] is True and result["proposalId"] == "gp2"
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/oporahub/graph-proposals",
+                                                "/api/oporahub/graph-proposals/gp2/accept"]
+    assert posts[1]["body"]["expectedAcceptedHead"] == "r1"
+
+
+def test_member_with_full_autonomy_reports_failed_acceptance(server, capsys):
+    Handler.manifest, Handler.graph = "m1", MEMBER_GRAPH
+    Handler.states = [{"autonomy": {"full": True}, "actions": []}]
+    result = json.loads(run(capsys, "member", "--area", "a_pay", "--nodes", "n_card")[1])
+    assert result["accepted"] is False and result["code"] == "proposal_not_offered"
+
+
+def test_proposal_accept_uses_the_agent_state_action_and_needs_autonomy(server, capsys):
+    Handler.states = [{"autonomy": {"full": True}, "actions": [accept_action("gp_old")]}]
+    code, out = run(capsys, "proposal", "--accept", "gp_old")
+    assert code == 0 and json.loads(out) == {"proposalId": "gp_old", "accepted": True}
+    assert Handler.calls[-1]["path"] == "/api/oporahub/graph-proposals/gp_old/accept"
+    code, out = run(capsys, "proposal", "--accept", "gp_x")
+    assert code == 1 and json.loads(out)["code"] == "proposal_not_offered"
+    Handler.states = [{"autonomy": {"full": False}, "actions": [accept_action("gp_old", "blocked")]}]
+    Handler.calls.clear()
+    code, out = run(capsys, "proposal", "--accept", "gp_old")
+    assert code == 1 and json.loads(out)["hint"] == "Rozhodne člověk v UI."
+    assert all(call["method"] == "GET" for call in Handler.calls)
+    with pytest.raises(SystemExit):
+        opora_heart.main(["proposal"])
 
 
 def test_member_none_clears_membership(server, capsys):
