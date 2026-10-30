@@ -167,3 +167,87 @@ def test_research_cost_adds_up_to_the_cap_and_then_refuses(app):
     with pytest.raises(GateError) as refused:
         brief.research_budget(service, {**SESSION, "workspace_id": "main"}, "rq_r")
     assert refused.value.code == "intake_requirement_not_found"
+
+
+def test_needs_brief_asked_by_a_human_for_open_or_deferred():
+    """Řez 3 (§2): „Vyslechni mě k tomu“ ve Velínu, i u odloženého požadavku; vypnutý výslech nic."""
+    assert brief.needs_brief(status="open", asked=True) == "asked"
+    assert brief.needs_brief(status="deferred", asked=True) == "asked"
+    assert brief.needs_brief(status="done", asked=True) is None
+    assert brief.needs_brief(status="open", asked=True, enabled=False) is None
+
+
+def _asked(service, db, rq="rq_a"):
+    with db:
+        add(db, rq, ["fix_for_milestone"])
+    brief.save_synthesis(service, SESSION, rq, CLEAR, "t1")
+    brief.ask(service, SESSION, rq, "Stačí denní trend?", "Ano, denní.", "Hodinový je drahý.", "t2")
+    brief.ask(service, SESSION, rq, "Kdo to čte?", "Člověk ve Velínu.", "Určí rozsah.", "t3")
+
+
+def test_answer_takes_the_recommendation_or_own_text_once(app):
+    """Řez 3 (§3.4, §7): `accept` vezme doporučení, `answer` vlastní text; jen otevřená otázka, nic v `intake_entries`."""
+    service = app.state.service
+    db = service.db_for("draft")
+    _asked(service, db)
+    entries = db.execute("SELECT COUNT(*) FROM intake_entries").fetchone()[0]
+    body = {"project": "draft", "workspace": "draft", "requirement": "rq_a", "question": "q1"}
+    assert brief.answer(service, {**body, "accept": True}, "t4") == {
+        "requirement": "rq_a", "question": "q1", "answer": "Ano, denní.", "accepted": True, "status": "grilling",
+        "open": 1, "missing": [brief.MISSING["questions.open"]]}
+    with pytest.raises(GateError) as refused:
+        brief.answer(service, {**body, "answer": "Hodinový."}, "t5")
+    assert refused.value.code == "brief_question_answered"
+    done = brief.answer(service, {**body, "question": "q2", "answer": "  Celý tým.  "}, "t6")
+    assert (done["answer"], done["accepted"], done["open"], done["missing"]) == ("Celý tým.", False, 0, [])
+    assert done["status"] == "grilling"  # jasno potvrdí až srdce novou syntézou
+    stored = IntakeBriefs(db).get("rq_a")["questions"]
+    assert [(item["answer"], item["answered_at"], item["accepted"]) for item in stored] == [
+        ("Ano, denní.", "t4", True), ("Celý tým.", "t6", False)]
+    assert db.execute("SELECT COUNT(*) FROM intake_entries").fetchone()[0] == entries
+    assert brief.save_synthesis(service, SESSION, "rq_a", CLEAR, "t7")["status"] == "clear"
+    refusals = [({**body, "question": "q9", "accept": True}, "brief_question_not_found"),
+                ({**body, "requirement": "rq_x", "accept": True}, "intake_requirement_not_found"),
+                ({**body, "workspace": "main", "accept": True}, "intake_requirement_not_found"),
+                ({**body, "project": "nikde", "accept": True}, "project_not_found"),
+                ({**body, "accept": True, "answer": "x"}, "invalid_payload"),
+                ({**body, "accept": False}, "invalid_payload"),
+                ({**body, "answer": " "}, "invalid_payload"),
+                (body, "invalid_payload"),
+                ({**body, "accept": True, "extra": 1}, "invalid_payload")]
+    for payload, code in refusals:
+        with pytest.raises(GateError) as refused:
+            brief.answer(service, payload, "t8")
+        assert refused.value.code == code, payload
+    with db:
+        add(db, "rq_none", ["needs_info"])
+    with pytest.raises(GateError) as refused:
+        brief.answer(service, {**body, "requirement": "rq_none", "accept": True}, "t9")
+    assert refused.value.code == "brief_not_found"
+
+
+def test_start_opens_a_draft_brief_once_and_respects_the_switch(app):
+    """Řez 3 (§2): „Vyslechni mě k tomu“ založí spis `draft` se spisem a značkou `askedAt`, podruhé 409."""
+    from backend.brain_opora.determinism import brief_setting
+
+    service = app.state.service
+    db = service.db_for("draft")
+    with db:
+        add(db, "rq_s", ["needs_info"], at="2026-10-01T10:00:00Z")  # starý požadavek, spouštěč by ho nevzal
+        add(db, "rq_done", ["needs_info"], status="done")
+    body = {"project": "draft", "workspace": "draft", "requirement": "rq_s"}
+    brief_setting.write(service, {"project": "draft", "enabled": False})
+    with pytest.raises(GateError) as refused:
+        brief.start(service, body, "t1")
+    assert refused.value.code == "brief_disabled"
+    brief_setting.write(service, {"project": "draft", "enabled": True})
+    assert brief.start(service, body, "t2") == {"requirement": "rq_s", "status": "draft"}
+    stored = IntakeBriefs(db).get("rq_s")
+    assert stored["status"] == "draft" and stored["situation"]["askedAt"] == "t2"
+    assert stored["situation"]["inputs"][0]["text"] == "Chci metriky 0."
+    for payload, code in ((body, "brief_exists"), ({**body, "requirement": "rq_done"}, "brief_requirement_closed"),
+                          ({**body, "requirement": "rq_x"}, "intake_requirement_not_found"),
+                          ({**body, "extra": 1}, "invalid_payload")):
+        with pytest.raises(GateError) as refused:
+            brief.start(service, payload, "t3")
+        assert refused.value.code == code, payload

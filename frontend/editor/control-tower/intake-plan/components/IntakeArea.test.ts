@@ -4,10 +4,12 @@ import { expect, it } from "vitest";
 import IntakeArea from "./IntakeArea";
 import { intakePlan } from "../logic/intake-plan";
 import { intakeFixture } from "../logic/intake-fixture";
+import { briefFixture } from "../brief-panel/logic/brief-fixture";
 
 const plan = intakePlan(intakeFixture, id => id);
 const render = (index: number, extra: Partial<{ busy: string | null; errors: Record<string, string> }> = {}) =>
-  renderToStaticMarkup(createElement(IntakeArea, { area: plan.areas[index], busy: null, errors: {}, onDecide: () => {}, onOpen: () => {}, ...extra }));
+  renderToStaticMarkup(createElement(IntakeArea, { area: plan.areas[index], busy: null, errors: {}, onDecide: () => {}, onOpen: () => {},
+    brief: { busy: null, errors: {}, onAnswer: () => {}, onStart: () => {} }, ...extra }));
 
 it("oblast s aktivním milníkem: postup, checklist, otevřené a odložené požadavky", () => {
   const html = render(0);
@@ -33,4 +35,14 @@ it("prázdná oblast řekne jednu krátkou větu", () => {
   const html = render(2);
   expect(html).toContain("intake-plan__area--empty");
   expect(html).toContain("Oblast zatím nemá milník ani požadavky.");
+});
+
+it("požadavek bez spisu nabídne výslech, se spisem ukáže otázku srdce", () => {
+  expect(render(0)).toContain("Vyslechni mě k tomu");
+  const withBrief = intakePlan({ ...intakeFixture, areas: [{ ...intakeFixture.areas[0], requirements: [
+    { ...intakeFixture.areas[0].requirements[0], brief: briefFixture }] }] }, id => id);
+  const html = renderToStaticMarkup(createElement(IntakeArea, { area: withBrief.areas[0], busy: null, errors: {}, onDecide: () => {},
+    onOpen: () => {}, brief: { busy: null, errors: {}, onAnswer: () => {}, onStart: () => {} } }));
+  expect(html).toContain("Kdo to čte?");
+  expect(html).toContain("Potvrdit doporučení");
 });

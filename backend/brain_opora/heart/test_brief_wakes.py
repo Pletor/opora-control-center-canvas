@@ -71,3 +71,34 @@ def test_disabled_brief_never_wakes(app):  # noqa: F811
     assert brief.requirement_wakes(db, "2026-10-29T12:00:00Z", enabled=False) == []
     brief_setting.write(service, {"project": "draft", "enabled": True})
     assert [item["requirementId"] for _, item in inputs.brief_wakes(service, "draft", "t2", NOW)] == ["rq_off"]
+
+
+def test_human_answer_and_start_wake_the_heart_once_each(app):  # noqa: F811
+    """Řez 3: odpověď na otázku výslechu a „Vyslechni mě k tomu“ budí srdce jednou, i s vypnutým výslechem
+    (přímá akce člověka); srdce v dávce vidí otázku a odpověď."""
+    from backend.brain_opora.determinism import brief_setting
+    from backend.brain_opora.determinism.test_brief import CLEAR, SESSION
+    from backend.brain_opora.heart.batch import _input_line
+
+    service = app.state.service
+    db = service.db_for("draft")
+    with db:
+        add(db, "rq_a", ["needs_info"])
+        add(db, "rq_s", ["needs_info"], at="2026-10-01T10:00:00Z")
+    brief.save_synthesis(service, SESSION, "rq_a", CLEAR, "t1")
+    brief.ask(service, SESSION, "rq_a", "Stačí denní trend?", "Ano, denní.", "Hodinový je drahý.", "t2")
+    assert inputs.brief_wakes(service, "draft", "t3", NOW) == []  # otázka bez odpovědi nebudí
+    scope = {"project": "draft", "workspace": "draft"}
+    brief.start(service, {**scope, "requirement": "rq_s"}, "t4")
+    brief.answer(service, {**scope, "requirement": "rq_a", "question": "q1", "accept": True}, "t5")
+    brief_setting.write(service, {"project": "draft", "enabled": False})
+    woke = inputs.brief_wakes(service, "draft", "t6", NOW)
+    assert [(space, item["requirementId"], item["reason"]) for space, item in woke] == [
+        ("draft", "rq_a", "answer"), ("draft", "rq_s", "asked")]
+    answer_line = _input_line(woke[0][1])
+    assert answer_line.startswith("- VÝSLECH: rq_a „Metriky srdce“ (odpověď člověka na výslech")
+    assert "otázka q1 „Stačí denní trend?“ → člověk potvrdil doporučení „Ano, denní.“" in answer_line
+    assert woke[1][1]["detail"].startswith("„Chci metriky 0.“")
+    assert inputs.brief_wakes(service, "draft", "t7", NOW) == []  # jednou na odpověď a žádost
+    keys = {row[0] for row in db.execute("SELECT key FROM heart_triggers")}
+    assert {"trigger:brief:rq_a:answer:q1", "trigger:brief:rq_s:asked"} <= keys
