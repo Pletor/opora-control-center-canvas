@@ -165,6 +165,9 @@ class OporaExecutions:
             if "contextProtocolVersion" in record:
                 raise ValueError("Unsupported persisted execution context protocol version.")
             current = handoff.pinned(assignment(self.canvas, *repo.scope, record["nodeId"]), record)
+            # Přijatá hlava se posune s každou přijatou změnou plánu, i se vzdálenou. Běh hlídá jen výřez karty
+            # (dokumenty, specifikace a kroky v zadání), proto se živé zadání porovná s hlavou z claimu.
+            current = {**current, "acceptedRevision": record["acceptedRevision"]}
             if digest(current) != record["assignmentDigest"]:
                 raise ValueError("Execution assignment changed; claim a new execution.")
         # Capturing context can be slow; authority must still exist after that work.
