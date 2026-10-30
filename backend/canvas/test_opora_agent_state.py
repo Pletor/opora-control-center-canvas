@@ -189,6 +189,19 @@ def test_dead_run_is_handed_back_as_a_ready_claim(planned, service):
     assert lease[0] == fresh["token"]
 
 
+def test_card_gauge_counts_runs_and_carries_the_run_profile(planned, service):
+    first = claim(planned)
+    planned.release(first["executionId"], credentials(first))  # vzdal se bez výsledku = selhání
+    second = claim(planned, request="second")
+    [card] = [item for item in read(service)["cards"] if item["nodeId"] == "a"]
+    gauge = card["gauge"]
+    assert (gauge["attempts"], gauge["failures"], gauge["costUsd"]) == (2, 1, None)
+    assert isinstance(gauge["age"], int) and gauge["dod"]["total"] == 7
+    assert gauge["steps"]["total"] == card["steps"]["total"]
+    assert {key: gauge["run"][key] for key in ("label", "effort", "model", "advisor")} == {
+        key: second["assignment"]["run"][key] for key in ("label", "effort", "model", "advisor")}
+
+
 def test_reported_result_needs_human_review_and_pr_link_is_not_connected(planned, service):
     record = claim(planned)
     planned.submit(record["executionId"], {**credentials(record), "requestId": "r", "result": {"summary": "done"}})

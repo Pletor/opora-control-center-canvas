@@ -232,6 +232,9 @@ def test_node_carries_card_fields_and_links_carry_addresses(tmp_path):
         assert (node["type"], node["status"], node["due"], node["model"], node["effort"]) == (
             "task", "ready", "2026-10-10", "sonnet", "high")
         assert node["address"] == "sektor/ohnisko" and node["name"] == "[task] Ohnisko"
+        # Profil běhu (metriky-a-spoustece §3): `card.effort` má přednost, model z karty, doporučení vedle.
+        assert {key: data["run"][key] for key in ("effort", "model", "advisor")} == {
+            "effort": "high", "model": "sonnet", "advisor": "opus"}
         incoming, outgoing = data["graph"]["incoming"][0], data["graph"]["outgoing"][0]
         assert incoming["fromAddress"] == "sektor/predchudce" and incoming["toAddress"] == "sektor/ohnisko"
         assert outgoing["toAddress"] == "sektor/dalsi"

@@ -8,7 +8,7 @@ from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_content_execution import require_accepted_content
 from backend.canvas.opora_execution_budget_status import status as budget_status
 from backend.canvas.opora_execution_lineage import validate_accepted_lineage
-from backend.canvas.opora_execution_validation import validate
+from backend.canvas.opora_execution_validation import run_profile, validate
 from backend.canvas.opora_graph_execution import require_accepted_graph
 from backend.canvas.opora_plan_steps import ordered, steps_of
 from backend.editor.agent_packet.desktop_v3_packets import redact_deep
@@ -95,7 +95,7 @@ def _collect(canvas, db, project, workspace, node):
     opaque = token(private.key(db, project), projection, head, before)
     steps = ordered(steps_of((accepted.get(node) or {}).get("fields")))  # pinned plan (oporahub-plan-steps.md)
     assignment = {"acceptedRevision": head, "documents": redact_deep(selected), "contextVersion": opaque,
-                  "contextProtocolVersion": 2, "steps": redact_deep(steps),
+                  "contextProtocolVersion": 2, "steps": redact_deep(steps), "run": run_profile(target, graph, steps),
                   "specification": {**redact_deep(projection), "schema": "opora.specification-context/2"}}
     kit_of_assignment(assignment, node)  # Validate transported content before issuing an execution pin.
     pin = {"schemaVersion": 1, "snapshot": snapshot, "metadata": metadata, "binding": before,

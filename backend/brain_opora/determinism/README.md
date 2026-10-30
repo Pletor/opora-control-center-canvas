@@ -50,6 +50,9 @@ Modules (H2a, contract `docs/brain-heart.md`):
   else the home page goal and feel), plan pages with their stage (≤ 20, else open cards), task queue counts and the
   last 10 tasks, waiting tickets (≤ 10), last checks (≤ 10). `collect` reads, `render` is pure; the text is cut at
   12 000 characters.
+- `snapshot.py` appends to each open card in `PLÁN` its run tag from `backend/canvas/card_gauge.py` (`[S · sonnet+opus]`;
+  `[XL – nepředávat, rozděl]`; a card effort more than one step off the recommendation shows `ODCHYLKA`), contract
+  `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §3. One read of the accepted context per snapshot; unreadable = no tags.
 
 Modules (K1, contract `docs/brain-heart.md` §3a, the heart's surroundings):
 - `brain_files.py`: the project's `brain/` folder (`brain_dir`), durable human messages `brain/messages.jsonl`

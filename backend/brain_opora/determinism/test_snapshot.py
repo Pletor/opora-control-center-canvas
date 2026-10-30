@@ -302,3 +302,21 @@ def test_intake_section_shows_jev_confidence_and_area_and_hides_heart_decisions(
         entry = intake.record(db, "draft", "heart_message", None, "Přidej filtr.", "2026-10-30T10:00:00Z")
         db.execute("UPDATE intake_entries SET layer='heart', verdict='done' WHERE id=?", (entry["id"],))
     assert snapshot.collect(service, "draft", "draft")["intake"] == []
+
+
+def test_plan_shows_the_run_tag_of_open_cards_and_highlights_xl():
+    cards = [{"id": "a", "name": "A", "stage": "ready"}, {"id": "b", "name": "B", "stage": "ready"}]
+    facts = {**FACTS, "pages": [], "cards": cards,
+             "runs": {"a": "[S · sonnet+opus]", "b": "[XL – nepředávat, rozděl]"}}
+    text = snapshot.render(facts)
+    assert "- A · a · ready · [S · sonnet+opus]\n" in text and "- B · b · ready · [XL – nepředávat, rozděl]" in text
+    assert "[S ·" not in snapshot.render({**facts, "runs": {}})
+
+
+def test_collect_tags_open_cards_from_the_graph(service):
+    current = service.view("draft", "draft")
+    service.save_graph("draft", "draft", {"nodes": [node("a"), node("b")],
+                                          "edges": [{"id": "e1", "source": "b", "target": "a"}]}, current["digest"])
+    facts = snapshot.collect(service, "draft", "draft")
+    assert set(facts["runs"]) == {card["id"] for card in facts["cards"]}
+    assert all(tag.startswith("[XS · sonnet") for tag in facts["runs"].values())

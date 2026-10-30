@@ -2,6 +2,7 @@
 import json
 import re
 
+from backend.canvas import card_gauge
 from backend.canvas.graph import digest, valid_id
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import OporaChangesets
@@ -69,4 +70,11 @@ def assignment(canvas, project, workspace, node, context_version=1, require_grap
     # Accepted plan steps of the claimed card are pinned in the immutable snapshot (oporahub-plan-steps.md).
     steps = ordered(steps_of(accepted.get(node, {}).get("fields")))
     return {"acceptedRevision": context["acceptedHead"], "documents": [accepted[key] for key in relevant],
-            **captured, "steps": steps}
+            **captured, "steps": steps, "run": run_profile(target, view["graph"], steps)}
+
+
+def run_profile(target, graph, steps):
+    """Profil běhu dělníka v zadání (docs/navrhy/2026-10-30-metriky-a-spoustece.md §3): jen stabilní struktura karty
+    (kroky, soubory, riziko, `fanIn`, `card.effort`), bez stáří a ceny. Běžící běh porovnává `run` ze svého claimu
+    (`OporaExecutions.pinned_digest`), takže pozdější změna štítku běh neodvolá."""
+    return card_gauge.brief(card_gauge.profile(target, graph, steps))

@@ -15,3 +15,4 @@ kolekci (ID lokálních pravidel se mohou opakovat). Zákazy předků se zahrnuj
 Původní `nodeRules` a `projectRules` zůstávají kompatibilní. Plátno zobrazuje stejný původ ikonami.
 
 Odvozené pohledy (`sector_status`, `sector_blockers`, `frontier`, `work_overview`, `checklists`) počítají předky a vazby jednou za dotaz přes indexy (`sector_ancestry`, `SectorEdges`, `FrontierIndex`, `EdgeIndex`) a zadání s texty čtou dvěma hromadnými dotazy. Výstup je stejný jako dřívější procházení všech dvojic; hlídá to `test_derived_views_equivalence.py` (oprava 7 v docs/navrhy/2026-10-14-vykon-platna.md).
+Balíček nese `run` (štítek, úsilí, model, poradce, `handout`, `humanReview`) z kroků zadání karty a grafu, stejný výpočet jako `run` v zadání běhu (`backend/canvas/card_gauge.py`, docs/navrhy/2026-10-30-metriky-a-spoustece.md §3); mimo `specification`, takže `contextVersion` nemění.

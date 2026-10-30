@@ -515,6 +515,11 @@ class NodeBrief:
         brief["usage"] = {"own": usage["nodes"][node_id], "sector": usage["sectors"].get(node_id),
                           "source": usage["source"], "mode": usage["mode"]}
         brief["evidence"] = redact_deep(node_state.get("evidence"))
+        # Profil běhu dělníka (docs/navrhy/2026-10-30-metriky-a-spoustece.md §3): štítek z kroků zadání a grafu, mimo
+        # `specification`, takže `contextVersion` nemění; stejný výpočet jako `run` v zadání běhu.
+        from backend.canvas.opora_execution_validation import run_profile
+        from backend.canvas.opora_plan_steps import ordered, steps_of
+        brief["run"] = run_profile(node, graph, ordered(steps_of(fields)))
         # Výřez mapy architektury (docs/architektura-pro-agenty.md §4): jen karta pod stránkou, mimo `specification`,
         # takže `contextVersion` nemění; cesty zákazníka jsou odvozené ze stejného grafu. `lastRun` cest bere
         # poslední doklady přehrání z `journey_runs` projektu (docs/brana-cesty.md §4). `graph` je pohled prostoru karty,

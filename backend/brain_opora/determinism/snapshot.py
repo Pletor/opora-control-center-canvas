@@ -19,6 +19,7 @@ from backend.brain_opora.determinism import brain_files, git_log, intake, milest
 from database.repositories.intake_requirements import IntakeRequirements
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
+from backend.canvas import card_gauge
 from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas.architecture_graph import split
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
@@ -195,6 +196,25 @@ def _blocked(service, project, workspace, db):
     return {key: value for key, value in dag["blockedBy"].items() if value}, names
 
 
+def _runs(service, project, workspace, ids):
+    """`{karta: štítek}` profilu běhu (`card_gauge.tag`, docs/navrhy/2026-10-30-metriky-a-spoustece.md §3) karet `ids`
+    z přijatých kroků a grafu plátna; jedno čtení kontextu na snímek. Nečitelné = žádné štítky."""
+    from backend.canvas.opora_changesets import OporaChangesets
+    from backend.canvas.opora_plan_steps import steps_of
+
+    if not ids:
+        return {}
+    try:
+        graph = service.view(project, workspace)["graph"]
+        accepted = {item["nodeId"]: item for item in OporaChangesets(service).context(project, workspace)["acceptedDocuments"]}
+        index = card_gauge.graph_index(graph)
+        return {node: card_gauge.tag(card_gauge.profile(index["nodes"][node], graph,
+                                                        steps_of((accepted.get(node) or {}).get("fields")), index))
+                for node in ids if node in index["nodes"]}
+    except UNREADABLE:
+        return {}
+
+
 def _git(service, project, workspace):
     """Posledních `GIT_COMMITS` commitů zdroje prostoru; bez zdroje nebo s nečitelným gitem prázdné."""
     try:
@@ -258,7 +278,8 @@ def collect(service, project, workspace):
         entries = intake.recent(db, workspace)
         reached = milestones.reached(db, project, workspace)
         wanted = IntakeRequirements(db).list(workspace, ("open", "deferred"))[-REQUIREMENTS:]
-    return {"intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
+    runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
+    return {"runs": runs, "intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -276,10 +297,10 @@ def _intent(facts):
 
 def _plan(facts):
     stages = {card["id"]: card["stage"] for card in facts["cards"]}
-    work = facts.get("work")
+    work, runs = facts.get("work"), facts.get("runs") or {}
 
-    def doing(node):  # stav práce z executions (§3 orchestrátoru); fakta bez `work` ho nepíšou
-        return "" if work is None else f" · {_doing(facts, node)}"
+    def doing(node):  # stav práce z executions (§3 orchestrátoru) a štítek běhu; fakta bez nich je nepíšou
+        return ("" if work is None else f" · {_doing(facts, node)}") + (f" · {runs[node]}" if node in runs else "")
 
     if facts["pages"]:
         rows = [f"- {_short(page['name'], 80)} · {page['path'] or '—'} · {stages.get(page['id'], 'closed')}"
