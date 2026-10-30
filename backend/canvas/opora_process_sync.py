@@ -15,12 +15,13 @@ from database.repositories.opora_executions import Executions
 CARD_LIMIT = 100
 LABELS = {"needs-plan": "Doplnit zadání", "needs-acceptance": "Předložit návrh k přijetí",
           "needs-steps": "Doplnit kroky plánu", "ready": "Převzít kartu", "running": "Sledovat běh",
-          "reported": "Zkontrolovat nahlášený výsledek", "stale": "Porovnat s aktuálním zadáním",
+          "reported": "Zkontrolovat nahlášený výsledek",
           "closed": "Karta uzavřena", "blocked": "Vyřešit blokaci", "unavailable": "Prověřit dostupnost"}
 
 
-def _latest(repo, node, accepted):
-    """`(execution, dead)`: dead = no results and no active lease of this run's token (docs/oporahub-agent-state.md)."""
+def _latest(repo, node, accepted, slice_changed=None):
+    """`(execution, dead)`: dead = no results and no active lease of this run's token (docs/oporahub-agent-state.md).
+    A run with results carries `staleEvidence` (its card slice changed since the claim, `slice_changed`)."""
     records = repo.history(node)
     if not records:
         return None, False
@@ -40,15 +41,19 @@ def _latest(repo, node, accepted):
     count = repo.db.execute("SELECT COUNT(*) FROM opora_execution_results WHERE project_id=? AND workspace_id=? AND execution_id=?",
                             (*repo.scope, record["executionId"])).fetchone()[0]
     leased = bool(lease and lease["expires_at"] > time.time() and lease["token"] == record["token"])
-    return ({"id": record["executionId"], "state": state, "acceptedRevision": record["acceptedRevision"],
-             "matchesCurrentRevision": record["acceptedRevision"] == accepted, "results": count},
-            not count and not leased)
+    execution = {"id": record["executionId"], "state": state, "acceptedRevision": record["acceptedRevision"],
+                 "matchesCurrentRevision": record["acceptedRevision"] == accepted, "results": count}
+    if count and slice_changed is not None:
+        execution["staleEvidence"] = slice_changed(repo, record, accepted)
+    return execution, not count and not leased
 
 
 def _status(document, accepted, matches, stored, execution, availability, read_only, context_valid, plan, dead=False):
     # A dead run (no result, no active lease of its own) never decides the card: the lease is the authority,
     # so the card falls through to the readiness rules and becomes claimable again (claim replaces the lease).
-    if dead:
+    # A result whose card slice changed since its claim is historical: it does not decide the card either,
+    # the card is redone against the new accepted spec (ready / blocked by a predecessor / needs-steps).
+    if dead or (execution and execution["results"] and execution.get("staleEvidence")):
         execution = None
     if stored.get("done", {}).get("confirmed"):
         return "closed", "Dokončení karty je potvrzeno v Canvasu; není to důkaz merge ani nasazení."
@@ -58,8 +63,6 @@ def _status(document, accepted, matches, stored, execution, availability, read_o
         return "needs-plan", "Karta nemá neprázdný cíl zadání."
     if not accepted or not matches:
         return "needs-acceptance", "Pracovní zadání není shodné s přijatou revizí."
-    if execution and not execution["matchesCurrentRevision"]:
-        return "stale", "Poslední běh patří jiné přijaté revizi; jeho výsledek zůstává historický."
     if execution and execution["results"]:
         return "reported", "Výsledek je hlášení agenta a vyžaduje samostatnou kontrolu."
     if execution and execution["state"] == "running" and context_valid:
@@ -102,7 +105,7 @@ class ProcessSync:
             for card in selected if limit is None else selected[:limit]:
                 identifier = card["id"]
                 stored = state["nodes"].get(identifier, {})
-                execution, dead = _latest(repo, identifier, accepted)
+                execution, dead = _latest(repo, identifier, accepted, executions.slice_changed)
                 available = executions.context(project, workspace, identifier)
                 availability = {key: available[key] for key in ("available", "unavailableReason")}
                 lease = repo.db.execute("SELECT expires_at FROM card_leases WHERE project_id=? AND workspace_id=? AND node_id=?",
@@ -117,7 +120,7 @@ class ProcessSync:
                 stages = stored.get("stages", {})
                 stage = current_stage(stages) if stages.get("items") else None
                 items.append({"nodeId": identifier, "name": card["name"], "status": status,
-                              "nextAction": {"kind": {"ready": "claim", "reported": "review", "closed": "none", "stale": "reconcile"}.get(status, status),
+                              "nextAction": {"kind": {"ready": "claim", "reported": "review", "closed": "none"}.get(status, status),
                                              "label": LABELS[status], "reason": reason},
                               "pipeline": {"stageCount": len(stages.get("items", [])),
                                            "passedCount": sum(item["status"] == "passed" for item in stages.get("items", [])),

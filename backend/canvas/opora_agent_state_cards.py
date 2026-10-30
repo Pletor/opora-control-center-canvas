@@ -29,6 +29,12 @@ def dead_run(latest, claim, now):
     return bool(claim) and latest["deadline"] <= now and not latest["results"]
 
 
+def historical(latest, claim, accepted):
+    """A result whose card slice changed since its claim (`stale_evidence`) on a card that offers a claim again
+    (process sync let the card fall through to readiness): it is history, so the card shows the claim stage."""
+    return bool(claim) and bool(latest["results"]) and rules.stale_evidence(latest, accepted)
+
+
 def card_stage(card, accepted, latest, claim, link, gate, now):
     """Stage of one card; `latest`, `claim`, `link` and `gate` are None when the card has none."""
     node = card["nodeId"]
@@ -49,7 +55,7 @@ def card_stage(card, accepted, latest, claim, link, gate, now):
         if latest["deadline"] <= now:
             return _entry(node, "work", "blocking", "lease_past_deadline", execution)
         return _entry(node, "work", "ok", "runs_active", execution)
-    if latest and latest["results"]:
+    if latest and latest["results"] and not historical(latest, claim, accepted):
         if rules.stale_evidence(latest, accepted):
             return _entry(node, "evidence", "waiting", "stale_evidence", execution)
         return _entry(node, "review", "waiting", "human_review_required", execution)

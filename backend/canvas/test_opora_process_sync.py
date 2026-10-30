@@ -9,6 +9,7 @@ from backend.canvas.opora_process_sync import ProcessSync
 from backend.canvas.test_opora_changesets import SCOPE, accept, baseline, legacy_save, propose
 from backend.canvas.test_opora_changesets import service as service  # noqa: PLC0414
 from backend.canvas.test_opora_execution_budgets import configure, v2
+from backend.canvas.test_opora_executions import chain as chain  # noqa: PLC0414
 from backend.canvas.test_opora_executions import claim, credentials
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.agent_memory.pipeline_routing import PipelineRouting
@@ -94,10 +95,50 @@ def test_report_is_separate_from_card_completion_and_revision(planned, service):
     assert not item["doneConfirmed"]
     proposal = propose(service)
     accept(service, proposal, record["acceptedRevision"])
-    item = row(service)
-    assert item["status"] == "stale"
-    assert item["currentExecution"]["results"] == 1
+    item = row(service)  # own spec changed: the result is historical, the card falls through to readiness
+    assert item["status"] == "needs-steps"
+    assert item["currentExecution"]["results"] == 1 and item["currentExecution"]["staleEvidence"]
     assert not item["currentExecution"]["matchesCurrentRevision"]
+
+
+def report(planned, service):
+    record = claim(planned)
+    planned.submit(record["executionId"], {**credentials(record), "requestId": "report", "result": {"summary": "Failed s1"}})
+    return record
+
+
+def head(service):
+    from backend.canvas.opora_changesets import OporaChangesets
+    return OporaChangesets(service).context("draft", "draft")["acceptedHead"]
+
+
+def test_result_after_own_spec_change_is_historical_and_the_card_is_ready(planned, service):
+    from backend.canvas.test_opora_auto_rebase import propose as propose_fields
+    route(service)
+    record = report(planned, service)
+    accept(service, propose(service, ("b",), "Other goal"), head(service))  # unrelated change: still to review
+    item = row(service)
+    assert not item["currentExecution"]["matchesCurrentRevision"]
+    assert item["status"] == "reported" and not item["currentExecution"]["staleEvidence"]
+    accept(service, propose_fields(service, "a", goal="Redo with the missing precondition"), head(service))
+    item = row(service)
+    assert item["status"] == "ready" and item["nextAction"]["kind"] == "claim"
+    assert item["currentExecution"]["id"] == record["executionId"] and item["currentExecution"]["staleEvidence"]
+
+
+def test_result_after_own_spec_adds_a_predecessor_is_blocked_by_it(service, chain):
+    from backend.canvas.test_opora_executions import accept_graph_change
+    from backend.canvas.test_opora_auto_rebase import propose as propose_fields
+    from backend.canvas.test_opora_plan_steps import PLAN
+    authority = ExecutionResults(service)
+    accept(service, propose_fields(service, chain["ca"], goal="Card A", steps=PLAN), head(service))
+    record = claim(authority, node=chain["ca"])
+    authority.submit(record["executionId"], {**credentials(record), "requestId": "r", "result": {"summary": "Failed s1"}})
+    assert row(service, chain["ca"])["status"] == "reported"
+    accept_graph_change(service, {"edges": [{"from": "@" + chain["cc"], "to": "@" + chain["ca"], "port": "next"}]})
+    item = row(service, chain["ca"])
+    assert item["status"] == "blocked" and item["blockedBy"] == [chain["cc"]]
+    assert item["currentExecution"]["staleEvidence"]
 
 
 def test_active_run_is_observed_despite_exhausted_admission(planned, service):

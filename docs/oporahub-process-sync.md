@@ -21,8 +21,12 @@ a workspace; čtení nevolá model, GitHub ani poskytovatele vykonavatele.
   nebo odevzdání. Vyčerpaný počet nových pokusů sám neukončuje stávající běh.
 - Mrtvý běh (poslední execution bez výsledku a bez aktivního pronájmu se svým tokenem v `card_leases`)
   o stavu karty nerozhoduje: karta propadne běžnými pravidly připravenosti (`ready` / `blocked` /
-  `needs-steps`), ne do `running` ani `stale`, ani když se mezitím posunula přijatá hlava jinde.
-  Claim propadlý pronájem nahradí. Běh s výsledkem dál dává `reported` / `stale`, živý běh `running`.
+  `needs-steps`), ne do `running`, ani když se mezitím posunula přijatá hlava jinde.
+  Claim propadlý pronájem nahradí. Živý běh dává `running`, běh s výsledkem `reported`.
+- Výsledek, od jehož claimu se změnil **výřez karty** (`currentExecution.staleEvidence`, stejné pravidlo
+  `OporaExecutions.slice_changed` jako etapa `evidence` v agent-state), je historický a o kartě také nerozhoduje:
+  karta propadne pravidly připravenosti (`ready`, `blocked` předchůdcem, `needs-steps`) a dostane nový `claim`.
+  Posun přijaté hlavy jinde výsledek nezastará, karta zůstane `reported`. Stav `stale` se proto už nevydává.
 - Nahlášený výsledek žádá nezávislou kontrolu. PR merge, lidské dokončení karty,
   ověření a nasazení jsou samostatné skutečnosti. Historický výsledek se při
   změně přijaté revize nepřepíše ani nevydává za výsledek aktuální revize.

@@ -78,7 +78,7 @@ v nejvzdálenější dosažené etapě; platí první pravidlo:
 | otevřené PR s bránou review | `review` se zdravím brány (`blocked` → `blocking`, `pending` → `waiting`, `ready` → `ok`) a důvodem pravidla, které bránu drží (stejné pořadí jako etapa `review`), jinak `review_gate_ready` |
 | otevřené PR bez brány | `pull_request` / `waiting` / `pull_requests_open` |
 | poslední běh `running` | `work` / `ok` / `runs_active`, po termínu `blocking` / `lease_past_deadline`; mrtvý běh bez výsledku, jehož karta znovu nabízí `claim`, sem nepatří (viz níže) |
-| poslední běh s výsledkem | změněný výřez karty (viz `evidence`) → `evidence` / `waiting` / `stale_evidence`, jinak `review` / `waiting` / `human_review_required` |
+| poslední běh s výsledkem | změněný výřez karty (viz `evidence`) → `evidence` / `waiting` / `stale_evidence`, jinak `review` / `waiting` / `human_review_required`; historický výsledek (změněný výřez) na kartě, která znovu nabízí `claim`, sem nepatří (viz níže) |
 | akce `claim` karty | `claim` / `ok` / `cards_ready`, blokovaná → `blocking` / `budget_exhausted`, `budget_policy_required` či `blocked_by_predecessor` |
 | jinak | `plan` / `ok` / `card_in_plan` (bez přijatého základu `blocking` / `no_accepted_baseline`) |
 
@@ -87,6 +87,12 @@ z konce v ledgeru, konce rozpočtu a pronájmu se stejným tokenem (bez něj je 
 bez aktivního pronájmu) projekce procesu nepočítá, karta je `ready` a dostane akci `claim`; etapa karty je pak
 `claim` a etapa `work` ho nezapočítá. `lease_past_deadline` tak zůstává jen pro okno, kdy je termín pryč, ale
 karta claim ještě nenabízí (např. hodiny čtení předběhnou čtení pronájmu, nebo karta claim nemá z jiného důvodu).
+
+Stejně se předá zpět karta, jejíž poslední výsledek zastaral změnou vlastního výřezu (přeplánování, nový předchůdce):
+projekce procesu ho bere jako historický, karta propadne připraveností a dostane akci `claim` (`ready`, nebo
+`blocked_by_predecessor`, dokud předchůdce není hotový); etapa karty je `claim`. Dokud má karta otevřené nebo sloučené
+PR, akce `claim` se nevydá a etapu drží PR. Rozpočet v2 se počítá na přijatou revizi, takže nová revize má nové
+pokusy, ale zapsaná karta potřebuje novou politiku rozpočtu člověka (`budget_policy_required`).
 
 `executionId` je běh, ke kterému etapa patří (u PR běh vazby), jinak `null`.
 
