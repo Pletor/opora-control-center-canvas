@@ -51,6 +51,16 @@ def test_proposal_is_immutable_acceptance_has_manifest_and_default_documents(gra
     assert graphs.context(**SCOPE)["acceptedHead"] == later["id"]
 
 
+def test_area_with_position_is_stored_after_an_accepted_graph(graphs):
+    """Pozice (x, y) se uloží jako JSON seznam; návrh po přijatém grafu nesmí spadnout na „identity conflict“."""
+    accept(graphs, proposal(graphs))
+    item = proposal(graphs, "Area", {"nodes": [{"ref": "zone", "kind": "area", "name": "Zone", "size": {"w": 600, "h": 400},
+                                                "position": {"x": 40, "y": 60}}]})
+    zone = item["refs"]["zone"]
+    assert item["positions"] == {zone: [40, 60]}
+    assert graphs.read(**SCOPE, record_id=item["id"])["positions"] == item["positions"]
+
+
 def test_sibling_rebase_preserves_ids_and_creates_new_object(graphs, service):
     left, right = proposal(graphs, "Left"), proposal(graphs, "Right")
     accept(graphs, left)
