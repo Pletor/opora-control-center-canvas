@@ -16,7 +16,7 @@ def test_claim_pins_the_stable_run_profile(authority):
     record = claim(authority)
     run = record["assignment"]["run"]
     assert set(run) == {"label", "effort", "model", "advisor", "handout", "humanReview"}
-    assert run["label"] in card_gauge.LABELS and "age" not in run and "costUsd" not in run
+    assert run["label"] in (*card_gauge.LABELS, card_gauge.UNKNOWN) and "age" not in run and "costUsd" not in run
     assert record["assignmentDigest"] == digest(record["assignment"])
 
 

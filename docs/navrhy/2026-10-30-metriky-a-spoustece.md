@@ -100,6 +100,13 @@ Každý spouštěč srdce probudí jen jednou na stav (klíč `trigger:karta:sta
 - **`card.effort` a XL:** když rozhodlo srdce nebo člověk (`source: card`), karta se předá (`handout: true`) i při doporučení XL. Odchylku ukáže `mismatch`. `card.model` od srdce nebo člověka má přednost před modelem z tabulky O10.
 - **Měřák** se počítá jen pro karty na zobrazené stránce `cards[]` (strop 100). Navíc nese `pointsBreakdown` (rozpis bodů), aby byl součet průhledný.
 
+### Řez 2 – doplněk: chudé podklady
+
+- **Proč:** na Ample dostalo všech 40 karet XS, protože srdce plánovalo karty s 0–1 krokem a bez `files`. XS tu lhal (nejslabší model bez poradce i u migrace s RLS).
+- **`evidence`:** `thin`, když karta má nejvýš 1 krok a 0 souborů, jinak `ok` (v `gauge` i v `run`). Při `thin` se štítek nevydává: `label: "?"`, `recommended: null`, `mismatch` se nepočítá. Běh se vezme z `card.effort`/`card.model` (`source: card`), jinak bezpečný výchozí `medium` · sonnet+opus (`source: default`, `reason: "málo podkladů – doplň kroky a soubory"`). Snímek srdce ukáže `[? – doplň kroky a soubory]`.
+- **Riziko z textu:** bez souborů hledá `risk_of` v názvu, `purpose` a `acceptance` kroků signály citlivých cest. Pravidla review kódu mají jen globy, proto se klíčová slova globů (`migrations`, `schema`, `auth`, `secret`) převádějí na slova textu (migrace, schéma, RLS, auth, oprávnění, secret) a signál platí jen, když jeho slovo v pravidlech je. Shoda dá nejvýš `elevated` s `reasons: ["text: migrace"]`; `critical` dávají jen skutečné soubory.
+- **Prompt srdce:** realizační karta má 2–8 kroků, každý s `kind` a `files`.
+
 ## 8. Ověření
 
 - Karta Ample se 3 kroky a 2 soubory dostane štítek S, tedy sonnet s poradcem opus. Karta se 14 kroky, krokem design a migrací (`critical`) dostane XL a nepředá se; srdce dostane `card.too_big`.

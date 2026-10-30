@@ -73,6 +73,8 @@ Náročnost karty (`card.effort`, nepovinné, bez pole platí `medium`) volíš 
 mechanická změna jednoho souboru (přejmenování, konstanta, doc); `medium` = běžná karta s jasným rozsahem a testem;
 `high` = oprava chyby v existujícím kódu, migrace, bezpečnost, souběh, víc modulů; `max` jen výjimečně, když návrh nejde
 rozdělit na menší karty. Podle toho kancelář vybere model a úsilí dělníka.
+Realizační karta má 2–8 kroků `spec.steps`; každý krok má `kind` (code|test|docs|design|research) a `files`
+(odhad dotčených cest). Z nich měřák určí model a úsilí; karta bez kroků a souborů dostane štítek „?“.
 Odmítnutá dávka vrátí v `hint` text serveru: oprav jen to pole. Ostrý `plan` plán sám přijme (`accepted: true`, karty
 jdou orchestrátorovi); `accepted: false` s `hint` znamená, že přijetí zůstalo na člověku: neopakuj dávku.
 Další plán nad už přijatým grafem jde jako návrh grafu: pole ze vzoru včetně `card` (i `card.effort`),

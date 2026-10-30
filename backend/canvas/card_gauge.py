@@ -8,6 +8,7 @@ hotových karet (řez 3).
 `profile` je stabilní část (jen struktura karty: kroky, soubory, druhy, riziko, `fanIn`, `card.effort` /
 `card.model`), a proto jediná, která smí do zadání běhu. `gauge` k ní přidá živé metriky (postup, dod, běhy, stáří).
 """
+import re
 from datetime import datetime
 
 from backend.canvas.card_dag import CARD_KINDS, next_edges
@@ -29,6 +30,20 @@ BY_LABEL = {"XS": ("low", "sonnet", None), "S": ("medium", "sonnet", "opus"), "M
 BY_EFFORT = {"low": ("sonnet", None), "medium": ("sonnet", "opus"), "high": ("sonnet", "opus"),
              "xhigh": ("sonnet", "opus"), "max": ("opus", None)}
 RISKS = ("standard", "elevated", "critical")
+# Chudé podklady (≤ 1 krok a 0 souborů): štítek se nevydává, běh se vezme z karty, jinak bezpečný výchozí stav.
+UNKNOWN = "?"
+THIN_STEPS = 1
+DEFAULT_RUN = ("medium", "sonnet", "opus")
+THIN_REASON = "málo podkladů – doplň kroky a soubory"
+# Riziko z textu karty, když chybí soubory. Pravidla review kódu (`opora_review_jobs.toml`) mají jen globy cest, takže
+# klíčové slovo globu (`migrations`, `schema`, `auth`, `secret`) se převádí na slova, kterými ho karta píše česky
+# i anglicky; signál platí jen tehdy, když jeho slovo v pravidlech skutečně je, a dá nejvýš `elevated`.
+TEXT_SIGNALS = (("migrations", "migrace", r"migra[cčt]"),
+                ("schema", "schéma", r"sch[eé]ma"),
+                ("auth", "RLS", r"\brls\b|row[- ]level security"),
+                ("auth", "auth", r"\bauth(?!or)"),
+                ("auth", "oprávnění", r"oprávněn|permission"),
+                ("secret", "secret", r"secret|tajemstv"))
 ENDED_WITHOUT_RESULT = ("released", "cancelled", "revoked")
 
 
@@ -43,13 +58,39 @@ def plan_of(steps):
     return {"steps": len(steps or []), "files": sorted(files), "kinds": dict(sorted(kinds.items()))}
 
 
-def risk_of(files, config=None):
+def text_of(node, steps):
+    """Text karty pro signály rizika: název, popis (`purpose`) a `acceptance` kroků."""
+    parts = [(node or {}).get("name"), (node or {}).get("purpose")]
+    parts += [item for step in steps or [] for item in step.get("acceptance") or []]
+    return " ".join(item for item in parts if isinstance(item, str))
+
+
+def text_signals(text, config):
+    """Signály citlivých cest v textu karty (`TEXT_SIGNALS`, jen slova přítomná v globech pravidel), bez opakování."""
+    globs = " ".join([*config["sensitive"], *config.get("security", {}).get("paths", [])]).lower()
+    lowered, found = (text or "").lower(), []
+    for word, signal, pattern in TEXT_SIGNALS:
+        if word in globs and signal not in found and re.search(pattern, lowered):
+            found.append(signal)
+    return found
+
+
+def evidence_of(plan):
+    """`thin`, když karta má nejvýš jeden krok a žádný soubor (měřák nemá z čeho měřit), jinak `ok`."""
+    return "thin" if plan["steps"] <= THIN_STEPS and not plan["files"] else "ok"
+
+
+def risk_of(files, config=None, text=""):
     """Riziko zásahu nad `files` (standard / elevated / critical) z pravidel review kódu (opora_review_risk):
     citlivá cesta (`risk.sensitive`, vždy vyžaduje člověka) = critical; bezpečnostní cesta (`security.paths`)
-    nebo aspoň `medium_files` souborů = elevated. `classify_risk` čte záznam návrhu, ne soubory (odchylka §7)."""
+    nebo aspoň `medium_files` souborů = elevated. `classify_risk` čte záznam návrhu, ne soubory (odchylka §7).
+    Bez souborů rozhoduje `text` karty (`text_signals`): shoda dá nejvýš elevated, critical dávají jen soubory."""
     from backend.canvas import opora_review_risk as review_risk
 
     config = review_risk.load() if config is None else config
+    if not files:
+        reasons = ["text: " + signal for signal in text_signals(text, config)]
+        return {"level": "elevated" if reasons else "standard", "reasons": reasons}
     sensitive = sorted({glob for glob in config["sensitive"] for path in files if review_risk.matches(glob, path)})
     if sensitive:
         return {"level": "critical", "reasons": ["sensitive_path:" + glob for glob in sensitive]}
@@ -105,13 +146,33 @@ def _rank(label=None, effort=None):
     return LABELS.index(label) if label is not None else EFFORTS.index(effort)
 
 
-def run_of(points, risk, card=None):
-    """Profil běhu `{label, points, effort, model, advisor, source, handout, humanReview}` (+ `recommended` a
-    `mismatch`, když rozhodl `card.effort`). `risk == critical` vždy vynutí poradce opus a review člověka."""
+def _thin_run(points, card):
+    """Chudé podklady: štítek „?“, žádné doporučení ani odchylka; běh z `card.effort`/`card.model`, jinak výchozí."""
+    chosen = (card or {}).get("effort")
+    if chosen in BY_EFFORT:
+        model, advisor = BY_EFFORT[chosen]
+        run = {"effort": chosen, "model": (card or {}).get("model") or model, "advisor": advisor, "source": "card"}
+    else:
+        effort, model, advisor = DEFAULT_RUN
+        run = {"effort": effort, "model": (card or {}).get("model") or model, "advisor": advisor, "source": "default",
+               "reason": THIN_REASON}
+    return {"label": UNKNOWN, "points": points, **run, "recommended": None, "evidence": "thin",
+            "handout": True, "humanReview": False}
+
+
+def run_of(points, risk, card=None, evidence="ok"):
+    """Profil běhu `{label, points, effort, model, advisor, source, evidence, handout, humanReview}` (+ `recommended`
+    a `mismatch`, když rozhodl `card.effort`). `risk == critical` vždy vynutí poradce opus a review člověka.
+    Při `evidence == thin` se štítek nevydává (`_thin_run`)."""
+    if evidence == "thin":
+        run = _thin_run(points, card)
+        if risk == "critical":
+            run.update(advisor="opus", humanReview=True)
+        return run
     label = label_of(points)
     effort, model, advisor = BY_LABEL[label]
     run = {"label": label, "points": points, "effort": effort, "model": model, "advisor": advisor,
-           "source": "recommended", "handout": label != XL, "humanReview": False}
+           "source": "recommended", "evidence": "ok", "handout": label != XL, "humanReview": False}
     chosen = (card or {}).get("effort")
     if chosen in BY_EFFORT:
         model, advisor = BY_EFFORT[chosen]
@@ -128,9 +189,9 @@ def profile(node, graph, steps, index=None, config=None):
     Bez stáří a ceny, takže se během běhu nemění."""
     index = graph_index(graph) if index is None else index
     plan = plan_of(steps)
-    risk = risk_of(plan["files"], config)
+    risk = risk_of(plan["files"], config, text_of(node, steps))
     points, _ = points_of(plan, risk["level"], index["fanIn"].get(node["id"], 0))
-    return run_of(points, risk["level"], node.get("card"))
+    return run_of(points, risk["level"], node.get("card"), evidence_of(plan))
 
 
 def brief(run):
@@ -140,6 +201,8 @@ def brief(run):
 
 def tag(run):
     """Krátký štítek pro snímek srdce: `[S · sonnet+opus]`; XL a odchylku zvýrazní."""
+    if run.get("evidence") == "thin":
+        return f"[{UNKNOWN} – doplň kroky a soubory]"
     if not run["handout"]:
         return "[XL – nepředávat, rozděl]"
     worker = run["model"] + (f"+{run['advisor']}" if run["advisor"] else "")
@@ -178,7 +241,8 @@ def gauge(entry, node, steps, index, runs, latest, now, config=None, cost=None):
     """Měřák jedné karty agent-state: `entry` nese `steps` a `dod` (plan_steps.attach), `node` uzel grafu,
     `steps` přijaté kroky, `runs` záznam `tally`, `latest` nejnovější běh z agent-state (nebo None)."""
     plan = plan_of(steps)
-    risk = risk_of(plan["files"], config)
+    risk = risk_of(plan["files"], config, text_of(node, steps))
+    evidence = evidence_of(plan)
     fan_in = index["fanIn"].get(entry["nodeId"], 0)
     points, parts = points_of(plan, risk["level"], fan_in)
     progress, dod = entry.get("steps") or {}, entry.get("dod") or {}
@@ -188,13 +252,13 @@ def gauge(entry, node, steps, index, runs, latest, now, config=None, cost=None):
     active = bool(latest) and latest.get("state") == "running" and latest.get("deadline", 0) > now
     return {"steps": {"total": total, "done": done, "percent": _percent(done, total)},
             "dod": {"met": met, "total": len(REQUIREMENTS), "percent": _percent(met, len(REQUIREMENTS))},
-            "files": len(plan["files"]), "kinds": plan["kinds"], "risk": risk,
+            "files": len(plan["files"]), "kinds": plan["kinds"], "risk": risk, "evidence": evidence,
             "fanIn": fan_in, "fanOut": index["fanOut"].get(entry["nodeId"], 0),
             "split": split_of(index, entry["nodeId"]),
             "attempts": (runs or {}).get("attempts", 0), "failures": (runs or {}).get("failures", 0),
             "age": round(now - claimed) if active and claimed is not None else None,
             "costUsd": cost, "pointsBreakdown": parts,
-            "run": run_of(points, risk["level"], (node or {}).get("card"))}
+            "run": run_of(points, risk["level"], (node or {}).get("card"), evidence)}
 
 
 def attach(entries, graph, documents, runs, latest, now):
