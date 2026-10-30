@@ -162,3 +162,6 @@ Krátký výslech karty (`VÝSLECH (krátký): karta …`) má doplnit kroky kar
 - Nový požadavek („měřit kvalitu odpovědí: přesnost citací, latence, cena“) bez oblasti s aktivním milníkem neměl
   kam jít: `later_extension` bez podmínky otevření skončil chybou a srdce eskalovalo. Oprava: rozšíření bez milníku,
   na který by čekalo, je požadavek `open` (`determinism/requirements.py`), takže spustí výslech (`opened`).
+- Druhý běh prošel celý (rešerše, syntéza s částmi `research`/`derived`, 4 karty se štítky), ale bez jediné otázky,
+  ač syntéza stála na neověřených předpokladech. Kritérium jasna (§4) proto navíc chce: syntéza s `assumptions`
+  potřebuje aspoň jednu odpověď člověka na otázku `ask` (`missing` „assumptions“).

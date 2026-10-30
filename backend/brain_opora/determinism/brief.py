@@ -51,7 +51,8 @@ MISSING = {"goal": "goal: cíl jednou větou", "users": "users: pro koho",
            "parts.origin": "parts: aspoň jedna položka origin research|derived se source",
            "dependencies": "dependencies: závislosti na kartách nebo oblastech (žádná = {ref: none, text: proč})",
            "questions.high": "questions: otevřená otázka s impact high",
-           "questions.open": "otázky výslechu čekají na odpověď člověka"}
+           "questions.open": "otázky výslechu čekají na odpověď člověka",
+           "assumptions": "assumptions: předpoklady potvrdí člověk – polož aspoň jednu otázku ask s doporučením"}
 SHAPE = ('{"goal": "…", "users": "…", "parts": [{"text": "…", "origin": "human|research|derived", "source": "…"}], '
          '"acceptance": [{"text": "…", "check": "test|measure|observe"}], "outOfScope": ["…"], '
          '"assumptions": ["…"], "risks": ["…"], "dependencies": [{"ref": "nodeId|areaId|none", "text": "…"}], '
@@ -116,8 +117,12 @@ def clarity(synthesis, questions=()):
     if any(isinstance(item, dict) and item.get("impact") == "high" and not str(item.get("answer") or "").strip()
            for item in synthesis.get("questions") or []):
         found.append("questions.high")
-    if any(item.get("answer") is None for item in questions or [] if isinstance(item, dict)):
+    asked = [item for item in questions or [] if isinstance(item, dict)]
+    if any(item.get("answer") is None for item in asked):
         found.append("questions.open")
+    # Výslech, ne dohad: předpoklady bez jediné odpovědi člověka nejsou jasno (srdce se musí zeptat).
+    if _texts(synthesis.get("assumptions")) and not any(item.get("answer") is not None for item in asked):
+        found.append("assumptions")
     return [MISSING[key] for key in found]
 
 

@@ -21,6 +21,7 @@ const MISSING: Record<string, string> = {
   goal: "cíl jednou větou", users: "pro koho to je", acceptance: "aspoň tři ověřitelná kritéria přijetí",
   outOfScope: "hranice: co se dělat nebude", parts: "úplný seznam částí",
   dependencies: "na čem věc závisí (jiné karty nebo oblasti)", questions: "odpověď na otázku s velkým dopadem",
+  assumptions: "vaše potvrzení předpokladů, na kterých srdce stojí",
 };
 const ORIGIN_MISSING = "aspoň jedna část z rešerše nebo odvozená, aby to nebyl jen přepis zadání";
 const ANSWERS_MISSING = "vaše odpovědi na otázky výše";

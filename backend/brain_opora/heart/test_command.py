@@ -111,7 +111,7 @@ def test_interrogation_skill_lands_in_brain_and_is_read_only_on_demand(tmp_path)
         assert f'"{key}"' in text
     shape = text.split("```json\n")[1].split("```")[0]
     sample = json.loads(shape.replace("nodeId|areaId", "a0"))
-    assert brief.check_synthesis(sample) is sample and brief.clarity(sample) == []  # vzor projde kontrolou kódu
+    assert brief.check_synthesis(sample) is sample and brief.clarity(sample, [{"answer": "ano"}]) == []  # vzor projde kontrolou kódu (předpoklady potvrdí člověk)
     prompt = command.PROMPT_FILE.read_text(encoding="utf-8")
     assert "python opora_heart.py skill vyslech" in prompt and "## Tvar syntézy" not in prompt
     command.write_config(tmp_path / "brain")

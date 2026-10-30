@@ -27,7 +27,8 @@ Karty k požadavku plánuješ až poté, co `brief` vrátí `status: clear`.
 4. **Výslech.** Otázky, které by změnily plán, polož člověku (nejvýš 3 najednou, nejvýš 3 kola):
    `python opora_heart.py ask --requirement rq_… --question "…" --recommended "…" --why "…"`
    Každá otázka má doporučenou odpověď a důvod, aby ji člověk mohl jen potvrdit. Ptej se po jedné věci,
-   seřaď je podle dopadu na plán. Když dojdou kola (`brief_rounds_spent`), rozhodni sám a nejasnosti zapiš
+   seřaď je podle dopadu na plán. Stojí-li syntéza na předpokladech (`assumptions`), zeptej se aspoň na ten
+   nejdůležitější: bez jediné odpovědi člověka kód jasno nevydá. Když dojdou kola (`brief_rounds_spent`), rozhodni sám a nejasnosti zapiš
    do `assumptions`. Na odpověď člověka čekej do další dávky.
 5. **Jasno → plán.** Až `brief` vrátí `clear`, naplánuj karty (`plan`). Každá má 2–8 kroků s `kind` a `files`.
 

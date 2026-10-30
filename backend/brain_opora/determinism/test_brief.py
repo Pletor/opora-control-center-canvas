@@ -52,6 +52,9 @@ def test_clarity_lists_what_is_missing_and_a_full_synthesis_is_clear():
     assert brief.clarity(open_high) == [brief.MISSING["questions.high"]]
     assert brief.clarity({**CLEAR, "questions": [{"text": "Kdo?", "impact": "low"}]}) == []
     assert brief.clarity(CLEAR, [{"id": "q1", "answer": None}]) == [brief.MISSING["questions.open"]]
+    guessed = {**CLEAR, "assumptions": ["logování už existuje"]}
+    assert brief.clarity(guessed) == [brief.MISSING["assumptions"]]  # předpoklad bez odpovědi člověka není jasno
+    assert brief.clarity(guessed, [{"id": "q1", "answer": "ano"}]) == []
 
 
 def test_check_synthesis_refuses_unknown_keys_and_wrong_enums():
