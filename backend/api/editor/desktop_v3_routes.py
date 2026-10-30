@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from backend.api.http_etag import conditional, etag_of
+from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas.activity_log import require_authority
 from backend.canvas.graph import payload_project
 from backend.canvas.opora_process_links import brief_metadata
@@ -105,7 +106,11 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
             graph = state.canvas.view(project, workspace)["graph"]
             stored = state.read(project, workspace)["state"]
             spaces = agent_workspace.read_many(project, workspace, [n["id"] for n in graph["nodes"]])
-            out = frontier(graph, stored, nodeId, {key: value.get("frame", "") for key, value in spaces.items()}, leases.summary(project, workspace)["nodes"])
+            linked = pulls.read(state.canvas, project, workspace) or []
+            merged = {item["cardId"] for item in linked
+                      if item.get("cardId") and item["state"] == "merged" and item.get("planWrittenBack") is True}
+            out = frontier(graph, stored, nodeId, {key: value.get("frame", "") for key, value in spaces.items()},
+                           leases.summary(project, workspace)["nodes"], merged=merged)
             # Kontrolní pás: co každé kartě chybí (klíče polí), aby relace věděla, co doplnit.
             rows = [row for group in ("frontier", "claimed", "blocked", "waiting", "closed") for row in out[group]]
             lists = checklists(state.canvas, project, workspace, graph, stored, {row["id"] for row in rows})

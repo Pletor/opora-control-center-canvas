@@ -27,3 +27,12 @@ def test_frontier_prioritizes_waiting_claims_dependencies_and_closure():
     result = frontier(graph, state, "s", {})
     assert [r["id"] for r in result["frontier"]] == ["b"]
     assert [r["id"] for r in result["closed"]] == ["a"]
+
+
+def test_merged_and_written_back_card_frees_its_successor_and_waits_for_closure():
+    """Jako agent-state: sloučené PR zapsané do plánu už neblokuje následníka; samo čeká na uzavření člověkem."""
+    graph = {"nodes": [{"id": "s", "kind": "sector"}] + [{"id": n, "kind": "node", "parentId": "s", "name": n} for n in ("a", "b")],
+             "edges": [{"id": "e", "source": "a", "target": "b"}]}
+    result = frontier(graph, {"nodes": {}}, "s", {}, merged={"a"})
+    assert [r["id"] for r in result["frontier"]] == ["b"]
+    assert [r["id"] for r in result["waiting"]] == ["a"] and "uzavře člověk" in result["waiting"][0]["waitingOnHuman"][0]["ask"]

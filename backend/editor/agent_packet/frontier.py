@@ -52,11 +52,13 @@ class FrontierIndex:
         return self._sector_edges
 
 
-def frontier(graph, state, sector_id, frames, leases=None, index=None):
+def frontier(graph, state, sector_id, frames, leases=None, index=None, merged=frozenset()):
     """Mapa wayfinderu nad sektorem: karty sektoru rozdělené na uzavřené, převzaté, blokované a frontier.
 
     Blokace je vazba `next` (nebo bez portu) z neuzavřené karty. Převzetí je řádek `Převzato:`
     v `agent-workspace.frame`. Pořadí karet je pořadí v grafu. `index` = sdílený `FrontierIndex`.
+    `merged` = karty se sloučeným PR zapsaným do plánu: jako v agent-state (opora_agent_state_dag) už neblokují
+    následníka a samy nejsou volné, čekají jen na uzavření člověkem.
     """
     nodes = graph.get('nodes', [])
     sector = next((n for n in nodes if n.get('id') == sector_id), None) if sector_id else {'id': '', 'name': 'Canvas', 'kind': 'sector'}
@@ -75,7 +77,7 @@ def frontier(graph, state, sector_id, frames, leases=None, index=None):
         stages = state.get('nodes', {}).get(cid, {}).get('stages')
         if card.get('kind') == 'node':
             row['pipeline'] = pipeline_summary(stages)
-        blockers = [source for source in index.incoming.get(cid, ()) if not done.get(source, False)]
+        blockers = [source for source in index.incoming.get(cid, ()) if not done.get(source, False) and source not in merged]
         blockers = list(dict.fromkeys([*blockers, *(b['id'] for b in sector_blockers(graph, state, cid, statuses, index.sector_edges(graph)))]))
         claim = claim_of(frames.get(cid, ''))
         if leases is not None:
@@ -88,6 +90,8 @@ def frontier(graph, state, sector_id, frames, leases=None, index=None):
                    if b.get('state', {}).get('status') == 'blocked']
         waiting += [{'stageId': s['id'], 'ask': f"Pipeline: etapa „{s['title']}“ selhala i po opakováních. {s['note']}".strip()}
                     for s in row.get('pipeline', {}).get('stuck', [])]
+        if cid in merged and not done[cid]:
+            waiting.append({'ask': 'PR je sloučený a zapsaný do plánu; kartu uzavře člověk.'})
         if not done[cid] and card.get('kind') == 'node' and not row['pipeline']['routed']:
             out['needsRouting'].append({'id': cid, 'name': row['name'], 'type': row['type']})
         if done[cid]:
