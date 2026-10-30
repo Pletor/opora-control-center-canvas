@@ -1,5 +1,5 @@
 """Nástroj srdce proti falešnému serveru: hlavičky, tvar úkolu, odpověď, zrušení, eskalace, paměť (`decide`, `rule`),
-`done`, chyby, dílna (`ctx`, `run`) a dávka plánu s přijetím (`plan`)."""
+`done`, chyby, dílna (`ctx`, `run`), dávka plánu s přijetím (`plan`) a návrh členství v oblasti (`member`)."""
 import json
 import os
 import subprocess
@@ -21,6 +21,7 @@ class Handler(BaseHTTPRequestHandler):
     states: ClassVar = []  # odpovědi `GET /api/oporahub/agent-state` po řadě (poslední se opakuje)
     refuse = ""  # cesta, kterou server odmítne 403 (přijetí bez oprávnění)
     manifest = None  # graphManifestId kontextu návrhů grafu (None = graf ještě není přijatý)
+    graph: ClassVar = {"nodes": []}  # pracovní graf z `GET /api/view`
 
     def log_message(self, *args):
         return
@@ -42,7 +43,7 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/api/brain/heart/context":
             return self._reply(200, {"name": "tasks", "items": [{"taskId": "ht_1"}, {"taskId": "ht_2", "t": "č"}]})
         if url.path == "/api/view":
-            return self._reply(200, {"digest": f"d{len(Handler.calls)}", "graph": {"nodes": []}})
+            return self._reply(200, {"digest": f"d{len(Handler.calls)}", "graph": Handler.graph})
         if url.path == "/api/oporahub/agent-state":
             index = sum(call["path"] == url.path for call in Handler.calls) - 1
             return self._reply(200, Handler.states[min(index, len(Handler.states) - 1)] if Handler.states else {})
@@ -53,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._reply(200, {"acceptedHead": "r1" if Handler.manifest else None, "graphDigest": "gd",
                                      "graphManifestId": Handler.manifest})
         if url.path == "/api/oporahub/graph-proposals" and method == "POST":
-            return self._reply(200, {"id": "gp2", "refs": {ref["ref"]: "n_" + ref["ref"] for ref in body["plan"]["nodes"]},
+            return self._reply(200, {"id": "gp2", "refs": {ref["ref"]: "n_" + ref["ref"] for ref in body["plan"].get("nodes", [])},
                                      "accepted": False})
         if url.path.startswith("/api/oporahub/"):
             return self._reply(200, {"id": "g1"})
@@ -96,7 +97,7 @@ def server(monkeypatch, tmp_path):
         monkeypatch.setenv(key, value)
     monkeypatch.chdir(tmp_path)
     Handler.calls, Handler.stale, Handler.rejected, Handler.states, Handler.refuse = [], 0, None, [], ""
-    Handler.manifest = None
+    Handler.manifest, Handler.graph = None, {"nodes": []}
     yield base
     httpd.shutdown()
 
@@ -473,3 +474,60 @@ def test_research_in_main_goes_to_the_active_workspace_or_the_explicit_one(serve
     run(capsys, *args, "--workspace", "w2")
     run(capsys, "snapshot")
     assert seen == ["main", "w7", "w2"] and Handler.calls[-1]["query"]["workspace"] == ["main"]
+
+
+MEMBER_GRAPH = {"nodes": [{"id": "a_pay", "kind": "area", "name": "Platby"},
+                          {"id": "s_core", "kind": "sector", "name": "Jádro"},
+                          {"id": "n_card", "kind": "node", "name": "Karta", "memberOf": "a_old"},
+                          {"id": "n_done", "kind": "node", "name": "Už tam", "memberOf": "a_pay"},
+                          {"id": "x_text", "kind": "text", "name": "Poznámka"}]}
+
+
+def test_member_sends_only_member_of_updates_and_leaves_acceptance_to_the_human(server, capsys):
+    Handler.manifest, Handler.graph = "m1", MEMBER_GRAPH
+    code, out = run(capsys, "member", "--area", "a_pay", "--nodes", "s_core, n_card,n_done")
+    result = json.loads(out)
+    assert code == 0 and result["accepted"] is False and result["proposalId"] == "gp2"
+    assert result["changes"] == [{"id": "s_core", "from": None, "to": "a_pay"},
+                                 {"id": "n_card", "from": "a_old", "to": "a_pay"}]
+    assert result["unchanged"] == ["n_done"] and "člověk" in result["hint"]
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/oporahub/graph-proposals"]  # žádné /accept
+    body = posts[0]["body"]
+    assert (body["parentRevision"], body["expectedGraphDigest"]) == ("r1", "gd") and "Platby" in body["subject"]
+    assert body["plan"] == {"updateNodes": [{"id": "s_core", "fields": {"memberOf": "a_pay"}},
+                                            {"id": "n_card", "fields": {"memberOf": "a_pay"}}]}
+    assert posts[0]["headers"]["X-Opora-Gate-Token"] == "tok-heart"
+
+
+def test_member_none_clears_membership(server, capsys):
+    Handler.manifest, Handler.graph = "m1", MEMBER_GRAPH
+    result = json.loads(run(capsys, "member", "--area", "none", "--nodes", "n_card,s_core")[1])
+    assert result["changes"] == [{"id": "n_card", "from": "a_old", "to": None}] and result["unchanged"] == ["s_core"]
+    post = next(call for call in Handler.calls if call["method"] == "POST")
+    assert post["body"]["plan"] == {"updateNodes": [{"id": "n_card", "fields": {"memberOf": None}}]}
+
+
+def test_member_dry_run_and_nothing_to_change_send_nothing(server, capsys):
+    Handler.manifest, Handler.graph = "m1", MEMBER_GRAPH
+    result = json.loads(run(capsys, "member", "--area", "a_pay", "--nodes", "n_card", "--dry-run")[1])
+    assert result["dryRun"] is True and result["changes"] == [{"id": "n_card", "from": "a_old", "to": "a_pay"}]
+    assert "proposalId" not in result
+    result = json.loads(run(capsys, "member", "--area", "a_pay", "--nodes", "n_done")[1])
+    assert result["changes"] == [] and "proposalId" not in result
+    assert not [call for call in Handler.calls if call["method"] == "POST"]
+
+
+@pytest.mark.parametrize(("argv", "code"), [
+    (["--area", "s_core", "--nodes", "n_card"], "member_area"),
+    (["--area", "a_missing", "--nodes", "n_card"], "member_area"),
+    (["--area", "a_pay", "--nodes", "n_card,n_missing"], "member_unknown_node"),
+    (["--area", "a_pay", "--nodes", "x_text"], "member_kind"),
+    (["--area", "a_pay", "--nodes", "a_pay"], "member_kind"),
+    (["--area", "a_pay", "--nodes", " , "], "member_nodes"),
+])
+def test_member_validates_area_and_nodes_before_sending(server, capsys, argv, code):
+    Handler.manifest, Handler.graph = "m1", MEMBER_GRAPH
+    exit_code, out = run(capsys, "member", *argv)
+    assert exit_code == 1 and json.loads(out)["code"] == code
+    assert not [call for call in Handler.calls if call["method"] == "POST"]

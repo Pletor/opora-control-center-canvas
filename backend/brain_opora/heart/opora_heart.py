@@ -14,6 +14,7 @@
     python opora_heart.py milestone --area A --title T --criterion "text::nodeId,nodeId" [--criterion …]
     python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]
     python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]
+    python opora_heart.py member --area AREA|none --nodes ID,ID… [--dry-run] [--workspace W]
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
     python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
@@ -39,6 +40,8 @@ z prostředí. Přijatý plán zapíše prostor do `active_workspace.json` v cwd
 `ctx plan-of --project P [--workspace W]` zapíše celý plán jiného projektu zhuštěně do `dilna/data/plan-of-<P>.json`
 (cíl, přijetí, titulky kroků); `--node N` plné zadání podstromu uzlu N do `plan-of-<P>-<N>.json`. Zkrácený výstup
 hlásí `truncated` a `cut` (vynechané uzly).
+`member` navrhne členství existujících karet a sektorů v oblasti (`--area none` ho zruší) návrhem grafu
+s `updateNodes` jen pole `memberOf`; návrh čeká na přijetí člověkem v UI, srdce ho samo nepřijme.
 `research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje.
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -506,6 +509,49 @@ def submit_prune(args):
     return remove(args, context, plan, f"Srdce odebralo {len(ids)} uzlů", out, "prune")
 
 
+MEMBER_KINDS = ("node", "sector")  # kdo smí nést memberOf (graph.validate_graph, H01)
+
+
+def submit_member(args):
+    """`member`: návrh grafu `{updateNodes}` měnící u existujících karet a sektorů jen `memberOf` (oblast, nebo zrušení
+    s `--area none`). Uzly hledá v pracovním i přijatém grafu jako `prune`. Návrh srdce nepřijímá: člověk ho přijme
+    v UI stejnou cestou jako jiné návrhy grafu. Sektor stačí zařadit, jeho karty členství zdědí (docs/plan-lens.md)."""
+    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    graphs = [call("GET", "/api/view", query=scope())["graph"], context.get("acceptedGraph") or {"nodes": []}]
+    known = {}
+    for graph in reversed(graphs):  # pracovní graf má přednost (dnešní memberOf)
+        known.update({node["id"]: node for node in graph["nodes"]})
+    area = None if args.area == "none" else args.area
+    if area is not None and (known.get(area) or {}).get("kind") != "area":
+        raise Failure({"error": f"{area} není oblast (kind area) tohoto prostoru.", "code": "member_area",
+                       "hint": "Vezmi ID oblasti ze snapshotu (uzel kind area), nebo --area none pro zrušení."})
+    ids = list(dict.fromkeys(item.strip() for item in args.nodes.split(",") if item.strip()))
+    if not ids:
+        raise Failure({"error": "Chybí --nodes.", "code": "member_nodes", "hint": "--nodes id1,id2 (celá ID uzlů)."})
+    unknown = [node for node in ids if node not in known]
+    if unknown:
+        raise Failure({"error": f"Uzel {', '.join(unknown)} v prostoru není.", "code": "member_unknown_node",
+                       "hint": "Vezmi celá ID karet a sektorů z /api/view nebo snapshotu tohoto prostoru."})
+    wrong = [node for node in ids if known[node].get("kind") not in MEMBER_KINDS]
+    if wrong:
+        raise Failure({"error": f"Do oblasti jde jen karta nebo sektor, ne {', '.join(wrong)}.",
+                       "code": "member_kind", "hint": "Zařazuj uzly kind node nebo sector."})
+    changes = [{"id": node, "from": known[node].get("memberOf"), "to": area} for node in ids
+               if known[node].get("memberOf") != area]
+    out = {"ok": True, "dryRun": bool(args.dry_run), "area": area, "changes": changes,
+           "unchanged": [node for node in ids if node not in {item["id"] for item in changes}], "path": "graph-proposal"}
+    if args.dry_run or not changes:
+        return out
+    plan = {"updateNodes": [{"id": item["id"], "fields": {"memberOf": area}} for item in changes]}
+    subject = (f"Srdce zařadilo {len(changes)} uzlů do oblasti {known[area].get('name') or area}" if area
+               else f"Srdce zrušilo členství {len(changes)} uzlů v oblasti")
+    proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
+                                              "expectedGraphDigest": context["graphDigest"],
+                                              "subject": subject, "plan": plan})
+    return {**out, "proposalId": proposal["id"], "accepted": False,
+            "hint": "Návrh členství čeká na přijetí člověkem v UI (změny grafu)."}
+
+
 def remove(args, context, plan, subject, out, command):
     """Návrh grafu s odebráním a jeho přijetí tokenem srdce (cesta formuláře úprav plánu v UI)."""
     if args.dry_run:
@@ -683,7 +729,7 @@ def open_workspace(domain, reuse, name=None):
 def run(args):
     project = env("OPORA_PROJECT")
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
-    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "research", "duel") else None
+    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "member", "research", "duel") else None
     if args.command in ("research", "duel") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
         _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
@@ -703,6 +749,8 @@ def run(args):
         return submit_unlink(args)
     if args.command == "prune":
         return submit_prune(args)
+    if args.command == "member":
+        return submit_member(args)
     if args.command == "task":
         task = call("POST", "/api/brain/tasks", task_payload(args))
         return {key: task[key] for key in ("taskId", "title", "status", "order")}
@@ -765,6 +813,11 @@ def parser():
     prune.add_argument("--dry-run", action="store_true")
     prune.add_argument("--no-accept", action="store_true")
     prune.add_argument("--workspace")
+    member = commands.add_parser("member")  # členství existujících uzlů v oblasti, přijme ho člověk
+    member.add_argument("--area", required=True, help="ID oblasti (kind area), nebo none pro zrušení")
+    member.add_argument("--nodes", required=True, help="id1,id2,… karet a sektorů")
+    member.add_argument("--dry-run", action="store_true")
+    member.add_argument("--workspace")
     space = commands.add_parser("workspace")
     space.add_argument("--domain", required=True)
     space.add_argument("--reuse", action="store_true")

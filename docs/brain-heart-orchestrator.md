@@ -69,6 +69,17 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   přírůstek dávkou plánu s `dryRun`. Výstup: `acceptSteps: ["graph_addition", "accept"]`, `proposalId`, `refs`.
   Žádná routa ani agent-state se neměnily. Test: `backend/api/brain_opora/test_heart_plan.py` (plán 1 → claim
   ready; plán 2 se sektorem `@id` a vazbou na existující kartu → nová karta ready, dřívější ready zůstal).
+- **O2d – členství existujících uzlů v oblasti.** Srdce smí návrhem grafu změnit i existující uzly, ale jen
+  jejich členství v oblasti: `opora_heart.py member --area <id oblasti>|none --nodes id1,id2` pošle
+  `POST /api/oporahub/graph-proposals {…, plan: {updateNodes: [{id, fields: {memberOf}}]}}`. Nástroj nejdřív ověří,
+  že `--area` je uzel `kind: area` a uzly existují v pracovním nebo přijatém grafu a jsou `node` / `sector`
+  (`member_area`, `member_unknown_node`, `member_kind`); uzly, které už členství mají, vynechá; `--dry-run` jen
+  vypíše `changes` (`id`, `from`, `to`). Na rozdíl od přírůstku návrh **nepřijímá**: čeká na přijetí člověkem
+  (změny grafu v UI) a do té doby nemění přijatý ani pracovní graf. Server návrh grafu ověřeného tokenu srdce
+  omezí (`opora_graph_change_plan.heart_scope`): `updateNodes` jen s polem `memberOf`, `updateEdges` vůbec,
+  jinak 422 `heart_edit_scope`; přírůstky (`plan`) a odebrání (`unlink`, `prune`) jdou dál. Sektor stačí zařadit:
+  karty v něm členství zdědí (docs/plan-lens.md, Členství karty v oblasti, bod 4), pokud samy nemají výslovné
+  `memberOf`, značku „samostatné“ ani polohu v jiné oblasti. Test: `backend/api/brain_opora/test_heart_member.py`.
 - Snímek: sekce `PLÁN` ukáže u karet stav práce z executions: `volná`, `běží (agent)`, `odevzdáno`, `PR #n`,
   `sloučeno sha`, `čeká na uzavření`, `nezapsáno` (sloučeno bez zápisu zpět). Volná karta s nehotovým předchůdcem
   (graf karet agent-state, `blocked_by_predecessor`) je `blokovaná – čeká na <jméno>: <jeho stav>`, např.

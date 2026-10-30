@@ -4,10 +4,37 @@ from copy import deepcopy
 
 from backend.canvas.graph import EDGE_CARRIES, valid_id
 from backend.canvas.opora_graph_build import validate_plan
+from backend.canvas.payload_errors import NextStep
 
 FIELDS = {"name", "purpose", "parentId", "sourceRef", "x", "y", "size", "memberOf"}
 EDIT_KEYS = {"updateNodes", "removeNodes", "updateEdges", "removeEdges"}
 EDGE_UPDATE_KEYS = {"id", "source", "target", "port"}
+# Úprava existujícího uzlu od srdce (docs/brain-heart-orchestrator.md §3): jen členství v oblasti (`member`).
+# Přírůstky (`plan`) a odebrání (`unlink`, `prune`) jdou dál; ostatní pole uzlu a úpravy vazeb navrhuje člověk.
+HEART_NODE_FIELDS = {"memberOf"}
+
+
+class HeartEditRefused(NextStep):
+    """Návrh grafu srdce mění víc než členství existujícího uzlu: HTTP 422 s `code` a `hint`."""
+
+    status = 422
+
+
+def heart_scope(plan):
+    """Hranice návrhu grafu od srdce: `updateNodes` jen s polem `memberOf`, žádné `updateEdges`.
+    Tvar plánu dál ověřuje `normalize`; tady jde jen o to, co srdce smí měnit."""
+    if not isinstance(plan, dict):
+        return
+    hint = ("Srdce mění u existujícího uzlu jen členství v oblasti (memberOf, opora_heart.py member); jiné úpravy "
+            "uzlů a vazeb navrhuje člověk v UI.")
+    if plan.get("updateEdges"):
+        raise HeartEditRefused("Srdce nesmí upravovat vazby (updateEdges).", code="heart_edit_scope", hint=hint)
+    for item in plan.get("updateNodes") or []:
+        fields = item.get("fields") if isinstance(item, dict) else None
+        extra = sorted(set(fields) - HEART_NODE_FIELDS) if isinstance(fields, dict) else ["fields"]
+        if extra:
+            raise HeartEditRefused(f"Srdce u existujícího uzlu mění jen memberOf, ne {', '.join(extra)}.",
+                                   code="heart_edit_scope", hint=hint)
 
 
 def edge_update_fields(update):

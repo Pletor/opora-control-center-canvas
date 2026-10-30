@@ -1,8 +1,10 @@
 """Separate immutable graph-addition proposals; accepted revisions share the plan chain."""
 from fastapi import APIRouter, Request
 
+from backend.api.brain_opora.writer import heart_project
 from backend.canvas.activity_log import HumanRequired, require_authority
 from backend.canvas.opora_graph_acceptance import OporaGraphAcceptance
+from backend.canvas.opora_graph_change_plan import heart_scope
 from backend.canvas.opora_graph_proposals import OporaGraphProposals
 
 
@@ -28,6 +30,8 @@ def create_opora_graph_router(service):
 
     @router.post("")
     def create(payload: dict, request: Request):
+        if heart_project(request):
+            heart_scope(payload.get("plan"))  # srdce mění u existujícího uzlu jen memberOf (422 heart_edit_scope)
         return proposals.create(payload, author(request))
 
     @router.get("/{identifier}")
