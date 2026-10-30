@@ -19,6 +19,7 @@
     python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py member --area AREA|none --nodes ID,ID… [--dry-run] [--workspace W]
     python opora_heart.py proposal --accept ID
+    python opora_heart.py steps --node ID --file F [--dry-run]
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
     python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
@@ -51,6 +52,8 @@ hlásí `truncated` a `cut` (vynechané uzly).
 s `updateNodes` jen pole `memberOf`; při `autonomy.full` (agent-state) ho srdce hned samo přijme (`accepted: true`),
 jinak čeká na přijetí člověkem v UI. `proposal --accept ID` přijme návrh grafu akcí `accept` z agent-state
 (úklid; bez autonomie `Rozhodne člověk v UI`). Zamítnutí návrhu server nemá: nahrazený novější návrh zmizí z nabídky sám.
+`steps` doplní existující kartě 2–8 kroků s `kind` a `files` (soubor `{steps, goal?, acceptance?}`) návrhem změny
+zadání (`/api/oporahub/changesets`, docs/oporahub-plan-steps.md); při `autonomy.full` ho přijme jako `member`.
 `brief` uloží syntézu výslechu požadavku (JSON v souboru `@cesta` nebo přímo) a vrátí `status` a co do jasna chybí
 (`missing`); `ask` položí člověku otázku výslechu s doporučenou odpovědí (docs/navrhy/2026-10-30-vyslech-srdce.md §7).
 `research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje;
@@ -274,6 +277,7 @@ PLAN_SHAPE = ("Tvar dávky: `python opora_heart.py plan --example` (sektor, kart
               "vazba next); celý kontrakt docs/davka-planu.md §3.")
 # Přijetí plánu (docs/brain-heart-orchestrator.md §3 O2b): kroky z agent-state, které z plátna udělají přijatý plán.
 GRAPH_PROPOSALS = "/api/oporahub/graph-proposals"
+CHANGESETS = "/api/oporahub/changesets"  # návrhy změny zadání karet (docs/oporahub-plan-steps.md)
 ACCEPT_ROUNDS = 6
 
 
@@ -326,19 +330,20 @@ def accept_plan():
             "hint": f"Přijetí plánu nedoběhlo za {ACCEPT_ROUNDS} kroků; přijme ho člověk v UI."}
 
 
-def accept_proposal(proposal_id):
-    """Přijme návrh grafu `proposal_id` přesnou akcí `accept` z agent-state (ne cizí návrhy) s jejími preconditions.
-    Bez `autonomy.full` projektu návrh zůstává člověku (`Failure` s hintem)."""
+def accept_proposal(proposal_id, base=None):
+    """Přijme návrh `proposal_id` (grafu, s `base` = CHANGESETS návrh zadání) přesnou akcí `accept` z agent-state
+    (ne cizí návrhy) s jejími preconditions. Bez `autonomy.full` projektu návrh zůstává člověku (`Failure` s hintem)."""
+    base = base or GRAPH_PROPOSALS
     state = call("GET", "/api/oporahub/agent-state", query=scope())
     if not (state.get("autonomy") or {}).get("full"):
-        raise Failure({"error": "Návrh grafu přijímá člověk, projekt nemá plnou autonomii.", "code": "human_only",
+        raise Failure({"error": "Návrh přijímá člověk, projekt nemá plnou autonomii.", "code": "human_only",
                        "status": 403, "hint": "Rozhodne člověk v UI."})
-    path = f"{GRAPH_PROPOSALS}/{quote(proposal_id, safe='')}/accept"
+    path = f"{base}/{quote(proposal_id, safe='')}/accept"
     action = next((item for item in state.get("actions", [])
                    if item.get("verb") == "accept" and item.get("path") == path), None)
     if action is None or action.get("status") != "ready":
         raise Failure({"error": f"Agent-state nenabízí přijetí návrhu {proposal_id}.", "code": "proposal_not_offered",
-                       "hint": "Návrh je už přijatý nebo ho nahradil novější; vezmi ID z GET /api/oporahub/graph-proposals."})
+                       "hint": f"Návrh je už přijatý nebo ho nahradil novější; vezmi ID z GET {base}."})
     try:
         call("POST", action["path"], {**scope(), **(action.get("preconditions") or {})})
     except Failure as failure:
@@ -613,6 +618,90 @@ def submit_member(args):
     return {**out, "accepted": False, "hint": "Návrh členství čeká na přijetí člověkem v UI (změny grafu)."}
 
 
+# Realizační karta (prompt.md část Plán, docs/navrhy/2026-10-30-metriky-a-spoustece.md): 2–8 kroků s `kind` a `files`.
+STEP_KINDS = ("code", "test", "docs", "design", "research")  # kopie opora_plan_steps, nástroj je jen stdlib
+STEPS_MIN, STEPS_MAX = 2, 8
+STEPS_SHAPE = ('Soubor: {"steps": [{"title": "…", "kind": "code|test|docs|design|research", "files": ["cesta"], '
+               '"acceptance": ["ověřitelná podmínka"]}, …], "goal"?: "…", "acceptance"?: "…"}; '
+               "id, order a dependsOn (lineárně s1 → s2 → …) doplní nástroj, když chybí.")
+
+
+def steps_failure(error, code):
+    return Failure({"error": error, "code": code, "hint": STEPS_SHAPE})
+
+
+def read_steps(path):
+    """Soubor příkazu `steps` → pole zadání `{steps, goal?, acceptance?}`. Tvar kroku (id, order, title, acceptance,
+    dependsOn, limity) ověří server stejně jako u každého návrhu zadání (`validate_steps`, docs/oporahub-plan-steps.md);
+    tady jen pravidlo realizační karty, které server nemá: 2–8 kroků, každý s `kind` a neprázdnými `files`."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise steps_failure(f"Soubor kroků nejde přečíst: {error}", "steps_file") from None
+    if not isinstance(data, dict) or not set(data) <= {"steps", "goal", "acceptance"} or "steps" not in data:
+        raise steps_failure("Soubor má jen klíče steps, goal a acceptance (steps povinně).", "steps_file")
+    steps = data["steps"]
+    if not isinstance(steps, list) or not STEPS_MIN <= len(steps) <= STEPS_MAX or not all(isinstance(s, dict) for s in steps):
+        raise steps_failure(f"Realizační karta má {STEPS_MIN}–{STEPS_MAX} kroků (objektů).", "steps_count")
+    for index, step in enumerate(steps, 1):
+        if step.get("kind") not in STEP_KINDS:
+            raise steps_failure(f"Krok {index} nemá kind z {'|'.join(STEP_KINDS)}.", "steps_kind")
+        files = step.get("files")
+        if not isinstance(files, list) or not files or not all(isinstance(item, str) and item for item in files):
+            raise steps_failure(f"Krok {index} nemá files (odhad dotčených cest).", "steps_files")
+    filled = []
+    for index, step in enumerate(steps, 1):
+        previous = filled[-1]["id"] if filled else None
+        filled.append({"id": f"s{index}", "order": index, "dependsOn": [previous] if previous else [], **step})
+    for key in ("goal", "acceptance"):
+        if key in data and not isinstance(data[key], str):
+            raise steps_failure(f"{key} je text.", "steps_file")
+    return {**data, "steps": filled}
+
+
+def submit_steps(args):
+    """`steps`: návrh změny zadání jedné existující karty (`POST /api/oporahub/changesets`, úplná `fields` z pracovního
+    zadání + nové `steps`, volitelně `goal` / `acceptance`). Při `autonomy.full` ho srdce přijme akcí `accept`
+    z agent-state (jako `member`), jinak ho přijme člověk v OporaHubu. Graf ani jiné karty se nemění."""
+    if not args.file:
+        raise steps_failure("Chybí --file.", "steps_file")
+    update = read_steps(args.file)
+    context = call("GET", f"{CHANGESETS}/context", query=scope())
+    card = next((item for item in context.get("documents") or [] if item.get("nodeId") == args.node), None)
+    if card is None:
+        raise Failure({"error": f"Karta {args.node} v tomto prostoru nemá zadání.", "code": "steps_unknown_node",
+                       "hint": "Vezmi celé ID karty z řádku VÝSLECH nebo ze snapshotu tohoto prostoru."})
+    if not context.get("acceptedHead") or args.node not in {item.get("nodeId") for item in
+                                                             context.get("acceptedDocuments") or []}:
+        raise Failure({"error": f"Karta {args.node} nemá přijaté zadání.", "code": "steps_not_accepted",
+                       "hint": "Kroky existující karty se mění návrhem nad přijatým zadáním; nejdřív musí být přijatý "
+                               "plán s kartou (plan), kroky nové karty dej rovnou do plan."})
+    fields = {**card["fields"], **update}
+    out = {"ok": True, "dryRun": bool(args.dry_run), "node": args.node, "path": "spec-changeset",
+           "stepsBefore": len(card["fields"].get("steps") or []), "steps": [step["id"] for step in update["steps"]]}
+    if args.dry_run:
+        return out
+    try:
+        proposal = call("POST", CHANGESETS, {
+            **scope(), "parentRevision": context["acceptedHead"], "expectedGraphDigest": context["graphDigest"],
+            "subject": f"Srdce doplnilo kroky karty {args.node}",
+            "changes": [{"nodeId": args.node, "expectedRevision": card["revision"], "fields": fields}]})
+    except Failure as failure:
+        if failure.payload.get("hint") == GENERIC_HINT:
+            failure.payload["hint"] = (f"Server návrh zadání odmítl: {failure.payload.get('error')} "
+                                       "Tvar kroku: docs/oporahub-plan-steps.md. " + STEPS_SHAPE)
+        raise
+    out = {**out, "proposalId": proposal["id"]}
+    state = call("GET", "/api/oporahub/agent-state", query=scope())
+    if (state.get("autonomy") or {}).get("full"):  # plná autonomie: srdce přijme jen svůj vlastní návrh
+        try:
+            return {**out, **accept_proposal(proposal["id"], CHANGESETS)}
+        except Failure as failure:
+            return {**out, "accepted": False, "code": failure.payload.get("code"), "error": failure.payload.get("error"),
+                    "hint": "Přijetí návrhu kroků selhalo; přijme ho člověk v OporaHubu (Upravit zadání karty)."}
+    return {**out, "accepted": False, "hint": "Návrh kroků čeká na přijetí člověkem v OporaHubu (návrhy zadání)."}
+
+
 def remove(args, context, plan, subject, out, command):
     """Návrh grafu s odebráním a jeho přijetí tokenem srdce (cesta formuláře úprav plánu v UI)."""
     if args.dry_run:
@@ -845,6 +934,8 @@ def run(args):
         return submit_member(args)
     if args.command == "proposal":
         return accept_proposal(args.accept)
+    if args.command == "steps":
+        return submit_steps(args)
     if args.command == "task":
         task = call("POST", "/api/brain/tasks", task_payload(args))
         return {key: task[key] for key in ("taskId", "title", "status", "order")}
@@ -929,6 +1020,10 @@ def parser():
     member.add_argument("--workspace")
     proposal = commands.add_parser("proposal")  # přijetí návrhu grafu z agent-state, jen při plné autonomii
     proposal.add_argument("--accept", required=True, metavar="ID")
+    steps = commands.add_parser("steps")  # kroky existující karty návrhem zadání (krátký výslech karty)
+    steps.add_argument("--node", required=True)
+    steps.add_argument("--file", required=True, help='JSON {"steps": […], "goal"?, "acceptance"?}')
+    steps.add_argument("--dry-run", action="store_true")
     space = commands.add_parser("workspace")
     space.add_argument("--domain", required=True)
     space.add_argument("--reuse", action="store_true")

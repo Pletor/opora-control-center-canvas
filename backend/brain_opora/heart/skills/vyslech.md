@@ -55,4 +55,4 @@ Karty k požadavku plánuješ až poté, co `brief` vrátí `status: clear`.
 - Bez závislostí napiš `{"ref": "none", "text": "proč žádné"}`.
 
 ## Krátký výslech karty
-`VÝSLECH (krátký): karta …` = kartě chybějí podklady. Doplň jí 2–8 kroků s `kind` a `files` (`plan`), nic jiného.
+`VÝSLECH (krátký): karta …` = kartě chybějí podklady. Doplň jí 2–8 kroků s `kind` a `files` příkazem `steps --node ID --file F` (ne `plan`), nic jiného.

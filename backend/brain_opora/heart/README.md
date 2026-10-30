@@ -50,7 +50,9 @@ Modules (H2a):
 - `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `intake`, `decide`, `rule`, `done`,
   and the workshop's `ctx`, `run`). `member --area <area>|none --nodes id1,id2 [--dry-run]` proposes area membership of
   existing cards and sectors as a graph proposal with `updateNodes` that change only `memberOf`; it never accepts it,
-  the human does (`docs/brain-heart-orchestrator.md` O2d, test `backend/api/brain_opora/test_heart_member.py`). It is copied into `brain/` before each batch so the Bash rule is
+  the human does (`docs/brain-heart-orchestrator.md` O2d, test `backend/api/brain_opora/test_heart_member.py`). `steps --node ID --file F [--dry-run]` gives an existing
+  card 2–8 steps with `kind` and `files` (short card grilling) as a spec changeset (`/api/oporahub/changesets`) and accepts
+  it only under `autonomy.full` (test `backend/api/brain_opora/test_heart_steps.py`). It is copied into `brain/` before each batch so the Bash rule is
   `Bash(python opora_heart.py:*)`.
 - Workshop (K3, `docs/brain-heart.md` §3b): `write_config` creates `brain/dilna/{data,scripts,out}` and copies
   `rlm.py` there. `ctx <name>` writes `GET /api/brain/heart/context` (`determinism/workshop.py`) to

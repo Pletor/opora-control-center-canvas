@@ -606,3 +606,35 @@ def test_member_validates_area_and_nodes_before_sending(server, capsys, argv, co
     exit_code, out = run(capsys, "member", *argv)
     assert exit_code == 1 and json.loads(out)["code"] == code
     assert not [call for call in Handler.calls if call["method"] == "POST"]
+
+
+def steps_file(tmp_path, data):
+    path = tmp_path / "steps.json"
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return str(path)
+
+
+def step(title, kind="code", files=("a.py",)):
+    return {"title": title, "kind": kind, "files": list(files), "acceptance": [f"{title} hotovo"]}
+
+
+def test_steps_file_keeps_the_card_rule_and_fills_ids_linearly(tmp_path):
+    from backend.canvas.opora_plan_steps import KINDS
+
+    assert opora_heart.STEP_KINDS == KINDS  # kopie v nástroji (jen stdlib) se nerozejde se serverem
+    done = opora_heart.read_steps(steps_file(tmp_path, {"steps": [step("A"), step("B", "test", ["test_a.py"])],
+                                                        "goal": "Cíl"}))
+    assert done["goal"] == "Cíl"
+    assert [(item["id"], item["order"], item["dependsOn"]) for item in done["steps"]] == [
+        ("s1", 1, []), ("s2", 2, ["s1"])]
+    own = opora_heart.read_steps(steps_file(tmp_path, {"steps": [{**step("A"), "id": "x"}, step("B")]}))
+    assert own["steps"][1]["dependsOn"] == ["x"]
+    for bad, code in (({"steps": [step("A")]}, "steps_count"),
+                      ({"steps": [step(str(i)) for i in range(9)]}, "steps_count"),
+                      ({"steps": [step("A"), step("B", "build")]}, "steps_kind"),
+                      ({"steps": [step("A"), step("B", files=())]}, "steps_files"),
+                      ({"steps": [step("A"), step("B")], "non_goals": ""}, "steps_file"),
+                      ({"steps": [step("A"), step("B")], "goal": 1}, "steps_file")):
+        with pytest.raises(opora_heart.Failure) as failure:
+            opora_heart.read_steps(steps_file(tmp_path, bad))
+        assert failure.value.payload["code"] == code and "kind" in failure.value.payload["hint"]
