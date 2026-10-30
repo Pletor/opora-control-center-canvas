@@ -71,7 +71,9 @@ export type IconName =
   | "filter"
   | "arrow-up-down"
   // Záznam činnosti v horní liště
-  | "activity";
+  | "activity"
+  // Odstranění na plátně (popelnice vazby)
+  | "trash";
 
 /** Cesta každé ikony na plátně 24×24, stopa zvenčí (`stroke`), nikdy výplň. */
 export const ICON_PATHS: Record<IconName, string> = {
@@ -200,6 +202,8 @@ export const ICON_PATHS: Record<IconName, string> = {
   "arrow-up-down": "M21 16l-4 4-4-4 M17 20V4 M3 8l4-4 4 4 M7 4v16",
   /** Puls: záznam činnosti (kdo co kdy zapsal). */
   activity: "M22 12h-4l-3 9L9 3l-3 9H2",
+  /** Popelnice: odstranit (vazbu na plátně). */
+  trash: "M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6 M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2 M10 11v6 M14 11v6",
 };
 
 /**

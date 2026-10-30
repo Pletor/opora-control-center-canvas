@@ -5,3 +5,16 @@
 .map-link__line { opacity: .75; transition: opacity .15s ease; }
 .map-link:hover .map-link__line { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .map-link__line { transition: none; } }
+
+/* Popelnice nakreslené vazby: plátno je tiché, dokud člověk na vazbu nenajede; teprve pak se na čáře těsně za
+   výstupním portem objeví malá popelnice. Tam je vždy volná mezera u zdrojové karty, kdežto střed vazby může běžet
+   za cizí kartou a popisek „pravidlo“ zůstane volný. Leží ve vrstvě popisků nad kartami (z-index), takže ji žádná
+   karta nepřekryje a čáru nikdy neposune.
+   Barvu bere z vazby (`--studio-link`) a do červené přejde až pod kurzorem: jeden klik vazbu smaže bez dialogu,
+   protože vazba nenese obsah karty a jde vrátit. Skrytá popelnice nebere kliknutí, klávesnici se ukáže fokusem. */
+.map-link__trash { position: absolute; z-index: 1000; display: grid; place-items: center; width: 22px; height: 22px; padding: 0;
+  border: 1px solid var(--studio-line); border-radius: 6px; background: var(--studio-bg); color: var(--studio-link, var(--studio-muted));
+  cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .12s ease, color .12s ease, border-color .12s ease; }
+.map-link__trash--shown, .map-link__trash:focus-visible { opacity: 1; pointer-events: all; }
+.map-link__trash:hover, .map-link__trash:focus-visible { color: var(--studio-state-hole); border-color: var(--studio-state-hole); }
+@media (prefers-reduced-motion: reduce) { .map-link__trash { transition: none; } }

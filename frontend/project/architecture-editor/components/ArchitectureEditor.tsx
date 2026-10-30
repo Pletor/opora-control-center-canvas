@@ -10,9 +10,10 @@ import { editProductNode, sitePlan, type ProductDraft } from "@/project/product-
 import RemovalDialog from "@/ui-kit/removal-dialog/components/RemovalDialog";
 import { discardSpecDrafts } from "@/editor/node-detail/assignment/components/NodeSpecEditor";
 import { discardDrawingDrafts } from "@/editor/canvas/drawing/logic/drawing-state";
-import { architectureEditorId, editorScopeNode, isEditorScopeClosed, moveEditorNode, growEditorArea, resizeEditorNode, connectEditorNodes, removeEditorEdge, createEditorAreaPlan, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite } from "../logic/editor-model";
+import { architectureEditorId, editorScopeNode, isEditorScopeClosed, moveEditorNode, growEditorArea, resizeEditorNode, connectEditorNodes, createEditorAreaPlan, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite } from "../logic/editor-model";
 import { domainNode, domainForNode, domainPageTree, splitDomainHost, reorderDomainPage, reparentDomainPage } from "../logic/domain-model";
 import { useArchitectureGraph } from "../logic/use-architecture-graph";
+import { edgeRemovalPreviewUrl, edgeRemovalRequest } from "../logic/edge-removal";
 import { resolveEditorRoute } from "../logic/editor-route";
 import { environmentOf, SHARED_GROUP } from "../page-editor/project-tree/logic/project-tree-model";
 import ArchitectureLanding from "../landing/components/ArchitectureLanding";
@@ -158,6 +159,13 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       setRemoval(null); if (scopeId && result.nodeIds?.includes(scopeId)) navigate(domainId); await store.reload(); desktop.reload(); onGraphChanged();
     } finally { setRemoving(false); }
   }
+  /** Vazba jde pryč náhledem a potvrzením bez dialogu: nenese obsah karty a server ji umí vrátit (`recoveryId`). */
+  function removeEdge(edgeId: string) {
+    eventAction(async () => { const edge = graph.edges.find((item) => item.id === edgeId); if (!edge) throw new Error("Vazba již neexistuje."); writable(edge.source); writable(edge.target);
+      setRemoving(true);
+      try { const preview = await api<RemovalPreview>(edgeRemovalPreviewUrl({ project, workspace }, edgeId)); await api("/api/remove", edgeRemovalRequest({ project, workspace }, edgeId, preview)); await store.reload(); desktop.reload(); onGraphChanged(); }
+      finally { setRemoving(false); } });
+  }
   function exportScope() {
     const ids = domainId ? new Set([...subtreeIds(scopeId ?? domainId)].filter((id) => domainForNode(graph, id)?.id === domainId)) : new Set(graph.nodes.filter((node) => node.site?.kind === "application").map((node) => node.id));
     const url = URL.createObjectURL(new Blob([JSON.stringify({ kind: "architecture-sketch", project, workspace, editorId, domainId, pageId: scopeId, graph: { nodes: graph.nodes.filter((node) => ids.has(node.id)), edges: graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)) } }, null, 2)], { type: "application/json" }));
@@ -196,6 +204,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onSelect={setSelectedId} onOpenStructure={openStructure} onOpenEditor={onOpenEditor} onArea={() => createArea()} onSector={(id) => createSector(id)} onAddNode={createNode}
       onInsert={(id, target, point, link) => eventAction(() => insert(id, target, point, link))}
       onMove={(id, x, y, area) => execute(async () => { writable(id); if (area) writable(area.id); const next = moveEditorNode(area ? growEditorArea(graph, area) : graph, id, x, y); for (const moved of next.nodes) { const prior = graph.nodes.find((node) => node.id === moved.id); if (prior && (prior.x !== moved.x || prior.y !== moved.y)) writable(moved.id); } await saveGraph(next); })}
+      onRemoveEdge={removeEdge}
       onConnect={(source, target, carries) => eventAction(async () => { writable(source); writable(target); await saveGraph(connectEditorNodes(graph, source, target, crypto.randomUUID(), carries)); })}
       onResize={(id, w, h) => execute(async () => { writable(id); const next = resizeEditorNode(graph, id, w, h); if (next !== graph) await saveGraph(next); })}
       structure={structure ? <ComponentStructure graph={graph} rootId={structure.id} selectedId={selected?.id ?? null} phaseOf={phaseOf} isDone={isDone} disabled={disabled}
@@ -203,7 +212,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       detail={selected ? <ElementDetail project={project} workspace={workspace} graph={graph} nodeId={selected.id} domainId={domain.id} phase={phaseOf(selected.id)} done={isDone(selected.id)}
         disabled={selected.site ? structureDisabled : disabled} onIdentity={identity} onOpenEditor={onOpenEditor} onSelect={setSelectedId} onClose={() => setSelectedId(null)}
         onCarries={(edgeId, carries) => eventAction(async () => { const edge = graph.edges.find((item) => item.id === edgeId); if (edge) { writable(edge.source); writable(edge.target); } await saveGraph(setEditorEdgeCarries(graph, edgeId, carries)); })}
-        onRemoveEdge={(edgeId) => eventAction(async () => { const edge = graph.edges.find((item) => item.id === edgeId); if (edge) { writable(edge.source); writable(edge.target); } await saveGraph(removeEditorEdge(graph, edgeId)); })}
+        onRemoveEdge={removeEdge}
         onSection={(nodeId, section) => eventAction(async () => { writable(nodeId); await saveGraph(setEditorNodeSection(graph, nodeId, section)); })}
         onPage={(original, site) => execute(async () => { writable(original.id, "structure"); const next = setEditorPageSite(graph, original, site); if (next !== graph) await saveGraph(next); })}/> : null}/>}
     {removal && <RemovalDialog preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval}/>}

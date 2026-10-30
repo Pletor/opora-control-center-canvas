@@ -42,6 +42,8 @@ type Props = {
   /** `area` = domovská oblast, která za puštěnou kartou vyrostla; ukládá se s kartou jednou změnou. */
   onMove: (id: string, x: number, y: number, area?: { id: string; x: number; y: number; w: number; h: number }) => Promise<void>; onConnect: (source: string, target: string, carries?: EdgeCarries | null) => void;
   onResize: (id: string, w: number, h: number) => Promise<void>;
+  /** Popelnice na nakreslené vazbě plátna: odstraní ji rodič (náhled a potvrzení bez dialogu). */
+  onRemoveEdge: (edgeId: string) => void;
   onSector: (parentId: string) => void; onArea: () => void; onAddNode: (parentId: string) => void;
 };
 
@@ -90,7 +92,7 @@ export default function PageEditor(props: Props) {
       <div className="page-editor__stage">
         <ArchitectureCanvas key={props.editorId + ":" + scope.id} graph={graph} scopeId={scope.id} editorId={props.editorId} selected={selectedId}
           disabled={disabled} revealId={props.reveal} onSelect={props.onSelect} onOpenPage={(id) => props.onOpenPage(domain.id, id)} onOpenStructure={props.onOpenStructure} onOpenEditor={props.onOpenEditor}
-          onAddNode={props.onAddNode} onSector={props.onSector} onMove={props.onMove} onConnect={props.onConnect} onResize={props.onResize}
+          onAddNode={props.onAddNode} onSector={props.onSector} onMove={props.onMove} onConnect={props.onConnect} onResize={props.onResize} onRemoveEdge={props.onRemoveEdge}
           onInsert={(id, target, point, link) => props.onInsert(id, target, point, link)} life={{ states: props.cards.states, motion }}/>
         {empty && <div className="page-editor__empty">
           <h3 className="page-editor__empty-title">{scope.name}</h3>
