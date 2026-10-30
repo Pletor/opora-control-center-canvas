@@ -430,6 +430,38 @@ def submit_addition(args, plan, context):
     return {**out, "accepted": True, "acceptSteps": [*adopted, "graph_addition", "accept"]}
 
 
+def submit_unlink(args):
+    """`unlink`: odebere vazbu `next` mezi dvěma kartami návrhem grafu `{removeEdges}` (stejná cesta a stejné přijetí
+    tokenem srdce jako `submit_addition`). Neznámá vazba = česká chyba bez zápisu; `--dry-run` jen ukáže, co by zmizelo."""
+    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    edges = [edge for edge in call("GET", "/api/view", query=scope())["graph"]["edges"]
+             if edge["source"] == args.from_node and edge["target"] == args.to_node and edge.get("port", "next") == "next"]
+    if not edges:
+        raise Failure({"error": f"Mezi {args.from_node} a {args.to_node} není vazba next (směr from → to).",
+                       "code": "unlink_unknown_edge",
+                       "hint": "Zkontroluj ID karet a směr: from je předchůdce, to následník (snapshot ukazuje vazby)."})
+    ids = [edge["id"] for edge in edges]
+    out = {"ok": True, "dryRun": bool(args.dry_run), "removedEdges": ids, "path": "graph-proposal"}
+    if args.dry_run:
+        return out
+    proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
+                                              "expectedGraphDigest": context["graphDigest"],
+                                              "subject": f"Srdce odebralo závislost {args.from_node} → {args.to_node}",
+                                              "plan": {"removeEdges": ids}})
+    out["proposalId"] = proposal["id"]
+    if args.no_accept:
+        return {**out, "accepted": False}
+    try:
+        call("POST", f"{GRAPH_PROPOSALS}/{quote(proposal['id'], safe='')}/accept",
+             {**scope(), "expectedAcceptedHead": context["acceptedHead"], "expectedGraphDigest": context["graphDigest"],
+              "adoptBaseGraphDigest": None, "reviewedChangesId": proposal["id"]})
+    except Failure as failure:
+        return {**out, "accepted": False, "code": failure.payload.get("code"), "error": failure.payload.get("error"),
+                "hint": "Návrh odebrání vazby čeká na přijetí (plátno se mezitím změnilo, nebo chybí oprávnění); "
+                        "přijme ho člověk v UI, nebo pošli unlink znovu."}
+    return {**out, "accepted": True}
+
+
 def load_context(name, of=None, of_workspace=None, of_node=None):
     """`ctx <name>`: data z OPORY do `dilna/data/<name>.json` (JSON pole, jedna položka na řádek); vrací jen cestu,
     počet položek a velikost. `plan-of` čte plán projektu `of` (prostor `of_workspace`, jinak main git / draft
@@ -586,7 +618,7 @@ def open_workspace(domain, reuse, name=None):
 def run(args):
     project = env("OPORA_PROJECT")
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
-    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide") else None
+    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink") else None
     if args.command == "ctx":
         return load_context(args.name, args.project, args.workspace, args.node)
     if args.command == "workspace":
@@ -600,6 +632,8 @@ def run(args):
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
     if args.command == "plan":
         return submit_plan(args)
+    if args.command == "unlink":
+        return submit_unlink(args)
     if args.command == "task":
         task = call("POST", "/api/brain/tasks", task_payload(args))
         return {key: task[key] for key in ("taskId", "title", "status", "order")}
@@ -643,6 +677,12 @@ def parser():
     plan.add_argument("--no-accept", action="store_true")
     plan.add_argument("--example", action="store_true")
     plan.add_argument("--workspace")
+    unlink = commands.add_parser("unlink")
+    unlink.add_argument("--from", dest="from_node", required=True)
+    unlink.add_argument("--to", dest="to_node", required=True)
+    unlink.add_argument("--dry-run", action="store_true")
+    unlink.add_argument("--no-accept", action="store_true")
+    unlink.add_argument("--workspace")
     space = commands.add_parser("workspace")
     space.add_argument("--domain", required=True)
     space.add_argument("--reuse", action="store_true")
