@@ -384,9 +384,13 @@ def _research_lines(facts):
 
 
 def _intake_lines(facts):
-    """VSTUPY: poslední vstupy brány `pending` / `duplicate` (docs/navrhy/2026-10-30-vstupni-brana.md §4); žádné =
-    sekce chybí, ať snímek bez brány zůstane stejný."""
-    rows = [f"- {entry['id']} · {entry['verdict']} · {_short(entry['text'], INTAKE_TEXT)}"
+    """VSTUPY: poslední vstupy brány, které srdce ještě nepotvrdilo (docs/navrhy/2026-10-30-vstupni-brana.md §4):
+    ID, stanovisko, u Jevu jistota a oblast, začátek věty. Žádné = sekce chybí, ať snímek bez brány zůstane stejný."""
+    def mark(entry):
+        jev = entry.get("layer") == "jev" and isinstance(entry.get("confidence"), (int, float))
+        return ((f" (jev {entry['confidence']:.2f})" if jev else "")
+                + (f" · oblast {entry['areaId']}" if entry.get("areaId") else ""))
+    rows = [f"- {entry['id']} · {entry['verdict']}{mark(entry)} · {_short(entry['text'], INTAKE_TEXT)}"
             for entry in (facts.get("intake") or [])[:intake.RECENT]]
     return ["VSTUPY:", *rows] if rows else []
 

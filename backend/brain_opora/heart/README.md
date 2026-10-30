@@ -13,7 +13,10 @@ Modules (H2a):
   Before that it is recorded by the intake gate (`determinism/intake.py`): the same sentence again (`duplicate`) is
   kept in `messages.jsonl` with `duplicate: ie_…` but never queued, not even by the catch-up after a restart. An input
   with an intake entry (message, `change` / `ask` ticket via `inputs.resolve`) ends its batch line with
-  `[vstup ie_… · <verdict> · podobné: ie_…]`; a duplicate ticket still wakes the heart.
+  `[vstup ie_… · <verdict> · jev 0.82 · oblast <area> · podobné: ie_…]`; a duplicate ticket still wakes the heart.
+  Right before the message is built, `_batch` lets `decision/intake.py` classify `pending` entries through JEV
+  (constructor argument `jev`: a callable returning `evaluate(state, questions)` with the app key, or None; the factory
+  passes it, tests inject a fake). It never blocks a message, ticket or fragment and a JEV error never stops the batch.
   At most one batch per project at a time and 6 automatic per hour (a human message skips the cap); a rate-limited batch puts the heart to sleep for 15 min
   and keeps its inputs. It runs only when `OPORA_HEART` is not `off` and `OPORA_CANVAS_HOST` is loopback
   (`tools/opora.py` sets it). Tests set `OPORA_HEART=off` in `backend/conftest.py`.
@@ -29,7 +32,7 @@ Modules (H2a):
   `claude.cmd` / `claude`.
 - `session.py`: `brain/session.json = {sessionId, batches, lastInputTokens}`; a new session above 60k input tokens
   or after a failed batch.
-- `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `decide`, `rule`, `done`,
+- `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `intake`, `decide`, `rule`, `done`,
   and the workshop's `ctx`, `run`). It is copied into `brain/` before each batch so the Bash rule is
   `Bash(python opora_heart.py:*)`.
 - Workshop (K3, `docs/brain-heart.md` §3b): `write_config` creates `brain/dilna/{data,scripts,out}` and copies

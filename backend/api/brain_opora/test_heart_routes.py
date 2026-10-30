@@ -234,3 +234,49 @@ def test_workshop_context_is_for_the_heart_of_its_own_project_only(tmp_path):
         _, main = tokens.issue_heart(service, "draft", "main")
         assert code(client.get("/api/brain/heart/context", headers={**HEADERS, tokens.HEADER: main},
                                params={**SCOPE, "name": "tasks"})) == "gate_scope"
+
+
+def test_heart_token_confirms_an_intake_verdict_and_nobody_else_writes_it(tmp_path):
+    """Vstupní brána, řez 2 (docs/navrhy/2026-10-30-vstupni-brana.md §4): stanovisko vstupu potvrdí jen srdce."""
+    from backend.brain_opora.determinism import intake
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        service = client.app.state.service
+        db = service.db_for("draft")
+        with db:
+            entry = intake.record(db, "draft", "heart_message", None, "Přidej hybridní hledání.", "2026-10-30T10:00:00Z")
+        body = {**SCOPE, "entry": entry["id"], "verdict": "later_extension", "reason": "po milníku Hledání"}
+        assert code(client.post("/api/brain/heart/intake", headers=HEADERS, json=body)) == "gate_token_invalid"
+        _, token = tokens.issue_heart(service, "draft", "draft")
+        heart = {**HEADERS, tokens.HEADER: token}
+        worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
+        client.cookies.clear()
+        confirmed = client.post("/api/brain/heart/intake", headers=heart, json=body)
+        assert confirmed.status_code == 200, confirmed.text
+        assert confirmed.json() == {"id": entry["id"], "verdict": "later_extension", "layer": "heart", "areaId": None,
+                                    "reason": "po milníku Hledání"}
+        assert code(client.post("/api/brain/heart/intake", headers=worker, json=body)) == "gate_required"
+        assert code(client.post("/api/brain/heart/intake", headers=heart, json={**body, "workspace": "main"})
+                    ) == "gate_scope"
+        assert code(client.post("/api/brain/heart/intake", headers=heart, json={**body, "verdict": "duplicate"})
+                    ) == "invalid_payload"
+        assert code(client.post("/api/brain/heart/intake", headers=heart, json={**body, "entry": "ie_x"})
+                    ) == "intake_entry_not_found"
+
+
+def test_intake_setting_is_read_by_anyone_and_changed_only_by_a_human(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        read = client.get("/api/brain/intake-setting", params={"project": "draft"})
+        assert read.json() == {"project": "draft", "jev": False, "jevPerDay": 200}
+        assert client.post("/api/brain/intake-setting", headers=AGENT, json={"project": "draft", "jev": True}
+                           ).status_code == 403
+        saved = client.post("/api/brain/intake-setting", headers=HEADERS,
+                            json={"project": "draft", "jev": True, "jevPerDay": 20})
+        assert saved.status_code == 200 and saved.json() == {"project": "draft", "jev": True, "jevPerDay": 20}
+        assert code(client.post("/api/brain/intake-setting", headers=HEADERS, json={"project": "draft"})
+                    ) == "invalid_payload"
+        gate_on(client)  # přepnutí brány povolení Jevu nesmaže
+        assert client.get("/api/brain/intake-setting", params={"project": "draft"}).json()["jev"] is True

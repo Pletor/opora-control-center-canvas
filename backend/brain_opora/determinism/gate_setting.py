@@ -61,5 +61,8 @@ def write(service, payload, now=None):
                             "Otevřete projekt v UI OPORY, aby se jeho složka založila, a zkuste to znovu.")
         stamp = (now or datetime.now(UTC)).strftime("%Y-%m-%dT%H:%M:%SZ")
         value = {"gate": True, "since": stamp, "by": "human"} if payload["enabled"] else {"gate": False}
+        stored = folder.read().get("settings", {}).get("brain")
+        if isinstance(stored, dict) and "intake" in stored:
+            value["intake"] = stored["intake"]  # povolení Jevu vstupní brány (intake_setting.py) přežije přepnutí brány
         folder.update(settings={"brain": value})
     return answer(pid, read(service, pid))

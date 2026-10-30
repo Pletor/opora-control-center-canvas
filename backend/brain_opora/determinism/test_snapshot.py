@@ -289,3 +289,16 @@ def test_intake_section_lists_recent_entries_and_is_omitted_when_empty(service):
     with db:
         intake.record(db, "draft", "heart_message", None, "Přidej hledání.", "2026-10-30T10:00:00Z")
     assert [entry["text"] for entry in snapshot.collect(service, "draft", "draft")["intake"]] == ["Přidej hledání."]
+
+
+def test_intake_section_shows_jev_confidence_and_area_and_hides_heart_decisions(service):
+    """Řez 2: stanovisko od Jevu nese jistotu a oblast; vstup, který srdce potvrdilo, ze snímku zmizí."""
+    entries = [{"id": "ie_1", "verdict": "later_extension", "layer": "jev", "confidence": 0.82, "areaId": "a1",
+                "text": "Přidej hybridní hledání."}]
+    rows = _block(snapshot.render({**FACTS, "intake": entries}), "VSTUPY:")
+    assert rows == ["- ie_1 · later_extension (jev 0.82) · oblast a1 · Přidej hybridní hledání."]
+    db = service.db_for("draft")
+    with db:
+        entry = intake.record(db, "draft", "heart_message", None, "Přidej filtr.", "2026-10-30T10:00:00Z")
+        db.execute("UPDATE intake_entries SET layer='heart', verdict='done' WHERE id=?", (entry["id"],))
+    assert snapshot.collect(service, "draft", "draft")["intake"] == []

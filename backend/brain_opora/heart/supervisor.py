@@ -7,6 +7,8 @@ a dožene čekající lístky a zprávy, které žádná dávka `ok` neviděla (
 jedna na projekt a nejvýš 6 automatických za hodinu (zpráva člověka strop obchází, prázdná dávka se nepočítá); vstup, který přijde během
 dávky, počká na další. Vyčerpaný limit
 předplatného uspí srdce na 15 min a vstupy zůstanou. Běží jen na loopbacku a jen bez `OPORA_HEART=off`.
+Před složením dávky zařadí vstupy brány `pending` přes Jev (`decision/intake.py`, jen s povolením projektu a klíčem
+aplikace z `jev`); chyba Jevu dávku nezastaví.
 
 Hlídač gitu (docs/brain-heart-orchestrator.md §4) běží každých `GIT_POLL` s ve vlastním vlákně, ať neblokuje
 čtení outboxu: u zdroje `git` pustí existující synchronizaci aplikace (`service.sync`), u zdroje `local` jen čte
@@ -18,6 +20,7 @@ import threading
 import time
 from collections import deque
 
+from backend.brain_opora.decision import intake as intake_decision
 from backend.brain_opora.determinism import (
     brain_files,
     gate_setting,
@@ -59,8 +62,9 @@ def _git_thread(target):
 
 class HeartSupervisor:
     def __init__(self, service, *, base_url, runner=None, clock=time.time, tick=TICK, spawn=_thread, find=None,
-                 git_spawn=_git_thread):
+                 git_spawn=_git_thread, jev=None):
         self.service, self.base_url, self.clock, self.tick, self.spawn = service, base_url, clock, tick, spawn
+        self.jev = jev or (lambda: None)  # `evaluate(state, questions)` s klíčem aplikace, nebo None (bez Jevu)
         self.git_spawn, self.heads, self.git_errors = git_spawn, {}, {}
         self.git_at, self.git_busy = float("-inf"), False
         self.runner = runner or batch.run_process
@@ -305,6 +309,8 @@ class HeartSupervisor:
             inputs = resolve(self.service, project, items)
             if not inputs:
                 return
+            inputs = intake_decision.classify_pending(self.service, project, workspace, inputs, jev=self.jev,
+                                                      now=self.clock())
             if not any(item.get("type") == "message" for item in inputs):
                 # do stropu se počítá až dávka, která opravdu běží (prázdná po `resolve` ne; sonda r1: 7. lístek čekal 53 min)
                 with self.lock:

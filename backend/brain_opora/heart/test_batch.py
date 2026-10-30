@@ -139,3 +139,14 @@ def test_input_line_carries_the_intake_verdict_and_similar_entries():
          "intake": {"id": "ie_3", "verdict": "duplicate", "candidates": []}}])
     assert "- ZPRÁVA ČLOVĚKA: Hledání. [vstup ie_2 · pending · podobné: ie_1, ie_0]" in text
     assert 'od pracovníka: {"proposal": "x"} [vstup ie_3 · duplicate]' in text
+
+
+def test_input_line_carries_jev_confidence_and_area():
+    """Řez 2: stanovisko od Jevu nese jistotu a oblast; jistota jiné vrstvy se neukazuje."""
+    text = batch.message("PROJEKT X", [
+        {"type": "message", "text": "Hybrid.", "intake": {"id": "ie_4", "verdict": "later_extension", "layer": "jev",
+                                                         "confidence": 0.9, "areaId": "a1", "candidates": ["ie_1"]}},
+        {"type": "message", "text": "Jiná.", "intake": {"id": "ie_5", "verdict": "pending", "layer": "determinism",
+                                                       "confidence": 0.5}}])
+    assert "Hybrid. [vstup ie_4 · later_extension · jev 0.90 · oblast a1 · podobné: ie_1]" in text
+    assert "Jiná. [vstup ie_5 · pending]" in text

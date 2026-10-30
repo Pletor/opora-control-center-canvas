@@ -156,6 +156,11 @@ def test_snapshot_answer_escalate_and_done(server, capsys, tmp_path):
     assert answer["query"] == {"project": ["p1"]} and answer["body"] == {"answer": {"text": "Ano."}}
     assert json.loads(run(capsys, "escalate", "--text", "Rozhodni barvu.")[1])["kind"] == "ask"
     assert Handler.calls[-1]["body"] == {"project": "p1", "workspace": "main", "text": "Rozhodni barvu."}
+    assert run(capsys, "intake", "--entry", "ie_1", "--verdict", "later_extension", "--reason", "po milníku")[0] == 0
+    assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/brain/heart/intake", {
+        "project": "p1", "workspace": "main", "entry": "ie_1", "verdict": "later_extension", "reason": "po milníku"})
+    with pytest.raises(SystemExit):
+        opora_heart.main(["intake", "--entry", "ie_1", "--verdict", "duplicate"])  # duplicitu dává determinismus
     assert run(capsys, "done", "--summary", "Dva úkoly.") == (0, '{"done": true}')
     assert json.loads((tmp_path / "last_done.json").read_text(encoding="utf-8"))["summary"] == "Dva úkoly."
 

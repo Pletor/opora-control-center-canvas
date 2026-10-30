@@ -13,6 +13,8 @@
   zadání podstromu uzlu (docs/brain-heart-orchestrator.md §9 O7).
 - `POST /api/brain/heart/escalate {project, workspace, text}`: jen token srdce; lístek `ask` pro člověka
   (`gate.escalate`, stejná funkce jako druh brány `escalate`).
+- `POST /api/brain/heart/intake {project, workspace, entry, verdict, reason?}`: jen token srdce; potvrdí nebo opraví
+  stanovisko vstupu vstupní brány svého prostoru (vrstva `heart`, `intake.confirm`, docs/navrhy/2026-10-30-vstupni-brana.md).
 Celá cesta je jen pro loopback (`backend/app/remote_access.py`). Odmítnutí nese `code` a `hint`.
 """
 from fastapi import APIRouter, Request
@@ -20,7 +22,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
-from backend.brain_opora.determinism import gate, gate_setting, snapshot, tokens, workshop
+from backend.brain_opora.determinism import gate, gate_setting, intake, snapshot, tokens, workshop
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid, parse_body
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
@@ -138,5 +140,28 @@ def create_heart_router(service, supervisor):
         except GateError as error:
             return _refused(error)
         return {"ticketId": ticket["ticketId"], "kind": ticket["kind"], "status": ticket["status"]}
+
+    @router.post("/intake", openapi_extra=models.body(models.IntakeVerdictIn),
+                 responses=models.answers(200, models.IntakeVerdictOut, 401, 403, 404, 422))
+    async def intake_verdict(request: Request):
+        try:
+            payload = parse_body(await request.body())
+            keys = set(payload) if isinstance(payload, dict) else set()
+            if not {"project", "workspace", "entry", "verdict"} <= keys <= {"project", "workspace", "entry", "verdict",
+                                                                            "reason"}:
+                raise invalid("Tělo je {project, workspace, entry, verdict, reason?}.",
+                              "python opora_heart.py intake --entry ie_… --verdict later_extension --reason \"…\"")
+            if not isinstance(payload["project"], str) or not isinstance(payload["workspace"], str):
+                raise invalid("project a workspace jsou text.", "Použijte OPORA_PROJECT a OPORA_WORKSPACE z prostředí.")
+            project = _project(service, payload["project"])
+            session = await run_in_threadpool(gate.authenticate, service, request.headers.get(tokens.HEADER),
+                                              project, ("heart",))
+            if session["workspace_id"] != payload["workspace"]:
+                raise GateError(403, "gate_scope", "Token srdce platí jen pro svůj pracovní prostor.",
+                                "Použijte OPORA_WORKSPACE z prostředí dávky.")
+            return await run_in_threadpool(intake.confirm, service, session, payload["entry"], payload["verdict"],
+                                           payload.get("reason", ""))
+        except GateError as error:
+            return _refused(error)
 
     return router

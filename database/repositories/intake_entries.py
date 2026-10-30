@@ -1,7 +1,9 @@
 """Řádky `intake_entries` a `intake_entries_fts` (vstupní brána, docs/navrhy/2026-10-30-vstupni-brana.md §5).
 
-Vstup je neměnný: repozitář ho jen vloží (spolu s řádkem FTS5) a čte. Stanovisko a otisk počítá
-`backend/brain_opora/determinism/intake.py`. Transakci vlastní volající."""
+Věta vstupu je neměnná: text, otisk, zdroj a čas se po vložení (spolu s řádkem FTS5) nemění. Měnit se smí jen
+stanovisko (`verdict`, `layer`, `area_id`, `confidence`, `reason`, `jev_calls`): zapíše ho Jev (řez 2,
+`backend/brain_opora/decision/intake.py`) nebo srdce (`backend/brain_opora/determinism/intake.py`, `confirm`).
+Transakci vlastní volající."""
 
 COLUMNS = ("id", "workspace_id", "source", "source_ref", "text", "fingerprint", "created_at", "verdict", "layer",
            "area_id", "milestone_id", "requirement_id", "confidence", "reason", "cost_usd", "jev_calls")
@@ -49,12 +51,13 @@ class IntakeEntries:
             (query, workspace, exclude, until, limit)).fetchall()
         return [row[0] for row in rows]
 
-    def recent(self, workspace, limit, verdicts=None):
-        """Posledních `limit` vstupů prostoru od nejnovějšího; `verdicts` zúží stanoviska."""
+    def recent(self, workspace, limit, verdicts=None, layers=None):
+        """Posledních `limit` vstupů prostoru od nejnovějšího; `verdicts` zúží stanoviska, `layers` vrstvy."""
         condition, parameters = "workspace_id=?", [workspace]
-        if verdicts:
-            condition += f" AND verdict IN ({','.join('?' for _ in verdicts)})"
-            parameters += list(verdicts)
+        for column, values in (("verdict", verdicts), ("layer", layers)):
+            if values:
+                condition += f" AND {column} IN ({','.join('?' for _ in values)})"
+                parameters += list(values)
         rows = self.db.execute(SELECT + f" WHERE {condition} ORDER BY created_at DESC, rowid DESC LIMIT ?",
                                (*parameters, limit)).fetchall()
         return [public(row) for row in rows]
@@ -63,3 +66,29 @@ class IntakeEntries:
         """`{stanovisko: počet}` vstupů prostoru."""
         return dict(self.db.execute("SELECT verdict, COUNT(*) FROM intake_entries WHERE workspace_id=?"
                                     " GROUP BY verdict", (workspace,)).fetchall())
+
+    def unclassified(self, workspace, limit, since, first=()):
+        """Vstupy prostoru `pending` zapsané od `since` (ISO), na které se Jev ještě neptal (`jev_calls` 0) a které srdce
+        nerozhodlo; nejdřív ID z `first` (vstupy dávky) v jejich pořadí, pak nejnovější. Nejvýš `limit`."""
+        rows = [public(row) for row in self.db.execute(
+            SELECT + " WHERE workspace_id=? AND verdict='pending' AND layer<>'heart' AND jev_calls=0 AND created_at>=?"
+            " ORDER BY created_at DESC, rowid DESC", (workspace, since)).fetchall()]
+        rank = {entry_id: position for position, entry_id in enumerate(first)}
+        rows.sort(key=lambda row: rank.get(row["id"], len(rank)))
+        return rows[:max(limit, 0)]
+
+    def jev_calls_on(self, day):
+        """Součet volání Jevu u vstupů projektu zapsaných v UTC den `day` (`YYYY-MM-DD`)."""
+        return int(self.db.execute("SELECT COALESCE(SUM(jev_calls), 0) FROM intake_entries"
+                                   " WHERE substr(created_at,1,10)=?", (day,)).fetchone()[0])
+
+    def set_verdict(self, entry_id, *, verdict, layer, reason, area_id=None, confidence=None, jev_calls=None,
+                    only_pending=False):
+        """Zapíše stanovisko vstupu; `jev_calls` None = beze změny, `only_pending` = jen vstup `pending`, který srdce
+        ještě nerozhodlo (Jev nepřepíše srdce, které mezitím rozhodlo). Vrací True, když se řádek změnil."""
+        condition = " AND verdict='pending' AND layer<>'heart'" if only_pending else ""
+        cursor = self.db.execute(
+            "UPDATE intake_entries SET verdict=?, layer=?, reason=?, area_id=COALESCE(?, area_id), confidence=?,"
+            " jev_calls=COALESCE(?, jev_calls) WHERE id=?" + condition,
+            (verdict, layer, reason, area_id, confidence, jev_calls, entry_id))
+        return cursor.rowcount == 1

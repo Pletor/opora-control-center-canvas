@@ -243,3 +243,38 @@ def test_repeated_change_ticket_still_wakes_with_a_duplicate_mark(setup):
     assert f"LÍSTEK {first['ticketId']} (change)" in sent and f"LÍSTEK {second['ticketId']} (change)" in sent
     line = next(row for row in sent.splitlines() if second["ticketId"] in row)
     assert " · duplicate · podobné: ie_" in line
+
+
+def test_jev_classifies_pending_input_before_the_batch_only_when_allowed(setup):
+    """Řez 2 (docs/navrhy/2026-10-30-vstupni-brana.md §4, §7): Jev zařadí vstup v dávce, ne ve zprávě; vypnuto = nic,
+    porucha Jevu dávku nezastaví."""
+    from backend.brain_opora.determinism import intake_setting
+
+    service, _, clock, runner, _ = setup
+    clock.now = 1_793_354_400.0  # 2026-10-30T10:00:00Z, vstup patří do dnešního stropu
+    calls = []
+
+    def evaluate(state, questions):
+        calls.append(state["text"])
+        if "rozbij" in state["text"]:
+            raise RuntimeError("Jev spadl")
+        return {"verdict": {"choice": "later_extension", "confidence": 0.9}}
+
+    heart = supervisor.HeartSupervisor(service, base_url="http://127.0.0.1:9", runner=runner, clock=clock,
+                                       spawn=lambda fn: fn(), find=lambda: "claude", git_spawn=lambda fn: fn(),
+                                       jev=lambda: evaluate)
+    heart.message("draft", "draft", "Přidej hybridní vyhledávání.")
+    heart.run_once()
+    assert calls == [] and " · pending]" in runner.calls[-1]  # výchozí stav: Jev vypnutý
+    intake_setting.write(service, {"project": "draft", "jev": True})
+    clock.now += 3600
+    assert heart.message("draft", "draft", "Přidej export do PDF.") == 1 and calls == []  # zpráva nečeká na Jev
+    assert heart.run_once() == ["draft"]
+    assert calls == ["Přidej export do PDF.", "Přidej hybridní vyhledávání."]  # nejdřív vstup dávky
+    line = next(row for row in runner.calls[-1].splitlines() if "ZPRÁVA ČLOVĚKA: Přidej export" in row)
+    assert " · later_extension · jev 0.90 · podobné: ie_" in line
+    assert "(jev 0.90)" in runner.calls[-1].split("VSTUPY:")[1]  # snímek už nese stanovisko Jevu
+    clock.now += 3600
+    heart.message("draft", "draft", "Tohle rozbij.")
+    assert heart.run_once() == ["draft"] and heart.status("draft")["batches"][-1]["status"] == "ok"
+    assert "Tohle rozbij. [vstup ie_" in runner.calls[-1] and heart.errors.get("draft") is None

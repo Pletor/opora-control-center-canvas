@@ -167,8 +167,14 @@ def create_app(data_root=None):
     def jev_evaluate(state, questions, *, key):
         return typesafe_evaluate(state, questions, key=key, provider=jev_provider)
 
+    def intake_jev():
+        """Jev pro vstupní bránu v dávce srdce: bez klíče aplikace None a nic neodejde (klíč čte AppSettings)."""
+        key = app_settings.jev_key(jev_provider)
+        return (lambda state, questions: jev_evaluate(state, questions, key=key)) if key else None
+
     # Srdce mozku: dávky `claude -p` jen pro projekty se zapnutou bránou, jen na loopbacku (docs/brain-heart.md).
-    heart = HeartSupervisor(service, base_url=f"http://127.0.0.1:{port}")
+    # Před dávkou zařadí vstupy brány přes Jev, jen s povolením projektu (docs/navrhy/2026-10-30-vstupni-brana.md §7).
+    heart = HeartSupervisor(service, base_url=f"http://127.0.0.1:{port}", jev=intake_jev)
 
     @asynccontextmanager
     async def lifespan(app):

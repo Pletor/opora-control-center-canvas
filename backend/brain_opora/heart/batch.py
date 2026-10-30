@@ -40,13 +40,20 @@ class BatchSpec:
 
 
 def _intake(item):
-    """Značka vstupní brány za řádkem vstupu: ` [vstup ie_… · stanovisko · podobné: ie_…, ie_…]`; bez vstupu prázdná."""
+    """Značka vstupní brány za řádkem vstupu: ` [vstup ie_… · stanovisko · jev 0.82 · oblast A · podobné: ie_…]`
+    (jistota jen od Jevu, oblast jen známá); bez vstupu prázdná."""
     entry = item.get("intake") if isinstance(item.get("intake"), dict) else None
     if not entry or not entry.get("id"):
         return ""
     similar = [str(value) for value in entry.get("candidates") or []]
-    return (f" [vstup {entry['id']} · {entry.get('verdict') or '?'}"
-            + (f" · podobné: {', '.join(similar)}" if similar else "") + "]")
+    parts = [f"vstup {entry['id']}", str(entry.get("verdict") or "?")]
+    if entry.get("layer") == "jev" and isinstance(entry.get("confidence"), (int, float)):
+        parts.append(f"jev {entry['confidence']:.2f}")
+    if entry.get("areaId"):
+        parts.append(f"oblast {entry['areaId']}")
+    if similar:
+        parts.append(f"podobné: {', '.join(similar)}")
+    return " [" + " · ".join(parts) + "]"
 
 
 def _input_line(item):

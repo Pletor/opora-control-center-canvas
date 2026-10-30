@@ -7,6 +7,17 @@ Present modules:
 - `sources.py`: ranks canvas sections against a query with one JEV `choice` call (`rank`, moved from
   the old assistant in H2b2a). The client comes injected; without a key or on failure it answers
   `{status: "unavailable"}`. Route `POST /api/rlm/rank` (`backend/api/editor/rlm_routes.py`, loopback only).
+- `intake.py` (intake gate slice 2, `docs/navrhy/2026-10-30-vstupni-brana.md` §4, §7): classifies a `pending` intake
+  entry with one JEV call and two `choice` questions: the verdict over `done | extends_in_progress | fix_for_milestone |
+  changes_intent | later_extension | needs_info` (fixed criteria text) and the area over canvas nodes `kind: area`
+  (id → name; left out when there are none). The sentence goes only as `state`, never into instructions.
+  `classify_pending` runs in the heart batch right before the message is built (`HeartSupervisor._batch`), never in an
+  HTTP request: only with the project permission `settings.brain.intake.jev` (default off,
+  `determinism/intake_setting.py`), only entries of the current UTC day that JEV was not asked yet, the batch's
+  entries first, at most 5 per batch and at most `jevPerDay` (default 200) calls a day, counted as the sum of
+  `jev_calls` of entries written that UTC day. Confidence below 0.6, no key, a failure or a hallucinated choice keep
+  `pending` (layer `jev`, `jev_calls` 1, so it is not asked again) and the heart decides. A result never overwrites a
+  verdict the heart already gave. Any error is logged and the batch goes on unchanged.
 
 Planned modules (H3):
 - `gatekeeper.py`: maps an event to `auto` | `heart` | `human` | `none`.

@@ -108,6 +108,19 @@ class GateSettingOut(BaseModel):
     by: str | None = None
 
 
+class IntakeSettingIn(BaseModel):
+    """Povolení a strop Jevu vstupní brány (docs/navrhy/2026-10-30-vstupni-brana.md §7)."""
+    project: str
+    jev: bool
+    jevPerDay: int | None = Field(None, ge=0, le=10000, description="Chybí = beze změny (výchozí 200).")
+
+
+class IntakeSettingOut(BaseModel):
+    project: str
+    jev: bool
+    jevPerDay: int
+
+
 class TaskBody(BaseModel):
     why: str = ""
     do: str
@@ -173,6 +186,24 @@ class EscalateOut(BaseModel):
     ticketId: str
     kind: str
     status: str
+
+
+class IntakeVerdictIn(BaseModel):
+    """Srdce potvrdí nebo opraví stanovisko vstupu brány (docs/navrhy/2026-10-30-vstupni-brana.md §4)."""
+    project: str
+    workspace: str
+    entry: str
+    verdict: str = Field(..., description="done | extends_in_progress | fix_for_milestone | changes_intent | "
+                                          "later_extension | needs_info")
+    reason: str = ""
+
+
+class IntakeVerdictOut(BaseModel):
+    id: str
+    verdict: str
+    layer: str
+    areaId: str | None = None
+    reason: str | None = None
 
 
 class Escalation(BaseModel):

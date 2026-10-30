@@ -102,3 +102,21 @@ def test_overview_lists_areas_entries_and_counts(service):
         with pytest.raises(GateError) as caught:
             intake.overview(service, project, workspace)
         assert caught.value.code == code
+
+
+def test_heart_confirms_or_corrects_the_verdict_only_in_its_workspace(service):
+    entry = write(service, "Přidej hybridní vyhledávání.")
+    other = write(service, "Jiná věta.", workspace="main")
+    session = {"project_id": "draft", "workspace_id": "draft"}
+    result = intake.confirm(service, session, entry["id"], "later_extension", " po splnění milníku Hledání ")
+    assert result == {"id": entry["id"], "verdict": "later_extension", "layer": "heart", "areaId": None,
+                      "reason": "po splnění milníku Hledání"}
+    assert intake.recent(service.db_for("draft"), "draft") == []  # potvrzený vstup ze snímku zmizí
+    assert intake.confirm(service, session, entry["id"], "done")["reason"] == "srdce: done"
+    for entry_id, verdict, code in ((other["id"], "done", "intake_entry_not_found"),
+                                    ("ie_neni", "done", "intake_entry_not_found"),
+                                    (entry["id"], "duplicate", "invalid_payload"),
+                                    (entry["id"], "pending", "invalid_payload")):
+        with pytest.raises(GateError) as caught:
+            intake.confirm(service, session, entry_id, verdict)
+        assert caught.value.code == code
