@@ -116,16 +116,22 @@ class AgentState:
                                 "stale": item["parentRevision"] != accepted, "adopt": _adoption(kind, {**full, **item})})
         return sorted(pending, key=lambda item: (item["createdAt"], item["id"]))
 
-    def executions(self, db, project, workspace):
+    def executions(self, db, project, workspace, accepted=None, closed=()):
         repo, latest = Executions(db, project, workspace), {}
         for record in repo.history():
             if record["nodeId"] in latest:
                 continue
             deadline = min(record["expiresAt"], record.get("budget", {}).get("runDeadlineAt", record["expiresAt"]))
+            results = len(repo.receipts(record["executionId"]))
             latest[record["nodeId"]] = {"id": record["executionId"], "nodeId": record["nodeId"],
                                         "state": record["state"], "acceptedRevision": record["acceptedRevision"],
-                                        "deadline": deadline, "results": len(repo.receipts(record["executionId"])),
+                                        "deadline": deadline, "results": results,
                                         "owner": record.get("owner"), "epoch": record.get("epoch")}
+            if results:
+                # Výsledek zastará jen změnou výřezu karty (jako běh v `OporaExecutions.active`), ne posunem hlavy jinde.
+                latest[record["nodeId"]]["staleEvidence"] = (
+                    record["acceptedRevision"] != accepted if record["nodeId"] in closed
+                    else OporaExecutions(self.canvas).slice_changed(repo, record, accepted))
         return [latest[key] for key in sorted(latest)]
 
     def claims(self, project, workspace, cards):
@@ -160,7 +166,8 @@ class AgentState:
             cards = {key: {**item, "journeys": blocking.get(key, [])} for key, item in cards.items()}
             pending = self.proposals(db, project, workspace, accepted)
             needs_graph = graph_manifest_missing(db, project, workspace, accepted, context["documents"])
-            latest = self.executions(db, project, workspace)
+            latest = self.executions(db, project, workspace, accepted,
+                                     {key for key, item in cards.items() if item.get("doneConfirmed")})
             claims = self.claims(project, workspace, process["items"])
             linked = pulls.read(canvas, project, workspace)
             reviewing = reviews.read(canvas, project, workspace, now)
@@ -180,7 +187,7 @@ class AgentState:
         dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
-        to_review = [item for item in reported if item["acceptedRevision"] == accepted
+        to_review = [item for item in reported if not rules.stale_evidence(item, accepted)
                      and not cards.get(item["nodeId"], {}).get("doneConfirmed")]
         actions, decisions = self.actions(project, workspace, context, pending, claims, reported, to_review, linked, cards,
                                           reviewing, gates, local, needs_graph)

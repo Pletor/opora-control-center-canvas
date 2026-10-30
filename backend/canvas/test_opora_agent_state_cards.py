@@ -29,6 +29,10 @@ def test_work_and_evidence():
     assert stage(latest=run(deadline=50.0)) == ("work", "blocking", "lease_past_deadline")
     assert stage(latest=run("reported", 1)) == ("review", "waiting", "human_review_required")
     assert stage(latest=run("reported", 1, revision="b" * 40)) == ("evidence", "waiting", "stale_evidence")
+    # Agent-state spočte výřez karty (`staleEvidence`); posun hlavy jinde výsledek nezastará.
+    assert stage(latest={**run("reported", 1, revision="b" * 40), "staleEvidence": False}) == (
+        "review", "waiting", "human_review_required")
+    assert stage(latest={**run("reported", 1), "staleEvidence": True}) == ("evidence", "waiting", "stale_evidence")
 
 
 def test_open_pull_request_uses_the_merge_gate_rule():

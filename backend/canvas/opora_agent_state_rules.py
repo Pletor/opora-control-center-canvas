@@ -82,8 +82,14 @@ def work_stage(latest, now):
     return stage("work", len(running), "ok", "runs_active" if running else "no_active_runs")
 
 
+def stale_evidence(item, accepted):
+    """Zastaralý výsledek: změnil se výřez karty od claimu (`staleEvidence` z agent-state, viz
+    `OporaExecutions.slice_changed`). Bez spočteného příznaku (událost bez canvasu) rozhodne přijatá hlava."""
+    return item.get("staleEvidence", item["acceptedRevision"] != accepted)
+
+
 def evidence_stage(reported, accepted):
-    if any(item["acceptedRevision"] != accepted for item in reported):
+    if any(stale_evidence(item, accepted) for item in reported):
         return stage("evidence", len(reported), "waiting", "stale_evidence")
     return stage("evidence", len(reported), "ok", "evidence_reported" if reported else "no_evidence")
 

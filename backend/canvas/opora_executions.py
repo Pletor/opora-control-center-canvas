@@ -18,6 +18,7 @@ from backend.canvas.opora_execution_budget_clock import (
 )
 from backend.canvas.opora_execution_budget_status import status as budget_status
 from backend.canvas.opora_execution_budget_status import unavailable as unavailable_budget
+from backend.canvas.opora_execution_lineage import validate_accepted_lineage
 from backend.canvas.opora_execution_validation import assignment, validate
 from backend.canvas.opora_step_results import emit_step_started
 from backend.editor.agent_memory.card_leases import MAX_PER_OWNER
@@ -164,15 +165,32 @@ class OporaExecutions:
         else:
             if "contextProtocolVersion" in record:
                 raise ValueError("Unsupported persisted execution context protocol version.")
-            current = handoff.pinned(assignment(self.canvas, *repo.scope, record["nodeId"]), record)
-            # Přijatá hlava se posune s každou přijatou změnou plánu, i se vzdálenou. Běh hlídá jen výřez karty
-            # (dokumenty, specifikace a kroky v zadání), proto se živé zadání porovná s hlavou z claimu.
-            current = {**current, "acceptedRevision": record["acceptedRevision"]}
-            if digest(current) != record["assignmentDigest"]:
+            if self.pinned_digest(repo, record) != record["assignmentDigest"]:
                 raise ValueError("Execution assignment changed; claim a new execution.")
         # Capturing context can be slow; authority must still exist after that work.
         self.lease_valid(repo, record)
         budget_runtime.check(repo.db, repo.scope, record, time.time())
+
+    def pinned_digest(self, repo, record):
+        """Digest živého zadání karty (v1) připnutého na předávku a hlavu z claimu."""
+        current = handoff.pinned(assignment(self.canvas, *repo.scope, record["nodeId"]), record)
+        # Přijatá hlava se posune s každou přijatou změnou plánu, i se vzdálenou. Běh hlídá jen výřez karty
+        # (dokumenty, specifikace a kroky v zadání), proto se živé zadání porovná s hlavou z claimu.
+        return digest({**current, "acceptedRevision": record["acceptedRevision"]})
+
+    def slice_changed(self, repo, record, head):
+        """Změnil se od claimu výřez karty, na kterém zadání běhu stálo? Posun hlavy jinde ne (jako `active`)."""
+        if record["acceptedRevision"] == head:
+            return False
+        try:
+            if record.get("contextProtocolVersion") == 2:
+                validate_accepted_lineage(repo.db, *repo.scope, record["nodeId"], record["acceptedRevision"], head)
+                return False
+            if self.canvas is None:  # zápis události bez canvasu: zadání v1 nejde přepočítat, rozhodne hlava
+                return True
+            return self.pinned_digest(repo, record) != record["assignmentDigest"]
+        except ValueError:  # karta zavřená, blokovaná, zadání mimo přijatou revizi nebo neověřitelná linie
+            return True
 
     def response(self, repo, record):
         value = {**record, "serverNow": time.time()}
