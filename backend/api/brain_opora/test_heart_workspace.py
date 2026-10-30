@@ -31,7 +31,12 @@ def card(ref, parent, name):
 
 @pytest.fixture
 def heart(tmp_path, monkeypatch):
-    """Git projekt se zapnutou bránou; srdce (token prostoru `main`) volá aplikaci přes TestClient, cwd = `brain/`."""
+    yield from git_heart(tmp_path, monkeypatch)
+
+
+def git_heart(tmp_path, monkeypatch):
+    """Git projekt se zapnutou bránou; srdce (token prostoru `main`) volá aplikaci přes TestClient, cwd = `brain/`.
+    Sdílí ho i test_heart_plan (úklid po změně architektury)."""
     monkeypatch.setenv("OPORA_HEART", "off")
     fixture, project = managed_fixture(tmp_path)
     fixture.close()

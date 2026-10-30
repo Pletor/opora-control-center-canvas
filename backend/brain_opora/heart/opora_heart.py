@@ -464,23 +464,32 @@ def submit_unlink(args):
 def submit_prune(args):
     """`prune`: odebere uzly (prázdné nebo zbylé po zkoušení) návrhem grafu `{removeNodes, removeEdges}` se stejným
     přijetím jako `unlink`. Server nekaskáduje: s uzly jdou jejich vazby a uzel s potomkem, který není v seznamu,
-    odmítne česky bez zápisu. Uzavřenou kartu odmítne server."""
+    odmítne česky bez zápisu. Uzavřenou kartu odmítne server.
+
+    Uzly a vazby hledá v pracovním i přijatém grafu: uzel, který zůstal jen v přijatém plánu (pracovní graf ho po nové
+    architektuře z main už nemá), jinak blokuje každou změnu prostoru. Má-li prostor zastaralou architekturu, převezme
+    ji týž návrh (`adoptArchitectureContext`), takže úklid je jedna změna grafu."""
     context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
-    graph = call("GET", "/api/view", query=scope())["graph"]
-    nodes = {node["id"]: node for node in graph["nodes"]}
+    working = call("GET", "/api/view", query=scope())["graph"]
+    graphs = [working, context.get("acceptedGraph") or {"nodes": [], "edges": []}]
+    known = {node["id"] for graph in graphs for node in graph["nodes"]}
     ids = list(dict.fromkeys(args.node))
-    unknown = [node for node in ids if node not in nodes]
+    unknown = [node for node in ids if node not in known]
     if unknown:
         raise Failure({"error": f"Uzel {', '.join(unknown)} v prostoru není.", "code": "prune_unknown_node",
                        "hint": "Vezmi celá ID uzlů z /api/view nebo snapshotu tohoto prostoru."})
-    kept = [node["id"] for node in graph["nodes"] if node.get("parentId") in ids and node["id"] not in ids]
+    kept = list(dict.fromkeys(node["id"] for graph in graphs for node in graph["nodes"]
+                              if node.get("parentId") in ids and node["id"] not in ids))
     if kept:
         raise Failure({"error": f"Uzel má potomky, které v seznamu nejsou: {', '.join(kept)}.", "code": "prune_children",
                        "hint": "Přidej potomky jako další --node, nebo je nejdřív přesuň; nic se nekaskáduje."})
-    edges = [edge["id"] for edge in graph["edges"] if edge["source"] in ids or edge["target"] in ids]
+    edges = list(dict.fromkeys(edge["id"] for graph in graphs for edge in graph["edges"]
+                               if edge["source"] in ids or edge["target"] in ids))
+    plan = {"removeNodes": ids, "removeEdges": edges}
     out = {"ok": True, "dryRun": bool(args.dry_run), "removedNodes": ids, "removedEdges": edges, "path": "graph-proposal"}
-    return remove(args, context, {"removeNodes": ids, "removeEdges": edges}, f"Srdce odebralo {len(ids)} uzlů", out,
-                  "prune")
+    if stale_architecture(context):
+        plan["adoptArchitectureContext"] = out["adoptArchitecture"] = True
+    return remove(args, context, plan, f"Srdce odebralo {len(ids)} uzlů", out, "prune")
 
 
 def remove(args, context, plan, subject, out, command):
