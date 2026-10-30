@@ -131,6 +131,14 @@ def scope():
     return {"project": env("OPORA_PROJECT"), "workspace": _override["workspace"] or env("OPORA_WORKSPACE")}
 
 
+def active_workspace():
+    """Prostor posledního přijatého plánu z `active_workspace.json` v cwd, jinak `None`."""
+    try:
+        return json.loads(Path(ACTIVE).read_text(encoding="utf-8")).get("workspace") or None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def held(value):
     path, _, holder = value.partition("@")
     return {"path": path.strip(), "heldBy": holder.strip() or "jiný úkol"}
@@ -617,7 +625,9 @@ def open_workspace(domain, reuse, name=None):
 def run(args):
     project = env("OPORA_PROJECT")
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
-    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink") else None
+    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "research", "duel") else None
+    if args.command in ("research", "duel") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
+        _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
         return load_context(args.name, args.project, args.workspace, args.node)
     if args.command == "workspace":
@@ -711,11 +721,13 @@ def parser():
     research.add_argument("--title", required=True)
     research.add_argument("--target", action="append", default=[])
     research.add_argument("--fragment")
+    research.add_argument("--workspace")  # schránka je v prostoru; v main (read-only) bez tohoto jde do aktivního prostoru
     research.add_argument("--deep", action="store_true")
     research.add_argument("--layer", action="append", default=[], choices=LAYERS)
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)
+    duel.add_argument("--workspace")
     return root
 
 

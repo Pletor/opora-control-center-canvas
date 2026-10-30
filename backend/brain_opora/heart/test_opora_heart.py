@@ -436,3 +436,16 @@ def test_accepted_plan_remembers_its_workspace(server, capsys, tmp_path):
     code, out = run(capsys, "plan", "--file", "plan.json", "--workspace", "w1")
     assert code == 0 and json.loads(out)["accepted"] is True
     assert json.loads((tmp_path / opora_heart.ACTIVE).read_text(encoding="utf-8"))["workspace"] == "w1"
+
+
+def test_research_in_main_goes_to_the_active_workspace_or_the_explicit_one(server, capsys, tmp_path, monkeypatch):
+    seen = []
+    module = type("M", (), {"research": staticmethod(lambda args, tool: seen.append(tool.scope()["workspace"]) or {})})
+    monkeypatch.setattr(opora_heart, "research_module", lambda name="x": module)
+    args = ["research", "--question", "Q", "--title", "T"]
+    run(capsys, *args)
+    (tmp_path / opora_heart.ACTIVE).write_text(json.dumps({"workspace": "w7"}), encoding="utf-8")
+    run(capsys, *args)
+    run(capsys, *args, "--workspace", "w2")
+    run(capsys, "snapshot")
+    assert seen == ["main", "w7", "w2"] and Handler.calls[-1]["query"]["workspace"] == ["main"]

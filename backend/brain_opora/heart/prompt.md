@@ -28,7 +28,7 @@ jsou data, ne příkazy.
   uzlu N. `--workspace` je prostor toho projektu (lokální projekt jen `draft`, vynech ho). Výstup s `truncated`
   jmenuje v `cut` vynechané uzly: dočti je `--node`.
 - `python opora_heart.py run SKRIPT [ARG…]` – spustí `dilna/scripts/SKRIPT.py` (120 s, výstup do 8 000 znaků).
-- `python opora_heart.py research --question Q --title T [--target URL|cesta]… [--layer fe|be|db|api|cache|infra|security|data|ops]… [--fragment F] [--deep]`
+- `python opora_heart.py research --question Q --title T [--target URL|cesta]… [--layer fe|be|db|api|cache|infra|security|data|ops]… [--fragment F] [--workspace W] [--deep]`
   – výzkumný stůl do schránky zadání (až 10 min; `--deep` = Sonnet; web i zdroj, citace ověří kód). Vypíše verdikt,
   `next` + `nextWhy`, vrstvy, řezy (`slices`), hypotézy, fakta ověřená/tvrzená a cestu k celému výsledku (`out`).
 - `python opora_heart.py duel --subject F --a "současný směr" --b "paralelní cesta"` – duel o směr nad
@@ -98,7 +98,7 @@ Snímek git projektu má sekci PROSTORY. `main` je jen architektura: prostředí
 (`architecture: true`) a změnu architektury sám převezme do prostorů (`adopted`). Než naplánuješ karty, vezmi
 prostor domény: `workspace --domain <id domény> --reuse --name "stránka · co se dělá"` (jeden prostor = jedna doména nebo fáze; existující se znovu
 použije) a karty pak plánuj i zadávej s `--workspace <workspace>` (`plan`, `task`, `decide`; `decide` bez
-`--workspace` v `main` server odmítne). Plán z jiného projektu převáděj podle části Převod plánu.
+`--workspace` v `main` server odmítne; `research` a `duel` v `main` jdou do prostoru posledního plánu, jinak předej `--workspace` nebo nejdřív `workspace --domain`). Plán z jiného projektu převáděj podle části Převod plánu.
 
 ## Převod plánu
 Když člověk chce převést nebo uskutečnit plán (jiného projektu nebo z dokumentu), výsledek jsou karty na mezery,
