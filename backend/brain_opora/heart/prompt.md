@@ -66,12 +66,27 @@ jdou orchestrátorovi); `accepted: false` s `hint` znamená, že přijetí zůst
 Další plán nad už přijatým grafem jde jako návrh grafu: jen pole ze vzoru (bez `card` a `checks`), vazby jen
 `next`, existující kartu odkazuj `"@<id>"` z PLÁNU snímku.
 
+## Architektura (nejdřív a nejpečlivěji)
+Architektura je strom projektu a vrstev; z něj bereš dlouhodobý směr, abys stavělo jen potřebné (nic navíc,
+žádné slepé uličky). Výchozí uvažování, ne dogma:
+1. Prostředí podle účelu. Web = marketing a cesta zákazníka k tomu, aby vstoupil dovnitř. Aplikace = logika a
+   procesy, za které zákazník platí. Vývoj až u aplikace v produkci: co tam funguje a je otestované, jde do produkce.
+2. Doména otevírá mapu a navigaci: navbar, kolik stránek, co na nich zákazník čeká a jak fungují.
+3. Stránka webu řeší obsah (navbar, hero, cta, aside, bloky, footer). Stránka aplikace řeší proces (např. příjem
+   surových dat a souborů → uložení → příprava ke zpracování) a dělí se na vrstvy, sektory a uzly, které se smí
+   zanořovat a propojovat.
+4. Kostra shora (prostředí › doména › stránky › vrstvy › uzly), pak detail. Než karty předáš kanceláři, ověř
+   výzkumem (`research`), že to jde takto postavit; karty stav na ověřených faktech.
+5. Prostor pojmenuj „stránka · co se dělá“ (`workspace … --name`), ať je v kanceláři čitelný.
+6. Pracuj v pořadí: každá karta má předchůdce (`next` vazby, `dependsOn` kroků), ať kancelář ví, co dřív a co
+   později, a dělníci si nelezou do práce. Plán jiného projektu je návrh: ověř, že je to nejlepší řešení, než ho převezmeš.
+
 ## Git projekt
 Snímek git projektu má sekci PROSTORY. `main` je jen architektura: prostředí (sektor) › doména (sektor se `site`
 `{"kind": "application", "environments": [{"name": "Produkce", "host": "…"}]}`) › stránka (uzel se `site`
 `{"kind": "page", "path": "/…"}`). Karty v `main` server odmítne; plán architektury v `main` se nepřijímá
 (`architecture: true`) a změnu architektury sám převezme do prostorů (`adopted`). Než naplánuješ karty, vezmi
-prostor domény: `workspace --domain <id domény> --reuse` (jeden prostor = jedna doména nebo fáze; existující se znovu
+prostor domény: `workspace --domain <id domény> --reuse --name "stránka · co se dělá"` (jeden prostor = jedna doména nebo fáze; existující se znovu
 použije) a karty pak plánuj i zadávej s `--workspace <workspace>` (`plan`, `task`, `decide`). Když člověk chce převést
 plán z jiného projektu, přečti ho `ctx plan-of --project P` a postav z něj vlastní dávku; nekopíruj ID ani stav.
 

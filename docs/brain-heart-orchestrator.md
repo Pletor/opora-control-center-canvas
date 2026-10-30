@@ -167,3 +167,25 @@ z `managed_fixture`, brána zapnutá, token srdce prostoru `main`):
 | karty v prostoru | `plan --workspace W`: první plán = `canvas-plan` + `propose_graph` + `accept`, další plán = přírůstek návrhem grafu (O2c); claim karty je `ready`. Token srdce je vydaný pro `main`, ale zeď ho posuzuje podle projektu, takže platí ve všech prostorech projektu. Výjimka: `ctx` a `escalate` dál kontrolují prostor relace, proto `--workspace` nemají (u `ctx plan-of` je `--workspace` prostor cizího plánu). |
 | `activeWorkspace` | Přijatý plán zapíše `brain/active_workspace.json {workspace, at}` (cwd dávky); `supervisor.status` ho čte (`brain_files.active_workspace`). Žádná tabulka. |
 | PROSTORY | Snímek git projektu (každý prostor, ze kterého srdce běží): `- <celé id> · doména <jméno> [· větev, když není work/<id>] · karty volné n · běží n · hotové n`, ≤ 800 znaků. Celé ID místo zkráceného, protože ho srdce předává do `--workspace`. Karty = uzly `node` obsahu prostoru, stav z executions (`work_states`). |
+
+## 10. O8 – Architektura nejdřív, nejpečlivěji (zásady člověka 2026-10-30)
+
+Architektura určuje strom projektu a vrstev; z ní agent bere dlouhodobý směr, aby stavěl jen potřebné (žádné
+vzdušné zámky, nic navíc, žádné slepé uličky). Není to dogma, je to výchozí uvažování srdce:
+
+1. **Prostředí podle účelu.** Web = marketing a cesta zákazníka (navodit, aby člověk vstoupil dovnitř).
+   Aplikace = logika a procesy, za které zákazník platí. Vývoj = až když je aplikace v produkci; co ve vývoji
+   funguje a je otestované, jde do produkce (jako větev → main).
+2. **Doména** otevře mapu a navigaci: navbar, kolik stránek, co na nich zákazník čeká a jak fungují.
+3. **Stránka** řeší obsah: navbar, hero, cta, aside, bloky, footer. Stránka aplikace řeší proces (např. příjem
+   surových dat stránek a souborů → uložení → příprava ke zpracování) a dělí se na vrstvy, sektory a uzly,
+   které se smí zanořovat a propojovat.
+4. **Postup:** kostra shora (vrstvy → oblasti → uzly), pak detail. Před předáním kanceláři výzkum ve schránce:
+   ověřené podklady, že to jde takto postavit a bude to fungovat. Teprve pak karty.
+5. **Worktree nese stránku + co se dělá** (název prostoru čitelný pro člověka i kancelář).
+6. **Chronologie a sémantika:** srdce pracuje systematicky a v pořadí; každá karta má jasné předchůdce
+   (`next` vazby, `dependsOn` kroků), aby kancelář věděla, co dřív a co později, a nikdo nikomu nelezl do práce.
+7. **Plná autonomie:** OPORA je domov srdce. Kancelář plán přetaví do funkčního kódu a ten je pravda; srdce
+   z něj ověřuje, co funguje, co zlepšit a kudy dál.
+
+Komunikace srdce ↔ kancelář musí být bezchybná: měří se volání, zamítnutí, čas a cena (sonda O1).

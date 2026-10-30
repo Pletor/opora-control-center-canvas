@@ -547,16 +547,18 @@ def run_script(script, script_args):
     return result
 
 
-def open_workspace(domain, reuse):
-    """`workspace --domain NODE [--reuse]`: pracovní prostor (git worktree větve `work/<id>`) vázaný na doménu
-    architektury; s `--reuse` vrátí existující prostor téže domény, když je. `POST /api/workspaces` tokenem srdce."""
+def open_workspace(domain, reuse, name=None):
+    """`workspace --domain NODE [--reuse] [--name N]`: pracovní prostor (git worktree větve `work/<id>`) vázaný na
+    doménu architektury; s `--reuse` vrátí existující prostor téže domény, když je. `--name` = „stránka · co se dělá“,
+    čitelný popisek prostoru pro člověka i kancelář (≤ 120 znaků). `POST /api/workspaces` tokenem srdce."""
     project = env("OPORA_PROJECT")
     spaces = call("GET", "/api/view", query={"project": project, "workspace": "main"}).get("workspaces") or []
     found = next((space for space in spaces if space.get("node_id") == domain), None) if reuse else None
     created = found is None
     if created:
         try:
-            found = call("POST", "/api/workspaces", {"project": project, "nodeId": domain, "actor": "heart"})
+            found = call("POST", "/api/workspaces", {"project": project, "nodeId": domain,
+                                                     "actor": (name or "").strip()[:120] or "heart"})
         except Failure as failure:
             if failure.payload.get("hint") == GENERIC_HINT:
                 failure.payload["hint"] = ("--domain je ID sektoru domény (site.kind application) z architektury "
@@ -573,7 +575,7 @@ def run(args):
     if args.command == "ctx":
         return load_context(args.name, args.project, args.workspace)
     if args.command == "workspace":
-        return open_workspace(args.domain, args.reuse)
+        return open_workspace(args.domain, args.reuse, args.name)
     if args.command == "run":
         return run_script(args.script, args.script_args)
     if args.command in ("research", "duel"):
@@ -629,6 +631,7 @@ def parser():
     space = commands.add_parser("workspace")
     space.add_argument("--domain", required=True)
     space.add_argument("--reuse", action="store_true")
+    space.add_argument("--name", help="stránka · co se dělá (popisek prostoru)")
     answer = commands.add_parser("answer")
     answer.add_argument("--ticket", required=True)
     answer.add_argument("--text", required=True)
